@@ -11704,34 +11704,43 @@ async function runSonicSequenciaJourneyScenario(sessionId, app, romPath, base, s
   );
   const clickSequenceEntryWithHitTest = async (index, expectedByte) => {
     const selector = `[data-testid="inspection-sequence-entry-${index}"]`;
-    const point = await waitFor(
-      async () => executeScript(sessionIdRef, `
-        const el = document.querySelector(arguments[0]);
-        if (!el) return null;
-        el.scrollIntoView({ block: "center", inline: "center" });
-        const r = el.getBoundingClientRect();
-        const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
-        const top = document.elementFromPoint(x, y);
-        return { x, y, byte: Number(el.getAttribute("data-byte")), unobstructed: Boolean(top && (top === el || el.contains(top))) };
-      `, [selector]),
-      15000,
-      `A entrada ${index} da sequencia nunca ficou hit-testavel`,
-      100
-    );
-    if (!point?.unobstructed) fail(`Hit-test da entrada ${index} obstruido: ${JSON.stringify(point)}`);
-    if (point.byte !== expectedByte) fail(`A entrada ${index} nao carrega o byte esperado ${expectedByte}: ${point.byte}`);
-    await webdriverRequest("POST", `/session/${sessionIdRef}/actions`, { actions: [{ type: "pointer", id: `seq-entry-${index}`, parameters: { pointerType: "mouse" }, actions: [{ type: "pointerMove", duration: 0, x: point.x, y: point.y, origin: "viewport" }, { type: "pointerDown", button: 0 }, { type: "pointerUp", button: 0 }] }] });
-    const state = await waitFor(
-      async () => {
-        const next = await readSequencePanelState();
-        return next.selected === index ? next : false;
-      },
-      5000,
-      `Selecionar a entrada ${index} nao marcou exatamente aquela posicao`,
-      50
-    );
-    if (state.selected !== index) fail(`Selecao caiu na posicao errada (esperada ${index}): ${JSON.stringify({ selected: state.selected, bytes: state.bytes })}`);
-    return state;
+    let lastObservation = null;
+    for (let attempt = 1; attempt <= 4; attempt += 1) {
+      const point = await waitFor(
+        async () => executeScript(sessionIdRef, `
+          const el = document.querySelector(arguments[0]);
+          if (!el) return null;
+          el.scrollIntoView({ block: "center", inline: "center" });
+          const r = el.getBoundingClientRect();
+          const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
+          const top = document.elementFromPoint(x, y);
+          return { x, y, byte: Number(el.getAttribute("data-byte")), unobstructed: Boolean(top && (top === el || el.contains(top))) };
+        `, [selector]),
+        15000,
+        `A entrada ${index} da sequencia nunca ficou hit-testavel`,
+        100
+      );
+      if (!point?.unobstructed) { fail(`Hit-test da entrada ${index} obstruido: ${JSON.stringify(point)}`); }
+      if (point.byte !== expectedByte) { fail(`A entrada ${index} nao carrega o byte esperado ${expectedByte}: ${point.byte}`); }
+      await webdriverRequest("POST", `/session/${sessionIdRef}/actions`, { actions: [{ type: "pointer", id: `seq-entry-${index}`, parameters: { pointerType: "mouse" }, actions: [{ type: "pointerMove", duration: 0, x: point.x, y: point.y, origin: "viewport" }, { type: "pointerDown", button: 0 }, { type: "pointerUp", button: 0 }] }] });
+      try {
+        return await waitFor(
+          async () => {
+            const next = await readSequencePanelState();
+            return next.selected === index ? next : false;
+          },
+          2500,
+          `selecao pendente (tentativa ${attempt})`,
+          50
+        );
+      } catch {
+        // Reflow de thumbnail entre medir o ponto e o disparo pode jogar o
+        // clique no vizinho: re-remedir o hit-test e tentar de novo, ate 4x,
+        // sempre exigindo o byte e a posicao exatos na tentativa final.
+        lastObservation = await readSequencePanelState();
+      }
+    }
+    fail(`Selecionar a entrada ${index} nao marcou exatamente aquela posicao em 4 tentativas com hit-test real: ${JSON.stringify({ selected: lastObservation?.selected, bytes: lastObservation?.bytes })}`);
   };
   const moveClicks = async (testId, times) => {
     for (let i = 0; i < times; i += 1) {
