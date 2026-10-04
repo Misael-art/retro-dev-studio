@@ -253,6 +253,21 @@ fn mapper_erroneo_detectado() {
 }
 
 #[test]
+fn imaxe_maior_que_rom_size_rexeitada() {
+    // Caso §6 (rom_size=0x80000 sobre Sonic de 531 577 B): o rom_size é
+    // válido e ningún enderezo da cadea o supera — o único elo que pode
+    // detectar o perfil incorrecto é a dimensión da imaxe vs backing.
+    let mut imaxe = imaxe_base();
+    imaxe.resize(128 * 1024, 0);
+    let c = cadea_ok(&imaxe); // estado herdado: rom_size=0x10000 < 128 KiB
+    let (cod, elos) = revalida(&imaxe, &c);
+    assert_eq!(cod, codigo::MAPPER_DIVERXENCIA, "{elos:?}");
+    assert!(elos
+        .iter()
+        .any(|(n, e)| n == "mapper" && *e == Estado::Fail));
+}
+
+#[test]
 fn esquema_incoherente_rexeitado_antes_de_medir() {
     let imaxe = imaxe_base();
     let mut c = cadea_ok(&imaxe);

@@ -219,6 +219,23 @@ pub fn revalidar(imaxe: &[u8], cadea: &Cadea, ventanxa: u32) -> Resultado {
             codigo: codigo::MAPPER_DIVERXENCIA,
         };
     }
+    // A imaxe debe caber no rom_size declarado: un perfil máis pequeno que o
+    // ficheiro é un erro de tradución que o elo anterior non detecta cando
+    // ningún enderezo da cadea o supera (EXPECTATIONS §6, caso mapper).
+    if (imaxe.len() as u64) > u64::from(rom_size) {
+        elos.push(Elo::fail(
+            "mapper",
+            format!(
+                "imaxe de {} B non cabe en rom_size={:#08X}: perfil sen clampa",
+                imaxe.len(),
+                rom_size
+            ),
+        ));
+        return Resultado {
+            elos,
+            codigo: codigo::MAPPER_DIVERXENCIA,
+        };
+    }
     let off_fluxo = match offset_rom(cadea.fluxo_cpu, &st) {
         Ok(o) => o,
         Err(e) => {
@@ -543,8 +560,11 @@ pub fn revalidar(imaxe: &[u8], cadea: &Cadea, ventanxa: u32) -> Resultado {
                 elos.push(Elo::pass("sitio-chamada", crate::chain::hex_maíus(&reais)));
                 elos.push(Elo::pass("alvo-chamada", format!("{alvo:#08X}")));
                 // xeometría: a chamada cae na ventána tras o fin da carga.
+                // diff 0 é lexítimo (patrón `lea;jsr` — a chamada é a
+                // instrución seguinte); buscar_chamada varre desde fin_carga
+                // inclusive, así que o elo debe coincidir.
                 let fin_carga = off_carga + forma.lonxitude();
-                let dentro = (off_cham > fin_carga)
+                let dentro = (off_cham >= fin_carga)
                     && (off_cham - fin_carga <= ventanxa as usize)
                     && sitio_aliñado(csitio);
                 if !dentro {
