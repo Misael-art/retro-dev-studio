@@ -188,6 +188,77 @@ Oracle de runtime (frames emulados, **sonda**, não jornada de teclado):
 - **Sem alegação universal:** prova do caminho não-especial NTSC, só `id_Wait`
   na ROM pinada; PAL e animações dependentes de velocidade permanecem fora.
 
-### Pendência 1 — jornada desktop §5.2 (ABERTA)
-Continua **não executada** até rodar na UI renderizada do binário canônico
-final (ver P4). Não é promovida a aprovada.
+### Pendência 1 — jornada desktop §5.2 (FECHADA em 2026-10-04, executada na UI real)
+Corrida de prova no binário canônico final do HEAD commitado
+`491c21bf68694ed54b6e40440600948b2383e496` (árvore limpa; build
+`npm run build:portable`, binário `e243d1ad9a57dfd1d9b85a7a083975880c4f2e4c3201061f83ec25a42942668b`),
+UI renderizada via tauri-driver/WebDriver em Xvfb próprio pinado
+(`5bfd315a…`, display :1 com xauth próprio, DISPLAY do sistema intocado),
+BYOR pinado `c7da53a1…`. Expectativas de §8.3 congeladas **antes** das
+corridas; nenhuma foi reescrita depois — os 16 falhas históricas foram todas
+no *plumbing* do harness (profil da sessão, gate de proveniência, hit-test por
+coordenadas, popup GTK nativo vs teclas injetadas, superfície imutável do
+Tauri 2 para o atraso de voo) e cada uma está registrada com causa no
+manifesto.
+
+**Veredito: `allPass=true`, 42/42 checks, passos 1–10**
+(relatório `evidence/journey/report.json`, SHA `cb8138a9…`).
+
+Mapa dos critérios §5.2 (todos com payload no relatório):
+- **1** abrir BYOR com SHA-256 visível (`passo1.identidade_sha256_visivel`).
+- **2** mover entrada distinta e aplicar: swap adjacente real + bolha do `04`
+  até a posição 0; proposta B `[4,1×11,3,2,2,2,3,1]` **montada pelo painel**,
+  distinta do aplicado antes do clique; cópia `0306a5ab…` com diff exatamente
+  `[0x13baf, 0x13bc0]`; intervalo 23 e terminador intactos; 4 negativos
+  (contorno pos0/pos17, mover-idêntica, aplicar-sem-diferença **sem escrita**).
+- **3** editar duração na mesma cópia reordenada: 40 ticks em `0x13BAE` →
+  cópia `dd064e0d…`, sequência preservada.
+- **4** conferência da cópia crua: diff exatamente 3 bytes
+  `[0x13bae, 0x13baf, 0x13bc0]`; ledger nomeia os dois domínios.
+- **5** BPS (38 bytes `4b338921…`) exportado e reaplicado reproduz `dd064e0d…`.
+- **6** salvar/destruir/reiniciar/reabrir sem imagem antiga (18 thumbs nos
+  dois painéis).
+- **7** executar no core (Genesis Plus GX v1.7.4 46a5521) pela cópia
+  `dd064e0d…`: reancoragem, ACK de start pelo teclado nativo do produto,
+  frames ao vivo, negativo KeyQ, framebuffer não reutilizado e sprite
+  conferido contra os pixels do composto (32×40,
+  `pixelsSha256 7354bcfb…`) a partir do pixmap X11 real — screenshot
+  `visual-e3-stand-visivel-apos-executar-1.png`.
+- **8** restaurar seletivamente nos dois sentidos (ordem→preserva duração 40;
+  duração→preserva ordem; ledger 2→4; volta à base exata).
+- **9** round-trip inverso cadência→sequência com proposta de 1 clique: cópia
+  intermediária `28ea1bd5…` (recomposta e conferida offline: intervalo 30 +
+  swap pos11↔12 sobre a base pinada) fecha exatamente em `c7da53a1…`.
+- **10** negativos e época: sessão divergente e 3 propostas inválidas
+  recusadas pelo backend **sem tocar a cópia**; segunda sessão real reaberta;
+  voo atrasado 2600ms confirmado (botão `Aplicar ordem` disabled em toda a
+  janela 500–1400ms; sonda armada `armed_probe_ms=2677`); **ack de época
+  anterior descartado pela UI** — o painel da jornada permaneceu na ordem
+  original enquanto a escrita da segunda sessão foi confirmada no arquivo
+  dela.
+
+**Atribuição honesta (o que NÃO foi teclado/clique humano):** os negativos do
+passo 10 são chamadas IPC diretas rotuladas "sonda técnica"; o atraso de voo
+foi injetado no transport real do Linux (`window.fetch` sobre
+`ipc://localhost/rex_inspection_edit_sonic_sequence`) porque a superfície
+`__TAURI_INTERNALS__` do Tauri 2 é não-gravável — a guarda de época testada é
+do produto (`InspectionPanel`/`sequenceEditSeq`); na segunda sessão o perfil
+Sonic foi selecionado por evento `change` dispatchado (sonda de superfície,
+registrada como `selectionMode="evento change do documento"`), pois o popup
+GTK nativo não recebe teclas injetadas do WebDriver. Os passos provenados de
+§5.2 (2–9) permaneceram WebDriver nativo com hit-test de coordenadas reais.
+
+**Evidência durável:** `evidence/journey/` versiona apenas JSON/PNG
+(`desktop-journey-manifest.json` com SHA por arquivo e histórico de corridas
+`-01…-17` com causas, `report.json`, `run.log`, `run.json`, 5 screenshots).
+A cópia BYOR aplicada (`dd064e0d…`) e o BPS (`4b338921…`) **não entram no
+repositório** (regra da frente: nenhum byte de ROM/binário versionado);
+ficam em `src-tauri/target-test/validation/inspection-2026-10-04T07-25-04-064Z-sequencia-journey/`
+e são auditáveis pelos SHAs do manifesto e de `evidence/PROVENIANCE-SERIES.txt`
+(linhas `jornada-*`).
+
+**Limites mantidos:** um caminho (Sonic USA/EU pinada, NTSC, só `id_Wait`,
+proposta B) — sem alegação universal; usabilidade continua **não declarada**
+(sem participante); superfície permanece **Experimental**; sem merge/promoção
+por esta evidência.
+
