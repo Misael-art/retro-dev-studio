@@ -1,0 +1,586 @@
+{
+ "analise": "r1",
+ "arestas": [
+  {
+   "alvo": 6312,
+   "origem": 6310,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6320,
+   "origem": 6316,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6330,
+   "origem": 6316,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 6330,
+   "origem": 6328,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6334,
+   "origem": 6332,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6338,
+   "origem": 6332,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 6312,
+   "origem": 6336,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 6348,
+   "origem": 6344,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6358,
+   "origem": 6344,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 6358,
+   "origem": 6356,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6362,
+   "origem": 6360,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6406,
+   "origem": 6360,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 6368,
+   "origem": 6364,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6378,
+   "origem": 6364,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 6378,
+   "origem": 6376,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6386,
+   "origem": 6382,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6396,
+   "origem": 6382,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 6396,
+   "origem": 6394,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6428,
+   "origem": 6404,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 6424,
+   "origem": 6422,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6440,
+   "origem": 6422,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 6428,
+   "origem": 6426,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6438,
+   "origem": 6434,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6428,
+   "origem": 6434,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 6312,
+   "origem": 6438,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 6444,
+   "origem": 6442,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6456,
+   "origem": 6442,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 6452,
+   "origem": 6448,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6312,
+   "origem": 6448,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 6428,
+   "origem": 6454,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": null,
+   "origem": 6458,
+   "status": "indireto-opaco",
+   "tipo": "retorno-fronteira"
+  }
+ ],
+ "chamadas": [],
+ "cobertura": {
+  "bytes-decodificados": 160,
+  "bytes-regiao": 160,
+  "fracao": "1.0000",
+  "vaos": []
+ },
+ "comando": "rex-cfg analyze --bin <ROM> --region 0x189C:0x193C --root 0x189C --root-prov referencia-estatica --root-evidence \"tres bsr.w $0189C medidos pela FASE6 em 0x01364,0x03082,0x051BC; ...\" --site 0x189C --site 0x18A0 --site 0x18FF --site 0x193B --out <saida>/r1.json",
+ "esquema": "rex-cfg/v1-evidencia-redigida",
+ "fronteiras": [],
+ "instrucoes": [
+  {
+   "classe": "subq",
+   "endereco": 6300,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6302,
+   "tam": 4
+  },
+  {
+   "classe": "move",
+   "endereco": 6306,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6308,
+   "tam": 2
+  },
+  {
+   "classe": "moveq",
+   "endereco": 6310,
+   "tam": 2
+  },
+  {
+   "classe": "lsr",
+   "endereco": 6312,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6314,
+   "tam": 2
+  },
+  {
+   "classe": "dbf",
+   "endereco": 6316,
+   "tam": 4
+  },
+  {
+   "classe": "move",
+   "endereco": 6320,
+   "tam": 4
+  },
+  {
+   "classe": "move",
+   "endereco": 6324,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6326,
+   "tam": 2
+  },
+  {
+   "classe": "moveq",
+   "endereco": 6328,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6330,
+   "tam": 2
+  },
+  {
+   "classe": "bcc",
+   "endereco": 6332,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6334,
+   "tam": 2
+  },
+  {
+   "classe": "bra",
+   "endereco": 6336,
+   "tam": 2
+  },
+  {
+   "classe": "moveq",
+   "endereco": 6338,
+   "tam": 2
+  },
+  {
+   "classe": "lsr",
+   "endereco": 6340,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6342,
+   "tam": 2
+  },
+  {
+   "classe": "dbf",
+   "endereco": 6344,
+   "tam": 4
+  },
+  {
+   "classe": "move",
+   "endereco": 6348,
+   "tam": 4
+  },
+  {
+   "classe": "move",
+   "endereco": 6352,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6354,
+   "tam": 2
+  },
+  {
+   "classe": "moveq",
+   "endereco": 6356,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6358,
+   "tam": 2
+  },
+  {
+   "classe": "bcs",
+   "endereco": 6360,
+   "tam": 2
+  },
+  {
+   "classe": "lsr",
+   "endereco": 6362,
+   "tam": 2
+  },
+  {
+   "classe": "dbf",
+   "endereco": 6364,
+   "tam": 4
+  },
+  {
+   "classe": "move",
+   "endereco": 6368,
+   "tam": 4
+  },
+  {
+   "classe": "move",
+   "endereco": 6372,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6374,
+   "tam": 2
+  },
+  {
+   "classe": "moveq",
+   "endereco": 6376,
+   "tam": 2
+  },
+  {
+   "classe": "roxl",
+   "endereco": 6378,
+   "tam": 2
+  },
+  {
+   "classe": "lsr",
+   "endereco": 6380,
+   "tam": 2
+  },
+  {
+   "classe": "dbf",
+   "endereco": 6382,
+   "tam": 4
+  },
+  {
+   "classe": "move",
+   "endereco": 6386,
+   "tam": 4
+  },
+  {
+   "classe": "move",
+   "endereco": 6390,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6392,
+   "tam": 2
+  },
+  {
+   "classe": "moveq",
+   "endereco": 6394,
+   "tam": 2
+  },
+  {
+   "classe": "roxl",
+   "endereco": 6396,
+   "tam": 2
+  },
+  {
+   "classe": "addq",
+   "endereco": 6398,
+   "tam": 2
+  },
+  {
+   "classe": "moveq",
+   "endereco": 6400,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6402,
+   "tam": 2
+  },
+  {
+   "classe": "bra",
+   "endereco": 6404,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6406,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6408,
+   "tam": 2
+  },
+  {
+   "classe": "moveq",
+   "endereco": 6410,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6412,
+   "tam": 2
+  },
+  {
+   "classe": "lsl",
+   "endereco": 6414,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6416,
+   "tam": 2
+  },
+  {
+   "classe": "andi",
+   "endereco": 6418,
+   "tam": 4
+  },
+  {
+   "classe": "beq",
+   "endereco": 6422,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6424,
+   "tam": 2
+  },
+  {
+   "classe": "addq",
+   "endereco": 6426,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6428,
+   "tam": 4
+  },
+  {
+   "classe": "move",
+   "endereco": 6432,
+   "tam": 2
+  },
+  {
+   "classe": "dbf",
+   "endereco": 6434,
+   "tam": 4
+  },
+  {
+   "classe": "bra",
+   "endereco": 6438,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 6440,
+   "tam": 2
+  },
+  {
+   "classe": "beq",
+   "endereco": 6442,
+   "tam": 2
+  },
+  {
+   "classe": "cmpi",
+   "endereco": 6444,
+   "tam": 4
+  },
+  {
+   "classe": "beq",
+   "endereco": 6448,
+   "tam": 4
+  },
+  {
+   "classe": "move",
+   "endereco": 6452,
+   "tam": 2
+  },
+  {
+   "classe": "bra",
+   "endereco": 6454,
+   "tam": 2
+  },
+  {
+   "classe": "addq",
+   "endereco": 6456,
+   "tam": 2
+  },
+  {
+   "classe": "rts",
+   "endereco": 6458,
+   "tam": 2
+  }
+ ],
+ "limites": [
+  "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+  "sem propagação de pilha/registrador: graus de parametro sao sempre nao-inferidos",
+  "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+  "dentro-de-fluxo nao implica alcancabilidade desde o boot nem execucao real",
+  "miolo-de-instrucao prova que o casamento linear ali nao e inicio de instrucao DESTE fluxo",
+  "subconjunto 68000 documentado: opcode fora da tabela interrompe o caminho"
+ ],
+ "objeto": {
+  "caminho_declarado": "/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin",
+  "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "tamanho": 531577
+ },
+ "raizes": [
+  {
+   "endereco": 6300,
+   "evidencia": "tres bsr.w $0189C medidos pela FASE6 em 0x01364,0x03082,0x051BC; rotina de 160 bytes com sha proprio identico ao pin",
+   "grau": "referencia-estatica",
+   "proveniencia": "referencia-estatica"
+  }
+ ],
+ "regiao": {
+  "fim": 6460,
+  "inicio": 6300,
+  "proveniencia": "declarada pelo operador"
+ },
+ "saida_completa": {
+  "caminho_local": "/home/misael/rds-scratch/xe-c-evidencia/r1.json",
+  "motivo_de_nao_versionado": "lista instrucoes com operandos = conteudo derivado de ROM comercial",
+  "sha256": "318364322561bff357648cd1d041c39f3ddefa70c4174af66cea4c89ca513465"
+ },
+ "sitios": [
+  {
+   "bloco": 6300,
+   "endereco": 6300,
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "bloco": 6300,
+   "endereco": 6304,
+   "veredito": "miolo-de-instrucao"
+  },
+  {
+   "bloco": 6396,
+   "endereco": 6399,
+   "veredito": "miolo-de-instrucao"
+  },
+  {
+   "bloco": 6456,
+   "endereco": 6459,
+   "veredito": "miolo-de-instrucao"
+  }
+ ]
+}
