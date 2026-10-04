@@ -111,3 +111,35 @@ Verificado no código, não assumido:
   necessária para este incremento. Fica como decisão aberta ao operador, não
   implementada por conta própria.
 
+---
+
+## Adenda de interpretação 2026-10-04 — integração autorizada pelo operador
+
+A seção acima descreve o fork **deliberado** registrado em 2026-10-03: a cadência
+exigia ordem exata na **cópia**, então reordenar tornava o painel de duração
+indisponível. Isso **não** certifica o estado integrado pedido pela missão em
+curso. O operador aprovou a correção da integração nesta frente; a interpretação
+passa a ser a seguinte (o texto histórico acima é preservado, não reescrito):
+
+- **Base** continua validada com ordem **exata** (`validate_base` estrito): o
+  perfil original Rev00 não aceita permutação.
+- **Cópia** passa por **`validate_copy` compartilhada** (uma única definição do
+  script, usada por cadência, sequência e pela guarda global de composição):
+  aceita a **permutação válida** do multiconjunto `{01×12,02×3,03×2,04}` com
+  intervalo em `$01..$7F` e terminador `FE 02` íntegro. A cadência deixa de
+  recusar uma cópia apenas por ela estar reordenada.
+- Consequência: **sequência→cadência** passa a ser permitida (editar duração
+  depois de reordenar). **cadência→sequência** já era permitida. Os dois domínios
+  escrevem faixas **disjuntas** (`0x13BAE` vs `0x13BAF..0x13BC0`), logo a cópia
+  final é **comutativa byte a byte** (mesmo SHA independentemente da ordem das
+  operações). Pixel e paleta permanecem em faixas próprias, também disjuntas.
+- A **guarda global** de `sprite_composition` é **preservada** e realinhada à
+  mesma `validate_copy`; nenhuma invariante de escopo é removida para fazer teste
+  passar.
+- As expectativas de prova desta integração, do percurso completo com `FE 02`
+  (proposta B `swap(0,17)`) e da jornada desktop §5.2 estão congeladas em
+  `EXPECTATIONS-SEQUENCIA.md` §8 (adenda 2026-10-04).
+- Limites inalterados: só a ordem das 18 entradas e só o byte de duração;
+  nenhum outro byte da ROM; PAL e modos especiais continuam fora; `id_Wait`
+  Rev00 nesta BYOR pinada, NTSC, caminho não-especial.
+
