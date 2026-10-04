@@ -12055,11 +12055,11 @@ async function runSonicSequenciaJourneyScenario(sessionId, app, romPath, base, s
     await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-sequence-restore", "restaurar somente a ordem");
     const seqRestoredMessage = await waitFor(
       async () => {
-        const found = (await consoleMessages()).find((message) => message.includes("Sequência id_Wait restaurada"));
-        return found && found.includes(hash(base)) ? found : (found ?? false);
+        const found = (await consoleMessages()).find((message) => message.includes("Sequência id_Wait restaurada à ordem original") && message.includes("duração, pixels e paleta permanecem"));
+        return found ?? false;
       },
       30000,
-      "A restauracao da ordem nao publicou a mensagem de sucesso",
+      "A restauracao da ordem nao publicou a mensagem de restauracao seletiva",
       100
     );
     const orderRestoredCopy = await waitFor(

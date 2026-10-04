@@ -8,8 +8,8 @@
 //! them. Contract: `docs/rex_profiles/sonic_sequencia/CONTRACT-SEQUENCIA.md`.
 
 use super::sonic_cadence::{
-    frame_is_reference, is_valid_permutation, validate_copy, CopyViolation, WAIT_ADDR, WAIT_FRAMES,
-    WAIT_TERMINATOR,
+    frame_is_reference, is_valid_permutation, validate_copy, CopyViolation, WAIT_ADDR,
+    WAIT_FRAMES,
 };
 use serde::{Deserialize, Serialize};
 
@@ -201,7 +201,7 @@ pub fn describe(base: &[u8], rom: &[u8]) -> Result<SequenceInfo, String> {
 #[cfg(test)]
 mod tests {
     use super::super::sonic_cadence::{
-        ANI_COUNT, ANI_TABLE, SCRIPTS_BASE, SONIC_ANIMATE_PROLOGUE, WAIT_ANIM,
+        ANI_COUNT, ANI_TABLE, SCRIPTS_BASE, SONIC_ANIMATE_PROLOGUE, WAIT_ANIM, WAIT_TERMINATOR,
     };
     use super::*;
 
