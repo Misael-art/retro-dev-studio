@@ -92,7 +92,7 @@ Chamada:
 | FA-3 | `61 00 C6 D4` | `0x0051C6` | disp=−`0x392C`; `0x51C6+2−0x392C = 0x189C` |
 | FA-4 | `61 FF FF FF FE 00` | `0x010000` | disp32=−`0x200`; `0x10000+4−0x200 = 0xFE04` |
 | FA-5 | `4E FA 18 9C` | calquera | `0x0000189C` (abs.W cero-extendido) |
-| FA-6 | `4B F9 00 00 85 A2` | calquera | `lea (0x85A2).L,A1`; rexistro=(0x4B>>1)&7=1 |
+| FA-6 | `43 F9 00 00 85 A2` | calquera | `lea (0x85A2).L,A1`; rexistro=(0x43>>1)&7=1 (corrección do conxelado: `4B` era A5, o byte non encazaba coa propia fórmula; a fórmula e a aritmética non cambian) |
 | FA-7 | `43 F8 94 00` | calquera | `lea (0x9400).W,A1` → `$00009400` (extensión curta sen signo) |
 | FA-8 | `41 FA 00 22` | `0x002000` | `lea (d16,PC),A0` → `0x2000+2+0x22 = 0x2024` |
 
