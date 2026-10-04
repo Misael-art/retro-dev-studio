@@ -1,0 +1,19 @@
+
+fx06_data_opcodes.elf: file format elf32-m68k
+
+
+Disassembly of section .text:
+
+00000000 <fx06>:
+   0:	7000           	moveq #0,%d0
+   2:	5281           	addql #1,%d1
+   4:	4a81           	tstl %d1
+   6:	6702           	beqs a <f6fim>
+   8:	7401           	moveq #1,%d2
+
+0000000a <f6fim>:
+   a:	4e75           	rts
+   c:	4eb9 1234 5678 	jsr 12345678 <_end+0x12343658>
+  12:	6708           	beqs 1c <f6fim+0x12>
+  14:	0800 0003      	btst #3,%d0
+  18:	227c 0000 1111 	moveal #4369,%a1
