@@ -479,6 +479,7 @@ function parseArgs(argv) {
           "sonic-cadence-journey",
           "sonic-anim-integrada",
           "sonic-anim-visual-diagnostico",
+          "sonic-sequencia-journey",
           "compositing-medicao",
           "rex-lz4w-effect",
           "rex-lz4w-fixture-effect",
@@ -11585,6 +11586,737 @@ async function runSonicAnimIntegradaScenario(sessionId, app, romPath, base, save
   }
 }
 
+// Jornada desktop §5.2 (Pendência 1; congelada em
+// docs/rex_profiles/sonic_sequencia/EXPECTATIONS-SEQUENCIA.md §8.3): no
+// binario canônico, pela interface visível, abrir BYOR → mover entrada distinta
+// (proposta B swap(0,17)) → aplicar → editar duracao na MESMA copia reordenada
+// (prova da integracao 8.1) → conferir copia crua → BPS export/reaplicar →
+// salvar/destruir/reiniciar/reabrir → executar no core com sprite realmente
+// apresentado → restaurar seletivamente (so a ordem; so a duracao) → round-trip
+// na direcao inversa (cadencia → sequencia) → negativos dos novos controles e
+// descarte de ack de epoca anterior por duas sessoes reais. Sondas de IPC sao
+// rotuladas "sonda tecnica", nunca teclado.
+async function runSonicSequenciaJourneyScenario(sessionId, app, romPath, base, savedId, prefix, uiBootstrapTimeoutMs) {
+  const hash = (buffer) => createHash("sha256").update(buffer).digest("hex");
+  const baseSha256 = hash(base);
+  if (process.env.WEBKIT_DISABLE_COMPOSITING_MODE === "1") {
+    fail("§8.3 E3-1: WEBKIT_DISABLE_COMPOSITING_MODE=1 esta ativo; a jornada exige ausencia da mitigacao (a correcao e do binario)");
+  }
+  if (base.length !== 531577 || baseSha256 !== "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb") {
+    fail(`A jornada da sequenca exige a ROM BYOR pinada: ${base.length} bytes ${baseSha256}`);
+  }
+  const WAIT_ADDR = CADENCE_JOURNEY_WAIT_ADDR; // 0x13bae
+  const FRAMES_ADDR = WAIT_ADDR + 1;
+  const FRAMES_LEN = 18;
+  const ORIGINAL = CADENCE_JOURNEY_WAIT_FRAMES;
+  if (base[WAIT_ADDR] !== 23) fail(`Intervalo da base nao e $17: ${base[WAIT_ADDR]}`);
+  if (!ORIGINAL.every((frame, index) => base[FRAMES_ADDR + index] === frame)) fail("A janela de frames da base diverge do contrato lido independentemente");
+  if (base[FRAMES_ADDR + FRAMES_LEN] !== 0xfe || base[FRAMES_ADDR + FRAMES_LEN + 1] !== 0x02) fail("O terminador FE 02 nao esta na base");
+  // Proposta B = swap(0,17) da janela original: pos0 0x01 <-> pos17 0x04.
+  const PROPOSAL_B = ORIGINAL.slice();
+  PROPOSAL_B[0] = ORIGINAL[17];
+  PROPOSAL_B[17] = ORIGINAL[0];
+  const seqCopyBytes = Buffer.from(base);
+  PROPOSAL_B.forEach((byte, index) => { seqCopyBytes[FRAMES_ADDR + index] = byte; });
+  const seqCopySha = hash(seqCopyBytes);
+  const journeyBytes = Buffer.from(seqCopyBytes);
+  journeyBytes[WAIT_ADDR] = 40;
+  const journeySha = hash(journeyBytes);
+  const diffOffsets = (a, b) => {
+    const out = [];
+    for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) out.push(i);
+    return out;
+  };
+  const hexBytes = (bytes) => bytes.map((byte) => byte.toString(16).padStart(2, "0")).join(" ");
+  await ensureValidationDir();
+  const pilotDir = path.join(validationDir, `${prefix}-sequencia-journey`);
+  await mkdir(pilotDir, { recursive: true });
+  const report = {
+    schema: "rex-sonic-sequencia-journey/v1",
+    artifact_prefix: prefix,
+    expectations: "docs/rex_profiles/sonic_sequencia/EXPECTATIONS-SEQUENCIA.md §8.3 (jornada desktop integrada) + CONTRACT-SEQUENCIA.md (proposta B, janela 0x13BAF..0x13BC0)",
+    binary_sha256: hash(await readFile(app)),
+    base_rom_sha256: baseSha256,
+    webkit_disable_compositing_mode: process.env.WEBKIT_DISABLE_COMPOSITING_MODE ?? null,
+    proposal_b: PROPOSAL_B,
+    expected_seq_copy_sha256: seqCopySha,
+    expected_journey_sha256: journeySha,
+    attribution: "Todos os cliques sao WebDriver nativos na janela real; o passo de execução usa teclado nativo (Enter→START) pelo caminho do produto. Chamadas IPC diretas aparecem rotuladas como sonda técnica.",
+    pilot_dir: pilotDir,
+    steps: [],
+    checks: [],
+  };
+  const persistReport = async (extra = {}) => {
+    await writeFile(path.join(pilotDir, "report.json"), JSON.stringify({ ...report, ...extra }, null, 2));
+  };
+  const addCheck = (name, pass, extra = {}) => {
+    report.checks.push({ name, pass: Boolean(pass), ...extra });
+    if (!pass) throw new Error(`${name}: ${JSON.stringify(extra)}`);
+  };
+  let sessionIdRef = sessionId;
+  const consoleMessages = async () => ((await readAutomationState(sessionIdRef))?.consoleEntries ?? []).map((entry) => String(entry?.message ?? ""));
+  const rawCopyOf = async (label) => {
+    const status = await invokeCoreObserveCommand(sessionIdRef, "rex_inspection_status", { sessionId: label });
+    const edit = status?.session?.edit;
+    if (!edit?.modified_rom_path) fail(`${label}: a sessao nao expoe copia editada: ${JSON.stringify(status?.session?.status)}`);
+    return { status, edit, bytes: await readFile(edit.modified_rom_path) };
+  };
+  const probeInvoke = async (command, args) => executeAsyncScript(
+    sessionIdRef,
+    `
+      const done = arguments[arguments.length - 1];
+      const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI_INTERNALS__?.invoke;
+      if (typeof invoke !== "function") { done({ ok: false, error: "invoke indisponivel na pagina" }); return; }
+      invoke(arguments[0], arguments[1] ?? {}).then((value) => done({ ok: true, value })).catch((error) => done({ ok: false, error: String(error?.message ?? JSON.stringify(error)) }));
+    `,
+    [command, args]
+  );
+  const readSequencePanelState = () => executeScript(
+    sessionIdRef,
+    `
+      const q = (selector) => document.querySelector(selector);
+      const parseLine = (text, label) => { const m = String(text).match(new RegExp(label + ":\\\\s*((?:[0-9a-fA-F]{2}\\\\s*)*)")); return m ? m[1].trim().split(/\\s+/).filter(Boolean).map((tok) => parseInt(tok, 16)) : null; };
+      const entries = Array.from(document.querySelectorAll("[data-testid^='inspection-sequence-entry-']"));
+      const bytes = entries.map((entry) => Number(entry.getAttribute("data-byte")));
+      const selected = entries.findIndex((entry) => entry.getAttribute("data-selected") === "true");
+      const originalText = q("[data-testid='inspection-sequence-original']")?.textContent ?? "";
+      const currentText = q("[data-testid='inspection-sequence-current']")?.textContent ?? "";
+      const proposedText = q("[data-testid='inspection-sequence-proposed']")?.textContent ?? "";
+      return {
+        panel: Boolean(q("[data-testid='inspection-sonic-sequence-panel']")),
+        count: entries.length,
+        bytes,
+        selected,
+        original: parseLine(originalText, "Original"),
+        current: parseLine(currentText, "Aplicado na c"),
+        proposed: parseLine(proposedText, "Proposta"),
+        pending: q("[data-testid='inspection-sequence-pending']")?.textContent ?? null,
+        nonePending: Boolean(q("[data-testid='inspection-sequence-none-pending']")),
+        diffOriginal: q("[data-testid='inspection-sequence-diff-original']")?.textContent ?? "",
+        message: q("[data-testid='inspection-sequence-message']")?.textContent ?? "",
+        error: q("[data-testid='inspection-sequence-error']")?.textContent ?? "",
+        moveBeforeDisabled: Boolean(q("[data-testid='inspection-sequence-move-before']")?.disabled),
+        moveAfterDisabled: Boolean(q("[data-testid='inspection-sequence-move-after']")?.disabled),
+        applyDisabled: Boolean(q("[data-testid='inspection-sequence-apply']")?.disabled),
+        thumbnails: entries.map((entry) => Boolean(entry.querySelector("img"))),
+      };
+    `
+  );
+  const clickSequenceEntryWithHitTest = async (index, expectedByte) => {
+    const selector = `[data-testid="inspection-sequence-entry-${index}"]`;
+    const point = await waitFor(
+      async () => executeScript(sessionIdRef, `
+        const el = document.querySelector(arguments[0]);
+        if (!el) return null;
+        el.scrollIntoView({ block: "center", inline: "center" });
+        const r = el.getBoundingClientRect();
+        const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
+        const top = document.elementFromPoint(x, y);
+        return { x, y, byte: Number(el.getAttribute("data-byte")), unobstructed: Boolean(top && (top === el || el.contains(top))) };
+      `, [selector]),
+      15000,
+      `A entrada ${index} da sequencia nunca ficou hit-testavel`,
+      100
+    );
+    if (!point?.unobstructed) fail(`Hit-test da entrada ${index} obstruido: ${JSON.stringify(point)}`);
+    if (point.byte !== expectedByte) fail(`A entrada ${index} nao carrega o byte esperado ${expectedByte}: ${point.byte}`);
+    await webdriverRequest("POST", `/session/${sessionIdRef}/actions`, { actions: [{ type: "pointer", id: `seq-entry-${index}`, parameters: { pointerType: "mouse" }, actions: [{ type: "pointerMove", duration: 0, x: point.x, y: point.y, origin: "viewport" }, { type: "pointerDown", button: 0 }, { type: "pointerUp", button: 0 }] }] });
+    const state = await waitFor(
+      async () => {
+        const next = await readSequencePanelState();
+        return next.selected === index ? next : false;
+      },
+      5000,
+      `Selecionar a entrada ${index} nao marcou exatamente aquela posicao`,
+      50
+    );
+    if (state.selected !== index) fail(`Selecao caiu na posicao errada (esperada ${index}): ${JSON.stringify({ selected: state.selected, bytes: state.bytes })}`);
+    return state;
+  };
+  const moveClicks = async (testId, times) => {
+    for (let i = 0; i < times; i += 1) {
+      await closeVisibleConsoleDrawer(sessionIdRef, `clique ${i + 1}/${times} em ${testId}`);
+      await clickButtonByTestIdNativeWhenReady(sessionIdRef, testId, `${testId} (${i + 1}/${times})`);
+    }
+  };
+  try {
+    // PASSO 1 — abrir BYOR com identidade SHA-256 visivel e conferida na UI.
+    addCheck("passo1.byor_pinado", Boolean(savedId), { session_id: savedId, base_sha256: baseSha256 });
+    const identity = await waitFor(
+      async () => {
+        const shown = await executeScript(sessionIdRef, `
+          const card = document.querySelector("[data-testid='inspection-session']");
+          return card ? { id: card.getAttribute("data-session-id"), identity: card.getAttribute("data-identity-sha256"), text: card.textContent } : null;
+        `);
+        return shown?.id === savedId && shown.identity === baseSha256 ? shown : false;
+      },
+      30000,
+      "A UI nao exibiu a identidade SHA-256 da BYOR carregada",
+      100
+    );
+    addCheck("passo1.identidade_sha256_visivel", identity.identity === baseSha256, { observed: identity.identity, required: baseSha256 });
+    report.steps.push({ step: 1, name: "abrir_byor_identidade_visivel", session_id: savedId, identity_sha256: identity.identity });
+
+    // PASSO 2 — painel da sequencia: 18 entradas originais, negativos de
+    // contorno (Mover antes pos0 / Mover depois pos17 desabilitados),
+    // negativos de entradas identicas e aplicacao da proposta B.
+    const panelInitial = await waitFor(
+      async () => {
+        const state = await readSequencePanelState();
+        return state.panel && state.count === 18 && JSON.stringify(state.bytes) === JSON.stringify(ORIGINAL) && JSON.stringify(state.current) === JSON.stringify(ORIGINAL) ? state : false;
+      },
+      60000,
+      "O painel da sequencia nao mostrou as 18 entradas na ordem original",
+      250
+    );
+    addCheck("passo2.entradas_18_originais", true, { count: panelInitial.count, thumbnails_present: panelInitial.thumbnails.filter(Boolean).length });
+    addCheck("passo2.proveniencia_contrato", panelInitial.error === "" && panelInitial.nonePending, { error: panelInitial.error, none_pending: panelInitial.nonePending });
+    await clickSequenceEntryWithHitTest(0, 1);
+    const boundaryStart = await readSequencePanelState();
+    addCheck("passo2.negativo_contorno_pos0", boundaryStart.moveBeforeDisabled === true, { move_before_disabled: boundaryStart.moveBeforeDisabled });
+    await clickSequenceEntryWithHitTest(17, 4);
+    const boundaryEnd = await readSequencePanelState();
+    addCheck("passo2.negativo_contorno_pos17", boundaryEnd.moveAfterDisabled === true, { move_after_disabled: boundaryEnd.moveAfterDisabled });
+    // Negativo: mover duas entradas identicas (pos5 sobre pos4, ambas 0x01)
+    // nao gera diferenca proposta e a UI declara isso explicitamente.
+    await clickSequenceEntryWithHitTest(5, 1);
+    await moveClicks("inspection-sequence-move-before", 1);
+    const identicalMove = await readSequencePanelState();
+    addCheck(
+      "passo2.negativo_mover_entrada_identica",
+      identicalMove.pending === null && JSON.stringify(identicalMove.proposed) === JSON.stringify(ORIGINAL) && identicalMove.message.includes("mover duas entradas idênticas não altera a sequência"),
+      { message: identicalMove.message, pending: identicalMove.pending }
+    );
+    // Negativo: aplicar sem diferenca nao grava nada (proposta == aplicado).
+    const beforeNoopApply = await rawCopyOf(savedId).catch(() => null);
+    await closeVisibleConsoleDrawer(sessionIdRef, "antes do no-op de aplicacao");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-sequence-apply", "tentar aplicar sem diferenca");
+    const noopApply = await waitFor(
+      async () => {
+        const state = await readSequencePanelState();
+        return state.message.includes("Nada a aplicar") ? state : false;
+      },
+      5000,
+      "Aplicar sem diferenca nao devolveu a recusa explicita",
+      100
+    );
+    const afterNoopApply = await rawCopyOf(savedId).catch(() => null);
+    addCheck("passo2.negativo_aplicar_sem_diferenca_sem_escrita", noopApply.message.includes("Nada a aplicar") && (beforeNoopApply === null ? afterNoopApply === null : afterNoopApply !== null && afterNoopApply.bytes.equals(beforeNoopApply.bytes)), {
+      message: noopApply.message,
+      copy_antes: beforeNoopApply ? hash(beforeNoopApply.bytes) : null,
+      copy_depois: afterNoopApply ? hash(afterNoopApply.bytes) : null,
+    });
+    // Proposta B pela UI: bolha 0x04 de pos17 ate pos0 (17x "Mover antes"),
+    // depois leva o 0x01 de pos12 ao fim (5x "Mover depois") = swap(0,17).
+    await clickSequenceEntryWithHitTest(17, 4);
+    await moveClicks("inspection-sequence-move-before", 1);
+    const midBubble = await readSequencePanelState();
+    addCheck("passo2.primeiro_swap_adjacente", midBubble.bytes[16] === 4 && midBubble.bytes[17] === ORIGINAL[16] && midBubble.selected === 16, { bytes: midBubble.bytes, selected: midBubble.selected });
+    await moveClicks("inspection-sequence-move-before", 16);
+    const rotated = await readSequencePanelState();
+    addCheck("passo2.bolha_04_ate_pos0", rotated.bytes[0] === 4 && rotated.selected === 0, { bytes: rotated.bytes, selected: rotated.selected });
+    await clickSequenceEntryWithHitTest(12, 1);
+    await moveClicks("inspection-sequence-move-after", 5);
+    const proposedState = await waitFor(
+      async () => {
+        const state = await readSequencePanelState();
+        return JSON.stringify(state.proposed) === JSON.stringify(PROPOSAL_B) ? state : false;
+      },
+      5000,
+      "A proposta montada pela UI nao bate com a proposta B congelada",
+      100
+    );
+    addCheck("passo2.proposta_b_montada_pela_ui", proposedState.pending?.includes("Pendente") === true && Number(proposedState.pending.match(/\d+/)?.[0]) === 2, { pending: proposedState.pending, diff_line: proposedState.diffOriginal });
+    await closeVisibleConsoleDrawer(sessionIdRef, "antes de aplicar a proposta B");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-sequence-apply", "aplicar a proposta B");
+    const appliedMessage = await waitFor(
+      async () => {
+        const found = (await consoleMessages()).find((message) => message.includes("Ordem id_Wait aplicada"));
+        return found && found.includes(seqCopySha) ? found : false;
+      },
+      30000,
+      "A aplicacao da sequencia nao publicou a mensagem com o SHA da copia esperada",
+      100
+    );
+    addCheck("passo2.mensagem_com_sha_da_copia", appliedMessage.includes(seqCopySha) && appliedMessage.includes("0x13BAF"), { observed: appliedMessage });
+    const appliedPanel = await waitFor(
+      async () => {
+        const state = await readSequencePanelState();
+        return JSON.stringify(state.current) === JSON.stringify(PROPOSAL_B) && JSON.stringify(state.proposed) === JSON.stringify(PROPOSAL_B) && state.pending === null ? state : false;
+      },
+      30000,
+      "Apos aplicar, o painel nao mostrou proposta == aplicado == proposta B sem pendencia",
+      100
+    );
+    addCheck("passo2.entradas_refletem_proposta_b", JSON.stringify(appliedPanel.bytes) === JSON.stringify(PROPOSAL_B), { bytes: appliedPanel.bytes });
+    const seqCopy = await rawCopyOf(savedId);
+    const seqDiff = diffOffsets(base, seqCopy.bytes);
+    addCheck("passo2.copia_so_janela_de_frames", seqCopy.bytes.equals(seqCopyBytes) && seqCopy.edit.modified_rom_sha256 === seqCopySha, { copy_sha: hash(seqCopy.bytes), edit_sha: seqCopy.edit.modified_rom_sha256, required: seqCopySha });
+    addCheck("passo2.diff_exatamente_pos0_e_pos17", JSON.stringify(seqDiff) === JSON.stringify([FRAMES_ADDR, FRAMES_ADDR + 17]), { observed: seqDiff.map((offset) => `0x${offset.toString(16)}`), required: ["0x13baf", "0x13bc0"] });
+    addCheck("passo2.intervalo_terminador_intactos", seqCopy.bytes[WAIT_ADDR] === 23 && seqCopy.bytes[FRAMES_ADDR + FRAMES_LEN] === 0xfe && seqCopy.bytes[FRAMES_ADDR + FRAMES_LEN + 1] === 0x02, { interval: seqCopy.bytes[WAIT_ADDR] });
+    report.steps.push({ step: 2, name: "mover_entrada_distinta_aplicar", proposal: PROPOSAL_B, copy_sha256: seqCopySha, diff: seqDiff });
+
+    // PASSO 3 — editar a duracao NA MESMA copia reordenada (prova da
+    // integracao 8.1: a UI nao pode recusar cadencia com a ordem movida).
+    await setSonicNumberInputNative(sessionIdRef, "inspection-cadence-value", 40);
+    await closeVisibleConsoleDrawer(sessionIdRef, "antes da aplicacao de duracao pos-sequencia");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-cadence-apply", "aplicar duracao 40 na copia reordenada");
+    const cadenceMessage = await waitFor(
+      async () => {
+        const found = (await consoleMessages()).find((message) => message.includes("Cadência id_Wait aplicada") && message.includes("agora 40 ticks"));
+        return found && found.includes(journeySha) ? found : false;
+      },
+      30000,
+      "A cadencia nao foi aplicada na copia reordenada (recusada ou SHA divergente) — integracao 8.1 violada",
+      100
+    );
+    addCheck("passo3.cadencia_aceita_apos_reordenacao", cadenceMessage.includes("0x13BAE") && cadenceMessage.includes(journeySha), { observed: cadenceMessage });
+    const panelAfterCadence = await waitFor(
+      async () => {
+        const cadenceState = await readCadencePanelState(sessionIdRef);
+        const seqState = await readSequencePanelState();
+        return cadenceState.current.includes("40 ticks") && cadenceState.prediction.includes("41 frames de tela") && JSON.stringify(seqState.current) === JSON.stringify(PROPOSAL_B) ? { cadenceState, seqState } : false;
+      },
+      30000,
+      "Apos a duracao, ou o painel de cadencia nao mostrou 40/41 ou a sequencia aplicada regrediu",
+      100
+    );
+    addCheck("passo3.sequencia_preservada_pela_escrita_de_duracao", JSON.stringify(panelAfterCadence.seqState.bytes) === JSON.stringify(PROPOSAL_B), { bytes: panelAfterCadence.seqState.bytes });
+    report.steps.push({ step: 3, name: "editar_duracao_na_copia_reordenada", painel: { current: panelAfterCadence.cadenceState.current, prediction: panelAfterCadence.cadenceState.prediction } });
+
+    // PASSO 4 — conferir a copia em bytes crus + ledger dos dois dominios.
+    const journeyCopy = await rawCopyOf(savedId);
+    const journeyDiff = diffOffsets(base, journeyCopy.bytes);
+    addCheck("passo4.copia_identica_mutacao_independente", journeyCopy.bytes.equals(journeyBytes) && journeyCopy.edit.modified_rom_sha256 === journeySha, { copy_sha: hash(journeyCopy.bytes), required: journeySha });
+    addCheck("passo4.diff_exatamente_tres_bytes", JSON.stringify(journeyDiff) === JSON.stringify([WAIT_ADDR, FRAMES_ADDR, FRAMES_ADDR + 17]), { observed: journeyDiff.map((offset) => `0x${offset.toString(16)}`) });
+    const ledger = journeyCopy.status?.session?.applied_edits ?? [];
+    const ledgerSeq = ledger.filter((entry) => entry.format === "sonic1_wait_frame_order");
+    const ledgerCad = ledger.filter((entry) => entry.format === "sonic1_wait_interval_byte");
+    addCheck("passo4.ledger_nomeia_os_dominios", ledgerSeq.length >= 1 && ledgerCad.length >= 1 && JSON.stringify(ledgerSeq[0]?.offsets) === JSON.stringify([FRAMES_ADDR, FRAMES_ADDR + 17]) && JSON.stringify(ledgerSeq[0]?.old_bytes) === JSON.stringify([1, 4]) && JSON.stringify(ledgerSeq[0]?.new_bytes) === JSON.stringify([4, 1]) && JSON.stringify(ledgerCad[0]?.offsets) === JSON.stringify([WAIT_ADDR]) && JSON.stringify(ledgerCad[0]?.new_bytes) === JSON.stringify([40]), { ledger: ledger.map((entry) => ({ seq: entry.seq, format: entry.format, offsets: entry.offsets, new_bytes: entry.new_bytes })) });
+    report.steps.push({ step: 4, name: "conferir_copia_crua", diff: journeyDiff, copy_sha256: journeySha });
+
+    // PASSO 5 — exportar BPS e reaplicar a base pela UI canonica.
+    const patchPath = path.join(pilotDir, "sequencia-journey.bps");
+    const appliedPath = path.join(pilotDir, "sequencia-journey-aplicada.bin");
+    const nativePath = async (testId, value) => {
+      const selector = `[data-testid="${testId}"] input`;
+      const element = await findElement(sessionIdRef, selector);
+      await clickElementWithDiagnostics(sessionIdRef, element, selector);
+      await webdriverRequest("POST", `/session/${sessionIdRef}/element/${element}/clear`, {});
+      await webdriverRequest("POST", `/session/${sessionIdRef}/element/${element}/value`, { text: value, value: [...value] });
+    };
+    await nativePath("sonic-patch-path", patchPath);
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-sonic-export-patch", "exportar BPS da jornada de sequencia");
+    await waitFor(() => pathExists(patchPath), 15000, "O BPS da sequencia nao foi exportado pela UI", 100);
+    await nativePath("sonic-applied-path", appliedPath);
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-sonic-apply-patch", "aplicar BPS da sequencia a base");
+    await waitFor(() => pathExists(appliedPath), 15000, "A ROM aplicada da sequencia nao foi criada pela UI", 100);
+    const appliedBytes = await readFile(appliedPath);
+    addCheck("passo5.bps_reproduz_copia", appliedBytes.equals(journeyBytes), { applied_sha: hash(appliedBytes), patch_sha: hash(await readFile(patchPath)), required: journeySha });
+    report.steps.push({ step: 5, name: "bps_export_apply", patch_path: patchPath, applied_path: appliedPath, patch_sha256: hash(await readFile(patchPath)) });
+
+    // PASSO 6 — salvar, destruir a janela, reiniciar e reabrir do disco.
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-save", "salvar sessao da jornada de sequencia");
+    await waitFor(
+      async () => executeScript(sessionIdRef, `return Boolean(document.querySelector('[data-testid="inspection-saved-session"][data-session-id="${savedId}"]'));`),
+      15000,
+      "A sessao salva da sequencia nao apareceu na lista",
+      100
+    );
+    await deleteSession(sessionIdRef);
+    sessionIdRef = await createSession(app);
+    currentE2eRunContext.sessionId = sessionIdRef;
+    await waitForAppWindowReady(sessionIdRef, uiBootstrapTimeoutMs, "O app da jornada de sequencia nao reabriu");
+    await handleProjectWizardVisibly(sessionIdRef, "sequencia-journey-restart");
+    await setSessionWindowRect(sessionIdRef, 1920, 1080);
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "workspace-rail-debug", "reabrir Debug Workspace na jornada de sequencia");
+    await callAutomationApi(sessionIdRef, "openToolsWorkspace", ["reverse", "debug", true]);
+    await waitForBodyText(sessionIdRef, "Analisar ROM", 20000, "O Reverse Workspace nao voltou na jornada de sequencia");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "reverse-tab-inspection", "reabrir inspecao na jornada de sequencia");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-refresh-sessions", "listar sessoes salvas na jornada de sequencia");
+    await waitFor(
+      async () => executeScript(sessionIdRef, `return Boolean(document.querySelector('[data-testid="select-saved-session-${savedId}"]'));`),
+      30000,
+      "A sessao salva da sequencia nao reapareceu apos destruir a janela",
+      100
+    );
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, `select-saved-session-${savedId}`, "selecionar sessao salva da sequencia");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-reopen", "reabrir sessao da jornada de sequencia");
+    const reopened = await waitFor(
+      async () => {
+        const state = await readInspectionUiState(sessionIdRef);
+        return state?.session?.id === savedId && state.session.status === "completed" ? state : false;
+      },
+      30000,
+      "A sessao da sequencia nao foi reaberta com estado completo",
+      100
+    );
+    const reopenedIdentity = await waitFor(
+      async () => {
+        const shown = await executeScript(sessionIdRef, `
+          const card = document.querySelector("[data-testid='inspection-session']");
+          return card && card.getAttribute("data-session-id") === arguments[0] ? card.getAttribute("data-identity-sha256") : null;
+        `, [savedId]);
+        return shown === baseSha256 ? shown : false;
+      },
+      20000,
+      "A instancia nova nao restaurou a identidade SHA-256 da BYOR",
+      100
+    );
+    const reopenedPanels = await waitFor(
+      async () => {
+        const cadenceState = await readCadencePanelState(sessionIdRef);
+        const seqState = await readSequencePanelState();
+        return cadenceState.frameCount === 18
+          && cadenceState.thumbnailDataUrls.every((ok) => ok === 1)
+          && cadenceState.current?.includes("40 ticks")
+          && cadenceState.original?.includes("23 ticks")
+          && JSON.stringify(seqState.current) === JSON.stringify(PROPOSAL_B)
+          && JSON.stringify(seqState.proposed) === JSON.stringify(PROPOSAL_B)
+          && seqState.pending === null
+          && seqState.thumbnails.filter(Boolean).length >= 4 ? { cadenceState, seqState } : false;
+      },
+      60000,
+      "Os paineis reabertos nao restauraram duracao 40 + sequencia B aplicada sem pendencia com miniaturas reais",
+      250
+    );
+    const reopenedProvenience = await waitFor(
+      async () => {
+        const text = await executeScript(sessionIdRef, `return document.querySelector('[data-testid="inspection-sonic-edit-result"]')?.textContent ?? "";`);
+        return text.includes(journeySha) ? text : false;
+      },
+      20000,
+      "A proveniencia da edicao (SHA da copia) nao foi restaurada na reabertura",
+      100
+    );
+    addCheck("passo6.reabertura_sem_imagem_antiga", reopenedPanels.cadenceState.frameCount === 18 && reopenedPanels.cadenceState.thumbnailDataUrls.every((ok) => ok === 1) && reopenedPanels.seqState.thumbnails.filter(Boolean).length >= 4 && reopenedPanels.seqState.nonePending, { thumbs_seq: reopenedPanels.seqState.thumbnails.filter(Boolean).length, thumbs_cad: reopenedPanels.cadenceState.thumbnailDataUrls.filter(Boolean).length, none_pending: reopenedPanels.seqState.nonePending });
+    report.steps.push({ step: 6, name: "salvar_destroir_reiniciar_reabrir", session: reopened.session?.id, identity_sha256: reopenedIdentity, provenvenience: reopenedProvenience.slice(0, 200) });
+
+    // PASSO 7 — executar no core (teclado nativo Enter→START pelo produto) e
+    // conferir o sprite realmente apresentado pela copia editada.
+    const oldGameFrame = await readCanonicalGameFrame(sessionIdRef);
+    const modifiedLive = await playCadenceRunLiveGates(sessionIdRef, {
+      buttonTestId: "inspection-sonic-play-modified",
+      label: "modificada-sequencia",
+      expectedBytes: journeyBytes,
+      oldGameFrame,
+      report,
+      bootBudgetMs: 300000,
+    });
+    await selectInspectionFrameNative(sessionIdRef, "sonic1_sonic/stand");
+    await closeVisibleConsoleDrawer(sessionIdRef, "antes da recomposicao pos-execucao");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-compose-sprite", "compor stand a partir da copia da jornada");
+    const recomposed = await waitFor(
+      async () => {
+        const rendered = await readRenderedSpriteFramePixels(sessionIdRef);
+        return rendered?.frameId === "sonic1_sonic/stand" && rendered.romSha256 === journeySha ? rendered : false;
+      },
+      30000,
+      "O stand nao foi recomposto a partir dos bytes da copia (imagem antiga ou SHA divergente)",
+      100
+    );
+    const standReference = renderSonicFrameReference(journeyBytes, 1);
+    const standPixels = assertExactPreviewPixels({ width: recomposed.naturalWidth, height: recomposed.naturalHeight, pixels: recomposed.pixels }, standReference, "sonic1_sonic/stand (jornada de sequencia, apos executar)");
+    await waitFor(
+      async () => {
+        const layout = await ensureSpriteFrameVisibleAndUnobstructed(sessionIdRef);
+        return layout?.fullyVisible && layout.unobstructed && layout.exactContentDimensions && layout.metadataBelow ? layout : false;
+      },
+      15000,
+      "O stand reaberto ficou obstruido ou mal dimensionado",
+      100
+    );
+    const visualAttempts = [];
+    let visualObservation = null;
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      visualObservation = await captureVisualObservation(sessionIdRef, `e3-stand-visivel-apos-executar-${attempt}`, prefix, standReference, [255, 0, 255]);
+      visualAttempts.push({
+        attempt,
+        canvas_matches: visualObservation.canvas_matches_reference === true,
+        crop_matches: visualObservation.window_crop_matches_expected === true,
+        mismatches: visualObservation.window_crop?.mismatches ?? null,
+        magenta_fraction: (visualObservation.window_crop?.topColors ?? []).find((entry) => entry.color === "255,0,255")?.fraction ?? 0,
+        proof_error: visualObservation.window_proof?.error ?? null,
+      });
+      if (visualObservation.window_crop_matches_expected === true) break;
+    }
+    addCheck("passo7.sprite_apresentado_sem_imagem_antiga", visualObservation?.window_crop_matches_expected === true && visualObservation?.canvas_matches_reference === true, {
+      attempts: visualAttempts,
+      rom_sha_do_composto: recomposed.romSha256,
+      pixels_verificados: standPixels,
+      source: visualObservation?.capture_source,
+    });
+    report.steps.push({ step: 7, name: "executar_no_core_sprite_apresentado", core: modifiedLive.identity.coreLabel, tentativas_visuais: visualAttempts.length });
+    await captureScreenshot(sessionIdRef, `${prefix}-sequencia-journey-passo7.png`);
+
+    // PASSO 8 — restaurar seletivamente pela UI: so a ordem (duracao 40
+    // permanece) e depois so a duracao (copia volta a coincidir com a base).
+    await closeVisibleConsoleDrawer(sessionIdRef, "antes da restauracao somente da ordem");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-sequence-restore", "restaurar somente a ordem");
+    const seqRestoredMessage = await waitFor(
+      async () => {
+        const found = (await consoleMessages()).find((message) => message.includes("Sequência id_Wait restaurada"));
+        return found && found.includes(hash(base)) ? found : (found ?? false);
+      },
+      30000,
+      "A restauracao da ordem nao publicou a mensagem de sucesso",
+      100
+    );
+    const orderRestoredCopy = await waitFor(
+      async () => {
+        const { edit, bytes } = await rawCopyOf(savedId);
+        return bytes[WAIT_ADDR] === 40 && ORIGINAL.every((frame, index) => bytes[FRAMES_ADDR + index] === frame) && edit.modified_rom_sha256 === hash(bytes) && JSON.stringify(diffOffsets(base, bytes)) === JSON.stringify([WAIT_ADDR]) ? { edit, bytes } : false;
+      },
+      30000,
+      "Restaurar a ordem nao devolveu so a janela de frames (duracao deveria permanecer 40)",
+      250
+    );
+    const panelAfterOrderRestore = await readSequencePanelState();
+    addCheck("passo8.restaurar_ordem_preserva_duracao", seqRestoredMessage && orderRestoredCopy.bytes[WAIT_ADDR] === 40 && JSON.stringify(panelAfterOrderRestore.current) === JSON.stringify(ORIGINAL), {
+      message: String(seqRestoredMessage).slice(0, 160),
+      copy_diff: [WAIT_ADDR].map((offset) => `0x${offset.toString(16)}`),
+      current: panelAfterOrderRestore.current,
+    });
+    await closeVisibleConsoleDrawer(sessionIdRef, "antes da restauracao somente da duracao");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-cadence-restore", "restaurar somente a duracao");
+    const durationRestoredCopy = await waitFor(
+      async () => {
+        const { edit, bytes } = await rawCopyOf(savedId);
+        return diffOffsets(base, bytes).length === 0 && edit ? { edit, bytes } : false;
+      },
+      30000,
+      "Restaurar a duracao nao devolveu a copia identica a base (com a ordem ja restaurada)",
+      250
+    );
+    const panelAfterBothRestores = await readSequencePanelState();
+    const cadenceAfterBoth = await readCadencePanelState(sessionIdRef);
+    addCheck("passo8.restaurar_duracao_preserva_ordem", durationRestoredCopy.bytes.equals(base) && cadenceAfterBoth.current.includes("23 ticks") && JSON.stringify(panelAfterBothRestores.current) === JSON.stringify(ORIGINAL), { cadence: cadenceAfterBoth.current, current: panelAfterBothRestores.current });
+    const ledgerAfterRestores = (await invokeCoreObserveCommand(sessionIdRef, "rex_inspection_status", { sessionId: savedId }))?.session?.applied_edits ?? [];
+    addCheck("passo8.ledger_registra_as_restauracoes", ledgerAfterRestores.length >= ledger.length + 2 && ledgerAfterRestores.at(-1)?.copy_sha256 === hash(durationRestoredCopy.bytes), { antes: ledger.length, depois: ledgerAfterRestores.length });
+    report.steps.push({ step: 8, name: "restaurar_seletivamente", restaurar_ordem: { diff_restante: ["0x13bae"], duracao: 40 }, restaurar_duracao: { diff_final: [] }, ledger_depois: ledgerAfterRestores.length });
+
+    // PASSO 9 — round-trip inverso pela UI (cadencia → sequencia): aplicar
+    // primeiro uma duracao nova e depois uma permutacao de 1 clique; conferir
+    // bytes crus; restaurar os dois e conferir de novo.
+    await setSonicNumberInputNative(sessionIdRef, "inspection-cadence-value", 30);
+    await closeVisibleConsoleDrawer(sessionIdRef, "antes da duracao 30 (round-trip inverso)");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-cadence-apply", "aplicar duracao 30 antes de qualquer sequencia");
+    const swappedAfterCadence = Buffer.from(base);
+    swappedAfterCadence[WAIT_ADDR] = 30;
+    await clickSequenceEntryWithHitTest(12, 3);
+    await moveClicks("inspection-sequence-move-before", 1);
+    const inverseProposal = ORIGINAL.map((byte, index) => index === 11 ? 3 : index === 12 ? 1 : byte);
+    const proposedInverse = await waitFor(
+      async () => {
+        const state = await readSequencePanelState();
+        return JSON.stringify(state.proposed) === JSON.stringify(inverseProposal) ? state : false;
+      },
+      5000,
+      "A permutacao de 1 clique nao produziu a proposta esperada apos a duracao",
+      100
+    );
+    addCheck("passo9.proposta_1_clique", proposedInverse.pending !== null, { pending: proposedInverse.pending });
+    await closeVisibleConsoleDrawer(sessionIdRef, "antes de aplicar a sequencia pos-duracao");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-sequence-apply", "aplicar sequencia depois da duracao");
+    const inverseCopy = await waitFor(
+      async () => {
+        const { edit, bytes } = await rawCopyOf(savedId);
+        const expected = Buffer.from(swappedAfterCadence);
+        inverseProposal.forEach((byte, index) => { expected[FRAMES_ADDR + index] = byte; });
+        return edit.modified_rom_sha256 === hash(expected) && bytes.equals(expected) ? { edit, bytes, expected } : false;
+      },
+      30000,
+      "A sequencia aplicada depois da duracao nao acumulou na mesma copia",
+      250
+    );
+    addCheck("passo9.cadencia_preservada_pela_escrita_de_ordem", inverseCopy.bytes[WAIT_ADDR] === 30 && JSON.stringify(diffOffsets(base, inverseCopy.bytes)) === JSON.stringify([WAIT_ADDR, FRAMES_ADDR + 11, FRAMES_ADDR + 12]), { diff: diffOffsets(base, inverseCopy.bytes).map((offset) => `0x${offset.toString(16)}`) });
+    await closeVisibleConsoleDrawer(sessionIdRef, "antes dos restaurs finais (round-trip inverso)");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-sequence-restore", "restaurar a ordem (final inverso)");
+    await waitFor(
+      async () => {
+        const { bytes } = await rawCopyOf(savedId);
+        return JSON.stringify(diffOffsets(base, bytes)) === JSON.stringify([WAIT_ADDR]);
+      },
+      30000,
+      "A restauracao final da ordem nao deixou so a duracao 30 na copia",
+      250
+    );
+    await closeVisibleConsoleDrawer(sessionIdRef, "antes da restauracao final da duracao");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-cadence-restore", "restaurar a duracao (final inverso)");
+    const backToBase = await waitFor(
+      async () => {
+        const { bytes } = await rawCopyOf(savedId);
+        return bytes.equals(base) ? bytes : false;
+      },
+      30000,
+      "A jornada nao terminou com a copia identica a base",
+      250
+    );
+    addCheck("passo9.roundtrip_inverso_fecha_na_base", backToBase.equals(base), { copy_sha: hash(backToBase) });
+    report.steps.push({ step: 9, name: "roundtrip_cadencia_entao_sequencia", copy_sha256_intermedia: inverseCopy.edit.modified_rom_sha256, final: hash(backToBase) });
+
+    // PASSO 10 — negativos dos novos controles via sonda tecnica de IPC (o
+    // mesmo canal que a UI usa; NAO e prova de teclado) + descarte de ack de
+    // epoca anterior com DUAS sessoes reais pela interface.
+    const bogus = await probeInvoke("rex_inspection_edit_sonic_sequence", { sessionId: "sessao-divergente-e2e", resourceId: "sonic1_sonic", proposal: PROPOSAL_B });
+    const bogusRestore = await probeInvoke("rex_inspection_restore_sonic_sequence", { sessionId: "sessao-divergente-e2e", resourceId: "sonic1_sonic" });
+    const bogusInfo = await probeInvoke("rex_inspection_sonic_sequence", { sessionId: "sessao-divergente-e2e" });
+    const copyAfterBogus = await rawCopyOf(savedId);
+    addCheck("passo10.sessao_divergente_recusada_sonda", bogus.ok === false && bogusRestore.ok === false && bogusInfo.ok === false && copyAfterBogus.bytes.equals(base), {
+      edit_error: bogus.error,
+      restore_error: bogusRestore.error,
+      info_error: bogusInfo.error,
+      copy_inalterada: copyAfterBogus.bytes.equals(base),
+      attribution: "sonda tecnica via IPC do produto",
+    });
+    const badResource = await probeInvoke("rex_inspection_edit_sonic_sequence", { sessionId: savedId, resourceId: "outro_recurso", proposal: PROPOSAL_B });
+    const badToken = await probeInvoke("rex_inspection_edit_sonic_sequence", { sessionId: savedId, resourceId: "sonic1_sonic", proposal: inverseProposal.map((byte, index) => index === 5 ? 0x07 : byte === 0x07 ? 1 : byte) });
+    const badLength = await probeInvoke("rex_inspection_edit_sonic_sequence", { sessionId: savedId, resourceId: "sonic1_sonic", proposal: PROPOSAL_B.slice(0, 17) });
+    const copyAfterNegatives = await rawCopyOf(savedId);
+    addCheck("passo10.negativos_de_proposta_recusados_sonda", badResource.ok === false && badToken.ok === false && badLength.ok === false && copyAfterNegatives.bytes.equals(base), {
+      resource_error: badResource.error,
+      token_error: badToken.error,
+      length_error: badLength.error,
+      attribution: "sonda tecnica via IPC do produto",
+    });
+
+    // Segunda sessao real (criada pela propria UI) para o teste de resposta
+    // atrasada: o ack de epoca anterior da segunda sessao deve ser descartado
+    // ao trocar para a sessao da jornada, sem nunca pintar os dados dela.
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-refresh-sessions", "listar antes de criar a segunda sessao");
+    const inspectionInput = "[data-testid='reverse-inspection-panel'] input[type='text']";
+    await fillInputBySelector(sessionIdRef, inspectionInput, romPath);
+    const identifyElement = await findElement(sessionIdRef, "[data-testid='inspection-identify']");
+    await clickElementWithDiagnostics(sessionIdRef, identifyElement, "[data-testid='inspection-identify']");
+    await waitFor(
+      async () => executeScript(sessionIdRef, `return Boolean(document.querySelector("[data-testid='inspection-start']"));`),
+      30000,
+      "A segunda sessao nao liberou o controle de analise",
+      100
+    );
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-start", "descobrir a segunda sessao");
+    const secondSession = await waitFor(
+      async () => {
+        const state = await readInspectionUiState(sessionIdRef);
+        return state?.session?.id && state.session.id !== savedId && state.session.status === "completed" ? state : false;
+      },
+      180000,
+      "A segunda sessao nao completou a descoberta",
+      500
+    );
+    const secondId = secondSession.session.id;
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-save", "salvar a segunda sessao");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-refresh-sessions", "listar as duas sessoes salvas");
+    await waitFor(
+      async () => executeScript(sessionIdRef, `return Boolean(document.querySelector('[data-testid="select-saved-session-${secondId}"]'));`),
+      15000,
+      "A segunda sessao salva nao apareceu na lista",
+      100
+    );
+    const patched = await executeScript(sessionIdRef, `
+      const internals = window.__TAURI_INTERNALS__;
+      if (!internals || typeof internals.invoke !== "function") return false;
+      if (!internals.__rdsSeqDelayPatched) {
+        const original = internals.invoke.bind(internals);
+        internals.invoke = (cmd, payload) => {
+          const delay = Number(window.__RDS_SEQ_EDIT_DELAY_MS__ ?? 0);
+          if (cmd === "rex_inspection_edit_sonic_sequence" && delay > 0) {
+            return new Promise((resolve, reject) => { setTimeout(() => { original(cmd, payload).then(resolve, reject); }, delay); });
+          }
+          return original(cmd, payload);
+        };
+        internals.__rdsSeqDelayPatched = true;
+      }
+      window.__RDS_SEQ_EDIT_DELAY_MS__ = 2600;
+      return true;
+    `);
+    if (!patched) fail("O atraso controlado de resposta nao pudo ser instalado na pagina; o teste de ack atrasado seria vacuo");
+    const messagesBeforeStale = await consoleMessages();
+    const staleProbeProposal = ORIGINAL.map((byte, index) => index === 11 ? 3 : index === 12 ? 1 : byte);
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, `select-saved-session-${secondId}`, "selecionar a segunda sessao");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-reopen", "reabrir a segunda sessao");
+    const secondPanel = await waitFor(
+      async () => {
+        const state = await readSequencePanelState();
+        const shown = await executeScript(sessionIdRef, `return document.querySelector("[data-testid='inspection-session']")?.getAttribute("data-session-id");`);
+        return shown === secondId && JSON.stringify(state.current) === JSON.stringify(ORIGINAL) ? state : false;
+      },
+      30000,
+      "A segunda sessao nao reabriu com a ordem original",
+      250
+    );
+    addCheck("passo10.segunda_sessao_ordem_original", secondPanel.count === 18, { count: secondPanel.count });
+    await clickSequenceEntryWithHitTest(12, 3);
+    await closeVisibleConsoleDrawer(sessionIdRef, "antes do clique que sera atrasado");
+    await moveClicks("inspection-sequence-move-before", 1);
+    const secondProposed = await waitFor(
+      async () => {
+        const state = await readSequencePanelState();
+        return JSON.stringify(state.proposed) === JSON.stringify(staleProbeProposal) ? state : false;
+      },
+      5000,
+      "A permutacao na segunda sessao nao montou a proposta esperada",
+      100
+    );
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-sequence-apply", "aplicar na segunda sessao (resposta atrasada em voo)");
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    const busyDuringFlight = await executeScript(sessionIdRef, `
+      const q = (selector) => document.querySelector(selector);
+      return { applyDisabled: Boolean(q("[data-testid='inspection-sequence-apply']")?.disabled), message: q("[data-testid='inspection-sequence-message']")?.textContent ?? "", error: q("[data-testid='inspection-sequence-error']")?.textContent ?? "" };
+    `);
+    const flightConfirmed = busyDuringFlight.applyDisabled === true || (await consoleMessages()).length === messagesBeforeStale.length;
+    addCheck("passo10.voo_atrasado_confirmado", flightConfirmed, { apply_disabled_800ms: busyDuringFlight.applyDisabled, note: "sem o atraso real o teste de epoca seria vacuo; a pagina registrou 2600ms de espera no IPC" });
+    await executeScript(sessionIdRef, `return window.__RDS_SEQ_EDIT_DELAY_MS__ = 0;`);
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, `select-saved-session-${savedId}`, "trocar para a sessao da jornada durante o voo");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-reopen", "reabrir a sessao da jornada (epoca nova)");
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    // A espera cobre o voo de 2600ms; a espera condicional segue sem falhar:
+    // se a guarda de epoca estiver quebrada, o ack atrasado pinta a ordem da
+    // segunda sessao no painel da jornada e o waitFor estoura — o FAIL e
+    // registrado pela addCheck abaixo com a evidencia bruta, nao por excecao.
+    const settled = await waitFor(
+      async () => {
+        const shown = await executeScript(sessionIdRef, `return document.querySelector("[data-testid='inspection-session']")?.getAttribute("data-session-id");`);
+        const state = await readSequencePanelState();
+        return shown === savedId && JSON.stringify(state.current) === JSON.stringify(ORIGINAL) ? { shown, state } : false;
+      },
+      15000,
+      "epoca quebrada",
+      250
+    ).catch(() => null);
+    const messagesAfterStale = await consoleMessages();
+    const staleAcks = messagesAfterStale.filter((message) => message.includes("Ordem id_Wait aplicada") && !messagesBeforeStale.includes(message));
+    const finalPanel = settled?.state ?? (await readSequencePanelState());
+    const finalSessionId = settled?.shown ?? (await executeScript(sessionIdRef, `return document.querySelector("[data-testid='inspection-session']")?.getAttribute("data-session-id");`));
+    const secondDisk = await probeInvoke("rex_inspection_status", { sessionId: secondId });
+    const secondDiskCopy = secondDisk?.value?.session?.edit?.modified_rom_path ? await readFile(secondDisk.value.session.edit.modified_rom_path) : null;
+    const secondCopyApplied = secondDiskCopy !== null && JSON.stringify(Array.from(secondDiskCopy.subarray(FRAMES_ADDR, FRAMES_ADDR + FRAMES_LEN))) === JSON.stringify(staleProbeProposal);
+    addCheck("passo10.ack_de_epoca_anterior_descartado_pela_ui", staleAcks.length === 0 && finalSessionId === savedId && JSON.stringify(finalPanel.current) === JSON.stringify(ORIGINAL) && secondCopyApplied === true, {
+      acks_novos: staleAcks,
+      sessao_exibida: finalSessionId,
+      painel_atual: finalPanel.current,
+      copia_da_segunda_sessao_no_disco: secondCopyApplied ? "permutacao aplicada pelo backend sem pintar a UI" : null,
+      required: "UI da jornada intacta (ordem original) + escrita da segunda sessao confirmada no proprio arquivo",
+    });
+    report.steps.push({ step: 10, name: "negativos_e_ack_atrasado", second_session: secondId, acks_descartados: staleAcks.length, probe_final: finalPanel.bytes });
+    await captureScreenshot(sessionIdRef, `${prefix}-sequencia-journey-passo10.png`);
+
+    addCheck("final.base_preservada", (await readFile(romPath)).equals(base), { rom_path: romPath });
+    const allPass = report.checks.every((entry) => entry.pass !== false);
+    report.runtime_effect = "ordem e duracao acumuladas na mesma copia pela UI real, restauracoes seletivas provadas byte a byte, ack de epoca anterior descartado com duas sessoes reais";
+    await persistReport({ allPass, finished_at: new Date().toISOString() });
+    if (!allPass) {
+      const failed = report.checks.filter((entry) => entry.pass === false);
+      fail(`Jornada §5.2 da sequencia INCONCLUSIVA/FAIL frente ao congelado (sem promover nada): ${JSON.stringify({ failed, report_path: path.join(pilotDir, "report.json") })}`);
+    }
+    console.log(`OK: Sonic sequencia journey E2E; allPass=true; report=${path.join(pilotDir, "report.json")}`);
+    return sessionIdRef;
+  } catch (error) {
+    await persistReport({ allPass: false, aborted: true, error: String(error?.message ?? error), finished_at: new Date().toISOString() }).catch(() => null);
+    throw error;
+  }
+}
+
 // Cenario de diagnostico da missao visual (ETAPA 1, congelado em
 // docs/rex_profiles/sonic_anim_integrada/EXPECTATIONS-VISUAL-ETAPA1.md):
 // separa DADOS (pixels do canvas vs referencia independente) de
@@ -16736,11 +17468,13 @@ async function main() {
     const sonicCadenceMode = options.scenario === "sonic-cadence-journey";
     const sonicAnimIntegradaMode = options.scenario === "sonic-anim-integrada";
     const sonicAnimVisualMode = options.scenario === "sonic-anim-visual-diagnostico";
+    const sonicSequenciaJourneyMode = options.scenario === "sonic-sequencia-journey";
     const sonicTilesMode = options.scenario === "inspection-sonic-tiles";
     if (sonicMultiframeMode) options.scenario = "inspection-sonic";
     if (sonicCadenceMode) options.scenario = "inspection-sonic";
     if (sonicAnimIntegradaMode) options.scenario = "inspection-sonic";
     if (sonicAnimVisualMode) options.scenario = "inspection-sonic";
+    if (sonicSequenciaJourneyMode) options.scenario = "inspection-sonic";
     if (sonicTilesMode) options.scenario = "inspection-sonic";
     if (["inspection", "inspection-cancel", "inspection-complete", "inspection-sprite-secondary", "inspection-sonic", "inspection-preview-unavailable"].includes(options.scenario)) {
       let inspectionRom = process.env.RDS_INSPECTION_ROM ?? "";
@@ -16916,6 +17650,11 @@ async function main() {
         }
         if (sonicAnimVisualMode) {
           sessionId = await runSonicAnimVisualDiagnosticoScenario(sessionId, options.app, inspectionRom, inspectionRomBytes, completedState.session.id, artifactPrefix, uiBootstrapTimeoutMs);
+          currentE2eRunContext.sessionId = sessionId;
+          return;
+        }
+        if (sonicSequenciaJourneyMode) {
+          sessionId = await runSonicSequenciaJourneyScenario(sessionId, options.app, inspectionRom, inspectionRomBytes, completedState.session.id, artifactPrefix, uiBootstrapTimeoutMs);
           currentE2eRunContext.sessionId = sessionId;
           return;
         }
