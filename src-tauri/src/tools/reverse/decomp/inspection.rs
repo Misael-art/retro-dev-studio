@@ -2793,6 +2793,350 @@ mod tests {
         .unwrap();
     }
 
+    /// Pendência 2 + P2 — the integrated four-domain flow (pixel, paleta,
+    /// duração, ORDEM) on the pinned BYOR. Proves both directions across the
+    /// cadence↔sequence fork (the previously-blocked "reordenar → depois editar
+    /// duração" path), byte-for-byte commutativity of the four disjoint domains,
+    /// save/destroy/reopen keeps BOTH panels usable, and selective restore of
+    /// each domain leaves the others intact. Runs the real pipeline only — no
+    /// emulator, no direct core injection.
+    #[test]
+    #[ignore = "BYOR Sonic pinado; RDS_SONIC_MULTIFRAME_ROM + RDS_DECOMP_WORK obrigatórios; escreve só na cópia"]
+    fn sonic_integrado_sequencia_cadencia_bidirecional_e_preservacao() {
+        use super::super::{
+            sonic_cadence as cadence, sonic_sequence as seq, sonic_sprite as sonic,
+        };
+        let path = std::env::var("RDS_SONIC_MULTIFRAME_ROM").expect("BYOR obrigatório");
+        assert!(
+            std::env::var("RDS_DECOMP_WORK").is_ok(),
+            "work isolado obrigatório"
+        );
+        let (_, base) = rex_read_rom(Path::new(&path)).unwrap();
+
+        // Pintura: dois pixels em bytes de arte distintos + uma cor de paleta.
+        let geometry = sonic::read_frame(&base, "sonic1_sonic/stand").unwrap();
+        let loc_a = geometry.source_pixel(8, 8).unwrap();
+        let loc_b = geometry.source_pixel(9, 9).unwrap();
+        assert_ne!(loc_a.byte_offset, loc_b.byte_offset);
+        let index_a = {
+            let prev = if loc_a.high_nibble {
+                base[loc_a.byte_offset] >> 4
+            } else {
+                base[loc_a.byte_offset] & 15
+            };
+            (prev + 1) % 16
+        };
+        let index_b = {
+            let prev = if loc_b.high_nibble {
+                base[loc_b.byte_offset] >> 4
+            } else {
+                base[loc_b.byte_offset] & 15
+            };
+            (prev + 7) % 16
+        };
+        let pal_word = sonic::PALETTE_OFFSET + 3 * 2;
+        let pal_new: [u8; 2] = [base[pal_word] ^ 0x02, base[pal_word + 1] ^ 0x02];
+        let pal_red = (pal_new[1] & 0b0000_1110) >> 1;
+        let pal_green = (pal_new[1] & 0b1110_0000) >> 5;
+        let pal_blue = (pal_new[0] & 0b0000_1110) >> 1;
+
+        // Proposta B (congelada em §8.2): swap(0,17) — cabeça 01→04 e o par do
+        // laço FE 02 passa de (03,04) a (03,01). Multiconjunto preservado.
+        let mut proposal = cadence::WAIT_FRAMES;
+        proposal.swap(0, 17);
+        assert_ne!(
+            &proposal[..],
+            &cadence::WAIT_FRAMES[..],
+            "proposta B é não-vazia"
+        );
+        let seq_pos0 = cadence::WAIT_ADDR + 1;
+        let seq_pos17 = cadence::WAIT_ADDR + 1 + 17;
+
+        let expected_diff: Vec<u64> = {
+            let mut v = vec![
+                loc_a.byte_offset,
+                loc_b.byte_offset,
+                pal_word,
+                pal_word + 1,
+                cadence::WAIT_ADDR,
+                seq_pos0,
+                seq_pos17,
+            ];
+            v.sort_unstable();
+            v.iter().map(|&i| i as u64).collect()
+        };
+
+        // Uma cadeia aplica os QUATRO domínios numa ordem e confere tudo.
+        let run_chain = |order: u8| -> String {
+            let session = open(&path).unwrap();
+            let id = session.session_id.clone();
+            let paint = || {
+                edit_sonic_tiles(
+                    &id,
+                    "sonic1_sonic",
+                    "sonic1_sonic/stand",
+                    &[
+                        InspectionPixelEdit {
+                            x: 8,
+                            y: 8,
+                            index: index_a,
+                        },
+                        InspectionPixelEdit {
+                            x: 9,
+                            y: 9,
+                            index: index_b,
+                        },
+                    ],
+                    true,
+                )
+                .unwrap()
+            };
+            let palette = || {
+                edit_sonic_palette(
+                    &id,
+                    "sonic1_sonic",
+                    "sonic1_sonic/stand",
+                    3,
+                    pal_red,
+                    pal_green,
+                    pal_blue,
+                )
+                .unwrap()
+            };
+            let duration = || edit_sonic_duration(&id, "sonic1_sonic", 40).unwrap();
+            let sequence = || edit_sonic_sequence(&id, "sonic1_sonic", proposal.to_vec()).unwrap();
+            let last = match order {
+                // pintura → paleta → duração → ORDEM (cadência antes da sequência)
+                0 => {
+                    paint();
+                    palette();
+                    duration();
+                    sequence()
+                }
+                // ORDEM primeiro → depois duração (a direção antes RECUSADA)
+                _ => {
+                    sequence();
+                    duration();
+                    palette();
+                    paint()
+                }
+            };
+            assert_eq!(
+                last.changed_offsets, expected_diff,
+                "diff cumulativo da cadeia {order} = exatamente os 7 bytes autorizados dos 4 domínios"
+            );
+            assert_eq!(last.bytes_changed, 7);
+
+            // Ledger: um registro por domínio, na ordem aplicada.
+            let stored = get_stored_session(&id).unwrap().session;
+            assert_eq!(stored.applied_edits.len(), 4);
+            let seqs: Vec<u32> = stored.applied_edits.iter().map(|e| e.seq).collect();
+            assert_eq!(seqs, vec![1, 2, 3, 4]);
+            let formats: Vec<&str> = stored
+                .applied_edits
+                .iter()
+                .map(|e| e.format.as_str())
+                .collect();
+            let expected_formats: &[&str] = if order == 0 {
+                &[
+                    "md_4bpp_tile_nibbles",
+                    "md_rgb333_palette_word",
+                    cadence::EDIT_FORMAT,
+                    seq::EDIT_FORMAT,
+                ]
+            } else {
+                &[
+                    seq::EDIT_FORMAT,
+                    cadence::EDIT_FORMAT,
+                    "md_rgb333_palette_word",
+                    "md_4bpp_tile_nibbles",
+                ]
+            };
+            assert_eq!(formats, expected_formats);
+
+            // Os DOIS painéis estão utilizáveis na cópia reordenada + durada.
+            let cad = sonic_cadence_info(&id).unwrap();
+            assert_eq!(cad.current_interval, 40);
+            assert_eq!(cad.frames, cadence::WAIT_FRAMES.to_vec());
+            assert_eq!(cad.current_frames, proposal.to_vec());
+            let sq = sonic_sequence_info(&id).unwrap();
+            assert_eq!(sq.current_frames, proposal.to_vec());
+            assert_eq!(sq.changed_positions, vec![0, 17]);
+
+            // Salvar → destruir da memória → reabrir: controles seguem utilizáveis.
+            let saved = save(&id, None).unwrap();
+            sessions().lock().unwrap().remove(&id);
+            let reopened = reopen(&path, &id).unwrap();
+            assert_eq!(reopened.edit, saved.edit);
+            assert_eq!(reopened.applied_edits.len(), 4);
+            let cad_re = sonic_cadence_info(&id).unwrap();
+            assert_eq!(cad_re.current_interval, 40);
+            let sq_re = sonic_sequence_info(&id).unwrap();
+            assert_eq!(sq_re.current_frames, proposal.to_vec());
+
+            last.modified_rom_sha256
+        };
+
+        let sha_a = run_chain(0);
+        let sha_b = run_chain(1);
+        assert_eq!(
+            sha_a, sha_b,
+            "comutatividade byte a byte dos 4 domínios disjuntos: as duas ordens convergem"
+        );
+
+        // Restaurar SÓ a sequência preserva duração + pixel + paleta.
+        let session = open(&path).unwrap();
+        let id = session.session_id.clone();
+        edit_sonic_tiles(
+            &id,
+            "sonic1_sonic",
+            "sonic1_sonic/stand",
+            &[
+                InspectionPixelEdit {
+                    x: 8,
+                    y: 8,
+                    index: index_a,
+                },
+                InspectionPixelEdit {
+                    x: 9,
+                    y: 9,
+                    index: index_b,
+                },
+            ],
+            true,
+        )
+        .unwrap();
+        edit_sonic_palette(
+            &id,
+            "sonic1_sonic",
+            "sonic1_sonic/stand",
+            3,
+            pal_red,
+            pal_green,
+            pal_blue,
+        )
+        .unwrap();
+        edit_sonic_duration(&id, "sonic1_sonic", 40).unwrap();
+        edit_sonic_sequence(&id, "sonic1_sonic", proposal.to_vec()).unwrap();
+        let back_seq = restore_sonic_sequence(&id, "sonic1_sonic").unwrap();
+        let rom_after_seq = rex_read_rom(Path::new(&back_seq.modified_rom_path))
+            .unwrap()
+            .1;
+        let only_art_pal_dur: Vec<u64> = {
+            let mut v = vec![
+                loc_a.byte_offset,
+                loc_b.byte_offset,
+                pal_word,
+                pal_word + 1,
+                cadence::WAIT_ADDR,
+            ];
+            v.sort_unstable();
+            v.iter().map(|&i| i as u64).collect()
+        };
+        assert_eq!(
+            back_seq.changed_offsets, only_art_pal_dur,
+            "restaurar a ordem devolve só a janela de 18 entradas; duração/pixel/paleta ficam"
+        );
+        assert_eq!(rom_after_seq[cadence::WAIT_ADDR], 40, "duração preservada");
+        assert_eq!(
+            &rom_after_seq[seq_pos0..seq_pos0 + 1],
+            &cadence::WAIT_FRAMES[..1],
+            "ordem original restaurada na cabeça"
+        );
+        let cad_after = sonic_cadence_info(&id).unwrap();
+        assert_eq!(cad_after.current_interval, 40);
+        assert_eq!(cad_after.current_frames, cadence::WAIT_FRAMES.to_vec());
+
+        // Restaurar SÓ a duração (na cópia REORDENADA) preserva ordem + pixel + paleta.
+        let session2 = open(&path).unwrap();
+        let id2 = session2.session_id.clone();
+        edit_sonic_sequence(&id2, "sonic1_sonic", proposal.to_vec()).unwrap();
+        edit_sonic_palette(
+            &id2,
+            "sonic1_sonic",
+            "sonic1_sonic/stand",
+            3,
+            pal_red,
+            pal_green,
+            pal_blue,
+        )
+        .unwrap();
+        edit_sonic_tiles(
+            &id2,
+            "sonic1_sonic",
+            "sonic1_sonic/stand",
+            &[
+                InspectionPixelEdit {
+                    x: 8,
+                    y: 8,
+                    index: index_a,
+                },
+                InspectionPixelEdit {
+                    x: 9,
+                    y: 9,
+                    index: index_b,
+                },
+            ],
+            true,
+        )
+        .unwrap();
+        edit_sonic_duration(&id2, "sonic1_sonic", 40).unwrap();
+        // Restauração da duração = escrever o byte original na cópia reordenada —
+        // a direção que ANTES era recusada pelo verificador de ordem exata.
+        let back_dur =
+            edit_sonic_duration(&id2, "sonic1_sonic", cadence::WAIT_ORIGINAL_INTERVAL).unwrap();
+        assert_eq!(
+            back_dur.bytes_changed, 6,
+            "só ordem + pixel + paleta divergem (2+2+2), intervalo voltou a $17"
+        );
+        let sq_after = sonic_sequence_info(&id2).unwrap();
+        assert_eq!(
+            sq_after.current_frames,
+            proposal.to_vec(),
+            "ordem preservada"
+        );
+        let cad_after2 = sonic_cadence_info(&id2).unwrap();
+        assert_eq!(cad_after2.current_interval, cadence::WAIT_ORIGINAL_INTERVAL);
+
+        // No-op por domínio: repetir a ordem vigente não escreve nem move a cadeia.
+        let before = back_dur.modified_rom_sha256.clone();
+        let noop = edit_sonic_sequence(&id2, "sonic1_sonic", proposal.to_vec()).unwrap();
+        assert!(noop.noop);
+        assert_eq!(noop.bytes_changed, 0);
+        let stored = get_stored_session(&id2).unwrap().session;
+        assert_eq!(
+            stored.edit.as_ref().unwrap().modified_rom_sha256,
+            before,
+            "no-op não move a cadeia de SHA"
+        );
+
+        assert_eq!(
+            rex_read_rom(Path::new(&path)).unwrap().1,
+            base,
+            "BYOR intacta"
+        );
+
+        let report = serde_json::json!({
+            "base_sha256": super::super::sprite_composition::SONIC1_REFERENCE_SHA256,
+            "chain_cadence_first_sha": sha_a,
+            "chain_sequence_first_sha": sha_b,
+            "commutative_four_domains": sha_a == sha_b,
+            "diff_bytes": expected_diff,
+            "ledger_entries": 4,
+            "bidirectional_cadence_sequence": true,
+            "reopened_panels_usable": true,
+            "restore_sequence_diff_count": only_art_pal_dur.len(),
+            "restore_duration_diff_count": 6,
+            "noop_classified": true,
+            "base_unchanged": true,
+        });
+        fs::write(
+            decomp_work_dir().join("sonic-sequencia-cadencia-integrada-proof.json"),
+            serde_json::to_vec_pretty(&report).unwrap(),
+        )
+        .unwrap();
+    }
+
     /// Etapa 4, passo 1 (sonda rotulada): liga o core Libretro real com a ROM
     /// BYOR pinada, entra no jogo apenas por input e registra o que o core
     /// expõe. Descobre por temporalidade (não por mapa fixo) o contador de

@@ -7,7 +7,10 @@
 //! touched. Addresses and refusals live here so the UI never reimplements
 //! them. Contract: `docs/rex_profiles/sonic_sequencia/CONTRACT-SEQUENCIA.md`.
 
-use super::sonic_cadence::{WAIT_ADDR, WAIT_FRAMES, WAIT_TERMINATOR};
+use super::sonic_cadence::{
+    frame_is_reference, is_valid_permutation, validate_copy, CopyViolation, WAIT_ADDR, WAIT_FRAMES,
+    WAIT_TERMINATOR,
+};
 use serde::{Deserialize, Serialize};
 
 pub const EDIT_FORMAT: &str = "sonic1_wait_frame_order";
@@ -23,66 +26,48 @@ fn err(code: &str, detail: impl Into<String>) -> String {
     format!("{code}: {}", detail.into())
 }
 
-/// Sorted multiset of the original frames — the invariant a reordering keeps.
-fn original_multiset() -> [u8; FRAMES_LEN] {
-    let mut v = WAIT_FRAMES;
-    v.sort_unstable();
-    v
-}
-
-/// Every value the script legitimately uses as a frame reference. Tokens
-/// (`$FD..$FF`), `$00` and the special bit-7 range are never frames.
-fn is_frame_value(b: u8) -> bool {
-    matches!(b, 0x01..=0x04)
-}
-
-/// The working copy must still carry a valid interval, an untouched terminator
-/// and a frames region that is a *permutation* of the original multiset (so a
-/// reorder stays in scope while a tamper is refused).
-fn check_copy(rom: &[u8]) -> Result<(), String> {
-    let end = TERMINATOR_ADDR + WAIT_TERMINATOR.len();
-    if rom.len() < end {
-        return Err(err("seq_rom_short", "script do alvo truncado na copia"));
-    }
-    let interval = rom[WAIT_ADDR];
-    if interval == 0 || interval >= 0x80 {
-        return Err(err(
+/// Maps the shared copy predicate onto the sequence error namespace. The
+/// validation LOGIC is `sonic_cadence::validate_copy` (one definition of the
+/// script); only the messages are namespaced here.
+fn seq_copy_err(v: CopyViolation) -> String {
+    match v {
+        CopyViolation::Length => err("seq_rom_short", "script do alvo truncado na copia"),
+        CopyViolation::IntervalSpecial => err(
             "seq_base_mismatch",
             "copia carrega intervalo degenerado ou especial fora do contrato",
-        ));
-    }
-    if rom[TERMINATOR_ADDR..end] != WAIT_TERMINATOR {
-        return Err(err(
-            "seq_base_mismatch",
-            "terminador afBack 2 ausente ou adulterado na copia",
-        ));
-    }
-    let mut seen = rom[FRAMES_ADDR..FRAMES_END].to_vec();
-    if seen.iter().any(|b| !is_frame_value(*b)) {
-        return Err(err(
+        ),
+        CopyViolation::TokenByte => err(
             "seq_token_reserved",
             "regiao de molduras da copia contem byte que nao e referencia valida",
-        ));
-    }
-    seen.sort_unstable();
-    if seen != original_multiset() {
-        return Err(err(
+        ),
+        CopyViolation::NotPermutation => err(
             "seq_frame_invalid",
             "multiconjunto de molduras da copia difere do contrato",
-        ));
+        ),
+        CopyViolation::Terminator => err(
+            "seq_base_mismatch",
+            "terminador afBack 2 ausente ou adulterado na copia",
+        ),
     }
-    Ok(())
+}
+
+/// The working copy is validated by the SHARED `validate_copy`: a valid
+/// interval, an untouched terminator and a frames region that is any valid
+/// *permutation* of the original multiset. Reordering therefore never disables
+/// the cadence panel, and a tamper is still refused (pendência 2).
+fn check_copy(rom: &[u8]) -> Result<(), String> {
+    validate_copy(rom).map(|_| ()).map_err(seq_copy_err)
 }
 
 /// Current frame order of a working copy, after structural validation.
 pub fn read_frames(rom: &[u8]) -> Result<Vec<u8>, String> {
-    check_copy(rom)?;
-    Ok(rom[FRAMES_ADDR..FRAMES_END].to_vec())
+    validate_copy(rom).map_err(seq_copy_err)
 }
 
 /// A proposal is valid only if it is exactly `FRAMES_LEN` long, every entry is
 /// a frame reference, and it preserves the original multiset (a pure
-/// permutation — no new values, no token, no length change).
+/// permutation — no new values, no token, no length change). The permutation
+/// predicate is the shared one; the length refusal keeps its distinct code.
 fn validate_proposal(proposal: &[u8]) -> Result<(), String> {
     if proposal.len() != FRAMES_LEN {
         return Err(err(
@@ -94,21 +79,15 @@ fn validate_proposal(proposal: &[u8]) -> Result<(), String> {
             ),
         ));
     }
-    if let Some(&b) = proposal.iter().find(|b| !is_frame_value(**b)) {
+    if let Some(&b) = proposal.iter().find(|b| !frame_is_reference(**b)) {
         return Err(err(
             "seq_token_reserved",
             format!("entrada {:#04x} nao e uma referencia de moldura", b),
         ));
     }
-    let mut sorted = proposal.to_vec();
-    sorted.sort_unstable();
-    if sorted != original_multiset() {
-        return Err(err(
-            "seq_frame_invalid",
-            "proposta altera o conjunto de molduras (so a ordem pode mudar)",
-        ));
-    }
-    Ok(())
+    is_valid_permutation(proposal)
+        .map_err(|v| seq_copy_err(v))
+        .map_err(|e| e.replace("copia", "proposta"))
 }
 
 /// Reorders the 18 frame entries of a working copy in place. Returns the
