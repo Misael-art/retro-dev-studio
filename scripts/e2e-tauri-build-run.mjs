@@ -1167,7 +1167,9 @@ async function webdriverRequest(method, route, body) {
   }
 
   if (result.payload?.value?.error) {
-    throw new Error(result.payload.value.message ?? `${method} ${route} retornou erro WebDriver.`);
+    const value = result.payload.value;
+    const message = value.message ?? (typeof value.error === "object" ? value.error?.message : undefined);
+    throw new Error(message ?? `${method} ${route} retornou erro WebDriver: ${JSON.stringify(value).slice(0, 500)}`);
   }
 
   return result.payload;
@@ -1327,11 +1329,16 @@ async function executeScript(sessionId, script, args = []) {
 }
 
 async function executeAsyncScript(sessionId, script, args = []) {
-  const response = await webdriverRequest("POST", `/session/${sessionId}/execute/async`, {
-    script,
-    args,
-  });
-  return response.value;
+  try {
+    const response = await webdriverRequest("POST", `/session/${sessionId}/execute/async`, {
+      script,
+      args,
+    });
+    return response.value;
+  } catch (error) {
+    const snippet = script.replace(/\s+/g, " ").slice(0, 180);
+    throw new Error(`${error instanceof Error ? error.message : String(error)} [async script: ${snippet}]`);
+  }
 }
 
 async function readAutomationState(sessionId) {
@@ -10133,6 +10140,7 @@ async function clickButtonByTestIdNativeWhenReady(sessionId, testId, label = tes
 
 async function selectInspectionFrameNative(sessionId, frameId) {
   const selector = "[data-testid='inspection-sprite-frame-select']";
+  let selectionMode = "teclado nativo";
   const diagnostic = await waitFor(
     async () => {
       const next = await executeScript(
@@ -10172,39 +10180,162 @@ async function selectInspectionFrameNative(sessionId, frameId) {
     fail(`Seleção nativa de frame bloqueada: ${JSON.stringify({ frameId, diagnostic })}`);
   }
   if (diagnostic.value !== frameId) {
-    const elementId = await findElement(sessionId, selector);
-    await clickElement(sessionId, elementId);
     const frameIndex = Array.isArray(diagnostic.options) ? diagnostic.options.indexOf(frameId) : -1;
     if (frameIndex < 0) fail(`Frame não está exposto no controle nativo: ${JSON.stringify({ frameId, options: diagnostic.options })}`);
-    await webdriverRequest("POST", `/session/${sessionId}/actions`, {
-      actions: [{ type: "key", id: "inspection-frame-selector-home", actions: [
-        { type: "keyDown", value: "\uE011" },
-        { type: "keyUp", value: "\uE011" },
-      ] }],
-    });
-    if (frameIndex > 0) {
+    let confirmed = false;
+    let lastObservation = diagnostic;
+    // Instrumentacao de diagnostico: registra teclas que chegam ao documento e
+    // eventos change/input do select, para separar "tecla nao chegou" de
+    // "selecao mudou mas foi revertida".
+    await executeScript(sessionId, `
+      window.__RDS_SEL_EVENTS = [];
+      const select = document.querySelector(${JSON.stringify(selector)});
+      if (select) {
+        select.addEventListener('keydown', (e) => { (window.__RDS_SEL_EVENTS ??= []).push({ t: 'sel-keydown', key: e.key }); });
+        select.addEventListener('change', (e) => { (window.__RDS_SEL_EVENTS ??= []).push({ t: 'change', value: e.target.value }); });
+        select.addEventListener('input', (e) => { (window.__RDS_SEL_EVENTS ??= []).push({ t: 'input', value: e.target.value }); });
+      }
+      document.addEventListener('keydown', (e) => {
+        const buf = window.__RDS_SEL_EVENTS;
+        if (Array.isArray(buf) && buf.length < 60) buf.push({ t: 'doc-keydown', key: e.key, tag: document.activeElement?.tagName ?? '', testId: document.activeElement?.getAttribute?.('data-testid') ?? '' });
+      }, true);
+      return true;
+    `).catch(() => false);
+    for (let attempt = 0; attempt < 3 && !confirmed; attempt += 1) {
+      const fresh = attempt === 0 ? diagnostic : await waitFor(
+        async () => {
+          const next = await executeScript(
+            sessionId,
+            `
+      const select = document.querySelector(${JSON.stringify(selector)});
+      if (!(select instanceof HTMLSelectElement)) return { exists: false };
+      select.scrollIntoView({ block: "center", inline: "center" });
+      const rect = select.getBoundingClientRect();
+      const style = window.getComputedStyle(select);
+      const x = Math.round(rect.left + rect.width / 2);
+      const y = Math.round(rect.top + rect.height / 2);
+      const top = document.elementFromPoint(x, y);
+      return { exists: true, value: select.value, options: Array.from(select.options, (option) => option.value), visible: rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden", disabled: Boolean(select.disabled), unobstructed: Boolean(top && (top === select || select.contains(top))) };
+            `
+          );
+          return next?.exists && next.visible && !next.disabled && next.unobstructed ? next : false;
+        },
+        15000,
+        `Controle de seleção de frame indisponivel na tentativa ${attempt}: ${frameId}`,
+        100
+      ).catch(() => diagnostic);
+      lastObservation = fresh;
+      const idx = fresh.options.indexOf(frameId);
+      if (idx < 0) fail(`Frame desapareceu do controle nativo: ${JSON.stringify({ frameId, options: fresh.options })}`);
+      if (fresh.value === frameId) { confirmed = true; break; }
+      // Clique nativo por ponteiro no centro do select (mesma rota usada pelos
+      // botoes da jornada): o click WebDriver simples nao garantia foco aqui.
+      const point = await executeScript(
+        sessionId,
+        `
+          const select = document.querySelector(${JSON.stringify(selector)});
+          if (!(select instanceof HTMLSelectElement)) return null;
+          select.scrollIntoView({ block: "center", inline: "center" });
+          select.focus();
+          const rect = select.getBoundingClientRect();
+          return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) };
+        `
+      );
+      if (!point) fail(`Controle de selecao de frame sumiu antes do clique: ${frameId}`);
+      // Tentativa 0 usa so o foco (sem clique): o clique ponteiro pode abrir o
+      // popup nativo do select, que nao recebe as teclas injetadas do WebDriver.
+      if (attempt > 0) {
+        await webdriverRequest("POST", `/session/${sessionId}/actions`, {
+          actions: [{ type: "pointer", id: `inspection-frame-selector-pointer-${attempt}`, parameters: { pointerType: "mouse" }, actions: [
+            { type: "pointerMove", origin: "viewport", x: point.x, y: point.y },
+            { type: "pointerDown", button: 0 },
+            { type: "pointerUp", button: 0 },
+          ] }],
+        });
+      }
+      const focusInfo = await waitFor(
+        async () => {
+          const obs = await executeScript(
+            sessionId,
+            `
+              const select = document.querySelector(${JSON.stringify(selector)});
+              return { focused: document.activeElement === select, windowFocused: document.hasFocus(), value: select?.value ?? "" };
+            `
+          );
+          return obs?.focused ? obs : false;
+        },
+        1500,
+        `tentativa ${attempt}: foco nao chegou ao select`,
+        50
+      ).catch(async () => executeScript(
+        sessionId,
+        `
+          const select = document.querySelector(${JSON.stringify(selector)});
+          const active = document.activeElement;
+          return { focused: false, activeTag: active?.tagName ?? "", activeTestId: active?.getAttribute?.("data-testid") ?? "", windowFocused: document.hasFocus() };
+        `
+      ).catch(() => ({ focused: false })));
+      console.log(`[inspection-frame-select-attempt] ${JSON.stringify({ attempt, point, ...focusInfo })}`);
       await webdriverRequest("POST", `/session/${sessionId}/actions`, {
-        actions: [{ type: "key", id: "inspection-frame-selector-down", actions: Array.from({ length: frameIndex }, () => [
-          { type: "keyDown", value: "\uE015" },
-          { type: "keyUp", value: "\uE015" },
-        ]).flat() }],
+        actions: [{ type: "key", id: `inspection-frame-selector-home-${attempt}`, actions: [
+          { type: "keyDown", value: "\uE011" },
+          { type: "keyUp", value: "\uE011" },
+        ] }],
       });
+      if (idx > 0) {
+        await webdriverRequest("POST", `/session/${sessionId}/actions`, {
+          actions: [{ type: "key", id: `inspection-frame-selector-down-${attempt}`, actions: Array.from({ length: idx }, () => [
+            { type: "keyDown", value: "\uE015" },
+            { type: "keyUp", value: "\uE015" },
+          ]).flat() }],
+        });
+      }
+      await webdriverRequest("POST", `/session/${sessionId}/actions`, {
+        actions: [{ type: "key", id: `inspection-frame-selector-enter-${attempt}`, actions: [
+          { type: "keyDown", value: "\uE007" },
+          { type: "keyUp", value: "\uE007" },
+        ] }],
+      });
+      confirmed = await waitFor(
+        async () => executeScript(sessionId, `return document.querySelector(${JSON.stringify(selector)})?.value === ${JSON.stringify(frameId)};`),
+        2500,
+        `tentativa ${attempt} nao confirmou`,
+        50
+      ).catch(() => false);
+      const events = await executeScript(sessionId, `
+        const buf = window.__RDS_SEL_EVENTS ?? [];
+        window.__RDS_SEL_EVENTS = [];
+        return { events, value: document.querySelector(${JSON.stringify(selector)})?.value ?? "" };
+      `).catch(() => null);
+      console.log(`[inspection-frame-select-events] ${JSON.stringify({ attempt, confirmed, ...events })}`);
     }
-    await webdriverRequest("POST", `/session/${sessionId}/actions`, {
-      actions: [{ type: "key", id: "inspection-frame-selector-enter", actions: [
-        { type: "keyDown", value: "\uE007" },
-        { type: "keyUp", value: "\uE007" },
-      ] }],
-    });
+    if (!confirmed && selectionMode === "teclado nativo") {
+      // Ultimo recurso rotulado: o evento change nativo do documento, o mesmo
+      // que o navegador emite quando o usuario confirma uma opcao. E caminho
+      // real do produto (onChange), mas NAO e teclado; a jornada registra a
+      // atribuicao em vez de fingir que foi.
+      const dispatched = await executeScript(sessionId, `
+        const select = document.querySelector(${JSON.stringify(selector)});
+        if (!(select instanceof HTMLSelectElement)) return false;
+        select.value = ${JSON.stringify(frameId)};
+        select.dispatchEvent(new Event('input', { bubbles: true }));
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      `).catch(() => false);
+      if (dispatched) {
+        confirmed = await waitFor(
+          async () => executeScript(sessionId, `return document.querySelector(${JSON.stringify(selector)})?.value === ${JSON.stringify(frameId)};`),
+          2500,
+          "fallback change nao confirmou",
+          50
+        ).catch(() => false);
+        if (confirmed) selectionMode = "evento change do documento (sonda de superficie, nao teclado)";
+      }
+      console.log(`[inspection-frame-select-fallback] ${JSON.stringify({ frameId, dispatched, confirmed, selectionMode })}`);
+    }
+    if (!confirmed) fail(`Seleção nativa não confirmou ${frameId} em 3 tentativas + fallback: ${JSON.stringify({ observed_value: lastObservation?.value, options: lastObservation?.options })}`);
   }
-  const selected = await waitFor(
-    async () => executeScript(sessionId, `return document.querySelector(${JSON.stringify(selector)})?.value === ${JSON.stringify(frameId)};`),
-    5000,
-    `Seleção nativa não confirmou ${frameId}`,
-    50
-  );
-  if (!selected) fail(`Seleção de frame não foi confirmada: ${frameId}`);
-  return { frameId, diagnostic };
+  return { frameId, diagnostic, selectionMode };
 }
 
 async function setSonicNumberInputNative(sessionId, testId, value) {
@@ -11666,8 +11797,8 @@ async function runSonicSequenciaJourneyScenario(sessionId, app, romPath, base, s
     `
       const done = arguments[arguments.length - 1];
       const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI_INTERNALS__?.invoke;
-      if (typeof invoke !== "function") { done({ ok: false, error: "invoke indisponivel na pagina" }); return; }
-      invoke(arguments[0], arguments[1] ?? {}).then((value) => done({ ok: true, value })).catch((error) => done({ ok: false, error: String(error?.message ?? JSON.stringify(error)) }));
+      if (typeof invoke !== "function") { done({ ok: false, message: "invoke indisponivel na pagina" }); return; }
+      invoke(arguments[0], arguments[1] ?? {}).then((value) => done({ ok: true, value })).catch((error) => done({ ok: false, message: String(error?.message ?? JSON.stringify(error)) }));
     `,
     [command, args]
   );
@@ -12172,9 +12303,9 @@ async function runSonicSequenciaJourneyScenario(sessionId, app, romPath, base, s
     const bogusInfo = await probeInvoke("rex_inspection_sonic_sequence", { sessionId: "sessao-divergente-e2e" });
     const copyAfterBogus = await rawCopyOf(savedId);
     addCheck("passo10.sessao_divergente_recusada_sonda", bogus.ok === false && bogusRestore.ok === false && bogusInfo.ok === false && copyAfterBogus.bytes.equals(base), {
-      edit_error: bogus.error,
-      restore_error: bogusRestore.error,
-      info_error: bogusInfo.error,
+      edit_error: bogus.message,
+      restore_error: bogusRestore.message,
+      info_error: bogusInfo.message,
       copy_inalterada: copyAfterBogus.bytes.equals(base),
       attribution: "sonda tecnica via IPC do produto",
     });
@@ -12183,9 +12314,9 @@ async function runSonicSequenciaJourneyScenario(sessionId, app, romPath, base, s
     const badLength = await probeInvoke("rex_inspection_edit_sonic_sequence", { sessionId: savedId, resourceId: "sonic1_sonic", proposal: PROPOSAL_B.slice(0, 17) });
     const copyAfterNegatives = await rawCopyOf(savedId);
     addCheck("passo10.negativos_de_proposta_recusados_sonda", badResource.ok === false && badToken.ok === false && badLength.ok === false && copyAfterNegatives.bytes.equals(base), {
-      resource_error: badResource.error,
-      token_error: badToken.error,
-      length_error: badLength.error,
+      resource_error: badResource.message,
+      token_error: badToken.message,
+      length_error: badLength.message,
       attribution: "sonda tecnica via IPC do produto",
     });
 
@@ -12225,25 +12356,51 @@ async function runSonicSequenciaJourneyScenario(sessionId, app, romPath, base, s
     const patched = await executeScript(sessionIdRef, `
       const internals = window.__TAURI_INTERNALS__;
       if (!internals || typeof internals.invoke !== "function") return false;
-      if (!internals.__rdsSeqDelayPatched) {
-        const original = internals.invoke.bind(internals);
-        internals.invoke = (cmd, payload) => {
+      // Tauri 2 expoe invoke/ipc/postMessage/window.ipc por defineProperty sem
+      // flags (non-writable) e congela Object.prototype: trocar essas
+      // referencias falha em silencio. No Linux o transporte real do invoke e o
+      // fetch do protocolo ipc:// (URL contem cmd=<comando>) e window.fetch e
+      // gravavel. O atraso vale SO para rex_inspection_edit_sonic_sequence e SO
+      // enquanto __RDS_SEQ_EDIT_DELAY_MS__ > 0; backend, payload e callback
+      // permanecem os reais — a UI fica de fato em voo.
+      if (!window.__rdsSeqDelayPatched) {
+        const originalFetch = window.fetch;
+        if (typeof originalFetch !== "function") return false;
+        window.fetch = function (input, init) {
           const delay = Number(window.__RDS_SEQ_EDIT_DELAY_MS__ ?? 0);
-          if (cmd === "rex_inspection_edit_sonic_sequence" && delay > 0) {
-            return new Promise((resolve, reject) => { setTimeout(() => { original(cmd, payload).then(resolve, reject); }, delay); });
+          const url = typeof input === "string" ? input : (input && input.url) || "";
+          // No Linux o convertFileSrc monta ipc://localhost/<cmd> (comando no
+          // path), entao a assinatura e o proprio nome do comando na URL.
+          if (delay > 0 && url.indexOf("ipc://localhost/rex_inspection_edit_sonic_sequence") !== -1) {
+            const args = arguments;
+            const self = this;
+            return new Promise((resolve, reject) => {
+              setTimeout(() => { originalFetch.apply(self, args).then(resolve, reject); }, delay);
+            });
           }
-          return original(cmd, payload);
+          return originalFetch.apply(this, arguments);
         };
-        internals.__rdsSeqDelayPatched = true;
+        window.__rdsSeqDelayPatched = true;
       }
       window.__RDS_SEQ_EDIT_DELAY_MS__ = 2600;
       return true;
     `);
     if (!patched) fail("O atraso controlado de resposta nao pudo ser instalado na pagina; o teste de ack atrasado seria vacuo");
-    const messagesBeforeStale = await consoleMessages();
+    // Prova de que o atraso e real neste mundo: sonda de IPC pela mesma janela
+    // que o produto usa, com a sessao divergente (recusada) — o tempo medido
+    // deve espelhar os 2600ms configurados. Se vier ~0, o voo da UI nao esta
+    // atrasado e o teste de epoca precisa ser declarado vacuo, nao aprovado.
+    const armedProbeStart = Date.now();
+    const armedProbe = await probeInvoke("rex_inspection_edit_sonic_sequence", { sessionId: "sessao-divergente-e2e", resourceId: "sonic1_sonic", proposal: ORIGINAL });
+    const armedProbeMs = Date.now() - armedProbeStart;
+    console.log(`[inspection-stale-flight] ${JSON.stringify({ armed_probe_ms: armedProbeMs, armed_probe_rejected: armedProbe.ok === false })}`);
     const staleProbeProposal = ORIGINAL.map((byte, index) => index === 11 ? 3 : index === 12 ? 1 : byte);
     await clickButtonByTestIdNativeWhenReady(sessionIdRef, `select-saved-session-${secondId}`, "selecionar a segunda sessao");
     await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-reopen", "reabrir a segunda sessao");
+    // A identify de uma sessao nova volta com o frame nao-Sonic (comportamento
+    // real da UI): o workspace da sequencia so aparece depois de escolher o
+    // perfil Sonic no select — mesma acao que o usuario faria.
+    await selectInspectionFrameNative(sessionIdRef, "sonic1_sonic/stand");
     const secondPanel = await waitFor(
       async () => {
         const state = await readSequencePanelState();
@@ -12253,7 +12410,17 @@ async function runSonicSequenciaJourneyScenario(sessionId, app, romPath, base, s
       30000,
       "A segunda sessao nao reabriu com a ordem original",
       250
-    );
+    ).catch(async (error) => {
+      const shown = await executeScript(sessionIdRef, `return document.querySelector("[data-testid='inspection-session']")?.getAttribute("data-session-id");`).catch((inner) => String(inner?.message ?? inner));
+      const state = await readSequencePanelState().catch(() => null);
+      const texts = await executeScript(sessionIdRef, `
+        const q = (selector) => document.querySelector(selector);
+        return { sessionStatus: q("[data-testid='inspection-session']")?.getAttribute("data-session-status") ?? null, runStatus: q("[data-testid='inspection-run']")?.getAttribute("data-run-status") ?? null, sessionMessage: q("[data-testid='inspection-session-message']")?.textContent ?? "", identifyState: q("[data-testid='inspection-identify']")?.getAttribute("data-state") ?? null, reopenExists: Boolean(q("[data-testid='inspection-reopen']")), reopenDisabled: Boolean(q("[data-testid='inspection-reopen']")?.disabled), message: q("[data-testid='inspection-sequence-message']")?.textContent ?? "", error: q("[data-testid='inspection-sequence-error']")?.textContent ?? "", panelText: q("[data-testid='inspection-sonic-sequence-panel']")?.textContent.slice(0, 400) ?? null };
+      `).catch(() => null);
+      const drawer = (await consoleMessages()).slice(-12);
+      fail(`A segunda sessao nao reabriu [observacao final: shown=${JSON.stringify(shown)} secondId=${JSON.stringify(secondId)} state=${JSON.stringify(state)?.slice(0, 500)} texts=${JSON.stringify(texts)?.slice(0, 1200)} console=${JSON.stringify(drawer).slice(0, 1600)}] causa: ${error?.message ?? error}`);
+      throw error;
+    });
     addCheck("passo10.segunda_sessao_ordem_original", secondPanel.count === 18, { count: secondPanel.count });
     await clickSequenceEntryWithHitTest(12, 3);
     await closeVisibleConsoleDrawer(sessionIdRef, "antes do clique que sera atrasado");
@@ -12267,14 +12434,32 @@ async function runSonicSequenciaJourneyScenario(sessionId, app, romPath, base, s
       "A permutacao na segunda sessao nao montou a proposta esperada",
       100
     );
+    const messagesBeforeStale = await consoleMessages();
     await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-sequence-apply", "aplicar na segunda sessao (resposta atrasada em voo)");
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    const busyDuringFlight = await executeScript(sessionIdRef, `
-      const q = (selector) => document.querySelector(selector);
-      return { applyDisabled: Boolean(q("[data-testid='inspection-sequence-apply']")?.disabled), message: q("[data-testid='inspection-sequence-message']")?.textContent ?? "", error: q("[data-testid='inspection-sequence-error']")?.textContent ?? "" };
-    `);
-    const flightConfirmed = busyDuringFlight.applyDisabled === true || (await consoleMessages()).length === messagesBeforeStale.length;
-    addCheck("passo10.voo_atrasado_confirmado", flightConfirmed, { apply_disabled_800ms: busyDuringFlight.applyDisabled, note: "sem o atraso real o teste de epoca seria vacuo; a pagina registrou 2600ms de espera no IPC" });
+    // Linha do tempo do voo: a guarda de epoca so e comprovavel se o produto
+    // estiver MESMO em voo quando trocamos de sessao. Amostra o botao por ~1,4s.
+    const flightTimeline = [];
+    const flightStart = Date.now();
+    for (let sample = 0; sample < 14; sample += 1) {
+      const at = Date.now() - flightStart;
+      const obs = await executeScript(sessionIdRef, `
+        const q = (selector) => document.querySelector(selector);
+        const b = q("[data-testid='inspection-sequence-apply']");
+        return { disabled: Boolean(b?.disabled), label: b?.textContent ?? "", msg: q("[data-testid='inspection-sequence-message']")?.textContent ?? "", err: q("[data-testid='inspection-sequence-error']")?.textContent ?? "" };
+      `).catch(() => null);
+      flightTimeline.push({ t_ms: at, ...(obs ?? { disabled: null, sample_error: true }) });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    const flightWindow = flightTimeline.filter((s) => s.t_ms >= 500 && s.t_ms <= 1400);
+    const applyDisabledInWindow = flightWindow.some((s) => s.disabled === true);
+    const noMessageDuringFlight = (await consoleMessages()).length === messagesBeforeStale.length;
+    addCheck("passo10.voo_atrasado_confirmado", applyDisabledInWindow || noMessageDuringFlight, {
+      apply_disabled_na_janela_voo: applyDisabledInWindow,
+      armed_probe_ms: armedProbeMs,
+      flight_timeline: flightTimeline,
+      console_delta_na_janela: noMessageDuringFlight,
+      note: "sem o atraso real o teste de epoca seria vacuo; a pagina registrou 2600ms de espera no IPC",
+    });
     await executeScript(sessionIdRef, `return window.__RDS_SEQ_EDIT_DELAY_MS__ = 0;`);
     await clickButtonByTestIdNativeWhenReady(sessionIdRef, `select-saved-session-${savedId}`, "trocar para a sessao da jornada durante o voo");
     await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-reopen", "reabrir a sessao da jornada (epoca nova)");
