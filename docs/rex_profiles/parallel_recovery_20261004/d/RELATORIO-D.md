@@ -135,3 +135,14 @@ Rodados na worktree `codex/rex-parallel-d-eval-bench` em 2026-10-04:
 Aguardar export `rds-d-export/1` por SHA das frentes A/B/C; medir dev-1; se
 PASS, pedir export contra ho-1 (respostas ainda seladas), medir, e só então
 executar o unseal commitando o gabarito reservado com a evidência.
+
+## 9. Publicação (2026-10-04)
+
+Branch `codex/rex-parallel-d-eval-bench` empurrada a `origin` em
+fast-forward de `cb56657` (3 commits: `a90b5c2` congelamento, `1081f36`
+implementação, `42c5a08e6f78881ee7aba6943654b7a00a843e63` contratos/relatório).
+**PR #106** aberta (base `codex/rex-sonic-sequencia`, head
+`42c5a08e…`, `isDraft=false`): <https://github.com/Misael-art/retro-dev-studio/pull/106>.
+Sem merge, sem release, sem promoção de maturidade. O commit que registra esta
+liña é um fast-forward documental sobre o mesmo PR; CI consulta-se pelo SHA
+final (`gh pr checks 106`), não presunido aqui.
