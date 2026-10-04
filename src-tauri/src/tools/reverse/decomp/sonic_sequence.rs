@@ -8,8 +8,7 @@
 //! them. Contract: `docs/rex_profiles/sonic_sequencia/CONTRACT-SEQUENCIA.md`.
 
 use super::sonic_cadence::{
-    frame_is_reference, is_valid_permutation, validate_copy, CopyViolation, WAIT_ADDR,
-    WAIT_FRAMES,
+    frame_is_reference, is_valid_permutation, validate_copy, CopyViolation, WAIT_ADDR, WAIT_FRAMES,
 };
 use serde::{Deserialize, Serialize};
 
@@ -86,7 +85,7 @@ fn validate_proposal(proposal: &[u8]) -> Result<(), String> {
         ));
     }
     is_valid_permutation(proposal)
-        .map_err(|v| seq_copy_err(v))
+        .map_err(seq_copy_err)
         .map_err(|e| e.replace("copia", "proposta"))
 }
 
