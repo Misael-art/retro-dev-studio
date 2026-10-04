@@ -1,0 +1,20 @@
+{
+ "schema_version": "rex-parallel-b/sha256sums/1",
+ "gerado_por": "listagem manual desta frente",
+ "nota": "SHA-256 de cada artefato versionado da frente b; ROM/plains/PNG comerciais NAO estao no indice",
+ "arquivos": {
+  "data/rex_profiles/parallel_recovery_20261004/b/evidencia/cadeia-sonic-verificada.json": "cabde4138732460cd1769033dbd9f06de942e82243edba4ef58a7cc2ce68aca5",
+  "data/rex_profiles/parallel_recovery_20261004/b/evidencia/fixture-assimetrica.json": "ebc96c60ea99fe3ca3d83e7afb1ba7f5a9dc1329b92593456e21360a81fe8d63",
+  "data/rex_profiles/parallel_recovery_20261004/b/evidencia/isa-forms-b.json": "5dcce09baf181382da802f6153426f22a6f49af700d6a4e5bdbfb82e6cd7cf0f",
+  "data/rex_profiles/parallel_recovery_20261004/b/evidencia/negativos.json": "f9ac609406046bbfe04b85fe1af678ec6b55e1935787cdfe5cdb9c599bf017a4",
+  "docs/rex_profiles/parallel_recovery_20261004/b/ADENDA-SUPERSEDENTE.md": "f734f25ce5de7be4d02e128535e7f8f22cae420f6f609a6cb0803eed737107c0",
+  "docs/rex_profiles/parallel_recovery_20261004/b/CONTRATO.md": "b6001433bc122311e5a38090934842864b9b5f3c54bae9e15436e3dd48ff265c",
+  "docs/rex_profiles/parallel_recovery_20261004/b/EXPECTATIONS.md": "4cf8f8c919b326f698fcbdd140f18f611e75ee01f540ed0b8b922bc1bbd4f6fb",
+  "docs/rex_profiles/parallel_recovery_20261004/b/PROPOSTA-INTEGRACAO.md": "53fddbee8fc6e686606fd168663fa411666e445bedb2f3883b69f97ecff1b384",
+  "docs/rex_profiles/parallel_recovery_20261004/b/RELATORIO.md": "f44cbf819161bb07cbb5dcf5ea380b05e4297a2acc767cba726932aaecd0f0b9",
+  "scripts/rex_profiles/parallel_recovery_20261004/b/contrato_sonic.py": "36bcc93504a9c6e3cb867ce9764c04e6edbba19c78aed0c712b64e36a469eb8f",
+  "scripts/rex_profiles/parallel_recovery_20261004/b/montar-isa.py": "43d225b754cc2d9e944e738405ca155096c601f836cb7a5a5a7e2a41bcb7ad48",
+  "scripts/rex_profiles/parallel_recovery_20261004/b/test-contrato-b.py": "1873733239bac479d45c7abb589ca8a889d92a8abfcf5f8ba24f142ec3a9e6a3",
+  "scripts/rex_profiles/parallel_recovery_20261004/b/verificar-cadeia.py": "29c1800d14e4478f3bbfbbab63f8ddc093f7f1fa7c33e955e16e457a8c819a89"
+ }
+}
