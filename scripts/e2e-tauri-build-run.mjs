@@ -11675,7 +11675,7 @@ async function runSonicSequenciaJourneyScenario(sessionId, app, romPath, base, s
     sessionIdRef,
     `
       const q = (selector) => document.querySelector(selector);
-      const parseLine = (text, label) => { const m = String(text).match(new RegExp(label + ":\\\\s*((?:[0-9a-fA-F]{2}\\\\s*)*)")); return m ? m[1].trim().split(/\\s+/).filter(Boolean).map((tok) => parseInt(tok, 16)) : null; };
+      const parseLine = (text, label) => { const m = String(text).match(new RegExp(label + "[^:\\\\n]*:\\\\s*((?:[0-9a-fA-F]{2}\\\\s*)*)")); return m ? m[1].trim().split(/\\s+/).filter(Boolean).map((tok) => parseInt(tok, 16)) : null; };
       const entries = Array.from(document.querySelectorAll("[data-testid^='inspection-sequence-entry-']"));
       const bytes = entries.map((entry) => Number(entry.getAttribute("data-byte")));
       const selected = entries.findIndex((entry) => entry.getAttribute("data-selected") === "true");
