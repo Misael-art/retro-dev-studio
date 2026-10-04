@@ -131,9 +131,19 @@ a diverxencia e non aplico a táboa.
   extraer `bytes_consumidos` bytes desde o offset e decodificalas co produto e
   co oráculo; esperar: produto == saída dos rexistros v2 (SHA e tamaño);
   oráculo == produto no **prefixo `saida_bytes`**; o oráculo engade 1 byte de
-  padding tras o terminator (feito medido, CONTRACT §3) ⇒ a diferenza total de
+  padding tras o terminator (feito medido, CONTRACT §3) ⇒ a diferença total de
   lonxitude oráculo−produto é exactamente `+1` por stream con terminator.
   Calquera outra diferenza = `DIVERXE` (fallo do script, non paridade).
+- **Corrección do conxelado (medido 2026-10-04, conservada a afirmación
+  original arriba):** as 8/8 streams deron lonxitude oráculo == lonxitude
+  produto (delta **0**, non +1) e **igualdade de contido completo** byte a
+  byte (SHA do output do oráculo == SHA do produto == `saida_sha256` do
+  rexistro v2 en Sonic 1 ×3 e SoR ×5). O "+1 padding" de CONTRACT §3 é da
+  **stream** que `koscmp -c` emite tras o terminator (lado de compresión), non
+  da saída de `-x` (descompresión); a expectativa §5 aplicoullo ao lado
+  equivocado. A paridade medida é máis forte que a esperada (igualdade total
+  implica igualdade de prefixo); rexístrese como desvio anotado, non como
+  reescrita. TSV bruta: `oracle-streams.tsv` en [dir-saida] con hash por fila.
 - Diferenzas contractuais xa fixadas (CONTRACT §4) non se reabren: `m02`-type
   sen terminator → produto `Truncated`, oráculo acepta; iso rexístrase como
   diferenza coñecida, non como novidade.
