@@ -1,0 +1,54 @@
+OK   determinismo dev-1 — ba08a8c37dbc98be1f9a82ff479c21c238d750f1f890f8ca6fee7f9f0d67826f
+OK   determinismo ho-1 (seed de teste)
+OK   dev-1 D1 denominador — esperado 9, obtido 9
+OK   dev-1 D2 denominador — esperado 6, obtido 6
+OK   dev-1 D3 denominador — esperado 6, obtido 6
+OK   dev-1 D4 denominador — esperado 2, obtido 2
+OK   dev-1 D5 denominador — esperado 2, obtido 2
+OK   dev-1 D6 denominador — esperado 9, obtido 9
+OK   dev-1 D7 denominador — esperado 10, obtido 10
+OK   dev-1 N1 denominador — esperado 3, obtido 3
+OK   dev-1 N2 denominador — esperado 6, obtido 6
+OK   dev-1 export ideal PASS — todas as dimensoes concordaram
+OK   ho-1 D1 denominador — esperado 12, obtido 12
+OK   ho-1 D2 denominador — esperado 8, obtido 8
+OK   ho-1 D3 denominador — esperado 8, obtido 8
+OK   ho-1 D4 denominador — esperado 3, obtido 3
+OK   ho-1 D5 denominador — esperado 3, obtido 3
+OK   ho-1 D6 denominador — esperado 13, obtido 13
+OK   ho-1 D7 denominador — esperado 14, obtido 14
+OK   ho-1 N1 denominador — esperado 4, obtido 4
+OK   ho-1 N2 denominador — esperado 9, obtido 9
+OK   ho-1 export ideal PASS — todas as dimensoes concordaram
+OK   round-trip interno R-S1 (dsb1-lz)
+OK   round-trip interno R-S2 (dsb1-lz)
+OK   round-trip interno R-S3 (dsb1-rle)
+OK   round-trip interno R-S4 (dsb1-store)
+OK   round-trip interno R-S5 (kosinski)
+OK   round-trip interno R-S6 (dsb1-lz)
+OK   round-trip interno R-K1 (dsb1-lz)
+OK   round-trip interno R-K2 (dsb1-rle)
+OK   round-trip interno R-K3 (kosinski)
+OK   M1 mapper_wrong reprovado — status FAIL
+OK   M1 atinge dimensoes esperadas — ["D1","D2","D3","D7"]
+OK   M2 branch_target_wrong reprovado — status FAIL
+OK   M2 atinge dimensoes esperadas — ["D6","N2"]
+OK   M3 consumer_removed reprovado — status FAIL
+OK   M3 atinge dimensoes esperadas — ["D2","D7"]
+OK   M4 geometry_swapped reprovado — status FAIL
+OK   M4 atinge dimensoes esperadas — ["D4","D5","D7"]
+OK   M5 unreferenced_stream_claimed reprovado — status FAIL
+OK   M5 atinge dimensoes esperadas — ["N1"]
+OK   M6 confidence_promoted_without_proof reprovado — status FAIL
+OK   M6 atinge dimensoes esperadas — ["D7"]
+OK   X1 export_vazio tratamento correto — status FAIL
+OK   X2 sem_geometria tratamento correto — status FAIL
+OK   X3 sem_saida tratamento correto — status FAIL
+OK   X4 fixture_hash_errado tratamento correto — status INCONCLUSIVE
+OK   X5 regioes_sem_campos tratamento correto — status FAIL
+OK   kosinski R-S5 × espelho (linha B) — sha 5c55c8f4db4010ba… confirmado
+OK   kosinski R-K3 × espelho (linha B) — sha 6eb69e26de2a26ed… confirmado
+
+resumo: round-trips internos 9; kosinski×espelho ok
+Nota metodologica: round-trip interno usa a MESMA linha de evidencia (autoria) e nao conta como prova.
+Kosinski foi cruzado com instrumento de outra linha (espelho mdcomp).
