@@ -138,3 +138,56 @@ Rodei no destino desta frente (worktree, core Libretro headless; nada de
 - Fork deliberado ordem×duração (ver `CONTRACT-SEQUENCIA.md`): editar duração
   **depois** de reordenar é recusado pela revalidação de cadência; deixado ao
   operador. Esta frente não resolve edição mista.
+
+---
+
+## Adenda 2026-10-04 — estado das três pendências (missão de retomada)
+
+Preserva todo o texto acima (evidência anterior não é reescrita). Atualiza
+apenas o estado medido.
+
+### Pendência 2 — integração cadência↔sequência (FECHADA)
+O "fork deliberado" descrito acima não é mais o comportamento: a validação foi
+centralizada em `sonic_cadence::validate_copy` (uma única definição do script).
+- `validate_base` continua **estrita** na ROM-base (ordem exata `WAIT_FRAMES`,
+  intervalo `$17`, tabela, prólogo do consumidor, referência absoluta única).
+- `validate_copy` aceita **qualquer permutação válida** + intervalo
+  `$01..$7F` + terminador `FE 02` na **cópia**. Cadência, sequência e a guarda
+  de escopo de `sprite_composition` roteiam todas por ela. Nenhuma guarda
+  global foi removida.
+- Round-trips provados na BYOR real pelo teste ignorado
+  `sonic_integrado_sequencia_cadencia_bidirecional_e_preservacao`: os 4 domínios
+  (pixel, paleta, duração 40, sequência proposta B) acumulam nas **duas ordens**
+  com diff byte-a-byte exato (7 offsets), ledger por domínio, `CadenceInfo.
+  current_frames` = ordem atual da cópia, salvar/reabrir com os dois painéis
+  utilizáveis, restaurar-só-sequência (volta a ordem original preservando
+  arte/paleta/duração) e restaurar-só-duração na cópia reordenada (direção antes
+  recusada) preservando a sequência. SHAs das duas ordens coincidem.
+
+### Pendência 3 — percurso completo + terminador FE 02 (FECHADA, full-route)
+Oracle de runtime (frames emulados, **sonda**, não jornada de teclado):
+`inspection.rs::sonic_sequence_runtime_oracle_proves_route_and_terminator`.
+- Timer do objeto descoberto por voto temporal; **nenhum offset de RAM de
+  posição é inventado**. O percurso é reconstruído agrupando frames por **recarga
+  do timer** (o consumidor recarrega a contagem a cada entrada do script).
+- Base: 18 primeiros segmentos == `WAIT_FRAMES` exatamente
+  (`[1×12,3,2,2,2,3,4]`), cauda alterna o laço `{03,04}`.
+- Cópia proposta B `swap(0,17)`: 18 primeiros == proposta
+  (`[4,1×11,3,2,2,2,3,1]`), cabeça discriminante `01→04`, laço `{03,01}` —
+  muda só porque as duas **posições** finais foram reordenadas. O `afBack 2` é
+  **keyed por posição**, não por valor. 95 segmentos por lado (amostras farto).
+- **Verificador node independente** (não importa módulo de produto, recalcula a
+  rota a partir das séries brutas):
+  `scripts/qa/sonic-sequence-route-oracle.mjs`. Confere 20 checks `allPass=true`
+  sobre as séries reais e, em `--selfcheck`, recusa os 5 negativos exigidos:
+  troca de entradas idênticas como positivo, sequência errada, terminador
+  alterado, série antiga (SHA/epoch), amostras insuficientes.
+- Evidência durável: `docs/rex_profiles/sonic_sequencia/evidence/`
+  (`route-manifest.json`, `route-verdict.json` verdict=`full-route`,
+  `sonic-sequence-route-verification.json`, `PROVENIANCE-SERIES.txt`).
+- **Sem alegação universal:** prova do caminho não-especial NTSC, só `id_Wait`
+  na ROM pinada; PAL e animações dependentes de velocidade permanecem fora.
+
+### Pendência 1 — jornada desktop §5.2 (ABERTA)
+Continua **não executada** até rodar na UI renderizada do binário canônico
+final (ver P4). Não é promovida a aprovada.
