@@ -68,6 +68,11 @@ Current Wave nem Memory Bank.
 pinada; ISA-pin dos 37 com as/objdump pinados; decode dos 6 streams e
 conferencia dos 6 hashes; fixture assimetrica; 7 negativos; elo
 SS_MapIndex; testes (20/20); `check-tree`; regeneracao das 4 evidencias.
+Rodada ADENDA-B2 (74fb2e2→): expectativas E12–E17 congeladas ANTES de medir;
+controles 7/7 + registro do modelo antigo; cadeia E14–E16 medida (slot,
+Map_SSWalls, bloco consumidor 0x1B242); probe E17 da PLC; export por camadas
+e export para a frente D; suite completa reexecutada na entrega (20/20,
+cadeia PROMOVIDO, negativos 7/7, controles COMPLETOS, mapping OK, export OK).
 
 **Herdado (reconfirmado por pins, nao reexecutado):** paridade Pulseman
 196/196 (rotulo rebaixado para "streams compativeis com o
@@ -75,9 +80,14 @@ decoder/referencia"); decoder Enigma `a9ed92f9...` usado como ferramenta
 externa pinada; pins do review-pr97.
 
 **Pendente / referencia faltante (publicados, nao disfarcados):**
-- carga de arte Kosinski→VRAM antes do desenho da fase especial;
-- decodificador de mappings (o que `0x2C564` produz) e carga de CRAM para
-  o campo paleta dos registros SS_MapIndex;
+- decodificador Nemesis e o codigo que consome a PLC (DoLoadPLC/NemDec nao
+  pinados): a entrada `Nem_SSWalls` da tabela achada e VINCULO ESTRUTURAL, nao
+  consumo observado; a carga Kosinski→VRAM de outros assets da fase especial
+  segue em aberto;
+- carga de CRAM para o campo paleta dos registros SS_MapIndex: **DESCONHECIDA**,
+  referencia faltante publicada em `export-camadas-b2.json`
+  (`camada_cadeia_id.referencia_faltante`); nenhuma composicao visual foi
+  produzida (o vínculo arte completo nao foi demonstrado);
 - consumo observado (execusao) de qualquer etapa;
 - consumidores das streams de Pulseman (frente antiga: nao localizados nas
   formas varridas).
@@ -89,6 +99,9 @@ externa pinada; pins do review-pr97.
 | `test-contrato-b.py` | 20/20 OK (ROM pinada presente; variantes sem BYOR usam skip honesto) |
 | `verificar-cadeia.py cadeia --modo verificado` | 37 sitios; 6/6 hashes; roundtrip projecao/inverso; veredito PROMOVIDO |
 | `verificar-cadeia.py negativos` | 7/7 RECUSADO com motivo observado |
+| `verificar-cadeia.py controles` (E12) | CONTROLES-COMPLETOS: 7/7 recusas + 7/7 controles aceitos; comportamento do modelo antigo registrado por caso |
+| `medir-cadeia-mapping.py` (E14–E16) | CADEIA-MAPPING-E14-E16-OK: Map_SSWalls 128B/16 frames conforme predicao por macro; slot ID$01 = `0002c56400000142`; bloco SS_ShowLayout montado pelo toolchain com ocorrencia UNICA em 0x1B242 e jsr BuildSpr_Normal 0xD762 |
+| `exportar-camadas-b2.py` (E13/E17) | EXPORT-CAMADAS-OK; PLC_SpecialStage com ocorrencia unica em 0x1D992 (17 cues; walls = stream 0x2C5E4, VRAM $2840 == ArtTile_SS_Wall×$20); CRAM declarado DESCONHECIDA |
 | `verificar-cadeia.py fixture` | PASS (expectativa propria; antiga diverge) |
 | `montar-isa.py` | 37/37 remontadas + desmontadas (as `20342db5...`, objdump `f7d63642...`) |
 | `npm run check:tree` (`node scripts/check-tree.cjs`) | OK: "Estrutura da raiz conforme docs/08_TREE_ARCHITECTURE.md." (executado na worktree nesta rodada) |
@@ -110,6 +123,13 @@ python3 scripts/rex_profiles/parallel_recovery_20261004/b/verificar-cadeia.py ne
   --out data/rex_profiles/parallel_recovery_20261004/b/evidencia/negativos.json
 python3 scripts/rex_profiles/parallel_recovery_20261004/b/verificar-cadeia.py fixture \
   --out data/rex_profiles/parallel_recovery_20261004/b/evidencia/fixture-assimetrica.json
+python3 scripts/rex_profiles/parallel_recovery_20261004/b/verificar-cadeia.py controles \
+  --rom "$HOME/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin" \
+  --out data/rex_profiles/parallel_recovery_20261004/b/evidencia/controles-negativos-b2.json
+python3 scripts/rex_profiles/parallel_recovery_20261004/b/medir-cadeia-mapping.py \
+  --out data/rex_profiles/parallel_recovery_20261004/b/evidencia/cadeia-mapping-b2.json
+python3 scripts/rex_profiles/parallel_recovery_20261004/b/exportar-camadas-b2.py \
+  --out-dir data/rex_profiles/parallel_recovery_20261004/b/evidencia
 ```
 
 Sem a ROM BYOR: testes parciais rodam, `montar-isa.py` roda (nao le ROM),
@@ -123,3 +143,44 @@ Codigo (4 scripts), contrato/docs, fixtures autorais, JSONs de evidencia
 (hash,offset,contagem — sem bytes comerciais) e `SHA256SUMS.json` das
 evidencias. ROM, plains comerciais, sprites e imagens derivadas NAO estao
 no indice.
+
+Rodada ADENDA-B2 acrescenta: `EXPECTATIONS-ADENDA-B2.md` (E12–E17, congelado
+sozinho antes de medir), 3 scripts novos (`verificar-cadeia.py` modo
+`controles`, `medir-cadeia-mapping.py`, `exportar-camadas-b2.py`) e 4
+evidencias novas (`controles-negativos-b2`, `cadeia-mapping-b2`,
+`export-camadas-b2`, `export-avaliacao-d`). Total versionado: 20 arquivos no
+indice de SHA256SUMS.
+
+## 7. Resultados da rodada ADENDA-B2 (para consumo pelo integrador)
+
+- **E12** — as 7 recusas sao discriminantes: cada uma recusa o input errado E
+  aceita o input minimo-correto; o modelo antigo foi registrado na mesma
+  entrada (ex.: stride64 — buffers antigo/novo diferem em 526 bytes do mesmo
+  plain; 64x32 — antigo produz 2048 celulas de 16 bits onde o consumidor copia
+  4096 bytes de 8 bits).
+- **E14/E15** — slot `$FF4000+8k` confirmado por simulacao do carregador
+  pinado sobre os 78 registros (0 anomalias); ID $01 = `00 02 C5 64 | 00 00 |
+  01 42`. `Map_SSWalls` @0x2C564: 128 bytes, 16 palavras relativas a rotulo,
+  todas as 16 frames byte-a-byte conforme a PREDICAO DERIVADA DAS MACROS
+  (antes da medição). Leitura ver1 das pecas registrada como referencia
+  estatica.
+- **E16** — o bloco consumidor de SS_ShowLayout (linha 111 do disasm pinado)
+  foi MONTADO pelo toolchain pinado e encontrado UMA UNICA vez na ROM
+  (0x1B242), com cauda `bmi.s +6` / `jsr $D762` (BuildSpr_Normal) conferida;
+  nivel declarado: codigo-presente, NAO "consumo observado".
+- **E17** — ligacao de arte da cadeia ID $01: PLC_SpecialStage achada por
+  predicao de macros (plcheader/plcm + ArtTile_SS_* pinados), ocorrencia
+  unica em 0x1D992; a cue `Nem_SSWalls` ancora o stream 0x2C5E4 no MESMO base
+  de tiles do slot ($142 → VRAM $2840). Nivel: vinculo-estrutural (NemDec nao
+  pinado). Paleta CRAM: **DESCONHECIDA** com referencia faltante publicada;
+  nenhuma composicao visual produzida (protocolo congelado: sem aproximacao).
+- **Antirreuso** — `export-camadas-b2.json` traz `meta_integrador_antireuso`
+  com os artefatos que nao devem ser reutilizados (compositor antigo /
+  sonic1-mapa-*.json) e os comandos de reproducao unicos.
+- **Frente D** — `export-avaliacao-d.json` expoe codec/params/hashes das 6
+  plains sem qualquer campo voltado ao produto; os codecs artificiais do
+  benchmark nao foram adaptados aqui.
+- **Frente A** — nao foi necessaria carga Kosinski neste round; a cadeia
+  provada usa somente Enigma + Nemesis-PLC (estrutura). Se o integrador pedir
+  arte decodificada, aplicar a frente A corrigida SOMENTE depois da revisao
+  de ISA dela, e pinar NemDec antes de promover "consumo observado".

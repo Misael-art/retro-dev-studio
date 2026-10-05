@@ -2,14 +2,14 @@
  "schema_version": "rex-parallel-b/camadas/1",
  "gerado_por": "scripts/rex_profiles/parallel_recovery_20261004/b/exportar-camadas-b2.py",
  "expectativas": "E13/E17 da ADENDA-B2 (74fb2e2)",
- "tempo_utc": "2026-10-05T01:23:55.775603+00:00",
+ "tempo_utc": "2026-10-05T01:24:50.754698+00:00",
  "promessa": "uma camada NAO promove automaticamente a seguinte; rotulos de nivel sao por afirmacao",
  "fontes_sha256": {
-  "cadeia-sonic-verificada.json": "cabde4138732460cd1769033dbd9f06de942e82243edba4ef58a7cc2ce68aca5",
+  "cadeia-sonic-verificada.json": "97e8baf7fb1a9b5598219390326f4f7914142fbcc97f3b8b136ff335e6af7014",
   "isa-forms-b.json": "5dcce09baf181382da802f6153426f22a6f49af700d6a4e5bdbfb82e6cd7cf0f",
-  "controles-negativos-b2.json": "0fff768d1ad734a8f3ee57e11cfe555031d7424c4f883a34d69f62c36e731384",
-  "cadeia-mapping-b2.json": "30d787f588b5148fb23958434d60b890f6ba712ff39c8eec63ab4ad0cadbd999",
-  "negativos.json": "f9ac609406046bbfe04b85fe1af678ec6b55e1935787cdfe5cdb9c599bf017a4",
+  "controles-negativos-b2.json": "a77249169e40eb9e743734e81922f5ff2670856af91275f2053c1ea389847c24",
+  "cadeia-mapping-b2.json": "6a65198361cf70537054730db7bbc8880c7f7d0b905e5162e0337562cb7552ed",
+  "negativos.json": "ccc6c7b19b4a208cb07e80ba00d519da31ffd26ec90858bbbb7aaac6b5064837",
   "fixture-assimetrica.json": "ebc96c60ea99fe3ca3d83e7afb1ba7f5a9dc1329b92593456e21360a81fe8d63"
  },
  "camada_codec": {

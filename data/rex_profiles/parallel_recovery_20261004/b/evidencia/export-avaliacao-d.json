@@ -2,7 +2,7 @@
  "schema_version": "rex-parallel-b/avaliacao-d/1",
  "gerado_por": "scripts/rex_profiles/parallel_recovery_20261004/b/exportar-camadas-b2.py",
  "proposito": "export para avaliacao da frente D; ferramenta de pesquisa; NAO candidata a produto; nenhum campo espera-consumo do produto; codecs artificiais do benchmark NAO sao adaptados aqui",
- "tempo_utc": "2026-10-05T01:23:55.775658+00:00",
+ "tempo_utc": "2026-10-05T01:24:50.754752+00:00",
  "codec": {
   "nome": "Enigma (variante plain, Sonic 1)",
   "decompressor_rom": "jsr $171E (unico sitio, 0x1B6D2)",

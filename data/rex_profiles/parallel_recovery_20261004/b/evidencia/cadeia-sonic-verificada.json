@@ -2,7 +2,7 @@
  "schema_version": "rex-parallel-b/cadeia-sonic/2",
  "gerado_por": "scripts/rex_profiles/parallel_recovery_20261004/b/verificar-cadeia.py",
  "modo": "verificado",
- "tempo_utc": "2026-10-04T04:22:08.707801+00:00",
+ "tempo_utc": "2026-10-05T01:24:49.774905+00:00",
  "pins": {
   "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
   "rom_size": 531577,
