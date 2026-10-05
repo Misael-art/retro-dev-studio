@@ -2673,6 +2673,17 @@ fn rex_inspection_sonic_sequence(
 }
 
 #[tauri::command]
+fn rex_inspection_sonic_consumers(
+    session_id: String,
+) -> Result<
+    tools::reverse::decomp::sonic_consumers::ConsumersInfo,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::sonic_consumers_info(&session_id)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
 fn rex_inspection_edit_sonic_sequence(
     session_id: String,
     resource_id: String,
@@ -5744,6 +5755,7 @@ pub fn run() {
             rex_inspection_sonic_cadence,
             rex_inspection_edit_sonic_duration,
             rex_inspection_sonic_sequence,
+            rex_inspection_sonic_consumers,
             rex_inspection_edit_sonic_sequence,
             rex_inspection_restore_sonic_sequence,
             rex_resource_list,

@@ -1756,6 +1756,19 @@ pub fn sonic_sequence_info(
     super::sonic_sequence::describe(&base, &rom).map_err(cadence_error)
 }
 
+/// The measured Sonic 1 special-stage consumer chain, inspected read-only
+/// against this session's ROMs. All addresses, pins and refusals live in
+/// `sonic_consumers`; the UI only renders this view. Inspecting never writes:
+/// the ROM bytes are borrowed and the session copy is untouched.
+pub fn sonic_consumers_info(
+    session_id: &str,
+) -> Result<super::sonic_consumers::ConsumersInfo, String> {
+    let stored = get_stored_session(session_id)?;
+    let (base, rom) = super::sprite_composition::read_sonic_session_rom(&stored.session)
+        .map_err(|e| error("consumers_rom_unreadable", e, false))?;
+    super::sonic_consumers::describe(&base, &rom).map_err(cadence_error)
+}
+
 /// Reorders the 18 frame entries of the accumulated copy, in place. Writes only
 /// `0x13BAF..0x13BC0`; the interval byte, terminator, pad and neighbours are
 /// never touched. A proposal identical to the current order (including a swap of

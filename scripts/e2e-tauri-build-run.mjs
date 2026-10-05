@@ -480,6 +480,7 @@ function parseArgs(argv) {
           "sonic-anim-integrada",
           "sonic-anim-visual-diagnostico",
           "sonic-sequencia-journey",
+          "sonic-consumers-inspection",
           "compositing-medicao",
           "rex-lz4w-effect",
           "rex-lz4w-fixture-effect",
@@ -11717,6 +11718,160 @@ async function runSonicAnimIntegradaScenario(sessionId, app, romPath, base, save
   }
 }
 
+// INSPEÇÃO-INSP-2026-10-05 §5 — prova BYOR do cenario `sonic-consumers-inspection`
+// na ROM pinada c7da53a1…: o painel abre pelo caminho nativo da sessao (efeito
+// colateral da UI real; nada de teclado aqui); a leitura do DTO e a reinspecao
+// sao sondas tecnicas rotuladas via invoke do produto. Confere 37/37 sitios,
+// 6/6 span_ok, id01_ok, recusa visivel do falso lider e o contrato
+// somente-leitura (arquivo BYOR byte a byte identico depois da inspecao, ledger
+// de edicoes intacto, reinspecao idempotente).
+async function runSonicConsumersInspectionScenario(sessionId, app, romPath, base, savedId, prefix) {
+  const hash = (buffer) => createHash("sha256").update(buffer).digest("hex");
+  const baseSha256 = hash(base);
+  if (base.length !== 531577 || baseSha256 !== "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb") {
+    fail(`O cenario de consumidores exige a ROM BYOR pinada: ${base.length} bytes ${baseSha256}`);
+  }
+  const SPAN_PINS = [
+    "dc1a0a6ee0c3d2f6b52b7393dec9ae6ad41fc8831a0176b1467f484167d39853",
+    "4015dccb21c86ee98a3a8e6cf2dcccfea5d0cb046f8981bad59dfa0b88d3db7a",
+    "6b8467c2b0cb5c07d5bb2a4865af4b754e3eebe9aeb32ce2c9d44d5c5a58f232",
+    "8996ca4fe2bda84806faccfa5d9d98723191a9331165f67fa14c02021dcb5929",
+    "6981fbd8f38881246faad30727a3632111c7484e03d9ce9fda021a8597641672",
+    "daf1a80e13a9b0712cb692a27de7771453855951e07ee9e7dab402a59621ae93",
+  ];
+  await ensureValidationDir();
+  const pilotDir = path.join(validationDir, `${prefix}-consumers-inspection`);
+  await mkdir(pilotDir, { recursive: true });
+  const report = {
+    schema: "rex-sonic-consumers-inspection/v1",
+    artifact_prefix: prefix,
+    expectations: "docs/rex_profiles/integration_20261005/EXPECTATIONS-INSP-2026-10-05.md §5 (prova BYOR) + EXPECTATIONS-INSP-2026-10-05-ADENDO-1.md (recusa total da cadeia)",
+    binary_sha256: hash(await readFile(app)),
+    base_rom_sha256: baseSha256,
+    attribution: "O painel de consumidores abre pelo caminho nativo da sessao real (sem dispatch programatico de UI); a leitura do DTO, a re-inspecao e a leitura do ledger sao sondas tecnicas rotuladas via invoke do produto, nunca teclado.",
+    pilot_dir: pilotDir,
+    steps: [],
+    checks: [],
+  };
+  const persistReport = async (extra = {}) => {
+    await writeFile(path.join(pilotDir, "report.json"), JSON.stringify({ ...report, ...extra }, null, 2));
+  };
+  const addCheck = (name, pass, extra = {}) => {
+    report.checks.push({ name, pass: Boolean(pass), ...extra });
+    if (!pass) throw new Error(`${name}: ${JSON.stringify(extra)}`);
+  };
+  const sessionIdRef = sessionId;
+  const probeInvoke = async (command, args) => executeAsyncScript(
+    sessionIdRef,
+    `
+      const done = arguments[arguments.length - 1];
+      const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI_INTERNALS__?.invoke;
+      if (typeof invoke !== "function") { done({ ok: false, message: "invoke indisponivel na pagina" }); return; }
+      invoke(arguments[0], arguments[1] ?? {}).then((value) => done({ ok: true, value })).catch((error) => done({ ok: false, message: String(error?.message ?? JSON.stringify(error)) }));
+    `,
+    [command, args]
+  );
+  const readConsumersPanel = () => executeScript(
+    sessionIdRef,
+    `
+      const q = (sel) => document.querySelector(sel);
+      const panel = q("[data-testid='inspection-sonic-consumers-panel']");
+      if (!panel) return { panel: false, error: (q("[data-testid='inspection-consumers-error']")?.textContent ?? "(sem painel)") };
+      const sitios = Array.from(panel.querySelectorAll("[data-testid^='inspection-consumers-sitio-']"));
+      const recursos = Array.from(panel.querySelectorAll("[data-testid^='inspection-consumers-recurso-']"));
+      const entradas = Array.from(q("[data-testid='inspection-consumers-entradas']")?.children ?? []);
+      const desconhecidosContainer = q("[data-testid='inspection-consumers-desconhecidos']");
+      return {
+        panel: true,
+        niveis: [1, 2, 3, 4, 5, 6, 7].every((n) => Boolean(q("#inspection-consumers-nivel-" + n))),
+        veredito: q("[data-testid='inspection-consumers-veredito']")?.getAttribute("data-veredito") ?? null,
+        vereditoTexto: q("[data-testid='inspection-consumers-veredito']")?.textContent ?? "",
+        totalSitios: sitios.length,
+        sitiosOk: sitios.filter((s) => s.getAttribute("data-ok") === "true").length,
+        frasesConsumidor: sitios.filter((s) => String(s.textContent ?? "").includes("é aqui que o jogo usa o recurso")).length,
+        totalEntradas: entradas.length,
+        entradasOk: entradas.filter((e) => e.getAttribute("data-ok") === "true").length,
+        cadeiaTexto: q("[data-testid='inspection-consumers-cadeia']")?.textContent ?? "",
+        totalRecursos: recursos.length,
+        recursosSpanOk: recursos.filter((r) => r.getAttribute("data-span-ok") === "true").length,
+        interpretacao: q("[data-testid='inspection-consumers-interpretacao']")?.textContent ?? "",
+        falsoLider: q("[data-testid='inspection-consumers-falso-lider']")?.getAttribute("data-veredito") ?? null,
+        motivos: panel.querySelectorAll("[data-testid='inspection-consumers-falso-lider-motivo']").length,
+        motivosTexto: Array.from(panel.querySelectorAll("[data-testid='inspection-consumers-falso-lider-motivo']")).map((m) => String(m.textContent ?? "")),
+        desconhecidos: desconhecidosContainer ? desconhecidosContainer.children.length : 0,
+        identidade: q("[data-testid='inspection-consumers-identidade']")?.textContent ?? "",
+        limites: q("[data-testid='inspection-consumers-limites']")?.textContent ?? "",
+        imagensNoPainel: panel.querySelectorAll("img").length,
+        error: q("[data-testid='inspection-consumers-error']")?.textContent ?? "",
+      };
+    `
+  );
+  try {
+    // 1) UI nativa: o painel carrega sozinho quando a sessao Sonic abre.
+    const panel = await waitFor(
+      async () => {
+        const state = await readConsumersPanel();
+        return state?.panel && state.veredito === "todos-ok" && !state.error ? state : false;
+      },
+      30000,
+      "O painel de consumidores nao exibiu os sete niveis com veredito todos-ok sem erro visivel",
+      100
+    );
+    report.steps.push({ step: 1, name: "painel_aberto_pelo_caminho_nativo", veredito: panel.veredito });
+    addCheck("ui.sete_niveis_sem_erro", panel.niveis === true && panel.error === "", { observed: { niveis: panel.niveis, error: panel.error } });
+    addCheck("ui.37_sitios_ok", panel.totalSitios === 37 && panel.sitiosOk === 37 && panel.vereditoTexto.includes("37/37"), { observed: { total: panel.totalSitios, ok: panel.sitiosOk, texto: panel.vereditoTexto.slice(0, 120) } });
+    addCheck("ui.consumidor_verbalizado", panel.frasesConsumidor >= 1, { observado: { frases: panel.frasesConsumidor } });
+    addCheck("ui.cadeia_6_entradas_destino_wram", panel.totalEntradas === 6 && panel.entradasOk === 6 && panel.cadeiaTexto.includes("(RAM interna do console — não é a porta do vídeo)") && panel.cadeiaTexto.includes("parâmetro medido 0"), { observado: { entradas: panel.totalEntradas, ok: panel.entradasOk, cadeia: panel.cadeiaTexto.slice(0, 200) } });
+    addCheck("ui.6_recursos_span_ok", panel.totalRecursos === 6 && panel.recursosSpanOk === 6, { observado: { total: panel.totalRecursos, ok: panel.recursosSpanOk } });
+    addCheck("ui.sem_previa_grafica_confirmada", panel.interpretacao.includes("não é exibida como imagem confirmada") && panel.imagensNoPainel === 0, { observado: { imagens: panel.imagensNoPainel } });
+    addCheck("ui.falso_lider_refutado_3_motivos", panel.falsoLider === "REFUTADA" && panel.motivos === 3, { observado: { veredito: panel.falsoLider, motivos: panel.motivos } });
+    addCheck("ui.5_desconhecidos", panel.desconhecidos === 5, { observado: { desconhecidos: panel.desconhecidos } });
+    addCheck("ui.identidade_sem_coincidencia", panel.identidade.includes("é o mesmo arquivo usado na medição"), { observado: { identidade: panel.identidade.slice(0, 160) } });
+    addCheck("ui.limites_com_mapindex_e_pins", ["0x1b738", "78 entradas", "0002c5640142", "0x2c564", "d32236c7e77c4902", "a9ed92f96fbdd7e0"].every((tok) => panel.limites.includes(tok)), { observado: { limites: panel.limites.slice(0, 240) } });
+    const panelScreenshot = await captureScreenshot(sessionIdRef, `${prefix}-consumers-panel.png`);
+    report.steps.push({ step: 2, name: "painel_renderizado", screenshot: panelScreenshot });
+
+    // 2) Sonda tecnica rotulada: o DTO cru do comando read-only na ROM pinada.
+    const probe = await probeInvoke("rex_inspection_sonic_consumers", { sessionId: savedId });
+    if (!probe?.ok) fail(`Sonda tecnica do DTO recusada: ${JSON.stringify(probe?.message)}`);
+    const dto = probe.value;
+    addCheck("sonda.identidade_confere_com_pin", dto?.identidade?.confere_com_pin === true && dto?.identidade?.rom_sha256 === baseSha256 && dto?.identidade?.rom_tamanho === 531577 && dto?.identidade?.pin_sha256 === baseSha256, { observado: dto?.identidade });
+    addCheck("sonda.37_sitios_todos_ok", Array.isArray(dto?.sitios) && dto.sitios.length === 37 && dto.sitios.every((s) => s.ok === true) && dto.veredito_sitios === "todos-ok", { observado: { total: dto?.sitios?.length, veredito: dto?.veredito_sitios, divergentes: (dto?.sitios ?? []).filter((s) => !s.ok).map((s) => s.endereco) } });
+    const pinsOk = ["00065432", "000656ac", "00065abe", "00065e1a", "000662f4", "000667c6"];
+    addCheck("sonda.tabela_relida_da_rom", dto?.cadeia?.entradas?.length === 6 && dto.cadeia.entradas.every((e, i) => e.ok === true && e.hex_entrada === pinsOk[i] && e.offset_stream === `0x${pinsOk[i].slice(2)}`), { observado: dto?.cadeia?.entradas });
+    addCheck("sonda.chamada_destino_parametro", dto?.cadeia?.chamada_hex === "4eb90000171e" && dto?.cadeia?.destino_hex === "ff4000" && dto?.cadeia?.destino_classe === "wram" && dto?.cadeia?.valor_offset_param === 0, { observado: dto?.cadeia && { chamada: dto.cadeia.chamada_hex, destino: dto.cadeia.destino_hex, classe: dto.cadeia.destino_classe, param: dto.cadeia.valor_offset_param } });
+    addCheck("sonda.6_spans_contra_pins_medidos", dto?.recursos?.length === 6 && dto.recursos.every((r, i) => r.span_ok === true && r.span_sha256 === SPAN_PINS[i] && r.plain_status === "medido-externo"), { observado: (dto?.recursos ?? []).map((r) => ({ i: r.indice, ok: r.span_ok, sha: r.span_sha256.slice(0, 12) })) });
+    addCheck("sonda.interpretacao_fixa", dto?.interpretacao?.celula_bytes === 1 && dto.interpretacao.linhas === 64 && dto.interpretacao.colunas === 64 && dto.interpretacao.stride === 128 && dto.interpretacao.base_ram_hex === "ff1020" && dto.interpretacao.nivel === "vinculo-estrutural-estatico", { observado: dto?.interpretacao });
+    addCheck("sonda.mapindex_id01_ok", dto?.mapindex?.addr_hex === "0x1b738" && dto.mapindex.entradas === 78 && dto.mapindex.registro_id01_hex === "0002c5640142" && dto.mapindex.id01_ok === true && dto.mapindex.ponteiro_id01_hex === "0x2c564" && dto.mapindex.ponteiro_dentro_rom === true, { observado: dto?.mapindex });
+    addCheck("sonda.falso_lider_refutado_3_motivos", dto?.recusa_falso_lider?.veredito === "REFUTADA" && dto.recusa_falso_lider.motivos?.length === 3 && ["move.b medido em 0x1B6F8", "$C00004", "lea 64(a1)"].every((anchor) => dto.recusa_falso_lider.motivos.some((m) => m.includes(anchor))), { observado: dto?.recusa_falso_lider });
+    addCheck("sonda.5_desconhecidos_idioma_ptbr", dto?.desconhecidos?.length === 5 && dto?.idioma === "pt-BR" && dto?.perfil_id === "sonic1_fase_especial_layouts_v1", { observado: { desconhecidos: dto?.desconhecidos?.length, idioma: dto?.idioma, perfil: dto?.perfil_id } });
+    addCheck("sonda.limites_fonte_pinados", dto?.limites_fonte?.prova_cadeia_sha256 === "d32236c7e77c4902eaf6c84d1e06237c3a369036d67c9c4df9734789c3139d92" && dto?.limites_fonte?.decoder_externo_sha256 === "a9ed92f96fbdd7e0828e7612e83eff24c65aee52fd5a82efee53581dc1a7f8b2", { observado: dto?.limites_fonte });
+    report.steps.push({ step: 3, name: "sonda_tecnica_dto_completo", sitios: dto?.sitios?.length, recursos: dto?.recursos?.length });
+
+    // 3) Contrato somente-leitura provado por observacao externa.
+    const afterBytes = await readFile(romPath);
+    addCheck("so_leitura.arquivo_base_intacto", afterBytes.equals(base), { observado: { antes: baseSha256, depois: hash(afterBytes) } });
+    const ledger = (await invokeCoreObserveCommand(sessionIdRef, "rex_inspection_status", { sessionId: savedId }))?.session?.applied_edits ?? [];
+    addCheck("so_leitura.ledger_sem_edicoes", ledger.length === 0, { observado: { ledger: ledger.length } });
+    const probe2 = await probeInvoke("rex_inspection_sonic_consumers", { sessionId: savedId });
+    addCheck("reinspecao_idempotente", probe2?.ok === true && JSON.stringify(probe2.value) === JSON.stringify(dto), { observado: { ok: probe2?.ok } });
+    addCheck("final.base_preservada", (await readFile(romPath)).equals(base), { observado: { rom_path: romPath } });
+
+    const allPass = report.checks.every((entry) => entry.pass !== false);
+    report.runtime_effect = "inspecao somente-leitura provada pela interface e pelo DTO na ROM pinada; nenhum byte alterado, nenhuma edicao registrada";
+    await persistReport({ allPass, finished_at: new Date().toISOString() });
+    if (!allPass) {
+      const failed = report.checks.filter((entry) => entry.pass === false);
+      fail(`Cenario sonic-consumers-inspection INCONCLUSIVO/FAIL frente ao congelado (sem promover nada): ${JSON.stringify({ failed, report_path: path.join(pilotDir, "report.json") })}`);
+    }
+    console.log(`OK: Sonic consumers inspection E2E; allPass=true; report=${path.join(pilotDir, "report.json")}`);
+    return sessionIdRef;
+  } catch (error) {
+    await persistReport({ allPass: false, aborted: true, error: String(error?.message ?? error), finished_at: new Date().toISOString() }).catch(() => null);
+    throw error;
+  }
+}
+
 // Jornada desktop §5.2 (Pendência 1; congelada em
 // docs/rex_profiles/sonic_sequencia/EXPECTATIONS-SEQUENCIA.md §8.3): no
 // binario canônico, pela interface visível, abrir BYOR → mover entrada distinta
@@ -17663,12 +17818,14 @@ async function main() {
     const sonicAnimIntegradaMode = options.scenario === "sonic-anim-integrada";
     const sonicAnimVisualMode = options.scenario === "sonic-anim-visual-diagnostico";
     const sonicSequenciaJourneyMode = options.scenario === "sonic-sequencia-journey";
+    const sonicConsumersMode = options.scenario === "sonic-consumers-inspection";
     const sonicTilesMode = options.scenario === "inspection-sonic-tiles";
     if (sonicMultiframeMode) options.scenario = "inspection-sonic";
     if (sonicCadenceMode) options.scenario = "inspection-sonic";
     if (sonicAnimIntegradaMode) options.scenario = "inspection-sonic";
     if (sonicAnimVisualMode) options.scenario = "inspection-sonic";
     if (sonicSequenciaJourneyMode) options.scenario = "inspection-sonic";
+    if (sonicConsumersMode) options.scenario = "inspection-sonic";
     if (sonicTilesMode) options.scenario = "inspection-sonic";
     if (["inspection", "inspection-cancel", "inspection-complete", "inspection-sprite-secondary", "inspection-sonic", "inspection-preview-unavailable"].includes(options.scenario)) {
       let inspectionRom = process.env.RDS_INSPECTION_ROM ?? "";
@@ -17849,6 +18006,11 @@ async function main() {
         }
         if (sonicSequenciaJourneyMode) {
           sessionId = await runSonicSequenciaJourneyScenario(sessionId, options.app, inspectionRom, inspectionRomBytes, completedState.session.id, artifactPrefix, uiBootstrapTimeoutMs);
+          currentE2eRunContext.sessionId = sessionId;
+          return;
+        }
+        if (sonicConsumersMode) {
+          sessionId = await runSonicConsumersInspectionScenario(sessionId, options.app, inspectionRom, inspectionRomBytes, completedState.session.id, artifactPrefix, uiBootstrapTimeoutMs);
           currentE2eRunContext.sessionId = sessionId;
           return;
         }

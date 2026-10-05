@@ -23,6 +23,7 @@ import {
   inspectionSave,
   inspectionSavePaletteChoice,
   inspectionSonicCadence,
+  inspectionSonicConsumers,
   inspectionSonicSequence,
   inspectionSpriteFrame,
   inspectionStatus,
@@ -31,6 +32,7 @@ import {
   patchApplyBps,
   patchCreateBps,
   type SonicCadenceInfo,
+  type SonicConsumersInfo,
   type SonicSequenceInfo,
 } from "../../core/ipc/toolsService";
 import {
@@ -53,6 +55,21 @@ interface InspectionPanelProps {
 const PAGE_SIZE = 24;
 const SONIC_BOOT_START_FRAME = 900;
 const SONIC_BOOT_FRAME_BUDGET = 1_200;
+
+// Frase em português simples por papel técnico de sítio (EXPECTATIONS-INSP §2:
+// a frase é derivada do papel, nunca o contrário; códigos não são instruções).
+const CONSUMERS_PAPEL_FRASE: Record<string, string> = {
+  contexto: "também faz parte deste trecho do jogo",
+  tabela: "guarda o endereço de um recurso na tabela",
+  indexacao: "prepara a escolha da entrada na tabela",
+  "tabela->entrada": "usa a tabela para encontrar a entrada escolhida",
+  destino: "define onde o conteúdo vai ficar na memória",
+  parametro: "passa ao descodificador o parâmetro medido",
+  chamada: "chama o descodificador",
+  "limpar buffer": "limpa a área de memória antes de usar",
+  consumidor: "é aqui que o jogo usa o recurso",
+  "id->definicao": "liga o número do bloco à sua definição",
+};
 
 function describeError(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -165,6 +182,9 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
   const [sequenceError, setSequenceError] = useState("");
   const [sequenceMessage, setSequenceMessage] = useState("");
   const [sequenceThumbs, setSequenceThumbs] = useState<Record<string, InspectionSpriteFrame>>({});
+  const [consumers, setConsumers] = useState<SonicConsumersInfo | null>(null);
+  const [consumersBusy, setConsumersBusy] = useState(false);
+  const [consumersError, setConsumersError] = useState("");
   const [emulatorObservation, setEmulatorObservation] = useState<EmulatorObservationResult | null>(null);
   const [emulatorObservationLabel, setEmulatorObservationLabel] = useState("");
   const [emulatorObservationHistory, setEmulatorObservationHistory] = useState<Array<{ label: string; observation: EmulatorObservationResult }>>([]);
@@ -200,6 +220,7 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
   const cadenceEditSeq = useRef(0);
   const sequenceRequestSeq = useRef(0);
   const sequenceEditSeq = useRef(0);
+  const consumersRequestSeq = useRef(0);
   const originalRequestSeq = useRef(0);
   const progressListener = useRef<{ sessionId: string; generation: number; unlisten?: () => void } | null>(null);
   const bufferedProgress = useRef(new Map<string, InspectionProgress>());
@@ -239,6 +260,10 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
     setSequenceBusy(false);
     setSequenceError("");
     setSequenceMessage("");
+    consumersRequestSeq.current += 1;
+    setConsumers(null);
+    setConsumersBusy(false);
+    setConsumersError("");
   }
 
   function applyProgress(progress: InspectionProgress) {
@@ -376,6 +401,7 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
     if (!spriteFrameId.startsWith("sonic1_sonic/")) return;
     void loadCadence(sessionId);
     void loadSequence(sessionId);
+    void loadConsumers(sessionId);
   }, [session?.session_id, session?.status, spriteFrameId.startsWith("sonic1_sonic/")]);
 
   // E2-3: o "Original" só existe quando há edições na cópia; vem do mesmo
@@ -713,6 +739,28 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
       }
     } finally {
       if (request === sequenceRequestSeq.current) setSequenceBusy(false);
+    }
+  }
+
+  // INSPEÇÃO-2026-10-05 (passo 9/10 da ordem) — cadeia de consumidores e
+  // recursos do Sonic 1, somente-leitura. O domínio (sítios, pins, recusas,
+  // geometria) vive no núcleo Rust (`sonic_consumers`); a UI só renderiza o
+  // DTO e deriva frases em português simples do `papel` de cada sítio.
+  async function loadConsumers(sessionId: string) {
+    const request = ++consumersRequestSeq.current;
+    setConsumersBusy(true);
+    setConsumersError("");
+    try {
+      const info = await inspectionSonicConsumers(sessionId);
+      if (request !== consumersRequestSeq.current || sessionRef.current?.session_id !== sessionId) return;
+      setConsumers(info);
+    } catch (error) {
+      if (request === consumersRequestSeq.current && sessionRef.current?.session_id === sessionId) {
+        setConsumers(null);
+        setConsumersError(`Cadeia de consumidores indisponível: ${describeError(error)} Se os bytes não conferirem, esta ROM não é a versão medida (EUA/Europa).`);
+      }
+    } finally {
+      if (request === consumersRequestSeq.current) setConsumersBusy(false);
     }
   }
 
@@ -1299,6 +1347,106 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
                 </>}
                 <div aria-live="polite" data-testid="inspection-sequence-message" className="mt-2 break-words text-[#a6e3a1]">{sequenceMessage}</div>
                 <div aria-live="polite" data-testid="inspection-sequence-error" className="mt-2 break-words text-[#f38ba8]">{sequenceError}</div>
+              </div>
+              </div>
+              <div data-testid="inspection-anim-group-consumers" className="mt-2">
+              <div data-testid="inspection-sonic-consumers-panel" className="rounded border border-[#fab387]/30 bg-[#1e1410] p-2">
+                <div className="font-semibold uppercase tracking-[0.14em] text-[#fab387]">Consumidores e recursos · Sonic 1 fase especial · somente-leitura · Experimental</div>
+                <p className="mt-1 text-[#cdd6f4]">Nada aqui escreve no arquivo: a inspeção lê a ROM da sessão e confere, byte a byte, o trecho do jogo que usa estes recursos.</p>
+                {consumersBusy && !consumers && <div data-testid="inspection-consumers-loading" className="mt-1 text-[#7f849c]">Lendo a cadeia no núcleo…</div>}
+                {consumers && <>
+                  <div id="inspection-consumers-nivel-1" className="mt-2">
+                    <div className="text-[9px] uppercase tracking-[0.14em] text-[#fab387]">1. Que arquivo é este</div>
+                    <div data-testid="inspection-consumers-identidade" className="mt-1 break-all text-[#bac2de]">
+                      SHA-256: {consumers.identidade.rom_sha256} · {consumers.identidade.rom_tamanho} bytes ·{" "}
+                      {consumers.identidade.confere_com_pin
+                        ? "é o mesmo arquivo usado na medição"
+                        : `não coincide com o arquivo da medição (pin ${consumers.identidade.pin_sha256.slice(0, 12)}…); a cadeia só é exibida quando todos os sítios conferem`}
+                    </div>
+                    <div className="mt-1 text-[9px] text-[#7f849c]">Por quê: sem identidade do arquivo, nenhuma prova é rastreável. · <a data-testid="inspection-consumers-link-recurso" href="#inspection-consumers-nivel-5" className="text-[#89b4fa] underline">ver o recurso</a></div>
+                  </div>
+                  <div id="inspection-consumers-nivel-2" className="mt-2">
+                    <div className="text-[9px] uppercase tracking-[0.14em] text-[#fab387]">2. Perfil aplicado</div>
+                    <div data-testid="inspection-consumers-perfil" className="mt-1 text-[#bac2de]">{consumers.perfil_rotulo} — experimento de medição estática; nada foi executado.</div>
+                  </div>
+                  <div id="inspection-consumers-nivel-3" className="mt-2">
+                    <div className="text-[9px] uppercase tracking-[0.14em] text-[#fab387]">3. Onde o jogo usa isto</div>
+                    <div data-testid="inspection-consumers-veredito" data-veredito={consumers.veredito_sitios} className="mt-1 text-[#a6e3a1]">{consumers.sitios.filter((s) => s.ok).length}/{consumers.sitios.length} sítios conferem byte a byte na ROM carregada ({consumers.veredito_sitios}).</div>
+                    <div data-testid="inspection-consumers-sitios" className="mt-1 max-h-40 space-y-0.5 overflow-y-auto">
+                      {consumers.sitios.map((s) => (
+                        <div key={s.endereco} data-testid={`inspection-consumers-sitio-${s.endereco}`} data-papel={s.papel} data-ok={String(s.ok)} className="break-all font-mono text-[9px] text-[#bac2de]">
+                          {s.endereco} · {CONSUMERS_PAPEL_FRASE[s.papel] ?? s.papel} · esperado {s.esperado_hex}, obtido {s.obtido_hex} {s.ok ? "(confere)" : "(diverge)"}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-1 text-[9px] text-[#7f849c]">Os sítios com papel “consumidor” são a demonstração de que o jogo usa o recurso. <a href="#inspection-consumers-nivel-4" className="text-[#89b4fa] underline">ir para a cadeia</a></div>
+                  </div>
+                  <div id="inspection-consumers-nivel-4" className="mt-2">
+                    <div className="text-[9px] uppercase tracking-[0.14em] text-[#fab387]">4. Cadeia de referências</div>
+                    <div data-testid="inspection-consumers-cadeia" className="mt-1 text-[#bac2de]">
+                      Tabela {consumers.cadeia.tabela_hex} → {consumers.cadeia.entradas.length} entradas relidas ao vivo → chamada {consumers.cadeia.chamada_hex} → destino 0x{consumers.cadeia.destino_hex}{" "}
+                      {consumers.cadeia.destino_classe === "wram" ? "(RAM interna do console — não é a porta do vídeo)" : `(classe: ${consumers.cadeia.destino_classe})`} · parâmetro medido {consumers.cadeia.valor_offset_param}.
+                    </div>
+                    <div data-testid="inspection-consumers-entradas" className="mt-1 space-y-0.5">
+                      {consumers.cadeia.entradas.map((e, i) => (
+                        <div key={`${e.offset_stream}-${i}`} data-ok={String(e.ok)} className="break-all font-mono text-[9px] text-[#bac2de]">entrada {i}: bytes {e.hex_entrada} → {e.offset_stream} · cabeçalho lido no local: {e.lido_hex}</div>
+                      ))}
+                    </div>
+                  </div>
+                  <div id="inspection-consumers-nivel-5" className="mt-2">
+                    <div className="text-[9px] uppercase tracking-[0.14em] text-[#fab387]">5. Recurso</div>
+                    <p className="mt-1 text-[9px] text-[#7f849c]">Isto é integridade, não imagem: o hash do trecho lido agora na sua ROM, conferido contra a medição. O conteúdo decodificado fica referenciado pelo hash medido por ferramenta externa pinada — o app não decodifica Enigma nesta rodada.</p>
+                    <table data-testid="inspection-consumers-recursos" className="mt-1 w-full text-[9px]">
+                      <thead><tr className="text-left uppercase tracking-[0.14em] text-[#7f849c]"><th className="py-1">Nº</th><th>Endereço</th><th>Tamanho</th><th>Hash do trecho (ao vivo)</th><th>Confere</th></tr></thead>
+                      <tbody>
+                        {consumers.recursos.map((r) => (
+                          <tr key={r.indice} data-testid={`inspection-consumers-recurso-${r.indice}`} data-span-ok={String(r.span_ok)} className="border-t border-[#313244] font-mono text-[#bac2de]">
+                            <td className="py-1">{r.indice}</td>
+                            <td>{r.offset_hex}</td>
+                            <td>{r.span_bytes} B</td>
+                            <td className="break-all">{r.span_sha256}</td>
+                            <td className={r.span_ok ? "text-[#a6e3a1]" : "text-[#f38ba8]"}>{r.span_ok ? "sim" : "não"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="mt-1 space-y-0.5">
+                      {consumers.recursos.map((r) => (
+                        <div key={`ref-${r.indice}`} className="break-all font-mono text-[9px] text-[#7f849c]">conteúdo decodificado do recurso {r.indice}: referência {r.plain_sha256_referencia} ({r.plain_status})</div>
+                      ))}
+                    </div>
+                  </div>
+                  <div id="inspection-consumers-nivel-6" className="mt-2">
+                    <div className="text-[9px] uppercase tracking-[0.14em] text-[#fab387]">6. Interpretação</div>
+                    <div data-testid="inspection-consumers-interpretacao" className="mt-1 text-[#bac2de]">
+                      Grade de {consumers.interpretacao.linhas}×{consumers.interpretacao.colunas} números de {consumers.interpretacao.celula_bytes} byte por célula, copiada para 0x{consumers.interpretacao.base_ram_hex} com {consumers.interpretacao.stride} bytes por linha — grau: vínculo estrutural estático (os bytes provam o formato; a imagem, não).
+                      Uma prévia gráfica não é exibida como imagem confirmada: arte e paleta permanecem desconhecidas (<a href="#inspection-consumers-nivel-7" className="text-[#89b4fa] underline">nível 7</a>).
+                    </div>
+                    <div data-testid="inspection-consumers-falso-lider" data-veredito={consumers.recusa_falso_lider.veredito} className="mt-2 rounded border border-[#f38ba8]/40 bg-[#2a1520] p-2">
+                      <div className="text-[9px] uppercase tracking-[0.14em] text-[#f38ba8]">Leitura antiga recusada: {consumers.recusa_falso_lider.modelo} — {consumers.recusa_falso_lider.veredito}</div>
+                      <div className="mt-1 space-y-0.5">
+                        {consumers.recusa_falso_lider.motivos.map((m) => <div key={m} data-testid="inspection-consumers-falso-lider-motivo" className="text-[9px] text-[#bac2de]">{m}</div>)}
+                      </div>
+                    </div>
+                  </div>
+                  <div id="inspection-consumers-nivel-7" className="mt-2">
+                    <div className="text-[9px] uppercase tracking-[0.14em] text-[#fab387]">7. O que ainda não se sabe</div>
+                    <div data-testid="inspection-consumers-desconhecidos" className="mt-1 space-y-0.5">
+                      {consumers.desconhecidos.map((d) => <div key={d} className="text-[9px] text-[#bac2de]">{d}</div>)}
+                    </div>
+                  </div>
+                  <details data-testid="inspection-consumers-limites" className="mt-2 border-t border-[#313244] pt-2">
+                    <summary className="cursor-pointer text-[9px] uppercase tracking-[0.14em] text-[#bac2de]">Proveniência, tabela de IDs e limites da fonte (detalhe técnico)</summary>
+                    <div className="mt-1 space-y-1 text-[9px] text-[#7f849c]">
+                      <div className="break-all">Tabela de definições (MapIndex): {consumers.mapindex.addr_hex} · {consumers.mapindex.entradas} entradas · registro do ID 01: {consumers.mapindex.registro_id01_hex} · ponteiro {consumers.mapindex.ponteiro_id01_hex} dentro da ROM: {consumers.mapindex.ponteiro_dentro_rom ? "sim" : "não"}</div>
+                      <div className="break-all">Prova da cadeia (SHA-256): {consumers.limites_fonte.prova_cadeia_sha256}</div>
+                      <div className="break-all">Decodificador externo (SHA-256): {consumers.limites_fonte.decoder_externo_sha256}</div>
+                      <div>Origem da medição: {consumers.limites_fonte.origem}</div>
+                      <div>Idioma do perfil: {consumers.idioma} · perfil {consumers.perfil_id}. Voltar à evidência: <a href="#inspection-consumers-nivel-3" className="text-[#89b4fa] underline">nível 3</a>.</div>
+                    </div>
+                  </details>
+                </>}
+                <div aria-live="polite" data-testid="inspection-consumers-error" className="mt-2 break-words text-[#f38ba8]">{consumersError}</div>
               </div>
               </div>
               <div data-testid="inspection-anim-group-color" className="mt-2">

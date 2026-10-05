@@ -530,6 +530,80 @@ export interface SonicSequenceInfo {
   limitations: string[];
   contract_path: string;
 }
+
+/**
+ * Inspeção somente-leitura da cadeia de consumidores e recursos do Sonic 1
+ * (fases especiais) medida na ROM pinada. Todo o domínio (sítios, pins,
+ * recusas, geometria) vive no core Rust (`sonic_consumers`); a UI só renderiza.
+ */
+export interface SonicConsumersInfo {
+  perfil_id: string;
+  perfil_rotulo: string;
+  idioma: string;
+  identidade: {
+    rom_sha256: string;
+    rom_tamanho: number;
+    confere_com_pin: boolean;
+    pin_sha256: string;
+  };
+  sitios: Array<{
+    endereco: string;
+    papel: string;
+    esperado_hex: string;
+    obtido_hex: string;
+    ok: boolean;
+  }>;
+  veredito_sitios: string;
+  cadeia: {
+    tabela_hex: string;
+    entradas: Array<{
+      hex_entrada: string;
+      offset_stream: string;
+      lido_hex: string;
+      ok: boolean;
+    }>;
+    chamada_hex: string;
+    destino_hex: string;
+    destino_classe: string;
+    valor_offset_param: number;
+  };
+  recursos: Array<{
+    indice: number;
+    offset_hex: string;
+    span_bytes: number;
+    span_sha256: string;
+    span_ok: boolean;
+    plain_sha256_referencia: string;
+    plain_status: string;
+  }>;
+  interpretacao: {
+    celula_bytes: number;
+    linhas: number;
+    colunas: number;
+    stride: number;
+    base_ram_hex: string;
+    nivel: string;
+  };
+  mapindex: {
+    addr_hex: string;
+    entradas: number;
+    registro_id01_hex: string;
+    id01_ok: boolean;
+    ponteiro_id01_hex: string;
+    ponteiro_dentro_rom: boolean;
+  };
+  recusa_falso_lider: {
+    modelo: string;
+    veredito: string;
+    motivos: string[];
+  };
+  desconhecidos: string[];
+  limites_fonte: {
+    prova_cadeia_sha256: string;
+    decoder_externo_sha256: string;
+    origem: string;
+  };
+}
 export interface InspectionPixelEdit {
   x: number;
   y: number;
@@ -804,6 +878,11 @@ export function inspectionEditSonicDuration(
 /** Reads the proven id_Wait frame sequence (original vs current order) from the core. */
 export function inspectionSonicSequence(sessionId: string): Promise<SonicSequenceInfo> {
   return invoke<SonicSequenceInfo>("rex_inspection_sonic_sequence", { sessionId });
+}
+
+/** Le a cadeia medida de consumidores/recursos do Sonic 1 sem escrever nada. */
+export function inspectionSonicConsumers(sessionId: string): Promise<SonicConsumersInfo> {
+  return invoke<SonicConsumersInfo>("rex_inspection_sonic_consumers", { sessionId });
 }
 
 /** Reorders the 18 id_Wait frame entries on a revalidated copy (in place, size-preserving). */
