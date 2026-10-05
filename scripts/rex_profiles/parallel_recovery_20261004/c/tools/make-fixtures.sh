@@ -32,12 +32,22 @@ done
 # o texto); fixtures de fluxo: referencia + bytes.
 CALIB=(calib calib2)
 FX=(fx01_branches fx02_extended fx03_dbcc fx04_calls fx05_indirect
-    fx06_data_opcodes fx07_out_of_region fx08_relative_base_historico)
+    fx06_data_opcodes fx07_out_of_region fx08_relative_base_historico
+    fx09_matriz_isa fx10isca fx11assimetrica)
 
 # cada fixture entra com o simbolo de entrada (evita warning do linker e prende
 # o endereco-base em 0, que e o que os testes assumem via --origin 0x0).
 # Convencao do nome do arquivo: `fxNN_descricao.s` rotula o inicio como `fxNN`.
-entrada() { echo "${1%%_*}"; }
+# Os dois fixtures de ETAPA2 nao seguem a convencao porque o rotulo curto e o
+# nome que aparece nas expectativas congeladas (`fx10`/`fx11`), entao o mapa e
+# explicito: trocar o rotulo reescreveria EXPECTATIONS-ETAPA2.md, que e frozen.
+entrada() {
+    case "$1" in
+        fx10isca) echo fx10 ;;
+        fx11assimetrica) echo fx11 ;;
+        *) echo "${1%%_*}" ;;
+    esac
+}
 
 gerar() {
     local dir="$1" nome="$2" com_bytes="$3"
@@ -82,7 +92,7 @@ if [ "$MODO" = "--check" ]; then
             }
         done
     done
-    echo "OK: 10 corpus reproduziveis a partir das fontes .s (objdump + bytes identicos)"
+    echo "OK: $(( ${#CALIB[@]} + ${#FX[@]} )) corpus reproduziveis a partir das fontes .s (objdump + bytes identicos)"
     exit 0
 fi
 

@@ -1,0 +1,96 @@
+
+fx09_matriz_isa.elf: file format elf32-m68k
+
+
+Disassembly of section .text:
+
+00000000 <fx09>:
+   0:	6102           	bsrs 4 <m01q>
+   2:	4e71           	nop
+
+00000004 <m01q>:
+   4:	4e75           	rts
+
+00000006 <m02>:
+   6:	6100 0080      	bsrw 88 <suba>
+   a:	4e71           	nop
+   c:	4e75           	rts
+
+0000000e <m02b>:
+   e:	6100 fff6      	bsrw 6 <m02>
+  12:	4e71           	nop
+  14:	4e75           	rts
+
+00000016 <m03>:
+  16:	61ff 0000 1234 	bsrl 124c <suba+0x11c4>
+  1c:	4e71           	nop
+  1e:	4e75           	rts
+
+00000020 <m04>:
+  20:	4eb8 8000      	jsr ffff8000 <__bss_start+0xffff5f74>
+  24:	4e71           	nop
+  26:	4e75           	rts
+
+00000028 <m05>:
+  28:	4eb9 0000 0088 	jsr 88 <suba>
+  2e:	4e71           	nop
+  30:	4e75           	rts
+
+00000032 <m06>:
+  32:	4ef8 8000      	jmp ffff8000 <__bss_start+0xffff5f74>
+  36:	4e71           	nop
+  38:	4e75           	rts
+
+0000003a <m07>:
+  3a:	4ef9 0080 0000 	jmp 800000 <__bss_start+0x7fdf74>
+  40:	4e71           	nop
+  42:	4e75           	rts
+
+00000044 <m08>:
+  44:	4efa 1234      	jmp %pc@(127a <suba+0x11f2>)
+  48:	4e71           	nop
+  4a:	4e75           	rts
+
+0000004c <m09a>:
+  4c:	4efc           	.short 0x4efc
+  4e:	4e71           	nop
+  50:	4e75           	rts
+
+00000052 <m09b>:
+  52:	4efd           	.short 0x4efd
+  54:	4e71           	nop
+  56:	4e75           	rts
+
+00000058 <m10>:
+  58:	2a7c 1234 5678 	moveal #305419896,%a5
+  5e:	4e71           	nop
+  60:	4e75           	rts
+
+00000062 <m11>:
+  62:	0a7c fc00      	eoriw #-1024,%sr
+  66:	4e71           	nop
+  68:	4e75           	rts
+
+0000006a <m12>:
+  6a:	41f8 8000      	lea ffff8000 <__bss_start+0xffff5f74>,%a0
+  6e:	4e71           	nop
+  70:	4e75           	rts
+
+00000072 <m13>:
+  72:	41fa ffbe      	lea %pc@(32 <m06>),%a0
+  76:	4e71           	nop
+  78:	4e75           	rts
+
+0000007a <m14a>:
+  7a:	51c3           	sf %d3
+  7c:	4e71           	nop
+  7e:	4e75           	rts
+
+00000080 <m14b>:
+  80:	51cb fffe      	dbf %d3,80 <m14b>
+  84:	4e71           	nop
+  86:	4e75           	rts
+
+00000088 <suba>:
+  88:	7001           	moveq #1,%d0
+  8a:	4e75           	rts
