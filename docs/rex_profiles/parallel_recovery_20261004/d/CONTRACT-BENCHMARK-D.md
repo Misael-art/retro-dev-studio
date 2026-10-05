@@ -62,6 +62,28 @@ B; não é oráculo independente de mdcomp — limitação herdada).
   2 tabelas de saltos (5 + 4 alvos reais).
 - denominadores congelados: D1 9 · D2 6 · D3 6 · D4 2 · D5 2 · D6 9 · D7 10 · N1 3 · N2 6.
 
+### `dev-2` — público, mesmo plano com o gerador corrigido (2026-10-05)
+Addendum datado da ronda 3 (requisito 6 / regra **R16** de `EXTENSOES-D.md` §12).
+O gerador de entropía das roldas 1–2 (`makeRngDegeneradoV1`) devolvía sempre 0,
+polo que as 9 rexións de stream de `dev-1` teñen *plain* de entropía cero e os
+eixos de compresión/descodificación nunca se exercitaron contra datos reais.
+`dev-1` **non se re-xera**: as súas filas de evidencia pinan eses bytes.
+
+- xerador: `v2` (`xorshift64*`, terna 12/25/27, `a = 0x2545F4914F6CDD1D`,
+  truncado en aritmética enteira); semente `rex-parallel-d-20261004/dev-1/v2`.
+- fixture: SHA-256 `73d95aea7dc04f6ef67d8e71a26ed722013e76ce156a8a60a886df3c58a24bd2`
+  (2428 bytes) em `data/.../d/dev-v2/`, con `seal.json` que declara o xerador.
+- mesmo plano, mesmos denominadores conxelados de `dev-1` (D1 9 · D2 6 · D3 6 ·
+  D4 2 · D5 2 · D6 9 · D7 10 · N1 3 · N2 6) — o que cambia é a entropía dos datos,
+  non a estrutura medible.
+- `cli.mjs author dev-2` re-xera; `cli.mjs check-seal` confire os dous conxuntos
+  e comproba que cada selo é **reproducíbel** co xerador que declara.
+- probas: `scripts/.../d/lib_rng.test.mjs` (13). As secuencias esperadas fixáronse
+  cun oráculo externo — `scripts/.../d/oraculo_rng.py`, Python con enteiros
+  arbitrários, escrito a partir da especificación publicada e non do código de
+  Node —, que `cli.mjs selftest` executa en cada corrida (cruzamento de liñas de
+  evidencia, como o espelho `kosinski`).
+
 ### `ho-1` — reservado
 - respostas **fora da árvore versionada** até o unseal pós-medição; só o pin
   público é commitado: `data/.../d/ho-1/pin.json`, fixture

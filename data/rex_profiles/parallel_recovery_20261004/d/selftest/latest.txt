@@ -48,7 +48,10 @@ OK   X4 fixture_hash_errado tratamento correto — status INCONCLUSIVE
 OK   X5 regioes_sem_campos tratamento correto — status FAIL
 OK   kosinski R-S5 × espelho (linha B) — sha 5c55c8f4db4010ba… confirmado
 OK   kosinski R-K3 × espelho (linha B) — sha 6eb69e26de2a26ed… confirmado
+OK   entropia rex-parallel-d-20261004/dev-1/v2::dev-1 × oraculo (R16) — 24 valores confirmados, 23 distintos
+OK   entropia seed-de-teste-nao-reservado::ho-1 × oraculo (R16) — 24 valores confirmados, 22 distintos
 
-resumo: round-trips internos 9; kosinski×espelho ok
+resumo: round-trips internos 9; kosinski×espelho ok; entropia×oraculo ok
 Nota metodologica: round-trip interno usa a MESMA linha de evidencia (autoria) e nao conta como prova.
 Kosinski foi cruzado com instrumento de outra linha (espelho mdcomp).
+O xerador v2 foi cruzado co oraculo externo (R16).

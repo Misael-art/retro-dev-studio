@@ -17,7 +17,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { kosinskiEncode, kosinskiDecode, makeRng, sha256 } from "../lib_bench.mjs";
+import {
+  kosinskiEncode,
+  kosinskiDecode,
+  sha256,
+  xerador as xeradorEscolhido,
+} from "../lib_bench.mjs";
 import {
   AGRAMA,
   CALIB,
@@ -57,9 +62,9 @@ function insn(bytes, id, stem, notas) {
 export const A_ROM_SIZE = 0x20000;
 
 /** Padrão autoral explícito de D (rampa determinística, auditável à mão).
- *  `makeRng()` de `lib_bench.mjs` devolve sempre 0 — ver errata §4 de
- *  `EXTENSOES-D.md`. As fixtures ainda pendentes de medição (grade B, H-A, H-B)
- *  passam a usar este padrão; as já medidas não são regravadas aqui. */
+ *  Existe porque o xerador de roldas 1–2 (`makeRngDegeneradoV1`) devolvía sempre
+ *  0 — ver errata §4 de `EXTENSOES-D.md` e regra R16. As fixtures ainda pendentes
+ *  de medição (grade B, H-A, H-B) usam este padrão; as já medidas não são regravadas. */
 export function padraoD(n, sementeTexto) {
   let s = 8191;
   for (const ch of Buffer.from(`${sementeTexto}|padrao-d`, "utf8")) s = (s * 33 + ch) >>> 0;
@@ -87,7 +92,9 @@ export function buildAImage(cfg) {
     fluxo2 = 0x8400,
     destinos,
     dadosFn = null,
+    xerador: nomeXerador = "v1",
   } = cfg;
+  const novo = xeradorEscolhido(nomeXerador);
   const img = Buffer.alloc(romSize, 0);
   // Rexistro de zonas ocupadas: a autoría non pode escribir dous contidos no
   // mesmo rango. Sen isto, un stream codificado máis longo que o oco previsto
@@ -125,7 +132,7 @@ export function buildAImage(cfg) {
     if (dadosFn) {
       plain = dadosFn(n, `${seed}|${tag}`);
     } else {
-      const rng = makeRng(`${seed}|${tag}`);
+      const rng = novo(`${seed}|${tag}`);
       plain = Buffer.from(Array.from({ length: n }, () => rng()));
     }
     const { stream } = kosinskiEncode(plain);

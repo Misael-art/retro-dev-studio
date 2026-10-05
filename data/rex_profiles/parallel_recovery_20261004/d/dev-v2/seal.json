@@ -1,0 +1,20 @@
+{
+  "set": "dev-1",
+  "seed": "rex-parallel-d-20261004/dev-1/v2",
+  "seed_sha256": "d22033469197daf8e7425ab07d392c58a12580c4e8af302d04e32ae0e3539606",
+  "fixture_sha256": "73d95aea7dc04f6ef67d8e71a26ed722013e76ce156a8a60a886df3c58a24bd2",
+  "fixture_len": 2428,
+  "denominators": {
+    "D1": 9,
+    "D2": 6,
+    "D3": 6,
+    "D4": 2,
+    "D5": 2,
+    "D6": 9,
+    "D7": 10,
+    "N1": 3,
+    "N2": 6
+  },
+  "conxunto": "dev-2",
+  "xerador": "v2"
+}

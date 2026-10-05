@@ -437,6 +437,14 @@ de D e o desvío real que queda é documental (§11.4, fila `KC3`).
   multiplicador do código (`2685821657763633871`) **non** é o de `xorshift64*`
   (`2685821657736338717`): difire desde o 11º díxito. Corrección + gate de entropía
   (R16) van no lote seguinte; os fixtures v1 **non** se re-xeran.
+  *Rectificación do lote R16 (2026-10-05):* das 8 cadeas daquele sondeo, só 6 son as
+  que o código alimenta realmente ao xerador — `rex-parallel-d-20261004/dev-1/v1::dev-1`,
+  `seed-de-teste-nao-reservado::ho-1`, `d-frentes-a-v1|s1|s2|s3` e `d-holdout-a-ho1|s1`;
+  as outras dúas (`d-frentes-b-v1|grade`, `…::dev-1::dev-1`) escribíronse á man e non
+  corresponden a ningun chamada: a grade B e as fixtures C non usan `makeRng()`. O
+  ditame non cambia — o defecto é universal, esas 6 cadeas están pinadas en
+  `lib_rng.test.mjs` e o alcance real do dano é o que se mide agora: as **9 rexións
+  de stream** de `dev-1` (ver §11.11).
 - **Empaquetado continuo de sondas.** En `dA-img-v1.bin` as probes ían seguidas, sen
   recheo: cando A recusaba unha forma, o scanner seguía lendo a sonda veciña. De aí
   o `chamada_forma: jsr.l` de `KA1-bsr.l`. Veto en v2: R14 (unha sonda por sitio,
@@ -515,3 +523,52 @@ fixtures novas cos seus pins; (b) fixtures de A/C xeradas co montador;
 gabarito v2 e **holdout novo**; (d) B por capacidade despois de `EXTENSOES-D v2-B`;
 (e) matriz v2.
 
+
+## 11.11 Lote R16 (2026-10-05): xerador corrixido, corpus `dev-2` e control histórico
+
+Cumpre o requisito 6 do brief da rolda 3 e o punto (a) de §11.10. Nada disto é
+unha medición sobre as frentes: é autoría de D e o seu control.
+
+- `lib_bench.mjs`: `makeRng()` trunca o produto a 64 bits **antes** de `Number(…)`
+  e usa o multiplicador publicado (`0x2545F4914F6CDD1D`). A vella implementación
+  queda exportada como `makeRngDegeneradoV1()`, rotulada control histórico; R16
+  prohíbe que sexa fonte de entropía de fixtures novos. `XERADORES` / `xerador()`
+  dan o par `v1` / `v2` e `authorSet(set, seed, { xerador })` e `buildAImage({ …,
+  xerador })` aceptano, **con valor por defecto `v1`** para que os bytes xa medidos
+  sigan saíndo idénticos.
+- Corpus novo `dev-2` (`data/…/d/dev-v2/`): fixture
+  `73d95aea7dc04f6ef67d8e71a26ed722013e76ce156a8a60a886df3c58a24bd2`, 2428 bytes
+  (v1: `ba08a8c37dbc…`, 1236), semente `rex-parallel-d-20261004/dev-1/v2`,
+  `seal.json` declara `xerador: "v2"`. Mesmos denominadores conxelados que `dev-1`.
+
+| rexión (stream) | códec | `payload_len` v1 | v2 | `raw_len` |
+|---|---|---|---|---|
+| `R-S1` | dsb1-lz | 21 | 239 | 480 |
+| `R-S2` | dsb1-lz | 17 | 166 | 320 |
+| `R-S3` | dsb1-rle | 4 | 191 | 256 |
+| `R-S4` | dsb1-store | 192 | 192 | 192 |
+| `R-S5` | kosinski | 31 | 257 | 448 |
+| `R-S6` | dsb1-lz | 13 | 44 | 96 |
+| `R-K1` | dsb1-lz | 17 | 152 | 288 |
+| `R-K2` | dsb1-rle | 4 | 114 | 160 |
+| `R-K3` | kosinski | 28 | 165 | 224 |
+
+- Control medido: en `dev-1` **as 9 rexións** de stream descodifican contra un
+  *plain* de entropía cero (`lib_rng.test.mjs` así o pinna). Ningunha fila das
+  roldas 1–2 exerceu os descodificadores contra datos reais — isto estreita o que
+  `dev-1` pode dicir, e non se reclassifica ningunha fila (R0).
+- Oráculo externo en árbore: `scripts/…/d/oraculo_rng.py` (Python, enteiros
+  arbitrarios, escrito da especificación publicada, non do código de Node).
+  `cli.mjs selftest` engade o paso 7, que cruza 24 valores de 2 sementes co
+  xerador de Node; a saída queda en `data/…/d/selftest/latest.txt`.
+- `cli.mjs check-seal` xa non confire só un hash: re-autora cada conxunto co
+  xerador que o selo declara e compara bytes do `fixture.bin` e do
+  `ground-truth.json`, máis os denominadores contra o plan conxelado.
+- Gates deste lote: suite da barra `82 passed` (13 deles `lib_rng.test.mjs`; era
+  69 antes), `check-seal` rc 0 para `dev-1` e `dev-2`, `selftest` rc 0 con
+  `entropia×oraculo ok`. Barra do repo: `check:tree` OK, `lint` ok,
+  `tsc --noEmit` sen erros, `npm test` `1015 passed | 6 skipped` (1021) en
+  103 arquivos verdes e 1 saltado. `dev/`, `frentes/`, `medidas/` e `ho-1/` sen
+  drift ningún (`git status` sobre `data/` só mostra `dev-v2/` novo e 4 liñas
+  engadidas en `selftest/latest.txt`). Ningunha fila das 225 publicadas se
+  re-classificou (R0); ningún SHA histórico cambiou.

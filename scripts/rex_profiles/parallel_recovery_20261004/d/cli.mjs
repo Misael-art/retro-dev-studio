@@ -2,7 +2,8 @@
 /**
  * CLI reproduzivel da barra D (frente de avaliacao da recuperacao paralela
  * 2026-10-04). Subcomandos:
- *   author dev-1                       gera o fixture publico + gabarito
+ *   author dev-1                       gera o fixture publico historico (v1)
+ *   author dev-2                       gera o mesmo plan co xerador corrixido (R16)
  *   author ho-1 --seed-from <arquivo>  gera o conjunto reservado FORA da arvore
  *   score --truth <json> --export <json> [--out-dir <dir>]
  *   selftest                           matriz de mutacao + denominadores + kosinski
@@ -19,7 +20,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { authorSet } from "./bench_author.mjs";
-import { REGION_HEADER_LEN, STREAM_DECODERS, CODEC, sha256 } from "./lib_bench.mjs";
+import { REGION_HEADER_LEN, STREAM_DECODERS, CODEC, makeRng, sha256 } from "./lib_bench.mjs";
 import { MUTATIONS, degenerateCases, mutationCase } from "./mutations.mjs";
 import { deriveIdealExport, renderMarkdown, scoreExport } from "./runner.mjs";
 
@@ -27,11 +28,14 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "../../../..");
 const DATA_DIR = path.join(REPO, "data/rex_profiles/parallel_recovery_20261004/d");
 const DEV_DIR = path.join(DATA_DIR, "dev");
+const DEV_V2_DIR = path.join(DATA_DIR, "dev-v2");
 const HO_PIN_DIR = path.join(DATA_DIR, "ho-1");
 const HELDOUT_DEFAULT = path.join(process.env.HOME ?? "/tmp", "rds-scratch/rex-parallel-d-heldout");
 const KOS_MIRROR = path.join(REPO, "scripts/rex_profiles/codecs/kosinski/kos_mirror.py");
+const ORACULO_RNG = path.join(HERE, "oraculo_rng.py");
 
 const DEV_SEED = "rex-parallel-d-20261004/dev-1/v1";
+const DEV_SEED_V2 = "rex-parallel-d-20261004/dev-1/v2";
 
 const frozen = {
   "dev-1": { D1: 9, D2: 6, D3: 6, D4: 2, D5: 2, D6: 9, D7: 10, N1: 3, N2: 6 },
@@ -55,22 +59,40 @@ function writeIfChanged(file, data) {
 
 // ---------- author ----------
 
+// Conxuntos que D autoriza e sela dentro da árbore. `dev-1` é o corpus medido
+// nas roldas 1–2: o seu xerador era dexenerado (regra R16) e queda conxelado
+// como está, porque as súas 225 filas de evidencia pinan eses bytes. `dev-2` é
+// o mesmo plan co xerador corrixido — entropía real, pins propios.
+const CONJUNTOS = {
+  "dev-1": { dir: DEV_DIR, set: "dev-1", seed: DEV_SEED, xerador: "v1" },
+  "dev-2": { dir: DEV_V2_DIR, set: "dev-1", seed: DEV_SEED_V2, xerador: "v2" },
+};
+
 function cmdAuthor() {
   const set = args[1];
-  if (set === "dev-1") {
-    const { image, truth } = authorSet("dev-1", DEV_SEED);
-    writeIfChanged(path.join(DEV_DIR, "fixture.bin"), image);
-    writeIfChanged(path.join(DEV_DIR, "ground-truth.json"), JSON.stringify(truth, null, 2) + "\n");
+  const c = CONJUNTOS[set];
+  if (c) {
+    const { image, truth } = authorSet(c.set, c.seed, { xerador: c.xerador });
+    writeIfChanged(path.join(c.dir, "fixture.bin"), image);
+    writeIfChanged(path.join(c.dir, "ground-truth.json"), JSON.stringify(truth, null, 2) + "\n");
     const seal = {
-      set: "dev-1",
-      seed: DEV_SEED,
+      set: c.set,
+      seed: c.seed,
       seed_sha256: truth.seed_sha256,
       fixture_sha256: truth.fixture_sha256,
       fixture_len: truth.fixture_len,
-      denominators: frozen["dev-1"],
+      denominators: frozen[c.set],
     };
-    writeIfChanged(path.join(DEV_DIR, "seal.json"), seal);
-    process.stdout.write(`dev-1: fixture ${truth.fixture_sha256} (${truth.fixture_len} bytes) em ${DEV_DIR}\n`);
+    // O selo de `dev-1` xa está publicado e a rolda 2 cítao: non se reescribe.
+    // Os conxuntos novos declaram o xerador que usa (R16).
+    if (c.xerador !== "v1") {
+      seal.conxunto = set;
+      seal.xerador = c.xerador;
+    }
+    writeIfChanged(path.join(c.dir, "seal.json"), seal);
+    process.stdout.write(
+      `${set}: fixture ${truth.fixture_sha256} (${truth.fixture_len} bytes, xerador ${c.xerador}) em ${c.dir}\n`,
+    );
     return 0;
   }
   if (set === "ho-1") {
@@ -213,15 +235,55 @@ function cmdSelftest() {
   // 6. kosinski contra instrumento externo (kos_mirror.py, familia B)
   const kos = verifyKosinski(out);
 
+  // 7. entropia contra oraculo externo (R16): mesma semente, outro backend
+  //    aritmetico (Python, inteiros arbitrarios)
+  const ent = verifyEntropia(out);
+
   out.push("");
-  out.push(`resumo: round-trips internos ${rt}; kosinski×espelho ${kos}`);
+  out.push(`resumo: round-trips internos ${rt}; kosinski×espelho ${kos}; entropia×oraculo ${ent}`);
   out.push("Nota metodologica: round-trip interno usa a MESMA linha de evidencia (autoria) e nao conta como prova.");
   out.push(kos === "ok" ? "Kosinski foi cruzado com instrumento de outra linha (espelho mdcomp)." : "Kosinski NAO confirmado por instrumento externo: dimensao permanece nao medida.");
+  out.push(ent === "ok" ? "O xerador v2 foi cruzado co oraculo externo (R16)." : "O xerador v2 NON confirmado polo oraculo externo: a entropia das fixtures queda sen medir.");
   const text = out.join("\n") + "\n";
   process.stdout.write(text);
   fs.mkdirSync(path.join(DATA_DIR, "selftest"), { recursive: true });
   fs.writeFileSync(path.join(DATA_DIR, "selftest", "latest.txt"), text);
-  return out.hardFail || kos === "fail" ? 1 : 0;
+  return out.hardFail || kos === "fail" || ent === "fail" ? 1 : 0;
+}
+
+function verifyEntropia(out) {
+  if (!fs.existsSync(ORACULO_RNG)) {
+    check(out, false, "entropia × oraculo", `instrumento ausente: ${ORACULO_RNG}`);
+    return "fail";
+  }
+  const sementes = [`${DEV_SEED_V2}::dev-1`, "seed-de-teste-nao-reservado::ho-1"];
+  const r = spawnSync("python3", [ORACULO_RNG, JSON.stringify(sementes), "24"], { encoding: "utf8", timeout: 30_000 });
+  if (r.status !== 0) {
+    check(out, false, "entropia × oraculo", `oraculo fallou: ${String(r.stderr).slice(0, 160)}`);
+    return "fail";
+  }
+  let j;
+  try {
+    j = JSON.parse(r.stdout);
+  } catch {
+    check(out, false, "entropia × oraculo", "saida do oraculo non se interpretou");
+    return "fail";
+  }
+  let allOk = true;
+  for (const s of sementes) {
+    const esperado = j[s];
+    const gen = makeRng(s);
+    const medido = Array.from({ length: 24 }, () => gen());
+    const ok = Array.isArray(esperado) && esperado.length === 24 && esperado.join(",") === medido.join(",");
+    check(
+      out,
+      ok,
+      `entropia ${s} × oraculo (R16)`,
+      ok ? `24 valores confirmados, ${new Set(medido).size} distintos` : `esperado ${esperado}, obtido ${medido}`,
+    );
+    if (!ok) allOk = false;
+  }
+  return allOk ? "ok" : "fail";
 }
 
 function verifyKosinski(out) {
@@ -268,15 +330,33 @@ print(json.dumps({"ok": out is not None and not isinstance(out, str),
 
 function cmdCheckSeal() {
   const problems = [];
-  const dev = JSON.parse(fs.readFileSync(path.join(DEV_DIR, "seal.json"), "utf8"));
-  const bin = fs.readFileSync(path.join(DEV_DIR, "fixture.bin"));
-  const sha = createHash("sha256").update(bin).digest("hex");
-  if (sha !== dev.fixture_sha256) problems.push(`dev fixture: ${sha} != selado ${dev.fixture_sha256}`);
-  if (bin.length !== dev.fixture_len) problems.push(`dev fixture: comprimento ${bin.length} != selado ${dev.fixture_len}`);
-  const truth = JSON.parse(fs.readFileSync(path.join(DEV_DIR, "ground-truth.json"), "utf8"));
-  for (const [d, want] of Object.entries(dev.denominators)) {
-    const got = scoreExport(truth, deriveIdealExport(truth)).dimensions[d].denominator;
-    if (got !== want) problems.push(`dev ${d}: runner ${got} != selado ${want}`);
+  const conferidos = [];
+  for (const [nome, c] of Object.entries(CONJUNTOS)) {
+    const seloPath = path.join(c.dir, "seal.json");
+    if (!fs.existsSync(seloPath)) {
+      problems.push(`${nome}: falta ${seloPath}`);
+      continue;
+    }
+    const selo = JSON.parse(fs.readFileSync(seloPath, "utf8"));
+    const bin = fs.readFileSync(path.join(c.dir, "fixture.bin"));
+    const sha = createHash("sha256").update(bin).digest("hex");
+    if (sha !== selo.fixture_sha256) problems.push(`${nome} fixture: ${sha} != selado ${selo.fixture_sha256}`);
+    if (bin.length !== selo.fixture_len) problems.push(`${nome} fixture: comprimento ${bin.length} != selado ${selo.fixture_len}`);
+    // re-autoría: o selo non é un hash solto, ten de ser reproducíbel co xerador
+    // que declara (R16)
+    const { image, truth } = authorSet(c.set, selo.seed, { xerador: selo.xerador ?? "v1" });
+    if (!image.equals(bin)) problems.push(`${nome}: re-autoría co xerador ${selo.xerador ?? "v1"} non dá os bytes selados`);
+    const truthDisk = fs.readFileSync(path.join(c.dir, "ground-truth.json"));
+    if (sha256(Buffer.from(JSON.stringify(truth, null, 2) + "\n")) !== sha256(truthDisk)) {
+      problems.push(`${nome}: gabarito en disco ≠ gabarito re-autorado`);
+    }
+    for (const [d, want] of Object.entries(selo.denominators)) {
+      const got = scoreExport(truth, deriveIdealExport(truth)).dimensions[d].denominator;
+      if (got !== want) problems.push(`${nome} ${d}: runner ${got} != selado ${want}`);
+      const congelado = frozen[c.set][d];
+      if (congelado !== want) problems.push(`${nome} ${d}: selo ${want} != plan congelado ${congelado}`);
+    }
+    conferidos.push(`${nome} ${selo.fixture_sha256} (xerador ${selo.xerador ?? "v1"})`);
   }
   const pinPath = path.join(HO_PIN_DIR, "pin.json");
   if (fs.existsSync(pinPath)) {
@@ -292,7 +372,7 @@ function cmdCheckSeal() {
     process.stderr.write(problems.join("\n") + "\n");
     return 1;
   }
-  process.stdout.write(`selos conferem: dev-1 ${dev.fixture_sha256}\n`);
+  process.stdout.write(`selos conferem: ${conferidos.join(" · ")}\n`);
   return 0;
 }
 

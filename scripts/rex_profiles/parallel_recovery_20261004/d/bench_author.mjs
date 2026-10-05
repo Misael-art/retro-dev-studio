@@ -13,8 +13,8 @@ import {
   buildDirectory,
   buildRegionHeader,
   indicesToPlanar,
-  makeRng,
   sha256,
+  xerador,
 } from "./lib_bench.mjs";
 
 function payloadFor(kind, rng, spec) {
@@ -137,11 +137,12 @@ function encodeStream(codec, raw) {
   return { payload, raw };
 }
 
-export function authorSet(set, seed) {
+export function authorSet(set, seed, cfg = {}) {
+  const novo = xerador(cfg.xerador ?? "v1");
   const plan = planFor(set);
   const regions = [];
   const consumers = [];
-  const rng = makeRng(`${seed}::${set}`);
+  const rng = novo(`${seed}::${set}`);
 
   const pushRegion = (r) => regions.push(r);
 

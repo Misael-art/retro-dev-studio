@@ -43,14 +43,51 @@ export function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-/** xorshift64* — PRNG determinístico, semeado por string de autoria. */
-export function makeRng(seedText) {
+/** Constantes de `xorshift64*` como as publica Marsaglia (2003). */
+export const XORSHIFT64STAR = {
+  nome: "xorshift64*",
+  terna: [12, 25, 27],
+  multiplicador: "2685821657736338717", // 0x2545F4914F6CDD1D
+  truncado_na: "bigint",
+};
+
+const semeio = (seedText) => {
   let s = BigInt("1469598103934665603");
   for (const ch of Buffer.from(`${seedText}|dsb1|1`, "utf8")) {
     s = BigInt.asUintN(64, (s ^ BigInt(ch)) * BigInt("1099511628211"));
   }
-  if (s === 0n) s = 1n;
-  let state = s;
+  return s === 0n ? 1n : s;
+};
+
+/**
+ * PRNG determinístico das estruturas autorais da barra (regra R16).
+ * `Number(x) >> 33n` sobre o produto de 128 bits perdia a precisión antes do
+ * desprazamento, polo que o desprazamento devolvia 0 en coma flotante e `% 256`
+ * era invariablemente 0: o xerador anterior era dexenerado en todas as sementes.
+ * A truncación faise agora en aritmética enteira antes de converter a `Number`.
+ */
+export function makeRng(seedText) {
+  const A = BigInt(XORSHIFT64STAR.multiplicador);
+  let state = semeio(seedText);
+  return function next() {
+    state ^= state >> 12n;
+    state = BigInt.asUintN(64, state);
+    state ^= state << 25n;
+    state = BigInt.asUintN(64, state);
+    state ^= state >> 27n;
+    state = BigInt.asUintN(64, state);
+    return Number(BigInt.asUintN(64, state * A) >> 33n) % 256;
+  };
+}
+
+/**
+ * CONTROL HISTÓRICO, non fonte de entropía: a implementación de roldas 1 e 2.
+ * Devolve sempre 0 (ver o defecto descrito en `makeRng`). Mantense exposta só
+ * para que os artefactos selados de v1 sigan sendo re-xerábeis byte a byte; ningún
+ * fixture novo debe chamala. R16 prohíbe usala como xerador de datos de proba.
+ */
+export function makeRngDegeneradoV1(seedText) {
+  let state = semeio(seedText);
   return function next() {
     state ^= state >> 12n;
     state = BigInt.asUintN(64, state);
@@ -60,6 +97,20 @@ export function makeRng(seedText) {
     state = BigInt.asUintN(64, state);
     return Number((BigInt.asUintN(64, state) * BigInt("2685821657763633871")) >> 33n) % 256;
   };
+}
+
+/** Xeradores de entropía. `v1` = roldas 1–2, **dexenerado**: existe só para que
+ *  os artefactos selados de v1 sigan re-xerábeis byte a byte. `v2` = corrixido,
+ *  e o único permitido para fixtures novos (regra R16). */
+export const XERADORES = {
+  v1: makeRngDegeneradoV1,
+  v2: makeRng,
+};
+
+export function xerador(nome) {
+  const f = XERADORES[nome];
+  if (!f) throw new Error(`xerador descoñecido: ${nome} (dispoñibles: ${Object.keys(XERADORES).join(", ")})`);
+  return f;
 }
 
 // ---------------------------------------------------------------------------
