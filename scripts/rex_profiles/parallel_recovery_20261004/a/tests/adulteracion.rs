@@ -230,11 +230,13 @@ fn k10_vinculo_chamada_rutina_incoherente_rexeitado() {
     assert!(elo.2.contains("0x000600"), "{:?}", elo.2);
     // e nada antes fallou: sitio-chamada e alvo-chamada pasan (non é K4/K11)
     assert!(
-        elos.iter().any(|(n, e, _)| n == "sitio-chamada" && *e == Estado::Pass),
+        elos.iter()
+            .any(|(n, e, _)| n == "sitio-chamada" && *e == Estado::Pass),
         "{elos:?}"
     );
     assert!(
-        elos.iter().any(|(n, e, _)| n == "alvo-chamada" && *e == Estado::Pass),
+        elos.iter()
+            .any(|(n, e, _)| n == "alvo-chamada" && *e == Estado::Pass),
         "{elos:?}"
     );
 }

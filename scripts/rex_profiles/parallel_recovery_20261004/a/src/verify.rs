@@ -580,6 +580,29 @@ pub fn revalidar(imaxe: &[u8], cadea: &Cadea, ventanxa: u32) -> Resultado {
                 }
                 elos.push(Elo::pass("sitio-chamada", crate::chain::hex_maíus(&reais)));
                 elos.push(Elo::pass("alvo-chamada", format!("{alvo:#08X}")));
+                // vínculo chamada→rutina (misión paso 9, control K10): a
+                // rutina afirmada debe estar no alvo CALCULADO da chamada,
+                // no BUS de 24 bits (modelo de tres niveis, RECTIFICACION
+                // §2 — o elo de rutina vive no bus). Compara contra a
+                // medición, non contra o alvo declarado: rexeitar isto na
+                // estructura (`validar`) retrotraería o negativo conxelado
+                // C3/K11 (alvo declarado mutado) a rc=2 ESQUEMA.
+                if let Some(rsite) = cadea.rutina_sitio {
+                    let alvo_bus = calc & BARRAMENTO;
+                    if rsite != alvo_bus {
+                        elos.push(Elo::fail(
+                            "vinculo-chamada-rutina",
+                            format!(
+                                "alvo calculado={calc:#08X} bus={alvo_bus:#08X} rutina={rsite:#08X}"
+                            ),
+                        ));
+                        return Resultado {
+                            elos,
+                            codigo: codigo::ALVO_DIVERXENTE,
+                        };
+                    }
+                    elos.push(Elo::pass("vinculo-chamada-rutina", format!("{rsite:#08X}")));
+                }
                 // xeometría: a chamada cae na ventána tras o fin da carga.
                 // diff 0 é lexítimo (patrón `lea;jsr` — a chamada é a
                 // instrución seguinte); buscar_chamada varre desde fin_carga

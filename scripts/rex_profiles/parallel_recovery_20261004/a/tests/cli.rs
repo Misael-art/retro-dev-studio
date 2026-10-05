@@ -25,9 +25,8 @@ fn imaxe_base() -> Vec<u8> {
     v[0x108..0x10C].copy_from_slice(&[0x61, 0x00, 0x04, 0xF6]);
     v[0x110..0x116].copy_from_slice(&[0x43, 0xF9, 0x00, 0xA0, 0x00, 0x00]);
     let fluxo: [u8; 23] = [
-        0xFF, 0xFF,
-        b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A',
-        b'A', 0x02, 0x00, b'A', 0x00, 0x00, 0x00,
+        0xFF, 0xFF, b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A',
+        b'A', b'A', 0x02, 0x00, b'A', 0x00, 0x00, 0x00,
     ];
     v[0x200..0x200 + fluxo.len()].copy_from_slice(&fluxo);
     v[0x600..0x608].copy_from_slice(&[0x70, 0x00, 0x4E, 0x75, 0x30, 0x3C, 0x00, 0x04]);
@@ -46,7 +45,10 @@ fn rex_chain() -> Command {
 }
 
 fn executar(args: &[&str]) -> Output {
-    let out = rex_chain().args(args).output().expect("rex-chain executábel");
+    let out = rex_chain()
+        .args(args)
+        .output()
+        .expect("rex-chain executábel");
     assert!(
         !out.stdout.is_empty() || !out.stderr.is_empty(),
         "execución muda: {args:?}"
@@ -60,7 +62,7 @@ fn escribir_imaxe(d: &Path) -> std::path::PathBuf {
     p
 }
 
-fn construir(d: &Path, imaxe: &Path) -> String {
+fn construir(imaxe: &Path) -> String {
     let out = executar(&[
         "construir-cadea",
         "--imaxe",
@@ -78,10 +80,18 @@ fn construir(d: &Path, imaxe: &Path) -> String {
         "--limite-orzamento",
         "65536",
     ]);
-    assert!(out.status.success(), "stderr: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let stdout = String::from_utf8(out.stdout).expect("stdout utf-8");
     let liñas: Vec<&str> = stdout.lines().filter(|l| !l.trim().is_empty()).collect();
-    assert_eq!(liñas.len(), 1, "construir-cadea debe emitir un JSONL: {liñas:?}");
+    assert_eq!(
+        liñas.len(),
+        1,
+        "construir-cadea debe emitir un JSONL: {liñas:?}"
+    );
     liñas[0].to_string()
 }
 
@@ -91,13 +101,11 @@ fn raiz_declarada_fica_local_nunha_cadea_construida() {
     // descuberto, alcance de boot nin observación de runtime.
     let d = dir_de_trallo("raiz-local");
     let imaxe = escribir_imaxe(&d);
-    let jsonl = construir(&d, &imaxe);
+    let jsonl = construir(&imaxe);
     let c = Cadea::desde_json(&jsonl).expect("a saída da CLI debe voltar a parsearse");
     assert_eq!(c.confianza, "vinculo-estrutural");
     assert!(
-        c.orixe
-            .iter()
-            .any(|o| o == "carga_sitio=declarado-probado"),
+        c.orixe.iter().any(|o| o == "carga_sitio=declarado-probado"),
         "{:?}",
         c.orixe
     );
@@ -154,7 +162,7 @@ fn revalidar_por_cli_estruturado_reproducible_e_con_negativos() {
     // reproducibilidade byte a byte e motivo estable no negativo.
     let d = dir_de_trallo("estruturado");
     let imaxe = escribir_imaxe(&d);
-    let jsonl = construir(&d, &imaxe);
+    let jsonl = construir(&imaxe);
     let cadea = d.join("cadea.jsonl");
     std::fs::write(&cadea, format!("{jsonl}\n")).expect("escribir cadea");
 
@@ -175,7 +183,12 @@ fn revalidar_por_cli_estruturado_reproducible_e_con_negativos() {
     let texto = String::from_utf8_lossy(&a.stdout);
     let liñas: Vec<&str> = texto.lines().collect();
     assert_eq!(liñas[0], "rex-chain revalidar codigo=0");
-    for elo in ["esquema=PASS", "identidade=PASS", "xeometria=PASS", "saída=PASS"] {
+    for elo in [
+        "esquema=PASS",
+        "identidade=PASS",
+        "xeometria=PASS",
+        "saída=PASS",
+    ] {
         assert!(liñas[1].contains(elo), "sen elo {elo}: {}", liñas[1]);
     }
 
@@ -192,7 +205,7 @@ fn revalidar_por_cli_estruturado_reproducible_e_con_negativos() {
         "--cadea",
         cadea.to_str().unwrap(),
     ];
-    let out = rex_chain().args(&args_malas).output().expect("exec");
+    let out = rex_chain().args(args_malas).output().expect("exec");
     assert_eq!(out.status.code(), Some(3), "rc de ROM_DIVERXENCIA");
     let texto = String::from_utf8_lossy(&out.stdout);
     assert!(texto.contains("rex-chain revalidar codigo=3"), "{texto}");
