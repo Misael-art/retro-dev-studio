@@ -471,10 +471,10 @@ fn classify(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> {
         4 => decode_especial(op, addr, cur),
         5 => decode_q_s_db(op, addr, cur),
         6 | 7 => decode_branch(op, addr, cur),
-        0b1010 => Err(out(op, "grupo %1010 reservado — recusado")),
+        0b1010 => Err(out(op, "grupo %1010 reservado - recusado")),
         0b1110 => decode_shift(op, addr, cur),
         0b1000 | 0b1001 | 0b1011 | 0b1100 | 0b1101 => decode_geral(op, addr, cur),
-        _ => Err(out(op, "grupo %1111 (coprocessador/reservado) — recusado")),
+        _ => Err(out(op, "grupo %1111 (coprocessador/reservado) - recusado")),
     }
 }
 
@@ -498,7 +498,7 @@ fn decode_grupo0(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier>
         if mode == 0b001 {
             return Err(out(
                 op,
-                "MOVEP (modo %001 medido em movepw/movepl) ou An-direto: fora da lista fechada §3",
+                "MOVEP (modo %001 medido em movepw/movepl) ou An-direto: fora da lista fechada (contrato 3)",
             ));
         }
         if mode == 7 && (reg == 2 || reg == 3 || SRC7_BAD.contains(&reg)) {
@@ -552,7 +552,7 @@ fn decode_grupo0(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier>
                 4 => {
                     return Err(out(
                         op,
-                        "%0000 100 (bchg/bset/clr/cmpl imediato, 68020) — recusado",
+                        "%0000 100 (bchg/bset/clr/cmpl imediato, 68020) - recusado",
                     ))
                 }
                 _ => return Err(out(
@@ -574,7 +574,7 @@ fn decode_grupo0(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier>
             if mode == 7 && reg >= 3 {
                 return Err(out(
                     op,
-                    "op1 imediato com destino CCR/SR, PC ou reservado fora da lista §3",
+                    "op1 imediato com destino CCR/SR, PC ou reservado fora da lista (contrato 3)",
                 ));
             }
             let imm = read_imm(cur, size)?;
@@ -612,14 +612,21 @@ fn decode_move(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> {
     if smode == 7 && (sreg == 2 || sreg == 3 || SRC7_BAD.contains(&sreg)) {
         return Err(out(
             op,
-            "MOVE com fonte PC-relativo ou reservada (fora do contrato §3)",
+            "MOVE com fonte PC-relativo ou reservada (fora do contrato 3)",
         ));
     }
     let src = read_ea(cur, smode, sreg, size)?;
     if dmode == 1 {
-        // MOVEA
+        // MOVEA: PRM 4-118 da os unicos tamanhos possiveis ("Size = (Word,
+        // Long)") e a nota de rodape do §MOVE fecha o outro lado ("For byte size
+        // operation, address register direct is not allowed."). Os dois casos
+        // sao o mesmo par de bits, entao um so rotulo nomeia as duas leituras
+        // invalidas.
         if size == 1 {
-            return Err(out(op, "MOVEA.B invalido"));
+            return Err(out(
+                op,
+                "MOVE/MOVEA de tamanho byte com destino An invalido (PRM 4.118)",
+            ));
         }
         return Ok(mk(
             addr,
@@ -630,9 +637,6 @@ fn decode_move(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> {
     }
     if dmode == 7 && dreg >= 2 {
         return Err(out(op, "MOVE com destino imediato/PC/reservado"));
-    }
-    if size == 1 && dmode == 1 {
-        return Err(out(op, "MOVE.B para An invalido"));
     }
     let dst = read_ea(cur, dmode, dreg, size)?;
     Ok(mk(
@@ -727,7 +731,7 @@ fn decode_especial(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontie
             .map(|n| (2 + 2 * n) as u16);
         let mut f = Frontier::indirect(
             Some(op),
-            "JSR/JMP com alvo nao comprovado (indireto ou PC) — permanece desconhecido",
+            "JSR/JMP com alvo nao comprovado (indireto ou PC) - permanece desconhecido",
         );
         if let Some(n) = consumo {
             f = f.com_consumo(n);
@@ -779,10 +783,10 @@ fn decode_especial(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontie
             ));
         }
         if op == 0x484F {
-            return Err(out(op, "BKPT (68010+) fora do subconjunto — recusado"));
+            return Err(out(op, "BKPT (68010+) fora do subconjunto - recusado"));
         }
         if mode == 1 {
-            return Err(out(op, "PEA com An-direto fora da lista §3"));
+            return Err(out(op, "PEA com An-direto fora da lista (contrato 3)"));
         }
         if mode == 7 && mreg >= 4 {
             return Err(out(op, "PEA com imediato/reservado"));
@@ -800,7 +804,7 @@ fn decode_especial(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontie
     if mode == 0 && matches!((op & 0xFFC0) >> 6, 0x122 | 0x123) {
         return Err(out(
             op,
-            "EXT nao esta no subconjunto do contrato §3 — recusado",
+            "EXT nao esta no subconjunto do contrato 3 - recusado",
         ));
     }
     // MOVEM %0100 1d0 0 1? mmm rrr (medido 4891/48ea escrita, 4c99/4c9d/4cd2/4cdd
@@ -990,8 +994,8 @@ fn decode_branch(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier>
     if low == 0xFF {
         return Err(out(
             op,
-            "desvio com disp8 = 0xFF: forma de extensao 68020 ambigua — comprimento \
-             nao comprovavel, caminho interrompido (CONTRACT §3; o instrumento le .S -1)",
+            "desvio com disp8 = 0xFF: forma de extensao 68020 ambigua - comprimento \
+             nao comprovavel, caminho interrompido (contrato 3; o instrumento le .S -1)",
         ));
     }
     let (d, sfx) = if low == 0 {
@@ -1044,7 +1048,7 @@ fn decode_shift(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> 
         0b00 => (1, "b"),
         0b01 => (2, "w"),
         0b10 => (4, "l"),
-        _ => return Err(out(op, "shift com tamanho %11 — recusado")),
+        _ => return Err(out(op, "shift com tamanho %11 - recusado")),
     };
     let reg_cnt = b(op, 5) == 1;
     let base = match bits(op, 3, 2) {
@@ -1057,12 +1061,12 @@ fn decode_shift(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> 
         _ => {
             return Err(out(
                 op,
-                "shift/rotacao para memoria: o gas deste instrumento recusa montar, sem prova de comprimento — recusado",
+                "shift/rotacao para memoria: o gas deste instrumento recusa montar, sem prova de comprimento - recusado",
             ))
         }
     };
     if base.starts_with("rox") && size == 1 {
-        return Err(out(op, "ROX.B nao existe no 68000 — recusado"));
+        return Err(out(op, "ROX.B nao existe no 68000 - recusado"));
     }
     let reg = (op & 7) as u8;
     let mnem = if reg_cnt {
@@ -1104,7 +1108,7 @@ fn decode_geral(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> 
     if mode == 7 && matches!(mreg, 2 | 3 | 5 | 6 | 7) {
         return Err(out(
             op,
-            "operando PC-relativo ou reservado fora do subconjunto §3",
+            "operando PC-relativo ou reservado fora do subconjunto (contrato 3)",
         ));
     }
 
@@ -1123,7 +1127,7 @@ fn decode_geral(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> 
             _ => {
                 return Err(out(
                     op,
-                    "grupo de 2 operandos com tamanho %11 fora do subconjunto — recusado",
+                    "grupo de 2 operandos com tamanho %11 fora do subconjunto - recusado",
                 ))
             }
         };
@@ -1161,7 +1165,7 @@ fn decode_geral(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> 
         0b1011 => "cmp",
         0b1100 => "and",
         0b1101 => "add",
-        _ => return Err(out(op, "grupo de 2 operandos reservado — recusado")),
+        _ => return Err(out(op, "grupo de 2 operandos reservado - recusado")),
     };
     if mode == 1 {
         return Err(out(op, "operando An direto invalido neste grupo"));
@@ -1170,7 +1174,7 @@ fn decode_geral(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> 
     if dir == 0 {
         // forma ea->Dn: imediato como fonte nao existe (so nos grupos op1 do §3)
         if mode == 7 && mreg == 4 {
-            return Err(out(op, "forma ea->Dn com fonte imediata — invalido"));
+            return Err(out(op, "forma ea->Dn com fonte imediata - invalido"));
         }
         return Ok(mk(
             addr,

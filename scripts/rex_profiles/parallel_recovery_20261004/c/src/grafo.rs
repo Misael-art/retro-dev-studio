@@ -29,7 +29,7 @@ pub const VOCABULARIO_PROVENIENCIA: &[&str] = &[
 /// Textos fixos de limite, exigidos no export (CONTRACT §4 `limites`).
 pub const LIMITES: &[&str] = &[
     "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
-    "sem propagação de pilha/registrador: graus de parametro sao sempre nao-inferidos",
+    "sem propagacao de pilha/registrador: graus de parametro sao sempre nao-inferidos",
     "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
     "dentro-de-fluxo nao implica alcancabilidade desde o boot nem execucao real",
     "miolo-de-instrucao prova que o casamento linear ali nao e inicio de instrucao DESTE fluxo",
@@ -650,7 +650,7 @@ pub fn analisar_com_evidencias(
     for r in raizes {
         if !VOCABULARIO_PROVENIENCIA.contains(&r.proveniencia.as_str()) {
             return Err(format!(
-                "proveniencia {:?} fora do vocabulario (§1): {}",
+                "proveniencia {:?} fora do vocabulario (contrato 1): {}",
                 r.proveniencia,
                 VOCABULARIO_PROVENIENCIA.join(", ")
             ));

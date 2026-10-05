@@ -154,7 +154,7 @@ fn parse_args(args: &[String]) -> Result<Pedidos, Erro> {
                 let v = proximo(args, &mut i)?;
                 if !VOCABULARIO_PROVENIENCIA.contains(&v.as_str()) {
                     return uso(format!(
-                        "proveniencia {v:?} fora do vocabulario (§1): {}",
+                        "proveniencia {v:?} fora do vocabulario (contrato 1): {}",
                         VOCABULARIO_PROVENIENCIA.join(", ")
                     ));
                 }
@@ -348,8 +348,8 @@ fn executar(args: &[String]) -> Result<(), Erro> {
                 .to_string()
         };
         println!(
-            "rex-cfg-sitio/v2 — objeto {} (sha256 {}, {} bytes) — regiao {:#x}..{:#x} — sitio {} \
-             — veredito {} — consumidor {} — promotivel {} — motivos {} — saida {}",
+            "rex-cfg-sitio/v2 - objeto {} (sha256 {}, {} bytes) - regiao {:#x}..{:#x} - sitio {} \
+             - veredito {} - consumidor {} - promotivel {} - motivos {} - saida {}",
             bin.display(),
             rex_gameplay::sha256::sha256_hex(&bytes),
             bytes.len(),
@@ -402,9 +402,9 @@ fn executar(args: &[String]) -> Result<(), Erro> {
                 .unwrap_or_else(|| "?".to_string())
         };
         println!(
-            "rex-cfg-med/v2 — objeto {} (sha256 {}, {} bytes) — regiao {:#x}..{:#x} — raiz {} — \
-             comprimento {} [{}] — operandos {} [{}] — fluxo {} arestas em {} blocos [{}] — \
-             alcance {}/{} ({}) [{}] — agregado {} — saida {}",
+            "rex-cfg-med/v2 - objeto {} (sha256 {}, {} bytes) - regiao {:#x}..{:#x} - raiz {} - \
+             comprimento {} [{}] - operandos {} [{}] - fluxo {} arestas em {} blocos [{}] - \
+             alcance {}/{} ({}) [{}] - agregado {} - saida {}",
             bin.display(),
             rex_gameplay::sha256::sha256_hex(&bytes),
             bytes.len(),
@@ -458,8 +458,8 @@ fn executar(args: &[String]) -> Result<(), Erro> {
     }
 
     println!(
-        "rex-cfg/v2 — objeto {} (sha256 {}, {} bytes) — regiao {:#x}..{:#x} — blocos={} arestas={} \
-         chamadas={} fronteiras={} cobertura={}/{} ({}) — saida {}",
+        "rex-cfg/v2 - objeto {} (sha256 {}, {} bytes) - regiao {:#x}..{:#x} - blocos={} arestas={} \
+         chamadas={} fronteiras={} cobertura={}/{} ({}) - saida {}",
         bin.display(),
         rex_gameplay::sha256::sha256_hex(&bytes),
         bytes.len(),
