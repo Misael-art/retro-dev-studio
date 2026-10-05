@@ -305,3 +305,22 @@ BYOR/comerciais, §10.7) e o `pin.json` do holdout non leva marcas de tempo.
   `EXTENSOES-D v2` e mide de novo; non se toca a evidencia v1.
 - Ningunha acción sobre produto/IPC/UI/registry/Memory Bank: a rolda D é
   medición e evidencia.
+
+## 10.12 Publicación (2026-10-05)
+
+Catro commits en lotes verticais sobre `codex/rex-parallel-d-eval-bench`,
+fast-forward de `789c05a` (roda 1) a `07a5a4d`, todos dentro do territorio
+`scripts|docs|data/rex_profiles/parallel_recovery_20261004/d/`:
+
+| SHA | lote |
+|---|---|
+| `06c16db` | fixtures autorais por dominio + entradas de holdout |
+| `c2bf807` | adaptadores que executan as ferramentas reais + evidencia por SHA |
+| `6983b0e` | 31 probas discriminantes da matriz |
+| `07a5a4d` | `EXTENSOES-D` (inventario + §11) e `RELATORIO-D` rolda 2 |
+
+PR #106 (<https://github.com/Misael-art/retro-dev-studio/pull/106>): sen merge,
+sen release, sen promoción de maturidade, sen force push. O commit que rexistra
+esta liña é un *fast-forward* documental sobre o mesmo PR; a CI consulta-se polo
+SHA final (`gh pr checks 106`), non se presume aquí.
+
