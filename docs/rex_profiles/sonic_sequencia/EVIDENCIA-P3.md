@@ -195,8 +195,9 @@ Corrida de prova no binário canônico final do HEAD commitado
 UI renderizada via tauri-driver/WebDriver em Xvfb próprio pinado
 (`5bfd315a…`, display :1 com xauth próprio, DISPLAY do sistema intocado),
 BYOR pinado `c7da53a1…`. Expectativas de §8.3 congeladas **antes** das
-corridas; nenhuma foi reescrita depois — os 16 falhas históricas foram todas
-no *plumbing* do harness (profil da sessão, gate de proveniência, hit-test por
+corridas; nenhuma foi reescrita depois — as 14 falhas históricas (dirs
+`-01…-15`, todos com `exit_code!=0` nos próprios `run.json`) foram todas no
+*plumbing* do harness (perfil da sessão, gate de proveniência, hit-test por
 coordenadas, popup GTK nativo vs teclas injetadas, superfície imutável do
 Tauri 2 para o atraso de voo) e cada uma está registrada com causa no
 manifesto.
