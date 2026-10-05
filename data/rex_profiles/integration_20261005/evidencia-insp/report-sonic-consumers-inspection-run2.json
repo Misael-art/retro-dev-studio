@@ -1,0 +1,300 @@
+{
+  "schema": "rex-sonic-consumers-inspection/v1",
+  "artifact_prefix": "inspection-2026-10-05T11-27-58-455Z",
+  "expectations": "docs/rex_profiles/integration_20261005/EXPECTATIONS-INSP-2026-10-05.md §5 (prova BYOR) + EXPECTATIONS-INSP-2026-10-05-ADENDO-1.md (recusa total da cadeia)",
+  "binary_sha256": "8c781bb0468e809d38a06d386ae63fa2b9793059ce72903f17b82e7c59f87cd4",
+  "base_rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "attribution": "O painel de consumidores abre pelo caminho nativo da sessao real (sem dispatch programatico de UI); a leitura do DTO, a re-inspecao e a leitura do ledger sao sondas tecnicas rotuladas via invoke do produto, nunca teclado.",
+  "pilot_dir": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-05T11-27-58-455Z-consumers-inspection",
+  "steps": [
+    {
+      "step": 1,
+      "name": "painel_aberto_pelo_caminho_nativo",
+      "veredito": "todos-ok"
+    },
+    {
+      "step": 2,
+      "name": "painel_renderizado",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-05T11-27-58-455Z-consumers-panel.png"
+    },
+    {
+      "step": 3,
+      "name": "sonda_tecnica_dto_completo",
+      "sitios": 37,
+      "recursos": 6
+    }
+  ],
+  "checks": [
+    {
+      "name": "ui.sete_niveis_sem_erro",
+      "pass": true,
+      "observed": {
+        "niveis": true,
+        "error": ""
+      }
+    },
+    {
+      "name": "ui.37_sitios_ok",
+      "pass": true,
+      "observed": {
+        "total": 37,
+        "ok": 37,
+        "texto": "37/37 sítios conferem byte a byte na ROM carregada (todos-ok)."
+      }
+    },
+    {
+      "name": "ui.consumidor_verbalizado",
+      "pass": true,
+      "observado": {
+        "frases": 8
+      }
+    },
+    {
+      "name": "ui.cadeia_6_entradas_destino_wram",
+      "pass": true,
+      "observado": {
+        "entradas": 6,
+        "ok": 6,
+        "cadeia": "Tabela 0x1b64c → 6 entradas relidas ao vivo → chamada 4eb90000171e → destino 0xff4000 (RAM interna do console — não é a porta do vídeo) · parâmetro medido 0."
+      }
+    },
+    {
+      "name": "ui.6_recursos_span_ok",
+      "pass": true,
+      "observado": {
+        "total": 6,
+        "ok": 6
+      }
+    },
+    {
+      "name": "ui.sem_previa_grafica_confirmada",
+      "pass": true,
+      "observado": {
+        "imagens": 0
+      }
+    },
+    {
+      "name": "ui.falso_lider_refutado_3_motivos",
+      "pass": true,
+      "observado": {
+        "veredito": "REFUTADA",
+        "motivos": 3
+      }
+    },
+    {
+      "name": "ui.5_desconhecidos",
+      "pass": true,
+      "observado": {
+        "desconhecidos": 5
+      }
+    },
+    {
+      "name": "ui.identidade_sem_coincidencia",
+      "pass": true,
+      "observado": {
+        "identidade": "SHA-256: c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb · 531577 bytes · é o mesmo arquivo usado na medição"
+      }
+    },
+    {
+      "name": "ui.limites_com_mapindex_e_pins",
+      "pass": true,
+      "observado": {
+        "limites": "Proveniência, tabela de IDs e limites da fonte (detalhe técnico)Tabela de definições (MapIndex): 0x1b738 · 78 entradas · registro do ID 01: 0002c5640142 · ponteiro 0x2c564 dentro da ROM: simProva da cadeia (SHA-256): d32236c7e77c4902eaf6c84"
+      }
+    },
+    {
+      "name": "sonda.identidade_confere_com_pin",
+      "pass": true,
+      "observado": {
+        "pin_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+        "confere_com_pin": true,
+        "rom_tamanho": 531577,
+        "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+      }
+    },
+    {
+      "name": "sonda.37_sitios_todos_ok",
+      "pass": true,
+      "observado": {
+        "total": 37,
+        "veredito": "todos-ok",
+        "divergentes": []
+      }
+    },
+    {
+      "name": "sonda.tabela_relida_da_rom",
+      "pass": true,
+      "observado": [
+        {
+          "offset_stream": "0x65432",
+          "ok": true,
+          "hex_entrada": "00065432",
+          "lido_hex": "0b0f00020000"
+        },
+        {
+          "offset_stream": "0x656ac",
+          "ok": true,
+          "hex_entrada": "000656ac",
+          "lido_hex": "0b0f00000000"
+        },
+        {
+          "offset_stream": "0x65abe",
+          "ok": true,
+          "hex_entrada": "00065abe",
+          "lido_hex": "0b0700020000"
+        },
+        {
+          "offset_stream": "0x65e1a",
+          "ok": true,
+          "hex_entrada": "00065e1a",
+          "lido_hex": "0b0f00020000"
+        },
+        {
+          "offset_stream": "0x662f4",
+          "ok": true,
+          "hex_entrada": "000662f4",
+          "lido_hex": "0b0f00020000"
+        },
+        {
+          "offset_stream": "0x667c6",
+          "ok": true,
+          "hex_entrada": "000667c6",
+          "lido_hex": "0b0f00020000"
+        }
+      ]
+    },
+    {
+      "name": "sonda.chamada_destino_parametro",
+      "pass": true,
+      "observado": {
+        "chamada": "4eb90000171e",
+        "destino": "ff4000",
+        "classe": "wram",
+        "param": 0
+      }
+    },
+    {
+      "name": "sonda.6_spans_contra_pins_medidos",
+      "pass": true,
+      "observado": [
+        {
+          "i": 0,
+          "ok": true,
+          "sha": "dc1a0a6ee0c3"
+        },
+        {
+          "i": 1,
+          "ok": true,
+          "sha": "4015dccb21c8"
+        },
+        {
+          "i": 2,
+          "ok": true,
+          "sha": "6b8467c2b0cb"
+        },
+        {
+          "i": 3,
+          "ok": true,
+          "sha": "8996ca4fe2bd"
+        },
+        {
+          "i": 4,
+          "ok": true,
+          "sha": "6981fbd8f388"
+        },
+        {
+          "i": 5,
+          "ok": true,
+          "sha": "daf1a80e13a9"
+        }
+      ]
+    },
+    {
+      "name": "sonda.interpretacao_fixa",
+      "pass": true,
+      "observado": {
+        "celula_bytes": 1,
+        "nivel": "vinculo-estrutural-estatico",
+        "colunas": 64,
+        "stride": 128,
+        "linhas": 64,
+        "base_ram_hex": "ff1020"
+      }
+    },
+    {
+      "name": "sonda.mapindex_id01_ok",
+      "pass": true,
+      "observado": {
+        "id01_ok": true,
+        "ponteiro_dentro_rom": true,
+        "addr_hex": "0x1b738",
+        "entradas": 78,
+        "registro_id01_hex": "0002c5640142",
+        "ponteiro_id01_hex": "0x2c564"
+      }
+    },
+    {
+      "name": "sonda.falso_lider_refutado_3_motivos",
+      "pass": true,
+      "observado": {
+        "modelo": "nametable-64x32-palavras-vdp",
+        "motivos": [
+          "a copia usa byte por byte (move.b medido em 0x1B6F8); um par de bytes nao forma uma celula de 16 bits",
+          "o destino medido e $FF4000, que e RAM interna; a porta do video e $C00004 — nenhum acesso a ela nestes sitios",
+          "a cada linha o programa salta 64 bytes (lea 64(a1) em 0x1B6FE); o modelo antigo nao tem esse vao"
+        ],
+        "veredito": "REFUTADA"
+      }
+    },
+    {
+      "name": "sonda.5_desconhecidos_idioma_ptbr",
+      "pass": true,
+      "observado": {
+        "desconhecidos": 5,
+        "idioma": "pt-BR",
+        "perfil": "sonic1_fase_especial_layouts_v1"
+      }
+    },
+    {
+      "name": "sonda.limites_fonte_pinados",
+      "pass": true,
+      "observado": {
+        "prova_cadeia_sha256": "d32236c7e77c4902eaf6c84d1e06237c3a369036d67c9c4df9734789c3139d92",
+        "decoder_externo_sha256": "a9ed92f96fbdd7e0828e7612e83eff24c65aee52fd5a82efee53581dc1a7f8b2",
+        "origem": "frente B (PR #105) reexecutada pelo integrador na ROM pinada em 2026-10-05"
+      }
+    },
+    {
+      "name": "so_leitura.arquivo_base_intacto",
+      "pass": true,
+      "observado": {
+        "antes": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+        "depois": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+      }
+    },
+    {
+      "name": "so_leitura.ledger_sem_edicoes",
+      "pass": true,
+      "observado": {
+        "ledger": 0
+      }
+    },
+    {
+      "name": "reinspecao_idempotente",
+      "pass": true,
+      "observado": {
+        "ok": true
+      }
+    },
+    {
+      "name": "final.base_preservada",
+      "pass": true,
+      "observado": {
+        "rom_path": "/home/misael/RDS-REX-CORPUS-E/.staging/Sonic the Hedgehog (USA, Europe).bin"
+      }
+    }
+  ],
+  "runtime_effect": "inspecao somente-leitura provada pela interface e pelo DTO na ROM pinada; nenhum byte alterado, nenhuma edicao registrada",
+  "allPass": true,
+  "finished_at": "2026-10-05T11:28:03.243Z"
+}

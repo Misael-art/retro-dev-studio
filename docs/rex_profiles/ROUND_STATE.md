@@ -358,6 +358,31 @@ Kosinski nas súas transacións canónicas.
 
 ## Histórico da rodada
 
+- 2026-10-05 (integrador, **consolidação Sonic #103→#104 + entrega visível de
+  inspeção de consumidores/recursos; PR revisável SEM merge**), branch exclusiva
+  `codex/rex-integrator-sonic-103104`. Contrato `consumers-info/v1` congelado
+  em `docs/rex_profiles/integration_20261005/EXPECTATIONS-INSP-2026-10-05.md`
+  (texto intacto) + `ADENDO-1` datado (ambiguidade §1 vs §5-T4: troca de
+  entradas da tabela sempre diverge um sítio, então vale a recusa total da
+  cadeia por §1). Comando read-only `rex_inspection_sonic_consumers` ponta a
+  ponta (Rust `sonic_consumers.rs` → ponte → IPC → painel de 7 níveis em
+  português simples, sem regra própria na UI). Gates no HEAD final `d614fd2`:
+  check:tree/lint/tsc rc=0; `npm test` 936/0 (6 pulados); árvore Rust inalterada
+  desde `35c6657` (clippy `-D warnings`, `cargo test --lib` 869/0, `fmt --check`
+  herdados desse commit — o diff até `d614fd2` toca só `scripts/`);
+  `crates:gates` OK (4 pacotes); `host:certify` rc=0. Jornadas no MESMO binário
+  `8c781bb0468e…`: regressão obrigatória `sonic-sequencia-journey` 42/42 e
+  cenário novo `sonic-consumers-inspection` 24/24 allPass — a run-1 do cenário
+  novo foi INCONCLUSIVE por bug de asserção do harness (literal estofado
+  `0x065432` vs formato congelado `{:#x}` = `0x65432`; as 6 entradas conferiam
+  byte a byte) e está registrada com a linha bruta, não escondida; corrigida em
+  `d614fd2` e reexecutada. Somente-leitura provado (bytes idênticos, ledger 0,
+  reinspeção idempótica). Nada promove categoria: a entrega para em
+  **vínculo estrutural estático provado pela interface**; Enigma permanece fora
+  do produto (licença); promoção é do operador. Evidência com SHA por arquivo
+  em `data/rex_profiles/integration_20261005/evidencia-insp/` (ROM, binário,
+  screenshots e patch BPS fora do índice por política — só SHA e referência).
+
 - 2026-09-29 (integrador, **PR #86 MUGEN -> SGDK MESCLADO no tronco do
   integrador; `rex-mugen` promovido a `fluxo do usuário comprovado` co escopo
   medido; frente MUGEN UX v2 aberta**), esta célula é o checkpoint.
