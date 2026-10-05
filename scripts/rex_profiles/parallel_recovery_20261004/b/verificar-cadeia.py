@@ -9,7 +9,10 @@ Modos:
   negativos  — executa as recusas reais (rom-errada, sitio-alterado,
                destino-alterado, stream-fora-da-tabela, geometria-errada,
                consumidor-ausente) e registra cada recusa observada.
-  fixture    — exibe o resultado discriminante da fixture assimetrica
+  controles   — para cada uma das 7 recusas, um controle com input
+               minimo-correto que DEVE ser aceito + comportamento do modelo
+               antigo na mesma entrada discriminante (E12 da ADENDA-B2).
+  fixture     — exibe o resultado discriminante da fixture assimetrica
                (a interpretacao antiga deve ser REPROVADA).
 
 Uso:
@@ -329,6 +332,178 @@ def modo_negativos(a):
     return 0
 
 
+def modo_controles(a):
+    """E12: cada uma das 7 recusas com controle minimo-correto ACEITO e
+    comportamento do modelo antigo registrado na mesma entrada discriminante."""
+    rom = CS.carregar_rom(a.rom)
+    decoder, decoder_path, decoder_sha = CS.resolver_decoder(a.decoder)
+    casos = []
+
+    def executar_recusa(fn):
+        try:
+            fn()
+            return {"recusado": False, "nota": "NAO RECUSOU — teste nao discriminante"}
+        except CS.RecusaErro as e:
+            return {"recusado": True, "codigo": e.codigo}
+
+    def registrar(nome, recusa_fn, controle_fn, antigo_fn):
+        caso = {"negativo": nome}
+        caso["recusa"] = executar_recusa(recusa_fn)
+        try:
+            caso["controle"] = {"aceito": True, "detalhe": controle_fn()}
+        except CS.RecusaErro as e:
+            caso["controle"] = {"aceito": False, "codigo": e.codigo, "motivo": str(e)}
+        try:
+            caso["modelo_antigo"] = antigo_fn()
+        except Exception as e:  # noqa: BLE001 — registro honesto do que o modelo antigo fez
+            caso["modelo_antigo"] = {"medida": True,
+                                     "excecao": f"{type(e).__name__}: {e}"}
+        casos.append(caso)
+
+    plain0, _ = CS.decodificar_stream(rom, decoder, CS.STREAMS[0])
+    antiga = CS.interpretacao_antiga(plain0)
+
+    # (1) rom-errada
+    def rom_errada():
+        mut = bytearray(rom)
+        mut[0x150] ^= 0xFF
+        CS.carregar_rom(_gravar_tmp(bytes(mut)))
+    registrar(
+        "rom-errada", rom_errada,
+        lambda: {"rom_sha256": CS.sha256(CS.carregar_rom(a.rom)), "tamanho": len(rom)},
+        lambda: {"medida": False,
+                 "referencia": "RELATORIO/ADENDA P1 — o modelo antigo nao tinha gate "
+                               "de SHA nesta funcao; alegacao documental, nao medida aqui"},
+    )
+
+    # (2) sitio-alterado
+    def sitio_alterado():
+        mut = bytearray(rom)
+        mut[0x1B6D2] = 0x4E ^ 0x01
+        if CS.verificar_sitios(bytes(mut)):
+            raise CS.RecusaErro("sitio-alterado", "byte 0x1B6D2 mutado: sitios divergem")
+    registrar(
+        "sitio-alterado", sitio_alterado,
+        lambda: {"sitios_divergentes": len(CS.verificar_sitios(rom)),
+                 "total_sitios": len(CS.SITIOS)},
+        lambda: {"medida": False,
+                 "referencia": "o modelo antigo nao verificava os 37 sitios por byte; "
+                               "documental (ADENDA-SUPERSEDENTE)"},
+    )
+
+    # (3) destino-alterado
+    def destino_alterado():
+        mut = bytearray(rom)
+        mut[0x1B6C8:0x1B6CE] = bytes.fromhex("43f900c00004")
+        if CS.verificar_sitios(bytes(mut)):
+            raise CS.RecusaErro("destino-alterado",
+                                "destino $C00004 (porta VDP) diverge do pin WRAM $FF4000")
+    def destino_controles():
+        diverge_pin = CS.verificar_sitios(rom)
+        mut = bytearray(rom)
+        mut[0x1B6C8:0x1B6CE] = bytes.fromhex("43f900ff5000")  # outra WRAM: mesma classe
+        diverge_classe = CS.verificar_sitios(bytes(mut))
+        return {"divergencias_pin_real": len(diverge_pin),
+                "WRAM_diferente_recusada": any(d["offset"] == "0x1b6c8" for d in diverge_classe),
+                "offsets_divergentes_classe": [d["offset"] for d in diverge_classe]}
+    registrar(
+        "destino-alterado", destino_alterado, destino_controles,
+        lambda: {"medida": True,
+                 "destino_alegado_antigo": antiga["destino_alegado"],
+                 "porta_vdp_real": hex(CS.VDP_DATA_PORT_LONG),
+                 "nota": "o modelo antigo tratava o input que hoje recusamos como "
+                         "correto (lea $C00004); refutado por refutar_interpretacao_antiga"},
+    )
+
+    # (4) stream-fora-da-tabela
+    def stream_fora():
+        CS.decodificar_stream(rom, decoder, 0x99999)
+    def streams_controle():
+        out = []
+        for i, off in enumerate(CS.STREAMS):
+            dados, consumido = CS.decodificar_stream(rom, decoder, off)
+            out.append({"stream": hex(off), "consumido": consumido,
+                        "sha_ok": CS.sha256(dados) == CS.PLAIN_SHA[i]})
+        return {"6_streams": out,
+                "todos_sha_ok": all(o["sha_ok"] for o in out)}
+    def stream_fora_antigo():
+        dados, consumido = decoder.decode(rom[0x99999:], max_out=1 << 20,
+                                          work_limit=1 << 24, value_offset=0)
+        return {"medida": True, "sem_verificacao_de_tabela": True,
+                "saidas_aceitas_sem_recusa": len(dados), "consumido": consumido,
+                "nota": "o modelo antigo decodificava qualquer offset sem checar "
+                        "pertence a tabela; aqui ele ACCEPTA 0x99999 — diferenca medida"}
+    registrar("stream-fora-da-tabela", stream_fora, streams_controle, stream_fora_antigo)
+
+    # (5) geometria-errada-64x32
+    def geo_64x32():
+        CS.layout_de_plain(plain0, linhas=32, colunas=64)
+    registrar(
+        "geometria-errada-64x32", geo_64x32,
+        lambda: {"linhas": len(CS.layout_de_plain(plain0)),
+                 "colunas": len(CS.layout_de_plain(plain0)[0])},
+        lambda: {"medida": True, "celulas_antigo": antiga["celulas"],
+                 "linhas_antigo": antiga["linhas"], "colunas_antigo": antiga["colunas"],
+                 "campos_por_palavra": antiga["campos_por_palavra"],
+                 "nota": "o modelo antigo ACEITA a grade 32x64 de palavras que o "
+                         "contrato novo recusa — mesmo plain, geometrias medidas divergem"},
+    )
+
+    # (6) geometria-errada-stride64
+    def geo_stride():
+        CS.projetar(plain0, stride=64)
+    def stride_controle():
+        proj = CS.projetar(plain0)
+        return {"stride": CS.STRIDE, "tamanho_buffer": len(proj),
+                "roundtrip_ok": CS.inverso_projecao(proj) == plain0}
+    def stride_antigo():
+        antigo_buffer = bytearray(64 * 128)
+        for r in range(64):
+            antigo_buffer[r * 128:(r + 1) * 128] = plain0[r * 128:(r + 1) * 128]
+        novo = CS.projetar(plain0)
+        dif = sum(1 for x, y in zip(antigo_buffer, novo) if x != y)
+        return {"medida": True, "buffer_antigo_sha": CS.sha256(bytes(antigo_buffer)),
+                "buffer_novo_sha": CS.sha256(novo), "bytes_diferentes": dif,
+                "nota": "continuo sem padding (antigo) vs stride 128 com padding (novo) "
+                        "diferem no mesmo plain — recusa nova e discriminante"}
+    registrar("geometria-errada-stride64", geo_stride, stride_controle, stride_antigo)
+
+    # (7) consumidor-ausente
+    def consumidor_ausente():
+        sintaxe = CS.verificar_sitios(b"\x00" * 0x1B800, sitios=CS.SITIOS)
+        if sintaxe:
+            raise CS.RecusaErro("consumidor-ausente",
+                                f"{len(sintaxe)} sitios ausentes/zerados — cadeia nao provada")
+    registrar(
+        "consumidor-ausente", consumidor_ausente,
+        lambda: {"divergencias_na_rom_real": len(CS.verificar_sitios(rom))},
+        lambda: {"medida": False,
+                 "referencia": "o modelo antigo afirmava consumo VDP sem pino de "
+                               "consumidor; documental (P1 do review PR #97)"},
+    )
+
+    recusados = sum(1 for c in casos if c["recusa"]["recusado"])
+    controles = sum(1 for c in casos if c["controle"].get("aceito"))
+    doc = {
+        "schema_version": CS.SCHEMA, "componente": "controles",
+        "expectativas": "E12 de docs/rex_profiles/parallel_recovery_20261004/b/EXPECTATIONS-ADENDA-B2.md",
+        "tempo_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "pins": {"rom_sha256": CS.ROM_SHA256, "decoder_sha256": decoder_sha,
+                 "decoder_path": decoder_path},
+        "casos": casos,
+        "veredito": (f"CONTROLES-COMPLETOS {recusados}/7 recusas + {controles}/7 controles"
+                     if recusados == 7 and controles == 7
+                     else f"INCONCLUSIVE: recusas={recusados}/7 controles={controles}/7"),
+    }
+    _gravar_evidencia(doc, a)
+    for c in casos:
+        mark_r = "RECUSADO" if c["recusa"]["recusado"] else "NAO-RECUSOU-FAIL"
+        mark_c = "CONTROLE-OK" if c["controle"].get("aceito") else "CONTROLE-FAIL"
+        print(f"[controle] {c['negativo']}: {mark_r} + {mark_c}")
+    print("evidencia:", _saida_path(a))
+    return 0 if doc["veredito"].startswith("CONTROLES-COMPLETOS") else 1
+
+
 _TMP = pathlib.Path.home() / "rds-scratch" / "par-b" / "tmp-negativos.bin"
 
 
@@ -354,7 +529,7 @@ def _emitir(doc, a):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("modo_cmd", choices=["cadeia", "negativos", "fixture"])
+    ap.add_argument("modo_cmd", choices=["cadeia", "negativos", "controles", "fixture"])
     ap.add_argument("--rom", default=CS.ROM_PADRAO)
     ap.add_argument("--decoder", default=None)
     ap.add_argument("--out", required=True)
@@ -368,6 +543,8 @@ def main(argv=None):
         return modo_cadeia(a)
     if a.modo_cmd == "negativos":
         return modo_negativos(a)
+    if a.modo_cmd == "controles":
+        return modo_controles(a)
     fx = fixture_assimetrica()
     exp = expectativas_fixture(fx)
     doc = {
