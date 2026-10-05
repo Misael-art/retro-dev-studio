@@ -217,3 +217,33 @@ pinado e `--check` exige byte a byte a reprodución (medido hoxe:
 `OK: 4 fixtures + recusas reproducibles`). Os fixtures son **autorais**:
 ningún byte provén dunha ROM comercial. Ningunha expectativa do §3 desta
 rectificación está derivada do noso decoder: cada liña cita o instrumento.
+
+## 7. Addendum datado 2026-10-05 (misión 3, pasos 3 y 5): formato v1 vs interpretación v1.1
+
+O §5.3 superior di «reprodución independente» do dobre control; a rectificación
+conxelada en `RESPOSTA-D-A.md` §6 (HEAD `6a123e1`) exixe presentalo como o que
+é. Este addendum reencuadra **sen reescribir** os textos históricos:
+
+1. **Separación formato/interpretación.** O formato do rexistro segue sendo
+   `rex-kosinski-chain/v1` (33 campos pechados; ningún campo renomeado nin
+   rescindido pola corrección). O que mudou é a **interpretación**: v1.1, a
+   táboa §3 coa extensión de sinal, os tres niveis §2 e as 8 formas
+   reproducíbeis. Un ficheiro escrito baixo a interpretación v1 antiga
+   **non gaña confianza estrutural pola súa idade nin porque «os bytes
+   encaixen»**: só a revalidación `revalidar` contra os bytes actuais coa
+   gramática v1.1 pode promotelo, e se a medición v1.1 difire (p. ex.
+   `destino_operando` cero-estendido `0x009400` sobre `43F8 9400`, ou
+   etiqueta `jsr.w` sobre `4E FA`), o rexistro falla con rc≠0 polo seu
+   propio peso. Iso está pinado polas probas discriminantes K14/K15 de
+   `tests/segmento.rs` (verde con a garda activa, vermella se se relaxa).
+2. **`alvo_desde_bytes` / dobre control.** Pasa a presentarse, en docs e
+   comentarios, como **defensa redundante mínima de implementación**
+   (recálculo aritmético coa **mesma gramática**, sen pasar polo dispatch
+   de `decodificar`); **non** como segundo entendemento independente da
+   ISA. A independencia fronte ao erro de interpretación é a do
+   instrumento pinado (§0: `m68k-elf-objdump` binutils + WLA + capstone)
+   e a da cita primazia do Motorola PRM rexistrada en `RESPOSTA-D-A.md`
+   §2. A súa función real é detectar un desliz de despachamento ou de
+   transcrición da táboa dentro da propia ferramenta.
+3. Ningunha expectativa §1–§5 conxelada se reescribe: este apartado é
+   aditivo e datado, como esixe a política de rectificación versionada.

@@ -546,11 +546,15 @@ pub fn revalidar(imaxe: &[u8], cadea: &Cadea, ventanxa: u32) -> Resultado {
                 };
                 let dob = alvo_desde_bytes(&reais, csitio);
                 if dob != Some(calc) {
-                    // dobre control: o alvo volve calcularse desde os bytes
-                    // brutos coa aritmética do contrato (RECTIFICACION §3),
-                    // non só co decodificador. `None` aquí é fallo, non
-                    // indiferenza: unha forma de chamada aceptada debe ter
-                    // reprodución independente.
+                    // Dobre control = **defensa redundante mínima de
+                    // implementación** (recálculo aritmético coa mesma
+                    // gramática, RECTIFICACION §3/§7), non un segundo
+                    // entendemento independente da ISA: a independencia
+                    // fronte ao erro de interpretación é a do instrumento
+                    // pinado (§0) e a da cita primazia do PRM
+                    // (RESPOSTA-D-A §2). `None` aquí é fallo, non
+                    // indiferenza: unha forma de chamada aceptada debe ser
+                    // reproducible coa súa propia táboa.
                     elos.push(Elo::fail(
                         "aritmetica-chamada",
                         match dob {
@@ -774,9 +778,13 @@ pub fn revalidar(imaxe: &[u8], cadea: &Cadea, ventanxa: u32) -> Resultado {
     }
 }
 
-/// Dobre control da aritmética: reproduce o **efectivo de 32 bits** desde os
-/// bytes sen pasar polo `decodificar` (o elo non pode ser circular consigo
-/// mesmo). Táboa RECTIFICACION-A §3 (v1.1): bsr.s `61 dd` (d8, base sitio+2),
+/// Dobre control da aritmética (**defensa redundante mínima**, RESPOSTA-D-A
+/// §6): recálculo do **efectivo de 32 bits** desde os bytes coa mesma
+/// gramática da táboa RECTIFICACION-A §3, sen pasar polo dispatch de
+/// `decodificar` — protexe contra un desliz de despachamento na propia
+/// ferramenta, non contra un erro de interpretación da ISA (esa
+/// independencia é a do instrumento pinado §0 + a cita do PRM).
+/// Táboa RECTIFICACION-A §3 (v1.1): bsr.s `61 dd` (d8, base sitio+2),
 /// bsr.w `61 00 dd dd`, jsr/jmp `.L` (`4E B9`/`4E F9`), jsr/jmp `.W`
 /// (`4E B8`/`4E F8`, **con signo**), jsr/jmp `(d16,PC)` (`4E BA`/`4E FA`).
 /// `61 FF`, `4E FC/FD`, indirectos e o resto non teñen reprodución: `None`.

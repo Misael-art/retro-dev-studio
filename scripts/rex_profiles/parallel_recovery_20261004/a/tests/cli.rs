@@ -21,8 +21,12 @@ const ROM_SIZE: u32 = 0x1_0000;
 
 fn imaxe_base() -> Vec<u8> {
     let mut v = vec![0u8; ROM_SIZE as usize];
+    // Tramo 0x106..0x116 totalmente modelado (lea/bsr/lea doutros rexistros):
+    // a vía de xanela promove con candidato único §5.3; as palabras de
+    // operandos non contan como non modeladas (avance pola lonxitude).
     v[0x100..0x106].copy_from_slice(&[0x41, 0xF9, 0x00, 0x00, 0x02, 0x00]);
-    v[0x108..0x10C].copy_from_slice(&[0x61, 0x00, 0x04, 0xF6]);
+    v[0x106..0x10A].copy_from_slice(&[0x61, 0x00, 0x04, 0xF8]); // bsr.w → 0x600
+    v[0x10A..0x110].copy_from_slice(&[0x45, 0xF9, 0x00, 0x00, 0x02, 0x00]); // lea.l A2
     v[0x110..0x116].copy_from_slice(&[0x43, 0xF9, 0x00, 0xA0, 0x00, 0x00]);
     let fluxo: [u8; 23] = [
         0xFF, 0xFF, b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A', b'A',

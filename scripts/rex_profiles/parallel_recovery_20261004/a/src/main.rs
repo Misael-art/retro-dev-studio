@@ -11,7 +11,7 @@
 
 use rex_addressing::md_linear;
 use rex_chain::chain::{analizar_enderezo, hex_maíus, Cadea};
-use rex_chain::instr::{decodificar, sitio_aliñado, Forma, BARRAMENTO};
+use rex_chain::instr::{decodificar, sitio_aliñado, Forma, InstrErro, BARRAMENTO};
 use rex_chain::verify::{
     clasificar_rexion, codigo, estado_desde_corda, ler_imaxe, offset_rom, revalidar,
     VENTANXA_DEFECTO,
@@ -52,7 +52,7 @@ fn uso() -> &'static str {
     "uso: rex-chain revalidar --imaxe F --cadea F [--liña N] [--ventanxa N]\n\
      \x20     rex-chain construir-cadea --imaxe F --rom-size 0x.. --carga-sitio 0x.. \\\n\
      \x20        --rutina-lonxitude N --limite-max-saida N --limite-orzamento N \\\n\
-     \x20        [--destino-sitio 0x..] [--ventanxa N]\n\
+     \x20        [--destino-sitio 0x..] [--chamada-sitio 0x..] [--ventanxa N]\n\
      \x20     rex-chain detectar --imaxe F --rom-size 0x.. --rutina-lonxitude N \\\n\
      \x20        --limite-max-saida N --limite-orzamento N [--ventanxa N] [--max-cadeas N]\n\
      \x20     rex-chain medir-bytes --imaxe F --offset N --lonxe N"
@@ -186,6 +186,9 @@ struct Partes {
     confianza: String,
     limitacions: Vec<String>,
     orixe: Vec<String>,
+    /// Serie bruta do escano do tramo (consumida por `detectar`/`construir`;
+    /// non forma parte da cadea).
+    tramo: InfoTramo,
 }
 
 impl Partes {
@@ -248,6 +251,7 @@ fn construir_verb(f: &Flags) -> Result<i32, (i32, String)> {
     let max_saida = require_num(f, "limite-max-saida")?;
     let orzamento = require_num(f, "limite-orzamento")?;
     let destino_sitio = opt_addr(f, "destino-sitio")?;
+    let chamado_declarado = opt_addr(f, "chamada-sitio")?;
     let ventanxa = opt_num(f, "ventanxa", u64::from(VENTANXA_DEFECTO))? as usize;
 
     let partes = medir_cadea(
@@ -258,6 +262,7 @@ fn construir_verb(f: &Flags) -> Result<i32, (i32, String)> {
             rom_size,
             carga_sitio,
             destino_sitio,
+            chamado_declarado,
             rutina_lon,
             max_saida,
             orzamento,
@@ -283,11 +288,36 @@ struct Medicion {
     rom_size: u32,
     carga_sitio: u32,
     destino_sitio: Option<u32>,
+    /// Emparellamento **declarado** polo usuario (RESPOSTA-D-A §5.6): cando
+    /// está presente, a chamada promóvese polo sitio declarado — non polo
+    /// varredor do tramo — coa súa epistemoloxía separada (`par-declarado`).
+    chamado_declarado: Option<u32>,
     rutina_lon: u64,
     max_saida: u64,
     orzamento: u64,
     ventanxa: usize,
     varrida: bool,
+}
+
+/// Candidato do recto: `(sitio, bytes da instrución, nome da forma, alvo
+/// efectivo de 32 bits)`.
+type Candidato = (u32, Vec<u8>, String, u32);
+
+/// Resultado do escano do tramo recto (gardas de RESPOSTA-D-A §5). Non é
+/// análise de alcançabilidade: é o vocabulario pechado declarado no conxelado.
+struct InfoTramo {
+    /// Candidatos de chamada con backing ROM no recto (roto antes deles).
+    candidatos: Vec<Candidato>,
+    /// Gardas que rompen o recto, na orde de escaneo (`roto-bra`,
+    /// `roto-rts`, `sobrescrito-A0`).
+    roturas: Vec<String>,
+    /// Bcc `62..67` atopados: non rompen, rexistran ambigüidade de camiño.
+    bcc: Vec<String>,
+    /// Recusas da gramática no tramo (`recusa-no-tramo:<motivo>@<sitio>`).
+    recusadas: Vec<String>,
+    /// Palabras sen forma modelada: o seu span real non se modela (límite
+    /// declarado en RESPOSTA-D-A §7).
+    non_modeladas: u32,
 }
 
 /// Mide todos os elos desde un sitio de carga. Usado por `construir-cadea`
@@ -302,6 +332,7 @@ fn medir_cadea(
         rom_size,
         carga_sitio,
         destino_sitio,
+        chamado_declarado,
         rutina_lon,
         max_saida,
         orzamento,
@@ -340,10 +371,50 @@ fn medir_cadea(
     ))?;
     let carga_bytes = vent[..forma.lonxitude()].to_vec();
 
-    // 2. chamada na ventána tras a carga (emparellamento heurístico, marcado).
+    // 2. chamada na ventána tras a carga. Dous camiños (RESPOSTA-D-A §5/§6):
+    //    o varredor do **tramo recto** com gardas pechadas, ou o emparellamento
+    //    **declarado** polo usuario (`--chamada-sitio`), cuxa epistemoloxía
+    //    queda separada no rexistro. A xanela segue sendo a xeometría do
+    //    contrato; as gardas deciden que se *promove* dentro dela.
     let fin_carga = off_carga + forma.lonxitude();
-    let parella = buscar_chamada(imaxe, st, fin_carga, ventanxa);
-    if parella.is_none() && varrida {
+    let carga_reg = match &forma {
+        Forma::LeaAbsL { registro, .. }
+        | Forma::LeaAbsW { registro, .. }
+        | Forma::LeaPcD16 { registro, .. } => *registro,
+        _ => {
+            return Err((
+                codigo::ARGUMENTO_DIVERXENTE,
+                "a carga non é forma lea co rexistro coñecido".to_string(),
+            ))
+        }
+    };
+    let (parella, tramo) = match chamado_declarado {
+        Some(sitio) => (
+            chamada_desde_declaracion(imaxe, st, sitio)?,
+            InfoTramo {
+                candidatos: Vec::new(),
+                roturas: Vec::new(),
+                bcc: Vec::new(),
+                recusadas: Vec::new(),
+                non_modeladas: 0,
+            },
+        ),
+        None => {
+            let t = escanar_tramo(imaxe, st, fin_carga, ventanxa, carga_reg);
+            // §5.3 + §7: só promove o candidato único cando toda a xanela
+            // está modelada. Canto hai palabras sen forma modelada, o span
+            // real é descoñecido e a palabra probe podería caer dentro del:
+            // eses pares só se promoven pola vía declarada (--chamada-sitio).
+            let parella = if t.candidatos.len() == 1 && t.non_modeladas == 0 {
+                t.candidatos.first().cloned()
+            } else {
+                None
+            };
+            (parella, t)
+        }
+    };
+    let ambiguous = parella.is_none() && tramo.candidatos.len() >= 2;
+    if parella.is_none() && varrida && !ambiguous {
         return Err((
             codigo::XEOMETRIA_DIVERXENTE,
             "sen chamada na ventána".to_string(),
@@ -447,8 +518,38 @@ fn medir_cadea(
     )];
     if parella.is_some() {
         limitacions.push("rutina-hashada-non-desasemblada: o contido da rutina é un pin, non semantics recuperadas".to_string());
-        orixe.push("chamada_sitio=medido-heuristica-ventana".to_string());
+        if chamado_declarado.is_some() {
+            // epistemoloxía separada do par declarado (§5.6)
+            limitacions.push("par-declarado".to_string());
+            orixe.push("chamada_sitio=declarado-probado".to_string());
+        } else {
+            orixe.push("chamada_sitio=medido-heuristica-ventana".to_string());
+        }
         orixe.push("rutina=hash-medido".to_string());
+        // gardas vistas no tramo que non rompían o recto: rexístranse, nunca
+        // se clampan en silencio (§5.1).
+        for b in &tramo.bcc {
+            limitacions.push(format!("camiños-condicionais:bcc@{b}"));
+        }
+        for r in &tramo.recusadas {
+            limitacions.push(r.clone());
+        }
+    }
+    if ambiguous {
+        limitacions.push(format!(
+            "ventana-ambigua:{}-candidatos",
+            tramo.candidatos.len()
+        ));
+    } else if parella.is_none() {
+        if tramo.non_modeladas > 0 {
+            limitacions.push(format!(
+                "tramo-non-modelado:{}-palabras: o span real non se modela e a palabra probe podería caer dentro del (limite §7); a promción estrutural require declaracion explicita (--chamada-sitio)",
+                tramo.non_modeladas
+            ));
+        }
+        for r in &tramo.roturas {
+            limitacions.push(format!("segmento-roto:{r}"));
+        }
     }
     orixe.extend([
         "carga_operando=medido".to_string(),
@@ -503,6 +604,7 @@ fn medir_cadea(
         confianza,
         limitacions,
         orixe,
+        tramo,
     })
 }
 
@@ -537,34 +639,140 @@ fn chamada_de(f: &Forma) -> Option<u32> {
     }
 }
 
-/// Primeira forma de chamada aliñada cuxo sitio cae na ventána tras o fin da
-/// carga. Devolve (sitio, bytes, nome, alvo).
-fn buscar_chamada(
+/// Escano do tramo `fin_carga .. +ventanxa` co **vocabulario de gardas
+/// pechado** de RESPOSTA-D-A §5: `roto-bra`, `roto-rts`, `sobrescrito-An`,
+/// `bcc` (non rompe, rexístrase) e recusas da gramática (non rompen nin
+/// emparellan, rexístranse). Unha vez rota a serie recta, os candidatos
+/// posteriores non contan. Nada fóra do vocabulario se promove nin se
+/// rexeita por el: as palabras sen forma modelada avanzan 2 bytes e
+/// rexístranse como límite de span (§7) — non é análise de alcançabilidade.
+/// O paso aliñase por palabra (paridade de instrución, §5.1); cando a forma
+/// está modelada, o avance é a **súa lonxitude**, de xeito que os operandos
+/// dun `bsr.w`/`jsr.l` non contan como palabras non modeladas (§7.2).
+fn escanar_tramo(
     imaxe: &[u8],
     st: &rex_addressing::MapperState,
     fin_carga: usize,
     ventanxa: usize,
-) -> Option<(u32, Vec<u8>, String, u32)> {
+    carga_reg: u8,
+) -> InfoTramo {
+    let mut t = InfoTramo {
+        candidatos: Vec::new(),
+        roturas: Vec::new(),
+        bcc: Vec::new(),
+        recusadas: Vec::new(),
+        non_modeladas: 0,
+    };
     let to = (fin_carga + ventanxa).min(imaxe.len());
     let mut off = fin_carga;
     while off + 2 <= to {
-        if sitio_aliñado(off as u32) {
-            let lon = (imaxe.len() - off).min(6);
-            let vent = &imaxe[off..off + lon];
-            if let Ok(f) = decodificar(vent, off as u32) {
-                if let Some(alvo) = chamada_de(&f) {
-                    // backing ROM exigido no BUS do efectivo (tres niveis):
-                    // un alvo que só existe como efectivo de 32 bits non é
-                    // rutina alcanzable polo 68000.
-                    if offset_rom(alvo & BARRAMENTO, st).is_ok() {
-                        return Some((off as u32, vent[..f.lonxitude()].to_vec(), f.nome(), alvo));
+        let sitio = off as u32;
+        let b0 = imaxe[off];
+        let b1 = imaxe[off + 1];
+        if b0 == 0x60 {
+            // bra.s `60 dd` / bra.w `60 00 dd dd`: salto incondicional → o
+            // candidato posterior non está no recto.
+            t.roturas.push(format!("roto-bra@{sitio:#06X}"));
+            break;
+        }
+        if b0 == 0x4E && b1 == 0x75 {
+            t.roturas.push(format!("roto-rts@{sitio:#06X}"));
+            break;
+        }
+        let avance = match decodificar(&imaxe[off..(imaxe.len() - off).min(6) + off], sitio) {
+            Ok(f) => {
+                match &f {
+                    Forma::LeaAbsL { registro, .. }
+                    | Forma::LeaAbsW { registro, .. }
+                    | Forma::LeaPcD16 { registro, .. } => {
+                        if *registro == carga_reg {
+                            t.roturas
+                                .push(format!("sobrescrito-A{carga_reg}@{sitio:#06X}"));
+                            break;
+                        }
+                        // carga noutro rexistro: recta, non rompe.
+                    }
+                    _ => {
+                        if let Some(alvo) = chamada_de(&f) {
+                            // backing ROM exigido no BUS do efectivo (tres
+                            // niveis): sen ela o candidato non é promobible.
+                            if offset_rom(alvo & BARRAMENTO, st).is_ok() {
+                                let bytes = imaxe[off..off + f.lonxitude()].to_vec();
+                                t.candidatos.push((sitio, bytes, f.nome(), alvo));
+                            }
+                        }
                     }
                 }
+                f.lonxitude()
             }
-        }
-        off += 2;
+            Err(InstrErro::Recusa { motivo }) => {
+                if (0x62..=0x67).contains(&b0) {
+                    // Bcc: non rompe o recto; rexistra ambigüidade de camiño.
+                    t.bcc.push(format!("{sitio:#06X}"));
+                } else {
+                    t.recusadas
+                        .push(format!("recusa-no-tramo:{motivo}@{sitio:#06X}"));
+                }
+                2
+            }
+            // NonForma / MoiCurta: fóra do vocabulario — non promove nin
+            // rexeita; o span real non se modela (límite §7).
+            Err(_) => {
+                t.non_modeladas += 1;
+                2
+            }
+        };
+        off += avance;
     }
-    None
+    t
+}
+
+/// Chamada no sitio **declarado** polo usuario (`--chamada-sitio`): a
+/// ferramenta proba que ali hai unha forma de chamada con backing ROM no
+/// bus; non descubre nada e non depende do escano do tramo.
+fn chamada_desde_declaracion(
+    imaxe: &[u8],
+    st: &rex_addressing::MapperState,
+    sitio: u32,
+) -> Result<Option<Candidato>, (i32, String)> {
+    if !sitio_aliñado(sitio) {
+        return Err((
+            codigo::SITIO_DIVERXENCIA,
+            format!("--chamada-sitio {sitio:#08X} impar: un opcode impar non é código 68k"),
+        ));
+    }
+    let off = offset_rom(sitio, st)
+        .map_err(|e| (codigo::SITIO_DIVERXENCIA, format!("chamada-sitio: {e}")))?;
+    let lon = (imaxe.len() - off).min(6);
+    let vent = imaxe.get(off..off + lon).ok_or((
+        codigo::SITIO_DIVERXENCIA,
+        "chamada-sitio fora da imaxe".to_string(),
+    ))?;
+    let f = decodificar(vent, sitio).map_err(|e| {
+        (
+            codigo::SITIO_DIVERXENCIA,
+            format!("chamada declarada: {e:?}"),
+        )
+    })?;
+    let alvo = chamada_de(&f).ok_or((
+        codigo::ARGUMENTO_DIVERXENTE,
+        format!(
+            "o sitio declarado {sitio:#08X} non contén unha forma de chamada ({})",
+            f.nome()
+        ),
+    ))?;
+    if offset_rom(alvo & BARRAMENTO, st).is_err() {
+        return Err((
+            codigo::ROTINA_DIVERXENCIA,
+            format!("alvo {alvo:#08X} sen backing ROM no bus: rutina non alcanzable"),
+        ));
+    }
+    Ok(Some((
+        sitio,
+        vent[..f.lonxitude()].to_vec(),
+        f.nome(),
+        alvo,
+    )))
 }
 
 fn erro_decodificador(e: &KosError) -> (i32, String) {
@@ -603,6 +811,7 @@ fn detectar_verb(f: &Flags) -> Result<i32, (i32, String)> {
     let mut emitidas = 0u64;
     let mut cargas = 0u64;
     let mut sen_parella = 0u64;
+    let mut ambiguas = 0u64;
     let mut fluxo_rexeitado = 0u64;
     let mut cortada = false;
     let sha_imaxe = rex_kosinski::edit::sha256_hex(&imaxe);
@@ -625,6 +834,7 @@ fn detectar_verb(f: &Flags) -> Result<i32, (i32, String)> {
                                 rom_size,
                                 carga_sitio: sitio,
                                 destino_sitio: None,
+                                chamado_declarado: None,
                                 rutina_lon,
                                 max_saida,
                                 orzamento,
@@ -633,11 +843,21 @@ fn detectar_verb(f: &Flags) -> Result<i32, (i32, String)> {
                             },
                         ) {
                             Ok(partes) => {
+                                let n_cand = partes.tramo.candidatos.len();
                                 let cadea = partes.cadea();
                                 match cadea.validar() {
                                     Ok(()) => {
-                                        println!("{}", cadea.to_json());
-                                        emitidas += 1;
+                                        if n_cand >= 2 {
+                                            // §5.4: dous candidatos no recto
+                                            // → non se promove NINGÚN.
+                                            ambiguas += 1;
+                                            eprintln!(
+                                                "AMBIGUA {sitio:#08X}: {n_cand} candidatos no recto"
+                                            );
+                                        } else {
+                                            println!("{}", cadea.to_json());
+                                            emitidas += 1;
+                                        }
                                     }
                                     Err(e) => {
                                         eprintln!("REXEITADA {sitio:#08X}: {e}");
@@ -665,7 +885,7 @@ fn detectar_verb(f: &Flags) -> Result<i32, (i32, String)> {
         off += 2;
     }
     eprintln!(
-        "rex-chain detectar cargas={cargas} sen-parella={sen_parella} rexeitadas={fluxo_rexeitado} emitidas={emitidas}{}",
+        "rex-chain detectar cargas={cargas} sen-parella={sen_parella} ambiguas={ambiguas} rexeitadas={fluxo_rexeitado} emitidas={emitidas}{}",
         if cortada { " varredura-interrompida-max-cadeas" } else { "" }
     );
     Ok(codigo::OK)

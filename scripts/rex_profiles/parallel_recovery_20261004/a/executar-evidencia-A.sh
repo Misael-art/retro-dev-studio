@@ -25,47 +25,46 @@ fai=0
 check() { # nome rc_esperado rc_obtido detalle
   if [ "$2" = "$3" ]; then echo "OK   $1: rc=$3 ($4)"; else echo "FALLO $1: esperaba rc=$2, obtido rc=$3 ($4)"; fai=$((fai+1)); fi; }
 
-echo "===== A. CADENAS REAIS SONIC 1 (construir + revalidar) ====="
-# Sonic 1 — tres sitios de carga con chamada medida na ventána (§2)
-run_sonic() { # nome carga destino rutina_lon
-  local n="$1" carga="$2" destino="$3"
-  if ! "$BIN" construir-cadea --imaxe "$SONIC" --rom-size 0x100000 --carga-sitio "$carga" \
+echo "===== A/B. CADENAS REAIS (xanela §5/§7 + par declarado §5.6) ====="
+# Dous rexistros por sitio, como conxelou RESPOSTA-D-A §5.6/§7.2:
+#  - `.xanela.jsonl`: medir SEN declaración — o efecto honesto das gardas
+#    sobre datos reais (promoción só cando o recto está totalmente modelado
+#    e ten candidato único).
+#  - `-$n.jsonl`: emparellamento **declarado** (`--chamada-sitio`), cos
+#    sitios da serie histórica §6.3 (medición propia de A, non descuberto).
+#    Este é o rexistro principal revalidable elo a elo.
+run_cadea() { # imaxe rom-size prefixo nome carga destino chamada
+  local img="$1" rom="$2" pref="$3" n="$4" carga="$5" destino="$6" ch="$7"
+  if ! "$BIN" construir-cadea --imaxe "$img" --rom-size "$rom" --carga-sitio "$carga" \
       --destino-sitio "$destino" --rutina-lonxitude 160 --limite-max-saida 200000 --limite-orzamento 2000000 \
-      > "$OUT/sonic-$n.jsonl" 2>"$OUT/sonic-$n.construir.err"; then
-    echo "FALLO construir $n: $(cat "$OUT/sonic-$n.construir.err")"; fai=$((fai+1)); return; fi
-  "$BIN" revalidar --imaxe "$SONIC" --cadea "$OUT/sonic-$n.jsonl" > "$OUT/sonic-$n.revalidar.txt" 2>&1
+      > "$OUT/$pref-$n.xanela.jsonl" 2>"$OUT/$pref-$n.xanela.err"; then
+    echo "FALLO xanela-$pref-$n: $(cat "$OUT/$pref-$n.xanela.err")"; fai=$((fai+1)); return
+  fi
+  python3 "$REPO/scripts/rex_profiles/parallel_recovery_20261004/a/resumo-xanela.py" "$OUT/$pref-$n.xanela.jsonl"
+  if ! "$BIN" construir-cadea --imaxe "$img" --rom-size "$rom" --carga-sitio "$carga" \
+      --destino-sitio "$destino" --chamada-sitio "$ch" \
+      --rutina-lonxitude 160 --limite-max-saida 200000 --limite-orzamento 2000000 \
+      > "$OUT/$pref-$n.jsonl" 2>"$OUT/$pref-$n.construir.err"; then
+    echo "FALLO construido-$pref-$n: $(cat "$OUT/$pref-$n.construir.err")"; fai=$((fai+1)); return
+  fi
+  "$BIN" revalidar --imaxe "$img" --cadea "$OUT/$pref-$n.jsonl" > "$OUT/$pref-$n.revalidar.txt" 2>&1
   local rc=$?
-  check "revalidar-sonic-$n" 0 "$rc" "$(tail -1 "$OUT/sonic-$n.revalidar.txt")"
-  local sha; sha="$(python3 -c "import json;print(json.load(open('$OUT/sonic-$n.jsonl'))['rutina_sha256'])")"
-  if [ "$sha" = "$RUTINA_PIN" ]; then echo "OK   rutina-$n sha==pin e8028514…"; else echo "REXISTRADO rutina-$n sha=$sha != pin $RUTINA_PIN (non se axusta)"; fi
-  echo "     cadea: $(sha256sum "$OUT/sonic-$n.jsonl" | cut -d' ' -f1)  confianza=$(python3 -c "import json;print(json.load(open('$OUT/sonic-$n.jsonl'))['confianza'])")"
+  check "revalidar-$pref-$n" 0 "$rc" "$(tail -1 "$OUT/$pref-$n.revalidar.txt")"
+  local sha; sha="$(python3 -c "import json;print(json.load(open('$OUT/$pref-$n.jsonl'))['rutina_sha256'])")"
+  if [ "$sha" = "$RUTINA_PIN" ]; then echo "OK   rutina-$pref-$n sha==pin e8028514…"; else echo "REXISTRADO rutina-$pref-$n sha=$sha != pin $RUTINA_PIN (non se axusta)"; fi
+  echo "     cadea: $(sha256sum "$OUT/$pref-$n.jsonl" | cut -d' ' -f1)  confianza=$(python3 -c "import json;print(json.load(open('$OUT/$pref-$n.jsonl'))['confianza'])")  par-declarado=$(python3 -c "import json;print(any(l=='par-declarado' for l in json.load(open('$OUT/$pref-$n.jsonl'))['limitacions']))")"
 }
-run_sonic 3082 0x03082 0x03088
-run_sonic 1364 0x01364 0x0136A
-run_sonic 51BC 0x051BC 0x051C2
+run_cadea "$SONIC" 0x100000 sonic 3082 0x03082 0x03088 0x0308E
+run_cadea "$SONIC" 0x100000 sonic 1364 0x01364 0x0136A 0x01370
+run_cadea "$SONIC" 0x100000 sonic 51BC 0x051BC 0x051C2 0x051C6
+run_cadea "$SOR" 0x80000 sor 16D2 0x016D2 0x016D8 0x016DE
+run_cadea "$SOR" 0x80000 sor 087FC 0x087FC 0x08802 0x08808
+run_cadea "$SOR" 0x80000 sor 08842 0x08842 0x08848 0x0884E
+run_cadea "$SOR" 0x80000 sor 10636 0x10636 0x1063C 0x10642
+run_cadea "$SOR" 0x80000 sor 10852 0x10852 0x10858 0x1085E
+run_cadea "$SOR" 0x80000 sor 119B4 0x119B4 0x119BA 0x119C0
 
-echo "===== B. CADENAS REAIS SoR ====="
-run_sor() { # nome carga destino
-  local n="$1" carga="$2" destino="$3"
-  if ! "$BIN" construir-cadea --imaxe "$SOR" --rom-size 0x80000 --carga-sitio "$carga" \
-      --destino-sitio "$destino" --rutina-lonxitude 160 --limite-max-saida 200000 --limite-orzamento 2000000 \
-      > "$OUT/sor-$n.jsonl" 2>"$OUT/sor-$n.construir.err"; then
-    echo "FALLO construir sor-$n: $(cat "$OUT/sor-$n.construir.err")"; fai=$((fai+1)); return; fi
-  "$BIN" revalidar --imaxe "$SOR" --cadea "$OUT/sor-$n.jsonl" > "$OUT/sor-$n.revalidar.txt" 2>&1
-  local rc=$?
-  check "revalidar-sor-$n" 0 "$rc" "$(tail -1 "$OUT/sor-$n.revalidar.txt")"
-  local sha; sha="$(python3 -c "import json;print(json.load(open('$OUT/sor-$n.jsonl'))['rutina_sha256'])")"
-  if [ "$sha" = "$RUTINA_PIN" ]; then echo "OK   rutina-sor-$n sha==pin e8028514…"; else echo "REXISTRADO rutina-sor-$n sha=$sha != pin (non se axusta)"; fi
-  echo "     cadea: $(sha256sum "$OUT/sor-$n.jsonl" | cut -d' ' -f1)  confianza=$(python3 -c "import json;print(json.load(open('$OUT/sor-$n.jsonl'))['confianza'])")"
-}
-run_sor 16D2 0x016D2 0x016D8
-run_sor 087FC 0x087FC 0x08802
-run_sor 08842 0x08842 0x08848
-run_sor 10636 0x10636 0x1063C
-run_sor 10852 0x10852 0x10858
-run_sor 119B4 0x119B4 0x119BA
-
-echo "===== C. NEGATIVOS (§6) sobre a cadea sonic-3082 ====="
+echo "===== C. NEGATIVOS (§6) sobre a cadea sonic-3082 (par declarado) ====="
 N="$OUT/sonic-3082.jsonl"
 
 # C1. imaxe equivocada: cadea Sonic revalidada contra SoR → ROM-DIVERXENCIA (3)
