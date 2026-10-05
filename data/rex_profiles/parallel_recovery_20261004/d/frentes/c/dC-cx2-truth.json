@@ -1,0 +1,128 @@
+{
+  "id": "dC-cx2",
+  "regioes": [
+    {
+      "inicio": 0,
+      "fim": 24
+    }
+  ],
+  "raizes": [
+    {
+      "endereco": 0,
+      "proveniencia": "candidato",
+      "evidencia": "entrada autoral do fluxo"
+    }
+  ],
+  "sitios": [
+    {
+      "endereco": 3,
+      "esperado_veredito": "miolo-de-instrucao",
+      "motivo": "dentro de bcc.w (4 B em 0x02)"
+    },
+    {
+      "endereco": 20,
+      "esperado_veredito": "dentro-regiao-nao-alcancado",
+      "motivo": "fill 0xFF após o último rts (0x12)"
+    }
+  ],
+  "kc2": [
+    {
+      "id": "KC2-base-bcc-w",
+      "endereco": 2,
+      "esperado": {
+        "tam": 4,
+        "alvo": 16,
+        "base": "sitio+2",
+        "discriminante": "base sitio+4 daria 0x12"
+      }
+    },
+    {
+      "id": "KC2-bcc-d16",
+      "endereco": 2,
+      "esperado": {
+        "tam": 4,
+        "alvo": 16,
+        "tipo_aresta": "desvio"
+      }
+    },
+    {
+      "id": "KC2-bsr-w",
+      "endereco": 8,
+      "esperado": {
+        "tam": 4,
+        "alvo": 18,
+        "base": "sitio+2"
+      }
+    },
+    {
+      "id": "KC2-dbra-ext",
+      "endereco": 12,
+      "esperado": {
+        "tam": 4,
+        "alvo": 12,
+        "nota": "laço próprio por disp −2; DBcc ancorado em 51c8 = dbra D0"
+      }
+    },
+    {
+      "id": "KC2-queda",
+      "endereco": 2,
+      "esperado": {
+        "sucessor_queda": 6
+      }
+    },
+    {
+      "id": "KC2-indexado",
+      "endereco": null,
+      "esperado": {
+        "nota": "provado em dC-cx4 em 0x2020 (`1031 2000`)"
+      }
+    }
+  ],
+  "kc5": [
+    {
+      "id": "KC5-diamante",
+      "endereco": 2,
+      "esperado": {
+        "ramos": 2,
+        "tipos": [
+          "queda",
+          "desvio"
+        ]
+      }
+    },
+    {
+      "id": "KC5-queda-pos-condicional",
+      "esperado": {
+        "origem": 2,
+        "alvo": 6,
+        "tipo": "queda"
+      }
+    },
+    {
+      "id": "KC5-rts-nao-continua",
+      "endereco": 16,
+      "esperado": {
+        "sucessores": 0,
+        "tipo": "retorno-fronteira"
+      }
+    },
+    {
+      "id": "KC5-cobertura",
+      "esperado": {
+        "bytes_decodificados": 20,
+        "bytes_regiao": 24
+      },
+      "nota": "D recompõe Σ dos comprimentos autorais; a string `fracao` de C não é graduada"
+    },
+    {
+      "id": "KC5-vereditos",
+      "esperado": {
+        "miolo": 3,
+        "nao_alcancado": 20
+      }
+    }
+  ],
+  "limites_de_autoria": [
+    "nenhum byte deste fixture vem do decodificador de C"
+  ]
+}

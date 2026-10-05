@@ -1,0 +1,138 @@
+{
+  "id": "dC-cx4",
+  "origin": 8192,
+  "regioes": [
+    {
+      "inicio": 8192,
+      "fim": 8236
+    }
+  ],
+  "raizes": [
+    {
+      "endereco": 8192,
+      "proveniencia": "candidato",
+      "evidencia": "entrada autoral"
+    },
+    {
+      "endereco": 8232,
+      "proveniencia": "referencia-estatica",
+      "evidencia": "sonda de trap isolada"
+    }
+  ],
+  "sitios": [
+    {
+      "endereco": 8224,
+      "esperado_veredito": "instrucao-de-bloco"
+    },
+    {
+      "endereco": 305419896,
+      "esperado_veredito": "fora-da-regiao"
+    }
+  ],
+  "kc4": [
+    {
+      "id": "KC4-jsr-abs-l-intra",
+      "endereco": 8194,
+      "esperado": {
+        "origem": 8194,
+        "alvo": 8224,
+        "status": "resolvido",
+        "derivado": "dentro-de-fluxo"
+      }
+    },
+    {
+      "id": "KC4-jmp-abs-l-extra",
+      "endereco": 8200,
+      "esperado": {
+        "origem": 8200,
+        "alvo": 19088743,
+        "tipo": "fora-da-regiao",
+        "decodificado_fora": 0
+      }
+    },
+    {
+      "id": "KC4-jmp-ind-an",
+      "endereco": 8228,
+      "opcode": "4ed2",
+      "esperado": {
+        "fronteira": "indirect-opaco",
+        "alvo": null,
+        "endereco": 8228
+      }
+    },
+    {
+      "id": "KC4-trap-n",
+      "endereco": 8232,
+      "opcode": "4e44",
+      "esperado": {
+        "fronteira": "trap-opaco",
+        "endereco": 8232
+      }
+    }
+  ],
+  "kc2_indexado": {
+    "id": "KC2-indexado",
+    "endereco": 8224,
+    "bytes": "10312000",
+    "esperado": {
+      "tam": 4,
+      "origem": "d8(A1,D2.W)",
+      "destino": "D0"
+    },
+    "nota": "`1031 2000` — âncora do adendo de C; palavra de extensão I=0, reg=D2, W, disp=0"
+  },
+  "tc": [
+    {
+      "id": "TC-1",
+      "acao": {
+        "tipo": "cli",
+        "flag": "--root-prov",
+        "valor": "oraculo-externo"
+      },
+      "esperado_rc": 2,
+      "motivo": "vocabulário de proveniência fechado"
+    },
+    {
+      "id": "TC-2",
+      "acao": {
+        "tipo": "site",
+        "endereco": 8195
+      },
+      "esperado": {
+        "veredito": "miolo-de-instrucao"
+      },
+      "motivo": "0x2002 é jsr abs.L (6 B); 0x2003 é miolo"
+    },
+    {
+      "id": "TC-3",
+      "acao": {
+        "tipo": "site",
+        "endereco": 36864
+      },
+      "esperado": {
+        "veredito": "fora-da-regiao"
+      },
+      "motivo": "sitio além de 0x202C"
+    },
+    {
+      "id": "TC-4",
+      "acao": {
+        "tipo": "xor-byte-imagem",
+        "offset_na_arquivo": 0,
+        "valor": 128
+      },
+      "esperado": {
+        "endereco_mutado": 8192,
+        "bytes_antes": "7000",
+        "bytes_depois": "f000",
+        "delta_cobertura_bytes": 0,
+        "invariantes": [
+          "o export reporta fronteira no endereço 0x2000 com opcode f000",
+          "a instrução em 0x2000 deixa de constar como decodificada",
+          "o restante do bloco (0x2002..) mantém os comprimentos autorais"
+        ]
+      },
+      "motivo": "sonda de comprimento: a adulteração tem de aparecer na cobertura, não ser absorvida"
+    }
+  ]
+}
