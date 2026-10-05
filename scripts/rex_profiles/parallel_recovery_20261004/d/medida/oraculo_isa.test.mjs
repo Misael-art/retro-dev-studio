@@ -85,10 +85,10 @@ describe("oráculo ISA — integridade do gabarito versionado", () => {
     expect(sha(Buffer.from(JSON.stringify(gab.filas), "utf8"))).toBe(gab.filas_sha256);
   });
 
-  it("52 sondas: 48 montan con bytes reais, 4 recusadas sen bytes", () => {
-    expect(gab.filas.length).toBe(52);
+  it("55 sondas: 51 montan con bytes reais, 4 recusadas sen bytes", () => {
+    expect(gab.filas.length).toBe(55);
     const montan = gab.filas.filter((f) => f.rc_montador === 0);
-    expect(montan.length).toBe(48);
+    expect(montan.length).toBe(51);
     for (const f of montan) {
       expect(f.bytes_hex, `${f.id}: fila «valida» sen bytes (placeholder)`).toMatch(/^[0-9a-f]+$/);
       expect(f.bytes_hex.length % 2, f.id).toBe(0);
@@ -101,14 +101,24 @@ describe("oráculo ISA — integridade do gabarito versionado", () => {
     }
   });
 
-  it("as únicas sondas con bytes repetidos son os dous pares intencionados", () => {
+  it("as únicas sondas con bytes repetidos son os catro pares intencionados", () => {
     const grupos = {};
     for (const f of gab.filas.filter((x) => x.bytes_hex)) (grupos[f.bytes_hex] ||= []).push(f.id);
-    const duplicados = Object.values(grupos).filter((v) => v.length > 1).map((v) => v.sort());
-    expect(duplicados).toEqual([
-      ["bruto-lea-8400-w", "lea-abs-w-alto"],
-      ["bsr-plain", "bsr-w"],
-    ]);
+    const duplicados = Object.values(grupos)
+      .filter((v) => v.length > 1)
+      .map((v) => v.sort().join("+"))
+      .sort();
+    expect(duplicados).toEqual(
+      [
+        // `move.w/l #imm,%a1` non ten codificación propia: o montador devolve MOVEA.
+        ["move-w-imm-an-texto", "movea-w-inm"],
+        ["move-l-imm-an-texto", "movea-l-inm"],
+        ["bruto-lea-8400-w", "lea-abs-w-alto"],
+        ["bsr-plain", "bsr-w"],
+      ]
+        .map((v) => v.sort().join("+"))
+        .sort(),
+    );
   });
 
   it("o gabarito non leva marcas de tempo (é re-xerábel en CI)", () => {
@@ -216,6 +226,19 @@ describe("oráculo ISA — feitos decisorios da retificación (rolda 3)", () => 
         fila(id).bytes_hex,
       );
     }
+  });
+
+  it("«MOVE.W #imm,An» non existe como codificación: GAS normalízao a MOVEA (KC3 de v1 era inalcanzable)", () => {
+    expect(fila("move-w-imm-an-texto").rc_montador).toBe(0);
+    expect(fila("move-w-imm-an-texto").bytes_hex).toBe("327c1234");
+    expect(mnemonico("move-w-imm-an-texto")).toBe("moveaw #4660,%a1");
+    expect(fila("move-l-imm-an-texto").bytes_hex).toBe("227c00001234");
+    expect(mnemonico("move-l-imm-an-texto")).toBe("moveal #4660,%a1");
+    // o homónimo de destino de datos si é MOVE
+    expect(fila("move-w-imm-dn-texto").bytes_hex).toBe("323c1234");
+    expect(mnemonico("move-w-imm-dn-texto")).toBe("movew #4660,%d1");
+    // e o byte que D puxo na sonda KC3 é exactamente o de `movea.w #imm,An`
+    expect(fila("bruto-327c-moveaw").bytes_hex).toBe("327c1111");
   });
 
   it("desprazamentos relativos contan desde a palabra de extensión (sitio + 2)", () => {    expect(fila("bsr-s").bytes_hex).toBe("61024e71");

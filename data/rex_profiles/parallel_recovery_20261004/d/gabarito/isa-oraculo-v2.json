@@ -353,6 +353,39 @@
       "efectivo_dito_polo_desmontador": null
     },
     {
+      "id": "move-w-imm-an-texto",
+      "montaxe": "move.w #0x1234,%a1",
+      "classe_instrumento": "valida-normalizada-movea",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "327c1234",
+      "tam": 4,
+      "desmontaxe": "0:\t327c 1234      \tmoveaw #4660,%a1",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "move-l-imm-an-texto",
+      "montaxe": "move.l #0x1234,%a1",
+      "classe_instrumento": "valida-normalizada-movea",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "227c00001234",
+      "tam": 6,
+      "desmontaxe": "0:\t227c 0000 1234 \tmoveal #4660,%a1",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "move-w-imm-dn-texto",
+      "montaxe": "move.w #0x1234,%d1",
+      "classe_instrumento": "valida-fora-da-táboa-A",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "323c1234",
+      "tam": 4,
+      "desmontaxe": "0:\t323c 1234      \tmovew #4660,%d1",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
       "id": "bra-w",
       "montaxe": "bra.w alvo | alvo:",
       "classe_instrumento": "valida-fora-da-táboa-A",
@@ -572,5 +605,5 @@
       "efectivo_dito_polo_desmontador": null
     }
   ],
-  "filas_sha256": "8e95a9131ce363cbfcaa3b5193acc3cf3b628f4eef9751adec15dbb99301e1eb"
+  "filas_sha256": "032eb989b530a31e2e580a09361e0a3d4900776963a9342fb132c3d79e539c67"
 }

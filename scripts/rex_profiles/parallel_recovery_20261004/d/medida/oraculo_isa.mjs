@@ -72,6 +72,12 @@ const SONDAS = [
   { id: "movea-w-an", texto: "movea.w %a0,%a1", classe: "recusada-68000" },
   { id: "movea-l-an", texto: "movea.l %a0,%a1", classe: "valida" },
 
+  // --- A combinación que a rolda 2 chamou «MOVE.W #imm,An inválida»: o montador
+  //     di se ten codificación propia ou se é, simplemente, MOVEA.
+  { id: "move-w-imm-an-texto", texto: "move.w #0x1234,%a1", classe: "valida-normalizada-movea" },
+  { id: "move-l-imm-an-texto", texto: "move.l #0x1234,%a1", classe: "valida-normalizada-movea" },
+  { id: "move-w-imm-dn-texto", texto: "move.w #0x1234,%d1", classe: "valida-fora-da-táboa-A" },
+
   // --- Ramas/loops que A recusa como `fora-de-subconxunto` (ISA válidos)
   { id: "bra-w", texto: "bra.w alvo\nalvo:", classe: "valida-fora-da-táboa-A" },
   { id: "beq-w", texto: "beq.w alvo\nalvo:", classe: "valida-fora-da-táboa-A" },
