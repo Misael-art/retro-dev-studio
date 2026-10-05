@@ -15,7 +15,7 @@
 //!   rótulo de recusa de byte+An nomeava um mnemônico que a ISA não tem.
 //!
 //! Fontes primárias (M68000PRM, SHA-256 `06e4864b…47c4e8`):
-//!   §MOVEA p. 4-118  "Attributes: Size = (Word, Long)"
+//!   §MOVEA p. 4-119  "Attributes: Size = (Word, Long)"
 //!   §MOVE  p. 4-118  "*For byte size operation, address register direct is not
 //!                     allowed."
 //!   §DBcc  p. 4-90   "Size = (Word)"; "…plus the sign-extended 16-bit
@@ -113,7 +113,7 @@ fn e3_1_move_byte_com_destino_dn_continua_valido() {
 
 /// O rótulo de recusa nomeia as DUAS leituras inválidas: `MOVEA.B` não existe na
 /// ISA e `MOVE.B` com destino An é proibido pela nota de rodapé do §MOVE.
-const MOTIVO_BYTE_PARA_AN: &str = "MOVE/MOVEA de tamanho byte com destino An invalido (PRM 4.118)";
+const MOTIVO_BYTE_PARA_AN: &str = "MOVE/MOVEA de tamanho byte com destino An invalido (PRM 4-118/4-119)";
 
 /// (bytes, leitura que o instrumento/desmontador faria se a forma existisse).
 const BYTE_PARA_AN: &[(&str, &str)] = &[

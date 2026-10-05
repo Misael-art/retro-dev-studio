@@ -617,7 +617,7 @@ fn decode_move(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> {
     }
     let src = read_ea(cur, smode, sreg, size)?;
     if dmode == 1 {
-        // MOVEA: PRM 4-118 da os unicos tamanhos possiveis ("Size = (Word,
+        // MOVEA: PRM 4-119 da os unicos tamanhos possiveis ("Size = (Word,
         // Long)") e a nota de rodape do §MOVE fecha o outro lado ("For byte size
         // operation, address register direct is not allowed."). Os dois casos
         // sao o mesmo par de bits, entao um so rotulo nomeia as duas leituras
@@ -625,7 +625,7 @@ fn decode_move(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> {
         if size == 1 {
             return Err(out(
                 op,
-                "MOVE/MOVEA de tamanho byte com destino An invalido (PRM 4.118)",
+                "MOVE/MOVEA de tamanho byte com destino An invalido (PRM 4-118/4-119)",
             ));
         }
         return Ok(mk(

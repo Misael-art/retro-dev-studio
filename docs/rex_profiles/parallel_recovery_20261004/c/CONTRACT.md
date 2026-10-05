@@ -7,6 +7,28 @@ Território: `scripts/rex_profiles/parallel_recovery_20261004/c/`,
 Não altera `crates/rex-gameplay`, `scripts/rex_corpus_a` nem harness compartilhado;
 consome `rex-gameplay` (`m68k`, `json`, `sha256`) como dependente de path, somente-leitura.
 
+> **PONTEIRO DATADO (2026-10-05, ETAPA 3).** Este arquivo **não foi reescrito**. As cláusulas
+> abaixo foram retificadas por referência primária (M68000PRM/MC68000UM) e pelo montador e
+> desmontador pinados, com cotação verbatim da linha original, classificação do estado e sonda que
+> mede: ver `CONTRACT-RETIFICACAO-ETAPA3-2026-10-05.md`.
+>
+> - §0.3 (`28-30`): a recusa de `disp8 = 0xFF` pertence a `Bcc`/`BSR`/`BRA`, **não** a `DBcc` (R-2).
+> - Regras de endereço (`67-71`): a base é `instrução + 2`; a nomeação "primeiro word de extensão"
+>   não se aplica às formas `.S` (R-5).
+> - §2.1 (`101-106`): a hipótese `extensao-abs-w-hipotese-zero-extendida` está **refutada** por
+>   PRM §2.2.16 — `(xxx).W` é sign-estendida; o objeto `v2` publica Q1–Q4 separados e as duas
+>   strings aposentadas saem do export (R-1).
+> - §3 (`156-158`): `MOVEA` só tem `.W`/`.L` (PRM 4-119) e `MOVE.W → An` **é** o `MOVEA.W` válido;
+>   o inválido é tamanho **byte** com destino `An` (PRM 4-118, nota do §MOVE) (R-3).
+> - §3 (`166`): `DBcc` não tem forma disp8 — deslocamento de **palavra** com sinal, sempre 4 bytes,
+>   base `instrução + 2` (PRM 4-90, Table 3-9) (R-4).
+> - Regra V5 (`133-138`): 18 rótulos de fronteira, um texto de `limites` e mensagens de CLI
+>   violavam a exigência de ASCII e foram recolocados em ASCII (R-6).
+>
+> Esquemas em vigor desde esta entrega: `rex-cfg/v2`, `rex-cfg-sitio/v2`, `rex-cfg-med/v2`. O título
+> acima (`rex-cfg/v1`) fica como está; os artefatos v1 publicados são históricos intocáveis, com
+> digestos pinados por `tests/guarda_historico.rs`.
+
 ## 0. O que é e o que não é
 
 `rex-cfg` constrói um **grafo de fluxo de controle parcial** a partir de raízes
