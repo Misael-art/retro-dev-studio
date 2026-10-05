@@ -242,3 +242,67 @@ Reproduzir: `python3 scripts/.../calc-enderecos-ram-b3.py` (derivacao de
 referencia, sem ROM) e `python3 scripts/.../medir-cram-b3.py --rom <BYOR>
 --out data/.../evidencia/cram-b3.json` (so leitura; recusa ROM com SHA
 diferente do pin c7da53a1…).
+
+## 9. Rodada ENIGMA-B4 — decoder nativo delimitado (E23–E30)
+
+Objetivo: decoder Enigma puro, utilizavel pelo backend, SEM copiar o decoder
+externo cuja incorporacao foi excluida pela politica da rodada.
+
+Procedencia e politica (requisito 1): nenhum Enigma existia no produto
+(`src-tauri`, `crates/`; ROUND_STATE linha Enigma = blocked). mdcomp
+(72c6df40…, LGPL-3.0-or-later) excluido por politica; a reconstrucao de
+pesquisa pinada (a9ed92f9…) e RESEARCH ONLY e nao foi portada. O produto e
+clean-room do desempacotador real do console — `_inc/Decompression/Enigma
+Decompression.asm` do s1disasm pinado (064e3c68…), SHA do arquivo
+76fed2de… — lido instrucao a instrucao (header 6B, tokens 6/7 bits
+0|s|cccc / 1|mm|cccc, PCCVH, terminador 1|11|1111, alinhamento par do
+EniDec_Done).
+
+Congelamento ANTES de qualquer Rust: commit `3268ac7`
+(`EXPECTATIONS-ENIGMA-B4.md` + `sonda-oraculo-enigma-b4.py` +
+`enigma-oraculo-b4.json`). A sonda mediu apenas referencias externas pinadas
+(decoder a9ed92f9 + ROM c7da53a1 + fixtures corpus-B com SHA regravado) e
+produziu os numeros congelados E23–E28.
+
+Implementacao: crate `scripts/.../b/enigma-rs/` (`rex-enigma`, lib + CLI
+`rex-enigma`), Rust puro, sem Tauri/IPC/UI, sem `unsafe`; unica dependencia
+`rex-kosinski` por path para `sha256_hex` (precedente rex-corpus). Limites
+por contrato: max_output_bytes, work_limit (tokens), leitura sempre dentro do
+slice, cancelamento cooperativo; aritmetica mod 2^16 (wrap = comportamento
+definido do console, nao erro). Erros: truncated, malformed-header
+(extensao declarada), excessive-output, work-limit, cancelled; erro => zero
+saida ao chamador.
+
+Resultados (primeira execucao, zero desvio do congelado):
+- E23 paridade 6/6 nas streams reais da ROM: SHA da saida, `bytes_lidos`
+  exato, padding e `bytes_armazenados` por linha — incluindo o caso
+  discriminante 0x662f4 (1233 lidos, padding 1, slot 1234 = diff de offsets
+  da tabela B2).
+- E24 paridade 10/10 nos pares plain do corpus-B (decode(.eni) == .bin byte a
+  byte; bytes do ficheiro alem do consumo NAO contados).
+- E25 negativos e01–e07 com codigos do PRODUTO (7/7): recusas onde o oraculo
+  tolerava (odd-tail, truncamento, vazio, lixo, max-out) e aceites corretos
+  onde o formato define aceitar (e03/e04 — ver retificacao §4 do documento de
+  expectativas: byte[1] e bitfield PCCVH, nao enum de modo; [4:6] e common
+  value, nao declaracao de comprimento).
+- E26 hardening 9/9: packet_length {0,12,128,255} e mascara >0x1F recusados
+  (divergencia deliberada e documentada do console, que produziria lixo
+  limitado), work-limit, cancel (via API), header curto.
+- E27 invariante de contabilidade em todas as entradas aceites.
+- E28 sem panic: 264 cortes de planes_4k + metades SS + fills + 128 entradas
+  LCG(20261005) — todas terminam em Ok|Err estruturado.
+
+Gates: `cargo test` 8+6 verdes; `cargo clippy --all-targets -- -D warnings`
+exit 0; `medir-produto-enigma-b4.py` → `enigma-produto-b4.json`
+`PRODUTO-ENIGMA-B4-OK`; gates da frente re-executados identicos ao congelado
+(cadeia/negativos/controles/fixture/isa byte-identicos, export-camadas OK,
+test-contrato-b 20/20); `check:tree` OK.
+
+O que NAO se afirma: consumo observado em runtime (teto inalterado);
+composicao visual (ligacao da arte ainda pendente); incorporacao no produto
+(crates/, registry, IPC, UI = trabalho e decisao do integrador — aqui vao
+API, proveniencia, metadados e testes consumiveis).
+
+Reproduzir: `cargo test` e `cargo build` em `scripts/.../b/enigma-rs/`,
+`python3 scripts/.../b/sonda-oraculo-enigma-b4.py` (referencia externa) e
+`python3 scripts/.../b/medir-produto-enigma-b4.py` (produto vs congelado).
