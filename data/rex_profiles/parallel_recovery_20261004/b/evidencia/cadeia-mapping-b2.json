@@ -2,7 +2,7 @@
  "schema_version": "rex-parallel-b/cadeia-mapping/1",
  "gerado_por": "scripts/rex_profiles/parallel_recovery_20261004/b/medir-cadeia-mapping.py",
  "expectativas": "E14/E15/E16 de docs/rex_profiles/parallel_recovery_20261004/b/EXPECTATIONS-ADENDA-B2.md",
- "tempo_utc": "2026-10-05T01:24:50.476717+00:00",
+ "tempo_utc": "2026-10-05T02:37:44.250720+00:00",
  "pins": {
   "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
   "s1disasm": "064e3c68eb19cc85b8801b087f9d95f9b3e82cea",

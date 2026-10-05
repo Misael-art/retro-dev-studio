@@ -48,7 +48,8 @@ Current Wave nem Memory Bank.
    = `0002c5640142` → mappings `0x2C564` (dentro da ROM), campo `$0142` =
    ArtTile_SS_Wall segundo a referencia pinada. **Limite exato:** o decodificador
    de mappings, a carga de arte Kosinski e a carga de CRAM NAO foram
-   comprovados — referencia faltante publicada abaixo.
+   comprovados — referencia faltante publicada abaixo (a de CRAM foi
+   pinada por sitio na rodada B3; ver §8).
 
 ## 2. Niveis de evidencia (um nivel NAO implica o seguinte)
 
@@ -87,7 +88,10 @@ externa pinada; pins do review-pr97.
 - carga de CRAM para o campo paleta dos registros SS_MapIndex: **DESCONHECIDA**,
   referencia faltante publicada em `export-camadas-b2.json`
   (`camada_cadeia_id.referencia_faltante`); nenhuma composicao visual foi
-  produzida (o vínculo arte completo nao foi demonstrado);
+  produzida (o vínculo arte completo nao foi demonstrado).
+  **ATUALIZADO pela rodada B3 (§8):** referencia do CRAM pinada por sitio
+  (hipotese RAM H_B) — nivel RESOLVIDA-ESTATICO; consumo observado
+  permanece NAO PROVADO (E22);
 - consumo observado (execusao) de qualquer etapa;
 - consumidores das streams de Pulseman (frente antiga: nao localizados nas
   formas varridas).
@@ -101,7 +105,9 @@ externa pinada; pins do review-pr97.
 | `verificar-cadeia.py negativos` | 7/7 RECUSADO com motivo observado |
 | `verificar-cadeia.py controles` (E12) | CONTROLES-COMPLETOS: 7/7 recusas + 7/7 controles aceitos; comportamento do modelo antigo registrado por caso |
 | `medir-cadeia-mapping.py` (E14–E16) | CADEIA-MAPPING-E14-E16-OK: Map_SSWalls 128B/16 frames conforme predicao por macro; slot ID$01 = `0002c56400000142`; bloco SS_ShowLayout montado pelo toolchain com ocorrencia UNICA em 0x1B242 e jsr BuildSpr_Normal 0xD762 |
-| `exportar-camadas-b2.py` (E13/E17) | EXPORT-CAMADAS-OK; PLC_SpecialStage com ocorrencia unica em 0x1D992 (17 cues; walls = stream 0x2C5E4, VRAM $2840 == ArtTile_SS_Wall×$20); CRAM declarado DESCONHECIDA |
+| `exportar-camadas-b2.py` (E13/E17) | EXPORT-CAMADAS-OK; PLC_SpecialStage com ocorrencia unica em 0x1D992 (17 cues; walls = stream 0x2C5E4, VRAM $2840 == ArtTile_SS_Wall×$20); CRAM declarado DESCONHECIDA nesta rodada (B2) |
+| `calc-enderecos-ram-b3.py` (referencia, sem ROM) | ANCORAS OK — $FF4000/$FF1020/$80 conferidos; divergencia de 6 bytes vs guarda `if *` exposta como hipoteses H_A/H_B (E18R) |
+| `medir-cram-b3.py` (E18R–E22) | E18R/E19/E20/E21-OK: H_B sem mismatch; blink 0x1B33A + tabela 128B == predicao sswallpal; PalCycle_SS unico 0x4962 + SHAs Cyc1/Cyc2; PalLoad/Fade/Index pinados; call site SS unico 0x469A; writeCRAM H_B 6x/4x, H_A 0x; consumo observado NAO PROVADO |
 | `verificar-cadeia.py fixture` | PASS (expectativa propria; antiga diverge) |
 | `montar-isa.py` | 37/37 remontadas + desmontadas (as `20342db5...`, objdump `f7d63642...`) |
 | `npm run check:tree` (`node scripts/check-tree.cjs`) | OK: "Estrutura da raiz conforme docs/08_TREE_ARCHITECTURE.md." (executado na worktree nesta rodada) |
@@ -184,3 +190,55 @@ indice de SHA256SUMS.
   provada usa somente Enigma + Nemesis-PLC (estrutura). Se o integrador pedir
   arte decodificada, aplicar a frente A corrigida SOMENTE depois da revisao
   de ISA dela, e pinar NemDec antes de promover "consumo observado".
+
+## 8. Rodada ADENDA-B3 — referencia faltante do CRAM (E18R–E22)
+
+Expectativas congeladas ANTES de qualquer medida, em dois commits solos:
+`a233e8d` (B3: fatos + E18–E22) e `ab72d90` (B3.1: refreeze E18R). O primeiro
+runabortou no proprio gate E18 (derivacao RAM divergiu entre dois caminhos
+internos), sem nenhuma byte da ROM consumida; o refreeze B3.1 converteu os
+campos `.w` da fase geral em WILDCARDS de 2 bytes e registrou as hipoteses
+H_A (`_Variables.asm` sem a instancia L114 do SMPS_RAM) e H_B (com a
+instancia; cada campo +$5C0) — a discrepancia de 6 bytes vs a guarda `if *`
+de `v_ram_end` e real e nao resolvivel estaticamente; a ROM foi o arbitro.
+
+Metodo (mesmo da E16): blocos montados com o toolchain m68k-elf PINADO,
+enderecos absolutos viram placeholders (tecnica dos dois placeholders),
+busca na ROM com mascara exige ocorrencia UNICA, e os valores lidos no sitio
+decidem a hipotese. Resultados:
+
+- **E18R** — H_B vence sem nenhum mismatch em 14 campos lidos (E19+E20 +
+  ramaddys do Pal_Index: line_1=$FB00, line_2=$FB20); invariantes
+  congeladas confirmadas (frame=time+1; palss_time−num=2, index−num=4;
+  espelhos = line_3/line_4 +$E/+1A). H_A refutada campo a campo.
+- **E19** — blink de `SS_AnimateBlocks` com ocorrencia unica em 0x1B33A;
+  tabela de 128 B em 0x1B43A byte-a-byte igual a PREDICAO derivada da macro
+  sswallpal (SHA 985518fb…; predicao==medida antes da medida).
+- **E20** — `PalCycle_SS` unico em 0x4962; alvos `.l` lidos no sitio
+  (SS_Timing_Values 0x4A3C, SS_BG_Modes 0x4ABC, Pal_SSCyc1 0x4ACA,
+  Pal_SSCyc2 0x4B12); os dois bins de ciclo batem com os SHAs pinados
+  (ec2391eb…/65e5c943…).
+- **E21** — `PalLoad` 0x2118 / `PalLoad_Fade` 0x20FC / `Pal_Index` 0x2168
+  (20 entradas, contagem da entrada 10 = $1F, Pal_Special 128 B = SHA
+  2f9072d8…); call site do Special Stage (moveq #10 + bsr.w PalLoad_Fade)
+  UNICO em 0x469A com alvo == PalLoad_Fade pinado; writeCRAM montado para as
+  duas hipoteses: H_B encontrado 6x (v_palette) e 4x (v_palette_water) nas
+  rotinas de VBlank; H_A zero ocorrencias (discriminante).
+- **E22 (teto)** — nivel maximo = vinculo-estrutural + equivalencia
+  estatica; **consumo observado (CRAM escrito em execucao) NAO PROVADO**;
+  `cram_paleta` sai de DESCONHECIDA para RESOLVIDA-ESTATICO no export, com a
+  referencia ainda faltante refinada e publicada no proprio export.
+
+Retificacoes de FERRAMENTA durante a rodada (nao reescrita de expectativas;
+a semantica congelada — quais simbolos, unicidade, valores — nao mudou):
+(a) o assert `41F9` do wildcard `.l` aceitou so `%a0`; corrigido para a
+familia `lea (xxx).l,%aN` (41F9|N<<8); (b) `writeCRAM` expande com o ramaddr
+COMPLETO de 24 bits ($FFFFFB00, ex.: dmasrc $96FD9580 / dmamode $977F), nao
+com o `.w`; (c) `bsr.w` e `6100 + disp16` relativo ao endereco da propria
+branquia + 2 (nao `4EF9`/`jmp`). Os tres sao correcoes de encoding do
+montador/leitor, cada uma provada contra o disasm pinado antes de valer.
+
+Reproduzir: `python3 scripts/.../calc-enderecos-ram-b3.py` (derivacao de
+referencia, sem ROM) e `python3 scripts/.../medir-cram-b3.py --rom <BYOR>
+--out data/.../evidencia/cram-b3.json` (so leitura; recusa ROM com SHA
+diferente do pin c7da53a1…).

@@ -1,7 +1,7 @@
 {
  "schema_version": "rex-parallel-b/cadeia-sonic/2",
  "componente": "negativos",
- "tempo_utc": "2026-10-05T01:24:49.973223+00:00",
+ "tempo_utc": "2026-10-05T02:37:42.956377+00:00",
  "pins": {
   "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
   "decoder_sha256": "a9ed92f96fbdd7e0828e7612e83eff24c65aee52fd5a82efee53581dc1a7f8b2"
