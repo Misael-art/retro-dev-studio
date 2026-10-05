@@ -128,7 +128,7 @@ def main(argv=None):
     fontes = {}
     for nome in ["cadeia-sonic-verificada.json", "isa-forms-b.json",
                  "controles-negativos-b2.json", "cadeia-mapping-b2.json",
-                 "negativos.json", "fixture-assimetrica.json"]:
+                 "negativos.json", "fixture-assimetrica.json", "cram-b3.json"]:
         p = out_dir / nome
         if not p.exists():
             raise CS.RecusaErro("evidencia-ausente", f"falta {nome} para compor camadas")
@@ -138,13 +138,48 @@ def main(argv=None):
     isa = fontes["isa-forms-b.json"][0]
     contro = fontes["controles-negativos-b2.json"][0]
     mapping = fontes["cadeia-mapping-b2.json"][0]
+    cram = fontes["cram-b3.json"][0]
+    e19c = cram["pins"].get("e19_blink", {})
+    e20c = cram["pins"].get("e20_palcycle_ss", {})
+    e21c = cram["pins"].get("e21", {})
+    cram_ok = cram["veredito"].startswith("E18R/E19/E20/E21-OK")
+    cram_resumo = {
+        "veredito": cram["veredito"],
+        "hipotese_ram_e18r": cram["e18r"].get("hipotese_escolhida"),
+        "invariantes": cram["e18r"].get("invariantes"),
+        "palload": e21c.get("palload_endereco"),
+        "palload_fade": e21c.get("palload_fade_endereco"),
+        "pal_index": e21c.get("pal_index_endereco"),
+        "pal_index_ramaddys": {"line_1": e21c["entradas_20"][0]["ramaddr"],
+                               "line_2": e21c["entradas_20"][4]["ramaddr"],
+                               "entradas": len(e21c["entradas_20"])},
+        "callsite_ss_setup": e21c.get("callsites_moveq10_bsrw"),
+        "palcycle_ss": {"endereco": e20c.get("endereco"),
+                        "campos_w": e20c.get("campos_w"),
+                        "alvos_l": e20c.get("alvos_l"),
+                        "cyc1_sha256": e20c.get("cyc1_sha256"),
+                        "cyc2_sha256": e20c.get("cyc2_sha256")},
+        "blink_ss": {"endereco": e19c.get("endereco"),
+                     "campos_w": e19c.get("campos_w"),
+                     "ss_wall_palettes_vram": e19c.get("ss_wall_palettes_vram"),
+                     "tabela_sha256": e19c.get("tabela_sha256"),
+                     "igual_predicao_sswallpal":
+                         e19c.get("tabela_128b_igual_predicao_sswallpal")},
+        "pal_special_sha256": e21c.get("checks", {}).get("pal_special_128b_sha"),
+        "writecram_H_B": {k: v["ocorrencias"] for k, v in
+                          e21c.get("writecram_por_hipotese", {}).get("H_B", {}).items()},
+        "writecram_H_A_ocorrencias": {k: len(v["ocorrencias"]) for k, v in
+                                      e21c.get("writecram_por_hipotese", {}).get("H_A", {}).items()},
+        "limites": cram.get("limites"),
+    }
 
     e17 = probe_plc(rom)
 
     camadas = {
         "schema_version": "rex-parallel-b/camadas/1",
         "gerado_por": "scripts/rex_profiles/parallel_recovery_20261004/b/exportar-camadas-b2.py",
-        "expectativas": "E13/E17 da ADENDA-B2 (74fb2e2)",
+        "expectativas": "E13/E17 (ADENDA-B2, 74fb2e2) + E18R-E22 (ADENDA-B3 a233e8d "
+                        "e refreeze B3-1 ab72d90)",
         "tempo_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "promessa": "uma camada NAO promove automaticamente a seguinte; "
                     "rotulos de nivel sao por afirmacao",
@@ -194,14 +229,21 @@ def main(argv=None):
                 "art_plc_walls": ("vinculo-estrutural (PLC achada por predicao; VRAM "
                                   "word ancora o mesmo base $142)"
                                   if e17.get("unica") else "NAO-PROVADO"),
-                "cram_paleta": "DESCONHECIDA (nenhum sítio CRAM pinado nesta frente)",
+                "cram_paleta": ("vinculo-estrutural + equivalencia-estatica (E18R-E21: "
+                                "PalLoad/PalLoad_Fade/Pal_Index/PalCycle_SS/blink/writeCRAM "
+                                "pinados por sitio unico, hipotese RAM H_B; bins confirmados "
+                                "por SHA; consumo observado NAO PROVADO — E22)"
+                                if cram_ok else
+                                "DESCONHECIDA (medida B3 nao concluiu; ver cram_e18r_b3.veredito)"),
             },
             "slot": mapping["slot"],
             "estrutura_mapping": mapping["estrutura"],
             "e17_plc": e17,
+            "cram_e18r_b3": cram_resumo,
             "referencia_faltante": {
-                "cram_paleta": ["_inc/Special Stage Background & Palette Cycle.asm",
-                                "mecanismo palcm/PLC de paleta (nao pinado aqui)"],
+                "cram_paleta": ("RESOLVIDA-ESTATICO na rodada B3 (E18R-E21, hipotese RAM H_B, "
+                                "sitos unicos pinados; ver cram_e18r_b3). Permanece faltante: "
+                                "'consumo observado' (CRAM escrito em execucao) — NAO PROVADO (E22)"),
                 "nemesis_loader": "NemDec (0x... nao pinado): arte declarada pela PLC mas "
                                   "sem sítio de descarga pinado — candidato, nao consumo",
             },
@@ -217,6 +259,7 @@ def main(argv=None):
                 "verificar-cadeia.py cadeia|negativos|controles",
                 "montar-isa.py (sem ROM)",
                 "medir-cadeia-mapping.py",
+                "medir-cram-b3.py (+ calc-enderecos-ram-b3.py, derivacao de referencia)",
                 "exportar-camadas-b2.py",
             ],
         },
@@ -228,6 +271,8 @@ def main(argv=None):
         falhas.append("E14-E16")
     if not e17.get("unica"):
         falhas.append("E17-probe")
+    if not cram_ok:
+        falhas.append("E18R-E21")
 
     d_doc = {
         "schema_version": "rex-parallel-b/avaliacao-d/1",

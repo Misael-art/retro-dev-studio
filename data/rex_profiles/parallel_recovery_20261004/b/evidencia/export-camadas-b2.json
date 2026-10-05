@@ -1,16 +1,17 @@
 {
  "schema_version": "rex-parallel-b/camadas/1",
  "gerado_por": "scripts/rex_profiles/parallel_recovery_20261004/b/exportar-camadas-b2.py",
- "expectativas": "E13/E17 da ADENDA-B2 (74fb2e2)",
- "tempo_utc": "2026-10-05T01:24:50.754698+00:00",
+ "expectativas": "E13/E17 (ADENDA-B2, 74fb2e2) + E18R-E22 (ADENDA-B3 a233e8d e refreeze B3-1 ab72d90)",
+ "tempo_utc": "2026-10-05T02:37:49.832759+00:00",
  "promessa": "uma camada NAO promove automaticamente a seguinte; rotulos de nivel sao por afirmacao",
  "fontes_sha256": {
-  "cadeia-sonic-verificada.json": "97e8baf7fb1a9b5598219390326f4f7914142fbcc97f3b8b136ff335e6af7014",
+  "cadeia-sonic-verificada.json": "d32236c7e77c4902eaf6c84d1e06237c3a369036d67c9c4df9734789c3139d92",
   "isa-forms-b.json": "5dcce09baf181382da802f6153426f22a6f49af700d6a4e5bdbfb82e6cd7cf0f",
-  "controles-negativos-b2.json": "a77249169e40eb9e743734e81922f5ff2670856af91275f2053c1ea389847c24",
-  "cadeia-mapping-b2.json": "6a65198361cf70537054730db7bbc8880c7f7d0b905e5162e0337562cb7552ed",
-  "negativos.json": "ccc6c7b19b4a208cb07e80ba00d519da31ffd26ec90858bbbb7aaac6b5064837",
-  "fixture-assimetrica.json": "ebc96c60ea99fe3ca3d83e7afb1ba7f5a9dc1329b92593456e21360a81fe8d63"
+  "controles-negativos-b2.json": "9fd1a39e742cfddf96505e6caa4b03c9d7e9c839fcb1133f1a95888ac14bcdb1",
+  "cadeia-mapping-b2.json": "01f474df59ed9436aacc620a956214f0ca97252b7044ae29b20f2b066cfa529c",
+  "negativos.json": "9bfb8a18124d8bec5db8a15ed37f05487e079b20f6db16d2e3b90ea0799658ef",
+  "fixture-assimetrica.json": "ebc96c60ea99fe3ca3d83e7afb1ba7f5a9dc1329b92593456e21360a81fe8d63",
+  "cram-b3.json": "b14b703741497f1707b26594d26f235def13f7aefba40d69415fed9a935074be"
  },
  "camada_codec": {
   "nivel_por_afirmacao": {
@@ -2411,7 +2412,7 @@
    "map_sswalls_128b": "equivalencia-estatica (predicao por macro vs ROM)",
    "leitura_ver1_pecas": "referencia-estatica (macros pinadas)",
    "art_plc_walls": "vinculo-estrutural (PLC achada por predicao; VRAM word ancora o mesmo base $142)",
-   "cram_paleta": "DESCONHECIDA (nenhum sítio CRAM pinado nesta frente)"
+   "cram_paleta": "vinculo-estrutural + equivalencia-estatica (E18R-E21: PalLoad/PalLoad_Fade/Pal_Index/PalCycle_SS/blink/writeCRAM pinados por sitio unico, hipotese RAM H_B; bins confirmados por SHA; consumo observado NAO PROVADO — E22)"
   },
   "slot": {
    "base": "$FF4000 (v_ss_spritesettings) — os 37 sitios ja pinados",
@@ -2981,11 +2982,87 @@
    },
    "veredito_parcial": "PLC-ENCONTRADA-OCORRENCIA-UNICA"
   },
-  "referencia_faltante": {
-   "cram_paleta": [
-    "_inc/Special Stage Background & Palette Cycle.asm",
-    "mecanismo palcm/PLC de paleta (nao pinado aqui)"
+  "cram_e18r_b3": {
+   "veredito": "E18R/E19/E20/E21-OK: referencia do CRAM PINADA por sitio (hipotese H_B; estatico — consumo observado NAO PROVADO)",
+   "hipotese_ram_e18r": "H_B",
+   "invariantes": {
+    "espelhos_delta_E_1A": true,
+    "frame_eq_time_menos_1": true,
+    "palss_time_num_2_index_4": true
+   },
+   "palload": "0x2118",
+   "palload_fade": "0x20fc",
+   "pal_index": "0x2168",
+   "pal_index_ramaddys": {
+    "line_1": "0xfb00",
+    "line_2": "0xfb20",
+    "entradas": 20
+   },
+   "callsite_ss_setup": [
+    {
+     "alvo_bsr": "0x20fc",
+     "eh_palload_fade_pinado": true,
+     "endereco": "0x469a"
+    }
    ],
+   "palcycle_ss": {
+    "endereco": "0x4962",
+    "campos_w": {
+     "espelho_line3_1A": "0xFB5A",
+     "espelho_line3_E": "0xFB4E",
+     "espelho_line4_1A": "0xFB7A",
+     "espelho_line4_E": "0xFB6E",
+     "f_pause": "0xF63A",
+     "palss_index": "0xF79E",
+     "palss_num": "0xF79A",
+     "palss_time": "0xF79C",
+     "scrposy_vdp": "0xF616",
+     "ssbganim": "0xF7A0"
+    },
+    "alvos_l": {
+     "Pal_SSCyc1": "0x4aca",
+     "Pal_SSCyc2": "0x4b12",
+     "SS_BG_Modes": "0x4abc",
+     "SS_Timing_Values": "0x4a3c"
+    },
+    "cyc1_sha256": "ec2391eb813ae8cbd1e6e81e9e52c8b58f419cfc368154e5de6f3ebf561068a9",
+    "cyc2_sha256": "65e5c9430f84c7a4680bbda060f29e7f50f2e22d87fa9c8368b04cb5826bd74c"
+   },
+   "blink_ss": {
+    "endereco": "0x1b33a",
+    "campos_w": {
+     "ani0_frame": "0xFEC1",
+     "ani0_time": "0xFEC0"
+    },
+    "ss_wall_palettes_vram": "0x1b43a",
+    "tabela_sha256": "985518fbf56415c918a510b91cc756b26ed2f695458bfc2f11a12e5ad0495539",
+    "igual_predicao_sswallpal": true
+   },
+   "pal_special_sha256": "2f9072d8714ac735dba537f2cbb00aeac349b411fc86d1ef76fb9c81b7c3432d",
+   "writecram_H_B": {
+    "v_palette": [
+     "0xbd8",
+     "0xc8a",
+     "0xdbc",
+     "0xe8e",
+     "0xfbc",
+     "0x108a"
+    ],
+    "v_palette_water": [
+     "0xbfe",
+     "0xcb0",
+     "0xeb4",
+     "0x10b0"
+    ]
+   },
+   "writecram_H_A_ocorrencias": {
+    "v_palette": 0,
+    "v_palette_water": 0
+   },
+   "limites": "estatico somente; consumo observado (CRAM escrito em execucao) NAO PROVADO (E22)"
+  },
+  "referencia_faltante": {
+   "cram_paleta": "RESOLVIDA-ESTATICO na rodada B3 (E18R-E21, hipotese RAM H_B, sitos unicos pinados; ver cram_e18r_b3). Permanece faltante: 'consumo observado' (CRAM escrito em execucao) — NAO PROVADO (E22)",
    "nemesis_loader": "NemDec (0x... nao pinado): arte declarada pela PLC mas sem sítio de descarga pinado — candidato, nao consumo"
   }
  },
@@ -3004,6 +3081,7 @@
    "verificar-cadeia.py cadeia|negativos|controles",
    "montar-isa.py (sem ROM)",
    "medir-cadeia-mapping.py",
+   "medir-cram-b3.py (+ calc-enderecos-ram-b3.py, derivacao de referencia)",
    "exportar-camadas-b2.py"
   ]
  },
