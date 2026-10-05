@@ -58,16 +58,29 @@ Regras aplicadas, na ordem:
 | arestas | 0 | 10 |
 | arestas por `(tipo,status)` | — | `chamada/resolvido 1` · `chamada/fora-da-regiao 1` · `chamada/indireto-opaco 1` · `desvio/fora-da-regiao 1` · `desvio/resolvido 1` · `queda/resolvido 5` · `retorno-fronteira/indireto-opaco 1` |
 | chamadas | 0 | 3 — `0x0a resolvido`, `0x0e fora-da-regiao`, `0x26 indireto-opaco (alvo=nulo)` |
-| fronteiras | 1 — `0x02 opcode-fora-do-subconjunto` | 3 — `0x0e limite-de-regiao`, `0x14 limite-de-regiao`, `0x26 indirect-opaco` |
+| fronteiras | 1 — `0x02 opcode-fora-do-subconjunto` | 3 — `0x0e limite-de-regiao`, `0x14 limite-de-regiao`, `0x26 indirect-opaque` |
 | bytes-decodificados | 2 | 32 |
 | fração (2/256, 32/256) | `0,0078` | `0,1250` |
 | vãos cobertos | `0x02..0x100` exceto nós | idem, menos os nós acima |
+
+**Errata (2026-10-04, `ADENDO-ETAPA2-2026-10-04.md` A-8).** A linha "arestas por
+`(tipo,status)`" de `raiz_b` acima diz `queda/resolvido 5`, que soma 11 e
+contradiz a própria linha "arestas | 10". O valor assinado permanece neste
+arquivo; o valor retificado é **`queda/resolvido 4`** (as quedas são `0x0a→0x0e`,
+`0x0e→0x14`, `0x14→0x18`, `0x1a→0x1e`; a corrida linear dentro de um bloco não é
+aresta — `CONTRACT.md` §4, `src/grafo.rs:489`, `:505`, `:778-822`). Com 4, a linha
+soma 10 e as duas linhas concordam. Nenhuma outra célula muda. Registrado por
+adendo datado, como manda §3 A3, e não por reexecução nem por ajuste de limiar.
+Ponto complementar, sem mudança de expectativa: o export lista em `raizes` a raiz
+declarada **e** o líder derivado (`0x22`, proveniência `dentro-de-fluxo`), que é
+exatamente a regra §0 "líder = raiz declarada + todo alvo interno de aresta", com
+grau não promovido.
 
 Relações exigidas por `EXPECTATIONS-ETAPA2.md` §3 A2:
 
 - `|blocos(b)| = 6 > 1 = |blocos(a)|` ✓
 - `fronteiras(a) = 1` do tipo `opcode-fora-do-subconjunto` ✓
-- `fronteiras(b) = 3`, com **dois tipos distintos**: `indirect-opaco` e
+- `fronteiras(b) = 3`, com **dois tipos distintos**: `indirect-opaque` e
   `limite-de-regiao` (este último é o vocabulário exportado para "alvo fora da
   região"; o *status* da aresta correspondente é `fora-da-regiao`) ✓
 - `chamadas(b)` contém exatamente **uma** entrada `fora-da-regiao` e **uma**
