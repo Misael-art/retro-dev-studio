@@ -324,3 +324,194 @@ sen release, sen promoción de maturidade, sen force push. O commit que rexistra
 esta liña é un *fast-forward* documental sobre o mesmo PR; a CI consulta-se polo
 SHA final (`gh pr checks 106`), non se presume aquí.
 
+---
+
+# RONDA 3 (2026-10-05) — o estabo era o defecto: oráculo de ISA por instrumento e lectura rectificada de §10.3
+
+## 11.0 Que substitúe isto, e que NON
+
+- **Ningunha cifra da rolda 2 cambia.** Os sete ficheiros de `data/…/d/medidas/`
+  seguen publicados coas súas 225 filas e 128 puntuables: `A-cbb6895` 28/29,
+  `A-bd40e92` 21/29, `B-cffe17f` e `B-396e0b8` 14/14 cada un, `C-275f2af` 39/42,
+  e 81 filas de holdout (40 + 41) fóra de denominador. Non se reclassifica ningunha
+  fila (R0) e ningún corpo histórico recibe SHA novo.
+- O que cambia é a **lectura** de tres pasos que se sostíñan sobre o AGRAMA
+  `dA-truth-v1.json`, escrito á man por D: §10.3 («o achado principal: A regridiu»),
+  §10.8 punto 6 («sen ensamblador 68000 no host») e §10.11 primeiro punto
+  («`A@bd40e92` non é promovíbel»). Seis das oito filas que compoñen o titular
+  contradín un instrumento terceiro.
+- **Orde obrigatorio cumprido:** `EXTENSÕES-D **v2**` (`EXTENSOES-D.md` §12) está
+  conxelada no mesmo lote, **antes** de calquera nova medición, e este documento
+  **non contén ningunha fila v2**. As filas v2 midense despois contra
+  `isa-oraculo-v2`.
+
+## 11.1 O instrumento novo: estabilo `rex-parallel-d/oraculo-isa/1`
+
+| dato | valor |
+|---|---|
+| xerador | `scripts/…/d/medida/oraculo_isa.mjs` |
+| estabilo | `data/…/d/gabarito/isa-oraculo-v2.json` — arquivo `54817106ddd0…`; `filas_sha256` `032eb989b530…` |
+| sondas | 55 — **51 con bytes reais** saídos da columna crúa de `objdump -d`, **4 recusadas** polo montador (`bsr.l`, `movec %cacr,%d0`, `jmp2abs`, `jmp2abs.l`) |
+| composición | 28 `valida`, 6 `valida-fora-da-táboa-A`, 2 `valida-normalizada-movea`, 3 `recusada-68020`, 1 `recusada-68000`, 1 `recusada-68010-ou-maior`, 14 `bruto` (re-lectura das palabras que D codificou á man en rolda 2) |
+| ferramenta | `m68k-elf-as` `618740559477…` · `m68k-elf-objdump` `e3a404cc06ec…` · GNU Binutils **2.41** · bandeira `-m68000` |
+| probas | 19 pinned en `oraculo_isa.test.mjs`: identidade/versión/SHA da ferramenta, `filas_sha256` contra o arquivo (control de adulteración), ningunha fila «valida» con bytes de recheo, as 4 parellas de bytes repetidas son as intencionadas, ausencia de marcas de tempo, e re-execución nun `mkdtemp` novo |
+| limitación | o `m68k-elf-*` é do mesmo almacén de toolchain que emprega o produto (`~/.cache/retrodevstudio/17f7bcf5…`). É independente **do AGRAMA de D**, que é o que a rectificación precisa; non se presenta como terceira autoridade do ecosistema |
+
+## 11.2 Cinco feitos do 68000 que o estabo de D negaba
+
+1. `lea (0x8400).w,%a1` = `43f8 8400` → **EA `0xFFFF8400`**. O absolute short
+   **exténdese por signo**, e o límite está no bit 15 — medido nos dous lados:
+   `43f8 7fff` → `7fff`, `43f8 8000` → `ffff8000`.
+2. Formas canónicas das chamadas: `jsr (xxx).w = 4eb8`, `jsr (xxx).l = 4eb9`,
+   `jmp (xxx).w = 4ef8`, `jmp (xxx).l = 4ef9`, `jmp (d16,%pc) = 4efa`,
+   `jmp %a0@ = 4ed0`, `jsr %a2@ = 4e92`. `4efc` e `4efd` **non teñen mnemónico
+   68000**: o desmontador imprime `.short 0x4efc` / `.short 0x4efd`. `61 ff …`
+   lé-se só como `bsrl` de 68020.
+3. Con `-m68000` o montador **recusa** `bsr.l` e `movec` («invalid instruction for
+   this architecture; needs 68020…» / «…needs 68010…»), e `jmp2abs` / `jmp2abs.l`
+   son «Unknown operator». Unha fixture que se declara do perfil
+   `md68000-chain16` non pode levar esas palabras como sonda *positiva*.
+4. `movea.w` e `movea.l` son **MC68000 válidos**: `327c 1234`, `227c 0000 1234`,
+   `3240`, `2240`, `3248`, `2248` (`moveaw #4369,%a1`, `moveal #4369,%a1`). A rolda
+   2 tiña `movea.w` por inválida e `movea.l #imm32` por fronteira
+   `opcode-fora-do-subconxunto`.
+5. `move.w #imm,%a1` **non ten codificación propia**: o montador normalízao a
+   MOVEA (`327c 1234`), mentres `move.w #imm,%d1` é `323c 1234`. A invalidade é do
+   mnemónico, non da codificación: ningunha imaxe pode conter esa «combinación
+   inválida detectábel».
+
+Ademais, nas relativas a base é **sitio + 2** (`6102` → `bsrs 4`;
+`6100 0004` → `bsrw 6`), cousa que a rolda 2 xa usaba ben en `KA1-3`.
+
+## 11.3 Retificación de §10.3, fila por fila
+
+O veredicto histórico consérvase na evidencia; o que se corrixe é o que significa.
+
+| fila | veredicto histórico (intacto) | ditame do instrumento | lectura rectificada |
+|---|---|---|---|
+| `KA1-2` | FAIL rc 4, «sen cadea» | `43f8 8400` = `lea (0x8400).w,A1` → EA `0xFFFF8400` | **expectativa falsa de D**: pediu `carga_operando = 0x8400` cunha nota («extensión curta sen signo») que o ISA desmente. A recusa de `bd40e92` (`0xFF8400` en work-RAM sen backing ROM) **é conforme co instrumento**; é `cbb6895`, que a rolda 2 daba a verde, o que non coincidía coa ISA |
+| `KA1-bsr.l` | FAIL: forma medida `jsr.l` ≠ esperado `bsr.l` | `61 ff 0000 1dd4` = `bsrl` de 68020; `-m68000` recusa `bsr.l` | **sonda inválida**: un perfil 68000 non pode levar `bsrl` como caso positivo. E o `jsr.l` que se le na evidencia non é resposta de A sobre esa palabra: co empaquetado continuo de v1 falou a sonda veciña (§11.5). En v2 convértese en probe **negativa** |
+| `KA1-jsr.w` | FAIL: forma `jmp.pcd16`, alvo `0x002042` | `4e fa 1f 00` **é** `jmp (d16,%pc)`; `jsr (xxx).w` é `4eb8` | **bytes equivocados de D.** O que devolve A (forma e alvo `0x142 + 0x1f00 = 0x2042`) é exactamente o que di o desmontador. Retírase a acusación de desvío |
+| `KA1-jmp.l` | FAIL: forma `null` | `4efd` = `.short 0x4efd`, sen mnemónico 68000; `jmp (xxx).l` é `4ef9` | **bytes equivocados de D**; `null` é a lectura correcta dese fixture |
+| `KA1-jmp.w` | FAIL: forma `null` | `4efc` = `.short 0x4efc`; `jmp (xxx).w` é `4ef8` | idem |
+| `KA4-2` | FAIL rc 4, `saida_sha256 = null` | mesmo sitio `0x110` que `KA1-2`; un absolute short co bit 15 activo **non pode** referenciar o stream en `0x8400` | **premise imposible**, e **non é unha medición independente**: comparte sonda con `KA1-2` (prohibido en v2, R14). O eixo de decodificación queda sen medir neste SHA |
+| `TA-3` | FAIL: rc 7 ≠ 11 esperado | rc 7 = ALVO-DIVERXENTE e rc 11 = XEOMETRIA-DIVERXENTE, os dous publicados en `CONTRATO-A` §5 | **receita confusa de D**: a mutación movía xunto o alvo declarado e a ventá, así que respondeu ao eixo correcto cun código correcto. v2 sepáraa en `TA-3a {7}` / `TA-3b {11}` (§12.4). **Non é unha falla de seguranza** |
+| `TA-5` | FAIL: rc 2 ≠ 6 esperado | rc 2 = ESQUEMA, «contrato estrutural roto **antes de medir**» | **receita confusa de D**: a mutación rompía a forma do rexistro antes de chegar ao eixo operando. Retírase a aserción «o elo K10 segue sen detectalo»: esa pregunta **queda sen medir** |
+
+**O que si sostén esta rolda:** o titular «A regridiu 28/29 → 21/29» non é
+sostible. Seis das oito filas que o compoñían eran defectos do estabo de D e as
+outras dous eran receitas que misturaban eixos.
+
+**O que NON se pode afirmar:** que A teña razón neses eixos. Unha fila cuxo
+gabarito era falso non proba nada en ningún sentido. As oito preguntas convértense
+en filas v2 novas (`KA1v`, `KA1v-neg`, `KA4v`, `TA-3a/3b`, `TA-5v`) cun denominador
+novo, e **aínda non se mediron**.
+
+## 11.4 Retificación das «3 falhas en C» (§10.2 e §10.8 punto 3)
+
+`C-275f2af.jsonl` publica 39/42 e así queda. A lectura rectificada: ningunha desas
+tres filas documentaba un defecto de **capacidade** de C; dous eran premisas falsas
+de D e o desvío real que queda é documental (§11.4, fila `KC3`).
+
+| fila v1 | que afirmaba a barra | instrumento + documento de C | lectura rectificada |
+|---|---|---|---|
+| `KC1-movea.l #imm32,A1` | C non detecta a fronteira `opcode-fora-do-subconxunto` | `227c 0000 1111` = `moveal #4369,%a1`, **MC68000 válido**; e `CONTRACT.md` de C (liña 77) **declara** `MOVE`/`MOVEA` `.B/.W/.L` | premisa falsa por duplicado: a instrución é MC68000 válida segundo o instrumento **e** o contrato de C decláraa soportada; non había nada que detectar |
+| `KC3-move-w-imm-an` | `MOVE.W #imm,An` é unha combinación inválida detectábel | GAS monta `move.w #0x1234,%a1` como `moveaw #4660,%a1` (`327c 1234`): a palabra **é** unha MOVEA.W válida | **non expressable en bytes**: a invalidade é do mnemónico, non da codificación, e ningún lector de bytes pode diferenciala. A fila retírase en v2. Nota para C: `CONTRACT.md:79` si declara «combinações inválidas (p. ex. MOVE.W → An) = fronteira», aserción que o instrumento fai irrealizable a nivel de codificación — **defecto documental de C**, non de capacidade; publícase como observación sen tocar a evidencia |
+| `KC4-jmp-ind-an` | a barra conxelou o rótulo `indirect-opaco`; C devolve outro texto ⇒ fila `falha` | C publica `indirect-opaque` (`src/decode.rs:36`, `src/grafo.rs:357`, e os seus propios tests `tests/export_json.rs`, `tests/fx_fluxo`); `CONTRACT.md:90` escríbeo igual | **erro de transcrición de D**, non de C. En v2 resólvese no `adaptador-c/v2` (§12.5), sen tocar o produto nin a evidencia v1 |
+
+## 11.5 Defectos propios descubertos ao construír v2
+
+- **A restrición «non hai ensamblador 68000 neste host» era falsa** — §10.8 punto 6
+  **retirado**. Os binarios estaban en
+  `~/.cache/retrodevstudio/17f7bcf5…/source-build-m68k_gcc/source/install/bin`, fóra
+  do `PATH` que D consultou. Consecuencia directa: as sondas codificadas á man, e
+  con elas seis filas erradas, eran evitables. D en diante búscase PATH **e** o
+  almacén pinado antes de declarar unha ausencia.
+- **`makeRng()` de `lib_bench.mjs` é dexenerado en todas as sementes, non en tres.**
+  Sondeo do 2026-10-05 (`~/rds-scratch/d-oraculo-20261005/diag_rng.mjs`): as 8
+  sementes nomeadas dos fixtures → **4096/4096 saídas = 0**; varrida de 16 000
+  sementes (`d::s<i>`, `dsb1::s<i>`, `frentes::s<i>`, `s<i>` con i < 4000) →
+  **16 000/16 000 (100 %)** colapsan a ceros antes da saída 1024. Mecanismo: o
+  produto `state × multiplicador` non se trunca a 64 bits antes de `Number(…)`, así
+  que o valor (~2⁹²) redóndase en coma flotante e `… % 256` é sempre 0. Ademais o
+  multiplicador do código (`2685821657763633871`) **non** é o de `xorshift64*`
+  (`2685821657736338717`): difire desde o 11º díxito. Corrección + gate de entropía
+  (R16) van no lote seguinte; os fixtures v1 **non** se re-xeran.
+- **Empaquetado continuo de sondas.** En `dA-img-v1.bin` as probes ían seguidas, sen
+  recheo: cando A recusaba unha forma, o scanner seguía lendo a sonda veciña. De aí
+  o `chamada_forma: jsr.l` de `KA1-bsr.l`. Veto en v2: R14 (unha sonda por sitio,
+  separadas por `4e71 4e71…`).
+- **Premisas falsas**: `KC1`/`KC3` (§11.4), `KA4-2` (§11.3) e as táboas de `rc`
+  exacto en `TA-3`/`TA-5`.
+
+## 11.6 Que queda explicitamente sen medir (e así se publica)
+
+- A sobre as formas de chamada **coas bytes do montador**, unha sonda por sitio
+  (`KA1v`, 10 filas).
+- A ante `4efd`, `4efc` e `61 ff` como probes **negativas** (`KA1v-neg`, 3 filas).
+- A no eixo *operando* cun rexistro valido-por-esquema (`TA-5v`): a pregunta que
+  §10.3 respondeu mal.
+- O descodificador de A contra referencias longas non dexeneradas: a rolda 2 só o
+  exercitou no holdout, porque os `plain` das fixtures eran ceros (§11.5).
+- C sobre as 20 formas de `KC1v` co vocabulario do `adaptador-c/v2`.
+- **B: ningunha capacidade nova.** O descodificador Enigma nativo que B publicou
+  desde `da5472c` e a investigación CRAM non están inventariados por D nesta rolda;
+  as 14 filas de `cffe17f`/`396e0b8` non cubren nada diso (R18). Antes de medir B
+  hai que conxelar o adendo `EXTENSOES-D v2-B` co enderezamento e bytes concretos
+  das sondas: se ese adendo non existe, `KB5v`/`KB6v` publícanse como `descoñecido`
+  con motivo — non se inventan.
+
+## 11.7 Gates deste lote
+
+```
+npm run check:tree    → OK: estrutura conforme docs/08_TREE_ARCHITECTURE.md
+npm run lint          → ok
+npx tsc --noEmit      → TypeScript: No errors found
+npm test              → 1002 aprobados / 6 ignorados (102 arquivos + 1 ignorado)
+                        base rolda 2: 983 → delta 19 = oraculo_isa.test.mjs
+npx vitest run scripts/…/d/ → 3 arquivos, 69 probas, 0 fallos
+```
+
+Gates Rust (`clippy`, `cargo test --lib`, `cargo fmt --check`), `host:certify` e
+`security:audit`: **non executados** — este lote non toca `crates/`, `src-tauri/`,
+build, emulación, toolchains nin dependencias. Se un lote posterior toca algo diso,
+execítanse antes de publicar.
+
+## 11.8 Como reproducir o estabilo
+
+```
+node scripts/rex_profiles/parallel_recovery_20261004/d/medida/oraculo_isa.mjs \
+     --saida ~/rds-scratch/d-oraculo-20261005/sondas
+npx vitest run scripts/rex_profiles/parallel_recovery_20261004/d/medida/oraculo_isa.test.mjs
+```
+
+`filas_sha256` (`032eb989b530…`) é o digest **portabel**: o camiño do directorio de
+traballo normalízase a `<saida>/` dentro do stderr do montador. O arquivo
+`data/…/gabarito/isa-oraculo-v2.json` si leva as rutas deste host, polo que a
+promesa de reprodución é sobre `filas_sha256` e non sobre os bytes do arquivo —
+comprobado pola proba que re-executa o xerador nun `mkdtemp` novo.
+
+## 11.9 Proposta ao integrador (substitúe o primeiro punto de §10.11)
+
+- **Retirada** a aserción «`A@bd40e92` non é promovíbel: regresión 28/29 → 21/29».
+  O §10.11 da rolda 2 deixaba aberta a alternativa («se se confirma que no ISA real
+  `abs.W` se cero-extende, o defecto é das expectativas de D: ábrense
+  `EXTENSOES-D v2` + re-medición»); é a que se producíu, **co signo invertido**: o
+  instrumento confirma a extensión **por signo**.
+- **Non se pide promoción** para ningunha fronte. O teito de maturidade segue en
+  `vínculo estrutural` (§10.8 punto 1), e a matriz v2 publica denominadores
+  separados por capacidade × SHA × versión de gabarito cos `VOID`, perdas e límites
+  á vista (requisito 10), sen percentual transversal.
+- Ningunha acción sobre produto / IPC / UI / `crates/` / manifests / registry /
+  Memory Bank / `ROUND_STATE`: a rolda D é medición e evidencia.
+
+## 11.10 Estado do lote e seguintes
+
+Este lote é **documentos + estabilo + probas do estabilo**: nada se mediu aínda
+contra v2, e así se declara. Orde dos lotes restantes, segundo o brief:
+(a) `makeRng` test-first, co xerador corrixido, control histórico do vello e
+fixtures novas cos seus pins; (b) fixtures de A/C xeradas co montador;
+(c) re-medição de `A@bd40e92` e de C no seu SHA público actual (`8ea5821`) con
+gabarito v2 e **holdout novo**; (d) B por capacidade despois de `EXTENSOES-D v2-B`;
+(e) matriz v2.
+
