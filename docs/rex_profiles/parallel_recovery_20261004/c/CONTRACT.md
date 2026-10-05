@@ -70,6 +70,43 @@ rex-cfg analyze --bin <arquivo> [--origin 0xN] \
   da instrução. Esta é a regra cujo erro histórico (base = fim da instrução)
   os fixtures devem capturar.
 
+### 2.1 Extensão datada (2026-10-04, ETAPA 2): subcomando `consultar`
+
+§2 acima permanece como assinado na ETAPA 1: a assinatura de `analyze` **não
+mudou** e nenhum caso de `analyze` foi reescrito por causa disto (a suite da
+ETAPA 1 continua a correr como estava). A ETAPA 2 acrescenta
+um segundo subcomando, congelado em `EXPECTATIONS-ETAPA2.md` §5, para responder a
+pergunta "este sítio é instrução, dado ou interior de outra instrução?" em formato
+consumível pela frente A:
+
+```
+rex-cfg consultar --bin <arquivo> [--origin 0xN] --region 0xINICIO:0xFIM \
+  --root 0xENDERECO ... --root-prov <vocabulario> ... --site 0xENDERECO \
+  --out <json> [--max-insn N]
+```
+
+- **exatamente um** `--site` por chamada (um sítio, um objeto plano); `--md`,
+  `--region-prov` e `--root-evidence` não existem aqui e são **erro de uso**
+  (código 2), não flags ignoradas.
+- Saída: objeto plano `rex-cfg-sitio/v1`, 22 chaves ASCII em ordem congelada,
+  endereços como `0x%06X`; veredito ∈ `instrucao-de-bloco | miolo-de-instrucao |
+  dentro-regiao-nao-alcancado | fora-da-regiao | ponto-de-fronteira`, mais as
+  decisões V1–V5 (`consumidor-validado`, `promovivel-vinculo-estrutural`,
+  `motivos`) e o registro de interpretação pendente de `(xxx).W` (P-absW, §1.1
+  da expectativa e bullet próprio abaixo).
+- A resposta **nunca** promove grau: `consumidor-validado` e
+  `promovivel-vinculo-estrutural` são calculados das regras V1–V5, com o alvo
+  re-derivado independentemente dentro da ferramenta (`src/sitio.rs::rederivar`)
+  quando o grafo alega um (`RETIFICAÇÃO` A-5 do adendo datado).
+- `limites` declara `extensao-abs-w-hipotese-zero-extendida` (§1.1 P-absW): o
+  `alvo` de um `(xxx).W` é o **operando bruto** sob essa hipótese, que não foi
+  resolvida por fonte primária. Quando o word tem bit15 ligado, `motivos` traz
+  `interpretacao-pendente:abs-w-bit15` — registro informativo, calculado **depois**
+  de `consumidor-validado`, para que nenhuma classificação estrutural dependa da
+  interpretação. `(xxx).L` não recebe o registro (a longword inteira é o operando).
+- Códigos de saída: os mesmos três de `analyze` (0 ok, 1 falha de análise,
+  2 erro de uso). `--bin` continua somente-leitura.
+
 ## 3. Subconjunto de instruções suportado (lista fechada)
 
 Suportadas para **comprimento e efeito de controle**; sem semântica de dados:

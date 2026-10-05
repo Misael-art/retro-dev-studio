@@ -7,5 +7,6 @@
 pub mod decode;
 pub mod export;
 pub mod grafo;
+pub mod sitio;
 
 pub use decode::{decode_at, Outcome};

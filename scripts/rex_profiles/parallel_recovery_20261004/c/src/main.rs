@@ -8,17 +8,25 @@
 //! Códigos de saída: `0` análise escrita; `1` erro de análise (região, raiz,
 //! leitura do objeto); `2` erro de uso (flag ausente, endereço malformado,
 //! proveniência fora do vocabulário). O `--bin` é aberto somente-leitura.
+//!
+//! A assinatura de `analyze` não muda. `consultar` (EXPECTATIONS-ETAPA2 §5,
+//! registrado em CONTRACT §2.1) recebe um único `--site` e escreve o objeto
+//! plano `rex-cfg-sitio/v1`; os códigos de saída são os mesmos três.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
 use rex_cfg::export::{export_json, export_markdown, Objeto};
 use rex_cfg::grafo::{analisar_com_evidencias, RaizDeclarada, VOCABULARIO_PROVENIENCIA};
+use rex_cfg::sitio;
 
 const USAGE: &str = "usage: rex-cfg analyze --bin <arquivo> [--origin 0xN] --region 0xINICIO:0xFIM \
                     [--region-prov <texto>] --root 0xENDERECO ... --root-prov <vocabulario> ... \
                     [--root-evidence <texto> ...] --site 0xENDERECO ... [--max-insn N] --out <json> \
                     [--md <markdown>]
+       rex-cfg consultar --bin <arquivo> [--origin 0xN] --region 0xINICIO:0xFIM \
+                    --root 0xENDERECO ... --root-prov <vocabulario> ... --site 0xENDERECO \
+                    --out <json> [--max-insn N]
   regioes: inicio inclusivo, fim exclusivo; enderecos com prefixo 0x (hex) ou decimal
   --root/--root-prov/--root-evidence: por posicao; proveniencia aceita: ";
 
@@ -39,8 +47,15 @@ impl Erro {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Sub {
+    Analyze,
+    Consultar,
+}
+
 #[derive(Debug, Default)]
 struct Pedidos {
+    sub: Option<Sub>,
     bin: Option<PathBuf>,
     origin: u32,
     regiao: Option<(u32, u32)>,
@@ -77,13 +92,20 @@ fn parse_args(args: &[String]) -> Result<Pedidos, Erro> {
     let mut p = Pedidos::default();
     // subcomando
     let mut i = match args.first().map(String::as_str) {
-        Some("analyze") => 1usize,
+        Some("analyze") => {
+            p.sub = Some(Sub::Analyze);
+            1usize
+        }
+        Some("consultar") => {
+            p.sub = Some(Sub::Consultar);
+            1usize
+        }
         Some(other) => {
             return uso(format!(
-                "subcomando desconhecido {other:?} (unico: analyze)"
+                "subcomando desconhecido {other:?} (unicos: analyze, consultar)"
             ))
         }
-        None => return uso("faltou o subcomando analyze".to_string()),
+        None => return uso("faltou o subcomando analyze ou consultar".to_string()),
     };
     let proximo = |args: &[String], i: &mut usize| -> Result<String, Erro> {
         *i += 1;
@@ -185,6 +207,33 @@ fn parse_args(args: &[String]) -> Result<Pedidos, Erro> {
     if p.out.is_none() {
         return uso("faltou --out <json>".to_string());
     }
+    if p.sub == Some(Sub::Consultar) {
+        // A assinatura de `consultar` esta congelada em EXPECTATIONS-ETAPA2 §5;
+        // as flags de `analyze` que ela nao tem sao erro de uso, nao ignoradas.
+        if p.md.is_some() {
+            return uso("consultar nao escreve --md: a resposta e so o JSON plano".to_string());
+        }
+        if p.region_prov.is_some() {
+            return uso(
+                "consultar nao recebe --region-prov: a regiao nao e objeto da resposta".to_string(),
+            );
+        }
+        if !p.root_evidences.is_empty() {
+            return uso(
+                "consultar nao recebe --root-evidence: a resposta nao exporta evidencia"
+                    .to_string(),
+            );
+        }
+        match p.sites.len() {
+            0 => return uso("faltou --site 0xENDERECO (exatamente um por invocacao)".to_string()),
+            1 => {}
+            n => {
+                return uso(format!(
+                    "consultar recebe exatamente um --site: um sitio, um objeto plano; obtido {n}"
+                ))
+            }
+        }
+    }
     Ok(p)
 }
 
@@ -231,6 +280,55 @@ fn executar(args: &[String]) -> Result<(), Erro> {
             evidencia: p.root_evidences.get(k).cloned(),
         })
         .collect();
+
+    if p.sub == Some(Sub::Consultar) {
+        let out = p
+            .out
+            .clone()
+            .ok_or_else(|| Erro::Uso("faltou --out".to_string()))?;
+        let sitio_end = *p
+            .sites
+            .first()
+            .ok_or_else(|| Erro::Uso("faltou --site".to_string()))?;
+        let valor = sitio::consultar(&sitio::Pedido {
+            buf: &buf,
+            arquivo: &bytes,
+            regiao: (regiao_ini, regiao_fim),
+            raizes: &raizes,
+            sitio: sitio_end,
+            max_insn: p.max_insn.unwrap_or(MAX_INSN_PADRAO),
+        })
+        .map_err(Erro::Analise)?;
+        std::fs::write(&out, valor.pretty())
+            .map_err(|e| Erro::Analise(format!("nao foi possivel {}: {e}", out.display())))?;
+        let campo = |k: &str| {
+            valor
+                .get(k)
+                .and_then(|v| v.as_str().ok())
+                .unwrap_or("?")
+                .to_string()
+        };
+        println!(
+            "rex-cfg-sitio/v1 — objeto {} (sha256 {}, {} bytes) — regiao {:#x}..{:#x} — sitio {} \
+             — veredito {} — consumidor {} — promotivel {} — motivos {} — saida {}",
+            bin.display(),
+            rex_gameplay::sha256::sha256_hex(&bytes),
+            bytes.len(),
+            regiao_ini,
+            regiao_fim,
+            campo("sitio"),
+            campo("veredito"),
+            campo("consumidor-validado"),
+            campo("promovivel-vinculo-estrutural"),
+            valor
+                .get("motivos")
+                .and_then(|v| v.as_arr().ok())
+                .map(|a| a.len())
+                .unwrap_or(0),
+            out.display()
+        );
+        return Ok(());
+    }
 
     let analise = analisar_com_evidencias(
         &buf,
