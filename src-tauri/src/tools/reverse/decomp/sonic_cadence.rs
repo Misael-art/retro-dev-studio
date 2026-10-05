@@ -80,8 +80,76 @@ fn script_bytes_match(rom: &[u8], allow_original_interval: bool) -> Result<(), S
     Ok(())
 }
 
+/// Frame-reference domain shared by cadence and sequence (pendência 2): only
+/// these bytes may appear in the reorderable window. Centralized here so both
+/// domains validate the SAME script from ONE definition, never two.
+pub fn frame_is_reference(b: u8) -> bool {
+    matches!(b, 0x01..=0x04)
+}
+
+/// Sorted multiset of the original frames — the invariant a reorder keeps.
+pub fn original_frame_multiset() -> [u8; 18] {
+    let mut v = WAIT_FRAMES;
+    v.sort_unstable();
+    v
+}
+
+/// Copy-path violations. Each domain maps these to its own error codes so the
+/// shared *predicate* lives once while the *messages* stay namespaced.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CopyViolation {
+    Length,
+    IntervalSpecial,
+    TokenByte,
+    NotPermutation,
+    Terminator,
+}
+
+/// A byte region is a pure permutation of the original multiset only if it has
+/// the exact length, every entry is a frame reference, and the counts match.
+pub fn is_valid_permutation(entries: &[u8]) -> Result<(), CopyViolation> {
+    if entries.len() != WAIT_FRAMES.len() {
+        return Err(CopyViolation::NotPermutation);
+    }
+    if entries.iter().any(|&b| !frame_is_reference(b)) {
+        return Err(CopyViolation::TokenByte);
+    }
+    let mut sorted = entries.to_vec();
+    sorted.sort_unstable();
+    if sorted != original_frame_multiset() {
+        return Err(CopyViolation::NotPermutation);
+    }
+    Ok(())
+}
+
+/// The shared COPY validator (pendência 2). The base keeps the strict,
+/// exact-order `validate_base`; a working copy may carry ANY authorized change
+/// — the proven interval range and any *permutation* of the frame multiset —
+/// while the terminator stays fixed. Cadence (`read_interval`/`describe`),
+/// sequence (`check_copy`) and the composition scope guard all route through
+/// this single definition, so reordering no longer disables the cadence panel.
+pub fn validate_copy(rom: &[u8]) -> Result<Vec<u8>, CopyViolation> {
+    let end = WAIT_ADDR + 1 + WAIT_FRAMES.len() + WAIT_TERMINATOR.len();
+    if rom.len() < end {
+        return Err(CopyViolation::Length);
+    }
+    let interval = rom[WAIT_ADDR];
+    if interval == 0 || interval >= 0x80 {
+        return Err(CopyViolation::IntervalSpecial);
+    }
+    let frames = &rom[WAIT_ADDR + 1..WAIT_ADDR + 1 + WAIT_FRAMES.len()];
+    is_valid_permutation(frames)?;
+    let tail = WAIT_ADDR + 1 + WAIT_FRAMES.len();
+    if rom[tail..end] != WAIT_TERMINATOR {
+        return Err(CopyViolation::Terminator);
+    }
+    Ok(frames.to_vec())
+}
+
 /// Revalidates the contract against the read-only base ROM: wrong variants,
-/// moved tables, tampered consumers or altered scripts all refuse here.
+/// moved tables, tampered consumers or altered scripts all refuse here. The
+/// base is validated with the ORIGINAL frame order — a permutation is only ever
+/// admitted on a working copy, never on the pinned profile.
 pub fn validate_base(base: &[u8]) -> Result<(), String> {
     if base.len() <= SCRIPTS_BASE {
         return Err(err("cadence_rom_short", "ROM menor que a tabela Ani_Sonic"));
@@ -130,18 +198,36 @@ pub fn validate_base(base: &[u8]) -> Result<(), String> {
     script_bytes_match(base, true)
 }
 
-/// Current interval byte of a working copy (base or accumulated edit). The
-/// copy must still carry the contract's frames and terminator.
-pub fn read_interval(rom: &[u8]) -> Result<u8, String> {
-    script_bytes_match(rom, false)?;
-    let value = rom[WAIT_ADDR];
-    if value >= 0x80 {
-        return Err(err(
+/// Maps a shared `CopyViolation` onto the cadence error namespace.
+fn copy_err(v: CopyViolation) -> String {
+    match v {
+        CopyViolation::Length => err("cadence_rom_short", "cópia com script do alvo truncado"),
+        CopyViolation::IntervalSpecial => err(
             "cadence_copy_off_scope",
-            "cópia carrega byte especial fora do intervalo editável",
-        ));
+            "cópia carrega byte degenerado ou especial fora do intervalo editável",
+        ),
+        CopyViolation::TokenByte => err(
+            "cadence_structure_mismatch",
+            "janela de molduras da cópia contém byte que não é referência válida",
+        ),
+        CopyViolation::NotPermutation => err(
+            "cadence_structure_mismatch",
+            "janela de molduras da cópia não é uma permutação do multiconjunto original",
+        ),
+        CopyViolation::Terminator => err(
+            "cadence_structure_mismatch",
+            "terminador afBack 2 ausente ou adulterado na cópia",
+        ),
     }
-    Ok(value)
+}
+
+/// Current interval byte of a working copy (base or accumulated edit). The copy
+/// may be reordered (any valid permutation) or hold any proven interval value;
+/// a tampered terminator, degenerate/special interval or non-permutation frame
+/// region is refused here via the shared `validate_copy`.
+pub fn read_interval(rom: &[u8]) -> Result<u8, String> {
+    validate_copy(rom).map_err(copy_err)?;
+    Ok(rom[WAIT_ADDR])
 }
 
 /// Writes the single duration byte into a working copy. Returns the previous
@@ -173,6 +259,7 @@ pub struct CadenceInfo {
     pub original_interval: u8,
     pub current_interval: u8,
     pub frames: Vec<u8>,
+    pub current_frames: Vec<u8>,
     pub terminator: String,
     pub editable_min: u8,
     pub editable_max: u8,
@@ -188,7 +275,8 @@ pub struct CadenceInfo {
 /// limits, and the contract language around what is still unmeasured.
 pub fn describe(base: &[u8], rom: &[u8]) -> Result<CadenceInfo, String> {
     validate_base(base)?;
-    let current = read_interval(rom)?;
+    let current_frames = validate_copy(rom).map_err(copy_err)?;
+    let current = rom[WAIT_ADDR];
     Ok(CadenceInfo {
         anim: WAIT_ANIM,
         name: "id_Wait · Parado esperando".into(),
@@ -197,6 +285,7 @@ pub fn describe(base: &[u8], rom: &[u8]) -> Result<CadenceInfo, String> {
         original_interval: WAIT_ORIGINAL_INTERVAL,
         current_interval: current,
         frames: WAIT_FRAMES.to_vec(),
+        current_frames,
         terminator: "afBack 2 — repete os dois últimos frames (batida de pé) para sempre".into(),
         editable_min: EDITABLE_MIN,
         editable_max: EDITABLE_MAX,
@@ -384,5 +473,71 @@ mod tests {
         assert!(validate_base(&rom)
             .unwrap_err()
             .contains("cadence_table_moved"));
+    }
+
+    /// Pendência 2 — the cadence panel must stay usable on a *reordered* copy,
+    /// while the pinned base keeps demanding the original exact order.
+    #[test]
+    fn cadence_accepts_a_reordered_copy_but_base_stays_strict() {
+        let base = authored_base();
+        // A copy with the frames reordered (swap 0↔12) AND a new interval.
+        let mut reordered = WAIT_FRAMES;
+        reordered.swap(0, 12); // 03 first, multiset preserved
+        let mut copy = base.clone();
+        copy[WAIT_ADDR] = 40;
+        copy[WAIT_ADDR + 1..WAIT_ADDR + 1 + WAIT_FRAMES.len()].copy_from_slice(&reordered);
+
+        // The COPY validator admits the permutation and reports its real order.
+        assert_eq!(validate_copy(&copy).unwrap(), reordered.to_vec());
+        // read_interval now accepts the reordered copy (was the integration
+        // blocker): it returns the interval, refusing nothing.
+        assert_eq!(read_interval(&copy).unwrap(), 40);
+        // describe on the integrated copy: original order preserved for the
+        // contract view, current order reflects what the copy actually holds.
+        let info = describe(&base, &copy).unwrap();
+        assert_eq!(info.frames, WAIT_FRAMES.to_vec());
+        assert_eq!(info.current_frames, reordered.to_vec());
+        assert_eq!(info.current_interval, 40);
+
+        // The BASE validator still refuses a reordered frame window (strict,
+        // exact-order): reordering is a copy-only authority.
+        let mut reordered_base = base.clone();
+        reordered_base[WAIT_ADDR + 1..WAIT_ADDR + 1 + WAIT_FRAMES.len()]
+            .copy_from_slice(&reordered);
+        assert!(validate_base(&reordered_base)
+            .unwrap_err()
+            .contains("cadence_structure_mismatch"));
+    }
+
+    #[test]
+    fn copy_validator_refuses_non_permutation_and_tampered_terminator() {
+        let base = authored_base();
+        // A byte that is not a frame reference in the window is refused.
+        let mut bad_token = base.clone();
+        bad_token[WAIT_ADDR + 3] = 0x07;
+        assert!(matches!(
+            validate_copy(&bad_token),
+            Err(CopyViolation::TokenByte)
+        ));
+        // A same-domain swap that changes the multiset (extra 04 for a 01) is
+        // not a permutation → refused.
+        let mut bad_multiset = base.clone();
+        bad_multiset[WAIT_ADDR + 1] = 0x04;
+        assert!(matches!(
+            validate_copy(&bad_multiset),
+            Err(CopyViolation::NotPermutation)
+        ));
+        // Tampered terminator is refused via the shared copy validator too.
+        let mut bad_term = base.clone();
+        let tail = WAIT_ADDR + 1 + WAIT_FRAMES.len();
+        bad_term[tail + 1] = 0x03;
+        assert!(matches!(
+            validate_copy(&bad_term),
+            Err(CopyViolation::Terminator)
+        ));
+        // And read_interval surfaces it under the cadence namespace.
+        assert!(read_interval(&bad_term)
+            .unwrap_err()
+            .contains("cadence_structure_mismatch"));
     }
 }

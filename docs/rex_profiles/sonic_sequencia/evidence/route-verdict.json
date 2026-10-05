@@ -1,0 +1,90 @@
+{
+  "base_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "core": "Genesis Plus GX via EmulatorCore (sem injeção de estado; sonda de runtime, NÃO jornada de teclado)",
+  "head_art": {
+    "base": 1,
+    "reordered": 4
+  },
+  "partial": false,
+  "proposal": [
+    4,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    3,
+    2,
+    2,
+    2,
+    3,
+    1
+  ],
+  "reordered_copy_sha256": "0306a5abf7b8c2db890ef8d4773e239a50207a45ef3244d20ca694c9d192a0d9",
+  "route_head_18": {
+    "base": [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      3,
+      2,
+      2,
+      2,
+      3,
+      4
+    ],
+    "reordered": [
+      4,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      3,
+      2,
+      2,
+      2,
+      3,
+      1
+    ]
+  },
+  "route_prova": "percurso completo reconstruído: 18 entradas na ordem do script + laço FE 02 alternando as duas últimas posições (base e cópia)",
+  "schema": "rex-sonic-sequence-route-oracle/v2",
+  "segment_count": {
+    "base": 95,
+    "reordered": 95
+  },
+  "steady_art": {
+    "base": [
+      3,
+      4
+    ],
+    "reordered": [
+      1,
+      3
+    ]
+  },
+  "terminator": "FE 02 preservado; laço por posição confirmado: mesma posição {16,17} em base e cópia, arte do laço muda de {03,04} para {03,01}",
+  "verdict": "full-route"
+}

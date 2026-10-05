@@ -1,0 +1,94 @@
+{
+  "schema": "rex-sonic-sequencia-desktop-journey/v1",
+  "created_at": "2026-10-04",
+  "missao": "Pendência 1 — jornada desktop §5.2 na UI renderizada do binario canônico final (EXPECTATIONS-SEQUENCIA.md §8.3, expectativas congeladas antes das corridas).",
+  "veredito": {
+    "allPass": true,
+    "checks_total": 42,
+    "checks_pass": 42,
+    "checks_failed": [],
+    "passos_executados": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    "finished_at": "2026-10-04T07:26:51.173Z",
+    "runner_exit_code": 0
+  },
+  "identidades": {
+    "git_commit_prova": "491c21bf68694ed54b6e40440600948b2383e496",
+    "arvore_no_momento": "limpa (harness commitado antes do build; a prova rodou no binario do HEAD commitado)",
+    "binario": {
+      "caminho": "src-tauri/target-test/release/retro-dev-studio",
+      "build": "npm run build:portable (HEAD 491c21b, arvore limpa)",
+      "sha256": "e243d1ad9a57dfd1d9b85a7a083975880c4f2e4c3201061f83ec25a42942668b"
+    },
+    "xvfb_proprio_pinado": {
+      "caminho": "/home/misael/.cache/retrodevstudio/qa-xvfb/21.1.24-1/Xvfb",
+      "sha256": "5bfd315a8c7bc626d0b183d176e130c34f910a4a1279d9d53ea45769f62a3351",
+      "display": ":1 (xauth proprio; DISPLAY do sistema nao modificado)",
+      "tela": "1920x1080x24"
+    },
+    "rom_byor_pinnada": {
+      "caminho": "/home/misael/RDS-REX-CORPUS-E/.staging/Sonic the Hedgehog (USA, Europe).bin",
+      "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+    },
+    "cenario": "sonic-sequencia-journey (scripts/qa/run-sonic-desktop-isolated.py -> node scripts/e2e-tauri-build-run.mjs --skip-build)",
+    "core_emulacao": "Genesis Plus GX v1.7.4 46a5521 (passo 7)"
+  },
+  "mapa_criterios_5_2": {
+    "1_abrir_byor_identidade_visivel": "PASSO 1 — passo1.byor_pinado + passo1.identidade_sha256_visivel (observed == required c7da53a1…)",
+    "2_mover_entrada_distinta_e_aplicar": "PASSO 2 — swap real adjacente (pos16->0), bolha 04 ate pos0, proposta B = [4,1x11,3,2,2,2,3,1] montada so pelo painel; negativos de contorno pos0/pos17, mover-identica e aplicar-sem-diferenca-sem-escrita; copia 0306a5ab… diff exatamente [0x13baf, 0x13bc0]; intervalo 23 e terminador intactos",
+    "3_editar_duracao_na_copia_reordenada": "PASSO 3 — cadencia aceita apos reordenacao: 40 ticks em 0x13BAE na copia dd064e0d…; sequencia preservada pela escrita",
+    "4_conferir_copia_crua_diff_exato": "PASSO 4 — copia == mutacao independente esperada; diff exatamente 3 bytes [0x13bae, 0x13baf, 0x13bc0]; ledger nomeia os dois dominios (sonic1_wait_frame_order + sonic1_wait_interval_byte)",
+    "5_exportar_reaplicar_bps": "PASSO 5 — BPS 38 bytes (4b338921…) reaplicado reproduz a copia dd064e0d… byte a byte",
+    "6_salvar_destruir_reiniciar_reabrir": "PASSO 6 — reabertura sem imagem antiga (18 thumbs nos dois paineis, none_pending)",
+    "7_executar_no_core_e_conferir_sprite": "PASSO 7 — entrada na copia dd064e0d… carregada no core; reancoragem do contador, ACK de start, frames ao vivo, negativo KeyQ, framebuffer nao reutilizado; sprite verificado contra pixels do composto (32x40, pixelsSha256 7354bcfb…) por pixmap X11 real; screenshot visual-e3-stand-visivel-apos-executar-1.png",
+    "8_restaurar_seletivamente": "PASSO 8 — restaurar-s6o-ordem preserva duracao 40 (diff restante [0x13bae]); restaurar-so-duracao preserva ordem (volta a base, cadencia 23); ledger 2->4",
+    "9_roundtrip_inverso_cadencia_entao_sequencia": "PASSO 9 — proposta em 1 clique; cadencia preservada pela escrita de ordem; round-trip fecha exatamente na base c7da53a1… (copia intermediaria 28ea1bd5…)",
+    "10_negativos_e_ack_de_epoca_anterior": "PASSO 10 — sessao divergente recusada (edit/restore/info) sem tocar copia; negativos de proposta (recurso/token/tamanho) recusados; segunda sessao real reabriu com ordem original; voo atrasado de 2600ms confirmado (apply disabled em toda a janela 500–1400ms; armed_probe_ms=2677); ack de epoca anterior descartado pela UI: painel da jornada permaneceu na ordem original enquanto a escrita da segunda sessao foi confirmada no proprio arquivo"
+  },
+  "atribuicao_honesta": {
+    "teclado_e_cliques_provenados": "Todos os cliques da jornada (entradas por hit-test de coordenadas reais, botoes aplicar/restaurar/mover, numeros de duracao) sao WebDriver nativos na janela real; o passo de execucao usa teclado nativo (Enter->START) pelo caminho do produto.",
+    "sondas_rotuladas": "passo 10: chamadas IPC diretas com sessao/parametros invalidos estao rotuladas no relatorio como 'sonda tecnica via IPC do produto', nao como interacao de usuario.",
+    "fallback_de_selecao_na_segunda_sessao": "na segunda sessao (passo 10) o select do perfil Sonic nao confirmou por teclado injetado em 3 tentativas (o popup nativo GTK nao recebe teclas do WebDriver); a selecao foi concluida por evento 'change' dispatchado no documento — registrada no log como selectionMode='evento change do documento (sonda de superficie, nao teclado)'. Os passos provenados de §5.2 (2–9) permaneceram 100% nativos.",
+    "atraso_de_voo_injetado_no_transport": "o atraso de 2600ms do ack foi instalado no transport real (wrapper de window.fetch na URL ipc://localhost/rex_inspection_edit_sonic_sequence), pois a superficie __TAURI_INTERNALS__ do Tauri 2 e nao-gravavel (defineProperty sem writable; Object.prototype congelado) e a troca anterior falhava em silencio. Isso e latencia induzida pelo harness sobre o IPC do produto — a guarda de epoca testada e do produto (InspectionPanel/sequenceEditSeq)."
+  },
+  "limites": "Prova de UM caminho na ROM pinada (Sonic USA/EU, NTSC, so id_Wait, proposta B swap(0,17)). Nenhuma alegacao universal: PAL, outros perfis e outros scripts ficaram de fora. Superficie permanece Experimental; sem merge, release ou promocao por este manifesto.",
+  "historico_de_corridas_nota": "Serie observada em /home/misael/rds-scratch (glob sequencia-journey-20261004-*); o numero -04 nao existe no scratch — a listagem acima e a totalidade do que permanece la e cada linha acima foi conferida no run.json/run.log do proprio diretorio.",
+  "historico_de_corridas": [
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-01", "exit": 1, "binario": "5c3efd4bd46f", "causa": "painel nao mostrava as 18 entradas na reabertura — o workspace da sequencia so aparece apos escolher o perfil Sonic no select (plumbing do harness)" },
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-02", "exit": 1, "binario": "5c3efd4bd46f", "causa": "gate de proveniencia: buildCommit do bundle != HEAD — exige npm run build:portable apos cada commit" },
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-03", "exit": 1, "binario": "6e92a18390d3", "causa": "clique scriptado nao marcava a entrada 12 — substituido por hit-test de coordenadas reais (scrollTop + viewport)" },
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-05", "exit": 1, "binario": "60e9c8a5fe1d", "causa": "colisao de envelope WebDriver em execute/async com a pagina ocupada" },
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-06", "exit": 1, "binario": "60e9c8a5fe1d", "causa": "sonda IPC na segunda sessao sem reabrir antes ('Reabra a sessao com a ROM') — sequencia do harnais corrigida" },
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-07", "exit": 1, "binario": "60e9c8a5fe1d", "causa": "segunda sessao nao reabria com ordem original — perfil Sonic nao selecionado na sessao nova" },
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-08", "exit": 1, "binario": "60e9c8a5fe1d", "causa": "mesma causa de -07 com observacao bruta anexada ao FAIL" },
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-09", "exit": 1, "binario": "60e9c8a5fe1d", "causa": "mesma causa de -07 (painel count=0 apesar de reabertura OK no log)" },
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-10", "exit": 1, "binario": "60e9c8a5fe1d", "causa": "selecao nativa do select nao confirmava em 5s" },
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-11", "exit": 1, "binario": "60e9c8a5fe1d", "causa": "3 tentativas falham com focused:true — o clique ponteiro abre popup GTK nativo que ignora teclas injetadas; tentativa 0 passou a usar so foco" },
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-12", "exit": 1, "binario": "60e9c8a5fe1d", "causa": "popup nativo mesmo com foco — teclado segue recusado no estado pos-reabertura; entrou o fallback de evento change rotulado" },
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-13", "exit": 1, "binario": "60e9c8a5fe1d", "causa": "ReferenceError selectionMode (variavel declarada dentro de bloco e lida fora — bug de escopo no harness)" },
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-14", "exit": 1, "binario": "60e9c8a5fe1d", "causa": "observacao unica aos 800ms nao confirmava o voo; baseline do console capturado cedo demais tornava o disjunto vacuo" },
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-15", "exit": 1, "binario": "60e9c8a5fe1d", "causa": "armed_probe_ms=9 — troca de __TAURI_INTERNALS__.invoke e no-op silente (propriedade nao-gravavel; Object.prototype congelado); atraso movido para o transport fetch" },
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-16", "exit": 0, "binario": "60e9c8a5fe1d", "causa": "allPass=true DIAGNOSTICA (harness ainda nao commitado; binario de HEAD anterior) — entao o harness foi commitado (491c21b) e rebuildado" },
+    { "dir": "/home/misael/rds-scratch/sequencia-journey-20261004-17", "exit": 0, "binario": "e243d1ad9a57", "causa": "PROVA FINAL: allPass=true 42/42 passos 1-10 no HEAD commitado 491c21b com arvore limpa (esta pasta)" }
+  ],
+  "politica_de_artefatos": "Nenhum byte de ROM/binario entra no repositorio (regra da frente: so SHA-256 + JSON/PNG versionados). A copia BYOR aplicada e o BPS ficam fora do git, referenciados por caminho absoluto + SHA abaixo.",
+  "artefatos_versionados": [
+    { "file": "report.json", "size_bytes": 18677, "sha256": "cb8138a980478a0c170117cf1c7acfcd3fb8fd6990e97236d0fbe0cc865e3ee8" },
+    { "file": "run.json", "size_bytes": 398, "sha256": "680fecb101738f864281a5699c8c8754a58ca0f709c7693657d0a37dcccbf8cf" },
+    { "file": "run.log", "size_bytes": 47508, "sha256": "4f1900d289d4bcb40548abb5520ee693aa992f01bbd618e080c1d63d101a401a" },
+    { "file": "inspection-2026-10-04T07-25-04-064Z-sonic-stand-base.png", "size_bytes": 245453, "sha256": "20b6df316b03a10dd8dbaa2885a8cb73278e2f82cadfa42fb359f46d1d09fa2f" },
+    { "file": "inspection-2026-10-04T07-25-04-064Z-before-restart.png", "size_bytes": 257208, "sha256": "010ab2aac85878f98a55b8a6cb5c9b6f4e60c53db75b0c9677528fc51b35118a" },
+    { "file": "inspection-2026-10-04T07-25-04-064Z-sequencia-journey-passo7.png", "size_bytes": 257013, "sha256": "336100f2d5f5c3197ce411ccc90b73928749aab3502de5bf18ff5058b3703021" },
+    { "file": "inspection-2026-10-04T07-25-04-064Z-sequencia-journey-passo10.png", "size_bytes": 303217, "sha256": "365a4b946e2d16b40dd168cf63352a622958046b9eeea7f3a3e60ed4539621d6" },
+    { "file": "inspection-2026-10-04T07-25-04-064Z-visual-e3-stand-visivel-apos-executar-1.png", "size_bytes": 252488, "sha256": "2f1d2cdcfea74262764d519aada4c2f63a388aeaa1b13bb72ba478192338fa7e" }
+  ],
+  "artefatos_referenciados_fora_do_git": [
+    { "file": "src-tauri/target-test/validation/inspection-2026-10-04T07-25-04-064Z-sequencia-journey/sequencia-journey-aplicada.bin", "size_bytes": 531577, "sha256": "dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170", "nota": "copia BYOR com os 3 bytes aplicados; NAO versionada" },
+    { "file": "src-tauri/target-test/validation/inspection-2026-10-04T07-25-04-064Z-sequencia-journey/sequencia-journey.bps", "size_bytes": 38, "sha256": "4b338921b1a33f2d65a7d92d70ebb812ddac4b0dcf6ce0fd3d27f480e5f4c11e", "nota": "patch exportado pela UI (passo 5) e reaplicado de volta a dd064e0d...; NAO versionado" }
+  ],
+  "shas_de_referencia_das_copias": {
+    "base": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+    "so_sequencia_proposta_b": "0306a5abf7b8c2db890ef8d4773e239a50207a45ef3244d20ca694c9d192a0d9",
+    "sequencia_mais_duracao_40_jornada": "dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170",
+    "intermediaria_passo9": "28ea1bd505293b9ede5eb8307e4490c5e3d54d1fa085eed5d7cb0685612390fd — recomposta offline a partir da base pinada (intervalo=30 em 0x13bae + swap adjacente pos11<->pos12 em 0x13bba/0x13bbb) e o SHA reproduz exatamente, confere com o payload do passo 9"
+  }
+}
