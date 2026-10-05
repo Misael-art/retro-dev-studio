@@ -504,7 +504,73 @@
       "tam": 4,
       "desmontaxe": "0:\t1031 2000      \tmoveb %a1@(0,%d2:w),%d0",
       "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "can-jsr-w",
+      "montaxe": ".word 4eb81f00",
+      "classe_instrumento": "bruto",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4eb81f00",
+      "tam": 4,
+      "desmontaxe": "0:\t4eb8 1f00      \tjsr 1f00 <inicio+0x1f00>",
+      "efectivo_dito_polo_desmontador": "0x1f00"
+    },
+    {
+      "id": "can-jsr-l",
+      "montaxe": ".word 4eb900001f00",
+      "classe_instrumento": "bruto",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4eb900001f00",
+      "tam": 6,
+      "desmontaxe": "0:\t4eb9 0000 1f00 \tjsr 1f00 <inicio+0x1f00>",
+      "efectivo_dito_polo_desmontador": "0x1f00"
+    },
+    {
+      "id": "can-jmp-w",
+      "montaxe": ".word 4ef81f00",
+      "classe_instrumento": "bruto",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4ef81f00",
+      "tam": 4,
+      "desmontaxe": "0:\t4ef8 1f00      \tjmp 1f00 <inicio+0x1f00>",
+      "efectivo_dito_polo_desmontador": "0x1f00"
+    },
+    {
+      "id": "can-jmp-l",
+      "montaxe": ".word 4ef900001f00",
+      "classe_instrumento": "bruto",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4ef900001f00",
+      "tam": 6,
+      "desmontaxe": "0:\t4ef9 0000 1f00 \tjmp 1f00 <inicio+0x1f00>",
+      "efectivo_dito_polo_desmontador": "0x1f00"
+    },
+    {
+      "id": "can-lea-l-8400",
+      "montaxe": ".word 43f900008400",
+      "classe_instrumento": "bruto",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "43f900008400",
+      "tam": 6,
+      "desmontaxe": "0:\t43f9 0000 8400 \tlea 8400 <inicio+0x8400>,%a1",
+      "efectivo_dito_polo_desmontador": "0x8400"
+    },
+    {
+      "id": "can-bsr-w-zero",
+      "montaxe": ".word 61000000",
+      "classe_instrumento": "bruto",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "61000000",
+      "tam": 4,
+      "desmontaxe": "0:\t6100 0000      \tbsrw 2 <inicio+0x2>",
+      "efectivo_dito_polo_desmontador": null
     }
   ],
-  "filas_sha256": "f741ec3f0f708e6f7133a599d5682be42126343aad8f3f76618196bc1488ffd4"
+  "filas_sha256": "8e95a9131ce363cbfcaa3b5193acc3cf3b628f4eef9751adec15dbb99301e1eb"
 }

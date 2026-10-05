@@ -96,6 +96,16 @@ const SONDAS = [
   { id: "bruto-227c-moveal", bytes: "227c00001111", classe: "bruto" },
   { id: "bruto-327c-moveaw", bytes: "327c1111", classe: "bruto" },
   { id: "bruto-1031-move-w-idx", bytes: "10312000", classe: "bruto" },
+
+  // --- Codificacións canónicas que `EXTENSOES-D v2` usará nas sondas substitutas
+  //     (as cinco filas anteriores din o que D escribiu; estas din o que se
+  //     tiña que escribir). Todas apuntan á mesma rutina 0x1f00 do fixture.
+  { id: "can-jsr-w", bytes: "4eb81f00", classe: "bruto" },
+  { id: "can-jsr-l", bytes: "4eb900001f00", classe: "bruto" },
+  { id: "can-jmp-w", bytes: "4ef81f00", classe: "bruto" },
+  { id: "can-jmp-l", bytes: "4ef900001f00", classe: "bruto" },
+  { id: "can-lea-l-8400", bytes: "43f900008400", classe: "bruto" },
+  { id: "can-bsr-w-zero", bytes: "61000000", classe: "bruto" },
 ];
 
 function exec(cmd, args) {

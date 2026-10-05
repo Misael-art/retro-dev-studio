@@ -85,10 +85,10 @@ describe("oráculo ISA — integridade do gabarito versionado", () => {
     expect(sha(Buffer.from(JSON.stringify(gab.filas), "utf8"))).toBe(gab.filas_sha256);
   });
 
-  it("46 sondas: 42 montan con bytes reais, 4 recusadas sen bytes", () => {
-    expect(gab.filas.length).toBe(46);
+  it("52 sondas: 48 montan con bytes reais, 4 recusadas sen bytes", () => {
+    expect(gab.filas.length).toBe(52);
     const montan = gab.filas.filter((f) => f.rc_montador === 0);
-    expect(montan.length).toBe(42);
+    expect(montan.length).toBe(48);
     for (const f of montan) {
       expect(f.bytes_hex, `${f.id}: fila «valida» sen bytes (placeholder)`).toMatch(/^[0-9a-f]+$/);
       expect(f.bytes_hex.length % 2, f.id).toBe(0);
@@ -193,8 +193,32 @@ describe("oráculo ISA — feitos decisorios da retificación (rolda 3)", () => 
     expect(desmontaxe("movea-w-mem-w")).toContain("ffff8400");
   });
 
-  it("desprazamentos relativos contan desde a palabra de extensión (sitio + 2)", () => {
-    expect(fila("bsr-s").bytes_hex).toBe("61024e71");
+  it("encodificacións canónicas pinadas para as sondas substitutas de v2", () => {
+    const canonicas = {
+      "can-jsr-w": "4eb81f00",
+      "can-jsr-l": "4eb900001f00",
+      "can-jmp-w": "4ef81f00",
+      "can-jmp-l": "4ef900001f00",
+      "can-lea-l-8400": "43f900008400",
+      "can-bsr-w-zero": "61000000",
+    };
+    for (const [id, bytes] of Object.entries(canonicas)) {
+      expect(fila(id).bytes_hex, id).toBe(bytes);
+      expect(fila(id).rc_montador, id).toBe(0);
+    }
+    // `bsr.w` com d16 = 0 → alvo = sitio + 2 (a base relativa é a palabra de extensión)
+    expect(mnemonico("can-bsr-w-zero")).toBe("bsrw 2 <inicio+0x2>");
+    // e `lea (0x8400).L`, que si pode apuntar a un fluxo en 0x8400 (a versión .W non)
+    expect(mnemonico("can-lea-l-8400")).toBe("lea 8400 <inicio+0x8400>,%a1");
+    // Ningunha sondas substituta coincide co que D escribiu a man en v1:
+    for (const id of ["bruto-4efa-d16pc", "bruto-4efd", "bruto-4efc", "bruto-61ff-bsrl"]) {
+      expect(Object.values(canonicas), `${id} coincide cunha canónica`).not.toContain(
+        fila(id).bytes_hex,
+      );
+    }
+  });
+
+  it("desprazamentos relativos contan desde a palabra de extensión (sitio + 2)", () => {    expect(fila("bsr-s").bytes_hex).toBe("61024e71");
     expect(mnemonico("bsr-s")).toBe("bsrs 4 <alvo>");
     expect(fila("bsr-w").bytes_hex).toBe("610000044e71");
     expect(mnemonico("bsr-w")).toBe("bsrw 6 <alvo>");
