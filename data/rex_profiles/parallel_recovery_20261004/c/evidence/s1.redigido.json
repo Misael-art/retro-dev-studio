@@ -123,6 +123,14 @@
    "tam": 2
   }
  ],
+ "instrumento": {
+  "caminho_declarado": "binutils pinado no cache do host; caminho local nao versionado",
+  "flags": "-b binary -m m68k -D",
+  "nome": "m68k-elf-objdump",
+  "papel": "arbitro de comprimento e alvo das instrucoes; paridade com objdump nao equivale a observacao em runtime (obrigacao 8)",
+  "sha256": "e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f",
+  "versao": "GNU objdump (GNU Binutils) 2.41"
+ },
  "limites": [
   "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
   "sem propaga\u00e7\u00e3o de pilha/registrador: graus de parametro sao sempre nao-inferidos",
@@ -319,5 +327,19 @@
    "sitio": "0x01C0A6",
    "veredito": "fora-da-regiao"
   }
- ]
+ ],
+ "veredito-do-comparador": {
+  "criterios": [
+   "R1",
+   "R2",
+   "R3",
+   "R4",
+   "R5",
+   "R6",
+   "R7"
+  ],
+  "divergencias-criticas": 0,
+  "marcas-emitidas": 48,
+  "serie-bruta": "MANIFEST-ETAPA2.md, secao \"serie bruta do comparador\" (versionada)"
+ }
 }

@@ -49,6 +49,16 @@ pin 3460 28 "$CTX_PIN" CTX 0x00D84
 pin 114724 128 "$S1_PIN" S1 0x1C024
 pin 116408 128 "$S2_PIN" S2 0x1C6B8
 
+# Identidade do instrumento (o arbitro de comprimento e alvo): versao + digest do
+# binario. O caminho do operador nao vai para a evidencia — §8 E3 pede identidade
+# por SHA, e um caminho local gravado tornaria o JSON nao reproduzivel em outra
+# maquina que tenha o mesmo binario.
+INSTR_NOME="m68k-elf-objdump"
+INSTR_VERSAO="$("$OBJDUMP" --version | head -1)"
+INSTR_SHA="$(sha256sum "$OBJDUMP" | cut -d' ' -f1)"
+INSTR_FLAGS="-b binary -m m68k -D"
+echo "OK   instrumento: $INSTR_VERSAO sha256=$INSTR_SHA flags='$INSTR_FLAGS'"
+
 # ---------------------------------------------------------------- 1. build
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$HOME/rds-scratch/xe-c-target}"
 BIN="$CARGO_TARGET_DIR/debug/rex-cfg"
@@ -126,15 +136,24 @@ for par in "s1 0x1C024 0x1C0A4" "s2 0x1C6B8 0x1C738"; do
 done
 
 # --------------------------------------- 5. arbitragem + evidencia versionada
-python3 - "$OUT" "$EVID" "$sha_rom" "$tam_rom" "$CTX_PIN" "$S1_PIN" "$S2_PIN" <<'PY'
+python3 - "$OUT" "$EVID" "$sha_rom" "$tam_rom" "$CTX_PIN" "$S1_PIN" "$S2_PIN" \
+    "$INSTR_NOME" "$INSTR_VERSAO" "$INSTR_SHA" "$INSTR_FLAGS" <<'PY'
 import json, re, sys, os, hashlib
-OUT, EVID, SHA_ROM, TAM_ROM, CTX_PIN, S1_PIN, S2_PIN = sys.argv[1:8]
+OUT, EVID, SHA_ROM, TAM_ROM, CTX_PIN, S1_PIN, S2_PIN, INSTR_NOME, INSTR_VERSAO, INSTR_SHA, INSTR_FLAGS = sys.argv[1:12]
 falhas = 0
+serie_bruta = []
 def marca(nivel, txt):
     global falhas
-    print(f"{nivel} {txt}")
+    linha = f"{nivel} {txt}"
+    print(linha)
+    serie_bruta.append(linha)
     if nivel == 'FALHA':
         falhas += 1
+
+def eco(txt=''):
+    """stdout e a MESMA serie bruta que vai para o manifesto versionado (§8 E5)."""
+    print(txt)
+    serie_bruta.append(txt)
 
 FLUXO = ('bra', 'bsr', 'bcc', 'bcs', 'bmi', 'bpl', 'bge', 'bgt', 'ble', 'bls',
          'bhi', 'bvs', 'bvc', 'beq', 'bne', 'dbf', 'dbt', 'jmp', 'jsr')
@@ -236,7 +255,7 @@ for nome, (ini, fim, _, _) in AMOSTRAS.items():
           f'{nome} R6: paridade de comprimento em {len(fer)} nos comparados com {len(od)} registros '
           f'do instrumento (divergencias={len(div)}, sem registro={len(sobra)})')
     for d in div:
-        print('     ', d)
+        eco(f'      {d}')
     # alvos alegados pela ferramenta conferidos com o instrumento, e P-absW
     alvos = {}
     for e in analise['arestas']:
@@ -261,7 +280,7 @@ CENSO = {0x66A40: '4E FA', 0x31DCC: '4E FC', 0x74EEC: '4E B8', 0x77EFA: '4E B8',
          0x819DA: '4E B8', 0x4028A: '4E F8', 0x4F606: '4E F8', 0x50210: '4E F8',
          0x3AB02: '2A 7C', 0x4F850: '2A 7C', 0x5C2: '61 nn', 0x11F0: '61 nn',
          0x1482: '61 nn', 0x15C6: '61 nn', 0x1DD8: '61 nn', 0x1DFA: '61 nn'}
-print('--- censo do Apêndice B (iscas; cada linha: veredito, consumidor, promovivel, '
+eco('--- censo do Apêndice B (iscas; cada linha: veredito, consumidor, promovivel, '
       'alvo da ferramenta vs instrumento)')
 div_r7 = []
 nao_promovidas = 0
@@ -272,7 +291,7 @@ for addr, padrao in sorted(CENSO.items()):
     alvo_ferr = r['alvo']
     alvo_f = int(alvo_ferr, 16) if isinstance(alvo_ferr, str) else alvo_ferr
     alvo_inst = ins[2] if ins else None
-    print(f'  {addr:#07x} {padrao:7s} veredito={r["veredito"]:26s} consumidor={r["consumidor-validado"]} '
+    eco(f'  {addr:#07x} {padrao:7s} veredito={r["veredito"]:26s} consumidor={r["consumidor-validado"]} '
           f'promovivel={r["promovivel-vinculo-estrutural"]} alvo={alvo_ferr} '
           f'instrumento={(f"{alvo_inst:#x}" if alvo_inst is not None else "-")} '
           f'motivos={r["motivos"]}')
@@ -293,12 +312,35 @@ marca('OK' if not div_r7 else 'FALHA',
       f'R7: censo com {len(CENSO)} enderecos; {nao_promovidas} nao promovidos '
       f'(raiz candidato); violacoes={len(div_r7)}')
 for d in div_r7:
-    print('     ', d)
+    eco(f'      {d}')
 # divergencia registrada da redacao congelada de R7 (ver adendo datado): iscas que
 # o instrumento comprova como transferencias reais saem consumidor=sim; o negativo
 # efetivo da barreira e a promocao, nao a classificacao estrutural.
 if any(l['consumidor-validado'] == 'sim' for v in serie.values() for l in v):
-    print('     nota: sitios S1/S2 validados como consumidor estrutural existem na serie')
+    eco('     nota: sitios S1/S2 validados como consumidor estrutural existem na serie')
+
+# ---------------------------------------------- instrumento e veredito no redigido
+# §8 E5: quem so tem o JSON tem de saber o que arbitrou comprimento e alvo e o que
+# o comparador decidiu. O instrumento e identificado por versao + digest do
+# binario (nunca pelo caminho do operador, §8 E3).
+INSTRUMENTO = {
+    'nome': INSTR_NOME,
+    'versao': INSTR_VERSAO,
+    'sha256': INSTR_SHA,
+    'flags': INSTR_FLAGS,
+    'caminho_declarado': 'binutils pinado no cache do host; caminho local nao versionado',
+    'papel': 'arbitro de comprimento e alvo das instrucoes; paridade com objdump nao '
+             'equivale a observacao em runtime (obrigacao 8)',
+}
+# Retrato da arbitragem no instante em que a evidencia e emitida: R1..R7 ja
+# fecharam; o que vier depois e conferencia de emissao, e o total do run esta na
+# serie bruta do manifesto.
+VEREDITO = {
+    'criterios': ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7'],
+    'divergencias-criticas': falhas,
+    'marcas-emitidas': len(serie_bruta),
+    'serie-bruta': 'MANIFEST-ETAPA2.md, secao "serie bruta do comparador" (versionada)',
+}
 
 # ------------------------------------------------------------- redigidos
 def redigido(nome, ini, fim, pin_corpo):
@@ -315,6 +357,8 @@ def redigido(nome, ini, fim, pin_corpo):
         'analise': f'{nome} (amostra reservada ETAPA2, §4)',
         'etapa': 2,
         'base-da-ferramenta': med['base-sha'],
+        'instrumento': INSTRUMENTO,
+        'veredito-do-comparador': VEREDITO,
         'comando': comando,
         'comando-de-medicoes': med['comando'],
         'objeto': {'caminho_declarado': '<ROM>', 'placeholder': 'identidade por SHA (§8 E3); '
@@ -354,6 +398,8 @@ censo_resumo = {
     'esquema': 'rex-cfg/censo-iscas/v1',
     'etapa': 2,
     'base-da-ferramenta': carrega('s1.med.json')['base-sha'],
+    'instrumento': INSTRUMENTO,
+    'veredito-do-comparador': VEREDITO,
     'objeto': {'caminho_declarado': '<ROM>', 'sha256': SHA_ROM, 'tamanho': int(TAM_ROM)},
     'regra': 'janela alinhada de 128 bytes contendo o endereco; raiz = o proprio endereco com '
              'proveniencia candidato, exceto 0x31DCC cuja raiz e 0x31DCA (inicio comprovado pelo '
@@ -367,7 +413,8 @@ censo_resumo = {
         for a, p in sorted(CENSO.items())],
     'aspiracao-congelada': 'R7 (EXPECTATIONS-ETAPA2 §4): "a ferramenta e chamada nesses enderecos '
                            'e deve responder consumidor-validado: nao".',
-    'medido': 'Ver serie bruta acima: as linhas que o instrumento comprova como transferencia real '
+    'medido': 'Serie bruta no MANIFEST-ETAPA2.md (secao "serie bruta do comparador"): as linhas que o '
+              'instrumento comprova como transferencia real '
               '(4E B8/4E F8 legitimos, 61 nn = bsr.s) saem consumidor-validado "sim" com alvo igual '
               'ao do instrumento; a promocao de vinculo sai "nao" em todas, porque raiz `candidato` '
               'nunca autoriza (V2). O negativo de interior (0x31DCC dentro de 0x31DCA) sai '
@@ -377,21 +424,54 @@ destino = os.path.join(EVID, 'censo-iscas.redigido.json')
 with open(destino, 'w', encoding='utf-8') as fh:
     json.dump(censo_resumo, fh, indent=1, ensure_ascii=True, sort_keys=True)
     fh.write('\n')
-print(f'OK   censo versionado: sha256='
-      f'{hashlib.sha256(open(destino, "rb").read()).hexdigest()}')
+eco(f'OK   censo versionado: sha256='
+    f'{hashlib.sha256(open(destino, "rb").read()).hexdigest()}')
 
-print(f'FIM: divergencias criticas = {falhas}')
+# A serie bruta sai do console para um arquivo: e ela que o manifesto versiona, e o
+# que torna o veredito do comparador conferivel por quem nao estava na execucao.
+with open(os.path.join(OUT, 'serie-bruta.txt'), 'w', encoding='utf-8') as fh:
+    for linha in serie_bruta:
+        fh.write(linha + '\n')
+    fh.write(f'FIM: divergencias criticas = {falhas}\n')
+
+eco(f'FIM: divergencias criticas = {falhas}')
 sys.exit(1 if falhas else 0)
 PY
 rc=$?
 
 # ------------------------------------------- 6. manifesto da evidencia crua
+# Este arquivo E o registro local do run: por isso ele nomeia caminhos do operador
+# (para onde ir procurar o que nao versiona) e grava a serie bruta do comparador.
+# Os redigidos JSON, esses, dao identidade por SHA (§8 E3) — a assimetria e
+# deliberada e e o que a auditoria `tests/auditoria_evidencia.rs` verifica.
 {
     echo "# evidencia das amostras reservadas (letra C, ETAPA 2) — 2026-10-05"
     echo
     echo "ROM BYOR somente-leitura, NAO versionada; identidade por SHA-256."
     echo "sha256=$sha_rom  bytes=$tam_rom"
     echo "Pinos: CTX(0x00D84,28)=$CTX_PIN S1(0x1C024,128)=$S1_PIN S2(0x1C6B8,128)=$S2_PIN"
+    echo
+    echo "## instrumento (arbitro de comprimento e alvo)"
+    echo
+    echo "- binario: \`$INSTR_NOME\` — versao \`$INSTR_VERSAO\`"
+    echo "- sha256 do binario: \`$INSTR_SHA\`"
+    echo "- flags: \`$INSTR_FLAGS\` (offset == endereco na imagem plana)"
+    echo "- limite: paridade com o instrumento **nao** equivale a observacao em runtime"
+    echo "  (obrigacao 8). Sem execucao, sem DAC, sem VRAM."
+    echo
+    echo "- fixtures autorais da mesma frente (reproduzem sem a ROM):"
+    echo "  \`scripts/rex_profiles/parallel_recovery_20261004/c/fixtures/MANIFEST.sha256\`"
+    echo "  — montador e instrumento pinados; os digest sao conferidos por teste."
+    echo
+    echo "## serie bruta do comparador"
+    echo
+    echo "Verbatim do stdout da arbitragem R1..R7 (\`$OUT/serie-bruta.txt\`):"
+    echo
+    echo '```'
+    cat "$OUT/serie-bruta.txt"
+    echo '```'
+    echo
+    echo "## artefatos"
     echo
     echo "| artefato | sha256 | onde esta |"
     echo "|---|---|---|"

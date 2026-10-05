@@ -40,6 +40,13 @@ marca() { # nivel texto
 
 # ---------------------------------------------------------------- 0. origem
 [ -x "$OBJDUMP" ] || { echo "ABORT: instrumento ausente: $OBJDUMP"; exit 1; }
+# Identidade do instrumento (arbitro): versao + digest do binario. Gravada no
+# manifesto em 2026-10-05, depois da auditoria da ETAPA 2 (§8 E5), sem tocar os
+# redigidos ja publicados: o caminho local do binario nao e registrado.
+INSTR_VERSAO="$("$OBJDUMP" --version | head -1)"
+INSTR_SHA="$(sha256sum "$OBJDUMP" | cut -d' ' -f1)"
+INSTR_FLAGS="-b binary -m m68k -D"
+echo "OK   instrumento: $INSTR_VERSAO sha256=$INSTR_SHA flags='$INSTR_FLAGS'"
 [ -r "$ROM" ] || { echo "ABORT: ROM BYOR nao legivel: $ROM"; exit 1; }
 sha_rom="$(sha256sum "$ROM" | cut -d' ' -f1)"
 if [ "$sha_rom" != "$ROM_PIN" ]; then
@@ -100,7 +107,10 @@ odump r2 0x206 0x2A0
 odump r3 0x1364 0x1380
 
 # --------------------------------------- 4. comparacao + criterios congelados
-python3 - "$OUT" "$EVID" "$ROM" "$sha_rom" "$vetor" "$R1_PIN" "$R2_PIN" "$R3_PIN" <<'PY'
+# A serie bruta do comparador e gravada: e ela que o manifesto versiona, para que o
+# veredito seja conferivel por quem nao estava na execucao (§8 E5, registrado em
+# 2026-10-05 sem reescrever os redigidos publicados).
+python3 - "$OUT" "$EVID" "$ROM" "$sha_rom" "$vetor" "$R1_PIN" "$R2_PIN" "$R3_PIN" <<'PY' | tee "$OUT/serie-bruta.txt"
 import json, re, sys, os, hashlib
 OUT, EVID, ROM, SHA_ROM, VETOR, PINS = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6:9]
 falhas = 0
@@ -340,6 +350,24 @@ rc=$?
     echo "sha256=$sha_rom  bytes=$tam_rom"
     echo "Vetor de reset (32 bytes de 0x000000): sha256=$vetor (conteudo nao versionado)"
     echo "Pinos de regiao (dd + sha256sum): R1(0x189C,160)=$R1_PIN R2(0x206,154)=$R2_PIN R3(0x1364,28)=$R3_PIN"
+    echo
+    echo "## instrumento (arbitro de comprimento e alvo)"
+    echo
+    echo "- binario: \`m68k-elf-objdump\` — versao \`$INSTR_VERSAO\`"
+    echo "- sha256 do binario: \`$INSTR_SHA\`"
+    echo "- flags: \`$INSTR_FLAGS\` (offset == endereco na imagem plana)"
+    echo "- limite: paridade com o instrumento **nao** equivale a observacao em runtime"
+    echo
+    echo "Este manifesto registra caminhos locais do operador de proposito: ele e o"
+    echo "indicador do que NAO esta no indice. Os redigidos JSON dao identidade por"
+    echo "SHA-256 (§8 E3). Bloco acrescentado em 2026-10-05 pela auditoria da ETAPA 2,"
+    echo "sem reescrever os tres redigidos publicados na ETAPA 1."
+    echo
+    echo "## serie bruta do comparador"
+    echo
+    echo '```'
+    cat "$OUT/serie-bruta.txt"
+    echo '```'
     echo
     echo "| artefato | sha256 | onde esta |"
     echo "|---|---|---|"

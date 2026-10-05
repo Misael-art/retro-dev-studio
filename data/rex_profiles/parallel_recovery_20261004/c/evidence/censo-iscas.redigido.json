@@ -4,6 +4,14 @@
  "comando": "rex-cfg consultar --bin <ROM> --region <janela> --root <raiz> --root-prov candidato --site <endereco> --out <saida>",
  "esquema": "rex-cfg/censo-iscas/v1",
  "etapa": 2,
+ "instrumento": {
+  "caminho_declarado": "binutils pinado no cache do host; caminho local nao versionado",
+  "flags": "-b binary -m m68k -D",
+  "nome": "m68k-elf-objdump",
+  "papel": "arbitro de comprimento e alvo das instrucoes; paridade com objdump nao equivale a observacao em runtime (obrigacao 8)",
+  "sha256": "e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f",
+  "versao": "GNU objdump (GNU Binutils) 2.41"
+ },
  "linhas": [
   {
    "alvo": "0x0005CA",
@@ -292,11 +300,25 @@
    "veredito": "instrucao-de-bloco"
   }
  ],
- "medido": "Ver serie bruta acima: as linhas que o instrumento comprova como transferencia real (4E B8/4E F8 legitimos, 61 nn = bsr.s) saem consumidor-validado \"sim\" com alvo igual ao do instrumento; a promocao de vinculo sai \"nao\" em todas, porque raiz `candidato` nunca autoriza (V2). O negativo de interior (0x31DCC dentro de 0x31DCA) sai miolo-de-instrucao com consumidor \"nao\".",
+ "medido": "Serie bruta no MANIFEST-ETAPA2.md (secao \"serie bruta do comparador\"): as linhas que o instrumento comprova como transferencia real (4E B8/4E F8 legitimos, 61 nn = bsr.s) saem consumidor-validado \"sim\" com alvo igual ao do instrumento; a promocao de vinculo sai \"nao\" em todas, porque raiz `candidato` nunca autoriza (V2). O negativo de interior (0x31DCC dentro de 0x31DCA) sai miolo-de-instrucao com consumidor \"nao\".",
  "objeto": {
   "caminho_declarado": "<ROM>",
   "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
   "tamanho": 531577
  },
- "regra": "janela alinhada de 128 bytes contendo o endereco; raiz = o proprio endereco com proveniencia candidato, exceto 0x31DCC cuja raiz e 0x31DCA (inicio comprovado pelo instrumento). Consulta de s\u00edtio: um sitio, um objeto plano."
+ "regra": "janela alinhada de 128 bytes contendo o endereco; raiz = o proprio endereco com proveniencia candidato, exceto 0x31DCC cuja raiz e 0x31DCA (inicio comprovado pelo instrumento). Consulta de s\u00edtio: um sitio, um objeto plano.",
+ "veredito-do-comparador": {
+  "criterios": [
+   "R1",
+   "R2",
+   "R3",
+   "R4",
+   "R5",
+   "R6",
+   "R7"
+  ],
+  "divergencias-criticas": 0,
+  "marcas-emitidas": 48,
+  "serie-bruta": "MANIFEST-ETAPA2.md, secao \"serie bruta do comparador\" (versionada)"
+ }
 }

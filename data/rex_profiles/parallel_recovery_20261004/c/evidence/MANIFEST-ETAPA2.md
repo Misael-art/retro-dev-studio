@@ -4,6 +4,79 @@ ROM BYOR somente-leitura, NAO versionada; identidade por SHA-256.
 sha256=c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb  bytes=531577
 Pinos: CTX(0x00D84,28)=298c991c8fa94383425a51f4c0cdd3ce48e4d989f7ca01468eaa88d2955f626c S1(0x1C024,128)=f1b9b9cdfc6f6e714b449becf87de883b0162954ef6fd8bd7f4fcf0afdd94c63 S2(0x1C6B8,128)=6f3308c397ed4c9ae07a3e6e2e86092b56a526d26b9d43062572c6e5a9def91c
 
+## instrumento (arbitro de comprimento e alvo)
+
+- binario: `m68k-elf-objdump` — versao `GNU objdump (GNU Binutils) 2.41`
+- sha256 do binario: `e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f`
+- flags: `-b binary -m m68k -D` (offset == endereco na imagem plana)
+- limite: paridade com o instrumento **nao** equivale a observacao em runtime
+  (obrigacao 8). Sem execucao, sem DAC, sem VRAM.
+
+- fixtures autorais da mesma frente (reproduzem sem a ROM):
+  `scripts/rex_profiles/parallel_recovery_20261004/c/fixtures/MANIFEST.sha256`
+  — montador e instrumento pinados; os digest sao conferidos por teste.
+
+## serie bruta do comparador
+
+Verbatim do stdout da arbitragem R1..R7 (`/home/misael/rds-scratch/xe-c2-amostras/serie-bruta.txt`):
+
+```
+OK s1 R1: 8 sitios alinhados com veredito estrutural ['instrucao-de-bloco', 'instrucao-de-bloco', 'miolo-de-instrucao', 'instrucao-de-bloco', 'instrucao-de-bloco', 'miolo-de-instrucao', 'ponto-de-fronteira', 'dentro-regiao-nao-alcancado']
+OK s1 R2: sitio impar 0x1c029 = miolo-de-instrucao (consumidor nao)
+OK s1 R3: 0x1c0a6 = fora-da-regiao; instrucoes >= 0x1c0a4: []
+OK s1 R4: raizes [(114724, 'referencia-estatica', 'referencia-estatica')]
+OK s1 R5: 1 chamadas, todas com sitio par e instrucao provada; ruins=[]
+OK s1 R6: paridade de comprimento em 8 nos comparados com 32 registros do instrumento (divergencias=0, sem registro=0)
+OK s1 R6 alvo 0x1c028 = 0x1c044 (instrumento: 114756)
+OK s1 R6 alvo 0x1c030 = 0x1c510 (instrumento: 115984)
+OK s1 medir: status das quatro dimensoes [('comprimento', 'medido'), ('operandos', 'medido'), ('fluxo', 'medido'), ('alcance', 'medido')] agregado=proibido pendencia=[]
+OK s2 R1: 8 sitios alinhados com veredito estrutural ['instrucao-de-bloco', 'instrucao-de-bloco', 'instrucao-de-bloco', 'instrucao-de-bloco', 'miolo-de-instrucao', 'miolo-de-instrucao', 'instrucao-de-bloco', 'instrucao-de-bloco']
+OK s2 R2: sitio impar 0x1c6bd = miolo-de-instrucao (consumidor nao)
+OK s2 R3: 0x1c73a = fora-da-regiao; instrucoes >= 0x1c738: []
+OK s2 R4: raizes [(116408, 'referencia-estatica', 'referencia-estatica')]
+OK s2 R5: 3 chamadas, todas com sitio par e instrucao provada; ruins=[]
+OK s2 R6: paridade de comprimento em 36 nos comparados com 37 registros do instrumento (divergencias=0, sem registro=0)
+OK s2 R6 alvo 0x1c6bc = 0x1c7a2 (instrumento: 116642)
+OK s2 R6 alvo 0x1c6c4 = 0x1c6d8 (instrumento: 116440)
+OK s2 R6 alvo 0x1c6d4 = 0x1c8da (instrumento: 116954)
+OK s2 R6 alvo 0x1c6dc = 0x1c6f8 (instrumento: 116472)
+OK s2 R6 alvo 0x1c6de = 0x1c6e4 (instrumento: 116452)
+OK s2 R6 alvo 0x1c6e0 = 0x1c80e (instrumento: 116750)
+OK s2 R6 alvo 0x1c6f4 = 0x1c8d0 (instrumento: 116944)
+OK s2 R6 alvo 0x1c6fc = 0x1c754 (instrumento: 116564)
+OK s2 R6 alvo 0x1c702 = 0x1c754 (instrumento: 116564)
+OK s2 R6 alvo 0x1c70e = 0x1c78c (instrumento: 116620)
+OK s2 R6 alvo 0x1c716 = 0x1c754 (instrumento: 116564)
+OK s2 R6 alvo 0x1c722 = 0x1c734 (instrumento: 116532)
+OK s2 R6 alvo 0x1c72e = 0x1c734 (instrumento: 116532)
+OK s2 medir: status das quatro dimensoes [('comprimento', 'medido'), ('operandos', 'medido'), ('fluxo', 'medido'), ('alcance', 'medido')] agregado=proibido pendencia=[]
+--- censo do Apêndice B (iscas; cada linha: veredito, consumidor, promovivel, alvo da ferramenta vs instrumento)
+  0x005c2 61 nn   veredito=instrucao-de-bloco         consumidor=sim promovivel=nao alvo=0x0005CA instrumento=0x5ca motivos=['proveniencia-nao-autoriza-vinculo:candidato']
+  0x011f0 61 nn   veredito=instrucao-de-bloco         consumidor=sim promovivel=nao alvo=0x0011F4 instrumento=0x11f4 motivos=['proveniencia-nao-autoriza-vinculo:candidato']
+  0x01482 61 nn   veredito=instrucao-de-bloco         consumidor=sim promovivel=nao alvo=0x00148A instrumento=- motivos=['proveniencia-nao-autoriza-vinculo:candidato']
+  0x015c6 61 nn   veredito=instrucao-de-bloco         consumidor=sim promovivel=nao alvo=0x0015DE instrumento=- motivos=['proveniencia-nao-autoriza-vinculo:candidato']
+  0x01dd8 61 nn   veredito=instrucao-de-bloco         consumidor=sim promovivel=nao alvo=0x001DE4 instrumento=0x1de4 motivos=['proveniencia-nao-autoriza-vinculo:candidato']
+  0x01dfa 61 nn   veredito=instrucao-de-bloco         consumidor=sim promovivel=nao alvo=0x001E26 instrumento=0x1e26 motivos=['proveniencia-nao-autoriza-vinculo:candidato']
+  0x31dcc 4E FC   veredito=miolo-de-instrucao         consumidor=nao promovivel=nao alvo=None instrumento=- motivos=['miolo-de-instrucao', 'miolo-de-instrucao:0x031DCA']
+  0x3ab02 2A 7C   veredito=instrucao-de-bloco         consumidor=nao promovivel=nao alvo=None instrumento=- motivos=['classe-condicional:movea']
+  0x4028a 4E F8   veredito=instrucao-de-bloco         consumidor=sim promovivel=nao alvo=0x009009 instrumento=- motivos=['interpretacao-pendente:abs-w-bit15', 'proveniencia-nao-autoriza-vinculo:candidato']
+  0x4f606 4E F8   veredito=instrucao-de-bloco         consumidor=sim promovivel=nao alvo=0x0009F0 instrumento=- motivos=['proveniencia-nao-autoriza-vinculo:candidato']
+  0x4f850 2A 7C   veredito=instrucao-de-bloco         consumidor=nao promovivel=nao alvo=None instrumento=- motivos=['classe-condicional:movea']
+  0x50210 4E F8   veredito=instrucao-de-bloco         consumidor=sim promovivel=nao alvo=0x001D74 instrumento=0x1d74 motivos=['proveniencia-nao-autoriza-vinculo:candidato']
+  0x66a40 4E FA   veredito=instrucao-de-bloco         consumidor=nao promovivel=nao alvo=None instrumento=- motivos=['alvo-nao-comprovado']
+  0x74eec 4E B8   veredito=instrucao-de-bloco         consumidor=sim promovivel=nao alvo=0x0003BA instrumento=0x3ba motivos=['proveniencia-nao-autoriza-vinculo:candidato']
+  0x77efa 4E B8   veredito=instrucao-de-bloco         consumidor=sim promovivel=nao alvo=0x0003BA instrumento=0x3ba motivos=['proveniencia-nao-autoriza-vinculo:candidato']
+  0x819da 4E B8   veredito=instrucao-de-bloco         consumidor=sim promovivel=nao alvo=0x0026D4 instrumento=- motivos=['proveniencia-nao-autoriza-vinculo:candidato']
+OK R7: censo com 16 enderecos; 16 nao promovidos (raiz candidato); violacoes=0
+     nota: sitios S1/S2 validados como consumidor estrutural existem na serie
+OK s1: evidencia redigida versionada sha256=110e5cda4f22be65e646ea7027d2ffb3fdf9751f2f06ae56518253709f657ad3 bytes_nao_ascii=0
+OK s2: evidencia redigida versionada sha256=bb6db8baaa9d644d918364588c3c5b90c7d81fd4d3517123ce32361824c0a06a bytes_nao_ascii=0
+OK   censo versionado: sha256=6c446c292824c7e5a7256046abca9e0e1a6ca3862503157df1660d8a3b8954ef
+FIM: divergencias criticas = 0
+```
+
+## artefatos
+
 | artefato | sha256 | onde esta |
 |---|---|---|
 | censo.005C2.json | 7614afa94de1c6773f9e2523ea7660a3a822ab0735551ec2d729f93feb8f2fe9 | /home/misael/rds-scratch/xe-c2-amostras/censo.005C2.json (FORA do indice) |
@@ -64,9 +137,10 @@ Pinos: CTX(0x00D84,28)=298c991c8fa94383425a51f4c0cdd3ce48e4d989f7ca01468eaa88d29
 | censo.819DA.objdump.txt | fe6b35eea374ca3509c6cc15eca1603122e7d54ff8ca04c06815bed6284dac68 | /home/misael/rds-scratch/xe-c2-amostras/censo.819DA.objdump.txt (FORA do indice) |
 | s1-objdump-bruto.txt | d69015735cdfdc91ea5e4cb2c9a3014951ac672397e557e33b66e043165ca4a2 | /home/misael/rds-scratch/xe-c2-amostras/s1-objdump-bruto.txt (FORA do indice) |
 | s2-objdump-bruto.txt | cf067bc2f1ecf9ae59ad5b4cf3adec788a69d6501a578aa3943508e253ffa6b4 | /home/misael/rds-scratch/xe-c2-amostras/s2-objdump-bruto.txt (FORA do indice) |
-| censo-iscas.redigido.json | 2a11fbdba1e8779df99cf72afb643155839ffea08288c26ef508ff8526154503 | /home/misael/RDS-REX-PARALLEL-C-2026-10-04/data/rex_profiles/parallel_recovery_20261004/c/evidence/censo-iscas.redigido.json (versionado) |
+| serie-bruta.txt | e3f749d107862dbba59a5baed8dbac3852c3c7ddddab927176a2d187f9a56369 | /home/misael/rds-scratch/xe-c2-amostras/serie-bruta.txt (FORA do indice) |
+| censo-iscas.redigido.json | 6c446c292824c7e5a7256046abca9e0e1a6ca3862503157df1660d8a3b8954ef | /home/misael/RDS-REX-PARALLEL-C-2026-10-04/data/rex_profiles/parallel_recovery_20261004/c/evidence/censo-iscas.redigido.json (versionado) |
 | r1.redigido.json | d97cde0adc9f0eec654aa02bec5ff885d23067206de16faf592117b220d963d4 | /home/misael/RDS-REX-PARALLEL-C-2026-10-04/data/rex_profiles/parallel_recovery_20261004/c/evidence/r1.redigido.json (versionado) |
 | r2.redigido.json | 524dd70740723b46566a5aabde775ea0ad7a165ca83599093bd4cb16d81cded3 | /home/misael/RDS-REX-PARALLEL-C-2026-10-04/data/rex_profiles/parallel_recovery_20261004/c/evidence/r2.redigido.json (versionado) |
 | r3.redigido.json | c47f0f10b34fd840772ed542164088e2a9beef91c2c445f60db952b28367cfea | /home/misael/RDS-REX-PARALLEL-C-2026-10-04/data/rex_profiles/parallel_recovery_20261004/c/evidence/r3.redigido.json (versionado) |
-| s1.redigido.json | 0b09bf70c53dfafa610af96225f50785682035d67df4dee85377b7fb59b666ee | /home/misael/RDS-REX-PARALLEL-C-2026-10-04/data/rex_profiles/parallel_recovery_20261004/c/evidence/s1.redigido.json (versionado) |
-| s2.redigido.json | 3dbf1de9a0a9c8fcd112773355921cdb47f2de5c042f4c1d061095a28bc2b4be | /home/misael/RDS-REX-PARALLEL-C-2026-10-04/data/rex_profiles/parallel_recovery_20261004/c/evidence/s2.redigido.json (versionado) |
+| s1.redigido.json | 110e5cda4f22be65e646ea7027d2ffb3fdf9751f2f06ae56518253709f657ad3 | /home/misael/RDS-REX-PARALLEL-C-2026-10-04/data/rex_profiles/parallel_recovery_20261004/c/evidence/s1.redigido.json (versionado) |
+| s2.redigido.json | bb6db8baaa9d644d918364588c3c5b90c7d81fd4d3517123ce32361824c0a06a | /home/misael/RDS-REX-PARALLEL-C-2026-10-04/data/rex_profiles/parallel_recovery_20261004/c/evidence/s2.redigido.json (versionado) |
