@@ -85,7 +85,7 @@ ROM comercial**). Layout e respostas em `data/.../d/frentes/a/`.
 
 | id | capacidade | sondas | expectativa congelada |
 |---|---|---|---|
-| KA1 | instrução: as 8 formas da gramática congelada `CONTRATO-A` §3 (lea .L/.W/PC, bsr.w, bsr.l, jsr abs .W/.L, jmp abs .W/.L) | 8 | site medido = forma+operando+alvo do gabarito; divergência é `falha` |
+| KA1 | instrução: as 9 formas da gramática congelada `CONTRATO-A` §3 (lea .L/.W/PC, bsr.w, bsr.l, jsr abs .W/.L, jmp abs .W/.L) | 9 | site medido = forma+operando+alvo do gabarito; divergência é `falha` |
 | KA1-b | limite de ISA sonda-9: `movea.l #imm32,An` — fora da gramática alegada | 1 | **não suportado com recusa limpa**: `construir-cadea` não produz cadeia nesse site; se produzir cadeia com forma afirmada ⇒ `falha` (defeito de ISA preservado na matriz) |
 | KA1-b | limite de ISA sonda-10: palavra de extensão indexada `d8(An,Dn.W)` — fora da gramática | 1 | idem: recusa sem alegação; decodificação errada de registrador/tamanho ⇒ `falha` |
 | KA2 | endereçamento: classificação de região do destino pela tabela local de janelas (`rom`, `io/vram-window`, `work-ram`, `desconhecida`) | 4 | etiqueta esperada por endereço; reclasificação ⇒ `falha`; destino fora do barramento ⇒ erro, nunca clamp |
@@ -94,10 +94,18 @@ ROM comercial**). Layout e respostas em `data/.../d/frentes/a/`.
 | KA4 | decode Kosinski: `saida_sha256`/`bytes_consumidos`/`saida_bytes` do decodificador do produto vs gabarito, 3 streams (típica, curta, truncada sem terminator) | 3 | 2 primeiras: igualdade exata; truncada: rc 10 `INCONCLUSIVE-TRUNCADA`, **nunca** rc 0 |
 | TA | controles de adulteração (ver §6) | 8 | rc exato por sonda; qualquer outro rc (inclusive 0) ⇒ `falha` |
 
-**Denominador A congelado: 28 linhas** (KA1=8, KA1-b=2, KA2=4, KA3=1+2, KA4=3, TA=8).
+**Denominador A congelado: 29 linhas** (KA1=9, KA1-b=2, KA2=4, KA3=1+2, KA4=3, TA=8).
 Medição no SHA atual `cbb6895`; se a frente publicar SHA corrigido, re-executam-se
 as mesmas sondas e publica-se linha nova na matriz por SHA — as linhas do SHA
 antigo (com seus `falha`, se houver) **não são reescritas**.
+
+> **Errata 2026-10-04 (pré-medição, sem resultado anexado):** a linha KA1
+> enumerava 8 sondas enquanto a gramática congelada `CONTRATO-A` §3 lista 9
+> formas (lea .L/.W/PC, bsr.w, bsr.l, jsr .W/.L, jmp .W/.L). A contagem foi
+> corrigida de 8→9 (denominador 28→29) **antes** de qualquer execução de sonda,
+> usando o próprio catálogo de formas da frente como fonte. Precedente: §4 B
+> passou de 15→14 pelo mesmo motivo, ainda antes do commit. Nenhum resultado
+> medido foi alterado; nenhuma sonda foi adicionada nem removida.
 
 ## 4. Frente B — capacidades, sondas e denominadores congelados
 
