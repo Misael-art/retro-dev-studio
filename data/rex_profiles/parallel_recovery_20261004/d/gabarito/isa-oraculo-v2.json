@@ -1,0 +1,510 @@
+{
+  "esquema": "rex-parallel-d/oraculo-isa/1",
+  "version": "isa-oraculo-v2",
+  "xerado_por": "medida/oraculo_isa.mjs",
+  "instrumento": {
+    "montador": "/home/misael/.cache/retrodevstudio/17f7bcf517f26552031e29fb2e06e0e20ef14025bf5e515705f318c603dfa911/source-build-m68k_gcc/source/install/bin/m68k-elf-as",
+    "desmontador": "/home/misael/.cache/retrodevstudio/17f7bcf517f26552031e29fb2e06e0e20ef14025bf5e515705f318c603dfa911/source-build-m68k_gcc/source/install/bin/m68k-elf-objdump",
+    "sha256": {
+      "m68k-elf-as": "618740559477258165eb1a344e07acd592afc1438061825469d5bd56fa2c87c7",
+      "m68k-elf-objdump": "e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f"
+    },
+    "version": "GNU assembler (GNU Binutils) 2.41",
+    "bandeira": [
+      "-m68000"
+    ]
+  },
+  "filas": [
+    {
+      "id": "jsr-abs-w-baixo",
+      "montaxe": "jsr (0x1234).w",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4eb81234",
+      "tam": 4,
+      "desmontaxe": "0:\t4eb8 1234      \tjsr 1234 <inicio+0x1234>",
+      "efectivo_dito_polo_desmontador": "0x1234"
+    },
+    {
+      "id": "jsr-abs-w-alto",
+      "montaxe": "jsr (0x8400).w",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4eb88400",
+      "tam": 4,
+      "desmontaxe": "0:\t4eb8 8400      \tjsr ffff8400 <inicio+0xffff8400>",
+      "efectivo_dito_polo_desmontador": "ffff8400"
+    },
+    {
+      "id": "jsr-abs-l",
+      "montaxe": "jsr (0x13000).l",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4eb900013000",
+      "tam": 6,
+      "desmontaxe": "0:\t4eb9 0001 3000 \tjsr 13000 <inicio+0x13000>",
+      "efectivo_dito_polo_desmontador": "0x13000"
+    },
+    {
+      "id": "jsr-pc-d16",
+      "montaxe": "jsr (0x100,%pc)",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4eba0100",
+      "tam": 4,
+      "desmontaxe": "0:\t4eba 0100      \tjsr %pc@(102 <inicio+0x102>)",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "jmp-abs-w-baixo",
+      "montaxe": "jmp (0x1234).w",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4ef81234",
+      "tam": 4,
+      "desmontaxe": "0:\t4ef8 1234      \tjmp 1234 <inicio+0x1234>",
+      "efectivo_dito_polo_desmontador": "0x1234"
+    },
+    {
+      "id": "jmp-abs-w-alto",
+      "montaxe": "jmp (0x8400).w",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4ef88400",
+      "tam": 4,
+      "desmontaxe": "0:\t4ef8 8400      \tjmp ffff8400 <inicio+0xffff8400>",
+      "efectivo_dito_polo_desmontador": "ffff8400"
+    },
+    {
+      "id": "jmp-abs-l",
+      "montaxe": "jmp (0x13000).l",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4ef900013000",
+      "tam": 6,
+      "desmontaxe": "0:\t4ef9 0001 3000 \tjmp 13000 <inicio+0x13000>",
+      "efectivo_dito_polo_desmontador": "0x13000"
+    },
+    {
+      "id": "jmp-pc-d16",
+      "montaxe": "jmp (0x100,%pc)",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4efa0100",
+      "tam": 4,
+      "desmontaxe": "0:\t4efa 0100      \tjmp %pc@(102 <inicio+0x102>)",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "jmp-reg-indirecto",
+      "montaxe": "jmp (%a0)",
+      "classe_instrumento": "valida-fora-da-táboa-A",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4ed0",
+      "tam": 2,
+      "desmontaxe": "0:\t4ed0           \tjmp %a0@",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "jsr-reg-indirecto",
+      "montaxe": "jsr (%a2)",
+      "classe_instrumento": "valida-fora-da-táboa-A",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4e92",
+      "tam": 2,
+      "desmontaxe": "0:\t4e92           \tjsr %a2@",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "lea-abs-w-baixo",
+      "montaxe": "lea (0x1234).w,%a1",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "43f81234",
+      "tam": 4,
+      "desmontaxe": "0:\t43f8 1234      \tlea 1234 <inicio+0x1234>,%a1",
+      "efectivo_dito_polo_desmontador": "0x1234"
+    },
+    {
+      "id": "lea-abs-w-alto",
+      "montaxe": "lea (0x8400).w,%a1",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "43f88400",
+      "tam": 4,
+      "desmontaxe": "0:\t43f8 8400      \tlea ffff8400 <inicio+0xffff8400>,%a1",
+      "efectivo_dito_polo_desmontador": "ffff8400"
+    },
+    {
+      "id": "lea-abs-w-fff0",
+      "montaxe": "lea (0xfff0).w,%a1",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "43f8fff0",
+      "tam": 4,
+      "desmontaxe": "0:\t43f8 fff0      \tlea fffffff0 <inicio+0xfffffff0>,%a1",
+      "efectivo_dito_polo_desmontador": "fffffff0"
+    },
+    {
+      "id": "abs-w-limite-7fff",
+      "montaxe": "lea (0x7fff).w,%a1",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "43f87fff",
+      "tam": 4,
+      "desmontaxe": "0:\t43f8 7fff      \tlea 7fff <inicio+0x7fff>,%a1",
+      "efectivo_dito_polo_desmontador": "0x7fff"
+    },
+    {
+      "id": "abs-w-limite-8000",
+      "montaxe": "lea (0x8000).w,%a1",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "43f88000",
+      "tam": 4,
+      "desmontaxe": "0:\t43f8 8000      \tlea ffff8000 <inicio+0xffff8000>,%a1",
+      "efectivo_dito_polo_desmontador": "ffff8000"
+    },
+    {
+      "id": "lea-abs-l",
+      "montaxe": "lea (0x13000).l,%a1",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "43f900013000",
+      "tam": 6,
+      "desmontaxe": "0:\t43f9 0001 3000 \tlea 13000 <inicio+0x13000>,%a1",
+      "efectivo_dito_polo_desmontador": "0x13000"
+    },
+    {
+      "id": "lea-pc-d16-pos",
+      "montaxe": "lea (0x100,%pc),%a1",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "43fa0100",
+      "tam": 4,
+      "desmontaxe": "0:\t43fa 0100      \tlea %pc@(102 <inicio+0x102>),%a1",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "lea-pc-d16-neg",
+      "montaxe": "lea (-0x100,%pc),%a1",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "43faff00",
+      "tam": 4,
+      "desmontaxe": "0:\t43fa ff00      \tlea %pc@(ffffff02 <inicio+0xffffff02>),%a1",
+      "efectivo_dito_polo_desmontador": "ffffff02"
+    },
+    {
+      "id": "lea-ind-idx-w",
+      "montaxe": "lea (0x10,%a1,%d2.w),%a0",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "41f12010",
+      "tam": 4,
+      "desmontaxe": "0:\t41f1 2010      \tlea %a1@(10,%d2:w),%a0",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "bsr-s",
+      "montaxe": "bsr.s alvo | \tnop | alvo:",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "61024e71",
+      "tam": 4,
+      "desmontaxe": "0:\t6102           \tbsrs 4 <alvo>\n2:\t4e71           \tnop",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "bsr-w",
+      "montaxe": "bsr.w alvo | \tnop | alvo:",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "610000044e71",
+      "tam": 6,
+      "desmontaxe": "0:\t6100 0004      \tbsrw 6 <alvo>\n4:\t4e71           \tnop",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "bsr-plain",
+      "montaxe": "bsr alvo | \tnop | alvo:",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "610000044e71",
+      "tam": 6,
+      "desmontaxe": "0:\t6100 0004      \tbsrw 6 <alvo>\n4:\t4e71           \tnop",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "bsr-l",
+      "montaxe": "bsr.l alvo | \tnop | alvo:",
+      "classe_instrumento": "recusada-68020",
+      "rc_montador": 1,
+      "erro_montador": "<saida>/bsr-l.s: Assembler messages:\n<saida>/bsr-l.s:4: Error: invalid instruction for this architecture; needs 68020 [68k, 68ec020], 68030 [68ec030], 68040 [68ec040], 68060 [68ec060], cpu32 [68330, 68331, 68332, 68333, 68334, 68336, 68340, 68341, 68349, 68360], 51 [51ac, 51ag, 51cn, 51em, 51je, 51jf, 51jg, 51jm, 51mm, 51qe, 51qm], 5407, 54418 [54410, 54415, 54416, 54417], 54455 [54450, 54451, 54452, 54453, 54454], 547x [5470, 5471, 5472, 5473, 5474, ... -- statement `bsr.l alvo' ignored"
+    },
+    {
+      "id": "movea-w-inm",
+      "montaxe": "movea.w #0x1234,%a1",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "327c1234",
+      "tam": 4,
+      "desmontaxe": "0:\t327c 1234      \tmoveaw #4660,%a1",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "movea-l-inm",
+      "montaxe": "movea.l #0x1234,%a1",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "227c00001234",
+      "tam": 6,
+      "desmontaxe": "0:\t227c 0000 1234 \tmoveal #4660,%a1",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "movea-w-dn",
+      "montaxe": "movea.w %d0,%a1",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "3240",
+      "tam": 2,
+      "desmontaxe": "0:\t3240           \tmoveaw %d0,%a1",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "movea-l-dn",
+      "montaxe": "movea.l %d0,%a1",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "2240",
+      "tam": 2,
+      "desmontaxe": "0:\t2240           \tmoveal %d0,%a1",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "movea-w-mem-w",
+      "montaxe": "movea.w (0x8400).w,%a1",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "32788400",
+      "tam": 4,
+      "desmontaxe": "0:\t3278 8400      \tmoveaw ffff8400 <inicio+0xffff8400>,%a1",
+      "efectivo_dito_polo_desmontador": "ffff8400"
+    },
+    {
+      "id": "movea-l-mem-w",
+      "montaxe": "movea.l (0x8400).w,%a1",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "22788400",
+      "tam": 4,
+      "desmontaxe": "0:\t2278 8400      \tmoveal ffff8400 <inicio+0xffff8400>,%a1",
+      "efectivo_dito_polo_desmontador": "ffff8400"
+    },
+    {
+      "id": "movea-w-an",
+      "montaxe": "movea.w %a0,%a1",
+      "classe_instrumento": "recusada-68000",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "3248",
+      "tam": 2,
+      "desmontaxe": "0:\t3248           \tmoveaw %a0,%a1",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "movea-l-an",
+      "montaxe": "movea.l %a0,%a1",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "2248",
+      "tam": 2,
+      "desmontaxe": "0:\t2248           \tmoveal %a0,%a1",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "bra-w",
+      "montaxe": "bra.w alvo | alvo:",
+      "classe_instrumento": "valida-fora-da-táboa-A",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "60000002",
+      "tam": 4,
+      "desmontaxe": "0:\t6000 0002      \tbraw 4 <alvo>",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "beq-w",
+      "montaxe": "beq.w alvo | alvo:",
+      "classe_instrumento": "valida-fora-da-táboa-A",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "67000002",
+      "tam": 4,
+      "desmontaxe": "0:\t6700 0002      \tbeqw 4 <alvo>",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "dbra-d0",
+      "montaxe": "dbra %d0,alvo | alvo:",
+      "classe_instrumento": "valida-fora-da-táboa-A",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "51c80002",
+      "tam": 4,
+      "desmontaxe": "0:\t51c8 0002      \tdbf %d0,4 <alvo>",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "movec-cacr",
+      "montaxe": "movec %cacr,%d0",
+      "classe_instrumento": "recusada-68020",
+      "rc_montador": 1,
+      "erro_montador": "<saida>/movec-cacr.s: Assembler messages:\n<saida>/movec-cacr.s:4: Error: invalid instruction for this architecture; needs 68010, 68020 [68k, 68ec020], 68030 [68ec030], 68040 [68ec040], 68060 [68ec060], cpu32 [68330, 68331, 68332, 68333, 68334, 68336, 68340, 68341, 68349, 68360], 51 [51ac, 51ag, 51cn, 51em, 51je, 51jf, 51jg, 51jm, 51mm, 51qe, 51qm], 5200 [5202, 5204, 5206], 5206e, 5208 [5207], 5210a [5211a], 5213 [5211, 5212], 5216 [5214, 521x], 5221x, 52223 ... -- statement `movec %cacr,%d0' ignored"
+    },
+    {
+      "id": "bchg-im-mem",
+      "montaxe": "bchg #3,(0x100).w",
+      "classe_instrumento": "valida",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "087800030100",
+      "tam": 6,
+      "desmontaxe": "0:\t0878 0003 0100 \tbchg #3,100 <inicio+0x100>",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "jmp2abs-l-texto",
+      "montaxe": "jmp2abs.l (0x1f00)",
+      "classe_instrumento": "recusada-68010-ou-maior",
+      "rc_montador": 1,
+      "erro_montador": "<saida>/jmp2abs-l-texto.s: Assembler messages:\n<saida>/jmp2abs-l-texto.s:4: Error: Unknown operator -- statement `jmp2abs.l (0x1f00)' ignored"
+    },
+    {
+      "id": "jmp2abs-texto",
+      "montaxe": "jmp2abs (0x1f00).l",
+      "classe_instrumento": "recusada-68020",
+      "rc_montador": 1,
+      "erro_montador": "<saida>/jmp2abs-texto.s: Assembler messages:\n<saida>/jmp2abs-texto.s:4: Error: Unknown operator -- statement `jmp2abs (0x1f00).l' ignored"
+    },
+    {
+      "id": "bruto-lea-8400-w",
+      "montaxe": ".word 43f88400",
+      "classe_instrumento": "bruto",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "43f88400",
+      "tam": 4,
+      "desmontaxe": "0:\t43f8 8400      \tlea ffff8400 <inicio+0xffff8400>,%a1",
+      "efectivo_dito_polo_desmontador": "ffff8400"
+    },
+    {
+      "id": "bruto-61ff-bsrl",
+      "montaxe": ".word 61ff00001dd4",
+      "classe_instrumento": "bruto",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "61ff00001dd4",
+      "tam": 6,
+      "desmontaxe": "0:\t61ff 0000 1dd4 \tbsrl 1dd6 <inicio+0x1dd6>",
+      "efectivo_dito_polo_desmontador": "0x1dd6"
+    },
+    {
+      "id": "bruto-4efa-d16pc",
+      "montaxe": ".word 4efa1f00",
+      "classe_instrumento": "bruto",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4efa1f00",
+      "tam": 4,
+      "desmontaxe": "0:\t4efa 1f00      \tjmp %pc@(1f02 <inicio+0x1f02>)",
+      "efectivo_dito_polo_desmontador": "0x1f02"
+    },
+    {
+      "id": "bruto-4efd",
+      "montaxe": ".word 4efd00001f00",
+      "classe_instrumento": "bruto",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4efd00001f00",
+      "tam": 6,
+      "desmontaxe": "0:\t4efd           \t.short 0x4efd\n2:\t0000 1f00      \torib #0,%d0",
+      "efectivo_dito_polo_desmontador": "0x4efd"
+    },
+    {
+      "id": "bruto-4efc",
+      "montaxe": ".word 4efc1f00",
+      "classe_instrumento": "bruto",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "4efc1f00",
+      "tam": 4,
+      "desmontaxe": "0:\t4efc           \t.short 0x4efc\n2:\t1f00           \tmoveb %d0,%sp@-",
+      "efectivo_dito_polo_desmontador": "0x4efc"
+    },
+    {
+      "id": "bruto-227c-moveal",
+      "montaxe": ".word 227c00001111",
+      "classe_instrumento": "bruto",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "227c00001111",
+      "tam": 6,
+      "desmontaxe": "0:\t227c 0000 1111 \tmoveal #4369,%a1",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "bruto-327c-moveaw",
+      "montaxe": ".word 327c1111",
+      "classe_instrumento": "bruto",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "327c1111",
+      "tam": 4,
+      "desmontaxe": "0:\t327c 1111      \tmoveaw #4369,%a1",
+      "efectivo_dito_polo_desmontador": null
+    },
+    {
+      "id": "bruto-1031-move-w-idx",
+      "montaxe": ".word 10312000",
+      "classe_instrumento": "bruto",
+      "rc_montador": 0,
+      "erro_montador": null,
+      "bytes_hex": "10312000",
+      "tam": 4,
+      "desmontaxe": "0:\t1031 2000      \tmoveb %a1@(0,%d2:w),%d0",
+      "efectivo_dito_polo_desmontador": null
+    }
+  ],
+  "filas_sha256": "f741ec3f0f708e6f7133a599d5682be42126343aad8f3f76618196bc1488ffd4"
+}
