@@ -1,0 +1,323 @@
+{
+ "analise": "s1 (amostra reservada ETAPA2, \u00a74)",
+ "arestas": [
+  {
+   "alvo": 114730,
+   "origem": 114728,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 114756,
+   "origem": 114728,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 114740,
+   "origem": 114736,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 115984,
+   "origem": 114736,
+   "status": "fora-da-regiao",
+   "tipo": "chamada"
+  },
+  {
+   "alvo": null,
+   "origem": 114756,
+   "status": "indireto-opaco",
+   "tipo": "retorno-fronteira"
+  }
+ ],
+ "base-da-ferramenta": "cb56657a142df40d2acd09a3e03e54247f066dea",
+ "chamadas": [
+  {
+   "alvo": 115984,
+   "clobbers": "nao-modelado",
+   "forma": "bsr",
+   "params": "nao-inferidos",
+   "sitio": 114736,
+   "status": "fora-da-regiao"
+  }
+ ],
+ "cobertura": {
+  "bytes-decodificados": 26,
+  "bytes-regiao": 128,
+  "fracao": "0.2031",
+  "vaos": [
+   {
+    "fim": 114756,
+    "inicio": 114748
+   },
+   {
+    "fim": 114852,
+    "inicio": 114758
+   }
+  ]
+ },
+ "comando": "rex-cfg analyze --bin <ROM> --region 0x1c024:0x1c0a4 --root 0x1c024 --root-prov referencia-estatica --root-evidence \"alvo de jsr (xxxx).L comprovado pelo instrumento no contexto pinado 0x00D84..0x00DA0\" --out <saida>/s1.analise.json",
+ "comando-de-medicoes": "rex-cfg medir --bin sha256=c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb --origin 0x000000 --region 0x01C024:0x01C0A4 --root 0x01C024 --root-prov referencia-estatica --max-insn 100000 --out <arquivo>",
+ "contexto-de-selecao": {
+  "janela": "0x00D84..0x00DA0",
+  "regra": "alvos dos dois jsr (xxxx).L que o instrumento comprova",
+  "sha256": "298c991c8fa94383425a51f4c0cdd3ce48e4d989f7ca01468eaa88d2955f626c"
+ },
+ "esquema": "rex-cfg/v1-evidencia-redigida",
+ "etapa": 2,
+ "fronteiras": [
+  {
+   "endereco": 114736,
+   "motivo": "chamada aponta para 0x1c510, fora da regiao: nada fora e decodificado",
+   "opcode": 24832,
+   "tipo": "limite-de-regiao"
+  },
+  {
+   "endereco": 114748,
+   "motivo": "MOVE com fonte PC-relativo ou reservada (fora do contrato \u00a73)",
+   "opcode": 12347,
+   "tipo": "opcode-fora-do-subconjunto"
+  }
+ ],
+ "instrucoes": [
+  {
+   "classe": "tst",
+   "endereco": 114724,
+   "tam": 4
+  },
+  {
+   "classe": "bne",
+   "endereco": 114728,
+   "tam": 2
+  },
+  {
+   "classe": "lea",
+   "endereco": 114730,
+   "tam": 6
+  },
+  {
+   "classe": "bsr",
+   "endereco": 114736,
+   "tam": 4
+  },
+  {
+   "classe": "moveq",
+   "endereco": 114740,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 114742,
+   "tam": 4
+  },
+  {
+   "classe": "add",
+   "endereco": 114746,
+   "tam": 2
+  },
+  {
+   "classe": "rts",
+   "endereco": 114756,
+   "tam": 2
+  }
+ ],
+ "limites": [
+  "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+  "sem propaga\u00e7\u00e3o de pilha/registrador: graus de parametro sao sempre nao-inferidos",
+  "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+  "dentro-de-fluxo nao implica alcancabilidade desde o boot nem execucao real",
+  "miolo-de-instrucao prova que o casamento linear ali nao e inicio de instrucao DESTE fluxo",
+  "subconjunto 68000 documentado: opcode fora da tabela interrompe o caminho"
+ ],
+ "medicoes": {
+  "agregado": "proibido",
+  "alcance-bytes-decodificados": 26,
+  "alcance-bytes-regiao": 128,
+  "alcance-fracao": "0.2031",
+  "alcance-fronteiras-por-tipo": [
+   "limite-de-regiao=1",
+   "opcode-fora-do-subconjunto=1"
+  ],
+  "alcance-status": "medido",
+  "alcance-unidade": "bytes",
+  "alcance-vaos": 2,
+  "base-sha": "cb56657a142df40d2acd09a3e03e54247f066dea",
+  "comando": "rex-cfg medir --bin sha256=c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb --origin 0x000000 --region 0x01C024:0x01C0A4 --root 0x01C024 --root-prov referencia-estatica --max-insn 100000 --out <arquivo>",
+  "comprimento-bytes-regiao": 128,
+  "comprimento-instrucoes-provadas": 8,
+  "comprimento-por-tamanho": [
+   "2=4",
+   "4=3",
+   "6=1"
+  ],
+  "comprimento-status": "medido",
+  "comprimento-unidade": "instrucoes-provadas",
+  "ferramenta": "rex-cfg",
+  "fluxo-arestas": 5,
+  "fluxo-blocos-alcancados": 4,
+  "fluxo-por-tipo-status": [
+   "chamada/fora-da-regiao=1",
+   "desvio/resolvido=1",
+   "queda/resolvido=2",
+   "retorno-fronteira/indireto-opaco=1"
+  ],
+  "fluxo-status": "medido",
+  "fluxo-unidade": "arestas",
+  "limites": [
+   "paridade com objdump nao equivale a observacao em runtime",
+   "nenhuma dimensao promove outra",
+   "sem execucao, sem DAC, sem VRAM"
+  ],
+  "objeto-sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "objeto-tamanho": 531577,
+  "operandos-instrucoes-com-extensao": 4,
+  "operandos-palavras-de-extensao": 5,
+  "operandos-status": "medido",
+  "operandos-unidade": "palavras-de-extensao",
+  "operandos-valores-motivo": "md2:nenhum-byte-literal-do-objeto-no-export",
+  "operandos-valores-status": "recusado",
+  "pendencia-motivos": [],
+  "raiz": "0x01C024",
+  "raiz-proveniencia": "referencia-estatica",
+  "regiao-fim": "0x01C0A4",
+  "regiao-inicio": "0x01C024",
+  "schema": "rex-cfg-med/v1",
+  "versao": "0.1.0"
+ },
+ "objeto": {
+  "caminho_declarado": "<ROM>",
+  "placeholder": "identidade por SHA (\u00a78 E3); o caminho local do operador nao e versionado",
+  "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "tamanho": 531577
+ },
+ "pino-do-corpo": {
+  "bytes": 128,
+  "como": "dd bs=1 skip=<decimal> count=128 | sha256sum",
+  "regiao": "0x1c024:0x1c0a4",
+  "sha256": "f1b9b9cdfc6f6e714b449becf87de883b0162954ef6fd8bd7f4fcf0afdd94c63"
+ },
+ "raizes": [
+  {
+   "endereco": 114724,
+   "evidencia": "alvo de jsr (xxxx).L comprovado pelo instrumento no contexto pinado 0x00D84..0x00DA0 (sha do contexto na expectativa)",
+   "grau": "referencia-estatica",
+   "proveniencia": "referencia-estatica"
+  }
+ ],
+ "regiao": {
+  "fim": 114852,
+  "inicio": 114724,
+  "proveniencia": "declarada pelo operador"
+ },
+ "saida_completa": {
+  "caminho_local": "FORA do indice (dir de saida do operador)",
+  "motivo_de_nao_versionado": "lista instrucoes com operandos = conteudo derivado de ROM comercial",
+  "sha256": "c66f8c7eeabed232e099f66e2bb3d1a7514f3d38fe5e16fc7feb16b0167e116f"
+ },
+ "sitios": [
+  {
+   "alvo": null,
+   "consumidor-validado": "nao",
+   "motivos": [
+    "classe-condicional:tst"
+   ],
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x01C024",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": "0x01C044",
+   "consumidor-validado": "nao",
+   "motivos": [
+    "classe-condicional:bne"
+   ],
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x01C028",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": null,
+   "consumidor-validado": "nao",
+   "motivos": [
+    "miolo-de-instrucao",
+    "miolo-de-instrucao:0x01C02A"
+   ],
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x01C02C",
+   "veredito": "miolo-de-instrucao"
+  },
+  {
+   "alvo": "0x01C510",
+   "consumidor-validado": "sim",
+   "motivos": [],
+   "promovivel-vinculo-estrutural": "sim",
+   "sitio": "0x01C030",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": null,
+   "consumidor-validado": "nao",
+   "motivos": [
+    "classe-condicional:moveq"
+   ],
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x01C034",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": null,
+   "consumidor-validado": "nao",
+   "motivos": [
+    "miolo-de-instrucao",
+    "miolo-de-instrucao:0x01C036"
+   ],
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x01C038",
+   "veredito": "miolo-de-instrucao"
+  },
+  {
+   "alvo": null,
+   "consumidor-validado": "nao",
+   "motivos": [
+    "ponto-de-fronteira"
+   ],
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x01C03C",
+   "veredito": "ponto-de-fronteira"
+  },
+  {
+   "alvo": null,
+   "consumidor-validado": "nao",
+   "motivos": [
+    "dentro-regiao-nao-alcancado"
+   ],
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x01C040",
+   "veredito": "dentro-regiao-nao-alcancado"
+  },
+  {
+   "alvo": null,
+   "consumidor-validado": "nao",
+   "motivos": [
+    "miolo-de-instrucao",
+    "sitio-impar",
+    "miolo-de-instrucao:0x01C028"
+   ],
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x01C029",
+   "veredito": "miolo-de-instrucao"
+  },
+  {
+   "alvo": null,
+   "consumidor-validado": "nao",
+   "motivos": [
+    "fora-da-regiao"
+   ],
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x01C0A6",
+   "veredito": "fora-da-regiao"
+  }
+ ]
+}
