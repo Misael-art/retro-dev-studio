@@ -8,7 +8,7 @@
 //! cadea son a espera, non a entrada.
 
 use crate::chain::Cadea;
-use crate::instr::{decodificar, sitio_aliñado, Forma};
+use crate::instr::{decodificar, sitio_aliñado, Forma, BARRAMENTO};
 use rex_addressing::md_linear::{self};
 use rex_addressing::MapperState;
 use rex_kosinski::{decode, KosError};
@@ -432,11 +432,18 @@ pub fn revalidar(imaxe: &[u8], cadea: &Cadea, ventanxa: u32) -> Resultado {
                     };
                 }
                 elos.push(Elo::pass("sitio-destino", crate::chain::hex_maíus(&reais)));
-                let reclas = clasificar_rexion(op, rom_size);
+                // Modelo de tres niveis (RECTIFICACION §2): a clasificación
+                // de rexión é propiedade do BUS de 24 bits (`efectivo &
+                // 0xFF_FFFF`), non do efectivo de 32 bits que reporta o
+                // decoder (extensión de sinal ou rollover da PC).
+                let bus = op & BARRAMENTO;
+                let reclas = clasificar_rexion(bus, rom_size);
                 if reclas != drex.as_str() {
                     elos.push(Elo::fail(
                         "rexion-destino",
-                        format!("clasificada={reclas} cadea={drex}"),
+                        format!(
+                            "clasificada={reclas} bus={bus:#08X} efectivo={op:#08X} cadea={drex}"
+                        ),
                     ));
                     return Resultado {
                         elos,
@@ -518,12 +525,14 @@ pub fn revalidar(imaxe: &[u8], cadea: &Cadea, ventanxa: u32) -> Resultado {
                     };
                 }
                 let calc = match &f {
-                    Forma::BsrW { alvo }
-                    | Forma::BsrL { alvo }
+                    Forma::BsrS { alvo }
+                    | Forma::BsrW { alvo }
                     | Forma::JsrAbsL { alvo }
                     | Forma::JsrAbsW { alvo }
+                    | Forma::JsrPcD16 { alvo }
                     | Forma::JmpAbsL { alvo }
-                    | Forma::JmpAbsW { alvo } => *alvo,
+                    | Forma::JmpAbsW { alvo }
+                    | Forma::JmpPcD16 { alvo } => *alvo,
                     outra => {
                         elos.push(Elo::fail(
                             "forma-chamada",
@@ -535,12 +544,24 @@ pub fn revalidar(imaxe: &[u8], cadea: &Cadea, ventanxa: u32) -> Resultado {
                         };
                     }
                 };
-                if calc != alvo_desde_bytes(&reais, csitio).unwrap_or(calc) {
+                let dob = alvo_desde_bytes(&reais, csitio);
+                if dob != Some(calc) {
                     // dobre control: o alvo volve calcularse desde os bytes
-                    // brutos coa aritmética do contrato, non só co decodificador.
+                    // brutos coa aritmética do contrato (RECTIFICACION §3),
+                    // non só co decodificador. `None` aquí é fallo, non
+                    // indiferenza: unha forma de chamada aceptada debe ter
+                    // reprodución independente.
                     elos.push(Elo::fail(
                         "aritmetica-chamada",
-                        format!("dobre-calculo diverxe: {calc:#08X}"),
+                        match dob {
+                            Some(d) => {
+                                format!("dobre-calculo diverxe: decodificador={calc:#08X} bytes={d:#08X}")
+                            }
+                            None => format!(
+                                "dobre-calculo sen reproducion para {cforma} bytes={}",
+                                crate::chain::hex_maíus(&reais)
+                            ),
+                        },
                     ));
                     return Resultado {
                         elos,
@@ -730,41 +751,48 @@ pub fn revalidar(imaxe: &[u8], cadea: &Cadea, ventanxa: u32) -> Resultado {
     }
 }
 
-/// Dobre control da aritmética: reproduce o cálculo do alvo desde os bytes
-/// sen pasar polo `decodificar` (o elo non pode ser circular consigo mesmo).
+/// Dobre control da aritmética: reproduce o **efectivo de 32 bits** desde os
+/// bytes sen pasar polo `decodificar` (o elo non pode ser circular consigo
+/// mesmo). Táboa RECTIFICACION-A §3 (v1.1): bsr.s `61 dd` (d8, base sitio+2),
+/// bsr.w `61 00 dd dd`, jsr/jmp `.L` (`4E B9`/`4E F9`), jsr/jmp `.W`
+/// (`4E B8`/`4E F8`, **con signo**), jsr/jmp `(d16,PC)` (`4E BA`/`4E FA`).
+/// `61 FF`, `4E FC/FD`, indirectos e o resto non teñen reprodución: `None`.
+/// Non se rexeita por rango: a truncación a bus é da capa de rexións.
 fn alvo_desde_bytes(bytes: &[u8], sitio: u32) -> Option<u32> {
-    let (b0, b1) = (bytes.first()?, bytes.get(1)?);
-    let alvo = match (*b0, *b1) {
-        (0x61, 0xFF) => {
-            if bytes.len() < 6 {
-                return None;
-            }
-            let d = i32::from_be_bytes([bytes[2], bytes[3], bytes[4], bytes[5]]) as i64;
-            i64::from(sitio) + 4 + d
+    let (b0, b1) = (*bytes.first()?, *bytes.get(1)?);
+    let word = |i: usize| -> Option<i64> {
+        bytes
+            .get(i..i + 2)
+            .map(|v| i16::from_be_bytes([v[0], v[1]]) as i64)
+    };
+    let relativo = |disp: i64| -> u32 { (i64::from(sitio) + 2 + disp) as u32 };
+    let alvo = match (b0, b1) {
+        (0x61, 0xFF) => return None, // 68020-non-declarado: sen reprodución
+        (0x61, 0x00) => {
+            // bsr.w: d16 con signo, base = palabra de extensión (sitio+2).
+            let disp = word(2)?;
+            relativo(disp)
         }
-        (0x61, _) => {
-            if bytes.len() < 4 {
-                return None;
-            }
-            let d = i16::from_be_bytes([bytes[2], bytes[3]]) as i64;
-            i64::from(sitio) + 2 + d
+        (0x61, dd) => {
+            // bsr.s: d8 con signo; só 2 bytes (lonxitude v1.1).
+            relativo(i64::from(dd as i8))
         }
-        (0x4E, 0xB9) | (0x4E, 0xFD) => {
-            if bytes.len() < 6 {
-                return None;
-            }
-            u32::from_be_bytes([bytes[2], bytes[3], bytes[4], bytes[5]]) as i64
+        (0x4E, 0xB9) | (0x4E, 0xF9) => {
+            // jsr.l / jmp.l: longword crúa = efectivo.
+            let v: [u8; 4] = bytes.get(2..6).and_then(|s| s.try_into().ok())?;
+            u32::from_be_bytes(v)
         }
-        (0x4E, 0xFA) | (0x4E, 0xFC) => {
-            if bytes.len() < 4 {
-                return None;
-            }
-            u16::from_be_bytes([bytes[2], bytes[3]]) as i64
+        (0x4E, 0xB8) | (0x4E, 0xF8) => {
+            // jsr.w / jmp.w: palabra CON extensión de sinal (medido:
+            // `4eb8 9400 -> jsr ffff9400`).
+            word(2)? as u32
+        }
+        (0x4E, 0xBA) | (0x4E, 0xFA) => {
+            // jsr/jmp (d16,PC): relativo, base sitio+2.
+            let disp = word(2)?;
+            relativo(disp)
         }
         _ => return None,
     };
-    if !(0..=0xFF_FFFF).contains(&alvo) {
-        return None;
-    }
-    Some(alvo as u32)
+    Some(alvo)
 }

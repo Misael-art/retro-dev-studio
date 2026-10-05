@@ -174,6 +174,31 @@ axusta aquí.
    sen alcance desde o boot. Un root declarado polo usuario segue sendo root
    local.
 
+### 5.1 Anotacións datadas tras a execución da corrección (2026-10-04)
+
+O texto conxelado de §5 NON se reescribe; rexistranse aquí os desvíos reais
+producidos ao executar os pasos 3–4, coa serie bruta conservada en
+`docs/…/transcritos/rectif-tests-head-cbb6895.txt`:
+
+1. **§5.4 "cada un debe fallar en HEAD"**: materializouse como **17/18**
+   fallan en `cbb6895`; `r14` é anchor verde **deseñado** (a cadea real
+   Sonic `61 00 …` NON debe migrar). Xa anotado no commit `b837986`.
+2. **Desvío de transcrición en `r7`**: o test conxelado afirmaba
+   `alvo = 0x2000+2+4 = 0x2006 = 8202`; 0x2006 en decimal é **8198**
+   (8202 = 0x200A). Corrixido o literal decimal do test con anotación in
+   situ. A expectativa normativa (fórmula `sitio+2+d16`, bytes `4E BA`
+   medidos por `m68k-elf-objdump`) NON se toca: o propio test xa
+   contradicía o seu hexadecimal escrito, e o instrumento é a referencia.
+   O decoder corrigido produce 0x2006; non se moveu ningunha expectativa
+   cara ao resultado.
+3. **Dobre control endurecido** (`verify.rs::alvo_desde_bytes`): a versión
+   v1 silenciaba cun `unwrap_or(calc)` cando a reprodución independente non
+   existía, e rexeitaba alvos > 0xFFFFFF (contradictorio co nivel efectivo
+   de §2). v1.1: `None` ou diverxencia = **FAIL** con detalle; a
+   reprodución cubre as 8 formas de chamada da táboa §3 co mesmo efectivo
+   de 32 bits (sen clamp). Isto é coherencia con §2, non un cambio de
+   limiar.
+
 ## 6. Corpus de fixtures autorais (versionado, reproducíbel)
 
 `scripts/rex_profiles/parallel_recovery_20261004/a/fixtures/`:

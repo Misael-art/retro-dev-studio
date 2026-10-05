@@ -41,7 +41,7 @@ fn r1b_bsr_s_negativo_e_autodiscriminante() {
     let f = decodificar(&[0x61, 0xF8], 0x0006).expect("bsr.s backward");
     assert_eq!(f.lonxitude(), 2);
     assert!(format!("{f:?}").contains("alvo: 0"), "{f:?}");
-    // `61 05` en 0x1370 (cstool medido): alvo 0x1377 = 5997.
+    // `61 05` en 0x1370 (cstool medido): alvo 0x1377 = 4983.
     assert_eq!(nome(&[0x61, 0x05], 0x1370), "bsr.s");
 }
 
@@ -70,8 +70,9 @@ fn r3_jsr_w_e_4eb8_con_signo() {
     assert_eq!(f.lonxitude(), 4);
     assert!(format!("{f:?}").contains("alvo: 4294939648"), "{f:?}");
     // `4eb8 1234` (bit15 apagado): alvo 0x1234 = 4660.
-    assert!(format!("{:?}", decodificar(&[0x4E, 0xB8, 0x12, 0x34], 0).unwrap())
-        .contains("alvo: 4660"));
+    assert!(
+        format!("{:?}", decodificar(&[0x4E, 0xB8, 0x12, 0x34], 0).unwrap()).contains("alvo: 4660")
+    );
 }
 
 #[test]
@@ -81,8 +82,10 @@ fn r5_jmp_w_e_4ef8() {
     assert_eq!(f.nome(), "jmp.w");
     assert_eq!(f.lonxitude(), 4);
     // bit15 ligado -> signo tamén (medido: `4ef8 9400 -> jmp ffff9400`).
-    assert!(format!("{:?}", decodificar(&[0x4E, 0xF8, 0x94, 0x00], 0).unwrap())
-        .contains("alvo: 4294939648"));
+    assert!(
+        format!("{:?}", decodificar(&[0x4E, 0xF8, 0x94, 0x00], 0).unwrap())
+            .contains("alvo: 4294939648")
+    );
 }
 
 #[test]
@@ -97,12 +100,15 @@ fn r6_jmp_l_e_4ef9() {
 
 #[test]
 fn r7_jsr_pcd16_e_4eba() {
-    // Instrumento: `4eba 0004` en 0x0A -> `jsr %pc@(10)`; cstool en 0x2000:
-    // alvo = 0x2000+2+4 = 0x2006 = 8202.
+    // Instrumento: `4eba 0004` en 0x0A -> `jsr %pc@(10)`; fórmula da táboa
+    // §3: alvo = 0x2000+2+4 = 0x2006. ANOTACIÓN 2026-10-04 (corrección): a
+    // serie bruta do roxo dicía "alvo: 8202" — erro meu de transcrición
+    // decimal (8202 = 0x200A); 0x2006 = 8198. A fórmula e o byte do
+    // instrumento NON mudan; só o número escrito a man neste test.
     let f = decodificar(&[0x4E, 0xBA, 0x00, 0x04], 0x2000).expect("jsr.pcd16 4eba");
     assert_eq!(f.nome(), "jsr.pcd16");
     assert_eq!(f.lonxitude(), 4);
-    assert!(format!("{f:?}").contains("alvo: 8202"), "{f:?}");
+    assert!(format!("{f:?}").contains("alvo: 8198"), "{f:?}");
 }
 
 #[test]
@@ -249,7 +255,10 @@ fn r16_andar_fx_a02_calls() {
     // @0x06 jsr.w 0x9400: efectivo 0xFFFF9400; @0x14 jmp.w idem.
     for s in [0x06usize, 0x14] {
         let serie = format!("{:?}", decodificar(&bin[s..], s as u32).unwrap());
-        assert!(serie.contains("alvo: 4294939648"), "fxA02 @{s:#04X}: {serie}");
+        assert!(
+            serie.contains("alvo: 4294939648"),
+            "fxA02 @{s:#04X}: {serie}"
+        );
     }
     // @0x1C `4ed0` e @0x1E `4e92`: indirectos — recusa estable.
     for s in [0x1Cusize, 0x1E] {

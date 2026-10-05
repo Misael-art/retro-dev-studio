@@ -11,7 +11,7 @@
 
 use rex_addressing::md_linear;
 use rex_chain::chain::{analizar_enderezo, hex_maíus, Cadea};
-use rex_chain::instr::{decodificar, sitio_aliñado, Forma};
+use rex_chain::instr::{decodificar, sitio_aliñado, Forma, BARRAMENTO};
 use rex_chain::verify::{
     clasificar_rexion, codigo, estado_desde_corda, ler_imaxe, offset_rom, revalidar,
     VENTANXA_DEFECTO,
@@ -371,7 +371,8 @@ fn medir_cadea(
                 codigo::ARGUMENTO_DIVERXENTE,
                 "destino-sitio non contén unha carga lea".to_string(),
             ))?;
-            let rexion = clasificar_rexion(dop, rom_size);
+            let dop_bus = dop & BARRAMENTO;
+            let rexion = clasificar_rexion(dop_bus, rom_size);
             Some((
                 dsitio,
                 v[..df.lonxitude()].to_vec(),
@@ -383,15 +384,20 @@ fn medir_cadea(
         None => None,
     };
 
-    // 4. fluxo e rutina.
-    let off_fluxo = offset_rom(operando, st)
+    // 4. fluxo e rutina. Modelo de tres niveis (RECTIFICACION §2): o
+    //    efectivo de 32 bits queda nos campos `*_operando`/`chamada_alvo`;
+    //    o mapper e o hash da rutina workan co **bus** (`efectivo &
+    //    0xFF_FFFF`), que é o que o 68000 presenta físicamente.
+    let operando_bus = operando & BARRAMENTO;
+    let off_fluxo = offset_rom(operando_bus, st)
         .map_err(|e| (codigo::MAPPER_DIVERXENCIA, format!("fluxo: {e}")))?;
     let rutina = match &parella {
         Some((_, _, _, alvo)) => {
-            let off_rot = offset_rom(*alvo, st).map_err(|e| {
+            let alvo_bus = *alvo & BARRAMENTO;
+            let off_rot = offset_rom(alvo_bus, st).map_err(|e| {
                 (
                     codigo::ROTINA_DIVERXENCIA,
-                    format!("alvo {alvo:#08X} sen backing ROM: {e}"),
+                    format!("alvo {alvo:#08X} (bus {alvo_bus:#08X}) sen backing ROM: {e}"),
                 )
             })?;
             let rbytes = imaxe
@@ -402,7 +408,7 @@ fn medir_cadea(
                         "rutina fóra da imaxe".to_string(),
                     )
                 })?;
-            Some((*alvo, rutina_lon, rex_kosinski::edit::sha256_hex(rbytes)))
+            Some((alvo_bus, rutina_lon, rex_kosinski::edit::sha256_hex(rbytes)))
         }
         None => None,
     };
@@ -452,6 +458,29 @@ fn medir_cadea(
     if varrida {
         orixe.push("varredura-gramatica-conxelada".to_string());
     }
+    // Efectivo ≠ bus (extensión de sinal ou rollover da PC): rexistrar como
+    // limitación, nunca clampa en silencio (RECTIFICACION §2).
+    if operando_bus != operando {
+        limitacions.push(format!(
+            "efectivo≠bus(carga): efectivo={operando:#08X} → bus={operando_bus:#08X}: o fluxo pinase polo bus de 24 bits"
+        ));
+    }
+    if let Some((_, _, _, dop, _)) = &destino {
+        if *dop & BARRAMENTO != *dop {
+            limitacions.push(format!(
+                "efectivo≠bus(destino): efectivo={dop:#08X} → bus={:#08X}: a rexión clasifícase polo bus",
+                *dop & BARRAMENTO
+            ));
+        }
+    }
+    if let Some((_, _, _, alvo)) = &parella {
+        if *alvo & BARRAMENTO != *alvo {
+            limitacions.push(format!(
+                "efectivo≠bus(chamada): efectivo={alvo:#08X} → bus={:#08X}: a rutina pinase no bus",
+                *alvo & BARRAMENTO
+            ));
+        }
+    }
 
     Ok(Partes {
         imaxe_sha256: imaxe_sha256.to_string(),
@@ -463,7 +492,7 @@ fn medir_cadea(
         destino,
         chamada: parella,
         rutina,
-        fluxo_cpu: operando,
+        fluxo_cpu: operando_bus,
         fluxo_offset: off_fluxo as u64,
         tramo_entrada: (imaxe.len() - off_fluxo) as u64,
         bytes_consumidos: u64::try_from(dec.bytes_consumed).unwrap_or(u64::MAX),
@@ -496,12 +525,14 @@ fn operando_carga(f: &Forma) -> Option<u32> {
 
 fn chamada_de(f: &Forma) -> Option<u32> {
     match f {
-        Forma::BsrW { alvo }
-        | Forma::BsrL { alvo }
+        Forma::BsrS { alvo }
+        | Forma::BsrW { alvo }
         | Forma::JsrAbsL { alvo }
         | Forma::JsrAbsW { alvo }
+        | Forma::JsrPcD16 { alvo }
         | Forma::JmpAbsL { alvo }
-        | Forma::JmpAbsW { alvo } => Some(*alvo),
+        | Forma::JmpAbsW { alvo }
+        | Forma::JmpPcD16 { alvo } => Some(*alvo),
         _ => None,
     }
 }
@@ -522,7 +553,10 @@ fn buscar_chamada(
             let vent = &imaxe[off..off + lon];
             if let Ok(f) = decodificar(vent, off as u32) {
                 if let Some(alvo) = chamada_de(&f) {
-                    if offset_rom(alvo, st).is_ok() {
+                    // backing ROM exigido no BUS do efectivo (tres niveis):
+                    // un alvo que só existe como efectivo de 32 bits non é
+                    // rutina alcanzable polo 68000.
+                    if offset_rom(alvo & BARRAMENTO, st).is_ok() {
                         return Some((off as u32, vent[..f.lonxitude()].to_vec(), f.nome(), alvo));
                     }
                 }
@@ -581,7 +615,7 @@ fn detectar_verb(f: &Flags) -> Result<i32, (i32, String)> {
             let sitio = off as u32;
             if let Ok(forma) = decodificar(&imaxe[off..off + 6], sitio) {
                 if let Some(op) = operando_carga(&forma) {
-                    if offset_rom(op, &st).is_ok() {
+                    if offset_rom(op & BARRAMENTO, &st).is_ok() {
                         cargas += 1;
                         match medir_cadea(
                             &imaxe,

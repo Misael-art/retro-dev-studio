@@ -356,17 +356,22 @@ impl Cadea {
                 if !hai_chamada || !hai_rutina {
                     return Err("vinculo-estrutural sen chamada e rutina medidas".into());
                 }
-                if self.carga_operando != self.fluxo_cpu {
+                // RECTIFICACION-A §2 (tres niveis): `carga_operando` é o
+                // **efectivo** de 32 bits reportado polo decoder; `fluxo_cpu`
+                // é o **bus** de 24 bits que traduce o mapper. A
+                // vinculación compróbase no bus, non no efectivo.
+                if self.carga_operando & crate::instr::BARRAMENTO != self.fluxo_cpu {
                     return Err(
-                        "vinculo-estrutural: o operando da carga non e o fluxo da cadea".into(),
+                        "vinculo-estrutural: o bus do operando da carga non e o fluxo da cadea"
+                            .into(),
                     );
                 }
             }
             _ => {}
         }
-        if !hai_chamada && self.carga_operando != self.fluxo_cpu {
+        if !hai_chamada && self.carga_operando & crate::instr::BARRAMENTO != self.fluxo_cpu {
             return Err(
-                "o operando da carga debe coincidir co fluxo (ou declarar outro elo)".into(),
+                "o bus do operando da carga debe coincidir co fluxo (ou declarar outro elo)".into(),
             );
         }
         let destino_completo = self.destino_sitio.is_some()
