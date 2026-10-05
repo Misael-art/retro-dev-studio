@@ -561,8 +561,18 @@ fn decode_grupo0(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier>
                 .ok_or_else(|| out(op, "op1 imediato com tamanho %11"))?;
             let mode = bits(op, 3, 3);
             let reg = (op & 7) as u8;
-            if mode == 7 && SRC7_BAD.contains(&reg) {
-                return Err(out(op, "op1 imediato com modo 7 reservado"));
+            // Destino modo 7: %000 abs.W, %001 abs.L e %010 d16(PC) ficam como
+            // estavam. %011/%100 sao CCR/SR (medido `0a3c 0003` = `eorib #3,%ccr`
+            // e `007c 0007` = `oriw #7,%sr`, ambos de 4 bytes) e %101..%111
+            // reservados/68020 — nenhum esta na lista fechada de §3, e ler o %100
+            // como imediato consumia uma word a mais (comprimento 6 inventado, que
+            // engolia a instrucao seguinte). Mesma regra de destino ja aplicada em
+            // MOVE (`dmode == 7 && dreg >= 2`) e nos grupos unario/Scc/ADDQ.
+            if mode == 7 && reg >= 3 {
+                return Err(out(
+                    op,
+                    "op1 imediato com destino CCR/SR, PC ou reservado fora da lista §3",
+                ));
             }
             let imm = read_imm(cur, size)?;
             let ea = read_ea(cur, mode, reg, size)?;
