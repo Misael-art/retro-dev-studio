@@ -99,6 +99,19 @@ Chamada:
 Estas fixtures prúbanse contra a *aritmética*, non contra ROM ningunha; montan
 se byte a byte desde a táboa (non xeradas polo propio codificador).
 
+> **Anotación datada 2026-10-04 (rectificación v1.1 — NON reescribe o conxelado).**
+> O instrumento pinado (`m68k-elf-as`/`m68k-elf-objdump` binutils 2.41, cruzado
+> con `wla-68000` e `cstool` capstone 5.0.9) refuta catro liñas desta sección:
+> (a) `lea (xxx).W` **si** leva extensión de sinal (FA-7 pasa a efectivo
+> `$FFFF9400`); (b) `4E FA` é `jmp (d16,PC)` e `jsr .W` é `4E B8` (FA-5
+> refutada); (c) `jmp .L`/`jmp .W` son `4E F9`/`4E F8` (os `4E FD`/`4E FC`
+> conxelados son indefinidos — objdump imprímeos como `.short`); (d) FA-4
+> (`61 FF`) é familia 68020 e sai da gramática para a lista de recusa; mesmo
+> a lectura 68020 do instrumento usa base `sitio+2`, non `sitio+4`. A táboa
+> normativa nova está en `RECTIFICACION-A.md` §3; as formas medidas `61 dd`
+> de BSR.S son **2 bytes** ("bsr.w: `61 dd disp16`" era ambiguo e o decoder
+> herdou a ambigüidade). FA-1/FA-2/FA-3/FA-6/FA-8 permanecen válidas.
+
 ## 4. Revisión da clasificación das rexións de destino (conxelada)
 
 O detector clasificará o **operando de destino medido** na cadea, con etiquetas
@@ -120,6 +133,13 @@ Casos históricos a reclasificar medindo bytes (non copiando FASE6): destinos
 `$A00000` (0x01364), `$FF0000` (0x03082), `$9400…forma curta` (0x051BC),
 `$FF7000`/`$FF8000` (SoR). Se os bytes reais diverxen da táboa FASE6, rexistro
 a diverxencia e non aplico a táboa.
+
+> **Anotación datada 2026-10-04.** Tras a rectificación (`RECTIFICACION-A.md`
+> §2), un destino `lea (xxx).W` co bit15 ligado deja de ser efectivo
+> `0x0000xxxx` e pasa a `0xFFFFxxxx`; para `$9400…forma curta` iso significa
+> bus `0xFF9400` → rexión `ram-68k-mirror`, **sen desprazamento de ficheiro**
+> (o offset só existe cando `bus < rom_size` baixo `md-linear`). Ningunha das
+> 9 cadeas reais cambia de bytes: as súas cargas son `.L`.
 
 ## 5. Comparación co produto e coa referencia externa (conxelada)
 

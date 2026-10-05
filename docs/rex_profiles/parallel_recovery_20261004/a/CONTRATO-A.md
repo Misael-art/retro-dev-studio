@@ -71,6 +71,21 @@ Subconxunto modelado, aritmética **relativa á palabra de extensión**:
 - fixtures `FA-1..FA-8` calculados **a man antes de implementar** en EXPECTATIONS-A §3 e probados en `tests/instr.rs` — a aritmética relativa curta (`bsr.w` base `sitio+2`) é a corrección de FASE6 que o escáner antigo non modelaba.
 - **Emparellamento heurístico:** «chamada na ventá tras a carga» é a forma dun consumidor, non proba de fluxo de control. Toda cadea con chamada emitida por medición leva a limitación `emparellamento-ventana-heuristico`.
 
+> **Rectificación datada 2026-10-04 (v1.1).** A táboa superior é historia
+> conxelada; a gramática **normativa** é `RECTIFICACION-A.md` §3 (perfil
+> `md68000-chain16`), medida co instrumento pinado: `jsr abs.w` = `4E B8`
+> (non `4E FA`), `jmp abs.l` = `4E F9` (non `4E FD`), `jmp abs.w` = `4E F8`
+> (non `4E FC`), `4E FA` = `jmp (d16,PC)`; engádense `jsr (d16,PC)` = `4E BA`
+> e `jmp (d16,PC)` = `4E FA`; `lea/jsr/jmp .W` levan **extensión de sinal**
+> (non cero); `61 dd` (`dd∉{00,FF}`) é BSR.S de **2 bytes**; a forma de
+> palabra é `61 00 dd dd` (extensión chain16 declarada); `61 FF` pasa á
+> **lista de recusa** (`68020-non-declarado`), polo que a fila `bsr.l` deixa
+> de ser forma aceptada. O modelo de enderezamento en tres niveis
+> (efectivo 32b → bus 24b → desprazamento de ficheiro, con offset só cando
+> `bus < rom_size` baixo `md-linear`) é obrigatorio desde v1.1. Os nomes de
+> forma do campo `chamada_forma` pasan a `bsr.s`/`bsr.w`/`jsr.l`/`jsr.w`/
+> `jsr.pcd16`/`jmp.l`/`jmp.w`/`jmp.pcd16`; `bsr.l` emítese só como recusa.
+
 ## 4. Rexións do destino (táboa local documentada)
 
 `rom` (`< rom_size` e `< 0x800000`), `io/vram-window` (`0xA00000..=0xA1FFFF`), `cram-window` (`0xC00000..=0xC0003F`), `work-ram` (`0xE00000..=0xE0FFFF`), `ram-68k-mirror` (`0xFF0000..=0xFFFFFF`), `descoecida` (todo o demais). Son etiquetas de **ventaná de enderezos do mapa md-linear**; `crates/rex-addressing` non expón clases VRAM/CRAM e ningunha delas afirma conteúdo nin escritura. Un destino `0xA00000` clasificado `io/vram-window` **non** di que sexa tile data.

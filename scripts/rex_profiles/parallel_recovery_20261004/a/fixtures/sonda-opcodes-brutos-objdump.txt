@@ -1,0 +1,50 @@
+== p_bsr_ff_long.o
+   0:	61ff 0000 1234 	bsrl 1236 <p0+0x1236>
+   6:	4e71           	nop
+== p_bsr_s_byte.o
+   0:	614a           	bsrs 4c <p0+0x4c>
+   2:	4e71           	nop
+   4:	4e71           	nop
+== p_bsr_w_neg.o
+   0:	6100 fffa      	bsrw fffffffc <p0+0xfffffffc>
+   4:	4e71           	nop
+== p_dbcc_w_neg.o
+   0:	51c3           	sf %d3
+   2:	fffa           	.short 0xfffa
+   4:	4e71           	nop
+== p_dbra_word.o
+   0:	51cb f800      	dbf %d3,fffff802 <p0+0xfffff802>
+   4:	4e71           	nop
+== p_ff_4efa.o
+   0:	4efa 1234      	jmp %pc@(1236 <p0+0x1236>)
+   4:	4e71           	nop
+== p_ff_4efc.o
+   0:	4efc           	.short 0x4efc
+   2:	1234 4e71      	moveb %a4@(71,%d4:l:8),%d1
+== p_ff_4efd.o
+   0:	4efd           	.short 0x4efd
+   2:	1234 4e71      	moveb %a4@(71,%d4:l:8),%d1
+== p_jmp_absL.o
+   0:	4ef9 1234 5678 	jmp 12345678 <p0+0x12345678>
+   6:	4e71           	nop
+== p_jmp_absW.o
+   0:	4ef8 1234      	jmp 1234 <p0+0x1234>
+   4:	4e71           	nop
+== p_jsr_absL.o
+   0:	4eb9 1234 5678 	jsr 12345678 <p0+0x12345678>
+   6:	4e71           	nop
+== p_jsr_absW.o
+   0:	4eb8 1234      	jsr 1234 <p0+0x1234>
+   4:	4e71           	nop
+== p_lea_absW_bit15.o
+   0:	41f8 8000      	lea ffff8000 <p0+0xffff8000>,%a0
+   4:	4e71           	nop
+== p_lea_pc16_neg.o
+   0:	41fa fffa      	lea %pc@(fffffffc <p0+0xfffffffc>),%a0
+   4:	4e71           	nop
+== p_movea_l_imm.o
+   0:	2a7c 1234 5678 	moveal #305419896,%a5
+   6:	4e71           	nop
+== p_opcode_0a7c.o
+   0:	0a7c fc00      	eoriw #-1024,%sr
+   4:	4e71           	nop

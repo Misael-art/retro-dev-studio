@@ -1,0 +1,13 @@
+
+fxA01_lea.elf: file format elf32-m68k
+
+
+Disassembly of section .text:
+
+00000000 <fxA01>:
+   0:	41f9 1234 5678 	lea 12345678 <__bss_start+0x12343660>,%a0
+   6:	43f8 8000      	lea ffff8000 <__bss_start+0xffff5fe8>,%a1
+   a:	45f8 7f00      	lea 7f00 <__bss_start+0x5ee8>,%a2
+   e:	47fa 0008      	lea %pc@(18 <fxA01_fin>),%a3
+  12:	49fa fffa      	lea %pc@(e <fxA01+0xe>),%a4
+  16:	4e71           	nop
