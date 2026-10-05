@@ -20,6 +20,28 @@ A observação histórica de 2026-09/10-04 («nenhuma entrega A/B/C disponível 
 medição») permanece registrada no `RELATORIO-D.md` §8 como estado do momento;
 este documento substitui apenas a conclusão operacional («aguardando exports»).
 
+**Inventário datado 2026-10-05 (fim da rolda de avaliación; non reescribe a
+táboa anterior, engádea):**
+
+| frente | branch | SHA medido | observación |
+|---|---|---|---|
+| A | `codex/rex-parallel-a-kosinski-chains` | `cbb6895` | medido (29 filas) — ningun SHA corrigido publicado nesta data |
+| B | `codex/parallel-recovery-20261004-b` | `cffe17f` → `396e0b8` | a fronte re-publicou durante a rolda; D mide **os dous SHAs** co mesmo contrato (`contrato_sonic.py` idéntico por hash) e rexístrao como filas separadas |
+| C | `codex/rex-parallel-c-cfg` | `275f2af` | medido (42 filas) — ningun SHA corrigido publicado nesta data |
+
+Maturidade: ningunha fila desta rolda pasa de `vínculo estrutural` — non houbo
+execución de ROM nin consumo observado. Vexase `RELATORIO-D.md` §8.
+
+**Inventário datado 2026-10-05 (segunda actualización; substitúe só a columna
+«observación» da táboa anterior, que queda como estado do momento en que se
+escribiu):**
+
+| frente | branch | SHA medido por D | observación á hora desta actualización |
+|---|---|---|---|
+| A | `codex/rex-parallel-a-kosinski-chains` | `cbb6895` **e** `bd40e92` | a fronte publicou `bd40e92` (HEAD do PR #107) *despois* da primeira medición: `1344f4c` «corrección v1.1 do subconxunto 68000» + `4aa6ba9` «elo vinculo-chamada-rutina». D mide o SHA novo **coas mesmas expectativas conxeladas de §3** — ningún denominador, limiar ou fila se reescribiu para el. Resultado: `A@bd40e92` 21/29 con 8 filas en fallo (7 delas en PASS no SHA anterior). Vexase `RELATORIO-D.md` §10. |
+| B | `codex/parallel-recovery-20261004-b` | `cffe17f`, `396e0b8` | o HEAD do PR #105 avanzou a `08024d9` (roda CRAM/RAM `b3`); os dous ficheiros que D executa están **idénticos por blob** en `396e0b8` e `08024d9` (`verificar-cadeia.py` = `0d8aae2eb7…`, `contrato_sonic.py` = `adad4fa8a6…`), polo que a medición de §4 segue valendo e `08024d9` non se conta como segunda proba. |
+| C | `codex/rex-parallel-c-cfg` | `275f2af` | sen SHA corrixido publicado: HEAD de `origin` e do PR #108 seguen en `275f2af`. A existencia dun worktree local da fronte noutro commit non é evidencia publicada e non se mide. |
+
 ---
 
 ## 0. Por que uma extensão, e o que ela NÃO é
@@ -159,12 +181,57 @@ presença de hash.
 | eixo | frente A (rc `rex-chain`) | frente B | frente C |
 |---|---|---|---|
 | identidade | TA-1: ROM trocada após pin ⇒ rc 3 `ROM-DIVERXENCIA` (nunca recolocação) | NB-2: sha de evidência virado no modo `verificado` ⇒ não promove | `objeto.sha256` do export ≠ digest recomposto pela barra do `--bin` atual ⇒ `falha` da barra (incoerência interna) |
-| saída | TA-2: byte no meio do stream Kosinski ⇒ rc 9 `SAIDA-DIVERXENTE` | KB-4: inversão com padding sujo ⇒ recusa | TC-4: 1 byte virado que muda comprimento ⇒ `cobertura` do export deve mover-se exatamente o delta da verdade D |
-| geometria | TA-3: site ímpar ⇒ rc 11 `XEOMETRIA-DIVERXENTE` | KB3: geometrias divergentes ⇒ recusa `geometria-errada` | KC3: atravessar fim de região ⇒ fronteira, não extensão de bounding box |
+| saída | TA-2: byte no meio do stream Kosinski, coa cadea re-pinada para a imaxe mutada ⇒ rc 9 `SAIDA-DIVERXENTE` | KB-4: inversão com padding sujo ⇒ recusa | TC-4: 1 byte virado que muda comprimento ⇒ `cobertura` do export deve mover-se exatamente o delta da verdade D |
+| geometria | TA-3: chamada lexítima declarada fóra da ventá tras a carga ⇒ rc 11 `XEOMETRIA-DIVERXENTE` | KB3: geometrias divergentes ⇒ recusa `geometria-errada` | KC3: atravessar fim de região ⇒ fronteira, não extensão de bounding box |
 | sítio | TA-4: byte do sítio de carga virado ⇒ rc 5 `SITIO-DIVERXENCIA`; TA-5: operando `.L` alterado ⇒ rc 6 `ARGUMENTO-DIVERXENTE`; TA-6: bytes da chamada alterados ⇒ rc 7 `ALVO-DIVERXENTE`; TA-7: bytes da rotina pinada alterados ⇒ rc 8 `ROTINA-DIVERXENCIA`; TA-8: `--rom-size` divergente da tradução ⇒ rc 4 `MAPPER-DIVERXENCIA` | KB1: deslocar 1 byte o endereço do laço alegado ⇒ sonda D registra divergência (a ROM é o oráculo, não o doc) | TC-2: `--site` dentro do miolo de instrução ⇒ veredito `miolo-de-instrucao`, jamais `instrucao-de-bloco`; TC-3: raiz fora da região ⇒ `fora-da-regiao` |
 | confiança | §3 KA3-g: campo desconhecido e `observado-en-runtime` ⇒ rc 2 `ESQUEMA` | modo `hipotético` rotulado; `verificado` sem evidência íntegra não promove | TC-1: `--root-prov` fora do vocabulário fechado ⇒ erro de CLI (não análise); grau de raiz nunca promovido pelo fluxo |
 
 Contagens TA=8, TC=4 já incluídas nos denominadores §3/§5; NB em §4.
+
+> **Errata 2026-10-04 (pré-medição, sem resultado anexado) — receitas TA-2 e TA-3.**
+> Ao escribir o adaptador, D leu a ordenación dos elos en `verify.rs` da frente A
+> (nunca executou estas receitas) e comprobou que dúas mutacións non illaban o eixo
+> que afirman medir:
+> - **TA-2**: calquera mutación da imaxe é pega antes polo elo `identidade` (rc 3),
+>   porque a cadea pinna `imaxe_sha256`. Sen re-pinar ese campo, a receita mediría o
+>   eixo identidade dúas veces. A fila TA-2 executa a variante illada (re-pin) e o
+>   adaptador rexistra **ademais** a variante confundida (pin orixinal) como control
+>   observado rc 3, que non pontúa.
+> - **TA-3**: un sitio ímpar fai diverxir os *bytes* da chamada, e A compara bytes
+>   antes de consultar o aliñamento ⇒ rc 5 (`sitio-chamada`), non rc 11. A receita
+>   pasa a declarar unha chamada **real e lexítimamente aliñada fóra da ventá**
+>   (sitio `0x134`, bytes e alvo reais), de modo que só a xeometría pode rexeitala.
+>   A consecuencia queda rexistrada como limitación auditável: **A garda de
+>   aliñamento de `chamada_sitio` non é alcanzable por cadeas que pinan bytes**,
+>   polo que a súa capacidade de xeometría probada é a de ventá, non a de aliñamento.
+> Os denominadores non cambian (TA=8); ningún limiar foi axustado a resultado.
+> Precedentes: §3 KA1 8→9 e §4 B 15→14.
+
+> **Errata 2026-10-04 (pré-medição, receita reescrita antes de executar C) —
+> TC-4, §5(b) e o sitio inalcanzable de `dC-cx1`.**
+> - **TC-4**: co conxunto de raíces congelado de `dC-cx4` (`0x2000` e `0x2028`),
+>   a mutación en `0x2000` corta o *único* camiño que proba `0x2002..`; polo
+>   tanto `delta_cobertura_bytes: 0` e a invariante «`0x2002..` mantém os
+>   comprimentos» non son alcanzables coa invocación base — a receita mediría a
+>   alcançabilidade, non o eixo de lonxitude que afirma. A fila pasa a executar a
+>   **variante illada** (mesma invocación base **máis unha raíz en `0x2002`**,
+>   declarada `candidato`), na que o delta esperado é exactamente **2 B** = a
+>   lonxitude autoral da instrución mutada; a variante confundida (raíces
+>   orixinais) rexístrase como control observado `pontua: false`. Mesma
+>   discriminación aplicada a TA-2/TA-3; denominador TC = 4 inalterado.
+> - **§5(b)** describe «DBcc con `disp8=0xFF`»; a fila congelada en
+>   `dC-cx3-truth.json` é `KC3-bsr-l-68020` (opcode `61ff`), a forma BSR do mesmo
+>   `disp8=0xFF` que §3 recusa baixo a mesma regra. A fila gradúa «fronteira no
+>   endereço exato co opcode registrado»; o texto histórico de §5 non se reescribe.
+> - **`dC-cx1`**: o relleno pasou de `0x00` a `0xFF` e o sitio
+>   `dentro-regiao-nao-alcancado` pasó a calcularse como `fim_instrucoes + 0x0e`
+>   (aritmética de D). Co relleno `0x00` o rabo decodificaba (`ori.b #imm,Dn`
+>   está na lista de §3) e non existían vans: a expectativa antiga situaba un
+>   sitio «após as instrucións» dentro do fluxo decodificábel. Ningunha fila KC1
+>   mudou; denominador C = 42 inalterado. Rexístrase como **audit da prova
+>   anexada**: a suma autoral de comprimentos de `dC-cx1` é 66 B mentres que o
+>   export de C reclama 62 B — os 4 B de diferenza son exactamente a instrución
+>   recusada en `0x0A`, polo que a cobertura é coerente co gabarito.
 
 ## 7. Holdouts compatíveis (inputs públicos, respostas reservadas)
 
@@ -184,6 +251,44 @@ sem reabrir os fixtures de medição. Nenhuma resposta de holdout foi usada na
 construção das ferramentas avaliadas (elas já estão publicadas) — o holdout
 vale como medição **cega do lado da barra**: o adaptador não consulta o gabarito
 para preencher saída (R9).
+
+> **Errata 2026-10-05 (declarada antes de cada execución que substitúe) — cadea
+> de versións do holdout A.** O run inicial sobre `dA-img-ho1.bin` deu 5/29 PASS e
+> `H-A/KA3 FAIL` (`ERRO(9): fluxo en 0x9000: referencia-invalida no fluxo`). A
+> triaxe determinou que a diverxencia **non informaba sobre A**:
+> 1. **v1 void — superposición de fluxos.** O layout fixaba `fluxo2 = fluxo1 +
+>    0x400`; con datos non dexenerados o stream `s1` codificado mide **1157 B**,
+>    polo que a escrita de `s2` en `0x9400` pisou o final de `s1`. A imaxe
+>    resultante non é un Kosinski válido: **o descodificador do propio D rexeita a
+>    fatía lida da imaxe** (`referencia antes do historico`). A recusa de `rex-chain`
+>    é comportamento correcto ante entrada inválida; graduala como falha de A sería
+>    a reclassification inversa que R0 prohíbe.
+> 2. **v2 void — desprazamento d16(PC) fóra da xanela asinada.** Con `base=0x400`
+>    e `fluxo1=0x9000`, a sonda `lea.l d16(PC),A2` leva disp `0x8bec`, que asinado
+>    vale −28 924 ⇒ alvo fóra da imaxe; A recusa con rc 5 (`AlvoFóraBarramento`).
+>    A fila KA1-3 medía a autoría de D, non a forma de carga de A.
+> Ambos os defectos demostráronse **sen executar a ferramenta avaliada** (aritmética
+> de D + round-trip do descodificador de D). As correccións son de autoría, non de
+> denominador nin de limiar:
+> - `buildAImage` leva rexistro de zonas (`marcar`) e **aborta** se dúas escritas
+>   se solapan (código, rotinas e os tres fluxos);
+> - `fluxo2` pode derivarse do tamaño real do stream codificado (`fluxo2: null`);
+> - o desprazamento d16(PC) valida-se na autoría contra `[-0x8000, 0x7FFF]` e
+>   **revalida lendo os bytes da imaxe** en `validarEntradaA`, que agora compara
+>   tamén o digest da fatía da imaxe co do stream codificado;
+> - `validarEntradaA` aplícase ás entradas de holdout (antes só ás de medição);
+> - a evidencia do holdout escribe-se con nome versionado (`holdouts-vN.jsonl`).
+> Ningunha muda altera os bytes das fixtures medidas: `dA-img-v1.bin`,
+> `dA-truth-v1.json`, `dB-*` e `dC-*` manteñen os hashes pinados (verificado con
+> `sha256sum -c` antes e despois de cada regeneración).
+> **Perda rexistrada:** `holdouts.jsonl` do run v1 foi sobrescrito polo run v2
+> (mesmo nome de ficheiro); a súa táboa queda só nesta entrada e na conversa de
+> execución, non como artefacto. Ese defecto de proceso é a razón do nome
+> versionado.
+> **Run válido (v3, `dA-img-ho3.bin`, sha `a07eb617b3c5…`):** A **28/30 PASS**, coa
+> *mesma* fila `TA-5` en fallo que no conxunto de medição (rc esperado 6, medido 2)
+> — o holdout reproduce o defecto coñecido con entrada distinta; B 4/4; C 5/5; as
+> dúas filas `VOID` rexístranas **contra D**, nunca contra a fronte.
 
 ## 8. Formato de publicação da matriz
 
@@ -223,3 +328,72 @@ executar ROMs/emuladores, ou contar espelho + autor como dois acertos (R10).
 
 Builds pesados (cargo de A, cargo de C) executam **um por vez**, coordenados com
 o Principal, fora da árvore versionada (diretório de scratch próprio da frente D).
+
+## 11. Defectos propios descubertos durante a avaliación (rexistro honesto)
+
+Non hai reclasificacións: cada entrada di que se mudou, que se conservou e cal
+queda como limitación auditabel.
+
+- **`makeRng()` de `lib_bench.mjs` devolve sempre 0** (`Number(x) >> 33n % 256`
+  perde a precisión antes do desprazamento). Consecuencia: os `plain` orixinais
+  das fixtures A/B eran ceros. **Non se re-xeraron as fixtures de A xa medidas**
+  (os hashes pinados de `dA-img-v1.bin`/`dA-truth-v1.json` deben seguir valendo);
+  rexístrase como limitación do conxunto de mediación de A: co `plain` de 1024
+  ceros, `s1` codifica en **37 B** e o eixo de descodificación de A **nunca foi
+  exercitado nesta rolda contra datos non dexenerados**. O holdout v3 si o fai
+  (`s1` = 1157 B de rampa determinística) e esa é a única evidencia da rolda que
+  exerce o descodificador de A contra referencias longas non triviais. As fixtures
+  aínda pendentes de medir si se re-xeraron co padrón explícito `padraoD` (grade
+  B: 256 valores distintos; celdas discriminantes 144/18/147/175).
+- **Capa de lectura de `adapt_c.mjs` (corrixida despois do primeiro run).** O
+  primeiro run de C deu **34/42**. Catro erros de indexación *só no lector* do
+  export (bloque da instrución ramificada vs bloque da entrada; `status` vs `tipo`
+  para o vocabulario `fora-da-regiao`; raíz derivada + `alcanado-por` en hex
+  minúsculo; comprobación de `--out` obsoleta) corrixíronse sen tocar
+  expectativas nin limiares. O segundo run deu **39/42** e as tres filas `falha`
+  reais (`KC1-movea.l #imm32,A1`, `KC3-move-w-imm-an`, `KC4-jmp-ind-an`)
+  mantivéronse. A evidencia intermedia sobrescribiuse no mesmo nome de ficheiro;
+  queda nesta entrada e na conversa de execución.
+- **Gate de vocabulario.** `linha()` aceptaba cinco categorías pero rexeitaba
+  `nao-aplicavel`, que §1 si conxela; engadiuse ao gate (corrección do validador,
+  non dun veredicto). Ningunha fila existente cambiou de categoría.
+- **`CONTROLE-JSON-TAMPER-B` é `non aplicável`.** A receita §6 «voltar o hash da
+  evidencia JSON» non é alcanzable: a ferramenta real non consume JSON de
+  evidencia como entrada (`--out` só escribe). O eixo de identidade de B
+  medírase en NB-2 coa ROM adulterada, que é a entrada que B si valida.
+- **Ausencia de ensamblador 68000 no host** (sen `m68k-elf-as`/`objdump`): as
+  sondas C están codificadas á man por D, polo que as diverxencias de ISA
+  `KC1-movea.l #imm32,A1` e `KC3-move-w-imm-an` quedan con oráculo parcial
+  (codificación manual propia + anclaxe externa onde existe).
+- **Identidade do contrato de B entre SHAs.** `contrato_sonic.py` é idéntico por
+  hash en `cffe17f` e `396e0b8` (`36bcc93504a9…`); só `verificar-cadeia.py` difire.
+  Polo tanto as 14 filas graduadas en ambos os SHAs **non son dúas probas
+  independentes do contrato**, senón do CLI; publícanse separadas con esa nota.
+- **R8 ten dous formatos, e só un é numérico.** As filas negativas conxeladas
+  por D para B (`NB-1`, `NB-2`) e para C (`TC-2`, `TC-3`, `TC-4`) non pinan un
+  `rc` exacto: pinan un *predicado* («recusa antes de promover», «rótulo
+  HIPOTETICO e ningunha promoción», «veredicto miolo-de-instrucao»). O texto
+  conxelado vive en `esperados`; o `rc` medido é numérico en todas. Unha
+  aserción «`rc_esperado` ten de ser número» sería estrita demais que o
+  contrato e trocaría formato por rigor. O que si é mecánico e está pinned por
+  teste: `PASS` ⇔ `divergencias` baleira, `FAIL` ⇔ polo menos un desvío
+  recomposto por D, e ningunha fila graduada pode carecer de expectativa.
+- **Procedencia da ferramenta de A non estaba rexistrada.** `adapt_a.mjs`
+  publicaba o manifesto sen `verificarProcedencia`, que B e C si tiñan; engadiuse
+  (e o `--chave` para poder medir un segundo SHA da mesma fronte). Non cambia
+  ningunha fila: o corpo de `A-cbb6895.jsonl` saíu byte-identico (`d05ce278a43b…`)
+  despois do cambio.
+- **Nome de evidencia por SHA sobrescribe o run anterior.** `A-<sha7>.jsonl` e
+  `B-<sha7>.jsonl` non levan versión, así que un re-run do mesmo SHA destrúe a
+  evidencia previa. Desta vez mitigouse copiando o estado anterior a
+  `~/rds-scratch/rex-eval-d2/evidencia-anterior-20261005/` antes de re-executar;
+  a perda do `holdouts.jsonl` v1 (§7) segue sendo perda real e non se disfarza.
+- **`KC4-jmp-ind-an` falla por texto do contrato de D, non por capacidade de C.**
+  §5 conxelou a fronteira como `indirect-opaco`; o vocabulario real e publicado
+  de C é `indirect-opaque` (`src/decode.rs:36`, `src/grafo.rs:357`, e os tests
+  propios `tests/export_json.rs:271`/`tests/fx_fluxo:475`). A fila midiu o que estaba
+  conxelado e rexistrou `falha`; **non se reescribe esa evidencia nin se lle
+  cambia o veredicto a posteriori** (iso sería axustar o contrato ao resultado).
+  A corrección vai como **errata de vocabulario para `EXTENSOES-D v2`**, cunha
+  rolda de medición nova; mentres tanto a matriz v1 publica 39/42 e esta fila
+  aparece na lista de falhas coa súa explicación.
