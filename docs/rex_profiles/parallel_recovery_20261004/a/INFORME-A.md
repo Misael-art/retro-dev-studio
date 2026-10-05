@@ -115,6 +115,9 @@ Ademais: un enderezo fornecido polo usuario nunca se promove a
 | `cruzar-rexcfg-A.sh` (paso 6, rex-cfg/v1 `275f2af`) | EXECUTADO: fallos=0 — 108/108 asercións + negativo identidade rc=2 | log/exports §6.2; conxelado previo `2dfcc30` |
 | `cargo test` pasos 7–9 (`4aa6ba9`) | EXECUTADO: **76/76** (chain 9, instr 16, json 8, verify 14, rectif 18, **adulteracion 8**, **cli 3**) | K10 medido VERMELLO rc=0 en `89d24d9` (defecto do vínculo) e verde tras `4aa6ba9`; CONTROLES-ADULTERACION-A §5; log `~/rds-scratch/chain-test-pos-correccion.log` |
 | `cargo clippy --all-targets -- -D warnings` + `fmt --check` (pasos 7–9) | EXECUTADO: limpo en `4aa6ba9` | os dous avisos iniciais eran dos tests novos; corrixidos, non silenciados |
+| E2E `executar-evidencia-A.sh` HEAD final (`73fe7b6`) | EXECUTADO: fallos=0, rc-geral=0, 25 OK | §6.3; JSONL byte-identicos a §6.1 (`cmp` 16/16 + resumo + neg-oraculo) |
+| `cruzar-rexcfg-A.sh` HEAD final sobre serie §6.3 | EXECUTADO: fallos=0, 119 OK/0 FALLO | §6.3; pins de cadeas e de rex-cfg bin inalterados |
+| `comparar-oraculo-streams.sh` (8/8 paridade) | NON REEXECUTADO neste HEAD: o fix só toca o motor `revalidar`; o script de paridade non o invoca e os dous tsv (§6, §6.1 SKIP) seguen pins | rexistrado como non executado, non como aprobado |
 | E2E `comparar-oraculo-streams.sh` | EXECUTADO: 8/8 paridade, rc=0 | tsv sha §6 abaixo |
 | `npm run lint` / `npx tsc --noEmit` / `npm test` | NON EXECUTADOS: esta fronte non toca `src/`/`src-tauri/`/frontend; os scripts da raíz do canónico aplican ao canónico, non ao territory A | sen cambios que cubrir |
 | `npm run host:certify` | NON EXECUTADO: non se modificou host, build, emulacion nin toolchains do produto (fronte = scripts Rust standalone + docs + data no territory A) | rexistrado como pendente para o integrador se o merger cambia o verdict |
@@ -185,6 +188,26 @@ medir (commit `2dfcc30`); resultado e lectura honesta en AUDITORIA-A
 | bin `rex-cfg` debug (dende `275f2af`) | `7daeb51d151f54cc29843d352fcb69ccf5d0406dbbed5c90dd2e6da81094a927` |
 | log `xe-a-rexcfg-cruzamento/cruzamento-rexcfg-20261004.log` (fallos=0; 119 OK / 0 FALLO) | `42e4d40fe8a03b762a6857f9920c0a3470d901fe3dd3f5656f44124253662769` |
 | 10 exports `*.rexcfg.json` (vereditos brutos por cadea) | shas dentro do log (§SHA dos exports) |
+
+### 6.3 Reexecución no HEAD final (misión, paso 10 — 2026-10-04)
+
+O elo `vinculo-chamada-rutina` (`4aa6ba9`) é só medición: **non engade
+campo ningún ao JSONL**, así que a serie final reexecitada en
+`~/rds-scratch/xe-a-evidencia-final` é **byte-identica á de §6.1** —
+16 JSONL + `phelios-varredura.resumo.txt` + `neg-oraculo/oracle-streams.tsv`
+verificados con `cmp` un a un (os únicos ficheiros que cambian son os
+`*.revalidar.txt`/`*.txt` de resumo, que agora conteñen a liña extra
+`vinculo-chamada-rutina=PASS(…)` nas 10 revalidacións vinculadas; os
+6 negativos manteñen rc exacto 3/4/5/6/7/10).
+
+| Artefacto | SHA-256 |
+|---|---|
+| bin `rex-chain` debug executado (HEAD `73fe7b6`) | `2e9d2321537a113787c08eb1247207744c90d0159cdc1b8f270895b82989cb8a` |
+| log E2E `xe-a-evidencia-final-run.log` (fallos=0, rc-geral=0, 25 OK; Phelios `317/231/85/1`) | `1f53a1bd026b37262cb293c5d4209ea6fd581bf6323e5ac5f97f2a08e5c26c1e` |
+| log `cruzar-rexcfg-A.sh` sobre a serie final (`xe-a-rexcfg-cruzamento-final.log`; fallos=0, 119 OK/0 FALLO; pins §6.1/§6.2 manteñense) | `0f38a530067f15673685b8a4c4e756a1a4fd2a1693521a79c514a39fb056cf58` |
+
+A serie §6.1 (HEAD `1344f4c`, log `85254427…`) **consérvese tal cal**:
+§6.3 é evidencia do HEAD final, non unha substitución.
 
 ## 7. Desvíos conservados (expectativa conxelada ≠ medido)
 
