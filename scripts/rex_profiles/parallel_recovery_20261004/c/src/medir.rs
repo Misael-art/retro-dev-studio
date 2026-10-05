@@ -1,4 +1,4 @@
-//! `rex-cfg medir` — export de medições `rex-cfg-med/v1` para a frente D
+//! `rex-cfg medir` — export de medições `rex-cfg-med/v2` para a frente D
 //! (EXPECTATIONS-ETAPA2.md §6, obrigação 8).
 //!
 //! As quatro dimensões saem **separadas**, cada uma com o seu próprio
@@ -33,7 +33,7 @@ use rex_gameplay::json::Json;
 use crate::export::BASE_SHA;
 use crate::grafo::{analisar_com_evidencias, Analise, RaizDeclarada};
 
-pub const SCHEMA: &str = "rex-cfg-med/v1";
+pub const SCHEMA: &str = "rex-cfg-med/v2";
 pub const TOOL_NAME: &str = "rex-cfg";
 
 /// MD1 — textos fixos do export de medições (grafia ASCII, ver cabeçalho).

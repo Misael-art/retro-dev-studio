@@ -1,4 +1,4 @@
-//! Export `rex-cfg/v1` (CONTRACT §4): JSON ordenado, deterministico, e um
+//! Export `'rex-cfg/v2' (CONTRACT §4): JSON ordenado, deterministico, e um
 //! resumo em markdown com os mesmos numeros.
 //!
 //! As chaves seguem o contrato **literalmente**, inclusive a mistura de estilos
@@ -13,7 +13,7 @@ use rex_gameplay::json::Json;
 
 use crate::grafo::Analise;
 
-pub const SCHEMA: &str = "rex-cfg/v1";
+pub const SCHEMA: &str = "rex-cfg/v2";
 pub const TOOL_NAME: &str = "rex-cfg";
 /// Base congelada do contrato (worktree de referência da frente C).
 pub const BASE_SHA: &str = "cb56657a142df40d2acd09a3e03e54247f066dea";

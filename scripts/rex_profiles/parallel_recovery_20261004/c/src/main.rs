@@ -11,7 +11,7 @@
 //!
 //! A assinatura de `analyze` não muda. `consultar` (EXPECTATIONS-ETAPA2 §5,
 //! registrado em CONTRACT §2.1) recebe um único `--site` e escreve o objeto
-//! plano `rex-cfg-sitio/v1`; os códigos de saída são os mesmos três.
+//! plano `rex-cfg-sitio/v2`; os códigos de saída são os mesmos três.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -331,6 +331,7 @@ fn executar(args: &[String]) -> Result<(), Erro> {
         let valor = sitio::consultar(&sitio::Pedido {
             buf: &buf,
             arquivo: &bytes,
+            origin: p.origin,
             regiao: (regiao_ini, regiao_fim),
             raizes: &raizes,
             sitio: sitio_end,
@@ -347,7 +348,7 @@ fn executar(args: &[String]) -> Result<(), Erro> {
                 .to_string()
         };
         println!(
-            "rex-cfg-sitio/v1 — objeto {} (sha256 {}, {} bytes) — regiao {:#x}..{:#x} — sitio {} \
+            "rex-cfg-sitio/v2 — objeto {} (sha256 {}, {} bytes) — regiao {:#x}..{:#x} — sitio {} \
              — veredito {} — consumidor {} — promotivel {} — motivos {} — saida {}",
             bin.display(),
             rex_gameplay::sha256::sha256_hex(&bytes),
@@ -401,7 +402,7 @@ fn executar(args: &[String]) -> Result<(), Erro> {
                 .unwrap_or_else(|| "?".to_string())
         };
         println!(
-            "rex-cfg-med/v1 — objeto {} (sha256 {}, {} bytes) — regiao {:#x}..{:#x} — raiz {} — \
+            "rex-cfg-med/v2 — objeto {} (sha256 {}, {} bytes) — regiao {:#x}..{:#x} — raiz {} — \
              comprimento {} [{}] — operandos {} [{}] — fluxo {} arestas em {} blocos [{}] — \
              alcance {}/{} ({}) [{}] — agregado {} — saida {}",
             bin.display(),
@@ -457,7 +458,7 @@ fn executar(args: &[String]) -> Result<(), Erro> {
     }
 
     println!(
-        "rex-cfg/v1 — objeto {} (sha256 {}, {} bytes) — regiao {:#x}..{:#x} — blocos={} arestas={} \
+        "rex-cfg/v2 — objeto {} (sha256 {}, {} bytes) — regiao {:#x}..{:#x} — blocos={} arestas={} \
          chamadas={} fronteiras={} cobertura={}/{} ({}) — saida {}",
         bin.display(),
         rex_gameplay::sha256::sha256_hex(&bytes),

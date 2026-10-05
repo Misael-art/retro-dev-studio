@@ -1,4 +1,4 @@
-//! Analise de fluxo delimitada do `rex-cfg/v1`: blocos, arestas, chamadas,
+//! Analise de fluxo delimitada do `'rex-cfg/v2': blocos, arestas, chamadas,
 //! fronteiras, cobertura e veredito de sitio.
 //!
 //! O que esta camada NAO faz, por contrato (CONTRACT §0 e §6):

@@ -1,4 +1,4 @@
-//! Decodificador do subconjunto 68000 do `rex-cfg/v1`.
+//! Decodificador do subconjunto 68000 do `'rex-cfg/v2'.
 //!
 //! Unica fonte da tabela de (mascara, valor, consumo de extensao) — CONTRACT.md §3.
 //! Regra historica de desvio: displacamento relativo de Bcc/BSR/DBcc e tomado em
@@ -425,11 +425,14 @@ fn out(op: u16, motivo: impl Into<String>) -> Frontier {
 /// onde o contrato lista apenas modos de memoria/registro/absoluto).
 const SRC7_BAD: [u8; 3] = [5, 6, 7];
 
+/// Alvo efetivo de um operando absoluto de `JSR`/`JMP`. `(xxx).W` e sign-estendida
+/// para 32 bits antes de ser usada (M68000PRM 2.2.16); `(xxx).L` e a longword
+/// inteira (PRM 2.2.17).
 fn abs_target(ea: &Ea) -> u32 {
     if ea.reg == 1 {
         ea.long()
     } else {
-        ea.w[0] as u32
+        i32::from(ea.w[0] as i16) as u32
     }
 }
 

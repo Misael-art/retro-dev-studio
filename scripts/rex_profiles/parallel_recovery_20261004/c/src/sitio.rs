@@ -1,5 +1,6 @@
 //! `rex-cfg consultar` — verificador estrutural de UM sítio, export
-//! `rex-cfg-sitio/v1` (EXPECTATIONS-ETAPA2.md §5).
+//! `rex-cfg-sitio/v2` (EXPECTATIONS-ETAPA3.md §1/§2; a forma v1 foi publicada
+//! nas ETAPAs 1/2 e permanece só como artefato histórico).
 //!
 //! Este módulo é a barreira propriamente dita. Ele não descobre código: recebe
 //! região, raízes explícitas e um sítio, e responde se aquele sítio é um
@@ -16,14 +17,22 @@
 //! 3. a classe é de transferência incondicional do subconjunto (`bsr`, `jsr`,
 //!    `jmp`, `bra`) **com alvo comprovado**;
 //! 4. o alvo registrado pelo grafo é igual ao operando **re-derivado dos bytes**
-//!    pelas regras da matriz §1 (base sempre `instr+2`). É a equivalência que A
-//!    usa em `carga_operando == fluxo_cpu`; reimplementá-la aqui, à parte do
+//!    pelas regras da matriz §1 (base sempre `instr+2`; `(xxx).W` sign-estendida
+//!    por M68000PRM §2.2.16). É a equivalência que A usa em
+//!    `carga_operando == fluxo_cpu`; reimplementá-la aqui, à parte do
 //!    decoder, é o que faz um alvo inventado — como o `jsr abs.w` que A publica
 //!    para `4E FA` — falhar em vez de passar.
 //!
 //! V2 é o portão de promoção: só `referencia-estatica` e `vetor-plataforma`
 //! autorizam vínculo, e só quando a raiz que autoriza alcança o próprio sítio
 //! (medido por análise de raiz única, nunca por agregado entre raízes).
+//!
+//! O bloco de endereço do v2 separa as quatro quantidades de um operando
+//! absoluto (EXPECTATIONS-ETAPA3 §1.2): `operando-bruto` (Q1, como está no
+//! objeto), `endereco-efetivo` (Q2, o alvo do modelo declarado),
+//! `endereco-de-barramento` (Q3, os 24 bits do bus do MC68000) e
+//! `offset-de-objeto` (Q4, só com a janela declarada cobrindo Q2). `alvo` é Q2 —
+//! nenhuma campo que signifique alvo efetivo carrega a word zero-estendida.
 
 use rex_gameplay::json::Json;
 
@@ -32,7 +41,7 @@ use crate::grafo::{
     analisar_com_evidencias, Analise, Bloco, InstrucaoView, RaizDeclarada, Status, Tipo, Veredito,
 };
 
-pub const SCHEMA: &str = "rex-cfg-sitio/v1";
+pub const SCHEMA: &str = "rex-cfg-sitio/v2";
 pub const TOOL_NAME: &str = "rex-cfg";
 
 /// Famílias de transferência incondicional aceitas como consumidor (V1-iii).
@@ -44,13 +53,17 @@ const AUTORIZA_VINCULO: &[&str] = &["referencia-estatica", "vetor-plataforma"];
 /// Textos fixos de limite do objeto de sítio. São ASCII por contrato (§5: o
 /// parser de A rejeita byte não-ASCII e qualquer escape), por isso não são os
 /// textos de `grafo::LIMITES`, que carregam acentos.
+///
+/// A string `extensao-abs-w-hipotese-zero-extendida` saiu daqui na ETAPA 3: a
+/// extensão de `(xxx).W` foi resolvida por fonte primária
+/// (EXPECTATIONS-ETAPA3 §1.1) e deixou de ser hipótese.
 const LIMITES_SITIO: &[&str] = &[
     "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
     "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
     "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
-    // EXPECTATIONS-ETAPA2 §1.1: o alvo de `(xxx).W` sai como operando bruto sob
-    // esta hipotese; a extensao nao foi resolvida por fonte primaria.
-    "extensao-abs-w-hipotese-zero-extendida",
+    "sign-estenda-de-abs-w-segundo-m68000prm-2.2.16",
+    "bus-24-bits-mc68000",
+    "offset-de-objeto-so-com-mapeamento-declarado",
 ];
 
 const LIMITE_NAO_PROMOVIDA: &str = "raiz-declarada-nao-promovida";
@@ -91,6 +104,10 @@ impl StatusAlvo {
 pub struct Pedido<'a> {
     pub buf: &'a [u8],
     pub arquivo: &'a [u8],
+    /// Endereço do byte 0 do objeto, declarado por `--origin`. É o mapeamento que
+    /// autoriza `offset-de-objeto` (Q4): sem janela declarada cobrindo o alvo, o
+    /// campo não existe.
+    pub origin: u32,
     pub regiao: (u32, u32),
     pub raizes: &'a [RaizDeclarada],
     pub sitio: u32,
@@ -147,7 +164,7 @@ fn transferencia(a: &Analise, sitio: u32) -> Option<(Option<u32>, StatusAlvo)> {
 
 /// V1-iv: re-derive o alvo **dos bytes**, sem consultar o grafo, pelas regras
 /// da matriz §1 — deslocamento relativo sempre com base `instr+2`, `(xxx).W`
-/// lido como word sob a hipótese de extensão declarada em §1.1.
+/// sign-estendida por M68000PRM §2.2.16 e `(xxx).L` literal por §2.2.17.
 ///
 /// `None` é resposta, não erro: `4E FA`/`4E FC`/`4E FD` são justamente as
 /// formas que a frente A rotula como `jsr abs.w` e publica alvo inventado.
@@ -183,7 +200,7 @@ fn rederivar(buf: &[u8], sitio: u32) -> Option<u32> {
     }
     if alto == 0x4E {
         return match baixo {
-            0xB8 | 0xF8 => u32::from(word(i + 2)?).into(),
+            0xB8 | 0xF8 => Some(i32::from(word(i + 2)? as i16) as u32),
             0xB9 | 0xF9 => long(i + 2),
             _ => None,
         };
@@ -191,17 +208,81 @@ fn rederivar(buf: &[u8], sitio: u32) -> Option<u32> {
     None
 }
 
-/// O sítio é `JSR/JMP (xxx).W` (`4EB8`/`4EF8`) com o **word** de operando com
-/// bit15 ligado? É a única forma pelo qual o alvo alegado depende de uma
-/// interpretação não resolvida por fonte primária (§1.1); `(xxx).L` publica a
-/// longword inteira e não tem essa pendência. Bytes insuficientes = falso.
-fn absw_bit15(buf: &[u8], sitio: u32) -> bool {
-    let Some(quarteto) = buf.get(sitio as usize..sitio as usize + 4) else {
-        return false;
+/// Q1..Q3 de um operando absoluto de `JSR`/`JMP` lido em `s`
+/// (EXPECTATIONS-ETAPA3 §1.2). `None` quando o sítio não é uma das quatro
+/// formas absolutas do subconjunto (`4EB8`/`4EF8`/`4EB9`/`4EF9`): aí o bloco de
+/// endereço é publicado inteiro nulo, porque não há operando absoluto a separar.
+struct Absoluto {
+    /// `abs-w` | `abs-l`, a forma declarada pelos bytes, não pelo alvo.
+    forma: &'static str,
+    /// Q1 — a extensão como está no objeto (word ou longword).
+    operando_bruto: u32,
+    /// Q2 — endereço efetivo do modelo declarado.
+    endereco_efetivo: u32,
+    /// Q3 — Q2 truncado aos 24 bits do barramento do MC68000 (UM §3).
+    endereco_de_barramento: u32,
+}
+
+impl Absoluto {
+    fn semantica(&self) -> &'static str {
+        match self.forma {
+            "abs-w" => "sign-estendida",
+            _ => "literal",
+        }
+    }
+    fn fonte(&self) -> &'static str {
+        match self.forma {
+            "abs-w" => "M68000PRM 2.2.16",
+            _ => "M68000PRM 2.2.17",
+        }
+    }
+}
+
+fn absoluto(buf: &[u8], sitio: u32) -> Option<Absoluto> {
+    let i = sitio as usize;
+    let op = u16::from_be_bytes([*buf.get(i)?, *buf.get(i + 1)?]);
+    let (forma, bruto) = match op {
+        0x4EB8 | 0x4EF8 => {
+            let w = u16::from_be_bytes([*buf.get(i + 2)?, *buf.get(i + 3)?]);
+            ("abs-w", u32::from(w))
+        }
+        0x4EB9 | 0x4EF9 => {
+            let l = u32::from_be_bytes([
+                *buf.get(i + 2)?,
+                *buf.get(i + 3)?,
+                *buf.get(i + 4)?,
+                *buf.get(i + 5)?,
+            ]);
+            ("abs-l", l)
+        }
+        _ => return None,
     };
-    let op = u16::from_be_bytes([quarteto[0], quarteto[1]]);
-    let operando = u16::from_be_bytes([quarteto[2], quarteto[3]]);
-    matches!(op, 0x4EB8 | 0x4EF8) && operando & 0x8000 != 0
+    let efetivo = if forma == "abs-w" {
+        // u16 -> i16 -> i32 -> u32: o atalho `i32::from(u16)` alarga sem sinal e
+        // reproduziria exatamente o erro que esta entrega corrige.
+        (bruto as u16) as i16 as i32 as u32
+    } else {
+        bruto
+    };
+    Some(Absoluto {
+        forma,
+        operando_bruto: bruto,
+        endereco_efetivo: efetivo,
+        endereco_de_barramento: efetivo & 0x00FF_FFFF,
+    })
+}
+
+/// Q4 — deslocamento no arquivo, **só** quando o mapeamento declarado (`--origin`
+/// mais o tamanho do objeto) cobre o endereço efetivo. Fora da janela o campo
+/// fica ausente e o status diz `fora-do-objeto`: a ferramenta nunca inventa
+/// offset de ROM para um alvo que não está no objeto.
+fn offset_de_objeto(p: &Pedido, efetivo: u32) -> Option<u64> {
+    let fim = p.origin.checked_add(p.arquivo.len() as u32)?;
+    if efetivo >= p.origin && efetivo < fim {
+        Some((efetivo - p.origin) as u64)
+    } else {
+        None
+    }
 }
 
 /// Roda a análise com uma única raiz e pergunta se o sítio é instrução de bloco
@@ -217,7 +298,7 @@ fn raiz_alcanca(p: &Pedido, raiz: &RaizDeclarada) -> Result<bool, String> {
     Ok(a.veredito_sitio(p.sitio) == Veredito::InstrucaoDeBloco)
 }
 
-/// Responde à consulta no objeto `rex-cfg-sitio/v1`. `Err` é só falha de
+/// Responde à consulta no objeto `rex-cfg-sitio/v2`. `Err` é só falha de
 /// análise (código de saída 1); erro de uso pertence à CLI.
 pub fn consultar(p: &Pedido) -> Result<Json, String> {
     let declared: Vec<RaizDeclarada> = p.raizes.to_vec();
@@ -292,13 +373,11 @@ pub fn consultar(p: &Pedido) -> Result<Json, String> {
 
     let consumidor = motivos.is_empty();
 
-    // §1.1 P-absW — registro informativo, nunca veredito: entra DEPOIS de
-    // `consumidor` ser calculado justamente porque nenhuma classificacao
-    // estrutural pode depender da interpretacao de `(xxx).W`. O alvo publicado
-    // permanece o operando bruto, sob a hipotese declarada em `limites`.
-    if alvo.is_some() && absw_bit15(p.buf, p.sitio) {
-        motivos.push("interpretacao-pendente:abs-w-bit15".to_string());
-    }
+    // ETAPA 3 §1.1 — não existe mais registro de interpretação pendente para
+    // `(xxx).W`: a extensão está resolvida por fonte primária e o alvo publicado
+    // é o endereço efetivo (Q2). Uma pendência informativa jamais poderia
+    // justificar um alvo incorreto, e o que a substitui é a equivalência V1-iv
+    // avaliada contra a re-derivación sign-estendida dos próprios bytes.
 
     // V2 — portão de promoção.
     let mut promotivel = false;
@@ -323,6 +402,8 @@ pub fn consultar(p: &Pedido) -> Result<Json, String> {
         limites.push(LIMITE_NAO_PROMOVIDA);
     }
 
+    let abs = absoluto(p.buf, p.sitio);
+
     Ok(exportar(
         p,
         veredito.label(),
@@ -330,6 +411,7 @@ pub fn consultar(p: &Pedido) -> Result<Json, String> {
         bloco.map(|b| b.entrada),
         alvo,
         status,
+        abs.as_ref(),
         consumidor,
         promotivel,
         motivos,
@@ -345,6 +427,7 @@ fn exportar(
     bloco: Option<u32>,
     alvo: Option<u32>,
     status: StatusAlvo,
+    abs: Option<&Absoluto>,
     consumidor: bool,
     promotivel: bool,
     motivos: Vec<String>,
@@ -405,6 +488,51 @@ fn exportar(
         ),
         ("alvo", alvo.map(hex_json).unwrap_or(Json::Null)),
         ("alvo-status", Json::str(status.label())),
+        // Bloco de endereço (EXPECTATIONS-ETAPA3 §1.2): as quatro quantidades
+        // separadas. `alvo` acima É Q2; Q1/Q3/Q4 nunca se fundem com ele.
+        (
+            "operando-bruto",
+            abs.map(|a| hex_json(a.operando_bruto))
+                .unwrap_or(Json::Null),
+        ),
+        (
+            "endereco-efetivo",
+            abs.map(|a| hex_json(a.endereco_efetivo))
+                .unwrap_or(Json::Null),
+        ),
+        (
+            "endereco-de-barramento",
+            abs.map(|a| hex_json(a.endereco_de_barramento))
+                .unwrap_or(Json::Null),
+        ),
+        (
+            "offset-de-objeto",
+            match abs.and_then(|a| offset_de_objeto(p, a.endereco_efetivo)) {
+                Some(o) => Json::Int(o as i64),
+                None => Json::Null,
+            },
+        ),
+        (
+            "offset-de-objeto-status",
+            Json::str(match abs {
+                None => "sem-operando-absoluto",
+                Some(a) if offset_de_objeto(p, a.endereco_efetivo).is_some() => "dentro-do-objeto",
+                Some(_) => "fora-do-objeto",
+            }),
+        ),
+        ("modelo-de-cpu", Json::str("mc68000")),
+        (
+            "forma-do-operando",
+            abs.map(|a| Json::str(a.forma)).unwrap_or(Json::Null),
+        ),
+        (
+            "semantica-do-operando",
+            abs.map(|a| Json::str(a.semantica())).unwrap_or(Json::Null),
+        ),
+        (
+            "fonte-da-semantica",
+            abs.map(|a| Json::str(a.fonte())).unwrap_or(Json::Null),
+        ),
         (
             "consumidor-validado",
             Json::str(if consumidor { "sim" } else { "nao" }),

@@ -102,7 +102,7 @@ fn analyze_escreve_o_json_com_o_objeto_a_regiao_e_os_sitios() {
     ]);
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
     let j = r.json();
-    assert_eq!(j.str_at("schema").unwrap(), "rex-cfg/v1");
+    assert_eq!(j.str_at("schema").unwrap(), "rex-cfg/v2");
     assert_eq!(j.field("objeto").unwrap().i64_at("tamanho").unwrap(), 0x28);
     assert_eq!(j.field("objeto").unwrap().str_at("sha256").unwrap(), {
         rex_gameplay::sha256::sha256_hex(&std::fs::read(fixture("fx04_calls.bin")).unwrap())
@@ -118,7 +118,7 @@ fn analyze_escreve_o_json_com_o_objeto_a_regiao_e_os_sitios() {
     assert_eq!(sitios[0].str_at("veredito").unwrap(), "miolo-de-instrucao");
     // a CLI imprime um resumo de uma linha com as contagens (evidencia)
     assert!(
-        r.stdout.contains("rex-cfg/v1"),
+        r.stdout.contains("rex-cfg/v2"),
         "stdout sem identidade: {}",
         r.stdout
     );

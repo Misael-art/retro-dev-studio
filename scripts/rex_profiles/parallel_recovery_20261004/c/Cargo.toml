@@ -3,7 +3,7 @@ name = "rex-cfg"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.70"
-description = "CFG parcial por analise de fluxo delimitada (rex-cfg/v1). Consome rex-gameplay por path, somente-leitura. Experimental."
+description = "CFG parcial por analise de fluxo delimitada (rex-cfg/v2). Consome rex-gameplay por path, somente-leitura. Experimental."
 license = "UNLICENSED"
 publish = false
 

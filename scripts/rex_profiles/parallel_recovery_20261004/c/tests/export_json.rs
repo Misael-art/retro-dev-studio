@@ -1,4 +1,4 @@
-//! Export `rex-cfg/v1`: forma, vocabulario e determinismo.
+//! Export `rex-cfg/v2`: forma, vocabulario e determinismo.
 //!
 //! As chaves e os textos seguem CONTRACT §4 literalmente (incluindo a mistura
 //! `caminho_declarado` / `bytes-decodificados` que o contrato congelou). Nada
@@ -166,7 +166,7 @@ fn corpo_usa_o_vocabulario_de_textos_do_contrato() {
 fn cabecalho_identifica_esquema_ferramenta_e_objeto() {
     let j = json_de(FX01, &[0x0], "fixtures/fx01_branches.bin");
     assert_eq!(j.str_at("schema").unwrap(), SCHEMA);
-    assert_eq!(j.str_at("schema").unwrap(), "rex-cfg/v1");
+    assert_eq!(j.str_at("schema").unwrap(), "rex-cfg/v2");
 
     let tool = j.field("tool").unwrap();
     assert_eq!(tool.str_at("name").unwrap(), TOOL_NAME);
@@ -385,7 +385,7 @@ fn markdown_resumo_cita_os_mesmos_numeros_do_json() {
     };
     let md = export_markdown(&analise, &objeto, "fixture autoral");
     assert!(
-        md.contains("rex-cfg/v1"),
+        md.contains("rex-cfg/v2"),
         "markdown sem identidade de esquema"
     );
     assert!(

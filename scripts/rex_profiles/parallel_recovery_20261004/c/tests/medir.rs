@@ -210,7 +210,7 @@ fn md3_objeto_identificado_por_sha_e_comando_sem_caminho_local() {
     assert_eq!(sha.len(), 64, "sha256 hex de 64 digitos: {sha}");
     assert_eq!(
         r.texto("schema"),
-        "rex-cfg-med/v1",
+        "rex-cfg-med/v2",
         "esquema proprio, nao reusado de analyze ou consultar"
     );
     assert_eq!(r.int("objeto-tamanho"), 300, "fx11 tem 300 bytes");
@@ -542,7 +542,7 @@ fn v5_objeto_plano_ascii_sem_chave_duplicada_na_ordem_congelada() {
     esperado.sort();
     let mut reais = chaves.clone();
     reais.sort();
-    assert_eq!(esperado, reais, "conjunto de chaves do rex-cfg-med/v1");
+    assert_eq!(esperado, reais, "conjunto de chaves do rex-cfg-med/v2");
 }
 
 #[test]

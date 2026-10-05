@@ -184,23 +184,32 @@ fn m03_bsr_l_68020_interrompe_o_caminho_sem_alegar_alvo() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn m04_jsr_abs_w_bit15_exporta_operando_bruto_e_para_na_fronteira() {
+fn m04_jsr_abs_w_bit15_exporta_o_endereco_efetivo_e_para_na_fronteira() {
     let r = registro(0x20);
     let a = linha(0x20);
     assert_eq!(instr(&a, 0x20).tam, 4, "M4: comprimento 4 comprovado");
     assert_eq!(instr(&a, 0x20).classe, "jsr");
     let c = chamada(&a, 0x20).expect("M4: aresta de chamada");
-    assert_eq!(c.alvo, Some(0x8000), "M4: operando bruto (word) exportado");
+    // ETAPA 3 §1.1 (retifica a ETAPA 2, que publicava o operando bruto 0x8000
+    // sob hipotese): o alvo exportado E o endereco efetivo sign-estendido, igual
+    // ao que o instrumento pinado le. O operando bruto continua separado, no
+    // objeto de sitio (`operando-bruto`), nunca no campo de alvo.
+    assert_eq!(c.alvo, Some(0xFFFF_8000), "M4: alvo == endereco efetivo");
+    assert_eq!(
+        c.alvo, r.target,
+        "M4: a ferramenta adota a leitura do instrumento"
+    );
+    assert_ne!(
+        c.alvo,
+        Some(0x8000),
+        "M4: a word zero-estendida e o valor da hipotese aposentada, registrado como NAO produzido"
+    );
     assert_eq!(c.status, Status::ForaDaRegiao);
-    // P-absW (1.1): o instrumento EXIBE 0xFFFF8000; a diferenca e registro de
-    // interpretacao pendente, nao resultado estrutural.
-    assert_eq!(r.target, Some(0xFFFF8000), "M4: leitura do instrumento");
-    assert_ne!(c.alvo, r.target, "M4: a ferramenta nao adota a exibicao");
     let f = fronteira(&a, 0x20).expect("M4: fronteira de regiao");
     assert_eq!(f.tipo, "limite-de-regiao");
     assert!(saida_da_linha(&a, 0x20)
         .iter()
-        .any(|e| e.tipo == Tipo::Chamada && e.alvo == Some(0x8000)));
+        .any(|e| e.tipo == Tipo::Chamada && e.alvo == Some(0xFFFF_8000)));
 }
 
 #[test]
@@ -229,7 +238,11 @@ fn m06_jmp_abs_w_gera_desvio_sem_queda() {
     let saidas = saida_da_linha(&a, 0x32);
     assert_eq!(saidas.len(), 1, "M6: exatamente uma aresta (sem queda)");
     assert_eq!(saidas[0].tipo, Tipo::Desvio, "M6: aresta de desvio");
-    assert_eq!(saidas[0].alvo, Some(0x8000), "M6: operando bruto");
+    assert_eq!(
+        saidas[0].alvo,
+        Some(0xFFFF_8000),
+        "M6: endereco efetivo (ETAPA 3 §1.1); a word zero-estendida 0x8000 esta registrada como NAO produzida"
+    );
     assert_eq!(saidas[0].status, Status::ForaDaRegiao);
     assert_eq!(r.target, Some(0xFFFF8000), "M6: leitura do instrumento");
     assert!(

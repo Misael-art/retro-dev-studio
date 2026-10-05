@@ -36,7 +36,8 @@ fn h(v: u32) -> String {
     format!("0x{v:06X}")
 }
 
-/// Ordem de emissão fixada em EXPECTATIONS-ETAPA2.md §5.
+/// Ordem de emissão congelada em EXPECTATIONS-ETAPA2.md §5 e extendida em
+/// EXPECTATIONS-ETAPA3.md §1.2 pelo bloco de endereço (Q1..Q4 + modelo).
 const CHAVES: &[&str] = &[
     "schema",
     "ferramenta",
@@ -56,6 +57,15 @@ const CHAVES: &[&str] = &[
     "instrucao-mnem",
     "alvo",
     "alvo-status",
+    "operando-bruto",
+    "endereco-efetivo",
+    "endereco-de-barramento",
+    "offset-de-objeto",
+    "offset-de-objeto-status",
+    "modelo-de-cpu",
+    "forma-do-operando",
+    "semantica-do-operando",
+    "fonte-da-semantica",
     "consumidor-validado",
     "promovivel-vinculo-estrutural",
     "motivos",
@@ -203,7 +213,7 @@ fn v1_chamada_provada_dentro_de_fluxo_diz_sim() {
     // fx10: 0x02 = `6100 0024` bsr.w 0x28 (comisco), alcancado de cabeca (0x00).
     let r = consultar(FIX10, REG_10, &[("0x0", "referencia-estatica")], "0x2");
     ok(&r);
-    assert_eq!(r.texto("schema"), "rex-cfg-sitio/v1");
+    assert_eq!(r.texto("schema"), "rex-cfg-sitio/v2");
     assert_eq!(r.texto("ferramenta"), "rex-cfg");
     assert_eq!(r.texto("versao"), "0.1.0");
     assert_eq!(
@@ -480,41 +490,61 @@ fn b6_ilha_sem_raiz_declurada_nao_gera_chamadas() {
 }
 
 // ---------------------------------------------------------------------------
-// §1.1 P-absW — a interpretação de (xxx).W é registro, não veredito
+// P-absW — ETAPA 3 §1.1: a extensão está RESOLVIDA por fonte primária. Este
+// bloco era, na ETAPA 2, o registro de uma hipótese; a retificação datada
+// (CONTRACT-RETIFICACAO-ETAPA3-2026-10-05.md) substitui as duas strings
+// aposentadas pela semântica medida, e os testes abaixo passaram a exigir isso.
 // ---------------------------------------------------------------------------
 
 #[test]
-fn pabsw_hiptese_de_extensao_declarada_em_limites() {
-    // §1.1: o alvo de `(xxx).W` sai como operando BRUTO sob hipótese declarada.
-    // A hipotese tem de ser visivel ao consumidor em todo despacho, senao o
-    // campo `alvo` leria como fato.
+fn pabsw_semantica_resolvida_declarada_em_limites() {
+    // EXPECTATIONS-ETAPA3 §3 E3-3: os tres limites novos entram e a string de
+    // hipotese sai. Um despacho que ainda publicasse a hipotese estaria a
+    // apresentar como em aberto o que ja foi resolvido por M68000PRM 2.2.16.
     let r = consultar(FIX09, REG_09, &[("0x20", "candidato")], "0x20");
     ok(&r);
+    let limites = r.lista("limites");
+    for esperado in [
+        "sign-estenda-de-abs-w-segundo-m68000prm-2.2.16",
+        "bus-24-bits-mc68000",
+        "offset-de-objeto-so-com-mapeamento-declarado",
+    ] {
+        assert!(
+            limites.contains(&esperado.to_string()),
+            "faltou {esperado}: {limites:?}"
+        );
+    }
     assert!(
-        r.lista("limites")
-            .contains(&"extensao-abs-w-hipotese-zero-extendida".to_string()),
-        "limites: {}",
-        r.bruto
+        !limites
+            .iter()
+            .any(|l| l.contains("extensao-abs-w-hipotese-zero-extendida")),
+        "a hipotese aposentada nao pode voltar: {limites:?}"
     );
 }
 
 #[test]
-fn pabsw_jsr_abs_w_bit15_registra_interpretacao_pendente_sem_mudar_veredito() {
-    // 0x20 = `4eb8 8000` = jsr (xxx).W com bit15 ligado. O instrumento EXIBE
-    // ffff8000; a ferramenta publica o operando bruto 0x008000. §1.1 congela que
-    // isso e `interpretacao-pendente` — nem FAIL nem PASS — e que nenhuma
-    // classificacao estrutural pode depender da interpretacao.
+fn pabsw_jsr_abs_w_bit15_publica_alvo_sign_estendido_sem_pendencia() {
+    // 0x20 = `4eb8 8000` = jsr (xxx).W com bit15 ligado. O instrumento pinado
+    // EXIBE `jsr 0xffff8000` (sonda S8) e a referencia primaria diz o mesmo
+    // (PRM 2.2.16). A ETAPA 1/2 publicava 0x008000 sob hipotese; o v2 publica a
+    // sign-extensao e nao tem mais registro pendente — o alvo incorreto e que
+    // nao podia ser justificado por uma interpretacao em aberto.
     let r = consultar(FIX09, REG_09, &[("0x20", "candidato")], "0x20");
     ok(&r);
-    assert_eq!(r.opcoes("alvo").as_deref(), Some(h(0x8000).as_str()));
+    assert_eq!(r.opcoes("alvo").as_deref(), Some(h(0xFFFF_8000).as_str()));
+    assert_eq!(
+        r.opcoes("operando-bruto").as_deref(),
+        Some(h(0x8000).as_str())
+    );
     assert_eq!(r.texto("alvo-status"), "fora-da-regiao");
     assert!(
-        r.motivos()
-            .contains(&"interpretacao-pendente:abs-w-bit15".to_string()),
+        !r.motivos()
+            .iter()
+            .any(|m| m.contains("interpretacao-pendente")),
         "motivos: {}",
         r.bruto
     );
-    // O resto da resposta nao se move por causa do registro:
+    // O resto da resposta nao se move: o que mudou foi o alvo, nao a classe.
     assert_eq!(r.texto("veredito"), "instrucao-de-bloco");
     assert_eq!(r.tam(), Some(4));
     assert_eq!(r.texto("consumidor-validado"), "sim");
@@ -522,14 +552,18 @@ fn pabsw_jsr_abs_w_bit15_registra_interpretacao_pendente_sem_mudar_veredito() {
 }
 
 #[test]
-fn pabsw_abs_l_alvo_grande_nao_registra_pendencia() {
-    // Controle discriminante: 0x3a = `4ef9 00800000` (jmp abs.L, M7) tem alvo com
-    // bit ligado e esta FORA da regiao, mas o operando e longword — nao ha
-    // questao de extensao. Um registro ancorado em "alvo suspeito/fora da regiao"
-    // passaria aqui e no teste de cima; ancorado na FORMA so passa neste conjunto.
+fn pabsw_abs_l_declara_semantica_literal_e_fonte_propria() {
+    // Controle discriminante: 0x3a = `4ef9 00800000` (jmp abs.L, M7) tem alvo
+    // alto e esta FORA da regiao, mas a forma e longword — a semantica e
+    // `literal` (PRM 2.2.17), nao sign-estendida. Uma implementacao que
+    // aplicasse sinal por ver o alvo "estranho" falharia aqui.
     let r = consultar(FIX09, REG_09, &[("0x3a", "candidato")], "0x3a");
     ok(&r);
     assert_eq!(r.texto("alvo-status"), "fora-da-regiao");
+    assert_eq!(r.texto("forma-do-operando"), "abs-l");
+    assert_eq!(r.texto("semantica-do-operando"), "literal");
+    assert_eq!(r.texto("fonte-da-semantica"), "M68000PRM 2.2.17");
+    assert_eq!(r.opcoes("alvo").as_deref(), Some(h(0x800000).as_str()));
     assert!(
         !r.motivos()
             .iter()
