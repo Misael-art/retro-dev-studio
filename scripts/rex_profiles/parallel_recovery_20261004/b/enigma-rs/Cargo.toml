@@ -1,0 +1,19 @@
+[package]
+name = "rex-enigma"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+description = "Decoder Enigma puro (clean-room do EnigmaDec 68k pinado) para a frente b de parallel_recovery_20261004. Delimitado: saida, trabalho, leitura e aritmetica; sem panic. Experimental; nao e superficie do produto nem registado em crates/."
+license = "UNLICENSED"
+publish = false
+
+# Unica dependencia: SHA-256 ja publicado por rex-kosinski (mesma convencion
+# dos paquetes REX; precedente scripts/rex_corpus_a). Nao se escreve una
+# segunda implementacion de hash. A biblioteca do decoder en si non depende
+# de nada.
+[dependencies]
+rex-kosinski = { path = "../../../../../crates/rex-kosinski" }
+
+[[bin]]
+name = "rex-enigma"
+path = "src/main.rs"

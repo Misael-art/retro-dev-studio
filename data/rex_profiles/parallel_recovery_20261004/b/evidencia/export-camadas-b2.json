@@ -2,7 +2,7 @@
  "schema_version": "rex-parallel-b/camadas/1",
  "gerado_por": "scripts/rex_profiles/parallel_recovery_20261004/b/exportar-camadas-b2.py",
  "expectativas": "E13/E17 (ADENDA-B2, 74fb2e2) + E18R-E22 (ADENDA-B3 a233e8d e refreeze B3-1 ab72d90)",
- "tempo_utc": "2026-10-05T02:37:49.832759+00:00",
+ "tempo_utc": "2026-10-05T19:04:43.386096+00:00",
  "promessa": "uma camada NAO promove automaticamente a seguinte; rotulos de nivel sao por afirmacao",
  "fontes_sha256": {
   "cadeia-sonic-verificada.json": "d32236c7e77c4902eaf6c84d1e06237c3a369036d67c9c4df9734789c3139d92",
