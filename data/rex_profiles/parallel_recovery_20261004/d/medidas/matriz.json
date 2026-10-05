@@ -1,0 +1,817 @@
+{
+  "esquema": "rex-parallel-d/matriz/1",
+  "regra": "capacidade × SHA, denominador conxelado; sen percentual único transversal (§8)",
+  "bases": {
+    "worktree_base_frozen": "cb56657a142df40d2acd09a3e03e54247f066dea",
+    "inventario": {
+      "A": "cbb6895567fe1f1e391c5b3b8dabf21580b78f6b",
+      "A_corrixido": "bd40e92269eb60b0df9b8ed0ddff561a0d19a4b3",
+      "B_velho": "cffe17fabcae6d5ce1dd23258f6883efef0b94c6",
+      "B_novo": "396e0b81e3813e9f7ffcd5ce04c6e7fd447be353",
+      "C": "275f2af0b81944709169ab360a67786e56ec4a13"
+    }
+  },
+  "frentes": [
+    {
+      "frente": "A",
+      "sha_frente": "cbb6895567fe1f1e391c5b3b8dabf21580b78f6b",
+      "evidencia": "A-cbb6895.jsonl",
+      "auditoria": {
+        "ok": true,
+        "sha256": "d05ce278a43b9cdd8c34922256876728b42997d2f0b35fe0c7021aaaa19caceb",
+        "motivo": "",
+        "xerado_em": "2026-10-05"
+      },
+      "procedencia": {
+        "frente": "A",
+        "sha": "cbb6895567fe1f1e391c5b3b8dabf21580b78f6b",
+        "arquivos": 15,
+        "divergentes": [],
+        "faltantes": [],
+        "ok": true
+      },
+      "capacidade_fora_do_denominador": [],
+      "capacidades": [
+        {
+          "capacidade": "KA1",
+          "denominador": 9,
+          "graduadas": 9,
+          "cobertura": "coherente",
+          "pass": 9,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "9/9",
+          "nota": ""
+        },
+        {
+          "capacidade": "KA1-b",
+          "denominador": 2,
+          "graduadas": 2,
+          "cobertura": "coherente",
+          "pass": 2,
+          "falhas": [],
+          "nao_suportado": [
+            "KA1-b-9",
+            "KA1-b-10"
+          ],
+          "desconhecido": [],
+          "fraccion": "2/2",
+          "nota": ""
+        },
+        {
+          "capacidade": "KA2",
+          "denominador": 4,
+          "graduadas": 4,
+          "cobertura": "coherente",
+          "pass": 4,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "4/4",
+          "nota": ""
+        },
+        {
+          "capacidade": "KA3",
+          "denominador": 1,
+          "graduadas": 1,
+          "cobertura": "coherente",
+          "pass": 1,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "1/1",
+          "nota": ""
+        },
+        {
+          "capacidade": "KA3-g",
+          "denominador": 2,
+          "graduadas": 2,
+          "cobertura": "coherente",
+          "pass": 2,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "2/2",
+          "nota": ""
+        },
+        {
+          "capacidade": "KA4",
+          "denominador": 3,
+          "graduadas": 3,
+          "cobertura": "coherente",
+          "pass": 3,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "3/3",
+          "nota": ""
+        },
+        {
+          "capacidade": "TA",
+          "denominador": 8,
+          "graduadas": 8,
+          "cobertura": "coherente",
+          "pass": 7,
+          "falhas": [
+            {
+              "fila": "TA-5",
+              "motivo": "operando .L alterado no registro, imagem inalterada",
+              "desvio": {
+                "campo": "rc",
+                "esperado": 6,
+                "medido": 2
+              },
+              "rc": 2,
+              "rc_esperado": 6
+            }
+          ],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "7/8",
+          "nota": ""
+        }
+      ],
+      "denominador_total": 29,
+      "fonte_denominador": "data/rex_profiles/parallel_recovery_20261004/d/frentes/a/dA-truth-v1.json",
+      "excluidas": [
+        {
+          "fila": "TA-2-control",
+          "capacidade": "TA-controle",
+          "veredito": "CONTROLADO",
+          "motivo": "eixo identidade confunde a receita TA-2; queda como observación"
+        }
+      ]
+    },
+    {
+      "frente": "A",
+      "sha_frente": "bd40e92269eb60b0df9b8ed0ddff561a0d19a4b3",
+      "evidencia": "A-bd40e92.jsonl",
+      "auditoria": {
+        "ok": true,
+        "sha256": "c2004f89e9145a04b16776214a92efd6669ed3b843bda0edd606d77915054817",
+        "motivo": "",
+        "xerado_em": "2026-10-05"
+      },
+      "procedencia": {
+        "frente": "A_corrixido",
+        "sha": "bd40e92269eb60b0df9b8ed0ddff561a0d19a4b3",
+        "arquivos": 52,
+        "divergentes": [],
+        "faltantes": [],
+        "ok": true
+      },
+      "capacidade_fora_do_denominador": [],
+      "capacidades": [
+        {
+          "capacidade": "KA1",
+          "denominador": 9,
+          "graduadas": 9,
+          "cobertura": "coherente",
+          "pass": 4,
+          "falhas": [
+            {
+              "fila": "KA1-2",
+              "motivo": "ERRO(4): fluxo: enderezo 0xFF8400 en rexión work-ram sen backing ROM",
+              "desvio": {
+                "campo": "carga_forma",
+                "esperado": "lea.w/A1",
+                "medido": null,
+                "motivo": "sen cadena"
+              },
+              "rc": 4,
+              "rc_esperado": 0
+            },
+            {
+              "fila": "KA1-bsr.l",
+              "motivo": "",
+              "desvio": {
+                "campo": "chamada_forma",
+                "esperado": "bsr.l",
+                "medido": "jsr.l"
+              },
+              "rc": 0,
+              "rc_esperado": 0
+            },
+            {
+              "fila": "KA1-jsr.w",
+              "motivo": "",
+              "desvio": {
+                "campo": "chamada_forma",
+                "esperado": "jsr.w",
+                "medido": "jmp.pcd16"
+              },
+              "rc": 0,
+              "rc_esperado": 0
+            },
+            {
+              "fila": "KA1-jmp.l",
+              "motivo": "",
+              "desvio": {
+                "campo": "chamada_forma",
+                "esperado": "jmp.l",
+                "medido": null
+              },
+              "rc": 0,
+              "rc_esperado": 0
+            },
+            {
+              "fila": "KA1-jmp.w",
+              "motivo": "",
+              "desvio": {
+                "campo": "chamada_forma",
+                "esperado": "jmp.w",
+                "medido": null
+              },
+              "rc": 0,
+              "rc_esperado": 0
+            }
+          ],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "4/9",
+          "nota": ""
+        },
+        {
+          "capacidade": "KA1-b",
+          "denominador": 2,
+          "graduadas": 2,
+          "cobertura": "coherente",
+          "pass": 2,
+          "falhas": [],
+          "nao_suportado": [
+            "KA1-b-9",
+            "KA1-b-10"
+          ],
+          "desconhecido": [],
+          "fraccion": "2/2",
+          "nota": ""
+        },
+        {
+          "capacidade": "KA2",
+          "denominador": 4,
+          "graduadas": 4,
+          "cobertura": "coherente",
+          "pass": 4,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "4/4",
+          "nota": ""
+        },
+        {
+          "capacidade": "KA3",
+          "denominador": 1,
+          "graduadas": 1,
+          "cobertura": "coherente",
+          "pass": 1,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "1/1",
+          "nota": ""
+        },
+        {
+          "capacidade": "KA3-g",
+          "denominador": 2,
+          "graduadas": 2,
+          "cobertura": "coherente",
+          "pass": 2,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "2/2",
+          "nota": ""
+        },
+        {
+          "capacidade": "KA4",
+          "denominador": 3,
+          "graduadas": 3,
+          "cobertura": "coherente",
+          "pass": 2,
+          "falhas": [
+            {
+              "fila": "KA4-2",
+              "motivo": "",
+              "desvio": {
+                "campo": "saida_sha256",
+                "esperado": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+                "medido": null
+              },
+              "rc": 4,
+              "rc_esperado": 0
+            }
+          ],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "2/3",
+          "nota": ""
+        },
+        {
+          "capacidade": "TA",
+          "denominador": 8,
+          "graduadas": 8,
+          "cobertura": "coherente",
+          "pass": 6,
+          "falhas": [
+            {
+              "fila": "TA-3",
+              "motivo": "chamada real declarada nun sitio lexítimo fóra da ventá tras a carga: só a xeometría pode rexeitala. Erata pré-medição de D: a receita original (+1, sitio ímpar) cae no elo sitio-chamada (bytes diverxentes, rc 5) porque A compara bytes antes de mirar o aliñamento — leído en verify.rs, non medido. A inalcanzabilidade da guarda de aliñamento queda rexistrada como observación de auditoría, non como fila do denominador.",
+              "desvio": {
+                "campo": "rc",
+                "esperado": 11,
+                "medido": 7
+              },
+              "rc": 7,
+              "rc_esperado": 11
+            },
+            {
+              "fila": "TA-5",
+              "motivo": "operando .L alterado no registro, imagem inalterada",
+              "desvio": {
+                "campo": "rc",
+                "esperado": 6,
+                "medido": 2
+              },
+              "rc": 2,
+              "rc_esperado": 6
+            }
+          ],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "6/8",
+          "nota": ""
+        }
+      ],
+      "denominador_total": 29,
+      "fonte_denominador": "data/rex_profiles/parallel_recovery_20261004/d/frentes/a/dA-truth-v1.json",
+      "excluidas": [
+        {
+          "fila": "TA-2-control",
+          "capacidade": "TA-controle",
+          "veredito": "CONTROLADO",
+          "motivo": "eixo identidade confunde a receita TA-2; queda como observación"
+        }
+      ]
+    },
+    {
+      "frente": "B",
+      "sha_frente": "cffe17fabcae6d5ce1dd23258f6883efef0b94c6",
+      "evidencia": "B-cffe17f.jsonl",
+      "auditoria": {
+        "ok": true,
+        "sha256": "d47f10e4568769b1283f63c1166a31e04e64fe4fb9f93a26acd414414215abfb",
+        "motivo": "",
+        "xerado_em": "2026-10-05"
+      },
+      "procedencia": {
+        "frente": "B_velho",
+        "sha": "cffe17fabcae6d5ce1dd23258f6883efef0b94c6",
+        "arquivos": 4,
+        "divergentes": [],
+        "faltantes": [],
+        "ok": true
+      },
+      "capacidade_fora_do_denominador": [],
+      "capacidades": [
+        {
+          "capacidade": "KB1",
+          "denominador": 4,
+          "graduadas": 4,
+          "cobertura": "coherente",
+          "pass": 4,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "4/4",
+          "nota": ""
+        },
+        {
+          "capacidade": "KB2",
+          "denominador": 2,
+          "graduadas": 2,
+          "cobertura": "coherente",
+          "pass": 2,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "2/2",
+          "nota": ""
+        },
+        {
+          "capacidade": "KB3",
+          "denominador": 4,
+          "graduadas": 4,
+          "cobertura": "coherente",
+          "pass": 4,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "4/4",
+          "nota": ""
+        },
+        {
+          "capacidade": "KB4",
+          "denominador": 2,
+          "graduadas": 2,
+          "cobertura": "coherente",
+          "pass": 2,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "2/2",
+          "nota": ""
+        },
+        {
+          "capacidade": "NB",
+          "denominador": 2,
+          "graduadas": 2,
+          "cobertura": "coherente",
+          "pass": 2,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "2/2",
+          "nota": ""
+        }
+      ],
+      "denominador_total": 14,
+      "fonte_denominador": "data/rex_profiles/parallel_recovery_20261004/d/frentes/b/dB-truth-v1.json",
+      "excluidas": [
+        {
+          "fila": "CONTROLE-IDENTIDADE-B",
+          "capacidade": "audit",
+          "veredito": "CONTROLADO",
+          "motivo": "a proba anexa de B é auditada recompoñendo D o digest da ROM e do descodificador que realmente se pasaron"
+        },
+        {
+          "fila": "CONTROLE-SONDA-VIVA-B",
+          "capacidade": "audit",
+          "veredito": "CONTROLADO",
+          "motivo": "control que demonstra que as filas KB1 non son vacuas: a mesma sonda cega ante a mutación sería unha sona morta"
+        },
+        {
+          "fila": "CONTROLE-ESPELLO-B",
+          "capacidade": "audit",
+          "veredito": "CONTROLADO",
+          "motivo": "ningunha fila de B conta a concordancia autor+espello como validación; o oráculo é a ROM"
+        },
+        {
+          "fila": "CONTROLE-JSON-TAMPER-B",
+          "capacidade": "TC",
+          "veredito": "NÃO APLICÁVEL",
+          "motivo": "a ferramenta real non consume evidencia JSON como entrada (o `--out` só escribe); a receita de §6 non é alcanzable. O eixo de identidade medírase en NB-2 coa ROM adulterada, que é a entrada que B si valida."
+        }
+      ]
+    },
+    {
+      "frente": "B",
+      "sha_frente": "396e0b81e3813e9f7ffcd5ce04c6e7fd447be353",
+      "evidencia": "B-396e0b8.jsonl",
+      "auditoria": {
+        "ok": true,
+        "sha256": "c506f0ffebf24baf50032886972f510d132f99d438b1afab20ea468294db982d",
+        "motivo": "",
+        "xerado_em": "2026-10-05"
+      },
+      "procedencia": {
+        "frente": "B",
+        "sha": "396e0b81e3813e9f7ffcd5ce04c6e7fd447be353",
+        "arquivos": 6,
+        "divergentes": [],
+        "faltantes": [],
+        "ok": true
+      },
+      "capacidade_fora_do_denominador": [],
+      "capacidades": [
+        {
+          "capacidade": "KB1",
+          "denominador": 4,
+          "graduadas": 4,
+          "cobertura": "coherente",
+          "pass": 4,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "4/4",
+          "nota": ""
+        },
+        {
+          "capacidade": "KB2",
+          "denominador": 2,
+          "graduadas": 2,
+          "cobertura": "coherente",
+          "pass": 2,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "2/2",
+          "nota": ""
+        },
+        {
+          "capacidade": "KB3",
+          "denominador": 4,
+          "graduadas": 4,
+          "cobertura": "coherente",
+          "pass": 4,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "4/4",
+          "nota": ""
+        },
+        {
+          "capacidade": "KB4",
+          "denominador": 2,
+          "graduadas": 2,
+          "cobertura": "coherente",
+          "pass": 2,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "2/2",
+          "nota": ""
+        },
+        {
+          "capacidade": "NB",
+          "denominador": 2,
+          "graduadas": 2,
+          "cobertura": "coherente",
+          "pass": 2,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "2/2",
+          "nota": ""
+        }
+      ],
+      "denominador_total": 14,
+      "fonte_denominador": "data/rex_profiles/parallel_recovery_20261004/d/frentes/b/dB-truth-v1.json",
+      "excluidas": [
+        {
+          "fila": "CONTROLE-IDENTIDADE-B",
+          "capacidade": "audit",
+          "veredito": "CONTROLADO",
+          "motivo": "a proba anexa de B é auditada recompoñendo D o digest da ROM e do descodificador que realmente se pasaron"
+        },
+        {
+          "fila": "CONTROLE-SONDA-VIVA-B",
+          "capacidade": "audit",
+          "veredito": "CONTROLADO",
+          "motivo": "control que demonstra que as filas KB1 non son vacuas: a mesma sonda cega ante a mutación sería unha sona morta"
+        },
+        {
+          "fila": "CONTROLE-ESPELLO-B",
+          "capacidade": "audit",
+          "veredito": "CONTROLADO",
+          "motivo": "ningunha fila de B conta a concordancia autor+espello como validación; o oráculo é a ROM"
+        },
+        {
+          "fila": "CONTROLE-JSON-TAMPER-B",
+          "capacidade": "TC",
+          "veredito": "NÃO APLICÁVEL",
+          "motivo": "a ferramenta real non consume evidencia JSON como entrada (o `--out` só escribe); a receita de §6 non é alcanzable. O eixo de identidade medírase en NB-2 coa ROM adulterada, que é a entrada que B si valida."
+        }
+      ]
+    },
+    {
+      "frente": "C",
+      "sha_frente": "275f2af0b81944709169ab360a67786e56ec4a13",
+      "evidencia": "C-275f2af.jsonl",
+      "auditoria": {
+        "ok": true,
+        "sha256": "7e5969d099d10a7969f67ecac53902cbb1fb4205f78b21d7e53c632bdc333f61",
+        "motivo": "",
+        "xerado_em": "2026-10-05"
+      },
+      "procedencia": {
+        "frente": "C",
+        "sha": "275f2af0b81944709169ab360a67786e56ec4a13",
+        "arquivos": 46,
+        "divergentes": [],
+        "faltantes": [],
+        "ok": true
+      },
+      "capacidade_fora_do_denominador": [],
+      "capacidades": [
+        {
+          "capacidade": "KC1",
+          "denominador": 20,
+          "graduadas": 20,
+          "cobertura": "coherente",
+          "pass": 19,
+          "falhas": [
+            {
+              "fila": "KC1-movea.l #imm32,A1",
+              "motivo": "C aceptou unha forma fóra da súa lista fechada §3 sen declarala soportada; o eixo desta fila é a fronteira, non o comprimento",
+              "desvio": {
+                "campo": "comportamento",
+                "esperado": "fronteira opcode-fora-do-subconjunto",
+                "medido": "decodificado como moveal #(0x00001111), %a1 (tam 6)"
+              },
+              "rc": 0,
+              "rc_esperado": null
+            }
+          ],
+          "nao_suportado": [
+            "KC1-move.l d16(PC),D0"
+          ],
+          "desconhecido": [],
+          "fraccion": "19/20",
+          "nota": ""
+        },
+        {
+          "capacidade": "KC2",
+          "denominador": 6,
+          "graduadas": 6,
+          "cobertura": "coherente",
+          "pass": 6,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "6/6",
+          "nota": ""
+        },
+        {
+          "capacidade": "KC3",
+          "denominador": 3,
+          "graduadas": 3,
+          "cobertura": "coherente",
+          "pass": 2,
+          "falhas": [
+            {
+              "fila": "KC3-move-w-imm-an",
+              "motivo": "combinação destino An em MOVE.W é inválida no ISA",
+              "desvio": {
+                "campo": "fronteira",
+                "esperado": "fronteira no endereço",
+                "medido": "decodificado como moveaw %a0, %a0 (tam 2)"
+              },
+              "rc": 0,
+              "rc_esperado": null
+            }
+          ],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "2/3",
+          "nota": ""
+        },
+        {
+          "capacidade": "KC4",
+          "denominador": 4,
+          "graduadas": 4,
+          "cobertura": "coherente",
+          "pass": 3,
+          "falhas": [
+            {
+              "fila": "KC4-jmp-ind-an",
+              "motivo": "",
+              "desvio": {
+                "campo": "fronteira",
+                "esperado": "indirect-opaco",
+                "medido": "indirect-opaque"
+              },
+              "rc": 0,
+              "rc_esperado": null
+            }
+          ],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "3/4",
+          "nota": ""
+        },
+        {
+          "capacidade": "KC5",
+          "denominador": 5,
+          "graduadas": 5,
+          "cobertura": "coherente",
+          "pass": 5,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "5/5",
+          "nota": ""
+        },
+        {
+          "capacidade": "TC",
+          "denominador": 4,
+          "graduadas": 4,
+          "cobertura": "coherente",
+          "pass": 4,
+          "falhas": [],
+          "nao_suportado": [],
+          "desconhecido": [],
+          "fraccion": "4/4",
+          "nota": ""
+        }
+      ],
+      "denominador_total": 42,
+      "fonte_denominador": "EXTENSOES-D.md §5 (táboa conxelada; as fichas de C non pinan denominador)",
+      "excluidas": [
+        {
+          "fila": "CONTROLE-IDENTIDADE-CX1",
+          "capacidade": "audit",
+          "veredito": "CONTROLADO",
+          "motivo": "a proba auditase recompondo o digest do --bin lido, non consultando o hash por existir"
+        },
+        {
+          "fila": "CONTROLE-IDENTIDADE-CX2",
+          "capacidade": "audit",
+          "veredito": "CONTROLADO",
+          "motivo": "a proba auditase recompondo o digest do --bin lido, non consultando o hash por existir"
+        },
+        {
+          "fila": "CONTROLE-IDENTIDADE-CX3",
+          "capacidade": "audit",
+          "veredito": "CONTROLADO",
+          "motivo": "a proba auditase recompondo o digest do --bin lido, non consultando o hash por existir"
+        },
+        {
+          "fila": "CONTROLE-IDENTIDADE-CX4",
+          "capacidade": "audit",
+          "veredito": "CONTROLADO",
+          "motivo": "a proba auditase recompondo o digest do --bin lido, non consultando o hash por existir"
+        },
+        {
+          "fila": "TC-4-control",
+          "capacidade": "TC",
+          "veredito": "CONTROLADO",
+          "motivo": "control observado: sen raíz extra a receita mide alcançabilidade, non lonxitude (errata §6)"
+        },
+        {
+          "fila": "CONTROLE-COHERENCIA-CX1",
+          "capacidade": "audit",
+          "veredito": "CONTROLADO",
+          "motivo": "a diferenza ten de explicarse polas instrucións que C recusa na fronteira e non por bytes inventados; fronteiras non-de-región nesta rexión: [\"0x00000A/203a\",\"0x000042/ffff\"]"
+        }
+      ]
+    }
+  ],
+  "holdouts": [
+    {
+      "evidencia": "holdouts-v3.jsonl",
+      "auditoria": {
+        "ok": true,
+        "sha256": "38ea1a9068f80bd9443449ffa30f0527019e80a0fcffda42354f08b478858108"
+      },
+      "grupos": [
+        {
+          "frente": "A",
+          "filas": 30,
+          "pass": 28,
+          "falhas": [
+            {
+              "fila": "H-A/TA-5",
+              "desvio": {
+                "campo": "rc",
+                "esperado": 6,
+                "medido": 2
+              }
+            }
+          ],
+          "void": [],
+          "inconclusivas": [],
+          "controlados": [
+            "H-A/TA-2-control"
+          ]
+        },
+        {
+          "frente": "B",
+          "filas": 4,
+          "pass": 4,
+          "falhas": [],
+          "void": [],
+          "inconclusivas": [],
+          "controlados": []
+        },
+        {
+          "frente": "C",
+          "filas": 5,
+          "pass": 5,
+          "falhas": [],
+          "void": [],
+          "inconclusivas": [],
+          "controlados": []
+        },
+        {
+          "frente": "D",
+          "filas": 2,
+          "pass": 0,
+          "falhas": [],
+          "void": [
+            {
+              "fila": "H-A-v1-VOID",
+              "motivo": "entrada inválida autorada por D: fluxo s2 (149 B en 0x9400) pisou o final de s1 (1157 B en 0x9000); o decodificador de D rexeita a imaxe (`referencia antes do historico`), polo que a recusa de A non informa sobre A"
+            },
+            {
+              "fila": "H-A-v2-VOID",
+              "motivo": "streams válidos, pero a sonda lea.l d16(PC),A2 en 0x414 tiña desprazamento 0x8bec → asinado −28 924, alvo fóra da imaxe; a fila KA1-3 medía a autoría de D, non a forma de carga de A"
+            }
+          ],
+          "inconclusivas": [],
+          "controlados": []
+        }
+      ]
+    }
+  ]
+}

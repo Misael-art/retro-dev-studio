@@ -1,0 +1,44 @@
+{
+  "esquema": "rex-parallel-d/evidencia/1",
+  "gerado_em": "2026-10-05",
+  "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/medidas/C-275f2af.jsonl",
+  "linhas": 48,
+  "sha256": "7e5969d099d10a7969f67ecac53902cbb1fb4205f78b21d7e53c632bdc333f61",
+  "ferramenta": {
+    "bin": "/home/misael/rds-scratch/d-frentes-20261004/c/scripts/rex_profiles/parallel_recovery_20261004/c/target/release/rex-cfg",
+    "sha256": "075616e5ff0b7fa1734b883aff9fa98c8f00836fdd3080022222d75d80e95d19",
+    "verbo": "rex-cfg analyze"
+  },
+  "sha_frente": "275f2af0b81944709169ab360a67786e56ec4a13",
+  "procedencia": {
+    "frente": "C",
+    "sha": "275f2af0b81944709169ab360a67786e56ec4a13",
+    "arquivos": 46,
+    "divergentes": [],
+    "faltantes": [],
+    "ok": true
+  },
+  "fixtures": [
+    {
+      "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/c/dC-cx1.bin",
+      "sha256": "62cde573a18f3259eca34c75c472f85b03845693aea2816b5363e06fb31819ef",
+      "truth_sha256": "441039368aa060f78a28db50350c5fc2b8477189aab6451b51debb1108715180"
+    },
+    {
+      "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/c/dC-cx2.bin",
+      "sha256": "1c4c9e081716fcda1e7f302c0ec63eb15584354f36d4236446fcdd3096111c3a",
+      "truth_sha256": "4184b3271b4c288f7c9041f9ccff2f3a639f4dd8a6d715473237e16124f296c0"
+    },
+    {
+      "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/c/dC-cx3.bin",
+      "sha256": "609aceb7633e5b2c7e764ad3b66465fb950484d8cae850d50fcf462d80eef244",
+      "truth_sha256": "c2b69bb202fcee98753f33fb16d0b219b3cf2f911c738e770283c36496ae3c80"
+    },
+    {
+      "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/c/dC-cx4.bin",
+      "sha256": "267cdbdca8e205a3989f3946faf81331d33691b0a5e07547131b35e65b271d05",
+      "truth_sha256": "a0c8d474833adfd8350993eaf3401525d4e6874a0b8e8c7acaeea13f672a8472"
+    }
+  ],
+  "truth_sha256": "gabaritos autorais D conxelados antes da execución (EXTENSOES-D §5)"
+}

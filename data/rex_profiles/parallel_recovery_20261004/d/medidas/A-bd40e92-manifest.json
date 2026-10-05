@@ -1,0 +1,28 @@
+{
+  "esquema": "rex-parallel-d/evidencia/1",
+  "gerado_em": "2026-10-05",
+  "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/medidas/A-bd40e92.jsonl",
+  "linhas": 30,
+  "sha256": "c2004f89e9145a04b16776214a92efd6669ed3b843bda0edd606d77915054817",
+  "ferramenta": {
+    "bin": "/home/misael/rds-scratch/d-frentes-20261004/a-bd40e92/scripts/rex_profiles/parallel_recovery_20261004/a/target/release/rex-chain",
+    "sha256": "40245421bf895bd75fe06f086c57f64285b388d3f2f7545b0c7e38f515ca82ae",
+    "verbo": "rex-chain"
+  },
+  "sha_frente": "bd40e92269eb60b0df9b8ed0ddff561a0d19a4b3",
+  "procedencia": {
+    "frente": "A_corrixido",
+    "sha": "bd40e92269eb60b0df9b8ed0ddff561a0d19a4b3",
+    "arquivos": 52,
+    "divergentes": [],
+    "faltantes": [],
+    "ok": true
+  },
+  "conjunto": "medicao",
+  "imagem": {
+    "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/a/dA-img-v1.bin",
+    "bytes": 131072,
+    "sha256": "a40ae21d21ea06171bce9d318e29372d2d9cc0107180107a6919f4c280b6dd18"
+  },
+  "truth_sha256": "07198d453d2044e761ae2306dc508f3dd477e5d29c35d748861bae9b2643e032"
+}
