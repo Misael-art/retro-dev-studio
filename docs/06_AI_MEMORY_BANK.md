@@ -2618,3 +2618,51 @@ package/lock/Cargo desde a base — auditorias ficam a cargo do CI do PR).
 Classificação mantida: Experimental / local profile validation — sem merge,
 release, promoção ou push forçado por esta frente; Linux-only para a
 correção de apresentação; integração é decisão do integrador.
+
+### Checkpoint 2026-10-05 — integrador: consolidação Sonic #103→#104 e inspeção
+somente-leitura de consumidores/recursos (PR #109, sem merge)
+
+Frente exclusiva do integrador: worktree `~/Projects/REX-INTEGRATION-2026-10-05`,
+branch `codex/rex-integrator-sonic-103104` (o checkout canônico permanece em
+`codex/rex-mugen-locomotion @ b53ce7a`, intocado). PR #109 empilhada sobre a
+cabeça do #104 (`codex/rex-sonic-sequencia`), 6 commits, HEAD `de4d1f5`.
+
+Entrega (ordem do operador, Missão E passos 9–11): comando read-only
+`rex_inspection_sonic_consumers` + DTO congelado `consumers-info/v1` + painel de
+7 níveis em português simples (produto→IPC→UI), demonstrando o consumidor
+verdadeiro do recurso da fase especial e recusando o falso líder (janela 4×4)
+com os 3 motivos fixos. Contrato congelado em
+`docs/rex_profiles/integration_20261005/EXPECTATIONS-INSP-2026-10-05.md` (texto
+intacto) + `ADENDO-1` datado (ambiguidade §1×§5-T4: troca de entrada da tabela
+sempre diverge um sítio → recusa TOTAL da cadeia por §1). Revisão B/C/D
+registrada em `REVISAO-B-C-D-2026-10-05.md`: B aprovada para consumo parcial,
+C/D como referência de contrato; **Enigma continua fora do produto** (decoder
+externo LGPL-mdcomp pinado por hash; nada foi transplantado).
+
+Prova no MESMO binário final `8c781bb0468e…` (build de `35c6657`, driver QA com
+Xvfb `5bfd315a…` e ROM BYOR `c7da53a1…` verificados por SHA em cada run,
+`system_display_modified=false`): jornada de regressão `sonic-sequencia-journey`
+**42/42 allPass** (obrigatória porque a UI foi tocada) e cenário novo
+`sonic-consumers-inspection` **24/24 allPass** — com painel aberto pelo caminho
+nativo e sondas técnicas rotuladas; somente-leitura provado (bytes idênticos,
+ledger 0, reinspeção idempótica, base preservada). A run-1 do cenário novo foi
+INCONCLUSIVE por **bug de asserção do harness** (comparava literal estofado
+`0x065432` contra o formato congelado `{:#x}` = `0x65432`; as 6 entradas
+conferiam byte a byte com os pins) — registrada com a linha bruta em
+`data/rex_profiles/integration_20261005/evidencia-insp/verdicts-linha-bruta.txt`,
+corrigida em `d614fd2` e reexecutada, sem reescrever expectativa congelada.
+
+Gates em `de4d1f5`: `check:tree`/`lint`/`tsc --noEmit` rc=0; `npm test` 936/0
+(6 skip); árvore Rust idêntica a `35c6657` (diff toca só `scripts/`) —
+`cargo fmt --check`, `cargo clippy -- -D warnings` (canônico, sem
+`--all-targets`) e `cargo test --lib` 869/0 valem por esse commit e estão
+marcados como HERDADOS com o motivo; `crates:gates` OK (4 pacotes);
+`host:certify` rc=0. Rollup CI terminal no SHA exato `de4d1f5`: todos SUCCESS
+(Sourcery SKIPPED de fábrica), consultado por segmento único, sem monitor.
+
+Classificação mantida: a entrega para em **vínculo estrutural estático provado
+pela interface**; candidata ≠ referência ≠ vínculo ≠ consumo observado ≠
+equivalência — nada foi promovido; sem merge, sem release, sem push forçado;
+ROM, binário, screenshots e patches derivados da ROM comercial permanecem fora
+do índice (só SHA-256 e referência). Pendente do operador: decisão de merge e
+promoção; frente MUGEN UX v2 (#66) não iniciada por falta de ordem.
