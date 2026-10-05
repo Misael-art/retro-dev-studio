@@ -29,3 +29,42 @@ Niveis de evidencia: `candidato → referencia-estatica → vinculo-estrutural �
 - Alcançabilidade do fluxo de control: **non analizada** — o emparellamento carga→chamada é heurístico e vai marcado en cada cadea (`emparellamento-ventana-heuristico`).
 - Execución en xogo / `observado-en-runtime`: **estructuralmente rexeitado** polo contrato (`validar()` erro; esta fronte non executa).
 - ROMs, plains comerciais, saídas decodificadas: **non versionados**; hashes e métricas só.
+
+## Reexecución v1.1 co recoñecedor corrigido (misión paso 5 — 2026-10-04)
+
+Bin `rex-chain` (debug) `db89dd435676967f871ca7aa8757d258bcee0d727d54273ea14afa6fd0d8e7f8`, HEAD da corrección `1344f4c`, gramática RECTIFICACION-A §3. Log integral novo: `~/rds-scratch/xe-a-evidencia-v11/evidencia-A-v11-20261004.log`, sha `852544277d6a80e9bcc50bcedf14b82fdd9c07d3b135c555267474a2b88e34ce`. O log anterior (`403892c7…`) queda **superseded**: conservado en `~/rds-scratch/xe-a-evidencia/`, non se borra nin se reescribe.
+
+Comparación elo a elo (serie bruta das duas execuciones, `diff` sobre liñas `revalidar-*` e JSONL):
+
+1. **9/9 revalidacións rc=0**, como predicía RECTIFICACION §5.1. **8 das 9
+   cadeas JSONL byte-identicas** (sonic-3082/1364, sor-16D2/087FC/08842/
+   10636/10852/119B4, phelios emitida 0x00035A). Os negativos §6 mantéñense
+   cos mesmos códigos exactos (7/7, `fallos=0`).
+2. **Unha conclusión mudou — sonic-51BC, elo de destino** (é a refutación
+   FA-7 de RECTIFICACION §4 cumprida na práctica, non un axuste post hoc):
+   `43F89400` en 0x051C2 é `lea.w` **con extensión de sinal** (medido polo
+   instrumento). Antes: `destino_operando=0x009400`, `destino_rexion=rom`.
+   Agora: `destino_operando=0xFFFF9400`, `destino_rexion=ram-68k-mirror`,
+   con `limitacions` nova `efectivo≠bus(destino): 0xFFFF9400 → bus=0xFF9400`.
+   Cadea nova sha `8ffc94a508261382e622d066646f60fd1fb7512bbe6b26d069bcfe34753ecfb3`.
+   **A5 queda superseded en parte**: o destino `$9400` forma curta de 0x51BC
+   xa NON é `rom`; é ventaná de espeello de RAM 68k, sen desprazamento de
+   ficheiro. As outras partes de A5 (`$FF0000`, `$A00000`) seguen conformes.
+3. **Varredura Phelios** (§5.3 predixo cambio de contadores):
+   antes `cargas=320 sen-parella=242 rexeitadas=77 emitidas=1`; agora
+   `cargas=317 sen-parella=231 rexeitadas=85 emitidas=1`. A cadea emitida é
+   a mesma (`0x00035A`, JSONL idéntico) e revalida rc=0. Atribución medida
+   do `cargas` 320→317 (canle directo sobre a imaxe, 2026-10-04): exactamente
+   3 `lea.w` co bit15 ligado — `0xCCBB`@0x29F32, `0xA554`@0x2A0F6,
+   `0xA978`@0x65B64 — cuxo cero-extension v1 era ROM-backing e a extensión
+   de sinal v1.1 (bus `0xFFCCBB`/`0xFFA554`/`0xFFA978`) non: deixan de
+   contarse como cargas. O reordenamento `sen-parella` 242→231 e
+   `rexeitadas` 77→85 é mixto (bsr.s de 2 bytes reabre xanelas; `4E FA`
+   pasa de jsr.w imaxinario a `jmp.pcd16`; recusas novas `referencia-invalida`):
+   contados en bruto, **non atribuído elo a elo** — así se declara, non se
+   estima. Ningunha recusa reetiquetada como paridade; `emitidas ≥ 1`
+   cumprido.
+4. **Niveis de evidencia intactos** (§5.5): as 9 cadeas seguen en
+   `vinculo-estrutural`; ningunha migrou á lista de recusa (§5.2: ningunha
+   usa `61 FF`/`4E FC/FD`/`4E FA`); sen execución; root declarado segue
+   sendo root local.

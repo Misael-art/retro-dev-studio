@@ -12,7 +12,11 @@ Data: 2026-10-04. Fronte: `codex/rex-parallel-a-kosinski-chains` no worktree
   houbo deriva durante a execución (traballo en worktree propio desde ese commit).
 - Commits desta fronte (orde): `7e3731c` (expectativas conxeladas),
   `a0fd217` (contrato + motor + CLI), `a2ac233` (comparación co oráculo),
-  fase 6 (evidencia real + negativos + mostra reservada + este informe).
+  fase 6 (evidencia real + negativos + mostra reservada + este informe),
+  `09e5833` (RECTIFICACION-A + fixtures autorais co instrumento pinado),
+  `b837986` (tests discriminantes, 17/18 vermellos en `cbb6895`),
+  `1344f4c` (corrección v1.1 do subconxunto 68000; paso 5 reexecitado con
+  `fallos=0`, serie nova en §6.1).
 - Host: linux/x64 (Manjaro). `host:diagnose --profile full` = READY ao iniciar
   (fingerprint `60249508aff61897cdd43160d4716b2344d69282507a36c5a457c0028143f6e2`,
   rexistrado en EXPECTATIONS-A.md §0).
@@ -50,6 +54,10 @@ emitidas=1`. A emitida (`0x00035A` → fluxo `$060000`, jsr.l `$06FDF2`,
 rutina propia `25429193…` ≠ pin Sonic/SoR — rexistrada como medida da súa, non
 axustada) revalidou rc=0 (consumo 65215 → saída 193813). Aceitación 1/320
 honesto; as 77 rexeitadas conservan a serie bruta. Ver AUDITORIA-A.md.
+*(Anotación 2026-10-04, v1.1: o párrafo describe a execución coa gramática
+conxelada v1 e consérvase tal cal. Co recoñecedor corrigido os contadores son
+`317/231/85/1` — cambio predicido en RECTIFICACION-A §5.3; a cadea emitida é a
+mesma e o seu JSONL é byte-identico. Serie nova en §6.1 e AUDITORIA-A.)*
 
 ## 3. Comparación independente (produto × oráculo externo)
 
@@ -90,10 +98,14 @@ Ademais: un enderezo fornecido polo usuario nunca se promove a
 | Gate | Estado | Nota |
 |---|---|---|
 | `cargo test` (paquete rex-chain) | EXECUTADO: 46/46 (chain 9, instr 15, json 8, verify 14) | ao rematar a fase 6 |
+| `cargo test` v1.1 (tras `1344f4c`) | EXECUTADO: **65/65** (chain 9, instr 16, json 8, verify 14, rectif 18) | suite + tests discriminantes da rectificación |
 | `cargo clippy --all-targets -- -D warnings` | EXECUTADO: silencioso | fase 6 |
+| `cargo clippy --all-targets -- -D warnings` v1.1 | EXECUTADO: silencioso | tras a corrección |
 | `cargo fmt --check` | EXECUTADO: limpo | fase 6 |
+| `cargo fmt --check` v1.1 | EXECUTADO: limpo | tras a corrección |
 | `npm run check:tree` | EXECUTADO: OK no worktree | estrutura do territory conforme |
 | E2E `executar-evidencia-A.sh` | EXECUTADO: fallos=0, rc-geral=0 | log sha §6 abaixo |
+| E2E `executar-evidencia-A.sh` v1.1 | EXECUTADO: fallos=0, rc-geral=0 (paso 5; 9/9 rc=0, 8/9 JSONL idénticos) | serie nova §6.1; vella superseded |
 | E2E `comparar-oraculo-streams.sh` | EXECUTADO: 8/8 paridade, rc=0 | tsv sha §6 abaixo |
 | `npm run lint` / `npx tsc --noEmit` / `npm test` | NON EXECUTADOS: esta fronte non toca `src/`/`src-tauri/`/frontend; os scripts da raíz do canónico aplican ao canónico, non ao territory A | sen cambios que cubrir |
 | `npm run host:certify` | NON EXECUTADO: non se modificou host, build, emulacion nin toolchains do produto (fronte = scripts Rust standalone + docs + data no territory A) | rexistrado como pendente para o integrador se o merger cambia o verdict |
@@ -112,24 +124,43 @@ membro Phelios `842951c2c710cf691a56107934d9b7e495f1519948ffe982ea0ebb68f19298f6
 
 | Artefacto | SHA-256 |
 |---|---|
-| log evidencia `xe-a-evidencia/evidencia-A-20261004.log` | `403892c7f92642c1f48fe3e94f201935ead1294fab26845e2d316b4416ef5d05` |
+| log evidencia `xe-a-evidencia/evidencia-A-20261004.log` | `403892c7f92642c1f48fe3e94f201935ead1294fab26845e2d316b4416ef5d05` — **superseded** polo `v11` de §6.1 (conservado, non borrado) |
 | `oracle-compare/oracle-streams.tsv` (8 filas) | `850290e024191764e687b4f19a380e2591f231286b9c6e19a5179b436d34580b` |
 | `sonic-3082.jsonl` | `2ec2fd903e4bb28e88c6091a7b71e2f8d9dc894e03c83ab2248b07304ec1687a` |
 | `sonic-1364.jsonl` | `793c5681226e0d38b7514f744170f05e2a62c27c9173d2a2f774080bd0d2aaae` |
-| `sonic-51BC.jsonl` | `81424f499507976728358d72f31a6d04951769625a637f11e316e9adcdf6b6ce` |
+| `sonic-51BC.jsonl` | `81424f499507976728358d72f31a6d04951769625a637f11e316e9adcdf6b6ce` — **superseded** en v1.1 (elo de destino; ver §6.1 e AUDITORIA punto 2) |
 | `sor-16D2.jsonl` | `b4b98b95626a972e7922bc5c81fd60b6ff209f6e0428aaae0235b88a19115317` |
 | `sor-087FC.jsonl` | `bb6b578173f125805d712e2fda8b63ba82a99193b6ca78348dfaf495a8cd5839` |
 | `sor-08842.jsonl` | `c952c42cb918f15c71eef0393c1b63da2da70e43ed1722bf0d18a6d883fc6544` |
 | `sor-10636.jsonl` | `ad3718aff65e507e066a3fb61052d1b1f372c13dd7f29c064810f16b61eda8ad` |
 | `sor-10852.jsonl` | `ecf98bd5c1292d2ef9df54cba83a8ef497ea3fd40ab5b07199d4bff54c872ef4` |
 | `sor-119B4.jsonl` | `7d4ed6e57da5ab4fbc6d380af24539852b4f0e73e2945bf69310d4ca5f0f691c` |
-| `phelios-varredura.jsonl` (serie bruta: emitida + 77 rexeitadas) | `07e8c121181f022cc375b169d1b275cc501873415dc53b9831164ed97c42a694` |
+| `phelios-varredura.jsonl` (serie bruta: emitida + 77 rexeitadas) | `07e8c121181f022cc375b169d1b275cc501873415dc53b9831164ed97c42a694` — **idéntico en v1.1**. A etiqueta desta fila era incorrecta (medido en v1.1): o ficheiro só contén a cadea emitida (1 liña); os contadores de rexeitamento viven en `phelios-varredura.resumo.txt` (§6.1) |
 | negativos: `neg-sitio/neg-alvo/neg-arg/neg-trun/neg-mapper.jsonl` | `d84460c0…` `668f6ff1…` `9008000d…` `94bf8177…` `b5bfeabd…` |
 | `neg-oraculo/oracle-streams.tsv` (modo SKIP) | `3affdbd820626fcc32583f7a3d26c3296eed2c039e8b6e5f5c742c19c8dea337` |
 | fixture sintética `synth.bin` (E2E happy+tamper) | `17bd593e…` (ver log E2E) |
 
 As cadeas JSONL NON se commitean: conteñen offsets/saídas derivados das ROMs;
 o contrato, o motor, os scripts e este informe son o produto versionado.
+
+### 6.1 Reexecución v1.1 co recoñecedor corrigido (misión, paso 5 — 2026-10-04)
+
+O mesmo pipeline (`executar-evidencia-A.sh`, pins §6 intactos) executouse co
+binario da corrección RECTIFICACION-A (HEAD `1344f4c`), saída `fallos=0`.
+Comparación elo a elo e atribucións medidas: AUDITORIA-A §«Reexecución v1.1».
+
+| Artefacto | SHA-256 |
+|---|---|
+| bin `rex-chain` (debug) executado | `db89dd435676967f871ca7aa8757d258bcee0d727d54273ea14afa6fd0d8e7f8` |
+| log `xe-a-evidencia-v11/evidencia-A-v11-20261004.log` (**supersede** o `403892c7…` de §6, conservado) | `852544277d6a80e9bcc50bcedf14b82fdd9c07d3b135c555267474a2b88e34ce` |
+| `sonic-51BC.jsonl` v1.1 — única cadea que muda: `destino_operando 0x009400→0xFFFF9400`, `destino_rexion rom→ram-68k-mirror`, `limitacions` nova `efectivo≠bus(destino)` | `8ffc94a508261382e622d066646f60fd1fb7512bbe6b26d069bcfe34753ecfb3` |
+| `phelios-varredura.resumo.txt` v1.1 (`cargas=317 sen-parella=231 rexeitadas=85 emitidas=1`; antes `320/242/77/1`) | `f5e8d3c2be84330a975a5f53ccdfb8412ddc903c9cf0a84c099e26b4d37cf53f` (antes `d76da2d7…`) |
+| as outras 8 cadeas + `phelios-varredura.jsonl` + 5 negativos + `neg-oraculo/oracle-streams.tsv` | **byte-identicas ás de §6** (verificado con `cmp`/`sha256sum` sobre as duas series) |
+
+Conclusións que mudan: só a de sonic-51BC no elo de destino (refutación FA-7
+de RECTIFICACION §4 cumprida na práctica; A5 parcialmente superseded). Os
+contadores da varredura Phelios mudan como predicía §5.3; a cadea emitida
+(`0x00035A`) é idéntica e revalida rc=0. Niveis de evidencia: inalterados.
 
 ## 7. Desvíos conservados (expectativa conxelada ≠ medido)
 
@@ -157,6 +188,12 @@ orixinal, precedente FA-6):
 8. FASE5 pins caducos: JSONL Sonic3 `2e6cf1d4…`→`101ae28a…`, SoR5
    `6feb9454…`→`ee73d972…` — rexeneración v2 documentada en FASE6 §3;
    rexistrada como pin histórico caducado, non como adulteración.
+9. rectif.rs r7 (conxelado v1.1, paso 3): o literal esperaba `alvo: 8202`,
+   pero o propio comentario do test afirma `0x2006` e o instrumento pinado
+   (cstool en 0x2000, `4eba 0004`) dá 0x2000+2+4 = **8198**. Desvio de
+   transcrición decimal no conxelado, non da fórmula nin do instrumento:
+   corrixirse só o literal, anotado no sitio e en RECTIFICACION-A §5.1.2
+   (precedente FA-6). A corrección do decodificador non mudou neste caso.
 
 ## 8. Límites e non-alegacións (firmes)
 
