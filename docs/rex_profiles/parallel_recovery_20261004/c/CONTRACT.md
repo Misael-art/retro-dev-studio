@@ -107,6 +107,48 @@ rex-cfg consultar --bin <arquivo> [--origin 0xN] --region 0xINICIO:0xFIM \
 - Códigos de saída: os mesmos três de `analyze` (0 ok, 1 falha de análise,
   2 erro de uso). `--bin` continua somente-leitura.
 
+### 2.2 Extensão datada (2026-10-05, ETAPA 2): subcomando `medir`
+
+`analyze` e `consultar` continuam como assinados; nada deles mudou por causa
+disto. O terceiro subcomando é o export de medições para a frente D, congelado
+em `EXPECTATIONS-ETAPA2.md` §6 (obrigação 8):
+
+```
+rex-cfg medir --bin <arquivo> [--origin 0xN] --region 0xINICIO:0xFIM \
+  --root 0xENDERECO --root-prov <vocabulario> [--max-insn N] --out <json>
+```
+
+- **exatamente uma** `--root`: as quatro dimensões compartilhariam denominador
+  se houvesse mais de uma raiz, e isso é agregado — proibido por §3 A4 e §6.
+  `--md`, `--region-prov`, `--root-evidence` e `--site` não existem aqui e são
+  **erro de uso** (código 2), não flags ignoradas.
+- Saída: objeto plano `rex-cfg-med/v1`, 37 chaves ASCII em ordem congelada
+  (`tests/medir.rs`), quatro blocos de dimensão — `comprimento-*`,
+  `operandos-*`, `fluxo-*`, `alcance-*` — cada um com `status`, `unidade` e o
+  seu denominador próprio. `agregado = "proibido"` é campo explícito: nenhuma
+  chave soma dimensões (vocabulário vedado em chave: `total|media|somatorio|
+  global|consolidado`).
+- **Normalização de grafia (MD1)**: os três textos fixos de `limites` são os do
+  §6, gravados **sem acento** — `paridade com objdump nao equivale a observacao
+  em runtime`, `nenhuma dimensao promove outra`, `sem execucao, sem DAC, sem
+  VRAM`. A razão é a mesma da regra V5 de §5, que vale para todo objeto emitido
+  por `rex-cfg`: o parser da frente A recusa byte não-ASCII e qualquer escape.
+  É normalização de grafia, **não** de sentido; o texto congelado permanece o
+  da expectativa e esta seção registra a correspondência.
+- MD2: nenhum valor de operando sai daqui — `operandos-valores-status =
+  "recusado"` com `operandos-valores-motivo = md2:nenhum-byte-literal-do-objeto-no-export`.
+  A dimensão de operandos conta **extensões** (`instrucoes-com-extensao`,
+  `palavras-de-extensao`), que é aritmética exata sobre comprimentos já
+  provados no subconjunto fechado de §3, e não alega efetividade de modo.
+- MD4: `status` por dimensão ∈ `medido | pendente | recusado`. Trabalho
+  truncado por `--max-insn` ⇒ as quatro dimensões ficam `pendente` e
+  `pendencia-motivos = ["limite-de-trabalho"]`; os números continuam presentes
+  (é o que foi possível medir) e o status impede que sejam lidos como cobertura.
+- MD3: o objeto se identifica por `objeto-sha256` + `objeto-tamanho` e o campo
+  `comando` reproduz a invocação **sem caminho local** (o `--bin` do comando é
+  `sha256=<digest>`), conforme §8 E3.
+- Códigos de saída: os mesmos três.
+
 ## 3. Subconjunto de instruções suportado (lista fechada)
 
 Suportadas para **comprimento e efeito de controle**; sem semântica de dados:

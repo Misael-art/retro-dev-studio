@@ -18,6 +18,7 @@ use std::process::ExitCode;
 
 use rex_cfg::export::{export_json, export_markdown, Objeto};
 use rex_cfg::grafo::{analisar_com_evidencias, RaizDeclarada, VOCABULARIO_PROVENIENCIA};
+use rex_cfg::medir;
 use rex_cfg::sitio;
 
 const USAGE: &str = "usage: rex-cfg analyze --bin <arquivo> [--origin 0xN] --region 0xINICIO:0xFIM \
@@ -27,6 +28,8 @@ const USAGE: &str = "usage: rex-cfg analyze --bin <arquivo> [--origin 0xN] --reg
        rex-cfg consultar --bin <arquivo> [--origin 0xN] --region 0xINICIO:0xFIM \
                     --root 0xENDERECO ... --root-prov <vocabulario> ... --site 0xENDERECO \
                     --out <json> [--max-insn N]
+       rex-cfg medir --bin <arquivo> [--origin 0xN] --region 0xINICIO:0xFIM \
+                    --root 0xENDERECO --root-prov <vocabulario> [--max-insn N] --out <json>
   regioes: inicio inclusivo, fim exclusivo; enderecos com prefixo 0x (hex) ou decimal
   --root/--root-prov/--root-evidence: por posicao; proveniencia aceita: ";
 
@@ -51,6 +54,7 @@ impl Erro {
 enum Sub {
     Analyze,
     Consultar,
+    Medir,
 }
 
 #[derive(Debug, Default)]
@@ -100,12 +104,16 @@ fn parse_args(args: &[String]) -> Result<Pedidos, Erro> {
             p.sub = Some(Sub::Consultar);
             1usize
         }
+        Some("medir") => {
+            p.sub = Some(Sub::Medir);
+            1usize
+        }
         Some(other) => {
             return uso(format!(
-                "subcomando desconhecido {other:?} (unicos: analyze, consultar)"
+                "subcomando desconhecido {other:?} (unicos: analyze, consultar, medir)"
             ))
         }
-        None => return uso("faltou o subcomando analyze ou consultar".to_string()),
+        None => return uso("faltou o subcomando analyze, consultar ou medir".to_string()),
     };
     let proximo = |args: &[String], i: &mut usize| -> Result<String, Erro> {
         *i += 1;
@@ -234,6 +242,36 @@ fn parse_args(args: &[String]) -> Result<Pedidos, Erro> {
             }
         }
     }
+    if p.sub == Some(Sub::Medir) {
+        // A assinatura de `medir` esta congelada em EXPECTATIONS-ETAPA2 §6: um
+        // objeto plano por execucao, com denominadores proprios. O que `analyze`
+        // agrega aqui e erro, nao comportamento tolerado.
+        if p.roots.len() != 1 {
+            return uso(format!(
+                "medir recebe exatamente uma raiz: as quatro dimensoes compartilhariam \
+                 denominador e isso e agregado, que e proibido (§3 A4); obtido {}",
+                p.roots.len()
+            ));
+        }
+        if p.md.is_some() {
+            return uso("medir nao escreve --md: o export e so o JSON plano".to_string());
+        }
+        if p.region_prov.is_some() {
+            return uso("medir nao recebe --region-prov: a regiao entra como numero".to_string());
+        }
+        if !p.root_evidences.is_empty() {
+            return uso(
+                "medir nao recebe --root-evidence: o export nao exporta evidencia".to_string(),
+            );
+        }
+        if !p.sites.is_empty() {
+            return uso(format!(
+                "medir nao recebe --site: medir conta o fluxo inteiro de uma raiz; consulta de \
+                 sitio e o subcomando consultar; obtido {}",
+                p.sites.len()
+            ));
+        }
+    }
     Ok(p)
 }
 
@@ -325,6 +363,65 @@ fn executar(args: &[String]) -> Result<(), Erro> {
                 .and_then(|v| v.as_arr().ok())
                 .map(|a| a.len())
                 .unwrap_or(0),
+            out.display()
+        );
+        return Ok(());
+    }
+
+    if p.sub == Some(Sub::Medir) {
+        let out = p
+            .out
+            .clone()
+            .ok_or_else(|| Erro::Uso("faltou --out".to_string()))?;
+        let valor = medir::medir(&medir::Pedido {
+            buf: &buf,
+            arquivo: &bytes,
+            origin: p.origin,
+            regiao: (regiao_ini, regiao_fim),
+            raiz: raizes
+                .first()
+                .ok_or_else(|| Erro::Uso("faltou --root".to_string()))?,
+            max_insn: p.max_insn.unwrap_or(MAX_INSN_PADRAO),
+        })
+        .map_err(Erro::Analise)?;
+        std::fs::write(&out, valor.pretty())
+            .map_err(|e| Erro::Analise(format!("nao foi possivel {}: {e}", out.display())))?;
+        let campo = |k: &str| {
+            valor
+                .get(k)
+                .and_then(|v| v.as_str().ok())
+                .unwrap_or("?")
+                .to_string()
+        };
+        let numero = |k: &str| {
+            valor
+                .get(k)
+                .and_then(|v| v.as_i64().ok())
+                .map(|n| n.to_string())
+                .unwrap_or_else(|| "?".to_string())
+        };
+        println!(
+            "rex-cfg-med/v1 — objeto {} (sha256 {}, {} bytes) — regiao {:#x}..{:#x} — raiz {} — \
+             comprimento {} [{}] — operandos {} [{}] — fluxo {} arestas em {} blocos [{}] — \
+             alcance {}/{} ({}) [{}] — agregado {} — saida {}",
+            bin.display(),
+            rex_gameplay::sha256::sha256_hex(&bytes),
+            bytes.len(),
+            regiao_ini,
+            regiao_fim,
+            campo("raiz"),
+            numero("comprimento-instrucoes-provadas"),
+            campo("comprimento-status"),
+            numero("operandos-palavras-de-extensao"),
+            campo("operandos-status"),
+            numero("fluxo-arestas"),
+            numero("fluxo-blocos-alcancados"),
+            campo("fluxo-status"),
+            numero("alcance-bytes-decodificados"),
+            numero("alcance-bytes-regiao"),
+            campo("alcance-fracao"),
+            campo("alcance-status"),
+            campo("agregado"),
             out.display()
         );
         return Ok(());
