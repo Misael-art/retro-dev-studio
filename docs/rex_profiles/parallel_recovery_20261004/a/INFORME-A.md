@@ -18,7 +18,11 @@ Data: 2026-10-04. Fronte: `codex/rex-parallel-a-kosinski-chains` no worktree
   `1344f4c` (corrección v1.1 do subconxunto 68000; paso 5 reexecitado con
   `fallos=0`, serie nova en §6.1), `c6e9d22` (documentación do paso 5),
   `2dfcc30` (paso 6: conxelado do cruzamento rex-cfg/v1 + verificador;
-  execución `fallos=0` en §6.2).
+  execución `fallos=0` en §6.2), `95137ce` (paso 6 medido),
+  `89d24d9` (pasos 7–9: expectativas conxeladas CONTROLES-ADULTERACION-A +
+  tests K4–K10 e pins CLI; K10 **vermello** medido rc=0 — defecto do
+  vínculo declarado antes de corrixir, precedente `b837986`),
+  `4aa6ba9` (elo `vinculo-chamada-rutina`; suite 76/76).
 - Host: linux/x64 (Manjaro). `host:diagnose --profile full` = READY ao iniciar
   (fingerprint `60249508aff61897cdd43160d4716b2344d69282507a36c5a457c0028143f6e2`,
   rexistrado en EXPECTATIONS-A.md §0).
@@ -109,6 +113,8 @@ Ademais: un enderezo fornecido polo usuario nunca se promove a
 | E2E `executar-evidencia-A.sh` | EXECUTADO: fallos=0, rc-geral=0 | log sha §6 abaixo |
 | E2E `executar-evidencia-A.sh` v1.1 | EXECUTADO: fallos=0, rc-geral=0 (paso 5; 9/9 rc=0, 8/9 JSONL idénticos) | serie nova §6.1; vella superseded |
 | `cruzar-rexcfg-A.sh` (paso 6, rex-cfg/v1 `275f2af`) | EXECUTADO: fallos=0 — 108/108 asercións + negativo identidade rc=2 | log/exports §6.2; conxelado previo `2dfcc30` |
+| `cargo test` pasos 7–9 (`4aa6ba9`) | EXECUTADO: **76/76** (chain 9, instr 16, json 8, verify 14, rectif 18, **adulteracion 8**, **cli 3**) | K10 medido VERMELLO rc=0 en `89d24d9` (defecto do vínculo) e verde tras `4aa6ba9`; CONTROLES-ADULTERACION-A §5; log `~/rds-scratch/chain-test-pos-correccion.log` |
+| `cargo clippy --all-targets -- -D warnings` + `fmt --check` (pasos 7–9) | EXECUTADO: limpo en `4aa6ba9` | os dous avisos iniciais eran dos tests novos; corrixidos, non silenciados |
 | E2E `comparar-oraculo-streams.sh` | EXECUTADO: 8/8 paridade, rc=0 | tsv sha §6 abaixo |
 | `npm run lint` / `npx tsc --noEmit` / `npm test` | NON EXECUTADOS: esta fronte non toca `src/`/`src-tauri/`/frontend; os scripts da raíz do canónico aplican ao canónico, non ao territory A | sen cambios que cubrir |
 | `npm run host:certify` | NON EXECUTADO: non se modificou host, build, emulacion nin toolchains do produto (fronte = scripts Rust standalone + docs + data no territory A) | rexistrado como pendente para o integrador se o merger cambia o verdict |

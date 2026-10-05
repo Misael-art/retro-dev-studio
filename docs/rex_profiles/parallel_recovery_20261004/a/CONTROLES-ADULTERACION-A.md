@@ -78,3 +78,28 @@ de RECTIFICACION §2: o elo de rutina vive no BUS). Fallo ⇒ rc=7
 - §3: agárdase verde co código actual (pinna comportamento existente na
   CLI, que hasta agora só estaba medido en ROM via E2E).
 - Tras a corrección: 100 % verde sen tocar ningún test conxelado.
+
+## 5. Medido (execución real, escrito DESPOIS de §4)
+
+- **Vermello predicido, medido**: primeira execución do suite no HEAD
+  conxelado (`95137ce` + tests novos, log `~/rds-scratch` caduco; rexistro
+  conservado na serie rtk `1791167762_cargo_test.log`): 76 tests = 75
+  verdes + **K10 FAILED con rc=0 obtido** — o resumo mostraba todos os
+  elos en PASS (`sitio-chamada=PASS(610004E6)`, `alvo-chamada=PASS(0x0005F0)`,
+  `xeometria=PASS`, `rutina=PASS(8 B …)`, `saída=PASS`), exactamente o
+  defecto descrito en §2. Commit do estado vermello documentado: `89d24d9`.
+- **Trala corrección** (commit `4aa6ba9`): elo `vinculo-chamada-rutina`
+  na capa de medición, xusto tras `alvo-chamada`; K10 pasa con rc=7 e
+  detalle `alvo calculado=0x0005F0 bus=0x0005F0 rutina=0x000600`; K10b
+  (chamada+rutina repointadas xuntas) segue rc=0, demostrando que se
+  rexeita o vínculo roto e non o desprazamento.
+- Suite final: **76/76** (chain 9, instr 16, json 8, verify 14, rectif 18,
+  adulteracion 8, cli 3, lib/bin 0) — `cargo test --no-fail-fast`, log
+  `~/rds-scratch/chain-test-pos-correccion.log`. `cargo clippy --all-targets
+  -- -D warnings` limpo (os dous avisos iniciais eran dos tests novos e
+  corrixíronse, non se silencia ron). `cargo fmt --check` limpo.
+- Pins §3 cumpridos pola CLI real (tests `cli.rs`): `construir-cadea` emite
+  `carga_sitio=declarado-probado` sen `descoberto`; `detectar` é a única
+  ruta con `descoberto-por-varredura`; dúas execucións de `revalidar` dan
+  stdout byte a byte idéntico; identidade adulterada → `codigo=3` con
+  `identidade=FAIL` visible no resumo.

@@ -108,3 +108,25 @@ pregunta — non nega código en `0x189C`/`0x85A2`/`0x6FDF2`. O cruzamento
 sonic-51BC o que C confirma é a lonxitude/clase de fluxo do `lea.w` (4 B,
 interior en `+2`); a conclusión de **signo** (`0xFFFF9400`) segue
 provenindo do instrumento pinado en §3/§4 de RECTIFICACION-A, non de C.
+
+## Controles de adulteración pasos 7–9: o elo de vínculo que faltaba
+
+- Expectativas conxeladas ANTES de implementar (HEAD `95137ce`):
+  `CONTROLES-ADULTERACION-A.md`, incluída a predición §4 de que K10 estaría
+  **vermello** no código actual. Medido: 75 verdes + K10 rc=0 obtido
+  (commits `89d24d9`); o resumo do motor mostraba tódolos elos en PASS
+  cunha chamada declarada a `0x5F0` e rutina afirmada en `0x600`.
+- Defecto real, non test vago: `revalidar` comproba bytes, forma,
+  aritmética e hash de rutina, pero nada vinculaba a **rutina afirmada**
+  co **alvo calculado** da chamada. Corrección mínima na capa de medición
+  (elo `vinculo-chamada-rutina`, rc=7; `4aa6ba9`), non no contrato:
+  mover a regra a `chain::validar` retrotraería o negativo conxelado
+  C3/K11 (alvo declarado mutado) de rc=7 a rc=2 ESQUEMA, e mudar un
+  código conxelado está prohibido (regra de non mover limiares).
+- Impacto na evidencia: NINGUÉN — as 9 cadeas reais cumpren o vínculo por
+  construción (`rutina_sitio == chamada_alvo & bus` en todas, verificado
+  JSONL a JSONL) e o elo novo só engade liñas ao resumo de `revalidar`;
+  os JSONL seguen byte-identicos (§6.1 mantense; reexecución E2E no HEAD
+  final rexistrada en §6.3).
+- Control positivo K10b (chamada e rutina repointadas xuntas ⇒ rc=0):
+  demostra que o elo rexeita o vínculo roto, non calquera desprazamento.
