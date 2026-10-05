@@ -16,7 +16,9 @@ Data: 2026-10-04. Fronte: `codex/rex-parallel-a-kosinski-chains` no worktree
   `09e5833` (RECTIFICACION-A + fixtures autorais co instrumento pinado),
   `b837986` (tests discriminantes, 17/18 vermellos en `cbb6895`),
   `1344f4c` (corrección v1.1 do subconxunto 68000; paso 5 reexecitado con
-  `fallos=0`, serie nova en §6.1).
+  `fallos=0`, serie nova en §6.1), `c6e9d22` (documentación do paso 5),
+  `2dfcc30` (paso 6: conxelado do cruzamento rex-cfg/v1 + verificador;
+  execución `fallos=0` en §6.2).
 - Host: linux/x64 (Manjaro). `host:diagnose --profile full` = READY ao iniciar
   (fingerprint `60249508aff61897cdd43160d4716b2344d69282507a36c5a457c0028143f6e2`,
   rexistrado en EXPECTATIONS-A.md §0).
@@ -106,6 +108,7 @@ Ademais: un enderezo fornecido polo usuario nunca se promove a
 | `npm run check:tree` | EXECUTADO: OK no worktree | estrutura do territory conforme |
 | E2E `executar-evidencia-A.sh` | EXECUTADO: fallos=0, rc-geral=0 | log sha §6 abaixo |
 | E2E `executar-evidencia-A.sh` v1.1 | EXECUTADO: fallos=0, rc-geral=0 (paso 5; 9/9 rc=0, 8/9 JSONL idénticos) | serie nova §6.1; vella superseded |
+| `cruzar-rexcfg-A.sh` (paso 6, rex-cfg/v1 `275f2af`) | EXECUTADO: fallos=0 — 108/108 asercións + negativo identidade rc=2 | log/exports §6.2; conxelado previo `2dfcc30` |
 | E2E `comparar-oraculo-streams.sh` | EXECUTADO: 8/8 paridade, rc=0 | tsv sha §6 abaixo |
 | `npm run lint` / `npx tsc --noEmit` / `npm test` | NON EXECUTADOS: esta fronte non toca `src/`/`src-tauri/`/frontend; os scripts da raíz do canónico aplican ao canónico, non ao territory A | sen cambios que cubrir |
 | `npm run host:certify` | NON EXECUTADO: non se modificou host, build, emulacion nin toolchains do produto (fronte = scripts Rust standalone + docs + data no territory A) | rexistrado como pendente para o integrador se o merger cambia o verdict |
@@ -162,6 +165,21 @@ de RECTIFICACION §4 cumprida na práctica; A5 parcialmente superseded). Os
 contadores da varredura Phelios mudan como predicía §5.3; a cadea emitida
 (`0x00035A`) é idéntica e revalida rc=0. Niveis de evidencia: inalterados.
 
+### 6.2 Cruzamento rex-cfg/v1 (frente C, paso 6 — 2026-10-04)
+
+Verificación **adicional** do sítio coa CLI de C (commit exacto `275f2af…`,
+HEAD de PR #108 OPEN; extraído por `git archive` a scratch, sen tocar o WIP
+alleo da fronte C; decoder de C **non** copiado consómese só o export).
+Expectativas conxeladas en `EXPECTATIONS-CRUZAMENTO-REXCFG-A.md` antes de
+medir (commit `2dfcc30`); resultado e lectura honesta en AUDITORIA-A
+§«Cruzamento rex-cfg/v1».
+
+| Artefacto | SHA-256 |
+|---|---|
+| bin `rex-cfg` debug (dende `275f2af`) | `7daeb51d151f54cc29843d352fcb69ccf5d0406dbbed5c90dd2e6da81094a927` |
+| log `xe-a-rexcfg-cruzamento/cruzamento-rexcfg-20261004.log` (fallos=0; 119 OK / 0 FALLO) | `42e4d40fe8a03b762a6857f9920c0a3470d901fe3dd3f5656f44124253662769` |
+| 10 exports `*.rexcfg.json` (vereditos brutos por cadea) | shas dentro do log (§SHA dos exports) |
+
 ## 7. Desvíos conservados (expectativa conxelada ≠ medido)
 
 Rexistrados no sitio (anotacións "corrección do conxelado" conservando o texto
@@ -203,6 +221,10 @@ orixinal, precedente FA-6):
   polo contrato.
 - Sen análise de alcançabilidade: varredura aliñada a palabra pode casar en
   datos (limitación declarada en cada rexistro; `emparellamento-ventana-heuristico`).
+- O cruzamento rex-cfg/v1 (§6.2) é un segundo modelo de fluxo sobre a ventá
+  declarada por A: os seus vereditos non soben nivel de evidencia, non proban
+  consumo e `fora-da-regiao` non nega código fóra da ventá (regra citada na
+  propia PROPOSTA-FRENTE-A §1).
 - A rutina `e8028514…` está hashada, non desasemblada; a identidade
   Sonic↔SoR é unha afirmación de hash medida, non de semántica.
 - Non se versiona ROM, plain comercial, sprite, áudio nin imaxe derivada; só

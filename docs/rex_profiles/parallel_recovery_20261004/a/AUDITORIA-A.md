@@ -68,3 +68,43 @@ Comparación elo a elo (serie bruta das duas execuciones, `diff` sobre liñas `r
    `vinculo-estrutural`; ningunha migrou á lista de recusa (§5.2: ningunha
    usa `61 FF`/`4E FC/FD`/`4E FA`); sen execución; root declarado segue
    sendo root local.
+
+## Cruzamento rex-cfg/v1 do sítio (misión paso 6 — 2026-10-04)
+
+Consumo **sen copiar o decoder**: A executa a CLI `rex-cfg analyze` da fronte
+C como ferramenta externa e consome só o export (`sitios[].veredito`,
+`fronteiras[]`, `cobertura.vaos[]`, `raizes[]`). Verificado: o modelo de
+fluxo de C vive no seu propio `src/decode.rs` (de `rex-gameplay` só usa
+`json` e `sha256`), polo que é un segundo modelo de lonxitudes independente
+do `instr.rs` v1.1 de A.
+
+- Fonte: HEAD exacto de PR #108, `275f2af0b81944709169ab360a67786e56ec4a13`,
+  extraído con `git archive` a `~/rds-scratch/rexcfg-275f2af/` (xunto con
+  `crates/rex-gameplay`). O worktree local de C (WIP allea: `M src/lib.rs`,
+  `M src/main.rs`, `?? src/sitio.rs`, `?? tests/consultar.rs`) **non se
+  consumiu**: eses cambios non están no commit pinado.
+- Bin `rex-cfg` debug: sha `7daeb51d151f54cc29843d352fcb69ccf5d0406dbbed5c90dd2e6da81094a927`.
+- Expectativas conxeladas ANTES da medición:
+  `EXPECTATIONS-CRUZAMENTO-REXCFG-A.md` (commit `2dfcc30`), cunha calibración
+  de interface previa declarada (un só analyze en sonic-3082, §1 do conxelado).
+- Medido (`cruzar-rexcfg-A.sh`, serie v1.1 con pins §6/§6.1): **fallos=0** —
+  108 asercións (10 cadeas × sitios/estruturais + contigüidade) **todas**
+  cumpren: carga/destino/chamada ⇒ `instrucao-de-bloco`, canarios `+2` ⇒
+  `miolo-de-instrucao`, rutina ⇒ `fora-da-regiao`; `vaos=[]`; raíz
+  `referencia-estatica` coa evidencia `rex-kosinski-chain/v1:<sha>`; fronteira
+  única `limite-de-regiao` no elo de chamada (C non cruza a fronteira que A
+  dibuxou — comportamento que PROPOSTA-FRENTE-A §2 xa mostrara en R3).
+  Negativo §5: obxecto trocado (SoR sobre cadea Sonic) ⇒ `rc=2` sen analizar,
+  rexistrado polo gate de identidade de A.
+- Log integral: `~/rds-scratch/xe-a-rexcfg-cruzamento/cruzamento-rexcfg-20261004.log`,
+  sha `42e4d40fe8a03b762a6857f9920c0a3470d901fe3dd3f5656f44124253662769`
+  (119 liñas OK, 0 FALLO; 10 exports `.rexcfg.json` co seu sha dentro do log).
+
+Lectura honesta (PROPOSTA-FRENTE-A §1, reproducida porque aplica): o
+veredito `miolo` proba que **nese fluxo** o enderezo non é inicio de
+instrución; `fora-da-regiao` proba só que a ventá declarada non alcanza a
+pregunta — non nega código en `0x189C`/`0x85A2`/`0x6FDF2`. O cruzamento
+**non** sobe ningún nivel de evidencia nin introduce runtime. No caso
+sonic-51BC o que C confirma é a lonxitude/clase de fluxo do `lea.w` (4 B,
+interior en `+2`); a conclusión de **signo** (`0xFFFF9400`) segue
+provenindo do instrumento pinado en §3/§4 de RECTIFICACION-A, non de C.
