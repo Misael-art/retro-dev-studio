@@ -1,0 +1,116 @@
+
+calib2.o: file format elf32-m68k
+
+
+Disassembly of section .text:
+
+00000000 <lblback-0xbc>:
+   0:	2340 0010      	movel %d0,%a1@(16)
+   4:	2029 0010      	movel %a1@(16),%d0
+   8:	2782 1808      	movel %d2,%a3@(8,%d1:l)
+   c:	3a34 880c      	movew %a4@(c,%a0:l),%d5
+  10:	2298           	movel %a0@+,%a1@
+  12:	2622           	movel %a2@-,%d3
+  14:	1f01           	moveb %d1,%sp@-
+  16:	3017           	movew %sp@,%d0
+  18:	2658           	moveal %a0@+,%a3
+  1a:	3c41           	moveaw %d1,%fp
+  1c:	767f           	moveq #127,%d3
+  1e:	7e80           	moveq #-128,%d7
+  20:	247c 1234 5678 	moveal #305419896,%a2
+  26:	0041 00ff      	oriw #255,%d1
+  2a:	0282 ffff ffff 	andil #-1,%d2
+  30:	5869 0010      	addqw #4,%a1@(16)
+  34:	5112           	subqb #8,%a2@
+  36:	4881           	extw %d1
+  38:	48c1           	extl %d1
+  3a:	0803 0004      	btst #4,%d3
+  3e:	0852 0006      	bchg #6,%a2@
+  42:	08a9 0001 0010 	bclr #1,%a1@(16)
+  48:	08f8 0000 1234 	bset #0,1234 <lblidx+0x1136>
+  4e:	08f9 0007 1234 	bset #7,12345678 <lblidx+0x1234557a>
+  54:	5678 
+  56:	0312           	btst %d1,%a2@
+  58:	0559           	bchg %d2,%a1@+
+  5a:	0784           	bclr %d3,%d4
+  5c:	0beb 0008      	bset %d5,%a3@(8)
+  60:	e501           	aslb #2,%d1
+  62:	e002           	asrb #8,%d2
+  64:	e30b           	lslb #1,%d3
+  66:	ee0c           	lsrb #7,%d4
+  68:	e365           	aslw %d1,%d5
+  6a:	e466           	asrw %d2,%d6
+  6c:	e76f           	lslw %d3,%d7
+  6e:	e868           	lsrw %d4,%d0
+  70:	eaa1           	asrl %d5,%d1
+  72:	e78a           	lsll #3,%d2
+  74:	e353           	roxlw #1,%d3
+  76:	e454           	roxrw #2,%d4
+  78:	e795           	roxll #3,%d5
+  7a:	e896           	roxrl #4,%d6
+  7c:	4200           	clrb %d0
+  7e:	4251           	clrw %a1@
+  80:	4401           	negb %d1
+  82:	4682           	notl %d2
+  84:	4a1b           	tstb %a3@+
+  86:	4a43           	tstw %d3
+  88:	43d0           	lea %a0@,%a1
+  8a:	4851           	pea %a1@
+  8c:	4879 1234 5678 	pea 12345678 <lblidx+0x1234557a>
+  92:	4310           	chkl %a0@,%d1
+  94:	4782           	chkw %d2,%d3
+  96:	4891 0003      	movemw %d0-%d1,%a1@
+  9a:	48ea 00f0 0010 	moveml %d4-%d7,%a2@(16)
+  a0:	4c99 000f      	movemw %a1@+,%d0-%d3
+  a4:	4cd2 0f00      	moveml %a2@,%a0-%a3
+  a8:	56c1           	sne %d1
+  aa:	5dd1           	slt %a1@
+  ac:	51c2           	sf %d2
+  ae:	4878 1234      	pea 1234 <lblidx+0x1136>
+  b2:	4eb8 1234      	jsr 1234 <lblidx+0x1136>
+  b6:	4ef9 1234 5678 	jmp 12345678 <lblidx+0x1234557a>
+
+000000bc <lblback>:
+  bc:	4e71           	nop
+  be:	4e41           	trap #1
+  c0:	4e56 fff0      	linkw %fp,#-16
+  c4:	4e5e           	unlk %fp
+  c6:	6000 0034      	braw fc <lbl3>
+
+000000ca <lblmid>:
+  ca:	6100 002e      	bsrw fa <lbl2>
+
+000000ce <lblfar>:
+  ce:	6700 002c      	beqw fc <lbl3>
+  d2:	6600 ffe8      	bnew bc <lblback>
+  d6:	6e00 0022      	bgtw fa <lbl2>
+  da:	6f00 0020      	blew fc <lbl3>
+  de:	51cd ffea      	dbf %d5,ca <lblmid>
+  e2:	56ca ffd8      	dbne %d2,bc <lblback>
+  e6:	52cb 0014      	dbhi %d3,fc <lbl3>
+  ea:	4ed1           	jmp %a1@
+  ec:	4e75           	rts
+
+000000ee <lblv>:
+  ee:	4e76           	trapv
+  f0:	4afc           	illegal
+  f2:	f000           	.short 0xf000
+  f4:	484f           	bkpt 7
+  f6:	07c9 0010      	movepl %d3,%a1@(16)
+
+000000fa <lbl2>:
+  fa:	4e71           	nop
+
+000000fc <lbl3>:
+  fc:	4e71           	nop
+
+000000fe <lblidx>:
+  fe:	1031 2000      	moveb %a1@(0,%d2:w),%d0
+ 102:	3031 b87f      	movew %a1@(7f,%a3:l),%d0
+ 106:	d0bb 1008      	addl %pc@(110 <lblidx+0x12>,%d1:w),%d0
+ 10a:	4e75           	rts
+ 10c:	1031 0108      	moveb %a1@(0,%d0:w),%d0
+ 110:	1031 0208      	moveb %a1@(8,%d0:w:2),%d0
+ 114:	d0bb 0208      	addl %pc@(11e <lblidx+0x20>,%d0:w:2),%d0
+ 118:	d0b9 0208 4e71 	addl 2084e71 <lblidx+0x2084d73>,%d0
+ 11e:	4e71           	nop

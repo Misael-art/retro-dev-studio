@@ -1,0 +1,159 @@
+{
+ "analise": "r3",
+ "arestas": [
+  {
+   "alvo": 4980,
+   "origem": 4976,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 6300,
+   "origem": 4976,
+   "status": "fora-da-regiao",
+   "tipo": "chamada"
+  }
+ ],
+ "chamadas": [
+  {
+   "alvo": 6300,
+   "clobbers": "nao-modelado",
+   "forma": "bsr",
+   "params": "nao-inferidos",
+   "sitio": 4976,
+   "status": "fora-da-regiao"
+  }
+ ],
+ "cobertura": {
+  "bytes-decodificados": 28,
+  "bytes-regiao": 28,
+  "fracao": "1.0000",
+  "vaos": []
+ },
+ "comando": "rex-cfg analyze --bin <ROM> --region 0x1364:0x1380 --root 0x1364 --root-prov referencia-estatica --root-evidence \"sitio de chamada medido pela FASE6 (bsr.w $0189C em 0x1364)\" --site 0x1364 --site 0x1366 --site 0x1369 --site 0x1370 --site 0x1372 --site 0x1378 --site 0x137C --site 0x137E --site 0x1380 --out <saida>/r3.json",
+ "esquema": "rex-cfg/v1-evidencia-redigida",
+ "fronteiras": [
+  {
+   "endereco": 4976,
+   "motivo": "chamada aponta para 0x189c, fora da regiao: nada fora e decodificado",
+   "opcode": 24832,
+   "tipo": "limite-de-regiao"
+  },
+  {
+   "endereco": 4992,
+   "motivo": "a proxima instrucao comecaria no ou alem do fim da regiao declarada",
+   "opcode": null,
+   "tipo": "limite-de-regiao"
+  }
+ ],
+ "instrucoes": [
+  {
+   "classe": "lea",
+   "endereco": 4964,
+   "tam": 6
+  },
+  {
+   "classe": "lea",
+   "endereco": 4970,
+   "tam": 6
+  },
+  {
+   "classe": "bsr",
+   "endereco": 4976,
+   "tam": 4
+  },
+  {
+   "classe": "move",
+   "endereco": 4980,
+   "tam": 8
+  },
+  {
+   "classe": "nop",
+   "endereco": 4988,
+   "tam": 2
+  },
+  {
+   "classe": "nop",
+   "endereco": 4990,
+   "tam": 2
+  }
+ ],
+ "limites": [
+  "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+  "sem propagação de pilha/registrador: graus de parametro sao sempre nao-inferidos",
+  "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+  "dentro-de-fluxo nao implica alcancabilidade desde o boot nem execucao real",
+  "miolo-de-instrucao prova que o casamento linear ali nao e inicio de instrucao DESTE fluxo",
+  "subconjunto 68000 documentado: opcode fora da tabela interrompe o caminho"
+ ],
+ "objeto": {
+  "caminho_declarado": "/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin",
+  "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "tamanho": 531577
+ },
+ "raizes": [
+  {
+   "endereco": 4964,
+   "evidencia": "sitio de chamada medido pela FASE6 (bsr.w $0189C em 0x1364)",
+   "grau": "referencia-estatica",
+   "proveniencia": "referencia-estatica"
+  }
+ ],
+ "regiao": {
+  "fim": 4992,
+  "inicio": 4964,
+  "proveniencia": "declarada pelo operador"
+ },
+ "saida_completa": {
+  "caminho_local": "/home/misael/rds-scratch/xe-c-evidencia/r3.json",
+  "motivo_de_nao_versionado": "lista instrucoes com operandos = conteudo derivado de ROM comercial",
+  "sha256": "d33a236e26b70d9987d879b5240094390134223a7b02aa75e9fcbde4fd2c1677"
+ },
+ "sitios": [
+  {
+   "bloco": 4964,
+   "endereco": 4964,
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "bloco": 4964,
+   "endereco": 4966,
+   "veredito": "miolo-de-instrucao"
+  },
+  {
+   "bloco": 4964,
+   "endereco": 4969,
+   "veredito": "miolo-de-instrucao"
+  },
+  {
+   "bloco": 4964,
+   "endereco": 4976,
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "bloco": 4964,
+   "endereco": 4978,
+   "veredito": "miolo-de-instrucao"
+  },
+  {
+   "bloco": 4980,
+   "endereco": 4984,
+   "veredito": "miolo-de-instrucao"
+  },
+  {
+   "bloco": 4980,
+   "endereco": 4988,
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "bloco": 4980,
+   "endereco": 4990,
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "bloco": null,
+   "endereco": 4992,
+   "veredito": "fora-da-regiao"
+  }
+ ]
+}

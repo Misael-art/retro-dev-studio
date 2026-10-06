@@ -1,0 +1,221 @@
+{
+ "analise": "r2",
+ "arestas": [
+  {
+   "alvo": 526,
+   "origem": 524,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 532,
+   "origem": 524,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 532,
+   "origem": 526,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 534,
+   "origem": 532,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 658,
+   "origem": 532,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 556,
+   "origem": 554,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 564,
+   "origem": 554,
+   "status": "resolvido",
+   "tipo": "desvio"
+  },
+  {
+   "alvo": 564,
+   "origem": 556,
+   "status": "resolvido",
+   "tipo": "queda"
+  },
+  {
+   "alvo": 768,
+   "origem": 658,
+   "status": "fora-da-regiao",
+   "tipo": "desvio"
+  }
+ ],
+ "chamadas": [],
+ "cobertura": {
+  "bytes-decodificados": 54,
+  "bytes-regiao": 154,
+  "fracao": "0.3506",
+  "vaos": [
+   {
+    "fim": 658,
+    "inicio": 570
+   },
+   {
+    "fim": 672,
+    "inicio": 660
+   }
+  ]
+ },
+ "comando": "rex-cfg analyze --bin <ROM> --region 0x206:0x2A0 --root 0x206 --root-prov vetor-plataforma --root-evidence \"longo do reset em 0x000004 = 0x00000206 (lido do vetor da imagem)\" --site 0x1364 --site 0x3082 --site 0x51BC --site 0x745DC --out <saida>/r2.json",
+ "esquema": "rex-cfg/v1-evidencia-redigida",
+ "fronteiras": [
+  {
+   "endereco": 570,
+   "motivo": "grupo %0100 fora do subconjunto",
+   "opcode": 20070,
+   "tipo": "opcode-fora-do-subconjunto"
+  },
+  {
+   "endereco": 658,
+   "motivo": "desvio aponta para 0x300, fora da regiao declarada",
+   "opcode": 24684,
+   "tipo": "limite-de-regiao"
+  }
+ ],
+ "instrucoes": [
+  {
+   "classe": "tst",
+   "endereco": 518,
+   "tam": 6
+  },
+  {
+   "classe": "bne",
+   "endereco": 524,
+   "tam": 2
+  },
+  {
+   "classe": "tst",
+   "endereco": 526,
+   "tam": 6
+  },
+  {
+   "classe": "bne",
+   "endereco": 532,
+   "tam": 2
+  },
+  {
+   "classe": "lea",
+   "endereco": 534,
+   "tam": 4
+  },
+  {
+   "classe": "movem",
+   "endereco": 538,
+   "tam": 4
+  },
+  {
+   "classe": "movem",
+   "endereco": 542,
+   "tam": 4
+  },
+  {
+   "classe": "move",
+   "endereco": 546,
+   "tam": 4
+  },
+  {
+   "classe": "andi",
+   "endereco": 550,
+   "tam": 4
+  },
+  {
+   "classe": "beq",
+   "endereco": 554,
+   "tam": 2
+  },
+  {
+   "classe": "move",
+   "endereco": 556,
+   "tam": 8
+  },
+  {
+   "classe": "move",
+   "endereco": 564,
+   "tam": 2
+  },
+  {
+   "classe": "moveq",
+   "endereco": 566,
+   "tam": 2
+  },
+  {
+   "classe": "movea",
+   "endereco": 568,
+   "tam": 2
+  },
+  {
+   "classe": "bra",
+   "endereco": 658,
+   "tam": 2
+  }
+ ],
+ "limites": [
+  "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+  "sem propagação de pilha/registrador: graus de parametro sao sempre nao-inferidos",
+  "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+  "dentro-de-fluxo nao implica alcancabilidade desde o boot nem execucao real",
+  "miolo-de-instrucao prova que o casamento linear ali nao e inicio de instrucao DESTE fluxo",
+  "subconjunto 68000 documentado: opcode fora da tabela interrompe o caminho"
+ ],
+ "objeto": {
+  "caminho_declarado": "/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin",
+  "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "tamanho": 531577
+ },
+ "raizes": [
+  {
+   "endereco": 518,
+   "evidencia": "longo do reset em 0x000004 = 0x00000206 (lido do vetor da imagem)",
+   "grau": "vetor-plataforma",
+   "proveniencia": "vetor-plataforma"
+  }
+ ],
+ "regiao": {
+  "fim": 672,
+  "inicio": 518,
+  "proveniencia": "declarada pelo operador"
+ },
+ "saida_completa": {
+  "caminho_local": "/home/misael/rds-scratch/xe-c-evidencia/r2.json",
+  "motivo_de_nao_versionado": "lista instrucoes com operandos = conteudo derivado de ROM comercial",
+  "sha256": "1c197a8af3b3c6d4bd8baa74309bdda7a06177e712b150115fe86adc2b0faba0"
+ },
+ "sitios": [
+  {
+   "bloco": null,
+   "endereco": 4964,
+   "veredito": "fora-da-regiao"
+  },
+  {
+   "bloco": null,
+   "endereco": 12418,
+   "veredito": "fora-da-regiao"
+  },
+  {
+   "bloco": null,
+   "endereco": 20924,
+   "veredito": "fora-da-regiao"
+  },
+  {
+   "bloco": null,
+   "endereco": 476636,
+   "veredito": "fora-da-regiao"
+  }
+ ]
+}

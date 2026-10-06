@@ -1,0 +1,33 @@
+
+fx10isca.elf: file format elf32-m68k
+
+
+Disassembly of section .text:
+
+00000000 <fx10>:
+   0:	7200           	moveq #0,%d1
+   2:	6100 0024      	bsrw 28 <comisco>
+   6:	6000 001c      	braw 24 <depoisdovao>
+
+0000000a <ilha_no_vao>:
+   a:	4ef9 0001 1234 	jmp 11234 <_end+0xf1e4>
+  10:	4eb9 0001 1236 	jsr 11236 <_end+0xf1e6>
+  16:	4efa 1234      	jmp %pc@(124c <ilha_de_dados+0x1218>)
+  1a:	0a7c fc00      	eoriw #-1024,%sr
+  1e:	41f9 0000 abcd 	lea abcd <_end+0x8b7d>,%a0
+
+00000024 <depoisdovao>:
+  24:	5282           	addql #1,%d2
+  26:	4e75           	rts
+
+00000028 <comisco>:
+  28:	942c 4efc      	subb %a4@(20220),%d2
+  2c:	223c 1234 4eb9 	movel #305417913,%d1
+  32:	4e75           	rts
+
+00000034 <ilha_de_dados>:
+  34:	4ef9 0001 1234 	jmp 11234 <_end+0xf1e4>
+  3a:	4eb9 0001 1236 	jsr 11236 <_end+0xf1e6>
+  40:	4efa 1234      	jmp %pc@(1276 <ilha_de_dados+0x1242>)
+  44:	0a7c fc00      	eoriw #-1024,%sr
+  48:	41f9 0000 abcd 	lea abcd <_end+0x8b7d>,%a0

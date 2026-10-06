@@ -1,0 +1,30 @@
+
+fx11assimetrica.elf: file format elf32-m68k
+
+
+Disassembly of section .text:
+
+00000000 <fx11>:
+   0:	7600           	moveq #0,%d3
+   2:	484b           	bkpt 3
+   4:	4e71           	nop
+   6:	4e75           	rts
+
+00000008 <raiz_b>:
+   8:	7e00           	moveq #0,%d7
+   a:	6100 0016      	bsrw 22 <sub_b>
+   e:	4eb9 0000 0128 	jsr 128 <longe_b>
+  14:	6700 0112      	beqw 128 <longe_b>
+  18:	5281           	addql #1,%d1
+  1a:	51cd ffec      	dbf %d5,8 <raiz_b>
+  1e:	4e71           	nop
+  20:	4e75           	rts
+
+00000022 <sub_b>:
+  22:	48e7 3c00      	moveml %d2-%d5,%sp@-
+  26:	4ed2           	jmp %a2@
+	...
+
+00000128 <longe_b>:
+ 128:	7001           	moveq #1,%d0
+ 12a:	4e75           	rts

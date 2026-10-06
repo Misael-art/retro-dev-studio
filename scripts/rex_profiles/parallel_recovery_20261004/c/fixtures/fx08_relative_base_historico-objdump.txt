@@ -1,0 +1,24 @@
+
+fx08_relative_base_historico.elf: file format elf32-m68k
+
+
+Disassembly of section .text:
+
+00000000 <fx08>:
+   0:	7000           	moveq #0,%d0
+
+00000002 <f0>:
+   2:	5281           	addql #1,%d1
+   4:	6400 0012      	bccw 18 <f2>
+   8:	4e71           	nop
+   a:	7c06           	moveq #6,%d6
+
+0000000c <f1>:
+   c:	5282           	addql #1,%d2
+   e:	51ce fffc      	dbf %d6,c <f1>
+  12:	51cf ffee      	dbf %d7,2 <f0>
+  16:	4e75           	rts
+
+00000018 <f2>:
+  18:	7603           	moveq #3,%d3
+  1a:	4e75           	rts

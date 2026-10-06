@@ -1,0 +1,1153 @@
+{
+ "amostras": {
+  "r1": {
+   "cobertura-v1": 160,
+   "cobertura-v2": 160,
+   "instrucoes-identicas": true,
+   "instrucoes-v1": 66,
+   "instrucoes-v2": 66,
+   "sha256-v2-completo": "b5517de12a56367a74341011bf2b31e6e88f20b1f99b59de48f4ca72e42197ca"
+  },
+  "r2": {
+   "cobertura-v1": 54,
+   "cobertura-v2": 54,
+   "instrucoes-identicas": true,
+   "instrucoes-v1": 15,
+   "instrucoes-v2": 15,
+   "sha256-v2-completo": "9db17f0cea3a1786160d8a61f4d0415011814540af9249d3a8e4bea909fea953"
+  },
+  "r3": {
+   "cobertura-v1": 28,
+   "cobertura-v2": 28,
+   "instrucoes-identicas": true,
+   "instrucoes-v1": 6,
+   "instrucoes-v2": 6,
+   "sha256-v2-completo": "25ea55dc3bad8b22ad3cb667d85e3b7fd05575738fbecb193da91a351641ed76"
+  },
+  "s1": {
+   "cobertura-v1": 26,
+   "cobertura-v2": 26,
+   "instrucoes-identicas": true,
+   "instrucoes-v1": 8,
+   "instrucoes-v2": 8,
+   "sha256-v2-completo": "0ef3562337734940c817c26bc7c892287895e471695b039bab448cea84d6c761"
+  },
+  "s2": {
+   "cobertura-v1": 124,
+   "cobertura-v2": 124,
+   "instrucoes-identicas": true,
+   "instrucoes-v1": 36,
+   "instrucoes-v2": 36,
+   "sha256-v2-completo": "c9395c61135536e8026e711e77add9add5db8d787ddefe873ab51b882cf50892"
+  }
+ },
+ "classes": {
+  "alvo-corrigido": 0,
+  "aresta-passa-fora-da-regiao": 0,
+  "invariante": 110,
+  "motivo-removedo": 0,
+  "veredito-mudou": 0
+ },
+ "linhas": [
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18a6",
+   "tipo": "queda",
+   "v1-alvo": "0x18a8",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18a8",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18ac",
+   "tipo": "desvio",
+   "v1-alvo": "0x18ba",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18ba",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18ac",
+   "tipo": "queda",
+   "v1-alvo": "0x18b0",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18b0",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18b8",
+   "tipo": "queda",
+   "v1-alvo": "0x18ba",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18ba",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18bc",
+   "tipo": "desvio",
+   "v1-alvo": "0x18c2",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18c2",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18bc",
+   "tipo": "queda",
+   "v1-alvo": "0x18be",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18be",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18c0",
+   "tipo": "desvio",
+   "v1-alvo": "0x18a8",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18a8",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18c8",
+   "tipo": "desvio",
+   "v1-alvo": "0x18d6",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18d6",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18c8",
+   "tipo": "queda",
+   "v1-alvo": "0x18cc",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18cc",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18d4",
+   "tipo": "queda",
+   "v1-alvo": "0x18d6",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18d6",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18d8",
+   "tipo": "desvio",
+   "v1-alvo": "0x1906",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1906",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18d8",
+   "tipo": "queda",
+   "v1-alvo": "0x18da",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18da",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18dc",
+   "tipo": "desvio",
+   "v1-alvo": "0x18ea",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18ea",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18dc",
+   "tipo": "queda",
+   "v1-alvo": "0x18e0",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18e0",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18e8",
+   "tipo": "queda",
+   "v1-alvo": "0x18ea",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18ea",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18ee",
+   "tipo": "desvio",
+   "v1-alvo": "0x18fc",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18fc",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18ee",
+   "tipo": "queda",
+   "v1-alvo": "0x18f2",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18f2",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18fa",
+   "tipo": "queda",
+   "v1-alvo": "0x18fc",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18fc",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x1904",
+   "tipo": "desvio",
+   "v1-alvo": "0x191c",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x191c",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x1916",
+   "tipo": "desvio",
+   "v1-alvo": "0x1928",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1928",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x1916",
+   "tipo": "queda",
+   "v1-alvo": "0x1918",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1918",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x191a",
+   "tipo": "queda",
+   "v1-alvo": "0x191c",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x191c",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x1922",
+   "tipo": "desvio",
+   "v1-alvo": "0x191c",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x191c",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x1922",
+   "tipo": "queda",
+   "v1-alvo": "0x1926",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1926",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x1926",
+   "tipo": "desvio",
+   "v1-alvo": "0x18a8",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18a8",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x192a",
+   "tipo": "desvio",
+   "v1-alvo": "0x1938",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1938",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x192a",
+   "tipo": "queda",
+   "v1-alvo": "0x192c",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x192c",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x1930",
+   "tipo": "desvio",
+   "v1-alvo": "0x18a8",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x18a8",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x1930",
+   "tipo": "queda",
+   "v1-alvo": "0x1934",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1934",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x1936",
+   "tipo": "desvio",
+   "v1-alvo": "0x191c",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x191c",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x193a",
+   "tipo": "retorno-fronteira",
+   "v1-alvo": null,
+   "v1-veredito": "indireto-opaco",
+   "v2-alvo": null,
+   "v2-veredito": "indireto-opaco"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x189c",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "instrucao-de-bloco",
+   "v2-alvo": null,
+   "v2-veredito": "instrucao-de-bloco"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18a0",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "miolo-de-instrucao",
+   "v2-alvo": null,
+   "v2-veredito": "miolo-de-instrucao"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x18ff",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "miolo-de-instrucao",
+   "v2-alvo": null,
+   "v2-veredito": "miolo-de-instrucao"
+  },
+  {
+   "amostra": "r1",
+   "classe": "invariante",
+   "sitio": "0x193b",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "miolo-de-instrucao",
+   "v2-alvo": null,
+   "v2-veredito": "miolo-de-instrucao"
+  },
+  {
+   "amostra": "r2",
+   "classe": "invariante",
+   "sitio": "0x20c",
+   "tipo": "desvio",
+   "v1-alvo": "0x214",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x214",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r2",
+   "classe": "invariante",
+   "sitio": "0x20c",
+   "tipo": "queda",
+   "v1-alvo": "0x20e",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x20e",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r2",
+   "classe": "invariante",
+   "sitio": "0x20e",
+   "tipo": "queda",
+   "v1-alvo": "0x214",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x214",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r2",
+   "classe": "invariante",
+   "sitio": "0x214",
+   "tipo": "desvio",
+   "v1-alvo": "0x292",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x292",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r2",
+   "classe": "invariante",
+   "sitio": "0x214",
+   "tipo": "queda",
+   "v1-alvo": "0x216",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x216",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r2",
+   "classe": "invariante",
+   "sitio": "0x22a",
+   "tipo": "desvio",
+   "v1-alvo": "0x234",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x234",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r2",
+   "classe": "invariante",
+   "sitio": "0x22a",
+   "tipo": "queda",
+   "v1-alvo": "0x22c",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x22c",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r2",
+   "classe": "invariante",
+   "sitio": "0x22c",
+   "tipo": "queda",
+   "v1-alvo": "0x234",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x234",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r2",
+   "classe": "invariante",
+   "sitio": "0x292",
+   "tipo": "desvio",
+   "v1-alvo": "0x300",
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": "0x300",
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "r2",
+   "classe": "invariante",
+   "sitio": "0x1364",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": null,
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "r2",
+   "classe": "invariante",
+   "sitio": "0x3082",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": null,
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "r2",
+   "classe": "invariante",
+   "sitio": "0x51bc",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": null,
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "r2",
+   "classe": "invariante",
+   "sitio": "0x745dc",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": null,
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "r3",
+   "classe": "invariante",
+   "sitio": "0x1370",
+   "tipo": "chamada",
+   "v1-alvo": "0x189c",
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": "0x189c",
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "r3",
+   "classe": "invariante",
+   "sitio": "0x1370",
+   "tipo": "queda",
+   "v1-alvo": "0x1374",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1374",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "r3",
+   "classe": "invariante",
+   "sitio": "0x1364",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "instrucao-de-bloco",
+   "v2-alvo": null,
+   "v2-veredito": "instrucao-de-bloco"
+  },
+  {
+   "amostra": "r3",
+   "classe": "invariante",
+   "sitio": "0x1366",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "miolo-de-instrucao",
+   "v2-alvo": null,
+   "v2-veredito": "miolo-de-instrucao"
+  },
+  {
+   "amostra": "r3",
+   "classe": "invariante",
+   "sitio": "0x1369",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "miolo-de-instrucao",
+   "v2-alvo": null,
+   "v2-veredito": "miolo-de-instrucao"
+  },
+  {
+   "amostra": "r3",
+   "classe": "invariante",
+   "sitio": "0x1370",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "instrucao-de-bloco",
+   "v2-alvo": null,
+   "v2-veredito": "instrucao-de-bloco"
+  },
+  {
+   "amostra": "r3",
+   "classe": "invariante",
+   "sitio": "0x1372",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "miolo-de-instrucao",
+   "v2-alvo": null,
+   "v2-veredito": "miolo-de-instrucao"
+  },
+  {
+   "amostra": "r3",
+   "classe": "invariante",
+   "sitio": "0x1378",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "miolo-de-instrucao",
+   "v2-alvo": null,
+   "v2-veredito": "miolo-de-instrucao"
+  },
+  {
+   "amostra": "r3",
+   "classe": "invariante",
+   "sitio": "0x137c",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "instrucao-de-bloco",
+   "v2-alvo": null,
+   "v2-veredito": "instrucao-de-bloco"
+  },
+  {
+   "amostra": "r3",
+   "classe": "invariante",
+   "sitio": "0x137e",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "instrucao-de-bloco",
+   "v2-alvo": null,
+   "v2-veredito": "instrucao-de-bloco"
+  },
+  {
+   "amostra": "r3",
+   "classe": "invariante",
+   "sitio": "0x1380",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": null,
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "s1",
+   "classe": "invariante",
+   "sitio": "0x1c028",
+   "tipo": "desvio",
+   "v1-alvo": "0x1c044",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c044",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s1",
+   "classe": "invariante",
+   "sitio": "0x1c028",
+   "tipo": "queda",
+   "v1-alvo": "0x1c02a",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c02a",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s1",
+   "classe": "invariante",
+   "sitio": "0x1c030",
+   "tipo": "chamada",
+   "v1-alvo": "0x1c510",
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": "0x1c510",
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "s1",
+   "classe": "invariante",
+   "sitio": "0x1c030",
+   "tipo": "queda",
+   "v1-alvo": "0x1c034",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c034",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s1",
+   "classe": "invariante",
+   "sitio": "0x1c044",
+   "tipo": "retorno-fronteira",
+   "v1-alvo": null,
+   "v1-veredito": "indireto-opaco",
+   "v2-alvo": null,
+   "v2-veredito": "indireto-opaco"
+  },
+  {
+   "amostra": "s1",
+   "classe": "invariante",
+   "sitio": "0x1c024",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "instrucao-de-bloco",
+   "v2-alvo": null,
+   "v2-veredito": "instrucao-de-bloco"
+  },
+  {
+   "amostra": "s1",
+   "classe": "invariante",
+   "sitio": "0x1c028",
+   "tipo": "sitio",
+   "v1-alvo": "0x1c044",
+   "v1-veredito": "instrucao-de-bloco",
+   "v2-alvo": "0x1c044",
+   "v2-veredito": "instrucao-de-bloco"
+  },
+  {
+   "amostra": "s1",
+   "classe": "invariante",
+   "sitio": "0x1c029",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "miolo-de-instrucao",
+   "v2-alvo": null,
+   "v2-veredito": "miolo-de-instrucao"
+  },
+  {
+   "amostra": "s1",
+   "classe": "invariante",
+   "sitio": "0x1c02c",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "miolo-de-instrucao",
+   "v2-alvo": null,
+   "v2-veredito": "miolo-de-instrucao"
+  },
+  {
+   "amostra": "s1",
+   "classe": "invariante",
+   "sitio": "0x1c030",
+   "tipo": "sitio",
+   "v1-alvo": "0x1c510",
+   "v1-veredito": "instrucao-de-bloco",
+   "v2-alvo": "0x1c510",
+   "v2-veredito": "instrucao-de-bloco"
+  },
+  {
+   "amostra": "s1",
+   "classe": "invariante",
+   "sitio": "0x1c034",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "instrucao-de-bloco",
+   "v2-alvo": null,
+   "v2-veredito": "instrucao-de-bloco"
+  },
+  {
+   "amostra": "s1",
+   "classe": "invariante",
+   "sitio": "0x1c038",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "miolo-de-instrucao",
+   "v2-alvo": null,
+   "v2-veredito": "miolo-de-instrucao"
+  },
+  {
+   "amostra": "s1",
+   "classe": "invariante",
+   "sitio": "0x1c03c",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "ponto-de-fronteira",
+   "v2-alvo": null,
+   "v2-veredito": "ponto-de-fronteira"
+  },
+  {
+   "amostra": "s1",
+   "classe": "invariante",
+   "sitio": "0x1c040",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "dentro-regiao-nao-alcancado",
+   "v2-alvo": null,
+   "v2-veredito": "dentro-regiao-nao-alcancado"
+  },
+  {
+   "amostra": "s1",
+   "classe": "invariante",
+   "sitio": "0x1c0a6",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": null,
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6bc",
+   "tipo": "desvio",
+   "v1-alvo": "0x1c7a2",
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": "0x1c7a2",
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6bc",
+   "tipo": "queda",
+   "v1-alvo": "0x1c6c0",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c6c0",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6c4",
+   "tipo": "desvio",
+   "v1-alvo": "0x1c6d8",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c6d8",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6c4",
+   "tipo": "queda",
+   "v1-alvo": "0x1c6c6",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c6c6",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6d4",
+   "tipo": "chamada",
+   "v1-alvo": "0x1c8da",
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": "0x1c8da",
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6d4",
+   "tipo": "queda",
+   "v1-alvo": "0x1c6d8",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c6d8",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6dc",
+   "tipo": "desvio",
+   "v1-alvo": "0x1c6f8",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c6f8",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6dc",
+   "tipo": "queda",
+   "v1-alvo": "0x1c6de",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c6de",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6de",
+   "tipo": "desvio",
+   "v1-alvo": "0x1c6e4",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c6e4",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6de",
+   "tipo": "queda",
+   "v1-alvo": "0x1c6e0",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c6e0",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6e0",
+   "tipo": "chamada",
+   "v1-alvo": "0x1c80e",
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": "0x1c80e",
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6e0",
+   "tipo": "queda",
+   "v1-alvo": "0x1c6e4",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c6e4",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6f4",
+   "tipo": "chamada",
+   "v1-alvo": "0x1c8d0",
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": "0x1c8d0",
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6f4",
+   "tipo": "queda",
+   "v1-alvo": "0x1c6f8",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c6f8",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6fc",
+   "tipo": "desvio",
+   "v1-alvo": "0x1c754",
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": "0x1c754",
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6fc",
+   "tipo": "queda",
+   "v1-alvo": "0x1c6fe",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c6fe",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c702",
+   "tipo": "desvio",
+   "v1-alvo": "0x1c754",
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": "0x1c754",
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c702",
+   "tipo": "queda",
+   "v1-alvo": "0x1c704",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c704",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c70e",
+   "tipo": "desvio",
+   "v1-alvo": "0x1c78c",
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": "0x1c78c",
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c70e",
+   "tipo": "queda",
+   "v1-alvo": "0x1c710",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c710",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c716",
+   "tipo": "desvio",
+   "v1-alvo": "0x1c754",
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": "0x1c754",
+   "v2-veredito": "fora-da-regiao"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c716",
+   "tipo": "queda",
+   "v1-alvo": "0x1c718",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c718",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c722",
+   "tipo": "desvio",
+   "v1-alvo": "0x1c734",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c734",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c722",
+   "tipo": "queda",
+   "v1-alvo": "0x1c724",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c724",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c72e",
+   "tipo": "desvio",
+   "v1-alvo": "0x1c734",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c734",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c72e",
+   "tipo": "queda",
+   "v1-alvo": "0x1c730",
+   "v1-veredito": "resolvido",
+   "v2-alvo": "0x1c730",
+   "v2-veredito": "resolvido"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6b8",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "instrucao-de-bloco",
+   "v2-alvo": null,
+   "v2-veredito": "instrucao-de-bloco"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6bc",
+   "tipo": "sitio",
+   "v1-alvo": "0x1c7a2",
+   "v1-veredito": "instrucao-de-bloco",
+   "v2-alvo": "0x1c7a2",
+   "v2-veredito": "instrucao-de-bloco"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6bd",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "miolo-de-instrucao",
+   "v2-alvo": null,
+   "v2-veredito": "miolo-de-instrucao"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6c0",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "instrucao-de-bloco",
+   "v2-alvo": null,
+   "v2-veredito": "instrucao-de-bloco"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6c4",
+   "tipo": "sitio",
+   "v1-alvo": "0x1c6d8",
+   "v1-veredito": "instrucao-de-bloco",
+   "v2-alvo": "0x1c6d8",
+   "v2-veredito": "instrucao-de-bloco"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6c8",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "miolo-de-instrucao",
+   "v2-alvo": null,
+   "v2-veredito": "miolo-de-instrucao"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6cc",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "miolo-de-instrucao",
+   "v2-alvo": null,
+   "v2-veredito": "miolo-de-instrucao"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6d0",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "instrucao-de-bloco",
+   "v2-alvo": null,
+   "v2-veredito": "instrucao-de-bloco"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c6d4",
+   "tipo": "sitio",
+   "v1-alvo": "0x1c8da",
+   "v1-veredito": "instrucao-de-bloco",
+   "v2-alvo": "0x1c8da",
+   "v2-veredito": "instrucao-de-bloco"
+  },
+  {
+   "amostra": "s2",
+   "classe": "invariante",
+   "sitio": "0x1c73a",
+   "tipo": "sitio",
+   "v1-alvo": null,
+   "v1-veredito": "fora-da-regiao",
+   "v2-alvo": null,
+   "v2-veredito": "fora-da-regiao"
+  }
+ ]
+}

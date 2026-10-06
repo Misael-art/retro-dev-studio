@@ -1,0 +1,2550 @@
+{
+  "schema": "rex-cfg/censo-mascaras/v2",
+  "ferramenta": "rex-cfg",
+  "versao": "0.1.0",
+  "base-sha": "cb56657a142df40d2acd09a3e03e54247f066dea",
+  "corpus": {
+    "receita": "slot de 16 bytes; word = indice do slot; resto 4E71",
+    "slots": 65536,
+    "slot-bytes": 16,
+    "sha256": "b2f4b455e05fa1b0062a7721193655912005511a4bb4dc2f53bfc8ab7068d675"
+  },
+  "instrumento": {
+    "nome": "binutils 2.41",
+    "as-sha256": "618740559477258165eb1a344e07acd592afc1438061825469d5bd56fa2c87c7",
+    "objdump-sha256": "e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f",
+    "flags": "-b binary -m m68k -D"
+  },
+  "contagens": {
+    "slots": 65536,
+    "acordo": 36878,
+    "acordo-recusa": 14292,
+    "recusa-declarada": 14366,
+    "divergencia-critica": 0
+  },
+  "confronto-de-alvo": {
+    "descricao": "E4-1(iii): alvo efetivo nosso vs numero exibido pelo instrumento",
+    "confrontados": 4212,
+    "so-ferramenta": 0,
+    "so-instrumento": 0,
+    "abs-w": 2,
+    "abs-l": 2,
+    "desvio-pc-relativo": 4208,
+    "exemplos-abs": [
+      {
+        "palavra": "0x4EB8",
+        "forma": "abs-w",
+        "nosso": "0x00004E71",
+        "instrumento": "0x00004E71",
+        "texto-do-instrumento": "jsr 0x4e71"
+      },
+      {
+        "palavra": "0x4EB9",
+        "forma": "abs-l",
+        "nosso": "0x4E714E71",
+        "instrumento": "0x4E714E71",
+        "texto-do-instrumento": "jsr 0x4e714e71"
+      },
+      {
+        "palavra": "0x4EF8",
+        "forma": "abs-w",
+        "nosso": "0x00004E71",
+        "instrumento": "0x00004E71",
+        "texto-do-instrumento": "jmp 0x4e71"
+      },
+      {
+        "palavra": "0x4EF9",
+        "forma": "abs-l",
+        "nosso": "0x4E714E71",
+        "instrumento": "0x4E714E71",
+        "texto-do-instrumento": "jmp 0x4e714e71"
+      }
+    ],
+    "nota": "limite do espaco de operandos: os 14 words de cada slot sao 4E71, portanto todo abs.W confrontado tem bit15=0. O censo prova comprimento, aceite e numero exibido; a extensao de sinal de abs.W e provada pelos negativos N1/N2 com palavras construidas (0x8000, 0xFFFF), nao por esta tabela. Nada aqui envolve execucao: paridade estatica, sem execucao de ROM."
+  },
+  "histograma-short": {
+    "bucket": "nibble alto do word de instrução (0xn000..0xnFFF)",
+    "total": 14292,
+    "por-bucket": [
+      {
+        "nibble": "0",
+        "quantidade": 928
+      },
+      {
+        "nibble": "1",
+        "quantidade": 1438
+      },
+      {
+        "nibble": "2",
+        "quantidade": 558
+      },
+      {
+        "nibble": "3",
+        "quantidade": 558
+      },
+      {
+        "nibble": "4",
+        "quantidade": 1519
+      },
+      {
+        "nibble": "5",
+        "quantidade": 367
+      },
+      {
+        "nibble": "6",
+        "quantidade": 0
+      },
+      {
+        "nibble": "7",
+        "quantidade": 96
+      },
+      {
+        "nibble": "8",
+        "quantidade": 584
+      },
+      {
+        "nibble": "9",
+        "quantidade": 328
+      },
+      {
+        "nibble": "A",
+        "quantidade": 3276
+      },
+      {
+        "nibble": "B",
+        "quantidade": 264
+      },
+      {
+        "nibble": "C",
+        "quantidade": 648
+      },
+      {
+        "nibble": "D",
+        "quantidade": 328
+      },
+      {
+        "nibble": "E",
+        "quantidade": 546
+      },
+      {
+        "nibble": "F",
+        "quantidade": 2854
+      }
+    ]
+  },
+  "recusas-indeclaradas": [],
+  "criterio": "EXPECTATIONS-ETAPA3 4: divergencia-critica = 0",
+  "divergencias": [],
+  "recusas-declaradas": [
+    {
+      "motivo": "%0111 com b8=1 = MVS/MVZ/CPMOVE (68020), nao MOVEQ nem desvio - fora do subconjunto",
+      "quantidade": 1952,
+      "exemplos": [
+        "0x7100",
+        "0x7101",
+        "0x7102",
+        "0x7103",
+        "0x7104",
+        "0x7105",
+        "0x7106",
+        "0x7107"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "mvsb",
+            "quantidade": 488
+          },
+          {
+            "token": "mvsw",
+            "quantidade": 488
+          },
+          {
+            "token": "mvzb",
+            "quantidade": 488
+          },
+          {
+            "token": "mvzw",
+            "quantidade": 488
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 1280
+          },
+          {
+            "bytes": 4,
+            "quantidade": 640
+          },
+          {
+            "bytes": 6,
+            "quantidade": 32
+          }
+        ]
+      },
+      "justificativa": "So maquina: o grupo %0111 com b8=1 so e codificado por 68020/68040/CPU32; nenhum dos mnemonicos que o instrumento imprime sobre essas 1952 words monta no montador da CPU-alvo.",
+      "fonte": "sonda as -m68000 (v9 l.64,65,187-189: mvs/mvz/bitrev/callm/rtm recusados); M68000PRM sha 06e4864b l.23789-23808 (Table 8-2: 1111 = Coprocessor Interface/MC68040 and CPU32 Extensions)",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "BKPT (68010+) fora do subconjunto - recusado",
+      "quantidade": 1,
+      "exemplos": [
+        "0x484F"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "bkpt",
+            "quantidade": 1
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 1
+          }
+        ]
+      },
+      "justificativa": "So maquina: BKPT e 68010+, e a unica word do grupo recusa no montador da CPU-alvo; nao e limite de lista fechada.",
+      "fonte": "sonda v9 l.61 (bkpt #3: invalid instruction for this architecture; needs 68010 or higher)",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "EXT nao esta no subconjunto do contrato 3 - recusado",
+      "quantidade": 16,
+      "exemplos": [
+        "0x4880",
+        "0x4881",
+        "0x4882",
+        "0x4883",
+        "0x4884",
+        "0x4885",
+        "0x4886",
+        "0x4887"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "extl",
+            "quantidade": 8
+          },
+          {
+            "token": "extw",
+            "quantidade": 8
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 16
+          }
+        ]
+      },
+      "justificativa": "So escopo: o alvo monta EXT.W e EXT.L sobre registrador de dados (4880/48c0) e o ramo do decoder so aceita o modo %000, entao as 16 words sao justamente as formas montaveis; a recusa vem da lista fechada do contrato 3.",
+      "fonte": "sonda v9 l.45,46 (ext.l/ext.w montam); src/decode.rs ramo EXT (campo %100 do grupo %0100 com modo %000)",
+      "classe-da-forma": "LISTA-3"
+    },
+    {
+      "motivo": "JSR/JMP com alvo nao comprovado (indireto ou PC) - permanece desconhecido",
+      "quantidade": 52,
+      "exemplos": [
+        "0x4E90",
+        "0x4E91",
+        "0x4E92",
+        "0x4E93",
+        "0x4E94",
+        "0x4E95",
+        "0x4E96",
+        "0x4E97"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "jmp",
+            "quantidade": 26
+          },
+          {
+            "token": "jsr",
+            "quantidade": 26
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 16
+          },
+          {
+            "bytes": 4,
+            "quantidade": 36
+          }
+        ]
+      },
+      "justificativa": "Nem maquina nem lista: jsr/jmp com fonte indireta, PC-relativa e absoluto curto montam no alvo, mas a proibicao 0.2 nao permite publicar alvo nao comprovado; o caminho para ali e vira fronteira.",
+      "fonte": "sonda v9 l.116-118 (4e90/4ed0/4efa0008) e l.214,215 (4eb88000/4ef88000); CONTRACT 0.2",
+      "classe-da-forma": "PROIBICAO-ESTRUTURAL-0-2"
+    },
+    {
+      "motivo": "LEA com fonte de registrador ou auto-incremento: so modos de memoria (sonda as -m68000)",
+      "quantidade": 8,
+      "exemplos": [
+        "0x49C0",
+        "0x49C1",
+        "0x49C2",
+        "0x49C3",
+        "0x49C4",
+        "0x49C5",
+        "0x49C6",
+        "0x49C7"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "extbl",
+            "quantidade": 8
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 8
+          }
+        ]
+      },
+      "justificativa": "So maquina: LEA exige operando de memoria; registrador direto, (An)+ e -(An) recusam no alvo e as 8 words do grupo sao exatamente essas formas.",
+      "fonte": "sonda v9 l.105,106,108,109 (recusam) contra l.107,211,212 (outras formas de LEA montam)",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "MOVE com fonte PC-relativo ou reservada (fora do contrato 3)",
+      "quantidade": 332,
+      "exemplos": [
+        "0x103A",
+        "0x103B",
+        "0x10BA",
+        "0x10BB",
+        "0x10FA",
+        "0x10FB",
+        "0x113A",
+        "0x113B"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "moveb",
+            "quantidade": 100
+          },
+          {
+            "token": "movel",
+            "quantidade": 100
+          },
+          {
+            "token": "movew",
+            "quantidade": 100
+          },
+          {
+            "token": "moveal",
+            "quantidade": 16
+          },
+          {
+            "token": "moveaw",
+            "quantidade": 16
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 224
+          },
+          {
+            "bytes": 6,
+            "quantidade": 102
+          },
+          {
+            "bytes": 8,
+            "quantidade": 6
+          }
+        ]
+      },
+      "justificativa": "Duas origens no rotulo: fonte PC-relativa com (d16,PC) e real no alvo e cai fora apenas por escopo, enquanto os modos reservados do campo de modo nao sao codificaveis na CPU-alvo.",
+      "fonte": "sonda v9 l.119,120 (movel/movemb com (d16,PC) montam) contra l.92,93,190,191 (registros de codigo e USP recusam); M68000PRM l.2770-2780 (Tabela 2-4)",
+      "classe-da-forma": "MISTA-CPU-ALVO+LISTA-3"
+    },
+    {
+      "motivo": "MOVE/MOVEA de tamanho byte com destino An invalido (PRM 4-118/4-119)",
+      "quantidade": 8,
+      "exemplos": [
+        "0x107C",
+        "0x127C",
+        "0x147C",
+        "0x167C",
+        "0x187C",
+        "0x1A7C",
+        "0x1C7C",
+        "0x1E7C"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "moveb",
+            "quantidade": 8
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 8
+          }
+        ]
+      },
+      "justificativa": "So maquina: tamanho byte com destino An nao e montavel no alvo - MOVEA so tem .W/.L e o .B e rejeitado nas duas direcoes.",
+      "fonte": "sonda v9 l.26,27,29 (move.b com %aN e movea.b recusam); M68000PRM 4-118/4-119 (MOVEA: Attributes Size = Word, Long)",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "MOVEM com operando de registrador direto",
+      "quantidade": 8,
+      "exemplos": [
+        "0x4C80",
+        "0x4C81",
+        "0x4C82",
+        "0x4C83",
+        "0x4C84",
+        "0x4C85",
+        "0x4C86",
+        "0x4C87"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "satsl",
+            "quantidade": 8
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 8
+          }
+        ]
+      },
+      "justificativa": "So maquina: o operando de registrador direto no lado da lista do MOVEM recusa no montador da CPU-alvo nas duas direcoes.",
+      "fonte": "sonda v9 l.115,210 (recusam) contra l.113,114,224 (modos de memoria montam)",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "MOVEP (modo %001 medido em movepw/movepl) ou An-direto: fora da lista fechada (contrato 3)",
+      "quantidade": 256,
+      "exemplos": [
+        "0x0108",
+        "0x0109",
+        "0x010A",
+        "0x010B",
+        "0x010C",
+        "0x010D",
+        "0x010E",
+        "0x010F"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "movepl",
+            "quantidade": 128
+          },
+          {
+            "token": "movepw",
+            "quantidade": 128
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 256
+          }
+        ]
+      },
+      "justificativa": "Duas origens: MOVEP e instrugao real do MC68000 (monta com deslocamento em (d8,An)) e cai fora apenas por escopo, enquanto o operando An-direto que o mesmo rotulo nomeia recusa no alvo.",
+      "fonte": "sonda v9 l.56,57 (movepl 01c80008 / movepw 03890008 montam) contra l.43,44,199 (An-direto recusa); M68000PRM l.23791 (grupo 0000 = Bit Manipulation/MOVEP/Immediate)",
+      "classe-da-forma": "MISTA-CPU-ALVO+LISTA-3"
+    },
+    {
+      "motivo": "PEA com An-direto fora da lista (contrato 3)",
+      "quantidade": 7,
+      "exemplos": [
+        "0x4848",
+        "0x4849",
+        "0x484A",
+        "0x484B",
+        "0x484C",
+        "0x484D",
+        "0x484E"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "bkpt",
+            "quantidade": 7
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 7
+          }
+        ]
+      },
+      "justificativa": "So maquina: PEA exige operando de memoria; An-direto recusa no montador da CPU-alvo.",
+      "fonte": "sonda v9 l.112 (pea %a0 recusa) contra l.110,213 (pea %a0@ e pea (xxx).w montam)",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "Scc com destino PC, imediato ou reservado",
+      "quantidade": 81,
+      "exemplos": [
+        "0x50FA",
+        "0x50FB",
+        "0x50FC",
+        "0x51FA",
+        "0x51FB",
+        "0x51FC",
+        "0x51FD",
+        "0x51FE"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "scc",
+            "quantidade": 3
+          },
+          {
+            "token": "scs",
+            "quantidade": 3
+          },
+          {
+            "token": "seq",
+            "quantidade": 3
+          },
+          {
+            "token": "sf",
+            "quantidade": 3
+          },
+          {
+            "token": "sge",
+            "quantidade": 3
+          },
+          {
+            "token": "sgt",
+            "quantidade": 3
+          },
+          {
+            "token": "shi",
+            "quantidade": 3
+          },
+          {
+            "token": "sle",
+            "quantidade": 3
+          },
+          {
+            "token": "sls",
+            "quantidade": 3
+          },
+          {
+            "token": "slt",
+            "quantidade": 3
+          },
+          {
+            "token": "smi",
+            "quantidade": 3
+          },
+          {
+            "token": "trapcc",
+            "quantidade": 1
+          },
+          {
+            "token": "outros(47 tokens)",
+            "quantidade": 47
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 49
+          },
+          {
+            "bytes": 4,
+            "quantidade": 16
+          },
+          {
+            "bytes": 6,
+            "quantidade": 16
+          }
+        ]
+      },
+      "justificativa": "So maquina: Scc escreve no destino, e PC-relativo, imediato e os modos reservados nunca sao destinos alteraveis na CPU-alvo; as tres formas recusam no montador.",
+      "fonte": "sonda v9 l.102,103,164 (recusam) contra l.208,209 (abs.W e (An) montam, outro rotulo); M68000PRM l.2770-2780",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "add/sub/cmp.b com fonte %aN direta: footnote `word and long only` (prm l.5040) e o as -m68000 recusa `add.b %a0,%d1`",
+      "quantidade": 64,
+      "exemplos": [
+        "0xB008",
+        "0xB009",
+        "0xB00A",
+        "0xB00B",
+        "0xB00C",
+        "0xB00D",
+        "0xB00E",
+        "0xB00F"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "cmpb",
+            "quantidade": 64
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 64
+          }
+        ]
+      },
+      "justificativa": "So maquina: An nao e operando de dados (Tabela 2-4 marca Data = -) e o alvo recusa as familias de byte com fonte An; as mesmas fontes em .W/.L pertencem a outro rotulo.",
+      "fonte": "sonda v9 l.20-23 (or.b/and.l/cmp.b/eor.b com %aN recusam) contra l.18,19 (sub.w/add.l com %aN montam); M68000PRM l.5036-5040 (footnote Word and long only) e l.2757",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "b8=1 com fonte Dn direta = familia SBCD/ABCD/EXG/ADDX/SUBX/PACK (68010/68020): fora da lista fechada (contrato 3)",
+      "quantidade": 704,
+      "exemplos": [
+        "0x8100",
+        "0x8101",
+        "0x8102",
+        "0x8103",
+        "0x8104",
+        "0x8105",
+        "0x8106",
+        "0x8107"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "abcd",
+            "quantidade": 64
+          },
+          {
+            "token": "addxb",
+            "quantidade": 64
+          },
+          {
+            "token": "addxl",
+            "quantidade": 64
+          },
+          {
+            "token": "addxw",
+            "quantidade": 64
+          },
+          {
+            "token": "exg",
+            "quantidade": 64
+          },
+          {
+            "token": "pack",
+            "quantidade": 64
+          },
+          {
+            "token": "sbcd",
+            "quantidade": 64
+          },
+          {
+            "token": "subxb",
+            "quantidade": 64
+          },
+          {
+            "token": "subxl",
+            "quantidade": 64
+          },
+          {
+            "token": "subxw",
+            "quantidade": 64
+          },
+          {
+            "token": "unpk",
+            "quantidade": 64
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 576
+          },
+          {
+            "bytes": 4,
+            "quantidade": 128
+          }
+        ]
+      },
+      "justificativa": "Duas origens: abcd/addx/subx/sbcd/exg entre registradores montam no alvo e caem fora apenas por escopo, enquanto pack/unpack sao 68020 e recusam na CPU-alvo.",
+      "fonte": "sonda v9 l.49,51,54,55,145-148 (montam) contra l.47,48 (pack/unpack: needs 68020); M68000PRM l.23799,23803,23804",
+      "classe-da-forma": "MISTA-CPU-ALVO+LISTA-3"
+    },
+    {
+      "motivo": "b8=1 com modo %001 = familia sbcd/abcd/addx/subx/cmpm/exg/pack/unpk e mov3q 68020: fora da lista fechada (contrato 3)",
+      "quantidade": 960,
+      "exemplos": [
+        "0x8108",
+        "0x8109",
+        "0x810A",
+        "0x810B",
+        "0x810C",
+        "0x810D",
+        "0x810E",
+        "0x810F"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "exg",
+            "quantidade": 128
+          },
+          {
+            "token": "abcd",
+            "quantidade": 64
+          },
+          {
+            "token": "addxb",
+            "quantidade": 64
+          },
+          {
+            "token": "addxl",
+            "quantidade": 64
+          },
+          {
+            "token": "addxw",
+            "quantidade": 64
+          },
+          {
+            "token": "cmpmb",
+            "quantidade": 64
+          },
+          {
+            "token": "cmpml",
+            "quantidade": 64
+          },
+          {
+            "token": "cmpmw",
+            "quantidade": 64
+          },
+          {
+            "token": "pack",
+            "quantidade": 64
+          },
+          {
+            "token": "sbcd",
+            "quantidade": 64
+          },
+          {
+            "token": "subxb",
+            "quantidade": 64
+          },
+          {
+            "token": "subxl",
+            "quantidade": 64
+          },
+          {
+            "token": "outros(2 tokens)",
+            "quantidade": 128
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 832
+          },
+          {
+            "bytes": 4,
+            "quantidade": 128
+          }
+        ]
+      },
+      "justificativa": "Duas origens: as familias de memoria (An)/(An)+/(An)- de cmpm/abcd/addx/subx/exg montam no alvo (so escopo fecha), enquanto mov3q e 68EC020/CPU32 e recusa.",
+      "fonte": "sonda v9 l.51,53-55,224 (montam) contra l.50,52,124 (subx.l/sbcd com %aN@ e mov3q recusam); M68000PRM l.23799-23804",
+      "classe-da-forma": "MISTA-CPU-ALVO+LISTA-3"
+    },
+    {
+      "motivo": "bitop imediato com PC/CCR-SR/reservado",
+      "quantidade": 2,
+      "exemplos": [
+        "0x083A",
+        "0x083B"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "btst",
+            "quantidade": 2
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 6,
+            "quantidade": 2
+          }
+        ]
+      },
+      "justificativa": "Duas origens: bitop imediato com destino PC monta no alvo quando a operacao somente le (btst) e recusa quando escreve (bset/bclr), e CCR/SR e os modos reservados nunca montam.",
+      "fonte": "sonda v9 l.122,197 (btst imediato com (d16,PC) e (d8,PC,Xn) montam) contra l.162,198 (bset/bclr #3 com (d16,PC) recusam) e l.178 (bset #3,%sr)",
+      "classe-da-forma": "MISTA-CPU-ALVO+LISTA-3"
+    },
+    {
+      "motivo": "bitop registrador com PC/CCR-SR/reservado",
+      "quantidade": 24,
+      "exemplos": [
+        "0x013A",
+        "0x013B",
+        "0x013C",
+        "0x033A",
+        "0x033B",
+        "0x033C",
+        "0x053A",
+        "0x053B"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "btst",
+            "quantidade": 24
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 24
+          }
+        ]
+      },
+      "justificativa": "Duas origens: bitop registrador com destino (d16,PC) monta no alvo na forma de leitura (btst) e recusa nas de escrita (bset/bchg); os modos reservados recusam nas duas.",
+      "fonte": "sonda v9 l.163 (btst %d0,(16,%pc) = 013a0010) contra l.194,195 (bset %d0,(16,%pc) e com indice recusam) e l.179 (bchg %d0,%ccr)",
+      "classe-da-forma": "MISTA-CPU-ALVO+LISTA-3"
+    },
+    {
+      "motivo": "chk com imediato: divergencia nao resolvida de tamanho entre prm l.7643-4 (11=w, 10=l so 68020+) e o instrumento (41bc=chkw 4b, 413c=chkl 6b, 41fc=.short)",
+      "quantidade": 16,
+      "exemplos": [
+        "0x413C",
+        "0x41BC",
+        "0x433C",
+        "0x43BC",
+        "0x453C",
+        "0x45BC",
+        "0x473C",
+        "0x47BC"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "chkl",
+            "quantidade": 8
+          },
+          {
+            "token": "chkw",
+            "quantidade": 8
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 8
+          },
+          {
+            "bytes": 6,
+            "quantidade": 8
+          }
+        ]
+      },
+      "justificativa": "Referencia primaria e instrumento conflituam e o comprimento nao e comprovavel para o alvo: o PRM da %11 = word e %10 = long (long somente em 68020+), mas o as -m68000 monta chk.w como %10 e o objdump le %10 como chkl de 6 bytes e imprime .short para %11. A recusa fica ate decisao do principal (E4-4).",
+      "fonte": "sonda v9 l.99,100 (chk #3,%d0 e chk.w = 41bc0003) e l.180 (chk.l: needs 68020); M68000PRM l.7602-7603 (Size = Word, Long* / *MC68020+), l.7642-7644, l.7652",
+      "classe-da-forma": "DIVERGENCIA-REGISTRADA"
+    },
+    {
+      "motivo": "desvio com disp8 = 0xFF: forma de extensao 68020 ambigua - comprimento nao comprovavel, caminho interrompido (contrato 3; o instrumento le .S -1) [desvio lido como .S pelo instrumento]",
+      "quantidade": 16,
+      "exemplos": [
+        "0x60FF",
+        "0x61FF",
+        "0x62FF",
+        "0x63FF",
+        "0x64FF",
+        "0x65FF",
+        "0x66FF",
+        "0x67FF"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "bccl",
+            "quantidade": 1
+          },
+          {
+            "token": "bcsl",
+            "quantidade": 1
+          },
+          {
+            "token": "beql",
+            "quantidade": 1
+          },
+          {
+            "token": "bgel",
+            "quantidade": 1
+          },
+          {
+            "token": "bgtl",
+            "quantidade": 1
+          },
+          {
+            "token": "bhil",
+            "quantidade": 1
+          },
+          {
+            "token": "blel",
+            "quantidade": 1
+          },
+          {
+            "token": "blsl",
+            "quantidade": 1
+          },
+          {
+            "token": "bltl",
+            "quantidade": 1
+          },
+          {
+            "token": "bmil",
+            "quantidade": 1
+          },
+          {
+            "token": "bnel",
+            "quantidade": 1
+          },
+          {
+            "token": "bpll",
+            "quantidade": 1
+          },
+          {
+            "token": "outros(4 tokens)",
+            "quantidade": 4
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 6,
+            "quantidade": 16
+          }
+        ]
+      },
+      "justificativa": "Divergencia registrada: o instrumento le essas 16 words como desvio de 6 bytes (.S), mas disp8 = %FF e forma de extensao 68020 que o alvo nao produz (o montador recusa -1 em disp8); sem comprimento comprovavel o caminho para por seguranca estrutural, nao por cobertura.",
+      "fonte": "sonda v9 l.181,182 (bra.b #-1 e beq.b #-1 recusam); M68000PRM Table 3-9 l.3761-3766 (Bcc 8/16/32; DBcc 16); CONTRACT 0.3 (retificada em R-2 de 2026-10-05)",
+      "classe-da-forma": "DIVERGENCIA-REGISTRADA"
+    },
+    {
+      "motivo": "forma de memoria do grupo %1110 com campo de familia %100..%111: nao definida (prm tabela 3-5 l.3617-3660)",
+      "quantidade": 142,
+      "exemplos": [
+        "0xE9C0",
+        "0xE9C1",
+        "0xE9C2",
+        "0xE9C3",
+        "0xE9C4",
+        "0xE9C5",
+        "0xE9C6",
+        "0xE9C7"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "bfexts",
+            "quantidade": 36
+          },
+          {
+            "token": "bfextu",
+            "quantidade": 36
+          },
+          {
+            "token": "bfffo",
+            "quantidade": 36
+          },
+          {
+            "token": "bfins",
+            "quantidade": 34
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 64
+          },
+          {
+            "bytes": 6,
+            "quantidade": 74
+          },
+          {
+            "bytes": 8,
+            "quantidade": 4
+          }
+        ]
+      },
+      "justificativa": "So maquina: na forma de memoria do grupo %1110 os campos de familia %100..%111 (bit field e multiplicador-acumulador) sao 68020/5206e e recusam no alvo; as familias %000..%011 de memoria montam e tem rotulo proprio.",
+      "fonte": "sonda v9 l.183-189 (bfextu/bfins/macl/mac/bitrev recusam) contra l.70-77,79-82 (shift/rotate de memoria montam); M68000PRM l.3607-3617 (Table 3-5) e l.23805",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "forma ea->Dn com fonte imediata - invalido",
+      "quantidade": 120,
+      "exemplos": [
+        "0x803C",
+        "0x807C",
+        "0x80BC",
+        "0x823C",
+        "0x827C",
+        "0x82BC",
+        "0x843C",
+        "0x847C"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "addb",
+            "quantidade": 8
+          },
+          {
+            "token": "addl",
+            "quantidade": 8
+          },
+          {
+            "token": "addw",
+            "quantidade": 8
+          },
+          {
+            "token": "andb",
+            "quantidade": 8
+          },
+          {
+            "token": "andl",
+            "quantidade": 8
+          },
+          {
+            "token": "andw",
+            "quantidade": 8
+          },
+          {
+            "token": "cmpb",
+            "quantidade": 8
+          },
+          {
+            "token": "cmpl",
+            "quantidade": 8
+          },
+          {
+            "token": "cmpw",
+            "quantidade": 8
+          },
+          {
+            "token": "orb",
+            "quantidade": 8
+          },
+          {
+            "token": "orl",
+            "quantidade": 8
+          },
+          {
+            "token": "orw",
+            "quantidade": 8
+          },
+          {
+            "token": "outros(3 tokens)",
+            "quantidade": 24
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 80
+          },
+          {
+            "bytes": 6,
+            "quantidade": 40
+          }
+        ]
+      },
+      "justificativa": "So maquina: a direcao ea->Dn com fonte imediata nao e producivel no alvo - o montador reescreve sempre para o grupo de imediato proprio (op1) ou para ADDQ/SUBQ e nunca emite essa word.",
+      "fonte": "sonda v9 l.140-144 (add.w #3,%d0 sai addqw 5640; or.b #3,%d1 sai orib 00010003); M68000PRM l.2780 (imediato: Alterable = -) e l.11262-11268",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "grupo %0100 fora do subconjunto",
+      "quantidade": 305,
+      "exemplos": [
+        "0x4000",
+        "0x4001",
+        "0x4002",
+        "0x4003",
+        "0x4004",
+        "0x4005",
+        "0x4006",
+        "0x4007"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "negxl",
+            "quantidade": 64
+          },
+          {
+            "token": "nbcd",
+            "quantidade": 50
+          },
+          {
+            "token": "negxb",
+            "quantidade": 50
+          },
+          {
+            "token": "negxw",
+            "quantidade": 50
+          },
+          {
+            "token": "movew",
+            "quantidade": 42
+          },
+          {
+            "token": "movel",
+            "quantidade": 16
+          },
+          {
+            "token": "trapx",
+            "quantidade": 16
+          },
+          {
+            "token": "linkl",
+            "quantidade": 8
+          },
+          {
+            "token": "movec",
+            "quantidade": 2
+          },
+          {
+            "token": "reset",
+            "quantidade": 1
+          },
+          {
+            "token": "rtd",
+            "quantidade": 1
+          },
+          {
+            "token": "rte",
+            "quantidade": 1
+          },
+          {
+            "token": "outros(4 tokens)",
+            "quantidade": 4
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 203
+          },
+          {
+            "bytes": 4,
+            "quantidade": 89
+          },
+          {
+            "bytes": 6,
+            "quantidade": 13
+          }
+        ]
+      },
+      "justificativa": "Duas origens: dentro do grupo %0100 com b8=0 o campo %000 contem MOVE-do-SR (40c0) e o campo %100 contem MOVEM de memoria para lista (48d0), que montam no alvo e caem fora so por escopo, enquanto EXT em modos de memoria (68020) e o campo %110 recusam.",
+      "fonte": "sonda v9 l.222,224 (montam) contra l.193 (ext.w %a0@: needs 68020) e l.218,223 (move.l %d0,%ccr e move.w %sr,%ccr recusam)",
+      "classe-da-forma": "MISTA-CPU-ALVO+LISTA-3"
+    },
+    {
+      "motivo": "grupo %1010 reservado - recusado",
+      "quantidade": 820,
+      "exemplos": [
+        "0xA000",
+        "0xA001",
+        "0xA002",
+        "0xA003",
+        "0xA004",
+        "0xA005",
+        "0xA006",
+        "0xA007"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "mov3ql",
+            "quantidade": 464
+          },
+          {
+            "token": "macl",
+            "quantidade": 256
+          },
+          {
+            "token": "movel",
+            "quantidade": 100
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 417
+          },
+          {
+            "bytes": 4,
+            "quantidade": 392
+          },
+          {
+            "bytes": 6,
+            "quantidade": 11
+          }
+        ]
+      },
+      "justificativa": "So maquina: o codigo de operacao %1010 e declarado nao atribuido/reservado pela referencia primaria, e nenhuma forma do grupo e montavel no montador da CPU-alvo.",
+      "fonte": "M68000PRM l.23801 (Table 8-2: 1010 = Unassigned, Reserved); sonda v9 nao tem nenhuma forma MONTE nesse grupo",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "grupo %1111 (coprocessador/reservado) - recusado",
+      "quantidade": 1242,
+      "exemplos": [
+        "0xF080",
+        "0xF081",
+        "0xF082",
+        "0xF083",
+        "0xF084",
+        "0xF085",
+        "0xF086",
+        "0xF087"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "cp0ldb",
+            "quantidade": 48
+          },
+          {
+            "token": "cp0ldl",
+            "quantidade": 48
+          },
+          {
+            "token": "cp0ldw",
+            "quantidade": 48
+          },
+          {
+            "token": "cp0stb",
+            "quantidade": 48
+          },
+          {
+            "token": "cp0stl",
+            "quantidade": 48
+          },
+          {
+            "token": "cp0stw",
+            "quantidade": 48
+          },
+          {
+            "token": "cp1ldb",
+            "quantidade": 48
+          },
+          {
+            "token": "cp1ldl",
+            "quantidade": 48
+          },
+          {
+            "token": "cp1ldw",
+            "quantidade": 48
+          },
+          {
+            "token": "cp1stb",
+            "quantidade": 48
+          },
+          {
+            "token": "cp1stl",
+            "quantidade": 48
+          },
+          {
+            "token": "cp1stw",
+            "quantidade": 48
+          },
+          {
+            "token": "outros(104 tokens)",
+            "quantidade": 666
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 392
+          },
+          {
+            "bytes": 4,
+            "quantidade": 667
+          },
+          {
+            "bytes": 6,
+            "quantidade": 183
+          }
+        ]
+      },
+      "justificativa": "So maquina: %1111 e a interface de coprocessador e as extensoes MC68040/CPU32; o ponto numerico e as extensoes recusam no montador da CPU-alvo.",
+      "fonte": "M68000PRM l.23806-23808; sonda v9 l.91 (moves.w: needs 68010+), l.133 (fmove.l: needs 68020), l.183,184 (bfextu/bfins)",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "modo 6.0 com campo de indice 68020 (0x4e71)",
+      "quantidade": 794,
+      "exemplos": [
+        "0x0030",
+        "0x0070",
+        "0x00B0",
+        "0x0130",
+        "0x0170",
+        "0x01B0",
+        "0x01F0",
+        "0x0230"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "movel",
+            "quantidade": 101
+          },
+          {
+            "token": "movew",
+            "quantidade": 101
+          },
+          {
+            "token": "moveb",
+            "quantidade": 93
+          },
+          {
+            "token": "addb",
+            "quantidade": 16
+          },
+          {
+            "token": "addl",
+            "quantidade": 16
+          },
+          {
+            "token": "addw",
+            "quantidade": 16
+          },
+          {
+            "token": "andb",
+            "quantidade": 16
+          },
+          {
+            "token": "andl",
+            "quantidade": 16
+          },
+          {
+            "token": "andw",
+            "quantidade": 16
+          },
+          {
+            "token": "orb",
+            "quantidade": 16
+          },
+          {
+            "token": "orl",
+            "quantidade": 16
+          },
+          {
+            "token": "orw",
+            "quantidade": 16
+          },
+          {
+            "token": "outros(89 tokens)",
+            "quantidade": 355
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 685
+          },
+          {
+            "bytes": 6,
+            "quantidade": 96
+          },
+          {
+            "bytes": 8,
+            "quantidade": 13
+          }
+        ]
+      },
+      "justificativa": "So maquina: o postbyte do modo %110 com reg %000 (A0) e recusado porque os bits 10-8 do campo de indice valem %011 no preenchimento do slot; no MC68000 esse campo e %000 e qualquer outro valor e escala ou deslocamento grande de 68020. Nota honesta: as 794 words desta linha sao word de opcode + o preenchimento 4e71 do proprio corpus, nao instrucoes de ROM.",
+      "fonte": "sonda v9 l.169,170 (postbyte com bits 10-8 = %000 montam) contra l.171-173 (escala: scale factor invalid on this architecture; needs cpu32 or 68020); M68000PRM l.2764 e l.5036-5040",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "modo 6.1 com campo de indice 68020 (0x4e71)",
+      "quantidade": 794,
+      "exemplos": [
+        "0x0031",
+        "0x0071",
+        "0x00B1",
+        "0x0131",
+        "0x0171",
+        "0x01B1",
+        "0x01F1",
+        "0x0231"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "movel",
+            "quantidade": 101
+          },
+          {
+            "token": "movew",
+            "quantidade": 101
+          },
+          {
+            "token": "moveb",
+            "quantidade": 93
+          },
+          {
+            "token": "addb",
+            "quantidade": 16
+          },
+          {
+            "token": "addl",
+            "quantidade": 16
+          },
+          {
+            "token": "addw",
+            "quantidade": 16
+          },
+          {
+            "token": "andb",
+            "quantidade": 16
+          },
+          {
+            "token": "andl",
+            "quantidade": 16
+          },
+          {
+            "token": "andw",
+            "quantidade": 16
+          },
+          {
+            "token": "orb",
+            "quantidade": 16
+          },
+          {
+            "token": "orl",
+            "quantidade": 16
+          },
+          {
+            "token": "orw",
+            "quantidade": 16
+          },
+          {
+            "token": "outros(89 tokens)",
+            "quantidade": 355
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 685
+          },
+          {
+            "bytes": 6,
+            "quantidade": 96
+          },
+          {
+            "bytes": 8,
+            "quantidade": 13
+          }
+        ]
+      },
+      "justificativa": "So maquina: o postbyte do modo %110 com reg %001 (A1) e recusado porque os bits 10-8 do campo de indice valem %011 no preenchimento do slot; no MC68000 esse campo e %000 e qualquer outro valor e escala ou deslocamento grande de 68020. Mesmo registro de metodo da primeira linha do modo %110: sao words de opcode + preenchimento 4e71.",
+      "fonte": "sonda v9 l.169,170 contra l.171-173; M68000PRM l.2764 e l.5036-5040",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "modo 6.2 com campo de indice 68020 (0x4e71)",
+      "quantidade": 794,
+      "exemplos": [
+        "0x0032",
+        "0x0072",
+        "0x00B2",
+        "0x0132",
+        "0x0172",
+        "0x01B2",
+        "0x01F2",
+        "0x0232"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "movel",
+            "quantidade": 101
+          },
+          {
+            "token": "movew",
+            "quantidade": 101
+          },
+          {
+            "token": "moveb",
+            "quantidade": 93
+          },
+          {
+            "token": "addb",
+            "quantidade": 16
+          },
+          {
+            "token": "addl",
+            "quantidade": 16
+          },
+          {
+            "token": "addw",
+            "quantidade": 16
+          },
+          {
+            "token": "andb",
+            "quantidade": 16
+          },
+          {
+            "token": "andl",
+            "quantidade": 16
+          },
+          {
+            "token": "andw",
+            "quantidade": 16
+          },
+          {
+            "token": "orb",
+            "quantidade": 16
+          },
+          {
+            "token": "orl",
+            "quantidade": 16
+          },
+          {
+            "token": "orw",
+            "quantidade": 16
+          },
+          {
+            "token": "outros(89 tokens)",
+            "quantidade": 355
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 685
+          },
+          {
+            "bytes": 6,
+            "quantidade": 96
+          },
+          {
+            "bytes": 8,
+            "quantidade": 13
+          }
+        ]
+      },
+      "justificativa": "So maquina: o postbyte do modo %110 com reg %010 (A2) e recusado porque os bits 10-8 do campo de indice valem %011 no preenchimento do slot; no MC68000 esse campo e %000. Mesmo registro de metodo da primeira linha do modo %110: words de opcode + preenchimento 4e71.",
+      "fonte": "sonda v9 l.169,170 contra l.171-173; M68000PRM l.2764 e l.5036-5040",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "modo 6.3 com campo de indice 68020 (0x4e71)",
+      "quantidade": 794,
+      "exemplos": [
+        "0x0033",
+        "0x0073",
+        "0x00B3",
+        "0x0133",
+        "0x0173",
+        "0x01B3",
+        "0x01F3",
+        "0x0233"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "movel",
+            "quantidade": 101
+          },
+          {
+            "token": "movew",
+            "quantidade": 101
+          },
+          {
+            "token": "moveb",
+            "quantidade": 93
+          },
+          {
+            "token": "addb",
+            "quantidade": 16
+          },
+          {
+            "token": "addl",
+            "quantidade": 16
+          },
+          {
+            "token": "addw",
+            "quantidade": 16
+          },
+          {
+            "token": "andb",
+            "quantidade": 16
+          },
+          {
+            "token": "andl",
+            "quantidade": 16
+          },
+          {
+            "token": "andw",
+            "quantidade": 16
+          },
+          {
+            "token": "orb",
+            "quantidade": 16
+          },
+          {
+            "token": "orl",
+            "quantidade": 16
+          },
+          {
+            "token": "orw",
+            "quantidade": 16
+          },
+          {
+            "token": "outros(89 tokens)",
+            "quantidade": 355
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 685
+          },
+          {
+            "bytes": 6,
+            "quantidade": 96
+          },
+          {
+            "bytes": 8,
+            "quantidade": 13
+          }
+        ]
+      },
+      "justificativa": "So maquina: o postbyte do modo %110 com reg %011 (A3) e recusado porque os bits 10-8 do campo de indice valem %011 no preenchimento do slot; no MC68000 esse campo e %000. Mesmo registro de metodo da primeira linha do modo %110: words de opcode + preenchimento 4e71.",
+      "fonte": "sonda v9 l.169,170 contra l.171-173; M68000PRM l.2764 e l.5036-5040",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "modo 6.4 com campo de indice 68020 (0x4e71)",
+      "quantidade": 794,
+      "exemplos": [
+        "0x0034",
+        "0x0074",
+        "0x00B4",
+        "0x0134",
+        "0x0174",
+        "0x01B4",
+        "0x01F4",
+        "0x0234"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "movel",
+            "quantidade": 101
+          },
+          {
+            "token": "movew",
+            "quantidade": 101
+          },
+          {
+            "token": "moveb",
+            "quantidade": 93
+          },
+          {
+            "token": "addb",
+            "quantidade": 16
+          },
+          {
+            "token": "addl",
+            "quantidade": 16
+          },
+          {
+            "token": "addw",
+            "quantidade": 16
+          },
+          {
+            "token": "andb",
+            "quantidade": 16
+          },
+          {
+            "token": "andl",
+            "quantidade": 16
+          },
+          {
+            "token": "andw",
+            "quantidade": 16
+          },
+          {
+            "token": "orb",
+            "quantidade": 16
+          },
+          {
+            "token": "orl",
+            "quantidade": 16
+          },
+          {
+            "token": "orw",
+            "quantidade": 16
+          },
+          {
+            "token": "outros(89 tokens)",
+            "quantidade": 355
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 685
+          },
+          {
+            "bytes": 6,
+            "quantidade": 96
+          },
+          {
+            "bytes": 8,
+            "quantidade": 13
+          }
+        ]
+      },
+      "justificativa": "So maquina: o postbyte do modo %110 com reg %100 (A4) e recusado porque os bits 10-8 do campo de indice valem %011 no preenchimento do slot; no MC68000 esse campo e %000. Mesmo registro de metodo da primeira linha do modo %110: words de opcode + preenchimento 4e71.",
+      "fonte": "sonda v9 l.169,170 contra l.171-173; M68000PRM l.2764 e l.5036-5040",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "modo 6.5 com campo de indice 68020 (0x4e71)",
+      "quantidade": 794,
+      "exemplos": [
+        "0x0035",
+        "0x0075",
+        "0x00B5",
+        "0x0135",
+        "0x0175",
+        "0x01B5",
+        "0x01F5",
+        "0x0235"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "movel",
+            "quantidade": 101
+          },
+          {
+            "token": "movew",
+            "quantidade": 101
+          },
+          {
+            "token": "moveb",
+            "quantidade": 93
+          },
+          {
+            "token": "addb",
+            "quantidade": 16
+          },
+          {
+            "token": "addl",
+            "quantidade": 16
+          },
+          {
+            "token": "addw",
+            "quantidade": 16
+          },
+          {
+            "token": "andb",
+            "quantidade": 16
+          },
+          {
+            "token": "andl",
+            "quantidade": 16
+          },
+          {
+            "token": "andw",
+            "quantidade": 16
+          },
+          {
+            "token": "orb",
+            "quantidade": 16
+          },
+          {
+            "token": "orl",
+            "quantidade": 16
+          },
+          {
+            "token": "orw",
+            "quantidade": 16
+          },
+          {
+            "token": "outros(89 tokens)",
+            "quantidade": 355
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 685
+          },
+          {
+            "bytes": 6,
+            "quantidade": 96
+          },
+          {
+            "bytes": 8,
+            "quantidade": 13
+          }
+        ]
+      },
+      "justificativa": "So maquina: o modo %110 com reg %101 nao existe no MC68000 (a Tabela 2-4 para em reg %100 para o modo %110), e o postbyte ainda traz os bits 10-8 = %011 do preenchimento. Mesmo registro de metodo da primeira linha do modo %110: words de opcode + preenchimento 4e71.",
+      "fonte": "M68000PRM l.2764 (unico 110 com reg. number:An) e l.5036-5040; sonda v9 l.171-173 (campo de indice de 68020 recusa)",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "modo 6.6 com campo de indice 68020 (0x4e71)",
+      "quantidade": 794,
+      "exemplos": [
+        "0x0036",
+        "0x0076",
+        "0x00B6",
+        "0x0136",
+        "0x0176",
+        "0x01B6",
+        "0x01F6",
+        "0x0236"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "movel",
+            "quantidade": 101
+          },
+          {
+            "token": "movew",
+            "quantidade": 101
+          },
+          {
+            "token": "moveb",
+            "quantidade": 93
+          },
+          {
+            "token": "addb",
+            "quantidade": 16
+          },
+          {
+            "token": "addl",
+            "quantidade": 16
+          },
+          {
+            "token": "addw",
+            "quantidade": 16
+          },
+          {
+            "token": "andb",
+            "quantidade": 16
+          },
+          {
+            "token": "andl",
+            "quantidade": 16
+          },
+          {
+            "token": "andw",
+            "quantidade": 16
+          },
+          {
+            "token": "orb",
+            "quantidade": 16
+          },
+          {
+            "token": "orl",
+            "quantidade": 16
+          },
+          {
+            "token": "orw",
+            "quantidade": 16
+          },
+          {
+            "token": "outros(89 tokens)",
+            "quantidade": 355
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 685
+          },
+          {
+            "bytes": 6,
+            "quantidade": 96
+          },
+          {
+            "bytes": 8,
+            "quantidade": 13
+          }
+        ]
+      },
+      "justificativa": "So maquina: o modo %110 com reg %110 nao existe no MC68000, e o postbyte ainda traz os bits 10-8 = %011 do preenchimento; e linha-F na referencia primaria. Mesmo registro de metodo da primeira linha do modo %110: words de opcode + preenchimento 4e71.",
+      "fonte": "M68000PRM l.2764 e l.5036-5040; sonda v9 l.171-173",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "modo 6.7 com campo de indice 68020 (0x4e71)",
+      "quantidade": 794,
+      "exemplos": [
+        "0x0037",
+        "0x0077",
+        "0x00B7",
+        "0x0137",
+        "0x0177",
+        "0x01B7",
+        "0x01F7",
+        "0x0237"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "movel",
+            "quantidade": 101
+          },
+          {
+            "token": "movew",
+            "quantidade": 101
+          },
+          {
+            "token": "moveb",
+            "quantidade": 93
+          },
+          {
+            "token": "addb",
+            "quantidade": 16
+          },
+          {
+            "token": "addl",
+            "quantidade": 16
+          },
+          {
+            "token": "addw",
+            "quantidade": 16
+          },
+          {
+            "token": "andb",
+            "quantidade": 16
+          },
+          {
+            "token": "andl",
+            "quantidade": 16
+          },
+          {
+            "token": "andw",
+            "quantidade": 16
+          },
+          {
+            "token": "orb",
+            "quantidade": 16
+          },
+          {
+            "token": "orl",
+            "quantidade": 16
+          },
+          {
+            "token": "orw",
+            "quantidade": 16
+          },
+          {
+            "token": "outros(89 tokens)",
+            "quantidade": 355
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 685
+          },
+          {
+            "bytes": 6,
+            "quantidade": 96
+          },
+          {
+            "bytes": 8,
+            "quantidade": 13
+          }
+        ]
+      },
+      "justificativa": "So maquina: o modo %110 com reg %111 nao existe no MC68000, e o postbyte ainda traz os bits 10-8 = %011 do preenchimento; e linha-F na referencia primaria. Mesmo registro de metodo da primeira linha do modo %110: words de opcode + preenchimento 4e71.",
+      "fonte": "M68000PRM l.2764 e l.5036-5040; sonda v9 l.171-173",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "modo 7.3 com campo de indice 68020 (0x4e71)",
+      "quantidade": 28,
+      "exemplos": [
+        "0x413B",
+        "0x41BB",
+        "0x41FB",
+        "0x433B",
+        "0x43BB",
+        "0x43FB",
+        "0x453B",
+        "0x45BB"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "chkl",
+            "quantidade": 8
+          },
+          {
+            "token": "chkw",
+            "quantidade": 8
+          },
+          {
+            "token": "lea",
+            "quantidade": 8
+          },
+          {
+            "token": "pea",
+            "quantidade": 1
+          },
+          {
+            "token": "tstb",
+            "quantidade": 1
+          },
+          {
+            "token": "tstl",
+            "quantidade": 1
+          },
+          {
+            "token": "tstw",
+            "quantidade": 1
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 28
+          }
+        ]
+      },
+      "justificativa": "So maquina: o postbyte do modo %111 com reg %011 ((d8,PC,Xn)) e recusado porque os bits 10-8 do campo de indice valem %011 no preenchimento do slot; no MC68000 esse campo e %000. As 28 words sao opcode + preenchimento 4e71.",
+      "fonte": "sonda v9 l.151,154,155 ((d8,PC,Xn) com postbyte legal monta) contra l.171-173 (escala/campo de 68020 recusa); M68000PRM l.2772 e l.5036-5040",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "op1 imediato com destino An direta: prm 4-154 (l.11259-11267) so admite modos de dados alteraveis e marca An como -, e o as -m68000 recusa ori/andi/subi/addi/eori/cmpi com %aN (sonda v4); o instrumento le (medido 0088 = oril #imm,%d0 em 6 bytes, short=0/64) mas a forma nao esta na lista fechada (contrato 3)",
+      "quantidade": 64,
+      "exemplos": [
+        "0x0088",
+        "0x0089",
+        "0x008A",
+        "0x008B",
+        "0x008C",
+        "0x008D",
+        "0x008E",
+        "0x008F"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "addil",
+            "quantidade": 8
+          },
+          {
+            "token": "andil",
+            "quantidade": 8
+          },
+          {
+            "token": "cmpib",
+            "quantidade": 8
+          },
+          {
+            "token": "cmpil",
+            "quantidade": 8
+          },
+          {
+            "token": "cmpiw",
+            "quantidade": 8
+          },
+          {
+            "token": "eoril",
+            "quantidade": 8
+          },
+          {
+            "token": "oril",
+            "quantidade": 8
+          },
+          {
+            "token": "subil",
+            "quantidade": 8
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 16
+          },
+          {
+            "bytes": 6,
+            "quantidade": 48
+          }
+        ]
+      },
+      "justificativa": "So maquina: nos seis grupos de imediato o destino An esta marcado como nao permitido pela referencia (Only data alterable) e o montador da CPU-alvo recusa ori/andi/subi/addi/eori/cmpi com %aN em todos os tamanhos.",
+      "fonte": "M68000PRM l.11262-11268 (linha An: - -) e l.5036-5040; sonda v9 l.31-40 (recusam) contra l.41,42 (Dn e (An) montam)",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "op1 imediato com destino PC, CCR/SR ou reservado fora da lista (contrato 3)",
+      "quantidade": 54,
+      "exemplos": [
+        "0x003C",
+        "0x007C",
+        "0x00BA",
+        "0x00BB",
+        "0x00BC",
+        "0x00BD",
+        "0x00BE",
+        "0x00BF"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "addil",
+            "quantidade": 6
+          },
+          {
+            "token": "andil",
+            "quantidade": 6
+          },
+          {
+            "token": "cmpib",
+            "quantidade": 6
+          },
+          {
+            "token": "cmpil",
+            "quantidade": 6
+          },
+          {
+            "token": "cmpiw",
+            "quantidade": 6
+          },
+          {
+            "token": "eoril",
+            "quantidade": 6
+          },
+          {
+            "token": "oril",
+            "quantidade": 6
+          },
+          {
+            "token": "subil",
+            "quantidade": 6
+          },
+          {
+            "token": "andib",
+            "quantidade": 1
+          },
+          {
+            "token": "andiw",
+            "quantidade": 1
+          },
+          {
+            "token": "eorib",
+            "quantidade": 1
+          },
+          {
+            "token": "eoriw",
+            "quantidade": 1
+          },
+          {
+            "token": "outros(2 tokens)",
+            "quantidade": 2
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 14
+          },
+          {
+            "bytes": 6,
+            "quantidade": 38
+          },
+          {
+            "bytes": 8,
+            "quantidade": 2
+          }
+        ]
+      },
+      "justificativa": "Duas origens: destino CCR/SR nos grupos de imediato existe no alvo, mas apenas em .W (ori.w #3,%sr = 007c0003 e eori.b #3,%ccr = 0a3c0003), enquanto (d16,PC)/(d8,PC,Xn) estao marcados como nao permitidos e os modos reservados recusam.",
+      "fonte": "sonda v9 l.157,159 (montam) contra l.158 (andi.l #3,%sr) e l.160-162 (cmpi/addi/bset com (16,%pc)); M68000PRM l.11271-11272",
+      "classe-da-forma": "MISTA-CPU-ALVO+LISTA-3"
+    },
+    {
+      "motivo": "op1 imediato com tamanho %11",
+      "quantidade": 68,
+      "exemplos": [
+        "0x00C0",
+        "0x00C1",
+        "0x00C2",
+        "0x00C3",
+        "0x00C4",
+        "0x00C5",
+        "0x00C6",
+        "0x00C7"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "callm",
+            "quantidade": 28
+          },
+          {
+            "token": "rtm",
+            "quantidade": 16
+          },
+          {
+            "token": "bitrev",
+            "quantidade": 8
+          },
+          {
+            "token": "byterev",
+            "quantidade": 8
+          },
+          {
+            "token": "ff1",
+            "quantidade": 8
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 40
+          },
+          {
+            "bytes": 4,
+            "quantidade": 8
+          },
+          {
+            "bytes": 6,
+            "quantidade": 19
+          },
+          {
+            "bytes": 8,
+            "quantidade": 1
+          }
+        ]
+      },
+      "justificativa": "So maquina: o campo de tamanho dos grupos de imediato so vale %00/%01/%10 na referencia e o montador nunca emite %11, portanto a word com %11 nao e producivel no alvo.",
+      "fonte": "M68000PRM l.11257-11260 (00/01/10); sonda v9 l.200-207 (emissoes medidas: 4200/4280/0040/0c80/5680)",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "operando PC-relativo ou reservado fora do subconjunto (contrato 3)",
+      "quantidade": 400,
+      "exemplos": [
+        "0x803A",
+        "0x803B",
+        "0x807A",
+        "0x807B",
+        "0x80BA",
+        "0x80BB",
+        "0x80FA",
+        "0x80FB"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "addal",
+            "quantidade": 16
+          },
+          {
+            "token": "addaw",
+            "quantidade": 16
+          },
+          {
+            "token": "addb",
+            "quantidade": 16
+          },
+          {
+            "token": "addl",
+            "quantidade": 16
+          },
+          {
+            "token": "addw",
+            "quantidade": 16
+          },
+          {
+            "token": "andb",
+            "quantidade": 16
+          },
+          {
+            "token": "andl",
+            "quantidade": 16
+          },
+          {
+            "token": "andw",
+            "quantidade": 16
+          },
+          {
+            "token": "cmpal",
+            "quantidade": 16
+          },
+          {
+            "token": "cmpaw",
+            "quantidade": 16
+          },
+          {
+            "token": "cmpb",
+            "quantidade": 16
+          },
+          {
+            "token": "cmpl",
+            "quantidade": 16
+          },
+          {
+            "token": "outros(13 tokens)",
+            "quantidade": 208
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 4,
+            "quantidade": 400
+          }
+        ]
+      },
+      "justificativa": "Duas origens: operando PC-relativo com (d16,PC) e real no alvo nos grupos gerais quando a direcao e leitura (limite de escopo), enquanto os modos reservados do campo de modo e a escrita em PC-relativo nao sao codificaveis na CPU-alvo.",
+      "fonte": "sonda v9 l.174-177 (or/add/sub/cmp com (8,%pc) montam) contra l.92,93,190,191 (reservados recusam); M68000PRM l.2770-2780",
+      "classe-da-forma": "MISTA-CPU-ALVO+LISTA-3"
+    },
+    {
+      "motivo": "unario com An invalido",
+      "quantidade": 32,
+      "exemplos": [
+        "0x4488",
+        "0x4489",
+        "0x448A",
+        "0x448B",
+        "0x448C",
+        "0x448D",
+        "0x448E",
+        "0x448F"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "negl",
+            "quantidade": 8
+          },
+          {
+            "token": "notl",
+            "quantidade": 8
+          },
+          {
+            "token": "tstl",
+            "quantidade": 8
+          },
+          {
+            "token": "tstw",
+            "quantidade": 8
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 32
+          }
+        ]
+      },
+      "justificativa": "So maquina: os unarios escrevem no destino e An nao e destino de dados no MC68000 (Tabela 2-4: Data = - para An); o alvo recusa clr/neg com %aN.",
+      "fonte": "sonda v9 l.126,166 (clr.l %a0 e neg.l %a0 recusam); M68000PRM l.2757 e l.5036-5040",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "unario com imediato (so TST) ou modo %101..%111 reservado",
+      "quantidade": 15,
+      "exemplos": [
+        "0x44BA",
+        "0x44BB",
+        "0x44BC",
+        "0x44BD",
+        "0x44BE",
+        "0x44BF",
+        "0x46BA",
+        "0x46BB"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "negl",
+            "quantidade": 6
+          },
+          {
+            "token": "notl",
+            "quantidade": 6
+          },
+          {
+            "token": "tstb",
+            "quantidade": 1
+          },
+          {
+            "token": "tstl",
+            "quantidade": 1
+          },
+          {
+            "token": "tstw",
+            "quantidade": 1
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 12
+          },
+          {
+            "bytes": 4,
+            "quantidade": 2
+          },
+          {
+            "bytes": 6,
+            "quantidade": 1
+          }
+        ]
+      },
+      "justificativa": "So maquina: imediato nunca e destino alteravel e os modos %101..%111 com reg reservado nao existem na CPU-alvo; o montador recusa tst com imediato e clr/tst com (d16,PC).",
+      "fonte": "sonda v9 l.101,127,168 (tst.l #3, clr.l (16,%pc), tst.l (16,%pc) recusam); M68000PRM l.2780",
+      "classe-da-forma": "CPU-ALVO"
+    },
+    {
+      "motivo": "unario com tamanho %11",
+      "quantidade": 217,
+      "exemplos": [
+        "0x42C0",
+        "0x42C1",
+        "0x42C2",
+        "0x42C3",
+        "0x42C4",
+        "0x42C5",
+        "0x42C6",
+        "0x42C7"
+      ],
+      "instrumento": {
+        "short-do-instrumento": 0,
+        "tokens-do-instrumento": [
+          {
+            "token": "movew",
+            "quantidade": 140
+          },
+          {
+            "token": "tas",
+            "quantidade": 50
+          },
+          {
+            "token": "move",
+            "quantidade": 22
+          },
+          {
+            "token": "bgnd",
+            "quantidade": 1
+          },
+          {
+            "token": "halt",
+            "quantidade": 1
+          },
+          {
+            "token": "illegal",
+            "quantidade": 1
+          },
+          {
+            "token": "pulse",
+            "quantidade": 1
+          },
+          {
+            "token": "swbegl",
+            "quantidade": 1
+          }
+        ],
+        "comprimentos-do-instrumento": [
+          {
+            "bytes": 2,
+            "quantidade": 138
+          },
+          {
+            "bytes": 4,
+            "quantidade": 74
+          },
+          {
+            "bytes": 6,
+            "quantidade": 5
+          }
+        ]
+      },
+      "justificativa": "Duas origens: o campo %11 do grupo %0100 nao e tamanho de operando, mas abriga instrucoes reais do alvo - TAS (4ac0/4ad0/4ae8) e MOVE-para-CCR/SR (44c0/46c0), que montam - enquanto as demais combinacoes de %11 recusam.",
+      "fonte": "sonda v9 l.62,63,192,216,217 (montam) contra l.92,190,191,218 (recusam); M68000PRM l.7626 (formato do grupo %0100) e l.23795",
+      "classe-da-forma": "MISTA-CPU-ALVO+LISTA-3"
+    }
+  ]
+}

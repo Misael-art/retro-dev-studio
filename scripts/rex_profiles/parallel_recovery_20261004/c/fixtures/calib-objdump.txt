@@ -1,0 +1,126 @@
+
+calib.o: file format elf32-m68k
+
+
+Disassembly of section .text:
+
+00000000 <lblback-0xe8>:
+   0:	1218           	moveb %a0@+,%d1
+   2:	1622           	moveb %a2@-,%d3
+   4:	1a14           	moveb %a4@,%d5
+   6:	1429 0010      	moveb %a1@(16),%d2
+   a:	10c1           	moveb %d1,%a0@+
+   c:	1503           	moveb %d3,%a2@-
+   e:	1885           	moveb %d5,%a4@
+  10:	1342 0010      	moveb %d2,%a1@(16)
+  14:	1039 1234 5678 	moveb 12345678 <braww+0x1234551a>,%d0
+  1a:	1038 1234      	moveb 1234 <braww+0x10d6>,%d0
+  1e:	103c 002a      	moveb #42,%d0
+  22:	13fc 002a 1234 	moveb #42,12345678 <braww+0x1234551a>
+  28:	5678 
+  2a:	3c13           	movew %a3@,%d6
+  2c:	31c6 1234      	movew %d6,1234 <braww+0x10d6>
+  30:	33c6 1234 5678 	movew %d6,12345678 <braww+0x1234551a>
+  36:	3546 0010      	movew %d6,%a2@(16)
+  3a:	3706           	movew %d6,%a3@-
+  3c:	2839 1234 5678 	movel 12345678 <braww+0x1234551a>,%d4
+  42:	2838 1234      	movel 1234 <braww+0x10d6>,%d4
+  46:	283c 1234 5678 	movel #305419896,%d4
+  4c:	21fc 1234 5678 	movel #305419896,1234 <braww+0x10d6>
+  52:	1234 
+  54:	3692           	movew %a2@,%a3@
+  56:	1f58 0001      	moveb %a0@+,%sp@(1)
+  5a:	1e98           	moveb %a0@+,%sp@
+  5c:	3250           	moveaw %a0@,%a1
+  5e:	2a53           	moveal %a3@,%a5
+  60:	4bfa 0040      	lea %pc@(a2 <lblback-0x46>),%a5
+  64:	203a 0010      	movel %pc@(76 <lblback-0x72>),%d0
+  68:	780f           	moveq #15,%d4
+  6a:	40c6           	movew %sr,%d6
+  6c:	44c6           	movew %d6,%ccr
+  6e:	5813           	addqb #4,%a3@
+  70:	5243           	addqw #1,%d3
+  72:	50b9 1234 5678 	addql #8,12345678 <braww+0x1234551a>
+  78:	550f           	subqb #2,%sp
+  7a:	5742           	subqw #3,%d2
+  7c:	d250           	addw %a0@,%d1
+  7e:	d591           	addl %d2,%a1@
+  80:	9b78 1234      	subw %d5,1234 <braww+0x10d6>
+  84:	b052           	cmpw %a2@,%d0
+  86:	b481           	cmpl %d1,%d2
+  88:	c250           	andw %a0@,%d1
+  8a:	8658           	orw %a0@+,%d3
+  8c:	b942           	eorw %d4,%d2
+  8e:	bd6a 0010      	eorw %d6,%a2@(16)
+  92:	0440 1234      	subiw #4660,%d0
+  96:	0c01 0001      	cmpib #1,%d1
+  9a:	0c6c 5678 0010 	cmpiw #22136,%a4@(16)
+  a0:	0002 00ff      	orib #-1,%d2
+  a4:	0a83 1234 5678 	eoril #305419896,%d3
+  aa:	0241 0007      	andiw #7,%d1
+  ae:	0804 0003      	btst #3,%d4
+  b2:	0891 0002      	bclr #2,%a1@
+  b6:	01c1           	bset %d0,%d1
+  b8:	e24d           	lsrw #1,%d5
+  ba:	eb4a           	lslw #5,%d2
+  bc:	e486           	asrl #2,%d6
+  be:	223a 0010      	movel %pc@(d0 <lblback-0x18>),%d1
+  c2:	e353           	roxlw #1,%d3
+  c4:	4a79 00a1 000c 	tstw a1000c <braww+0xa0feae>
+  ca:	4ab9 00a1 0008 	tstl a10008 <braww+0xa0feaa>
+  d0:	4446           	negw %d6
+  d2:	4284           	clrl %d4
+  d4:	4614           	notb %a4@
+  d6:	41f9 0007 2e7c 	lea 72e7c <braww+0x72d1e>,%a0
+  dc:	45e9 0010      	lea %a1@(16),%a2
+  e0:	4879 abcd ef01 	pea abcdef01 <braww+0xabcdeda3>
+  e6:	4184           	chkw %d4,%d0
+
+000000e8 <lblback>:
+  e8:	4e71           	nop
+  ea:	606a           	bras 156 <lbl1>
+  ec:	6000 006a      	braw 158 <lbl2>
+  f0:	6100 006a      	bsrw 15c <sub1>
+  f4:	6460           	bccs 156 <lbl1>
+  f6:	6400 0060      	bccw 158 <lbl2>
+  fa:	6600 005e      	bnew 15a <negw0>
+  fe:	4ef9 1234 5678 	jmp 12345678 <braww+0x1234551a>
+ 104:	4ef8 1234      	jmp 1234 <braww+0x10d6>
+ 108:	4eb9 1234 5678 	jsr 12345678 <braww+0x1234551a>
+ 10e:	4eb8 1234      	jsr 1234 <braww+0x10d6>
+ 112:	4ed2           	jmp %a2@
+ 114:	4eab 0010      	jsr %a3@(16)
+ 118:	4e75           	rts
+ 11a:	4e71           	nop
+ 11c:	4e44           	trap #4
+ 11e:	4e56 fff8      	linkw %fp,#-8
+ 122:	4e5e           	unlk %fp
+ 124:	51cc 0030      	dbf %d4,156 <lbl1>
+ 128:	51cb ffbe      	dbf %d3,e8 <lblback>
+ 12c:	5cca 0028      	dbge %d2,156 <lbl1>
+ 130:	57c1           	seq %d1
+ 132:	56d4           	sne %a4@
+ 134:	4c9d 00e0      	movemw %a5@+,%d5-%d7
+ 138:	4cdd 1f00      	moveml %a5@+,%a0-%a4
+ 13c:	48d6 000f      	moveml %d0-%d3,%fp@
+ 140:	c2fc 0003      	muluw #3,%d1
+ 144:	84e8 0010      	divuw %a0@(16),%d2
+ 148:	0508 0010      	movepw %a0@(16),%d2
+ 14c:	67ff 51ff 4e76 	beql 51ff4fc4 <braww+0x51ff4e66>
+ 152:	f000           	.short 0xf000
+ 154:	4afc           	illegal
+
+00000156 <lbl1>:
+ 156:	4e71           	nop
+
+00000158 <lbl2>:
+ 158:	4e71           	nop
+
+0000015a <negw0>:
+ 15a:	4e71           	nop
+
+0000015c <sub1>:
+ 15c:	4e75           	rts
+
+0000015e <braww>:
+ 15e:	6000 ff88      	braw e8 <lblback>

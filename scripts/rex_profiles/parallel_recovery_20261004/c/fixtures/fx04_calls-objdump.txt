@@ -1,0 +1,28 @@
+
+fx04_calls.elf: file format elf32-m68k
+
+
+Disassembly of section .text:
+
+00000000 <fx04>:
+   0:	7000           	moveq #0,%d0
+   2:	6100 0012      	bsrw 16 <sub1>
+   6:	5281           	addql #1,%d1
+   8:	4eb8 0020      	jsr 20 <sub2w>
+   c:	7809           	moveq #9,%d4
+   e:	4eb9 0000 0024 	jsr 24 <sub2>
+  14:	4e75           	rts
+
+00000016 <sub1>:
+  16:	4e56 fff8      	linkw %fp,#-8
+  1a:	7601           	moveq #1,%d3
+  1c:	4e5e           	unlk %fp
+  1e:	4e75           	rts
+
+00000020 <sub2w>:
+  20:	4e71           	nop
+  22:	4e75           	rts
+
+00000024 <sub2>:
+  24:	7a02           	moveq #2,%d5
+  26:	4e75           	rts

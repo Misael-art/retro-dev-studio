@@ -1,0 +1,16 @@
+
+fx07_out_of_region.elf: file format elf32-m68k
+
+
+Disassembly of section .text:
+
+00000000 <fx07>:
+   0:	7000           	moveq #0,%d0
+   2:	6700 0106      	beqw 10a <longe>
+   6:	4e71           	nop
+   8:	4e75           	rts
+	...
+
+0000010a <longe>:
+ 10a:	7201           	moveq #1,%d1
+ 10c:	4e75           	rts

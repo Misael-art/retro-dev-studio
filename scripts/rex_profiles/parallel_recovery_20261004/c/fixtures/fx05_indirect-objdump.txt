@@ -1,0 +1,15 @@
+
+fx05_indirect.elf: file format elf32-m68k
+
+
+Disassembly of section .text:
+
+00000000 <fx05>:
+   0:	7000           	moveq #0,%d0
+   2:	4ed2           	jmp %a2@
+
+00000004 <fx05b>:
+   4:	7201           	moveq #1,%d1
+   6:	4ea9 0010      	jsr %a1@(16)
+   a:	4e71           	nop
+   c:	4e75           	rts

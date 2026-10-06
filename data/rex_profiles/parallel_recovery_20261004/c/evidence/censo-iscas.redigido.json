@@ -1,0 +1,324 @@
+{
+ "aspiracao-congelada": "R7 (EXPECTATIONS-ETAPA2 \u00a74): \"a ferramenta e chamada nesses enderecos e deve responder consumidor-validado: nao\".",
+ "base-da-ferramenta": "cb56657a142df40d2acd09a3e03e54247f066dea",
+ "comando": "rex-cfg consultar --bin <ROM> --region <janela> --root <raiz> --root-prov candidato --site <endereco> --out <saida>",
+ "esquema": "rex-cfg/censo-iscas/v1",
+ "etapa": 2,
+ "instrumento": {
+  "caminho_declarado": "binutils pinado no cache do host; caminho local nao versionado",
+  "flags": "-b binary -m m68k -D",
+  "nome": "m68k-elf-objdump",
+  "papel": "arbitro de comprimento e alvo das instrucoes; paridade com objdump nao equivale a observacao em runtime (obrigacao 8)",
+  "sha256": "e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f",
+  "versao": "GNU objdump (GNU Binutils) 2.41"
+ },
+ "linhas": [
+  {
+   "alvo": "0x0005CA",
+   "consumidor-validado": "sim",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida",
+    "raiz-declarada-nao-promovida"
+   ],
+   "motivos": [
+    "proveniencia-nao-autoriza-vinculo:candidato"
+   ],
+   "padrao": "61 nn",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x0005C2",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": "0x0011F4",
+   "consumidor-validado": "sim",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida",
+    "raiz-declarada-nao-promovida"
+   ],
+   "motivos": [
+    "proveniencia-nao-autoriza-vinculo:candidato"
+   ],
+   "padrao": "61 nn",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x0011F0",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": "0x00148A",
+   "consumidor-validado": "sim",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida",
+    "raiz-declarada-nao-promovida"
+   ],
+   "motivos": [
+    "proveniencia-nao-autoriza-vinculo:candidato"
+   ],
+   "padrao": "61 nn",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x001482",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": "0x0015DE",
+   "consumidor-validado": "sim",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida",
+    "raiz-declarada-nao-promovida"
+   ],
+   "motivos": [
+    "proveniencia-nao-autoriza-vinculo:candidato"
+   ],
+   "padrao": "61 nn",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x0015C6",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": "0x001DE4",
+   "consumidor-validado": "sim",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida",
+    "raiz-declarada-nao-promovida"
+   ],
+   "motivos": [
+    "proveniencia-nao-autoriza-vinculo:candidato"
+   ],
+   "padrao": "61 nn",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x001DD8",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": "0x001E26",
+   "consumidor-validado": "sim",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida",
+    "raiz-declarada-nao-promovida"
+   ],
+   "motivos": [
+    "proveniencia-nao-autoriza-vinculo:candidato"
+   ],
+   "padrao": "61 nn",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x001DFA",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": null,
+   "consumidor-validado": "nao",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida"
+   ],
+   "motivos": [
+    "miolo-de-instrucao",
+    "miolo-de-instrucao:0x031DCA"
+   ],
+   "padrao": "4E FC",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x031DCC",
+   "veredito": "miolo-de-instrucao"
+  },
+  {
+   "alvo": null,
+   "consumidor-validado": "nao",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida"
+   ],
+   "motivos": [
+    "classe-condicional:movea"
+   ],
+   "padrao": "2A 7C",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x03AB02",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": "0x009009",
+   "consumidor-validado": "sim",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida",
+    "raiz-declarada-nao-promovida"
+   ],
+   "motivos": [
+    "interpretacao-pendente:abs-w-bit15",
+    "proveniencia-nao-autoriza-vinculo:candidato"
+   ],
+   "padrao": "4E F8",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x04028A",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": "0x0009F0",
+   "consumidor-validado": "sim",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida",
+    "raiz-declarada-nao-promovida"
+   ],
+   "motivos": [
+    "proveniencia-nao-autoriza-vinculo:candidato"
+   ],
+   "padrao": "4E F8",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x04F606",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": null,
+   "consumidor-validado": "nao",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida"
+   ],
+   "motivos": [
+    "classe-condicional:movea"
+   ],
+   "padrao": "2A 7C",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x04F850",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": "0x001D74",
+   "consumidor-validado": "sim",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida",
+    "raiz-declarada-nao-promovida"
+   ],
+   "motivos": [
+    "proveniencia-nao-autoriza-vinculo:candidato"
+   ],
+   "padrao": "4E F8",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x050210",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": null,
+   "consumidor-validado": "nao",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida"
+   ],
+   "motivos": [
+    "alvo-nao-comprovado"
+   ],
+   "padrao": "4E FA",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x066A40",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": "0x0003BA",
+   "consumidor-validado": "sim",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida",
+    "raiz-declarada-nao-promovida"
+   ],
+   "motivos": [
+    "proveniencia-nao-autoriza-vinculo:candidato"
+   ],
+   "padrao": "4E B8",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x074EEC",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": "0x0003BA",
+   "consumidor-validado": "sim",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida",
+    "raiz-declarada-nao-promovida"
+   ],
+   "motivos": [
+    "proveniencia-nao-autoriza-vinculo:candidato"
+   ],
+   "padrao": "4E B8",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x077EFA",
+   "veredito": "instrucao-de-bloco"
+  },
+  {
+   "alvo": "0x0026D4",
+   "consumidor-validado": "sim",
+   "limites": [
+    "analise intra-regiao apenas; fluxo que sai da regiao termina na fronteira",
+    "sem execucao: nada aqui prova consumo em runtime (observado-em-runtime nao e alegado)",
+    "consumidor-validado e estrutural: paridade com objdump nao equivale a observacao em runtime",
+    "extensao-abs-w-hipotese-zero-extendida",
+    "raiz-declarada-nao-promovida"
+   ],
+   "motivos": [
+    "proveniencia-nao-autoriza-vinculo:candidato"
+   ],
+   "padrao": "4E B8",
+   "promovivel-vinculo-estrutural": "nao",
+   "sitio": "0x0819DA",
+   "veredito": "instrucao-de-bloco"
+  }
+ ],
+ "medido": "Serie bruta no MANIFEST-ETAPA2.md (secao \"serie bruta do comparador\"): as linhas que o instrumento comprova como transferencia real (4E B8/4E F8 legitimos, 61 nn = bsr.s) saem consumidor-validado \"sim\" com alvo igual ao do instrumento; a promocao de vinculo sai \"nao\" em todas, porque raiz `candidato` nunca autoriza (V2). O negativo de interior (0x31DCC dentro de 0x31DCA) sai miolo-de-instrucao com consumidor \"nao\".",
+ "objeto": {
+  "caminho_declarado": "<ROM>",
+  "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "tamanho": 531577
+ },
+ "regra": "janela alinhada de 128 bytes contendo o endereco; raiz = o proprio endereco com proveniencia candidato, exceto 0x31DCC cuja raiz e 0x31DCA (inicio comprovado pelo instrumento). Consulta de s\u00edtio: um sitio, um objeto plano.",
+ "veredito-do-comparador": {
+  "criterios": [
+   "R1",
+   "R2",
+   "R3",
+   "R4",
+   "R5",
+   "R6",
+   "R7"
+  ],
+  "divergencias-criticas": 0,
+  "marcas-emitidas": 48,
+  "serie-bruta": "MANIFEST-ETAPA2.md, secao \"serie bruta do comparador\" (versionada)"
+ }
+}
