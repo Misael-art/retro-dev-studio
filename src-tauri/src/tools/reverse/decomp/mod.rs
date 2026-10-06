@@ -31,6 +31,7 @@ pub mod rex_resources;
 pub mod rom_library;
 pub mod sonic_cadence;
 pub mod sonic_consumers;
+pub mod sonic_layouts;
 pub mod sonic_sequence;
 pub mod sonic_sprite;
 pub mod sprite_composition;

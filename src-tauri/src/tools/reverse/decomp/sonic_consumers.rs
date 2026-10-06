@@ -60,7 +60,9 @@ pub const BASE_LAYOUT: usize = 0xFF1020;
 pub const BASE_DECOMPRESSAO: usize = 0xFF4000;
 pub const WRAM_INICIO: usize = 0xFF0000;
 pub const WRAM_FIM: usize = 0xFFFFFF;
-pub const VDP_PORTA_DADOS: usize = 0xC00004;
+/// Portas do VDP (Mega Drive): dados = $C00000, controle = $C00004.
+pub const VDP_PORTA_DADOS: usize = 0xC00000;
+pub const VDP_PORTA_CONTROLE: usize = 0xC00004;
 
 pub const MAPINDEX_ADDR: usize = 0x1B738;
 pub const MAPINDEX_ENTRADAS: usize = 78;
@@ -274,7 +276,7 @@ pub const SITIOS: [SitioDef; 37] = [
 
 pub const MOTIVOS_FALSO_LIDER: [&str; 3] = [
     "a copia usa byte por byte (move.b medido em 0x1B6F8); um par de bytes nao forma uma celula de 16 bits",
-    "o destino medido e $FF4000, que e RAM interna; a porta do video e $C00004 — nenhum acesso a ela nestes sitios",
+    "o destino medido e $FF4000, que e RAM interna; a porta de dados do video e $C00000 (controle em $C00004) — nenhum acesso a elas nestes sitios",
     "a cada linha o programa salta 64 bytes (lea 64(a1) em 0x1B6FE); o modelo antigo nao tem esse vao",
 ];
 
@@ -284,7 +286,7 @@ pub const DESCONHECIDOS: [&str; 5] = [
     "A imagem destas fases ainda não foi comprovada: saber onde o dado vai e o que ele significa não prova como o console desenha aquilo.",
     "Nenhum trecho do jogo foi executado nesta análise: tudo foi lido dos bytes do arquivo.",
     "As cores (paleta) e os desenhos (art) referenciados pela tabela de IDs não foram reconstruídos nem conferidos.",
-    "A decodificação Enigma dentro do app não está ativa: a ferramenta usada na medição é externa e sua licença impede copiar para o produto nesta rodada.",
+    "A decodificação Enigma agora roda dentro do app (núcleo nativo), mas só entrega os bytes dos IDs: o que cada ID desenha continua não provado.",
     "Isto vale para o Sonic 1 (EUA/Europa) medido; outras versões podem ser diferentes e serão recusadas se os bytes não conferirem.",
 ];
 

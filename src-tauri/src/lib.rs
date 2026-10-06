@@ -2684,6 +2684,103 @@ fn rex_inspection_sonic_consumers(
 }
 
 #[tauri::command]
+async fn rex_inspection_sonic_layouts(
+    session_id: String,
+    expected_rom_sha256: Option<String>,
+    request_id: Option<String>,
+) -> Result<
+    tools::reverse::decomp::sonic_layouts::LayoutsInfo,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_command_off_main_thread(
+        move || {
+            tools::reverse::decomp::inspection::sonic_layouts_info(
+                &session_id,
+                expected_rom_sha256.as_deref(),
+                request_id.as_deref(),
+            )
+            .map_err(tools::reverse::decomp::inspection::layouts_error)
+        },
+        || {
+            Err(tools::reverse::decomp::inspection::layouts_error(
+                interrupted_command_message("rex_inspection_sonic_layouts"),
+            ))
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+async fn rex_inspection_sonic_layout_grid(
+    session_id: String,
+    expected_rom_sha256: String,
+    layout_index: usize,
+    request_id: Option<String>,
+) -> Result<
+    tools::reverse::decomp::sonic_layouts::LayoutGrade,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_command_off_main_thread(
+        move || {
+            tools::reverse::decomp::inspection::sonic_layout_grid(
+                &session_id,
+                &expected_rom_sha256,
+                layout_index,
+                request_id.as_deref(),
+            )
+            .map_err(tools::reverse::decomp::inspection::layouts_error)
+        },
+        || {
+            Err(tools::reverse::decomp::inspection::layouts_error(
+                interrupted_command_message("rex_inspection_sonic_layout_grid"),
+            ))
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+async fn rex_inspection_sonic_layout_cell(
+    session_id: String,
+    expected_rom_sha256: String,
+    layout_index: usize,
+    row: usize,
+    col: usize,
+    request_id: Option<String>,
+) -> Result<
+    tools::reverse::decomp::sonic_layouts::LayoutCelula,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_command_off_main_thread(
+        move || {
+            tools::reverse::decomp::inspection::sonic_layout_cell(
+                &session_id,
+                &expected_rom_sha256,
+                layout_index,
+                row,
+                col,
+                request_id.as_deref(),
+            )
+            .map_err(tools::reverse::decomp::inspection::layouts_error)
+        },
+        || {
+            Err(tools::reverse::decomp::inspection::layouts_error(
+                interrupted_command_message("rex_inspection_sonic_layout_cell"),
+            ))
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+fn rex_inspection_sonic_layouts_cancel(
+    request_id: String,
+) -> Result<bool, tools::reverse::decomp::inspection::InspectionError> {
+    tools::reverse::decomp::sonic_layouts::cancelar(&request_id)
+        .map_err(tools::reverse::decomp::inspection::layouts_error)
+}
+
+#[tauri::command]
 fn rex_inspection_edit_sonic_sequence(
     session_id: String,
     resource_id: String,
@@ -5756,6 +5853,10 @@ pub fn run() {
             rex_inspection_edit_sonic_duration,
             rex_inspection_sonic_sequence,
             rex_inspection_sonic_consumers,
+            rex_inspection_sonic_layouts,
+            rex_inspection_sonic_layout_grid,
+            rex_inspection_sonic_layout_cell,
+            rex_inspection_sonic_layouts_cancel,
             rex_inspection_edit_sonic_sequence,
             rex_inspection_restore_sonic_sequence,
             rex_resource_list,
