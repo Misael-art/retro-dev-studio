@@ -1,0 +1,294 @@
+{
+  "id": "dC-cx4-v2",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v2",
+  "xerado_por": "scripts/rex_profiles/parallel_recovery_20261004/d/frentes/author_v2_c.mjs",
+  "origin": 8192,
+  "regioes": [
+    {
+      "inicio": 8192,
+      "fim": 8236
+    }
+  ],
+  "raizes": [
+    {
+      "endereco": 8192,
+      "proveniencia": "candidato",
+      "evidencia": "entrada autoral"
+    },
+    {
+      "endereco": 8232,
+      "proveniencia": "referencia-estatica",
+      "evidencia": "sonda de trap illada"
+    }
+  ],
+  "sitios": [
+    {
+      "endereco": 8224,
+      "esperado_veredito": "instrucao-de-bloco",
+      "motivo": "alvo da chamada intra-rexión: raíz derivada"
+    },
+    {
+      "endereco": 305419896,
+      "esperado_veredito": "fora-da-regiao",
+      "motivo": "alvo do jmp extra-rexión"
+    }
+  ],
+  "sequencia": [
+    {
+      "rotulo": "moveq",
+      "endereco": 8192,
+      "tam": 2,
+      "bytes": "7000",
+      "mnemonico": "moveq #0,%d0"
+    },
+    {
+      "rotulo": "jsr",
+      "endereco": 8194,
+      "tam": 6,
+      "bytes": "4EB900002020",
+      "mnemonico": "jsr 2020 <p_trap+0x1ef8>"
+    },
+    {
+      "rotulo": "jmpfora",
+      "endereco": 8200,
+      "tam": 6,
+      "bytes": "4EF901234567",
+      "mnemonico": "jmp 1234567 <p_trap+0x123443f>"
+    },
+    {
+      "rotulo": "indexado",
+      "endereco": 8224,
+      "tam": 4,
+      "bytes": "10312000",
+      "mnemonico": "moveb %a1@(0,%d2:w),%d0"
+    },
+    {
+      "rotulo": "jmpind",
+      "endereco": 8228,
+      "tam": 2,
+      "bytes": "4ED2",
+      "mnemonico": "jmp %a2@"
+    },
+    {
+      "rotulo": "trap",
+      "endereco": 8232,
+      "tam": 2,
+      "bytes": "4E44",
+      "mnemonico": "trap #4"
+    }
+  ],
+  "sondas_postas": [
+    {
+      "rotulo": "p_moveq",
+      "sitio": 0,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_jsr",
+      "sitio": 2,
+      "lonxitude": 6
+    },
+    {
+      "rotulo": "p_jmpfora",
+      "sitio": 8,
+      "lonxitude": 6
+    },
+    {
+      "rotulo": "p_indexado",
+      "sitio": 32,
+      "lonxitude": 4
+    },
+    {
+      "rotulo": "p_jmpind",
+      "sitio": 36,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_trap",
+      "sitio": 40,
+      "lonxitude": 2
+    }
+  ],
+  "cobertura_esperada_bytes": {
+    "primaria": 18,
+    "variante_fronteiras_contan_como_decodificadas": 22,
+    "nota": "`primaria` = Σ dos catro bloques que §3 espera decodificados (as dúas fronteiras, `jmp (A2)` e `trap #4`, reportan veredito pero non bytes). A variante está publicada porque a súa aparición sería unha falla de `KC4v` (eixe de fronteira), non desta fila."
+  },
+  "kc4": [
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC4-jsr-abs-l-intra",
+      "endereco": 8194,
+      "bytes": "4EB900002020",
+      "esperado": {
+        "origem": 8194,
+        "alvo": 8224,
+        "status": "resolvido",
+        "derivado": "dentro-de-fluxo"
+      },
+      "citacao_C": "§3 liñas 88-90: `JMP`/`JSR` `abs.L` con alvo comprovado; §4 regra 4, liñas 136-138: «Chamada com alvo dentro da região cria raiz derivada `dentro-de-fluxo` e o alvo é analisado como bloco; chamada com alvo fora da região termina como aresta `fora-da-regiao` sem decodificar nada fora»",
+      "statico": "aresta_de_chamada (`grafo.rs:507-531`): inserir o alvo na fila cando está dentro ⇒ raíz derivada",
+      "sondeo": {
+        "mnemonico": "jsr 2020 <p_trap+0x1ef8>",
+        "ea": 8224,
+        "desmontaxe": "102:\t4eb900002020\tjsr 2020 <p_trap+0x1ef8>",
+        "alvo_nos_bytes": "0x2020"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC4-jmp-abs-l-extra",
+      "endereco": 8200,
+      "bytes": "4EF901234567",
+      "esperado": {
+        "origem": 8200,
+        "alvo": 19088743,
+        "status": "fora-da-regiao",
+        "decodificado_fora": 0
+      },
+      "citacao_C": "§3 liñas 88-90: `JMP`/`JSR` `abs.L` con alvo comprovado; §4 regra 4, liñas 136-138: «Chamada com alvo dentro da região cria raiz derivada `dentro-de-fluxo` e o alvo é analisado como bloco; chamada com alvo fora da região termina como aresta `fora-da-regiao` sem decodificar nada fora»",
+      "statico": "aresta_de_jmp (`grafo.rs:533-552`): fóra da rexión ⇒ fronteira `limite-de-regiao` e nada se decodifica fóra",
+      "sondeo": {
+        "mnemonico": "jmp 1234567 <p_trap+0x123443f>",
+        "ea": 19088743,
+        "desmontaxe": "108:\t4ef901234567\tjmp 1234567 <p_trap+0x123443f>",
+        "alvo_nos_bytes": "0x1234567"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC4-jmp-ind-an",
+      "endereco": 8228,
+      "bytes": "4ED2",
+      "esperado": {
+        "fronteira": "indirect-opaque",
+        "alvo": null,
+        "endereco": 8228
+      },
+      "citacao_C": "§3 liñas 88-90: «Fluxo: `BRA`/`BSR`/`Bcc` (todas as 16 condicións) `.S/.W`; `JMP`/`JSR` `abs.W`, `abs.L` (alvo comprovado) — demais modos … indiretos = fronteira `indirect-opaque`»",
+      "statico": "JSR/JMP con modo ≠ abs (`decode.rs:691-720`) ⇒ `Frontier::indirect`, `target: null`",
+      "sondeo": {
+        "mnemonico": "jmp %a2@",
+        "ea": null,
+        "desmontaxe": "124:\t4ed2\tjmp %a2@"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC4-trap-n",
+      "endereco": 8232,
+      "bytes": "4E44",
+      "esperado": {
+        "fronteira": "trap-opaco",
+        "endereco": 8232
+      },
+      "citacao_C": "§3 liña 92: «`TRAP #n` (fronteira `trap-opaco`)»",
+      "sondeo": {
+        "mnemonico": "trap #4",
+        "ea": null,
+        "desmontaxe": "128:\t4e44\ttrap #4"
+      }
+    }
+  ],
+  "kc2_indexado": {
+    "gabarito": "isa-oraculo-v2",
+    "contrato": "EXTENSOES-D v2",
+    "id": "KC2v-indexado",
+    "endereco": 8224,
+    "bytes": "10312000",
+    "esperado": {
+      "tam": 4,
+      "origem": "d8(A1,D2.W)",
+      "destino": "D0"
+    },
+    "citacao_C": "§3 liña 78: modo `d8(An,Xn)` dentro da lista",
+    "sondeo": {
+      "mnemonico": "moveb %a1@(0,%d2:w),%d0",
+      "ea": null,
+      "desmontaxe": "120:\t10312000\tmoveb %a1@(0,%d2:w),%d0"
+    },
+    "nota": "fila contada no denominador `KC2v` como `dC-cx2-v2.kc2[5]` (`esperado.executa_em`); executa-se sobre esta imaxe"
+  },
+  "tc": [
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "TC-1",
+      "capacidade": "TC",
+      "acao": {
+        "tipo": "cli",
+        "flag": "--root-prov",
+        "valor": "oraculo-externo"
+      },
+      "esperado_rc": 2,
+      "motivo": "vocabulario de proveniencia pechado (`grafo.rs:21-27`); rc 2 = `Erro::Uso` — a recusa limpa é o ítem medido (EXTENSOES-D §1 «não suportado»)"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "TC-2",
+      "capacidade": "TC",
+      "acao": {
+        "tipo": "site",
+        "endereco": 8195
+      },
+      "esperado": {
+        "veredito": "miolo-de-instrucao"
+      },
+      "motivo": "0x2002 é jsr abs.L (6 B); 0x2003 é miolo"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "TC-3",
+      "capacidade": "TC",
+      "acao": {
+        "tipo": "site",
+        "endereco": 36864
+      },
+      "esperado": {
+        "veredito": "fora-da-regiao"
+      },
+      "motivo": "sitio máis alá de 0x202c"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "TC-4",
+      "capacidade": "TC",
+      "acao": {
+        "tipo": "xor-byte-imagem",
+        "offset_na_arquivo": 0,
+        "valor": 128
+      },
+      "esperado": {
+        "endereco_mutado": 8192,
+        "bytes_antes": "7000",
+        "bytes_depois": "F000",
+        "delta_cobertura_bytes": 2,
+        "variante_illada": {
+          "raiz_extra": {
+            "endereco": 8194,
+            "proveniencia": "candidato",
+            "evidencia": "variante illada (§12.9: sen ela a receita mide alcançabilidade, non lonxitude)"
+          }
+        },
+        "invariantes": [
+          "o export reporta fronteira en 0x2000 co opcode f000",
+          "a instrución en 0x2000 deixa de constar como decodificada",
+          "o resto do bloque (0x2002..) mantén os comprimentos ditados polo instrumento (jsr 6, jmp 6, indexado 4, jmpind 2, trap 2)"
+        ]
+      },
+      "motivo": "sonda de comprimento: a adulteración ten de aparecer na cobertura, non ser absorbida"
+    }
+  ],
+  "limites_de_autoria": [
+    "os bytes das chamadas e dos saltos codifícaos GAS co sufixo `.l` explícito; o alvo extra-rexión é o que imprime o desmontador, non un valor escrito a man",
+    "o recheo da imaxe é 0xFF: `0000` decodifica como `ori.b #imm,Dn` (na lista de §3) e faría que os ocos fosen alcanzábeis byte a byte"
+  ]
+}

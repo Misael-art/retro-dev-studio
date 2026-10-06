@@ -1,0 +1,220 @@
+{
+  "esquema": "rex-parallel-d/truth-a-seg/3",
+  "id": "dA-seg-v3.bin",
+  "instancia": "medicao",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v3-A",
+  "xerado_por": "scripts/rex_profiles/parallel_recovery_20261004/d/frentes/author_a_v3.mjs",
+  "imaxe": {
+    "rom_size": 131072,
+    "bytes": 131072,
+    "sha256": "77ad067f16a06b375102f683cf45ff273ee55ada5a0bd2db280b2f98793a5d91"
+  },
+  "config": {
+    "seed": "d-a-seg-v3-medicao",
+    "rom_size": 131072,
+    "rutina1": 8448,
+    "rutina2": 7936,
+    "fluxo1": 32768,
+    "primeiro": 512,
+    "paso": 64,
+    "nome": "dA-seg-v3.bin",
+    "tam": 640
+  },
+  "rutina_lonxitude": 32,
+  "fluxo": {
+    "offset": 32768,
+    "plain_sha256": "0170b493fa8e97cf47da648560b584f73ed470e1b5006abf7b0b6361a3e6dead",
+    "plain_len": 640,
+    "stream_len": 725
+  },
+  "instrumento": {
+    "version": "GNU assembler (GNU Binutils) 2.41",
+    "sha256_as": "618740559477258165eb1a344e07acd592afc1438061825469d5bd56fa2c87c7",
+    "sha256_objdump": "e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f"
+  },
+  "casos": [
+    {
+      "id": "SEG-limpo",
+      "janela": 6,
+      "carga_sitio": 512,
+      "chamada_sitio": 518,
+      "carga_bytes": "41F900008000",
+      "chamada_bytes": "4EB900002100",
+      "instrumento": {
+        "carga": "200:\t41f900008000\tlea 8000 <p_rotina1+0x5f00>,%a0",
+        "chamada": "206:\t4eb900002100\tjsr 2100 <p_rotina1>"
+      },
+      "rutina_alvo": 8448,
+      "esperado": {
+        "auto": {
+          "rc": 0,
+          "confianza": "vinculo-estrutural",
+          "chamada": true,
+          "nao_contem": [
+            "par-declarado"
+          ]
+        },
+        "declarado": {
+          "rc": 0,
+          "confianza": "vinculo-estrutural",
+          "contem": [
+            "par-declarado"
+          ]
+        }
+      }
+    },
+    {
+      "id": "SEG-bra",
+      "janela": 8,
+      "carga_sitio": 576,
+      "chamada_sitio": 584,
+      "carga_bytes": "41F900008000",
+      "chamada_bytes": "4EB900002100",
+      "instrumento": {
+        "carga": "240:\t41f900008000\tlea 8000 <p_rotina1+0x5f00>,%a0",
+        "chamada": "248:\t4eb900002100\tjsr 2100 <p_rotina1>"
+      },
+      "rutina_alvo": 8448,
+      "esperado": {
+        "auto": {
+          "rc": 0,
+          "confianza": "referencia-estatica",
+          "chamada": false,
+          "contem": [
+            "segmento-roto:roto-bra"
+          ]
+        }
+      }
+    },
+    {
+      "id": "SEG-rts",
+      "janela": 8,
+      "carga_sitio": 640,
+      "chamada_sitio": 648,
+      "carga_bytes": "41F900008000",
+      "chamada_bytes": "4EB900002100",
+      "instrumento": {
+        "carga": "280:\t41f900008000\tlea 8000 <p_rotina1+0x5f00>,%a0",
+        "chamada": "288:\t4eb900002100\tjsr 2100 <p_rotina1>"
+      },
+      "rutina_alvo": 8448,
+      "esperado": {
+        "auto": {
+          "rc": 0,
+          "confianza": "referencia-estatica",
+          "chamada": false,
+          "contem": [
+            "segmento-roto:roto-rts"
+          ]
+        }
+      }
+    },
+    {
+      "id": "SEG-sobrescrito",
+      "janela": 12,
+      "carga_sitio": 704,
+      "chamada_sitio": 716,
+      "carga_bytes": "41F900008000",
+      "chamada_bytes": "4EB900002100",
+      "instrumento": {
+        "carga": "2c0:\t41f900008000\tlea 8000 <p_rotina1+0x5f00>,%a0",
+        "chamada": "2cc:\t4eb900002100\tjsr 2100 <p_rotina1>"
+      },
+      "rutina_alvo": 8448,
+      "esperado": {
+        "auto": {
+          "rc": 0,
+          "confianza": "referencia-estatica",
+          "chamada": false,
+          "contem": [
+            "sobrescrit"
+          ]
+        }
+      }
+    },
+    {
+      "id": "SEG-dous",
+      "janela": 12,
+      "carga_sitio": 768,
+      "chamada_sitio": 774,
+      "carga_bytes": "41F900008000",
+      "chamada_bytes": "4EB900002100",
+      "instrumento": {
+        "carga": "300:\t41f900008000\tlea 8000 <p_rotina1+0x5f00>,%a0",
+        "chamada": "306:\t4eb900002100\tjsr 2100 <p_rotina1>"
+      },
+      "rutina_alvo": 8448,
+      "esperado": {
+        "auto": {
+          "rc": 0,
+          "confianza": "referencia-estatica",
+          "chamada": false,
+          "contem": [
+            "ventana-ambigua:2-candidatos"
+          ]
+        },
+        "declarado": {
+          "rc": 0,
+          "confianza": "vinculo-estrutural",
+          "contem": [
+            "par-declarado"
+          ]
+        }
+      }
+    },
+    {
+      "id": "SEG-nop",
+      "janela": 8,
+      "carga_sitio": 832,
+      "chamada_sitio": 840,
+      "carga_bytes": "41F900008000",
+      "chamada_bytes": "4EB900002100",
+      "instrumento": {
+        "carga": "340:\t41f900008000\tlea 8000 <p_rotina1+0x5f00>,%a0",
+        "chamada": "348:\t4eb900002100\tjsr 2100 <p_rotina1>"
+      },
+      "rutina_alvo": 8448,
+      "esperado": {
+        "auto": {
+          "rc": 0,
+          "confianza": "referencia-estatica",
+          "chamada": false,
+          "contem": [
+            "tramo-non-modelado"
+          ]
+        },
+        "declarado": {
+          "rc": 0,
+          "confianza": "vinculo-estrutural",
+          "contem": [
+            "par-declarado"
+          ]
+        }
+      }
+    }
+  ],
+  "negativo": {
+    "id": "SEG-declarado-non-chamada",
+    "carga_sitio": 832,
+    "chamada_declarada": 838,
+    "esperado": {
+      "rc_distinto_de_0": true,
+      "cadea_promovida": false,
+      "motivo": "o sitio declarado é un `nop`, non unha chamada"
+    }
+  },
+  "limites_de_autoria": [
+    "os `contem` son os rótulos publicados por A en RESPOSTA-D-A §5/§6 (a súa propia documentación); a ISA ao nivel de bytes vén do instrumento",
+    "`sobrescrit` é substring: A non publica o rótulo exacto da garda de sobrescrita",
+    "imaxe sintética: non é ROM comercial nin BYOR"
+  ],
+  "denominador": {
+    "partes": {
+      "SEG-auto": 6,
+      "SEG-declarado": 3,
+      "SEG-neg": 1
+    },
+    "total": 10
+  }
+}

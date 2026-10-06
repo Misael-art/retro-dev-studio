@@ -1,0 +1,414 @@
+{
+  "esquema": "rex-parallel-d/frente-a/1",
+  "gerado_por": "scripts/rex_profiles/parallel_recovery_20261004/d/frentes/author_frentes.mjs",
+  "imagem": {
+    "rom_size": 131072,
+    "tam": 131072,
+    "sha256": "a40ae21d21ea06171bce9d318e29372d2d9cc0107180107a6919f4c280b6dd18"
+  },
+  "config": {
+    "seed": "d-frentes-a-v1",
+    "base": 256,
+    "rotina1": 36864,
+    "rotina2": 7936,
+    "fluxo1": 32768,
+    "fluxo2": 33792,
+    "fluxo3": 131044
+  },
+  "sítios": {
+    "carga_s1": 256,
+    "chamada_ka3": 262,
+    "carga_s2": 272,
+    "carga_pc": 276,
+    "carga_bsr.w": 280,
+    "chamada_bsr.w": 286,
+    "carga_bsr.l": 290,
+    "chamada_bsr.l": 296,
+    "carga_jsr.l": 302,
+    "chamada_jsr.l": 308,
+    "carga_jsr.w": 314,
+    "chamada_jsr.w": 320,
+    "carga_jmp.l": 324,
+    "chamada_jmp.l": 330,
+    "carga_jmp.w": 336,
+    "chamada_jmp.w": 342,
+    "carga_s3": 346,
+    "movea_imm": 384,
+    "indexado": 392,
+    "destinos": {
+      "12340": 512,
+      "500000": 536,
+      "a00400": 520,
+      "e01000": 528
+    }
+  },
+  "streams": {
+    "s1": {
+      "offset": 32768,
+      "plain_len": 1024,
+      "plain_sha256": "5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+      "stream_len": 37,
+      "stream_sha256": "71089add8e5c258006760c5ee8af60843dd9434342e5aaefdd019b69c14a9db0",
+      "terminator": true
+    },
+    "s2": {
+      "offset": 33792,
+      "plain_len": 128,
+      "plain_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+      "stream_len": 25,
+      "stream_sha256": "38de06bed0b900c698ba30a97a8dc97513925bb95d2c73cbad657a6c7c317b9b",
+      "terminator": true
+    },
+    "s3": {
+      "offset": 131044,
+      "plain_len": 512,
+      "plain_sha256": "076a27c79e5ace2a3d47f9dd2e83e4ff6ea8872b3c2218f66c92b89b55f36560",
+      "stream_len": 28,
+      "stream_sha256": "18844c0406accd807874abfea17a01c630248302dee6ff77869230d1e9a8a1af",
+      "terminator": false,
+      "motivo": "EOD removido e fluxo no fim da imagem: EOF sem terminator"
+    }
+  },
+  "rotinas": {
+    "9000": {
+      "sitio": 36864,
+      "lonxitude": 32,
+      "sha256": "d24e2b69e7f2dceabac93f7d3a4e116f574de6f7d8da7262658c5b61f8a79f35"
+    },
+    "1f00": {
+      "sitio": 7936,
+      "lonxitude": 32,
+      "sha256": "d24e2b69e7f2dceabac93f7d3a4e116f574de6f7d8da7262658c5b61f8a79f35"
+    }
+  },
+  "ka1": [
+    {
+      "id": "KA1-1",
+      "forma": "lea (xxx).L,An",
+      "carga_sitio": 256,
+      "esperado": {
+        "carga_forma": "lea.l/A0",
+        "carga_operando": 32768
+      }
+    },
+    {
+      "id": "KA1-2",
+      "forma": "lea (xxx).W,An",
+      "carga_sitio": 272,
+      "esperado": {
+        "carga_forma": "lea.w/A1",
+        "carga_operando": 33792
+      },
+      "nota": "extensão curta sem signo (EXPECTATIONS-A §3)"
+    },
+    {
+      "id": "KA1-3",
+      "forma": "lea (d16,PC),An",
+      "carga_sitio": 276,
+      "esperado": {
+        "carga_forma": "lea.pcd16/A2",
+        "carga_operando": 32768
+      },
+      "nota": "base = sitio + 2"
+    },
+    {
+      "id": "KA1-bsr.w",
+      "forma": "chamada bsr.w",
+      "carga_sitio": 280,
+      "chamada_sitio": 286,
+      "esperado": {
+        "carga_forma": "lea.l/A3",
+        "chamada_forma": "bsr.w",
+        "chamada_alvo": 7936
+      }
+    },
+    {
+      "id": "KA1-bsr.l",
+      "forma": "chamada bsr.l",
+      "carga_sitio": 290,
+      "chamada_sitio": 296,
+      "esperado": {
+        "carga_forma": "lea.l/A3",
+        "chamada_forma": "bsr.l",
+        "chamada_alvo": 7936
+      }
+    },
+    {
+      "id": "KA1-jsr.l",
+      "forma": "chamada jsr.l",
+      "carga_sitio": 302,
+      "chamada_sitio": 308,
+      "esperado": {
+        "carga_forma": "lea.l/A3",
+        "chamada_forma": "jsr.l",
+        "chamada_alvo": 7936
+      }
+    },
+    {
+      "id": "KA1-jsr.w",
+      "forma": "chamada jsr.w",
+      "carga_sitio": 314,
+      "chamada_sitio": 320,
+      "esperado": {
+        "carga_forma": "lea.l/A3",
+        "chamada_forma": "jsr.w",
+        "chamada_alvo": 7936
+      }
+    },
+    {
+      "id": "KA1-jmp.l",
+      "forma": "chamada jmp.l",
+      "carga_sitio": 324,
+      "chamada_sitio": 330,
+      "esperado": {
+        "carga_forma": "lea.l/A3",
+        "chamada_forma": "jmp.l",
+        "chamada_alvo": 7936
+      }
+    },
+    {
+      "id": "KA1-jmp.w",
+      "forma": "chamada jmp.w",
+      "carga_sitio": 336,
+      "chamada_sitio": 342,
+      "esperado": {
+        "carga_forma": "lea.l/A3",
+        "chamada_forma": "jmp.w",
+        "chamada_alvo": 7936
+      }
+    }
+  ],
+  "ka1b": [
+    {
+      "id": "KA1-b-9",
+      "sonda": "movea.l #imm32,An",
+      "sitio": 384,
+      "bytes": "227c00001111",
+      "esperado": "recusa_sem_cadeia",
+      "nota_isa": "A §3 alega `0A?? FC` para esta forma; a âncora externa (isol-objdump/r*-objdump) dá `227C …`. D mede a recusa e registra a divergência de ISA como defeito documental."
+    },
+    {
+      "id": "KA1-b-10",
+      "sonda": "palavra de extensão indexada d8(An,Dn.W)",
+      "sitio": 392,
+      "bytes": "10312000",
+      "esperado": "recusa_sem_cadeia",
+      "nota_isa": "fora da gramática §3; âncora `1031 2000` medida no adendo de C."
+    }
+  ],
+  "ka2": [
+    {
+      "id": "KA2-rom",
+      "destino_sitio": 512,
+      "destino_operando": 74560,
+      "esperado_rexion": "rom",
+      "fonte_expectativa": "EXPECTATIONS-A §4 (tabela congelada da própria frente)"
+    },
+    {
+      "id": "KA2-io-vram",
+      "destino_sitio": 520,
+      "destino_operando": 10486784,
+      "esperado_rexion": "io/vram-window",
+      "fonte_expectativa": "EXPECTATIONS-A §4 (tabela congelada da própria frente)"
+    },
+    {
+      "id": "KA2-work-ram",
+      "destino_sitio": 528,
+      "destino_operando": 14684160,
+      "esperado_rexion": "work-ram",
+      "fonte_expectativa": "EXPECTATIONS-A §4 (tabela congelada da própria frente)"
+    },
+    {
+      "id": "KA2-descohecida",
+      "destino_sitio": 536,
+      "destino_operando": 5242880,
+      "esperado_rexion": "descoecida",
+      "fonte_expectativa": "EXPECTATIONS-A §4 (tabela congelada da própria frente)"
+    }
+  ],
+  "ka3": {
+    "id": "KA3",
+    "carga_sitio": 256,
+    "chamada_sitio": 262,
+    "esperado": {
+      "rc": 0,
+      "carga_forma": "lea.l/A0",
+      "carga_operando": 32768,
+      "carga_bytes": "41F900008000",
+      "chamada_forma": "jsr.l",
+      "chamada_alvo": 36864,
+      "rutina_sitio": 36864,
+      "rutina_lonxitude": 32,
+      "rutina_sha256": "d24e2b69e7f2dceabac93f7d3a4e116f574de6f7d8da7262658c5b61f8a79f35",
+      "fluxo_cpu": 32768,
+      "fluxo_offset": 32768,
+      "tramo_entrada": 98304,
+      "bytes_consumidos": 37,
+      "saida_bytes": 1024,
+      "saida_sha256": "5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+      "confianza": "vinculo-estrutural",
+      "mapper": "md-linear",
+      "estado_mapper": "rom_size=0x020000"
+    },
+    "revalidar_esperado_rc": 0
+  },
+  "ka4": [
+    {
+      "id": "KA4-1",
+      "carga_sitio": 256,
+      "fluxo": "s1",
+      "esperado": {
+        "rc": 0,
+        "saida_sha256": "5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+        "saida_bytes": 1024,
+        "bytes_consumidos": 37
+      }
+    },
+    {
+      "id": "KA4-2",
+      "carga_sitio": 272,
+      "fluxo": "s2",
+      "esperado": {
+        "rc": 0,
+        "saida_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+        "saida_bytes": 128,
+        "bytes_consumidos": 25
+      }
+    },
+    {
+      "id": "KA4-3",
+      "carga_sitio": 346,
+      "fluxo": "s3",
+      "esperado": {
+        "rc": 10,
+        "motivo": "INCONCLUSIVE-TRUNCADA; rc 0 é proibido sem terminator"
+      }
+    }
+  ],
+  "ta": [
+    {
+      "id": "TA-1",
+      "eixo": "identidade",
+      "alvo": "imagem",
+      "acao": {
+        "tipo": "xor-byte",
+        "offset": 12287,
+        "valor": 255
+      },
+      "esperado_rc": 3,
+      "motivo": "ROM divergente do pin antes de qualquer medição"
+    },
+    {
+      "id": "TA-2",
+      "eixo": "saída",
+      "alvo": "imagem",
+      "acao": {
+        "tipo": "xor-byte",
+        "offset": 32776,
+        "valor": 90,
+        "reapin_imaxe": true
+      },
+      "esperado_rc": 9,
+      "motivo": "byte no meio do stream muda a saída pinada. Erata pré-medição de D: sem re-pinar imaxe_sha256 na cadeia, a mutação é pega pelo elo identidade (rc 3) e a receita mede o eixo errado. O adaptador grava as dúas variantes: a isolada (esta, con re-pin) é a fila TA-2; a confundida (pin orixinal) queda como control observado rc 3 e non pontúa."
+    },
+    {
+      "id": "TA-3",
+      "eixo": "geometria",
+      "alvo": "cadeia",
+      "acao": {
+        "tipo": "chamada-fora-da-ventana",
+        "sitio": 308,
+        "bytes": "4EB900001F00",
+        "alvo": 7936
+      },
+      "esperado_rc": 11,
+      "motivo": "chamada real declarada nun sitio lexítimo fóra da ventá tras a carga: só a xeometría pode rexeitala. Erata pré-medição de D: a receita original (+1, sitio ímpar) cae no elo sitio-chamada (bytes diverxentes, rc 5) porque A compara bytes antes de mirar o aliñamento — leído en verify.rs, non medido. A inalcanzabilidade da guarda de aliñamento queda rexistrada como observación de auditoría, non como fila do denominador."
+    },
+    {
+      "id": "TA-4",
+      "eixo": "sítio",
+      "alvo": "cadeia",
+      "acao": {
+        "tipo": "campo-hex-inverter",
+        "campo": "carga_bytes"
+      },
+      "esperado_rc": 5,
+      "motivo": "bytes do sitio de carga divergentes da imagem"
+    },
+    {
+      "id": "TA-5",
+      "eixo": "sítio",
+      "alvo": "cadeia",
+      "acao": {
+        "tipo": "campo",
+        "campo": "carga_operando",
+        "delta": 4
+      },
+      "esperado_rc": 6,
+      "motivo": "operando .L alterado no registro, imagem inalterada"
+    },
+    {
+      "id": "TA-6",
+      "eixo": "sítio",
+      "alvo": "cadeia",
+      "acao": {
+        "tipo": "campo",
+        "campo": "chamada_alvo",
+        "delta": 2
+      },
+      "esperado_rc": 7,
+      "motivo": "alvo da chamada divergente. Erata pré-medição de D: a redação original dizia 'bytes da chamada alterados', que em A cai no elo sitio-chamada (rc 5); esta receita mede o eixo alvo de forma não ambígua."
+    },
+    {
+      "id": "TA-7",
+      "eixo": "sítio",
+      "alvo": "cadeia",
+      "acao": {
+        "tipo": "campo-hex-inverter",
+        "campo": "rutina_sha256"
+      },
+      "esperado_rc": 8,
+      "motivo": "hash da rotina adulterado no rexistro (conteúdo, conservando a forma de 64 hex minúsculas). Mesmo illamento que TA-2: trocar os bytes da rutina na imaxe mudaría imaxe_sha256 e a cadea caería primeiro no elo identidade (rc 3); a receita atinxe o pin da cadea, non a imaxe. Primeira execución (2026-10-04): a inversión en maiúsculas deu rc 2 'rutina_sha256 fora de forma' — rexistrado como observación, non reescrito."
+    },
+    {
+      "id": "TA-8",
+      "eixo": "confiança",
+      "alvo": "cadeia",
+      "acao": {
+        "tipo": "campo",
+        "campo": "fluxo_offset",
+        "delta": 2
+      },
+      "esperado_rc": 4,
+      "motivo": "tradução do mapper divergente do offset registrado"
+    }
+  ],
+  "ka3g": [
+    {
+      "id": "KA3-g-a",
+      "mutacion": "campo_desconhecido",
+      "esperado_rc": 2
+    },
+    {
+      "id": "KA3-g-b",
+      "mutacion": "confianza=observado-en-runtime",
+      "esperado_rc": 2
+    }
+  ],
+  "denominador": {
+    "total": 29,
+    "partes": {
+      "KA1": 9,
+      "KA1-b": 2,
+      "KA2": 4,
+      "KA3": 1,
+      "KA3-g": 2,
+      "KA4": 3,
+      "TA": 8
+    }
+  },
+  "limites_de_autoria": [
+    "sem assembler m68k neste host: as formas de A são escritas pela tabela AGRAMA congelada (EXPECTATIONS-A §3), não pelo ISA real; as linhas que divergem do ISA real ficam anotadas como defeito de ISA preservado",
+    "as imagens sintéticas não são ROM comercial; nenhuma delas é BYOR"
+  ]
+}

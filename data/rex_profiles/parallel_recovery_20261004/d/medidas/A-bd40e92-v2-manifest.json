@@ -1,0 +1,51 @@
+{
+  "esquema": "rex-parallel-d/evidencia/1",
+  "gerado_em": "2026-10-06",
+  "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/medidas/A-bd40e92-v2.jsonl",
+  "linhas": 36,
+  "sha256": "9db2a611b741c7c0fcc7c3b07032bf922c6964d5554859c53329cce982035905",
+  "ferramenta": {
+    "bin": "/home/misael/rds-scratch/d-frentes-20261004/a-bd40e92/scripts/rex_profiles/parallel_recovery_20261004/a/target/release/rex-chain",
+    "verbo": "rex-chain",
+    "sha256": "40245421bf895bd75fe06f086c57f64285b388d3f2f7545b0c7e38f515ca82ae"
+  },
+  "sha_frente": "bd40e92269eb60b0df9b8ed0ddff561a0d19a4b3",
+  "procedencia": {
+    "frente": "A_corrixido",
+    "sha": "bd40e92269eb60b0df9b8ed0ddff561a0d19a4b3",
+    "arquivos": 52,
+    "divergentes": [],
+    "faltantes": [],
+    "ok": true
+  },
+  "conjunto": "medicao",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v2",
+  "ventanxa": 16,
+  "denominador": {
+    "partes": {
+      "KA1v": 10,
+      "KA1v-neg": 2,
+      "KA1v-fora": 3,
+      "KA2v": 4,
+      "KA3v": 3,
+      "KA4v": 3,
+      "TAv": 10
+    },
+    "total": 35,
+    "nota": "§12.3 conxelaba «KA1v-neg 3 · KA1v-fora 2 · TAv 8 · total 32» para a fronte A. v2 (rectificación datada §12.10, escrita antes de calquera medición v2): `61 FF` lése como BSR.S válido polo desmontador e pasa de neg a fora; TA-3 desdóbase en TA-3a/TA-3b para illar vínculo e xanela; re-avaliación de códigos (requisito 7) mantén TA-5v en rc 2 e engade TA-5b, que exerce o elo `forma-carga` que v1 nunca tocou. KA3v conta a fila base máis as dúas gardas."
+  },
+  "imagem": {
+    "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/a/dA-img-v2.bin",
+    "bytes": 131072,
+    "sha256": "e02ab639083ae047541c6700383f39d9afae4316f63f006875fcb87526e6ae5a"
+  },
+  "truth": {
+    "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/a/dA-truth-v2.json",
+    "sha256": "c7ddde79390ceffe9ed6fccc76f50dd2203417a38a98e296030987d6f551d414"
+  },
+  "pin": {
+    "arquivo": "pin-v2.json",
+    "sha256": "42485849abd9672ca37c18de22a2d768f76bb79d1a52b859157e4f4cc3f647a7"
+  }
+}

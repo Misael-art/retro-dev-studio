@@ -1,0 +1,17 @@
+{
+  "set": "ho-1",
+  "fixture_sha256": "fd7d22f2e7a26c3f90d340bf353614df45a4101c5811c18413cca4d8dc8433ee",
+  "fixture_len": 2046,
+  "denominators": {
+    "D1": 12,
+    "D2": 8,
+    "D3": 8,
+    "D4": 3,
+    "D5": 3,
+    "D6": 13,
+    "D7": 14,
+    "N1": 4,
+    "N2": 9
+  },
+  "answers": "fora da arvore; unseal somente apos a medicao"
+}

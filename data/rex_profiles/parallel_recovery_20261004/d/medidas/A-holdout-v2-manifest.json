@@ -1,0 +1,51 @@
+{
+  "esquema": "rex-parallel-d/evidencia/1",
+  "gerado_em": "2026-10-06",
+  "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/medidas/A-holdout-v2.jsonl",
+  "linhas": 36,
+  "sha256": "48553809e9f117f13926c44ad3881587f6e2a600acea7b017d76306b881b1359",
+  "ferramenta": {
+    "bin": "/home/misael/rds-scratch/d-frentes-20261004/a-bd40e92/scripts/rex_profiles/parallel_recovery_20261004/a/target/release/rex-chain",
+    "verbo": "rex-chain",
+    "sha256": "40245421bf895bd75fe06f086c57f64285b388d3f2f7545b0c7e38f515ca82ae"
+  },
+  "sha_frente": "bd40e92269eb60b0df9b8ed0ddff561a0d19a4b3",
+  "procedencia": {
+    "frente": "A_corrixido",
+    "sha": "bd40e92269eb60b0df9b8ed0ddff561a0d19a4b3",
+    "arquivos": 52,
+    "divergentes": [],
+    "faltantes": [],
+    "ok": true
+  },
+  "conjunto": "holdout",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v2",
+  "ventanxa": 16,
+  "denominador": {
+    "partes": {
+      "KA1v": 10,
+      "KA1v-neg": 2,
+      "KA1v-fora": 3,
+      "KA2v": 4,
+      "KA3v": 3,
+      "KA4v": 3,
+      "TAv": 10
+    },
+    "total": 35,
+    "nota": "§12.3 conxelaba «KA1v-neg 3 · KA1v-fora 2 · TAv 8 · total 32» para a fronte A. v2 (rectificación datada §12.10, escrita antes de calquera medición v2): `61 FF` lése como BSR.S válido polo desmontador e pasa de neg a fora; TA-3 desdóbase en TA-3a/TA-3b para illar vínculo e xanela; re-avaliación de códigos (requisito 7) mantén TA-5v en rc 2 e engade TA-5b, que exerce o elo `forma-carga` que v1 nunca tocou. KA3v conta a fila base máis as dúas gardas."
+  },
+  "imagem": {
+    "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/a-holdout/dA-img-ho-v2.bin",
+    "bytes": 131072,
+    "sha256": "4a9ef9779143e2816c3973ec492204bbc90fdbffb91fcda9ad82a7d40aaf2da1"
+  },
+  "truth": {
+    "arquivo": "../../rds-scratch/rex-heldout-d3/dA-ho-respostas.json",
+    "sha256": "respostas reservadas fóra da árbore"
+  },
+  "pin": {
+    "arquivo": "pin-holdout-a-v2.json",
+    "sha256": "85281b8d3142ecf0aa4b76dbab11e332fe76f4ebd8f68c80fd405f60949e333e"
+  }
+}

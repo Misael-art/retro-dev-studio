@@ -1,0 +1,76 @@
+{
+  "esquema": "rex-parallel-d/holdout-exec/1",
+  "gerado_em": "2026-10-05",
+  "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/medidas/holdouts-v3.jsonl",
+  "linhas": 41,
+  "sha256": "38ea1a9068f80bd9443449ffa30f0527019e80a0fcffda42354f08b478858108",
+  "pin_entradas": {
+    "esquema": "rex-parallel-d/holdout-pin/2",
+    "gerado_por": "author_frentes.mjs::gravarHoldouts",
+    "politica": "inputs versionados; respostas reservadas fora da árvore",
+    "respostas_fora_da_arvore": "/home/misael/rds-scratch/rex-heldout-d2",
+    "entradas": [
+      {
+        "id": "H-A",
+        "arquivo": "data/.../holdout/dA-img-ho3.bin",
+        "bytes": 131072,
+        "sha256": "a07eb617b3c57e68413430eb5d59ca7c8ceb9881cf6318912820b4a8ba7441c6",
+        "respostas": "H-A3-respostas.json",
+        "pontua": true
+      },
+      {
+        "id": "H-A-v1",
+        "arquivo": "data/.../holdout/dA-img-ho1.bin",
+        "bytes": 131072,
+        "sha256": "d25259936f9a350646e683e40e034194d8c5f139db11037c3389913c7cd85456",
+        "pontua": false,
+        "estado": "void",
+        "motivo": "entrada inválida autorada por D: fluxo s2 (149 B en 0x9400) pisou o final de s1 (1157 B en 0x9000); o decodificador de D rexeita a imaxe (`referencia antes do historico`), polo que a recusa de A non informa sobre A"
+      },
+      {
+        "id": "H-A-v2",
+        "arquivo": "data/.../holdout/dA-img-ho2.bin",
+        "bytes": 131072,
+        "sha256": "2a92e4b64483da114260eb658195636daaa0e78c9843a0165638a52e9b2e912a",
+        "pontua": false,
+        "estado": "void",
+        "motivo": "streams válidos, pero a sonda lea.l d16(PC),A2 en 0x414 tiña desprazamento 0x8bec → asinado −28 924, alvo fóra da imaxe; a fila KA1-3 medía a autoría de D, non a forma de carga de A"
+      },
+      {
+        "id": "H-B",
+        "arquivo": "data/.../holdout/dB-grid-ho1.bin",
+        "bytes": 4096,
+        "sha256": "67e92f26ae0517a130b95ac39d7d90aab8442aa9fc535b91bf0fa8f3a6349198"
+      },
+      {
+        "id": "H-C",
+        "arquivo": "data/.../holdout/dC-cx9-ho1.bin",
+        "bytes": 12,
+        "sha256": "9be0e2ed73bd6f206510b6238b29e2d4955956d6ce16552ec1626c57e3e6d8b2"
+      }
+    ]
+  },
+  "respostas_fora_da_arvore": "/home/misael/rds-scratch/rex-heldout-d2",
+  "respostas_sha256": {
+    "H-A-respostas.json": "414cb83708bafdcf340b57c6abdde0e4535b11c195c90ea14949743ab170af70",
+    "H-A2-respostas.json": "8d4bdbca780dac8a89f385cfb27977059a8ceb2065d3cc7f21c5ccb574f954e2",
+    "H-A3-respostas.json": "e55ab7b57eb8dc600c43e3ae15fd16afa7ddaecc72040232b30f0b70601d187d",
+    "H-B-respostas.json": "664d98f11de0d54ea9967775daa32b87c104496b6c3face8c36b3b67d8d94c34",
+    "H-C-respostas.json": "b5677b8783980fa81585b4f3267b92a8a5269cd94f4059f0b219f12f347371aa"
+  },
+  "ferramentas": {
+    "A": {
+      "bin": "/home/misael/rds-scratch/d-frentes-20261004/a/scripts/rex_profiles/parallel_recovery_20261004/a/target/release/rex-chain",
+      "sha256": "79be68f4fd5dba0129e33474b739ecbda32eff32530d22005271b8e049353f75"
+    },
+    "B": {
+      "contrato": "/home/misael/rds-scratch/d-frentes-20261004/b/scripts/rex_profiles/parallel_recovery_20261004/b/contrato_sonic.py",
+      "sha256": "36bcc93504a9c6e3cb867ce9764c04e6edbba19c78aed0c712b64e36a469eb8f"
+    },
+    "C": {
+      "bin": "/home/misael/rds-scratch/d-frentes-20261004/c/scripts/rex_profiles/parallel_recovery_20261004/c/target/release/rex-cfg",
+      "sha256": "075616e5ff0b7fa1734b883aff9fa98c8f00836fdd3080022222d75d80e95d19"
+    }
+  },
+  "nota": "filas do holdout non entran nos denominadores conxelados (§3/§4/§5); veredito separado"
+}

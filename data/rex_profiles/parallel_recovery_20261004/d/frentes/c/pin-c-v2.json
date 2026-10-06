@@ -1,0 +1,61 @@
+{
+  "esquema": "rex-parallel-d/pin-frentes-c/2",
+  "xerado_por": "scripts/rex_profiles/parallel_recovery_20261004/d/frentes/author_v2_c.mjs",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v2",
+  "denominador": {
+    "partes": {
+      "KC1v": 21,
+      "KC2v": 6,
+      "KC3v": 2,
+      "KC4v": 4,
+      "KC5v": 5,
+      "TCv": 4
+    },
+    "total": 42,
+    "nota": "§12.3 conxelou a fronte C en 41 (`KC1v` 20 · `KC3v` 2). §12.10 h: MOVEA son dúas filas distintas — `movea.w` dentro da lista de §3 e `movea.l #imm` fóra — así que `KC1v` pasa a 21 e a fronte a 42 (intermedio 41 rexistrado). §12.10 i: das dúas filas de `KC3v` retírase a de `61 ff` (BSR.S está na lista e a lectura depende da táboa de símbolos do desmontador) e entra `1149` (MOVE.B→An), que si exerce a «combinação inválida» de §3; `KC3v` mantense en 2. §12.10 j: `KC1v-movea-l-imm-a1` puntúa no eixe `coherencia-contrato-codigo`. Ningunha destas filas foi executada antes de conxelar este adendo."
+  },
+  "instrumento": {
+    "version": "GNU assembler (GNU Binutils) 2.41",
+    "bandeira": [
+      "-m68000"
+    ],
+    "sha256_as": "618740559477258165eb1a344e07acd592afc1438061825469d5bd56fa2c87c7",
+    "sha256_objdump": "e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f",
+    "filas_sha256": "032eb989b530a31e2e580a09361e0a3d4900776963a9342fb132c3d79e539c67"
+  },
+  "arquivos": {
+    "dC-cx1-v2.bin": {
+      "sha256": "a270639f502c934fd70633a34d07f1ed77a721ed16a78d60d49749fe8b0c6254",
+      "bytes": 128
+    },
+    "dC-cx1-truth-v2.json": {
+      "sha256": "692e516344344fc2484af75a8118222a571849cf1158338c94827e5274015090",
+      "bytes": 28768
+    },
+    "dC-cx2-v2.bin": {
+      "sha256": "1c4c9e081716fcda1e7f302c0ec63eb15584354f36d4236446fcdd3096111c3a",
+      "bytes": 24
+    },
+    "dC-cx2-truth-v2.json": {
+      "sha256": "eac226717189a2d22074d25e18bbc1bbf0f0695383ae1d4096aa0739e7233cbe",
+      "bytes": 9316
+    },
+    "dC-cx3-v2.bin": {
+      "sha256": "4fccd4b5e71370bf37cd7a8326fd628b4fd1725083713de3ce919ce4c98fbdef",
+      "bytes": 64
+    },
+    "dC-cx3-truth-v2.json": {
+      "sha256": "e582eb997802c657ea8d739d0ab81d24ccc6f31f80ba7bdeab67ec5db9e4d2ed",
+      "bytes": 6513
+    },
+    "dC-cx4-v2.bin": {
+      "sha256": "ce7c3844a674636aded131730b1e7874f55987a9935331a41b99d1b563a5394e",
+      "bytes": 44
+    },
+    "dC-cx4-truth-v2.json": {
+      "sha256": "f83ef322af1292a1b14fa8cb0266d200af3c89f3b28ae84fbe8a4adda2f2e0d2",
+      "bytes": 8844
+    }
+  }
+}

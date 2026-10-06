@@ -1,0 +1,446 @@
+{
+  "set": "dev-1",
+  "seed_sha256": "d22033469197daf8e7425ab07d392c58a12580c4e8af302d04e32ae0e3539606",
+  "fixture_sha256": "73d95aea7dc04f6ef67d8e71a26ed722013e76ce156a8a60a886df3c58a24bd2",
+  "fixture_len": 2428,
+  "dir_offset": 2252,
+  "dir_entries": 11,
+  "regions": [
+    {
+      "id": "R-S1",
+      "byte_addr": 20,
+      "class": "stream",
+      "codec": "dsb1-lz",
+      "payload_len": 239,
+      "align_pad": 1,
+      "raw_len": 480,
+      "referenced_by": [
+        "C-ART-01"
+      ],
+      "output": {
+        "byte_len": 480,
+        "sha256": "3f1c4e869e6519382a476d26fd253235642b8ade94f1a454b011eb87b3b46019"
+      },
+      "geometry": null,
+      "flow_targets": []
+    },
+    {
+      "id": "R-S2",
+      "byte_addr": 276,
+      "class": "stream",
+      "codec": "dsb1-lz",
+      "payload_len": 166,
+      "align_pad": 0,
+      "raw_len": 320,
+      "referenced_by": [
+        "C-ART-02"
+      ],
+      "output": {
+        "byte_len": 320,
+        "sha256": "afa703c5b748558c8d5ec583601390f2c197650be0058a87502607f3b1f758a6"
+      },
+      "geometry": null,
+      "flow_targets": []
+    },
+    {
+      "id": "R-S3",
+      "byte_addr": 458,
+      "class": "stream",
+      "codec": "dsb1-rle",
+      "payload_len": 191,
+      "align_pad": 1,
+      "raw_len": 256,
+      "referenced_by": [
+        "C-PAL-01"
+      ],
+      "output": {
+        "byte_len": 256,
+        "sha256": "783218c92c47b88a6eb6319e46e8a845ea80b6698695fadad5b4b6fa1d3c67c8"
+      },
+      "geometry": null,
+      "flow_targets": []
+    },
+    {
+      "id": "R-S4",
+      "byte_addr": 666,
+      "class": "stream",
+      "codec": "dsb1-store",
+      "payload_len": 192,
+      "align_pad": 0,
+      "raw_len": 192,
+      "referenced_by": [
+        "C-SND-01"
+      ],
+      "output": {
+        "byte_len": 192,
+        "sha256": "f279704f4f6bc09959a6306883017563d1b7dd373cf998b4aa4be42875fca942"
+      },
+      "geometry": null,
+      "flow_targets": []
+    },
+    {
+      "id": "R-S5",
+      "byte_addr": 874,
+      "class": "stream",
+      "codec": "kosinski",
+      "payload_len": 257,
+      "align_pad": 1,
+      "raw_len": 448,
+      "referenced_by": [
+        "C-ART-03"
+      ],
+      "output": {
+        "byte_len": 448,
+        "sha256": "e884e3029ce1e6d15fef09bc111899e2ea5c52ce334225228f063383419c5bb5"
+      },
+      "geometry": null,
+      "flow_targets": []
+    },
+    {
+      "id": "R-S6",
+      "byte_addr": 1148,
+      "class": "stream",
+      "codec": "dsb1-lz",
+      "payload_len": 44,
+      "align_pad": 0,
+      "raw_len": 96,
+      "referenced_by": [
+        "C-TXT-01"
+      ],
+      "output": {
+        "byte_len": 96,
+        "sha256": "e102e3a90a1eb2e75661b96a4f9b9ed9cf8e056962054ad1b567e9a2545668ee"
+      },
+      "geometry": null,
+      "flow_targets": []
+    },
+    {
+      "id": "R-K1",
+      "byte_addr": 1208,
+      "class": "stream",
+      "codec": "dsb1-lz",
+      "payload_len": 152,
+      "align_pad": 0,
+      "raw_len": 288,
+      "referenced_by": [],
+      "output": {
+        "byte_len": 288,
+        "sha256": "63493cca2edd78a1bd52b138bfce80249ad88556ab6ef5a8acaa9d3eca29e7dc"
+      },
+      "geometry": null,
+      "flow_targets": []
+    },
+    {
+      "id": "R-K2",
+      "byte_addr": 1376,
+      "class": "stream",
+      "codec": "dsb1-rle",
+      "payload_len": 114,
+      "align_pad": 0,
+      "raw_len": 160,
+      "referenced_by": [],
+      "output": {
+        "byte_len": 160,
+        "sha256": "697ae29d8b259bb6774949f49eb3ef5880e1375b545dfa7f5cb8ee1d1df21a0c"
+      },
+      "geometry": null,
+      "flow_targets": []
+    },
+    {
+      "id": "R-K3",
+      "byte_addr": 1506,
+      "class": "stream",
+      "codec": "kosinski",
+      "payload_len": 165,
+      "align_pad": 1,
+      "raw_len": 224,
+      "referenced_by": [],
+      "output": {
+        "byte_len": 224,
+        "sha256": "08eb8bab2ddbddb371eaaac82080fe5af1a6f7fe2ff5e0a86ae8ccfef60b4ecf"
+      },
+      "geometry": null,
+      "flow_targets": []
+    },
+    {
+      "id": "R-G1",
+      "byte_addr": 1688,
+      "class": "geom",
+      "codec": "tiles4bpp-planar",
+      "payload_len": 128,
+      "align_pad": 0,
+      "raw_len": 256,
+      "referenced_by": [
+        "T-TILE-01"
+      ],
+      "output": {
+        "byte_len": 256,
+        "sha256": "cc5fb4800c4913bbdb42287837cfdf73946a7d39872e40597855c70ce77d9e5d"
+      },
+      "geometry": {
+        "width": 16,
+        "height": 16,
+        "bpp": 4,
+        "layout": "planar"
+      },
+      "flow_targets": []
+    },
+    {
+      "id": "R-G2",
+      "byte_addr": 1832,
+      "class": "geom",
+      "codec": "tiles4bpp-planar",
+      "payload_len": 128,
+      "align_pad": 0,
+      "raw_len": 256,
+      "referenced_by": [
+        "T-TILE-02"
+      ],
+      "output": {
+        "byte_len": 256,
+        "sha256": "97bd258bbf411b5c27770dcd051c0481b1eddd711d8228fd7c273e5523bdbfb2"
+      },
+      "geometry": {
+        "width": 8,
+        "height": 32,
+        "bpp": 4,
+        "layout": "planar"
+      },
+      "flow_targets": []
+    },
+    {
+      "id": "R-X1",
+      "byte_addr": 1976,
+      "class": "pixels",
+      "codec": "pixels4bpp",
+      "payload_len": 192,
+      "align_pad": 0,
+      "raw_len": 192,
+      "referenced_by": [
+        "T-PX-01"
+      ],
+      "output": {
+        "byte_len": 192,
+        "sha256": "f65198817302ee2a868029d2135b2babf1c3f51f0902ae1feb7112784af71c9e"
+      },
+      "geometry": {
+        "width": 8,
+        "height": 24,
+        "bpp": 4,
+        "layout": "linear"
+      },
+      "flow_targets": []
+    },
+    {
+      "id": "R-T1",
+      "byte_addr": 2184,
+      "class": "table",
+      "codec": "branch-table",
+      "payload_len": 20,
+      "align_pad": 0,
+      "raw_len": 0,
+      "referenced_by": [
+        "C-CTRL-01"
+      ],
+      "output": null,
+      "geometry": null,
+      "flow_targets": [
+        {
+          "from_byte_addr": 2200,
+          "to_byte_addr": 2132,
+          "opcode": "6000 (BRA.W d16)"
+        },
+        {
+          "from_byte_addr": 2204,
+          "to_byte_addr": 2226,
+          "opcode": "6007 (BRA.W d16)"
+        },
+        {
+          "from_byte_addr": 2208,
+          "to_byte_addr": 2238,
+          "opcode": "600e (BRA.W d16)"
+        },
+        {
+          "from_byte_addr": 2212,
+          "to_byte_addr": 2250,
+          "opcode": "6015 (BRA.W d16)"
+        },
+        {
+          "from_byte_addr": 2216,
+          "to_byte_addr": 2180,
+          "opcode": "601c (BRA.W d16)"
+        }
+      ]
+    },
+    {
+      "id": "R-T2",
+      "byte_addr": 2220,
+      "class": "table",
+      "codec": "branch-table",
+      "payload_len": 16,
+      "align_pad": 0,
+      "raw_len": 0,
+      "referenced_by": [
+        "C-CTRL-02"
+      ],
+      "output": null,
+      "geometry": null,
+      "flow_targets": [
+        {
+          "from_byte_addr": 2236,
+          "to_byte_addr": 2226,
+          "opcode": "6000 (BRA.W d16)"
+        },
+        {
+          "from_byte_addr": 2240,
+          "to_byte_addr": 2250,
+          "opcode": "6007 (BRA.W d16)"
+        },
+        {
+          "from_byte_addr": 2244,
+          "to_byte_addr": 2206,
+          "opcode": "600e (BRA.W d16)"
+        },
+        {
+          "from_byte_addr": 2248,
+          "to_byte_addr": 2250,
+          "opcode": "6015 (BRA.W d16)"
+        }
+      ]
+    }
+  ],
+  "consumers": [
+    {
+      "id": "C-ART-01",
+      "kind": "stream",
+      "addr_mode": "word",
+      "target_byte_addr": 20
+    },
+    {
+      "id": "C-ART-02",
+      "kind": "stream",
+      "addr_mode": "word",
+      "target_byte_addr": 276
+    },
+    {
+      "id": "C-PAL-01",
+      "kind": "stream",
+      "addr_mode": "byte",
+      "target_byte_addr": 458
+    },
+    {
+      "id": "C-SND-01",
+      "kind": "stream",
+      "addr_mode": "byte",
+      "target_byte_addr": 666
+    },
+    {
+      "id": "C-ART-03",
+      "kind": "stream",
+      "addr_mode": "word",
+      "target_byte_addr": 874
+    },
+    {
+      "id": "C-TXT-01",
+      "kind": "stream",
+      "addr_mode": "byte",
+      "target_byte_addr": 1148
+    },
+    {
+      "id": "T-TILE-01",
+      "kind": "geom",
+      "addr_mode": "byte",
+      "target_byte_addr": 1688
+    },
+    {
+      "id": "T-TILE-02",
+      "kind": "geom",
+      "addr_mode": "byte",
+      "target_byte_addr": 1832
+    },
+    {
+      "id": "T-PX-01",
+      "kind": "pixels",
+      "addr_mode": "byte",
+      "target_byte_addr": 1976
+    },
+    {
+      "id": "C-CTRL-01",
+      "kind": "table",
+      "addr_mode": "byte",
+      "target_byte_addr": 2184
+    },
+    {
+      "id": "C-CTRL-02",
+      "kind": "table",
+      "addr_mode": "byte",
+      "target_byte_addr": 2220
+    }
+  ],
+  "negatives": {
+    "unreferenced_streams": [
+      {
+        "id": "R-K1",
+        "byte_addr": 1208,
+        "codec": "dsb1-lz"
+      },
+      {
+        "id": "R-K2",
+        "byte_addr": 1376,
+        "codec": "dsb1-rle"
+      },
+      {
+        "id": "R-K3",
+        "byte_addr": 1506,
+        "codec": "kosinski"
+      }
+    ],
+    "false_flow_targets": [
+      {
+        "from_byte_addr": 1992,
+        "to_byte_addr": 2010,
+        "opcode": "60 xx (BRA.B d8)",
+        "inside_region": "R-X1"
+      },
+      {
+        "from_byte_addr": 1996,
+        "to_byte_addr": 2022,
+        "opcode": "60 xx (BRA.B d8)",
+        "inside_region": "R-X1"
+      },
+      {
+        "from_byte_addr": 2000,
+        "to_byte_addr": 2034,
+        "opcode": "60 xx (BRA.B d8)",
+        "inside_region": "R-X1"
+      },
+      {
+        "from_byte_addr": 2004,
+        "to_byte_addr": 2046,
+        "opcode": "60 xx (BRA.B d8)",
+        "inside_region": "R-X1"
+      },
+      {
+        "from_byte_addr": 2012,
+        "to_byte_addr": 2062,
+        "opcode": "60 xx (BRA.B d8)",
+        "inside_region": "R-X1"
+      },
+      {
+        "from_byte_addr": 2018,
+        "to_byte_addr": 2076,
+        "opcode": "60 xx (BRA.B d8)",
+        "inside_region": "R-X1"
+      }
+    ]
+  },
+  "counts": {
+    "stream_regions_referenced": 6,
+    "stream_regions_unreferenced": 3,
+    "geometry_blocks": 2,
+    "branch_tables": 2,
+    "flow_targets": 9,
+    "primary_items": 10,
+    "negative_items": 9
+  }
+}

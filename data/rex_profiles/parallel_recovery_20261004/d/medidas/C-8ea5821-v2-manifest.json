@@ -1,0 +1,126 @@
+{
+  "esquema": "rex-parallel-d/evidencia/1",
+  "gerado_em": "2026-10-06",
+  "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/medidas/C-8ea5821-v2.jsonl",
+  "linhas": 64,
+  "sha256": "900d55c58f179ecb80c314fa4df7e6c47d8ecfc16037bd3026083685ad0e29b0",
+  "ferramenta": {
+    "bin": "/home/misael/rds-scratch/d-frentes-20261004/c-8ea5821/scripts/rex_profiles/parallel_recovery_20261004/c/target/release/rex-cfg",
+    "verbo": "rex-cfg",
+    "sha256": "d050f0164bf1ca7c5d440ba7e83468398a1e8aaa2bf3ad32dd5cbb38c1e10b46"
+  },
+  "sha_frente": "8ea5821dbf3c61a0bc84ae49de54d8e2bd9557f5",
+  "procedencia": {
+    "frente": "C_novo",
+    "sha": "8ea5821dbf3c61a0bc84ae49de54d8e2bd9557f5",
+    "arquivos": 65,
+    "divergentes": [],
+    "faltantes": [],
+    "ok": true
+  },
+  "conjunto": "medicao",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v2",
+  "esquema_analyze": "rex-cfg/v1",
+  "esquemas_novos": {
+    "consultar": "rex-cfg-sitio/v1",
+    "medir": "rex-cfg-med/v1",
+    "estado": "non puntuados (§12.11 b)"
+  },
+  "denominador": {
+    "partes": {
+      "KC1v": 21,
+      "KC2v": 6,
+      "KC3v": 2,
+      "KC4v": 4,
+      "KC5v": 5,
+      "TCv": 4
+    },
+    "total": 42,
+    "nota": "§12.3 conxelou a fronte C en 41 (`KC1v` 20 · `KC3v` 2). §12.10 h: MOVEA son dúas filas distintas — `movea.w` dentro da lista de §3 e `movea.l #imm` fóra — así que `KC1v` pasa a 21 e a fronte a 42 (intermedio 41 rexistrado). §12.10 i: das dúas filas de `KC3v` retírase a de `61 ff` (BSR.S está na lista e a lectura depende da táboa de símbolos do desmontador) e entra `1149` (MOVE.B→An), que si exerce a «combinação inválida» de §3; `KC3v` mantense en 2. §12.10 j: `KC1v-movea-l-imm-a1` puntúa no eixe `coherencia-contrato-codigo`. Ningunha destas filas foi executada antes de conxelar este adendo."
+  },
+  "denominador_observado": {
+    "conxelado": 42,
+    "puntuables": 42,
+    "por_capacidade": {
+      "KC1v": 21,
+      "KC2v": 6,
+      "KC3v": 2,
+      "KC4v": 4,
+      "KC5v": 5,
+      "TCv": 4
+    },
+    "voids_contra_D": [
+      "KC3-bsr-l-68020-VOID"
+    ]
+  },
+  "gabarito_isa": {
+    "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/gabarito/isa-oraculo-v2.json",
+    "sha256_arquivo": "54817106ddd0fd2136d701216fad543e2da74ff7265bd2d21960712f08749b11",
+    "filas_indexadas": 47,
+    "filas_no_arquivo": 55,
+    "filas_sha256": "032eb989b530a31e2e580a09361e0a3d4900776963a9342fb132c3d79e539c67"
+  },
+  "porta_R11": {
+    "filas_na_porta": 2,
+    "contradicitas": 0,
+    "conformes": 2,
+    "dominio_graduado": "fronteira-acordada",
+    "cobertura_por_orixe": {
+      "gabarito": 2,
+      "sondeo-pinado": 21,
+      "ningunha": 0
+    },
+    "gabarito": "data/rex_profiles/parallel_recovery_20261004/d/gabarito/isa-oraculo-v2.json"
+  },
+  "precedencia": {
+    "secao": "§12.11",
+    "commit_de_D": "907d11cc4e1718c3243a3ce58f38784c33ea18f9",
+    "contido_no_commit": true
+  },
+  "vocabulario_normalizado": {
+    "indirect-opaco": "indirect-opaque",
+    "fora-da-rexión": "fora-da-regiao",
+    "fora-da-rexion": "fora-da-regiao"
+  },
+  "renumeracion_citacoes": {
+    "umbral": 73,
+    "desprazo": 79,
+    "vello_sha": "275f2af0b81944709169ab360a67786e56ec4a13",
+    "novo_sha": "8ea5821dbf3c61a0bc84ae49de54d8e2bd9557f5",
+    "verificadas": 33,
+    "resumidas": 6,
+    "sen_texto_citabel": 4,
+    "pares": 40,
+    "comprobados": 34
+  },
+  "fixtures": [
+    {
+      "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/c/dC-cx1-v2.bin",
+      "sha256": "a270639f502c934fd70633a34d07f1ed77a721ed16a78d60d49749fe8b0c6254",
+      "verdade": "data/rex_profiles/parallel_recovery_20261004/d/frentes/c/dC-cx1-truth-v2.json"
+    },
+    {
+      "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/c/dC-cx2-v2.bin",
+      "sha256": "1c4c9e081716fcda1e7f302c0ec63eb15584354f36d4236446fcdd3096111c3a",
+      "verdade": "data/rex_profiles/parallel_recovery_20261004/d/frentes/c/dC-cx2-truth-v2.json"
+    },
+    {
+      "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/c/dC-cx3-v2.bin",
+      "sha256": "4fccd4b5e71370bf37cd7a8326fd628b4fd1725083713de3ce919ce4c98fbdef",
+      "verdade": "data/rex_profiles/parallel_recovery_20261004/d/frentes/c/dC-cx3-truth-v2.json"
+    },
+    {
+      "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/c/dC-cx4-v2.bin",
+      "sha256": "ce7c3844a674636aded131730b1e7874f55987a9935331a41b99d1b563a5394e",
+      "verdade": "data/rex_profiles/parallel_recovery_20261004/d/frentes/c/dC-cx4-truth-v2.json"
+    }
+  ],
+  "truth": {
+    "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/c/dC-cx1-truth-v2.json",
+    "pin": {
+      "arquivo": "pin-c-v2.json",
+      "sha256": "dd6406e1ed8af75f8eb52ffb98d98ab90db68138076eabe4ffd37a2b7bc4587d"
+    }
+  }
+}

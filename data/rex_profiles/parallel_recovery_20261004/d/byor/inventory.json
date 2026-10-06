@@ -1,0 +1,1561 @@
+{
+  "roots": [
+    "/home/misael/emulation/roms/megadrive",
+    "/home/misael/emulation/roms/megadrivejp",
+    "/home/misael/emulation/roms/genesis",
+    "/home/misael/emulation/roms/genesiswide"
+  ],
+  "modo": "somente-leitura; nenhum byte do corpus foi modificado ou copiado para a arvore",
+  "politica": "metadados pinados apenas; conteudo NUNCA promovido a verdade de ground truth; nomes nao viram hipoteses de verdade",
+  "arquivos": [
+    {
+      "path_rel": "genesis/Addams Family, The (USA, Europe) (Translated PtBr).zip",
+      "size_bytes": 614473,
+      "mtime_iso": "2019-09-09T14:12:54.000Z",
+      "head_sha256": "7b8c8ec3f7fa86d904b138fcff11a1d1e638377bdfc5eb967fd30ea713dee461",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Addams Family, The (USA, Europe).gen",
+          "size": 1048576,
+          "crc32": "48c9f2ef"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Adventures of Batman & Robin, The (USA) (Translated PtBr).zip",
+      "size_bytes": 1190947,
+      "mtime_iso": "2019-09-09T14:12:56.000Z",
+      "head_sha256": "5f870194645c234f09e1a08aea0cb42fb1e3c846edc31ecea3bd44a85eef9ced",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Adventures of Batman & Robin, The (USA).bin",
+          "size": 2097152,
+          "crc32": "3323b6c5"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Aladdin (USA) (Translated PtBr).zip",
+      "size_bytes": 1179848,
+      "mtime_iso": "2019-09-09T14:13:04.000Z",
+      "head_sha256": "8ee5bd007a0f7615406776336016f0713d72115b00c465cca8b12217003ac4a2",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Aladdin (USA).bin",
+          "size": 2097152,
+          "crc32": "e2090f4a"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Alien 3 (USA, Europe) (Translated PtBr).zip",
+      "size_bytes": 318663,
+      "mtime_iso": "2019-09-09T14:13:12.000Z",
+      "head_sha256": "594c8013b945b5357050348467e8b9308ddbb6c739d90cc739fe91d75cf65403",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Alien 3 (USA, Europe).md",
+          "size": 524288,
+          "crc32": "355c8317"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Alien Soldier (Europe) (Translated PtBr).zip",
+      "size_bytes": 1108796,
+      "mtime_iso": "2019-09-09T14:13:16.000Z",
+      "head_sha256": "12251ffc852d78a18f689037435a86fe3e8d2733c272935a9d9eac161077fbeb",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Alien Soldier (Europe).md",
+          "size": 2097152,
+          "crc32": "1d2bb7a0"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Alien Storm (World) (Translated PtBr).zip",
+      "size_bytes": 372201,
+      "mtime_iso": "2019-09-09T14:13:18.000Z",
+      "head_sha256": "97b05a985445265ec8a27deee866da2bb2b7fb7e8ab177d5dbab91e5d45015aa",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Alien Storm (World).md",
+          "size": 524288,
+          "crc32": "32609ce5"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Altered Beast (USA, Europe) (Translated PtBr).zip",
+      "size_bytes": 327151,
+      "mtime_iso": "2019-09-09T14:13:20.000Z",
+      "head_sha256": "fcee31a7857abc127f651bc64ebec859234412976389fc0779d6701a21f4caad",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Altered Beast (USA, Europe).SMD",
+          "size": 524288,
+          "crc32": "f4572342"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Castle of Illusion Starring Mickey Mouse (USA, Europe) (Translated PtBr).zip",
+      "size_bytes": 398540,
+      "mtime_iso": "2019-09-09T14:13:36.000Z",
+      "head_sha256": "3062d52e6099c188174f4bebee4754ceb94440185779acea2e01a936fc934e88",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Castle of Illusion Starring Mickey Mouse (USA, Europe).md",
+          "size": 524288,
+          "crc32": "c9afbb88"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Chip 'n Dale - Rescue Rangers (pt) (Translated PtBr).zip",
+      "size_bytes": 137237,
+      "mtime_iso": "2019-09-09T14:13:38.000Z",
+      "head_sha256": "0a82480fc9af175c488a98a938eaea2772afd290d7861b173252a234f599ea28",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Chip 'n Dale - Rescue Rangers (pt).bin",
+          "size": 524288,
+          "crc32": "c5d5acde"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Contra - Hard Corps (USA, Korea) (Translated PtBr).zip",
+      "size_bytes": 1362784,
+      "mtime_iso": "2019-09-09T14:13:44.000Z",
+      "head_sha256": "861610443024e73eca73aee460bbe3eb6f36b24c1da65cf4022bfa320a1606f1",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Contra - Hard Corps (USA, Korea).bin",
+          "size": 2097152,
+          "crc32": "62bc5116"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/DarkStalkers (Demo#70) (Brazil) (Unl).zip",
+      "size_bytes": 296028,
+      "mtime_iso": "2026-07-02T20:13:52.470Z",
+      "head_sha256": "361c5e43d39cf025be53c2ab6488929f365056d1b14336be188c1a9eba7aae0f",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "DarkStalkers (Demo#70) (Brazil) (Unl).bin",
+          "size": 524288,
+          "crc32": "febd29bf"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Dino Fighters (beta v.0.1) (Brazil) (Unl).zip",
+      "size_bytes": 605302,
+      "mtime_iso": "2026-07-02T20:13:52.606Z",
+      "head_sha256": "07dcb2dd14422eea221b04c81466dc5211487c07646f64e7ee0e7df8148f41b9",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Dino Fighters (beta v.0.1) (Brazil) (Unl).bin",
+          "size": 1572864,
+          "crc32": "dd74d729"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/ESWAT - City Under Siege (USA, Europe) (Translated PtBr).zip",
+      "size_bytes": 374982,
+      "mtime_iso": "2019-09-09T14:14:00.000Z",
+      "head_sha256": "c301541e18164abdf89359ed48b0fb098fc4f00a6379bc3481d56959e649090f",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "ESWAT - City Under Siege (USA, Europe).md",
+          "size": 524288,
+          "crc32": "01282b14"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Fatal Fury One (v.1.5) (Brazil) (Unl).zip",
+      "size_bytes": 2583671,
+      "mtime_iso": "2026-07-02T20:13:53.385Z",
+      "head_sha256": "5016dbe9d5b3e1980f4a2e60affa9fbbeb067f55aabdbfa0d2a392cffe0eba28",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Fatal Fury One (v.1.5) (Brazil) (Unl).bin",
+          "size": 4194304,
+          "crc32": "004a99e1"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Fatal Fury Rheo Bout (beta) (RBFFS_LITEv1.2) (Brazil) (Unl).zip",
+      "size_bytes": 2850651,
+      "mtime_iso": "2026-07-02T20:13:53.428Z",
+      "head_sha256": "aa48ae95106c0f8e9a4f58bd43bc712b5fbabec6ef81d775dcd6314e0134b57e",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Fatal Fury Rheo Bout (beta) (RBFFS_LITEv1.2) (Brazil) (Unl).bin",
+          "size": 4194304,
+          "crc32": "c399af97"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Fatal Fury Rheo Bout (v.1) (Brazil) (Unl).zip",
+      "size_bytes": 2850612,
+      "mtime_iso": "2026-07-02T20:13:53.405Z",
+      "head_sha256": "c880404cdd79a929781b5df56dabadac63f821d859e29482fe669a0f57ad1cc7",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Fatal Fury Rheo Bout (v.1) (Brazil) (Unl).bin",
+          "size": 4194304,
+          "crc32": "44bcbca4"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Gaiares (Japan, USA) (Translated PtBr).zip",
+      "size_bytes": 606077,
+      "mtime_iso": "2019-09-09T14:14:00.000Z",
+      "head_sha256": "1692e285b98ec2602ed4d19d9c6f26b36722a90fbf4b885b79bccb10d504dd04",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Gaiares (Japan, USA).md",
+          "size": 1048576,
+          "crc32": "5fdd2002"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Gargoyles (USA) (Translated PtBr).zip",
+      "size_bytes": 1540923,
+      "mtime_iso": "2019-09-09T14:14:00.000Z",
+      "head_sha256": "ff61ca3437f3681fd493c65efc8270ea6f7f714d1e7ea62c974da1dae3125797",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Gargoyles (USA).md",
+          "size": 3145728,
+          "crc32": "8b560172"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Golden Axe (World) (Translated PtBr).zip",
+      "size_bytes": 349425,
+      "mtime_iso": "2019-09-09T14:14:00.000Z",
+      "head_sha256": "3479577dac12db5cb124c592f07ac0a096917a6f8afaa548178a4a7cea01f1e1",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Golden Axe (World).gen",
+          "size": 524288,
+          "crc32": "b8239aea"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Golden Axe II (World) (Translated PtBr).zip",
+      "size_bytes": 337163,
+      "mtime_iso": "2019-09-09T14:14:02.000Z",
+      "head_sha256": "54fa7ba746d112482cc8015063482f58aca23c0b1f6fe94832de2d563396df1e",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Golden Axe II (World).md",
+          "size": 524288,
+          "crc32": "cfab61ce"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Golden Axe III (Japan) (Translated PtBr).zip",
+      "size_bytes": 693904,
+      "mtime_iso": "2019-09-09T14:14:02.000Z",
+      "head_sha256": "e6d637221a39b200a008baada6238bf6e5f916b7ca55200f4e0f1a9370df5bd4",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Golden Axe III (Japan).bin",
+          "size": 1048576,
+          "crc32": "744983d5"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Golden Axe Plus (Mega Drive - MD Play).zip",
+      "size_bytes": 476853,
+      "mtime_iso": "2026-07-02T20:13:53.785Z",
+      "head_sha256": "20b771c1ecbd82164e6ade97876a83451f8f695849faf1b4aec30e258886ecda",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Golden Axe Plus (Mega Drive - MD Play).bin",
+          "size": 2097152,
+          "crc32": "6ae103f7"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Guerra dos Monstros (Unl).zip",
+      "size_bytes": 74747,
+      "mtime_iso": "2024-10-21T16:15:58.518Z",
+      "head_sha256": "c6fa4e1feb9311c013523143e2a712737f1af4ce8f6e1dc80d4554bbf4e4c23d",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Guerra dos Monstros (Unl).md",
+          "size": 156588,
+          "crc32": "38f51f5a"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/JuJu Densetsu (J) (Translated PtBr).zip",
+      "size_bytes": 279494,
+      "mtime_iso": "2019-09-03T15:59:46.000Z",
+      "head_sha256": "8b0f4856cc06e82b4a538993dd00a05ed77039de0ddb062af64d694d523ae43f",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "JuJu Densetsu (J).gen",
+          "size": 524288,
+          "crc32": "f0263690"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Kunio no Nekketsu School Fighters (beta v.01) (Brazil) (Unl).zip",
+      "size_bytes": 2137616,
+      "mtime_iso": "2026-07-02T20:13:55.395Z",
+      "head_sha256": "56249b405070ec95d760ee0ca314c44485ceba85cd89aac6176a380568b2eae0",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Kunio no Nekketsu School Fighters (beta v.01) (Brazil) (Unl).bin",
+          "size": 3538944,
+          "crc32": "0040dadf"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/MUSHA - Metallic Uniframe Super Hybrid Armor (USA) (Translated PtBr).zip",
+      "size_bytes": 388022,
+      "mtime_iso": "2019-09-09T14:14:06.000Z",
+      "head_sha256": "4d5a4e3c10fe44c18ef1ae4dde93c0b1705454bbba0d41f45f44148a70c0c9a4",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "MUSHA - Metallic Uniframe Super Hybrid Armor (USA).gen",
+          "size": 525548,
+          "crc32": "2eda1600"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Mega Man - The Wily Wars (Europe) (Translated PtBr).zip",
+      "size_bytes": 972367,
+      "mtime_iso": "2019-09-09T14:14:04.000Z",
+      "head_sha256": "00edabb5177e01c7f995689c3ff49f4283dfd77493c776928af04d90023ff47d",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Mega Man - The Wily Wars (Europe).gen",
+          "size": 2102230,
+          "crc32": "8f25aee9"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/MegaFinal Fight (Mauro Xavier) ( Demo 2022-12-25) (Unl).zip",
+      "size_bytes": 2186359,
+      "mtime_iso": "2026-07-02T20:13:56.629Z",
+      "head_sha256": "7a77f58517237071aca208790077a40cfe5bcf993376ad4fece323344f4422a5",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "MegaFinal Fight (Mauro Xavier) ( Demo 2022-12-25) (Unl).bin",
+          "size": 3932160,
+          "crc32": "8536ee4c"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/MegaFinal Fight (Mauro Xavier) ( Public_24-01-20b) (Unl).zip",
+      "size_bytes": 2231324,
+      "mtime_iso": "2026-07-02T20:13:56.555Z",
+      "head_sha256": "b723e3ea4224022155ca613ed5be16c6d8aaa23e51d9f6fdbd520b8b4e685668",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "MegaFinal Fight (Mauro Xavier) ( Public_24-01-20b) (Unl).bin",
+          "size": 3670016,
+          "crc32": "2d5321a3"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Miniplanets REMIX (Rev 04).zip",
+      "size_bytes": 151546,
+      "mtime_iso": "2026-07-02T20:13:57.001Z",
+      "head_sha256": "d6ad2e74232de78b12abe29bc513242565ab6f9a36209b97c13250c417c303d4",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Miniplanets REMIX (Rev 04).bin",
+          "size": 524288,
+          "crc32": "6c531b9d"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Monster World IV (Japan) (Translated En) (Translated PtBr).zip",
+      "size_bytes": 1004306,
+      "mtime_iso": "2019-09-09T14:14:06.000Z",
+      "head_sha256": "c92b65ebc4fd1daaa7f50494252edbf61fed0adca48e1726b0534a5337ad886b",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Monster World IV (Japan) (Translated En).gen",
+          "size": 2097152,
+          "crc32": "3e1baead"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Mortal Kombat Arcade Edition (v1.0a).zip",
+      "size_bytes": 2178848,
+      "mtime_iso": "2026-07-02T20:13:58.514Z",
+      "head_sha256": "957100b8c60a619c35686543358d620e3f2088c44bee1dac7105729279030e07",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Mortal Kombat Arcade Edition (v1.0a).md",
+          "size": 4194304,
+          "crc32": "c4fdd15c"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Mystic Defender (USA, Europe) (Translated PtBr).zip",
+      "size_bytes": 280768,
+      "mtime_iso": "2019-09-09T14:14:06.000Z",
+      "head_sha256": "e645306a08e075a4ba8ac515485265ea1092abf37c543a51b39ce1191da6ca12",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Mystic Defender (USA, Europe).gen",
+          "size": 524288,
+          "crc32": "cf627555"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Paprium.zip",
+      "size_bytes": 5900083,
+      "mtime_iso": "2026-07-02T20:13:59.733Z",
+      "head_sha256": "4d1a81a8e8fe766e6feeb6b2541f3e95843e578737a1c6557624daca3fc640c9",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Paprium.bin",
+          "size": 8388608,
+          "crc32": "28f16e0b"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Phelios (USA) (Translated PtBr).zip",
+      "size_bytes": 260137,
+      "mtime_iso": "2019-09-09T14:14:08.000Z",
+      "head_sha256": "dffe3ebe9df000b2137096befac629dc5d80156381895c5a454660dc4b6e7325",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Phelios (USA).gen",
+          "size": 524288,
+          "crc32": "f8e4b5f7"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Pigsy Castlevania Sotn Xmas 2023 Demo - stable but with fewer enemies.zip",
+      "size_bytes": 1848169,
+      "mtime_iso": "2026-07-02T20:14:01.464Z",
+      "head_sha256": "b28c6953bd3673d355c6b2e8decbd6425c48b8ff57303eff98c15c01a3861406",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Pigsy Castlevania Sotn Xmas 2023 Demo - stable but with fewer enemies.bin",
+          "size": 3670016,
+          "crc32": "3c8d2f7b"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Pigsy Castlevania Sotn Xmas 2023 Demo - unstable but with more enemies.zip",
+      "size_bytes": 1847736,
+      "mtime_iso": "2026-07-02T20:14:01.585Z",
+      "head_sha256": "0f54269bc7c36ec9fafe646c54933ef3e3b59672ffb5bb248593716aa4ec7ca8",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Pigsy Castlevania Sotn Xmas 2023 Demo - unstable but with more enemies.bin",
+          "size": 3670016,
+          "crc32": "000ee759"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Pink Goes to Hollywood (USA) (Translated PtBr).zip",
+      "size_bytes": 631536,
+      "mtime_iso": "2019-09-09T14:14:08.000Z",
+      "head_sha256": "7446e3887b315859cb41834820d74a1d873eed6e13670fc73b7d464acdebae73",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Pink Goes to Hollywood (USA).md",
+          "size": 1048576,
+          "crc32": "cf6ab97c"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Pirates of Dark Water, The (USA, Europe) (Translated PtBr).zip",
+      "size_bytes": 1197064,
+      "mtime_iso": "2019-09-09T14:14:08.000Z",
+      "head_sha256": "9b2bf0ae99d14dbd67f97db6bcc03c5a3833309f42a17e8f947b05cb17de60df",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Pirates of Dark Water, The (USA, Europe).gen",
+          "size": 2097152,
+          "crc32": "3b3643d8"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Power Drive (Europe) (Translated PtBr).zip",
+      "size_bytes": 678178,
+      "mtime_iso": "2019-09-09T14:14:10.000Z",
+      "head_sha256": "40bd23fdc96b7c68137a5702640e9b316c3160cc9cb4570807d1c0debe4caab0",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Power Drive (Europe).md",
+          "size": 1048576,
+          "crc32": "8c00ad61"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Pulseman (Japan) (Translated En) (Translated PtBr).zip",
+      "size_bytes": 1278718,
+      "mtime_iso": "2019-09-09T14:14:10.000Z",
+      "head_sha256": "14ca8882c8c35b6d6842efc4144c4df6fe51802e1a44a2739d8819575ec461df",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Pulseman (Japan) (Translated En).gen",
+          "size": 2097152,
+          "crc32": "925f7be6"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/RBFFG_vLite2-0.zip",
+      "size_bytes": 3621869,
+      "mtime_iso": "2026-07-02T20:14:03.124Z",
+      "head_sha256": "925cee21d55f1d961650ecc9f4f360f143d965c9e8c9c71326598ffba4be4d09",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "RBFFG_vLite2-0.bin",
+          "size": 5242880,
+          "crc32": "45d73398"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Revenge of Shinobi, The (USA, Europe) (Translated PtBr).zip",
+      "size_bytes": 368040,
+      "mtime_iso": "2019-09-09T14:14:10.000Z",
+      "head_sha256": "7c64a931ebc67d56967dbe7f04103ec72aceedbbd0e588fe04b66d96a6172010",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Revenge of Shinobi, The (USA, Europe).gen",
+          "size": 524288,
+          "crc32": "61c1daf8"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Rocket Knight Adventures (USA) (Translated PtBr).zip",
+      "size_bytes": 675523,
+      "mtime_iso": "2019-09-09T14:14:12.000Z",
+      "head_sha256": "cc0816ec4a3073b2faae814a6ea76f52015722fd831332a511785a47127995fb",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Rocket Knight Adventures (USA).md",
+          "size": 1048576,
+          "crc32": "4b6ee8b8"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Sagaia (USA) (Translated PtBr).zip",
+      "size_bytes": 430635,
+      "mtime_iso": "2019-09-09T14:14:12.000Z",
+      "head_sha256": "fefe8998e454ba9727132e1911ff5e63b1c4cf85f59b9dd64640cc2b594552d4",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Sagaia (USA).gen",
+          "size": 1048576,
+          "crc32": "d58cfc6b"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Shadow Dancer - The Secret of Shinobi (World) (Translated PtBr).zip",
+      "size_bytes": 350029,
+      "mtime_iso": "2019-09-09T14:14:12.000Z",
+      "head_sha256": "a61a932837bf450fe62fced7fd98166a7e5a1c4e8c2e65c128ed24fd8ee8efe9",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Shadow Dancer - The Secret of Shinobi (World).bin",
+          "size": 524288,
+          "crc32": "4eb29d22"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Shinobi III - Return of the Ninja Master (USA) (Translated PtBr).zip",
+      "size_bytes": 639515,
+      "mtime_iso": "2019-09-09T14:14:14.000Z",
+      "head_sha256": "0f4288382dd072d02b5e66ecc4925cf8ad597758b4901fca2b53690d07e9d10e",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Shinobi III - Return of the Ninja Master (USA).bin",
+          "size": 1048576,
+          "crc32": "0df26c36"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Show do Milhao - Vol. 1 (pt) (Translated PtBr).zip",
+      "size_bytes": 1280512,
+      "mtime_iso": "2019-09-09T14:14:14.000Z",
+      "head_sha256": "19ee41f2d5782891ccda7b2d4d95e493782169a1285b8553ee316ee0e219f56c",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Show do Milhao - Vol. 1 (pt).md",
+          "size": 2097152,
+          "crc32": "0a22df04"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Show do Milhao - Vol. 2 (pt) (Translated PtBr).zip",
+      "size_bytes": 1272706,
+      "mtime_iso": "2019-09-09T14:14:14.000Z",
+      "head_sha256": "76adf0ede60d3d351d7999ce54898596872af85765d90f2b07ab46fe40a1b2ff",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Show do Milhao - Vol. 2 (pt).md",
+          "size": 2097152,
+          "crc32": "48ee66cb"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Sonic Delta Reloaded (Brazil) (Unl).zip",
+      "size_bytes": 3200620,
+      "mtime_iso": "2026-07-02T20:14:04.934Z",
+      "head_sha256": "98fd1b1c4d71a17be3f54871462efbe68716f2c5fbaad1fa42790df5f78b7dec",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Sonic Delta Reloaded (Brazil) (Unl).bin",
+          "size": 5242880,
+          "crc32": "cd3fcb43"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Sonic the Hedgehog (USA, Europe) (Translated PtBr).zip",
+      "size_bytes": 396488,
+      "mtime_iso": "2019-09-09T14:14:16.000Z",
+      "head_sha256": "362c7232a781d38538446ee755256f5bebe7214adcf9be33bb31616262c36667",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Sonic the Hedgehog (USA, Europe).bin",
+          "size": 531577,
+          "crc32": "1de03238"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Sonic the Hedgehog (USA, Europe).bin",
+      "size_bytes": 531577,
+      "mtime_iso": "2019-09-01T18:53:07.224Z",
+      "head_sha256": "3fd6e52b059665c0221f20175acad3853d21914186155c7be2ed9a15a095a9e6",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".bin"
+    },
+    {
+      "path_rel": "genesis/Spider-Man vs The Kingpin (W) [!] (Translated PtBr).zip",
+      "size_bytes": 389543,
+      "mtime_iso": "2019-09-03T15:59:56.000Z",
+      "head_sha256": "5fff23971a2b8b818b1a998d4c39dcad91f1b09c5ba836ee35015011fce2c494",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Spider-Man vs The Kingpin (W) [!].gen",
+          "size": 524288,
+          "crc32": "a170b34d"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Story of Thor, The (Europe) (Translated PtBr).zip",
+      "size_bytes": 1806406,
+      "mtime_iso": "2019-09-03T15:59:56.000Z",
+      "head_sha256": "dd342c0bd86a298564afeed008318c0c8d90e3dd6faa0a9bcd0e0011d06b8a0c",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Story of Thor, The (Europe).gen",
+          "size": 3145728,
+          "crc32": "35f73fa2"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Streets of Rage (World) (Translated PtBr).zip",
+      "size_bytes": 373111,
+      "mtime_iso": "2019-09-09T14:14:16.000Z",
+      "head_sha256": "56c61d59a562d9c759c6708961ee4b17797435567f393c5d2f8303e4fae2a842",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Streets of Rage (World).gen",
+          "size": 524288,
+          "crc32": "88e4ef3c"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Streets of Rage 2 (USA) (Translated PtBr).zip",
+      "size_bytes": 1035435,
+      "mtime_iso": "2019-09-09T14:14:16.000Z",
+      "head_sha256": "86f6981b01ea0ae02e4dc9e0140d40a953b40c3167fff68b6f329b1d5ab0f78e",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Streets of Rage 2 (USA).bin",
+          "size": 2097152,
+          "crc32": "1818b03f"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Streets of Rage 3 (USA) (Translated PtBr).zip",
+      "size_bytes": 1686188,
+      "mtime_iso": "2019-09-09T14:14:16.000Z",
+      "head_sha256": "0eb037c582d9bc63b9c3963cf8293fd12261e240bb2e7e6ed2d3fb18cf43202b",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Streets of Rage 3 (USA).gen",
+          "size": 3145728,
+          "crc32": "a553ff4f"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Strider (USA, Europe) (Translated PtBr).zip",
+      "size_bytes": 680053,
+      "mtime_iso": "2019-09-09T14:14:16.000Z",
+      "head_sha256": "f9891f2fe7325aacc5ac1febb7fc26e7bd9931bb200d72142efa0634b62759c0",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Strider (USA, Europe).gen",
+          "size": 1048576,
+          "crc32": "e95c3b81"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Super Spin (Preview Version) (Unl).zip",
+      "size_bytes": 174376,
+      "mtime_iso": "2026-07-02T20:14:07.293Z",
+      "head_sha256": "2491fe21e94b8ef5691241270ac170006b48584ec19f07a3785769be804da439",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Super Spin (Preview Version) (Unl).gen",
+          "size": 1048576,
+          "crc32": "93030837"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Super Street Fighter II - The New Challengers (USA) (Translated PtBr).zip",
+      "size_bytes": 2835408,
+      "mtime_iso": "2019-09-03T15:59:56.000Z",
+      "head_sha256": "449a66e9376453030305a798a0ec85dc474f91983775be488ffdf09b2d4ae683",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Super Street Fighter II - The New Challengers (USA).bin",
+          "size": 5242880,
+          "crc32": "0198b9f8"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Syd of Valis (USA) (Translated PtBr).zip",
+      "size_bytes": 289811,
+      "mtime_iso": "2019-09-09T14:14:16.000Z",
+      "head_sha256": "3108ba78f65138e781b8e170dd5f95101882d71317dfcb76e187bdca0541296f",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Syd of Valis (USA).gen",
+          "size": 524288,
+          "crc32": "2c37fe22"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Taz-Mania (World) (Translated PtBr).zip",
+      "size_bytes": 341095,
+      "mtime_iso": "2019-09-09T14:14:18.000Z",
+      "head_sha256": "85ac0d97e7ac4f980d2424e2736176fbfb6311966b9358589c546091fdf80072",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Taz-Mania (World).gen",
+          "size": 524288,
+          "crc32": "5b46e125"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/The Amazing Spider-Man vs. The Kingpin (Translated PtBr).zip",
+      "size_bytes": 389553,
+      "mtime_iso": "2019-09-09T14:14:18.000Z",
+      "head_sha256": "7ca49b2bb12f0e262dd311d5524ba8123d47f64896e49e69b3fafa3e080e6e0f",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "The Amazing Spider-Man vs. The Kingpin.bin",
+          "size": 524288,
+          "crc32": "a170b34d"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Toy Story (USA) (Translated PtBr).zip",
+      "size_bytes": 2683323,
+      "mtime_iso": "2019-09-09T14:14:18.000Z",
+      "head_sha256": "059d94ec7b4741497725f2155fae75f5b3d5fe232efc3dc2f40e626d84767b6f",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Toy Story (USA).md",
+          "size": 4194304,
+          "crc32": "609b7833"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Truxton (World) (Translated PtBr).zip",
+      "size_bytes": 230416,
+      "mtime_iso": "2019-09-09T14:14:20.000Z",
+      "head_sha256": "033510fe7bcdf9a6451c513bc893e57d7d0355ae23decf78ebf59526c6f8bb0f",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Truxton (World).gen",
+          "size": 524288,
+          "crc32": "a2fd012f"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Turma da Monica na Terra dos Monstros (Brazil) (Translated PtBr).zip",
+      "size_bytes": 562724,
+      "mtime_iso": "2019-09-09T14:14:20.000Z",
+      "head_sha256": "fb6c40b5348d8d1c1704aca778e168f2a4f691b44b68c96718550774ee17363e",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Turma da Monica na Terra dos Monstros (Brazil).md",
+          "size": 1048576,
+          "crc32": "f8288de1"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Twinkle Tale (Japan) (Translated En) (Translated PtBr).zip",
+      "size_bytes": 544546,
+      "mtime_iso": "2019-09-09T14:14:20.000Z",
+      "head_sha256": "34cc1433c372d9739f1a48c9f6d41121b3c9dbdb40796c340199547f31bc97ba",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Twinkle Tale (Japan) (Translated En).gen",
+          "size": 1048576,
+          "crc32": "0190f7d1"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Valis (USA) (Translated PtBr).zip",
+      "size_bytes": 755178,
+      "mtime_iso": "2019-09-09T14:14:20.000Z",
+      "head_sha256": "68d7b0d2076e744d181078fc69ef6698ad28a243ce7d07178c068922ef901712",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Valis (USA).gen",
+          "size": 1048576,
+          "crc32": "3497d503"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Valis III (USA) (Translated PtBr).zip",
+      "size_bytes": 782109,
+      "mtime_iso": "2019-09-09T14:14:20.000Z",
+      "head_sha256": "2c9e3007b5b4423eea3885115a60f5bb5d050fdc4ed8860fe9254e6e9d6e9c5d",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Valis III (USA).gen",
+          "size": 1048576,
+          "crc32": "793050b3"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Vectorman (USA, Europe) (Translated PtBr).zip",
+      "size_bytes": 1374178,
+      "mtime_iso": "2019-09-09T14:14:20.000Z",
+      "head_sha256": "27b7ba3399c65ae1ac317b1035c6b8faaf7e7db5a8bb8bc04f931236bcbedb0c",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Vectorman (USA, Europe).bin",
+          "size": 3145728,
+          "crc32": "aa5a3614"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Vectorman 2 (USA) (Translated PtBr).zip",
+      "size_bytes": 1374166,
+      "mtime_iso": "2019-09-03T15:59:58.000Z",
+      "head_sha256": "77d5289aa2e9edf95ab9e9563194091800d987a3e4cded15479fc9c6e003d303",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Vectorman 2 (USA).bin",
+          "size": 3145728,
+          "crc32": "aa5a3614"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Where in Time Is Carmen Sandiego (USA, Europe) (Translated PtBr).zip",
+      "size_bytes": 654988,
+      "mtime_iso": "2019-09-09T14:14:20.000Z",
+      "head_sha256": "a3bd2478629168430bc0a1eee12094f30167cdff12d68d1141731f105864bc48",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Where in Time Is Carmen Sandiego (USA, Europe).md",
+          "size": 1048576,
+          "crc32": "d523b552"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Where in the World Is Carmen Sandiego (USA, Europe) (Translated PtBr).zip",
+      "size_bytes": 740893,
+      "mtime_iso": "2019-09-09T14:14:20.000Z",
+      "head_sha256": "ca0c2d91189234a3fe1d3b43a669694250a3fb33d8576e9a3f39b8fe53e47b95",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Where in the World Is Carmen Sandiego (USA, Europe).bin",
+          "size": 1048576,
+          "crc32": "7d4450ad"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Windjammers  (Pyrons Layr) ( Demo Alpha 8) (Unl).zip",
+      "size_bytes": 502610,
+      "mtime_iso": "2026-07-02T20:14:08.118Z",
+      "head_sha256": "5e8306fcf1b2156e3b25ca840b11f8bba074e1fa9dbf28c9718682b9da989056",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Windjammers  (Pyrons Layr) ( Demo Alpha 8) (Unl).bin",
+          "size": 1048576,
+          "crc32": "d985b51b"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Wonder Boy in Monster World (USA, Europe) (Translated PtBr).zip",
+      "size_bytes": 563554,
+      "mtime_iso": "2019-09-09T14:14:20.000Z",
+      "head_sha256": "7ed49c232ab53b98a4f95a4e55512de74114d7d9dfcf416f65e7ef4d2662c588",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Wonder Boy in Monster World (USA, Europe).gen",
+          "size": 786432,
+          "crc32": "31ca316a"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/X-Men 2 - Clone Wars (USA, Europe) (Translated PtBr).zip",
+      "size_bytes": 1174732,
+      "mtime_iso": "2019-09-09T14:14:22.000Z",
+      "head_sha256": "ac3a58a2b57827bb9f21f4dfe45038568e8fbf2cad1d4820f46161cf57942e6d",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "X-Men 2 - Clone Wars (USA, Europe).bin",
+          "size": 2097152,
+          "crc32": "c29f50dd"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Yu Yu Hakusho Sunset Fighters (Translated PtBr).zip",
+      "size_bytes": 1215937,
+      "mtime_iso": "2019-09-09T14:14:22.000Z",
+      "head_sha256": "bdd338c7d8c59d5944a32aa84dc609e459f67d05204ca4334d733d9708462767",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Yu Yu Hakusho Sunset Fighters.md",
+          "size": 3145728,
+          "crc32": "fe3fb8ee"
+        }
+      ]
+    },
+    {
+      "path_rel": "genesis/Yuu Yuu Hakusho - Makyou Toitsusen (Japan) (Translated En) (Translated PtBr).zip",
+      "size_bytes": 1232601,
+      "mtime_iso": "2019-09-09T14:14:22.000Z",
+      "head_sha256": "08d97d83f8266a3e1b65ce5baf033bc2238951e8d0fce7f6eb56915a48540576",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Yuu Yuu Hakusho - Makyou Toitsusen (Japan) (Translated En).gen",
+          "size": 3155396,
+          "crc32": "c2caf703"
+        }
+      ]
+    },
+    {
+      "path_rel": "megadrive/Doom (Europe) (MD+) [Hack by D32XR Team v2.2b].zip",
+      "size_bytes": 618967912,
+      "mtime_iso": "2025-10-14T02:30:56.518Z",
+      "head_sha256": "7f176d9952f3cad5c4baa2c325cb58e4d30d5971d8b9147dbfb7e5934b86291a",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Doom (Europe) (MD+).32x",
+          "size": 4194304,
+          "crc32": "c7d37f52"
+        },
+        {
+          "name": "Doom (Europe) (MD+).cue",
+          "size": 2482,
+          "crc32": "d5a4f1e3"
+        },
+        {
+          "name": "Track 01.wav",
+          "size": 33480756,
+          "crc32": "f7385e4a"
+        },
+        {
+          "name": "Track 02.wav",
+          "size": 34482736,
+          "crc32": "5837fd8b"
+        },
+        {
+          "name": "Track 03.wav",
+          "size": 42343100,
+          "crc32": "6448feef"
+        },
+        {
+          "name": "Track 04.wav",
+          "size": 28887600,
+          "crc32": "5cc988ab"
+        },
+        {
+          "name": "Track 05-14.wav",
+          "size": 44434592,
+          "crc32": "212312b2"
+        },
+        {
+          "name": "Track 06.wav",
+          "size": 21506044,
+          "crc32": "fabd3556"
+        },
+        {
+          "name": "Track 07-13-20.wav",
+          "size": 26617244,
+          "crc32": "dd623b7f"
+        },
+        {
+          "name": "Track 08.wav",
+          "size": 28674776,
+          "crc32": "621fca00"
+        },
+        {
+          "name": "Track 09.wav",
+          "size": 25878968,
+          "crc32": "3f4af7fc"
+        },
+        {
+          "name": "Track 10.wav",
+          "size": 28285092,
+          "crc32": "c84416c2"
+        },
+        {
+          "name": "Track 11-27.wav",
+          "size": 54903460,
+          "crc32": "28347b73"
+        },
+        {
+          "name": "Track 12-19.wav",
+          "size": 46575780,
+          "crc32": "9fa67036"
+        },
+        {
+          "name": "Track 15-22.wav",
+          "size": 38111776,
+          "crc32": "119761b6"
+        },
+        {
+          "name": "Track 16-23.wav",
+          "size": 39219516,
+          "crc32": "5d69a496"
+        },
+        {
+          "name": "Track 17.wav",
+          "size": 34878676,
+          "crc32": "1aeab639"
+        },
+        {
+          "name": "Track 18.wav",
+          "size": 23096408,
+          "crc32": "69931640"
+        },
+        {
+          "name": "Track 21.wav",
+          "size": 32549924,
+          "crc32": "fae861df"
+        },
+        {
+          "name": "Track 24.wav",
+          "size": 13184616,
+          "crc32": "fe450cce"
+        },
+        {
+          "name": "Track 25.wav",
+          "size": 36806768,
+          "crc32": "a78f8cf6"
+        },
+        {
+          "name": "Track 26.wav",
+          "size": 15439724,
+          "crc32": "3708cf95"
+        },
+        {
+          "name": "Track 28.wav",
+          "size": 1140488,
+          "crc32": "8d1ab0fe"
+        }
+      ]
+    },
+    {
+      "path_rel": "megadrive/Mortal Kombat II (Japan, USA) (MD+) [Hack by Jeroen Visser v1.0.4].zip",
+      "size_bytes": 71426418,
+      "mtime_iso": "2025-10-14T02:30:03.075Z",
+      "head_sha256": "7f319c4fda91e6bb04404cedc15c94e6dc9cd44a86a52817af4872e4f03d9eeb",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "Mortal Kombat II (Japan, USA) (MD+).32x",
+          "size": 4194304,
+          "crc32": "9c4c0fc0"
+        },
+        {
+          "name": "Mortal Kombat II (Japan, USA) (MD+).cue",
+          "size": 2411,
+          "crc32": "ffd04411"
+        },
+        {
+          "name": "Track 01.wav",
+          "size": 6379780,
+          "crc32": "d4b7f8c7"
+        },
+        {
+          "name": "Track 02.wav",
+          "size": 709772,
+          "crc32": "dd4d670e"
+        },
+        {
+          "name": "Track 03.wav",
+          "size": 577776,
+          "crc32": "8ca30c00"
+        },
+        {
+          "name": "Track 04.wav",
+          "size": 709388,
+          "crc32": "16c0cbbb"
+        },
+        {
+          "name": "Track 05.wav",
+          "size": 5114512,
+          "crc32": "a374aa75"
+        },
+        {
+          "name": "Track 06.wav",
+          "size": 359468,
+          "crc32": "e07317a8"
+        },
+        {
+          "name": "Track 07.wav",
+          "size": 1102416,
+          "crc32": "ec826522"
+        },
+        {
+          "name": "Track 08.wav",
+          "size": 6354604,
+          "crc32": "db28699e"
+        },
+        {
+          "name": "Track 09.wav",
+          "size": 268580,
+          "crc32": "c0e8869e"
+        },
+        {
+          "name": "Track 10.wav",
+          "size": 2572032,
+          "crc32": "263f6d21"
+        },
+        {
+          "name": "Track 11.wav",
+          "size": 7851476,
+          "crc32": "29cbbc4b"
+        },
+        {
+          "name": "Track 12.wav",
+          "size": 911808,
+          "crc32": "18f17de8"
+        },
+        {
+          "name": "Track 13.wav",
+          "size": 1201848,
+          "crc32": "fd9c9540"
+        },
+        {
+          "name": "Track 14.wav",
+          "size": 6149080,
+          "crc32": "a7d5275c"
+        },
+        {
+          "name": "Track 15.wav",
+          "size": 347564,
+          "crc32": "a3d2e42b"
+        },
+        {
+          "name": "Track 16.wav",
+          "size": 1145052,
+          "crc32": "0197683c"
+        },
+        {
+          "name": "Track 17.wav",
+          "size": 6409700,
+          "crc32": "36186582"
+        },
+        {
+          "name": "Track 18.wav",
+          "size": 319796,
+          "crc32": "684bd5a9"
+        },
+        {
+          "name": "Track 19.wav",
+          "size": 857488,
+          "crc32": "6d56bc61"
+        },
+        {
+          "name": "Track 20.wav",
+          "size": 7381112,
+          "crc32": "4a8c7d8c"
+        },
+        {
+          "name": "Track 21.wav",
+          "size": 340096,
+          "crc32": "a70187f7"
+        },
+        {
+          "name": "Track 22.wav",
+          "size": 1302188,
+          "crc32": "96814588"
+        },
+        {
+          "name": "Track 23.wav",
+          "size": 904156,
+          "crc32": "d448acd3"
+        },
+        {
+          "name": "Track 24.wav",
+          "size": 806636,
+          "crc32": "a664d4fe"
+        },
+        {
+          "name": "Track 25.wav",
+          "size": 689260,
+          "crc32": "0b6396ed"
+        },
+        {
+          "name": "Track 26.wav",
+          "size": 729860,
+          "crc32": "6879d250"
+        },
+        {
+          "name": "Track 27.wav",
+          "size": 938156,
+          "crc32": "56e64084"
+        },
+        {
+          "name": "Track 28.wav",
+          "size": 2738428,
+          "crc32": "b58320b6"
+        },
+        {
+          "name": "Track 29.wav",
+          "size": 9966856,
+          "crc32": "2c8dbc17"
+        }
+      ]
+    },
+    {
+      "path_rel": "megadrive/RocketPanda_Final_1_0.zip",
+      "size_bytes": 398871,
+      "mtime_iso": "2026-07-02T20:03:44.322Z",
+      "head_sha256": "d8458a9ea872fabf2d276c2d65b884df0976bf6a7d3f984f846fafa9dd5021a2",
+      "head_len": 65536,
+      "hash_scope": "primeiros 64 KiB (arquivo grande; inteiro nao medido)",
+      "ext": ".zip",
+      "zip_members": [
+        {
+          "name": "RocketPanda_Final_1_0.bin",
+          "size": 2097152,
+          "crc32": "ecbd5ba8"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,163 @@
+{
+  "esquema": "rex-parallel-d/frente-b/1",
+  "id": "dB-grid-v1",
+  "plain": {
+    "tam": 4096,
+    "sha256": "9e583a00b0317e7807c9c7e53ca27aeafeda55d9be0f331305a9360c00322acd"
+  },
+  "projecao": {
+    "base": 16715808,
+    "stride": 128,
+    "linhas": 64,
+    "colunas": 64,
+    "tam": 8192,
+    "sha256": "e2c499087b72cfd6320913b24ecae0e71f1d1cab199ecf1b3bfb5330ede78359",
+    "aritmetica": "buffer[r*128 + c] = plain[r*64 + c]; padding r*128+64..r*128+127 = 0"
+  },
+  "round_trip": {
+    "identico": true,
+    "sha_inverso": "9e583a00b0317e7807c9c7e53ca27aeafeda55d9be0f331305a9360c00322acd"
+  },
+  "padding_esperado_sha256": "ad7facb2586fc6e966c004d7d1d16b024f5805ff7cb47c7a85dabd8b48892ca7",
+  "celulas_discriminantes": [
+    {
+      "r": 0,
+      "c": 0,
+      "no_plain": 0,
+      "no_buffer": 0,
+      "valor": 144
+    },
+    {
+      "r": 0,
+      "c": 63,
+      "no_plain": 63,
+      "no_buffer": 63,
+      "valor": 18
+    },
+    {
+      "r": 1,
+      "c": 0,
+      "no_plain": 64,
+      "no_buffer": 128,
+      "valor": 147
+    },
+    {
+      "r": 63,
+      "c": 63,
+      "no_plain": 4095,
+      "no_buffer": 8127,
+      "valor": 175
+    }
+  ],
+  "kb1": [
+    {
+      "id": "KB1-chamada",
+      "endereco": 112338,
+      "esperado_bytes": "4eb90000171e",
+      "fonte": "CALIB.jsr_abs_l (registro externo) + alegação do contrato B",
+      "oraculo": "bytes da ROM BYOR pinada (lidos por D), não o doc de B"
+    },
+    {
+      "id": "KB1-copia-byte",
+      "endereco": 112376,
+      "esperado_bytes": "12d8",
+      "fonte": "derivado do layout MOVE de D; âncoras `1218`/`10c1`"
+    },
+    {
+      "id": "KB1-salto-padding",
+      "endereco": 112382,
+      "esperado_bytes": "43e90040",
+      "fonte": "CALIB: `43e9 0040` = lea 64(a1),a1"
+    },
+    {
+      "id": "KB1-contadores",
+      "endereco": [
+        112372,
+        112374
+      ],
+      "esperado_bytes": [
+        "723f",
+        "743f"
+      ],
+      "fonte": "moveq #63,D1 / moveq #63,D2 por `moveq(imm,dn)` de D (âncora `780f`)"
+    }
+  ],
+  "kb2": [
+    {
+      "id": "KB2-value-offset",
+      "endereco": 112334,
+      "esperado_bytes": "303c0000",
+      "fonte": "move.w #0,D0 de D (âncora `303c0000` de B conferida em ROM)"
+    },
+    {
+      "id": "KB2-tabela",
+      "endereco": 112204,
+      "entradas": 6,
+      "esperado_words": [
+        414770,
+        415404,
+        416446,
+        417306,
+        418548,
+        419782
+      ],
+      "fonte": "ponteiros lidos por D como 6 palavras longas big-endian na ROM pinada"
+    }
+  ],
+  "kb3": [
+    {
+      "id": "KB3-aceite",
+      "acao": "layout_de_plain(plain)",
+      "esperado": "aceito"
+    },
+    {
+      "id": "KB3-recusa-64x32",
+      "acao": "layout_de_plain(plain, linhas=32)",
+      "esperado_codigo": "geometria-errada"
+    },
+    {
+      "id": "KB3-recusa-grade",
+      "acao": "projetar(plain, colunas=32)",
+      "esperado_codigo": "geometria-errada"
+    },
+    {
+      "id": "KB3-recusa-stride",
+      "acao": "projetar(plain, stride=64)",
+      "esperado_codigo": "geometria-errada"
+    }
+  ],
+  "kb4": [
+    {
+      "id": "KB4-roundtrip",
+      "acao": "inverso_projecao(projetar(plain))",
+      "esperado": "identico ao plain autoral"
+    },
+    {
+      "id": "KB4-padding-sujo",
+      "acao": "inverso_projecao(buffer com 1 byte de padding != 0)",
+      "esperado_codigo": "padding-sujo"
+    }
+  ],
+  "nb": [
+    {
+      "id": "NB-1",
+      "acao": "verificar-cadeia.py cadeia --modo hipotetico",
+      "esperado": "rótulo HIPOTETICO e nenhuma promoção"
+    },
+    {
+      "id": "NB-2",
+      "acao": "cópia da ROM com 1 byte virado → modo verificado",
+      "esperado": "recusa rom-errada/nao-promovido; auditoria da prova anexa (D recalcula o SHA do --bin lido)"
+    }
+  ],
+  "denominador": {
+    "total": 14,
+    "partes": {
+      "KB1": 4,
+      "KB2": 2,
+      "KB3": 4,
+      "KB4": 2,
+      "NB": 2
+    }
+  }
+}

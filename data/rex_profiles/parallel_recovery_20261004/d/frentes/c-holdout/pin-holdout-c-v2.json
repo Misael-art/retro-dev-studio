@@ -1,0 +1,87 @@
+{
+  "esquema": "rex-parallel-d/holdout-pin/3",
+  "xerado_por": "scripts/rex_profiles/parallel_recovery_20261004/d/frentes/author_holdout_c_v2.mjs",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v2",
+  "conxunto": "holdout",
+  "fronte": "C",
+  "sha_medido": "8ea5821dbf3c61a0bc84ae49de54d8e2bd9557f5",
+  "politica": "inputs públicos versionados; respostas reservadas fóra da árbore e pinadas por SHA. O holdout `cbb6895` da rolda 2 non se reutiliza (R17) e ningunha resposta se edita despois de executar a ferramenta (R0).",
+  "respostas_fora_da_arvore": "/home/misael/rds-scratch/rex-heldout-d3",
+  "denominador": {
+    "partes": {
+      "KC1v": 18,
+      "KC2v": 4,
+      "KC3v": 2,
+      "KC4v": 4,
+      "KC5v": 5,
+      "TCv": 4
+    },
+    "total": 37,
+    "nota": "§12.13 conxela este denominador **antes** de executar C sobre o holdout. As partes son as mesmas capacidades da medición cunhas formas disxuntas: `KC1v` 18 (14 da lista fechada en familias que a medición non tocaba + 3 fóra da lista + 1 de coherencia), `KC2v` 4 (desprazamentos .B e laço DBcc .W), `KC3v` 2 (fronteiras `f200`/`1249`), `KC4v` 4 (JSR abs.W, JMP abs.L intra-rexión, JSR indirecto, TRAP #15), `KC5v` 5 (diamante, BRA sen caída, RTS, cobertura, vereditos) e `TCv` 4 (rc de vocabulario, rc de flag inexistente en `consultar`, sítio, mutación de byte). Ningunha destas filas entrou no denominador conxelado de §3/§5 da medición."
+  },
+  "disxuncion": {
+    "criterio": "palabra a palabra: ningunha codificación que no holdout sustenta unha fila graduada aparece nas sequencias graduadas de dC-cx1..cx4-v2; dentro do holdout tampouco se repite ningunha palabra nin dous sítios graduados comparten bytes. As sondas con `rol: controle` exclúense porque non afirman lonxitude nin mnemónico: son sentinelas de alcançabilidade.",
+    "filas_graduadas": 33,
+    "palabras_unicas": 33,
+    "controles_compartidos": [
+      "dC-ho2/rts1:0x000e",
+      "dC-ho2/rts2:0x0010",
+      "dC-ho3/rts-apos-f:0x0006",
+      "dC-ho3/rts-apos-inv:0x0016",
+      "dC-ho3/control:0x0034"
+    ],
+    "fixtures_medicion": [
+      "dC-cx1-v2",
+      "dC-cx2-v2",
+      "dC-cx3-v2",
+      "dC-cx4-v2"
+    ]
+  },
+  "instrumento": {
+    "version": "GNU assembler (GNU Binutils) 2.41",
+    "bandeira": [
+      "-m68000"
+    ],
+    "sha256_as": "618740559477258165eb1a344e07acd592afc1438061825469d5bd56fa2c87c7",
+    "sha256_objdump": "e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f",
+    "filas_sha256": "032eb989b530a31e2e580a09361e0a3d4900776963a9342fb132c3d79e539c67",
+    "gabarito_sha256": "54817106ddd0fd2136d701216fad543e2da74ff7265bd2d21960712f08749b11"
+  },
+  "arquivos": {
+    "dC-ho1-v2.bin": {
+      "sha256": "d7504d38c1e2c4e915ae07de7746851a5c67612d79fa6eef3454fd2caec7d7e2",
+      "bytes": 128
+    },
+    "dC-ho2-v2.bin": {
+      "sha256": "0ad65a4e9584a18469d6cfcaa17987c666853fc4133fa1d7d9c0bcb609b41033",
+      "bytes": 24
+    },
+    "dC-ho3-v2.bin": {
+      "sha256": "ceeb3769b73ad40f73c11e41d6ae3228dab1411204f7763a5d80b65894c3be39",
+      "bytes": 68
+    },
+    "dC-ho4-v2.bin": {
+      "sha256": "502b776e09c3cddf9b53890b78ac3cbfd0d2be25cd2ed1f95b1733916ed75cbe",
+      "bytes": 24
+    }
+  },
+  "respostas": {
+    "dC-ho1-respostas.json": {
+      "sha256": "9f8bfe0459a36d9c6bc65623287a1a5f149f81192a215813bc9173ed55e04f8d",
+      "bytes": 24892
+    },
+    "dC-ho2-respostas.json": {
+      "sha256": "af3477208524ae6fe5f5da1cfbc0d420716c6d7a78b721e569bc0defca8b4b14",
+      "bytes": 9558
+    },
+    "dC-ho3-respostas.json": {
+      "sha256": "64f5d4085493fad926c8714b946baa561a15ffce970ae76840b3d6de9ab5567b",
+      "bytes": 6281
+    },
+    "dC-ho4-respostas.json": {
+      "sha256": "cddf9f2e4aee719f5e4297e75b1e585acebb97fbadc94b15355906f17c35c91f",
+      "bytes": 10255
+    }
+  }
+}

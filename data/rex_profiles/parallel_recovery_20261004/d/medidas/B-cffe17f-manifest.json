@@ -1,0 +1,55 @@
+{
+  "esquema": "rex-parallel-d/evidencia/1",
+  "gerado_em": "2026-10-05",
+  "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/medidas/B-cffe17f.jsonl",
+  "linhas": 18,
+  "sha256": "d47f10e4568769b1283f63c1166a31e04e64fe4fb9f93a26acd414414215abfb",
+  "frente": "B",
+  "sha_frente": "cffe17fabcae6d5ce1dd23258f6883efef0b94c6",
+  "chave": "cffe17f",
+  "ferramenta": {
+    "cli": "/home/misael/rds-scratch/d-frentes-20261004/b-cffe17f/scripts/rex_profiles/parallel_recovery_20261004/b/verificar-cadeia.py",
+    "contrato": "/home/misael/rds-scratch/d-frentes-20261004/b-cffe17f/scripts/rex_profiles/parallel_recovery_20261004/b/contrato_sonic.py",
+    "sha256_cli": "29c1800d14e4478f3bbfbbab63f8ddc093f7f1fa7c33e955e16e457a8c819a89",
+    "sha256_contrato": "36bcc93504a9c6e3cb867ce9764c04e6edbba19c78aed0c712b64e36a469eb8f"
+  },
+  "procedencia": {
+    "frente": "B_velho",
+    "sha": "cffe17fabcae6d5ce1dd23258f6883efef0b94c6",
+    "arquivos": 4,
+    "divergentes": [],
+    "faltantes": [],
+    "ok": true
+  },
+  "rom": {
+    "caminho": "/home/misael/RDS-REX-CORPUS-E/.staging/Sonic the Hedgehog (USA, Europe).bin",
+    "presente": true,
+    "sha256_lido_por_d": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+    "pin": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+    "ok": true
+  },
+  "fixtures": [
+    {
+      "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/b/dB-grid-v1.bin",
+      "sha256": "9e583a00b0317e7807c9c7e53ca27aeafeda55d9be0f331305a9360c00322acd"
+    },
+    {
+      "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/b/dB-projecao-v1.bin",
+      "sha256": "e2c499087b72cfd6320913b24ecae0e71f1d1cab199ecf1b3bfb5330ede78359"
+    },
+    {
+      "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/b/dB-truth-v1.json",
+      "sha256": "e222edc1ceae51f59ae7a66358a81677828bdb105fc157dbcbdcd638fad22b4b"
+    }
+  ],
+  "denominador": {
+    "total": 14,
+    "partes": {
+      "KB1": 4,
+      "KB2": 2,
+      "KB3": 4,
+      "KB4": 2,
+      "NB": 2
+    }
+  }
+}

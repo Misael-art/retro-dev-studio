@@ -1,0 +1,25 @@
+{
+  "esquema": "rex-parallel-d/pin-frentes/3",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v3-A",
+  "conxunto": "holdout",
+  "denominador": {
+    "partes": {
+      "SEG-auto": 6,
+      "SEG-declarado": 3,
+      "SEG-neg": 1
+    },
+    "total": 10
+  },
+  "arquivos": {
+    "dA-seg-ho-v3.bin": {
+      "sha256": "2c42984038e3205c4aabe72decc47e24ffbdc6942e1047c049890586847b94a7",
+      "bytes": 131072
+    }
+  },
+  "respostas": {
+    "dA-seg-ho-v3-respostas.json": {
+      "sha256": "4473283d0b661c69cfaef9e541e1619090b003bec7a417a7e77311ca85a93627"
+    }
+  }
+}

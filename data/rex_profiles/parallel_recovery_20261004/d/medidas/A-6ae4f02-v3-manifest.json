@@ -1,0 +1,56 @@
+{
+  "esquema": "rex-parallel-d/evidencia/1",
+  "gerado_em": "2026-10-06",
+  "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/medidas/A-6ae4f02-v3.jsonl",
+  "linhas": 47,
+  "sha256": "2187c7d9901b595b154d82c105f8b8ecbf3c999fe0fc8058fcf8c2e830712d0b",
+  "ferramenta": {
+    "bin": "/home/misael/rds-scratch/d-frentes-20261004/a-6ae4f02/scripts/rex_profiles/parallel_recovery_20261004/a/target/release/rex-chain",
+    "verbo": "rex-chain",
+    "sha256": "2b1852ec071f5c98cf24d16b6ef7695628e9f04bf78a6f4d87917ea9c67aa01c"
+  },
+  "sha_frente": "6ae4f02b92bed30a1a6a04076f3db048b44bb1f0",
+  "procedencia": {
+    "frente": "A_6ae4f02",
+    "sha": "6ae4f02b92bed30a1a6a04076f3db048b44bb1f0",
+    "arquivos": 54,
+    "divergentes": [],
+    "faltantes": [],
+    "ok": true
+  },
+  "conjunto": "medicao",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v3-A",
+  "ventanxa": 16,
+  "denominador": {
+    "partes": {
+      "KA1v": 10,
+      "KA1v-neg": 2,
+      "KA1v-fora": 3,
+      "KA2v": 4,
+      "KA3v": 3,
+      "KA4v": 3,
+      "TAv": 10
+    },
+    "total": 35,
+    "nota": "§12.3 conxelaba «KA1v-neg 3 · KA1v-fora 2 · TAv 8 · total 32» para a fronte A. v2 (rectificación datada §12.10, escrita antes de calquera medición v2): `61 FF` lése como BSR.S válido polo desmontador e pasa de neg a fora; TA-3 desdóbase en TA-3a/TA-3b para illar vínculo e xanela; re-avaliación de códigos (requisito 7) mantén TA-5v en rc 2 e engade TA-5b, que exerce o elo `forma-carga` que v1 nunca tocou. KA3v conta a fila base máis as dúas gardas."
+  },
+  "imagem": {
+    "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/a/dA-img-v2.bin",
+    "bytes": 131072,
+    "sha256": "e02ab639083ae047541c6700383f39d9afae4316f63f006875fcb87526e6ae5a"
+  },
+  "truth": {
+    "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/a/dA-truth-v2.json",
+    "sha256": "c7ddde79390ceffe9ed6fccc76f50dd2203417a38a98e296030987d6f551d414"
+  },
+  "pin": {
+    "arquivo": "pin-v2.json",
+    "sha256": "42485849abd9672ca37c18de22a2d768f76bb79d1a52b859157e4f4cc3f647a7"
+  },
+  "pin_seg": {
+    "arquivo": "pin-seg-v3.json",
+    "sha256": "869ab311ddc573adfce37db795076554883814022fa894cf70b878c6a8a65f02"
+  },
+  "frente": "A"
+}

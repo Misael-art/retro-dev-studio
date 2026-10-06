@@ -1,0 +1,30 @@
+{
+  "esquema": "rex-parallel-d/pin-frentes/2",
+  "xerado_por": "scripts/rex_profiles/parallel_recovery_20261004/d/frentes/author_b_v2.mjs",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v2-B",
+  "denominador": {
+    "partes": {
+      "KB1v": 5,
+      "KB2v": 2,
+      "KBC": 7,
+      "KBE": 11
+    },
+    "nota": "KB1v 5 (chamada, copia, salto, contador d1 e d2); KB2v 2 (value-offset + táboa de 6 ponteiros); KBC 7 (call site, Pal_Index, Pal_Special, tabela de paredes, blink, palcycle, hipótese); KBE 11 (5 slots, 4 truncamentos, sensibilidade, ausencia de panic). `KBE-slot-5` e a equivalencia de saída son `descoñecido` e non entran no denominador. KB3/KB4/NB seguen no gabarito v1 (sen dependencia de ISA).",
+    "total": 25
+  },
+  "instrumento": {
+    "version": "GNU assembler (GNU Binutils) 2.41",
+    "bandeira": [
+      "-m68000"
+    ],
+    "sha256_as": "618740559477258165eb1a344e07acd592afc1438061825469d5bd56fa2c87c7",
+    "sha256_objdump": "e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f"
+  },
+  "arquivos": {
+    "dB-truth-v2.json": {
+      "sha256": "b967b1c2d8ae9453b8d245a366178f50ea7a51ff92c3eb8fce85dff53bb4e061",
+      "bytes": 17698
+    }
+  }
+}

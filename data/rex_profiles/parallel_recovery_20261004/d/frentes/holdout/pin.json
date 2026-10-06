@@ -1,0 +1,46 @@
+{
+  "esquema": "rex-parallel-d/holdout-pin/2",
+  "gerado_por": "author_frentes.mjs::gravarHoldouts",
+  "politica": "inputs versionados; respostas reservadas fora da árvore",
+  "respostas_fora_da_arvore": "/home/misael/rds-scratch/rex-heldout-d2",
+  "entradas": [
+    {
+      "id": "H-A",
+      "arquivo": "data/.../holdout/dA-img-ho3.bin",
+      "bytes": 131072,
+      "sha256": "a07eb617b3c57e68413430eb5d59ca7c8ceb9881cf6318912820b4a8ba7441c6",
+      "respostas": "H-A3-respostas.json",
+      "pontua": true
+    },
+    {
+      "id": "H-A-v1",
+      "arquivo": "data/.../holdout/dA-img-ho1.bin",
+      "bytes": 131072,
+      "sha256": "d25259936f9a350646e683e40e034194d8c5f139db11037c3389913c7cd85456",
+      "pontua": false,
+      "estado": "void",
+      "motivo": "entrada inválida autorada por D: fluxo s2 (149 B en 0x9400) pisou o final de s1 (1157 B en 0x9000); o decodificador de D rexeita a imaxe (`referencia antes do historico`), polo que a recusa de A non informa sobre A"
+    },
+    {
+      "id": "H-A-v2",
+      "arquivo": "data/.../holdout/dA-img-ho2.bin",
+      "bytes": 131072,
+      "sha256": "2a92e4b64483da114260eb658195636daaa0e78c9843a0165638a52e9b2e912a",
+      "pontua": false,
+      "estado": "void",
+      "motivo": "streams válidos, pero a sonda lea.l d16(PC),A2 en 0x414 tiña desprazamento 0x8bec → asinado −28 924, alvo fóra da imaxe; a fila KA1-3 medía a autoría de D, non a forma de carga de A"
+    },
+    {
+      "id": "H-B",
+      "arquivo": "data/.../holdout/dB-grid-ho1.bin",
+      "bytes": 4096,
+      "sha256": "67e92f26ae0517a130b95ac39d7d90aab8442aa9fc535b91bf0fa8f3a6349198"
+    },
+    {
+      "id": "H-C",
+      "arquivo": "data/.../holdout/dC-cx9-ho1.bin",
+      "bytes": 12,
+      "sha256": "9be0e2ed73bd6f206510b6238b29e2d4955956d6ce16552ec1626c57e3e6d8b2"
+    }
+  ]
+}

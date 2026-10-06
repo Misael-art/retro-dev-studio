@@ -1,0 +1,319 @@
+{
+  "esquema": "rex-parallel-d/truth-c-cx5/3",
+  "id": "dC-cx5-v3.bin",
+  "instancia": "medicao",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v3-C",
+  "xerado_por": "scripts/rex_profiles/parallel_recovery_20261004/d/frentes/author_c_v3.mjs",
+  "origin": 4096,
+  "regioes": [
+    {
+      "inicio": 4096,
+      "fim": 4224
+    }
+  ],
+  "raizes": [
+    {
+      "endereco": 4096,
+      "proveniencia": "candidato",
+      "evidencia": "sonda-TR-0"
+    },
+    {
+      "endereco": 4098,
+      "proveniencia": "candidato",
+      "evidencia": "sonda-TR-4"
+    },
+    {
+      "endereco": 4100,
+      "proveniencia": "candidato",
+      "evidencia": "sonda-TR-8"
+    },
+    {
+      "endereco": 4102,
+      "proveniencia": "candidato",
+      "evidencia": "sonda-MV-0"
+    },
+    {
+      "endereco": 4106,
+      "proveniencia": "candidato",
+      "evidencia": "sonda-MV-1"
+    },
+    {
+      "endereco": 4112,
+      "proveniencia": "candidato",
+      "evidencia": "sonda-MV-2"
+    },
+    {
+      "endereco": 4114,
+      "proveniencia": "candidato",
+      "evidencia": "sonda-MV-3"
+    },
+    {
+      "endereco": 4116,
+      "proveniencia": "candidato",
+      "evidencia": "sonda-AW-0"
+    },
+    {
+      "endereco": 4120,
+      "proveniencia": "candidato",
+      "evidencia": "sonda-AW-1"
+    },
+    {
+      "endereco": 4124,
+      "proveniencia": "candidato",
+      "evidencia": "sonda-AW-2"
+    },
+    {
+      "endereco": 4160,
+      "proveniencia": "referencia-estatica",
+      "evidencia": "sentinela"
+    }
+  ],
+  "sitios_consulta": [
+    4116,
+    4120,
+    4124
+  ],
+  "imaxe": {
+    "bytes": 128,
+    "sha256": "b154429f02caa35c607fdb74b56769e48749b666553f62198c65248c29f44fb7"
+  },
+  "filas": [
+    {
+      "id": "V3-TR-0",
+      "cap": "KC4v",
+      "forma": "trap #0",
+      "endereco": 4096,
+      "bytes": "4E40",
+      "tam": 2,
+      "mnem": "trap #0",
+      "desmontaxe": "1000:\t4e40\ttrap #0",
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "trap"
+        ],
+        "fronteira": "trap-opaco"
+      }
+    },
+    {
+      "id": "V3-TR-4",
+      "cap": "KC4v",
+      "forma": "trap #4",
+      "endereco": 4098,
+      "bytes": "4E44",
+      "tam": 2,
+      "mnem": "trap #4",
+      "desmontaxe": "1002:\t4e44\ttrap #4",
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "trap"
+        ],
+        "fronteira": "trap-opaco"
+      }
+    },
+    {
+      "id": "V3-TR-8",
+      "cap": "KC4v",
+      "forma": "trap #8",
+      "endereco": 4100,
+      "bytes": "4E48",
+      "tam": 2,
+      "mnem": "trap #8",
+      "desmontaxe": "1004:\t4e48\ttrap #8",
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "trap"
+        ],
+        "fronteira": "trap-opaco"
+      }
+    },
+    {
+      "id": "V3-MV-0",
+      "cap": "KC1v",
+      "forma": "movea.w #0x1234,%a2",
+      "endereco": 4102,
+      "bytes": "347C1234",
+      "tam": 4,
+      "mnem": "moveaw #4660,%a2",
+      "desmontaxe": "1006:\t347c1234\tmoveaw #4660,%a2",
+      "esperado": {
+        "tam": 4,
+        "stems": [
+          "movea"
+        ]
+      }
+    },
+    {
+      "id": "V3-MV-1",
+      "cap": "KC1v",
+      "forma": "movea.l #0x00001000,%a4",
+      "endereco": 4106,
+      "bytes": "287C00001000",
+      "tam": 6,
+      "mnem": "moveal #4096,%a4",
+      "desmontaxe": "100a:\t287c00001000\tmoveal #4096,%a4",
+      "esperado": {
+        "tam": 6,
+        "stems": [
+          "movea"
+        ]
+      }
+    },
+    {
+      "id": "V3-MV-2",
+      "cap": "KC1v",
+      "forma": "movea.w %d3,%a5",
+      "endereco": 4112,
+      "bytes": "3A43",
+      "tam": 2,
+      "mnem": "moveaw %d3,%a5",
+      "desmontaxe": "1010:\t3a43\tmoveaw %d3,%a5",
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "movea"
+        ]
+      }
+    },
+    {
+      "id": "V3-MV-3",
+      "cap": "KC1v",
+      "forma": "movea.l (%a1),%a3",
+      "endereco": 4114,
+      "bytes": "2651",
+      "tam": 2,
+      "mnem": "moveal %a1@,%a3",
+      "desmontaxe": "1012:\t2651\tmoveal %a1@,%a3",
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "movea"
+        ]
+      }
+    },
+    {
+      "id": "V3-AW-0",
+      "cap": "KC4v",
+      "forma": "jsr 32768",
+      "endereco": 4116,
+      "bytes": "4EB88000",
+      "tam": 4,
+      "mnem": "jsr ffff8000 <p_SENTINELA+0xffff6fc0>",
+      "desmontaxe": "1014:\t4eb88000\tjsr ffff8000 <p_SENTINELA+0xffff6fc0>",
+      "esperado": {
+        "alvo": 4294934528,
+        "aresta_tipo": "chamada",
+        "status": "fora-da-regiao"
+      }
+    },
+    {
+      "id": "V3-CV-0",
+      "cap": "CVv",
+      "forma": "consultar jsr 32768",
+      "endereco": 4116,
+      "bytes": "4EB88000",
+      "tam": 4,
+      "mnem": "jsr ffff8000 <p_SENTINELA+0xffff6fc0>",
+      "desmontaxe": "1014:\t4eb88000\tjsr ffff8000 <p_SENTINELA+0xffff6fc0>",
+      "esperado": {
+        "alvo": 4294934528,
+        "endereco_efetivo": 4294934528,
+        "endereco_de_barramento": 16744448,
+        "offset_de_objeto": null,
+        "promovivel_vinculo_estrutural": "nao",
+        "consumidor_validado": "sim"
+      }
+    },
+    {
+      "id": "V3-AW-1",
+      "cap": "KC4v",
+      "forma": "jmp 32766",
+      "endereco": 4120,
+      "bytes": "4EF87FFE",
+      "tam": 4,
+      "mnem": "jmp 7ffe <p_SENTINELA+0x6fbe>",
+      "desmontaxe": "1018:\t4ef87ffe\tjmp 7ffe <p_SENTINELA+0x6fbe>",
+      "esperado": {
+        "alvo": 32766,
+        "aresta_tipo": "desvio",
+        "status": "fora-da-regiao"
+      }
+    },
+    {
+      "id": "V3-CV-1",
+      "cap": "CVv",
+      "forma": "consultar jmp 32766",
+      "endereco": 4120,
+      "bytes": "4EF87FFE",
+      "tam": 4,
+      "mnem": "jmp 7ffe <p_SENTINELA+0x6fbe>",
+      "desmontaxe": "1018:\t4ef87ffe\tjmp 7ffe <p_SENTINELA+0x6fbe>",
+      "esperado": {
+        "alvo": 32766,
+        "endereco_efetivo": 32766,
+        "endereco_de_barramento": 32766,
+        "offset_de_objeto": null,
+        "promovivel_vinculo_estrutural": "nao",
+        "consumidor_validado": "sim"
+      }
+    },
+    {
+      "id": "V3-AW-2",
+      "cap": "KC4v",
+      "forma": "jmp sentinela",
+      "endereco": 4124,
+      "bytes": "4EF81040",
+      "tam": 4,
+      "mnem": "jmp 1040 <p_SENTINELA>",
+      "desmontaxe": "101c:\t4ef81040\tjmp 1040 <p_SENTINELA>",
+      "esperado": {
+        "alvo": 4160,
+        "aresta_tipo": "desvio",
+        "status": "resolvido"
+      }
+    },
+    {
+      "id": "V3-CV-2",
+      "cap": "CVv",
+      "forma": "consultar jmp sentinela",
+      "endereco": 4124,
+      "bytes": "4EF81040",
+      "tam": 4,
+      "mnem": "jmp 1040 <p_SENTINELA>",
+      "desmontaxe": "101c:\t4ef81040\tjmp 1040 <p_SENTINELA>",
+      "esperado": {
+        "alvo": 4160,
+        "endereco_efetivo": 4160,
+        "endereco_de_barramento": 4160,
+        "offset_de_objeto": 64,
+        "promovivel_vinculo_estrutural": "nao",
+        "consumidor_validado": "sim"
+      }
+    }
+  ],
+  "instrumento": {
+    "version": "GNU assembler (GNU Binutils) 2.41",
+    "sha256_as": "618740559477258165eb1a344e07acd592afc1438061825469d5bd56fa2c87c7",
+    "sha256_objdump": "e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f"
+  },
+  "fontes": [
+    "PRM §2.2.16: o endereço absoluto curto é estendido por sinal; o instrumento imprime o efectivo (EA) e D toma o seu valor",
+    "contrato de C `5f97368` §3: TRAP #n → fronteira `trap-opaco`; MOVEA .W/.L válidos (R-3)"
+  ],
+  "limites_de_autoria": [
+    "a clave `trap-opaco` é o rótulo do contrato de C, non do instrumento",
+    "os nomes de campos de `consultar` (rex-cfg-sitio/v2) son os publicados por C",
+    "imaxe sintética; recheo 0xFF"
+  ],
+  "denominador": {
+    "partes": {
+      "KC4v": 6,
+      "KC1v": 4,
+      "CVv": 3
+    },
+    "total": 13
+  }
+}

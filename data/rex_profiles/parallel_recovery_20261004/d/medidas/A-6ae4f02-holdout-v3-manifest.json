@@ -1,0 +1,56 @@
+{
+  "esquema": "rex-parallel-d/evidencia/1",
+  "gerado_em": "2026-10-06",
+  "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/medidas/A-6ae4f02-holdout-v3.jsonl",
+  "linhas": 46,
+  "sha256": "96c2790721e95f25198d29d0d3bb5771fc3a31edd0bc98d1e4a8d26eedab6c82",
+  "ferramenta": {
+    "bin": "/home/misael/rds-scratch/d-frentes-20261004/a-6ae4f02/scripts/rex_profiles/parallel_recovery_20261004/a/target/release/rex-chain",
+    "verbo": "rex-chain",
+    "sha256": "2b1852ec071f5c98cf24d16b6ef7695628e9f04bf78a6f4d87917ea9c67aa01c"
+  },
+  "sha_frente": "6ae4f02b92bed30a1a6a04076f3db048b44bb1f0",
+  "procedencia": {
+    "frente": "A_6ae4f02",
+    "sha": "6ae4f02b92bed30a1a6a04076f3db048b44bb1f0",
+    "arquivos": 54,
+    "divergentes": [],
+    "faltantes": [],
+    "ok": true
+  },
+  "conjunto": "holdout",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v3-A",
+  "ventanxa": 16,
+  "denominador": {
+    "partes": {
+      "KA1v": 10,
+      "KA1v-neg": 2,
+      "KA1v-fora": 3,
+      "KA2v": 4,
+      "KA3v": 3,
+      "KA4v": 3,
+      "TAv": 10
+    },
+    "total": 35,
+    "nota": "§12.3 conxelaba «KA1v-neg 3 · KA1v-fora 2 · TAv 8 · total 32» para a fronte A. v2 (rectificación datada §12.10, escrita antes de calquera medición v2): `61 FF` lése como BSR.S válido polo desmontador e pasa de neg a fora; TA-3 desdóbase en TA-3a/TA-3b para illar vínculo e xanela; re-avaliación de códigos (requisito 7) mantén TA-5v en rc 2 e engade TA-5b, que exerce o elo `forma-carga` que v1 nunca tocou. KA3v conta a fila base máis as dúas gardas."
+  },
+  "imagem": {
+    "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/a-holdout/dA-img-ho3-v2.bin",
+    "bytes": 131072,
+    "sha256": "d3dae9f5a3646c73d53b06696599cc81ca71e451167cf8078f68985803dc84ad"
+  },
+  "truth": {
+    "arquivo": "../../rds-scratch/rex-heldout-d3/dA-ho3-respostas.json",
+    "sha256": "respostas reservadas fóra da árbore"
+  },
+  "pin": {
+    "arquivo": "pin-holdout-a-v3.json",
+    "sha256": "999de35d26facf3e8f90483ed6888c602fff9d2b2a6c9b4cf6d8dd7905221746"
+  },
+  "pin_seg": {
+    "arquivo": "pin-seg-holdout-v3.json",
+    "sha256": "fd256feda47e43fea32e0b043f20a98c053c27ba01f589368668b9a0184e44d3"
+  },
+  "frente": "A"
+}

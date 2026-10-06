@@ -1,0 +1,40 @@
+{
+  "esquema": "rex-parallel-d/pin-frentes/3",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v3-C",
+  "conxunto": "medicao",
+  "nota": "As imaxes cx1..cx4 son as de `c/` (pin-c-v2.json). Aquí só van as verdades (cx1 retificada) e a fixture nova cx5.",
+  "denominador": {
+    "retificadas": [
+      "KC1v-movea-l-imm-a1"
+    ],
+    "cx5": {
+      "partes": {
+        "KC4v": 6,
+        "KC1v": 4,
+        "CVv": 3
+      },
+      "total": 13
+    }
+  },
+  "arquivos": {
+    "dC-cx1-truth-v2.json": {
+      "sha256": "f8391ae30baed7f7ace82070b8d52af7a83fd5051752dc5629e72f0c70261722"
+    },
+    "dC-cx2-truth-v2.json": {
+      "sha256": "eac226717189a2d22074d25e18bbc1bbf0f0695383ae1d4096aa0739e7233cbe"
+    },
+    "dC-cx3-truth-v2.json": {
+      "sha256": "e582eb997802c657ea8d739d0ab81d24ccc6f31f80ba7bdeab67ec5db9e4d2ed"
+    },
+    "dC-cx4-truth-v2.json": {
+      "sha256": "f83ef322af1292a1b14fa8cb0266d200af3c89f3b28ae84fbe8a4adda2f2e0d2"
+    },
+    "dC-cx5-v3.bin": {
+      "sha256": "b154429f02caa35c607fdb74b56769e48749b666553f62198c65248c29f44fb7"
+    },
+    "dC-cx5-truth-v3.json": {
+      "sha256": "e7b6aaa99a84c9e9ed4bfce0ba066a74e7d91587478a073d2c93b30cab6341e8"
+    }
+  }
+}

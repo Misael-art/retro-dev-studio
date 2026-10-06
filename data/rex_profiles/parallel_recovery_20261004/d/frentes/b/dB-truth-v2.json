@@ -1,0 +1,729 @@
+{
+  "esquema": "rex-parallel-d/truth-b/2",
+  "id": "dB-truth-v2",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v2-B",
+  "xerado_por": "scripts/rex_profiles/parallel_recovery_20261004/d/frentes/author_b_v2.mjs",
+  "rom": {
+    "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+    "bytes": 531577
+  },
+  "instrumento": {
+    "version": "GNU assembler (GNU Binutils) 2.41",
+    "bandeira": [
+      "-m68000"
+    ],
+    "sha256_as": "618740559477258165eb1a344e07acd592afc1438061825469d5bd56fa2c87c7",
+    "sha256_objdump": "e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f"
+  },
+  "sitios": [
+    {
+      "id": "cram-callsite-moveq",
+      "capacidade": "KBC",
+      "nivel": "vinculo-estrutural",
+      "sitio": 18074,
+      "esperado_bytes": "700a",
+      "lonxitude": 2,
+      "instrumento": {
+        "mnemonico": "moveq #10,%d0",
+        "ea": null,
+        "desmontaxe": "469a:\t700a\tmoveq #10,%d0"
+      },
+      "rom_ten_agora": "700a",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2-B"
+    },
+    {
+      "id": "cram-callsite-bsr",
+      "capacidade": "KBC",
+      "nivel": "vinculo-estrutural",
+      "sitio": 18076,
+      "esperado_bytes": "6100da5e",
+      "lonxitude": 4,
+      "instrumento": {
+        "mnemonico": "bsrw 20fc <inicio+0x20fc>",
+        "ea": 8444,
+        "desmontaxe": "469c:\t6100da5e\tbsrw 20fc <inicio+0x20fc>"
+      },
+      "rom_ten_agora": "6100da5e",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2-B"
+    },
+    {
+      "id": "cram-palcycle-tst",
+      "capacidade": "KBC",
+      "nivel": "vinculo-estrutural",
+      "sitio": 18786,
+      "esperado_bytes": "4a78f63a",
+      "lonxitude": 4,
+      "instrumento": {
+        "mnemonico": "tstw fffff63a <p_kb1_salto_padding+0xfffe3f3c>",
+        "ea": 4294964794,
+        "desmontaxe": "4962:\t4a78f63a\ttstw fffff63a <p_kb1_salto_padding+0xfffe3f3c>"
+      },
+      "rom_ten_agora": "4a78f63a",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2-B"
+    },
+    {
+      "id": "cram-blink-subq",
+      "capacidade": "KBC",
+      "nivel": "vinculo-estrutural",
+      "sitio": 111418,
+      "esperado_bytes": "5338fec0",
+      "lonxitude": 4,
+      "instrumento": {
+        "mnemonico": "subqb #1,fffffec0 <p_kb1_salto_padding+0xfffe47c2>",
+        "ea": 4294966976,
+        "desmontaxe": "1b33a:\t5338fec0\tsubqb #1,fffffec0 <p_kb1_salto_padding+0xfffe47c2>"
+      },
+      "rom_ten_agora": "5338fec0",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2-B"
+    },
+    {
+      "id": "kb2-value-offset",
+      "capacidade": "KB2v",
+      "nivel": "vinculo-estrutural",
+      "sitio": 112334,
+      "esperado_bytes": "303c0000",
+      "lonxitude": 4,
+      "instrumento": {
+        "mnemonico": "movew #0,%d0",
+        "ea": null,
+        "desmontaxe": "1b6ce:\t303c0000\tmovew #0,%d0"
+      },
+      "rom_ten_agora": "303c0000",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2-B"
+    },
+    {
+      "id": "kb1-chamada",
+      "capacidade": "KB1v",
+      "nivel": "vinculo-estrutural",
+      "sitio": 112338,
+      "esperado_bytes": "4eb90000171e",
+      "lonxitude": 6,
+      "instrumento": {
+        "mnemonico": "jsr 171e <inicio+0x171e>",
+        "ea": 5918,
+        "desmontaxe": "1b6d2:\t4eb90000171e\tjsr 171e <inicio+0x171e>"
+      },
+      "rom_ten_agora": "4eb90000171e",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2-B"
+    },
+    {
+      "id": "kb1-contador-d1",
+      "capacidade": "KB1v",
+      "nivel": "vinculo-estrutural",
+      "sitio": 112372,
+      "esperado_bytes": "723f",
+      "lonxitude": 2,
+      "instrumento": {
+        "mnemonico": "moveq #63,%d1",
+        "ea": null,
+        "desmontaxe": "1b6f4:\t723f\tmoveq #63,%d1"
+      },
+      "rom_ten_agora": "723f",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2-B"
+    },
+    {
+      "id": "kb1-contador-d2",
+      "capacidade": "KB1v",
+      "nivel": "vinculo-estrutural",
+      "sitio": 112374,
+      "esperado_bytes": "743f",
+      "lonxitude": 2,
+      "instrumento": {
+        "mnemonico": "moveq #63,%d2",
+        "ea": null,
+        "desmontaxe": "1b6f6:\t743f\tmoveq #63,%d2"
+      },
+      "rom_ten_agora": "743f",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2-B"
+    },
+    {
+      "id": "kb1-copia-byte",
+      "capacidade": "KB1v",
+      "nivel": "vinculo-estrutural",
+      "sitio": 112376,
+      "esperado_bytes": "12d8",
+      "lonxitude": 2,
+      "instrumento": {
+        "mnemonico": "moveb %a0@+,%a1@+",
+        "ea": null,
+        "desmontaxe": "1b6f8:\t12d8\tmoveb %a0@+,%a1@+"
+      },
+      "rom_ten_agora": "12d8",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2-B"
+    },
+    {
+      "id": "kb1-salto-padding",
+      "capacidade": "KB1v",
+      "nivel": "vinculo-estrutural",
+      "sitio": 112382,
+      "esperado_bytes": "43e90040",
+      "lonxitude": 4,
+      "instrumento": {
+        "mnemonico": "lea %a1@(64),%a1",
+        "ea": null,
+        "desmontaxe": "1b6fe:\t43e90040\tlea %a1@(64),%a1"
+      },
+      "rom_ten_agora": "43e90040",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2-B"
+    }
+  ],
+  "tabela_ponteiros": {
+    "endereco": 112204,
+    "ponteiros": [
+      414770,
+      415404,
+      416446,
+      417306,
+      418548,
+      419782
+    ],
+    "nota": "seis palabras longas BE lidas por D"
+  },
+  "kbe": {
+    "slots": [
+      {
+        "id": "KBE-slot-0",
+        "offset": 414770,
+        "esperado_bytes_armazenados": 634
+      },
+      {
+        "id": "KBE-slot-1",
+        "offset": 415404,
+        "esperado_bytes_armazenados": 1042
+      },
+      {
+        "id": "KBE-slot-2",
+        "offset": 416446,
+        "esperado_bytes_armazenados": 860
+      },
+      {
+        "id": "KBE-slot-3",
+        "offset": 417306,
+        "esperado_bytes_armazenados": 1242
+      },
+      {
+        "id": "KBE-slot-4",
+        "offset": 418548,
+        "esperado_bytes_armazenados": 1234
+      }
+    ],
+    "sexto_slot": {
+      "id": "KBE-slot-5",
+      "offset": 419782,
+      "estado": "descoñecido",
+      "motivo": "non hai un oitavo ponteiro independente que delimite o fin do sexto slot: o tamaño non se adiviña"
+    },
+    "truncamentos": [
+      {
+        "id": "KBE-trunc-cabeceira",
+        "corte_bytes": 5,
+        "codigos_aceitados": [
+          2,
+          3
+        ]
+      },
+      {
+        "id": "KBE-trunc-so-cabeceira",
+        "corte_bytes": 6,
+        "codigos_aceitados": [
+          2,
+          3
+        ]
+      },
+      {
+        "id": "KBE-trunc-menos-un",
+        "corte": "armazenado-1",
+        "codigos_aceitados": [
+          2
+        ]
+      },
+      {
+        "id": "KBE-trunc-metade",
+        "corte": "armazenado/2",
+        "codigos_aceitados": [
+          2,
+          3
+        ]
+      }
+    ],
+    "mutacoes_sen_panic": {
+      "entradas": [
+        {
+          "stream": 2,
+          "byte_rel": 0.7450980392156863,
+          "bit": 1
+        },
+        {
+          "stream": 0,
+          "byte_rel": 0.050980392156862744,
+          "bit": 7
+        },
+        {
+          "stream": 2,
+          "byte_rel": 0.7686274509803922,
+          "bit": 0
+        },
+        {
+          "stream": 0,
+          "byte_rel": 0.7333333333333333,
+          "bit": 4
+        },
+        {
+          "stream": 0,
+          "byte_rel": 0.4235294117647059,
+          "bit": 2
+        },
+        {
+          "stream": 2,
+          "byte_rel": 0,
+          "bit": 2
+        },
+        {
+          "stream": 0,
+          "byte_rel": 0.33725490196078434,
+          "bit": 1
+        },
+        {
+          "stream": 2,
+          "byte_rel": 0.8745098039215686,
+          "bit": 4
+        },
+        {
+          "stream": 4,
+          "byte_rel": 0.5333333333333333,
+          "bit": 4
+        },
+        {
+          "stream": 0,
+          "byte_rel": 0.7450980392156863,
+          "bit": 3
+        },
+        {
+          "stream": 2,
+          "byte_rel": 0.2627450980392157,
+          "bit": 4
+        },
+        {
+          "stream": 1,
+          "byte_rel": 0.2823529411764706,
+          "bit": 0
+        },
+        {
+          "stream": 2,
+          "byte_rel": 0.06274509803921569,
+          "bit": 2
+        },
+        {
+          "stream": 3,
+          "byte_rel": 0.34509803921568627,
+          "bit": 4
+        },
+        {
+          "stream": 4,
+          "byte_rel": 0.9568627450980393,
+          "bit": 2
+        },
+        {
+          "stream": 2,
+          "byte_rel": 0.8,
+          "bit": 2
+        },
+        {
+          "stream": 2,
+          "byte_rel": 0.592156862745098,
+          "bit": 6
+        },
+        {
+          "stream": 2,
+          "byte_rel": 0.6901960784313725,
+          "bit": 1
+        },
+        {
+          "stream": 1,
+          "byte_rel": 0.9137254901960784,
+          "bit": 6
+        },
+        {
+          "stream": 4,
+          "byte_rel": 0.3411764705882353,
+          "bit": 3
+        },
+        {
+          "stream": 2,
+          "byte_rel": 0.047058823529411764,
+          "bit": 7
+        },
+        {
+          "stream": 0,
+          "byte_rel": 0.08627450980392157,
+          "bit": 3
+        },
+        {
+          "stream": 3,
+          "byte_rel": 0.7490196078431373,
+          "bit": 5
+        },
+        {
+          "stream": 2,
+          "byte_rel": 0.7450980392156863,
+          "bit": 3
+        },
+        {
+          "stream": 4,
+          "byte_rel": 0.13725490196078433,
+          "bit": 4
+        },
+        {
+          "stream": 3,
+          "byte_rel": 0.8666666666666667,
+          "bit": 4
+        },
+        {
+          "stream": 1,
+          "byte_rel": 0.5607843137254902,
+          "bit": 7
+        },
+        {
+          "stream": 3,
+          "byte_rel": 0.2235294117647059,
+          "bit": 2
+        },
+        {
+          "stream": 3,
+          "byte_rel": 0.615686274509804,
+          "bit": 4
+        },
+        {
+          "stream": 2,
+          "byte_rel": 0.3058823529411765,
+          "bit": 3
+        },
+        {
+          "stream": 0,
+          "byte_rel": 0.9294117647058824,
+          "bit": 2
+        },
+        {
+          "stream": 1,
+          "byte_rel": 0.3058823529411765,
+          "bit": 1
+        },
+        {
+          "stream": 4,
+          "byte_rel": 0.09803921568627451,
+          "bit": 3
+        },
+        {
+          "stream": 1,
+          "byte_rel": 0.2196078431372549,
+          "bit": 4
+        },
+        {
+          "stream": 0,
+          "byte_rel": 0.6274509803921569,
+          "bit": 6
+        },
+        {
+          "stream": 1,
+          "byte_rel": 0.8117647058823529,
+          "bit": 3
+        },
+        {
+          "stream": 4,
+          "byte_rel": 0.08235294117647059,
+          "bit": 1
+        },
+        {
+          "stream": 1,
+          "byte_rel": 0.11372549019607843,
+          "bit": 0
+        },
+        {
+          "stream": 4,
+          "byte_rel": 0.5411764705882353,
+          "bit": 6
+        },
+        {
+          "stream": 2,
+          "byte_rel": 0.2823529411764706,
+          "bit": 2
+        },
+        {
+          "stream": 2,
+          "byte_rel": 0.8235294117647058,
+          "bit": 6
+        },
+        {
+          "stream": 2,
+          "byte_rel": 0.803921568627451,
+          "bit": 4
+        },
+        {
+          "stream": 4,
+          "byte_rel": 0.3176470588235294,
+          "bit": 7
+        },
+        {
+          "stream": 0,
+          "byte_rel": 0.7372549019607844,
+          "bit": 4
+        },
+        {
+          "stream": 4,
+          "byte_rel": 0.5607843137254902,
+          "bit": 5
+        },
+        {
+          "stream": 0,
+          "byte_rel": 0.26666666666666666,
+          "bit": 5
+        },
+        {
+          "stream": 4,
+          "byte_rel": 0.5529411764705883,
+          "bit": 2
+        },
+        {
+          "stream": 1,
+          "byte_rel": 0.4980392156862745,
+          "bit": 3
+        }
+      ],
+      "codigos_aceitados": [
+        0,
+        2,
+        3,
+        4,
+        5
+      ],
+      "motivo": "calquera outro rc (101, 134, 139) ou sinal é un crash, non unha recusa estruturada"
+    },
+    "sensibilidade": {
+      "stream": 0,
+      "byte_rel": 20,
+      "bit": 0,
+      "motivo": "virar un bit no corpo ten que mudar a saída ou ser recusado; saída idéntica = decoder cego á entrada"
+    },
+    "equivalencia": {
+      "estado": "descoñecido",
+      "motivo": "non hai decoder independente: `enigma_research.py` é da familia B (espello, R10) e o decoder externo foi excluído por política"
+    }
+  },
+  "kbc": {
+    "pal_index": {
+      "endereco": 8552,
+      "entradas": [
+        {
+          "id": 0,
+          "ponteiro": 8712,
+          "ramaddr": 64256,
+          "contagem": 31
+        },
+        {
+          "id": 1,
+          "ponteiro": 8840,
+          "ramaddr": 64256,
+          "contagem": 31
+        },
+        {
+          "id": 2,
+          "ponteiro": 8968,
+          "ramaddr": 64256,
+          "contagem": 31
+        },
+        {
+          "id": 3,
+          "ponteiro": 9096,
+          "ramaddr": 64256,
+          "contagem": 7
+        },
+        {
+          "id": 4,
+          "ponteiro": 9128,
+          "ramaddr": 64288,
+          "contagem": 23
+        },
+        {
+          "id": 5,
+          "ponteiro": 9224,
+          "ramaddr": 64288,
+          "contagem": 23
+        },
+        {
+          "id": 6,
+          "ponteiro": 9448,
+          "ramaddr": 64288,
+          "contagem": 23
+        },
+        {
+          "id": 7,
+          "ponteiro": 9544,
+          "ramaddr": 64288,
+          "contagem": 23
+        },
+        {
+          "id": 8,
+          "ponteiro": 9640,
+          "ramaddr": 64288,
+          "contagem": 23
+        },
+        {
+          "id": 9,
+          "ponteiro": 9736,
+          "ramaddr": 64288,
+          "contagem": 23
+        },
+        {
+          "id": 10,
+          "ponteiro": 9928,
+          "ramaddr": 64256,
+          "contagem": 31
+        },
+        {
+          "id": 11,
+          "ponteiro": 9320,
+          "ramaddr": 64256,
+          "contagem": 31
+        },
+        {
+          "id": 12,
+          "ponteiro": 10056,
+          "ramaddr": 64288,
+          "contagem": 23
+        },
+        {
+          "id": 13,
+          "ponteiro": 10152,
+          "ramaddr": 64256,
+          "contagem": 31
+        },
+        {
+          "id": 14,
+          "ponteiro": 9832,
+          "ramaddr": 64288,
+          "contagem": 23
+        },
+        {
+          "id": 15,
+          "ponteiro": 10280,
+          "ramaddr": 64256,
+          "contagem": 7
+        },
+        {
+          "id": 16,
+          "ponteiro": 10312,
+          "ramaddr": 64256,
+          "contagem": 7
+        },
+        {
+          "id": 17,
+          "ponteiro": 10344,
+          "ramaddr": 64256,
+          "contagem": 31
+        },
+        {
+          "id": 18,
+          "ponteiro": 10472,
+          "ramaddr": 64256,
+          "contagem": 15
+        },
+        {
+          "id": 19,
+          "ponteiro": 10536,
+          "ramaddr": 64256,
+          "contagem": 31
+        }
+      ],
+      "nivel": "referencia-estatica",
+      "nota": "estrutura de 8 B por entrada lida por D directamente da ROM"
+    },
+    "pal_special": {
+      "ponteiro": 9928,
+      "bytes": 128,
+      "sha256": "2f9072d8714ac735dba537f2cbb00aeac349b411fc86d1ef76fb9c81b7c3432d"
+    },
+    "ss_wall_tabela": {
+      "endereco": 111674,
+      "bytes": 128,
+      "sha256": "985518fbf56415c918a510b91cc756b26ed2f695458bfc2f11a12e5ad0495539"
+    },
+    "hipotese": {
+      "escolhida_por_B": "H_B",
+      "campos_lidos_por_D": {
+        "f_pause": "0xf63a",
+        "ani0_time": "0xfec0"
+      }
+    }
+  },
+  "limites_de_autoria": [
+    "os opcodes veñen de `m68k-elf-as -m68000` (Binutils 2.41); os enderezos dos sitios son alegacións de B e conxélanse co que a ROM di neles",
+    "o nivel máximo de KBC é `vinculo-estrutural`: ningunha fila le CRAM escrito en execución (`consumo-observado` non probado, E22 de B)",
+    "KBE non mide equivalencia de saída; as filas de slot dependen só dos ponteiros da táboa da ROM",
+    "a ROM é BYOR e non se versiona; só se publican hashes e valores de sitios de ≤ 128 B"
+  ],
+  "denominador": {
+    "partes": {
+      "KB1v": 5,
+      "KB2v": 2,
+      "KBC": 7,
+      "KBE": 11
+    },
+    "nota": "KB1v 5 (chamada, copia, salto, contador d1 e d2); KB2v 2 (value-offset + táboa de 6 ponteiros); KBC 7 (call site, Pal_Index, Pal_Special, tabela de paredes, blink, palcycle, hipótese); KBE 11 (5 slots, 4 truncamentos, sensibilidade, ausencia de panic). `KBE-slot-5` e a equivalencia de saída son `descoñecido` e non entran no denominador. KB3/KB4/NB seguen no gabarito v1 (sen dependencia de ISA).",
+    "total": 25
+  },
+  "comparacion_v1": [
+    {
+      "id": "kb2-value-offset",
+      "sitio": 112334,
+      "v1": "303c0000",
+      "v2_instrumento": "303c0000",
+      "coincide": true
+    },
+    {
+      "id": "kb1-chamada",
+      "sitio": 112338,
+      "v1": "4eb90000171e",
+      "v2_instrumento": "4eb90000171e",
+      "coincide": true
+    },
+    {
+      "id": "kb1-contador-d1",
+      "sitio": 112372,
+      "v1": "723f",
+      "v2_instrumento": "723f",
+      "coincide": true
+    },
+    {
+      "id": "kb1-contador-d2",
+      "sitio": 112374,
+      "v1": "743f",
+      "v2_instrumento": "743f",
+      "coincide": true
+    },
+    {
+      "id": "kb1-copia-byte",
+      "sitio": 112376,
+      "v1": "12d8",
+      "v2_instrumento": "12d8",
+      "coincide": true
+    },
+    {
+      "id": "kb1-salto-padding",
+      "sitio": 112382,
+      "v1": "43e90040",
+      "v2_instrumento": "43e90040",
+      "coincide": true
+    }
+  ]
+}

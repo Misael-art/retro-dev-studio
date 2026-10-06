@@ -1,0 +1,83 @@
+{
+  "id": "dC-cx3",
+  "regioes": [
+    {
+      "inicio": 0,
+      "fim": 64
+    }
+  ],
+  "raizes": [
+    {
+      "endereco": 0,
+      "proveniencia": "candidato",
+      "evidencia": "sonda linha-F"
+    },
+    {
+      "endereco": 16,
+      "proveniencia": "candidato",
+      "evidencia": "sonda BSR.L 68020"
+    },
+    {
+      "endereco": 32,
+      "proveniencia": "candidato",
+      "evidencia": "sonda MOVE.W #imm,An"
+    },
+    {
+      "endereco": 48,
+      "proveniencia": "candidato",
+      "evidencia": "controle: caminho limpo"
+    }
+  ],
+  "sitios": [
+    {
+      "endereco": 48,
+      "esperado_veredito": "instrucao-de-bloco"
+    }
+  ],
+  "kc3": [
+    {
+      "id": "KC3-linha-f",
+      "endereco": 0,
+      "opcode": "f000",
+      "esperado": {
+        "fronteira": true,
+        "tipo": "opcode-fora-do-subconjunto",
+        "endereco": 0,
+        "bytes_para": 2
+      }
+    },
+    {
+      "id": "KC3-bsr-l-68020",
+      "endereco": 16,
+      "opcode": "61ff",
+      "esperado": {
+        "fronteira": true,
+        "tipo": "opcode-fora-do-subconjunto",
+        "endereco": 16,
+        "nota": "forma de deslocamento longo é de 68020; o subconjunto declarado por C é 68000"
+      }
+    },
+    {
+      "id": "KC3-move-w-imm-an",
+      "endereco": 32,
+      "opcode": "3048",
+      "esperado": {
+        "fronteira": true,
+        "endereco": 32,
+        "nota": "combinação destino An em MOVE.W é inválida no ISA"
+      }
+    }
+  ],
+  "controle_positivo": {
+    "endereco": 48,
+    "esperado": {
+      "tam": 2,
+      "mnem_contem": "rts"
+    }
+  },
+  "notas_autoria": [
+    "`f000` ancorado em CALIB.linef_f000 (registro externo).",
+    "`61ff` é a forma longa que a própria frente A documenta como 68020 (FA-4).",
+    "`3048` deriva do layout de bits MOVE documentado no cabeçalho de m68k_author.mjs (mesma cabeça de `303c` = move.w #imm,Dn, âncora B `303c0000`), trocando o campo de modo de destino para registrador de endereçamento."
+  ]
+}

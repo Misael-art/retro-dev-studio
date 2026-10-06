@@ -1,0 +1,565 @@
+{
+  "id": "dC-cx1",
+  "regioes": [
+    {
+      "inicio": 0,
+      "fim": 128
+    }
+  ],
+  "raizes": [
+    {
+      "endereco": 0,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 move.b (A0)+,D1"
+    },
+    {
+      "endereco": 2,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 move.b -(A2),D3"
+    },
+    {
+      "endereco": 4,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 move.b d16(A1),D2"
+    },
+    {
+      "endereco": 8,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 move.w (A3),D6"
+    },
+    {
+      "endereco": 10,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 move.l d16(PC),D0"
+    },
+    {
+      "endereco": 14,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 move.l #imm32,D4"
+    },
+    {
+      "endereco": 20,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 movea.l #imm32,A1"
+    },
+    {
+      "endereco": 26,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 move.l (A0)+,A3"
+    },
+    {
+      "endereco": 28,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 moveq #15,D4"
+    },
+    {
+      "endereco": 30,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 move.w SR,D6"
+    },
+    {
+      "endereco": 32,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 addq.b #4,(A3)"
+    },
+    {
+      "endereco": 34,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 addq.w #1,D3"
+    },
+    {
+      "endereco": 36,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 add.l D2,(A1)"
+    },
+    {
+      "endereco": 38,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 cmp.w (A2),D0"
+    },
+    {
+      "endereco": 40,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 tst.w abs.L"
+    },
+    {
+      "endereco": 46,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 bclr #2,(A1)"
+    },
+    {
+      "endereco": 50,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 seq D1"
+    },
+    {
+      "endereco": 52,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 movem.w (A5)+,D5-D7"
+    },
+    {
+      "endereco": 56,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 lea abs.L,A0"
+    },
+    {
+      "endereco": 62,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1 lea d16(PC),A5"
+    }
+  ],
+  "sitios": [
+    {
+      "endereco": 0,
+      "esperado_veredito": "instrucao-de-bloco"
+    },
+    {
+      "endereco": 6,
+      "esperado_veredito": "miolo-de-instrucao",
+      "motivo": "dentro de move.b d16(A1),D2 (4 B)"
+    },
+    {
+      "endereco": 80,
+      "esperado_veredito": "dentro-regiao-nao-alcancado",
+      "motivo": "dentro do relleno 0xFF que comeza en 0x42 (aritmética de D, non saída de C)"
+    }
+  ],
+  "sequencia": [
+    {
+      "id": "move.b (A0)+,D1",
+      "bytes": "1218",
+      "tam": 2,
+      "stems": [
+        "mov"
+      ],
+      "notas": "",
+      "endereco": 0
+    },
+    {
+      "id": "move.b -(A2),D3",
+      "bytes": "1622",
+      "tam": 2,
+      "stems": [
+        "mov"
+      ],
+      "notas": "",
+      "endereco": 2
+    },
+    {
+      "id": "move.b d16(A1),D2",
+      "bytes": "14290010",
+      "tam": 4,
+      "stems": [
+        "mov"
+      ],
+      "notas": "",
+      "endereco": 4
+    },
+    {
+      "id": "move.w (A3),D6",
+      "bytes": "3c13",
+      "tam": 2,
+      "stems": [
+        "mov"
+      ],
+      "notas": "",
+      "endereco": 8
+    },
+    {
+      "id": "move.l d16(PC),D0",
+      "bytes": "203a0010",
+      "tam": 4,
+      "stems": [
+        "mov"
+      ],
+      "notas": "",
+      "endereco": 10
+    },
+    {
+      "id": "move.l #imm32,D4",
+      "bytes": "283c12345678",
+      "tam": 6,
+      "stems": [
+        "mov"
+      ],
+      "notas": "",
+      "endereco": 14
+    },
+    {
+      "id": "movea.l #imm32,A1",
+      "bytes": "227c00001111",
+      "tam": 6,
+      "stems": [
+        "mov"
+      ],
+      "notas": "",
+      "endereco": 20
+    },
+    {
+      "id": "move.l (A0)+,A3",
+      "bytes": "2658",
+      "tam": 2,
+      "stems": [
+        "mov"
+      ],
+      "notas": "",
+      "endereco": 26
+    },
+    {
+      "id": "moveq #15,D4",
+      "bytes": "780f",
+      "tam": 2,
+      "stems": [
+        "mov"
+      ],
+      "notas": "",
+      "endereco": 28
+    },
+    {
+      "id": "move.w SR,D6",
+      "bytes": "40c6",
+      "tam": 2,
+      "stems": [
+        "mov"
+      ],
+      "notas": "",
+      "endereco": 30
+    },
+    {
+      "id": "addq.b #4,(A3)",
+      "bytes": "5813",
+      "tam": 2,
+      "stems": [
+        "add"
+      ],
+      "notas": "",
+      "endereco": 32
+    },
+    {
+      "id": "addq.w #1,D3",
+      "bytes": "5243",
+      "tam": 2,
+      "stems": [
+        "add"
+      ],
+      "notas": "",
+      "endereco": 34
+    },
+    {
+      "id": "add.l D2,(A1)",
+      "bytes": "d591",
+      "tam": 2,
+      "stems": [
+        "add"
+      ],
+      "notas": "",
+      "endereco": 36
+    },
+    {
+      "id": "cmp.w (A2),D0",
+      "bytes": "b052",
+      "tam": 2,
+      "stems": [
+        "cmp"
+      ],
+      "notas": "",
+      "endereco": 38
+    },
+    {
+      "id": "tst.w abs.L",
+      "bytes": "4a7900a1000c",
+      "tam": 6,
+      "stems": [
+        "tst"
+      ],
+      "notas": "",
+      "endereco": 40
+    },
+    {
+      "id": "bclr #2,(A1)",
+      "bytes": "08910002",
+      "tam": 4,
+      "stems": [
+        "bclr",
+        "bic",
+        "bittest"
+      ],
+      "notas": "",
+      "endereco": 46
+    },
+    {
+      "id": "seq D1",
+      "bytes": "57c1",
+      "tam": 2,
+      "stems": [
+        "seq",
+        "scc",
+        "shs",
+        "stt",
+        "sf"
+      ],
+      "notas": "familia Scc; comprimento ancorado, mnemónico tolerado",
+      "endereco": 50
+    },
+    {
+      "id": "movem.w (A5)+,D5-D7",
+      "bytes": "4c9d00e0",
+      "tam": 4,
+      "stems": [
+        "movem"
+      ],
+      "notas": "",
+      "endereco": 52
+    },
+    {
+      "id": "lea abs.L,A0",
+      "bytes": "41f900002020",
+      "tam": 6,
+      "stems": [
+        "lea"
+      ],
+      "notas": "",
+      "endereco": 56
+    },
+    {
+      "id": "lea d16(PC),A5",
+      "bytes": "4bfa0040",
+      "tam": 4,
+      "stems": [
+        "lea"
+      ],
+      "notas": "",
+      "endereco": 62
+    }
+  ],
+  "cobertura_esperada_bytes": 66,
+  "fim_instrucoes": 66,
+  "kc1": [
+    {
+      "id": "KC1-move.b (A0)+,D1",
+      "endereco": 0,
+      "esperado_tam": 2,
+      "esperado_stems": [
+        "mov"
+      ],
+      "bytes": "1218",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-move.b -(A2),D3",
+      "endereco": 2,
+      "esperado_tam": 2,
+      "esperado_stems": [
+        "mov"
+      ],
+      "bytes": "1622",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-move.b d16(A1),D2",
+      "endereco": 4,
+      "esperado_tam": 4,
+      "esperado_stems": [
+        "mov"
+      ],
+      "bytes": "14290010",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-move.w (A3),D6",
+      "endereco": 8,
+      "esperado_tam": 2,
+      "esperado_stems": [
+        "mov"
+      ],
+      "bytes": "3c13",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-move.l d16(PC),D0",
+      "endereco": 10,
+      "esperado_tam": 4,
+      "esperado_stems": [
+        "mov"
+      ],
+      "bytes": "203a0010",
+      "dominio": "fora-do-subconjunto-de-C",
+      "citacao_C": "§3 lista os modos de MOVE (registros, (An), (An)+, -(An), d16(An), d8(An,Xn), abs.W, abs.L, #imm só em MOVE); fonte d16(PC) non está na lista"
+    },
+    {
+      "id": "KC1-move.l #imm32,D4",
+      "endereco": 14,
+      "esperado_tam": 6,
+      "esperado_stems": [
+        "mov"
+      ],
+      "bytes": "283c12345678",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-movea.l #imm32,A1",
+      "endereco": 20,
+      "esperado_tam": 6,
+      "esperado_stems": [
+        "mov"
+      ],
+      "bytes": "227c00001111",
+      "dominio": "fora-do-subconjunto-de-C",
+      "citacao_C": "§3: «#imm só em MOVE» — MOVEA con inmediato está fóra da lista fechada"
+    },
+    {
+      "id": "KC1-move.l (A0)+,A3",
+      "endereco": 26,
+      "esperado_tam": 2,
+      "esperado_stems": [
+        "mov"
+      ],
+      "bytes": "2658",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-moveq #15,D4",
+      "endereco": 28,
+      "esperado_tam": 2,
+      "esperado_stems": [
+        "mov"
+      ],
+      "bytes": "780f",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-move.w SR,D6",
+      "endereco": 30,
+      "esperado_tam": 2,
+      "esperado_stems": [
+        "mov"
+      ],
+      "bytes": "40c6",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-addq.b #4,(A3)",
+      "endereco": 32,
+      "esperado_tam": 2,
+      "esperado_stems": [
+        "add"
+      ],
+      "bytes": "5813",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-addq.w #1,D3",
+      "endereco": 34,
+      "esperado_tam": 2,
+      "esperado_stems": [
+        "add"
+      ],
+      "bytes": "5243",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-add.l D2,(A1)",
+      "endereco": 36,
+      "esperado_tam": 2,
+      "esperado_stems": [
+        "add"
+      ],
+      "bytes": "d591",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-cmp.w (A2),D0",
+      "endereco": 38,
+      "esperado_tam": 2,
+      "esperado_stems": [
+        "cmp"
+      ],
+      "bytes": "b052",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-tst.w abs.L",
+      "endereco": 40,
+      "esperado_tam": 6,
+      "esperado_stems": [
+        "tst"
+      ],
+      "bytes": "4a7900a1000c",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-bclr #2,(A1)",
+      "endereco": 46,
+      "esperado_tam": 4,
+      "esperado_stems": [
+        "bclr",
+        "bic",
+        "bittest"
+      ],
+      "bytes": "08910002",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-seq D1",
+      "endereco": 50,
+      "esperado_tam": 2,
+      "esperado_stems": [
+        "seq",
+        "scc",
+        "shs",
+        "stt",
+        "sf"
+      ],
+      "bytes": "57c1",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-movem.w (A5)+,D5-D7",
+      "endereco": 52,
+      "esperado_tam": 4,
+      "esperado_stems": [
+        "movem"
+      ],
+      "bytes": "4c9d00e0",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-lea abs.L,A0",
+      "endereco": 56,
+      "esperado_tam": 6,
+      "esperado_stems": [
+        "lea"
+      ],
+      "bytes": "41f900002020",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    },
+    {
+      "id": "KC1-lea d16(PC),A5",
+      "endereco": 62,
+      "esperado_tam": 4,
+      "esperado_stems": [
+        "lea"
+      ],
+      "bytes": "4bfa0040",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3: forma dentro da lista fechada declarada por C"
+    }
+  ]
+}
