@@ -269,3 +269,84 @@ datada de 2026-10-05 no SHA corrigido) e `ADENDO-ETAPA2-2026-10-05.md`
   manutenção do Anexo A de ETAPA 1 no histórico sem reescrita. Nada foi mesclado,
   promovido ou liberado: PR **#108** permanece aberto, sem merge.
 
+
+## 11. ETAPA 3 — consumo de `rex-cfg-sitio/v2` e `rex-cfg-med/v2` (2026-10-06)
+
+Acrescentado sem reescrever §1..§10. Base recebida `8ea5821`; detalhes e séries brutas em
+`ADENDO-ETAPA3-2026-10-05.md`, `CONTRACT-RETIFICACAO-ETAPA3-2026-10-05.md`,
+`REVISAO-C-DE-A-ETAPA3.md`, `REVISAO-C-PARA-D-ETAPA3.md` e
+`evidence/{MANIFEST-ETAPA3-v2.md,delta-etapa3-v2.md}`.
+
+### 11.1 O que mudou e por quê
+
+A ETAPA 1/2 publicava o operando de `(xxx).W` **zero-estendido** como alvo. A referência primária
+(M68000PRM §2.2.16, p. impressa 2-18) diz que o endereço de 16 bits é **sign-estendido** a 32 bits.
+Os campos v1 não são "ajustados": são **retificados com versão nova** (`rex-cfg-sitio/v2`,
+`rex-cfg-med/v2`); os artefatos v1 ficam como histórico, protegidos por guard.
+
+### 11.2 As quatro quantidades (campos novos)
+
+| campo | significado | exemplo (`4eb8 8000`) |
+|---|---|---|
+| `operando-bruto` | a word de 16 bits como está no objeto; nenhuma interpretação | `0x008000` |
+| `endereco-efetivo` | Q1 sign-estendido a 32 bits (PRM 2.2.16) | `0xFFFF8000` |
+| `endereco-de-barramento` | Q2 & `0xFFFFFF` (bus de 24 bits do MC68000); **não** afirma mapa de memória do console | `0xFF8000` |
+| `offset-de-objeto` | só existe com `--origin` declarado cobrindo Q2; senão `null` + `offset-de-objeto-status` | `null` / `fora-do-objeto` |
+
+`alvo` passa a ser **Q2**. Acompanham o bloco: `modelo-de-cpu` (`mc68000`), `forma-do-operando`
+(`abs-w`/`abs-l`/…), `semantica-do-operando` (`sign-estendida`) e `fonte-da-semantica`. Sem esses
+campos o bloco é inválido. As strings `extensao-abs-w-hipotese-zero-extendida` e
+`interpretacao-pendente:abs-w-bit15` **saíram** do objeto: uma interpretação pendente não pode mais
+justificar um alvo; a interpretação está resolvida e a fonte vai junto.
+
+### 11.3 Comando para A / qualquer consumidor (um sítio)
+
+Fixture autoral `fx12_absW.bin` (34 bytes, sha `1f7929ab…`, sem ROM):
+
+```
+rex-cfg consultar --bin fixtures/fx12_absW.bin --origin 0x80000 --region 0x80000:0x80022 \
+  --root 0x80000 --root-prov referencia-estatica --site 0x80000 --out sitio.json
+```
+
+Saída real (campos principais; o objeto completo tem também `bloco`, `instrucao-*`, `limites`):
+
+```
+"schema": "rex-cfg-sitio/v2",        "sitio": "0x080000",     "veredito": "instrucao-de-bloco",
+"instrucao-classe": "jsr",           "alvo": "0xFFFF8000",     "alvo-status": "fora-da-regiao",
+"operando-bruto": "0x008000",        "endereco-efetivo": "0xFFFF8000",
+"endereco-de-barramento": "0xFF8000", "offset-de-objeto": null, "offset-de-objeto-status": "fora-do-objeto",
+"modelo-de-cpu": "mc68000",          "forma-do-operando": "abs-w",
+"semantica-do-operando": "sign-estendida", "fonte-da-semantica": "M68000PRM 2.2.16",
+"consumidor-validado": "sim",        "promovivel-vinculo-estrutural": "sim",  "motivos": []
+```
+
+`consumidor-validado: sim` aqui significa *instrução comprovada e alvo comprovado sob a raiz
+declarada*; o alvo está **fora da região**, o que é um grau separado (R-3.6). Quem barra a promoção
+é a proveniência da raiz (`candidato` → `nao`). Não leia `consumidor-validado` como vínculo.
+
+### 11.4 Comando para D (dimensões)
+
+```
+rex-cfg medir --bin fixtures/fx12_absW.bin --origin 0x80000 --region 0x80000:0x80022 \
+  --root 0x80000 --root-prov referencia-estatica --out med.json
+```
+
+Saída real (`schema: rex-cfg-med/v2`): `comprimento-instrucoes-provadas = 5`
+(`2=1`, `4=4`), `operandos-palavras-de-extensao = 4`, `operandos-valores-status = recusado`
+(`md2:nenhum-byte-literal-do-objeto-no-export`), `fluxo-arestas = 9`
+(`chamada/fora-da-regiao=4`, `queda/resolvido=4`, `retorno-fronteira/indireto-opaco=1`),
+`alcance-bytes-decodificados = 18` de 34 (`0.5294`), `alcance-vaos = 1`, `agregado: "proibido"`.
+A medição de D sobre a v2 é trabalho de D; a tabela de delta está em `REVISAO-C-PARA-D-ETAPA3.md`.
+
+### 11.5 Estado medido e limites
+
+* ETAPA 3 não mudou nenhum veredito das amostras da ROM: 110 linhas de delta, todas `invariante`,
+  instruções idênticas (R1 66, R3 6, S1 8, S2 36) e `divergencias criticas = 0` contra o
+  instrumento. Isso é consequência de as amostras **não terem** `abs.W` com bit15=1 (R-3.3), não
+  prova de que a correção funciona: quem a prova são N1/N2 (`fx12_absW`) e o censo de máscaras
+  (`divergencia-critica = 0`, 4 212 alvos confrontados).
+* Cruzamento do consumidor de A com o binário v2: 10 cadeias + negativo de identidade,
+  `fallos = 0` (`REVISAO-C-DE-A-ETAPA3.md` §4).
+* Continuam fora de prova: execução, DMA, mapa de memória do console, `observado-em-runtime`.
+* Gates de app (`lint`, `tsc`, `npm test`, `host:certify`) **não** foram executados: a entrega só
+  toca `scripts/` e `docs/` da frente C e dados de evidência (precedente ETAPA 1/2).

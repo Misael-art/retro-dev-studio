@@ -174,8 +174,11 @@ fn a_auditoria_cobre_todos_os_arquivos_da_pasta() {
         .expect("pasta de evidencia")
         .filter_map(|e| {
             let n = e.ok()?.path().file_name()?.to_string_lossy().to_string();
+            // `-v2` e o sufixo que E2-1 reserva para evidencia nova (ETAPA 3); ela
+            // nao e historico e e auditada por `e2_..._arquivos_v2` abaixo.
             (n.ends_with(".json") || n.ends_with(".md")).then_some(n)
         })
+        .filter(|n| !n.ends_with("-v2.json") && !n.ends_with("-v2.md"))
         .collect();
     encontrados.sort();
     let mut esperado: Vec<String> = REDIGIDOS.iter().map(|s| s.to_string()).collect();
@@ -185,6 +188,39 @@ fn a_auditoria_cobre_todos_os_arquivos_da_pasta() {
 }
 
 // ------------------------------------------------------------------- E2
+
+/// A evidencia `-v2` nao escapa da regra E2: nenhum run de hex que nao seja blob
+/// de 40/64 (sha) e nenhum caminho local do operador.
+#[test]
+fn e2_arquivos_v2_nao_carregam_bytes_nem_caminho_do_operador() {
+    let mut vistos = 0;
+    for e in std::fs::read_dir(repo().join(EVIDENCIA)).expect("pasta de evidencia") {
+        let nome = e
+            .expect("entrada")
+            .file_name()
+            .to_string_lossy()
+            .to_string();
+        if !(nome.ends_with("-v2.json") || nome.ends_with("-v2.md")) {
+            continue;
+        }
+        vistos += 1;
+        let t = texto(&evid(&nome));
+        let ruins: Vec<String> = runs_hex(&t)
+            .into_iter()
+            .filter(|r| r.len() != 40 && r.len() != 64)
+            .map(|r| format!("{} chars em {}", r.len(), &r[..r.len().min(48)]))
+            .collect();
+        assert!(ruins.is_empty(), "E2 {nome}: hex suspeito: {ruins:?}");
+        assert!(
+            !t.contains("/home/"),
+            "E2 {nome}: caminho local do operador no arquivo versionado"
+        );
+    }
+    assert!(
+        vistos >= 3,
+        "esperava ao menos 3 arquivos -v2 de evidencia, vi {vistos}"
+    );
+}
 
 #[test]
 fn e2_nenhum_dump_de_bytes_comerciais_em_nenhum_arquivo() {
