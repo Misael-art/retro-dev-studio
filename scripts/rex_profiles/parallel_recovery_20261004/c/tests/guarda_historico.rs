@@ -173,38 +173,95 @@ fn e2_1_o_guard_repele_conteudo_com_um_byte_extra() {
 
 /// O inventário é o conjunto, não uma amostra: um ficheiro histórico apagado ou
 /// renomeado tem de falhar no guard em vez de encolher a lista em silêncio.
-#[test]
-fn e2_1_a_pasta_de_evidencia_contem_exatamente_os_oito_pinados() {
-    let mut encontrados: Vec<String> = std::fs::read_dir(repo().join(EVIDENCIA))
+/// Subpastas declaradas da pasta de evidencia. Cada uma e pinada por conteudo em
+/// teste proprio (`e4_3_...` responde por `etapa3/`); aqui ela so entra na lista
+/// para que o inventario do nivel de cima nao a trate como invasor.
+const SUBPASTAS_DECLARADAS: &[&str] = &["etapa3"];
+
+/// O nome viola E2-1? Historico pinado e permitido; arquivo novo so e permitido
+/// com sufixo `-v2` (`.md`/`.json`/`.txt`); pasta so e permitida declarada.
+///
+/// Funcao pura para que o envenenamento seja reproduzivel em teste, como ja se
+/// faz com `conferir`.
+fn fora_do_contrato(nome: &str, eh_dir: bool, subpastas: &[&str]) -> bool {
+    if PINADOS.iter().any(|(n, _)| *n == nome) {
+        return false;
+    }
+    if eh_dir {
+        return !subpastas.contains(&nome);
+    }
+    !(nome.ends_with("-v2.md") || nome.ends_with("-v2.json") || nome.ends_with("-v2.txt"))
+}
+
+/// Le a pasta devolvendo (nome, eh_diretorio) em ordem de nome.
+fn inventario() -> Vec<(String, bool)> {
+    let mut v: Vec<(String, bool)> = std::fs::read_dir(repo().join(EVIDENCIA))
         .expect("ler a pasta de evidencia")
         .map(|e| {
-            e.expect("entrada da pasta de evidencia")
-                .file_name()
-                .to_string_lossy()
-                .into_owned()
+            let e = e.expect("entrada da pasta de evidencia");
+            let nome = e.file_name().to_string_lossy().into_owned();
+            let dir = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
+            (nome, dir)
         })
         .collect();
-    encontrados.sort();
-    let esperados: Vec<String> = {
-        let mut v: Vec<String> = PINADOS.iter().map(|(n, _)| n.to_string()).collect();
-        v.sort();
-        v
-    };
-    // Arquivos novos sufixados -v2 sao permitidos a partir de agora; nada mais.
-    let extras: Vec<&String> = encontrados
+    v.sort();
+    v
+}
+
+#[test]
+fn e2_1_a_pasta_de_evidencia_contem_exatamente_os_oito_pinados() {
+    let encontrados = inventario();
+    let fora: Vec<&String> = encontrados
         .iter()
-        .filter(|n| !esperados.iter().any(|e| e == *n))
-        .filter(|n| n.ends_with("-v2.md") || n.ends_with("-v2.json") || n.ends_with("-v2.txt"))
+        .filter(|(n, d)| fora_do_contrato(n, *d, SUBPASTAS_DECLARADAS))
+        .map(|(n, _)| n)
         .collect();
     assert_eq!(
-        extras.len(),
+        fora.len(),
         0,
-        "E2-1: artefatos na pasta que nao sao historicos nem -v2: {extras:?}"
+        "E2-1: artefatos na pasta que nao sao historicos nem -v2: {fora:?}"
     );
-    for nome in &esperados {
+    let nomes: Vec<String> = encontrados.iter().map(|(n, _)| n.clone()).collect();
+    for (nome, _) in PINADOS {
         assert!(
-            encontrados.contains(nome),
+            nomes.iter().any(|x| x == nome),
             "E2-1: artifacto historico {nome} desapareceu da pasta"
         );
     }
+}
+
+#[test]
+fn e2_1_o_guard_repele_arquivo_novo_sem_sufixo_v2() {
+    // Sem esta prova o inventario e decorativo: foi exatamente o que medimos em
+    // 2026-10-06 — a primeira versao do filtro guardava apenas os nomes `-v2`,
+    // entao um arquivo estranho nunca aparecia na lista de infracoes.
+    assert!(
+        fora_do_contrato("invasor.md", false, SUBPASTAS_DECLARADAS),
+        "arquivo novo sem sufixo -v2 tem de ser infracao"
+    );
+    assert!(
+        fora_do_contrato("MANIFEST-ETAPA3.txt", false, SUBPASTAS_DECLARADAS),
+        "evidencia nova sem -v2 tem de ser infracao"
+    );
+    // Controles negativos: o que o contrato permite nao pode ser infracao.
+    assert!(
+        !fora_do_contrato("delta-v1-v2.md", false, SUBPASTAS_DECLARADAS),
+        "o sufixo -v2 e o canal previsto por E2-2"
+    );
+    assert!(
+        !fora_do_contrato("r1.redigido.json", false, SUBPASTAS_DECLARADAS),
+        "o historico pinado e sempre permitido"
+    );
+}
+
+#[test]
+fn e2_1_o_guard_repele_subpasta_nao_declarada() {
+    assert!(
+        fora_do_contrato("etapa4", true, SUBPASTAS_DECLARADAS),
+        "pasta nova so entra declarada e pinada por conteudo"
+    );
+    assert!(
+        !fora_do_contrato("etapa3", true, SUBPASTAS_DECLARADAS),
+        "etapa3 ja e pinada por e4_3"
+    );
 }
