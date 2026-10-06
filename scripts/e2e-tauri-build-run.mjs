@@ -11871,17 +11871,20 @@ async function runSonicLayoutsJourneyScenario(sessionId, app, romPath, base, sav
     const prep = await executeScript(sessionIdRef, `
       const t = document.querySelector(arguments[0]);
       if (!(t instanceof HTMLElement)) return null;
-      t.scrollIntoView({ block: "center", inline: "center" });
-      const box = t.closest("[role='grid']");
-      if (box instanceof HTMLElement) {
-        const gr = box.getBoundingClientRect(), tr = t.getBoundingClientRect();
-        box.scrollLeft += (tr.left + tr.width / 2) - (gr.left + gr.width / 2);
-        box.scrollTop += (tr.top + tr.height / 2) - (gr.top + gr.height / 2);
+      // centraliza o alvo em CADA ancestral rolavel (painel direito e grade), de dentro para fora
+      for (let el = t.parentElement; el; el = el.parentElement) {
+        const cs = getComputedStyle(el);
+        const sx = /(auto|scroll)/.test(cs.overflowX) && el.scrollWidth > el.clientWidth;
+        const sy = /(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight;
+        if (!sx && !sy) continue;
+        const er = el.getBoundingClientRect(), tr = t.getBoundingClientRect();
+        if (sx) el.scrollLeft += (tr.left + tr.width / 2) - (er.left + er.width / 2);
+        if (sy) el.scrollTop += (tr.top + tr.height / 2) - (er.top + er.height / 2);
       }
       const r = t.getBoundingClientRect();
       const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
       const hit = document.elementFromPoint(x, y);
-      return { x, y, hit: hit === t || t.contains(hit) };
+      return { x, y, hit: hit === t || t.contains(hit), diag: { hit: hit ? (hit.getAttribute("data-testid") || hit.tagName) : null, innerWidth: window.innerWidth, innerHeight: window.innerHeight, rect: { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom) } } };
     `, [selector]);
     if (!prep) fail(`Alvo ausente para clique nativo: ${label}`);
     if (!prep.hit) fail(`O ponto de clique nao acerta o alvo (${label}): ${JSON.stringify(prep)}`);
