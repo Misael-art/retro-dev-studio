@@ -19,7 +19,10 @@
 //! * As formas non suportadas producen `InstrErro::Recusa` con motivo
 //!   estable: `68020-non-declarado` (`61 FF`), `indefinido-68000`
 //!   (`4E FC`/`4E FD`), `fora-de-subconxunto` (indirectos por rexistro
-//!   `4E 90..9F`/`4E D0..DF`, `bra`/`Bcc` `60..67`, `DBcc` `50..5F C0..DF`).
+//!   `4E 90..9F`/`4E D0..DF`, `bra`/`Bcc` `60..67`, `Scc`/`DBcc`
+//!   `50..5F` con `b1 & 0xC0 == 0xC0`, é dicir `C0..FF` — a máscara casa
+//!   as dúas familias; rótulo correxido por `REVISAO-C-DE-A-ETAPA3.md` §1.5,
+//!   comportamento idéntico).
 
 /// Máscara do bus de 24 bits do 68000 (A0–A23): `bus = efectivo & BARRAMENTO`.
 /// O efectivo de 32 bits pode exceder o bus (extensión de sinal ou rollover

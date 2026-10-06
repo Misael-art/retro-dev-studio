@@ -344,3 +344,53 @@ heurística neste lado).
   `par-declarado` coa súa epistemoloxía separada.
 - Non ampliado a descuberta universal: gardas = vocabulario pechado §5.1;
   límites declarados en cada rexistro.
+
+### 8.11 Paso 7 MEDIDO (serie datada 2026-10-06): consumo de `rex-cfg/v2` de C
+
+Expectativas conxeladas **antes** de construír ou medir, no commit só
+`78ea72a` (`EXPECTATIONS-CRUZAMENTO-REXCFG-V2-A.md`, V0–V7). Obxecto
+consumido: source publicado `5f97368942e3255e08e8f0dbe6e6ab6be8ab09e1`
+(`origin/codex/rex-parallel-c-cfg`, PR #108 OPEN; serie lineal
+`8ea5821..5f97368` con `f033b3b8`/`e828e721`/`2a0dd298`/`e54db1f8`
+verificados ancestors; WIP local alleo nunca se consumiu — §8.9 queda como
+historial do bloqueo, resolto por publicación de C).
+
+- **V0** OK: rex-cfg construído na miña scratch desde `git archive` desa SHA;
+  binario medido `5f2f6fd7b371efe1d2c3aa60f730905d0434cf55274ac80f64873d1f25b4899b`
+  (pino = source SHA; o hash do binario rexístrase, non se predí).
+- **V1/V2/V3** OK: cruzamento das **douas series** (10 cadeas §6.1 v11 +
+  10 rexistros §8.6 `par-declarado`) contra o binario v2 = **20/20
+  `OK-cadea`** e **tódolos dixestos de veredictos coinciden co conxelado
+  v1 §6.2** (táboa V3). `neg-identidade rc=2`. `fallos=0`
+  (log `7ed1b52c2faf141bedb70f89da325b3e60ee4dbb689da44f0c28bb1b0cc06dce`;
+  artefactos `xe-a-rexcfg-cruzamento-v2/`; arnés novo
+  `cruzar-rexcfg-v2-A.sh`, o v1 `cruzar-rexcfg-A.sh` e
+  `verificar-sitios.py` **non se tocaron** — identidade byte a byte que C
+  rexistrou en `REVISAO-C-DE-A-ETAPA3.md` §4/§5).
+- **V4** A lectura correcta é a que C fixo en §4(ii) R-3.3: ningunha das
+  xanelas cruzadas contén `(xxx).W` co bit15=1, logo «verde» = **non
+  regresión** baixo v2, **non** proba da extensión de sinal. A proba da
+  semántica queda en C (N1/N2 `fx12_absW`, censo de máscaras) e en A
+  (controls K/§2 co instrumento pinado).
+- **V5** Obxecto consumido autodeclarado `rex-cfg/v2` (campo `schema`);
+  o verificador non le ese campo, só `veredito`/`cobertura.vaos`/`raizes`/
+  `fronteiras`, cuxos nomes non mudaron.
+- **V6** Rótulo `DBcc` de `REVISAO-C-DE-A-ETAPA3.md` §1 punto 5 aceptado:
+  a cabeceira de `src/instr.rs` dicía «`DBcc` `50..5F C0..DF»` cando a
+  máscara real casa `Scc` **e** `DBcc` (`b1 & 0xC0 == 0xC0` → `C0..FF`).
+  Correxión **só-comentario**; o blob pasa de `72096ce7…` (pino histórico
+  de C, extraído con `git show bd40e92:` — segue válido nese SHA) a
+  `72a9e0894bd98047b6f7526a5b078e228f3f09b383bcc0efc7570bdff96132b5`.
+  Comportamento idéntico: suite **89/89** antes e despois
+  (gates `1ec97ef51d81857498f5d18a25ff10ba22fd31d6ade16458fbc6c2c9078e6c40`:
+  clippy `--all-targets -D warnings` e fmt limpos).
+- **V7** Cita de páxina: §2 (liña 40) di «p. 2-17»; a páxina impresa do
+  PRM é **2-18** (páx. 59 do pdf), como mediu C. §1–§7 conxelados non se
+  reescriben: esta nota datada é a rectificación.
+- Veredictos de C sobre A (`REVISAO-C-DE-A-ETAPA3.md`, revisada en
+  `bd40e92`/`6ae4f02`): puntos 1–4 e 6 **confirmado-pela-referencia**;
+  1b (un só campo para efectivo, word bruta non recuperable) e 5 (rótulo)
+  aceptados — 5 corrixido en V6, 1b mantense como límite declarado do
+  contrato `v1` (o campo `carga_operando`/`chamada_alvo` é o efectivo de
+  32 bits; a separación en catro campos é do modelo de C, non deste
+  schema).
