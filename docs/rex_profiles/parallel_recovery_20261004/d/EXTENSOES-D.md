@@ -1453,7 +1453,7 @@ auditadas contra o seu manifesto); se difiren, manda a matriz. Nada aquí reescr
 | B | `da5472c` | `dB-truth-v1` reexecutado | v1 | 14/14 PASS (non cobre CRAM nin decoder nativo) | `B-da5472c.jsonl` |
 
 Reprodución: `adapt_a_v2.mjs --conjunto holdout`, `adapt_c_v2.mjs --conjunto holdout`,
-`adapt_b_v2.mjs`, `matriz_v2.mjs`. A execución de C no holdout deu o mesmo díxeste (`6b297acf…`) dúas
+`adapt_b_v2.mjs`, `matriz_v2.mjs`. A execución de C no holdout deu o mesmo díxesto (`6b297acf…`) dúas
 veces. Os controis do escore (que miden a D, non ás frontes) son 34 en C (`adapt_c_v2.test.mjs`, incluído
 o de resposta reservada alterada) e 12 en B (`adapt_b_v2.test.mjs`); 188/188 verdes no directorio de D.
 
