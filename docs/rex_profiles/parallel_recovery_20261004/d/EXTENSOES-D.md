@@ -1051,3 +1051,298 @@ Este §12.11 commitease antes de executar `medida/adapt_c_v2.mjs`. O manifesto d
 `C-8ea5821-v2` referencia o commit de D que contén esta sección; se a evidencia
 aparecese nunha árbore sen esta sección, a medición sería inválida por
 construción, non por interpretación.
+
+**Como se comprueba agora, sen fiar desta frase:** `medida/adapt_c_v2.mjs` le o
+`EXTENSOES-D.md` do HEAD da propia árbore de D e **nega** a medición se nel non
+aparece «## 12.11» (función `verificarPrecedencia`). O manifesto publicado leva
+`precedencia: { secao: "§12.11", commit_de_D: 907d11cc4e1718c3243a3ce58f38784c33ea18f9,
+contido_no_commit: true }`, que é o commit de §12.11; a evidencia aterrizou no seu
+fillo. Un commit non pode conter o seu propio SHA, así que o que se rexistra é a
+árbore coa que se mediu — e iso é o que a cláusula pide.
+
+## 12.12 Rectificación posterior á medición de C en `8ea5821`
+
+**Data: 2026-10-06.** Esta sección é *posterior* á medición e **non reescribe ningunha
+expectativa, ningún pin nin ningunha fila commiteada** (R0): rectifica a interpretación
+de dous escores de D e rexistra os seus propios defectos. A evidencia que accompanya:
+
+| arquivo | SHA-256 |
+|---|---|
+| `data/…/d/medidas/C-8ea5821-v2.jsonl` (64 filas) | `900d55c58f179ecb80c314fa4df7e6c47d8ecfc16037bd3026083685ad0e29b0` |
+| `data/…/d/medidas/C-8ea5821-v2-manifest.json` | `737b2492ca9d5380c5afbc00ff8f325041e2cb67416baf7632bd0a2147a25167` |
+
+Contabilidade publicada: `PASS/aplicavel` 35 · `PASS/nao-suportado` 5 · `FAIL/falha` 2 ·
+`VOID` 1 (contra D, retirada en §12.10 i) · `CONTROLADO` 19 · `INCOHERENTE` 1 ·
+`INCONCLUSIVE` 1. Denominador conxelado **42** e **42 puntuables**: ningunha fila sae do
+denominador por esta sección; as 22 filas fóra del son 1 VOID de autoría + 21 controles.
+
+Ademais, o adaptador **engadiu dous campos de lectura** á fila de coherencia de cobertura
+(`medidos.instruions_decodificadas`, `medidos.fronteiras_enderezos`) para que a
+decomposición dos bytes sexa comprobábel na evidencia en vez de na narrativa: non cambian
+ningunha expectativa, ningún pin, ningún veredito nin o denominador, e o dixesto anterior
+(`2a8a059c…`) queda substituído por este mesmo arquivo, que non estaba commiteado.
+
+### a) A porta R11 estivera mal formulada; rectifícase o escore, non a expectativa
+
+**O defecto.** A primeira versión da porta R11 dentro de `adapt_c_v2.mjs` tomaba calquera
+fila de `KC1v` cuxa expectativa fose «fronteira» e, se o instrumento dicía que eses bytes
+son instrución válida, publicaba a fila como `VOID` contra D. Coa medición xa feita sobre
+a mesa, iso deixaba `KC1v-movea-l-imm-a1` fóra do denominador — e era incorrecto.
+
+**Por que era incorrecto.** §3 de C é unha **lista fechada** («Subconjunto de instruções
+suportado (lista fechada)»). Un contrato de subconxunto *debe* recusar formas que o ISA
+si admite; se «o instrumento a decodifica» fose suficiente para anular a expectativa,
+ningunha afirmación de §3 sería auditable xamais. A propia tanda de filas móstrao:
+`KC1v-move-l-d16pc-d0` (`203A0020`) ten `dominio: fora-do-subconjunto-de-C`, o instrumento
+**decodifícaa** (`10a: 203a0020 movel %pc@(12c <p_k1_16+0x2>,%d0)`) e C reporta fronteira —
+e iso é un **PASS** lexítimo (`nao-suportado`), non unha concesión.
+
+**Segundo defecto, independente do primeiro:** a porta activábase onde o gabarito tiña
+casualmente cobertura. `227C00001111` si tiña fila en `isa-oraculo-v2` (`bruto-227c-moveal`);
+`203A0020` non tiña ningunha. Unha regra mecánica cuxo disparo depende do oco de mostraxe
+do oráculo non é unha regra, é arbitrariedade — e aquí o efecto neto era *favorecer* a C:
+quitáballe unha falla debida.
+
+**A regra, como queda implementada** (`portaR11`, con `PORTA_R11 = "fronteira-acordada"`):
+R11 xulga só as filas onde **D** fai unha afirmación de invibilidade no ISA. Os catro
+dominios publicados nos gabaritos conxelados compórtanse así:
+
+| `dominio` da fila | que afirma | papel do instrumento |
+|---|---|---|
+| `fronteira-acordada` (2 filas, `KC3v`) | D: «eses bytes non son codificación MC68000» | **vara**: se o instrumento os decodifica, a expectativa é mentira de D ⇒ `VOID` contra D |
+| `fora-do-subconjunto-de-C` (1 fila) | C: «a miña lista non admite esa forma» | **corrobora, non refuta**: a forma pode ser ISA-válida e a fronteira seguir sendo correcta |
+| `coherencia-contrato-codigo` (1 fila, §12.10 j) | C: «a miña prosa de §3 restrinxe o que o meu código permite» | **non interfire**: non é unha afirmación sobre o ISA, é sobre C contra si mesma |
+| `alegado-por-C` (19 filas) | C: «soporto esta forma» | **vara de `tam`/mnemónico**, que xa o era desde v1 (o defecto de v1 era escribir lonxitudes a man, non o criterio) |
+
+**Consecuencia para a fila en disputa.** `KC1v-movea-l-imm-a1` volve ao denominador e
+púntase como `FAIL` no eixe `coherencia-contrato-código`, exactamente como conxelou
+§12.10 (j): a expectativa non se re-escribiu en ningún momento — o que se cambiou foi o
+*criterio de escore de D*. Lido en `8ea5821`, §3 di «`MOVE`/`MOVEA` … `#imm` só em MOVE»
+(liñas 156-158) e o código decodifica `227c…` como `moveal #(0x00001111), %a1` (tam 6):
+prosa e código diverxen, e iso é o que a fila midiu sempre.
+
+**Efecto sobre `KC3v` (positivo e non buscado).** `isa-oraculo-v2` non ten fila para `f000`
+nin `1149`, así que antes a porta non tiña nada que dicir alí. Agora `ditame` usa, en
+segundo termo, o `sondeo` que **a propia fila conxelada xa leva pinned** (mesmo `objdump`,
+mesma bandeira `-m68000`, hash cuberto por `pin-c-v2.json`). As dúas afirmacións de
+invibilidade de D quedan corroboradas polo instrumento:
+
+```
+f000  → 100:  f000   Address 0x102 is out of bounds.   (recusa)
+1149  → 110:  1149   .short 0x1149                     (recusa)
+```
+
+É dicir: `KC3v-linha-f` pasa porque C recusa o que o instrumento tamén recusa, e
+`KC3v-move-b-para-an` falla porque C **si** decodifica (`moveb %a1, %a0@(0x4e75)`, 4 B)
+unha palabra que o instrumento se nega a nomear. O FAIL xa non é «D di que é inválida e C
+discorda»: é «o instrumento di que é inválida e C decodifícaa».
+
+**Cobertura publicada**, fila a fila, con `orixe` explícito (`extras.oraculo_isa`):
+`cobertura_por_orixe: { gabarito: 2, sondeo-pinado: 21, ningunha: 0 }` — as 23 filas que
+leu a porta teñen ditame do instrumento, e sae do manifesto cal dos llo deu.
+`porta_R11: { filas_na_porta: 2, contradicitas: 0, conformes: 2, dominio_graduado:
+"fronteira-acordada" }`.
+
+**Que non se tocou:** ningún `dC-*-truth-v2.json`, ningún `pin-c-v2.json`, ningún
+`.bin`, ningunha cifra do denominador. A xustiza de honestidade que este punto pide:
+unha execución intermedia da porta (coa formulación refutada) existiu só en
+`~/rds-scratch/rex-eval-d3/` e **nunca entrou en Git**, así que non se reescribiu ningunha
+fila publicada; e esta sección escríbese *despois* de saber que a porta estaba mal, o cal
+é o que R11 obriga a publicar en vez de corrixir en silencio.
+
+### b) Un defecto no propio gabarito: `classe_instrumento` é pre-rexistro, non ditame
+
+Unha das 55 filas de `isa-oraculo-v2` leva unha etiqueta escrita a man que o instrumento
+desminte:
+
+```
+id movea-w-an · montaxe `movea.w %a0,%a1` · classe_instrumento "recusada-68000"
+rc_montador 0 · bytes_hex 3248 · desmontaxe `0:  3248    moveaw %a0,%a1`
+```
+
+É 1 de 55 (comprobado sobre o ficheiro: ningunha fila etiquetada `valida*` ten `rc ≠ 0`, e
+51 das 55 teñen `rc = 0`). R11 di que o gabarito deriva do instrumento, así que **a
+columna que puntúa é `rc_montador`/`bytes_hex`/`desmontaxe`; `classe_instrumento` é a
+hipótese que D pre-rexistrou antes de executar** e queda como tal. O adaptador le a
+primeira, non a segunda — por iso `porta_R11` contou `KC1v-movea-w-a0-a1` como `conformes`.
+
+Non se edita o gabarito: corrixir a etiqueta sería un `isa-oraculo-v3` cun pin novo e
+xustificación datada, e non movería ningún veredito porque ningún escore le a etiqueta.
+Publícase como límite, non como erro oculto.
+
+**Ata onde chega a garda do gabarito** (comprobado, non afirmado): `cargarOraculo` lanza
+ante calquera byte alterado en `filas` e ante unha `version` allea, pero `filas_sha256` é
+*auto*-referente — quen adultere as filas pode recalcular o dixesto, e entón a garda non
+dispara (`adapt_c_v2.test.mjs` rexistra iso como límite explícito en vez de disfrazalo de
+seguranza). O que pecha o oco non é o propio arquivo: é que o manifesto da medición publica
+`gabarito_isa: { sha256_arquivo: 54817106ddd0…, filas_no_arquivo: 55, filas_indexadas: 47,
+filas_sha256: 032eb989b530… }` e ese manifesto está commiteado. Falsificar o oráculo
+obrigaría a re-xerar a evidencia de D, e aí é onde un lector o ve.
+
+Límite que hai que publicar xunto á fila `KC1v-movea-w-a0-a1` (`3248`, PASS): que GAS monte
+e objdump decodifique `movea.w %a0,%a1` baixo `-m68000` é evidencia do **ditame do
+instrumento**, non da legalidade no silicio — e o §3 de C di que «combinações inválidas
+(p. ex. MOVE.W → An) = fronteira». Un oráculo de silicio requeriría outra fonte (manual do
+fabricante ou hardware); mentres non a haxa, esa fila vale `aplicavel` co límite escrito, e
+non se promove a ningunha outra afirmación.
+
+### c) TC-4: o FAIL era do escore de D (maiúsculas), non de C
+
+A primeira versión do escore comparaba `bytes_depois` cun `toString(16)` en minúsculas
+contra o valor conxelado `F000` do gabarito, e publicaba `FAIL/falha` nunha fila que C
+cumpría. Corrixido no adaptador a comparación numérica do opcode (`61440 = 0xF000`) e do
+tamaño de bytes. **Non se cambiou ningunha expectativa, ningún pin nin o denominador**: a
+mutación en 0x2000 e o delta de cobertura conxeláronse como estaban, e a fila publica
+`PASS/aplicavel` con `invariantes_comprobadas: 3` e `delta_cobertura: 2`. Como en (a), o
+execo que devolveu ese FAIL falso quedou en scratch e nunca se commiteou.
+
+### d) Cobertura: cal é o mecanismo real de `bytes-decodificados` en `8ea5821`
+
+Os catro controles de cobertura publican `bytes_alleos_as_instruccion: 0`: en `8ea5821`,
+`cobertura.bytes-decodificados` é **exactamente** Σ dos `tam` das instrucións que C publica
+en `blocos[].instrucoes`. Polo tanto un sitio de fronteira suma bytes **se e só se** C
+tamén publica ali unha instrución decodificada; o réxistro de fronteira en si non suma.
+Esa é a pregunta que a variante «fronteiras contan como decodificadas» confundía, e as
+catro fixtures respóndena con dous resultados distintos. coa descomposición agora publicada
+fila a fila (`medidos.instruions_decodificadas`, `medidos.fronteiras_enderezos`):
+
+| control | `primaria` | conxelado como variante | medido | fronteiras | bytes extra e a súa causa |
+|---|---|---|---|---|---|
+| `CONTROLE-COHERENCIA-CX1` | 58 | `…movea_l_imm_decodifica` = 64 | 64 | `[10, 68]` | +6 = `0x14 moveal #(0x00001111), %a1` (6 B). A fronteira de 0x0a non suma |
+| `CONTROLE-COHERENCIA-CX2` | 20 | — | 20 | `[]` | sen diverxencia |
+| `CONTROLE-COHERENCIA-CX3` | 2 | `…fronteiras_contan…` = 6 | 6 | `[0, 20]` | +4 = `0x10 moveb %a1, %a0@(0x4e75)` (4 B), a palabra `1149` mal decodificada. As dúas fronteiras suman 0 |
+| `CONTROLE-COHERENCIA-CX4` | 18 | `…fronteiras_contan…` = 22 | 22 | `[8200, 8228, 8232]` | +4 = `0x2024 jmp <indireto>` (2) + `0x2028 trap #4` (2), sitios que C publica **como instrución e como fronteira á vez** |
+
+Lecturas correctas, unha por caso:
+
+- **CX3 refuta a variante como mecanismo**: o valor coincide (6) pero as súas fronteiras
+  (`[0, 20]`) non aportan nada; os 6 son 4 + 2 de dúas instrucións. É un terceiro
+  testemuño *independente* do defecto de (e), porque eses 4 bytes só existen porque a
+  palabra `1149` se nomeou como `moveb`.
+- **CX1 confirma a súa propia variante** (`movea_l_imm_decodifica`), que é a mesma
+  diverxencia prosa/código que puntúa `FAIL` en `KC1v-movea-l-imm-a1` — non un defecto novo.
+- **CX4 é o caso que obriga a rectificar a frase «ningunha fronteira conta»**: ali a
+  diferenza con `primaria` **si** veñe de sitios marcados como fronteira. Pero non porque
+  a fronteira sume: porque C emite instrución nesos sitios. As dúas filas `KC4v` que os
+  xulgan (`KC4-jmp-ind-an`, `KC4-trap-n`) pasan como `nao-suportado` coa fronteira acordada
+  (`indirect-opaque`, `trap-opaco`) e o opcode publicado (`0x4ED2`, `0x4E44`).
+- Nota da propia fixture (conxelada en `dC-cx4-truth-v2.json`): «a variante está publicada
+  porque a súa aparición sería unha falla de `KC4v` (eixe de fronteira), non desta fila».
+  **Iso non se cumpriu**: aparece a variante e ningunha fila `KC4v` falla. Publícase como
+  error de autoría de D na nota, non como defecto de C, e non move ningún veredito.
+
+Conclusión que si se pode sostener: `bytes-decodificados` mide *lonxitude de instrucións*,
+non *alcançabilidade limpa*; un valor por riba de `primaria` nunca permite afirmar «a
+fronteira foi absorbida» sen ler a lista de instrucións. O aleitamento dos dous controles que
+pontúan `CONTROLADO` por acordo de valor queda explícito no seu `motivo`.
+
+### e) `KC3v`: un só defecto, non dous; `analyze` e `consultar` están de acordo
+
+A fila puntuada `KC3v-move-b-para-an` (palabra `1149`, sitio 0x10):
+
+- esperado (conxelado): fronteira `opcode-fora-do-subconjunto` en 16;
+- medido: `instrucao_no_sitio = { tam: 4, mnem: "moveb %a1, %a0@(0x4e75)" }`, **sen
+  fronteira ali**, e o export ten fronteiras en `[0, 20]`: a ruta de C non se parou en
+  0x10, parou en 0x14 porque o falso `moveb` de 4 B enguliu os sitios 0x10-0x13;
+- e **o seu propio control de discriminación** (sitio 18, esperado
+  `dentro-regiao-nao-alcancado`) mide `miolo-de-instrucao`.
+
+O control cruzado de §12.11 b, `CONTROLE-CONSULTAR-CX3-0x000012`, dá o mesmo veredicto
+(`miolo-de-instrucao`, `rex-cfg-sitio/v1`, 22 chaves, `consumidor: "nao"`), polo que o
+`INCOHERENTE` é **contra a expectativa conxelada, non entre interfaces**. Léntese como
+unha soa diverxencia: unha palabra que o instrumento se nega a nomear e C decodifica como
+instrución de 4 bytes, engulndo o sitio 0x12. Contar dous defectos sería duplicar a mesma
+clase nunha capacidade (precedente: §12.10 j). Polo contra, `KC3v-linha-f` (`f000`) pasa
+por completo: fronteira no sitio 0, tipo acordado, opcode publicado, ruta parada, sitio 2
+sen alcanzar.
+
+### f) Etiquetas das citas: `sen-citacion` era ambigua e chamouse `sen-texto-citabel`
+
+`citacao_estado` tiña tres valores; un deles (`sen-citacion`) aplicábase a filas que **si
+leen números de liña** pero ningún entrecomillado ancorea no contrato (por exemplo
+`KC3v-linha-f`, que cita «§3 liñas 97-98 (regra de peche)» sen texto entre «»). Renomeouse
+a `sen-texto-citabel` **antes** de xerar a evidencia commiteada. Estado final das 43 filas
+con cita:
+
+```
+{ umbral: 73, desprazo: 79, verificadas: 33, resumidas: 6, sen_texto_citabel: 4,
+  pares: 40, comprobados: 34 }
+```
+
+O mapa de §12.11 nunca lanzou: 34 pares ancorean en `275f2af` **e** en `8ea5821` co
+desprazo aplicado. Un lanzamento sería un defecto de D (o mapa sería falso), así que a
+ausencia de lanzamento é o resultado esperado, non unha proba de que o mapa sexa certo
+— a proba do mapa son eses 34 ancoraxes dobres, e `adapt_c_v2.test.mjs` comproba que un
+desprazo incorrecto **si** lanza. Coa precisión que o control revelou: a xanela de
+ancoraxe é `liñas[a-2, b+1]`, polo que tolera **unha** liña de erro en calquera sentido
+(un desprazo de 78 ou 80 aínda ancoa) e rexeita dos ou máis (77 e 83 lanzan). Iso é
+deliberado — as citas de C son dun ou dous puntos e a folga evita falsos positivos por
+liñas de branco — pero quere dicir que o control discriminante ten que usar un desprazo
+groseiro: o test emprega `desprazo: 0`, que lanza, e `desprazo: 79`, que non.
+
+### g) Precedencia de §12.11, comprobada (non narrada)
+
+§12.11 c) pedía que a medición non existise nunha árbore sen esa sección commiteada. Agora
+é mecánico: `verificarPrecedencia()` le o `EXTENSOES-D.md` do HEAD da propia árbore de D e
+o adaptador **nega** se nel non aparece «## 12.11». O manifesto rexistra
+`precedencia: { secao: "§12.11", commit_de_D: 907d11cc4e1718c3243a3ce58f38784c33ea18f9,
+contido_no_commit: true }`. Un commit non pode conter o seu propio SHA, así que o que se
+publica é a árbore coa que se mediu; a evidencia aterrizou no seu commit fillo.
+
+### h) Reprodución e límite de host
+
+Re-execución: `node scripts/rex_profiles/parallel_recovery_20261004/d/medida/adapt_c_v2.mjs --chave C_novo`.
+
+- **Determinismo no host**: dúas execucións seguidas deron o mesmo dixesto da xera
+  (`900d55c5…`). Non hai marcas de tempo nas filas.
+- **Determinismo entre hosts**: 118 ocurrencias do prefixo absoluto do directorio de
+  traballo (`$HOME/rds-scratch/rex-eval-d3`) aparecen en `comando`/`bruto`. Substituír
+  mecanicamente ese prefixo por `<scratch>` dá
+  `5e0958254a4dea3b51f710bb21025b72379edf8942d45a5efe1e99b058354f3b`, que é o dixesto
+  comparábel noutro host. Mesmo criterio e mesma limitación para `A-bd40e92-v2.jsonl`
+  (14 filas levan o prefixo): non se re-xerou A para normalalo, porque a súa evidencia xa
+  está commiteada (R0), así que se publica o límite en vez de re-hash histórico.
+- O manifesto leva `gerado_em` (data), polo que o seu propio dixesto non é reprodutible
+  noutro día; o que se comproba é o `sha256` da xera que el rexistra.
+
+### i) Estado das tres frontes e o que queda bloqueado
+
+| fronte | SHA medido | filas | estado |
+|---|---|---|---|
+| A | `bd40e92` | 35 | medido e commiteado (`e68a4c6`), escore R12, 20 controles negativos |
+| C | `8ea5821` | 42 conxeladas / 42 puntuables | medido con esta sección: 40 PASS, 2 FAIL, 1 VOID de autoría, 21 controles |
+| B | — | 0 | **non medido**: require un adendo `EXTENSOES-D v2-B` commiteado antes de calquera sonda (§12.3, R18). Mentres non exista, a súa capacidade publícase `descoñecido` con denominador baleiro, non herdado de A nin de C |
+| holdout C v2 | — | — | **non construído**: `--conjunto holdout` nega no adaptador (`sen gabarito conxelado`) en vez de adiviñar caminhos. O holdout `cbb6895` da rolda 2 non se reutiliza (R17) |
+
+Ningunha cifra agregada de «universalidade» se publica nesta rolda: a matriz rexe o formato
+de §8 — capacidade × SHA × versión de gabarito, con VOIDs, perdas e límites á vista — e
+publícase na tarefa seguinte, cando B teña adendo ou quede publicamente `descoñecido`.
+
+### j) `adapt_c_v2.test.mjs`: 33 controis que fan fallar o escore
+
+Unha rolda 40/42 non vale nada se nada podería fallar, así que cada invariante do escore
+ten un caso que o infrinxe. Os controis **non miden C**: miden a D. Corren con
+`npx vitest run scripts/…/d/medida/adapt_c_v2.test.mjs` (**33/33 verdes**, 10 s) e as
+mutacións viven en `~/rds-scratch/rex-eval-d3/controis/` — `verdadeMutada` compara o
+dixesto do arquivo mutado co da árbore e **lanza se coincide**, polo que unha mutación
+que non cambiase nada se reporta como defecto do test, non como PASS.
+
+| control | que altera | ditame esperado (e o que probaría un FAIL) |
+|---|---|---|
+| porta R11 á inversa | `KC1v-movea-l-imm-a1`: `coherencia-contrato-código` → `fronteira-acordada` | vólvese `VOID` contra D, puntuables 42→41, `contradicitas` 0→1. Proba que §12.12 a) é a **porta** o que sostén o FAIL, non un capricho |
+| porta R11 na lista fechada | `KC1v-move-l-d16pc-d0`: `fora-do-subconjunto-de-C` → `fronteira-acordada` | tamén se retira (o instrumento decodifica `203A0020`). Que iso só aconteza ao trocarlle o dominio é a proba de que a porta é dominial |
+| `tam` a man | `esperado.tam` 2 → 4 nunha fila que pasa | `FAIL` con diverxencia `tam` — a vara é o instrumento |
+| `mnem` | `esperado.stems` → `["nop"]` | `FAIL` con diverxencia `mnem` |
+| tipo de fronteira | `KC3v-linha-f`: `opcode-fora-do-subconjunto` → `limite-de-regiao` | `PASS` → `FAIL` co `medido` publicado |
+| coherencia de cobertura | `dC-cx2.cobertura_esperada_bytes` 20 → 19 | `CONTROLADO` → `INCOHERENTE`, `medido: 20` |
+| desprazo falso | `adaptarC2({ desprazo: 0 })` | lanza `§12.11 falso` |
+| holdout | `--conjunto holdout` | lanza `sen gabarito conxelado` (R17: non se adiviñan respostas) |
+| oráculo adulterado | fila mutada sen recalcular / recalculada | o primeiro lanza; o segundo **non**, e publícase como límite (véxase b) |
+| reprodución | dúas execucións + arquivo commiteado | mesmo dixesto `900d55c5…` e `procedencia` 65/0/0 |
+
+Os casos puros de unidade (`ditame` coas tres orixes, `portaR11` nos catro dominios,
+`vocab` coa táboa pechada, `mapearLiña`/`derivarCitacao`/`verificarCitacao` incluída a
+folga de ±1 liña, `verificarPrecedencia` contra `e68a4c6`, que **si** lanza) complementan
+os de integración: ningún deles confia en que a ferramenta estea presente, agás os que o
+declaran con `describe.skipIf(!HAI_FERRAMENTA)`, e eses SKIPPED distínguense no informe
+dun PASS.
