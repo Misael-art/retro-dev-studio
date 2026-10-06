@@ -1,0 +1,581 @@
+{
+ "schema_version": "rex-parallel-b/cadeia-mapping/1",
+ "gerado_por": "scripts/rex_profiles/parallel_recovery_20261004/b/medir-cadeia-mapping.py",
+ "expectativas": "E14/E15/E16 de docs/rex_profiles/parallel_recovery_20261004/b/EXPECTATIONS-ADENDA-B2.md",
+ "tempo_utc": "2026-10-05T02:37:44.250720+00:00",
+ "pins": {
+  "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "s1disasm": "064e3c68eb19cc85b8801b087f9d95f9b3e82cea",
+  "toolchain_as_sha256": "20342db5ac551cbb7a17a86f78ee5d58bb90ab2e3fc6f0231298f0f1ebc5af0d",
+  "toolchain_objdump_sha256": "f7d636421bffcf2254cf2024794fbaefd25c9e36086f18ec250fa72cab6e8113"
+ },
+ "niveis": {
+  "estrutura_mapping": "equivalencia-estatica (predicao por macro vs bytes da ROM)",
+  "slot": "vinculo-estrutural (carregador pinado simulado; sem execucao)",
+  "consumidor": "codigo-presente-na-ROM (ocorrencia unica montada pelo toolchain); NAO e 'consumo observado' — sem runtime nesta frente"
+ },
+ "estrutura": {
+  "tabela_addr": "0x2c564",
+  "tamanho_predito": 128,
+  "anclora": "palavras relativas ao rotulo da tabela (adda.w (a1,d1.w),a1 com d1=frame*2)",
+  "frames": [
+   {
+    "frame": ".straight",
+    "offset_absoluto": "0x2c584",
+    "offset_tabela": "0x20",
+    "esperado": "01f40a0000f4",
+    "obtido": "01f40a0000f4",
+    "confere": true,
+    "palavra_ponteiro": "0020",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf4",
+       "xpos": "0xf4",
+       "w": 3,
+       "h": 3,
+       "tile": "0x0",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   },
+   {
+    "frame": ".angled1",
+    "offset_absoluto": "0x2c58a",
+    "offset_tabela": "0x26",
+    "esperado": "01f00f0009f0",
+    "obtido": "01f00f0009f0",
+    "confere": true,
+    "palavra_ponteiro": "0026",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf0",
+       "xpos": "0xf0",
+       "w": 4,
+       "h": 4,
+       "tile": "0x9",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   },
+   {
+    "frame": ".angled2",
+    "offset_absoluto": "0x2c590",
+    "offset_tabela": "0x2c",
+    "esperado": "01f00f0019f0",
+    "obtido": "01f00f0019f0",
+    "confere": true,
+    "palavra_ponteiro": "002c",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf0",
+       "xpos": "0xf0",
+       "w": 4,
+       "h": 4,
+       "tile": "0x19",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   },
+   {
+    "frame": ".angled3",
+    "offset_absoluto": "0x2c596",
+    "offset_tabela": "0x32",
+    "esperado": "01f00f0029f0",
+    "obtido": "01f00f0029f0",
+    "confere": true,
+    "palavra_ponteiro": "0032",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf0",
+       "xpos": "0xf0",
+       "w": 4,
+       "h": 4,
+       "tile": "0x29",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   },
+   {
+    "frame": ".angled4",
+    "offset_absoluto": "0x2c59c",
+    "offset_tabela": "0x38",
+    "esperado": "01f00f0039f0",
+    "obtido": "01f00f0039f0",
+    "confere": true,
+    "palavra_ponteiro": "0038",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf0",
+       "xpos": "0xf0",
+       "w": 4,
+       "h": 4,
+       "tile": "0x39",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   },
+   {
+    "frame": ".angled5",
+    "offset_absoluto": "0x2c5a2",
+    "offset_tabela": "0x3e",
+    "esperado": "01f00f0049f0",
+    "obtido": "01f00f0049f0",
+    "confere": true,
+    "palavra_ponteiro": "003e",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf0",
+       "xpos": "0xf0",
+       "w": 4,
+       "h": 4,
+       "tile": "0x49",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   },
+   {
+    "frame": ".angled6",
+    "offset_absoluto": "0x2c5a8",
+    "offset_tabela": "0x44",
+    "esperado": "01f00f0059f0",
+    "obtido": "01f00f0059f0",
+    "confere": true,
+    "palavra_ponteiro": "0044",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf0",
+       "xpos": "0xf0",
+       "w": 4,
+       "h": 4,
+       "tile": "0x59",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   },
+   {
+    "frame": ".angled7",
+    "offset_absoluto": "0x2c5ae",
+    "offset_tabela": "0x4a",
+    "esperado": "01f00f0069f0",
+    "obtido": "01f00f0069f0",
+    "confere": true,
+    "palavra_ponteiro": "004a",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf0",
+       "xpos": "0xf0",
+       "w": 4,
+       "h": 4,
+       "tile": "0x69",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   },
+   {
+    "frame": ".angled8",
+    "offset_absoluto": "0x2c5b4",
+    "offset_tabela": "0x50",
+    "esperado": "01f00f0079f0",
+    "obtido": "01f00f0079f0",
+    "confere": true,
+    "palavra_ponteiro": "0050",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf0",
+       "xpos": "0xf0",
+       "w": 4,
+       "h": 4,
+       "tile": "0x79",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   },
+   {
+    "frame": ".angled9",
+    "offset_absoluto": "0x2c5ba",
+    "offset_tabela": "0x56",
+    "esperado": "01f00f0089f0",
+    "obtido": "01f00f0089f0",
+    "confere": true,
+    "palavra_ponteiro": "0056",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf0",
+       "xpos": "0xf0",
+       "w": 4,
+       "h": 4,
+       "tile": "0x89",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   },
+   {
+    "frame": ".angledA",
+    "offset_absoluto": "0x2c5c0",
+    "offset_tabela": "0x5c",
+    "esperado": "01f00f0099f0",
+    "obtido": "01f00f0099f0",
+    "confere": true,
+    "palavra_ponteiro": "005c",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf0",
+       "xpos": "0xf0",
+       "w": 4,
+       "h": 4,
+       "tile": "0x99",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   },
+   {
+    "frame": ".angledB",
+    "offset_absoluto": "0x2c5c6",
+    "offset_tabela": "0x62",
+    "esperado": "01f00f00a9f0",
+    "obtido": "01f00f00a9f0",
+    "confere": true,
+    "palavra_ponteiro": "0062",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf0",
+       "xpos": "0xf0",
+       "w": 4,
+       "h": 4,
+       "tile": "0xa9",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   },
+   {
+    "frame": ".angledC",
+    "offset_absoluto": "0x2c5cc",
+    "offset_tabela": "0x68",
+    "esperado": "01f00f00b9f0",
+    "obtido": "01f00f00b9f0",
+    "confere": true,
+    "palavra_ponteiro": "0068",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf0",
+       "xpos": "0xf0",
+       "w": 4,
+       "h": 4,
+       "tile": "0xb9",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   },
+   {
+    "frame": ".angledD",
+    "offset_absoluto": "0x2c5d2",
+    "offset_tabela": "0x6e",
+    "esperado": "01f00f00c9f0",
+    "obtido": "01f00f00c9f0",
+    "confere": true,
+    "palavra_ponteiro": "006e",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf0",
+       "xpos": "0xf0",
+       "w": 4,
+       "h": 4,
+       "tile": "0xc9",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   },
+   {
+    "frame": ".angledE",
+    "offset_absoluto": "0x2c5d8",
+    "offset_tabela": "0x74",
+    "esperado": "01f00f00d9f0",
+    "obtido": "01f00f00d9f0",
+    "confere": true,
+    "palavra_ponteiro": "0074",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf0",
+       "xpos": "0xf0",
+       "w": 4,
+       "h": 4,
+       "tile": "0xd9",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   },
+   {
+    "frame": ".angledF",
+    "offset_absoluto": "0x2c5de",
+    "offset_tabela": "0x7a",
+    "esperado": "01f00f00e9f0",
+    "obtido": "01f00f00e9f0",
+    "confere": true,
+    "palavra_ponteiro": "007a",
+    "leitura_ver1": {
+     "contagem_pecas": 1,
+     "pecas": [
+      {
+       "ypos": "0xf0",
+       "xpos": "0xf0",
+       "w": 4,
+       "h": 4,
+       "tile": "0xe9",
+       "xflip": 0,
+       "yflip": 0,
+       "paleta": 0,
+       "prioridade": 0
+      }
+     ]
+    }
+   }
+  ],
+  "divergencias": [],
+  "série_bruta_hex": "00200026002c00320038003e0044004a00500056005c00620068006e0074007a01f40a0000f401f00f0009f001f00f0019f001f00f0029f001f00f0039f001f00f0049f001f00f0059f001f00f0069f001f00f0079f001f00f0089f001f00f0099f001f00f00a9f001f00f00b9f001f00f00c9f001f00f00d9f001f00f00e9f0"
+ },
+ "slot": {
+  "base": "$FF4000 (v_ss_spritesettings) — os 37 sitios ja pinados",
+  "layout_predito": "[0..3]=long (frame<<24|ptr), [4]=0, [5]=frame, [6..7]=pal|vram",
+  "registrado_de": "0x1B714 move.l / 0x1B716 move.w #$0 / 0x1B71A move.b -4(a0),-1(a1) / 0x1B720 move.w",
+  "slot_id01_obtido": "0002c56400000142",
+  "slot_id01_esperado": "0002c56400000142",
+  "slot_id01_confere": true,
+  "entradas": {
+   "addr": "0x1b738",
+   "entradas": 78
+  },
+  "anomalias": [],
+  "nota": "simulacao do CARREGADOR pinado sobre os 78 registros de SS_MapIndex; nao e execucao — nivel vinculo-estrutural"
+ },
+ "consumidor": {
+  "bloco_gas": [
+   "lea (0xff4000).l,%a5",
+   "lsl.w #3,%d0",
+   "lea (%a5,%d0.w),%a5",
+   "movea.l (%a5)+,%a1",
+   "move.w (%a5)+,%d1",
+   "add.w %d1,%d1",
+   "adda.w (%a1,%d1.w),%a1",
+   "movea.w (%a5)+,%a3",
+   "moveq #0,%d1",
+   "move.b (%a1)+,%d1",
+   "subq.b #1,%d1"
+  ],
+  "bytes_montados": "4bf900ff4000e7484bf50000225d321dd241d2f11000365d720012195301",
+  "tamanho": 30,
+  "ocorrencias": [
+   "0x1b242"
+  ],
+  "unica": true,
+  "ramo_esperado_montado": "6b06",
+  "jsr_prefixo_montado": "4eb9",
+  "cauda": {
+   "bmi_s": "6b06",
+   "esperado": "6b06",
+   "confere": true,
+   "jsr": "4eb90000d762",
+   "formato_jsr_abs_l": true,
+   "alvo_buildspr_normal": "0xd762"
+  },
+  "desmontagem_objdump": [
+   {
+    "endereco": "1b242",
+    "bytes": "4bf9 00ff 4000",
+    "mnemonico": "lea 0xff4000,%a5"
+   },
+   {
+    "endereco": "1b248",
+    "bytes": "e748",
+    "mnemonico": "lslw #3,%d0"
+   },
+   {
+    "endereco": "1b24a",
+    "bytes": "4bf5 0000",
+    "mnemonico": "lea %a5@(0,%d0:w),%a5"
+   },
+   {
+    "endereco": "1b24e",
+    "bytes": "225d",
+    "mnemonico": "moveal %a5@+,%a1"
+   },
+   {
+    "endereco": "1b250",
+    "bytes": "321d",
+    "mnemonico": "movew %a5@+,%d1"
+   },
+   {
+    "endereco": "1b252",
+    "bytes": "d241",
+    "mnemonico": "addw %d1,%d1"
+   },
+   {
+    "endereco": "1b254",
+    "bytes": "d2f1 1000",
+    "mnemonico": "addaw %a1@(0,%d1:w),%a1"
+   },
+   {
+    "endereco": "1b258",
+    "bytes": "365d",
+    "mnemonico": "moveaw %a5@+,%a3"
+   },
+   {
+    "endereco": "1b25a",
+    "bytes": "7200",
+    "mnemonico": "moveq #0,%d1"
+   },
+   {
+    "endereco": "1b25c",
+    "bytes": "1219",
+    "mnemonico": "moveb %a1@+,%d1"
+   },
+   {
+    "endereco": "1b25e",
+    "bytes": "5301",
+    "mnemonico": "subqb #1,%d1"
+   },
+   {
+    "endereco": "1b260",
+    "bytes": "6b06",
+    "mnemonico": "bmis 0x1b268"
+   },
+   {
+    "endereco": "1b262",
+    "bytes": "4eb9 0000 d762",
+    "mnemonico": "jsr 0xd762"
+   }
+  ],
+  "prologo_buildspr_normal": {
+   "addr": "0xd762",
+   "bytes": "0c050050672c10194880d04234c014d9",
+   "desmontagem_objdump": [
+    {
+     "endereco": "d762",
+     "bytes": "0c05 0050",
+     "mnemonico": "cmpib #80,%d5"
+    },
+    {
+     "endereco": "d766",
+     "bytes": "672c",
+     "mnemonico": "beqs 0xd794"
+    },
+    {
+     "endereco": "d768",
+     "bytes": "1019",
+     "mnemonico": "moveb %a1@+,%d0"
+    },
+    {
+     "endereco": "d76a",
+     "bytes": "4880",
+     "mnemonico": "extw %d0"
+    },
+    {
+     "endereco": "d76c",
+     "bytes": "d042",
+     "mnemonico": "addw %d2,%d0"
+    },
+    {
+     "endereco": "d76e",
+     "bytes": "34c0",
+     "mnemonico": "movew %d0,%a2@+"
+    },
+    {
+     "endereco": "d770",
+     "bytes": "14d9",
+     "mnemonico": "moveb %a1@+,%a2@+"
+    }
+   ]
+  },
+  "veredito_parcial": "CODIGO-CONSUMIDOR-PRESENTE-OCORRENCIA-UNICA"
+ },
+ "veredito": "CADEIA-MAPPING-E14-E16-OK"
+}
