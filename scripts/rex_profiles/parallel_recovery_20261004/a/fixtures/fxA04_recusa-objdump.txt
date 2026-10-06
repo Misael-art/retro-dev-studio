@@ -1,0 +1,16 @@
+
+fxA04_recusa.elf: file format elf32-m68k
+
+
+Disassembly of section .text:
+
+00000000 <fxA04>:
+   0:	4ed0           	jmp %a0@
+   2:	4e92           	jsr %a2@
+   4:	6000 000c      	braw 12 <fin>
+   8:	6700 0008      	beqw 12 <fin>
+   c:	51cb 0004      	dbf %d3,12 <fin>
+  10:	4e71           	nop
+
+00000012 <fin>:
+  12:	4e75           	rts

@@ -1,0 +1,9 @@
+# recusas.txt — instrument: GNU assembler (GNU Binutils) 2.41
+
+## S1: 'bsr.l al' con m68k-elf-as -m68000 (instrumento: GNU assembler (GNU Binutils) 2.41)
+RC=1 (recusado polo montador 68000)
+s1.s: Assembler messages:
+s1.s:4: Error: invalid instruction for this architecture; needs 68020 [68k, 68ec020], 68030 [68ec030], 68040 [68ec040], 68060 [68ec060], cpu32 [68330, 68331, 68332, 68333, 68334, 68336, 68340, 68341, 68349, 68360], 51 [51ac, 51ag, 51cn, 51em, 51je, 51jf, 51jg, 51jm, 51mm, 51qe, 51qm], 5407, 54418 [54410, 54415, 54416, 54417], 54455 [54450, 54451, 54452, 54453, 54454], 547x [5470, 5471, 5472, 5473, 5474, ... -- statement `bsr.l al' ignored
+
+## S4: indirectos por rexistro — assemblan, decoder recusa (fora-de-subconxunto)
+jmp (%a0) -> 4e d0 / jsr (%a2) -> 4e 92 (ver fxA04_recusa-objdump.txt)

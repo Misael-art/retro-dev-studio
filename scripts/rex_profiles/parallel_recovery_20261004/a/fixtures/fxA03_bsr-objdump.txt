@@ -1,0 +1,21 @@
+
+fxA03_bsr.elf: file format elf32-m68k
+
+
+Disassembly of section .text:
+
+00000000 <fxA03>:
+   0:	611a           	bsrs 1c <adiante>
+   2:	6100 0018      	bsrw 1c <adiante>
+   6:	61f8           	bsrs 0 <fxA03>
+   8:	6100 fff6      	bsrw 0 <fxA03>
+   c:	6100 000e      	bsrw 1c <adiante>
+  10:	4e71           	nop
+  12:	4e71           	nop
+  14:	4e71           	nop
+  16:	4e71           	nop
+  18:	4e71           	nop
+  1a:	4e71           	nop
+
+0000001c <adiante>:
+  1c:	4e75           	rts

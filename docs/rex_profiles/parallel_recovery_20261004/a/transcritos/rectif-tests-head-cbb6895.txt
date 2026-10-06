@@ -1,0 +1,143 @@
+
+running 18 tests
+test r11_indirectos_an_fora_de_subconxunto ... FAILED
+test r12_lea_w_signo_bit15 ... FAILED
+test r14_bsr_w_cadea_real_sonic_segue_valida ... ok
+test r10_4efd_indefinido ... FAILED
+test r15_andar_fx_a01_lea ... FAILED
+test r13_jsr_l_25_bits_e_forma_valida_efectivo_32b ... FAILED
+test r16_andar_fx_a02_calls ... FAILED
+test r17_andar_fx_a03_bsr ... FAILED
+test r18_andar_fx_a04_todos_recusados ... FAILED
+test r1_bsr_s_dous_bytes ... FAILED
+test r1b_bsr_s_negativo_e_autodiscriminante ... FAILED
+test r2_bsr_ff_recusado_non_aceptado ... FAILED
+test r3_jsr_w_e_4eb8_con_signo ... FAILED
+test r5_jmp_w_e_4ef8 ... FAILED
+test r6_jmp_l_e_4ef9 ... FAILED
+test r7_jsr_pcd16_e_4eba ... FAILED
+test r8_jmp_pcd16_e_4efa_non_jsr_w ... FAILED
+test r9_4efc_indefinido ... FAILED
+
+failures:
+
+---- r11_indirectos_an_fora_de_subconxunto stdout ----
+
+thread 'r11_indirectos_an_fora_de_subconxunto' (281661) panicked at tests/rectif.rs:144:9:
+NonForma
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- r12_lea_w_signo_bit15 stdout ----
+
+thread 'r12_lea_w_signo_bit15' (281662) panicked at tests/rectif.rs:167:13:
+assertion `left == right` failed: sen extension de sinal: defecto v1
+  left: 32768
+ right: 4294934528
+
+---- r10_4efd_indefinido stdout ----
+
+thread 'r10_4efd_indefinido' (281660) panicked at tests/rectif.rs:21:18:
+esperado Err para [4E, FD, 00, 00, 18, 9C] en 0x100, obtido JmpAbsL { alvo: 6300 }
+
+---- r15_andar_fx_a01_lea stdout ----
+
+thread 'r15_andar_fx_a01_lea' (281665) panicked at tests/rectif.rs:226:44:
+assertion `left == right` failed
+  left: 32768
+ right: 4294934528
+
+---- r13_jsr_l_25_bits_e_forma_valida_efectivo_32b stdout ----
+
+thread 'r13_jsr_l_25_bits_e_forma_valida_efectivo_32b' (281663) panicked at tests/rectif.rs:188:71:
+jsr.l valido: AlvoFóraBarramento { calculado: 16777216 }
+
+---- r16_andar_fx_a02_calls stdout ----
+
+thread 'r16_andar_fx_a02_calls' (281666) panicked at tests/rectif.rs:246:33:
+fxA02 en 0x00: AlvoFóraBarramento { calculado: 305419896 }
+
+---- r17_andar_fx_a03_bsr stdout ----
+
+thread 'r17_andar_fx_a03_bsr' (281667) panicked at tests/rectif.rs:277:9:
+assertion `left == right` failed
+  left: "bsr.w"
+ right: "bsr.s"
+
+---- r18_andar_fx_a04_todos_recusados stdout ----
+
+thread 'r18_andar_fx_a04_todos_recusados' (281668) panicked at tests/rectif.rs:295:9:
+fxA04 @0x00: NonForma
+
+---- r1_bsr_s_dous_bytes stdout ----
+
+thread 'r1_bsr_s_dous_bytes' (281669) panicked at tests/rectif.rs:32:48:
+bsr.s valido: MoiCurta
+
+---- r1b_bsr_s_negativo_e_autodiscriminante stdout ----
+
+thread 'r1b_bsr_s_negativo_e_autodiscriminante' (281670) panicked at tests/rectif.rs:41:48:
+bsr.s backward: MoiCurta
+
+---- r2_bsr_ff_recusado_non_aceptado stdout ----
+
+thread 'r2_bsr_ff_recusado_non_aceptado' (281671) panicked at tests/rectif.rs:21:18:
+esperado Err para [61, FF, 00, 00, 12, 34] en 0x100, obtido BsrL { alvo: 4920 }
+
+---- r3_jsr_w_e_4eb8_con_signo stdout ----
+
+thread 'r3_jsr_w_e_4eb8_con_signo' (281672) panicked at tests/rectif.rs:68:55:
+jsr.w 4eb8: NonForma
+
+---- r5_jmp_w_e_4ef8 stdout ----
+
+thread 'r5_jmp_w_e_4ef8' (281673) panicked at tests/rectif.rs:80:55:
+jmp.w 4ef8: NonForma
+
+---- r6_jmp_l_e_4ef9 stdout ----
+
+thread 'r6_jmp_l_e_4ef9' (281674) panicked at tests/rectif.rs:92:71:
+jmp.l 4ef9: NonForma
+
+---- r7_jsr_pcd16_e_4eba stdout ----
+
+thread 'r7_jsr_pcd16_e_4eba' (281675) panicked at tests/rectif.rs:102:60:
+jsr.pcd16 4eba: NonForma
+
+---- r8_jmp_pcd16_e_4efa_non_jsr_w stdout ----
+
+thread 'r8_jmp_pcd16_e_4efa_non_jsr_w' (281676) panicked at tests/rectif.rs:115:5:
+assertion `left == right` failed: 4E FA non e jsr.w
+  left: "jsr.w"
+ right: "jmp.pcd16"
+
+---- r9_4efc_indefinido stdout ----
+
+thread 'r9_4efc_indefinido' (281677) panicked at tests/rectif.rs:21:18:
+esperado Err para [4E, FC, 12, 34] en 0x100, obtido JmpAbsW { alvo: 4660 }
+
+
+failures:
+    r10_4efd_indefinido
+    r11_indirectos_an_fora_de_subconxunto
+    r12_lea_w_signo_bit15
+    r13_jsr_l_25_bits_e_forma_valida_efectivo_32b
+    r15_andar_fx_a01_lea
+    r16_andar_fx_a02_calls
+    r17_andar_fx_a03_bsr
+    r18_andar_fx_a04_todos_recusados
+    r1_bsr_s_dous_bytes
+    r1b_bsr_s_negativo_e_autodiscriminante
+    r2_bsr_ff_recusado_non_aceptado
+    r3_jsr_w_e_4eb8_con_signo
+    r5_jmp_w_e_4ef8
+    r6_jmp_l_e_4ef9
+    r7_jsr_pcd16_e_4eba
+    r8_jmp_pcd16_e_4efa_non_jsr_w
+    r9_4efc_indefinido
+
+test result: FAILED. 1 passed; 17 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Compiling rex-chain v0.1.0 (/home/misael/RDS-REX-PARALLEL-A-2026-10-04/scripts/rex_profiles/parallel_recovery_20261004/a)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.38s
+     Running tests/rectif.rs (/home/misael/rds-scratch/chain-target/debug/deps/rectif-8d243bcbd02fe595)
+error: test failed, to rerun pass `--test rectif`

@@ -1,0 +1,16 @@
+
+fxA02_calls.elf: file format elf32-m68k
+
+
+Disassembly of section .text:
+
+00000000 <fxA02>:
+   0:	4eb9 1234 5678 	jsr 12345678 <_end+0x12343654>
+   6:	4eb8 9400      	jsr ffff9400 <_end+0xffff73dc>
+   a:	4eba 0004      	jsr %pc@(10 <fxA02+0x10>)
+   e:	4ef9 1234 5678 	jmp 12345678 <_end+0x12343654>
+  14:	4ef8 9400      	jmp ffff9400 <_end+0xffff73dc>
+  18:	4efa 0004      	jmp %pc@(1e <fxA02+0x1e>)
+  1c:	4ed0           	jmp %a0@
+  1e:	4e92           	jsr %a2@
+  20:	4e71           	nop

@@ -1,0 +1,22 @@
+[package]
+name = "rex-chain"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+description = "Revalidacion de cadeas Kosinski ROM -> sitio -> argumentos -> rutina -> stream -> salida (paralela 2026-10-04, letra A). Experimental; consome rex-kosinski e rex-addressing por path, sen dependencias externas."
+license = "UNLICENSED"
+publish = false
+
+[dependencies]
+rex-addressing = { path = "../../../../crates/rex-addressing" }
+rex-kosinski = { path = "../../../../crates/rex-kosinski" }
+
+[dev-dependencies]
+
+[lib]
+name = "rex_chain"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rex-chain"
+path = "src/main.rs"

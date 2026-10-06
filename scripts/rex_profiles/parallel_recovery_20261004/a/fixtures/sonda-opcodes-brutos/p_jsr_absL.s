@@ -1,0 +1,5 @@
+	.text
+	.globl p0
+p0:
+	.short	0x4eb9, 0x1234, 0x5678
+	.short	0x4e71
