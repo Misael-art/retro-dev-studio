@@ -11920,7 +11920,7 @@ async function runSonicLayoutsJourneyScenario(sessionId, app, romPath, base, sav
       const s = await readLayouts();
       return s?.panel && s.gridState === "pronto" && s.cells === 4096 && !s.error ? s : false;
     }, 45000, "O painel de layouts nao exibiu a grade 64x64 sem erro", 200);
-    report.steps.push({ step: 1, name: "painel_aberto_pelo_caminho_nativo" });
+    report.steps.push({ step: 1, name: "painel_aberto_pelo_caminho_nativo", screenshot: await captureScreenshot(sessionIdRef, `${prefix}-layouts-painel.png`) });
     addCheck("ui.mapa_de_ids_rotulado_e_seis_abas", first.titulo && first.tabs.length === 6 && first.camadas === 3 && first.desconhecidos >= 4, { observado: { titulo: first.titulo, abas: first.tabs.length, camadas: first.camadas, desconhecidos: first.desconhecidos } });
     addCheck("ui.identidade_igual_ao_sha_do_arquivo", first.identitySha === baseSha256 && first.identitySession === savedId, { observado: { ui: first.identitySha, arquivo: baseSha256, sessao: first.identitySession, esperado: savedId } });
     addCheck("ui.sem_imagem_nem_canvas_e_tecnico_recolhido", first.imagens === 0 && first.tecnicoAberto === false, { observado: { imagens: first.imagens, tecnicoAberto: first.tecnicoAberto } });

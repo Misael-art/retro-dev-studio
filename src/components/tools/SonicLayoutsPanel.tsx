@@ -472,7 +472,7 @@ export function SonicLayoutsPanel({ sessionId, romRevision, savedSelection, rest
             data-selected-col={selection?.col ?? ""}
             onClick={onGridClick}
             onKeyDown={onGridKey}
-            style={{ maxHeight: 340, maxWidth: "100%", overflow: "auto" }}
+            style={{ maxHeight: 340, width: "min(100%, 760px)", overflow: "auto" }}
             className="mt-2 rounded border border-[#313244] bg-[#0b0f14] focus:outline focus:outline-1 focus:outline-[#74c7ec]"
           >
             {idsHex ? (
