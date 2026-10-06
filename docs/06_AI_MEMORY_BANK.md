@@ -2666,3 +2666,12 @@ equivalência — nada foi promovido; sem merge, sem release, sem push forçado;
 ROM, binário, screenshots e patches derivados da ROM comercial permanecem fora
 do índice (só SHA-256 e referência). Pendente do operador: decisão de merge e
 promoção; frente MUGEN UX v2 (#66) não iniciada por falta de ordem.
+
+### Checkpoint 2026-10-06 — integrador: leitura nativa dos seis layouts Sonic (Enigma no núcleo), Experimental
+
+Branch `codex/rex-integrator-sonic-103104` (PR #109, sem merge). Audit corrigido em commit próprio (`167a8de2`); B integrada por
+`cherry-pick -x` e re-empacotada como `crates/rex-enigma` (0 dependências; `lib.rs` = B salvo rustfmt; risco jurídico residual do
+s1disasm é decisão do operador). Núcleo `sonic_layouts.rs` (layouts-info/layout-grid/layout-cell v1), seleção salva na sessão
+(`layouts_selection`), UI "Mapa de IDs", nomenclatura VDP corrigida (dados C00000/controle C00004). Binário `02ab2eec…` (de `ac670155`):
+`sonic-layouts-journey` 73/73, `sonic-sequencia-journey` e `sonic-consumers-inspection` allPass; BYOR Enigma 6/6 byte a byte. Detalhes e
+limites em `docs/rex_profiles/integration_20261006/ENTREGA-LAYOUTS-2026-10-06.md`. Nada observa o jogo em execução; A/C/D não integrados.
