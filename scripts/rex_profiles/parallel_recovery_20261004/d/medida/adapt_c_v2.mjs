@@ -57,7 +57,10 @@ import {
 const VERBO = "rex-cfg";
 const DIR_C = path.join(FIXTURES, "c");
 const OUT_C = path.join(SCRATCH_V2, "c");
+const DIR_HO = path.join(FIXTURES, "c-holdout");
+const RESPOSTAS_HO = path.join(process.env.HOME, "rds-scratch/rex-heldout-d3");
 const NOME_PIN = "pin-c-v2.json";
+const NOME_PIN_HO = "pin-holdout-c-v2.json";
 const GABARITO = "isa-oraculo-v2";
 const CONTRATO = "EXTENSOES-D v2";
 const ESQUEMA_ANALYZE = "rex-cfg/v1";
@@ -254,23 +257,26 @@ export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade =
   const f = FERRAMENTAS[chave];
   const bin = f.bin;
   const sha = f.sha;
-  // O holdout v2 aínda non está construído (tarefa #20): mentres non haxa
-  // entradas públicas con respostas conxeladas, `--conjunto holdout` nega en
-  // vez de inventar un caminho. Unha medición con expectativas adiviñadas non
-  // sería unha medición.
-  if (conjunto !== "medicao")
-    throw new Error(`conjunto «${conjunto}» sen gabarito conxelado: o holdout v2 de C non está construído`);
-  const dirFix = DIR_C;
+  // Só hai dous conxuntos con gabarito conxelado. Calquera outro nega en vez de
+  // inventar un caminho: unha medición con expectativas adiviñadas non sería
+  // unha medición. No holdout as imaxes son públicas (`c-holdout/`) e as
+  // respostas viven fóra da árbore, pinadas por SHA (R17, §12.13).
+  if (conjunto !== "medicao" && conjunto !== "holdout")
+    throw new Error(`conjunto «${conjunto}» sen gabarito conxelado`);
+  const HO = conjunto === "holdout";
+  const dirFix = HO ? DIR_HO : DIR_C;
+  const nomePin = HO ? NOME_PIN_HO : NOME_PIN;
+  const logico = (fix) => fix.replace("dC-cx", "dC-ho");
   // `dirVerdade` é o ponto de inxección dos controis negativos: una copia mutada
   // nunha fila *nunca* toca a árbore (os pins de `pin-c-v2.json` seguirían
   // comprobando os arquivos reais). Sen isto, nada probaría que o escore non é vacuo.
   const verdade = (fix) => {
-    const nome = `${fix}-truth-v2.json`;
+    const nome = HO ? `${logico(fix)}-respostas.json` : `${fix}-truth-v2.json`;
     if (dirVerdade && fs.existsSync(path.join(dirVerdade, nome))) return path.join(dirVerdade, nome);
-    return path.join(dirFix, nome);
+    return path.join(HO ? RESPOSTAS_HO : dirFix, nome);
   };
-  const imagem = (fix) => path.join(dirFix, `${fix}-v2.bin`);
-  const pin = JSON.parse(fs.readFileSync(path.join(DIR_C, NOME_PIN), "utf8"));
+  const imagem = (fix) => path.join(dirFix, HO ? `${logico(fix)}-v2.bin` : `${fix}-v2.bin`);
+  const pin = JSON.parse(fs.readFileSync(path.join(dirFix, nomePin), "utf8"));
   const contr = {
     vello: bytesDoCommit(PIN.C, CAMINO_CONTRATO).toString("utf8").split("\n"),
     novo: bytesDoCommit(sha, CAMINO_CONTRATO).toString("utf8").split("\n"),
@@ -357,9 +363,16 @@ export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade =
 
   if (pin) {
     for (const [nome, esperado] of Object.entries(pin.arquivos)) {
-      const p = path.join(DIR_C, nome);
-      if (!fs.existsSync(p)) throw new Error(`pin ${NOME_PIN}: falta ${nome}`);
-      if (sha256Arquivo(p) !== esperado.sha256) throw new Error(`pin ${NOME_PIN}: ${nome} diverxe do hash versionado`);
+      const p = path.join(dirFix, nome);
+      if (!fs.existsSync(p)) throw new Error(`pin ${nomePin}: falta ${nome}`);
+      if (sha256Arquivo(p) !== esperado.sha256) throw new Error(`pin ${nomePin}: ${nome} diverxe do hash versionado`);
+    }
+    // R17: as respostas reservadas compróbanse contra o SHA pinado ANTES de medir;
+    // un scratch alterado ou perdido nega, non cae a unha expectativa adiviñada.
+    for (const [nome, esperado] of Object.entries(pin.respostas ?? {})) {
+      const p = path.join(RESPOSTAS_HO, nome);
+      if (!fs.existsSync(p)) throw new Error(`pin ${nomePin}: resposta reservada ${nome} ausente`);
+      if (sha256Arquivo(p) !== esperado.sha256) throw new Error(`pin ${nomePin}: ${nome} diverxe do SHA pinado (resposta alterada)`);
     }
   }
 
@@ -1269,7 +1282,7 @@ export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade =
     })),
     truth: {
       arquivo: conjunto === "holdout" ? "respostas reservadas fóra da árbore" : path.relative(RAIZ, verdade("dC-cx1")),
-      pin: pin ? { arquivo: NOME_PIN, sha256: sha256Arquivo(path.join(DIR_C, NOME_PIN)) } : null,
+      pin: pin ? { arquivo: nomePin, sha256: sha256Arquivo(path.join(dirFix, nomePin)) } : null,
     },
   };
   return { ausente: false, linhas, manifesto, brutos, stats };

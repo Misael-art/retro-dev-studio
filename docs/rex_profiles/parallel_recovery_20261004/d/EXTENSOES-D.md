@@ -1346,3 +1346,26 @@ folga de ±1 liña, `verificarPrecedencia` contra `e68a4c6`, que **si** lanza) c
 os de integración: ningún deles confia en que a ferramenta estea presente, agás os que o
 declaran con `describe.skipIf(!HAI_FERRAMENTA)`, e eses SKIPPED distínguense no informe
 dun PASS.
+
+## 12.13 Holdout v2 de C: denominador conxelado antes de executar `8ea5821` sobre el
+
+Escrito e commiteado **antes** de que a ferramenta toque `c-holdout/` (R0, R17).
+
+- **Inputs públicos**: `data/…/d/frentes/c-holdout/dC-ho{1..4}-v2.bin`, pinados en
+  `pin-holdout-c-v2.json` (SHA-256 de cada binario e de cada resposta).
+- **Respostas reservadas**: `~/rds-scratch/rex-heldout-d3/dC-ho{1..4}-respostas.json`, fóra
+  da árbore. O adaptador **verifica o SHA pinado de cada resposta antes de medir** e nega se
+  difire ou falta (nunca cae a unha expectativa adiviñada). Perder o scratch non vira `VOID`:
+  a resposta reprodúcese con `author_holdout_c_v2.mjs` e confróntase co pin.
+- **Denominador conxelado**: 37 filas = `KC1v` 18 · `KC2v` 4 · `KC3v` 2 · `KC4v` 4 · `KC5v` 5 ·
+  `TCv` 4. Ningunha delas está no denominador de §12.3 (formas disxuntas, 33 palabras únicas
+  graduadas, comprobado mecanicamente polo autor).
+- **Contrato e gabarito**: `EXTENSOES-D v2` + `isa-oraculo-v2`; as citas lense de
+  `CONTRACT.md@8ea5821`, `desprazo: 0`. Porta R11 dominial (§12.12 a) e mapa de códigos
+  `TAv` (§12.4) sen cambios: non se retocan despois de ver o resultado.
+- **Validez**: vale para `8ea5821` e `EXTENSOES-D v2`. Non proba outro SHA. Un holdout executado
+  non se reutiliza. O holdout `cbb6895` da rolda 2 segue sen reutilizarse.
+- **Adaptador**: `adapt_c_v2.mjs --conjunto holdout` mapea `dC-cxN` → `dC-hoN`; a lóxica de
+  escore é a mesma da medición (non hai segundo escore).
+- **Límite**: a disxunción é de palabras e sitios, non de *clases* de instrución: o holdout
+  proba xeneralización dentro das capacidades de §12.3, non cobertura da ISA.
