@@ -476,7 +476,7 @@ export function SonicLayoutsPanel({ sessionId, romRevision, savedSelection, rest
             className="mt-2 rounded border border-[#313244] bg-[#0b0f14] focus:outline focus:outline-1 focus:outline-[#74c7ec]"
           >
             {idsHex ? (
-              <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, ${pixels}px)`, width: cols * pixels }}>
+              <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, ${pixels}px)`, width: cols * pixels, boxSizing: "content-box", paddingRight: 24, paddingBottom: 24 }}>
                 <GridBody idsHex={idsHex} rows={rows} cols={cols} pixels={pixels} withText={showsIdText(zoom)} selRow={selection?.row ?? -1} selCol={selection?.col ?? -1} />
               </div>
             ) : (
