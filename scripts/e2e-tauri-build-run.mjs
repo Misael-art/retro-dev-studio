@@ -11872,6 +11872,12 @@ async function runSonicLayoutsJourneyScenario(sessionId, app, romPath, base, sav
       const t = document.querySelector(arguments[0]);
       if (!(t instanceof HTMLElement)) return null;
       t.scrollIntoView({ block: "center", inline: "center" });
+      const box = t.closest("[role='grid']");
+      if (box instanceof HTMLElement) {
+        const gr = box.getBoundingClientRect(), tr = t.getBoundingClientRect();
+        box.scrollLeft += (tr.left + tr.width / 2) - (gr.left + gr.width / 2);
+        box.scrollTop += (tr.top + tr.height / 2) - (gr.top + gr.height / 2);
+      }
       const r = t.getBoundingClientRect();
       const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
       const hit = document.elementFromPoint(x, y);
