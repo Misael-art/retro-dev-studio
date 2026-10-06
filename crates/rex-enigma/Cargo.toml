@@ -1,0 +1,12 @@
+[package]
+name = "rex-enigma"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+description = "Decoder Enigma puro (variante plain do console) com limites, cancelamento cooperativo e erros estruturados — pacote REX autonomo, sem dependencias"
+license = "UNLICENSED"
+publish = false
+
+# Biblioteca pura: nenhuma dependencia (nem serde, nem Tauri, nem hash). A
+# serializacao, o SHA-256 e os erros IPC pertencem ao adaptador do backend.
+[dependencies]

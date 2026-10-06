@@ -179,6 +179,36 @@
         "dados": "data/rex_profiles/mugen_sgdk/"
       },
       "byor": "Ningun test ordinario do paquete necesita ROM: a mostra do E2E e un paquete MUGEN autoral xerado por codigo e a ROM compílase polo pipeline canonico SGDK dentro do cartafol de validacion. Cero ROM comercial; o corpus non se trata como dependencia provisionable."
+    },
+    {
+      "nome": "rex-enigma",
+      "manifesto": "crates/rex-enigma/Cargo.toml",
+      "descricao": "Decoder Enigma (variante plain do console) em Rust puro e sem dependencias: limites de saida e de trabalho, cancelamento cooperativo por token, erros estruturados (truncated, malformed-header, excessive-output, work-limit, cancelled) e contabilidade separada de bytes lidos, padding de alinhamento, tamanho armazenado e saida descomprimida. Serializacao, SHA-256 e erros IPC pertencem ao adaptador (sonic_layouts.rs).",
+      "maturidade": "backend-integrado",
+      "maturidade_data": "2026-10-06",
+      "gates": {
+        "medidos_em": "2026-10-06, worktree do integrador (ver docs/rex_profiles/integration_20261006/)",
+        "fmt": "OK",
+        "clippy_all_targets": "OK (-D warnings)",
+        "test_locked": "OK — 8 testes de especificacao em src/lib.rs + 12 de contrato em tests/contract.rs, 0 falhas",
+        "evidencia": "docs/rex_profiles/integration_20261006/REVISAO-ENIGMA-B.md"
+      },
+      "acoplamento_declarado": "Zero dependencias (nem serde, nem hash, nem Tauri). Fixtures 100% autorais (codificador de teste independente); nenhum teste ordinario usa ROM. O exemplo `examples/decode_stream.rs` e ferramenta de aceite BYOR, fora da suite.",
+      "nao_alega": "Nada de arte, paleta, mappings ou consumo em execucao: o decoder so transforma stream em bytes. A paridade com a ROM real e gate BYOR separado (scripts/rex_profiles/integration_20261006/byor-enigma-acceptance.py) e AUSENTE nao e PASS. Risco juridico residual da especificacao derivada do s1disasm registrado em REVISAO-ENIGMA-B.md; decisao final e do operador.",
+      "integracion_backend": {
+        "dependencia": "src-tauri/Cargo.toml: rex-enigma = { path = \"../crates/rex-enigma\" }; Cargo.lock ganha so a entrada local.",
+        "adaptador": "src-tauri/src/tools/reverse/decomp/sonic_layouts.rs — DTOs layouts-info/v1, layout-grid/v1, layout-cell/v1; erros viram InspectionError {code, message, retryable}.",
+        "chamada_real": "quatro comandos Tauri somente-leitura: rex_inspection_sonic_layouts, _layout_grid, _layout_cell, _layouts_cancel; executados fora do fio principal.",
+        "testes_do_adaptador": "ver docs/rex_profiles/integration_20261006/ (cargo test --lib sonic_layouts)"
+      },
+      "propriedade": "frente B (PR #105); registro e adaptador sao do integrador",
+      "origem": "codex/parallel-recovery-20261004-b @ da5472c4, lib.rs identico ao original salvo rustfmt; commits de B integrados por cherry-pick -x (79ca8082 e anteriores).",
+      "perfil": {
+        "contrato": "docs/rex_profiles/integration_20261006/EXPECTATIONS-LAYOUTS-2026-10-06.md",
+        "revisao": "docs/rex_profiles/integration_20261006/REVISAO-ENIGMA-B.md",
+        "aceite_byor": "scripts/rex_profiles/integration_20261006/byor-enigma-acceptance.py"
+      },
+      "byor": "nenhum teste ordinario do pacote depende de ROM comercial; o aceite real e script separado com ROM pinada c7da53a1…"
     }
   ]
 }
