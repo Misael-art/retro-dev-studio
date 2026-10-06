@@ -1,0 +1,1027 @@
+{
+  "id": "dC-cx1-v2",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v2",
+  "xerado_por": "scripts/rex_profiles/parallel_recovery_20261004/d/frentes/author_v2_c.mjs",
+  "regioes": [
+    {
+      "inicio": 0,
+      "fim": 128
+    }
+  ],
+  "raizes": [
+    {
+      "endereco": 0,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-move-b-a0p-d1 (bytes de GAS)"
+    },
+    {
+      "endereco": 2,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-move-b-a2m-d3 (bytes de GAS)"
+    },
+    {
+      "endereco": 4,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-move-b-d16a1-d2 (bytes de GAS)"
+    },
+    {
+      "endereco": 8,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-move-w-a3-d6 (bytes de GAS)"
+    },
+    {
+      "endereco": 10,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-move-l-d16pc-d0 (bytes de GAS)"
+    },
+    {
+      "endereco": 14,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-move-l-imm-d4 (bytes de GAS)"
+    },
+    {
+      "endereco": 20,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-movea-l-imm-a1 (bytes de GAS)"
+    },
+    {
+      "endereco": 26,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-movea-l-a0p-a3 (bytes de GAS)"
+    },
+    {
+      "endereco": 28,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-movea-w-a0-a1 (bytes de GAS)"
+    },
+    {
+      "endereco": 30,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-moveq-15-d4 (bytes de GAS)"
+    },
+    {
+      "endereco": 32,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-move-w-sr-d6 (bytes de GAS)"
+    },
+    {
+      "endereco": 34,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-addq-b-4-a3 (bytes de GAS)"
+    },
+    {
+      "endereco": 36,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-addq-w-1-d3 (bytes de GAS)"
+    },
+    {
+      "endereco": 38,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-add-l-d2-a1 (bytes de GAS)"
+    },
+    {
+      "endereco": 40,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-cmp-w-a2-d0 (bytes de GAS)"
+    },
+    {
+      "endereco": 42,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-tst-w-abs-l (bytes de GAS)"
+    },
+    {
+      "endereco": 48,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-bclr-2-a1 (bytes de GAS)"
+    },
+    {
+      "endereco": 52,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-seq-d1 (bytes de GAS)"
+    },
+    {
+      "endereco": 54,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-movem-w-a5p-d5-d7 (bytes de GAS)"
+    },
+    {
+      "endereco": 58,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-lea-abs-l-a0 (bytes de GAS)"
+    },
+    {
+      "endereco": 64,
+      "proveniencia": "candidato",
+      "evidencia": "sonda KC1v KC1v-lea-d16pc-a5 (bytes de GAS)"
+    }
+  ],
+  "sitios": [
+    {
+      "endereco": 0,
+      "esperado_veredito": "instrucao-de-bloco",
+      "motivo": "entrada da secuencia",
+      "citacao": "§4 liñas 120-122: «`sitios: [{endereco, veredito: instrucao-de-bloco|miolo-de-instrucao|dentro-regiao-nao-alcancado|fora-da-regiao|ponto-de-fronteira, bloco|nulo}]`» e regra 2, liñas 130-132"
+    },
+    {
+      "endereco": 6,
+      "esperado_veredito": "miolo-de-instrucao",
+      "motivo": "dentro de move.b d16(A1),D2 (4 B en 0x0004)",
+      "citacao": "§4 regra 2, liñas 130-132: `miolo-de-instrucao` para sítio que cai dentro dos bytes de uma instrución decodificada; §6 liñas 165-167: o veredito proba que ali o casamento linear **non** é inicio de instrución deste fluxo"
+    },
+    {
+      "endereco": 82,
+      "esperado_veredito": "dentro-regiao-nao-alcancado",
+      "motivo": "dentro do recheo 0xFF que comeza en 0x0044 (aritmética de D, non saída de C)",
+      "citacao": "§4 liñas 120-122: «`sitios: [{endereco, veredito: instrucao-de-bloco|miolo-de-instrucao|dentro-regiao-nao-alcancado|fora-da-regiao|ponto-de-fronteira, bloco|nulo}]`» e regra 2, liñas 130-132"
+    }
+  ],
+  "sequencia": [
+    {
+      "id": "KC1v-move-b-a0p-d1",
+      "endereco": 0,
+      "tam": 2,
+      "bytes": "1218"
+    },
+    {
+      "id": "KC1v-move-b-a2m-d3",
+      "endereco": 2,
+      "tam": 2,
+      "bytes": "1622"
+    },
+    {
+      "id": "KC1v-move-b-d16a1-d2",
+      "endereco": 4,
+      "tam": 4,
+      "bytes": "14290010"
+    },
+    {
+      "id": "KC1v-move-w-a3-d6",
+      "endereco": 8,
+      "tam": 2,
+      "bytes": "3C13"
+    },
+    {
+      "id": "KC1v-move-l-d16pc-d0",
+      "endereco": 10,
+      "tam": 4,
+      "bytes": "203A0020"
+    },
+    {
+      "id": "KC1v-move-l-imm-d4",
+      "endereco": 14,
+      "tam": 6,
+      "bytes": "283C00003333"
+    },
+    {
+      "id": "KC1v-movea-l-imm-a1",
+      "endereco": 20,
+      "tam": 6,
+      "bytes": "227C00001111"
+    },
+    {
+      "id": "KC1v-movea-l-a0p-a3",
+      "endereco": 26,
+      "tam": 2,
+      "bytes": "2658"
+    },
+    {
+      "id": "KC1v-movea-w-a0-a1",
+      "endereco": 28,
+      "tam": 2,
+      "bytes": "3248"
+    },
+    {
+      "id": "KC1v-moveq-15-d4",
+      "endereco": 30,
+      "tam": 2,
+      "bytes": "780F"
+    },
+    {
+      "id": "KC1v-move-w-sr-d6",
+      "endereco": 32,
+      "tam": 2,
+      "bytes": "40C6"
+    },
+    {
+      "id": "KC1v-addq-b-4-a3",
+      "endereco": 34,
+      "tam": 2,
+      "bytes": "5813"
+    },
+    {
+      "id": "KC1v-addq-w-1-d3",
+      "endereco": 36,
+      "tam": 2,
+      "bytes": "5243"
+    },
+    {
+      "id": "KC1v-add-l-d2-a1",
+      "endereco": 38,
+      "tam": 2,
+      "bytes": "D591"
+    },
+    {
+      "id": "KC1v-cmp-w-a2-d0",
+      "endereco": 40,
+      "tam": 2,
+      "bytes": "B052"
+    },
+    {
+      "id": "KC1v-tst-w-abs-l",
+      "endereco": 42,
+      "tam": 6,
+      "bytes": "4A7900A1000C"
+    },
+    {
+      "id": "KC1v-bclr-2-a1",
+      "endereco": 48,
+      "tam": 4,
+      "bytes": "08910002"
+    },
+    {
+      "id": "KC1v-seq-d1",
+      "endereco": 52,
+      "tam": 2,
+      "bytes": "57C1"
+    },
+    {
+      "id": "KC1v-movem-w-a5p-d5-d7",
+      "endereco": 54,
+      "tam": 4,
+      "bytes": "4C9D00E0"
+    },
+    {
+      "id": "KC1v-lea-abs-l-a0",
+      "endereco": 58,
+      "tam": 6,
+      "bytes": "41F900002020"
+    },
+    {
+      "id": "KC1v-lea-d16pc-a5",
+      "endereco": 64,
+      "tam": 4,
+      "bytes": "4BFA0040"
+    }
+  ],
+  "fim_instrucoes": 68,
+  "cobertura_esperada_bytes": {
+    "primaria": 58,
+    "variante_movea_l_imm_decodifica": 64,
+    "nota": "primaria = Σ dos comprimentos ditados polo instrumento para as filas que esperan decodificación; as dúas fronteiras (`d16(PC)` en MOVE e `movea.l #imm`) non suman. `variante` é aceptable en cobertura: §12.10 j traslada a diverxencia ao eixe `coherencia-contrato-codigo`, non ao de lonxitudes."
+  },
+  "sondas_postas": [
+    {
+      "rotulo": "p_k1_01",
+      "sitio": 0,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_k1_02",
+      "sitio": 2,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_k1_03",
+      "sitio": 4,
+      "lonxitude": 4
+    },
+    {
+      "rotulo": "p_k1_04",
+      "sitio": 8,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_k1_05",
+      "sitio": 10,
+      "lonxitude": 4
+    },
+    {
+      "rotulo": "p_k1_06",
+      "sitio": 14,
+      "lonxitude": 6
+    },
+    {
+      "rotulo": "p_k1_07",
+      "sitio": 20,
+      "lonxitude": 6
+    },
+    {
+      "rotulo": "p_k1_08",
+      "sitio": 26,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_k1_09",
+      "sitio": 28,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_k1_10",
+      "sitio": 30,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_k1_11",
+      "sitio": 32,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_k1_12",
+      "sitio": 34,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_k1_13",
+      "sitio": 36,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_k1_14",
+      "sitio": 38,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_k1_15",
+      "sitio": 40,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_k1_16",
+      "sitio": 42,
+      "lonxitude": 6
+    },
+    {
+      "rotulo": "p_k1_17",
+      "sitio": 48,
+      "lonxitude": 4
+    },
+    {
+      "rotulo": "p_k1_18",
+      "sitio": 52,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_k1_19",
+      "sitio": 54,
+      "lonxitude": 4
+    },
+    {
+      "rotulo": "p_k1_20",
+      "sitio": 58,
+      "lonxitude": 6
+    },
+    {
+      "rotulo": "p_k1_21",
+      "sitio": 64,
+      "lonxitude": 4
+    }
+  ],
+  "kc1": [
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-move-b-a0p-d1",
+      "forma": "move.b (A0)+,D1",
+      "endereco": 0,
+      "bytes": "1218",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liñas 77-79: «`MOVE`/`MOVEA` .B/.W/.L entre modos 68000 válidos (registros, `(An)`, `(An)+`, `-(An)`, `d16(An)`, `d8(An,Xn)`, `abs.W`, `abs.L`, `#imm` só em MOVE)»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-01",
+        "bytes": "1218",
+        "lonxitude": 2,
+        "instrumento": {
+          "mnemonico": "moveb %a0@+,%d1",
+          "desmontaxe": "100:\t1218\tmoveb %a0@+,%d1"
+        }
+      },
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "moveb"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 2,
+        "mnemonico": "moveb %a0@+,%d1"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-move-b-a2m-d3",
+      "forma": "move.b -(A2),D3",
+      "endereco": 2,
+      "bytes": "1622",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liñas 77-79: «`MOVE`/`MOVEA` .B/.W/.L entre modos 68000 válidos (registros, `(An)`, `(An)+`, `-(An)`, `d16(An)`, `d8(An,Xn)`, `abs.W`, `abs.L`, `#imm` só em MOVE)»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-02",
+        "bytes": "1622",
+        "lonxitude": 2,
+        "instrumento": {
+          "mnemonico": "moveb %a2@-,%d3",
+          "desmontaxe": "102:\t1622\tmoveb %a2@-,%d3"
+        }
+      },
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "moveb"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 2,
+        "mnemonico": "moveb %a2@-,%d3"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-move-b-d16a1-d2",
+      "forma": "move.b d16(A1),D2",
+      "endereco": 4,
+      "bytes": "14290010",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liñas 77-79: «`MOVE`/`MOVEA` .B/.W/.L entre modos 68000 válidos (registros, `(An)`, `(An)+`, `-(An)`, `d16(An)`, `d8(An,Xn)`, `abs.W`, `abs.L`, `#imm` só em MOVE)»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-03",
+        "bytes": "14290010",
+        "lonxitude": 4,
+        "instrumento": {
+          "mnemonico": "moveb %a1@(16),%d2",
+          "desmontaxe": "104:\t14290010\tmoveb %a1@(16),%d2"
+        }
+      },
+      "esperado": {
+        "tam": 4,
+        "stems": [
+          "moveb"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 4,
+        "mnemonico": "moveb %a1@(16),%d2"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-move-w-a3-d6",
+      "forma": "move.w (A3),D6",
+      "endereco": 8,
+      "bytes": "3C13",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liñas 77-79: «`MOVE`/`MOVEA` .B/.W/.L entre modos 68000 válidos (registros, `(An)`, `(An)+`, `-(An)`, `d16(An)`, `d8(An,Xn)`, `abs.W`, `abs.L`, `#imm` só em MOVE)»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-04",
+        "bytes": "3C13",
+        "lonxitude": 2,
+        "instrumento": {
+          "mnemonico": "movew %a3@,%d6",
+          "desmontaxe": "108:\t3c13\tmovew %a3@,%d6"
+        }
+      },
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "movew"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 2,
+        "mnemonico": "movew %a3@,%d6"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-move-l-d16pc-d0",
+      "forma": "move.l d16(PC),D0",
+      "endereco": 10,
+      "bytes": "203A0020",
+      "dominio": "fora-do-subconjunto-de-C",
+      "citacao_C": "§3 liñas 77-79: os modos listados para MOVE **non** inclúen `d16(PC)`; liñas 97-98: «Qualquer outro opcode, forma estendida 68010+ ou combinación inválida detectábel ⇒ `frontier(kind=\"opcode-fora-do-subconjunto\", opcode, endereco)`»",
+      "espera_decodificacion": false,
+      "sondeo": {
+        "rotulo": "k1-05",
+        "bytes": "203A0020",
+        "lonxitude": 4,
+        "instrumento": {
+          "mnemonico": "movel %pc@(12c <p_k1_16+0x2>),%d0",
+          "desmontaxe": "10a:\t203a0020\tmovel %pc@(12c <p_k1_16+0x2>),%d0"
+        }
+      },
+      "esperado": {
+        "fronteira": true,
+        "tipo": "opcode-fora-do-subconjunto",
+        "tam_instrumento": 4
+      },
+      "esperado_instrumento": {
+        "tam": 4,
+        "mnemonico": "movel %pc@(12c <p_k1_16+0x2>),%d0"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-move-l-imm-d4",
+      "forma": "move.l #imm32,D4",
+      "endereco": 14,
+      "bytes": "283C00003333",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liñas 77-79: «`MOVE`/`MOVEA` .B/.W/.L entre modos 68000 válidos (registros, `(An)`, `(An)+`, `-(An)`, `d16(An)`, `d8(An,Xn)`, `abs.W`, `abs.L`, `#imm` só em MOVE)»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-06",
+        "bytes": "283C00003333",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "movel #13107,%d4",
+          "desmontaxe": "10e:\t283c00003333\tmovel #13107,%d4"
+        }
+      },
+      "esperado": {
+        "tam": 6,
+        "stems": [
+          "movel"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 6,
+        "mnemonico": "movel #13107,%d4"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-movea-l-imm-a1",
+      "forma": "movea.l #imm32,A1",
+      "endereco": 20,
+      "bytes": "227C00001111",
+      "dominio": "coherencia-contrato-codigo",
+      "citacao_C": "§3 liñas 78-79: «`#imm` só em MOVE» ⇒MOVEA con inmediato está fóra da lista; frase de peche liñas 99-100: «A tabela exata de (máscara, valor, consumo de extensão) vive em `src/decode.rs` e é a única fonte; este documento lista as famílias» (§12.10 h e j)",
+      "espera_decodificacion": false,
+      "sondeo": {
+        "rotulo": "k1-07",
+        "bytes": "227C00001111",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "moveal #4369,%a1",
+          "desmontaxe": "114:\t227c00001111\tmoveal #4369,%a1"
+        }
+      },
+      "esperado": {
+        "fronteira": true,
+        "tipo": "opcode-fora-do-subconjunto",
+        "tam_instrumento": 6
+      },
+      "esperado_instrumento": {
+        "tam": 6,
+        "mnemonico": "moveal #4369,%a1"
+      },
+      "nota": "§12.10 h conxelou a expectativa de fronteira (a lista de §3 non admite inmediato en MOVEA). §12.10 j re-etiqueta o eixe: se a ferramenta decodifica, a fila publícase `falha` en `coherencia-contrato-código`, non como falla da maquinaria de fronteiras."
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-movea-l-a0p-a3",
+      "forma": "movea.l (A0)+,A3",
+      "endereco": 26,
+      "bytes": "2658",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liñas 77-79: «`MOVE`/`MOVEA` .B/.W/.L entre modos 68000 válidos (registros, `(An)`, `(An)+`, `-(An)`, `d16(An)`, `d8(An,Xn)`, `abs.W`, `abs.L`, `#imm` só em MOVE)»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-08",
+        "bytes": "2658",
+        "lonxitude": 2,
+        "instrumento": {
+          "mnemonico": "moveal %a0@+,%a3",
+          "desmontaxe": "11a:\t2658\tmoveal %a0@+,%a3"
+        }
+      },
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "moveal"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 2,
+        "mnemonico": "moveal %a0@+,%a3"
+      },
+      "nota": "corrección de **nombre**, non de bytes: v1 escribía `move.l (%a0)+,%a3` e GAS acepta ambas grafías para a mesma palabra `2658` (comprobado co instrumento pinado: `movea.l (%a0)+,%a3` → `2658`, `move.l (%a0)+,%a3` → `2658`). No layout de bits, MOVEA é o grupo MOVE con modo de destino `%001` (An) e tamaño `%10` (.L) / `%11` (.W); polo tanto `2658` é MOVEA.L lexítima e está DENTRO da lista de §3. A combinación inválida é o tamaño `.B` (`01` + An), que é a fila `KC3v-move-b-para-an` de `dC-cx3-v2` (§12.10 i)."
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-movea-w-a0-a1",
+      "forma": "movea.w A0,A1",
+      "endereco": 28,
+      "bytes": "3248",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liñas 77-79: «`MOVE`/`MOVEA` .B/.W/.L entre modos 68000 válidos (registros, `(An)`, `(An)+`, `-(An)`, `d16(An)`, `d8(An,Xn)`, `abs.W`, `abs.L`, `#imm` só em MOVE)»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-09",
+        "bytes": "3248",
+        "lonxitude": 2,
+        "instrumento": {
+          "mnemonico": "moveaw %a0,%a1",
+          "desmontaxe": "11c:\t3248\tmoveaw %a0,%a1"
+        }
+      },
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "moveaw"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 2,
+        "mnemonico": "moveaw %a0,%a1"
+      },
+      "nota": "fila engadida en §12.10 h: rexistro→An está DENTRO da lista; a expectativa é decodificación de 2 bytes, non recusa"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-moveq-15-d4",
+      "forma": "moveq #15,D4",
+      "endereco": 30,
+      "bytes": "780F",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liña 82: «`MOVEQ`, `CLR`, `NEG`, `NOT`, `TST`, `SWAP`, `CHK`»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-10",
+        "bytes": "780F",
+        "lonxitude": 2,
+        "instrumento": {
+          "mnemonico": "moveq #15,%d4",
+          "desmontaxe": "11e:\t780f\tmoveq #15,%d4"
+        }
+      },
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "moveq"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 2,
+        "mnemonico": "moveq #15,%d4"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-move-w-sr-d6",
+      "forma": "move.w SR,D6",
+      "endereco": 32,
+      "bytes": "40C6",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liña 95: «`MOVE SR→Dn` (`0x40C0+reg` e variantes .W comprovadas em fixture)»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-11",
+        "bytes": "40C6",
+        "lonxitude": 2,
+        "instrumento": {
+          "mnemonico": "movew %sr,%d6",
+          "desmontaxe": "120:\t40c6\tmovew %sr,%d6"
+        }
+      },
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "movew"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 2,
+        "mnemonico": "movew %sr,%d6"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-addq-b-4-a3",
+      "forma": "addq.b #4,(A3)",
+      "endereco": 34,
+      "bytes": "5813",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liña 81: «`ADDQ`/`SUBQ` #q,ea; `ADD`/`SUB`/`CMP` formas registradas e gerais»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-12",
+        "bytes": "5813",
+        "lonxitude": 2,
+        "instrumento": {
+          "mnemonico": "addqb #4,%a3@",
+          "desmontaxe": "122:\t5813\taddqb #4,%a3@"
+        }
+      },
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "addqb"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 2,
+        "mnemonico": "addqb #4,%a3@"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-addq-w-1-d3",
+      "forma": "addq.w #1,D3",
+      "endereco": 36,
+      "bytes": "5243",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liña 81: «`ADDQ`/`SUBQ` #q,ea; `ADD`/`SUB`/`CMP` formas registradas e gerais»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-13",
+        "bytes": "5243",
+        "lonxitude": 2,
+        "instrumento": {
+          "mnemonico": "addqw #1,%d3",
+          "desmontaxe": "124:\t5243\taddqw #1,%d3"
+        }
+      },
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "addqw"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 2,
+        "mnemonico": "addqw #1,%d3"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-add-l-d2-a1",
+      "forma": "add.l D2,(A1)",
+      "endereco": 38,
+      "bytes": "D591",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liña 81: «`ADDQ`/`SUBQ` #q,ea; `ADD`/`SUB`/`CMP` formas registradas e gerais»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-14",
+        "bytes": "D591",
+        "lonxitude": 2,
+        "instrumento": {
+          "mnemonico": "addl %d2,%a1@",
+          "desmontaxe": "126:\td591\taddl %d2,%a1@"
+        }
+      },
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "addl"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 2,
+        "mnemonico": "addl %d2,%a1@"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-cmp-w-a2-d0",
+      "forma": "cmp.w (A2),D0",
+      "endereco": 40,
+      "bytes": "B052",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liña 81: «`ADDQ`/`SUBQ` #q,ea; `ADD`/`SUB`/`CMP` formas registradas e gerais»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-15",
+        "bytes": "B052",
+        "lonxitude": 2,
+        "instrumento": {
+          "mnemonico": "cmpw %a2@,%d0",
+          "desmontaxe": "128:\tb052\tcmpw %a2@,%d0"
+        }
+      },
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "cmpw"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 2,
+        "mnemonico": "cmpw %a2@,%d0"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-tst-w-abs-l",
+      "forma": "tst.w abs.L",
+      "endereco": 42,
+      "bytes": "4A7900A1000C",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liña 82: «`MOVEQ`, `CLR`, `NEG`, `NOT`, `TST`, `SWAP`, `CHK`»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-16",
+        "bytes": "4A7900A1000C",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "tstw a1000c <p_k1_21+0xa0fecc>",
+          "desmontaxe": "12a:\t4a7900a1000c\ttstw a1000c <p_k1_21+0xa0fecc>"
+        }
+      },
+      "esperado": {
+        "tam": 6,
+        "stems": [
+          "tstw"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 6,
+        "mnemonico": "tstw a1000c <p_k1_21+0xa0fecc>"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-bclr-2-a1",
+      "forma": "bclr #2,(A1)",
+      "endereco": 48,
+      "bytes": "08910002",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liña 85: «`BTST/BCHG/BCLR` #imm,ea»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-17",
+        "bytes": "08910002",
+        "lonxitude": 4,
+        "instrumento": {
+          "mnemonico": "bclr #2,%a1@",
+          "desmontaxe": "130:\t08910002\tbclr #2,%a1@"
+        }
+      },
+      "esperado": {
+        "tam": 4,
+        "stems": [
+          "bclr",
+          "bic",
+          "bittest"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 4,
+        "mnemonico": "bclr #2,%a1@"
+      },
+      "nota": "v1 xa declaraba tolerancia de mnemónico para a familia BIT (#imm,ea)"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-seq-d1",
+      "forma": "seq D1",
+      "endereco": 52,
+      "bytes": "57C1",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liña 87: «`Scc` ea.Dn; `DBcc` Dn com disp8»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-18",
+        "bytes": "57C1",
+        "lonxitude": 2,
+        "instrumento": {
+          "mnemonico": "seq %d1",
+          "desmontaxe": "134:\t57c1\tseq %d1"
+        }
+      },
+      "esperado": {
+        "tam": 2,
+        "stems": [
+          "seq",
+          "scc",
+          "shs",
+          "stt",
+          "sf"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 2,
+        "mnemonico": "seq %d1"
+      },
+      "nota": "familia Scc: D gradúa o comprimento (2 B); non existe nesta host gravación obxectiva que ancore o talo Scc (r1/r2-objdump só ancóran DBcc 51c8..51ce), así que o mnemónico tolerado é declaración de limitación, non afirme de C"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-movem-w-a5p-d5-d7",
+      "forma": "movem.w (A5)+,D5-D7",
+      "endereco": 54,
+      "bytes": "4C9D00E0",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liña 93: «`MOVEM` .W/.L com lista de registradores de 1 word (4 bytes)»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-19",
+        "bytes": "4C9D00E0",
+        "lonxitude": 4,
+        "instrumento": {
+          "mnemonico": "movemw %a5@+,%d5-%d7",
+          "desmontaxe": "136:\t4c9d00e0\tmovemw %a5@+,%d5-%d7"
+        }
+      },
+      "esperado": {
+        "tam": 4,
+        "stems": [
+          "movemw",
+          "movem"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 4,
+        "mnemonico": "movemw %a5@+,%d5-%d7"
+      },
+      "nota": "C soporta MOVEM só para comprimento; o talo instrumental é `movemw`"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-lea-abs-l-a0",
+      "forma": "lea abs.L,A0",
+      "endereco": 58,
+      "bytes": "41F900002020",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liña 80: «`LEA`, `PEA` (modos de memória, sem imediato)»",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-20",
+        "bytes": "41F900002020",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "lea 2020 <p_k1_21+0x1ee0>,%a0",
+          "desmontaxe": "13a:\t41f900002020\tlea 2020 <p_k1_21+0x1ee0>,%a0"
+        }
+      },
+      "esperado": {
+        "tam": 6,
+        "stems": [
+          "lea"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 6,
+        "mnemonico": "lea 2020 <p_k1_21+0x1ee0>,%a0"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC1v-lea-d16pc-a5",
+      "forma": "lea d16(PC),A5",
+      "endereco": 64,
+      "bytes": "4BFA0040",
+      "dominio": "alegado-por-C",
+      "citacao_C": "§3 liña 80: «`LEA`, `PEA` (modos de memória, sem imediato)» — `d16(PC)` é modo de memoria e a lista non o exclúe; código: `decode.rs:727-729` só recusa o modo 7 con campo ≥ 4 (inmediato/reservado)",
+      "espera_decodificacion": true,
+      "sondeo": {
+        "rotulo": "k1-21",
+        "bytes": "4BFA0040",
+        "lonxitude": 4,
+        "instrumento": {
+          "mnemonico": "lea %pc@(182 <p_k1_21+0x42>),%a5",
+          "desmontaxe": "140:\t4bfa0040\tlea %pc@(182 <p_k1_21+0x42>),%a5"
+        }
+      },
+      "esperado": {
+        "tam": 4,
+        "stems": [
+          "lea"
+        ]
+      },
+      "esperado_instrumento": {
+        "tam": 4,
+        "mnemonico": "lea %pc@(182 <p_k1_21+0x42>),%a5"
+      }
+    }
+  ],
+  "limites_de_autoria": [
+    "ningún byte deste fixture ven do decodificador de C: cada palabra codifícaa `m68k-elf-as -m68000` co pin de `isa-oraculo-v2` e o comprimento/mnemónico graduados son o ditame de `m68k-elf-objdump` (R14)",
+    "o recheo é 0xFF, non 0x00: `0000` decodifica como `ori.b #imm,Dn`, que está na lista de §3, e a varredura tragaría o recheo byte a byte (corrección rexistrada en §12.9)"
+  ]
+}

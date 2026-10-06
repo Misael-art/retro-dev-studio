@@ -1,0 +1,297 @@
+{
+  "id": "dC-cx2-v2",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v2",
+  "xerado_por": "scripts/rex_profiles/parallel_recovery_20261004/d/frentes/author_v2_c.mjs",
+  "regioes": [
+    {
+      "inicio": 0,
+      "fim": 24
+    }
+  ],
+  "raizes": [
+    {
+      "endereco": 0,
+      "proveniencia": "candidato",
+      "evidencia": "entrada autoral do fluxo"
+    },
+    {
+      "endereco": 8,
+      "proveniencia": "candidato",
+      "evidencia": "raíz directa sobre a chamada: illa bsr.w do camiño lineal"
+    }
+  ],
+  "sitios": [
+    {
+      "endereco": 3,
+      "esperado_veredito": "miolo-de-instrucao",
+      "motivo": "dentro de bcc.w (4 B en 0x0002)",
+      "citacao": "§4 regra 2, liñas 130-132: `miolo-de-instrucao` para sítio que cai dentro dos bytes de uma instrución decodificada; §6 liñas 165-167: o veredito proba que ali o casamento linear **non** é inicio de instrución deste fluxo"
+    },
+    {
+      "endereco": 20,
+      "esperado_veredito": "dentro-regiao-nao-alcancado",
+      "motivo": "recheo 0xFF tras o último rts (0x0012)",
+      "citacao": "§4 liñas 120-122: «`sitios: [{endereco, veredito: instrucao-de-bloco|miolo-de-instrucao|dentro-regiao-nao-alcancado|fora-da-regiao|ponto-de-fronteira, bloco|nulo}]`» e regra 2, liñas 130-132"
+    }
+  ],
+  "sequencia": [
+    {
+      "rotulo": "moveq",
+      "endereco": 0,
+      "tam": 2,
+      "bytes": "7000",
+      "mnemonico": "moveq #0,%d0"
+    },
+    {
+      "rotulo": "bcc",
+      "endereco": 2,
+      "tam": 4,
+      "bytes": "6400000C",
+      "mnemonico": "bccw 110 <p_moveq_rts1>"
+    },
+    {
+      "rotulo": "nop",
+      "endereco": 6,
+      "tam": 2,
+      "bytes": "4E71",
+      "mnemonico": "nop"
+    },
+    {
+      "rotulo": "bsr",
+      "endereco": 8,
+      "tam": 4,
+      "bytes": "61000008",
+      "mnemonico": "bsrw 112 <p_rts2>"
+    },
+    {
+      "rotulo": "dbra",
+      "endereco": 12,
+      "tam": 4,
+      "bytes": "51C8FFFE",
+      "mnemonico": "dbf %d0,10c <p_dbra>"
+    },
+    {
+      "rotulo": "moveq_rts1",
+      "endereco": 16,
+      "tam": 2,
+      "bytes": "4E75",
+      "mnemonico": "rts"
+    },
+    {
+      "rotulo": "rts2",
+      "endereco": 18,
+      "tam": 2,
+      "bytes": "4E75",
+      "mnemonico": "rts"
+    }
+  ],
+  "cobertura_esperada_bytes": 20,
+  "sondas_postas": [
+    {
+      "rotulo": "p_moveq",
+      "sitio": 0,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_bcc",
+      "sitio": 2,
+      "lonxitude": 4
+    },
+    {
+      "rotulo": "p_nop",
+      "sitio": 6,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_bsr",
+      "sitio": 8,
+      "lonxitude": 4
+    },
+    {
+      "rotulo": "p_dbra",
+      "sitio": 12,
+      "lonxitude": 4
+    },
+    {
+      "rotulo": "p_moveq_rts1",
+      "sitio": 16,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_rts2",
+      "sitio": 18,
+      "lonxitude": 2
+    }
+  ],
+  "kc2": [
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC2v-base-bcc-w",
+      "endereco": 2,
+      "bytes": "6400000C",
+      "esperado": {
+        "tam": 4,
+        "alvo": 16,
+        "base": "sitio+2"
+      },
+      "discriminante": "con base=sitio+4 o alvo calculado sería 0x0012, non 0x0010 (§12.3 KC2: «discriminador do erro histórico»)",
+      "citacao_C": "§2 liñas 67-71: «Deslocamento relativo de Bcc/BSR/DBcc é sempre relativo ao primeiro word de extensão (`endereço_da_instrução + 2`), semante 68000»",
+      "sondeo": {
+        "mnemonico": "bccw 110 <p_moveq_rts1>",
+        "ea": 16,
+        "desmontaxe": "102:\t6400000c\tbccw 110 <p_moveq_rts1>"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC2v-aresta-desvio",
+      "endereco": 2,
+      "esperado": {
+        "tipo": "desvio",
+        "status": "resolvido",
+        "origem": 2,
+        "alvo": 16
+      },
+      "citacao_C": "§4 liñas 113-114: «`tipo: queda|desvio|chamada|retorno-fronteira`» e «`status: resolvido|fora-da-regiao|indireto-opaco|armadilha`»",
+      "sondeo": {
+        "mnemonico": "bccw 110 <p_moveq_rts1>",
+        "ea": 16,
+        "desmontaxe": "102:\t6400000c\tbccw 110 <p_moveq_rts1>"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC2v-bsr-w",
+      "endereco": 8,
+      "bytes": "61000008",
+      "esperado": {
+        "tam": 4,
+        "alvo": 18,
+        "base": "sitio+2"
+      },
+      "discriminante": "con base=sitio+4 o alvo sería 0x0014 (0x0012 é o ditame do instrumento)",
+      "citacao_C": "§3 liñas 88-90: «Fluxo: `BRA`/`BSR`/`Bcc` (todas as 16 condicións) `.S/.W`; `JMP`/`JSR` `abs.W`, `abs.L` (alvo comprovado) — demais modos … indiretos = fronteira `indirect-opaque`»",
+      "sondeo": {
+        "mnemonico": "bsrw 112 <p_rts2>",
+        "ea": 18,
+        "desmontaxe": "108:\t61000008\tbsrw 112 <p_rts2>"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC2v-dbra-ext",
+      "endereco": 12,
+      "bytes": "51C8FFFE",
+      "esperado": {
+        "tam": 4,
+        "alvo": 12,
+        "nota": "laço propio: GAS calcula disp = −2 e o desmontador dita o alvo 0x000c, que é o sitio conxelado da propia sonda"
+      },
+      "citacao_C": "§3 liña 87: «`Scc` ea.Dn; `DBcc` Dn com disp8»",
+      "sondeo": {
+        "mnemonico": "dbf %d0,10c <p_dbra>",
+        "ea": 12,
+        "desmontaxe": "10c:\t51c8fffe\tdbf %d0,10c <p_dbra>"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC2v-queda",
+      "endereco": 2,
+      "esperado": {
+        "origem": 2,
+        "sucessor_queda": 6
+      },
+      "citacao_C": "§4 liña 113: «`arestas: [{origem, alvo, tipo: queda|desvio|chamada|retorno-fronteira, …}]`» — o desvío non elimina a caída; Bcc ten queda tras o desvío",
+      "sondeo": {
+        "mnemonico": "bccw 110 <p_moveq_rts1>",
+        "ea": 16,
+        "desmontaxe": "102:\t6400000c\tbccw 110 <p_moveq_rts1>"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC2v-indexado",
+      "endereco": null,
+      "esperado": {
+        "executa_em": "dC-cx4-v2",
+        "id_da_fila": "KC2v-indexado",
+        "nota": "a forma `d8(An,Xn)` mídese sobre a imaxe de dC-cx4-v2, que é onde a sonda precisa `JSR abs.L` intra-rexión a alcanza como raíz derivada"
+      },
+      "citacao_C": "§3 liña 78: modo `d8(An,Xn)` dentro da lista"
+    }
+  ],
+  "kc5": [
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC5v-diamante",
+      "endereco": 2,
+      "esperado": {
+        "ramos": 2,
+        "tipos": [
+          "queda",
+          "desvio"
+        ]
+      },
+      "citacao_C": "§4 liña 113: «`arestas: [{origem, alvo, tipo: queda|desvio|chamada|retorno-fronteira, …}]`» — o desvío non elimina a caída"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC5v-queda-pos-condicional",
+      "endereco": 2,
+      "esperado": {
+        "origem": 2,
+        "alvo": 6,
+        "tipo": "queda"
+      },
+      "citacao_C": "§4 liña 113: «`arestas: [{origem, alvo, tipo: queda|desvio|chamada|retorno-fronteira, …}]`» — o desvío non elimina a caída; o desvío non elimina a queda"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC5v-rts-nao-continua",
+      "endereco": 16,
+      "esperado": {
+        "sucessores": 0,
+        "tipo": "retorno-fronteira"
+      },
+      "discriminante": "se RTS continuase, existiría aresta 0x0010→0x0012",
+      "citacao_C": "§3 liña 91: «`RTS` (terminador de retorno); `NOP`»"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC5v-cobertura",
+      "esperado": {
+        "bytes_decodificados": 20,
+        "bytes_regiao": 24
+      },
+      "nota": "D recompón Σ dos comprimentos ditados polo instrumento; a string `fracao` de C non se gradúa",
+      "citacao_C": "§4 liñas 118-119 (`cobertura: {bytes-decodificados, bytes-regiao, fracao, vaoes}`) e regra 1, liñas 128-129: «`cobertura` é soma dos comprimentos, não extensão de bounding box»"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC5v-vereditos",
+      "esperado": {
+        "miolo": 3,
+        "nao_alcancado": 20
+      },
+      "motivo": "miolo dentro de bcc.w (4 B en 0x0002); 0x0014 é o primeiro byte do recheo tras o último rts",
+      "citacao_C": "§4 liñas 120-122: «`sitios: [{endereco, veredito: instrucao-de-bloco|miolo-de-instrucao|dentro-regiao-nao-alcancado|fora-da-regiao|ponto-de-fronteira, bloco|nulo}]`» e regra 2, liñas 130-132; §4 regra 2, liñas 130-132: `miolo-de-instrucao` para sítio que cai dentro dos bytes de uma instrución decodificada; §6 liñas 165-167: o veredito proba que ali o casamento linear **non** é inicio de instrución deste fluxo"
+    }
+  ],
+  "limites_de_autoria": [
+    "os deslocamentos non os calcula D: cada desvío refire un símbolo do propio bloque e GAS codifica o desprazamento; `objdump` dita o enderezo efectivo que a fila espera (R14)",
+    "a segunda raíz (bsr) é elección de D para illar eixos, non unha afirmación de C"
+  ]
+}

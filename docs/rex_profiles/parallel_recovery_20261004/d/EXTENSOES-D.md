@@ -528,6 +528,12 @@ re-especificadas como **instruccións válidas**), `KC2v` 6, `KC3v` **2** (retí
 — **retificado en §12.10 h**: MOVEA non é unha soa fila. `movea.w` está DENTRO da
 lista fechada de C e `movea.l #imm` está FORA; o inventario de v1 só ten unha fila
 MOVEA, así que KC1v pasa de 20 a 21 e a fronte C de 41 a 42.**
+— **retificado en §12.10 i**: das dúas filas que quedaban en `KC3v`, a de `61 ff`
+tamén se retira (BSR.S está na lista de §3 e a lectura do byte depende da táboa de
+símbolos do desmontador); `KC3v` segue sendo 2, con `f000` sen afirmación de
+lonxitude e cunha fila nova `1149` (MOVE.B → An) que si exerce a «combinação
+inválida» que §12.6 deixou sen medir. **§12.10 j** re-etiqueta o eixe de
+`KC1v-movea-l-imm` como `coherencia-contrato-código` pola frase de peche de §3.
 
 **Frente B — 23 filas** (R18: capacidade non hérdase): as 14 de `v1` manteñen o seu
 denominador histórico e non cubren nada novo; engádense `KB5v` 6 filas para o
@@ -602,6 +608,15 @@ contra o manifest da evidencia (o teste chámase «a autoría de A deixou de ser
 determinista» cando deixa de coincidir). Un fixture v2 non substitúe a probe v1: son
 dúas estruturas distintas, e a matriz di con cal se mediu cada fila (R15).
 
+**Corrección datada 2026-10-05 (escrita despois de xerar, antes de medir):** o
+parágrafo de apertura atribúe a un só `author_frentes.mjs` as dous dominios. Na
+realidade son tres módulos, e cada un ten o seu pin propio —
+`frentes/author_v2.mjs` → `frentes/a/pin-v2.json` (fronte A),
+`frentes/author_v2_c.mjs` → `frentes/c/pin-c-v2.json` (fronte C), e o oráculo de
+montaxe `frentes/montador.mjs` compartidos por ámbolos dous. Non hai un
+`dC-cx*-v2` escrito por `author_frentes.mjs`. A estrutura afirmada (sondas do
+montador, pin por arquivo, marca `gabarito: isa-oraculo-v2`, v1 intocada) mantense.
+
 ## 12.8 Holdout v2 (R17)
 
 - Inputs públicos en `data/…/d/frentes/holdout/`, respostas reservadas en
@@ -662,6 +677,14 @@ da fronte C — a sonda de catro formas `frentes/sonda_c_previa.mjs` contra o bu
 é fila da matriz nin entra en denominador algún: serve só para que (h) cite
 comportamento observado xunto coa lectura estática. Ningunha das 42 filas v2 de C
 foi executada, e as expectativas de (h) conxélanse antes delo.
+
+*Ampliación do mesmo día, cos puntos (i) e (j):* o mesmo instrumento pinado
+(`as`/`objdump` 2.41 cos dixestos de `pin-v2.json`) foi consultado sobre catro
+palabras crudas — `0x4efc`, `0xf000`, `0x1149`, `0x51c8ffff` — en montaxes
+illadas (`~/rds-scratch/d-c-front-v2/…`, scripts desbotábeis `tmp-fronteiras.mjs`,
+`tmp-unicos.mjs`, `tmp-linhaf.mjs`). Como coa sonda de (h), **ningunha desas
+lecturas é fila da matriz**: son o soporte por escrito de (i)/(j), escritas antes
+de autorar calquera fixture v2 de C e antes de calquera medición.
 
 **(a) Denominador da fronte A: 33 → 34 → 35.** §12.3 conxelou 33 filas. Dúas
 correccións de deseño, ambas anteriores a medir, móvenoo:
@@ -825,6 +848,91 @@ fechada. `KC1v` pasa a **21** e a fronte C de **41 a 42**; rexístrase o interme
 Non é un axuste para acomodar resultados — engade unha fila que §12.3 xa daba por
 existida.
 
+**(i) Composición de `KC3v`: a fila `61 ff` non é medíbel a nivel de bytes e
+retírase; `KC3v` mantense en 2.** §12.3 conxelou `KC3v = 2` tras retirar
+`KC3-move-w-imm-an` (§12.6), deixando as dúas filas históricas de v1:
+`KC3-linha-f` (`f000`) e `KC3-bsr-l-68020` (`61ff`). A segunda non é unha
+afirmación ancorábel no byte, e retírase **antes** de autorar as fixtures:
+
+- **Está dentro da lista.** `CONTRACT.md` §3 (liñas 88–90, lidas en `275f2af`)
+  promete «Fluxo: `BRA`/`BSR`/`Bcc` (todas as 16 condicións) `.S/.W`». `61 FF` é
+  BSR.S con desprazamento −1, así que pola regra de dous eixos de (h) o que §3
+  promete ahí é **decodificación** de 2 bytes, non fronteira. Anotarlle
+  «fronteira opcode-fora-do-subconjunto» é o mesmo erro de lectura que (h)
+  corríxiu en §12.6.
+- **O byte non determina a lectura.** (d) xa documentou que as mesmas seis
+  palabras len-se `bsrs 2ad <p_KA1v_fora_61ff+0x1>` nun bloque con varios
+  símbolos e `bsrl 1dd6 <inicio+0x1dd6>` no obxecto dun só símbolo do gabarito
+  (fila `bruto-61ff-bsrl`). Unha fila cuxo veredito esperado cambia coa táboa de
+  símbolos do *desmontador* non pode ancorar unha afirmación sobre a fronte.
+- **Non se perde a pregunta.** O que `61 ff` pretendía exercer —unha forma que a
+  lista de C non cubre— medíase mal: a palabra ten lectura lexítima dentro da
+  lista. As dúas filas que entran son as que §5/§6 xa anunciaban para `KC3`
+  («opcode fora do subconjunto» e «combinação inválida detectábel»), e en ambas
+  **prosa e código coinciden** — que é exactamente o que non pasaba con `61 ff`:
+  1. `KC3v-linha-f` — palabra `f000`, montada por GAS con `.short 0xf000`.
+     Ditame do instrumento: `100:\tf000\tAddress 0x102 is out of bounds.`, coas
+     `nop` separadoras desmontadas por separado. É dicir: o instrumento **non**
+     lle dá mnemónico **nin lonxitude**. Por iso se retira tamén a afirmación
+     `bytes_para: 2` de v1 — era aritmética de D, non ditame do oráculo — e a
+     expectativa redúcese a: `ponto-de-fronteira` no sitio exacto,
+     `tipo = opcode-fora-do-subconjunto`, `opcode = f000` rexistrado, e nada
+     decodificado no sitio nin despois delo dentro da rexión. Soporte estático:
+     `classify` (`decode.rs:464`) non ten ramo para `%1111` e cae no catch-all
+     `_ => Err(out(op, "grupo %1111 (coprocessador/reservado) — recusado"))`
+     (`decode.rs:474`), e `out` (`decode.rs:420-422`) constrúe
+     `Frontier::fora(Some(op), …)`. Prosa: §3 non lista ningunha familia de
+     liña-F, e a súa regra de peche (`CONTRACT.md:97-98`) di «Qualquer outro
+     opcode, forma estendida 68010+ ou combinación inválida detectábel ⇒
+     `frontier(kind="opcode-fora-do-subconjunto", opcode, endereco)`».
+  2. `KC3v-move-b-para-an` — palabra `1149`: grupo `%001` (MOVE.B) con destino
+     modo `%001` (An), a **combinación inválida que §3 pon como exemplo**
+     («p. ex. MOVE.W → An») na única forma que a ISA si distingue. Ditame do
+     instrumento: GAS monta `.short 0x1149` e objdump imprime `.short 0x1149` —
+     recúsase a darlle mnemónico. Soporte estático: `decode_move` entra no ramo
+     MOVEA (`decode.rs:605-609`) e `size == 1` devolve
+     `out(op, "MOVEA.B invalido")`, fronteira co opcode rexistrado. O ditame de
+     §12.6 («non expressable en bytes») **mantense** para `327c` (R0): alí a
+     palabra é MOVEA.W lexítima. O que (i) engade é que a *clase* si é
+     expressable en bytes no tamaño `.B`, así que a capacidade que §12.6 deixou
+     sen medir pasa a ter fila en vez de oco.
+- **Denominador inalterado:** `KC3v` segue en 2 e a fronte C en 42
+  (`KC1v` 21 · `KC2v` 6 · `KC3v` 2 · `KC4v` 4 · `KC5v` 5 · `TCv` 4). A ambigüidade
+  de `61 ff` non se borra: queda publicada en (d) e mídese en A como recusa
+  `68020-non-declarado`. Retírala de C non contradí (d) — é aplicala.
+
+**(j) A frase de peche de §3 subordina a prosa ao código; re-etiquétase o eixe da
+fila `movea.l #imm`, sen re-escribila.** `CONTRACT.md:99-100` (lido en `275f2af`):
+
+> A tabela exata de (máscara, valor, consumo de extensão) vive em `src/decode.rs`
+> e é a única fonte; este documento lista as famílias.
+
+A expectativa de (h) para `KC1v-movea-l-imm` derívase da prosa («`#imm` só em
+MOVE»). Coa frase de peche, un `227c…` decodificado tamén é *coherente* co
+contrato lido na súa propia cláusula de autoridade, así que D **non pode**
+presentar ese resultado como falla da maquinaria de fronteiras. O que si queda, e
+o que a fila mide, é unha **diverxencia contrato↔código**: a prosa restrinxe, o
+código permite, e o propio texto declara a prosa non autorizada a nivel de
+palabra. En consecuencia:
+
+- A expectativa conxelada en (h) **non se reescribe** (R0): se a ferramenta
+  decodifica, a fila publícase con veredito `falha` **no eixe
+  `coherencia-contrato-código`**, coa frase de peche citada literalmente no
+  `motivo`, e coa nota explícita de que non conta como falla da capacidade de
+  fronteiras — esa mídese en `KC3v`, onde prosa e código si coinciden.
+- A mesma cláusula non recibe unha segunda fila. §3 di tamén «`DBcc` Dn com
+  disp8 (… 0xFF recusada)», e o ramo DBcc (`decode.rs:880-901`) non inspecciona
+  o desprazamento: lee o word como con sinal e devolve `tam` 4. Ditame do
+  instrumento sobre `51c8ffff`: `140:\t51c8ffff\tdbf %d0,141 <p_wdbff+0x1>`.
+  Publícase como **achado documental** coa súa evidencia, e déixase fóra do
+  denominador a propósito: unha soa clase de defecto non pode puntuar dúas veces
+  na mesma capacidade.
+- Estado no momento de escribir: ningunha das 42 filas de C foi executada. O SHA
+  medido é `8ea5821`; antes de medir ha de relerse §3 nese SHA, e se a cláusula
+  `#imm` ou a frase de peche mudaron, o `eixe` da fila segue o texto vixente e a
+  diferenza entre `275f2af` e `8ea5821` publícase — non se re-pontúa en silencio
+  (precedente: §12.6, R0).
+
 **Pins v2 da fronte A** (os dixestos vixentes tras este adendo; a fonte
 autorizada é `data/…/d/frentes/a/pin-v2.json`):
 
@@ -841,3 +949,38 @@ escrito a man — o intento de escribilo a man deu un falso FAIL e quedou
 rexistrado como defecto propio (R16 do test «as fixtures v1 conservan os pins
 co que publicou a súa propia evidencia»).
 
+**Pins v2 da fronte C** (xerados o 2026-10-05 por `frentes/author_v2_c.mjs`; a fonte
+autorizada é `data/…/d/frentes/c/pin-c-v2.json`, que leva ademais o `filas_sha256`
+do gabarito `isa-oraculo-v2` e a versión de `m68k-elf-as`/`objdump` que os produciu):
+
+| arquivo v2 | bytes | SHA-256 |
+|---|---|---|
+| `dC-cx1-v2.bin` | 128 | `a270639f502c934fd70633a34d07f1ed77a721ed16a78d60d49749fe8b0c6254` |
+| `dC-cx1-truth-v2.json` | 28768 | `692e516344344fc2484af75a8118222a571849cf1158338c94827e5274015090` |
+| `dC-cx2-v2.bin` | 24 | `1c4c9e081716fcda1e7f302c0ec63eb15584354f36d4236446fcdd3096111c3a` |
+| `dC-cx2-truth-v2.json` | 9316 | `eac226717189a2d22074d25e18bbc1bbf0f0695383ae1d4096aa0739e7233cbe` |
+| `dC-cx3-v2.bin` | 64 | `4fccd4b5e71370bf37cd7a8326fd628b4fd1725083713de3ce919ce4c98fbdef` |
+| `dC-cx3-truth-v2.json` | 6513 | `e582eb997802c657ea8d739d0ab81d24ccc6f31f80ba7bdeab67ec5db9e4d2ed` |
+| `dC-cx4-v2.bin` | 44 | `ce7c3844a674636aded131730b1e7874f55987a9935331a41b99d1b563a5394e` |
+| `dC-cx4-truth-v2.json` | 8844 | `f83ef322af1292a1b14fa8cb0266d200af3c89f3b28ae84fbe8a4adda2f2e0d2` |
+
+Tres constatacións que este pin fixa e que a matriz ten que publicar xunto coa
+fila correspondente:
+
+- **`dC-cx2-v2.bin` é byte a byte a imaxe v1** (`1c4c9e08…` = `dC-cx2.bin` do
+  manifest `C-275f2af`). O defecto de v1 neste bloque non eran os bytes, era a
+  autoría: as lonxitudes escribíase a man. As súas *verdades* si cambian
+  (`eac22671…` ≠ `4184b327…`), porque v2 declara o ditame do instrumento por fila
+  e v1 non. Publicar a coincidencia evita que se lea «v2 re-xerou todo» onde só
+  se re-xerou a afirmación.
+- As outras tres imaxes **non** coinciden coas v1 (`62cde573…`, `609aceb7…`,
+  `267cdbdc…`), e `author_v2_c.test.mjs` comprobao na dirección contraria: se
+  un cambio de autoría volvese a producir unha imaxe v1, a fila nova sería a
+  vella proba disfrazada.
+- Os dixestos v1 son os do manifest commiteado da rolda 2, non valores
+  escritos a man (R0; mesmo criterio e mesmo precedente que na táboa de pins de A).
+
+O denominador do pin (`KC1v 21 · KC2v 6 · KC3v 2 · KC4v 4 · KC5v 5 · TCv 4 = 42`)
+recálase das listas publicadas e o gravador falla se dalgunha parte deriva; a
+composición de `KC3v` (`f000` + `1149`, con `61 ff` en `filas_retiradas`) está
+fixada por ids, non por descrición (§12.10 i).
