@@ -984,3 +984,70 @@ O denominador do pin (`KC1v 21 · KC2v 6 · KC3v 2 · KC4v 4 · KC5v 5 · TCv 4 
 recálase das listas publicadas e o gravador falla se dalgunha parte deriva; a
 composición de `KC3v` (`f000` + `1149`, con `61 ff` en `filas_retiradas`) está
 fixada por ids, non por descrición (§12.10 i).
+
+## 12.11 Adendo de renumeración e escopo de interfaces — escrito antes de calquera medición de `8ea5821`
+
+**Data: 2026-10-05.** Este adendo non reescribe ningunha expectativa (R0): fixa
+dous feitos que farían inválida — ou silenciosamente incompleta — unha medición de
+C no SHA actual, e fáo **antes** de executar sonda puntuada algunha.
+
+### a) As citaacións conxeladas de v2 están numeradas en `275f2af`; a medición é en `8ea5821`
+
+Os catro gabaritos `dC-*-truth-v2.json` (pins en §12.10) levan `citacao_C`/`citacao`
+con números de liña de `docs/rex_profiles/parallel_recovery_20261004/c/CONTRACT.md`.
+Eses números son os do SHA que D leu ao autorar (`275f2af`), non os do SHA que v2
+mide (`8ea5821dbf3c61a0bc84ae49de54d8e2bd9557f5`). Verificado, non suposto:
+
+```
+$ git diff -U0 275f2af 8ea5821 -- docs/rex_profiles/parallel_recovery_20261004/c/CONTRACT.md
+@@ -72,0 +73,79 @@ rex-cfg analyze --bin <arquivo> [--origin 0xN] \
+$ # 167 liñas → 246 liñas
+```
+
+Un **só** hunk: inserción de 79 liñas despois da antiga liña 72 (os novos
+`### 2.1 … consultar` e `### 2.2 … medir`). Polo tanto:
+
+- toda citaación ≤ liña 71 (`§2 liñas 67-71`, a regra da base de desvío) **non**
+  se move;
+- toda citaación ≥ liña 73 (`§3`, `§4`, `§6`) desprázase **exactamente +79**:
+  `77-79→156-158`, `79→158`, `80→159`, `81→160`, `82→161`, `85→164`, `87→166`,
+  `88-90→167-169`, `91→170`, `92→171`, `93→172`, `95→174`, `97-98→176-177`,
+  `99-100→178-179`, `113-114→192-193`, `118-119→197-198`, `120-122→199-201`,
+  `128-129→207-208`, `130-132→209-211`, `136-138→215-217`, `165-167→244-246`.
+
+Dito en termos auditábeis: o adaptador `medida/adapt_c_v2.mjs` publica en cada
+fila, xunto coa citaación tal como foi autorada, o número derivado
+(`citacao_medida_sha`) **e comproba que o texto citado aparece nas liñas
+derivadas do `CONTRACT.md` lido do commit pinned**. Se o mapa fose incorrecto, o
+adaptador falla en vez de publicar unha citaación falsa; as filas que non levan
+texto citábel publícanse con `citacao_verificada: false`, que é un limite visible,
+non un PASS.
+
+### b) Escopo de interfaces (R18): o denominador v2 de C é a superficie `analyze`
+
+O denominador conxelado (`KC1v 21 · KC2v 6 · KC3v 2 · KC4v 4 · KC5v 5 · TCv 4 = 42`,
+`pin-c-v2.json`) exerce só `rex-cfg analyze` (esquema `rex-cfg/v1`, `§4`).
+`8ea5821` engade dous subcomandos que ninguunha fila conxelada exerce:
+
+| interface | liñas en `8ea5821` | estado na v2 |
+|---|---|---|
+| `analyze` (`rex-cfg/v1`) | §2 41-71 · §4 181-217 | **medido**, 42 filas |
+| `consultar` (`rex-cfg-sitio/v1`, §2.1) | §2.1 73-108 | **non puntuado**: o gabarito non conxelou filas para el. Publícase como control `CONTROLADO`/`INCOHERENTE` sobre os 10 `esperado_veredito` que xa están pinsados nos catro gabaritos, e a capacidade queda `descoñecido` na matriz |
+| `medir` (`rex-cfg-med/v1`, §2.2) | §2.2 110-… | **non puntuado**: mesma razón. Rexeístrase o feito de que existe e que responde, co seu `sha256` de saída; ningunúa das súas cifras se gradúa |
+
+Por que isto non é «inventing a result to fill the table»: os `esperado_veredito`
+dos `sitios` xa están pinados (son expectation de D anterior a esta medición), así
+que o cross-check de `consultar` enfrónta **a mesma expectativa conxelada a outra
+interface**. Un desacordo é un achado publicable; un acordo non promove a
+capacidade a `medido` porque aquí non se gradúan as 22 chaves ASCII en orde
+conxelada, nin V1–V5, nin o rexistro P-absW que §2.1 promete. Por iso o control é
+`pontua: false` e a matriz amosa `descoñecido` para `consultar`/`medir`, co motivo
+«gabarito v2 non exerce esta interface». Un adendo futuro podería darlles
+denominador propio; ata entón non se lles conta.
+
+### c) Precedencia
+
+Este §12.11 commitease antes de executar `medida/adapt_c_v2.mjs`. O manifesto de
+`C-8ea5821-v2` referencia o commit de D que contén esta sección; se a evidencia
+aparecese nunha árbore sen esta sección, a medición sería inválida por
+construción, non por interpretación.
