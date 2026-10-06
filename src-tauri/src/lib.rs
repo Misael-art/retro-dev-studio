@@ -2773,6 +2773,18 @@ async fn rex_inspection_sonic_layout_cell(
 }
 
 #[tauri::command]
+fn rex_inspection_set_layouts_selection(
+    session_id: String,
+    selection: Option<tools::reverse::decomp::sonic_layouts::SelecaoLayouts>,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionSession,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::set_layouts_selection(&session_id, selection)
+        .map_err(tools::reverse::decomp::inspection::layouts_error)
+}
+
+#[tauri::command]
 fn rex_inspection_sonic_layouts_cancel(
     request_id: String,
 ) -> Result<bool, tools::reverse::decomp::inspection::InspectionError> {
@@ -5857,6 +5869,7 @@ pub fn run() {
             rex_inspection_sonic_layout_grid,
             rex_inspection_sonic_layout_cell,
             rex_inspection_sonic_layouts_cancel,
+            rex_inspection_set_layouts_selection,
             rex_inspection_edit_sonic_sequence,
             rex_inspection_restore_sonic_sequence,
             rex_resource_list,

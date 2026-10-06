@@ -47,6 +47,7 @@ import {
 import { useEditorStore } from "../../core/store/editorStore";
 import ToolPathField from "./ToolPathField";
 import SonicPixelEditor from "./SonicPixelEditor";
+import { SonicLayoutsPanel } from "./SonicLayoutsPanel";
 
 interface InspectionPanelProps {
   logMessage: (level: "info" | "success" | "warn" | "error", message: string) => void;
@@ -185,6 +186,7 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
   const [consumers, setConsumers] = useState<SonicConsumersInfo | null>(null);
   const [consumersBusy, setConsumersBusy] = useState(false);
   const [consumersError, setConsumersError] = useState("");
+  const [layoutsRestoreNonce, setLayoutsRestoreNonce] = useState(0);
   const [emulatorObservation, setEmulatorObservation] = useState<EmulatorObservationResult | null>(null);
   const [emulatorObservationLabel, setEmulatorObservationLabel] = useState("");
   const [emulatorObservationHistory, setEmulatorObservationHistory] = useState<Array<{ label: string; observation: EmulatorObservationResult }>>([]);
@@ -514,6 +516,7 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
       setSpriteFrameId(next.sprite_frame_id ?? "spr_ryo_100/frame-0");
       setRun(null);
       setPatchedRomPath(next.edit?.modified_rom_path ?? "");
+      setLayoutsRestoreNonce((n) => n + 1);
       setSessionMessage(`Sessão ${next.session_id} reaberta e identidade verificada.`);
       if (next.status === "completed") await refreshCatalog(next.session_id, 0);
       logMessage("success", `[Inspeção] Sessão ${id} reaberta e identidade verificada.`);
@@ -1448,6 +1451,20 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
                 </>}
                 <div aria-live="polite" data-testid="inspection-consumers-error" className="mt-2 break-words text-[#f38ba8]">{consumersError}</div>
               </div>
+              </div>
+              <div data-testid="inspection-anim-group-layouts" className="mt-2">
+                <SonicLayoutsPanel
+                  sessionId={session.session_id}
+                  romRevision={session.edit?.modified_rom_sha256 ?? "base"}
+                  savedSelection={session.layouts_selection ?? null}
+                  restoreNonce={layoutsRestoreNonce}
+                  onSessionUpdated={(next) => {
+                    if (sessionRef.current?.session_id !== next.session_id) return;
+                    sessionRef.current = next;
+                    setSession(next);
+                    setUnsavedChanges(true);
+                  }}
+                />
               </div>
               <div data-testid="inspection-anim-group-color" className="mt-2">
               <div className="flex flex-wrap items-end gap-2">

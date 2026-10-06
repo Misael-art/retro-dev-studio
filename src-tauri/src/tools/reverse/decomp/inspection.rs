@@ -121,6 +121,9 @@ pub struct InspectionSession {
     pub edit: Option<InspectionEdit>,
     #[serde(default)]
     pub applied_edits: Vec<SonicAppliedEdit>,
+    /// Seleção do mapa de IDs (somente leitura), gravada com "Salvar sessão".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layouts_selection: Option<super::sonic_layouts::SelecaoLayouts>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -956,6 +959,7 @@ pub fn open(rom_path: &str) -> Result<InspectionSession, String> {
         sprite_frame_id: None,
         edit: None,
         applied_edits: Vec::new(),
+        layouts_selection: None,
     };
     persist_session(&decomp_work_dir(), &session)?;
     sessions().lock().map_err(|e| e.to_string())?.insert(
@@ -1812,6 +1816,27 @@ pub fn sonic_layout_grid(
         layout_index,
         &|| token.cancelado(),
     )
+}
+
+/// Guarda (na sessão em memória; vai ao disco em "Salvar sessão") a seleção do
+/// mapa de IDs. A seleção só é aceita se a identidade da ROM confere AGORA e a
+/// coordenada resolve no núcleo — nunca persiste uma seleção que não existe.
+pub fn set_layouts_selection(
+    session_id: &str,
+    selection: Option<super::sonic_layouts::SelecaoLayouts>,
+) -> Result<InspectionSession, String> {
+    let mut stored = get_stored_session(session_id)?;
+    if let Some(sel) = &selection {
+        let (base, rom) = super::sprite_composition::read_sonic_session_rom(&stored.session)
+            .map_err(|e| error("layouts_rom_unreadable", e, false))?;
+        super::sonic_layouts::validar_selecao(&base, &rom, session_id, sel, &|| false)?;
+    }
+    stored.session.layouts_selection = selection;
+    sessions()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(session_id.to_string(), stored.clone());
+    Ok(stored.session)
 }
 
 pub fn sonic_layout_cell(

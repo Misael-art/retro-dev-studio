@@ -201,6 +201,47 @@ pub struct LayoutCelula {
     pub definicao_explicacao: String,
 }
 
+/// Seleção do usuário no mapa de IDs. Vive na sessão salva; a UI só a devolve.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SelecaoLayouts {
+    pub layout_index: usize,
+    pub row: usize,
+    pub col: usize,
+    pub zoom: u8,
+    /// Identidade da ROM em que a seleção foi feita.
+    pub rom_sha256: String,
+}
+
+pub const ZOOM_MIN: u8 = 1;
+pub const ZOOM_MAX: u8 = 16;
+
+/// Recusa seleção fora da grade, zoom fora do intervalo ou de outra ROM.
+pub fn validar_selecao(
+    base: &[u8],
+    rom: &[u8],
+    sessao_id: &str,
+    sel: &SelecaoLayouts,
+    cancel: &dyn Fn() -> bool,
+) -> Result<(), String> {
+    if !(ZOOM_MIN..=ZOOM_MAX).contains(&sel.zoom) {
+        return Err(err(
+            "layouts_parametro_invalido",
+            format!("zoom {} fora de {ZOOM_MIN}..={ZOOM_MAX}", sel.zoom),
+        ));
+    }
+    celula(
+        base,
+        rom,
+        sessao_id,
+        &sel.rom_sha256,
+        sel.layout_index,
+        sel.row,
+        sel.col,
+        cancel,
+    )
+    .map(|_| ())
+}
+
 fn err(code: &str, detail: impl Into<String>) -> String {
     format!("{code}: {}", detail.into())
 }
@@ -1190,6 +1231,61 @@ mod tests {
             assert!(TokenCancel::novo(Some(ruim)).is_err());
         }
         assert!(validar_request_id(&"x".repeat(64)).is_ok());
+    }
+
+    #[test]
+    fn l8_selecao_so_e_aceita_se_resolve_no_nucleo() {
+        let f = fixture();
+        let sha = sha256_hex(&f.rom);
+        let ok = |sel: &SelecaoLayouts| validar_selecao(BASE, &f.rom, "s", sel, &nunca);
+        let base = SelecaoLayouts {
+            layout_index: 5,
+            row: 63,
+            col: 63,
+            zoom: 4,
+            rom_sha256: sha.clone(),
+        };
+        // a fixture usa pins sintéticos; o núcleo real resolve a célula mesmo assim
+        assert!(ok(&base).is_ok());
+        for (sel, codigo) in [
+            (
+                SelecaoLayouts {
+                    zoom: 0,
+                    ..base.clone()
+                },
+                "layouts_parametro_invalido",
+            ),
+            (
+                SelecaoLayouts {
+                    zoom: 17,
+                    ..base.clone()
+                },
+                "layouts_parametro_invalido",
+            ),
+            (
+                SelecaoLayouts {
+                    row: 64,
+                    ..base.clone()
+                },
+                "layouts_celula_fora_da_grade",
+            ),
+            (
+                SelecaoLayouts {
+                    layout_index: 6,
+                    ..base.clone()
+                },
+                "layouts_indice_invalido",
+            ),
+            (
+                SelecaoLayouts {
+                    rom_sha256: "0".repeat(64),
+                    ..base.clone()
+                },
+                "layouts_rom_mudou",
+            ),
+        ] {
+            assert!(ok(&sel).unwrap_err().starts_with(codigo), "{sel:?}");
+        }
     }
 
     #[test]
