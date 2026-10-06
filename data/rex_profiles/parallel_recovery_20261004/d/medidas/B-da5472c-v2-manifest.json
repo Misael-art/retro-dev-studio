@@ -1,0 +1,49 @@
+{
+  "esquema": "rex-parallel-d/evidencia/1",
+  "gerado_em": "2026-10-06",
+  "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/medidas/B-da5472c-v2.jsonl",
+  "linhas": 31,
+  "sha256": "397192c2b38af68ad07e3751b255c408baaef3081eaf572f0bf55b89095e4e84",
+  "frente": "B",
+  "sha_frente": "da5472c49db6797e1d440331467880cc8f9b1a8f",
+  "chave": "da5472c",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v2-B",
+  "ferramenta": {
+    "cram": "/home/misael/rds-scratch/d-frentes-20261004/b-da5472c/scripts/rex_profiles/parallel_recovery_20261004/b/medir-cram-b3.py",
+    "enigma": "/home/misael/rds-scratch/d-frentes-20261004/b-da5472c/scripts/rex_profiles/parallel_recovery_20261004/b/enigma-rs/target/release/rex-enigma",
+    "enigma_sha256": "73189706d4927178d865120453f0aebde38e87ebdc6379d369b52f3cb8b51285",
+    "cram_sha256": "87d3d3dbab3eae3ff63d8b60cf3958f3ebfd48191730edb7c24e824a62d6d5ef"
+  },
+  "procedencia": {
+    "frente": "B_da5472c",
+    "sha": "da5472c49db6797e1d440331467880cc8f9b1a8f",
+    "arquivos": 15,
+    "divergentes": [],
+    "faltantes": [],
+    "ok": true
+  },
+  "rom": {
+    "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+    "pin": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+    "ok": true
+  },
+  "truth": {
+    "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/frentes/b/dB-truth-v2.json",
+    "sha256": "b967b1c2d8ae9453b8d245a366178f50ea7a51ff92c3eb8fce85dff53bb4e061"
+  },
+  "pin": {
+    "arquivo": "pin-b-v2.json",
+    "sha256": "5f3ab182fc62c782c4ed9157b581a36fe491c62bfe21074ea50deb97b0934adf"
+  },
+  "denominador": {
+    "partes": {
+      "KB1v": 5,
+      "KB2v": 2,
+      "KBC": 7,
+      "KBE": 11
+    },
+    "nota": "KB1v 5 (chamada, copia, salto, contador d1 e d2); KB2v 2 (value-offset + táboa de 6 ponteiros); KBC 7 (call site, Pal_Index, Pal_Special, tabela de paredes, blink, palcycle, hipótese); KBE 11 (5 slots, 4 truncamentos, sensibilidade, ausencia de panic). `KBE-slot-5` e a equivalencia de saída son `descoñecido` e non entran no denominador. KB3/KB4/NB seguen no gabarito v1 (sen dependencia de ISA).",
+    "total": 25
+  }
+}
