@@ -9,9 +9,11 @@
 //! Toda mascara aqui foi fixada por medicao direta contra o instrumento
 //! independente (m68k-elf-as / m68k-elf-objdump, binutils 2.41): o mapa
 //! endereco->(bytes, mnemonico) vive em `fixtures/calib-objdump.txt` e e
-//! consumido por `tests/calib_parity.rs`. Campos que o proprio gas recusa
-//! montar (shift para memoria, MOVEP, EXT) nao tem evidencia independente de
-//! comprimento e ficam fora do subconjunto — recusar e o comportamento correto.
+//! consumido por `tests/calib_parity.rs`. A opiniao da CPU-alvo vem de
+//! `tools/sonda-as-68000.sh` (`as -m68000`), que separa "a forma nao existe na
+//! alvo" de "existe mas nao esta na lista fechada de §3". Forma fora de §3 e
+//! sempre fronteira, mesmo com comprimento comprovavel; forma dentro de §3 so e
+//! lida com comprimento medido — nao com o que um montador generico aceita.
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FrontierKind {
@@ -501,8 +503,13 @@ fn decode_grupo0(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier>
                 "MOVEP (modo %001 medido em movepw/movepl) ou An-direto: fora da lista fechada (contrato 3)",
             ));
         }
-        if mode == 7 && (reg == 2 || reg == 3 || SRC7_BAD.contains(&reg)) {
-            return Err(out(op, "bitop registrador com PC/imediato/reservado"));
+        // Destino de bitop com modo %111: %000/%001 sao abs.W/abs.L validos
+        // (medido `08f8 0000 1234 bset #0,(1234).w`); %010 (PC) e %011 (PC com
+        // indice) nao montam no `as -m68000` (`bset %d0,(16,%pc)` recusado) e
+        // %100 e registro de codigo de condicao, que a lista fechada §3 nao
+        // contem. A mascara antiga parava em %101.
+        if mode == 7 && reg >= 2 {
+            return Err(out(op, "bitop registrador com PC/CCR-SR/reservado"));
         }
         let src = bits(op, 9, 3);
         let name = bitop_name(bits(op, 6, 2));
@@ -522,8 +529,14 @@ fn decode_grupo0(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier>
             //  08f8 0000 1234 bset #0,(1234).w; 08f9 0007 1234 5678 bset #7,(12345678).l)
             let mode = bits(op, 3, 3);
             let reg = (op & 7) as u8;
-            if mode == 7 && (reg == 2 || reg == 3 || SRC7_BAD.contains(&reg)) {
-                return Err(out(op, "bitop imediato com PC/imediato/reservado"));
+            if mode == 1 {
+                return Err(out(
+                    op,
+                    "bitop imediato com destino An invalido (sonda as -m68000; instrumento .short)",
+                ));
+            }
+            if mode == 7 && reg >= 2 {
+                return Err(out(op, "bitop imediato com PC/CCR-SR/reservado"));
             }
             let name = bitop_name(bits(op, 6, 2));
             if cur.remaining() < 2 {
@@ -564,17 +577,35 @@ fn decode_grupo0(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier>
                 .ok_or_else(|| out(op, "op1 imediato com tamanho %11"))?;
             let mode = bits(op, 3, 3);
             let reg = (op & 7) as u8;
-            // Destino modo 7: %000 abs.W, %001 abs.L e %010 d16(PC) ficam como
-            // estavam. %011/%100 sao CCR/SR (medido `0a3c 0003` = `eorib #3,%ccr`
-            // e `007c 0007` = `oriw #7,%sr`, ambos de 4 bytes) e %101..%111
-            // reservados/68020 — nenhum esta na lista fechada de §3, e ler o %100
-            // como imediato consumia uma word a mais (comprimento 6 inventado, que
-            // engolia a instrucao seguinte). Mesma regra de destino ja aplicada em
-            // MOVE (`dmode == 7 && dreg >= 2`) e nos grupos unario/Scc/ADDQ.
-            if mode == 7 && reg >= 3 {
+            // Destino modo 7: %000 abs.W e %001 abs.L ficam como estavam. %010 em
+            // diante nao e destino legitimo de op1-imediato no MC68000: medido com
+            // o instrumento pinado, `003a`/`007a` (byte/word) imprimem `.short` e
+            // `00ba` (long) e lido como `oril #imm,%d2` em 6 bytes — forma que o
+            // `as -m68000` nao monta e que o PRM nao documenta, portanto fronteira
+            // declarada, nunca leitura com comprimento proprio. %011/%100 sao
+            // CCR/SR (medido `0a3c 0003` = `eorib #3,%ccr` e `007c 0007` =
+            // `oriw #7,%sr`, ambos de 4 bytes) e %101..%111 reservados/68020.
+            // Mesma regra de destino ja aplicada em MOVE (`dmode == 7 && dreg >= 2`)
+            // e nos grupos unario/Scc/ADDQ.
+            //
+            // Modo %001 (An direta): M68000PRM 4-154 (pagina ORI, l.11259-11267)
+            // restringe o destino a "Only data alterable addressing modes" e marca
+            // a linha `An` como `—`; o `as -m68000` pinado recusa as seis familias
+            // (`ori/andi/subi/addi/eori/cmpi` com `%aN`, sonda v4 l.31-40, todas
+            // "operands mismatch"). NAO se pode alegar `.short` aqui: a varredura
+            // E4 mediu o grupo inteiro com `short=0/64` e o instrumento le `0088`
+            // como `oril #imm,%d0` (6 bytes) e `0c08` como `cmpib #113,%d0`
+            // (4 bytes) — engana-se ao imprimir `%dN`, mas nunca imprime `.short`.
+            if mode == 1 {
                 return Err(out(
                     op,
-                    "op1 imediato com destino CCR/SR, PC ou reservado fora da lista (contrato 3)",
+                    "op1 imediato com destino An direta: prm 4-154 (l.11259-11267) so admite modos de dados alteraveis e marca An como -, e o as -m68000 recusa ori/andi/subi/addi/eori/cmpi com %aN (sonda v4); o instrumento le (medido 0088 = oril #imm,%d0 em 6 bytes, short=0/64) mas a forma nao esta na lista fechada (contrato 3)",
+                ));
+            }
+            if mode == 7 && reg >= 2 {
+                return Err(out(
+                    op,
+                    "op1 imediato com destino PC, CCR/SR ou reservado fora da lista (contrato 3)",
                 ));
             }
             let imm = read_imm(cur, size)?;
@@ -613,6 +644,17 @@ fn decode_move(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> {
         return Err(out(
             op,
             "MOVE com fonte PC-relativo ou reservada (fora do contrato 3)",
+        ));
+    }
+    // MOVE.B com fonte An direta: PRM 4-118 fecha o tamanho byte ("For byte size
+    // operation, address register direct is not allowed") e o `as -m68000` pinado
+    // recusa `move.b %a0,%d1`. O instrumento imprime `.short` para as 336 words
+    // do espaco `%0001 ddd dmm 001 rrr`; os tamanhos .W/.L com a mesma fonte sao
+    // validos (medido `3208 movew %a0,%d1`, `2208 movel %a0,%d1`) e seguem lidos.
+    if size == 1 && smode == 1 {
+        return Err(out(
+            op,
+            "MOVE.B com fonte An direta invalida (PRM 4-118; sonda as -m68000)",
         ));
     }
     let src = read_ea(cur, smode, sreg, size)?;
@@ -662,10 +704,17 @@ fn decode_especial(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontie
     if op == 0x4E75 {
         return Ok(mk(addr, cur.next_addr, "rts".into(), Flow::Ret));
     }
-    // TRAP #n (medido 4e41, 4e44); 4e76 = TRAPV, impresso como recusa pelo
-    // instrumento, e 4e72 = STOP — nenhum dos dois na lista §3.
-    if (op & 0xFFF8) == 0x4E40 {
-        let n = (op & 7) as u32;
+    // TRAP #n — o vetor ocupa o nibble BAIXO: os 16 codomes `4e40..=4e4f` sao os
+    // 16 vetores que a referencia primaria declara ("TRAP #0 to TRAP #15", apendice
+    // do MC68000 local, linha 2410-2412). Medido duas vezes nesta ETAPA: o
+    // instrumento le `0x4e48` como `trap #8` e `0x4e4f` como `trap #15` (2B), e o
+    // GAS pinado monta `trap #8` -> `4e48` e `trap #1` -> `4e41` (sonda
+    // xe-c3-e4-probe6, 2026-10-05). A mascara `0xFFF8` desta linha truncava o
+    // vetor em 3 bits e empurrava `#8..#15` para a recusa do grupo `%0100`,
+    // contrariando a lista 3. 4e76 = TRAPV, impresso como recusa pelo instrumento,
+    // e 4e72 = STOP - nenhum dos dois na lista 3.
+    if (op & 0xFFF0) == 0x4E40 {
+        let n = (op & 0xF) as u32;
         return Ok(mk(addr, cur.next_addr, format!("trap #{n}"), Flow::Trap));
     }
     // LINK (medido 4e56 fff8 = 4B) / UNLK (medido 4e5e = 2B)
@@ -742,6 +791,18 @@ fn decode_especial(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontie
     // b8..b6, LEA vale 111; CHK vale 110 (.W) ou 100 (.L) — a mascara precisa
     // incluir b6 para nao confundir os dois.
     if (op & 0xF1C0) == 0x41C0 {
+        // LEA aceita somente modos de memoria: `as -m68000` recusa Dn-direto
+        // (`lea %d0,%a1`), An-direto (`lea %a0,%a1`), auto-incremento
+        // (`lea %a0@+,%a1`) e auto-decremento (`lea %a0@-,%a1`) — e o
+        // instrumento imprime `.short` para as 248 words dos quatro modos.
+        // `(An)`, `d16(An)`, abs, PC e PC-indexado montam (medido `43d0 lea
+        // %a0@,%a1`, `41fa lea (16,%pc),%a0`) e continuam lidos.
+        if matches!(mode, 0 | 1 | 3 | 4) {
+            return Err(out(
+                op,
+                "LEA com fonte de registrador ou auto-incremento: so modos de memoria (sonda as -m68000)",
+            ));
+        }
         if mode == 7 && mreg >= 4 {
             return Err(out(op, "LEA com imediato/reservado"));
         }
@@ -753,14 +814,32 @@ fn decode_especial(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontie
             Flow::Normal,
         ));
     }
-    // CHK %0100 ddd 1 s0 mmm rrr (medido 4184 chkw %d4,%d0 e 4310 chkl %a0@,%d1)
+    // CHK %0100 ddd 1 s0 mmm rrr (medido 4184 chkw %d4,%d0 e 4310 chkl %a0@,%d1).
+    // O codigo de tamanho de CHK esta contestado entre as duas fontes desta ETAPA: o
+    // PRM da ao campo `11 — Word` / `10 — Long` (l. 7643-4, p. 4-70) e marca Long
+    // como "MC68020, MC68030, MC68040 only" (l. 7603), mas o instrumento pinado le
+    // `41bc` como `chkw` em 4 bytes, `413c` como `chkl` em 6 bytes e imprime
+    // `.short` sobre `41fc`, que e justamente a word que o PRM declara como o CHK.W
+    // do MC68000. Com fonte em registrador ou memoria a divergencia nao muda o
+    // comprimento (zero ou uma word de extensao nos dois modelos), entao a leitura
+    // fica; com `#imm` o numero de words de extensao depende do tamanho, portanto a
+    // forma e fronteira e nao se exporta (secao 4, E4-2).
     if (op & 0xF140) == 0x4100 {
         let sfx = if b(op, 7) == 1 { "w" } else { "l" };
         if mode == 1 {
-            return Err(out(op, "CHK com fonte An invalida"));
+            return Err(out(
+                op,
+                "chk com fonte %aN direta: prm l.7650 marca o modo como ausente e o as -m68000 recusa `chk.w %a0,%d1` (operands mismatch)",
+            ));
         }
-        if mode == 7 && mreg >= 4 {
-            return Err(out(op, "CHK com imediato/reservado"));
+        if mode == 7 && mreg == 4 {
+            return Err(out(
+                op,
+                "chk com imediato: divergencia nao resolvida de tamanho entre prm l.7643-4 (11=w, 10=l so 68020+) e o instrumento (41bc=chkw 4b, 413c=chkl 6b, 41fc=.short)",
+            ));
+        }
+        if mode == 7 && mreg >= 5 {
+            return Err(out(op, "chk com modo 7 reservado ou de indice 68020"));
         }
         let ea = read_ea(cur, mode, mreg, if sfx == "w" { 2 } else { 4 })?;
         return Ok(mk(
@@ -787,6 +866,15 @@ fn decode_especial(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontie
         }
         if mode == 1 {
             return Err(out(op, "PEA com An-direto fora da lista (contrato 3)"));
+        }
+        // PEA empurra um endereco efetivo: `as -m68000` recusa `pea %a0@+` e
+        // `pea %a0@-` (e o instrumento imprime `.short` para as 16 words), mas
+        // aceita `pea %a0@` (`4850`) e `pea (16,%pc)` (`487a 0010`).
+        if mode == 3 || mode == 4 {
+            return Err(out(
+                op,
+                "PEA com %aN@+ ou %aN@- invalido (sonda as -m68000; instrumento .short)",
+            ));
         }
         if mode == 7 && mreg >= 4 {
             return Err(out(op, "PEA com imediato/reservado"));
@@ -831,8 +919,17 @@ fn decode_especial(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontie
     if mode == 1 {
         return Err(out(op, "unario com An invalido"));
     }
-    if mode == 7 && mreg >= 4 {
-        return Err(out(op, "unario com imediato/reservado"));
+    // CLR/NEG/NOT nao tem imediato nem modo reservado: o instrumento imprime
+    // `.short` para `423a`/`427a`/`42ba` (clr) e `443a`/`447a`/`44ba` (neg), e o
+    // `as -m68000` recusa `neg.l (16,%pc)`. TST conserva o imediato porque o
+    // proprio instrumento o le (`4aba` = `tstl #imm`, 4 bytes medidos); ai a cota
+    // E4-2 so permite recusar com sonda, e a sonda mostra leitura concordante.
+    let mreg_proibido = if name == "tst" { 4 } else { 2 };
+    if mode == 7 && mreg >= mreg_proibido {
+        return Err(out(
+            op,
+            "unario com imediato (so TST) ou modo %101..%111 reservado",
+        ));
     }
     let ea = read_ea(cur, mode, mreg, sz)?;
     Ok(mk(
@@ -855,6 +952,31 @@ fn decode_movem(
     let read = b(op, 10) == 1;
     if mode <= 1 {
         return Err(out(op, "MOVEM com operando de registrador direto"));
+    }
+    // A direcao decide quais modos de memoria existem: escrita nao aceita
+    // auto-incremento (`movem.w %d0,%a0@+` recusado pelo `as -m68000` pinado, e
+    // o instrumento imprime `.short` para `4898`/`48d8`); leitura nao aceita
+    // auto-decremento (`movem.l %a0@-,%d0` recusado; `4ca0`/`4ce0` sao
+    // `.short`). Os dois lados opostos montam (medido `48e0 8000` escrita com
+    // %a0@- e `4cd8 0001` leitura com %a0@+), entao a guarda e par, nao geral.
+    if !read && mode == 3 {
+        return Err(out(
+            op,
+            "MOVEM escrita com %aN@+ invalido (sonda as -m68000; instrumento .short)",
+        ));
+    }
+    if read && mode == 4 {
+        return Err(out(
+            op,
+            "MOVEM leitura com %aN@- invalido (sonda as -m68000; instrumento .short)",
+        ));
+    }
+    // Destino de escrita com modo %111: %010 (d16,PC) e so leitura; o `as -m68000`
+    // recusa `movem.w %d0,(16,%pc)` e o instrumento imprime `.short` (`48ba`).
+    // Leitura com `(16,%pc)` e valida e usada em tabelas reais (medido
+    // `4cba 0001 0010 movemw %pc@(0x14),%d0`) — por isso a guarda e so da escrita.
+    if !read && mode == 7 && mreg >= 2 {
+        return Err(out(op, "MOVEM escrita com destino PC/CCR-SR/reservado"));
     }
     if mode == 7 && mreg >= 4 {
         return Err(out(op, "MOVEM com imediato/reservado"));
@@ -897,7 +1019,12 @@ fn decode_q_s_db(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier>
             // DBcc (medido 51cc 0030 / 51cb ffbe / 5cca 0028): SEMPRE 4 bytes; o
             // displacamento e um word COM SINAL na extensao, nao um disp8. Em
             // %111 mmm rrr o modo ficaria %111 = reserva, entao `51ff` cai em Scc
-            // e e recusado (o proprio objdump imprime `.short 0x51ff`).
+            // e e recusado. Serie do instrumento pinado (binutils 2.41, sha
+            // e3a404cc, `-b binary -m m68k -D` num objeto de 1 word + nop):
+            // `51ff` le `sf %d7` em 2 bytes — nao `.short`, como uma nota anterior
+            // dizia (corrigida em ADENDO-ETAPA3-2026-10-05 R-3.7). A recusa
+            // permanece: o subconjunto nao suporta Scc, e o instrumento ler nao
+            // obriga a publicar.
             let reg = mreg;
             if cur.remaining() < 2 {
                 return Err(Frontier::truncada(
@@ -923,8 +1050,8 @@ fn decode_q_s_db(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier>
         if mode == 1 {
             return Err(out(op, "Scc para An invalido"));
         }
-        if mode == 7 && mreg >= 4 {
-            return Err(out(op, "Scc com imediato/reservado"));
+        if mode == 7 && mreg >= 2 {
+            return Err(out(op, "Scc com destino PC, imediato ou reservado"));
         }
         let ea = read_ea(cur, mode, mreg, 1)?;
         return Ok(mk(
@@ -948,8 +1075,22 @@ fn decode_q_s_db(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier>
         size_of_ss(bits(op, 6, 2)).ok_or_else(|| out(op, "ADDQ/SUBQ com tamanho %11"))?;
     let mode = bits(op, 3, 3);
     let mreg = (op & 7) as u8;
-    if mode == 7 && mreg >= 4 {
-        return Err(out(op, "ADDQ/SUBQ com imediato/reservado"));
+    // ADDQ/SUBQ fazem leitura E escrita no operando: destino PC-relativo (%010)
+    // e reservado/68020 (%011, %101..%111) nao montam (`as -m68000` recusa
+    // `addq.l #3,(16,%pc)`) e o instrumento imprime `.short`. A mascara antiga
+    // parava em %100 e deixava %010/%011 passarem com extensao lida (classe (ii)).
+    if mode == 7 && mreg >= 2 {
+        return Err(out(op, "ADDQ/SUBQ com destino PC, imediato ou reservado"));
+    }
+    // ADDQ.B com destino An direto: `as -m68000` recusa `addq.b #8,%a0` e o
+    // instrumento imprime `.short` (`5008`). SUBQ.B com o mesmo destino e aceito
+    // (medido `5108 subqb #8,%a0`) e continua lido — a assimetria e do proprio
+    // instrumento, nao uma escolha desta ferramenta.
+    if name == "addq" && size == 1 && mode == 1 {
+        return Err(out(
+            op,
+            "ADDQ.B com destino An invalido (sonda as -m68000; instrumento .short)",
+        ));
     }
     let ea = read_ea(cur, mode, mreg, size)?;
     Ok(mk(
@@ -974,6 +1115,18 @@ fn decode_branch(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier>
             cur.next_addr,
             format!("moveq #{imm},%d{dreg}"),
             Flow::Normal,
+        ));
+    }
+    // %0111 com b8=1 NAO e desvio: no MC68020 esse espaco e MVS/MVZ/CPMOVE
+    // (medido `7100 mvsb %d0,%d0`, `73a5 mvzb %a5@-,%d1`, `75c0 mvzw %d0,%d2`;
+    // o `as -m68000` nem monta essas formas). A mascara antiga lia tudo como
+    // `bsr/bcc .S` de 2 bytes, e o instrumento le 4 (classe (i) da auditoria
+    // E4). Recusar nao amplia a ISA: nenhum dos tres nomes esta na lista
+    // fechada de CONTRACT §3.
+    if (op >> 12) == 7 {
+        return Err(out(
+            op,
+            "%0111 com b8=1 = MVS/MVZ/CPMOVE (68020), nao MOVEQ nem desvio - fora do subconjunto",
         ));
     }
     let cond = bits(op, 8, 4);
@@ -1031,24 +1184,88 @@ fn decode_branch(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier>
 }
 
 // ---------------------------------------------------------------------------
-// %1110 — shifts/rotacoes para Dn (nicas formas com prova de comprimento)
+// %1110 — shift/rotacao: registrador em b/w/l e memoria somente .W
 // ---------------------------------------------------------------------------
 
-/// Campos do grupo de shift/rotacao, ajustados sobre a sonda medida
-/// (`rds-scratch/sh.s` -> objdump): `e701 aslb #3,%d1`, `e709 lslb #3,%d1`,
-/// `eb51 roxlw #5,%d1`, `e5a5 asll %d2,%d5`, `e8a8 lsrl %d4,%d0`.
-/// `%111 x nnn d ss ss i tt tt rrr`, com tt: %00=AS, %01=LS, %10=ROX,
-/// %11=shift-para-memoria (o gas deste alvo recusa montar — sem prova).
+/// Campos do grupo de shift/rotacao, ajustados sobre medicao no `as`/`objdump`
+/// pinados (`tools/sonda-as-68000.sh`, saida v4):
+/// - forma de REGISTRADOR `%1110 c c c d ss i tt rrr` (prm 4-113): `ccc` =
+///   contagem imediata (0 => 8) ou Dn quando `i=1`, `ss` = tamanho (00 b, 01 w,
+///   10 l), `tt` = familia (%00 AS, %01 LS, %10 ROX, %11 ROL/ROR) e `d` a direcao.
+///   Medidos: `e701 aslb #3,%d1`, `e741 aslw #3,%d1`, `e781 asll`, `e641 asrw`,
+///   `e5a1 asll %d2,%d1`, `e711 roxlb #3,%d1`, `e799 roll #3,%d1`.
+/// - forma de MEMORIA `%1110 t t t d 11 mmm rrr` — o `%11` na posicao do campo de
+///   tamanho NAO e um tamanho: sao os dois bits fixos que distinguem a forma
+///   (prm 4-115, MEMORY SHIFTS, l.9635+). Medidos no montador da CPU-alvo: `e1d0
+///   asl.w %a0@`, `e0d0 asr.w`, `e3d0 lsl.w`, `e2d0 lsr.w`, `e5d0 roxl.w`, `e7d0
+///   rol.w`, `e1d8`, `e1e0`, `e1e80008 (8,%a0)`, `e1f804d2 (1234).w`; `asl.l
+///   %a0@` e RECUSADO pelo montador porque "Memory shift and rotate operations
+///   shift word operands one bit position only" (prm 3.1.4 l.3605) — na forma de
+///   memoria nao ha campo de tamanho, entao o unico comprimento e word.
+///
+/// A familia de rotacao (ROXL/ROXR/ROL/ROR) e real na CPU-alvo: prm tabela 3-5
+/// l.3646-3660 lista registrador em 8/16/32 e memoria em 16, o `as -m68000` monta
+/// todas e o `objdump` pinado le as 1024 words do espaco em 2 bytes. Ela ja era
+/// lida em `rex-cfg/v1` e ja estava nos fixtures de paridade (`fixtures/calib.s`
+/// 0xc2, `calib2.s` 0x74-0x7a = roxlw/roxrw/roxll/roxrl), que sao o oraculo
+/// independente desta frente; o que faltava era o nome dela em §3 l.185, que so
+/// citava ASL/ASR/LSL/LSR. §3 esta retificado pelo adendum datado de 2026-10-05
+/// (`docs/.../CONTRACT-RETIFICACAO-ETAPA3-2026-10-05.md`), nao por vontade da
+/// auditoria de cobrir mais words (E4-4).
 fn decode_shift(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> {
     if b(op, 12) == 1 {
         return Err(out(op, "%1111/68010 (BKPT, CAS, TAS) fora do subconjunto"));
     }
     let dir_left = b(op, 8) == 1;
-    let (size, sfx) = match bits(op, 6, 2) {
-        0b00 => (1, "b"),
-        0b01 => (2, "w"),
-        0b10 => (4, "l"),
-        _ => return Err(out(op, "shift com tamanho %11 - recusado")),
+    if bits(op, 6, 2) == 0b11 {
+        let nome = match bits(op, 9, 3) {
+            0b000 if dir_left => "asl",
+            0b000 => "asr",
+            0b001 if dir_left => "lsl",
+            0b001 => "lsr",
+            0b010 if dir_left => "roxl",
+            0b010 => "roxr",
+            0b011 if dir_left => "rol",
+            0b011 => "ror",
+            _ => {
+                return Err(out(
+                    op,
+                    "forma de memoria do grupo %1110 com campo de familia %100..%111: nao definida (prm tabela 3-5 l.3617-3660)",
+                ))
+            }
+        };
+        let mode = bits(op, 3, 3);
+        let mreg = (op & 7) as u8;
+        if mode == 0 || mode == 1 {
+            return Err(out(
+                op,
+                "shift para memoria com destino em registrador direto: prm 4-115 (l.9635+) so lista modos de memoria alteravel",
+            ));
+        }
+        if mode == 7 && mreg >= 2 {
+            // Numeração de modo %111 medida nesta ETAPA com o par pinado
+            // (`move.l` fonte): 7.0 = (xxx).w (2038), 7.1 = (xxx).l (2039),
+            // 7.2 = (d16,PC) (203a), 7.4 = #%imediato (203c); 7.3 = (d8,PC,Xn) e
+            // 7.5..7.7 ficam fora. Destino de shift so aceita memoria alteravel
+            // (prm 4-115), entao PC, imediato e reservados = fronteira.
+            return Err(out(
+                op,
+                "shift para memoria com imediato, PC ou modo reservado (prm 4-115 l.9635+; contrato 3)",
+            ));
+        }
+        let ea = read_ea(cur, mode, mreg, 2)?;
+        return Ok(mk(
+            addr,
+            cur.next_addr,
+            format!("{nome}w {}", ea.text()),
+            Flow::Normal,
+        ));
+    }
+    let sfx = match bits(op, 6, 2) {
+        0b00 => "b",
+        0b01 => "w",
+        // %10 = long; %11 ja foi tomado pela rama de memoria acima
+        _ => "l",
     };
     let reg_cnt = b(op, 5) == 1;
     let base = match bits(op, 3, 2) {
@@ -1058,16 +1275,17 @@ fn decode_shift(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> 
         0b01 => "lsr",
         0b10 if dir_left => "roxl",
         0b10 => "roxr",
+        0b11 if dir_left => "rol",
+        0b11 => "ror",
+        // os quatro valores de `tt` cobrem todo o espaco; o ramo so existe para
+        // o decodificador nao pantejar sobre byte nao confiavel.
         _ => {
             return Err(out(
                 op,
-                "shift/rotacao para memoria: o gas deste instrumento recusa montar, sem prova de comprimento - recusado",
+                "forma de registrador do grupo %1110 com familia nao definida (prm tabela 3-5 l.3617-3660)",
             ))
         }
     };
-    if base.starts_with("rox") && size == 1 {
-        return Err(out(op, "ROX.B nao existe no 68000 - recusado"));
-    }
     let reg = (op & 7) as u8;
     let mnem = if reg_cnt {
         // contagem registradora: o campo de contagem e um Dn
@@ -1078,7 +1296,6 @@ fn decode_shift(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> 
         let count = if c == 0 { 8 } else { c };
         format!("{base}{sfx} #{count},%d{reg}")
     };
-    let _ = cur;
     Ok(mk(addr, cur.next_addr, mnem, Flow::Normal))
 }
 
@@ -1133,13 +1350,23 @@ fn decode_geral(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> 
         };
         let size = if sfx == "w" { 2 } else { 4 };
         let muldiv = matches!(hi, 0b1100 | 0b1000);
-        // imediato so e fonte comprovada em MUL/DIV (medido `88fc 0003 divuw #3,%d4`)
-        if mode == 7 && mreg == 4 && !muldiv {
-            return Err(out(op, "ADDA/SUBA/CMPA com imediato invalido"));
+        // Fonte `%aN` direta. Para ADDA/SUBA/CMPA todos os modos de EA sao fonte
+        // valida: a pagina de `ADD` (PRM l. 5022, p. 4-5) diz "If the location
+        // specified is a source operand, all addressing modes can be used", as
+        // paginas proprias declaram `<ea>,An` (l. 5096/12222/7946) e o instrumento
+        // le as 384 words em 2B (medido `d2c8 addaw %a0,%a1`). Para MUL/DIV a mesma
+        // referencia marca `An` como `—` na tabela de modos de fonte (l. 10720 e
+        // 8741), o `as -m68000` recusa `mulu.w %a0,%d0` e o instrumento imprime
+        // `.short` sobre `c0c8`/`80c8` — medidos, nao lembrados.
+        if mode == 1 && muldiv {
+            return Err(out(
+                op,
+                "mul/div (ss=%11) com fonte %aN direta: prm l.10720/8741 marcam o modo como ausente, o as -m68000 recusa `mulu.w %a0,%d0` e o instrumento le .short (medido em c0c8/80c8)",
+            ));
         }
-        if mode == 1 {
-            return Err(out(op, "fonte An invalida neste grupo"));
-        }
+        // O imediato e fonte comprovada nos dois ramos: `88fc 0003 divuw #3,%d4`
+        // (MUL/DIV, PRM l. 10721 lista `#<data>` = 111.100) e `d0fc`/`93fc`
+        // (ADDA/SUBA .W/.L, 4B/6B medidos no instrumento, PRM §2.2.18 l. 2704).
         let ea = read_ea(cur, mode, mreg, size)?;
         let dst = if muldiv {
             format!("%d{dreg}")
@@ -1167,8 +1394,82 @@ fn decode_geral(op: u16, addr: u32, cur: &mut Cur<'_>) -> Result<Ins, Frontier> 
         0b1101 => "add",
         _ => return Err(out(op, "grupo de 2 operandos reservado - recusado")),
     };
+    // O modo `%001` (An direto) ten dous motivos distintos segundo `b8`, e a
+    // auditoria E4-1(iv) pide un motivo por familia de word. Con `b8=1` o espaco e a
+    // familia X/BCD/CMPM/EXG/PACK e o MOV3Q de 68020 — medido no instrumento:
+    // `d348 addxw %a0@-,%a1@-`, `9348 subxw`, `b348 cmpmw %a0@+,%a1@+`, `c348 exg`,
+    // `8348 pack`, `a348 mov3ql`. MC68000 real en parte, pero nada diso esta na lista
+    // fechada de §3. Con `b8=0` o espaco e MEDIDO no corpus de §4: 960 words
+    // (`hi` nas cinco familias, fonte `%001`, `ss != %11`) das que o instrumento le
+    // 448, todas en 2 bytes (`addw`/`addl`/`subw`/`subl`/`cmpb`/`cmpw`/`cmpl` × 64
+    // cada), e imprime `.short` sobre as 512 restantes (`or`/`and` en calquera
+    // tamaño, `add.b`, `sub.b`); a maskara anterior recusaba as 960 (serie completa e
+    // refraseamento da alegacion antiga en ADENDO-ETAPA3-2026-10-05 R-3.8). A referencia
+    // primaria non manda recusar ADD/SUB/CMP: as paginas de `ADD` (l. 5022-5028),
+    // `SUB` (l. 12151-12156) e `CMP` (l. 7904-7909) dicen "source operand, all
+    // addressing modes" e listan
+    // `An* 001`, co footnote `*Word and long only` (l. 5040); `AND` (l. 5460-5466),
+    // `OR` (l. 11150-11152) e `EOR` (l. 9010-9016) marcan `An` como `—`. O
+    // `as -m68000` bate exatamente nessa fronteira: monta `d248 addw %a0,%d1`,
+    // `d288 addl`, `9248 subw`, `b248 cmpw`; recusa `add.b %a0,%d1`, `cmp.b
+    // %a0,%d1` (sonda v9 l.20-23) e todo `and/or/eor.{b,w,l} %a0,%d1` con
+    // "operands mismatch". `sub.b` recusa-se aqui polo footnote `*Word and long
+    // only`, que a pagina de `SUB` comparte coa de `ADD`.
     if mode == 1 {
-        return Err(out(op, "operando An direto invalido neste grupo"));
+        if dir == 1 {
+            return Err(out(
+                op,
+                "b8=1 com modo %001 = familia sbcd/abcd/addx/subx/cmpm/exg/pack/unpk e mov3q 68020: fora da lista fechada (contrato 3)",
+            ));
+        }
+        if matches!(hi, 0b1000 | 0b1100) {
+            return Err(out(
+                op,
+                "or/and com fonte %aN direta: prm l.5466/11152 marcam o modo como ausente e o as -m68000 recusa `or.w %a0,%d1`/`and.w %a0,%d1`",
+            ));
+        }
+        if ss == 0b00 {
+            return Err(out(
+                op,
+                "add/sub/cmp.b com fonte %aN direta: footnote `word and long only` (prm l.5040) e o as -m68000 recusa `add.b %a0,%d1`",
+            ));
+        }
+    }
+    // `b8` e o campo de direcao do grupo de 2 operandos: `0` = `<ea>` -> Dn e `1`
+    // = Dn -> `<ea>`, portanto `b8=1` com EA em modo `%010..%110` e forma
+    // documentada e O ROM real a usa (medido no calib: `d591 addl %d2,%a1@` em
+    // `0x7e`, `9b78 1234 subw %d5,1234` em `0x80`; e no corpus E4: `8110 orb`,
+    // `8190 orl`, `9190 subl`, `b190 eorl`, `c190 andl`, `d190 addl`). Nos modos
+    // indexados `%101`/`%110` a word de extensao do corpus e sempre `4e71` e tem
+    // campos de escala 68020, portanto ai continuam fronteira declarada.
+    // Uma recusa larga de `b8=1` quebrou a paridade do calib — a primeira
+    // correcao desta ETAPA fez exatamente isso e falhou por isso.
+    //
+    // O que NAO existe no subconjunto e `b8=1` com fonte em registrador direto:
+    // `%000` e a familia SBCD (so .B), ABCD (so .B), ADDX/SUBX, EXG e PACK/UNPK
+    // (68010/68020, lida em 4 bytes), e `%001` e SBCD/ABCD/ADDX/SUBX em
+    // auto-decrementacao (ou CMPM em %1011). Medido no instrumento pinado sobre
+    // o espaco inteiro: `8100 sbcd`, `8140 pack` (4B), `8180 unpk` (4B),
+    // `c100 abcd`, `c140 exg`, `c180 .short`, `9100/9140/9180 subx`,
+    // `d100/d140/d180 addx`, `b108 cmpm`. Nenhuma dessas formas esta na lista
+    // fechada de §3 e a recusa e o unico caminho que nao inventa rotulo nem
+    // comprimento. Excecao: `%1011` com `%000` e EOR (medido `b100 eorb`,
+    // `b140 eorw`, `b180 eorl`), que fica.
+    if dir == 1 && mode == 0 && hi != 0b1011 {
+        return Err(out(
+            op,
+            "b8=1 com fonte Dn direta = familia SBCD/ABCD/EXG/ADDX/SUBX/PACK (68010/68020): fora da lista fechada (contrato 3)",
+        ));
+    }
+    // Com `b8=1` o destino e um `<ea>` de escrita: imediato (%100) nao e destino
+    // em nenhum grupo (medido `813c`/`817c`/`913c`/`b13c`/`c13c`/`d13c` como
+    // `.short`), e os modos `%101..%111` com campo `%010..%111` ja caem na
+    // checagem de PC/reservados acima.
+    if dir == 1 && mode == 7 && mreg >= 4 {
+        return Err(out(
+            op,
+            "b8=1 com destino imediato ou modo reservado: forma inexistente (instrumento .short)",
+        ));
     }
     let ea = read_ea(cur, mode, mreg, size)?;
     if dir == 0 {

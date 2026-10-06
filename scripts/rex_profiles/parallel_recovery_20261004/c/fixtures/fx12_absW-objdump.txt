@@ -1,0 +1,24 @@
+
+fx12_absW.elf: file format elf32-m68k
+
+
+Disassembly of section .text:
+
+00000000 <fx12>:
+   0:	4eb8 8000      	jsr ffff8000 <_end+0xffff5fdc>
+   4:	4eb8 ffff      	jsr ffffffff <_end+0xffffdfdb>
+   8:	4eb8 7fff      	jsr 7fff <_end+0x5fdb>
+   c:	4eb8 0001      	jsr 1 <fx12+0x1>
+  10:	4e75           	rts
+
+00000012 <fx12b>:
+  12:	4ef8 8000      	jmp ffff8000 <_end+0xffff5fdc>
+
+00000016 <fx12c>:
+  16:	4ef8 ffff      	jmp ffffffff <_end+0xffffdfdb>
+
+0000001a <fx12d>:
+  1a:	4ef8 7fff      	jmp 7fff <_end+0x5fdb>
+
+0000001e <fx12e>:
+  1e:	4ef8 0001      	jmp 1 <fx12+0x1>

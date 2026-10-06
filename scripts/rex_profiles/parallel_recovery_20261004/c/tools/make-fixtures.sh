@@ -33,7 +33,7 @@ done
 CALIB=(calib calib2)
 FX=(fx01_branches fx02_extended fx03_dbcc fx04_calls fx05_indirect
     fx06_data_opcodes fx07_out_of_region fx08_relative_base_historico
-    fx09_matriz_isa fx10isca fx11assimetrica)
+    fx09_matriz_isa fx10isca fx11assimetrica fx12_absW)
 
 # cada fixture entra com o simbolo de entrada (evita warning do linker e prende
 # o endereco-base em 0, que e o que os testes assumem via --origin 0x0).
@@ -93,13 +93,17 @@ if [ "$MODO" = "--check" ]; then
         done
     done
     echo "OK: $(( ${#CALIB[@]} + ${#FX[@]} )) corpus reproduziveis a partir das fontes .s (objdump + bytes identicos)"
+    # A tabela de palavras de §5 e um artefato de fixture como os outros, mas nao
+    # nasce de uma fonte `.s`: nasce do objdump pinado sobre um corpus de slots.
+    # Ela entra no mesmo gate por sua propria receita, que e um script separado.
+    bash "$AQUI/tools/gerar-fx13-mascaras.sh" --check
     exit 0
 fi
 
 for n in "${CALIB[@]}"; do gerar "$FIX" "$n" nao; done
 for n in "${FX[@]}"; do gerar "$FIX" "$n" sim; done
 
-( cd "$AQUI" && sha256sum fixtures/*.s fixtures/*.bin fixtures/*-objdump.txt \
+( cd "$AQUI" && sha256sum fixtures/*.s fixtures/*.bin fixtures/*-objdump.txt fixtures/*.tsv \
     > fixtures/MANIFEST.sha256 )
 echo "gerado: $(ls "$FIX"/*.bin | wc -l) binarios, $(ls "$FIX"/*-objdump.txt | wc -l) referencias"
 wc -c < "$FIX/MANIFEST.sha256" | xargs echo "MANIFEST.sha256:" bytes

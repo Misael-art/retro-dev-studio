@@ -154,9 +154,18 @@ fn paridade_com_rex_gameplay_m68k_nas_formas_comuns() {
 /// nenhum comprimento e reclamado. As quatro formas foram escolhidas por
 /// MEDICAO no instrumento, nao de memoria:
 /// - `F000`: grupo `%1111` (coprocessador/reservado) — CONTRACT §3 nao o contem;
-/// - `4E76`: TRAPV, que o proprio objdump imprime como recusa (`trapv`);
-/// - `51FF`: DBcc/Scc com campo de modo `%111` — o instrumento imprime
-///   `.short 0x51ff` (medido em calib 0x14e), ou seja recusa a forma;
+/// - `4E76`: TRAPV — o instrumento lê `trapv` em 2 bytes (medido no mesmo objeto
+///   isolado), mas a forma nao esta nos subconjuntos fechados, entao os dois
+///   lados param;
+/// - `51FF`: DBcc/Scc com campo de modo `%111` — recusa-se a forma. Nota
+///   anterior dizia que o instrumento imprimia `.short 0x51ff` "medido em calib
+///   0x14e": **falso**, em calib 0x14c o instrumento lê `67ff 51ff 4e76` como um
+///   `beql` de 6 bytes (aqueles bytes nem são um registro). Medido de novo em
+///   objeto isolado (`objdump -b binary -m m68k -D`, binutils 2.41 sha e3a404cc):
+///   `51ff` = `sf %d7` em 2 bytes — o instrumento LÊ, a ferramenta recusa porque
+///   Scc está fora do subconjunto. A recusa continua concordante com
+///   `rex-gameplay` (ambos param); o que não pode é citar medição inexistente
+///   (ADENDO-ETAPA3-2026-10-05 R-3.7);
 /// - `0E00`: balde `%0000 xxx 111 ...` (MOVES e afins), fora da lista fechada.
 #[test]
 fn ambos_param_em_opcode_fora_dos_dois_subconjuntos() {

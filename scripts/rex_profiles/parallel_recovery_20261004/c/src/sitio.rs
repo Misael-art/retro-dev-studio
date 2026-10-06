@@ -402,7 +402,16 @@ pub fn consultar(p: &Pedido) -> Result<Json, String> {
         limites.push(LIMITE_NAO_PROMOVIDA);
     }
 
-    let abs = absoluto(p.buf, p.sitio);
+    // §1.2 — o bloco de endereço descreve o OPERANDO DE UMA INSTRUÇÃO. Sem
+    // instrução comprovada começando no sítio não há operando: há payload de
+    // outra instrução (miolo) ou dado nunca alcançado, e publicá-lo como Q1..Q4
+    // faria um scanner linear voltar a tratar aparência como interpretacao
+    // (§5 N4/N5).
+    let abs = if dentro_de_bloco && instrucao.is_some() {
+        absoluto(p.buf, p.sitio)
+    } else {
+        None
+    };
 
     Ok(exportar(
         p,

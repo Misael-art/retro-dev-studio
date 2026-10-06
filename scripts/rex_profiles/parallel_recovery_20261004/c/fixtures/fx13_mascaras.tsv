@@ -1,0 +1,46 @@
+# fixtures/fx13_mascaras.tsv — ETAPA 3 §5: subset de slots da varredura §4 com o veredito medido do instrumento.
+# receita: tools/gerar-fx13-mascaras.sh (word + 14 bytes de 4E71 por slot, objdump -b binary -m m68k -D)
+# instrumento pinado: m68k-elf-as sha256 618740559477258165eb1a344e07acd592afc1438061825469d5bd56fa2c87c7
+# instrumento pinado: m68k-elf-objdump sha256 e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f
+# corpus desta tabela sha256 8aa9baada77c9afc28fe16075de499b958a3a73d961c25e5fa4f867ac48db21a
+# corpus do censo §4 (de onde os rotulos sao subset) sha256 b2f4b455e05fa1b0062a7721193655912005511a4bb4dc2f53bfc8ab7068d675
+# colunas: slot-endereco, word, esperado(nosso), token-do-instrumento, bytes-do-instrumento, fonte
+# vocabulario de `esperado`: `leitura=N` ou `recusa-<classe>`, com <classe> igual ao rotulo de FrontierKind::label() (CONTRACT.md)
+# convencao: bytes-do-instrumento = 0 quando o verbo comeca por ponto (`.short`, `.word`, `.long`): o instrumento nao le instrucao nenhuma
+0000	4E71	leitura=2	nop	2	as -m68000 e o objdump pinado medidos (sonda v9); baseline do corpus 4
+0010	3208	leitura=2	movew	2	M68000PRM Tabela 3-9 (MOVE); sonda as -m68000: movew %a0,%d1
+0020	2208	leitura=2	movel	2	M68000PRM Tabela 3-9 (MOVE); sonda as -m68000: movel %a0,%d1
+0030	5048	leitura=2	addqw	2	M68000PRM 4-32 (ADDQ com destino An); sonda as -m68000: addqw #8,%a0
+0040	5088	leitura=2	addql	2	M68000PRM 4-32 (ADDQ); sonda as -m68000: addql #8,%a0
+0050	5108	leitura=2	subqb	2	M68000PRM 4-118 (SUBQ); sonda as -m68000: subqb #8,%a0
+0060	43D0	leitura=2	lea	2	M68000PRM 4-90 (LEA so fonte de endereco); sonda as -m68000: lea %a0@,%a1
+0070	4850	leitura=2	pea	2	M68000PRM 4-144 (PEA); sonda as -m68000: pea %a0@
+0080	487A	leitura=4	pea	4	M68000PRM 4-144 (PEA em modo de 4 bytes); sonda as -m68000: pea %pc@(0x12)
+0090	48E0	leitura=4	moveml	4	M68000PRM 4-138 (MOVEM, fonte An- com lista de registradores); sonda as -m68000
+00A0	4CD8	leitura=4	moveml	4	M68000PRM 4-138 (MOVEM %a0@+ com lista de destino); sonda as -m68000
+00B0	08C0	leitura=4	bset	4	M68000PRM 3.5 (BSET com imediato de 8 bits); sonda as -m68000: bset #3,%d0
+00C0	C280	leitura=2	andl	2	M68000PRM Tabela 3-13 (AND Dn,ea); sonda as -m68000: andl %d0,%d1
+00D0	4482	leitura=2	negl	2	M68000PRM Tabela 3-16 (NEG); sonda as -m68000: negl %d2
+00E0	D248	leitura=2	addw	2	M68000PRM l.5022-5040 (ADD, An* com footnote word/long only); sonda as -m68000
+00F0	D288	leitura=2	addl	2	M68000PRM l.5022-5040 (ADD); sonda as -m68000: addl %a0,%d1
+0100	9248	leitura=2	subw	2	M68000PRM l.12151-12156 (SUB); sonda as -m68000: subw %a0,%d1
+0110	B248	leitura=2	cmpw	2	M68000PRM l.7904-7909 (CMP); sonda as -m68000: cmpw %a0,%d1
+0120	B141	leitura=2	eorw	2	M68000PRM Tabela 3-13 (EOR com direcao b8=1); censo 4: b141 eorw
+0130	E1D0	leitura=2	aslw	2	M68000PRM 3.1.4 l.3605 e formato MEMORY SHIFTS l.9635+; sonda as -m68000
+0140	51C8	leitura=4	dbf	4	M68000PRM 3.2.4 (DBcc, displacement e word com sinal); censo 4: 4 bytes
+0150	4EB8	leitura=4	jsr	4	M68000PRM 2.2.16 (extensao de sinal) e 4-152; censo 4: jsr absoluto curto
+0160	4EB9	leitura=6	jsr	6	M68000PRM 2.2.17 (abs.L literal); censo 4: jsr 0x4e714e71
+0170	D0C0	leitura=2	addaw	2	M68000PRM Tabela 3-13 (ADDA: ss=%11, tamanho no bit 10); auditoria E4 do par ADDA/SUBA/CMPA
+0180	90C0	leitura=2	subaw	2	M68000PRM Tabela 3-13 (SUBA); auditoria E4 do par ADDA/SUBA/CMPA
+0190	B0C0	leitura=2	cmpaw	2	M68000PRM Tabela 3-13 (CMPA); auditoria E4 do par ADDA/SUBA/CMPA
+01A0	C248	recusa-opcode-fora-do-subconjunto	.short	0	M68000PRM l.5460-5466 (AND marca An como modo ausente); sonda as -m68000: operands mismatch
+01B0	8248	recusa-opcode-fora-do-subconjunto	.short	0	M68000PRM l.11150-11152 (OR marca An como modo ausente); sonda as -m68000
+01C0	B008	recusa-opcode-fora-do-subconjunto	cmpb	2	M68000PRM Tabela 2-4 (An nao e operando de dados); sonda as -m68000 recusa cmp.b %a0,%d1; censo 4 registra o instrumento lendo cmpb (short=0/64)
+01D0	D208	recusa-opcode-fora-do-subconjunto	.short	0	M68000PRM l.5040 footnote Word and long only; sonda as -m68000 recusa add.b %a0,%d1
+01E0	9008	recusa-opcode-fora-do-subconjunto	.short	0	M68000PRM l.5040 e l.12151-12156 (SUB comparte o footnote); sonda as -m68000
+01F0	51FF	recusa-opcode-fora-do-subconjunto	sf	2	M68000PRM Tabela 3-19 (Scc/DBcc com bit11=0 e cc de 3 bits); censo 4: o instrumento le sf %d7 e nos recusamos
+0200	4E90	recusa-indirect-opaque	jsr	2	CONTRACT.md 0 item 2 (l.45-47) e 3 (l.191): JMP/JSR indiretos produzem fronteira indirect-opaque, nunca opcode-fora-do-subconjunto; censo 4: grupo de 52 words PROIBICAO-ESTRUTURAL-0-2
+0210	7100	recusa-opcode-fora-do-subconjunto	mvsb	2	M68000PRM l.23789-23808 (Tabela 8-2: %0111 com b8=1 e 68020/68040); sonda as -m68000
+0220	484F	recusa-opcode-fora-do-subconjunto	bkpt	2	sonda as -m68000: needs 68010 or higher (BKPT); M68000PRM nao contem BKPT
+0230	413C	recusa-opcode-fora-do-subconjunto	chkl	6	M68000PRM l.7643-7644 (CHK so com ea) e codigo de tamanho %00 reservado; teste r14
+0240	0088	recusa-opcode-fora-do-subconjunto	oril	6	M68000PRM l.11262-11268 (imediato: so modos de dados alteraveis); sonda as -m68000; censo 4: short=0/64

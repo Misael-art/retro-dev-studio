@@ -687,6 +687,48 @@ fn e5_manifesto_amarra_cada_redigido_ao_instrumento_e_ao_veredito() {
 }
 
 #[test]
+fn e5_cada_artefato_de_fixture_esta_registrado_no_manifesto() {
+    // O byte a byte acima so confere o que o manifesto **nomeia**. Sem este
+    // segundo pino, um artefato novo — como `fixtures/fx13_mascaras.tsv`, a tabela
+    // de palavras de §5 — pode existir, ser lido por teste, e nunca aparecer no
+    // indice do bundle. O conjunto aferido e o dos artefatos que `tools/make-fixtures.sh`
+    // produz ou consome; `.md` de expectativa nao e artefato de fixture.
+    let mf = std::fs::read_to_string(frente().join("fixtures/MANIFEST.sha256")).unwrap();
+    let registradas: std::collections::BTreeSet<String> = mf
+        .lines()
+        .filter_map(|l| l.split_once("  ").map(|(_, rel)| rel.trim().to_string()))
+        .collect();
+    let sufixos = [".s", ".bin", "-objdump.txt", ".tsv"];
+    let pasta = frente().join("fixtures");
+    let mut artefatos = Vec::new();
+    for entrada in std::fs::read_dir(&pasta).unwrap() {
+        let nome = entrada.unwrap().file_name().to_string_lossy().to_string();
+        if nome == "MANIFEST.sha256" {
+            continue;
+        }
+        if !sufixos.iter().any(|s| nome.ends_with(s)) {
+            continue;
+        }
+        let rel = format!("fixtures/{nome}");
+        if !registradas.contains(&rel) {
+            artefatos.push(rel);
+        }
+    }
+    assert!(
+        artefatos.is_empty(),
+        "E5: artefatos de fixture lidos por teste e ausentes do MANIFEST.sha256: {artefatos:?}"
+    );
+    // e o inverso, para o indice nao mentir: nada registrado pode estar de fora
+    // da pasta.
+    for rel in registradas {
+        assert!(
+            frente().join(&rel).exists(),
+            "E5: manifesto nomeia {rel}, que nao existe"
+        );
+    }
+}
+
+#[test]
 fn e5_o_manifesto_de_fixtures_conferir_byte_a_byte() {
     // As fixtures autorais sao o caminho de reproducao sem ROM comercial: o pin de
     // cada uma tem de bater com o arquivo versionado, senao o leitor nao reproduz.

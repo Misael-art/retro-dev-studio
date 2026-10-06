@@ -1,0 +1,13 @@
+# Digestos da rodada E4. Corpus e dump NAO sao versionados (E4-3 e 2.2 das
+# expectativas): sao regeneraveis byte a byte a partir desta receita, o que o
+# modo --check comprava. Os dois primeiros nomes sao relativos a data/.../evidence.
+# O sha do dump integral e um registro DESTA rodada: a linha 2 do cabecalho do
+# objdump embute o caminho do corpus, entao ele muda entre rodadas sem mudar o
+# conteudo. O oraculo de igualdade do conteudo e o sha do corpo (da 3a linha em
+# diante), medido em 2026-10-05 e registrado em
+# docs/.../c/EVIDENCIA-REPRODUTIBILIDADE-ETAPA3-2026-10-05.md: e1cc688a588ce77d
+# 2281737f60dbf2566c716835b54a46846deb5b8f4fe422e0 (idem na rodada preservada).
+f3d788ec46de40941e0d809196d338e1c4e5cc78b7eb5ade78204dfa8f2615ab  varredura-mascaras-v2.json
+45091914027dcdc68d7c3810344899576ea309a198aa5f4226f209b3394e4237  varredura-mascaras-v2.md
+b2f4b455e05fa1b0062a7721193655912005511a4bb4dc2f53bfc8ab7068d675  corpus-mascaras.bin
+a9a08dda9251dc64ef37211aa0e03b969deb6cfa9faf8b0010bcb4dcadb32398  dump-mascaras.txt

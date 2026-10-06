@@ -11,8 +11,13 @@ pub struct Rec {
     pub addr: u32,
     /// comprimento total = words proprios + words de linhas de continuacao
     pub len: u32,
+    // `allow(dead_code)`: o modulo e compilado dentro de quatro binarios de
+    // teste e estes itens so sao lidos por `fx_fluxo.rs` / `calib_parity.rs`.
     /// primeiro token impresso pelo objdump (`moveb`, `dbf`, `.short`, ...)
+    #[allow(dead_code)]
     pub token: String,
+    /// coluna de texto completa do registro
+    #[allow(dead_code)]
     pub text: String,
     /// alvo absoluto impresso pelo instrumento, quando houver
     pub target: Option<u32>,
@@ -117,7 +122,12 @@ pub fn instrument_target(token: &str, text: &str) -> Option<u32> {
     if last.starts_with('%') || last.starts_with('#') {
         return None;
     }
-    u32::from_str_radix(last, 16).ok()
+    // `-b binary -D` imprime `0x...`; `-d` com simbolos imprime hex puro.
+    let numero = last
+        .strip_prefix("0x")
+        .or_else(|| last.strip_prefix("0X"))
+        .unwrap_or(last);
+    u32::from_str_radix(numero, 16).ok()
 }
 
 /// Familia comparavel: o objdump imprime o sufixo de tamanho colado ao
@@ -135,8 +145,10 @@ pub fn family_of_token(token: &str) -> String {
 }
 
 /// Verdadeiro quando o registro do instrumento e um desvio lido como forma
-/// curta de 2 bytes cujo byte baixo do opcode e `0xFF`. Usado pelos dois testes
-/// como o unico ponto em que o CONTRATO manda parar embora o instrumento leia.
+/// curta de 2 bytes cujo byte baixo do opcode e `0xFF`. Usado por `fx_fluxo.rs`
+/// e `calib_parity.rs` como o unico ponto em que o CONTRATO manda parar embora
+/// o instrumento leia; os outros alvos do modulo nao a chamam.
+#[allow(dead_code)]
 pub fn desvio_disp8_ff(rec: &Rec) -> bool {
     let fam = family_of_token(&rec.token);
     let eh_desvio = matches!(

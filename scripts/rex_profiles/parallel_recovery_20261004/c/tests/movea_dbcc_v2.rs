@@ -113,7 +113,8 @@ fn e3_1_move_byte_com_destino_dn_continua_valido() {
 
 /// O rótulo de recusa nomeia as DUAS leituras inválidas: `MOVEA.B` não existe na
 /// ISA e `MOVE.B` com destino An é proibido pela nota de rodapé do §MOVE.
-const MOTIVO_BYTE_PARA_AN: &str = "MOVE/MOVEA de tamanho byte com destino An invalido (PRM 4-118/4-119)";
+const MOTIVO_BYTE_PARA_AN: &str =
+    "MOVE/MOVEA de tamanho byte com destino An invalido (PRM 4-118/4-119)";
 
 /// (bytes, leitura que o instrumento/desmontador faria se a forma existisse).
 const BYTE_PARA_AN: &[(&str, &str)] = &[
@@ -212,7 +213,9 @@ fn e3_2_dbcc_sem_word_de_displacamento_e_fronteira_truncada() {
     assert_eq!(f.kind.label(), "truncada");
     assert_eq!(f.consumo, None);
     // `51FF` tem os mesmos bits de máscara de DBcc mas modo %111 = reserva: cai
-    // na família Scc e é recusado (o instrumento imprime `.short 0x51ff`).
+    // na família Scc e é recusado. Medido no instrumento pinado em objeto
+    // isolado: `51ff` = `sf %d7` (2 bytes) — o instrumento lê, o subconjunto não
+    // suporta Scc (a nota antiga `.short 0x51ff` era citação falsa; ADENDO R-3.7).
     let f2 = fronteira(&decode_at(&bytes_de("51FF 4E71"), 0x0010), "51FF");
     assert_eq!(f2.kind.label(), "opcode-fora-do-subconjunto");
     assert!(
