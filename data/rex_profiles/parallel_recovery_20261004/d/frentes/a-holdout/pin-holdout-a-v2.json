@@ -1,0 +1,70 @@
+{
+  "esquema": "rex-parallel-d/holdout-pin/3",
+  "xerado_por": "scripts/rex_profiles/parallel_recovery_20261004/d/frentes/author_holdout_a_v2.mjs",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v2",
+  "conxunto": "holdout",
+  "fronte": "A",
+  "sha_medido": "bd40e92",
+  "politica": "imaxe pública versionada; respostas reservadas fóra da árbore e pinadas por SHA. O holdout `cbb6895` da rolda 2 non se reutiliza (R17) e ningunha resposta se edita despois de executar a ferramenta (R0).",
+  "respostas_fora_da_arvore": "/home/misael/rds-scratch/rex-heldout-d3",
+  "denominador": {
+    "partes": {
+      "KA1v": 10,
+      "KA1v-neg": 2,
+      "KA1v-fora": 3,
+      "KA2v": 4,
+      "KA3v": 3,
+      "KA4v": 3,
+      "TAv": 10
+    },
+    "total": 35,
+    "nota": "§12.3 conxelaba «KA1v-neg 3 · KA1v-fora 2 · TAv 8 · total 32» para a fronte A. v2 (rectificación datada §12.10, escrita antes de calquera medición v2): `61 FF` lése como BSR.S válido polo desmontador e pasa de neg a fora; TA-3 desdóbase en TA-3a/TA-3b para illar vínculo e xanela; re-avaliación de códigos (requisito 7) mantén TA-5v en rc 2 e engade TA-5b, que exerce o elo `forma-carga` que v1 nunca tocou. KA3v conta a fila base máis as dúas gardas."
+  },
+  "layout": {
+    "rom_size": 131072,
+    "base": 256,
+    "rutina1": 8960,
+    "rutina2": 7424,
+    "fluxo1": 29696,
+    "fluxo2": 22528
+  },
+  "seed": "d-frentes-a-holdout-v2-r3",
+  "tamanhos_streams": [
+    896,
+    160,
+    448
+  ],
+  "disxuncion": {
+    "layout_medicion": {
+      "rom_size": 131072,
+      "base": 256,
+      "rutina1": 8448,
+      "rutina2": 7936,
+      "fluxo1": 32768,
+      "fluxo2": 26624
+    },
+    "criterio": "rutinas e fluxos en enderezos distintos; semente e tamaños de stream distintos; as sondas son as mesmas formas declaradas por A"
+  },
+  "instrumento": {
+    "version": "GNU assembler (GNU Binutils) 2.41",
+    "bandeira": [
+      "-m68000"
+    ],
+    "sha256_as": "618740559477258165eb1a344e07acd592afc1438061825469d5bd56fa2c87c7",
+    "sha256_objdump": "e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f",
+    "filas_sha256": "032eb989b530a31e2e580a09361e0a3d4900776963a9342fb132c3d79e539c67"
+  },
+  "arquivos": {
+    "dA-img-ho-v2.bin": {
+      "sha256": "4a9ef9779143e2816c3973ec492204bbc90fdbffb91fcda9ad82a7d40aaf2da1",
+      "bytes": 131072
+    }
+  },
+  "respostas": {
+    "dA-ho-respostas.json": {
+      "sha256": "7d0ab6c86925a58f35835c43e85631275db3c68bbc3792791a0a83694bfd414d",
+      "bytes": 47126
+    }
+  }
+}

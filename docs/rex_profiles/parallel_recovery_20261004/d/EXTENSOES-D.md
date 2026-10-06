@@ -1369,3 +1369,29 @@ Escrito e commiteado **antes** de que a ferramenta toque `c-holdout/` (R0, R17).
   escore é a mesma da medición (non hai segundo escore).
 - **Límite**: a disxunción é de palabras e sitios, non de *clases* de instrución: o holdout
   proba xeneralización dentro das capacidades de §12.3, non cobertura da ISA.
+
+## 12.14 Holdout v2 de A: denominador conxelado antes de executar `bd40e92` sobre el
+
+Escrito e commiteado **antes** de que `rex-chain` toque `a-holdout/` (R0, R17).
+
+- **Imaxe pública**: `data/…/d/frentes/a-holdout/dA-img-ho-v2.bin`, pinada en
+  `pin-holdout-a-v2.json`. **Respostas reservadas**: `~/rds-scratch/rex-heldout-d3/dA-ho-respostas.json`
+  (SHA pinado; o adaptador nega se falta ou difire, sen caer a unha expectativa adiviñada).
+- **Xerador**: o mesmo independente da medición (`author_v2.mjs`; ningún byte 68000 a man, todo
+  `m68k-elf-as -m68000` + `m68k-elf-objdump`), cun `layout` e unha semente distintos: rutinas en
+  `0x2300`/`0x1d00` (medición `0x2100`/`0x1f00`), fluxos en `0x7400`/`0x5800` (medición
+  `0x8000`/`0x6800`), semente `d-frentes-a-holdout-v2-r3`, streams de 896/160/448 B (medición
+  1024/128/512). `author_holdout_a_v2.mjs` lanza se o layout ou a semente coinciden.
+- **Denominador conxelado**: 35 = `KA1v` 10 · `KA1v-neg` 2 · `KA1v-fora` 3 · `KA2v` 4 · `KA3v` 3 ·
+  `KA4v` 3 · `TAv` 10 (a mesma estrutura de capacidades de §12.3, non unha cifra nova).
+- **Contrato e gabarito**: `EXTENSOES-D v2` + `isa-oraculo-v2`; códigos aceptados `TAv` de §12.4
+  sen cambios. Validez: só para `bd40e92`; `cbb6895`-ho1..3 non se reutilizan.
+- **Límite declarado**: a gramática de A é unha lista pechada de formas; este holdout non inventa
+  formas novas. Proba que o resultado non depende da xeometría, dos datos nin dos enderezos da
+  medición. Non proba cobertura da ISA nin xeneralización a formas non declaradas.
+- **Ordem real dos feitos de C (honestidade)**: o holdout de C de §12.13 executouse unha vez e dous
+  ocos do **adaptador** (non do gabarito) aparecéronme como `INCONCLUSIVE`: o despacho de `KC5v`
+  era por id da medición e a acción `consultar-flag` de `HO-TC-2` non estaba implementada. Corrixín o
+  adaptador (despacho por `probe`, acción nova) sen tocar respostas nin pins, e volvín executar:
+  as filas que cambiaron de `INCONCLUSIVE` a ditame son as 5 `KC5v` e `HO-TC-2`; as demais non
+  se moveron (ver §12.15). A execución previa non se publica como evidencia propia, pero queda dito.

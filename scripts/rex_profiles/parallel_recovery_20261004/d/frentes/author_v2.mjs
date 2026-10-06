@@ -162,7 +162,7 @@ function rotinasFixas(rutina1, rutina2) {
 }
 
 /** Monta o bloque de sondas + as rotinas e coloca todo na imaxe. */
-export function buildAImageV2({ seed = "d-frentes-a-v2", xerador: nomeXerador = "v2", dir = null } = {}) {
+export function buildAImageV2({ seed = "d-frentes-a-v2", xerador: nomeXerador = "v2", dir = null, layout = LAYOUT, tamanhos = [1024, 128, 512] } = {}) {
   const novo = xerador(nomeXerador);
   const inst = instrumento();
   const traballo = dir ?? fs.mkdtempSync(path.join(process.env.HOME, "rds-scratch/d-author-v2-"));
@@ -173,29 +173,29 @@ export function buildAImageV2({ seed = "d-frentes-a-v2", xerador: nomeXerador = 
     const plain = Buffer.from(Array.from({ length: n }, () => rng()));
     return { plain, ...kosinskiEncode(plain) };
   };
-  const s1 = mk(1024, "s1");
-  const s2 = mk(128, "s2");
-  const s3full = mk(512, "s3");
+  const s1 = mk(tamanhos[0], "s1");
+  const s2 = mk(tamanhos[1], "s2");
+  const s3full = mk(tamanhos[2], "s3");
   const s3 = { plain: s3full.plain, stream: s3full.stream.subarray(0, s3full.stream.length - 3) };
-  const fluxo3 = LAYOUT.rom_size - s3.stream.length;
+  const fluxo3 = layout.rom_size - s3.stream.length;
   if (fluxo3 < 0x4000) throw new Error("stream 3 non cabe no fim da imaxe");
 
   // 2) sondas montadas co instrumento. As rotinas van no mesmo bloque (con
   //    `.org` propio) para que `bsr.w` teña un símbolo interno e GAS calcule o
   //    desprazamento: un alvo externo deixaría `61 00 00 00` (relocación pendente).
-  const sondas = inventarioSondas({ ...LAYOUT, fluxo3 });
+  const sondas = inventarioSondas({ ...layout, fluxo3 });
   const montado = montarSondas({
-    base: LAYOUT.base,
+    base: layout.base,
     dir: traballo,
     nome: "dA-sondas-v2",
-    sondas: sondas.concat(rotinasFixas(LAYOUT.rutina1, LAYOUT.rutina2)),
+    sondas: sondas.concat(rotinasFixas(layout.rutina1, layout.rutina2)),
     inst,
   });
   const filas = montado.sondas.filter((r) => r.sonda.rexistro !== "rutina");
   const porNome = new Map(filas.map((r) => [r.rotulo, r]));
   controlarSolapamento(montado.sondas);
 
-  const img = Buffer.alloc(LAYOUT.rom_size, 0);
+  const img = Buffer.alloc(layout.rom_size, 0);
   const marcadas = [];
   const colocar = (sitio, hex, nome) => {
     const buf = Buffer.from(hex, "hex");
@@ -217,12 +217,12 @@ export function buildAImageV2({ seed = "d-frentes-a-v2", xerador: nomeXerador = 
     if (!bytesGrupo) continue;
     colocar(g.direccion, bytesGrupo, g.rotulo);
   }
-  s1.stream.copy(img, LAYOUT.fluxo1);
-  s2.stream.copy(img, LAYOUT.fluxo2);
+  s1.stream.copy(img, layout.fluxo1);
+  s2.stream.copy(img, layout.fluxo2);
   s3.stream.copy(img, fluxo3);
   for (const st of [
-    { nome: "s1", onde: LAYOUT.fluxo1, buf: s1.stream },
-    { nome: "s2", onde: LAYOUT.fluxo2, buf: s2.stream },
+    { nome: "s1", onde: layout.fluxo1, buf: s1.stream },
+    { nome: "s2", onde: layout.fluxo2, buf: s2.stream },
     { nome: "s3", onde: fluxo3, buf: s3.stream },
   ]) {
     for (const m of marcadas) {
@@ -289,13 +289,13 @@ export function buildAImageV2({ seed = "d-frentes-a-v2", xerador: nomeXerador = 
     },
     ...extra,
   });
-  const L1 = ["lea.l/A0", LAYOUT.fluxo1];
-  const L3 = ["lea.l/A3", LAYOUT.fluxo1];
-  const J1 = ["jsr.l", LAYOUT.rutina1];
+  const L1 = ["lea.l/A0", layout.fluxo1];
+  const L3 = ["lea.l/A3", layout.fluxo1];
+  const J1 = ["jsr.l", layout.rutina1];
   const ka1v = [
     filaKa1v("KA1v-lea-l", "lea (xxx).L,An", "KA1v-lea-l-carga", "KA1v-lea-l-call", L1, J1),
     filaKa1v("KA1v-lea-w-baixo", "lea (xxx).W,An co bit 15 = 0", "KA1v-lea-w-baixo-carga", "KA1v-lea-w-baixo-call",
-      ["lea.w/A1", LAYOUT.fluxo2], J1),
+      ["lea.w/A1", layout.fluxo2], J1),
     {
       id: "KA1v-lea-w-alto",
       forma: "lea (xxx).W,An co bit 15 = 1",
@@ -320,15 +320,15 @@ export function buildAImageV2({ seed = "d-frentes-a-v2", xerador: nomeXerador = 
         "vocabularios de A discrepan para 0xFF8400 (§12.10 e)",
     },
     filaKa1v("KA1v-lea-pcd16", "lea (d16,PC),An", "KA1v-lea-pcd16-carga", "KA1v-lea-pcd16-call",
-      ["lea.pcd16/A2", LAYOUT.fluxo1], J1,
+      ["lea.pcd16/A2", layout.fluxo1], J1,
       { nota: "base do desprazamento = sitio + 2; verificado lendo a imaxe en validarEntradaA2" }),
-    filaKa1v("KA1v-bsr-w", "bsr.w", "KA1v-bsr-w-carga", "KA1v-bsr-w-call", L3, ["bsr.w", LAYOUT.rutina2]),
-    filaKa1v("KA1v-jsr-w", "jsr (xxx).W", "KA1v-jsr-w-carga", "KA1v-jsr-w-call", L3, ["jsr.w", LAYOUT.rutina2]),
-    filaKa1v("KA1v-jsr-l", "jsr (xxx).L", "KA1v-jsr-l-carga", "KA1v-jsr-l-call", L3, ["jsr.l", LAYOUT.rutina2]),
-    filaKa1v("KA1v-jmp-w", "jmp (xxx).W", "KA1v-jmp-w-carga", "KA1v-jmp-w-call", L3, ["jmp.w", LAYOUT.rutina2]),
-    filaKa1v("KA1v-jmp-l", "jmp (xxx).L", "KA1v-jmp-l-carga", "KA1v-jmp-l-call", L3, ["jmp.l", LAYOUT.rutina2]),
+    filaKa1v("KA1v-bsr-w", "bsr.w", "KA1v-bsr-w-carga", "KA1v-bsr-w-call", L3, ["bsr.w", layout.rutina2]),
+    filaKa1v("KA1v-jsr-w", "jsr (xxx).W", "KA1v-jsr-w-carga", "KA1v-jsr-w-call", L3, ["jsr.w", layout.rutina2]),
+    filaKa1v("KA1v-jsr-l", "jsr (xxx).L", "KA1v-jsr-l-carga", "KA1v-jsr-l-call", L3, ["jsr.l", layout.rutina2]),
+    filaKa1v("KA1v-jmp-w", "jmp (xxx).W", "KA1v-jmp-w-carga", "KA1v-jmp-w-call", L3, ["jmp.w", layout.rutina2]),
+    filaKa1v("KA1v-jmp-l", "jmp (xxx).L", "KA1v-jmp-l-carga", "KA1v-jmp-l-call", L3, ["jmp.l", layout.rutina2]),
     filaKa1v("KA1v-jmp-pcd16", "jmp (d16,PC)", "KA1v-jmp-pcd16-carga", "KA1v-jmp-pcd16-call", L3,
-      ["jmp.pcd16", LAYOUT.rutina2],
+      ["jmp.pcd16", layout.rutina2],
       {
         nota_instrumento: "`4efa` é `jmp (d16,%pc)` (filas `jmp-pc-d16`/`bruto-4efa-d16pc` do oráculo); " +
           "`jsr.w` é `4eb8` — en v1 D escribiu `4efa` e chamou `jsr.w` á sonda",
@@ -480,23 +480,23 @@ export function buildAImageV2({ seed = "d-frentes-a-v2", xerador: nomeXerador = 
     esperado: {
       rc: 0,
       carga_forma: "lea.l/A0",
-      carga_operando: LAYOUT.fluxo1,
+      carga_operando: layout.fluxo1,
       carga_bytes: sonda("KA3v-carga").bytes.toUpperCase(),
       chamada_forma: "jsr.l",
       chamada_sitio: sonda("KA3v-chamada").sitio,
-      chamada_alvo: LAYOUT.rutina1,
-      rutina_sitio: LAYOUT.rutina1,
+      chamada_alvo: layout.rutina1,
+      rutina_sitio: layout.rutina1,
       rutina_lonxitude: 32,
       rutina_sha256: sha256(rotina1Buf),
-      fluxo_cpu: LAYOUT.fluxo1,
-      fluxo_offset: LAYOUT.fluxo1,
-      tramo_entrada: LAYOUT.rom_size - LAYOUT.fluxo1,
+      fluxo_cpu: layout.fluxo1,
+      fluxo_offset: layout.fluxo1,
+      tramo_entrada: layout.rom_size - layout.fluxo1,
       bytes_consumidos: s1.stream.length,
       saida_bytes: s1.plain.length,
       saida_sha256: sha256(s1.plain),
       confianza: "vinculo-estrutural",
       mapper: "md-linear",
-      estado_mapper: `rom_size=${HEX(LAYOUT.rom_size, 6)}`,
+      estado_mapper: `rom_size=${HEX(layout.rom_size, 6)}`,
     },
     revalidar_esperado_rc: 0,
   };
@@ -520,11 +520,11 @@ export function buildAImageV2({ seed = "d-frentes-a-v2", xerador: nomeXerador = 
   const ka4v = [
     {
       id: "KA4v-s1", sonda: "KA4v-s1", chamada: "KA4v-s1-call", fluxo: "s1",
-      esperado: { rc: 0, saida_sha256: sha256(s1.plain), saida_bytes: s1.plain.length, bytes_consumidos: s1.stream.length, carga_forma: "lea.l/A1", carga_operando: LAYOUT.fluxo1 },
+      esperado: { rc: 0, saida_sha256: sha256(s1.plain), saida_bytes: s1.plain.length, bytes_consumidos: s1.stream.length, carga_forma: "lea.l/A1", carga_operando: layout.fluxo1 },
     },
     {
       id: "KA4v-s2-pc", sonda: "KA4v-s2-pc", chamada: "KA4v-s2-pc-call", fluxo: "s2",
-      esperado: { rc: 0, saida_sha256: sha256(s2.plain), saida_bytes: s2.plain.length, bytes_consumidos: s2.stream.length, carga_forma: "lea.pcd16/A2", carga_operando: LAYOUT.fluxo2 },
+      esperado: { rc: 0, saida_sha256: sha256(s2.plain), saida_bytes: s2.plain.length, bytes_consumidos: s2.stream.length, carga_forma: "lea.pcd16/A2", carga_operando: layout.fluxo2 },
       nota: "v1 chamou a esta fila KA4-2 cunha premisa escrita a man (EA 0xFF8400); aquí o fluxo está en 0x6800 coa forma .W de bit 15 = 0 e unha sonda PC-relativa á marxe (§12.6)",
     },
     {
@@ -544,7 +544,7 @@ export function buildAImageV2({ seed = "d-frentes-a-v2", xerador: nomeXerador = 
     ...(d.nota ? { nota: d.nota } : {}),
   }));
 
-  const tav = receitasV2({ sonda, fluxo1: LAYOUT.fluxo1, rutina1: LAYOUT.rutina1, rutina2: LAYOUT.rutina2 });
+  const tav = receitasV2({ sonda, fluxo1: layout.fluxo1, rutina1: layout.rutina1, rutina2: layout.rutina2 });
 
   const truth = {
     esquema: "rex-parallel-d/frente-a/2",
@@ -560,8 +560,8 @@ export function buildAImageV2({ seed = "d-frentes-a-v2", xerador: nomeXerador = 
       sha256_objdump: inst.sha256_objdump,
       filas_sha256: inst.filas_sha256,
     },
-    imaxe: { rom_size: LAYOUT.rom_size, tam: img.length, sha256: sha256(img) },
-    config: { seed, ...LAYOUT, fluxo3 },
+    imaxe: { rom_size: layout.rom_size, tam: img.length, sha256: sha256(img) },
+    config: { seed, ...layout, fluxo3 },
     sitios: Object.fromEntries(filas.map((r) => [r.rotulo, r.sitio])),
     // Xeometría ditada polo montador: cada probe que GAS sitúo, co seu sitio e
     // lonxitude reais. É a fonte da que os tests caminan os ocos (R14); derivar
@@ -574,13 +574,13 @@ export function buildAImageV2({ seed = "d-frentes-a-v2", xerador: nomeXerador = 
       bytes: r.bytes.toUpperCase(),
     })),
     streams: {
-      s1: { offset: LAYOUT.fluxo1, plain_len: s1.plain.length, plain_sha256: sha256(s1.plain), stream_len: s1.stream.length, stream_sha256: sha256(s1.stream), terminator: true },
-      s2: { offset: LAYOUT.fluxo2, plain_len: s2.plain.length, plain_sha256: sha256(s2.plain), stream_len: s2.stream.length, stream_sha256: sha256(s2.stream), terminator: true },
+      s1: { offset: layout.fluxo1, plain_len: s1.plain.length, plain_sha256: sha256(s1.plain), stream_len: s1.stream.length, stream_sha256: sha256(s1.stream), terminator: true },
+      s2: { offset: layout.fluxo2, plain_len: s2.plain.length, plain_sha256: sha256(s2.plain), stream_len: s2.stream.length, stream_sha256: sha256(s2.stream), terminator: true },
       s3: { offset: fluxo3, plain_len: s3.plain.length, plain_sha256: sha256(s3.plain), stream_len: s3.stream.length, stream_sha256: sha256(s3.stream), terminator: false, motivo: "EOD retirado e fluxo no fim da imaxe: EOF sen terminator" },
     },
     rotinas: {
-      [LAYOUT.rutina2.toString(16)]: { sitio: LAYOUT.rutina2, lonxitude: 32, sha256: sha256(rutinaBuf) },
-      [LAYOUT.rutina1.toString(16)]: { sitio: LAYOUT.rutina1, lonxitude: 32, sha256: sha256(rotina1Buf) },
+      [layout.rutina2.toString(16)]: { sitio: layout.rutina2, lonxitude: 32, sha256: sha256(rutinaBuf) },
+      [layout.rutina1.toString(16)]: { sitio: layout.rutina1, lonxitude: 32, sha256: sha256(rotina1Buf) },
     },
     ka1v,
     ka1v_neg: ka1vNeg,

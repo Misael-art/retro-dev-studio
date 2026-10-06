@@ -157,8 +157,9 @@ export function adaptarA2({
   conjunto = "medicao",
   bin = FERRAMENTAS[chave].bin,
   sha = FERRAMENTAS[chave].sha,
-  respostas = "H-A-respostas-v2.json",
-  nomeImg = NOME_IMG,
+  respostas = "dA-ho-respostas.json",
+  respostasDir = path.join(process.env.HOME, "rds-scratch/rex-heldout-d3"),
+  nomeImg = conjunto === "holdout" ? "dA-img-ho-v2.bin" : NOME_IMG,
   nomeTruth = NOME_TRUTH,
   /** Só para controls negativos de *este* ficheiro de tests: un camiño absoluto
    *  cara a unha copia alterada do gabarito. A evidencia publicada sempre usa o
@@ -168,13 +169,23 @@ export function adaptarA2({
   if (!presente(chave)) {
     return { ausente: true, linhas: [], descricao: null };
   }
-  const dirFix = conjunto === "holdout" ? path.join(FIXTURES, "holdout") : DIR_A;
+  const dirFix = conjunto === "holdout" ? path.join(FIXTURES, "a-holdout") : DIR_A;
   const caminhoImg = path.join(dirFix, nomeImg);
   const verdade = arquivoVerdade ?? (conjunto === "holdout"
-    ? path.join(process.env.HOME, "rds-scratch/rex-heldout-d3", respostas)
+    ? path.join(respostasDir, respostas)
     : path.join(dirFix, nomeTruth));
+  // R17: no holdout a resposta reservada compróbase contra o SHA pinado ANTES de
+  // medir; scratch alterado ou perdido nega, non cae a unha expectativa adiviñada.
+  const NOME_PIN_HOLDOUT = "pin-holdout-a-v2.json";
+  const pin = conjunto === "holdout"
+    ? JSON.parse(fs.readFileSync(path.join(dirFix, NOME_PIN_HOLDOUT), "utf8"))
+    : JSON.parse(fs.readFileSync(path.join(DIR_A, NOME_PIN), "utf8"));
+  if (conjunto === "holdout" && !arquivoVerdade) {
+    if (!fs.existsSync(verdade)) throw new Error(`pin ${NOME_PIN_HOLDOUT}: resposta reservada ${respostas} ausente`);
+    if (sha256Arquivo(verdade) !== pin.respostas[respostas].sha256)
+      throw new Error(`pin ${NOME_PIN_HOLDOUT}: ${respostas} diverxe do SHA pinado (resposta alterada)`);
+  }
   const truth = JSON.parse(fs.readFileSync(verdade, "utf8"));
-  const pin = conjunto === "holdout" ? null : JSON.parse(fs.readFileSync(path.join(DIR_A, NOME_PIN), "utf8"));
 
   const imagem = fs.readFileSync(caminhoImg);
   const imagemSha = sha256(imagem);
@@ -603,7 +614,7 @@ export function adaptarA2({
       arquivo: path.relative(RAIZ, verdade),
       sha256: conjunto === "medicao" && !arquivoVerdade ? sha256Arquivo(path.join(dirFix, nomeTruth)) : "respostas reservadas fóra da árbore",
     },
-    pin: pin ? { arquivo: NOME_PIN, sha256: sha256Arquivo(path.join(DIR_A, NOME_PIN)) } : null,
+    pin: pin ? { arquivo: conjunto === "holdout" ? NOME_PIN_HOLDOUT : NOME_PIN, sha256: sha256Arquivo(path.join(dirFix, conjunto === "holdout" ? NOME_PIN_HOLDOUT : NOME_PIN)) } : null,
   };
   return { ausente: false, linhas, manifesto, bruto };
 }

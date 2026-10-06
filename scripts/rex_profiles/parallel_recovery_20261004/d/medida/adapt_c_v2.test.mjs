@@ -347,8 +347,22 @@ describe.skipIf(!HAI_FERRAMENTA)("escore v2 sobre a ferramenta real — cada inv
     expect(() => adaptarC2({ chave: "C_novo", desprazo: 0 })).toThrow(/§12.11 falso/);
   });
 
-  it("o holdout v2 está sen construír e o adaptador o nega en vez de adiviñar", () => {
-    expect(() => adaptarC2({ chave: "C_novo", conjunto: "holdout" })).toThrow(/sen gabarito conxelado/);
+  it("un conxunto sen gabarito conxelado nega en vez de adiviñar", () => {
+    expect(() => adaptarC2({ chave: "C_novo", conjunto: "inventado" })).toThrow(/sen gabarito conxelado/);
+  });
+
+  it("holdout: unha resposta reservada alterada nega contra o SHA pinado (R17)", () => {
+    const orixe = path.join(process.env.HOME, "rds-scratch/rex-heldout-d3");
+    if (!fs.existsSync(path.join(orixe, "dC-ho1-respostas.json"))) return; // scratch perdido: non hai control
+    const tmp = fs.mkdtempSync(path.join(process.env.HOME, "rds-scratch/d-ho-tamper-"));
+    try {
+      for (const f of fs.readdirSync(orixe).filter((x) => /^dC-ho\d-respostas\.json$/.test(x))) fs.copyFileSync(path.join(orixe, f), path.join(tmp, f));
+      const alvo = path.join(tmp, "dC-ho1-respostas.json");
+      fs.writeFileSync(alvo, fs.readFileSync(alvo, "utf8").replace('"tam": 2', '"tam": 4'));
+      expect(() => adaptarC2({ chave: "C_novo", conjunto: "holdout", respostasDir: tmp })).toThrow(/SHA pinado/);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
   });
 
   it("as etiquetas de cita publican o ditame, incluídos os límites", () => {

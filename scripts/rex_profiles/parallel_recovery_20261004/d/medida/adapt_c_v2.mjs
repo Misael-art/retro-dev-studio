@@ -252,7 +252,7 @@ function indice(exp) {
 
 const div = (campo, esperado, medido) => ({ campo, esperado, medido: medido === undefined ? null : medido });
 
-export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade = null, gabaritoIsa = GABARITO_ISA, desprazo = DESPRAZO } = {}) {
+export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade = null, gabaritoIsa = GABARITO_ISA, desprazo = DESPRAZO, respostasDir = RESPOSTAS_HO } = {}) {
   if (!presente(chave)) return { ausente: true, linhas: [], descricao: null };
   const f = FERRAMENTAS[chave];
   const bin = f.bin;
@@ -273,7 +273,7 @@ export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade =
   const verdade = (fix) => {
     const nome = HO ? `${logico(fix)}-respostas.json` : `${fix}-truth-v2.json`;
     if (dirVerdade && fs.existsSync(path.join(dirVerdade, nome))) return path.join(dirVerdade, nome);
-    return path.join(HO ? RESPOSTAS_HO : dirFix, nome);
+    return path.join(HO ? respostasDir : dirFix, nome);
   };
   const imagem = (fix) => path.join(dirFix, HO ? `${logico(fix)}-v2.bin` : `${fix}-v2.bin`);
   const pin = JSON.parse(fs.readFileSync(path.join(dirFix, nomePin), "utf8"));
@@ -370,7 +370,7 @@ export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade =
     // R17: as respostas reservadas compróbanse contra o SHA pinado ANTES de medir;
     // un scratch alterado ou perdido nega, non cae a unha expectativa adiviñada.
     for (const [nome, esperado] of Object.entries(pin.respostas ?? {})) {
-      const p = path.join(RESPOSTAS_HO, nome);
+      const p = path.join(respostasDir, nome);
       if (!fs.existsSync(p)) throw new Error(`pin ${nomePin}: resposta reservada ${nome} ausente`);
       if (sha256Arquivo(p) !== esperado.sha256) throw new Error(`pin ${nomePin}: ${nome} diverxe do SHA pinado (resposta alterada)`);
     }
@@ -810,24 +810,27 @@ export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade =
       const esp = row.esperado;
       const medidos = {};
       const divs = [];
-      if (row.id === "KC5v-diamante") {
+      // O despacho é pola sonda (holdout: `probe`) e, na medición, polo id; as
+      // dúas redes dan o mesmo ramo, así que o escore non ten segunda versión.
+      const sonda5 = row.probe ?? row.id.replace(/^KC5v-/, "");
+      if (sonda5 === "diamante") {
         const succ = i2.blocoQueContem(lerp(row.endereco))?.sucessores ?? [];
         medidos.ramos = succ.length;
         medidos.tipos = succ.map((s) => vocab(s.tipo));
         if (succ.length !== esp.ramos) divs.push(div("ramos", esp.ramos, succ.length));
         if ([...esp.tipos].sort().join(",") !== medidos.tipos.sort().join(",")) divs.push(div("tipos", esp.tipos, medidos.tipos));
-      } else if (row.id === "KC5v-queda-pos-condicional") {
+      } else if (sonda5 === "queda-pos-condicional") {
         const a = (i2.porOrigem.get(lerp(esp.origem)) ?? []).find((x) => x.tipo === vocab(esp.tipo) && x.alvo === lerp(esp.alvo));
         medidos.aresta = a ? { origem: a.origem, alvo: a.alvo, tipo: vocab(a.tipo) } : null;
         if (!a) divs.push(div("aresta", esp, (i2.porOrigem.get(lerp(esp.origem)) ?? []).map((x) => `${x.tipo}->${x.alvo}`)));
-      } else if (row.id === "KC5v-rts-nao-continua") {
+      } else if (sonda5 === "rts-nao-continua") {
         const b = i2.blocosPorEntrada.get(lerp(row.endereco));
         medidos.sucessores = (b?.sucessores ?? []).length;
         medidos.saida = vocab(b?.saida ?? null);
         medidos.tipos_de_aresta = (i2.porOrigem.get(lerp(row.endereco)) ?? []).map((a) => vocab(a.tipo));
         if (medidos.sucessores !== esp.sucessores) divs.push(div("sucessores", esp.sucessores, medidos.sucessores));
         if (!medidos.tipos_de_aresta.includes(vocab(esp.tipo))) divs.push(div("tipo", vocab(esp.tipo), medidos.tipos_de_aresta));
-      } else if (row.id === "KC5v-cobertura") {
+      } else if (sonda5 === "cobertura") {
         const c = r2.exp?.cobertura ?? {};
         medidos.bytes_decodificados = c["bytes-decodificados"] ?? null;
         medidos.bytes_regiao = c["bytes-regiao"] ?? null;
@@ -835,7 +838,7 @@ export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade =
         if (medidos.bytes_decodificados !== esp.bytes_decodificados)
           divs.push(div("bytes_decodificados", esp.bytes_decodificados, medidos.bytes_decodificados));
         if (medidos.bytes_regiao !== esp.bytes_regiao) divs.push(div("bytes_regiao", esp.bytes_regiao, medidos.bytes_regiao));
-      } else if (row.id === "KC5v-vereditos") {
+      } else if (sonda5 === "vereditos") {
         medidos.miolo = vocab(i2.sitios.get(lerp(esp.miolo))?.veredito ?? null);
         medidos.nao_alcancado = vocab(i2.sitios.get(lerp(esp.nao_alcancado))?.veredito ?? null);
         if (medidos.miolo !== "miolo-de-instrucao") divs.push(div("miolo", "miolo-de-instrucao", medidos.miolo));
@@ -927,6 +930,46 @@ export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade =
                 medidos: { rc: r.rc, stderr: (r.stderr || "").trim().slice(0, 200), export_gravado: gravou },
                 divergencias:
                   esc.veredito === "PASS" ? [] : [{ campo: "rc|export", esperado: `rc ${receita.esperado_rc} sen export`, medido: `${r.rc} / gravou=${gravou}` }],
+                motivo: receita.motivo,
+                bruto: (r.stderr || r.stdout || "").trim().slice(0, 300),
+              },
+              null,
+            ),
+          ),
+        );
+        continue;
+      }
+      if (acao.tipo === "consultar-flag") {
+        // §2.1: `consultar` recusa `--region-prov` com rc 2 (erro de uso). Usa os
+        // mesmos argumentos de uma consulta válida e só acrescenta a flag.
+        const outTC = path.join(OUT_C, `${conjunto}-${receita.id}.json`);
+        if (fs.existsSync(outTC)) fs.rmSync(outTC);
+        const reg = t4.regioes[0];
+        const args = ["consultar", "--bin", path.relative(RAIZ, imagem("dC-cx4")), "--origin", addr(t4.origin ?? 0),
+          "--region", `${addr(reg.inicio)}:${addr(reg.fim)}`, acao.flag, acao.valor];
+        for (const r of t4.raizes) args.push("--root", addr(r.endereco), "--root-prov", r.proveniencia);
+        args.push("--site", addr(t4.sitios[0].endereco), "--out", outTC);
+        const r = executar(bin, args, { cwd: RAIZ, timeout: 60_000 });
+        const gravou = fs.existsSync(outTC);
+        const ok = r.rc === receita.esperado_rc && gravou === receita.esperado.export_gravado;
+        linhas.push(
+          linha(
+            marcar(
+              {
+                frente: "C",
+                sha_frente: sha,
+                fila: receita.id,
+                capacidade: "TCv",
+                eixo: "confiança",
+                comando: `${VERBO} ${args.join(" ")}`,
+                rc: r.rc,
+                rc_esperado: receita.esperado_rc,
+                categoria: ok ? "nao-suportado" : r.rc === 0 ? "falha" : "desconhecido",
+                veredito: ok ? "PASS" : "FAIL",
+                desvio: ok ? null : `rc ${r.rc} / export_gravado=${gravou}`,
+                esperados: receita.esperado,
+                medidos: { rc: r.rc, stderr: (r.stderr || "").trim().slice(0, 200), export_gravado: gravou },
+                divergencias: ok ? [] : [div("rc|export", `rc ${receita.esperado_rc} sen export`, `${r.rc} / gravou=${gravou}`)],
                 motivo: receita.motivo,
                 bruto: (r.stderr || r.stdout || "").trim().slice(0, 300),
               },
