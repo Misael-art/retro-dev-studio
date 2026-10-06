@@ -1,0 +1,1586 @@
+{
+  "esquema": "rex-parallel-d/frente-a/2",
+  "gerado_por": "scripts/rex_profiles/parallel_recovery_20261004/d/frentes/author_v2.mjs",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v2",
+  "xerador": "v2",
+  "ventanxa": 16,
+  "instrumento": {
+    "version": "GNU assembler (GNU Binutils) 2.41",
+    "bandeira": [
+      "-m68000"
+    ],
+    "sha256_as": "618740559477258165eb1a344e07acd592afc1438061825469d5bd56fa2c87c7",
+    "sha256_objdump": "e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f",
+    "filas_sha256": "032eb989b530a31e2e580a09361e0a3d4900776963a9342fb132c3d79e539c67"
+  },
+  "imaxe": {
+    "rom_size": 131072,
+    "tam": 131072,
+    "sha256": "e02ab639083ae047541c6700383f39d9afae4316f63f006875fcb87526e6ae5a"
+  },
+  "config": {
+    "seed": "d-frentes-a-v2",
+    "rom_size": 131072,
+    "base": 256,
+    "rutina1": 8448,
+    "rutina2": 7936,
+    "fluxo1": 32768,
+    "fluxo2": 26624,
+    "fluxo3": 130494
+  },
+  "sitios": {
+    "KA1v-lea-l-carga": 256,
+    "KA1v-lea-l-call": 266,
+    "KA1v-lea-w-baixo-carga": 288,
+    "KA1v-lea-w-baixo-call": 296,
+    "KA1v-lea-w-alto-carga": 318,
+    "KA1v-lea-w-alto-call": 326,
+    "KA1v-lea-pcd16-carga": 348,
+    "KA1v-lea-pcd16-call": 356,
+    "KA1v-bsr-w-carga": 378,
+    "KA1v-bsr-w-call": 388,
+    "KA1v-jsr-w-carga": 408,
+    "KA1v-jsr-w-call": 418,
+    "KA1v-jsr-l-carga": 438,
+    "KA1v-jsr-l-call": 448,
+    "KA1v-jmp-w-carga": 470,
+    "KA1v-jmp-w-call": 480,
+    "KA1v-jmp-l-carga": 500,
+    "KA1v-jmp-l-call": 510,
+    "KA1v-jmp-pcd16-carga": 532,
+    "KA1v-jmp-pcd16-call": 542,
+    "KA1v-neg-4efd": 562,
+    "KA1v-neg-4efd-call": 572,
+    "KA1v-neg-4efc": 594,
+    "KA1v-neg-4efc-call": 602,
+    "KA1v-fora-movea-l-imm-carga": 624,
+    "KA1v-fora-movea-l-imm-call": 634,
+    "KA1v-fora-movea-w-an-carga": 656,
+    "KA1v-fora-movea-w-an-call": 662,
+    "KA1v-fora-61ff": 684,
+    "KA1v-fora-61ff-call": 694,
+    "KA2v-rom": 716,
+    "KA2v-io-vram": 738,
+    "KA2v-mirror": 760,
+    "KA2v-fora-bus": 782,
+    "KA3v-carga": 804,
+    "KA3v-chamada": 814,
+    "KA4v-s1": 836,
+    "KA4v-s1-call": 846,
+    "KA4v-s2-pc": 868,
+    "KA4v-s2-pc-call": 876,
+    "KA4v-s3": 898,
+    "KA4v-s3-call": 908,
+    "TAv-3a-carga": 930,
+    "TAv-3a-chamada1": 940,
+    "TAv-3a-chamada2": 950,
+    "TAv-3b-chamada": 972
+  },
+  "sondas_postas": [
+    {
+      "rotulo": "KA1v-lea-l-carga",
+      "rexistro": "carga",
+      "sitio": 256,
+      "lonxitude": 6,
+      "bytes": "41F900008000"
+    },
+    {
+      "rotulo": "KA1v-lea-l-call",
+      "rexistro": "chamada",
+      "sitio": 266,
+      "lonxitude": 6,
+      "bytes": "4EB900002100"
+    },
+    {
+      "rotulo": "KA1v-lea-w-baixo-carga",
+      "rexistro": "carga",
+      "sitio": 288,
+      "lonxitude": 4,
+      "bytes": "43F86800"
+    },
+    {
+      "rotulo": "KA1v-lea-w-baixo-call",
+      "rexistro": "chamada",
+      "sitio": 296,
+      "lonxitude": 6,
+      "bytes": "4EB900002100"
+    },
+    {
+      "rotulo": "KA1v-lea-w-alto-carga",
+      "rexistro": "carga",
+      "sitio": 318,
+      "lonxitude": 4,
+      "bytes": "43F88400"
+    },
+    {
+      "rotulo": "KA1v-lea-w-alto-call",
+      "rexistro": "chamada",
+      "sitio": 326,
+      "lonxitude": 6,
+      "bytes": "4EB900002100"
+    },
+    {
+      "rotulo": "KA1v-lea-pcd16-carga",
+      "rexistro": "carga",
+      "sitio": 348,
+      "lonxitude": 4,
+      "bytes": "45FA7EA2"
+    },
+    {
+      "rotulo": "KA1v-lea-pcd16-call",
+      "rexistro": "chamada",
+      "sitio": 356,
+      "lonxitude": 6,
+      "bytes": "4EB900002100"
+    },
+    {
+      "rotulo": "KA1v-bsr-w-carga",
+      "rexistro": "carga",
+      "sitio": 378,
+      "lonxitude": 6,
+      "bytes": "47F900008000"
+    },
+    {
+      "rotulo": "KA1v-bsr-w-call",
+      "rexistro": "chamada",
+      "sitio": 388,
+      "lonxitude": 4,
+      "bytes": "61001D7A"
+    },
+    {
+      "rotulo": "KA1v-jsr-w-carga",
+      "rexistro": "carga",
+      "sitio": 408,
+      "lonxitude": 6,
+      "bytes": "47F900008000"
+    },
+    {
+      "rotulo": "KA1v-jsr-w-call",
+      "rexistro": "chamada",
+      "sitio": 418,
+      "lonxitude": 4,
+      "bytes": "4EB81F00"
+    },
+    {
+      "rotulo": "KA1v-jsr-l-carga",
+      "rexistro": "carga",
+      "sitio": 438,
+      "lonxitude": 6,
+      "bytes": "47F900008000"
+    },
+    {
+      "rotulo": "KA1v-jsr-l-call",
+      "rexistro": "chamada",
+      "sitio": 448,
+      "lonxitude": 6,
+      "bytes": "4EB900001F00"
+    },
+    {
+      "rotulo": "KA1v-jmp-w-carga",
+      "rexistro": "carga",
+      "sitio": 470,
+      "lonxitude": 6,
+      "bytes": "47F900008000"
+    },
+    {
+      "rotulo": "KA1v-jmp-w-call",
+      "rexistro": "chamada",
+      "sitio": 480,
+      "lonxitude": 4,
+      "bytes": "4EF81F00"
+    },
+    {
+      "rotulo": "KA1v-jmp-l-carga",
+      "rexistro": "carga",
+      "sitio": 500,
+      "lonxitude": 6,
+      "bytes": "47F900008000"
+    },
+    {
+      "rotulo": "KA1v-jmp-l-call",
+      "rexistro": "chamada",
+      "sitio": 510,
+      "lonxitude": 6,
+      "bytes": "4EF900001F00"
+    },
+    {
+      "rotulo": "KA1v-jmp-pcd16-carga",
+      "rexistro": "carga",
+      "sitio": 532,
+      "lonxitude": 6,
+      "bytes": "47F900008000"
+    },
+    {
+      "rotulo": "KA1v-jmp-pcd16-call",
+      "rexistro": "chamada",
+      "sitio": 542,
+      "lonxitude": 4,
+      "bytes": "4EFA1CE0"
+    },
+    {
+      "rotulo": "KA1v-neg-4efd",
+      "rexistro": "carga",
+      "sitio": 562,
+      "lonxitude": 6,
+      "bytes": "4EFD00001F00"
+    },
+    {
+      "rotulo": "KA1v-neg-4efd-call",
+      "rexistro": "chamada",
+      "sitio": 572,
+      "lonxitude": 6,
+      "bytes": "4EB900002100"
+    },
+    {
+      "rotulo": "KA1v-neg-4efc",
+      "rexistro": "carga",
+      "sitio": 594,
+      "lonxitude": 4,
+      "bytes": "4EFC1F00"
+    },
+    {
+      "rotulo": "KA1v-neg-4efc-call",
+      "rexistro": "chamada",
+      "sitio": 602,
+      "lonxitude": 6,
+      "bytes": "4EB900002100"
+    },
+    {
+      "rotulo": "KA1v-fora-movea-l-imm-carga",
+      "rexistro": "carga",
+      "sitio": 624,
+      "lonxitude": 6,
+      "bytes": "227C00001111"
+    },
+    {
+      "rotulo": "KA1v-fora-movea-l-imm-call",
+      "rexistro": "chamada",
+      "sitio": 634,
+      "lonxitude": 6,
+      "bytes": "4EB900002100"
+    },
+    {
+      "rotulo": "KA1v-fora-movea-w-an-carga",
+      "rexistro": "carga",
+      "sitio": 656,
+      "lonxitude": 2,
+      "bytes": "3248"
+    },
+    {
+      "rotulo": "KA1v-fora-movea-w-an-call",
+      "rexistro": "chamada",
+      "sitio": 662,
+      "lonxitude": 6,
+      "bytes": "4EB900002100"
+    },
+    {
+      "rotulo": "KA1v-fora-61ff",
+      "rexistro": "carga",
+      "sitio": 684,
+      "lonxitude": 6,
+      "bytes": "61FF00001DD4"
+    },
+    {
+      "rotulo": "KA1v-fora-61ff-call",
+      "rexistro": "chamada",
+      "sitio": 694,
+      "lonxitude": 6,
+      "bytes": "4EB900002100"
+    },
+    {
+      "rotulo": "KA2v-rom",
+      "rexistro": "destino",
+      "sitio": 716,
+      "lonxitude": 6,
+      "bytes": "45F900012340"
+    },
+    {
+      "rotulo": "KA2v-io-vram",
+      "rexistro": "destino",
+      "sitio": 738,
+      "lonxitude": 6,
+      "bytes": "47F900A00400"
+    },
+    {
+      "rotulo": "KA2v-mirror",
+      "rexistro": "destino",
+      "sitio": 760,
+      "lonxitude": 6,
+      "bytes": "49F900FF8400"
+    },
+    {
+      "rotulo": "KA2v-fora-bus",
+      "rexistro": "destino",
+      "sitio": 782,
+      "lonxitude": 6,
+      "bytes": "4BF901000000"
+    },
+    {
+      "rotulo": "KA3v-carga",
+      "rexistro": "carga",
+      "sitio": 804,
+      "lonxitude": 6,
+      "bytes": "41F900008000"
+    },
+    {
+      "rotulo": "KA3v-chamada",
+      "rexistro": "chamada",
+      "sitio": 814,
+      "lonxitude": 6,
+      "bytes": "4EB900002100"
+    },
+    {
+      "rotulo": "KA4v-s1",
+      "rexistro": "carga",
+      "sitio": 836,
+      "lonxitude": 6,
+      "bytes": "43F900008000"
+    },
+    {
+      "rotulo": "KA4v-s1-call",
+      "rexistro": "chamada",
+      "sitio": 846,
+      "lonxitude": 6,
+      "bytes": "4EB900002100"
+    },
+    {
+      "rotulo": "KA4v-s2-pc",
+      "rexistro": "carga",
+      "sitio": 868,
+      "lonxitude": 4,
+      "bytes": "45FA649A"
+    },
+    {
+      "rotulo": "KA4v-s2-pc-call",
+      "rexistro": "chamada",
+      "sitio": 876,
+      "lonxitude": 6,
+      "bytes": "4EB900002100"
+    },
+    {
+      "rotulo": "KA4v-s3",
+      "rexistro": "carga",
+      "sitio": 898,
+      "lonxitude": 6,
+      "bytes": "47F90001FDBE"
+    },
+    {
+      "rotulo": "KA4v-s3-call",
+      "rexistro": "chamada",
+      "sitio": 908,
+      "lonxitude": 6,
+      "bytes": "4EB900002100"
+    },
+    {
+      "rotulo": "TAv-3a-carga",
+      "rexistro": "carga",
+      "sitio": 930,
+      "lonxitude": 6,
+      "bytes": "41F900008000"
+    },
+    {
+      "rotulo": "TAv-3a-chamada1",
+      "rexistro": "chamada",
+      "sitio": 940,
+      "lonxitude": 6,
+      "bytes": "4EB900002100"
+    },
+    {
+      "rotulo": "TAv-3a-chamada2",
+      "rexistro": "chamada",
+      "sitio": 950,
+      "lonxitude": 6,
+      "bytes": "4EB900001F00"
+    },
+    {
+      "rotulo": "TAv-3b-chamada",
+      "rexistro": "chamada",
+      "sitio": 972,
+      "lonxitude": 6,
+      "bytes": "4EB900002100"
+    },
+    {
+      "rotulo": "rotina",
+      "rexistro": "rutina",
+      "sitio": 7936,
+      "lonxitude": 32,
+      "bytes": "4E714E714E714E714E714E714E714E714E714E714E714E714E714E714E714E75"
+    },
+    {
+      "rotulo": "rotina1",
+      "rexistro": "rutina",
+      "sitio": 8448,
+      "lonxitude": 32,
+      "bytes": "4E714E714E714E714E714E714E714E714E714E714E714E714E714E714E714E75"
+    }
+  ],
+  "streams": {
+    "s1": {
+      "offset": 32768,
+      "plain_len": 1024,
+      "plain_sha256": "6ca439fd548c91b1fcbea8a6614046ec2932d99353e07483e0a7cb3ca2817cc8",
+      "stream_len": 1157,
+      "stream_sha256": "2eda5b3622be6dcd556fd2d1403d53c24f7c3c47701769a9779142ea62daaeb0",
+      "terminator": true
+    },
+    "s2": {
+      "offset": 26624,
+      "plain_len": 128,
+      "plain_sha256": "2cbe0282df70d827e2527597bef27231b23a2184ded1461cebe99fbcbb5dd7fb",
+      "stream_len": 149,
+      "stream_sha256": "6e844c34f5140c521e1d21a686256065154c8f2220af1c4f02c4c8391e98e53b",
+      "terminator": true
+    },
+    "s3": {
+      "offset": 130494,
+      "plain_len": 512,
+      "plain_sha256": "ff130e4fb353cc0f08d736e868affeca77051e27ce0a16fabd5f8cb93f66f09f",
+      "stream_len": 578,
+      "stream_sha256": "a043c73c6c4a7cc6dae25e4e90795ec783d9497f35bbe697dd34c0239e8aabff",
+      "terminator": false,
+      "motivo": "EOD retirado e fluxo no fim da imaxe: EOF sen terminator"
+    }
+  },
+  "rotinas": {
+    "2100": {
+      "sitio": 8448,
+      "lonxitude": 32,
+      "sha256": "d24e2b69e7f2dceabac93f7d3a4e116f574de6f7d8da7262658c5b61f8a79f35"
+    },
+    "1f00": {
+      "sitio": 7936,
+      "lonxitude": 32,
+      "sha256": "d24e2b69e7f2dceabac93f7d3a4e116f574de6f7d8da7262658c5b61f8a79f35"
+    }
+  },
+  "ka1v": [
+    {
+      "id": "KA1v-lea-l",
+      "forma": "lea (xxx).L,An",
+      "capacidade": "KA1v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "carga_sonda": "KA1v-lea-l-carga",
+      "chamada_sonda": "KA1v-lea-l-call",
+      "carga_sitio": 256,
+      "chamada_sitio": 266,
+      "sondeo": {
+        "sitio": 256,
+        "bytes": "41F900008000",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "lea 8000 <p_rotina1+0x5f00>,%a0",
+          "ea": 32768,
+          "desmontaxe": "100:\t41f900008000\tlea 8000 <p_rotina1+0x5f00>,%a0"
+        }
+      },
+      "chamada": {
+        "sitio": 266,
+        "bytes": "4EB900002100",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "jsr 2100 <p_rotina1>",
+          "ea": 8448,
+          "desmontaxe": "10a:\t4eb900002100\tjsr 2100 <p_rotina1>"
+        }
+      },
+      "esperado": {
+        "carga_sitio": 256,
+        "carga_forma": "lea.l/A0",
+        "carga_operando": 32768,
+        "chamada_sitio": 266,
+        "chamada_forma": "jsr.l",
+        "chamada_alvo": 8448
+      }
+    },
+    {
+      "id": "KA1v-lea-w-baixo",
+      "forma": "lea (xxx).W,An co bit 15 = 0",
+      "capacidade": "KA1v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "carga_sonda": "KA1v-lea-w-baixo-carga",
+      "chamada_sonda": "KA1v-lea-w-baixo-call",
+      "carga_sitio": 288,
+      "chamada_sitio": 296,
+      "sondeo": {
+        "sitio": 288,
+        "bytes": "43F86800",
+        "lonxitude": 4,
+        "instrumento": {
+          "mnemonico": "lea 6800 <p_rotina1+0x4700>,%a1",
+          "ea": 26624,
+          "desmontaxe": "120:\t43f86800\tlea 6800 <p_rotina1+0x4700>,%a1"
+        }
+      },
+      "chamada": {
+        "sitio": 296,
+        "bytes": "4EB900002100",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "jsr 2100 <p_rotina1>",
+          "ea": 8448,
+          "desmontaxe": "128:\t4eb900002100\tjsr 2100 <p_rotina1>"
+        }
+      },
+      "esperado": {
+        "carga_sitio": 288,
+        "carga_forma": "lea.w/A1",
+        "carga_operando": 26624,
+        "chamada_sitio": 296,
+        "chamada_forma": "jsr.l",
+        "chamada_alvo": 8448
+      }
+    },
+    {
+      "id": "KA1v-lea-w-alto",
+      "forma": "lea (xxx).W,An co bit 15 = 1",
+      "capacidade": "KA1v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "carga_sonda": "KA1v-lea-w-alto-carga",
+      "chamada_sonda": "KA1v-lea-w-alto-call",
+      "carga_sitio": 318,
+      "chamada_sitio": 326,
+      "sondeo": {
+        "sitio": 318,
+        "bytes": "43F88400",
+        "lonxitude": 4,
+        "instrumento": {
+          "mnemonico": "lea ffff8400 <p_rotina1+0xffff6300>,%a1",
+          "ea": 4294935552,
+          "desmontaxe": "13e:\t43f88400\tlea ffff8400 <p_rotina1+0xffff6300>,%a1"
+        }
+      },
+      "chamada": {
+        "sitio": 326,
+        "bytes": "4EB900002100",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "jsr 2100 <p_rotina1>",
+          "ea": 8448,
+          "desmontaxe": "146:\t4eb900002100\tjsr 2100 <p_rotina1>"
+        }
+      },
+      "esperado": {
+        "recusa": true,
+        "rc_aceitado": [
+          4
+        ],
+        "cadea_promovida": false,
+        "motivos_aceitados": [
+          "sen backing ROM"
+        ],
+        "categoria": "nao-suportado"
+      },
+      "nota_instrumento": "extensión de sinal ditada por objdump: EA = 0xFFFF8400 (fila `lea-abs-w-alto`/`bruto-lea-8400-w` de isa-oraculo-v2: `43f8 8400` → 0xffff8400). `decodificar` acepta a forma (rc ≠ 5/6); o que falla é o mapper: `main.rs:391-393` chama `offset_rom(0xFF8400)` e o seu erro → MAPPER_DIVERXENCIA (4). O nome da rexión nese texto ven de `rex_addressing::Translate::Device`, non de `verify.rs::clasificar_rexion` — as dúas vocabularios de A discrepan para 0xFF8400 (§12.10 e)"
+    },
+    {
+      "id": "KA1v-lea-pcd16",
+      "forma": "lea (d16,PC),An",
+      "capacidade": "KA1v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "carga_sonda": "KA1v-lea-pcd16-carga",
+      "chamada_sonda": "KA1v-lea-pcd16-call",
+      "carga_sitio": 348,
+      "chamada_sitio": 356,
+      "sondeo": {
+        "sitio": 348,
+        "bytes": "45FA7EA2",
+        "lonxitude": 4,
+        "instrumento": {
+          "mnemonico": "lea %pc@(8000 <p_rotina1+0x5f00>),%a2",
+          "ea": 32768,
+          "desmontaxe": "15c:\t45fa7ea2\tlea %pc@(8000 <p_rotina1+0x5f00>),%a2"
+        }
+      },
+      "chamada": {
+        "sitio": 356,
+        "bytes": "4EB900002100",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "jsr 2100 <p_rotina1>",
+          "ea": 8448,
+          "desmontaxe": "164:\t4eb900002100\tjsr 2100 <p_rotina1>"
+        }
+      },
+      "esperado": {
+        "carga_sitio": 348,
+        "carga_forma": "lea.pcd16/A2",
+        "carga_operando": 32768,
+        "chamada_sitio": 356,
+        "chamada_forma": "jsr.l",
+        "chamada_alvo": 8448
+      },
+      "nota": "base do desprazamento = sitio + 2; verificado lendo a imaxe en validarEntradaA2"
+    },
+    {
+      "id": "KA1v-bsr-w",
+      "forma": "bsr.w",
+      "capacidade": "KA1v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "carga_sonda": "KA1v-bsr-w-carga",
+      "chamada_sonda": "KA1v-bsr-w-call",
+      "carga_sitio": 378,
+      "chamada_sitio": 388,
+      "sondeo": {
+        "sitio": 378,
+        "bytes": "47F900008000",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "lea 8000 <p_rotina1+0x5f00>,%a3",
+          "ea": 32768,
+          "desmontaxe": "17a:\t47f900008000\tlea 8000 <p_rotina1+0x5f00>,%a3"
+        }
+      },
+      "chamada": {
+        "sitio": 388,
+        "bytes": "61001D7A",
+        "lonxitude": 4,
+        "instrumento": {
+          "mnemonico": "bsrw 1f00 <p_rotina>",
+          "ea": 7936,
+          "desmontaxe": "184:\t61001d7a\tbsrw 1f00 <p_rotina>"
+        }
+      },
+      "esperado": {
+        "carga_sitio": 378,
+        "carga_forma": "lea.l/A3",
+        "carga_operando": 32768,
+        "chamada_sitio": 388,
+        "chamada_forma": "bsr.w",
+        "chamada_alvo": 7936
+      }
+    },
+    {
+      "id": "KA1v-jsr-w",
+      "forma": "jsr (xxx).W",
+      "capacidade": "KA1v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "carga_sonda": "KA1v-jsr-w-carga",
+      "chamada_sonda": "KA1v-jsr-w-call",
+      "carga_sitio": 408,
+      "chamada_sitio": 418,
+      "sondeo": {
+        "sitio": 408,
+        "bytes": "47F900008000",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "lea 8000 <p_rotina1+0x5f00>,%a3",
+          "ea": 32768,
+          "desmontaxe": "198:\t47f900008000\tlea 8000 <p_rotina1+0x5f00>,%a3"
+        }
+      },
+      "chamada": {
+        "sitio": 418,
+        "bytes": "4EB81F00",
+        "lonxitude": 4,
+        "instrumento": {
+          "mnemonico": "jsr 1f00 <p_rotina>",
+          "ea": 7936,
+          "desmontaxe": "1a2:\t4eb81f00\tjsr 1f00 <p_rotina>"
+        }
+      },
+      "esperado": {
+        "carga_sitio": 408,
+        "carga_forma": "lea.l/A3",
+        "carga_operando": 32768,
+        "chamada_sitio": 418,
+        "chamada_forma": "jsr.w",
+        "chamada_alvo": 7936
+      }
+    },
+    {
+      "id": "KA1v-jsr-l",
+      "forma": "jsr (xxx).L",
+      "capacidade": "KA1v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "carga_sonda": "KA1v-jsr-l-carga",
+      "chamada_sonda": "KA1v-jsr-l-call",
+      "carga_sitio": 438,
+      "chamada_sitio": 448,
+      "sondeo": {
+        "sitio": 438,
+        "bytes": "47F900008000",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "lea 8000 <p_rotina1+0x5f00>,%a3",
+          "ea": 32768,
+          "desmontaxe": "1b6:\t47f900008000\tlea 8000 <p_rotina1+0x5f00>,%a3"
+        }
+      },
+      "chamada": {
+        "sitio": 448,
+        "bytes": "4EB900001F00",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "jsr 1f00 <p_rotina>",
+          "ea": 7936,
+          "desmontaxe": "1c0:\t4eb900001f00\tjsr 1f00 <p_rotina>"
+        }
+      },
+      "esperado": {
+        "carga_sitio": 438,
+        "carga_forma": "lea.l/A3",
+        "carga_operando": 32768,
+        "chamada_sitio": 448,
+        "chamada_forma": "jsr.l",
+        "chamada_alvo": 7936
+      }
+    },
+    {
+      "id": "KA1v-jmp-w",
+      "forma": "jmp (xxx).W",
+      "capacidade": "KA1v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "carga_sonda": "KA1v-jmp-w-carga",
+      "chamada_sonda": "KA1v-jmp-w-call",
+      "carga_sitio": 470,
+      "chamada_sitio": 480,
+      "sondeo": {
+        "sitio": 470,
+        "bytes": "47F900008000",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "lea 8000 <p_rotina1+0x5f00>,%a3",
+          "ea": 32768,
+          "desmontaxe": "1d6:\t47f900008000\tlea 8000 <p_rotina1+0x5f00>,%a3"
+        }
+      },
+      "chamada": {
+        "sitio": 480,
+        "bytes": "4EF81F00",
+        "lonxitude": 4,
+        "instrumento": {
+          "mnemonico": "jmp 1f00 <p_rotina>",
+          "ea": 7936,
+          "desmontaxe": "1e0:\t4ef81f00\tjmp 1f00 <p_rotina>"
+        }
+      },
+      "esperado": {
+        "carga_sitio": 470,
+        "carga_forma": "lea.l/A3",
+        "carga_operando": 32768,
+        "chamada_sitio": 480,
+        "chamada_forma": "jmp.w",
+        "chamada_alvo": 7936
+      }
+    },
+    {
+      "id": "KA1v-jmp-l",
+      "forma": "jmp (xxx).L",
+      "capacidade": "KA1v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "carga_sonda": "KA1v-jmp-l-carga",
+      "chamada_sonda": "KA1v-jmp-l-call",
+      "carga_sitio": 500,
+      "chamada_sitio": 510,
+      "sondeo": {
+        "sitio": 500,
+        "bytes": "47F900008000",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "lea 8000 <p_rotina1+0x5f00>,%a3",
+          "ea": 32768,
+          "desmontaxe": "1f4:\t47f900008000\tlea 8000 <p_rotina1+0x5f00>,%a3"
+        }
+      },
+      "chamada": {
+        "sitio": 510,
+        "bytes": "4EF900001F00",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "jmp 1f00 <p_rotina>",
+          "ea": 7936,
+          "desmontaxe": "1fe:\t4ef900001f00\tjmp 1f00 <p_rotina>"
+        }
+      },
+      "esperado": {
+        "carga_sitio": 500,
+        "carga_forma": "lea.l/A3",
+        "carga_operando": 32768,
+        "chamada_sitio": 510,
+        "chamada_forma": "jmp.l",
+        "chamada_alvo": 7936
+      }
+    },
+    {
+      "id": "KA1v-jmp-pcd16",
+      "forma": "jmp (d16,PC)",
+      "capacidade": "KA1v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "carga_sonda": "KA1v-jmp-pcd16-carga",
+      "chamada_sonda": "KA1v-jmp-pcd16-call",
+      "carga_sitio": 532,
+      "chamada_sitio": 542,
+      "sondeo": {
+        "sitio": 532,
+        "bytes": "47F900008000",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "lea 8000 <p_rotina1+0x5f00>,%a3",
+          "ea": 32768,
+          "desmontaxe": "214:\t47f900008000\tlea 8000 <p_rotina1+0x5f00>,%a3"
+        }
+      },
+      "chamada": {
+        "sitio": 542,
+        "bytes": "4EFA1CE0",
+        "lonxitude": 4,
+        "instrumento": {
+          "mnemonico": "jmp %pc@(1f00 <p_rotina>)",
+          "ea": 7936,
+          "desmontaxe": "21e:\t4efa1ce0\tjmp %pc@(1f00 <p_rotina>)"
+        }
+      },
+      "esperado": {
+        "carga_sitio": 532,
+        "carga_forma": "lea.l/A3",
+        "carga_operando": 32768,
+        "chamada_sitio": 542,
+        "chamada_forma": "jmp.pcd16",
+        "chamada_alvo": 7936
+      },
+      "nota_instrumento": "`4efa` é `jmp (d16,%pc)` (filas `jmp-pc-d16`/`bruto-4efa-d16pc` do oráculo); `jsr.w` é `4eb8` — en v1 D escribiu `4efa` e chamou `jsr.w` á sonda"
+    }
+  ],
+  "ka1v_neg": [
+    {
+      "id": "KA1v-neg-4efd",
+      "capacidade": "KA1v-neg",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "carga_sonda": "KA1v-neg-4efd",
+      "chamada_sonda": "KA1v-neg-4efd-call",
+      "carga_sitio": 562,
+      "chamada_sitio": 572,
+      "sondeo": {
+        "sitio": 562,
+        "bytes": "4EFD00001F00",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": ".short 0x4efd",
+          "ea": null,
+          "desmontaxe": "232:\t4efd\t.short 0x4efd\n234:\t00001f00\torib #0,%d0"
+        }
+      },
+      "chamada": {
+        "sitio": 572,
+        "bytes": "4EB900002100",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "jsr 2100 <p_rotina1>",
+          "ea": 8448,
+          "desmontaxe": "23c:\t4eb900002100\tjsr 2100 <p_rotina1>"
+        }
+      },
+      "palabras": "4EFD 0000 1F00",
+      "esperado": {
+        "recusa": true,
+        "rc_aceitado": [
+          5,
+          6
+        ],
+        "cadea_promovida": false,
+        "motivos_aceitados": [
+          "indefinido-68000"
+        ],
+        "categoria": "nao-suportado"
+      },
+      "nota_instrumento": "KA1v-neg-4efd: a primeira liña do desmontador é `.short 0x4efd` — sen mnemónico MC68000 (filas `bruto-4efd` de isa-oraculo-v2). En v1 D chamoulle `jmp.l` e contou a recusa de A como regresión de A (§12.6)."
+    },
+    {
+      "id": "KA1v-neg-4efc",
+      "capacidade": "KA1v-neg",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "carga_sonda": "KA1v-neg-4efc",
+      "chamada_sonda": "KA1v-neg-4efc-call",
+      "carga_sitio": 594,
+      "chamada_sitio": 602,
+      "sondeo": {
+        "sitio": 594,
+        "bytes": "4EFC1F00",
+        "lonxitude": 4,
+        "instrumento": {
+          "mnemonico": ".short 0x4efc",
+          "ea": null,
+          "desmontaxe": "252:\t4efc\t.short 0x4efc\n254:\t1f00\tmoveb %d0,%sp@-"
+        }
+      },
+      "chamada": {
+        "sitio": 602,
+        "bytes": "4EB900002100",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "jsr 2100 <p_rotina1>",
+          "ea": 8448,
+          "desmontaxe": "25a:\t4eb900002100\tjsr 2100 <p_rotina1>"
+        }
+      },
+      "palabras": "4EFC 1F00",
+      "esperado": {
+        "recusa": true,
+        "rc_aceitado": [
+          5,
+          6
+        ],
+        "cadea_promovida": false,
+        "motivos_aceitados": [
+          "indefinido-68000"
+        ],
+        "categoria": "nao-suportado"
+      },
+      "nota_instrumento": "KA1v-neg-4efc: a primeira liña do desmontador é `.short 0x4efc` — sen mnemónico MC68000 (filas `bruto-4efc` de isa-oraculo-v2). En v1 D chamoulle `jmp.w` e contou a recusa de A como regresión de A (§12.6)."
+    }
+  ],
+  "ka1v_fora": [
+    {
+      "id": "KA1v-fora-movea-l-imm",
+      "capacidade": "KA1v-fora",
+      "forma": "movea.l #imm32,An",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "carga_sonda": "KA1v-fora-movea-l-imm-carga",
+      "chamada_sonda": "KA1v-fora-movea-l-imm-call",
+      "carga_sitio": 624,
+      "chamada_sitio": 634,
+      "sondeo": {
+        "sitio": 624,
+        "bytes": "227C00001111",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "moveal #4369,%a1",
+          "ea": null,
+          "desmontaxe": "270:\t227c00001111\tmoveal #4369,%a1"
+        }
+      },
+      "chamada": {
+        "sitio": 634,
+        "bytes": "4EB900002100",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "jsr 2100 <p_rotina1>",
+          "ea": 8448,
+          "desmontaxe": "27a:\t4eb900002100\tjsr 2100 <p_rotina1>"
+        }
+      },
+      "esperado": {
+        "recusa": true,
+        "rc_aceitado": [
+          5,
+          6
+        ],
+        "cadea_promovida": false,
+        "motivos_aceitados": [
+          "NonForma"
+        ],
+        "categoria": "nao-suportado"
+      },
+      "nota_instrumento": "o montador codifica esta forma MC68000 válido: bytes `227C00001111`, lectura `moveal #4369,%a1` (fila `movea-l-inm` de isa-oraculo-v2, rc_montador 0). MOVEA non está no subconxunto de carga `md68000-chain16`: `decodificar` cae en `InstrErro::NonForma` e o rc previsto é 5."
+    },
+    {
+      "id": "KA1v-fora-movea-w-an",
+      "capacidade": "KA1v-fora",
+      "forma": "movea.w %a0,%a1",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "carga_sonda": "KA1v-fora-movea-w-an-carga",
+      "chamada_sonda": "KA1v-fora-movea-w-an-call",
+      "carga_sitio": 656,
+      "chamada_sitio": 662,
+      "sondeo": {
+        "sitio": 656,
+        "bytes": "3248",
+        "lonxitude": 2,
+        "instrumento": {
+          "mnemonico": "moveaw %a0,%a1",
+          "ea": null,
+          "desmontaxe": "290:\t3248\tmoveaw %a0,%a1"
+        }
+      },
+      "chamada": {
+        "sitio": 662,
+        "bytes": "4EB900002100",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "jsr 2100 <p_rotina1>",
+          "ea": 8448,
+          "desmontaxe": "296:\t4eb900002100\tjsr 2100 <p_rotina1>"
+        }
+      },
+      "esperado": {
+        "recusa": true,
+        "rc_aceitado": [
+          5,
+          6
+        ],
+        "cadea_promovida": false,
+        "motivos_aceitados": [
+          "NonForma"
+        ],
+        "categoria": "nao-suportado"
+      },
+      "nota_instrumento": "o montador codifica `3248` = `3248`: MC68000 válido. A etiqueta `classe_instrumento` desa fila en isa-oraculo-v2.json di `recusada-68000` e está equivocada (rectificación datada §12.10; o pin do gabarito non se reescribe, R0). Requisito 4: en v1 D chamou «inválida» a unha instrución que o instrumento codifica."
+    },
+    {
+      "id": "KA1v-fora-61ff",
+      "capacidade": "KA1v-fora",
+      "forma": "bsr.s con desprazamento negativo (`61 FF`)",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "carga_sonda": "KA1v-fora-61ff",
+      "chamada_sonda": "KA1v-fora-61ff-call",
+      "carga_sitio": 684,
+      "chamada_sitio": 694,
+      "sondeo": {
+        "sitio": 684,
+        "bytes": "61FF00001DD4",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "bsrs 2ad <p_KA1v_fora_61ff+0x1>",
+          "ea": 685,
+          "desmontaxe": "2ac:\t61ff\tbsrs 2ad <p_KA1v_fora_61ff+0x1>\n2ae:\t00001dd4\torib #-44,%d0"
+        }
+      },
+      "chamada": {
+        "sitio": 694,
+        "bytes": "4EB900002100",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "jsr 2100 <p_rotina1>",
+          "ea": 8448,
+          "desmontaxe": "2b6:\t4eb900002100\tjsr 2100 <p_rotina1>"
+        }
+      },
+      "palabras": "61FF 0000 1DD4",
+      "esperado": {
+        "recusa": true,
+        "rc_aceitado": [
+          5,
+          6
+        ],
+        "cadea_promovida": false,
+        "motivos_aceitados": [
+          "68020-non-declarado"
+        ],
+        "categoria": "nao-suportado"
+      },
+      "nota_instrumento": "no bloque montado o desmontador le a primeira palabra como `bsrs 2ad <p_KA1v_fora_61ff+0x1>`: BSR.S lexítimo de MC68000 (desprazamento −1), non «palabra sen mnemónico». Nun obxecto dun só símbolo as mesmas seis palabras léense `bsrl` (fila `bruto-61ff-bsrl` de isa-oraculo-v2, forma de 68020): a lectura depende do contexto de símbolos do desmontador, non do byte. Por iso a fila sae de KA1v-neg e vai a KA1v-fora (§12.10). A recusa de A é a súa propia elección publicada (`instr.rs:147-154`: `61 FF` → `Recusa {motivo: \"68020-non-declarado\"}`), non un erro de ISA."
+    }
+  ],
+  "ka2v": [
+    {
+      "id": "KA2v-rom",
+      "capacidade": "KA2v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "destino_sitio": 716,
+      "destino_operando": 74560,
+      "destino_bytes": "45F900012340",
+      "destino_forma": "lea.l/A2",
+      "instrumento": {
+        "mnemonico": "lea 12340 <p_rotina1+0x10240>,%a2",
+        "ea": 74560
+      },
+      "esperado_rexion": "rom",
+      "clamp_silencioso_prohibido": true,
+      "fonte_expectativa": "CONTRATO-A §4 (táboa de xanelas publicada pola propia fronte A, lida en bd40e92)",
+      "carga_sonda": "KA3v-carga",
+      "chamada_sonda": "KA3v-chamada",
+      "carga_sitio": 804,
+      "chamada_sitio": 814
+    },
+    {
+      "id": "KA2v-io-vram",
+      "capacidade": "KA2v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "destino_sitio": 738,
+      "destino_operando": 10486784,
+      "destino_bytes": "47F900A00400",
+      "destino_forma": "lea.l/A3",
+      "instrumento": {
+        "mnemonico": "lea a00400 <p_rotina1+0x9fe300>,%a3",
+        "ea": 10486784
+      },
+      "esperado_rexion": "io/vram-window",
+      "clamp_silencioso_prohibido": true,
+      "fonte_expectativa": "CONTRATO-A §4 (táboa de xanelas publicada pola propia fronte A, lida en bd40e92)",
+      "carga_sonda": "KA3v-carga",
+      "chamada_sonda": "KA3v-chamada",
+      "carga_sitio": 804,
+      "chamada_sitio": 814
+    },
+    {
+      "id": "KA2v-mirror",
+      "capacidade": "KA2v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "destino_sitio": 760,
+      "destino_operando": 16745472,
+      "destino_bytes": "49F900FF8400",
+      "destino_forma": "lea.l/A4",
+      "instrumento": {
+        "mnemonico": "lea ff8400 <p_rotina1+0xff6300>,%a4",
+        "ea": 16745472
+      },
+      "esperado_rexion": "ram-68k-mirror",
+      "clamp_silencioso_prohibido": true,
+      "fonte_expectativa": "CONTRATO-A §4 (táboa de xanelas publicada pola propia fronte A, lida en bd40e92)",
+      "carga_sonda": "KA3v-carga",
+      "chamada_sonda": "KA3v-chamada",
+      "carga_sitio": 804,
+      "chamada_sitio": 814
+    },
+    {
+      "id": "KA2v-fora-bus",
+      "capacidade": "KA2v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "destino_sitio": 782,
+      "destino_operando": 16777216,
+      "destino_bytes": "4BF901000000",
+      "destino_forma": "lea.l/A5",
+      "instrumento": {
+        "mnemonico": "lea 1000000 <p_rotina1+0xffdf00>,%a5",
+        "ea": 16777216
+      },
+      "esperado_rexion": "rom",
+      "clamp_silencioso_prohibido": true,
+      "limitacion_esixida": "efectivo≠bus(destino)",
+      "nota": "efectivo 0x1000000 → bus 24 bits 0x000000 → rexión rom. O invariante non é «rc ≠ 0»: é que a cadea REXISTRE a diferenza efectivo↔bus (RECTIFICACION-A §2, modelo de tres niveis). Un clamp silencioso — rexión sen a limitación — é FAIL (R12).",
+      "fonte_expectativa": "CONTRATO-A §4 (táboa de xanelas publicada pola propia fronte A, lida en bd40e92)",
+      "carga_sonda": "KA3v-carga",
+      "chamada_sonda": "KA3v-chamada",
+      "carga_sitio": 804,
+      "chamada_sitio": 814
+    }
+  ],
+  "ka3v": {
+    "id": "KA3v",
+    "capacidade": "KA3v",
+    "gabarito": "isa-oraculo-v2",
+    "contrato": "EXTENSOES-D v2",
+    "carga_sonda": "KA3v-carga",
+    "chamada_sonda": "KA3v-chamada",
+    "carga_sitio": 804,
+    "chamada_sitio": 814,
+    "sondeo": {
+      "sitio": 804,
+      "bytes": "41F900008000",
+      "lonxitude": 6,
+      "instrumento": {
+        "mnemonico": "lea 8000 <p_rotina1+0x5f00>,%a0",
+        "ea": 32768,
+        "desmontaxe": "324:\t41f900008000\tlea 8000 <p_rotina1+0x5f00>,%a0"
+      }
+    },
+    "chamada": {
+      "sitio": 814,
+      "bytes": "4EB900002100",
+      "lonxitude": 6,
+      "instrumento": {
+        "mnemonico": "jsr 2100 <p_rotina1>",
+        "ea": 8448,
+        "desmontaxe": "32e:\t4eb900002100\tjsr 2100 <p_rotina1>"
+      }
+    },
+    "esperado": {
+      "rc": 0,
+      "carga_forma": "lea.l/A0",
+      "carga_operando": 32768,
+      "carga_bytes": "41F900008000",
+      "chamada_forma": "jsr.l",
+      "chamada_sitio": 814,
+      "chamada_alvo": 8448,
+      "rutina_sitio": 8448,
+      "rutina_lonxitude": 32,
+      "rutina_sha256": "d24e2b69e7f2dceabac93f7d3a4e116f574de6f7d8da7262658c5b61f8a79f35",
+      "fluxo_cpu": 32768,
+      "fluxo_offset": 32768,
+      "tramo_entrada": 98304,
+      "bytes_consumidos": 1157,
+      "saida_bytes": 1024,
+      "saida_sha256": "6ca439fd548c91b1fcbea8a6614046ec2932d99353e07483e0a7cb3ca2817cc8",
+      "confianza": "vinculo-estrutural",
+      "mapper": "md-linear",
+      "estado_mapper": "rom_size=0x020000"
+    },
+    "revalidar_esperado_rc": 0
+  },
+  "ka3v_g": [
+    {
+      "id": "KA3v-g-a",
+      "capacidade": "KA3v-g",
+      "mutacion": "campo_desconhecido",
+      "esperado_rc_conxunto": [
+        2
+      ],
+      "motivos_aceitados": [
+        "campo descoñecido"
+      ],
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "motivo": "ESQUEMA exacto: o lector de JSON da fronte rexeita campos descoñecidos (`crate::json` → «campo descoñecido: <nome>»); nada se ignora en silencio"
+    },
+    {
+      "id": "KA3v-g-b",
+      "capacidade": "KA3v-g",
+      "mutacion": "confianza=observado-en-runtime",
+      "esperado_rc_conxunto": [
+        2
+      ],
+      "motivos_aceitados": [
+        "observado-en-runtime"
+      ],
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "motivo": "ESQUEMA exacto: `chain.rs:317-319` — «observado-en-runtime: esta fronte non executa a ROM»"
+    }
+  ],
+  "ka4v": [
+    {
+      "id": "KA4v-s1",
+      "capacidade": "KA4v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "fluxo": "s1",
+      "carga_sonda": "KA4v-s1",
+      "chamada_sonda": "KA4v-s1-call",
+      "carga_sitio": 836,
+      "chamada_sitio": 846,
+      "sondeo": {
+        "sitio": 836,
+        "bytes": "43F900008000",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "lea 8000 <p_rotina1+0x5f00>,%a1",
+          "ea": 32768,
+          "desmontaxe": "344:\t43f900008000\tlea 8000 <p_rotina1+0x5f00>,%a1"
+        }
+      },
+      "chamada": {
+        "sitio": 846,
+        "bytes": "4EB900002100",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "jsr 2100 <p_rotina1>",
+          "ea": 8448,
+          "desmontaxe": "34e:\t4eb900002100\tjsr 2100 <p_rotina1>"
+        }
+      },
+      "esperado": {
+        "rc": 0,
+        "saida_sha256": "6ca439fd548c91b1fcbea8a6614046ec2932d99353e07483e0a7cb3ca2817cc8",
+        "saida_bytes": 1024,
+        "bytes_consumidos": 1157,
+        "carga_forma": "lea.l/A1",
+        "carga_operando": 32768
+      }
+    },
+    {
+      "id": "KA4v-s2-pc",
+      "capacidade": "KA4v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "fluxo": "s2",
+      "carga_sonda": "KA4v-s2-pc",
+      "chamada_sonda": "KA4v-s2-pc-call",
+      "carga_sitio": 868,
+      "chamada_sitio": 876,
+      "sondeo": {
+        "sitio": 868,
+        "bytes": "45FA649A",
+        "lonxitude": 4,
+        "instrumento": {
+          "mnemonico": "lea %pc@(6800 <p_rotina1+0x4700>),%a2",
+          "ea": 26624,
+          "desmontaxe": "364:\t45fa649a\tlea %pc@(6800 <p_rotina1+0x4700>),%a2"
+        }
+      },
+      "chamada": {
+        "sitio": 876,
+        "bytes": "4EB900002100",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "jsr 2100 <p_rotina1>",
+          "ea": 8448,
+          "desmontaxe": "36c:\t4eb900002100\tjsr 2100 <p_rotina1>"
+        }
+      },
+      "esperado": {
+        "rc": 0,
+        "saida_sha256": "2cbe0282df70d827e2527597bef27231b23a2184ded1461cebe99fbcbb5dd7fb",
+        "saida_bytes": 128,
+        "bytes_consumidos": 149,
+        "carga_forma": "lea.pcd16/A2",
+        "carga_operando": 26624
+      },
+      "nota": "v1 chamou a esta fila KA4-2 cunha premisa escrita a man (EA 0xFF8400); aquí o fluxo está en 0x6800 coa forma .W de bit 15 = 0 e unha sonda PC-relativa á marxe (§12.6)"
+    },
+    {
+      "id": "KA4v-s3",
+      "capacidade": "KA4v",
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "fluxo": "s3",
+      "carga_sonda": "KA4v-s3",
+      "chamada_sonda": "KA4v-s3-call",
+      "carga_sitio": 898,
+      "chamada_sitio": 908,
+      "sondeo": {
+        "sitio": 898,
+        "bytes": "47F90001FDBE",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "lea 1fdbe <p_rotina1+0x1dcbe>,%a3",
+          "ea": 130494,
+          "desmontaxe": "382:\t47f90001fdbe\tlea 1fdbe <p_rotina1+0x1dcbe>,%a3"
+        }
+      },
+      "chamada": {
+        "sitio": 908,
+        "bytes": "4EB900002100",
+        "lonxitude": 6,
+        "instrumento": {
+          "mnemonico": "jsr 2100 <p_rotina1>",
+          "ea": 8448,
+          "desmontaxe": "38c:\t4eb900002100\tjsr 2100 <p_rotina1>"
+        }
+      },
+      "esperado": {
+        "rc": 10,
+        "carga_forma": "lea.l/A3",
+        "carga_operando": 130494,
+        "cadea": "ningunha",
+        "motivo": "INCONCLUSIVE-TRUNCADA; rc 0 é prohibido sen terminator"
+      }
+    }
+  ],
+  "tav": [
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "TA-1",
+      "capacidade": "TAv",
+      "eixo": "identidade",
+      "alvo": "imagem",
+      "base": "KA3v",
+      "acao": {
+        "tipo": "xor-byte",
+        "offset": 12287,
+        "valor": 255
+      },
+      "esperado_rc_conxunto": [
+        3
+      ],
+      "elo_aceitado": "identidade",
+      "motivo": "ROM-DIVERXENCIA antes de medir"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "TA-2",
+      "capacidade": "TAv",
+      "eixo": "saída",
+      "alvo": "imagem",
+      "base": "KA3v",
+      "acao": {
+        "tipo": "xor-byte",
+        "offset": 32776,
+        "valor": 90,
+        "reapin_imaxe": true
+      },
+      "esperado_rc_conxunto": [
+        9
+      ],
+      "elo_aceitado": "saída",
+      "motivo": "SAIDA-DIVERXENTE; a variante sen re-pin queda como control non puntuado"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "TA-3a",
+      "capacidade": "TAv",
+      "eixo": "vínculo",
+      "alvo": "cadea",
+      "base": "TAv-3a",
+      "acao": {
+        "tipo": "chamada-fora-da-ventana",
+        "sitio": 950,
+        "bytes": "4EB900001F00",
+        "alvo": 7936,
+        "base_carga_sitio": 930
+      },
+      "esperado_rc_conxunto": [
+        7
+      ],
+      "elo_aceitado": "vinculo-chamada-rutina",
+      "motivo": "sitio movido DENTRO da ventá (14 B ≤ 16) a unha chamada real coherente: xeometría illesa e o único eixo que diverxe é o vínculo chamada→rutina (rc 7)"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "TA-3b",
+      "capacidade": "TAv",
+      "eixo": "xanela",
+      "alvo": "cadea",
+      "base": "KA3v",
+      "acao": {
+        "tipo": "chamada-fora-da-ventana",
+        "sitio": 972,
+        "bytes": "4EB900002100",
+        "alvo": 8448
+      },
+      "esperado_rc_conxunto": [
+        11
+      ],
+      "elo_aceitado": "xeometria",
+      "motivo": "alvo coherente co bytes do sitio (rc 7 imposible), sitio fóra da ventá ⇒ só XEOMETRIA-DIVERXENTE"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "TA-4",
+      "capacidade": "TAv",
+      "eixo": "sítio",
+      "alvo": "cadea",
+      "base": "KA3v",
+      "acao": {
+        "tipo": "campo-hex-inverter",
+        "campo": "carga_bytes"
+      },
+      "esperado_rc_conxunto": [
+        5
+      ],
+      "elo_aceitado": "sitio-carga",
+      "motivo": "SITIO-DIVERXENCIA: os bytes declarados non son os do sitio"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "TA-5v",
+      "capacidade": "TAv",
+      "eixo": "operando",
+      "alvo": "cadea",
+      "base": "KA3v",
+      "acao": {
+        "tipo": "campo",
+        "campo": "carga_operando",
+        "valor": "0x008004",
+        "rexistro_valido_por_esquema": true
+      },
+      "esperado_rc_conxunto": [
+        2
+      ],
+      "elo_aceitado": "esquema",
+      "motivo": "Re-avaliación polo contrato vixente (requisito 7): `chain.rs:363` — con confianza `vinculo-estrutural`, `validar()` exixe `bus(carga_operando) == fluxo_cpu` ANTES de medir, así que o operando adulterado cae no elo `esquema` (rc 2) co texto «o bus do operando da carga non e o fluxo da cadea». En v1 D conxelou 6 (ARGUMENTO-DIVERXENTE), que é o elo de medición `argumento-fonte` (`verify.rs:342-347`) e só se alcanza cando a estrutura é coherente: rectificación datada §12.10 f. rc 0 = FAIL; calquera outro rc = `descoñecido` co elo medido."
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "TA-5b",
+      "capacidade": "TAv",
+      "eixo": "forma-carga",
+      "alvo": "cadea",
+      "base": "KA3v",
+      "acao": {
+        "tipo": "campo",
+        "campo": "carga_forma",
+        "valor": "lea.l/A1"
+      },
+      "esperado_rc_conxunto": [
+        6
+      ],
+      "elo_aceitado": "forma-carga",
+      "motivo": "forma declarada trocada mantendo bytes, operando e fluxo coherentes: o único elo que pode diverxer é `forma-carga` (verify.rs:312-336 → ARGUMENTO_DIVERXENTE). v1 nunca exerceu este elo: a súa TA-5 curcuitaba no esquema (§12.10 f)"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "TA-6",
+      "capacidade": "TAv",
+      "eixo": "alvo",
+      "alvo": "cadea",
+      "base": "KA3v",
+      "acao": {
+        "tipo": "campo",
+        "campo": "chamada_alvo",
+        "delta": 2
+      },
+      "esperado_rc_conxunto": [
+        7
+      ],
+      "elo_aceitado": "alvo-chamada",
+      "motivo": "ALVO-DIVERXENTE: o alvo declarado diverxe do calculado desde os bytes"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "TA-7",
+      "capacidade": "TAv",
+      "eixo": "rutina",
+      "alvo": "cadea",
+      "base": "KA3v",
+      "acao": {
+        "tipo": "campo-hex-inverter",
+        "campo": "rutina_sha256",
+        "conservar_caixa": true
+      },
+      "esperado_rc_conxunto": [
+        8
+      ],
+      "elo_aceitado": "rutina",
+      "motivo": "ROTINA-DIVERXENCIA: hash da rutina adulterado conservando a forma (64 hex minúsculas)"
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "TA-8",
+      "capacidade": "TAv",
+      "eixo": "mapper",
+      "alvo": "cadea",
+      "base": "KA3v",
+      "acao": {
+        "tipo": "campo",
+        "campo": "fluxo_offset",
+        "delta": 2
+      },
+      "esperado_rc_conxunto": [
+        4
+      ],
+      "elo_aceitado": "mapper",
+      "motivo": "MAPPER-DIVERXENCIA: `offset_rom(fluxo_cpu)` ≠ `fluxo_offset` declarado"
+    }
+  ],
+  "denominador": {
+    "partes": {
+      "KA1v": 10,
+      "KA1v-neg": 2,
+      "KA1v-fora": 3,
+      "KA2v": 4,
+      "KA3v": 3,
+      "KA4v": 3,
+      "TAv": 10
+    },
+    "total": 35,
+    "nota": "§12.3 conxelaba «KA1v-neg 3 · KA1v-fora 2 · TAv 8 · total 32» para a fronte A. v2 (rectificación datada §12.10, escrita antes de calquera medición v2): `61 FF` lése como BSR.S válido polo desmontador e pasa de neg a fora; TA-3 desdóbase en TA-3a/TA-3b para illar vínculo e xanela; re-avaliación de códigos (requisito 7) mantén TA-5v en rc 2 e engade TA-5b, que exerce o elo `forma-carga` que v1 nunca tocou. KA3v conta a fila base máis as dúas gardas."
+  },
+  "limites_de_autoria": [
+    "as codificacións veñen de `m68k-elf-as -m68000` (Binutils 2.41) e os enderezos efectivos de `m68k-elf-objdump`: D non escribe bytes a man (R14)",
+    "a fronte A cita o mesmo binario do oráculo (`fixtures/INSTRUMENTO.sha256`): ningunha fila de ISA de A sobe de `referencia estática` por esta vía (R10)",
+    "`4EFD`/`4EFC` non teñen mnemónico 68000 (o instrumento imprime `.short`), así que a sonda son as palabras crúas e o ditame é do desmontador; `61 FF` si que o ten (`bsrs`, BSR.S de desprazamento −1) e por iso vive en KA1v-fora, non en KA1v-neg (§12.10 d)",
+    "imaxe sintética: non é ROM comercial nin BYOR",
+    "a ventá de emparellamento pásaa D por bandeira (`--ventanxa 16`), non se deixa ao defecto implícito da ferramenta medida",
+    "os rc aceitados das recusas derivan da lectura estática de `bd40e92` (`main.rs:312-341`, `instr.rs:147-247`, `chain.rs:313-390`) e dos motivos estables que RECTIFICACION-A §3 publica; non se copian de ningunha execución"
+  ]
+}

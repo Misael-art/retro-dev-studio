@@ -1,0 +1,38 @@
+{
+  "esquema": "rex-parallel-d/pin-frentes/2",
+  "xerado_por": "scripts/rex_profiles/parallel_recovery_20261004/d/frentes/author_v2.mjs",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v2",
+  "denominador": {
+    "partes": {
+      "KA1v": 10,
+      "KA1v-neg": 2,
+      "KA1v-fora": 3,
+      "KA2v": 4,
+      "KA3v": 3,
+      "KA4v": 3,
+      "TAv": 10
+    },
+    "total": 35,
+    "nota": "§12.3 conxelaba «KA1v-neg 3 · KA1v-fora 2 · TAv 8 · total 32» para a fronte A. v2 (rectificación datada §12.10, escrita antes de calquera medición v2): `61 FF` lése como BSR.S válido polo desmontador e pasa de neg a fora; TA-3 desdóbase en TA-3a/TA-3b para illar vínculo e xanela; re-avaliación de códigos (requisito 7) mantén TA-5v en rc 2 e engade TA-5b, que exerce o elo `forma-carga` que v1 nunca tocou. KA3v conta a fila base máis as dúas gardas."
+  },
+  "instrumento": {
+    "version": "GNU assembler (GNU Binutils) 2.41",
+    "bandeira": [
+      "-m68000"
+    ],
+    "sha256_as": "618740559477258165eb1a344e07acd592afc1438061825469d5bd56fa2c87c7",
+    "sha256_objdump": "e3a404cc06ecc27d861ab33af06d93e4deb8ec76533df951922d17ac839b294f",
+    "filas_sha256": "032eb989b530a31e2e580a09361e0a3d4900776963a9342fb132c3d79e539c67"
+  },
+  "arquivos": {
+    "dA-img-v2.bin": {
+      "sha256": "e02ab639083ae047541c6700383f39d9afae4316f63f006875fcb87526e6ae5a",
+      "bytes": 131072
+    },
+    "dA-truth-v2.json": {
+      "sha256": "c7ddde79390ceffe9ed6fccc76f50dd2203417a38a98e296030987d6f551d414",
+      "bytes": 46991
+    }
+  }
+}

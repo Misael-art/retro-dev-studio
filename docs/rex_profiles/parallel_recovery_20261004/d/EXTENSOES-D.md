@@ -514,12 +514,12 @@ montador, R14; pins propios):
 | id | capacidade | sondas | expectativa |
 |---|---|---|---|
 | `KA1v` | as formas que A declara, **codificadas polo instrumento**: `lea .L`, `lea .W (<0x8000)`, `lea .W (≥0x8000)`, `lea (d16,PC)`, `bsr.w`, `jsr .W`, `jsr .L`, `jmp .W`, `jmp .L`, `jmp (d16,PC)` | 10 | forma+operando segundo `isa-oraculo-v2`; a fila `lea .W (≥0x8000)` **espera recusa** (EA esténdese a `0xFFxxxx` e cae en work-RAM sen backing) |
-| `KA1v-neg` | palabras sen mnemónico 68000 (`4efd`, `4efc`) e `61 ff…` (bsrl de 68020) | 3 | `rc ≠ 0`, sen cadea promovida, motivo `fora-de-subconxunto` ou `indefinido-68000` (R12) |
-| `KA1v-fora` | `movea.l #imm32,A1` e `movea.w %a0,%a1` — **MC68000 válidos** (§12.1) | 2 | recusa limpa de subconxunto declarado ⇒ categoría `non-suportado`, **non** `falha` |
-| `KA2v` | rexión do destino pola táboa de xanelas, incluíndo `0xFF8400` | 4 | etiqueta por enderezo; destino fóra do bus ⇒ erro, nunca clamp |
+| `KA1v-neg` | palabras sen mnemónico 68000 (`4efd`, `4efc`) e `61 ff…` (bsrl de 68020) | 3 | `rc ≠ 0`, sen cadea promovida, motivo `fora-de-subconxunto` ou `indefinido-68000` (R12) — **retificado: `61 ff` vai a `KA1v-fora`, neg = 2 (§12.10 d)** |
+| `KA1v-fora` | `movea.l #imm32,A1` e `movea.w %a0,%a1` — **MC68000 válidos** (§12.1) | 2 | recusa limpa de subconxunto declarado ⇒ categoría `non-suportado`, **non** `falha` — **retificado: 3 filas, `movea.w %a0,%a1` é MC68000 válido (§12.10 b/d)** |
+| `KA2v` | rexión do destino pola táboa de xanelas, incluíndo `0xFF8400` | 4 | etiqueta por enderezo; destino fóra do bus ⇒ erro, nunca clamp — **retificado: A publica enmascarar+rexistrar; o FAIL é o clamp silencioso (§12.10 c)** |
 | `KA3v` | cadea completa (carga→argumento→chamada→rotina→fluxo→saída) + 2 gardas de confianza | 3 | rc 0 e elos concordantes; gardas ⇒ `rc 2 ESQUEMA` exacto |
 | `KA4v` | decodificación Kosinski de 3 fluxos referenciados con `lea .L` ou `(d16,PC)` | 3 | igualdade exacta; truncada ⇒ `rc 10`, nunca rc 0 |
-| `TAv` | 8 receitas de adulteración, conxuntos de códigos en §12.4 | 8 | R12 |
+| `TAv` | 8 receitas de adulteración, conxuntos de códigos en §12.4 | 8 | R12 — **retificado: 10 receitas (TA-3a/3b, TA-5v/TA-5b), fronte A = 35 (§12.10 a/f)** |
 
 **Frente C — 41 filas**: `KC1v` 20 (lonxitude+mnemónico; as dúas filas de MOVEA
 re-especificadas como **instruccións válidas**), `KC2v` 6, `KC3v` **2** (retírase
@@ -546,9 +546,9 @@ que códigos son *o mesmo eixo semántico*:
 |---|---|---|---|
 | `TA-1` identidade | imaxe ≠ pin | `{3}` | único; ROM-DIVERXENCIA antes de medir |
 | `TA-2` saída | contido do stream | `{9}` | SAIDA-DIVERXENTE; a variante sen re-pin queda como control non puntuado |
-| `TA-3` xanela | chamada fóra da ventá | `{11}` **só**, porque a v2 illa | v1 mediu `{7,11}` porque a receita movía tamén o alvo declarado; v2 separa en `TA-3a` (alvo movido, dentro da ventá ⇒ `{7}`) e `TA-3b` (alvo coherente, fóra da ventá ⇒ `{11}`) |
+| `TA-3` xanela | chamada fóra da ventá | `{11}` **só**, porque a v2 illa | v1 mediu `{7,11}` porque a receita movía tamén o alvo declarado; v2 separa en `TA-3a` (alvo movido, dentro da ventá ⇒ `{7}`) e `TA-3b` (alvo coherente, fóra da ventá ⇒ `{11}`) | — **elos publicados en §12.10 f** |
 | `TA-4` sítio | bytes do sitio ≠ afirmados | `{5}` | SITIO-DIVERXENCIA |
-| `TA-5v` operando alterado no rexistro | forma ou operando ≠ afirmado | `{6}` **só** | v1 esperaba rc 6 exacto e mediu rc 2 `ESQUEMA`: a mutación de D rompía a *forma* do rexistro antes de chegar ao eixo. rc 2 é recusa correcta **noutra pregunta**, así que en v2 a receita hase construir mantendo o rexistro valido-por-esquema; se A volvese a responder 2 ou 7, a fila publícase como `descoñecido` co elo medido, non como PASS nin como falla de seguranza |
+| `TA-5v` operando alterado no rexistro | forma ou operando ≠ afirmado | `{6}` **só** | v1 esperaba rc 6 exacto e mediu rc 2 `ESQUEMA`: a mutación de D rompía a *forma* do rexistro antes de chegar ao eixo. rc 2 é recusa correcta **noutra pregunta**, así que en v2 a receita hase construir mantendo o rexistro valido-por-esquema; se A volvese a responder 2 ou 7, a fila publícase como `descoñecido` co elo medido, non como PASS nin como falla de seguranza | — **retificado antes de medir: `{2}` elo `esquema`; rc 6 é inalcanzable nesa receita e exerceo `TA-5b` (§12.10 f)** |
 | `TA-6` alvo | aritmética da chamada | `{7}` | ALVO-DIVERXENTE |
 | `TA-7` hash da rutina | contido no alvo ≠ pin | `{8}` | ROTINA-DIVERXENCIA |
 | `TA-8` mapper | tradución do offset | `{4}` | MAPPER-DIVERXENCIA |
@@ -641,4 +641,133 @@ dúas estruturas distintas, e a matriz di con cal se mediu cada fila (R15).
   categorías trasládanse a defecto de D. **Esta rolda non re-xulga esas filas v1**
   (R0): publícanse como están e a rectificación vai na lectura (§11 de
   `RELATORIO-D`) e nas filas novas.
+
+## 12.10 Adendo de rectificacións — escrito antes de calquera medición v2
+
+Data: 2026-10-05. Estado das fixtures v2 neste momento: `dA-img-v2.bin`,
+`dA-truth-v2.json` e `pin-v2.json` xa xerados e probados
+(`frentes/author_v2.test.mjs`, 22/22); **ningunha fila v2 foi executada contra
+ningunha fronte**. Este adendo non reescribe §12.3 nin §12.4 (R0): engádese
+puntadores nas filas afectadas e aquí queda a rectificación completa. Cada
+afirmación cita o ficheiro:liña lido en `bd40e92`
+(`~/rds-scratch/d-frentes-20261004/a-bd40e92/…/a/src/`) ou o gabarito pinned en
+`gabarito/isa-oraculo-v2.json`.
+
+**(a) Denominador da fronte A: 33 → 34 → 35.** §12.3 conxelou 33 filas. Dúas
+correccións de deseño, ambas anteriores a medir, móvenoo:
+`61 FF` sai de `KA1v-neg` e entra en `KA1v-fora` (distribución 2/3, total
+inalterado — punto d); `TA-3` desdóbase en `TA-3a`/`TA-3b` para illar
+`vínculo` de `xanela` (TAv 8→9, total 34); e a re-avaliación de códigos
+(requisito 7) engade `TA-5b` (TAv 9→10, total **35**). Rexístrase o
+intermedio 34 para que a serie sexa reconstruíbel. Publica-se en
+`pin-v2.json` → `denominador.nota`.
+
+**(b) Unha fila do gabarito está mal etiquetada; o pin non se toca.**
+`isa-oraculo-v2.json` (55 filas) ten exactamente unha incoherencia:
+`movea-w-an` leva `classe_instrumento: "recusada-68000"` e `rc_montador: 0`,
+`erro_montador: null`, `desmontaxe: "0:\t3248\tmoveaw %a0,%a1"`. O instrumento
+**non** a recusa: codifica `3248`. Consecuencia: a etiqueta é un erro de D ao
+transcribir a táboa; `author_v2.mjs` le só `bytes_hex`, `rc_montador` e
+`desmontaxe` (os tres campos verificados contra a saída do propio binario
+pinado) e **non** usa `classe_instrumento`. O JSON do gabarito queda como está
+(fila `KA1v-fora-movea-w-an` documenta a discrepancia na súa
+`nota_instrumento`). Requisito 4 cumprido: a expectativa de «MOVEA.W é
+inválida» corríxese — MC68000 si a codifica; o que A fai é excluíla do seu
+subconxunto de carga (`instr.rs:247` → `NonForma` → rc 5, `main.rs:327-332`).
+
+**(c) `KA2v`: «destino fóra do bus ⇒ erro, nunca clamp» era unha lectura
+equivocada do contrato de A.** A fronte publica en RECTIFICACION-A §2 un modelo
+de tres niveis (efectivo 32 b → bus 24 b → offset) e o código applícao no elo
+de destino: `main.rs:374` `let dop_bus = dop & BARRAMENTO;` e
+`clasificar_rexion(dop_bus, rom_size)` (`verify.rs:150-163`). O que A promete —
+e cumpre— é que a diferenza **se rexistra**: `main.rs:467-474` engade a
+limitación literal `efectivo≠bus(destino): efectivo=0x1000000 → bus=0x000000: a
+rexión clasifícase polo bus`, co comentario «rexistrar como limitación, nunca
+clampa en silencio (RECTIFICACION §2)». Polo tanto a expectativa que se mide en
+`KA2v-fora-bus` **non** é `rc ≠ 0`: é `rc 0` **máis** a presenza desa
+limitación. O FAIL é o clamp silencioso — rexión devolta sen limitación —, e
+`clamp_silencioso_prohibido: true` queda en todas as filas `KA2v`. §12.3
+liña 519 lése desde agora así.
+
+**(d) `61 FF` non é «palabra sen mnemónico».** No bloque montado
+(`dA-img-v2.bin`, probe en `0x2ac`) `m68k-elf-objdump -d` imprime
+`bsrs 2ad <p_KA1v_fora_61ff+0x1>`: BSR.S lexítimo de MC68000 con desprazamento
+−1, enderezo efectivo `sitio+2−1 = 0x2ad`. No obxecto dun só símbolo do oráculo
+as mesmas seis palabras léntese `bsrl` (fila `bruto-61ff-bsrl`): **a lectura
+depende do contexto de símbolos do desmontador, non do byte**. A fila móvese de
+`KA1v-neg` a `KA1v-fora` e o seu motivo pasa de `indefinido-68000` a
+`68020-non-declarado`, que é a recusa que A elixe e publica en
+`instr.rs:147-154`. O que se mide segue sendo unha recusa limpa; o que cambia é
+*a pregunta*: «a fronte recusa unha instrución MC68000 válida fóra da súa
+gramática», non «a fronte recusa un byte sen sentido». `4EFD`/`4EFC` si quedan
+en `KA1v-neg` (`instr.rs:221` → `indefinido-68000`; o instrumento imprime
+`.short`).
+
+**(e) Dous vocabularios de rexión dentro de A, e a ventá pásase por bandeira.**
+Para `0xFF8400`: `verify.rs:150-163` (`clasificar_rexion`) devolve
+`ram-68k-mirror`, mentres que o texto do elo de mapper constrúese con
+`rex_addressing::Translate::Device { region }` (`verify.rs:137-140` +
+`crates/rex-addressing/src/region.rs:36`) e imprime `work-ram`. Unha expectativa
+que ancore o nome da rexión cualificaría de falla unha resposta correcta da
+ferramenta. Por iso `KA1v-lea-w-alto` acepta `{4}` co motivo
+`sen backing ROM` — a parte estable do texto — e non o nome da rexión. Además a
+ventá de emparellamento **pásaa D explicitamente** (`--ventanxa 16`);
+`VENTANXA_DEFECTO = 16` (`verify.rs:20`) é coincidente pero non se herda:
+`main.rs:140/251/600` len a bandeira, e a medición non queda ao arbitrio do
+defecto da ferramenta medida.
+
+**(f) Requisito 7: re-avaliación dos códigos polo contrato vixente, antes de
+medir.**
+- `TA-5v` (operando adulterado no rexistro): `{6}` → **`{2}`, elo `esquema`**.
+  `chain.rs:363-366` — con confianza `vinculo-estrutural`, `validar()` exige
+  `bus(carga_operando) == fluxo_cpu` **antes** de medir, así que rc 6
+  (`argumento-fonte`, `verify.rs:342-347`) é **inalcanzable** para esa receita:
+  só se alcanza cando a estrutura xa é coherente. rc 0 segue sendo FAIL e
+  calquera rc fóra do conxunto publícase como `descoñecido` co elo medido (R12).
+  §12.4 liña 551 queda retificada: a súa cláusula de escape («se A volvese a
+  responder 2…») xa non é un plan B, é a expectativa.
+- `TA-5b` **nova**: forma de carga trocada conservando bytes, operando e fluxo
+  coherentes ⇒ `{6}`, elo `forma-carga` (`verify.rs:312-336`). É o elo que a
+  pregunta original de TA-5 quería exercer e que v1 nunca tocou: con estas dúas
+  filas a pregunta «detecta A un operando/forma alterados?» queda medida nos
+  dous elos reais, non nunha quimera.
+- Toda receita `TAv` declara `elo_aceitado` (10 valores: identidade, saída,
+  vinculo-chamada-rutina, xeometria, sitio-carga, esquema, forma-carga,
+  alvo-chamada, rutina, mapper). O rc di **que** rexeitou; o elo di **onde**. Un
+  rc correcto co elo equivocado non illa o eixo que a receita afirma, así que
+  esas filas miden como `descoñecido`.
+- `TA-3a` `{7}` elo `vinculo-chamada-rutina` (`verify.rs:594-601`) e `TA-3b`
+  `{11}` elo `xeometria` (`verify.rs:616-623`): a xanela illesa no primeiro caso
+  (segunda chamada real a 14 B, ≤ 16) e o alvo coherente no segundo. v1 non
+  podía separalos porque só había unha chamada dentro da ventá.
+
+**(g) Defectos propios atopados polos tests de v2 antes de medir (rexistro
+honesto, á marxe de §12.9).** (1) O autor copiaba á imaxe só os bytes das
+probes e recheaba de ceros os ocos, contradicindo os separadores `nop` que el
+mesmo documentaba; agora colócanse `montado.grupos`, isto é, o bloque tal como
+o emite GAS, e a imaxe v2 é byte a byte a saída do instrumento. (2) A lista de
+sondas que usaban os controlos estaba **derivada** das formas das filas e
+ocultaba probes (as chamadas de `KA4v` non tiñan rexistro); o control de ocos
+quedou cego e detectouno o test. Reparado publicando en
+`dA-truth-v2.json` o campo `sondas_postas` — sitio e lonxitude ditados polo
+montador — que é agora a única fonte dos controlos de solapamento, ocos e
+ventá. (3) `KA3v`, `KA4v` e as filas de recusa non levaban o ditame completo de
+`objdump` (mnemónico + enderezo efectivo) para as súas chamadas; todas as filas
+que citan probes levan agora `sondeo` e `chamada` coa lectura do instrumento.
+
+**Pins v2 da fronte A** (os dixestos vixentes tras este adendo; a fonte
+autorizada é `data/…/d/frentes/a/pin-v2.json`):
+
+| arquivo v2 | SHA-256 |
+|---|---|
+| `dA-img-v2.bin` | `e02ab639083ae047541c6700383f39d9afae4316f63f006875fcb87526e6ae5a` |
+| `dA-truth-v2.json` | `c7ddde79390ceffe9ed6fccc76f50dd2203417a38a98e296030987d6f551d414` |
+
+O fixado aquí non substitúe o pin: `author_v2.test.mjs` confronta disco,
+verdade e pin en cada execución, e `dA-img-v1.bin`/`dA-truth-v1.json` seguen
+cos seus dixestos históricos (`a40ae21d…`, `07198d45…`) comprobados contra o
+manifest da rolda 2 (`medidas/A-bd40e92-manifest.json`), non contra un valor
+escrito a man — o intento de escribilo a man deu un falso FAIL e quedou
+rexistrado como defecto propio (R16 do test «as fixtures v1 conservan os pins
+co que publicou a súa propia evidencia»).
 
