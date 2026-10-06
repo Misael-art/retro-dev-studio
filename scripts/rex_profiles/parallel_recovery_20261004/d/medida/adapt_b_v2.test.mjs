@@ -30,7 +30,7 @@ describe.skipIf(!HAI)("escore B v2 sobre a ferramenta real — cada invariante t
     expect(pont.length).toBe(25);
     expect(pont.every((l) => l.gabarito === "isa-oraculo-v2" && l.contrato === "EXTENSOES-D v2-B")).toBe(true);
     expect(r.linhas.some((l) => ["consumo-observado", "equivalencia"].includes(l.extras?.nivel) && l.pontua !== false)).toBe(false);
-    expect(fila(r, "KBE-equivalencia").veredito).toBe("VOID");
+    expect(fila(r, "KBE-equivalencia").veredito).toBe("INCONCLUSIVE");
     expect(fila(r, "KBE-slot-5").veredito).toBe("INCONCLUSIVE");
   }, 120_000);
 

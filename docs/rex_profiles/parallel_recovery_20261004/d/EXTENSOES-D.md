@@ -1437,3 +1437,73 @@ estender un resultado a unha capacidade que nunca se mediu. A matriz publicará:
   `consumo-observado` / `equivalencia`. Ningunha fila de B declara os dous últimos.
 - **Non se afirma**: que o CRAM se escriba en execución (`E22` de B tampouco o afirma); que a saída do
   decoder nativo sexa a do console (sen decoder independente); composición visual.
+
+## 12.16 Fecho da rolda 3: resultados dos holdouts, B por capacidade e interpretación
+
+Os números desta sección saen de `MATRIZ-D-v2.md` (xerada por `medida/matriz_v2.mjs` das evidencias
+auditadas contra o seu manifesto); se difiren, manda a matriz. Nada aquí reescribe unha fila medida.
+
+### a) Resultados novos (cada un co seu SHA, conxunto e versión de gabarito)
+
+| fronte | SHA | conxunto | gabarito | resultado | evidencia |
+|---|---|---|---|---|---|
+| A | `bd40e92` | holdout v2 (§12.14) | `isa-oraculo-v2` | 35/35 PASS + 1 control | `A-holdout-v2.jsonl` |
+| C | `8ea5821` | holdout v2 (§12.13) | `isa-oraculo-v2` | 35 PASS · 2 FAIL (37 pontuábeis) + controis | `C-holdout-v2.jsonl` |
+| B | `da5472c` | `dB-truth-v2` (§12.15) | `v2-B` | 25/25 PASS en KB1v 5 · KB2v 2 · KBC 7 · KBE 11; `KBE-slot-5` e equivalencia **descoñecido** | `B-da5472c-v2.jsonl` |
+| B | `da5472c` | `dB-truth-v1` reexecutado | v1 | 14/14 PASS (non cobre CRAM nin decoder nativo) | `B-da5472c.jsonl` |
+
+Reprodución: `adapt_a_v2.mjs --conjunto holdout`, `adapt_c_v2.mjs --conjunto holdout`,
+`adapt_b_v2.mjs`, `matriz_v2.mjs`. A execución de C no holdout deu o mesmo díxeste (`6b297acf…`) dúas
+veces. Os controis do escore (que miden a D, non ás frontes) son 34 en C (`adapt_c_v2.test.mjs`, incluído
+o de resposta reservada alterada) e 12 en B (`adapt_b_v2.test.mjs`); 188/188 verdes no directorio de D.
+
+### b) Os dous FAIL do holdout de C — que son e que non son
+
+- **`HO-KC1v-movea-w-imm-a3`**: xeneraliza `KC1v-movea-l-imm-a1` da medición (dominio
+  `coherencia-contrato-código`, §12.12 a). A prosa de §3 di «`#imm` só em MOVE»; o código decodifica
+  `MOVEA.W #imm` (o instrumento tamén: `367C1234`). Non é un defecto de seguranza nin unha recusa
+  incorrecta: é a **mesma** diverxencia prosa↔código, agora en dous tamaños. Mantense como FAIL porque
+  é o eixe que a expectativa gradúa (e §12.12 a deixou dito antes de medir o holdout).
+- **`HO-KC4-trap-15`**: `CONTRACT.md@8ea5821` §3 liñas 170-171 di `TRAP #n` (fronteira `trap-opaco`). O
+  `analyze` real emite `opcode-fora-do-subconjunto` co opcode `0x4E4F`. O instrumento decodifica `4E4F`
+  como `trap #15` (válida en MC68000). Lectura honesta: C **recusa** unha instrución que o seu contrato
+  lista, co tipo de fronteira equivocado respecto da propia prosa. A etiqueta `trap-opaco` non está na
+  táboa pechada de vocabulario `adaptador-c/v2` (R13), así que a fila gradúa a coincidencia co tipo que o
+  contrato nomea; nada se «normalizou» para facela pasar nin para facela fallar. Hai outra lectura
+  posíbel (autoridade de `decode.rs` sobre a prosa, §12.10 j) e non se escolle aquí: queda publicada
+  como diverxencia do contrato de C, non como regresión.
+- `CONTROLE-COHERENCIA-CX4` (non puntuado, `INCOHERENTE`): o control de D esperaba 20 B (ou 24 coa
+  variante de fronteiras). C informa 22 B e a suma das instrucións decodificadas tamén é 22 B: o
+  número é internamente coherente. A expectativa de D (`jsr (%a1)` sen bytes) foi unha predición de
+  autoría errada sobre como C conta o `jsr` indirecto; **non** se reescribe (R0) e non puntúa.
+  Publícase como defecto de predición de D no control, ligado a que C refuga `TRAP`.
+
+### c) A retificación de «A regrediu» (requisito 1) — onde queda dita
+
+A conclusión «A regrediu» saíu dunha matriz que mesturaba conformidade coa táboa ISA antiga (AGRAMA v1,
+bytes escritos a man por D) con corrección segundo a ISA. §12.6 rectifica fila a fila (as cinco de KA1,
+a premisa de `KA4-2`, `TA-3`, `TA-5`) cos bytes que o instrumento codifica; os resultados históricos
+(`A-cbb6895`, `A-bd40e92` con gabarito v1) conservan os seus FAIL e entran na matriz v2 como **control
+histórico**, non como gabarito. Con `isa-oraculo-v2` e fixtures montados polo instrumento, `bd40e92`
+dá 35/35 na medición e 35/35 no holdout (dous xeradores de enderezos/datos distintos). A afirmación
+corrixida é: **v1 non probaba unha regresión de A; probaba que o gabarito de D era incorrecto**. Non se
+afirma que A sexa «correcto» en xeral: os dous conxuntos fan a mesma lista pechada de 10 formas (§12.14).
+
+### d) Que non se mediu — SHAs máis novos que os pedidos
+
+`origin` ten, na data deste commit, `6ae4f02` en `codex/rex-parallel-a-kosinski-chains` (despois de
+`bd40e92`: «gardas §5/§7 no varredor, §8 MEDIDO») e `e54db1f` en `codex/rex-parallel-c-cfg` (despois de
+`8ea5821`: ETAPA3). **D non os mediu**: a tarefa pedía `bd40e92` e o C novo (`8ea5821`), os holdouts
+valen só para eses SHA (R17) e medir os novos esixe un adendo propio e holdout novo. Declarado como
+limitación visíbel; ningunha cifra desta rolda se aplica a eles.
+
+### e) Estado dos 10 requisitos desta rolda
+
+1 retificación (§12.6, esta sección c) · 2 contrato v2 antes da medición (§12.0–§12.5; AGRAMA v1 como control)
+· 3 fixtures con montador independente (R14; `author_v2*.mjs`, `montador.mjs`) · 4 `MOVEA.W` (nota do
+instrumento; KA1v-fora-movea-w-an, HO-KC1v-movea-w-imm-a3) · 5 vocabulario só no adaptador versionado
+(`adaptador-c/v2`, §12.5) · 6 `makeRng` (v2 con pins; v1 conservado como control degenerado) · 7 códigos de
+erro por contrato vixente (§12.4, `TAv`; `HO-TC-2` rc 2 en `consultar`) · 8 A e C en medición e holdout
+novo (§12.13, §12.14) · 9 B por capacidade (§12.15) · 10 matriz `MATRIZ-D-v2.md`, sen agregado.
+Pendente e declarado: C `consultar`/`medir` sen filas puntuadas (R18), A/C en SHAs posteriores (d), consumo
+observado e equivalencia de B (§12.15).

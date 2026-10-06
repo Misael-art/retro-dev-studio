@@ -341,7 +341,7 @@ export function adaptarB2({ chave = "B_da5472c", dirVerdade = DIR_B, romPath = B
     motivo: t.kbe.sexto_slot.motivo,
   })));
   linhas.push(linha(base({
-    fila: "KBE-equivalencia", capacidade: "KBE", eixo: "equivalencia", nivel: "equivalencia", categoria: "desconhecido", veredito: "VOID", pontua: false,
+    fila: "KBE-equivalencia", capacidade: "KBE", eixo: "equivalencia", nivel: "equivalencia", categoria: "desconhecido", veredito: "INCONCLUSIVE", pontua: false,
     esperados: { estado: "descoñecido" }, motivo: t.kbe.equivalencia.motivo,
   })));
   // Control: concordancia co decoder de pesquisa da familia B (espello, R10; non é proba).
