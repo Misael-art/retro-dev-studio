@@ -33,6 +33,9 @@ export const PIN = Object.freeze({
    *  subconxunto 68000 (`1344f4c`) e do elo vinculación-chamada-rutina (`4aa6ba9`).
    *  Mídese coas mesmas expectativas conxeladas de §3 — non se reescriben. */
   A_corrixido: "bd40e92269eb60b0df9b8ed0ddff561a0d19a4b3",
+  /** Posteriores aos SHAs da rolda 3 (§12.17): nunca medidos antes. */
+  A_6ae4f02: "6ae4f02b92bed30a1a6a04076f3db048b44bb1f0",
+  C_5f97368: "5f97368942e3255e08e8f0dbe6e6ab6be8ab09e1",
   B_velho: "cffe17fabcae6d5ce1dd23258f6883efef0b94c6",
   B_novo: "396e0b81e3813e9f7ffcd5ce04c6e7fd447be353",
   /** B publicado depois da investigação CRAM (E18R–E22) e do decoder Enigma nativo
@@ -145,6 +148,20 @@ export const FERRAMENTAS = Object.freeze({
       "c-8ea5821/scripts/rex_profiles/parallel_recovery_20261004/c/target/release/rex-cfg",
     ),
     rel: "scripts/rex_profiles/parallel_recovery_20261004/c",
+  },
+  C_novo2: {
+    frente: "C",
+    sha: PIN.C_5f97368,
+    arvore: path.join(ARVORE, "c-5f97368"),
+    bin: path.join(ARVORE, "c-5f97368/scripts/rex_profiles/parallel_recovery_20261004/c/target/release/rex-cfg"),
+    rel: "scripts/rex_profiles/parallel_recovery_20261004/c",
+  },
+  A_6ae4f02: {
+    frente: "A",
+    sha: PIN.A_6ae4f02,
+    arvore: path.join(ARVORE, "a-6ae4f02"),
+    bin: path.join(ARVORE, "a-6ae4f02/scripts/rex_profiles/parallel_recovery_20261004/a/target/release/rex-chain"),
+    rel: "scripts/rex_profiles/parallel_recovery_20261004/a",
   },
 });
 

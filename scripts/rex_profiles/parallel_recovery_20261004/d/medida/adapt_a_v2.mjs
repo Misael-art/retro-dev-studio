@@ -165,6 +165,10 @@ export function adaptarA2({
    *  cara a unha copia alterada do gabarito. A evidencia publicada sempre usa o
    *  gabarito pinned; nada aquí reescribe `dA-truth-v2.json`. */
   arquivoVerdade = null,
+  /** v3 (§12.17): desde `6ae4f02` A só promove par por janela recta e limpa; os
+   *  demais exigem `--chamada-sitio`. D declara o sítio da chamada que o GAS pôs. */
+  declararChamada = false,
+  nomePinHoldout = "pin-holdout-a-v2.json",
 } = {}) {
   if (!presente(chave)) {
     return { ausente: true, linhas: [], descricao: null };
@@ -176,7 +180,7 @@ export function adaptarA2({
     : path.join(dirFix, nomeTruth));
   // R17: no holdout a resposta reservada compróbase contra o SHA pinado ANTES de
   // medir; scratch alterado ou perdido nega, non cae a unha expectativa adiviñada.
-  const NOME_PIN_HOLDOUT = "pin-holdout-a-v2.json";
+  const NOME_PIN_HOLDOUT = nomePinHoldout;
   const pin = conjunto === "holdout"
     ? JSON.parse(fs.readFileSync(path.join(dirFix, NOME_PIN_HOLDOUT), "utf8"))
     : JSON.parse(fs.readFileSync(path.join(DIR_A, NOME_PIN), "utf8"));
@@ -210,6 +214,8 @@ export function adaptarA2({
     "--limite-max-saida", "65536",
     "--limite-orzamento", "4000000",
   ];
+  const decl = (extra, sitioChamada) =>
+    declararChamada && sitioChamada !== undefined && sitioChamada !== null ? [...extra, "--chamada-sitio", addr(sitioChamada)] : extra;
   const argsRevalidar = (img, cadea) => ["revalidar", "--imaxe", img, "--cadea", cadea, "--ventanxa", String(VENTANXA)];
   const revalidar = (img, cadea) => executar(bin, argsRevalidar(img, cadea));
   const cmd = (args) => `${VERBO} ${args.join(" ")}`;
@@ -226,15 +232,15 @@ export function adaptarA2({
 
   /** Cadeas base, unha por `base` declarada nas receitas. */
   const bases = new Map();
-  function cadeaBase(nomeBase, cargaSitio) {
+  function cadeaBase(nomeBase, cargaSitio, chamadaSitio) {
     if (bases.has(nomeBase)) return bases.get(nomeBase);
-    const args = argsConstruir(["--carga-sitio", addr(cargaSitio)]);
+    const args = argsConstruir(decl(["--carga-sitio", addr(cargaSitio)], chamadaSitio));
     const r = executar(bin, args);
     const entrada = { rc: r.rc, cadeia: jsonDoStdout(r), args, stdout: `${r.stdout}${r.stderr ? `\n${r.stderr}` : ""}` };
     bases.set(nomeBase, entrada);
     return entrada;
   }
-  const baseKa3 = () => cadeaBase("KA3v", truth.ka3v.carga_sitio);
+  const baseKa3 = () => cadeaBase("KA3v", truth.ka3v.carga_sitio, truth.ka3v.chamada_sitio ?? truth.ka3v.esperado.chamada_sitio);
 
   // ---- KA3v: cadea completa (base das receitas) ---------------------------
   {
@@ -295,7 +301,7 @@ export function adaptarA2({
    *  está dentro de `ka1v` porque o denominador de §12.3 a conta alí. Tratala
    *  como forma aceptada sería unha falla de D (R11), non de A. */
   function filaRecusa(sonda, eixo) {
-    const args = argsConstruir(["--carga-sitio", addr(sonda.carga_sitio)]);
+    const args = argsConstruir(decl(["--carga-sitio", addr(sonda.carga_sitio)], sonda.chamada_sitio));
     const r = executar(bin, args);
     const j = jsonDoStdout(r);
     const texto = `${r.stdout}\n${r.stderr}`;
@@ -350,7 +356,7 @@ export function adaptarA2({
       filaRecusa(sonda, sonda.esperado.eixo ?? "recusa-mapper");
       continue;
     }
-    const args = argsConstruir(["--carga-sitio", addr(sonda.carga_sitio)]);
+    const args = argsConstruir(decl(["--carga-sitio", addr(sonda.carga_sitio)], sonda.chamada_sitio));
     const r = executar(bin, args);
     const j = jsonDoStdout(r);
     const esper = sonda.esperado;
@@ -481,7 +487,7 @@ export function adaptarA2({
 
   // ---- KA4v: decodificación Kosinski dos tres fluxos -----------------------
   for (const sonda of truth.ka4v) {
-    const args = argsConstruir(["--carga-sitio", addr(sonda.carga_sitio)]);
+    const args = argsConstruir(decl(["--carga-sitio", addr(sonda.carga_sitio)], sonda.chamada_sitio));
     const r = executar(bin, args);
     const j = jsonDoStdout(r);
     const rcEsp = sonda.esperado.rc;
@@ -534,7 +540,7 @@ export function adaptarA2({
 
   // ---- TAv: adulteracións con elo illado (R12) -----------------------------
   for (const receita of truth.tav) {
-    const base = receita.base === "KA3v" ? baseKa3() : cadeaBase(receita.base, receita.acao.base_carga_sitio);
+    const base = receita.base === "KA3v" ? baseKa3() : cadeaBase(receita.base, receita.acao.base_carga_sitio, receita.acao.base_chamada_sitio ?? (receita.base === "TAv-3a" ? truth.sondas_postas.find((x) => x.rotulo === "TAv-3a-chamada1")?.sitio : undefined));
     if (!base.cadeia) {
       linhas.push(
         linha(

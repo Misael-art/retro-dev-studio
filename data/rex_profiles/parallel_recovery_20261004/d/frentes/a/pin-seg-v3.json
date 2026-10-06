@@ -1,0 +1,25 @@
+{
+  "esquema": "rex-parallel-d/pin-frentes/3",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v3-A",
+  "conxunto": "medicao",
+  "denominador": {
+    "partes": {
+      "SEG-auto": 6,
+      "SEG-declarado": 3,
+      "SEG-neg": 1
+    },
+    "total": 10
+  },
+  "arquivos": {
+    "dA-seg-v3.bin": {
+      "sha256": "77ad067f16a06b375102f683cf45ff273ee55ada5a0bd2db280b2f98793a5d91",
+      "bytes": 131072
+    }
+  },
+  "verdade": {
+    "dA-seg-v3-truth.json": {
+      "sha256": "52e8122f797ec724a6305897d9493bc0ce3cecea41db0b6c914c3be4f7456d6c"
+    }
+  }
+}

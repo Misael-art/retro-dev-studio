@@ -1507,3 +1507,78 @@ erro por contrato vixente (§12.4, `TAv`; `HO-TC-2` rc 2 en `consultar`) · 8 A 
 novo (§12.13, §12.14) · 9 B por capacidade (§12.15) · 10 matriz `MATRIZ-D-v2.md`, sen agregado.
 Pendente e declarado: C `consultar`/`medir` sen filas puntuadas (R18), A/C en SHAs posteriores (d), consumo
 observado e equivalencia de B (§12.15).
+
+## 12.17 Adendo `EXTENSOES-D v3`: A en `6ae4f02` e C en `5f97368` — conxelado antes de executar
+
+Escrito e commiteado **antes** de que D execute `rex-chain@6ae4f02` ou `rex-cfg@5f97368` contra os
+gabaritos v3 (R0, R17, R18). Os SHAs de §12.13–§12.16 (`bd40e92`, `8ea5821`) quedan preservados; os seus
+resultados non se reescriben nin se herdan: os holdouts v2 valen só para eses SHAs.
+
+### a) Que cambiou nas frontes (lido dos seus contratos publicados, non das súas probas)
+
+- **A `6ae4f02`** (`RESPOSTA-D-A.md` §5–§8): un par carga→chamada só se promove por xanela **recta, limpa
+  e de candidato único**; `bra`/`rts`/`lea` sobrescrito no tramo rompen; ≥2 candidatos →
+  `ventana-ambigua:N-candidatos`; palabras non modeladas no tramo (incluído `nop`) → non se promove;
+  o resto esixe `--chamada-sitio` (`par-declarado`). O motivo cuberto por D: **o contrato v2 de D
+  (emparellamento automático pola xanela de 16 B entre `nop`) queda superado por un cambio versionado de A,
+  non por unha regresión**. As formas v1.1 (`4EB8`, `4EF8`, extensión de sinal) non mudan.
+- **C `5f97368`** (`ENTREGA-INTEGRADOR-2026-10-06.md`, `CONTRACT.md` ponteiro datado, R-1..R-6): esquemas
+  `rex-cfg/v2`, `rex-cfg-sitio/v2`, `rex-cfg-med/v2`; `(xxx).W` **sign-estendida** (PRM §2.2.16) con campos
+  `endereco-efetivo`/`endereco-de-barramento`/`offset-de-objeto`; `MOVEA` `.W`/`.L` válidos (R-3);
+  `TRAP #n` con máscara de 4 bits (16 vectores, fronteira `trap-opaco`, corrixe `0xFFF8`→`0xFFF0` de
+  `5b45931`); `CONTRACT.md` mantense co texto, con 22 liñas de ponteiro ao comezo.
+
+### b) A divergencia `TRAP #n` contrato↔código: decisión de lectura
+
+Ao medir `8ea5821`, `HO-KC4-trap-15` fallou: o contrato dicía `trap-opaco` e o código emitía
+`opcode-fora-do-subconjunto` (máscara de 3 bits). C a corrixiu (`5b45931`, `0xFFF0`) e probouno con unha
+mutación propia. D **non escolle** a lectura «a prosa vale» por autoridade: **escolle a lectura medida e
+independente** — o instrumento decodifica `4E40..4E4F` como `trap #0..#15` (2 B), que é a que o contrato
+nomea. En v3 a expectativa de D non cambia (`trap-opaco`, 2 B); o que muda é que se mide en `5f97368` con
+vectores onde a máscara vella e a nova diverxen (`#8` público; `#9`, `#15` e control `#1` no holdout) e se
+reexecuta o `HO-KC4-trap-15` do holdout gastado como **regresión** (non é holdout deste SHA).
+
+### c) Retificacións de expectativas de D (versionadas; as antigas quedan como control histórico)
+
+- `KC1v-movea-l-imm-a1`: v2 esperaba fronteira («`#imm` só em MOVE»). O contrato de C retificou (R-3) e o
+  instrumento decodifica `227C00001111` como `moveal #4369,%a1` (6 B). v3 espera **decodificada, 6 B,
+  `movea`**; a expectativa v2 conservase en `retificacion` da verdade `c-v3/dC-cx1-truth-v2.json`. Unha
+  implementación correcta non ten que reproducir o erro antigo (nin se cuenta como falla de seguranza).
+- A expectativa v2 de A «A promove o par pola xanela entre `nop`» substitúese por: **par declarado**
+  (`--chamada-sitio` co sitio que GAS puxo) para as fixtures v2, e casos de segmento para a nova gramática.
+
+### d) Conxuntos e denominadores v3 (conxelados)
+
+| fronte | conxunto | contido | denominador |
+|---|---|---|---|
+| A | público | fixtures v2 (`dA-img-v2`) con par declarado (35, igual a §12.3) + `dA-seg-v3` (6 auto + 3 declarado + 1 neg) | 35 + 10 |
+| A | holdout | `dA-img-ho3-v2` (layout/semente novos, 35) + `dA-seg-ho-v3` (layout novo, 10) | 35 + 10 |
+| C | público | fixtures v2 con `cx1` retificada (42) + `dC-cx5-v3` (`KC4v` 6 · `KC1v` 4 · `CVv` 3) | 42 + 13 |
+| C | holdout | `dC-ho5-v3` (13, formas/enderezos novos) | 13 |
+| C | regresión (non holdout) | holdout v2 gastado (`ho1..4`, 37) reexecutado en `5f97368` | 37, publicado como **regresión** |
+
+Respostas do holdout fóra da árbore (`~/rds-scratch/rex-heldout-d3/`), pinadas por SHA en
+`pin-holdout-*-v3.json`/`pin-seg-holdout-v3.json`; o adaptador nega se faltan ou difiren. Imaxes de segmento
+e `cx5/ho5` montadas por GAS (R14); campos de `consultar` v2 son os publicados por C.
+
+**Citacións de C**: o mapa de liñas do novo SHA é `+22` por baixo do umbral (73) e `+101` por riba
+(`CONTRACT.md` verificado: `MOVE/MOVEA` en `275f2af:77` → `8ea5821:156` → `5f97368:178`; o texto non muda,
+só o ponteiro de 22 liñas). `verificarCitacao` mantén a porta §12.11 (lanza se o mapa é falso).
+
+### e) Divulgación: execucións exploratorias previas a este conxelamento
+
+Para descubrir a interface nova, D executou **sen gardar evidencia**: (i) `rex-chain@6ae4f02`
+(`construir-cadea` sen declarar → `referencia-estatica`; con `--chamada-sitio` → `vinculo-estrutural`)
+sobre `dA-img-v2` e sobre `dA-img-ho3-v2` (35/35 declarado en ambas); (ii) `rex-cfg@5f97368` sobre as
+fixtures v2 con `desprazo` 101/22 (41 PASS, 1 FAIL = `KC1v-movea-l-imm-a1` coa expectativa vella) e un
+`consultar` sobre unha imaxe descartábel para aprender os nomes de campo de v2. Nada diso fixou unha
+expectativa: as verdades v3 derivan dos contratos publicados e do instrumento. O holdout A `ho3` vese así
+parcialmente **visto** polo autor (só no escore v2 declarado); declárase como límite e a súa lectura vale
+como segunda mostra, non como prova cega.
+
+### f) Que NON se cobre
+
+`rex-chain detectar` (sen expectativa independente), as 9 cadeas reais de A e Phelios (corpus BYOR, fóra do
+alcance de D), `rex-cfg medir`, e a unión C→A (`cruzar-rexcfg-A.sh` con binario de `275f2af`: decisión
+de A repinar). `abs.W` con bit15=1 non o exercitan as cadeas reais de A (segundo C): o holdout cobre a
+extensión de sinal en C; en A segue como `KA1v-lea-w-alto` (recusa por mapper).

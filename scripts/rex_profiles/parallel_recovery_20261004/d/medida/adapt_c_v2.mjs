@@ -182,13 +182,16 @@ export function vocab(v) {
 /** §12.11 a: un único hunk de 79 liñas inserido despois da antiga liña 72. */
 export const UMBRAL_RENUMERACION = 73;
 export const DESPRAZO = 79;
-export const mapearLiña = (n, d = DESPRAZO) => (n >= UMBRAL_RENUMERACION ? n + d : n);
+/** `base` = liñas inseridas ANTES do umbral noutro SHA (v3: o punteiro datado de
+ *  `5f97368` engade 22 liñas no comezo, así que o que estaba por baixo do umbral
+ *  tamén se move). Por defecto 0: a medición v2 non cambia. */
+export const mapearLiña = (n, d = DESPRAZO, base = 0) => (n >= UMBRAL_RENUMERACION ? n + d : n + base);
 
 /** Reescribe unha citaación co número derivado do SHA medido. */
-export function derivarCitacao(cit, d = DESPRAZO) {
+export function derivarCitacao(cit, d = DESPRAZO, base = 0) {
   if (typeof cit !== "string") return null;
   return cit.replace(/liñas?\s+(\d+)(\s*[-–]\s*(\d+))?/giu, (todo, a, _sep, b) =>
-    b === undefined ? `liña ${mapearLiña(+a, d)}` : `liñas ${mapearLiña(+a, d)}-${mapearLiña(+b, d)}`,
+    b === undefined ? `liña ${mapearLiña(+a, d, base)}` : `liñas ${mapearLiña(+a, d, base)}-${mapearLiña(+b, d, base)}`,
   );
 }
 
@@ -203,7 +206,7 @@ const franxa = (liñas, a, b) => norm(liñas.slice(Math.max(0, a - 2), b + 1).jo
  * citaación (elipse `…`) e non é comprobábel, publícase como limite; se ancora
  * no vello e non no novo, o mapa do §12.11 é falso e isto **lanza**.
  */
-export function verificarCitacao(cit, vello, novo, d = DESPRAZO) {
+export function verificarCitacao(cit, vello, novo, d = DESPRAZO, base = 0) {
   const pares = [...(cit ?? "").replaceAll(/[\r\n]+/g, " ").matchAll(RE_CITA)].map((m) => ({
     a: +m[1],
     b: m[2] ? +m[2] : +m[1],
@@ -214,10 +217,10 @@ export function verificarCitacao(cit, vello, novo, d = DESPRAZO) {
   for (const p of pares) {
     const q = norm(p.texto);
     const noVello = franxa(vello, p.a, p.b).includes(q);
-    const noNovo = franxa(novo, mapearLiña(p.a, d), mapearLiña(p.b, d)).includes(q);
+    const noNovo = franxa(novo, mapearLiña(p.a, d, base), mapearLiña(p.b, d, base)).includes(q);
     if (noVello && !noNovo) {
       throw new Error(
-        `§12.11 falso: «${p.texto.slice(0, 60)}…» ancorea en 275f2af:${p.a}-${p.b} pero non en 8ea5821:${mapearLiña(p.a, d)}-${mapearLiña(p.b, d)}`,
+        `§12.11 falso: «${p.texto.slice(0, 60)}…» ancorea en 275f2af:${p.a}-${p.b} pero non no SHA medido:${mapearLiña(p.a, d, base)}-${mapearLiña(p.b, d, base)}`,
       );
     }
     if (noVello && noNovo) ok += 1;
@@ -252,7 +255,7 @@ function indice(exp) {
 
 const div = (campo, esperado, medido) => ({ campo, esperado, medido: medido === undefined ? null : medido });
 
-export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade = null, gabaritoIsa = GABARITO_ISA, desprazo = DESPRAZO, respostasDir = RESPOSTAS_HO } = {}) {
+export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade = null, gabaritoIsa = GABARITO_ISA, desprazo = DESPRAZO, desprazoBase = 0, respostasDir = RESPOSTAS_HO, esquemaSitio = ESQUEMA_SITIO, esquemaMedir = ESQUEMA_MEDIR } = {}) {
   if (!presente(chave)) return { ausente: true, linhas: [], descricao: null };
   const f = FERRAMENTAS[chave];
   const bin = f.bin;
@@ -339,12 +342,12 @@ export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade =
   function marcar(base, cit) {
     const out = { ...base, gabarito: GABARITO, contrato: CONTRATO, vocabulario: ESQUEMA_ANALYZE };
     if (cit === undefined || cit === null) return out;
-    const ver = verificarCitacao(cit, contr.vello, contr.novo, desprazo);
+    const ver = verificarCitacao(cit, contr.vello, contr.novo, desprazo, desprazoBase);
     stats.citacion[ver.estado === "verificada" ? "verificadas" : ver.estado === "resumida" ? "resumidas" : "sen_texto_citabel"] += 1;
     stats.citacion.pares += ver.pares;
     stats.citacion.comprobados += ver.comprobados;
     out.citacao_C = cit;
-    out.citacao_medida = derivarCitacao(cit);
+    out.citacao_medida = derivarCitacao(cit, desprazo, desprazoBase);
     out.citacao_verificada = ver.estado === "verificada";
     out.citacao_estado = ver.estado;
     return out;
@@ -1190,10 +1193,10 @@ export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade =
       const j = fs.existsSync(out) ? JSON.parse(fs.readFileSync(out, "utf8")) : null;
       const medido = vocab(j?.veredito ?? null);
       const esperadoV = vocab(s.esperado_veredito);
-      const chaveOk = j?.schema === ESQUEMA_SITIO;
+      const chaveOk = j?.schema === esquemaSitio;
       const divs = [];
       if (r.rc !== 0) divs.push(div("rc", 0, r.rc));
-      if (!chaveOk) divs.push(div("schema", ESQUEMA_SITIO, j?.schema ?? null));
+      if (!chaveOk) divs.push(div("schema", esquemaSitio, j?.schema ?? null));
       if (medido !== esperadoV) divs.push(div("veredito", esperadoV, medido));
       linhas.push(
         linha(
@@ -1210,7 +1213,7 @@ export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade =
               categoria: "desconhecido",
               veredito: divs.length === 0 ? "CONTROLADO" : "INCOHERENTE",
               pontua: false,
-              esperados: { veredito: esperadoV, schema: ESQUEMA_SITIO },
+              esperados: { veredito: esperadoV, schema: esquemaSitio },
               medidos: { veredito: medido, schema: j?.schema ?? null, chaves: j ? Object.keys(j).length : null, consumidor: j?.["consumidor-validado"] ?? null, promotivel: j?.["promovivel-vinculo-estrutural"] ?? null },
               divergencias: divs,
               motivo: "§12.11 b: mesma expectativa conxelada, outra interface. Acordo non promove a capacidade; desacordo é achado publicable.",
@@ -1276,7 +1279,7 @@ export function adaptarC2({ chave = "C_novo", conjunto = "medicao", dirVerdade =
     gabarito: GABARITO,
     contrato: CONTRATO,
     esquema_analyze: ESQUEMA_ANALYZE,
-    esquemas_novos: { consultar: ESQUEMA_SITIO, medir: ESQUEMA_MEDIR, estado: "non puntuados (§12.11 b)" },
+    esquemas_novos: { consultar: esquemaSitio, medir: esquemaMedir, estado: "non puntuados (§12.11 b)" },
     denominador: pin?.denominador ?? null,
     // R0: o denominador conxelado non se reescribe — publícase a contabilidade.
     denominador_observado: (() => {

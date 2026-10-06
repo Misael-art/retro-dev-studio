@@ -1,0 +1,29 @@
+{
+  "esquema": "rex-parallel-d/holdout-pin/3",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v3-C",
+  "conxunto": "holdout",
+  "fronte": "C",
+  "sha_medido": "5f97368",
+  "politica": "imaxe pública versionada; respostas reservadas fóra da árbore e pinadas por SHA (R17). O holdout v2 (`8ea5821`) non se reutiliza.",
+  "respostas_fora_da_arvore": "/home/misael/rds-scratch/rex-heldout-d3",
+  "denominador": {
+    "partes": {
+      "KC4v": 6,
+      "KC1v": 4,
+      "CVv": 3
+    },
+    "total": 13
+  },
+  "arquivos": {
+    "dC-ho5-v3.bin": {
+      "sha256": "38bd734f227f9f140d30ad451a833516a6c61b497618a5e9d77513edf1be00b7",
+      "bytes": 128
+    }
+  },
+  "respostas": {
+    "dC-ho5-respostas.json": {
+      "sha256": "bd326f0087a0ad1bbc59febe4d8a09597813661a2d402dad52a8900f9be21791"
+    }
+  }
+}

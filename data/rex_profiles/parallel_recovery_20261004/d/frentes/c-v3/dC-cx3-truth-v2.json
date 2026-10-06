@@ -1,0 +1,193 @@
+{
+  "id": "dC-cx3-v2",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v2",
+  "xerado_por": "scripts/rex_profiles/parallel_recovery_20261004/d/frentes/author_v2_c.mjs",
+  "regioes": [
+    {
+      "inicio": 0,
+      "fim": 64
+    }
+  ],
+  "raizes": [
+    {
+      "endereco": 0,
+      "proveniencia": "candidato",
+      "evidencia": "sonda linha-F (palabra de GAS)"
+    },
+    {
+      "endereco": 16,
+      "proveniencia": "candidato",
+      "evidencia": "sonda MOVE.B→An (palabra de GAS)"
+    },
+    {
+      "endereco": 48,
+      "proveniencia": "candidato",
+      "evidencia": "controle positivo: un camiño limpo ten de decodificar"
+    }
+  ],
+  "sitios": [
+    {
+      "endereco": 2,
+      "esperado_veredito": "dentro-regiao-nao-alcancado",
+      "motivo": "a ruta debe parar na fronteira de 0x00"
+    },
+    {
+      "endereco": 18,
+      "esperado_veredito": "dentro-regiao-nao-alcancado",
+      "motivo": "a ruta debe parar na fronteira de 0x10"
+    },
+    {
+      "endereco": 48,
+      "esperado_veredito": "instrucao-de-bloco",
+      "motivo": "controle positivo"
+    }
+  ],
+  "controle_positivo": {
+    "endereco": 48,
+    "esperado": {
+      "tam": 2,
+      "stems": [
+        "rts"
+      ]
+    },
+    "sondeo": {
+      "mnemonico": "rts",
+      "desmontaxe": "130:\t4e75\trts"
+    }
+  },
+  "sequencia": [
+    {
+      "rotulo": "linha-f",
+      "endereco": 0,
+      "tam": 2,
+      "bytes": "F000",
+      "mnemonico": "Address 0x102 is out of bounds."
+    },
+    {
+      "rotulo": "rts-apos-f",
+      "endereco": 2,
+      "tam": 2,
+      "bytes": "4E75",
+      "mnemonico": "rts"
+    },
+    {
+      "rotulo": "move-b-para-an",
+      "endereco": 16,
+      "tam": 2,
+      "bytes": "1149",
+      "mnemonico": ".short 0x1149"
+    },
+    {
+      "rotulo": "rts-apos-inv",
+      "endereco": 18,
+      "tam": 2,
+      "bytes": "4E75",
+      "mnemonico": "rts"
+    },
+    {
+      "rotulo": "control",
+      "endereco": 48,
+      "tam": 2,
+      "bytes": "4E75",
+      "mnemonico": "rts"
+    }
+  ],
+  "cobertura_esperada_bytes": {
+    "primaria": 2,
+    "variante_fronteiras_contan_como_decodificadas": 6,
+    "nota": "`primaria` = os 2 bytes do `rts` de controle: as dúas sondas de fronteira non deben decodificarse e a súa ruta debe parar ali. `lf.tam`/`inv.tam` son o tamaño da palabra que GAS emitiu (`.word`), **non** unha lonxitude de instrución ditada polo instrumento: a afirmación de lonxitude en `f000` está retirada (§12.10 i) e por iso a variante só gradúa «a fronteira foi absorbida», nunca «a instrución mide N bytes»."
+  },
+  "sondas_postas": [
+    {
+      "rotulo": "p_linha_f",
+      "sitio": 0,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_rts_apos_f",
+      "sitio": 2,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_move_b_para_an",
+      "sitio": 16,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_rts_apos_inv",
+      "sitio": 18,
+      "lonxitude": 2
+    },
+    {
+      "rotulo": "p_control",
+      "sitio": 48,
+      "lonxitude": 2
+    }
+  ],
+  "kc3": [
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC3v-linha-f",
+      "endereco": 0,
+      "opcode": "F000",
+      "dominio": "fronteira-acordada",
+      "esperado": {
+        "fronteira": true,
+        "tipo": "opcode-fora-do-subconjunto",
+        "endereco": 0,
+        "nada_decodificado_ades": 2
+      },
+      "citacao_C": "§3 liñas 97-98 (regra de peche): na lista de §3 non hai ningunha familia de liña-F, polo que calquera palabra que non case coas familias enumeradas ⇒ `opcode-fora-do-subconjunto`; código: catch-all `decode.rs:474`",
+      "statico": "classify sen ramo para %1111 → catch-all `decode.rs:474`; `out` constrúe `Frontier::fora(Some(op))` (`decode.rs:420-422`)",
+      "nota": "**sen afirmación de lonxitude**: o instrumento non lla dá (`Address 0x… is out of bounds.` na súa propia desmontaxe), así que a fila mide sitio e tipo de fronteira e que a ruta para; a afirmación `bytes_para: 2` de v1 retírase en §12.10 i",
+      "sondeo": {
+        "mnemonico": "Address 0x102 is out of bounds.",
+        "desmontaxe": "100:\tf000\tAddress 0x102 is out of bounds."
+      },
+      "control_de_discriminacion": {
+        "endereco": 2,
+        "bytes": "4E75",
+        "esperado_veredito": "dentro-regiao-nao-alcancado",
+        "motivo": "a sonda `rts` está na imaxe xusto despois da fronteira: se C continuase o camiño, este sitio sería `instrucao-de-bloco` e a fila sería `falha`. A proba non é vacúa porque os bytes están postos e son decodificábeis por si sós (raíz `control` en 0x30)"
+      }
+    },
+    {
+      "gabarito": "isa-oraculo-v2",
+      "contrato": "EXTENSOES-D v2",
+      "id": "KC3v-move-b-para-an",
+      "endereco": 16,
+      "opcode": "1149",
+      "dominio": "fronteira-acordada",
+      "esperado": {
+        "fronteira": true,
+        "tipo": "opcode-fora-do-subconjunto",
+        "endereco": 16,
+        "nada_decodificado_ades": 18
+      },
+      "citacao_C": "§3 liña 79: «combinações inválidas (p. ex. MOVE.W → An) = fronteira» — exercida no tamaño `.B`, que é a única forma que a ISA distingue (§12.10 i); código: `decode.rs:605-609` `out(op, \"MOVEA.B invalido\")`",
+      "statico": "decode_move → ramo MOVEA (`decode.rs:605-609`) → `out(op, \"MOVEA.B invalido\")`",
+      "nota": "restaura en v2 a clase «combinação inválida detectábel» que §12.6 tivo que retirar (`327c` é MOVEA.W lexítima, non hai codificación propia). O `.B` si é unha combinación que a ISA distingue: GAS monta a palabra e objdump recúsase a darlle mnemónico (`.short 0x1149`). Denominador inalterado (§12.10 i).",
+      "sondeo": {
+        "mnemonico": ".short 0x1149",
+        "desmontaxe": "110:\t1149\t.short 0x1149"
+      },
+      "control_de_discriminacion": {
+        "endereco": 18,
+        "bytes": "4E75",
+        "esperado_veredito": "dentro-regiao-nao-alcancado"
+      }
+    }
+  ],
+  "filas_retiradas": [
+    {
+      "id": "KC3-bsr-l-68020",
+      "opcode": "61ff",
+      "motivo": "§12.10 i: BSR.S está DENTRO da lista de §3 (liñas 88-90) e a lectura do byte depende da táboa de símbolos do desmontador (`bsrs` nun bloque, `bsrl` no obxecto dun só símbolo: §12.10 d). Non é afirmación ancorábel no byte."
+    }
+  ],
+  "limites_de_autoria": [
+    "`f000` e `1149` son palabras que emite `m68k-elf-as` (`.word`), non táboas escritas a man; o instrumento non lles dá mnemónico, e iso é evidencia da recusa, non un oco da barra"
+  ]
+}
