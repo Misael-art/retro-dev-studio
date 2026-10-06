@@ -35,6 +35,9 @@ export const PIN = Object.freeze({
   A_corrixido: "bd40e92269eb60b0df9b8ed0ddff561a0d19a4b3",
   B_velho: "cffe17fabcae6d5ce1dd23258f6883efef0b94c6",
   B_novo: "396e0b81e3813e9f7ffcd5ce04c6e7fd447be353",
+  /** B publicado depois da investigação CRAM (E18R–E22) e do decoder Enigma nativo
+   *  (E23–E30). Nunca foi medido por D; as linhas v1 de `396e0b8` não o cobrem. */
+  B_da5472c: "da5472c49db6797e1d440331467880cc8f9b1a8f",
   C: "275f2af0b81944709169ab360a67786e56ec4a13",
   /** SHA publicado por C para a rolda 3 (`8ea5821`): `decode.rs` cambiou (destino
    *  modo 7 dos `op` imediatos), `CONTRACT.md` cambiou (liñas de §3/§4 renumeradas
@@ -92,6 +95,16 @@ export const FERRAMENTAS = Object.freeze({
       ARVORE,
       "b/scripts/rex_profiles/parallel_recovery_20261004/b/contrato_sonic.py",
     ),
+    rel: "scripts/rex_profiles/parallel_recovery_20261004/b",
+  },
+  B_da5472c: {
+    frente: "B",
+    sha: PIN.B_da5472c,
+    arvore: path.join(ARVORE, "b-da5472c"),
+    cli: path.join(ARVORE, "b-da5472c/scripts/rex_profiles/parallel_recovery_20261004/b/verificar-cadeia.py"),
+    contrato: path.join(ARVORE, "b-da5472c/scripts/rex_profiles/parallel_recovery_20261004/b/contrato_sonic.py"),
+    cram: path.join(ARVORE, "b-da5472c/scripts/rex_profiles/parallel_recovery_20261004/b/medir-cram-b3.py"),
+    enigma: path.join(ARVORE, "b-da5472c/scripts/rex_profiles/parallel_recovery_20261004/b/enigma-rs/target/release/rex-enigma"),
     rel: "scripts/rex_profiles/parallel_recovery_20261004/b",
   },
   /** Mesma frente no SHA anterior do inventario datado (cffe17f): o contrato esta

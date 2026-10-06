@@ -1395,3 +1395,45 @@ Escrito e commiteado **antes** de que `rex-chain` toque `a-holdout/` (R0, R17).
   adaptador (despacho por `probe`, acción nova) sen tocar respostas nin pins, e volvín executar:
   as filas que cambiaron de `INCONCLUSIVE` a ditame son as 5 `KC5v` e `HO-TC-2`; as demais non
   se moveron (ver §12.15). A execución previa non se publica como evidencia propia, pero queda dito.
+
+## 12.15 Adendo `EXTENSOES-D v2-B`: B por capacidade en `da5472c` — conxelado antes de executar B
+
+Escrito e commiteado antes de executar `medir-cram-b3.py` e `rex-enigma` contra o gabarito
+`dB-truth-v2.json` (R0, R18). Resposta ao requisito 9: as 14 filas v1 de B (`KB1..NB`, `396e0b8`)
+**non cobren** a investigación CRAM (E18R–E22) nin o decoder Enigma nativo (E23–E30); herdalas sería
+estender un resultado a unha capacidade que nunca se mediu. A matriz publicará:
+
+| capacidade | SHA | gabarito | nivel máximo alcanzábel |
+|---|---|---|---|
+| `KB1/KB2/KB3/KB4/NB` (consumidor, parámetros, grade, proxección, negativos) | `da5472c` | v1 (histórico, 14 filas; reexecutado, sen cambio de ficheiro de contrato) | vínculo estrutural |
+| `KB1v/KB2v` (7 sitios, opcodes polo instrumento) | `da5472c` | `dB-truth-v2` | vínculo estrutural |
+| `KBC` CRAM (7 filas) | `da5472c` | `dB-truth-v2` | vínculo estrutural; **consumo observado: non probado** |
+| `KBE` decoder Enigma nativo (11 filas) | `da5472c` | `dB-truth-v2` | referencia estática (invariantes); **equivalencia: descoñecido** |
+
+**Protocolo por fila (conxelado):**
+
+- `KB1v`/`KB2v`: a ROM BYOR (SHA verificado) ten, no sitio alegado, os bytes que `m68k-elf-as -m68000`
+  codifica para o mnemónico alegado; e `verificar_sitios` real de B concorda. A v1 escribíu estes
+  bytes a man: `comparacion_v1` do gabarito rexistra, fila a fila, se o instrumento os confirma.
+  `KB2v-tabela`: os seis ponteiros BE da ROM en `0x1B64C`, lidos por D, igualan a alegación de B.
+- `KBC` (a exportación de B contra a lectura de D da ROM, non contra a de B): call site `moveq #10`+`bsr.w`
+  a `0x20FC` en `0x469A`; as 20 entradas de `Pal_Index` (`0x2168`, 8 B/entrada); SHA de `Pal_Special`
+  (128 B no ponteiro da entrada 10); SHA da táboa `0x1B43A` (128 B); blink en `0x1B33A`; `tst.w` do
+  `PalCycle_SS` en `0x4962`; hipótese `H_B` coherente cos campos `.w` que a ROM contén. Controis non
+  puntuados: dúas execucións dan a mesma exportación (agás `gerado_em`); `medir-cram-b3.py` recusa unha
+  cópia da ROM cun byte virado (SHA do pin). **Limite**: esa recusa é por SHA, así que non proba que o
+  sitio alegado se lea; só proba que a porta de identidade nega.
+- `KBE`: (i) 5 slots — `bytes_armazenados` do `decode-rom` igual a `ponteiro[i+1] − ponteiro[i]` (lidos por
+  D da táboa), con `bytes_lidos ≤ bytes_armazenados`, `padding = armazenados − lidos`, par, saída par e
+  non nula, terminador, determinismo; (ii) 4 truncamentos do slot 0 recusan con código estruturado;
+  (iii) un bit virado no corpo muda a saída ou é recusado; (iv) 48 mutacións deterministas (xerador v2
+  corrixido) terminan en `rc ∈ {0,2,3,4,5}`, nunca crash. O sexto slot (`KBE-slot-5`) non ten fronteira
+  independente: **`descoñecido`**, non se adiviña. Control non puntuado: o decoder de pesquisa
+  `enigma_research.py` (familia B, espello R10) sobre os mesmos 6 streams: a concordancia publícase
+  como observación, **non como equivalencia**.
+- **Denominador conxelado: 25** = `KB1v` 5 · `KB2v` 2 · `KBC` 7 · `KBE` 11. Ningún total agregado entre
+  capacidades.
+- **Vocabulario de nivel** (§1) en cada fila: `referencia-estatica` / `vinculo-estrutural` /
+  `consumo-observado` / `equivalencia`. Ningunha fila de B declara os dous últimos.
+- **Non se afirma**: que o CRAM se escriba en execución (`E22` de B tampouco o afirma); que a saída do
+  decoder nativo sexa a do console (sen decoder independente); composición visual.
