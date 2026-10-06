@@ -18,6 +18,9 @@ export const DATA = path.join(RAIZ, "data/rex_profiles/parallel_recovery_2026100
 export const FIXTURES = path.join(DATA, "frentes");
 export const MEDIDAS = path.join(DATA, "medidas");
 export const SCRATCH = path.join(process.env.HOME, "rds-scratch/rex-eval-d2");
+/** Scratch da rolda 3 (fixtures v2). Separado do de v1 para que unha execución
+ *  v2 non pise a evidencia histórica que as probas de R0 comparan. */
+export const SCRATCH_V2 = path.join(process.env.HOME, "rds-scratch/rex-eval-d3");
 export const CANON = path.join(
   process.env.HOME,
   "Projects/RetroDevStudio-CANONICAL-2026-09-21",
@@ -33,6 +36,10 @@ export const PIN = Object.freeze({
   B_velho: "cffe17fabcae6d5ce1dd23258f6883efef0b94c6",
   B_novo: "396e0b81e3813e9f7ffcd5ce04c6e7fd447be353",
   C: "275f2af0b81944709169ab360a67786e56ec4a13",
+  /** SHA publicado por C para a rolda 3 (`8ea5821`): `decode.rs` cambiou (destino
+   *  modo 7 dos `op` imediatos), `CONTRACT.md` cambiou (liñas de §3/§4 renumeradas
+   *  polo `consultar`/`medir` novos) e o binario é outro. É o SHA que a v2 mide. */
+  C_novo: "8ea5821dbf3c61a0bc84ae49de54d8e2bd9557f5",
   base: "cb56657a142df40d2acd09a3e03e54247f066dea",
 });
 
@@ -110,6 +117,19 @@ export const FERRAMENTAS = Object.freeze({
     bin: path.join(
       ARVORE,
       "c/scripts/rex_profiles/parallel_recovery_20261004/c/target/release/rex-cfg",
+    ),
+    rel: "scripts/rex_profiles/parallel_recovery_20261004/c",
+  },
+  /** C no SHA da rolda 3. Árbore e binario propios: a de `275f2af` non se reescribe
+   *  (R0). Bin construído con `cargo build --release --locked` e o seu SHA-256
+   *  rexístrase en cada manifesto (`d050f016…` na medición do 2026-10-05). */
+  C_novo: {
+    frente: "C",
+    sha: PIN.C_novo,
+    arvore: path.join(ARVORE, "c-8ea5821"),
+    bin: path.join(
+      ARVORE,
+      "c-8ea5821/scripts/rex_profiles/parallel_recovery_20261004/c/target/release/rex-cfg",
     ),
     rel: "scripts/rex_profiles/parallel_recovery_20261004/c",
   },
@@ -254,13 +274,21 @@ export function linha(o) {
     categoria: o.categoria,
     veredito: o.veredito,
     motivo: o.motivo ?? "",
+    // R12: o `desvio` é parte da fila, non un extra — é o que di *por que* una
+    // recusa pontuou FAIL noutro eixo, e a matriz léoo como campo de primeira clase.
+    desvio: o.desvio ?? null,
     bruto: o.bruto ?? null,
     pontua: o.pontua ?? true,
+    // R15: `gabarito` e `contrato` son campos de primeira clase — un denominador
+    // que os mesture ten que ser rexeitado por `pontuar.mjs`, e eso só é auditável
+    // se o campo estiver na fila, non agochado en `extras`.
+    gabarito: o.gabarito ?? null,
+    contrato: o.contrato ?? null,
     extras: Object.fromEntries(
       Object.entries(o).filter(([k]) =>
         !["frente", "sha_frente", "fila", "capacidade", "eixo", "comando", "rc",
           "rc_esperado", "esperados", "medidos", "divergencias", "categoria",
-          "veredito", "motivo", "bruto", "pontua"].includes(k),
+          "veredito", "motivo", "desvio", "bruto", "pontua", "gabarito", "contrato"].includes(k),
       ),
     ),
   };
