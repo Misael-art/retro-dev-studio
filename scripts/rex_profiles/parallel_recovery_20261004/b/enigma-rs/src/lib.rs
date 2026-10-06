@@ -148,27 +148,36 @@ impl<'a> BitReader<'a> {
     }
 }
 
-/// PCCVH: o bit j da mascara byte[1] (j=4..0 = P,C,C,V,H) habilita a leitura
-/// de 1 bit de flag do stream; se 1, soma o bit de valor (j + 11). Ordem de
-/// leitura conforme o asm (priority primeiro).
+/// PCCVH: o bit j da mascara byte[1] (j=4..0 = P,C1,C0,V,H) habilita a leitura
+/// de 1 bit de flag do stream. Ordem de leitura e de aplicacao conforme o asm
+/// do console (`EniDec_FetchInlineValue`), sobre `d3` iniciado com a base:
+///   P  -> `ori.w  #$8000` (OR)      C1 -> `addi.w #$4000` (ADD, carry propaga)
+///   C0 -> `addi.w #$2000` (ADD)     V  -> `ori.w  #$1000` (OR)
+///   H  -> `ori.w  #$0800` (OR)
+/// e so entao `valor = (raw & mascara_pl) + d3` (mod 2^16). Somar tudo (ou OR em
+/// tudo) esta ERRADO: com base 8000 e flag P o resultado e 8000, nao 0000.
 fn fetch_inline(
     bits: &mut BitReader<'_>,
     packet_length: u8,
     mask_byte: u8,
     value_offset: u16,
 ) -> Result<u16, EnigmaError> {
-    let mut flags = 0u16;
+    let mut d3 = value_offset;
     for j in (0..5u8).rev() {
         // && curto-circuita como o aninhamento do asm: so le bit de flag se a
         // mascara habilita aquela posicao.
         if (mask_byte >> j) & 1 == 1 && bits.pop()? == 1 {
-            flags |= 1u16 << (j + 11);
+            d3 = match j {
+                4 => d3 | 0x8000,
+                3 => d3.wrapping_add(0x4000),
+                2 => d3.wrapping_add(0x2000),
+                1 => d3 | 0x1000,
+                _ => d3 | 0x0800,
+            };
         }
     }
     let raw = bits.read(packet_length)?;
-    // console: (raw & mask) + base + Σ flags, tudo mod 2^16 (addi/ori do asm;
-    // bits de flag disjoint do raw <= 2^11-1, add == or nesta parcela).
-    Ok(raw.wrapping_add(value_offset).wrapping_add(flags))
+    Ok(raw.wrapping_add(d3))
 }
 
 fn emit(
