@@ -525,6 +525,9 @@ montador, R14; pins propios):
 re-especificadas como **instruccións válidas**), `KC2v` 6, `KC3v` **2** (retírase
 «`MOVE.W #imm,An`»: non ten codificación propia, §12.6), `KC4v` 4 (vocabulario polo
 `adaptador-c/v2`), `KC5v` 5, `TCv` 4.
+— **retificado en §12.10 h**: MOVEA non é unha soa fila. `movea.w` está DENTRO da
+lista fechada de C e `movea.l #imm` está FORA; o inventario de v1 só ten unha fila
+MOVEA, así que KC1v pasa de 20 a 21 e a fronte C de 41 a 42.**
 
 **Frente B — 23 filas** (R18: capacidade non hérdase): as 14 de `v1` manteñen o seu
 denominador histórico e non cubren nada novo; engádense `KB5v` 6 filas para o
@@ -574,8 +577,8 @@ O instrumento di — e está pinned en `oraculo_isa.test.mjs`:
 | `KA1-jmp.l` | `4e fd` | sen mnemónico 68000 (`.short 0x4efd`); `jmp (xxx).l` é **`4ef9`** | `jmp.l`, alvo `0x1f00` | **bytes equivocados (D)** |
 | `KA1-jmp.w` | `4e fc` | sen mnemónico 68000 (`.short 0x4efc`); `jmp (xxx).w` é **`4ef8`** | `jmp.w`, alvo `0x1f00` | **bytes equivocados (D)** |
 | `KA4-2` | fluxo en `0x8400` referenciado con `lea (0x8400).w` | un absolute short co bit 15 activo **non pode** apuntar a ROM `0x8400` | `saida_sha256` dun stream de 128 B | **premise imposible (D)**; en v2 os fluxos ≥ `0x8000` reférencianse con `lea .L` (`43f9 0000 8400`) ou `(d16,PC)`, e queda unha probe negativa deliberada que espera a recusa de work-RAM |
-| `KC1-movea.l #imm32,A1` | `227c 0000 1111` | `moveal #4369,%a1` — **MC68000 válido** | «fronteira opcode-fora-do-subconjunto» | **premisa falsa (D)**: `CONTRACT.md` de C liña 77 *declara* `MOVE`/`MOVEA` `.B/.W/.L`; e o ISA tamén. Non foi un defecto de C atopado pola barra |
-| `KC3-move-w-imm-an` | `327c …` | GAS monta `move.w #0x1234,%a1` como `moveaw #4660,%a1` (`327c 1234`) | «combinación inválida detectábel» | **non expressable en bytes (D)**: a invalidade é do mnemónico, non da codificación — a palabra é unha MOVEA.W válida. `CONTRACT.md:79` de C si promete «combinações inválidas (p. ex. MOVE.W → An) = fronteira», aserción irrealizable a nivel de codificación: publícase como **defecto documental de C**, non de capacidade. A fila retírase en v2 |
+| `KC1-movea.l #imm32,A1` | `227c 0000 1111` | `moveal #4369,%a1` — **MC68000 válido** | «fronteira opcode-fora-do-subconjunto» | **premisa falsa (D)**: `CONTRACT.md` de C liña 77 *declara* `MOVE`/`MOVEA` `.B/.W/.L`; e o ISA tamén. Non foi un defecto de C atopado pola barra — **retificado en §12.10 h: a citação estaba truncada; a mesma liña 77 di «`#imm` só em MOVE», polo que a premisa de v1 era correcta para C e o ditame «premisa falsa (D)」é un erro de D** |
+| `KC3-move-w-imm-an` | `327c …` | GAS monta `move.w #0x1234,%a1` como `moveaw #4660,%a1` (`327c 1234`) | «combinación inválida detectábel» | **non expressable en bytes (D)**: a invalidade é do mnemónico, non da codificación — a palabra é unha MOVEA.W válida. `CONTRACT.md:79` de C si promete «combinações inválidas (p. ex. MOVE.W → An) = fronteira», aserción irrealizable a nivel de codificación: publícase como **defecto documental de C**, non de capacidade. A fila retírase en v2 — **§12.10 h mantén este ditame: aquí os dous eixos non se confunden, a palabra é válida E está na lista (MOVEA rexistro→An), e o que non existe é a codificación da forma que C di que detecta** |
 | `TA-3` | (rc 11 esperado, 7 medido) | rc 7 = ALVO-DIVERXENTE, rc 11 = XEOMETRIA-DIVERXENTE, ambos en `CONTRATO-A` §5 | rc 11 exacto | **receita confusa (D)**: movía o alvo declarado xunto coa ventá. v2 sepáraa en `TA-3a`/`TA-3b` (§12.4). A recusa de A era xusta en calquera dos dous eixos — non é falla de seguranza |
 | `TA-5` | (rc 6 esperado, 2 medido) | rc 2 = ESQUEMA, «contrato estrutural roto **antes de medir**» | rc 6 exacto | **receita confusa (D)**: a mutación de D rompía a forma do rexistro, polo que nunca chegou ao eixo operando. En v1 non se pode afirmar que A deixase pasar un operando alterado: **esa pregunta queda sen medir** ata `TA-5v` |
 
@@ -652,6 +655,13 @@ puntadores nas filas afectadas e aquí queda a rectificación completa. Cada
 afirmación cita o ficheiro:liña lido en `bd40e92`
 (`~/rds-scratch/d-frentes-20261004/a-bd40e92/…/a/src/`) ou o gabarito pinned en
 `gabarito/isa-oraculo-v2.json`.
+
+*Ampliación do mesmo día, co punto (h):* existe **unha execución previa á autoría**
+da fronte C — a sonda de catro formas `frentes/sonda_c_previa.mjs` contra o build
+`275f2af`, evidenciada en `~/rds-scratch/d-c-probe-20261005/observacions.json`. Non
+é fila da matriz nin entra en denominador algún: serve só para que (h) cite
+comportamento observado xunto coa lectura estática. Ningunha das 42 filas v2 de C
+foi executada, e as expectativas de (h) conxélanse antes delo.
 
 **(a) Denominador da fronte A: 33 → 34 → 35.** §12.3 conxelou 33 filas. Dúas
 correccións de deseño, ambas anteriores a medir, móvenoo:
@@ -754,6 +764,66 @@ montador — que é agora a única fonte dos controlos de solapamento, ocos e
 ventá. (3) `KA3v`, `KA4v` e as filas de recusa non levaban o ditame completo de
 `objdump` (mnemónico + enderezo efectivo) para as súas chamadas; todas as filas
 que citan probes levan agora `sondeo` e `chamada` coa lectura do instrumento.
+
+**(h) Requisito 4 no dominio de C: son dous eixos, e §12.6 mesturóuos.** Unha forma
+pode ser MC68000 válida —dito polo instrumento— e estar **fóra da lista fechada da
+fronte** —dito polo contrato desa fronte—. §12.6 citou `CONTRACT.md:77` truncado. A
+liña enteira (77–79, lida no build `275f2af`) di:
+
+> - `MOVE`/`MOVEA` .B/.W/.L entre modos 68000 válidos (registros, `(An)`, `(An)+`,
+>   `-(An)`, `d16(An)`, `d8(An,Xn)`, `abs.W`, `abs.L`, **`#imm` só em MOVE**);
+>   combinações inválidas (p. ex. MOVE.W → An) = fronteira.
+
+Consecuencia directa: o ditame «premisa falsa (D)」 da fila `KC1-movea.l #imm32,A1` de
+§12.6 é un erro de D, e a expectativa de v1 era correcta.
+- `movea.l #imm32,A1` está **fóra** da lista de C («`#imm` só em MOVE»), así que a
+  expectativa que §3 promete é `fronteira` / `ponto-de-fronteira`.
+- `movea.w %a0,%a1` está **dentro** (rexistro → An): válida *e* na lista. Para C a
+  expectativa non é unha recusa — é decodificación con lonxitude 2. En A si é recusa
+  (`instr.rs:247` `NonForma` → rc 5), porque a lista fechada de A é outra (a súa
+  gramática de carga). Requisito 4 cumprido nos dous dominios sen os mesturar.
+- `KC3-move-w-imm-an` **mantén** o seu ditame de §12.6: alí a palabra `327c` é unha
+  MOVEA.W válida e na lista, e a «combinação inválida MOVE.W → An» que C promete non
+  ten codificación propia. O erro daquela fila é documental, non de mestura de eixos.
+
+Proba estática en `275f2af` (`…/c/scripts/…/c/src/decode.rs`): a garda da fonte no
+modo 7 (`decode.rs:599`) rechaza `sreg` 2/3 (PC) e `SRC7_BAD = [5,6,7]`
+(`decode.rs:426`), pero **non** `sreg == 4` (inmediato), e `mode_words`
+(`decode.rs:177-195`) acepta `sub == 4` — 1 word para `.B/.W`, 2 para `.L`. A rama
+MOVEA (`decode.rs:606-617`) só rechaza `size == 1` («MOVEA.B invalido») e devolve `Ok`
+para calquera fonte que `read_ea` aceptara. A mesma función si rexeita a fonte PC, o
+que indica que a omisión é concreta do inmediato e non unha política xeral.
+
+Proba empírica **previa á autoría** (non é fila da matriz):
+`frentes/sonda_c_previa.mjs`, evidencia en
+`~/rds-scratch/d-c-probe-20261005/observacions.json` — imaxe
+`aff327c9dfa0ba6a781e0a59ea1accbf4fb477942d306f41ebe099189d4a4b69`, binario
+`rex-cfg` `075616e5ff0b7fa1734b883aff9fa98c8f00836fdd3080022222d75d80e95d19`, schema
+`rex-cfg/v1`, `base_sha` `cb56657`. As catro formas deron:
+`movea-l-imm` → decodifica `tam=6` (`moveal #(0x00001111), %a1`); `movea-w-an` →
+decodifica `tam=2` (`moveaw %a0, %a1`); `move-l-pcd16` → fronteira
+`opcode-fora-do-subconjunto` co motivo literal «MOVE com fonte PC-relativo ou reservada
+(fora do contrato §3)»; `move-l-imm` → decodifica `tam=6`. É dicir: o §3 de C é máis
+estrito que o seu descodificador, e a cláusula «só em MOVE» é restrición de C, non do
+ISA.
+
+Expectativas conxeladas antes de medir (o que a matriz puntuará contra `8ea5821`):
+- `KC1v-movea-w-an` — fila **dentro-da-lista**: espera decodificación no sitio, `tam` =
+  ditame do instrumento e talo de mnemónico `movea`.
+- `KC1v-movea-l-imm` — fila **fóra-da-lista**: espera `ponto-de-fronteira` con
+  `tipo: opcode-fora-do-subconjunto`, porque é o que o §3 publicado promete. Se a
+  ferramenta decodifica, a fila publícase como **`falha` de C** coa cita
+  `decode.rs:599` + `decode.rs:606-617`, non como defecto da barra. O resultado xa está
+  anunciado por escrito antes da medición: D non «descobre» a falla ao medir.
+- Se `8ea5821` se comporta de outro modo que `275f2af`, a fila non se reescribe:
+  publícase a diverxencia entre os dous SHAs (precedente: §12.6, R0).
+
+Denominador: §12.3 conxelou `KC1v` en 20 dicindo «as dúas filas de MOVEA», pero o
+inventario de v1 só contén unha (`moveal_imm_a1`). A segunda non pode caber nos 20 sen
+retirar outra, e ningunha das 20 se pode retirar: cada unha ancorou unha forma da lista
+fechada. `KC1v` pasa a **21** e a fronte C de **41 a 42**; rexístrase o intermedio.
+Non é un axuste para acomodar resultados — engade unha fila que §12.3 xa daba por
+existida.
 
 **Pins v2 da fronte A** (os dixestos vixentes tras este adendo; a fonte
 autorizada é `data/…/d/frentes/a/pin-v2.json`):
