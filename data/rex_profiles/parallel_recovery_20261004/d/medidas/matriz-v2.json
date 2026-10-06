@@ -6,6 +6,8 @@
     "A (A bd40e92): o holdout cobre xeometría, datos e enderezos novos; a gramática de A é pechada, así que **non xeneraliza a formas non declaradas**.",
     "C (8ea5821): a disxunción do holdout é de palabras e sitios, non de clases de instrución; un FAIL de `coherencia-contrato-código` é unha diverxencia prosa↔código, non un fallo de seguranza.",
     "B (da5472c): sen decoder Enigma independente, `KBE` non mide equivalencia de saída; `KBE-slot-5` e `KBE-equivalencia` quedan `descoñecido` (INCONCLUSIVE, non VOID: VOID reservase a defectos de autoría de D). O CRAM está só ao nivel `vinculo-estrutural` (E22 de B).",
+    "A (A 6ae4f02): o contrato de emparellamento mudou por decisión versionada de A (xanela recta, limpa e única; o resto por `--chamada-sitio`); a medición v3 declara o par e a v2 sen declarar queda como control. `detectar` e as cadeas reais non se cobren.",
+    "C (C 5f97368): a expectativa v2 de `KC1v-movea-l-imm-a1` está retificada (R-3). O FAIL de `HO-KC1v-movea-w-imm-a3` na regresión do holdout v2 é a mesma expectativa superada e aparece marcado. O holdout v2 reexecutado NON é holdout deste SHA.",
     "As filas do gabarito v1 conservan os seus vereditos históricos; a súa interpretación («A regrediu») está retificada en §12.16 e non se usa como gabarito do perfil corrixido."
   ],
   "filas": [
@@ -768,6 +770,986 @@
       "nao_puntuadas": 1,
       "evidencia": "C-holdout-v2.jsonl",
       "evidencia_sha256": "6b297acf1c715166282dd7f18801e6fa73fdcd5d8e9be3d23c6b0c50df049a93"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "KA3v",
+      "conxunto": "medición v3 (par declarado + segmentos)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 1,
+      "pass": 1,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-v3.jsonl",
+      "evidencia_sha256": "2187c7d9901b595b154d82c105f8b8ecbf3c999fe0fc8058fcf8c2e830712d0b"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "KA1v",
+      "conxunto": "medición v3 (par declarado + segmentos)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 10,
+      "pass": 10,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-v3.jsonl",
+      "evidencia_sha256": "2187c7d9901b595b154d82c105f8b8ecbf3c999fe0fc8058fcf8c2e830712d0b"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "KA1v-neg",
+      "conxunto": "medición v3 (par declarado + segmentos)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 2,
+      "pass": 2,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-v3.jsonl",
+      "evidencia_sha256": "2187c7d9901b595b154d82c105f8b8ecbf3c999fe0fc8058fcf8c2e830712d0b"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "KA1v-fora",
+      "conxunto": "medición v3 (par declarado + segmentos)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 3,
+      "pass": 3,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-v3.jsonl",
+      "evidencia_sha256": "2187c7d9901b595b154d82c105f8b8ecbf3c999fe0fc8058fcf8c2e830712d0b"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "KA2v",
+      "conxunto": "medición v3 (par declarado + segmentos)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 4,
+      "pass": 4,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-v3.jsonl",
+      "evidencia_sha256": "2187c7d9901b595b154d82c105f8b8ecbf3c999fe0fc8058fcf8c2e830712d0b"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "KA3v-g",
+      "conxunto": "medición v3 (par declarado + segmentos)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 2,
+      "pass": 2,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-v3.jsonl",
+      "evidencia_sha256": "2187c7d9901b595b154d82c105f8b8ecbf3c999fe0fc8058fcf8c2e830712d0b"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "KA4v",
+      "conxunto": "medición v3 (par declarado + segmentos)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 3,
+      "pass": 3,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-v3.jsonl",
+      "evidencia_sha256": "2187c7d9901b595b154d82c105f8b8ecbf3c999fe0fc8058fcf8c2e830712d0b"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "TAv",
+      "conxunto": "medición v3 (par declarado + segmentos)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 10,
+      "pass": 10,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-v3.jsonl",
+      "evidencia_sha256": "2187c7d9901b595b154d82c105f8b8ecbf3c999fe0fc8058fcf8c2e830712d0b"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "TAv-controle",
+      "conxunto": "medición v3 (par declarado + segmentos)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 0,
+      "pass": 0,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 1,
+      "evidencia": "A-6ae4f02-v3.jsonl",
+      "evidencia_sha256": "2187c7d9901b595b154d82c105f8b8ecbf3c999fe0fc8058fcf8c2e830712d0b"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "SEGv-auto",
+      "conxunto": "medición v3 (par declarado + segmentos)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": "vinculo-estrutural",
+      "pontuaveis": 6,
+      "pass": 6,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-v3.jsonl",
+      "evidencia_sha256": "2187c7d9901b595b154d82c105f8b8ecbf3c999fe0fc8058fcf8c2e830712d0b"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "SEGv-declarado",
+      "conxunto": "medición v3 (par declarado + segmentos)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": "vinculo-estrutural",
+      "pontuaveis": 3,
+      "pass": 3,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-v3.jsonl",
+      "evidencia_sha256": "2187c7d9901b595b154d82c105f8b8ecbf3c999fe0fc8058fcf8c2e830712d0b"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "SEGv-neg",
+      "conxunto": "medición v3 (par declarado + segmentos)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": "vinculo-estrutural",
+      "pontuaveis": 1,
+      "pass": 1,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-v3.jsonl",
+      "evidencia_sha256": "2187c7d9901b595b154d82c105f8b8ecbf3c999fe0fc8058fcf8c2e830712d0b"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "audit",
+      "conxunto": "medición v3 (par declarado + segmentos)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 0,
+      "pass": 0,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 1,
+      "evidencia": "A-6ae4f02-v3.jsonl",
+      "evidencia_sha256": "2187c7d9901b595b154d82c105f8b8ecbf3c999fe0fc8058fcf8c2e830712d0b"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "KA3v",
+      "conxunto": "holdout v3 compatible (novo; parcialmente visto, §12.17 e)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 1,
+      "pass": 1,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-holdout-v3.jsonl",
+      "evidencia_sha256": "96c2790721e95f25198d29d0d3bb5771fc3a31edd0bc98d1e4a8d26eedab6c82"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "KA1v",
+      "conxunto": "holdout v3 compatible (novo; parcialmente visto, §12.17 e)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 10,
+      "pass": 10,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-holdout-v3.jsonl",
+      "evidencia_sha256": "96c2790721e95f25198d29d0d3bb5771fc3a31edd0bc98d1e4a8d26eedab6c82"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "KA1v-neg",
+      "conxunto": "holdout v3 compatible (novo; parcialmente visto, §12.17 e)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 2,
+      "pass": 2,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-holdout-v3.jsonl",
+      "evidencia_sha256": "96c2790721e95f25198d29d0d3bb5771fc3a31edd0bc98d1e4a8d26eedab6c82"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "KA1v-fora",
+      "conxunto": "holdout v3 compatible (novo; parcialmente visto, §12.17 e)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 3,
+      "pass": 3,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-holdout-v3.jsonl",
+      "evidencia_sha256": "96c2790721e95f25198d29d0d3bb5771fc3a31edd0bc98d1e4a8d26eedab6c82"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "KA2v",
+      "conxunto": "holdout v3 compatible (novo; parcialmente visto, §12.17 e)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 4,
+      "pass": 4,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-holdout-v3.jsonl",
+      "evidencia_sha256": "96c2790721e95f25198d29d0d3bb5771fc3a31edd0bc98d1e4a8d26eedab6c82"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "KA3v-g",
+      "conxunto": "holdout v3 compatible (novo; parcialmente visto, §12.17 e)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 2,
+      "pass": 2,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-holdout-v3.jsonl",
+      "evidencia_sha256": "96c2790721e95f25198d29d0d3bb5771fc3a31edd0bc98d1e4a8d26eedab6c82"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "KA4v",
+      "conxunto": "holdout v3 compatible (novo; parcialmente visto, §12.17 e)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 3,
+      "pass": 3,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-holdout-v3.jsonl",
+      "evidencia_sha256": "96c2790721e95f25198d29d0d3bb5771fc3a31edd0bc98d1e4a8d26eedab6c82"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "TAv",
+      "conxunto": "holdout v3 compatible (novo; parcialmente visto, §12.17 e)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 10,
+      "pass": 10,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-holdout-v3.jsonl",
+      "evidencia_sha256": "96c2790721e95f25198d29d0d3bb5771fc3a31edd0bc98d1e4a8d26eedab6c82"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "TAv-controle",
+      "conxunto": "holdout v3 compatible (novo; parcialmente visto, §12.17 e)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 0,
+      "pass": 0,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 1,
+      "evidencia": "A-6ae4f02-holdout-v3.jsonl",
+      "evidencia_sha256": "96c2790721e95f25198d29d0d3bb5771fc3a31edd0bc98d1e4a8d26eedab6c82"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "SEGv-auto",
+      "conxunto": "holdout v3 compatible (novo; parcialmente visto, §12.17 e)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": "vinculo-estrutural",
+      "pontuaveis": 6,
+      "pass": 6,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-holdout-v3.jsonl",
+      "evidencia_sha256": "96c2790721e95f25198d29d0d3bb5771fc3a31edd0bc98d1e4a8d26eedab6c82"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "SEGv-declarado",
+      "conxunto": "holdout v3 compatible (novo; parcialmente visto, §12.17 e)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": "vinculo-estrutural",
+      "pontuaveis": 3,
+      "pass": 3,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-holdout-v3.jsonl",
+      "evidencia_sha256": "96c2790721e95f25198d29d0d3bb5771fc3a31edd0bc98d1e4a8d26eedab6c82"
+    },
+    {
+      "frente": "A",
+      "sha": "6ae4f02",
+      "capacidade": "SEGv-neg",
+      "conxunto": "holdout v3 compatible (novo; parcialmente visto, §12.17 e)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-A",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": "vinculo-estrutural",
+      "pontuaveis": 1,
+      "pass": 1,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "A-6ae4f02-holdout-v3.jsonl",
+      "evidencia_sha256": "96c2790721e95f25198d29d0d3bb5771fc3a31edd0bc98d1e4a8d26eedab6c82"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "audit",
+      "conxunto": "medición v3 (expectativa retificada + cx5)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-C",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 0,
+      "pass": 0,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 9,
+      "evidencia": "C-5f97368-v3.jsonl",
+      "evidencia_sha256": "3dadf70d6b8c864701384f85a778988ca1b9834023048c471db7c7dc3632fe67"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "KC1v",
+      "conxunto": "medición v3 (expectativa retificada + cx5)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-C",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": "referencia-estatica",
+      "pontuaveis": 25,
+      "pass": 25,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "C-5f97368-v3.jsonl",
+      "evidencia_sha256": "3dadf70d6b8c864701384f85a778988ca1b9834023048c471db7c7dc3632fe67"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "KC2v",
+      "conxunto": "medición v3 (expectativa retificada + cx5)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-C",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 6,
+      "pass": 6,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "C-5f97368-v3.jsonl",
+      "evidencia_sha256": "3dadf70d6b8c864701384f85a778988ca1b9834023048c471db7c7dc3632fe67"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "KC3v",
+      "conxunto": "medición v3 (expectativa retificada + cx5)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-C",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 2,
+      "pass": 2,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 1,
+      "nao_puntuadas": 1,
+      "evidencia": "C-5f97368-v3.jsonl",
+      "evidencia_sha256": "3dadf70d6b8c864701384f85a778988ca1b9834023048c471db7c7dc3632fe67"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "KC4v",
+      "conxunto": "medición v3 (expectativa retificada + cx5)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-C",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": "referencia-estatica",
+      "pontuaveis": 10,
+      "pass": 10,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "C-5f97368-v3.jsonl",
+      "evidencia_sha256": "3dadf70d6b8c864701384f85a778988ca1b9834023048c471db7c7dc3632fe67"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "KC5v",
+      "conxunto": "medición v3 (expectativa retificada + cx5)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-C",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 5,
+      "pass": 5,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "C-5f97368-v3.jsonl",
+      "evidencia_sha256": "3dadf70d6b8c864701384f85a778988ca1b9834023048c471db7c7dc3632fe67"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "TCv",
+      "conxunto": "medición v3 (expectativa retificada + cx5)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-C",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 4,
+      "pass": 4,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "C-5f97368-v3.jsonl",
+      "evidencia_sha256": "3dadf70d6b8c864701384f85a778988ca1b9834023048c471db7c7dc3632fe67"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "TCv-controle",
+      "conxunto": "medición v3 (expectativa retificada + cx5)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-C",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 0,
+      "pass": 0,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 1,
+      "evidencia": "C-5f97368-v3.jsonl",
+      "evidencia_sha256": "3dadf70d6b8c864701384f85a778988ca1b9834023048c471db7c7dc3632fe67"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "interface-consultar",
+      "conxunto": "medición v3 (expectativa retificada + cx5)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-C",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 0,
+      "pass": 0,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 10,
+      "evidencia": "C-5f97368-v3.jsonl",
+      "evidencia_sha256": "3dadf70d6b8c864701384f85a778988ca1b9834023048c471db7c7dc3632fe67"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "interface-medir",
+      "conxunto": "medición v3 (expectativa retificada + cx5)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-C",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 0,
+      "pass": 0,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 1,
+      "evidencia": "C-5f97368-v3.jsonl",
+      "evidencia_sha256": "3dadf70d6b8c864701384f85a778988ca1b9834023048c471db7c7dc3632fe67"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "CVv",
+      "conxunto": "medición v3 (expectativa retificada + cx5)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-C",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": "referencia-estatica",
+      "pontuaveis": 3,
+      "pass": 3,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "C-5f97368-v3.jsonl",
+      "evidencia_sha256": "3dadf70d6b8c864701384f85a778988ca1b9834023048c471db7c7dc3632fe67"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "KC4v",
+      "conxunto": "holdout v3 compatible (novo)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-C",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": "referencia-estatica",
+      "pontuaveis": 6,
+      "pass": 6,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "C-5f97368-holdout-v3.jsonl",
+      "evidencia_sha256": "22151637e392a15fb954a7ae3fe45a1fac3b79f8c2a4f1e9638b05b743e0afbf"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "KC1v",
+      "conxunto": "holdout v3 compatible (novo)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-C",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": "referencia-estatica",
+      "pontuaveis": 4,
+      "pass": 4,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "C-5f97368-holdout-v3.jsonl",
+      "evidencia_sha256": "22151637e392a15fb954a7ae3fe45a1fac3b79f8c2a4f1e9638b05b743e0afbf"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "CVv",
+      "conxunto": "holdout v3 compatible (novo)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-C",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": "referencia-estatica",
+      "pontuaveis": 3,
+      "pass": 3,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "C-5f97368-holdout-v3.jsonl",
+      "evidencia_sha256": "22151637e392a15fb954a7ae3fe45a1fac3b79f8c2a4f1e9638b05b743e0afbf"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "audit",
+      "conxunto": "regresión: holdout v2 gastado (NON é holdout deste SHA)",
+      "gabarito": "EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA)",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 0,
+      "pass": 0,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 9,
+      "evidencia": "C-5f97368-regresion-holdout-v2.jsonl",
+      "evidencia_sha256": "152182ba9f414ada957d2d61aa1976c1ccd790df12abe2b53a2f78715b0d5da3"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "KC1v",
+      "conxunto": "regresión: holdout v2 gastado (NON é holdout deste SHA)",
+      "gabarito": "EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA)",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 18,
+      "pass": 17,
+      "fail": 1,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "C-5f97368-regresion-holdout-v2.jsonl",
+      "evidencia_sha256": "152182ba9f414ada957d2d61aa1976c1ccd790df12abe2b53a2f78715b0d5da3"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "KC2v",
+      "conxunto": "regresión: holdout v2 gastado (NON é holdout deste SHA)",
+      "gabarito": "EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA)",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 4,
+      "pass": 4,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "C-5f97368-regresion-holdout-v2.jsonl",
+      "evidencia_sha256": "152182ba9f414ada957d2d61aa1976c1ccd790df12abe2b53a2f78715b0d5da3"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "KC3v",
+      "conxunto": "regresión: holdout v2 gastado (NON é holdout deste SHA)",
+      "gabarito": "EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA)",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 2,
+      "pass": 2,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "C-5f97368-regresion-holdout-v2.jsonl",
+      "evidencia_sha256": "152182ba9f414ada957d2d61aa1976c1ccd790df12abe2b53a2f78715b0d5da3"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "KC4v",
+      "conxunto": "regresión: holdout v2 gastado (NON é holdout deste SHA)",
+      "gabarito": "EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA)",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 4,
+      "pass": 4,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "C-5f97368-regresion-holdout-v2.jsonl",
+      "evidencia_sha256": "152182ba9f414ada957d2d61aa1976c1ccd790df12abe2b53a2f78715b0d5da3"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "KC5v",
+      "conxunto": "regresión: holdout v2 gastado (NON é holdout deste SHA)",
+      "gabarito": "EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA)",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 5,
+      "pass": 5,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "C-5f97368-regresion-holdout-v2.jsonl",
+      "evidencia_sha256": "152182ba9f414ada957d2d61aa1976c1ccd790df12abe2b53a2f78715b0d5da3"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "TCv",
+      "conxunto": "regresión: holdout v2 gastado (NON é holdout deste SHA)",
+      "gabarito": "EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA)",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 4,
+      "pass": 4,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 0,
+      "evidencia": "C-5f97368-regresion-holdout-v2.jsonl",
+      "evidencia_sha256": "152182ba9f414ada957d2d61aa1976c1ccd790df12abe2b53a2f78715b0d5da3"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "TCv-controle",
+      "conxunto": "regresión: holdout v2 gastado (NON é holdout deste SHA)",
+      "gabarito": "EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA)",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 0,
+      "pass": 0,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 1,
+      "evidencia": "C-5f97368-regresion-holdout-v2.jsonl",
+      "evidencia_sha256": "152182ba9f414ada957d2d61aa1976c1ccd790df12abe2b53a2f78715b0d5da3"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "interface-consultar",
+      "conxunto": "regresión: holdout v2 gastado (NON é holdout deste SHA)",
+      "gabarito": "EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA)",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 0,
+      "pass": 0,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 10,
+      "evidencia": "C-5f97368-regresion-holdout-v2.jsonl",
+      "evidencia_sha256": "152182ba9f414ada957d2d61aa1976c1ccd790df12abe2b53a2f78715b0d5da3"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "capacidade": "interface-medir",
+      "conxunto": "regresión: holdout v2 gastado (NON é holdout deste SHA)",
+      "gabarito": "EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA)",
+      "gabarito_nas_filas": [
+        "isa-oraculo-v2"
+      ],
+      "historico": false,
+      "nivel": null,
+      "pontuaveis": 0,
+      "pass": 0,
+      "fail": 0,
+      "desconhecido": 0,
+      "void": 0,
+      "nao_puntuadas": 1,
+      "evidencia": "C-5f97368-regresion-holdout-v2.jsonl",
+      "evidencia_sha256": "152182ba9f414ada957d2d61aa1976c1ccd790df12abe2b53a2f78715b0d5da3"
     },
     {
       "frente": "B",
@@ -1671,6 +2653,8 @@
       "capacidade": "KC1v",
       "fila": "KC1v-movea-l-imm-a1",
       "historico": false,
+      "superada": "expectativa v2 superada por R-3 de C + instrumento (§12.17 c); en 5f97368 a fila retificada dá PASS",
+      "seguimento": null,
       "razon": "§12.10 h conxelou a expectativa de fronteira (a lista de §3 non admite inmediato en MOVEA). §12.10 j re-etiqueta o eixe: se a ferramenta dec"
     },
     {
@@ -1681,6 +2665,8 @@
       "capacidade": "KC3v",
       "fila": "KC3v-move-b-para-an",
       "historico": false,
+      "superada": null,
+      "seguimento": "en `5f97368` a mesma fila dá PASS (medición v3)",
       "razon": "restaura en v2 a clase «combinação inválida detectábel» que §12.6 tivo que retirar (`327c` é MOVEA.W lexítima, non hai codificación propia)."
     },
     {
@@ -1691,6 +2677,8 @@
       "capacidade": "KC1v",
       "fila": "HO-KC1v-movea-w-imm-a3",
       "historico": false,
+      "superada": "mesma expectativa v2 superada (§12.17 c); non se re-gradúa a evidencia, publícase como superada",
+      "seguimento": null,
       "razon": "§3 di «`#imm` só em MOVE», así que a prosa restringe o inmediato tamén a MOVEA.L; o instrumento codifica e decodifica `367C1234` como `movea"
     },
     {
@@ -1701,7 +2689,21 @@
       "capacidade": "KC4v",
       "fila": "HO-KC4-trap-15",
       "historico": false,
+      "superada": null,
+      "seguimento": "defecto real de C (máscara de TRAP de 3 bits) corrixido en `5b45931`; en `5f97368` a mesma fila dá PASS na regresión e `V3-TR-8`/`HO-TR-9`/`HO-TR-15` pasan (§12.17 b)",
       "razon": "fronteira opaca graduada como recusa limpa, co vocabulario real de C (R13: {\"indirect-opaco\":\"indirect-opaque\",\"fora-da-rexión\":\"fora-da-reg"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "conxunto": "regresión: holdout v2 gastado (NON é holdout deste SHA)",
+      "gabarito": "EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA)",
+      "capacidade": "KC1v",
+      "fila": "HO-KC1v-movea-w-imm-a3",
+      "historico": false,
+      "superada": "mesma expectativa v2 superada (§12.17 c); non se re-gradúa a evidencia, publícase como superada",
+      "seguimento": null,
+      "razon": "§3 di «`#imm` só em MOVE», así que a prosa restringe o inmediato tamén a MOVEA.L; o instrumento codifica e decodifica `367C1234` como `movea"
     },
     {
       "frente": "A",
@@ -1711,6 +2713,8 @@
       "capacidade": "TA",
       "fila": "TA-5",
       "historico": true,
+      "superada": null,
+      "seguimento": null,
       "razon": "operando .L alterado no registro, imagem inalterada"
     },
     {
@@ -1721,6 +2725,8 @@
       "capacidade": "KA1",
       "fila": "KA1-2",
       "historico": true,
+      "superada": null,
+      "seguimento": null,
       "razon": "ERRO(4): fluxo: enderezo 0xFF8400 en rexión work-ram sen backing ROM"
     },
     {
@@ -1731,6 +2737,8 @@
       "capacidade": "KA1",
       "fila": "KA1-bsr.l",
       "historico": true,
+      "superada": null,
+      "seguimento": null,
       "razon": ""
     },
     {
@@ -1741,6 +2749,8 @@
       "capacidade": "KA1",
       "fila": "KA1-jsr.w",
       "historico": true,
+      "superada": null,
+      "seguimento": null,
       "razon": ""
     },
     {
@@ -1751,6 +2761,8 @@
       "capacidade": "KA1",
       "fila": "KA1-jmp.l",
       "historico": true,
+      "superada": null,
+      "seguimento": null,
       "razon": ""
     },
     {
@@ -1761,6 +2773,8 @@
       "capacidade": "KA1",
       "fila": "KA1-jmp.w",
       "historico": true,
+      "superada": null,
+      "seguimento": null,
       "razon": ""
     },
     {
@@ -1771,6 +2785,8 @@
       "capacidade": "KA4",
       "fila": "KA4-2",
       "historico": true,
+      "superada": null,
+      "seguimento": null,
       "razon": ""
     },
     {
@@ -1781,6 +2797,8 @@
       "capacidade": "TA",
       "fila": "TA-3",
       "historico": true,
+      "superada": null,
+      "seguimento": null,
       "razon": "chamada real declarada nun sitio lexítimo fóra da ventá tras a carga: só a xeometría pode rexeitala. Erata pré-medição de D: a receita origi"
     },
     {
@@ -1791,6 +2809,8 @@
       "capacidade": "TA",
       "fila": "TA-5",
       "historico": true,
+      "superada": null,
+      "seguimento": null,
       "razon": "operando .L alterado no registro, imagem inalterada"
     },
     {
@@ -1801,6 +2821,8 @@
       "capacidade": "KC1",
       "fila": "KC1-movea.l #imm32,A1",
       "historico": true,
+      "superada": null,
+      "seguimento": null,
       "razon": "C aceptou unha forma fóra da súa lista fechada §3 sen declarala soportada; o eixo desta fila é a fronteira, non o comprimento"
     },
     {
@@ -1811,6 +2833,8 @@
       "capacidade": "KC3",
       "fila": "KC3-move-w-imm-an",
       "historico": true,
+      "superada": null,
+      "seguimento": null,
       "razon": "combinação destino An em MOVE.W é inválida no ISA"
     },
     {
@@ -1821,6 +2845,8 @@
       "capacidade": "KC4",
       "fila": "KC4-jmp-ind-an",
       "historico": true,
+      "superada": null,
+      "seguimento": null,
       "razon": ""
     }
   ],
@@ -1830,6 +2856,16 @@
       "sha": "8ea5821",
       "conxunto": "medición",
       "gabarito": "isa-oraculo-v2 / EXTENSOES-D v2",
+      "capacidade": "KC3v",
+      "fila": "KC3-bsr-l-68020-VOID",
+      "historico": false,
+      "razon": "§12.10 i: BSR.S está DENTRO da lista de §3 (liñas 88-90) e a lectura do byte depende da táboa de símbolos do desmontador (`bsrs` nun bloque,"
+    },
+    {
+      "frente": "D",
+      "sha": "5f97368",
+      "conxunto": "medición v3 (expectativa retificada + cx5)",
+      "gabarito": "isa-oraculo-v2 / EXTENSOES-D v3-C",
       "capacidade": "KC3v",
       "fila": "KC3-bsr-l-68020-VOID",
       "historico": false,
@@ -1871,6 +2907,26 @@
       "frente": "C",
       "sha": "8ea5821",
       "conxunto": "holdout compatible (novo)",
+      "capacidade": "interface-medir",
+      "fila": "CONTROLE-MEDIR-CX2",
+      "veredito": "INCONCLUSIVE",
+      "historico": false,
+      "razon": "capacidade presente en 8ea5821 e non exercitada polo denominador: publícase como `descoñecido`, non como heredada de `analyze` (R18)"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "conxunto": "medición v3 (expectativa retificada + cx5)",
+      "capacidade": "interface-medir",
+      "fila": "CONTROLE-MEDIR-CX2",
+      "veredito": "INCONCLUSIVE",
+      "historico": false,
+      "razon": "capacidade presente en 8ea5821 e non exercitada polo denominador: publícase como `descoñecido`, non como heredada de `analyze` (R18)"
+    },
+    {
+      "frente": "C",
+      "sha": "5f97368",
+      "conxunto": "regresión: holdout v2 gastado (NON é holdout deste SHA)",
       "capacidade": "interface-medir",
       "fila": "CONTROLE-MEDIR-CX2",
       "veredito": "INCONCLUSIVE",

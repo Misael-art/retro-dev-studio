@@ -9,6 +9,8 @@ Xerada por `scripts/…/d/medida/matriz_v2.mjs` a partir de `data/…/d/medidas/
 - A (A bd40e92): o holdout cobre xeometría, datos e enderezos novos; a gramática de A é pechada, así que **non xeneraliza a formas non declaradas**.
 - C (8ea5821): a disxunción do holdout é de palabras e sitios, non de clases de instrución; un FAIL de `coherencia-contrato-código` é unha diverxencia prosa↔código, non un fallo de seguranza.
 - B (da5472c): sen decoder Enigma independente, `KBE` non mide equivalencia de saída; `KBE-slot-5` e `KBE-equivalencia` quedan `descoñecido` (INCONCLUSIVE, non VOID: VOID reservase a defectos de autoría de D). O CRAM está só ao nivel `vinculo-estrutural` (E22 de B).
+- A (A 6ae4f02): o contrato de emparellamento mudou por decisión versionada de A (xanela recta, limpa e única; o resto por `--chamada-sitio`); a medición v3 declara o par e a v2 sen declarar queda como control. `detectar` e as cadeas reais non se cobren.
+- C (C 5f97368): a expectativa v2 de `KC1v-movea-l-imm-a1` está retificada (R-3). O FAIL de `HO-KC1v-movea-w-imm-a3` na regresión do holdout v2 é a mesma expectativa superada e aparece marcado. O holdout v2 reexecutado NON é holdout deste SHA.
 - As filas do gabarito v1 conservan os seus vereditos históricos; a súa interpretación («A regrediu») está retificada en §12.16 e non se usa como gabarito do perfil corrixido.
 
 ## Medicións vixentes (gabarito v2)
@@ -53,6 +55,55 @@ Xerada por `scripts/…/d/medida/matriz_v2.mjs` a partir de `data/…/d/medidas/
 | C | `8ea5821` | TCv-controle | holdout compatible (novo) | isa-oraculo-v2 / EXTENSOES-D v2 | — | 0 | 0 | 0 | 0 | 0 | 1 | `C-holdout-v2.jsonl` (`6b297acf1c…`) |
 | C | `8ea5821` | interface-consultar | holdout compatible (novo) | isa-oraculo-v2 / EXTENSOES-D v2 | — | 0 | 0 | 0 | 0 | 0 | 10 | `C-holdout-v2.jsonl` (`6b297acf1c…`) |
 | C | `8ea5821` | interface-medir | holdout compatible (novo) | isa-oraculo-v2 / EXTENSOES-D v2 | — | 0 | 0 | 0 | 0 | 0 | 1 | `C-holdout-v2.jsonl` (`6b297acf1c…`) |
+| A | `6ae4f02` | KA3v | medición v3 (par declarado + segmentos) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 1 | 1 | 0 | 0 | 0 | 0 | `A-6ae4f02-v3.jsonl` (`2187c7d990…`) |
+| A | `6ae4f02` | KA1v | medición v3 (par declarado + segmentos) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 10 | 10 | 0 | 0 | 0 | 0 | `A-6ae4f02-v3.jsonl` (`2187c7d990…`) |
+| A | `6ae4f02` | KA1v-neg | medición v3 (par declarado + segmentos) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 2 | 2 | 0 | 0 | 0 | 0 | `A-6ae4f02-v3.jsonl` (`2187c7d990…`) |
+| A | `6ae4f02` | KA1v-fora | medición v3 (par declarado + segmentos) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 3 | 3 | 0 | 0 | 0 | 0 | `A-6ae4f02-v3.jsonl` (`2187c7d990…`) |
+| A | `6ae4f02` | KA2v | medición v3 (par declarado + segmentos) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 4 | 4 | 0 | 0 | 0 | 0 | `A-6ae4f02-v3.jsonl` (`2187c7d990…`) |
+| A | `6ae4f02` | KA3v-g | medición v3 (par declarado + segmentos) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 2 | 2 | 0 | 0 | 0 | 0 | `A-6ae4f02-v3.jsonl` (`2187c7d990…`) |
+| A | `6ae4f02` | KA4v | medición v3 (par declarado + segmentos) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 3 | 3 | 0 | 0 | 0 | 0 | `A-6ae4f02-v3.jsonl` (`2187c7d990…`) |
+| A | `6ae4f02` | TAv | medición v3 (par declarado + segmentos) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 10 | 10 | 0 | 0 | 0 | 0 | `A-6ae4f02-v3.jsonl` (`2187c7d990…`) |
+| A | `6ae4f02` | TAv-controle | medición v3 (par declarado + segmentos) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 0 | 0 | 0 | 0 | 0 | 1 | `A-6ae4f02-v3.jsonl` (`2187c7d990…`) |
+| A | `6ae4f02` | SEGv-auto | medición v3 (par declarado + segmentos) | isa-oraculo-v2 / EXTENSOES-D v3-A | vinculo-estrutural | 6 | 6 | 0 | 0 | 0 | 0 | `A-6ae4f02-v3.jsonl` (`2187c7d990…`) |
+| A | `6ae4f02` | SEGv-declarado | medición v3 (par declarado + segmentos) | isa-oraculo-v2 / EXTENSOES-D v3-A | vinculo-estrutural | 3 | 3 | 0 | 0 | 0 | 0 | `A-6ae4f02-v3.jsonl` (`2187c7d990…`) |
+| A | `6ae4f02` | SEGv-neg | medición v3 (par declarado + segmentos) | isa-oraculo-v2 / EXTENSOES-D v3-A | vinculo-estrutural | 1 | 1 | 0 | 0 | 0 | 0 | `A-6ae4f02-v3.jsonl` (`2187c7d990…`) |
+| A | `6ae4f02` | audit | medición v3 (par declarado + segmentos) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 0 | 0 | 0 | 0 | 0 | 1 | `A-6ae4f02-v3.jsonl` (`2187c7d990…`) |
+| A | `6ae4f02` | KA3v | holdout v3 compatible (novo; parcialmente visto, §12.17 e) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 1 | 1 | 0 | 0 | 0 | 0 | `A-6ae4f02-holdout-v3.jsonl` (`96c2790721…`) |
+| A | `6ae4f02` | KA1v | holdout v3 compatible (novo; parcialmente visto, §12.17 e) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 10 | 10 | 0 | 0 | 0 | 0 | `A-6ae4f02-holdout-v3.jsonl` (`96c2790721…`) |
+| A | `6ae4f02` | KA1v-neg | holdout v3 compatible (novo; parcialmente visto, §12.17 e) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 2 | 2 | 0 | 0 | 0 | 0 | `A-6ae4f02-holdout-v3.jsonl` (`96c2790721…`) |
+| A | `6ae4f02` | KA1v-fora | holdout v3 compatible (novo; parcialmente visto, §12.17 e) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 3 | 3 | 0 | 0 | 0 | 0 | `A-6ae4f02-holdout-v3.jsonl` (`96c2790721…`) |
+| A | `6ae4f02` | KA2v | holdout v3 compatible (novo; parcialmente visto, §12.17 e) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 4 | 4 | 0 | 0 | 0 | 0 | `A-6ae4f02-holdout-v3.jsonl` (`96c2790721…`) |
+| A | `6ae4f02` | KA3v-g | holdout v3 compatible (novo; parcialmente visto, §12.17 e) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 2 | 2 | 0 | 0 | 0 | 0 | `A-6ae4f02-holdout-v3.jsonl` (`96c2790721…`) |
+| A | `6ae4f02` | KA4v | holdout v3 compatible (novo; parcialmente visto, §12.17 e) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 3 | 3 | 0 | 0 | 0 | 0 | `A-6ae4f02-holdout-v3.jsonl` (`96c2790721…`) |
+| A | `6ae4f02` | TAv | holdout v3 compatible (novo; parcialmente visto, §12.17 e) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 10 | 10 | 0 | 0 | 0 | 0 | `A-6ae4f02-holdout-v3.jsonl` (`96c2790721…`) |
+| A | `6ae4f02` | TAv-controle | holdout v3 compatible (novo; parcialmente visto, §12.17 e) | isa-oraculo-v2 / EXTENSOES-D v3-A | — | 0 | 0 | 0 | 0 | 0 | 1 | `A-6ae4f02-holdout-v3.jsonl` (`96c2790721…`) |
+| A | `6ae4f02` | SEGv-auto | holdout v3 compatible (novo; parcialmente visto, §12.17 e) | isa-oraculo-v2 / EXTENSOES-D v3-A | vinculo-estrutural | 6 | 6 | 0 | 0 | 0 | 0 | `A-6ae4f02-holdout-v3.jsonl` (`96c2790721…`) |
+| A | `6ae4f02` | SEGv-declarado | holdout v3 compatible (novo; parcialmente visto, §12.17 e) | isa-oraculo-v2 / EXTENSOES-D v3-A | vinculo-estrutural | 3 | 3 | 0 | 0 | 0 | 0 | `A-6ae4f02-holdout-v3.jsonl` (`96c2790721…`) |
+| A | `6ae4f02` | SEGv-neg | holdout v3 compatible (novo; parcialmente visto, §12.17 e) | isa-oraculo-v2 / EXTENSOES-D v3-A | vinculo-estrutural | 1 | 1 | 0 | 0 | 0 | 0 | `A-6ae4f02-holdout-v3.jsonl` (`96c2790721…`) |
+| C | `5f97368` | audit | medición v3 (expectativa retificada + cx5) | isa-oraculo-v2 / EXTENSOES-D v3-C | — | 0 | 0 | 0 | 0 | 0 | 9 | `C-5f97368-v3.jsonl` (`3dadf70d6b…`) |
+| C | `5f97368` | KC1v | medición v3 (expectativa retificada + cx5) | isa-oraculo-v2 / EXTENSOES-D v3-C | referencia-estatica | 25 | 25 | 0 | 0 | 0 | 0 | `C-5f97368-v3.jsonl` (`3dadf70d6b…`) |
+| C | `5f97368` | KC2v | medición v3 (expectativa retificada + cx5) | isa-oraculo-v2 / EXTENSOES-D v3-C | — | 6 | 6 | 0 | 0 | 0 | 0 | `C-5f97368-v3.jsonl` (`3dadf70d6b…`) |
+| C | `5f97368` | KC3v | medición v3 (expectativa retificada + cx5) | isa-oraculo-v2 / EXTENSOES-D v3-C | — | 2 | 2 | 0 | 0 | 1 | 1 | `C-5f97368-v3.jsonl` (`3dadf70d6b…`) |
+| C | `5f97368` | KC4v | medición v3 (expectativa retificada + cx5) | isa-oraculo-v2 / EXTENSOES-D v3-C | referencia-estatica | 10 | 10 | 0 | 0 | 0 | 0 | `C-5f97368-v3.jsonl` (`3dadf70d6b…`) |
+| C | `5f97368` | KC5v | medición v3 (expectativa retificada + cx5) | isa-oraculo-v2 / EXTENSOES-D v3-C | — | 5 | 5 | 0 | 0 | 0 | 0 | `C-5f97368-v3.jsonl` (`3dadf70d6b…`) |
+| C | `5f97368` | TCv | medición v3 (expectativa retificada + cx5) | isa-oraculo-v2 / EXTENSOES-D v3-C | — | 4 | 4 | 0 | 0 | 0 | 0 | `C-5f97368-v3.jsonl` (`3dadf70d6b…`) |
+| C | `5f97368` | TCv-controle | medición v3 (expectativa retificada + cx5) | isa-oraculo-v2 / EXTENSOES-D v3-C | — | 0 | 0 | 0 | 0 | 0 | 1 | `C-5f97368-v3.jsonl` (`3dadf70d6b…`) |
+| C | `5f97368` | interface-consultar | medición v3 (expectativa retificada + cx5) | isa-oraculo-v2 / EXTENSOES-D v3-C | — | 0 | 0 | 0 | 0 | 0 | 10 | `C-5f97368-v3.jsonl` (`3dadf70d6b…`) |
+| C | `5f97368` | interface-medir | medición v3 (expectativa retificada + cx5) | isa-oraculo-v2 / EXTENSOES-D v3-C | — | 0 | 0 | 0 | 0 | 0 | 1 | `C-5f97368-v3.jsonl` (`3dadf70d6b…`) |
+| C | `5f97368` | CVv | medición v3 (expectativa retificada + cx5) | isa-oraculo-v2 / EXTENSOES-D v3-C | referencia-estatica | 3 | 3 | 0 | 0 | 0 | 0 | `C-5f97368-v3.jsonl` (`3dadf70d6b…`) |
+| C | `5f97368` | KC4v | holdout v3 compatible (novo) | isa-oraculo-v2 / EXTENSOES-D v3-C | referencia-estatica | 6 | 6 | 0 | 0 | 0 | 0 | `C-5f97368-holdout-v3.jsonl` (`22151637e3…`) |
+| C | `5f97368` | KC1v | holdout v3 compatible (novo) | isa-oraculo-v2 / EXTENSOES-D v3-C | referencia-estatica | 4 | 4 | 0 | 0 | 0 | 0 | `C-5f97368-holdout-v3.jsonl` (`22151637e3…`) |
+| C | `5f97368` | CVv | holdout v3 compatible (novo) | isa-oraculo-v2 / EXTENSOES-D v3-C | referencia-estatica | 3 | 3 | 0 | 0 | 0 | 0 | `C-5f97368-holdout-v3.jsonl` (`22151637e3…`) |
+| C | `5f97368` | audit | regresión: holdout v2 gastado (NON é holdout deste SHA) | EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA) | — | 0 | 0 | 0 | 0 | 0 | 9 | `C-5f97368-regresion-holdout-v2.jsonl` (`152182ba9f…`) |
+| C | `5f97368` | KC1v | regresión: holdout v2 gastado (NON é holdout deste SHA) | EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA) | — | 18 | 17 | 1 | 0 | 0 | 0 | `C-5f97368-regresion-holdout-v2.jsonl` (`152182ba9f…`) |
+| C | `5f97368` | KC2v | regresión: holdout v2 gastado (NON é holdout deste SHA) | EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA) | — | 4 | 4 | 0 | 0 | 0 | 0 | `C-5f97368-regresion-holdout-v2.jsonl` (`152182ba9f…`) |
+| C | `5f97368` | KC3v | regresión: holdout v2 gastado (NON é holdout deste SHA) | EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA) | — | 2 | 2 | 0 | 0 | 0 | 0 | `C-5f97368-regresion-holdout-v2.jsonl` (`152182ba9f…`) |
+| C | `5f97368` | KC4v | regresión: holdout v2 gastado (NON é holdout deste SHA) | EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA) | — | 4 | 4 | 0 | 0 | 0 | 0 | `C-5f97368-regresion-holdout-v2.jsonl` (`152182ba9f…`) |
+| C | `5f97368` | KC5v | regresión: holdout v2 gastado (NON é holdout deste SHA) | EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA) | — | 5 | 5 | 0 | 0 | 0 | 0 | `C-5f97368-regresion-holdout-v2.jsonl` (`152182ba9f…`) |
+| C | `5f97368` | TCv | regresión: holdout v2 gastado (NON é holdout deste SHA) | EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA) | — | 4 | 4 | 0 | 0 | 0 | 0 | `C-5f97368-regresion-holdout-v2.jsonl` (`152182ba9f…`) |
+| C | `5f97368` | TCv-controle | regresión: holdout v2 gastado (NON é holdout deste SHA) | EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA) | — | 0 | 0 | 0 | 0 | 0 | 1 | `C-5f97368-regresion-holdout-v2.jsonl` (`152182ba9f…`) |
+| C | `5f97368` | interface-consultar | regresión: holdout v2 gastado (NON é holdout deste SHA) | EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA) | — | 0 | 0 | 0 | 0 | 0 | 10 | `C-5f97368-regresion-holdout-v2.jsonl` (`152182ba9f…`) |
+| C | `5f97368` | interface-medir | regresión: holdout v2 gastado (NON é holdout deste SHA) | EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA) | — | 0 | 0 | 0 | 0 | 0 | 1 | `C-5f97368-regresion-holdout-v2.jsonl` (`152182ba9f…`) |
 | B | `da5472c` | KB2v | medición (gabarito novo por capacidade) | isa-oraculo-v2 / EXTENSOES-D v2-B | vinculo-estrutural | 2 | 2 | 0 | 0 | 0 | 0 | `B-da5472c-v2.jsonl` (`4d890aedab…`) |
 | B | `da5472c` | KB1v | medición (gabarito novo por capacidade) | isa-oraculo-v2 / EXTENSOES-D v2-B | vinculo-estrutural | 5 | 5 | 0 | 0 | 0 | 0 | `B-da5472c-v2.jsonl` (`4d890aedab…`) |
 | B | `da5472c` | KBC | medición (gabarito novo por capacidade) | isa-oraculo-v2 / EXTENSOES-D v2-B | vinculo-estrutural | 7 | 7 | 0 | 0 | 0 | 0 | `B-da5472c-v2.jsonl` (`4d890aedab…`) |
@@ -117,16 +168,18 @@ Xerada por `scripts/…/d/medida/matriz_v2.mjs` a partir de `data/…/d/medidas/
 
 | fronte | SHA | conxunto | gabarito | capacidade | fila | razón |
 |---|---|---|---|---|---|---|
-| C | `8ea5821` | medición | isa-oraculo-v2 / EXTENSOES-D v2 | KC1v | `KC1v-movea-l-imm-a1` | §12.10 h conxelou a expectativa de fronteira (a lista de §3 non admite inmediato en MOVEA). §12.10 j re-etiqueta o eixe: se a ferramenta dec |
-| C | `8ea5821` | medición | isa-oraculo-v2 / EXTENSOES-D v2 | KC3v | `KC3v-move-b-para-an` | restaura en v2 a clase «combinação inválida detectábel» que §12.6 tivo que retirar (`327c` é MOVEA.W lexítima, non hai codificación propia). |
-| C | `8ea5821` | holdout compatible (novo) | isa-oraculo-v2 / EXTENSOES-D v2 | KC1v | `HO-KC1v-movea-w-imm-a3` | §3 di «`#imm` só em MOVE», así que a prosa restringe o inmediato tamén a MOVEA.L; o instrumento codifica e decodifica `367C1234` como `movea |
-| C | `8ea5821` | holdout compatible (novo) | isa-oraculo-v2 / EXTENSOES-D v2 | KC4v | `HO-KC4-trap-15` | fronteira opaca graduada como recusa limpa, co vocabulario real de C (R13: {"indirect-opaco":"indirect-opaque","fora-da-rexión":"fora-da-reg |
+| C | `8ea5821` | medición | isa-oraculo-v2 / EXTENSOES-D v2 | KC1v | `KC1v-movea-l-imm-a1` | **SUPERADA:** expectativa v2 superada por R-3 de C + instrumento (§12.17 c); en 5f97368 a fila retificada dá PASS. §12.10 h conxelou a expectativa de fronteira (a lista de §3 non admite inmediato en MOVEA). §12.10 j re-etiqueta o eixe: se a ferramenta dec |
+| C | `8ea5821` | medición | isa-oraculo-v2 / EXTENSOES-D v2 | KC3v | `KC3v-move-b-para-an` | **SEGUIMENTO:** en `5f97368` a mesma fila dá PASS (medición v3). restaura en v2 a clase «combinação inválida detectábel» que §12.6 tivo que retirar (`327c` é MOVEA.W lexítima, non hai codificación propia). |
+| C | `8ea5821` | holdout compatible (novo) | isa-oraculo-v2 / EXTENSOES-D v2 | KC1v | `HO-KC1v-movea-w-imm-a3` | **SUPERADA:** mesma expectativa v2 superada (§12.17 c); non se re-gradúa a evidencia, publícase como superada. §3 di «`#imm` só em MOVE», así que a prosa restringe o inmediato tamén a MOVEA.L; o instrumento codifica e decodifica `367C1234` como `movea |
+| C | `8ea5821` | holdout compatible (novo) | isa-oraculo-v2 / EXTENSOES-D v2 | KC4v | `HO-KC4-trap-15` | **SEGUIMENTO:** defecto real de C (máscara de TRAP de 3 bits) corrixido en `5b45931`; en `5f97368` a mesma fila dá PASS na regresión e `V3-TR-8`/`HO-TR-9`/`HO-TR-15` pasan (§12.17 b). fronteira opaca graduada como recusa limpa, co vocabulario real de C (R13: {"indirect-opaco":"indirect-opaque","fora-da-rexión":"fora-da-reg |
+| C | `5f97368` | regresión: holdout v2 gastado (NON é holdout deste SHA) | EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA) | KC1v | `HO-KC1v-movea-w-imm-a3` | **SUPERADA:** mesma expectativa v2 superada (§12.17 c); non se re-gradúa a evidencia, publícase como superada. §3 di «`#imm` só em MOVE», así que a prosa restringe o inmediato tamén a MOVEA.L; o instrumento codifica e decodifica `367C1234` como `movea |
 
 ## VOID vixentes (defecto de autoría de D, retirados do denominador)
 
 | fronte | SHA | conxunto | gabarito | capacidade | fila | razón |
 |---|---|---|---|---|---|---|
 | D | `8ea5821` | medición | isa-oraculo-v2 / EXTENSOES-D v2 | KC3v | `KC3-bsr-l-68020-VOID` | §12.10 i: BSR.S está DENTRO da lista de §3 (liñas 88-90) e a lectura do byte depende da táboa de símbolos do desmontador (`bsrs` nun bloque, |
+| D | `5f97368` | medición v3 (expectativa retificada + cx5) | isa-oraculo-v2 / EXTENSOES-D v3-C | KC3v | `KC3-bsr-l-68020-VOID` | §12.10 i: BSR.S está DENTRO da lista de §3 (liñas 88-90) e a lectura do byte depende da táboa de símbolos do desmontador (`bsrs` nun bloque, |
 
 ## Controis non puntuados con resultado incoherente/inconclusivo (vixentes)
 
@@ -136,6 +189,8 @@ Xerada por `scripts/…/d/medida/matriz_v2.mjs` a partir de `data/…/d/medidas/
 | C | `8ea5821` | medición | `CONTROLE-MEDIR-CX2` | INCONCLUSIVE | capacidade presente en 8ea5821 e non exercitada polo denominador: publícase como `descoñecido`, non como heredada de `analyze` (R18) |
 | C | `8ea5821` | holdout compatible (novo) | `CONTROLE-COHERENCIA-CX4` | INCOHERENTE | a cobertura é exactamente Σ das instrucións decodificadas (22 B) e ningunha fronteira suma bytes: se o valor difire de 20, o motivo é unha i |
 | C | `8ea5821` | holdout compatible (novo) | `CONTROLE-MEDIR-CX2` | INCONCLUSIVE | capacidade presente en 8ea5821 e non exercitada polo denominador: publícase como `descoñecido`, non como heredada de `analyze` (R18) |
+| C | `5f97368` | medición v3 (expectativa retificada + cx5) | `CONTROLE-MEDIR-CX2` | INCONCLUSIVE | capacidade presente en 8ea5821 e non exercitada polo denominador: publícase como `descoñecido`, non como heredada de `analyze` (R18) |
+| C | `5f97368` | regresión: holdout v2 gastado (NON é holdout deste SHA) | `CONTROLE-MEDIR-CX2` | INCONCLUSIVE | capacidade presente en 8ea5821 e non exercitada polo denominador: publícase como `descoñecido`, non como heredada de `analyze` (R18) |
 | B | `da5472c` | medición (gabarito novo por capacidade) | `KBE-slot-5` | INCONCLUSIVE | non hai un oitavo ponteiro independente que delimite o fin do sexto slot: o tamaño non se adiviña |
 | B | `da5472c` | medición (gabarito novo por capacidade) | `KBE-equivalencia` | INCONCLUSIVE | non hai decoder independente: `enigma_research.py` é da familia B (espello, R10) e o decoder externo foi excluído por política |
 

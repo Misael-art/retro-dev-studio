@@ -1582,3 +1582,59 @@ como segunda mostra, non como prova cega.
 alcance de D), `rex-cfg medir`, e a unión C→A (`cruzar-rexcfg-A.sh` con binario de `275f2af`: decisión
 de A repinar). `abs.W` con bit15=1 non o exercitan as cadeas reais de A (segundo C): o holdout cobre a
 extensión de sinal en C; en A segue como `KA1v-lea-w-alto` (recusa por mapper).
+
+## 12.18 Resultados v3 (A `6ae4f02`, C `5f97368`) — executados despois do conxelamento de §12.17
+
+Os números saen de `MATRIZ-D-v2.md` (xerada das evidencias auditadas); se difiren, manda a matriz.
+Comandos: `adapt_a_v3.mjs --conjunto medicao|holdout`, `adapt_c_v3.mjs --conjunto medicao|holdout|regresion-holdout-v2`,
+`matriz_v2.mjs`. Controis do escore (miden a D): `adapt_c_v3.test.mjs` e `adapt_a_v3.test.mjs`, 28 verdes.
+
+| fronte | SHA | conxunto | resultado |
+|---|---|---|---|
+| A | `6ae4f02` | público v3 (35 con par declarado + 10 segmentos) | **45/45 PASS** + 2 controis non puntuados |
+| A | `6ae4f02` | holdout v3 (35 + 10; **parcialmente visto**, §12.17 e) | **45/45 PASS** + 1 control |
+| C | `5f97368` | público v3 (42 con `cx1` retificada + 13 `cx5`) | **55/55 PASS**; 1 VOID herdado (`KC3-bsr-l-68020-VOID`, defecto de D de §12.10 i) |
+| C | `5f97368` | holdout v3 (`ho5`, 13) | **13/13 PASS** |
+| C | `5f97368` | regresión: holdout v2 gastado (37) | 36 PASS · 1 FAIL (`HO-KC1v-movea-w-imm-a3`, expectativa v2 **superada**) — **non é holdout deste SHA** |
+
+### a) `TRAP #n`: a divergencia contrato↔código, medida e pechada
+
+- En `8ea5821`: FAIL (`opcode-fora-do-subconjunto`, `0x4E4F`). Segue como **perda real e histórica** na matriz,
+  co seguimento: defecto real de C, corrixido por C en `5b45931`.
+- En `5f97368`: `V3-TR-0/4/8`, `HO-TR-1/9/15` (vectores onde a máscara de 3 bits vella e a nova diverxen) e a
+  reexecución de `HO-KC4-trap-15` dan **PASS** (instrución `trap` de 2 B e fronteira `trap-opaco`). A lectura
+  adoptada é a **independente** (o instrumento le `4E40..4E4F` como `trap #0..#15`), non a autoridade da prosa nin
+  a do código. O escore ten un control que o fai fallar se a fronteira ou o tamaño difiren
+  (`V3-TR-8: fronteira distinta/tam distinto ⇒ FAIL`).
+
+### b) `MOVEA` imediato: expectativa superada, non regresión
+
+`KC1v-movea-l-imm-a1` (público) e `HO-KC1v-movea-w-imm-a3` (holdout v2) eran FAIL contra unha expectativa de D que o
+contrato de C retificou (R-3) e que o instrumento desmente. En v3 a fila pública retificada dá PASS. O FAIL da
+regresión do holdout v2 non se re-gradúa (a evidencia é a que é): a matriz márcao `SUPERADA`. A implementación
+correcta non ten que reproducir o erro antigo (nin se conta como falla de seguranza).
+
+### c) `abs.W` con extensión de sinal e `consultar` v2
+
+`V3-AW-0`/`HO-AW-0` (`jsr (0x8000).w`, `jsr (0xC000).w`): aresta con alvo `0xFFFF8000`/`0xFFFFC000` e `fora-da-regiao`;
+`consultar` devolve `endereco-efetivo` sign-estendido, `endereco-de-barramento` de 24 bits, `offset-de-objeto` nulo cando
+cae fóra do obxecto e `promovivel-vinculo-estrutural: nao` (raíz `candidato`). Os controis negativos probaron que o escore
+falla se o alvo se espera zero-estendido (o erro histórico de D), se o barramento ou o offset difiren ou se se espera
+promoción. Seguen sen cubrirse: promoción con proveniencia autorizada e `medir`.
+
+### d) A: cambio de contrato, non regresión
+
+Co contrato v2 (par automático pola xanela de 16 B) `6ae4f02` **non** promove a cadea (`referencia-estatica`,
+`tramo-non-modelado:5-palabras`; publicado en `CONTROLE-V2-SEM-DECLARAR`, non puntúa). Co par declarado
+(`--chamada-sitio`, sitio que o GAS puxo) as 35 filas v2 dan PASS. Os seis casos de segmento confirman a gramática
+publicada por A: `limpo` promove; `bra`, `rts`, `sobrescrito`, `dous candidatos` e `nop` non (cos rótulos
+`segmento-roto:*`, `ventana-ambigua:2-candidatos`, `tramo-non-modelado`); os declarados promoven con `par-declarado`; un sitio
+declarado que non é chamada dá `ERRO(5) NonForma`. Isto **confirma, non refuta**, a decisión de A de non promover pola
+xanela a ciegas; o límite de A (heurística recta, sen alcanzabilidade) e as cadeas reais quedan fóra.
+
+### e) Límites desta rolda
+
+- O holdout A `ho3` non é cego (§12.17 e); `cx5`/`ho5`/segmentos son pequenos (10–13 filas) e cobren só o que A e C
+  anunciaron como cambio; `detectar`, `medir`, cadeas BYOR reais e a unión C→A non se cobren.
+- Os `contem` dos segmentos son rótulos publicados por A, non unha ISA independente; `sobrescrit` é substring.
+- Outros SHAs posteriores a `6ae4f02`/`5f97368` non se miden; B segue en `da5472c` (§12.15).

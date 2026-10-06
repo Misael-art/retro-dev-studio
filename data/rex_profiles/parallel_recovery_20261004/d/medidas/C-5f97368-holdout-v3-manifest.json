@@ -1,0 +1,32 @@
+{
+  "esquema": "rex-parallel-d/evidencia/1",
+  "gerado_em": "2026-10-06",
+  "arquivo": "data/rex_profiles/parallel_recovery_20261004/d/medidas/C-5f97368-holdout-v3.jsonl",
+  "linhas": 13,
+  "sha256": "22151637e392a15fb954a7ae3fe45a1fac3b79f8c2a4f1e9638b05b743e0afbf",
+  "conjunto": "holdout",
+  "pin": {
+    "arquivo": "pin-holdout-c-v3.json",
+    "sha256": "7f84f14e7035b1beb6b59a7cd2e040d7433ef9ff98ddd9edac0e1d37bdaf7554"
+  },
+  "denominador": {
+    "partes": {
+      "KC4v": 6,
+      "KC1v": 4,
+      "CVv": 3
+    },
+    "total": 13
+  },
+  "frente": "C",
+  "sha_frente": "5f97368942e3255e08e8f0dbe6e6ab6be8ab09e1",
+  "gabarito": "isa-oraculo-v2",
+  "contrato": "EXTENSOES-D v3-C",
+  "procedencia": {
+    "frente": "C_novo2",
+    "sha": "5f97368942e3255e08e8f0dbe6e6ab6be8ab09e1",
+    "arquivos": 82,
+    "divergentes": [],
+    "faltantes": [],
+    "ok": true
+  }
+}

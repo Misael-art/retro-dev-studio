@@ -16,6 +16,9 @@ import { MEDIDAS, RAIZ, sha256 } from "./ferramentas.mjs";
 const V1 = "v1 (táboa ISA antiga / bytes a man; control histórico)";
 const V2 = "isa-oraculo-v2 / EXTENSOES-D v2";
 const V2B = "isa-oraculo-v2 / EXTENSOES-D v2-B";
+const V3A = "isa-oraculo-v2 / EXTENSOES-D v3-A";
+const V3C = "isa-oraculo-v2 / EXTENSOES-D v3-C";
+const V3CREG = "EXTENSOES-D v2 (holdout gastado de 8ea5821; reexecución, non holdout deste SHA)";
 
 /** Cada entrada: evidencia, conxunto e versión de gabarito. A orde é a da publicación. */
 export const ENTRADAS = [
@@ -23,6 +26,11 @@ export const ENTRADAS = [
   { ev: "A-holdout-v2", conxunto: "holdout compatible (novo)", gab: V2 },
   { ev: "C-8ea5821-v2", conxunto: "medición", gab: V2 },
   { ev: "C-holdout-v2", conxunto: "holdout compatible (novo)", gab: V2 },
+  { ev: "A-6ae4f02-v3", conxunto: "medición v3 (par declarado + segmentos)", gab: V3A },
+  { ev: "A-6ae4f02-holdout-v3", conxunto: "holdout v3 compatible (novo; parcialmente visto, §12.17 e)", gab: V3A },
+  { ev: "C-5f97368-v3", conxunto: "medición v3 (expectativa retificada + cx5)", gab: V3C },
+  { ev: "C-5f97368-holdout-v3", conxunto: "holdout v3 compatible (novo)", gab: V3C },
+  { ev: "C-5f97368-regresion-holdout-v2", conxunto: "regresión: holdout v2 gastado (NON é holdout deste SHA)", gab: V3CREG },
   { ev: "B-da5472c-v2", conxunto: "medición (gabarito novo por capacidade)", gab: V2B },
   { ev: "B-da5472c", conxunto: "medición (gabarito v1 reexecutado)", gab: V1 },
   { ev: "A-cbb6895", conxunto: "medición histórica", gab: V1, historico: true },
@@ -45,6 +53,17 @@ const ler = (ev) => {
   return { linhas, manifesto: m, sha256: m.sha256 };
 };
 
+/** Expectativas de D superadas por unha retificación versionada (§12.17 c): o FAIL
+ *  histórico NON se reescribe, pero a matriz di que a expectativa xa non é a vixente. */
+export const SUPERADAS = {
+  "KC1v-movea-l-imm-a1": "expectativa v2 superada por R-3 de C + instrumento (§12.17 c); en 5f97368 a fila retificada dá PASS",
+  "HO-KC1v-movea-w-imm-a3": "mesma expectativa v2 superada (§12.17 c); non se re-gradúa a evidencia, publícase como superada",
+};
+/** Perdas reais de `8ea5821` que unha entrega posterior corrixiu: o FAIL queda, co seguimento medido. */
+export const SEGUIMENTO = {
+  "HO-KC4-trap-15": "defecto real de C (máscara de TRAP de 3 bits) corrixido en `5b45931`; en `5f97368` a mesma fila dá PASS na regresión e `V3-TR-8`/`HO-TR-9`/`HO-TR-15` pasan (§12.17 b)",
+  "KC3v-move-b-para-an": "en `5f97368` a mesma fila dá PASS (medición v3)",
+};
 const pontua = (l) => l.pontua !== false && (l.extras?.fora_do_denominador ?? l.fora_do_denominador) !== true;
 const nivelDe = (l) => l.extras?.nivel ?? l.nivel ?? null;
 const resumo = (s, n = 140) => String(s ?? "").replace(/\s+/g, " ").slice(0, n);
@@ -80,7 +99,7 @@ export function construir() {
         evidencia: `${e.ev}.jsonl`, evidencia_sha256: shaEv,
       });
       for (const l of p.filter((x) => x.veredito === "FAIL")) {
-        perdas.push({ frente: l.frente, sha: (l.sha_frente ?? "").slice(0, 7), conxunto: e.conxunto, gabarito: e.gab, capacidade: cap, fila: l.fila, historico: !!e.historico,
+        perdas.push({ frente: l.frente, sha: (l.sha_frente ?? "").slice(0, 7), conxunto: e.conxunto, gabarito: e.gab, capacidade: cap, fila: l.fila, historico: !!e.historico, superada: SUPERADAS[l.fila] ?? null, seguimento: (e.ev === "C-8ea5821-v2" || e.ev === "C-holdout-v2") ? SEGUIMENTO[l.fila] ?? null : null,
           razon: resumo(l.desvio ?? l.motivo ?? JSON.stringify(l.divergencias?.[0] ?? "")) });
       }
       for (const l of nao.filter((x) => x.veredito === "VOID")) {
@@ -101,6 +120,8 @@ const TXT_LIMITES = [
   "A (A bd40e92): o holdout cobre xeometría, datos e enderezos novos; a gramática de A é pechada, así que **non xeneraliza a formas non declaradas**.",
   "C (8ea5821): a disxunción do holdout é de palabras e sitios, non de clases de instrución; un FAIL de `coherencia-contrato-código` é unha diverxencia prosa↔código, non un fallo de seguranza.",
   "B (da5472c): sen decoder Enigma independente, `KBE` non mide equivalencia de saída; `KBE-slot-5` e `KBE-equivalencia` quedan `descoñecido` (INCONCLUSIVE, non VOID: VOID reservase a defectos de autoría de D). O CRAM está só ao nivel `vinculo-estrutural` (E22 de B).",
+  "A (A 6ae4f02): o contrato de emparellamento mudou por decisión versionada de A (xanela recta, limpa e única; o resto por `--chamada-sitio`); a medición v3 declara o par e a v2 sen declarar queda como control. `detectar` e as cadeas reais non se cobren.",
+  "C (C 5f97368): a expectativa v2 de `KC1v-movea-l-imm-a1` está retificada (R-3). O FAIL de `HO-KC1v-movea-w-imm-a3` na regresión do holdout v2 é a mesma expectativa superada e aparece marcado. O holdout v2 reexecutado NON é holdout deste SHA.",
   "As filas do gabarito v1 conservan os seus vereditos históricos; a súa interpretación («A regrediu») está retificada en §12.16 e non se usa como gabarito do perfil corrixido.",
 ];
 
@@ -129,7 +150,7 @@ export function md({ filas, perdas, voids, controis }) {
     for (const r of rows) out.push(`| ${cols.map((c) => String(c[1](r)).replace(/\|/g, "\\|")).join(" | ")} |`);
     out.push("");
   };
-  const cols = [["fronte", (r) => r.frente], ["SHA", (r) => `\`${r.sha}\``], ["conxunto", (r) => r.conxunto], ["gabarito", (r) => r.gabarito], ["capacidade", (r) => r.capacidade], ["fila", (r) => `\`${r.fila}\``], ["razón", (r) => r.razon]];
+  const cols = [["fronte", (r) => r.frente], ["SHA", (r) => `\`${r.sha}\``], ["conxunto", (r) => r.conxunto], ["gabarito", (r) => r.gabarito], ["capacidade", (r) => r.capacidade], ["fila", (r) => `\`${r.fila}\``], ["razón", (r) => (r.superada ? `**SUPERADA:** ${r.superada}. ` : "") + (r.seguimento ? `**SEGUIMENTO:** ${r.seguimento}. ` : "") + r.razon]];
   lista("Perdas (FAIL) vixentes", perdas.filter((r) => !r.historico && r.gabarito !== V1), cols);
   lista("VOID vixentes (defecto de autoría de D, retirados do denominador)", voids.filter((r) => !r.historico && r.gabarito !== V1), cols);
   lista("Controis non puntuados con resultado incoherente/inconclusivo (vixentes)", controis.filter((r) => !r.historico && !/v1/.test(r.conxunto)), [["fronte", (r) => r.frente], ["SHA", (r) => `\`${r.sha}\``], ["conxunto", (r) => r.conxunto], ["fila", (r) => `\`${r.fila}\``], ["veredito", (r) => r.veredito], ["razón", (r) => r.razon]]);
