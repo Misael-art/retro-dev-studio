@@ -700,7 +700,7 @@ pub fn celula_com_pins(
             saida_offset,
             saida_offset_hex: format!("{saida_offset:#x}"),
             palavra_indice: saida_offset / 2,
-            byte_na_palavra: if saida_offset % 2 == 0 { "alto" } else { "baixo" }.to_string(),
+            byte_na_palavra: if saida_offset.is_multiple_of(2) { "alto" } else { "baixo" }.to_string(),
             endereco_ram_hex: format!(
                 "{:x}",
                 cons::BASE_LAYOUT + linha * cons::STRIDE + coluna
@@ -780,7 +780,7 @@ mod tests {
             n: 0,
         };
         for &w in blocos {
-            b.put(0b1_00_1111, 7);
+            b.put(0b100_1111, 7);
             for j in (0..5u32).rev() {
                 b.put(u32::from(w >> (11 + j)) & 1, 1);
             }
@@ -1134,7 +1134,7 @@ mod tests {
             n: 0,
         };
         for _ in 0..129 {
-            b.put(0b1_00_1111, 7);
+            b.put(0b100_1111, 7);
             b.put(0, 16);
         }
         b.put(0x7F, 7);
@@ -1155,7 +1155,7 @@ mod tests {
             n: 0,
         };
         for _ in 0..127 {
-            b.put(0b1_00_1111, 7);
+            b.put(0b100_1111, 7);
             b.put(0, 16);
         }
         b.put(0x7F, 7);
@@ -1180,7 +1180,7 @@ mod tests {
         let p = f.pins[1];
         let stream = f.rom[p.offset..p.offset + p.consumidos].to_vec();
         let mut rom = vec![0u8; 0x1000];
-        for (off, esperado_par) in [(0x100usize, 0usize), (0x101, 1)] {
+        for off in [0x100usize, 0x101] {
             rom.iter_mut().for_each(|b| *b = 0);
             rom[off..off + stream.len()].copy_from_slice(&stream);
             let pin = PinLayout { offset: off, ..p };
@@ -1192,10 +1192,14 @@ mod tests {
                 "off {off:#x}"
             );
             assert_eq!(
-                d.stats.bytes_armazenados % 2 == 0,
-                (off + d.stats.bytes_armazenados) % 2 == off % 2
+                d.stats.bytes_armazenados,
+                d.stats.bytes_lidos + d.stats.padding_console
             );
-            let _ = esperado_par;
+            // o fim armazenado cai sempre em endereço par
+            assert!(
+                (off + d.stats.bytes_armazenados).is_multiple_of(2),
+                "off {off:#x}"
+            );
         }
     }
 
