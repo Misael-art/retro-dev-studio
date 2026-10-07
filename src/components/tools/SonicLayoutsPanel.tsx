@@ -11,6 +11,7 @@ import {
   type SonicLayoutsInfo,
   type SonicLayoutsSelection,
 } from "../../core/ipc/toolsService";
+import { SonicSsWallPanel } from "./SonicSsWallPanel";
 import { cellPixels, clampZoom, idAt, idLabel, idTint, moveCursor, showsIdText, ZOOM_MAX, ZOOM_MIN } from "./sonicLayoutsNav";
 
 interface Props {
@@ -505,6 +506,9 @@ export function SonicLayoutsPanel({ sessionId, romRevision, savedSelection, rest
                   <div className="mt-1 text-[9px] text-[#7f849c]">
                     Prova: vínculo estrutural estático. O que o campo significa e o desenho apontado ainda são desconhecidos.
                   </div>
+                )}
+                {cell.id >= 1 && cell.id_hex && (
+                  <SonicSsWallPanel sessionId={sessionId} romSha256={cell.rom_sha256} blockId={cell.id} />
                 )}
                 {idMismatch && <div className="mt-1 text-[#f38ba8]">Divergência interna: a grade mostra {idLabel(gridId as number)} mas o núcleo resolveu {cell.id_hex}.</div>}
               </>

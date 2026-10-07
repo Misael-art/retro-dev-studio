@@ -476,6 +476,49 @@ export interface InspectionEdit {
   base_rom_sha256_after?: string | null;
   /** true quando o valor solicitado ja era o vigente: ok explicito, nenhuma escrita. */
   noop?: boolean;
+  /** Recurso comprimido reinserido em slot (formato `md_4bpp_kosinski_stream`). */
+  stream_len?: number | null;
+  slot_len?: number | null;
+  guards_verified?: number | null;
+  patch_bps_path?: string | null;
+  patch_bps_sha256?: string | null;
+}
+
+/** Edicao de pixel 4bpp de um tile (linha/coluna 0..7, indice 0..15). */
+export interface SorPixelEdit {
+  tile: number;
+  row: number;
+  col: number;
+  index: number;
+}
+
+export interface SorGlyph {
+  tile: number;
+  label: string;
+  /** observed = medido no core; inferred = por contiguidade do alfabeto. */
+  basis: "observed" | "inferred";
+}
+
+export interface SorFontInfo {
+  profile_id: string;
+  resource_id: string;
+  supported: boolean;
+  diagnostic: string;
+  rom_sha256: string;
+  stream_offset: number;
+  slot_len: number;
+  plain_len: number;
+  tiles: number;
+  consumers: { offset: number; note: string }[];
+  glyphs: SorGlyph[];
+  original_plain_b64: string;
+  current_plain_b64: string;
+  current_stream_len: number;
+  tiles_changed: number[];
+  copy_active: boolean;
+  scope_note: string;
+  proof: string[];
+  limits: string[];
 }
 
 /** Registro cumulativo de uma edicao efetivamente aplicada a copia imutavel. */
@@ -1036,6 +1079,79 @@ export function inspectionSonicLayoutCell(
   });
 }
 
+export interface SsWallsElo {
+  ordem: number;
+  de: string;
+  para: string;
+  origem: string;
+  nivel: string;
+}
+
+export interface SsWallsArt {
+  cue_indice: number;
+  stream_offset_hex: string;
+  vram_hex: string;
+  tile_inicial: number;
+  tiles: number;
+  bytes_lidos: number;
+  posicao_na_arte: number;
+  nivel: string;
+}
+
+export interface SsWallsComposition {
+  formato: string;
+  sessao_id: string;
+  rom_sha256: string;
+  id: number;
+  id_hex: string;
+  status:
+    | "composta"
+    | "id-zero"
+    | "fora-da-tabela"
+    | "mapping-nao-decodificado"
+    | "estrutura-sem-confirmacao"
+    | "frame-vazio"
+    | "tile-fora-da-arte"
+    | "arte-sem-cue";
+  explicacao: string;
+  frame: number | null;
+  linha_paleta: number | null;
+  largura: number;
+  altura: number;
+  x0: number;
+  y0: number;
+  pixels_hex: string;
+  rgba_hex: string;
+  paleta_rotulo: string;
+  tiles_usados: number[];
+  tiles_vazios: number[];
+  cadeia: SsWallsElo[];
+  integridade: string;
+  aviso_frame: string;
+  arte_vinculada?: SsWallsArt | null;
+  arte_explicacao?: string;
+  frames_total?: number;
+  frames_confirmados?: number[];
+  nivel_confirmacao?: string;
+  pecas?: number;
+}
+
+export function inspectionSonicSsWallCompose(
+  sessionId: string,
+  expectedRomSha256: string,
+  id: number,
+  frame: number,
+  requestId?: string
+): Promise<SsWallsComposition> {
+  return invoke<SsWallsComposition>("rex_inspection_sonic_ss_wall_compose", {
+    sessionId,
+    expectedRomSha256,
+    id,
+    frame,
+    requestId: requestId ?? null,
+  });
+}
+
 export function inspectionSonicLayoutsCancel(requestId: string): Promise<boolean> {
   return invoke<boolean>("rex_inspection_sonic_layouts_cancel", { requestId });
 }
@@ -1553,4 +1669,14 @@ export function rexResourceContextHit(
     x,
     y,
   });
+}
+
+/** Perfil Streets of Rage: estado da fonte Kosinski (ou diagnostico de ROM sem perfil). */
+export function inspectionSorFontInfo(sessionId: string): Promise<SorFontInfo> {
+  return invoke<SorFontInfo>("rex_inspection_sor_font_info", { sessionId });
+}
+
+/** Reinsere a fonte editada no slot original (revalida, recomprime, gera BPS). */
+export function inspectionEditSorFont(sessionId: string, pixels: SorPixelEdit[]): Promise<InspectionEdit> {
+  return invoke<InspectionEdit>("rex_inspection_edit_sor_font", { sessionId, pixels });
 }

@@ -153,6 +153,18 @@ pub struct InspectionEdit {
     /// de SHA inalterada. Idempotência legítima, não falha técnica.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub noop: bool,
+    /// Recursos comprimidos reinseridos em slot (ex.: fonte Kosinski do SoR):
+    /// bytes do novo stream, bytes do slot e BPS canônico gerado pela transação.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stream_len: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slot_len: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guards_verified: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patch_bps_path: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub patch_bps_sha256: Option<String>,
 }
 
 /// Registro cumulativo de cada edição Sonic aplicada à cópia da sessão.
@@ -1536,6 +1548,11 @@ fn sonic_edit_record(frame_id: &str, format: &str) -> InspectionEdit {
         pixels_changed: None,
         base_rom_sha256_after: None,
         noop: false,
+        stream_len: None,
+        slot_len: None,
+        guards_verified: None,
+        patch_bps_path: None,
+        patch_bps_sha256: None,
     }
 }
 
@@ -1839,6 +1856,42 @@ pub fn set_layouts_selection(
     Ok(stored.session)
 }
 
+pub fn sonic_ss_walls_info(
+    session_id: &str,
+    expected_rom_sha256: Option<&str>,
+    request_id: Option<&str>,
+) -> Result<super::sonic_ss_walls::SsWallsInfo, String> {
+    let token = super::sonic_layouts::TokenCancel::novo(request_id)?;
+    let stored = get_stored_session(session_id)?;
+    let (base, rom) = super::sprite_composition::read_sonic_session_rom(&stored.session)
+        .map_err(|e| error("layouts_rom_unreadable", e, false))?;
+    super::sonic_ss_walls::info(&base, &rom, session_id, expected_rom_sha256, &|| {
+        token.cancelado()
+    })
+}
+
+pub fn sonic_ss_walls_compose(
+    session_id: &str,
+    expected_rom_sha256: &str,
+    id: u8,
+    frame: usize,
+    request_id: Option<&str>,
+) -> Result<super::sonic_ss_walls::SsWallsComposicao, String> {
+    let token = super::sonic_layouts::TokenCancel::novo(request_id)?;
+    let stored = get_stored_session(session_id)?;
+    let (base, rom) = super::sprite_composition::read_sonic_session_rom(&stored.session)
+        .map_err(|e| error("layouts_rom_unreadable", e, false))?;
+    super::sonic_ss_walls::compor(
+        &base,
+        &rom,
+        session_id,
+        expected_rom_sha256,
+        id,
+        frame,
+        &|| token.cancelado(),
+    )
+}
+
 pub fn sonic_layout_cell(
     session_id: &str,
     expected_rom_sha256: &str,
@@ -1931,9 +1984,431 @@ pub fn restore_sonic_sequence(
     persist_sonic_edit(stored, &base, &previous, &rom, edit)
 }
 
+// ---------------------------------------------------------------------------
+// Streets of Rage (World, PtBr): fonte Kosinski reinserida no slot original.
+// O perfil (`streets_of_rage`) dá identidade e prova; a transação é a genérica
+// (`rex_kosinski_resource`). Aqui só há sessão, cópia, ledger e persistência.
+// ---------------------------------------------------------------------------
+
+static SOR_EDIT_GUARD: Mutex<()> = Mutex::new(());
+
+/// Pixel de tile 4bpp (linha/coluna 0..7, índice 0..15).
+pub type SorPixelEdit = super::rex_resources::PixelEdit;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SorGlyph {
+    pub tile: u32,
+    pub label: String,
+    /// "observed" (medido no core) ou "inferred" (contiguidade do alfabeto).
+    pub basis: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SorConsumer {
+    pub offset: u64,
+    pub note: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SorFontInfo {
+    pub profile_id: String,
+    pub resource_id: String,
+    pub supported: bool,
+    /// Diagnóstico preciso quando a ROM não tem perfil.
+    pub diagnostic: String,
+    pub rom_sha256: String,
+    pub stream_offset: u64,
+    pub slot_len: u32,
+    pub plain_len: u32,
+    pub tiles: u32,
+    pub consumers: Vec<SorConsumer>,
+    pub glyphs: Vec<SorGlyph>,
+    pub original_plain_b64: String,
+    pub current_plain_b64: String,
+    pub current_stream_len: u32,
+    pub tiles_changed: Vec<u32>,
+    pub copy_active: bool,
+    pub scope_note: String,
+    pub proof: Vec<String>,
+    pub limits: Vec<String>,
+}
+
+fn sor_error(e: super::rex_codecs::CodecError) -> String {
+    error(e.code, e.detail, false)
+}
+
+/// Letras A..Z = tiles 1..26 (medido: 19 letras observadas em 6 ROMs com
+/// código binário por tile, no texto da introdução; as demais por
+/// contiguidade, marcadas como inferidas). 41/42 = pontos observados.
+pub fn sor_glyphs() -> Vec<SorGlyph> {
+    const OBSERVED: &str = "ACDEFGILMNOPQRSTUZ";
+    let mut out = Vec::new();
+    for (i, ch) in ('A'..='Z').enumerate() {
+        out.push(SorGlyph {
+            tile: i as u32 + 1,
+            label: ch.to_string(),
+            basis: if OBSERVED.contains(ch) {
+                "observed"
+            } else {
+                "inferred"
+            }
+            .into(),
+        });
+    }
+    for t in [41u32, 42] {
+        out.push(SorGlyph {
+            tile: t,
+            label: ".".into(),
+            basis: "observed".into(),
+        });
+    }
+    out
+}
+
+/// (base, cópia atual) da sessão, revalidando identidade, escopo e decode.
+/// (base, cópia atual, plain vigente da cópia).
+type SorRoms = (Vec<u8>, Vec<u8>, Vec<u8>);
+
+fn sor_session_roms(session: &InspectionSession) -> Result<SorRoms, String> {
+    use super::rex_kosinski_resource as res;
+    use super::streets_of_rage as sor;
+    let (identity, base) = rex_read_rom(Path::new(&session.rom_path))?;
+    if session.identity.normalized_sha256 != sor::ROM_SHA256
+        || identity.normalized_sha256 != sor::ROM_SHA256
+    {
+        return Err(error(
+            "sor_profile_unsupported",
+            sor::unsupported_reason(&base),
+            false,
+        ));
+    }
+    sor::verify_profile(&base).map_err(|m| error("sor_profile_unproven", m, false))?;
+    let Some(edit) = &session.edit else {
+        let plain = res::verify_base(&base, &sor::slot()).map_err(sor_error)?;
+        return Ok((base.clone(), base, plain));
+    };
+    if edit.resource_id != sor::RESOURCE_ID || edit.original_rom_sha256 != sor::ROM_SHA256 {
+        return Err(error(
+            "sor_edit_identity_mismatch",
+            "A edição da sessão pertence a outra base ou recurso",
+            false,
+        ));
+    }
+    let edits = canonical_dir_under(&decomp_work_dir(), &["extract", sor::ROM_SHA256, "edits"])?;
+    let path = Path::new(&edit.modified_rom_path);
+    super::extract::reject_if_symlink(path)?;
+    if fs::canonicalize(path).map_err(|e| e.to_string())?.parent() != Some(edits.as_path()) {
+        return Err(error(
+            "sor_edit_path_scope",
+            "Cópia editada fora do diretório autorizado",
+            false,
+        ));
+    }
+    let (modified, copy) = rex_read_rom(path)?;
+    if modified.normalized_sha256 != edit.modified_rom_sha256 {
+        return Err(error(
+            "sor_edit_identity_mismatch",
+            "A cópia mudou desde a edição",
+            false,
+        ));
+    }
+    let plain = res::validate_copy(&base, &copy, &sor::slot()).map_err(sor_error)?;
+    Ok((base, copy, plain))
+}
+
+pub fn sor_font_info(session_id: &str) -> Result<SorFontInfo, String> {
+    use super::rex_kosinski_resource as res;
+    use super::streets_of_rage as sor;
+    let stored = get_stored_session(session_id)?;
+    let session = &stored.session;
+    let mut info = SorFontInfo {
+        profile_id: sor::PROFILE_ID.into(),
+        resource_id: sor::RESOURCE_ID.into(),
+        supported: false,
+        diagnostic: String::new(),
+        rom_sha256: session.identity.normalized_sha256.clone(),
+        stream_offset: sor::STREAM_OFFSET as u64,
+        slot_len: sor::STREAM_LEN as u32,
+        plain_len: sor::PLAIN_LEN as u32,
+        tiles: sor::TILES as u32,
+        consumers: Vec::new(),
+        glyphs: Vec::new(),
+        original_plain_b64: String::new(),
+        current_plain_b64: String::new(),
+        current_stream_len: 0,
+        tiles_changed: Vec::new(),
+        copy_active: false,
+        scope_note: sor::SCOPE_NOTE.into(),
+        proof: Vec::new(),
+        limits: Vec::new(),
+    };
+    if session.identity.normalized_sha256 != sor::ROM_SHA256 {
+        info.diagnostic = format!(
+            "ROM sem perfil de edição gráfica: SHA-256 {} não é a imagem do perfil '{}' (Streets of Rage World, tradução PtBr, 512 KiB). Nada foi presumido por extensão ou título.",
+            session.identity.normalized_sha256,
+            sor::PROFILE_ID
+        );
+        return Ok(info);
+    }
+    let (base, copy, plain) = sor_session_roms(session)?;
+    let (orig_plain, _) = res::decode_slot(&base, &sor::slot()).map_err(sor_error)?;
+    let (_, consumed) = res::decode_slot(&copy, &sor::slot()).map_err(sor_error)?;
+    info.supported = true;
+    info.consumers = sor::consumers()
+        .into_iter()
+        .map(|(o, n)| SorConsumer {
+            offset: o as u64,
+            note: n.into(),
+        })
+        .collect();
+    info.glyphs = sor_glyphs();
+    info.original_plain_b64 = BASE64.encode(&orig_plain);
+    info.current_plain_b64 = BASE64.encode(&plain);
+    info.current_stream_len = consumed as u32;
+    info.tiles_changed = plain
+        .chunks(32)
+        .zip(orig_plain.chunks(32))
+        .enumerate()
+        .filter(|(_, (a, b))| a != b)
+        .map(|(i, _)| i as u32)
+        .collect();
+    info.copy_active = session
+        .edit
+        .as_ref()
+        .is_some_and(|e| e.resource_id == sor::RESOURCE_ID);
+    info.proof = vec![
+        format!("ROM {} (membro 'Streets of Rage (World).gen' do zip PtBr, CRC-32 88e4ef3c)", sor::ROM_SHA256),
+        format!("Stream Kosinski base em {:#x}: {} bytes → {} bytes ({} tiles 4bpp), SHA-256 do plain {}", sor::STREAM_OFFSET, sor::STREAM_LEN, sor::PLAIN_LEN, sor::TILES, sor::PLAIN_SHA256),
+        format!("Decoder do jogo em {:#x} ({} bytes, SHA-256 {}), forma Kosinski base idêntica à do Sonic 1", sor::DECODER_OFFSET, sor::DECODER_LEN, sor::DECODER_SHA256),
+        "Execução no core: o decoder do próprio jogo gera em $FF0000 exatamente o plain (original ou editado) e o texto da introdução usa estes tiles".into(),
+        format!("Checksum do cabeçalho em {:#x} é validado no boot (ROM errada = tela vermelha); a edição o recalcula", sor::HEADER_CHECKSUM_OFFSET),
+    ];
+    info.limits = vec![
+        "A paleta real de cada tela não foi lida: a prévia usa escala de cinza por índice (0 = transparente).".into(),
+        "Mapa tile→letra: A–Z = tiles 1–26 (19 letras observadas, 8 inferidas); dígitos e símbolos não foram rotulados.".into(),
+        "Sem relocação: o stream recomprimido precisa caber nos bytes do stream original; senão a edição é recusada.".into(),
+        sor::SCOPE_NOTE.into(),
+    ];
+    Ok(info)
+}
+
+pub fn edit_sor_font(session_id: &str, pixels: &[SorPixelEdit]) -> Result<InspectionEdit, String> {
+    use super::rex_kosinski_resource as res;
+    use super::streets_of_rage as sor;
+    if pixels.len() > sor::PLAIN_LEN * 2 {
+        return Err(error(
+            "edit_pixels_invalid",
+            "Quantidade de pixels fora do limite do recurso",
+            false,
+        ));
+    }
+    let _guard = SOR_EDIT_GUARD.lock().map_err(|e| e.to_string())?;
+    let stored = get_stored_session(session_id)?;
+    let (base, copy, _) = sor_session_roms(&stored.session)?;
+    let outcome = res::apply_pixel_edits(&base, &copy, &sor::slot(), &sor::guards(), pixels)
+        .map_err(sor_error)?;
+    let applied = match outcome {
+        res::Outcome::NoOp => {
+            let mut edit = sonic_edit_record("sor1_font", "md_4bpp_kosinski_stream");
+            edit.resource_id = sor::RESOURCE_ID.into();
+            edit.original_rom_sha256 = sor::ROM_SHA256.into();
+            edit.noop = true;
+            match stored.session.edit.as_ref() {
+                Some(last) => {
+                    edit.modified_rom_sha256 = last.modified_rom_sha256.clone();
+                    edit.modified_rom_path = last.modified_rom_path.clone();
+                }
+                None => {
+                    edit.modified_rom_sha256 = sha256_hex(&copy);
+                    edit.modified_rom_path = stored.session.rom_path.clone();
+                }
+            }
+            return Ok(edit);
+        }
+        res::Outcome::Applied(a) => a,
+    };
+    // A base não pode ter mudado durante a edição.
+    let (base_after, _) = rex_read_rom(Path::new(&stored.session.rom_path))?;
+    if base_after.normalized_sha256 != sor::ROM_SHA256 {
+        return Err(error(
+            "edit_base_modified",
+            "A ROM base mudou durante a edição",
+            false,
+        ));
+    }
+    let mut stored = stored;
+    let rom = &applied.modified_rom;
+    let mut offsets: Vec<u64> = Vec::new();
+    let mut old_bytes: Vec<u8> = Vec::new();
+    let mut new_bytes: Vec<u8> = Vec::new();
+    for (i, (a, b)) in copy.iter().zip(rom.iter()).enumerate() {
+        if a != b {
+            offsets.push(i as u64);
+            old_bytes.push(*a);
+            new_bytes.push(*b);
+        }
+    }
+    let dir = canonical_dir_under(&decomp_work_dir(), &["extract", sor::ROM_SHA256, "edits"])?;
+    let path = dir.join(format!("sor1-font-{}.bin", applied.modified_rom_sha256));
+    write_file_immutable(&path, rom, &applied.modified_rom_sha256)?;
+    let bps_path = dir.join(format!("sor1-font-{}.bps", applied.patch_bps_sha256));
+    write_file_immutable(&bps_path, &applied.patch_bps, &applied.patch_bps_sha256)?;
+    let mut edit = sonic_edit_record("sor1_font", "md_4bpp_kosinski_stream");
+    edit.resource_id = sor::RESOURCE_ID.into();
+    edit.original_rom_sha256 = sor::ROM_SHA256.into();
+    edit.modified_rom_sha256 = applied.modified_rom_sha256.clone();
+    edit.modified_rom_path = path.display().to_string();
+    edit.changed_offsets = applied.changed_offsets.clone();
+    edit.bytes_changed = applied.changed_offsets.len() as u32;
+    edit.art_tiles = applied.tiles_changed.clone();
+    edit.pixels_changed = Some(applied.pixels_changed);
+    edit.base_rom_sha256_after = Some(base_after.normalized_sha256);
+    edit.stream_len = Some(applied.stream_len as u32);
+    edit.slot_len = Some(applied.slot_len as u32);
+    edit.guards_verified = Some(applied.guards_verified as u32);
+    edit.patch_bps_path = Some(bps_path.display().to_string());
+    edit.patch_bps_sha256 = Some(applied.patch_bps_sha256.clone());
+    stored.session.applied_edits.push(SonicAppliedEdit {
+        seq: stored.session.applied_edits.len() as u32 + 1,
+        format: edit.format.clone(),
+        frame_id: edit.frame_id.clone(),
+        summary: format!(
+            "Fonte SoR: {} pixel(s) vs base nos tiles {:?}; stream {}/{} bytes",
+            applied.pixels_changed, applied.tiles_changed, applied.stream_len, applied.slot_len
+        ),
+        offsets,
+        old_bytes,
+        new_bytes,
+        copy_sha256: applied.modified_rom_sha256.clone(),
+        at_unix: now_unix(),
+    });
+    stored.session.edit = Some(edit.clone());
+    persist_session(&decomp_work_dir(), &stored.session)?;
+    sessions()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(stored.session.session_id.clone(), stored);
+    Ok(edit)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn sor_pixel(tile: u32, row: u32, col: u32, index: u8) -> SorPixelEdit {
+        SorPixelEdit {
+            tile,
+            row,
+            col,
+            index,
+        }
+    }
+
+    #[test]
+    #[ignore = "BYOR Streets of Rage; RDS_SOR_ROM e RDS_DECOMP_WORK (isolado) obrigatórios"]
+    fn sor_font_byor_sessao_edita_acumula_reabre_e_recusa() {
+        use super::super::streets_of_rage as sor;
+        let path = std::env::var("RDS_SOR_ROM").expect("BYOR obrigatório");
+        assert!(
+            std::env::var("RDS_DECOMP_WORK").is_ok(),
+            "work isolado obrigatório"
+        );
+        let (_, base) = rex_read_rom(Path::new(&path)).unwrap();
+        let session = open(&path).unwrap();
+        assert_eq!(session.identity.normalized_sha256, sor::ROM_SHA256);
+        // Base: info suportado, cópia ainda não existe.
+        let info = sor_font_info(&session.session_id).unwrap();
+        assert!(info.supported && !info.copy_active && info.tiles_changed.is_empty());
+        assert_eq!(info.original_plain_b64, info.current_plain_b64);
+        // No-op explícito: pixel já vigente (tile 1, linha 0, col 0 vale 0).
+        let noop = edit_sor_font(&session.session_id, &[sor_pixel(1, 0, 0, 0)]).unwrap();
+        assert!(noop.noop && noop.modified_rom_sha256 == sha256_hex(&base));
+        // Edição real: sublinha o tile 1 (letra A) com o índice 1.
+        let px: Vec<SorPixelEdit> = (0..8).map(|c| sor_pixel(1, 7, c, 1)).collect();
+        let e1 = edit_sor_font(&session.session_id, &px).unwrap();
+        assert!(!e1.noop);
+        assert_eq!(e1.art_tiles, vec![1]);
+        assert_eq!(e1.pixels_changed, Some(8));
+        assert!(e1.stream_len.unwrap() <= e1.slot_len.unwrap());
+        assert_eq!(e1.guards_verified, Some(4));
+        assert!(e1
+            .changed_offsets
+            .contains(&(sor::HEADER_CHECKSUM_OFFSET as u64)));
+        // A base em disco não foi tocada; o BPS persistido reproduz a cópia.
+        let (_, base_again) = rex_read_rom(Path::new(&path)).unwrap();
+        assert_eq!(base_again, base);
+        let (_, copy) = rex_read_rom(Path::new(&e1.modified_rom_path)).unwrap();
+        let bps = std::fs::read(e1.patch_bps_path.as_ref().unwrap()).unwrap();
+        assert_eq!(
+            crate::tools::patch_studio::apply_bps(&base, &bps).unwrap(),
+            copy
+        );
+        assert_eq!(sha256_hex(&bps), e1.patch_bps_sha256.clone().unwrap());
+        // Mesmo pedido de novo: no-op (idempotência), sem nova cópia.
+        let again = edit_sor_font(&session.session_id, &px).unwrap();
+        assert!(again.noop && again.modified_rom_sha256 == e1.modified_rom_sha256);
+        // Segunda edição acumula sobre a cópia.
+        let e2 = edit_sor_font(&session.session_id, &[sor_pixel(5, 3, 3, 9)]).unwrap();
+        assert_eq!(e2.art_tiles, vec![1, 5]);
+        // Recusas sem efeito: tile fora do recurso, índice inválido.
+        let before = sor_font_info(&session.session_id)
+            .unwrap()
+            .current_plain_b64;
+        assert!(edit_sor_font(&session.session_id, &[sor_pixel(49, 0, 0, 1)]).is_err());
+        assert!(edit_sor_font(&session.session_id, &[sor_pixel(0, 0, 0, 16)]).is_err());
+        assert_eq!(
+            sor_font_info(&session.session_id)
+                .unwrap()
+                .current_plain_b64,
+            before
+        );
+        // Salvar, "reiniciar" (esquecer a sessão em memória) e reabrir.
+        save(&session.session_id, None).unwrap();
+        sessions().lock().unwrap().remove(&session.session_id);
+        assert!(
+            sor_font_info(&session.session_id).is_err(),
+            "sessão fora da memória não autoriza"
+        );
+        let reopened = reopen(&path, &session.session_id).unwrap();
+        assert_eq!(
+            reopened.edit.as_ref().unwrap().modified_rom_sha256,
+            e2.modified_rom_sha256
+        );
+        assert_eq!(reopened.applied_edits.len(), 2);
+        let info2 = sor_font_info(&session.session_id).unwrap();
+        assert!(info2.copy_active);
+        assert_eq!(info2.tiles_changed, vec![1, 5]);
+        assert_eq!(info2.current_plain_b64, before);
+        // Cópia adulterada no disco é recusada ao reabrir/editar.
+        let mut tampered = std::fs::read(&e2.modified_rom_path).unwrap();
+        tampered[0x100] ^= 1;
+        let tp = Path::new(&e2.modified_rom_path);
+        let mut perm = std::fs::metadata(tp).unwrap().permissions();
+        #[allow(clippy::permissions_set_readonly_false)]
+        perm.set_readonly(false);
+        std::fs::set_permissions(tp, perm).unwrap();
+        std::fs::write(tp, &tampered).unwrap();
+        assert!(sor_font_info(&session.session_id).is_err());
+        assert!(edit_sor_font(&session.session_id, &[sor_pixel(2, 2, 2, 4)]).is_err());
+    }
+
+    #[test]
+    #[ignore = "BYOR Sonic: RDS_SONIC_MULTIFRAME_ROM e RDS_DECOMP_WORK obrigatórios"]
+    fn sor_font_rom_sem_perfil_recebe_diagnostico_e_nao_edita() {
+        let path = std::env::var("RDS_SONIC_MULTIFRAME_ROM").expect("BYOR obrigatório");
+        assert!(std::env::var("RDS_DECOMP_WORK").is_ok());
+        let session = open(&path).unwrap();
+        let info = sor_font_info(&session.session_id).unwrap();
+        assert!(!info.supported);
+        assert!(
+            info.diagnostic.contains("não é a imagem do perfil"),
+            "{}",
+            info.diagnostic
+        );
+        assert!(edit_sor_font(&session.session_id, &[sor_pixel(1, 0, 0, 1)])
+            .unwrap_err()
+            .contains("sor_profile_unsupported"));
+    }
 
     #[test]
     #[ignore = "BYOR Sonic pinado; RDS_SONIC_MULTIFRAME_ROM obrigatório; escreva em RDS_DECOMP_WORK isolado"]
@@ -2479,6 +2954,10 @@ mod tests {
     #[test]
     #[ignore = "BYOR Sonic pinado + core Libretro real; RDS_SONIC_MULTIFRAME_ROM e RDS_DECOMP_WORK obrigatórios"]
     fn sonic_sequence_byor_core_first_wait_frame_becomes_art_03() {
+        // O core Genesis Plus GX (C) usa globais e longjmp do 68k: duas instâncias em threads
+        // concorrentes abortam com "longjmp causes uninitialized stack frame" (reprodução mínima em
+        // scripts/rex_profiles/integration_20261007/core_concurrency_repro.py).
+        let _core_serial = crate::emulator::libretro_ffi::test_serial_guard();
         use super::super::{sonic_cadence as cadence, sonic_sequence as seq};
         use crate::emulator::libretro_ffi::{EmulatorCore, JoypadState};
         let path = std::env::var("RDS_SONIC_MULTIFRAME_ROM").expect("BYOR obrigatório");
@@ -2591,6 +3070,10 @@ mod tests {
     #[test]
     #[ignore = "BYOR Sonic pinado + core real; 2 corridas longas; requer RDS_SONIC_MULTIFRAME_ROM e RDS_DECOMP_WORK"]
     fn sonic_sequence_runtime_oracle_proves_route_and_terminator() {
+        // O core Genesis Plus GX (C) usa globais e longjmp do 68k: duas instâncias em threads
+        // concorrentes abortam com "longjmp causes uninitialized stack frame" (reprodução mínima em
+        // scripts/rex_profiles/integration_20261007/core_concurrency_repro.py).
+        let _core_serial = crate::emulator::libretro_ffi::test_serial_guard();
         use super::super::{sonic_cadence as cadence, sonic_sequence as seq};
         use crate::core::rom_mastering::sha256_hex;
         use crate::emulator::libretro_ffi::{EmulatorCore, JoypadState};
@@ -3633,6 +4116,10 @@ mod tests {
     #[test]
     #[ignore = "BYOR Sonic pinado + core Libretro real; requer RDS_SONIC_MULTIFRAME_ROM e RDS_DECOMP_WORK"]
     fn sonic_cadence_byor_probe_discovers_player_timer_on_real_core() {
+        // O core Genesis Plus GX (C) usa globais e longjmp do 68k: duas instâncias em threads
+        // concorrentes abortam com "longjmp causes uninitialized stack frame" (reprodução mínima em
+        // scripts/rex_profiles/integration_20261007/core_concurrency_repro.py).
+        let _core_serial = crate::emulator::libretro_ffi::test_serial_guard();
         use super::super::{sonic_cadence as cadence, sprite_composition as comp};
         use crate::core::rom_mastering::sha256_hex;
         use crate::emulator::frame_buffer::framebuffer_to_rgba;
@@ -3841,6 +4328,10 @@ mod tests {
     #[test]
     #[ignore = "BYOR Sonic pinado + core real; 6 corridas de ~3300 frames; requer RDS_SONIC_MULTIFRAME_ROM e RDS_DECOMP_WORK"]
     fn sonic_cadence_runtime_oracle_measures_effective_durations_on_real_core() {
+        // O core Genesis Plus GX (C) usa globais e longjmp do 68k: duas instâncias em threads
+        // concorrentes abortam com "longjmp causes uninitialized stack frame" (reprodução mínima em
+        // scripts/rex_profiles/integration_20261007/core_concurrency_repro.py).
+        let _core_serial = crate::emulator::libretro_ffi::test_serial_guard();
         use super::super::{sonic_cadence as cadence, sprite_composition as comp};
         use crate::core::rom_mastering::sha256_hex;
         use crate::emulator::libretro_ffi::{EmulatorCore, JoypadState};

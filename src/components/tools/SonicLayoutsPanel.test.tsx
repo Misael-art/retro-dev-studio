@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   inspectionSonicLayoutCell: vi.fn(),
   inspectionSonicLayoutsCancel: vi.fn(),
   inspectionSetLayoutsSelection: vi.fn(),
+  inspectionSonicSsWallCompose: vi.fn(),
 }));
 
 vi.mock("../../core/ipc/toolsService", () => mocks);
@@ -130,6 +131,7 @@ async function render(props: Partial<React.ComponentProps<typeof SonicLayoutsPan
 beforeEach(() => {
   vi.useRealTimers();
   Object.values(mocks).forEach((m) => m.mockReset());
+  mocks.inspectionSonicSsWallCompose.mockImplementation(() => new Promise(() => undefined));
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);

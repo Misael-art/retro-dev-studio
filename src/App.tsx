@@ -564,6 +564,11 @@ function getInitialWorkspaceGuideExpanded() {
 
 function WorkspaceGuideCard({ guide }: { guide: WorkspaceGuide }) {
   const [expanded, setExpanded] = useState(getInitialWorkspaceGuideExpanded);
+  // Modo de inspeção: o guia do workspace se compacta (sem persistir a preferência) para devolver altura ao editor.
+  const inspectionExpandedGuide = useEditorStore((state) => state.inspectionExpanded);
+  useEffect(() => {
+    if (inspectionExpandedGuide) setExpanded(false);
+  }, [inspectionExpandedGuide]);
   const signalToneClass =
     guide.signal?.tone === "error"
       ? "border-[#f38ba8]/35 bg-[#f38ba8]/10 text-[#f38ba8]"
@@ -1616,6 +1621,8 @@ export default function App() {
   const [toolPanelShowAdvanced, setToolPanelShowAdvanced] = useState(false);
   const [leftPanelTab, setLeftPanelTab] = useState<"scene" | "layers">("scene");
   const [focusedShell, setFocusedShell] = useState(false);
+  const inspectionExpanded = useEditorStore((state) => state.inspectionExpanded);
+  const setInspectionExpanded = useEditorStore((state) => state.setInspectionExpanded);
   const [layoutPreset, setLayoutPreset] = useState<LayoutPresetId>("authoring");
   const [shellWidth, setShellWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1440
@@ -2054,8 +2061,32 @@ export default function App() {
     }
   }
 
+  // Modo de inspeção: reaproveita o layout existente (Group left/center/right); só muda os tamanhos
+  // e restaura o layout anterior ao sair. Sair do workspace de debug também sai do modo.
   useEffect(() => {
-    if (focusedShell) {
+    if (inspectionExpanded && activeWorkspace !== "debug") {
+      setInspectionExpanded(false);
+      return;
+    }
+    if (inspectionExpanded) {
+      const current = panelGroupRef.current?.getLayout();
+      if (current) {
+        lastNonFocusLayoutRef.current = {
+          left: current.left ?? 0,
+          center: current.center ?? 100,
+          right: current.right ?? 0,
+        };
+      }
+      applyShellLayout({ left: 0, center: 20, right: 80 });
+      return;
+    }
+    if (lastNonFocusLayoutRef.current && !focusedShell) {
+      applyShellLayout(lastNonFocusLayoutRef.current);
+    }
+  }, [inspectionExpanded]);
+
+  useEffect(() => {
+    if (focusedShell || inspectionExpanded) {
       return;
     }
 

@@ -150,15 +150,72 @@ pub(crate) fn test_serial_guard() -> std::sync::MutexGuard<'static, ()> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
+/// INVARIANTE DE EXCLUSIVIDADE DO CORE (todo o ciclo de vida).
+///
+/// Os cores libretro em C (Genesis Plus GX em especial) usam globais do processo, callbacks
+/// registrados globalmente e `longjmp` do 68k: duas instâncias vivas — em threads concorrentes
+/// ou intercaladas — corrompem uma à outra (medido: `longjmp causes uninitialized stack frame`,
+/// SIGABRT/SIGSEGV; ver scripts/rex_profiles/integration_20261007/core_concurrency_repro.py).
+/// Por isso existe UM dono por processo: o `CoreLease` é adquirido ANTES de qualquer
+/// `dlopen`/`retro_init`/callback e só é liberado DEPOIS de `retro_unload_game` + `retro_deinit`
+/// (ou quando a carga falha). Uma segunda instância é RECUSADA com `core_busy`; não bloqueia
+/// (sem deadlock) e não toca no estado do dono.
+static CORE_OWNER: Mutex<Option<u64>> = Mutex::new(None);
+static NEXT_CORE_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+pub const CORE_BUSY_CODE: &str = "core_busy";
+
+#[derive(Debug)]
+struct CoreLease {
+    id: u64,
+}
+
+impl CoreLease {
+    fn acquire(id: u64) -> Result<Self, String> {
+        let mut owner = CORE_OWNER
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        match *owner {
+            Some(other) if other != id => Err(format!(
+                "{CORE_BUSY_CODE}: outra instância do emulador (#{other}) já possui o core; \
+                 o core C usa estado global e não admite duas instâncias vivas. \
+                 Pare/descarregue a ROM atual antes de carregar outra."
+            )),
+            _ => {
+                *owner = Some(id);
+                Ok(Self { id })
+            }
+        }
+    }
+}
+
+impl Drop for CoreLease {
+    fn drop(&mut self) {
+        let mut owner = CORE_OWNER
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        if *owner == Some(self.id) {
+            *owner = None;
+        }
+    }
+}
+
 fn install_active_emulator(handle: &EmulatorHandle) -> Result<(), String> {
     let mut slot = active_emulator_slot().lock().map_err(|e| e.to_string())?;
     *slot = Some(handle.clone());
     Ok(())
 }
 
-fn clear_active_emulator() {
+/// Limpa o slot ativo SOMENTE se ele pertence a `handle`: uma instância ociosa ou recusada
+/// (que nunca assumiu o core) não pode apagar o estado do dono.
+fn clear_active_emulator(handle: &EmulatorHandle) {
     if let Ok(mut slot) = active_emulator_slot().lock() {
-        *slot = None;
+        if slot
+            .as_ref()
+            .is_some_and(|active| Arc::ptr_eq(active, handle))
+        {
+            *slot = None;
+        }
     }
 }
 
@@ -513,8 +570,18 @@ impl LoadedCore {
             unsafe {
                 (api.deinit)();
             }
+            // Medido com o Genesis Plus GX: caminho de ROM com 255 caracteres carrega, com 260 é
+            // recusado. Diagnóstico explícito em vez de um "recusou" genérico.
+            let path_len = rom_path.as_os_str().len();
+            let hint = if path_len >= 256 {
+                format!(
+                    " O caminho tem {path_len} caracteres e o core recusa caminhos de ROM a partir de ~256 (medido: 255 carrega, 260 não); mova a ROM/cópia para um diretório mais curto."
+                )
+            } else {
+                String::new()
+            };
             return Err(format!(
-                "Core '{}' recusou a ROM '{}'.",
+                "Core '{}' recusou a ROM '{}'.{hint}",
                 core_path.display(),
                 rom_path.display()
             ));
@@ -612,6 +679,10 @@ fn load_core_library(core_path: &Path) -> Result<Library, String> {
 
 pub struct EmulatorCore {
     pub handle: EmulatorHandle,
+    /// Identidade desta instância na invariante de exclusividade.
+    core_id: u64,
+    /// Declarado DEPOIS de `runtime` na prática: é liberado em `stop()` após o unload do core.
+    lease: Option<CoreLease>,
     preferred_core_path: Option<PathBuf>,
     runtime: Option<LoadedCore>,
     saved_state: Option<Vec<u8>>,
@@ -690,6 +761,8 @@ impl EmulatorCore {
     pub fn new(core_path: Option<&Path>) -> Self {
         Self {
             handle: new_emulator_handle(),
+            core_id: NEXT_CORE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            lease: None,
             preferred_core_path: core_path.map(|path| path.to_path_buf()),
             runtime: None,
             saved_state: None,
@@ -713,12 +786,16 @@ impl EmulatorCore {
         let core_path = locate_core_path(self.preferred_core_path.as_deref(), target)?;
 
         self.stop().ok();
+        // Exclusividade ANTES de qualquer efeito global (slot ativo, dlopen, callbacks, init).
+        let lease = CoreLease::acquire(self.core_id)?;
         install_active_emulator(&self.handle)?;
         reset_emulator_state(&self.handle, rom_path)?;
 
+        let handle = self.handle.clone();
         let runtime = LoadedCore::new(&core_path, rom_path, target).inspect_err(|_| {
-            clear_active_emulator();
+            clear_active_emulator(&handle);
         })?;
+        self.lease = Some(lease);
 
         {
             let mut state = self.handle.lock().map_err(|e| e.to_string())?;
@@ -1077,7 +1154,9 @@ impl EmulatorCore {
             runtime.shutdown();
         }
 
-        clear_active_emulator();
+        clear_active_emulator(&self.handle);
+        // Só agora (core descarregado, callbacks desativados) outro dono pode assumir.
+        self.lease = None;
 
         let mut state = self.handle.lock().map_err(|e| e.to_string())?;
         state.running = false;
@@ -2046,6 +2125,163 @@ mod tests {
         let _ = fs::remove_dir_all(dir);
     }
 
+    #[cfg(test)]
+    fn audio_frames(e: &EmulatorCore) -> usize {
+        e.handle.lock().expect("lock").last_audio_frames
+    }
+
+    #[test]
+    fn segunda_instancia_e_recusada_sem_corromper_a_primeira() {
+        let _serial = test_serial_guard();
+        let dir = temp_dir("core-exclusivo");
+        let core_path = compile_mock_core(&dir);
+        let rom = write_test_rom(&dir, "rom_a", "gen");
+
+        // Referência: 2 quadros numa execução isolada (sem nenhuma outra instância).
+        let mut reference = EmulatorCore::new(Some(&core_path));
+        reference.load_rom(&rom).expect("referência carrega");
+        reference.run_frame().expect("ref q1");
+        reference.run_frame().expect("ref q2");
+        let (fb_reference, _, _) = reference.get_framebuffer().expect("fb ref");
+        reference.stop().expect("stop ref");
+
+        let mut a = EmulatorCore::new(Some(&core_path));
+        a.load_rom(&rom).expect("A carrega");
+        a.run_frame().expect("A roda");
+        assert_eq!(audio_frames(&a), 2);
+        // B tenta assumir o core com A vivo: recusa explícita, sem efeito colateral.
+        let mut b = EmulatorCore::new(Some(&core_path));
+        let err = b.load_rom(&rom).expect_err("B deve ser recusada");
+        assert!(err.starts_with(CORE_BUSY_CODE), "{err}");
+        assert!(!b.is_running());
+        b.stop().expect("stop de B ociosa não mexe no dono");
+        drop(b);
+        // Uma instância que nunca assumiu o core também não limpa o slot do dono ao ser descartada.
+        drop(EmulatorCore::new(Some(&core_path)));
+
+        // A segue íntegra: callbacks continuam chegando ao estado de A e o resultado é o da execução isolada.
+        a.run_frame().expect("A continua rodando");
+        assert_eq!(audio_frames(&a), 2, "callbacks de áudio ainda alcançam A");
+        let (fb_after, _, _) = a.get_framebuffer().expect("fb A depois");
+        assert_eq!(
+            fb_reference, fb_after,
+            "A, após a recusa de B, produz exatamente o quadro isolado"
+        );
+        assert!(a.is_running());
+
+        // Liberado o dono, outra instância assume normalmente.
+        a.stop().expect("stop A");
+        let mut c = EmulatorCore::new(Some(&core_path));
+        c.load_rom(&rom).expect("C carrega depois que A liberou");
+        c.run_frame().expect("C roda");
+        c.stop().expect("stop C");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn threads_concorrentes_disputando_o_core_resultam_em_um_unico_dono() {
+        let _serial = test_serial_guard();
+        let dir = temp_dir("core-exclusivo-threads");
+        let core_path = compile_mock_core(&dir);
+        let rom = write_test_rom(&dir, "rom_t", "gen");
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(4));
+        let release = std::sync::Arc::new(std::sync::Barrier::new(5));
+        let mut joins = Vec::new();
+        for _ in 0..4 {
+            let (core_path, rom) = (core_path.clone(), rom.clone());
+            let (barrier, release) = (barrier.clone(), release.clone());
+            joins.push(std::thread::spawn(move || {
+                let mut e = EmulatorCore::new(Some(&core_path));
+                barrier.wait();
+                let r = e.load_rom(&rom);
+                if r.is_ok() {
+                    for _ in 0..20 {
+                        e.run_frame().expect("dono roda sem interferência");
+                    }
+                }
+                release.wait(); // o dono só solta depois que todos tentaram
+                let out = (r.is_ok(), r.err().unwrap_or_default());
+                e.stop().ok();
+                out
+            }));
+        }
+        release.wait();
+        let results: Vec<(bool, String)> = joins
+            .into_iter()
+            .map(|j| j.join().expect("thread sem pânico"))
+            .collect();
+        assert_eq!(
+            results.iter().filter(|(ok, _)| *ok).count(),
+            1,
+            "{results:?}"
+        );
+        assert!(results
+            .iter()
+            .filter(|(ok, _)| !*ok)
+            .all(|(_, e)| e.starts_with(CORE_BUSY_CODE)));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// Core REAL (Genesis Plus GX): antes da invariante, duas threads carregando/rodando abortavam
+    /// (`longjmp causes uninitialized stack frame`). Agora a segunda é recusada e a primeira roda ilesa.
+    /// Comportamento anterior: reprodução limitada em subprocesso (core_concurrency_repro.py), nunca aqui.
+    #[test]
+    #[ignore = "BYOR + core real: RDS_REAL_CORE_ROM (e core instalado)"]
+    fn core_real_segunda_instancia_e_recusada_enquanto_a_primeira_roda() {
+        let _serial = test_serial_guard();
+        let rom = PathBuf::from(std::env::var("RDS_REAL_CORE_ROM").expect("RDS_REAL_CORE_ROM"));
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let (done_tx, done_rx) = std::sync::mpsc::channel::<()>();
+        let rom_a = rom.clone();
+        let owner = std::thread::spawn(move || {
+            let mut a = EmulatorCore::new(None);
+            a.load_rom(&rom_a).expect("A carrega o core real");
+            started_tx.send(()).unwrap();
+            let mut frames = 0u32;
+            while done_rx.try_recv().is_err() && frames < 4000 {
+                a.run_frame().expect("A roda sem interferência");
+                frames += 1;
+            }
+            let (fb, _, _) = a.get_framebuffer().expect("fb");
+            a.stop().expect("stop");
+            (frames, fb.iter().any(|b| *b != 0))
+        });
+        started_rx.recv().unwrap();
+        let mut refused = 0;
+        for _ in 0..25 {
+            let mut b = EmulatorCore::new(None);
+            let err = b.load_rom(&rom).expect_err("B recusada");
+            assert!(err.starts_with(CORE_BUSY_CODE), "{err}");
+            refused += 1;
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+        done_tx.send(()).unwrap();
+        let (frames, lit) = owner.join().expect("A terminou sem abortar");
+        assert!(frames > 0 && lit && refused == 25);
+        // liberado: nova instância assume
+        let mut c = EmulatorCore::new(None);
+        c.load_rom(&rom).expect("C assume depois que A liberou");
+        c.stop().unwrap();
+    }
+
+    #[test]
+    fn falha_de_carga_depois_do_lease_libera_o_core() {
+        let _serial = test_serial_guard();
+        let dir = temp_dir("core-exclusivo-falha");
+        let core_path = compile_mock_core(&dir);
+        let rom = write_test_rom(&dir, "rom_f", "gen");
+        let not_a_lib = dir.join("nao_e_biblioteca.so");
+        fs::write(&not_a_lib, b"isto nao e um objeto compartilhado").unwrap();
+
+        let mut bad = EmulatorCore::new(Some(&not_a_lib));
+        assert!(bad.load_rom(&rom).is_err());
+        // A falha não pode deixar o core preso a uma instância morta.
+        let mut good = EmulatorCore::new(Some(&core_path));
+        good.load_rom(&rom).expect("lease foi liberado pela falha");
+        good.stop().expect("stop");
+        let _ = fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn mock_core_collects_execution_trace_via_serialized_state() {
         let _serial = test_serial_guard();
@@ -2112,7 +2348,7 @@ mod tests {
             assert_eq!(state.audio_buffer, samples);
         }
 
-        clear_active_emulator();
+        clear_active_emulator(&handle);
     }
 
     #[test]

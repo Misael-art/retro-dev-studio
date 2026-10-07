@@ -1,5 +1,22 @@
 # 06 - AI MEMORY BANK & CONTEXT TRACKER
 
+### Checkpoint 2026-10-07 (revisão da PR #110) — BPS estrito + interop Flips, exclusividade do core, Kosinski auditado, Sonic+SoR no mesmo binário, CX (Experimental mantido)
+
+Código `f130358b`, binário `24ae1787…`, base da PR `4be2049d`. Fecho completo, pins e limites em `docs/rex_profiles/integration_20261007/FECHO-PR110-REVISAO-2026-10-07.md`; manifesto de 54 artefatos em `data/rex_profiles/integration_20261007/evidencia-pr110/MANIFEST.json`.
+Valem daqui para frente: (1) `apply_bps_checked` é estrito (varint, teto de saída antes de alocar, ações dentro da saída/origem, TargetCopy só de histórico, consumo exato, 3 CRCs); interop **bidirecional com Flips v201 pinado** (66/66); BPS legado reconhecido e **nunca** aplicado automaticamente;
+(2) **um dono do core por processo** (`CoreLease`, adquirido antes do dlopen/callbacks, liberado após unload; segunda instância = `core_busy`; `clear_active_emulator` só limpa o próprio slot); (3) o encoder Kosinski ótimo minimiza custo em bits modelado — não alega mínimo em bytes; teto 64 KiB; poda por dominância;
+(4) política: capturas com quadros do jogo, BPS e cópias de ROM **não vão ao Git** (ficam em `~/rds-evidence/...` com SHA no manifesto); (5) teste de janela só vale se o `innerWidth/innerHeight` efetivo for medido (o harness priorizava `RDS_E2E_WINDOW_*`); (6) o hit-test do WebKit ignora botões desabilitados e a scrollbar overlay cobre a base de controles.
+Pendências: remover do histórico da PR as 4 capturas/BPS antigos (decisão do dono), paleta real SoR, validação com pessoas, CI por SHA final. Sem merge, release ou promoção.
+
+### Checkpoint 2026-10-07 — segundo jogo: fonte do Streets of Rage (Kosinski) editada pela UI; BPS corrigido; SIGABRT explicado (Experimental mantido)
+
+Branch `codex/rex-second-game-graphics` (base `d85485b1`), commit de código `5f778f7e`, binário `45dabcb3…`. Fecho completo, pins, comparação Sonic × SoR, limites e reprodução em
+`docs/rex_profiles/integration_20261007/FECHO-SOR-FONT-2026-10-07.md`; expectativas congeladas + ADENDO em `EXPECTATIONS-SOR-FONT-2026-10-07.md`; evidência com SHA em `data/rex_profiles/integration_20261007/evidencia-sor-font/`.
+**Fluxo de edição gráfica comprovado nos dois perfis descritos** (Sonic 1 e SoR World PtBr, fonte em `0x389A0`); sem alegar suporte universal. Jornada nativa 27/27, oráculo independente 27/27, gates verdes (`host:certify` READY).
+Achados que valem para o futuro: (1) o `patch_studio` gravava BPS fora da spec (varint sem `-1`) — corrigido; (2) SIGABRT `longjmp` = dois cores GPGX concorrentes no mesmo processo (reprodução em `core_concurrency_repro.py`), não o aPLib;
+(3) SoR valida o checksum do cabeçalho no boot; (4) encoder Kosinski do crate é guloso (precisa do parse ótimo para caber no slot); (5) core recusa caminho de ROM ≥ 256 caracteres; (6) o app só cai na tela de texto da introdução sem input após ~588 quadros.
+Pendências: paleta real do SoR, letras/dígitos não rotulados, outra ROM SoR (não PtBr), relocação, CI por SHA (consultar no PR), validação de usabilidade com pessoas. Sem merge, release ou promoção.
+
 ### Checkpoint 2026-10-02 — barreira incremental de frames em Build & Run
 
 No branch `codex/rex-sonic-multiframe-ui`, commit de harness `8166d4f1`, a
