@@ -1,0 +1,351 @@
+{
+ "schema": "rex-bps-interop/v1",
+ "flips_pkg_sha256": "3d488a159570f77c01d0083d6866d3c17038c699d7ff0b6a053d64a3c727758b",
+ "flips_bin_sha256": "3f3033ef4293931011a2e7043b83200b0818c8ff7fb15d7fa480719219509253",
+ "flips_version": "Floating IPS v201",
+ "external_tool_failures": [
+  {
+   "fixture": "bloco_movido_e_repeticoes",
+   "style": "--bps-linear",
+   "returncode": -11
+  },
+  {
+   "fixture": "vazio_para_pequeno",
+   "style": "--bps-linear",
+   "returncode": -11
+  }
+ ],
+ "checks": [
+  {
+   "check": "Flips: SHA-256 do bin\u00e1rio pinado",
+   "ok": true,
+   "detail": "3f3033ef4293931011a2e7043b83200b0818c8ff7fb15d7fa480719219509253"
+  },
+  {
+   "check": "Flips: vers\u00e3o",
+   "ok": true,
+   "detail": "Floating IPS v201"
+  },
+  {
+   "check": "mesmo_tamanho_poucas_diferencas: Flips cria (--bps-delta)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "mesmo_tamanho_poucas_diferencas: Flips cria (--bps-linear)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "alvo_maior: Flips cria (--bps-delta)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "alvo_maior: Flips cria (--bps-linear)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "alvo_menor: Flips cria (--bps-delta)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "alvo_menor: Flips cria (--bps-linear)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "bloco_movido_e_repeticoes: Flips cria (--bps-delta)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_127: Flips cria (--bps-delta)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_127: Flips cria (--bps-linear)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_128: Flips cria (--bps-delta)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_128: Flips cria (--bps-linear)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_129: Flips cria (--bps-delta)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_129: Flips cria (--bps-linear)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_16511: Flips cria (--bps-delta)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_16511: Flips cria (--bps-linear)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_16512: Flips cria (--bps-delta)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_16512: Flips cria (--bps-linear)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_16513: Flips cria (--bps-delta)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_16513: Flips cria (--bps-linear)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "vazio_para_pequeno: Flips cria (--bps-delta)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "valido_4_acoes_com_metadados: Flips aceita",
+   "ok": true,
+   "detail": "The patch was applied successfully!"
+  },
+  {
+   "check": "valido_targetcopy_sobreposto: Flips aceita",
+   "ok": true,
+   "detail": "The patch was applied successfully!"
+  },
+  {
+   "check": "mal_sem_acoes: Flips recusa",
+   "ok": true,
+   "detail": "This patch is broken and can't be used."
+  },
+  {
+   "check": "mal_sourcecopy_negativo: Flips recusa",
+   "ok": true,
+   "detail": "This patch is broken and can't be used."
+  },
+  {
+   "check": "mal_targetcopy_futuro: Flips recusa",
+   "ok": true,
+   "detail": "This patch is broken and can't be used."
+  },
+  {
+   "check": "mal_targetread_longo: Flips recusa",
+   "ok": true,
+   "detail": "This patch is broken and can't be used."
+  },
+  {
+   "check": "produto: ferramenta de interop executou",
+   "ok": true,
+   "detail": "zed + debuginfo] target(s) in 0.85s\n     Running unittests src/lib.rs (target-test/debug/deps/app_lib-06d4f57fa08f79ac)\n"
+  },
+  {
+   "check": "mesmo_tamanho_poucas_diferencas: produto cria \u2192 Flips aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "mesmo_tamanho_poucas_diferencas: Flips cria (-bps-delta) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "mesmo_tamanho_poucas_diferencas: Flips cria (-bps-linear) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "alvo_maior: produto cria \u2192 Flips aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "alvo_maior: Flips cria (-bps-delta) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "alvo_maior: Flips cria (-bps-linear) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "alvo_menor: produto cria \u2192 Flips aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "alvo_menor: Flips cria (-bps-delta) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "alvo_menor: Flips cria (-bps-linear) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "bloco_movido_e_repeticoes: produto cria \u2192 Flips aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "bloco_movido_e_repeticoes: Flips cria (-bps-delta) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_127: produto cria \u2192 Flips aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_127: Flips cria (-bps-delta) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_127: Flips cria (-bps-linear) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_128: produto cria \u2192 Flips aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_128: Flips cria (-bps-delta) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_128: Flips cria (-bps-linear) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_129: produto cria \u2192 Flips aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_129: Flips cria (-bps-delta) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_129: Flips cria (-bps-linear) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_16511: produto cria \u2192 Flips aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_16511: Flips cria (-bps-delta) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_16511: Flips cria (-bps-linear) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_16512: produto cria \u2192 Flips aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_16512: Flips cria (-bps-delta) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_16512: Flips cria (-bps-linear) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_16513: produto cria \u2192 Flips aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_16513: Flips cria (-bps-delta) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "fronteira_varint_16513: Flips cria (-bps-linear) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "vazio_para_pequeno: produto cria \u2192 Flips aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "vazio_para_pequeno: Flips cria (-bps-delta) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "valido_4_acoes_com_metadados: produto aceita",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "valido_targetcopy_sobreposto: produto aceita",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "mal_sem_acoes: produto recusa",
+   "ok": true,
+   "detail": "bps_truncated: corpo termina com 0 de 1 bytes produzidos"
+  },
+  {
+   "check": "mal_sourcecopy_negativo: produto recusa",
+   "ok": true,
+   "detail": "bps_offset_out_of_range: offset relativo sai do dom\u00ednio"
+  },
+  {
+   "check": "mal_targetcopy_futuro: produto recusa",
+   "ok": true,
+   "detail": "bps_target_history: TargetCopy referencia sa\u00edda ainda n\u00e3o produzida"
+  },
+  {
+   "check": "mal_targetread_longo: produto recusa",
+   "ok": true,
+   "detail": "bps_action_outside_output: a\u00e7\u00e3o de 2 bytes em 0 ultrapassa a sa\u00edda de 1"
+  }
+ ],
+ "all_pass": true
+}

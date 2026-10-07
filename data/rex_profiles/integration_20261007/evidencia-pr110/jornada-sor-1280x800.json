@@ -1,0 +1,1389 @@
+{
+  "schema": "rex-sor-font-journey/v1",
+  "artifact_prefix": "inspection-2026-10-07T18-10-31-079Z",
+  "expectations": "docs/rex_profiles/integration_20261007/EXPECTATIONS-SOR-FONT-2026-10-07.md",
+  "binary_sha256": "0965e8bd483a06105b1e71286924c8facea63e8552acb9622f33f018f44dca26",
+  "base_rom_sha256": "304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d",
+  "attribution": "Cliques e campos são WebDriver NATIVOS na janela real; invoke = sonda técnica rotulada; framebuffer = observação do core pela ponte do app (input neutro, nenhuma escrita em RAM).",
+  "pilot_dir": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-10-31-079Z-sor-font-journey",
+  "steps": [
+    {
+      "step": 1,
+      "name": "painel_visivel",
+      "screenshot": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-10-31-079Z-sor-painel.png"
+    },
+    {
+      "step": "1b",
+      "name": "modo_ampliado",
+      "screenshot": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-10-31-079Z-sor-ampliado.png"
+    },
+    {
+      "step": 2,
+      "name": "edicao_aplicada",
+      "screenshot": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-10-31-079Z-sor-aplicado.png"
+    },
+    {
+      "step": 3,
+      "name": "negativos_de_sessao"
+    },
+    {
+      "step": 4,
+      "name": "bps_exportado_e_aplicado"
+    },
+    {
+      "step": 5,
+      "name": "execucao_base_e_copia",
+      "screenshot": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-10-31-079Z-sor-execucao.png"
+    },
+    {
+      "step": 6,
+      "name": "reiniciado_e_reaberto",
+      "screenshot": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-10-31-079Z-sor-reaberto.png"
+    }
+  ],
+  "checks": [
+    {
+      "name": "ui.painel_do_perfil_visivel",
+      "pass": true,
+      "observado": {
+        "profile": "streets_of_rage_world_ptbr/font_kosinski/v1",
+        "identity": "304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d"
+      }
+    },
+    {
+      "name": "ui.copia_ainda_nao_existe",
+      "pass": true,
+      "observado": "false"
+    },
+    {
+      "name": "ui.compartilhamento_e_slot_explicados",
+      "pass": true,
+      "observado": {
+        "shared": "Compartilhamento conhecidoEste stream é lido por 3 pontos do código; editar a fonte afeta todos os usos dela.Ver os 3 pontos (detalhe técnico)0x87FC — lea $389A0,A0 → $FF7000 → VDP (50 passadas de 32 ",
+        "slot": "Espaço: o stream gravado usa 514 de 514 bytes do slot original (100%). Sem relocação: se não couber, a edição é recusada e nada é escrito."
+      }
+    },
+    {
+      "name": "ui.previa_original_desenhada",
+      "pass": true,
+      "observado": {
+        "w": 576,
+        "lit": 9120,
+        "h": 32
+      }
+    },
+    {
+      "name": "cx.botao_ampliar_visivel_sem_rolar",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 628,
+          "b": 653,
+          "l": 1081,
+          "r": 1178
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 97,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 25
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "cx.modo_ampliado_aumenta_a_area_do_editor",
+      "pass": true,
+      "observado": {
+        "antes": {
+          "panel": 299,
+          "vw": 1280,
+          "center": 652
+        },
+        "depois": {
+          "panel": 709,
+          "vw": 1280,
+          "center": 242
+        }
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "cx.acessivel.sor-glyph-A",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 547,
+          "b": 575,
+          "l": 580,
+          "r": 608
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 28,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 28
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "cx.acessivel.sor-index-1",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 549,
+          "b": 573,
+          "l": 608,
+          "r": 632
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 24,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 24
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "cx.acessivel.sor-pixel-7-0",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 545,
+          "b": 577,
+          "l": 581,
+          "r": 613
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 32,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 32
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "cx.acessivel.sor-pixel-7-7",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 545,
+          "b": 577,
+          "l": 812,
+          "r": 844
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 32,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 32
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "cx.acessivel.sor-zoom-4",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 551,
+          "b": 572,
+          "l": 718,
+          "r": 746
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 28,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 21
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "cx.acessivel.sor-expand-toggle",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 551,
+          "b": 572,
+          "l": 1156,
+          "r": 1254
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 98,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 21
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "cx.barra_fixa_visivel.sor-apply",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 731,
+          "b": 754,
+          "l": 571,
+          "r": 673
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 102,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 23
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "cx.barra_fixa_visivel.sor-clear-queue",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 730,
+          "b": 755,
+          "l": 681,
+          "r": 752
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 71,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 25
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "cx.barra_fixa_visivel.sor-export-patch",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 730,
+          "b": 755,
+          "l": 769,
+          "r": 849
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 80,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 25
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "cx.barra_fixa_visivel.sor-apply-patch",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 730,
+          "b": 755,
+          "l": 857,
+          "r": 966
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 109,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 25
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "cx.barra_fixa_visivel.sor-run-base",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 730,
+          "b": 755,
+          "l": 983,
+          "r": 1086
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 103,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 25
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "cx.barra_fixa_visivel.sor-run-copy",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 730,
+          "b": 755,
+          "l": 1094,
+          "r": 1184
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 90,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 25
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "cx.previa_em_escala_inteira_e_nitida",
+      "pass": true,
+      "observado": {
+        "scale": 1,
+        "legend": true,
+        "canvasW": 576,
+        "cssW": 576,
+        "grayChip": true,
+        "cell": 32,
+        "rendering": "pixelated"
+      }
+    },
+    {
+      "name": "cx.indicacoes_de_cinza_e_letras_inferidas_visiveis",
+      "pass": true,
+      "observado": {
+        "scale": 1,
+        "legend": true,
+        "canvasW": 576,
+        "cssW": 576,
+        "grayChip": true,
+        "cell": 32,
+        "rendering": "pixelated"
+      }
+    },
+    {
+      "name": "cx.zoom_5_gera_celulas_de_40px_e_previa_x5",
+      "pass": true,
+      "observado": {
+        "cssW": 720,
+        "cell": 40,
+        "canvasW": 720
+      }
+    },
+    {
+      "name": "ui.fila_com_8_pixels",
+      "pass": true,
+      "observado": "8 pixel(s) na fila."
+    },
+    {
+      "name": "ui.edicao_aplicada_com_stream_e_vizinhos",
+      "pass": true,
+      "observado": "Aplicado à cópia 9faae341110bbb71cb7d2de1400c5d9405d02e87b79978e8acb68794606169a0: stream 466/514 bytes, vizinhos preservados: 4. A base não foi tocada."
+    },
+    {
+      "name": "ui.linha7_do_tile_A_na_copia_vale_1",
+      "pass": true,
+      "observado": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "ui.previa_da_copia_tem_mais_pixels_que_a_do_original",
+      "pass": true,
+      "observado": {
+        "copia": {
+          "w": 720,
+          "lit": 14850,
+          "h": 40
+        },
+        "original": {
+          "w": 720,
+          "lit": 14250,
+          "h": 40
+        }
+      }
+    },
+    {
+      "name": "sessao.edicao_registrada_com_identidade",
+      "pass": true,
+      "observado": {
+        "slot_len": 514,
+        "patch_bps_path": "/tmp/fin/sor-1280/w/extract/304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d/edits/sor1-font-8e65059117c00bce3ef577e299d010c288ce255f90b7a0d0dc6e17c1a4b0df6c.bps",
+        "frame_id": "sor1_font",
+        "guards_verified": 4,
+        "pixels_changed": 8,
+        "patch_bps_sha256": "8e65059117c00bce3ef577e299d010c288ce255f90b7a0d0dc6e17c1a4b0df6c",
+        "format": "md_4bpp_kosinski_stream",
+        "palette_index": 0,
+        "base_rom_sha256_after": "304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d",
+        "green": 0,
+        "modified_rom_path": "/tmp/fin/sor-1280/w/extract/304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d/edits/sor1-font-9faae341110bbb71cb7d2de1400c5d9405d02e87b79978e8acb68794606169a0.bin",
+        "bytes_changed": 433,
+        "modified_rom_sha256": "9faae341110bbb71cb7d2de1400c5d9405d02e87b79978e8acb68794606169a0",
+        "blue": 0,
+        "changed_offsets": [
+          398,
+          399,
+          231855,
+          231861,
+          231862,
+          231863,
+          231864,
+          231865,
+          231866,
+          231867,
+          231868,
+          231869,
+          231870,
+          231871,
+          231872,
+          231873,
+          231875,
+          231876,
+          231877,
+          231878,
+          231880,
+          231881,
+          231882,
+          231883,
+          231884,
+          231885,
+          231886,
+          231887,
+          231890,
+          231891,
+          231892,
+          231893,
+          231894,
+          231895,
+          231896,
+          231897,
+          231898,
+          231899,
+          231900,
+          231901,
+          231902,
+          231903,
+          231904,
+          231905,
+          231906,
+          231907,
+          231908,
+          231909,
+          231910,
+          231911,
+          231912,
+          231913,
+          231915,
+          231916,
+          231917,
+          231918,
+          231919,
+          231920,
+          231921,
+          231922,
+          231923,
+          231924,
+          231925,
+          231926,
+          231927,
+          231928,
+          231929,
+          231930,
+          231931,
+          231932,
+          231933,
+          231934,
+          231936,
+          231937,
+          231938,
+          231939,
+          231940,
+          231941,
+          231942,
+          231943,
+          231944,
+          231945,
+          231946,
+          231947,
+          231948,
+          231949,
+          231950,
+          231951,
+          231952,
+          231953,
+          231954,
+          231955,
+          231956,
+          231957,
+          231958,
+          231959,
+          231960,
+          231961,
+          231962,
+          231963,
+          231964,
+          231965,
+          231966,
+          231967,
+          231968,
+          231969,
+          231970,
+          231971,
+          231972,
+          231973,
+          231974,
+          231975,
+          231976,
+          231977,
+          231978,
+          231979,
+          231981,
+          231983,
+          231984,
+          231985,
+          231986,
+          231987,
+          231988,
+          231989,
+          231990,
+          231991,
+          231993,
+          231994,
+          231995,
+          231996,
+          231997,
+          231998,
+          231999,
+          232000,
+          232001,
+          232002,
+          232003,
+          232004,
+          232005,
+          232006,
+          232007,
+          232008,
+          232009,
+          232010,
+          232011,
+          232012,
+          232013,
+          232014,
+          232015,
+          232016,
+          232017,
+          232018,
+          232019,
+          232020,
+          232021,
+          232022,
+          232023,
+          232024,
+          232025,
+          232026,
+          232027,
+          232028,
+          232029,
+          232030,
+          232031,
+          232032,
+          232033,
+          232034,
+          232035,
+          232036,
+          232037,
+          232038,
+          232039,
+          232040,
+          232041,
+          232042,
+          232043,
+          232044,
+          232045,
+          232046,
+          232047,
+          232049,
+          232050,
+          232051,
+          232052,
+          232053,
+          232054,
+          232055,
+          232056,
+          232057,
+          232058,
+          232059,
+          232060,
+          232061,
+          232062,
+          232063,
+          232064,
+          232065,
+          232066,
+          232067,
+          232068,
+          232069,
+          232070,
+          232071,
+          232072,
+          232073,
+          232074,
+          232075,
+          232076,
+          232077,
+          232078,
+          232079,
+          232080,
+          232081,
+          232082,
+          232083,
+          232084,
+          232085,
+          232086,
+          232087,
+          232088,
+          232089,
+          232090,
+          232091,
+          232092,
+          232093,
+          232094,
+          232095,
+          232096,
+          232097,
+          232098,
+          232099,
+          232100,
+          232101,
+          232102,
+          232103,
+          232104,
+          232105,
+          232106,
+          232107,
+          232108,
+          232109,
+          232110,
+          232111,
+          232112,
+          232113,
+          232114,
+          232115,
+          232116,
+          232117,
+          232118,
+          232119,
+          232120,
+          232121,
+          232122,
+          232123,
+          232124,
+          232125,
+          232126,
+          232127,
+          232128,
+          232129,
+          232130,
+          232131,
+          232132,
+          232133,
+          232134,
+          232135,
+          232136,
+          232137,
+          232138,
+          232139,
+          232140,
+          232141,
+          232142,
+          232143,
+          232144,
+          232145,
+          232146,
+          232147,
+          232148,
+          232149,
+          232150,
+          232151,
+          232152,
+          232153,
+          232154,
+          232155,
+          232156,
+          232157,
+          232158,
+          232159,
+          232160,
+          232161,
+          232162,
+          232163,
+          232164,
+          232165,
+          232166,
+          232167,
+          232168,
+          232169,
+          232170,
+          232171,
+          232172,
+          232173,
+          232174,
+          232175,
+          232176,
+          232177,
+          232178,
+          232179,
+          232181,
+          232182,
+          232183,
+          232184,
+          232185,
+          232186,
+          232187,
+          232188,
+          232189,
+          232190,
+          232191,
+          232192,
+          232193,
+          232194,
+          232195,
+          232196,
+          232197,
+          232198,
+          232199,
+          232200,
+          232201,
+          232202,
+          232203,
+          232204,
+          232205,
+          232206,
+          232207,
+          232208,
+          232210,
+          232211,
+          232212,
+          232213,
+          232214,
+          232215,
+          232216,
+          232217,
+          232218,
+          232219,
+          232220,
+          232221,
+          232222,
+          232223,
+          232224,
+          232225,
+          232226,
+          232227,
+          232228,
+          232229,
+          232230,
+          232231,
+          232232,
+          232233,
+          232234,
+          232235,
+          232236,
+          232237,
+          232238,
+          232239,
+          232240,
+          232241,
+          232242,
+          232243,
+          232244,
+          232245,
+          232247,
+          232248,
+          232249,
+          232250,
+          232251,
+          232252,
+          232253,
+          232254,
+          232255,
+          232256,
+          232257,
+          232258,
+          232259,
+          232260,
+          232261,
+          232263,
+          232265,
+          232266,
+          232267,
+          232268,
+          232269,
+          232270,
+          232271,
+          232272,
+          232273,
+          232274,
+          232275,
+          232276,
+          232277,
+          232278,
+          232279,
+          232280,
+          232281,
+          232282,
+          232283,
+          232284,
+          232285,
+          232286,
+          232287,
+          232288,
+          232289,
+          232290,
+          232291,
+          232292,
+          232293,
+          232294,
+          232295,
+          232296,
+          232297,
+          232298,
+          232299,
+          232300,
+          232301,
+          232302,
+          232303,
+          232304,
+          232305
+        ],
+        "resource_id": "sor1_font",
+        "original_rom_sha256": "304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d",
+        "art_tiles": [
+          1
+        ],
+        "red": 0,
+        "stream_len": 466
+      },
+      "sonda_tecnica": true
+    },
+    {
+      "name": "sessao.copia_no_disco_confere_o_sha_registrado",
+      "pass": true,
+      "observado": {
+        "sha": "9faae341110bbb71cb7d2de1400c5d9405d02e87b79978e8acb68794606169a0"
+      }
+    },
+    {
+      "name": "negativo.mesma_edicao_e_noop_explicito",
+      "pass": true,
+      "observado": {
+        "ok": true,
+        "noop": true
+      },
+      "sonda_tecnica": true
+    },
+    {
+      "name": "negativo.tile_fora_do_recurso",
+      "pass": true,
+      "observado": {
+        "ok": false,
+        "code": "tile_out_of_resource",
+        "message": "tile 49 fora do recurso (49 tiles)"
+      },
+      "esperado": "tile_out_of_resource",
+      "sonda_tecnica": true
+    },
+    {
+      "name": "negativo.linha_fora_do_tile",
+      "pass": true,
+      "observado": {
+        "ok": false,
+        "code": "overflow",
+        "message": "pixel (1,8,0) fora dos limites do tile 8x8"
+      },
+      "esperado": "",
+      "sonda_tecnica": true
+    },
+    {
+      "name": "negativo.indice_fora_do_dominio",
+      "pass": true,
+      "observado": {
+        "ok": false,
+        "code": "overflow",
+        "message": "índice de paleta 16 fora de 0..15"
+      },
+      "esperado": "",
+      "sonda_tecnica": true
+    },
+    {
+      "name": "negativo.falta_de_espaco_ruido_total",
+      "pass": true,
+      "observado": {
+        "ok": false,
+        "code": "needs_space",
+        "message": "o stream recomprimido tem 1329 bytes e o slot tem 514; sem relocação comprovada, nada foi escrito"
+      },
+      "esperado": "needs_space",
+      "sonda_tecnica": true
+    },
+    {
+      "name": "negativo.recusas_nao_alteraram_a_cadeia_de_copia",
+      "pass": true,
+      "observado": "9faae341110bbb71cb7d2de1400c5d9405d02e87b79978e8acb68794606169a0",
+      "sonda_tecnica": true
+    },
+    {
+      "name": "patch.aplicado_a_base_reproduz_a_copia_byte_a_byte",
+      "pass": true,
+      "observado": {
+        "applied": "9faae341110bbb71cb7d2de1400c5d9405d02e87b79978e8acb68794606169a0",
+        "copy": "9faae341110bbb71cb7d2de1400c5d9405d02e87b79978e8acb68794606169a0"
+      }
+    },
+    {
+      "name": "patch.base_preservada",
+      "pass": true
+    },
+    {
+      "name": "execucao.identidades_carregadas",
+      "pass": true,
+      "observado": {
+        "base": "304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d",
+        "copy": "9faae341110bbb71cb7d2de1400c5d9405d02e87b79978e8acb68794606169a0"
+      }
+    },
+    {
+      "name": "execucao.mesmo_orcamento_de_quadros",
+      "pass": true,
+      "observado": {
+        "base": 720,
+        "copy": 720
+      }
+    },
+    {
+      "name": "execucao.cena_difere_e_so_em_poucos_pixels",
+      "pass": true,
+      "observado": {
+        "diff_count": 40
+      }
+    },
+    {
+      "name": "cx.framebuffer_em_escala_inteira",
+      "pass": true,
+      "observado": {
+        "cssW": 640,
+        "scale": 2,
+        "w": 320
+      }
+    },
+    {
+      "name": "reabertura.janela_nova_nao_tem_painel_antes_de_reabrir",
+      "pass": true,
+      "observado": null
+    },
+    {
+      "name": "reabertura.barra_fixa_visivel.sor-apply",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 731,
+          "b": 754,
+          "l": 571,
+          "r": 673
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 102,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 23
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "reabertura.barra_fixa_visivel.sor-export-patch",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 730,
+          "b": 755,
+          "l": 769,
+          "r": 849
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 80,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 25
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "reabertura.barra_fixa_visivel.sor-run-copy",
+      "pass": true,
+      "observado": {
+        "rect": {
+          "t": 730,
+          "b": 755,
+          "l": 1094,
+          "r": 1184
+        },
+        "vw": 1280,
+        "hit": true,
+        "found": true,
+        "w": 90,
+        "vh": 800,
+        "inside": true,
+        "cover": null,
+        "h": 25
+      },
+      "janela": {
+        "width": 1280,
+        "height": 800
+      }
+    },
+    {
+      "name": "reabertura.contexto_de_trabalho_retomado",
+      "pass": true,
+      "observado": {
+        "zoom": "true",
+        "index": "true",
+        "glyphA": "true"
+      }
+    },
+    {
+      "name": "reabertura.identidade_restaurada",
+      "pass": true,
+      "observado": {
+        "identity": "304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d",
+        "session": "inspection-1791396633-00000000"
+      }
+    },
+    {
+      "name": "reabertura.edicao_restaurada_no_tile_A",
+      "pass": true,
+      "observado": {
+        "row7": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "row0": [
+          0,
+          0,
+          0,
+          0,
+          1,
+          1,
+          1,
+          1
+        ]
+      }
+    },
+    {
+      "name": "reabertura.previa_da_copia_restaurada",
+      "pass": true,
+      "observado": {
+        "depois": {
+          "w": 720,
+          "lit": 14850,
+          "h": 40
+        },
+        "antes": {
+          "w": 720,
+          "lit": 14850,
+          "h": 40
+        }
+      }
+    },
+    {
+      "name": "reabertura.procedencia_restaurada",
+      "pass": true,
+      "observado": {
+        "copy": "9faae341110bbb71cb7d2de1400c5d9405d02e87b79978e8acb68794606169a0",
+        "applied": 1
+      },
+      "sonda_tecnica": true
+    },
+    {
+      "name": "reabertura.cadeia_final_base_intacta",
+      "pass": true
+    }
+  ],
+  "window": {
+    "width": 1280,
+    "height": 800
+  },
+  "window_measured": {
+    "w": 1280,
+    "h": 800
+  },
+  "copy_sha256": "9faae341110bbb71cb7d2de1400c5d9405d02e87b79978e8acb68794606169a0",
+  "bps_sha256": "8e65059117c00bce3ef577e299d010c288ce255f90b7a0d0dc6e17c1a4b0df6c",
+  "observed": {
+    "width": 320,
+    "height": 224,
+    "frames": 720,
+    "base_fb_sha256": "d55b5c22acce551e9f6552a7a02d47361c386ad1078c533782f2d1a6383bf4d8",
+    "copy_fb_sha256": "b98d609407cccd9bb0e952cacf46567d0a0eba89fe80b959e3d52c2ea219e7e2",
+    "diff_pixels": [
+      [
+        96,
+        197
+      ],
+      [
+        97,
+        197
+      ],
+      [
+        98,
+        197
+      ],
+      [
+        99,
+        197
+      ],
+      [
+        100,
+        197
+      ],
+      [
+        101,
+        197
+      ],
+      [
+        102,
+        197
+      ],
+      [
+        103,
+        197
+      ],
+      [
+        136,
+        197
+      ],
+      [
+        137,
+        197
+      ],
+      [
+        138,
+        197
+      ],
+      [
+        139,
+        197
+      ],
+      [
+        140,
+        197
+      ],
+      [
+        141,
+        197
+      ],
+      [
+        142,
+        197
+      ],
+      [
+        143,
+        197
+      ],
+      [
+        184,
+        197
+      ],
+      [
+        185,
+        197
+      ],
+      [
+        186,
+        197
+      ],
+      [
+        187,
+        197
+      ],
+      [
+        188,
+        197
+      ],
+      [
+        189,
+        197
+      ],
+      [
+        190,
+        197
+      ],
+      [
+        191,
+        197
+      ],
+      [
+        96,
+        213
+      ],
+      [
+        97,
+        213
+      ],
+      [
+        98,
+        213
+      ],
+      [
+        99,
+        213
+      ],
+      [
+        100,
+        213
+      ],
+      [
+        101,
+        213
+      ],
+      [
+        102,
+        213
+      ],
+      [
+        103,
+        213
+      ],
+      [
+        128,
+        213
+      ],
+      [
+        129,
+        213
+      ],
+      [
+        130,
+        213
+      ],
+      [
+        131,
+        213
+      ],
+      [
+        132,
+        213
+      ],
+      [
+        133,
+        213
+      ],
+      [
+        134,
+        213
+      ],
+      [
+        135,
+        213
+      ]
+    ]
+  },
+  "window_measured_after_restart": {
+    "w": 1280,
+    "h": 800
+  },
+  "all_pass": true
+}

@@ -90,15 +90,23 @@ detector de células-A calibrado depois de falhas (ver ADENDO) — a calibraçã
 
 ## Reprodução
 
+> Corrigido na revisão da PR #110: `cargo test` aceita **um** filtro posicional por chamada; os comandos abaixo usam um filtro cada.
+
 ```
-cd src-tauri && cargo test --lib streets_of_rage rex_kosinski patch_studio          # unidade
+cd src-tauri
+cargo test --lib streets_of_rage                      # unidade (perfil)
+cargo test --lib rex_kosinski                         # unidade (codec + encoder ótimo + recurso)
+cargo test --lib patch_studio                         # unidade (BPS)
 RDS_SOR_ROM=<rom> RDS_DECOMP_WORK=<dir isolado curto> RDS_SONIC_MULTIFRAME_ROM=<sonic> \
-  cargo test --lib sor_font_ -- --ignored --test-threads=1                            # BYOR de sessão
+  cargo test --lib sor_font_ -- --ignored --test-threads=1                              # BYOR de sessão
 RDS_SOR_ROM=<rom> RDS_SOR_EDITS="1:7:0:1,...,1:7:7:1" RDS_SOR_OUT=copy.gen RDS_SOR_BPS=copy.bps \
-  cargo test --lib byor_gera_rom_editada -- --ignored                                 # ferramenta
+  cargo test --lib byor_gera_rom_editada -- --ignored                                   # ferramenta
+cd ..
 python3 -I scripts/rex_profiles/integration_20261007/sor_font_effect.py --base <rom> --copy copy.gen --bps copy.bps \
   --core <genesis_plus_gx_libretro.so> --work <dir> --out report.json [--journey jornada/report.json]
-RDS_E2E_CODE_COMMIT=5f778f7e… python3 scripts/qa/run-sonic-desktop-isolated.py --xvfb <Xvfb> --xvfb-sha256 <sha> --rom <rom curta> \
-  --app src-tauri/target-test/release/retro-dev-studio --work <dir curto> --log j.log --scenario sor-font-journey
-CORE=<so> python3 scripts/rex_profiles/integration_20261007/core_concurrency_repro.py parallel <rom> 800                 # SIGABRT
+RDS_E2E_CODE_COMMIT=<sha de código> RDS_SOR_WINDOW=1920x1080 python3 scripts/qa/run-sonic-desktop-isolated.py \
+  --xvfb <Xvfb> --xvfb-sha256 <sha> --rom <rom curta> --app src-tauri/target-test/release/retro-dev-studio \
+  --work <dir curto> --log j.log --scenario sor-font-journey                            # idem RDS_SOR_WINDOW=1280x800
+CORE=<so> python3 scripts/rex_profiles/integration_20261007/core_concurrency_repro.py parallel <rom> 800   # SIGABRT (subprocesso)
 ```
+Fechamento da revisão (BPS interop, exclusividade do core, Kosinski, Sonic, CX): ver `FECHO-PR110-REVISAO-2026-10-07.md`.
