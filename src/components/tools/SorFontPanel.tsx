@@ -43,7 +43,11 @@ function pixelOf(plain: Uint8Array, tile: number, row: number, col: number): num
   return col % 2 === 0 ? byte >> 4 : byte & 15;
 }
 
-const gray = (index: number) => `rgb(${index * 17},${index * 17},${index * 17})`;
+/** Rampa só para ver: índice 0 = transparente (fundo escuro); 1..15 ficam sempre bem acima do fundo. */
+const gray = (index: number) => {
+  const v = index === 0 ? 0 : 70 + index * 12;
+  return `rgb(${v},${v},${v})`;
+};
 
 function message(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -246,7 +250,7 @@ export default function SorFontPanel({ session, onEdited, logMessage, disabled }
       <div className="mt-1 flex flex-wrap gap-1" aria-label="Índices de cor">
         {Array.from({ length: 16 }, (_, i) => <button key={i} type="button" data-testid={`sor-index-${i}`} aria-pressed={i === index} disabled={disabled || busy} onClick={() => setIndex(i)}
           className={`h-6 w-6 rounded border-2 text-[9px] ${i === index ? "border-[#f9e2af]" : "border-[#45475a]"}`}
-          style={{ background: i === 0 ? "#222" : gray(i), color: i > 8 ? "#000" : "#fff" }}>{i === 0 ? "∅" : i}</button>)}
+          style={{ background: i === 0 ? "#222" : gray(i), color: i > 6 ? "#000" : "#fff" }}>{i === 0 ? "∅" : i}</button>)}
       </div>
       <div className="mt-2 inline-grid grid-cols-8 gap-px bg-[#313244] p-px" data-testid="sor-tile-grid" aria-label={`Pixels do tile ${glyph}`}>
         {Array.from({ length: 64 }, (_, n) => {
