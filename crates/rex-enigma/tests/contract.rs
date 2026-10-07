@@ -390,7 +390,8 @@ fn entrada_aleatoria_nunca_entra_em_panic() {
             s[1] &= 0x1F;
         }
         let o = DecodeOptions {
-            value_offset: (seed & 0xFFFF) as u16,
+            value_offset: 0, // offset nao-zero e recusado na porta de entrada; o
+            // teste perderia sentido se so gerasse recusas
             limits: Limits {
                 max_output_bytes: 512,
                 work_limit: 10_000,
@@ -405,9 +406,12 @@ fn entrada_aleatoria_nunca_entra_em_panic() {
 }
 
 #[test]
-fn value_offset_soma_mod_2_16_no_incr_comum_e_inline() {
-    // incr=0xFFFF, common=0x0001, offset=2: incr 0x0001; common 0x0003.
-    // tokens: incr-run(1) | common-run(1) | inline literal(1, pl=4, 0x5) | fim
+fn value_offset_nao_comprovado_e_recusado_antes_de_ler_o_stream() {
+    // A unica paridade provada e offset 0 (B4: sitio pinado chama com d0=0; E23).
+    // Semantica de offset nao-zero diverge do console no caso prioridade/flags
+    // (adendo datado em docs/rex_profiles/integration_20261006/). Recusa
+    // explicita ate o dominio ser corrigido e validado pela frente B — nunca
+    // saida silenciosa incorreta.
     let mut w = BitWriter::new();
     w.bit(0);
     w.bit(0);
@@ -422,9 +426,37 @@ fn value_offset_soma_mod_2_16_no_incr_comum_e_inline() {
     w.bits(0x7F, 7);
     let mut s = vec![4u8, 0x00, 0xFF, 0xFF, 0x00, 0x01];
     s.extend_from_slice(&w.bytes);
-    let o = DecodeOptions {
-        value_offset: 2,
+    assert_eq!(
+        EnigmaError::UnsupportedParameter.code(),
+        "unsupported-parameter"
+    );
+    for off in [1u16, 2, 0x8000, 0xFFFF] {
+        let o = DecodeOptions {
+            value_offset: off,
+            ..opts()
+        };
+        assert_eq!(
+            decode(&s, &o),
+            Err(EnigmaError::UnsupportedParameter),
+            "offset={off:#x}"
+        );
+    }
+    // stream invalida com offset nao-zero tambem e recusada pelo parametro:
+    let o_cabeca = DecodeOptions {
+        value_offset: 1,
         ..opts()
     };
-    assert_eq!(decode(&s, &o).unwrap().words, vec![0x0001, 0x0003, 0x0007]);
+    assert_eq!(
+        decode(&[0u8, 0, 0, 0, 0, 0], &o_cabeca),
+        Err(EnigmaError::UnsupportedParameter)
+    );
+    // offset 0 continua aceito (contrato congelado E23)
+    assert!(decode(
+        &s,
+        &DecodeOptions {
+            value_offset: 0,
+            ..opts()
+        }
+    )
+    .is_ok());
 }

@@ -32,11 +32,24 @@ Token literal maximo = 15 valores (`1|11|1111` e o terminador).
 palavra emitida e a cada token; `cancel` e consultado uma vez por token. Todo
 erro entrega zero bytes de saida. Aritmetica de valores mod 2^16 como o 68k.
 
+## Dominio do `value_offset` (0.2.0)
+
+A unica paridade provada contra console/oraculo e com `value_offset = 0`
+(E23/B4: o sitio pinado chama com `d0 = 0`). Offset nao-zero tem semantica
+divergente do console no caso prioridade/flags, ainda nao resolvida; `decode`
+recusa qualquer outro valor com `UnsupportedParameter` (`"unsupported-parameter"`)
+antes de ler o stream — recusa explicita, nunca saida nao comprovada. O
+reabrir do dominio exige a prova S1–S3 da frente B em
+`docs/rex_profiles/integration_20261006/ADENDO-LAYOUTS-2026-10-06-1.md`.
+
 ## Proveniencia e politica de incorporacao
 
 - Origem do codigo: frente B (`codex/parallel-recovery-20261004-b`, commit
   `da5472c4`), integrado por `cherry-pick -x`; `src/lib.rs` desta arvore difere
-  do original **somente por `cargo fmt`** (verificado em
+  do original por `cargo fmt` **mais um delta funcional versionado em 0.2.0**
+  (recusa de `value_offset != 0` — 3 itens enumerados em
+  `docs/rex_profiles/integration_20261006/ADENDO-LAYOUTS-2026-10-06-1.md`,
+  retificando a exigencia de igualdade L2; ver tambem
   `docs/rex_profiles/integration_20261006/REVISAO-ENIGMA-B.md`).
 - Especificacao: comportamento do desempacotador 68k do console, lido de
   `_inc/Decompression/Enigma Decompression.asm` do s1disasm pinado

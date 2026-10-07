@@ -183,7 +183,7 @@
     {
       "nome": "rex-enigma",
       "manifesto": "crates/rex-enigma/Cargo.toml",
-      "descricao": "Decoder Enigma (variante plain do console) em Rust puro e sem dependencias: limites de saida e de trabalho, cancelamento cooperativo por token, erros estruturados (truncated, malformed-header, excessive-output, work-limit, cancelled) e contabilidade separada de bytes lidos, padding de alinhamento, tamanho armazenado e saida descomprimida. Serializacao, SHA-256 e erros IPC pertencem ao adaptador (sonic_layouts.rs).",
+      "descricao": "Decoder Enigma (variante plain do console) em Rust puro e sem dependencias: limites de saida e de trabalho, cancelamento cooperativo por token, erros estruturados (truncated, malformed-header, excessive-output, work-limit, cancelled, unsupported-parameter) e contabilidade separada de bytes lidos, padding de alinhamento, tamanho armazenado e saida descomprimida. Dominio comprovado do decoder: value_offset = 0 somente; qualquer outro valor e recusado explicitamente (0.2.0, ADENDO-LAYOUTS-2026-10-06-1.md). Serializacao, SHA-256 e erros IPC pertencem ao adaptador (sonic_layouts.rs).",
       "maturidade": "backend-integrado",
       "maturidade_data": "2026-10-06",
       "gates": {
@@ -202,9 +202,10 @@
         "testes_do_adaptador": "ver docs/rex_profiles/integration_20261006/ (cargo test --lib sonic_layouts)"
       },
       "propriedade": "frente B (PR #105); registro e adaptador sao do integrador",
-      "origem": "codex/parallel-recovery-20261004-b @ da5472c4, lib.rs identico ao original salvo rustfmt; commits de B integrados por cherry-pick -x (79ca8082 e anteriores).",
+      "origem": "codex/parallel-recovery-20261004-b @ da5472c4; lib.rs = original de B + rustfmt + delta funcional versionado 0.2.0 (recusa de value_offset nao comprovado; 3 itens enumerados em docs/rex_profiles/integration_20261006/ADENDO-LAYOUTS-2026-10-06-1.md, que retifica a exigencia L2); commits de B integrados por cherry-pick -x (79ca8082 e anteriores).",
       "perfil": {
         "contrato": "docs/rex_profiles/integration_20261006/EXPECTATIONS-LAYOUTS-2026-10-06.md",
+        "retificacao_l2": "docs/rex_profiles/integration_20261006/ADENDO-LAYOUTS-2026-10-06-1.md",
         "revisao": "docs/rex_profiles/integration_20261006/REVISAO-ENIGMA-B.md",
         "aceite_byor": "scripts/rex_profiles/integration_20261006/byor-enigma-acceptance.py"
       },

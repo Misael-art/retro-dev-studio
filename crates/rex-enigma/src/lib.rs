@@ -35,9 +35,10 @@ impl Default for Limits {
 
 #[derive(Clone, Copy, Default)]
 pub struct DecodeOptions<'a> {
-    /// Equivalente ao d0 (art tile base) do EniDec do console: somado no
-    /// carregamento dos valores incr/common e em cada fetch inline, tudo
-    /// mod 2^16 (semantica do asm). Recursos reais usam 0.
+    /// Equivalente ao d0 (art tile base) do EniDec do console. Dominio
+    /// comprovado: apenas `0` (unica paridade medida contra console/oraculo,
+    /// E23/B4). Valor nao-zero diverge do console no caso prioridade/flags e
+    /// e recusado com `UnsupportedParameter` ate a frente B validar o dominio.
     pub value_offset: u16,
     pub limits: Limits,
     /// Cancelamento cooperativo, verificado em fronteira de token.
@@ -66,6 +67,9 @@ pub enum EnigmaError {
     WorkLimit,
     /// `cancel()` verdadeiro em fronteira de token.
     Cancelled,
+    /// Parametro fora do dominio comprovado (paridade provada so com
+    /// `value_offset = 0`; ver ADENDO em docs/rex_profiles/integration_20261006/).
+    UnsupportedParameter,
 }
 
 impl EnigmaError {
@@ -77,6 +81,7 @@ impl EnigmaError {
             EnigmaError::ExcessiveOutput => "excessive-output",
             EnigmaError::WorkLimit => "work-limit",
             EnigmaError::Cancelled => "cancelled",
+            EnigmaError::UnsupportedParameter => "unsupported-parameter",
         }
     }
 }
@@ -188,6 +193,12 @@ fn emit(words: &mut Vec<u16>, w: u16, max_output_bytes: usize) -> Result<(), Eni
 /// Decodifica um stream Enigma (variante plain do console/Sonic 1).
 /// Erro => nenhuma saida e entregue ao chamador.
 pub fn decode(stream: &[u8], opts: &DecodeOptions) -> Result<EnigmaDecoded, EnigmaError> {
+    // Dominio restrito: a unica paridade provada contra console/oraculo e com
+    // value_offset = 0 (E23/B4). Offset nao-zero tem semantica divergente no
+    // caso prioridade/flags; recusar na porta, nao emitir saida nao comprovada.
+    if opts.value_offset != 0 {
+        return Err(EnigmaError::UnsupportedParameter);
+    }
     if stream.len() < HEADER_LEN {
         return Err(EnigmaError::Truncated);
     }
