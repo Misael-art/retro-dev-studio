@@ -11950,7 +11950,11 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
     [command, args]
   );
   const q = async (script, args = []) => executeScript(sid, script, args);
-  const click = (testId, label = testId) => clickButtonByTestIdNativeWhenReady(sid, testId, label);
+  // Rolar até o controle antes do clique nativo: a rolagem do painel é aceitável; controle inacessível não é.
+  const click = async (testId, label = testId) => {
+    await q(`const el = document.querySelector("[data-testid='" + arguments[0] + "']"); if (el instanceof HTMLElement) el.scrollIntoView({ block: "center", inline: "center" });`, [testId]);
+    return clickButtonByTestIdNativeWhenReady(sid, testId, label);
+  };
   // Hit-test: o controle esta dentro da janela e o ponto central pertence a ele (nada sobrepoe).
   const hitTest = (testId, scroll) => q(`
     const el = document.querySelector("[data-testid='" + arguments[0] + "']");
@@ -11988,7 +11992,10 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
   // PASSO 1b — modo ampliado (reaproveita o layout), acessibilidade dos controles e escala inteira.
   const widthOf = () => q(`const p = document.querySelector("[data-testid='sor-font-panel']"); const c = document.querySelector("#center, [data-panel-id='center'], [id='center']"); return { panel: Math.round(p.getBoundingClientRect().width), center: c ? Math.round(c.getBoundingClientRect().width) : null, vw: window.innerWidth };`);
   const w0 = await widthOf();
-  await click("sor-expand-toggle", "ampliar editor");
+  // O botão da barra superior da inspeção é visível SEM rolar, mesmo em 1280x800.
+  const topToggle = await hitTest("inspection-expand-toggle", false);
+  addCheck("cx.botao_ampliar_visivel_sem_rolar", topToggle.found && topToggle.inside && topToggle.hit, { observado: topToggle, janela: report.window });
+  await click("inspection-expand-toggle", "ampliar painel (barra da inspecao)");
   const w1 = await waitFor(async () => { const r = await widthOf(); return r.panel > w0.panel * 1.25 ? r : false; }, 15000, "O modo ampliado nao aumentou a largura do editor", 250);
   addCheck("cx.modo_ampliado_aumenta_a_area_do_editor", w1.panel > w0.panel * 1.25 && (w0.center === null || w1.center < w0.center), { observado: { antes: w0, depois: w1 }, janela: report.window });
   report.steps.push({ step: "1b", name: "modo_ampliado", screenshot: await captureScreenshot(sid, `${prefix}-sor-ampliado.png`) });

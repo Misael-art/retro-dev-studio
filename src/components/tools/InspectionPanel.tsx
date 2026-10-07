@@ -140,6 +140,8 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
   const activeProjectDir = useEditorStore((state) => state.activeProjectDir);
   const requestEmulatorLaunch = useEditorStore((state) => state.requestEmulatorLaunch);
   const consoleVisible = useEditorStore((state) => state.consoleVisible);
+  const inspectionExpanded = useEditorStore((state) => state.inspectionExpanded);
+  const setInspectionExpanded = useEditorStore((state) => state.setInspectionExpanded);
   const [romPath, setRomPath] = useState("");
   const [session, setSession] = useState<InspectionSession | null>(null);
   const [run, setRun] = useState<InspectionRun | null>(null);
@@ -1129,7 +1131,8 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
           <button type="button" data-testid="inspection-identify" onClick={() => void identify()} disabled={busy} className="rounded bg-[#cba6f7] px-3 py-1 text-[10px] font-semibold text-[#1e1e2e]">Identificar base</button>
           <button type="button" data-testid="inspection-reopen" onClick={() => void reopen()} disabled={busy || !(session?.session_id || selectedSavedSessionId || lastSessionId.current)} className="rounded border border-[#313244] px-3 py-1 text-[10px] text-[#cdd6f4]">Reabrir sessão</button>
           {session && <button type="button" data-testid="inspection-save" onClick={() => void save()} className="rounded border border-[#313244] px-3 py-1 text-[10px] text-[#cdd6f4]">Salvar sessão</button>}
-          {session && <button type="button" data-testid="inspection-close" onClick={closeSession} className="rounded border border-[#313244] px-3 py-1 text-[10px] text-[#f9e2af]">Fechar sessão</button>}
+          <button type="button" data-testid="inspection-expand-toggle" aria-pressed={inspectionExpanded} onClick={() => setInspectionExpanded(!inspectionExpanded)} title={inspectionExpanded ? "Devolve o espaço à cena e aos painéis" : "Dá quase toda a largura a este painel (a cena fica minimizada)"} className="rounded border border-[#89b4fa]/60 px-3 py-1 text-[10px] text-[#89b4fa]">{inspectionExpanded ? "Restaurar layout" : "Ampliar painel"}</button>
+                    {session && <button type="button" data-testid="inspection-close" onClick={closeSession} className="rounded border border-[#313244] px-3 py-1 text-[10px] text-[#f9e2af]">Fechar sessão</button>}
         </div>
         {resumeHint && !session && (
           <div data-testid="inspection-resume-banner" className="mt-2 rounded border border-[#89b4fa]/40 bg-[#101b2e] p-2">

@@ -564,6 +564,11 @@ function getInitialWorkspaceGuideExpanded() {
 
 function WorkspaceGuideCard({ guide }: { guide: WorkspaceGuide }) {
   const [expanded, setExpanded] = useState(getInitialWorkspaceGuideExpanded);
+  // Modo de inspeção: o guia do workspace se compacta (sem persistir a preferência) para devolver altura ao editor.
+  const inspectionExpandedGuide = useEditorStore((state) => state.inspectionExpanded);
+  useEffect(() => {
+    if (inspectionExpandedGuide) setExpanded(false);
+  }, [inspectionExpandedGuide]);
   const signalToneClass =
     guide.signal?.tone === "error"
       ? "border-[#f38ba8]/35 bg-[#f38ba8]/10 text-[#f38ba8]"
