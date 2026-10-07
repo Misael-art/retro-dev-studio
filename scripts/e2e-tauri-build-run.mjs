@@ -11782,6 +11782,70 @@ function layoutsEnigmaOracle(rom, off) {
   return { bytes, consumed: 6 + Math.ceil(bit / 8) };
 }
 
+// Oráculo JS independente do produto para a composição das paredes (Nemesis + mapping + paleta estática).
+function ssNemesisOracle(rom, off) {
+  const hdr = (rom[off] << 8) | rom[off + 1];
+  const xor = (hdr & 0x8000) !== 0;
+  const tiles = hdr & 0x7fff;
+  let p = off + 2;
+  let pal = null;
+  const table = new Map();
+  for (;;) {
+    const b = rom[p++];
+    if (b === 0xff) break;
+    if (b & 0x80) { pal = b & 0x0f; continue; }
+    table.set(`${b & 0x0f}:${rom[p++]}`, [pal, ((b >> 4) & 7) + 1]);
+  }
+  let bit = p * 8;
+  const rb = () => { const v = (rom[bit >> 3] >> (7 - (bit & 7))) & 1; bit += 1; return v; };
+  const px = [];
+  while (px.length < tiles * 64) {
+    let code = 0, len = 0;
+    for (;;) {
+      code = (code << 1) | rb(); len += 1;
+      if (len === 6 && code === 0x3f) { let v = 0; for (let i = 0; i < 7; i += 1) v = (v << 1) | rb(); for (let i = 0; i <= ((v >> 4) & 7); i += 1) px.push(v & 15); break; }
+      const e = table.get(`${len}:${code}`);
+      if (e) { for (let i = 0; i < e[1]; i += 1) px.push(e[0]); break; }
+      if (len > 8) throw new Error("oraculo nemesis: codigo invalido");
+    }
+  }
+  const out = Buffer.alloc(tiles * 32);
+  let prev = 0;
+  for (let r = 0; r < tiles * 8; r += 1) {
+    let w = 0;
+    for (let c = 0; c < 8; c += 1) w = ((w << 4) | px[r * 8 + c]) >>> 0;
+    if (xor) w = (w ^ prev) >>> 0;
+    prev = w;
+    out.writeUInt32BE(w, r * 4);
+  }
+  return out;
+}
+
+function ssWallOracle(rom, frame, line) {
+  const art = ssNemesisOracle(rom, 0x2c5e4);
+  const tab = 0x2c564;
+  const o = tab + ((rom[tab + 2 * frame] << 8) | rom[tab + 2 * frame + 1]);
+  const size = rom[o + 2];
+  const w = ((size >> 2) & 3) + 1, h = (size & 3) + 1;
+  const base = ((rom[o + 3] << 8) | rom[o + 4]) & 0x7ff;
+  const pal = [];
+  for (let i = 0; i < 64; i += 1) pal.push((rom[0x26c8 + 2 * i] << 8) | rom[0x26c8 + 2 * i + 1]);
+  const lv = (n) => Math.floor((n * 255 + 3) / 7);
+  const rgba = new Array(w * 8 * h * 8 * 4).fill(0);
+  for (let v = 0; v < h * 8; v += 1) {
+    for (let u = 0; u < w * 8; u += 1) {
+      const t = base + Math.floor(u / 8) * h + Math.floor(v / 8);
+      const b = art[t * 32 + (v % 8) * 4 + Math.floor((u % 8) / 2)];
+      const c = (u % 2 === 0) ? b >> 4 : b & 15;
+      if (c === 0) continue;
+      const word = pal[line * 16 + c];
+      const i = (v * w * 8 + u) * 4;
+      rgba[i] = lv((word >> 1) & 7); rgba[i + 1] = lv((word >> 5) & 7); rgba[i + 2] = lv((word >> 9) & 7); rgba[i + 3] = 255;
+    }
+  }
+  return { w: w * 8, h: h * 8, rgba };
+}
+
 async function runSonicLayoutsJourneyScenario(sessionId, app, romPath, base, savedId, prefix, uiBootstrapTimeoutMs) {
   const hash = (buffer) => createHash("sha256").update(buffer).digest("hex");
   const baseSha256 = hash(base);
@@ -12010,6 +12074,79 @@ async function runSonicLayoutsJourneyScenario(sessionId, app, romPath, base, sav
     const semArte = await readLayouts();
     addCheck("ui.definicao_diz_o_que_nao_se_sabe", semArte.desconhecidos >= 4, { observado: semArte.desconhecidos });
     report.steps.push({ step: 5, name: "definicao_estrutural_contra_bytes_do_arquivo" });
+
+    // PASSO 5b — célula → recurso: composição das paredes (pixels do canvas × oráculo JS) e captura visível.
+    const readWall = () => executeScript(sessionIdRef, `
+      const panel = document.querySelector("[data-testid='ss-wall-panel']");
+      const canvas = document.querySelector("[data-testid='ss-wall-canvas']");
+      let rgba = null;
+      if (canvas) { const ctx = canvas.getContext("2d"); rgba = Array.from(ctx.getImageData(0, 0, canvas.width, canvas.height).data); }
+      return {
+        panel: Boolean(panel),
+        blockId: panel?.getAttribute("data-block-id") ?? null,
+        status: document.querySelector("[data-testid='ss-wall-status']")?.getAttribute("data-status") ?? null,
+        w: canvas?.width ?? 0, h: canvas?.height ?? 0, rgba,
+        paleta: document.querySelector("[data-testid='ss-wall-paleta']")?.textContent ?? "",
+        cadeia: document.querySelectorAll("[data-testid='ss-wall-cadeia'] li").length,
+        vazios: document.querySelector("[data-testid='ss-wall-vazios']")?.textContent ?? "",
+        frameInput: document.querySelector("[data-testid='ss-wall-frame']")?.value ?? null,
+        label: canvas?.getAttribute("aria-label") ?? "",
+      };`);
+    {
+      const cellFor = (pred) => {
+        for (let layout = 0; layout < 6; layout += 1) {
+          for (let off = 0; off < 4096; off += 1) { const id = oracle[layout].bytes[off]; if (pred(id)) return { layout, off, id }; }
+        }
+        return null;
+      };
+      const alvo = cellFor((id) => id >= 1 && id <= 36);
+      const outro = cellFor((id) => id >= 37 && id <= 78);
+      if (!alvo) fail("Nenhum ID 1..36 nos seis layouts para a composição");
+      if (Number((await readLayouts()).layout) !== alvo.layout) {
+        await clickButtonByTestIdNativeWhenReady(sessionIdRef, `layouts-tab-${alvo.layout}`, "layout do ID de parede");
+        await waitFor(async () => { const r = await readLayouts(); return r?.layout === alvo.layout && r.gridState === "pronto"; }, 15000, "troca de layout", 100);
+      }
+      const row = Math.floor(alvo.off / 64), col = alvo.off % 64;
+      await nativeClickSelector(`[data-testid='layouts-grid'] [data-row='${row}'][data-col='${col}']`, "celula de parede");
+      await waitCell(row, col, "celula de parede");
+      const wall = await waitFor(async () => { const w = await readWall(); return w.rgba && String(w.blockId) === String(alvo.id) ? w : false; }, 20000, "composição da parede não apareceu", 150);
+      const rec = mapIndexRecord(alvo.id);
+      const linha = (parseInt(rec.slice(8, 12), 16) >> 13) & 3;
+      const compara = (nome, w, frame) => {
+        const exp = ssWallOracle(base, frame, linha);
+        addCheck(nome, w.w === exp.w && w.h === exp.h && w.rgba.length === exp.rgba.length && w.rgba.every((v, i) => v === exp.rgba[i]), { observado: { w: w.w, h: w.h, frame, id: alvo.id, linha }, sonda_tecnica: false });
+      };
+      compara("parede.canvas_frame0_igual_ao_oraculo_js", wall, 0);
+      addCheck("parede.paleta_rotulada_candidata_estatica", wall.paleta.includes("candidata estática") && wall.paleta.includes("Não é a paleta do jogo"), { observado: wall.paleta });
+      addCheck("parede.cadeia_5_elos_e_frame0_sem_vazios", wall.cadeia === 5 && wall.vazios === "", { observado: { cadeia: wall.cadeia, vazios: wall.vazios } });
+      await nativeClickSelector("[data-testid='ss-wall-frame']", "campo de frame");
+      for (let i = 0; i < 8; i += 1) await tap("ArrowUp", "frame +1");
+      const w8 = await waitFor(async () => { const w = await readWall(); return w.frameInput === "8" && w.label.startsWith("Frame 8 do mapping") && w.rgba ? w : false; }, 15000, "frame 8 não apareceu", 150);
+      compara("parede.canvas_frame8_igual_ao_oraculo_js", w8, 8);
+      addCheck("parede.frame8_reporta_tiles_vazios_121_124_133_136", ["121", "124", "133", "136"].every((t) => w8.vazios.includes(t)), { observado: w8.vazios });
+      await tap("ArrowUp", "frame +1");
+      const w9 = await waitFor(async () => { const w = await readWall(); return w.frameInput === "9" && w.label.startsWith("Frame 9 do mapping") && w.rgba ? w : false; }, 15000, "frame 9 não apareceu", 150);
+      compara("parede.canvas_frame9_reservado_igual_ao_oraculo_js", w9, 9);
+      for (let i = 0; i < 6; i += 1) await tap("ArrowUp", "frame +1");
+      const w15 = await waitFor(async () => { const w = await readWall(); return w.frameInput === "15" && w.label.startsWith("Frame 15 do mapping") && w.rgba ? w : false; }, 15000, "frame 15 não apareceu", 150);
+      compara("parede.canvas_frame15_reservado_igual_ao_oraculo_js", w15, 15);
+      await executeScript(sessionIdRef, `document.querySelector("[data-testid='ss-wall-panel']")?.scrollIntoView({ block: "center" }); return true;`);
+      report.steps.push({ step: "5b", name: "celula_para_recurso_parede", id: alvo.id, linha, screenshot: await captureScreenshot(sessionIdRef, `${prefix}-layouts-parede.png`) });
+      if (outro) {
+        const r2 = Math.floor(outro.off / 64), c2 = outro.off % 64;
+        if (Number((await readLayouts()).layout) !== outro.layout) {
+          await clickButtonByTestIdNativeWhenReady(sessionIdRef, `layouts-tab-${outro.layout}`, "layout do ID de outro mapping");
+          await waitFor(async () => { const r = await readLayouts(); return r?.layout === outro.layout && r.gridState === "pronto"; }, 15000, "troca de layout", 100);
+        }
+        await nativeClickSelector(`[data-testid='layouts-grid'] [data-row='${r2}'][data-col='${c2}']`, "celula de outro mapping");
+        await waitCell(r2, c2, "celula de outro mapping");
+        const sem = await waitFor(async () => { const w = await readWall(); return w.status && String(w.blockId) === String(outro.id) ? w : false; }, 20000, "estado do ID de outro mapping não apareceu", 150);
+        const rec2 = mapIndexRecord(outro.id);
+        const ptr2 = parseInt(rec2.slice(2, 8), 16);
+        addCheck("parede.outro_mapping_sem_imagem_inventada", ptr2 !== 0x2c564 ? (sem.status === "mapping-nao-decodificado" && sem.rgba === null) : sem.status === "composta", { observado: { id: outro.id, ptr: ptr2.toString(16), status: sem.status, canvas: sem.rgba !== null } });
+      }
+    }
+    report.steps.push({ step: "5c", name: "composicao_validada" });
 
     // PASSO 6 — zoom por mouse e teclado.
     const z0 = Number((await readLayouts()).zoom);

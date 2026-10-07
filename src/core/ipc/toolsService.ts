@@ -1036,6 +1036,54 @@ export function inspectionSonicLayoutCell(
   });
 }
 
+export interface SsWallsElo {
+  ordem: number;
+  de: string;
+  para: string;
+  origem: string;
+  nivel: string;
+}
+
+export interface SsWallsComposition {
+  formato: string;
+  sessao_id: string;
+  rom_sha256: string;
+  id: number;
+  id_hex: string;
+  status: "composta" | "id-zero" | "fora-da-tabela" | "mapping-nao-decodificado";
+  explicacao: string;
+  frame: number | null;
+  linha_paleta: number | null;
+  largura: number;
+  altura: number;
+  x0: number;
+  y0: number;
+  pixels_hex: string;
+  rgba_hex: string;
+  paleta_rotulo: string;
+  tiles_usados: number[];
+  tiles_vazios: number[];
+  cadeia: SsWallsElo[];
+  integridade: string;
+  aviso_frame: string;
+}
+
+export function inspectionSonicSsWallCompose(
+  sessionId: string,
+  expectedRomSha256: string,
+  id: number,
+  frame: number,
+  requestId?: string
+): Promise<SsWallsComposition> {
+  return invoke<SsWallsComposition>("rex_inspection_sonic_ss_wall_compose", {
+    sessionId,
+    expectedRomSha256,
+    id,
+    frame,
+    requestId: requestId ?? null,
+  });
+}
+
 export function inspectionSonicLayoutsCancel(requestId: string): Promise<boolean> {
   return invoke<boolean>("rex_inspection_sonic_layouts_cancel", { requestId });
 }

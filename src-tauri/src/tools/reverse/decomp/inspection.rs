@@ -1839,6 +1839,42 @@ pub fn set_layouts_selection(
     Ok(stored.session)
 }
 
+pub fn sonic_ss_walls_info(
+    session_id: &str,
+    expected_rom_sha256: Option<&str>,
+    request_id: Option<&str>,
+) -> Result<super::sonic_ss_walls::SsWallsInfo, String> {
+    let token = super::sonic_layouts::TokenCancel::novo(request_id)?;
+    let stored = get_stored_session(session_id)?;
+    let (base, rom) = super::sprite_composition::read_sonic_session_rom(&stored.session)
+        .map_err(|e| error("layouts_rom_unreadable", e, false))?;
+    super::sonic_ss_walls::info(&base, &rom, session_id, expected_rom_sha256, &|| {
+        token.cancelado()
+    })
+}
+
+pub fn sonic_ss_walls_compose(
+    session_id: &str,
+    expected_rom_sha256: &str,
+    id: u8,
+    frame: usize,
+    request_id: Option<&str>,
+) -> Result<super::sonic_ss_walls::SsWallsComposicao, String> {
+    let token = super::sonic_layouts::TokenCancel::novo(request_id)?;
+    let stored = get_stored_session(session_id)?;
+    let (base, rom) = super::sprite_composition::read_sonic_session_rom(&stored.session)
+        .map_err(|e| error("layouts_rom_unreadable", e, false))?;
+    super::sonic_ss_walls::compor(
+        &base,
+        &rom,
+        session_id,
+        expected_rom_sha256,
+        id,
+        frame,
+        &|| token.cancelado(),
+    )
+}
+
 pub fn sonic_layout_cell(
     session_id: &str,
     expected_rom_sha256: &str,

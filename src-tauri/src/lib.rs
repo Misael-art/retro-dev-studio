@@ -2773,6 +2773,64 @@ async fn rex_inspection_sonic_layout_cell(
 }
 
 #[tauri::command]
+async fn rex_inspection_sonic_ss_walls(
+    session_id: String,
+    expected_rom_sha256: Option<String>,
+    request_id: Option<String>,
+) -> Result<
+    tools::reverse::decomp::sonic_ss_walls::SsWallsInfo,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_command_off_main_thread(
+        move || {
+            tools::reverse::decomp::inspection::sonic_ss_walls_info(
+                &session_id,
+                expected_rom_sha256.as_deref(),
+                request_id.as_deref(),
+            )
+            .map_err(tools::reverse::decomp::inspection::layouts_error)
+        },
+        || {
+            Err(tools::reverse::decomp::inspection::layouts_error(
+                interrupted_command_message("rex_inspection_sonic_ss_walls"),
+            ))
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+async fn rex_inspection_sonic_ss_wall_compose(
+    session_id: String,
+    expected_rom_sha256: String,
+    id: u8,
+    frame: usize,
+    request_id: Option<String>,
+) -> Result<
+    tools::reverse::decomp::sonic_ss_walls::SsWallsComposicao,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_command_off_main_thread(
+        move || {
+            tools::reverse::decomp::inspection::sonic_ss_walls_compose(
+                &session_id,
+                &expected_rom_sha256,
+                id,
+                frame,
+                request_id.as_deref(),
+            )
+            .map_err(tools::reverse::decomp::inspection::layouts_error)
+        },
+        || {
+            Err(tools::reverse::decomp::inspection::layouts_error(
+                interrupted_command_message("rex_inspection_sonic_ss_wall_compose"),
+            ))
+        },
+    )
+    .await
+}
+
+#[tauri::command]
 fn rex_inspection_set_layouts_selection(
     session_id: String,
     selection: Option<tools::reverse::decomp::sonic_layouts::SelecaoLayouts>,
@@ -5869,6 +5927,8 @@ pub fn run() {
             rex_inspection_sonic_layout_grid,
             rex_inspection_sonic_layout_cell,
             rex_inspection_sonic_layouts_cancel,
+            rex_inspection_sonic_ss_walls,
+            rex_inspection_sonic_ss_wall_compose,
             rex_inspection_set_layouts_selection,
             rex_inspection_edit_sonic_sequence,
             rex_inspection_restore_sonic_sequence,

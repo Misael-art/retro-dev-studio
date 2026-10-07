@@ -1,0 +1,10 @@
+{
+ "schema": "rex-ss-walls-product-parity/v1",
+ "binario_sha256": "66d50fb4f7943ba2d2d3293eaaae157f00bd6c07faa512c597c0f89237919265",
+ "jornada_allpass": true,
+ "checks": 81,
+ "paridade_rust_x_python_independente": "compare_rust_composition.py: 16/16 frames PASS (ID 0x01, linha 0), incluindo reservados 9 e 15",
+ "byor_rust": "cargo test --lib byor_composicao_real: 36 IDs x 16 frames compostos; pins arte/mapping/paleta conferem; ID de outro mapping sem imagem",
+ "core_frame": "data/rex_profiles/integration_20261007/evidencia/ss-walls-core-frame.json",
+ "limites": "paleta estatica; frame de rotacao escolhido pelo usuario; sem observacao do jogo alem dos frames do core; so flip 0; IDs 37..78 sem composicao"
+}
