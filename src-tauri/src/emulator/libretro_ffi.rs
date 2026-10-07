@@ -2125,6 +2125,7 @@ mod tests {
         let _ = fs::remove_dir_all(dir);
     }
 
+    #[cfg(test)]
     fn audio_frames(e: &EmulatorCore) -> usize {
         e.handle.lock().expect("lock").last_audio_frames
     }
