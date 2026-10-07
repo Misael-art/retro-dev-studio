@@ -11991,13 +11991,13 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
   addCheck("negativo.mesma_edicao_e_noop_explicito", dup.ok && dup.value.noop === true && dup.value.modified_rom_sha256 === edit.modified_rom_sha256, { observado: { ok: dup.ok, noop: dup.value?.noop }, sonda_tecnica: true });
   const bad = async (nome, pixels, codigo) => {
     const r = await probeInvoke("rex_inspection_edit_sor_font", { sessionId: savedId, pixels });
-    addCheck(`negativo.${nome}`, r.ok === false && String(r.message ?? r.code).includes(codigo), { observado: { ok: r.ok, code: r.code, message: String(r.message ?? "").slice(0, 160) }, esperado: codigo, sonda_tecnica: true });
+    addCheck(`negativo.${nome}`, r.ok === false && `${r.code ?? ""} ${r.message ?? ""}`.includes(codigo), { observado: { ok: r.ok, code: r.code, message: String(r.message ?? "").slice(0, 160) }, esperado: codigo, sonda_tecnica: true });
   };
   await bad("tile_fora_do_recurso", [{ tile: 49, row: 0, col: 0, index: 1 }], "tile_out_of_resource");
   await bad("linha_fora_do_tile", [{ tile: 1, row: 8, col: 0, index: 1 }], "");
   await bad("indice_fora_do_dominio", [{ tile: 1, row: 0, col: 0, index: 16 }], "");
   const noise = [];
-  for (let t = 0; t < 49; t += 1) for (let r = 0; r < 8; r += 1) for (let c = 0; c < 8; c += 1) noise.push({ tile: t, row: r, col: c, index: (t * 7 + r * 5 + c * 3 + (t ^ r ^ c)) % 16 });
+  for (let t = 0; t < 49; t += 1) for (let r = 0; r < 8; r += 1) for (let c = 0; c < 8; c += 1) noise.push({ tile: t, row: r, col: c, index: ((Math.imul((t * 64 + r * 8 + c + 1), 2654435761) ^ Math.imul(t * 64 + r * 8 + c + 7, 40503)) >>> 11) % 16 });
   await bad("falta_de_espaco_ruido_total", noise, "needs_space");
   const afterNeg = await probeInvoke("rex_inspection_status", { sessionId: savedId });
   addCheck("negativo.recusas_nao_alteraram_a_cadeia_de_copia", afterNeg.value?.session?.edit?.modified_rom_sha256 === edit.modified_rom_sha256, { observado: afterNeg.value?.session?.edit?.modified_rom_sha256, sonda_tecnica: true });
@@ -12022,7 +12022,11 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
   // PASSO 5 — executar Original e Cópia no core pela UI (720 quadros, sem input) e guardar os framebuffers.
   const grab = async (which) => {
     await click(`sor-run-${which}`, `executar ${which}`);
-    await waitFor(async () => q(`return Boolean(document.querySelector("[data-testid='sor-observation-${which}']"));`), 600000, `Observacao ${which} nao apareceu`, 500);
+    await waitFor(async () => {
+      const r = await q(`return { has: Boolean(document.querySelector("[data-testid='sor-observation-${which}']")), status: document.querySelector("[data-testid='sor-status']")?.textContent ?? "" };`);
+      if (!r.has && r.status.includes("recusada")) fail(`Execucao ${which} recusada pela UI: ${r.status}`);
+      return r.has;
+    }, 600000, `Observacao ${which} nao apareceu`, 500);
     return q(`
       const o = document.querySelector("[data-testid='sor-observation-${which}']");
       const c = o.querySelector("canvas"); const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;

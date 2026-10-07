@@ -513,8 +513,18 @@ impl LoadedCore {
             unsafe {
                 (api.deinit)();
             }
+            // Medido com o Genesis Plus GX: caminho de ROM com 255 caracteres carrega, com 260 é
+            // recusado. Diagnóstico explícito em vez de um "recusou" genérico.
+            let path_len = rom_path.as_os_str().len();
+            let hint = if path_len >= 256 {
+                format!(
+                    " O caminho tem {path_len} caracteres e o core recusa caminhos de ROM a partir de ~256 (medido: 255 carrega, 260 não); mova a ROM/cópia para um diretório mais curto."
+                )
+            } else {
+                String::new()
+            };
             return Err(format!(
-                "Core '{}' recusou a ROM '{}'.",
+                "Core '{}' recusou a ROM '{}'.{hint}",
                 core_path.display(),
                 rom_path.display()
             ));
