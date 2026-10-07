@@ -1,8 +1,8 @@
 {
   "schema": "rex-sonic-sequencia-journey/v1",
-  "artifact_prefix": "inspection-2026-10-07T18-13-02-480Z",
+  "artifact_prefix": "inspection-2026-10-07T18-39-38-612Z",
   "expectations": "docs/rex_profiles/sonic_sequencia/EXPECTATIONS-SEQUENCIA.md §8.3 (jornada desktop integrada) + CONTRACT-SEQUENCIA.md (proposta B, janela 0x13BAF..0x13BC0)",
-  "binary_sha256": "0965e8bd483a06105b1e71286924c8facea63e8552acb9622f33f018f44dca26",
+  "binary_sha256": "24ae17876443d8fe7648b077c51cdb2c6b2961a8bd97f6b931bce976bec8c8b5",
   "base_rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
   "webkit_disable_compositing_mode": null,
   "proposal_b": [
@@ -28,12 +28,12 @@
   "expected_seq_copy_sha256": "0306a5abf7b8c2db890ef8d4773e239a50207a45ef3244d20ca694c9d192a0d9",
   "expected_journey_sha256": "dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170",
   "attribution": "Todos os cliques sao WebDriver nativos na janela real; o passo de execução usa teclado nativo (Enter→START) pelo caminho do produto. Chamadas IPC diretas aparecem rotuladas como sonda técnica.",
-  "pilot_dir": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-13-02-480Z-sequencia-journey",
+  "pilot_dir": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-39-38-612Z-sequencia-journey",
   "steps": [
     {
       "step": 1,
       "name": "abrir_byor_identidade_visivel",
-      "session_id": "inspection-1791396784-00000000",
+      "session_id": "inspection-1791398380-00000000",
       "identity_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
     },
     {
@@ -86,14 +86,14 @@
     {
       "step": 5,
       "name": "bps_export_apply",
-      "patch_path": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-13-02-480Z-sequencia-journey/sequencia-journey.bps",
-      "applied_path": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-13-02-480Z-sequencia-journey/sequencia-journey-aplicada.bin",
+      "patch_path": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-39-38-612Z-sequencia-journey/sequencia-journey.bps",
+      "applied_path": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-39-38-612Z-sequencia-journey/sequencia-journey-aplicada.bin",
       "patch_sha256": "15e263acf09a0f6ef35bc009013d8fbc3d587eef218ebcf78f9b78ec2edc122e"
     },
     {
       "step": 6,
       "name": "salvar_destroir_reiniciar_reabrir",
-      "session": "inspection-1791396784-00000000",
+      "session": "inspection-1791398380-00000000",
       "identity_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
       "provenvenience": "ROM modificada dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170 · offsets 0x013BAE, 0x013BAF, 0x013BC0 · 3 byte(s)"
     },
@@ -126,7 +126,7 @@
     {
       "step": 10,
       "name": "negativos_e_ack_atrasado",
-      "second_session": "inspection-1791396894-00000000",
+      "second_session": "inspection-1791398488-00000000",
       "acks_descartados": 0,
       "probe_final": [
         1,
@@ -154,7 +154,7 @@
     {
       "name": "passo1.byor_pinado",
       "pass": true,
-      "session_id": "inspection-1791396784-00000000",
+      "session_id": "inspection-1791398380-00000000",
       "base_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
     },
     {
@@ -591,7 +591,7 @@
       "name": "passo10.voo_atrasado_confirmado",
       "pass": true,
       "apply_disabled_na_janela_voo": true,
-      "armed_probe_ms": 2708,
+      "armed_probe_ms": 2678,
       "flight_timeline": [
         {
           "t_ms": 0,
@@ -601,91 +601,91 @@
           "err": ""
         },
         {
-          "t_ms": 147,
+          "t_ms": 160,
           "disabled": true,
           "label": "Aplicando…",
           "msg": "",
           "err": ""
         },
         {
-          "t_ms": 343,
+          "t_ms": 286,
           "disabled": true,
           "label": "Aplicando…",
           "msg": "",
           "err": ""
         },
         {
-          "t_ms": 452,
+          "t_ms": 391,
           "disabled": true,
           "label": "Aplicando…",
           "msg": "",
           "err": ""
         },
         {
-          "t_ms": 562,
+          "t_ms": 497,
           "disabled": true,
           "label": "Aplicando…",
           "msg": "",
           "err": ""
         },
         {
-          "t_ms": 692,
+          "t_ms": 616,
           "disabled": true,
           "label": "Aplicando…",
           "msg": "",
           "err": ""
         },
         {
-          "t_ms": 845,
+          "t_ms": 731,
           "disabled": true,
           "label": "Aplicando…",
           "msg": "",
           "err": ""
         },
         {
-          "t_ms": 950,
+          "t_ms": 857,
           "disabled": true,
           "label": "Aplicando…",
           "msg": "",
           "err": ""
         },
         {
-          "t_ms": 1058,
+          "t_ms": 970,
           "disabled": true,
           "label": "Aplicando…",
           "msg": "",
           "err": ""
         },
         {
-          "t_ms": 1162,
+          "t_ms": 1075,
           "disabled": true,
           "label": "Aplicando…",
           "msg": "",
           "err": ""
         },
         {
-          "t_ms": 1276,
+          "t_ms": 1211,
           "disabled": true,
           "label": "Aplicando…",
           "msg": "",
           "err": ""
         },
         {
-          "t_ms": 1389,
+          "t_ms": 1318,
           "disabled": true,
           "label": "Aplicando…",
           "msg": "",
           "err": ""
         },
         {
-          "t_ms": 1506,
+          "t_ms": 1443,
           "disabled": true,
           "label": "Aplicando…",
           "msg": "",
           "err": ""
         },
         {
-          "t_ms": 1634,
+          "t_ms": 1566,
           "disabled": true,
           "label": "Aplicando…",
           "msg": "",
@@ -699,7 +699,7 @@
       "name": "passo10.ack_de_epoca_anterior_descartado_pela_ui",
       "pass": true,
       "acks_novos": [],
-      "sessao_exibida": "inspection-1791396784-00000000",
+      "sessao_exibida": "inspection-1791398380-00000000",
       "painel_atual": [
         1,
         1,
@@ -731,5 +731,5 @@
   ],
   "runtime_effect": "ordem e duracao acumuladas na mesma copia pela UI real, restauracoes seletivas provadas byte a byte, ack de epoca anterior descartado com duas sessoes reais",
   "allPass": true,
-  "finished_at": "2026-10-07T18:15:15.065Z"
+  "finished_at": "2026-10-07T18:41:48.389Z"
 }

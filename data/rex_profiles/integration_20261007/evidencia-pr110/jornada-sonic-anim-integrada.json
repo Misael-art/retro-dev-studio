@@ -1,8 +1,8 @@
 {
   "schema": "rex-sonic-anim-integrada/v1",
-  "artifact_prefix": "inspection-2026-10-07T18-11-08-781Z",
+  "artifact_prefix": "inspection-2026-10-07T18-37-55-640Z",
   "expectations": "docs/rex_profiles/sonic_anim_integrada/EXPECTATIONS-INTEGRADA.md + EXPECTATIONS-ETAPA5-ADDENDUM-1.md (driver R-1..R-4) + EXPECTATIONS-ETAPA5-ADDENDUM-2.md (meio M-1) + EXPECTATIONS-VISUAL-ETAPA3.md (E3-0..E3-7)",
-  "binary_sha256": "0965e8bd483a06105b1e71286924c8facea63e8552acb9622f33f018f44dca26",
+  "binary_sha256": "24ae17876443d8fe7648b077c51cdb2c6b2961a8bd97f6b931bce976bec8c8b5",
   "base_rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
   "webkit_disable_compositing_mode": null,
   "expected_journey_sha256": "3274e7c422c0b70ff2b67d4e11671df6650274f8400b41d0588f0e15d2a9778a",
@@ -13,7 +13,7 @@
     "old_index": 0,
     "new_index": 15
   },
-  "pilot_dir": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-11-08-781Z-anim-integrada",
+  "pilot_dir": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-37-55-640Z-anim-integrada",
   "steps": [
     {
       "step": 1,
@@ -54,8 +54,8 @@
     {
       "step": 6,
       "name": "bps_export_apply",
-      "patch_path": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-11-08-781Z-anim-integrada/anim-integrada.bps",
-      "applied_path": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-11-08-781Z-anim-integrada/anim-integrada-aplicada.bin",
+      "patch_path": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-37-55-640Z-anim-integrada/anim-integrada.bps",
+      "applied_path": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-37-55-640Z-anim-integrada/anim-integrada-aplicada.bin",
       "patch_sha256": "9da59969d2f51bd0a8b96f78c949dce89a48fcf9e72efd3e0fabab97e2230731"
     },
     {
@@ -66,7 +66,7 @@
     {
       "step": 8,
       "name": "salvar_reabrir",
-      "session": "inspection-1791396671-00000000",
+      "session": "inspection-1791398278-00000000",
       "wizard": {
         "explicitClose": true,
         "visible": true,
@@ -109,7 +109,7 @@
       "pass": true,
       "observed": {
         "base_sha": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
-        "session_id": "inspection-1791396671-00000000"
+        "session_id": "inspection-1791398278-00000000"
       }
     },
     {
@@ -428,10 +428,10 @@
         "proof_error": null
       }
     ],
-    "capture_path": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-11-08-781Z-visual-e3-walk1-visivel-pos-reabertura-1.png",
+    "capture_path": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-37-55-640Z-visual-e3-walk1-visivel-pos-reabertura-1.png",
     "capture_source": "x11-root-pixmap"
   },
   "runtime_effect": "pixel+cadencia acumulados na mesma copia, restauracao seletiva provada byte a byte na UI real",
   "allPass": true,
-  "finished_at": "2026-10-07T18:12:59.101Z"
+  "finished_at": "2026-10-07T18:39:35.616Z"
 }

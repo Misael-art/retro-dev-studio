@@ -1,26 +1,26 @@
 {
   "schema": "rex-sor-font-journey/v1",
-  "artifact_prefix": "inspection-2026-10-07T18-10-49-011Z",
+  "artifact_prefix": "inspection-2026-10-07T18-37-35-058Z",
   "expectations": "docs/rex_profiles/integration_20261007/EXPECTATIONS-SOR-FONT-2026-10-07.md",
-  "binary_sha256": "0965e8bd483a06105b1e71286924c8facea63e8552acb9622f33f018f44dca26",
+  "binary_sha256": "24ae17876443d8fe7648b077c51cdb2c6b2961a8bd97f6b931bce976bec8c8b5",
   "base_rom_sha256": "304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d",
   "attribution": "Cliques e campos são WebDriver NATIVOS na janela real; invoke = sonda técnica rotulada; framebuffer = observação do core pela ponte do app (input neutro, nenhuma escrita em RAM).",
-  "pilot_dir": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-10-49-011Z-sor-font-journey",
+  "pilot_dir": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-37-35-058Z-sor-font-journey",
   "steps": [
     {
       "step": 1,
       "name": "painel_visivel",
-      "screenshot": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-10-49-011Z-sor-painel.png"
+      "screenshot": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-37-35-058Z-sor-painel.png"
     },
     {
       "step": "1b",
       "name": "modo_ampliado",
-      "screenshot": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-10-49-011Z-sor-ampliado.png"
+      "screenshot": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-37-35-058Z-sor-ampliado.png"
     },
     {
       "step": 2,
       "name": "edicao_aplicada",
-      "screenshot": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-10-49-011Z-sor-aplicado.png"
+      "screenshot": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-37-35-058Z-sor-aplicado.png"
     },
     {
       "step": 3,
@@ -33,12 +33,12 @@
     {
       "step": 5,
       "name": "execucao_base_e_copia",
-      "screenshot": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-10-49-011Z-sor-execucao.png"
+      "screenshot": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-37-35-058Z-sor-execucao.png"
     },
     {
       "step": 6,
       "name": "reiniciado_e_reaberto",
-      "screenshot": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-10-49-011Z-sor-reaberto.png"
+      "screenshot": "/home/misael/Projects/REX-SECOND-GAME-2026-10-07/src-tauri/target-test/validation/inspection-2026-10-07T18-37-35-058Z-sor-reaberto.png"
     }
   ],
   "checks": [
@@ -1143,7 +1143,7 @@
       "pass": true,
       "observado": {
         "identity": "304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d",
-        "session": "inspection-1791396651-00000000"
+        "session": "inspection-1791398257-00000000"
       }
     },
     {

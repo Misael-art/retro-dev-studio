@@ -5,11 +5,6 @@
  "flips_version": "Floating IPS v201",
  "external_tool_failures": [
   {
-   "fixture": "bloco_movido_e_repeticoes",
-   "style": "--bps-linear",
-   "returncode": -11
-  },
-  {
    "fixture": "vazio_para_pequeno",
    "style": "--bps-linear",
    "returncode": -11
@@ -58,6 +53,11 @@
   },
   {
    "check": "bloco_movido_e_repeticoes: Flips cria (--bps-delta)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "bloco_movido_e_repeticoes: Flips cria (--bps-linear)",
    "ok": true,
    "detail": ""
   },
@@ -159,7 +159,7 @@
   {
    "check": "produto: ferramenta de interop executou",
    "ok": true,
-   "detail": "zed + debuginfo] target(s) in 0.85s\n     Running unittests src/lib.rs (target-test/debug/deps/app_lib-06d4f57fa08f79ac)\n"
+   "detail": "zed + debuginfo] target(s) in 0.89s\n     Running unittests src/lib.rs (target-test/debug/deps/app_lib-06d4f57fa08f79ac)\n"
   },
   {
    "check": "mesmo_tamanho_poucas_diferencas: produto cria \u2192 Flips aplica = alvo",
@@ -213,6 +213,11 @@
   },
   {
    "check": "bloco_movido_e_repeticoes: Flips cria (-bps-delta) \u2192 produto aplica = alvo",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "bloco_movido_e_repeticoes: Flips cria (-bps-linear) \u2192 produto aplica = alvo",
    "ok": true,
    "detail": ""
   },

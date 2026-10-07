@@ -1,5 +1,13 @@
 # 06 - AI MEMORY BANK & CONTEXT TRACKER
 
+### Checkpoint 2026-10-07 (revisão da PR #110) — BPS estrito + interop Flips, exclusividade do core, Kosinski auditado, Sonic+SoR no mesmo binário, CX (Experimental mantido)
+
+Código `f130358b`, binário `24ae1787…`, base da PR `4be2049d`. Fecho completo, pins e limites em `docs/rex_profiles/integration_20261007/FECHO-PR110-REVISAO-2026-10-07.md`; manifesto de 54 artefatos em `data/rex_profiles/integration_20261007/evidencia-pr110/MANIFEST.json`.
+Valem daqui para frente: (1) `apply_bps_checked` é estrito (varint, teto de saída antes de alocar, ações dentro da saída/origem, TargetCopy só de histórico, consumo exato, 3 CRCs); interop **bidirecional com Flips v201 pinado** (66/66); BPS legado reconhecido e **nunca** aplicado automaticamente;
+(2) **um dono do core por processo** (`CoreLease`, adquirido antes do dlopen/callbacks, liberado após unload; segunda instância = `core_busy`; `clear_active_emulator` só limpa o próprio slot); (3) o encoder Kosinski ótimo minimiza custo em bits modelado — não alega mínimo em bytes; teto 64 KiB; poda por dominância;
+(4) política: capturas com quadros do jogo, BPS e cópias de ROM **não vão ao Git** (ficam em `~/rds-evidence/...` com SHA no manifesto); (5) teste de janela só vale se o `innerWidth/innerHeight` efetivo for medido (o harness priorizava `RDS_E2E_WINDOW_*`); (6) o hit-test do WebKit ignora botões desabilitados e a scrollbar overlay cobre a base de controles.
+Pendências: remover do histórico da PR as 4 capturas/BPS antigos (decisão do dono), paleta real SoR, validação com pessoas, CI por SHA final. Sem merge, release ou promoção.
+
 ### Checkpoint 2026-10-07 — segundo jogo: fonte do Streets of Rage (Kosinski) editada pela UI; BPS corrigido; SIGABRT explicado (Experimental mantido)
 
 Branch `codex/rex-second-game-graphics` (base `d85485b1`), commit de código `5f778f7e`, binário `45dabcb3…`. Fecho completo, pins, comparação Sonic × SoR, limites e reprodução em

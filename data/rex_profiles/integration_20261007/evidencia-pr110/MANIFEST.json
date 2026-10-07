@@ -1,11 +1,11 @@
 {
  "schema": "rex-pr110-evidence-manifest/v1",
- "code_commit": "edc067ed51b1256f548696c1849752cf5c1cdf90",
- "manifest_generated_at_head": "edc067ed51b1256f548696c1849752cf5c1cdf90",
+ "code_commit": "f130358bc7992620e593a4297a0b6ef4e46af6cf",
+ "manifest_generated_at_head": "f130358bc7992620e593a4297a0b6ef4e46af6cf",
  "binary": {
   "path": "src-tauri/target-test/release/retro-dev-studio",
-  "sha256": "0965e8bd483a06105b1e71286924c8facea63e8552acb9622f33f018f44dca26",
-  "bytes": 31530120
+  "sha256": "24ae17876443d8fe7648b077c51cdb2c6b2961a8bd97f6b931bce976bec8c8b5",
+  "bytes": 31530816
  },
  "pins_externos": {
   "rom_sor_ptbr_byor": {
@@ -48,8 +48,8 @@
  "artefatos": [
   {
    "path": "data/rex_profiles/integration_20261007/evidencia-pr110/bps-interop-flips.json",
-   "sha256": "d1c018e51f02c7c640d2e7485dfd161467e620db2612e2cc84faa7829146bec6",
-   "bytes": 8541,
+   "sha256": "659a0e3500aaca10c98e9e819557dd1dfc4d3a25c0103e6b693b4ad2426dd0a3",
+   "bytes": 8684,
    "storage": "git",
    "role": "relatorio"
   },
@@ -83,28 +83,28 @@
   },
   {
    "path": "data/rex_profiles/integration_20261007/evidencia-pr110/jornada-sonic-anim-integrada.json",
-   "sha256": "d9f2c4fc84a54a5478a33af3ebab088b13772ec5807de1ee0654409dc015ad1a",
+   "sha256": "fc2f88a909e7468bb571b55bd3a2140fce2e8c16a4d58868fd525bcf5fd0bf45",
    "bytes": 13189,
    "storage": "git",
    "role": "relatorio"
   },
   {
    "path": "data/rex_profiles/integration_20261007/evidencia-pr110/jornada-sonic-sequencia.json",
-   "sha256": "0333af432f995f798a4874b610accf0dd032fac5097b7037b8e2595f554beaac",
-   "bytes": 18609,
+   "sha256": "8c99cb9ea06909b4feba8561b73d796f64c7b9048d867dd03b0675b33aa3dedb",
+   "bytes": 18608,
    "storage": "git",
    "role": "relatorio"
   },
   {
    "path": "data/rex_profiles/integration_20261007/evidencia-pr110/jornada-sor-1280x800.json",
-   "sha256": "2d860cb82e8e76e7a88d5b99bcf421d61999f782facce3fc6b8a6e896810338b",
+   "sha256": "874660dc55b16511fcd92dcaf7b88e0eb44c2490373a934c63f1559ac700f625",
    "bytes": 28423,
    "storage": "git",
    "role": "relatorio"
   },
   {
    "path": "data/rex_profiles/integration_20261007/evidencia-pr110/jornada-sor-1920x1080.json",
-   "sha256": "cec9344ca17db1b5b00916aa74fba2e59c726e275cc5d4b9047eb32d40c139d1",
+   "sha256": "d6b091343ee13d3b957236d23afa447a8c56e640e6b809bce132014a0c01939a",
    "bytes": 28487,
    "storage": "git",
    "role": "relatorio"
@@ -194,177 +194,177 @@
    "role": "harness Xvfb isolado"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-10-31-079Z-before-restart.png",
-   "sha256": "1a5da07070efbcbc8e79cc3d0fcab441868c36424dd76ab0626ba0ea8e1cad58",
-   "bytes": 251922,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-17-593Z-before-restart.png",
+   "sha256": "60aca309a26e956686dea48704ded27c3e1631abe3aeecbd4c3668dccb6116d9",
+   "bytes": 251730,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-10-31-079Z-sor-ampliado.png",
-   "sha256": "0235c701b9a3371ed1e8e75d3a73341066adc63eb55e880320ae96fd74a5c2fe",
-   "bytes": 175025,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-17-593Z-sor-ampliado.png",
+   "sha256": "d94f5b74250c92e620cab5a01d9b9fcac0a9b106210460b201bf7334db2f7e82",
+   "bytes": 175173,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-10-31-079Z-sor-aplicado.png",
-   "sha256": "dd643377752f6370379ed13398a132cd1f5e8a17e2d233c55ce3bb3b017cae0e",
-   "bytes": 191535,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-17-593Z-sor-aplicado.png",
+   "sha256": "c7dc6f5e1ea2ffde8c3532c5acf48f65effc09d0d46e35089a266abb539f1f11",
+   "bytes": 191546,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-10-31-079Z-sor-execucao.png",
-   "sha256": "8493e8d65efd2cfef5e26b6767320f73df436e2f9a7a391511bf827c251de507",
-   "bytes": 162886,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-17-593Z-sor-execucao.png",
+   "sha256": "769d8bd4e56fc553c9fbfba64007d3955d091668a6201a13db36d88d456ac3b9",
+   "bytes": 162902,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-10-31-079Z-sor-painel.png",
-   "sha256": "d6b25315f63105f0dc20f773d050d71c435d305caba94c5640668532272d6ef4",
-   "bytes": 168216,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-17-593Z-sor-painel.png",
+   "sha256": "44adaed8c9dea8e1699808ae188b46a17f4f9028bd0684383559a32047e5826d",
+   "bytes": 168346,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-10-31-079Z-sor-reaberto.png",
-   "sha256": "e1f08bd51049b2f5f25fdc5a27e034297553d34b77e9d529766bfc2dfcb847a3",
-   "bytes": 183354,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-17-593Z-sor-reaberto.png",
+   "sha256": "c2244408582d5dc4b638ae2980e59bd6dba9807de53656784120931a1c082285",
+   "bytes": 183598,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-10-49-011Z-before-restart.png",
-   "sha256": "f1f80bdf4fa660c822863638e88386e12185ec9a786a5d253b2cfcb486e96ada",
-   "bytes": 251798,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-35-058Z-before-restart.png",
+   "sha256": "957857e088df29f8144f0f526fe6e69610e5da38e0dee2adf2b8f371c4c357e9",
+   "bytes": 251875,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-10-49-011Z-sor-ampliado.png",
-   "sha256": "48c1f38f02a331284ea44d56526ff4a9e17e0e8a2571b1e33126a79cd026a14f",
-   "bytes": 259886,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-35-058Z-sor-ampliado.png",
+   "sha256": "48e283e57c3d3076379d57378055354af708de1e3a41991477f9cb38da588e14",
+   "bytes": 260121,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-10-49-011Z-sor-aplicado.png",
-   "sha256": "f905b097d349cc4bb2c821e28d696700058e14defb3b2e6e534e32dc0438c1b5",
-   "bytes": 277578,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-35-058Z-sor-aplicado.png",
+   "sha256": "656a9cfd927be5fd655c2c3c51ab0e0f561ed0284bba8bcdc1e1462dd1cf3934",
+   "bytes": 277952,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-10-49-011Z-sor-execucao.png",
-   "sha256": "df74bf8350227a6c72514acaf41202d4696aac59512edf978d343679d50356de",
-   "bytes": 251991,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-35-058Z-sor-execucao.png",
+   "sha256": "86843fe512f355d804aa2dcc0608ae3a44dbc78167792a656a1b7db445e9d485",
+   "bytes": 252335,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-10-49-011Z-sor-painel.png",
-   "sha256": "a58c3dd5d99b6c622a56f2137e8406c64d2e48ded31e2f53d9a14a71103cfa56",
-   "bytes": 252150,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-35-058Z-sor-painel.png",
+   "sha256": "0d2019e418bcdb38aa6f6fe32eed00c55f5347f2af31ef672a775a33513e59c7",
+   "bytes": 252351,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-10-49-011Z-sor-reaberto.png",
-   "sha256": "d79fe34361562c3eb59516b9576c0c21803dd3f8663fd2dbdb21c1648144aebe",
-   "bytes": 256227,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-35-058Z-sor-reaberto.png",
+   "sha256": "3b25b92ab8510ae6d24d019614f823179c11cc498acb021f2478e6877a401397",
+   "bytes": 256575,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-11-08-781Z-anim-integrada-passo2.png",
-   "sha256": "d90e22fa2846a5adc7107b6fce0e11253253e2f7d32ff457f6925725e3988882",
-   "bytes": 245626,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-55-640Z-anim-integrada-passo2.png",
+   "sha256": "300408ac244304caaa3098556e2895fa6ba3949f2b6f393eb00ee0285313db02",
+   "bytes": 245837,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-11-08-781Z-anim-integrada-passo9.png",
-   "sha256": "db0669e367e6313bed2b4b46835896d3288b3656aa2053b00a7d76d4a834cea9",
-   "bytes": 253603,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-55-640Z-anim-integrada-passo9.png",
+   "sha256": "470d8d4f7dc82a34c9c9500b3986cd5ce554942bc3f962bc91421d36e8c139f3",
+   "bytes": 254182,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-11-08-781Z-before-restart.png",
-   "sha256": "0626e8ddcdb5ea56d654023c36d9934d438afb36f2bdcb4c285ec177b396f156",
-   "bytes": 250775,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-55-640Z-before-restart.png",
+   "sha256": "b6369990e94161971636015ebfeb83e44a7f3794634346528e3d15bb63b1d904",
+   "bytes": 250653,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-11-08-781Z-sonic-stand-base.png",
-   "sha256": "83f58941fd8fbf9afe1fe586a20ced0be38b30f576308d7dd5c1e21e2e8d183f",
-   "bytes": 245603,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-55-640Z-sonic-stand-base.png",
+   "sha256": "45b4831d3f5f77a0032d5729745fb4eaa6d57ce4fc1d30581e1b0053c94f338e",
+   "bytes": 245882,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-11-08-781Z-visual-e3-walk1-visivel-pos-reabertura-1.png",
-   "sha256": "2ca7d417a736b8d756f243144991ed99932300c1dbfea572b7d62045b7d2d23a",
-   "bytes": 250066,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-55-640Z-visual-e3-walk1-visivel-pos-reabertura-1.png",
+   "sha256": "8d66d5271bb21ba450b2be413049d3369893c2176e4c869b848ae90d12b35c82",
+   "bytes": 250273,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-13-02-480Z-before-restart.png",
-   "sha256": "78b9db5197f4ba7000e473ced05e70c59c93207c64a67a14ef337741e25ea45c",
-   "bytes": 251196,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-39-38-612Z-before-restart.png",
+   "sha256": "3325aef4183e30063437097a77af3cb7ee84ee26bf5a5151e312bcb0063429dc",
+   "bytes": 250761,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-13-02-480Z-sequencia-journey-passo10.png",
-   "sha256": "21b8ecd82511c05c91db897ff535902c1ee4d3f1a1df3f8f4fffac1075acb1f3",
-   "bytes": 286865,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-39-38-612Z-sequencia-journey-passo10.png",
+   "sha256": "ca8df062f2f1b970b96395e815ed907042d5827d9a77834f152c37d46ca2db79",
+   "bytes": 289171,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-13-02-480Z-sequencia-journey-passo7.png",
-   "sha256": "82df80e3fd69943ad5c905fffceebba0708d9989232b980b2185e519e7b9a597",
-   "bytes": 253739,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-39-38-612Z-sequencia-journey-passo7.png",
+   "sha256": "37dcff30496096908eda41791b786484999b5892fc8b4025e67f85f72406aa9d",
+   "bytes": 253531,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-13-02-480Z-sonic-stand-base.png",
-   "sha256": "6aa39502fbd5d4a56aa6e4f13ba0d6c4a576effa743b0695836fd9cbfa20e7a7",
-   "bytes": 245768,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-39-38-612Z-sonic-stand-base.png",
+   "sha256": "f8324f9924e4e4d7958b361093438a0e4fab076dde38ada42161350fea2f2e8b",
+   "bytes": 245873,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
-   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-13-02-480Z-visual-e3-stand-visivel-apos-executar-1.png",
-   "sha256": "4c116d3585f77f15af83639309b44f3df87ccbcb46811f1c337dbe768130aa49",
-   "bytes": 249169,
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-39-38-612Z-visual-e3-stand-visivel-apos-executar-1.png",
+   "sha256": "c0addaacdb838936de5ed5f1953ceb38d3b39f71c76b4515d8c71d7df6850097",
+   "bytes": 249060,
    "storage": "local-only",
    "role": "captura de tela (quadros do jogo)",
    "note": "fora do Git por politica; hash pinado aqui"
@@ -427,32 +427,32 @@
   },
   {
    "path": "/home/misael/rds-evidence/pr110-20261007/logs/sonic-anim.journey.log",
-   "sha256": "e056d168589fa30ffb413fd827f87f2540e23a5dacb08af611b40f3a3c24dacc",
-   "bytes": 38710,
+   "sha256": "a2b96cd35090105e8f9837120c3bda3854ec979ce733aa9f37869b2487541dfc",
+   "bytes": 38911,
    "storage": "local-only",
    "role": "log da jornada",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
    "path": "/home/misael/rds-evidence/pr110-20261007/logs/sonic-seq.journey.log",
-   "sha256": "fdb9cfede2c6840fdc9863d0ae8263b53e2a1fb253a2965b480e75068c224bb6",
-   "bytes": 46409,
+   "sha256": "8eaade3eaa9af5545c2b9323ba97fc09d77789beb286660b34908ded56deaf86",
+   "bytes": 46565,
    "storage": "local-only",
    "role": "log da jornada",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
    "path": "/home/misael/rds-evidence/pr110-20261007/logs/sor-1280.journey.log",
-   "sha256": "477295dcc9f1bb80bbb384e4567a04b1cead9528d2b3d01011c18f05aebe8092",
-   "bytes": 11482,
+   "sha256": "0907ddfd6268c2afadb163670ed45cc219f2890216dd7b674d3e21aa50ed2b88",
+   "bytes": 11344,
    "storage": "local-only",
    "role": "log da jornada",
    "note": "fora do Git por politica; hash pinado aqui"
   },
   {
    "path": "/home/misael/rds-evidence/pr110-20261007/logs/sor-1920.journey.log",
-   "sha256": "5a2f87b5a9a259ec2df4557d859b42dc0ca54eede7ddf98981d5a0b51295335c",
-   "bytes": 11482,
+   "sha256": "90feb767840a03f065048a259cf5797153af719c544a437c79bb445facb16e19",
+   "bytes": 11509,
    "storage": "local-only",
    "role": "log da jornada",
    "note": "fora do Git por politica; hash pinado aqui"
