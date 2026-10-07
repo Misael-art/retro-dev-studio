@@ -1,5 +1,14 @@
 # 06 - AI MEMORY BANK & CONTEXT TRACKER
 
+### Checkpoint 2026-10-07 — segundo jogo: fonte do Streets of Rage (Kosinski) editada pela UI; BPS corrigido; SIGABRT explicado (Experimental mantido)
+
+Branch `codex/rex-second-game-graphics` (base `d85485b1`), commit de código `5f778f7e`, binário `45dabcb3…`. Fecho completo, pins, comparação Sonic × SoR, limites e reprodução em
+`docs/rex_profiles/integration_20261007/FECHO-SOR-FONT-2026-10-07.md`; expectativas congeladas + ADENDO em `EXPECTATIONS-SOR-FONT-2026-10-07.md`; evidência com SHA em `data/rex_profiles/integration_20261007/evidencia-sor-font/`.
+**Fluxo de edição gráfica comprovado nos dois perfis descritos** (Sonic 1 e SoR World PtBr, fonte em `0x389A0`); sem alegar suporte universal. Jornada nativa 27/27, oráculo independente 27/27, gates verdes (`host:certify` READY).
+Achados que valem para o futuro: (1) o `patch_studio` gravava BPS fora da spec (varint sem `-1`) — corrigido; (2) SIGABRT `longjmp` = dois cores GPGX concorrentes no mesmo processo (reprodução em `core_concurrency_repro.py`), não o aPLib;
+(3) SoR valida o checksum do cabeçalho no boot; (4) encoder Kosinski do crate é guloso (precisa do parse ótimo para caber no slot); (5) core recusa caminho de ROM ≥ 256 caracteres; (6) o app só cai na tela de texto da introdução sem input após ~588 quadros.
+Pendências: paleta real do SoR, letras/dígitos não rotulados, outra ROM SoR (não PtBr), relocação, CI por SHA (consultar no PR), validação de usabilidade com pessoas. Sem merge, release ou promoção.
+
 ### Checkpoint 2026-10-02 — barreira incremental de frames em Build & Run
 
 No branch `codex/rex-sonic-multiframe-ui`, commit de harness `8166d4f1`, a
