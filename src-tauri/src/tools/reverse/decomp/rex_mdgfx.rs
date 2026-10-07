@@ -174,7 +174,10 @@ pub fn frame_offsets(rom: &[u8], table_off: usize) -> Vec<usize> {
         if 2 * k >= min {
             break;
         }
-        let Some(w) = table_off.checked_add(2 * k).and_then(|a| slice_at(rom, a, 2)) else {
+        let Some(w) = table_off
+            .checked_add(2 * k)
+            .and_then(|a| slice_at(rom, a, 2))
+        else {
             break;
         };
         let v = usize::from(u16::from_be_bytes([w[0], w[1]]));
@@ -677,11 +680,23 @@ mod tests {
             parse_frame(&[], 0, usize::MAX, usize::MAX / 2 + 1),
             Err(GfxError::OutOfRange)
         );
-        assert_eq!(parse_frame(&[], usize::MAX, usize::MAX, 1), Err(GfxError::OutOfRange));
+        assert_eq!(
+            parse_frame(&[], usize::MAX, usize::MAX, 1),
+            Err(GfxError::OutOfRange)
+        );
         assert_eq!(parse_plc(&[], usize::MAX), Err(GfxError::OutOfRange));
-        assert_eq!(parse_plc(&[0; 8], usize::MAX - 1), Err(GfxError::OutOfRange));
-        assert_eq!(tile_indices(&[], usize::MAX / 32), Err(GfxError::TileOutOfArt));
-        assert_eq!(tile_indices(&[0; 64], usize::MAX), Err(GfxError::TileOutOfArt));
+        assert_eq!(
+            parse_plc(&[0; 8], usize::MAX - 1),
+            Err(GfxError::OutOfRange)
+        );
+        assert_eq!(
+            tile_indices(&[], usize::MAX / 32),
+            Err(GfxError::TileOutOfArt)
+        );
+        assert_eq!(
+            tile_indices(&[0; 64], usize::MAX),
+            Err(GfxError::TileOutOfArt)
+        );
         assert_eq!(parse_frame_at(&[1], 0), Err(GfxError::OutOfRange));
         assert!(frame_offsets(&[0; 4], usize::MAX).is_empty());
         let peca = Piece {
