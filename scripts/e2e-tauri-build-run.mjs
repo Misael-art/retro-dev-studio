@@ -11929,6 +11929,9 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
     if (!pass) throw new Error(`${name}: ${JSON.stringify(extra)}`);
   };
   let sid = sessionId;
+  const [winW, winH] = (process.env.RDS_SOR_WINDOW ?? "1920x1080").split("x").map(Number);
+  report.window = { width: winW, height: winH };
+  try { await setSessionWindowRect(sid, winW, winH); } catch (error) { fail(`A janela nao aceitou ${winW}x${winH}: ${error instanceof Error ? error.message : String(error)}`); }
   const probeInvoke = async (command, args) => executeAsyncScript(
     sid,
     `
@@ -11941,6 +11944,15 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
   );
   const q = async (script, args = []) => executeScript(sid, script, args);
   const click = (testId, label = testId) => clickButtonByTestIdNativeWhenReady(sid, testId, label);
+  // Hit-test: o controle esta dentro da janela e o ponto central pertence a ele (nada sobrepoe).
+  const hitTest = (testId, scroll) => q(`
+    const el = document.querySelector("[data-testid='" + arguments[0] + "']");
+    if (!(el instanceof HTMLElement)) return { found: false };
+    if (arguments[1]) el.scrollIntoView({ block: "center", inline: "center" });
+    const r = el.getBoundingClientRect();
+    const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
+    const hit = document.elementFromPoint(x, y);
+    return { found: true, inside: r.top >= 0 && r.left >= 0 && r.bottom <= window.innerHeight && r.right <= window.innerWidth, hit: hit === el || el.contains(hit), w: Math.round(r.width), h: Math.round(r.height), vw: window.innerWidth, vh: window.innerHeight };`, [testId, scroll]);
   const readPanel = () => q(`
     const p = document.querySelector("[data-testid='sor-font-panel']");
     const px = (r, c) => { const e = document.querySelector("[data-testid='sor-pixel-" + r + "-" + c + "']"); return e ? Number(e.getAttribute("data-value")) : null; };
@@ -11965,6 +11977,28 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
   addCheck("ui.compartilhamento_e_slot_explicados", p0.shared.includes("3 pontos do código") && p0.slot.includes("de 514 bytes"), { observado: { shared: p0.shared.slice(0, 200), slot: p0.slot } });
   addCheck("ui.previa_original_desenhada", (p0.previewOriginal?.lit ?? 0) > 100, { observado: p0.previewOriginal });
   report.steps.push({ step: 1, name: "painel_visivel", screenshot: await captureScreenshot(sid, `${prefix}-sor-painel.png`) });
+
+  // PASSO 1b — modo ampliado (reaproveita o layout), acessibilidade dos controles e escala inteira.
+  const widthOf = () => q(`const p = document.querySelector("[data-testid='sor-font-panel']"); const c = document.querySelector("#center, [data-panel-id='center'], [id='center']"); return { panel: Math.round(p.getBoundingClientRect().width), center: c ? Math.round(c.getBoundingClientRect().width) : null, vw: window.innerWidth };`);
+  const w0 = await widthOf();
+  await click("sor-expand-toggle", "ampliar editor");
+  const w1 = await waitFor(async () => { const r = await widthOf(); return r.panel > w0.panel * 1.25 ? r : false; }, 15000, "O modo ampliado nao aumentou a largura do editor", 250);
+  addCheck("cx.modo_ampliado_aumenta_a_area_do_editor", w1.panel > w0.panel * 1.25 && (w0.center === null || w1.center < w0.center), { observado: { antes: w0, depois: w1 }, janela: report.window });
+  report.steps.push({ step: "1b", name: "modo_ampliado", screenshot: await captureScreenshot(sid, `${prefix}-sor-ampliado.png`) });
+  for (const id of ["sor-glyph-A", "sor-index-1", "sor-pixel-7-0", "sor-pixel-7-7", "sor-zoom-4", "sor-expand-toggle"]) {
+    const h = await hitTest(id, true);
+    addCheck(`cx.acessivel.${id}`, h.found && h.inside && h.hit, { observado: h, janela: report.window });
+  }
+  for (const id of ["sor-apply", "sor-clear-queue", "sor-export-patch", "sor-apply-patch", "sor-run-base", "sor-run-copy"]) {
+    const h = await hitTest(id, false); // barra de acoes fixa: visivel SEM rolar
+    addCheck(`cx.barra_fixa_visivel.${id}`, h.found && h.inside && h.hit, { observado: h, janela: report.window });
+  }
+  const crisp = await q(`
+    const c = document.querySelector("[data-testid='sor-font-preview-copy'] canvas");
+    const cell = document.querySelector("[data-testid='sor-pixel-0-0']");
+    return { canvasW: c.width, cssW: parseFloat(c.style.width), scale: c.width ? parseFloat(c.style.width) / c.width : 0, cell: parseFloat(cell.style.width), rendering: getComputedStyle(c).imageRendering, grayChip: Boolean(document.querySelector("[data-testid='sor-gray-chip']")), legend: Boolean(document.querySelector("[data-testid='sor-inferred-legend']")) };`);
+  addCheck("cx.previa_em_escala_inteira_e_nitida", crisp.scale === 1 && Number.isInteger(crisp.cell / 8) && /pixelated|crisp/.test(crisp.rendering), { observado: crisp });
+  addCheck("cx.indicacoes_de_cinza_e_letras_inferidas_visiveis", crisp.grayChip && crisp.legend, { observado: crisp });
 
   // PASSO 2 — escolher a letra A, índice 1 e pintar a linha 7 (8 cliques nativos), aplicar à cópia.
   await click("sor-glyph-A", "letra A");
@@ -12043,6 +12077,8 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
   }
   report.observed = { width: obsBase.w, height: obsBase.h, frames: obsBase.frames, base_fb_sha256: obsBase.fb, copy_fb_sha256: obsCopy.fb, diff_pixels: diff };
   addCheck("execucao.cena_difere_e_so_em_poucos_pixels", diff.length > 0 && diff.length < 400, { observado: { diff_count: diff.length } });
+  const fbScale = await q(`const c = document.querySelector("[data-testid='sor-observation-copy'] canvas"); return { w: c.width, cssW: parseFloat(c.style.width), scale: parseFloat(c.style.width) / c.width };`);
+  addCheck("cx.framebuffer_em_escala_inteira", Number.isInteger(fbScale.scale) && fbScale.scale >= 1, { observado: fbScale });
   report.steps.push({ step: 5, name: "execucao_base_e_copia", screenshot: await captureScreenshot(sid, `${prefix}-sor-execucao.png`) });
 
   // PASSO 6 — salvar, destruir a janela, reiniciar e reabrir; conferir cópia, identidade, procedência e prévia.
@@ -12055,7 +12091,7 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
   currentE2eRunContext.sessionId = sid;
   await waitForAppWindowReady(sid, uiBootstrapTimeoutMs, "O app da jornada SoR nao reabriu");
   await handleProjectWizardVisibly(sid, "sor-journey-restart");
-  await setSessionWindowRect(sid, 1920, 1080);
+  await setSessionWindowRect(sid, winW, winH);
   await click("workspace-rail-debug", "Debug Workspace");
   await callAutomationApi(sid, "openToolsWorkspace", ["reverse", "debug", true]);
   await waitForBodyText(sid, "Analisar ROM", 20000, "Reverse Workspace nao voltou");
@@ -12067,6 +12103,9 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
   await click(`select-saved-session-${savedId}`, "selecionar sessao salva");
   await click("inspection-reopen", "reabrir sessao");
   const re = await waitFor(async () => { const r = await readPanel(); return r.panel && r.copyActive === "true" && r.sessionId === savedId ? r : false; }, 60000, "Apos reabrir, a cópia nao foi restaurada", 250);
+  // Retomada de contexto: a letra/zoom/cor da sessao anterior voltam sem o usuario refazer a escolha.
+  const ctxBack = await q(`return { glyphA: document.querySelector("[data-testid='sor-glyph-A']")?.getAttribute("aria-pressed"), zoom: document.querySelector("[data-testid='sor-zoom-4']")?.getAttribute("aria-pressed"), index: document.querySelector("[data-testid='sor-index-1']")?.getAttribute("aria-pressed") };`);
+  addCheck("reabertura.contexto_de_trabalho_retomado", ctxBack.glyphA === "true" && ctxBack.zoom === "true" && ctxBack.index === "true", { observado: ctxBack });
   await click("sor-glyph-A", "letra A (reaberta)");
   const re2 = await readPanel();
   addCheck("reabertura.identidade_restaurada", re2.identity === baseSha256 && re2.sessionId === savedId, { observado: { identity: re2.identity, session: re2.sessionId } });

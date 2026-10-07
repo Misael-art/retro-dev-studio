@@ -17,6 +17,7 @@ import {
   type EmulatorObservationResult,
 } from "../../core/ipc/emulatorService";
 import ToolPathField from "./ToolPathField";
+import { useEditorStore } from "../../core/store/editorStore";
 
 interface Props {
   session: InspectionSession;
@@ -29,6 +30,30 @@ interface Props {
 const PREVIEW_TEXT = "ESTA CIDADE ERA UM";
 const OBSERVE_FRAMES = 720;
 const TILE_PX = 8;
+const ZOOMS = [2, 3, 4, 5, 6] as const;
+const FB_SCALES = [1, 2, 3] as const;
+
+interface UiContext { glyph: number; zoom: number; index: number }
+const ctxKey = (sessionId: string) => `rds.sor-font.ui.${sessionId}`;
+/** Conveniência por visualizador (não é estado de verdade): glyph/zoom/cor da última sessão de trabalho. */
+function loadContext(sessionId: string): UiContext {
+  const fallback: UiContext = { glyph: 1, zoom: 4, index: 1 };
+  try {
+    const raw = window.localStorage.getItem(ctxKey(sessionId));
+    if (!raw) return fallback;
+    const v = JSON.parse(raw) as Partial<UiContext>;
+    return {
+      glyph: Number.isInteger(v.glyph) && (v.glyph as number) >= 0 && (v.glyph as number) < 49 ? (v.glyph as number) : 1,
+      zoom: (ZOOMS as readonly number[]).includes(v.zoom as number) ? (v.zoom as number) : 4,
+      index: Number.isInteger(v.index) && (v.index as number) >= 0 && (v.index as number) < 16 ? (v.index as number) : 1,
+    };
+  } catch {
+    return fallback;
+  }
+}
+function saveContext(sessionId: string, ctx: UiContext) {
+  try { window.localStorage.setItem(ctxKey(sessionId), JSON.stringify(ctx)); } catch { /* sem armazenamento: segue sem lembrar */ }
+}
 
 function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -90,8 +115,13 @@ function drawFramebuffer(canvas: HTMLCanvasElement | null, obs: EmulatorObservat
 export default function SorFontPanel({ session, onEdited, logMessage, disabled }: Props) {
   const [info, setInfo] = useState<SorFontInfo | null>(null);
   const [error, setError] = useState("");
-  const [glyph, setGlyph] = useState(1);
-  const [index, setIndex] = useState(1);
+  const initial = useMemo(() => loadContext(session.session_id), [session.session_id]);
+  const [glyph, setGlyph] = useState(initial.glyph);
+  const [index, setIndex] = useState(initial.index);
+  const [zoom, setZoom] = useState(initial.zoom);
+  const [fbScale, setFbScale] = useState<number>(2);
+  const expanded = useEditorStore((state) => state.inspectionExpanded);
+  const setExpanded = useEditorStore((state) => state.setInspectionExpanded);
   const [queue, setQueue] = useState<SorPixelEdit[]>([]);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
@@ -124,11 +154,13 @@ export default function SorFontPanel({ session, onEdited, logMessage, disabled }
     void refresh();
   }, [refresh, copySha]);
 
+  useEffect(() => { saveContext(sessionId, { glyph, zoom, index }); }, [sessionId, glyph, zoom, index]);
+
   const original = useMemo(() => (info?.supported ? b64ToBytes(info.original_plain_b64) : null), [info]);
   const current = useMemo(() => (info?.supported ? b64ToBytes(info.current_plain_b64) : null), [info]);
 
-  useEffect(() => { drawText(origCanvas.current, original, 4); }, [original]);
-  useEffect(() => { drawText(copyCanvas.current, current, 4); }, [current]);
+  useEffect(() => { drawText(origCanvas.current, original, zoom); }, [original, zoom]);
+  useEffect(() => { drawText(copyCanvas.current, current, zoom); }, [current, zoom]);
   useEffect(() => { drawFramebuffer(baseFb.current, observations.base ?? null); }, [observations.base]);
   useEffect(() => { drawFramebuffer(copyFb.current, observations.copy ?? null); }, [observations.copy]);
 
@@ -214,99 +246,130 @@ export default function SorFontPanel({ session, onEdited, logMessage, disabled }
   }
 
   const slotPct = Math.min(100, Math.round((info.current_stream_len / info.slot_len) * 100));
-  return <section data-testid="sor-font-panel" data-profile={info.profile_id} data-copy-active={String(info.copy_active)} className="mt-3 rounded border border-[#f9e2af]/40 bg-[#11111b] p-3 text-[10px] text-[#cdd6f4]">
-    <div className="flex flex-wrap items-center gap-2">
-      <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#f9e2af]">Streets of Rage · fonte do jogo</h3>
-      <span className="rounded border border-[#fab387]/60 px-1.5 py-0.5 text-[9px] uppercase text-[#fab387]">Experimental</span>
-      <span className="text-[#7f849c]">ROM {info.rom_sha256.slice(0, 12)}… (tradução PtBr)</span>
-    </div>
-    <p className="mt-1 text-[#bac2de]">Este recurso é a fonte itálica usada no texto de introdução e em "PRESS START BUTTON". Você edita pixels de um tile; o produto recomprime no espaço original, gera uma cópia e um patch BPS. A ROM original nunca é alterada.</p>
+  const cell = zoom * 8;
+  const textW = PREVIEW_TEXT.length * TILE_PX * zoom;
+  const canExport = Boolean(session.edit) && Boolean(patchPath.trim()) && !busy;
+  return <section data-testid="sor-font-panel" data-profile={info.profile_id} data-copy-active={String(info.copy_active)} data-expanded={String(expanded)} className="@container mt-3 rounded border border-[#f9e2af]/40 bg-[#11111b] text-[10px] text-[#cdd6f4]">
+    <div className="p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#f9e2af]">Streets of Rage · fonte do jogo</h3>
+        <span className="rounded border border-[#fab387]/60 px-1.5 py-0.5 text-[9px] uppercase text-[#fab387]">Experimental</span>
+        <span data-testid="sor-gray-chip" className="rounded border border-[#f9e2af]/50 bg-[#2a2414] px-1.5 py-0.5 text-[9px] text-[#f9e2af]">Prévia em cinza por índice — a paleta real do jogo NÃO foi lida</span>
+        <span className="text-[#7f849c]">ROM {info.rom_sha256.slice(0, 12)}… (tradução PtBr)</span>
+        <button type="button" data-testid="sor-expand-toggle" aria-pressed={expanded} onClick={() => setExpanded(!expanded)}
+          title={expanded ? "Devolve o espaço à cena e aos painéis" : "Dá quase toda a largura a este editor (a cena fica minimizada)"}
+          className="ml-auto rounded border border-[#89b4fa]/60 px-2 py-0.5 text-[#89b4fa]">{expanded ? "Restaurar layout" : "Ampliar editor"}</button>
+      </div>
+      <p className="mt-1 text-[#bac2de]">Fonte itálica usada no texto de introdução e em "PRESS START BUTTON". Você edita pixels de um tile; o produto recomprime no espaço original e gera uma cópia e um patch BPS. A ROM original nunca é alterada.</p>
 
-    <div className="mt-2 grid gap-2 md:grid-cols-2">
-      <div data-testid="sor-font-preview-original" className="rounded border border-[#313244] p-2">
-        <div className="mb-1 text-[9px] uppercase tracking-[0.14em] text-[#7f849c]">Original</div>
-        <canvas ref={origCanvas} width={PREVIEW_TEXT.length * TILE_PX * 4} height={TILE_PX * 4} aria-label="Prévia do original" className="block max-w-full [image-rendering:pixelated]" />
-      </div>
-      <div data-testid="sor-font-preview-copy" className="rounded border border-[#a6e3a1]/40 p-2">
-        <div className="mb-1 text-[9px] uppercase tracking-[0.14em] text-[#a6e3a1]">Cópia {info.copy_active ? "(com suas edições)" : "(ainda igual ao original)"}</div>
-        <canvas ref={copyCanvas} width={PREVIEW_TEXT.length * TILE_PX * 4} height={TILE_PX * 4} aria-label="Prévia da cópia" className="block max-w-full [image-rendering:pixelated]" />
-      </div>
-    </div>
-    <div className="mt-1 text-[#7f849c]">Prévia em escala de cinza por índice (a paleta real das telas não foi lida). Frase de exemplo: "{PREVIEW_TEXT}".</div>
+      <div className="mt-2 grid gap-3 @3xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-2">
+          <div className="grid gap-2 @xl:grid-cols-2">
+            <div data-testid="sor-font-preview-original" className="min-w-0 rounded border border-[#313244] p-2">
+              <div className="mb-1 text-[9px] uppercase tracking-[0.14em] text-[#7f849c]">Original</div>
+              <div className="overflow-x-auto"><canvas ref={origCanvas} width={textW} height={TILE_PX * zoom} aria-label="Prévia do original" className="block [image-rendering:pixelated]" style={{ width: textW, height: TILE_PX * zoom, maxWidth: "none" }} /></div>
+            </div>
+            <div data-testid="sor-font-preview-copy" className="min-w-0 rounded border border-[#a6e3a1]/40 p-2">
+              <div className="mb-1 text-[9px] uppercase tracking-[0.14em] text-[#a6e3a1]">Cópia {info.copy_active ? "(com suas edições)" : "(ainda igual ao original)"}</div>
+              <div className="overflow-x-auto"><canvas ref={copyCanvas} width={textW} height={TILE_PX * zoom} aria-label="Prévia da cópia" className="block [image-rendering:pixelated]" style={{ width: textW, height: TILE_PX * zoom, maxWidth: "none" }} /></div>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-[#7f849c]">
+            <span>Zoom (inteiro):</span>
+            {ZOOMS.map((z) => <button key={z} type="button" data-testid={`sor-zoom-${z}`} aria-pressed={z === zoom} onClick={() => setZoom(z)} className={`rounded border px-1.5 py-0.5 ${z === zoom ? "border-[#f9e2af] text-[#f9e2af]" : "border-[#45475a]"}`}>×{z}</button>)}
+            <span>Frase de exemplo: "{PREVIEW_TEXT}"</span>
+          </div>
 
-    <div className="mt-3 rounded border border-[#313244] p-2">
-      <div className="text-[9px] uppercase tracking-[0.14em] text-[#7f849c]">1. Escolha a letra (tile)</div>
-      <div className="mt-1 flex flex-wrap gap-1" role="group" aria-label="Letras da fonte">
-        {glyphs.map((g) => <button key={g.tile} type="button" data-testid={`sor-glyph-${g.label === "." ? `dot-${g.tile}` : g.label}`} aria-pressed={g.tile === glyph} disabled={disabled || busy}
-          title={g.basis === "observed" ? `tile ${g.tile}: medido no core` : `tile ${g.tile}: inferido pela ordem do alfabeto`}
-          onClick={() => { setGlyph(g.tile); setStatus(""); }}
-          className={`h-7 w-7 rounded border text-[11px] ${g.tile === glyph ? "border-[#f9e2af] text-[#f9e2af]" : "border-[#45475a]"} ${g.basis === "inferred" ? "border-dashed" : ""}`}>{g.label}</button>)}
+          <div className="rounded border border-[#313244] p-2">
+            <div className="text-[9px] uppercase tracking-[0.14em] text-[#7f849c]">1. Escolha a letra (tile)</div>
+            <div className="mt-1 flex flex-wrap gap-1" role="group" aria-label="Letras da fonte">
+              {glyphs.map((g) => <button key={g.tile} type="button" data-testid={`sor-glyph-${g.label === "." ? `dot-${g.tile}` : g.label}`} aria-pressed={g.tile === glyph} disabled={disabled || busy}
+                title={g.basis === "observed" ? `tile ${g.tile}: medido no core` : `tile ${g.tile}: inferido pela ordem do alfabeto`}
+                onClick={() => { setGlyph(g.tile); setStatus(""); }}
+                className={`h-7 w-7 rounded border text-[11px] ${g.tile === glyph ? "border-[#f9e2af] text-[#f9e2af]" : "border-[#45475a]"} ${g.basis === "inferred" ? "border-dashed" : ""}`}>{g.label}</button>)}
+            </div>
+            <div data-testid="sor-inferred-legend" className="mt-1 text-[#7f849c]">Tile {glyph} ({label?.label ?? "?"}, {label?.basis === "observed" ? "medido no core" : "inferido pela ordem do alfabeto"}). <span className="rounded border border-dashed border-[#45475a] px-1">tracejada</span> = letra inferida (não observada no jogo); só A, C, D, E, F, G, I, L, M, N, O, P, Q, R, S, T, U, Z foram observadas.</div>
+          </div>
+        </div>
+
+        <div className="min-w-0 space-y-2">
+          <div className="rounded border border-[#313244] p-2">
+            <div className="text-[9px] uppercase tracking-[0.14em] text-[#7f849c]">2. Pinte pixels do tile {glyph}</div>
+            <div className="mt-1 flex flex-wrap gap-1" aria-label="Índices de cor">
+              {Array.from({ length: 16 }, (_, i) => <button key={i} type="button" data-testid={`sor-index-${i}`} aria-pressed={i === index} disabled={disabled || busy} onClick={() => setIndex(i)}
+                className={`h-6 w-6 rounded border-2 text-[9px] ${i === index ? "border-[#f9e2af]" : "border-[#45475a]"}`}
+                style={{ background: i === 0 ? "#222" : gray(i), color: i > 6 ? "#000" : "#fff" }}>{i === 0 ? "∅" : i}</button>)}
+            </div>
+            <div className="mt-2 overflow-auto">
+              <div className="inline-grid grid-cols-8 gap-px bg-[#313244] p-px" data-testid="sor-tile-grid" aria-label={`Pixels do tile ${glyph}`}>
+                {Array.from({ length: 64 }, (_, n) => {
+                  const row = n >> 3; const col = n & 7;
+                  const q = queued(row, col);
+                  const value = q ? q.index : current ? pixelOf(current, glyph, row, col) : 0;
+                  const changedVsOriginal = original && current && pixelOf(original, glyph, row, col) !== pixelOf(current, glyph, row, col);
+                  return <button key={n} type="button" data-testid={`sor-pixel-${row}-${col}`} data-value={value} data-queued={String(Boolean(q))} aria-label={`linha ${row} coluna ${col}, índice ${value}`}
+                    disabled={disabled || busy} onClick={() => paint(row, col)}
+                    style={{ width: cell, height: cell, background: value === 0 ? "#222" : gray(value), outline: q ? "2px solid #f9e2af" : changedVsOriginal ? "2px solid #a6e3a1" : "none", outlineOffset: -2 }} />;
+                })}
+              </div>
+            </div>
+            <div className="mt-1 text-[#7f849c]">Contorno amarelo = na fila (ainda não gravado) · verde = já difere do original na cópia.</div>
+            <div data-testid="sor-queue" className="mt-1">{queue.length} pixel(s) na fila.</div>
+            <div className="mt-1 text-[#f9e2af]">Efeito esperado: toda ocorrência desta letra no texto de introdução ("ESTA CIDADE ERA UM…") e em "PRESS START BUTTON" mostra os novos pixels, na cor da paleta do jogo para o índice escolhido (a prévia em cinza não mostra essa cor). Outras letras não mudam.</div>
+          </div>
+
+          <div className="rounded border border-[#313244] p-2" data-testid="sor-shared">
+            <div className="text-[9px] uppercase tracking-[0.14em] text-[#fab387]">Compartilhamento conhecido</div>
+            <div className="mt-1">Este stream é lido por {info.consumers.length} pontos do código; editar a fonte afeta todos os usos dela.</div>
+            <details data-testid="sor-consumers-details" className="mt-1 text-[#bac2de]">
+              <summary className="cursor-pointer text-[#7f849c]">Ver os {info.consumers.length} pontos (detalhe técnico)</summary>
+              <ul className="ml-4 list-disc">{info.consumers.map((c) => <li key={c.offset}>0x{c.offset.toString(16).toUpperCase()} — {c.note}</li>)}</ul>
+            </details>
+            <div className="mt-1" data-testid="sor-slot">Espaço: o stream gravado usa {info.current_stream_len} de {info.slot_len} bytes do slot original ({slotPct}%). Sem relocação: se não couber, a edição é recusada e nada é escrito.</div>
+          </div>
+        </div>
       </div>
-      <div className="mt-1 text-[#7f849c]">Tile {glyph} ({label?.label ?? "?"}, {label?.basis === "observed" ? "medido no core" : "inferido pela ordem do alfabeto"}). Letras tracejadas são inferidas.</div>
+
+      <details open data-testid="sor-paths" className="mt-2 rounded border border-[#313244] p-2">
+        <summary className="cursor-pointer text-[9px] uppercase tracking-[0.14em] text-[#7f849c]">Arquivos do patch (exportar / aplicar à base)</summary>
+        <div className="mt-1 grid gap-2 @xl:grid-cols-2">
+          <div data-testid="sor-patch-path"><ToolPathField label="Exportar patch BPS (base → cópia)" value={patchPath} set={setPatchPath} extensions={["bps"]} accentColor="f9e2af" /></div>
+          <div data-testid="sor-applied-path"><ToolPathField label="Salvar ROM modificada (base + patch)" value={appliedPath} set={setAppliedPath} extensions={["bin", "md", "gen"]} accentColor="f9e2af" /></div>
+        </div>
+        <div className="mt-1 text-[#7f849c]">Patches BPS exportados por versões anteriores deste produto não aplicam (formato fora da especificação): reexporte a partir desta sessão.</div>
+      </details>
+
+      {(observations.base || observations.copy) && <div data-testid="sor-observations" className="mt-2 grid gap-2 @3xl:grid-cols-2">
+        <div className="flex items-center gap-2 text-[#7f849c] @3xl:col-span-2">Escala do framebuffer (inteira):
+          {FB_SCALES.map((z) => <button key={z} type="button" data-testid={`sor-fb-scale-${z}`} aria-pressed={z === fbScale} onClick={() => setFbScale(z)} className={`rounded border px-1.5 py-0.5 ${z === fbScale ? "border-[#89b4fa] text-[#89b4fa]" : "border-[#45475a]"}`}>×{z}</button>)}
+        </div>
+        {(["base", "copy"] as const).map((k) => observations[k] && <div key={k} data-testid={`sor-observation-${k}`} data-rom-sha256={observations[k]?.rom_sha256} data-framebuffer-sha256={observations[k]?.framebuffer_sha256} data-frames-run={observations[k]?.frames_run} className="min-w-0 rounded border border-[#313244] p-2">
+          <div className="text-[9px] uppercase tracking-[0.14em] text-[#89b4fa]">{k === "base" ? "Original" : "Cópia"} · ROM {observations[k]?.rom_sha256.slice(0, 12)}…</div>
+          <div className="mt-1 overflow-auto border border-[#313244] bg-black"><canvas ref={k === "base" ? baseFb : copyFb} width={observations[k]?.framebuffer_width} height={observations[k]?.framebuffer_height} className="block [image-rendering:pixelated]" style={{ width: (observations[k]?.framebuffer_width ?? 320) * fbScale, height: (observations[k]?.framebuffer_height ?? 224) * fbScale, maxWidth: "none" }} /></div>
+          <div className="mt-1 break-all font-mono text-[9px] text-[#7f849c]">framebuffer {observations[k]?.framebuffer_sha256}</div>
+        </div>)}
+      </div>}
+      <div aria-live="polite" data-testid="sor-status" className="mt-2 min-h-4 break-words text-[#a6e3a1]">{status}</div>
+
+      <details data-testid="sor-details" className="mt-2 border-t border-[#313244] pt-2">
+        <summary className="cursor-pointer text-[9px] uppercase tracking-[0.14em] text-[#bac2de]">Prova, escopo e limites (detalhe técnico)</summary>
+        <div className="mt-1 space-y-1 text-[#7f849c]">
+          {info.proof.map((p) => <div key={p} className="break-all">{p}</div>)}
+          <div className="pt-1 text-[#fab387]">O que NÃO está provado:</div>
+          {info.limits.map((l) => <div key={l}>{l}</div>)}
+        </div>
+      </details>
     </div>
 
-    <div className="mt-2 rounded border border-[#313244] p-2">
-      <div className="text-[9px] uppercase tracking-[0.14em] text-[#7f849c]">2. Pinte pixels do tile {glyph}</div>
-      <div className="mt-1 flex flex-wrap gap-1" aria-label="Índices de cor">
-        {Array.from({ length: 16 }, (_, i) => <button key={i} type="button" data-testid={`sor-index-${i}`} aria-pressed={i === index} disabled={disabled || busy} onClick={() => setIndex(i)}
-          className={`h-6 w-6 rounded border-2 text-[9px] ${i === index ? "border-[#f9e2af]" : "border-[#45475a]"}`}
-          style={{ background: i === 0 ? "#222" : gray(i), color: i > 6 ? "#000" : "#fff" }}>{i === 0 ? "∅" : i}</button>)}
-      </div>
-      <div className="mt-2 inline-grid grid-cols-8 gap-px bg-[#313244] p-px" data-testid="sor-tile-grid" aria-label={`Pixels do tile ${glyph}`}>
-        {Array.from({ length: 64 }, (_, n) => {
-          const row = n >> 3; const col = n & 7;
-          const q = queued(row, col);
-          const value = q ? q.index : current ? pixelOf(current, glyph, row, col) : 0;
-          const changedVsOriginal = original && current && pixelOf(original, glyph, row, col) !== pixelOf(current, glyph, row, col);
-          return <button key={n} type="button" data-testid={`sor-pixel-${row}-${col}`} data-value={value} data-queued={String(Boolean(q))} aria-label={`linha ${row} coluna ${col}, índice ${value}`}
-            disabled={disabled || busy} onClick={() => paint(row, col)} className="h-7 w-7"
-            style={{ background: value === 0 ? "#222" : gray(value), outline: q ? "2px solid #f9e2af" : changedVsOriginal ? "2px solid #a6e3a1" : "none", outlineOffset: -2 }} />;
-        })}
-      </div>
-      <div className="mt-1 text-[#7f849c]">Contorno amarelo = na fila (ainda não gravado) · verde = já difere do original na cópia.</div>
-      <div data-testid="sor-queue" className="mt-1">{queue.length} pixel(s) na fila.</div>
-      <div className="mt-1 text-[#f9e2af]">Efeito esperado: toda ocorrência desta letra no texto de introdução ("ESTA CIDADE ERA UM…") e em "PRESS START BUTTON" mostra os novos pixels, na cor da paleta do jogo para o índice escolhido. Outras letras não mudam.</div>
-      <div className="mt-2 flex flex-wrap gap-2">
-        <button type="button" data-testid="sor-clear-queue" disabled={disabled || busy || !queue.length} onClick={() => setQueue([])} className="rounded border border-[#45475a] px-2 py-1">Limpar fila</button>
-        <button type="button" data-testid="sor-apply" disabled={disabled || busy || !queue.length} onClick={() => void apply()} className="rounded bg-[#f9e2af] px-3 py-1 font-semibold text-[#11111b]">{busy ? "Trabalhando…" : "Aplicar à cópia"}</button>
-      </div>
+    <div data-testid="sor-action-bar" className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 border-t border-[#313244] bg-[#0b0f19]/95 px-3 py-2 backdrop-blur">
+      <button type="button" data-testid="sor-apply" disabled={disabled || busy || !queue.length} onClick={() => void apply()} className="rounded bg-[#f9e2af] px-3 py-1 font-semibold text-[#11111b] disabled:opacity-50">{busy ? "Trabalhando…" : `Aplicar à cópia${queue.length ? ` (${queue.length} px)` : ""}`}</button>
+      <button type="button" data-testid="sor-clear-queue" disabled={disabled || busy || !queue.length} onClick={() => setQueue([])} className="rounded border border-[#45475a] px-2 py-1 disabled:opacity-50">Limpar fila</button>
+      <span className="mx-1 h-4 w-px bg-[#313244]" aria-hidden="true" />
+      <button type="button" data-testid="sor-export-patch" disabled={!canExport} title={session.edit ? (patchPath.trim() ? "Grava o BPS base → cópia" : "Informe o caminho do patch acima") : "Aplique uma edição antes"} onClick={() => void exportPatch()} className="rounded border border-[#f9e2af]/60 px-2 py-1 text-[#f9e2af] disabled:opacity-50">Exportar patch BPS</button>
+      <button type="button" data-testid="sor-apply-patch" disabled={busy || !patchPath.trim() || !appliedPath.trim()} onClick={() => void applyPatch()} className="rounded border border-[#f9e2af]/60 px-2 py-1 text-[#f9e2af] disabled:opacity-50">Aplicar patch à base</button>
+      <span className="mx-1 h-4 w-px bg-[#313244]" aria-hidden="true" />
+      <button type="button" data-testid="sor-run-base" disabled={busy} onClick={() => void observe("base")} className="rounded border border-[#89b4fa]/60 px-2 py-1 text-[#89b4fa] disabled:opacity-50">Executar Original ({OBSERVE_FRAMES} quadros, sem input)</button>
+      <button type="button" data-testid="sor-run-copy" disabled={busy || !session.edit} onClick={() => void observe("copy")} className="rounded border border-[#a6e3a1]/60 px-2 py-1 text-[#a6e3a1] disabled:opacity-50">Executar Cópia ({OBSERVE_FRAMES} quadros, sem input)</button>
     </div>
-
-    <div className="mt-2 rounded border border-[#313244] p-2" data-testid="sor-shared">
-      <div className="text-[9px] uppercase tracking-[0.14em] text-[#fab387]">Compartilhamento conhecido</div>
-      <div className="mt-1">Este stream é lido por {info.consumers.length} pontos do código; editar a fonte afeta todos os usos dela:</div>
-      <ul className="ml-4 list-disc text-[#bac2de]">{info.consumers.map((c) => <li key={c.offset}>0x{c.offset.toString(16).toUpperCase()} — {c.note}</li>)}</ul>
-      <div className="mt-1" data-testid="sor-slot">Espaço: o stream gravado usa {info.current_stream_len} de {info.slot_len} bytes do slot original ({slotPct}%). Sem relocação: se não couber, a edição é recusada e nada é escrito.</div>
-    </div>
-
-    <div className="mt-2 grid gap-2">
-      <div data-testid="sor-patch-path"><ToolPathField label="Exportar patch BPS (base → cópia)" value={patchPath} set={setPatchPath} extensions={["bps"]} accentColor="f9e2af" /></div>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" data-testid="sor-export-patch" disabled={busy || !session.edit || !patchPath.trim()} onClick={() => void exportPatch()} className="rounded border border-[#f9e2af]/50 px-3 py-1 text-[#f9e2af]">Exportar patch BPS</button>
-      </div>
-      <div data-testid="sor-applied-path"><ToolPathField label="Salvar ROM modificada (base + patch)" value={appliedPath} set={setAppliedPath} extensions={["bin", "md", "gen"]} accentColor="f9e2af" /></div>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" data-testid="sor-apply-patch" disabled={busy || !patchPath.trim() || !appliedPath.trim()} onClick={() => void applyPatch()} className="rounded border border-[#f9e2af]/50 px-3 py-1 text-[#f9e2af]">Aplicar patch à base</button>
-        <button type="button" data-testid="sor-run-base" disabled={busy} onClick={() => void observe("base")} className="rounded border border-[#89b4fa]/50 px-3 py-1 text-[#89b4fa]">Executar Original ({OBSERVE_FRAMES} quadros, sem input)</button>
-        <button type="button" data-testid="sor-run-copy" disabled={busy || !session.edit} onClick={() => void observe("copy")} className="rounded border border-[#a6e3a1]/50 px-3 py-1 text-[#a6e3a1]">Executar Cópia ({OBSERVE_FRAMES} quadros, sem input)</button>
-      </div>
-    </div>
-    {(observations.base || observations.copy) && <div data-testid="sor-observations" className="mt-2 grid gap-2 md:grid-cols-2">
-      {(["base", "copy"] as const).map((k) => observations[k] && <div key={k} data-testid={`sor-observation-${k}`} data-rom-sha256={observations[k]?.rom_sha256} data-framebuffer-sha256={observations[k]?.framebuffer_sha256} data-frames-run={observations[k]?.frames_run} className="rounded border border-[#313244] p-2">
-        <div className="text-[9px] uppercase tracking-[0.14em] text-[#89b4fa]">{k === "base" ? "Original" : "Cópia"} · ROM {observations[k]?.rom_sha256.slice(0, 12)}…</div>
-        <canvas ref={k === "base" ? baseFb : copyFb} width={observations[k]?.framebuffer_width} height={observations[k]?.framebuffer_height} className="mt-1 block h-auto w-full border border-[#313244] bg-black [image-rendering:pixelated]" />
-        <div className="mt-1 break-all font-mono text-[9px] text-[#7f849c]">framebuffer {observations[k]?.framebuffer_sha256}</div>
-      </div>)}
-    </div>}
-    <div aria-live="polite" data-testid="sor-status" className="mt-2 break-words text-[#a6e3a1]">{status}</div>
-
-    <details data-testid="sor-details" className="mt-2 border-t border-[#313244] pt-2">
-      <summary className="cursor-pointer text-[9px] uppercase tracking-[0.14em] text-[#bac2de]">Prova, escopo e limites (detalhe técnico)</summary>
-      <div className="mt-1 space-y-1 text-[#7f849c]">
-        {info.proof.map((p) => <div key={p} className="break-all">{p}</div>)}
-        <div className="pt-1 text-[#fab387]">O que NÃO está provado:</div>
-        {info.limits.map((l) => <div key={l}>{l}</div>)}
-      </div>
-    </details>
   </section>;
 }

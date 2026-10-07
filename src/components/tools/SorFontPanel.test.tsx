@@ -17,6 +17,7 @@ vi.mock("../../core/ipc/emulatorService", () => ({
 vi.mock("./ToolPathField", () => ({ default: () => null }));
 
 import SorFontPanel from "./SorFontPanel";
+import { useEditorStore } from "../../core/store/editorStore";
 
 const plain = new Uint8Array(1568);
 const b64 = (u: Uint8Array) => btoa(String.fromCharCode(...u));
@@ -104,4 +105,41 @@ it("resposta de edição que chega depois de a sessão mudar é descartada", asy
   await act(async () => { release(edit()); });
   expect(onEdited).not.toHaveBeenCalled();
   expect(q("sor-status")?.textContent).toContain("resposta antiga descartada");
+});
+
+it("modo ampliado alterna o estado de layout e rotula prévia em cinza e letras inferidas", async () => {
+  useEditorStore.getState().setInspectionExpanded(false);
+  await mount();
+  expect(q("sor-gray-chip")?.textContent).toContain("NÃO foi lida");
+  expect(q("sor-inferred-legend")?.textContent).toContain("inferida");
+  await click("sor-expand-toggle");
+  expect(useEditorStore.getState().inspectionExpanded).toBe(true);
+  expect(q("sor-font-panel")?.getAttribute("data-expanded")).toBe("true");
+  await click("sor-expand-toggle");
+  expect(useEditorStore.getState().inspectionExpanded).toBe(false);
+});
+
+it("zoom é inteiro e as prévias ficam nítidas (largura = múltiplo exato, sem encolher)", async () => {
+  await mount();
+  await click("sor-zoom-6");
+  const c = q("sor-font-preview-original")!.querySelector("canvas") as HTMLCanvasElement;
+  expect(c.width).toBe(18 * 8 * 6);
+  expect(c.style.width).toBe(`${18 * 8 * 6}px`);
+  const cellEl = q("sor-pixel-0-0") as HTMLElement;
+  expect(cellEl.style.width).toBe("48px");
+});
+
+it("ações principais ficam numa barra fixa visível e o contexto (letra/zoom/cor) é retomado", async () => {
+  window.localStorage.clear();
+  await mount();
+  expect(q("sor-action-bar")?.className).toContain("sticky");
+  expect(q("sor-action-bar")?.contains(q("sor-apply"))).toBe(true);
+  expect(q("sor-action-bar")?.contains(q("sor-run-copy"))).toBe(true);
+  await click("sor-glyph-A"); await click("sor-zoom-5"); await click("sor-index-9");
+  await act(async () => root.unmount());
+  root = createRoot(el);
+  await mount();
+  expect(q("sor-glyph-A")?.getAttribute("aria-pressed")).toBe("true");
+  expect(q("sor-zoom-5")?.getAttribute("aria-pressed")).toBe("true");
+  expect(q("sor-index-9")?.getAttribute("aria-pressed")).toBe("true");
 });
