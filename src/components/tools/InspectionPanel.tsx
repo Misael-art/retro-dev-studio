@@ -47,6 +47,7 @@ import {
 import { useEditorStore } from "../../core/store/editorStore";
 import ToolPathField from "./ToolPathField";
 import SonicPixelEditor from "./SonicPixelEditor";
+import SorFontPanel from "./SorFontPanel";
 import { SonicLayoutsPanel } from "./SonicLayoutsPanel";
 
 interface InspectionPanelProps {
@@ -1187,6 +1188,20 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
 
       {session?.status === "completed" && page && (
         <>
+          {session && <SorFontPanel
+            key={session.session_id}
+            session={session}
+            disabled={editBusy}
+            logMessage={logMessage}
+            onEdited={(edit) => {
+              const current = sessionRef.current;
+              if (!current || current.session_id !== session.session_id) return;
+              const next = { ...current, edit };
+              sessionRef.current = next;
+              setSession(next);
+              setUnsavedChanges(true);
+            }}
+          />}
           <div data-testid={isSonicFrame ? "inspection-animation-area" : undefined} className="contents">
           <div data-testid="inspection-sprite-frame-panel" className="rounded border border-[#cba6f7]/40 bg-[#11111b] p-3 text-[10px]">
             <div className="flex flex-wrap items-center justify-between gap-2">

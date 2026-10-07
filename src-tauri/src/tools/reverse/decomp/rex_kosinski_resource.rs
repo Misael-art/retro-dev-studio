@@ -29,6 +29,21 @@ pub struct SlotSpec<'a> {
     pub len: usize,
     pub plain_len: usize,
     pub plain_sha256: &'a str,
+    /// Offset do checksum de cabeçalho (palavra BE = soma das palavras de
+    /// `0x200` ao fim). Só o perfil que PROVOU a base consistente o informa:
+    /// jogos que checam o checksum no boot (tela vermelha) exigem que a
+    /// edição o recalcule; esses 2 bytes entram no escopo da escrita.
+    pub header_checksum: Option<usize>,
+}
+
+/// Checksum Mega Drive: soma de palavras de 16 bits (BE) de `0x200` ao fim.
+pub fn md_checksum(rom: &[u8]) -> u16 {
+    rom.get(0x200..)
+        .unwrap_or(&[])
+        .chunks(2)
+        .fold(0u16, |acc, w| {
+            acc.wrapping_add(u16::from_be_bytes([w[0], *w.get(1).unwrap_or(&0)]))
+        })
 }
 
 /// Stream vizinho cuja decodificação deve permanecer idêntica.
@@ -117,6 +132,18 @@ pub fn verify_base(rom: &[u8], slot: &SlotSpec<'_>) -> Result<Vec<u8>, CodecErro
             "a base não corresponde à evidência do slot (consumo ou hash do plain)",
         ));
     }
+    if let Some(at) = slot.header_checksum {
+        let stored = rom
+            .get(at..at + 2)
+            .map(|b| u16::from_be_bytes([b[0], b[1]]))
+            .ok_or_else(|| CodecError::new("invalid_reference", "checksum fora da ROM"))?;
+        if stored != md_checksum(rom) {
+            return Err(CodecError::new(
+                "checksum_unproven",
+                "o perfil declara checksum de cabeçalho, mas a base não é consistente",
+            ));
+        }
+    }
     Ok(plain)
 }
 
@@ -126,24 +153,32 @@ pub fn validate_copy(base: &[u8], copy: &[u8], slot: &SlotSpec<'_>) -> Result<Ve
     if base.len() != copy.len() {
         return Err(CodecError::new("overflow", "a cópia mudou de tamanho"));
     }
-    let (lo, hi) = (slot.offset, slot.offset + slot.len);
+    let in_scope = |at: usize| {
+        (slot.offset..slot.offset + slot.len).contains(&at)
+            || slot
+                .header_checksum
+                .is_some_and(|c| (c..c + 2).contains(&at))
+    };
     if let Some(i) = base
         .iter()
         .zip(copy)
-        .position(|(a, b)| a != b)
-        .filter(|&i| i < lo)
-        .or_else(|| {
-            base[hi..]
-                .iter()
-                .zip(&copy[hi..])
-                .position(|(a, b)| a != b)
-                .map(|i| hi + i)
-        })
+        .enumerate()
+        .position(|(at, (a, b))| a != b && !in_scope(at))
     {
         return Err(CodecError::new(
             "copy_out_of_scope",
             format!("a cópia difere da base fora do slot (primeiro byte {i:#x})"),
         ));
+    }
+    if let Some(at) = slot.header_checksum {
+        let stored = u16::from_be_bytes([copy[at], copy[at + 1]]);
+        let base_stored = u16::from_be_bytes([base[at], base[at + 1]]);
+        if stored != base_stored && stored != md_checksum(copy) {
+            return Err(CodecError::new(
+                "copy_out_of_scope",
+                "o checksum da cópia não é o recalculado dos seus bytes",
+            ));
+        }
     }
     decode_slot(copy, slot).map(|(plain, _)| plain)
 }
@@ -197,6 +232,10 @@ pub fn apply_pixel_edits(
         }
         modified[slot.offset..slot.offset + stream.len()].copy_from_slice(&stream);
     }
+    if let Some(at) = slot.header_checksum {
+        let sum = md_checksum(&modified).to_be_bytes();
+        modified[at..at + 2].copy_from_slice(&sum);
+    }
     // Ida e volta no contexto real.
     let (round, stream_len) = decode_slot(&modified, slot)?;
     if round != edited {
@@ -229,10 +268,13 @@ pub fn apply_pixel_edits(
         .filter(|(_, (a, b))| a != b)
         .map(|(i, _)| i as u64)
         .collect();
-    if changed_offsets
-        .iter()
-        .any(|&o| (o as usize) < slot.offset || (o as usize) >= slot.offset + slot.len)
-    {
+    let in_scope = |o: usize| {
+        (slot.offset..slot.offset + slot.len).contains(&o)
+            || slot
+                .header_checksum
+                .is_some_and(|at| (at..at + 2).contains(&o))
+    };
+    if changed_offsets.iter().any(|&o| !in_scope(o as usize)) {
         return Err(CodecError::new(
             "copy_out_of_scope",
             "a escrita atingiria bytes fora do slot",
@@ -334,6 +376,7 @@ mod tests {
                 len: $f.slot_len,
                 plain_len: $f.plain_len,
                 plain_sha256: &$f.plain_sha,
+                header_checksum: None,
             }
         };
     }
@@ -497,6 +540,7 @@ mod tests {
             len: s.len(),
             plain_len: p.len(),
             plain_sha256: &sha_p,
+            header_checksum: None,
         };
         let muitas: Vec<PixelEdit> = (0..40u32)
             .flat_map(|t| {
@@ -531,5 +575,80 @@ mod tests {
             )),
             "dependent_modified"
         );
+    }
+
+    /// ROM com cabeçalho de checksum consistente (prefixo 0x300), slot e cauda.
+    fn rom_com_checksum() -> (Vec<u8>, String, usize, usize, usize) {
+        let p = plain(8, 5);
+        let st = kosinski_encode_optimal(&p, &KosinskiEncodeLimits::default()).unwrap();
+        let mut rom = vec![0x33u8; 0x300];
+        let off = rom.len();
+        rom.extend_from_slice(&st);
+        rom.extend_from_slice(&[0x44; 32]);
+        let sum = md_checksum(&rom).to_be_bytes();
+        rom[0x18E..0x190].copy_from_slice(&sum);
+        let sha_p = sha(&p);
+        (rom, sha_p, off, st.len(), p.len())
+    }
+
+    #[test]
+    fn checksum_de_cabecalho_e_recalculado_e_entra_no_escopo() {
+        let (rom, sha_p, off, len, plen) = rom_com_checksum();
+        let slot = SlotSpec {
+            offset: off,
+            len,
+            plain_len: plen,
+            plain_sha256: &sha_p,
+            header_checksum: Some(0x18E),
+        };
+        let a = applied(apply_pixel_edits(&rom, &rom, &slot, &[], &[edit(1, 1, 1, 9)]).unwrap());
+        let novo = u16::from_be_bytes([a.modified_rom[0x18E], a.modified_rom[0x18F]]);
+        assert_eq!(
+            novo,
+            md_checksum(&a.modified_rom),
+            "checksum consistente após a edição"
+        );
+        assert_ne!(&a.modified_rom[0x18E..0x190], &rom[0x18E..0x190]);
+        assert!(
+            a.changed_offsets.contains(&0x18E),
+            "o checksum é parte do patch"
+        );
+        // a cópia aceita é a que o produto gerou; checksum adulterado é recusado
+        let b = applied(
+            apply_pixel_edits(&rom, &a.modified_rom, &slot, &[], &[edit(2, 2, 2, 7)]).unwrap(),
+        );
+        assert_eq!(b.tiles_changed, vec![1, 2]);
+        let mut ruim = a.modified_rom.clone();
+        ruim[0x18F] ^= 0x55;
+        assert_eq!(
+            err(apply_pixel_edits(
+                &rom,
+                &ruim,
+                &slot,
+                &[],
+                &[edit(2, 2, 2, 7)]
+            )),
+            "copy_out_of_scope"
+        );
+        // base inconsistente: o perfil não provou o checksum => recusa
+        let mut inconsistente = rom.clone();
+        inconsistente[0x18E] ^= 1;
+        assert_eq!(
+            err(apply_pixel_edits(
+                &inconsistente,
+                &inconsistente,
+                &slot,
+                &[],
+                &[edit(1, 1, 1, 9)]
+            )),
+            "checksum_unproven"
+        );
+        // sem a opção, o checksum não é tocado
+        let sem = SlotSpec {
+            header_checksum: None,
+            ..slot
+        };
+        let c = applied(apply_pixel_edits(&rom, &rom, &sem, &[], &[edit(1, 1, 1, 9)]).unwrap());
+        assert_eq!(&c.modified_rom[0x18E..0x190], &rom[0x18E..0x190]);
     }
 }

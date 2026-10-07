@@ -33,6 +33,10 @@ pub const PLAIN_LEN: usize = 1568;
 pub const TILES: usize = PLAIN_LEN / 32;
 pub const PLAIN_SHA256: &str = "4d4660eeb4f03a1078fa44baa0b9943512f275f986de123b3edf7a604170cf69";
 
+/// O jogo valida este checksum no boot (ROM com checksum errado => tela vermelha;
+/// medido no core). A base é consistente (`ad7e`), então a edição o recalcula.
+pub const HEADER_CHECKSUM_OFFSET: usize = 0x18E;
+
 pub const DECODER_OFFSET: usize = 0x85A2;
 pub const DECODER_LEN: usize = 160;
 pub const DECODER_SHA256: &str = "e8028514cfa2b24f49cd07ee523af573b7cb404b62cf45ff9484a69090b26f90";
@@ -52,6 +56,7 @@ pub fn slot() -> SlotSpec<'static> {
         len: STREAM_LEN,
         plain_len: PLAIN_LEN,
         plain_sha256: PLAIN_SHA256,
+        header_checksum: Some(HEADER_CHECKSUM_OFFSET),
     }
 }
 

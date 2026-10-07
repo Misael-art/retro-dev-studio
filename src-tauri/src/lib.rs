@@ -2638,6 +2638,29 @@ fn rex_inspection_edit_sonic_tiles(
 }
 
 #[tauri::command]
+fn rex_inspection_sor_font_info(
+    session_id: String,
+) -> Result<
+    tools::reverse::decomp::inspection::SorFontInfo,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::sor_font_info(&session_id)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
+fn rex_inspection_edit_sor_font(
+    session_id: String,
+    pixels: Vec<tools::reverse::decomp::inspection::SorPixelEdit>,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionEdit,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::edit_sor_font(&session_id, &pixels)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
 fn rex_inspection_sonic_cadence(
     session_id: String,
 ) -> Result<
@@ -5919,6 +5942,8 @@ pub fn run() {
             rex_inspection_save,
             rex_inspection_edit_sonic_palette,
             rex_inspection_edit_sonic_tiles,
+            rex_inspection_sor_font_info,
+            rex_inspection_edit_sor_font,
             rex_inspection_sonic_cadence,
             rex_inspection_edit_sonic_duration,
             rex_inspection_sonic_sequence,

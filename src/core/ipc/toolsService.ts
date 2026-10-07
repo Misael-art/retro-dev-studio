@@ -476,6 +476,49 @@ export interface InspectionEdit {
   base_rom_sha256_after?: string | null;
   /** true quando o valor solicitado ja era o vigente: ok explicito, nenhuma escrita. */
   noop?: boolean;
+  /** Recurso comprimido reinserido em slot (formato `md_4bpp_kosinski_stream`). */
+  stream_len?: number | null;
+  slot_len?: number | null;
+  guards_verified?: number | null;
+  patch_bps_path?: string | null;
+  patch_bps_sha256?: string | null;
+}
+
+/** Edicao de pixel 4bpp de um tile (linha/coluna 0..7, indice 0..15). */
+export interface SorPixelEdit {
+  tile: number;
+  row: number;
+  col: number;
+  index: number;
+}
+
+export interface SorGlyph {
+  tile: number;
+  label: string;
+  /** observed = medido no core; inferred = por contiguidade do alfabeto. */
+  basis: "observed" | "inferred";
+}
+
+export interface SorFontInfo {
+  profile_id: string;
+  resource_id: string;
+  supported: boolean;
+  diagnostic: string;
+  rom_sha256: string;
+  stream_offset: number;
+  slot_len: number;
+  plain_len: number;
+  tiles: number;
+  consumers: { offset: number; note: string }[];
+  glyphs: SorGlyph[];
+  original_plain_b64: string;
+  current_plain_b64: string;
+  current_stream_len: number;
+  tiles_changed: number[];
+  copy_active: boolean;
+  scope_note: string;
+  proof: string[];
+  limits: string[];
 }
 
 /** Registro cumulativo de uma edicao efetivamente aplicada a copia imutavel. */
@@ -1626,4 +1669,14 @@ export function rexResourceContextHit(
     x,
     y,
   });
+}
+
+/** Perfil Streets of Rage: estado da fonte Kosinski (ou diagnostico de ROM sem perfil). */
+export function inspectionSorFontInfo(sessionId: string): Promise<SorFontInfo> {
+  return invoke<SorFontInfo>("rex_inspection_sor_font_info", { sessionId });
+}
+
+/** Reinsere a fonte editada no slot original (revalida, recomprime, gera BPS). */
+export function inspectionEditSorFont(sessionId: string, pixels: SorPixelEdit[]): Promise<InspectionEdit> {
+  return invoke<InspectionEdit>("rex_inspection_edit_sor_font", { sessionId, pixels });
 }
