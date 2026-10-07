@@ -1,0 +1,47 @@
+{
+ "schema": "rex-ss-walls-core-frame/v1",
+ "expectations": "docs/rex_profiles/integration_20261007/EXPECTATIONS-SS-REMONTAGEM-2026-10-07.md (C7,C8)",
+ "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+ "core": "genesis_plus_gx",
+ "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+ "estado": "fase especial alcancada por escrita de RAM v_gamemode=$10 a partir do demo do titulo (sem controle); WRAM do GPGX tem palavras invertidas (byte A em A^1)",
+ "captura": {
+  "frames": 280,
+  "framebuffer_sha256_16": "620e07c5b5799764",
+  "formato": "RGB565 320x224"
+ },
+ "conversao_cram_para_565": "derivada empiricamente do core: R5=n*4+(n>>2), G6=n*8+(n>>1), B5=R5 (114/133 cores da paleta presentes no frame); NAO e a conversao 0..255 da UI",
+ "paleta_usada": "v_palette ($FB00, WRAM) do mesmo instante, linha 0 = Pal_SpecialStage linha 0 nos frames medidos (estado observado, distinto da estatica)",
+ "criterio": "100% dos pixels opacos iguais (>=6 cores distintas no template, sem templates degenerados)",
+ "acertos_linha0_por_frame": {
+  "0": 103,
+  "1": 79,
+  "2": 38,
+  "3": 18,
+  "4": 5,
+  "5": 6,
+  "6": 6,
+  "7": 5,
+  "8": 13,
+  "9": 11,
+  "10": 17,
+  "11": 15,
+  "12": 12,
+  "13": 26,
+  "14": 16,
+  "15": 23
+ },
+ "reservados": {
+  "9": 11,
+  "15": 23
+ },
+ "flips_observados": [
+  0
+ ],
+ "controles_negativos": {
+  "transposto": 0,
+  "pixels_invertidos_no_tile": 0,
+  "deslocado_1px": "INVALIDO: busca invariante a translacao (mutante nao serve)"
+ },
+ "limites": "calibracao dos filtros (cor degenerada) feita depois de ver acertos falsos, nao por frame; o conversor de cor foi calibrado nos mesmos frames (cores, nao posicoes); so flip 0 observado; nao e consumo do jogo fora destes frames"
+}
