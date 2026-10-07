@@ -2876,6 +2876,7 @@ dependencies = [
  "image",
  "libloading 0.8.9",
  "rex-addressing",
+ "rex-enigma",
  "rex-gameplay",
  "rex-kosinski",
  "rex-mugen",
@@ -2891,6 +2892,10 @@ dependencies = [
 [[package]]
 name = "rex-addressing"
 version = "0.1.0"
+
+[[package]]
+name = "rex-enigma"
+version = "0.2.0"
 
 [[package]]
 name = "rex-gameplay"

@@ -480,6 +480,8 @@ function parseArgs(argv) {
           "sonic-anim-integrada",
           "sonic-anim-visual-diagnostico",
           "sonic-sequencia-journey",
+          "sonic-consumers-inspection",
+          "sonic-layouts-journey",
           "compositing-medicao",
           "rex-lz4w-effect",
           "rex-lz4w-fixture-effect",
@@ -11717,6 +11719,549 @@ async function runSonicAnimIntegradaScenario(sessionId, app, romPath, base, save
   }
 }
 
+// LAYOUTS-2026-10-06 — jornada BYOR `sonic-layouts-journey` na ROM pinada c7da53a1…:
+// abrir ROM → selecionar layout → visualizar a grade → selecionar células (mouse e
+// teclado NATIVOS) → conferir origem → salvar sessão → destruir a janela e reiniciar →
+// reabrir → conferir identidade e seleção. Oráculo independente: decoder Enigma em JS
+// escrito aqui a partir da especificação (não chama o produto), leitura da tabela
+// SS_MapIndex direto dos bytes do arquivo e SHA-256 do arquivo. Sondas técnicas via
+// invoke são rotuladas; nada aqui afirma que o JOGO consumiu o recurso em execução.
+const ENIGMA_PLAIN_REF_SHA = [
+  "322a14830b8f3be05d59507ccf41c7a57ff8e835cd2727573943cd61d4c944d0",
+  "4b5ac5ea3391a5146e935474137df1ae74bb3926354bb63a321e03020f12733d",
+  "3643e681d5260a6d51a3e0cd4558ded3b189663d62258dbee189f2167d6c3954",
+  "04b5a97a675e9f84790932fc94c801aafd0c34a05ad450437da3a01feac5e9c7",
+  "5841c3fbaf8a648593914121ea0af13f2339c29754b59167a4b21178dfceacd8",
+  "78a2093e623f11fc227fe10390cd9f3d4afc234a838ba70bd2641b5637128c94",
+];
+const LAYOUT_STREAM_OFFSETS = [0x65432, 0x656ac, 0x65abe, 0x65e1a, 0x662f4, 0x667c6];
+const LAYOUT_CONSUMED = [634, 1042, 860, 1242, 1233, 784];
+const LAYOUT_PADDING = [0, 0, 0, 0, 1, 0];
+
+function layoutsEnigmaOracle(rom, off) {
+  const pl = rom[off];
+  const mask = rom[off + 1];
+  let incr = (rom[off + 2] << 8) | rom[off + 3];
+  const common = (rom[off + 4] << 8) | rom[off + 5];
+  let bit = 0;
+  const readBit = () => {
+    const byte = rom[off + 6 + (bit >> 3)];
+    if (byte === undefined) throw new Error("oraculo: stream truncado");
+    const value = (byte >> (7 - (bit & 7))) & 1;
+    bit += 1;
+    return value;
+  };
+  const readN = (n) => { let v = 0; for (let i = 0; i < n; i += 1) v = (v << 1) | readBit(); return v; };
+  const inlineValue = () => {
+    let flags = 0;
+    for (let j = 4; j >= 0; j -= 1) if (((mask >> j) & 1) && readBit()) flags |= 1 << (j + 11);
+    return (readN(pl) + flags) & 0xffff;
+  };
+  const words = [];
+  for (;;) {
+    if (readBit() === 1) {
+      const mode = readN(2);
+      const count = readN(4);
+      if (mode === 3) {
+        if (count === 15) break;
+        for (let i = 0; i <= count; i += 1) words.push(inlineValue());
+      } else {
+        let value = inlineValue();
+        const step = mode === 0 ? 0 : mode === 1 ? 1 : 0xffff;
+        for (let i = 0; i <= count; i += 1) { words.push(value); value = (value + step) & 0xffff; }
+      }
+    } else {
+      const kind = readBit();
+      const count = readN(4) + 1;
+      if (kind === 0) { for (let i = 0; i < count; i += 1) { words.push(incr); incr = (incr + 1) & 0xffff; } }
+      else for (let i = 0; i < count; i += 1) words.push(common);
+    }
+  }
+  const bytes = Buffer.alloc(words.length * 2);
+  words.forEach((w, i) => bytes.writeUInt16BE(w, i * 2));
+  return { bytes, consumed: 6 + Math.ceil(bit / 8) };
+}
+
+async function runSonicLayoutsJourneyScenario(sessionId, app, romPath, base, savedId, prefix, uiBootstrapTimeoutMs) {
+  const hash = (buffer) => createHash("sha256").update(buffer).digest("hex");
+  const baseSha256 = hash(base);
+  if (base.length !== 531577 || baseSha256 !== "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb") {
+    fail(`A jornada dos layouts exige a ROM BYOR pinada: ${base.length} bytes ${baseSha256}`);
+  }
+  if (process.env.WEBKIT_DISABLE_COMPOSITING_MODE === "1") fail("A jornada exige ausencia da mitigacao de ambiente (a correcao e do binario)");
+  await ensureValidationDir();
+  const pilotDir = path.join(validationDir, `${prefix}-layouts-journey`);
+  await mkdir(pilotDir, { recursive: true });
+  // Oráculo independente (JS) — 6 saídas, consumo e padding.
+  const oracle = LAYOUT_STREAM_OFFSETS.map((off) => layoutsEnigmaOracle(base, off));
+  const mapIndexRecord = (id) => base.subarray(0x1b738 + (id - 1) * 6, 0x1b738 + id * 6).toString("hex");
+  const report = {
+    schema: "rex-sonic-layouts-journey/v1",
+    artifact_prefix: prefix,
+    expectations: "docs/rex_profiles/integration_20261006/EXPECTATIONS-LAYOUTS-2026-10-06.md (L9–L11)",
+    binary_sha256: hash(await readFile(app)),
+    base_rom_sha256: baseSha256,
+    attribution: "Cliques e teclas na grade/abas/zoom/salvar/reabrir são WebDriver NATIVOS na janela real. Chamadas invoke aparecem rotuladas como sonda técnica. O oráculo é independente do produto (decoder JS + leitura direta dos bytes). Nenhum resultado aqui observa o jogo em execução.",
+    oracle_summary: oracle.map((o, i) => ({ layout: i, consumed: o.consumed, bytes: o.bytes.length, sha256: hash(o.bytes), referencia_historica_confere: hash(o.bytes) === ENIGMA_PLAIN_REF_SHA[i] })),
+    pilot_dir: pilotDir,
+    steps: [],
+    checks: [],
+  };
+  const persistReport = async (extra = {}) => writeFile(path.join(pilotDir, "report.json"), JSON.stringify({ ...report, ...extra }, null, 2));
+  const addCheck = (name, pass, extra = {}) => {
+    report.checks.push({ name, pass: Boolean(pass), ...extra });
+    if (!pass) throw new Error(`${name}: ${JSON.stringify(extra)}`);
+  };
+  let sessionIdRef = sessionId;
+  const probeInvoke = async (command, args) => executeAsyncScript(
+    sessionIdRef,
+    `
+      const done = arguments[arguments.length - 1];
+      const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI_INTERNALS__?.invoke;
+      if (typeof invoke !== "function") { done({ ok: false, message: "invoke indisponivel na pagina" }); return; }
+      invoke(arguments[0], arguments[1] ?? {}).then((value) => done({ ok: true, value })).catch((error) => done({ ok: false, code: error?.code ?? null, message: String(error?.message ?? JSON.stringify(error)) }));
+    `,
+    [command, args]
+  );
+  const readLayouts = (withIds = false) => executeScript(
+    sessionIdRef,
+    `
+      const q = (sel) => document.querySelector(sel);
+      const grid = q("[data-testid='layouts-grid']");
+      const first = grid?.querySelector("[role='gridcell']");
+      const out = {
+        panel: Boolean(q("[data-testid='layouts-panel']")),
+        titulo: q("[data-testid='layouts-panel']")?.textContent?.includes("Mapa de IDs") ?? false,
+        error: q("[data-testid='layouts-error']")?.textContent ?? "",
+        identitySha: q("[data-testid='layouts-identity']")?.getAttribute("data-rom-sha256") ?? null,
+        identitySession: q("[data-testid='layouts-identity']")?.getAttribute("data-session-id") ?? null,
+        tabs: Array.from(document.querySelectorAll("[data-testid^='layouts-tab-']")).map((t) => ({ id: t.getAttribute("data-testid"), selected: t.getAttribute("aria-selected"), integridade: t.getAttribute("data-integridade") })),
+        gridState: grid?.getAttribute("data-state") ?? null,
+        layout: grid ? Number(grid.getAttribute("data-layout")) : null,
+        selRow: grid?.getAttribute("data-selected-row") ?? null,
+        selCol: grid?.getAttribute("data-selected-col") ?? null,
+        cells: grid ? grid.querySelectorAll("[role='gridcell']").length : 0,
+        cellPx: first instanceof HTMLElement ? first.style.width : null,
+        zoom: q("[data-testid='layouts-zoom']")?.getAttribute("data-zoom") ?? null,
+        coord: q("[data-testid='layouts-celula-coord']")?.textContent ?? "",
+        idShown: q("[data-testid='layouts-celula-id']")?.textContent ?? "",
+        celulaRow: q("[data-testid='layouts-celula']")?.getAttribute("data-row") ?? null,
+        celulaCol: q("[data-testid='layouts-celula']")?.getAttribute("data-col") ?? null,
+        celulaId: q("[data-testid='layouts-celula']")?.getAttribute("data-id") ?? null,
+        origem: q("[data-testid='layouts-celula-origem']")?.textContent ?? "",
+        defStatus: q("[data-testid='layouts-celula-definicao']")?.getAttribute("data-status") ?? null,
+        defText: q("[data-testid='layouts-celula-definicao']")?.textContent ?? "",
+        celulaErro: q("[data-testid='layouts-celula-erro']")?.textContent ?? "",
+        tecnico: q("[data-testid='layouts-tecnico']")?.textContent ?? "",
+        tecnicoAberto: q("[data-testid='layouts-tecnico']")?.open ?? null,
+        resumo: q("[data-testid='layouts-resumo']")?.textContent ?? "",
+        integridade: q("[data-testid='layouts-integridade']")?.textContent ?? "",
+        notice: q("[data-testid='layouts-notice']")?.textContent ?? "",
+        descartadas: q("[data-testid='layouts-descartadas']")?.textContent ?? null,
+        desconhecidos: q("[data-testid='layouts-desconhecidos']")?.children.length ?? 0,
+        camadas: q("[data-testid='layouts-camadas']")?.children.length ?? 0,
+        imagens: q("[data-testid='layouts-panel']")?.querySelectorAll("img, canvas").length ?? 0,
+      };
+      if (arguments[0] && grid) out.ids = Array.from(grid.querySelectorAll("[role='gridcell']")).map((c) => Number(c.getAttribute("data-id")));
+      return out;
+    `,
+    [withIds]
+  );
+  const nativeClickSelector = async (selector, label) => {
+    const prep = await executeScript(sessionIdRef, `
+      const t = document.querySelector(arguments[0]);
+      if (!(t instanceof HTMLElement)) return null;
+      // centraliza o alvo em CADA ancestral rolavel (painel direito e grade), de dentro para fora
+      for (let el = t.parentElement; el; el = el.parentElement) {
+        const cs = getComputedStyle(el);
+        const sx = /(auto|scroll)/.test(cs.overflowX) && el.scrollWidth > el.clientWidth;
+        const sy = /(auto|scroll)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight;
+        if (!sx && !sy) continue;
+        const er = el.getBoundingClientRect(), tr = t.getBoundingClientRect();
+        if (sx) el.scrollLeft += (tr.left + tr.width / 2) - (er.left + er.width / 2);
+        if (sy) el.scrollTop += (tr.top + tr.height / 2) - (er.top + er.height / 2);
+      }
+      const r = t.getBoundingClientRect();
+      const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
+      const hit = document.elementFromPoint(x, y);
+      return { x, y, hit: hit === t || t.contains(hit), diag: { hit: hit ? (hit.getAttribute("data-testid") || hit.tagName) : null, innerWidth: window.innerWidth, innerHeight: window.innerHeight, rect: { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom) } } };
+    `, [selector]);
+    if (!prep) fail(`Alvo ausente para clique nativo: ${label}`);
+    if (!prep.hit) fail(`O ponto de clique nao acerta o alvo (${label}): ${JSON.stringify(prep)}`);
+    const response = await webdriverRequestDetailed("POST", `/session/${sessionIdRef}/actions`, {
+      actions: [{ type: "pointer", id: "rds-layouts-pointer", parameters: { pointerType: "mouse" }, actions: [
+        { type: "pointerMove", origin: "viewport", x: prep.x, y: prep.y },
+        { type: "pointerDown", button: 0 },
+        { type: "pointerUp", button: 0 },
+      ] }],
+    });
+    if (!response.ok || response.payload?.value?.error) fail(`Clique nativo recusado (${label}): ${JSON.stringify(response)}`);
+  };
+  const KEYS = { ArrowRight: "", ArrowLeft: "", ArrowUp: "", ArrowDown: "", Home: "", End: "", PageUp: "", PageDown: "", Control: "", "+": "+", "-": "-" };
+  const nativeKeys = async (sequence, label) => {
+    const actions = [];
+    for (const step of sequence) actions.push({ type: step.up ? "keyUp" : "keyDown", value: KEYS[step.key] ?? step.key });
+    const response = await webdriverRequestDetailed("POST", `/session/${sessionIdRef}/actions`, { actions: [{ type: "key", id: "rds-layouts-keys", actions }] });
+    if (!response.ok || response.payload?.value?.error) fail(`Teclado nativo recusado (${label}): ${JSON.stringify(response)}`);
+  };
+  const tap = (key, label, ctrl = false) => nativeKeys(ctrl
+    ? [{ key: "Control" }, { key }, { key, up: true }, { key: "Control", up: true }]
+    : [{ key }, { key, up: true }], label);
+  const waitCell = (row, col, label) => waitFor(async () => {
+    const s = await readLayouts();
+    return s?.selRow === String(row) && s.selCol === String(col) && s.celulaRow === String(row) && s.celulaCol === String(col) && s.celulaId !== "" && s.origem !== "" ? s : false;
+  }, 15000, `A celula ${row},${col} nao foi resolvida pelo nucleo (${label})`, 100);
+  const ramOf = (row, col) => (0xff1020 + row * 128 + col).toString(16);
+  const checkCell = (name, s, layout, row, col) => {
+    const offset = row * 64 + col;
+    const id = oracle[layout].bytes[offset];
+    addCheck(name, s.celulaId === String(id) && s.idShown === `0x${id.toString(16).toUpperCase().padStart(2, "0")}` && s.coord.includes(`linha ${row}, coluna ${col}`) && s.origem.includes(`byte ${offset} `) && s.tecnico.includes(`byte ${offset} (0x${offset.toString(16)})`) && s.tecnico.includes(`RAM $${ramOf(row, col)}`), { observado: { layout, row, col, esperado_id: id, ui: { id: s.celulaId, shown: s.idShown, coord: s.coord, origem: s.origem.slice(0, 90) }, ram_esperada: ramOf(row, col) } });
+  };
+  try {
+    // PASSO 1 — painel abre sozinho pelo caminho nativo da sessão; identidade do arquivo.
+    const first = await waitFor(async () => {
+      const s = await readLayouts();
+      return s?.panel && s.gridState === "pronto" && s.cells === 4096 && !s.error ? s : false;
+    }, 45000, "O painel de layouts nao exibiu a grade 64x64 sem erro", 200);
+    report.steps.push({ step: 1, name: "painel_aberto_pelo_caminho_nativo", screenshot: await captureScreenshot(sessionIdRef, `${prefix}-layouts-painel.png`) });
+    addCheck("ui.mapa_de_ids_rotulado_e_seis_abas", first.titulo && first.tabs.length === 6 && first.camadas === 3 && first.desconhecidos >= 4, { observado: { titulo: first.titulo, abas: first.tabs.length, camadas: first.camadas, desconhecidos: first.desconhecidos } });
+    addCheck("ui.identidade_igual_ao_sha_do_arquivo", first.identitySha === baseSha256 && first.identitySession === savedId, { observado: { ui: first.identitySha, arquivo: baseSha256, sessao: first.identitySession, esperado: savedId } });
+    addCheck("ui.sem_imagem_nem_canvas_e_tecnico_recolhido", first.imagens === 0 && first.tecnicoAberto === false, { observado: { imagens: first.imagens, tecnicoAberto: first.tecnicoAberto } });
+    addCheck("ui.resumo_sem_hash_e_integridade_visivel", !/[0-9a-f]{40,}/.test(first.resumo) && first.integridade.includes("coincide com a referência histórica"), { observado: { resumo: first.resumo.slice(0, 200), integridade: first.integridade } });
+
+    // PASSO 2 — seis saídas: grade lida DA UI (data-id das 4096 células) × oráculo JS independente.
+    for (let i = 0; i < 6; i += 1) {
+      if (i > 0) await clickButtonByTestIdNativeWhenReady(sessionIdRef, `layouts-tab-${i}`, `selecionar layout ${i + 1}`);
+      const s = await waitFor(async () => {
+        const r = await readLayouts(true);
+        return r?.layout === i && r.gridState === "pronto" && r.ids?.length === 4096 ? r : false;
+      }, 15000, `A grade do layout ${i + 1} nao ficou pronta`, 100);
+      const idsBuf = Buffer.from(s.ids);
+      addCheck(`oraculo.layout_${i + 1}_4096_ids_iguais`, idsBuf.equals(oracle[i].bytes) && oracle[i].bytes.length === 4096, { observado: { ui_sha256: hash(idsBuf), oraculo_sha256: hash(oracle[i].bytes), consumo_oraculo: oracle[i].consumed, esperado_consumo: LAYOUT_CONSUMED[i] } });
+      addCheck(`oraculo.layout_${i + 1}_consumo_e_padding`, oracle[i].consumed === LAYOUT_CONSUMED[i] && s.tecnico.includes(`Bytes lidos do bloco: ${LAYOUT_CONSUMED[i]} · padding de alinhamento: ${LAYOUT_PADDING[i]} · tamanho armazenado: ${LAYOUT_CONSUMED[i] + LAYOUT_PADDING[i]} · saída descomprimida: 4096`), { observado: { tecnico: s.tecnico.slice(0, 400) } });
+      addCheck(`oraculo.layout_${i + 1}_referencia_historica_so_comparacao`, hash(idsBuf) === ENIGMA_PLAIN_REF_SHA[i] && s.tecnico.includes(hash(idsBuf)), { observado: { sha: hash(idsBuf) } });
+    }
+    report.steps.push({ step: 2, name: "seis_layouts_contra_oraculo_independente" });
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "layouts-tab-0", "voltar ao layout 1");
+    await waitFor(async () => (await readLayouts())?.layout === 0, 10000, "layout 1 nao voltou", 100);
+
+    // PASSO 3 — primeira e última célula, por mouse e teclado nativos.
+    await nativeClickSelector("[data-testid='layouts-grid'] [data-row='0'][data-col='0']", "primeira celula");
+    checkCell("celula.primeira_0_0_por_mouse", await waitCell(0, 0, "mouse"), 0, 0, 0);
+    await tap("End", "Ctrl+End ultima celula", true);
+    checkCell("celula.ultima_63_63_por_teclado", await waitCell(63, 63, "Ctrl+End"), 0, 63, 63);
+    await tap("ArrowRight", "borda direita sem wrap");
+    await tap("ArrowDown", "borda inferior sem wrap");
+    const bordas = await readLayouts();
+    addCheck("teclado.bordas_sem_wrap", bordas.selRow === "63" && bordas.selCol === "63", { observado: { row: bordas.selRow, col: bordas.selCol } });
+    await tap("Home", "Ctrl+Home primeira celula", true);
+    checkCell("celula.primeira_por_teclado", await waitCell(0, 0, "Ctrl+Home"), 0, 0, 0);
+    report.steps.push({ step: 3, name: "primeira_e_ultima_celula" });
+
+    // PASSO 4 — fronteiras de linha e stride 128 (célula↔byte↔RAM).
+    for (const r of [0, 17, 62]) {
+      await nativeClickSelector(`[data-testid='layouts-grid'] [data-row='${r}'][data-col='63']`, `fim da linha ${r}`);
+      const fim = await waitCell(r, 63, "fim de linha");
+      checkCell(`fronteira.linha_${r}_coluna_63`, fim, 0, r, 63);
+      await tap("ArrowRight", "sem wrap no fim da linha");
+      addCheck(`fronteira.linha_${r}_sem_wrap`, (await readLayouts()).selRow === String(r) && (await readLayouts()).selCol === "63", {});
+      await tap("ArrowDown", "linha seguinte");
+      const abaixo = await waitCell(r + 1, 63, "descer");
+      checkCell(`fronteira.linha_${r + 1}_coluna_63`, abaixo, 0, r + 1, 63);
+      await tap("Home", "inicio da linha");
+      const inicio = await waitCell(r + 1, 0, "Home");
+      checkCell(`fronteira.linha_${r + 1}_coluna_0`, inicio, 0, r + 1, 0);
+      addCheck(`stride.ram_linha_${r}_para_${r + 1}`, Number.parseInt(ramOf(r + 1, 0), 16) - Number.parseInt(ramOf(r, 63), 16) === 65 && Number.parseInt(ramOf(r + 1, 63), 16) - Number.parseInt(ramOf(r, 63), 16) === 128, { observado: { ram_fim: ramOf(r, 63), ram_inicio_seguinte: ramOf(r + 1, 0) } });
+    }
+    await nativeClickSelector("[data-testid='layouts-grid'] [data-row='10'][data-col='5']", "celula para PageDown");
+    await waitCell(10, 5, "base do PageDown");
+    await tap("PageDown", "PageDown 8 linhas");
+    checkCell("teclado.pagedown_8_linhas", await waitCell(18, 5, "PageDown"), 0, 18, 5);
+    await tap("PageUp", "PageUp 8 linhas");
+    checkCell("teclado.pageup_8_linhas", await waitCell(10, 5, "PageUp"), 0, 10, 5);
+    report.steps.push({ step: 4, name: "fronteiras_e_stride" });
+
+    // PASSO 5 — célula↔definição estrutural pelos bytes do arquivo (SS_MapIndex), 0, 1, 78 e fora da tabela.
+    const pickId = (predicate) => { for (let i = 0; i < 6; i += 1) for (let o = 0; o < 4096; o += 1) if (predicate(oracle[i].bytes[o])) return { layout: i, offset: o, id: oracle[i].bytes[o] }; return null; };
+    const casos = [
+      ["id_zero", pickId((v) => v === 0)],
+      ["id_com_definicao_baixo", pickId((v) => v >= 1 && v <= 3)],
+      ["id_com_definicao_alto", pickId((v) => v === 78) ?? pickId((v) => v >= 70 && v <= 78)],
+      ["id_fora_da_tabela", pickId((v) => v > 78)],
+    ];
+    for (const [nome, caso] of casos) {
+      if (!caso) { report.checks.push({ name: `definicao.${nome}`, pass: true, nota: "nenhum ID desta classe existe nos seis layouts (oraculo)" }); continue; }
+      if (Number((await readLayouts()).layout) !== caso.layout) {
+        await clickButtonByTestIdNativeWhenReady(sessionIdRef, `layouts-tab-${caso.layout}`, `layout ${caso.layout + 1} para ${nome}`);
+        await waitFor(async () => { const r = await readLayouts(); return r?.layout === caso.layout && r.gridState === "pronto"; }, 15000, "troca de layout", 100);
+      }
+      const row = Math.floor(caso.offset / 64), col = caso.offset % 64;
+      await nativeClickSelector(`[data-testid='layouts-grid'] [data-row='${row}'][data-col='${col}']`, nome);
+      const s = await waitCell(row, col, nome);
+      checkCell(`definicao.${nome}_celula_byte`, s, caso.layout, row, col);
+      if (caso.id === 0) addCheck("definicao.id_zero_sem_registro", s.defStatus === "id-zero", { observado: s.defStatus });
+      else if (caso.id > 78) addCheck("definicao.fora_da_tabela_sem_definicao", s.defStatus === "fora-da-tabela" && s.defText.includes("nenhuma definição estrutural"), { observado: s.defText.slice(0, 160) });
+      else {
+        const rec = mapIndexRecord(caso.id);
+        const ptr = `0x${parseInt(rec.slice(2, 8), 16).toString(16)}`;
+        addCheck(`definicao.${nome}_registro_do_arquivo`, s.defStatus === "comprovada" && s.tecnico.includes(`Registro 0x${(0x1b738 + (caso.id - 1) * 6).toString(16)}: ${rec}`) && s.tecnico.includes(`ponteiro ${ptr}`) && s.tecnico.includes(`slot $${(0xff4000 + 8 * caso.id).toString(16)}`), { observado: { id: caso.id, registro_do_arquivo: rec } });
+      }
+    }
+    const semArte = await readLayouts();
+    addCheck("ui.definicao_diz_o_que_nao_se_sabe", semArte.desconhecidos >= 4, { observado: semArte.desconhecidos });
+    report.steps.push({ step: 5, name: "definicao_estrutural_contra_bytes_do_arquivo" });
+
+    // PASSO 6 — zoom por mouse e teclado.
+    const z0 = Number((await readLayouts()).zoom);
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "layouts-zoom-in", "zoom +");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "layouts-zoom-in", "zoom +");
+    const z2 = await readLayouts();
+    addCheck("zoom.mouse_aumenta_e_pixels_acompanham", Number(z2.zoom) === z0 + 2 && z2.cellPx === `${4 + (z0 + 2) * 2}px`, { observado: { z0, zoom: z2.zoom, px: z2.cellPx } });
+    await nativeClickSelector(`[data-testid='layouts-grid'] [data-row='${z2.selRow}'][data-col='${z2.selCol}']`, "reforcar foco da grade");
+    await tap("-", "zoom - por teclado");
+    const z1 = await readLayouts();
+    addCheck("zoom.teclado_diminui", Number(z1.zoom) === z0 + 1, { observado: { zoom: z1.zoom } });
+    report.steps.push({ step: 6, name: "zoom" });
+
+    // PASSO 7 — seleção final conhecida, salvar, destruir a janela, reiniciar, reabrir.
+    const FINAL = { layout: 4, row: 21, col: 34 };
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, `layouts-tab-${FINAL.layout}`, "layout 5 para a selecao final");
+    await waitFor(async () => { const r = await readLayouts(); return r?.layout === FINAL.layout && r.gridState === "pronto"; }, 15000, "layout 5 nao ficou pronto", 100);
+    await nativeClickSelector(`[data-testid='layouts-grid'] [data-row='${FINAL.row}'][data-col='${FINAL.col}']`, "celula final");
+    checkCell("celula.final_antes_de_salvar", await waitCell(FINAL.row, FINAL.col, "final"), FINAL.layout, FINAL.row, FINAL.col);
+    const zoomFinal = Number((await readLayouts()).zoom);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-save", "salvar sessao da jornada de layouts");
+    await waitFor(async () => executeScript(sessionIdRef, `return Boolean(document.querySelector('[data-testid="inspection-saved-session"][data-session-id="${savedId}"]'));`), 15000, "A sessao salva dos layouts nao apareceu na lista", 100);
+    const saved = await probeInvoke("rex_inspection_status", { sessionId: savedId });
+    if (!saved?.ok) fail(`Sonda tecnica de status recusada: ${JSON.stringify(saved?.message)}`);
+    const sel = saved.value?.session?.layouts_selection;
+    addCheck("sessao.selecao_gravada_com_identidade", sel?.layout_index === FINAL.layout && sel.row === FINAL.row && sel.col === FINAL.col && sel.zoom === zoomFinal && sel.rom_sha256 === baseSha256, { observado: sel, sonda_tecnica: true });
+    addCheck("sessao.sem_edicao_na_copia", !saved.value?.session?.edit && (saved.value?.session?.applied_edits ?? []).length === 0, { observado: { edit: Boolean(saved.value?.session?.edit), applied: saved.value?.session?.applied_edits?.length ?? 0 } });
+    report.steps.push({ step: 7, name: "sessao_salva" });
+    await deleteSession(sessionIdRef);
+    sessionIdRef = await createSession(app);
+    currentE2eRunContext.sessionId = sessionIdRef;
+    await waitForAppWindowReady(sessionIdRef, uiBootstrapTimeoutMs, "O app da jornada de layouts nao reabriu");
+    await handleProjectWizardVisibly(sessionIdRef, "layouts-journey-restart");
+    await setSessionWindowRect(sessionIdRef, 1920, 1080);
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "workspace-rail-debug", "reabrir Debug Workspace na jornada de layouts");
+    await callAutomationApi(sessionIdRef, "openToolsWorkspace", ["reverse", "debug", true]);
+    await waitForBodyText(sessionIdRef, "Analisar ROM", 20000, "O Reverse Workspace nao voltou na jornada de layouts");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "reverse-tab-inspection", "reabrir inspecao na jornada de layouts");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-refresh-sessions", "listar sessoes salvas na jornada de layouts");
+    await waitFor(async () => executeScript(sessionIdRef, `return Boolean(document.querySelector('[data-testid="select-saved-session-${savedId}"]'));`), 30000, "A sessao salva dos layouts nao reapareceu apos reiniciar", 100);
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, `select-saved-session-${savedId}`, "selecionar sessao salva dos layouts");
+    await clickButtonByTestIdNativeWhenReady(sessionIdRef, "inspection-reopen", "reabrir sessao da jornada de layouts");
+    const reopened = await waitFor(async () => {
+      const s = await readLayouts();
+      return s?.panel && s.gridState === "pronto" && s.cells === 4096 && s.selRow === String(FINAL.row) && s.selCol === String(FINAL.col) && s.celulaId !== "" ? s : false;
+    }, 45000, "Apos reabrir, a seleção salva nao foi restaurada no mapa de IDs", 200);
+    report.steps.push({ step: 8, name: "reiniciado_e_reaberto" });
+    addCheck("reabertura.identidade_e_selecao_restauradas", reopened.identitySha === baseSha256 && reopened.identitySession === savedId && reopened.layout === FINAL.layout && Number(reopened.zoom) === zoomFinal, { observado: { sha: reopened.identitySha, sessao: reopened.identitySession, layout: reopened.layout, zoom: reopened.zoom, row: reopened.selRow, col: reopened.selCol } });
+    addCheck("reabertura.aviso_de_rom_identica", reopened.notice.includes("ROM é idêntica"), { observado: reopened.notice });
+    checkCell("reabertura.celula_restaurada_confere_com_oraculo", reopened, FINAL.layout, FINAL.row, FINAL.col);
+    const regrade = await readLayouts(true);
+    addCheck("reabertura.grade_restaurada_igual_ao_oraculo", Buffer.from(regrade.ids).equals(oracle[FINAL.layout].bytes), { observado: { sha: hash(Buffer.from(regrade.ids)) } });
+    const shotFinal = await captureScreenshot(sessionIdRef, `${prefix}-layouts-reaberto.png`);
+    report.steps.push({ step: 9, name: "tela_final", screenshot: shotFinal });
+
+    // PASSO 10 — negativos (sondas técnicas rotuladas) e integridade da ROM original.
+    const neg = async (nome, command, args, codigo) => {
+      const r = await probeInvoke(command, args);
+      addCheck(`negativo.${nome}`, r?.ok === false && (r.code === codigo || String(r.message).includes(codigo)), { observado: { ok: r?.ok, code: r?.code, message: String(r?.message ?? "").slice(0, 160) }, esperado: codigo, sonda_tecnica: true });
+    };
+    await neg("indice_6", "rex_inspection_sonic_layout_grid", { sessionId: savedId, expectedRomSha256: baseSha256, layoutIndex: 6 }, "layouts_indice_invalido");
+    await neg("linha_64", "rex_inspection_sonic_layout_cell", { sessionId: savedId, expectedRomSha256: baseSha256, layoutIndex: 0, row: 64, col: 0 }, "layouts_celula_fora_da_grade");
+    await neg("coluna_64", "rex_inspection_sonic_layout_cell", { sessionId: savedId, expectedRomSha256: baseSha256, layoutIndex: 0, row: 0, col: 64 }, "layouts_celula_fora_da_grade");
+    await neg("resposta_de_outra_rom", "rex_inspection_sonic_layout_cell", { sessionId: savedId, expectedRomSha256: "0".repeat(64), layoutIndex: 0, row: 0, col: 0 }, "layouts_rom_mudou");
+    await neg("request_id_invalido", "rex_inspection_sonic_layouts", { sessionId: savedId, requestId: "ID INVALIDO/../" }, "layouts_parametro_invalido");
+    await neg("sessao_inexistente", "rex_inspection_sonic_layouts", { sessionId: "sessao-que-nao-existe" }, "session_not_loaded");
+    await neg("selecao_zoom_0", "rex_inspection_set_layouts_selection", { sessionId: savedId, selection: { layout_index: 0, row: 0, col: 0, zoom: 0, rom_sha256: baseSha256 } }, "layouts_parametro_invalido");
+    await neg("selecao_fora_da_grade", "rex_inspection_set_layouts_selection", { sessionId: savedId, selection: { layout_index: 0, row: 64, col: 0, zoom: 4, rom_sha256: baseSha256 } }, "layouts_celula_fora_da_grade");
+    const cancelDesconhecido = await probeInvoke("rex_inspection_sonic_layouts_cancel", { requestId: "req-que-nao-existe" });
+    addCheck("negativo.cancelar_request_inexistente_nao_e_erro", cancelDesconhecido?.ok === true && cancelDesconhecido.value === false, { observado: cancelDesconhecido, sonda_tecnica: true });
+    // ROM adulterada (um byte no meio da stream 3): a sessão Sonic recusa o arquivo que nao e o pinado.
+    const tampered = Buffer.from(base);
+    tampered[LAYOUT_STREAM_OFFSETS[2] + 100] ^= 0xff;
+    const tamperedPath = path.join(pilotDir, "rom-adulterada-stream3.bin");
+    await writeFile(tamperedPath, tampered);
+    const opened = await probeInvoke("rex_inspection_open", { romPath: tamperedPath });
+    if (opened?.ok) {
+      const r = await probeInvoke("rex_inspection_sonic_layouts", { sessionId: opened.value.session_id });
+      addCheck("negativo.rom_adulterada_nao_vira_layout", r?.ok === false && !r.value, { observado: { code: r?.code, message: String(r?.message ?? "").slice(0, 200) }, sonda_tecnica: true });
+    } else {
+      addCheck("negativo.rom_adulterada_recusada_na_abertura", true, { observado: { message: String(opened?.message ?? "").slice(0, 200) }, sonda_tecnica: true });
+    }
+    await rm(tamperedPath, { force: true });
+    addCheck("final.base_preservada_byte_a_byte", (await readFile(romPath)).equals(base), { observado: { rom_path: romPath } });
+    addCheck("final.nenhum_arquivo_de_copia_criado", (await probeInvoke("rex_inspection_status", { sessionId: savedId }))?.value?.session?.edit == null, { sonda_tecnica: true });
+    const allPass = report.checks.every((entry) => entry.pass !== false);
+    report.runtime_effect = "nenhum: leitura estatica do arquivo; o jogo nao foi executado e nada aqui prova que ele consumiu o recurso em execucao";
+    await persistReport({ allPass, finished_at: new Date().toISOString() });
+    if (!allPass) fail(`Jornada dos layouts INCONCLUSIVA/FAIL: ${JSON.stringify(report.checks.filter((c) => c.pass === false))}`);
+    console.log(`OK: Sonic layouts journey E2E; allPass=true; report=${path.join(pilotDir, "report.json")}`);
+    return sessionIdRef;
+  } catch (error) {
+    await persistReport({ allPass: false, aborted: true, error: String(error?.message ?? error), finished_at: new Date().toISOString() }).catch(() => null);
+    throw error;
+  }
+}
+
+// INSPEÇÃO-INSP-2026-10-05 §5 — prova BYOR do cenario `sonic-consumers-inspection`
+// na ROM pinada c7da53a1…: o painel abre pelo caminho nativo da sessao (efeito
+// colateral da UI real; nada de teclado aqui); a leitura do DTO e a reinspecao
+// sao sondas tecnicas rotuladas via invoke do produto. Confere 37/37 sitios,
+// 6/6 span_ok, id01_ok, recusa visivel do falso lider e o contrato
+// somente-leitura (arquivo BYOR byte a byte identico depois da inspecao, ledger
+// de edicoes intacto, reinspecao idempotente).
+async function runSonicConsumersInspectionScenario(sessionId, app, romPath, base, savedId, prefix) {
+  const hash = (buffer) => createHash("sha256").update(buffer).digest("hex");
+  const baseSha256 = hash(base);
+  if (base.length !== 531577 || baseSha256 !== "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb") {
+    fail(`O cenario de consumidores exige a ROM BYOR pinada: ${base.length} bytes ${baseSha256}`);
+  }
+  const SPAN_PINS = [
+    "dc1a0a6ee0c3d2f6b52b7393dec9ae6ad41fc8831a0176b1467f484167d39853",
+    "4015dccb21c86ee98a3a8e6cf2dcccfea5d0cb046f8981bad59dfa0b88d3db7a",
+    "6b8467c2b0cb5c07d5bb2a4865af4b754e3eebe9aeb32ce2c9d44d5c5a58f232",
+    "8996ca4fe2bda84806faccfa5d9d98723191a9331165f67fa14c02021dcb5929",
+    "6981fbd8f38881246faad30727a3632111c7484e03d9ce9fda021a8597641672",
+    "daf1a80e13a9b0712cb692a27de7771453855951e07ee9e7dab402a59621ae93",
+  ];
+  await ensureValidationDir();
+  const pilotDir = path.join(validationDir, `${prefix}-consumers-inspection`);
+  await mkdir(pilotDir, { recursive: true });
+  const report = {
+    schema: "rex-sonic-consumers-inspection/v1",
+    artifact_prefix: prefix,
+    expectations: "docs/rex_profiles/integration_20261005/EXPECTATIONS-INSP-2026-10-05.md §5 (prova BYOR) + EXPECTATIONS-INSP-2026-10-05-ADENDO-1.md (recusa total da cadeia)",
+    binary_sha256: hash(await readFile(app)),
+    base_rom_sha256: baseSha256,
+    attribution: "O painel de consumidores abre pelo caminho nativo da sessao real (sem dispatch programatico de UI); a leitura do DTO, a re-inspecao e a leitura do ledger sao sondas tecnicas rotuladas via invoke do produto, nunca teclado.",
+    pilot_dir: pilotDir,
+    steps: [],
+    checks: [],
+  };
+  const persistReport = async (extra = {}) => {
+    await writeFile(path.join(pilotDir, "report.json"), JSON.stringify({ ...report, ...extra }, null, 2));
+  };
+  const addCheck = (name, pass, extra = {}) => {
+    report.checks.push({ name, pass: Boolean(pass), ...extra });
+    if (!pass) throw new Error(`${name}: ${JSON.stringify(extra)}`);
+  };
+  const sessionIdRef = sessionId;
+  const probeInvoke = async (command, args) => executeAsyncScript(
+    sessionIdRef,
+    `
+      const done = arguments[arguments.length - 1];
+      const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI_INTERNALS__?.invoke;
+      if (typeof invoke !== "function") { done({ ok: false, message: "invoke indisponivel na pagina" }); return; }
+      invoke(arguments[0], arguments[1] ?? {}).then((value) => done({ ok: true, value })).catch((error) => done({ ok: false, message: String(error?.message ?? JSON.stringify(error)) }));
+    `,
+    [command, args]
+  );
+  const readConsumersPanel = () => executeScript(
+    sessionIdRef,
+    `
+      const q = (sel) => document.querySelector(sel);
+      const panel = q("[data-testid='inspection-sonic-consumers-panel']");
+      if (!panel) return { panel: false, error: (q("[data-testid='inspection-consumers-error']")?.textContent ?? "(sem painel)") };
+      const sitios = Array.from(panel.querySelectorAll("[data-testid^='inspection-consumers-sitio-']"));
+      const recursos = Array.from(panel.querySelectorAll("[data-testid^='inspection-consumers-recurso-']"));
+      const entradas = Array.from(q("[data-testid='inspection-consumers-entradas']")?.children ?? []);
+      const desconhecidosContainer = q("[data-testid='inspection-consumers-desconhecidos']");
+      return {
+        panel: true,
+        niveis: [1, 2, 3, 4, 5, 6, 7].every((n) => Boolean(q("#inspection-consumers-nivel-" + n))),
+        veredito: q("[data-testid='inspection-consumers-veredito']")?.getAttribute("data-veredito") ?? null,
+        vereditoTexto: q("[data-testid='inspection-consumers-veredito']")?.textContent ?? "",
+        totalSitios: sitios.length,
+        sitiosOk: sitios.filter((s) => s.getAttribute("data-ok") === "true").length,
+        frasesConsumidor: sitios.filter((s) => String(s.textContent ?? "").includes("é aqui que o jogo usa o recurso")).length,
+        totalEntradas: entradas.length,
+        entradasOk: entradas.filter((e) => e.getAttribute("data-ok") === "true").length,
+        cadeiaTexto: q("[data-testid='inspection-consumers-cadeia']")?.textContent ?? "",
+        totalRecursos: recursos.length,
+        recursosSpanOk: recursos.filter((r) => r.getAttribute("data-span-ok") === "true").length,
+        interpretacao: q("[data-testid='inspection-consumers-interpretacao']")?.textContent ?? "",
+        falsoLider: q("[data-testid='inspection-consumers-falso-lider']")?.getAttribute("data-veredito") ?? null,
+        motivos: panel.querySelectorAll("[data-testid='inspection-consumers-falso-lider-motivo']").length,
+        motivosTexto: Array.from(panel.querySelectorAll("[data-testid='inspection-consumers-falso-lider-motivo']")).map((m) => String(m.textContent ?? "")),
+        desconhecidos: desconhecidosContainer ? desconhecidosContainer.children.length : 0,
+        identidade: q("[data-testid='inspection-consumers-identidade']")?.textContent ?? "",
+        limites: q("[data-testid='inspection-consumers-limites']")?.textContent ?? "",
+        imagensNoPainel: panel.querySelectorAll("img").length,
+        error: q("[data-testid='inspection-consumers-error']")?.textContent ?? "",
+      };
+    `
+  );
+  try {
+    // 1) UI nativa: o painel carrega sozinho quando a sessao Sonic abre.
+    const panel = await waitFor(
+      async () => {
+        const state = await readConsumersPanel();
+        return state?.panel && state.veredito === "todos-ok" && !state.error ? state : false;
+      },
+      30000,
+      "O painel de consumidores nao exibiu os sete niveis com veredito todos-ok sem erro visivel",
+      100
+    );
+    report.steps.push({ step: 1, name: "painel_aberto_pelo_caminho_nativo", veredito: panel.veredito });
+    addCheck("ui.sete_niveis_sem_erro", panel.niveis === true && panel.error === "", { observed: { niveis: panel.niveis, error: panel.error } });
+    addCheck("ui.37_sitios_ok", panel.totalSitios === 37 && panel.sitiosOk === 37 && panel.vereditoTexto.includes("37/37"), { observed: { total: panel.totalSitios, ok: panel.sitiosOk, texto: panel.vereditoTexto.slice(0, 120) } });
+    addCheck("ui.consumidor_verbalizado", panel.frasesConsumidor >= 1, { observado: { frases: panel.frasesConsumidor } });
+    addCheck("ui.cadeia_6_entradas_destino_wram", panel.totalEntradas === 6 && panel.entradasOk === 6 && panel.cadeiaTexto.includes("(RAM interna do console — não é a porta do vídeo)") && panel.cadeiaTexto.includes("parâmetro medido 0"), { observado: { entradas: panel.totalEntradas, ok: panel.entradasOk, cadeia: panel.cadeiaTexto.slice(0, 200) } });
+    addCheck("ui.6_recursos_span_ok", panel.totalRecursos === 6 && panel.recursosSpanOk === 6, { observado: { total: panel.totalRecursos, ok: panel.recursosSpanOk } });
+    addCheck("ui.sem_previa_grafica_confirmada", panel.interpretacao.includes("não é exibida como imagem confirmada") && panel.imagensNoPainel === 0, { observado: { imagens: panel.imagensNoPainel } });
+    addCheck("ui.falso_lider_refutado_3_motivos", panel.falsoLider === "REFUTADA" && panel.motivos === 3, { observado: { veredito: panel.falsoLider, motivos: panel.motivos } });
+    addCheck("ui.5_desconhecidos", panel.desconhecidos === 5, { observado: { desconhecidos: panel.desconhecidos } });
+    addCheck("ui.identidade_sem_coincidencia", panel.identidade.includes("é o mesmo arquivo usado na medição"), { observado: { identidade: panel.identidade.slice(0, 160) } });
+    addCheck("ui.limites_com_mapindex_e_pins", ["0x1b738", "78 entradas", "0002c5640142", "0x2c564", "d32236c7e77c4902", "a9ed92f96fbdd7e0"].every((tok) => panel.limites.includes(tok)), { observado: { limites: panel.limites.slice(0, 240) } });
+    const panelScreenshot = await captureScreenshot(sessionIdRef, `${prefix}-consumers-panel.png`);
+    report.steps.push({ step: 2, name: "painel_renderizado", screenshot: panelScreenshot });
+
+    // 2) Sonda tecnica rotulada: o DTO cru do comando read-only na ROM pinada.
+    const probe = await probeInvoke("rex_inspection_sonic_consumers", { sessionId: savedId });
+    if (!probe?.ok) fail(`Sonda tecnica do DTO recusada: ${JSON.stringify(probe?.message)}`);
+    const dto = probe.value;
+    addCheck("sonda.identidade_confere_com_pin", dto?.identidade?.confere_com_pin === true && dto?.identidade?.rom_sha256 === baseSha256 && dto?.identidade?.rom_tamanho === 531577 && dto?.identidade?.pin_sha256 === baseSha256, { observado: dto?.identidade });
+    addCheck("sonda.37_sitios_todos_ok", Array.isArray(dto?.sitios) && dto.sitios.length === 37 && dto.sitios.every((s) => s.ok === true) && dto.veredito_sitios === "todos-ok", { observado: { total: dto?.sitios?.length, veredito: dto?.veredito_sitios, divergentes: (dto?.sitios ?? []).filter((s) => !s.ok).map((s) => s.endereco) } });
+    const pinsOk = ["00065432", "000656ac", "00065abe", "00065e1a", "000662f4", "000667c6"];
+    addCheck("sonda.tabela_relida_da_rom", dto?.cadeia?.entradas?.length === 6 && dto.cadeia.entradas.every((e, i) => e.ok === true && e.hex_entrada === pinsOk[i] && Number.parseInt(e.offset_stream, 16) === Number.parseInt(pinsOk[i], 16)), { observado: dto?.cadeia?.entradas });
+    addCheck("sonda.chamada_destino_parametro", dto?.cadeia?.chamada_hex === "4eb90000171e" && dto?.cadeia?.destino_hex === "ff4000" && dto?.cadeia?.destino_classe === "wram" && dto?.cadeia?.valor_offset_param === 0, { observado: dto?.cadeia && { chamada: dto.cadeia.chamada_hex, destino: dto.cadeia.destino_hex, classe: dto.cadeia.destino_classe, param: dto.cadeia.valor_offset_param } });
+    addCheck("sonda.6_spans_contra_pins_medidos", dto?.recursos?.length === 6 && dto.recursos.every((r, i) => r.span_ok === true && r.span_sha256 === SPAN_PINS[i] && r.plain_status === "medido-externo"), { observado: (dto?.recursos ?? []).map((r) => ({ i: r.indice, ok: r.span_ok, sha: r.span_sha256.slice(0, 12) })) });
+    addCheck("sonda.interpretacao_fixa", dto?.interpretacao?.celula_bytes === 1 && dto.interpretacao.linhas === 64 && dto.interpretacao.colunas === 64 && dto.interpretacao.stride === 128 && dto.interpretacao.base_ram_hex === "ff1020" && dto.interpretacao.nivel === "vinculo-estrutural-estatico", { observado: dto?.interpretacao });
+    addCheck("sonda.mapindex_id01_ok", dto?.mapindex?.addr_hex === "0x1b738" && dto.mapindex.entradas === 78 && dto.mapindex.registro_id01_hex === "0002c5640142" && dto.mapindex.id01_ok === true && dto.mapindex.ponteiro_id01_hex === "0x2c564" && dto.mapindex.ponteiro_dentro_rom === true, { observado: dto?.mapindex });
+    addCheck("sonda.falso_lider_refutado_3_motivos", dto?.recusa_falso_lider?.veredito === "REFUTADA" && dto.recusa_falso_lider.motivos?.length === 3 && ["move.b medido em 0x1B6F8", "$C00000", "lea 64(a1)"].every((anchor) => dto.recusa_falso_lider.motivos.some((m) => m.includes(anchor))), { observado: dto?.recusa_falso_lider });
+    addCheck("sonda.5_desconhecidos_idioma_ptbr", dto?.desconhecidos?.length === 5 && dto?.idioma === "pt-BR" && dto?.perfil_id === "sonic1_fase_especial_layouts_v1", { observado: { desconhecidos: dto?.desconhecidos?.length, idioma: dto?.idioma, perfil: dto?.perfil_id } });
+    addCheck("sonda.limites_fonte_pinados", dto?.limites_fonte?.prova_cadeia_sha256 === "d32236c7e77c4902eaf6c84d1e06237c3a369036d67c9c4df9734789c3139d92" && dto?.limites_fonte?.decoder_externo_sha256 === "a9ed92f96fbdd7e0828e7612e83eff24c65aee52fd5a82efee53581dc1a7f8b2", { observado: dto?.limites_fonte });
+    report.steps.push({ step: 3, name: "sonda_tecnica_dto_completo", sitios: dto?.sitios?.length, recursos: dto?.recursos?.length });
+
+    // 3) Contrato somente-leitura provado por observacao externa.
+    const afterBytes = await readFile(romPath);
+    addCheck("so_leitura.arquivo_base_intacto", afterBytes.equals(base), { observado: { antes: baseSha256, depois: hash(afterBytes) } });
+    const ledger = (await invokeCoreObserveCommand(sessionIdRef, "rex_inspection_status", { sessionId: savedId }))?.session?.applied_edits ?? [];
+    addCheck("so_leitura.ledger_sem_edicoes", ledger.length === 0, { observado: { ledger: ledger.length } });
+    const probe2 = await probeInvoke("rex_inspection_sonic_consumers", { sessionId: savedId });
+    addCheck("reinspecao_idempotente", probe2?.ok === true && JSON.stringify(probe2.value) === JSON.stringify(dto), { observado: { ok: probe2?.ok } });
+    addCheck("final.base_preservada", (await readFile(romPath)).equals(base), { observado: { rom_path: romPath } });
+
+    const allPass = report.checks.every((entry) => entry.pass !== false);
+    report.runtime_effect = "inspecao somente-leitura provada pela interface e pelo DTO na ROM pinada; nenhum byte alterado, nenhuma edicao registrada";
+    await persistReport({ allPass, finished_at: new Date().toISOString() });
+    if (!allPass) {
+      const failed = report.checks.filter((entry) => entry.pass === false);
+      fail(`Cenario sonic-consumers-inspection INCONCLUSIVO/FAIL frente ao congelado (sem promover nada): ${JSON.stringify({ failed, report_path: path.join(pilotDir, "report.json") })}`);
+    }
+    console.log(`OK: Sonic consumers inspection E2E; allPass=true; report=${path.join(pilotDir, "report.json")}`);
+    return sessionIdRef;
+  } catch (error) {
+    await persistReport({ allPass: false, aborted: true, error: String(error?.message ?? error), finished_at: new Date().toISOString() }).catch(() => null);
+    throw error;
+  }
+}
+
 // Jornada desktop §5.2 (Pendência 1; congelada em
 // docs/rex_profiles/sonic_sequencia/EXPECTATIONS-SEQUENCIA.md §8.3): no
 // binario canônico, pela interface visível, abrir BYOR → mover entrada distinta
@@ -17663,12 +18208,16 @@ async function main() {
     const sonicAnimIntegradaMode = options.scenario === "sonic-anim-integrada";
     const sonicAnimVisualMode = options.scenario === "sonic-anim-visual-diagnostico";
     const sonicSequenciaJourneyMode = options.scenario === "sonic-sequencia-journey";
+    const sonicConsumersMode = options.scenario === "sonic-consumers-inspection";
+    const sonicLayoutsMode = options.scenario === "sonic-layouts-journey";
     const sonicTilesMode = options.scenario === "inspection-sonic-tiles";
     if (sonicMultiframeMode) options.scenario = "inspection-sonic";
     if (sonicCadenceMode) options.scenario = "inspection-sonic";
     if (sonicAnimIntegradaMode) options.scenario = "inspection-sonic";
     if (sonicAnimVisualMode) options.scenario = "inspection-sonic";
     if (sonicSequenciaJourneyMode) options.scenario = "inspection-sonic";
+    if (sonicConsumersMode) options.scenario = "inspection-sonic";
+    if (sonicLayoutsMode) options.scenario = "inspection-sonic";
     if (sonicTilesMode) options.scenario = "inspection-sonic";
     if (["inspection", "inspection-cancel", "inspection-complete", "inspection-sprite-secondary", "inspection-sonic", "inspection-preview-unavailable"].includes(options.scenario)) {
       let inspectionRom = process.env.RDS_INSPECTION_ROM ?? "";
@@ -17849,6 +18398,16 @@ async function main() {
         }
         if (sonicSequenciaJourneyMode) {
           sessionId = await runSonicSequenciaJourneyScenario(sessionId, options.app, inspectionRom, inspectionRomBytes, completedState.session.id, artifactPrefix, uiBootstrapTimeoutMs);
+          currentE2eRunContext.sessionId = sessionId;
+          return;
+        }
+        if (sonicLayoutsMode) {
+          sessionId = await runSonicLayoutsJourneyScenario(sessionId, options.app, inspectionRom, inspectionRomBytes, completedState.session.id, artifactPrefix, uiBootstrapTimeoutMs);
+          currentE2eRunContext.sessionId = sessionId;
+          return;
+        }
+        if (sonicConsumersMode) {
+          sessionId = await runSonicConsumersInspectionScenario(sessionId, options.app, inspectionRom, inspectionRomBytes, completedState.session.id, artifactPrefix, uiBootstrapTimeoutMs);
           currentE2eRunContext.sessionId = sessionId;
           return;
         }

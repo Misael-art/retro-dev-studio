@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   inspectionSonicCadence: vi.fn(),
   inspectionEditSonicDuration: vi.fn(),
   inspectionSonicSequence: vi.fn(),
+  inspectionSonicConsumers: vi.fn(),
   inspectionEditSonicSequence: vi.fn(),
   inspectionRestoreSonicSequence: vi.fn(),
   inspectionEditSonicPalette: vi.fn(),
@@ -1103,6 +1104,113 @@ describe("InspectionPanel", () => {
       await act(async () => { element.focus(); });
       expect(document.activeElement).toBe(element);
     }
+  });
+
+  // INSPEÇÃO-INSP-2026-10-05 — a UI renderiza o DTO do núcleo sem regras
+  // próprias: sete níveis, 37 sítios, 6 recursos, recusa do falso líder e os
+  // 5 desconhecidos. Nada de prévia gráfica como imagem confirmada.
+  function consumersFixture() {
+    const sitios = Array.from({ length: 37 }, (_, i) => ({
+      endereco: `0x${(0x1b646 + i * 4).toString(16)}`,
+      papel: i % 5 === 0 ? "consumidor" : "contexto",
+      esperado_hex: "43f900ff4000",
+      obtido_hex: "43f900ff4000",
+      ok: true,
+    }));
+    return {
+      perfil_id: "sonic1_fase_especial_layouts_v1",
+      perfil_rotulo: "Sonic 1 (EUA/Europa) — blocos das fases especiais (medição estática, Experimental)",
+      idioma: "pt-BR",
+      identidade: { rom_sha256: "b".repeat(64), rom_tamanho: 531577, confere_com_pin: true, pin_sha256: "b".repeat(64) },
+      sitios,
+      veredito_sitios: "todos-ok",
+      cadeia: {
+        tabela_hex: "0x1b64c",
+        entradas: [0, 1, 2, 3, 4, 5].map((i) => ({ hex_entrada: "00065432", offset_stream: `0x6543${i}`, lido_hex: "0b0f0002171e", ok: true })),
+        chamada_hex: "4eb90000171e",
+        destino_hex: "ff4000",
+        destino_classe: "wram",
+        valor_offset_param: 0,
+      },
+      recursos: [0, 1, 2, 3, 4, 5].map((i) => ({
+        indice: i,
+        offset_hex: `0x6543${i}`,
+        span_bytes: 634,
+        span_sha256: "d".repeat(64),
+        span_ok: true,
+        plain_sha256_referencia: "c".repeat(64),
+        plain_status: "medido-externo",
+      })),
+      interpretacao: { celula_bytes: 1, linhas: 64, colunas: 64, stride: 128, base_ram_hex: "ff1020", nivel: "vinculo-estrutural-estatico" },
+      mapindex: { addr_hex: "0x1b738", entradas: 78, registro_id01_hex: "0002c5640142", id01_ok: true, ponteiro_id01_hex: "0x2c564", ponteiro_dentro_rom: true },
+      recusa_falso_lider: {
+        modelo: "nametable-64x32-palavras-vdp",
+        veredito: "REFUTADA",
+        motivos: ["copia byte por byte", "destino e RAM interna", "salto de 64 bytes por linha"],
+      },
+      desconhecidos: ["d1", "d2", "d3", "d4", "d5"],
+      limites_fonte: {
+        prova_cadeia_sha256: "a".repeat(64),
+        decoder_externo_sha256: "e".repeat(64),
+        origem: "frente B (PR #105) reexecutada pelo integrador na ROM pinada em 2026-10-05",
+      },
+    };
+  }
+
+  async function openSonicConsumersSession(loader: () => Promise<unknown>) {
+    mocks.inspectionOpen.mockResolvedValue(completedSession);
+    mocks.inspectionStatus.mockResolvedValue({ session: completedSession, run: completed });
+    mocks.inspectionCatalogPage.mockResolvedValue({ session_id: completedSession.session_id, run_id: completed.run_id, offset: 0, limit: 24, total_candidates: 0, candidates: [], unknown_regions: [], user_choices: [] });
+    mocks.inspectionSonicCadence.mockImplementation(async () => cadenceInfo(23));
+    mocks.inspectionSonicSequence.mockImplementation(async () => sequenceInfoFor(waitFrames));
+    mocks.inspectionSpriteFrame.mockImplementation(async (_sessionId: string, _resourceId: string, frameId: string) => sonicFrameResponse(frameId) as unknown as Record<string, unknown>);
+    mocks.inspectionSonicConsumers.mockImplementation(loader);
+    await act(async () => { root.render(<InspectionPanel logMessage={vi.fn()} />); await flush(); });
+    setTextInput(container.querySelector("input[type='text']") as Element, "/roms/test.md");
+    await act(async () => { await flush(); });
+    await act(async () => { (container.querySelector("[data-testid='inspection-identify']") as HTMLButtonElement).click(); await flush(); await flush(); });
+    const frameSelect = container.querySelector("[data-testid='inspection-sprite-frame-select']") as HTMLSelectElement;
+    await act(async () => {
+      frameSelect.value = "sonic1_sonic/stand";
+      frameSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      await flush(); await flush(); await flush();
+    });
+  }
+
+  it("inspeção de consumidores: renderiza os sete níveis, os 37 sítios e os 5 desconhecidos do DTO", async () => {
+    await openSonicConsumersSession(async () => consumersFixture());
+    expect(container.querySelector("[data-testid='inspection-sonic-consumers-panel']")).not.toBeNull();
+    for (const nivel of [1, 2, 3, 4, 5, 6, 7]) {
+      expect(container.querySelector(`#inspection-consumers-nivel-${nivel}`)).not.toBeNull();
+    }
+    expect(container.querySelector("[data-testid='inspection-consumers-veredito']")?.getAttribute("data-veredito")).toBe("todos-ok");
+    expect(container.querySelectorAll("[data-testid^='inspection-consumers-sitio-']").length).toBe(37);
+    expect(container.querySelector("[data-testid='inspection-consumers-sitio-0x1b65a']")?.getAttribute("data-papel")).toBe("consumidor");
+    expect(container.textContent).toContain("é aqui que o jogo usa o recurso");
+    expect(container.querySelectorAll("[data-testid='inspection-consumers-desconhecidos'] > div").length).toBe(5);
+    expect(container.querySelectorAll("[data-testid='inspection-consumers-entradas'] > div").length).toBe(6);
+    expect(container.querySelector("[data-testid='inspection-consumers-recurso-0']")?.getAttribute("data-span-ok")).toBe("true");
+    expect(container.textContent).toContain("RAM interna do console — não é a porta do vídeo");
+  });
+
+  it("inspeção de consumidores: mostra a recusa do falso líder e NÃO exibe prévia gráfica como confirmada", async () => {
+    await openSonicConsumersSession(async () => consumersFixture());
+    const recusa = container.querySelector("[data-testid='inspection-consumers-falso-lider']");
+    expect(recusa?.getAttribute("data-veredito")).toBe("REFUTADA");
+    expect(recusa?.querySelectorAll("[data-testid='inspection-consumers-falso-lider-motivo']").length).toBe(3);
+    expect(container.querySelector("[data-testid='inspection-consumers-interpretacao']")?.textContent).toContain("não é exibida como imagem confirmada");
+    expect(container.querySelector("[data-testid='inspection-sonic-consumers-panel'] img")).toBeNull();
+  });
+
+  it("inspeção de consumidores: recusa do núcleo aparece como texto, sem níveis e sem ok silencioso", async () => {
+    await openSonicConsumersSession(async () => {
+      throw new Error("consumers_sitios_divergentes: 1/37 sitios divergem; cadeia, recursos e interpretacao recusados: [0x1b6f8 esperado 12d8 obtido 32d8]");
+    });
+    const errorEl = container.querySelector("[data-testid='inspection-consumers-error']");
+    expect(errorEl?.textContent).toContain("consumers_sitios_divergentes");
+    expect(errorEl?.textContent).toContain("0x1b6f8");
+    expect(container.querySelector("#inspection-consumers-nivel-1")).toBeNull();
+    expect(container.querySelector("[data-testid='inspection-consumers-veredito']")).toBeNull();
   });
 
 });

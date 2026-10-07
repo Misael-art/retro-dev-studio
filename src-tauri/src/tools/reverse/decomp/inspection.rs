@@ -121,6 +121,9 @@ pub struct InspectionSession {
     pub edit: Option<InspectionEdit>,
     #[serde(default)]
     pub applied_edits: Vec<SonicAppliedEdit>,
+    /// Seleção do mapa de IDs (somente leitura), gravada com "Salvar sessão".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layouts_selection: Option<super::sonic_layouts::SelecaoLayouts>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -956,6 +959,7 @@ pub fn open(rom_path: &str) -> Result<InspectionSession, String> {
         sprite_frame_id: None,
         edit: None,
         applied_edits: Vec::new(),
+        layouts_selection: None,
     };
     persist_session(&decomp_work_dir(), &session)?;
     sessions().lock().map_err(|e| e.to_string())?.insert(
@@ -1754,6 +1758,109 @@ pub fn sonic_sequence_info(
     let (base, rom) = super::sprite_composition::read_sonic_session_rom(&stored.session)
         .map_err(|e| error("sequence_rom_unreadable", e, false))?;
     super::sonic_sequence::describe(&base, &rom).map_err(cadence_error)
+}
+
+/// The measured Sonic 1 special-stage consumer chain, inspected read-only
+/// against this session's ROMs. All addresses, pins and refusals live in
+/// `sonic_consumers`; the UI only renders this view. Inspecting never writes:
+/// the ROM bytes are borrowed and the session copy is untouched.
+pub fn sonic_consumers_info(
+    session_id: &str,
+) -> Result<super::sonic_consumers::ConsumersInfo, String> {
+    let stored = get_stored_session(session_id)?;
+    let (base, rom) = super::sprite_composition::read_sonic_session_rom(&stored.session)
+        .map_err(|e| error("consumers_rom_unreadable", e, false))?;
+    super::sonic_consumers::describe(&base, &rom).map_err(cadence_error)
+}
+
+/// Erro estruturado dos layouts: `code` e mensagem separados; só cancelamento
+/// e mudança de ROM são reexecutáveis (o resto é determinístico na entrada).
+pub(crate) fn layouts_error(message: String) -> InspectionError {
+    let mut e = InspectionError::from_wire(message);
+    e.retryable = e.code == "cancelled" || e.code == "layouts_rom_mudou";
+    e
+}
+
+/// Layouts das fases especiais (Enigma nativo, somente leitura). Cada resposta
+/// carrega o ID da sessão e o SHA-256 da ROM decodificada AGORA; um
+/// `expected_rom_sha256` diferente do conteúdo atual é recusado.
+pub fn sonic_layouts_info(
+    session_id: &str,
+    expected_rom_sha256: Option<&str>,
+    request_id: Option<&str>,
+) -> Result<super::sonic_layouts::LayoutsInfo, String> {
+    let token = super::sonic_layouts::TokenCancel::novo(request_id)?;
+    let stored = get_stored_session(session_id)?;
+    let (base, rom) = super::sprite_composition::read_sonic_session_rom(&stored.session)
+        .map_err(|e| error("layouts_rom_unreadable", e, false))?;
+    super::sonic_layouts::resumo(&base, &rom, session_id, expected_rom_sha256, &|| {
+        token.cancelado()
+    })
+}
+
+pub fn sonic_layout_grid(
+    session_id: &str,
+    expected_rom_sha256: &str,
+    layout_index: usize,
+    request_id: Option<&str>,
+) -> Result<super::sonic_layouts::LayoutGrade, String> {
+    let token = super::sonic_layouts::TokenCancel::novo(request_id)?;
+    let stored = get_stored_session(session_id)?;
+    let (base, rom) = super::sprite_composition::read_sonic_session_rom(&stored.session)
+        .map_err(|e| error("layouts_rom_unreadable", e, false))?;
+    super::sonic_layouts::grade(
+        &base,
+        &rom,
+        session_id,
+        expected_rom_sha256,
+        layout_index,
+        &|| token.cancelado(),
+    )
+}
+
+/// Guarda (na sessão em memória; vai ao disco em "Salvar sessão") a seleção do
+/// mapa de IDs. A seleção só é aceita se a identidade da ROM confere AGORA e a
+/// coordenada resolve no núcleo — nunca persiste uma seleção que não existe.
+pub fn set_layouts_selection(
+    session_id: &str,
+    selection: Option<super::sonic_layouts::SelecaoLayouts>,
+) -> Result<InspectionSession, String> {
+    let mut stored = get_stored_session(session_id)?;
+    if let Some(sel) = &selection {
+        let (base, rom) = super::sprite_composition::read_sonic_session_rom(&stored.session)
+            .map_err(|e| error("layouts_rom_unreadable", e, false))?;
+        super::sonic_layouts::validar_selecao(&base, &rom, session_id, sel, &|| false)?;
+    }
+    stored.session.layouts_selection = selection;
+    sessions()
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(session_id.to_string(), stored.clone());
+    Ok(stored.session)
+}
+
+pub fn sonic_layout_cell(
+    session_id: &str,
+    expected_rom_sha256: &str,
+    layout_index: usize,
+    row: usize,
+    col: usize,
+    request_id: Option<&str>,
+) -> Result<super::sonic_layouts::LayoutCelula, String> {
+    let token = super::sonic_layouts::TokenCancel::novo(request_id)?;
+    let stored = get_stored_session(session_id)?;
+    let (base, rom) = super::sprite_composition::read_sonic_session_rom(&stored.session)
+        .map_err(|e| error("layouts_rom_unreadable", e, false))?;
+    super::sonic_layouts::celula(
+        &base,
+        &rom,
+        session_id,
+        expected_rom_sha256,
+        layout_index,
+        row,
+        col,
+        &|| token.cancelado(),
+    )
 }
 
 /// Reorders the 18 frame entries of the accumulated copy, in place. Writes only

@@ -103,3 +103,4 @@
 - O baseline de validacao local/CI inclui estrutura, Rustfmt, lint, typecheck, auditorias npm/RustSec, testes frontend e testes Rust.
 - `scripts/host-manager.mjs` e o unico orquestrador de provisionamento. `src-tauri/src/tools/dependency_manager.rs` apenas projeta o report comum no Runtime Setup.
 - Toolchains ativos vivem no cache nativo por lock digest; `toolchains/` no cartao guarda contrato, compatibilidade legada validada e cache portatil ignorado pelo Git.
+- Bibliotecas Rust internas por path (`crates/<nome>`, sem workspace na raiz) hoje consumidas por `src-tauri/Cargo.toml`: `rex-addressing`, `rex-kosinski`, `rex-gameplay`, `rex-mugen` e `rex-enigma` (decoder Enigma puro, 0 dependencias externas, aprovado pelo operador em 2026-10-06 para a leitura somente-leitura dos layouts Sonic; Experimental). Nenhum crate externo novo; `Cargo.lock` ganha apenas a entrada local sem `source`.

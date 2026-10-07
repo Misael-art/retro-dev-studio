@@ -1,0 +1,38 @@
+{
+ "schema_version": "rex-parallel-b/cadeia-sonic/2",
+ "componente": "fixture-assimetrica",
+ "plain_sha": "e9fafb940a3fd600d71dbf2a8b03041f1a4044372cae6516bd806e9d7879d5c9",
+ "expectativas": {
+  "primeira_celula": 1,
+  "ultima_celula": 38,
+  "celula_0_1": 13,
+  "celula_63_63": 38,
+  "projecao_sha": "fab8dc3b40c15493c52be2625c33a0077091afa65ee6ef704ec97203699a28b0",
+  "padding_linha0_sha": "f5a5fd42d16a20302798ef6ed309979b43003d2320d9f0e8ea9831a92759fb4b",
+  "padding_linha0_todo_zero": true
+ },
+ "medida": {
+  "projecao_sha": "fab8dc3b40c15493c52be2625c33a0077091afa65ee6ef704ec97203699a28b0",
+  "inverso_roundtrip": true
+ },
+ "antiga_reprovada": {
+  "celula_linha0_col1_antiga": {
+   "word": 6695,
+   "tile": 551,
+   "hflip": 1,
+   "vflip": 1,
+   "paleta": 0,
+   "prioridade": 0
+  },
+  "celula_linha0_col1_nova": 13,
+  "antiga_diverge": true,
+  "celula_nova_fora_da_grade_antiga": {
+   "linha": 40,
+   "coluna": 0,
+   "valor_novo": 46,
+   "motivo": "a grade antiga tem 32 linhas; as linhas 32..63 do layout 64x64 simplesmente nao existem na interpretacao refutada"
+  },
+  "motivo": "pares de bytes como celulas de 16 bits contradizem o operando move.b medido e a grade 64x64 exigida pela copia de 64 linhas de 64 bytes com salto de padding de 64"
+ },
+ "veredito": "PASS"
+}

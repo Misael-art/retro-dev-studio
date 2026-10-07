@@ -1,0 +1,10 @@
+{
+  "scenario": "sonic-consumers-inspection",
+  "display": ":1",
+  "screen": "1920x1080x24",
+  "xvfb_sha256": "5bfd315a8c7bc626d0b183d176e130c34f910a4a1279d9d53ea45769f62a3351",
+  "app_sha256": "8c781bb0468e809d38a06d386ae63fa2b9793059ce72903f17b82e7c59f87cd4",
+  "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "system_display_modified": false,
+  "exit_code": 0
+}

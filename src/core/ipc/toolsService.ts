@@ -452,6 +452,8 @@ export interface InspectionSession {
   edit?: InspectionEdit | null;
   /** Historico cumulativo, por dominio, de tudo que ja foi aplicado a copia. */
   applied_edits?: SonicAppliedEdit[];
+  /** Seleção do mapa de IDs gravada com "Salvar sessão" (somente leitura). */
+  layouts_selection?: SonicLayoutsSelection | null;
 }
 
 export interface InspectionEdit {
@@ -529,6 +531,189 @@ export interface SonicSequenceInfo {
   provenience: string[];
   limitations: string[];
   contract_path: string;
+}
+
+/** Seleção do usuário no mapa de IDs; o núcleo só a aceita se resolve na ROM atual. */
+export interface SonicLayoutsSelection {
+  layout_index: number;
+  row: number;
+  col: number;
+  zoom: number;
+  rom_sha256: string;
+}
+
+export interface SonicLayoutBytes {
+  bytes_lidos: number;
+  padding_alinhamento: number;
+  tamanho_armazenado: number;
+  saida_bytes: number;
+}
+
+export interface SonicLayoutResumo {
+  indice: number;
+  rotulo: string;
+  stream_offset_hex: string;
+  tabela_slot_hex: string;
+  bytes: SonicLayoutBytes;
+  tokens: number;
+  saida_sha256: string;
+  span_sha256: string;
+  span_confere_pin: boolean;
+  consumo_confere_pin: boolean;
+  referencia: { natureza: string; plain_sha256: string; confere: boolean };
+  integridade: "confere" | "diverge-da-referencia";
+  ids_distintos: number;
+  maior_id: number;
+  celulas_zero: number;
+}
+
+/** `layouts-info/v1`: seis layouts decodificados AGORA pelo núcleo (Enigma nativo). */
+export interface SonicLayoutsInfo {
+  formato: string;
+  perfil_id: string;
+  idioma: string;
+  sessao_id: string;
+  rom_sha256: string;
+  rom_tamanho: number;
+  rom_confere_pin: boolean;
+  representacao: string;
+  geometria: {
+    linhas: number;
+    colunas: number;
+    celula_bytes: number;
+    stride_ram: number;
+    base_ram_hex: string;
+    nivel: string;
+  };
+  layouts: SonicLayoutResumo[];
+  camadas: Array<{ ordem: number; titulo: string; texto: string }>;
+  desconhecidos: string[];
+  limites: { max_saida_bytes: number; max_tokens: number; janela_stream_bytes: number };
+}
+
+/** `layout-grid/v1`: 4096 IDs de um byte (hex, 8192 caracteres), linha a linha. */
+export interface SonicLayoutGrid {
+  formato: string;
+  sessao_id: string;
+  rom_sha256: string;
+  indice: number;
+  representacao: string;
+  linhas: number;
+  colunas: number;
+  ids_hex: string;
+  saida_sha256: string;
+}
+
+export interface SonicLayoutCellDefinition {
+  id_hex: string;
+  registro_endereco_hex: string;
+  registro_hex: string;
+  ponteiro_mapeamentos_hex: string;
+  byte_inicial_hex: string;
+  campo_hex: string;
+  slot_ram_hex: string;
+  nivel: string;
+  nao_decodificado: string[];
+}
+
+/** `layout-cell/v1`: geometria e resolução da célula pertencem ao núcleo. */
+export interface SonicLayoutCell {
+  formato: string;
+  sessao_id: string;
+  rom_sha256: string;
+  indice: number;
+  linha: number;
+  coluna: number;
+  id: number;
+  id_hex: string;
+  origem: {
+    layout_indice: number;
+    stream_offset_hex: string;
+    tabela_slot_hex: string;
+    saida_offset: number;
+    saida_offset_hex: string;
+    palavra_indice: number;
+    byte_na_palavra: "alto" | "baixo";
+    endereco_ram_hex: string;
+    explicacao: string;
+  };
+  definicao_status: "comprovada" | "id-zero" | "fora-da-tabela";
+  definicao: SonicLayoutCellDefinition | null;
+  definicao_explicacao: string;
+}
+
+/**
+ * Inspeção somente-leitura da cadeia de consumidores e recursos do Sonic 1
+ * (fases especiais) medida na ROM pinada. Todo o domínio (sítios, pins,
+ * recusas, geometria) vive no core Rust (`sonic_consumers`); a UI só renderiza.
+ */
+export interface SonicConsumersInfo {
+  perfil_id: string;
+  perfil_rotulo: string;
+  idioma: string;
+  identidade: {
+    rom_sha256: string;
+    rom_tamanho: number;
+    confere_com_pin: boolean;
+    pin_sha256: string;
+  };
+  sitios: Array<{
+    endereco: string;
+    papel: string;
+    esperado_hex: string;
+    obtido_hex: string;
+    ok: boolean;
+  }>;
+  veredito_sitios: string;
+  cadeia: {
+    tabela_hex: string;
+    entradas: Array<{
+      hex_entrada: string;
+      offset_stream: string;
+      lido_hex: string;
+      ok: boolean;
+    }>;
+    chamada_hex: string;
+    destino_hex: string;
+    destino_classe: string;
+    valor_offset_param: number;
+  };
+  recursos: Array<{
+    indice: number;
+    offset_hex: string;
+    span_bytes: number;
+    span_sha256: string;
+    span_ok: boolean;
+    plain_sha256_referencia: string;
+    plain_status: string;
+  }>;
+  interpretacao: {
+    celula_bytes: number;
+    linhas: number;
+    colunas: number;
+    stride: number;
+    base_ram_hex: string;
+    nivel: string;
+  };
+  mapindex: {
+    addr_hex: string;
+    entradas: number;
+    registro_id01_hex: string;
+    id01_ok: boolean;
+    ponteiro_id01_hex: string;
+    ponteiro_dentro_rom: boolean;
+  };
+  recusa_falso_lider: {
+    modelo: string;
+    veredito: string;
+    motivos: string[];
+  };
+  desconhecidos: string[];
+  limites_fonte: {
+    prova_cadeia_sha256: string;
+    decoder_externo_sha256: string;
+    origem: string;
+  };
 }
 export interface InspectionPixelEdit {
   x: number;
@@ -804,6 +989,66 @@ export function inspectionEditSonicDuration(
 /** Reads the proven id_Wait frame sequence (original vs current order) from the core. */
 export function inspectionSonicSequence(sessionId: string): Promise<SonicSequenceInfo> {
   return invoke<SonicSequenceInfo>("rex_inspection_sonic_sequence", { sessionId });
+}
+
+/** Le a cadeia medida de consumidores/recursos do Sonic 1 sem escrever nada. */
+export function inspectionSonicLayouts(
+  sessionId: string,
+  expectedRomSha256?: string,
+  requestId?: string
+): Promise<SonicLayoutsInfo> {
+  return invoke<SonicLayoutsInfo>("rex_inspection_sonic_layouts", {
+    sessionId,
+    expectedRomSha256: expectedRomSha256 ?? null,
+    requestId: requestId ?? null,
+  });
+}
+
+export function inspectionSonicLayoutGrid(
+  sessionId: string,
+  expectedRomSha256: string,
+  layoutIndex: number,
+  requestId?: string
+): Promise<SonicLayoutGrid> {
+  return invoke<SonicLayoutGrid>("rex_inspection_sonic_layout_grid", {
+    sessionId,
+    expectedRomSha256,
+    layoutIndex,
+    requestId: requestId ?? null,
+  });
+}
+
+export function inspectionSonicLayoutCell(
+  sessionId: string,
+  expectedRomSha256: string,
+  layoutIndex: number,
+  row: number,
+  col: number,
+  requestId?: string
+): Promise<SonicLayoutCell> {
+  return invoke<SonicLayoutCell>("rex_inspection_sonic_layout_cell", {
+    sessionId,
+    expectedRomSha256,
+    layoutIndex,
+    row,
+    col,
+    requestId: requestId ?? null,
+  });
+}
+
+export function inspectionSonicLayoutsCancel(requestId: string): Promise<boolean> {
+  return invoke<boolean>("rex_inspection_sonic_layouts_cancel", { requestId });
+}
+
+export function inspectionSetLayoutsSelection(
+  sessionId: string,
+  selection: SonicLayoutsSelection | null
+): Promise<InspectionSession> {
+  return invoke<InspectionSession>("rex_inspection_set_layouts_selection", { sessionId, selection });
+}
+
+export function inspectionSonicConsumers(sessionId: string): Promise<SonicConsumersInfo> {
+  return invoke<SonicConsumersInfo>("rex_inspection_sonic_consumers", { sessionId });
 }
 
 /** Reorders the 18 id_Wait frame entries on a revalidated copy (in place, size-preserving). */

@@ -2618,3 +2618,80 @@ package/lock/Cargo desde a base — auditorias ficam a cargo do CI do PR).
 Classificação mantida: Experimental / local profile validation — sem merge,
 release, promoção ou push forçado por esta frente; Linux-only para a
 correção de apresentação; integração é decisão do integrador.
+
+### Checkpoint 2026-10-05 — integrador: consolidação Sonic #103→#104 e inspeção
+somente-leitura de consumidores/recursos (PR #109, sem merge)
+
+Frente exclusiva do integrador: worktree `~/Projects/REX-INTEGRATION-2026-10-05`,
+branch `codex/rex-integrator-sonic-103104` (o checkout canônico permanece em
+`codex/rex-mugen-locomotion @ b53ce7a`, intocado). PR #109 empilhada sobre a
+cabeça do #104 (`codex/rex-sonic-sequencia`), 6 commits, HEAD `de4d1f5`.
+
+Entrega (ordem do operador, Missão E passos 9–11): comando read-only
+`rex_inspection_sonic_consumers` + DTO congelado `consumers-info/v1` + painel de
+7 níveis em português simples (produto→IPC→UI), demonstrando o consumidor
+verdadeiro do recurso da fase especial e recusando o falso líder (janela 4×4)
+com os 3 motivos fixos. Contrato congelado em
+`docs/rex_profiles/integration_20261005/EXPECTATIONS-INSP-2026-10-05.md` (texto
+intacto) + `ADENDO-1` datado (ambiguidade §1×§5-T4: troca de entrada da tabela
+sempre diverge um sítio → recusa TOTAL da cadeia por §1). Revisão B/C/D
+registrada em `REVISAO-B-C-D-2026-10-05.md`: B aprovada para consumo parcial,
+C/D como referência de contrato; **Enigma continua fora do produto** (decoder
+externo LGPL-mdcomp pinado por hash; nada foi transplantado).
+
+Prova no MESMO binário final `8c781bb0468e…` (build de `35c6657`, driver QA com
+Xvfb `5bfd315a…` e ROM BYOR `c7da53a1…` verificados por SHA em cada run,
+`system_display_modified=false`): jornada de regressão `sonic-sequencia-journey`
+**42/42 allPass** (obrigatória porque a UI foi tocada) e cenário novo
+`sonic-consumers-inspection` **24/24 allPass** — com painel aberto pelo caminho
+nativo e sondas técnicas rotuladas; somente-leitura provado (bytes idênticos,
+ledger 0, reinspeção idempótica, base preservada). A run-1 do cenário novo foi
+INCONCLUSIVE por **bug de asserção do harness** (comparava literal estofado
+`0x065432` contra o formato congelado `{:#x}` = `0x65432`; as 6 entradas
+conferiam byte a byte com os pins) — registrada com a linha bruta em
+`data/rex_profiles/integration_20261005/evidencia-insp/verdicts-linha-bruta.txt`,
+corrigida em `d614fd2` e reexecutada, sem reescrever expectativa congelada.
+
+Gates em `de4d1f5`: `check:tree`/`lint`/`tsc --noEmit` rc=0; `npm test` 936/0
+(6 skip); árvore Rust idêntica a `35c6657` (diff toca só `scripts/`) —
+`cargo fmt --check`, `cargo clippy -- -D warnings` (canônico, sem
+`--all-targets`) e `cargo test --lib` 869/0 valem por esse commit e estão
+marcados como HERDADOS com o motivo; `crates:gates` OK (4 pacotes);
+`host:certify` rc=0. Rollup CI terminal no SHA exato `de4d1f5`: todos SUCCESS
+(Sourcery SKIPPED de fábrica), consultado por segmento único, sem monitor.
+
+Classificação mantida: a entrega para em **vínculo estrutural estático provado
+pela interface**; candidata ≠ referência ≠ vínculo ≠ consumo observado ≠
+equivalência — nada foi promovido; sem merge, sem release, sem push forçado;
+ROM, binário, screenshots e patches derivados da ROM comercial permanecem fora
+do índice (só SHA-256 e referência). Pendente do operador: decisão de merge e
+promoção; frente MUGEN UX v2 (#66) não iniciada por falta de ordem.
+
+### Checkpoint 2026-10-06 — integrador: leitura nativa dos seis layouts Sonic (Enigma no núcleo), Experimental
+
+Branch `codex/rex-integrator-sonic-103104` (PR #109, sem merge). Audit corrigido em commit próprio (`167a8de2`); B integrada por
+`cherry-pick -x` e re-empacotada como `crates/rex-enigma` (0 dependências; `lib.rs` = B salvo rustfmt; risco jurídico residual do
+s1disasm é decisão do operador). Núcleo `sonic_layouts.rs` (layouts-info/layout-grid/layout-cell v1), seleção salva na sessão
+(`layouts_selection`), UI "Mapa de IDs", nomenclatura VDP corrigida (dados C00000/controle C00004). Binário `02ab2eec…` (de `ac670155`):
+`sonic-layouts-journey` 73/73, `sonic-sequencia-journey` e `sonic-consumers-inspection` allPass; BYOR Enigma 6/6 byte a byte. Detalhes e
+limites em `docs/rex_profiles/integration_20261006/ENTREGA-LAYOUTS-2026-10-06.md`. Nada observa o jogo em execução; A/C/D não integrados.
+
+### Checkpoint 2026-10-06 (fecho) — integrador: revalidação da leitura nativa dos layouts após correção do rex-enigma
+
+Ordem de 8 passos do operador (MISSÃO: fechar tecnicamente a leitura nativa dos layouts). Commits sobre `43bb42f6`:
+`9a12a741` (rex-enigma **0.2.0** recusa `value_offset != 0` com `UnsupportedParameter` — domínio comprovado é só 0;
+TDD completo; igualdade L2 com B **retificada por ADENDO datado**, o que substitui a frase "`lib.rs` = B salvo rustfmt"
+do checkpoint anterior por "original de B + rustfmt + delta funcional versionado"), `7489fdd7`
+(`PROVENIENCIA-2026-10-06.md`: mdcomp LGPL excluído sem declarar risco eliminado; s1disasm sem licença explícita —
+nenhuma licença inventada; oráculos research-only por execução), `1f1bd819` (trava src-tauri → 0.2.0) e o commit de
+fecho. Gate de segurança fechada pelo caminho canônico: npm **11.16.0 isolado** (runtime declarado) rc=0; host
+npm 12.0.2 dá `EALLOWSCRIPTS` rc=1 (causa no ADENDO; `npm audit` direto não substitui o gate). Revalidação no
+binário final `c784dc04…` (build de `1f1bd819`): gates da barra todos rc=0; BYOR Rust ignorados 17/17 serial
+(run-1 falhou por env errado meu — registrado INCONCLUSIVE; run-2 abortou por `longjmp` do encoder C aPLib sob
+paralelismo — artefato de outra frente, declarado); BYOR Enigma python **6/6** byte a byte vs oráculo com consumo
+igual aos pins; jornadas layouts **73/73**, consumers **24/24**, sequencia **42/42** allPass no mesmo binário.
+Evidência nova em `data/rex_profiles/integration_20261006/evidencia-fecho/` (SHA256SUMS); herdada do binário
+`02ab2eec…` preservada sem reatribuição. Pendências: B S1–S3 (paridade offset≠0 → 0.3.0), decisão de distribuição
+(risco residual s1disasm), revisão do pacote atual a solicitar ao principal, CI terminal só vale no SHA final
+pushado, aviso pré-existente `ast_generator.rs:3479` (#[test] duplicado, test-profile). Composição gráfica é a
+missão seguinte. Sem merge, release ou promoção.
