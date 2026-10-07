@@ -5,7 +5,7 @@
 
 use serde::Serialize;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 // ── Resultado ────────────────────────────────────────────────────────────────
 
@@ -435,6 +435,9 @@ pub fn apply_bps_checked(original: &[u8], patch: &[u8]) -> Result<Vec<u8>, BpsEr
     let target_size = bps_varint(patch, &mut pos, footer)?;
     let metadata_size = bps_varint(patch, &mut pos, footer)?;
     if source_size != original.len() as u64 {
+        if let Some(legacy) = legacy_bps_diagnosis(original, patch) {
+            return Err(legacy);
+        }
         return Err(BpsError::new(
             "bps_source_size",
             format!(
@@ -562,6 +565,46 @@ pub fn apply_bps_checked(original: &[u8], patch: &[u8]) -> Result<Vec<u8>, BpsEr
     Ok(output)
 }
 
+/// Reconhece (sem aplicar) o formato LEGADO: as versões anteriores deste produto gravavam o varint
+/// como LEB128 simples, sem o `value -= 1` da especificação BPS. Esses patches só funcionavam aqui
+/// (Flips/beat os recusam). Como o formato é ambíguo, NUNCA é aceito automaticamente: o aplicador
+/// só explica e indica como reexportar a partir da edição verificada (sessão: base + cópia + ledger).
+fn legacy_bps_diagnosis(original: &[u8], patch: &[u8]) -> Option<BpsError> {
+    let footer = patch.len().checked_sub(12)?;
+    let mut pos = BPS_HEADER.len();
+    let mut legacy = || -> Option<u64> {
+        let mut value = 0u64;
+        let mut shift = 0u32;
+        loop {
+            let b = *patch.get(pos)?;
+            pos += 1;
+            value |= u64::from(b & 0x7F).checked_shl(shift)?;
+            shift += 7;
+            if b & 0x80 != 0 {
+                return Some(value);
+            }
+            if shift > 63 {
+                return None;
+            }
+        }
+    };
+    let source_size = legacy()?;
+    let _target_size = legacy()?;
+    let _meta = legacy()?;
+    let source_crc = u32::from_le_bytes(patch[footer..footer + 4].try_into().ok()?);
+    if source_size == original.len() as u64 && source_crc == crc32_simple(original) {
+        Some(BpsError::new(
+            "bps_legacy_format",
+            "este patch usa o formato BPS antigo deste produto (varint fora da especificação, \
+             incompatível com Flips/beat) e não é aplicado automaticamente. Nenhum arquivo foi \
+             alterado. Para obter um patch válido, abra a sessão da edição (base + cópia verificadas) \
+             e use \"Exportar patch BPS\" de novo.",
+        ))
+    } else {
+        None
+    }
+}
+
 /// Aplica um patch BPS a `original` (erro como texto `codigo: mensagem`).
 pub fn apply_bps(original: &[u8], patch: &[u8]) -> Result<Vec<u8>, String> {
     apply_bps_checked(original, patch).map_err(|e| e.to_string())
@@ -608,7 +651,7 @@ pub fn create_ips_file(
         Err(e) => return PatchResult::err(e),
     };
     let changed = patch.len() as u32;
-    if let Err(e) = fs::write(patch_path, &patch) {
+    if let Err(e) = write_atomic(patch_path, &patch) {
         return PatchResult::err(format!("Erro ao salvar patch: {e}"));
     }
     PatchResult::ok(
@@ -667,7 +710,7 @@ pub fn create_bps_file(
         Err(e) => return PatchResult::err(e),
     };
     let changed = patch.len() as u32;
-    if let Err(e) = fs::write(patch_path, &patch) {
+    if let Err(e) = write_atomic(patch_path, &patch) {
         return PatchResult::err(format!("Erro ao salvar patch: {e}"));
     }
     PatchResult::ok(
@@ -731,6 +774,18 @@ pub fn create_bps_file_compliance(
 }
 
 /// Aplica um patch BPS a uma ROM e salva a ROM patcheada em `output_path`.
+/// Escrita atômica: temporário no mesmo diretório + rename; nunca deixa arquivo parcial.
+fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(".rds-tmp");
+    let tmp = PathBuf::from(tmp);
+    let result = fs::write(&tmp, bytes).and_then(|_| fs::rename(&tmp, path));
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    result
+}
+
 pub fn apply_bps_file(rom_path: &Path, patch_path: &Path, output_path: &Path) -> PatchResult {
     if let Err(error) = reject_overwrite(rom_path, output_path) {
         return PatchResult::err(error);
@@ -752,7 +807,7 @@ pub fn apply_bps_file(rom_path: &Path, patch_path: &Path, output_path: &Path) ->
         .zip(rom.iter())
         .filter(|(a, b)| a != b)
         .count() as u32;
-    if let Err(e) = fs::write(output_path, &patched) {
+    if let Err(e) = write_atomic(output_path, &patched) {
         return PatchResult::err(format!("Erro ao salvar ROM patcheada: {e}"));
     }
     PatchResult::ok(
@@ -763,6 +818,95 @@ pub fn apply_bps_file(rom_path: &Path, patch_path: &Path, output_path: &Path) ->
 
 #[cfg(test)]
 mod tests {
+    /// Gera um patch no formato LEGADO (varint LEB128 sem o ajuste da spec), como o produto fazia.
+    fn legacy_patch(src: &[u8], tgt: &[u8]) -> Vec<u8> {
+        fn lv(mut v: u64, o: &mut Vec<u8>) {
+            loop {
+                let mut x = (v & 0x7F) as u8;
+                v >>= 7;
+                if v == 0 {
+                    x |= 0x80;
+                }
+                o.push(x);
+                if x & 0x80 != 0 {
+                    break;
+                }
+            }
+        }
+        let mut p = BPS_HEADER.to_vec();
+        lv(src.len() as u64, &mut p);
+        lv(tgt.len() as u64, &mut p);
+        lv(0, &mut p);
+        // um TargetRead com o alvo inteiro
+        lv((((tgt.len() as u64) - 1) << 2) | 1, &mut p);
+        p.extend_from_slice(tgt);
+        p.extend_from_slice(&crc32_simple(src).to_le_bytes());
+        p.extend_from_slice(&crc32_simple(tgt).to_le_bytes());
+        let c = crc32_simple(&p).to_le_bytes();
+        p.extend_from_slice(&c);
+        p
+    }
+
+    #[test]
+    fn patch_legado_e_reconhecido_explicado_e_nunca_aplicado_automaticamente() {
+        let src = vec![3u8; 20000];
+        let mut tgt = src.clone();
+        tgt[5] = 9;
+        let legacy = legacy_patch(&src, &tgt);
+        let err = apply_bps_checked(&src, &legacy).unwrap_err();
+        assert_eq!(err.code, "bps_legacy_format", "{err}");
+        assert!(
+            err.message.contains("Exportar patch BPS") && err.message.contains("Nenhum arquivo")
+        );
+        // ROM diferente => não é diagnosticado como legado da base (erro comum de tamanho/CRC)
+        let other = vec![4u8; 20000];
+        assert_ne!(
+            apply_bps_checked(&other, &legacy).unwrap_err().code,
+            "bps_legacy_format"
+        );
+        // patches cujos varints são todos < 128 coincidem com a spec e continuam aplicando normalmente
+        let s2 = vec![1u8; 30];
+        let mut t2 = s2.clone();
+        t2[1] = 2;
+        assert_eq!(apply_bps(&s2, &legacy_patch(&s2, &t2)).unwrap(), t2);
+    }
+
+    #[test]
+    fn apply_bps_file_preserva_arquivos_quando_recusa_e_grava_atomicamente() {
+        let dir = std::env::temp_dir().join(format!("rds-bps-file-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (rom, patch, out) = (
+            dir.join("rom.bin"),
+            dir.join("old.bps"),
+            dir.join("out.bin"),
+        );
+        let src = vec![3u8; 20000];
+        let mut tgt = src.clone();
+        tgt[5] = 9;
+        std::fs::write(&rom, &src).unwrap();
+        std::fs::write(&patch, legacy_patch(&src, &tgt)).unwrap();
+        let before = (std::fs::read(&rom).unwrap(), std::fs::read(&patch).unwrap());
+        let r = apply_bps_file(&rom, &patch, &out);
+        assert!(
+            !r.ok && r.message.contains("bps_legacy_format"),
+            "{}",
+            r.message
+        );
+        assert!(!out.exists(), "recusa não cria saída");
+        assert_eq!(
+            (std::fs::read(&rom).unwrap(), std::fs::read(&patch).unwrap()),
+            before
+        );
+        // válido: sem temporário sobrando
+        let good = dir.join("good.bps");
+        let bytes = create_bps(&src, &tgt).unwrap();
+        std::fs::write(&good, bytes).unwrap();
+        assert!(apply_bps_file(&rom, &good, &out).ok);
+        assert_eq!(std::fs::read(&out).unwrap(), tgt);
+        assert!(!dir.join("out.bin.rds-tmp").exists());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
     /// Ferramenta de interoperabilidade (não é gate): executa trabalhos do JSON em
     /// `RDS_BPS_JOBS` pelo CAMINHO CANÔNICO do produto e grava `RDS_BPS_RESULTS`.
     /// Trabalho: {"mode":"create"|"apply","a":path,"b":path,"out":path}
@@ -1060,8 +1204,8 @@ mod tests {
     }
 
     use super::{
-        apply_bps, apply_bps_checked, crc32_simple, create_bps, decode_varint, encode_varint,
-        BPS_HEADER, BPS_MAX_OUTPUT,
+        apply_bps, apply_bps_checked, apply_bps_file, crc32_simple, create_bps, decode_varint,
+        encode_varint, BPS_HEADER, BPS_MAX_OUTPUT,
     };
 
     fn create_bps_target_read_only(original: &[u8], modified: &[u8]) -> Vec<u8> {
