@@ -112,6 +112,42 @@ pub fn parse_frame(
     Ok(out)
 }
 
+/// Cue de uma lista de carga de arte (PLC): stream comprimido → destino VRAM.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlcCue {
+    pub stream_offset: usize,
+    pub vram: u16,
+}
+
+impl PlcCue {
+    /// Índice do primeiro tile no destino (VRAM / 32).
+    pub fn first_tile(&self) -> usize {
+        usize::from(self.vram) / TILE_BYTES
+    }
+}
+
+pub const MAX_PLC_CUES: usize = 64;
+
+/// Lista PLC do Sonic 1/2: `count-1 (w)` seguido de `count × (stream.l, vram.w)`.
+/// O chamador (perfil) fornece o offset PROVADO; aqui só há leitura com limites.
+pub fn parse_plc(rom: &[u8], off: usize) -> Result<Vec<PlcCue>, GfxError> {
+    let h = rom.get(off..off + 2).ok_or(GfxError::OutOfRange)?;
+    let n = usize::from(u16::from_be_bytes([h[0], h[1]])) + 1;
+    if n > MAX_PLC_CUES {
+        return Err(GfxError::BadPieceCount);
+    }
+    let mut out = Vec::with_capacity(n);
+    for i in 0..n {
+        let a = off + 2 + i * 6;
+        let b = rom.get(a..a + 6).ok_or(GfxError::OutOfRange)?;
+        out.push(PlcCue {
+            stream_offset: u32::from_be_bytes([b[0], b[1], b[2], b[3]]) as usize,
+            vram: u16::from_be_bytes([b[4], b[5]]),
+        });
+    }
+    Ok(out)
+}
+
 /// Tile `t` da arte (4bpp) como 64 índices 0..=15, linha a linha.
 pub fn tile_indices(art: &[u8], t: usize) -> Result<[u8; 64], GfxError> {
     let b = t
@@ -310,6 +346,21 @@ mod tests {
             }
         }
         v
+    }
+
+    #[test]
+    fn plc_le_cues_com_limites() {
+        // 2 cues: (0x00012345 → vram 0x0A20), (0x00000010 → 0x0000)
+        let mut b = vec![0x00, 0x01];
+        b.extend_from_slice(&[0x00, 0x01, 0x23, 0x45, 0x0A, 0x20]);
+        b.extend_from_slice(&[0x00, 0x00, 0x00, 0x10, 0x00, 0x00]);
+        let c = parse_plc(&b, 0).unwrap();
+        assert_eq!(c.len(), 2);
+        assert_eq!(c[0].stream_offset, 0x12345);
+        assert_eq!(c[0].first_tile(), 0x51);
+        assert_eq!(parse_plc(&b[..13], 0), Err(GfxError::OutOfRange));
+        assert_eq!(parse_plc(&[0x00, 0x40], 0), Err(GfxError::BadPieceCount));
+        assert_eq!(parse_plc(&[], 0), Err(GfxError::OutOfRange));
     }
 
     #[test]

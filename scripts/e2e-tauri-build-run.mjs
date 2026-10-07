@@ -12143,6 +12143,20 @@ async function runSonicLayoutsJourneyScenario(sessionId, app, romPath, base, sav
         const sem = await waitFor(async () => { const w = await readWall(); return w.status && String(w.blockId) === String(outro.id) ? w : false; }, 20000, "estado do ID de outro mapping não apareceu", 150);
         const rec2 = mapIndexRecord(outro.id);
         const ptr2 = parseInt(rec2.slice(2, 8), 16);
+        {
+          // Oráculo JS do vínculo de arte: PLC @0x1d992 (count-1, N×(stream.l, vram.w)); tiles = cabeçalho Nemesis.
+          const n = ((base[0x1d992] << 8) | base[0x1d993]) + 1;
+          const base2 = parseInt(rec2.slice(8, 12), 16) & 0x7ff;
+          let esperado = false;
+          for (let i = 0; i < n; i += 1) {
+            const a = 0x1d994 + i * 6;
+            const so = base.readUInt32BE(a), first = base.readUInt16BE(a + 4) / 32;
+            const tiles = base.readUInt16BE(so) & 0x7fff;
+            if (base2 >= first && base2 < first + tiles) esperado = true;
+          }
+          const arte = await executeScript(sessionIdRef, `return document.querySelector("[data-testid='ss-wall-arte']")?.getAttribute("data-vinculada") ?? null;`);
+          addCheck("parede.arte_vinculada_igual_ao_oraculo_plc", arte === (esperado ? "sim" : "nao"), { observado: { id: outro.id, base: base2.toString(16), ui: arte, esperado } });
+        }
         addCheck("parede.outro_mapping_sem_imagem_inventada", ptr2 !== 0x2c564 ? (sem.status === "mapping-nao-decodificado" && sem.rgba === null) : sem.status === "composta", { observado: { id: outro.id, ptr: ptr2.toString(16), status: sem.status, canvas: sem.rgba !== null } });
       }
     }

@@ -1,8 +1,8 @@
 {
   "schema": "rex-sonic-layouts-journey/v1",
-  "artifact_prefix": "inspection-2026-10-07T09-59-13-448Z",
+  "artifact_prefix": "inspection-2026-10-07T11-02-52-580Z",
   "expectations": "docs/rex_profiles/integration_20261006/EXPECTATIONS-LAYOUTS-2026-10-06.md (L9–L11)",
-  "binary_sha256": "66d50fb4f7943ba2d2d3293eaaae157f00bd6c07faa512c597c0f89237919265",
+  "binary_sha256": "b0dc8463520a3b394842c5506f5c9e58b9734a9403b04f692de7b600e9a6b4f1",
   "base_rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
   "attribution": "Cliques e teclas na grade/abas/zoom/salvar/reabrir são WebDriver NATIVOS na janela real. Chamadas invoke aparecem rotuladas como sonda técnica. O oráculo é independente do produto (decoder JS + leitura direta dos bytes). Nenhum resultado aqui observa o jogo em execução.",
   "oracle_summary": [
@@ -49,12 +49,12 @@
       "referencia_historica_confere": true
     }
   ],
-  "pilot_dir": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T09-59-13-448Z-layouts-journey",
+  "pilot_dir": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T11-02-52-580Z-layouts-journey",
   "steps": [
     {
       "step": 1,
       "name": "painel_aberto_pelo_caminho_nativo",
-      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T09-59-13-448Z-layouts-painel.png"
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T11-02-52-580Z-layouts-painel.png"
     },
     {
       "step": 2,
@@ -77,7 +77,7 @@
       "name": "celula_para_recurso_parede",
       "id": 2,
       "linha": 0,
-      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T09-59-13-448Z-layouts-parede.png"
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T11-02-52-580Z-layouts-parede.png"
     },
     {
       "step": "5c",
@@ -98,7 +98,7 @@
     {
       "step": 9,
       "name": "tela_final",
-      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T09-59-13-448Z-layouts-reaberto.png"
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T11-02-52-580Z-layouts-reaberto.png"
     }
   ],
   "checks": [
@@ -118,8 +118,8 @@
       "observado": {
         "ui": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
         "arquivo": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
-        "sessao": "inspection-1791367155-00000000",
-        "esperado": "inspection-1791367155-00000000"
+        "sessao": "inspection-1791370974-00000000",
+        "esperado": "inspection-1791370974-00000000"
       }
     },
     {
@@ -730,6 +730,16 @@
       "sonda_tecnica": false
     },
     {
+      "name": "parede.arte_vinculada_igual_ao_oraculo_plc",
+      "pass": true,
+      "observado": {
+        "id": 58,
+        "base": "7b2",
+        "ui": "nao",
+        "esperado": false
+      }
+    },
+    {
       "name": "parede.outro_mapping_sem_imagem_inventada",
       "pass": true,
       "observado": {
@@ -797,7 +807,7 @@
       "pass": true,
       "observado": {
         "sha": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
-        "sessao": "inspection-1791367155-00000000",
+        "sessao": "inspection-1791370974-00000000",
         "layout": 4,
         "zoom": "5",
         "row": "21",
@@ -954,5 +964,5 @@
   ],
   "runtime_effect": "nenhum: leitura estatica do arquivo; o jogo nao foi executado e nada aqui prova que ele consumiu o recurso em execucao",
   "allPass": true,
-  "finished_at": "2026-10-07T09:59:31.532Z"
+  "finished_at": "2026-10-07T11:03:11.130Z"
 }

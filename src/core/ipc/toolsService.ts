@@ -1044,6 +1044,17 @@ export interface SsWallsElo {
   nivel: string;
 }
 
+export interface SsWallsArt {
+  cue_indice: number;
+  stream_offset_hex: string;
+  vram_hex: string;
+  tile_inicial: number;
+  tiles: number;
+  bytes_lidos: number;
+  posicao_na_arte: number;
+  nivel: string;
+}
+
 export interface SsWallsComposition {
   formato: string;
   sessao_id: string;
@@ -1066,6 +1077,8 @@ export interface SsWallsComposition {
   cadeia: SsWallsElo[];
   integridade: string;
   aviso_frame: string;
+  arte_vinculada?: SsWallsArt | null;
+  arte_explicacao?: string;
 }
 
 export function inspectionSonicSsWallCompose(

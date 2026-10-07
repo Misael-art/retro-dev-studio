@@ -81,6 +81,12 @@ export function SonicSsWallPanel({ sessionId, romSha256, blockId }: Props) {
       {view && (
         <>
           <div data-testid="ss-wall-status" data-status={view.status} className="mt-1 text-[#bac2de]">{view.explicacao}</div>
+          {view.arte_explicacao && (
+            <div data-testid="ss-wall-arte" data-vinculada={view.arte_vinculada ? "sim" : "nao"} className="mt-1 text-[9px] text-[#bac2de]">
+              <span className="text-[#89dceb]">Arte:</span> {view.arte_explicacao}
+              {view.arte_vinculada && <span className="text-[#7f849c]"> · {view.arte_vinculada.nivel}</span>}
+            </div>
+          )}
           {composed && (
             <>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-[#bac2de]">

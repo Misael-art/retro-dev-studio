@@ -34,6 +34,8 @@ pub const PALLOAD_ID: usize = 10; // Pal_SpecialStage
 pub const PAL_PTR: usize = 0x26C8;
 pub const PAL_SHA256: &str = "2f9072d8714ac735dba537f2cbb00aeac349b411fc86d1ef76fb9c81b7c3432d";
 pub const PAL_ROTULO: &str = "candidata estática (Pal_SpecialStage, carregada em 0x469A)";
+pub const PLC_OFFSET: usize = 0x1D992; // PLC_SpecialStage (B: ocorrencia unica, 17 cues)
+pub const PLC_CUES: usize = 17;
 pub const JANELA_ART: usize = 8192;
 pub const MAX_TOKENS: u64 = 40_000;
 
@@ -97,6 +99,19 @@ pub struct IdCoberto {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ArteVinculada {
+    pub cue_indice: usize,
+    pub stream_offset_hex: String,
+    pub vram_hex: String,
+    pub tile_inicial: usize,
+    pub tiles: usize,
+    pub bytes_lidos: usize,
+    /// Posição do tile-base do registro dentro desta arte.
+    pub posicao_na_arte: usize,
+    pub nivel: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SsWallsComposicao {
     pub formato: String,
     pub sessao_id: String,
@@ -122,6 +137,11 @@ pub struct SsWallsComposicao {
     pub cadeia: Vec<Elo>,
     pub integridade: String,
     pub aviso_frame: String,
+    /// Arte (cue do PLC) que ocupa o tile-base do registro, quando existe.
+    #[serde(default)]
+    pub arte_vinculada: Option<ArteVinculada>,
+    #[serde(default)]
+    pub arte_explicacao: String,
 }
 
 #[derive(Debug)]
@@ -249,6 +269,72 @@ fn desconhecidos() -> Vec<String> {
     ]
 }
 
+/// Cue do PLC cuja arte ocupa `tile_base` (destino VRAM/32 ≤ base < destino + tiles).
+/// Todo cue é decodificado AGORA com limites; erro de um cue recusa a consulta.
+fn vinculo_de_arte(
+    rom: &[u8],
+    tile_base: usize,
+    cancel: &dyn Fn() -> bool,
+) -> Result<Option<ArteVinculada>, String> {
+    let cues = gfx::parse_plc(rom, PLC_OFFSET).map_err(|g| err("ss_plc", g.code()))?;
+    if cues.len() != PLC_CUES {
+        return Err(err(
+            "ss_plc",
+            format!("PLC com {} cues; o perfil exige {PLC_CUES}", cues.len()),
+        ));
+    }
+    for (i, cue) in cues.iter().enumerate() {
+        if cancel() {
+            return Err(err("cancelled", "Análise cancelada pelo usuário"));
+        }
+        let fim = (cue.stream_offset + JANELA_ART).min(rom.len());
+        let ini = cue.stream_offset.min(fim);
+        let opts = nem::DecodeOptions {
+            limits: nem::Limits {
+                max_output_bytes: 0x800 * nem::TILE_BYTES,
+                work_limit: MAX_TOKENS,
+            },
+            cancel: Some(cancel),
+        };
+        let d = nem::decode(&rom[ini..fim], &opts).map_err(|e| {
+            err(
+                if e == nem::NemesisError::Cancelled {
+                    "cancelled"
+                } else {
+                    "ss_plc_arte"
+                },
+                format!("cue {i} em {:#x}: {}", cue.stream_offset, e.code()),
+            )
+        })?;
+        let ini_tile = cue.first_tile();
+        if tile_base >= ini_tile && tile_base < ini_tile + d.stats.tiles {
+            return Ok(Some(ArteVinculada {
+                cue_indice: i,
+                stream_offset_hex: format!("{:#x}", cue.stream_offset),
+                vram_hex: format!("{:#x}", cue.vram),
+                tile_inicial: ini_tile,
+                tiles: d.stats.tiles,
+                bytes_lidos: d.stats.bytes_lidos,
+                posicao_na_arte: tile_base - ini_tile,
+                nivel: "vínculo estrutural estático (destino VRAM do cue = base de tile do registro); arte decodificada agora".to_string(),
+            }));
+        }
+    }
+    Ok(None)
+}
+
+fn explica_arte(v: &Option<ArteVinculada>, tile_base: usize) -> String {
+    match v {
+        Some(a) => format!(
+            "A base de tile {tile_base:#x} do registro cai na arte do cue {} do PLC ({} tiles, stream {}, VRAM {}), posição {} dentro dela. Isto liga o ID a uma arte decodificada; sem o mapping decodificado não há composição.",
+            a.cue_indice, a.tiles, a.stream_offset_hex, a.vram_hex, a.posicao_na_arte
+        ),
+        None => format!(
+            "A base de tile {tile_base:#x} do registro não cai em nenhuma das {PLC_CUES} artes do PLC da fase especial; a origem dessa arte (carregada por outro caminho) não foi comprovada."
+        ),
+    }
+}
+
 pub fn info(
     base: &[u8],
     rom: &[u8],
@@ -334,6 +420,8 @@ fn vazia(
         cadeia: vec![],
         integridade: String::new(),
         aviso_frame: String::new(),
+        arte_vinculada: None,
+        arte_explicacao: String::new(),
     }
 }
 
@@ -380,13 +468,19 @@ pub fn compor(
     }
     let (addr, ptr, campo) = registro(rom, id);
     if ptr != MAP_TABLE {
-        return Ok(vazia(
+        let base_tile = usize::from(campo & 0x7FF);
+        let vinc = vinculo_de_arte(rom, base_tile, cancel)?;
+        let mut v = vazia(
             sessao_id,
             &rom_sha,
             id,
             "mapping-nao-decodificado",
             format!("O registro do ID {id:#04x} aponta para o mapping {ptr:#x}, que este perfil ainda não decodifica; nenhuma imagem foi inventada."),
-        ));
+        );
+        v.linha_paleta = Some(((campo >> 13) & 3) as u8);
+        v.arte_explicacao = explica_arte(&vinc, base_tile);
+        v.arte_vinculada = vinc;
+        return Ok(v);
     }
     if campo & 0x7FF != ART_TILE_BASE {
         return Err(err(
@@ -402,6 +496,13 @@ pub fn compor(
         .map_err(|g| err("ss_composicao", g.code()))?;
     let rgba = gfx::to_rgba(&img, &ch.pal);
     let map_sha = tabela_confere(rom)?;
+    let vinc = vinculo_de_arte(rom, usize::from(ART_TILE_BASE), cancel)?;
+    if vinc.as_ref().map(|a| (a.cue_indice, a.posicao_na_arte)) != Some((2, 0)) {
+        return Err(err(
+            "ss_plc",
+            "o cue das paredes não ocupa a base de tile 0x142",
+        ));
+    }
     let integro = ch.art_sha == ART_SHA256 && ch.pal_sha == PAL_SHA256 && map_sha == MAP_SHA256;
     let cad = vec![
         Elo {
@@ -470,6 +571,8 @@ pub fn compor(
         cadeia: cad,
         integridade: if integro { "confere com as referências pinadas".into() } else { "DIVERGE das referências pinadas (ROM editada?)".into() },
         aviso_frame: "O frame de rotação é estado de execução, escolhido por você; o jogo não foi observado.".to_string(),
+        arte_explicacao: explica_arte(&vinc, usize::from(ART_TILE_BASE)),
+        arte_vinculada: vinc,
     })
 }
 
@@ -541,6 +644,20 @@ mod tests {
         let o = compor(&rom, &rom, "t", &sha, 38, 0, &|| false).unwrap();
         assert_eq!(o.status, "mapping-nao-decodificado");
         assert!(o.pixels_hex.is_empty());
+        // arte vinculada por cue (tile-base exato do PLC) para os demais IDs 37..78
+        let mut sem_cue = Vec::new();
+        for id in 37..=78u8 {
+            let c = compor(&rom, &rom, "t", &sha, id, 0, &|| false).unwrap();
+            match &c.arte_vinculada {
+                Some(a) => assert_eq!(a.posicao_na_arte, 0, "id {id}"),
+                None => sem_cue.push(id),
+            }
+        }
+        assert_eq!(
+            sem_cue,
+            vec![58, 66, 67, 68, 69],
+            "IDs cuja base de tile (0x7b2) não está no PLC"
+        );
         // frame inexistente e ROM trocada
         assert!(compor(&rom, &rom, "t", &sha, 1, 16, &|| false).is_err());
         assert!(compor(&rom, &rom, "t", &"0".repeat(64), 1, 0, &|| false).is_err());

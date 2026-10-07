@@ -89,6 +89,29 @@ describe("SonicSsWallPanel", () => {
     expect(container.textContent).toContain("nenhuma imagem foi inventada");
   });
 
+  it("mostra a arte vinculada (cue) ou diz que a origem não foi comprovada, sem imagem", async () => {
+    mocks.inspectionSonicSsWallCompose.mockResolvedValue(
+      composed(38, 0, {
+        status: "mapping-nao-decodificado", frame: null, largura: 0, altura: 0, pixels_hex: "", rgba_hex: "",
+        arte_explicacao: "A base de tile 0x570 cai na arte do cue 11 do PLC (9 tiles)",
+        arte_vinculada: { cue_indice: 11, stream_offset_hex: "0x2f142", vram_hex: "0xae00", tile_inicial: 1392, tiles: 9, bytes_lidos: 218, posicao_na_arte: 0, nivel: "vínculo estrutural estático" },
+      })
+    );
+    act(() => root.render(<SonicSsWallPanel sessionId="s1" romSha256={SHA} blockId={38} />));
+    await flush();
+    const arte = container.querySelector("[data-testid='ss-wall-arte']");
+    expect(arte?.getAttribute("data-vinculada")).toBe("sim");
+    expect(arte?.textContent).toContain("cue 11");
+    expect(container.querySelector("[data-testid='ss-wall-canvas']")).toBeNull();
+    mocks.inspectionSonicSsWallCompose.mockResolvedValue(
+      composed(58, 0, { status: "mapping-nao-decodificado", frame: null, largura: 0, altura: 0, pixels_hex: "", rgba_hex: "", arte_vinculada: null, arte_explicacao: "não cai em nenhuma das 17 artes do PLC; a origem não foi comprovada" })
+    );
+    act(() => root.render(<SonicSsWallPanel sessionId="s1" romSha256={SHA} blockId={58} />));
+    await flush();
+    expect(container.querySelector("[data-testid='ss-wall-arte']")?.getAttribute("data-vinculada")).toBe("nao");
+    expect(container.textContent).toContain("origem não foi comprovada");
+  });
+
   it("descarta resposta antiga de outro ID e de outra ROM", async () => {
     let resolveOld: (v: unknown) => void = () => undefined;
     mocks.inspectionSonicSsWallCompose
