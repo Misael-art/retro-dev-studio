@@ -11931,7 +11931,14 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
   let sid = sessionId;
   const [winW, winH] = (process.env.RDS_SOR_WINDOW ?? "1920x1080").split("x").map(Number);
   report.window = { width: winW, height: winH };
+  // setSessionWindowRect prioriza RDS_E2E_WINDOW_* (definidos pelo harness em 1920x1080): sem isto o pedido era ignorado.
+  process.env.RDS_E2E_WINDOW_WIDTH = String(winW);
+  process.env.RDS_E2E_WINDOW_HEIGHT = String(winH);
   try { await setSessionWindowRect(sid, winW, winH); } catch (error) { fail(`A janela nao aceitou ${winW}x${winH}: ${error instanceof Error ? error.message : String(error)}`); }
+  const innerNow = async () => executeScript(sid, `return { w: window.innerWidth, h: window.innerHeight };`);
+  const inner0 = await innerNow();
+  report.window_measured = inner0;
+  if (Math.abs(inner0.w - winW) > 64 || Math.abs(inner0.h - winH) > 96) fail(`Janela efetiva ${inner0.w}x${inner0.h} difere da pedida ${winW}x${winH}`);
   const probeInvoke = async (command, args) => executeAsyncScript(
     sid,
     `
@@ -12095,6 +12102,9 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
   await waitForAppWindowReady(sid, uiBootstrapTimeoutMs, "O app da jornada SoR nao reabriu");
   await handleProjectWizardVisibly(sid, "sor-journey-restart");
   await setSessionWindowRect(sid, winW, winH);
+  const innerRe = await innerNow();
+  report.window_measured_after_restart = innerRe;
+  if (Math.abs(innerRe.w - winW) > 64 || Math.abs(innerRe.h - winH) > 96) fail(`Janela apos reiniciar ${innerRe.w}x${innerRe.h} difere da pedida ${winW}x${winH}`);
   await click("workspace-rail-debug", "Debug Workspace");
   await callAutomationApi(sid, "openToolsWorkspace", ["reverse", "debug", true]);
   await waitForBodyText(sid, "Analisar ROM", 20000, "Reverse Workspace nao voltou");
