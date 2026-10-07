@@ -57,7 +57,7 @@ Fricções **abertas**: em 1280×800 o cabeçalho "Reverse Workspace" do painel 
 
 ## 7. Gates (checkout final)
 
-`check:tree` · `lint` · `tsc` · `npm test` 971 passados/0 falhas (6 skip; 1 execução anterior mostrou 974/3) · `cargo fmt --check` · `cargo clippy -D warnings` · `cargo test --lib` 938/0 (94 ignorados) · `crates:gates` · `security:audit` (npm **11.16.0** isolado, `~/rds-scratch/npm-11.16.0`, 0 vulnerabilidades) · `cargo audit` (8 avisos já permitidos) · `host:certify` — resultados e rc no comentário final da PR e em `evidencia-pr110/` quando aplicável. O host usa npm 12.0.2 (`EALLOWSCRIPTS`); nada global foi alterado e o audit não foi desabilitado. Builds/E2E pesados rodaram um por vez.
+`check:tree` rc=0 · `lint` rc=0 · `tsc --noEmit` rc=0 · `npm test` 971 passados/0 falhas (6 skip) · `cargo fmt --check` rc=0 · `cargo clippy -D warnings` rc=0 · `cargo test --lib` 938 passados/0 falhas (94 ignorados) · `crates:gates` rc=0 · `security:audit` (npm **11.16.0** isolado, `~/rds-scratch/npm-11.16.0`) rc=0, 0 vulnerabilidades · `cargo audit` rc=0 (8 avisos já permitidos) · `host:certify` rc=0 **READY**. O host usa npm 12.0.2 (`EALLOWSCRIPTS`); nada global foi alterado e o audit não foi desabilitado. Builds/E2E pesados rodaram um por vez.
 Um `clippy -D warnings` reprovou no meio da revisão (helper de teste fora de `cfg(test)`); foi corrigido e **todo o pipeline (build, 4 jornadas, oráculos) foi refeito** para o binário pinado coincidir com o código final.
 
 ## Riscos e limites restantes
