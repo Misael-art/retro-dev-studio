@@ -116,6 +116,165 @@ pub fn kosinski_encode(plain: &[u8], limits: &KosinskiEncodeLimits) -> Result<Ve
     Ok(encoded.stream)
 }
 
+/// Encoder Kosinski base de **parse ótimo** (programação dinâmica sobre o custo
+/// em bits: 1 bit de controle = 1, 1 byte de dado = 8). Existe porque o encoder
+/// do crate é guloso e gera streams maiores que os dos compressores originais
+/// dos jogos (ex.: 618 contra 514 bytes na fonte do Streets of Rage), o que
+/// tornaria impossível reinserir no espaço original. A saída é um stream base
+/// válido para o decoder do crate (verificada por ida e volta nos testes); o
+/// emissor segue a regra de recarga ANTECIPADA do descritor (a palavra seguinte
+/// é lida logo após o 16º bit, antes dos bytes de dado da própria operação).
+/// Custo O(n·janela) com teto de trabalho: pensado para recursos pequenos.
+pub fn kosinski_encode_optimal(
+    plain: &[u8],
+    limits: &KosinskiEncodeLimits,
+) -> Result<Vec<u8>, CodecError> {
+    const WINDOW: usize = 0x2000;
+    const MAX_LEN: usize = 256;
+    let n = plain.len();
+    let mut work = 0usize;
+    let mut best = vec![usize::MAX; n + 1];
+    // (posição anterior, comprimento, distância); comprimento 0 = literal.
+    let mut how = vec![(0usize, 0usize, 0usize); n + 1];
+    best[0] = 0;
+    for i in 0..n {
+        let base = best[i];
+        if base == usize::MAX {
+            continue;
+        }
+        if base + 9 < best[i + 1] {
+            best[i + 1] = base + 9;
+            how[i + 1] = (i, 0, 0);
+        }
+        for dist in 1..=i.min(WINDOW) {
+            let mut l = 0;
+            while i + l < n && l < MAX_LEN && plain[i + l] == plain[i + l - dist] {
+                l += 1;
+            }
+            work += l + 1;
+            if work > limits.max_work {
+                return Err(CodecError::new(
+                    "work_limit",
+                    "Kosinski encode: orzamento determinista de traballo esgotado",
+                ));
+            }
+            for len in 2..=l {
+                let cost = if dist <= 256 && len <= 5 {
+                    12
+                } else if len <= 9 && len >= 3 {
+                    18
+                } else if len >= 3 {
+                    26
+                } else {
+                    continue;
+                };
+                if base + cost < best[i + len] {
+                    best[i + len] = base + cost;
+                    how[i + len] = (i, len, dist);
+                }
+            }
+        }
+    }
+    let mut ops = Vec::new();
+    let mut at = n;
+    while at > 0 {
+        let (prev, len, dist) = how[at];
+        ops.push((prev, len, dist));
+        at = prev;
+    }
+    ops.reverse();
+    let mut out = Emitter::new();
+    for (pos, len, dist) in ops {
+        if len == 0 {
+            out.bit(true);
+            out.byte(plain[pos]);
+        } else if dist <= 256 && len <= 5 {
+            out.bit(false);
+            out.bit(false);
+            out.bit((len - 2) & 2 != 0);
+            out.bit((len - 2) & 1 != 0);
+            out.byte((256 - dist) as u8);
+        } else {
+            let x = 0x2000 - dist;
+            out.bit(false);
+            out.bit(true);
+            let hi = ((x >> 5) & 0xF8) as u8;
+            if len <= 9 {
+                out.byte((x & 0xFF) as u8);
+                out.byte(hi | (len - 2) as u8);
+            } else {
+                out.byte((x & 0xFF) as u8);
+                out.byte(hi);
+                out.byte((len - 1) as u8);
+            }
+        }
+        if out.stream.len() > limits.max_stream {
+            return Err(CodecError::new(
+                "stream_limit",
+                "Kosinski encode: a stream excederia o max_stream pedido",
+            ));
+        }
+    }
+    out.bit(false);
+    out.bit(true);
+    out.byte(0);
+    out.byte(0xF0);
+    out.byte(0);
+    let stream = out.finish();
+    if stream.len() > limits.max_stream {
+        return Err(CodecError::new(
+            "stream_limit",
+            "Kosinski encode: a stream excederia o max_stream pedido",
+        ));
+    }
+    Ok(stream)
+}
+
+/// Emissor de bits com descritor de 16 bits little-endian, LSB primeiro e
+/// recarga antecipada (a nova palavra ocupa o stream logo após o 16º bit).
+struct Emitter {
+    stream: Vec<u8>,
+    desc_pos: usize,
+    desc: u16,
+    used: u8,
+}
+
+impl Emitter {
+    fn new() -> Self {
+        Self {
+            stream: vec![0, 0],
+            desc_pos: 0,
+            desc: 0,
+            used: 0,
+        }
+    }
+    fn bit(&mut self, b: bool) {
+        if b {
+            self.desc |= 1 << self.used;
+        }
+        self.used += 1;
+        if self.used == 16 {
+            self.flush();
+            self.desc_pos = self.stream.len();
+            self.stream.extend_from_slice(&[0, 0]);
+            self.desc = 0;
+            self.used = 0;
+        }
+    }
+    fn flush(&mut self) {
+        let [lo, hi] = self.desc.to_le_bytes();
+        self.stream[self.desc_pos] = lo;
+        self.stream[self.desc_pos + 1] = hi;
+    }
+    fn byte(&mut self, b: u8) {
+        self.stream.push(b);
+    }
+    fn finish(mut self) -> Vec<u8> {
+        self.flush();
+        self.stream
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Camada IPC — as chamadas reais do backend.
 // ---------------------------------------------------------------------------
@@ -260,7 +419,10 @@ pub fn ipc_encode(req: &KosinskiEncodeRequest) -> Result<KosinskiEncodeResponse,
 #[cfg(test)]
 mod tests {
 
-    use super::{kosinski_decode, kosinski_encode, KosinskiDecodeLimits, KosinskiEncodeLimits};
+    use super::{
+        kosinski_decode, kosinski_encode, kosinski_encode_optimal, KosinskiDecodeLimits,
+        KosinskiEncodeLimits,
+    };
     use crate::tools::reverse::decomp::rex_codecs::CodecError;
 
     /// Stream autoral rexistrada pola fronte B (`fixtures/kosinski/plain/
@@ -491,6 +653,62 @@ mod tests {
         assert_eq!(
             dec.bytes_consumed, enc.stream_len,
             "sen padding: consómese todo"
+        );
+    }
+
+    #[test]
+    fn encode_otimo_faz_ida_e_volta_e_nunca_perde_para_o_guloso() {
+        let casos: Vec<Vec<u8>> = vec![
+            vec![],
+            vec![7],
+            vec![0; 300],
+            (0..=255u8).collect(),
+            b"abcabcabcabcXabcabcabc".repeat(9),
+            (0..3000u32)
+                .map(|i| (i.wrapping_mul(2654435761) >> 13) as u8 % 7)
+                .collect(),
+        ];
+        let enc = KosinskiEncodeLimits::default();
+        for plain in casos {
+            let stream = kosinski_encode_optimal(&plain, &enc).unwrap();
+            let dec = kosinski_decode(&stream, &KosinskiDecodeLimits::default()).unwrap();
+            assert_eq!(dec.data, plain, "ida e volta");
+            assert_eq!(dec.bytes_consumed, stream.len(), "consumo exato");
+            let guloso = kosinski_encode(&plain, &enc).unwrap();
+            assert!(
+                stream.len() <= guloso.len(),
+                "{} > {}",
+                stream.len(),
+                guloso.len()
+            );
+        }
+    }
+
+    #[test]
+    fn encode_otimo_do_plain_vazio_e_a_stream_minima() {
+        let s = kosinski_encode_optimal(&[], &KosinskiEncodeLimits::default()).unwrap();
+        assert_eq!(s, [0x02, 0x00, 0x00, 0xF0, 0x00]);
+    }
+
+    #[test]
+    fn encode_otimo_respeita_limites() {
+        let lim = KosinskiEncodeLimits {
+            max_stream: 4,
+            max_work: 1 << 20,
+        };
+        assert_eq!(
+            kosinski_encode_optimal(&[1, 2, 3, 4, 5, 6], &lim)
+                .unwrap_err()
+                .code,
+            "stream_limit"
+        );
+        let lim = KosinskiEncodeLimits {
+            max_stream: 1 << 20,
+            max_work: 3,
+        };
+        assert_eq!(
+            kosinski_encode_optimal(&[9; 64], &lim).unwrap_err().code,
+            "work_limit"
         );
     }
 }
