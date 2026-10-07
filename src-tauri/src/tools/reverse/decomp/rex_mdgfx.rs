@@ -1,6 +1,21 @@
-//! Primitivas gráficas genéricas do Mega Drive, SEM conhecimento de jogo:
-//! tiles 4bpp, peças de sprite-mapping (formato Sonic 1/2 de 5 bytes), CRAM
-//! e composição indexada. Puro: sem I/O, sem serialização. Um perfil (ex.:
+//! Primitivas gráficas do Mega Drive, SEM conhecimento de jogo.
+//!
+//! Duas camadas, que NÃO devem ser confundidas:
+//! - **Hardware (VDP/CRAM)**: tile 4bpp de 32 bytes (`tile_indices`), nome de
+//!   tile de 16 bits (prioridade, linha, flips, índice de 11 bits), CRAM 9 bits
+//!   (`cram_*`). Valem para qualquer jogo.
+//! - **Formato de mapping/PLC do Sonic 1/2 (`parse_piece`, `parse_frame*`,
+//!   `parse_plc`)**: peça de 5 bytes `y(i8), size(0000wwhh), name(u16 BE),
+//!   x(i8)`; tabela de frames com ponteiros u16 BE relativos ao início da
+//!   tabela, cada frame = `count(u8) + count*5` (máx. `MAX_PIECES`); PLC =
+//!   `count-1 (u16 BE)` + `count × (stream u32 BE, vram u16 BE)` (máx.
+//!   `MAX_PLC_CUES`). Outros jogos podem usar outro formato; só quem tem a
+//!   prova (o perfil) pode chamar estas funções para um determinado recurso.
+//!
+//! Todo cálculo de intervalo usa aritmética verificada: deslocamento absurdo
+//! devolve `GfxError`, nunca pânico.
+//!
+//! Inclui também tiles 4bpp, CRAM e composição indexada. Puro: sem I/O, sem serialização. Um perfil (ex.:
 //! `sonic_ss_walls`) fornece a ORIGEM de cada entrada (offsets, paleta) e
 //! carrega a prova; aqui só há aritmética verificada e recusas explícitas.
 //!
@@ -14,6 +29,12 @@ pub const PALETTE_LINES: usize = 4;
 pub const COLORS_PER_LINE: usize = 16;
 pub const PIECE_BYTES: usize = 5;
 pub const MAX_PIECES: usize = 64;
+
+/// Fatia `buf[start..start+len]` com soma verificada: nunca entra em pânico
+/// por overflow de `usize`, qualquer que seja o deslocamento recebido.
+fn slice_at(buf: &[u8], start: usize, len: usize) -> Option<&[u8]> {
+    buf.get(start..start.checked_add(len)?)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GfxError {
@@ -80,6 +101,14 @@ pub fn parse_piece(b: &[u8]) -> Result<Piece, GfxError> {
     })
 }
 
+/// Bytes da peça `k` de um frame em `off` (aritmética verificada).
+fn piece_bytes(rom: &[u8], off: usize, k: usize) -> Result<&[u8], GfxError> {
+    k.checked_mul(PIECE_BYTES)
+        .and_then(|d| off.checked_add(1)?.checked_add(d))
+        .and_then(|a| slice_at(rom, a, PIECE_BYTES))
+        .ok_or(GfxError::OutOfRange)
+}
+
 /// Frame `i` de uma tabela de mappings com ponteiros de 16 bits RELATIVOS ao
 /// início da tabela (`table_off`), cada frame = `count(1) + count*5`.
 /// `frame_count` vem da PROVA do perfil (tamanho da tabela), nunca é adivinhado.
@@ -92,9 +121,10 @@ pub fn parse_frame(
     if i >= frame_count {
         return Err(GfxError::OutOfRange);
     }
-    let p = table_off
-        .checked_add(2 * i)
-        .and_then(|a| rom.get(a..a + 2))
+    let p = i
+        .checked_mul(2)
+        .and_then(|d| table_off.checked_add(d))
+        .and_then(|a| slice_at(rom, a, 2))
         .ok_or(GfxError::OutOfRange)?;
     let rel = usize::from(u16::from_be_bytes([p[0], p[1]]));
     let off = table_off.checked_add(rel).ok_or(GfxError::OutOfRange)?;
@@ -104,10 +134,7 @@ pub fn parse_frame(
     }
     let mut out = Vec::with_capacity(n);
     for k in 0..n {
-        let a = off + 1 + k * PIECE_BYTES;
-        out.push(parse_piece(
-            rom.get(a..a + PIECE_BYTES).ok_or(GfxError::OutOfRange)?,
-        )?);
+        out.push(parse_piece(piece_bytes(rom, off, k)?)?);
     }
     Ok(out)
 }
@@ -147,7 +174,7 @@ pub fn frame_offsets(rom: &[u8], table_off: usize) -> Vec<usize> {
         if 2 * k >= min {
             break;
         }
-        let Some(w) = table_off.checked_add(2 * k).and_then(|a| rom.get(a..a + 2)) else {
+        let Some(w) = table_off.checked_add(2 * k).and_then(|a| slice_at(rom, a, 2)) else {
             break;
         };
         let v = usize::from(u16::from_be_bytes([w[0], w[1]]));
@@ -169,10 +196,7 @@ pub fn parse_frame_at(rom: &[u8], off: usize) -> Result<Vec<Piece>, GfxError> {
     }
     let mut out = Vec::with_capacity(n);
     for k in 0..n {
-        let a = off + 1 + k * PIECE_BYTES;
-        out.push(parse_piece(
-            rom.get(a..a + PIECE_BYTES).ok_or(GfxError::OutOfRange)?,
-        )?);
+        out.push(parse_piece(piece_bytes(rom, off, k)?)?);
     }
     Ok(out)
 }
@@ -196,15 +220,18 @@ pub const MAX_PLC_CUES: usize = 64;
 /// Lista PLC do Sonic 1/2: `count-1 (w)` seguido de `count × (stream.l, vram.w)`.
 /// O chamador (perfil) fornece o offset PROVADO; aqui só há leitura com limites.
 pub fn parse_plc(rom: &[u8], off: usize) -> Result<Vec<PlcCue>, GfxError> {
-    let h = rom.get(off..off + 2).ok_or(GfxError::OutOfRange)?;
+    let h = slice_at(rom, off, 2).ok_or(GfxError::OutOfRange)?;
     let n = usize::from(u16::from_be_bytes([h[0], h[1]])) + 1;
     if n > MAX_PLC_CUES {
         return Err(GfxError::BadPieceCount);
     }
     let mut out = Vec::with_capacity(n);
     for i in 0..n {
-        let a = off + 2 + i * 6;
-        let b = rom.get(a..a + 6).ok_or(GfxError::OutOfRange)?;
+        let b = i
+            .checked_mul(6)
+            .and_then(|d| off.checked_add(2)?.checked_add(d))
+            .and_then(|a| slice_at(rom, a, 6))
+            .ok_or(GfxError::OutOfRange)?;
         out.push(PlcCue {
             stream_offset: u32::from_be_bytes([b[0], b[1], b[2], b[3]]) as usize,
             vram: u16::from_be_bytes([b[4], b[5]]),
@@ -217,7 +244,7 @@ pub fn parse_plc(rom: &[u8], off: usize) -> Result<Vec<PlcCue>, GfxError> {
 pub fn tile_indices(art: &[u8], t: usize) -> Result<[u8; 64], GfxError> {
     let b = t
         .checked_mul(TILE_BYTES)
-        .and_then(|a| art.get(a..a + TILE_BYTES))
+        .and_then(|a| slice_at(art, a, TILE_BYTES))
         .ok_or(GfxError::TileOutOfArt)?;
     let mut out = [0u8; 64];
     for y in 0..8 {
@@ -231,6 +258,14 @@ pub fn tile_indices(art: &[u8], t: usize) -> Result<[u8; 64], GfxError> {
 
 pub fn tile_is_empty(art: &[u8], t: usize) -> Result<bool, GfxError> {
     Ok(tile_indices(art, t)?.iter().all(|&p| p == 0))
+}
+
+/// Índice absoluto do tile `extra` da peça, com soma verificada.
+fn tile_index(tile_base: usize, p: &Piece, extra: usize) -> Result<usize, GfxError> {
+    tile_base
+        .checked_add(usize::from(p.tile))
+        .and_then(|t| t.checked_add(extra))
+        .ok_or(GfxError::TileOutOfArt)
 }
 
 /// Imagem indexada: `pixels[y*w+x]` = linha*16 + índice (0 = transparente, em
@@ -283,7 +318,7 @@ pub fn compose(
     let mut vazios: Vec<usize> = Vec::new();
     for p in pieces {
         for k in 0..p.tile_count() {
-            let t = tile_base + usize::from(p.tile) + k;
+            let t = tile_index(tile_base, p, k)?;
             if !usados.contains(&t) {
                 usados.push(t);
                 if tile_is_empty(art, t)? {
@@ -305,7 +340,7 @@ pub fn compose(
                     if p.yflip { ph - 1 - v } else { v },
                 );
                 let (cx, cy) = (su / 8, sv / 8);
-                let t = tile_base + usize::from(p.tile) + cx * usize::from(p.h) + cy;
+                let t = tile_index(tile_base, p, cx * usize::from(p.h) + cy)?;
                 let px = tile_indices(art, t)?;
                 let c = px[(sv % 8) * 8 + (su % 8)];
                 if c == 0 {
@@ -632,5 +667,37 @@ mod tests {
         let img = compose(&[p], &art, 0, None, false, false).unwrap();
         let rgba = to_rgba(&img, &[0x0EEE; 64]);
         assert!(rgba.chunks_exact(4).all(|px| px[3] == 0)); // tile vazio: nada pintado
+    }
+
+    // Fronteiras de usize: antes da correção, cada caso abaixo entrava em
+    // pânico (overflow aritmético) em vez de devolver erro.
+    #[test]
+    fn deslocamentos_extremos_devolvem_erro_sem_panico() {
+        assert_eq!(
+            parse_frame(&[], 0, usize::MAX, usize::MAX / 2 + 1),
+            Err(GfxError::OutOfRange)
+        );
+        assert_eq!(parse_frame(&[], usize::MAX, usize::MAX, 1), Err(GfxError::OutOfRange));
+        assert_eq!(parse_plc(&[], usize::MAX), Err(GfxError::OutOfRange));
+        assert_eq!(parse_plc(&[0; 8], usize::MAX - 1), Err(GfxError::OutOfRange));
+        assert_eq!(tile_indices(&[], usize::MAX / 32), Err(GfxError::TileOutOfArt));
+        assert_eq!(tile_indices(&[0; 64], usize::MAX), Err(GfxError::TileOutOfArt));
+        assert_eq!(parse_frame_at(&[1], 0), Err(GfxError::OutOfRange));
+        assert!(frame_offsets(&[0; 4], usize::MAX).is_empty());
+        let peca = Piece {
+            y: 0,
+            x: 0,
+            w: 1,
+            h: 1,
+            tile: 0x7FF,
+            priority: false,
+            palette: 0,
+            xflip: false,
+            yflip: false,
+        };
+        assert_eq!(
+            compose(&[peca], &[0; 32], usize::MAX, None, false, false),
+            Err(GfxError::TileOutOfArt)
+        );
     }
 }
