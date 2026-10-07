@@ -11846,6 +11846,58 @@ function ssWallOracle(rom, frame, line) {
   return { w: w * 8, h: h * 8, rgba };
 }
 
+// Oráculo JS do frame de um mapping qualquer (regra de contagem conservadora, nome = campo + nome da peça).
+function ssFrameOracle(rom, ptr, campo, frame) {
+  const offs = [];
+  let min = Infinity;
+  for (let k = 0; k < 32; k += 1) {
+    if (2 * k >= min) break;
+    const v = rom.readUInt16BE(ptr + 2 * k);
+    if (v < 2 * (k + 1) || v >= 0x100) break;
+    min = Math.min(min, v); offs.push(v);
+  }
+  const n = rom.readUInt16BE(0x1d992) + 1;
+  let art = null;
+  for (let i = 0; i < n && !art; i += 1) {
+    const a = 0x1d994 + i * 6;
+    const so = rom.readUInt32BE(a), first = rom.readUInt16BE(a + 4) / 32;
+    const bytes = ssNemesisOracle(rom, so);
+    const tiles = bytes.length / 32;
+    if ((campo & 0x7ff) >= first && (campo & 0x7ff) < first + tiles) art = { first, bytes };
+  }
+  if (!art || frame >= offs.length) return null;
+  const a = ptr + offs[frame];
+  const count = rom[a];
+  const ps = [];
+  for (let i = 0; i < count; i += 1) {
+    const q = a + 1 + i * 5;
+    ps.push({ y: rom.readInt8(q), w: ((rom[q + 1] >> 2) & 3) + 1, h: (rom[q + 1] & 3) + 1, name: rom.readUInt16BE(q + 2), x: rom.readInt8(q + 4) });
+  }
+  const x0 = Math.min(...ps.map((p) => p.x)), y0 = Math.min(...ps.map((p) => p.y));
+  const x1 = Math.max(...ps.map((p) => p.x + 8 * p.w)), y1 = Math.max(...ps.map((p) => p.y + 8 * p.h));
+  const W = x1 - x0, H = y1 - y0;
+  const pal = [];
+  for (let i = 0; i < 64; i += 1) pal.push(rom.readUInt16BE(0x26c8 + 2 * i));
+  const lv = (v) => Math.floor((v * 255 + 3) / 7);
+  const rgba = new Array(W * H * 4).fill(0);
+  for (const p of ps) {
+    const nm = (campo + p.name) & 0xffff, ti = nm & 0x7ff, line = (nm >> 13) & 3, xf = nm & 0x800, yf = nm & 0x1000;
+    for (let v = 0; v < p.h * 8; v += 1) {
+      for (let u = 0; u < p.w * 8; u += 1) {
+        const su = xf ? p.w * 8 - 1 - u : u, sv = yf ? p.h * 8 - 1 - v : v;
+        const t = ti + Math.floor(su / 8) * p.h + Math.floor(sv / 8) - art.first;
+        const b = art.bytes[t * 32 + (sv % 8) * 4 + Math.floor((su % 8) / 2)];
+        const c = ((su % 8) % 2 === 0) ? b >> 4 : b & 15;
+        if (c === 0) continue;
+        const w = pal[line * 16 + c];
+        const i = ((p.y - y0 + v) * W + (p.x - x0 + u)) * 4;
+        rgba[i] = lv((w >> 1) & 7); rgba[i + 1] = lv((w >> 5) & 7); rgba[i + 2] = lv((w >> 9) & 7); rgba[i + 3] = 255;
+      }
+    }
+  }
+  return { w: W, h: H, rgba };
+}
+
 async function runSonicLayoutsJourneyScenario(sessionId, app, romPath, base, savedId, prefix, uiBootstrapTimeoutMs) {
   const hash = (buffer) => createHash("sha256").update(buffer).digest("hex");
   const baseSha256 = hash(base);
@@ -12157,8 +12209,38 @@ async function runSonicLayoutsJourneyScenario(sessionId, app, romPath, base, sav
           const arte = await executeScript(sessionIdRef, `return document.querySelector("[data-testid='ss-wall-arte']")?.getAttribute("data-vinculada") ?? null;`);
           addCheck("parede.arte_vinculada_igual_ao_oraculo_plc", arte === (esperado ? "sim" : "nao"), { observado: { id: outro.id, base: base2.toString(16), ui: arte, esperado } });
         }
-        addCheck("parede.outro_mapping_sem_imagem_inventada", ptr2 !== 0x2c564 ? (sem.status === "mapping-nao-decodificado" && sem.rgba === null) : sem.status === "composta", { observado: { id: outro.id, ptr: ptr2.toString(16), status: sem.status, canvas: sem.rgba !== null } });
+        addCheck("parede.outro_mapping_sem_imagem_inventada", ptr2 === 0x2c564 ? sem.status === "composta" : (sem.rgba === null ? sem.status !== "composta" : sem.status === "composta" && ["0x1b90c:0x22f0", "0x1b90c:0x251", "0x1b90c:0x2f0", "0x1b90c:0x4f0", "0x1b920:0x470", "0x1b940:0x263", "0x1b950:0x263"].includes(`0x${ptr2.toString(16)}:0x${(parseInt(rec2.slice(8, 12), 16)).toString(16)}`)), { observado: { id: outro.id, ptr: ptr2.toString(16), status: sem.status, canvas: sem.rgba !== null } });
       }
+    }
+    {
+      // Mappings dos IDs 37..78: frame CONFIRMADO compõe e é igual ao oráculo JS; não confirmado nunca desenha.
+      const CONF = new Set(["0x1b90c:0x22f0", "0x1b90c:0x251", "0x1b90c:0x2f0", "0x1b90c:0x4f0", "0x1b920:0x470", "0x1b940:0x263", "0x1b950:0x263"]);
+      const chave = (id) => { const r = mapIndexRecord(id); return { ptr: parseInt(r.slice(2, 8), 16), campo: parseInt(r.slice(8, 12), 16) }; };
+      const kstr = (id) => { const k = chave(id); return `0x${k.ptr.toString(16)}:0x${k.campo.toString(16)}`; };
+      const pick = (pred) => { for (let layout = 0; layout < 6; layout += 1) for (let off = 0; off < 4096; off += 1) { const id = oracle[layout].bytes[off]; if (id >= 37 && id <= 78 && pred(id)) return { layout, off, id }; } return null; };
+      const conf = pick((id) => CONF.has(kstr(id)));
+      const nconf = pick((id) => !CONF.has(kstr(id)) && chave(id).ptr !== 0x2c564 && (chave(id).campo & 0x7ff) !== 0x7b2);
+      const go = async (alvo, nome) => {
+        if (Number((await readLayouts()).layout) !== alvo.layout) {
+          await clickButtonByTestIdNativeWhenReady(sessionIdRef, `layouts-tab-${alvo.layout}`, `layout para ${nome}`);
+          await waitFor(async () => { const r = await readLayouts(); return r?.layout === alvo.layout && r.gridState === "pronto"; }, 15000, "troca de layout", 100);
+        }
+        const row = Math.floor(alvo.off / 64), col = alvo.off % 64;
+        await nativeClickSelector(`[data-testid='layouts-grid'] [data-row='${row}'][data-col='${col}']`, nome);
+        await waitCell(row, col, nome);
+        return waitFor(async () => { const w = await readWall(); return w.status && String(w.blockId) === String(alvo.id) && w.label !== undefined ? w : false; }, 20000, `${nome}: estado não apareceu`, 150);
+      };
+      if (!conf || !nconf) fail("layouts sem ID confirmado/não confirmado para a jornada de mappings");
+      await go(conf, "ID de frame confirmado");
+      const wc = await waitFor(async () => { const w = await readWall(); return w.status === "composta" && String(w.blockId) === String(conf.id) && w.rgba && w.rgba.some((v) => v !== 0) ? w : false; }, 20000, "canvas do frame confirmado não foi desenhado", 150);
+      const k = chave(conf.id);
+      const exp = ssFrameOracle(base, k.ptr, k.campo, 0);
+      addCheck("mapping.confirmado_canvas_igual_ao_oraculo_js", wc.status === "composta" && exp !== null && wc.w === exp.w && wc.h === exp.h && wc.rgba.length === exp.rgba.length && wc.rgba.every((v, i) => v === exp.rgba[i]), { observado: { id: conf.id, chave: kstr(conf.id), status: wc.status, w: wc.w, h: wc.h } });
+      const nivel = await executeScript(sessionIdRef, `return document.querySelector("[data-testid='ss-wall-nivel']")?.textContent ?? "";`);
+      addCheck("mapping.confirmado_mostra_nivel_de_confirmacao", nivel.includes("confirmado por pixel") && nivel.includes("2 capturas"), { observado: nivel });
+      const wn = await go(nconf, "ID sem confirmação");
+      addCheck("mapping.nao_confirmado_nao_desenha", wn.status !== "composta" && wn.rgba === null, { observado: { id: nconf.id, chave: kstr(nconf.id), status: wn.status, canvas: wn.rgba !== null } });
+      report.steps.push({ step: "5d", name: "mappings_confirmados_e_nao_confirmados", confirmado: conf.id, nao_confirmado: nconf.id, screenshot: await captureScreenshot(sessionIdRef, `${prefix}-layouts-mapping.png`) });
     }
     report.steps.push({ step: "5c", name: "composicao_validada" });
 

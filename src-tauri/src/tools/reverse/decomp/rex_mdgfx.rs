@@ -112,6 +112,71 @@ pub fn parse_frame(
     Ok(out)
 }
 
+impl Piece {
+    /// Nome de tile de 16 bits como o VDP o somaria ao `art_tile` do objeto:
+    /// `campo + nome` (módulo 2^16), re-decomposto. É o que o jogo faz ao montar sprites.
+    pub fn with_base(&self, campo: u16) -> Piece {
+        let raw = (u16::from(self.priority) << 15)
+            | (u16::from(self.palette) << 13)
+            | (u16::from(self.yflip) << 12)
+            | (u16::from(self.xflip) << 11)
+            | self.tile;
+        let n = campo.wrapping_add(raw);
+        Piece {
+            tile: n & 0x7FF,
+            priority: n & 0x8000 != 0,
+            palette: ((n >> 13) & 3) as u8,
+            xflip: n & 0x0800 != 0,
+            yflip: n & 0x1000 != 0,
+            ..*self
+        }
+    }
+}
+
+/// Deslocamentos dos frames de uma tabela de ponteiros relativos, por regra
+/// CONSERVADORA: palavra k válida se `2*(k+1) <= v < 0x100` e `2*k <` menor
+/// ponteiro visto. Para ao primeiro dado que não parece ponteiro; nunca lê
+/// além de `MAX_FRAMES_TABLE`. A regra é heurística: o chamador só a usa para
+/// frames CONFIRMADOS por outra evidência.
+pub const MAX_FRAMES_TABLE: usize = 32;
+
+pub fn frame_offsets(rom: &[u8], table_off: usize) -> Vec<usize> {
+    let mut out = Vec::new();
+    let mut min = usize::MAX;
+    for k in 0..MAX_FRAMES_TABLE {
+        if 2 * k >= min {
+            break;
+        }
+        let Some(w) = table_off.checked_add(2 * k).and_then(|a| rom.get(a..a + 2)) else {
+            break;
+        };
+        let v = usize::from(u16::from_be_bytes([w[0], w[1]]));
+        if v < 2 * (k + 1) || v >= 0x100 {
+            break;
+        }
+        min = min.min(v);
+        out.push(v);
+    }
+    out
+}
+
+/// Peças do frame no deslocamento `off` (absoluto). `Ok(vec![])` = frame
+/// legitimamente vazio (contagem 0), distinto de erro.
+pub fn parse_frame_at(rom: &[u8], off: usize) -> Result<Vec<Piece>, GfxError> {
+    let n = usize::from(*rom.get(off).ok_or(GfxError::OutOfRange)?);
+    if n > MAX_PIECES {
+        return Err(GfxError::BadPieceCount);
+    }
+    let mut out = Vec::with_capacity(n);
+    for k in 0..n {
+        let a = off + 1 + k * PIECE_BYTES;
+        out.push(parse_piece(
+            rom.get(a..a + PIECE_BYTES).ok_or(GfxError::OutOfRange)?,
+        )?);
+    }
+    Ok(out)
+}
+
 /// Cue de uma lista de carga de arte (PLC): stream comprimido → destino VRAM.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PlcCue {
@@ -346,6 +411,35 @@ mod tests {
             }
         }
         v
+    }
+
+    #[test]
+    fn frame_offsets_regra_conservadora_e_frame_vazio() {
+        // 3 ponteiros (6,12,18) seguidos de dado que não é ponteiro (0x01F4)
+        let rom = [0, 6, 0, 12, 0, 18, 1, 0xF4, 0x0A, 0, 0, 0xF4];
+        assert_eq!(frame_offsets(&rom, 0), vec![6, 12, 18]);
+        // ponteiro ímpar é válido (dados de mapping têm alinhamento de byte)
+        assert_eq!(frame_offsets(&[0, 5, 0, 9, 0, 0], 0), vec![5, 9]);
+        assert_eq!(frame_offsets(&[], 0), Vec::<usize>::new());
+        assert_eq!(parse_frame_at(&[0], 0), Ok(vec![]));
+        assert_eq!(parse_frame_at(&[1, 0, 0], 0), Err(GfxError::OutOfRange));
+        assert_eq!(parse_frame_at(&[0xFF], 0), Err(GfxError::BadPieceCount));
+    }
+
+    #[test]
+    fn with_base_soma_modulo_e_redecompoe() {
+        let p = parse_piece(&[0, 0x0A, 0x00, 0x09, 0]).unwrap(); // nome 0x0009
+        let q = p.with_base(0x2F0 | 0x2000);
+        assert_eq!(q.tile, 0x2F9);
+        assert_eq!(q.palette, 1);
+        // vai-e-volta no módulo 2^16: base 0xFFFF + nome 1 = 0
+        let r = parse_piece(&[0, 0x00, 0x00, 0x01, 0])
+            .unwrap()
+            .with_base(0xFFFF);
+        assert_eq!(
+            (r.tile, r.palette, r.xflip, r.yflip, r.priority),
+            (0, 0, false, false, false)
+        );
     }
 
     #[test]

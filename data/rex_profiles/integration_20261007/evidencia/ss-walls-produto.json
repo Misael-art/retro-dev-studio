@@ -1,11 +1,12 @@
 {
  "schema": "rex-ss-walls-product-parity/v1",
- "binario_sha256": "b0dc8463520a3b394842c5506f5c9e58b9734a9403b04f692de7b600e9a6b4f1",
+ "binario_sha256": "ee69da45507b136da44d4062df495a414d1bf491020ea8368aaa8625832c1dbd",
  "jornada_allpass": true,
- "checks": 82,
+ "checks": 85,
  "paridade_rust_x_python_independente": "compare_rust_composition.py: 16/16 frames PASS (ID 0x01, linha 0), incluindo reservados 9 e 15",
  "byor_rust": "cargo test --lib byor_composicao_real: 36 IDs x 16 frames compostos; pins arte/mapping/paleta conferem; ID de outro mapping sem imagem",
  "core_frame": "data/rex_profiles/integration_20261007/evidencia/ss-walls-core-frame.json",
  "limites": "paleta estatica; frame de rotacao escolhido pelo usuario; sem observacao do jogo alem dos frames do core; so flip 0; IDs 37..78 sem composicao",
- "vinculo_de_arte": "BYOR Rust: IDs 37..78 ligam a um cue do PLC_SpecialStage (0x1D992, 17 cues, todos decodificam) com posicao 0, exceto 58,66,67,68,69 (base 0x7b2, fora do PLC: origem nao comprovada); desktop exercita so o caso 'nao' (ID 58); o caso 'sim' e unitario + BYOR"
+ "vinculo_de_arte": "BYOR Rust: IDs 37..78 ligam a um cue do PLC_SpecialStage (0x1D992, 17 cues, todos decodificam) com posicao 0, exceto 58,66,67,68,69 (base 0x7b2, fora do PLC: origem nao comprovada); desktop exercita so o caso 'nao' (ID 58); o caso 'sim' e unitario + BYOR",
+ "mappings_37_78": "13 pares (ptr,campo,frame) confirmados por 2 capturas do core; produto Rust = referencia Python independente (compare_rust_other.py PASS 13/13); desktop: canvas confirmado = oraculo JS, nao confirmado nao desenha; 23 pares so da exploracao ficam hipotese"
 }

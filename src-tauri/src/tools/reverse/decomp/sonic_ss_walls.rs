@@ -36,6 +36,28 @@ pub const PAL_SHA256: &str = "2f9072d8714ac735dba537f2cbb00aeac349b411fc86d1ef76
 pub const PAL_ROTULO: &str = "candidata estática (Pal_SpecialStage, carregada em 0x469A)";
 pub const PLC_OFFSET: usize = 0x1D992; // PLC_SpecialStage (B: ocorrencia unica, 17 cues)
 pub const PLC_CUES: usize = 17;
+/// Pares (ponteiro do mapping, campo do registro, frame) CONFIRMADOS por pixel contra frames
+/// do core em 2 capturas de entrada independentes (docs/.../EXPECTATIONS-SS-MAPPINGS-2026-10-07.md,
+/// evidência ss-mappings-confirmacao.json). Só estes geram imagem; o resto mostra a estrutura lida.
+pub const CONFIRMADOS: [(usize, u16, usize); 13] = [
+    (0x1B90C, 0x22F0, 0),
+    (0x1B90C, 0x0251, 0),
+    (0x1B90C, 0x0251, 1),
+    (0x1B90C, 0x02F0, 0),
+    (0x1B90C, 0x04F0, 0),
+    (0x1B920, 0x0470, 0),
+    (0x1B920, 0x0470, 1),
+    (0x1B920, 0x0470, 2),
+    (0x1B920, 0x0470, 3),
+    (0x1B940, 0x0263, 0),
+    (0x1B940, 0x0263, 1),
+    (0x1B950, 0x0263, 0),
+    (0x1B950, 0x0263, 1),
+];
+pub const NIVEL_PAREDES: &str =
+    "confirmado por frame do core (16/16 frames, evidência ss-walls-core-frame.json)";
+pub const NIVEL_CONFIRMADO: &str =
+    "confirmado por pixel contra frames do core genesis_plus_gx em 2 capturas de entrada independentes";
 pub const JANELA_ART: usize = 8192;
 pub const MAX_TOKENS: u64 = 40_000;
 
@@ -142,6 +164,15 @@ pub struct SsWallsComposicao {
     pub arte_vinculada: Option<ArteVinculada>,
     #[serde(default)]
     pub arte_explicacao: String,
+    /// Frames que a tabela do registro oferece (regra conservadora) e quais têm confirmação por pixel.
+    #[serde(default)]
+    pub frames_total: usize,
+    #[serde(default)]
+    pub frames_confirmados: Vec<usize>,
+    #[serde(default)]
+    pub nivel_confirmacao: String,
+    #[serde(default)]
+    pub pecas: usize,
 }
 
 #[derive(Debug)]
@@ -263,7 +294,7 @@ fn desconhecidos() -> Vec<String> {
     vec![
         "O frame de rotação mostrado (0..15) é estado de execução: aqui você escolhe um; o jogo não foi observado escolhendo.".to_string(),
         "A paleta é uma candidata estática. O jogo troca cores por ciclo/fade; a composição não diz que o jogo mostrou essas cores.".to_string(),
-        "Só os IDs 1–36 (mesmo mapping) têm composição; os demais IDs usam outros mappings ainda não decodificados.".to_string(),
+        "Os IDs 1–36 (paredes) têm 16 frames confirmados. Para os IDs 37–78 só os frames CONFIRMADOS por pixel contra o core geram imagem; os outros mostram a estrutura lida ou o motivo da recusa.".to_string(),
         "Nenhum trecho do jogo foi executado nesta leitura; a comparação com um frame de um core é evidência separada.".to_string(),
         "Espelhamento de objeto (flip) e prioridade de sprite não foram provados para estes blocos; a composição não os aplica.".to_string(),
     ]
@@ -275,7 +306,7 @@ fn vinculo_de_arte(
     rom: &[u8],
     tile_base: usize,
     cancel: &dyn Fn() -> bool,
-) -> Result<Option<ArteVinculada>, String> {
+) -> Result<Option<(ArteVinculada, Vec<u8>)>, String> {
     let cues = gfx::parse_plc(rom, PLC_OFFSET).map_err(|g| err("ss_plc", g.code()))?;
     if cues.len() != PLC_CUES {
         return Err(err(
@@ -308,7 +339,7 @@ fn vinculo_de_arte(
         })?;
         let ini_tile = cue.first_tile();
         if tile_base >= ini_tile && tile_base < ini_tile + d.stats.tiles {
-            return Ok(Some(ArteVinculada {
+            return Ok(Some((ArteVinculada {
                 cue_indice: i,
                 stream_offset_hex: format!("{:#x}", cue.stream_offset),
                 vram_hex: format!("{:#x}", cue.vram),
@@ -317,7 +348,7 @@ fn vinculo_de_arte(
                 bytes_lidos: d.stats.bytes_lidos,
                 posicao_na_arte: tile_base - ini_tile,
                 nivel: "vínculo estrutural estático (destino VRAM do cue = base de tile do registro); arte decodificada agora".to_string(),
-            }));
+            }, d.bytes)));
         }
     }
     Ok(None)
@@ -422,7 +453,176 @@ fn vazia(
         aviso_frame: String::new(),
         arte_vinculada: None,
         arte_explicacao: String::new(),
+        frames_total: 0,
+        frames_confirmados: vec![],
+        nivel_confirmacao: String::new(),
+        pecas: 0,
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn compor_outro(
+    sessao_id: &str,
+    rom_sha: &str,
+    rom: &[u8],
+    id: u8,
+    ptr: usize,
+    campo: u16,
+    frame: usize,
+    cancel: &dyn Fn() -> bool,
+) -> Result<SsWallsComposicao, String> {
+    let base_tile = usize::from(campo & 0x7FF);
+    let achado = vinculo_de_arte(rom, base_tile, cancel)?;
+    let (vinc, art) = match achado {
+        Some((a, b)) => (Some(a), Some(b)),
+        None => (None, None),
+    };
+    let offs = gfx::frame_offsets(rom, ptr);
+    let confirmados: Vec<usize> = (0..offs.len())
+        .filter(|f| CONFIRMADOS.contains(&(ptr, campo, *f)))
+        .collect();
+    let mut v = vazia(
+        sessao_id,
+        rom_sha,
+        id,
+        "mapping-nao-decodificado",
+        format!("O registro do ID {id:#04x} aponta para o mapping {ptr:#x}, cuja tabela de frames não pôde ser lida; nenhuma imagem foi inventada."),
+    );
+    v.linha_paleta = Some(((campo >> 13) & 3) as u8);
+    v.arte_explicacao = explica_arte(&vinc, base_tile);
+    v.frames_total = offs.len();
+    v.frames_confirmados = confirmados.clone();
+    v.arte_vinculada = vinc.clone();
+    if offs.is_empty() {
+        return Ok(v);
+    }
+    if frame >= offs.len() {
+        return Err(err(
+            "ss_frame_invalido",
+            format!(
+                "frame {frame} inexistente; a tabela {ptr:#x} oferece {} (0..={})",
+                offs.len(),
+                offs.len() - 1
+            ),
+        ));
+    }
+    v.frame = Some(frame);
+    let fo = ptr + offs[frame];
+    let pecas = gfx::parse_frame_at(rom, fo).map_err(|g| err("ss_mapping", g.code()))?;
+    v.pecas = pecas.len();
+    if pecas.is_empty() {
+        v.status = "frame-vazio".to_string();
+        v.explicacao = format!("O frame {frame} do mapping {ptr:#x} tem 0 peças: é um frame vazio, não há imagem a mostrar.");
+        return Ok(v);
+    }
+    let (Some(av), Some(art)) = (vinc, art) else {
+        v.status = "arte-sem-cue".to_string();
+        v.explicacao = format!("O frame {frame} tem {} peça(s), mas a arte da base de tile {base_tile:#x} não foi comprovada; nenhuma imagem foi inventada.", pecas.len());
+        return Ok(v);
+    };
+    // Tile efetivo = campo + nome; relativo à arte do cue.
+    let mut rel = Vec::with_capacity(pecas.len());
+    let mut fora = false;
+    for p in &pecas {
+        let e = p.with_base(campo);
+        match usize::from(e.tile).checked_sub(av.tile_inicial) {
+            Some(r) if r + e.tile_count() <= av.tiles => rel.push(gfx::Piece {
+                tile: r as u16,
+                ..e
+            }),
+            _ => {
+                fora = true;
+                break;
+            }
+        }
+    }
+    if fora {
+        v.status = "tile-fora-da-arte".to_string();
+        v.explicacao = format!("O frame {frame} referencia tiles além da arte do cue {} ({} tiles); recusado, nada foi preenchido.", av.cue_indice, av.tiles);
+        return Ok(v);
+    }
+    if !CONFIRMADOS.contains(&(ptr, campo, frame)) {
+        v.status = "estrutura-sem-confirmacao".to_string();
+        v.explicacao = format!("O frame {frame} foi lido ({} peça(s)) e cabe na arte do cue {}, mas NÃO foi confirmado contra pixels de um core; nenhuma imagem é mostrada.", pecas.len(), av.cue_indice);
+        return Ok(v);
+    }
+    let img = gfx::compose(&rel, &art, 0, None, false, false)
+        .map_err(|g| err("ss_composicao", g.code()))?;
+    let pal = palette_estatica(rom)?;
+    v.pixels_hex = img.pixels.iter().map(|b| format!("{b:02x}")).collect();
+    v.rgba_hex = gfx::to_rgba(&img, &pal)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    v.largura = img.w;
+    v.altura = img.h;
+    v.x0 = img.x0;
+    v.y0 = img.y0;
+    v.tiles_usados = img.tiles_usados;
+    v.tiles_vazios = img.tiles_vazios;
+    v.status = "composta".to_string();
+    v.explicacao = format!("Frame {frame} do mapping {ptr:#x} composto da arte do cue {} decodificada agora; cores = paleta estática rotulada.", av.cue_indice);
+    v.nivel_confirmacao = NIVEL_CONFIRMADO.to_string();
+    v.integridade =
+        "arte, mapping e paleta lidos agora; confirmação por pixel é evidência externa registrada"
+            .to_string();
+    v.aviso_frame = "O frame é uma escolha sua; o jogo não foi observado escolhendo.".to_string();
+    v.cadeia = vec![
+        Elo {
+            ordem: 1,
+            de: format!("ID {id:#04x}"),
+            para: format!(
+                "registro SS_MapIndex {:#x}",
+                cons::MAPINDEX_ADDR + (usize::from(id) - 1) * cons::MAPINDEX_ENTRADA_BYTES
+            ),
+            origem: format!("{:#x} + (ID-1)*6", cons::MAPINDEX_ADDR),
+            nivel: "vínculo estrutural estático".into(),
+        },
+        Elo {
+            ordem: 2,
+            de: format!("registro ({campo:#06x})"),
+            para: format!("mapping {ptr:#x}"),
+            origem: "ponteiro de 24 bits do registro".into(),
+            nivel: "vínculo estrutural estático".into(),
+        },
+        Elo {
+            ordem: 3,
+            de: format!("mapping, frame {frame}"),
+            para: format!("{} peça(s)", pecas.len()),
+            origem: format!(
+                "tabela de ponteiros relativos em {ptr:#x} (regra conservadora de contagem)"
+            ),
+            nivel: NIVEL_CONFIRMADO.into(),
+        },
+        Elo {
+            ordem: 4,
+            de: "peças (nome = campo + nome da peça)".into(),
+            para: format!(
+                "arte do cue {} ({} tiles, stream {})",
+                av.cue_indice, av.tiles, av.stream_offset_hex
+            ),
+            origem: format!(
+                "PLC_SpecialStage {PLC_OFFSET:#x}: destino VRAM {} = base de tile",
+                av.vram_hex
+            ),
+            nivel: "vínculo estrutural estático; arte decodificada agora".into(),
+        },
+        Elo {
+            ordem: 5,
+            de: "linha de paleta (campo + nome)".into(),
+            para: PAL_ROTULO.into(),
+            origem: format!("PalLoad #{PALLOAD_ID} → {PAL_PTR:#x}"),
+            nivel: "candidata estática; estado do jogo NÃO provado".into(),
+        },
+    ];
+    Ok(v)
+}
+
+fn palette_estatica(rom: &[u8]) -> Result<[u16; 64], String> {
+    let pb = rom
+        .get(PAL_PTR..PAL_PTR + 128)
+        .ok_or_else(|| err("ss_fora_da_rom", "paleta fora da ROM"))?;
+    gfx::palette_words(pb).map_err(|g| err("ss_paleta", g.code()))
 }
 
 pub fn compor(
@@ -436,15 +636,6 @@ pub fn compor(
 ) -> Result<SsWallsComposicao, String> {
     let rom_sha = identidade(rom, Some(esperado))?;
     cons::describe(base, rom).map(|_| ())?;
-    if frame >= MAP_FRAMES {
-        return Err(err(
-            "ss_frame_invalido",
-            format!(
-                "frame {frame} inexistente; há {MAP_FRAMES} (0..={})",
-                MAP_FRAMES - 1
-            ),
-        ));
-    }
     if id == 0 {
         return Ok(vazia(
             sessao_id,
@@ -468,19 +659,16 @@ pub fn compor(
     }
     let (addr, ptr, campo) = registro(rom, id);
     if ptr != MAP_TABLE {
-        let base_tile = usize::from(campo & 0x7FF);
-        let vinc = vinculo_de_arte(rom, base_tile, cancel)?;
-        let mut v = vazia(
-            sessao_id,
-            &rom_sha,
-            id,
-            "mapping-nao-decodificado",
-            format!("O registro do ID {id:#04x} aponta para o mapping {ptr:#x}, que este perfil ainda não decodifica; nenhuma imagem foi inventada."),
-        );
-        v.linha_paleta = Some(((campo >> 13) & 3) as u8);
-        v.arte_explicacao = explica_arte(&vinc, base_tile);
-        v.arte_vinculada = vinc;
-        return Ok(v);
+        return compor_outro(sessao_id, &rom_sha, rom, id, ptr, campo, frame, cancel);
+    }
+    if frame >= MAP_FRAMES {
+        return Err(err(
+            "ss_frame_invalido",
+            format!(
+                "frame {frame} inexistente; há {MAP_FRAMES} (0..={})",
+                MAP_FRAMES - 1
+            ),
+        ));
     }
     if campo & 0x7FF != ART_TILE_BASE {
         return Err(err(
@@ -496,7 +684,7 @@ pub fn compor(
         .map_err(|g| err("ss_composicao", g.code()))?;
     let rgba = gfx::to_rgba(&img, &ch.pal);
     let map_sha = tabela_confere(rom)?;
-    let vinc = vinculo_de_arte(rom, usize::from(ART_TILE_BASE), cancel)?;
+    let vinc = vinculo_de_arte(rom, usize::from(ART_TILE_BASE), cancel)?.map(|(a, _)| a);
     if vinc.as_ref().map(|a| (a.cue_indice, a.posicao_na_arte)) != Some((2, 0)) {
         return Err(err(
             "ss_plc",
@@ -573,6 +761,10 @@ pub fn compor(
         aviso_frame: "O frame de rotação é estado de execução, escolhido por você; o jogo não foi observado.".to_string(),
         arte_explicacao: explica_arte(&vinc, usize::from(ART_TILE_BASE)),
         arte_vinculada: vinc,
+        frames_total: MAP_FRAMES,
+        frames_confirmados: (0..MAP_FRAMES).collect(),
+        nivel_confirmacao: NIVEL_PAREDES.to_string(),
+        pecas: pecas.len(),
     })
 }
 
@@ -640,17 +832,36 @@ mod tests {
             }
             std::fs::write(dump, linhas.join("\n")).unwrap();
         }
-        // ID de outro mapping: sem imagem inventada
-        let o = compor(&rom, &rom, "t", &sha, 38, 0, &|| false).unwrap();
-        assert_eq!(o.status, "mapping-nao-decodificado");
-        assert!(o.pixels_hex.is_empty());
-        // arte vinculada por cue (tile-base exato do PLC) para os demais IDs 37..78
+        // IDs 37..78: imagem SÓ para frames confirmados; o resto, estrutura/recusa sem pixels.
+        let mut linhas2 = Vec::new();
         let mut sem_cue = Vec::new();
+        let mut com_imagem = 0usize;
         for id in 37..=78u8 {
-            let c = compor(&rom, &rom, "t", &sha, id, 0, &|| false).unwrap();
-            match &c.arte_vinculada {
+            let c0 = compor(&rom, &rom, "t", &sha, id, 0, &|| false).unwrap();
+            match &c0.arte_vinculada {
                 Some(a) => assert_eq!(a.posicao_na_arte, 0, "id {id}"),
                 None => sem_cue.push(id),
+            }
+            let (_, ptr, campo) = registro(&rom, id);
+            for f in 0..c0.frames_total {
+                let c = compor(&rom, &rom, "t", &sha, id, f, &|| false).unwrap();
+                let conf = CONFIRMADOS.contains(&(ptr, campo, f));
+                assert_eq!(
+                    c.status == "composta",
+                    conf,
+                    "id {id} frame {f} status {}",
+                    c.status
+                );
+                assert_eq!(!c.pixels_hex.is_empty(), conf, "id {id} frame {f}");
+                if conf {
+                    com_imagem += 1;
+                    linhas2.push(format!(
+                        "{ptr} {campo} {f} {} {} {}",
+                        c.largura, c.altura, c.pixels_hex
+                    ));
+                } else {
+                    assert!(c.rgba_hex.is_empty() && c.nivel_confirmacao.is_empty());
+                }
             }
         }
         assert_eq!(
@@ -658,6 +869,16 @@ mod tests {
             vec![58, 66, 67, 68, 69],
             "IDs cuja base de tile (0x7b2) não está no PLC"
         );
+        // 13 pares confirmados; IDs que compartilham (ptr,campo) repetem o par
+        assert!(com_imagem >= CONFIRMADOS.len());
+        if let Ok(dump) = std::env::var("REX_SS_DUMP2") {
+            linhas2.sort();
+            linhas2.dedup();
+            std::fs::write(dump, linhas2.join("\n")).unwrap();
+        }
+        let o = compor(&rom, &rom, "t", &sha, 38, 0, &|| false).unwrap();
+        assert_ne!(o.status, "composta");
+        assert!(o.pixels_hex.is_empty());
         // frame inexistente e ROM trocada
         assert!(compor(&rom, &rom, "t", &sha, 1, 16, &|| false).is_err());
         assert!(compor(&rom, &rom, "t", &"0".repeat(64), 1, 0, &|| false).is_err());

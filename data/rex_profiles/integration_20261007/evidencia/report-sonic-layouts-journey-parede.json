@@ -1,8 +1,8 @@
 {
   "schema": "rex-sonic-layouts-journey/v1",
-  "artifact_prefix": "inspection-2026-10-07T11-02-52-580Z",
+  "artifact_prefix": "inspection-2026-10-07T12-03-25-119Z",
   "expectations": "docs/rex_profiles/integration_20261006/EXPECTATIONS-LAYOUTS-2026-10-06.md (L9–L11)",
-  "binary_sha256": "b0dc8463520a3b394842c5506f5c9e58b9734a9403b04f692de7b600e9a6b4f1",
+  "binary_sha256": "ee69da45507b136da44d4062df495a414d1bf491020ea8368aaa8625832c1dbd",
   "base_rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
   "attribution": "Cliques e teclas na grade/abas/zoom/salvar/reabrir são WebDriver NATIVOS na janela real. Chamadas invoke aparecem rotuladas como sonda técnica. O oráculo é independente do produto (decoder JS + leitura direta dos bytes). Nenhum resultado aqui observa o jogo em execução.",
   "oracle_summary": [
@@ -49,12 +49,12 @@
       "referencia_historica_confere": true
     }
   ],
-  "pilot_dir": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T11-02-52-580Z-layouts-journey",
+  "pilot_dir": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T12-03-25-119Z-layouts-journey",
   "steps": [
     {
       "step": 1,
       "name": "painel_aberto_pelo_caminho_nativo",
-      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T11-02-52-580Z-layouts-painel.png"
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T12-03-25-119Z-layouts-painel.png"
     },
     {
       "step": 2,
@@ -77,7 +77,14 @@
       "name": "celula_para_recurso_parede",
       "id": 2,
       "linha": 0,
-      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T11-02-52-580Z-layouts-parede.png"
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T12-03-25-119Z-layouts-parede.png"
+    },
+    {
+      "step": "5d",
+      "name": "mappings_confirmados_e_nao_confirmados",
+      "confirmado": 42,
+      "nao_confirmado": 37,
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T12-03-25-119Z-layouts-mapping.png"
     },
     {
       "step": "5c",
@@ -98,7 +105,7 @@
     {
       "step": 9,
       "name": "tela_final",
-      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T11-02-52-580Z-layouts-reaberto.png"
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T12-03-25-119Z-layouts-reaberto.png"
     }
   ],
   "checks": [
@@ -118,8 +125,8 @@
       "observado": {
         "ui": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
         "arquivo": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
-        "sessao": "inspection-1791370974-00000000",
-        "esperado": "inspection-1791370974-00000000"
+        "sessao": "inspection-1791374607-00000000",
+        "esperado": "inspection-1791374607-00000000"
       }
     },
     {
@@ -745,7 +752,33 @@
       "observado": {
         "id": 58,
         "ptr": "9f92",
-        "status": "mapping-nao-decodificado",
+        "status": "arte-sem-cue",
+        "canvas": false
+      }
+    },
+    {
+      "name": "mapping.confirmado_canvas_igual_ao_oraculo_js",
+      "pass": true,
+      "observado": {
+        "id": 42,
+        "chave": "0x1b950:0x263",
+        "status": "composta",
+        "w": 24,
+        "h": 24
+      }
+    },
+    {
+      "name": "mapping.confirmado_mostra_nivel_de_confirmacao",
+      "pass": true,
+      "observado": "Confirmação: confirmado por pixel contra frames do core genesis_plus_gx em 2 capturas de entrada independentes"
+    },
+    {
+      "name": "mapping.nao_confirmado_nao_desenha",
+      "pass": true,
+      "observado": {
+        "id": 37,
+        "chave": "0xeb00:0x23b",
+        "status": "estrutura-sem-confirmacao",
         "canvas": false
       }
     },
@@ -807,7 +840,7 @@
       "pass": true,
       "observado": {
         "sha": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
-        "sessao": "inspection-1791370974-00000000",
+        "sessao": "inspection-1791374607-00000000",
         "layout": 4,
         "zoom": "5",
         "row": "21",
@@ -964,5 +997,5 @@
   ],
   "runtime_effect": "nenhum: leitura estatica do arquivo; o jogo nao foi executado e nada aqui prova que ele consumiu o recurso em execucao",
   "allPass": true,
-  "finished_at": "2026-10-07T11:03:11.130Z"
+  "finished_at": "2026-10-07T12:03:43.516Z"
 }

@@ -87,22 +87,30 @@ export function SonicSsWallPanel({ sessionId, romSha256, blockId }: Props) {
               {view.arte_vinculada && <span className="text-[#7f849c]"> · {view.arte_vinculada.nivel}</span>}
             </div>
           )}
+          {(view.frames_total ?? 0) > 0 || composed ? (
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-[#bac2de]">
+              <label htmlFor="ss-wall-frame">Frame do mapping</label>
+              <input
+                id="ss-wall-frame"
+                data-testid="ss-wall-frame"
+                type="number"
+                min={0}
+                max={Math.max(0, (view.frames_total ?? 16) - 1)}
+                value={frame}
+                onChange={(e) => setFrame(Math.min(Math.max(0, (view.frames_total ?? 16) - 1), Math.max(0, Math.trunc(Number(e.target.value) || 0))))}
+                className="w-14 rounded border border-[#313244] bg-transparent px-1"
+              />
+              <span data-testid="ss-wall-frames-info" className="text-[#7f849c]">
+                {view.frames_total ?? 16} frame(s) na tabela · confirmados por pixel: {(view.frames_confirmados ?? []).join(", ") || "nenhum"}
+              </span>
+            </div>
+          ) : null}
+          {view.aviso_frame && composed && <div className="text-[9px] text-[#7f849c]">{view.aviso_frame}</div>}
+          {view.nivel_confirmacao && composed && (
+            <div data-testid="ss-wall-nivel" className="text-[9px] text-[#a6e3a1]">Confirmação: {view.nivel_confirmacao}</div>
+          )}
           {composed && (
             <>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-[#bac2de]">
-                <label htmlFor="ss-wall-frame">Frame do mapping</label>
-                <input
-                  id="ss-wall-frame"
-                  data-testid="ss-wall-frame"
-                  type="number"
-                  min={0}
-                  max={15}
-                  value={frame}
-                  onChange={(e) => setFrame(Math.min(15, Math.max(0, Math.trunc(Number(e.target.value) || 0))))}
-                  className="w-14 rounded border border-[#313244] bg-transparent px-1"
-                />
-                <span className="text-[#7f849c]">{view.aviso_frame}</span>
-              </div>
               <canvas
                 ref={canvas}
                 data-testid="ss-wall-canvas"

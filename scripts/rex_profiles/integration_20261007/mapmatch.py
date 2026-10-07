@@ -1,7 +1,10 @@
 import sys, json, numpy as np
 from nem import nem_decode
 rom=open("sonic_local.bin",'rb').read()
-z=np.load("cap2.npz"); F=z['frames'][:310]; P=z['pals'][:310]
+import os
+z=np.load(sys.argv[1] if len(sys.argv)>1 else "cap2.npz"); NSS=int(os.environ.get("NSS","310")); F=z['frames'][:NSS]; P=z['pals'][:NSS]
+MUT=os.environ.get("MUT","")
+OUT=sys.argv[2] if len(sys.argv)>2 else "mapmatch.json"
 R=lambda n:(n*4+(n>>2)); G=lambda n:(n*8+(n>>1))
 def conv(w): return (R((w>>1)&7)<<11)|(G((w>>5)&7)<<5)|R((w>>9)&7)
 # PLC
@@ -40,9 +43,9 @@ def compose(ps,campo,asrc):
         for v in range(ph):
             for u in range(pw):
                 su=pw-1-u if xf else u; sv=ph-1-v if yf else v
-                tt=ti+(su//8)*p['h']+(sv//8)-s
+                tt=(ti+(sv//8)*p['w']+(su//8)-s) if MUT=='transpose' else (ti+(su//8)*p['h']+(sv//8)-s)
                 if tt<0 or tt>=t: return None
-                c=tile_px(d,tt)[sv%8,su%8]
+                c=tile_px(d,tt)[sv%8,(7-su%8) if MUT=='invert' else su%8]
                 if c: img[p['y']-y0+v,p['x']-x0+u]=(line<<4)|c
     return img
 def find(frame,img,pal,counts):
@@ -87,5 +90,5 @@ for (ptr,campo),ids in groups.items():
                 h=find(F[i],t,pal,counts)
                 if h: hits+=len(h); ex=ex or (fl,i,h[0])
         res.append(dict(ptr=hex(ptr),campo=hex(campo),ids=ids,frame=k,estado="casou" if hits else "sem-acerto-nos-frames",hits=hits,exemplo=ex,pecas=len(ps),tam=list(base_img.shape)))
-json.dump(res,open("mapmatch.json","w"),indent=1)
+json.dump(res,open(OUT,"w"),indent=1)
 for r in res: print(r['ptr'],r['campo'],r['ids'][:3],'f',r['frame'],r['estado'],r['hits'],r.get('exemplo'))

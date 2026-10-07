@@ -1061,7 +1061,15 @@ export interface SsWallsComposition {
   rom_sha256: string;
   id: number;
   id_hex: string;
-  status: "composta" | "id-zero" | "fora-da-tabela" | "mapping-nao-decodificado";
+  status:
+    | "composta"
+    | "id-zero"
+    | "fora-da-tabela"
+    | "mapping-nao-decodificado"
+    | "estrutura-sem-confirmacao"
+    | "frame-vazio"
+    | "tile-fora-da-arte"
+    | "arte-sem-cue";
   explicacao: string;
   frame: number | null;
   linha_paleta: number | null;
@@ -1079,6 +1087,10 @@ export interface SsWallsComposition {
   aviso_frame: string;
   arte_vinculada?: SsWallsArt | null;
   arte_explicacao?: string;
+  frames_total?: number;
+  frames_confirmados?: number[];
+  nivel_confirmacao?: string;
+  pecas?: number;
 }
 
 export function inspectionSonicSsWallCompose(

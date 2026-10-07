@@ -130,6 +130,29 @@ describe("SonicSsWallPanel", () => {
     expect(container.querySelector("[data-testid='ss-wall-canvas']")).toBeNull();
   });
 
+  it("frame sem confirmação: mostra estrutura e o seletor, nenhuma imagem; confirmado mostra o nível", async () => {
+    mocks.inspectionSonicSsWallCompose.mockResolvedValue(
+      composed(39, 2, {
+        status: "estrutura-sem-confirmacao", explicacao: "foi lido (1 peça) mas NÃO foi confirmado", frame: 2, largura: 0, altura: 0, pixels_hex: "", rgba_hex: "",
+        frames_total: 3, frames_confirmados: [0, 1], nivel_confirmacao: "", pecas: 1,
+      })
+    );
+    act(() => root.render(<SonicSsWallPanel sessionId="s1" romSha256={SHA} blockId={39} />));
+    await flush();
+    expect(container.querySelector("[data-testid='ss-wall-canvas']")).toBeNull();
+    const input = container.querySelector("[data-testid='ss-wall-frame']") as HTMLInputElement;
+    expect(input.max).toBe("2");
+    expect(container.querySelector("[data-testid='ss-wall-frames-info']")?.textContent).toContain("confirmados por pixel: 0, 1");
+    expect(container.querySelector("[data-testid='ss-wall-nivel']")).toBeNull();
+    mocks.inspectionSonicSsWallCompose.mockResolvedValue(
+      composed(41, 0, { frames_total: 2, frames_confirmados: [0, 1], nivel_confirmacao: "confirmado por pixel contra frames do core" })
+    );
+    act(() => root.render(<SonicSsWallPanel sessionId="s1" romSha256={SHA} blockId={41} />));
+    await flush();
+    expect(container.querySelector("[data-testid='ss-wall-nivel']")?.textContent).toContain("confirmado por pixel");
+    expect(container.querySelector("[data-testid='ss-wall-canvas']")).not.toBeNull();
+  });
+
   it("mostra erro estruturado sem derrubar e limita o frame a 0..15", async () => {
     mocks.inspectionSonicSsWallCompose.mockRejectedValue({ code: "ss_decode", message: "arte 0x2c5e4: truncated" });
     act(() => root.render(<SonicSsWallPanel sessionId="s1" romSha256={SHA} blockId={1} />));
