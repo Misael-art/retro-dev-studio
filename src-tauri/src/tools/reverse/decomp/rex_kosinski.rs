@@ -161,7 +161,7 @@ pub fn kosinski_encode_optimal(
             for len in 2..=l {
                 let cost = if dist <= 256 && len <= 5 {
                     12
-                } else if len <= 9 && len >= 3 {
+                } else if (3..=9).contains(&len) {
                     18
                 } else if len >= 3 {
                     26

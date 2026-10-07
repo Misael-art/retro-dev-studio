@@ -2034,7 +2034,7 @@ pub struct SorFontInfo {
 }
 
 fn sor_error(e: super::rex_codecs::CodecError) -> String {
-    error(&e.code, e.detail, false)
+    error(e.code, e.detail, false)
 }
 
 /// Letras A..Z = tiles 1..26 (medido: 19 letras observadas em 6 ROMs com
@@ -2066,7 +2066,10 @@ pub fn sor_glyphs() -> Vec<SorGlyph> {
 }
 
 /// (base, cópia atual) da sessão, revalidando identidade, escopo e decode.
-fn sor_session_roms(session: &InspectionSession) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>), String> {
+/// (base, cópia atual, plain vigente da cópia).
+type SorRoms = (Vec<u8>, Vec<u8>, Vec<u8>);
+
+fn sor_session_roms(session: &InspectionSession) -> Result<SorRoms, String> {
     use super::rex_kosinski_resource as res;
     use super::streets_of_rage as sor;
     let (identity, base) = rex_read_rom(Path::new(&session.rom_path))?;

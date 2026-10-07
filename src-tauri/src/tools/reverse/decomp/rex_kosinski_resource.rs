@@ -83,7 +83,7 @@ fn sha(bytes: &[u8]) -> String {
     super::rom_library::sha256_hex(bytes)
 }
 
-fn slot_bytes<'a>(rom: &'a [u8], offset: usize, len: usize) -> Result<&'a [u8], CodecError> {
+fn slot_bytes(rom: &[u8], offset: usize, len: usize) -> Result<&[u8], CodecError> {
     offset
         .checked_add(len)
         .and_then(|end| rom.get(offset..end))
