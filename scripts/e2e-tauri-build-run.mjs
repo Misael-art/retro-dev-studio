@@ -10138,7 +10138,23 @@ async function clickButtonByTestIdNativeWhenReady(sessionId, testId, label = tes
     `Controle nativo não ficou disponível: ${label}`,
     100
   );
-  return clickButtonByTestIdNative(sessionId, testId, label);
+  try {
+    return await clickButtonByTestIdNative(sessionId, testId, label);
+  } catch (error) {
+    // Corrida conhecida: o controle ficou desabilitado (ex.: auto-refresh) entre a checagem e o clique.
+    // Uma unica repeticao depois de esperar o controle ficar pronto de novo.
+    if (!String(error instanceof Error ? error.message : error).includes("bloqueado")) throw error;
+    await waitFor(
+      async () => {
+        const diagnostic = await inspectNativeButtonTarget(sessionId, testId);
+        return diagnostic?.exists && diagnostic.visible && !diagnostic.disabled && diagnostic.unobstructed ? diagnostic : false;
+      },
+      timeoutMs,
+      `Controle nativo não voltou a ficar disponível: ${label}`,
+      100
+    );
+    return clickButtonByTestIdNative(sessionId, testId, label);
+  }
 }
 
 async function selectInspectionFrameNative(sessionId, frameId) {
@@ -11953,7 +11969,13 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
   // Rolar até o controle antes do clique nativo: a rolagem do painel é aceitável; controle inacessível não é.
   const click = async (testId, label = testId) => {
     await q(`const el = document.querySelector("[data-testid='" + arguments[0] + "']"); if (el instanceof HTMLElement) el.scrollIntoView({ block: "center", inline: "center" });`, [testId]);
-    return clickButtonByTestIdNativeWhenReady(sid, testId, label);
+    try {
+      return await clickButtonByTestIdNativeWhenReady(sid, testId, label);
+    } catch (error) {
+      const diag = await inspectNativeButtonTarget(sid, testId).catch((e) => ({ erro: String(e) }));
+      const shot = await captureScreenshot(sid, `${prefix}-sor-falha-${testId}.png`).catch(() => null);
+      fail(`${error instanceof Error ? error.message : String(error)} :: diagnostico=${JSON.stringify(diag).slice(0, 700)} :: screenshot=${shot}`);
+    }
   };
   // Hit-test: o controle esta dentro da janela e o ponto central pertence a ele (nada sobrepoe).
   const hitTest = (testId, scroll) => q(`
@@ -12123,6 +12145,13 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
   await click(`select-saved-session-${savedId}`, "selecionar sessao salva");
   await click("inspection-reopen", "reabrir sessao");
   const re = await waitFor(async () => { const r = await readPanel(); return r.panel && r.copyActive === "true" && r.sessionId === savedId ? r : false; }, 60000, "Apos reabrir, a cópia nao foi restaurada", 250);
+  // Janela nova => layout padrao: o usuario amplia de novo (o modo ampliado nao e persistido).
+  await click("inspection-expand-toggle", "ampliar painel apos reabrir");
+  await waitFor(async () => (await hitTest("sor-glyph-A", true)).hit === true, 15000, "Letra A nao ficou acessivel apos ampliar", 250);
+  for (const id of ["sor-apply", "sor-export-patch", "sor-run-copy"]) {
+    const h = await hitTest(id, false);
+    addCheck(`reabertura.barra_fixa_visivel.${id}`, h.found && h.inside && h.hit, { observado: h, janela: report.window });
+  }
   // Retomada de contexto: a letra/zoom/cor da sessao anterior voltam sem o usuario refazer a escolha.
   const ctxBack = await q(`return { glyphA: document.querySelector("[data-testid='sor-glyph-A']")?.getAttribute("aria-pressed"), zoom: document.querySelector("[data-testid='sor-zoom-5']")?.getAttribute("aria-pressed"), index: document.querySelector("[data-testid='sor-index-1']")?.getAttribute("aria-pressed") };`);
   addCheck("reabertura.contexto_de_trabalho_retomado", ctxBack.glyphA === "true" && ctxBack.zoom === "true" && ctxBack.index === "true", { observado: ctxBack });

@@ -361,15 +361,16 @@ export default function SorFontPanel({ session, onEdited, logMessage, disabled }
       </details>
     </div>
 
-    <div data-testid="sor-action-bar" className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 border-t border-[#313244] bg-[#0b0f19]/95 px-3 py-2 backdrop-blur">
-      <button type="button" data-testid="sor-apply" disabled={disabled || busy || !queue.length} onClick={() => void apply()} className="rounded bg-[#f9e2af] px-3 py-1 font-semibold text-[#11111b] disabled:opacity-50">{busy ? "Trabalhando…" : `Aplicar à cópia${queue.length ? ` (${queue.length} px)` : ""}`}</button>
-      <button type="button" data-testid="sor-clear-queue" disabled={disabled || busy || !queue.length} onClick={() => setQueue([])} className="rounded border border-[#45475a] px-2 py-1 disabled:opacity-50">Limpar fila</button>
-      <span className="mx-1 h-4 w-px bg-[#313244]" aria-hidden="true" />
-      <button type="button" data-testid="sor-export-patch" disabled={!canExport} title={session.edit ? (patchPath.trim() ? "Grava o BPS base → cópia" : "Informe o caminho do patch acima") : "Aplique uma edição antes"} onClick={() => void exportPatch()} className="rounded border border-[#f9e2af]/60 px-2 py-1 text-[#f9e2af] disabled:opacity-50">Exportar patch BPS</button>
-      <button type="button" data-testid="sor-apply-patch" disabled={busy || !patchPath.trim() || !appliedPath.trim()} onClick={() => void applyPatch()} className="rounded border border-[#f9e2af]/60 px-2 py-1 text-[#f9e2af] disabled:opacity-50">Aplicar patch à base</button>
-      <span className="mx-1 h-4 w-px bg-[#313244]" aria-hidden="true" />
-      <button type="button" data-testid="sor-run-base" disabled={busy} onClick={() => void observe("base")} className="rounded border border-[#89b4fa]/60 px-2 py-1 text-[#89b4fa] disabled:opacity-50">Executar Original ({OBSERVE_FRAMES} quadros, sem input)</button>
-      <button type="button" data-testid="sor-run-copy" disabled={busy || !session.edit} onClick={() => void observe("copy")} className="rounded border border-[#a6e3a1]/60 px-2 py-1 text-[#a6e3a1] disabled:opacity-50">Executar Cópia ({OBSERVE_FRAMES} quadros, sem input)</button>
+    <div data-testid="sor-action-bar" role="toolbar" aria-label="Ações principais" className="sticky bottom-0 z-10 flex flex-nowrap items-center gap-2 overflow-x-auto whitespace-nowrap border-t border-[#313244] bg-[#0b0f19]/95 px-3 py-1.5 backdrop-blur">
+      <button type="button" data-testid="sor-apply" disabled={disabled || busy || !queue.length} onClick={() => void apply()} className="shrink-0 rounded bg-[#f9e2af] px-3 py-1 font-semibold text-[#11111b] disabled:opacity-50">{busy ? "Trabalhando…" : `Aplicar à cópia${queue.length ? ` (${queue.length} px)` : ""}`}</button>
+      <button type="button" data-testid="sor-clear-queue" disabled={disabled || busy || !queue.length} onClick={() => setQueue([])} className="shrink-0 rounded border border-[#45475a] px-2 py-1 disabled:opacity-50">Limpar fila</button>
+      <span className="h-4 w-px shrink-0 bg-[#313244]" aria-hidden="true" />
+      <button type="button" data-testid="sor-export-patch" disabled={!canExport} title={session.edit ? (patchPath.trim() ? "Grava o BPS base → cópia" : "Informe o caminho do patch em 'Arquivos do patch'") : "Aplique uma edição antes"} onClick={() => void exportPatch()} className="shrink-0 rounded border border-[#f9e2af]/60 px-2 py-1 text-[#f9e2af] disabled:opacity-50">Exportar BPS</button>
+      <button type="button" data-testid="sor-apply-patch" disabled={busy || !patchPath.trim() || !appliedPath.trim()} title="Aplica o patch BPS exportado à base e salva a ROM modificada" onClick={() => void applyPatch()} className="shrink-0 rounded border border-[#f9e2af]/60 px-2 py-1 text-[#f9e2af] disabled:opacity-50">Aplicar BPS à base</button>
+      <span className="h-4 w-px shrink-0 bg-[#313244]" aria-hidden="true" />
+      <button type="button" data-testid="sor-run-base" disabled={busy} title={`Executa a ROM original ${OBSERVE_FRAMES} quadros, sem input`} onClick={() => void observe("base")} className="shrink-0 rounded border border-[#89b4fa]/60 px-2 py-1 text-[#89b4fa] disabled:opacity-50">Executar Original</button>
+      <button type="button" data-testid="sor-run-copy" disabled={busy || !session.edit} title={`Executa a cópia ${OBSERVE_FRAMES} quadros, sem input`} onClick={() => void observe("copy")} className="shrink-0 rounded border border-[#a6e3a1]/60 px-2 py-1 text-[#a6e3a1] disabled:opacity-50">Executar Cópia</button>
+      <span className="shrink-0 text-[#7f849c]">{OBSERVE_FRAMES} quadros, sem input</span>
     </div>
   </section>;
 }
