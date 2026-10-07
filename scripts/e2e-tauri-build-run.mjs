@@ -11985,7 +11985,8 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
     const r = el.getBoundingClientRect();
     const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
     const hit = document.elementFromPoint(x, y);
-    return { found: true, inside: r.top >= 0 && r.left >= 0 && r.bottom <= window.innerHeight && r.right <= window.innerWidth, hit: hit === el || el.contains(hit), w: Math.round(r.width), h: Math.round(r.height), vw: window.innerWidth, vh: window.innerHeight };`, [testId, scroll]);
+    let cover = null; if (hit && hit !== el && !el.contains(hit)) { let n = hit; while (n && !n.getAttribute?.("data-testid")) n = n.parentElement; const bar = el.closest("[data-testid='sor-action-bar']"); const br = bar?.getBoundingClientRect(); cover = { disabled: el.disabled === true, bar: bar ? { l: Math.round(br.left), r: Math.round(br.right), t: Math.round(br.top), b: Math.round(br.bottom), sl: bar.scrollLeft, sw: bar.scrollWidth, cw: bar.clientWidth } : null, tag: hit.tagName, testId: n?.getAttribute?.("data-testid") ?? null, cls: String(hit.className).slice(0, 90) }; }
+    return { found: true, inside: r.top >= 0 && r.left >= 0 && r.bottom <= window.innerHeight && r.right <= window.innerWidth, hit: hit === el || el.contains(hit) || (el.disabled === true && Boolean(hit) && hit.contains(el)), cover, rect: { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom) }, w: Math.round(r.width), h: Math.round(r.height), vw: window.innerWidth, vh: window.innerHeight };`, [testId, scroll]);
   const readPanel = () => q(`
     const p = document.querySelector("[data-testid='sor-font-panel']");
     const px = (r, c) => { const e = document.querySelector("[data-testid='sor-pixel-" + r + "-" + c + "']"); return e ? Number(e.getAttribute("data-value")) : null; };
