@@ -2951,6 +2951,10 @@ mod tests {
     #[test]
     #[ignore = "BYOR Sonic pinado + core Libretro real; RDS_SONIC_MULTIFRAME_ROM e RDS_DECOMP_WORK obrigatórios"]
     fn sonic_sequence_byor_core_first_wait_frame_becomes_art_03() {
+        // O core Genesis Plus GX (C) usa globais e longjmp do 68k: duas instâncias em threads
+        // concorrentes abortam com "longjmp causes uninitialized stack frame" (reprodução mínima em
+        // scripts/rex_profiles/integration_20261007/core_concurrency_repro.py).
+        let _core_serial = crate::emulator::libretro_ffi::test_serial_guard();
         use super::super::{sonic_cadence as cadence, sonic_sequence as seq};
         use crate::emulator::libretro_ffi::{EmulatorCore, JoypadState};
         let path = std::env::var("RDS_SONIC_MULTIFRAME_ROM").expect("BYOR obrigatório");
@@ -3063,6 +3067,10 @@ mod tests {
     #[test]
     #[ignore = "BYOR Sonic pinado + core real; 2 corridas longas; requer RDS_SONIC_MULTIFRAME_ROM e RDS_DECOMP_WORK"]
     fn sonic_sequence_runtime_oracle_proves_route_and_terminator() {
+        // O core Genesis Plus GX (C) usa globais e longjmp do 68k: duas instâncias em threads
+        // concorrentes abortam com "longjmp causes uninitialized stack frame" (reprodução mínima em
+        // scripts/rex_profiles/integration_20261007/core_concurrency_repro.py).
+        let _core_serial = crate::emulator::libretro_ffi::test_serial_guard();
         use super::super::{sonic_cadence as cadence, sonic_sequence as seq};
         use crate::core::rom_mastering::sha256_hex;
         use crate::emulator::libretro_ffi::{EmulatorCore, JoypadState};
@@ -4105,6 +4113,10 @@ mod tests {
     #[test]
     #[ignore = "BYOR Sonic pinado + core Libretro real; requer RDS_SONIC_MULTIFRAME_ROM e RDS_DECOMP_WORK"]
     fn sonic_cadence_byor_probe_discovers_player_timer_on_real_core() {
+        // O core Genesis Plus GX (C) usa globais e longjmp do 68k: duas instâncias em threads
+        // concorrentes abortam com "longjmp causes uninitialized stack frame" (reprodução mínima em
+        // scripts/rex_profiles/integration_20261007/core_concurrency_repro.py).
+        let _core_serial = crate::emulator::libretro_ffi::test_serial_guard();
         use super::super::{sonic_cadence as cadence, sprite_composition as comp};
         use crate::core::rom_mastering::sha256_hex;
         use crate::emulator::frame_buffer::framebuffer_to_rgba;
@@ -4313,6 +4325,10 @@ mod tests {
     #[test]
     #[ignore = "BYOR Sonic pinado + core real; 6 corridas de ~3300 frames; requer RDS_SONIC_MULTIFRAME_ROM e RDS_DECOMP_WORK"]
     fn sonic_cadence_runtime_oracle_measures_effective_durations_on_real_core() {
+        // O core Genesis Plus GX (C) usa globais e longjmp do 68k: duas instâncias em threads
+        // concorrentes abortam com "longjmp causes uninitialized stack frame" (reprodução mínima em
+        // scripts/rex_profiles/integration_20261007/core_concurrency_repro.py).
+        let _core_serial = crate::emulator::libretro_ffi::test_serial_guard();
         use super::super::{sonic_cadence as cadence, sprite_composition as comp};
         use crate::core::rom_mastering::sha256_hex;
         use crate::emulator::libretro_ffi::{EmulatorCore, JoypadState};

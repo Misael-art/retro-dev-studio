@@ -11976,7 +11976,8 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
   const applied = await waitFor(async () => { const r = await readPanel(); return r.copyActive === "true" && r.status.includes("Aplicado à cópia") ? r : false; }, 60000, "Edicao nao foi aplicada pela UI", 250);
   addCheck("ui.edicao_aplicada_com_stream_e_vizinhos", /stream \d+\/514 bytes/.test(applied.status) && applied.status.includes("vizinhos preservados: 4"), { observado: applied.status });
   addCheck("ui.linha7_do_tile_A_na_copia_vale_1", applied.row7.every((v) => v === 1), { observado: applied.row7 });
-  addCheck("ui.previa_da_copia_tem_mais_pixels_que_a_do_original", (applied.previewCopy?.lit ?? 0) > (applied.previewOriginal?.lit ?? 0), { observado: { copia: applied.previewCopy, original: applied.previewOriginal } });
+  const previewed = await waitFor(async () => { const r = await readPanel(); return (r.previewCopy?.lit ?? 0) > (r.previewOriginal?.lit ?? 0) ? r : false; }, 15000, "A previa da copia nao ganhou os pixels da edicao", 250).catch(async () => readPanel());
+  addCheck("ui.previa_da_copia_tem_mais_pixels_que_a_do_original", (previewed.previewCopy?.lit ?? 0) > (previewed.previewOriginal?.lit ?? 0), { observado: { copia: previewed.previewCopy, original: previewed.previewOriginal } });
   const status1 = await probeInvoke("rex_inspection_status", { sessionId: savedId });
   const edit = status1.value?.session?.edit;
   addCheck("sessao.edicao_registrada_com_identidade", status1.ok && edit?.resource_id === "sor1_font" && edit.original_rom_sha256 === baseSha256 && edit.base_rom_sha256_after === baseSha256 && edit.art_tiles?.join() === "1" && edit.pixels_changed === 8, { observado: edit, sonda_tecnica: true });
