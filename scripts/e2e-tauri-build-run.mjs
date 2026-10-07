@@ -11999,6 +11999,9 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
     return { canvasW: c.width, cssW: parseFloat(c.style.width), scale: c.width ? parseFloat(c.style.width) / c.width : 0, cell: parseFloat(cell.style.width), rendering: getComputedStyle(c).imageRendering, grayChip: Boolean(document.querySelector("[data-testid='sor-gray-chip']")), legend: Boolean(document.querySelector("[data-testid='sor-inferred-legend']")) };`);
   addCheck("cx.previa_em_escala_inteira_e_nitida", crisp.scale === 1 && Number.isInteger(crisp.cell / 8) && /pixelated|crisp/.test(crisp.rendering), { observado: crisp });
   addCheck("cx.indicacoes_de_cinza_e_letras_inferidas_visiveis", crisp.grayChip && crisp.legend, { observado: crisp });
+  await click("sor-zoom-5", "zoom x5 (nao padrao, para provar a retomada)");
+  const z5 = await q(`const c = document.querySelector("[data-testid='sor-font-preview-copy'] canvas"); return { canvasW: c.width, cssW: parseFloat(c.style.width), cell: parseFloat(document.querySelector("[data-testid='sor-pixel-0-0']").style.width) };`);
+  addCheck("cx.zoom_5_gera_celulas_de_40px_e_previa_x5", z5.cell === 40 && z5.canvasW === 18 * 8 * 5 && z5.cssW === z5.canvasW, { observado: z5 });
 
   // PASSO 2 — escolher a letra A, índice 1 e pintar a linha 7 (8 cliques nativos), aplicar à cópia.
   await click("sor-glyph-A", "letra A");
@@ -12104,7 +12107,7 @@ async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId,
   await click("inspection-reopen", "reabrir sessao");
   const re = await waitFor(async () => { const r = await readPanel(); return r.panel && r.copyActive === "true" && r.sessionId === savedId ? r : false; }, 60000, "Apos reabrir, a cópia nao foi restaurada", 250);
   // Retomada de contexto: a letra/zoom/cor da sessao anterior voltam sem o usuario refazer a escolha.
-  const ctxBack = await q(`return { glyphA: document.querySelector("[data-testid='sor-glyph-A']")?.getAttribute("aria-pressed"), zoom: document.querySelector("[data-testid='sor-zoom-4']")?.getAttribute("aria-pressed"), index: document.querySelector("[data-testid='sor-index-1']")?.getAttribute("aria-pressed") };`);
+  const ctxBack = await q(`return { glyphA: document.querySelector("[data-testid='sor-glyph-A']")?.getAttribute("aria-pressed"), zoom: document.querySelector("[data-testid='sor-zoom-5']")?.getAttribute("aria-pressed"), index: document.querySelector("[data-testid='sor-index-1']")?.getAttribute("aria-pressed") };`);
   addCheck("reabertura.contexto_de_trabalho_retomado", ctxBack.glyphA === "true" && ctxBack.zoom === "true" && ctxBack.index === "true", { observado: ctxBack });
   await click("sor-glyph-A", "letra A (reaberta)");
   const re2 = await readPanel();
