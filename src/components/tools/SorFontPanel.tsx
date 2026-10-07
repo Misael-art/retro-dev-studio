@@ -361,7 +361,7 @@ export default function SorFontPanel({ session, onEdited, logMessage, disabled }
       </details>
     </div>
 
-    <div data-testid="sor-action-bar" role="toolbar" aria-label="Ações principais" className="sticky bottom-0 z-10 flex flex-nowrap items-center gap-2 overflow-x-auto whitespace-nowrap border-t border-[#313244] bg-[#0b0f19]/95 px-3 py-1.5 backdrop-blur">
+    <div data-testid="sor-action-bar" role="toolbar" aria-label="Ações principais" className="sticky bottom-0 z-10 flex flex-nowrap items-center gap-2 overflow-x-auto whitespace-nowrap border-t border-[#313244] bg-[#0b0f19]/95 px-3 pb-4 pt-1.5 backdrop-blur">
       <button type="button" data-testid="sor-apply" disabled={disabled || busy || !queue.length} onClick={() => void apply()} className="shrink-0 rounded bg-[#f9e2af] px-3 py-1 font-semibold text-[#11111b] disabled:opacity-50">{busy ? "Trabalhando…" : `Aplicar à cópia${queue.length ? ` (${queue.length} px)` : ""}`}</button>
       <button type="button" data-testid="sor-clear-queue" disabled={disabled || busy || !queue.length} onClick={() => setQueue([])} className="shrink-0 rounded border border-[#45475a] px-2 py-1 disabled:opacity-50">Limpar fila</button>
       <span className="h-4 w-px shrink-0 bg-[#313244]" aria-hidden="true" />
@@ -370,7 +370,6 @@ export default function SorFontPanel({ session, onEdited, logMessage, disabled }
       <span className="h-4 w-px shrink-0 bg-[#313244]" aria-hidden="true" />
       <button type="button" data-testid="sor-run-base" disabled={busy} title={`Executa a ROM original ${OBSERVE_FRAMES} quadros, sem input`} onClick={() => void observe("base")} className="shrink-0 rounded border border-[#89b4fa]/60 px-2 py-1 text-[#89b4fa] disabled:opacity-50">Executar Original</button>
       <button type="button" data-testid="sor-run-copy" disabled={busy || !session.edit} title={`Executa a cópia ${OBSERVE_FRAMES} quadros, sem input`} onClick={() => void observe("copy")} className="shrink-0 rounded border border-[#a6e3a1]/60 px-2 py-1 text-[#a6e3a1] disabled:opacity-50">Executar Cópia</button>
-      <span className="shrink-0 text-[#7f849c]">{OBSERVE_FRAMES} quadros, sem input</span>
     </div>
   </section>;
 }
