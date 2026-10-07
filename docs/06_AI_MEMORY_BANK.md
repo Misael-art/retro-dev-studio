@@ -2675,3 +2675,23 @@ s1disasm é decisão do operador). Núcleo `sonic_layouts.rs` (layouts-info/layo
 (`layouts_selection`), UI "Mapa de IDs", nomenclatura VDP corrigida (dados C00000/controle C00004). Binário `02ab2eec…` (de `ac670155`):
 `sonic-layouts-journey` 73/73, `sonic-sequencia-journey` e `sonic-consumers-inspection` allPass; BYOR Enigma 6/6 byte a byte. Detalhes e
 limites em `docs/rex_profiles/integration_20261006/ENTREGA-LAYOUTS-2026-10-06.md`. Nada observa o jogo em execução; A/C/D não integrados.
+
+### Checkpoint 2026-10-06 (fecho) — integrador: revalidação da leitura nativa dos layouts após correção do rex-enigma
+
+Ordem de 8 passos do operador (MISSÃO: fechar tecnicamente a leitura nativa dos layouts). Commits sobre `43bb42f6`:
+`9a12a741` (rex-enigma **0.2.0** recusa `value_offset != 0` com `UnsupportedParameter` — domínio comprovado é só 0;
+TDD completo; igualdade L2 com B **retificada por ADENDO datado**, o que substitui a frase "`lib.rs` = B salvo rustfmt"
+do checkpoint anterior por "original de B + rustfmt + delta funcional versionado"), `7489fdd7`
+(`PROVENIENCIA-2026-10-06.md`: mdcomp LGPL excluído sem declarar risco eliminado; s1disasm sem licença explícita —
+nenhuma licença inventada; oráculos research-only por execução), `1f1bd819` (trava src-tauri → 0.2.0) e o commit de
+fecho. Gate de segurança fechada pelo caminho canônico: npm **11.16.0 isolado** (runtime declarado) rc=0; host
+npm 12.0.2 dá `EALLOWSCRIPTS` rc=1 (causa no ADENDO; `npm audit` direto não substitui o gate). Revalidação no
+binário final `c784dc04…` (build de `1f1bd819`): gates da barra todos rc=0; BYOR Rust ignorados 17/17 serial
+(run-1 falhou por env errado meu — registrado INCONCLUSIVE; run-2 abortou por `longjmp` do encoder C aPLib sob
+paralelismo — artefato de outra frente, declarado); BYOR Enigma python **6/6** byte a byte vs oráculo com consumo
+igual aos pins; jornadas layouts **73/73**, consumers **24/24**, sequencia **42/42** allPass no mesmo binário.
+Evidência nova em `data/rex_profiles/integration_20261006/evidencia-fecho/` (SHA256SUMS); herdada do binário
+`02ab2eec…` preservada sem reatribuição. Pendências: B S1–S3 (paridade offset≠0 → 0.3.0), decisão de distribuição
+(risco residual s1disasm), revisão do pacote atual a solicitar ao principal, CI terminal só vale no SHA final
+pushado, aviso pré-existente `ast_generator.rs:3479` (#[test] duplicado, test-profile). Composição gráfica é a
+missão seguinte. Sem merge, release ou promoção.
