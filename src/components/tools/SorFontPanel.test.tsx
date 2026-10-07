@@ -91,3 +91,17 @@ it("mostra compartilhamento conhecido e letras inferidas como tracejadas", async
   expect(q("sor-glyph-B")?.className).toContain("border-dashed");
   expect(q("sor-glyph-A")?.className).not.toContain("border-dashed");
 });
+
+it("resposta de edição que chega depois de a sessão mudar é descartada", async () => {
+  await mount();
+  await click("sor-pixel-2-2");
+  let release: (e: InspectionEdit) => void = () => undefined;
+  editMock.mockReturnValue(new Promise<InspectionEdit>((r) => { release = r; }));
+  await act(async () => { q("sor-apply")!.click(); });
+  // a sessão muda enquanto a resposta antiga ainda não chegou
+  const outra = { session_id: "s2", rom_path: "/outra.gen", edit: null } as unknown as InspectionSession;
+  await act(async () => root.render(<SorFontPanel session={outra} onEdited={onEdited} logMessage={log} />));
+  await act(async () => { release(edit()); });
+  expect(onEdited).not.toHaveBeenCalled();
+  expect(q("sor-status")?.textContent).toContain("resposta antiga descartada");
+});

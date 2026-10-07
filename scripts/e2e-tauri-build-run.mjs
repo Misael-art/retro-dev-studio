@@ -482,6 +482,7 @@ function parseArgs(argv) {
           "sonic-sequencia-journey",
           "sonic-consumers-inspection",
           "sonic-layouts-journey",
+          "sor-font-journey",
           "compositing-medicao",
           "rex-lz4w-effect",
           "rex-lz4w-fixture-effect",
@@ -11898,6 +11899,185 @@ function ssFrameOracle(rom, ptr, campo, frame) {
   return { w: W, h: H, rgba };
 }
 
+// Jornada nativa do perfil Streets of Rage (fonte Kosinski). Expectativas congeladas em
+// docs/rex_profiles/integration_20261007/EXPECTATIONS-SOR-FONT-2026-10-07.md.
+// Cliques/campos = WebDriver NATIVO; `probeInvoke` = sonda técnica rotulada. O oráculo de bytes/tela é
+// o script Python independente (scripts/rex_profiles/integration_20261007/sor_font_effect.py), rodado depois
+// sobre os artefatos que esta jornada grava (cópia, BPS exportado, framebuffers observados).
+async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId, prefix, uiBootstrapTimeoutMs) {
+  const hash = (buffer) => createHash("sha256").update(buffer).digest("hex");
+  const BASE_SHA = "304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d";
+  const baseSha256 = hash(base);
+  if (base.length !== 524288 || baseSha256 !== BASE_SHA) fail(`A jornada exige a ROM BYOR pinada do Streets of Rage: ${base.length} bytes ${baseSha256}`);
+  await ensureValidationDir();
+  const pilotDir = path.join(validationDir, `${prefix}-sor-font-journey`);
+  await mkdir(pilotDir, { recursive: true });
+  const report = {
+    schema: "rex-sor-font-journey/v1",
+    artifact_prefix: prefix,
+    expectations: "docs/rex_profiles/integration_20261007/EXPECTATIONS-SOR-FONT-2026-10-07.md",
+    binary_sha256: hash(await readFile(app)),
+    base_rom_sha256: baseSha256,
+    attribution: "Cliques e campos são WebDriver NATIVOS na janela real; invoke = sonda técnica rotulada; framebuffer = observação do core pela ponte do app (input neutro, nenhuma escrita em RAM).",
+    pilot_dir: pilotDir,
+    steps: [],
+    checks: [],
+  };
+  const persist = async (extra = {}) => writeFile(path.join(pilotDir, "report.json"), JSON.stringify({ ...report, ...extra }, null, 2));
+  const addCheck = (name, pass, extra = {}) => {
+    report.checks.push({ name, pass: Boolean(pass), ...extra });
+    if (!pass) throw new Error(`${name}: ${JSON.stringify(extra)}`);
+  };
+  let sid = sessionId;
+  const probeInvoke = async (command, args) => executeAsyncScript(
+    sid,
+    `
+      const done = arguments[arguments.length - 1];
+      const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI_INTERNALS__?.invoke;
+      if (typeof invoke !== "function") { done({ ok: false, message: "invoke indisponivel na pagina" }); return; }
+      invoke(arguments[0], arguments[1] ?? {}).then((value) => done({ ok: true, value })).catch((error) => done({ ok: false, code: error?.code ?? null, message: String(error?.message ?? JSON.stringify(error)) }));
+    `,
+    [command, args]
+  );
+  const q = async (script, args = []) => executeScript(sid, script, args);
+  const click = (testId, label = testId) => clickButtonByTestIdNativeWhenReady(sid, testId, label);
+  const readPanel = () => q(`
+    const p = document.querySelector("[data-testid='sor-font-panel']");
+    const px = (r, c) => { const e = document.querySelector("[data-testid='sor-pixel-" + r + "-" + c + "']"); return e ? Number(e.getAttribute("data-value")) : null; };
+    const canvasData = (id) => { const c = document.querySelector("[data-testid='" + id + "'] canvas"); if (!c) return null; const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] > 40) n++; return { w: c.width, h: c.height, lit: n }; };
+    return {
+      panel: Boolean(p), copyActive: p?.getAttribute("data-copy-active") ?? null, profile: p?.getAttribute("data-profile") ?? null,
+      status: document.querySelector("[data-testid='sor-status']")?.textContent ?? "",
+      queue: document.querySelector("[data-testid='sor-queue']")?.textContent ?? "",
+      slot: document.querySelector("[data-testid='sor-slot']")?.textContent ?? "",
+      shared: document.querySelector("[data-testid='sor-shared']")?.textContent ?? "",
+      text: p?.textContent?.slice(0, 600) ?? "",
+      row7: Array.from({ length: 8 }, (_, c) => px(7, c)), row0: Array.from({ length: 8 }, (_, c) => px(0, c)),
+      previewOriginal: canvasData("sor-font-preview-original"), previewCopy: canvasData("sor-font-preview-copy"),
+      sessionId: document.querySelector("[data-testid='inspection-session']")?.getAttribute("data-session-id") ?? null,
+      identity: document.querySelector("[data-testid='inspection-session']")?.getAttribute("data-identity-sha256") ?? null,
+    };`);
+
+  // PASSO 1 — painel visível com o perfil; ROM aberta pela UI nativa (identificação já feita pelo prólogo).
+  const p0 = await waitFor(async () => { const r = await readPanel(); return r.panel && r.profile ? r : false; }, 30000, "Painel do perfil Streets of Rage nao apareceu", 200);
+  addCheck("ui.painel_do_perfil_visivel", p0.profile === "streets_of_rage_world_ptbr/font_kosinski/v1" && p0.identity === baseSha256, { observado: { profile: p0.profile, identity: p0.identity } });
+  addCheck("ui.copia_ainda_nao_existe", p0.copyActive === "false", { observado: p0.copyActive });
+  addCheck("ui.compartilhamento_e_slot_explicados", p0.shared.includes("3 pontos do código") && p0.slot.includes("de 514 bytes"), { observado: { shared: p0.shared.slice(0, 200), slot: p0.slot } });
+  addCheck("ui.previa_original_desenhada", (p0.previewOriginal?.lit ?? 0) > 100, { observado: p0.previewOriginal });
+  report.steps.push({ step: 1, name: "painel_visivel", screenshot: await captureScreenshot(sid, `${prefix}-sor-painel.png`) });
+
+  // PASSO 2 — escolher a letra A, índice 1 e pintar a linha 7 (8 cliques nativos), aplicar à cópia.
+  await click("sor-glyph-A", "letra A");
+  await click("sor-index-1", "indice 1");
+  for (let c = 0; c < 8; c += 1) await click(`sor-pixel-7-${c}`, `pixel linha 7 col ${c}`);
+  const queued = await readPanel();
+  addCheck("ui.fila_com_8_pixels", queued.queue.includes("8 pixel(s)"), { observado: queued.queue });
+  await click("sor-apply", "aplicar a copia");
+  const applied = await waitFor(async () => { const r = await readPanel(); return r.copyActive === "true" && r.status.includes("Aplicado à cópia") ? r : false; }, 60000, "Edicao nao foi aplicada pela UI", 250);
+  addCheck("ui.edicao_aplicada_com_stream_e_vizinhos", /stream \d+\/514 bytes/.test(applied.status) && applied.status.includes("vizinhos preservados: 4"), { observado: applied.status });
+  addCheck("ui.linha7_do_tile_A_na_copia_vale_1", applied.row7.every((v) => v === 1), { observado: applied.row7 });
+  addCheck("ui.previa_da_copia_tem_mais_pixels_que_a_do_original", (applied.previewCopy?.lit ?? 0) > (applied.previewOriginal?.lit ?? 0), { observado: { copia: applied.previewCopy, original: applied.previewOriginal } });
+  const status1 = await probeInvoke("rex_inspection_status", { sessionId: savedId });
+  const edit = status1.value?.session?.edit;
+  addCheck("sessao.edicao_registrada_com_identidade", status1.ok && edit?.resource_id === "sor1_font" && edit.original_rom_sha256 === baseSha256 && edit.base_rom_sha256_after === baseSha256 && edit.art_tiles?.join() === "1" && edit.pixels_changed === 8, { observado: edit, sonda_tecnica: true });
+  const copyBytes = await readFile(edit.modified_rom_path);
+  addCheck("sessao.copia_no_disco_confere_o_sha_registrado", hash(copyBytes) === edit.modified_rom_sha256 && copyBytes.length === base.length, { observado: { sha: hash(copyBytes) } });
+  await writeFile(path.join(pilotDir, "copy.gen"), copyBytes);
+  report.copy_sha256 = edit.modified_rom_sha256;
+  report.steps.push({ step: 2, name: "edicao_aplicada", screenshot: await captureScreenshot(sid, `${prefix}-sor-aplicado.png`) });
+
+  // PASSO 3 — mesma edição de novo = no-op explícito (sem nova cópia).
+  const dup = await probeInvoke("rex_inspection_edit_sor_font", { sessionId: savedId, pixels: Array.from({ length: 8 }, (_, c) => ({ tile: 1, row: 7, col: c, index: 1 })) });
+  addCheck("negativo.mesma_edicao_e_noop_explicito", dup.ok && dup.value.noop === true && dup.value.modified_rom_sha256 === edit.modified_rom_sha256, { observado: { ok: dup.ok, noop: dup.value?.noop }, sonda_tecnica: true });
+  const bad = async (nome, pixels, codigo) => {
+    const r = await probeInvoke("rex_inspection_edit_sor_font", { sessionId: savedId, pixels });
+    addCheck(`negativo.${nome}`, r.ok === false && String(r.message ?? r.code).includes(codigo), { observado: { ok: r.ok, code: r.code, message: String(r.message ?? "").slice(0, 160) }, esperado: codigo, sonda_tecnica: true });
+  };
+  await bad("tile_fora_do_recurso", [{ tile: 49, row: 0, col: 0, index: 1 }], "tile_out_of_resource");
+  await bad("linha_fora_do_tile", [{ tile: 1, row: 8, col: 0, index: 1 }], "");
+  await bad("indice_fora_do_dominio", [{ tile: 1, row: 0, col: 0, index: 16 }], "");
+  const noise = [];
+  for (let t = 0; t < 49; t += 1) for (let r = 0; r < 8; r += 1) for (let c = 0; c < 8; c += 1) noise.push({ tile: t, row: r, col: c, index: (t * 7 + r * 5 + c * 3 + (t ^ r ^ c)) % 16 });
+  await bad("falta_de_espaco_ruido_total", noise, "needs_space");
+  const afterNeg = await probeInvoke("rex_inspection_status", { sessionId: savedId });
+  addCheck("negativo.recusas_nao_alteraram_a_cadeia_de_copia", afterNeg.value?.session?.edit?.modified_rom_sha256 === edit.modified_rom_sha256, { observado: afterNeg.value?.session?.edit?.modified_rom_sha256, sonda_tecnica: true });
+  report.steps.push({ step: 3, name: "negativos_de_sessao" });
+
+  // PASSO 4 — exportar BPS e aplicar à base pelos botões; o arquivo aplicado tem que ser a cópia.
+  const patchPath = path.join(pilotDir, "export.bps");
+  const appliedPath = path.join(pilotDir, "applied.gen");
+  await fillInputBySelector(sid, "[data-testid='sor-patch-path'] input", patchPath);
+  await click("sor-export-patch", "exportar BPS");
+  await waitFor(async () => (await readPanel()).status.includes("Patch BPS exportado"), 30000, "Exportacao do BPS nao confirmou", 250);
+  const bpsBytes = await readFile(patchPath);
+  report.bps_sha256 = hash(bpsBytes);
+  await fillInputBySelector(sid, "[data-testid='sor-applied-path'] input", appliedPath);
+  await click("sor-apply-patch", "aplicar patch a base");
+  await waitFor(async () => (await readPanel()).status.includes("Patch aplicado à base"), 30000, "Aplicacao do BPS nao confirmou", 250);
+  const appliedBytes = await readFile(appliedPath);
+  addCheck("patch.aplicado_a_base_reproduz_a_copia_byte_a_byte", appliedBytes.equals(copyBytes), { observado: { applied: hash(appliedBytes), copy: hash(copyBytes) } });
+  addCheck("patch.base_preservada", (await readFile(romPath)).equals(base));
+  report.steps.push({ step: 4, name: "bps_exportado_e_aplicado" });
+
+  // PASSO 5 — executar Original e Cópia no core pela UI (720 quadros, sem input) e guardar os framebuffers.
+  const grab = async (which) => {
+    await click(`sor-run-${which}`, `executar ${which}`);
+    await waitFor(async () => q(`return Boolean(document.querySelector("[data-testid='sor-observation-${which}']"));`), 600000, `Observacao ${which} nao apareceu`, 500);
+    return q(`
+      const o = document.querySelector("[data-testid='sor-observation-${which}']");
+      const c = o.querySelector("canvas"); const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+      return { rom: o.getAttribute("data-rom-sha256"), fb: o.getAttribute("data-framebuffer-sha256"), frames: Number(o.getAttribute("data-frames-run")), w: c.width, h: c.height, rgba: Array.from(d) };`);
+  };
+  const obsBase = await grab("base");
+  const obsCopy = await grab("copy");
+  addCheck("execucao.identidades_carregadas", obsBase.rom === baseSha256 && obsCopy.rom === edit.modified_rom_sha256, { observado: { base: obsBase.rom, copy: obsCopy.rom } });
+  addCheck("execucao.mesmo_orcamento_de_quadros", obsBase.frames === obsCopy.frames && obsBase.frames >= 720, { observado: { base: obsBase.frames, copy: obsCopy.frames } });
+  const diff = [];
+  for (let i = 0; i < obsBase.rgba.length; i += 4) {
+    if (obsBase.rgba[i] !== obsCopy.rgba[i] || obsBase.rgba[i + 1] !== obsCopy.rgba[i + 1] || obsBase.rgba[i + 2] !== obsCopy.rgba[i + 2]) diff.push([(i / 4) % obsBase.w, Math.floor(i / 4 / obsBase.w)]);
+  }
+  report.observed = { width: obsBase.w, height: obsBase.h, frames: obsBase.frames, base_fb_sha256: obsBase.fb, copy_fb_sha256: obsCopy.fb, diff_pixels: diff };
+  addCheck("execucao.cena_difere_e_so_em_poucos_pixels", diff.length > 0 && diff.length < 400, { observado: { diff_count: diff.length } });
+  report.steps.push({ step: 5, name: "execucao_base_e_copia", screenshot: await captureScreenshot(sid, `${prefix}-sor-execucao.png`) });
+
+  // PASSO 6 — salvar, destruir a janela, reiniciar e reabrir; conferir cópia, identidade, procedência e prévia.
+  await persist();
+  await click("inspection-save", "salvar sessao");
+  await waitFor(async () => q(`return Boolean(document.querySelector('[data-testid="inspection-saved-session"][data-session-id="${savedId}"]'));`), 15000, "Sessao salva nao apareceu na lista", 100);
+  const before = await readPanel();
+  await deleteSession(sid);
+  sid = await createSession(app);
+  currentE2eRunContext.sessionId = sid;
+  await waitForAppWindowReady(sid, uiBootstrapTimeoutMs, "O app da jornada SoR nao reabriu");
+  await handleProjectWizardVisibly(sid, "sor-journey-restart");
+  await setSessionWindowRect(sid, 1920, 1080);
+  await click("workspace-rail-debug", "Debug Workspace");
+  await callAutomationApi(sid, "openToolsWorkspace", ["reverse", "debug", true]);
+  await waitForBodyText(sid, "Analisar ROM", 20000, "Reverse Workspace nao voltou");
+  await click("reverse-tab-inspection", "aba de inspecao");
+  await click("inspection-refresh-sessions", "listar sessoes");
+  await waitFor(async () => q(`return Boolean(document.querySelector('[data-testid="select-saved-session-${savedId}"]'));`), 30000, "Sessao salva nao reapareceu apos reiniciar", 100);
+  const gone = await readPanel();
+  addCheck("reabertura.janela_nova_nao_tem_painel_antes_de_reabrir", !gone.panel || gone.copyActive !== "true", { observado: gone.copyActive });
+  await click(`select-saved-session-${savedId}`, "selecionar sessao salva");
+  await click("inspection-reopen", "reabrir sessao");
+  const re = await waitFor(async () => { const r = await readPanel(); return r.panel && r.copyActive === "true" && r.sessionId === savedId ? r : false; }, 60000, "Apos reabrir, a cópia nao foi restaurada", 250);
+  await click("sor-glyph-A", "letra A (reaberta)");
+  const re2 = await readPanel();
+  addCheck("reabertura.identidade_restaurada", re2.identity === baseSha256 && re2.sessionId === savedId, { observado: { identity: re2.identity, session: re2.sessionId } });
+  addCheck("reabertura.edicao_restaurada_no_tile_A", re2.row7.every((v) => v === 1) && JSON.stringify(re2.row0) === JSON.stringify(before.row0), { observado: { row7: re2.row7, row0: re2.row0 } });
+  addCheck("reabertura.previa_da_copia_restaurada", (re2.previewCopy?.lit ?? 0) === (before.previewCopy?.lit ?? -1) && re2.previewCopy.lit > re2.previewOriginal.lit, { observado: { depois: re2.previewCopy, antes: before.previewCopy } });
+  const status2 = await probeInvoke("rex_inspection_status", { sessionId: savedId });
+  const e2 = status2.value?.session?.edit;
+  addCheck("reabertura.procedencia_restaurada", e2?.modified_rom_sha256 === edit.modified_rom_sha256 && e2.original_rom_sha256 === baseSha256 && (status2.value?.session?.applied_edits ?? []).length === 1, { observado: { copy: e2?.modified_rom_sha256, applied: status2.value?.session?.applied_edits?.length }, sonda_tecnica: true });
+  addCheck("reabertura.cadeia_final_base_intacta", (await readFile(romPath)).equals(base) && hash(await readFile(edit.modified_rom_path)) === edit.modified_rom_sha256);
+  report.steps.push({ step: 6, name: "reiniciado_e_reaberto", screenshot: await captureScreenshot(sid, `${prefix}-sor-reaberto.png`) });
+  report.all_pass = report.checks.every((c) => c.pass);
+  await persist();
+  console.log(`[sor-font-journey] ${report.checks.length} checks, all_pass=${report.all_pass}, report=${path.join(pilotDir, "report.json")}`);
+  return sid;
+}
+
 async function runSonicLayoutsJourneyScenario(sessionId, app, romPath, base, savedId, prefix, uiBootstrapTimeoutMs) {
   const hash = (buffer) => createHash("sha256").update(buffer).digest("hex");
   const baseSha256 = hash(base);
@@ -18444,6 +18624,7 @@ async function main() {
     const sonicConsumersMode = options.scenario === "sonic-consumers-inspection";
     const sonicLayoutsMode = options.scenario === "sonic-layouts-journey";
     const sonicTilesMode = options.scenario === "inspection-sonic-tiles";
+    const sorFontMode = options.scenario === "sor-font-journey";
     if (sonicMultiframeMode) options.scenario = "inspection-sonic";
     if (sonicCadenceMode) options.scenario = "inspection-sonic";
     if (sonicAnimIntegradaMode) options.scenario = "inspection-sonic";
@@ -18452,6 +18633,7 @@ async function main() {
     if (sonicConsumersMode) options.scenario = "inspection-sonic";
     if (sonicLayoutsMode) options.scenario = "inspection-sonic";
     if (sonicTilesMode) options.scenario = "inspection-sonic";
+    if (sorFontMode) options.scenario = "inspection-sonic";
     if (["inspection", "inspection-cancel", "inspection-complete", "inspection-sprite-secondary", "inspection-sonic", "inspection-preview-unavailable"].includes(options.scenario)) {
       let inspectionRom = process.env.RDS_INSPECTION_ROM ?? "";
       let inspectionFixture = null;
@@ -18497,8 +18679,11 @@ async function main() {
       const frontendEvidence = await executeScript(sessionId, `return { buildCommit: window.__RDS_BUILD_COMMIT__ ?? null, scripts: Array.from(document.scripts).map((script) => script.src || script.textContent?.slice(0, 80) || "") };`);
       console.log(`[inspection-build] binary=${JSON.stringify({ path: options.app, sha256: binarySha256 })}`);
       console.log(`[inspection-build] frontend=${JSON.stringify(frontendEvidence)} git=${JSON.stringify(gitEvidence)}`);
-      if (!gitEvidence.commit || frontendEvidence?.buildCommit !== gitEvidence.commit) {
-        fail(`Binário/frontend não correspondem ao commit corrente: ${JSON.stringify({ binary: options.app, frontend: frontendEvidence, git: gitEvidence })}`);
+      // RDS_E2E_CODE_COMMIT: commits só de documentação/prova posteriores ao build não invalidam o binário,
+      // mas o commit de código pinado tem que ser exatamente o do frontend embutido.
+      const expectedBuildCommit = process.env.RDS_E2E_CODE_COMMIT || gitEvidence.commit;
+      if (!expectedBuildCommit || frontendEvidence?.buildCommit !== expectedBuildCommit) {
+        fail(`Binário/frontend não correspondem ao commit corrente: ${JSON.stringify({ binary: options.app, frontend: frontendEvidence, git: gitEvidence, expectedBuildCommit })}`);
       }
       try {
         await setSessionWindowRect(sessionId, 1280, 800);
@@ -18597,6 +18782,11 @@ async function main() {
       );
       console.log(`[inspection-complete] terminal=${JSON.stringify(completedState)}`);
       const beforeRestartScreenshot = await captureScreenshot(sessionId, `${artifactPrefix}-before-restart.png`);
+      if (sorFontMode) {
+        sessionId = await runSorFontJourneyScenario(sessionId, options.app, inspectionRom, inspectionRomBytes, completedState.session.id, artifactPrefix, uiBootstrapTimeoutMs);
+        currentE2eRunContext.sessionId = sessionId;
+        return;
+      }
       if (options.scenario === "inspection-sonic") {
         const baseSha256 = createHash("sha256").update(inspectionRomBytes).digest("hex");
         const expectedBaseSha256 = "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb";

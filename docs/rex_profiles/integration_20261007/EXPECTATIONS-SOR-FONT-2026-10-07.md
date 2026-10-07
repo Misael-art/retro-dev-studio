@@ -72,3 +72,25 @@ jornada nativa completa com a reabertura restaurando cópia, identidade e prévi
 
 Paleta real das telas não lida (prévia em cinza); letras B,H,J,K,V,W,X,Y e dígitos não rotulados por observação; sem relocação;
 escopo de dependentes = 4 streams vizinhos medidos + diff exato fora do slot, não o jogo inteiro; ROM é tradução PtBr; uma única ROM/slot.
+
+## ADENDO 2026-10-07 (depois da 1ª execução do oráculo; nada acima foi apagado)
+
+A 1ª execução reprovou 5 checks. Cada causa, classificada:
+
+1. **Defeito do PRODUTO (pré-existente, corrigido)**: `tools/patch_studio.rs` gravava varints BPS como LEB128 simples, sem o ajuste
+   `value -= 1` da especificação (byuu). O BPS exportado só era aceito pelo próprio produto (o leitor independente recusou "tamanho da origem";
+   Flips/beat recusariam). Afeta todo BPS gerado antes desta correção (Sonic inclusive). Corrigido `encode_varint`/`decode_varint` com vetores
+   canônicos (0→`80`, 127→`FF`, 128→`00 80`, 16511→`7F FF`, 16512→`00 00 80`) e `apply_bps` passou a conferir o CRC32 do alvo.
+   BPS gerados pela versão anterior não são mais aceitos (recusa por CRC/tamanho); não há conversão.
+2. **Erro do ORÁCULO (janela de RAM)**: com input neutro o decoder do jogo roda nos quadros 305–306, não 203–204 (que valiam com Start
+   pressionado no quadro 120). O oráculo passou a registrar o hash de RAM de TODOS os quadros. O check "cópia == base nos mesmos quadros"
+   deixou de ser vacuoso (exige ≥1 quadro encontrado).
+3. **Erro do ORÁCULO (VRAM)**: estado serializado procurado em vários quadros (260…500); a fonte entra na VRAM por volta do quadro 340.
+4. **Erro do ORÁCULO (detector de células-A, 2 calibrações)**: (a) o texto ROLA verticalmente (linhas em y=146+16n só no quadro 896; no 720 estão em
+   y=190/206): o detector passou a varrer janelas 8×8 em todo y (grade x=72+8k); (b) pixels de contorno/sombra (luminância ≤183) em posições
+   transparentes do tile quebravam o casamento: o preenchimento (238) passou a ser o único critério de "brilhante" (>220). As calibrações foram
+   medidas SOMENTE em quadros da BASE; o check continua sendo igualdade exata entre o conjunto de pixels que MUDOU na cópia e o conjunto previsto
+   a partir da base. Conferência cruzada humana (transcrição do texto) no quadro 896 sem falhas.
+5. A previsão numérica do quadro 896 (13 células-A, 104 pixels) foi confirmada desde a 1ª execução (104 pixels alterados).
+
+Controles adicionais incluídos: BPS aplicado a base divergente é recusado; stream adulterado (1 byte) não produz o plain esperado no decoder.

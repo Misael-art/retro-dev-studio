@@ -157,34 +157,45 @@ pub fn apply_ips(original: &[u8], patch: &[u8]) -> Result<Vec<u8>, String> {
 
 const BPS_HEADER: &[u8] = b"BPS1";
 
+/// Varint BPS da especificação (byuu): 7 bits por byte, bit 7 marca o ÚLTIMO
+/// byte, e cada byte não final subtrai 1 do restante (`value -= 1`). Sem esse
+/// ajuste o patch só funcionaria neste produto e seria recusado por Flips/beat.
 fn encode_varint(mut value: u64, out: &mut Vec<u8>) {
     loop {
-        let mut x = (value & 0x7F) as u8;
+        let x = (value & 0x7F) as u8;
         value >>= 7;
         if value == 0 {
-            x |= 0x80;
-        }
-        out.push(x);
-        if x & 0x80 != 0 {
+            out.push(0x80 | x);
             break;
         }
+        out.push(x);
+        value -= 1;
     }
 }
 
 fn decode_varint(data: &[u8], pos: &mut usize) -> Result<u64, String> {
     let mut result = 0u64;
-    let mut shift = 0u32;
+    let mut shift = 1u64;
     loop {
         if *pos >= data.len() {
             return Err("BPS: varint truncado.".to_string());
         }
         let b = data[*pos];
         *pos += 1;
-        result |= ((b & 0x7F) as u64) << shift;
-        shift += 7;
+        result = result
+            .checked_add(
+                u64::from(b & 0x7F)
+                    .checked_mul(shift)
+                    .ok_or("BPS: varint excede 64 bits.")?,
+            )
+            .ok_or("BPS: varint excede 64 bits.")?;
         if b & 0x80 != 0 {
             break;
         }
+        shift = shift.checked_shl(7).ok_or("BPS: varint excede 64 bits.")?;
+        result = result
+            .checked_add(shift)
+            .ok_or("BPS: varint excede 64 bits.")?;
     }
     Ok(result)
 }
@@ -449,6 +460,16 @@ pub fn apply_bps(original: &[u8], patch: &[u8]) -> Result<Vec<u8>, String> {
         }
     }
 
+    let target_checksum = u32::from_le_bytes(
+        patch[patch.len() - 8..patch.len() - 4]
+            .try_into()
+            .map_err(|_| "Patch BPS corrompido: checksum do alvo ausente.".to_string())?,
+    );
+    if crc32_simple(&output) != target_checksum {
+        return Err(
+            "Patch BPS rejeitado: o resultado não confere com o checksum do alvo.".to_string(),
+        );
+    }
     Ok(output)
 }
 
@@ -648,7 +669,61 @@ pub fn apply_bps_file(rom_path: &Path, patch_path: &Path, output_path: &Path) ->
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_bps, crc32_simple, create_bps, encode_varint, BPS_HEADER};
+    #[test]
+    fn varint_bps_segue_a_especificacao_byuu() {
+        let enc = |v: u64| {
+            let mut o = Vec::new();
+            encode_varint(v, &mut o);
+            o
+        };
+        assert_eq!(enc(0), [0x80]);
+        assert_eq!(enc(127), [0xFF]);
+        assert_eq!(enc(128), [0x00, 0x80]);
+        assert_eq!(enc(129), [0x01, 0x80]);
+        assert_eq!(enc(16511), [0x7F, 0xFF]);
+        assert_eq!(enc(16512), [0x00, 0x00, 0x80]);
+        // 524288 (0x80000): tamanho de ROM de 512 KiB
+        for v in [
+            0u64,
+            1,
+            127,
+            128,
+            255,
+            16383,
+            16384,
+            524_288,
+            1 << 40,
+            u64::MAX >> 1,
+        ] {
+            let bytes = enc(v);
+            let mut pos = 0;
+            assert_eq!(decode_varint(&bytes, &mut pos).unwrap(), v, "{v}");
+            assert_eq!(pos, bytes.len());
+        }
+        let mut pos = 0;
+        assert!(
+            decode_varint(&[0x00; 20], &mut pos).is_err(),
+            "varint sem terminador"
+        );
+    }
+
+    #[test]
+    fn apply_bps_recusa_alvo_que_nao_confere_com_o_crc() {
+        let a: Vec<u8> = (0..300u32).map(|i| i as u8).collect();
+        let mut b = a.clone();
+        b[10] ^= 0xFF;
+        let mut patch = create_bps(&a, &b).unwrap();
+        assert_eq!(apply_bps(&a, &patch).unwrap(), b);
+        // troca um byte de TargetRead e refaz só o CRC do patch: o do alvo denuncia
+        let n = patch.len();
+        let pos = patch.iter().rposition(|&x| x == b[10]).unwrap();
+        patch[pos] ^= 1;
+        let crc = crc32_simple(&patch[..n - 4]).to_le_bytes();
+        patch[n - 4..].copy_from_slice(&crc);
+        assert!(apply_bps(&a, &patch).unwrap_err().contains("alvo"));
+    }
+
+    use super::{apply_bps, crc32_simple, create_bps, decode_varint, encode_varint, BPS_HEADER};
 
     fn create_bps_target_read_only(original: &[u8], modified: &[u8]) -> Vec<u8> {
         let mut patch = BPS_HEADER.to_vec();
