@@ -1,0 +1,465 @@
+{
+ "schema": "rex-pr110-evidence-manifest/v1",
+ "code_commit": "f130358bc7992620e593a4297a0b6ef4e46af6cf",
+ "manifest_generated_at_head": "f130358bc7992620e593a4297a0b6ef4e46af6cf",
+ "binary": {
+  "path": "src-tauri/target-test/release/retro-dev-studio",
+  "sha256": "24ae17876443d8fe7648b077c51cdb2c6b2961a8bd97f6b931bce976bec8c8b5",
+  "bytes": 31530816
+ },
+ "pins_externos": {
+  "rom_sor_ptbr_byor": {
+   "path": "/tmp/claude-1000/-mnt-sdcard-Projects-Sgdk-Forge/f0bfbbc1-10ff-4701-b70d-082cec63f1b8/scratchpad/sor/sor.gen",
+   "sha256": "304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d",
+   "bytes": 524288
+  },
+  "rom_sonic1_byor": {
+   "path": "/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin",
+   "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+   "bytes": 531577
+  },
+  "core_genesis_plus_gx": {
+   "path": "/home/misael/.cache/retrodevstudio/6b5d81135a1161447e4cbb49401f1137dd7d93974eee82d3153f5e87e7afd779/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+   "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+   "bytes": 12618472
+  },
+  "flips_binario": {
+   "path": "/home/misael/rds-scratch/tools/flips/x/usr/bin/flips",
+   "sha256": "3f3033ef4293931011a2e7043b83200b0818c8ff7fb15d7fa480719219509253",
+   "bytes": 108728
+  },
+  "flips_pacote_arch": {
+   "path": "/home/misael/rds-scratch/tools/flips/flips-198-3-x86_64.pkg.tar.zst",
+   "sha256": "3d488a159570f77c01d0083d6866d3c17038c699d7ff0b6a053d64a3c727758b",
+   "bytes": 52673
+  },
+  "xvfb": {
+   "path": "/home/misael/.local/opt/xvfb/usr/bin/Xvfb",
+   "sha256": "5bfd315a8c7bc626d0b183d176e130c34f910a4a1279d9d53ea45769f62a3351",
+   "bytes": 1973792
+  },
+  "npm_isolado_11_16_0_bin": {
+   "path": "/home/misael/rds-scratch/npm-11.16.0/bin/npm",
+   "sha256": "c27ac1f4f152e8eda990cf54962e52607dc43541f750e62ef7d233ea51ee2ec4",
+   "bytes": 94
+  }
+ },
+ "politica": "(AGENTS.md: nao distribuir ROM comercial; Memory Bank: \"sem pixels/ROM/corpus BYOR no Git\"):\n  storage=git        relatorios JSON (so hashes/coordenadas), scripts de prova, oraculos\n  storage=local-only capturas de tela (mostram quadros do jogo), patches BPS e copias de ROM (derivados do conteudo\n                     comercial), logs: ficam FORA do Git em --local-dir; o manifesto guarda hash, tamanho e origem\nNenhuma licenca e inventada; ROMs/corpus continuam BYOR.",
+ "artefatos": [
+  {
+   "path": "data/rex_profiles/integration_20261007/evidencia-pr110/bps-interop-flips.json",
+   "sha256": "659a0e3500aaca10c98e9e819557dd1dfc4d3a25c0103e6b693b4ad2426dd0a3",
+   "bytes": 8684,
+   "storage": "git",
+   "role": "relatorio"
+  },
+  {
+   "path": "data/rex_profiles/integration_20261007/evidencia-pr110/flips-sonic-anim-integrada.json",
+   "sha256": "f88c07d236e64af01c8e4013722513587297174520d87b29e6499b706cb6832d",
+   "bytes": 867,
+   "storage": "git",
+   "role": "relatorio"
+  },
+  {
+   "path": "data/rex_profiles/integration_20261007/evidencia-pr110/flips-sonic-sequencia.json",
+   "sha256": "bb2d22156b8804e795227bf4c9e19d9f6041105a43737e092a1c08ef6f310aee",
+   "bytes": 866,
+   "storage": "git",
+   "role": "relatorio"
+  },
+  {
+   "path": "data/rex_profiles/integration_20261007/evidencia-pr110/flips-sor-1280x800.json",
+   "sha256": "c9efb137cdd0a8dcd825f7e9997b3e68b09dc25fcd26170a5da7e40342e5f94e",
+   "bytes": 865,
+   "storage": "git",
+   "role": "relatorio"
+  },
+  {
+   "path": "data/rex_profiles/integration_20261007/evidencia-pr110/flips-sor-1920x1080.json",
+   "sha256": "269ea09e4e1c467c2ea8348132f8d39cdbb4bbd7e46df0d7185d1f94bbd56c93",
+   "bytes": 865,
+   "storage": "git",
+   "role": "relatorio"
+  },
+  {
+   "path": "data/rex_profiles/integration_20261007/evidencia-pr110/jornada-sonic-anim-integrada.json",
+   "sha256": "fc2f88a909e7468bb571b55bd3a2140fce2e8c16a4d58868fd525bcf5fd0bf45",
+   "bytes": 13189,
+   "storage": "git",
+   "role": "relatorio"
+  },
+  {
+   "path": "data/rex_profiles/integration_20261007/evidencia-pr110/jornada-sonic-sequencia.json",
+   "sha256": "8c99cb9ea06909b4feba8561b73d796f64c7b9048d867dd03b0675b33aa3dedb",
+   "bytes": 18608,
+   "storage": "git",
+   "role": "relatorio"
+  },
+  {
+   "path": "data/rex_profiles/integration_20261007/evidencia-pr110/jornada-sor-1280x800.json",
+   "sha256": "874660dc55b16511fcd92dcaf7b88e0eb44c2490373a934c63f1559ac700f625",
+   "bytes": 28423,
+   "storage": "git",
+   "role": "relatorio"
+  },
+  {
+   "path": "data/rex_profiles/integration_20261007/evidencia-pr110/jornada-sor-1920x1080.json",
+   "sha256": "d6b091343ee13d3b957236d23afa447a8c56e640e6b809bce132014a0c01939a",
+   "bytes": 28487,
+   "storage": "git",
+   "role": "relatorio"
+  },
+  {
+   "path": "data/rex_profiles/integration_20261007/evidencia-pr110/kosinski-encoder-audit.json",
+   "sha256": "b11e4e984397a46aba3c0cbc674188ff554274d626f60f3952feee865f2723a4",
+   "bytes": 9904,
+   "storage": "git",
+   "role": "relatorio"
+  },
+  {
+   "path": "data/rex_profiles/integration_20261007/evidencia-pr110/oraculo-sor-1280x800.json",
+   "sha256": "f4203c2e695075d225305df2433622173a643c2cd63710b965f526a2b0bc5d71",
+   "bytes": 4265,
+   "storage": "git",
+   "role": "relatorio"
+  },
+  {
+   "path": "data/rex_profiles/integration_20261007/evidencia-pr110/oraculo-sor-1920x1080.json",
+   "sha256": "f4203c2e695075d225305df2433622173a643c2cd63710b965f526a2b0bc5d71",
+   "bytes": 4265,
+   "storage": "git",
+   "role": "relatorio"
+  },
+  {
+   "path": "scripts/rex_profiles/integration_20261007/sor_font_effect.py",
+   "sha256": "2a80cab70100a138bae009ee9a744fd61f3b033348bbc87afe2f120eff2d4c19",
+   "bytes": 16710,
+   "storage": "git",
+   "role": "oraculo/ferramenta"
+  },
+  {
+   "path": "scripts/rex_profiles/integration_20261007/bps_interop.py",
+   "sha256": "ece9b03420e85d9513d55adf08e5baa76f3064b583ab8bd9cd7dedf3ca64fd2e",
+   "bytes": 8222,
+   "storage": "git",
+   "role": "oraculo/ferramenta"
+  },
+  {
+   "path": "scripts/rex_profiles/integration_20261007/bps_external_apply.py",
+   "sha256": "fcaa7cc3965e147b2360eb0d23e3553ded80a867ef2f3df5681b6764341b1413",
+   "bytes": 2019,
+   "storage": "git",
+   "role": "oraculo/ferramenta"
+  },
+  {
+   "path": "scripts/rex_profiles/integration_20261007/kosinski_encoder_audit.py",
+   "sha256": "56ffacd085ce09eb7dfd1ad62d265a35bcb8b7200fe6201e4e647a168160611b",
+   "bytes": 4758,
+   "storage": "git",
+   "role": "oraculo/ferramenta"
+  },
+  {
+   "path": "scripts/rex_profiles/integration_20261007/core_concurrency_repro.py",
+   "sha256": "161b884c12f49a30f9bd2e14797aa1f49af6e63f85a082a3d3116f7630e46928",
+   "bytes": 1279,
+   "storage": "git",
+   "role": "oraculo/ferramenta"
+  },
+  {
+   "path": "scripts/rex_profiles/integration_20261007/evidence_manifest.py",
+   "sha256": "997a728ea3f2210426cc432637fa7d1d8b54d3db24bad05c59cf43151259efeb",
+   "bytes": 3727,
+   "storage": "git",
+   "role": "oraculo/ferramenta"
+  },
+  {
+   "path": "scripts/rex_profiles/integration_20261007/lr.py",
+   "sha256": "7bda06f7eca534e91fc0876d95e95f136d0227672995c032c375cf461023e876",
+   "bytes": 2467,
+   "storage": "git",
+   "role": "oraculo/ferramenta"
+  },
+  {
+   "path": "scripts/e2e-tauri-build-run.mjs",
+   "sha256": "7c7398475d03bf9a16c1a90c534517f80c4042391d7db03d81c3ac5ffd630340",
+   "bytes": 1279430,
+   "storage": "git",
+   "role": "harness E2E (cenario sor-font-journey)"
+  },
+  {
+   "path": "scripts/qa/run-sonic-desktop-isolated.py",
+   "sha256": "90e7acbdbb484ef53956b8222a6a98315c4778a7c2283de0bb882f405633fe17",
+   "bytes": 4785,
+   "storage": "git",
+   "role": "harness Xvfb isolado"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-17-593Z-before-restart.png",
+   "sha256": "60aca309a26e956686dea48704ded27c3e1631abe3aeecbd4c3668dccb6116d9",
+   "bytes": 251730,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-17-593Z-sor-ampliado.png",
+   "sha256": "d94f5b74250c92e620cab5a01d9b9fcac0a9b106210460b201bf7334db2f7e82",
+   "bytes": 175173,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-17-593Z-sor-aplicado.png",
+   "sha256": "c7dc6f5e1ea2ffde8c3532c5acf48f65effc09d0d46e35089a266abb539f1f11",
+   "bytes": 191546,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-17-593Z-sor-execucao.png",
+   "sha256": "769d8bd4e56fc553c9fbfba64007d3955d091668a6201a13db36d88d456ac3b9",
+   "bytes": 162902,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-17-593Z-sor-painel.png",
+   "sha256": "44adaed8c9dea8e1699808ae188b46a17f4f9028bd0684383559a32047e5826d",
+   "bytes": 168346,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-17-593Z-sor-reaberto.png",
+   "sha256": "c2244408582d5dc4b638ae2980e59bd6dba9807de53656784120931a1c082285",
+   "bytes": 183598,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-35-058Z-before-restart.png",
+   "sha256": "957857e088df29f8144f0f526fe6e69610e5da38e0dee2adf2b8f371c4c357e9",
+   "bytes": 251875,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-35-058Z-sor-ampliado.png",
+   "sha256": "48e283e57c3d3076379d57378055354af708de1e3a41991477f9cb38da588e14",
+   "bytes": 260121,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-35-058Z-sor-aplicado.png",
+   "sha256": "656a9cfd927be5fd655c2c3c51ab0e0f561ed0284bba8bcdc1e1462dd1cf3934",
+   "bytes": 277952,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-35-058Z-sor-execucao.png",
+   "sha256": "86843fe512f355d804aa2dcc0608ae3a44dbc78167792a656a1b7db445e9d485",
+   "bytes": 252335,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-35-058Z-sor-painel.png",
+   "sha256": "0d2019e418bcdb38aa6f6fe32eed00c55f5347f2af31ef672a775a33513e59c7",
+   "bytes": 252351,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-35-058Z-sor-reaberto.png",
+   "sha256": "3b25b92ab8510ae6d24d019614f823179c11cc498acb021f2478e6877a401397",
+   "bytes": 256575,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-55-640Z-anim-integrada-passo2.png",
+   "sha256": "300408ac244304caaa3098556e2895fa6ba3949f2b6f393eb00ee0285313db02",
+   "bytes": 245837,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-55-640Z-anim-integrada-passo9.png",
+   "sha256": "470d8d4f7dc82a34c9c9500b3986cd5ce554942bc3f962bc91421d36e8c139f3",
+   "bytes": 254182,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-55-640Z-before-restart.png",
+   "sha256": "b6369990e94161971636015ebfeb83e44a7f3794634346528e3d15bb63b1d904",
+   "bytes": 250653,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-55-640Z-sonic-stand-base.png",
+   "sha256": "45b4831d3f5f77a0032d5729745fb4eaa6d57ce4fc1d30581e1b0053c94f338e",
+   "bytes": 245882,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-37-55-640Z-visual-e3-walk1-visivel-pos-reabertura-1.png",
+   "sha256": "8d66d5271bb21ba450b2be413049d3369893c2176e4c869b848ae90d12b35c82",
+   "bytes": 250273,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-39-38-612Z-before-restart.png",
+   "sha256": "3325aef4183e30063437097a77af3cb7ee84ee26bf5a5151e312bcb0063429dc",
+   "bytes": 250761,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-39-38-612Z-sequencia-journey-passo10.png",
+   "sha256": "ca8df062f2f1b970b96395e815ed907042d5827d9a77834f152c37d46ca2db79",
+   "bytes": 289171,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-39-38-612Z-sequencia-journey-passo7.png",
+   "sha256": "37dcff30496096908eda41791b786484999b5892fc8b4025e67f85f72406aa9d",
+   "bytes": 253531,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-39-38-612Z-sonic-stand-base.png",
+   "sha256": "f8324f9924e4e4d7958b361093438a0e4fab076dde38ada42161350fea2f2e8b",
+   "bytes": 245873,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/capturas/inspection-2026-10-07T18-39-38-612Z-visual-e3-stand-visivel-apos-executar-1.png",
+   "sha256": "c0addaacdb838936de5ed5f1953ceb38d3b39f71c76b4515d8c71d7df6850097",
+   "bytes": 249060,
+   "storage": "local-only",
+   "role": "captura de tela (quadros do jogo)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/patches/sonic-anim-integrada.bps",
+   "sha256": "9da59969d2f51bd0a8b96f78c949dce89a48fcf9e72efd3e0fabab97e2230731",
+   "bytes": 40,
+   "storage": "local-only",
+   "role": "patch BPS exportado pela UI (derivado de ROM comercial)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/patches/sonic-sequencia.bps",
+   "sha256": "15e263acf09a0f6ef35bc009013d8fbc3d587eef218ebcf78f9b78ec2edc122e",
+   "bytes": 38,
+   "storage": "local-only",
+   "role": "patch BPS exportado pela UI (derivado de ROM comercial)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/patches/sor-1280-export.bps",
+   "sha256": "8e65059117c00bce3ef577e299d010c288ce255f90b7a0d0dc6e17c1a4b0df6c",
+   "bytes": 496,
+   "storage": "local-only",
+   "role": "patch BPS exportado pela UI (derivado de ROM comercial)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/patches/sor-1920-export.bps",
+   "sha256": "8e65059117c00bce3ef577e299d010c288ce255f90b7a0d0dc6e17c1a4b0df6c",
+   "bytes": 496,
+   "storage": "local-only",
+   "role": "patch BPS exportado pela UI (derivado de ROM comercial)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/copias/sonic-anim-aplicada.bin",
+   "sha256": "3274e7c422c0b70ff2b67d4e11671df6650274f8400b41d0588f0e15d2a9778a",
+   "bytes": 531577,
+   "storage": "local-only",
+   "role": "copia de ROM modificada (derivado de ROM comercial)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/copias/sonic-sequencia-aplicada.bin",
+   "sha256": "dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170",
+   "bytes": 531577,
+   "storage": "local-only",
+   "role": "copia de ROM modificada (derivado de ROM comercial)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/copias/sor-copia.gen",
+   "sha256": "9faae341110bbb71cb7d2de1400c5d9405d02e87b79978e8acb68794606169a0",
+   "bytes": 524288,
+   "storage": "local-only",
+   "role": "copia de ROM modificada (derivado de ROM comercial)",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/logs/sonic-anim.journey.log",
+   "sha256": "a2b96cd35090105e8f9837120c3bda3854ec979ce733aa9f37869b2487541dfc",
+   "bytes": 38911,
+   "storage": "local-only",
+   "role": "log da jornada",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/logs/sonic-seq.journey.log",
+   "sha256": "8eaade3eaa9af5545c2b9323ba97fc09d77789beb286660b34908ded56deaf86",
+   "bytes": 46565,
+   "storage": "local-only",
+   "role": "log da jornada",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/logs/sor-1280.journey.log",
+   "sha256": "0907ddfd6268c2afadb163670ed45cc219f2890216dd7b674d3e21aa50ed2b88",
+   "bytes": 11344,
+   "storage": "local-only",
+   "role": "log da jornada",
+   "note": "fora do Git por politica; hash pinado aqui"
+  },
+  {
+   "path": "/home/misael/rds-evidence/pr110-20261007/logs/sor-1920.journey.log",
+   "sha256": "90feb767840a03f065048a259cf5797153af719c544a437c79bb445facb16e19",
+   "bytes": 11509,
+   "storage": "local-only",
+   "role": "log da jornada",
+   "note": "fora do Git por politica; hash pinado aqui"
+  }
+ ],
+ "contagem": {
+  "git": 21,
+  "local-only": 33
+ }
+}

@@ -5,7 +5,7 @@
 
 use serde::Serialize;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 // ── Resultado ────────────────────────────────────────────────────────────────
 
@@ -157,36 +157,48 @@ pub fn apply_ips(original: &[u8], patch: &[u8]) -> Result<Vec<u8>, String> {
 
 const BPS_HEADER: &[u8] = b"BPS1";
 
+/// Varint BPS da especificação (byuu): 7 bits por byte, bit 7 marca o ÚLTIMO
+/// byte, e cada byte não final subtrai 1 do restante (`value -= 1`). Sem esse
+/// ajuste o patch só funcionaria neste produto e seria recusado por Flips/beat.
 fn encode_varint(mut value: u64, out: &mut Vec<u8>) {
     loop {
-        let mut x = (value & 0x7F) as u8;
+        let x = (value & 0x7F) as u8;
         value >>= 7;
         if value == 0 {
-            x |= 0x80;
-        }
-        out.push(x);
-        if x & 0x80 != 0 {
+            out.push(0x80 | x);
             break;
         }
+        out.push(x);
+        value -= 1;
     }
 }
 
 fn decode_varint(data: &[u8], pos: &mut usize) -> Result<u64, String> {
     let mut result = 0u64;
-    let mut shift = 0u32;
-    loop {
-        if *pos >= data.len() {
+    let mut shift = 1u64;
+    // Um u64 cabe em no máximo 10 bytes de 7 bits; mais que isso é entrada malformada.
+    for _ in 0..10 {
+        let Some(&b) = data.get(*pos) else {
             return Err("BPS: varint truncado.".to_string());
-        }
-        let b = data[*pos];
+        };
         *pos += 1;
-        result |= ((b & 0x7F) as u64) << shift;
-        shift += 7;
+        let part = u64::from(b & 0x7F)
+            .checked_mul(shift)
+            .ok_or("BPS: varint excede 64 bits.")?;
+        result = result
+            .checked_add(part)
+            .ok_or("BPS: varint excede 64 bits.")?;
         if b & 0x80 != 0 {
-            break;
+            return Ok(result);
         }
+        shift = shift
+            .checked_mul(128)
+            .ok_or("BPS: varint excede 64 bits.")?;
+        result = result
+            .checked_add(shift)
+            .ok_or("BPS: varint excede 64 bits.")?;
     }
-    Ok(result)
+    Err("BPS: varint excede 64 bits.".to_string())
 }
 
 fn crc32_simple(data: &[u8]) -> u32 {
@@ -339,117 +351,263 @@ pub fn create_bps(original: &[u8], modified: &[u8]) -> Result<Vec<u8>, String> {
     Ok(patch)
 }
 
-/// Aplica um patch BPS a `original`.
-pub fn apply_bps(original: &[u8], patch: &[u8]) -> Result<Vec<u8>, String> {
-    if !patch.starts_with(BPS_HEADER) {
-        return Err("Patch inválido: header BPS1 não encontrado.".to_string());
-    }
-    if patch.len() < BPS_HEADER.len() + 12 {
-        return Err("Patch BPS corrompido: muito curto.".to_string());
-    }
+/// Teto de saída de um patch BPS (acima de qualquer ROM de MD/SNES suportada).
+/// Validado ANTES de alocar: um cabeçalho malicioso não força alocação gigante.
+pub const BPS_MAX_OUTPUT: u64 = 64 * 1024 * 1024;
 
-    // Verificar CRC32 do patch (últimos 4 bytes)
-    let patch_body = &patch[..patch.len() - 4];
-    let stored_crc = u32::from_le_bytes(patch[patch.len() - 4..].try_into().unwrap());
-    let computed_crc = crc32_simple(patch_body);
-    if stored_crc != computed_crc {
-        return Err(format!(
-            "Patch BPS corrompido: CRC32 inválido (esperado {:08X}, obtido {:08X}).",
-            stored_crc, computed_crc
-        ));
-    }
+/// Erro estruturado do aplicador BPS: o chamador decide o que mostrar; nenhum
+/// arquivo é tocado pelo aplicador em memória.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BpsError {
+    pub code: &'static str,
+    pub message: String,
+}
 
-    let mut pos = BPS_HEADER.len();
-    let source_size = decode_varint(patch, &mut pos)? as usize;
-    let target_size = decode_varint(patch, &mut pos)? as usize;
-    let metadata_size = decode_varint(patch, &mut pos)? as usize;
-    if source_size != original.len() {
-        return Err(format!(
-            "Patch BPS rejeitado: tamanho da base divergente (esperado {source_size}, observado {}).",
-            original.len()
-        ));
-    }
-    let source_checksum = u32::from_le_bytes(
-        patch[patch.len() - 12..patch.len() - 8]
-            .try_into()
-            .map_err(|_| "Patch BPS corrompido: checksum da base ausente.".to_string())?,
-    );
-    let observed_source_checksum = crc32_simple(original);
-    if source_checksum != observed_source_checksum {
-        return Err(format!(
-            "Patch BPS rejeitado: checksum da base divergente (esperado {source_checksum:08X}, observado {observed_source_checksum:08X})."
-        ));
-    }
-    if pos + metadata_size > patch.len() - 12 {
-        return Err("Patch BPS corrompido: metadados ultrapassam o corpo.".to_string());
-    }
-    pos += metadata_size; // skip metadata
-
-    let actions_end = patch.len() - 12; // 3× CRC32
-    let mut output = vec![0u8; target_size];
-    let mut out_pos = 0usize;
-    let mut src_pos = 0i64;
-    let mut out_off = 0i64;
-
-    while pos < actions_end && out_pos < target_size {
-        let data = decode_varint(patch, &mut pos)?;
-        let action = (data & 3) as u8;
-        let length = ((data >> 2) + 1) as usize;
-
-        match action {
-            0 => {
-                // SourceRead
-                let src_end = (out_pos + length).min(original.len());
-                if out_pos < src_end {
-                    output[out_pos..src_end].copy_from_slice(&original[out_pos..src_end]);
-                }
-                out_pos += length;
-            }
-            1 => {
-                // TargetRead
-                if pos + length > actions_end {
-                    return Err("BPS: TargetRead data truncada.".to_string());
-                }
-                let end = (out_pos + length).min(target_size);
-                output[out_pos..end].copy_from_slice(&patch[pos..pos + (end - out_pos)]);
-                pos += length;
-                out_pos += length;
-            }
-            2 => {
-                // SourceCopy
-                let offset_data = decode_varint(patch, &mut pos)?;
-                let sign: i64 = if offset_data & 1 != 0 { -1 } else { 1 };
-                src_pos += sign * ((offset_data >> 1) as i64);
-                for _ in 0..length {
-                    if out_pos >= target_size {
-                        break;
-                    }
-                    let s = src_pos as usize;
-                    output[out_pos] = if s < original.len() { original[s] } else { 0 };
-                    out_pos += 1;
-                    src_pos += 1;
-                }
-            }
-            3 => {
-                // TargetCopy
-                let offset_data = decode_varint(patch, &mut pos)?;
-                let sign: i64 = if offset_data & 1 != 0 { -1 } else { 1 };
-                out_off += sign * ((offset_data >> 1) as i64);
-                for _ in 0..length {
-                    if out_pos >= target_size {
-                        break;
-                    }
-                    let o = out_off as usize;
-                    output[out_pos] = if o < out_pos { output[o] } else { 0 };
-                    out_pos += 1;
-                    out_off += 1;
-                }
-            }
-            _ => unreachable!(),
+impl BpsError {
+    fn new(code: &'static str, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
         }
     }
+}
 
+impl std::fmt::Display for BpsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.code, self.message)
+    }
+}
+
+fn bps_varint(patch: &[u8], pos: &mut usize, end: usize) -> Result<u64, BpsError> {
+    // Lê só dentro do corpo (nunca os rodapés de CRC como se fossem ação).
+    let body = &patch[..end];
+    decode_varint(body, pos).map_err(|m| {
+        let code = if m.contains("excede") {
+            "bps_varint_overflow"
+        } else {
+            "bps_truncated"
+        };
+        BpsError::new(code, m)
+    })
+}
+
+fn bps_signed(data: u64) -> (bool, u64) {
+    (data & 1 != 0, data >> 1)
+}
+
+fn bps_offset(current: u64, data: u64) -> Result<u64, BpsError> {
+    let (negative, magnitude) = bps_signed(data);
+    let next = if negative {
+        current.checked_sub(magnitude)
+    } else {
+        current.checked_add(magnitude)
+    };
+    next.ok_or_else(|| BpsError::new("bps_offset_out_of_range", "offset relativo sai do domínio"))
+}
+
+/// Aplica um patch BPS (especificação byuu) a `original`, com validação estrita:
+/// tudo que o patch declara tem que caber, exatamente, em origem/saída/corpo;
+/// nada é cortado, substituído por zero nem completado silenciosamente.
+pub fn apply_bps_checked(original: &[u8], patch: &[u8]) -> Result<Vec<u8>, BpsError> {
+    if !patch.starts_with(BPS_HEADER) {
+        return Err(BpsError::new(
+            "bps_bad_header",
+            "header BPS1 não encontrado",
+        ));
+    }
+    if patch.len() < BPS_HEADER.len() + 3 + 12 {
+        return Err(BpsError::new("bps_truncated", "patch curto demais"));
+    }
+    let footer = patch.len() - 12;
+    let word = |at: usize| u32::from_le_bytes(patch[at..at + 4].try_into().unwrap());
+    let (source_crc, target_crc, patch_crc) = (word(footer), word(footer + 4), word(footer + 8));
+    if crc32_simple(&patch[..patch.len() - 4]) != patch_crc {
+        return Err(BpsError::new(
+            "bps_patch_crc",
+            format!(
+                "CRC32 do patch inválido (esperado {patch_crc:08X}, obtido {:08X})",
+                crc32_simple(&patch[..patch.len() - 4])
+            ),
+        ));
+    }
+    let mut pos = BPS_HEADER.len();
+    let source_size = bps_varint(patch, &mut pos, footer)?;
+    let target_size = bps_varint(patch, &mut pos, footer)?;
+    let metadata_size = bps_varint(patch, &mut pos, footer)?;
+    if source_size != original.len() as u64 {
+        if let Some(legacy) = legacy_bps_diagnosis(original, patch) {
+            return Err(legacy);
+        }
+        return Err(BpsError::new(
+            "bps_source_size",
+            format!(
+                "tamanho da base divergente (esperado {source_size}, observado {})",
+                original.len()
+            ),
+        ));
+    }
+    if crc32_simple(original) != source_crc {
+        return Err(BpsError::new(
+            "bps_source_crc",
+            format!(
+                "checksum da base divergente (esperado {source_crc:08X}, observado {:08X})",
+                crc32_simple(original)
+            ),
+        ));
+    }
+    if target_size > BPS_MAX_OUTPUT {
+        return Err(BpsError::new(
+            "bps_output_budget",
+            format!("saída declarada de {target_size} bytes excede o teto de {BPS_MAX_OUTPUT}"),
+        ));
+    }
+    let target_size = target_size as usize;
+    let meta_end = usize::try_from(metadata_size)
+        .ok()
+        .and_then(|m| pos.checked_add(m))
+        .filter(|&end| end <= footer)
+        .ok_or_else(|| BpsError::new("bps_metadata", "metadados ultrapassam o corpo"))?;
+    pos = meta_end;
+
+    let mut output = vec![0u8; target_size];
+    let mut out_pos = 0usize;
+    let (mut source_rel, mut target_rel) = (0u64, 0u64);
+    while out_pos < target_size {
+        if pos >= footer {
+            return Err(BpsError::new(
+                "bps_truncated",
+                format!("corpo termina com {out_pos} de {target_size} bytes produzidos"),
+            ));
+        }
+        let data = bps_varint(patch, &mut pos, footer)?;
+        let length = usize::try_from(data >> 2)
+            .ok()
+            .and_then(|l| l.checked_add(1))
+            .ok_or_else(|| BpsError::new("bps_length", "comprimento de ação inválido"))?;
+        let end = out_pos
+            .checked_add(length)
+            .filter(|&e| e <= target_size)
+            .ok_or_else(|| {
+                BpsError::new(
+                    "bps_action_outside_output",
+                    format!(
+                        "ação de {length} bytes em {out_pos} ultrapassa a saída de {target_size}"
+                    ),
+                )
+            })?;
+        match data & 3 {
+            0 => {
+                let src = original.get(out_pos..end).ok_or_else(|| {
+                    BpsError::new("bps_source_range", "SourceRead fora da origem")
+                })?;
+                output[out_pos..end].copy_from_slice(src);
+            }
+            1 => {
+                let data_end = pos
+                    .checked_add(length)
+                    .filter(|&e| e <= footer)
+                    .ok_or_else(|| {
+                        BpsError::new("bps_truncated", "TargetRead excede o corpo do patch")
+                    })?;
+                output[out_pos..end].copy_from_slice(&patch[pos..data_end]);
+                pos = data_end;
+            }
+            2 => {
+                let offset = bps_varint(patch, &mut pos, footer)?;
+                source_rel = bps_offset(source_rel, offset)?;
+                let start = usize::try_from(source_rel)
+                    .map_err(|_| BpsError::new("bps_source_range", "SourceCopy fora da origem"))?;
+                let src = start
+                    .checked_add(length)
+                    .and_then(|e| original.get(start..e))
+                    .ok_or_else(|| {
+                        BpsError::new("bps_source_range", "SourceCopy fora da origem")
+                    })?;
+                output[out_pos..end].copy_from_slice(src);
+                source_rel += length as u64;
+            }
+            _ => {
+                let offset = bps_varint(patch, &mut pos, footer)?;
+                target_rel = bps_offset(target_rel, offset)?;
+                let start = usize::try_from(target_rel)
+                    .ok()
+                    .filter(|&s| s < out_pos)
+                    .ok_or_else(|| {
+                        BpsError::new(
+                            "bps_target_history",
+                            "TargetCopy referencia saída ainda não produzida",
+                        )
+                    })?;
+                // Byte a byte: a cópia sobreposta (RLE) lê bytes que acabou de produzir.
+                for i in 0..length {
+                    output[out_pos + i] = output[start + i];
+                }
+                target_rel += length as u64;
+            }
+        }
+        out_pos = end;
+    }
+    if pos != footer {
+        return Err(BpsError::new(
+            "bps_trailing_data",
+            format!(
+                "{} byte(s) de corpo sobram depois da saída completa",
+                footer - pos
+            ),
+        ));
+    }
+    if crc32_simple(&output) != target_crc {
+        return Err(BpsError::new(
+            "bps_target_crc",
+            "o resultado não confere com o checksum do alvo",
+        ));
+    }
     Ok(output)
+}
+
+/// Reconhece (sem aplicar) o formato LEGADO: as versões anteriores deste produto gravavam o varint
+/// como LEB128 simples, sem o `value -= 1` da especificação BPS. Esses patches só funcionavam aqui
+/// (Flips/beat os recusam). Como o formato é ambíguo, NUNCA é aceito automaticamente: o aplicador
+/// só explica e indica como reexportar a partir da edição verificada (sessão: base + cópia + ledger).
+fn legacy_bps_diagnosis(original: &[u8], patch: &[u8]) -> Option<BpsError> {
+    let footer = patch.len().checked_sub(12)?;
+    let mut pos = BPS_HEADER.len();
+    let mut legacy = || -> Option<u64> {
+        let mut value = 0u64;
+        let mut shift = 0u32;
+        loop {
+            let b = *patch.get(pos)?;
+            pos += 1;
+            value |= u64::from(b & 0x7F).checked_shl(shift)?;
+            shift += 7;
+            if b & 0x80 != 0 {
+                return Some(value);
+            }
+            if shift > 63 {
+                return None;
+            }
+        }
+    };
+    let source_size = legacy()?;
+    let _target_size = legacy()?;
+    let _meta = legacy()?;
+    let source_crc = u32::from_le_bytes(patch[footer..footer + 4].try_into().ok()?);
+    if source_size == original.len() as u64 && source_crc == crc32_simple(original) {
+        Some(BpsError::new(
+            "bps_legacy_format",
+            "este patch usa o formato BPS antigo deste produto (varint fora da especificação, \
+             incompatível com Flips/beat) e não é aplicado automaticamente. Nenhum arquivo foi \
+             alterado. Para obter um patch válido, abra a sessão da edição (base + cópia verificadas) \
+             e use \"Exportar patch BPS\" de novo.",
+        ))
+    } else {
+        None
+    }
+}
+
+/// Aplica um patch BPS a `original` (erro como texto `codigo: mensagem`).
+pub fn apply_bps(original: &[u8], patch: &[u8]) -> Result<Vec<u8>, String> {
+    apply_bps_checked(original, patch).map_err(|e| e.to_string())
 }
 
 fn reject_overwrite(input_path: &Path, output_path: &Path) -> Result<(), String> {
@@ -493,7 +651,7 @@ pub fn create_ips_file(
         Err(e) => return PatchResult::err(e),
     };
     let changed = patch.len() as u32;
-    if let Err(e) = fs::write(patch_path, &patch) {
+    if let Err(e) = write_atomic(patch_path, &patch) {
         return PatchResult::err(format!("Erro ao salvar patch: {e}"));
     }
     PatchResult::ok(
@@ -552,7 +710,7 @@ pub fn create_bps_file(
         Err(e) => return PatchResult::err(e),
     };
     let changed = patch.len() as u32;
-    if let Err(e) = fs::write(patch_path, &patch) {
+    if let Err(e) = write_atomic(patch_path, &patch) {
         return PatchResult::err(format!("Erro ao salvar patch: {e}"));
     }
     PatchResult::ok(
@@ -616,6 +774,18 @@ pub fn create_bps_file_compliance(
 }
 
 /// Aplica um patch BPS a uma ROM e salva a ROM patcheada em `output_path`.
+/// Escrita atômica: temporário no mesmo diretório + rename; nunca deixa arquivo parcial.
+fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(".rds-tmp");
+    let tmp = PathBuf::from(tmp);
+    let result = fs::write(&tmp, bytes).and_then(|_| fs::rename(&tmp, path));
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    result
+}
+
 pub fn apply_bps_file(rom_path: &Path, patch_path: &Path, output_path: &Path) -> PatchResult {
     if let Err(error) = reject_overwrite(rom_path, output_path) {
         return PatchResult::err(error);
@@ -637,7 +807,7 @@ pub fn apply_bps_file(rom_path: &Path, patch_path: &Path, output_path: &Path) ->
         .zip(rom.iter())
         .filter(|(a, b)| a != b)
         .count() as u32;
-    if let Err(e) = fs::write(output_path, &patched) {
+    if let Err(e) = write_atomic(output_path, &patched) {
         return PatchResult::err(format!("Erro ao salvar ROM patcheada: {e}"));
     }
     PatchResult::ok(
@@ -648,7 +818,395 @@ pub fn apply_bps_file(rom_path: &Path, patch_path: &Path, output_path: &Path) ->
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_bps, crc32_simple, create_bps, encode_varint, BPS_HEADER};
+    /// Gera um patch no formato LEGADO (varint LEB128 sem o ajuste da spec), como o produto fazia.
+    fn legacy_patch(src: &[u8], tgt: &[u8]) -> Vec<u8> {
+        fn lv(mut v: u64, o: &mut Vec<u8>) {
+            loop {
+                let mut x = (v & 0x7F) as u8;
+                v >>= 7;
+                if v == 0 {
+                    x |= 0x80;
+                }
+                o.push(x);
+                if x & 0x80 != 0 {
+                    break;
+                }
+            }
+        }
+        let mut p = BPS_HEADER.to_vec();
+        lv(src.len() as u64, &mut p);
+        lv(tgt.len() as u64, &mut p);
+        lv(0, &mut p);
+        // um TargetRead com o alvo inteiro
+        lv((((tgt.len() as u64) - 1) << 2) | 1, &mut p);
+        p.extend_from_slice(tgt);
+        p.extend_from_slice(&crc32_simple(src).to_le_bytes());
+        p.extend_from_slice(&crc32_simple(tgt).to_le_bytes());
+        let c = crc32_simple(&p).to_le_bytes();
+        p.extend_from_slice(&c);
+        p
+    }
+
+    #[test]
+    fn patch_legado_e_reconhecido_explicado_e_nunca_aplicado_automaticamente() {
+        let src = vec![3u8; 20000];
+        let mut tgt = src.clone();
+        tgt[5] = 9;
+        let legacy = legacy_patch(&src, &tgt);
+        let err = apply_bps_checked(&src, &legacy).unwrap_err();
+        assert_eq!(err.code, "bps_legacy_format", "{err}");
+        assert!(
+            err.message.contains("Exportar patch BPS") && err.message.contains("Nenhum arquivo")
+        );
+        // ROM diferente => não é diagnosticado como legado da base (erro comum de tamanho/CRC)
+        let other = vec![4u8; 20000];
+        assert_ne!(
+            apply_bps_checked(&other, &legacy).unwrap_err().code,
+            "bps_legacy_format"
+        );
+        // patches cujos varints são todos < 128 coincidem com a spec e continuam aplicando normalmente
+        let s2 = vec![1u8; 30];
+        let mut t2 = s2.clone();
+        t2[1] = 2;
+        assert_eq!(apply_bps(&s2, &legacy_patch(&s2, &t2)).unwrap(), t2);
+    }
+
+    #[test]
+    fn apply_bps_file_preserva_arquivos_quando_recusa_e_grava_atomicamente() {
+        let dir = std::env::temp_dir().join(format!("rds-bps-file-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (rom, patch, out) = (
+            dir.join("rom.bin"),
+            dir.join("old.bps"),
+            dir.join("out.bin"),
+        );
+        let src = vec![3u8; 20000];
+        let mut tgt = src.clone();
+        tgt[5] = 9;
+        std::fs::write(&rom, &src).unwrap();
+        std::fs::write(&patch, legacy_patch(&src, &tgt)).unwrap();
+        let before = (std::fs::read(&rom).unwrap(), std::fs::read(&patch).unwrap());
+        let r = apply_bps_file(&rom, &patch, &out);
+        assert!(
+            !r.ok && r.message.contains("bps_legacy_format"),
+            "{}",
+            r.message
+        );
+        assert!(!out.exists(), "recusa não cria saída");
+        assert_eq!(
+            (std::fs::read(&rom).unwrap(), std::fs::read(&patch).unwrap()),
+            before
+        );
+        // válido: sem temporário sobrando
+        let good = dir.join("good.bps");
+        let bytes = create_bps(&src, &tgt).unwrap();
+        std::fs::write(&good, bytes).unwrap();
+        assert!(apply_bps_file(&rom, &good, &out).ok);
+        assert_eq!(std::fs::read(&out).unwrap(), tgt);
+        assert!(!dir.join("out.bin.rds-tmp").exists());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// Ferramenta de interoperabilidade (não é gate): executa trabalhos do JSON em
+    /// `RDS_BPS_JOBS` pelo CAMINHO CANÔNICO do produto e grava `RDS_BPS_RESULTS`.
+    /// Trabalho: {"mode":"create"|"apply","a":path,"b":path,"out":path}
+    /// (create: a=origem b=alvo; apply: a=origem b=patch).
+    #[test]
+    #[ignore = "ferramenta de interoperabilidade: RDS_BPS_JOBS e RDS_BPS_RESULTS"]
+    fn bps_interop_tool() {
+        let jobs: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(std::env::var("RDS_BPS_JOBS").unwrap()).unwrap())
+                .unwrap();
+        let mut results = Vec::new();
+        for job in jobs.as_array().unwrap() {
+            let get = |k: &str| job[k].as_str().unwrap().to_string();
+            let a = std::fs::read(get("a")).unwrap();
+            let b = std::fs::read(get("b")).unwrap();
+            let r = if get("mode") == "create" {
+                create_bps(&a, &b)
+            } else {
+                apply_bps_checked(&a, &b).map_err(|e| e.to_string())
+            };
+            match r {
+                Ok(bytes) => {
+                    std::fs::write(get("out"), bytes).unwrap();
+                    results.push(serde_json::json!({"ok": true}));
+                }
+                Err(e) => results.push(serde_json::json!({"ok": false, "error": e})),
+            }
+        }
+        std::fs::write(
+            std::env::var("RDS_BPS_RESULTS").unwrap(),
+            serde_json::to_vec(&results).unwrap(),
+        )
+        .unwrap();
+    }
+
+    // ---- Aplicador estrito (PR #110): os 5 casos reproduzidos + fronteiras ----
+
+    fn mk(source: &[u8], target: &[u8], meta: &[u8], body: &[u8]) -> Vec<u8> {
+        let mut p = BPS_HEADER.to_vec();
+        encode_varint(source.len() as u64, &mut p);
+        encode_varint(target.len() as u64, &mut p);
+        encode_varint(meta.len() as u64, &mut p);
+        p.extend_from_slice(meta);
+        p.extend_from_slice(body);
+        p.extend_from_slice(&crc32_simple(source).to_le_bytes());
+        p.extend_from_slice(&crc32_simple(target).to_le_bytes());
+        let c = crc32_simple(&p).to_le_bytes();
+        p.extend_from_slice(&c);
+        p
+    }
+    fn act(kind: u64, len: usize) -> Vec<u8> {
+        let mut o = Vec::new();
+        encode_varint((((len as u64) - 1) << 2) | kind, &mut o);
+        o
+    }
+    fn rel(delta: i64) -> Vec<u8> {
+        let mut o = Vec::new();
+        let v = if delta < 0 {
+            ((-delta) as u64) << 1 | 1
+        } else {
+            (delta as u64) << 1
+        };
+        encode_varint(v, &mut o);
+        o
+    }
+    fn cat(parts: &[&[u8]]) -> Vec<u8> {
+        parts.concat()
+    }
+
+    #[test]
+    fn repro1_patch_sem_acoes_para_alvo_nao_vazio_e_recusado() {
+        assert!(apply_bps(&[1], &mk(&[1], &[0], &[], &[])).is_err());
+    }
+
+    #[test]
+    fn repro2_sourcecopy_com_offset_negativo_e_recusado_nao_vira_zero() {
+        let body = cat(&[&act(2, 1), &rel(-1)]);
+        assert!(apply_bps(&[5, 6], &mk(&[5, 6], &[0], &[], &body)).is_err());
+    }
+
+    #[test]
+    fn repro3_targetcopy_de_historico_futuro_e_recusado() {
+        let body = cat(&[&act(3, 1), &rel(0)]);
+        assert!(apply_bps(&[1], &mk(&[1], &[0], &[], &body)).is_err());
+    }
+
+    #[test]
+    fn repro4_targetread_maior_que_a_saida_nao_e_cortado() {
+        let body = cat(&[&act(1, 2), &[7, 9]]);
+        assert!(apply_bps(&[1], &mk(&[1], &[7], &[], &body)).is_err());
+    }
+
+    #[test]
+    fn repro5_varint_de_21_bytes_nao_vira_valor_enganoso() {
+        let mut v = vec![0x00u8; 20];
+        v.push(0x80);
+        let mut pos = 0;
+        assert!(decode_varint(&v, &mut pos).is_err());
+        let mut pos = 0;
+        assert!(
+            decode_varint(&[0x00; 12], &mut pos).is_err(),
+            "11+ bytes sem terminador"
+        );
+    }
+
+    #[test]
+    fn as_quatro_acoes_tamanhos_diferentes_e_metadados_funcionam() {
+        let src: Vec<u8> = (0..32u8).collect();
+        // saída 40 bytes: SourceRead 4 | TargetRead 3 | SourceCopy 5 (src[20..25]) | TargetCopy 8 (rel 0) | SourceRead? não: preenche com TargetRead
+        let mut tgt = Vec::new();
+        tgt.extend_from_slice(&src[0..4]);
+        tgt.extend_from_slice(&[0xAA, 0xBB, 0xCC]);
+        tgt.extend_from_slice(&src[20..25]);
+        let hist: Vec<u8> = tgt[0..8].to_vec();
+        tgt.extend_from_slice(&hist);
+        tgt.extend_from_slice(&[1, 2, 3]);
+        let body = cat(&[
+            &act(0, 4),
+            &act(1, 3),
+            &[0xAA, 0xBB, 0xCC],
+            &act(2, 5),
+            &rel(20),
+            &act(3, 8),
+            &rel(0),
+            &act(1, 3),
+            &[1, 2, 3],
+        ]);
+        let p = mk(&src, &tgt, b"meta autoral", &body);
+        assert_eq!(apply_bps_checked(&src, &p).unwrap(), tgt);
+        // alvo menor que a origem
+        let small = src[..10].to_vec();
+        let p2 = mk(&src, &small, &[], &act(0, 10));
+        assert_eq!(apply_bps(&src, &p2).unwrap(), small);
+    }
+
+    #[test]
+    fn targetcopy_sobreposto_valido_repete_o_byte_recem_produzido() {
+        let body = cat(&[&act(1, 1), &[9], &act(3, 5), &rel(0)]);
+        let p = mk(&[], &[9, 9, 9, 9, 9, 9], &[], &body);
+        assert_eq!(apply_bps(&[], &p).unwrap(), vec![9; 6]);
+    }
+
+    #[test]
+    fn fronteiras_de_varint_e_ida_e_volta_do_aplicador() {
+        for len in [1usize, 127, 128, 129, 16511, 16512, 20000] {
+            let src = vec![0x55u8; len];
+            let mut tgt = src.clone();
+            tgt[len - 1] ^= 1;
+            let p = create_bps(&src, &tgt).unwrap();
+            assert_eq!(apply_bps(&src, &p).unwrap(), tgt, "len {len}");
+        }
+    }
+
+    #[test]
+    fn recusas_estruturais_com_codigos() {
+        let src = vec![1u8, 2, 3, 4];
+        let ok = cat(&[&act(0, 4)]);
+        assert_eq!(
+            apply_bps_checked(&src, &mk(&src, &src, &[], &ok)).unwrap(),
+            src
+        );
+        let code = |p: Vec<u8>| apply_bps_checked(&src, &p).unwrap_err().code;
+        // sobra corpo depois da saída completa
+        assert_eq!(
+            code(mk(&src, &src, &[], &cat(&[&ok, &[0x80]]))),
+            "bps_trailing_data"
+        );
+        // ação passa da saída declarada
+        assert_eq!(
+            code(mk(&src, &src, &[], &act(0, 5))),
+            "bps_action_outside_output"
+        );
+        // SourceRead além da origem (saída maior que a origem)
+        let big = vec![0u8; 8];
+        assert_eq!(
+            apply_bps_checked(&src, &mk(&src, &big, &[], &act(0, 8)))
+                .unwrap_err()
+                .code,
+            "bps_source_range"
+        );
+        // orçamento de saída antes de alocar
+        let mut huge = BPS_HEADER.to_vec();
+        encode_varint(4, &mut huge);
+        encode_varint(1 << 40, &mut huge);
+        encode_varint(0, &mut huge);
+        huge.extend_from_slice(&crc32_simple(&src).to_le_bytes());
+        huge.extend_from_slice(&0u32.to_le_bytes());
+        let c = crc32_simple(&huge).to_le_bytes();
+        huge.extend_from_slice(&c);
+        assert_eq!(code(huge), "bps_output_budget");
+        // metadados passando do corpo
+        let mut m = BPS_HEADER.to_vec();
+        encode_varint(4, &mut m);
+        encode_varint(4, &mut m);
+        encode_varint(999, &mut m);
+        m.extend_from_slice(&crc32_simple(&src).to_le_bytes());
+        m.extend_from_slice(&crc32_simple(&src).to_le_bytes());
+        let c = crc32_simple(&m).to_le_bytes();
+        m.extend_from_slice(&c);
+        assert_eq!(code(m), "bps_metadata");
+        // rodapé nunca é lido como ação: corpo vazio + saída pendente
+        assert_eq!(code(mk(&src, &src, &[], &[])), "bps_truncated");
+        // base errada
+        let other = vec![9u8; 4];
+        assert_eq!(
+            apply_bps_checked(&other, &mk(&src, &src, &[], &ok))
+                .unwrap_err()
+                .code,
+            "bps_source_crc"
+        );
+        // CRC do alvo: corpo válido que produz algo diferente do declarado
+        let mut wrong = src.clone();
+        wrong[0] ^= 1;
+        assert_eq!(code(mk(&src, &wrong, &[], &ok)), "bps_target_crc");
+    }
+
+    #[test]
+    fn truncar_ou_mutar_o_patch_nunca_entra_em_panico() {
+        let src: Vec<u8> = (0..64u8).collect();
+        let mut tgt = src.clone();
+        tgt[10] ^= 0xFF;
+        tgt[40] ^= 0x0F;
+        let p = create_bps(&src, &tgt).unwrap();
+        for n in 0..p.len() {
+            assert!(apply_bps(&src, &p[..n]).is_err(), "prefixo {n}");
+        }
+        let body_end = p.len() - 12;
+        for i in 4..body_end {
+            let mut m = p.clone();
+            m[i] ^= 0xA5;
+            let l = m.len();
+            let c = crc32_simple(&m[..l - 4]).to_le_bytes();
+            m[l - 4..].copy_from_slice(&c);
+            if let Ok(out) = apply_bps(&src, &m) {
+                assert_eq!(
+                    out, tgt,
+                    "mutação em {i} produziu saída diferente do alvo declarado"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn varint_bps_segue_a_especificacao_byuu() {
+        let enc = |v: u64| {
+            let mut o = Vec::new();
+            encode_varint(v, &mut o);
+            o
+        };
+        assert_eq!(enc(0), [0x80]);
+        assert_eq!(enc(127), [0xFF]);
+        assert_eq!(enc(128), [0x00, 0x80]);
+        assert_eq!(enc(129), [0x01, 0x80]);
+        assert_eq!(enc(16511), [0x7F, 0xFF]);
+        assert_eq!(enc(16512), [0x00, 0x00, 0x80]);
+        // 524288 (0x80000): tamanho de ROM de 512 KiB
+        for v in [
+            0u64,
+            1,
+            127,
+            128,
+            255,
+            16383,
+            16384,
+            524_288,
+            1 << 40,
+            u64::MAX >> 1,
+        ] {
+            let bytes = enc(v);
+            let mut pos = 0;
+            assert_eq!(decode_varint(&bytes, &mut pos).unwrap(), v, "{v}");
+            assert_eq!(pos, bytes.len());
+        }
+        let mut pos = 0;
+        assert!(
+            decode_varint(&[0x00; 20], &mut pos).is_err(),
+            "varint sem terminador"
+        );
+    }
+
+    #[test]
+    fn apply_bps_recusa_alvo_que_nao_confere_com_o_crc() {
+        let a: Vec<u8> = (0..300u32).map(|i| i as u8).collect();
+        let mut b = a.clone();
+        b[10] ^= 0xFF;
+        let mut patch = create_bps(&a, &b).unwrap();
+        assert_eq!(apply_bps(&a, &patch).unwrap(), b);
+        // troca um byte de TargetRead e refaz só o CRC do patch: o do alvo denuncia
+        let n = patch.len();
+        let pos = patch.iter().rposition(|&x| x == b[10]).unwrap();
+        patch[pos] ^= 1;
+        let crc = crc32_simple(&patch[..n - 4]).to_le_bytes();
+        patch[n - 4..].copy_from_slice(&crc);
+        assert!(apply_bps(&a, &patch).unwrap_err().contains("alvo"));
+    }
+
+    use super::{
+        apply_bps, apply_bps_checked, apply_bps_file, crc32_simple, create_bps, decode_varint,
+        encode_varint, BPS_HEADER, BPS_MAX_OUTPUT,
+    };
 
     fn create_bps_target_read_only(original: &[u8], modified: &[u8]) -> Vec<u8> {
         let mut patch = BPS_HEADER.to_vec();

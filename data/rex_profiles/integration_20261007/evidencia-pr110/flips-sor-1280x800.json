@@ -1,0 +1,29 @@
+{
+ "schema": "rex-bps-external-apply/v1",
+ "label": "sor-1280",
+ "base_sha256": "304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d",
+ "bps_sha256": "8e65059117c00bce3ef577e299d010c288ce255f90b7a0d0dc6e17c1a4b0df6c",
+ "copy_sha256": "9faae341110bbb71cb7d2de1400c5d9405d02e87b79978e8acb68794606169a0",
+ "flips_bin_sha256": "3f3033ef4293931011a2e7043b83200b0818c8ff7fb15d7fa480719219509253",
+ "checks": [
+  {
+   "check": "Flips: bin\u00e1rio pinado",
+   "ok": true
+  },
+  {
+   "check": "Flips aplica o BPS do produto (rc=0)",
+   "ok": true,
+   "detail": "The patch was applied successfully!"
+  },
+  {
+   "check": "sa\u00edda do Flips == c\u00f3pia do produto, byte a byte",
+   "ok": true,
+   "detail": "9faae341110bbb71 vs 9faae341110bbb71"
+  },
+  {
+   "check": "c\u00f3pia != base (a edi\u00e7\u00e3o existe)",
+   "ok": true
+  }
+ ],
+ "all_pass": true
+}

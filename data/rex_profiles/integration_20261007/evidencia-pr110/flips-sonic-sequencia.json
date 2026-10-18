@@ -1,0 +1,29 @@
+{
+ "schema": "rex-bps-external-apply/v1",
+ "label": "sonic-seq",
+ "base_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+ "bps_sha256": "15e263acf09a0f6ef35bc009013d8fbc3d587eef218ebcf78f9b78ec2edc122e",
+ "copy_sha256": "dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170",
+ "flips_bin_sha256": "3f3033ef4293931011a2e7043b83200b0818c8ff7fb15d7fa480719219509253",
+ "checks": [
+  {
+   "check": "Flips: bin\u00e1rio pinado",
+   "ok": true
+  },
+  {
+   "check": "Flips aplica o BPS do produto (rc=0)",
+   "ok": true,
+   "detail": "The patch was applied successfully!"
+  },
+  {
+   "check": "sa\u00edda do Flips == c\u00f3pia do produto, byte a byte",
+   "ok": true,
+   "detail": "dd064e0d9d12f5dc vs dd064e0d9d12f5dc"
+  },
+  {
+   "check": "c\u00f3pia != base (a edi\u00e7\u00e3o existe)",
+   "ok": true
+  }
+ ],
+ "all_pass": true
+}

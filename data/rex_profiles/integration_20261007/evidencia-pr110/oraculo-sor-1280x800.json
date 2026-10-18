@@ -1,0 +1,171 @@
+{
+ "schema": "rex-sor-font-effect/v1",
+ "base_sha256": "304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d",
+ "copy_sha256": "9faae341110bbb71cb7d2de1400c5d9405d02e87b79978e8acb68794606169a0",
+ "bps_sha256": "8e65059117c00bce3ef577e299d010c288ce255f90b7a0d0dc6e17c1a4b0df6c",
+ "core": "/home/misael/.cache/retrodevstudio/6b5d81135a1161447e4cbb49401f1137dd7d93974eee82d3153f5e87e7afd779/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+ "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+ "checks": [
+  {
+   "check": "base: SHA-256 do perfil",
+   "ok": true,
+   "detail": "304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d"
+  },
+  {
+   "check": "base: stream consome 514 e decodifica 1568",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "pr\u00e9-condi\u00e7\u00e3o: os 8 pixels valiam 0",
+   "ok": true,
+   "detail": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "check": "c\u00f3pia: plain = base com EXATAMENTE os 8 nibbles previstos",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "c\u00f3pia: nenhum outro nibble difere",
+   "ok": true,
+   "detail": 8
+  },
+  {
+   "check": "c\u00f3pia: stream \u2264 514 (espa\u00e7o do slot)",
+   "ok": true,
+   "detail": 466
+  },
+  {
+   "check": "c\u00f3pia: bytes alterados \u2282 slot \u222a checksum",
+   "ok": true,
+   "detail": "433 bytes"
+  },
+  {
+   "check": "c\u00f3pia: checksum do cabe\u00e7alho consistente",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "base: checksum do cabe\u00e7alho consistente (premissa)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "BPS (leitor independente) base\u2192c\u00f3pia reproduz a c\u00f3pia byte a byte",
+   "ok": true,
+   "detail": "8e65059117c00bce3ef577e299d010c288ce255f90b7a0d0dc6e17c1a4b0df6c"
+  },
+  {
+   "check": "controle: BPS aplicado a base divergente \u00e9 recusado (CRC)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "controle: stream adulterado N\u00c3O decodifica para o plain esperado",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "execu\u00e7\u00e3o: base \u2014 decoder do jogo deixa o plain ORIGINAL em $FF0000",
+   "ok": true,
+   "detail": [
+    305,
+    306
+   ]
+  },
+  {
+   "check": "execu\u00e7\u00e3o: c\u00f3pia \u2014 decoder do jogo deixa o plain EDITADO em $FF0000 (mesmos quadros)",
+   "ok": true,
+   "detail": [
+    305,
+    306
+   ]
+  },
+  {
+   "check": "execu\u00e7\u00e3o: VRAM da base cont\u00e9m a fonte (tile 2 localizado)",
+   "ok": true,
+   "detail": "quadro 340"
+  },
+  {
+   "check": "VRAM: tile 1 da base = original",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "VRAM: tile 1 da c\u00f3pia = editado",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "VRAM: tiles 2..48 id\u00eanticos entre base e c\u00f3pia",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "tela: ap\u00f3s exatamente 720 quadros a diferen\u00e7a \u00e9 EXATAMENTE a prevista (linha 7 das c\u00e9lulas-A)",
+   "ok": true,
+   "detail": {
+    "pixels": 40,
+    "c\u00e9lulas-A": 5
+   }
+  },
+  {
+   "check": "controle: original\u00d7original \u2014 todos os quadros id\u00eanticos",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "tela: quadros < 588 id\u00eanticos (texto ainda n\u00e3o apareceu)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "tela: em cada quadro \u2265 588 a diferen\u00e7a \u00e9 EXATAMENTE a linha 7 das c\u00e9lulas-A, na cor de preenchimento",
+   "ok": true,
+   "detail": {
+    "quadros": 78,
+    "c\u00e9lulas-A somadas": 459,
+    "falhas": []
+   }
+  },
+  {
+   "check": "tela: quadro 896 \u2014 pixels alterados > 0 (efeito vis\u00edvel)",
+   "ok": true,
+   "detail": 104
+  },
+  {
+   "check": "jornada: relat\u00f3rio da jornada nativa com todos os checks verdadeiros",
+   "ok": true,
+   "detail": "49 checks"
+  },
+  {
+   "check": "jornada: c\u00f3pia da UI = c\u00f3pia verificada aqui",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "jornada: BPS exportado pela UI = BPS verificado aqui",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "check": "jornada: pixels diferentes no framebuffer do APP (base\u00d7c\u00f3pia, 720 quadros) = previstos pelo or\u00e1culo independente",
+   "ok": true,
+   "detail": {
+    "app": 40,
+    "or\u00e1culo": 40
+   }
+  }
+ ],
+ "all_pass": true
+}

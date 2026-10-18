@@ -482,6 +482,7 @@ function parseArgs(argv) {
           "sonic-sequencia-journey",
           "sonic-consumers-inspection",
           "sonic-layouts-journey",
+          "sor-font-journey",
           "compositing-medicao",
           "rex-lz4w-effect",
           "rex-lz4w-fixture-effect",
@@ -10137,7 +10138,23 @@ async function clickButtonByTestIdNativeWhenReady(sessionId, testId, label = tes
     `Controle nativo não ficou disponível: ${label}`,
     100
   );
-  return clickButtonByTestIdNative(sessionId, testId, label);
+  try {
+    return await clickButtonByTestIdNative(sessionId, testId, label);
+  } catch (error) {
+    // Corrida conhecida: o controle ficou desabilitado (ex.: auto-refresh) entre a checagem e o clique.
+    // Uma unica repeticao depois de esperar o controle ficar pronto de novo.
+    if (!String(error instanceof Error ? error.message : error).includes("bloqueado")) throw error;
+    await waitFor(
+      async () => {
+        const diagnostic = await inspectNativeButtonTarget(sessionId, testId);
+        return diagnostic?.exists && diagnostic.visible && !diagnostic.disabled && diagnostic.unobstructed ? diagnostic : false;
+      },
+      timeoutMs,
+      `Controle nativo não voltou a ficar disponível: ${label}`,
+      100
+    );
+    return clickButtonByTestIdNative(sessionId, testId, label);
+  }
 }
 
 async function selectInspectionFrameNative(sessionId, frameId) {
@@ -11782,6 +11799,379 @@ function layoutsEnigmaOracle(rom, off) {
   return { bytes, consumed: 6 + Math.ceil(bit / 8) };
 }
 
+// Oráculo JS independente do produto para a composição das paredes (Nemesis + mapping + paleta estática).
+function ssNemesisOracle(rom, off) {
+  const hdr = (rom[off] << 8) | rom[off + 1];
+  const xor = (hdr & 0x8000) !== 0;
+  const tiles = hdr & 0x7fff;
+  let p = off + 2;
+  let pal = null;
+  const table = new Map();
+  for (;;) {
+    const b = rom[p++];
+    if (b === 0xff) break;
+    if (b & 0x80) { pal = b & 0x0f; continue; }
+    table.set(`${b & 0x0f}:${rom[p++]}`, [pal, ((b >> 4) & 7) + 1]);
+  }
+  let bit = p * 8;
+  const rb = () => { const v = (rom[bit >> 3] >> (7 - (bit & 7))) & 1; bit += 1; return v; };
+  const px = [];
+  while (px.length < tiles * 64) {
+    let code = 0, len = 0;
+    for (;;) {
+      code = (code << 1) | rb(); len += 1;
+      if (len === 6 && code === 0x3f) { let v = 0; for (let i = 0; i < 7; i += 1) v = (v << 1) | rb(); for (let i = 0; i <= ((v >> 4) & 7); i += 1) px.push(v & 15); break; }
+      const e = table.get(`${len}:${code}`);
+      if (e) { for (let i = 0; i < e[1]; i += 1) px.push(e[0]); break; }
+      if (len > 8) throw new Error("oraculo nemesis: codigo invalido");
+    }
+  }
+  const out = Buffer.alloc(tiles * 32);
+  let prev = 0;
+  for (let r = 0; r < tiles * 8; r += 1) {
+    let w = 0;
+    for (let c = 0; c < 8; c += 1) w = ((w << 4) | px[r * 8 + c]) >>> 0;
+    if (xor) w = (w ^ prev) >>> 0;
+    prev = w;
+    out.writeUInt32BE(w, r * 4);
+  }
+  return out;
+}
+
+function ssWallOracle(rom, frame, line) {
+  const art = ssNemesisOracle(rom, 0x2c5e4);
+  const tab = 0x2c564;
+  const o = tab + ((rom[tab + 2 * frame] << 8) | rom[tab + 2 * frame + 1]);
+  const size = rom[o + 2];
+  const w = ((size >> 2) & 3) + 1, h = (size & 3) + 1;
+  const base = ((rom[o + 3] << 8) | rom[o + 4]) & 0x7ff;
+  const pal = [];
+  for (let i = 0; i < 64; i += 1) pal.push((rom[0x26c8 + 2 * i] << 8) | rom[0x26c8 + 2 * i + 1]);
+  const lv = (n) => Math.floor((n * 255 + 3) / 7);
+  const rgba = new Array(w * 8 * h * 8 * 4).fill(0);
+  for (let v = 0; v < h * 8; v += 1) {
+    for (let u = 0; u < w * 8; u += 1) {
+      const t = base + Math.floor(u / 8) * h + Math.floor(v / 8);
+      const b = art[t * 32 + (v % 8) * 4 + Math.floor((u % 8) / 2)];
+      const c = (u % 2 === 0) ? b >> 4 : b & 15;
+      if (c === 0) continue;
+      const word = pal[line * 16 + c];
+      const i = (v * w * 8 + u) * 4;
+      rgba[i] = lv((word >> 1) & 7); rgba[i + 1] = lv((word >> 5) & 7); rgba[i + 2] = lv((word >> 9) & 7); rgba[i + 3] = 255;
+    }
+  }
+  return { w: w * 8, h: h * 8, rgba };
+}
+
+// Oráculo JS do frame de um mapping qualquer (regra de contagem conservadora, nome = campo + nome da peça).
+function ssFrameOracle(rom, ptr, campo, frame) {
+  const offs = [];
+  let min = Infinity;
+  for (let k = 0; k < 32; k += 1) {
+    if (2 * k >= min) break;
+    const v = rom.readUInt16BE(ptr + 2 * k);
+    if (v < 2 * (k + 1) || v >= 0x100) break;
+    min = Math.min(min, v); offs.push(v);
+  }
+  const n = rom.readUInt16BE(0x1d992) + 1;
+  let art = null;
+  for (let i = 0; i < n && !art; i += 1) {
+    const a = 0x1d994 + i * 6;
+    const so = rom.readUInt32BE(a), first = rom.readUInt16BE(a + 4) / 32;
+    const bytes = ssNemesisOracle(rom, so);
+    const tiles = bytes.length / 32;
+    if ((campo & 0x7ff) >= first && (campo & 0x7ff) < first + tiles) art = { first, bytes };
+  }
+  if (!art || frame >= offs.length) return null;
+  const a = ptr + offs[frame];
+  const count = rom[a];
+  const ps = [];
+  for (let i = 0; i < count; i += 1) {
+    const q = a + 1 + i * 5;
+    ps.push({ y: rom.readInt8(q), w: ((rom[q + 1] >> 2) & 3) + 1, h: (rom[q + 1] & 3) + 1, name: rom.readUInt16BE(q + 2), x: rom.readInt8(q + 4) });
+  }
+  const x0 = Math.min(...ps.map((p) => p.x)), y0 = Math.min(...ps.map((p) => p.y));
+  const x1 = Math.max(...ps.map((p) => p.x + 8 * p.w)), y1 = Math.max(...ps.map((p) => p.y + 8 * p.h));
+  const W = x1 - x0, H = y1 - y0;
+  const pal = [];
+  for (let i = 0; i < 64; i += 1) pal.push(rom.readUInt16BE(0x26c8 + 2 * i));
+  const lv = (v) => Math.floor((v * 255 + 3) / 7);
+  const rgba = new Array(W * H * 4).fill(0);
+  for (const p of ps) {
+    const nm = (campo + p.name) & 0xffff, ti = nm & 0x7ff, line = (nm >> 13) & 3, xf = nm & 0x800, yf = nm & 0x1000;
+    for (let v = 0; v < p.h * 8; v += 1) {
+      for (let u = 0; u < p.w * 8; u += 1) {
+        const su = xf ? p.w * 8 - 1 - u : u, sv = yf ? p.h * 8 - 1 - v : v;
+        const t = ti + Math.floor(su / 8) * p.h + Math.floor(sv / 8) - art.first;
+        const b = art.bytes[t * 32 + (sv % 8) * 4 + Math.floor((su % 8) / 2)];
+        const c = ((su % 8) % 2 === 0) ? b >> 4 : b & 15;
+        if (c === 0) continue;
+        const w = pal[line * 16 + c];
+        const i = ((p.y - y0 + v) * W + (p.x - x0 + u)) * 4;
+        rgba[i] = lv((w >> 1) & 7); rgba[i + 1] = lv((w >> 5) & 7); rgba[i + 2] = lv((w >> 9) & 7); rgba[i + 3] = 255;
+      }
+    }
+  }
+  return { w: W, h: H, rgba };
+}
+
+// Jornada nativa do perfil Streets of Rage (fonte Kosinski). Expectativas congeladas em
+// docs/rex_profiles/integration_20261007/EXPECTATIONS-SOR-FONT-2026-10-07.md.
+// Cliques/campos = WebDriver NATIVO; `probeInvoke` = sonda técnica rotulada. O oráculo de bytes/tela é
+// o script Python independente (scripts/rex_profiles/integration_20261007/sor_font_effect.py), rodado depois
+// sobre os artefatos que esta jornada grava (cópia, BPS exportado, framebuffers observados).
+async function runSorFontJourneyScenario(sessionId, app, romPath, base, savedId, prefix, uiBootstrapTimeoutMs) {
+  const hash = (buffer) => createHash("sha256").update(buffer).digest("hex");
+  const BASE_SHA = "304f56ba2560a7cd6b93dd092cb0d17e4cd783b9086cf4bf069d6fdd2cb3961d";
+  const baseSha256 = hash(base);
+  if (base.length !== 524288 || baseSha256 !== BASE_SHA) fail(`A jornada exige a ROM BYOR pinada do Streets of Rage: ${base.length} bytes ${baseSha256}`);
+  await ensureValidationDir();
+  const pilotDir = path.join(validationDir, `${prefix}-sor-font-journey`);
+  await mkdir(pilotDir, { recursive: true });
+  const report = {
+    schema: "rex-sor-font-journey/v1",
+    artifact_prefix: prefix,
+    expectations: "docs/rex_profiles/integration_20261007/EXPECTATIONS-SOR-FONT-2026-10-07.md",
+    binary_sha256: hash(await readFile(app)),
+    base_rom_sha256: baseSha256,
+    attribution: "Cliques e campos são WebDriver NATIVOS na janela real; invoke = sonda técnica rotulada; framebuffer = observação do core pela ponte do app (input neutro, nenhuma escrita em RAM).",
+    pilot_dir: pilotDir,
+    steps: [],
+    checks: [],
+  };
+  const persist = async (extra = {}) => writeFile(path.join(pilotDir, "report.json"), JSON.stringify({ ...report, ...extra }, null, 2));
+  const addCheck = (name, pass, extra = {}) => {
+    report.checks.push({ name, pass: Boolean(pass), ...extra });
+    if (!pass) throw new Error(`${name}: ${JSON.stringify(extra)}`);
+  };
+  let sid = sessionId;
+  const [winW, winH] = (process.env.RDS_SOR_WINDOW ?? "1920x1080").split("x").map(Number);
+  report.window = { width: winW, height: winH };
+  // setSessionWindowRect prioriza RDS_E2E_WINDOW_* (definidos pelo harness em 1920x1080): sem isto o pedido era ignorado.
+  process.env.RDS_E2E_WINDOW_WIDTH = String(winW);
+  process.env.RDS_E2E_WINDOW_HEIGHT = String(winH);
+  try { await setSessionWindowRect(sid, winW, winH); } catch (error) { fail(`A janela nao aceitou ${winW}x${winH}: ${error instanceof Error ? error.message : String(error)}`); }
+  const innerNow = async () => executeScript(sid, `return { w: window.innerWidth, h: window.innerHeight };`);
+  const inner0 = await innerNow();
+  report.window_measured = inner0;
+  if (Math.abs(inner0.w - winW) > 64 || Math.abs(inner0.h - winH) > 96) fail(`Janela efetiva ${inner0.w}x${inner0.h} difere da pedida ${winW}x${winH}`);
+  const probeInvoke = async (command, args) => executeAsyncScript(
+    sid,
+    `
+      const done = arguments[arguments.length - 1];
+      const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI_INTERNALS__?.invoke;
+      if (typeof invoke !== "function") { done({ ok: false, message: "invoke indisponivel na pagina" }); return; }
+      invoke(arguments[0], arguments[1] ?? {}).then((value) => done({ ok: true, value })).catch((error) => done({ ok: false, code: error?.code ?? null, message: String(error?.message ?? JSON.stringify(error)) }));
+    `,
+    [command, args]
+  );
+  const q = async (script, args = []) => executeScript(sid, script, args);
+  // Rolar até o controle antes do clique nativo: a rolagem do painel é aceitável; controle inacessível não é.
+  const click = async (testId, label = testId) => {
+    await q(`const el = document.querySelector("[data-testid='" + arguments[0] + "']"); if (el instanceof HTMLElement) el.scrollIntoView({ block: "center", inline: "center" });`, [testId]);
+    try {
+      return await clickButtonByTestIdNativeWhenReady(sid, testId, label);
+    } catch (error) {
+      const diag = await inspectNativeButtonTarget(sid, testId).catch((e) => ({ erro: String(e) }));
+      const shot = await captureScreenshot(sid, `${prefix}-sor-falha-${testId}.png`).catch(() => null);
+      fail(`${error instanceof Error ? error.message : String(error)} :: diagnostico=${JSON.stringify(diag).slice(0, 700)} :: screenshot=${shot}`);
+    }
+  };
+  // Hit-test: o controle esta dentro da janela e o ponto central pertence a ele (nada sobrepoe).
+  const hitTest = (testId, scroll) => q(`
+    const el = document.querySelector("[data-testid='" + arguments[0] + "']");
+    if (!(el instanceof HTMLElement)) return { found: false };
+    if (arguments[1]) el.scrollIntoView({ block: "center", inline: "center" });
+    const r = el.getBoundingClientRect();
+    const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + r.height / 2);
+    const hit = document.elementFromPoint(x, y);
+    let cover = null; if (hit && hit !== el && !el.contains(hit)) { let n = hit; while (n && !n.getAttribute?.("data-testid")) n = n.parentElement; const bar = el.closest("[data-testid='sor-action-bar']"); const br = bar?.getBoundingClientRect(); cover = { disabled: el.disabled === true, bar: bar ? { l: Math.round(br.left), r: Math.round(br.right), t: Math.round(br.top), b: Math.round(br.bottom), sl: bar.scrollLeft, sw: bar.scrollWidth, cw: bar.clientWidth } : null, tag: hit.tagName, testId: n?.getAttribute?.("data-testid") ?? null, cls: String(hit.className).slice(0, 90) }; }
+    return { found: true, inside: r.top >= 0 && r.left >= 0 && r.bottom <= window.innerHeight && r.right <= window.innerWidth, hit: hit === el || el.contains(hit) || (el.disabled === true && Boolean(hit) && hit.contains(el)), cover, rect: { l: Math.round(r.left), t: Math.round(r.top), r: Math.round(r.right), b: Math.round(r.bottom) }, w: Math.round(r.width), h: Math.round(r.height), vw: window.innerWidth, vh: window.innerHeight };`, [testId, scroll]);
+  const readPanel = () => q(`
+    const p = document.querySelector("[data-testid='sor-font-panel']");
+    const px = (r, c) => { const e = document.querySelector("[data-testid='sor-pixel-" + r + "-" + c + "']"); return e ? Number(e.getAttribute("data-value")) : null; };
+    const canvasData = (id) => { const c = document.querySelector("[data-testid='" + id + "'] canvas"); if (!c) return null; const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] > 40) n++; return { w: c.width, h: c.height, lit: n }; };
+    return {
+      panel: Boolean(p), copyActive: p?.getAttribute("data-copy-active") ?? null, profile: p?.getAttribute("data-profile") ?? null,
+      status: document.querySelector("[data-testid='sor-status']")?.textContent ?? "",
+      queue: document.querySelector("[data-testid='sor-queue']")?.textContent ?? "",
+      slot: document.querySelector("[data-testid='sor-slot']")?.textContent ?? "",
+      shared: document.querySelector("[data-testid='sor-shared']")?.textContent ?? "",
+      text: p?.textContent?.slice(0, 600) ?? "",
+      row7: Array.from({ length: 8 }, (_, c) => px(7, c)), row0: Array.from({ length: 8 }, (_, c) => px(0, c)),
+      previewOriginal: canvasData("sor-font-preview-original"), previewCopy: canvasData("sor-font-preview-copy"),
+      sessionId: document.querySelector("[data-testid='inspection-session']")?.getAttribute("data-session-id") ?? null,
+      identity: document.querySelector("[data-testid='inspection-session']")?.getAttribute("data-identity-sha256") ?? null,
+    };`);
+
+  // PASSO 1 — painel visível com o perfil; ROM aberta pela UI nativa (identificação já feita pelo prólogo).
+  const p0 = await waitFor(async () => { const r = await readPanel(); return r.panel && r.profile ? r : false; }, 30000, "Painel do perfil Streets of Rage nao apareceu", 200);
+  addCheck("ui.painel_do_perfil_visivel", p0.profile === "streets_of_rage_world_ptbr/font_kosinski/v1" && p0.identity === baseSha256, { observado: { profile: p0.profile, identity: p0.identity } });
+  addCheck("ui.copia_ainda_nao_existe", p0.copyActive === "false", { observado: p0.copyActive });
+  addCheck("ui.compartilhamento_e_slot_explicados", p0.shared.includes("3 pontos do código") && p0.slot.includes("de 514 bytes"), { observado: { shared: p0.shared.slice(0, 200), slot: p0.slot } });
+  addCheck("ui.previa_original_desenhada", (p0.previewOriginal?.lit ?? 0) > 100, { observado: p0.previewOriginal });
+  report.steps.push({ step: 1, name: "painel_visivel", screenshot: await captureScreenshot(sid, `${prefix}-sor-painel.png`) });
+
+  // PASSO 1b — modo ampliado (reaproveita o layout), acessibilidade dos controles e escala inteira.
+  const widthOf = () => q(`const p = document.querySelector("[data-testid='sor-font-panel']"); const c = document.querySelector("#center, [data-panel-id='center'], [id='center']"); return { panel: Math.round(p.getBoundingClientRect().width), center: c ? Math.round(c.getBoundingClientRect().width) : null, vw: window.innerWidth };`);
+  const w0 = await widthOf();
+  // O botão da barra superior da inspeção é visível SEM rolar, mesmo em 1280x800.
+  const topToggle = await hitTest("inspection-expand-toggle", false);
+  addCheck("cx.botao_ampliar_visivel_sem_rolar", topToggle.found && topToggle.inside && topToggle.hit, { observado: topToggle, janela: report.window });
+  await click("inspection-expand-toggle", "ampliar painel (barra da inspecao)");
+  const w1 = await waitFor(async () => { const r = await widthOf(); return r.panel > w0.panel * 1.25 ? r : false; }, 15000, "O modo ampliado nao aumentou a largura do editor", 250);
+  addCheck("cx.modo_ampliado_aumenta_a_area_do_editor", w1.panel > w0.panel * 1.25 && (w0.center === null || w1.center < w0.center), { observado: { antes: w0, depois: w1 }, janela: report.window });
+  report.steps.push({ step: "1b", name: "modo_ampliado", screenshot: await captureScreenshot(sid, `${prefix}-sor-ampliado.png`) });
+  for (const id of ["sor-glyph-A", "sor-index-1", "sor-pixel-7-0", "sor-pixel-7-7", "sor-zoom-4", "sor-expand-toggle"]) {
+    const h = await hitTest(id, true);
+    addCheck(`cx.acessivel.${id}`, h.found && h.inside && h.hit, { observado: h, janela: report.window });
+  }
+  for (const id of ["sor-apply", "sor-clear-queue", "sor-export-patch", "sor-apply-patch", "sor-run-base", "sor-run-copy"]) {
+    const h = await hitTest(id, false); // barra de acoes fixa: visivel SEM rolar
+    addCheck(`cx.barra_fixa_visivel.${id}`, h.found && h.inside && h.hit, { observado: h, janela: report.window });
+  }
+  const crisp = await q(`
+    const c = document.querySelector("[data-testid='sor-font-preview-copy'] canvas");
+    const cell = document.querySelector("[data-testid='sor-pixel-0-0']");
+    return { canvasW: c.width, cssW: parseFloat(c.style.width), scale: c.width ? parseFloat(c.style.width) / c.width : 0, cell: parseFloat(cell.style.width), rendering: getComputedStyle(c).imageRendering, grayChip: Boolean(document.querySelector("[data-testid='sor-gray-chip']")), legend: Boolean(document.querySelector("[data-testid='sor-inferred-legend']")) };`);
+  addCheck("cx.previa_em_escala_inteira_e_nitida", crisp.scale === 1 && Number.isInteger(crisp.cell / 8) && /pixelated|crisp/.test(crisp.rendering), { observado: crisp });
+  addCheck("cx.indicacoes_de_cinza_e_letras_inferidas_visiveis", crisp.grayChip && crisp.legend, { observado: crisp });
+  await click("sor-zoom-5", "zoom x5 (nao padrao, para provar a retomada)");
+  const z5 = await q(`const c = document.querySelector("[data-testid='sor-font-preview-copy'] canvas"); return { canvasW: c.width, cssW: parseFloat(c.style.width), cell: parseFloat(document.querySelector("[data-testid='sor-pixel-0-0']").style.width) };`);
+  addCheck("cx.zoom_5_gera_celulas_de_40px_e_previa_x5", z5.cell === 40 && z5.canvasW === 18 * 8 * 5 && z5.cssW === z5.canvasW, { observado: z5 });
+
+  // PASSO 2 — escolher a letra A, índice 1 e pintar a linha 7 (8 cliques nativos), aplicar à cópia.
+  await click("sor-glyph-A", "letra A");
+  await click("sor-index-1", "indice 1");
+  for (let c = 0; c < 8; c += 1) await click(`sor-pixel-7-${c}`, `pixel linha 7 col ${c}`);
+  const queued = await readPanel();
+  addCheck("ui.fila_com_8_pixels", queued.queue.includes("8 pixel(s)"), { observado: queued.queue });
+  await click("sor-apply", "aplicar a copia");
+  const applied = await waitFor(async () => { const r = await readPanel(); return r.copyActive === "true" && r.status.includes("Aplicado à cópia") ? r : false; }, 60000, "Edicao nao foi aplicada pela UI", 250);
+  addCheck("ui.edicao_aplicada_com_stream_e_vizinhos", /stream \d+\/514 bytes/.test(applied.status) && applied.status.includes("vizinhos preservados: 4"), { observado: applied.status });
+  addCheck("ui.linha7_do_tile_A_na_copia_vale_1", applied.row7.every((v) => v === 1), { observado: applied.row7 });
+  const previewed = await waitFor(async () => { const r = await readPanel(); return (r.previewCopy?.lit ?? 0) > (r.previewOriginal?.lit ?? 0) ? r : false; }, 15000, "A previa da copia nao ganhou os pixels da edicao", 250).catch(async () => readPanel());
+  addCheck("ui.previa_da_copia_tem_mais_pixels_que_a_do_original", (previewed.previewCopy?.lit ?? 0) > (previewed.previewOriginal?.lit ?? 0), { observado: { copia: previewed.previewCopy, original: previewed.previewOriginal } });
+  const status1 = await probeInvoke("rex_inspection_status", { sessionId: savedId });
+  const edit = status1.value?.session?.edit;
+  addCheck("sessao.edicao_registrada_com_identidade", status1.ok && edit?.resource_id === "sor1_font" && edit.original_rom_sha256 === baseSha256 && edit.base_rom_sha256_after === baseSha256 && edit.art_tiles?.join() === "1" && edit.pixels_changed === 8, { observado: edit, sonda_tecnica: true });
+  const copyBytes = await readFile(edit.modified_rom_path);
+  addCheck("sessao.copia_no_disco_confere_o_sha_registrado", hash(copyBytes) === edit.modified_rom_sha256 && copyBytes.length === base.length, { observado: { sha: hash(copyBytes) } });
+  await writeFile(path.join(pilotDir, "copy.gen"), copyBytes);
+  report.copy_sha256 = edit.modified_rom_sha256;
+  report.steps.push({ step: 2, name: "edicao_aplicada", screenshot: await captureScreenshot(sid, `${prefix}-sor-aplicado.png`) });
+
+  // PASSO 3 — mesma edição de novo = no-op explícito (sem nova cópia).
+  const dup = await probeInvoke("rex_inspection_edit_sor_font", { sessionId: savedId, pixels: Array.from({ length: 8 }, (_, c) => ({ tile: 1, row: 7, col: c, index: 1 })) });
+  addCheck("negativo.mesma_edicao_e_noop_explicito", dup.ok && dup.value.noop === true && dup.value.modified_rom_sha256 === edit.modified_rom_sha256, { observado: { ok: dup.ok, noop: dup.value?.noop }, sonda_tecnica: true });
+  const bad = async (nome, pixels, codigo) => {
+    const r = await probeInvoke("rex_inspection_edit_sor_font", { sessionId: savedId, pixels });
+    addCheck(`negativo.${nome}`, r.ok === false && `${r.code ?? ""} ${r.message ?? ""}`.includes(codigo), { observado: { ok: r.ok, code: r.code, message: String(r.message ?? "").slice(0, 160) }, esperado: codigo, sonda_tecnica: true });
+  };
+  await bad("tile_fora_do_recurso", [{ tile: 49, row: 0, col: 0, index: 1 }], "tile_out_of_resource");
+  await bad("linha_fora_do_tile", [{ tile: 1, row: 8, col: 0, index: 1 }], "");
+  await bad("indice_fora_do_dominio", [{ tile: 1, row: 0, col: 0, index: 16 }], "");
+  const noise = [];
+  for (let t = 0; t < 49; t += 1) for (let r = 0; r < 8; r += 1) for (let c = 0; c < 8; c += 1) noise.push({ tile: t, row: r, col: c, index: ((Math.imul((t * 64 + r * 8 + c + 1), 2654435761) ^ Math.imul(t * 64 + r * 8 + c + 7, 40503)) >>> 11) % 16 });
+  await bad("falta_de_espaco_ruido_total", noise, "needs_space");
+  const afterNeg = await probeInvoke("rex_inspection_status", { sessionId: savedId });
+  addCheck("negativo.recusas_nao_alteraram_a_cadeia_de_copia", afterNeg.value?.session?.edit?.modified_rom_sha256 === edit.modified_rom_sha256, { observado: afterNeg.value?.session?.edit?.modified_rom_sha256, sonda_tecnica: true });
+  report.steps.push({ step: 3, name: "negativos_de_sessao" });
+
+  // PASSO 4 — exportar BPS e aplicar à base pelos botões; o arquivo aplicado tem que ser a cópia.
+  const patchPath = path.join(pilotDir, "export.bps");
+  const appliedPath = path.join(pilotDir, "applied.gen");
+  await fillInputBySelector(sid, "[data-testid='sor-patch-path'] input", patchPath);
+  await click("sor-export-patch", "exportar BPS");
+  await waitFor(async () => (await readPanel()).status.includes("Patch BPS exportado"), 30000, "Exportacao do BPS nao confirmou", 250);
+  const bpsBytes = await readFile(patchPath);
+  report.bps_sha256 = hash(bpsBytes);
+  await fillInputBySelector(sid, "[data-testid='sor-applied-path'] input", appliedPath);
+  await click("sor-apply-patch", "aplicar patch a base");
+  await waitFor(async () => (await readPanel()).status.includes("Patch aplicado à base"), 30000, "Aplicacao do BPS nao confirmou", 250);
+  const appliedBytes = await readFile(appliedPath);
+  addCheck("patch.aplicado_a_base_reproduz_a_copia_byte_a_byte", appliedBytes.equals(copyBytes), { observado: { applied: hash(appliedBytes), copy: hash(copyBytes) } });
+  addCheck("patch.base_preservada", (await readFile(romPath)).equals(base));
+  report.steps.push({ step: 4, name: "bps_exportado_e_aplicado" });
+
+  // PASSO 5 — executar Original e Cópia no core pela UI (720 quadros, sem input) e guardar os framebuffers.
+  const grab = async (which) => {
+    await click(`sor-run-${which}`, `executar ${which}`);
+    await waitFor(async () => {
+      const r = await q(`return { has: Boolean(document.querySelector("[data-testid='sor-observation-${which}']")), status: document.querySelector("[data-testid='sor-status']")?.textContent ?? "" };`);
+      if (!r.has && r.status.includes("recusada")) fail(`Execucao ${which} recusada pela UI: ${r.status}`);
+      return r.has;
+    }, 600000, `Observacao ${which} nao apareceu`, 500);
+    return q(`
+      const o = document.querySelector("[data-testid='sor-observation-${which}']");
+      const c = o.querySelector("canvas"); const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+      return { rom: o.getAttribute("data-rom-sha256"), fb: o.getAttribute("data-framebuffer-sha256"), frames: Number(o.getAttribute("data-frames-run")), w: c.width, h: c.height, rgba: Array.from(d) };`);
+  };
+  const obsBase = await grab("base");
+  const obsCopy = await grab("copy");
+  addCheck("execucao.identidades_carregadas", obsBase.rom === baseSha256 && obsCopy.rom === edit.modified_rom_sha256, { observado: { base: obsBase.rom, copy: obsCopy.rom } });
+  addCheck("execucao.mesmo_orcamento_de_quadros", obsBase.frames === obsCopy.frames && obsBase.frames >= 720, { observado: { base: obsBase.frames, copy: obsCopy.frames } });
+  const diff = [];
+  for (let i = 0; i < obsBase.rgba.length; i += 4) {
+    if (obsBase.rgba[i] !== obsCopy.rgba[i] || obsBase.rgba[i + 1] !== obsCopy.rgba[i + 1] || obsBase.rgba[i + 2] !== obsCopy.rgba[i + 2]) diff.push([(i / 4) % obsBase.w, Math.floor(i / 4 / obsBase.w)]);
+  }
+  report.observed = { width: obsBase.w, height: obsBase.h, frames: obsBase.frames, base_fb_sha256: obsBase.fb, copy_fb_sha256: obsCopy.fb, diff_pixels: diff };
+  addCheck("execucao.cena_difere_e_so_em_poucos_pixels", diff.length > 0 && diff.length < 400, { observado: { diff_count: diff.length } });
+  const fbScale = await q(`const c = document.querySelector("[data-testid='sor-observation-copy'] canvas"); return { w: c.width, cssW: parseFloat(c.style.width), scale: parseFloat(c.style.width) / c.width };`);
+  addCheck("cx.framebuffer_em_escala_inteira", Number.isInteger(fbScale.scale) && fbScale.scale >= 1, { observado: fbScale });
+  report.steps.push({ step: 5, name: "execucao_base_e_copia", screenshot: await captureScreenshot(sid, `${prefix}-sor-execucao.png`) });
+
+  // PASSO 6 — salvar, destruir a janela, reiniciar e reabrir; conferir cópia, identidade, procedência e prévia.
+  await persist();
+  await click("inspection-save", "salvar sessao");
+  await waitFor(async () => q(`return Boolean(document.querySelector('[data-testid="inspection-saved-session"][data-session-id="${savedId}"]'));`), 15000, "Sessao salva nao apareceu na lista", 100);
+  const before = await readPanel();
+  await deleteSession(sid);
+  sid = await createSession(app);
+  currentE2eRunContext.sessionId = sid;
+  await waitForAppWindowReady(sid, uiBootstrapTimeoutMs, "O app da jornada SoR nao reabriu");
+  await handleProjectWizardVisibly(sid, "sor-journey-restart");
+  await setSessionWindowRect(sid, winW, winH);
+  const innerRe = await innerNow();
+  report.window_measured_after_restart = innerRe;
+  if (Math.abs(innerRe.w - winW) > 64 || Math.abs(innerRe.h - winH) > 96) fail(`Janela apos reiniciar ${innerRe.w}x${innerRe.h} difere da pedida ${winW}x${winH}`);
+  await click("workspace-rail-debug", "Debug Workspace");
+  await callAutomationApi(sid, "openToolsWorkspace", ["reverse", "debug", true]);
+  await waitForBodyText(sid, "Analisar ROM", 20000, "Reverse Workspace nao voltou");
+  await click("reverse-tab-inspection", "aba de inspecao");
+  await click("inspection-refresh-sessions", "listar sessoes");
+  await waitFor(async () => q(`return Boolean(document.querySelector('[data-testid="select-saved-session-${savedId}"]'));`), 30000, "Sessao salva nao reapareceu apos reiniciar", 100);
+  const gone = await readPanel();
+  addCheck("reabertura.janela_nova_nao_tem_painel_antes_de_reabrir", !gone.panel || gone.copyActive !== "true", { observado: gone.copyActive });
+  await click(`select-saved-session-${savedId}`, "selecionar sessao salva");
+  await click("inspection-reopen", "reabrir sessao");
+  const re = await waitFor(async () => { const r = await readPanel(); return r.panel && r.copyActive === "true" && r.sessionId === savedId ? r : false; }, 60000, "Apos reabrir, a cópia nao foi restaurada", 250);
+  // Janela nova => layout padrao: o usuario amplia de novo (o modo ampliado nao e persistido).
+  await click("inspection-expand-toggle", "ampliar painel apos reabrir");
+  await waitFor(async () => (await hitTest("sor-glyph-A", true)).hit === true, 15000, "Letra A nao ficou acessivel apos ampliar", 250);
+  for (const id of ["sor-apply", "sor-export-patch", "sor-run-copy"]) {
+    const h = await hitTest(id, false);
+    addCheck(`reabertura.barra_fixa_visivel.${id}`, h.found && h.inside && h.hit, { observado: h, janela: report.window });
+  }
+  // Retomada de contexto: a letra/zoom/cor da sessao anterior voltam sem o usuario refazer a escolha.
+  const ctxBack = await q(`return { glyphA: document.querySelector("[data-testid='sor-glyph-A']")?.getAttribute("aria-pressed"), zoom: document.querySelector("[data-testid='sor-zoom-5']")?.getAttribute("aria-pressed"), index: document.querySelector("[data-testid='sor-index-1']")?.getAttribute("aria-pressed") };`);
+  addCheck("reabertura.contexto_de_trabalho_retomado", ctxBack.glyphA === "true" && ctxBack.zoom === "true" && ctxBack.index === "true", { observado: ctxBack });
+  await click("sor-glyph-A", "letra A (reaberta)");
+  const re2 = await readPanel();
+  addCheck("reabertura.identidade_restaurada", re2.identity === baseSha256 && re2.sessionId === savedId, { observado: { identity: re2.identity, session: re2.sessionId } });
+  addCheck("reabertura.edicao_restaurada_no_tile_A", re2.row7.every((v) => v === 1) && JSON.stringify(re2.row0) === JSON.stringify(before.row0), { observado: { row7: re2.row7, row0: re2.row0 } });
+  addCheck("reabertura.previa_da_copia_restaurada", (re2.previewCopy?.lit ?? 0) === (before.previewCopy?.lit ?? -1) && re2.previewCopy.lit > re2.previewOriginal.lit, { observado: { depois: re2.previewCopy, antes: before.previewCopy } });
+  const status2 = await probeInvoke("rex_inspection_status", { sessionId: savedId });
+  const e2 = status2.value?.session?.edit;
+  addCheck("reabertura.procedencia_restaurada", e2?.modified_rom_sha256 === edit.modified_rom_sha256 && e2.original_rom_sha256 === baseSha256 && (status2.value?.session?.applied_edits ?? []).length === 1, { observado: { copy: e2?.modified_rom_sha256, applied: status2.value?.session?.applied_edits?.length }, sonda_tecnica: true });
+  addCheck("reabertura.cadeia_final_base_intacta", (await readFile(romPath)).equals(base) && hash(await readFile(edit.modified_rom_path)) === edit.modified_rom_sha256);
+  report.steps.push({ step: 6, name: "reiniciado_e_reaberto", screenshot: await captureScreenshot(sid, `${prefix}-sor-reaberto.png`) });
+  report.all_pass = report.checks.every((c) => c.pass);
+  await persist();
+  console.log(`[sor-font-journey] ${report.checks.length} checks, all_pass=${report.all_pass}, report=${path.join(pilotDir, "report.json")}`);
+  return sid;
+}
+
 async function runSonicLayoutsJourneyScenario(sessionId, app, romPath, base, savedId, prefix, uiBootstrapTimeoutMs) {
   const hash = (buffer) => createHash("sha256").update(buffer).digest("hex");
   const baseSha256 = hash(base);
@@ -12010,6 +12400,123 @@ async function runSonicLayoutsJourneyScenario(sessionId, app, romPath, base, sav
     const semArte = await readLayouts();
     addCheck("ui.definicao_diz_o_que_nao_se_sabe", semArte.desconhecidos >= 4, { observado: semArte.desconhecidos });
     report.steps.push({ step: 5, name: "definicao_estrutural_contra_bytes_do_arquivo" });
+
+    // PASSO 5b — célula → recurso: composição das paredes (pixels do canvas × oráculo JS) e captura visível.
+    const readWall = () => executeScript(sessionIdRef, `
+      const panel = document.querySelector("[data-testid='ss-wall-panel']");
+      const canvas = document.querySelector("[data-testid='ss-wall-canvas']");
+      let rgba = null;
+      if (canvas) { const ctx = canvas.getContext("2d"); rgba = Array.from(ctx.getImageData(0, 0, canvas.width, canvas.height).data); }
+      return {
+        panel: Boolean(panel),
+        blockId: panel?.getAttribute("data-block-id") ?? null,
+        status: document.querySelector("[data-testid='ss-wall-status']")?.getAttribute("data-status") ?? null,
+        w: canvas?.width ?? 0, h: canvas?.height ?? 0, rgba,
+        paleta: document.querySelector("[data-testid='ss-wall-paleta']")?.textContent ?? "",
+        cadeia: document.querySelectorAll("[data-testid='ss-wall-cadeia'] li").length,
+        vazios: document.querySelector("[data-testid='ss-wall-vazios']")?.textContent ?? "",
+        frameInput: document.querySelector("[data-testid='ss-wall-frame']")?.value ?? null,
+        label: canvas?.getAttribute("aria-label") ?? "",
+      };`);
+    {
+      const cellFor = (pred) => {
+        for (let layout = 0; layout < 6; layout += 1) {
+          for (let off = 0; off < 4096; off += 1) { const id = oracle[layout].bytes[off]; if (pred(id)) return { layout, off, id }; }
+        }
+        return null;
+      };
+      const alvo = cellFor((id) => id >= 1 && id <= 36);
+      const outro = cellFor((id) => id >= 37 && id <= 78);
+      if (!alvo) fail("Nenhum ID 1..36 nos seis layouts para a composição");
+      if (Number((await readLayouts()).layout) !== alvo.layout) {
+        await clickButtonByTestIdNativeWhenReady(sessionIdRef, `layouts-tab-${alvo.layout}`, "layout do ID de parede");
+        await waitFor(async () => { const r = await readLayouts(); return r?.layout === alvo.layout && r.gridState === "pronto"; }, 15000, "troca de layout", 100);
+      }
+      const row = Math.floor(alvo.off / 64), col = alvo.off % 64;
+      await nativeClickSelector(`[data-testid='layouts-grid'] [data-row='${row}'][data-col='${col}']`, "celula de parede");
+      await waitCell(row, col, "celula de parede");
+      const wall = await waitFor(async () => { const w = await readWall(); return w.rgba && String(w.blockId) === String(alvo.id) ? w : false; }, 20000, "composição da parede não apareceu", 150);
+      const rec = mapIndexRecord(alvo.id);
+      const linha = (parseInt(rec.slice(8, 12), 16) >> 13) & 3;
+      const compara = (nome, w, frame) => {
+        const exp = ssWallOracle(base, frame, linha);
+        addCheck(nome, w.w === exp.w && w.h === exp.h && w.rgba.length === exp.rgba.length && w.rgba.every((v, i) => v === exp.rgba[i]), { observado: { w: w.w, h: w.h, frame, id: alvo.id, linha }, sonda_tecnica: false });
+      };
+      compara("parede.canvas_frame0_igual_ao_oraculo_js", wall, 0);
+      addCheck("parede.paleta_rotulada_candidata_estatica", wall.paleta.includes("candidata estática") && wall.paleta.includes("Não é a paleta do jogo"), { observado: wall.paleta });
+      addCheck("parede.cadeia_5_elos_e_frame0_sem_vazios", wall.cadeia === 5 && wall.vazios === "", { observado: { cadeia: wall.cadeia, vazios: wall.vazios } });
+      await nativeClickSelector("[data-testid='ss-wall-frame']", "campo de frame");
+      for (let i = 0; i < 8; i += 1) await tap("ArrowUp", "frame +1");
+      const w8 = await waitFor(async () => { const w = await readWall(); return w.frameInput === "8" && w.label.startsWith("Frame 8 do mapping") && w.rgba ? w : false; }, 15000, "frame 8 não apareceu", 150);
+      compara("parede.canvas_frame8_igual_ao_oraculo_js", w8, 8);
+      addCheck("parede.frame8_reporta_tiles_vazios_121_124_133_136", ["121", "124", "133", "136"].every((t) => w8.vazios.includes(t)), { observado: w8.vazios });
+      await tap("ArrowUp", "frame +1");
+      const w9 = await waitFor(async () => { const w = await readWall(); return w.frameInput === "9" && w.label.startsWith("Frame 9 do mapping") && w.rgba ? w : false; }, 15000, "frame 9 não apareceu", 150);
+      compara("parede.canvas_frame9_reservado_igual_ao_oraculo_js", w9, 9);
+      for (let i = 0; i < 6; i += 1) await tap("ArrowUp", "frame +1");
+      const w15 = await waitFor(async () => { const w = await readWall(); return w.frameInput === "15" && w.label.startsWith("Frame 15 do mapping") && w.rgba ? w : false; }, 15000, "frame 15 não apareceu", 150);
+      compara("parede.canvas_frame15_reservado_igual_ao_oraculo_js", w15, 15);
+      await executeScript(sessionIdRef, `document.querySelector("[data-testid='ss-wall-panel']")?.scrollIntoView({ block: "center" }); return true;`);
+      report.steps.push({ step: "5b", name: "celula_para_recurso_parede", id: alvo.id, linha, screenshot: await captureScreenshot(sessionIdRef, `${prefix}-layouts-parede.png`) });
+      if (outro) {
+        const r2 = Math.floor(outro.off / 64), c2 = outro.off % 64;
+        if (Number((await readLayouts()).layout) !== outro.layout) {
+          await clickButtonByTestIdNativeWhenReady(sessionIdRef, `layouts-tab-${outro.layout}`, "layout do ID de outro mapping");
+          await waitFor(async () => { const r = await readLayouts(); return r?.layout === outro.layout && r.gridState === "pronto"; }, 15000, "troca de layout", 100);
+        }
+        await nativeClickSelector(`[data-testid='layouts-grid'] [data-row='${r2}'][data-col='${c2}']`, "celula de outro mapping");
+        await waitCell(r2, c2, "celula de outro mapping");
+        const sem = await waitFor(async () => { const w = await readWall(); return w.status && String(w.blockId) === String(outro.id) ? w : false; }, 20000, "estado do ID de outro mapping não apareceu", 150);
+        const rec2 = mapIndexRecord(outro.id);
+        const ptr2 = parseInt(rec2.slice(2, 8), 16);
+        {
+          // Oráculo JS do vínculo de arte: PLC @0x1d992 (count-1, N×(stream.l, vram.w)); tiles = cabeçalho Nemesis.
+          const n = ((base[0x1d992] << 8) | base[0x1d993]) + 1;
+          const base2 = parseInt(rec2.slice(8, 12), 16) & 0x7ff;
+          let esperado = false;
+          for (let i = 0; i < n; i += 1) {
+            const a = 0x1d994 + i * 6;
+            const so = base.readUInt32BE(a), first = base.readUInt16BE(a + 4) / 32;
+            const tiles = base.readUInt16BE(so) & 0x7fff;
+            if (base2 >= first && base2 < first + tiles) esperado = true;
+          }
+          const arte = await executeScript(sessionIdRef, `return document.querySelector("[data-testid='ss-wall-arte']")?.getAttribute("data-vinculada") ?? null;`);
+          addCheck("parede.arte_vinculada_igual_ao_oraculo_plc", arte === (esperado ? "sim" : "nao"), { observado: { id: outro.id, base: base2.toString(16), ui: arte, esperado } });
+        }
+        addCheck("parede.outro_mapping_sem_imagem_inventada", ptr2 === 0x2c564 ? sem.status === "composta" : (sem.rgba === null ? sem.status !== "composta" : sem.status === "composta" && ["0x1b90c:0x22f0", "0x1b90c:0x251", "0x1b90c:0x2f0", "0x1b90c:0x4f0", "0x1b920:0x470", "0x1b940:0x263", "0x1b950:0x263"].includes(`0x${ptr2.toString(16)}:0x${(parseInt(rec2.slice(8, 12), 16)).toString(16)}`)), { observado: { id: outro.id, ptr: ptr2.toString(16), status: sem.status, canvas: sem.rgba !== null } });
+      }
+    }
+    {
+      // Mappings dos IDs 37..78: frame CONFIRMADO compõe e é igual ao oráculo JS; não confirmado nunca desenha.
+      const CONF = new Set(["0x1b90c:0x22f0", "0x1b90c:0x251", "0x1b90c:0x2f0", "0x1b90c:0x4f0", "0x1b920:0x470", "0x1b940:0x263", "0x1b950:0x263"]);
+      const chave = (id) => { const r = mapIndexRecord(id); return { ptr: parseInt(r.slice(2, 8), 16), campo: parseInt(r.slice(8, 12), 16) }; };
+      const kstr = (id) => { const k = chave(id); return `0x${k.ptr.toString(16)}:0x${k.campo.toString(16)}`; };
+      const pick = (pred) => { for (let layout = 0; layout < 6; layout += 1) for (let off = 0; off < 4096; off += 1) { const id = oracle[layout].bytes[off]; if (id >= 37 && id <= 78 && pred(id)) return { layout, off, id }; } return null; };
+      const conf = pick((id) => CONF.has(kstr(id)));
+      const nconf = pick((id) => !CONF.has(kstr(id)) && chave(id).ptr !== 0x2c564 && (chave(id).campo & 0x7ff) !== 0x7b2);
+      const go = async (alvo, nome) => {
+        if (Number((await readLayouts()).layout) !== alvo.layout) {
+          await clickButtonByTestIdNativeWhenReady(sessionIdRef, `layouts-tab-${alvo.layout}`, `layout para ${nome}`);
+          await waitFor(async () => { const r = await readLayouts(); return r?.layout === alvo.layout && r.gridState === "pronto"; }, 15000, "troca de layout", 100);
+        }
+        const row = Math.floor(alvo.off / 64), col = alvo.off % 64;
+        await nativeClickSelector(`[data-testid='layouts-grid'] [data-row='${row}'][data-col='${col}']`, nome);
+        await waitCell(row, col, nome);
+        return waitFor(async () => { const w = await readWall(); return w.status && String(w.blockId) === String(alvo.id) && w.label !== undefined ? w : false; }, 20000, `${nome}: estado não apareceu`, 150);
+      };
+      if (!conf || !nconf) fail("layouts sem ID confirmado/não confirmado para a jornada de mappings");
+      await go(conf, "ID de frame confirmado");
+      const wc = await waitFor(async () => { const w = await readWall(); return w.status === "composta" && String(w.blockId) === String(conf.id) && w.rgba && w.rgba.some((v) => v !== 0) ? w : false; }, 20000, "canvas do frame confirmado não foi desenhado", 150);
+      const k = chave(conf.id);
+      const exp = ssFrameOracle(base, k.ptr, k.campo, 0);
+      addCheck("mapping.confirmado_canvas_igual_ao_oraculo_js", wc.status === "composta" && exp !== null && wc.w === exp.w && wc.h === exp.h && wc.rgba.length === exp.rgba.length && wc.rgba.every((v, i) => v === exp.rgba[i]), { observado: { id: conf.id, chave: kstr(conf.id), status: wc.status, w: wc.w, h: wc.h } });
+      const nivel = await executeScript(sessionIdRef, `return document.querySelector("[data-testid='ss-wall-nivel']")?.textContent ?? "";`);
+      addCheck("mapping.confirmado_mostra_nivel_de_confirmacao", nivel.includes("confirmado por pixel") && nivel.includes("2 capturas"), { observado: nivel });
+      const wn = await go(nconf, "ID sem confirmação");
+      addCheck("mapping.nao_confirmado_nao_desenha", wn.status !== "composta" && wn.rgba === null, { observado: { id: nconf.id, chave: kstr(nconf.id), status: wn.status, canvas: wn.rgba !== null } });
+      report.steps.push({ step: "5d", name: "mappings_confirmados_e_nao_confirmados", confirmado: conf.id, nao_confirmado: nconf.id, screenshot: await captureScreenshot(sessionIdRef, `${prefix}-layouts-mapping.png`) });
+    }
+    report.steps.push({ step: "5c", name: "composicao_validada" });
 
     // PASSO 6 — zoom por mouse e teclado.
     const z0 = Number((await readLayouts()).zoom);
@@ -18211,6 +18718,7 @@ async function main() {
     const sonicConsumersMode = options.scenario === "sonic-consumers-inspection";
     const sonicLayoutsMode = options.scenario === "sonic-layouts-journey";
     const sonicTilesMode = options.scenario === "inspection-sonic-tiles";
+    const sorFontMode = options.scenario === "sor-font-journey";
     if (sonicMultiframeMode) options.scenario = "inspection-sonic";
     if (sonicCadenceMode) options.scenario = "inspection-sonic";
     if (sonicAnimIntegradaMode) options.scenario = "inspection-sonic";
@@ -18219,6 +18727,7 @@ async function main() {
     if (sonicConsumersMode) options.scenario = "inspection-sonic";
     if (sonicLayoutsMode) options.scenario = "inspection-sonic";
     if (sonicTilesMode) options.scenario = "inspection-sonic";
+    if (sorFontMode) options.scenario = "inspection-sonic";
     if (["inspection", "inspection-cancel", "inspection-complete", "inspection-sprite-secondary", "inspection-sonic", "inspection-preview-unavailable"].includes(options.scenario)) {
       let inspectionRom = process.env.RDS_INSPECTION_ROM ?? "";
       let inspectionFixture = null;
@@ -18264,8 +18773,11 @@ async function main() {
       const frontendEvidence = await executeScript(sessionId, `return { buildCommit: window.__RDS_BUILD_COMMIT__ ?? null, scripts: Array.from(document.scripts).map((script) => script.src || script.textContent?.slice(0, 80) || "") };`);
       console.log(`[inspection-build] binary=${JSON.stringify({ path: options.app, sha256: binarySha256 })}`);
       console.log(`[inspection-build] frontend=${JSON.stringify(frontendEvidence)} git=${JSON.stringify(gitEvidence)}`);
-      if (!gitEvidence.commit || frontendEvidence?.buildCommit !== gitEvidence.commit) {
-        fail(`Binário/frontend não correspondem ao commit corrente: ${JSON.stringify({ binary: options.app, frontend: frontendEvidence, git: gitEvidence })}`);
+      // RDS_E2E_CODE_COMMIT: commits só de documentação/prova posteriores ao build não invalidam o binário,
+      // mas o commit de código pinado tem que ser exatamente o do frontend embutido.
+      const expectedBuildCommit = process.env.RDS_E2E_CODE_COMMIT || gitEvidence.commit;
+      if (!expectedBuildCommit || frontendEvidence?.buildCommit !== expectedBuildCommit) {
+        fail(`Binário/frontend não correspondem ao commit corrente: ${JSON.stringify({ binary: options.app, frontend: frontendEvidence, git: gitEvidence, expectedBuildCommit })}`);
       }
       try {
         await setSessionWindowRect(sessionId, 1280, 800);
@@ -18364,6 +18876,11 @@ async function main() {
       );
       console.log(`[inspection-complete] terminal=${JSON.stringify(completedState)}`);
       const beforeRestartScreenshot = await captureScreenshot(sessionId, `${artifactPrefix}-before-restart.png`);
+      if (sorFontMode) {
+        sessionId = await runSorFontJourneyScenario(sessionId, options.app, inspectionRom, inspectionRomBytes, completedState.session.id, artifactPrefix, uiBootstrapTimeoutMs);
+        currentE2eRunContext.sessionId = sessionId;
+        return;
+      }
       if (options.scenario === "inspection-sonic") {
         const baseSha256 = createHash("sha256").update(inspectionRomBytes).digest("hex");
         const expectedBaseSha256 = "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb";
