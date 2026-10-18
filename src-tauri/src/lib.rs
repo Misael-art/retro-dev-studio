@@ -2638,6 +2638,29 @@ fn rex_inspection_edit_sonic_tiles(
 }
 
 #[tauri::command]
+fn rex_inspection_sor_font_info(
+    session_id: String,
+) -> Result<
+    tools::reverse::decomp::inspection::SorFontInfo,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::sor_font_info(&session_id)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
+fn rex_inspection_edit_sor_font(
+    session_id: String,
+    pixels: Vec<tools::reverse::decomp::inspection::SorPixelEdit>,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionEdit,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::edit_sor_font(&session_id, &pixels)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
 fn rex_inspection_sonic_cadence(
     session_id: String,
 ) -> Result<
@@ -2766,6 +2789,64 @@ async fn rex_inspection_sonic_layout_cell(
         || {
             Err(tools::reverse::decomp::inspection::layouts_error(
                 interrupted_command_message("rex_inspection_sonic_layout_cell"),
+            ))
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+async fn rex_inspection_sonic_ss_walls(
+    session_id: String,
+    expected_rom_sha256: Option<String>,
+    request_id: Option<String>,
+) -> Result<
+    tools::reverse::decomp::sonic_ss_walls::SsWallsInfo,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_command_off_main_thread(
+        move || {
+            tools::reverse::decomp::inspection::sonic_ss_walls_info(
+                &session_id,
+                expected_rom_sha256.as_deref(),
+                request_id.as_deref(),
+            )
+            .map_err(tools::reverse::decomp::inspection::layouts_error)
+        },
+        || {
+            Err(tools::reverse::decomp::inspection::layouts_error(
+                interrupted_command_message("rex_inspection_sonic_ss_walls"),
+            ))
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+async fn rex_inspection_sonic_ss_wall_compose(
+    session_id: String,
+    expected_rom_sha256: String,
+    id: u8,
+    frame: usize,
+    request_id: Option<String>,
+) -> Result<
+    tools::reverse::decomp::sonic_ss_walls::SsWallsComposicao,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_command_off_main_thread(
+        move || {
+            tools::reverse::decomp::inspection::sonic_ss_walls_compose(
+                &session_id,
+                &expected_rom_sha256,
+                id,
+                frame,
+                request_id.as_deref(),
+            )
+            .map_err(tools::reverse::decomp::inspection::layouts_error)
+        },
+        || {
+            Err(tools::reverse::decomp::inspection::layouts_error(
+                interrupted_command_message("rex_inspection_sonic_ss_wall_compose"),
             ))
         },
     )
@@ -5861,6 +5942,8 @@ pub fn run() {
             rex_inspection_save,
             rex_inspection_edit_sonic_palette,
             rex_inspection_edit_sonic_tiles,
+            rex_inspection_sor_font_info,
+            rex_inspection_edit_sor_font,
             rex_inspection_sonic_cadence,
             rex_inspection_edit_sonic_duration,
             rex_inspection_sonic_sequence,
@@ -5869,6 +5952,8 @@ pub fn run() {
             rex_inspection_sonic_layout_grid,
             rex_inspection_sonic_layout_cell,
             rex_inspection_sonic_layouts_cancel,
+            rex_inspection_sonic_ss_walls,
+            rex_inspection_sonic_ss_wall_compose,
             rex_inspection_set_layouts_selection,
             rex_inspection_edit_sonic_sequence,
             rex_inspection_restore_sonic_sequence,

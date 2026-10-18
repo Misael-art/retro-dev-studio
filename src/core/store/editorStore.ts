@@ -184,6 +184,9 @@ export interface StoreState {
   artStudioAssetPath: string | null;
   consoleEntries: ConsoleEntry[];
   consoleVisible: boolean;
+  /** Modo de inspeção: o painel de ferramentas à direita ocupa quase toda a largura (a cena fica minimizada). */
+  inspectionExpanded: boolean;
+  setInspectionExpanded: (expanded: boolean) => void;
   lastParityReport: ParityReport | null;
   lastBuildSourceMap: BuildSourceMap | null;
   lastCrossCoreReport: CrossCoreReport | null;
@@ -607,6 +610,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   clearConsole: () => set({ consoleEntries: [] }),
 
   consoleVisible: false,
+  inspectionExpanded: false,
+  setInspectionExpanded: (expanded) => set({ inspectionExpanded: expanded }),
   toggleConsole: () => set((state) => ({ consoleVisible: !state.consoleVisible })),
   lastParityReport: null,
   setLastParityReport: (report) => set({ lastParityReport: report }),

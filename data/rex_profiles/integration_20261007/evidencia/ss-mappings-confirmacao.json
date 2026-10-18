@@ -1,0 +1,479 @@
+{
+ "schema": "rex-ss-mappings-confirmacao/v1",
+ "expectations": "docs/rex_profiles/integration_20261007/EXPECTATIONS-SS-MAPPINGS-2026-10-07.md (M1,M2,M5), commit c149d195",
+ "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+ "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+ "capturas": {
+  "exploracao_seed7": "hipoteses (nao e aceite)",
+  "seed11": "1188 quadros, 360 de fase especial",
+  "seed23": "1188 quadros, 360 de fase especial"
+ },
+ "criterio": "100% dos pixels opacos (>=20 px, >=3 cores) com a paleta WRAM do instante, em ao menos uma captura nova; nivel 2 = nas duas",
+ "resultado": {
+  "pares_hipotese": 36,
+  "confirmados_por_2_capturas": 13,
+  "nao_reconfirmados": 23
+ },
+ "pares": [
+  {
+   "ptr": "0xeb00",
+   "campo": "0x23b",
+   "frame": 0,
+   "ids": [
+    37,
+    50,
+    51
+   ],
+   "explor": 34,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0xeb00",
+   "campo": "0x23b",
+   "frame": 1,
+   "ids": [
+    37,
+    50,
+    51
+   ],
+   "explor": 6,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x251",
+   "frame": 0,
+   "ids": [
+    39
+   ],
+   "explor": 42,
+   "s11": 10,
+   "s23": 16,
+   "nivel": 2
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x251",
+   "frame": 1,
+   "ids": [
+    39
+   ],
+   "explor": 82,
+   "s11": 36,
+   "s23": 46,
+   "nivel": 2
+  },
+  {
+   "ptr": "0x1b940",
+   "campo": "0x263",
+   "frame": 0,
+   "ids": [
+    41
+   ],
+   "explor": 32,
+   "s11": 2,
+   "s23": 2,
+   "nivel": 2
+  },
+  {
+   "ptr": "0x1b940",
+   "campo": "0x263",
+   "frame": 1,
+   "ids": [
+    41
+   ],
+   "explor": 163,
+   "s11": 323,
+   "s23": 317,
+   "nivel": 2
+  },
+  {
+   "ptr": "0x1b950",
+   "campo": "0x263",
+   "frame": 0,
+   "ids": [
+    42
+   ],
+   "explor": 123,
+   "s11": 330,
+   "s23": 324,
+   "nivel": 2
+  },
+  {
+   "ptr": "0x1b950",
+   "campo": "0x263",
+   "frame": 1,
+   "ids": [
+    42
+   ],
+   "explor": 163,
+   "s11": 323,
+   "s23": 317,
+   "nivel": 2
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x22f0",
+   "frame": 0,
+   "ids": [
+    43
+   ],
+   "explor": 221,
+   "s11": 153,
+   "s23": 214,
+   "nivel": 2
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x470",
+   "frame": 0,
+   "ids": [
+    44
+   ],
+   "explor": 707,
+   "s11": 250,
+   "s23": 433,
+   "nivel": 2
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x470",
+   "frame": 1,
+   "ids": [
+    44
+   ],
+   "explor": 707,
+   "s11": 250,
+   "s23": 433,
+   "nivel": 2
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x470",
+   "frame": 2,
+   "ids": [
+    44
+   ],
+   "explor": 707,
+   "s11": 250,
+   "s23": 433,
+   "nivel": 2
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x470",
+   "frame": 3,
+   "ids": [
+    44
+   ],
+   "explor": 707,
+   "s11": 250,
+   "s23": 433,
+   "nivel": 2
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x5f0",
+   "frame": 0,
+   "ids": [
+    45,
+    75
+   ],
+   "explor": 527,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x5f0",
+   "frame": 1,
+   "ids": [
+    45,
+    75
+   ],
+   "explor": 527,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x5f0",
+   "frame": 2,
+   "ids": [
+    45,
+    75
+   ],
+   "explor": 527,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x5f0",
+   "frame": 3,
+   "ids": [
+    45,
+    75
+   ],
+   "explor": 527,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x65f0",
+   "frame": 0,
+   "ids": [
+    46,
+    76
+   ],
+   "explor": 91,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x65f0",
+   "frame": 1,
+   "ids": [
+    46,
+    76
+   ],
+   "explor": 91,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x65f0",
+   "frame": 2,
+   "ids": [
+    46,
+    76
+   ],
+   "explor": 91,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x65f0",
+   "frame": 3,
+   "ids": [
+    46,
+    76
+   ],
+   "explor": 91,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x25f0",
+   "frame": 0,
+   "ids": [
+    47,
+    77
+   ],
+   "explor": 52,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x25f0",
+   "frame": 1,
+   "ids": [
+    47,
+    77
+   ],
+   "explor": 52,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x25f0",
+   "frame": 2,
+   "ids": [
+    47,
+    77
+   ],
+   "explor": 52,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x25f0",
+   "frame": 3,
+   "ids": [
+    47,
+    77
+   ],
+   "explor": 52,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x45f0",
+   "frame": 0,
+   "ids": [
+    48,
+    78
+   ],
+   "explor": 7,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x45f0",
+   "frame": 1,
+   "ids": [
+    48,
+    78
+   ],
+   "explor": 7,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x45f0",
+   "frame": 2,
+   "ids": [
+    48,
+    78
+   ],
+   "explor": 7,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x45f0",
+   "frame": 3,
+   "ids": [
+    48,
+    78
+   ],
+   "explor": 7,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x2f0",
+   "frame": 0,
+   "ids": [
+    49
+   ],
+   "explor": 13,
+   "s11": 7,
+   "s23": 5,
+   "nivel": 2
+  },
+  {
+   "ptr": "0x1b968",
+   "campo": "0x770",
+   "frame": 0,
+   "ids": [
+    59
+   ],
+   "explor": 37,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b968",
+   "campo": "0x770",
+   "frame": 1,
+   "ids": [
+    59
+   ],
+   "explor": 72,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b968",
+   "campo": "0x2770",
+   "frame": 1,
+   "ids": [
+    60
+   ],
+   "explor": 72,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b960",
+   "campo": "0x770",
+   "frame": 1,
+   "ids": [
+    63
+   ],
+   "explor": 72,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b964",
+   "campo": "0x770",
+   "frame": 1,
+   "ids": [
+    64
+   ],
+   "explor": 72,
+   "s11": 0,
+   "s23": 0,
+   "nivel": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x4f0",
+   "frame": 0,
+   "ids": [
+    65,
+    74
+   ],
+   "explor": 765,
+   "s11": 254,
+   "s23": 438,
+   "nivel": 2
+  }
+ ],
+ "controles_negativos": {
+  "transposto": 0,
+  "pixels_invertidos_no_tile": 0,
+  "nota": "zero pares casaram com cada mutante na captura seed11"
+ },
+ "nao_previsto_nas_novas": 0,
+ "limites": "23 pares que casaram so na exploracao (objetos fora da tela nas capturas novas) permanecem hipotese e NAO geram imagem; flips so se contam quando o template espelhado casa; paleta estatica candidata; frame do core e um instante"
+}
