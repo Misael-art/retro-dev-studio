@@ -1,0 +1,549 @@
+{
+ "schema": "rex-kosinski-encoder-audit/v1",
+ "cases": 108,
+ "all_pass": true,
+ "optimal_larger_than_greedy": [],
+ "checks": [
+  {
+   "check": "vazio",
+   "ok": true,
+   "detail": "0B -> 5B (guloso 5B)"
+  },
+  {
+   "check": "um_byte",
+   "ok": true,
+   "detail": "1B -> 6B (guloso 6B)"
+  },
+  {
+   "check": "corrida_2",
+   "ok": true,
+   "detail": "3B -> 7B (guloso 8B)"
+  },
+  {
+   "check": "corrida_3",
+   "ok": true,
+   "detail": "4B -> 7B (guloso 7B)"
+  },
+  {
+   "check": "corrida_4",
+   "ok": true,
+   "detail": "5B -> 7B (guloso 7B)"
+  },
+  {
+   "check": "corrida_5",
+   "ok": true,
+   "detail": "6B -> 7B (guloso 7B)"
+  },
+  {
+   "check": "corrida_6",
+   "ok": true,
+   "detail": "7B -> 8B (guloso 8B)"
+  },
+  {
+   "check": "corrida_9",
+   "ok": true,
+   "detail": "10B -> 8B (guloso 8B)"
+  },
+  {
+   "check": "corrida_10",
+   "ok": true,
+   "detail": "11B -> 8B (guloso 9B)"
+  },
+  {
+   "check": "corrida_11",
+   "ok": true,
+   "detail": "12B -> 9B (guloso 9B)"
+  },
+  {
+   "check": "corrida_255",
+   "ok": true,
+   "detail": "256B -> 9B (guloso 9B)"
+  },
+  {
+   "check": "corrida_256",
+   "ok": true,
+   "detail": "257B -> 9B (guloso 9B)"
+  },
+  {
+   "check": "corrida_257",
+   "ok": true,
+   "detail": "258B -> 10B (guloso 10B)"
+  },
+  {
+   "check": "corrida_258",
+   "ok": true,
+   "detail": "259B -> 10B (guloso 11B)"
+  },
+  {
+   "check": "corrida_300",
+   "ok": true,
+   "detail": "301B -> 12B (guloso 12B)"
+  },
+  {
+   "check": "corrida_512",
+   "ok": true,
+   "detail": "513B -> 12B (guloso 12B)"
+  },
+  {
+   "check": "corrida_1000",
+   "ok": true,
+   "detail": "1001B -> 18B (guloso 18B)"
+  },
+  {
+   "check": "dist_1",
+   "ok": true,
+   "detail": "3B -> 7B (guloso 8B)"
+  },
+  {
+   "check": "dist_255",
+   "ok": true,
+   "detail": "335B -> 277B (guloso 298B)"
+  },
+  {
+   "check": "dist_256",
+   "ok": true,
+   "detail": "336B -> 278B (guloso 299B)"
+  },
+  {
+   "check": "dist_257",
+   "ok": true,
+   "detail": "337B -> 279B (guloso 300B)"
+  },
+  {
+   "check": "dist_8191",
+   "ok": true,
+   "detail": "8271B -> 2231B (guloso 2393B)"
+  },
+  {
+   "check": "dist_8192",
+   "ok": true,
+   "detail": "8272B -> 2231B (guloso 2393B)"
+  },
+  {
+   "check": "dist_8193",
+   "ok": true,
+   "detail": "8273B -> 2232B (guloso 2394B)"
+  },
+  {
+   "check": "literais_1",
+   "ok": true,
+   "detail": "1B -> 6B (guloso 6B)"
+  },
+  {
+   "check": "literais_2",
+   "ok": true,
+   "detail": "2B -> 7B (guloso 7B)"
+  },
+  {
+   "check": "literais_3",
+   "ok": true,
+   "detail": "3B -> 8B (guloso 8B)"
+  },
+  {
+   "check": "literais_4",
+   "ok": true,
+   "detail": "4B -> 9B (guloso 9B)"
+  },
+  {
+   "check": "literais_5",
+   "ok": true,
+   "detail": "5B -> 10B (guloso 10B)"
+  },
+  {
+   "check": "literais_6",
+   "ok": true,
+   "detail": "6B -> 11B (guloso 11B)"
+  },
+  {
+   "check": "literais_7",
+   "ok": true,
+   "detail": "7B -> 12B (guloso 12B)"
+  },
+  {
+   "check": "literais_8",
+   "ok": true,
+   "detail": "8B -> 13B (guloso 13B)"
+  },
+  {
+   "check": "literais_9",
+   "ok": true,
+   "detail": "9B -> 14B (guloso 14B)"
+  },
+  {
+   "check": "literais_10",
+   "ok": true,
+   "detail": "10B -> 15B (guloso 15B)"
+  },
+  {
+   "check": "literais_11",
+   "ok": true,
+   "detail": "11B -> 16B (guloso 16B)"
+  },
+  {
+   "check": "literais_12",
+   "ok": true,
+   "detail": "12B -> 17B (guloso 17B)"
+  },
+  {
+   "check": "literais_13",
+   "ok": true,
+   "detail": "13B -> 18B (guloso 18B)"
+  },
+  {
+   "check": "literais_14",
+   "ok": true,
+   "detail": "14B -> 21B (guloso 21B)"
+  },
+  {
+   "check": "literais_15",
+   "ok": true,
+   "detail": "15B -> 22B (guloso 22B)"
+  },
+  {
+   "check": "literais_16",
+   "ok": true,
+   "detail": "16B -> 23B (guloso 23B)"
+  },
+  {
+   "check": "literais_17",
+   "ok": true,
+   "detail": "17B -> 24B (guloso 24B)"
+  },
+  {
+   "check": "literais_18",
+   "ok": true,
+   "detail": "18B -> 25B (guloso 25B)"
+  },
+  {
+   "check": "literais_19",
+   "ok": true,
+   "detail": "19B -> 26B (guloso 26B)"
+  },
+  {
+   "check": "literais_20",
+   "ok": true,
+   "detail": "20B -> 27B (guloso 27B)"
+  },
+  {
+   "check": "literais_21",
+   "ok": true,
+   "detail": "21B -> 28B (guloso 28B)"
+  },
+  {
+   "check": "literais_22",
+   "ok": true,
+   "detail": "22B -> 29B (guloso 29B)"
+  },
+  {
+   "check": "literais_23",
+   "ok": true,
+   "detail": "23B -> 30B (guloso 30B)"
+  },
+  {
+   "check": "literais_24",
+   "ok": true,
+   "detail": "24B -> 31B (guloso 31B)"
+  },
+  {
+   "check": "literais_25",
+   "ok": true,
+   "detail": "25B -> 32B (guloso 32B)"
+  },
+  {
+   "check": "literais_26",
+   "ok": true,
+   "detail": "26B -> 33B (guloso 33B)"
+  },
+  {
+   "check": "literais_27",
+   "ok": true,
+   "detail": "27B -> 34B (guloso 34B)"
+  },
+  {
+   "check": "literais_28",
+   "ok": true,
+   "detail": "28B -> 35B (guloso 35B)"
+  },
+  {
+   "check": "literais_29",
+   "ok": true,
+   "detail": "29B -> 36B (guloso 36B)"
+  },
+  {
+   "check": "literais_30",
+   "ok": true,
+   "detail": "30B -> 39B (guloso 39B)"
+  },
+  {
+   "check": "literais_31",
+   "ok": true,
+   "detail": "31B -> 40B (guloso 40B)"
+  },
+  {
+   "check": "literais_32",
+   "ok": true,
+   "detail": "32B -> 41B (guloso 41B)"
+  },
+  {
+   "check": "literais_33",
+   "ok": true,
+   "detail": "33B -> 42B (guloso 42B)"
+  },
+  {
+   "check": "literais_34",
+   "ok": true,
+   "detail": "34B -> 43B (guloso 43B)"
+  },
+  {
+   "check": "literais_35",
+   "ok": true,
+   "detail": "35B -> 44B (guloso 44B)"
+  },
+  {
+   "check": "literais_36",
+   "ok": true,
+   "detail": "36B -> 45B (guloso 45B)"
+  },
+  {
+   "check": "literais_37",
+   "ok": true,
+   "detail": "37B -> 46B (guloso 46B)"
+  },
+  {
+   "check": "literais_38",
+   "ok": true,
+   "detail": "38B -> 47B (guloso 47B)"
+  },
+  {
+   "check": "literais_39",
+   "ok": true,
+   "detail": "39B -> 48B (guloso 48B)"
+  },
+  {
+   "check": "literais_40",
+   "ok": true,
+   "detail": "40B -> 49B (guloso 49B)"
+  },
+  {
+   "check": "literais_41",
+   "ok": true,
+   "detail": "41B -> 50B (guloso 50B)"
+  },
+  {
+   "check": "literais_42",
+   "ok": true,
+   "detail": "42B -> 51B (guloso 51B)"
+  },
+  {
+   "check": "literais_43",
+   "ok": true,
+   "detail": "43B -> 52B (guloso 52B)"
+  },
+  {
+   "check": "literais_44",
+   "ok": true,
+   "detail": "44B -> 53B (guloso 53B)"
+  },
+  {
+   "check": "literais_45",
+   "ok": true,
+   "detail": "45B -> 54B (guloso 54B)"
+  },
+  {
+   "check": "literais_46",
+   "ok": true,
+   "detail": "46B -> 57B (guloso 57B)"
+  },
+  {
+   "check": "literais_47",
+   "ok": true,
+   "detail": "47B -> 58B (guloso 58B)"
+  },
+  {
+   "check": "literais_48",
+   "ok": true,
+   "detail": "48B -> 59B (guloso 59B)"
+  },
+  {
+   "check": "literais_49",
+   "ok": true,
+   "detail": "49B -> 60B (guloso 60B)"
+  },
+  {
+   "check": "literais_50",
+   "ok": true,
+   "detail": "50B -> 61B (guloso 61B)"
+  },
+  {
+   "check": "literais_51",
+   "ok": true,
+   "detail": "51B -> 62B (guloso 62B)"
+  },
+  {
+   "check": "literais_52",
+   "ok": true,
+   "detail": "52B -> 63B (guloso 63B)"
+  },
+  {
+   "check": "literais_53",
+   "ok": true,
+   "detail": "53B -> 64B (guloso 64B)"
+  },
+  {
+   "check": "literais_54",
+   "ok": true,
+   "detail": "54B -> 65B (guloso 65B)"
+  },
+  {
+   "check": "literais_55",
+   "ok": true,
+   "detail": "55B -> 66B (guloso 66B)"
+  },
+  {
+   "check": "literais_56",
+   "ok": true,
+   "detail": "56B -> 67B (guloso 67B)"
+  },
+  {
+   "check": "literais_57",
+   "ok": true,
+   "detail": "57B -> 68B (guloso 68B)"
+  },
+  {
+   "check": "literais_58",
+   "ok": true,
+   "detail": "58B -> 69B (guloso 69B)"
+  },
+  {
+   "check": "literais_59",
+   "ok": true,
+   "detail": "59B -> 70B (guloso 70B)"
+  },
+  {
+   "check": "literais_60",
+   "ok": true,
+   "detail": "60B -> 71B (guloso 71B)"
+  },
+  {
+   "check": "literais_61",
+   "ok": true,
+   "detail": "61B -> 72B (guloso 72B)"
+  },
+  {
+   "check": "literais_62",
+   "ok": true,
+   "detail": "62B -> 75B (guloso 75B)"
+  },
+  {
+   "check": "literais_63",
+   "ok": true,
+   "detail": "63B -> 76B (guloso 76B)"
+  },
+  {
+   "check": "literais_64",
+   "ok": true,
+   "detail": "64B -> 77B (guloso 77B)"
+  },
+  {
+   "check": "literais_65",
+   "ok": true,
+   "detail": "65B -> 78B (guloso 78B)"
+  },
+  {
+   "check": "literais_66",
+   "ok": true,
+   "detail": "66B -> 79B (guloso 79B)"
+  },
+  {
+   "check": "literais_67",
+   "ok": true,
+   "detail": "67B -> 80B (guloso 80B)"
+  },
+  {
+   "check": "literais_68",
+   "ok": true,
+   "detail": "68B -> 81B (guloso 81B)"
+  },
+  {
+   "check": "literais_69",
+   "ok": true,
+   "detail": "69B -> 82B (guloso 82B)"
+  },
+  {
+   "check": "literais_70",
+   "ok": true,
+   "detail": "70B -> 83B (guloso 83B)"
+  },
+  {
+   "check": "literais_71",
+   "ok": true,
+   "detail": "71B -> 84B (guloso 84B)"
+  },
+  {
+   "check": "literais_72",
+   "ok": true,
+   "detail": "72B -> 85B (guloso 85B)"
+  },
+  {
+   "check": "literais_73",
+   "ok": true,
+   "detail": "73B -> 86B (guloso 86B)"
+  },
+  {
+   "check": "literais_74",
+   "ok": true,
+   "detail": "74B -> 87B (guloso 87B)"
+  },
+  {
+   "check": "literais_75",
+   "ok": true,
+   "detail": "75B -> 88B (guloso 88B)"
+  },
+  {
+   "check": "literais_76",
+   "ok": true,
+   "detail": "76B -> 89B (guloso 89B)"
+  },
+  {
+   "check": "literais_77",
+   "ok": true,
+   "detail": "77B -> 90B (guloso 90B)"
+  },
+  {
+   "check": "literais_78",
+   "ok": true,
+   "detail": "78B -> 93B (guloso 93B)"
+  },
+  {
+   "check": "literais_79",
+   "ok": true,
+   "detail": "79B -> 94B (guloso 94B)"
+  },
+  {
+   "check": "aleatorio_100",
+   "ok": true,
+   "detail": "100B -> 117B (guloso 117B)"
+  },
+  {
+   "check": "aleatorio_3000",
+   "ok": true,
+   "detail": "3000B -> 3370B (guloso 3377B)"
+  },
+  {
+   "check": "quase_repetido",
+   "ok": true,
+   "detail": "1215B -> 83B (guloso 83B)"
+  },
+  {
+   "check": "tiles_4bpp_sinteticos",
+   "ok": true,
+   "detail": "1568B -> 139B (guloso 147B)"
+  },
+  {
+   "check": "sor_fonte_real",
+   "ok": true,
+   "detail": "1568B -> 463B (guloso 618B)"
+  }
+ ],
+ "claim": "custo em bits modelado minimizado; NAO alega minimo global em bytes"
+}

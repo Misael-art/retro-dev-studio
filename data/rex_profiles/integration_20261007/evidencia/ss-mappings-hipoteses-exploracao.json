@@ -1,0 +1,924 @@
+{
+ "schema": "rex-ss-mappings-hipoteses/v1",
+ "origem": "exploracao 1 (captura semente 7, 1188 quadros amostrados, 310 usados) — NAO e aceite",
+ "hipoteses": [
+  {
+   "ptr": "0xeb00",
+   "campo": "0x23b",
+   "ids": [
+    37,
+    50,
+    51
+   ],
+   "frame": 0,
+   "estado": "casou",
+   "hits": 34
+  },
+  {
+   "ptr": "0xeb00",
+   "campo": "0x23b",
+   "ids": [
+    37,
+    50,
+    51
+   ],
+   "frame": 1,
+   "estado": "casou",
+   "hits": 6
+  },
+  {
+   "ptr": "0xeb00",
+   "campo": "0x23b",
+   "ids": [
+    37,
+    50,
+    51
+   ],
+   "frame": 2,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x570",
+   "ids": [
+    38
+   ],
+   "frame": 0,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x570",
+   "ids": [
+    38
+   ],
+   "frame": 1,
+   "estado": "tile-fora-da-arte",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x570",
+   "ids": [
+    38
+   ],
+   "frame": 2,
+   "estado": "vazio-sem-pecas",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x251",
+   "ids": [
+    39
+   ],
+   "frame": 0,
+   "estado": "casou",
+   "hits": 42
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x251",
+   "ids": [
+    39
+   ],
+   "frame": 1,
+   "estado": "casou",
+   "hits": 82
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x251",
+   "ids": [
+    39
+   ],
+   "frame": 2,
+   "estado": "vazio-sem-pecas",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x370",
+   "ids": [
+    40
+   ],
+   "frame": 0,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x370",
+   "ids": [
+    40
+   ],
+   "frame": 1,
+   "estado": "tile-fora-da-arte",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x370",
+   "ids": [
+    40
+   ],
+   "frame": 2,
+   "estado": "vazio-sem-pecas",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b940",
+   "campo": "0x263",
+   "ids": [
+    41
+   ],
+   "frame": 0,
+   "estado": "casou",
+   "hits": 32
+  },
+  {
+   "ptr": "0x1b940",
+   "campo": "0x263",
+   "ids": [
+    41
+   ],
+   "frame": 1,
+   "estado": "casou",
+   "hits": 163
+  },
+  {
+   "ptr": "0x1b950",
+   "campo": "0x263",
+   "ids": [
+    42
+   ],
+   "frame": 0,
+   "estado": "casou",
+   "hits": 123
+  },
+  {
+   "ptr": "0x1b950",
+   "campo": "0x263",
+   "ids": [
+    42
+   ],
+   "frame": 1,
+   "estado": "casou",
+   "hits": 163
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x22f0",
+   "ids": [
+    43
+   ],
+   "frame": 0,
+   "estado": "casou",
+   "hits": 221
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x22f0",
+   "ids": [
+    43
+   ],
+   "frame": 1,
+   "estado": "tile-fora-da-arte",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x22f0",
+   "ids": [
+    43
+   ],
+   "frame": 2,
+   "estado": "vazio-sem-pecas",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x470",
+   "ids": [
+    44
+   ],
+   "frame": 0,
+   "estado": "casou",
+   "hits": 707
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x470",
+   "ids": [
+    44
+   ],
+   "frame": 1,
+   "estado": "casou",
+   "hits": 707
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x470",
+   "ids": [
+    44
+   ],
+   "frame": 2,
+   "estado": "casou",
+   "hits": 707
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x470",
+   "ids": [
+    44
+   ],
+   "frame": 3,
+   "estado": "casou",
+   "hits": 707
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x5f0",
+   "ids": [
+    45,
+    75
+   ],
+   "frame": 0,
+   "estado": "casou",
+   "hits": 527
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x5f0",
+   "ids": [
+    45,
+    75
+   ],
+   "frame": 1,
+   "estado": "casou",
+   "hits": 527
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x5f0",
+   "ids": [
+    45,
+    75
+   ],
+   "frame": 2,
+   "estado": "casou",
+   "hits": 527
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x5f0",
+   "ids": [
+    45,
+    75
+   ],
+   "frame": 3,
+   "estado": "casou",
+   "hits": 527
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x65f0",
+   "ids": [
+    46,
+    76
+   ],
+   "frame": 0,
+   "estado": "casou",
+   "hits": 91
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x65f0",
+   "ids": [
+    46,
+    76
+   ],
+   "frame": 1,
+   "estado": "casou",
+   "hits": 91
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x65f0",
+   "ids": [
+    46,
+    76
+   ],
+   "frame": 2,
+   "estado": "casou",
+   "hits": 91
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x65f0",
+   "ids": [
+    46,
+    76
+   ],
+   "frame": 3,
+   "estado": "casou",
+   "hits": 91
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x25f0",
+   "ids": [
+    47,
+    77
+   ],
+   "frame": 0,
+   "estado": "casou",
+   "hits": 52
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x25f0",
+   "ids": [
+    47,
+    77
+   ],
+   "frame": 1,
+   "estado": "casou",
+   "hits": 52
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x25f0",
+   "ids": [
+    47,
+    77
+   ],
+   "frame": 2,
+   "estado": "casou",
+   "hits": 52
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x25f0",
+   "ids": [
+    47,
+    77
+   ],
+   "frame": 3,
+   "estado": "casou",
+   "hits": 52
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x45f0",
+   "ids": [
+    48,
+    78
+   ],
+   "frame": 0,
+   "estado": "casou",
+   "hits": 7
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x45f0",
+   "ids": [
+    48,
+    78
+   ],
+   "frame": 1,
+   "estado": "casou",
+   "hits": 7
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x45f0",
+   "ids": [
+    48,
+    78
+   ],
+   "frame": 2,
+   "estado": "casou",
+   "hits": 7
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x45f0",
+   "ids": [
+    48,
+    78
+   ],
+   "frame": 3,
+   "estado": "casou",
+   "hits": 7
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x2f0",
+   "ids": [
+    49
+   ],
+   "frame": 0,
+   "estado": "casou",
+   "hits": 13
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x2f0",
+   "ids": [
+    49
+   ],
+   "frame": 1,
+   "estado": "tile-fora-da-arte",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x2f0",
+   "ids": [
+    49
+   ],
+   "frame": 2,
+   "estado": "vazio-sem-pecas",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x797",
+   "ids": [
+    52,
+    55
+   ],
+   "frame": 0,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x797",
+   "ids": [
+    52,
+    55
+   ],
+   "frame": 1,
+   "estado": "tile-fora-da-arte",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x797",
+   "ids": [
+    52,
+    55
+   ],
+   "frame": 2,
+   "estado": "vazio-sem-pecas",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x7a0",
+   "ids": [
+    53,
+    56
+   ],
+   "frame": 0,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x7a0",
+   "ids": [
+    53,
+    56
+   ],
+   "frame": 1,
+   "estado": "tile-fora-da-arte",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x7a0",
+   "ids": [
+    53,
+    56
+   ],
+   "frame": 2,
+   "estado": "vazio-sem-pecas",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x7a9",
+   "ids": [
+    54,
+    57
+   ],
+   "frame": 0,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x7a9",
+   "ids": [
+    54,
+    57
+   ],
+   "frame": 1,
+   "estado": "tile-fora-da-arte",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x7a9",
+   "ids": [
+    54,
+    57
+   ],
+   "frame": 2,
+   "estado": "vazio-sem-pecas",
+   "hits": 0
+  },
+  {
+   "ptr": "0x9f92",
+   "campo": "0x27b2",
+   "ids": [
+    58,
+    66,
+    67,
+    68,
+    69
+   ],
+   "frame": 0,
+   "estado": "arte-sem-cue",
+   "hits": 0
+  },
+  {
+   "ptr": "0x9f92",
+   "campo": "0x27b2",
+   "ids": [
+    58,
+    66,
+    67,
+    68,
+    69
+   ],
+   "frame": 1,
+   "estado": "arte-sem-cue",
+   "hits": 0
+  },
+  {
+   "ptr": "0x9f92",
+   "campo": "0x27b2",
+   "ids": [
+    58,
+    66,
+    67,
+    68,
+    69
+   ],
+   "frame": 2,
+   "estado": "arte-sem-cue",
+   "hits": 0
+  },
+  {
+   "ptr": "0x9f92",
+   "campo": "0x27b2",
+   "ids": [
+    58,
+    66,
+    67,
+    68,
+    69
+   ],
+   "frame": 3,
+   "estado": "arte-sem-cue",
+   "hits": 0
+  },
+  {
+   "ptr": "0x9f92",
+   "campo": "0x27b2",
+   "ids": [
+    58,
+    66,
+    67,
+    68,
+    69
+   ],
+   "frame": 4,
+   "estado": "arte-sem-cue",
+   "hits": 0
+  },
+  {
+   "ptr": "0x9f92",
+   "campo": "0x27b2",
+   "ids": [
+    58,
+    66,
+    67,
+    68,
+    69
+   ],
+   "frame": 5,
+   "estado": "arte-sem-cue",
+   "hits": 0
+  },
+  {
+   "ptr": "0x9f92",
+   "campo": "0x27b2",
+   "ids": [
+    58,
+    66,
+    67,
+    68,
+    69
+   ],
+   "frame": 6,
+   "estado": "arte-sem-cue",
+   "hits": 0
+  },
+  {
+   "ptr": "0x9f92",
+   "campo": "0x27b2",
+   "ids": [
+    58,
+    66,
+    67,
+    68,
+    69
+   ],
+   "frame": 7,
+   "estado": "arte-sem-cue",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b968",
+   "campo": "0x770",
+   "ids": [
+    59
+   ],
+   "frame": 0,
+   "estado": "casou",
+   "hits": 37
+  },
+  {
+   "ptr": "0x1b968",
+   "campo": "0x770",
+   "ids": [
+    59
+   ],
+   "frame": 1,
+   "estado": "casou",
+   "hits": 72
+  },
+  {
+   "ptr": "0x1b968",
+   "campo": "0x2770",
+   "ids": [
+    60
+   ],
+   "frame": 0,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b968",
+   "campo": "0x2770",
+   "ids": [
+    60
+   ],
+   "frame": 1,
+   "estado": "casou",
+   "hits": 72
+  },
+  {
+   "ptr": "0x1b968",
+   "campo": "0x4770",
+   "ids": [
+    61
+   ],
+   "frame": 0,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b968",
+   "campo": "0x4770",
+   "ids": [
+    61
+   ],
+   "frame": 1,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b968",
+   "campo": "0x6770",
+   "ids": [
+    62
+   ],
+   "frame": 0,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b968",
+   "campo": "0x6770",
+   "ids": [
+    62
+   ],
+   "frame": 1,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b960",
+   "campo": "0x770",
+   "ids": [
+    63
+   ],
+   "frame": 0,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b960",
+   "campo": "0x770",
+   "ids": [
+    63
+   ],
+   "frame": 1,
+   "estado": "casou",
+   "hits": 72
+  },
+  {
+   "ptr": "0x1b960",
+   "campo": "0x770",
+   "ids": [
+    63
+   ],
+   "frame": 2,
+   "estado": "tile-fora-da-arte",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b960",
+   "campo": "0x770",
+   "ids": [
+    63
+   ],
+   "frame": 3,
+   "estado": "tile-fora-da-arte",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b960",
+   "campo": "0x770",
+   "ids": [
+    63
+   ],
+   "frame": 4,
+   "estado": "vazio-sem-pecas",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b960",
+   "campo": "0x770",
+   "ids": [
+    63
+   ],
+   "frame": 5,
+   "estado": "tile-fora-da-arte",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b964",
+   "campo": "0x770",
+   "ids": [
+    64
+   ],
+   "frame": 0,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b964",
+   "campo": "0x770",
+   "ids": [
+    64
+   ],
+   "frame": 1,
+   "estado": "casou",
+   "hits": 72
+  },
+  {
+   "ptr": "0x1b964",
+   "campo": "0x770",
+   "ids": [
+    64
+   ],
+   "frame": 2,
+   "estado": "tile-fora-da-arte",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b964",
+   "campo": "0x770",
+   "ids": [
+    64
+   ],
+   "frame": 3,
+   "estado": "tile-fora-da-arte",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x4f0",
+   "ids": [
+    65,
+    74
+   ],
+   "frame": 0,
+   "estado": "casou",
+   "hits": 765
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x4f0",
+   "ids": [
+    65,
+    74
+   ],
+   "frame": 1,
+   "estado": "tile-fora-da-arte",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b90c",
+   "campo": "0x4f0",
+   "ids": [
+    65,
+    74
+   ],
+   "frame": 2,
+   "estado": "vazio-sem-pecas",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x23f0",
+   "ids": [
+    70,
+    71,
+    72,
+    73
+   ],
+   "frame": 0,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x23f0",
+   "ids": [
+    70,
+    71,
+    72,
+    73
+   ],
+   "frame": 1,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x23f0",
+   "ids": [
+    70,
+    71,
+    72,
+    73
+   ],
+   "frame": 2,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  },
+  {
+   "ptr": "0x1b920",
+   "campo": "0x23f0",
+   "ids": [
+    70,
+    71,
+    72,
+    73
+   ],
+   "frame": 3,
+   "estado": "sem-acerto-nos-frames",
+   "hits": 0
+  }
+ ]
+}

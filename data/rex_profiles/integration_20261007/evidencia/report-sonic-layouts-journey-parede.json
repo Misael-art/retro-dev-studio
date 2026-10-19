@@ -1,0 +1,1001 @@
+{
+  "schema": "rex-sonic-layouts-journey/v1",
+  "artifact_prefix": "inspection-2026-10-07T12-03-25-119Z",
+  "expectations": "docs/rex_profiles/integration_20261006/EXPECTATIONS-LAYOUTS-2026-10-06.md (L9–L11)",
+  "binary_sha256": "ee69da45507b136da44d4062df495a414d1bf491020ea8368aaa8625832c1dbd",
+  "base_rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "attribution": "Cliques e teclas na grade/abas/zoom/salvar/reabrir são WebDriver NATIVOS na janela real. Chamadas invoke aparecem rotuladas como sonda técnica. O oráculo é independente do produto (decoder JS + leitura direta dos bytes). Nenhum resultado aqui observa o jogo em execução.",
+  "oracle_summary": [
+    {
+      "layout": 0,
+      "consumed": 634,
+      "bytes": 4096,
+      "sha256": "322a14830b8f3be05d59507ccf41c7a57ff8e835cd2727573943cd61d4c944d0",
+      "referencia_historica_confere": true
+    },
+    {
+      "layout": 1,
+      "consumed": 1042,
+      "bytes": 4096,
+      "sha256": "4b5ac5ea3391a5146e935474137df1ae74bb3926354bb63a321e03020f12733d",
+      "referencia_historica_confere": true
+    },
+    {
+      "layout": 2,
+      "consumed": 860,
+      "bytes": 4096,
+      "sha256": "3643e681d5260a6d51a3e0cd4558ded3b189663d62258dbee189f2167d6c3954",
+      "referencia_historica_confere": true
+    },
+    {
+      "layout": 3,
+      "consumed": 1242,
+      "bytes": 4096,
+      "sha256": "04b5a97a675e9f84790932fc94c801aafd0c34a05ad450437da3a01feac5e9c7",
+      "referencia_historica_confere": true
+    },
+    {
+      "layout": 4,
+      "consumed": 1233,
+      "bytes": 4096,
+      "sha256": "5841c3fbaf8a648593914121ea0af13f2339c29754b59167a4b21178dfceacd8",
+      "referencia_historica_confere": true
+    },
+    {
+      "layout": 5,
+      "consumed": 784,
+      "bytes": 4096,
+      "sha256": "78a2093e623f11fc227fe10390cd9f3d4afc234a838ba70bd2641b5637128c94",
+      "referencia_historica_confere": true
+    }
+  ],
+  "pilot_dir": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T12-03-25-119Z-layouts-journey",
+  "steps": [
+    {
+      "step": 1,
+      "name": "painel_aberto_pelo_caminho_nativo",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T12-03-25-119Z-layouts-painel.png"
+    },
+    {
+      "step": 2,
+      "name": "seis_layouts_contra_oraculo_independente"
+    },
+    {
+      "step": 3,
+      "name": "primeira_e_ultima_celula"
+    },
+    {
+      "step": 4,
+      "name": "fronteiras_e_stride"
+    },
+    {
+      "step": 5,
+      "name": "definicao_estrutural_contra_bytes_do_arquivo"
+    },
+    {
+      "step": "5b",
+      "name": "celula_para_recurso_parede",
+      "id": 2,
+      "linha": 0,
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T12-03-25-119Z-layouts-parede.png"
+    },
+    {
+      "step": "5d",
+      "name": "mappings_confirmados_e_nao_confirmados",
+      "confirmado": 42,
+      "nao_confirmado": 37,
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T12-03-25-119Z-layouts-mapping.png"
+    },
+    {
+      "step": "5c",
+      "name": "composicao_validada"
+    },
+    {
+      "step": 6,
+      "name": "zoom"
+    },
+    {
+      "step": 7,
+      "name": "sessao_salva"
+    },
+    {
+      "step": 8,
+      "name": "reiniciado_e_reaberto"
+    },
+    {
+      "step": 9,
+      "name": "tela_final",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-07T12-03-25-119Z-layouts-reaberto.png"
+    }
+  ],
+  "checks": [
+    {
+      "name": "ui.mapa_de_ids_rotulado_e_seis_abas",
+      "pass": true,
+      "observado": {
+        "titulo": true,
+        "abas": 6,
+        "camadas": 3,
+        "desconhecidos": 6
+      }
+    },
+    {
+      "name": "ui.identidade_igual_ao_sha_do_arquivo",
+      "pass": true,
+      "observado": {
+        "ui": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+        "arquivo": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+        "sessao": "inspection-1791374607-00000000",
+        "esperado": "inspection-1791374607-00000000"
+      }
+    },
+    {
+      "name": "ui.sem_imagem_nem_canvas_e_tecnico_recolhido",
+      "pass": true,
+      "observado": {
+        "imagens": 0,
+        "tecnicoAberto": false
+      }
+    },
+    {
+      "name": "ui.resumo_sem_hash_e_integridade_visivel",
+      "pass": true,
+      "observado": {
+        "resumo": "Layout 1 de 6: 4096 IDs (64 × 64), 46 valores diferentes, maior ID 0x4A. Integridade: o resultado decodificado agora coincide com a referência histórica.",
+        "integridade": "o resultado decodificado agora coincide com a referência histórica"
+      }
+    },
+    {
+      "name": "oraculo.layout_1_4096_ids_iguais",
+      "pass": true,
+      "observado": {
+        "ui_sha256": "322a14830b8f3be05d59507ccf41c7a57ff8e835cd2727573943cd61d4c944d0",
+        "oraculo_sha256": "322a14830b8f3be05d59507ccf41c7a57ff8e835cd2727573943cd61d4c944d0",
+        "consumo_oraculo": 634,
+        "esperado_consumo": 634
+      }
+    },
+    {
+      "name": "oraculo.layout_1_consumo_e_padding",
+      "pass": true,
+      "observado": {
+        "tecnico": "Detalhes técnicos (endereços, hashes, contas de bytes)ROM (SHA-256): c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebbRespostas antigas descartadas: 0Bloco comprimido em 0x65432 · slot da tabela 0x1b64cBytes lidos do bloco: 634 · padding de alinhamento: 0 · tamanho armazenado: 634 · saída descomprimida: 4096Tokens: 226 · SHA-256 do bloco: dc1a0a6ee0c3d2f6b52b7393dec9ae6ad41fc8831a01"
+      }
+    },
+    {
+      "name": "oraculo.layout_1_referencia_historica_so_comparacao",
+      "pass": true,
+      "observado": {
+        "sha": "322a14830b8f3be05d59507ccf41c7a57ff8e835cd2727573943cd61d4c944d0"
+      }
+    },
+    {
+      "name": "oraculo.layout_2_4096_ids_iguais",
+      "pass": true,
+      "observado": {
+        "ui_sha256": "4b5ac5ea3391a5146e935474137df1ae74bb3926354bb63a321e03020f12733d",
+        "oraculo_sha256": "4b5ac5ea3391a5146e935474137df1ae74bb3926354bb63a321e03020f12733d",
+        "consumo_oraculo": 1042,
+        "esperado_consumo": 1042
+      }
+    },
+    {
+      "name": "oraculo.layout_2_consumo_e_padding",
+      "pass": true,
+      "observado": {
+        "tecnico": "Detalhes técnicos (endereços, hashes, contas de bytes)ROM (SHA-256): c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebbRespostas antigas descartadas: 0Bloco comprimido em 0x656ac · slot da tabela 0x1b650Bytes lidos do bloco: 1042 · padding de alinhamento: 0 · tamanho armazenado: 1042 · saída descomprimida: 4096Tokens: 329 · SHA-256 do bloco: 4015dccb21c86ee98a3a8e6cf2dcccfea5d0cb046f"
+      }
+    },
+    {
+      "name": "oraculo.layout_2_referencia_historica_so_comparacao",
+      "pass": true,
+      "observado": {
+        "sha": "4b5ac5ea3391a5146e935474137df1ae74bb3926354bb63a321e03020f12733d"
+      }
+    },
+    {
+      "name": "oraculo.layout_3_4096_ids_iguais",
+      "pass": true,
+      "observado": {
+        "ui_sha256": "3643e681d5260a6d51a3e0cd4558ded3b189663d62258dbee189f2167d6c3954",
+        "oraculo_sha256": "3643e681d5260a6d51a3e0cd4558ded3b189663d62258dbee189f2167d6c3954",
+        "consumo_oraculo": 860,
+        "esperado_consumo": 860
+      }
+    },
+    {
+      "name": "oraculo.layout_3_consumo_e_padding",
+      "pass": true,
+      "observado": {
+        "tecnico": "Detalhes técnicos (endereços, hashes, contas de bytes)ROM (SHA-256): c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebbRespostas antigas descartadas: 0Bloco comprimido em 0x65abe · slot da tabela 0x1b654Bytes lidos do bloco: 860 · padding de alinhamento: 0 · tamanho armazenado: 860 · saída descomprimida: 4096Tokens: 311 · SHA-256 do bloco: 6b8467c2b0cb5c07d5bb2a4865af4b754e3eebe9aeb3"
+      }
+    },
+    {
+      "name": "oraculo.layout_3_referencia_historica_so_comparacao",
+      "pass": true,
+      "observado": {
+        "sha": "3643e681d5260a6d51a3e0cd4558ded3b189663d62258dbee189f2167d6c3954"
+      }
+    },
+    {
+      "name": "oraculo.layout_4_4096_ids_iguais",
+      "pass": true,
+      "observado": {
+        "ui_sha256": "04b5a97a675e9f84790932fc94c801aafd0c34a05ad450437da3a01feac5e9c7",
+        "oraculo_sha256": "04b5a97a675e9f84790932fc94c801aafd0c34a05ad450437da3a01feac5e9c7",
+        "consumo_oraculo": 1242,
+        "esperado_consumo": 1242
+      }
+    },
+    {
+      "name": "oraculo.layout_4_consumo_e_padding",
+      "pass": true,
+      "observado": {
+        "tecnico": "Detalhes técnicos (endereços, hashes, contas de bytes)ROM (SHA-256): c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebbRespostas antigas descartadas: 0Bloco comprimido em 0x65e1a · slot da tabela 0x1b658Bytes lidos do bloco: 1242 · padding de alinhamento: 0 · tamanho armazenado: 1242 · saída descomprimida: 4096Tokens: 345 · SHA-256 do bloco: 8996ca4fe2bda84806faccfa5d9d98723191a93311"
+      }
+    },
+    {
+      "name": "oraculo.layout_4_referencia_historica_so_comparacao",
+      "pass": true,
+      "observado": {
+        "sha": "04b5a97a675e9f84790932fc94c801aafd0c34a05ad450437da3a01feac5e9c7"
+      }
+    },
+    {
+      "name": "oraculo.layout_5_4096_ids_iguais",
+      "pass": true,
+      "observado": {
+        "ui_sha256": "5841c3fbaf8a648593914121ea0af13f2339c29754b59167a4b21178dfceacd8",
+        "oraculo_sha256": "5841c3fbaf8a648593914121ea0af13f2339c29754b59167a4b21178dfceacd8",
+        "consumo_oraculo": 1233,
+        "esperado_consumo": 1233
+      }
+    },
+    {
+      "name": "oraculo.layout_5_consumo_e_padding",
+      "pass": true,
+      "observado": {
+        "tecnico": "Detalhes técnicos (endereços, hashes, contas de bytes)ROM (SHA-256): c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebbRespostas antigas descartadas: 0Bloco comprimido em 0x662f4 · slot da tabela 0x1b65cBytes lidos do bloco: 1233 · padding de alinhamento: 1 · tamanho armazenado: 1234 · saída descomprimida: 4096Tokens: 418 · SHA-256 do bloco: 6981fbd8f38881246faad30727a3632111c7484e03"
+      }
+    },
+    {
+      "name": "oraculo.layout_5_referencia_historica_so_comparacao",
+      "pass": true,
+      "observado": {
+        "sha": "5841c3fbaf8a648593914121ea0af13f2339c29754b59167a4b21178dfceacd8"
+      }
+    },
+    {
+      "name": "oraculo.layout_6_4096_ids_iguais",
+      "pass": true,
+      "observado": {
+        "ui_sha256": "78a2093e623f11fc227fe10390cd9f3d4afc234a838ba70bd2641b5637128c94",
+        "oraculo_sha256": "78a2093e623f11fc227fe10390cd9f3d4afc234a838ba70bd2641b5637128c94",
+        "consumo_oraculo": 784,
+        "esperado_consumo": 784
+      }
+    },
+    {
+      "name": "oraculo.layout_6_consumo_e_padding",
+      "pass": true,
+      "observado": {
+        "tecnico": "Detalhes técnicos (endereços, hashes, contas de bytes)ROM (SHA-256): c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebbRespostas antigas descartadas: 0Bloco comprimido em 0x667c6 · slot da tabela 0x1b660Bytes lidos do bloco: 784 · padding de alinhamento: 0 · tamanho armazenado: 784 · saída descomprimida: 4096Tokens: 275 · SHA-256 do bloco: daf1a80e13a9b0712cb692a27de7771453855951e07e"
+      }
+    },
+    {
+      "name": "oraculo.layout_6_referencia_historica_so_comparacao",
+      "pass": true,
+      "observado": {
+        "sha": "78a2093e623f11fc227fe10390cd9f3d4afc234a838ba70bd2641b5637128c94"
+      }
+    },
+    {
+      "name": "celula.primeira_0_0_por_mouse",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 0,
+        "col": 0,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 0, coluna 0 · ID 0x00",
+          "origem": "Este ID é o byte 0 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não exist"
+        },
+        "ram_esperada": "ff1020"
+      }
+    },
+    {
+      "name": "celula.ultima_63_63_por_teclado",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 63,
+        "col": 63,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 63, coluna 63 · ID 0x00",
+          "origem": "Este ID é o byte 4095 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não ex"
+        },
+        "ram_esperada": "ff2fdf"
+      }
+    },
+    {
+      "name": "teclado.bordas_sem_wrap",
+      "pass": true,
+      "observado": {
+        "row": "63",
+        "col": "63"
+      }
+    },
+    {
+      "name": "celula.primeira_por_teclado",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 0,
+        "col": 0,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 0, coluna 0 · ID 0x00",
+          "origem": "Este ID é o byte 0 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não exist"
+        },
+        "ram_esperada": "ff1020"
+      }
+    },
+    {
+      "name": "fronteira.linha_0_coluna_63",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 0,
+        "col": 63,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 0, coluna 63 · ID 0x00",
+          "origem": "Este ID é o byte 63 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não exis"
+        },
+        "ram_esperada": "ff105f"
+      }
+    },
+    {
+      "name": "fronteira.linha_0_sem_wrap",
+      "pass": true
+    },
+    {
+      "name": "fronteira.linha_1_coluna_63",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 1,
+        "col": 63,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 1, coluna 63 · ID 0x00",
+          "origem": "Este ID é o byte 127 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não exi"
+        },
+        "ram_esperada": "ff10df"
+      }
+    },
+    {
+      "name": "fronteira.linha_1_coluna_0",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 1,
+        "col": 0,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 1, coluna 0 · ID 0x00",
+          "origem": "Este ID é o byte 64 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não exis"
+        },
+        "ram_esperada": "ff10a0"
+      }
+    },
+    {
+      "name": "stride.ram_linha_0_para_1",
+      "pass": true,
+      "observado": {
+        "ram_fim": "ff105f",
+        "ram_inicio_seguinte": "ff10a0"
+      }
+    },
+    {
+      "name": "fronteira.linha_17_coluna_63",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 17,
+        "col": 63,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 17, coluna 63 · ID 0x00",
+          "origem": "Este ID é o byte 1151 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não ex"
+        },
+        "ram_esperada": "ff18df"
+      }
+    },
+    {
+      "name": "fronteira.linha_17_sem_wrap",
+      "pass": true
+    },
+    {
+      "name": "fronteira.linha_18_coluna_63",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 18,
+        "col": 63,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 18, coluna 63 · ID 0x00",
+          "origem": "Este ID é o byte 1215 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não ex"
+        },
+        "ram_esperada": "ff195f"
+      }
+    },
+    {
+      "name": "fronteira.linha_18_coluna_0",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 18,
+        "col": 0,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 18, coluna 0 · ID 0x00",
+          "origem": "Este ID é o byte 1152 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não ex"
+        },
+        "ram_esperada": "ff1920"
+      }
+    },
+    {
+      "name": "stride.ram_linha_17_para_18",
+      "pass": true,
+      "observado": {
+        "ram_fim": "ff18df",
+        "ram_inicio_seguinte": "ff1920"
+      }
+    },
+    {
+      "name": "fronteira.linha_62_coluna_63",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 62,
+        "col": 63,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 62, coluna 63 · ID 0x00",
+          "origem": "Este ID é o byte 4031 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não ex"
+        },
+        "ram_esperada": "ff2f5f"
+      }
+    },
+    {
+      "name": "fronteira.linha_62_sem_wrap",
+      "pass": true
+    },
+    {
+      "name": "fronteira.linha_63_coluna_63",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 63,
+        "col": 63,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 63, coluna 63 · ID 0x00",
+          "origem": "Este ID é o byte 4095 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não ex"
+        },
+        "ram_esperada": "ff2fdf"
+      }
+    },
+    {
+      "name": "fronteira.linha_63_coluna_0",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 63,
+        "col": 0,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 63, coluna 0 · ID 0x00",
+          "origem": "Este ID é o byte 4032 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não ex"
+        },
+        "ram_esperada": "ff2fa0"
+      }
+    },
+    {
+      "name": "stride.ram_linha_62_para_63",
+      "pass": true,
+      "observado": {
+        "ram_fim": "ff2f5f",
+        "ram_inicio_seguinte": "ff2fa0"
+      }
+    },
+    {
+      "name": "teclado.pagedown_8_linhas",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 18,
+        "col": 5,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 18, coluna 5 · ID 0x00",
+          "origem": "Este ID é o byte 1157 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não ex"
+        },
+        "ram_esperada": "ff1925"
+      }
+    },
+    {
+      "name": "teclado.pageup_8_linhas",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 10,
+        "col": 5,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 10, coluna 5 · ID 0x00",
+          "origem": "Este ID é o byte 645 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não exi"
+        },
+        "ram_esperada": "ff1525"
+      }
+    },
+    {
+      "name": "definicao.id_zero_celula_byte",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 0,
+        "col": 0,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 0, coluna 0 · ID 0x00",
+          "origem": "Este ID é o byte 0 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não exist"
+        },
+        "ram_esperada": "ff1020"
+      }
+    },
+    {
+      "name": "definicao.id_zero_sem_registro",
+      "pass": true,
+      "observado": "id-zero"
+    },
+    {
+      "name": "definicao.id_com_definicao_baixo_celula_byte",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 0,
+        "col": 7,
+        "esperado_id": 2,
+        "ui": {
+          "id": "2",
+          "shown": "0x02",
+          "coord": "Célula: linha 0, coluna 7 · ID 0x02",
+          "origem": "Este ID é o byte 7 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não exist"
+        },
+        "ram_esperada": "ff1027"
+      }
+    },
+    {
+      "name": "definicao.id_com_definicao_baixo_registro_do_arquivo",
+      "pass": true,
+      "observado": {
+        "id": 2,
+        "registro_do_arquivo": "0002c5640142"
+      }
+    },
+    {
+      "name": "definicao.id_com_definicao_alto_celula_byte",
+      "pass": true,
+      "observado": {
+        "layout": 0,
+        "row": 22,
+        "col": 13,
+        "esperado_id": 74,
+        "ui": {
+          "id": "74",
+          "shown": "0x4A",
+          "coord": "Célula: linha 22, coluna 13 · ID 0x4A",
+          "origem": "Este ID é o byte 1421 da saída do Enigma do layout 1 (bloco comprimido em 0x65432); não ex"
+        },
+        "ram_esperada": "ff1b2d"
+      }
+    },
+    {
+      "name": "definicao.id_com_definicao_alto_registro_do_arquivo",
+      "pass": true,
+      "observado": {
+        "id": 74,
+        "registro_do_arquivo": "0201b90c04f0"
+      }
+    },
+    {
+      "name": "definicao.id_fora_da_tabela_celula_byte",
+      "pass": true,
+      "observado": {
+        "layout": 4,
+        "row": 9,
+        "col": 1,
+        "esperado_id": 255,
+        "ui": {
+          "id": "255",
+          "shown": "0xFF",
+          "coord": "Célula: linha 9, coluna 1 · ID 0xFF",
+          "origem": "Este ID é o byte 577 da saída do Enigma do layout 5 (bloco comprimido em 0x662f4); não exi"
+        },
+        "ram_esperada": "ff14a1"
+      }
+    },
+    {
+      "name": "definicao.fora_da_tabela_sem_definicao",
+      "pass": true,
+      "observado": "Definição estrutural: O ID 0xff está além dos 78 registros da tabela; nenhuma definição estrutural foi comprovada para ele."
+    },
+    {
+      "name": "ui.definicao_diz_o_que_nao_se_sabe",
+      "pass": true,
+      "observado": 6
+    },
+    {
+      "name": "parede.canvas_frame0_igual_ao_oraculo_js",
+      "pass": true,
+      "observado": {
+        "w": 24,
+        "h": 24,
+        "frame": 0,
+        "id": 2,
+        "linha": 0
+      },
+      "sonda_tecnica": false
+    },
+    {
+      "name": "parede.paleta_rotulada_candidata_estatica",
+      "pass": true,
+      "observado": "Cores: candidata estática (Pal_SpecialStage, carregada em 0x469A). Não é a paleta do jogo em execução."
+    },
+    {
+      "name": "parede.cadeia_5_elos_e_frame0_sem_vazios",
+      "pass": true,
+      "observado": {
+        "cadeia": 5,
+        "vazios": ""
+      }
+    },
+    {
+      "name": "parede.canvas_frame8_igual_ao_oraculo_js",
+      "pass": true,
+      "observado": {
+        "w": 32,
+        "h": 32,
+        "frame": 8,
+        "id": 2,
+        "linha": 0
+      },
+      "sonda_tecnica": false
+    },
+    {
+      "name": "parede.frame8_reporta_tiles_vazios_121_124_133_136",
+      "pass": true,
+      "observado": "Tiles totalmente vazios (transparentes, não recuperados): 121, 124, 133, 136"
+    },
+    {
+      "name": "parede.canvas_frame9_reservado_igual_ao_oraculo_js",
+      "pass": true,
+      "observado": {
+        "w": 32,
+        "h": 32,
+        "frame": 9,
+        "id": 2,
+        "linha": 0
+      },
+      "sonda_tecnica": false
+    },
+    {
+      "name": "parede.canvas_frame15_reservado_igual_ao_oraculo_js",
+      "pass": true,
+      "observado": {
+        "w": 32,
+        "h": 32,
+        "frame": 15,
+        "id": 2,
+        "linha": 0
+      },
+      "sonda_tecnica": false
+    },
+    {
+      "name": "parede.arte_vinculada_igual_ao_oraculo_plc",
+      "pass": true,
+      "observado": {
+        "id": 58,
+        "base": "7b2",
+        "ui": "nao",
+        "esperado": false
+      }
+    },
+    {
+      "name": "parede.outro_mapping_sem_imagem_inventada",
+      "pass": true,
+      "observado": {
+        "id": 58,
+        "ptr": "9f92",
+        "status": "arte-sem-cue",
+        "canvas": false
+      }
+    },
+    {
+      "name": "mapping.confirmado_canvas_igual_ao_oraculo_js",
+      "pass": true,
+      "observado": {
+        "id": 42,
+        "chave": "0x1b950:0x263",
+        "status": "composta",
+        "w": 24,
+        "h": 24
+      }
+    },
+    {
+      "name": "mapping.confirmado_mostra_nivel_de_confirmacao",
+      "pass": true,
+      "observado": "Confirmação: confirmado por pixel contra frames do core genesis_plus_gx em 2 capturas de entrada independentes"
+    },
+    {
+      "name": "mapping.nao_confirmado_nao_desenha",
+      "pass": true,
+      "observado": {
+        "id": 37,
+        "chave": "0xeb00:0x23b",
+        "status": "estrutura-sem-confirmacao",
+        "canvas": false
+      }
+    },
+    {
+      "name": "zoom.mouse_aumenta_e_pixels_acompanham",
+      "pass": true,
+      "observado": {
+        "z0": 4,
+        "zoom": "6",
+        "px": "16px"
+      }
+    },
+    {
+      "name": "zoom.teclado_diminui",
+      "pass": true,
+      "observado": {
+        "zoom": "5"
+      }
+    },
+    {
+      "name": "celula.final_antes_de_salvar",
+      "pass": true,
+      "observado": {
+        "layout": 4,
+        "row": 21,
+        "col": 34,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 21, coluna 34 · ID 0x00",
+          "origem": "Este ID é o byte 1378 da saída do Enigma do layout 5 (bloco comprimido em 0x662f4); não ex"
+        },
+        "ram_esperada": "ff1ac2"
+      }
+    },
+    {
+      "name": "sessao.selecao_gravada_com_identidade",
+      "pass": true,
+      "observado": {
+        "row": 21,
+        "layout_index": 4,
+        "zoom": 5,
+        "col": 34,
+        "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+      },
+      "sonda_tecnica": true
+    },
+    {
+      "name": "sessao.sem_edicao_na_copia",
+      "pass": true,
+      "observado": {
+        "edit": false,
+        "applied": 0
+      }
+    },
+    {
+      "name": "reabertura.identidade_e_selecao_restauradas",
+      "pass": true,
+      "observado": {
+        "sha": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+        "sessao": "inspection-1791374607-00000000",
+        "layout": 4,
+        "zoom": "5",
+        "row": "21",
+        "col": "34"
+      }
+    },
+    {
+      "name": "reabertura.aviso_de_rom_identica",
+      "pass": true,
+      "observado": "Seleção restaurada da sessão salva: a ROM é idêntica (c7da53a10c31…)."
+    },
+    {
+      "name": "reabertura.celula_restaurada_confere_com_oraculo",
+      "pass": true,
+      "observado": {
+        "layout": 4,
+        "row": 21,
+        "col": 34,
+        "esperado_id": 0,
+        "ui": {
+          "id": "0",
+          "shown": "0x00",
+          "coord": "Célula: linha 21, coluna 34 · ID 0x00",
+          "origem": "Este ID é o byte 1378 da saída do Enigma do layout 5 (bloco comprimido em 0x662f4); não ex"
+        },
+        "ram_esperada": "ff1ac2"
+      }
+    },
+    {
+      "name": "reabertura.grade_restaurada_igual_ao_oraculo",
+      "pass": true,
+      "observado": {
+        "sha": "5841c3fbaf8a648593914121ea0af13f2339c29754b59167a4b21178dfceacd8"
+      }
+    },
+    {
+      "name": "negativo.indice_6",
+      "pass": true,
+      "observado": {
+        "ok": false,
+        "code": "layouts_indice_invalido",
+        "message": "layout 6 inexistente; há 6 (0..=5)"
+      },
+      "esperado": "layouts_indice_invalido",
+      "sonda_tecnica": true
+    },
+    {
+      "name": "negativo.linha_64",
+      "pass": true,
+      "observado": {
+        "ok": false,
+        "code": "layouts_celula_fora_da_grade",
+        "message": "célula (64, 0) fora da grade 64×64"
+      },
+      "esperado": "layouts_celula_fora_da_grade",
+      "sonda_tecnica": true
+    },
+    {
+      "name": "negativo.coluna_64",
+      "pass": true,
+      "observado": {
+        "ok": false,
+        "code": "layouts_celula_fora_da_grade",
+        "message": "célula (0, 64) fora da grade 64×64"
+      },
+      "esperado": "layouts_celula_fora_da_grade",
+      "sonda_tecnica": true
+    },
+    {
+      "name": "negativo.resposta_de_outra_rom",
+      "pass": true,
+      "observado": {
+        "ok": false,
+        "code": "layouts_rom_mudou",
+        "message": "a ROM da sessão mudou (esperada 000000000000…, atual c7da53a10c31…); recarregue os layouts"
+      },
+      "esperado": "layouts_rom_mudou",
+      "sonda_tecnica": true
+    },
+    {
+      "name": "negativo.request_id_invalido",
+      "pass": true,
+      "observado": {
+        "ok": false,
+        "code": "layouts_parametro_invalido",
+        "message": "request_id deve ter 1..=64 caracteres [a-z0-9-]"
+      },
+      "esperado": "layouts_parametro_invalido",
+      "sonda_tecnica": true
+    },
+    {
+      "name": "negativo.sessao_inexistente",
+      "pass": true,
+      "observado": {
+        "ok": false,
+        "code": "session_not_loaded",
+        "message": "Reabra a sessão com a ROM para autorizar seu conteúdo"
+      },
+      "esperado": "session_not_loaded",
+      "sonda_tecnica": true
+    },
+    {
+      "name": "negativo.selecao_zoom_0",
+      "pass": true,
+      "observado": {
+        "ok": false,
+        "code": "layouts_parametro_invalido",
+        "message": "zoom 0 fora de 1..=16"
+      },
+      "esperado": "layouts_parametro_invalido",
+      "sonda_tecnica": true
+    },
+    {
+      "name": "negativo.selecao_fora_da_grade",
+      "pass": true,
+      "observado": {
+        "ok": false,
+        "code": "layouts_celula_fora_da_grade",
+        "message": "célula (64, 0) fora da grade 64×64"
+      },
+      "esperado": "layouts_celula_fora_da_grade",
+      "sonda_tecnica": true
+    },
+    {
+      "name": "negativo.cancelar_request_inexistente_nao_e_erro",
+      "pass": true,
+      "observado": {
+        "ok": true,
+        "value": false
+      },
+      "sonda_tecnica": true
+    },
+    {
+      "name": "negativo.rom_adulterada_nao_vira_layout",
+      "pass": true,
+      "observado": {
+        "code": "layouts_rom_unreadable",
+        "message": "sprite_manifest_rom_mismatch: ROM base não corresponde ao perfil Sonic"
+      },
+      "sonda_tecnica": true
+    },
+    {
+      "name": "final.base_preservada_byte_a_byte",
+      "pass": true,
+      "observado": {
+        "rom_path": "/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin"
+      }
+    },
+    {
+      "name": "final.nenhum_arquivo_de_copia_criado",
+      "pass": true,
+      "sonda_tecnica": true
+    }
+  ],
+  "runtime_effect": "nenhum: leitura estatica do arquivo; o jogo nao foi executado e nada aqui prova que ele consumiu o recurso em execucao",
+  "allPass": true,
+  "finished_at": "2026-10-07T12:03:43.516Z"
+}
