@@ -22,6 +22,7 @@ import type {
   NodePort,
   NodeType,
 } from "./nodeTypes";
+import { isRecoveredRegionGraph } from "./profileGraphBridge";
 import type { Entity } from "../ipc/sceneService";
 import { getEntityDisplayName } from "../entityDisplay";
 
@@ -65,7 +66,10 @@ export type NodeGraphValidationContext = {
 
 /** Mesmo contrato do backend (`compiler/platform_support.rs`). */
 export const PLATFORM_UNSUPPORTED_NODES: Record<string, Partial<Record<string, string>>> = {
-  snes: { condition_on_ground: "o estado de apoio no chao so existe na fisica do Mega Drive" },
+  snes: {
+    condition_on_ground: "o estado de apoio no chao so existe na fisica do Mega Drive",
+    authored_strike: "o teste de caixas usa o runtime MUGEN, que so existe no Mega Drive",
+  },
 };
 
 export type NodeEngineErrorCode = "graph_empty" | NodeGraphValidationIssue["code"];
@@ -403,6 +407,8 @@ const ENTITY_REF_PARAMS: Partial<Record<string, string[]>> = {
   sprite_anim: ["target"],
   set_animation_state: ["target"],
   camera_follow: ["target"],
+  authored_strike: ["attacker", "target"],
+  palette_swap: ["target"],
 };
 /** Params that must be integers, per node type. */
 const INT_PARAMS: Partial<Record<string, string[]>> = {
@@ -411,6 +417,8 @@ const INT_PARAMS: Partial<Record<string, string[]>> = {
   sprite_move: ["dx", "dy"],
   set_velocity: ["vx", "vy"],
   var_set: ["value"],
+  authored_strike: ["damage", "health"],
+  palette_swap: ["frames"],
 };
 const COMPARE_OPERATORS = new Set(["==", "!=", "<", "<=", ">", ">="]);
 const VAR_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -572,7 +580,7 @@ export function validateNodeGraph(
     }
   }
 
-  if (graph.nodes.length > 0 && graph.nodes.every((node) => !EVENT_NODE_TYPES.includes(node.type))) {
+  if (graph.nodes.length > 0 && !isRecoveredRegionGraph(graph) && graph.nodes.every((node) => !EVENT_NODE_TYPES.includes(node.type))) {
     issues.push({
       severity: "warning",
       code: "missing_entry",

@@ -1,0 +1,243 @@
+{
+  "id": "m5-profile-toy-story-001",
+  "exit_code": 0,
+  "pid": 2063608,
+  "owned_process_alive": false,
+  "elapsed_seconds": 4.379875485996308,
+  "manifest_sha256": "c4694eb79fa9dd7d0dd0034d2e6d9fb829f8bd03dbe17bbac1a717d97716d647",
+  "log_sha256": "27dd3e634583d38c7a264e9613b1ae1a2fc7fbe5cf4c4d4fb6ddde334f8e0e75",
+  "events_sha256": "22724c729256a5a45689e280a7bf4bb6e3547526ff3f675de365b92d8ac0f057",
+  "events_bytes": 548523,
+  "status": "OBSERVED_DECLARED_REGION",
+  "target": "toy-story",
+  "protocol_sha256": "73c18d6d3d8edae9fa22615ec29c458f6d652d3fa2d4cf53b22785a7ccac4803",
+  "entries": 2,
+  "completed_regions": 2,
+  "entry_frames": [
+    4,
+    15
+  ],
+  "sampled_later_invocations": false,
+  "private_directory": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-profile-toy-story-001",
+  "state-result-v2.json": {
+    "schema": "rex-m5-linear-state-result/v1",
+    "status": "FAIL",
+    "target": "toy-story",
+    "trace_sha256": "22724c729256a5a45689e280a7bf4bb6e3547526ff3f675de365b92d8ac0f057",
+    "literal_vectors": [
+      {
+        "width": 1,
+        "mode": "moveq",
+        "sr": 10004,
+        "counter": 65535
+      },
+      {
+        "width": 1,
+        "mode": "move_word_immediate",
+        "sr": 10004,
+        "counter": 305463295
+      },
+      {
+        "width": 2,
+        "mode": "moveq",
+        "sr": 10008,
+        "counter": 65535
+      },
+      {
+        "width": 2,
+        "mode": "move_word_immediate",
+        "sr": 10008,
+        "counter": 305463295
+      },
+      {
+        "width": 4,
+        "mode": "moveq",
+        "sr": 10000,
+        "counter": 65535
+      },
+      {
+        "width": 4,
+        "mode": "move_word_immediate",
+        "sr": 10000,
+        "counter": 305463295
+      }
+    ],
+    "error": "interleaved write/instruction outside model"
+  },
+  "state-result-v3.json": {
+    "schema": "rex-m5-linear-state-result/v1",
+    "status": "FAIL",
+    "target": "toy-story",
+    "trace_sha256": "22724c729256a5a45689e280a7bf4bb6e3547526ff3f675de365b92d8ac0f057",
+    "literal_vectors": [
+      {
+        "width": 1,
+        "mode": "moveq",
+        "sr": 10004,
+        "counter": 65535
+      },
+      {
+        "width": 1,
+        "mode": "move_word_immediate",
+        "sr": 10004,
+        "counter": 305463295
+      },
+      {
+        "width": 2,
+        "mode": "moveq",
+        "sr": 10008,
+        "counter": 65535
+      },
+      {
+        "width": 2,
+        "mode": "move_word_immediate",
+        "sr": 10008,
+        "counter": 305463295
+      },
+      {
+        "width": 4,
+        "mode": "moveq",
+        "sr": 10000,
+        "counter": 65535
+      },
+      {
+        "width": 4,
+        "mode": "move_word_immediate",
+        "sr": 10000,
+        "counter": 305463295
+      }
+    ],
+    "error": "unbounded excluded code reads"
+  },
+  "state-result-v4.json": {
+    "schema": "rex-m5-linear-state-result/v1",
+    "status": "PASS_OBSERVED_LINEAR_STATE",
+    "target": "toy-story",
+    "trace_sha256": "22724c729256a5a45689e280a7bf4bb6e3547526ff3f675de365b92d8ac0f057",
+    "literal_vectors": [
+      {
+        "width": 1,
+        "mode": "moveq",
+        "sr": 10004,
+        "counter": 65535
+      },
+      {
+        "width": 1,
+        "mode": "move_word_immediate",
+        "sr": 10004,
+        "counter": 305463295
+      },
+      {
+        "width": 2,
+        "mode": "moveq",
+        "sr": 10008,
+        "counter": 65535
+      },
+      {
+        "width": 2,
+        "mode": "move_word_immediate",
+        "sr": 10008,
+        "counter": 305463295
+      },
+      {
+        "width": 4,
+        "mode": "moveq",
+        "sr": 10000,
+        "counter": 65535
+      },
+      {
+        "width": 4,
+        "mode": "move_word_immediate",
+        "sr": 10000,
+        "counter": 305463295
+      }
+    ],
+    "calls": [
+      {
+        "frame": 4,
+        "invocation": 1,
+        "copied_bytes": 108,
+        "memory_sha256": "f50bcf40611e3820c4da1dbfac6ad73107f8447cf398ff19f024fbb5774eddc7",
+        "boundary": {
+          "a0": 44192,
+          "a1": 4294902932,
+          "a2": 0,
+          "a3": 0,
+          "a4": 0,
+          "a5": 0,
+          "a6": 0,
+          "a7": 4294902776,
+          "d0": 65535,
+          "d1": 0,
+          "d2": 0,
+          "d3": 0,
+          "d4": 0,
+          "d5": 0,
+          "d6": 0,
+          "d7": 0,
+          "sr": 8192,
+          "stack_top_long": 1818,
+          "pc": 44240
+        },
+        "nontransfer_reads_count": 332,
+        "nontransfer_reads_sha256": "e080df5fbf3636db33eebc4a5507cfc525bb7d987f83f3abc9957eae9ebd04b3"
+      },
+      {
+        "frame": 15,
+        "invocation": 2,
+        "copied_bytes": 108,
+        "memory_sha256": "f50bcf40611e3820c4da1dbfac6ad73107f8447cf398ff19f024fbb5774eddc7",
+        "boundary": {
+          "a0": 44192,
+          "a1": 4294902932,
+          "a2": 0,
+          "a3": 0,
+          "a4": 0,
+          "a5": 0,
+          "a6": 0,
+          "a7": 4294902780,
+          "d0": 65535,
+          "d1": 0,
+          "d2": 0,
+          "d3": 0,
+          "d4": 0,
+          "d5": 0,
+          "d6": 0,
+          "d7": 0,
+          "sr": 8192,
+          "stack_top_long": 1016,
+          "pc": 44240
+        },
+        "nontransfer_reads_count": 332,
+        "nontransfer_reads_sha256": "e080df5fbf3636db33eebc4a5507cfc525bb7d987f83f3abc9957eae9ebd04b3"
+      }
+    ],
+    "negative_controls": {
+      "identity": {
+        "refused": true,
+        "reason": "ROM/instrument identity"
+      },
+      "operator": {
+        "refused": true,
+        "reason": "operator/control bytes"
+      },
+      "flow": {
+        "refused": true,
+        "reason": "transfer count/address/value"
+      },
+      "destination": {
+        "refused": true,
+        "reason": "transfer count/address/value"
+      },
+      "state": {
+        "refused": true,
+        "reason": "register/CCR/stack boundary"
+      },
+      "flags": {
+        "refused": true,
+        "reason": "register/CCR/stack boundary"
+      }
+    },
+    "limits": "Conditional bounded region, full D/A/SR and stack top only; no stack interior, IRQ internals, timing, game meaning, visual/audio equivalence or application-runtime correspondence claim."
+  }
+}

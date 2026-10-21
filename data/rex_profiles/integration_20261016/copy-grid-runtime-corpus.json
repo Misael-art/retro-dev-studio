@@ -1,0 +1,9 @@
+{
+  "input_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "entry": 112360,
+  "source": 16728064,
+  "destination": 16715808,
+  "rows": 64,
+  "columns": 64,
+  "gap": 64
+}

@@ -1,0 +1,602 @@
+{
+  "schema": "rex-semantic-gate-journey/v1",
+  "prefix": "semantic-gate-2026-10-16T16-45-20-292Z",
+  "spec": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/data/rex_profiles/integration_20261016/semantic-journey.json",
+  "profile_id": "m68k.counter_threshold_state_gate.v1",
+  "sonda": "RAM via emulator_read_memory (sonda tecnica)",
+  "comparado": "ledger de estados e contador/estado finais; inputs por caso declarados pelo harness autoral",
+  "nao_comparado": "flags, registradores na saida, efeitos da chamada externa, demais memoria",
+  "checks": [
+    {
+      "name": "rom_e_a_do_spec",
+      "pass": true,
+      "observado": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218"
+    },
+    {
+      "name": "perfil_semantico_no_mesmo_catalogo",
+      "pass": true,
+      "lista": "Pulo de plataforma · m68k.platformer_jump.v1 · revisão 2 · SHA-256 293321058e7e… · embutido · 0 instância(s)Contador com limiar · m68k.counter_threshold_state_gate.v1 · revisão 1 · SHA-256 8e8648022d99… · embutido · 0 instância(s)",
+      "erro": ""
+    },
+    {
+      "name": "varredura.nada_e_proposto_sem_declarar_a_regiao",
+      "pass": true,
+      "tabs": [],
+      "nenhuma": "Nenhuma lógica reconhecida nesta ROM pelos 2 perfil(is) carregado(s). Isto não significa que a ROM não tenha essa lógica: só que ela não tem a forma que os perf"
+    },
+    {
+      "name": "declarada.regiao_incompleta_bloqueia_a_localizacao",
+      "pass": true,
+      "localizar": true
+    },
+    {
+      "name": "declarada.selecao_rotulada_como_declarada",
+      "pass": true,
+      "selecao": "declared_region",
+      "declarado": "Declarado (não derivado da ROM): rótulo do campo editável, título, limites e afirmações vêm do perfil (dado); entrada 0x000240 e saída(s) 0x00025E informadas pelo usuário."
+    },
+    {
+      "name": "declarada.uma_instancia_por_regiao",
+      "pass": true,
+      "tabs": [
+        "Contador com limiar em 0x000240"
+      ]
+    },
+    {
+      "name": "operacoes.sao_ditas_derivadas_dos_bytes",
+      "pass": true,
+      "operacoes": "Operações recuperadas dos bytes da ROM (pelo analisador, não pelo perfil):rom_region_entry — address=0x000240rom_counter_compare — address=0xFF0200 · operator=>",
+      "estatico": "Observado pelo aplicativo nesta sessão (sem rodar o jogo): forma e consistência entre as partes — Limiar do contador. As operações acima foram derivadas dos bytes nesta sessão. "
+    },
+    {
+      "name": "operacoes.comparacao_e_a_unica_editavel",
+      "pass": true,
+      "editaveis": [
+        "compare"
+      ]
+    },
+    {
+      "name": "operacoes.partes_opacas_sao_ditas",
+      "pass": true,
+      "opacas": [],
+      "esperado": 0
+    },
+    {
+      "name": "operacoes.dois_resultados",
+      "pass": true,
+      "ops": [
+        "compare",
+        "set_write",
+        "entry",
+        "other_write",
+        "exit_00025E"
+      ]
+    },
+    {
+      "name": "evidencia.origens_separadas",
+      "pass": true,
+      "curado": "Evidência histórica curada (registro do repositório; o aplicativo não mediu isto): nenhuma para esta ROM e instância. Há registro curado deste perfil para outra ROM ou instância; ele não vale para esta.",
+      "declarado": "Declarado pelo autor do perfil (não verificado): nada além do que está acima."
+    },
+    {
+      "name": "edicao.so_o_valor_e_suportado",
+      "pass": true,
+      "suportado": "Suportado: trocar o valor dos números abaixo, que a ROM já tem (a ROM não cresce). Não suportado: acrescentar, remover ou reordenar lógica, nem trocar operador, endereço ou conexão — isso não é compilado. Gerar cópia NÃO compila um projeto nem recompila o grafo: grava uma cópia da ROM com esses valores e um patch IPS. Domínio aceito pelo perfil não é o mesmo que \"bom no jogo\"."
+    },
+    {
+      "name": "regra.lida_da_interface_esta_completa",
+      "pass": true,
+      "regra": {
+        "guardBit": null,
+        "step": null,
+        "operator": ">=",
+        "setValue": 1,
+        "otherValue": 0,
+        "threshold": 5
+      }
+    },
+    {
+      "name": "canvas.comparacao_assinada_rotulada",
+      "pass": true,
+      "semantica": "Os 5 nós deste grafo são operações derivadas dos bytes da ROM por um analisador. A região foi declarada pelo usuário (entrada e saídas informadas); nenhuma das duas é descoberta automática de rotina. Comparação assinada de 32 bits (>=). Só o limiar é editável: trocar operador, endereço, conexão ou a chamada externa não é compilado."
+    },
+    {
+      "name": "canvas.ponte_identifica_rom_perfil_e_regiao",
+      "pass": true,
+      "identity": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218",
+      "instance": "576",
+      "profile": "m68k.counter_threshold_state_gate.v1",
+      "selecao": "declared_region"
+    },
+    {
+      "name": "canvas.diz_o_que_e_derivado_opaco_e_editavel",
+      "pass": true,
+      "semantica": "Os 5 nós deste grafo são operações derivadas dos bytes da ROM por um analisador. A região foi declarada pelo usuário (entrada e saídas informadas); nenhuma das duas é descoberta automática de rotina. Comparação assinada de 32 bits (>=). Só o limiar é editável: trocar operador, endereço, conexão ou a chamada externa não é compilado."
+    },
+    {
+      "name": "canvas.nos_da_regra_no_canvas",
+      "pass": true,
+      "cards": [
+        "entry",
+        "compare",
+        "set_write",
+        "other_write",
+        "exit_00025E"
+      ]
+    },
+    {
+      "name": "canvas.limiar_original_no_no",
+      "pass": true,
+      "valor": "5"
+    },
+    {
+      "name": "canvas.organizacao_visual_preserva_a_estrutura",
+      "pass": true
+    },
+    {
+      "name": "canvas.diferenca_proposta_e_mostrada_e_a_estrutura_segue_canonica",
+      "pass": true,
+      "edits": "Counter threshold: 5 → 6",
+      "estrutura": ""
+    },
+    {
+      "name": "canvas.alterar_a_topologia_nao_e_apresentado_como_compilavel",
+      "pass": true,
+      "estrutura": "Este grafo deixou de representar a lógica da ROM: a estrutura do grafo (nós, conexões, origem ou campos) difere da gerada a partir da ROM. Os valores NÃO serão aplicados. Posição e organização visual continuam livres; para voltar a editar valores, abra o grafo de novo a partir da ROM.",
+      "generate": true
+    },
+    {
+      "name": "canvas.desfazer_restaura_a_estrutura_e_o_plano",
+      "pass": true,
+      "estrutura": ""
+    },
+    {
+      "name": "canvas.geracao_sem_erro",
+      "pass": true,
+      "erro": "",
+      "relacao": "atual"
+    },
+    {
+      "name": "canvas.ponte_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · relido da cópia: threshold=6"
+    },
+    {
+      "name": "canvas.somente_copia_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "gate-reversed-cmp-holdout.gate-240-65e48daa.bin",
+        "gate-reversed-cmp-holdout.gate-240-65e48daa.ips"
+      ]
+    },
+    {
+      "name": "canvas.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "canvas.tamanho_preservado",
+      "pass": true
+    },
+    {
+      "name": "canvas.diff_exato_congelado",
+      "pass": true,
+      "mudados": [
+        583
+      ],
+      "congelado": [
+        583
+      ]
+    },
+    {
+      "name": "canvas.so_o_limiar_e_o_checksum_mudaram",
+      "pass": true,
+      "mudados": [
+        583
+      ],
+      "imediato": 583
+    },
+    {
+      "name": "canvas.aviso_de_checksum_quando_ele_muda",
+      "pass": true,
+      "resultado": "Cópia (corresponde aos valores atuais): /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/semantic-gate-2026-10-16T16-45-20-292Z-copias/canvas/gate-reversed-cmp-holdout.gate-240-65e48daa.binIPS: /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/va"
+    },
+    {
+      "name": "canvas.ips_reaplicado_por_aplicador_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 14
+    },
+    {
+      "name": "persistido_no_disco_com_limiar_e_vinculo",
+      "pass": true,
+      "limiar": 6,
+      "perfil": "m68k.counter_threshold_state_gate.v1",
+      "entry": 576
+    },
+    {
+      "name": "reaberto.procedencia_e_hash_de_perfil_preservados",
+      "pass": true
+    },
+    {
+      "name": "reaberto.preserva_limiar_editado",
+      "pass": true,
+      "valor": "6"
+    },
+    {
+      "name": "reaberto.preserva_rom_perfil_regiao",
+      "pass": true,
+      "identity": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218",
+      "instance": "576",
+      "profile": "m68k.counter_threshold_state_gate.v1"
+    },
+    {
+      "name": "reaberto.preserva_o_plano_e_a_estrutura",
+      "pass": true,
+      "edits": "Counter threshold: 5 → 6",
+      "estrutura": ""
+    },
+    {
+      "name": "reaberto.nao_finge_resultado_da_sessao_anterior",
+      "pass": true,
+      "relacao": null
+    },
+    {
+      "name": "reaberto.geracao_sem_erro",
+      "pass": true,
+      "erro": "",
+      "relacao": "atual"
+    },
+    {
+      "name": "reaberto.ponte_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · relido da cópia: threshold=6"
+    },
+    {
+      "name": "reaberto.somente_copia_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "gate-reversed-cmp-holdout.gate-240-65e48daa.bin",
+        "gate-reversed-cmp-holdout.gate-240-65e48daa.ips"
+      ]
+    },
+    {
+      "name": "reaberto.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "reaberto.tamanho_preservado",
+      "pass": true
+    },
+    {
+      "name": "reaberto.diff_exato_congelado",
+      "pass": true,
+      "mudados": [
+        583
+      ],
+      "congelado": [
+        583
+      ]
+    },
+    {
+      "name": "reaberto.so_o_limiar_e_o_checksum_mudaram",
+      "pass": true,
+      "mudados": [
+        583
+      ],
+      "imediato": 583
+    },
+    {
+      "name": "reaberto.aviso_de_checksum_quando_ele_muda",
+      "pass": true,
+      "resultado": "Cópia (corresponde aos valores atuais): /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/semantic-gate-2026-10-16T16-45-20-292Z-copias/reaberto/gate-reversed-cmp-holdout.gate-240-65e48daa.binIPS: /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/"
+    },
+    {
+      "name": "reaberto.ips_reaplicado_por_aplicador_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 14
+    },
+    {
+      "name": "reaberto.gera_a_mesma_copia_e_o_mesmo_ips",
+      "pass": true,
+      "antes": "65e48daabcd652814a549eb38602b665bf85617a1982658c92cdb5d0c64c4528",
+      "depois": "65e48daabcd652814a549eb38602b665bf85617a1982658c92cdb5d0c64c4528"
+    },
+    {
+      "name": "original.rom_carregada_e_autoexercicio_terminou",
+      "pass": true
+    },
+    {
+      "name": "original.identidade_dos_bytes_realmente_carregados",
+      "pass": true,
+      "identity": {
+        "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+        "disk_matches_loaded": true,
+        "rom_sha256": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218",
+        "rom_size": 2593,
+        "ok": true,
+        "core_label": "Genesis Plus GX v1.7.4 46a5521",
+        "frames_run": 2
+      },
+      "expectedHash": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218"
+    },
+    {
+      "name": "original.mesmo_core_do_produto_pinado",
+      "pass": true,
+      "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+      "label": "Genesis Plus GX v1.7.4 46a5521"
+    },
+    {
+      "name": "original.ledger_e_valores_finais_lidos",
+      "pass": true
+    },
+    {
+      "name": "original.core_mede_o_que_a_regra_recuperada_preve_em_todos_os_casos",
+      "pass": true,
+      "casos": 7,
+      "divergencias": []
+    },
+    {
+      "name": "original.os_casos_exercitam_os_dois_resultados_e_a_guarda_desligada",
+      "pass": true,
+      "estados": [
+        0,
+        1
+      ]
+    },
+    {
+      "name": "original.vetor_congelado",
+      "pass": true
+    },
+    {
+      "name": "copia.rom_carregada_e_autoexercicio_terminou",
+      "pass": true
+    },
+    {
+      "name": "copia.identidade_dos_bytes_realmente_carregados",
+      "pass": true,
+      "identity": {
+        "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+        "disk_matches_loaded": true,
+        "rom_sha256": "65e48daabcd652814a549eb38602b665bf85617a1982658c92cdb5d0c64c4528",
+        "rom_size": 2593,
+        "ok": true,
+        "core_label": "Genesis Plus GX v1.7.4 46a5521",
+        "frames_run": 3
+      },
+      "expectedHash": "65e48daabcd652814a549eb38602b665bf85617a1982658c92cdb5d0c64c4528"
+    },
+    {
+      "name": "copia.mesmo_core_do_produto_pinado",
+      "pass": true,
+      "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+      "label": "Genesis Plus GX v1.7.4 46a5521"
+    },
+    {
+      "name": "copia.ledger_e_valores_finais_lidos",
+      "pass": true
+    },
+    {
+      "name": "copia.core_mede_o_previsto_para_o_novo_limiar_em_todos_os_casos",
+      "pass": true,
+      "casos": 7,
+      "divergencias": []
+    },
+    {
+      "name": "copia.edicao_muda_estado_no_ledger_mesmos_inputs_declarados",
+      "pass": true,
+      "casos_que_mudaram": [
+        4
+      ]
+    },
+    {
+      "name": "copia.nao_satisfaz_a_previsao_do_limiar_antigo",
+      "pass": true
+    },
+    {
+      "name": "copia.vetor_congelado",
+      "pass": true
+    },
+    {
+      "name": "copia.caso_discriminante_congelado",
+      "pass": true,
+      "distinguishing_case": 4
+    }
+  ],
+  "steps": [
+    {
+      "step": "varredura",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/semantic-gate-2026-10-16T16-45-20-292Z-varredura.png"
+    },
+    {
+      "step": "declarada",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/semantic-gate-2026-10-16T16-45-20-292Z-declarada.png"
+    },
+    {
+      "step": "nodes-organizados",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/semantic-gate-2026-10-16T16-45-20-292Z-nodes-organizados.png"
+    },
+    {
+      "step": "topologia-alterada",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/semantic-gate-2026-10-16T16-45-20-292Z-topologia-alterada.png"
+    },
+    {
+      "step": "canvas",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/semantic-gate-2026-10-16T16-45-20-292Z-canvas.png"
+    },
+    {
+      "step": "reaberto",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/semantic-gate-2026-10-16T16-45-20-292Z-reaberto.png"
+    },
+    {
+      "step": "execucao",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/semantic-gate-2026-10-16T16-45-20-292Z-execucao.png"
+    }
+  ],
+  "copias": [
+    {
+      "etapa": "canvas",
+      "regiao": "0x000240",
+      "limiar": 6,
+      "rom_base_sha256": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218",
+      "copia": "gate-reversed-cmp-holdout.gate-240-65e48daa.bin",
+      "copia_sha256": "65e48daabcd652814a549eb38602b665bf85617a1982658c92cdb5d0c64c4528",
+      "ips_sha256": "bf9faf05dd138b473cb28c1f7694a794aa5b1ff059d4f56b03c936ca7d16cc09",
+      "bytes_diferentes": 1,
+      "offsets_diferentes": [
+        583
+      ]
+    },
+    {
+      "etapa": "reaberto",
+      "regiao": "0x000240",
+      "limiar": 6,
+      "rom_base_sha256": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218",
+      "copia": "gate-reversed-cmp-holdout.gate-240-65e48daa.bin",
+      "copia_sha256": "65e48daabcd652814a549eb38602b665bf85617a1982658c92cdb5d0c64c4528",
+      "ips_sha256": "bf9faf05dd138b473cb28c1f7694a794aa5b1ff059d4f56b03c936ca7d16cc09",
+      "bytes_diferentes": 1,
+      "offsets_diferentes": [
+        583
+      ]
+    }
+  ],
+  "allPass": true,
+  "ausentes": [],
+  "app_sha256": "f913ed903f64bbd8a86e2f269d9e872f8b596344eb48723fab1b415aa6c8f46b",
+  "profiles_dir": null,
+  "rom_sha256": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218",
+  "regra_lida_da_interface": {
+    "guardBit": null,
+    "step": null,
+    "operator": ">=",
+    "setValue": 1,
+    "otherValue": 0,
+    "threshold": 5
+  },
+  "save_interaction": "native pointer menu > Salvar; no persistScene automation call",
+  "persisted_identity": {
+    "profile_sha256": "8e8648022d99f1730d1c3fc4a0f6268449bbefe99013a3f07fcebc72889168bd",
+    "rom_sha256": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218",
+    "entry": 576,
+    "exits": "0x00025E",
+    "source_mappings_sha256": "c712586d3d4d686f7c9e489d0dec67a549c8cabfac8bc2423bfaf2bb111e63a8"
+  },
+  "runtime_identities": [
+    {
+      "etapa": "original",
+      "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "disk_matches_loaded": true,
+      "rom_sha256": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218",
+      "rom_size": 2593,
+      "ok": true,
+      "core_label": "Genesis Plus GX v1.7.4 46a5521",
+      "frames_run": 2
+    },
+    {
+      "etapa": "copia",
+      "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "disk_matches_loaded": true,
+      "rom_sha256": "65e48daabcd652814a549eb38602b665bf85617a1982658c92cdb5d0c64c4528",
+      "rom_size": 2593,
+      "ok": true,
+      "core_label": "Genesis Plus GX v1.7.4 46a5521",
+      "frames_run": 3
+    }
+  ],
+  "runtime_memory": [
+    {
+      "etapa": "original",
+      "ledger_sha256": "01eea4017392905da7349514fcc573076d956860901f1cd69eaceaf06a402e40",
+      "ledger_states": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        1
+      ],
+      "final_counter": 2147483647,
+      "final_state": 1,
+      "inputs_origin": "declared author harness; per-case counters not recorded in this ROM"
+    },
+    {
+      "etapa": "copia",
+      "ledger_sha256": "3c327b59cb6b2ed1d32b6de3385758633a4b4d435ceaf4797cfda5b23b10d870",
+      "ledger_states": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1
+      ],
+      "final_counter": 2147483647,
+      "final_state": 1,
+      "inputs_origin": "declared author harness; per-case counters not recorded in this ROM"
+    }
+  ],
+  "observado_original": [
+    [
+      2147483648,
+      0
+    ],
+    [
+      4294967295,
+      0
+    ],
+    [
+      0,
+      0
+    ],
+    [
+      4,
+      0
+    ],
+    [
+      5,
+      1
+    ],
+    [
+      6,
+      1
+    ],
+    [
+      2147483647,
+      1
+    ]
+  ],
+  "observado_copia": [
+    [
+      2147483648,
+      0
+    ],
+    [
+      4294967295,
+      0
+    ],
+    [
+      0,
+      0
+    ],
+    [
+      4,
+      0
+    ],
+    [
+      5,
+      0
+    ],
+    [
+      6,
+      1
+    ],
+    [
+      2147483647,
+      1
+    ]
+  ],
+  "casos_que_mudaram": 1
+}

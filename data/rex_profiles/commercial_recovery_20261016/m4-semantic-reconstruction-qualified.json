@@ -1,0 +1,47 @@
+{
+  "id": "m4-semantic-tests-001",
+  "command": [
+    "rtk",
+    "proxy",
+    "env",
+    "CARGO_TARGET_DIR=/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/cargo-target",
+    "CARGO_BUILD_JOBS=1",
+    "RDS_COPY_GRID_BYOR=/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin",
+    "RDS_COPY_GRID_PRIVATE_OUTPUT=/home/misael/rds-scratch/commercial_recovery_20261016/m4-semantic-rebuild-001",
+    "cargo",
+    "test",
+    "--manifest-path",
+    "src-tauri/Cargo.toml",
+    "copy_grid_",
+    "--",
+    "--include-ignored",
+    "--nocapture"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 139.35006611900099,
+  "log_sha256": "6cd5bd0abcf9d5a22c7208e08b95523f0167eacb8f8dee1009d6b749d928de41",
+  "status": "PASS_SEMANTIC_RECONSTRUCTION_AND_DISCRIMINATING_REFUSALS",
+  "executed_tests": 5,
+  "ignored_tests": 0,
+  "artifacts": {
+    "original-rebuilt.bin": {
+      "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "bytes": 531577
+    },
+    "modified-rebuilt.bin": {
+      "sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+      "bytes": 531577
+    },
+    "published-copy.bin": {
+      "sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+      "bytes": 531577
+    },
+    "published.ips": {
+      "sha256": "b48421f3247d3669b1f12cf14917f48f17f72455ab43141f1f525aa8035969f9",
+      "bytes": 14
+    }
+  },
+  "source_proof": "CopyGrid stores typed fields, not saved provenance bytes; encode regenerates30bytes. Existing commercial BYOR test overwrites region with encode output and checks fullROM identity; modified reconstruction equals canonical publisher and UI copy.",
+  "limits": "Static semantic lowering/identity and negative controls; real consumer state and graphics proofs remain separate.",
+  "warning": "preexisting duplicate #[test] in ast_generator.rs; not reclassified as failure"
+}

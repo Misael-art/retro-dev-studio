@@ -1,0 +1,1271 @@
+{
+ "arquivos": [
+  {
+   "arquivo": "crates/rex-addressing/src/error.rs",
+   "citacoes": [],
+   "linhas": 55,
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo.",
+   "reuso": "",
+   "sha256": "e31f93fd16de2e1e4f5ab70107a269170056fbadf9bcb727a001d23e51f2c76c"
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/lib.rs",
+   "citacoes": [],
+   "linhas": 165,
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo.",
+   "reuso": "",
+   "sha256": "dfd8c9be6907d25ac842e234adbb4cef839c852ce50ba3fda27ec5bdd8adb519"
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/md_common.rs",
+   "citacoes": [],
+   "linhas": 78,
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo.",
+   "reuso": "",
+   "sha256": "08af999ef46a10c52cf19de31f2d7f7fec7f214ccaeecdb2cc07c430537f272e"
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/md_linear.rs",
+   "citacoes": [],
+   "linhas": 209,
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo.",
+   "reuso": "",
+   "sha256": "4dd975c3b279d596bd9202e2a211fce4bea291132f1d0de127405e03c20dbaeb"
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/md_ssf2.rs",
+   "citacoes": [],
+   "linhas": 342,
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo.",
+   "reuso": "",
+   "sha256": "7744dcc47a7024e195a33e9f40dfac23944776344149b5ccf9ba7ae96e6aa5d5"
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/region.rs",
+   "citacoes": [],
+   "linhas": 57,
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo.",
+   "reuso": "",
+   "sha256": "8fe8d76bb1e699d3b760b0ac9ffbe92e01e0a40da1f6dcda0553a7ac8301988c"
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/resource.rs",
+   "citacoes": [],
+   "linhas": 658,
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo.",
+   "reuso": "",
+   "sha256": "3b793dd9fe16fe3439f472c63d9648116aa83214d5718957dc9af76d943fd54b"
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/snes_common.rs",
+   "citacoes": [],
+   "linhas": 138,
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo.",
+   "reuso": "",
+   "sha256": "4c9f8835e86ee3cfa2d3d05a21ff0809254e759de60a7136fccaa55efc5cd043"
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/snes_exhirom.rs",
+   "citacoes": [],
+   "linhas": 296,
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo.",
+   "reuso": "",
+   "sha256": "88211d680e0e99f9255c6bbd767bdc37c8233fd25170fe3582e89057d601ee99"
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/snes_hirom.rs",
+   "citacoes": [],
+   "linhas": 226,
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo.",
+   "reuso": "",
+   "sha256": "4642155f78ca39d648a2233554f9f0bdf11938eb6c173e4e15b52e57d0369050"
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/snes_lorom.rs",
+   "citacoes": [],
+   "linhas": 215,
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo.",
+   "reuso": "",
+   "sha256": "575713d92a55b75f2abc38f1c8a77474af7042b3a81ef4d861596433bed5a438"
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/state.rs",
+   "citacoes": [],
+   "linhas": 123,
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo.",
+   "reuso": "",
+   "sha256": "b47d2f8d7ac6cc8ef5b543e958ab5b53b718c1bcdd8e9dea41e8956d28d50a0f"
+  },
+  {
+   "arquivo": "crates/rex-enigma/src/lib.rs",
+   "citacoes": [],
+   "linhas": 486,
+   "papel": "motor",
+   "porque": "Codec Enigma puro; 'sonic'/'delta' só em comentários (variante do console; 'delta' = corrida delta do codec).",
+   "reuso": "",
+   "sha256": "7b1eeaf04c742b1161e4070f6ca5a16008c115b4d231c62cc97af4dc7d9db67b"
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/graph.rs",
+   "citacoes": [],
+   "linhas": 628,
+   "papel": "perfil",
+   "porque": "Constrói NodeGraph v1 do perfil m68k.counter_threshold_state_gate.v1 (build_graph, edit_threshold): forma do grafo é do perfil.",
+   "reuso": "",
+   "sha256": "75197f7597727ea98e3f5c8b0400ce1d8e4440e1578437d9dac5246f67ec307b"
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/json.rs",
+   "citacoes": [],
+   "linhas": 348,
+   "papel": "motor",
+   "porque": "JSON mínimo próprio; mecanismo genérico (redundante com serde_json — candidato a remoção na F1).",
+   "reuso": "Duplicata de JSON (não reutilizada; o motor usa serde_json).",
+   "sha256": "c16820fdbe15ad15ed59c6fe72f8909daff7455761b42ef7ceaac3bb45609a36"
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/lib.rs",
+   "citacoes": [
+    {
+     "onde": "crates/rex-gameplay/src/lib.rs:68",
+     "papel": "instrumento",
+     "simbolo": "fn execute_region"
+    },
+    {
+     "onde": "crates/rex-gameplay/src/lib.rs:44",
+     "papel": "perfil",
+     "simbolo": "fn recover"
+    },
+    {
+     "onde": "crates/rex-gameplay/src/lib.rs:94",
+     "papel": "perfil",
+     "simbolo": "fn scan_guarded_candidates"
+    }
+   ],
+   "linhas": 125,
+   "papel": "perfil",
+   "porque": "Entrada do perfil counter_threshold_state_gate.v1 (Experimental).",
+   "reuso": "",
+   "sha256": "35843c9ed594608abd15384521ec3ab8fb42dcc3e27b72575143d6ce0c9f3e3b"
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/lift.rs",
+   "citacoes": [
+    {
+     "onde": "crates/rex-gameplay/src/lift.rs:117",
+     "papel": "perfil",
+     "simbolo": "struct GateRule"
+    },
+    {
+     "onde": "crates/rex-gameplay/src/lift.rs:258",
+     "papel": "perfil",
+     "simbolo": "fn lift"
+    },
+    {
+     "onde": "crates/rex-gameplay/src/lift.rs:417",
+     "papel": "perfil",
+     "simbolo": "fn evaluate"
+    }
+   ],
+   "linhas": 453,
+   "papel": "perfil",
+   "porque": "Eleva região à regra semântica do perfil (Guard, CounterAdd, Compare).",
+   "reuso": "Específico do perfil counter_threshold_state_gate.v1; fora da classe subsumes/pair/follow.",
+   "sha256": "5dc2463d346e28cadfe393596ee5fd6258de6a97fee0cb1c7d3884165a0ff108"
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/m68k.rs",
+   "citacoes": [
+    {
+     "onde": "crates/rex-gameplay/src/m68k.rs:118",
+     "papel": "motor",
+     "simbolo": "fn decode"
+    },
+    {
+     "onde": "crates/rex-gameplay/src/m68k.rs:247",
+     "papel": "motor",
+     "simbolo": "fn encode"
+    },
+    {
+     "onde": "crates/rex-gameplay/src/m68k.rs:383",
+     "papel": "motor",
+     "simbolo": "struct Machine"
+    },
+    {
+     "onde": "crates/rex-gameplay/src/m68k.rs:360",
+     "papel": "motor",
+     "simbolo": "struct Ccr"
+    },
+    {
+     "onde": "crates/rex-gameplay/src/m68k.rs:10",
+     "papel": "motor",
+     "simbolo": "enum Cond"
+    },
+    {
+     "onde": "crates/rex-gameplay/src/m68k.rs:70",
+     "papel": "perfil",
+     "simbolo": "enum Insn"
+    },
+    {
+     "onde": "crates/rex-gameplay/src/m68k.rs:332",
+     "papel": "perfil",
+     "simbolo": "fn mnemonic"
+    }
+   ],
+   "linhas": 667,
+   "papel": "misto",
+   "porque": "Subconjunto M68000 fechado de 12 variantes de Insn, com decode/encode/step e flags: o mecanismo é reaproveitável, o conjunto de instruções é o do perfil.",
+   "reuso": "Reutilizável: decode/encode/step com flags para subconjunto FECHADO de 12 instruções (recusa o resto). Base da opção A do doc 14 §3.3; não é emulador e não foi ampliado nesta missão.",
+   "sha256": "198822b52fb8c15f3f979a88684fec76e123e10a018ee7707c1447b5dc7fae00"
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/patch.rs",
+   "citacoes": [
+    {
+     "onde": "crates/rex-gameplay/src/patch.rs:32",
+     "papel": "motor",
+     "simbolo": "fn md_checksum"
+    },
+    {
+     "onde": "crates/rex-gameplay/src/patch.rs:122",
+     "papel": "perfil",
+     "simbolo": "fn patch_threshold"
+    },
+    {
+     "onde": "crates/rex-gameplay/src/patch.rs:142",
+     "papel": "perfil",
+     "simbolo": "fn regenerate_from_graph"
+    }
+   ],
+   "linhas": 173,
+   "papel": "misto",
+   "porque": "md_checksum é do formato Mega Drive; patch_threshold e regenerate_from_graph são do perfil.",
+   "reuso": "Pipeline de patch PRÓPRIO do perfil counter_threshold (duplica rex_edit): NÃO reutilizado e NÃO ampliado; consolidação fica para F1b.",
+   "sha256": "024de438011f70064e41f217336a1f3b5816dc5c5655e184638acba0d90423ae"
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/region.rs",
+   "citacoes": [
+    {
+     "onde": "crates/rex-gameplay/src/region.rs:14",
+     "papel": "motor",
+     "simbolo": "struct Region"
+    },
+    {
+     "onde": "crates/rex-gameplay/src/region.rs:42",
+     "papel": "motor",
+     "simbolo": "fn delimit"
+    }
+   ],
+   "linhas": 148,
+   "papel": "motor",
+   "porque": "Delimita região por fluxo de controle com saídas declaradas pelo chamador; depende do tipo Insn (acoplamento a verificar na F1).",
+   "reuso": "Reutilizável: ÚNICO mecanismo de CFG encontrado (delimit: percorre os dois lados de cada desvio a partir de entrada e saídas declaradas). Acoplado a Insn (subconjunto). Não há grafo de fluxo de ROM inteira.",
+   "sha256": "dea038177a128b32d6fe56e13ea70f3dd8ac8f6b59cfd7ce9a3d8e932783343b"
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/sha256.rs",
+   "citacoes": [],
+   "linhas": 87,
+   "papel": "motor",
+   "porque": "SHA-256 próprio (duplicata; ver duplicações).",
+   "reuso": "Duplicata de SHA-256 (não reutilizada; o produto usa rom_library::sha256_hex).",
+   "sha256": "f4b98500bfc02128128b5db8f0a0d6b58c1da0eec4e8d1ad5418852a4ff677eb"
+  },
+  {
+   "arquivo": "crates/rex-kosinski/src/edit.rs",
+   "citacoes": [],
+   "linhas": 230,
+   "papel": "motor",
+   "porque": "Codec/edição Kosinski (variante base); sem termo de jogo. edit.rs tem SHA-256 próprio (duplicata).",
+   "reuso": "",
+   "sha256": "6583b32f7871d281eba93f35f582a4d9d8d4e32d93a4aa4db6ad3a8933f3e4b0"
+  },
+  {
+   "arquivo": "crates/rex-kosinski/src/encode.rs",
+   "citacoes": [],
+   "linhas": 243,
+   "papel": "motor",
+   "porque": "Codec/edição Kosinski (variante base); sem termo de jogo. edit.rs tem SHA-256 próprio (duplicata).",
+   "reuso": "",
+   "sha256": "a18fa9fec70f6aa91d42f59b2c38e491ea0c41ccb2d489d9a82dabfdc8634360"
+  },
+  {
+   "arquivo": "crates/rex-kosinski/src/lib.rs",
+   "citacoes": [],
+   "linhas": 185,
+   "papel": "motor",
+   "porque": "Codec/edição Kosinski (variante base); sem termo de jogo. edit.rs tem SHA-256 próprio (duplicata).",
+   "reuso": "",
+   "sha256": "0f6e09458d0225363b9fa069d695f937de0be1da550ee611614e5b876776820e"
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/air.rs",
+   "citacoes": [],
+   "linhas": 482,
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN).",
+   "reuso": "",
+   "sha256": "56e5351ab418744dad6c7a9422751dd73656a01b78c0be20074685caebc825a6"
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/diag.rs",
+   "citacoes": [],
+   "linhas": 189,
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN).",
+   "reuso": "",
+   "sha256": "13e06155fd4a671511f8b2df72dea196b093b8caf10b8e008df905cb498fa4fc"
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/fixture.rs",
+   "citacoes": [],
+   "linhas": 678,
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN).",
+   "reuso": "",
+   "sha256": "d89625209e97d86eb9bd5ee7acbec271f1ff7287a306c724b3f3a77f0c6a50f1"
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/lib.rs",
+   "citacoes": [],
+   "linhas": 14,
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN).",
+   "reuso": "",
+   "sha256": "80dd845a651be22c5955c0b02a8ef09dd1b7c6c2fcb6ae02a893da54a3693e8a"
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/palette.rs",
+   "citacoes": [],
+   "linhas": 159,
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN).",
+   "reuso": "",
+   "sha256": "4e17b8fb1b84c2bc734737115e88319b92ec46d2a25fcf70ceabfcce329561c9"
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/plan.rs",
+   "citacoes": [],
+   "linhas": 532,
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN).",
+   "reuso": "",
+   "sha256": "cd1b6c2c1e9b6656f879d5bc4533afbe8775fec362c5fb2ca2bd1e75144edafb"
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/sff.rs",
+   "citacoes": [],
+   "linhas": 580,
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN).",
+   "reuso": "",
+   "sha256": "9dd80ad6e85ede18da04f450b78a500b6efdb884c6e0fb95259b68fdd5310007"
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/sha256.rs",
+   "citacoes": [],
+   "linhas": 87,
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN). SHA-256 próprio (duplicata).",
+   "reuso": "",
+   "sha256": "f4b98500bfc02128128b5db8f0a0d6b58c1da0eec4e8d1ad5418852a4ff677eb"
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/source.rs",
+   "citacoes": [],
+   "linhas": 123,
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN).",
+   "reuso": "",
+   "sha256": "b9f7d50578a609376bf20f215ce7fcc78679658ab5cfe41e8fc71829af92e53c"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/decomp_orch.rs",
+   "citacoes": [],
+   "linhas": 637,
+   "papel": "instrumento",
+   "porque": "Orquestra triagem+Ghidra+diff para medir pares (fonte, ROM): mede, não recupera.",
+   "reuso": "",
+   "sha256": "248027652fea9665a4c1d8b99212e97680b6810f69f0023ed5320c399c165a19"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/extract.rs",
+   "citacoes": [],
+   "linhas": 1140,
+   "papel": "motor",
+   "porque": "Catálogo de extração com proveniência; 'hamoopig'/'taiketsu' só em comentário e teste ignorado.",
+   "reuso": "",
+   "sha256": "a4b0127a0eba3ef6cc194e85749a6c84a1f214b3c705665147bd5837f43fc858"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/fingerprint.rs",
+   "citacoes": [],
+   "linhas": 140,
+   "papel": "instrumento",
+   "porque": "Índice hash→identidade de funções do ground truth: instrumento de comparação.",
+   "reuso": "",
+   "sha256": "622395bd416d2167dcc3dbee3e06219eca69968a8d272619d9f9b3076736d72b"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/ghidra_bridge.rs",
+   "citacoes": [
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/ghidra_bridge.rs:21",
+     "papel": "instrumento",
+     "simbolo": "struct BoundaryMetrics"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/ghidra_bridge.rs:17",
+     "papel": "instrumento",
+     "simbolo": "const GHIDRA_PROCESSOR"
+    }
+   ],
+   "linhas": 245,
+   "papel": "instrumento",
+   "porque": "Executa analyzeHeadless e calcula precisão/recall de fronteiras: instrumento externo.",
+   "reuso": "Reutilizável na investigação de core/CFG: exporta fronteiras de função (precision/recall contra symbol table). Não usado pelo motor de perfis; exige Ghidra autorizado no host.",
+   "sha256": "d02f765faefd580bc2ac1bab8e12f9e1f2383e1faeb7d120bafce29a575182f2"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/graphics_discovery.rs",
+   "citacoes": [],
+   "linhas": 2657,
+   "papel": "motor",
+   "porque": "Descoberta de tiles/paletas por heurística; 'delta' = diferença.",
+   "reuso": "",
+   "sha256": "4b70eb1212f6f43e538910ef7249bd7918e55d347b4b839082822d32ff09bce6"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/holdout.rs",
+   "citacoes": [],
+   "linhas": 773,
+   "papel": "instrumento",
+   "porque": "Corpus de validação independente dos scanners gráficos.",
+   "reuso": "",
+   "sha256": "1601b5717850a766c7c605425f56f9f92d6806504a1a1bf0a4d1bf522158d749"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/inspection.rs",
+   "citacoes": [
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/inspection.rs:1566",
+     "papel": "caso",
+     "simbolo": "fn edit_sonic_palette"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/inspection.rs:1617",
+     "papel": "caso",
+     "simbolo": "fn edit_sonic_tiles"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/inspection.rs:1711",
+     "papel": "caso",
+     "simbolo": "fn sonic_cadence_info"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/inspection.rs:1787",
+     "papel": "caso",
+     "simbolo": "fn sonic_layouts_info"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/inspection.rs:1767",
+     "papel": "caso",
+     "simbolo": "fn sonic_consumers_info"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/inspection.rs:1906",
+     "papel": "caso",
+     "simbolo": "fn edit_sonic_sequence"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/inspection.rs:41",
+     "papel": "motor",
+     "simbolo": "struct InspectionError"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/inspection.rs:103",
+     "papel": "motor",
+     "simbolo": "struct InspectionSession"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/inspection.rs:929",
+     "papel": "motor",
+     "simbolo": "fn open"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/inspection.rs:975",
+     "papel": "motor",
+     "simbolo": "fn reopen"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/inspection.rs:1099",
+     "papel": "motor",
+     "simbolo": "fn catalog_page"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/inspection.rs:1373",
+     "papel": "motor",
+     "simbolo": "fn save"
+    }
+   ],
+   "linhas": 4295,
+   "papel": "misto",
+   "porque": "Serviço de inspeção (sessões, catálogo, preview, salvar) misturado com 138 ocorrências de 'sonic' em edições/consultas específicas do Sonic 1.",
+   "reuso": "InspectionError REUSADO como tipo de erro IPC; o lado de caso (sonic_*) permanece intocado nesta missão.",
+   "sha256": "0b4990d44e843ef42672e9b75d44794b91daf20507d71a82aa60e51b4c1fa570"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/logic_recovery.rs",
+   "citacoes": [],
+   "linhas": 656,
+   "papel": "perfil",
+   "porque": "Recuperação de rotina M68K exata de perfil (PROFILE_ID/BRANCH_PROFILE_ID; ADDQ.W #1,D0; RTS) — forma específica, sem nome de jogo.",
+   "reuso": "",
+   "sha256": "2101893375100b09604ecb8fc4df48f2bd4702bb42c5b181af24475239901316"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/mod.rs",
+   "citacoes": [],
+   "linhas": 51,
+   "papel": "adaptador",
+   "porque": "Registro de módulos.",
+   "reuso": "",
+   "sha256": "3854b2717af0cd9a71e38e774d043bee23ce88b0fa6bd7743faffca600accc59"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/object_diff.rs",
+   "citacoes": [],
+   "linhas": 306,
+   "papel": "instrumento",
+   "porque": "Comparação por símbolo via objdump: instrumento de medição.",
+   "reuso": "Reutilizável para L6 (fora de escopo).",
+   "sha256": "cf4b3a323ad656d37aa9b8128b93ce1ed79ed7ac721635856fb70ad8fd49188c"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_addressing.rs",
+   "citacoes": [],
+   "linhas": 773,
+   "papel": "adaptador",
+   "porque": "Superfície de produto sobre crates/rex-addressing (DTOs/erros).",
+   "reuso": "",
+   "sha256": "7bd75ea96a598623c77787410a826aa891333d117745cf9f1e84daea3eb2ef76"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_aplib.rs",
+   "citacoes": [],
+   "linhas": 1545,
+   "papel": "motor",
+   "porque": "Codec aPLib (variante SGDK).",
+   "reuso": "",
+   "sha256": "42a555d24c0a15ec753c256337212bcac855d77a68ec7062165c25ae49501d36"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_codecs.rs",
+   "citacoes": [],
+   "linhas": 1984,
+   "papel": "motor",
+   "porque": "Codecs REX v1 (LZ4W etc.).",
+   "reuso": "",
+   "sha256": "6044135b30f51bc746f8b15e6baf6b94cabbbd52c067ce969ea0cb231fa83e18"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_context.rs",
+   "citacoes": [],
+   "linhas": 3413,
+   "papel": "motor",
+   "porque": "Contexto de recurso gráfico somente leitura (TileSet+TileMap+paleta); 0 termos de jogo.",
+   "reuso": "",
+   "sha256": "88c55458601a08ca358c6b2ba1903916dbd718b14f4db02496f416b857143935"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_edit.rs",
+   "citacoes": [
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_edit.rs:11",
+     "papel": "motor",
+     "simbolo": "struct Patch"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_edit.rs:53",
+     "papel": "motor",
+     "simbolo": "fn plan_field_edits"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_edit.rs:90",
+     "papel": "motor",
+     "simbolo": "fn apply"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_edit.rs:113",
+     "papel": "motor",
+     "simbolo": "fn ips"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_edit.rs:143",
+     "papel": "motor",
+     "simbolo": "fn ips_apply_strict"
+    }
+   ],
+   "linhas": 323,
+   "papel": "motor",
+   "porque": "Núcleo de edição extraído na F1: Patch, apply, IPS estrito (gerador e aplicador independentes) e planejamento genérico de campos de 16 bits; opera sobre offsets e domínios, sem termo de jogo.",
+   "reuso": "REUSADO: único aplicador/gerador de patches (Patch, apply, ips, ips_apply_strict).",
+   "sha256": "61fa90837e914cb930e598df614b492c3d9dd00c87802567decabb4439755730"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_evidence.rs",
+   "citacoes": [
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_evidence.rs:10",
+     "papel": "instrumento",
+     "simbolo": "enum EvidenceLevel"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_evidence.rs:98",
+     "papel": "instrumento",
+     "simbolo": "struct Claim"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_evidence.rs:143",
+     "papel": "instrumento",
+     "simbolo": "fn weakest"
+    }
+   ],
+   "linhas": 238,
+   "papel": "instrumento",
+   "porque": "Tipo da escada de evidência: instrumento de rotulagem das afirmações, sem I/O.",
+   "reuso": "",
+   "sha256": "3fd3b8cae4b479a5359dc94fca688e04c9f79f6bb83740ca33088156aa9b3016"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_gameplay.rs",
+   "citacoes": [],
+   "linhas": 1580,
+   "papel": "adaptador",
+   "porque": "Superfície IPC do perfil counter_threshold_state_gate.v1 sobre crates/rex-gameplay.",
+   "reuso": "",
+   "sha256": "0b562d3a419bc0cba724d8a6ef7e327b768b9e5f551b1204e6377a0836c3ab79"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs",
+   "citacoes": [
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs:76",
+     "papel": "adaptador",
+     "simbolo": "struct JumpLocateRequest"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs:89",
+     "papel": "adaptador",
+     "simbolo": "struct JumpLocateResponse"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs:97",
+     "papel": "adaptador",
+     "simbolo": "fn ipc_locate"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs:126",
+     "papel": "adaptador",
+     "simbolo": "struct JumpEditRequest"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs:144",
+     "papel": "adaptador",
+     "simbolo": "struct JumpEditResponse"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs:209",
+     "papel": "adaptador",
+     "simbolo": "fn ipc_edit"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs:213",
+     "papel": "adaptador",
+     "simbolo": "fn ipc_edit_with"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs:53",
+     "papel": "motor",
+     "simbolo": "fn read_rom"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs:43",
+     "papel": "motor",
+     "simbolo": "fn request_ok"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs:15",
+     "papel": "motor",
+     "simbolo": "const MAX_ROM_BYTES"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs:178",
+     "papel": "motor",
+     "simbolo": "fn publish_pair"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs:192",
+     "papel": "perfil",
+     "simbolo": "fn campos"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs:25",
+     "papel": "perfil",
+     "simbolo": "fn from_jump"
+    }
+   ],
+   "linhas": 1100,
+   "papel": "misto",
+   "porque": "IPC do pulo: fluxo genérico (identidade, leitura limitada, publicação, releitura) escrito contra tipos do perfil.",
+   "reuso": "",
+   "sha256": "85ae200a1eea05067001b4af8c57dc3a948b25c820c08220d3c2a7a30d35de10"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_kosinski.rs",
+   "citacoes": [],
+   "linhas": 497,
+   "papel": "adaptador",
+   "porque": "Superfície de produto sobre crates/rex-kosinski.",
+   "reuso": "",
+   "sha256": "3b4115ab6f95d7f28740f9dd6c0f86f8db6efe2b59eeb7a988d76701d45eb4e2"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_mdgfx.rs",
+   "citacoes": [],
+   "linhas": 637,
+   "papel": "motor",
+   "porque": "Primitivas gráficas MD 'SEM conhecimento de jogo' (cabeçalho); 'sonic' só em comentário sobre o formato de mappings.",
+   "reuso": "",
+   "sha256": "7a10f67dd6e0bce90d78636e3419f3539d469d427c541dadef8e8b73ba6a460e"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_nemesis.rs",
+   "citacoes": [],
+   "linhas": 490,
+   "papel": "motor",
+   "porque": "Decoder Nemesis 'genérico: não conhece nenhum jogo' (cabeçalho).",
+   "reuso": "",
+   "sha256": "6dab973c5c9a8ccec492115def8c0683c9441ba69b435d08c4161fa765d1d4b5"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs",
+   "citacoes": [
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:50",
+     "papel": "adaptador",
+     "simbolo": "enum JumpError"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:994",
+     "papel": "adaptador",
+     "simbolo": "fn apply"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:999",
+     "papel": "adaptador",
+     "simbolo": "fn ips"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:1004",
+     "papel": "adaptador",
+     "simbolo": "fn ips_apply_strict"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:247",
+     "papel": "instrumento",
+     "simbolo": "fn locate_reference"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:1009",
+     "papel": "instrumento",
+     "simbolo": "fn fixture_rom"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:778",
+     "papel": "motor",
+     "simbolo": "fn canonical_string"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:793",
+     "papel": "motor",
+     "simbolo": "fn canonical_signature"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:707",
+     "papel": "motor",
+     "simbolo": "fn fnv1a64_hex"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:739",
+     "papel": "motor",
+     "simbolo": "fn node_canon"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:766",
+     "papel": "motor",
+     "simbolo": "fn edge_canon"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:29",
+     "papel": "perfil",
+     "simbolo": "const PROFILE_ID"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:155",
+     "papel": "perfil",
+     "simbolo": "const REL_HEIGHT"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:97",
+     "papel": "perfil",
+     "simbolo": "struct JumpInstance"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:113",
+     "papel": "perfil",
+     "simbolo": "struct JumpParams"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:177",
+     "papel": "perfil",
+     "simbolo": "fn locate"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:413",
+     "papel": "perfil",
+     "simbolo": "fn graph_json"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:817",
+     "papel": "perfil",
+     "simbolo": "fn review_graph"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs:962",
+     "papel": "perfil",
+     "simbolo": "fn plan_edit"
+    }
+   ],
+   "linhas": 1791,
+   "papel": "misto",
+   "porque": "Perfil do pulo: adaptador sobre o motor + regras do perfil ainda em Rust (grafo, notas, revisão, mapeamento de campos).",
+   "reuso": "",
+   "sha256": "5eaf169012adc2f4a6d80c1b1c0ed0e59edf50ee7dc43ed585d251d55e947b62"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_engine.rs",
+   "citacoes": [
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_profile_engine.rs:76",
+     "papel": "motor",
+     "simbolo": "struct Engine"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_profile_engine.rs:63",
+     "papel": "motor",
+     "simbolo": "struct EngineInstance"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_profile_engine.rs:53",
+     "papel": "motor",
+     "simbolo": "struct EngineField"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_profile_engine.rs:18",
+     "papel": "motor",
+     "simbolo": "enum EngineError"
+    }
+   ],
+   "linhas": 622,
+   "papel": "motor",
+   "porque": "Motor de localização dirigido por perfil em dado (subsumes/pair/follow), promovido na F1; recusa formas fora da classe suportada; sem termo de jogo.",
+   "reuso": "REUSADO e ampliado nesta missão.",
+   "sha256": "617c02c2b124531610fe562d1515191d7fe8fc1e0c3eedbd7d83d1c94d508b07"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_spec.rs",
+   "citacoes": [
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_profile_spec.rs:100",
+     "papel": "motor",
+     "simbolo": "struct ProfileSpec"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_profile_spec.rs:32",
+     "papel": "motor",
+     "simbolo": "enum RelationSpec"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_profile_spec.rs:78",
+     "papel": "motor",
+     "simbolo": "struct FieldSpec"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_profile_spec.rs:116",
+     "papel": "motor",
+     "simbolo": "enum SpecError"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_profile_spec.rs:169",
+     "papel": "motor",
+     "simbolo": "fn capture_names"
+    }
+   ],
+   "linhas": 739,
+   "papel": "motor",
+   "porque": "Esquema e validação do perfil como dado; a lógica de produção não cita jogo (1 ocorrência de 'pulo' em comentário de cabeçalho; o perfil do pulo aparece nos testes e no JSON de rascunho). O avaliador que interpreta o dado é #[cfg(test)]. Contrato da F0, não usado em produção.",
+   "reuso": "REUSADO e ampliado (contrato v2).",
+   "sha256": "1f37fd7c0939a47108a0fb567507b2188e7de9c9b8c5334fb911e8bc40424181"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_publish.rs",
+   "citacoes": [
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_publish.rs:38",
+     "papel": "motor",
+     "simbolo": "trait Fs"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_publish.rs:47",
+     "papel": "motor",
+     "simbolo": "struct RealFs"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_publish.rs:96",
+     "papel": "motor",
+     "simbolo": "fn publish_pair"
+    }
+   ],
+   "linhas": 210,
+   "papel": "motor",
+   "porque": "Publicação conjunta e segura de dois artefatos (cópia + IPS) extraída na F1: Fs/RealFs/WriteFail/publish_pair; sem termo de jogo.",
+   "reuso": "REUSADO: único publicador (publish_pair).",
+   "sha256": "682fe9af4321b265d7420974d0da59854a1ed4174c5980345f08417d98ba325c"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_resources.rs",
+   "citacoes": [],
+   "linhas": 4860,
+   "papel": "motor",
+   "porque": "Cadeia de recurso comprimido; 'sonic' 1x em comentário.",
+   "reuso": "",
+   "sha256": "465b56feac5837e8850a2cafb285db8dad54e9f15f6002a66f9b80a083276d16"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_sigscan.rs",
+   "citacoes": [
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_sigscan.rs:38",
+     "papel": "motor",
+     "simbolo": "struct Pattern"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_sigscan.rs:52",
+     "papel": "motor",
+     "simbolo": "struct Match"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/rex_sigscan.rs:45",
+     "papel": "motor",
+     "simbolo": "struct Captured"
+    }
+   ],
+   "linhas": 278,
+   "papel": "motor",
+   "porque": "Localizador por assinatura genérico e puro (cabeçalho).",
+   "reuso": "REUSADO pelo motor de perfis (padrões/capturas).",
+   "sha256": "c2529147940cdb1c5d679eb3c19f15417f46ac2f21387b47a83dfa262810c087"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rom_library.rs",
+   "citacoes": [],
+   "linhas": 753,
+   "papel": "instrumento",
+   "porque": "Biblioteca BYOR + ledger de execuções das medições.",
+   "reuso": "sha256_hex reusado pela identidade da ROM.",
+   "sha256": "cef5ea1604d373b28eb7effaab33670266883b788f1734b51e3d45bca9c34a5d"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/sonic_cadence.rs",
+   "citacoes": [],
+   "linhas": 544,
+   "papel": "caso",
+   "porque": "Cadência da sequência id_Wait do Sonic 1 Rev00 (offsets e tabelas do jogo). Evidência válida; migrar gradualmente, nunca apagar.",
+   "reuso": "",
+   "sha256": "010bf313b2a998c5061b4af92512695111aff90e07ecb91b67a88886a1deff2a"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/sonic_consumers.rs",
+   "citacoes": [],
+   "linhas": 812,
+   "papel": "caso",
+   "porque": "Cadeia de consumidores do Sonic 1 (ROM_PIN, offsets de tabela). Evidência válida; migrar gradualmente, nunca apagar.",
+   "reuso": "",
+   "sha256": "0d5647348651e073267bd222f71546cf187bb9455c814d27e459a49e62f83b31"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/sonic_layouts.rs",
+   "citacoes": [],
+   "linhas": 1336,
+   "papel": "caso",
+   "porque": "Layouts das fases especiais do Sonic 1 (formato e tabela do jogo). Evidência válida; migrar gradualmente, nunca apagar.",
+   "reuso": "",
+   "sha256": "77d66f71de18ae89a529109148a6bc2eb9ec336c8af5eaf5ef5fd5c147405296"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/sonic_sequence.rs",
+   "citacoes": [],
+   "linhas": 388,
+   "papel": "caso",
+   "porque": "Reordenação in-place de frames do id_Wait do Sonic 1 Rev00. Evidência válida; migrar gradualmente, nunca apagar.",
+   "reuso": "",
+   "sha256": "4860a7c6776a81e94b04e62b51e92fb8dabfcaa0b154f0ff1cf0929bd0d5c7a3"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/sonic_sprite.rs",
+   "citacoes": [],
+   "linhas": 385,
+   "papel": "caso",
+   "porque": "Geometria do perfil BYOR Sonic 1 Rev00 (ART_OFFSET, MAP_TABLE, DPLC). Evidência válida; migrar gradualmente, nunca apagar.",
+   "reuso": "",
+   "sha256": "7fddec7d1a119368d4a509a8c40e40339cdce80d42f03faa35525843f5e5ff48"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/sonic_ss_walls.rs",
+   "citacoes": [],
+   "linhas": 887,
+   "papel": "caso",
+   "porque": "Paredes da fase especial do Sonic 1 (SS_MapIndex, Map_SSWalls). Evidência válida; migrar gradualmente, nunca apagar.",
+   "reuso": "",
+   "sha256": "0d36a8dbd5c4fb8a05216998bc8e565a8a735ed38ae19d2f4fcc3670656d79fe"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/sprite_composition.rs",
+   "citacoes": [
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/sprite_composition.rs:554",
+     "papel": "caso",
+     "simbolo": "fn read_sonic_session_rom"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/sprite_composition.rs:1193",
+     "papel": "caso",
+     "simbolo": "fn sonic_stand_pixel_location"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/sprite_composition.rs:1229",
+     "papel": "caso",
+     "simbolo": "fn sonic_dplc_art_tiles"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/sprite_composition.rs:211",
+     "papel": "motor",
+     "simbolo": "struct SpriteFramePart"
+    },
+    {
+     "onde": "src-tauri/src/tools/reverse/decomp/sprite_composition.rs:223",
+     "papel": "motor",
+     "simbolo": "struct InspectionSpriteFrame"
+    }
+   ],
+   "linhas": 1232,
+   "papel": "misto",
+   "porque": "Composição de frame com pins HAMOOPIG/TAIKETSU/SONIC1 e 97 ocorrências de 'sonic'.",
+   "reuso": "",
+   "sha256": "34adf7aa540c557b921c6057f5b035933b7de86926d39bdb944d8f810a4f156f"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/symbols.rs",
+   "citacoes": [],
+   "linhas": 175,
+   "papel": "instrumento",
+   "porque": "Parser de symbol table (ground truth das medições).",
+   "reuso": "",
+   "sha256": "c70be0c63ff8c74ac73b45b9907c7dd0b8373acbfdd13231a1d5b2c53aced1b6"
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/triage.rs",
+   "citacoes": [],
+   "linhas": 205,
+   "papel": "instrumento",
+   "porque": "Triagem estática de header/tier.",
+   "reuso": "",
+   "sha256": "6c87f0bb9c912a0ec80f6db3a38cfff3023309e81a2263150e062ec965dd7a23"
+  },
+  {
+   "arquivo": "src/components/nodegraph/JumpGraphBridgePanel.tsx",
+   "citacoes": [
+    {
+     "onde": "src/components/nodegraph/JumpGraphBridgePanel.tsx:46",
+     "papel": "adaptador",
+     "simbolo": "JumpGraphBridgePanel"
+    }
+   ],
+   "linhas": 165,
+   "papel": "adaptador",
+   "porque": "UI da ponte no canvas: textos do pulo fixos no componente.",
+   "reuso": "",
+   "sha256": "e0692626c97db7207ce6841f211edc32e305a819e19db122fb187a4191a5507f"
+  },
+  {
+   "arquivo": "src/components/tools/RexGameplayRulePanel.tsx",
+   "citacoes": [],
+   "linhas": 791,
+   "papel": "adaptador",
+   "porque": "UI de uma superfície REX existente (fora do caminho do perfil de pulo).",
+   "reuso": "",
+   "sha256": "dc00028aaed177c23ef4a88b7d9f1f6a9ebbf80f54e4a68bbd57a85669221ab1"
+  },
+  {
+   "arquivo": "src/components/tools/RexImageContextPanel.tsx",
+   "citacoes": [],
+   "linhas": 486,
+   "papel": "adaptador",
+   "porque": "UI de uma superfície REX existente (fora do caminho do perfil de pulo).",
+   "reuso": "",
+   "sha256": "ff110618170e915442e42d85e1ab4768a7101ebb7b14c1d5366408b9e3173f19"
+  },
+  {
+   "arquivo": "src/components/tools/RexJumpLogicPanel.tsx",
+   "citacoes": [
+    {
+     "onde": "src/components/tools/RexJumpLogicPanel.tsx:49",
+     "papel": "adaptador",
+     "simbolo": "RexJumpLogicPanel"
+    }
+   ],
+   "linhas": 302,
+   "papel": "adaptador",
+   "porque": "UI do formulário do pulo: textos e campos de objeto (status_off, vel_y_off, jump_flag_off) fixos no componente.",
+   "reuso": "",
+   "sha256": "0c262bbe4a6ba570949a3753b7c6e9377e90590e1f5f898b1afeda176da988ec"
+  },
+  {
+   "arquivo": "src/core/nodegraph/jumpGraphBridge.ts",
+   "citacoes": [
+    {
+     "onde": "src/core/nodegraph/jumpGraphBridge.ts:140",
+     "papel": "motor",
+     "simbolo": "canonicalString"
+    },
+    {
+     "onde": "src/core/nodegraph/jumpGraphBridge.ts:146",
+     "papel": "motor",
+     "simbolo": "canonicalSignature"
+    },
+    {
+     "onde": "src/core/nodegraph/jumpGraphBridge.ts:196",
+     "papel": "motor",
+     "simbolo": "relateResult"
+    },
+    {
+     "onde": "src/core/nodegraph/jumpGraphBridge.ts:182",
+     "papel": "motor",
+     "simbolo": "valuesKey"
+    },
+    {
+     "onde": "src/core/nodegraph/jumpGraphBridge.ts:202",
+     "papel": "motor",
+     "simbolo": "withRomPath"
+    },
+    {
+     "onde": "src/core/nodegraph/jumpGraphBridge.ts:10",
+     "papel": "perfil",
+     "simbolo": "JUMP_PROFILE_ID"
+    },
+    {
+     "onde": "src/core/nodegraph/jumpGraphBridge.ts:41",
+     "papel": "perfil",
+     "simbolo": "CAMPOS"
+    },
+    {
+     "onde": "src/core/nodegraph/jumpGraphBridge.ts:49",
+     "papel": "perfil",
+     "simbolo": "jumpBridgeInfo"
+    },
+    {
+     "onde": "src/core/nodegraph/jumpGraphBridge.ts:68",
+     "papel": "perfil",
+     "simbolo": "jumpEditsFromGraph"
+    },
+    {
+     "onde": "src/core/nodegraph/jumpGraphBridge.ts:161",
+     "papel": "perfil",
+     "simbolo": "jumpStructure"
+    }
+   ],
+   "linhas": 208,
+   "papel": "misto",
+   "porque": "Ponte canvas↔ROM: regras genéricas (forma canônica, relação resultado×contexto) + lista de campos e id do perfil fixos em TS.",
+   "reuso": "",
+   "sha256": "503c5d69edfbe71eebcb8ee4c67ac117b6ee7dbcc83f608125de4d3253bd70eb"
+  },
+  {
+   "arquivo": "src/core/nodegraph/rexGameplayGraph.ts",
+   "citacoes": [],
+   "linhas": 498,
+   "papel": "perfil",
+   "porque": "Projeção do grafo do perfil counter_threshold_state_gate.v1 (REX_GAMEPLAY_PROFILE_ID).",
+   "reuso": "",
+   "sha256": "39fb76db2a9ed530c075d042ae85ce1c9f1414386197825e1f5884585f7e7aeb"
+  },
+  {
+   "arquivo": "src/core/nodegraph/rexGameplayScene.ts",
+   "citacoes": [],
+   "linhas": 324,
+   "papel": "perfil",
+   "porque": "Cena derivada do perfil counter_threshold_state_gate.v1.",
+   "reuso": "",
+   "sha256": "519c5799f4064d2f26c15de892981ab8085df193c1b1cbd721aa8c15930d29b8"
+  }
+ ],
+ "definicoes": {
+  "adaptador": "traduz entre um mecanismo e uma superfície (IPC, DTO, UI, API de compatibilidade).",
+  "caso": "o nome do arquivo/símbolo cita jogo ou personagem.",
+  "instrumento": "mede, compara ou rotula (oráculos de teste, Ghidra, diff, corpus, escada de evidência); não é caminho de edição do produto.",
+  "misto": "arquivo com símbolos de mais de um papel; os símbolos são citados por papel.",
+  "motor": "mecanismo genérico; não cita jogo, rotina nem campo de perfil.",
+  "perfil": "descreve a forma de UMA rotina/dado (padrões, campos, grafo, textos) sem citar jogo no nome."
+ },
+ "resumo": {
+  "adaptador": {
+   "arquivos": 8,
+   "linhas": 4645
+  },
+  "caso": {
+   "arquivos": 6,
+   "linhas": 4352
+  },
+  "instrumento": {
+   "arquivos": 9,
+   "linhas": 3472
+  },
+  "misto": {
+   "arquivos": 7,
+   "linhas": 9466
+  },
+  "motor": {
+   "arquivos": 41,
+   "linhas": 26031
+  },
+  "perfil": {
+   "arquivos": 6,
+   "linhas": 2684
+  }
+ },
+ "schema": "rex-audit-roles/v1"
+}

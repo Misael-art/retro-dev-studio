@@ -1,0 +1,125 @@
+{
+  "schema": "rex-gpgx-normal-rgb565-color/v2",
+  "methodology": "Authorized correction after observing v1 failure; not blind validation. Expected values derive from pinned source, never captured framebuffer.",
+  "core_label": "Genesis Plus GX v1.7.4 46a5521",
+  "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+  "core_source_revision": "46a55214d0dab654e5a525ae0c54921ca9716872",
+  "sources": {
+    "core/vdp_render.c": {
+      "sha256": "3627f311789c6cd774db903db716394e12148aa671d4b2001ab8c844077ac761",
+      "functions": [
+        "palette_init -> pixel_lut[1]",
+        "MAKE_PIXEL, USE_16BPP_RENDERING",
+        "color_update_m5 normal branch"
+      ]
+    },
+    "libretro/libretro.c": {
+      "sha256": "4622426e697f692c89ff0d049f3bfcbc2a58e44fc2d393bbdd8302f65fc9b15c",
+      "functions": [
+        "config_default",
+        "retro_load_game RGB565 negotiation"
+      ]
+    },
+    "Makefile.libretro": {
+      "sha256": "5afc8aff237647dc6f8fbf7a2c9f7064c55b009667e85e446fa57bcd744b550e",
+      "build_flags": [
+        "FRONTEND_SUPPORTS_RGB565=1",
+        "USE_16BPP_RENDERING"
+      ]
+    }
+  },
+  "mode": "VDP mode5 normal; reg0 bit2=1; reg12 bit3=0; no shadow/highlight/interlace",
+  "pixel_format": {
+    "libretro_enum": 2,
+    "name": "RGB565",
+    "transport": "little-endian u16 -> existing Rust expand5/expand6 -> RGBA8 alpha255"
+  },
+  "configuration": {
+    "ntsc_video_filter": 0,
+    "lcd_ghosting": 0,
+    "overscan": 0,
+    "render": 0,
+    "core_variables": "unsupported by existing app environment callback; config_default retained"
+  },
+  "encoded_palettes": [
+    [
+      0,
+      14,
+      224,
+      3584,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      238,
+      3808,
+      3598,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      3822,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  ],
+  "logical_background_labels": [
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      255,
+      255,
+      255
+    ]
+  ],
+  "background_word_indices": [
+    1,
+    2
+  ],
+  "rgb_tolerance": 0,
+  "alpha_tolerance": 0,
+  "not_covered": [
+    "other core binary/configuration",
+    "shadow/highlight",
+    "hardware real DAC",
+    "display ICC/physical monitor",
+    "commercial consumer linkage"
+  ]
+}

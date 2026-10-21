@@ -1,0 +1,26 @@
+{
+  "status": "PREPARED_ONLY_NO_RUNTIME_EXECUTION",
+  "rom_sha256": "8b3c47215bc6baeeb559121a0cea75e0028997af0cfdea983232907bcf8da1e7",
+  "bytes": 8192,
+  "commands": [
+    [
+      "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-as",
+      "-m68000",
+      "-o",
+      "/home/misael/rds-scratch/commercial_recovery_20261016/phase-qualify-prepare-001/fixture.o",
+      "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/vdp-phase-author.s"
+    ],
+    [
+      "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-ld",
+      "-Ttext=0",
+      "--oformat=binary",
+      "-o",
+      "/home/misael/rds-scratch/commercial_recovery_20261016/phase-qualify-prepare-001/fixture.bin",
+      "/home/misael/rds-scratch/commercial_recovery_20261016/phase-qualify-prepare-001/fixture.o"
+    ]
+  ],
+  "tools": {
+    "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-as": "7ede28b6ffc7c2df35780522cc8c99a3c4c5ac30361b92d5a472453b699da81b",
+    "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-ld": "3344a5bcb4a9139cf3c32839a08ec9ffeb31a8f8901ecb53f37e8e4ee465f218"
+  }
+}

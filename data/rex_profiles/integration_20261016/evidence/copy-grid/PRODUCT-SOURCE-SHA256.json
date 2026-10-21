@@ -1,0 +1,17 @@
+{
+  "base_commit": "89189485",
+  "freeze_commit": "2eed076d",
+  "app_sha256": "51b338ced43399545e7df6388d270a632991050083d32659db8369e8c77acc02",
+  "note": "Exact source files used by final build and GUI. Final checkpoint commit also includes QA/evidence/documentation. No runtime source edits after build.",
+  "files": {
+    "src-tauri/src/tools/reverse/decomp/mod.rs": "3081bedb813d6cfb56dc5d4a1983f9f92281f9fb2348ff035f5bf499b8786683",
+    "src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs": "a8af27a316582620735e10b24816cd7bef2eec16af782500dc7a6dd13c418ff4",
+    "src-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs": "fd2eb873c3bc3c155c1f589d8a9a3e8ddad26a1b8b0af57a678fe027b890a540",
+    "src-tauri/src/tools/reverse/decomp/rex_profile_ipc.rs": "22c565041377eaa0ae6d8ac547f6a4907d10770fba1094f9ff7b76a4843a8e07",
+    "src/components/nodegraph/ProfileGraphBridgePanel.tsx": "95eab109a150321e636298f3931ec1b501b59347fa5e30f69ad2b6a082c27166",
+    "src/core/nodegraph/nodeCatalog.ts": "f3942233e933614978ea27f7db46a5099d7bcbcf179589e7c6db4dc5f0368e13",
+    "src/core/nodegraph/nodeDefinitions.ts": "5f893e51e6d3637652da2e40fb7b5ea0cc4a6137a9030e42e911653413ef02ed",
+    "src/core/nodegraph/nodeTypes.ts": "c5318cb4c6ade660cc43eb4d822adb70ca97a24c5051953f6b2dfbf8b9342f8a",
+    "data/rex_profiles/specs/m68k.copy_grid.v1.json": "582fe0c419cb5b2234179bb4f0cf8d63790c6b0f5352218f22058d941e47e944"
+  }
+}

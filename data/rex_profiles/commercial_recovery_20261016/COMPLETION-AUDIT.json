@@ -1,0 +1,531 @@
+{
+  "schema": "rex-completion-audit/v1",
+  "generated_at": "2026-10-19T08:36:09.567383+00:00",
+  "status": "PASS_CURRENT_ARTIFACT_REANALYSIS",
+  "source_checkpoint": "eb2ee726f5fe09516c28176c2265791df41e2b2d",
+  "auditor_sha256": "78358669e911dddb3b8b8a9093a5d489f1e88451e0e0c2e6e84bc5fafc09a095",
+  "manifest_sha256": "ac8fe206fa5a94efe6d2c1b396a1c69e72fff30f1f8efbd1e82079e229e312dd",
+  "manifest_files_checked": 287,
+  "historical_documents_advanced": [],
+  "journeys": [
+    {
+      "id": "m3-native-m5-golden-axe-003",
+      "checks": 140,
+      "copies_independently_applied": 2,
+      "saved_images_rechecked": 4,
+      "commercial_conditional_pixels_rechecked": 0,
+      "origin": "current artifact reanalysis, not a new emulator/UI execution"
+    },
+    {
+      "id": "m3-native-m5-golden-axe-reverse-001",
+      "checks": 138,
+      "copies_independently_applied": 2,
+      "saved_images_rechecked": 4,
+      "commercial_conditional_pixels_rechecked": 0,
+      "origin": "current artifact reanalysis, not a new emulator/UI execution"
+    },
+    {
+      "id": "m3-native-final-commercial-forward-003",
+      "checks": 135,
+      "copies_independently_applied": 2,
+      "saved_images_rechecked": 4,
+      "commercial_conditional_pixels_rechecked": 39669,
+      "origin": "current artifact reanalysis, not a new emulator/UI execution"
+    },
+    {
+      "id": "m3-native-final-commercial-reverse-003",
+      "checks": 128,
+      "copies_independently_applied": 2,
+      "saved_images_rechecked": 4,
+      "commercial_conditional_pixels_rechecked": 34735,
+      "origin": "current artifact reanalysis, not a new emulator/UI execution"
+    },
+    {
+      "id": "m3-native-final-author-forward-003",
+      "checks": 88,
+      "copies_independently_applied": 2,
+      "saved_images_rechecked": 3,
+      "commercial_conditional_pixels_rechecked": 0,
+      "origin": "current artifact reanalysis, not a new emulator/UI execution"
+    },
+    {
+      "id": "m3-native-final-author-reverse-003",
+      "checks": 88,
+      "copies_independently_applied": 2,
+      "saved_images_rechecked": 3,
+      "commercial_conditional_pixels_rechecked": 0,
+      "origin": "current artifact reanalysis, not a new emulator/UI execution"
+    }
+  ],
+  "traces": [
+    {
+      "id": "commercial-v3-001",
+      "events": 185405,
+      "sha256": "7a6ee7353e06804dee2b6199e93f466d3a5b58a5dadd0d4f6e03be0d46d62bc2"
+    },
+    {
+      "id": "m5-profile-golden-axe-001",
+      "events": 451,
+      "sha256": "da91dbd9027e48ec3feec40659f740aa2ab5efa5da7c294b61424f4b95ee7121"
+    },
+    {
+      "id": "m5-profile-golden-axe-edited-001",
+      "events": 235,
+      "sha256": "baffd7a95ccf66b3a53120d27fc57e4bf9d3e6bfadcc860b533a4b6197f69c9f"
+    },
+    {
+      "id": "commercial-m4-width2-001",
+      "events": 182204,
+      "sha256": "bcf11b25be5ead1a259763edfdfa7b02d416d6f97c09923e43dc200e98267454"
+    }
+  ],
+  "host_certification_reused": "READY",
+  "production_changed_since_final_native_and_gates": false,
+  "limits": "Reanalysis of preserved evidence, not new commercial execution, new blind holdout, or broader scope.",
+  "experiment_index": {
+    "path": "data/rex_profiles/commercial_recovery_20261016/completion-experiment-index.json",
+    "sha256": "c7141211e2b902030c2c38f2b71cdc8e1e8bd8a37abd5c57a97debb98ae17b3b",
+    "records": 304,
+    "note": "Navigation records, not independent experiments or coverage."
+  },
+  "objective_attachment_sha256": "3bcbb32b10b039cfaf0a7c951febc116eb559dc8d7bb43e3e074e337030073fe",
+  "requirements": [
+    {
+      "id": "OBJ-1",
+      "requirement": "Commercial resource→decompression→buffer→consumer→presentation",
+      "evidence": [
+        "m2-v3-chain-verification.json",
+        "m2-layout-sprite-link-qualified.json",
+        "m2-dma-chain-verification.json",
+        "m2-sprite-pixel-witness-qualified.json",
+        "m5-final-native-qualified.json"
+      ],
+      "conclusion": "Verified Enigma primary layout chain to actual selected resource pixels, in prepared special-stage domain; not natural reachability or a Nemesis call proof."
+    },
+    {
+      "id": "OBJ-2",
+      "requirement": "Canonical edit/copy/patch/persistence/run/comparison/reversal",
+      "evidence": [
+        "m5-final-native-qualified.json",
+        "scripts/e2e-tauri-build-run.mjs:8998-9160",
+        "completion-audit-20261019-002/result.json"
+      ],
+      "conclusion": "Six final-binary journeys and current independent artifact reanalysis; original preserved, only permitted opcode byte changed,12IPS exact."
+    },
+    {
+      "id": "OBJ-3",
+      "requirement": "Commercial behavior with condition/state/observable effect represented in nodes",
+      "evidence": [
+        "m4-bounded-acceptance.json",
+        "src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs",
+        "m4-copy-state-qualified.json"
+      ],
+      "conclusion": "Typed compound MOVE/postincrement/DBRA representation, opcode-width semantic edit, boundary-state comparison, recovered/declared/unknown labels; not arbitrary CFG editing."
+    },
+    {
+      "id": "OBJ-4",
+      "requirement": "Transfer to a demonstrably different implementation",
+      "evidence": [
+        "m5-bounded-acceptance.json",
+        "m5-pilot-freeze.json",
+        "m5-final-native-qualified.json"
+      ],
+      "conclusion": "Linear single-DBRA implementation differs from primary nested/strided loop; GoldenAxe native memory effect/reversal, without a visual-effect claim."
+    },
+    {
+      "id": "REC-1",
+      "requirement": "Read required project hierarchy, research handoff, corrections and visual v1/v2/BYOR history",
+      "evidence": [
+        "AGENTS.md",
+        "docs/06_AI_MEMORY_BANK.md",
+        "docs/03_ROADMAP_MVP.md",
+        "docs/09_AGENT_DEV_MODE.md",
+        "docs/14_REX_ARQUITETURA_UNIVERSAL.md",
+        "docs/rex_profiles/integration_20261007/ADENDO-CORRECOES-DO-PLANO-2026-10-09.md",
+        "docs/rex_profiles/integration_20261016/",
+        "REX-REA-LAB-2026-10-15/docs/rex_profiles/rea_lab_20261015/"
+      ],
+      "conclusion": "Read during the mission and continuation; old lab destination gates comparison/copy_grid already integrated; reverse8 remains research-only."
+    },
+    {
+      "id": "REC-2",
+      "requirement": "Actual checkout heads, Contexto Carregado classification/first milestone/command; host diagnosis",
+      "evidence": [
+        "final-process-and-checkout-audit.json",
+        "docs/rex_profiles/commercial_recovery_20261016/MISSION.md"
+      ],
+      "conclusion": "Rechecked eb2ee726/03ddc59d/ee8c581f; own tracked tree clean before audit, two preexisting drafts preserved; fresh host:diagnose READY60249508. Classification: evidence/completion audit, no new production scope."
+    },
+    {
+      "id": "ISO-1",
+      "requirement": "Own existing branch/worktree from reconciled integration; preserve other fronts",
+      "evidence": [
+        "protection.json",
+        "final-process-and-checkout-audit.json"
+      ],
+      "conclusion": "Git ancestry and both external checkout heads/status checked; no branch switch or edits in other fronts; no /mnt/sdcard base."
+    },
+    {
+      "id": "ISO-2",
+      "requirement": "Curated old work instead of whole-branch import; checkpoint refs and verifiable backup",
+      "evidence": [
+        "docs/rex_profiles/commercial_recovery_20261016/MISSION.md",
+        "protection-mission-012.json",
+        "/home/misael/rds-scratch/commercial_recovery_20261016/mission-final-protection.json"
+      ],
+      "conclusion": "No research cherry-pick needed; prior integration already contains comparison/copy_grid. Final bundle SHA rechecked and git bundle verify passed; corpus/build excluded."
+    },
+    {
+      "id": "ISO-3",
+      "requirement": "No destructive reset/cleanup/push/remote merge/release/maturity promotion",
+      "evidence": [
+        "docs/06_AI_MEMORY_BANK.md",
+        "FINAL-MANIFEST.json"
+      ],
+      "conclusion": "No such actions performed in this mission; local coherent commits retained; Experimental."
+    },
+    {
+      "id": "M0-1",
+      "requirement": "Inventory implementation/commit, integration, entry, author/commercial origins, evidence/limitations/next link",
+      "evidence": [
+        "docs/rex_profiles/commercial_recovery_20261016/MISSION.md:inventory",
+        "FINAL-MANIFEST.json",
+        "m5-bounded-acceptance.json"
+      ],
+      "conclusion": "Historical inventory and final requirement matrix distinguish inherited/new proofs and app/research; final source/freeze/native commits pinned."
+    },
+    {
+      "id": "M0-2",
+      "requirement": "Manifest availability and preservation; missing is neither fail nor approval",
+      "evidence": [
+        "m5-retake-artifact-reconciliation.json",
+        "FINAL-MANIFEST.json",
+        "final-private-trace-audit.json"
+      ],
+      "conclusion": "287 hashed entries checked; raw mismatch audit retained and reconciled for intentional source advancement; no missing required artifact."
+    },
+    {
+      "id": "M0-3",
+      "requirement": "Keep v1, v2, oldBYOR attempts and sound separate; no historical count inflation",
+      "evidence": [
+        "docs/06_AI_MEMORY_BANK.md",
+        "docs/rex_profiles/integration_20261016/VISUAL-COPY-RESULTS.md",
+        "docs/rex_profiles/integration_20261016/VISUAL-COPY-V2-RESULTS.md",
+        "m5-final-certification.json"
+      ],
+      "conclusion": "V1FAIL86/89 and oldBYOR outcomes retained; soundOPEN; repeated/shared checks not treated as independent coverage."
+    },
+    {
+      "id": "M1-1",
+      "requirement": "Local studied ROM by SHA and read-only corpus; choose presence-proven resource",
+      "evidence": [
+        "m1-freeze.json",
+        "m5-pilot-freeze.json"
+      ],
+      "conclusion": "ROM/resource hash pins and known special-stage scene; no corpus writes or new downloads."
+    },
+    {
+      "id": "M1-2",
+      "requirement": "Freeze region/hypothesis/callers/buffers/episode/edit/expectations/controls/budget/stop",
+      "evidence": [
+        "m1-freeze.json",
+        "m2-instrument-freeze.json",
+        "m3-forward-freeze.json"
+      ],
+      "conclusion": "Protocol freezes/adenda committed before corresponding measurement; static known/unknown links and qualified temporal/domain limits kept."
+    },
+    {
+      "id": "M1-3",
+      "requirement": "Separate file/effective/bus/WRAM/VRAM/CRAM; no resource inference by appearance/size; no unmotivated oldBYOR repetition",
+      "evidence": [
+        "m1-freeze.json",
+        "m5-generic-adaptation-freeze.json"
+      ],
+      "conclusion": "Explicit address-space and prepared-stage hypothesis; byte/layout resource identified by decoder/dataflow, not image shape."
+    },
+    {
+      "id": "M2-1",
+      "requirement": "Audit TraceBackend/mock syntheticPC, RAM/end-frame/isolated execution limitations",
+      "evidence": [
+        "docs/rex_profiles/integration_20261007/ADENDO-CORRECOES-DO-PLANO-2026-10-09.md",
+        "src-tauri/src/emulator/libretro_ffi.rs",
+        "docs/rex_profiles/commercial_recovery_20261016/MISSION.md"
+      ],
+      "conclusion": "These methods do not establish real call observation; external qualified MAME taps/breakpoints provide that separate axis."
+    },
+    {
+      "id": "M2-2",
+      "requirement": "Observe entry/context/args/read-write buffers/required graphics transfers",
+      "evidence": [
+        "scripts/rex_profiles/commercial_recovery_20261016/observe-v3.lua",
+        "m2-bounded-acceptance.json",
+        "m2-layout-sprite-link-qualified.json",
+        "m2-dma-chain-verification.json"
+      ],
+      "conclusion": "Original Enigma entry/caller/args, copy buffer access, layout/table/descriptor/SAT provenance and coveredDMA checked, selected pixel domain qualified."
+    },
+    {
+      "id": "M2-3",
+      "requirement": "Per-event run/ROM/instrument/time/address identity; loss/overflow/sampling/unknowns",
+      "evidence": [
+        "final-private-trace-audit.json",
+        "scripts/rex_profiles/commercial_recovery_20261016/observe-v3.lua",
+        "scripts/rex_profiles/commercial_recovery_20261016/observe-v4.lua"
+      ],
+      "conclusion": "Current audit parsed368295events: each has required identity/domain, contiguous sequence, complete terminal/dropped0; sampling and36ns cross-context time regression remain explicit."
+    },
+    {
+      "id": "M2-4",
+      "requirement": "Author qualification before commercial; no-call/otherargs/incomplete/wrongidentity controls",
+      "evidence": [
+        "m2-qualification.json",
+        "m2-v3-dma-qualification.json",
+        "m2-author-phase-qualified.json",
+        "m5-profile-observer-qualified.json"
+      ],
+      "conclusion": "Known author fixtures and negative controls precede their corresponding observations; original failures retained, not converted to PASS."
+    },
+    {
+      "id": "M2-5",
+      "requirement": "Separate external runtime, demonstrate relevant app correspondence, no new production dependency/core",
+      "evidence": [
+        "m2-app-post-fix-result.json",
+        "m5-gx-original-qualified.json",
+        "m5-final-native-qualified.json"
+      ],
+      "conclusion": "Distinct IDs/runtime domains; preparedGX memory/reference/core/canvas correspondence, not merged sessions. Dependency manifests unchanged from03ddc59d."
+    },
+    {
+      "id": "M3-1",
+      "requirement": "Canonical open→locate/review→preview→edit→save→close/reopen→copy/patch→run→compare→restore",
+      "evidence": [
+        "scripts/e2e-tauri-build-run.mjs:8960-9160",
+        "m5-final-native-qualified.json"
+      ],
+      "conclusion": "Native interactions and disk scene reads/assertions cover save/reopen; same core/IPC/bridge/publisher, no second product pipeline."
+    },
+    {
+      "id": "M3-2",
+      "requirement": "Original intact, IPS exactly reproduces copy, diff restricted, consumers/dependents within scope",
+      "evidence": [
+        "m5-final-native-qualified.json",
+        "completion-audit-20261019-002/result.json"
+      ],
+      "conclusion": "Current audit independently applied12IPS and checked exact allowed offsets; full declared memory/reference fields and actual selected pixels checked; no audio/full-physics preservation claim."
+    },
+    {
+      "id": "M3-3",
+      "requirement": "Original/original, no-op, wrongROM/resource/domain/stale/patch/visual controls",
+      "evidence": [
+        "m3-bounded-acceptance.json",
+        "src/components/nodegraph/ProfileGraphBridgePanel.test.tsx",
+        "m5-final-native-qualified.json"
+      ],
+      "conclusion": "All named native controls present/passed; delayed-response control is component test, separate from native old-result label, as explicitly reported."
+    },
+    {
+      "id": "M3-4",
+      "requirement": "Actual commercial content, independent expectations before modified capture; dated adenda and preserved failures",
+      "evidence": [
+        "scripts/rex_profiles/commercial_recovery_20261016/construct-m3-expected.py",
+        "scripts/rex_profiles/commercial_recovery_20261016/m3-conditional-sprite-model-v2.py",
+        "m3-bounded-acceptance.json"
+      ],
+      "conclusion": "Current audit regenerated expectedJSON byte-identically from originalROM/frozen layouts/measured controls and rechecked RGB0. No modified screenshot input; geometric/phase/nonresource exclusions explicit."
+    },
+    {
+      "id": "M4-1",
+      "requirement": "Small routine with bounded IO, condition, state, observable effect; existing IR or minimal generic extension",
+      "evidence": [
+        "src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs",
+        "m4-bounded-acceptance.json"
+      ],
+      "conclusion": "Existing CopyGrid typed IR covers30byte nested loop; DBRA low16condition/state and opcode-width effect. Unknown shape refused, not no-op."
+    },
+    {
+      "id": "M4-2",
+      "requirement": "Nodes show operations/conditions/flow/origin/unknown parts",
+      "evidence": [
+        "m4-ui-qualified.json",
+        "m5-final-native-qualified.json",
+        "src/core/nodegraph/nodeDefinitions.ts"
+      ],
+      "conclusion": "Native semantic-detail checks and graph entry/copy/exit mappings; unsupported topology visibly blocked; no general compiler claim."
+    },
+    {
+      "id": "M4-3",
+      "requirement": "No-edit semantic reconstruction, original comparison, graph semantic edit beyond immediate, predicted causal game effect",
+      "evidence": [
+        "m4-semantic-reconstruction-qualified.json",
+        "m4-copy-state-qualified.json",
+        "m5-final-native-qualified.json"
+      ],
+      "conclusion": "Typed encode builds instructions without saved bytes; full rebuiltROM identities rechecked; MOVE.B→MOVE.W via graph changes opcode, with observed state and selected commercial pixels."
+    },
+    {
+      "id": "M4-4",
+      "requirement": "Tests detect wrong operator/flow; memory/register/flag/external-call domains explicit; opaque preserved/refused",
+      "evidence": [
+        "src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs:tests",
+        "m4-copy-state-qualified.json",
+        "m4-bounded-acceptance.json"
+      ],
+      "conclusion": "Five targeted Rust tests and six state-trace negatives recorded; subset/opaque/IRQ/stack limits explicit. Edited behavior intentionally differs; no broad equivalence publication."
+    },
+    {
+      "id": "M5-1",
+      "requirement": "Different implementation by code evidence; shared160byteKosinski does not count",
+      "evidence": [
+        "m5-linear-search-freeze.json",
+        "m5-pilot-freeze.json",
+        "src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs"
+      ],
+      "conclusion": "Distinct nested/stride versus contiguous single-loop+initialized pointers/count; structural proof, not title/header/hash; no sharedKosinski count."
+    },
+    {
+      "id": "M5-2",
+      "requirement": "Reserve expectations before adaptation; distinguish uninspected/public/reused regression",
+      "evidence": [
+        "m5-linear-search-freeze.json",
+        "m5-pilot-freeze.json",
+        "m5-generic-adaptation-freeze.json"
+      ],
+      "conclusion": "Pilot state/memory/flags/reconstruction/negative expectations at08:37 precede generic freeze08:46; four identities reserved earlier, interpreted only after freeze. Global historical noninspection not claimed; final journeys reuse expectations."
+    },
+    {
+      "id": "M5-3",
+      "requirement": "Separate Rust/TS, profile/configuration, instrumentation, tests/evidence costs; generic dispatch",
+      "evidence": [
+        "m5-adaptation-cost-final.json",
+        "m5-reserved-transfer-qualified.json"
+      ],
+      "conclusion": "Production+418/-22 in7sources excludingtests attributed to first target, generic profile revision2, QAinstrumentation separate; no title/hash dispatch or new dependencies."
+    },
+    {
+      "id": "M5-4",
+      "requirement": "Seek zero production changes; three zero targets are success, persistent exceptions require review",
+      "evidence": [
+        "m5-reserved-transfer-qualified.json",
+        "m5-generic-adaptation-freeze.json"
+      ],
+      "conclusion": "Four consecutive static reconstruction/publication/IPS targets with exact frozen motor/profile hashes; no dynamic calls observed in their episodes. Not four native game-consumption claims."
+    },
+    {
+      "id": "ARCH-1",
+      "requirement": "Separate shared infra/ISA/platform/profiles; no hardware names in agnostic model or extra consoles",
+      "evidence": [
+        "src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs",
+        "data/rex_profiles/specs/m68k.copy_grid.v1.json",
+        "src/core/nodegraph/profileGraphBridge.ts"
+      ],
+      "conclusion": "M68000 operation/platform address-domain handling distinct from shared editor/publisher; UGDM/dependency/registry files unchanged; no new console implementation."
+    },
+    {
+      "id": "ORG-1",
+      "requirement": "Approved scripts/docs/data namespace, private commercial artifacts, no duplicated corpus/build",
+      "evidence": [
+        "FINAL-MANIFEST.json",
+        "docs/rex_profiles/commercial_recovery_20261016/MISSION.md"
+      ],
+      "conclusion": "One mission namespace; source and metadata only in Git; runtime bytes/captures/traces private; native shared compilation cache and incremental Git bundles."
+    },
+    {
+      "id": "ORG-2",
+      "requirement": "Index experiments/protocols/results/commands/hash/budget/limits and local checkpoints",
+      "evidence": [
+        "completion-experiment-index.json",
+        "docs/rex_profiles/commercial_recovery_20261016/MISSION.md",
+        "protection-mission-012.json"
+      ],
+      "conclusion": "Consolidated derived index now links all located metadata and raw execution records; protocol vs observation vs acceptance separated, existing absence fields not fabricated; original journal/manifest remain authoritative."
+    },
+    {
+      "id": "ORG-3",
+      "requirement": "Preserve failures; only owned cleanup/processes, one heavy job at a time",
+      "evidence": [
+        "final-process-and-checkout-audit.json",
+        "scripts/rex_profiles/commercial_recovery_20261016/preflight.py",
+        "m5-final-native-qualified.json"
+      ],
+      "conclusion": "Serialized wrappers/preflights and cleanup logs inspected; current audit starts no emulator/build, removes no file/process; only two original untracked drafts remain outside new audit files."
+    },
+    {
+      "id": "CX-1",
+      "requirement": "Freeze expectations; independent/discriminating reference; separate evidence axes/origins",
+      "evidence": [
+        "m3-bounded-acceptance.json",
+        "m4-bounded-acceptance.json",
+        "m5-bounded-acceptance.json",
+        "src/components/nodegraph/ProfileGraphBridgePanel.tsx"
+      ],
+      "conclusion": "Static recovery/declared bounds/runtime external observation/causal effects/reconstruction reported separately; profile declaration alone never promotes runtime proof."
+    },
+    {
+      "id": "CX-2",
+      "requirement": "UI explains recovered/declared/unknown/edit scope/comparison/restoration, structural labels; no human-usability claim",
+      "evidence": [
+        "m4-ui-qualified.json",
+        "m5-final-native-qualified.json",
+        "src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs"
+      ],
+      "conclusion": "Native checks and source labels reviewed; technical automated inspection, no human participant/usability validation or guessed game semantic names."
+    },
+    {
+      "id": "GATE-1",
+      "requirement": "All applicable AGENTS/docs09 checks, host:certify, finalbinaryjourneys by SHA",
+      "evidence": [
+        "m5-final-certification.json",
+        "m5-final-complementary-qualified.json",
+        "m5-final-native-qualified.json"
+      ],
+      "conclusion": "READY7gates;1049frontend/3SKIP and1038Rust/94IGNORE, defaultClippy/fmt pass; finalbinary66cb3d71. Current product/dependencies unchanged; no justified reason to rerun heavy gates for derived index/auditor."
+    },
+    {
+      "id": "GATE-2",
+      "requirement": "Preexisting failures visible, not PASS; executed/inherited/missing separated; no class switch to evade blockers",
+      "evidence": [
+        "FINAL-MANIFEST.json",
+        "m5-bounded-acceptance.json",
+        "docs/rex_profiles/commercial_recovery_20261016/MISSION.md"
+      ],
+      "conclusion": "V1FAIL, oldBYOR1/2, soundOPEN, instrument/native failures preserved; milestone order and class scope explicit; no new functional failures or missing artifact found."
+    },
+    {
+      "id": "DELIV-1",
+      "requirement": "Each milestone local commit, canonical update/proposal, manifest/hash, requirementmap, exact resume",
+      "evidence": [
+        "docs/rex_profiles/commercial_recovery_20261016/MISSION.md",
+        "FINAL-MANIFEST.json",
+        "protection-mission-012.json"
+      ],
+      "conclusion": "Milestone commits/refs, final canonical checkpoints and evidence matrix present; reproduction helper validates hashes and produces fresh paths/canonical native command."
+    },
+    {
+      "id": "DELIV-2",
+      "requirement": "Seven final deliverables: capabilities, separate proofs, reproduction, generality, limits, branch/commits/bin/artifacts, processes/files",
+      "evidence": [
+        "FINAL-MANIFEST.json",
+        "docs/rex_profiles/commercial_recovery_20261016/MISSION.md",
+        "/home/misael/rds-scratch/commercial_recovery_20261016/mission-final-protection.json"
+      ],
+      "conclusion": "All seven present and currently audited. Experimental, bounded scope and remaining unknowns kept; none is a blocking dependency of the requested bounded demonstrations."
+    }
+  ],
+  "preserved_auditor_failure": {
+    "path": "/home/misael/rds-scratch/commercial_recovery_20261016/completion-audit-20261019-001/failure.json",
+    "sha256": "0b00a73e081a5591ec2ff5cddd405a6b0eecd0e463a3151867b259f139440575",
+    "scope": "New auditor phase-name assumption only; original product and references unchanged."
+  },
+  "current_product_scope": "unchanged since eb2ee726; supplement only audits artifacts and consolidates navigation",
+  "canonical_document_amendment": "Historical FINAL-MANIFEST retains eb2ee726 document hashes; the supplemental audit allowlists only subsequently amended mission journal/MemoryBank/CurrentWave, validating their original hashes via git show. No source or frozen expectation mismatch allowed.",
+  "post_addendum_audit": {
+    "path": "/home/misael/rds-scratch/commercial_recovery_20261016/completion-audit-20261019-003/result.json",
+    "sha256": "c7a45db0d88c4f28913323fc9fb9f76e4c57789fa532af23958e5721d15698a1",
+    "status": "PASS_CURRENT_ARTIFACT_REANALYSIS"
+  },
+  "current_document_hashes": {
+    "docs/06_AI_MEMORY_BANK.md": "52c9be58e8fff1dfbac34375dba5d8f53aa038fee48724d69aa9fee785534be5",
+    "docs/06_CURRENT_WAVE_AI_BANK.md": "7bba5416c4d34ae984820a828eefd24b8cd07945ee001bbdabe8c367e1d35a06",
+    "docs/rex_profiles/commercial_recovery_20261016/MISSION.md": "e9069c544ea0171352a67727b280ee4de9822eb6cbc3c1dd8a6cd4301396e61f"
+  }
+}

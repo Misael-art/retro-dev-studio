@@ -1,0 +1,29 @@
+{
+  "normalization": "trim trailing whitespace and normalize final LF; raw files unchanged",
+  "runs": [
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-v2-001/color-vectors.log",
+      "raw_sha256": "177797ab9d4294a0b472bbff06c63f67d8b55f69f4249158e052d95c2e0dd081",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/color-vectors.log",
+      "review_sha256": "177797ab9d4294a0b472bbff06c63f67d8b55f69f4249158e052d95c2e0dd081"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-v2-001/oracle-generation.raw.log",
+      "raw_sha256": "903cee4618c385588ff0bcf4d1faf61752f3864aa042fd69ce70b4679eaa20a5",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/oracle-generation.raw.log",
+      "review_sha256": "903cee4618c385588ff0bcf4d1faf61752f3864aa042fd69ce70b4679eaa20a5"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-v2-001/comparator-tests.log",
+      "raw_sha256": "63d506fc316a5dc7c1f3b373cb7e1a4114da4a30371203046cea42bf541af65a",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/comparator-tests.log",
+      "review_sha256": "63d506fc316a5dc7c1f3b373cb7e1a4114da4a30371203046cea42bf541af65a"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-v2-001/comparator-tests-final.log",
+      "raw_sha256": "4fa82c2bd1926d4826b0f9d7641e67abfdbe889776019e90e1361716b480058d",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/comparator-tests-final.log",
+      "review_sha256": "4fa82c2bd1926d4826b0f9d7641e67abfdbe889776019e90e1361716b480058d"
+    }
+  ]
+}

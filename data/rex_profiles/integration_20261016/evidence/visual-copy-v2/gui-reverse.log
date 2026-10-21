@@ -1,0 +1,45 @@
+_XSERVTransSocketUNIXCreateListener: ...SocketCreateListener() failed
+_XSERVTransMakeAllCOTSServerListeners: server already running
+_XSERVTransSocketUNIXCreateListener: ...SocketCreateListener() failed
+_XSERVTransMakeAllCOTSServerListeners: server already running
+_XSERVTransSocketUNIXCreateListener: ...SocketCreateListener() failed
+_XSERVTransMakeAllCOTSServerListeners: server already running
+_amdgpu_device_initialize: amdgpu_query_info(ACCEL_WORKING) failed (-13)
+The XKEYBOARD keymap compiler (xkbcomp) reports:
+> Warning:          Multiple symbols for level 1/group 1 on key <FK23>
+>                   Using F23, ignoring XF86TouchpadOff
+> Warning:          Symbol map for key <FK23> redefined
+>                   Using last definition for conflicting fields
+> Warning:          Symbol map for key <FK24> redefined
+>                   Using last definition for conflicting fields
+> Warning:          Could not resolve keysym XF86ElectronicPrivacyScreenOn
+> Warning:          Could not resolve keysym XF86ElectronicPrivacyScreenOff
+> Warning:          Could not resolve keysym XF86ActionOnSelection
+> Warning:          Could not resolve keysym XF86ContextualInsert
+> Warning:          Could not resolve keysym XF86ContextualQuery
+Errors from xkbcomp are not fatal to the X server
+{"scenario": "semantic-gate-journey", "display": ":3", "screen": "1920x1080x24", "xvfb_sha256": "5bfd315a8c7bc626d0b183d176e130c34f910a4a1279d9d53ea45769f62a3351", "app_sha256": "74033134f47510c1ef37d8e6025a8bc6986436d4060ae3e96b1ba9bcc3d1670e", "rom_sha256": "7a33ddfa058c9d3e2e0e399450bb6ae8a1a4b03a6fbd79b504f0ba70b324d0b4", "system_display_modified": false}
+[RDS preflight host]
+  SGDK real: OK (/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk via SGDK_ROOT)
+  tauri-driver: OK (/home/misael/.cargo/bin/tauri-driver)
+  WebDriver nativo: OK (/usr/sbin/WebKitWebDriver)
+  Ready: SIM
+== Starting tauri-driver ==
+Error serving connection: hyper::Error(User(Service), client error (Connect)
+
+Caused by:
+    0: tcp connect error
+    1: Connection refused (os error 111))
+MESA-EGL: warning: DRI3 error: Could not get DRI3 device
+MESA-EGL: warning: Ensure your X server supports DRI3 to get accelerated rendering
+MESA-EGL: warning: DRI3 error: Could not get DRI3 device
+MESA-EGL: warning: Ensure your X server supports DRI3 to get accelerated rendering
+[cleanup] processos do cenario: 8 acompanhados, 0 SIGTERM, 0 SIGKILL, 0 vivos
+[cleanup]   pid 758830 /home/misael/.cargo/bin/tauri-driver --native-driver /usr/sbin/WebKitWebDriver
+[cleanup]   pid 758831 /usr/sbin/WebKitWebDriver --port=4445 --host=127.0.0.1
+[cleanup]   pid 758848 /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/debug/retro-dev-studio
+[cleanup]   pid 758873 /usr/lib/webkit2gtk-4.1/WebKitNetworkProcess 1 21
+[cleanup]   pid 758877 /usr/lib/webkit2gtk-4.1/WebKitWebProcess 4 26
+[cleanup]   pid 759562 /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/debug/retro-dev-studio
+[cleanup]   pid 759580 /usr/lib/webkit2gtk-4.1/WebKitNetworkProcess 1 16
+[cleanup]   pid 759584 /usr/lib/webkit2gtk-4.1/WebKitWebProcess 4 21

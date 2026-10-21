@@ -1,0 +1,10 @@
+{
+  "schema": "rex-m5-platform-identification-addendum/v1",
+  "generated_at": "2026-10-18T08:56:32.135429+00:00",
+  "before_new_measurement": true,
+  "preserved_failure_sha256": "67b9f8d4ef9bab8501d3964b4b9e75527a8e88cdc07c479baeea203a5396d2e1",
+  "proposal": "Extend generic BIN console sniff to exact16byte SEGA+12spaces legacy console name, preserving other accepted names and refusing nonspace trailing unknown names. Same bytes/core/publisher, no filename/game-name workaround. Add authored positive/negative/truncated-header controls.",
+  "cost_attribution": "Additional generic platform Rust change attributed to first GoldenAxe transfer, not a zero-code target. Earlier reserved zero-cost metric is narrowly REX recovery/publication engine only, not full product/native consumption.",
+  "unchanged": "All ROM/copy/IPS/memory/original reference criteria; no rewritten previous failure; new appSHA and fresh native spec/freeze required.",
+  "dependency_detector_limit": "Existing dependency_manager.has_megadrive_header remains narrower (SEGA MEGA DRIVE only, also historically omits GENESIS); managed core already provisioned. This task fixes actual emulator target sniff only; no automatic provisioning change/dependency introduced."
+}

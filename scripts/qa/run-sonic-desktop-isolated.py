@@ -25,12 +25,19 @@ def sha256(path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("xvfb", "xvfb-sha256", "rom", "app", "work", "log"):
+    for name in ("xvfb", "xvfb-sha256", "app", "work", "log"):
         parser.add_argument(f"--{name}", required=True)
-    parser.add_argument("--scenario", choices=("sonic-multiframe", "inspection-sonic-tiles", "sonic-cadence-journey", "sonic-anim-integrada", "sonic-anim-visual-diagnostico", "compositing-medicao", "sonic-sequencia-journey", "sonic-layouts-journey", "sonic-consumers-inspection", "sor-font-journey"), default="sonic-multiframe")
+    # Jornadas autorais/MUGEN nao usam ROM comercial: --rom so e exigido pelos cenarios REX.
+    parser.add_argument("--rom")
+    parser.add_argument("--window", default="1920x1080", help="tamanho da janela do app (LxA)")
+    parser.add_argument("--scenario", choices=("sonic-multiframe", "inspection-sonic-tiles", "sonic-cadence-journey", "sonic-anim-integrada", "sonic-anim-visual-diagnostico", "compositing-medicao", "sonic-sequencia-journey", "sonic-layouts-journey", "sonic-consumers-inspection", "sonic-logic-graphs", "jump-profile-journey", "jump-canvas-journey", "profile-authoring-journey", "semantic-gate-journey", "rex-prepared-observation", "jump-gameplay-journey", "nodegraph-authoring", "studio-e1", "studio-e4", "studio-e2e5", "studio-e6", "studio-scene", "studio-model", "studio-hud-camera", "studio-paletas", "mugen-real", "mugen-import"), default="sonic-multiframe")
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
-    xvfb, app, rom = (Path(value).resolve(strict=True) for value in (args.xvfb, args.app, args.rom))
+    xvfb, app = (Path(value).resolve(strict=True) for value in (args.xvfb, args.app))
+    rom = Path(args.rom).resolve(strict=True) if args.rom else None
+    if rom is None and not args.scenario.startswith(("studio-", "mugen-")):
+        raise SystemExit("--rom e obrigatorio para este cenario")
+    win_w, win_h = (int(v) for v in args.window.lower().split("x"))
     if sha256(xvfb) != args.xvfb_sha256:
         raise SystemExit("Xvfb executable differs from the supplied immutable identity")
     work, log_path = (Path(value).resolve() for value in (args.work, args.log))
@@ -65,13 +72,16 @@ def main():
             env = os.environ.copy()
             env.pop("WAYLAND_DISPLAY", None)
             env.update(DISPLAY=f":{display}", XAUTHORITY=str(auth), GDK_BACKEND="x11",
-                       GDK_SCALE="1", GDK_DPI_SCALE="1", RDS_INSPECTION_ROM=str(rom),
+                       GDK_SCALE="1", GDK_DPI_SCALE="1",
                        RDS_DECOMP_WORK=str(work), RDS_E2E_WINDOW_X="0", RDS_E2E_WINDOW_Y="0",
-                       RDS_E2E_WINDOW_WIDTH="1920", RDS_E2E_WINDOW_HEIGHT="1080",
+                       RDS_E2E_WINDOW_WIDTH=str(win_w), RDS_E2E_WINDOW_HEIGHT=str(win_h),
                        RDS_E2E_UI_TIMEOUT_MS="45000")
+            if rom is not None:
+                env["RDS_INSPECTION_ROM"] = str(rom)
             metadata = {"scenario": args.scenario, "display": env["DISPLAY"],
                         "screen": "1920x1080x24", "xvfb_sha256": sha256(xvfb),
-                        "app_sha256": sha256(app), "rom_sha256": sha256(rom),
+                        "app_sha256": sha256(app), "rom_sha256": sha256(rom) if rom else None,
+                        "window": f"{win_w}x{win_h}",
                         "system_display_modified": False}
             log.write(json.dumps(metadata) + "\n")
             log.flush()

@@ -40,6 +40,9 @@ pub struct MugenAnimationFrame {
     pub clsn1: Vec<MugenCollisionBox>,
     #[serde(default)]
     pub clsn2: Vec<MugenCollisionBox>,
+    /// Caixas desta ocorrencia editadas no Studio (autoral); false = como importadas do AIR.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub clsn_edited: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -85,6 +88,36 @@ pub struct AnimationDef {
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub hitboxes: Vec<SpriteAnimationHitbox>,
+    /// Identidade estavel de cada ocorrencia de quadro (paralelo a `frames`). Reordenar
+    /// ocorrencias que reutilizam a mesma imagem nao mistura duracoes nem eventos.
+    /// Ausente em projetos antigos: o editor atribui `o<n>` deterministicamente ao migrar.
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub occurrence_ids: Option<Vec<String>>,
+    /// Eventos autorais ancorados em ocorrencia + tick local (0 = primeiro tick do quadro).
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub frame_events: Vec<FrameEvent>,
+}
+
+/// Evento autoral de quadro (Experimental). `kind = "sound"` toca `sound` (acao do
+/// `AudioComponent.sfx` da propria entidade) quando a ocorrencia atinge `tick`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FrameEvent {
+    pub id: String,
+    pub occurrence: String,
+    pub tick: u32,
+    pub kind: String,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sound: Option<String>,
+    /// Origem declarada; eventos criados no editor sao `authored` (nao vem do CNS).
+    #[serde(default = "default_frame_event_origin")]
+    pub origin: String,
+}
+
+fn default_frame_event_origin() -> String {
+    "authored".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -179,6 +212,8 @@ mod sprite_command_tests {
     #[test]
     fn animation_def_round_trips_artstudio_frame_authoring_metadata() {
         let animation = AnimationDef {
+            occurrence_ids: None,
+            frame_events: Vec::new(),
             frames: vec![0, 1],
             fps: 12,
             looping: false,
@@ -533,4 +568,35 @@ pub struct Components {
     pub logic: Option<LogicComponent>,
     pub camera: Option<CameraComponent>,
     pub tilemap: Option<TilemapComponent>,
+    /// Texto/indicador de interface (Experimental).
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hud: Option<HudTextComponent>,
+}
+
+/// Texto simples de interface na grade de texto do destino (Experimental, REQ-15).
+/// `label` e desenhado em (`column`, `row`) em tiles de 8 px; se `value` existir, o numero ligado
+/// e escrito logo depois do rotulo com `digits` casas e redesenhado so quando muda.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct HudTextComponent {
+    pub column: u32,
+    pub row: u32,
+    pub label: String,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<HudValueBinding>,
+    #[serde(default = "default_hud_digits")]
+    pub digits: u8,
+}
+
+/// Vinculo autoral do valor exibido: `strike_hp` (vida do alvo de um golpe autoral, `source` = id
+/// do no) ou `logic_var` (variavel do grafo, `source` = nome).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct HudValueBinding {
+    pub kind: String,
+    pub source: String,
+}
+
+fn default_hud_digits() -> u8 {
+    3
 }

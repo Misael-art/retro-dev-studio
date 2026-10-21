@@ -1,0 +1,70 @@
+{
+  "schema": "rex-m5-edited-state-analysis/v1",
+  "status": "PASS_OBSERVED_LINEAR_STATE",
+  "trace_sha256": "baffd7a95ccf66b3a53120d27fc57e4bf9d3e6bfadcc860b533a4b6197f69c9f",
+  "addendum_sha256": "fe14d2737068b8372bd0b25c844d1d09990645fe1879ecce5d991cbd128c2d93",
+  "calls": [
+    {
+      "frame": 4,
+      "invocation": 1,
+      "copied_bytes": 216,
+      "memory_sha256": "d7a2a74829d3ed461867961bf616cc0d5236e4180aaacff94e9af26b959d7991",
+      "boundary": {
+        "a0": 11138,
+        "a1": 4294964440,
+        "a2": 0,
+        "a3": 0,
+        "a4": 0,
+        "a5": 0,
+        "a6": 0,
+        "a7": 16776444,
+        "d0": 65535,
+        "d1": 0,
+        "d2": 0,
+        "d3": 0,
+        "d4": 0,
+        "d5": 0,
+        "d6": 0,
+        "d7": 0,
+        "sr": 9992,
+        "stack_top_long": 2924,
+        "pc": 10920
+      },
+      "nontransfer_reads": [
+        {
+          "instruction_pc": 10916,
+          "address": 10922,
+          "data": 19449,
+          "mask": 65535
+        }
+      ]
+    }
+  ],
+  "negative_controls": {
+    "identity": {
+      "refused": true,
+      "reason": "ROM/instrument identity"
+    },
+    "operator": {
+      "refused": true,
+      "reason": "operator/control bytes"
+    },
+    "flow": {
+      "refused": true,
+      "reason": "nontransfer read timing/count"
+    },
+    "destination": {
+      "refused": true,
+      "reason": "transfer count/address/value"
+    },
+    "state": {
+      "refused": true,
+      "reason": "register/CCR/stack boundary"
+    },
+    "flags": {
+      "refused": true,
+      "reason": "register/CCR/stack boundary"
+    }
+  },
+  "limits": "External MAME bounded216byte transfer plus216byte unchanged guard and full boundary state; no later gameplay equivalence/visual/audio claim. Reanalysis after v4 overly broad filter failure, with earlier frozen v2 verifier."
+}

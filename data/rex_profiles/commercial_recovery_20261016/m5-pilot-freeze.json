@@ -1,0 +1,277 @@
+{
+  "schema": "rex-m5-pilot-freeze/v1",
+  "generated_at": "2026-10-18T08:37:31.823733+00:00",
+  "inputs": {
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/observe-v4.lua": "dd9298cb3ee60a24c1e64cade175fb43cc4b86576e035c56c2f96b6fc80f6c01",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/run-profile-observer.py": "6da5374e9ddd6479292d706a843d70b53d6067e6eacbe2724582cbff368a1880",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/qualify-profile-observer.py": "10674f7e3d6ae74123123b610ee5dabbf4e0767e109bc1f01bbd3951471b8519",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/run-observer.py": "814d5f8cc598b305292a3b533f591dbc706cea97742e1d89459d1cc6e704803c",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/survey-linear-copies.py": "bdbadc2029ee9d5c427e72df41119b1af51c8c07c90a80f29eb83003211bbd29",
+    "/usr/lib/mame/mame": "fcb54790e1837ed653020dc25a4e51d9ba7288d789cf556299d5d4d2cf2f3bc1",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-linear-search-freeze.json": "6acd9408cbcce38cd0381160ed621f01f9c7e95b2232af06a8290e47950428b3",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-linear-survey-001.json": "229f1c2d650082325f40cc88e6581f3bd5971c3b26f0621476383cd6f619ee21",
+    "/home/misael/emulation/roms/genesis/Adventures of Batman & Robin, The (USA) (Translated PtBr).zip": "ba29fc7fefa020e52f79ff44f3aad067d94175595057dbad589308b39cb2d193",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/batman/original.bin": "a87e79fae59a8545c2529b6c0ce7045884be707a69cf5912e1d0545ff8b9211f",
+    "/home/misael/emulation/roms/genesis/Golden Axe (World) (Translated PtBr).zip": "123440e91aa8b03deae86c256009eab36ca5525eedbd9d7f1a73219931a42a13",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/golden-axe/original.bin": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b",
+    "/home/misael/emulation/roms/genesis/MUSHA - Metallic Uniframe Super Hybrid Armor (USA) (Translated PtBr).zip": "b3bf67dbd03ed85d49f8f50fb5ea55ccd1e6ea790d5f4b9143e6a00b5783eb61",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/musha/original.bin": "938c97a04f4da7bdfa993111adb8f37235cdceb987e71cbfd35debf656eca896",
+    "/home/misael/emulation/roms/genesis/Toy Story (USA) (Translated PtBr).zip": "0484543620eb35aed4c63456a416d3331b44b229b8c733331fcce1527e982cb4",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/toy-story/original.bin": "df86b688eaef6178ff43288561838a9389e0e02d30fcce584616d898da0a78b2",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs": "a8af27a316582620735e10b24816cd7bef2eec16af782500dc7a6dd13c418ff4",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_profile_ipc.rs": "22c565041377eaa0ae6d8ac547f6a4907d10770fba1094f9ff7b76a4843a8e07",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs": "fd2eb873c3bc3c155c1f589d8a9a3e8ddad26a1b8b0af57a678fe027b890a540"
+  },
+  "targets": [
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Adventures of Batman & Robin, The (USA) (Translated PtBr).zip",
+      "archive_sha256": "ba29fc7fefa020e52f79ff44f3aad067d94175595057dbad589308b39cb2d193",
+      "member": "Adventures of Batman & Robin, The (USA).bin",
+      "rom_bytes": 2097152,
+      "rom_sha256": "a87e79fae59a8545c2529b6c0ce7045884be707a69cf5912e1d0545ff8b9211f",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied.",
+      "id": "batman",
+      "rom_path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/batman/original.bin",
+      "shape": {
+        "entry": 45356,
+        "transfer": 45370,
+        "exit": 45376,
+        "length": 20,
+        "source_register": 0,
+        "destination_register": 1,
+        "counter_register": 7,
+        "count": 70,
+        "counter_initialization": "moveq",
+        "width": 2,
+        "source_bus24": 45472,
+        "destination_bus24": 16770400,
+        "source_initial_register32": 45472,
+        "destination_initial_register32": 4294960480,
+        "source_addressing": "absolute_long",
+        "destination_addressing": "absolute_long",
+        "initialization_order": [
+          "source",
+          "destination",
+          "count"
+        ],
+        "source_space": "linear_rom",
+        "allowed_widths_in_memory_domain": [
+          1,
+          2,
+          4
+        ],
+        "base_in_domain": true,
+        "distinct_implementation": "single DBRA, no outer loop/row gap, statically initialized pointers/count; not primary nested byte-copy implementation",
+        "region_sha256": "d0a65a04a319918bb785fb9b6008698b555f9c54e3928ce4a2c36d28b3fbdca1",
+        "production_recognition": "NOT_MEASURED",
+        "real_invocation": "NOT_OBSERVED"
+      },
+      "maximum_source_sha256": "9dc0c91c260c5925d111b00ef7d024a277997615d42173c83f4b77a0b65e5ac8",
+      "classification": "exploratory inspected; not unseen; local translated commercial derivative"
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Golden Axe (World) (Translated PtBr).zip",
+      "archive_sha256": "123440e91aa8b03deae86c256009eab36ca5525eedbd9d7f1a73219931a42a13",
+      "member": "Golden Axe (World).gen",
+      "rom_bytes": 524288,
+      "rom_sha256": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied.",
+      "id": "golden-axe",
+      "rom_path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/golden-axe/original.bin",
+      "shape": {
+        "entry": 10904,
+        "transfer": 10914,
+        "exit": 10920,
+        "length": 16,
+        "source_register": 0,
+        "destination_register": 1,
+        "counter_register": 0,
+        "count": 108,
+        "counter_initialization": "moveq",
+        "width": 4,
+        "source_bus24": 10922,
+        "destination_bus24": 16774144,
+        "source_initial_register32": 10922,
+        "destination_initial_register32": 4294964224,
+        "source_addressing": "pc_relative_word",
+        "destination_addressing": "absolute_word",
+        "initialization_order": [
+          "source",
+          "destination",
+          "count"
+        ],
+        "source_space": "linear_rom",
+        "allowed_widths_in_memory_domain": [
+          1,
+          2,
+          4
+        ],
+        "base_in_domain": true,
+        "distinct_implementation": "single DBRA, no outer loop/row gap, statically initialized pointers/count; not primary nested byte-copy implementation",
+        "region_sha256": "037a639f2523e4b3c038a64e10ab92871882036ea7a5f1d79ce721ef446aa8a6",
+        "production_recognition": "NOT_MEASURED",
+        "real_invocation": "NOT_OBSERVED"
+      },
+      "maximum_source_sha256": "5163dca0ade2885de3d29ebfd9daf8e9b80a1e8247277989ccb69fb8e487dada",
+      "classification": "exploratory inspected; not unseen; local translated commercial derivative"
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/MUSHA - Metallic Uniframe Super Hybrid Armor (USA) (Translated PtBr).zip",
+      "archive_sha256": "b3bf67dbd03ed85d49f8f50fb5ea55ccd1e6ea790d5f4b9143e6a00b5783eb61",
+      "member": "MUSHA - Metallic Uniframe Super Hybrid Armor (USA).gen",
+      "rom_bytes": 525548,
+      "rom_sha256": "938c97a04f4da7bdfa993111adb8f37235cdceb987e71cbfd35debf656eca896",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied.",
+      "id": "musha",
+      "rom_path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/musha/original.bin",
+      "shape": {
+        "entry": 44048,
+        "transfer": 44062,
+        "exit": 44068,
+        "length": 20,
+        "source_register": 1,
+        "destination_register": 2,
+        "counter_register": 0,
+        "count": 8,
+        "counter_initialization": "move_word_immediate",
+        "width": 4,
+        "source_bus24": 86760,
+        "destination_bus24": 16776032,
+        "source_initial_register32": 86760,
+        "destination_initial_register32": 4294966112,
+        "source_addressing": "absolute_long",
+        "destination_addressing": "absolute_word",
+        "initialization_order": [
+          "source",
+          "destination",
+          "count"
+        ],
+        "source_space": "linear_rom",
+        "allowed_widths_in_memory_domain": [
+          1,
+          2,
+          4
+        ],
+        "base_in_domain": true,
+        "distinct_implementation": "single DBRA, no outer loop/row gap, statically initialized pointers/count; not primary nested byte-copy implementation",
+        "region_sha256": "aa205adcc408ee834d3436117c7de41c87c5dcfe6c7ac59727924ea3c2ed66f0",
+        "production_recognition": "NOT_MEASURED",
+        "real_invocation": "NOT_OBSERVED"
+      },
+      "maximum_source_sha256": "dbba2223160ce2447c9d532e53f0daecf2912e34a5a4eb34708a1b519927700b",
+      "classification": "exploratory inspected; not unseen; local translated commercial derivative"
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Toy Story (USA) (Translated PtBr).zip",
+      "archive_sha256": "0484543620eb35aed4c63456a416d3331b44b229b8c733331fcce1527e982cb4",
+      "member": "Toy Story (USA).md",
+      "rom_bytes": 4194304,
+      "rom_sha256": "df86b688eaef6178ff43288561838a9389e0e02d30fcce584616d898da0a78b2",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied.",
+      "id": "toy-story",
+      "rom_path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/toy-story/original.bin",
+      "shape": {
+        "entry": 44220,
+        "transfer": 44234,
+        "exit": 44240,
+        "length": 20,
+        "source_register": 0,
+        "destination_register": 1,
+        "counter_register": 0,
+        "count": 108,
+        "counter_initialization": "move_word_immediate",
+        "width": 1,
+        "source_bus24": 44084,
+        "destination_bus24": 16712744,
+        "source_initial_register32": 44084,
+        "destination_initial_register32": 4294902824,
+        "source_addressing": "pc_relative_word",
+        "destination_addressing": "absolute_long",
+        "initialization_order": [
+          "source",
+          "destination",
+          "count"
+        ],
+        "source_space": "linear_rom",
+        "allowed_widths_in_memory_domain": [
+          1,
+          2,
+          4
+        ],
+        "base_in_domain": true,
+        "distinct_implementation": "single DBRA, no outer loop/row gap, statically initialized pointers/count; not primary nested byte-copy implementation",
+        "region_sha256": "391daaa48ba572f700e32413966d7b9e846f2a1988168f8614837094b71c6e67",
+        "production_recognition": "NOT_MEASURED",
+        "real_invocation": "NOT_OBSERVED"
+      },
+      "maximum_source_sha256": "a54c9a52fece0258b58e50a3cb3131db74417a05ef1331ac5cb5030f49ece161",
+      "classification": "exploratory inspected; not unseen; local translated commercial derivative"
+    }
+  ],
+  "qualification_observer_alias": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-observer-input-qualify-m5-profile-001",
+  "production_baseline": "14e66e53f49e59d136ed170edf1028611b1d2f96",
+  "production_changes": 0,
+  "episode": "1200 machine frames cold boot, Start held10frames at120/360/600/900, no commercial RAM preparation",
+  "budget": {
+    "seconds_per_run": 90,
+    "max_events": 250000,
+    "max_completed_regions": 16,
+    "max_event_bytes": 268435456
+  },
+  "expected": {
+    "identity": "all event identities and uninterrupted sequence, complete and paired regions required",
+    "memory": "ROM source immutable; destination-before measured input; copy count*width contiguous bytes; preserve remaining max-span guard",
+    "registers": "LEA raw32 results separate from physical24bus; A_src/A_dst advance count*width; counter low16=FFFF. MOVEQ clears upper16; MOVE.W# preserves entry upper16. Other D/A and A7 unchanged at fallthrough exit",
+    "flags": "X and upper SR preserved; N/Z from last MOVE of selected width; V/C cleared; DBRA/LEA do not modify flags",
+    "reconstruction": "semantic typed reconstruction must equal frozen region, altered width only changes MOVE opcode in permitted domain",
+    "negative_controls": [
+      "wrong identity",
+      "incomplete collection",
+      "operator",
+      "loop displacement",
+      "destination",
+      "counter/state",
+      "flags"
+    ]
+  },
+  "reserved": [
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Gargoyles (USA) (Translated PtBr).zip",
+      "archive_sha256": "b222361c7280211dec12b8b2fff7fa44d1fc72e032575eaf88f5ab9d225c03b8",
+      "member": "Gargoyles (USA).md",
+      "rom_bytes": 3145728,
+      "rom_sha256": "de4ef5bb385bf58d2d12a5f386473e40f3ec1355db6f57dff2ddcff3c1780fcb",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Shinobi III - Return of the Ninja Master (USA) (Translated PtBr).zip",
+      "archive_sha256": "bbe8cd5a4489fb06a0a3e5c41e149172127d1ad18de0d3b5712a960b53136ae7",
+      "member": "Shinobi III - Return of the Ninja Master (USA).bin",
+      "rom_bytes": 1048576,
+      "rom_sha256": "28572709d7cd442dd681109b14641157c2943498943fa7791f524eaf530710ef",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Castle of Illusion Starring Mickey Mouse (USA, Europe) (Translated PtBr).zip",
+      "archive_sha256": "c5a16f13acf074a551cee0f020afedddb344956b068d08bac79f14e9fb6b13a5",
+      "member": "Castle of Illusion Starring Mickey Mouse (USA, Europe).md",
+      "rom_bytes": 524288,
+      "rom_sha256": "dbc7b2cb0f66f2a5ac4af1b810549802e9c2d7fa380ae9bd791b952d1cfdf603",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Strider (USA, Europe) (Translated PtBr).zip",
+      "archive_sha256": "a24242ee1128e21773b466e98716aad43ba7c52803224d470fec4708965e99e9",
+      "member": "Strider (USA, Europe).gen",
+      "rom_bytes": 1048576,
+      "rom_sha256": "99bbe15a80cc7a47d9a666ec5e9aa6ce51290007090f58dc1371490604a3ec5d",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    }
+  ],
+  "limits": [
+    "MAME observation is external runtime, not app session",
+    "Game purpose and visual/audio meaning of copied data unknown",
+    "Static matches are hypotheses until real execution and production recovery",
+    "New state-verifier and qualification must be frozen before commercial measurement; no expectation derived from modified capture"
+  ]
+}

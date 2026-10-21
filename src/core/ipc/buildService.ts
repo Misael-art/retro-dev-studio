@@ -17,6 +17,8 @@ export interface BuildResult {
   diagnostics?: ActionableDiagnostic[];
   source_map_path?: string | null;
   build_source_map?: BuildSourceMap | null;
+  /** Vínculo execução → projeto da ROM gerada (`retrodev.runtime_link/v1`, Experimental). */
+  runtime_link?: unknown;
 }
 
 export interface MultiTargetBuildEntry {

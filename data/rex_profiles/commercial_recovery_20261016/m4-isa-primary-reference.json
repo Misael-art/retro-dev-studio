@@ -1,0 +1,17 @@
+{
+  "schema": "rex-m68k-primary-reference/v1",
+  "url": "https://www.nxp.com/docs/en/reference-manual/M68000PM.pdf",
+  "fetched_at": "2026-10-18T02:19:47.763532+00:00",
+  "sha256": "7f0b105713c693d86d84ffe6082529e8d18539672dd6e54172db330f105d1d6a",
+  "bytes": 4747651,
+  "private_file": "/home/misael/rds-scratch/commercial_recovery_20261016/m4-manual-inputs/M68000PM.pdf",
+  "printed_pages": [
+    "4-90",
+    "4-91",
+    "4-110",
+    "4-116",
+    "4-134"
+  ],
+  "supports": "DBRA/DBF decrements low16 and branches unlessFFFF without changing flags; LEA does not change CCR; MOVE sets N/Z, clears V/C, preserves X; MOVEQ sign-extends immediate to32bits.",
+  "methodology": "Primary manual corroborates frozen semantics; no expectation changed and no image-derived calibration."
+}

@@ -32,6 +32,19 @@ pub fn emit_sgdk(ast: &AstOutput, project_name: &str) -> EmitOutput {
 
 /// Gera código C (SGDK) a partir do AST + dados opcionais do collision map.
 /// Emite `rds_collision_map[]` como array estático se `collision_map_data` for Some.
+/// Como `emit_sgdk_with_collision`, cumprindo o plano de paletas (bancos, texto e trocas).
+pub fn emit_sgdk_with_palette_plan(
+    ast: &AstOutput,
+    project_name: &str,
+    collision_map_data: Option<&[u8]>,
+    palette: EmitPalette,
+) -> EmitOutput {
+    PALETTE.with(|p| *p.borrow_mut() = Some(palette));
+    let output = emit_sgdk_with_collision(ast, project_name, collision_map_data);
+    PALETTE.with(|p| *p.borrow_mut() = None);
+    output
+}
+
 pub fn emit_sgdk_with_collision(
     ast: &AstOutput,
     project_name: &str,
@@ -139,6 +152,36 @@ fn build_main_c_inner(
     }
     out.push('\n');
     render_sound_id_macros(&mut out, ast);
+    let camera_follow = ast_has_camera_follow(ast);
+    if camera_follow {
+        // Camera do mundo (Experimental): sprites e planos usam coordenadas de mundo; a tela mostra
+        // mundo - camera. Limites = maior tilemap da cena (sem tilemap: so o limite inferior 0).
+        let (max_x, max_y) = camera_world_limits(ast, &tilemap_assets);
+        out.push_str(&format!(
+            "static volatile s16 rds_camera_x = 0;\nstatic volatile s16 rds_camera_y = 0;\n#define RDS_CAMERA_MAX_X {max_x}\n#define RDS_CAMERA_MAX_Y {max_y}\n"
+        ));
+        let planes = collect_camera_scroll_planes(ast);
+        let planes = if planes.is_empty() {
+            vec!["BG_A"]
+        } else {
+            planes
+        };
+        out.push_str("static void rds_camera_apply_scroll(void) {");
+        for plane in &planes {
+            out.push_str(&format!(
+                " VDP_setHorizontalScroll({plane}, -rds_camera_x); VDP_setVerticalScroll({plane}, rds_camera_y);"
+            ));
+        }
+        out.push_str(" }\n#define RDS_CAMERA_SCREEN_X rds_camera_x\n#define RDS_CAMERA_SCREEN_Y rds_camera_y\n");
+        if !managed_sprites {
+            out.push_str(
+                "static inline void rds_camera_sprite_position(Sprite *s, s16 x, s16 y) { SPR_setPosition(s, x - rds_camera_x, y - rds_camera_y); }\n#define SPR_setPosition(s, x, y) rds_camera_sprite_position((s), (x), (y))\n",
+            );
+        }
+        out.push('\n');
+    } else {
+        out.push_str("#define RDS_CAMERA_SCREEN_X 0\n#define RDS_CAMERA_SCREEN_Y 0\n");
+    }
     if managed_sprites {
         let count = ast
             .nodes
@@ -235,6 +278,11 @@ fn build_main_c_inner(
     out.push_str(RUNTIME_STATE_DECL_MARKER);
     // Perfil MUGEN (Experimental): tabelas e tick de animacao gerados a partir do modelo.
     out.push_str(&super::mugen_runtime::render_decls(ast));
+    out.push_str(&render_palette_decls());
+    out.push_str(&super::hud_runtime::render_decls(
+        ast,
+        &collect_logic_var_names(ast),
+    ));
     if has_rom_addq_word {
         out.push_str(
             "static volatile u32 *const rds_logic_recovery_oracle_value = (volatile u32 *)0xE0FFFF00;\n",
@@ -330,6 +378,9 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
         out.push_str("    rds_probe_last_tick = getTick();\n");
         out.push_str("    rds_probe_emulation_status = 1;\n");
     }
+    if let Some(error) = plane_size_error(&tilemap_assets) {
+        out.push_str(&error);
+    }
     if let Some((plane_width, plane_height)) = plane_size_for_tilemaps(&tilemap_assets) {
         out.push_str(&format!(
             "    VDP_setPlaneSize({}, {}, TRUE);\n",
@@ -337,7 +388,15 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
         ));
     }
 
+    if camera_follow {
+        out.push_str(&super::hud_runtime::render_window_setup(
+            ast,
+            &collect_logic_var_names(ast),
+        ));
+    }
+    out.push_str(&render_palette_init());
     let mut tilemap_draw_index = 0usize;
+    let mut sprite_spawn_index = 0usize;
     let mut retrofx_initialized = false;
     for (event, _) in &hardware_event_scripts {
         out.push_str(&sgdk_event_registration(*event));
@@ -387,7 +446,8 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 ));
                 let palette_conflicts_with_tilemap =
                     *palette_slot == 0 && !tilemap_assets.is_empty();
-                if !palette_conflicts_with_tilemap {
+                // Com plano de paletas o banco ja foi carregado com as cores planejadas.
+                if !palette_conflicts_with_tilemap && !palette_plan_active() {
                     out.push_str(&format!(
                         "    PAL_setPalette({}, {}.palette->data, CPU);\n",
                         palette_const(*palette_slot),
@@ -402,12 +462,16 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 y,
                 priority_high,
             } => {
-                let palette = ast
-                    .sprite_assets
-                    .iter()
-                    .find(|asset| asset.resource_name == *resource_name)
-                    .map(|asset| palette_const(asset.palette_slot))
-                    .unwrap_or_else(|| "PAL0".to_string());
+                let palette = match planned_bank_for("sprite", sprite_spawn_index) {
+                    Some(bank) => palette_const(bank as u8),
+                    None => ast
+                        .sprite_assets
+                        .iter()
+                        .find(|asset| asset.resource_name == *resource_name)
+                        .map(|asset| palette_const(asset.palette_slot))
+                        .unwrap_or_else(|| "PAL0".to_string()),
+                };
+                sprite_spawn_index += 1;
                 let priority = if *priority_high { "TRUE" } else { "FALSE" };
 
                 out.push_str(&format!(
@@ -435,13 +499,21 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
             } => {
                 let plane = tilemap_plane(tilemap_draw_index);
                 let base_tile = tilemap_base_expression(resource_name, &tilemap_assets);
+                // Com plano: banco planejado e sem carregar a paleta da imagem (loadpal FALSE),
+                // que sobrescreveria o banco 0 de outros usos.
+                let (tile_palette, load_palette) = match planned_bank_for("tilemap", tilemap_draw_index) {
+                    Some(bank) => (palette_const(bank as u8), "FALSE"),
+                    None => ("PAL0".to_string(), "TRUE"),
+                };
                 out.push_str(&format!(
-                    "    VDP_drawImageEx({}, &{}, TILE_ATTR_FULL(PAL0, FALSE, FALSE, FALSE, {}), {}, {}, TRUE, TRUE);\n",
+                    "    VDP_drawImageEx({}, &{}, TILE_ATTR_FULL({}, FALSE, FALSE, FALSE, {}), {}, {}, {}, TRUE);\n",
                     plane,
                     resource_name,
+                    tile_palette,
                     base_tile,
                     (*x).max(0) / 8,
-                    (*y).max(0) / 8
+                    (*y).max(0) / 8,
+                    load_palette
                 ));
                 if let Some(asset) = tilemap_assets
                     .iter()
@@ -478,8 +550,8 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                             format!("{slot_base} + {slot}")
                         };
                         out.push_str(&format!(
-                            "    VDP_setTileMapXY({}, TILE_ATTR_FULL(PAL0, FALSE, FALSE, FALSE, {}), {}, {});\n",
-                            plane, tile, cell_x, cell_y
+                            "    VDP_setTileMapXY({}, TILE_ATTR_FULL({}, FALSE, FALSE, FALSE, {}), {}, {});\n",
+                            plane, tile_palette, tile, cell_x, cell_y
                         ));
                     }
                 }
@@ -611,6 +683,16 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 let camera_planes = collect_camera_scroll_planes(ast);
                 render_move_camera(&mut out, target, *x, *y, &camera_planes);
             }
+            AstNode::HudText { .. } => {
+                if let Some(hud) = super::hud_runtime::collect_huds(ast)
+                    .into_iter()
+                    .find(|h| matches!(node, AstNode::HudText { entity_id, .. } if *entity_id == h.entity_id))
+                {
+                    if super::hud_runtime::validate(&hud, &collect_logic_var_names(ast), ast).is_ok() {
+                        out.push_str(&super::hud_runtime::render_init(&hud));
+                    }
+                }
+            }
             AstNode::DrawText {
                 x,
                 y,
@@ -622,7 +704,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     "    VDP_drawText(\"{}\", {}, {});\n",
                     escaped, x, y
                 ));
-                if *palette_slot > 0 {
+                if *palette_slot > 0 && planned_text_bank().is_none() {
                     out.push_str(&format!("    VDP_setTextPalette({});\n", palette_slot));
                 }
             }
@@ -697,6 +779,12 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 }
                 render_retrofx_frame(&mut out, &parallax_layers, &raster_lines, 8);
                 out.push_str(&super::mugen_runtime::render_ticks(ast, 8));
+                out.push_str(&render_palette_updates(8));
+                out.push_str(&super::hud_runtime::render_updates(
+                    ast,
+                    &collect_logic_var_names(ast),
+                    8,
+                ));
                 if managed_sprites {
                     out.push_str("        rds_sync_sprite_residency();\n");
                 }
@@ -714,6 +802,125 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
 
     out.push_str("\n    return 0;\n}\n");
     resolve_runtime_state_markers(out)
+}
+
+/// Plano de paletas aplicado a uma emissao (`compiler/palette_plan.rs`): entidades com sprite e
+/// com tilemap na mesma ordem dos nos `SpawnSprite` / `DrawTilemap` (ordem da cena resolvida).
+#[derive(Debug, Clone)]
+pub struct EmitPalette {
+    pub plan: super::palette_plan::PalettePlan,
+    pub sprite_entities: Vec<String>,
+    pub tilemap_entities: Vec<String>,
+}
+
+thread_local! {
+    static PALETTE: std::cell::RefCell<Option<EmitPalette>> = const { std::cell::RefCell::new(None) };
+}
+
+fn palette_plan_active() -> bool {
+    PALETTE.with(|p| p.borrow().is_some())
+}
+
+fn planned_bank_for(kind: &str, index: usize) -> Option<usize> {
+    PALETTE.with(|p| {
+        let p = p.borrow();
+        let p = p.as_ref()?;
+        let list = if kind == "sprite" {
+            &p.sprite_entities
+        } else {
+            &p.tilemap_entities
+        };
+        list.get(index)
+            .and_then(|e| p.plan.entity_banks.get(e).copied())
+    })
+}
+
+fn planned_text_bank() -> Option<usize> {
+    PALETTE.with(|p| p.borrow().as_ref().and_then(|p| p.plan.text_bank))
+}
+
+/// Bancos e trocas do plano: arrays com os valores do destino, carregados no inicio do `main`.
+fn render_palette_decls() -> String {
+    PALETTE.with(|p| {
+        let p = p.borrow();
+        let Some(p) = p.as_ref() else { return String::new() };
+        let mut out = String::from("// Plano de paletas (retrodev.palette_plan/v1): um array por banco ocupado.\n");
+        let values = |v: &[u16]| v.iter().map(|x| format!("0x{x:03X}")).collect::<Vec<_>>().join(",");
+        for bank in p.plan.banks.iter().filter(|b| !b.resources.is_empty()) {
+            out.push_str(&format!(
+                "static const u16 rds_pal_bank_{}[16] = {{{}}}; /* {} */\n",
+                bank.bank,
+                values(&bank.target_values),
+                bank.resources.join(" + ").replace("*/", "")
+            ));
+        }
+        for swap in p.plan.swaps.iter().filter(|s| s.ok) {
+            let (Some(bank), Some(strike)) = (swap.bank, swap.trigger.strip_prefix("golpe:")) else { continue };
+            let id = &swap.id;
+            out.push_str(&format!(
+                "static const u16 rds_palswap_{id}_on[16] = {{{on}}};\n\
+                 static const u16 rds_palswap_{id}_off[16] = {{{off}}};\n\
+                 static volatile u16 rds_palswap_{id}_count = 0;\n\
+                 static volatile u16 rds_palswap_{id}_restores = 0;\n\
+                 static volatile u16 rds_palswap_{id}_left = 0;\n\
+                 static u16 rds_palswap_{id}_seen = 0;\n\
+                 /* Troca '{id}': banco {bank}, indices {idx:?}, {frames} quadros; fila DMA aplicada no proximo VBlank. */\n\
+                 static void rds_palswap_{id}_update(void) {{\n\
+                 \x20   if (rds_strike_{strike}_hits != rds_palswap_{id}_seen) {{\n\
+                 \x20       rds_palswap_{id}_seen = rds_strike_{strike}_hits;\n\
+                 \x20       rds_palswap_{id}_count++;\n\
+                 \x20       rds_palswap_{id}_left = {frames};\n\
+                 \x20       PAL_setColors({base}, rds_palswap_{id}_on, 16, DMA);\n\
+                 \x20   }} else if (rds_palswap_{id}_left) {{\n\
+                 \x20       rds_palswap_{id}_left--;\n\
+                 \x20       if (!rds_palswap_{id}_left) {{ PAL_setColors({base}, rds_palswap_{id}_off, 16, DMA); rds_palswap_{id}_restores++; }}\n\
+                 \x20   }}\n\
+                 }}\n",
+                on = values(&swap.on_values),
+                off = values(&swap.off_values),
+                idx = swap.written_indices,
+                frames = swap.frames,
+                base = bank * 16,
+            ));
+        }
+        out
+    })
+}
+
+fn render_palette_init() -> String {
+    PALETTE.with(|p| {
+        let p = p.borrow();
+        let Some(p) = p.as_ref() else {
+            return String::new();
+        };
+        let mut out = String::new();
+        for bank in p.plan.banks.iter().filter(|b| !b.resources.is_empty()) {
+            out.push_str(&format!(
+                "    PAL_setPalette(PAL{0}, rds_pal_bank_{0}, CPU);\n",
+                bank.bank
+            ));
+        }
+        if let Some(text) = p.plan.text_bank {
+            out.push_str(&format!("    VDP_setTextPalette(PAL{text});\n"));
+        }
+        out
+    })
+}
+
+fn render_palette_updates(indent: usize) -> String {
+    PALETTE.with(|p| {
+        let p = p.borrow();
+        let Some(p) = p.as_ref() else {
+            return String::new();
+        };
+        let pad = " ".repeat(indent);
+        p.plan
+            .swaps
+            .iter()
+            .filter(|s| s.ok && s.bank.is_some())
+            .map(|s| format!("{pad}rds_palswap_{}_update();\n", s.id))
+            .collect()
+    })
 }
 
 thread_local! {
@@ -846,10 +1053,11 @@ static void rds_register_sprite(Sprite **instance, const SpriteDefinition *defin
     *instance = NULL;
 }
 static bool rds_sprite_in_view(const RdsSpriteSlot *slot) {
-    return slot->visibility != HIDDEN && *slot->x < VDP_getScreenWidth()
-        && *slot->y < VDP_getScreenHeight()
-        && (s32)*slot->x + slot->definition->w > 0
-        && (s32)*slot->y + slot->definition->h > 0;
+    const s32 sx = (s32)*slot->x - RDS_CAMERA_SCREEN_X, sy = (s32)*slot->y - RDS_CAMERA_SCREEN_Y;
+    return slot->visibility != HIDDEN && sx < VDP_getScreenWidth()
+        && sy < VDP_getScreenHeight()
+        && sx + slot->definition->w > 0
+        && sy + slot->definition->h > 0;
 }
 static void rds_sync_sprite_residency(void) {
     u16 i;
@@ -878,7 +1086,7 @@ static void rds_sync_sprite_residency(void) {
 static void rds_sprite_position(Sprite **instance, s16 x, s16 y) {
     RdsSpriteSlot *slot = rds_sprite_slot(instance);
     if (slot) { *slot->x = x; *slot->y = y; }
-    if (*instance) SPR_setPosition(*instance, x, y);
+    if (*instance) SPR_setPosition(*instance, x - RDS_CAMERA_SCREEN_X, y - RDS_CAMERA_SCREEN_Y);
 }
 static void rds_sprite_animation(Sprite **instance, s16 animation) {
     RdsSpriteSlot *slot = rds_sprite_slot(instance);
@@ -1527,6 +1735,16 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     indent = indent_str
                 ));
             }
+            LogicOp::AuthoredStrike { strike_id, .. } => {
+                // Arma a verificacao deste quadro; o teste de caixas roda depois dos ticks MUGEN.
+                out.push_str(&format!(
+                    "{indent}rds_strike_{strike_id}_enabled = 1;\n",
+                    indent = indent_str
+                ));
+            }
+            LogicOp::PaletteSwapOnHit { .. } => {
+                // A troca e atualizada uma vez por quadro depois dos golpes (rds_palswap_*_update).
+            }
             LogicOp::SetVelocity {
                 target_name,
                 vx,
@@ -1573,10 +1791,22 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                 ));
             }
             LogicOp::SetTile { layer, tile, x, y } => {
+                let plane = sgdk_scroll_plane(layer);
+                // Banco do tilemap desenhado nesse plano (plano de paletas); sem plano, PAL0.
+                let bank = PALETTE.with(|p| {
+                    let p = p.borrow();
+                    let p = p.as_ref()?;
+                    p.tilemap_entities
+                        .iter()
+                        .enumerate()
+                        .find(|(i, _)| tilemap_plane(*i) == plane)
+                        .and_then(|(_, e)| p.plan.entity_banks.get(e).copied())
+                });
                 out.push_str(&format!(
-                    "{indent}VDP_setTileMapXY({layer}, TILE_ATTR_FULL(PAL0, FALSE, FALSE, FALSE, {tile}), {x}, {y});\n",
+                    "{indent}VDP_setTileMapXY({layer}, TILE_ATTR_FULL({pal}, FALSE, FALSE, FALSE, {tile}), {x}, {y});\n",
                     indent = indent_str,
-                    layer = sgdk_scroll_plane(layer),
+                    pal = bank.map(|b| palette_const(b as u8)).unwrap_or_else(|| "PAL0".to_string()),
+                    layer = plane,
                     tile = render_math_expr(tile),
                     x = render_math_expr(x),
                     y = render_math_expr(y)
@@ -1587,14 +1817,17 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                 offset_x,
                 offset_y,
             } => {
+                // Canto superior esquerdo da camera = alvo + deslocamento autoral (mesma intencao dos
+                // grafos existentes, ex. -160 para centralizar), limitado ao mundo; os planos rolam
+                // -camera e os sprites sao desenhados em mundo - camera.
                 out.push_str(&format!(
-                    "{indent}VDP_setHorizontalScroll(BG_A, {});\n",
+                    "{indent}{{ s32 cx = (s32)({}); s32 cy = (s32)({}); if (cx > RDS_CAMERA_MAX_X) cx = RDS_CAMERA_MAX_X; if (cy > RDS_CAMERA_MAX_Y) cy = RDS_CAMERA_MAX_Y; if (cx < 0) cx = 0; if (cy < 0) cy = 0; rds_camera_x = (s16)cx; rds_camera_y = (s16)cy; }}\n",
                     camera_axis_expr(target_var, "x", *offset_x),
+                    camera_axis_expr(target_var, "y", *offset_y),
                     indent = indent_str
                 ));
                 out.push_str(&format!(
-                    "{indent}VDP_setVerticalScroll(BG_A, {});\n",
-                    camera_axis_expr(target_var, "y", *offset_y),
+                    "{indent}rds_camera_apply_scroll();\n",
                     indent = indent_str
                 ));
             }
@@ -1847,7 +2080,10 @@ fn collect_logic_velocity_targets_from_ops(
             LogicOp::SourceMapped { op, .. } => {
                 collect_logic_velocity_targets_from_ops(std::slice::from_ref(op.as_ref()), targets);
             }
-            LogicOp::MugenSetVelocityX { .. } | LogicOp::MugenProgramStep { .. } => {}
+            LogicOp::MugenSetVelocityX { .. }
+            | LogicOp::MugenProgramStep { .. }
+            | LogicOp::AuthoredStrike { .. }
+            | LogicOp::PaletteSwapOnHit { .. } => {}
             LogicOp::SetVelocity {
                 target_name,
                 runtime_var,
@@ -2661,19 +2897,44 @@ fn plane_size_for_tilemaps(tilemap_assets: &[TilemapAsset]) -> Option<(u16, u16)
     if tilemap_assets.is_empty() {
         return None;
     }
-
+    // Planos do VDP: 32, 64 ou 128 celulas por eixo, com no maximo 4096 celulas (64x64,
+    // 128x32, 32x128). Mapa mais largo que o plano dava a volta e sobrescrevia as primeiras
+    // colunas (80 tiles num plano de 64).
+    let size = |cells: u32| -> u16 {
+        if cells > 64 {
+            128
+        } else if cells > 32 {
+            64
+        } else {
+            32
+        }
+    };
     let max_width = tilemap_assets
         .iter()
-        .map(|asset| if asset.map_width > 32 { 64 } else { 32 })
+        .map(|a| size(a.map_width))
         .max()
-        .unwrap_or(32) as u16;
+        .unwrap_or(32);
     let max_height = tilemap_assets
         .iter()
-        .map(|asset| if asset.map_height > 32 { 64 } else { 32 })
+        .map(|a| size(a.map_height))
         .max()
-        .unwrap_or(32) as u16;
-
+        .unwrap_or(32);
     Some((max_width, max_height))
+}
+
+/// Mapa que nao cabe num plano do VDP: erro explicito em vez de dar a volta.
+fn plane_size_error(tilemap_assets: &[TilemapAsset]) -> Option<String> {
+    let (w, h) = plane_size_for_tilemaps(tilemap_assets)?;
+    let too_big = tilemap_assets
+        .iter()
+        .any(|a| a.map_width > 128 || a.map_height > 128);
+    (too_big || u32::from(w) * u32::from(h) > 4096).then(|| {
+        format!(
+            "#error \"RetroDev: mapa de {}x{} tiles nao cabe num plano do Mega Drive (64x64, 128x32 ou 32x128)\"\n",
+            tilemap_assets.iter().map(|a| a.map_width).max().unwrap_or(0),
+            tilemap_assets.iter().map(|a| a.map_height).max().unwrap_or(0)
+        )
+    })
 }
 
 /// Sprites that need position tracking (SGDK 2.x: no SPR_getX/SPR_getY).
@@ -2783,6 +3044,56 @@ fn collect_scroll_tilemap_layers(ast: &AstOutput) -> Vec<String> {
         }
     }
     layers
+}
+
+fn ast_has_camera_follow(ast: &AstOutput) -> bool {
+    fn walk(ops: &[LogicOp]) -> bool {
+        ops.iter().any(|op| match op {
+            LogicOp::CameraFollow { .. } => true,
+            LogicOp::SourceMapped { op, .. } => walk(std::slice::from_ref(op.as_ref())),
+            LogicOp::ConditionOverlap {
+                if_true, if_false, ..
+            }
+            | LogicOp::ConditionBool {
+                if_true, if_false, ..
+            } => walk(if_true) || walk(if_false),
+            LogicOp::WhileLoop { body, done, .. } | LogicOp::ForLoop { body, done, .. } => {
+                walk(body) || walk(done)
+            }
+            LogicOp::HardwareBudgetCheck { if_ok, if_warn, .. } => walk(if_ok) || walk(if_warn),
+            LogicOp::HardwareEvent { ops, .. } => walk(ops),
+            LogicOp::StateMachine { states, .. } => states.iter().any(|state| {
+                walk(&state.body)
+                    || state
+                        .transitions
+                        .iter()
+                        .any(|t| walk(&t.if_matched) || walk(&t.if_unmatched))
+            }),
+            _ => false,
+        })
+    }
+    ast.logic_scripts.iter().any(|script| walk(&script.ops))
+}
+
+/// Maior deslocamento de camera: mundo (maior tilemap) menos a tela 320x224 do Mega Drive.
+fn camera_world_limits(ast: &AstOutput, tilemaps: &[TilemapAsset]) -> (i32, i32) {
+    let mut width = 0i32;
+    let mut height = 0i32;
+    for node in &ast.nodes {
+        if let AstNode::DrawTilemap {
+            resource_name,
+            x,
+            y,
+            ..
+        } = node
+        {
+            if let Some(asset) = tilemaps.iter().find(|a| &a.resource_name == resource_name) {
+                width = width.max(x.max(&0) / 8 * 8 + asset.map_width as i32 * 8);
+                height = height.max(y.max(&0) / 8 * 8 + asset.map_height as i32 * 8);
+            }
+        }
+    }
+    ((width - 320).max(0), (height - 224).max(0))
 }
 
 fn collect_camera_scroll_planes(ast: &AstOutput) -> Vec<&'static str> {

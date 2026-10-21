@@ -1,0 +1,11 @@
+{
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-as": "7ede28b6ffc7c2df35780522cc8c99a3c4c5ac30361b92d5a472453b699da81b",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-ld": "3344a5bcb4a9139cf3c32839a08ec9ffeb31a8f8901ecb53f37e8e4ee465f218",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-objcopy": "542e5783bd3de47fd9bec8fcb98e6e92d4be5b252955558cae3ded49d802384d",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-objdump": "5e4001983160f38be03c9aae4eb76a8c1a82dc15ca67ba0bdd51749274500cbb",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-nm": "5eaf863fa9836b8b94e45bde90d5b6c72c1f9dc7a89a6ff330b9b5611e969396",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/blastem_libretro.so": "fdaa3d392ab071c52e8b01c7df4c5642aa00c048a737f4bd3abce66bebd855ba",
+  "/home/misael/.cache/retrodevstudio/qa-xvfb/21.1.24-1/Xvfb": "5bfd315a8c7bc626d0b183d176e130c34f910a4a1279d9d53ea45769f62a3351",
+  "/usr/sbin/cc": "8aac907d6fbf40394b424b5fa4a2ad1aa291dac7d3a0315c5b415c1f5ace1287"
+}

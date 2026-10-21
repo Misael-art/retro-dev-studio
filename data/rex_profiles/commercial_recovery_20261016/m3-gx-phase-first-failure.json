@@ -1,0 +1,8 @@
+{
+  "schema": "rex-gx-author-phase/v1",
+  "status": "FAIL",
+  "id": "gx-phase-qualify-001",
+  "freeze_sha256": "4f7dcb6a5f9dd9f3f50a15b4eac61db9cbfdad89519ffdb63194b5cc54e18b7a",
+  "cases": {},
+  "error": "literal authored1024pixel model"
+}

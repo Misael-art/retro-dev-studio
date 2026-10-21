@@ -1,0 +1,16 @@
+npm notice run retrodev-studio@0.1.0 npx
+npm notice run 'vitest' run src/core/nodegraph/profileGraphBridge.test.ts src/components/nodegraph/ProfileGraphBridgePanel.test.tsx
+(node:1328666) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+ RUN  v4.1.11 /home/misael/Projects/REX-INTEGRATION-2026-10-05
+
+(node:1328805) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:1330309) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+ Test Files  2 passed (2)
+      Tests  37 passed (37)
+   Start at  14:30:21
+   Duration  15.55s (transform 2.76s, setup 357ms, import 3.30s, tests 1.46s, environment 8.78s)

@@ -90,7 +90,3 @@ vitest-output.txt
 
 # --- Agent tooling ---
 .serena/
-
-# --- Python (bytecode gerado pelos oraculos de prova) ---
-__pycache__/
-*.pyc

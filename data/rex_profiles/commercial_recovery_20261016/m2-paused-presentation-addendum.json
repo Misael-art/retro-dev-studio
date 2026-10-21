@@ -1,0 +1,24 @@
+{
+  "schema": "rex-presentation-protocol-addendum/v1",
+  "id": "M2-PAUSED-REPLAY-FRAME-001",
+  "before_new_binary_measurement": true,
+  "observed_failure": "app-correspondence-v2-001: replay/native buffer and layout/SAT/palette all match; canvas equality FAIL",
+  "diagnosis": "startFrameLoop owns emulator://frame listener and pause removes it; paused replay publishes through existing backend event without an active receiver",
+  "authorized_fix": "retain passive canonical frame subscription for paused loaded viewport; same event helper reused by running loop; no emulation step to refresh canvas",
+  "identity_contract": [
+    "backend tags emitted frames under emulator mutex with core epoch, loaded ROM SHA, monotonic presentation sequence and runtime frame index",
+    "renderer rejects unidentified, wrong ROM, wrong epoch, duplicate and reordered packets",
+    "presentation sequence is separate from rewind frame index; rewind remains displayable",
+    "existing frame packing and RGB conversion unchanged"
+  ],
+  "controls": [
+    "passive subscription invokes no emulator command",
+    "current packet delivered once, callback after unsubscribe ignored",
+    "stale/unknown/duplicate packets refused",
+    "actual replay app journey on rebuilt SHA and affected visual regressions",
+    "host certification and minimum gates"
+  ],
+  "production_dependency_change": false,
+  "runtime_core_change": false,
+  "prior_result_preserved": true
+}

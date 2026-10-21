@@ -1,0 +1,13 @@
+{
+  "schema": "rex-static-body-author-freeze/v1",
+  "generated_at": "2026-10-18T02:32:59.742583+00:00",
+  "inputs": {
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/survey-copy-loop-bodies.py": "ac2aa626b00e202a0d9c71d36362e63a8ea21911d69f2440dd06236b0a2f34b9",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/qualify-copy-loop-search.py": "6757f6437138d8293d901cfb6e199d7ed67daa9ed423715d395014c1ef294c84",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-loop-body-search-freeze.json": "99054da6838651f775fc4ceb50e2c2003dea362d5878de39199fb85874ea57e3"
+  },
+  "expected_cases": 4,
+  "expected_negatives": 5,
+  "reference": "Independent authored16/18byte literal bodies, ISA manual, no commercial bytes",
+  "budget_seconds": 30
+}

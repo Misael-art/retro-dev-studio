@@ -1,0 +1,119 @@
+{
+ "rom1_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+ "copias": [
+  {
+   "jogo": "sonic1",
+   "variante": "imp",
+   "instancia": "0x1340c",
+   "valores": {
+    "imp": 2304
+   },
+   "rom_base_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+   "copia": "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-58ec3d16.bin",
+   "copia_sha256": "58ec3d1651e54b82fad2ccdccc1fde333931efaab26026e6053efcdb6c27c744",
+   "ips": "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-58ec3d16.ips",
+   "ips_sha256": "fa997b44d259be8cd6205d801a845f3a445d178b61d84af1bcc1b45a034eb623",
+   "bytes_diferentes": 2
+  },
+  {
+   "jogo": "sonic1",
+   "variante": "cut",
+   "instancia": "0x1340c",
+   "valores": {
+    "cut": -1536
+   },
+   "rom_base_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+   "copia": "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-9dcc643c.bin",
+   "copia_sha256": "9dcc643c4fbf543e7a22598c9b38eacecaf6f1b3fa5a8ee9fdd3c2e8adc6f02c",
+   "ips": "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-9dcc643c.ips",
+   "ips_sha256": "f2b1b73e658afba909185d4faf18b102cf9f70f697c4fa21ddf79d6ed772dcfe",
+   "bytes_diferentes": 1
+  },
+  {
+   "jogo": "sonic1",
+   "variante": "both",
+   "instancia": "0x1340c",
+   "valores": {
+    "imp": 2304,
+    "cut": -1536
+   },
+   "rom_base_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+   "copia": "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-bec61f9f.bin",
+   "copia_sha256": "bec61f9f15a55200ad8c28685200db01ad9a36d1c1014ccfee7a6db67a0c0190",
+   "ips": "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-bec61f9f.ips",
+   "ips_sha256": "cad5a2451f87b005712d5444660985e12488da7c3309d4b435488937f87f1471",
+   "bytes_diferentes": 3
+  },
+  {
+   "jogo": "delta",
+   "variante": "a-imp",
+   "instancia": "0x16914",
+   "valores": {
+    "imp": 2304
+   },
+   "rom_base_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+   "copia": "Sonic_Delta_Reloaded__Brazil___Unl_.jump-16914-81a8867c.bin",
+   "copia_sha256": "81a8867c6e14825f3d224d37811bec5d19c8bf4bf7dde079655104026367d059",
+   "ips": "Sonic_Delta_Reloaded__Brazil___Unl_.jump-16914-81a8867c.ips",
+   "ips_sha256": "c45e8cf0ad2e2b796497550c21a151541d071288bc5292250786c02bec4abf0d",
+   "bytes_diferentes": 2
+  },
+  {
+   "jogo": "delta",
+   "variante": "a-cut",
+   "instancia": "0x16914",
+   "valores": {
+    "cut": -1536
+   },
+   "rom_base_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+   "copia": "Sonic_Delta_Reloaded__Brazil___Unl_.jump-16914-d5a451fa.bin",
+   "copia_sha256": "d5a451fac0f17bc33b11acf6e18570bdfffb35d810ea3170ef47ad06066cdda9",
+   "ips": "Sonic_Delta_Reloaded__Brazil___Unl_.jump-16914-d5a451fa.ips",
+   "ips_sha256": "33e306c31865960fd378fd43851fcccc2648150674e51f1bf4fe208bc2d7179b",
+   "bytes_diferentes": 1
+  },
+  {
+   "jogo": "delta",
+   "variante": "a-both",
+   "instancia": "0x16914",
+   "valores": {
+    "imp": 2304,
+    "cut": -1536
+   },
+   "rom_base_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+   "copia": "Sonic_Delta_Reloaded__Brazil___Unl_.jump-16914-f3b0aa50.bin",
+   "copia_sha256": "f3b0aa5088c0dbb50dd801b0d74799a4fd94ed8d4bb8b5e4bb98d45723722376",
+   "ips": "Sonic_Delta_Reloaded__Brazil___Unl_.jump-16914-f3b0aa50.ips",
+   "ips_sha256": "73e8ec33b5cc2e57c42f9dc2f489002ef00ed658ce8667f35ebe178020ed69ba",
+   "bytes_diferentes": 3
+  },
+  {
+   "jogo": "delta",
+   "variante": "b-imp",
+   "instancia": "0x1732a",
+   "valores": {
+    "imp": 2304
+   },
+   "rom_base_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+   "copia": "Sonic_Delta_Reloaded__Brazil___Unl_.jump-1732a-e6e0e1f5.bin",
+   "copia_sha256": "e6e0e1f5ce4534e30caf6cb6562e18d0a5f33acacad0fc621092a843207b1ee8",
+   "ips": "Sonic_Delta_Reloaded__Brazil___Unl_.jump-1732a-e6e0e1f5.ips",
+   "ips_sha256": "353ee61917b7de3fdd0fb3b5b0ca080be1ccb37559224015e28b57a5344a6f3f",
+   "bytes_diferentes": 2
+  },
+  {
+   "jogo": "delta",
+   "variante": "c-imp",
+   "instancia": "0x1a170",
+   "valores": {
+    "imp": 2304
+   },
+   "rom_base_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+   "copia": "Sonic_Delta_Reloaded__Brazil___Unl_.jump-1a170-fc3f103e.bin",
+   "copia_sha256": "fc3f103e5fb235d605e1e845009b6dd0343152a2e4e9015ce0638f4bde1ad7a0",
+   "ips": "Sonic_Delta_Reloaded__Brazil___Unl_.jump-1a170-fc3f103e.ips",
+   "ips_sha256": "6ce155c50bb3b4e86a03ddc2eb26287f9e88dcf8a5aa8388c82d16d22dec1b72",
+   "bytes_diferentes": 2
+  }
+ ]
+}

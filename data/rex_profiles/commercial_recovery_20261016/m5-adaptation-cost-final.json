@@ -1,0 +1,56 @@
+{
+  "schema": "rex-final-adaptation-cost/v1",
+  "baseline": "14e66e53",
+  "first_target_attribution": "GoldenAxe first transfer: generic contiguous-copy operation and typed reconstruction, generic padded console header detection, generic runtime canvas dimensions. No dispatch by game/hash.",
+  "production_excluding_test_modules": [
+    {
+      "path": "src/components/viewport/ViewportPanel.tsx",
+      "added": 14,
+      "removed": 13,
+      "sha256": "b5956558fd9849c314cad89bb23c3779ba062f11ec829a8b66873f52b5991e8c"
+    },
+    {
+      "path": "src/components/viewport/gameFramePresentation.ts",
+      "added": 18,
+      "removed": 0,
+      "sha256": "4d0df5eb3f2a780b8af72c5b88a79467c8d3b55583b2d765647612d173a0cec2"
+    },
+    {
+      "path": "src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs",
+      "added": 339,
+      "removed": 0,
+      "sha256": "e2d351ee960470bcfbd341441c685264d9c620905605757bb5061bfa692b2acc"
+    },
+    {
+      "path": "src-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs",
+      "added": 20,
+      "removed": 7,
+      "sha256": "a22bb7fd57dbe4d5e365c99402460ea019fe51660dba5323060262da92fc2d92"
+    },
+    {
+      "path": "src-tauri/src/emulator/libretro_ffi.rs",
+      "added": 21,
+      "removed": 1,
+      "sha256": "d1237531fd272b8200693c6e95513899efad2f28952acd67c9b2860904310391"
+    },
+    {
+      "path": "src/components/nodegraph/ProfileGraphBridgePanel.tsx",
+      "added": 2,
+      "removed": 1,
+      "sha256": "2df3baec28d63e2f0ed15043c4fc728a156032fb2b0e008461c28ecc31313ec3"
+    },
+    {
+      "path": "src/core/nodegraph/profileGraphBridge.ts",
+      "added": 4,
+      "removed": 0,
+      "sha256": "2e66b028426bd94ff5fbe0ce44fbc468f088e35461660dfa92537ad091267840"
+    }
+  ],
+  "profile": "generic m68k.copy_grid.v1 revision2; zero per-reserved-target profile-definition change",
+  "reserved_metric": "Four consecutive targets static reconstruction/publication/IPS with zero production change after5e7516e; no calls in their frozen episodes. Not four native game-consumption passes.",
+  "native_transfer": "GoldenAxe different linear DBRA vs Sonic nested loop, separate real external original/edited observation, native140forward/138reverse. Final primary regressions/certify still pending.",
+  "tests": "Authored mode-transition plus eight existing IPC/identity tests9/9; prior Rust/frontend tests remain separately recorded; final host suite pending.",
+  "instrumentation": "External MAME observers and private GX state preparation separate from app. Existing canonical nativeUI/replay/IPC reused. New reproduction helper only clones frozen spec paths.",
+  "new_dependencies": 0,
+  "core_changed": false
+}

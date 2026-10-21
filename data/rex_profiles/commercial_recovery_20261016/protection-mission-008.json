@@ -1,0 +1,9 @@
+{
+  "ref": "refs/checkpoints/rex-commercial-20261016/m4-closed",
+  "commit": "14e66e53f49e59d136ed170edf1028611b1d2f96",
+  "bundle": "/home/misael/rds-scratch/commercial_recovery_20261016/mission-checkpoint-008.bundle",
+  "sha256": "2207393bb0152ae40ceae8218aa28e1236b7493f7fb522ef0e7bbd668e249002",
+  "bytes": 303192,
+  "verify": "exit0",
+  "requires": "03ddc59de38cc3d9c448b893da72a3efd575030a"
+}

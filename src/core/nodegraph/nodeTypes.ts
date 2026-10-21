@@ -23,6 +23,8 @@ export type NodeType =
   | "condition_overlap"
   | "condition_on_ground"
   | "camera_follow"
+  | "authored_strike"
+  | "palette_swap"
   | "camera_bounds"
   | "timer"
   | "set_tile"
@@ -50,6 +52,7 @@ export type NodeType =
   | "rom_region_entry"
   | "rom_input_bit_guard"
   | "rom_counter_add"
+  | "rom_copy_grid"
   | "rom_counter_compare"
   | "rom_state_write"
   | "rom_external_call"
@@ -176,6 +179,8 @@ export function isNodeType(value: unknown): value is NodeType {
     value === "condition_overlap" ||
     value === "condition_on_ground" ||
     value === "camera_follow" ||
+    value === "authored_strike" ||
+    value === "palette_swap" ||
     value === "camera_bounds" ||
     value === "timer" ||
     value === "set_tile" ||
@@ -203,6 +208,7 @@ export function isNodeType(value: unknown): value is NodeType {
     value === "rom_region_entry" ||
     value === "rom_input_bit_guard" ||
     value === "rom_counter_add" ||
+    value === "rom_copy_grid" ||
     value === "rom_counter_compare" ||
     value === "rom_state_write" ||
     value === "rom_external_call" ||

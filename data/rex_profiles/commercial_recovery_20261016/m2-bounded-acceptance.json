@@ -1,0 +1,44 @@
+{
+  "schema": "rex-m2-bounded-acceptance/v1",
+  "generated_at": "2026-10-18T01:39:52.291795+00:00",
+  "status": "M2_CONSOLIDATED_BOUNDED_ORIGINAL_CHAIN",
+  "requirements": {
+    "entry_caller_arguments": "PASS real171E/caller1B6D2/return1B6D8/stream65432/destinationFF4000",
+    "decompression_copy": "PASS4096source reads+4096writes, independent8128byte strided reference",
+    "layout_to_consumer": "PASS17sampled args,715SAT tile writes; final16sprite words from original layout IDs through lookup/frame/descriptor, five negatives refuse",
+    "graphics_transfer": "PASS67SAT+67palette DMA,41116bytes linked to previous RAM writes; final640/128byte native destinations exact; wall249tile native hash pinned",
+    "presentation": "PASS8482real resource pixels, zeroRGB tolerance; all16projected sprite indices have layout-to-DMA provenance;48pixels excluded by nonresource rectangles before comparison",
+    "instrument_qualification": "PASS original author controls+DMA cases+asymmetric1024pixel IRQ phase,4training+13reserved author frames; wrong phase and identity refuse",
+    "app_correspondence": "PASS34/34GX prepared original replay, two epochs180frames exact, RAM initial-copy boundary and RGBA reference/core/canvas exact; runtimes remain separate",
+    "host_certification": "READY1047frontend+1036Rust;3skip/93ignore; seven gates exit0; defaultClippy/fmt separately passed"
+  },
+  "files": {
+    "data/rex_profiles/commercial_recovery_20261016/m2-v3-chain-verification.json": "e4ea0a1e627ca38dd4dd6cc9c95d62041f9c848ed72df84d9dc1127889a4682b",
+    "data/rex_profiles/commercial_recovery_20261016/m2-layout-sprite-link-qualified.json": "f194ffde7060a03cae0a888d4aa1762fe1ab13ee764f3c2368960694d2423444",
+    "data/rex_profiles/commercial_recovery_20261016/m2-dma-chain-verification.json": "a489f22f07c1b5c014c5d4b9f87b485d6a4213b2b41e604bcd8bb655fccb0fbb",
+    "data/rex_profiles/commercial_recovery_20261016/m2-author-phase-qualified.json": "dd647d9a5d3723fc25a022acac2b27e8088dd61cf1a48956b27cf93958b1480b",
+    "data/rex_profiles/commercial_recovery_20261016/m2-sprite-pixel-witness-qualified.json": "9eb868af7136a6a740b17fb102a046288e558b02a18bf9db3a3d2de65c543900",
+    "data/rex_profiles/commercial_recovery_20261016/m2-app-post-fix-result.json": "8d98b560498364693c474f072df2a6003d98da06669f2b70cfddf495cc74c07d",
+    "data/rex_profiles/commercial_recovery_20261016/host-certify-after-phase-readiness.json": "fd8324908bec9663ab6adce9b7b7eb56249e7f45ac562b3990e311e68f33eb29"
+  },
+  "buffer_lifetimes": "FF4000 is decompressed layout before copy, later reused for ID mapping records; copy destination FF1020 persists. copy_return event is declared-region exit, not a claimed RET instruction.",
+  "limits": [
+    "assisted special-stage entry, not natural gameplay",
+    "MAME trace is not GX session; final full layouts differ by observed later game write, initial boundary correspondence only",
+    "original observed chain, no commercial edited ROM yet",
+    "geometry projection uses observed state and independent implementation; not reserved counterfactual game-state oracle",
+    "normal progressive H40, selected resource, nonresource rectangles excluded",
+    "Nemesis artwork matches static decode/VRAM pin; Nemesis entry/caller not traced",
+    "M3/M4/M5 not yet demonstrated"
+  ],
+  "preserved_failures": [
+    "historicalvisualv1FAIL86/89",
+    "oldBYORepisodes1/2",
+    "soundOPEN",
+    "DMAanalysis001negative accepted",
+    "spritepixelwitness001FAIL6912/8217",
+    "oldappcanvasFAIL",
+    "cross-runtimefinalRAMFAIL"
+  ],
+  "claimed_maturity": "Experimental"
+}

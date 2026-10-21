@@ -20,7 +20,50 @@ import {
   emulatorStartRecording,
   emulatorStopRecording,
   listenToAudioStream,
+  listenToFrames,
+  acceptsFrame,
+  runSingleFrame,
 } from "./emulatorService";
+
+describe("frame presentation", () => {
+  const payload = { width: 1, height: 1, rgba: [10, 20, 30, 255], core_epoch: 2, rom_sha256: "loaded", frame_sequence: 7, frame_index: 1 };
+
+  it("receives paused frames without commands and ignores queued events after disposal", async () => {
+    mocks.invoke.mockReset();
+    mocks.listen.mockReset();
+    const unlisten = vi.fn();
+    mocks.listen.mockResolvedValue(unlisten);
+    const received = vi.fn();
+    const stop = await listenToFrames(received);
+    const handler = mocks.listen.mock.calls[0][1] as (event: { payload: typeof payload }) => void;
+    expect(mocks.listen).toHaveBeenCalledWith("emulator://frame", expect.any(Function));
+    handler({ payload });
+    expect(received).toHaveBeenCalledExactlyOnceWith(payload);
+    expect(mocks.invoke).not.toHaveBeenCalled();
+    stop();
+    handler({ payload });
+    stop();
+    expect(received).toHaveBeenCalledTimes(1);
+    expect(unlisten).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses missing identity, stale ROMs, stale epochs and reordered presentation", () => {
+    expect(acceptsFrame(payload, 2, "loaded", null)).toBe(true);
+    expect(acceptsFrame(payload, null, "loaded", null)).toBe(false);
+    expect(acceptsFrame(payload, 2, undefined, null)).toBe(false);
+    expect(acceptsFrame({ ...payload, core_epoch: undefined }, 2, "loaded", null)).toBe(false);
+    expect(acceptsFrame({ ...payload, rom_sha256: undefined }, 2, "loaded", null)).toBe(false);
+    expect(acceptsFrame({ ...payload, frame_sequence: undefined }, 2, "loaded", null)).toBe(false);
+    expect(acceptsFrame(payload, 3, "loaded", null)).toBe(false);
+    expect(acceptsFrame(payload, 2, "other", null)).toBe(false);
+    for (const sequence of [0, 1.5, NaN, Infinity, 6, 7]) {
+      expect(acceptsFrame({ ...payload, frame_sequence: sequence }, 2, "loaded", { epoch: 2, sequence: 7 })).toBe(false);
+    }
+    // Frame index may decrease on rewind; only publication sequence determines freshness.
+    expect(acceptsFrame({ ...payload, frame_sequence: 8, frame_index: 0 }, 2, "loaded", { epoch: 2, sequence: 7 })).toBe(true);
+    expect(acceptsFrame(payload, 2, "loaded", { epoch: 1, sequence: 99 })).toBe(true);
+  });
+});
 
 describe("emulatorReadMemory", () => {
   beforeEach(() => {
@@ -112,5 +155,40 @@ describe("keyToJoypad", () => {
 
   it("ignores unmapped keys", () => {
     expect(keyToJoypad(idle, "KeyQ", true)).toBeNull();
+  });
+});
+
+describe("runSingleFrame", () => {
+  const payload = { width: 1, height: 1, rgba: [0, 0, 0, 255], core_epoch: 1, rom_sha256: "r", frame_sequence: 3, frame_index: 3 };
+
+  it("runs exactly one frame even when the frame event arrives late", async () => {
+    mocks.invoke.mockReset();
+    mocks.listen.mockReset();
+    const unlisten = vi.fn();
+    mocks.listen.mockResolvedValue(unlisten);
+    mocks.invoke.mockResolvedValue({ ok: true, message: "" });
+    const seen = vi.fn();
+    const pending = runSingleFrame(seen);
+    await vi.waitFor(() => expect(mocks.invoke).toHaveBeenCalledTimes(1));
+    // Evento atrasado bem depois do intervalo de ~16 ms do loop normal.
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    const handler = mocks.listen.mock.calls[0][1] as (event: { payload: typeof payload }) => void;
+    handler({ payload });
+    handler({ payload: { ...payload, frame_sequence: 4 } });
+    await expect(pending).resolves.toEqual(payload);
+    expect(mocks.invoke).toHaveBeenCalledTimes(1);
+    expect(mocks.invoke).toHaveBeenCalledWith("emulator_run_frame");
+    expect(seen).toHaveBeenCalledTimes(1);
+    expect(unlisten).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails without presenting when the core refuses the frame", async () => {
+    mocks.invoke.mockReset();
+    mocks.listen.mockReset();
+    const unlisten = vi.fn();
+    mocks.listen.mockResolvedValue(unlisten);
+    mocks.invoke.mockResolvedValue({ ok: false, message: "sem rom" });
+    await expect(runSingleFrame(vi.fn())).rejects.toThrow("sem rom");
+    expect(unlisten).toHaveBeenCalledTimes(1);
   });
 });

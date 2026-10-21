@@ -11,6 +11,11 @@
 //! * flip em torno do eixo comum (convencao "largura - eixo"): deslocamento
 //!   `2*eixo - celula`; offsets x/y do AIR somados a posicao (sem facing no v1);
 //! * `rds_mugen_<v>_clsn1/_clsn2` = numero de caixas do frame atual (observavel na RAM).
+//! * eventos autorais por ocorrencia (`AnimationDef.frame_events`): disparam uma vez quando a
+//!   ocorrencia atinge o tick local declarado (0 = primeiro tick visivel). O tick so roda por
+//!   quadro emulado, logo pausar nao repete e avancar um quadro dispara no maximo uma vez.
+//!   `rds_mugen_<v>_evfired` conta disparos e `rds_mugen_<v>_evlast` guarda o indice do ultimo
+//!   (observaveis na RAM); som chama o driver XGM do projeto.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -234,6 +239,26 @@ pub(crate) fn render_decls(ast: &AstOutput) -> String {
             ));
         }
     }
+    let sfx_names: BTreeSet<String> = super::ast_generator::collect_sfx_resources(ast)
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect();
+    for (res, tables) in &assets {
+        let Ok(tables) = tables else { continue };
+        for event in tables.iter().flat_map(|t| &t.events) {
+            if !sfx_names.contains(&event.sound) {
+                out.push_str(&format!(
+                    "#error \"RetroDev MUGEN: sprite '{res}': evento '{}' usa o som '{}', que nao esta no Audio do projeto\"\n",
+                    event.id.replace('"', "'"),
+                    event.sound
+                ));
+            }
+        }
+    }
+    let any_events = assets
+        .values()
+        .filter_map(|t| t.as_ref().ok())
+        .any(|tables| tables.iter().any(|t| !t.events.is_empty()));
     let any_table = assets.values().any(|t| t.is_ok());
     if !any_table {
         out.push_str(&render_done_fns(&done_vars, &vars, &assets));
@@ -241,7 +266,13 @@ pub(crate) fn render_decls(ast: &AstOutput) -> String {
     }
     out.push_str("/* RetroDev MUGEN runtime (mugen.character.v1, Experimental) */\n");
     out.push_str("typedef struct { u8 timer; s8 dx; s8 dy; s8 fdx; s8 fdy; u8 flip; u8 c1; u8 c2; } rds_mugen_frame_t;\n");
-    out.push_str("typedef struct { u8 count; u8 loop; u16 total; const rds_mugen_frame_t* frames; } rds_mugen_anim_t;\n");
+    out.push_str("typedef struct { u8 frame; u8 tick; u16 sfx; } rds_mugen_ev_t;\n");
+    out.push_str("typedef struct { u8 count; u8 loop; u16 total; const rds_mugen_frame_t* frames; u8 evcount; const rds_mugen_ev_t* ev; } rds_mugen_anim_t;\n");
+    if any_events {
+        out.push_str(
+            "static void rds_mugen_play_sfx(u16 id) { XGM_startPlayPCM(id, 1, SOUND_PCM_CH2); }\n",
+        );
+    }
     out.push_str("typedef struct { const s8* c1; const s8* c2; } rds_mugen_boxes_t;\n");
     for (res, tables) in &assets {
         let Ok(tables) = tables else { continue };
@@ -270,21 +301,37 @@ pub(crate) fn render_decls(ast: &AstOutput) -> String {
                 "static const rds_mugen_frame_t rds_mugen_{res}_a{ai}[] = {{{}}};\n",
                 rows.join(",")
             ));
-            // Caixas por frame (relativas ao eixo), disponiveis para logica futura.
-            for (fi, f) in t.frames.iter().enumerate() {
-                for (kind, list) in [("c1", &f.clsn1), ("c2", &f.clsn2)] {
+            // Caixas por frame relativas ao eixo, normalizadas para (min x, min y, max x, max y).
+            for kind in ["c1", "c2"] {
+                let mut ptrs = Vec::new();
+                for (fi, f) in t.frames.iter().enumerate() {
+                    let list = if kind == "c1" { &f.clsn1 } else { &f.clsn2 };
                     if list.is_empty() {
+                        ptrs.push("NULL".to_string());
                         continue;
                     }
                     let vals: Vec<String> = list
                         .iter()
-                        .flat_map(|b| b.iter().map(|v| v.clamp(&-128, &127).to_string()))
+                        .flat_map(|b| {
+                            [
+                                b[0].min(b[2]),
+                                b[1].min(b[3]),
+                                b[0].max(b[2]),
+                                b[1].max(b[3]),
+                            ]
+                        })
+                        .map(|v| v.clamp(-512, 511).to_string())
                         .collect();
                     out.push_str(&format!(
-                        "static const s16 rds_mugen_{res}_a{ai}_f{fi}_{kind}[] __attribute__((unused)) = {{{}}};\n",
+                        "static const s16 rds_mugen_{res}_a{ai}_f{fi}_{kind}[] = {{{}}};\n",
                         vals.join(",")
                     ));
+                    ptrs.push(format!("rds_mugen_{res}_a{ai}_f{fi}_{kind}"));
                 }
+                out.push_str(&format!(
+                    "static const s16* const rds_mugen_{res}_a{ai}_{kind}p[] __attribute__((unused)) = {{{}}};\n",
+                    ptrs.join(",")
+                ));
             }
             let total: u32 = if t.timers.contains(&0) {
                 0
@@ -295,17 +342,54 @@ pub(crate) fn render_decls(ast: &AstOutput) -> String {
                     .sum::<u32>()
                     .min(u16::MAX as u32)
             };
+            let ev_ref = if t.events.is_empty() {
+                "NULL".to_string()
+            } else {
+                let rows: Vec<String> = t
+                    .events
+                    .iter()
+                    .map(|e| {
+                        format!(
+                            "{{{},{},SFX_{}}} /* {} */",
+                            e.frame,
+                            e.tick.min(255),
+                            e.sound.to_uppercase(),
+                            e.id.replace("*/", "")
+                        )
+                    })
+                    .collect();
+                out.push_str(&format!(
+                    "static const rds_mugen_ev_t rds_mugen_{res}_a{ai}_ev[] = {{{}}};\n",
+                    rows.join(",")
+                ));
+                format!("rds_mugen_{res}_a{ai}_ev")
+            };
             anim_rows.push(format!(
-                "{{{},{},{total},rds_mugen_{res}_a{ai}}}",
+                "{{{},{},{total},rds_mugen_{res}_a{ai},{},{ev_ref}}}",
                 t.frames.len(),
-                t.loop_start
+                t.loop_start,
+                t.events.len()
             ));
         }
         out.push_str(&format!(
             "static const rds_mugen_anim_t rds_mugen_{res}_anims[] = {{{}}};\n",
             anim_rows.join(",")
         ));
+        for kind in ["c1", "c2"] {
+            let rows: Vec<String> = (0..tables.len())
+                .map(|ai| format!("rds_mugen_{res}_a{ai}_{kind}p"))
+                .collect();
+            out.push_str(&format!(
+                "static const s16* const* const rds_mugen_{res}_{kind}[] __attribute__((unused)) = {{{}}};\n",
+                rows.join(",")
+            ));
+        }
     }
+    let play = if any_events {
+        "rds_mugen_play_sfx(e->sfx);"
+    } else {
+        "(void)e;"
+    };
     for (v, res) in &vars {
         if !matches!(assets.get(res), Some(Ok(_))) {
             continue;
@@ -321,6 +405,10 @@ pub(crate) fn render_decls(ast: &AstOutput) -> String {
              static volatile u16 rds_mugen_{v}_clsn2 = 0;\n\
              static volatile s16 rds_mugen_{v}_vx = 0;\n\
              static s16 rds_mugen_{v}_xacc = 0;\n\
+             static u16 rds_mugen_{v}_ltick = 0;\n\
+             static volatile u16 rds_mugen_{v}_evfired = 0;\n\
+             static volatile u16 rds_mugen_{v}_evlast = 0xFFFF;\n\
+             static volatile u16 rds_mugen_{v}_evlast_anim = 0xFFFF;\n\
              static void rds_mugen_{v}_tick(void) {{\n\
              \x20   if (!{v}) return;\n\
              \x20   SPR_setAutoAnimation({v}, FALSE);\n\
@@ -330,12 +418,23 @@ pub(crate) fn render_decls(ast: &AstOutput) -> String {
              \x20       rds_mugen_{v}_restart = 0;\n\
              \x20       rds_mugen_{v}_anim = anim; rds_mugen_{v}_frame = 0;\n\
              \x20       rds_mugen_{v}_timer = a->frames[0].timer; rds_mugen_{v}_elapsed = 0;\n\
+             \x20       rds_mugen_{v}_ltick = 0;\n\
              \x20   }} else {{\n\
              \x20       if (rds_mugen_{v}_elapsed < 0xFFFF) rds_mugen_{v}_elapsed++;\n\
              \x20       if (rds_mugen_{v}_timer > 0 && --rds_mugen_{v}_timer == 0) {{\n\
              \x20           rds_mugen_{v}_frame++;\n\
              \x20           if (rds_mugen_{v}_frame >= a->count) rds_mugen_{v}_frame = a->loop;\n\
              \x20           rds_mugen_{v}_timer = a->frames[rds_mugen_{v}_frame].timer;\n\
+             \x20           rds_mugen_{v}_ltick = 0;\n\
+             \x20       }} else if (rds_mugen_{v}_ltick < 0xFFFF) {{\n\
+             \x20           rds_mugen_{v}_ltick++;\n\
+             \x20       }}\n\
+             \x20   }}\n\
+             \x20   for (u16 i = 0; i < a->evcount; i++) {{\n\
+             \x20       const rds_mugen_ev_t* e = &a->ev[i];\n\
+             \x20       if (e->frame == rds_mugen_{v}_frame && e->tick == rds_mugen_{v}_ltick) {{\n\
+             \x20           rds_mugen_{v}_evfired++; rds_mugen_{v}_evlast = i; rds_mugen_{v}_evlast_anim = anim;\n\
+             \x20           {play}\n\
              \x20       }}\n\
              \x20   }}\n\
              \x20   rds_mugen_{v}_done = (a->total != 0 && rds_mugen_{v}_elapsed + 1 == a->total) ? 1 : 0;\n\
@@ -349,6 +448,7 @@ pub(crate) fn render_decls(ast: &AstOutput) -> String {
              }}\n"
         ));
     }
+    out.push_str(&render_strikes(ast, &assets, &vars));
     out.push_str(&render_programs(ast, &assets, &vars));
     out.push_str(&render_done_fns(&done_vars, &vars, &assets));
     out
@@ -378,11 +478,107 @@ fn render_done_fns(
 pub(crate) fn render_ticks(ast: &AstOutput, indent: usize) -> String {
     let assets = mugen_assets(ast);
     let pad = " ".repeat(indent);
-    mugen_vars(ast, &assets)
+    let mut out: String = mugen_vars(ast, &assets)
         .iter()
         .filter(|(_, res)| matches!(assets.get(res), Some(Ok(_))))
         .map(|(v, _)| format!("{pad}rds_mugen_{v}_tick();\n"))
-        .collect()
+        .collect();
+    for strike in collect_strikes(ast) {
+        out.push_str(&format!("{pad}rds_strike_{}_check();\n", strike.0));
+    }
+    out
+}
+
+/// `(id, atacante, alvo, dano, vida)` de cada golpe autoral, sem repeticao de id.
+fn collect_strikes(ast: &AstOutput) -> Vec<(String, String, String, u16, u16)> {
+    let mut out: Vec<(String, String, String, u16, u16)> = Vec::new();
+    for script in &ast.logic_scripts {
+        visit_ops(&script.ops, &mut |op| {
+            if let LogicOp::AuthoredStrike {
+                strike_id,
+                attacker_var,
+                target_var,
+                damage,
+                health,
+            } = op
+            {
+                if !out.iter().any(|s| s.0 == *strike_id) {
+                    out.push((
+                        strike_id.clone(),
+                        attacker_var.clone(),
+                        target_var.clone(),
+                        *damage,
+                        *health,
+                    ));
+                }
+            }
+        });
+    }
+    out
+}
+
+/// Estado e verificacao dos golpes autorais (ver `LogicOp::AuthoredStrike`). Observaveis na RAM:
+/// `rds_strike_<id>_hp` (vida do alvo), `_hits` (acertos aplicados) e `_overlaps` (quadros com
+/// caixa de ataque sobre caixa de corpo, aplicando ou nao dano).
+fn render_strikes(
+    ast: &AstOutput,
+    assets: &BTreeMap<String, Result<Vec<MugenAnimTable>, String>>,
+    vars: &[(String, String)],
+) -> String {
+    let mut out = String::new();
+    for (id, a, t, damage, health) in collect_strikes(ast) {
+        let table = |v: &str| {
+            vars.iter()
+                .find(|(var, _)| var == v)
+                .and_then(|(_, res)| match assets.get(res) {
+                    Some(Ok(tables)) => tables.first().map(|first| (res.clone(), first.anchor)),
+                    _ => None,
+                })
+        };
+        let (Some((ra, (aax, aay))), Some((rt, (tax, tay)))) = (table(&a), table(&t)) else {
+            out.push_str(&format!(
+                "#error \"RetroDev: golpe autoral '{id}' exige atacante e alvo com animacao MUGEN valida\"\n"
+            ));
+            continue;
+        };
+        out.push_str(&format!(
+            "static volatile u16 rds_strike_{id}_hp = {health};\n\
+             static volatile u16 rds_strike_{id}_hits = 0;\n\
+             static volatile u16 rds_strike_{id}_overlaps = 0;\n\
+             static u16 rds_strike_{id}_armed = 0;\n\
+             static u16 rds_strike_{id}_enabled = 0;\n\
+             static void rds_strike_{id}_check(void) {{\n\
+             \x20   if (!{a} || !{t}) {{ rds_strike_{id}_enabled = 0; return; }}\n\
+             \x20   if (rds_mugen_{a}_elapsed == 0) rds_strike_{id}_armed = 1;\n\
+             \x20   if (!rds_strike_{id}_enabled) return;\n\
+             \x20   rds_strike_{id}_enabled = 0;\n\
+             \x20   const u16 aa = rds_mugen_{a}_anim, af = rds_mugen_{a}_frame;\n\
+             \x20   const u16 ta = rds_mugen_{t}_anim, tf = rds_mugen_{t}_frame;\n\
+             \x20   const u16 n1 = rds_mugen_{ra}_anims[aa].frames[af].c1;\n\
+             \x20   const u16 n2 = rds_mugen_{rt}_anims[ta].frames[tf].c2;\n\
+             \x20   if (n1 == 0 || n2 == 0) return;\n\
+             \x20   const s16* b1 = rds_mugen_{ra}_c1[aa][af];\n\
+             \x20   const s16* b2 = rds_mugen_{rt}_c2[ta][tf];\n\
+             \x20   const s16 ax = {a}_x + {aax}, ay = {a}_y + {aay};\n\
+             \x20   const s16 tx = {t}_x + {tax}, ty = {t}_y + {tay};\n\
+             \x20   u16 hit = 0;\n\
+             \x20   for (u16 i = 0; i < n1 && !hit; i++) {{\n\
+             \x20       const s16* p = &b1[i * 4];\n\
+             \x20       for (u16 j = 0; j < n2 && !hit; j++) {{\n\
+             \x20           const s16* q = &b2[j * 4];\n\
+             \x20           if (ax + p[0] < tx + q[2] && ax + p[2] > tx + q[0] && ay + p[1] < ty + q[3] && ay + p[3] > ty + q[1]) hit = 1;\n\
+             \x20       }}\n\
+             \x20   }}\n\
+             \x20   if (!hit) return;\n\
+             \x20   rds_strike_{id}_overlaps++;\n\
+             \x20   if (!rds_strike_{id}_armed) return;\n\
+             \x20   rds_strike_{id}_armed = 0;\n\
+             \x20   rds_strike_{id}_hits++;\n\
+             \x20   rds_strike_{id}_hp = rds_strike_{id}_hp > {damage} ? rds_strike_{id}_hp - {damage} : 0;\n\
+             }}\n"
+        ));
+    }
+    out
 }
 
 // ------------------------------------------------------------------ programa de estados

@@ -1,0 +1,766 @@
+{
+ "schema": "rex-profile-spec/v2",
+ "id": "m68k.authored_timer_gate.v1",
+ "revision": 1,
+ "status": "draft",
+ "title": "Temporizador autoral (sintético)",
+ "summary": "Perfil AUTORAL de teste: arma um temporizador de 8 bits e um acumulador de 32 bits, com um tique que compara um contador a um limite e um reinício com passo de 32 bits. Não descreve nenhum jogo.",
+ "artifact_tag": "timer",
+ "arch": {
+  "cpu": "m68k",
+  "endianness": "big",
+  "instruction_alignment": 2,
+  "bus_address_bits": 24
+ },
+ "rom_mapping": {
+  "kind": "linear",
+  "file_header_bytes": 512,
+  "bus_base": 0
+ },
+ "provenance": {
+  "author": "RetroDev Studio - integrador REX (perfil autoral de teste)",
+  "created": "2026-10-09",
+  "derived_from": [
+   "scripts/rex_profiles/integration_20261009/make-authored-timer-profile.py"
+  ],
+  "notes": "Amostra NAO cega: perfil e ROM sintetica foram escritos pela mesma sessao."
+ },
+ "rom_binding": {
+  "mode": "sha256",
+  "sha256": [
+   "4f750ea6cbace93cbbdd644659b3a5a94903d9e20f2405daa55efb946beb7802"
+  ]
+ },
+ "work_limits": {
+  "max_rom_bytes": 65536,
+  "max_matches_per_pattern": 16,
+  "max_instances": 8
+ },
+ "captures": [
+  {
+   "name": "dur",
+   "width": 1,
+   "signed": false,
+   "endianness": "big",
+   "role": "immediate"
+  },
+  {
+   "name": "score",
+   "width": 4,
+   "signed": false,
+   "endianness": "big",
+   "role": "immediate"
+  },
+  {
+   "name": "bonus",
+   "width": 2,
+   "signed": false,
+   "endianness": "big",
+   "role": "immediate"
+  },
+  {
+   "name": "lim",
+   "width": 2,
+   "signed": false,
+   "endianness": "big",
+   "role": "immediate"
+  },
+  {
+   "name": "step",
+   "width": 4,
+   "signed": true,
+   "endianness": "big",
+   "role": "immediate"
+  },
+  {
+   "name": "tmr",
+   "width": 2,
+   "signed": true,
+   "endianness": "big",
+   "role": "ea_displacement"
+  },
+  {
+   "name": "acc",
+   "width": 2,
+   "signed": true,
+   "endianness": "big",
+   "role": "ea_displacement"
+  },
+  {
+   "name": "aux",
+   "width": 2,
+   "signed": true,
+   "endianness": "big",
+   "role": "ea_displacement"
+  },
+  {
+   "name": "cnt",
+   "width": 2,
+   "signed": true,
+   "endianness": "big",
+   "role": "ea_displacement"
+  },
+  {
+   "name": "gate",
+   "width": 4,
+   "signed": false,
+   "endianness": "big",
+   "role": "bus_address"
+  }
+ ],
+ "patterns": [
+  {
+   "id": "arm",
+   "sources": [
+    "11 7C 00 {dur:1} {tmr:2} 21 7C {score:4} {acc:2}"
+   ]
+  },
+  {
+   "id": "arm_ext",
+   "sources": [
+    "4A 39 {gate:4} 67 0E 11 7C 00 {dur:1} {tmr:2} 21 7C {score:4} {acc:2} 31 7C {bonus:2} {aux:2}"
+   ]
+  },
+  {
+   "id": "tick",
+   "sources": [
+    "53 28 {tmr:2} 66 {_:1} 0C 68 {lim:2} {cnt:2} 6D {_:1}",
+    "53 28 {tmr:2} 66 00 {_:2} 0C 68 {lim:2} {cnt:2} 6D {_:1}"
+   ]
+  },
+  {
+   "id": "reset",
+   "sources": [
+    "42 68 {cnt:2} 20 3C {step:4} 0C 80 {step:4}"
+   ]
+  }
+ ],
+ "constraints": [
+  {
+   "kind": "range",
+   "id": "tmr_curto",
+   "pattern": "arm",
+   "capture": "tmr",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "kind": "range",
+   "id": "tmr_curto_ext",
+   "pattern": "arm_ext",
+   "capture": "tmr",
+   "min": 0,
+   "max": 127
+  },
+  {
+   "kind": "multiple_of",
+   "id": "acc_alinhado",
+   "pattern": "arm",
+   "capture": "acc",
+   "modulo": 2
+  },
+  {
+   "kind": "distinct",
+   "id": "tmr_nao_e_acc",
+   "pattern": "arm",
+   "a": "tmr",
+   "b": "acc"
+  }
+ ],
+ "relations": [
+  {
+   "kind": "subsumes",
+   "id": "ext_contem_simples",
+   "outer": "arm_ext",
+   "inner": "arm",
+   "prefix_len": 8
+  },
+  {
+   "kind": "pair",
+   "id": "p_tick",
+   "from": [
+    "arm",
+    "arm_ext"
+   ],
+   "to": "tick",
+   "consistent_on": [
+    "tmr"
+   ],
+   "max_distance": 512,
+   "mutual": true,
+   "tie": "refuse"
+  },
+  {
+   "kind": "follow",
+   "id": "f_reset",
+   "from": "tick",
+   "to": "reset",
+   "consistent_on": [
+    "cnt"
+   ],
+   "max_distance": 64,
+   "tie": "refuse"
+  }
+ ],
+ "fields": [
+  {
+   "name": "dur",
+   "label": "Duração do temporizador",
+   "patterns": [
+    "arm_ext",
+    "arm"
+   ],
+   "capture": "dur",
+   "extra_offsets": [],
+   "min": 1,
+   "max": 255,
+   "requires": null
+  },
+  {
+   "name": "score",
+   "label": "Valor somado ao acumulador",
+   "patterns": [
+    "arm_ext",
+    "arm"
+   ],
+   "capture": "score",
+   "extra_offsets": [],
+   "min": 0,
+   "max": 999999,
+   "requires": null
+  },
+  {
+   "name": "bonus",
+   "label": "Bônus da forma com portão",
+   "patterns": [
+    "arm_ext"
+   ],
+   "capture": "bonus",
+   "extra_offsets": [],
+   "min": 0,
+   "max": 65535,
+   "requires": null
+  },
+  {
+   "name": "lim",
+   "label": "Limite do contador no tique",
+   "patterns": [
+    "tick"
+   ],
+   "capture": "lim",
+   "extra_offsets": [],
+   "min": 1,
+   "max": 60000,
+   "requires": "p_tick"
+  },
+  {
+   "name": "step",
+   "label": "Passo do reinício",
+   "patterns": [
+    "reset"
+   ],
+   "capture": "step",
+   "extra_offsets": [
+    12
+   ],
+   "min": -100000,
+   "max": 100000,
+   "requires": "f_reset"
+  }
+ ],
+ "projection": {
+  "entry_node": "inicio",
+  "instance_param": "timer_offset",
+  "nodes": [
+   {
+    "id": "inicio",
+    "type": "event_update",
+    "label": "Armar o temporizador",
+    "col": 0,
+    "row": 0,
+    "params": [
+     {
+      "key": "rate",
+      "value": "frame"
+     }
+    ],
+    "rom_span": {
+     "base": "instance",
+     "delta": 0,
+     "len": 6
+    }
+   },
+   {
+    "id": "portao",
+    "type": "condition_compare",
+    "label": "Portão aberto?",
+    "col": 0,
+    "row": 1,
+    "when": [
+     {
+      "if": "anchor_pattern",
+      "id": "arm_ext"
+     }
+    ],
+    "params": [
+     {
+      "key": "operator",
+      "value": "!="
+     },
+     {
+      "key": "a",
+      "value": "portao"
+     },
+     {
+      "key": "b",
+      "value": 0
+     },
+     {
+      "key": "descricao",
+      "text": [
+       {
+        "p": "lit",
+        "t": "tst.b no endereço de barramento "
+       },
+       {
+        "p": "capture",
+        "name": "gate",
+        "of": "anchor",
+        "fmt": "hex6"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "n_dur",
+    "type": "var_set",
+    "label": "Duração do temporizador",
+    "col": 1,
+    "row": 2,
+    "field": {
+     "name": "dur",
+     "var_name": "duracao",
+     "description": "move.b #dur,tmr(a0)"
+    }
+   },
+   {
+    "id": "n_score",
+    "type": "var_set",
+    "label": "Valor somado ao acumulador",
+    "col": 1,
+    "row": 3,
+    "field": {
+     "name": "score",
+     "var_name": "valor",
+     "description": "move.l #score,acc(a0)"
+    }
+   },
+   {
+    "id": "n_bonus",
+    "type": "var_set",
+    "label": "Bônus da forma com portão",
+    "col": 2,
+    "row": 3,
+    "field": {
+     "name": "bonus",
+     "var_name": "bonus",
+     "description": "move.w #bonus,aux(a0)"
+    },
+    "when": [
+     {
+      "if": "field",
+      "name": "bonus"
+     }
+    ]
+   },
+   {
+    "id": "tique",
+    "type": "event_update",
+    "label": "Tique do temporizador",
+    "col": 4,
+    "row": 0,
+    "when": [
+     {
+      "if": "link",
+      "id": "p_tick"
+     }
+    ],
+    "params": [
+     {
+      "key": "rate",
+      "value": "frame"
+     },
+     {
+      "key": "descricao",
+      "text": [
+       {
+        "p": "lit",
+        "t": "subq.b #1 no campo +"
+       },
+       {
+        "p": "capture",
+        "name": "tmr",
+        "of": "p_tick",
+        "fmt": "hex"
+       },
+       {
+        "p": "lit",
+        "t": "; contador em +"
+       },
+       {
+        "p": "capture",
+        "name": "cnt",
+        "of": "p_tick",
+        "fmt": "hex"
+       }
+      ]
+     }
+    ],
+    "rom_span": {
+     "base": "link",
+     "link": "p_tick",
+     "delta": 0,
+     "len": 4
+    }
+   },
+   {
+    "id": "n_lim",
+    "type": "var_set",
+    "label": "Limite do contador no tique",
+    "col": 4,
+    "row": 1,
+    "field": {
+     "name": "lim",
+     "var_name": "limite",
+     "description": "cmpi.w #lim,cnt(a0)"
+    },
+    "when": [
+     {
+      "if": "link",
+      "id": "p_tick"
+     },
+     {
+      "if": "field",
+      "name": "lim"
+     }
+    ]
+   },
+   {
+    "id": "n_step",
+    "type": "var_set",
+    "label": "Passo do reinício",
+    "col": 5,
+    "row": 1,
+    "field": {
+     "name": "step",
+     "var_name": "passo",
+     "description": "move.l #step,d0 (repetido no cmpi.l)"
+    },
+    "when": [
+     {
+      "if": "link",
+      "id": "p_tick"
+     },
+     {
+      "if": "link",
+      "id": "f_reset"
+     },
+     {
+      "if": "field",
+      "name": "step"
+     }
+    ],
+    "rom_span": {
+     "base": "link",
+     "link": "f_reset",
+     "delta": 0,
+     "len": 16
+    }
+   }
+  ],
+  "edges": [
+   {
+    "from": [
+     "inicio",
+     "exec"
+    ],
+    "to": [
+     "portao",
+     "exec"
+    ],
+    "when": [
+     {
+      "if": "anchor_pattern",
+      "id": "arm_ext"
+     }
+    ]
+   },
+   {
+    "from": [
+     "portao",
+     "false"
+    ],
+    "to": [
+     "n_dur",
+     "exec"
+    ],
+    "when": [
+     {
+      "if": "anchor_pattern",
+      "id": "arm_ext"
+     }
+    ]
+   },
+   {
+    "from": [
+     "inicio",
+     "exec"
+    ],
+    "to": [
+     "n_dur",
+     "exec"
+    ],
+    "when": [
+     {
+      "if": "anchor_pattern",
+      "id": "arm"
+     }
+    ]
+   },
+   {
+    "from": [
+     "n_dur",
+     "exec"
+    ],
+    "to": [
+     "n_score",
+     "exec"
+    ]
+   },
+   {
+    "from": [
+     "n_score",
+     "exec"
+    ],
+    "to": [
+     "n_bonus",
+     "exec"
+    ],
+    "when": [
+     {
+      "if": "field",
+      "name": "bonus"
+     }
+    ]
+   },
+   {
+    "from": [
+     "tique",
+     "exec"
+    ],
+    "to": [
+     "n_lim",
+     "exec"
+    ],
+    "when": [
+     {
+      "if": "link",
+      "id": "p_tick"
+     },
+     {
+      "if": "field",
+      "name": "lim"
+     }
+    ]
+   },
+   {
+    "from": [
+     "n_lim",
+     "exec"
+    ],
+    "to": [
+     "n_step",
+     "exec"
+    ],
+    "when": [
+     {
+      "if": "link",
+      "id": "p_tick"
+     },
+     {
+      "if": "link",
+      "id": "f_reset"
+     },
+     {
+      "if": "field",
+      "name": "step"
+     }
+    ]
+   }
+  ]
+ },
+ "notes": [
+  {
+   "text": [
+    {
+     "p": "lit",
+     "t": "temporizador armado em "
+    },
+    {
+     "p": "offset",
+     "of": "instance",
+     "fmt": "hex"
+    },
+    {
+     "p": "lit",
+     "t": " (forma com teste de portão)",
+     "when": [
+      {
+       "if": "anchor_pattern",
+       "id": "arm_ext"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "when": [
+    {
+     "if": "link",
+     "id": "p_tick"
+    }
+   ],
+   "text": [
+    {
+     "p": "lit",
+     "t": "tique em "
+    },
+    {
+     "p": "offset",
+     "of": "p_tick",
+     "fmt": "hex"
+    },
+    {
+     "p": "lit",
+     "t": " (pareamento mútuo, mesmo campo de temporizador)"
+    }
+   ]
+  },
+  {
+   "when": [
+    {
+     "if": "link",
+     "id": "p_tick"
+    },
+    {
+     "if": "link",
+     "id": "f_reset"
+    }
+   ],
+   "text": [
+    {
+     "p": "lit",
+     "t": "reinício em "
+    },
+    {
+     "p": "offset",
+     "of": "f_reset",
+     "fmt": "hex"
+    }
+   ]
+  },
+  {
+   "when": [
+    {
+     "if": "link",
+     "id": "p_tick"
+    },
+    {
+     "if": "no_link",
+     "id": "f_reset"
+    }
+   ],
+   "text": [
+    {
+     "p": "lit",
+     "t": "reinício não localizado: o campo de passo não é oferecido"
+    }
+   ]
+  },
+  {
+   "when": [
+    {
+     "if": "no_link",
+     "id": "p_tick"
+    }
+   ],
+   "text": [
+    {
+     "p": "lit",
+     "t": "tique não pareado de forma inequívoca: limite e passo NÃO são oferecidos"
+    }
+   ]
+  }
+ ],
+ "details": [
+  {
+   "label": "temporizador",
+   "text": [
+    {
+     "p": "lit",
+     "t": "+"
+    },
+    {
+     "p": "capture",
+     "name": "tmr",
+     "of": "anchor",
+     "fmt": "hex_bare"
+    }
+   ]
+  },
+  {
+   "label": "acumulador",
+   "text": [
+    {
+     "p": "lit",
+     "t": "+"
+    },
+    {
+     "p": "capture",
+     "name": "acc",
+     "of": "anchor",
+     "fmt": "hex_bare"
+    }
+   ]
+  },
+  {
+   "label": "portão (barramento)",
+   "when": [
+    {
+     "if": "anchor_pattern",
+     "id": "arm_ext"
+    }
+   ],
+   "text": [
+    {
+     "p": "capture",
+     "name": "gate",
+     "of": "anchor",
+     "fmt": "hex6"
+    }
+   ]
+  }
+ ],
+ "evidence": {
+  "claims": [],
+  "unknown": [
+   "nenhum efeito foi medido em execução: é um perfil sintético",
+   "nenhuma ROM de jogo foi usada: a forma só foi vista na ROM sintética deste teste"
+  ]
+ },
+ "limits": [
+  "Perfil autoral de teste: prova que o motor lê um segundo perfil sem código novo, não que esta forma exista em algum jogo.",
+  "Vinculado por SHA-256 à ROM sintética: em qualquer outra ROM o perfil não é tentado."
+ ]
+}

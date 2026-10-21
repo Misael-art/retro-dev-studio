@@ -1,0 +1,35 @@
+{
+  "schema": "rex-m4-bounded-acceptance/v1",
+  "generated_at": "2026-10-18T02:24:55.695610+00:00",
+  "status": "M4_CONSOLIDATED_EXISTING_SEMANTIC_IR_COMMERCIAL_DOMAIN",
+  "requirements": {
+    "routine_condition_state_effect": "30byte declared copy region; D1/D2 nested DBRA low16 !=FFFF, MOVE.B/W postincrement+row LEA; real layout/SAT/pixels causal effect M3 and M4native",
+    "semantic_reconstruction": "Existing CopyGrid.encode derives30bytes from typed fields, no saved provenance bytes; full original-rebuilt SHA c7da53a1\u202681ebb, modified-rebuilt exact UI cb471c95\u2026ad97a",
+    "comparison": "MAME original/new4096read+4096write operations, source4096/8192bytes, stride128/192, destination spans8128/12224; native first8128 snapshot plus qualified all-write taps; native GX full12224 proof separate",
+    "observed_state": "A0 FF5000\u2192FF6000, A1 FF3020\u2192FF4020 after last gap; D1/D2=0000FFFF, D0 preserved; A7/stack-top equal; SR2304\u21922300 predicted/observed",
+    "nodes": "Native135/135 incl7technical detail checks: D1/D2 DBRA condition/count state, A0/A1 pointers, recovered origin, unknown registers/flags/stack, lowering/topology limits; entry/copy/exit graph",
+    "semantic_graph_edit": "bytes_per_cell1\u21922 changes opcode MOVE.B\u2192MOVE.W; save/reopen/publication/effect through same pipeline. Not an immediate-only patch.",
+    "wrong_operator_flow": "Five Rust class tests pass, including BYOR ignored test explicitly run; malformed op/branch/register/map/alias edits refuse publication. Six semantic trace negatives refuse identity/operator/flow/destination/state/CCR; four literal distinct-sentinel role/flag vectors refuse wrong role model.",
+    "opaque": "Unknown instructions outside supported30byte shape are refused; no no-op conversion. Rest of ROM byte-identical except declared opcode edit.",
+    "causal_game_result": "App actual8067resource pixels RGB0 and2008conditional discriminating positions; all15selected owners join to primary4096Enigma layout, no incidental-tail owners."
+  },
+  "production_changes_this_milestone": 0,
+  "limits": [
+    "existing bounded class; no arbitrary control-flow editing/compiler or universal recovery claim",
+    "D3..D7/A2..A6, stack interior, IRQ internals, timing/audio/other memory not compared",
+    "no-edit reconstructed ROM byte identity proven; edited width intentionally changes behavior, not claimed equivalent",
+    "MAME external observed state and GX native pixel session remain distinct",
+    "conditional measured geometry/camera/frame/palette inputs, not full predicted physics",
+    "original trace was inspected before M4; regression/post-observation, not blind holdout"
+  ],
+  "gates": "Latest host certify after M3 READY1047/1036 on identical production source/core; observerv3 byte-identical and author-qualified. New targeted5Rust tests, native135checks and6trace negatives measured; PythonAST/JSsyntax valid. Final mission certify still planned.",
+  "preserved_wrong_role_analysis": "m4-original-first-analysis.json; corrected before first edited M4 trace",
+  "files": {
+    "data/rex_profiles/commercial_recovery_20261016/m4-semantic-reconstruction-qualified.json": "c244bd162c4d2d388c582934287e08b90092222c0d521bc230e8d6a2427e5d91",
+    "data/rex_profiles/commercial_recovery_20261016/m4-copy-state-qualified.json": "07ac01adc750305342b866f06b60cdc578692f73c0ec4dd4566997e16f2dd5ef",
+    "data/rex_profiles/commercial_recovery_20261016/m4-ui-qualified.json": "6466a7bae968466336c0a282a4d17faf718331244efa0d032c3a7f8ccf397b7f",
+    "data/rex_profiles/commercial_recovery_20261016/m4-edited-commercial-observed.json": "ff0057a3c03cbf4d90a556221214309ea11d57264b3360333228459cd2481d59",
+    "data/rex_profiles/commercial_recovery_20261016/m3-edited-primary-resource-origin-join.json": "b54db5b5631ab1e66e527d808d23aee979625ab93293ef70b7141c9ff8a0a08d"
+  },
+  "experimental": true
+}

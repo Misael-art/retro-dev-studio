@@ -1,5 +1,7 @@
 import { loadShellPersona } from "../../core/surfaceRegistry";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { chooseAndImportImage } from "../../core/sceneryImport";
+import { createTilemapEntityFromAsset } from "../../core/editorEntityFactory";
 import EmptyState from "../common/EmptyState";
 import Panel from "../common/Panel";
 import SceneWorkspaceNotice from "../common/SceneWorkspaceNotice";
@@ -422,6 +424,57 @@ export default function HierarchyPanel({
     }
   }
 
+  async function handleAddHudText() {
+    if (!activeProjectDir || !activeScene || isAdding) return;
+    setIsAdding(true);
+    try {
+      const existing = new Set(activeScene.entities.map((candidate) => candidate.entity_id));
+      let n = 1;
+      while (existing.has(`texto_${n}`)) n += 1;
+      const id = `texto_${n}`;
+      addEntity({
+        entity_id: id,
+        display_name: `Texto ${n}`,
+        prefab: null,
+        transform: { x: 0, y: 0 },
+        components: { hud: { column: 1, row: 25, label: "TEXTO", digits: 3 } },
+      });
+      setSelectedEntityId(id);
+      await persistActiveScene(activeProjectDir, "Hierarchy", `Texto de interface '${id}' adicionado.`);
+    } catch (error: unknown) {
+      logMessage("error", `[Hierarchy] Falha ao criar texto: ${describeError(error)}`);
+    } finally {
+      setIsAdding(false);
+    }
+  }
+
+  async function handleAddScenery() {
+    if (!activeProjectDir || !activeScene || isAdding) return;
+    setIsAdding(true);
+    try {
+      const image = await chooseAndImportImage(activeProjectDir);
+      if (!image) return;
+      for (const warning of image.warnings) logMessage("warn", `[Hierarchy] Cenário: ${warning}`);
+      const entity = createTilemapEntityFromAsset({
+        assetPath: image.relative_path,
+        existingEntityIds: activeScene.entities.map((candidate) => candidate.entity_id),
+        mapWidth: image.tiles_wide,
+        mapHeight: image.tiles_high,
+      });
+      addEntity(entity);
+      setSelectedEntityId(entity.entity_id);
+      await persistActiveScene(
+        activeProjectDir,
+        "Hierarchy",
+        `Cenário '${entity.entity_id}' (${image.tiles_wide}x${image.tiles_high} tiles) adicionado de '${image.relative_path}'.`
+      );
+    } catch (error: unknown) {
+      logMessage("error", `[Hierarchy] Falha ao adicionar cenário: ${describeError(error)}`);
+    } finally {
+      setIsAdding(false);
+    }
+  }
+
   async function handleAddEntity() {
     const displayName = newName.trim();
     if (!activeProjectDir || !activeScene || !displayName || isAdding) return;
@@ -566,6 +619,28 @@ export default function HierarchyPanel({
               title="Adicionar entidade"
             >
               +
+            </button>
+            <button
+              type="button"
+              data-testid="hierarchy-add-scenery"
+              onClick={() => void handleAddScenery()}
+              disabled={!activeProjectDir || isAdding || isDeleting}
+              className="text-xs text-[#6c7086] hover:text-[#a6e3a1] transition-colors px-1 disabled:opacity-30"
+              title="Adicionar cenário a partir de uma imagem (tilemap; Experimental)"
+              aria-label="Adicionar cenário"
+            >
+              ▦
+            </button>
+            <button
+              type="button"
+              data-testid="hierarchy-add-hud"
+              onClick={() => void handleAddHudText()}
+              disabled={!activeProjectDir || isAdding || isDeleting}
+              className="text-xs text-[#6c7086] hover:text-[#f5c2e7] transition-colors px-1 disabled:opacity-30"
+              title="Adicionar texto de interface (Experimental)"
+              aria-label="Adicionar texto de interface"
+            >
+              T
             </button>
             <button
               onClick={() => void handleDeleteEntity()}

@@ -1,0 +1,12 @@
+[
+  {
+    "direction": "forward",
+    "spec": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/data/rex_profiles/integration_20261016/visual-copy-v2/forward-journey.json",
+    "exit_code": 0
+  },
+  {
+    "direction": "reverse",
+    "spec": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/data/rex_profiles/integration_20261016/visual-copy-v2/reverse-journey.json",
+    "exit_code": 0
+  }
+]

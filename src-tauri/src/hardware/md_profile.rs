@@ -56,7 +56,7 @@ impl ValidationError {
 
 fn count_palette_banks_used(scene: &Scene) -> u32 {
     let mut used_slots = std::collections::BTreeSet::new();
-    for palette in &scene.palettes {
+    for palette in scene.palettes.iter().filter(|p| p.id.is_none()) {
         used_slots.insert(palette.slot);
     }
     for entity in &scene.entities {
@@ -790,6 +790,8 @@ mod tests {
             sprite.animations.insert(
                 "stress".to_string(),
                 AnimationDef {
+                    occurrence_ids: None,
+                    frame_events: Vec::new(),
                     frames: frame_list,
                     fps: 12,
                     looping: true,
@@ -816,6 +818,8 @@ mod tests {
             sprite.animations.insert(
                 "run".to_string(),
                 AnimationDef {
+                    occurrence_ids: None,
+                    frame_events: Vec::new(),
                     frames: frame_list,
                     fps: 12,
                     looping: true,
@@ -997,6 +1001,7 @@ mod tests {
         scene.palettes.push(PaletteEntry {
             slot: MD_PALETTE_SLOTS,
             colors: vec!["#000000".to_string(); MD_PALETTE_COLORS as usize],
+            ..Default::default()
         });
 
         let errors = validate_scene(&scene);
@@ -1036,6 +1041,8 @@ mod tests {
         ken.components.sprite.as_mut().unwrap().animations.insert(
             "walk".into(),
             crate::ugdm::components::AnimationDef {
+                occurrence_ids: None,
+                frame_events: Vec::new(),
                 frames: (0..27).collect(),
                 fps: 12,
                 looping: true,

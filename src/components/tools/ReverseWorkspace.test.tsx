@@ -13,8 +13,8 @@ const mocks = vi.hoisted(() => ({
   romAnalyzeWithEmulatorTrace: vi.fn(),
   romDisassemble: vi.fn(),
   romSaveAnnotations: vi.fn(),
-  rexGameplayRecover: vi.fn(),
-  rexGameplayScan: vi.fn(),
+  rexProfileLocate: vi.fn(),
+  rexProfileEdit: vi.fn(),
   persistActiveScene: vi.fn(),
 }));
 
@@ -31,10 +31,8 @@ vi.mock("../../core/ipc/toolsService", () => ({
   romAnalyzeWithEmulatorTrace: mocks.romAnalyzeWithEmulatorTrace,
   romDisassemble: mocks.romDisassemble,
   romSaveAnnotations: mocks.romSaveAnnotations,
-  rexGameplayRecover: mocks.rexGameplayRecover,
-  rexGameplayScan: mocks.rexGameplayScan,
-  rexGameplayEditThreshold: vi.fn(),
-  rexGameplayRebuild: vi.fn(),
+  rexProfileLocate: mocks.rexProfileLocate,
+  rexProfileEdit: mocks.rexProfileEdit,
 }));
 
 function flush() {
@@ -183,6 +181,18 @@ describe("ReverseWorkspace", () => {
       await flush();
     });
     container.remove();
+  });
+
+  it("abre a aba Lógicas (pulo) sem precisar analisar a ROM antes", async () => {
+    // sem manifesto (ROM não analisada) o botão da aba já existe e leva ao painel
+    const tab = container.querySelector("[data-testid='reverse-tab-logics']") as HTMLButtonElement | null;
+    expect(tab).not.toBeNull();
+    await act(async () => {
+      tab?.click();
+      await flush();
+    });
+    expect(container.querySelector("[data-testid='jump-logic-panel']")).not.toBeNull();
+    expect((container.querySelector("[data-testid='jump-locate']") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("analyzes a ROM and persists annotations", async () => {
@@ -409,7 +419,7 @@ describe("ReverseWorkspace", () => {
       };
     }
 
-    async function abrirBarraECode() {
+    async function abrirLogicas() {
       const romInput = Array.from(container.querySelectorAll("input")).find((element) =>
         element.getAttribute("placeholder")?.includes("/roms/game.md")
       );
@@ -421,60 +431,18 @@ describe("ReverseWorkspace", () => {
         await flush();
       });
       await act(async () => {
-        findButton(container, "Analisar ROM").click();
-        await flush();
-        await flush();
-      });
-      await act(async () => {
-        findButton(container, "Code").click();
+        // dentro da própria vista de lógicas a aba dela não se repete
+        (container.querySelector('[data-testid="reverse-tab-logics"]') as HTMLButtonElement | null)?.click();
         await flush();
         await flush();
       });
     }
 
-    function porTestId(testid: string): HTMLElement {
-      const element = container.querySelector(`[data-testid="${testid}"]`) as HTMLElement | null;
-      if (!element) throw new Error(`sen elemento: ${testid}`);
-      return element;
+    function porTestId(testid: string): HTMLElement | null {
+      return container.querySelector(`[data-testid="${testid}"]`) as HTMLElement | null;
     }
 
-    it("garda o bloque recuperado na entidade e escribe a escena", async () => {
-      await act(async () => {
-        useEditorStore.setState({
-          activeProjectDir: "F:/Projects/proxecto",
-          activeScene: escenaCon(null),
-          activeSceneSource: escenaCon(null),
-          selectedEntityId: "player",
-        });
-        await flush();
-      });
-      mocks.rexGameplayRecover.mockResolvedValue(respostaRecuperar());
-      mocks.persistActiveScene.mockResolvedValue(true);
-
-      await abrirBarraECode();
-      await act(async () => {
-        (porTestId("rex-gameplay-recover") as HTMLButtonElement).click();
-        await flush();
-        await flush();
-      });
-      expect(porTestId("rex-gameplay-source").textContent).toMatch(/ROM/);
-
-      await act(async () => {
-        (porTestId("rex-gameplay-save-scene") as HTMLButtonElement).click();
-        await flush();
-        await flush();
-      });
-
-      expect(mocks.persistActiveScene).toHaveBeenCalledWith("F:/Projects/proxecto", expect.any(String));
-      expect(porTestId("rex-gameplay-saved-state").textContent).toContain("player");
-      const gardado = useEditorStore.getState().activeScene?.entities[0]?.components.logic
-        ?.recovered_rule;
-      expect(gardado).toEqual(regraDaROM());
-      expect(gardado?.graph_json).toBe(GRAFO_REAL);
-      expect(gardado?.limitations).toEqual(LIMITACIONES);
-    });
-
-    it("reabre desde a escena sen chamar ao backend, co limiar e as orixes gardadas", async () => {
+    it("regra gravada no formato anterior é mostrada, não é apagada, e a migração preenche a região gravada", async () => {
       const bloque = regraDaROM();
       await act(async () => {
         useEditorStore.setState({
@@ -485,24 +453,54 @@ describe("ReverseWorkspace", () => {
         });
         await flush();
       });
+      await abrirLogicas();
+      const aviso = porTestId("profile-legacy-rule");
+      expect(aviso?.textContent).toContain("formato anterior");
+      expect(aviso?.textContent).toContain(bloque.profile_id);
+      expect(aviso?.textContent).toContain("0x000946");
+      expect(aviso?.textContent).toContain("0x000970");
+      expect(aviso?.textContent).toContain("não foi apagada nem alterada");
+      // a migração é explícita: só preenche a região; quem recupera de novo é o usuário, pela ROM
+      await act(async () => {
+        (porTestId("profile-legacy-migrate") as HTMLButtonElement).click();
+        await flush();
+      });
+      expect((porTestId("region-profile") as HTMLInputElement).value).toBe(bloque.profile_id);
+      expect((porTestId("region-entry") as HTMLInputElement).value).toBe("0x000946");
+      expect((porTestId("region-exits") as HTMLInputElement).value).toBe("0x000970");
+      expect(mocks.rexProfileLocate).not.toHaveBeenCalled();
+      expect(mocks.persistActiveScene).not.toHaveBeenCalled();
+      // o bloco gravado continua na cena, byte a byte
+      expect(useEditorStore.getState().activeScene?.entities[0]?.components.logic?.recovered_rule).toEqual(bloque);
+      expect(bloque.graph_json).toBe(GRAFO_REAL);
+      expect(bloque.limitations).toEqual(LIMITACIONES);
+      // localizar envia a região DECLARADA
+      mocks.rexProfileLocate.mockResolvedValue({ request_id: "l", app_session: "s", rom_sha256: "0".repeat(64), rom_size: 1, matches: [], rejected: [], limites: [] });
+      await act(async () => {
+        (porTestId("jump-locate") as HTMLButtonElement).click();
+        await flush();
+        await flush();
+      });
+      expect(mocks.rexProfileLocate.mock.calls[0][0].declared_regions).toEqual([{ profile_id: bloque.profile_id, entry: 0x946, exits: [0x970] }]);
+      // a ROM informada não é a da regra gravada: dito
+      expect(porTestId("profile-legacy-mismatch")?.textContent).toContain("não é a da regra gravada");
+    });
 
-      await abrirBarraECode();
-
-      expect(mocks.rexGameplayRecover).not.toHaveBeenCalled();
-      expect(porTestId("rex-gameplay-source").textContent).toMatch(/escena/);
-      expect(porTestId("rex-gameplay-identity").textContent).toMatch(/non revalidada/);
-      expect(porTestId("rex-gameplay-rule-text").textContent).toContain("compar");
-      expect((porTestId("rex-gameplay-threshold") as HTMLInputElement).value).toBe(
-        String(bloque.threshold_current)
-      );
-      // As orixes na ROM sobreviven ao round-trip da escena: cada no mostra o
-      // seu rango, bytes e mnemónico tal como os devolveu o crate.
-      const nos = Array.from(
-        container.querySelectorAll("[data-testid^='rex-gameplay-node-']")
-      ).map((element) => element.textContent ?? "");
-      expect(nos.length).toBeGreaterThan(0);
-      expect(nos.join(" ")).toContain("0x000946..0x00094A");
-      expect(nos.join(" ")).toContain("0x000CAE");
+    it("bloco gravado adulterado ou ausente não vira aviso de migração", async () => {
+      const bloque = { ...regraDaROM(), profile_id: "outro.perfil" } as RegraRecuperada;
+      for (const b of [null, bloque]) {
+        await act(async () => {
+          useEditorStore.setState({
+            activeProjectDir: "F:/Projects/proxecto",
+            activeScene: escenaCon(b),
+            activeSceneSource: escenaCon(b),
+            selectedEntityId: "player",
+          });
+          await flush();
+        });
+        await abrirLogicas();
+        expect(porTestId("profile-legacy-rule")).toBeNull();
+      }
     });
   });
 });

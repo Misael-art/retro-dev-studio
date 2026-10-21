@@ -1,0 +1,111 @@
+{
+ "schema": "rex-semantic-journey/v1",
+ "rom": "data/rex_profiles/authoring/equality_gate/rom-autoral-equality-gate.bin",
+ "rom_sha256": "9fdf49ad86912ab1c561741c8dac718785db2f9c572845f7b2e6120b882c3807",
+ "profiles_dir": "data/rex_profiles/authoring/equality_gate/profiles",
+ "profile_id": "m68k.counter_equality_state_gate.v1",
+ "expect_scan_candidate": false,
+ "expect_opaque": 1,
+ "expect_nodes": [
+  "entry",
+  "counter_add",
+  "compare",
+  "set_write",
+  "other_write",
+  "set_call"
+ ],
+ "absent_nodes": [
+  "guard"
+ ],
+ "expect_curated_other_target": false,
+ "declared_region": {
+  "entry": 1280,
+  "exits": [
+   1342
+  ]
+ },
+ "edit": {
+  "threshold": 12
+ },
+ "probe": {
+  "results_addr": 16746752,
+  "done_addr": 16746560,
+  "done_magic": 1611526157,
+  "state_sentinel": 1581719061,
+  "cases": [
+   {
+    "counter_in": 0,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 1,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 4,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 5,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 6,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 8,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 9,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 10,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 11,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 12,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 2147483647,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 2147483646,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 2147483645,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 2147483648,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 4294967295,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 4294967294,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 4294967293,
+    "guard_register_in": 0
+   },
+   {
+    "counter_in": 4294967280,
+    "guard_register_in": 0
+   }
+  ]
+ },
+ "nota": "Previsao = regra recuperada pela interface. Referencia = core executando a ROM. Este arquivo nao contem resultados esperados. Sem guarda: o registrador extra da tabela nao e lido."
+}

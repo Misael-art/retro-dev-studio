@@ -1,0 +1,43 @@
+{
+  "schema": "rex-m5-static-reader-author-freeze/v1",
+  "generated_at": "2026-10-18T02:29:22.201911+00:00",
+  "inputs": {
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/find-transfer-candidates.py": "b61a929622250bb0b5d3dfe7ff805e85e6f2b7c1393ef2b7e7793ca4edb10e16",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/qualify-transfer-search.py": "70831fd23e6840edff5532d8c26737c81af61952a59fbd4078b69213a21321ca",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-search-freeze.json": "e88db5fa2709692a6ad5f1d2d745b6b841aa6552d7b1ceeee6b2868f876e60a0"
+  },
+  "short_expected": {
+    "length": 26,
+    "exit": 26,
+    "transfer_offset": 12,
+    "source_bus24": 16748544,
+    "destination_bus24": 16744448,
+    "source_initial_register32": 4294938624,
+    "destination_initial_register32": 4294934528,
+    "source_register": 0,
+    "destination_register": 1,
+    "row_register": 3,
+    "column_register": 4,
+    "rows": 4,
+    "columns": 8,
+    "width": 2,
+    "gap": 16,
+    "source_addressing": "absolute_word",
+    "destination_addressing": "absolute_word",
+    "both_widths_in_existing_memory_domain": true,
+    "distinct_implementation_gate": true,
+    "current_class_encoding_supported": false
+  },
+  "negative_cases": [
+    "operator",
+    "inner_flow",
+    "outer_flow",
+    "pointer_role",
+    "negative_count",
+    "out_of_map",
+    "register_only_not_second_implementation"
+  ],
+  "reference": "Independently authored literal26byte short-address program and30byte long-address byte-copy control; NXP M68000PM section2.2.16 sign-extension and ISA fields. No commercial payload used.",
+  "command": "rtk proxy python3 scripts/rex_profiles/commercial_recovery_20261016/qualify-transfer-search.py /home/misael/rds-scratch/commercial_recovery_20261016/m5-search-author-001.json",
+  "budget_seconds": 30
+}

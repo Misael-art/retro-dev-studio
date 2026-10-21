@@ -1,0 +1,12 @@
+{
+  "schema": "rex-m5-state-protocol-addendum/v2",
+  "generated_at": "2026-10-18T08:39:40.455870+00:00",
+  "previous_protocol_sha256": "1042c40fa409c62f7b3ba66e59d9729efce75bd7d745c7d1b5d910033bd03284",
+  "previous_failure": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-profile-golden-axe-001/state-result.json",
+  "previous_failure_sha256": "567e3e20921817a0c141c3e9d0ae2ab442f66f50f406f2a7e8d60dab04f02197",
+  "verifier": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/verify-linear-state-v2.py",
+  "verifier_sha256": "ae3d4b1bf9c9be5abaccff99a4fcee26d7337e4a97d871df31cea09f8d310fb7",
+  "change": "Allow at most one explicitly listed non-transfer ROM read: instruction PC transfer+2 (DBRA), address exit+2, fullword mask, pinned ROM value, only after all count*width reads and writes. Never permit an unmodeled write. Do not infer prefetch as a fact from a generic tap.",
+  "expectations": "Copied-memory/full-register/CCR unchanged; excluded read recorded. Reanalysis of preserved trace, not a new commercial run or independent blind test.",
+  "production_changes": 0
+}

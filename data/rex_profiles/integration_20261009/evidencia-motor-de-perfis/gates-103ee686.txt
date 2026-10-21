@@ -1,0 +1,8 @@
+check:tree rc=0 :: OK: Estrutura da raiz conforme docs/08_TREE_ARCHITECTURE.md. 
+lint rc=0 :: 
+tsc rc=0 :: 
+vitest rc=0 ::  Test Files  107 passed | 1 skipped (108)       Tests  1033 passed | 6 skipped (1039) 
+fmt rc=0 :: 
+clippy rc=0 ::     Finished `dev` profile [unoptimized + debuginfo] target(s) in 17.43s 
+cargo-test rc=0 :: test tools::reverse::loader::tests::rex02_short_inputs_return_structured_error_without_panic ... ok test result: ok. 1008 passed; 0 failed; 90 ignored; 0 measured; 0 filtered out; finished in 61.69s 
+cargo-byor-equivalencia rc=0 ::     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.54s test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1096 filtered out; finished in 1.57s 

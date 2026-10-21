@@ -1,0 +1,53 @@
+{
+  "schema": "rex-ui-sequence-failure/v1",
+  "status": "FAIL124/126",
+  "private_report": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-18T02-04-10-777Z-report.json",
+  "private_report_sha256": "e727d0b569e6a2445256c581d08d499f1eb9f6a70cd2b34f2ac36bc329b9f4bf",
+  "failed_checks": [
+    {
+      "name": "canvas.alterar_a_topologia_nao_e_apresentado_como_compilavel",
+      "pass": false,
+      "estrutura": null,
+      "generate": null
+    },
+    {
+      "name": "canvas.desfazer_restaura_a_estrutura_e_o_plano",
+      "pass": false,
+      "estrutura": "(sem leitura)"
+    }
+  ],
+  "run": {
+    "id": "m3-native-forward-003",
+    "status": "FAIL_NATIVE_RUNNER",
+    "command": [
+      "rtk",
+      "proxy",
+      "node",
+      "scripts/e2e-tauri-build-run.mjs",
+      "--skip-build",
+      "--scenario",
+      "semantic-gate-journey",
+      "--app",
+      "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/debug/retro-dev-studio",
+      "--tauri-driver",
+      "/home/misael/.cargo/bin/tauri-driver",
+      "--native-driver",
+      "/usr/sbin/WebKitWebDriver"
+    ],
+    "app_sha256": "22dc259a3275e1ac8687a4072b241fba81c934e36cde5b474a027f7527c25347",
+    "spec_sha256": "8830e035c3bc5bce2cb550d06d054d5f921c72afecadeae636efc790bdf05a26",
+    "freeze_sha256": "45db3035950c25d4d3a53f4d785f4d5035ebc2089a89e37982b65f247b348eb8",
+    "system_display_modified": false,
+    "display": ":1",
+    "xvfb_pid": 1124774,
+    "runner_pid": 1124786,
+    "exit_code": 1,
+    "owned_xvfb_alive": false,
+    "owned_runner_alive": false,
+    "elapsed_seconds": 65.24558376500136,
+    "log_sha256": "15020abe091db7d9704e3f0ac531ca9d81288251b661e3cadc973e8b9aba72fc"
+  },
+  "commercial_resource_model": "PASS10534original/8067copy;2008conditionalcausal; frozen references unchanged",
+  "diagnosis": "Screenshot shows copy_grid header behind fixed graph toolbar after workspace remount. Native pointer top+8 can hit toolbar instead of node. Loaded paused emulator also remains active; effect of input capture not independently established.",
+  "next_hypothesis": "Stop preview with visible canonical Stop, return to logic, use Enquadrar, verify elementFromPoint is intended card before native selection/Delete; retain same structural guard and undo criteria."
+}

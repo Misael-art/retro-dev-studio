@@ -1,0 +1,65 @@
+{
+  "id": "m3-original-model-inputs-001",
+  "status": "PASS_ORIGINAL_MODEL_INPUT_COLLECTION",
+  "observations": [
+    {
+      "frame": 0,
+      "ram_sha256": "676719223edb1eab0dd4e82d566175456d6a26dae04f7e3877c3c9150ed66cf1"
+    },
+    {
+      "frame": 137,
+      "ram_sha256": "a78cb05cee122586c706ec1f0a7a69ee7857fdb1f34c0c26f0e64ef4429fe0ed",
+      "framebuffer_sha256": "756b4aae3161edc9b69b683410eb1837163e84d7fdcb3bf62ba3cdf341a15cbf"
+    },
+    {
+      "frame": 175,
+      "ram_sha256": "c08b1b33d17d9c6d83cd6a9aa0764e897f24383ad6ee41c76d3a813b57fdcc06",
+      "framebuffer_sha256": "6236a4f612c58db641772796dbbf3e65eeb247b43c59c0c6b38c0842c9ca9b0b"
+    },
+    {
+      "frame": 176,
+      "ram_sha256": "f34f26e27b23e16c0eb180d36b5a0ed211b633622fb52300a82e047a506dc9a7",
+      "framebuffer_sha256": "03c9aad0cc660e6a44f3b1083df074dfd1d256c09d02c83cb4db821e2d1cadfa"
+    },
+    {
+      "frame": 177,
+      "ram_sha256": "f56fe55b4e237b2b04797534fe9929cdec91e287bb5ebae0f4f54240ff5f0a59",
+      "framebuffer_sha256": "a67c187c1c6fbfba9d0de7da7200e4e002414a4522ebc7caff893b648464abf2"
+    },
+    {
+      "frame": 178,
+      "ram_sha256": "a96d7f66a0e5545c9771a6f57f5b407d58fd6db7ba0664711ace245ae74c658b",
+      "framebuffer_sha256": "b0e8bef5d1b44a5f7f1f7cb18abdd86fba5dc54f0a7173728ed6da2a8e0beafd"
+    },
+    {
+      "frame": 179,
+      "ram_sha256": "eb33415a9f7d0ba920568c24fff25efdc094c63cbc4444f0d95729ba23ef8b51",
+      "framebuffer_sha256": "f1c962c390889a298e1b1b84576431ca68d546fc3b1db059f2b10c56326b0738"
+    },
+    {
+      "frame": 180,
+      "ram_sha256": "542382a6563b7d35b259263951451b482ea3ec10a98aa08b6dcc10a485bedf73",
+      "framebuffer_sha256": "7d69786f726cd411f45be60cd671be384d389ef73cf048c001cef9e3c7ef1d37"
+    }
+  ],
+  "elapsed_seconds": 0.3784834780017263,
+  "limits": "Observed control inputs and original regression reference, not a prediction of trajectory. No modified ROM executed.",
+  "outputs": {
+    "runtime.log": "9d829843157cf24b30abac77424480916d5ff0def3678a87b26eca5161d84773",
+    "frame-000.ram": "676719223edb1eab0dd4e82d566175456d6a26dae04f7e3877c3c9150ed66cf1",
+    "frame-137.ram": "a78cb05cee122586c706ec1f0a7a69ee7857fdb1f34c0c26f0e64ef4429fe0ed",
+    "frame-137.rgb565": "756b4aae3161edc9b69b683410eb1837163e84d7fdcb3bf62ba3cdf341a15cbf",
+    "frame-175.ram": "c08b1b33d17d9c6d83cd6a9aa0764e897f24383ad6ee41c76d3a813b57fdcc06",
+    "frame-175.rgb565": "6236a4f612c58db641772796dbbf3e65eeb247b43c59c0c6b38c0842c9ca9b0b",
+    "frame-176.ram": "f34f26e27b23e16c0eb180d36b5a0ed211b633622fb52300a82e047a506dc9a7",
+    "frame-176.rgb565": "03c9aad0cc660e6a44f3b1083df074dfd1d256c09d02c83cb4db821e2d1cadfa",
+    "frame-177.ram": "f56fe55b4e237b2b04797534fe9929cdec91e287bb5ebae0f4f54240ff5f0a59",
+    "frame-177.rgb565": "a67c187c1c6fbfba9d0de7da7200e4e002414a4522ebc7caff893b648464abf2",
+    "frame-178.ram": "a96d7f66a0e5545c9771a6f57f5b407d58fd6db7ba0664711ace245ae74c658b",
+    "frame-178.rgb565": "b0e8bef5d1b44a5f7f1f7cb18abdd86fba5dc54f0a7173728ed6da2a8e0beafd",
+    "frame-179.ram": "eb33415a9f7d0ba920568c24fff25efdc094c63cbc4444f0d95729ba23ef8b51",
+    "frame-179.rgb565": "f1c962c390889a298e1b1b84576431ca68d546fc3b1db059f2b10c56326b0738",
+    "frame-180.ram": "542382a6563b7d35b259263951451b482ea3ec10a98aa08b6dcc10a485bedf73",
+    "frame-180.rgb565": "7d69786f726cd411f45be60cd671be384d389ef73cf048c001cef9e3c7ef1d37"
+  }
+}

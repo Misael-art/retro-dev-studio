@@ -1,0 +1,180 @@
+{
+  "schema": "rex-layout-to-presented-SAT-provenance/v1",
+  "status": "PASS_BOUNDED_LAYOUT_TABLE_SAT_DMA_LINK",
+  "limits": [
+    "normal D762 body and wall mapping domain only",
+    "post-copy runtime-written cells excluded from original resource origin",
+    "not semantic reconstruction or edited-ROM execution"
+  ],
+  "sampled_argument_links": 17,
+  "linked_SAT_tile_writes": 715,
+  "presentation_dma_frame": 1288,
+  "final_sprite_origins": {
+    "1": {
+      "layout_address": 16715948,
+      "layout_read_seq": 182963,
+      "table_address": 16728088,
+      "descriptor_address": 181649,
+      "sat_write_seq": 182977,
+      "frame": 1288,
+      "dma_read_seq": 183713
+    },
+    "2": {
+      "layout_address": 16716071,
+      "layout_read_seq": 182990,
+      "table_address": 16728096,
+      "descriptor_address": 181649,
+      "sat_write_seq": 183004,
+      "frame": 1288,
+      "dma_read_seq": 183717
+    },
+    "3": {
+      "layout_address": 16716076,
+      "layout_read_seq": 183011,
+      "table_address": 16728096,
+      "descriptor_address": 181649,
+      "sat_write_seq": 183025,
+      "frame": 1288,
+      "dma_read_seq": 183721
+    },
+    "4": {
+      "layout_address": 16716199,
+      "layout_read_seq": 183038,
+      "table_address": 16728104,
+      "descriptor_address": 181649,
+      "sat_write_seq": 183052,
+      "frame": 1288,
+      "dma_read_seq": 183725
+    },
+    "5": {
+      "layout_address": 16716204,
+      "layout_read_seq": 183059,
+      "table_address": 16728104,
+      "descriptor_address": 181649,
+      "sat_write_seq": 183073,
+      "frame": 1288,
+      "dma_read_seq": 183729
+    },
+    "6": {
+      "layout_address": 16716327,
+      "layout_read_seq": 183086,
+      "table_address": 16728112,
+      "descriptor_address": 181649,
+      "sat_write_seq": 183100,
+      "frame": 1288,
+      "dma_read_seq": 183733
+    },
+    "7": {
+      "layout_address": 16716332,
+      "layout_read_seq": 183107,
+      "table_address": 16728112,
+      "descriptor_address": 181649,
+      "sat_write_seq": 183121,
+      "frame": 1288,
+      "dma_read_seq": 183737
+    },
+    "8": {
+      "layout_address": 16716455,
+      "layout_read_seq": 183134,
+      "table_address": 16728120,
+      "descriptor_address": 181649,
+      "sat_write_seq": 183148,
+      "frame": 1288,
+      "dma_read_seq": 183741
+    },
+    "9": {
+      "layout_address": 16716460,
+      "layout_read_seq": 183155,
+      "table_address": 16728120,
+      "descriptor_address": 181649,
+      "sat_write_seq": 183169,
+      "frame": 1288,
+      "dma_read_seq": 183745
+    },
+    "10": {
+      "layout_address": 16716584,
+      "layout_read_seq": 183183,
+      "table_address": 16728208,
+      "descriptor_address": 181649,
+      "sat_write_seq": 183197,
+      "frame": 1288,
+      "dma_read_seq": 183749
+    },
+    "15": {
+      "layout_address": 16716712,
+      "layout_read_seq": 183258,
+      "table_address": 16728168,
+      "descriptor_address": 181649,
+      "sat_write_seq": 183272,
+      "frame": 1288,
+      "dma_read_seq": 183769
+    },
+    "20": {
+      "layout_address": 16716840,
+      "layout_read_seq": 183333,
+      "table_address": 16728176,
+      "descriptor_address": 181649,
+      "sat_write_seq": 183347,
+      "frame": 1288,
+      "dma_read_seq": 183789
+    },
+    "22": {
+      "layout_address": 16716847,
+      "layout_read_seq": 183372,
+      "table_address": 16728168,
+      "descriptor_address": 181649,
+      "sat_write_seq": 183386,
+      "frame": 1288,
+      "dma_read_seq": 183797
+    },
+    "23": {
+      "layout_address": 16716848,
+      "layout_read_seq": 183389,
+      "table_address": 16728176,
+      "descriptor_address": 181649,
+      "sat_write_seq": 183403,
+      "frame": 1288,
+      "dma_read_seq": 183801
+    },
+    "24": {
+      "layout_address": 16716849,
+      "layout_read_seq": 183406,
+      "table_address": 16728184,
+      "descriptor_address": 181649,
+      "sat_write_seq": 183420,
+      "frame": 1288,
+      "dma_read_seq": 183805
+    },
+    "25": {
+      "layout_address": 16716968,
+      "layout_read_seq": 183429,
+      "table_address": 16728184,
+      "descriptor_address": 181649,
+      "sat_write_seq": 183443,
+      "frame": 1288,
+      "dma_read_seq": 183809
+    }
+  },
+  "negative_controls": {
+    "wrong-layout-id": {
+      "rejected": true,
+      "reason": "layout read differs from current copy buffer"
+    },
+    "wrong-lookup": {
+      "rejected": true,
+      "reason": "ID selects mapping table record"
+    },
+    "wrong-mapping-offset": {
+      "rejected": true,
+      "reason": "ROM mapping frame offset"
+    },
+    "wrong-SAT-attribute": {
+      "rejected": true,
+      "reason": "ID/table/descriptor produces SAT tile word"
+    },
+    "wrong-DMA-attribute": {
+      "rejected": true,
+      "reason": "final DMA consumes linked SAT word"
+    }
+  }
+}

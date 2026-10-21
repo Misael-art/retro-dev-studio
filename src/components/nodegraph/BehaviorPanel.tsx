@@ -176,6 +176,14 @@ function ParamField({
         </select>
       );
       break;
+    case "palette":
+      control = (
+        <select data-testid={testId} value={String(value)} onChange={(event) => onChange(spec.key, event.target.value)} className={fieldClass}>
+          {!(context.palettes ?? []).some((p) => p.id === value) && <option value={String(value)}>(escolha)</option>}
+          {(context.palettes ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      );
+      break;
     case "instance": {
       const options = (graph.behaviors ?? []).filter((instance) => instance.behaviorId === spec.behaviorId);
       control = (

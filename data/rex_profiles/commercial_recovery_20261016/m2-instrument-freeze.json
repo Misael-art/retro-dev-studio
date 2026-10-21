@@ -1,0 +1,24 @@
+{
+  "schema": "rex-instrument-freeze/v1",
+  "qualification_summary": "/home/misael/rds-scratch/commercial_recovery_20261016/qualify-009/summary.json",
+  "qualification_summary_sha256": "9593b8e615d0ea84e832816dbd1784146d52526b36fbc2f0cd0798e0cc334ea2",
+  "mame_version": "0.289-1 Arch package; existing installation",
+  "mame_elf_sha256": "fcb54790e1837ed653020dc25a4e51d9ba7288d789cf556299d5d4d2cf2f3bc1",
+  "files": {
+    "scripts/rex_profiles/commercial_recovery_20261016/audit.mjs": "4143990df900545b1f96a5dd5222a8dd3482547c6dec02f4ca9c3ef6f8117a0f",
+    "scripts/rex_profiles/commercial_recovery_20261016/observe.lua": "59758b3139d4d977cf9385005049daf988e690b9fc27451be223d2b1212f7927",
+    "scripts/rex_profiles/commercial_recovery_20261016/run-observer.py": "814d5f8cc598b305292a3b533f591dbc706cea97742e1d89459d1cc6e704803c",
+    "scripts/rex_profiles/commercial_recovery_20261016/run-commercial.py": "5f5c4881aed0b74fe2cc5ff1dfce8a3521b9f792ad3c492a3cb84458d53e023b"
+  },
+  "collection_domain": "all selected breakpoints/taps after explicit preparation; prior ROM execution intentionally unobserved except metadata/input transitions",
+  "temporal_domain": "MAME machine-attotime and frame notifier count, event sequence monotonic; not GX frames",
+  "prepared_state": "CPU bus byte FFF600=10 after frame1110; Start field digital active frame500..509; no other writes",
+  "limits": [
+    "M68000 CURPC qualified as instruction start; raw PC includes prefetch",
+    "A7 maps to SP in MAME state interface",
+    "Memory taps report native16 aligned word address + mask; discarded lane data ignored",
+    "VDP CPU ports qualified, internal VRAM/CRAM/DMA not yet qualified",
+    "after_call breakpoint alone is not proof of return or call: no-call fixture reaches it without entry"
+  ],
+  "stop": "incomplete/loss/wrong identity/missing frozen args stops progression, original failures retained"
+}

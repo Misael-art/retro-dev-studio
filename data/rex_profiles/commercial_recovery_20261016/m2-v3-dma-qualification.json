@@ -1,0 +1,53 @@
+{
+  "schema": "rex-dma-observer-qualification/v1",
+  "id": "qualify-v3-001",
+  "instrument_sha256": "3bd84c378b13dc0dec67f9cf9426a003b31548d406728bda7d05cb801ab81e40",
+  "original_author_cases_passed": true,
+  "literal_direct_vram_cram_passed": true,
+  "dma_cases": [
+    {
+      "id": "qualify-v3-001-dma-positive",
+      "exit_code": 0,
+      "elapsed_seconds": 1.1684059170002001,
+      "qualified": true,
+      "scope": "RAM DMA source + internal VRAM + CPU port readback",
+      "source_reads": 4,
+      "readback_words": 4,
+      "vram_sha256": "76c4d8cbdf3747cbeb5f7c2d36bfb7cb3641f5561b2a55b3dd99ad5abf8b6ff6"
+    },
+    {
+      "id": "qualify-v3-001-dma-disabled",
+      "exit_code": 0,
+      "elapsed_seconds": 1.16857093499857,
+      "qualified": true,
+      "scope": "RAM DMA source + internal VRAM + CPU port readback",
+      "source_reads": 0,
+      "readback_words": 4,
+      "vram_sha256": "3818f859de655702f742e33fe51a745a159a3fbf49d73e65f5f053d3c7cc279e"
+    },
+    {
+      "id": "qualify-v3-001-dma-other-args",
+      "exit_code": 0,
+      "elapsed_seconds": 1.1184467040002346,
+      "qualified": true,
+      "scope": "RAM DMA source + internal VRAM + CPU port readback",
+      "source_reads": 4,
+      "readback_words": 4,
+      "vram_sha256": "a6b0319e49b61cbda8e5fd68835f9019b6dca1226768ff6b785eb2e7638e7a2b"
+    },
+    {
+      "id": "qualify-v3-001-dma-incomplete",
+      "exit_code": 0,
+      "elapsed_seconds": 1.1174929039989365,
+      "qualified": true,
+      "scope": "incomplete trace refused"
+    }
+  ],
+  "passed": true,
+  "limits": [
+    "MAME implementation only; no hardware timing fidelity",
+    "save item snapshots are state observations, not transfer events",
+    "CPU PC on source read is trigger context, not CPU load instruction",
+    "no commercial execution yet"
+  ]
+}

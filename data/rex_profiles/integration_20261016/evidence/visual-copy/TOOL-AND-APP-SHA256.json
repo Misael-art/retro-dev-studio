@@ -1,0 +1,14 @@
+{
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/makefile.gen": "a3b782d8b28bf6f00c910ca5f19e8b396baad93a302b1dc0832e63f8d221ac74",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/md.ld": "10cb1e7b1ef281f04d12ce4be543acc7469934a65964cc635211835370130fc2",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/lib/libmd.a": "ef904a3756bc0ca7555060c810cd06c771fc2e70eed92a00befa8f9793caaae3",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/inc/genesis.h": "8118a4ff1e8859d51aac27d100aa5f172692ef9815637ce0dbc9d18956951b59",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/inc/vdp.h": "19f6d2d2169aaaec67128883739e0522ad5851c6a96e204a4f20ef8adf001231",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/inc/vdp_tile.h": "6a8596c4293b1a10f39cfa1c7c4de6f1e6f038e24f7695ac44c1898292d56b1f",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/inc/pal.h": "440823ef04e808bf8dfd5e343c971139b3b12cd8f4a98d852f478b154abe8519",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-gcc": "f8fe247ae0740335f7b561b39972d022cc390500282da51db7c7e248db6f8bda",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-as": "7ede28b6ffc7c2df35780522cc8c99a3c4c5ac30361b92d5a472453b699da81b",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-ld": "3344a5bcb4a9139cf3c32839a08ec9ffeb31a8f8901ecb53f37e8e4ee465f218",
+  "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+  "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/debug/retro-dev-studio": "74033134f47510c1ef37d8e6025a8bc6986436d4060ae3e96b1ba9bcc3d1670e"
+}

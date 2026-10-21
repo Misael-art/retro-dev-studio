@@ -1576,4 +1576,202 @@ mod tests {
         emu.stop().ok();
         let _ = fs::remove_dir_all(base);
     }
+
+    /// Etapa 4 da F1b — REFERÊNCIA INDEPENDENTE para a variante autoral executável: o core Libretro executa
+    /// a ROM (que se autoexercita sobre uma tabela de estados de entrada) e a cópia editada pelo fluxo
+    /// COMPARTILHADO; a previsão vem da regra derivada dos bytes. Compara-se SÓ o contador e o estado
+    /// gravados, caso a caso. Flags, registradores na saída, efeitos da chamada externa e demais memória
+    /// não são comparados. Uma ROM autoral controlada não demonstra consumo em jogo comercial.
+    #[ignore = "exige o core Libretro do host"]
+    #[test]
+    fn rex_gate_variante_autoral_no_core_original_e_copia_editada() {
+        use super::super::rex_profile_ipc::{
+            self as shared, ProfileEditRequest, ProfileLocateRequest,
+        };
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..");
+        let dir = root.join("data/rex_profiles/authoring/counter_gate");
+        let journey: Value =
+            serde_json::from_str(&fs::read_to_string(dir.join("journey.json")).unwrap()).unwrap();
+        let rom_path = root.join(journey["rom"].as_str().unwrap());
+        let rom = fs::read(&rom_path).unwrap();
+        assert_eq!(sha256_hex(&rom), journey["rom_sha256"].as_str().unwrap());
+        let entry = journey["declared_region"]["entry"].as_u64().unwrap() as u32;
+        let exits: Vec<u32> = journey["declared_region"]["exits"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e.as_u64().unwrap() as u32)
+            .collect();
+        let probe = &journey["probe"];
+        let (results, done, magic, sentinel) = (
+            probe["results_addr"].as_u64().unwrap() as u32,
+            probe["done_addr"].as_u64().unwrap() as u32,
+            probe["done_magic"].as_u64().unwrap() as u32,
+            probe["state_sentinel"].as_u64().unwrap() as u32,
+        );
+        let cases: Vec<(u32, u32)> = probe["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| {
+                (
+                    c["counter_in"].as_u64().unwrap() as u32,
+                    c["guard_register_in"].as_u64().unwrap() as u32,
+                )
+            })
+            .collect();
+
+        // a regra vem dos BYTES (o roteiro só tem entradas; não há resposta esperada em arquivo nenhum)
+        let rule = rex_gameplay::recover(&rom, entry, &exits, &Hints::default())
+            .unwrap()
+            .rule;
+        let original_t = rule.compare.threshold;
+        let predict = |t: i64| -> Vec<(u32, u32)> {
+            cases
+                .iter()
+                .map(|(c, g)| {
+                    let e = evaluate(&rule, t, *g, *c, 0);
+                    (
+                        e.counter_write.unwrap_or(*c),
+                        e.state_write.map(|(_, v)| v).unwrap_or(sentinel),
+                    )
+                })
+                .collect()
+        };
+        let run = |path: &Path| -> Vec<(u32, u32)> {
+            let mut emu = EmulatorCore::new(None);
+            emu.load_rom(path).expect("load");
+            emu.set_joypad(JoypadState::default()).expect("neutral");
+            let mut ready = false;
+            for _ in 0..600 {
+                emu.run_frame().expect("frame");
+                if read_long(&emu, done) == magic {
+                    ready = true;
+                    break;
+                }
+            }
+            assert!(
+                ready,
+                "{}: a ROM não terminou o autoexercício em 600 quadros",
+                path.display()
+            );
+            (0..cases.len() as u32)
+                .map(|i| {
+                    (
+                        read_long(&emu, results + 8 * i),
+                        read_long(&emu, results + 8 * i + 4),
+                    )
+                })
+                .collect()
+        };
+
+        // 1. ORIGINAL: o core mede o que a regra recuperada prevê, em todos os casos
+        let observed = run(&rom_path);
+        let expected = predict(original_t);
+        let diverge: Vec<usize> = (0..cases.len())
+            .filter(|i| observed[*i] != expected[*i])
+            .collect();
+        assert!(
+            diverge.is_empty(),
+            "original: casos divergentes {diverge:?}: obs {:x?} prev {:x?}",
+            diverge.iter().map(|i| observed[*i]).collect::<Vec<_>>(),
+            diverge.iter().map(|i| expected[*i]).collect::<Vec<_>>()
+        );
+        // os casos exercitam os dois resultados, a guarda desligada e o wraparound assinado
+        let set_v = rule.set.value as i32 as u32;
+        let other_v = rule.other.value as i32 as u32;
+        assert!(
+            observed.iter().any(|o| o.1 == set_v)
+                && observed.iter().any(|o| o.1 == other_v)
+                && observed.iter().any(|o| o.1 == sentinel)
+        );
+        assert!(
+            cases
+                .iter()
+                .zip(&observed)
+                .any(|((c, _), o)| *c == 0x7FFF_FFFF && o.0 == 0x8000_0002 && o.1 == set_v),
+            "0x7FFFFFFF + 3 vira negativo: comparação ASSINADA"
+        );
+
+        // 2. EDIÇÃO pelo fluxo compartilhado (localizar → editar → publicar cópia + IPS)
+        let out = std::env::temp_dir().join(format!("rex-gate-core-{}", nonce()));
+        fs::create_dir_all(&out).unwrap();
+        let loc = shared::ipc_locate(&ProfileLocateRequest {
+            rom_path: rom_path.to_string_lossy().into_owned(),
+            request_id: "core".into(),
+            profiles_dir: None,
+            declared_regions: Vec::new(),
+        })
+        .unwrap();
+        let m = loc
+            .matches
+            .iter()
+            .find(|m| m.profile.class == "semantic_region")
+            .unwrap();
+        let inst = &m.instances[0];
+        assert_eq!(
+            (inst.instance_offset as u32, inst.fields[0].value),
+            (entry, original_t)
+        );
+        let new_t = journey["edit"]["threshold"].as_i64().unwrap();
+        let edit = shared::ipc_edit(&ProfileEditRequest {
+            rom_path: rom_path.to_string_lossy().into_owned(),
+            profile_id: m.profile.id.clone(),
+            profile_sha256: Some(m.profile.sha256.clone()),
+            instance_offset: inst.instance_offset,
+            values: [("threshold".to_string(), new_t)].into(),
+            graph_json: None,
+            output_dir: out.to_string_lossy().into_owned(),
+            request_id: "core-edit".into(),
+            expected_rom_sha256: loc.rom_sha256.clone(),
+            profiles_dir: None,
+            region_exits: inst.region_exits.clone(),
+            region_selection: Some(inst.selection.mode.clone()),
+        })
+        .unwrap();
+        assert_eq!(fs::read(&rom_path).unwrap(), rom, "original preservada");
+
+        // 3. CÓPIA: o core mede o previsto para o NOVO limiar; e isso difere do original em algum caso
+        let observed_copy = run(Path::new(&edit.patched_path));
+        let expected_copy = predict(new_t);
+        let diverge: Vec<usize> = (0..cases.len())
+            .filter(|i| observed_copy[*i] != expected_copy[*i])
+            .collect();
+        assert!(diverge.is_empty(), "cópia: casos divergentes {diverge:?}");
+        let mudaram: Vec<usize> = (0..cases.len())
+            .filter(|i| observed[*i] != observed_copy[*i])
+            .collect();
+        assert!(
+            !mudaram.is_empty(),
+            "a edição tem de mudar o resultado de algum caso"
+        );
+        // só o ESTADO muda entre as duas; o contador gravado é o mesmo (a soma não depende do limiar)
+        assert!(mudaram
+            .iter()
+            .all(|i| observed[*i].0 == observed_copy[*i].0));
+        // 4. controle: a ORIGINAL, executada de novo, continua dando o resultado do limiar antigo
+        assert_eq!(run(&rom_path), observed, "determinismo da original");
+
+        let report = json!({
+            "schema": "rex-gate-core-oracle/v1",
+            "rom_sha256": loc.rom_sha256, "copy_sha256": edit.rom_sha256_after, "ips_sha256": edit.ips_sha256,
+            "profile": {"id": m.profile.id, "sha256": m.profile.sha256, "class": m.profile.class},
+            "selection": inst.selection.mode, "entry": entry, "exits": exits,
+            "threshold_recovered": original_t, "threshold_edited": new_t,
+            "cases": cases.len(), "divergences_original": 0, "divergences_copy": 0,
+            "cases_changed_by_edit": mudaram.len(),
+            "compared": "contador e estado gravados, por caso",
+            "not_compared": "flags, registradores na saída, efeitos e número de chamadas externas, demais memória",
+            "reference": "core Libretro executando a ROM (em processo)",
+            "prediction": "regra derivada dos bytes (rex_gameplay::lift) avaliada por rex_gameplay::lift::evaluate",
+            "observed_original": observed.iter().map(|o| json!([format!("0x{:08X}", o.0), format!("0x{:08X}", o.1)])).collect::<Vec<_>>(),
+            "observed_copy": observed_copy.iter().map(|o| json!([format!("0x{:08X}", o.0), format!("0x{:08X}", o.1)])).collect::<Vec<_>>(),
+        });
+        let dest = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("target-test/validation/rex-gate-core-oracle.json");
+        fs::create_dir_all(dest.parent().unwrap()).unwrap();
+        fs::write(&dest, serde_json::to_string_pretty(&report).unwrap()).unwrap();
+        println!("original: {} casos, 0 divergências; cópia (T={new_t}): 0 divergências; {} casos mudaram com a edição", cases.len(), mudaram.len());
+        let _ = fs::remove_dir_all(&out);
+    }
 }

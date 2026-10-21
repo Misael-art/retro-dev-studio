@@ -1,0 +1,41 @@
+{
+  "schema": "rex-observer-protocol-addendum/v1",
+  "id": "M2-DMA-SAVE-ITEM-001",
+  "before_any_v3_runtime_measurement": true,
+  "hypothesis": "MAME address-space reads invoked by VDP DMA appear in installed RAM read taps; read-only save items expose resulting VRAM/CRAM without touching emulated ports",
+  "new_source_sha256": "af1958943b29a44f638042ea871e6c2068c213b7a50c33710be3976041c487b4",
+  "prior_observer_v2_preserved": true,
+  "new_ranges": [
+    "read FFF800..FFFA7F",
+    "read FFFB00..FFFB7F",
+    "read VDP data ports C00000..C00003"
+  ],
+  "read_only_snapshots": [
+    "VDP m_vram 32768 u16 normalized BE",
+    "VDP m_cram64 u16 normalized BE",
+    "VDP m_regs32 u8",
+    "pre-copy FF4000 source8192",
+    "pre-copy FF1020 destination12224"
+  ],
+  "qualification_before_commercial": [
+    "original four author controls unchanged",
+    "VDP literal direct-write VRAM1234 and CRAM000E",
+    "DMA four distinct words, source reads and readback exact",
+    "DMA disabled control",
+    "different source/destination",
+    "incomplete capture and wrong identity refuse"
+  ],
+  "temporal_limit": "PC is CPU context, not an assumption that a DMA source read is a CPU load; actual ordering and reentrancy qualified before using it",
+  "sources": [
+    "https://raw.githubusercontent.com/mamedev/mame/mame0289/src/frontend/mame/luaengine.cpp",
+    "https://raw.githubusercontent.com/mamedev/mame/mame0289/src/devices/video/315_5313.cpp"
+  ],
+  "budget": {
+    "seconds_per_author_case": 90,
+    "max_events": 250000,
+    "commercial_frames": 1290,
+    "commercial_wall_seconds": 240,
+    "heavy_jobs": 1
+  },
+  "scope": "new qualified runtime instrument, no production dependency/core change; unknown until qualified"
+}

@@ -1,11 +1,13 @@
+import { hudBand } from "../../core/hudText";
 import { isPpmPath, loadProjectPpmImageData } from "../../core/ppmImage";
 import { loadShellPersona } from "../../core/surfaceRegistry";
-import { isExplicitEmptyCell, tilesetAtlasIndex } from "../../core/tilemapCells";
+import { cellsOnLine, isExplicitEmptyCell, tilesetAtlasIndex } from "../../core/tilemapCells";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tabs from "../common/Tabs";
 import { useEditorStore } from "../../core/store/editorStore";
 import {
   JOYPAD_DEFAULT,
+  acceptsFrame,
   emulatorLoadState,
   emulatorPlayReplay,
   emulatorRewindStep,
@@ -15,11 +17,14 @@ import {
   emulatorStopRecording,
   keyToJoypad,
   listenToAudioStream,
+  listenToFrames,
   recordAudioOutput,
   recordReceivedAudioSamples,
+  runSingleFrame,
   startFrameLoop,
   type AudioPayload,
   type FramePayload,
+  type FramePresentation,
   type JoypadState,
 } from "../../core/ipc/emulatorService";
 import { listenToProjectAssetChanges } from "../../core/ipc/projectWatcherService";
@@ -58,6 +63,10 @@ import {
 import SceneAssetHealthBadge from "./SceneAssetHealthBadge";
 import { TilePalette } from "../tools/ContextualPalette";
 import { getGameViewportScale } from "./gameViewportScale";
+import { paintGameFrame } from "./gameFramePresentation";
+import RuntimeInspectOverlay from "./RuntimeInspectOverlay";
+import { gameMayTakeKeyDown } from "../../core/keyboardFocus";
+import TestAdjustPanel from "./TestAdjustPanel";
 
 const VIEWPORT_TABS = [
   { id: "scene", label: "Cena", icon: "SC" },
@@ -69,6 +78,7 @@ const VIEWPORT_TABS = [
 
 const NodeGraphEditor = lazy(() => import("../nodegraph/NodeGraphEditor"));
 const ArtStudioPanel = lazy(() => import("../artstudio/ArtStudioPanel"));
+const CharacterTimelinePanel = lazy(() => import("../artstudio/CharacterTimelinePanel"));
 const RetroFXDesigner = lazy(() => import("../retrofx/RetroFXDesigner"));
 
 const MD_WIDTH = 320;
@@ -466,9 +476,14 @@ export default function ViewportPanel({
     paintTilemapCell,
     fillTilemapRect,
     fillTilemapFlood,
+    studio,
+    openStudioEditor,
+    rememberWorkspaceCamera,
+    rexCopyRun,
   } = useEditorStore();
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [gameFrameSize, setGameFrameSize] = useState({ width: MD_WIDTH, height: MD_HEIGHT });
   const gameViewportStageRef = useRef<HTMLDivElement>(null);
   const sceneStageRef = useRef<HTMLDivElement>(null);
   const sceneCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -481,6 +496,12 @@ export default function ViewportPanel({
   const [renderedFrameCount, setRenderedFrameCount] = useState(0);
   const stopLoopRef = useRef<(() => void) | null>(null);
   const renderedFrameCounterRef = useRef(0);
+  // Pausado, o contador exposto é exato (o throttle de 10 quadros vale só durante a execução).
+  useEffect(() => {
+    if (emulPaused) {
+      setRenderedFrameCount(renderedFrameCounterRef.current);
+    }
+  }, [emulPaused]);
   const loopStartingRef = useRef(false);
   const loopTokenRef = useRef(0);
   const activeTabRef = useRef(activeViewportTab);
@@ -576,6 +597,25 @@ export default function ViewportPanel({
   const [assetCacheVersion, setAssetCacheVersion] = useState(0);
   const [sceneMousePos, setSceneMousePos] = useState<{ x: number; y: number } | null>(null);
   const [viewportPan, setViewportPan] = useState({ x: 0, y: 0 });
+  // Câmera do editor de cena faz parte do contexto compartilhado: lembrada ao sair e
+  // reaplicada quando o usuário volta à origem (REQ-02).
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      rememberWorkspaceCamera("scene", { zoom: viewportZoom, panX: viewportPan.x, panY: viewportPan.y });
+    }, 120);
+    return () => window.clearTimeout(handle);
+  }, [rememberWorkspaceCamera, viewportPan.x, viewportPan.y, viewportZoom]);
+  const lastAppliedRestoreSeq = useRef(studio.restoreSeq);
+  useEffect(() => {
+    if (lastAppliedRestoreSeq.current === studio.restoreSeq) {
+      return;
+    }
+    lastAppliedRestoreSeq.current = studio.restoreSeq;
+    const camera = studio.cameras.scene;
+    if (camera) {
+      setViewportPan({ x: camera.panX, y: camera.panY });
+    }
+  }, [studio.cameras.scene, studio.restoreSeq]);
   const [clampViewportToWorld, setClampViewportToWorld] = useState(true);
   const [spacePressed, setSpacePressed] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
@@ -605,6 +645,7 @@ export default function ViewportPanel({
       ? activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId) ?? null
       : null;
   const sceneWorld = resolveSceneWorldMetrics(activeScene, activeTarget);
+  const hudBandInfo = useMemo(() => (activeTarget === "megadrive" ? hudBand(activeScene) : null), [activeScene, activeTarget]);
   const selectedImportedContext = selectedEntity
     ? resolveImportedEntityContext(selectedEntity)
     : null;
@@ -958,9 +999,7 @@ export default function ViewportPanel({
     if (!selectedEntity || !entityHasLogicWorkspace(selectedEntity)) {
       return;
     }
-    setActiveWorkspace("logic");
-    setActiveViewportTab("logic");
-    setSelectedEntityId(selectedEntity.entity_id);
+    openStudioEditor({ focus: { task: "actions", entityId: selectedEntity.entity_id } });
     logMessage(
       "info",
       `[Viewport] Navegando para Logic Workspace: ${getEntityDisplayName(selectedEntity)}.`
@@ -970,9 +1009,7 @@ export default function ViewportPanel({
     if (!selectedEntity?.components.sprite) {
       return;
     }
-    setActiveWorkspace("artstudio");
-    setActiveViewportTab("artstudio");
-    setSelectedEntityId(selectedEntity.entity_id);
+    openStudioEditor({ focus: { task: "character", entityId: selectedEntity.entity_id } });
     logMessage(
       "info",
       `[Viewport] Navegando para Art Workspace: ${getEntityDisplayName(selectedEntity)}.`
@@ -1509,16 +1546,17 @@ export default function ViewportPanel({
     [sceneGuides, viewportZoom]
   );
 
+  const lastPresentedFrameRef = useRef<FramePresentation | null>(null);
   const renderFrame = useCallback((payload: FramePayload) => {
+    const current = useEditorStore.getState();
+    if (!acceptsFrame(payload, current.joypadSessionHold ? null : current.coreEpoch, current.emulatorRomIdentity?.sha256, lastPresentedFrameRef.current)) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    const imageData = context.createImageData(payload.width, payload.height);
-    imageData.data.set(new Uint8Array(payload.rgba));
-    context.putImageData(imageData, 0, 0);
+    if (!paintGameFrame(canvas, payload)) return;
+    setGameFrameSize((current) => current.width === payload.width && current.height === payload.height
+      ? current : { width: payload.width, height: payload.height });
+    lastPresentedFrameRef.current = { epoch: payload.core_epoch!, sequence: payload.frame_sequence! };
 
     renderedFrameCounterRef.current += 1;
     if (renderedFrameCounterRef.current % 10 === 0) {
@@ -1535,6 +1573,23 @@ export default function ViewportPanel({
     }
     frameTimingRef.current.lastFrameAt = now;
   }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    let stop: (() => void) | undefined;
+    void listenToFrames((payload) => {
+      const current = useEditorStore.getState();
+      if (!disposed && current.emulatorLoaded && current.activeViewportTab === "game" && current.emulPaused) {
+        renderFrame(payload);
+      }
+    }).then((unsubscribe) => {
+      if (disposed) unsubscribe();
+      else stop = unsubscribe;
+    }).catch((error: unknown) => {
+      if (!disposed) console.error("Falha ao observar frames pausados", error);
+    });
+    return () => { disposed = true; stop?.(); };
+  }, [renderFrame]);
 
   useEffect(() => {
     renderedFrameCounterRef.current = 0;
@@ -1874,38 +1929,19 @@ export default function ViewportPanel({
     }
 
     setStepBusy(true);
-    let stopStepLoop: (() => void) | null = null;
-    let resolved = false;
-
     try {
-      stopStepLoop = await startFrameLoop(
-        (payload) => {
-          renderFrame(payload);
-          if (resolved) {
-            return;
-          }
-          resolved = true;
-          stopStepLoop?.();
-          stopStepLoop = null;
-          setStepBusy(false);
-          logMessage("info", "Frame unico executado.");
-        },
-        (message) => {
-          if (resolved) {
-            return;
-          }
-          resolved = true;
-          setStepBusy(false);
-          logMessage("error", `Falha ao executar frame unico: ${message}`);
-        }
-      );
+      await runSingleFrame((payload) => {
+        renderFrame(payload);
+        // Em passo a passo o contador visível acompanha cada quadro (não só a cada 10).
+        setRenderedFrameCount(renderedFrameCounterRef.current);
+      });
+      logMessage("info", "Frame unico executado.");
     } catch (error: unknown) {
-      if (!resolved) {
-        setStepBusy(false);
-        logMessage("error", `Falha ao iniciar frame unico: ${describeError(error)}`);
-      }
+      logMessage("error", `Falha ao executar frame unico: ${describeError(error)}`);
+    } finally {
+      setStepBusy(false);
     }
-  }, [emulPaused, hasEmulatorSession, logMessage, renderFrame, startFrameLoop, stepBusy]);
+  }, [emulPaused, hasEmulatorSession, logMessage, renderFrame, stepBusy]);
 
   const handlePlayReplay = useCallback(async () => {
     if (!lastReplayPath || playReplayBusy || replayRecording || !emulPaused) {
@@ -1998,7 +2034,12 @@ export default function ViewportPanel({
       emulatorSendInput(updated, useEditorStore.getState().coreEpoch ?? undefined).then(
         (result) => {
           if (result?.ok) {
-            useEditorStore.getState().recordJoypadAck(sessionId, seq, snapshot);
+            // ACEITA pelo backend (com época, geração e quadro). Aceitação não é consumo pelo core.
+            useEditorStore.getState().recordJoypadAck(sessionId, seq, snapshot, {
+              epoch: result.epoch ?? null,
+              generation: result.generation ?? null,
+              appliedAtFrame: result.applied_at_frame ?? null,
+            });
           } else {
             useEditorStore
               .getState()
@@ -2036,6 +2077,8 @@ export default function ViewportPanel({
         return;
       }
 
+      // Digitando num campo: a tecla é do campo, não do jogo (e não pode ser bloqueada).
+      if (!gameMayTakeKeyDown(event)) return;
       const updated = keyToJoypad(joypadRef.current, event.code, true, joypadPlatformRef.current);
       if (!updated) return;
 
@@ -2075,7 +2118,9 @@ export default function ViewportPanel({
       const rect = stage.getBoundingClientRect();
       const nextScale = getGameViewportScale(
         rect.width - GAME_VIEWPORT_PADDING,
-        rect.height - GAME_VIEWPORT_PADDING
+        rect.height - GAME_VIEWPORT_PADDING,
+        gameFrameSize.width,
+        gameFrameSize.height
       );
 
       setGameViewportScale((current) => (current === nextScale ? current : nextScale));
@@ -2098,7 +2143,7 @@ export default function ViewportPanel({
 
     window.addEventListener("resize", updateGameScale);
     return () => window.removeEventListener("resize", updateGameScale);
-  }, [activeViewportTab]);
+  }, [activeViewportTab, gameFrameSize.width, gameFrameSize.height]);
 
   useEffect(() => {
     if (activeViewportTab !== "game") {
@@ -2192,12 +2237,12 @@ export default function ViewportPanel({
     }
 
     function onKeyDown(event: KeyboardEvent) {
+      if (isEditableTarget(event.target)) return;
       if (event.code === "Space") {
         event.preventDefault();
         setSpacePressed(true);
         return;
       }
-      if (isEditableTarget(event.target)) return;
 
       if (
         !event.repeat &&
@@ -3892,7 +3937,12 @@ export default function ViewportPanel({
       }
       const cellKey = `${target.col},${target.row}`;
       if (cellKey !== drag.lastCellKey) {
-        paintTilemapCell(drag.entityId, target.col, target.row, drag.tileIndex);
+        // Interpola desde a última célula: traço rápido não pula células.
+        const [lc, lr] = (drag.lastCellKey ?? cellKey).split(",").map(Number);
+        for (const cell of cellsOnLine(lc, lr, target.col, target.row)) {
+          if (`${cell.col},${cell.row}` === drag.lastCellKey) continue;
+          paintTilemapCell(drag.entityId, cell.col, cell.row, drag.tileIndex);
+        }
         drag.lastCellKey = cellKey;
         drag.paintedInDrag = true;
       }
@@ -3950,7 +4000,11 @@ export default function ViewportPanel({
       const tileY = Math.floor(my / th);
       const tileIndex = tileY * mapW + tileX;
       if (tileIndex !== collisionDragRef.current.lastPaintTile) {
-        updateCollisionMap(tileIndex, collisionDragRef.current.value);
+        const last = collisionDragRef.current.lastPaintTile;
+        for (const cell of cellsOnLine(last % mapW, Math.floor(last / mapW), tileX, tileY)) {
+          const index = cell.row * mapW + cell.col;
+          if (index !== last) updateCollisionMap(index, collisionDragRef.current.value);
+        }
         collisionDragRef.current.lastPaintTile = tileIndex;
         collisionDragRef.current.paintedInDrag = true;
       }
@@ -4222,9 +4276,7 @@ export default function ViewportPanel({
     const graphInline = logic?.graph?.trim() ?? "";
     const hasInlineGraph = graphInline.length > 2;
     if (picked && (logic?.graph_ref || hasInlineGraph)) {
-      setActiveWorkspace("logic");
-      setActiveViewportTab("logic");
-      setSelectedEntityId(picked.entity_id);
+      openStudioEditor({ focus: { task: "actions", entityId: picked.entity_id } });
       logMessage(
         "info",
         `[Viewport] Duplo-clique: abrindo Logic Workspace para '${getEntityDisplayName(picked)}' (graph_ref ou grafo embutido).`
@@ -4233,9 +4285,7 @@ export default function ViewportPanel({
     }
 
     if (picked?.components?.sprite) {
-      setActiveWorkspace("artstudio");
-      setActiveViewportTab("artstudio");
-      setSelectedEntityId(picked.entity_id);
+      openStudioEditor({ focus: { task: "character", entityId: picked.entity_id } });
       logMessage(
         "info",
         `[Viewport] Duplo-clique: abrindo Art Workspace para '${getEntityDisplayName(picked)}'.`
@@ -4746,6 +4796,8 @@ export default function ViewportPanel({
               <button
                 type="button"
                 onClick={() => setViewportZoom(Math.max(ZOOM_MIN, viewportZoom - ZOOM_STEP))}
+                data-testid="viewport-zoom-out"
+                aria-label="Diminuir zoom"
                 className="rounded border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-[10px] font-semibold text-[#6c7086] transition-colors hover:text-[#a6adc8] disabled:opacity-30"
                 disabled={viewportZoom <= ZOOM_MIN}
                 title="Zoom out (Ctrl+-)"
@@ -4755,6 +4807,8 @@ export default function ViewportPanel({
               <button
                 type="button"
                 onClick={() => resetViewportZoom()}
+                data-testid="viewport-zoom-reset"
+                aria-label="Restaurar zoom"
                 className="min-w-[40px] rounded border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-center text-[10px] font-semibold text-[#6c7086] transition-colors hover:text-[#a6adc8]"
                 title="Reset zoom (Ctrl+0)"
               >
@@ -4763,6 +4817,8 @@ export default function ViewportPanel({
               <button
                 type="button"
                 onClick={() => setViewportZoom(Math.min(ZOOM_MAX, viewportZoom + ZOOM_STEP))}
+                data-testid="viewport-zoom-in"
+                aria-label="Aumentar zoom"
                 className="rounded border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-[10px] font-semibold text-[#6c7086] transition-colors hover:text-[#a6adc8] disabled:opacity-30"
                 disabled={viewportZoom >= ZOOM_MAX}
                 title="Zoom in (Ctrl+=)"
@@ -4870,7 +4926,7 @@ export default function ViewportPanel({
               {editorMode === "paint" && activeBrush?.kind === "tile" && activeScene && loadShellPersona() !== "guiado" ? (
                 <div
                   data-testid="viewport-tile-paint-flow-strip"
-                  className="absolute z-[6] flex max-h-[min(42vh,340px)] w-full max-w-full flex-col overflow-hidden rounded border border-[#313244] bg-[#11111b]/96 shadow-lg"
+                  className="absolute z-[6] flex max-h-[min(30vh,220px)] w-full max-w-full flex-col overflow-hidden rounded border border-[#313244] bg-[#11111b]/96 shadow-lg"
                   style={{
                     left: sceneChromeOffset,
                     top: sceneChromeOffset,
@@ -4983,6 +5039,22 @@ export default function ViewportPanel({
                   title="Janela visivel Mega Drive (320x224)"
                 />
               )}
+              {!gameViewLight && hudBandInfo?.rows ? (
+                <div
+                  data-testid="viewport-hud-band"
+                  data-rows={`${hudBandInfo.rows[0]}-${hudBandInfo.rows[1]}`}
+                  className="pointer-events-none absolute border-y border-dashed border-[#f5c2e7]/80 bg-[#f5c2e7]/10"
+                  style={{
+                    left: cameraWindowRect.left,
+                    top: cameraWindowRect.top + (cameraWindowRect.height * hudBandInfo.rows[0] * 8) / 224,
+                    width: cameraWindowRect.width,
+                    height: (cameraWindowRect.height * (hudBandInfo.rows[1] - hudBandInfo.rows[0] + 1) * 8) / 224,
+                  }}
+                  title="Faixa fixa do texto da interface (plano WINDOW): acompanha a tela, não o mundo; o plano A fica coberto nessas linhas"
+                >
+                  <span className="absolute right-1 top-0 text-[8px] text-[#f5c2e7]">HUD fixo · plano A coberto</span>
+                </div>
+              ) : null}
               {shortcutHint && (
                 <div
                   key={shortcutHint.key}
@@ -5324,8 +5396,8 @@ export default function ViewportPanel({
                 className="relative inline-block"
                 data-testid="viewport-game-stage"
                 style={{
-                  width: MD_WIDTH * gameViewportScale,
-                  height: MD_HEIGHT * gameViewportScale,
+                  width: gameFrameSize.width * gameViewportScale,
+                  height: gameFrameSize.height * gameViewportScale,
                 }}
               >
                 <canvas
@@ -5336,10 +5408,15 @@ export default function ViewportPanel({
                   className="border border-[#45475a] bg-black shadow-[0_16px_40px_rgba(0,0,0,0.35)]"
                   style={{
                     imageRendering: "pixelated",
-                    width: MD_WIDTH * gameViewportScale,
-                    height: MD_HEIGHT * gameViewportScale,
+                    width: gameFrameSize.width * gameViewportScale,
+                    height: gameFrameSize.height * gameViewportScale,
                   }}
                   tabIndex={0}
+                />
+                <RuntimeInspectOverlay
+                  canvas={canvasRef.current}
+                  renderedFrames={renderedFrameCount}
+                  paused={emulPaused}
                 />
                 {showPerformanceOverlay && (
                   <div
@@ -5352,9 +5429,10 @@ export default function ViewportPanel({
                   </div>
                 )}
                 <div className="pointer-events-none absolute bottom-2 right-2 rounded border border-[#313244] bg-[#11111b]/80 px-2 py-1 text-[10px] font-mono text-[#7f849c]">
-                  {MD_WIDTH}x{MD_HEIGHT} @ {gameViewportScale}x
+                  {gameFrameSize.width}x{gameFrameSize.height} @ {gameViewportScale}x
                 </div>
               </div>
+              <TestAdjustPanel paused={emulPaused} renderedFrames={renderedFrameCount} />
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -5366,6 +5444,22 @@ export default function ViewportPanel({
               >
                 Pausar
               </button>
+              {rexCopyRun && emulatorRomIdentity?.path === rexCopyRun.copyPath ? (
+                <button
+                  type="button"
+                  data-testid="viewport-return-original-rom"
+                  title="Reverter a execução para a ROM original (intocada), pelo mesmo carregador"
+                  onClick={() => {
+                    const run = useEditorStore.getState().rexCopyRun;
+                    if (!run) return;
+                    useEditorStore.getState().setRexCopyRun(null);
+                    useEditorStore.getState().requestEmulatorLaunch(run.originalPath, "ROM original");
+                  }}
+                  className="rounded border border-[#f9e2af]/40 bg-[#f9e2af]/10 px-2 py-1 text-[10px] font-semibold text-[#f9e2af]"
+                >
+                  Voltar à ROM original
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => handleResume()}
@@ -5501,9 +5595,18 @@ export default function ViewportPanel({
 
         {activeViewportTab === "artstudio" && (
           <div className="h-full w-full">
-            <Suspense fallback={<WorkspaceViewportFallback label="Carregando ArtStudio..." />}>
-              <ArtStudioPanel />
-            </Suspense>
+            {selectedEntity?.components.sprite &&
+            Object.values(selectedEntity.components.sprite.animations ?? {}).some((animation) =>
+              Array.isArray(animation.mugen_frames)
+            ) ? (
+              <Suspense fallback={<WorkspaceViewportFallback label="Carregando Personagem..." />}>
+                <CharacterTimelinePanel entity={selectedEntity} />
+              </Suspense>
+            ) : (
+              <Suspense fallback={<WorkspaceViewportFallback label="Carregando ArtStudio..." />}>
+                <ArtStudioPanel />
+              </Suspense>
+            )}
           </div>
         )}
       </div>

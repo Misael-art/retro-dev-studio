@@ -1,0 +1,40 @@
+{
+  "schema": "rex-observational-sprite-pixel-witness/v2",
+  "status": "PASS_BOUNDED_OBSERVATIONAL_SPRITE_PIXELS",
+  "phase_qualification_sha256": "dd647d9a5d3723fc25a022acac2b27e8088dd61cf1a48956b27cf93958b1480b",
+  "sat_transfer_frame": 1288,
+  "native_snapshot_frame": 1290,
+  "presented_frame": 1290,
+  "reference_origin": "author-qualified geometry/colors/phase, commercial observed prior DMA SAT and invariant palette, static pinned resource; not reserved game-state or edited-ROM expectations",
+  "limits": [
+    "nonresource sprite bounding rectangles conservatively excluded, not selected by image matches",
+    "normal progressive sprites; no general background/scanline renderer",
+    "MAME original only; not GX session or commercial edit proof"
+  ],
+  "projected_resource_pixels": 8482,
+  "excluded_nonresource_covered_pixels": 48,
+  "selected_sprite_indices": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    15,
+    20,
+    22,
+    23,
+    24,
+    25
+  ],
+  "mismatched_pixels": 0,
+  "first_mismatches": [],
+  "tolerance": 0,
+  "png_sha256": "8a4a386bc1defe06462cde85545c331dc9f2728ec7d9d49a40161c671680abe0",
+  "wrong_phase_mismatched_pixels": 6885,
+  "single_pixel_negative_rejected": true
+}

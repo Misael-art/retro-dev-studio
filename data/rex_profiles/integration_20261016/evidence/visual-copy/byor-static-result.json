@@ -1,0 +1,141 @@
+{
+  "schema": "rea-copy-resource-chain/v1",
+  "image_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "implementation_sha256": "0d5647348651e073267bd222f71546cf187bb9455c814d27e459a49e62f83b31",
+  "verified_existing_sites": 37,
+  "region": {
+    "entry": 112360,
+    "exit": 112390
+  },
+  "operation": {
+    "id": "copy_grid",
+    "kind": "copy_grid",
+    "source_address": 16728064,
+    "destination_address": 16715808,
+    "source_address_register": 0,
+    "destination_address_register": 1,
+    "rows": 64,
+    "columns": 64,
+    "bytes_per_cell": 1,
+    "row_gap_bytes": 64,
+    "row_stride_bytes": 128,
+    "copied_bytes": 4096,
+    "output_span_bytes": 8128,
+    "source_instructions": [
+      "0x01B6E8",
+      "0x01B6EE",
+      "0x01B6F4",
+      "0x01B6F6",
+      "0x01B6F8",
+      "0x01B6FA",
+      "0x01B6FE",
+      "0x01B702"
+    ]
+  },
+  "chain": [
+    {
+      "at": "0x1B6B6",
+      "role": "selected index shifted left two (table long pointer stride); index supplied by preceding caller remains unknown"
+    },
+    {
+      "at": "0x1B6C4",
+      "role": "PC-relative indexed load to A0 selects ROM pointer from table 0x1B64C; parameter 0 selects 0x65432"
+    },
+    {
+      "at": "0x1B6C8",
+      "role": "A1 = 0xFF4000"
+    },
+    {
+      "at": "0x1B6CE",
+      "role": "D0.word = 0"
+    },
+    {
+      "at": "0x1B6D2",
+      "role": "direct JSR 0x171E; codec identification inherited from pinned product evidence, not inferred by proximity"
+    },
+    {
+      "at": "0x1B6D8..0x1B6E8",
+      "role": "after call returns, clear FF0000..FF4000 exclusive; preserves resource at FF4000"
+    },
+    {
+      "at": "0x1B6E8..0x1B706",
+      "role": "contiguous fallthrough into verified copy grid, including complete outer DBRA"
+    },
+    {
+      "at": "0x1B706..0x1B726",
+      "role": "following code builds ID definitions at FF4008 from ROM table 0x1B738; separate structure, no VDP output proved"
+    }
+  ],
+  "resource": {
+    "stream_offset": 414770,
+    "consumed_bytes": 634,
+    "decoded_bytes": 4096,
+    "decoded_sha256": "322a14830b8f3be05d59507ccf41c7a57ff8e835cd2727573943cd61d4c944d0",
+    "matches_existing_plain_reference": true,
+    "decoder": "existing crates/rex-enigma, parameter 0",
+    "decoder_sha256": "7b1eeaf04c742b1161e4070f6ca5a16008c115b4d231c62cc97af4dc7d9db67b"
+  },
+  "projection": {
+    "output_span_bytes": 8128,
+    "sha256": "b691f2626e5eb4fd4ff5a03f18f14b32d5f888b61de796b596bfc1dc8801ba46",
+    "status": "static byte-layout projection, not rendered art or nametable"
+  },
+  "dynamic": {
+    "status": "blocked",
+    "reason": "existing libretro-memory-probe exposes only frame runs and WRAM snapshots, no instruction PC hook, breakpoint, register capture or call trace",
+    "game_reachability": "unknown",
+    "harness_runtime": "inherited synthetic copy-loop proof only"
+  },
+  "unknown": [
+    "entry callers and selected index during real gameplay",
+    "call preconditions and complete codec side effects",
+    "resources live when copy executes",
+    "downstream consumer to VDP/palette/frame",
+    "interrupt and mapper context"
+  ],
+  "steps": [
+    {
+      "command": [
+        "rustc",
+        "--crate-name",
+        "rex_enigma",
+        "--crate-type",
+        "rlib",
+        "--edition",
+        "2021",
+        "/home/misael/Projects/REX-REA-LAB-2026-10-15/crates/rex-enigma/src/lib.rs",
+        "-o",
+        "/home/misael/rds-scratch/rea_lab_20261015/runs/visual-copy-static-001/librex_enigma.rlib"
+      ],
+      "cwd": "/home/misael/rds-scratch/rea_lab_20261015/runs/visual-copy-static-001",
+      "timeout_ms": 30000,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "rustc",
+        "--edition",
+        "2021",
+        "/home/misael/Projects/REX-REA-LAB-2026-10-15/scripts/rex_profiles/rea_lab_20261015/enigma-resource-probe.rs",
+        "--extern",
+        "rex_enigma=/home/misael/rds-scratch/rea_lab_20261015/runs/visual-copy-static-001/librex_enigma.rlib",
+        "-o",
+        "/home/misael/rds-scratch/rea_lab_20261015/runs/visual-copy-static-001/enigma-probe"
+      ],
+      "cwd": "/home/misael/rds-scratch/rea_lab_20261015/runs/visual-copy-static-001",
+      "timeout_ms": 30000,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "/home/misael/rds-scratch/rea_lab_20261015/runs/visual-copy-static-001/enigma-probe",
+        "/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin",
+        "65432",
+        "/home/misael/rds-scratch/rea_lab_20261015/runs/visual-copy-static-001/resource.bin"
+      ],
+      "cwd": "/home/misael/rds-scratch/rea_lab_20261015/runs/visual-copy-static-001",
+      "timeout_ms": 30000,
+      "exit_code": 0
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "schema": "rex-prepared-app-protocol/v1",
+  "before_generation_and_app_execution": true,
+  "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+  "app_sha256": "74033134f47510c1ef37d8e6025a8bc6986436d4060ae3e96b1ba9bcc3d1670e",
+  "generator_sha256": "48dde483d1474ba8ecfd0ab8cc6c6a65e8751c40db438accc4dff38e386273a3",
+  "existing_adapter_sha256": "7bda06f7eca534e91fc0876d95e95f136d0227672995c032c375cf461023e876",
+  "episode": "500 neutral,10 Start,600 neutral, explicit CPU byte FFF600=10, serialize before further frames,180neutral",
+  "app_path": "existing emulator_play_replay + ReplayCapture, no new RAM-write IPC or core replacement",
+  "expectations": [
+    "load matching original paused; ROM/core hashes checked in app",
+    "wrong ROM path refused",
+    "state size mismatch refused",
+    "wrong expected framebuffer yields framebuffer_match=false, never counted PASS",
+    "restore same prepared state twice in fresh loads; native frame buffer equality and exact CPU-normalized RAM hashes",
+    "canvas equals current core RGBA",
+    "distinct app input epoch per load; frame-end samples are not call trace",
+    "prepared GX full8128 byte layout equals prior MAME final original layout hash before app measurement; mismatch blocks this declared correspondence"
+  ],
+  "reference_origin": "same pinned GX core, separately measured original; correspondence reference only, not independent artwork/semantic oracle",
+  "runtime_separation": "MAME commercial001 trace remains external; app receives separately prepared GX state with its own run ID",
+  "budget": {
+    "generation_wall_seconds": 90,
+    "app_wall_seconds": 240,
+    "one_heavy_job": true,
+    "host_minimum_gib": 3
+  },
+  "status": "FROZEN_BEFORE_GENERATION_AND_APP_EXECUTION",
+  "mame_final_layout_sha256": "a772ef86d9f87377093fd22534d8f171596c68aba046a284a90d887c384dfb2b",
+  "mame_final_layout_private_path": "/home/misael/rds-scratch/commercial_recovery_20261016/commercial-001/final-layout.bin",
+  "mame_layout_origin": "commercial001 copy snapshot plus all subsequent observed writes into same8128 byte span; original trace only, no edited framebuffer",
+  "ui_observer_sha256": "25527e81cf8198705856f62c0dedce58ca0c65d4359e885d50158fa9e38709e4",
+  "canonical_runner_before_extension_sha256": "5df01978cafabf534ea2fa48999fc19b89214136c0fae76b17299cc968dea036",
+  "canonical_runner_extended_sha256": "987aecd4657de5afc04b0b849641ea0fa69afca6cd74b63e1100e24ed6d10c19",
+  "original_runner_preserved_at": "/home/misael/rds-scratch/commercial_recovery_20261016/e2e-tauri-build-run-before-prepared-observation.mjs",
+  "qa_only_extension": "one new canonical scenario delegates observation using existing desktop session and IPC; old scenario bodies unchanged"
+}

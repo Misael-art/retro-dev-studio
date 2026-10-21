@@ -17,12 +17,15 @@ import {
   romSaveAnnotations,
 } from "../../core/ipc/toolsService";
 import { ExperimentalNotice } from "./ToolNotices";
-import { RexGameplayRulePanel, type RexGameplayPersistencia } from "./RexGameplayRulePanel";
+import { lerRegraRecuperada } from "../../core/nodegraph/rexGameplayScene";
+import { RexProfileLogicPanel, type LegacyRule } from "./RexProfileLogicPanel";
+import { bridgeInfo, withRomPath } from "../../core/nodegraph/profileGraphBridge";
 import InspectionPanel from "./InspectionPanel";
 import { CompressedResourcePanel } from "./CompressedResourcePanel";
 import ToolPathField from "./ToolPathField";
 
 type ReverseView =
+  | "logics"
   | "map"
   | "hex"
   | "graphics"
@@ -65,6 +68,13 @@ export default function ReverseWorkspace() {
   } = useEditorStore();
   const [romPath, setRomPath] = useState("");
   const [activeView, setActiveView] = useState<ReverseView>("map");
+  // Ponte Studio → REX: abrir na ROM em execução e focar a instância comprovada pedida.
+  const rexBridgeRequest = useEditorStore((state) => state.rexBridgeRequest);
+  useEffect(() => {
+    if (!rexBridgeRequest) return;
+    setRomPath(rexBridgeRequest.romPath);
+    setActiveView("logics");
+  }, [rexBridgeRequest]);
   const [busy, setBusy] = useState(false);
   const [manifest, setManifest] = useState<RomAnalysisManifest | null>(null);
   const [hexResult, setHexResult] = useState<ReverseExplorerResult | null>(null);
@@ -91,35 +101,50 @@ export default function ReverseWorkspace() {
   );
 
   /**
-   * Ponte entre o painel de regra e a escena: o bloque que se garda e o mesmo
-   * que o panel mostra (`components.logic.recovered_rule`, grafo verbatim), e
-   * `persistActiveScene` decide se quedou no disco ou só en memoria. Unha
-   * entidade que xa ten lóxica propia non se sobrescrebe: o panel recusa e di
-   * que se escolla outra.
+   * Regra da classe semântica gravada na entidade no FORMATO ANTERIOR (`components.logic.recovered_rule`).
+   * O bloco é lido e validado com o leitor de sempre (`lerRegraRecuperada`) e nunca é apagado nem
+   * reescrito aqui: o painel de lógicas o mostra e oferece re-recuperar pela mesma região.
    */
-  const rexGameplayPersistencia = useMemo<RexGameplayPersistencia | null>(() => {
-    if (!rexEntidade) return null;
-    const bloque = rexEntidade.components.logic?.recovered_rule ?? null;
+  const legacyRule = useMemo<LegacyRule | null>(() => {
+    const bloque = rexEntidade?.components.logic?.recovered_rule ?? null;
+    if (!bloque) return null;
+    const lectura = lerRegraRecuperada(bloque);
+    if (!lectura.ok) return null;
     return {
-      entityId: rexEntidade.entity_id,
-      gardada: bloque,
-      entidadeConLogica:
-        deserializeNodeGraph(rexEntidade.components.logic?.graph).nodes.length > 0 &&
-        bloque === null,
-      gardar: async (regra) => {
-        updateEntity(rexEntidade.entity_id, {
-          components: {
-            ...rexEntidade.components,
-            logic: { ...(rexEntidade.components.logic ?? {}), recovered_rule: regra },
-          },
-        });
-        // Sen proxecto aberto non hai onde escribir: o panel dera que queda
-        // só en memoria en vez de vendelo por persistido.
-        if (!activeProjectDir) return false;
-        return await persistActiveScene(activeProjectDir, "REX gameplay");
-      },
+      profileId: lectura.regra.profile_id,
+      romSha256: lectura.regra.rom_sha256,
+      entry: lectura.regra.entry,
+      exits: lectura.regra.exits,
+      threshold: lectura.regra.threshold_current,
     };
-  }, [rexEntidade, activeProjectDir, updateEntity]);
+  }, [rexEntidade]);
+
+  /**
+   * Anexa o grafo gerado do pulo à lógica da entidade selecionada e abre o canvas. Nunca sobrescreve
+   * lógica própria: só substitui um grafo que já seja desta mesma ponte (reabrir a partir da ROM).
+   */
+  async function openProfileAsNodes(graphJson: string, rom: string, profilesDir = ""): Promise<{ ok: boolean; message: string }> {
+    if (!rexEntidade) return { ok: false, message: "Selecione uma entidade na cena: o grafo é anexado à lógica dela." };
+    const atual = deserializeNodeGraph(rexEntidade.components.logic?.graph);
+    if (atual.nodes.length > 0 && !bridgeInfo(atual)) {
+      return { ok: false, message: `A entidade ${rexEntidade.entity_id} já tem lógica própria; escolha outra para não sobrescrever.` };
+    }
+    updateEntity(rexEntidade.entity_id, {
+      components: {
+        ...rexEntidade.components,
+        logic: { ...(rexEntidade.components.logic ?? {}), graph: withRomPath(graphJson, rom, profilesDir), graph_origin: "rom_recovered" },
+      },
+    });
+    const persisted = activeProjectDir ? await persistActiveScene(activeProjectDir, "Reverse perfil") : false;
+    setActiveWorkspace("scene");
+    setActiveViewportTab("logic");
+    return {
+      ok: true,
+      message: persisted
+        ? `Grafo recuperado da ROM aplicado em ${rexEntidade.entity_id} e salvo na cena.`
+        : `Grafo recuperado da ROM aplicado em ${rexEntidade.entity_id} (só em memória: não há projeto salvo).`,
+    };
+  }
 
   useEffect(() => {
     if (!manifest) {
@@ -443,6 +468,7 @@ export default function ReverseWorkspace() {
   const viewTabs: { id: ReverseView; label: string }[] = [
     { id: "inspection", label: "Inspeção visual" },
     { id: "resources", label: "Recursos comprimidos" },
+    { id: "logics", label: "Lógicas (pulo)" },
     { id: "map", label: "ROM Map" },
     { id: "hex", label: "Hex" },
     { id: "graphics", label: "Graphics" },
@@ -459,6 +485,33 @@ export default function ReverseWorkspace() {
         <div className="flex flex-wrap gap-2">
           {viewTabs.filter((tab) => tab.id !== "resources").map((tab) => (
             <button key={tab.id} type="button" data-testid={`reverse-tab-${tab.id}`} onClick={() => setActiveView(tab.id)} className="rounded-full border border-[#313244] bg-[#11111b] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#94a3b8]">Voltar para {tab.label}</button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (activeView === "logics") {
+    return (
+      <div className="flex flex-col gap-3 p-3">
+        <ToolPathField
+          label="ROM alvo"
+          value={romPath}
+          set={setRomPath}
+          placeholder="/roms/game.md"
+          extensions={["md", "bin", "gen", "smc", "sfc", "fig"]}
+          accentColor="f9e2af"
+        />
+        <RexProfileLogicPanel
+          romPath={romPath}
+          logMessage={logMessage}
+          onOpenAsNodes={openProfileAsNodes}
+          legacyRule={legacyRule}
+          focusRequest={rexBridgeRequest && rexBridgeRequest.romPath === romPath ? rexBridgeRequest : null}
+        />
+        <div className="flex flex-wrap gap-2">
+          {viewTabs.filter((tab) => tab.id !== "logics").map((tab) => (
+            <button key={tab.id} type="button" data-testid={`reverse-tab-${tab.id}`} onClick={() => setActiveView(tab.id)} className="rounded-full border border-[#313244] bg-[#11111b] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#94a3b8] hover:text-[#e5e7eb]">{tab.label}</button>
           ))}
         </div>
       </div>
@@ -509,9 +562,17 @@ export default function ReverseWorkspace() {
         >
           Recursos comprimidos
         </button>
+        <button
+          type="button"
+          data-testid="reverse-tab-logics"
+          onClick={() => setActiveView("logics")}
+          className="rounded-full border border-[#a6e3a1]/50 bg-[#11111b] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#a6e3a1] hover:text-[#e5e7eb]"
+        >
+          Lógicas (pulo)
+        </button>
         {manifest &&
           viewTabs
-            .filter((tab) => tab.id !== "inspection")
+            .filter((tab) => tab.id !== "inspection" && tab.id !== "logics")
             .map((tab) => (
               <button
                 key={tab.id}
@@ -864,13 +925,6 @@ export default function ReverseWorkspace() {
 
           {activeView === "code" && (
             <>
-              <div className="mb-3">
-                <RexGameplayRulePanel
-                  romPath={romPath}
-                  logMessage={logMessage}
-                  persistencia={rexGameplayPersistencia}
-                />
-              </div>
               <div
                 data-testid="reverse-logic-recovery-card"
                 className="mb-3 rounded border border-[#cba6f7]/40 bg-[#1e1a2e] p-3"

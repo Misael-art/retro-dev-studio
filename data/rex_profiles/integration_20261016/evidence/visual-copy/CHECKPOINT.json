@@ -1,0 +1,45 @@
+{
+  "schema": "rex-visual-copy-checkpoint/v1",
+  "product_base": "2f078dc2e95de18d284c7e2ecd749f4833512cc3",
+  "branch": "codex/rex-integrator-sonic-103104",
+  "freeze_commit": "b0f9f8d8",
+  "pre_emulation_oracle_commit": "8a0cd9d2",
+  "byor_episode2_protocol_commit": "50363df3",
+  "research_head": "ee8c581f07494c22100c688f09f02db0caacd56b",
+  "research_clean": true,
+  "app_sha256": "74033134f47510c1ef37d8e6025a8bc6986436d4060ae3e96b1ba9bcc3d1670e",
+  "author_scene_status": "BLOCKED_FROZEN_COLOR_EXPECTATION_V1",
+  "final_native_checks": {
+    "passed": 86,
+    "total": 89,
+    "failed": [
+      "original.core_equals_independent_image",
+      "original-repeat.core_equals_independent_image",
+      "copia.core_equals_independent_image"
+    ]
+  },
+  "frozen_expected_max_rgb": 255,
+  "frozen_rgb_tolerance": 7,
+  "observed_max_rgb": 239,
+  "expected_files_modified_after_observation": false,
+  "oracle_v2_exception": "REQUESTED_NO_APPROVAL_RECEIVED",
+  "memory_causal_changed_bytes": 162,
+  "causal_changed_pixel_positions": 3309,
+  "byor_status": "BLOCKED_RESOURCE_TO_PRESENTATION_PROOF",
+  "certify": "READY",
+  "frontend": {
+    "passed": 1045,
+    "skipped": 3
+  },
+  "rust": {
+    "passed": 1036,
+    "ignored": 93
+  },
+  "native_regression_checks": {
+    "passed": 178,
+    "total": 178
+  },
+  "preexisting_nodegraph_sound_issue": "OPEN unchanged; history retained",
+  "push_merge_release_promotion": false,
+  "raw_evidence_root": "/home/misael/rds-scratch/rex-visual-copy-001"
+}

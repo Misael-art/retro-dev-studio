@@ -26,6 +26,7 @@ Se houver conflito entre documentos, siga esta ordem:
 3. `docs/08_TREE_ARCHITECTURE.md`
 4. `docs/00_AI_DIRECTIVES.md`
 5. `docs/09_AGENT_DEV_MODE.md` quando a tarefa tocar processo, CI, documentacao de estado, multi-agente ou conflito entre documentos
+6. `docs/14_REX_ARQUITETURA_UNIVERSAL.md` quando a tarefa tocar REX, perfis, `tools/reverse/decomp/`, a ponte canvas/ROM ou provas de gameplay
 
 Responda com `[Contexto Carregado]` antes de propor qualquer acao relevante.
 

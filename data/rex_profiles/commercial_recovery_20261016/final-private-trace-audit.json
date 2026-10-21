@@ -1,0 +1,31 @@
+{
+  "schema": "rex-final-private-trace-audit/v1",
+  "scope": "Availability/integrity recheck only, not new functional execution",
+  "records": [
+    {
+      "path": "/home/misael/rds-scratch/commercial_recovery_20261016/commercial-v3-001/events.jsonl",
+      "sha256": "7a6ee7353e06804dee2b6199e93f466d3a5b58a5dadd0d4f6e03be0d46d62bc2",
+      "bytes": 89765275,
+      "status": "MATCH"
+    },
+    {
+      "path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-profile-golden-axe-001/events.jsonl",
+      "sha256": "da91dbd9027e48ec3feec40659f740aa2ab5efa5da7c294b61424f4b95ee7121",
+      "bytes": 222189,
+      "status": "MATCH"
+    },
+    {
+      "path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-profile-golden-axe-edited-001/events.jsonl",
+      "sha256": "baffd7a95ccf66b3a53120d27fc57e4bf9d3e6bfadcc860b533a4b6197f69c9f",
+      "bytes": 118890,
+      "status": "MATCH"
+    },
+    {
+      "path": "/home/misael/rds-scratch/commercial_recovery_20261016/commercial-m4-width2-001/events.jsonl",
+      "sha256": "bcf11b25be5ead1a259763edfdfa7b02d416d6f97c09923e43dc200e98267454",
+      "bytes": 89498968,
+      "status": "MATCH",
+      "source_field": "trace_sha256"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schema": "rex-heavy-job-preflight/v1",
+  "generated_at": "2026-10-17T06:34:28.079201+00:00",
+  "minimum_available_kib": 3145728,
+  "available_kib": 2911156,
+  "swap_used_kib": 9037700,
+  "other_heavy_processes": [],
+  "ready_for_heavy_job": false,
+  "source": "docs/rex_profiles/ROUND_STATE.md: before each heavy job; below about3GiB defer; one heavy job at a time",
+  "command": [
+    "rtk",
+    "proxy",
+    "python3",
+    "scripts/rex_profiles/commercial_recovery_20261016/preflight.py"
+  ],
+  "exit_code": 75
+}

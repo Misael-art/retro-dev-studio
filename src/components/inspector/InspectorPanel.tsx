@@ -1,5 +1,9 @@
 import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import AssetPreview from "../common/AssetPreview";
+import EditScopeBadge from "./EditScopeBadge";
+import { EntityPaletteSection, PaletteSummary } from "./PalettePanel";
+import HudTextInspector from "./HudTextInspector";
+import AssetRenameControl from "./AssetRenameControl";
 import {
   DEFAULT_TILEMAP_LEGACY_FALLBACK_DETAIL,
   hasCanonicalTilemapCells,
@@ -775,6 +779,7 @@ export default function InspectorPanel() {
     setEditorMode,
     setActiveBrush,
     lastBuildSourceMap,
+    openStudioEditor,
   } = useEditorStore();
 
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "error">("idle");
@@ -866,9 +871,7 @@ export default function InspectorPanel() {
     if (!entity) {
       return;
     }
-    setActiveWorkspace("logic");
-    setActiveViewportTab("logic");
-    setSelectedEntityId(entity.entity_id);
+    openStudioEditor({ focus: { task: "actions", entityId: entity.entity_id } });
     logMessage("info", `[Inspector] Navegando para Logic Workspace: ${getEntityDisplayName(entity)}.`);
   }
 
@@ -877,9 +880,7 @@ export default function InspectorPanel() {
       logMessage("warn", "[Inspector] A entidade selecionada nao possui sprite para abrir no Art Workspace.");
       return;
     }
-    setActiveWorkspace("artstudio");
-    setActiveViewportTab("artstudio");
-    setSelectedEntityId(entity.entity_id);
+    openStudioEditor({ focus: { task: "character", entityId: entity.entity_id } });
     logMessage("info", `[Inspector] Navegando para Art Workspace: ${getEntityDisplayName(entity)}.`);
   }
 
@@ -1250,6 +1251,7 @@ export default function InspectorPanel() {
   return (
     <Panel title="Inspector" className="flex h-full flex-col">
       <div className="flex-1 overflow-x-hidden overflow-y-auto">
+        <PaletteSummary />
         {!selectedEntityId ? (
           <div className="px-3 py-4 text-xs text-[#45475a]">
             <p className="italic">Selecione uma entidade na Hierarchy.</p>
@@ -1301,6 +1303,32 @@ export default function InspectorPanel() {
                     prefab: {entity.prefab.replace(/\.json$/i, "")}
                   </p>
                 )}
+                <EditScopeBadge entityId={entity.entity_id} />
+                {entity.components.sprite ? (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    <button
+                      type="button"
+                      data-testid="inspector-open-character"
+                      onClick={() => openStudioEditor({ focus: { task: "character", entityId: entity.entity_id } })}
+                      className="rounded border border-[#89b4fa]/50 px-2 py-0.5 text-[9px] text-[#89b4fa] hover:bg-[#89b4fa]/10"
+                      title="Abrir esta entidade na tarefa Personagem (animações, caixas e eventos)"
+                    >
+                      Abrir no Personagem
+                    </button>
+                    <AssetRenameControl asset={entity.components.sprite.asset} />
+                    {entity.components.logic ? (
+                      <button
+                        type="button"
+                        data-testid="inspector-open-actions"
+                        onClick={() => openStudioEditor({ focus: { task: "actions", entityId: entity.entity_id } })}
+                        className="rounded border border-[#a6e3a1]/50 px-2 py-0.5 text-[9px] text-[#a6e3a1] hover:bg-[#a6e3a1]/10"
+                        title="Abrir os comportamentos desta entidade na tarefa Ações"
+                      >
+                        Abrir em Ações
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div
                   data-testid="inspector-entity-context"
                   className="mt-1 flex flex-wrap gap-1 text-[9px] text-[#7f849c]"
@@ -1356,6 +1384,7 @@ export default function InspectorPanel() {
                 <span>({entity.transform.x}, {entity.transform.y})</span>
               </div>
             </div>
+            <EntityPaletteSection entityId={entity.entity_id} />
             <div className="flex items-center gap-2 border-b border-[#313244] px-3 py-1.5 text-[10px] text-[#a6adc8]">
               <label className="flex items-center gap-1">
                 X
@@ -1454,6 +1483,7 @@ export default function InspectorPanel() {
                 </div>
               </div>
             ) : null}
+            {entity.components.hud ? <HudTextInspector entity={entity} /> : null}
             {entity.components.sprite &&
             Object.values(entity.components.sprite.animations ?? {}).some((def) => isMugenAnimation(def)) ? (
               <div

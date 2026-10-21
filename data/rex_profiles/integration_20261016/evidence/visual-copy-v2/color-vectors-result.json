@@ -1,0 +1,495 @@
+{
+  "schema": "rex-color-vectors-result/v2",
+  "methodology": "after v1 failure, authorized source-grounded correction; no framebuffer input",
+  "vectors": [
+    {
+      "name": "black",
+      "cram_word": "0x0000",
+      "rgb565_word": "0x0000",
+      "rgba": [
+        0,
+        0,
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "red_cram1",
+      "cram_word": "0x0002",
+      "rgb565_word": "0x2000",
+      "rgba": [
+        33,
+        0,
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "green_cram1",
+      "cram_word": "0x0020",
+      "rgb565_word": "0x0100",
+      "rgba": [
+        0,
+        32,
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "blue_cram1",
+      "cram_word": "0x0200",
+      "rgb565_word": "0x0004",
+      "rgba": [
+        0,
+        0,
+        33,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "gray_cram1",
+      "cram_word": "0x0222",
+      "rgb565_word": "0x2104",
+      "rgba": [
+        33,
+        32,
+        33,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "red_cram2",
+      "cram_word": "0x0004",
+      "rgb565_word": "0x4000",
+      "rgba": [
+        66,
+        0,
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "green_cram2",
+      "cram_word": "0x0040",
+      "rgb565_word": "0x0220",
+      "rgba": [
+        0,
+        69,
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "blue_cram2",
+      "cram_word": "0x0400",
+      "rgb565_word": "0x0008",
+      "rgba": [
+        0,
+        0,
+        66,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "gray_cram2",
+      "cram_word": "0x0444",
+      "rgb565_word": "0x4228",
+      "rgba": [
+        66,
+        69,
+        66,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "red_cram3",
+      "cram_word": "0x0006",
+      "rgb565_word": "0x6000",
+      "rgba": [
+        99,
+        0,
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "green_cram3",
+      "cram_word": "0x0060",
+      "rgb565_word": "0x0320",
+      "rgba": [
+        0,
+        101,
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "blue_cram3",
+      "cram_word": "0x0600",
+      "rgb565_word": "0x000C",
+      "rgba": [
+        0,
+        0,
+        99,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "gray_cram3",
+      "cram_word": "0x0666",
+      "rgb565_word": "0x632C",
+      "rgba": [
+        99,
+        101,
+        99,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "red_cram4",
+      "cram_word": "0x0008",
+      "rgb565_word": "0x8800",
+      "rgba": [
+        140,
+        0,
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "green_cram4",
+      "cram_word": "0x0080",
+      "rgb565_word": "0x0440",
+      "rgba": [
+        0,
+        138,
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "blue_cram4",
+      "cram_word": "0x0800",
+      "rgb565_word": "0x0011",
+      "rgba": [
+        0,
+        0,
+        140,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "gray_cram4",
+      "cram_word": "0x0888",
+      "rgb565_word": "0x8C51",
+      "rgba": [
+        140,
+        138,
+        140,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "red_cram5",
+      "cram_word": "0x000A",
+      "rgb565_word": "0xA800",
+      "rgba": [
+        173,
+        0,
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "green_cram5",
+      "cram_word": "0x00A0",
+      "rgb565_word": "0x0540",
+      "rgba": [
+        0,
+        170,
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "blue_cram5",
+      "cram_word": "0x0A00",
+      "rgb565_word": "0x0015",
+      "rgba": [
+        0,
+        0,
+        173,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "gray_cram5",
+      "cram_word": "0x0AAA",
+      "rgb565_word": "0xAD55",
+      "rgba": [
+        173,
+        170,
+        173,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "red_cram6",
+      "cram_word": "0x000C",
+      "rgb565_word": "0xC800",
+      "rgba": [
+        206,
+        0,
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "green_cram6",
+      "cram_word": "0x00C0",
+      "rgb565_word": "0x0660",
+      "rgba": [
+        0,
+        207,
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "blue_cram6",
+      "cram_word": "0x0C00",
+      "rgb565_word": "0x0019",
+      "rgba": [
+        0,
+        0,
+        206,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "gray_cram6",
+      "cram_word": "0x0CCC",
+      "rgb565_word": "0xCE79",
+      "rgba": [
+        206,
+        207,
+        206,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "red_cram7",
+      "cram_word": "0x000E",
+      "rgb565_word": "0xE800",
+      "rgba": [
+        239,
+        0,
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "green_cram7",
+      "cram_word": "0x00E0",
+      "rgb565_word": "0x0760",
+      "rgba": [
+        0,
+        239,
+        0,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "blue_cram7",
+      "cram_word": "0x0E00",
+      "rgb565_word": "0x001D",
+      "rgba": [
+        0,
+        0,
+        239,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "gray_cram7",
+      "cram_word": "0x0EEE",
+      "rgb565_word": "0xEF7D",
+      "rgba": [
+        239,
+        239,
+        239,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "mixed_R1_G3_B5",
+      "cram_word": "0x0A62",
+      "rgb565_word": "0x2335",
+      "rgba": [
+        33,
+        101,
+        173,
+        255
+      ],
+      "pass": true
+    },
+    {
+      "name": "mixed_R0_G2_B7",
+      "cram_word": "0x0E40",
+      "rgb565_word": "0x023D",
+      "rgba": [
+        0,
+        69,
+        239,
+        255
+      ],
+      "pass": true
+    }
+  ],
+  "negatives": {
+    "old_linear_max_255_rejected": true,
+    "red_blue_swap_rejected": true,
+    "red_green_swap_rejected": true,
+    "rgb555_green_curve_rejected": true,
+    "constant_239_for_intermediate_rejected": true,
+    "wrong_alpha_rejected": true,
+    "invalid_cram_1_rejected": true,
+    "invalid_cram_4096_rejected": true,
+    "invalid_cram_-1_rejected": true
+  },
+  "source_identities": {
+    "core/vdp_render.c": {
+      "path": "/home/misael/rds-scratch/rex-visual-copy-001/pinned-core-vdp_render.c",
+      "sha256": "3627f311789c6cd774db903db716394e12148aa671d4b2001ab8c844077ac761"
+    },
+    "libretro/libretro.c": {
+      "path": "/home/misael/rds-scratch/rex-visual-copy-001/pinned-libretro-libretro.c",
+      "sha256": "4622426e697f692c89ff0d049f3bfcbc2a58e44fc2d393bbdd8302f65fc9b15c"
+    },
+    "Makefile.libretro": {
+      "path": "/home/misael/rds-scratch/rex-visual-copy-001/pinned-Makefile.libretro",
+      "sha256": "5afc8aff237647dc6f8fbf7a2c9f7064c55b009667e85e446fa57bcd744b550e"
+    }
+  },
+  "palette_intervals": [
+    {
+      "palette": 0,
+      "file_interval": [
+        96616,
+        96648
+      ],
+      "encoded_words": [
+        0,
+        14,
+        224,
+        3584,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "sha256": "189d9687522b7301d375d9ebea9e8dc82c5426f876459133fa7d410d8f5b75ad"
+    },
+    {
+      "palette": 1,
+      "file_interval": [
+        96584,
+        96616
+      ],
+      "encoded_words": [
+        0,
+        238,
+        3808,
+        3598,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "sha256": "eeef47a70e2b28c6a86d5e5c6638b0a6ab47409fd626fb92ce213ac6d335b085"
+    },
+    {
+      "palette": 2,
+      "file_interval": [
+        96552,
+        96584
+      ],
+      "encoded_words": [
+        0,
+        0,
+        3822,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "sha256": "b082b8d2d4e7bab3e27574ade20245d0bee3ae48fffdad2b318d12fb61d3845e"
+    }
+  ],
+  "rom_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+  "binary_rgb565_request": {
+    "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+    "argument_value": 2,
+    "environment_command": 10,
+    "instruction_addresses": [
+      "0x5133B9",
+      "0x5133C1",
+      "0x5133CE"
+    ]
+  },
+  "allPass": true
+}

@@ -542,6 +542,10 @@ pub(crate) fn convert_character_v1_with_review(
         animations.insert(
             format!("action_{}", a.number),
             AnimationDef {
+                // Identidade estavel por ocorrencia (nao pelo indice da imagem): duas ocorrencias
+                // da mesma imagem sao itens distintos para duracao, caixas e eventos.
+                occurrence_ids: Some((1..=a.frames.len()).map(|i| format!("o{i}")).collect()),
+                frame_events: Vec::new(),
                 frames: a
                     .frames
                     .iter()
@@ -557,6 +561,7 @@ pub(crate) fn convert_character_v1_with_review(
                         .iter()
                         .zip(&durations)
                         .map(|(f, d)| MugenAnimationFrame {
+                            clsn_edited: false,
                             group: f.sprite.0,
                             image: f.sprite.1,
                             axis: Some(Pivot { x: f.x, y: f.y }),
@@ -2649,6 +2654,414 @@ mod tests {
         crate::compiler::sgdk_emitter::emit_sgdk(&ast, "Strider").main_c
     }
 
+    fn scene_c(project: &Path, scene: &crate::ugdm::entities::Scene) -> String {
+        let proj = crate::core::project_mgr::load_project(project).unwrap();
+        let ast = crate::compiler::ast_generator::generate_ast(&proj, scene);
+        crate::compiler::sgdk_emitter::emit_sgdk(&ast, "Strider").main_c
+    }
+
+    fn with_sound_event(
+        scene: &mut crate::ugdm::entities::Scene,
+        register_audio: bool,
+    ) -> (String, String) {
+        let entity = scene
+            .entities
+            .iter_mut()
+            .find(|e| e.entity_id == "strider")
+            .unwrap();
+        let sprite = entity.components.sprite.as_mut().unwrap();
+        let (name, anim) = sprite.animations.iter_mut().next().unwrap();
+        let occurrence = anim.occurrence_ids.as_ref().unwrap()[0].clone();
+        anim.frame_events = vec![crate::ugdm::components::FrameEvent {
+            id: "ev-hit".into(),
+            occurrence: occurrence.clone(),
+            tick: 0,
+            kind: "sound".into(),
+            sound: Some("hit".into()),
+            origin: "authored".into(),
+        }];
+        let name = name.clone();
+        if register_audio {
+            let mut sfx = std::collections::HashMap::new();
+            sfx.insert("hit".to_string(), "assets/audio/hit.wav".to_string());
+            entity.components.audio =
+                Some(crate::ugdm::components::AudioComponent { sfx, bgm: None });
+        }
+        (name, occurrence)
+    }
+
+    #[test]
+    fn authored_strike_node_emits_box_check_after_ticks_and_refuses_invalid_params() {
+        let (root, project) = import_fixture("sentinel", "strike-model");
+        let mut scene = load_scene(&project, DEFAULT_ENTRY_SCENE).unwrap();
+        let mut dummy = scene
+            .entities
+            .iter()
+            .find(|e| e.entity_id == "sentinel")
+            .unwrap()
+            .clone();
+        dummy.entity_id = "dummy".into();
+        let graph = |params: serde_json::Value| {
+            serde_json::json!({
+                "version": 1,
+                "nodes": [
+                    { "id": "tick", "type": "event_update", "label": "t", "x": 0, "y": 0, "params": {} },
+                    { "id": "strike1", "type": "authored_strike", "label": "g", "x": 0, "y": 0, "params": params }
+                ],
+                "edges": [{ "id": "e1", "fromNode": "tick", "fromPort": "exec", "toNode": "strike1", "toPort": "exec" }]
+            })
+            .to_string()
+        };
+        dummy
+            .components
+            .logic
+            .get_or_insert_with(Default::default)
+            .graph_ref = None;
+        dummy.components.logic.as_mut().unwrap().graph = Some(graph(serde_json::json!(
+            { "attacker": "sentinel", "target": "dummy", "damage": 12, "health": 100 }
+        )));
+        scene.entities.push(dummy.clone());
+        let c = scene_c(&project, &scene);
+        assert!(!c.contains("#error"), "{c}");
+        assert!(c.contains("static volatile u16 rds_strike_strike1_hp = 100;"));
+        assert!(c.contains("rds_strike_strike1_enabled = 1;"));
+        let ticks = c.find("rds_mugen_spr_sentinel__dummy_tick();").unwrap();
+        let check = c.find("rds_strike_strike1_check();").unwrap();
+        assert!(check > ticks, "verificacao depois dos ticks");
+        for (params, why) in [
+            (
+                serde_json::json!({ "attacker": "sentinel", "target": "nada", "damage": 12, "health": 100 }),
+                "sem sprite",
+            ),
+            (
+                serde_json::json!({ "attacker": "sentinel", "target": "sentinel", "damage": 12, "health": 100 }),
+                "mesma entidade",
+            ),
+            (
+                serde_json::json!({ "attacker": "sentinel", "target": "dummy", "damage": 0, "health": 100 }),
+                "dano 0",
+            ),
+            (
+                serde_json::json!({ "attacker": "sentinel", "target": "dummy", "damage": 5, "health": 0 }),
+                "vida inicial 0",
+            ),
+        ] {
+            scene
+                .entities
+                .last_mut()
+                .unwrap()
+                .components
+                .logic
+                .as_mut()
+                .unwrap()
+                .graph = Some(graph(params));
+            let c = scene_c(&project, &scene);
+            assert!(
+                c.contains("authored_strike") && c.contains(why) && c.contains("#error"),
+                "{why}: sem bloqueio"
+            );
+            assert!(
+                !c.contains("rds_strike_strike1_check();"),
+                "{why}: nenhum golpe parcial emitido"
+            );
+        }
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn runtime_link_maps_entities_to_ram_symbols_animations_and_occurrences() {
+        let (root, project) = import_fixture("sentinel", "link-model");
+        let mut scene = load_scene(&project, DEFAULT_ENTRY_SCENE).unwrap();
+        let mut dummy = scene
+            .entities
+            .iter()
+            .find(|e| e.entity_id == "sentinel")
+            .unwrap()
+            .clone();
+        dummy.entity_id = "dummy".into();
+        dummy.transform.x += 20;
+        scene.entities.push(dummy);
+        let proj = crate::core::project_mgr::load_project(&project).unwrap();
+        let ast = crate::compiler::ast_generator::generate_ast(&proj, &scene);
+        let mut symbols = std::collections::BTreeMap::new();
+        for (i, var) in ["spr_sentinel", "spr_sentinel__dummy"].iter().enumerate() {
+            let base = 0x00FF_0000 + (i as u32) * 0x100;
+            symbols.insert(format!("{var}_x"), base);
+            symbols.insert(format!("{var}_y"), base + 2);
+            symbols.insert(format!("rds_mugen_{var}_anim"), base + 4);
+            symbols.insert(format!("rds_mugen_{var}_frame"), base + 6);
+        }
+        let link = crate::compiler::runtime_link::build_runtime_link(
+            &scene,
+            &ast,
+            "megadrive",
+            "rom",
+            "src",
+            &symbols,
+            &|_| Some("h".to_string()),
+        );
+        assert_eq!(link.schema, "retrodev.runtime_link/v1");
+        let ids: Vec<_> = link
+            .entities
+            .iter()
+            .map(|e| (e.entity_id.as_str(), e.var_name.as_str()))
+            .collect();
+        assert_eq!(
+            ids,
+            vec![
+                ("sentinel", "spr_sentinel"),
+                ("dummy", "spr_sentinel__dummy")
+            ]
+        );
+        let s = &link.entities[0];
+        assert_eq!(s.origin, "mugen");
+        assert_eq!(s.symbols.anim, Some(0x00FF_0004));
+        assert_eq!(s.animations, vec!["action_0", "action_210", "idle"]);
+        assert_eq!(s.occurrences["action_210"], vec!["o1", "o2", "o3"]);
+        assert_eq!(s.frame_offsets["action_210"].len(), 3);
+        assert_eq!(s.asset_sha256.as_deref(), Some("h"));
+        assert_eq!(s.occurrence_images["action_210"].len(), 3);
+        // Ocorrencias 1 e 3 do chute reutilizam a mesma imagem (210,0); a 2 e outra.
+        let imgs = &s.occurrence_images["action_210"];
+        assert_eq!((imgs[0].1, imgs[0].2), (imgs[2].1, imgs[2].2));
+        assert_ne!((imgs[0].1, imgs[0].2), (imgs[1].1, imgs[1].2));
+        let boxes = &s.occurrence_boxes["action_210"];
+        assert!(
+            boxes[0].attack.is_empty() && !boxes[1].attack.is_empty(),
+            "Clsn1 so na o2"
+        );
+        assert!(
+            boxes[1].attack[0][0] <= boxes[1].attack[0][2],
+            "caixa normalizada"
+        );
+        // Sem simbolo de posicao: entidade fica fora do vinculo, com motivo.
+        symbols.remove("spr_sentinel__dummy_x");
+        let partial = crate::compiler::runtime_link::build_runtime_link(
+            &scene,
+            &ast,
+            "megadrive",
+            "rom",
+            "src",
+            &symbols,
+            &|_| Some("h".to_string()),
+        );
+        assert_eq!(partial.entities.len(), 1);
+        assert!(partial.limitations.iter().any(|l| l.contains("'dummy'")));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    fn sentinel_scene_with_hud(
+        project: &Path,
+        hud: crate::ugdm::components::HudTextComponent,
+    ) -> crate::ugdm::entities::Scene {
+        let mut scene = load_scene(project, DEFAULT_ENTRY_SCENE).unwrap();
+        let mut dummy = scene
+            .entities
+            .iter()
+            .find(|e| e.entity_id == "sentinel")
+            .unwrap()
+            .clone();
+        dummy.entity_id = "dummy".into();
+        dummy.transform.x += 20;
+        let graph = serde_json::json!({
+            "version": 1,
+            "nodes": [
+                { "id": "tick", "type": "event_update", "label": "t", "x": 0, "y": 0, "params": {} },
+                { "id": "strike1", "type": "authored_strike", "label": "g", "x": 0, "y": 0,
+                  "params": { "attacker": "sentinel", "target": "dummy", "damage": 12, "health": 100 } }
+            ],
+            "edges": [{ "id": "e1", "fromNode": "tick", "fromPort": "exec", "toNode": "strike1", "toPort": "exec" }]
+        });
+        let logic = dummy.components.logic.get_or_insert_with(Default::default);
+        logic.graph = Some(graph.to_string());
+        logic.graph_ref = None;
+        scene.entities.push(dummy);
+        let mut hud_entity = scene.entities[0].clone();
+        hud_entity.entity_id = "hud_vida".into();
+        hud_entity.components = Default::default();
+        hud_entity.components.hud = Some(hud);
+        scene.entities.push(hud_entity);
+        scene
+    }
+
+    fn hud(
+        column: u32,
+        row: u32,
+        label: &str,
+        source: &str,
+    ) -> crate::ugdm::components::HudTextComponent {
+        crate::ugdm::components::HudTextComponent {
+            column,
+            row,
+            label: label.into(),
+            value: Some(crate::ugdm::components::HudValueBinding {
+                kind: "strike_hp".into(),
+                source: source.into(),
+            }),
+            digits: 3,
+        }
+    }
+
+    #[test]
+    fn hud_text_bound_to_strike_hp_is_emitted_and_invalid_layouts_block() {
+        let (root, project) = import_fixture("sentinel", "hud-model");
+        let c = scene_c(
+            &project,
+            &sentinel_scene_with_hud(&project, hud(2, 25, "VIDA ", "strike1")),
+        );
+        assert!(!c.contains("#error"), "{c}");
+        assert!(c.contains("VDP_drawText(\"VIDA \", 2, 25);"));
+        assert!(c.contains("static volatile u16 rds_hud_hud_vida_shown = 0xFFFF;"));
+        assert!(c.contains("const u16 v = rds_strike_strike1_hp; if (v != rds_hud_hud_vida_shown)"));
+        for (bad, why) in [
+            (hud(36, 25, "VIDA ", "strike1"), "sai da grade"),
+            (hud(2, 28, "VIDA ", "strike1"), "sai da grade"),
+            (hud(2, 25, "VIDÁ ", "strike1"), "fonte padrao"),
+            (hud(2, 25, "VIDA ", "nao_existe"), "nao existe"),
+        ] {
+            let c = scene_c(&project, &sentinel_scene_with_hud(&project, bad));
+            assert!(
+                c.contains("#error \"RetroDev HUD:") && c.contains(why),
+                "{why}"
+            );
+            assert!(!c.contains("uintToStr"), "{why}: nada parcial emitido");
+        }
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn hud_with_world_camera_uses_the_fixed_window_plane_only_when_needed() {
+        let (root, project) = import_fixture("sentinel", "hud-window");
+        let with_camera = |scene: &mut crate::ugdm::entities::Scene| {
+            let mut camera = scene.entities[0].clone();
+            camera.entity_id = "camera".into();
+            camera.components = Default::default();
+            camera.components.camera = Some(crate::ugdm::components::CameraComponent {
+                follow_entity: Some("sentinel".into()),
+                offset_x: -152,
+                offset_y: -112,
+            });
+            scene.entities.push(camera);
+        };
+        let mut plain = sentinel_scene_with_hud(&project, hud(2, 25, "VIDA ", "strike1"));
+        let imported_camera = plain.entities.iter().any(|e| e.components.camera.is_some());
+        eprintln!("cena importada ja tem camera: {imported_camera}");
+        for e in plain.entities.iter_mut() {
+            e.components.camera = None;
+        }
+        let plain = scene_c(&project, &plain);
+        assert!(
+            !plain.contains("VDP_setTextPlane"),
+            "sem camera: ROM igual a antes"
+        );
+        let mut bottom = sentinel_scene_with_hud(&project, hud(2, 25, "VIDA ", "strike1"));
+        with_camera(&mut bottom);
+        let c = scene_c(&project, &bottom);
+        assert!(c.contains("VDP_setWindowHPos(FALSE, 0); VDP_setWindowVPos(TRUE, 25); VDP_setTextPlane(WINDOW);"), "{c}");
+        let mut top = sentinel_scene_with_hud(&project, hud(2, 1, "VIDA ", "strike1"));
+        with_camera(&mut top);
+        assert!(scene_c(&project, &top).contains("VDP_setWindowVPos(FALSE, 2);"));
+        let mut split = sentinel_scene_with_hud(&project, hud(2, 1, "VIDA ", "strike1"));
+        let mut second = split.entities.last().unwrap().clone();
+        second.entity_id = "hud_vida2".into();
+        second.components.hud = Some(hud(2, 25, "VIDA ", "strike1"));
+        split.entities.push(second);
+        with_camera(&mut split);
+        assert!(scene_c(&project, &split).contains("#error \"RetroDev HUD: com camera"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn imported_animations_carry_stable_occurrence_ids() {
+        let (root, project) = import_strider("occ-ids", |c| c);
+        let scene = load_scene(&project, DEFAULT_ENTRY_SCENE).unwrap();
+        let sprite = scene
+            .entities
+            .iter()
+            .find(|e| e.entity_id == "strider")
+            .unwrap()
+            .components
+            .sprite
+            .as_ref()
+            .unwrap();
+        for anim in sprite.animations.values() {
+            let ids = anim
+                .occurrence_ids
+                .as_ref()
+                .expect("ocorrencias gravadas na importacao");
+            assert_eq!(ids.len(), anim.frames.len());
+            assert_eq!(ids[0], "o1");
+        }
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn authored_sound_event_is_emitted_in_the_runtime_table() {
+        let (root, project) = import_strider("ev-emit", |c| c);
+        let mut scene = load_scene(&project, DEFAULT_ENTRY_SCENE).unwrap();
+        with_sound_event(&mut scene, true);
+        let c = scene_c(&project, &scene);
+        assert!(!c.contains("#error"), "{c}");
+        assert!(c.contains("#define SFX_HIT"), "som registrado no driver");
+        assert!(
+            c.contains("_ev[] = {{0,0,SFX_HIT} /* ev-hit */}"),
+            "tabela de eventos"
+        );
+        assert!(c.contains("rds_mugen_play_sfx(e->sfx);"));
+        assert!(c.contains("rds_mugen_spr_strider_evfired++"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn sound_event_without_project_audio_blocks_the_build() {
+        let (root, project) = import_strider("ev-missing", |c| c);
+        let mut scene = load_scene(&project, DEFAULT_ENTRY_SCENE).unwrap();
+        with_sound_event(&mut scene, false);
+        let c = scene_c(&project, &scene);
+        assert!(c.contains("#error \"RetroDev MUGEN: sprite"), "{c}");
+        assert!(c.contains("nao esta no Audio do projeto"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn divergent_instances_of_a_shared_mugen_model_block_instead_of_silently_picking_one() {
+        let (root, project) = import_strider("ev-diverge", |c| c);
+        let mut scene = load_scene(&project, DEFAULT_ENTRY_SCENE).unwrap();
+        let mut copy = scene
+            .entities
+            .iter()
+            .find(|e| e.entity_id == "strider")
+            .unwrap()
+            .clone();
+        copy.entity_id = "strider_b".into();
+        copy.transform.x += 64;
+        scene.entities.push(copy.clone());
+        assert!(
+            !scene_c(&project, &scene).contains("usa o mesmo personagem"),
+            "copias identicas compartilham o modelo"
+        );
+        let anim = scene
+            .entities
+            .last_mut()
+            .unwrap()
+            .components
+            .sprite
+            .as_mut()
+            .unwrap()
+            .animations
+            .values_mut()
+            .next()
+            .unwrap();
+        anim.frame_durations.as_mut().unwrap()[0] += 1;
+        anim.mugen_frames.as_mut().unwrap()[0].duration += 1;
+        let c = scene_c(&project, &scene);
+        assert!(
+            c.contains("a entidade 'strider_b' usa o mesmo personagem com animacao diferente"),
+            "{c}"
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
     fn strider_graph_nodes(project: &Path) -> Vec<serde_json::Value> {
         let scene = load_scene(project, DEFAULT_ENTRY_SCENE).unwrap();
         let entity = scene
@@ -2904,6 +3317,1090 @@ mod tests {
             c.contains("rds_mugen_spr_strider2_vx = 640;") || c.contains("_strider2_vx = 640;")
         );
         assert!(!c.contains("#error"), "geracao limpa com duas instancias");
+        let _ = fs::remove_dir_all(root);
+    }
+
+    /// WAV autoral gerado aqui (onda quadrada 8 bits, 44,1 kHz, 0,1 s): origem e licenca do proprio teste.
+    fn authored_square_wav() -> Vec<u8> {
+        let rate = 44_100u32;
+        let samples: Vec<u8> = (0..rate / 10)
+            .map(|i| if (i / 50) % 2 == 0 { 0xE0 } else { 0x20 })
+            .collect();
+        let mut b = Vec::new();
+        b.extend_from_slice(b"RIFF");
+        b.extend_from_slice(&(36 + samples.len() as u32).to_le_bytes());
+        b.extend_from_slice(b"WAVEfmt ");
+        b.extend_from_slice(&16u32.to_le_bytes());
+        b.extend_from_slice(&1u16.to_le_bytes());
+        b.extend_from_slice(&1u16.to_le_bytes());
+        b.extend_from_slice(&rate.to_le_bytes());
+        b.extend_from_slice(&rate.to_le_bytes());
+        b.extend_from_slice(&1u16.to_le_bytes());
+        b.extend_from_slice(&8u16.to_le_bytes());
+        b.extend_from_slice(b"data");
+        b.extend_from_slice(&(samples.len() as u32).to_le_bytes());
+        b.extend_from_slice(&samples);
+        b
+    }
+
+    /// Prepara Strider com o som `hit` no Audio e, se `with_event`, um evento autoral na
+    /// ocorrencia `o2` (tick 2) da caminhada `action_20` (4 + 6 ticks). Controle = mesmo
+    /// projeto, mesmo som registrado, sem o evento.
+    fn strider_with_walk_event(name: &str, with_event: bool) -> (PathBuf, PathBuf) {
+        let (root, project) = import_strider(name, |c| c);
+        fs::create_dir_all(project.join("assets/audio")).unwrap();
+        fs::write(project.join("assets/audio/hit.wav"), authored_square_wav()).unwrap();
+        let mut scene = crate::core::project_mgr::load_scene(
+            &project,
+            crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+        )
+        .unwrap();
+        let entity = scene
+            .entities
+            .iter_mut()
+            .find(|e| e.entity_id == "strider")
+            .unwrap();
+        let mut sfx = HashMap::new();
+        sfx.insert("hit".to_string(), "assets/audio/hit.wav".to_string());
+        entity.components.audio = Some(crate::ugdm::components::AudioComponent { sfx, bgm: None });
+        if with_event {
+            let walk = entity
+                .components
+                .sprite
+                .as_mut()
+                .unwrap()
+                .animations
+                .get_mut("action_20")
+                .unwrap();
+            walk.frame_events = vec![crate::ugdm::components::FrameEvent {
+                id: "ev-walk-o2".into(),
+                occurrence: "o2".into(),
+                tick: 2,
+                kind: "sound".into(),
+                sound: Some("hit".into()),
+                origin: "authored".into(),
+            }];
+        }
+        save_scene(
+            &project,
+            crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+            &scene,
+        )
+        .unwrap();
+        (root, project)
+    }
+
+    /// Evento sonoro por ocorrencia com SGDK e core reais. Expectativa de disparo derivada das
+    /// duracoes do MODELO (4,6 ticks; evento em o2+2), comparada ao contador na RAM por quadro
+    /// emulado; amostras de audio do core comparadas a um controle sem evento com a mesma entrada.
+    #[ignore]
+    #[test]
+    fn mugen_real_frame_sound_event_fires_on_occurrence_and_produces_samples() {
+        let run = |with_event: bool| {
+            let (root, project) = strider_with_walk_event(
+                if with_event {
+                    "ev-real"
+                } else {
+                    "ev-real-ctrl"
+                },
+                with_event,
+            );
+            let (rom, rom_sha, sym) = build(&project);
+            let mut emu = EmulatorCore::new(None);
+            emu.load_rom(&rom).expect("load");
+            emu.set_joypad(JoypadState::default()).unwrap();
+            for _ in 0..60 {
+                emu.run_frame().unwrap();
+            }
+            let _ = emu.take_audio_samples();
+            emu.set_joypad(JoypadState {
+                right: true,
+                ..JoypadState::default()
+            })
+            .unwrap();
+            let mut rows = Vec::new();
+            for _ in 0..80 {
+                emu.run_frame().unwrap();
+                let (_, samples) = emu.take_audio_samples().unwrap();
+                let energy: u64 = samples
+                    .iter()
+                    .map(|v| (*v as i32).unsigned_abs() as u64)
+                    .sum();
+                rows.push((
+                    read_u16(&emu, sym["rds_mugen_spr_strider_anim"]),
+                    read_u16(&emu, sym["rds_mugen_spr_strider_evfired"]),
+                    energy,
+                ));
+            }
+            if std::env::var("RDS_KEEP_EV_PROJECT").is_ok() {
+                eprintln!("projeto preservado: {}", project.display());
+            } else {
+                let _ = fs::remove_dir_all(root);
+            }
+            (rom_sha, rows)
+        };
+        let (sha_ev, ev) = run(true);
+        eprintln!(
+            "energia total evento = {}",
+            ev.iter().map(|r| r.2).sum::<u64>()
+        );
+        let (sha_ctrl, ctrl) = run(false);
+        assert_ne!(sha_ev, sha_ctrl, "evento muda a ROM");
+        // Ancora: primeiro quadro emulado em que a caminhada (indice 1 em ordem de nome) esta ativa.
+        let t0 = ev
+            .iter()
+            .position(|r| r.0 == 1)
+            .expect("caminhada iniciada pelo teclado");
+        assert_eq!(
+            ctrl.iter().position(|r| r.0 == 1),
+            Some(t0),
+            "mesma entrada, mesma ancora"
+        );
+        // Modelo: o1 dura 4, o2 dura 6; evento no tick local 2 de o2 => t0 + 6 + 10m.
+        let expected: Vec<usize> = (0..)
+            .map(|m| t0 + 6 + 10 * m)
+            .take_while(|t| *t < ev.len())
+            .collect();
+        let observed: Vec<usize> = (0..ev.len())
+            .filter(|&i| ev[i].1 != if i == 0 { 0 } else { ev[i - 1].1 })
+            .collect();
+        eprintln!("t0={t0} expected={expected:?} observed={observed:?}");
+        eprintln!(
+            "energia/quadro evento  = {:?}",
+            ev.iter().map(|r| r.2 / 1000).collect::<Vec<_>>()
+        );
+        eprintln!(
+            "energia/quadro controle= {:?}",
+            ctrl.iter().map(|r| r.2 / 1000).collect::<Vec<_>>()
+        );
+        assert_eq!(
+            observed, expected,
+            "disparos nas ocorrencias previstas, um por visita"
+        );
+        assert!(
+            ctrl.iter().all(|r| r.1 == 0),
+            "controle sem evento nao dispara"
+        );
+        // Amostras do core: o controle (mesma entrada, sem evento) fica em silencio absoluto; no
+        // evento o inicio do som (energia > 1e6 no quadro) e medido em quadros emulados apos o
+        // disparo. A latencia do driver XGM e reportada e limitada, nunca escondida.
+        assert!(ctrl.iter().all(|r| r.2 == 0), "controle silencioso");
+        assert!(
+            ev[..expected[0]].iter().all(|r| r.2 == 0),
+            "nenhum som antes do primeiro disparo"
+        );
+        // Inicio = borda de subida (quadro anterior abaixo do limiar); a cauda do som anterior nao conta.
+        let loud = |i: usize| ev[i].2 > 1_000_000;
+        let onsets: Vec<usize> = (1..ev.len()).filter(|&i| loud(i) && !loud(i - 1)).collect();
+        eprintln!("inicios de som = {onsets:?}");
+        let mut latencies = Vec::new();
+        for (k, t) in expected.iter().enumerate() {
+            let limit = expected.get(k + 1).copied().unwrap_or(ev.len()).min(t + 6);
+            match onsets.iter().find(|&&o| o >= *t && o < limit) {
+                Some(o) => latencies.push(o - t),
+                // Disparo cujo inicio cairia depois do fim da janela gravada: nao avaliado.
+                None if t + 6 > ev.len() => {
+                    eprintln!("disparo t={t} sem janela completa; nao avaliado")
+                }
+                None => panic!("sem inicio de som apos o disparo t={t}"),
+            }
+        }
+        assert_eq!(
+            onsets.len(),
+            latencies.len(),
+            "nenhum inicio de som sem disparo correspondente"
+        );
+        eprintln!("latencia disparo->amostras (quadros emulados) = {latencies:?}");
+        assert!(
+            latencies.iter().all(|l| *l <= 5),
+            "latencia acima de 5 quadros: {latencies:?}"
+        );
+    }
+
+    /// Sentinel (fixture autoral) + boneco de treino copiado do mesmo modelo, sem logica propria,
+    /// a `gap` px a direita. Golpe autoral no grafo do boneco: a cada quadro, `authored_strike`.
+    fn sentinel_with_dummy(name: &str, gap: i32) -> (PathBuf, PathBuf) {
+        let (root, project) = import_fixture("sentinel", name);
+        let mut scene = crate::core::project_mgr::load_scene(
+            &project,
+            crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+        )
+        .unwrap();
+        let attacker = scene
+            .entities
+            .iter()
+            .find(|e| e.entity_id == "sentinel")
+            .unwrap()
+            .clone();
+        let mut dummy = attacker.clone();
+        dummy.entity_id = "dummy".into();
+        dummy.display_name = Some("Boneco de treino".into());
+        dummy.transform.x = attacker.transform.x + gap;
+        let graph = serde_json::json!({
+            "version": 1,
+            "nodes": [
+                { "id": "tick", "type": "event_update", "label": "A cada quadro", "x": 0, "y": 0, "params": {} },
+                { "id": "strike1", "type": "authored_strike", "label": "Golpe autoral", "x": 200, "y": 0,
+                  "params": { "attacker": "sentinel", "target": "dummy", "damage": 12, "health": 100 } }
+            ],
+            "edges": [
+                { "id": "e1", "fromNode": "tick", "fromPort": "exec", "toNode": "strike1", "toPort": "exec" }
+            ]
+        });
+        let logic = dummy.components.logic.get_or_insert_with(Default::default);
+        logic.graph = Some(graph.to_string());
+        logic.graph_ref = None;
+        scene.entities.push(dummy);
+        save_scene(
+            &project,
+            crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+            &scene,
+        )
+        .unwrap();
+        (root, project)
+    }
+
+    /// Golpe autoral com SGDK e core reais: acerto so na ocorrencia com Clsn1 e com caixas
+    /// sobrepostas; dano uma vez por ativacao; longe (controle) nao acerta.
+    #[ignore]
+    #[test]
+    fn mugen_real_authored_strike_hits_only_in_window_and_area_once_per_activation() {
+        let run = |name: &str, gap: i32| {
+            let (root, project) = sentinel_with_dummy(name, gap);
+            let (rom, rom_sha, sym) = build(&project);
+            let mut emu = EmulatorCore::new(None);
+            emu.load_rom(&rom).unwrap();
+            emu.set_joypad(JoypadState::default()).unwrap();
+            for _ in 0..60 {
+                emu.run_frame().unwrap();
+            }
+            let hp0 = read_u16(&emu, sym["rds_strike_strike1_hp"]);
+            // Vinculo gravado pelo build canonico: mesmos enderecos do ELF e mesma ROM.
+            let link: crate::compiler::runtime_link::RuntimeLink = serde_json::from_str(
+                &fs::read_to_string(project.join("build/megadrive/rds-runtime-link.v1.json"))
+                    .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(link.rom_sha256, rom_sha);
+            let attacker = link
+                .entities
+                .iter()
+                .find(|e| e.entity_id == "sentinel")
+                .unwrap();
+            assert_eq!(attacker.symbols.x, sym["spr_sentinel_x"]);
+            assert_eq!(
+                attacker.symbols.anim,
+                Some(sym["rds_mugen_spr_sentinel_anim"])
+            );
+            assert!(link.entities.iter().any(|e| e.entity_id == "dummy"));
+            let mut rows = Vec::new();
+            // Dois chutes: B por 2 quadros; espera; Alt (B de novo volta ao estado 0); B outra vez.
+            let script: [(bool, usize); 6] = [
+                (true, 2),
+                (false, 40),
+                (true, 2),
+                (false, 30),
+                (true, 2),
+                (false, 40),
+            ];
+            for (b, frames) in script {
+                emu.set_joypad(JoypadState {
+                    b,
+                    ..JoypadState::default()
+                })
+                .unwrap();
+                for _ in 0..frames {
+                    emu.run_frame().unwrap();
+                    rows.push((
+                        read_u16(&emu, sym["rds_mugen_spr_sentinel_anim"]),
+                        read_u16(&emu, sym["rds_mugen_spr_sentinel_clsn1"]),
+                        read_u16(&emu, sym["rds_strike_strike1_overlaps"]),
+                        read_u16(&emu, sym["rds_strike_strike1_hits"]),
+                        read_u16(&emu, sym["rds_strike_strike1_hp"]),
+                    ));
+                }
+            }
+            if std::env::var("RDS_KEEP_EV_PROJECT").is_ok() {
+                eprintln!("projeto preservado: {}", project.display());
+            } else {
+                let _ = fs::remove_dir_all(root);
+            }
+            (rom_sha, hp0, rows)
+        };
+        // Clsn1 do chute: x 4..20 do eixo; Clsn2 do boneco parado: x -4..4. O estado do chute tem
+        // VelSet x=2 (o atacante avanca 2 px/tick): com gap 20 as caixas seguem sobrepostas na
+        // janela inteira; com gap 64 nunca se tocam.
+        let (_, hp0, near) = run("strike-near", 20);
+        let (_, hp0_far, far) = run("strike-far", 64);
+        assert_eq!((hp0, hp0_far), (100, 100));
+        let window_frames: Vec<usize> = (0..near.len()).filter(|&i| near[i].1 > 0).collect();
+        let overlap_frames: Vec<usize> = (1..near.len())
+            .filter(|&i| near[i].2 != near[i - 1].2)
+            .collect();
+        let hit_frames: Vec<usize> = (1..near.len())
+            .filter(|&i| near[i].3 != near[i - 1].3)
+            .collect();
+        eprintln!("janela Clsn1 {window_frames:?}\nsobreposicoes {overlap_frames:?}\nacertos {hit_frames:?}");
+        eprintln!(
+            "vida final perto={} longe={}",
+            near.last().unwrap().4,
+            far.last().unwrap().4
+        );
+        assert!(
+            !window_frames.is_empty(),
+            "o chute exibiu a ocorrencia com Clsn1"
+        );
+        assert!(
+            overlap_frames.iter().all(|f| window_frames.contains(f)),
+            "sobreposicao so na janela"
+        );
+        assert!(
+            hit_frames.iter().all(|f| window_frames.contains(f)),
+            "acerto so na janela"
+        );
+        let activations = window_frames
+            .windows(2)
+            .filter(|w| w[1] != w[0] + 1)
+            .count()
+            + 1;
+        assert_eq!(
+            hit_frames.len(),
+            activations,
+            "um acerto por ativacao (janelas {activations})"
+        );
+        assert!(
+            overlap_frames.len() > hit_frames.len(),
+            "sobreposicao continua sem repetir dano"
+        );
+        assert_eq!(near.last().unwrap().4, 100 - 12 * activations as u16);
+        assert!(
+            far.iter().any(|r| r.1 > 0),
+            "controle longe tambem abriu a janela"
+        );
+        assert!(
+            far.iter().all(|r| r.2 == 0 && r.3 == 0 && r.4 == 100),
+            "longe: sem area valida, sem dano"
+        );
+    }
+
+    /// HUD autoral ligado a vida do alvo, com SGDK e core reais: valor mostrado acompanha a vida
+    /// (100 -> 88) e a diferenca de pixels entre os dois quadros fica so no retangulo dos digitos.
+    #[ignore]
+    #[test]
+    fn mugen_real_hud_text_tracks_strike_hp_and_changes_only_its_rectangle() {
+        let (root, project) = import_fixture("sentinel", "hud-real");
+        let scene = sentinel_scene_with_hud(&project, hud(2, 25, "VIDA ", "strike1"));
+        save_scene(
+            &project,
+            crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+            &scene,
+        )
+        .unwrap();
+        let (rom, _sha, sym) = build(&project);
+        let mut emu = EmulatorCore::new(None);
+        emu.load_rom(&rom).unwrap();
+        emu.set_joypad(JoypadState::default()).unwrap();
+        for _ in 0..60 {
+            emu.run_frame().unwrap();
+        }
+        let shown = |emu: &EmulatorCore| read_u16(emu, sym["rds_hud_hud_vida_shown"]);
+        let frame = |emu: &EmulatorCore| {
+            let (raw, size, format) = emu.get_framebuffer().unwrap();
+            let fb = framebuffer_to_rgba(&raw, size, format);
+            (fb.width, fb.rgba)
+        };
+        assert_eq!(shown(&emu), 100);
+        let (width, before) = frame(&emu);
+        emu.set_joypad(JoypadState {
+            b: true,
+            ..JoypadState::default()
+        })
+        .unwrap();
+        for _ in 0..2 {
+            emu.run_frame().unwrap();
+        }
+        emu.set_joypad(JoypadState::default()).unwrap();
+        for _ in 0..30 {
+            emu.run_frame().unwrap();
+        }
+        assert_eq!(read_u16(&emu, sym["rds_strike_strike1_hp"]), 88);
+        assert_eq!(shown(&emu), 88);
+        // Sprites tambem mudaram (chute); compara so as linhas da grade de texto do HUD (25).
+        let (_, after) = frame(&emu);
+        let (mut min_x, mut max_x) = (u32::MAX, 0);
+        for y in 200..208u32 {
+            for x in 0..width {
+                let i = ((y * width + x) * 4) as usize;
+                if before[i..i + 4] != after[i..i + 4] {
+                    min_x = min_x.min(x);
+                    max_x = max_x.max(x);
+                }
+            }
+        }
+        eprintln!("linha HUD: diferenca x {min_x}..{max_x}");
+        assert!(min_x != u32::MAX, "valor redesenhado na linha do HUD");
+        // Rotulo "VIDA " em colunas 2..6; digitos em 7..9 => x 56..79.
+        assert!(
+            min_x >= 56 && max_x <= 79,
+            "so os digitos mudaram: {min_x}..{max_x}"
+        );
+        let link: crate::compiler::runtime_link::RuntimeLink = serde_json::from_str(
+            &fs::read_to_string(project.join("build/megadrive/rds-runtime-link.v1.json")).unwrap(),
+        )
+        .unwrap();
+        let entry = link.hud.iter().find(|h| h.entity_id == "hud_vida").unwrap();
+        assert_eq!((entry.x, entry.y, entry.width_px), (16, 200, 64));
+        assert_eq!(entry.shown_symbol, Some(sym["rds_hud_hud_vida_shown"]));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    /// Composicao com plano de paletas no core real: cenario (tilemap autoral), personagem MUGEN,
+    /// alvo com variante local, texto de vida e troca de paleta ao sofrer o golpe. Referencias
+    /// independentes: cores dos arquivos -> conversao do rescomp pinado (c >> 5 por canal) -> saida
+    /// RGB565 do Genesis Plus GX (mesma formula do oraculo MUGEN). Congeladas antes de rodar.
+    #[ignore]
+    #[test]
+    fn mugen_real_palette_plan_composes_scenery_character_font_and_swap() {
+        fn gpgx(c: [u8; 3]) -> [u8; 3] {
+            let ch = |v: u8, green: bool| {
+                let v = (v >> 5) * 2;
+                if green {
+                    let g = (v << 2) | (v >> 2);
+                    (g << 2) | (g >> 4)
+                } else {
+                    let r = (v << 1) | (v >> 3);
+                    (r << 3) | (r >> 2)
+                }
+            };
+            [ch(c[0], false), ch(c[1], true), ch(c[2], false)]
+        }
+        let (root, project) = import_fixture("sentinel", "palette-real");
+        // Cenario autoral 640x224 com cores exatas do destino (truncar = arredondar).
+        let scenery = [[36u8, 109, 182], [72, 182, 72], [218, 145, 36]];
+        let img = image::RgbaImage::from_fn(640, 224, |x, y| {
+            let c = scenery[((x / 16 + y / 16) % 3) as usize];
+            image::Rgba([c[0], c[1], c[2], 255])
+        });
+        fs::create_dir_all(project.join("assets/tilesets")).unwrap();
+        img.save(project.join("assets/tilesets/cenario.png"))
+            .unwrap();
+        let mut scene = sentinel_scene_with_hud(&project, hud(2, 4, "VIDA ", "strike1"));
+        let mut world = scene.entities[0].clone();
+        world.entity_id = "cenario".into();
+        world.transform = crate::ugdm::entities::Transform { x: 0, y: 0 };
+        world.components = Default::default();
+        world.components.tilemap = Some(crate::ugdm::components::TilemapComponent {
+            tileset: "assets/tilesets/cenario.png".into(),
+            map_width: 80,
+            map_height: 28,
+            scroll_x: 0,
+            scroll_y: 0,
+            cells: vec![],
+        });
+        scene.entities.insert(0, world);
+        // Cores do personagem pelo mesmo planejador (derivadas do arquivo convertido).
+        let cfg = crate::core::project_mgr::load_project(&project).unwrap();
+        let resolved = crate::core::project_mgr::resolve_prefabs(&project, &scene).unwrap();
+        let ast = crate::compiler::ast_generator::generate_ast(&cfg, &resolved);
+        let pre = crate::compiler::palette_plan::plan_megadrive(&project, &resolved, &ast);
+        let sentinel_asset = scene
+            .entities
+            .iter()
+            .find(|e| e.entity_id == "sentinel")
+            .unwrap()
+            .components
+            .sprite
+            .as_ref()
+            .unwrap()
+            .asset
+            .clone();
+        let sentinel_res = pre
+            .resources
+            .iter()
+            .find(|r| r.id == format!("asset:{sentinel_asset}"))
+            .unwrap()
+            .clone();
+        let damage = [218u8, 36, 36];
+        scene.palettes.push(crate::ugdm::entities::PaletteEntry {
+            id: Some("variante:dummy".into()),
+            name: Some("Boneco (variante)".into()),
+            origin: Some("variante".into()),
+            uses: vec!["dummy".into()],
+            colors: sentinel_res.colors.clone(),
+            ..Default::default()
+        });
+        scene.palettes.push(crate::ugdm::entities::PaletteEntry {
+            id: Some("dano".into()),
+            name: Some("Dano".into()),
+            colors: (0..16)
+                .map(|i| {
+                    if sentinel_res.used_indices.contains(&i) {
+                        crate::compiler::palette_plan::hex(damage)
+                    } else {
+                        String::new()
+                    }
+                })
+                .collect(),
+            ..Default::default()
+        });
+        let dummy = scene
+            .entities
+            .iter_mut()
+            .find(|e| e.entity_id == "dummy")
+            .unwrap();
+        let graph = serde_json::json!({
+            "version": 1,
+            "nodes": [
+                { "id": "tick", "type": "event_update", "label": "t", "x": 0, "y": 0, "params": {} },
+                { "id": "strike1", "type": "authored_strike", "label": "g", "x": 0, "y": 0,
+                  "params": { "attacker": "sentinel", "target": "dummy", "damage": 12, "health": 100 } },
+                { "id": "dano", "type": "palette_swap", "label": "p", "x": 0, "y": 0,
+                  "params": { "strike": "strike1", "target": "dummy", "palette": "dano", "frames": 12, "scope": "instancia" } }
+            ],
+            "edges": [
+                { "id": "e1", "fromNode": "tick", "fromPort": "exec", "toNode": "strike1", "toPort": "exec" },
+                { "id": "e2", "fromNode": "strike1", "fromPort": "exec", "toNode": "dano", "toPort": "exec" }
+            ]
+        });
+        dummy.components.logic.as_mut().unwrap().graph = Some(graph.to_string());
+        save_scene(
+            &project,
+            crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+            &scene,
+        )
+        .unwrap();
+        let (rom, _sha, sym) = build(&project);
+        let plan: crate::compiler::palette_plan::PalettePlan = serde_json::from_str(
+            &fs::read_to_string(project.join("build/megadrive/rds-palette-plan.v1.json")).unwrap(),
+        )
+        .unwrap();
+        eprintln!(
+            "bancos: {:?}",
+            plan.banks
+                .iter()
+                .map(|b| (b.bank, b.resources.clone()))
+                .collect::<Vec<_>>()
+        );
+        assert!(!plan.has_errors(), "{:?}", plan.diagnostics);
+        let banks: std::collections::BTreeSet<usize> = ["cenario", "sentinel", "dummy", "hud_vida"]
+            .iter()
+            .map(|e| plan.entity_banks[*e])
+            .collect();
+        assert_eq!(
+            banks.len(),
+            4,
+            "cenario, personagem, variante e fonte em bancos distintos"
+        );
+        let link: crate::compiler::runtime_link::RuntimeLink = serde_json::from_str(
+            &fs::read_to_string(project.join("build/megadrive/rds-runtime-link.v1.json")).unwrap(),
+        )
+        .unwrap();
+        let swap = link
+            .palette
+            .as_ref()
+            .unwrap()
+            .swaps
+            .first()
+            .cloned()
+            .expect("troca no vinculo");
+        assert_eq!(swap.affected_uses, vec!["dummy".to_string()]);
+        // Referencias congeladas.
+        let sprite_set: std::collections::BTreeSet<[u8; 3]> = sentinel_res
+            .used_indices
+            .iter()
+            .map(|i| {
+                gpgx(crate::compiler::palette_plan::parse_hex(&sentinel_res.colors[*i]).unwrap())
+            })
+            .collect();
+        let font = gpgx(crate::compiler::palette_plan::FONT_DEFAULT);
+        let hurt = gpgx(damage);
+        assert!(
+            !sprite_set.contains(&hurt) && !sprite_set.contains(&font)
+                || sprite_set.contains(&font)
+        );
+        let cam = link.camera.clone();
+        let mut emu = EmulatorCore::new(None);
+        emu.load_rom(&rom).unwrap();
+        emu.set_joypad(JoypadState::default()).unwrap();
+        for _ in 0..60 {
+            emu.run_frame().unwrap();
+        }
+        // Classifica cada pixel: cenario esperado, personagem, dano, fonte ou desconhecido.
+        let observe = |emu: &EmulatorCore| {
+            let (raw, size, format) = emu.get_framebuffer().unwrap();
+            let fb = framebuffer_to_rgba(&raw, size, format);
+            let (cx, cy) = cam
+                .as_ref()
+                .map(|c| {
+                    (
+                        read_u16(emu, c.x) as i16 as i32,
+                        read_u16(emu, c.y) as i16 as i32,
+                    )
+                })
+                .unwrap_or((0, 0));
+            let (mut bg_ok, mut bg_bad, mut sprite, mut hurt_px, mut font_px, mut unknown) =
+                (0, 0, 0, 0, 0, Vec::new());
+            for y in 0..fb.height {
+                for x in 0..fb.width {
+                    let i = ((y * fb.width + x) * 4) as usize;
+                    let px = [fb.rgba[i], fb.rgba[i + 1], fb.rgba[i + 2]];
+                    let (wx, wy) = (x as i32 + cx, y as i32 + cy);
+                    let expected = (0..640).contains(&wx) && (0..224).contains(&wy);
+                    let bg = expected.then(|| {
+                        let c = img.get_pixel(wx as u32, wy as u32);
+                        gpgx([c[0], c[1], c[2]])
+                    });
+                    // Faixa do texto (linhas 0..39, sem sprites): branco da fonte e fonte, mesmo que
+                    // o personagem tambem tenha branco na paleta dele.
+                    if Some(px) == bg {
+                        bg_ok += 1;
+                    } else if px == font && y < 40 {
+                        font_px += 1;
+                    } else if sprite_set.contains(&px) {
+                        sprite += 1;
+                    } else if px == hurt {
+                        hurt_px += 1;
+                    } else {
+                        if bg.is_some() && !sprite_set.contains(&px) {
+                            bg_bad += 1;
+                        }
+                        if unknown.len() < 6 {
+                            unknown.push((x, y, px));
+                        }
+                    }
+                }
+            }
+            (bg_ok, bg_bad, sprite, hurt_px, font_px, unknown, cx)
+        };
+        if let Ok(dir) = std::env::var("RDS_PALETTE_DUMP") {
+            let (raw, size, format) = emu.get_framebuffer().unwrap();
+            let fb = framebuffer_to_rgba(&raw, size, format);
+            fs::write(
+                format!("{dir}/inicio-{}x{}.rgba", fb.width, fb.height),
+                &fb.rgba,
+            )
+            .unwrap();
+        }
+        let (bg_ok, bg_bad, sprite0, hurt0, font0, unknown0, cx0) = observe(&emu);
+        eprintln!("inicio: fundo {bg_ok} (errados {bg_bad}), personagem {sprite0}, dano {hurt0}, fonte {font0}, camera {cx0}, desconhecidos {unknown0:?}");
+        assert!(
+            unknown0.is_empty(),
+            "pixels fora das referencias: {unknown0:?}"
+        );
+        assert!(bg_ok > 320 * 224 / 2 && sprite0 >= 50 && font0 >= 20 && hurt0 == 0);
+        // Golpe (B) e janela da troca.
+        let count = |emu: &EmulatorCore| read_u16(emu, swap.count_symbol.unwrap());
+        let restores = |emu: &EmulatorCore| read_u16(emu, swap.restores_symbol.unwrap());
+        emu.set_joypad(JoypadState {
+            b: true,
+            ..JoypadState::default()
+        })
+        .unwrap();
+        for _ in 0..2 {
+            emu.run_frame().unwrap();
+        }
+        emu.set_joypad(JoypadState::default()).unwrap();
+        // Hipotese refutada (rodada 4): "vermelho visivel em exatamente 12 quadros" -- o streaming de
+        // tiles do sprite deixa o alvo sem pixels num quadro (0 px no quadro 8, depois 97..384). O
+        // criterio passa a separar estado da paleta (contador na RAM) de visibilidade do sprite.
+        let left = |emu: &EmulatorCore| read_u16(emu, swap.left_symbol.unwrap());
+        let (mut hurt_frames, mut window_frames) = (Vec::new(), Vec::new());
+        for f in 0..90 {
+            emu.run_frame().unwrap();
+            let (_, _, sprite, hurt_px, font_px, unknown, _) = observe(&emu);
+            let open = left(&emu) > 0;
+            assert!(
+                unknown.is_empty(),
+                "quadro {f}: pixels fora das referencias {unknown:?}"
+            );
+            assert!(font_px >= 20, "fonte presente no quadro {f}");
+            assert!(
+                sprite > 0,
+                "quadro {f}: o personagem do outro banco continua com as cores dele"
+            );
+            if hurt_px > 0 {
+                assert!(open, "quadro {f}: cor de dano fora da janela da troca");
+                hurt_frames.push(f);
+            }
+            if open {
+                window_frames.push(f);
+            }
+        }
+        let hits = read_u16(&emu, sym["rds_strike_strike1_hits"]);
+        eprintln!(
+            "acertos {hits}, trocas {}, restauracoes {}, janela {:?}, quadros com dano {:?}",
+            count(&emu),
+            restores(&emu),
+            window_frames,
+            hurt_frames
+        );
+        assert_eq!(hits, 1);
+        assert_eq!(
+            (count(&emu), restores(&emu)),
+            (1, 1),
+            "uma troca por acerto, restaurada uma vez"
+        );
+        assert_eq!(window_frames.len(), 12, "janela de 12 quadros declarada");
+        assert!(
+            window_frames.windows(2).all(|w| w[1] == w[0] + 1),
+            "janela continua"
+        );
+        assert!(!hurt_frames.is_empty(), "cor de dano observada no alvo");
+        let (_, _, sprite_end, hurt_end, _, _, _) = observe(&emu);
+        assert_eq!(hurt_end, 0);
+        assert!(sprite_end >= 50, "cores originais de volta");
+        // Controle negativo (congelado): o MESMO projeto com a emissao antiga (sem plano) tem de ser
+        // reprovado pelo mesmo classificador -- a colisao de bancos aparece como pixels fora das
+        // referencias (personagem/fonte com cores do cenario).
+        crate::compiler::build_orch::DISABLE_PALETTE_PLAN_FOR_TEST.with(|c| c.set(true));
+        let (old_rom, _, _) = build(&project);
+        crate::compiler::build_orch::DISABLE_PALETTE_PLAN_FOR_TEST.with(|c| c.set(false));
+        let mut old = EmulatorCore::new(None);
+        old.load_rom(&old_rom).unwrap();
+        old.set_joypad(JoypadState::default()).unwrap();
+        for _ in 0..60 {
+            old.run_frame().unwrap();
+        }
+        let (_, old_bg_bad, old_sprite, _, old_font, old_unknown, _) = observe(&old);
+        eprintln!("controle negativo (sem plano): fundo errado {old_bg_bad}, personagem {old_sprite}, fonte {old_font}, desconhecidos {old_unknown:?}");
+        assert!(
+            !old_unknown.is_empty() || old_font == 0,
+            "o classificador detecta a colisao antiga"
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    /// Mesmo projeto com mapa maior que a tela, camera seguindo o personagem e indicador de vida: o
+    /// texto da interface fica ancorado a TELA enquanto a camera anda (o cenario rola, o HUD nao).
+    #[ignore]
+    #[test]
+    fn mugen_real_hud_stays_screen_anchored_while_camera_scrolls() {
+        let (root, project) = import_fixture("sentinel", "hud-camera-real");
+        let donor = root.join("ref-donor");
+        crate::core::project_mgr::create_project_skeleton(&donor, "Donor", "megadrive").unwrap();
+        crate::core::project_mgr::seed_reference_platformer_template(&donor, "megadrive").unwrap();
+        let tileset = crate::core::project_mgr::REFERENCE_PLATFORMER_TILESET_ASSET;
+        fs::create_dir_all(project.join(tileset).parent().unwrap()).unwrap();
+        fs::copy(donor.join(tileset), project.join(tileset)).unwrap();
+        let mut scene = sentinel_scene_with_hud(&project, hud(2, 25, "VIDA ", "strike1"));
+        let mut world = scene.entities[0].clone();
+        world.entity_id = "world".into();
+        world.transform = crate::ugdm::entities::Transform { x: 0, y: 0 };
+        world.components = Default::default();
+        world.components.tilemap = Some(crate::ugdm::components::TilemapComponent {
+            tileset: tileset.to_string(),
+            map_width: 80,
+            map_height: 28,
+            scroll_x: 0,
+            scroll_y: 0,
+            cells: (0..80u32)
+                .map(|x| (x * 7 + 3) % 4)
+                .collect::<Vec<_>>()
+                .repeat(28),
+        });
+        let mut camera = scene.entities[0].clone();
+        camera.entity_id = "camera".into();
+        camera.components = Default::default();
+        camera.components.camera = Some(crate::ugdm::components::CameraComponent {
+            follow_entity: Some("sentinel".into()),
+            offset_x: -152,
+            offset_y: -112,
+        });
+        // Duas camadas de mapa (fundo no plano B, frente no plano A): a camera rola os dois planos,
+        // inclusive o A, onde o texto da interface era desenhado.
+        let mut front = world.clone();
+        front.entity_id = "world_front".into();
+        if let Some(tm) = front.components.tilemap.as_mut() {
+            tm.cells = (0..80u32 * 28)
+                .map(|i| if i % 80 % 9 == 0 { 2 } else { 0 })
+                .collect();
+        }
+        scene.entities.insert(0, front);
+        scene.entities.insert(0, world);
+        scene.entities.push(camera);
+        save_scene(
+            &project,
+            crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+            &scene,
+        )
+        .unwrap();
+        let (rom, _sha, sym) = build(&project);
+        let link: crate::compiler::runtime_link::RuntimeLink = serde_json::from_str(
+            &fs::read_to_string(project.join("build/megadrive/rds-runtime-link.v1.json")).unwrap(),
+        )
+        .unwrap();
+        let cam = link.camera.clone().expect("vinculo expoe a camera");
+        let entry = link.hud.iter().find(|h| h.entity_id == "hud_vida").unwrap();
+        assert_eq!(
+            (entry.x, entry.y),
+            (16, 200),
+            "HUD no vinculo em coordenadas de tela"
+        );
+        let mut emu = EmulatorCore::new(None);
+        emu.load_rom(&rom).unwrap();
+        emu.set_joypad(JoypadState::default()).unwrap();
+        for _ in 0..60 {
+            emu.run_frame().unwrap();
+        }
+        let label = |emu: &EmulatorCore| {
+            let (raw, size, format) = emu.get_framebuffer().unwrap();
+            let fb = framebuffer_to_rgba(&raw, size, format);
+            let mut out = Vec::new();
+            for y in 200..208u32 {
+                let i = ((y * fb.width + 16) * 4) as usize;
+                out.extend_from_slice(&fb.rgba[i..i + 40 * 4]);
+            }
+            let row = |y: u32| {
+                let i = ((y * fb.width) * 4) as usize;
+                fb.rgba[i..i + (fb.width * 4) as usize].to_vec()
+            };
+            (out, row(100))
+        };
+        let dump = |emu: &EmulatorCore, name: &str| {
+            if let Ok(dir) = std::env::var("RDS_HUD_CAMERA_DUMP") {
+                let (raw, size, format) = emu.get_framebuffer().unwrap();
+                let fb = framebuffer_to_rgba(&raw, size, format);
+                fs::write(
+                    format!("{dir}/{name}-{}x{}.rgba", fb.width, fb.height),
+                    &fb.rgba,
+                )
+                .unwrap();
+            }
+        };
+        dump(&emu, "camera0");
+        let cx0 = read_u16(&emu, cam.x) as i16;
+        let (label0, scenery0) = label(&emu);
+        assert!(
+            label0.chunks(4).any(|p| p != &label0[0..4]),
+            "rotulo VIDA visivel"
+        );
+        let x_addr = sym["spr_sentinel_x"];
+        let mut cx = cx0;
+        for step in 1..=20 {
+            let target = (read_u16(&emu, x_addr) as i16).saturating_add(12);
+            emu.write_system_ram((x_addr & 0xFFFF) as usize, &(target as u16).to_le_bytes())
+                .unwrap();
+            for _ in 0..3 {
+                emu.run_frame().unwrap();
+            }
+            cx = read_u16(&emu, cam.x) as i16;
+            if cx >= 40 && step > 4 {
+                break;
+            }
+        }
+        assert!(cx > cx0 + 16, "camera andou: {cx0} -> {cx}");
+        dump(&emu, "camera1");
+        let (label1, scenery1) = label(&emu);
+        assert_ne!(scenery0, scenery1, "cenario rolou com a camera");
+        // Entre as letras o WINDOW e transparente e o plano B (que rola) aparece: compara as LETRAS.
+        // Cor das letras = a mais frequente entre os pixels iguais nos dois quadros; a mascara dessa
+        // cor tem de ser identica (antes da correcao o rotulo inteiro deslocava com a camera).
+        let px = |v: &[u8], i: usize| [v[i * 4], v[i * 4 + 1], v[i * 4 + 2], v[i * 4 + 3]];
+        let n = label0.len() / 4;
+        let mut counts: std::collections::BTreeMap<[u8; 4], usize> = Default::default();
+        for i in 0..n {
+            if px(&label0, i) == px(&label1, i) {
+                *counts.entry(px(&label0, i)).or_default() += 1;
+            }
+        }
+        let glyph = counts
+            .iter()
+            .max_by_key(|(_, c)| **c)
+            .map(|(k, _)| *k)
+            .unwrap();
+        let mask = |v: &[u8]| (0..n).map(|i| px(v, i) == glyph).collect::<Vec<_>>();
+        let glyph_pixels = mask(&label0).iter().filter(|b| **b).count();
+        eprintln!("cor das letras {glyph:?}: {glyph_pixels} pixels");
+        assert!(glyph_pixels >= 40, "letras do rotulo presentes");
+        let (m0, m1) = (mask(&label0), mask(&label1));
+        let both = (0..n).filter(|i| m0[*i] && m1[*i]).count();
+        let c1 = m1.iter().filter(|b| **b).count();
+        eprintln!("letras: quadro0 {glyph_pixels}, quadro1 {c1}, em comum {both}");
+        // Ancorado: as letras do quadro 0 continuam nos mesmos pixels (o cenario pode acrescentar
+        // pixels da mesma cor ao redor, nunca remover letras). Antes da correcao o rotulo saia daqui.
+        assert!(
+            both * 10 >= glyph_pixels.min(c1) * 9,
+            "HUD ancorado a tela com a camera em {cx}"
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    /// Ajuste temporario de teste: escrever a posicao na WRAM move o personagem no proximo quadro
+    /// e nao toca o projeto (cena em disco igual antes/depois).
+    #[ignore]
+    #[test]
+    fn mugen_real_test_adjustment_writes_session_ram_only() {
+        let (root, project) = import_fixture("sentinel", "adjust-real");
+        let scene_before = fs::read(project.join("scenes/main.json")).unwrap();
+        let (rom, _sha, sym) = build(&project);
+        let mut emu = EmulatorCore::new(None);
+        emu.load_rom(&rom).unwrap();
+        emu.set_joypad(JoypadState::default()).unwrap();
+        for _ in 0..60 {
+            emu.run_frame().unwrap();
+        }
+        let x_addr = sym["spr_sentinel_x"];
+        let x0 = read_u16(&emu, x_addr);
+        let target = x0 + 40;
+        emu.write_system_ram((x_addr & 0xFFFF) as usize, &target.to_le_bytes())
+            .unwrap();
+        for _ in 0..3 {
+            emu.run_frame().unwrap();
+        }
+        assert_eq!(
+            read_u16(&emu, x_addr),
+            target,
+            "posicao ajustada persiste na sessao"
+        );
+        assert!(
+            emu.write_system_ram(0xFFFF, &[0, 0]).is_err(),
+            "fora da WRAM recusado"
+        );
+        assert_eq!(
+            fs::read(project.join("scenes/main.json")).unwrap(),
+            scene_before,
+            "projeto intacto"
+        );
+        let _ = fs::remove_dir_all(root);
+    }
+
+    /// Caixa de ataque editada (autoral) muda o resultado na ROM: deslocada para longe, o mesmo
+    /// chute com o mesmo alvo nao acerta; sem edicao (teste irmao) acerta uma vez.
+    #[ignore]
+    #[test]
+    fn mugen_real_edited_attack_box_removes_the_hit() {
+        let (root, project) = sentinel_with_dummy("box-edit-real", 20);
+        let mut scene = crate::core::project_mgr::load_scene(
+            &project,
+            crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+        )
+        .unwrap();
+        for entity in scene.entities.iter_mut() {
+            let Some(anim) = entity
+                .components
+                .sprite
+                .as_mut()
+                .and_then(|sprite| sprite.animations.get_mut("action_210"))
+            else {
+                continue;
+            };
+            let f = &mut anim.mugen_frames.as_mut().unwrap()[1];
+            assert_eq!(f.clsn1.len(), 1, "o2 do chute tem Clsn1 importado");
+            f.clsn1[0].x1 += 200;
+            f.clsn1[0].x2 += 200;
+            f.clsn_edited = true;
+        }
+        save_scene(
+            &project,
+            crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+            &scene,
+        )
+        .unwrap();
+        let (rom, _sha, sym) = build(&project);
+        let mut emu = EmulatorCore::new(None);
+        emu.load_rom(&rom).unwrap();
+        emu.set_joypad(JoypadState::default()).unwrap();
+        for _ in 0..60 {
+            emu.run_frame().unwrap();
+        }
+        emu.set_joypad(JoypadState {
+            b: true,
+            ..JoypadState::default()
+        })
+        .unwrap();
+        for _ in 0..2 {
+            emu.run_frame().unwrap();
+        }
+        emu.set_joypad(JoypadState::default()).unwrap();
+        let mut window = 0;
+        for _ in 0..40 {
+            emu.run_frame().unwrap();
+            if read_u16(&emu, sym["rds_mugen_spr_sentinel_clsn1"]) > 0 {
+                window += 1;
+            }
+        }
+        assert!(window > 0, "a janela de ataque abriu");
+        assert_eq!(read_u16(&emu, sym["rds_strike_strike1_overlaps"]), 0);
+        assert_eq!(read_u16(&emu, sym["rds_strike_strike1_hp"]), 100);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    /// Camera do mundo com SGDK e core reais: template de referencia com mapa alargado (80 tiles);
+    /// segurar direita move o jogador e a camera segue = clamp(x - 152, 0, 640 - 320) em todo quadro.
+    #[ignore]
+    #[test]
+    fn reference_real_camera_follows_player_clamped_to_world() {
+        let root = temp("camera-real");
+        let project = root.join("project");
+        crate::core::project_mgr::create_project_skeleton(&project, "Camera Real", "megadrive")
+            .unwrap();
+        crate::core::project_mgr::seed_reference_platformer_template(&project, "megadrive")
+            .unwrap();
+        // Preparacao: alarga o mapa no MODELO (prefab) do tilemap da referencia.
+        let scene = crate::core::project_mgr::load_scene(
+            &project,
+            crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+        )
+        .unwrap();
+        let prefab = scene
+            .entities
+            .iter()
+            .find(|e| e.entity_id == "reference_tilemap")
+            .unwrap()
+            .prefab
+            .clone()
+            .unwrap();
+        let prefab_path = project.join("prefabs").join(&prefab);
+        let mut json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&prefab_path).unwrap()).unwrap();
+        json["components"]["tilemap"]["map_width"] = serde_json::json!(80);
+        json["components"]["tilemap"]["cells"] = serde_json::json!([]);
+        fs::write(&prefab_path, serde_json::to_string_pretty(&json).unwrap()).unwrap();
+        let (rom, _sha, sym) = build(&project);
+        let link: crate::compiler::runtime_link::RuntimeLink = serde_json::from_str(
+            &fs::read_to_string(project.join("build/megadrive/rds-runtime-link.v1.json")).unwrap(),
+        )
+        .unwrap();
+        let player = link
+            .entities
+            .iter()
+            .find(|e| e.entity_id == "player")
+            .unwrap();
+        let cam = link.camera.clone().expect("vinculo expoe a camera");
+        let mut emu = EmulatorCore::new(None);
+        emu.load_rom(&rom).unwrap();
+        emu.set_joypad(JoypadState::default()).unwrap();
+        for _ in 0..60 {
+            emu.run_frame().unwrap();
+        }
+        emu.set_joypad(JoypadState {
+            right: true,
+            ..JoypadState::default()
+        })
+        .unwrap();
+        let (mut moved, mut mismatches, mut max_cam) = (false, Vec::new(), 0i32);
+        for frame in 0..240 {
+            emu.run_frame().unwrap();
+            let x = read_u16(&emu, player.symbols.x) as i16 as i32;
+            let cx = read_u16(&emu, cam.x) as i16 as i32;
+            let expected = (x - 152).clamp(0, 320);
+            // A camera e calculada na logica do quadro; o movimento pode vir depois (1 quadro).
+            let prev_ok = (x - 152 - 4).clamp(0, 320) <= cx
+                && cx <= expected.max((x - 152 + 4).clamp(0, 320));
+            if !prev_ok {
+                mismatches.push((frame, x, cx, expected));
+            }
+            moved |= x > 200;
+            max_cam = max_cam.max(cx);
+        }
+        assert!(moved, "jogador andou para a direita");
+        assert!(max_cam > 0, "camera saiu do zero");
+        assert!(max_cam <= 320, "camera respeita o limite do mundo");
+        assert!(
+            mismatches.is_empty(),
+            "camera fora do previsto: {:?}",
+            &mismatches[..mismatches.len().min(5)]
+        );
         let _ = fs::remove_dir_all(root);
     }
 

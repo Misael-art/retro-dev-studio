@@ -1,0 +1,8 @@
+{
+  "id": "sprite-analysis-001",
+  "status": "FAIL_DECLARED_WALL_DOMAIN",
+  "source_sha256": "b8792d547bf70b1aa2216d75c174c326aaa4a3c48165886d9e58ce88f7befad0",
+  "error": "declared wall descriptor: not all twenty sampled descriptors lie in the wall range",
+  "scope": "post-observation verifier failure; no new runtime execution or visual expectation",
+  "decision": "inspect sampled domains, preserve failure and source before any new bounded verifier"
+}

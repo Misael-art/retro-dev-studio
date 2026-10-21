@@ -1,0 +1,11 @@
+{
+  "v2_frozen_commit": "d8be191e552eb43015d74f61e35271b9e8cb3fcd",
+  "frozen_files_checked": 22,
+  "all_v2_inputs_unchanged": true,
+  "v1_protected_files_checked": 70,
+  "all_v1_files_unchanged": true,
+  "v1_final_result": "FAIL86/89, three original absolute-image failures preserved",
+  "product_runtime_sources_changed": false,
+  "app_sha256": "74033134f47510c1ef37d8e6025a8bc6986436d4060ae3e96b1ba9bcc3d1670e",
+  "byor": "previous blocked result reused; no commercial linkage claimed"
+}

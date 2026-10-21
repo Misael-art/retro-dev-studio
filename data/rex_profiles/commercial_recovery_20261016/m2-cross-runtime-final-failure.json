@@ -1,0 +1,24 @@
+{
+  "schema": "rex-cross-runtime-domain-failure/v1",
+  "id": "M2-CROSS-FINAL-001",
+  "result": "FAIL_STRICT_FINAL_LAYOUT_EQUALITY_BEFORE_APP_RUN",
+  "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "mame_final_layout_sha256": "a772ef86d9f87377093fd22534d8f171596c68aba046a284a90d887c384dfb2b",
+  "gx_final_layout_sha256": "b691f2626e5eb4fd4ff5a03f18f14b32d5f888b61de796b596bfc1dc8801ba46",
+  "mame_initial_copy_sha256": "b691f2626e5eb4fd4ff5a03f18f14b32d5f888b61de796b596bfc1dc8801ba46",
+  "different_positions_from_initial_to_mame_final": [
+    778
+  ],
+  "observed_later_writes": [
+    {
+      "seq": 124655,
+      "frame": 1286,
+      "address": 16716586,
+      "data": 16962,
+      "mask": 65280,
+      "instruction_pc": 111910
+    }
+  ],
+  "limit": "different runtime/frame clock phase; no game-semantic label assigned to the later byte update; app has not executed this replay yet",
+  "decision": "new bounded correspondence references initial copy output already independently predicted before GX measurement; final-state equality remains FAIL, never reclassified"
+}

@@ -1,0 +1,44 @@
+{
+  "host-certify.log": {
+    "raw_path": "/home/misael/rds-scratch/rex-copy-grid-20261016/host-certify-001.log",
+    "raw_sha256": "ec587fae13290ae16a2bf9a85f178faf099f877ce9ea5598c105399e13cfc828",
+    "versioned_sha256": "ee370b64d5214e34fa32dbac9cfb3acb9c25a7fbcbfce1b9b8c8a1fef8427cdd",
+    "normalization": "trailing whitespace and extra empty EOF lines only; original run unchanged"
+  },
+  "backend-profiles.log": {
+    "raw_path": "/home/misael/rds-scratch/rex-copy-grid-20261016/profile-tests-002.log",
+    "raw_sha256": "d1acfbc834e3c495dc9cf1f3a6ae14bebd54e7d46ef6b42c163bc2427b6cc21a",
+    "versioned_sha256": "a4b8db3a10fc9a994c9000f47b6f19acea632c746ec7a6343f56e29f8a78f25b",
+    "normalization": "trailing whitespace and extra empty EOF lines only; original run unchanged"
+  },
+  "copy-grid-tests.log": {
+    "raw_path": "/home/misael/rds-scratch/rex-copy-grid-20261016/copy-tests-004.log",
+    "raw_sha256": "88d5eb9f65573f40c3d70702a1dde1e4ccbec3b7c20f7fe084981fc454ad36c3",
+    "versioned_sha256": "4bd273e812b4dd36157cfcb26a1849779b65d411c07efce05610c61359c27da3",
+    "normalization": "trailing whitespace and extra empty EOF lines only; original run unchanged"
+  },
+  "byor-backend.log": {
+    "raw_path": "/home/misael/rds-scratch/rex-copy-grid-20261016/byor-backend-001.log",
+    "raw_sha256": "06585e7ae4bdacf275156d08db66e578fa0f7bd0c82724fb49ac58e8c01fe639",
+    "versioned_sha256": "ded270dc7c02b45ca19a00d5f4d329a68080d0c8a78a7ad6ca5cb0e13e5435a6",
+    "normalization": "trailing whitespace and extra empty EOF lines only; original run unchanged"
+  },
+  "clippy-default.log": {
+    "raw_path": "/home/misael/rds-scratch/rex-copy-grid-20261016/clippy-default-001.log",
+    "raw_sha256": "d0d132b507c3849033c7da67e6267155808ae911df65afa872a90fad82f63188",
+    "versioned_sha256": "d0d132b507c3849033c7da67e6267155808ae911df65afa872a90fad82f63188",
+    "normalization": "trailing whitespace and extra empty EOF lines only; original run unchanged"
+  },
+  "bridge-tests.log": {
+    "raw_path": "/home/misael/rds-scratch/rex-copy-grid-20261016/bridge-final.log",
+    "raw_sha256": "4fffa309f96578a476f4ae76e683d19c154214ec8e6222f821387eb2b6f3c475",
+    "versioned_sha256": "39a25eec0abd496c328a3773aff1b39f50c3f09611f3e79e6510d25a1bb49826",
+    "normalization": "trailing whitespace and extra empty EOF lines only; original run unchanged"
+  },
+  "check-tree-final.log": {
+    "raw_path": "/home/misael/rds-scratch/rex-copy-grid-20261016/check-tree-final.log",
+    "raw_sha256": "97e11479abaf154f4db5501d0305879eae951a40bcd94b6c7dea286111f12f72",
+    "versioned_sha256": "97e11479abaf154f4db5501d0305879eae951a40bcd94b6c7dea286111f12f72",
+    "normalization": "trailing whitespace and extra empty EOF lines only; original run unchanged"
+  }
+}

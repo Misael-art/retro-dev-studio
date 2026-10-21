@@ -1,0 +1,32 @@
+{
+  "schema": "rex-m3-original-reference-freeze/v1",
+  "generated_at": "2026-10-18T01:47:51.760444+00:00",
+  "id": "m3-gx-original-reference-001",
+  "hypothesis": "An original GX frame boundary exposes the already qualified initial copy; collect prestate and first-boundary tail without assuming equality or zero. No commercial edit.",
+  "inputs": {
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/prepare-m3-gx-reference.py": "36bf4909bd1ecd4486150b9b0278c48e490437ac77017a73d67c51704b1be59c",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/integration_20261007/lr.py": "7bda06f7eca534e91fc0876d95e95f136d0227672995c032c375cf461023e876",
+    "/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+    "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/prepared-replay-v2-001/original.rds-replay": "d2129df01b23fe69db5ffdb689e158715c72bb48967303443f01ea16b5c40b81"
+  },
+  "replay": "/home/misael/rds-scratch/commercial_recovery_20261016/prepared-replay-v2-001/original.rds-replay",
+  "state_sha256": "989695ee0e675a1dbb731cac74b44cf3f2b91a67761231aeff9ff693bd47c62b",
+  "core": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+  "private_root": "/home/misael/rds-scratch/commercial_recovery_20261016",
+  "initial_copy_sha256": "b691f2626e5eb4fd4ff5a03f18f14b32d5f888b61de796b596bfc1dc8801ba46",
+  "budget": {
+    "seconds": 90,
+    "frames": 180,
+    "private_bytes_max": 16777216,
+    "heavy_jobs": 1
+  },
+  "criteria": [
+    "all input identities exact",
+    "existing final180 framebuffer byte-exact",
+    "at least one frame matches initial8128byte copy",
+    "report tail changes without relabeling snapshot as instruction trace"
+  ],
+  "independence": "Same-core original regression reference; no edited image involved. This survey alone does not approve visual editing.",
+  "command": "rtk proxy python3 scripts/rex_profiles/commercial_recovery_20261016/prepare-m3-gx-reference.py m3-gx-reference-001"
+}

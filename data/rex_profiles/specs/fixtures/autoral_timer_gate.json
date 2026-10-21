@@ -1,0 +1,985 @@
+{
+ "edits": [
+  {
+   "expect": {
+    "patch_offsets": [
+     1027
+    ]
+   },
+   "instance": 0,
+   "set": {
+    "dur": 45
+   }
+  },
+  {
+   "expect": {
+    "patch_offsets": [
+     1032,
+     1096,
+     1126,
+     1132
+    ]
+   },
+   "instance": 0,
+   "set": {
+    "lim": 60000,
+    "score": 999999,
+    "step": -100000
+   }
+  },
+  {
+   "expect": {
+    "patch_offsets": [
+     2072,
+     2122
+    ]
+   },
+   "instance": 1,
+   "set": {
+    "bonus": 65535,
+    "lim": 1234
+   }
+  },
+  {
+   "expect": {
+    "error": "FieldUnavailable"
+   },
+   "instance": 1,
+   "set": {
+    "step": 5
+   }
+  },
+  {
+   "expect": {
+    "error": "FieldUnavailable"
+   },
+   "instance": 2,
+   "set": {
+    "lim": 5
+   }
+  },
+  {
+   "expect": {
+    "error": "FieldUnavailable"
+   },
+   "instance": 2,
+   "set": {
+    "bonus": 5
+   }
+  },
+  {
+   "expect": {
+    "error": "OutOfRange"
+   },
+   "instance": 0,
+   "set": {
+    "dur": 256
+   }
+  },
+  {
+   "expect": {
+    "error": "OutOfRange"
+   },
+   "instance": 0,
+   "set": {
+    "dur": 0
+   }
+  },
+  {
+   "expect": {
+    "error": "OutOfRange"
+   },
+   "instance": 0,
+   "set": {
+    "score": 1000000
+   }
+  },
+  {
+   "expect": {
+    "error": "OutOfRange"
+   },
+   "instance": 0,
+   "set": {
+    "step": 100001
+   }
+  },
+  {
+   "expect": {
+    "error": "NoChange"
+   },
+   "instance": 0,
+   "set": {
+    "dur": 30
+   }
+  }
+ ],
+ "expect": {
+  "instances": [
+   {
+    "anchor_is_outer": false,
+    "anchor_offset": 1024,
+    "fields": [
+     {
+      "name": "dur",
+      "rom_offsets": [
+       1027
+      ],
+      "value": 30
+     },
+     {
+      "name": "score",
+      "rom_offsets": [
+       1032
+      ],
+      "value": 5000
+     },
+     {
+      "name": "lim",
+      "rom_offsets": [
+       1096
+      ],
+      "value": 600
+     },
+     {
+      "name": "step",
+      "rom_offsets": [
+       1126,
+       1132
+      ],
+      "value": -250
+     }
+    ],
+    "links": {
+     "f_reset": 1120,
+     "p_tick": 1088
+    }
+   },
+   {
+    "anchor_is_outer": true,
+    "anchor_offset": 2056,
+    "fields": [
+     {
+      "name": "dur",
+      "rom_offsets": [
+       2059
+      ],
+      "value": 12
+     },
+     {
+      "name": "score",
+      "rom_offsets": [
+       2064
+      ],
+      "value": 123456
+     },
+     {
+      "name": "bonus",
+      "rom_offsets": [
+       2072
+      ],
+      "value": 40000
+     },
+     {
+      "name": "lim",
+      "rom_offsets": [
+       2122
+      ],
+      "value": 59999
+     }
+    ],
+    "links": {
+     "p_tick": 2112
+    }
+   },
+   {
+    "anchor_is_outer": false,
+    "anchor_offset": 3072,
+    "fields": [
+     {
+      "name": "dur",
+      "rom_offsets": [
+       3075
+      ],
+      "value": 200
+     },
+     {
+      "name": "score",
+      "rom_offsets": [
+       3080
+      ],
+      "value": 1
+     }
+    ],
+    "links": {}
+   }
+  ]
+ },
+ "name": "autoral_timer_gate",
+ "rom_hex": "4155544f52414c2d4845414445520000d7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa117c001e002a217c000013880030bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adba5328002a66060c68025800346d06fd8a97a4b1becbd8e5f2ff8c99a6b3c0cdda42680034203cffffff060c80ffffff06b7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa4a3900ff8010670e117c000c001c217c0001e2400020317c9c400024f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adba5328001c660000080c68ea5f00266d0097a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adba5328001066060c68006f00146d06fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa117c00c80010217c000000010012bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adba5328001066060c6800de00166d06fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa117c00090090217c000000090030bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adba117c00090022217c000000090031fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa117c00090020217c000000090020bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa8794a1aebbc8d5e2effc8996a3b0bdcad7e4f1fe8b98a5b2bfccd9e6f3808d9aa7b4c1cedbe8f5828f9ca9b6c3d0ddeaf784919eabb8c5d2dfecf98693a0adbac7d4e1eefb8895a2afbcc9d6e3f0fd8a97a4b1becbd8e5f2ff8c99a6b3c0cddae7f4818e9ba8b5c2cfdce9f683909daab7c4d1deebf885929facb9c6d3e0edfa",
+ "spec": {
+  "arch": {
+   "bus_address_bits": 24,
+   "cpu": "m68k",
+   "endianness": "big",
+   "instruction_alignment": 2
+  },
+  "artifact_tag": "timer",
+  "captures": [
+   {
+    "endianness": "big",
+    "name": "dur",
+    "role": "immediate",
+    "signed": false,
+    "width": 1
+   },
+   {
+    "endianness": "big",
+    "name": "score",
+    "role": "immediate",
+    "signed": false,
+    "width": 4
+   },
+   {
+    "endianness": "big",
+    "name": "bonus",
+    "role": "immediate",
+    "signed": false,
+    "width": 2
+   },
+   {
+    "endianness": "big",
+    "name": "lim",
+    "role": "immediate",
+    "signed": false,
+    "width": 2
+   },
+   {
+    "endianness": "big",
+    "name": "step",
+    "role": "immediate",
+    "signed": true,
+    "width": 4
+   },
+   {
+    "endianness": "big",
+    "name": "tmr",
+    "role": "ea_displacement",
+    "signed": true,
+    "width": 2
+   },
+   {
+    "endianness": "big",
+    "name": "acc",
+    "role": "ea_displacement",
+    "signed": true,
+    "width": 2
+   },
+   {
+    "endianness": "big",
+    "name": "aux",
+    "role": "ea_displacement",
+    "signed": true,
+    "width": 2
+   },
+   {
+    "endianness": "big",
+    "name": "cnt",
+    "role": "ea_displacement",
+    "signed": true,
+    "width": 2
+   },
+   {
+    "endianness": "big",
+    "name": "gate",
+    "role": "bus_address",
+    "signed": false,
+    "width": 4
+   }
+  ],
+  "constraints": [
+   {
+    "capture": "tmr",
+    "id": "tmr_curto",
+    "kind": "range",
+    "max": 127,
+    "min": 0,
+    "pattern": "arm"
+   },
+   {
+    "capture": "tmr",
+    "id": "tmr_curto_ext",
+    "kind": "range",
+    "max": 127,
+    "min": 0,
+    "pattern": "arm_ext"
+   },
+   {
+    "capture": "acc",
+    "id": "acc_alinhado",
+    "kind": "multiple_of",
+    "modulo": 2,
+    "pattern": "arm"
+   },
+   {
+    "a": "tmr",
+    "b": "acc",
+    "id": "tmr_nao_e_acc",
+    "kind": "distinct",
+    "pattern": "arm"
+   }
+  ],
+  "details": [
+   {
+    "label": "temporizador",
+    "text": [
+     {
+      "p": "lit",
+      "t": "+"
+     },
+     {
+      "fmt": "hex_bare",
+      "name": "tmr",
+      "of": "anchor",
+      "p": "capture"
+     }
+    ]
+   },
+   {
+    "label": "acumulador",
+    "text": [
+     {
+      "p": "lit",
+      "t": "+"
+     },
+     {
+      "fmt": "hex_bare",
+      "name": "acc",
+      "of": "anchor",
+      "p": "capture"
+     }
+    ]
+   },
+   {
+    "label": "portão (barramento)",
+    "text": [
+     {
+      "fmt": "hex6",
+      "name": "gate",
+      "of": "anchor",
+      "p": "capture"
+     }
+    ],
+    "when": [
+     {
+      "id": "arm_ext",
+      "if": "anchor_pattern"
+     }
+    ]
+   }
+  ],
+  "evidence": {
+   "claims": [],
+   "unknown": [
+    "nenhum efeito foi medido em execução: é um perfil sintético",
+    "nenhuma ROM de jogo foi usada: a forma só foi vista na ROM sintética deste teste"
+   ]
+  },
+  "fields": [
+   {
+    "capture": "dur",
+    "extra_offsets": [],
+    "label": "Duração do temporizador",
+    "max": 255,
+    "min": 1,
+    "name": "dur",
+    "patterns": [
+     "arm_ext",
+     "arm"
+    ],
+    "requires": null
+   },
+   {
+    "capture": "score",
+    "extra_offsets": [],
+    "label": "Valor somado ao acumulador",
+    "max": 999999,
+    "min": 0,
+    "name": "score",
+    "patterns": [
+     "arm_ext",
+     "arm"
+    ],
+    "requires": null
+   },
+   {
+    "capture": "bonus",
+    "extra_offsets": [],
+    "label": "Bônus da forma com portão",
+    "max": 65535,
+    "min": 0,
+    "name": "bonus",
+    "patterns": [
+     "arm_ext"
+    ],
+    "requires": null
+   },
+   {
+    "capture": "lim",
+    "extra_offsets": [],
+    "label": "Limite do contador no tique",
+    "max": 60000,
+    "min": 1,
+    "name": "lim",
+    "patterns": [
+     "tick"
+    ],
+    "requires": "p_tick"
+   },
+   {
+    "capture": "step",
+    "extra_offsets": [
+     12
+    ],
+    "label": "Passo do reinício",
+    "max": 100000,
+    "min": -100000,
+    "name": "step",
+    "patterns": [
+     "reset"
+    ],
+    "requires": "f_reset"
+   }
+  ],
+  "id": "m68k.authored_timer_gate.v1",
+  "limits": [
+   "Perfil autoral de teste: prova que o motor lê um segundo perfil sem código novo, não que esta forma exista em algum jogo.",
+   "Vinculado por SHA-256 à ROM sintética: em qualquer outra ROM o perfil não é tentado."
+  ],
+  "notes": [
+   {
+    "text": [
+     {
+      "p": "lit",
+      "t": "temporizador armado em "
+     },
+     {
+      "fmt": "hex",
+      "of": "instance",
+      "p": "offset"
+     },
+     {
+      "p": "lit",
+      "t": " (forma com teste de portão)",
+      "when": [
+       {
+        "id": "arm_ext",
+        "if": "anchor_pattern"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "text": [
+     {
+      "p": "lit",
+      "t": "tique em "
+     },
+     {
+      "fmt": "hex",
+      "of": "p_tick",
+      "p": "offset"
+     },
+     {
+      "p": "lit",
+      "t": " (pareamento mútuo, mesmo campo de temporizador)"
+     }
+    ],
+    "when": [
+     {
+      "id": "p_tick",
+      "if": "link"
+     }
+    ]
+   },
+   {
+    "text": [
+     {
+      "p": "lit",
+      "t": "reinício em "
+     },
+     {
+      "fmt": "hex",
+      "of": "f_reset",
+      "p": "offset"
+     }
+    ],
+    "when": [
+     {
+      "id": "p_tick",
+      "if": "link"
+     },
+     {
+      "id": "f_reset",
+      "if": "link"
+     }
+    ]
+   },
+   {
+    "text": [
+     {
+      "p": "lit",
+      "t": "reinício não localizado: o campo de passo não é oferecido"
+     }
+    ],
+    "when": [
+     {
+      "id": "p_tick",
+      "if": "link"
+     },
+     {
+      "id": "f_reset",
+      "if": "no_link"
+     }
+    ]
+   },
+   {
+    "text": [
+     {
+      "p": "lit",
+      "t": "tique não pareado de forma inequívoca: limite e passo NÃO são oferecidos"
+     }
+    ],
+    "when": [
+     {
+      "id": "p_tick",
+      "if": "no_link"
+     }
+    ]
+   }
+  ],
+  "patterns": [
+   {
+    "id": "arm",
+    "sources": [
+     "11 7C 00 {dur:1} {tmr:2} 21 7C {score:4} {acc:2}"
+    ]
+   },
+   {
+    "id": "arm_ext",
+    "sources": [
+     "4A 39 {gate:4} 67 0E 11 7C 00 {dur:1} {tmr:2} 21 7C {score:4} {acc:2} 31 7C {bonus:2} {aux:2}"
+    ]
+   },
+   {
+    "id": "tick",
+    "sources": [
+     "53 28 {tmr:2} 66 {_:1} 0C 68 {lim:2} {cnt:2} 6D {_:1}",
+     "53 28 {tmr:2} 66 00 {_:2} 0C 68 {lim:2} {cnt:2} 6D {_:1}"
+    ]
+   },
+   {
+    "id": "reset",
+    "sources": [
+     "42 68 {cnt:2} 20 3C {step:4} 0C 80 {step:4}"
+    ]
+   }
+  ],
+  "projection": {
+   "edges": [
+    {
+     "from": [
+      "inicio",
+      "exec"
+     ],
+     "to": [
+      "portao",
+      "exec"
+     ],
+     "when": [
+      {
+       "id": "arm_ext",
+       "if": "anchor_pattern"
+      }
+     ]
+    },
+    {
+     "from": [
+      "portao",
+      "false"
+     ],
+     "to": [
+      "n_dur",
+      "exec"
+     ],
+     "when": [
+      {
+       "id": "arm_ext",
+       "if": "anchor_pattern"
+      }
+     ]
+    },
+    {
+     "from": [
+      "inicio",
+      "exec"
+     ],
+     "to": [
+      "n_dur",
+      "exec"
+     ],
+     "when": [
+      {
+       "id": "arm",
+       "if": "anchor_pattern"
+      }
+     ]
+    },
+    {
+     "from": [
+      "n_dur",
+      "exec"
+     ],
+     "to": [
+      "n_score",
+      "exec"
+     ]
+    },
+    {
+     "from": [
+      "n_score",
+      "exec"
+     ],
+     "to": [
+      "n_bonus",
+      "exec"
+     ],
+     "when": [
+      {
+       "if": "field",
+       "name": "bonus"
+      }
+     ]
+    },
+    {
+     "from": [
+      "tique",
+      "exec"
+     ],
+     "to": [
+      "n_lim",
+      "exec"
+     ],
+     "when": [
+      {
+       "id": "p_tick",
+       "if": "link"
+      },
+      {
+       "if": "field",
+       "name": "lim"
+      }
+     ]
+    },
+    {
+     "from": [
+      "n_lim",
+      "exec"
+     ],
+     "to": [
+      "n_step",
+      "exec"
+     ],
+     "when": [
+      {
+       "id": "p_tick",
+       "if": "link"
+      },
+      {
+       "id": "f_reset",
+       "if": "link"
+      },
+      {
+       "if": "field",
+       "name": "step"
+      }
+     ]
+    }
+   ],
+   "entry_node": "inicio",
+   "instance_param": "timer_offset",
+   "nodes": [
+    {
+     "col": 0,
+     "id": "inicio",
+     "label": "Armar o temporizador",
+     "params": [
+      {
+       "key": "rate",
+       "value": "frame"
+      }
+     ],
+     "rom_span": {
+      "base": "instance",
+      "delta": 0,
+      "len": 6
+     },
+     "row": 0,
+     "type": "event_update"
+    },
+    {
+     "col": 0,
+     "id": "portao",
+     "label": "Portão aberto?",
+     "params": [
+      {
+       "key": "operator",
+       "value": "!="
+      },
+      {
+       "key": "a",
+       "value": "portao"
+      },
+      {
+       "key": "b",
+       "value": 0
+      },
+      {
+       "key": "descricao",
+       "text": [
+        {
+         "p": "lit",
+         "t": "tst.b no endereço de barramento "
+        },
+        {
+         "fmt": "hex6",
+         "name": "gate",
+         "of": "anchor",
+         "p": "capture"
+        }
+       ]
+      }
+     ],
+     "row": 1,
+     "type": "condition_compare",
+     "when": [
+      {
+       "id": "arm_ext",
+       "if": "anchor_pattern"
+      }
+     ]
+    },
+    {
+     "col": 1,
+     "field": {
+      "description": "move.b #dur,tmr(a0)",
+      "name": "dur",
+      "var_name": "duracao"
+     },
+     "id": "n_dur",
+     "label": "Duração do temporizador",
+     "row": 2,
+     "type": "var_set"
+    },
+    {
+     "col": 1,
+     "field": {
+      "description": "move.l #score,acc(a0)",
+      "name": "score",
+      "var_name": "valor"
+     },
+     "id": "n_score",
+     "label": "Valor somado ao acumulador",
+     "row": 3,
+     "type": "var_set"
+    },
+    {
+     "col": 2,
+     "field": {
+      "description": "move.w #bonus,aux(a0)",
+      "name": "bonus",
+      "var_name": "bonus"
+     },
+     "id": "n_bonus",
+     "label": "Bônus da forma com portão",
+     "row": 3,
+     "type": "var_set",
+     "when": [
+      {
+       "if": "field",
+       "name": "bonus"
+      }
+     ]
+    },
+    {
+     "col": 4,
+     "id": "tique",
+     "label": "Tique do temporizador",
+     "params": [
+      {
+       "key": "rate",
+       "value": "frame"
+      },
+      {
+       "key": "descricao",
+       "text": [
+        {
+         "p": "lit",
+         "t": "subq.b #1 no campo +"
+        },
+        {
+         "fmt": "hex",
+         "name": "tmr",
+         "of": "p_tick",
+         "p": "capture"
+        },
+        {
+         "p": "lit",
+         "t": "; contador em +"
+        },
+        {
+         "fmt": "hex",
+         "name": "cnt",
+         "of": "p_tick",
+         "p": "capture"
+        }
+       ]
+      }
+     ],
+     "rom_span": {
+      "base": "link",
+      "delta": 0,
+      "len": 4,
+      "link": "p_tick"
+     },
+     "row": 0,
+     "type": "event_update",
+     "when": [
+      {
+       "id": "p_tick",
+       "if": "link"
+      }
+     ]
+    },
+    {
+     "col": 4,
+     "field": {
+      "description": "cmpi.w #lim,cnt(a0)",
+      "name": "lim",
+      "var_name": "limite"
+     },
+     "id": "n_lim",
+     "label": "Limite do contador no tique",
+     "row": 1,
+     "type": "var_set",
+     "when": [
+      {
+       "id": "p_tick",
+       "if": "link"
+      },
+      {
+       "if": "field",
+       "name": "lim"
+      }
+     ]
+    },
+    {
+     "col": 5,
+     "field": {
+      "description": "move.l #step,d0 (repetido no cmpi.l)",
+      "name": "step",
+      "var_name": "passo"
+     },
+     "id": "n_step",
+     "label": "Passo do reinício",
+     "rom_span": {
+      "base": "link",
+      "delta": 0,
+      "len": 16,
+      "link": "f_reset"
+     },
+     "row": 1,
+     "type": "var_set",
+     "when": [
+      {
+       "id": "p_tick",
+       "if": "link"
+      },
+      {
+       "id": "f_reset",
+       "if": "link"
+      },
+      {
+       "if": "field",
+       "name": "step"
+      }
+     ]
+    }
+   ]
+  },
+  "provenance": {
+   "author": "RetroDev Studio - integrador REX (perfil autoral de teste)",
+   "created": "2026-10-09",
+   "derived_from": [
+    "scripts/rex_profiles/integration_20261009/make-authored-timer-profile.py"
+   ],
+   "notes": "Amostra NAO cega: perfil e ROM sintetica foram escritos pela mesma sessao."
+  },
+  "relations": [
+   {
+    "id": "ext_contem_simples",
+    "inner": "arm",
+    "kind": "subsumes",
+    "outer": "arm_ext",
+    "prefix_len": 8
+   },
+   {
+    "consistent_on": [
+     "tmr"
+    ],
+    "from": [
+     "arm",
+     "arm_ext"
+    ],
+    "id": "p_tick",
+    "kind": "pair",
+    "max_distance": 512,
+    "mutual": true,
+    "tie": "refuse",
+    "to": "tick"
+   },
+   {
+    "consistent_on": [
+     "cnt"
+    ],
+    "from": "tick",
+    "id": "f_reset",
+    "kind": "follow",
+    "max_distance": 64,
+    "tie": "refuse",
+    "to": "reset"
+   }
+  ],
+  "revision": 1,
+  "rom_binding": {
+   "mode": "sha256",
+   "sha256": [
+    "4f750ea6cbace93cbbdd644659b3a5a94903d9e20f2405daa55efb946beb7802"
+   ]
+  },
+  "rom_mapping": {
+   "bus_base": 0,
+   "file_header_bytes": 512,
+   "kind": "linear"
+  },
+  "schema": "rex-profile-spec/v2",
+  "status": "draft",
+  "summary": "Perfil AUTORAL de teste: arma um temporizador de 8 bits e um acumulador de 32 bits, com um tique que compara um contador a um limite e um reinício com passo de 32 bits. Não descreve nenhum jogo.",
+  "title": "Temporizador autoral (sintético)",
+  "work_limits": {
+   "max_instances": 8,
+   "max_matches_per_pattern": 16,
+   "max_rom_bytes": 65536
+  }
+ }
+}

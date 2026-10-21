@@ -1,0 +1,71 @@
+{
+  "id": "m4-original-state-002",
+  "status": "PASS_BOUNDED_ORIGINAL_STATE_AND_ROLE_CONTROLS",
+  "origin": "post-observation original trace; new literal role/CCR controls frozen first; not emulator holdout",
+  "literal_role_controls": [
+    {
+      "width": 1,
+      "initial_sr": 9984,
+      "expected_sr": 9988,
+      "d0_sentinel_preserved": true,
+      "wrong_roles_refused": true
+    },
+    {
+      "width": 1,
+      "initial_sr": 10015,
+      "expected_sr": 10000,
+      "d0_sentinel_preserved": true,
+      "wrong_roles_refused": true
+    },
+    {
+      "width": 1,
+      "initial_sr": 8192,
+      "expected_sr": 8200,
+      "d0_sentinel_preserved": true,
+      "wrong_roles_refused": true
+    },
+    {
+      "width": 2,
+      "initial_sr": 8991,
+      "expected_sr": 8984,
+      "d0_sentinel_preserved": true,
+      "wrong_roles_refused": true
+    }
+  ],
+  "case": {
+    "width": 1,
+    "reads": 4096,
+    "writes": 4096,
+    "copied_bytes": 4096,
+    "stride": 128,
+    "span": 8128,
+    "final_pointer_after_last_gap": 16724000,
+    "predicted_destination12224_sha256": "b19961ed0bd9636971ebc0824407fc6a5ca1d87be73441042b74e21596e37614",
+    "boundary_state": {
+      "expected": {
+        "pc": 112390,
+        "a0": 16732160,
+        "a1": 16724000,
+        "a7": 16776696,
+        "stack_top_long": 18086,
+        "sr": 8964,
+        "d0": 65535,
+        "d1": 65535,
+        "d2": 65535
+      },
+      "observed": {
+        "pc": 112390,
+        "a0": 16732160,
+        "a1": 16724000,
+        "a7": 16776696,
+        "stack_top_long": 18086,
+        "sr": 8964,
+        "d0": 65535,
+        "d1": 65535,
+        "d2": 65535
+      }
+    },
+    "native_snapshot_bytes": 8128,
+    "limits": "Only A0/A1,D0/D1,D2,A7,stack-top,SR observed at declared boundaries. Other registers, stack contents, IRQ internals, cycles and external side effects not compared; full destination native GX proof is separate M3. copy_return is region exit, not RET."
+  }
+}

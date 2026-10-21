@@ -431,6 +431,12 @@ fn build_main_c_with_collision(
                     ground: None,
                 },
             ),
+            AstNode::HudText { entity_id, .. } => {
+                out.push_str(&format!(
+                    "#error \"RetroDev HUD: texto '{}' ainda nao tem runtime SNES nesta versao\"\n",
+                    entity_id.replace('"', "'")
+                ));
+            }
             AstNode::DrawText { x, y, text, .. } => {
                 let escaped = text.replace('"', "\\\"");
                 out.push_str(&format!(
@@ -1143,6 +1149,18 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], context: &SnesContext, in
             LogicOp::MugenSetVelocityX { .. } | LogicOp::MugenProgramStep { .. } => {
                 out.push_str(&format!(
                     "{indent}#error \"RetroDev MUGEN: VelSet nao existe no runtime SNES (perfil mugen.character.v1 e so Mega Drive)\"\n",
+                    indent = indent_str
+                ));
+            }
+            LogicOp::AuthoredStrike { .. } => {
+                out.push_str(&format!(
+                    "{indent}#error \"RetroDev: golpe autoral usa caixas MUGEN, sem runtime SNES nesta versao\"\n",
+                    indent = indent_str
+                ));
+            }
+            LogicOp::PaletteSwapOnHit { .. } => {
+                out.push_str(&format!(
+                    "{indent}#error \"RetroDev: troca de paleta por evento so tem adaptador Mega Drive nesta versao\"\n",
                     indent = indent_str
                 ));
             }

@@ -1,0 +1,571 @@
+{
+  "source_head": "a8550af0e0bdd74c44478f94d301576b988747a1",
+  "excluded_new_binary_evidence": [
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-grafos/editor-modos.png",
+      "original_blob": "66d18620beb28ce217a6666f33ec0be520265a11",
+      "bytes": 400369,
+      "sha256": "6eefe042a3e03126e150ea182bf2da769a69c40d33e75f228bdc8886ad84266d",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-grafos/editor-pulo-duplo.png",
+      "original_blob": "60d0b82517464d4ed11815eb938e4f733a8932e9",
+      "bytes": 330900,
+      "sha256": "07179846306ba121b7c65bf759230e92c055a103d2a3341a19491776a0325254",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-grafos/editor-pulo.png",
+      "original_blob": "12ab37726d82285cc57580512d91d24619607b4e",
+      "bytes": 380834,
+      "sha256": "083291906518ef9b8e9dcc2cc8650290e109a6fe068d64c28e5c3fbe69971294",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-perfil-pulo/app-delta-gerado.png",
+      "original_blob": "4facbb5ff978ac919536cb87dc3d9ec6f79f8820",
+      "bytes": 282674,
+      "sha256": "d4627d0e683050f834d95250f4229e3df8dc29c61dcfe4bac41c5bfc47c1c9e2",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-perfil-pulo/app-delta-localizado.png",
+      "original_blob": "0471491dd76caa93376adb2338593c963f11dbb4",
+      "bytes": 272104,
+      "sha256": "5f3317e9c1bc7b016c5a206dd6ee0ca3cdb146d6a943b014576b3fe4fe06424e",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-perfil-pulo/app-sonic1-gerado.png",
+      "original_blob": "99dbc2d93b18699f38b4bdf63cb5844db24e74cb",
+      "bytes": 283831,
+      "sha256": "86cde6fa08f1d443374522e7927bd2609cba73b1ea7716bf586f9f2096d8fbfe",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-perfil-pulo/app-sonic1-localizado.png",
+      "original_blob": "5f9473c8ae773b245b119ed1eb9d62ba7097b1c8",
+      "bytes": 271927,
+      "sha256": "e613ad12909da78b3ea7d6bbd3a948a72fb0bb38efe85f4a3cce39bc40f5a803",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-perfil-pulo/canvas-delta-canvas.png",
+      "original_blob": "c4ccff47bbcf3c5ceb30605639d72e20f9801502",
+      "bytes": 348361,
+      "sha256": "eb4db6cdef6ef0fc1ef6eaca58835a0ee4d31290f4210e9f0a5e85b6cb9c9612",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-perfil-pulo/canvas-sonic1-canvas.png",
+      "original_blob": "af74c6eb3dc5320e4609a36104937f04ab5c6183",
+      "bytes": 342271,
+      "sha256": "f032dd51556a52f362d514535035f0d400eb448255d40661791dae8ac0ba9fd8",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-perfil-pulo/delta-a-cut-0600.ips",
+      "original_blob": "fd5acb7860023c0189dae15ebf4d18d10cf55b42",
+      "bytes": 15,
+      "sha256": "33e306c31865960fd378fd43851fcccc2648150674e51f1bf4fe208bc2d7179b",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-perfil-pulo/delta-a-imp-0900.ips",
+      "original_blob": "ff6bb256178589e36d18f28f152eb823a7061652",
+      "bytes": 15,
+      "sha256": "c45e8cf0ad2e2b796497550c21a151541d071288bc5292250786c02bec4abf0d",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-perfil-pulo/delta-b-imp-0900.ips",
+      "original_blob": "2a83a66ca1b2882fc09614d73c6d6034eb02be31",
+      "bytes": 15,
+      "sha256": "353ee61917b7de3fdd0fb3b5b0ca080be1ccb37559224015e28b57a5344a6f3f",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-perfil-pulo/delta-c-cut-0600.ips",
+      "original_blob": "06f9302df399acec784e3329c6e55563f0e3029a",
+      "bytes": 15,
+      "sha256": "acd68d00cc84af92ff70d83686086b9d1de461d9ac07502be2ee82db16cccf22",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-perfil-pulo/delta-c-imp-0900.ips",
+      "original_blob": "ef242ecae45614cc87a5347c370f296efd4ac8d3",
+      "bytes": 15,
+      "sha256": "6ce155c50bb3b4e86a03ddc2eb26287f9e88dcf8a5aa8388c82d16d22dec1b72",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-perfil-pulo/s1-cap-0800.ips",
+      "original_blob": "3da8827d9d0735d4d7c9af87fbcc9d47fbab5f02",
+      "bytes": 22,
+      "sha256": "0a667823e2496e27fc5826b227a8f87f06380679a8661153cda489b4bfb20e43",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-perfil-pulo/s1-cut-0600.ips",
+      "original_blob": "cb3917311290ccae87e5530efe3057f22140c3cd",
+      "bytes": 15,
+      "sha256": "f2b1b73e658afba909185d4faf18b102cf9f70f697c4fa21ddf79d6ed772dcfe",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-perfil-pulo/s1-imp-0900.ips",
+      "original_blob": "bdcaf5513d0a3ff6cd738e8b0ff6022e5abca737",
+      "bytes": 15,
+      "sha256": "fa997b44d259be8cd6205d801a845f3a445d178b61d84af1bcc1b45a034eb623",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-pulo-canvas-gameplay/jump-gameplay-2026-10-09T06-14-58-506Z-sonic1-both-segura-apice.png",
+      "original_blob": "e6e39e35137053707310f44828e89b73762c9488",
+      "bytes": 18241,
+      "sha256": "7e48505986e6cffe265ad58c1b25f9773ecc20d5c9f051cd132c51a05fb1e4f4",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/evidencia-pulo-canvas-gameplay/jump-gameplay-2026-10-09T06-14-58-506Z-sonic1-original-segura-apice.png",
+      "original_blob": "c875130c1dadf56b90d68b52f6ec2d5709dc927b",
+      "bytes": 20899,
+      "sha256": "07daf252201c600a185caedd3fb74f89ba1181ec2c201982cb5518a123fd5e56",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261007/patches/sonic1-pulo-duplo.ips",
+      "original_blob": "7077fd9c417f1070bb3bf487e3d301dc7dd5dd3b",
+      "bytes": 105,
+      "sha256": "c8d4c673da70d64d9d8bf63768c25c28a07dccb283cf4f0c74be74c38ccc21b3",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/copy-grid/gui-declarada.png",
+      "original_blob": "8f1a3763839a86c126768133b1b9e6c6f50e1e99",
+      "bytes": 314079,
+      "sha256": "f88eaa40d8e8e72b04909e84cc4300b4b47c54679b548758a19a014e06850ea7",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/copy-grid/gui-nodes-organizados.png",
+      "original_blob": "5271376dada172015d31cf05658156bf58c432cf",
+      "bytes": 283046,
+      "sha256": "66a29e3868b1ace68626270b7fb6d57e1ff68e26124a57465438f4b7bc8325f4",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/copy-grid/gui-reaberto.png",
+      "original_blob": "f904fa3b8933f7f21a93507815352bd045ce2e4a",
+      "bytes": 308174,
+      "sha256": "b983d297b1ea9b67fdef4859a809eaf8d18753d6a972f303f79430aefbdb094a",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/gui-003-declarada.png",
+      "original_blob": "3bb09423b440c0c9d9bfb2bc26b2353371496025",
+      "bytes": 305832,
+      "sha256": "c1cbc67fc55eb6c5723f31248cec85a03bfa88762f53ca773d0aaee5cb920851",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/gui-003-execucao.png",
+      "original_blob": "5f23e8841688aec0492e38bb336135a26db6cee5",
+      "bytes": 162163,
+      "sha256": "d0834ba9a724c5d97d23db574631c03fc49bd7c431a6fbcea9fdf9ae2e43e742",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/gui-003-nodes-organizados.png",
+      "original_blob": "e118c661e2fa60432b0ddb323d58e4266b7d54d6",
+      "bytes": 303295,
+      "sha256": "b877c492ab2e4a95fa999be63952cf625cd860414a2957a9f46d052062a7bb62",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/gui-003-reaberto.png",
+      "original_blob": "52e22e949c6d24013660a2142a5f2f114aa8fc0a",
+      "bytes": 334079,
+      "sha256": "b79c03a502f3688df80b729b5038e8b6e404a683923e3f42a267366236076b5d",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/forward-copia-canvas.png",
+      "original_blob": "b809e12e4a6376426bd8fbf34b0e820143b62776",
+      "bytes": 2275,
+      "sha256": "d20de71d2fa2cefdc8f715a50f31f84ddfff86e845660ea1522bf8b4b9f04a2f",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/forward-copia-core.rgba",
+      "original_blob": "19eab6c42877f66426ee3045c58434f920cbc4f0",
+      "bytes": 286720,
+      "sha256": "f98f7a01bd6c73e724f15d5d4fd4a3d25a70c4fcd74e6fde3895af8b96741864",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/forward-copia-wram.bin",
+      "original_blob": "bb2b3702df06bba18d1cbde640538f580b8f9df6",
+      "bytes": 484,
+      "sha256": "2e682f3d26fab1b3a0c8d5d2d0fd010b0a09a4bf69df3ecb35d3e8cb5dc7a88f",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/forward-execucao.png",
+      "original_blob": "f206a8b7235cab8e24126be1900440eb1c298b36",
+      "bytes": 166162,
+      "sha256": "0be910cf1e32938ed350c13e4b6644ead1799f1bc17f29d65dbc334de2bb791d",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/forward-nodes-organizados.png",
+      "original_blob": "88f3d8242c6edb270877713445585bc300dc4a0d",
+      "bytes": 289939,
+      "sha256": "28955d016541a789867337165e2dfc5b281ad8312cf5668b755e7489e3e83ac7",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/forward-original-canvas.png",
+      "original_blob": "6daca97e95219802736e305fdff58a945d50f6ec",
+      "bytes": 1737,
+      "sha256": "e7ce7546177086de55fd70db6037766e32fdf31a9a075f52559860707b85ef5d",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/forward-original-core.rgba",
+      "original_blob": "60eb66c42e3d372ca8e7b55cff11de1c88a6ac06",
+      "bytes": 286720,
+      "sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/forward-original-repeat-canvas.png",
+      "original_blob": "6daca97e95219802736e305fdff58a945d50f6ec",
+      "bytes": 1737,
+      "sha256": "e7ce7546177086de55fd70db6037766e32fdf31a9a075f52559860707b85ef5d",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/forward-original-repeat-core.rgba",
+      "original_blob": "60eb66c42e3d372ca8e7b55cff11de1c88a6ac06",
+      "bytes": 286720,
+      "sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/forward-original-repeat-wram.bin",
+      "original_blob": "a00001cb128af8f1ff64f963c7ac954f7e4835a5",
+      "bytes": 484,
+      "sha256": "d3903c62d0996b0925ae4b88338a3e6a4fbec7cf23db618ed575d6029391513e",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/forward-original-wram.bin",
+      "original_blob": "a00001cb128af8f1ff64f963c7ac954f7e4835a5",
+      "bytes": 484,
+      "sha256": "d3903c62d0996b0925ae4b88338a3e6a4fbec7cf23db618ed575d6029391513e",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/forward-reaberto.png",
+      "original_blob": "15d5a5f34ce358dbe93ec01f2d26e6c7b10ec257",
+      "bytes": 306552,
+      "sha256": "65d9a4a6ff6c49f89c7442706fcf26654e2f2f3315968446fd2b2cf4d7446446",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/reverse-copia-canvas.png",
+      "original_blob": "6daca97e95219802736e305fdff58a945d50f6ec",
+      "bytes": 1737,
+      "sha256": "e7ce7546177086de55fd70db6037766e32fdf31a9a075f52559860707b85ef5d",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/reverse-copia-core.rgba",
+      "original_blob": "60eb66c42e3d372ca8e7b55cff11de1c88a6ac06",
+      "bytes": 286720,
+      "sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/reverse-copia-wram.bin",
+      "original_blob": "a00001cb128af8f1ff64f963c7ac954f7e4835a5",
+      "bytes": 484,
+      "sha256": "d3903c62d0996b0925ae4b88338a3e6a4fbec7cf23db618ed575d6029391513e",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/reverse-execucao.png",
+      "original_blob": "77eb1413fb508145cfa7de37591fe6bbcda43332",
+      "bytes": 165587,
+      "sha256": "c091959461186d427ec64d9f9d6b9e6f916500c1cb652de293727bb5bff4d795",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/reverse-nodes-organizados.png",
+      "original_blob": "d06fc0534f8287a9c83b66de695094609b920d97",
+      "bytes": 289043,
+      "sha256": "94552fb02abb1f83af64ab8a6ddfbb4c67a9412bac219bb620bc3fc018a67769",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/reverse-original-canvas.png",
+      "original_blob": "b809e12e4a6376426bd8fbf34b0e820143b62776",
+      "bytes": 2275,
+      "sha256": "d20de71d2fa2cefdc8f715a50f31f84ddfff86e845660ea1522bf8b4b9f04a2f",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/reverse-original-core.rgba",
+      "original_blob": "19eab6c42877f66426ee3045c58434f920cbc4f0",
+      "bytes": 286720,
+      "sha256": "f98f7a01bd6c73e724f15d5d4fd4a3d25a70c4fcd74e6fde3895af8b96741864",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/reverse-original-repeat-canvas.png",
+      "original_blob": "b809e12e4a6376426bd8fbf34b0e820143b62776",
+      "bytes": 2275,
+      "sha256": "d20de71d2fa2cefdc8f715a50f31f84ddfff86e845660ea1522bf8b4b9f04a2f",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/reverse-original-repeat-core.rgba",
+      "original_blob": "19eab6c42877f66426ee3045c58434f920cbc4f0",
+      "bytes": 286720,
+      "sha256": "f98f7a01bd6c73e724f15d5d4fd4a3d25a70c4fcd74e6fde3895af8b96741864",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/reverse-original-repeat-wram.bin",
+      "original_blob": "bb2b3702df06bba18d1cbde640538f580b8f9df6",
+      "bytes": 484,
+      "sha256": "2e682f3d26fab1b3a0c8d5d2d0fd010b0a09a4bf69df3ecb35d3e8cb5dc7a88f",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/reverse-original-wram.bin",
+      "original_blob": "bb2b3702df06bba18d1cbde640538f580b8f9df6",
+      "bytes": 484,
+      "sha256": "2e682f3d26fab1b3a0c8d5d2d0fd010b0a09a4bf69df3ecb35d3e8cb5dc7a88f",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/reverse-reaberto.png",
+      "original_blob": "6a4e6f19ed5d67841580b3a5b57390730fd13b47",
+      "bytes": 308219,
+      "sha256": "a22741028ff6b58a99be67d0bf2398b6374274b5a86b4d89f098ddb945b1a810",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-final-v1-copia-canvas.png",
+      "original_blob": "b809e12e4a6376426bd8fbf34b0e820143b62776",
+      "bytes": 2275,
+      "sha256": "d20de71d2fa2cefdc8f715a50f31f84ddfff86e845660ea1522bf8b4b9f04a2f",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-final-v1-copia-core.rgba",
+      "original_blob": "19eab6c42877f66426ee3045c58434f920cbc4f0",
+      "bytes": 286720,
+      "sha256": "f98f7a01bd6c73e724f15d5d4fd4a3d25a70c4fcd74e6fde3895af8b96741864",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-final-v1-copia-wram.bin",
+      "original_blob": "bb2b3702df06bba18d1cbde640538f580b8f9df6",
+      "bytes": 484,
+      "sha256": "2e682f3d26fab1b3a0c8d5d2d0fd010b0a09a4bf69df3ecb35d3e8cb5dc7a88f",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-final-v1-execucao.png",
+      "original_blob": "82b3526f5d2464b17739e064748bdb0711e45f09",
+      "bytes": 166054,
+      "sha256": "88af451da4ca15c9fecd0b267c46da50b64c7d31d488d92374810ac379892aa0",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-final-v1-nodes-organizados.png",
+      "original_blob": "f36f64c75ba65df8b7c035bc1817bd213b5cab67",
+      "bytes": 289708,
+      "sha256": "25b714c6e5398f769de9fb72d17183ca9793da1bb448eac641ca62a715ef7c1e",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-final-v1-original-canvas.png",
+      "original_blob": "6daca97e95219802736e305fdff58a945d50f6ec",
+      "bytes": 1737,
+      "sha256": "e7ce7546177086de55fd70db6037766e32fdf31a9a075f52559860707b85ef5d",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-final-v1-original-core.rgba",
+      "original_blob": "60eb66c42e3d372ca8e7b55cff11de1c88a6ac06",
+      "bytes": 286720,
+      "sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-final-v1-original-wram.bin",
+      "original_blob": "a00001cb128af8f1ff64f963c7ac954f7e4835a5",
+      "bytes": 484,
+      "sha256": "d3903c62d0996b0925ae4b88338a3e6a4fbec7cf23db618ed575d6029391513e",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-final-v1-reaberto.png",
+      "original_blob": "595efece6e5c61ee919c0ad7022bba8a015ce8e2",
+      "bytes": 307056,
+      "sha256": "4fbb37264f45b615d8c1ddeddddc63d3378912a8d28c7d0d769d7233168462ee",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-v1-copia-canvas.png",
+      "original_blob": "b809e12e4a6376426bd8fbf34b0e820143b62776",
+      "bytes": 2275,
+      "sha256": "d20de71d2fa2cefdc8f715a50f31f84ddfff86e845660ea1522bf8b4b9f04a2f",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-v1-copia-core.rgba",
+      "original_blob": "19eab6c42877f66426ee3045c58434f920cbc4f0",
+      "bytes": 286720,
+      "sha256": "f98f7a01bd6c73e724f15d5d4fd4a3d25a70c4fcd74e6fde3895af8b96741864",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-v1-copia-wram.bin",
+      "original_blob": "bb2b3702df06bba18d1cbde640538f580b8f9df6",
+      "bytes": 484,
+      "sha256": "2e682f3d26fab1b3a0c8d5d2d0fd010b0a09a4bf69df3ecb35d3e8cb5dc7a88f",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-v1-nodes-organizados.png",
+      "original_blob": "52ebec79951cfdf7910ce888c568039725b62a21",
+      "bytes": 289454,
+      "sha256": "676ba220a4dc333f27d615e06de18c12b6f1d6b8fd54452255bf21f4ff870a84",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-v1-original-canvas.png",
+      "original_blob": "6daca97e95219802736e305fdff58a945d50f6ec",
+      "bytes": 1737,
+      "sha256": "e7ce7546177086de55fd70db6037766e32fdf31a9a075f52559860707b85ef5d",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-v1-original-core.rgba",
+      "original_blob": "60eb66c42e3d372ca8e7b55cff11de1c88a6ac06",
+      "bytes": 286720,
+      "sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-v1-original-wram.bin",
+      "original_blob": "a00001cb128af8f1ff64f963c7ac954f7e4835a5",
+      "bytes": 484,
+      "sha256": "d3903c62d0996b0925ae4b88338a3e6a4fbec7cf23db618ed575d6029391513e",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-v1-reaberto.png",
+      "original_blob": "118ae71b5dc8dd431b6641260c3126f5b6af04ec",
+      "bytes": 305509,
+      "sha256": "2af2d1380893f2a9b61caf7cefbfb47e3d3dbefdac19fa823575f4114f99343e",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/visual-copy-v2/width1.png",
+      "original_blob": "0323ecd1dafed03720ea3c12f687406adc991852",
+      "bytes": 2334,
+      "sha256": "7b5c4dcb75d4ae98d4acf41651b72ed4cdb26e8b5bd340ce59d33a3d0373155e",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/visual-copy-v2/width1.rgba",
+      "original_blob": "60eb66c42e3d372ca8e7b55cff11de1c88a6ac06",
+      "bytes": 286720,
+      "sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/visual-copy-v2/width1.scope.bin",
+      "original_blob": "a00001cb128af8f1ff64f963c7ac954f7e4835a5",
+      "bytes": 484,
+      "sha256": "d3903c62d0996b0925ae4b88338a3e6a4fbec7cf23db618ed575d6029391513e",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/visual-copy-v2/width2.png",
+      "original_blob": "e867d1123958a2407b1378dcb6233ef6d44cd013",
+      "bytes": 3075,
+      "sha256": "73ec0d13388dfb4975cf3467a6d3ba2054fde679513f0ba046ecad2e19092e93",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/visual-copy-v2/width2.rgba",
+      "original_blob": "19eab6c42877f66426ee3045c58434f920cbc4f0",
+      "bytes": 286720,
+      "sha256": "f98f7a01bd6c73e724f15d5d4fd4a3d25a70c4fcd74e6fde3895af8b96741864",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/visual-copy-v2/width2.scope.bin",
+      "original_blob": "bb2b3702df06bba18d1cbde640538f580b8f9df6",
+      "bytes": 484,
+      "sha256": "2e682f3d26fab1b3a0c8d5d2d0fd010b0a09a4bf69df3ecb35d3e8cb5dc7a88f",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/visual-copy/width1.png",
+      "original_blob": "c51fafdfe671a1611af6fc48f5572a7f7107c8ff",
+      "bytes": 2769,
+      "sha256": "6cea981f3a9c63d2ccdf575a606d927bb9f9b4eec8bbe95fc1214781cf772cf9",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/visual-copy/width1.rgba",
+      "original_blob": "7aa5ac66c6884719736aaf5f9a742049f7f497a4",
+      "bytes": 286720,
+      "sha256": "81bf540cc608bd7f07da692966c5cf71a38400254bfba04fbe80c6cfb1e5a76c",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/visual-copy/width1.scope.bin",
+      "original_blob": "a00001cb128af8f1ff64f963c7ac954f7e4835a5",
+      "bytes": 484,
+      "sha256": "d3903c62d0996b0925ae4b88338a3e6a4fbec7cf23db618ed575d6029391513e",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/visual-copy/width2.png",
+      "original_blob": "f39d9ca749f75a0ac9e849a8a259205a32f7ec90",
+      "bytes": 3584,
+      "sha256": "b8b84fed8850ddad8de5e33e0af59e181c24116d706b056862c12923a72eaa88",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/visual-copy/width2.rgba",
+      "original_blob": "1ef22489d747f3c67a3e253464075ec629e95a02",
+      "bytes": 286720,
+      "sha256": "272b5d76955d962853433e8cb05b6b642d1ea6ac356737e98c2cc415d04fa5f6",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    },
+    {
+      "path": "data/rex_profiles/integration_20261016/visual-copy/width2.scope.bin",
+      "original_blob": "bb2b3702df06bba18d1cbde640538f580b8f9df6",
+      "bytes": 484,
+      "sha256": "2e682f3d26fab1b3a0c8d5d2d0fd010b0a09a4bf69df3ecb35d3e8cb5dc7a88f",
+      "reason": "Binary evidence retained in private Git bundle; no new derived captures/dumps/patches published"
+    }
+  ],
+  "authored_test_fixtures_retained": [
+    "data/rex_profiles/authoring/counter_gate/rom-autoral-counter-gate.bin",
+    "data/rex_profiles/authoring/equality_gate/rom-autoral-equality-gate.bin",
+    "data/rex_profiles/authoring/timer_gate/rom-sintetica.bin"
+  ],
+  "private_recovery": "retrodevstudio-all-refs.bundle; git show SOURCE_HEAD:PATH"
+}

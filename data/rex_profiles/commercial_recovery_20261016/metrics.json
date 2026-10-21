@@ -1,0 +1,46 @@
+{
+  "schema": "rex-generality-metric/v1",
+  "production_rust_changed_lines": 22,
+  "production_ts_changed_lines": 60,
+  "new_production_dependencies": 0,
+  "new_runtime_core": false,
+  "commercial_targets_observed": 1,
+  "additional_independent_engines_transferred": 0,
+  "three_zero_code_targets": false,
+  "instrumentation": "new external Python/Lua qualification + MAME selected breakpoint/bus observer; target addresses currently specific QA data/code, not generic production trace",
+  "profile_editing": "existing m68k.copy_grid.v1 unchanged; no new production profile",
+  "app_binary": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/debug/retro-dev-studio",
+  "app_sha256": "22dc259a3275e1ac8687a4072b241fba81c934e36cde5b474a027f7527c25347",
+  "new_app_journeys_executed": 11,
+  "evidence_axes": {
+    "identity": "new SHA audit",
+    "static_link": "historical plus current source/copy address verification",
+    "consumption": "new MAME instruction-entry/stack/args and 4096 byte reads/writes, prepared state;715layout-linked SAT tile writes, five negative controls refused",
+    "presentation": "commercial MAME snapshots; GX native app original/original prepared replay PASS34/34, exact reference/core/canvas, same-core correspondence reference only; old canvas FAIL preserved",
+    "causal_edit": "Commercial canonical UI PASS128/128forward+128/128reverse; one opcode byte, exact restore;12224byte copy and reconstructed producer SAT;8067asset pixels RGB0 and2008conditional discriminating positions. Explicit measured geometry/state inputs, not full trajectory oracle.",
+    "semantic_reconstruction": "PASS existing typedIRencode full original and UI-copy identity;5targetedRust tests incl BYOR ignored; native135checks, explicit D1/D2 state/conditions and opcode width edit; external memory+observed CCR/registers exact,6negatives refuse",
+    "transfer": "not executed this mission",
+    "native_vdp_transfer": "PASS bounded MAME67SAT+67palette, final destinations exact; first negative-control FAIL preserved",
+    "commercial_pixel_witness": "PASS8482pixels RGB0; independently authored phase lag, all16sprite origins joined to layout/DMA; original observed state, not counterfactual edit oracle",
+    "edited_primary_resource_origin": "All15selected edited sprite owners join to Enigma4096decoded primary,8067pixels/2008conditional subset, no incidental-tail owners; post-observation origin join"
+  },
+  "claimed_maturity": "Experimental",
+  "metric_status": "added+deleted lines vs pre-fix mission HEAD, Rust test modules excluded; frontend test file excluded; generic presentation fix",
+  "production_delta_detail": {
+    "src-tauri/src/emulator/frame_buffer.rs": 12,
+    "src-tauri/src/lib.rs": 10,
+    "src/core/ipc/emulatorService.ts": 36,
+    "src/components/viewport/ViewportPanel.tsx": 24
+  },
+  "production_baseline_commit": "c289621",
+  "new_app_journey_results": {
+    "old_app_paused_replay": "FAIL_CANVAS",
+    "new_app_paused_replay": "PASS34/34",
+    "new_app_author_regression": "PASS88/88forward+88/88reverse",
+    "commercial": "Final128/128each; earlier110/110each retained; FAIL001 transport-negative envelope and FAIL003124/126native selection retained"
+  },
+  "m2_status": "CONSOLIDATED_BOUNDED_ORIGINAL_CHAIN",
+  "commercial_ui_final_sequences": 2,
+  "production_changes_M3": 0,
+  "production_changes_M4": 0
+}

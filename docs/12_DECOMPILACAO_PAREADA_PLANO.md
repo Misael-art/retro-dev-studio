@@ -4,6 +4,8 @@
 
 **Revisão de planejamento: 2026-09-10.** Pedido do operador: máxima abrangência de formatos, dados organizados e editáveis, lógica por nós e criação de jogos novos. Este programa é a proposta de implantação solicitada; sua existência não declara capacidades implementadas nem autoriza despesas, dependências novas, envio de ROMs a serviços externos ou merge automático. Quando o operador entregar o prompt ao executor, ele poderá executar as etapas sucessivas aqui descritas, respeitando gates e restrições concretas. As antigas fases e o prompt v2 abaixo ficam como histórico; o prompt vigente é `PROMPT_AGENTE_RECONSTRUCAO_ROM.md`. Decisões arquiteturais consolidadas permanecem preservadas; eventual conflito deve ser apontado com proposta concreta, não alterado silenciosamente.
 
+> **Direção vigente (2026-10-09):** a evolução do Programa REX segue `docs/14_REX_ARQUITETURA_UNIVERSAL.md` (motor genérico + perfis em dado + escada de evidência; sem casos customizados como destino).
+
 ### REX 1. Resultado desejado e limites de garantia
 
 Entregar quatro fluxos distintos na mesma aplicação:

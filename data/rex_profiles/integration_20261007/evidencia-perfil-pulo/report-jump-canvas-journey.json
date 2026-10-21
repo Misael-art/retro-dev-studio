@@ -1,0 +1,166 @@
+{
+  "schema": "rex-jump-canvas-journey/v1",
+  "prefix": "jump-canvas-2026-10-08T02-59-36-492Z",
+  "checks": [
+    {
+      "name": "sonic1.nos_do_pulo_no_canvas",
+      "pass": true,
+      "observado": 6
+    },
+    {
+      "name": "sonic1.ponte_comeca_sem_mudancas",
+      "pass": true,
+      "bridge0": "sem-mudancas"
+    },
+    {
+      "name": "sonic1.ponte_reflete_a_edicao_do_no",
+      "pass": true,
+      "edits": "Impulso do pulo: 1664 → 2304Corte da altura ao soltar o botão: -1024 → -1536"
+    },
+    {
+      "name": "sonic1.valor_invalido_bloqueia",
+      "pass": true,
+      "prob": "Corte da altura ao soltar o botão: fora da faixa segura -32767..-1",
+      "gerarBloqueado": true
+    },
+    {
+      "name": "sonic1.geracao_sem_erro",
+      "pass": true,
+      "erro": ""
+    },
+    {
+      "name": "sonic1.ponte_afirma_original_intacta",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · relido da cópia: imp=2304 · impw=896 · cut=-1536 · cutw=-512 · cap=-4032"
+    },
+    {
+      "name": "sonic1.copia_e_ips_gravados",
+      "pass": true,
+      "arquivos": [
+        "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-bec61f9f.bin",
+        "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-bec61f9f.ips"
+      ]
+    },
+    {
+      "name": "sonic1.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "sonic1.tamanho_preservado",
+      "pass": true
+    },
+    {
+      "name": "sonic1.so_os_imediatos_dos_dois_nos_mudaram",
+      "pass": true,
+      "diff": 3,
+      "diffs": [
+        78862,
+        78863,
+        79008
+      ]
+    },
+    {
+      "name": "sonic1.valores_dos_nos_estao_na_copia",
+      "pass": true,
+      "lidos": [
+        2304,
+        -1536
+      ],
+      "offsets": [
+        78862,
+        79008
+      ]
+    },
+    {
+      "name": "sonic1.ips_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 22
+    },
+    {
+      "name": "delta.nos_do_pulo_no_canvas",
+      "pass": true,
+      "observado": 6
+    },
+    {
+      "name": "delta.ponte_comeca_sem_mudancas",
+      "pass": true,
+      "bridge0": "sem-mudancas"
+    },
+    {
+      "name": "delta.ponte_reflete_a_edicao_do_no",
+      "pass": true,
+      "edits": "Impulso do pulo: 1664 → 2304Corte da altura ao soltar o botão: -1024 → -1536"
+    },
+    {
+      "name": "delta.valor_invalido_bloqueia",
+      "pass": true,
+      "prob": "Corte da altura ao soltar o botão: fora da faixa segura -32767..-1",
+      "gerarBloqueado": true
+    },
+    {
+      "name": "delta.geracao_sem_erro",
+      "pass": true,
+      "erro": ""
+    },
+    {
+      "name": "delta.ponte_afirma_original_intacta",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · relido da cópia: imp=2304 · imps=2048 · impw=896 · cut=-1536 · cutw=-512 · cap=-4032"
+    },
+    {
+      "name": "delta.copia_e_ips_gravados",
+      "pass": true,
+      "arquivos": [
+        "Sonic_Delta_Reloaded__Brazil___Unl_.jump-16914-f3b0aa50.bin",
+        "Sonic_Delta_Reloaded__Brazil___Unl_.jump-16914-f3b0aa50.ips"
+      ]
+    },
+    {
+      "name": "delta.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "delta.tamanho_preservado",
+      "pass": true
+    },
+    {
+      "name": "delta.so_os_imediatos_dos_dois_nos_mudaram",
+      "pass": true,
+      "diff": 3,
+      "diffs": [
+        92428,
+        92429,
+        92602
+      ]
+    },
+    {
+      "name": "delta.valores_dos_nos_estao_na_copia",
+      "pass": true,
+      "lidos": [
+        2304,
+        -1536
+      ],
+      "offsets": [
+        92428,
+        92602
+      ]
+    },
+    {
+      "name": "delta.ips_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 22
+    }
+  ],
+  "steps": [
+    {
+      "step": "sonic1-canvas",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-08T02-59-36-492Z-sonic1-canvas.png"
+    },
+    {
+      "step": "delta-canvas",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-08T02-59-36-492Z-delta-canvas.png"
+    }
+  ],
+  "allPass": true,
+  "ausentes": []
+}

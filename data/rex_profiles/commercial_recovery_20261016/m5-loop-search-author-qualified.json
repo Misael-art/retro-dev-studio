@@ -1,0 +1,37 @@
+{
+  "status": "PASS_AUTHOR_STATIC_BODY_READER",
+  "scope": "Static ISA body reader only, no commercial/runtime claim",
+  "cases": [
+    {
+      "kind": "moveq",
+      "role": "destination",
+      "length": 16,
+      "passed": true
+    },
+    {
+      "kind": "move_word_register",
+      "role": "destination",
+      "length": 16,
+      "passed": true
+    },
+    {
+      "kind": "move_word_immediate",
+      "role": "destination",
+      "length": 18,
+      "passed": true
+    },
+    {
+      "kind": "moveq",
+      "role": "source",
+      "length": 16,
+      "passed": true
+    }
+  ],
+  "negative_controls": {
+    "operator": true,
+    "inner_flow": true,
+    "outer_flow": true,
+    "pointer_alias": true,
+    "unknown_column_op": true
+  }
+}

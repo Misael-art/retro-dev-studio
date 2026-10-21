@@ -113,6 +113,8 @@ export const NODE_CATALOG: Record<NodeType, NodeCatalogEntry> = {
   condition_on_ground: entry("condition_on_ground", "collision", "Condicoes", "Esta no chao?", "fork", "Pergunta se a entidade (com fisica) esta apoiada no chao neste quadro e segue por Sim ou Nao.", ["target"]),
   condition_overlap: entry("condition_overlap", "collision", "Condicoes", "Colisao (Overlap)", "fork", "Pergunta se duas entidades se encostam (ou encostariam ao se mover) e segue por Sim ou Nao.", ["a", "b", "probe_dx"]),
   camera_follow: entry("camera_follow", "camera", "Camera", "Camera Segue", "camera", "Faz a camera acompanhar a entidade.", ["target"]),
+  authored_strike: entry("authored_strike", "collision", "Combate", "Golpe autoral", "fork", "Autoral (nao vem do CNS): quando a caixa de ataque do quadro atual do atacante encosta na caixa de corpo do alvo, tira dano uma vez por golpe.", ["attacker", "target", "damage", "health"]),
+  palette_swap: entry("palette_swap", "action", "Combate", "Trocar paleta ao sofrer golpe", "film", "A cada acerto do golpe indicado, as cores do alvo viram as da paleta escolhida por alguns quadros e depois voltam. O alcance (so o alvo ou o grupo do banco) e conferido pelo plano de paletas.", ["strike", "target", "palette", "frames", "scope"]),
   camera_bounds: entry("camera_bounds", "camera", "Camera", "Limites da Camera", "camera", "Impede a camera de sair da area indicada.", ["min_x", "max_x"]),
   timer: entry("timer", "timer", "Fluxo", "Timer", "clock", "Conta quadros e avisa a cada passo e ao terminar.", ["frames", "repeat"]),
   set_tile: entry("set_tile", "tilemap", "Tilemap", "Definir Tile", "grid", "Troca um bloco do cenario.", ["layer", "tile", "x", "y"]),
@@ -140,6 +142,7 @@ export const NODE_CATALOG: Record<NodeType, NodeCatalogEntry> = {
   rom_region_entry: entry("rom_region_entry", "bridge_source_mapping", "ROM recuperada", "Entrada da rexion", "chip", "Enderezo da ROM onde comeca a rotina recuperada (so lectura)."),
   rom_input_bit_guard: entry("rom_input_bit_guard", "bridge_source_mapping", "ROM recuperada", "Garda de bit", "chip", "Comprobacion do bit dun rexistro de input; se non cumpre, salta á saida (so lectura).", ["bit", "register"]),
   rom_counter_add: entry("rom_counter_add", "bridge_source_mapping", "ROM recuperada", "Incremento do contador", "chip", "Suma o paso ao contador na memoria (so lectura).", ["address", "step"]),
+  rom_copy_grid: entry("rom_copy_grid", "bridge_source_mapping", "ROM recuperada", "Cópia de grade", "chip", "Transferência de memória e loops recuperados; somente largura 1↔2 editável pelo publicador REX.", ["source_address", "destination_address", "rows", "columns", "bytes_per_cell", "source_increment_bytes", "row_stride_bytes"]),
   rom_counter_compare: entry("rom_counter_compare", "bridge_source_mapping", "ROM recuperada", "Limiar do contador", "fork", "Compara o contador co limiar; o limiar e o unico parametro editable desta rotina.", ["operator", "threshold"]),
   rom_state_write: entry("rom_state_write", "bridge_source_mapping", "ROM recuperada", "Escrita de estado", "chip", "Escribe un valor nun enderezo de estado cando a regra cumpre ou non (so lectura).", ["address", "value"]),
   rom_external_call: entry("rom_external_call", "bridge_source_mapping", "ROM recuperada", "Chamada externa", "warning-triangle", "Chamada a unha rutina que NON se recuperou: coñecense alvo e argumentos, non o corpo. Opaca, sen edicion.", ["target"]),
@@ -316,6 +319,10 @@ export function describeNodeAction(node: GraphNode): string {
       return `Calcular A ${num(p.operator)} ${p.b ?? "B"}`;
     case "camera_follow":
       return `Camera segue ${num(p.target)}`;
+    case "authored_strike":
+      return `Se o ataque de ${num(p.attacker)} acertar ${num(p.target)}: tirar ${num(p.damage)} de vida (uma vez por golpe)`;
+    case "palette_swap":
+      return `Quando o golpe acertar ${num(p.target)}: usar a paleta ${num(p.palette)} por ${num(p.frames)} quadros (${p.scope === "grupo" ? "todo o grupo do banco" : "so esta instancia"})`;
     case "timer":
       return `Esperar ${num(p.frames)} quadros`;
     default:

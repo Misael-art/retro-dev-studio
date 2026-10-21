@@ -1,0 +1,14 @@
+{
+  "schema": "rex-dma-analysis-addendum/v1",
+  "id": "M2-DMA-ANALYSIS-CONTROL-002",
+  "before_second_analysis": true,
+  "prior_result": "FAIL negative accepted: wrong-value",
+  "prior_verifier_sha256": "ec6fa02e76fba0810bbd9b17a74b581b59d93065d0846442ef94360d46ed1c67",
+  "prior_result_sha256": "a33a2b4df7c022cb8d77722fc788b3112daf99df868ca660a3cc128847e9bb36",
+  "new_verifier_sha256": "2e5db61cc6150b63e62d866900d9a982ab5f4cc8721acb4a6dccc931509c43f4",
+  "change": "wrong-value negative must target a read whose two source bytes have preceding observed writes; otherwise an early untracked value overwritten by a later transfer is outside the asserted value correspondence",
+  "positive_expectations_unchanged": true,
+  "new_runtime_execution": false,
+  "unknown_data_preserved": "unpaired reads remain excluded; unknown RAM writes never invented",
+  "expanded_source_result": "second4096bytes are nonzero; prior zero-fill speculation is false. Width2 publication still requires explicit domain/app prediction, not assumed tail zeros."
+}

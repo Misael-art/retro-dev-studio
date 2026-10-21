@@ -134,7 +134,7 @@ fn collect_audio_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
-fn inspect_audio_file(path: &Path) -> Result<AudioEntryReport, String> {
+pub(crate) fn inspect_audio_file(path: &Path) -> Result<AudioEntryReport, String> {
     let bytes = fs::read(path).map_err(|error| {
         format!(
             "O que quebrou: falha ao ler audio. Por que importa: sem bytes reais nao da para detectar clipping/padding. Onde corrigir: '{}'. Proxima acao: restaure o asset ou remova a referencia. Detalhe: {}",
@@ -351,6 +351,82 @@ fn parse_wav(bytes: &[u8]) -> Option<ParsedWav> {
     })
 }
 
+/// Resultado de trazer um WAV para o projeto (Experimental).
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ImportedAudio {
+    /// Caminho relativo ao projeto (`assets/audio/<nome>.wav`).
+    pub relative_path: String,
+    pub sha256: String,
+    pub report: AudioEntryReport,
+}
+
+/// Copia um WAV PCM valido para `assets/audio/` do projeto. Recusa arquivo que nao seja WAV PCM
+/// legivel; nunca sobrescreve outro conteudo com o mesmo nome (acrescenta sufixo); o mesmo
+/// conteudo ja importado e reaproveitado.
+pub fn import_project_audio(project_dir: &Path, source: &Path) -> Result<ImportedAudio, String> {
+    if !project_dir.join("project.rds").is_file() {
+        return Err("Projeto invalido: project.rds ausente.".to_string());
+    }
+    let ext = source
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if ext != "wav" {
+        return Err("Escolha um arquivo .wav (PCM).".to_string());
+    }
+    let bytes = std::fs::read(source).map_err(|e| format!("Arquivo de som ilegivel: {e}"))?;
+    let report = inspect_wav(source, &bytes)?;
+    let sha = crate::core::rom_mastering::sha256_hex(&bytes);
+    let stem: String = source
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("som")
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let stem = if stem.is_empty() {
+        "som".to_string()
+    } else {
+        stem
+    };
+    let dir = project_dir.join("assets").join("audio");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let mut n = 1;
+    loop {
+        let name = if n == 1 {
+            format!("{stem}.wav")
+        } else {
+            format!("{stem}_{n}.wav")
+        };
+        let target = dir.join(&name);
+        match std::fs::read(&target) {
+            Ok(existing) if crate::core::rom_mastering::sha256_hex(&existing) == sha => {
+                return Ok(ImportedAudio {
+                    relative_path: format!("assets/audio/{name}"),
+                    sha256: sha,
+                    report,
+                });
+            }
+            Ok(_) => n += 1,
+            Err(_) => {
+                std::fs::write(&target, &bytes).map_err(|e| e.to_string())?;
+                return Ok(ImportedAudio {
+                    relative_path: format!("assets/audio/{name}"),
+                    sha256: sha,
+                    report,
+                });
+            }
+        }
+    }
+}
+
 fn valid_sample_rate(rate: u32) -> bool {
     matches!(rate, 8_000 | 11_025 | 16_000 | 22_050 | 32_000)
 }
@@ -451,5 +527,57 @@ mod tests {
             .memory_risks
             .iter()
             .any(|risk| risk.contains("memoria")));
+    }
+
+    #[test]
+    fn import_project_audio_validates_copies_and_never_overwrites_other_content() {
+        let root = std::env::temp_dir().join(format!(
+            "rds-audio-import-{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let project = root.join("p");
+        fs::create_dir_all(&project).unwrap();
+        fs::write(project.join("project.rds"), "{}").unwrap();
+        let wav = |samples: &[i16]| {
+            let data: Vec<u8> = samples.iter().flat_map(|s| s.to_le_bytes()).collect();
+            let mut b = Vec::new();
+            b.extend_from_slice(b"RIFF");
+            b.extend_from_slice(&(36 + data.len() as u32).to_le_bytes());
+            b.extend_from_slice(b"WAVEfmt ");
+            b.extend_from_slice(&16u32.to_le_bytes());
+            b.extend_from_slice(&1u16.to_le_bytes());
+            b.extend_from_slice(&1u16.to_le_bytes());
+            b.extend_from_slice(&16_000u32.to_le_bytes());
+            b.extend_from_slice(&32_000u32.to_le_bytes());
+            b.extend_from_slice(&2u16.to_le_bytes());
+            b.extend_from_slice(&16u16.to_le_bytes());
+            b.extend_from_slice(b"data");
+            b.extend_from_slice(&(data.len() as u32).to_le_bytes());
+            b.extend_from_slice(&data);
+            b
+        };
+        let src = root.join("Golpe Forte.wav");
+        fs::write(&src, wav(&[0, 1000, -1000, 0])).unwrap();
+        let first = import_project_audio(&project, &src).unwrap();
+        assert_eq!(first.relative_path, "assets/audio/golpe_forte.wav");
+        let again = import_project_audio(&project, &src).unwrap();
+        assert_eq!(
+            again.relative_path, first.relative_path,
+            "mesmo conteudo reaproveitado"
+        );
+        fs::write(&src, wav(&[5, 5, 5, 5])).unwrap();
+        let other = import_project_audio(&project, &src).unwrap();
+        assert_eq!(
+            other.relative_path, "assets/audio/golpe_forte_2.wav",
+            "nao sobrescreve"
+        );
+        let bad = root.join("x.wav");
+        fs::write(&bad, b"not a wav").unwrap();
+        assert!(import_project_audio(&project, &bad).is_err());
+        assert!(import_project_audio(&project, &root.join("x.mp3")).is_err());
+        let _ = fs::remove_dir_all(root);
     }
 }

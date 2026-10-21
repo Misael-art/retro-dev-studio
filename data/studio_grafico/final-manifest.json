@@ -1,0 +1,155 @@
+{
+  "schema": "retrodev.studio_grafico_final_manifest/v1",
+  "maturity": "Experimental",
+  "date": "2026-10-19",
+  "source_commit_of_binary": "2f92c03c",
+  "manifest_commit_parent": "7dab27384eb0ddcf776d52a8ce6b17e64e5e65ab",
+  "binary": {
+    "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/bin/retro-dev-studio-007",
+    "sha256": "6e87ba14b809e0db6639041bafd028b7c67527b281248d38c315e799bb84dde1",
+    "build": "npm run build:debug (scripts/build.mjs)"
+  },
+  "baseline_binary": {
+    "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/bin/retro-dev-studio-baseline-66cb",
+    "sha256": "66cb3d71ea4f5df2efd37b031fe0c4c76b822b11d55d55ca240024638c7c12e5"
+  },
+  "qa_display": {
+    "xvfb_sha256": "5bfd315a8c7bc626d0b183d176e130c34f910a4a1279d9d53ea45769f62a3351"
+  },
+  "inputs_byor": {
+    "ken8.def": "fdbe2fb2498be72078232ca68f2cc74fd8347aac2c8304c626d5f15dc68f5fc8",
+    "ken.sff": "911e21b778af3e7a93cd69fe6132b8e87fb1cacddac757ada5842a8cb1c2172c",
+    "ken.air": "b1f6c8d093dfd0849091035d7721a5748b59a476084bbc7ebf1ce2e1c6e7ed3a",
+    "ken1.act": "89942f64862be6cb2bb0c094b2ab0ebb5cb411c06b7f1a6f9d69af64647687f2",
+    "ken.cmd": "728e914f4de8d6de84af7c572af1e811c03ef142e1b168e49057bc0ba0416e16",
+    "ken.cns": "0b4593b7fec0e555c41b21a032a95ea5efc540b61f201d2504a409cd4d692755"
+  },
+  "inputs_byor_rom": {
+    "Sonic the Hedgehog (USA, Europe).bin": "c7da53a10c317f88…(ver e6 report)"
+  },
+  "journeys_final_binary": {
+    "final-e1e3-001": {
+      "exit_code": 0,
+      "app_sha256": "6e87ba14b809e0db6639041bafd028b7c67527b281248d38c315e799bb84dde1",
+      "window": "1280x800",
+      "report": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/final-e1e3-001/evidence/studio-e1-2026-10-19T17-03-18-081Z-report.json",
+      "report_sha256": "ef99a8d694aaf07119470f23756435353cd15dd0a114f115bb364d1d045dbc44",
+      "allPass": true,
+      "steps": [
+        "import_real_ken",
+        "baseline_build",
+        "open_character_editor_with_context",
+        "edit_single_occurrence_undo_redo",
+        "return_to_origin",
+        "save_destroy_window_reopen",
+        "rom_effect_measured_in_emulated_frames",
+        "restore_rebuild_bytes_equal_baseline",
+        "e3_runtime_selection_opens_exact_occurrence_and_returns"
+      ]
+    },
+    "final-e2e5-001": {
+      "exit_code": 0,
+      "app_sha256": "6e87ba14b809e0db6639041bafd028b7c67527b281248d38c315e799bb84dde1",
+      "window": "1280x800",
+      "report": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/final-e2e5-001/evidence/studio-e2e5-2026-10-19T17-00-10-249Z-report.json",
+      "report_sha256": "f505c9e8708a9f37b453776b6253d169b80282d9a16545b5e2a8ef4719379e13",
+      "allPass": true,
+      "steps": [
+        "import_real_ken",
+        "training_target_duplicate",
+        "authored_sound_on_attack_occurrence",
+        "authored_strike_behavior_applied",
+        "hud_bound_error_navigates_to_property",
+        "rom_strike_sound_hud",
+        "temporary_adjust_no_hit_apply_undo",
+        "export_canonical_rom"
+      ]
+    },
+    "final-e4-001": {
+      "exit_code": 0,
+      "app_sha256": "6e87ba14b809e0db6639041bafd028b7c67527b281248d38c315e799bb84dde1",
+      "window": "1280x800",
+      "report": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/final-e4-001/evidence/studio-e4-2026-10-19T17-06-05-448Z-report.json",
+      "report_sha256": "12dcf78ee3995ada33f3eb7eb89eabf5b9e9697ec59bfc0fbc7c59f403b04ec3",
+      "allPass": true,
+      "steps": [
+        "import_real_ken",
+        "duplicate_and_local_change",
+        "model_edit_one_undo_step_and_save",
+        "rom_local_vs_shared"
+      ]
+    },
+    "final-e6-001": {
+      "exit_code": 0,
+      "app_sha256": "6e87ba14b809e0db6639041bafd028b7c67527b281248d38c315e799bb84dde1",
+      "window": "1280x800",
+      "report": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/final-e6-001/evidence/studio-e6-2026-10-19T17-08-36-011Z-report.json",
+      "report_sha256": "1f63a2e0c093b52252ca8666dc0f6f643af3c4121c8b5312c59d323ccdec7155",
+      "allPass": true,
+      "steps": [
+        "prepared_commercial_rom_paused",
+        "unknown_point_no_semantic_editor",
+        "proven_profile_opens_profile_editor"
+      ]
+    },
+    "final-mugen-import-001": {
+      "exit_code": 0,
+      "app_sha256": "6e87ba14b809e0db6639041bafd028b7c67527b281248d38c315e799bb84dde1",
+      "window": "1920x1080",
+      "report": null,
+      "report_sha256": null,
+      "allPass": null,
+      "steps": null
+    },
+    "final-mugen-real-001": {
+      "exit_code": 0,
+      "app_sha256": "6e87ba14b809e0db6639041bafd028b7c67527b281248d38c315e799bb84dde1",
+      "window": "1920x1080",
+      "report": null,
+      "report_sha256": null,
+      "allPass": null,
+      "steps": null
+    },
+    "final-nodegraph-001": {
+      "exit_code": 1,
+      "app_sha256": "6e87ba14b809e0db6639041bafd028b7c67527b281248d38c315e799bb84dde1",
+      "window": "1920x1080",
+      "report": null,
+      "report_sha256": null,
+      "allPass": null,
+      "steps": null
+    },
+    "final-nodegraph-002": {
+      "exit_code": 0,
+      "app_sha256": "6e87ba14b809e0db6639041bafd028b7c67527b281248d38c315e799bb84dde1",
+      "window": "1920x1080",
+      "report": null,
+      "report_sha256": null,
+      "allPass": null,
+      "steps": null
+    },
+    "baseline-nodegraph-001": {
+      "exit_code": 1,
+      "app_sha256": "66cb3d71ea4f5df2efd37b031fe0c4c76b822b11d55d55ca240024638c7c12e5",
+      "window": "1920x1080",
+      "report": null,
+      "report_sha256": null,
+      "allPass": null,
+      "steps": null
+    }
+  },
+  "independent_pixel_oracle": {
+    "report": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/final-mugen-real-001/oracle/independent-report.json",
+    "sha256": "5376ee5a8289a816e8162cf77785630ed335fb2fc89e1123685e532059ed215f",
+    "summary": "204 core / 212 UI frames; 5 negative controls rejected"
+  },
+  "host_certify": {
+    "status": "READY",
+    "note": "1a tentativa BLOCKED por TMPDIR da sessao com '.cache' (Ghidra recusa '.'); repetida com TMPDIR em scratch sem mudar gates"
+  },
+  "limits": [
+    "Experimental; sem push/merge/release",
+    "validacao humana nao executada (roteiro em docs/studio_grafico/ROTEIRO_VALIDACAO_HUMANA.md)",
+    "nodegraph-authoring: falha de entrada curta reproduzida no binario de baseline; retentativa unica registrada passou"
+  ]
+}

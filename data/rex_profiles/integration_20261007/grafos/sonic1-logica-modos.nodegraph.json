@@ -1,0 +1,1273 @@
+{
+ "version": 1,
+ "nodes": [
+  {
+   "id": "entry",
+   "type": "event_update",
+   "label": "Sonic_Control (Obj01) a cada quadro",
+   "x": 40,
+   "y": 40,
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "rate": "frame",
+    "rotulo": "Obj01_Control",
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x012C58",
+    "rom_bytes": "4a38f7cc",
+    "rom_asm": "tstb 0xfffff7cc",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "sel",
+   "type": "rom_external_call",
+   "label": "Seleciona o modo: tabela de 4 palavras indexada por status&6",
+   "x": 40,
+   "y": 190,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x012CC0",
+    "understood": "true",
+    "tabela": "0x12CC0: 0158 017C 01A6 01C6 -> 0x12E18 0x12E3C 0x12E66 0x12E86",
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x012C6C",
+    "rom_bytes": "70001028002202400006323b00484ebb1044",
+    "rom_asm": "moveq #0,%d0 ; moveb %a0@(34),%d0 ; andiw #6,%d0 ; movew %pc@(0x12cc0,%d0:w),%d1 ; jsr %pc@(0x12cc0,%d1:w)",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_normal",
+   "type": "fsm_state",
+   "label": "MdNormal (no chao, andando)",
+   "x": 370,
+   "y": 340,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "transitions",
+     "label": "transitions",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "state_name": "MdNormal",
+    "initial": 1,
+    "seletor": "status&6 == 0",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E18",
+    "rom_bytes": "610005d0",
+    "rom_asm": "bsrw 0x133ea",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_normal_c0",
+   "type": "rom_external_call",
+   "label": "Sonic_Jump @0x133EA (corpo nao recuperado)",
+   "x": 370,
+   "y": 490,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x0133EA",
+    "understood": "false",
+    "nome": "Sonic_Jump",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E18",
+    "rom_bytes": "610005d0",
+    "rom_asm": "bsrw 0x133ea",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_normal_c1",
+   "type": "rom_external_call",
+   "label": "Sonic_SlopeResist @0x134D4 (corpo nao recuperado)",
+   "x": 370,
+   "y": 640,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x0134D4",
+    "understood": "false",
+    "nome": "Sonic_SlopeResist",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E1C",
+    "rom_bytes": "610006b6",
+    "rom_asm": "bsrw 0x134d4",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_normal_c2",
+   "type": "rom_external_call",
+   "label": "Sonic_Move @0x12EB0 (corpo nao recuperado)",
+   "x": 370,
+   "y": 790,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x012EB0",
+    "understood": "false",
+    "nome": "Sonic_Move",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E20",
+    "rom_bytes": "6100008e",
+    "rom_asm": "bsrw 0x12eb0",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_normal_c3",
+   "type": "rom_external_call",
+   "label": "Sonic_Roll @0x13384 (corpo nao recuperado)",
+   "x": 370,
+   "y": 940,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x013384",
+    "understood": "false",
+    "nome": "Sonic_Roll",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E24",
+    "rom_bytes": "6100055e",
+    "rom_asm": "bsrw 0x13384",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_normal_c4",
+   "type": "rom_external_call",
+   "label": "Sonic_LevelBound @0x13304 (corpo nao recuperado)",
+   "x": 370,
+   "y": 1090,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x013304",
+    "understood": "false",
+    "nome": "Sonic_LevelBound",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E28",
+    "rom_bytes": "610004da",
+    "rom_asm": "bsrw 0x13304",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_normal_c5",
+   "type": "rom_external_call",
+   "label": "SpeedToPos @0xD5DE (corpo nao recuperado)",
+   "x": 370,
+   "y": 1240,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x00D5DE",
+    "understood": "false",
+    "nome": "SpeedToPos",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E2C",
+    "rom_bytes": "4eb90000d5de",
+    "rom_asm": "jsr 0xd5de",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_normal_c6",
+   "type": "rom_external_call",
+   "label": "Sonic_AnglePos @0x145EE (corpo nao recuperado)",
+   "x": 370,
+   "y": 1390,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x0145EE",
+    "understood": "false",
+    "nome": "Sonic_AnglePos",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E32",
+    "rom_bytes": "610017ba",
+    "rom_asm": "bsrw 0x145ee",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_normal_c7",
+   "type": "rom_external_call",
+   "label": "Sonic_SlopeRepel @0x13546 (corpo nao recuperado)",
+   "x": 370,
+   "y": 1540,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x013546",
+    "understood": "false",
+    "nome": "Sonic_SlopeRepel",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E36",
+    "rom_bytes": "6100070e",
+    "rom_asm": "bsrw 0x13546",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_air",
+   "type": "fsm_state",
+   "label": "MdJump (no ar)",
+   "x": 700,
+   "y": 340,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "transitions",
+     "label": "transitions",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "state_name": "MdJump",
+    "initial": 0,
+    "seletor": "status&6 == 2",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E3C",
+    "rom_bytes": "6100065a",
+    "rom_asm": "bsrw 0x13498",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_air_c0",
+   "type": "rom_external_call",
+   "label": "Sonic_JumpHeight @0x13498 (corpo nao recuperado)",
+   "x": 700,
+   "y": 490,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x013498",
+    "understood": "false",
+    "nome": "Sonic_JumpHeight",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E3C",
+    "rom_bytes": "6100065a",
+    "rom_asm": "bsrw 0x13498",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_air_c1",
+   "type": "rom_external_call",
+   "label": "Sonic_ChgJumpDir @0x13248 (corpo nao recuperado)",
+   "x": 700,
+   "y": 640,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x013248",
+    "understood": "false",
+    "nome": "Sonic_ChgJumpDir",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E40",
+    "rom_bytes": "61000406",
+    "rom_asm": "bsrw 0x13248",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_air_c2",
+   "type": "rom_external_call",
+   "label": "Sonic_LevelBound @0x13304 (corpo nao recuperado)",
+   "x": 700,
+   "y": 790,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x013304",
+    "understood": "false",
+    "nome": "Sonic_LevelBound",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E44",
+    "rom_bytes": "610004be",
+    "rom_asm": "bsrw 0x13304",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_air_c3",
+   "type": "rom_external_call",
+   "label": "ObjectFall @0xD5B2 (corpo nao recuperado)",
+   "x": 700,
+   "y": 940,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x00D5B2",
+    "understood": "false",
+    "nome": "ObjectFall",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E48",
+    "rom_bytes": "4eb90000d5b2",
+    "rom_asm": "jsr 0xd5b2",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_air_c4",
+   "type": "rom_external_call",
+   "label": "Sonic_JumpAngle @0x13588 (corpo nao recuperado)",
+   "x": 700,
+   "y": 1090,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x013588",
+    "understood": "false",
+    "nome": "Sonic_JumpAngle",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E5C",
+    "rom_bytes": "6100072a",
+    "rom_asm": "bsrw 0x13588",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_air_c5",
+   "type": "rom_external_call",
+   "label": "Sonic_Floor @0x135A4 (corpo nao recuperado)",
+   "x": 700,
+   "y": 1240,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x0135A4",
+    "understood": "false",
+    "nome": "Sonic_Floor",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E60",
+    "rom_bytes": "61000742",
+    "rom_asm": "bsrw 0x135a4",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_roll",
+   "type": "fsm_state",
+   "label": "MdRoll (rolando no chao)",
+   "x": 1030,
+   "y": 340,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "transitions",
+     "label": "transitions",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "state_name": "MdRoll",
+    "initial": 0,
+    "seletor": "status&6 == 4",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E66",
+    "rom_bytes": "61000582",
+    "rom_asm": "bsrw 0x133ea",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_roll_c0",
+   "type": "rom_external_call",
+   "label": "Sonic_Jump @0x133EA (corpo nao recuperado)",
+   "x": 1030,
+   "y": 490,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x0133EA",
+    "understood": "false",
+    "nome": "Sonic_Jump",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E66",
+    "rom_bytes": "61000582",
+    "rom_asm": "bsrw 0x133ea",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_roll_c1",
+   "type": "rom_external_call",
+   "label": "Sonic_RollRepel @0x1350A (corpo nao recuperado)",
+   "x": 1030,
+   "y": 640,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x01350A",
+    "understood": "false",
+    "nome": "Sonic_RollRepel",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E6A",
+    "rom_bytes": "6100069e",
+    "rom_asm": "bsrw 0x1350a",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_roll_c2",
+   "type": "rom_external_call",
+   "label": "Sonic_RollSpeed @0x13150 (corpo nao recuperado)",
+   "x": 1030,
+   "y": 790,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x013150",
+    "understood": "false",
+    "nome": "Sonic_RollSpeed",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E6E",
+    "rom_bytes": "610002e0",
+    "rom_asm": "bsrw 0x13150",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_roll_c3",
+   "type": "rom_external_call",
+   "label": "Sonic_LevelBound @0x13304 (corpo nao recuperado)",
+   "x": 1030,
+   "y": 940,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x013304",
+    "understood": "false",
+    "nome": "Sonic_LevelBound",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E72",
+    "rom_bytes": "61000490",
+    "rom_asm": "bsrw 0x13304",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_roll_c4",
+   "type": "rom_external_call",
+   "label": "SpeedToPos @0xD5DE (corpo nao recuperado)",
+   "x": 1030,
+   "y": 1090,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x00D5DE",
+    "understood": "false",
+    "nome": "SpeedToPos",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E76",
+    "rom_bytes": "4eb90000d5de",
+    "rom_asm": "jsr 0xd5de",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_roll_c5",
+   "type": "rom_external_call",
+   "label": "Sonic_AnglePos @0x145EE (corpo nao recuperado)",
+   "x": 1030,
+   "y": 1240,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x0145EE",
+    "understood": "false",
+    "nome": "Sonic_AnglePos",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E7C",
+    "rom_bytes": "61001770",
+    "rom_asm": "bsrw 0x145ee",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_roll_c6",
+   "type": "rom_external_call",
+   "label": "Sonic_SlopeRepel @0x13546 (corpo nao recuperado)",
+   "x": 1030,
+   "y": 1390,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x013546",
+    "understood": "false",
+    "nome": "Sonic_SlopeRepel",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E80",
+    "rom_bytes": "610006c4",
+    "rom_asm": "bsrw 0x13546",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_air2",
+   "type": "fsm_state",
+   "label": "MdJump2 (no ar, rolando)",
+   "x": 1360,
+   "y": 340,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "transitions",
+     "label": "transitions",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "state_name": "MdJump2",
+    "initial": 0,
+    "seletor": "status&6 == 6",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E86",
+    "rom_bytes": "61000610",
+    "rom_asm": "bsrw 0x13498",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_air2_c0",
+   "type": "rom_external_call",
+   "label": "Sonic_JumpHeight @0x13498 (corpo nao recuperado)",
+   "x": 1360,
+   "y": 490,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x013498",
+    "understood": "false",
+    "nome": "Sonic_JumpHeight",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E86",
+    "rom_bytes": "61000610",
+    "rom_asm": "bsrw 0x13498",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_air2_c1",
+   "type": "rom_external_call",
+   "label": "Sonic_ChgJumpDir @0x13248 (corpo nao recuperado)",
+   "x": 1360,
+   "y": 640,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x013248",
+    "understood": "false",
+    "nome": "Sonic_ChgJumpDir",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E8A",
+    "rom_bytes": "610003bc",
+    "rom_asm": "bsrw 0x13248",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_air2_c2",
+   "type": "rom_external_call",
+   "label": "Sonic_LevelBound @0x13304 (corpo nao recuperado)",
+   "x": 1360,
+   "y": 790,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x013304",
+    "understood": "false",
+    "nome": "Sonic_LevelBound",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E8E",
+    "rom_bytes": "61000474",
+    "rom_asm": "bsrw 0x13304",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_air2_c3",
+   "type": "rom_external_call",
+   "label": "ObjectFall @0xD5B2 (corpo nao recuperado)",
+   "x": 1360,
+   "y": 940,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x00D5B2",
+    "understood": "false",
+    "nome": "ObjectFall",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E92",
+    "rom_bytes": "4eb90000d5b2",
+    "rom_asm": "jsr 0xd5b2",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_air2_c4",
+   "type": "rom_external_call",
+   "label": "Sonic_JumpAngle @0x13588 (corpo nao recuperado)",
+   "x": 1360,
+   "y": 1090,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x013588",
+    "understood": "false",
+    "nome": "Sonic_JumpAngle",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012EA6",
+    "rom_bytes": "610006e0",
+    "rom_asm": "bsrw 0x13588",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "md_air2_c5",
+   "type": "rom_external_call",
+   "label": "Sonic_Floor @0x135A4 (corpo nao recuperado)",
+   "x": 1360,
+   "y": 1240,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x0135A4",
+    "understood": "false",
+    "nome": "Sonic_Floor",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012EAA",
+    "rom_bytes": "610006f8",
+    "rom_asm": "bsrw 0x135a4",
+    "rom_buffer": "ROM original"
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "e1",
+   "fromNode": "sel",
+   "fromPort": "exec",
+   "toNode": "md_normal",
+   "toPort": "exec"
+  },
+  {
+   "id": "e2",
+   "fromNode": "md_normal",
+   "fromPort": "exec",
+   "toNode": "md_normal_c0",
+   "toPort": "exec"
+  },
+  {
+   "id": "e3",
+   "fromNode": "md_normal_c0",
+   "fromPort": "exec",
+   "toNode": "md_normal_c1",
+   "toPort": "exec"
+  },
+  {
+   "id": "e4",
+   "fromNode": "md_normal_c1",
+   "fromPort": "exec",
+   "toNode": "md_normal_c2",
+   "toPort": "exec"
+  },
+  {
+   "id": "e5",
+   "fromNode": "md_normal_c2",
+   "fromPort": "exec",
+   "toNode": "md_normal_c3",
+   "toPort": "exec"
+  },
+  {
+   "id": "e6",
+   "fromNode": "md_normal_c3",
+   "fromPort": "exec",
+   "toNode": "md_normal_c4",
+   "toPort": "exec"
+  },
+  {
+   "id": "e7",
+   "fromNode": "md_normal_c4",
+   "fromPort": "exec",
+   "toNode": "md_normal_c5",
+   "toPort": "exec"
+  },
+  {
+   "id": "e8",
+   "fromNode": "md_normal_c5",
+   "fromPort": "exec",
+   "toNode": "md_normal_c6",
+   "toPort": "exec"
+  },
+  {
+   "id": "e9",
+   "fromNode": "md_normal_c6",
+   "fromPort": "exec",
+   "toNode": "md_normal_c7",
+   "toPort": "exec"
+  },
+  {
+   "id": "e10",
+   "fromNode": "sel",
+   "fromPort": "exec",
+   "toNode": "md_air",
+   "toPort": "exec"
+  },
+  {
+   "id": "e11",
+   "fromNode": "md_air",
+   "fromPort": "exec",
+   "toNode": "md_air_c0",
+   "toPort": "exec"
+  },
+  {
+   "id": "e12",
+   "fromNode": "md_air_c0",
+   "fromPort": "exec",
+   "toNode": "md_air_c1",
+   "toPort": "exec"
+  },
+  {
+   "id": "e13",
+   "fromNode": "md_air_c1",
+   "fromPort": "exec",
+   "toNode": "md_air_c2",
+   "toPort": "exec"
+  },
+  {
+   "id": "e14",
+   "fromNode": "md_air_c2",
+   "fromPort": "exec",
+   "toNode": "md_air_c3",
+   "toPort": "exec"
+  },
+  {
+   "id": "e15",
+   "fromNode": "md_air_c3",
+   "fromPort": "exec",
+   "toNode": "md_air_c4",
+   "toPort": "exec"
+  },
+  {
+   "id": "e16",
+   "fromNode": "md_air_c4",
+   "fromPort": "exec",
+   "toNode": "md_air_c5",
+   "toPort": "exec"
+  },
+  {
+   "id": "e17",
+   "fromNode": "sel",
+   "fromPort": "exec",
+   "toNode": "md_roll",
+   "toPort": "exec"
+  },
+  {
+   "id": "e18",
+   "fromNode": "md_roll",
+   "fromPort": "exec",
+   "toNode": "md_roll_c0",
+   "toPort": "exec"
+  },
+  {
+   "id": "e19",
+   "fromNode": "md_roll_c0",
+   "fromPort": "exec",
+   "toNode": "md_roll_c1",
+   "toPort": "exec"
+  },
+  {
+   "id": "e20",
+   "fromNode": "md_roll_c1",
+   "fromPort": "exec",
+   "toNode": "md_roll_c2",
+   "toPort": "exec"
+  },
+  {
+   "id": "e21",
+   "fromNode": "md_roll_c2",
+   "fromPort": "exec",
+   "toNode": "md_roll_c3",
+   "toPort": "exec"
+  },
+  {
+   "id": "e22",
+   "fromNode": "md_roll_c3",
+   "fromPort": "exec",
+   "toNode": "md_roll_c4",
+   "toPort": "exec"
+  },
+  {
+   "id": "e23",
+   "fromNode": "md_roll_c4",
+   "fromPort": "exec",
+   "toNode": "md_roll_c5",
+   "toPort": "exec"
+  },
+  {
+   "id": "e24",
+   "fromNode": "md_roll_c5",
+   "fromPort": "exec",
+   "toNode": "md_roll_c6",
+   "toPort": "exec"
+  },
+  {
+   "id": "e25",
+   "fromNode": "sel",
+   "fromPort": "exec",
+   "toNode": "md_air2",
+   "toPort": "exec"
+  },
+  {
+   "id": "e26",
+   "fromNode": "md_air2",
+   "fromPort": "exec",
+   "toNode": "md_air2_c0",
+   "toPort": "exec"
+  },
+  {
+   "id": "e27",
+   "fromNode": "md_air2_c0",
+   "fromPort": "exec",
+   "toNode": "md_air2_c1",
+   "toPort": "exec"
+  },
+  {
+   "id": "e28",
+   "fromNode": "md_air2_c1",
+   "fromPort": "exec",
+   "toNode": "md_air2_c2",
+   "toPort": "exec"
+  },
+  {
+   "id": "e29",
+   "fromNode": "md_air2_c2",
+   "fromPort": "exec",
+   "toNode": "md_air2_c3",
+   "toPort": "exec"
+  },
+  {
+   "id": "e30",
+   "fromNode": "md_air2_c3",
+   "fromPort": "exec",
+   "toNode": "md_air2_c4",
+   "toPort": "exec"
+  },
+  {
+   "id": "e31",
+   "fromNode": "md_air2_c4",
+   "fromPort": "exec",
+   "toNode": "md_air2_c5",
+   "toPort": "exec"
+  },
+  {
+   "id": "e32",
+   "fromNode": "entry",
+   "fromPort": "exec",
+   "toNode": "sel",
+   "toPort": "exec"
+  }
+ ],
+ "rex_logic_recovery": {
+  "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "descritivo": true,
+  "aviso": "Grafo DESCRITIVO da logica localizada; nao e codigo a compilar. Rotulos de funcoes sao do disassembly publico (dicas), nao derivados dos bytes.",
+  "titulo": "Sonic 1 - Sonic_Control e os 4 modos (localizado)"
+ }
+}

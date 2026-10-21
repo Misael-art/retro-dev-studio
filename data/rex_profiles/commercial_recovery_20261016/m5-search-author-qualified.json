@@ -1,0 +1,41 @@
+{
+  "schema": "rex-static-search-author-qualification/v1",
+  "status": "PASS_LITERAL_STATIC_READER",
+  "scope": "Static reader only, not emulator/caller/consumer qualification",
+  "negative_controls": {
+    "operator": true,
+    "inner_flow": true,
+    "outer_flow": true,
+    "pointer_role": true,
+    "negative_count": true,
+    "out_of_map": true
+  },
+  "positive_short": {
+    "entry": 0,
+    "exit": 26,
+    "length": 26,
+    "transfer_offset": 12,
+    "source_bus24": 16748544,
+    "destination_bus24": 16744448,
+    "source_initial_register32": 4294938624,
+    "destination_initial_register32": 4294934528,
+    "source_register": 0,
+    "destination_register": 1,
+    "row_register": 3,
+    "column_register": 4,
+    "source_addressing": "absolute_word",
+    "destination_addressing": "absolute_word",
+    "rows": 4,
+    "columns": 8,
+    "width": 2,
+    "gap": 16,
+    "region_sha256": "d0c4aa1ba1875fd24d9c06ff246fcfbc53815fbde51a4523c3df236f701f9a1e",
+    "opcode_shape_sha256": "645d24479c0cd14cb2e0853d7e43df0da79edbac7eafcc205d710cb18157ebba",
+    "opcode_shape_differs_primary": true,
+    "distinct_implementation_gate": true,
+    "current_class_encoding_supported": false,
+    "both_widths_in_existing_memory_domain": true,
+    "domain_refusals": []
+  },
+  "register_only_not_counted": true
+}

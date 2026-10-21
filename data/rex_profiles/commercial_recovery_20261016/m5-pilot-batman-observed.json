@@ -1,0 +1,64 @@
+{
+  "id": "m5-profile-batman-001",
+  "exit_code": 0,
+  "pid": 2059630,
+  "owned_process_alive": false,
+  "elapsed_seconds": 3.6414499880047515,
+  "manifest_sha256": "2d7838e3626427fdb3efb1f76d7310463639fce2ef9e4edbae45073947dfbbce",
+  "log_sha256": "778239c2623bf4322c6d3d5b120e114431b1a2b6e7661a819aa18d92f288c730",
+  "events_sha256": "77adb6b629edaec56080d124c84b01fb0583505c68e262dffc1817eeb5385e13",
+  "events_bytes": 5962,
+  "status": "NO_REGION_EXECUTION_OBSERVED",
+  "target": "batman",
+  "protocol_sha256": "73c18d6d3d8edae9fa22615ec29c458f6d652d3fa2d4cf53b22785a7ccac4803",
+  "entries": 0,
+  "completed_regions": 0,
+  "entry_frames": [],
+  "sampled_later_invocations": false,
+  "private_directory": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-profile-batman-001",
+  "state-result.json": {
+    "schema": "rex-m5-linear-state-result/v1",
+    "status": "FAIL",
+    "target": "batman",
+    "trace_sha256": "77adb6b629edaec56080d124c84b01fb0583505c68e262dffc1817eeb5385e13",
+    "literal_vectors": [
+      {
+        "width": 1,
+        "mode": "moveq",
+        "sr": 10004,
+        "counter": 65535
+      },
+      {
+        "width": 1,
+        "mode": "move_word_immediate",
+        "sr": 10004,
+        "counter": 305463295
+      },
+      {
+        "width": 2,
+        "mode": "moveq",
+        "sr": 10008,
+        "counter": 65535
+      },
+      {
+        "width": 2,
+        "mode": "move_word_immediate",
+        "sr": 10008,
+        "counter": 305463295
+      },
+      {
+        "width": 4,
+        "mode": "moveq",
+        "sr": 10000,
+        "counter": 65535
+      },
+      {
+        "width": 4,
+        "mode": "move_word_immediate",
+        "sr": 10000,
+        "counter": 305463295
+      }
+    ],
+    "error": "missing complete observed invocation"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "schema": "rex-m3-original-conditional-model/v1",
+  "status": "FAIL",
+  "freeze_sha256": "92b297f34463715b69c2c1d3c763ede4a8cb2a35218ae14c56efc29035e6b002",
+  "measurements": [],
+  "limits": "No modified capture or run exists. Full game trajectory and geometry are measured control inputs, not predicted. Visual reference derives descriptor content from independent original metadata and frozen byte-index copy model.",
+  "error": "immutable mapping pointer/base"
+}

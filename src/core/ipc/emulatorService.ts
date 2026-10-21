@@ -49,6 +49,38 @@ export interface FramePayload {
   width: number;
   height: number;
   rgba: number[]; // Uint8Array serializado como array JSON
+  core_epoch?: number;
+  rom_sha256?: string;
+  frame_sequence?: number;
+  frame_index?: number;
+}
+
+export type FramePresentation = { epoch: number; sequence: number };
+
+/** Reject stale loads and reordered events without forbidding rewind. */
+export function acceptsFrame(
+  payload: FramePayload,
+  epoch: number | null,
+  romSha256: string | undefined,
+  previous: FramePresentation | null
+): boolean {
+  return epoch !== null && romSha256 !== undefined
+    && payload.core_epoch === epoch && payload.rom_sha256 === romSha256
+    && Number.isSafeInteger(payload.frame_sequence) && (payload.frame_sequence ?? 0) > 0
+    && (previous === null || previous.epoch !== epoch || payload.frame_sequence! > previous.sequence);
+}
+
+/** Subscribe without advancing the core, including while paused. */
+export async function listenToFrames(onFrame: (payload: FramePayload) => void): Promise<UnlistenFn> {
+  let active = true;
+  const unlisten = await listen<FramePayload>("emulator://frame", (event) => {
+    if (active) onFrame(event.payload);
+  });
+  return () => {
+    if (!active) return;
+    active = false;
+    unlisten();
+  };
 }
 
 /** Payload do evento `emulator://audio` — amostras PCM i16 stereo */
@@ -128,14 +160,50 @@ export function emulatorReadMemory(
   return invoke<EmulatorMemoryResult>("emulator_read_memory", { region, offset, length });
 }
 
+/**
+ * Resposta do backend a uma transição de joypad. `ok: true` = ACEITA (aplicada ao estado de joypad na
+ * época certa), com a geração e o quadro em que foi aplicada. Aceitação NÃO é consumo: o core só lê o
+ * joypad ao rodar um quadro (ver `emulatorInputObservation`).
+ */
+export interface EmulatorInputResult extends EmulatorCommandResult {
+  epoch?: number;
+  generation?: number | null;
+  applied_at_frame?: number | null;
+}
+
+/** Uma transição aplicada no backend e o que o core fez com ela. */
+export interface EmulatorInputTransition {
+  generation: number;
+  joypad: JoypadState;
+  /** Quadros emulados concluídos quando foi aplicada. */
+  applied_at_frame: number;
+  /** Primeiro quadro em que o core leu o joypad com esta transição vigente (null: ainda não). */
+  first_polled_frame: number | null;
+  last_polled_frame: number | null;
+  /** Substituída antes de qualquer quadro lê-la: o core NUNCA a viu. */
+  superseded_unpolled: boolean;
+}
+
+export interface EmulatorInputObservation {
+  epoch: number;
+  frames_run: number;
+  generation: number;
+  transitions: EmulatorInputTransition[];
+}
+
 export function emulatorSendInput(
   joypad: JoypadState,
   sessionEpoch?: number
-): Promise<EmulatorCommandResult> {
-  return invoke<EmulatorCommandResult>("emulator_send_input", {
+): Promise<EmulatorInputResult> {
+  return invoke<EmulatorInputResult>("emulator_send_input", {
     joypad,
     sessionEpoch: sessionEpoch ?? null,
   });
+}
+
+/** Transições de joypad aplicadas na carga corrente e o que o core fez com cada uma. Só leitura. */
+export function emulatorInputObservation(): Promise<EmulatorInputObservation> {
+  return invoke<EmulatorInputObservation>("emulator_input_observation");
 }
 
 export function emulatorGetCoreEpoch(): Promise<number> {
@@ -160,9 +228,7 @@ export async function startFrameLoop(
   let running = true;
   let unlisten: UnlistenFn | null = null;
 
-  unlisten = await listen<FramePayload>("emulator://frame", (event) => {
-    onFrame(event.payload);
-  });
+  unlisten = await listenToFrames(onFrame);
 
   function stop() {
     running = false;
@@ -198,6 +264,45 @@ export async function startFrameLoop(
   tick();
 
   return stop;
+}
+
+/**
+ * Avança exatamente UM quadro emulado (pausa/passo): uma chamada `emulator_run_frame` e a espera do
+ * quadro correspondente. Diferente de `startFrameLoop`, não reagenda nada — um evento de quadro
+ * atrasado não pode fazer o passo executar um segundo quadro.
+ */
+export async function runSingleFrame(
+  onFrame: (payload: FramePayload) => void,
+  timeoutMs = 5000
+): Promise<FramePayload> {
+  let settle: ((payload: FramePayload) => void) | null = null;
+  const arrived = new Promise<FramePayload>((resolve) => {
+    settle = resolve;
+  });
+  let received = false;
+  const unlisten = await listenToFrames((payload) => {
+    if (received) return;
+    received = true;
+    onFrame(payload);
+    settle?.(payload);
+  });
+  try {
+    const result = await emulatorRunFrame();
+    if (!result.ok) {
+      throw new Error(result.message || "Falha ao executar frame do emulador.");
+    }
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error("Quadro executado sem apresentação dentro do prazo.")), timeoutMs);
+    });
+    try {
+      return await Promise.race([arrived, timeout]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  } finally {
+    unlisten();
+  }
 }
 
 /**

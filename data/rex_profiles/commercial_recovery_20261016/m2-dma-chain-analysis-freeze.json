@@ -1,0 +1,25 @@
+{
+  "schema": "rex-post-observation-analysis-protocol/v1",
+  "id": "M2-DMA-CHAIN-ANALYSIS-001",
+  "before_analysis_measurement": true,
+  "blind_or_reserved": false,
+  "trace_sha256": "7a6ee7353e06804dee2b6199e93f466d3a5b58a5dadd0d4f6e03be0d46d62bc2",
+  "verifier_sha256": "ec6fa02e76fba0810bbd9b17a74b581b59d93065d0846442ef94360d46ed1c67",
+  "expectations": [
+    "initialize register model from1170 native snapshot; parse complete control commands",
+    "observed320word SAT DMA source FFF800 and destinationVRAMF800, increment2",
+    "observed64word palette DMA sourceFFFB00 and destinationCRAM0",
+    "reads match command arguments/trigger and preceding RAM writes where known",
+    "last complete DMA payload matches native final destination exactly",
+    "native VRAM wall249tiles at142 matches pre-existing decoded art hash5c36a38a...02860",
+    "expanded pre-copy source8192 and destination12224 produce future width2 RAM prediction; no edited ROM or visual expectation"
+  ],
+  "controls": [
+    "wrong source",
+    "wrong DMA value",
+    "missing read",
+    "wrong native VRAM byte"
+  ],
+  "scope": "bounded transfer verification; no full scene renderer/hardware timing/session equivalence claim",
+  "address_math_correction": "M1 draft risk text source8128 meant old destination span; width2 source is8192=64*64*2. Original freeze retained, no modified ROM measured."
+}

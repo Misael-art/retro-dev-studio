@@ -25,12 +25,33 @@ pub mod rex_addressing;
 pub mod rex_aplib;
 pub mod rex_codecs;
 pub mod rex_context;
+pub mod rex_edit;
+pub mod rex_evidence;
+pub mod rex_evidence_origin;
+// Superfície anterior da classe contador/comparação: só compila em teste (regressão + prova no core).
+// O produto usa `rex_profile_semantic` + `rex_profile_ipc`.
+#[cfg(test)]
 pub mod rex_gameplay;
+// Adaptadores de compatibilidade do primeiro perfil: só compilam em teste (regressão e oráculos).
+mod rex_copy_grid;
+#[cfg(test)]
+pub mod rex_jump_ipc;
 pub mod rex_kosinski;
-pub mod rex_kosinski_resource;
 pub mod rex_mdgfx;
 pub mod rex_nemesis;
+#[cfg(test)]
+pub mod rex_platformer_jump;
+pub mod rex_profile_engine;
+pub mod rex_profile_graph;
+pub mod rex_profile_ipc;
+pub mod rex_profile_registry;
+pub mod rex_profile_semantic;
+pub mod rex_profile_spec;
+#[cfg(test)]
+mod rex_profile_testkit;
+pub mod rex_publish;
 pub mod rex_resources;
+pub mod rex_sigscan;
 pub mod rom_library;
 pub mod sonic_cadence;
 pub mod sonic_consumers;
@@ -39,6 +60,5 @@ pub mod sonic_sequence;
 pub mod sonic_sprite;
 pub mod sonic_ss_walls;
 pub mod sprite_composition;
-pub mod streets_of_rage;
 pub mod symbols;
 pub mod triage;

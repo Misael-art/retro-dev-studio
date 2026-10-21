@@ -1,3 +1,228 @@
+### Auditoria de conclusão 2026-10-19 UTC — M0–M5 conferidos contra o pedido reapresentado
+
+Sobre eb2ee726, a implementação e o binário66cb3d71…c12e5 permanecem idênticos aos gates/jornadas finais. Auditoria adicional reavaliou42grupos de requisitos e os artefatos efetivos:287pins,12IPS,22capturas e quatro traces368295eventos; expectativas comerciais regeneradas sem entrada de captura modificada. Reanálise dos mesmos dados, não novas corridas/cobertura ou promoção. Índice consolidado304registros em `data/rex_profiles/commercial_recovery_20261016/completion-experiment-index.json`, mapa/evidência em `COMPLETION-AUDIT.json`, reprodução e falha001do auditor preservada no adendo de `MISSION.md`. A lacuna documental do índice inicial restrito aoM0 foi corrigida com navegação derivada, sem segunda fonte de estado ou resultados inventados. Hostdiagnose novoREADY; certificado final7gates/1049frontend/1038Rust e seis jornadas permanecem aplicáveis à produção inalterada. Limites Experimental, sessões MAME/GX separadas, causalidade gráfica condicional, transferência GoldenAxe de memória, quatro reservados somente estáticos e somOPEN continuam intactos.
+
+### Checkpoint 2026-10-19 UTC — recuperação comercial M0–M5 demonstrada nos domínios delimitados (Experimental)
+
+Na branch isolada `codex/rex-commercial-recovery-20261016`, derivada da integração03ddc59d, a retomada reconciliou df688146 sem alterar integração/pesquisa. M0–M4 preservam os aceites delimitados e evidências anteriores; a cadeia comercial Enigma→buffer→cópia→layout/descritor/SAT→DMA→pixels e sua edição/reversão foram reexecutadas na UI final. M4 usa reconstrução semântica tipada do corpo, MOVE+postincrement+DBRA, condições/estado/origem/desconhecidos nos nodes; edição de largura muda opcode, além de constantes. Não é compilador de topologia geral.
+
+M5: segunda implementação contígua GoldenAxe (inicializadores/um DBRA, diferente da grade aninhada Sonic) passou140/140ida e138/138volta na UI nativa. Cópia5725630a…09f18/IPS independente, um byte2AA2, span432bytes com162posições discriminantes; reversão restaura SHA75613dde…5df4b. Consumo/estado original e editado observados no MAME externo, com controles qualificados; sessão GX/UI distinta demonstra efeito de memória. Vídeo inalterado nesse episódio; não há alegação de efeito visual editado ou engine completa. Quatro alvos reservados passaram reconstrução/publicação/IPS com zero código REX e zero perfil adicional após freeze; não houve chamada nos episódios congelados desses quatro. Métrica estática/publicação não vira consumo comercial.
+
+Duas falhas nativas do primeiro alvo preservadas: cabeçalho legado e canvas fixo320×224 contra frame256×192. Adendos anteriores a novas medições autorizaram correções genéricas sem dependência/core/tolerância novos. Fonte final18f9ab59, freeze1351b0b, nativo7a03e81c; binárioSHA66cb3d71ea4f5df2efd37b031fe0c4c76b822b11d55d55ca240024638c7c12e5. No mesmo binário: Sonic135/135ida+128/128volta; autoralv2 88/88ida+88/88volta,162bytes/3309pixels/RGBA0. Provas autorais/comerciais e referências condicionais medidas permanecem separadas.
+
+Certificação final `certify-20261019T012630Z` READY: sete gates exit0,1049frontend/3SKIP e1038Rust/94IGNORE; Clippy padrão-Dwarnings e fmt também exit0. Skips/ignores não são PASS; números herdados não contam como execuções novas. Integridade dos16links M2/M3/M4, quatro traces privados e quatro fontes REX congeladas conferida; auditoria histórica bruta exit1 preservada e reconciliada como quatro fontes avançadas citadas duas vezes, sem artefato ausente. Dois JSON não rastreados preexistentes preservados por hash e backup pequeno verificado.
+
+Limites: entrada Sonic assistida e regiões declaradas; geometria/câmera/animação/paleta medidas, sem previsão de física/cena inteira; MAME e GX não são uma sessão; Nemesis sem entrada/chamador traçados; sem validação humana de usabilidade, recuperação universal, outros consoles ou certificação Windows. V1FAIL86/89, BYOR1/2 anteriores, falhas de protocolo/instrumento e pendência sonoraOPEN mantidos. Sem bloqueio restante dentro dos domínios aceitos, sem push/merge remoto/release/promoção. Custo M5 primeiro alvo:418adições/22remoções de produção em7fontes, excluindo testes; configuração/instrumentação/testes separados.
+
+Inventário, matriz requisito→implementação→teste→resultado→limite, índice e comandos em `docs/rex_profiles/commercial_recovery_20261016/MISSION.md`; aceites M2/M3/M4/M5 e manifesto final em `data/rex_profiles/commercial_recovery_20261016/`. Primeira retomada reproduzível: `rtk proxy python3 scripts/rex_profiles/commercial_recovery_20261016/prepare-native-reproduction.py data/rex_profiles/commercial_recovery_20261016/m5-ui-golden-axe-journey-v3.json data/rex_profiles/commercial_recovery_20261016/m5-ui-golden-axe-freeze-v3.json m3-native-REPLAY-golden-001` — valida pins, cria só caminhos novos e imprime o comando exato; usar ID inédito.
+
+### Checkpoint 2026-10-18 UTC — M5 candidato genérico congelado; validação final pendente
+
+M0–M4 mantêm os aceites delimitados e falhas históricos. M5 encontrou cópias contíguas MOVE.B/W/L + DBRA único com LEA absolute-short/long/PC-relative e MOVEQ/MOVE.W, diferentes do loop aninhado primário. Primeiro alvo Golden Axe: chamada real observada,432bytes, D/A completos e SR previstos, seis negativos recusados; uma leitura ROM não-transferência explicitamente separada em adendo após falha original preservada. Batman/MUSHA não atingiram regiões no episódio congelado; ToyStory atingiu duas vezes mas verificador ainda recusa leituras de código sobrepostas à janela de fonte. Não são PASS de estado nem bloqueios funcionais dos jogos.
+
+Extensão genérica do mesmo CopyGrid/ponte/publicador, sem despacho por título/hash, atribuída ao primeiro alvo Golden Axe; perfil genérico revisão2, domínio discreto1,2,4 para cópia contígua e contrato anterior1,2 para grade. Sete testes Rust PASS/0IGNORE incluem quatro regiões comerciais, reconstrução tipada original/editada e publicação; aplicador IPS independente exato nas quatro. Quarenta testes frontend da ponte PASS. Primeira tentativa de publicação falhou ENOSPC no TMPDIR da sessão (/run/user/1000 cheio); repetição usa scratch privado em disco, sem apagar arquivos alheios. Não contar sete testes como jornada UI nem como três transferências zero-código.
+
+Freeze de produção e custos sem testes em m5-generic-adaptation-freeze.json; quatro ROMs reservadas até esse freeze. Próximo: sondar reservados sem alterar produção, congelar correspondência GX original/efeito de memória para Golden Axe, construir app final e executar UI/ida+volta afetadas e host:certify. M5 e missão permanecem em andamento; Experimental, sem push. ROMs/dumps/capturas apenas scratch privado.
+
+### Checkpoint 2026-10-18 UTC — M4 consolidado no domínio comercial; M5 a selecionar
+
+IR CopyGrid existente regenerou30bytes sem cache de origem: original-rebuilt igual à ROM inteira c7da53a1…81ebb; edited-rebuilt igual à cópia UI cb471c95…ad97a. Cinco testes Rust PASS/0IGNORE, incluindo BYOR normalmente ignorado, com recusas de operador/fluxo/mapa/alias. MAME editado no observerv3 byte-idêntico observou4096MOVE.W/8192bytes; destino4a51997c…6e8e4, A0FF6000/A1FF4020, D1/D2FFFF e D0 preservado; SR2300 previsto/observado (original2304). Seis negativos de trace recusados. Hipótese inicial de papéis D0/D1 preservada, corrigida antes do trace editado e discriminada por quatro vetores de sentinela/CCR.
+
+Jornada nativa M4 passou135/135, incluindo sete checks dos detalhes de nodes: operações/contadores DBRA/FFFF, estado/pointers, origem e desconhecidos, com edição de opcode e efeito comercial pela ponte canônica. Sem novo código de produção/classe/core. M3 permanece128/128ida+volta; último certifyREADY1047frontend/1036Rust em fontes de produção idênticas. Estados externos não viram badge estático do app. Demais registradores/stack/IRQs/ciclos/áudio não comparados; referência visual condicional explicitamente medida, não física prevista. Mapa em m4-bounded-acceptance.json. Próximo: proteger checkpoint e congelar seleção/expectativas M5 para implementação diferente, sem contar Kosinski compartilhado. Experimental; missão em andamento, sem push.
+
+### Checkpoint 2026-10-18 UTC — M3 consolidado no escopo condicional; M4 congelado
+
+M3 PASS128/128 ida+128/128volta no SHA22dc259a…5347, com prévia anterior à edição, persistência/fechar/reabrir/cópia/IPS/execução/comparação/reversão exata. Certify020824Z terminou READY:1047frontend/3SKIP,1036Rust/93IGNORE, sete gates exit0. Escopo e mapa requisito→teste→limite em m3-bounded-acceptance.json; referência condicional medida explicitamente, não previsão de física/cena inteira. Falhas001 e003, etapas110/110 e históricoM2/v1/BYOR/som permanecem visíveis.
+
+M4 congelado antes da execução externa editada em m4-freeze-v2.json: usar IR CopyGrid existente, reconstrução sem bytes salvos, condição DBRA e estado delimitado. Contadores reais D1/D2, D0 preservado; hipótese inicial D0/D1 errada é preservada e substituída após sentinelas distintas. Original002 passou4096leituras/escritas, memória e registradores observados/CCR, quatro vetores sintéticos do verificador; não é holdout nem qualificação CPU autoral. Próximo: cinco testes de reconstrução/recusas incluindo BYOR ignorado, depois MAME editado com observerv3 idêntico e jornada de detalhes dos nodes; um job pesado por vez. M5 pendente. Sem alteração adicional de produção; Experimental, sem push.
+
+### Checkpoint 2026-10-18 UTC — M3 cadeia comercial na UI: 128/128 ida e 128/128 volta; cert final pendente
+
+No app22dc259a…5347, prévia comercial antes da edição → Stop → nodes/edição MOVE.B↔MOVE.W → Salvar → encerrar/reabrir → cópia/IPS → episódio preparado → comparação → reversão passaram. Cópia cb471c95…ad97a, um byte1B6F8, IPS independente exato; retorno restaura ROM SHA c7da53a1…81ebb e RGBA13723a0e…ae5f1. Originais intactos; stream Enigma adulterado, região adulterada, ROM errada, domínio3/no-op, patch divergente, resultado antigo, cor errada e largura antiga recusados. Resposta atrasada de outro contexto é controle da suíte do componente, separado do controle E2E de resultado antigo. 10534pixels originais/8067editados,2008posições condicionais discriminantes, RGB0 e core/canvas exatos. Trajetória/câmera/coordenadas/animação/paleta são entradas observadas; sem alegar física/cena inteira prevista. Expectativa não recebe captura modificada.
+
+Falha003124/126 preservada: header sob toolbar; Stop+Enquadrar+hit-test real antes de Delete passaram sem relaxar guardas. Corridas anteriores110/110 preservadas como etapa anterior. Certificação da árvore QA final pendente, depois proteger fechamentoM3; M4/M5 pendentes. Experimental; sem push/release/promoção. Processos das jornadas encerrados, zero vivos.
+
+### Checkpoint 2026-10-18 UTC — M3 ida/volta comerciais aprovadas; complemento de sequência pendente
+
+No app22dc259a…5347, ida110/110 e volta110/110 passaram no cenário canônico. Cópia cb471c95…ad97a difere só em1B6F8, IPS independente exato; reversão restaura SHA c7da53a1…81ebb. Persistência, fechar/reabrir, republicação, original/original, no-op, ROM/região errada, domínio3, patch divergente e resultado antigo passaram. Original10534pixels, editada8067pixels e2008posições condicionais que rejeitam width1: RGB0, core/canvas exato, destino12224 e SAT independente conferem. Referência não usa captura modificada; controles de geometria/estado são explicitamente medidos. Falha001 de envelope de recusa preservada, adendo002 corrigiu apenas QA. Nenhuma alegação de trajetória completa/hardware.
+
+M3 ainda receberá complemento explícito de prévia comercial ANTES da edição na mesma sessão e controle de stream Enigma adulterado. As corridas110/110 ficam preservadas; sem mudança de oráculo/tolerância. Depois, nova certificação da instrumentação QA e checkpoint protegido. M4/M5 pendentes; missão em andamento, Experimental.
+
+### Checkpoint 2026-10-18 UTC — M3: referências originais GX qualificadas antes da edição
+
+M2 fechado no domínio declarado em d9d0dc54; ref m2-closed/bundle004 verificado, metadados protection-mission-004.json. M3 continua em preparação: nenhuma cópia comercial executada. Survey GX original encontra cópia concluída no quadro137; framebuffer180 repete referência exata. Cauda4096bytes é bcb49f12…92064, não zerada, igual em todas as fronteiras amostradas e ao MAME. Isso não prova estabilidade intraquadro.
+
+GX autoral qualificado separadamente: antesDMA atraso0, depoisDMA atraso1;1024pixels por quadro e13quadros reservados por caso exatos. Primeira hipótese255 incorreta FAIL preservada; adendo usa conversão GX239 já qualificada, não captura. Modelo independente de descritores/SAT passou cinco quadros originais176–180:10245/10317/10390/10461/10534pixels, RGB0, tiles e cores errados recusados. Coordenadas/câmera/frame e bits de seletor de paleta0x6000 são entradas medidas explícitas; ponteiro/tile/flip/prioridade pinados. Hipótese inicial de base inteira imutável reprovou e permanece preservada. Modelo não prevê trajetória/física nem cena completa. Próximo: preparar jornada comercial no runner canônico, congelar cópia/reversão e predição causal independente antes de executar a primeira edição. M4/M5 pendentes; Experimental, sem push.
+
+### Checkpoint 2026-10-18 UTC — M2 consolidado no domínio observado; M3 em preparação
+
+Qualificação autoral de fase IRQ/DMA:1024pixels exatos, quatro quadros de treino e treze reservados; fase errada e identidade errada recusadas. Adendo anterior à medição comercial002:8482pixels reais conferem com tolerânciaRGB0;48pixels encobertos excluídos por domínio. Os16sprites projetados têm vínculo layout→lookup→descritor→SAT→DMA,715escritas verificadas e cinco negativos recusados. FF4000 é buffer descomprimido antes da cópia e tabela reutilizada depois. Falha visual001 permanece FAIL6912/8217; não foi apagada nem reclassificada.
+
+Certificação pós-fase certify-20261018T012359Z READY:1047frontend/3SKIP,1036Rust/93IGNORE, sete gates exit0. App22dc259a…5347 mantém jornadas34/34 e regressões autorais88/88ida+volta; fmt/clippy padrão/lint passaram. Cadeia original assistida observada no MAME, com correspondência GX restrita à fronteira inicial da cópia; não são a mesma sessão. Nemesis não teve entrada/chamador traçados. Projeção usa estado observado e não é oráculo contrafactual da edição. Aceite e mapa requisito→teste→limite: data/rex_profiles/commercial_recovery_20261016/m2-bounded-acceptance.json.
+
+M3 inicia pela preparação original-only de referências GX antes de editar, incluindo fonte8192bytes não presumida zerada e instante inicial da cópia. M3–M5 ainda não demonstrados. Experimental; sem push/release/promoção. Missão em andamento; histórico de falhas, BYOR e somOPEN preservado em MISSION.md.
+
+### Checkpoint 2026-10-17 — M2: DMA qualificado; projeção visual reprovada, fase ainda aberta
+
+V3 autoral passou4controles+3capturas+4DMA. Comercialv3 preservou Enigma/cópia;17registros SAT conferem. Análise DMA002 passou67SAT+67paletas, destinos finais exatos e arte249tiles pinada emVRAM;001FAIL do controle negativo preservado. Origem ampliada NÃO tem cauda zerada. Witness visual001 FAIL6912/8217: falta qualificar fase CPU/VDP/imagem com sinal autoral, sem escolher captura por melhor coincidência. M2 aberto;M3–M5 não iniciados.
+
+Produto permanece no SHA22dc259a…5347: replay pausado34/34 e regressões autorais88/88ida+volta, cert anteriorREADY1047frontend/1036Rust. Clippy padrão e lint final passaram. Novo certify após DMA adiado pelo preflight de RAM/swap, sem iniciar job pesado. Experimental; sem push/release/promoção. Detalhes/falhas/adendos: `docs/rex_profiles/commercial_recovery_20261016/MISSION.md` e `data/rex_profiles/commercial_recovery_20261016/`.
+
+### Checkpoint 2026-10-17 — M2: replay pausado corrigido e verificado; DMA em qualificação
+
+MAME v2 qualificou a captura do alvo apresentado após duas hipóteses de superfície reprovadas e preservadas. O episódio comercial v2 produziu capturas reais e vinte amostras de cabeças do laço de sprites. O replay GX preparado preserva a fronteira inicial de cópia; igualdade com RAM final do MAME reprovou e permanece registrada, sem alegação de sessão única.
+
+A primeira jornada nativa no app74033134…670e passou replay/framebuffer/RAM, mas falhou na apresentação do canvas pausado. Correção genérica integrada, com regressões verificadas: assinatura passiva de frames e guardas de ROM/época/ordem; sem avanço artificial, nova dependência ou mudança do core. Testes específicos frontend8/8 e TypeScript passaram. Certificação anterior READY (1045frontend/1036Rust) antecede a correção; nova certificação terminou READY:1047frontend/1036Rust,3SKIP/93IGNORE; todos os sete gates passaram. Build canônico passou; binário22dc259a…5347. Jornada de replay pausado passou34/34, incluindo duas épocas/180frames e RGBA referência/core/canvas exato; falha anterior preservada. Regressão autoral v2 no mesmo novo SHA passou88/88ida e88/88volta;162bytes/3309pixels exatos. Clippy default complementar ainda pendente.
+
+M2 segue aberto: DMA interno e dataflow gráfico completo ainda desconhecidos. M3–M5 não iniciados; Experimental, sem push/release/promoção. Histórico v1/v2/BYOR/som permanece separado. Estado/reprodução/falhas/adendos em `docs/rex_profiles/commercial_recovery_20261016/MISSION.md` e `data/rex_profiles/commercial_recovery_20261016/`.
+
+### Checkpoint 2026-10-17 — recuperação comercial: consumo Enigma/cópia observado no MAME; M2 aberto (Experimental)
+
+Worktree `codex/rex-commercial-recovery-20261016`, base03ddc59d; M0 consolidado78d64311,
+M1 congelado2a9d318f, instrumento autoral congelado17cd5bca. Pesquisaee8c581f e integração
+preservadas limpas. No MAME0.289 externo, estado de fase especial preparado explicitamente:
+PC171E/retorno1B6D8/A0=65432/A1=FF4000/D0.word=0; buffer4096 confere SHA322a1483…44d0;
+4096 leituras/escritas em1B6F8, referência do destino8128 confere integralmente.
+Não é sessão GX/app; nenhuma edição/cópia comercial executada ou prova gráfica nova.
+Quatro qualificações autorais e dez negativos de registro passaram; falhas de ferramenta,
+clock global estrito e snapshot ausente preservadas. Clock recua36ns na fronteira notifier/CPU.
+M2 ainda exige superfície gráfica, correspondência com app e host:certify; M3–M5 não iniciados.
+Host diagnoseREADY; houve adiamento por RAM<3GiB. Janela recuperada às06:36UTC, certify em execução, sem resultado pressuposto.
+Detalhes, requisitos/testes/limites/retomada: `docs/rex_profiles/commercial_recovery_20261016/MISSION.md`.
+Resultados/metadados: `data/rex_profiles/commercial_recovery_20261016/`; comercial só no scratch.
+Produção Rust/TS/dependências alteradas0; v1FAIL86/89, v2autoral88/88 ida/volta e somOPEN preservados.
+Retomada: conferir término do certify atual e preflight; depois qualificar revisão candidata indicada no MISSION.md.
+Sem push/merge/release/promoção. Missão não concluída.
+
+### Checkpoint 2026-10-16 — recuperação comercial: M0 consolidado (Experimental)
+
+Worktree isolado `codex/rex-commercial-recovery-20261016`, base reconciliada `03ddc59d`; pesquisa `ee8c581f` preservada. Host diagnose novo READY. Inventário, limites e índice em `docs/rex_profiles/commercial_recovery_20261016/MISSION.md`; auditoria de artefatos e proteção em `data/rex_profiles/commercial_recovery_20261016/`. V1 FAIL 86/89, v2 autoral 88/88 ida/volta, duas tentativas BYOR e som OPEN são evidência herdada separada; nenhuma nova prova comercial ou mudança de produto. M1–M5 pendentes. Sem push/merge/release/promoção.
+
+### Checkpoint 2026-10-16 — aceite autoral visual copy v2 fechado; v1 preservada (Experimental)
+
+O operador autorizou explicitamente corrigir o oráculo após a falha v1, com
+fundamentação no core pinado, vetores literais e novo freeze antes da jornada.
+Adendo/modelo/vetores/expectativas/specs congelados em d8be191e, às 23:09:14 UTC,
+antes da primeira jornada v2. É correção metodológica posterior à observação,
+não validação cega. Fonte oficial46a55214…16872: palette_init→pixel_lut[1],
+MAKE_PIXEL RGB565, color_update_m5 normal; config_default e negociação de
+formato 2 verificados no código e por auditoria estática do binário pinado.
+Paleta codificada CRAM, framebuffer RGB565→RGBA no adaptador e canvas da UI
+estão separados. O contrato vale só para app/core/configuração/mode pinados,
+sem generalização a hardware real ou outros cores. Não há novo codec/classe/node.
+
+Antes da jornada passaram 31 vetores literais, 9 negativos de conversão,
+11 de imagem/buffer e 13 do comparador real. Incluem preto, canais isolados,
+intermediários, máximo, misturas, curva verde RGB565 vs555, conversão antiga,
+alteração de um nível em cada canal e tentativa de ampliar tolerância.
+O compositor espacial/oráculo RAM v1 não mudou. Comparação absoluta v2 usa
+**zero tolerância RGBA**; geometria, ROI, posições, RAM, guardas, identidade,
+publicação e conjunto causal mantêm os critérios anteriores. Freeze permaneceu
+intacto durante as duas corridas; apenas os três checks do componente de cor
+mudaram de resultado nas novas observações.
+
+Reutilizado app SHA 74033134f47510c1ef37d8e6025a8bc6986436d4060ae3e96b1ba9bcc3d1670e,
+core Genesis Plus GX SHA 07c10476…8310b1 e ROMs pinadas, sem rebuild ou alteração
+em src/ ou src-tauri/. Jornada nativa **88/88 ida 1→2 + 88/88 volta 2→1**:
+recuperar→nodes→editar/no-op→salvar→encerrar→reabrir→cópia/IPS→emular.
+Nas seis capturas, oráculo/core/canvas têm RGBA idêntico byte a byte, zero
+pixels divergentes. Scope 484 bytes igual em cada largura, diferença exata
+162 bytes e 3309 posições de pixels; original/repetição idênticos, no-op sem
+publicação, reversão para a ROM base SHA fbc72b25…0435. A cópia e IPS são os
+mesmos do produto anterior; classe copy_grid e pipeline canônico intactos.
+
+**V1 continua 86/89 REPROVADA**, com suas três falhas de imagem absoluta e todos
+os artefatos preservados por hash. **BYOR permanece sem vínculo gráfico
+demonstrado**, duas tentativas anteriores reutilizadas, sem nova alegação
+comercial ou PC/chamador/args observados. **Pendência sonora nodegraph-authoring
+OPEN**, histórico mantido. Aceite fechado é da cena autoral nesta combinação
+pinada; não promove maturidade geral. Sem participante humano.
+
+Certificação da rodada: **READY** — tree/lint/tsc, **1045 frontend passed/3 skipped**,
+**1036 Rust passed/93 ignored**, Clippy lib/padrão -D warnings, fmt e
+upstream SGDK/PVSnesLib oficiais passaram. Snapshot/log preservados. Regressões v1 ainda
+aplicáveis 60/60, 63/63 e 55/55 reaproveitadas no mesmo binário; comportamento do
+comparador v1 preservado e testado. Relatório, hashes, escada de evidências,
+matriz requisito→implementação→teste→resultado→limite e reprodução em
+`docs/rex_profiles/integration_20261016/VISUAL-COPY-V2-RESULTS.md`,
+`VISUAL-COPY-CONTRACT-V2.md` e `VISUAL-COPY-V2-REPRODUCE.md`;
+evidência `data/rex_profiles/integration_20261016/evidence/visual-copy-v2/`.
+Sem push/merge/release/promoção/dependência ou core novo; pesquisa ee8c581f preservada limpa.
+
+### Checkpoint 2026-10-16 — copy-grid no motor semântico, edição de largura comprovada (Experimental)
+
+Sobre 89189485, com contrato congelado em 2eed076d e pesquisa ee8c581f
+preservada limpa, entrou a classe genérica `copy_grid` no caminho existente
+SemanticEngine/rexProfileEdit/revisão/publicação/persistência. Perfil em dado
+`m68k.copy_grid.v1`; nenhum crate, registry, path-dep ou core novo. Núcleo Rust
+valida os oito operandos, DBRA/sign-extension, mapa, aliases, alinhamento e
+spans; reconstrução de campos tipados não usa bytes de procedência. Canvas
+compacto entrada→cópia→saída, oito mappings e proposta de stride/span;
+somente largura byte/word é editável, sem compilação de topologia.
+
+No app SHA 51b338ced43399545e7df6388d270a632991050083d32659db8369e8c77acc02,
+GUI 004 **60/60**: declarar/recuperar/revisar/editar 1→2/salvar pelo menu/
+encerrar/reabrir/cópia+IPS/executar original e cópia. Diff único 0x410 na
+fixture autoral; IPS independente e base intacta. WRAM coincide entre o core
+do produto Genesis Plus GX e BlastEm; 72 bytes diferem exatamente como previsto.
+Fixture e região BYOR pinada passaram quatro execuções independentes cada,
+com sentinel e referência de toda WRAM relevante (stack reservada excluída).
+BYOR no backend real mudou somente 0x1B6F8; corpus/patch continuam privados.
+Regressões no mesmo binário: comparação curada **63/63**, anterior opaca
+**55/55** e 60 entradas. Host certify **READY**, frontend **1043/3 skips**,
+Rust **1036/93 ignored**, lint/tsc/Clippy, upstream SGDK/PVSnesLib verdes.
+Fmt/diff check passaram; falhas do roteiro preservadas sem mudar expectativas.
+Controle reverso 2→1 também passou **60/60** na GUI e voltou ao SHA autoral exato.
+
+**Pendência sonora preexistente do nodegraph-authoring permanece aberta.**
+Prova é de região em harness com estado inicial declarado; não há observação
+de chamada pelo jogo original, consumidor gráfico, vídeo/áudio ou vivacidade
+de flags/registradores. Não é decompilação universal nem compilador do grafo.
+Contrato, mapa requisito→implementação→teste→resultado→limite, métricas, hashes,
+controle reverso e reprodução: `docs/rex_profiles/integration_20261016/COPY-GRID-RESULTS.md`
+e `COPY-GRID-REPRODUCE.md`; evidência `data/rex_profiles/integration_20261016/evidence/copy-grid/`.
+Sem push, merge, release, promoção ou alteração de outra frente.
+
+### Checkpoint 2026-10-16 — comparação recuperada do laboratório na jornada canônica (Experimental)
+
+No destino `codex/rex-integrator-sonic-103104`, base `3aee1128`, foi incorporada
+somente a fixture autoral e o pacote de comparação da pesquisa `ee8c581f`.
+Backend real rederiva a região declarada `0x240..0x25E`, normaliza `>=` assinado,
+limiar 5 e nove mappings; a assinatura do pacote coincide sem exceção na revisão.
+No app SHA `f913ed903f64bbd8a86e2f269d9e872f8b596344eb48723fab1b415aa6c8f46b`,
+a jornada GUI passou **63/63**: recuperar → abrir nodes → editar limiar 5→6 →
+Salvar pelo menu → destruir janela → reabrir do disco → cópia/IPS → execução.
+A regressão da jornada anterior, com guarda e chamada opaca, passou **55/55**
+e 60 casos no mesmo binário. A correção de produto verifica request_id e hash
+do perfil na resposta da ponte; comparação assinada fica explícita. Sem node,
+classe, codec ou publicador novo, sem alteração de registry ou dependências.
+
+ROM autoral base SHA `8246bb88…f6f218`, 2593 bytes; cópia `65e48daa…4528`,
+IPS `bf9faf05…cc09`. Única diferença em `0x247`; original intacta; aplicador
+Python independente reproduz a cópia. Mesmo Genesis Plus GX v1.7.4 46a5521,
+SHA `07c10476…10b1`, com SHA dos bytes efetivamente carregados conferido.
+No domínio `INT32_MIN,-1,0,4,5,6,INT32_MAX`, ledger observado mudou
+`0,0,0,0,1,1,1`→`0,0,0,0,0,1,1`. Contador/estado finais observados:
+`0x7FFFFFFF`/`1`. Inputs por caso são declarados pelo caller autoral; não há
+captura de argumentos do jogo nem prova de chamada em ROM comercial. Flags,
+registradores, stack, vídeo/áudio e outros estados não foram comparados.
+
+`host:certify` **READY**, exit 0: tree/lint/tsc, frontend **1041/0/3 skips**,
+Clippy, Rust **1032/0/92 ignored**, Ghidra operacional e upstream SGDK/SNES.
+Fmt e diff check passaram. Gates não promovem recuperação universal nem
+usabilidade humana. **Pendência sonora preexistente do nodegraph-authoring
+permanece aberta**: falha e aprovação no mesmo binário não foram diagnosticadas
+nem apagadas por esta missão. O aviso herdado de #[test] duplicado também foi
+preservado. GUI 001 (61/61, save por API) e GUI 002 (falha do localizador do
+botão com atalho) ficam no histórico; GUI 003 usa o clique nativo corrigido.
+
+Mapa requisito→implementação→teste→resultado→limite e comandos/hashes completos:
+`docs/rex_profiles/integration_20261016/REQUIREMENTS.md`, `REPRODUCE.md` e
+`data/rex_profiles/integration_20261016/evidence/`. Próximo candidato de pesquisa:
+contrato de memória/proveniência de copy-grid como inspeção somente leitura,
+condicionado a tipos/portas/lowering/testes antes de habilitar execução ou edição;
+nenhuma outra classe foi integrada nesta rodada. Sem push/merge/release/promoção.
+
 ### Complemento 2026-10-02 — gate incremental de frames após Build & Run
 
 A proposta #99 continua aberta/draft, dependente de #98, sem merge. O harness

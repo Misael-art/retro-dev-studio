@@ -1,0 +1,149 @@
+{
+  "schema": "rea-lab-semantic-nodegraph-provenance/v1",
+  "status": "research-only; no product integration asserted",
+  "recovery_mode": "image-only; caller-declared region; no ELF or symbols read",
+  "rom_sha256": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218",
+  "profile_id": "m68k.counter_threshold_state_gate.v1",
+  "region": {
+    "start": "0x000240",
+    "end_exclusive": "0x00025E"
+  },
+  "semantic_operations": [
+    {
+      "node_id": "compare",
+      "kind": "signed_counter_compare",
+      "address": "0xFF0200",
+      "width_bits": 32,
+      "signed": true,
+      "operator": ">=",
+      "threshold": 5,
+      "source_mappings": [
+        {
+          "rom_start": "0x000240",
+          "rom_end": "0x000246",
+          "bytes": "263900FF0200",
+          "mnemonic": "MOVE.L $00FF0200.L,D3",
+          "insn": {
+            "op": "move.l abs,dn",
+            "abs": "0xFF0200",
+            "d": 3
+          }
+        },
+        {
+          "rom_start": "0x000246",
+          "rom_end": "0x000248",
+          "bytes": "7A05",
+          "mnemonic": "MOVEQ #5,D5",
+          "insn": {
+            "op": "moveq",
+            "imm": 5,
+            "d": 5
+          }
+        },
+        {
+          "rom_start": "0x000248",
+          "rom_end": "0x00024A",
+          "bytes": "BA83",
+          "mnemonic": "CMP.L D3,D5",
+          "insn": {
+            "op": "cmp.l dn,dn",
+            "src": 3,
+            "dst": 5
+          }
+        },
+        {
+          "rom_start": "0x00024A",
+          "rom_end": "0x00024C",
+          "bytes": "6F0A",
+          "mnemonic": "BLE.S $000256",
+          "insn": {
+            "op": "bcc",
+            "cond": "le",
+            "target": "0x000256",
+            "size": "s"
+          }
+        }
+      ]
+    },
+    {
+      "node_id": "set_write",
+      "kind": "state_write",
+      "address": "0xFF0204",
+      "width_bits": 32,
+      "value": 1,
+      "branch": "true",
+      "source_mappings": [
+        {
+          "rom_start": "0x000256",
+          "rom_end": "0x000258",
+          "bytes": "7C01",
+          "mnemonic": "MOVEQ #1,D6",
+          "insn": {
+            "op": "moveq",
+            "imm": 1,
+            "d": 6
+          }
+        },
+        {
+          "rom_start": "0x000258",
+          "rom_end": "0x00025E",
+          "bytes": "23C600FF0204",
+          "mnemonic": "MOVE.L D6,$00FF0204.L",
+          "insn": {
+            "op": "move.l dn,abs",
+            "d": 6,
+            "abs": "0xFF0204"
+          }
+        }
+      ]
+    },
+    {
+      "node_id": "other_write",
+      "kind": "state_write",
+      "address": "0xFF0204",
+      "width_bits": 32,
+      "value": 0,
+      "branch": "false",
+      "source_mappings": [
+        {
+          "rom_start": "0x00024C",
+          "rom_end": "0x00024E",
+          "bytes": "7C00",
+          "mnemonic": "MOVEQ #0,D6",
+          "insn": {
+            "op": "moveq",
+            "imm": 0,
+            "d": 6
+          }
+        },
+        {
+          "rom_start": "0x00024E",
+          "rom_end": "0x000254",
+          "bytes": "23C600FF0204",
+          "mnemonic": "MOVE.L D6,$00FF0204.L",
+          "insn": {
+            "op": "move.l dn,abs",
+            "d": 6,
+            "abs": "0xFF0204"
+          }
+        },
+        {
+          "rom_start": "0x000254",
+          "rom_end": "0x000256",
+          "bytes": "6008",
+          "mnemonic": "BRA.S $00025E",
+          "insn": {
+            "op": "bra",
+            "target": "0x00025E",
+            "size": "s"
+          }
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "The region and entry/exit were declared by the caller; this exporter does not discover routines.",
+    "Source mappings are preserved in this sidecar because NodeGraph v1 node params are scalar-only.",
+    "This output is compatible with the observed NodeGraph v1 data shape; GUI import, persistence, patching, and execution were not run here."
+  ]
+}

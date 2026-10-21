@@ -141,6 +141,18 @@ export const NODE_DEFS: Record<NodeType, Omit<GraphNode, "id" | "x" | "y">> = {
     ],
     params: { a: "player", b: "enemy" },
   },
+  authored_strike: {
+    type: "authored_strike", label: "Golpe autoral",
+    inputs: [{ id: "exec", label: ">", kind: "exec" }],
+    outputs: [{ id: "exec", label: ">", kind: "exec" }],
+    params: { attacker: "player", target: "dummy", damage: 12, health: 100 },
+  },
+  palette_swap: {
+    type: "palette_swap", label: "Trocar paleta ao sofrer golpe",
+    inputs: [{ id: "exec", label: ">", kind: "exec" }],
+    outputs: [{ id: "exec", label: ">", kind: "exec" }],
+    params: { strike: "", target: "", palette: "", frames: 12, scope: "instancia" },
+  },
   camera_follow: {
     type: "camera_follow", label: "Camera Follow",
     inputs: [{ id: "exec", label: ">", kind: "exec" }],
@@ -430,6 +442,12 @@ export const NODE_DEFS: Record<NodeType, Omit<GraphNode, "id" | "x" | "y">> = {
       signedness: "",
       source_mappings: "",
     },
+  },
+  rom_copy_grid: {
+    type: "rom_copy_grid", label: "Cópia de grade (Experimental)",
+    inputs: [{ id: "exec", label: ">", kind: "exec" }],
+    outputs: [{ id: "exec", label: "▶", kind: "exec" }],
+    params: { semantic_origin: "recovered_from_rom", source_mappings: "" },
   },
   rom_counter_compare: {
     type: "rom_counter_compare", label: "Limiar do contador",

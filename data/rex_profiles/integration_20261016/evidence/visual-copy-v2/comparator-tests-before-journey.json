@@ -1,0 +1,60 @@
+{
+  "schema": "rex-visual-comparator-tests/v2",
+  "inputs": "frozen independent expectations, no framebuffer captures",
+  "oracle_schema": "rex-visual-oracle/v2",
+  "checks": [
+    {
+      "name": "same_precomputed_image_passes_exactly",
+      "pass": true
+    },
+    {
+      "name": "old_conversion_is_rejected",
+      "pass": true
+    },
+    {
+      "name": "other_width_is_rejected",
+      "pass": true
+    },
+    {
+      "name": "red_one_level_mutation_rejected",
+      "pass": true
+    },
+    {
+      "name": "green_one_level_mutation_rejected",
+      "pass": true
+    },
+    {
+      "name": "blue_one_level_mutation_rejected",
+      "pass": true
+    },
+    {
+      "name": "alpha_one_level_mutation_rejected",
+      "pass": true
+    },
+    {
+      "name": "wrong_dimensions_rejected",
+      "pass": true
+    },
+    {
+      "name": "v2_cannot_widen_tolerance",
+      "pass": true
+    },
+    {
+      "name": "wrong_oracle_identity_rejected",
+      "pass": true
+    },
+    {
+      "name": "v1_original_contract_still_loads",
+      "pass": true
+    },
+    {
+      "name": "v1_default_accepts_delta_seven",
+      "pass": true
+    },
+    {
+      "name": "v1_default_rejects_delta_eight",
+      "pass": true
+    }
+  ],
+  "allPass": true
+}

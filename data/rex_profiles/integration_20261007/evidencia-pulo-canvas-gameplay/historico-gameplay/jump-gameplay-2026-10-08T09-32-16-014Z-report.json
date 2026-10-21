@@ -1,0 +1,1628 @@
+{
+  "schema": "rex-jump-gameplay-journey/v1",
+  "prefix": "jump-gameplay-2026-10-08T09-32-16-014Z",
+  "sonda": "RAM via emulator_read_memory (sonda tecnica); sprite: capturas do canvas conferidas visualmente (rotulado manual)",
+  "checks": [
+    {
+      "name": "sonic1.imp.copia_do_canvas_tem_o_sha_do_manifesto",
+      "pass": true,
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-08T09-31-31-077Z-copias/sonic1/imp/Sonic_the_Hedgehog__USA__Europe_.jump-1340c-58ec3d16.bin",
+      "esperado": "58ec3d1651e54b82fad2ccdccc1fde333931efaab26026e6053efcdb6c27c744"
+    },
+    {
+      "name": "sonic1.cut.copia_do_canvas_tem_o_sha_do_manifesto",
+      "pass": true,
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-08T09-31-31-077Z-copias/sonic1/cut/Sonic_the_Hedgehog__USA__Europe_.jump-1340c-9dcc643c.bin",
+      "esperado": "9dcc643c4fbf543e7a22598c9b38eacecaf6f1b3fa5a8ee9fdd3c2e8adc6f02c"
+    },
+    {
+      "name": "sonic1.both.copia_do_canvas_tem_o_sha_do_manifesto",
+      "pass": true,
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-08T09-31-31-077Z-copias/sonic1/both/Sonic_the_Hedgehog__USA__Europe_.jump-1340c-bec61f9f.bin",
+      "esperado": "bec61f9f15a55200ad8c28685200db01ad9a36d1c1014ccfee7a6db67a0c0190"
+    },
+    {
+      "name": "sonic1.G6_consumo_e_repeticoes",
+      "pass": true,
+      "inconclusivas": []
+    },
+    {
+      "name": "sonic1.G1_determinismo",
+      "pass": true,
+      "medidas": [
+        {
+          "id": "original2",
+          "segura": 0,
+          "toque": 0
+        },
+        {
+          "id": "noop",
+          "segura": 0,
+          "toque": 0
+        }
+      ]
+    },
+    {
+      "name": "sonic1.G2_imp",
+      "pass": false,
+      "segura": 17,
+      "toque": 0
+    },
+    {
+      "name": "sonic1.G3_cut",
+      "pass": false,
+      "toque": 47,
+      "segura": 19
+    },
+    {
+      "name": "sonic1.G4_both",
+      "pass": true,
+      "segura": 64,
+      "toque": 47
+    },
+    {
+      "name": "delta.a-imp.copia_do_canvas_tem_o_sha_do_manifesto",
+      "pass": true,
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-08T09-31-31-077Z-copias/delta/a-imp/Sonic_Delta_Reloaded__Brazil___Unl_.jump-16914-81a8867c.bin",
+      "esperado": "81a8867c6e14825f3d224d37811bec5d19c8bf4bf7dde079655104026367d059"
+    },
+    {
+      "name": "delta.a-cut.copia_do_canvas_tem_o_sha_do_manifesto",
+      "pass": true,
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-08T09-31-31-077Z-copias/delta/a-cut/Sonic_Delta_Reloaded__Brazil___Unl_.jump-16914-d5a451fa.bin",
+      "esperado": "d5a451fac0f17bc33b11acf6e18570bdfffb35d810ea3170ef47ad06066cdda9"
+    },
+    {
+      "name": "delta.a-both.copia_do_canvas_tem_o_sha_do_manifesto",
+      "pass": true,
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-08T09-31-31-077Z-copias/delta/a-both/Sonic_Delta_Reloaded__Brazil___Unl_.jump-16914-f3b0aa50.bin",
+      "esperado": "f3b0aa5088c0dbb50dd801b0d74799a4fd94ed8d4bb8b5e4bb98d45723722376"
+    },
+    {
+      "name": "delta.b-imp.copia_do_canvas_tem_o_sha_do_manifesto",
+      "pass": true,
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-08T09-31-31-077Z-copias/delta/b-imp/Sonic_Delta_Reloaded__Brazil___Unl_.jump-1732a-e6e0e1f5.bin",
+      "esperado": "e6e0e1f5ce4534e30caf6cb6562e18d0a5f33acacad0fc621092a843207b1ee8"
+    },
+    {
+      "name": "delta.c-imp.copia_do_canvas_tem_o_sha_do_manifesto",
+      "pass": true,
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-08T09-31-31-077Z-copias/delta/c-imp/Sonic_Delta_Reloaded__Brazil___Unl_.jump-1a170-fc3f103e.bin",
+      "esperado": "fc3f103e5fb235d605e1e845009b6dd0343152a2e4e9015ce0638f4bde1ad7a0"
+    },
+    {
+      "name": "delta.G6_consumo_e_repeticoes",
+      "pass": false,
+      "inconclusivas": [
+        "original",
+        "original2",
+        "noop",
+        "a-imp",
+        "a-cut",
+        "a-both",
+        "b-imp",
+        "c-imp"
+      ]
+    },
+    {
+      "name": "delta.G1_determinismo",
+      "pass": false,
+      "medidas": [
+        {
+          "id": "original2",
+          "segura": null,
+          "toque": null
+        },
+        {
+          "id": "noop",
+          "segura": null,
+          "toque": null
+        }
+      ]
+    },
+    {
+      "name": "delta.G2_imp",
+      "pass": false,
+      "segura": null,
+      "toque": null
+    },
+    {
+      "name": "delta.G3_cut",
+      "pass": false,
+      "toque": null,
+      "segura": null
+    },
+    {
+      "name": "delta.G4_both",
+      "pass": false,
+      "segura": null,
+      "toque": null
+    },
+    {
+      "name": "delta.G5_instancias_b_c_nao_mudam_o_personagem_observado",
+      "pass": false,
+      "medidas": [
+        {
+          "id": "b-imp",
+          "segura": null,
+          "toque": null
+        },
+        {
+          "id": "c-imp",
+          "segura": null,
+          "toque": null
+        }
+      ],
+      "nota": "sustenta que a instancia a corresponde ao Sonic controlado; nada se afirma sobre b e c"
+    }
+  ],
+  "jogos": {
+    "sonic1": {
+      "rom_base_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "variantes": {
+        "original": {
+          "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+          "instancia": null,
+          "toque": {
+            "validas": 3,
+            "apice": 34,
+            "vyMin": -1651,
+            "brutas": [
+              {
+                "jogo": "sonic1",
+                "variante": "original",
+                "modo": "toque",
+                "rep": 1,
+                "valida": true,
+                "y0": 944,
+                "minY": 910,
+                "apice": 34,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 94,
+                "quadros": 30,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 235
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "original",
+                "modo": "toque",
+                "rep": 2,
+                "valida": true,
+                "y0": 944,
+                "minY": 910,
+                "apice": 34,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 99,
+                "quadros": 40,
+                "acks": 3,
+                "consumido": true,
+                "ack_ms": 203
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "original",
+                "modo": "toque",
+                "rep": 3,
+                "valida": true,
+                "y0": 944,
+                "minY": 910,
+                "apice": 34,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 100,
+                "quadros": 30,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 167
+              }
+            ]
+          },
+          "segura": {
+            "validas": 3,
+            "apice": 75,
+            "vyMin": -1651,
+            "brutas": [
+              {
+                "jogo": "sonic1",
+                "variante": "original",
+                "modo": "segura",
+                "rep": 1,
+                "valida": true,
+                "y0": 944,
+                "minY": 869,
+                "apice": 75,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 161,
+                "quadros": 60,
+                "acks": 5,
+                "consumido": true,
+                "ack_ms": 727
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "original",
+                "modo": "segura",
+                "rep": 2,
+                "valida": true,
+                "y0": 944,
+                "minY": 869,
+                "apice": 75,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 169,
+                "quadros": 60,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 656
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "original",
+                "modo": "segura",
+                "rep": 3,
+                "valida": true,
+                "y0": 944,
+                "minY": 874,
+                "apice": 70,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 143,
+                "quadros": 50,
+                "acks": 3,
+                "consumido": true,
+                "ack_ms": 642
+              }
+            ]
+          }
+        },
+        "original2": {
+          "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+          "instancia": null,
+          "toque": {
+            "validas": 3,
+            "apice": 34,
+            "vyMin": -1651,
+            "brutas": [
+              {
+                "jogo": "sonic1",
+                "variante": "original2",
+                "modo": "toque",
+                "rep": 1,
+                "valida": true,
+                "y0": 944,
+                "minY": 910,
+                "apice": 34,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 112,
+                "quadros": 40,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 61
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "original2",
+                "modo": "toque",
+                "rep": 2,
+                "valida": true,
+                "y0": 944,
+                "minY": 910,
+                "apice": 34,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 124,
+                "quadros": 50,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 207
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "original2",
+                "modo": "toque",
+                "rep": 3,
+                "valida": true,
+                "y0": 944,
+                "minY": 910,
+                "apice": 34,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 107,
+                "quadros": 40,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 64,
+                "tentativa": 2,
+                "primeira": "consumo do input nao confirmado"
+              }
+            ]
+          },
+          "segura": {
+            "validas": 3,
+            "apice": 75,
+            "vyMin": -1651,
+            "brutas": [
+              {
+                "jogo": "sonic1",
+                "variante": "original2",
+                "modo": "segura",
+                "rep": 1,
+                "valida": true,
+                "y0": 944,
+                "minY": 869,
+                "apice": 75,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 155,
+                "quadros": 50,
+                "acks": 5,
+                "consumido": true,
+                "ack_ms": 641
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "original2",
+                "modo": "segura",
+                "rep": 2,
+                "valida": true,
+                "y0": 944,
+                "minY": 869,
+                "apice": 75,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 161,
+                "quadros": 60,
+                "acks": 5,
+                "consumido": true,
+                "ack_ms": 809
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "original2",
+                "modo": "segura",
+                "rep": 3,
+                "valida": true,
+                "y0": 944,
+                "minY": 864,
+                "apice": 80,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 161,
+                "quadros": 60,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 676
+              }
+            ]
+          }
+        },
+        "noop": {
+          "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+          "instancia": null,
+          "toque": {
+            "validas": 3,
+            "apice": 34,
+            "vyMin": -1651,
+            "brutas": [
+              {
+                "jogo": "sonic1",
+                "variante": "noop",
+                "modo": "toque",
+                "rep": 1,
+                "valida": true,
+                "y0": 944,
+                "minY": 910,
+                "apice": 34,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 117,
+                "quadros": 40,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 42,
+                "tentativa": 2,
+                "primeira": "consumo do input nao confirmado"
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "noop",
+                "modo": "toque",
+                "rep": 2,
+                "valida": true,
+                "y0": 944,
+                "minY": 910,
+                "apice": 34,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 124,
+                "quadros": 50,
+                "acks": 5,
+                "consumido": true,
+                "ack_ms": 221
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "noop",
+                "modo": "toque",
+                "rep": 3,
+                "valida": true,
+                "y0": 944,
+                "minY": 910,
+                "apice": 34,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 116,
+                "quadros": 50,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 187
+              }
+            ]
+          },
+          "segura": {
+            "validas": 3,
+            "apice": 75,
+            "vyMin": -1651,
+            "brutas": [
+              {
+                "jogo": "sonic1",
+                "variante": "noop",
+                "modo": "segura",
+                "rep": 1,
+                "valida": true,
+                "y0": 944,
+                "minY": 864,
+                "apice": 80,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 168,
+                "quadros": 60,
+                "acks": 3,
+                "consumido": true,
+                "ack_ms": 715
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "noop",
+                "modo": "segura",
+                "rep": 2,
+                "valida": true,
+                "y0": 944,
+                "minY": 880,
+                "apice": 64,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 129,
+                "quadros": 50,
+                "acks": 3,
+                "consumido": true,
+                "ack_ms": 762
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "noop",
+                "modo": "segura",
+                "rep": 3,
+                "valida": true,
+                "y0": 944,
+                "minY": 869,
+                "apice": 75,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 143,
+                "quadros": 60,
+                "acks": 5,
+                "consumido": true,
+                "ack_ms": 689
+              }
+            ]
+          }
+        },
+        "imp": {
+          "sha256": "58ec3d1651e54b82fad2ccdccc1fde333931efaab26026e6053efcdb6c27c744",
+          "instancia": "0x1340c",
+          "toque": {
+            "validas": 3,
+            "apice": 34,
+            "vyMin": -2286,
+            "brutas": [
+              {
+                "jogo": "sonic1",
+                "variante": "imp",
+                "modo": "toque",
+                "rep": 1,
+                "valida": true,
+                "y0": 944,
+                "minY": 901,
+                "apice": 43,
+                "vyMin": -2286,
+                "flagMax": 1,
+                "amostras": 97,
+                "quadros": 40,
+                "acks": 3,
+                "consumido": true,
+                "ack_ms": 97
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "imp",
+                "modo": "toque",
+                "rep": 2,
+                "valida": true,
+                "y0": 944,
+                "minY": 910,
+                "apice": 34,
+                "vyMin": -2286,
+                "flagMax": 1,
+                "amostras": 108,
+                "quadros": 40,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 30
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "imp",
+                "modo": "toque",
+                "rep": 3,
+                "valida": true,
+                "y0": 944,
+                "minY": 910,
+                "apice": 34,
+                "vyMin": -2286,
+                "flagMax": 1,
+                "amostras": 120,
+                "quadros": 40,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 59
+              }
+            ]
+          },
+          "segura": {
+            "validas": 3,
+            "apice": 92,
+            "vyMin": -2286,
+            "brutas": [
+              {
+                "jogo": "sonic1",
+                "variante": "imp",
+                "modo": "segura",
+                "rep": 1,
+                "valida": true,
+                "y0": 944,
+                "minY": 852,
+                "apice": 92,
+                "vyMin": -2286,
+                "flagMax": 1,
+                "amostras": 157,
+                "quadros": 60,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 760
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "imp",
+                "modo": "segura",
+                "rep": 2,
+                "valida": true,
+                "y0": 944,
+                "minY": 852,
+                "apice": 92,
+                "vyMin": -2286,
+                "flagMax": 1,
+                "amostras": 177,
+                "quadros": 60,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 700
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "imp",
+                "modo": "segura",
+                "rep": 3,
+                "valida": true,
+                "y0": 944,
+                "minY": 860,
+                "apice": 84,
+                "vyMin": -2286,
+                "flagMax": 1,
+                "amostras": 163,
+                "quadros": 60,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 672
+              }
+            ]
+          }
+        },
+        "cut": {
+          "sha256": "9dcc643c4fbf543e7a22598c9b38eacecaf6f1b3fa5a8ee9fdd3c2e8adc6f02c",
+          "instancia": "0x1340c",
+          "toque": {
+            "validas": 3,
+            "apice": 81,
+            "vyMin": -1651,
+            "brutas": [
+              {
+                "jogo": "sonic1",
+                "variante": "cut",
+                "modo": "toque",
+                "rep": 1,
+                "valida": true,
+                "y0": 944,
+                "minY": 863,
+                "apice": 81,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 104,
+                "quadros": 40,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 63,
+                "tentativa": 2,
+                "primeira": "consumo do input nao confirmado"
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "cut",
+                "modo": "toque",
+                "rep": 2,
+                "valida": true,
+                "y0": 944,
+                "minY": 863,
+                "apice": 81,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 102,
+                "quadros": 40,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 28
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "cut",
+                "modo": "toque",
+                "rep": 3,
+                "valida": true,
+                "y0": 944,
+                "minY": 857,
+                "apice": 87,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 125,
+                "quadros": 50,
+                "acks": 3,
+                "consumido": true,
+                "ack_ms": 95
+              }
+            ]
+          },
+          "segura": {
+            "validas": 3,
+            "apice": 94,
+            "vyMin": -1651,
+            "brutas": [
+              {
+                "jogo": "sonic1",
+                "variante": "cut",
+                "modo": "segura",
+                "rep": 1,
+                "valida": true,
+                "y0": 944,
+                "minY": 850,
+                "apice": 94,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 161,
+                "quadros": 60,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 620
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "cut",
+                "modo": "segura",
+                "rep": 2,
+                "valida": true,
+                "y0": 944,
+                "minY": 850,
+                "apice": 94,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 139,
+                "quadros": 50,
+                "acks": 3,
+                "consumido": true,
+                "ack_ms": 706
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "cut",
+                "modo": "segura",
+                "rep": 3,
+                "valida": true,
+                "y0": 944,
+                "minY": 850,
+                "apice": 94,
+                "vyMin": -1651,
+                "flagMax": 1,
+                "amostras": 153,
+                "quadros": 50,
+                "acks": 5,
+                "consumido": true,
+                "ack_ms": 689
+              }
+            ]
+          }
+        },
+        "both": {
+          "sha256": "bec61f9f15a55200ad8c28685200db01ad9a36d1c1014ccfee7a6db67a0c0190",
+          "instancia": "0x1340c",
+          "toque": {
+            "validas": 3,
+            "apice": 81,
+            "vyMin": -2286,
+            "brutas": [
+              {
+                "jogo": "sonic1",
+                "variante": "both",
+                "modo": "toque",
+                "rep": 1,
+                "valida": true,
+                "y0": 944,
+                "minY": 863,
+                "apice": 81,
+                "vyMin": -2286,
+                "flagMax": 1,
+                "amostras": 104,
+                "quadros": 40,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 180
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "both",
+                "modo": "toque",
+                "rep": 2,
+                "valida": true,
+                "y0": 944,
+                "minY": 863,
+                "apice": 81,
+                "vyMin": -2286,
+                "flagMax": 1,
+                "amostras": 109,
+                "quadros": 40,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 113,
+                "tentativa": 2,
+                "primeira": "consumo do input nao confirmado"
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "both",
+                "modo": "toque",
+                "rep": 3,
+                "valida": true,
+                "y0": 944,
+                "minY": 864,
+                "apice": 80,
+                "vyMin": -2286,
+                "flagMax": 1,
+                "amostras": 94,
+                "quadros": 40,
+                "acks": 5,
+                "consumido": true,
+                "ack_ms": 30
+              }
+            ]
+          },
+          "segura": {
+            "validas": 3,
+            "apice": 139,
+            "vyMin": -2286,
+            "brutas": [
+              {
+                "jogo": "sonic1",
+                "variante": "both",
+                "modo": "segura",
+                "rep": 1,
+                "valida": true,
+                "y0": 944,
+                "minY": 805,
+                "apice": 139,
+                "vyMin": -2286,
+                "flagMax": 1,
+                "amostras": 136,
+                "quadros": 50,
+                "acks": 4,
+                "consumido": true,
+                "ack_ms": 621
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "both",
+                "modo": "segura",
+                "rep": 2,
+                "valida": true,
+                "y0": 944,
+                "minY": 805,
+                "apice": 139,
+                "vyMin": -2286,
+                "flagMax": 1,
+                "amostras": 140,
+                "quadros": 50,
+                "acks": 5,
+                "consumido": true,
+                "ack_ms": 857
+              },
+              {
+                "jogo": "sonic1",
+                "variante": "both",
+                "modo": "segura",
+                "rep": 3,
+                "valida": true,
+                "y0": 944,
+                "minY": 798,
+                "apice": 146,
+                "vyMin": -2286,
+                "flagMax": 1,
+                "amostras": 142,
+                "quadros": 50,
+                "acks": 3,
+                "consumido": true,
+                "ack_ms": 638
+              }
+            ]
+          }
+        }
+      }
+    },
+    "delta": {
+      "rom_base_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+      "variantes": {
+        "original": {
+          "sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+          "instancia": null,
+          "toque": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "original",
+                "modo": "toque",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "original",
+                "modo": "toque",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "original",
+                "modo": "toque",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          },
+          "segura": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "original",
+                "modo": "segura",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "original",
+                "modo": "segura",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "original",
+                "modo": "segura",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          }
+        },
+        "original2": {
+          "sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+          "instancia": null,
+          "toque": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "original2",
+                "modo": "toque",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "original2",
+                "modo": "toque",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "original2",
+                "modo": "toque",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          },
+          "segura": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "original2",
+                "modo": "segura",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "original2",
+                "modo": "segura",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "original2",
+                "modo": "segura",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          }
+        },
+        "noop": {
+          "sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+          "instancia": null,
+          "toque": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "noop",
+                "modo": "toque",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "noop",
+                "modo": "toque",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "noop",
+                "modo": "toque",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          },
+          "segura": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "noop",
+                "modo": "segura",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "noop",
+                "modo": "segura",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "noop",
+                "modo": "segura",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          }
+        },
+        "a-imp": {
+          "sha256": "81a8867c6e14825f3d224d37811bec5d19c8bf4bf7dde079655104026367d059",
+          "instancia": "0x16914",
+          "toque": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "a-imp",
+                "modo": "toque",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "a-imp",
+                "modo": "toque",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "a-imp",
+                "modo": "toque",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          },
+          "segura": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "a-imp",
+                "modo": "segura",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "a-imp",
+                "modo": "segura",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "a-imp",
+                "modo": "segura",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          }
+        },
+        "a-cut": {
+          "sha256": "d5a451fac0f17bc33b11acf6e18570bdfffb35d810ea3170ef47ad06066cdda9",
+          "instancia": "0x16914",
+          "toque": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "a-cut",
+                "modo": "toque",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "a-cut",
+                "modo": "toque",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "a-cut",
+                "modo": "toque",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          },
+          "segura": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "a-cut",
+                "modo": "segura",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "a-cut",
+                "modo": "segura",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "a-cut",
+                "modo": "segura",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          }
+        },
+        "a-both": {
+          "sha256": "f3b0aa5088c0dbb50dd801b0d74799a4fd94ed8d4bb8b5e4bb98d45723722376",
+          "instancia": "0x16914",
+          "toque": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "a-both",
+                "modo": "toque",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "a-both",
+                "modo": "toque",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "a-both",
+                "modo": "toque",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          },
+          "segura": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "a-both",
+                "modo": "segura",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "a-both",
+                "modo": "segura",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "a-both",
+                "modo": "segura",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          }
+        },
+        "b-imp": {
+          "sha256": "e6e0e1f5ce4534e30caf6cb6562e18d0a5f33acacad0fc621092a843207b1ee8",
+          "instancia": "0x1732a",
+          "toque": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "b-imp",
+                "modo": "toque",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "b-imp",
+                "modo": "toque",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "b-imp",
+                "modo": "toque",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          },
+          "segura": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "b-imp",
+                "modo": "segura",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "b-imp",
+                "modo": "segura",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "b-imp",
+                "modo": "segura",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          }
+        },
+        "c-imp": {
+          "sha256": "fc3f103e5fb235d605e1e845009b6dd0343152a2e4e9015ce0638f4bde1ad7a0",
+          "instancia": "0x1a170",
+          "toque": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "c-imp",
+                "modo": "toque",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "c-imp",
+                "modo": "toque",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "c-imp",
+                "modo": "toque",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          },
+          "segura": {
+            "validas": 0,
+            "apice": null,
+            "vyMin": null,
+            "brutas": [
+              {
+                "jogo": "delta",
+                "variante": "c-imp",
+                "modo": "segura",
+                "rep": 1,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "c-imp",
+                "modo": "segura",
+                "rep": 2,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              },
+              {
+                "jogo": "delta",
+                "variante": "c-imp",
+                "modo": "segura",
+                "rep": 3,
+                "valida": false,
+                "motivo": "carga da ROM recusada: false",
+                "tentativa": 2,
+                "primeira": "carga da ROM recusada: false"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "veredito": {
+    "sonic1": {
+      "G6_consumo_e_repeticoes": {
+        "pass": true,
+        "inconclusivas": []
+      },
+      "G1_determinismo": {
+        "pass": true,
+        "medidas": [
+          {
+            "id": "original2",
+            "segura": 0,
+            "toque": 0
+          },
+          {
+            "id": "noop",
+            "segura": 0,
+            "toque": 0
+          }
+        ]
+      },
+      "G2_imp": {
+        "pass": false,
+        "segura": 17,
+        "toque": 0
+      },
+      "G3_cut": {
+        "pass": false,
+        "toque": 47,
+        "segura": 19
+      },
+      "G4_both": {
+        "pass": true,
+        "segura": 64,
+        "toque": 47
+      }
+    },
+    "delta": {
+      "G6_consumo_e_repeticoes": {
+        "pass": false,
+        "inconclusivas": [
+          "original",
+          "original2",
+          "noop",
+          "a-imp",
+          "a-cut",
+          "a-both",
+          "b-imp",
+          "c-imp"
+        ]
+      },
+      "G1_determinismo": {
+        "pass": false,
+        "medidas": [
+          {
+            "id": "original2",
+            "segura": null,
+            "toque": null
+          },
+          {
+            "id": "noop",
+            "segura": null,
+            "toque": null
+          }
+        ]
+      },
+      "G2_imp": {
+        "pass": false,
+        "segura": null,
+        "toque": null
+      },
+      "G3_cut": {
+        "pass": false,
+        "toque": null,
+        "segura": null
+      },
+      "G4_both": {
+        "pass": false,
+        "segura": null,
+        "toque": null
+      },
+      "G5_instancias_b_c_nao_mudam_o_personagem_observado": {
+        "pass": false,
+        "medidas": [
+          {
+            "id": "b-imp",
+            "segura": null,
+            "toque": null
+          },
+          {
+            "id": "c-imp",
+            "segura": null,
+            "toque": null
+          }
+        ],
+        "nota": "sustenta que a instancia a corresponde ao Sonic controlado; nada se afirma sobre b e c"
+      }
+    }
+  },
+  "allPass": false,
+  "ausentes": [],
+  "manifesto": {
+    "caminho": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-08T09-31-31-077Z-copias/manifesto-copias.json",
+    "sha256": "5917c6e20af480f37e8c599929a1596a7aeeff7edfa1429cd2d9dc4d22778545"
+  }
+}

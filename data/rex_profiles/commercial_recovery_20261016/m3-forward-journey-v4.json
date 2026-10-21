@@ -1,0 +1,62 @@
+{
+  "schema": "rex-semantic-journey/v1",
+  "rom": "/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin",
+  "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "profile_id": "m68k.copy_grid.v1",
+  "declared_region": {
+    "entry": 112360,
+    "exits": [
+      112390
+    ]
+  },
+  "expect_scan_candidate": false,
+  "expect_opaque": 0,
+  "expect_nodes": [
+    "entry",
+    "copy_grid",
+    "exit"
+  ],
+  "absent_nodes": [
+    "compare",
+    "guard",
+    "set_call"
+  ],
+  "expect_curated_other_target": false,
+  "edit": {
+    "bytes_per_cell": 2
+  },
+  "core": {
+    "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+    "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+    "selection": "existing application managed default Genesis Plus GX; no BlastEm substitution"
+  },
+  "probe": {
+    "layout": "copy_grid_wram",
+    "initial_state": "Original GX serialized at1110 neutral/Start frames then explicit FFF600=10 before affected routine; replay179 control sample then reset same pre-copy state and replay180; frames_run359 total.",
+    "reference": {
+      "source": 16728064,
+      "destination": 16715808,
+      "rows": 64,
+      "columns": 64,
+      "gap": 64,
+      "width": 1
+    }
+  },
+  "allowed_diff_offsets": [
+    112376
+  ],
+  "commercial_prepared": {
+    "output": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-ui-forward-004",
+    "replay": "/home/misael/rds-scratch/commercial_recovery_20261016/prepared-replay-v2-001/original.rds-replay",
+    "original179_rgb565": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-original-model-inputs-001/frame-179.rgb565",
+    "expectation_spec": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-conditional-reference-inputs/commercial-expectation-spec.json",
+    "constructor": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/construct-m3-expected.py",
+    "core": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+    "destination_references": {
+      "1": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-conditional-reference-inputs/expected-destination-width1.bin",
+      "2": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-conditional-reference-inputs/expected-destination-width2.bin"
+    },
+    "predicted_copy_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+    "resource_offset": 414770
+  }
+}

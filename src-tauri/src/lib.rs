@@ -130,6 +130,8 @@ pub struct GenerateResult {
 /// emitido numa época anterior é RECUSADO pelo backend (não é aplicado ao
 /// core novo) — fecha a corrida de um input em voo atravessar uma recarga.
 static CORE_EPOCH: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+// Presentation order is independent of the emulated frame index, which can rewind.
+static FRAME_EVENT_SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
 /// Test-only: canais de sincronização para o gate de época em
 /// `send_input_if_current`. O sender sinaliza "atingiu o gate" via TX e
@@ -151,7 +153,7 @@ impl EmulatorCoreState {
         &self,
         session_epoch: Option<u64>,
         joypad: JoypadState,
-    ) -> EmulatorCommandResult {
+    ) -> EmulatorInputResult {
         // Test-only gate: quando ativado, sinaliza "atingiu o ponto pré-lock"
         // via canal e aguarda a liberação pelo teste em outro canal — sem
         // depender de sleep nem de timing. Os canais são instalados pelo
@@ -167,39 +169,68 @@ impl EmulatorCoreState {
             }
         }
 
+        let refused = |message: String| EmulatorInputResult {
+            ok: false,
+            message,
+            epoch: CORE_EPOCH.load(std::sync::atomic::Ordering::SeqCst),
+            generation: None,
+            applied_at_frame: None,
+        };
         let core = match self.0.lock() {
             Ok(c) => c,
-            Err(e) => {
-                return EmulatorCommandResult {
-                    ok: false,
-                    message: e.to_string(),
-                }
-            }
+            Err(e) => return refused(e.to_string()),
         };
 
+        let current = CORE_EPOCH.load(std::sync::atomic::Ordering::SeqCst);
         if let Some(epoch) = session_epoch {
-            let current = CORE_EPOCH.load(std::sync::atomic::Ordering::SeqCst);
             if epoch != current {
-                return EmulatorCommandResult {
-                    ok: false,
-                    message: format!(
-                        "sessão de input obsoleta: emitida na época {epoch}, corrente é {current}"
-                    ),
-                };
+                return refused(format!(
+                    "sessão de input obsoleta: emitida na época {epoch}, corrente é {current}"
+                ));
             }
         }
 
-        match core.set_joypad(joypad) {
-            Ok(()) => EmulatorCommandResult {
+        // ACEITA pelo backend: aplicada ao estado de joypad. Isto NÃO diz que o core a leu — o core só
+        // lê o joypad ao rodar um quadro; a leitura aparece em `emulator_input_observation`.
+        match core.apply_joypad(joypad) {
+            Ok((generation, applied_at_frame)) => EmulatorInputResult {
                 ok: true,
                 message: String::new(),
+                epoch: current,
+                generation: Some(generation),
+                applied_at_frame: Some(applied_at_frame),
             },
-            Err(e) => EmulatorCommandResult {
-                ok: false,
-                message: e,
-            },
+            Err(e) => refused(e),
         }
     }
+
+    /// Observação limitada do caminho backend → core na carga corrente.
+    fn input_observation(&self) -> Result<EmulatorInputObservation, String> {
+        let core = self.0.lock().map_err(|e| e.to_string())?;
+        Ok(EmulatorInputObservation {
+            epoch: CORE_EPOCH.load(std::sync::atomic::Ordering::SeqCst),
+            observation: core.input_observation(),
+        })
+    }
+}
+
+/// Resposta de `emulator_send_input`: aceitação (ou recusa) pelo backend, com a época, a geração e o
+/// quadro em que a transição foi aplicada. Aceitação não é consumo pelo core.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct EmulatorInputResult {
+    pub ok: bool,
+    pub message: String,
+    pub epoch: u64,
+    pub generation: Option<u64>,
+    pub applied_at_frame: Option<u64>,
+}
+
+/// O que o core fez com as transições aplicadas na carga corrente (época).
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct EmulatorInputObservation {
+    pub epoch: u64,
+    #[serde(flatten)]
+    pub observation: crate::emulator::libretro_ffi::InputObservation,
 }
 
 #[derive(serde::Serialize)]
@@ -471,6 +502,7 @@ fn interrupted_build_result() -> BuildResult {
         // proveniencia observavel: os dois campos ficam None de proposito.
         source_map_path: None,
         build_source_map: None,
+        runtime_link: None,
     }
 }
 
@@ -992,7 +1024,13 @@ fn emit_emulator_frame_events<S: EmulatorEventSink>(
 ) -> Result<(), String> {
     let (fb, size, pixel_format) = core.get_framebuffer()?;
 
-    let payload = framebuffer_to_rgba(&fb, size, pixel_format);
+    let mut payload = framebuffer_to_rgba(&fb, size, pixel_format);
+    // Callers hold the emulator mutex: identity and pixels belong to the same load.
+    payload.core_epoch = Some(CORE_EPOCH.load(std::sync::atomic::Ordering::SeqCst));
+    payload.rom_sha256 = core.loaded_rom_identity().map(|(sha, _)| sha);
+    payload.frame_sequence =
+        Some(FRAME_EVENT_SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1);
+    payload.frame_index = Some(core.frame_index());
     sink.emit_frame(&payload)?;
 
     let (sample_rate, samples) = core.take_audio_samples()?;
@@ -2039,6 +2077,31 @@ fn emulator_read_memory(
     })
 }
 
+/// Ajuste temporario de teste (Experimental, REQ-20): escreve na WRAM da sessao atual. Recusa se a
+/// epoca informada nao for a do core (outra carga) — um ajuste nunca atravessa recargas.
+#[tauri::command]
+fn emulator_write_test_memory(
+    offset: usize,
+    data: Vec<u8>,
+    session_epoch: u64,
+    emu: State<EmulatorCoreState>,
+) -> Result<EmulatorMemoryResult, String> {
+    if session_epoch != CORE_EPOCH.load(std::sync::atomic::Ordering::SeqCst) {
+        return Err("Ajuste recusado: a sessao do emulador mudou (epoca diferente).".to_string());
+    }
+    if data.len() > 64 {
+        return Err("Ajuste recusado: no maximo 64 bytes por escrita.".to_string());
+    }
+    let mut core = emu.0.lock().map_err(|e| e.to_string())?;
+    core.write_system_ram(offset, &data)?;
+    let (read_back, total_size) = core.read_memory(2, offset, data.len())?;
+    Ok(EmulatorMemoryResult {
+        ok: read_back == data,
+        data: read_back,
+        total_size,
+    })
+}
+
 #[tauri::command]
 fn emulator_get_execution_trace(
     emu: State<EmulatorCoreState>,
@@ -2053,15 +2116,24 @@ fn emulator_send_input(
     joypad: JoypadState,
     session_epoch: Option<u64>,
     emu: State<EmulatorCoreState>,
-) -> EmulatorCommandResult {
+) -> EmulatorInputResult {
     emulator_send_input_command(&emu, joypad, session_epoch)
+}
+
+/// Transições de joypad aplicadas na carga corrente e o que o core fez com cada uma (lida em que quadro,
+/// ou nunca lida). Só leitura.
+#[tauri::command]
+fn emulator_input_observation(
+    emu: State<EmulatorCoreState>,
+) -> Result<EmulatorInputObservation, String> {
+    emu.input_observation()
 }
 
 fn emulator_send_input_command(
     emu: &EmulatorCoreState,
     joypad: JoypadState,
     session_epoch: Option<u64>,
-) -> EmulatorCommandResult {
+) -> EmulatorInputResult {
     // A conferência de época e a aplicação acontecem DENTRO da mesma seção
     // crítica do mutex do core (a mesma usada pela recarga, que incrementa a
     // época). Validar antes do lock permitia: input antigo valida → recarga
@@ -2638,29 +2710,6 @@ fn rex_inspection_edit_sonic_tiles(
 }
 
 #[tauri::command]
-fn rex_inspection_sor_font_info(
-    session_id: String,
-) -> Result<
-    tools::reverse::decomp::inspection::SorFontInfo,
-    tools::reverse::decomp::inspection::InspectionError,
-> {
-    tools::reverse::decomp::inspection::sor_font_info(&session_id)
-        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
-}
-
-#[tauri::command]
-fn rex_inspection_edit_sor_font(
-    session_id: String,
-    pixels: Vec<tools::reverse::decomp::inspection::SorPixelEdit>,
-) -> Result<
-    tools::reverse::decomp::inspection::InspectionEdit,
-    tools::reverse::decomp::inspection::InspectionError,
-> {
-    tools::reverse::decomp::inspection::edit_sor_font(&session_id, &pixels)
-        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
-}
-
-#[tauri::command]
 fn rex_inspection_sonic_cadence(
     session_id: String,
 ) -> Result<
@@ -3053,21 +3102,18 @@ async fn rex_kosinski_encode(
 }
 
 #[tauri::command]
-async fn rex_gameplay_scan(
-    request: tools::reverse::decomp::rex_gameplay::GameplayScanRequest,
+async fn rex_profile_catalog(
+    request: tools::reverse::decomp::rex_profile_ipc::ProfileCatalogRequest,
 ) -> Result<
-    tools::reverse::decomp::rex_gameplay::GameplayScanResponse,
+    tools::reverse::decomp::rex_profile_ipc::ProfileCatalogResponse,
     tools::reverse::decomp::inspection::InspectionError,
 > {
-    // Varredura da forma coa guarda, servida por `crates/rex-gameplay`. Devolve
-    // CANDIDATOS e a marca de ambiguidade: nunca escolhe unha rotina por conta
-    // propia. identidade (SHA-256 da ROM lida) vai na resposta.
     run_heavy_command_off_main_thread(
-        move || tools::reverse::decomp::rex_gameplay::ipc_scan(&request),
+        move || tools::reverse::decomp::rex_profile_ipc::ipc_catalog(&request),
         || {
             Err(tools::reverse::decomp::inspection::InspectionError {
                 code: "command_interrupted".to_string(),
-                message: interrupted_command_message("rex_gameplay_scan"),
+                message: interrupted_command_message("rex_profile_catalog"),
                 retryable: true,
             })
         },
@@ -3076,21 +3122,18 @@ async fn rex_gameplay_scan(
 }
 
 #[tauri::command]
-async fn rex_gameplay_recover(
-    request: tools::reverse::decomp::rex_gameplay::GameplayRecoverRequest,
+async fn rex_profile_locate(
+    request: tools::reverse::decomp::rex_profile_ipc::ProfileLocateRequest,
 ) -> Result<
-    tools::reverse::decomp::rex_gameplay::GameplayRecoverResponse,
+    tools::reverse::decomp::rex_profile_ipc::ProfileLocateResponse,
     tools::reverse::decomp::inspection::InspectionError,
 > {
-    // Recuperacion delimitada: entrada e saidas declaradas por quen chama. O
-    // grafo resultante leva a identidade da ROM, a faixa do unico parametro
-    // editable e as limitacions do perfil. Non escribe en ningunha ROM.
     run_heavy_command_off_main_thread(
-        move || tools::reverse::decomp::rex_gameplay::ipc_recover(&request),
+        move || tools::reverse::decomp::rex_profile_ipc::ipc_locate(&request),
         || {
             Err(tools::reverse::decomp::inspection::InspectionError {
                 code: "command_interrupted".to_string(),
-                message: interrupted_command_message("rex_gameplay_recover"),
+                message: interrupted_command_message("rex_profile_locate"),
                 retryable: true,
             })
         },
@@ -3099,44 +3142,19 @@ async fn rex_gameplay_recover(
 }
 
 #[tauri::command]
-async fn rex_gameplay_edit_threshold(
-    request: tools::reverse::decomp::rex_gameplay::GameplayEditRequest,
+async fn rex_profile_edit(
+    request: tools::reverse::decomp::rex_profile_ipc::ProfileEditRequest,
 ) -> Result<
-    tools::reverse::decomp::rex_gameplay::GameplayEditResponse,
+    tools::reverse::decomp::rex_profile_ipc::ProfileEditResponse,
     tools::reverse::decomp::inspection::InspectionError,
 > {
-    // Unica edicion exposta: o limiar, dentro da faixa do MOVEQ original. Fora
-    // dela recusase co motivo (range_refused). O grafo devolto revalidase ao
-    // reconstruir; nada se acepta por confianza.
+    // Grava uma COPIA nova e um IPS em output_dir (nunca sobrescreve, nunca toca a ROM de entrada).
     run_heavy_command_off_main_thread(
-        move || tools::reverse::decomp::rex_gameplay::ipc_edit(&request),
+        move || tools::reverse::decomp::rex_profile_ipc::ipc_edit(&request),
         || {
             Err(tools::reverse::decomp::inspection::InspectionError {
                 code: "command_interrupted".to_string(),
-                message: interrupted_command_message("rex_gameplay_edit_threshold"),
-                retryable: true,
-            })
-        },
-    )
-    .await
-}
-
-#[tauri::command]
-async fn rex_gameplay_rebuild(
-    request: tools::reverse::decomp::rex_gameplay::GameplayRebuildRequest,
-) -> Result<
-    tools::reverse::decomp::rex_gameplay::GameplayRebuildResponse,
-    tools::reverse::decomp::inspection::InspectionError,
-> {
-    // Xera unha copia nova nun camiño distinto; a base nunca se toca. Revalida
-    // a identidade (SHA esperado vs. base vs. grafo) antes de escribir e
-    // recusa resultados de sesions anteriores (identity_mismatch).
-    run_heavy_command_off_main_thread(
-        move || tools::reverse::decomp::rex_gameplay::ipc_rebuild(&request),
-        || {
-            Err(tools::reverse::decomp::inspection::InspectionError {
-                code: "command_interrupted".to_string(),
-                message: interrupted_command_message("rex_gameplay_rebuild"),
+                message: interrupted_command_message("rex_profile_edit"),
                 retryable: true,
             })
         },
@@ -5295,6 +5313,125 @@ async fn pick_folder_off_main_thread(app: &AppHandle) -> Option<tauri_plugin_dia
         .flatten()
 }
 
+fn project_root_checked(project_dir: &str) -> Result<PathBuf, String> {
+    let root = PathBuf::from(project_dir.trim());
+    if !root.join("project.rds").is_file() {
+        return Err("Projeto invalido: project.rds ausente.".to_string());
+    }
+    Ok(root)
+}
+
+/// Referencias `assets/...` de cenas, prefabs e grafos (Experimental).
+#[tauri::command]
+fn project_audit_paths(
+    project_dir: String,
+) -> Result<Vec<core::project_refs::PathReference>, String> {
+    core::project_refs::audit_path_references(&project_root_checked(&project_dir)?)
+}
+
+/// Renomeia/move um asset atualizando as referencias, com copia de seguranca (Experimental).
+#[tauri::command]
+fn project_rename_asset(
+    project_dir: String,
+    from: String,
+    to: String,
+) -> Result<core::project_refs::RenameReport, String> {
+    core::project_refs::rename_project_asset(&project_root_checked(&project_dir)?, &from, &to)
+}
+
+/// Aplica a excecao local de uma instancia ao modelo (prefab), com copia de seguranca (Experimental).
+#[tauri::command]
+fn project_apply_override_to_model(
+    project_dir: String,
+    scene_path: String,
+    entity_id: String,
+    component: String,
+) -> Result<core::project_refs::ApplyToModelReport, String> {
+    core::project_refs::apply_override_to_model(
+        &project_root_checked(&project_dir)?,
+        &scene_path,
+        &entity_id,
+        &component,
+    )
+}
+
+/// Restaura os bytes guardados por uma copia de seguranca (Experimental).
+#[tauri::command]
+fn project_restore_backup(
+    project_dir: String,
+    backup_id: String,
+) -> Result<core::project_refs::ProjectBackup, String> {
+    core::project_refs::restore_backup(&project_root_checked(&project_dir)?, &backup_id)
+}
+
+/// Escolher uma imagem de cenario (Experimental; Hierarquia → "Adicionar cenario").
+#[tauri::command]
+async fn pick_image_file_dialog(app: AppHandle) -> Option<String> {
+    let dialog = app.dialog().file().add_filter("Imagem", &["png", "bmp"]);
+    tauri::async_runtime::spawn_blocking(move || dialog.blocking_pick_file())
+        .await
+        .ok()
+        .flatten()
+        .map(|path| path.to_string())
+}
+
+/// Traz uma imagem escolhida pelo usuario para `assets/tilesets/` (bytes inalterados).
+#[tauri::command]
+fn import_project_image(
+    project_dir: String,
+    source_path: String,
+) -> Result<crate::core::image_import::ImportedImage, String> {
+    crate::core::image_import::import_project_image(
+        &project_root_checked(&project_dir)?,
+        Path::new(source_path.trim()),
+    )
+}
+
+/// Plano de paletas da cena em edicao (mesmo planejador do build).
+#[tauri::command]
+fn scene_palette_plan(
+    project_dir: String,
+    scene: crate::ugdm::entities::Scene,
+) -> Result<crate::compiler::palette_plan::PalettePlan, String> {
+    let root = project_root_checked(&project_dir)?;
+    let project = crate::core::project_mgr::load_project(&root).map_err(|e| e.to_string())?;
+    if project.target != "megadrive" {
+        return Err(format!(
+            "Plano de paletas: sem adaptador para '{}' nesta versao (so Mega Drive).",
+            project.target
+        ));
+    }
+    let resolved =
+        crate::core::project_mgr::resolve_prefabs(&root, &scene).map_err(|e| e.to_string())?;
+    let ast = crate::compiler::ast_generator::generate_ast(&project, &resolved);
+    Ok(crate::compiler::palette_plan::plan_megadrive(
+        &root, &resolved, &ast,
+    ))
+}
+
+/// Escolher um WAV no disco (Experimental; Personagem → "Adicionar som").
+#[tauri::command]
+async fn pick_audio_file_dialog(app: AppHandle) -> Option<String> {
+    let dialog = app.dialog().file().add_filter("Som WAV", &["wav"]);
+    tauri::async_runtime::spawn_blocking(move || dialog.blocking_pick_file())
+        .await
+        .ok()
+        .flatten()
+        .map(|path| path.to_string())
+}
+
+/// Traz um WAV escolhido pelo usuario para `assets/audio/` do projeto (validado).
+#[tauri::command]
+fn import_project_audio(
+    project_dir: String,
+    source_path: String,
+) -> Result<crate::core::audio_pipeline::ImportedAudio, String> {
+    crate::core::audio_pipeline::import_project_audio(
+        Path::new(project_dir.trim()),
+        Path::new(source_path.trim()),
+    )
+}
+
 /// Abre o diálogo nativo "Selecionar pasta do projeto" e retorna o caminho.
 /// Usa discovery por subdiretorio: se project.rds nao existir na raiz,
 /// busca em rds/ e demais subdiretorios de primeiro nivel.
@@ -5640,6 +5777,75 @@ fn inspect_rom_mastering(rom_path: String) -> Result<RomMasteringReport, String>
     inspect_rom_mastering_impl(Path::new(trimmed))
 }
 
+#[derive(Debug, serde::Serialize)]
+struct GameExportResult {
+    path: String,
+    sha256: String,
+    report: RomMasteringReport,
+}
+
+/// Entrega (Experimental): copia a ROM do build para `<projeto>/export/` so se o arquivo ainda for
+/// exatamente o build revisado (`expected_sha256`) e o mastering nao tiver bloqueios. Nao gera
+/// outro build nem outro exportador.
+#[tauri::command]
+fn export_game_rom(
+    project_dir: String,
+    rom_path: String,
+    expected_sha256: String,
+) -> Result<GameExportResult, String> {
+    let project = Path::new(project_dir.trim());
+    if !project.join("project.rds").is_file() {
+        return Err("Projeto invalido: project.rds ausente.".to_string());
+    }
+    let report = inspect_rom_mastering_impl(Path::new(rom_path.trim()))?;
+    if report.sha256 != expected_sha256.trim() {
+        return Err(format!(
+            "A ROM mudou desde a revisao (esperado {}, encontrado {}). Rode o build e revise de novo.",
+            expected_sha256.trim(),
+            report.sha256
+        ));
+    }
+    if !report.blockers.is_empty() {
+        return Err(format!(
+            "ROM com {} bloqueio(s) de mastering: {}",
+            report.blockers.len(),
+            report.blockers[0].user_message
+        ));
+    }
+    let export_dir = project.join("export");
+    std::fs::create_dir_all(&export_dir).map_err(|e| e.to_string())?;
+    let name = project
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("jogo")
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    let target = export_dir.join(format!(
+        "{name}-{}.{}",
+        &report.sha256[..8],
+        report.extension
+    ));
+    std::fs::copy(rom_path.trim(), &target).map_err(|e| e.to_string())?;
+    let written =
+        crate::core::rom_mastering::sha256_hex(&std::fs::read(&target).map_err(|e| e.to_string())?);
+    if written != report.sha256 {
+        let _ = std::fs::remove_file(&target);
+        return Err("Copia exportada difere da ROM revisada; nada foi exportado.".to_string());
+    }
+    Ok(GameExportResult {
+        path: target.to_string_lossy().to_string(),
+        sha256: written,
+        report,
+    })
+}
+
 #[tauri::command]
 fn inspect_runtime_contracts(project_dir: String) -> Result<RuntimeContractsReport, String> {
     let trimmed = project_dir.trim();
@@ -5867,6 +6073,7 @@ pub fn run() {
             emulator_get_core_epoch,
             emulator_get_execution_trace,
             emulator_send_input,
+            emulator_input_observation,
             emulator_stop,
             // Cena
             get_scene_data,
@@ -5901,6 +6108,17 @@ pub fn run() {
             generate_sgdk_semantic_reports,
             inspect_project_capability,
             inspect_rom_mastering,
+            export_game_rom,
+            pick_audio_file_dialog,
+            pick_image_file_dialog,
+            import_project_image,
+            scene_palette_plan,
+            import_project_audio,
+            project_audit_paths,
+            project_rename_asset,
+            project_apply_override_to_model,
+            project_restore_backup,
+            emulator_write_test_memory,
             inspect_runtime_contracts,
             inspect_audio_pipeline,
             list_sgdk_pattern_templates,
@@ -5942,8 +6160,6 @@ pub fn run() {
             rex_inspection_save,
             rex_inspection_edit_sonic_palette,
             rex_inspection_edit_sonic_tiles,
-            rex_inspection_sor_font_info,
-            rex_inspection_edit_sor_font,
             rex_inspection_sonic_cadence,
             rex_inspection_edit_sonic_duration,
             rex_inspection_sonic_sequence,
@@ -5954,6 +6170,9 @@ pub fn run() {
             rex_inspection_sonic_layouts_cancel,
             rex_inspection_sonic_ss_walls,
             rex_inspection_sonic_ss_wall_compose,
+            rex_profile_catalog,
+            rex_profile_locate,
+            rex_profile_edit,
             rex_inspection_set_layouts_selection,
             rex_inspection_edit_sonic_sequence,
             rex_inspection_restore_sonic_sequence,
@@ -5965,10 +6184,6 @@ pub fn run() {
             rex_addressing_read_snapshot,
             rex_kosinski_decode,
             rex_kosinski_encode,
-            rex_gameplay_scan,
-            rex_gameplay_recover,
-            rex_gameplay_edit_threshold,
-            rex_gameplay_rebuild,
             list_project_assets,
             read_project_asset_bytes,
             open_project_source_path,
@@ -7675,7 +7890,13 @@ pub extern "C" fn retro_run() {
         }
 
         let sink = MockEventSink::default();
+        let loaded_sha = emulator
+            .loaded_rom_identity()
+            .expect("loaded ROM identity")
+            .0;
+        fs::write(&rom_path, b"changed on disk after loading").expect("alter disk ROM");
         emit_emulator_frame_events(&sink, &mut emulator).expect("emit emulator events");
+        emit_emulator_frame_events(&sink, &mut emulator).expect("publish without advancing core");
 
         let payload = sink
             .audios
@@ -7691,7 +7912,17 @@ pub extern "C" fn retro_run() {
                 samples: vec![0, 0, 1, -1],
             }
         );
-        assert_eq!(sink.frames.lock().expect("lock frame events").len(), 1);
+        {
+            let frames = sink.frames.lock().expect("lock frame events");
+            assert_eq!(frames.len(), 2);
+            assert_eq!(frames[0].rom_sha256.as_deref(), Some(loaded_sha.as_str()));
+            assert_eq!(frames[1].rom_sha256, frames[0].rom_sha256);
+            assert!(frames[0].core_epoch.is_some());
+            assert!(frames[1].frame_sequence.unwrap() > frames[0].frame_sequence.unwrap());
+            assert_eq!(frames[0].frame_index, Some(1));
+            assert_eq!(frames[1].frame_index, frames[0].frame_index);
+            assert_eq!(frames[1].rgba, frames[0].rgba);
+        }
         assert!(emulator
             .take_audio_samples()
             .expect("audio buffer should be drained")

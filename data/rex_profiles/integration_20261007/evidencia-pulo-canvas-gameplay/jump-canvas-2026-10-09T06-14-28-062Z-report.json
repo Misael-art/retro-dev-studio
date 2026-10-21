@@ -1,0 +1,653 @@
+{
+  "schema": "rex-jump-canvas-journey/v2",
+  "prefix": "jump-canvas-2026-10-09T06-14-28-062Z",
+  "copiesDir": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias",
+  "checks": [
+    {
+      "name": "preserva_logica_propria.recusa_explicita",
+      "pass": true,
+      "recusa": {
+        "texto": "A entidade player já tem lógica própria; escolha outra para não sobrescrever.",
+        "ok": "nao"
+      }
+    },
+    {
+      "name": "preserva_logica_propria.grafo_intacto",
+      "pass": true,
+      "graph": "{\"version\":1,\"nodes\":[{\"id\":\"own_start\",\"type\":\"event_start\",\"label\":\"Logica propria\",\"x\":40,\"y\":40,\"inputs\":[],\"outputs"
+    },
+    {
+      "name": "sonic1.ponte_identifica_a_rom_e_a_instancia",
+      "pass": true,
+      "identity": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "instance": "78860"
+    },
+    {
+      "name": "sonic1.ponte_comeca_sem_mudancas",
+      "pass": true,
+      "b0": {
+        "none": true,
+        "generate": true
+      }
+    },
+    {
+      "name": "sonic1.edicao_numerica_negativa_no_no",
+      "pass": true
+    },
+    {
+      "name": "sonic1.desfazer_volta_ao_original",
+      "pass": true,
+      "cutValue": "-1024"
+    },
+    {
+      "name": "sonic1.refazer_restaura_a_edicao",
+      "pass": true,
+      "cutValue": "-1536"
+    },
+    {
+      "name": "sonic1.organizar_nao_muda_o_plano_nem_a_estrutura",
+      "pass": true,
+      "antes": "Corte da altura ao soltar o botão: -1024 → -1536",
+      "depois": "Corte da altura ao soltar o botão: -1024 → -1536",
+      "estrutura": ""
+    },
+    {
+      "name": "sonic1.mover_no_muda_posicao_mas_nao_o_plano_nem_a_estrutura",
+      "pass": true,
+      "antes": [
+        1320,
+        171
+      ],
+      "depois": [
+        1440,
+        243
+      ],
+      "edits": "Corte da altura ao soltar o botão: -1024 → -1536"
+    },
+    {
+      "name": "sonic1.remover_no_deixa_de_ser_logica_aplicada",
+      "pass": true,
+      "estrutura": "Este grafo deixou de representar a lógica da ROM: a estrutura do grafo (nós, conexões, origem ou campos) difere da gerada a partir da ROM. O",
+      "generate": true
+    },
+    {
+      "name": "sonic1.desfazer_restaura_a_estrutura_canonica",
+      "pass": true,
+      "generate": true
+    },
+    {
+      "name": "sonic1.imp.ponte_reflete_o_plano",
+      "pass": true,
+      "edits": "Impulso do pulo: 1664 → 2304"
+    },
+    {
+      "name": "sonic1.imp.geracao_sem_erro",
+      "pass": true,
+      "erro": "",
+      "relacao": "atual"
+    },
+    {
+      "name": "sonic1.imp.ponte_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · relido da cópia: imp=2304 · impw=896 · cut=-1024 · cutw=-512 · cap=-4032"
+    },
+    {
+      "name": "sonic1.imp.somente_cop_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-58ec3d16.bin",
+        "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-58ec3d16.ips"
+      ]
+    },
+    {
+      "name": "sonic1.imp.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "sonic1.imp.tamanho_preservado",
+      "pass": true
+    },
+    {
+      "name": "sonic1.imp.so_os_imediatos_pedidos_mudaram",
+      "pass": true,
+      "bytes_diferentes": 2,
+      "fora": 0
+    },
+    {
+      "name": "sonic1.imp.valores_na_copia",
+      "pass": true,
+      "lidoImp": 2304,
+      "lidoCut": -1024
+    },
+    {
+      "name": "sonic1.imp.ips_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 15
+    },
+    {
+      "name": "sonic1.cut.ponte_reflete_o_plano",
+      "pass": true,
+      "edits": "Corte da altura ao soltar o botão: -1024 → -1536"
+    },
+    {
+      "name": "sonic1.cut.geracao_sem_erro",
+      "pass": true,
+      "erro": "",
+      "relacao": "atual"
+    },
+    {
+      "name": "sonic1.cut.ponte_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · relido da cópia: imp=1664 · impw=896 · cut=-1536 · cutw=-512 · cap=-4032"
+    },
+    {
+      "name": "sonic1.cut.somente_cop_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-9dcc643c.bin",
+        "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-9dcc643c.ips"
+      ]
+    },
+    {
+      "name": "sonic1.cut.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "sonic1.cut.tamanho_preservado",
+      "pass": true
+    },
+    {
+      "name": "sonic1.cut.so_os_imediatos_pedidos_mudaram",
+      "pass": true,
+      "bytes_diferentes": 1,
+      "fora": 0
+    },
+    {
+      "name": "sonic1.cut.valores_na_copia",
+      "pass": true,
+      "lidoImp": 1664,
+      "lidoCut": -1536
+    },
+    {
+      "name": "sonic1.cut.ips_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 15
+    },
+    {
+      "name": "sonic1.both.ponte_reflete_o_plano",
+      "pass": true,
+      "edits": "Impulso do pulo: 1664 → 2304Corte da altura ao soltar o botão: -1024 → -1536"
+    },
+    {
+      "name": "sonic1.both.geracao_sem_erro",
+      "pass": true,
+      "erro": "",
+      "relacao": "atual"
+    },
+    {
+      "name": "sonic1.both.ponte_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · relido da cópia: imp=2304 · impw=896 · cut=-1536 · cutw=-512 · cap=-4032"
+    },
+    {
+      "name": "sonic1.both.somente_cop_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-bec61f9f.bin",
+        "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-bec61f9f.ips"
+      ]
+    },
+    {
+      "name": "sonic1.both.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "sonic1.both.tamanho_preservado",
+      "pass": true
+    },
+    {
+      "name": "sonic1.both.so_os_imediatos_pedidos_mudaram",
+      "pass": true,
+      "bytes_diferentes": 3,
+      "fora": 0
+    },
+    {
+      "name": "sonic1.both.valores_na_copia",
+      "pass": true,
+      "lidoImp": 2304,
+      "lidoCut": -1536
+    },
+    {
+      "name": "sonic1.both.ips_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 22
+    },
+    {
+      "name": "sonic1.persistido_no_disco_valores_origem_instancia",
+      "pass": true,
+      "imp": 2304,
+      "cut": -1536,
+      "inst": 78860
+    },
+    {
+      "name": "sonic1.reaberto_preserva_valores_editados",
+      "pass": true,
+      "imp": "2304",
+      "cut": "-1536"
+    },
+    {
+      "name": "sonic1.reaberto_preserva_instancia_e_identidade",
+      "pass": true,
+      "identity": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "instance": "78860"
+    },
+    {
+      "name": "sonic1.reaberto_preserva_o_plano_e_a_estrutura",
+      "pass": true,
+      "edits": "Impulso do pulo: 1664 → 2304Corte da altura ao soltar o botão: -1024 → -1536",
+      "estrutura": ""
+    },
+    {
+      "name": "sonic1.reaberto_nao_finge_resultado_da_sessao_anterior",
+      "pass": true,
+      "relacao": null
+    },
+    {
+      "name": "delta.a.canvas_identifica_a_instancia",
+      "pass": true,
+      "identity": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+      "instance": "92436",
+      "esperado": "0x16914"
+    },
+    {
+      "name": "delta.a-imp.ponte_reflete_o_plano",
+      "pass": true,
+      "edits": "Impulso do pulo: 1664 → 2304"
+    },
+    {
+      "name": "delta.a-imp.geracao_sem_erro",
+      "pass": true,
+      "erro": "",
+      "relacao": "atual"
+    },
+    {
+      "name": "delta.a-imp.ponte_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · relido da cópia: imp=2304 · imps=2048 · impw=896 · cut=-1024 · cutw=-512 · cap=-4032"
+    },
+    {
+      "name": "delta.a-imp.somente_cop_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "delta.jump-16914-81a8867c.bin",
+        "delta.jump-16914-81a8867c.ips"
+      ]
+    },
+    {
+      "name": "delta.a-imp.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "delta.a-imp.tamanho_preservado",
+      "pass": true
+    },
+    {
+      "name": "delta.a-imp.so_os_imediatos_pedidos_mudaram",
+      "pass": true,
+      "bytes_diferentes": 2,
+      "fora": 0
+    },
+    {
+      "name": "delta.a-imp.valores_na_copia",
+      "pass": true,
+      "lidoImp": 2304,
+      "lidoCut": -1024
+    },
+    {
+      "name": "delta.a-imp.ips_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 15
+    },
+    {
+      "name": "delta.a-cut.ponte_reflete_o_plano",
+      "pass": true,
+      "edits": "Corte da altura ao soltar o botão: -1024 → -1536"
+    },
+    {
+      "name": "delta.a-cut.geracao_sem_erro",
+      "pass": true,
+      "erro": "",
+      "relacao": "atual"
+    },
+    {
+      "name": "delta.a-cut.ponte_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · relido da cópia: imp=1664 · imps=2048 · impw=896 · cut=-1536 · cutw=-512 · cap=-4032"
+    },
+    {
+      "name": "delta.a-cut.somente_cop_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "delta.jump-16914-d5a451fa.bin",
+        "delta.jump-16914-d5a451fa.ips"
+      ]
+    },
+    {
+      "name": "delta.a-cut.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "delta.a-cut.tamanho_preservado",
+      "pass": true
+    },
+    {
+      "name": "delta.a-cut.so_os_imediatos_pedidos_mudaram",
+      "pass": true,
+      "bytes_diferentes": 1,
+      "fora": 0
+    },
+    {
+      "name": "delta.a-cut.valores_na_copia",
+      "pass": true,
+      "lidoImp": 1664,
+      "lidoCut": -1536
+    },
+    {
+      "name": "delta.a-cut.ips_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 15
+    },
+    {
+      "name": "delta.a-both.ponte_reflete_o_plano",
+      "pass": true,
+      "edits": "Impulso do pulo: 1664 → 2304Corte da altura ao soltar o botão: -1024 → -1536"
+    },
+    {
+      "name": "delta.a-both.geracao_sem_erro",
+      "pass": true,
+      "erro": "",
+      "relacao": "atual"
+    },
+    {
+      "name": "delta.a-both.ponte_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · relido da cópia: imp=2304 · imps=2048 · impw=896 · cut=-1536 · cutw=-512 · cap=-4032"
+    },
+    {
+      "name": "delta.a-both.somente_cop_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "delta.jump-16914-f3b0aa50.bin",
+        "delta.jump-16914-f3b0aa50.ips"
+      ]
+    },
+    {
+      "name": "delta.a-both.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "delta.a-both.tamanho_preservado",
+      "pass": true
+    },
+    {
+      "name": "delta.a-both.so_os_imediatos_pedidos_mudaram",
+      "pass": true,
+      "bytes_diferentes": 3,
+      "fora": 0
+    },
+    {
+      "name": "delta.a-both.valores_na_copia",
+      "pass": true,
+      "lidoImp": 2304,
+      "lidoCut": -1536
+    },
+    {
+      "name": "delta.a-both.ips_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 22
+    },
+    {
+      "name": "delta.b.canvas_identifica_a_instancia",
+      "pass": true,
+      "identity": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+      "instance": "95018",
+      "esperado": "0x1732a"
+    },
+    {
+      "name": "delta.b.sem_altura_pareada_nao_oferece_corte",
+      "pass": true
+    },
+    {
+      "name": "delta.b-imp.geracao_sem_erro",
+      "pass": true,
+      "erro": ""
+    },
+    {
+      "name": "delta.b-imp.so_o_imediato_do_impulso_mudou",
+      "pass": true,
+      "diff": 2,
+      "fora": 0
+    },
+    {
+      "name": "delta.b-imp.ips_independente_reproduz_a_copia",
+      "pass": true
+    },
+    {
+      "name": "delta.b-imp.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "delta.c.canvas_identifica_a_instancia",
+      "pass": true,
+      "identity": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+      "instance": "106864",
+      "esperado": "0x1a170"
+    },
+    {
+      "name": "delta.c-imp.ponte_reflete_o_plano",
+      "pass": true,
+      "edits": "Impulso do pulo: 1664 → 2304"
+    },
+    {
+      "name": "delta.c-imp.geracao_sem_erro",
+      "pass": true,
+      "erro": "",
+      "relacao": "atual"
+    },
+    {
+      "name": "delta.c-imp.ponte_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · relido da cópia: imp=2304 · impw=896 · cut=-1024 · cutw=-512 · cap=-4032"
+    },
+    {
+      "name": "delta.c-imp.somente_cop_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "delta.jump-1a170-fc3f103e.bin",
+        "delta.jump-1a170-fc3f103e.ips"
+      ]
+    },
+    {
+      "name": "delta.c-imp.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "delta.c-imp.tamanho_preservado",
+      "pass": true
+    },
+    {
+      "name": "delta.c-imp.so_os_imediatos_pedidos_mudaram",
+      "pass": true,
+      "bytes_diferentes": 2,
+      "fora": 0
+    },
+    {
+      "name": "delta.c-imp.valores_na_copia",
+      "pass": true,
+      "lidoImp": 2304,
+      "lidoCut": -1024
+    },
+    {
+      "name": "delta.c-imp.ips_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 15
+    }
+  ],
+  "steps": [
+    {
+      "step": "sonic1-estrutura-quebrada",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-sonic1-estrutura-quebrada.png"
+    },
+    {
+      "step": "sonic1-imp",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-sonic1-imp.png"
+    },
+    {
+      "step": "sonic1-cut",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-sonic1-cut.png"
+    },
+    {
+      "step": "sonic1-both",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-sonic1-both.png"
+    },
+    {
+      "step": "sonic1-reaberto",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-sonic1-reaberto.png"
+    },
+    {
+      "step": "delta-a-imp",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-delta-a-imp.png"
+    },
+    {
+      "step": "delta-a-cut",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-delta-a-cut.png"
+    },
+    {
+      "step": "delta-a-both",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-delta-a-both.png"
+    },
+    {
+      "step": "delta-c-imp",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-delta-c-imp.png"
+    }
+  ],
+  "copias": [
+    {
+      "jogo": "sonic1",
+      "variante": "imp",
+      "instancia": "0x1340c",
+      "valores": {
+        "imp": 2304
+      },
+      "rom_base_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/sonic1/imp/Sonic_the_Hedgehog__USA__Europe_.jump-1340c-58ec3d16.bin",
+      "copia_sha256": "58ec3d1651e54b82fad2ccdccc1fde333931efaab26026e6053efcdb6c27c744",
+      "ips": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/sonic1/imp/Sonic_the_Hedgehog__USA__Europe_.jump-1340c-58ec3d16.ips",
+      "ips_sha256": "fa997b44d259be8cd6205d801a845f3a445d178b61d84af1bcc1b45a034eb623",
+      "bytes_diferentes": 2
+    },
+    {
+      "jogo": "sonic1",
+      "variante": "cut",
+      "instancia": "0x1340c",
+      "valores": {
+        "cut": -1536
+      },
+      "rom_base_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/sonic1/cut/Sonic_the_Hedgehog__USA__Europe_.jump-1340c-9dcc643c.bin",
+      "copia_sha256": "9dcc643c4fbf543e7a22598c9b38eacecaf6f1b3fa5a8ee9fdd3c2e8adc6f02c",
+      "ips": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/sonic1/cut/Sonic_the_Hedgehog__USA__Europe_.jump-1340c-9dcc643c.ips",
+      "ips_sha256": "f2b1b73e658afba909185d4faf18b102cf9f70f697c4fa21ddf79d6ed772dcfe",
+      "bytes_diferentes": 1
+    },
+    {
+      "jogo": "sonic1",
+      "variante": "both",
+      "instancia": "0x1340c",
+      "valores": {
+        "imp": 2304,
+        "cut": -1536
+      },
+      "rom_base_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/sonic1/both/Sonic_the_Hedgehog__USA__Europe_.jump-1340c-bec61f9f.bin",
+      "copia_sha256": "bec61f9f15a55200ad8c28685200db01ad9a36d1c1014ccfee7a6db67a0c0190",
+      "ips": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/sonic1/both/Sonic_the_Hedgehog__USA__Europe_.jump-1340c-bec61f9f.ips",
+      "ips_sha256": "cad5a2451f87b005712d5444660985e12488da7c3309d4b435488937f87f1471",
+      "bytes_diferentes": 3
+    },
+    {
+      "jogo": "delta",
+      "variante": "a-imp",
+      "instancia": "0x16914",
+      "valores": {
+        "imp": 2304
+      },
+      "rom_base_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/delta/a-imp/delta.jump-16914-81a8867c.bin",
+      "copia_sha256": "81a8867c6e14825f3d224d37811bec5d19c8bf4bf7dde079655104026367d059",
+      "ips": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/delta/a-imp/delta.jump-16914-81a8867c.ips",
+      "ips_sha256": "c45e8cf0ad2e2b796497550c21a151541d071288bc5292250786c02bec4abf0d",
+      "bytes_diferentes": 2
+    },
+    {
+      "jogo": "delta",
+      "variante": "a-cut",
+      "instancia": "0x16914",
+      "valores": {
+        "cut": -1536
+      },
+      "rom_base_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/delta/a-cut/delta.jump-16914-d5a451fa.bin",
+      "copia_sha256": "d5a451fac0f17bc33b11acf6e18570bdfffb35d810ea3170ef47ad06066cdda9",
+      "ips": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/delta/a-cut/delta.jump-16914-d5a451fa.ips",
+      "ips_sha256": "33e306c31865960fd378fd43851fcccc2648150674e51f1bf4fe208bc2d7179b",
+      "bytes_diferentes": 1
+    },
+    {
+      "jogo": "delta",
+      "variante": "a-both",
+      "instancia": "0x16914",
+      "valores": {
+        "imp": 2304,
+        "cut": -1536
+      },
+      "rom_base_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/delta/a-both/delta.jump-16914-f3b0aa50.bin",
+      "copia_sha256": "f3b0aa5088c0dbb50dd801b0d74799a4fd94ed8d4bb8b5e4bb98d45723722376",
+      "ips": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/delta/a-both/delta.jump-16914-f3b0aa50.ips",
+      "ips_sha256": "73e8ec33b5cc2e57c42f9dc2f489002ef00ed658ce8667f35ebe178020ed69ba",
+      "bytes_diferentes": 3
+    },
+    {
+      "jogo": "delta",
+      "variante": "b-imp",
+      "instancia": "0x1732a",
+      "valores": {
+        "imp": 2304
+      },
+      "rom_base_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/delta/b-imp/delta.jump-1732a-e6e0e1f5.bin",
+      "copia_sha256": "e6e0e1f5ce4534e30caf6cb6562e18d0a5f33acacad0fc621092a843207b1ee8",
+      "ips": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/delta/b-imp/delta.jump-1732a-e6e0e1f5.ips",
+      "ips_sha256": "353ee61917b7de3fdd0fb3b5b0ca080be1ccb37559224015e28b57a5344a6f3f",
+      "bytes_diferentes": 2
+    },
+    {
+      "jogo": "delta",
+      "variante": "c-imp",
+      "instancia": "0x1a170",
+      "valores": {
+        "imp": 2304
+      },
+      "rom_base_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+      "copia": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/delta/c-imp/delta.jump-1a170-fc3f103e.bin",
+      "copia_sha256": "fc3f103e5fb235d605e1e845009b6dd0343152a2e4e9015ce0638f4bde1ad7a0",
+      "ips": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-canvas-2026-10-09T06-14-28-062Z-copias/delta/c-imp/delta.jump-1a170-fc3f103e.ips",
+      "ips_sha256": "6ce155c50bb3b4e86a03ddc2eb26287f9e88dcf8a5aa8388c82d16d22dec1b72",
+      "bytes_diferentes": 2
+    }
+  ],
+  "allPass": true,
+  "ausentes": [],
+  "projectDir": "/home/misael/Documents/RetroDevProjects/Jump_Canvas_mv0klqmm"
+}

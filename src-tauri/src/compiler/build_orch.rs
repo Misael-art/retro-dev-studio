@@ -35,6 +35,9 @@ pub struct BuildResult {
     pub diagnostics: Vec<ActionableDiagnostic>,
     pub source_map_path: Option<String>,
     pub build_source_map: Option<BuildSourceMap>,
+    /// Vinculo execucao -> projeto desta ROM (`retrodev.runtime_link/v1`, Experimental).
+    #[serde(default)]
+    pub runtime_link: Option<crate::compiler::runtime_link::RuntimeLink>,
 }
 
 #[derive(Debug, serde::Serialize, Clone)]
@@ -144,6 +147,7 @@ fn failed_build_result(
         diagnostics,
         source_map_path: None,
         build_source_map: None,
+        runtime_link: None,
     }
 }
 
@@ -152,6 +156,7 @@ fn successful_build_result(
     log: Vec<BuildLogLine>,
     source_map_path: Option<&Path>,
     build_source_map: Option<BuildSourceMap>,
+    runtime_link: Option<crate::compiler::runtime_link::RuntimeLink>,
 ) -> BuildResult {
     BuildResult {
         ok: true,
@@ -160,6 +165,7 @@ fn successful_build_result(
         diagnostics: Vec::new(),
         source_map_path: source_map_path.map(|path| path.to_string_lossy().to_string()),
         build_source_map,
+        runtime_link,
     }
 }
 
@@ -682,7 +688,7 @@ where
         }
         emit!("success", format!("ROM gerada: {}", rom_path.display()));
 
-        return successful_build_result(rom_path, log, None, None);
+        return successful_build_result(rom_path, log, None, None, None);
     }
 
     let scene = match load_scene(project_dir, &project.entry_scene) {
@@ -903,6 +909,83 @@ where
         .as_ref()
         .map(|m| m.normalize());
     let collision_slice = collision_data.as_deref();
+    // Plano de paletas (Mega Drive): mesma fonte do editor; erro aqui aborta antes do compilador,
+    // em vez de deixar um banco sobrescrever outro.
+    let palette_plan = if target.target == "megadrive" && !palette_plan_disabled() {
+        let resolved = if compatibility_profile_applied {
+            Ok(scene_for_build.clone())
+        } else {
+            crate::core::project_mgr::resolve_prefabs(project_dir, &scene)
+        };
+        match resolved {
+            Ok(resolved) => {
+                let plan =
+                    crate::compiler::palette_plan::plan_megadrive(project_dir, &resolved, &ast);
+                for d in &plan.diagnostics {
+                    if d.code == "asset_ilegivel" {
+                        continue; // a preparacao dos assets relata o arquivo com o caminho completo
+                    }
+                    emit!(
+                        if d.severity == "error" {
+                            "error"
+                        } else {
+                            "warn"
+                        },
+                        format!("[Paletas] {} (acoes: {})", d.message, d.actions.join("; "))
+                    );
+                }
+                // Arquivo ausente/ilegivel e relatado pela preparacao dos assets (diagnostico
+                // canonico com o caminho); os demais erros do plano param aqui.
+                if plan
+                    .diagnostics
+                    .iter()
+                    .any(|d| d.severity == "error" && d.code != "asset_ilegivel")
+                {
+                    emit!(
+                        "error",
+                        "Build abortado: plano de paletas com conflito (nada foi sobrescrito)."
+                    );
+                    return failed_build_result(target.target, log, Some(project_dir));
+                }
+                emit!(
+                    "info",
+                    format!(
+                        "[Paletas] {} banco(s) ocupado(s) de {}: {}.",
+                        plan.banks
+                            .iter()
+                            .filter(|b| !b.resources.is_empty())
+                            .count(),
+                        plan.capacity.banks,
+                        plan.banks
+                            .iter()
+                            .filter(|b| !b.resources.is_empty())
+                            .map(|b| format!("{}={}", b.bank, b.resources.join("+")))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                );
+                let ids = |f: &dyn Fn(&crate::ugdm::entities::Entity) -> bool| {
+                    resolved
+                        .entities
+                        .iter()
+                        .filter(|e| f(e))
+                        .map(|e| e.entity_id.clone())
+                        .collect::<Vec<_>>()
+                };
+                Some(crate::compiler::sgdk_emitter::EmitPalette {
+                    sprite_entities: ids(&|e| e.components.sprite.is_some()),
+                    tilemap_entities: ids(&|e| e.components.tilemap.is_some()),
+                    plan,
+                })
+            }
+            Err(error) => {
+                emit!("error", format!("Plano de paletas indisponivel: {error}"));
+                return failed_build_result(target.target, log, Some(project_dir));
+            }
+        }
+    } else {
+        None
+    };
     let artifacts = match target.target {
         "snes" => {
             let output = emit_snes_with_collision(&ast, &project.name, collision_slice);
@@ -912,7 +995,15 @@ where
             }
         }
         _ => {
-            let output = emit_sgdk_with_collision(&ast, &project.name, collision_slice);
+            let output = match palette_plan.clone() {
+                Some(palette) => crate::compiler::sgdk_emitter::emit_sgdk_with_palette_plan(
+                    &ast,
+                    &project.name,
+                    collision_slice,
+                    palette,
+                ),
+                None => emit_sgdk_with_collision(&ast, &project.name, collision_slice),
+            };
             EmitArtifacts {
                 main_c: output.main_c,
                 resources_res: output.resources_res,
@@ -938,6 +1029,15 @@ where
             workspace.root.display()
         )
     );
+    if let Some(palette) = &palette_plan {
+        let path = workspace.root.join(PALETTE_PLAN_FILE_NAME);
+        if let Err(error) = serde_json::to_string_pretty(&palette.plan)
+            .map_err(|e| e.to_string())
+            .and_then(|json| fs::write(&path, json).map_err(|e| e.to_string()))
+        {
+            emit!("warn", format!("Plano de paletas nao gravado: {error}"));
+        }
+    }
 
     let toolchain = match resolve_toolchain(environment, target) {
         Ok(toolchain) => toolchain,
@@ -1018,11 +1118,77 @@ where
         )
     );
 
+    // Vinculo execucao -> projeto: so Mega Drive (simbolos do ELF SGDK). Falha aqui nao derruba o
+    // build; a selecao em execucao fica indisponivel e o motivo vai ao log.
+    let runtime_link = if target.target == "megadrive" {
+        let elf_path = workspace.root.join("out").join("rom.out");
+        let link = fs::read(&elf_path)
+            .map_err(|error| format!("ELF '{}' ilegivel: {error}", elf_path.display()))
+            .and_then(|elf| crate::compiler::runtime_link::elf32_symbols(&elf))
+            .and_then(|symbols| {
+                let rom_sha = source_map
+                    .artifact
+                    .sha256
+                    .clone()
+                    .ok_or_else(|| "ROM sem SHA-256 no source map".to_string())?;
+                let hash_asset = |relative: &str| {
+                    fs::read(project_dir.join(relative))
+                        .ok()
+                        .map(|bytes| crate::core::rom_mastering::sha256_hex(&bytes))
+                };
+                let mut link = crate::compiler::runtime_link::build_runtime_link(
+                    &scene_for_build,
+                    &ast,
+                    target.target,
+                    &rom_sha,
+                    &source_map.generated_source_sha256,
+                    &symbols,
+                    &hash_asset,
+                );
+                link.palette = palette_plan
+                    .as_ref()
+                    .map(|p| crate::compiler::runtime_link::palette_link(&p.plan, &symbols));
+                Ok(link)
+            })
+            .and_then(|link| {
+                let path = workspace
+                    .root
+                    .join(crate::compiler::runtime_link::RUNTIME_LINK_FILE_NAME);
+                serde_json::to_string_pretty(&link)
+                    .map_err(|error| error.to_string())
+                    .and_then(|json| fs::write(&path, json).map_err(|error| error.to_string()))
+                    .map(|_| link)
+            });
+        match link {
+            Ok(link) => {
+                emit!(
+                    "info",
+                    format!(
+                        "Vinculo execucao->projeto: {} entidade(s), {} tilemap(s) (Experimental).",
+                        link.entities.len(),
+                        link.tilemaps.len()
+                    )
+                );
+                Some(link)
+            }
+            Err(error) => {
+                emit!(
+                    "warn",
+                    format!("Vinculo execucao->projeto indisponivel: {error}")
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     successful_build_result(
         rom_path,
         log,
         Some(&workspace.source_map_path),
         Some(source_map),
+        runtime_link,
     )
 }
 
@@ -1606,7 +1772,6 @@ fn write_indexed_bmp_8bit_with_canvas_palette_limit(
     canvas_height: u32,
     max_palette_colors: usize,
 ) -> Result<(), String> {
-    let rgba = image.to_rgba8();
     let width = canvas_width as usize;
     let height = canvas_height as usize;
     let row_stride = (width + 3) & !3;
@@ -1614,44 +1779,8 @@ fn write_indexed_bmp_8bit_with_canvas_palette_limit(
     let palette_size = 256 * 4;
     let pixel_offset = 14 + 40 + palette_size;
     let file_size = pixel_offset + pixel_data_size;
-
-    let max_palette_colors = max_palette_colors.clamp(1, 256);
-    let mut palette: Vec<[u8; 4]> = vec![[0, 0, 0, 0]];
-    let mut indices = vec![0u8; width * height];
-
-    for y in 0..rgba.height() as usize {
-        for x in 0..rgba.width() as usize {
-            let pixel = rgba.get_pixel(x as u32, y as u32);
-            if pixel[3] == 0 {
-                indices[y * width + x] = 0;
-                continue;
-            }
-            let color = [pixel[2], pixel[1], pixel[0], 0];
-            let palette_index = palette
-                .iter()
-                .enumerate()
-                .skip(1) // Index zero is transparency, including when RGB is black.
-                .find_map(|(index, entry)| (*entry == color).then_some(index))
-                .or_else(|| {
-                    if palette.len() < max_palette_colors {
-                        palette.push(color);
-                        Some(palette.len() - 1)
-                    } else if max_palette_colors < 256 {
-                        nearest_palette_index(&palette, color)
-                    } else {
-                        None
-                    }
-                })
-                .ok_or_else(|| {
-                    format!(
-                        "Asset usa mais de 256 cores e nao pode ser convertido para BMP indexado: {}x{}",
-                        rgba.width(),
-                        rgba.height()
-                    )
-                })?;
-            indices[y * width + x] = palette_index as u8;
-        }
-    }
+    let indexed = index_image(image, canvas_width, canvas_height, max_palette_colors)?;
+    let (palette, indices) = (indexed.palette_bgr0, indexed.indices);
 
     let mut bytes = Vec::with_capacity(file_size);
     bytes.extend_from_slice(b"BM");
@@ -1692,6 +1821,111 @@ fn write_indexed_bmp_8bit_with_canvas_palette_limit(
             e
         )
     })
+}
+
+/// Indexacao usada pelo build (e pelo plano de paletas, que precisa das MESMAS cores na MESMA
+/// ordem): indice 0 = transparencia; demais cores na ordem de primeira aparicao (varredura por
+/// linhas). Com limite < 256, cores excedentes vao para a mais proxima (`quantized_pixels`).
+pub(crate) struct IndexedImage {
+    pub palette_bgr0: Vec<[u8; 4]>,
+    pub indices: Vec<u8>,
+    pub quantized_pixels: usize,
+    pub source_colors: usize,
+}
+
+pub(crate) fn index_image(
+    image: &image::DynamicImage,
+    canvas_width: u32,
+    canvas_height: u32,
+    max_palette_colors: usize,
+) -> Result<IndexedImage, String> {
+    let rgba = image.to_rgba8();
+    let width = canvas_width as usize;
+    let height = canvas_height as usize;
+    let max_palette_colors = max_palette_colors.clamp(1, 256);
+    let mut palette: Vec<[u8; 4]> = vec![[0, 0, 0, 0]];
+    let mut indices = vec![0u8; width * height];
+    let mut quantized_pixels = 0usize;
+    let mut distinct: std::collections::HashSet<[u8; 4]> = Default::default();
+
+    for y in 0..rgba.height() as usize {
+        for x in 0..rgba.width() as usize {
+            let pixel = rgba.get_pixel(x as u32, y as u32);
+            if pixel[3] == 0 {
+                indices[y * width + x] = 0;
+                continue;
+            }
+            let color = [pixel[2], pixel[1], pixel[0], 0];
+            distinct.insert(color);
+            let palette_index = palette
+                .iter()
+                .enumerate()
+                .skip(1) // Index zero is transparency, including when RGB is black.
+                .find_map(|(index, entry)| (*entry == color).then_some(index))
+                .or_else(|| {
+                    if palette.len() < max_palette_colors {
+                        palette.push(color);
+                        Some(palette.len() - 1)
+                    } else if max_palette_colors < 256 {
+                        quantized_pixels += 1;
+                        nearest_palette_index(&palette, color)
+                    } else {
+                        None
+                    }
+                })
+                .ok_or_else(|| {
+                    format!(
+                        "Asset usa mais de 256 cores e nao pode ser convertido para BMP indexado: {}x{}",
+                        rgba.width(),
+                        rgba.height()
+                    )
+                })?;
+            indices[y * width + x] = palette_index as u8;
+        }
+    }
+    Ok(IndexedImage {
+        palette_bgr0: palette,
+        indices,
+        quantized_pixels,
+        source_colors: distinct.len(),
+    })
+}
+
+/// Paleta (RGB, indice 0 = transparencia) que o build gera para um asset SGDK: sprite (com o
+/// arranjo de animacoes) ou tilemap, limite de 16 entradas.
+pub(crate) fn sgdk_asset_palette(
+    project_dir: &Path,
+    asset_path: &str,
+    sprite: Option<&SpriteAsset>,
+) -> Result<(Vec<[u8; 3]>, usize, usize), String> {
+    let rel = sanitize_relative_asset_path(asset_path)?;
+    let source = project_dir.join(rel);
+    let image =
+        image::open(&source).map_err(|e| format!("Falha ao ler '{}': {}", source.display(), e))?;
+    let (image, w, h) = match sprite {
+        Some(asset) => {
+            let image = arrange_sgdk_animation_rows(image, asset)?;
+            let fw = asset.frame_width.max(8);
+            let fh = asset.frame_height.max(8);
+            let w = round_up_to_multiple(image.width(), fw).max(fw);
+            let h = round_up_to_multiple(image.height(), fh).max(fh);
+            (image, w, h)
+        }
+        None => {
+            let (w, h) = (image.width(), image.height());
+            (image, w, h)
+        }
+    };
+    let indexed = index_image(&image, w, h, 16)?;
+    Ok((
+        indexed
+            .palette_bgr0
+            .iter()
+            .map(|c| [c[2], c[1], c[0]])
+            .collect(),
+        indexed.quantized_pixels,
+        indexed.source_colors,
+    ))
 }
 
 fn nearest_palette_index(palette: &[[u8; 4]], color: [u8; 4]) -> Option<usize> {
@@ -2409,6 +2643,25 @@ fn sanitize_project_name(name: &str) -> String {
         "retrodev_project".to_string()
     } else {
         sanitized
+    }
+}
+
+pub const PALETTE_PLAN_FILE_NAME: &str = "rds-palette-plan.v1.json";
+
+#[cfg(test)]
+thread_local! {
+    /// Controle negativo dos testes: emissao antiga, sem plano de paletas (so em `cfg(test)`).
+    pub(crate) static DISABLE_PALETTE_PLAN_FOR_TEST: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+fn palette_plan_disabled() -> bool {
+    #[cfg(test)]
+    {
+        DISABLE_PALETTE_PLAN_FOR_TEST.with(|c| c.get())
+    }
+    #[cfg(not(test))]
+    {
+        false
     }
 }
 
@@ -4342,7 +4595,9 @@ PY\n"
         assert!(main_c.contains("logic_var_player_vx = 2;"));
         assert!(main_c.contains("SPR_setPosition(spr_player, spr_player_x, spr_player_y);"));
         assert!(main_c.contains("SPR_setAnim(spr_player, 1);"));
-        assert!(main_c.contains("VDP_setHorizontalScroll(BG_A, spr_player_x - 160);"));
+        assert!(main_c.contains("s32 cx = (s32)(spr_player_x - 160);"));
+        assert!(main_c.contains(", -rds_camera_x);"));
+        assert!(main_c.contains("rds_camera_apply_scroll();"));
         assert!(main_c.contains(
             "VDP_setTileMapXY(BG_A, TILE_ATTR_FULL(PAL0, FALSE, FALSE, FALSE, 12), 3, 14);"
         ));

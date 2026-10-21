@@ -1,0 +1,433 @@
+[
+  {
+    "run": "qualify-001",
+    "summary_sha256": "44424c75ed41721d3e6a7f2f1253df54532763d9b1437d4748bd964855532b1f",
+    "summary": {
+      "schema": "rex-observer-qualification/v1",
+      "id": "qualify-001",
+      "mame_sha256": "ee1c59bafc5e5441e99fa4c58108a3e18048e60672f34de865c8a5a976094dba",
+      "instrument_sha256": "788c5e96ad8e1601400bf539931ba55648d77cfa3c5a1f09362150e560f88743",
+      "passed": false,
+      "cases": [
+        {
+          "id": "qualify-001-positive",
+          "exit_code": 3,
+          "elapsed_seconds": 1.2215780400001677,
+          "log_sha256": "c52db30211bac09f9f085b94e79be17ec04e0949a46521c3d3df047f1af9e806",
+          "events_exist": false,
+          "qualified": false,
+          "error": "runtime/instrument did not complete"
+        }
+      ],
+      "limits": [
+        "external MAME runtime only",
+        "selected breakpoints and ranges only",
+        "PC context at memory taps needs qualification, not caller inference",
+        "no commercial observation attempted"
+      ]
+    }
+  },
+  {
+    "run": "qualify-002",
+    "summary_sha256": "4c078ee2f9a7cbe7e0018afa02b38563c0611c1792a8e425b07a63b30d7fb267",
+    "summary": {
+      "schema": "rex-observer-qualification/v1",
+      "id": "qualify-002",
+      "mame_sha256": "ee1c59bafc5e5441e99fa4c58108a3e18048e60672f34de865c8a5a976094dba",
+      "instrument_sha256": "dd1ad465f8cce05d0eb078f5f0c1c627182fe20267dde97e516e0a24c4122851",
+      "passed": false,
+      "cases": [
+        {
+          "id": "qualify-002-positive",
+          "exit_code": -11,
+          "elapsed_seconds": 0.46768695100035984,
+          "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "events_exist": true,
+          "qualified": false,
+          "error": "runtime/instrument did not complete"
+        }
+      ],
+      "limits": [
+        "external MAME runtime only",
+        "selected breakpoints and ranges only",
+        "PC context at memory taps needs qualification, not caller inference",
+        "no commercial observation attempted"
+      ]
+    }
+  },
+  {
+    "run": "qualify-005",
+    "summary_sha256": "bdf1216ed0c12296b021186fc72d1e8b8a5a1e8b6fc9f88b07e1f88aca66613d",
+    "summary": {
+      "schema": "rex-observer-qualification/v1",
+      "id": "qualify-005",
+      "mame_sha256": "fcb54790e1837ed653020dc25a4e51d9ba7288d789cf556299d5d4d2cf2f3bc1",
+      "instrument_sha256": "4d661490d05fcc7be852356dedd26fed252701f0d9461ff06a363fc9e65c0951",
+      "passed": false,
+      "cases": [
+        {
+          "id": "qualify-005-positive",
+          "exit_code": 0,
+          "elapsed_seconds": 0.9670809659983206,
+          "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+          "events_exist": true,
+          "qualified": false,
+          "error": "entry count 0"
+        }
+      ],
+      "limits": [
+        "external MAME runtime only",
+        "selected breakpoints and ranges only",
+        "PC context at memory taps needs qualification, not caller inference",
+        "no commercial observation attempted"
+      ]
+    }
+  },
+  {
+    "run": "qualify-006",
+    "summary_sha256": "d4c8169478f8bb9681ceb520965c29edd8dcb5f4585d0c27d7787e3824c794de",
+    "summary": {
+      "schema": "rex-observer-qualification/v1",
+      "id": "qualify-006",
+      "mame_sha256": "fcb54790e1837ed653020dc25a4e51d9ba7288d789cf556299d5d4d2cf2f3bc1",
+      "instrument_sha256": "53bc7338994bece4277bdbff10234262a273691b6df183e43d66a043b98b548f",
+      "passed": false,
+      "cases": [
+        {
+          "id": "qualify-006-positive",
+          "exit_code": 0,
+          "elapsed_seconds": 1.5272487799993542,
+          "log_sha256": "dcdd747c5d9f6e896f9ea6e3385e164365f21e86db10fd96d2c07a17e3779e7b",
+          "events_exist": true,
+          "qualified": false,
+          "error": "incomplete collection"
+        }
+      ],
+      "limits": [
+        "external MAME runtime only",
+        "selected breakpoints and ranges only",
+        "PC context at memory taps needs qualification, not caller inference",
+        "no commercial observation attempted"
+      ]
+    }
+  },
+  {
+    "run": "qualify-007",
+    "summary_sha256": "19daa710020749d13e416b5206bdeb0f84363e8bc3d93f97a41bc7ee38adc378",
+    "summary": {
+      "schema": "rex-observer-qualification/v1",
+      "id": "qualify-007",
+      "mame_sha256": "fcb54790e1837ed653020dc25a4e51d9ba7288d789cf556299d5d4d2cf2f3bc1",
+      "instrument_sha256": "83934d3c3fb6a702bc1e7f9fc4758f85cb275278468dae89261445bee4265aeb",
+      "passed": true,
+      "cases": [
+        {
+          "id": "qualify-007-positive",
+          "exit_code": 0,
+          "elapsed_seconds": 1.117003930005012,
+          "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+          "events_exist": true,
+          "qualified": true,
+          "interpretation": "author trace and discriminating controls passed",
+          "counts": {
+            "read": 4,
+            "destination_snapshot": 1,
+            "other_stop": 1,
+            "collection_start": 1,
+            "collection_end": 1,
+            "write": 11,
+            "entry": 1,
+            "return": 1
+          }
+        },
+        {
+          "id": "qualify-007-no-call",
+          "exit_code": 0,
+          "elapsed_seconds": 1.0166833830007818,
+          "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+          "events_exist": true,
+          "qualified": true,
+          "interpretation": "author trace and discriminating controls passed",
+          "counts": {
+            "destination_snapshot": 1,
+            "other_stop": 1,
+            "collection_start": 1,
+            "collection_end": 1,
+            "write": 7,
+            "return": 1
+          }
+        },
+        {
+          "id": "qualify-007-other-args",
+          "exit_code": 0,
+          "elapsed_seconds": 1.0162531749956543,
+          "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+          "events_exist": true,
+          "qualified": true,
+          "interpretation": "author trace and discriminating controls passed",
+          "counts": {
+            "read": 4,
+            "destination_snapshot": 1,
+            "other_stop": 1,
+            "collection_start": 1,
+            "collection_end": 1,
+            "write": 11,
+            "entry": 1,
+            "return": 1
+          }
+        },
+        {
+          "id": "qualify-007-incomplete",
+          "exit_code": 0,
+          "elapsed_seconds": 1.170306862994039,
+          "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+          "events_exist": true,
+          "qualified": true,
+          "interpretation": "incomplete capture correctly refused",
+          "counts": {
+            "collection_start": 1,
+            "other_stop": 1
+          }
+        }
+      ],
+      "limits": [
+        "external MAME runtime only",
+        "selected breakpoints and ranges only",
+        "PC context at memory taps needs qualification, not caller inference",
+        "no commercial observation attempted"
+      ]
+    }
+  },
+  {
+    "run": "qualify-008",
+    "summary_sha256": "14619bec95450ad62cdc7771a8242c4215a19c232ea8e247e821a6ea8f481d44",
+    "summary": {
+      "schema": "rex-observer-qualification/v1",
+      "id": "qualify-008",
+      "mame_sha256": "fcb54790e1837ed653020dc25a4e51d9ba7288d789cf556299d5d4d2cf2f3bc1",
+      "instrument_sha256": "0157511e520237a9413ca9bd50f195b06d69dedde54bfb26a7cb2a83eb3c66e6",
+      "passed": true,
+      "cases": [
+        {
+          "id": "qualify-008-positive",
+          "exit_code": 0,
+          "elapsed_seconds": 1.479529766998894,
+          "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+          "events_exist": true,
+          "qualified": true,
+          "interpretation": "author trace and discriminating controls passed",
+          "counts": {
+            "read": 4,
+            "collection_start": 1,
+            "other_stop": 1,
+            "write": 11,
+            "return": 1,
+            "destination_snapshot": 1,
+            "collection_end": 1,
+            "entry": 1
+          }
+        },
+        {
+          "id": "qualify-008-no-call",
+          "exit_code": 0,
+          "elapsed_seconds": 1.3320535759994527,
+          "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+          "events_exist": true,
+          "qualified": true,
+          "interpretation": "author trace and discriminating controls passed",
+          "counts": {
+            "collection_start": 1,
+            "return": 1,
+            "write": 7,
+            "destination_snapshot": 1,
+            "collection_end": 1,
+            "other_stop": 1
+          }
+        },
+        {
+          "id": "qualify-008-other-args",
+          "exit_code": 0,
+          "elapsed_seconds": 1.1722881050009164,
+          "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+          "events_exist": true,
+          "qualified": true,
+          "interpretation": "author trace and discriminating controls passed",
+          "counts": {
+            "read": 4,
+            "collection_start": 1,
+            "other_stop": 1,
+            "write": 11,
+            "return": 1,
+            "destination_snapshot": 1,
+            "collection_end": 1,
+            "entry": 1
+          }
+        },
+        {
+          "id": "qualify-008-incomplete",
+          "exit_code": 0,
+          "elapsed_seconds": 1.2204981139948359,
+          "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+          "events_exist": true,
+          "qualified": true,
+          "interpretation": "incomplete capture correctly refused",
+          "counts": {
+            "collection_end": 1,
+            "collection_start": 1,
+            "other_stop": 1
+          }
+        }
+      ],
+      "limits": [
+        "external MAME runtime only",
+        "selected breakpoints and ranges only",
+        "PC context at memory taps needs qualification, not caller inference",
+        "no commercial observation attempted"
+      ]
+    }
+  },
+  {
+    "run": "qualify-009",
+    "summary_sha256": "9593b8e615d0ea84e832816dbd1784146d52526b36fbc2f0cd0798e0cc334ea2",
+    "summary": {
+      "schema": "rex-observer-qualification/v1",
+      "id": "qualify-009",
+      "mame_sha256": "fcb54790e1837ed653020dc25a4e51d9ba7288d789cf556299d5d4d2cf2f3bc1",
+      "instrument_sha256": "59758b3139d4d977cf9385005049daf988e690b9fc27451be223d2b1212f7927",
+      "passed": true,
+      "cases": [
+        {
+          "id": "qualify-009-positive",
+          "exit_code": 0,
+          "elapsed_seconds": 1.5351998129990534,
+          "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+          "events_exist": true,
+          "qualified": true,
+          "interpretation": "author trace and discriminating controls passed",
+          "counts": {
+            "write": 11,
+            "other_stop": 1,
+            "entry": 1,
+            "read": 4,
+            "return": 1,
+            "collection_start": 1,
+            "destination_snapshot": 1,
+            "collection_end": 1
+          }
+        },
+        {
+          "id": "qualify-009-no-call",
+          "exit_code": 0,
+          "elapsed_seconds": 1.2226801739961957,
+          "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+          "events_exist": true,
+          "qualified": true,
+          "interpretation": "author trace and discriminating controls passed",
+          "counts": {
+            "write": 7,
+            "other_stop": 1,
+            "return": 1,
+            "collection_start": 1,
+            "destination_snapshot": 1,
+            "collection_end": 1
+          }
+        },
+        {
+          "id": "qualify-009-other-args",
+          "exit_code": 0,
+          "elapsed_seconds": 1.2729195709980559,
+          "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+          "events_exist": true,
+          "qualified": true,
+          "interpretation": "author trace and discriminating controls passed",
+          "counts": {
+            "write": 11,
+            "other_stop": 1,
+            "entry": 1,
+            "read": 4,
+            "return": 1,
+            "collection_start": 1,
+            "destination_snapshot": 1,
+            "collection_end": 1
+          }
+        },
+        {
+          "id": "qualify-009-incomplete",
+          "exit_code": 0,
+          "elapsed_seconds": 1.125424131998443,
+          "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+          "events_exist": true,
+          "qualified": true,
+          "interpretation": "incomplete capture correctly refused",
+          "counts": {
+            "collection_start": 1,
+            "other_stop": 1,
+            "collection_end": 1
+          }
+        }
+      ],
+      "limits": [
+        "external MAME runtime only",
+        "selected breakpoints and ranges only",
+        "PC context at memory taps needs qualification, not caller inference",
+        "no commercial observation attempted"
+      ]
+    }
+  },
+  {
+    "run": "qualify-debug-003",
+    "summary_sha256": "c26ad13d9fe06db16c25e9bbaca7c37e17b311e6fcd9471eb7b06c1e8ce7066a",
+    "summary": {
+      "schema": "rex-observer-qualification/v1",
+      "id": "qualify-debug-003",
+      "mame_sha256": "ee1c59bafc5e5441e99fa4c58108a3e18048e60672f34de865c8a5a976094dba",
+      "instrument_sha256": "c36da422a68e351dfc04e5c9f9664c8027a4b354a9d854053bd6077c15d0e470",
+      "passed": false,
+      "cases": [
+        {
+          "id": "qualify-debug-003-positive",
+          "exit_code": 1,
+          "elapsed_seconds": 0.42022575399823836,
+          "log_sha256": "a0a354a674dbefda388503a3eda2078a48f15fb19b9fbcbd0a589d91137988c0",
+          "events_exist": false,
+          "qualified": false,
+          "error": "runtime/instrument did not complete"
+        }
+      ],
+      "limits": [
+        "external MAME runtime only",
+        "selected breakpoints and ranges only",
+        "PC context at memory taps needs qualification, not caller inference",
+        "no commercial observation attempted"
+      ]
+    }
+  },
+  {
+    "run": "qualify-debug-004",
+    "summary_sha256": "b681852772bf1e94861d7e3f13793c4eb20085e5579036b8a6b954dc2bcfb33e",
+    "summary": {
+      "schema": "rex-observer-qualification/v1",
+      "id": "qualify-debug-004",
+      "mame_sha256": "fcb54790e1837ed653020dc25a4e51d9ba7288d789cf556299d5d4d2cf2f3bc1",
+      "instrument_sha256": "c36da422a68e351dfc04e5c9f9664c8027a4b354a9d854053bd6077c15d0e470",
+      "passed": false,
+      "cases": [
+        {
+          "id": "qualify-debug-004-positive",
+          "exit_code": 0,
+          "elapsed_seconds": 1.1759027059997607,
+          "log_sha256": "1990cb534f534e5f92ac68a4dee75968596c2884e2b25e69fc3739d89d737b82",
+          "events_exist": true,
+          "qualified": false,
+          "error": "identity mismatch"
+        }
+      ],
+      "limits": [
+        "external MAME runtime only",
+        "selected breakpoints and ranges only",
+        "PC context at memory taps needs qualification, not caller inference",
+        "no commercial observation attempted"
+      ]
+    }
+  }
+]

@@ -1,0 +1,542 @@
+{
+  "edges": [
+    {
+      "fromNode": "ev",
+      "fromPort": "exec",
+      "id": "e1",
+      "toNode": "btn",
+      "toPort": "exec"
+    },
+    {
+      "fromNode": "btn",
+      "fromPort": "exec",
+      "id": "e2",
+      "toNode": "sub",
+      "toPort": "exec"
+    },
+    {
+      "fromNode": "sub",
+      "fromPort": "false",
+      "id": "e3",
+      "toNode": "imp",
+      "toPort": "exec"
+    },
+    {
+      "fromNode": "sub",
+      "fromPort": "true",
+      "id": "e4",
+      "toNode": "impw",
+      "toPort": "exec"
+    },
+    {
+      "fromNode": "imp",
+      "fromPort": "exec",
+      "id": "e5",
+      "toNode": "vel",
+      "toPort": "exec"
+    },
+    {
+      "fromNode": "impw",
+      "fromPort": "exec",
+      "id": "e6",
+      "toNode": "vel",
+      "toPort": "exec"
+    },
+    {
+      "fromNode": "aev",
+      "fromPort": "exec",
+      "id": "e7",
+      "toNode": "jf",
+      "toPort": "exec"
+    },
+    {
+      "fromNode": "jf",
+      "fromPort": "true",
+      "id": "e8",
+      "toNode": "sub2",
+      "toPort": "exec"
+    },
+    {
+      "fromNode": "sub2",
+      "fromPort": "false",
+      "id": "e9",
+      "toNode": "cut",
+      "toPort": "exec"
+    },
+    {
+      "fromNode": "sub2",
+      "fromPort": "true",
+      "id": "e10",
+      "toNode": "cutw",
+      "toPort": "exec"
+    },
+    {
+      "fromNode": "jf",
+      "fromPort": "false",
+      "id": "e11",
+      "toNode": "cap",
+      "toPort": "exec"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "ev",
+      "inputs": [],
+      "label": "Pulo: chamado pelo modo no chão",
+      "outputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "params": {
+        "assinatura_estrutural": "c6e5fe6c0424a0b3",
+        "jump_offset": 78860,
+        "origem": "recuperado do ROM (perfil m68k.platformer_jump.v1)",
+        "perfil": "m68k.platformer_jump.v1",
+        "ponte_edicao": 1,
+        "rate": "frame",
+        "rom_addr": "0x01340C",
+        "rom_bytes": "343c0680",
+        "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+      },
+      "type": "event_update",
+      "x": 40,
+      "y": 40
+    },
+    {
+      "id": "btn",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "label": "A, B ou C pressionado",
+      "outputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "params": {
+        "button": "BUTTON_A|B|C",
+        "origem": "recuperado do ROM (perfil m68k.platformer_jump.v1)",
+        "pad": "JOY_1"
+      },
+      "type": "input_pressed",
+      "x": 40,
+      "y": 230
+    },
+    {
+      "id": "sub",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        },
+        {
+          "dataType": "int",
+          "id": "a",
+          "kind": "data",
+          "label": "a"
+        },
+        {
+          "dataType": "int",
+          "id": "b",
+          "kind": "data",
+          "label": "b"
+        }
+      ],
+      "label": "Submerso? (bit 6 do status)",
+      "outputs": [
+        {
+          "id": "true",
+          "kind": "exec",
+          "label": "true"
+        },
+        {
+          "id": "false",
+          "kind": "exec",
+          "label": "false"
+        }
+      ],
+      "params": {
+        "a": "sonic_submerso",
+        "b": 1,
+        "descricao": "byte de status +0x22, bit 6",
+        "operator": "==",
+        "origem": "recuperado do ROM (perfil m68k.platformer_jump.v1)",
+        "rom_addr": "0x013410",
+        "rom_bytes": "082800060022"
+      },
+      "type": "condition_compare",
+      "x": 40,
+      "y": 420
+    },
+    {
+      "id": "imp",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        },
+        {
+          "dataType": "int",
+          "id": "value",
+          "kind": "data",
+          "label": "value"
+        }
+      ],
+      "label": "Impulso do pulo",
+      "outputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "params": {
+        "campo": "imp",
+        "descricao": "move.w #imp,d2",
+        "editavel": 1,
+        "faixa": "1..32767",
+        "origem": "recuperado do ROM (perfil m68k.platformer_jump.v1)",
+        "rom_addr": "0x01340C",
+        "rom_bytes": "343c0680",
+        "rom_offsets": "0x01340E",
+        "valor_original": 1664,
+        "value": 1664,
+        "var_name": "impulso_pulo"
+      },
+      "type": "var_set",
+      "x": 370,
+      "y": 610
+    },
+    {
+      "id": "impw",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        },
+        {
+          "dataType": "int",
+          "id": "value",
+          "kind": "data",
+          "label": "value"
+        }
+      ],
+      "label": "Impulso do pulo submerso",
+      "outputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "params": {
+        "campo": "impw",
+        "descricao": "move.w #impw,d2 quando submerso",
+        "editavel": 1,
+        "faixa": "1..32767",
+        "origem": "recuperado do ROM (perfil m68k.platformer_jump.v1)",
+        "rom_addr": "0x013418",
+        "rom_bytes": "343c0380",
+        "rom_offsets": "0x01341A",
+        "valor_original": 896,
+        "value": 896,
+        "var_name": "impulso_pulo_submerso"
+      },
+      "type": "var_set",
+      "x": 370,
+      "y": 800
+    },
+    {
+      "id": "vel",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        },
+        {
+          "dataType": "int",
+          "id": "value",
+          "kind": "data",
+          "label": "value"
+        }
+      ],
+      "label": "Velocidade += impulso rotacionado pelo ângulo",
+      "outputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "params": {
+        "descricao": "vx(+0x10) += cos*d2>>8; vy(+0x12) += sin*d2>>8",
+        "origem": "recuperado do ROM (perfil m68k.platformer_jump.v1)",
+        "value": 0,
+        "var_name": "vel_y"
+      },
+      "type": "var_set",
+      "x": 40,
+      "y": 990
+    },
+    {
+      "id": "aev",
+      "inputs": [],
+      "label": "Altura variável: chamada pelo modo no ar",
+      "outputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "params": {
+        "origem": "recuperado do ROM (perfil m68k.platformer_jump.v1)",
+        "rate": "frame",
+        "rom_addr": "0x013498",
+        "rom_bytes": "4a28003c6726"
+      },
+      "type": "event_update",
+      "x": 1360,
+      "y": 40
+    },
+    {
+      "id": "jf",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        },
+        {
+          "dataType": "int",
+          "id": "a",
+          "kind": "data",
+          "label": "a"
+        },
+        {
+          "dataType": "int",
+          "id": "b",
+          "kind": "data",
+          "label": "b"
+        }
+      ],
+      "label": "Flag de pulo != 0?",
+      "outputs": [
+        {
+          "id": "true",
+          "kind": "exec",
+          "label": "true"
+        },
+        {
+          "id": "false",
+          "kind": "exec",
+          "label": "false"
+        }
+      ],
+      "params": {
+        "a": "pulando",
+        "b": 0,
+        "descricao": "byte do objeto +0x3c",
+        "operator": "!=",
+        "origem": "recuperado do ROM (perfil m68k.platformer_jump.v1)",
+        "rom_addr": "0x013498",
+        "rom_bytes": "4a28003c6726"
+      },
+      "type": "condition_compare",
+      "x": 1360,
+      "y": 230
+    },
+    {
+      "id": "sub2",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        },
+        {
+          "dataType": "int",
+          "id": "a",
+          "kind": "data",
+          "label": "a"
+        },
+        {
+          "dataType": "int",
+          "id": "b",
+          "kind": "data",
+          "label": "b"
+        }
+      ],
+      "label": "Submerso?",
+      "outputs": [
+        {
+          "id": "true",
+          "kind": "exec",
+          "label": "true"
+        },
+        {
+          "id": "false",
+          "kind": "exec",
+          "label": "false"
+        }
+      ],
+      "params": {
+        "a": "sonic_submerso",
+        "b": 1,
+        "operator": "==",
+        "origem": "recuperado do ROM (perfil m68k.platformer_jump.v1)"
+      },
+      "type": "condition_compare",
+      "x": 1360,
+      "y": 420
+    },
+    {
+      "id": "cut",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        },
+        {
+          "dataType": "int",
+          "id": "value",
+          "kind": "data",
+          "label": "value"
+        }
+      ],
+      "label": "Corte da altura ao soltar o botão",
+      "outputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "params": {
+        "campo": "cut",
+        "descricao": "vy := corte se vy < corte e o botão foi solto",
+        "editavel": 1,
+        "faixa": "-32767..-1",
+        "origem": "recuperado do ROM (perfil m68k.platformer_jump.v1)",
+        "rom_addr": "0x01349E",
+        "rom_bytes": "323cfc00",
+        "rom_offsets": "0x0134A0",
+        "valor_original": -1024,
+        "value": -1024,
+        "var_name": "corte_altura"
+      },
+      "type": "var_set",
+      "x": 1360,
+      "y": 610
+    },
+    {
+      "id": "cutw",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        },
+        {
+          "dataType": "int",
+          "id": "value",
+          "kind": "data",
+          "label": "value"
+        }
+      ],
+      "label": "Corte da altura submerso",
+      "outputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "params": {
+        "campo": "cutw",
+        "descricao": "idem, submerso",
+        "editavel": 1,
+        "faixa": "-32767..-1",
+        "origem": "recuperado do ROM (perfil m68k.platformer_jump.v1)",
+        "rom_addr": "0x0134AA",
+        "rom_bytes": "323cfe00",
+        "rom_offsets": "0x0134AC",
+        "valor_original": -512,
+        "value": -512,
+        "var_name": "corte_altura_submerso"
+      },
+      "type": "var_set",
+      "x": 1690,
+      "y": 610
+    },
+    {
+      "id": "cap",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        },
+        {
+          "dataType": "int",
+          "id": "value",
+          "kind": "data",
+          "label": "value"
+        }
+      ],
+      "label": "Teto de velocidade ascendente (flag == 0)",
+      "outputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "params": {
+        "campo": "cap",
+        "descricao": "vy := teto se vy < teto e não pulou",
+        "editavel": 1,
+        "faixa": "-32767..-1",
+        "origem": "recuperado do ROM (perfil m68k.platformer_jump.v1)",
+        "rom_addr": "0x0134C4",
+        "rom_bytes": "0c68f0400012",
+        "rom_offsets": "0x0134C6,0x0134CE",
+        "valor_original": -4032,
+        "value": -4032,
+        "var_name": "teto_subida"
+      },
+      "type": "var_set",
+      "x": 2020,
+      "y": 420
+    }
+  ],
+  "rex_logic_recovery": {
+    "aviso": "Grafo descritivo. Alterar valores aqui nao altera a ROM; a ROM so muda pelo plano de edicao (patch sem crescimento).",
+    "campos_editaveis": [
+      "imp",
+      "impw",
+      "cut",
+      "cutw",
+      "cap"
+    ],
+    "descritivo": true,
+    "jump_offset": "0x01340C",
+    "profile_id": "m68k.platformer_jump.v1",
+    "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+  },
+  "version": 1
+}

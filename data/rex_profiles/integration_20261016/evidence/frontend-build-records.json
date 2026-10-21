@@ -1,0 +1,41 @@
+[
+  {
+    "command": [
+      "rtk",
+      "proxy",
+      "npm",
+      "run",
+      "check:tree"
+    ],
+    "cwd": "/home/misael/Projects/REX-INTEGRATION-2026-10-05",
+    "started": "2026-10-16T15:48:00.978968+00:00",
+    "log": "/home/misael/rds-scratch/rex-integration-20261016/frontend-build-00.log",
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "rtk",
+      "proxy",
+      "npm",
+      "run",
+      "lint"
+    ],
+    "cwd": "/home/misael/Projects/REX-INTEGRATION-2026-10-05",
+    "started": "2026-10-16T15:48:01.757765+00:00",
+    "log": "/home/misael/rds-scratch/rex-integration-20261016/frontend-build-01.log",
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "rtk",
+      "proxy",
+      "npx",
+      "tsc",
+      "--noEmit"
+    ],
+    "cwd": "/home/misael/Projects/REX-INTEGRATION-2026-10-05",
+    "started": "2026-10-16T15:48:18.161411+00:00",
+    "log": "/home/misael/rds-scratch/rex-integration-20261016/frontend-build-02.log",
+    "exit_code": 2
+  }
+]

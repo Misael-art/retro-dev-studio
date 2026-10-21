@@ -1,0 +1,136 @@
+{
+  "schema": "rex-copy-grid-semantic-state-verification/v1",
+  "status": "PASS_BOUNDED_COPY_MEMORY_AND_OBSERVED_STATE",
+  "original_trace_sha256": "7a6ee7353e06804dee2b6199e93f466d3a5b58a5dadd0d4f6e03be0d46d62bc2",
+  "edited_trace_sha256": "bcf11b25be5ead1a259763edfdfa7b02d416d6f97c09923e43dc200e98267454",
+  "cases": [
+    {
+      "width": 1,
+      "reads": 4096,
+      "writes": 4096,
+      "copied_bytes": 4096,
+      "stride": 128,
+      "span": 8128,
+      "final_pointer_after_last_gap": 16724000,
+      "predicted_destination12224_sha256": "b19961ed0bd9636971ebc0824407fc6a5ca1d87be73441042b74e21596e37614",
+      "boundary_state": {
+        "expected": {
+          "pc": 112390,
+          "a0": 16732160,
+          "a1": 16724000,
+          "a7": 16776696,
+          "stack_top_long": 18086,
+          "sr": 8964,
+          "d0": 65535,
+          "d1": 65535,
+          "d2": 65535
+        },
+        "observed": {
+          "pc": 112390,
+          "a0": 16732160,
+          "a1": 16724000,
+          "a7": 16776696,
+          "stack_top_long": 18086,
+          "sr": 8964,
+          "d0": 65535,
+          "d1": 65535,
+          "d2": 65535
+        }
+      },
+      "native_snapshot_bytes": 8128,
+      "limits": "Only A0/A1,D0/D1,D2,A7,stack-top,SR observed at declared boundaries. Other registers, stack contents, IRQ internals, cycles and external side effects not compared; full destination native GX proof is separate M3. copy_return is region exit, not RET."
+    },
+    {
+      "width": 2,
+      "reads": 4096,
+      "writes": 4096,
+      "copied_bytes": 8192,
+      "stride": 192,
+      "span": 12224,
+      "final_pointer_after_last_gap": 16728096,
+      "predicted_destination12224_sha256": "4a51997c86ab22e4027161a432c75b2e17410d4a5bdecc205c3efb6ee926e8e4",
+      "boundary_state": {
+        "expected": {
+          "pc": 112390,
+          "a0": 16736256,
+          "a1": 16728096,
+          "a7": 16776696,
+          "stack_top_long": 18086,
+          "sr": 8960,
+          "d0": 65535,
+          "d1": 65535,
+          "d2": 65535
+        },
+        "observed": {
+          "pc": 112390,
+          "a0": 16736256,
+          "a1": 16728096,
+          "a7": 16776696,
+          "stack_top_long": 18086,
+          "sr": 8960,
+          "d0": 65535,
+          "d1": 65535,
+          "d2": 65535
+        }
+      },
+      "native_snapshot_bytes": 8128,
+      "limits": "Only A0/A1,D0/D1,D2,A7,stack-top,SR observed at declared boundaries. Other registers, stack contents, IRQ internals, cycles and external side effects not compared; full destination native GX proof is separate M3. copy_return is region exit, not RET."
+    }
+  ],
+  "literal_role_controls": [
+    {
+      "width": 1,
+      "initial_sr": 9984,
+      "expected_sr": 9988,
+      "d0_sentinel_preserved": true,
+      "wrong_roles_refused": true
+    },
+    {
+      "width": 1,
+      "initial_sr": 10015,
+      "expected_sr": 10000,
+      "d0_sentinel_preserved": true,
+      "wrong_roles_refused": true
+    },
+    {
+      "width": 1,
+      "initial_sr": 8192,
+      "expected_sr": 8200,
+      "d0_sentinel_preserved": true,
+      "wrong_roles_refused": true
+    },
+    {
+      "width": 2,
+      "initial_sr": 8991,
+      "expected_sr": 8984,
+      "d0_sentinel_preserved": true,
+      "wrong_roles_refused": true
+    }
+  ],
+  "negative_controls": {
+    "identity": {
+      "refused": true,
+      "reason": "ROM identity"
+    },
+    "operator": {
+      "refused": true,
+      "reason": "wrong operator"
+    },
+    "flow": {
+      "refused": true,
+      "reason": "read/write order"
+    },
+    "destination": {
+      "refused": true,
+      "reason": "destination index/value"
+    },
+    "state": {
+      "refused": true,
+      "reason": "boundary registers/CCR differ"
+    },
+    "flags": {
+      "refused": true,
+      "reason": "boundary registers/CCR differ"
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "schema": "rex-copy-visual-v2-closure/v1",
+  "operator_authorized_after_v1_failure": true,
+  "methodology": "authorized source-grounded correction; not blind validation",
+  "freeze_commit": "d8be191e552eb43015d74f61e35271b9e8cb3fcd",
+  "product_baseline": "d394296c",
+  "runtime_source_changes": false,
+  "binary_rebuilt": false,
+  "app_sha256": "74033134f47510c1ef37d8e6025a8bc6986436d4060ae3e96b1ba9bcc3d1670e",
+  "authored_scene_v2": "PASS_LOCAL_PINNED_SCENE",
+  "journeys": {
+    "forward": {
+      "passed": 88,
+      "total": 88
+    },
+    "reverse": {
+      "passed": 88,
+      "total": 88
+    }
+  },
+  "comparison": {
+    "absolute_rgba_tolerance": 0,
+    "all_six_core_canvas_oracle_captures_equal": true,
+    "changed_ram_bytes": 162,
+    "changed_pixel_positions": 3309
+  },
+  "pre_journey": {
+    "literal_vectors_passed": 31,
+    "conversion_negatives_passed": 9,
+    "image_buffer_negatives_passed": 11,
+    "actual_comparator_tests_passed": 13
+  },
+  "v1_final": "FAIL86/89; three failures preserved unchanged",
+  "v2_frozen_inputs_unchanged": true,
+  "v1_protected_artifacts_unchanged": true,
+  "BYOR": "BLOCKED_RESOURCE_TO_PRESENTATION_PROOF; reused evidence, not complete",
+  "preexisting_sound": "OPEN unchanged",
+  "certify": "READY",
+  "frontend": {
+    "passed": 1045,
+    "skipped": 3
+  },
+  "rust": {
+    "passed": 1036,
+    "ignored": 93
+  },
+  "reused_regressions": {
+    "passed": 178,
+    "total": 178,
+    "same_binary": true
+  },
+  "maturity": "Experimental; no broader platform/ROM/hardware claim",
+  "push_merge_release_promotion": false,
+  "raw_run_root": "/home/misael/rds-scratch/rex-visual-copy-v2-001"
+}

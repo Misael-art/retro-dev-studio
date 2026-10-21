@@ -1,0 +1,90 @@
+{
+ "schema": "rex-semantic-profile/v1",
+ "id": "m68k.counter_threshold_state_gate.v1",
+ "revision": 1,
+ "status": "experimental",
+ "title": "Contador com limiar",
+ "summary": "Regra delimitada contador→comparação→estado: guarda opcional por bit, soma opcional de um contador de 32 bits, comparação assinada com um limiar e dois resultados de estado, com chamada externa opaca. A regra é derivada dos bytes pelo analisador; o perfil só configura. Experimental.",
+ "artifact_tag": "gate",
+ "arch": {
+  "cpu": "m68k",
+  "endianness": "big",
+  "instruction_alignment": 2,
+  "bus_address_bits": 24
+ },
+ "provenance": {
+  "author": "RetroDev Studio - integrador REX",
+  "created": "2026-09-28",
+  "derived_from": [
+   "crates/rex-gameplay/CONTRACT.md",
+   "docs/rex_profiles/gameplay_recovery/REPORT.md"
+  ],
+  "notes": "Revisao 1 em dado: o analisador e o crate rex-gameplay, reutilizado sem alteracao; antes desta revisao a classe tinha IPC, grafo e publicacao proprios."
+ },
+ "rom_binding": {
+  "mode": "signature"
+ },
+ "work_limits": {
+  "max_rom_bytes": 33554432,
+  "max_candidates": 32
+ },
+ "analyzer": {
+  "kind": "counter_compare_gate"
+ },
+ "selection": {
+  "structural_scan": true,
+  "declared_region": true
+ },
+ "edit": {
+  "field": "threshold",
+  "label": "Limiar do contador"
+ },
+ "evidence": {
+  "claims": [
+   {
+    "id": "efeito_limiar",
+    "level": "L5",
+    "fields": [
+     "threshold"
+    ],
+    "statement": "Trocar o limiar de 6 para 12 adia a abertura da passagem: o estado só muda quando o contador chega a 12, e o jogador fica bloqueado nos quadros 7 a 12.",
+    "scope": {
+     "roms": [
+      {
+       "sha256": "86c4e90ded38b9c74fdf209254639716a874f2e8ebd8787b3789cc36dbdb4f7e",
+       "instance_offsets": [
+        2374
+       ]
+      }
+     ],
+     "values": [
+      {
+       "field": "threshold",
+       "values": [
+        6,
+        12
+       ]
+      }
+     ],
+     "conditions": "ROM autoral do template reference_platformer (não é jogo comercial); chamadas diretas ao core Libretro, sem teclado nem interface; estado injetado na RAM"
+    },
+    "refs": [
+     "docs/rex_profiles/gameplay_recovery/REPORT.md",
+     "data/rex_profiles/gameplay_recovery/evidence/2026-09-28-prova-real/report.json"
+    ]
+   }
+  ],
+  "unknown": [
+   "se a rotina é executada em algum jogo comercial: só há ROMs autorais",
+   "o que a chamada externa faz: alvo e argumentos são registrados, o corpo não é recuperado",
+   "registradores e flags depois da saída: não são analisados",
+   "outros escritores do contador ou do estado fora da região"
+  ]
+ },
+ "limits": [
+  "A região é selecionada, não descoberta: candidato por varredura estrutural (só a forma com guarda) ou entrada e saídas declaradas pelo usuário.",
+  "Subconjunto fechado de 12 formas M68000; qualquer outro opcode recusa a recuperação.",
+  "Única edição: o limiar, na faixa que cabe na instrução original. Operador, passo, endereços e topologia não são editáveis.",
+  "Equivalência é por conjunto declarado de estados, não prova universal."
+ ]
+}

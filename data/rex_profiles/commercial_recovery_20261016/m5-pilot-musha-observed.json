@@ -1,0 +1,19 @@
+{
+  "id": "m5-profile-musha-001",
+  "exit_code": 0,
+  "pid": 2062820,
+  "owned_process_alive": false,
+  "elapsed_seconds": 4.274599745003798,
+  "manifest_sha256": "614d98745e59475502223021ec5031cab6c587bd9a6cf212daf2221de1e22925",
+  "log_sha256": "85938ccde0ecd15b6e8550f72fe3d86f6c3e8db5ae0065d15204e79a4d48af92",
+  "events_sha256": "8707a73396468cbf810a3217d9e80fbb445841056cac9885028bce22f2cef1bc",
+  "events_bytes": 5454,
+  "status": "NO_REGION_EXECUTION_OBSERVED",
+  "target": "musha",
+  "protocol_sha256": "73c18d6d3d8edae9fa22615ec29c458f6d652d3fa2d4cf53b22785a7ccac4803",
+  "entries": 0,
+  "completed_regions": 0,
+  "entry_frames": [],
+  "sampled_later_invocations": false,
+  "private_directory": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-profile-musha-001"
+}

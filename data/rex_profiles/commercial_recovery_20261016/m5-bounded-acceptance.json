@@ -1,0 +1,43 @@
+{
+  "schema": "rex-m5-bounded-acceptance/v1",
+  "generated_at": "2026-10-19T01:34:20.693500+00:00",
+  "status": "M5_DEMONSTRATED_BOUNDED_SECOND_IMPLEMENTATION",
+  "app_sha256": "66cb3d71ea4f5df2efd37b031fe0c4c76b822b11d55d55ca240024638c7c12e5",
+  "requirements": {
+    "different_implementation": "Primary Sonic30byte nested strided byte/word loop versus GoldenAxe16byte contiguous MOVE.L/DBRA single loop with LEA initializers/MOVEQ; actual instruction/control representation differs, not inferred from name/hash. No shared Kosinski claim.",
+    "transfer_integrated": "Same CopyGrid generic IR, declared-region profile, canonical IPC/graph/editor/persistence/publisher; native140/140forward and138/138reverse.",
+    "state_causality": "MAME real original108long432bytes, edited108word216bytes plus216preserved; D/A/SR predicted within frozen domain. Distinct GX native prepared memory span432exact and162discriminating bytes; no PC call proof in GX.",
+    "exact_reversal": "UI generated original ROM SHA75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b; independentIPS and only2AA2changed",
+    "expectations": "Original source/before-memory generated before editedGX run. Generic production freeze before four reserved target code interpretation. First GoldenAxe exploratory; reserved refers to this mission, not globally unseen corpus.",
+    "generality": "Four consecutive declared static reconstruction/publication/IPS targets at zero REX production and profile-definition change after freeze. No region execution observed in their frozen episodes.",
+    "cost": "First-target generic production+418/-22 in7files excluding tests, including two generic platform/presentation fixes; profile/instrument/test costs separate. Zero game/hash dispatch, new dependencies or replaced core.",
+    "final_regressions": "Sonic135forward/128reverse; authored88forward/88reverse with exact3309causalpixels; same finalbinary; checkpoints and failures retained.",
+    "gates": "READY seven gates exit0 frontend1049/3skip Rust1038/94ignore; defaultClippy-Dwarnings andfmt pass"
+  },
+  "limits": [
+    "GoldenAxe video unchanged in episode; transferred causal proof is memory only, no independent edited visual or usability claim",
+    "Second routine implementation demonstrated, not complete game-engine recovery/equivalence",
+    "Reserved four are static/publication only, not four dynamic game-consumption passes",
+    "Assisted/pinned episodes; automatic localization/natural reachability/full CFG compilation not demonstrated",
+    "MAME external observation and GX/UI are distinct sessions and runtimes",
+    "Original commercial inputs include translated local derivatives; no pristine retail provenance claim",
+    "V1FAIL86/89, oldBYOR1/2, native001header/native002canvas, other instrument/protocol failures and soundOPEN preserved",
+    "Windows institutional certification, arbitrary consoles, universal recovery and full-game behavior outside scope"
+  ],
+  "files": {
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-native-forward-qualified.json": "13a780530b46cf19c71952689bacfe9962177d6fa12b156762600191b16facda",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-native-reverse-qualified.json": "44423fddf9a0983243c4a1644da3c26b3a0b61a863097888ab88932a8fcbe8e5",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-final-native-qualified.json": "ae09dbc19388974be757983a4a907fe3e396a4f36d548301355c4194857a0491",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-final-certification.json": "92d4dffe50859bc2cfb4fd3d0cd3e01bdcceb8a5933af19fcd6ce7f9059d8f89",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-final-complementary-qualified.json": "3a2e33a25e9539f6606bedd6766fd196f21377da3803619e39041de321d1bebe",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-final-identity-audit.json": "0d50f5f139585d0741b5f46399033f6bac081267fe06b09cec1c775bc1c12323",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-reserved-transfer-qualified.json": "138b00313a8a52212d3acd5851c28264cacb1cd9a99aba3f93080ca6b8759018",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-adaptation-cost-final.json": "ba80f6497642b0fab12119c2a1e00f3c09b3008299e70f4b490ae0927f4ba263",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-edited-state-qualified.json": "76f94f5d208a0462c2432f72ce3ff4a76de4110a2457826a6c8c341cb7077c6e",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-pilot-golden-axe-observed.json": "e7106942312f12ca069c947c370aee0c896ea90b3b0fb7cee6e250b3438f7c34",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-canvas-dimensions-addendum.json": "d88bc1f9ae92e3b9727fcb74d33cf7c4a1beb7837aa181c19c0bff46efac861b",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-retake-artifact-reconciliation.json": "9976ee190b09c9ad7feeb706ebf608a70235c505b37c50174e6a727108311dc4"
+  },
+  "maturity": "Experimental",
+  "remote_actions": []
+}

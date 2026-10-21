@@ -1,0 +1,69 @@
+{
+  "schema": "rex-m5-transfer-case-freeze/v1",
+  "generated_at": "2026-10-18T08:54:02.680749+00:00",
+  "inputs": {
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs": "e2d351ee960470bcfbd341441c685264d9c620905605757bb5061bfa692b2acc",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs": "a22bb7fd57dbe4d5e365c99402460ea019fe51660dba5323060262da92fc2d92",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src/components/nodegraph/ProfileGraphBridgePanel.tsx": "2df3baec28d63e2f0ed15043c4fc728a156032fb2b0e008461c28ecc31313ec3",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src/core/nodegraph/profileGraphBridge.ts": "2e66b028426bd94ff5fbe0ce44fbc468f088e35461660dfa92537ad091267840",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/specs/m68k.copy_grid.v1.json": "36a5273f1ce8e61986f80235ba401f3792aa866b3191404333f3a4b435154a4b",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/observe-v4.lua": "dd9298cb3ee60a24c1e64cade175fb43cc4b86576e035c56c2f96b6fc80f6c01",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/run-transfer-case.py": "7551e91aba398e09a1b14a9e191212dfcf3ae16e934e4b0270b0ae02edc5cdf3",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/run-profile-observer.py": "6da5374e9ddd6479292d706a843d70b53d6067e6eacbe2724582cbff368a1880",
+    "/usr/lib/mame/mame": "fcb54790e1837ed653020dc25a4e51d9ba7288d789cf556299d5d4d2cf2f3bc1",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/verify-linear-state-v2.py": "ae3d4b1bf9c9be5abaccff99a4fcee26d7337e4a97d871df31cea09f8d310fb7",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/golden-axe/original.bin": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b"
+  },
+  "target": {
+    "archive": "/home/misael/emulation/roms/genesis/Golden Axe (World) (Translated PtBr).zip",
+    "archive_sha256": "123440e91aa8b03deae86c256009eab36ca5525eedbd9d7f1a73219931a42a13",
+    "member": "Golden Axe (World).gen",
+    "rom_bytes": 524288,
+    "rom_sha256": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b",
+    "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied.",
+    "id": "golden-axe",
+    "rom_path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/golden-axe/original.bin",
+    "shape": {
+      "entry": 10904,
+      "transfer": 10914,
+      "exit": 10920,
+      "length": 16,
+      "source_register": 0,
+      "destination_register": 1,
+      "counter_register": 0,
+      "count": 108,
+      "counter_initialization": "moveq",
+      "width": 4,
+      "source_bus24": 10922,
+      "destination_bus24": 16774144,
+      "source_initial_register32": 10922,
+      "destination_initial_register32": 4294964224,
+      "source_addressing": "pc_relative_word",
+      "destination_addressing": "absolute_word",
+      "initialization_order": [
+        "source",
+        "destination",
+        "count"
+      ],
+      "source_space": "linear_rom",
+      "allowed_widths_in_memory_domain": [
+        1,
+        2,
+        4
+      ],
+      "base_in_domain": true,
+      "distinct_implementation": "single DBRA, no outer loop/row gap, statically initialized pointers/count; not primary nested byte-copy implementation",
+      "region_sha256": "037a639f2523e4b3c038a64e10ab92871882036ea7a5f1d79ce721ef446aa8a6",
+      "production_recognition": "NOT_MEASURED",
+      "real_invocation": "NOT_OBSERVED"
+    },
+    "maximum_source_sha256": "5163dca0ade2885de3d29ebfd9daf8e9b80a1e8247277989ccb69fb8e487dada",
+    "classification": "exploratory inspected; not unseen; local translated commercial derivative"
+  },
+  "verifier": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/verify-linear-state-v2.py",
+  "observer_alias": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-observer-input-qualify-m5-profile-001",
+  "frames": 1200,
+  "expectations": "Original108long/432bytes and full boundary state, previously measured/qualified; current reproducible pins use final frozen production rather than earlier pilot baseline. Earlier capture remains evidence; this protocol not yet reexecuted.",
+  "prediction_origin": "Allowed widths and conditional model frozen before production adaptation; published bytes match independently prepared original-ROM opcode prediction.",
+  "production_changes_since_generic_freeze": 0
+}

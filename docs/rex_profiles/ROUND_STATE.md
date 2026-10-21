@@ -1,5 +1,46 @@
 # Estado da rodada REX — perfis de endereçamento e codecs
 
+### Checkpoint 2026-10-16 — comparação recuperada do laboratório na jornada canônica (Experimental)
+
+No destino `codex/rex-integrator-sonic-103104`, base `3aee1128`, foi incorporada
+somente a fixture autoral e o pacote de comparação da pesquisa `ee8c581f`.
+Backend real rederiva a região declarada `0x240..0x25E`, normaliza `>=` assinado,
+limiar 5 e nove mappings; a assinatura do pacote coincide sem exceção na revisão.
+No app SHA `f913ed903f64bbd8a86e2f269d9e872f8b596344eb48723fab1b415aa6c8f46b`,
+a jornada GUI passou **63/63**: recuperar → abrir nodes → editar limiar 5→6 →
+Salvar pelo menu → destruir janela → reabrir do disco → cópia/IPS → execução.
+A regressão da jornada anterior, com guarda e chamada opaca, passou **55/55**
+e 60 casos no mesmo binário. A correção de produto verifica request_id e hash
+do perfil na resposta da ponte; comparação assinada fica explícita. Sem node,
+classe, codec ou publicador novo, sem alteração de registry ou dependências.
+
+ROM autoral base SHA `8246bb88…f6f218`, 2593 bytes; cópia `65e48daa…4528`,
+IPS `bf9faf05…cc09`. Única diferença em `0x247`; original intacta; aplicador
+Python independente reproduz a cópia. Mesmo Genesis Plus GX v1.7.4 46a5521,
+SHA `07c10476…10b1`, com SHA dos bytes efetivamente carregados conferido.
+No domínio `INT32_MIN,-1,0,4,5,6,INT32_MAX`, ledger observado mudou
+`0,0,0,0,1,1,1`→`0,0,0,0,0,1,1`. Contador/estado finais observados:
+`0x7FFFFFFF`/`1`. Inputs por caso são declarados pelo caller autoral; não há
+captura de argumentos do jogo nem prova de chamada em ROM comercial. Flags,
+registradores, stack, vídeo/áudio e outros estados não foram comparados.
+
+`host:certify` **READY**, exit 0: tree/lint/tsc, frontend **1041/0/3 skips**,
+Clippy, Rust **1032/0/92 ignored**, Ghidra operacional e upstream SGDK/SNES.
+Fmt e diff check passaram. Gates não promovem recuperação universal nem
+usabilidade humana. **Pendência sonora preexistente do nodegraph-authoring
+permanece aberta**: falha e aprovação no mesmo binário não foram diagnosticadas
+nem apagadas por esta missão. O aviso herdado de #[test] duplicado também foi
+preservado. GUI 001 (61/61, save por API) e GUI 002 (falha do localizador do
+botão com atalho) ficam no histórico; GUI 003 usa o clique nativo corrigido.
+
+Mapa requisito→implementação→teste→resultado→limite e comandos/hashes completos:
+`docs/rex_profiles/integration_20261016/REQUIREMENTS.md`, `REPRODUCE.md` e
+`data/rex_profiles/integration_20261016/evidence/`. Próximo candidato de pesquisa:
+contrato de memória/proveniência de copy-grid como inspeção somente leitura,
+condicionado a tipos/portas/lowering/testes antes de habilitar execução ou edição;
+nenhuma outra classe foi integrada nesta rodada. Sem push/merge/release/promoção.
+
+
 Registro vivo do integrador. Matriz honesta por capacidade: `blocked`,
 `fixture` (prova sintética autoral) ou `verified` (evidência registrada — pacote em
 `data/rex_profiles/*/evidence/`, conjunto pinado com SHA por arquivo, ou

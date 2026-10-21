@@ -1,0 +1,84 @@
+{
+  "schema": "rex-observer-qualification/v1",
+  "id": "qualify-009",
+  "mame_sha256": "fcb54790e1837ed653020dc25a4e51d9ba7288d789cf556299d5d4d2cf2f3bc1",
+  "instrument_sha256": "59758b3139d4d977cf9385005049daf988e690b9fc27451be223d2b1212f7927",
+  "passed": true,
+  "cases": [
+    {
+      "id": "qualify-009-positive",
+      "exit_code": 0,
+      "elapsed_seconds": 1.5351998129990534,
+      "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+      "events_exist": true,
+      "qualified": true,
+      "interpretation": "author trace and discriminating controls passed",
+      "counts": {
+        "write": 11,
+        "other_stop": 1,
+        "entry": 1,
+        "read": 4,
+        "return": 1,
+        "collection_start": 1,
+        "destination_snapshot": 1,
+        "collection_end": 1
+      }
+    },
+    {
+      "id": "qualify-009-no-call",
+      "exit_code": 0,
+      "elapsed_seconds": 1.2226801739961957,
+      "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+      "events_exist": true,
+      "qualified": true,
+      "interpretation": "author trace and discriminating controls passed",
+      "counts": {
+        "write": 7,
+        "other_stop": 1,
+        "return": 1,
+        "collection_start": 1,
+        "destination_snapshot": 1,
+        "collection_end": 1
+      }
+    },
+    {
+      "id": "qualify-009-other-args",
+      "exit_code": 0,
+      "elapsed_seconds": 1.2729195709980559,
+      "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+      "events_exist": true,
+      "qualified": true,
+      "interpretation": "author trace and discriminating controls passed",
+      "counts": {
+        "write": 11,
+        "other_stop": 1,
+        "entry": 1,
+        "read": 4,
+        "return": 1,
+        "collection_start": 1,
+        "destination_snapshot": 1,
+        "collection_end": 1
+      }
+    },
+    {
+      "id": "qualify-009-incomplete",
+      "exit_code": 0,
+      "elapsed_seconds": 1.125424131998443,
+      "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+      "events_exist": true,
+      "qualified": true,
+      "interpretation": "incomplete capture correctly refused",
+      "counts": {
+        "collection_start": 1,
+        "other_stop": 1,
+        "collection_end": 1
+      }
+    }
+  ],
+  "limits": [
+    "external MAME runtime only",
+    "selected breakpoints and ranges only",
+    "PC context at memory taps needs qualification, not caller inference",
+    "no commercial observation attempted"
+  ]
+}

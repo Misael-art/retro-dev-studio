@@ -1,3 +1,4 @@
+import { isRecoveredRegionGraph } from "../../core/nodegraph/profileGraphBridge";
 import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo, type CSSProperties } from "react";
 import { persistActiveScene, registerPendingEditFlusher } from "../../core/scenePersistence";
 import { openProjectSourcePath } from "../../core/ipc/projectService";
@@ -91,6 +92,9 @@ import {
 } from "../../core/nodegraph/graphHistory";
 import Icon from "../common/Icon";
 import BehaviorPanel from "./BehaviorPanel";
+import { valueParam } from "../../core/nodegraph/profileGraphBridge";
+import ProfileGraphBridgePanel from "./ProfileGraphBridgePanel";
+import RomValueInput from "./RomValueInput";
 import { buildBehaviorSceneContext } from "../../core/nodegraph/behaviorLibrary";
 import AssetPreview from "../common/AssetPreview";
 
@@ -228,6 +232,8 @@ export const REQUIRED_NOCODE_NODE_TYPES: NodeType[] = [
   "sprite_anim",
   "set_animation_state",
   "camera_follow",
+  "authored_strike",
+  "palette_swap",
   "camera_bounds",
   "timer",
   "var_get",
@@ -1318,6 +1324,9 @@ function cardEditableParam(node: GraphNode, key: string): "number" | "button" | 
   if (node.type === "set_velocity" && (key === "vx" || key === "vy")) return "number";
   if (node.type === "sprite_move" && (key === "dx" || key === "dy")) return "number";
   if (node.type === "rom_branch_compare_word" && key === "threshold") return "number";
+  // Nó editável da ponte ROM <-> nodes, de qualquer perfil: o parâmetro que o nó declara como valor
+  // (`campo_param`; por omissão `value`) é o número que a ROM tem. Nenhum outro parâmetro dele é editável.
+  if (node.params.editavel === 1 && key === valueParam(node)) return "number";
   if (
     node.type === "condition_compare" &&
     node.params.authoring_origin === "authored_builtin_reference_platformer" &&
@@ -1506,6 +1515,17 @@ function NodeCard({
             );
           })}
         </select>
+      );
+    }
+    if (mode === "number" && node.params.editavel === 1) {
+      return (
+        <RomValueInput
+          testId={`node-param-${node.id}-${key}`}
+          label={`Valor de ${node.label}`}
+          value={value}
+          faixa={String(node.params.faixa ?? "")}
+          onCommit={(next) => onParamChange(node.id, key, next)}
+        />
       );
     }
     if (mode === "number") {
@@ -3273,8 +3293,8 @@ export default function NodeGraphEditor() {
       const inline = deserializeNodeGraph(entity.components.logic?.graph);
       return inline.nodes.length ? inline : resolvedSceneGraphs[entity.entity_id] ?? inline;
     });
-    return buildBehaviorSceneContext(entities, graphs, activeTarget);
-  }, [activeScene?.entities, activeTarget, graph, resolvedSceneGraphs, selectedEntity?.entity_id]);
+    return buildBehaviorSceneContext(entities, graphs, activeTarget, activeScene?.palettes ?? []);
+  }, [activeScene?.entities, activeScene?.palettes, activeTarget, graph, resolvedSceneGraphs, selectedEntity?.entity_id]);
   const showNodes = useCallback((nodeIds: string[]) => {
     const current = currentGraphRef.current;
     setSelectedIds(new Set(nodeIds));
@@ -3822,7 +3842,8 @@ export default function NodeGraphEditor() {
               </div>
             ) : null}
 
-            {graphSummary.totalNodes > 0 && graphSummary.entryNodeIds.length === 0 && (
+            {isRecoveredRegionGraph(graph) && <p data-testid="nodegraph-recovered-region" className="text-[#89b4fa]">Região recuperada da ROM: entrada e saídas declaradas descrevem o trecho. Não requer evento autoral; execução e consumidor gráfico permanecem desconhecidos sem observação do emulador.</p>}
+            {graphSummary.totalNodes > 0 && graphSummary.entryNodeIds.length === 0 && !isRecoveredRegionGraph(graph) && (
               <p className="text-[#fab387]">
                 Grafo sem evento de entrada: adicione um no de evento para iniciar o fluxo.
               </p>
@@ -3852,6 +3873,7 @@ export default function NodeGraphEditor() {
                 </ul>
               </div>
             )}
+            <ProfileGraphBridgePanel graph={graph} logMessage={logMessage} />
             <BehaviorPanel
               graph={graph}
               context={behaviorContext}
@@ -4243,7 +4265,7 @@ export default function NodeGraphEditor() {
               >
                 Ir para Inicio
               </button>
-              {graphSummary.entryNodeIds.length === 0 && graphSummary.totalNodes > 0 && (
+              {graphSummary.entryNodeIds.length === 0 && graphSummary.totalNodes > 0 && !isRecoveredRegionGraph(graph) && (
                 <button
                   type="button"
                   data-testid="nodegraph-add-entry"

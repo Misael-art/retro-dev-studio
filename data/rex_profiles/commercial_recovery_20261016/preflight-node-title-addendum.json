@@ -1,0 +1,18 @@
+{
+  "schema": "rex-host-job-observation-addendum/v1",
+  "generated_at": "2026-10-18T02:12:03.692654+00:00",
+  "old_sha256": "f357c2a19af99a717a767c46417e6807294743caf3effa2392e9e4fba8a18d4f",
+  "new_sha256": "d53ec9475a72005bfe23a81e778014af5bce0087bf5fc3518d61172c5f4e19fb",
+  "finding": "Active certify Node process has Linux comm node-MainThread, Vitest has MainThread, npm uses npm run host:ce/npm test; old exact node/npm test missed these titles.",
+  "change": "Include observed Node24/npm process titles in existing command-based heavy-job classification. Existing thresholds and serial rule unchanged.",
+  "scope": "QA preflight only; no production source/dependency/core change. The current certify remains the sole heavy job; no competing job started.",
+  "verification": {
+    "exit_code": 75,
+    "observed_heavy_titles": [
+      "node-MainThread",
+      "MainThread"
+    ],
+    "ready_for_heavy_job": false,
+    "meaning": "Correct refusal while own certify remains running; no second heavy job started."
+  }
+}

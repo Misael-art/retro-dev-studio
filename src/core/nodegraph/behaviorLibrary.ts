@@ -60,6 +60,8 @@ export type BehaviorSceneContext = {
    * do id e sao globais na ROM, entao o id precisa ser unico na cena inteira.
    */
   instanceIds: string[];
+  /** Paletas da cena com id (plano de paletas), para trocas por evento. */
+  palettes?: Array<{ id: string; name: string }>;
   /** Plataforma do projeto (ex.: "megadrive", "snes"). */
   platform?: string | null;
   counters?: BehaviorSceneCounter[];
@@ -80,7 +82,8 @@ export type BehaviorParamSpec =
   | { key: string; label: string; kind: "animation"; ofEntityParam: string; help?: string }
   | { key: string; label: string; kind: "sound"; help?: string }
   | { key: string; label: string; kind: "variable"; help?: string }
-  | { key: string; label: string; kind: "instance"; behaviorId: string; help?: string };
+  | { key: string; label: string; kind: "instance"; behaviorId: string; help?: string }
+  | { key: string; label: string; kind: "palette"; help?: string };
 
 export type BehaviorParams = Record<string, string | number>;
 
@@ -562,7 +565,89 @@ const objective: BehaviorDefinition = {
   ],
 };
 
-export const BEHAVIOR_LIBRARY: BehaviorDefinition[] = [movement, passage, counter, collectible, objective];
+const strike: BehaviorDefinition = {
+  id: "strike",
+  title: "Golpe autoral",
+  description:
+    "Autoral (nao convertido do CNS): quando o quadro atual do atacante tem caixa de ataque encostando na caixa de corpo do alvo, tira vida do alvo uma unica vez por golpe. Exige personagens MUGEN com caixas.",
+  params: [
+    { key: "attacker", label: "Atacante", kind: "entity", require: "sprite" },
+    { key: "target", label: "Alvo", kind: "entity", require: "sprite" },
+    { key: "damage", label: "Dano por acerto", kind: "int", min: 1, max: 999, default: 12 },
+    { key: "health", label: "Vida inicial do alvo", kind: "int", min: 1, max: 9999, default: 100 },
+  ],
+  summarize: (p, context) =>
+    `Se o ataque de ${entityLabel(context, p.attacker)} acertar ${entityLabel(context, p.target)}: tirar ${p.damage} de ${p.health} de vida, uma vez por golpe.`,
+  validate: (p, context, graph) => {
+    const errors = commonValidation(strike, p, context, graph);
+    if (p.attacker && p.attacker === p.target) errors.push("Alvo: o atacante nao pode acertar a si mesmo.");
+    return errors;
+  },
+  build: (p) => ({
+    nodes: [
+      { role: "tick", type: "event_update", label: "A cada quadro (golpe)", params: {} as BehaviorParams },
+      {
+        role: "strike",
+        type: "authored_strike",
+        label: "Golpe autoral",
+        params: { attacker: String(p.attacker), target: String(p.target), damage: Number(p.damage), health: Number(p.health) },
+      },
+    ],
+    edges: [{ from: "tick", fromPort: "exec", to: "strike", toPort: "exec" }],
+  }),
+  externalRefs: (p) => [
+    { kind: "entity", id: String(p.attacker), param: "attacker" },
+    { kind: "entity", id: String(p.target), param: "target" },
+  ],
+};
+
+const paletteSwap: BehaviorDefinition = {
+  id: "palette_swap",
+  title: "Trocar paleta ao sofrer golpe",
+  description:
+    "A cada acerto do golpe autoral escolhido, as cores do alvo viram as da paleta escolhida por alguns quadros e depois voltam. 'So esta instancia' exige que o alvo tenha banco proprio (variante local); 'grupo' muda todos que leem o mesmo banco. Conferido pelo plano de paletas antes do build.",
+  params: [
+    { key: "strike", label: "Golpe que dispara", kind: "instance", behaviorId: "strike" },
+    { key: "target", label: "Alvo da troca", kind: "entity", require: "sprite" },
+    { key: "palette", label: "Paleta durante a troca", kind: "palette" },
+    { key: "frames", label: "Duracao", kind: "int", min: 1, max: 600, default: 12, unit: "quadros" },
+    {
+      key: "scope",
+      label: "Alcance",
+      kind: "choice",
+      options: [
+        { value: "instancia", label: "So esta instancia" },
+        { value: "grupo", label: "Todo o grupo do banco" },
+      ],
+      default: "instancia",
+    },
+  ],
+  summarize: (p, context) =>
+    `Quando o golpe acertar ${entityLabel(context, p.target)}: usar a paleta ${context.palettes?.find((x) => x.id === p.palette)?.name ?? p.palette} por ${p.frames} quadros (${p.scope === "grupo" ? "todo o grupo do banco" : "so esta instancia"}), depois voltar.`,
+  validate: (p, context, graph) => {
+    const errors = commonValidation(paletteSwap, p, context, graph);
+    if (!p.palette) errors.push("Paleta: crie uma paleta para a troca (Inspector > Paleta > Nova paleta).");
+    return errors;
+  },
+  build: (p) => ({
+    nodes: [
+      { role: "tick", type: "event_update", label: "A cada quadro (paleta)", params: {} as BehaviorParams },
+      {
+        role: "swap",
+        type: "palette_swap",
+        label: "Trocar paleta",
+        params: { strike: `${String(p.strike)}__strike`, target: String(p.target), palette: String(p.palette), frames: Number(p.frames), scope: String(p.scope) },
+      },
+    ],
+    edges: [{ from: "tick", fromPort: "exec", to: "swap", toPort: "exec" }],
+  }),
+  externalRefs: (p) => [
+    { kind: "instance", id: String(p.strike), param: "strike" },
+    { kind: "entity", id: String(p.target), param: "target" },
+  ],
+};
+
+export const BEHAVIOR_LIBRARY: BehaviorDefinition[] = [movement, passage, counter, collectible, objective, strike, paletteSwap];
 
 export function getBehaviorDefinition(id: string): BehaviorDefinition | undefined {
   return BEHAVIOR_LIBRARY.find((definition) => definition.id === id);
@@ -590,6 +675,7 @@ export function defaultBehaviorParams(definition: BehaviorDefinition, context: B
     } else if (spec.kind === "instance") {
       params[spec.key] = (graph.behaviors ?? []).find((instance) => instance.behaviorId === spec.behaviorId)?.id ?? "";
     } else if (spec.kind === "variable") params[spec.key] = context.variables[0] ?? "";
+    else if (spec.kind === "palette") params[spec.key] = context.palettes?.find((p) => !p.id.startsWith("variante:"))?.id ?? context.palettes?.[0]?.id ?? "";
     else params[spec.key] = "";
   }
   return params;
@@ -612,7 +698,12 @@ type SceneEntityLike = {
  * Contexto da cena. `graphs[i]` e o grafo de logica de `entities[i]` (quando alinhados),
  * o que permite saber em qual entidade vive cada instancia.
  */
-export function buildBehaviorSceneContext(entities: SceneEntityLike[], graphs: NodeGraph[], platform: string | null = null): BehaviorSceneContext {
+export function buildBehaviorSceneContext(
+  entities: SceneEntityLike[],
+  graphs: NodeGraph[],
+  platform: string | null = null,
+  palettes: Array<{ id?: string; name?: string }> = []
+): BehaviorSceneContext {
   const variables = new Set<string>();
   const counters: BehaviorSceneCounter[] = [];
   const references: BehaviorSceneReference[] = [];
@@ -664,6 +755,7 @@ export function buildBehaviorSceneContext(entities: SceneEntityLike[], graphs: N
     sounds: [...new Set(entities.flatMap((entity) => Object.keys(entity.components.audio?.sfx ?? {})))].sort(),
     variables: [...variables].sort(),
     instanceIds: graphs.flatMap((graph) => (graph.behaviors ?? []).map((instance) => instance.id)),
+    palettes: palettes.filter((p): p is { id: string; name?: string } => typeof p.id === "string").map((p) => ({ id: p.id, name: p.name ?? p.id })),
     platform,
     counters,
     references,

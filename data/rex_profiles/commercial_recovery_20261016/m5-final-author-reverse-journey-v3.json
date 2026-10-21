@@ -1,0 +1,58 @@
+{
+  "schema": "rex-semantic-journey/v1",
+  "rom": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-36-03-277Z-copias/reaberto/rom.copy-grid-2204-7a33ddfa.bin",
+  "rom_sha256": "7a33ddfa058c9d3e2e0e399450bb6ae8a1a4b03a6fbd79b504f0ba70b324d0b4",
+  "profile_id": "m68k.copy_grid.v1",
+  "declared_region": {
+    "entry": 8708,
+    "exits": [
+      8738
+    ]
+  },
+  "expect_scan_candidate": false,
+  "expect_opaque": 0,
+  "expect_nodes": [
+    "entry",
+    "copy_grid",
+    "exit"
+  ],
+  "absent_nodes": [
+    "compare",
+    "guard",
+    "set_call"
+  ],
+  "expect_curated_other_target": false,
+  "edit": {
+    "bytes_per_cell": 1
+  },
+  "core": {
+    "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+    "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+    "selection": "existing application managed default Genesis Plus GX; no BlastEm substitution"
+  },
+  "probe": {
+    "layout": "copy_grid_wram",
+    "done_addr": 16712232,
+    "done_magic": 1447646037,
+    "initial_state": "SGDK boot plus explicitly initialized authored Scope; no recovered game caller",
+    "reference": {
+      "source": 16711768,
+      "destination": 16711848,
+      "rows": 4,
+      "columns": 8,
+      "gap": 16,
+      "width": 2
+    }
+  },
+  "visual": {
+    "oracle_dir": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/data/rex_profiles/integration_20261016/visual-copy-v2",
+    "scope_address": 16711752,
+    "scope_length": 484,
+    "minimum_fresh_frames": 60,
+    "rom_resource_offset": 96648,
+    "oracle_manifest_sha256": "7878d670d8631d1af25ba4c0b70a159c28c02e8226c9a6043daa70a5f5cb3b80",
+    "pixel_rgb_tolerance": 0,
+    "contract": "VISUAL-COPY-CONTRACT-V2",
+    "reuse_byor_evidence": "v1 BYOR remains blocked, no commercial reexecution or new claim"
+  }
+}

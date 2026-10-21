@@ -18,6 +18,24 @@ export interface AnimationDef {
   mugen_frames?: MugenAnimationFrame[];
   onion_skin?: SpriteAnimationOnionSkin;
   hitboxes?: SpriteAnimationHitbox[];
+  /** Identidade estável por ocorrência (paralelo a `frames`); ausente em projetos antigos. */
+  occurrence_ids?: string[];
+  /** Eventos autorais ancorados em ocorrência + tick local. */
+  frame_events?: FrameEvent[];
+}
+
+export type FrameEventKind = "sound";
+
+export interface FrameEvent {
+  id: string;
+  occurrence: string;
+  /** Tick local na ocorrência (0 = primeiro tick visível), em 1/60 s. */
+  tick: number;
+  kind: FrameEventKind;
+  /** Ação de SFX do `AudioComponent` da entidade. */
+  sound?: string;
+  /** `authored`: criado no editor, não convertido do CNS. */
+  origin?: string;
 }
 
 export interface MugenAnimationFrame {
@@ -26,8 +44,18 @@ export interface MugenAnimationFrame {
   axis?: Pivot | null;
   duration: number;
   flags?: string[];
-  clsn1?: unknown[];
-  clsn2?: unknown[];
+  clsn1?: MugenCollisionBox[];
+  clsn2?: MugenCollisionBox[];
+  /** Caixas desta ocorrência editadas no Studio (autoral). */
+  clsn_edited?: boolean;
+}
+
+/** Caixa relativa ao eixo do personagem, em pixels (convenção MUGEN: y negativo = acima do pé). */
+export interface MugenCollisionBox {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
 }
 
 export interface SpriteAnimationOnionSkin {
@@ -212,6 +240,16 @@ export interface Components {
   logic?: LogicComponent;
   camera?: CameraComponent;
   tilemap?: TilemapComponent;
+  hud?: HudTextComponent | null;
+}
+
+/** Texto de interface autoral (Experimental): grade de texto do destino, tiles de 8 px. */
+export interface HudTextComponent {
+  column: number;
+  row: number;
+  label: string;
+  value?: { kind: "strike_hp" | "logic_var"; source: string } | null;
+  digits?: number;
 }
 
 export interface Entity {
@@ -238,6 +276,14 @@ export interface BackgroundLayer {
 export interface PaletteEntry {
   slot: number;
   colors: string[];
+  /** Recurso do plano de paletas (sem id = paleta de referência do editor, formato anterior). */
+  id?: string;
+  name?: string;
+  /** Banco fixado (reserva/compartilhamento explícito). */
+  bank?: number;
+  /** Entidades que usam este recurso em vez da paleta do próprio arquivo. */
+  uses?: string[];
+  origin?: string;
 }
 
 export interface RetroFXParallaxLayer {

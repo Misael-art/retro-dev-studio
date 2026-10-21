@@ -5,6 +5,14 @@ pub struct FramePayload {
     pub width: u32,
     pub height: u32,
     pub rgba: Vec<u8>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub core_epoch: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rom_sha256: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frame_sequence: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frame_index: Option<u64>,
 }
 
 pub fn framebuffer_to_rgba(src: &[u8], size: FrameSize, pixel_format: PixelFormat) -> FramePayload {
@@ -68,6 +76,10 @@ pub fn framebuffer_to_rgba(src: &[u8], size: FrameSize, pixel_format: PixelForma
         width: size.width,
         height: size.height,
         rgba,
+        core_epoch: None,
+        rom_sha256: None,
+        frame_sequence: None,
+        frame_index: None,
     }
 }
 

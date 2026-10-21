@@ -1,0 +1,39 @@
+{
+  "passed": true,
+  "captures": [
+    {
+      "variant": "positive",
+      "width": 256,
+      "height": 224,
+      "raw_sha256": "6a4547238caee56c8e3c409d16c3c725be324a3ed6576c4f618f51bbe3753603",
+      "png_sha256": "60bb3d4ad55327eff944ecb54dd8ab4eaa44ad92c9146a39e1971853b9ba27f5",
+      "pixel_format": "rendered_snapshot_rgb32_host_endian",
+      "png_equals_same_snapshot_target": true,
+      "pixel_mutant_rejected": true,
+      "limits": "capture plumbing only; does not prove independent palette or game visual oracle"
+    },
+    {
+      "variant": "no-call",
+      "width": 256,
+      "height": 224,
+      "raw_sha256": "6a4547238caee56c8e3c409d16c3c725be324a3ed6576c4f618f51bbe3753603",
+      "png_sha256": "60bb3d4ad55327eff944ecb54dd8ab4eaa44ad92c9146a39e1971853b9ba27f5",
+      "pixel_format": "rendered_snapshot_rgb32_host_endian",
+      "png_equals_same_snapshot_target": true,
+      "pixel_mutant_rejected": true,
+      "limits": "capture plumbing only; does not prove independent palette or game visual oracle"
+    },
+    {
+      "variant": "other-args",
+      "width": 256,
+      "height": 224,
+      "raw_sha256": "6a4547238caee56c8e3c409d16c3c725be324a3ed6576c4f618f51bbe3753603",
+      "png_sha256": "60bb3d4ad55327eff944ecb54dd8ab4eaa44ad92c9146a39e1971853b9ba27f5",
+      "pixel_format": "rendered_snapshot_rgb32_host_endian",
+      "png_equals_same_snapshot_target": true,
+      "pixel_mutant_rejected": true,
+      "limits": "capture plumbing only; does not prove independent palette or game visual oracle"
+    }
+  ],
+  "clock_contexts": "raw CPU/frame clocks separated; no invented monotonic global time"
+}

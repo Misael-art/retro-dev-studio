@@ -1,0 +1,24 @@
+{
+  "scenario": "semantic-gate-journey",
+  "display": ":4",
+  "screen": "1920x1080x24",
+  "xvfb_sha256": "5bfd315a8c7bc626d0b183d176e130c34f910a4a1279d9d53ea45769f62a3351",
+  "app_sha256": "f913ed903f64bbd8a86e2f269d9e872f8b596344eb48723fab1b415aa6c8f46b",
+  "rom_sha256": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218",
+  "system_display_modified": false,
+  "exit_code": 0,
+  "gui_report": "data/rex_profiles/integration_20261016/evidence/gui-003-report.json",
+  "gui_checks": {
+    "passed": 63,
+    "failed": 0
+  },
+  "product_code_commit": "628a422e03f872df029dc6f023fe3baee77c91d1",
+  "harness_checkpoint": "8b6c70af",
+  "frontend_embedded_build_commit": "628a422e03f872df029dc6f023fe3baee77c91d1",
+  "later_changes": "test helper compatibility, external harness and evidence/docs only; product source unchanged after build",
+  "core": {
+    "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+    "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+    "selection": "existing application managed default Genesis Plus GX; no BlastEm substitution"
+  }
+}

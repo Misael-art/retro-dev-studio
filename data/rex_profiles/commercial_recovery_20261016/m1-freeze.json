@@ -1,0 +1,114 @@
+{
+  "schema": "rex-commercial-target-freeze/v1",
+  "mission": "commercial_recovery_20261016",
+  "target": "Sonic 1 pinned image; special-stage layout + copy_grid",
+  "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "rom_bytes": 531577,
+  "selection_reason": "Existing special-stage walls/objects pixel evidence and integrated declared copy_grid region; prior neutral/Start episodes did not reach resource. New hypothesis is explicitly prepared special-stage entry, following historical cap2.py, not repetition.",
+  "resources": {
+    "layout_stream": {
+      "file_offset": 414770,
+      "cpu_effective_address": 414770,
+      "bus_address": 414770,
+      "bytes": 634,
+      "sha256": "dc1a0a6ee0c3d2f6b52b7393dec9ae6ad41fc8831a0176b1467f484167d39853"
+    },
+    "layout_plain_bytes": 4096,
+    "layout_plain_sha256": "322a14830b8f3be05d59507ccf41c7a57ff8e835cd2727573943cd61d4c944d0",
+    "wall_art": {
+      "file_offset": 181732,
+      "cpu_effective_address": 181732,
+      "bus_address": 181732,
+      "bytes": 2360,
+      "sha256": "6cad5b2014eaa4d0814ee4da7eac0c992a0ffd6cfc9ba6be1de71107ba2aa539"
+    },
+    "wall_plain_sha256": "5c36a38a784b3d40f506cffdd248aa20bda8464b7923093b4be5d0f8e7202860"
+  },
+  "address_spaces": {
+    "file": "normalized image, base zero",
+    "cpu": "M68000 effective address before 24-bit bus masking",
+    "bus": "MD 24-bit; aliases must be recorded separately",
+    "wram": "FF0000..FFFFFF, CPU big endian; GX API representation separately qualified",
+    "layout_decompression_buffer": "FF4000..FF4FFF",
+    "copy_destination": "FF1020 + rows64 * stride128; 64 bytes each row, span8128",
+    "vram": "VDP internal space; CPU access C00000/C00004 is a port, not VRAM address",
+    "cram": "VDP internal palette words, separate from RGBA"
+  },
+  "static_chain": {
+    "table": {
+      "file_offset": 112204,
+      "cpu_effective_address": 112204,
+      "bus_address": 112204,
+      "bytes": 24,
+      "sha256": "679f8c4fcf8f6f3ea569f2eb3d09fccc12575ef8536bd486e01f73fd87b10f7d"
+    },
+    "enigma_entry": 5918,
+    "caller": 112338,
+    "return": 112344,
+    "args_expected": {
+      "a0": 414770,
+      "a1": 16728064,
+      "d0_word": 0
+    },
+    "copy_grid": {
+      "file_offset": 112360,
+      "cpu_effective_address": 112360,
+      "bus_address": 112360,
+      "bytes": 30,
+      "sha256": "6d8ce350f938d4547c500754ced6fce4ccaf8d51d2b8dba75bcf86ba022758ab"
+    },
+    "copy_exit": 112390,
+    "known": "Table, Enigma call operands, preservation of FF4000 by clearing FF0000..FF3FFF, copy loop fallthrough, resource and mapping pixels historically confirmed",
+    "unknown": "Current entry/caller/arguments, downstream runtime render path, exact causal framebuffer prediction"
+  },
+  "episode": {
+    "classification": "assisted prepared state, not natural gameplay",
+    "preparation": "500 frames neutral, Start held 10, neutral600; then write CPU WRAM FF F600 byte10 (v_gamemode), then neutral180; input mechanism must be recorded per runtime",
+    "selection": "freeze stage selector to zero only if verified at breakpoint before lookup; any new write requires addendum before measurement",
+    "runtime_separation": "MAME external trace and GX app runs have distinct run IDs, state layouts and time domains. Matching ROM and prepared state alone does not establish trace/session equivalence."
+  },
+  "minimal_edit": {
+    "type": "existing copy_grid width1 -> width2 via canonical graph",
+    "file_offset": 112376,
+    "expected": "Only allowed instruction byte plus existing checksum policy; exact source/destination byte oracle to be frozen before M3 measurement, using actual decoded stream and pre-copy state, never modified framebuffer",
+    "risk": "Source span expands to8128; do not claim unchanged dependents outside declared scope. Publication blocked until domain verified."
+  },
+  "controls": [
+    "original/original",
+    "no-op",
+    "wrong ROM",
+    "tampered resource",
+    "out-of-domain edit",
+    "stale response",
+    "divergent patch",
+    "incorrect visual difference"
+  ],
+  "budget": {
+    "qualification_wall_seconds_per_case": 90,
+    "commercial_wall_seconds": 240,
+    "commercial_emulated_frames": 1290,
+    "max_events": 250000,
+    "max_private_bytes": 268435456,
+    "heavy_jobs": 1,
+    "stop": [
+      "unqualified instrument",
+      "wrong input hash",
+      "missing collection terminal",
+      "overflow/loss",
+      "wrong args/destination",
+      "unexpected runtime transition",
+      "unexplained source hash or output difference"
+    ]
+  },
+  "m2_qualification": {
+    "author_fixture": "known JSR to300, A0=500 A1=FF0200, copies four distinct bytes and writes known VDP port sequence; sentinel DEADBEEF",
+    "controls": [
+      "routine not called",
+      "different args and destination",
+      "event cap forces incomplete capture",
+      "wrong run identity rejected"
+    ],
+    "pass_before_commercial": true
+  },
+  "status": "FROZEN_BEFORE_RUNTIME_MEASUREMENT"
+}

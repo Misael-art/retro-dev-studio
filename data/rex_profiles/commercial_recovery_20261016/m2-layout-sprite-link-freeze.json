@@ -1,0 +1,23 @@
+{
+  "schema": "rex-layout-sprite-link-analysis-freeze/v1",
+  "before_measurement": true,
+  "verifier_sha256": "459fdd9d1475eefc378237ce49fc4846915371ce7412a4027a18b94bd69aae1d",
+  "trace_sha256": "7a6ee7353e06804dee2b6199e93f466d3a5b58a5dadd0d4f6e03be0d46d62bc2",
+  "expectations": [
+    "layout reads at1B212 equal current observed copy buffer, runtime-overwritten cells excluded from original origin",
+    "ID1..78 decimal selects FF4000+ID*8; mapping pointer/frame/base fields read in instruction order",
+    "ROM frame offset selects count and5byte descriptors in declared wall mapping",
+    "sampled A0=layout_address+1, A5=record+8, A3=base, D5below80 decimal",
+    "ROM tile bytes plus selected base produce D77E SAT word",
+    "frame1288 DMA consumes same linked words, joining calibrated original presentation packet"
+  ],
+  "controls": [
+    "wrong layout ID",
+    "wrong table address",
+    "wrong mapping frame offset",
+    "wrong SAT word",
+    "wrong final DMA word"
+  ],
+  "domain_correction": "Actual guards are ID78 decimal and D5cap80 decimal. Earlier QA record helper asserted D5<128; that is not a general cap proof. All17observed samples are below80 and new linkage enforces the real bound. Historical sources/results retained.",
+  "scope": "normal body, original resource cells, wall mapping domain; no semantic reconstruction claim"
+}

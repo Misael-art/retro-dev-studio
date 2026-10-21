@@ -1,0 +1,12 @@
+     × H1 — soltura solicitada antes do ACK do aperto: o estado ATUAL não regride, mas o aperto fica registrado como aceito 19ms
+     × H2 — um observador que lê só o último ACK depois das duas confirmações nunca vê o aperto; o registro por sequência vê 4ms
+     × recusa e erro ficam registrados na sequência certa, sem virar aceitação 3ms
+     × época/sessão: confirmação de outra sessão não entra, e a troca de sessão zera o registro 2ms
+     × o registro é limitado: guarda só as transições mais recentes 16ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+AssertionError: expected [] to deeply equal [ [ 1, 'accepted', true ], …(1) ]
+AssertionError: expected [] to deeply equal [ 1 ]
+AssertionError: expected [] to deeply equal [ [ 1, 'refused' ], [ 2, 'accepted' ] ]
+AssertionError: expected [] to deeply equal [ 'requested' ]
+AssertionError: expected undefined to be 200 // Object.is equality
+      Tests  5 failed (5)

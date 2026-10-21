@@ -1,0 +1,43 @@
+{
+  "schema": "rex-m5-reserved-survey-freeze/v1",
+  "generated_at": "2026-10-18T08:47:10.531975+00:00",
+  "adaptation_freeze_sha256": "7ccade2b7d5be05940453877be8bad7b438135e99b62e287fd69cc0f004f0b70",
+  "reader_sha256": "bdbadc2029ee9d5c427e72df41119b1af51c8c07c90a80f29eb83003211bbd29",
+  "targets": [
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Gargoyles (USA) (Translated PtBr).zip",
+      "archive_sha256": "b222361c7280211dec12b8b2fff7fa44d1fc72e032575eaf88f5ab9d225c03b8",
+      "member": "Gargoyles (USA).md",
+      "rom_bytes": 3145728,
+      "rom_sha256": "de4ef5bb385bf58d2d12a5f386473e40f3ec1355db6f57dff2ddcff3c1780fcb",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Shinobi III - Return of the Ninja Master (USA) (Translated PtBr).zip",
+      "archive_sha256": "bbe8cd5a4489fb06a0a3e5c41e149172127d1ad18de0d3b5712a960b53136ae7",
+      "member": "Shinobi III - Return of the Ninja Master (USA).bin",
+      "rom_bytes": 1048576,
+      "rom_sha256": "28572709d7cd442dd681109b14641157c2943498943fa7791f524eaf530710ef",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Castle of Illusion Starring Mickey Mouse (USA, Europe) (Translated PtBr).zip",
+      "archive_sha256": "c5a16f13acf074a551cee0f020afedddb344956b068d08bac79f14e9fb6b13a5",
+      "member": "Castle of Illusion Starring Mickey Mouse (USA, Europe).md",
+      "rom_bytes": 524288,
+      "rom_sha256": "dbc7b2cb0f66f2a5ac4af1b810549802e9c2d7fa380ae9bd791b952d1cfdf603",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Strider (USA, Europe) (Translated PtBr).zip",
+      "archive_sha256": "a24242ee1128e21773b466e98716aad43ba7c52803224d470fec4708965e99e9",
+      "member": "Strider (USA, Europe).gen",
+      "rom_bytes": 1048576,
+      "rom_sha256": "99bbe15a80cc7a47d9a666ec5e9aa6ce51290007090f58dc1371490604a3ec5d",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    }
+  ],
+  "hypothesis": "Generic frozen linear copy class applies without production changes; all recognized candidates reported. Identity-only reserved payloads first interpreted after adaptation freeze.",
+  "budget_seconds": 60,
+  "limits": "Unknown inspection outside this mission; reserved means untouched by this mission before generic freeze, not proof globally unseen"
+}

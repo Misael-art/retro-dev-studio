@@ -1,0 +1,16 @@
+test emulator::libretro_ffi::tests::tap_applied_between_two_frames_is_accepted_but_never_polled_by_the_core ... FAILED
+test emulator::libretro_ffi::tests::input_observation_is_bounded_and_reset_by_a_new_load ... FAILED
+test emulator::libretro_ffi::tests::tap_held_across_one_frame_is_polled_by_the_core_on_that_frame ... FAILED
+thread 'emulator::libretro_ffi::tests::tap_applied_between_two_frames_is_accepted_but_never_polled_by_the_core' (2141017) panicked at src/emulator/libretro_ffi.rs:2280:9:
+assertion `left == right` failed
+  left: 0
+ right: 3
+thread 'emulator::libretro_ffi::tests::input_observation_is_bounded_and_reset_by_a_new_load' (2141016) panicked at src/emulator/libretro_ffi.rs:2383:9:
+assertion `left == right` failed
+  left: 0
+ right: 74
+thread 'emulator::libretro_ffi::tests::tap_held_across_one_frame_is_polled_by_the_core_on_that_frame' (2141018) panicked at src/emulator/libretro_ffi.rs:2333:9:
+assertion `left == right` failed
+  left: []
+ right: [(1, true, 1, Some(2), Some(2), false), (2, false, 2, Some(3), Some(3), false)]
+test result: FAILED. 0 passed; 3 failed; 0 ignored; 0 measured; 1119 filtered out; finished in 0.66s

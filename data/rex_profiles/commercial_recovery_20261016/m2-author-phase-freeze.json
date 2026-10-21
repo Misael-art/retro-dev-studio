@@ -1,0 +1,29 @@
+{
+  "schema": "rex-author-phase-calibration-protocol/v1",
+  "before_runtime_measurement": true,
+  "sources": {
+    "scripts/rex_profiles/commercial_recovery_20261016/vdp-phase-author.s": "b232dfd9c854ca251a2fe655977f7a390944aef7e777f74d855b89c3a5bd993e",
+    "scripts/rex_profiles/commercial_recovery_20261016/observe-vdp-phase.lua": "822e042efaabfd4538b5e0f1d625a0d39b4dc5e8a862d7fddfa8dad75379582b",
+    "scripts/rex_profiles/commercial_recovery_20261016/qualify-vdp-phase.py": "52e8797813e08fc0e8fb40211a40c70f19c9bcdc40a18af7799e5b95079b0750",
+    "scripts/rex_profiles/commercial_recovery_20261016/run-observer.py": "814d5f8cc598b305292a3b533f591dbc706cea97742e1d89459d1cc6e704803c"
+  },
+  "fixture": "author-owned32x32sprite: sixteen tiles, asymmetric first tile, seven literal colors; IRQ6 increments counter, derives X=8*(counter&31), DMA four SAT words toVRAMF800",
+  "purpose": "distinguish pixel/nibble/tile-column/color errors from native-state/presented-target phase; never choose a commercial frame by best match",
+  "expectations": [
+    "20frame callbacks, no event loss",
+    "frames4..7 train one constant lag in0/1/2 IRQ updates; every1024sprite pixel and all outside background exact",
+    "freeze trained lag before reading validation PNGs8..20",
+    "reserved author validation frames8..20 retain same lag and asymmetric pixel layout",
+    "wrong phase and wrong identity refused"
+  ],
+  "reference": "literal authored VRAM/palette/counter program, independent of commercial image; calibration then reserved author validation, not commercial blind holdout",
+  "budget": {
+    "wall_seconds": 90,
+    "frame_callbacks": 20,
+    "max_events": 20000,
+    "heavy_jobs": 1,
+    "min_available_gib": 3
+  },
+  "toolchain": "existing official managed m68k-elf assembler/linker; no new dependency or core",
+  "prior_commercial_failure": "sprite-pixel-witness001 FAIL6912/8217 preserved; commercial projection must get a new addendum after author calibration"
+}

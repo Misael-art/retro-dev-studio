@@ -1,0 +1,1202 @@
+{
+ "version": 1,
+ "nodes": [
+  {
+   "id": "ev",
+   "type": "event_update",
+   "label": "Modo no chao (MdNormal/MdRoll) chama Sonic_Jump",
+   "x": 40,
+   "y": 40,
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "rate": "frame",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E18",
+    "rom_bytes": "610005d0",
+    "rom_asm": "bsrw 0x133ea",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "in",
+   "type": "input_pressed",
+   "label": "A, B ou C pressionado neste quadro",
+   "x": 40,
+   "y": 190,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "pad": "JOY_1",
+    "button": "BUTTON_A|B|C",
+    "mascara": "0x70",
+    "ram": "v_jpadpress1 $FFF603",
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x0133EA",
+    "rom_bytes": "1038f603020000706700009a",
+    "rom_asm": "moveb 0xfffff603,%d0 ; andib #112,%d0 ; beqw 0x1348e",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "room",
+   "type": "condition_compare",
+   "label": "Folga acima da cabeca >= 6 px (rotina em 0x14D48)",
+   "x": 40,
+   "y": 340,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "a",
+     "label": "a",
+     "kind": "data",
+     "dataType": "int"
+    },
+    {
+     "id": "b",
+     "label": "b",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "true",
+     "label": "true",
+     "kind": "exec"
+    },
+    {
+     "id": "false",
+     "label": "false",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "operator": ">=",
+    "a": "folga_teto",
+    "b": 6,
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x0133F6",
+    "rom_bytes": "70001028002606000080610019460c4100066d000084",
+    "rom_asm": "moveq #0,%d0 ; moveb %a0@(38),%d0 ; addib #-128,%d0 ; bsrw 0x14d48 ; cmpiw #6,%d1 ; bltw 0x1348e",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "agua",
+   "type": "var_get",
+   "label": "status bit 6: submerso",
+   "x": 370,
+   "y": 190,
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "params": {
+    "var_name": "sonic_submerso",
+    "descricao": "sonic.submerso (obStatus bit6 @$22)",
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x013410",
+    "rom_bytes": "082800060022",
+    "rom_asm": "btst #6,%a0@(34)",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "imp",
+   "type": "condition_compare",
+   "label": "Submerso?",
+   "x": 370,
+   "y": 340,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "a",
+     "label": "a",
+     "kind": "data",
+     "dataType": "int"
+    },
+    {
+     "id": "b",
+     "label": "b",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "true",
+     "label": "true",
+     "kind": "exec"
+    },
+    {
+     "id": "false",
+     "label": "false",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "operator": "==",
+    "a": "sonic_submerso",
+    "b": 1,
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x01340C",
+    "rom_bytes": "343c06800828000600226704343c0380",
+    "rom_asm": "movew #1664,%d2 ; btst #6,%a0@(34) ; beqs 0x1341c ; movew #896,%d2",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "d2a",
+   "type": "var_set",
+   "label": "impulso d2 = 0x680 (1664)",
+   "x": 370,
+   "y": 490,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "var_name": "impulso_pulo",
+    "value": 1664,
+    "descricao": "impulso_pulo",
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x01340C",
+    "rom_bytes": "343c0680",
+    "rom_asm": "movew #1664,%d2",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "d2b",
+   "type": "var_set",
+   "label": "impulso d2 = 0x380 (896) submerso",
+   "x": 700,
+   "y": 490,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "var_name": "impulso_pulo",
+    "value": 896,
+    "descricao": "impulso_pulo",
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x013418",
+    "rom_bytes": "343c0380",
+    "rom_asm": "movew #896,%d2",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "vel",
+   "type": "var_set",
+   "label": "vy += impulso (chao plano: vy = -0x680); vx += cos(ang-64)*d2>>8",
+   "x": 370,
+   "y": 640,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "var_name": "sonic_vy",
+    "value": -1664,
+    "descricao": "sonic_vy (obVelY @$12; geral: vx += cos(ang-64)*d2>>8, vy += sin(ang-64)*d2>>8)",
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x01341C",
+    "rom_bytes": "700010280026040000404eb9000029dac3c2e081d3680010c1c2e080d1680012",
+    "rom_asm": "moveq #0,%d0 ; moveb %a0@(38),%d0 ; subib #64,%d0 ; jsr 0x29da ; mulsw %d2,%d1 ; asrl #8,%d1 ; addw %d1,%a0@(16) ; mulsw %d2,%d0 ; asrl #8,%d0 ; addw %d0,%a0@(18)",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "ar",
+   "type": "var_set",
+   "label": "status bit1 = no ar; bit5 = 0",
+   "x": 370,
+   "y": 790,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "var_name": "sonic_no_ar",
+    "value": 1,
+    "descricao": "sonic.no_ar",
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x01343C",
+    "rom_bytes": "08e80001002208a800050022",
+    "rom_asm": "bset #1,%a0@(34) ; bclr #5,%a0@(34)",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "flag",
+   "type": "var_set",
+   "label": "flag de pulo ($3C) = 1; $38 = 0",
+   "x": 370,
+   "y": 940,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "var_name": "sonic_pulando",
+    "value": 1,
+    "descricao": "sonic.pulando (obj+$3C)",
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x013448",
+    "rom_bytes": "588f117c0001003c42280038",
+    "rom_asm": "addql #4,%sp ; moveb #1,%a0@(60) ; clrb %a0@(56)",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "som",
+   "type": "var_set",
+   "label": "Toca o som do pulo: PlaySound_Special(0xA0)",
+   "x": 370,
+   "y": 1090,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "var_name": "tocar_sfx",
+    "value": 160,
+    "descricao": "tocar_sfx (id do som da ROM)",
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x013454",
+    "rom_bytes": "303c00a04eb90000139c",
+    "rom_asm": "movew #160,%d0 ; jsr 0x139c",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "roll",
+   "type": "condition_compare",
+   "label": "Ja esta rolando (status bit2)?",
+   "x": 700,
+   "y": 1090,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "a",
+     "label": "a",
+     "kind": "data",
+     "dataType": "int"
+    },
+    {
+     "id": "b",
+     "label": "b",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "true",
+     "label": "true",
+     "kind": "exec"
+    },
+    {
+     "id": "false",
+     "label": "false",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "operator": "==",
+    "a": "sonic_rolando",
+    "b": 1,
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x01345E",
+    "rom_bytes": "117c00130016117c00090017082800020022661e",
+    "rom_asm": "moveb #19,%a0@(22) ; moveb #9,%a0@(23) ; btst #2,%a0@(34) ; bnes 0x13490",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "anim",
+   "type": "var_set",
+   "label": "Anim = rolar (obAnim=2); altura 14 / largura 7; bit2 = 1",
+   "x": 700,
+   "y": 1240,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "var_name": "sonic_anim",
+    "value": 2,
+    "descricao": "sonic_anim (obAnim @$1C)",
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x013472",
+    "rom_bytes": "117c000e0016117c00070017117c0002001c08e8000200225a68000c",
+    "rom_asm": "moveb #14,%a0@(22) ; moveb #7,%a0@(23) ; moveb #2,%a0@(28) ; bset #2,%a0@(34) ; addqw #5,%a0@(12)",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "y5",
+   "type": "sprite_move",
+   "label": "y += 5",
+   "x": 700,
+   "y": 1390,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "dx",
+     "label": "dx",
+     "kind": "data",
+     "dataType": "int"
+    },
+    {
+     "id": "dy",
+     "label": "dy",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "player",
+    "dx": 0,
+    "dy": 5,
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x01348A",
+    "rom_bytes": "5a68000c",
+    "rom_asm": "addqw #5,%a0@(12)",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "ctl",
+   "type": "var_set",
+   "label": "ja rolando: status bit4 = 1 (sem controle no ar)",
+   "x": 1030,
+   "y": 1240,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "var_name": "sonic_sem_controle_ar",
+    "value": 1,
+    "descricao": "sonic.sem_controle_ar",
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x013490",
+    "rom_bytes": "08e800040022",
+    "rom_asm": "bset #4,%a0@(34)",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "fim",
+   "type": "rom_region_exit",
+   "label": "Fim de Sonic_Jump (rts)",
+   "x": 370,
+   "y": 1540,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [],
+   "params": {
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x01348E",
+    "rom_bytes": "4e75",
+    "rom_asm": "rts",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "ev2",
+   "type": "event_update",
+   "label": "Modo no ar chama Sonic_JumpHeight",
+   "x": 1360,
+   "y": 40,
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "rate": "frame",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x012E3C",
+    "rom_bytes": "6100065a",
+    "rom_asm": "bsrw 0x13498",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "jf",
+   "type": "condition_compare",
+   "label": "Flag de pulo ($3C) != 0 (pulou, nao foi lancado)?",
+   "x": 1360,
+   "y": 190,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "a",
+     "label": "a",
+     "kind": "data",
+     "dataType": "int"
+    },
+    {
+     "id": "b",
+     "label": "b",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "true",
+     "label": "true",
+     "kind": "exec"
+    },
+    {
+     "id": "false",
+     "label": "false",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "operator": "==",
+    "a": "sonic_pulando",
+    "b": 1,
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x013498",
+    "rom_bytes": "4a28003c6726",
+    "rom_asm": "tstb %a0@(60) ; beqs 0x134c4",
+    "rom_buffer": "ROM original",
+    "nota": "JumpHeight @0x13498"
+   }
+  },
+  {
+   "id": "jfv",
+   "type": "var_get",
+   "label": "sonic.pulando (obj+$3C)",
+   "x": 1690,
+   "y": 190,
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "params": {
+    "var_name": "sonic_pulando",
+    "descricao": "sonic.pulando (obj+$3C)",
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x013498",
+    "rom_bytes": "4a28003c",
+    "rom_asm": "tstb %a0@(60)",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "lim",
+   "type": "condition_compare",
+   "label": "vy < limite (-0x400; -0x200 submerso)?",
+   "x": 1360,
+   "y": 340,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "a",
+     "label": "a",
+     "kind": "data",
+     "dataType": "int"
+    },
+    {
+     "id": "b",
+     "label": "b",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "true",
+     "label": "true",
+     "kind": "exec"
+    },
+    {
+     "id": "false",
+     "label": "false",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "operator": "<",
+    "a": "sonic_vy",
+    "b": -1024,
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x01349E",
+    "rom_bytes": "323cfc000828000600226704323cfe00b2680012",
+    "rom_asm": "movew #-1024,%d1 ; btst #6,%a0@(34) ; beqs 0x134ae ; movew #-512,%d1 ; cmpw %a0@(18),%d1",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "held",
+   "type": "condition_compare",
+   "label": "A/B/C segurado (v_jpadhold $FFF602)?",
+   "x": 1360,
+   "y": 490,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "a",
+     "label": "a",
+     "kind": "data",
+     "dataType": "int"
+    },
+    {
+     "id": "b",
+     "label": "b",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "true",
+     "label": "true",
+     "kind": "exec"
+    },
+    {
+     "id": "false",
+     "label": "false",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "operator": "==",
+    "a": "botao_abc_segurado",
+    "b": 1,
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x0134B4",
+    "rom_bytes": "1038f60202000070",
+    "rom_asm": "moveb 0xfffff602,%d0 ; andib #112,%d0",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "cut",
+   "type": "var_set",
+   "label": "vy = limite -0x400 (-0x200 submerso): corta o pulo ao soltar o botao",
+   "x": 1360,
+   "y": 640,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "var_name": "sonic_vy",
+    "value": -1024,
+    "descricao": "sonic_vy (obVelY @$12; limite -0x200 submerso)",
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x0134BE",
+    "rom_bytes": "31410012",
+    "rom_asm": "movew %d1,%a0@(18)",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "cap",
+   "type": "condition_compare",
+   "label": "vy < -0xFC0 (nao pulou: lancado)?",
+   "x": 1690,
+   "y": 340,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "a",
+     "label": "a",
+     "kind": "data",
+     "dataType": "int"
+    },
+    {
+     "id": "b",
+     "label": "b",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "true",
+     "label": "true",
+     "kind": "exec"
+    },
+    {
+     "id": "false",
+     "label": "false",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "operator": "<",
+    "a": "sonic_vy",
+    "b": -4032,
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x0134C4",
+    "rom_bytes": "0c68f04000126c06",
+    "rom_asm": "cmpiw #-4032,%a0@(18) ; bges 0x134d2",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "capv",
+   "type": "var_set",
+   "label": "vy = -0xFC0 (teto de velocidade ascendente)",
+   "x": 1690,
+   "y": 490,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "var_name": "sonic_vy",
+    "value": -4032,
+    "descricao": "sonic_vy (obVelY @$12)",
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x0134CA",
+    "rom_bytes": "6c06317cf040",
+    "rom_asm": "bges 0x134d2 ; movew #-4032,%a0@(18)",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "fim2",
+   "type": "rom_region_exit",
+   "label": "rts",
+   "x": 1360,
+   "y": 790,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [],
+   "params": {
+    "origem": "recuperado do ROM",
+    "rom_addr": "0x0134C2",
+    "rom_bytes": "4e75",
+    "rom_asm": "rts",
+    "rom_buffer": "ROM original"
+   }
+  },
+  {
+   "id": "pousa",
+   "type": "event_update",
+   "label": "Ao pousar o chao (Sonic_ResetOnFloor e chamada pelo codigo de colisao)",
+   "x": 2020,
+   "y": 40,
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "rate": "frame",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "nota": "rotulo da rotina; o ponto de chamada nao foi localizado"
+   }
+  },
+  {
+   "id": "reset",
+   "type": "var_set",
+   "label": "Ao pousar (Sonic_ResetOnFloor): flag de pulo ($3C) = 0",
+   "x": 2020,
+   "y": 190,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "var_name": "sonic_pulando",
+    "value": 0,
+    "descricao": "sonic.pulando (obj+$3C)",
+    "origem": "rotulo (disassembly publico, nao derivado dos bytes)",
+    "rom_addr": "0x0137E4",
+    "rom_bytes": "117c0000003c",
+    "rom_asm": "moveb #0,%a0@(60)",
+    "rom_buffer": "ROM original"
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "e1",
+   "fromNode": "ev",
+   "fromPort": "exec",
+   "toNode": "in",
+   "toPort": "exec"
+  },
+  {
+   "id": "e2",
+   "fromNode": "in",
+   "fromPort": "exec",
+   "toNode": "room",
+   "toPort": "exec"
+  },
+  {
+   "id": "e3",
+   "fromNode": "room",
+   "fromPort": "true",
+   "toNode": "imp",
+   "toPort": "exec"
+  },
+  {
+   "id": "e4",
+   "fromNode": "agua",
+   "fromPort": "value",
+   "toNode": "imp",
+   "toPort": "a"
+  },
+  {
+   "id": "e5",
+   "fromNode": "imp",
+   "fromPort": "false",
+   "toNode": "d2a",
+   "toPort": "exec"
+  },
+  {
+   "id": "e6",
+   "fromNode": "imp",
+   "fromPort": "true",
+   "toNode": "d2b",
+   "toPort": "exec"
+  },
+  {
+   "id": "e7",
+   "fromNode": "d2a",
+   "fromPort": "exec",
+   "toNode": "vel",
+   "toPort": "exec"
+  },
+  {
+   "id": "e8",
+   "fromNode": "d2b",
+   "fromPort": "exec",
+   "toNode": "vel",
+   "toPort": "exec"
+  },
+  {
+   "id": "e9",
+   "fromNode": "vel",
+   "fromPort": "exec",
+   "toNode": "ar",
+   "toPort": "exec"
+  },
+  {
+   "id": "e10",
+   "fromNode": "ar",
+   "fromPort": "exec",
+   "toNode": "flag",
+   "toPort": "exec"
+  },
+  {
+   "id": "e11",
+   "fromNode": "flag",
+   "fromPort": "exec",
+   "toNode": "som",
+   "toPort": "exec"
+  },
+  {
+   "id": "e12",
+   "fromNode": "som",
+   "fromPort": "exec",
+   "toNode": "roll",
+   "toPort": "exec"
+  },
+  {
+   "id": "e13",
+   "fromNode": "roll",
+   "fromPort": "false",
+   "toNode": "anim",
+   "toPort": "exec"
+  },
+  {
+   "id": "e14",
+   "fromNode": "anim",
+   "fromPort": "exec",
+   "toNode": "y5",
+   "toPort": "exec"
+  },
+  {
+   "id": "e15",
+   "fromNode": "roll",
+   "fromPort": "true",
+   "toNode": "ctl",
+   "toPort": "exec"
+  },
+  {
+   "id": "e16",
+   "fromNode": "y5",
+   "fromPort": "exec",
+   "toNode": "fim",
+   "toPort": "exec"
+  },
+  {
+   "id": "e17",
+   "fromNode": "ctl",
+   "fromPort": "exec",
+   "toNode": "fim",
+   "toPort": "exec"
+  },
+  {
+   "id": "e18",
+   "fromNode": "ev2",
+   "fromPort": "exec",
+   "toNode": "jf",
+   "toPort": "exec"
+  },
+  {
+   "id": "e19",
+   "fromNode": "jfv",
+   "fromPort": "value",
+   "toNode": "jf",
+   "toPort": "a"
+  },
+  {
+   "id": "e20",
+   "fromNode": "jf",
+   "fromPort": "true",
+   "toNode": "lim",
+   "toPort": "exec"
+  },
+  {
+   "id": "e21",
+   "fromNode": "jf",
+   "fromPort": "false",
+   "toNode": "cap",
+   "toPort": "exec"
+  },
+  {
+   "id": "e22",
+   "fromNode": "lim",
+   "fromPort": "true",
+   "toNode": "held",
+   "toPort": "exec"
+  },
+  {
+   "id": "e23",
+   "fromNode": "lim",
+   "fromPort": "false",
+   "toNode": "fim2",
+   "toPort": "exec"
+  },
+  {
+   "id": "e24",
+   "fromNode": "held",
+   "fromPort": "false",
+   "toNode": "cut",
+   "toPort": "exec"
+  },
+  {
+   "id": "e25",
+   "fromNode": "held",
+   "fromPort": "true",
+   "toNode": "fim2",
+   "toPort": "exec"
+  },
+  {
+   "id": "e26",
+   "fromNode": "cut",
+   "fromPort": "exec",
+   "toNode": "fim2",
+   "toPort": "exec"
+  },
+  {
+   "id": "e27",
+   "fromNode": "cap",
+   "fromPort": "true",
+   "toNode": "capv",
+   "toPort": "exec"
+  },
+  {
+   "id": "e28",
+   "fromNode": "cap",
+   "fromPort": "false",
+   "toNode": "fim2",
+   "toPort": "exec"
+  },
+  {
+   "id": "e29",
+   "fromNode": "capv",
+   "fromPort": "exec",
+   "toNode": "fim2",
+   "toPort": "exec"
+  },
+  {
+   "id": "e30",
+   "fromNode": "pousa",
+   "fromPort": "exec",
+   "toNode": "reset",
+   "toPort": "exec"
+  }
+ ],
+ "rex_logic_recovery": {
+  "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "descritivo": true,
+  "aviso": "Grafo DESCRITIVO da logica localizada; nao e codigo a compilar. Rotulos de funcoes sao do disassembly publico (dicas), nao derivados dos bytes.",
+  "titulo": "Sonic 1 - Sonic_Jump e Sonic_JumpHeight (localizado)"
+ }
+}

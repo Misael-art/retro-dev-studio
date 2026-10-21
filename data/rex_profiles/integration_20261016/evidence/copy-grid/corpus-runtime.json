@@ -1,0 +1,187 @@
+{
+  "schema": "rex-copy-grid-runtime/v1",
+  "status": "passed_with_limits",
+  "started": "2026-10-16T17:26:08.926Z",
+  "spec": {
+    "input_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+    "entry": 112360,
+    "source": 16728064,
+    "destination": 16715808,
+    "rows": 64,
+    "columns": 64,
+    "gap": 64
+  },
+  "checks": [
+    {
+      "name": "input_identity",
+      "pass": true,
+      "observed": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+    },
+    {
+      "name": "typed_original_equal",
+      "pass": true
+    },
+    {
+      "name": "typed_modified_equal",
+      "pass": true
+    },
+    {
+      "name": "only_width_byte_changed",
+      "pass": true,
+      "offsets": [
+        112376
+      ]
+    },
+    {
+      "name": "independent_core_pin",
+      "pass": true
+    },
+    {
+      "name": "libretro_header_pin",
+      "pass": true
+    },
+    {
+      "name": "original.binutils_boundaries",
+      "pass": true,
+      "sites": [
+        112360,
+        112366,
+        112372,
+        112374,
+        112376,
+        112378,
+        112382,
+        112386
+      ]
+    },
+    {
+      "name": "original.completion_sentinel",
+      "pass": true
+    },
+    {
+      "name": "original.all_relevant_wram_matches_independent_reference",
+      "pass": true,
+      "differences": []
+    },
+    {
+      "name": "reconstructed.binutils_boundaries",
+      "pass": true,
+      "sites": [
+        112360,
+        112366,
+        112372,
+        112374,
+        112376,
+        112378,
+        112382,
+        112386
+      ]
+    },
+    {
+      "name": "reconstructed.completion_sentinel",
+      "pass": true
+    },
+    {
+      "name": "reconstructed.all_relevant_wram_matches_independent_reference",
+      "pass": true,
+      "differences": []
+    },
+    {
+      "name": "modified.binutils_boundaries",
+      "pass": true,
+      "sites": [
+        112360,
+        112366,
+        112372,
+        112374,
+        112376,
+        112378,
+        112382,
+        112386
+      ]
+    },
+    {
+      "name": "modified.completion_sentinel",
+      "pass": true
+    },
+    {
+      "name": "modified.all_relevant_wram_matches_independent_reference",
+      "pass": true,
+      "differences": []
+    },
+    {
+      "name": "modified_reconstructed.binutils_boundaries",
+      "pass": true,
+      "sites": [
+        112360,
+        112366,
+        112372,
+        112374,
+        112376,
+        112378,
+        112382,
+        112386
+      ]
+    },
+    {
+      "name": "modified_reconstructed.completion_sentinel",
+      "pass": true
+    },
+    {
+      "name": "modified_reconstructed.all_relevant_wram_matches_independent_reference",
+      "pass": true,
+      "differences": []
+    },
+    {
+      "name": "original_equals_reconstruction",
+      "pass": true
+    },
+    {
+      "name": "modified_equals_reconstruction",
+      "pass": true
+    },
+    {
+      "name": "causal_first_difference",
+      "pass": true,
+      "first": 4192,
+      "count": 8795
+    }
+  ],
+  "runs": [
+    {
+      "name": "original",
+      "image_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "harness_sha256": "06a7cc59ed1527a8eee2bb677c8ff1761c1ea4f3932d67999e9b652136560878",
+      "wram_sha256": "ecfbc2e7f9b4a5f2e08e7b02f0fb87942f38b20ff7e4fc9ae09aaba98a6684ef",
+      "window_sha256": "8bf20fef8015b88375f57e7d17ef2c611a50f0c51f627ba58f89a32333ac213e",
+      "frames": 16
+    },
+    {
+      "name": "reconstructed",
+      "image_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "harness_sha256": "06a7cc59ed1527a8eee2bb677c8ff1761c1ea4f3932d67999e9b652136560878",
+      "wram_sha256": "ecfbc2e7f9b4a5f2e08e7b02f0fb87942f38b20ff7e4fc9ae09aaba98a6684ef",
+      "window_sha256": "8bf20fef8015b88375f57e7d17ef2c611a50f0c51f627ba58f89a32333ac213e",
+      "frames": 16
+    },
+    {
+      "name": "modified",
+      "image_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+      "harness_sha256": "d57b20dd8b028a3bd4d925eacedb0536f115258fc044aba4610210cdffa27103",
+      "wram_sha256": "5a5225362cb7232629ea06608b835455dfcbcf39a4a34de10a0da6904207ed97",
+      "window_sha256": "12edc5c5d07f77ab2cf0d92a473d56404a8d47986cf9c9bdcb8e930321e9222e",
+      "frames": 16
+    },
+    {
+      "name": "modified_reconstructed",
+      "image_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+      "harness_sha256": "d57b20dd8b028a3bd4d925eacedb0536f115258fc044aba4610210cdffa27103",
+      "wram_sha256": "5a5225362cb7232629ea06608b835455dfcbcf39a4a34de10a0da6904207ed97",
+      "window_sha256": "12edc5c5d07f77ab2cf0d92a473d56404a8d47986cf9c9bdcb8e930321e9222e",
+      "frames": 16
+    }
+  ],
+  "scope": "extracted region under explicitly supplied synthetic caller; no game reachability/render/audio claim",
+  "probe_source_sha256": "a7d2f5306cedeac4d7e75ae8f7ea3b6f5e83896d1523b342eca16c7d7313dc83",
+  "finished": "2026-10-16T17:26:10.048Z"
+}

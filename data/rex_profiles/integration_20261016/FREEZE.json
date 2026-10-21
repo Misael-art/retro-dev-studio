@@ -1,0 +1,88 @@
+{
+  "schema": "rex-integration-comparison-freeze/v1",
+  "frozen_at": "2026-10-16T15:42:48.509344+00:00",
+  "destination_base": "3aee11283d2edc4a9163ea4993ee64625538530b",
+  "research_source": "ee8c581f07464c22100c688f09f02db0caacd56b",
+  "curation": "only author fixture, builder and comparison package; no merge, new node or research runtime dependency",
+  "imported_files": {
+    "data/rex_profiles/rea_lab_20261015/semantic_gate_reversed_cmp_holdout.S": "cb080247499f9865c82b26a519cc3a35dc9bd620e2cc9c4d6b20b51fa22ace98",
+    "data/rex_profiles/rea_lab_20261015/semantic_gate_reversed_cmp_holdout.ld": "a8e6a10faddd4d7b589030f58386fee94b1eed53b91c5819d427df1ff37cd401",
+    "scripts/rex_profiles/rea_lab_20261015/build-semantic-gate-holdout.mjs": "d26ad372ab0a75a107b229592498b5a81abeb74ebb7be2881910b68d15d502c4",
+    "data/rex_profiles/rea_lab_20261015/integration-package/graph.nodegraph.json": "649bd82ef7cc11d6d892b82ca8dc94d4658cb3951ce77329b7b6d041e00ad0a9",
+    "data/rex_profiles/rea_lab_20261015/integration-package/provenance.json": "775aa1488a03afdf1b7d3568d4b0241d800eed2f21e5477747a1796bd7b452b5",
+    "data/rex_profiles/rea_lab_20261015/integration-package/manifest.json": "972de3c9e37c8fb7a9df57a2152af23dd02af3f8207dd653f6ff778409eed62d",
+    "data/rex_profiles/rea_lab_20261015/integration-package/profile.json": "8e8648022d99f1730d1c3fc4a0f6268449bbefe99013a3f07fcebc72889168bd",
+    "data/rex_profiles/rea_lab_20261015/integration-package/edited-threshold-6.nodegraph.json": "0d7063e20efce71714ab3b27f122ffc361bb794ac7417c8842a56899679ae415",
+    "data/rex_profiles/rea_lab_20261015/integration-package/sha256.json": "6afcc47b43644038583773da7a912046236afaa9d59b65750214f177ea324cae"
+  },
+  "rom_sha256": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218",
+  "rom_bytes": 2593,
+  "region": {
+    "entry": 576,
+    "exit": 606
+  },
+  "profile_id": "m68k.counter_threshold_state_gate.v1",
+  "threshold_edit": [
+    5,
+    6
+  ],
+  "allowed_diff_offsets": [
+    583
+  ],
+  "additional_checksum_policy": "only if base has valid MD checksum; any actual extra offset must be recorded and justified before acceptance",
+  "core": {
+    "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+    "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+    "selection": "existing application managed default Genesis Plus GX; no BlastEm substitution"
+  },
+  "runtime_domain": [
+    -2147483648,
+    -1,
+    0,
+    4,
+    5,
+    6,
+    2147483647
+  ],
+  "expected_base": [
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1
+  ],
+  "expected_copy": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1
+  ],
+  "instrument": {
+    "layout": "state_only_u32",
+    "ledger": "0xFF0300..0xFF031C",
+    "input_values": "declared author harness, not per-case counter observations",
+    "live_counter": "0xFF0200",
+    "live_state": "0xFF0204",
+    "completion": "last input 0x7FFFFFFF and last output 1; no byte changes to ROM for observation"
+  },
+  "acceptance": [
+    "actual backend rederives >=,5,9 mappings and reviews package without weakening signature",
+    "refusals preserve base and do not publish partial pair",
+    "GUI opens declared region, opens nodes, edits only threshold, persists and reopens",
+    "existing publisher copy/IPS; independent application matches",
+    "same application core, loaded ROM identity, state ledger and final counter/state match frozen vectors; case5 distinguishes"
+  ],
+  "regressions": [
+    "semantic profile/registry/IPC/publication Rust",
+    "profileGraphBridge/Panel and nodegraph readonly frontend",
+    "canonical semantic-gate-journey",
+    "baseline tree/lint/tsc/npm/Rust fmt/clippy/test"
+  ],
+  "preexisting_audio_issue": "nodegraph-authoring victory audio failed and passed on same binary; unresolved, not diagnosed or cleared here",
+  "status": "frozen before backend/GUI measurement"
+}

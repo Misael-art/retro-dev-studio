@@ -1,0 +1,19 @@
+{
+  "schema": "rex-edited-commercial-run-adapter/v1",
+  "id": "commercial-m4-width2-001",
+  "status": "PASS_EDITED_ROM_OBSERVED",
+  "raw_report_sha256": "ae43096e0d30db803ae1618c3ac720651533081662b2d09b6acec4f66fd0c4ef",
+  "trace_sha256": "bcf11b25be5ead1a259763edfdfa7b02d416d6f97c09923e43dc200e98267454",
+  "rom_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+  "original_rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "observer_sha256": "3bd84c378b13dc0dec67f9cf9426a003b31548d406728bda7d05cb801ab81e40",
+  "protocol_sha256": "c4cfaebd6538403b15674d91420cc857ec2f2ca232374b397639ab7315647178",
+  "scope": "Edited UI copy, separate external MAME episode; same qualified observer/execution pipeline. Semantic state and memory comparison are a separate verifier.",
+  "legacy_metadata_limit": "Raw frozen runner inherited original-run hypothesis/limits including No edited ROM executed. Those texts do not describe this run; raw report retained unchanged for audit. This explicit adapter report identifies the actual edited ROM input.",
+  "qualification_sha256": {
+    "basic": "d870dc71bd0016ca25455cde1f1eacbcecea2384c937998bba56ab5c78d59bb0",
+    "screen": "3f1caa128d14c90dccf550f0ee78a04630cfaa16b064cdf5b826d12c8c96a882",
+    "dma": "3d99fc20e2d590176d1558746aa588d1b015faeafd4be29885cea9f9a27886c7"
+  },
+  "redirect_count": 1
+}

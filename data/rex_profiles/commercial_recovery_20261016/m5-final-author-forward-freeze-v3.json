@@ -1,0 +1,40 @@
+{
+  "schema": "rex-final-author-regression-freeze/v1",
+  "generated_at": "2026-10-18T08:55:18.157650+00:00",
+  "app_sha256": "66cb3d71ea4f5df2efd37b031fe0c4c76b822b11d55d55ca240024638c7c12e5",
+  "inputs": {
+    "/home/misael/rds-scratch/rex-visual-copy-001/build2/project/out/rom.bin": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/e2e-tauri-build-run.mjs": "9e2a425efef9ee34aad83e1f313dc52323fb9e3b19beb23fc0d6d632bc3cfe47",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/commercial-prepared-journey.mjs": "f93d3357b8f7dd0a64725654fda24b76c77f2243cf84934c9641a85b2cad0f11",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/run-native-journey.py": "37c9cebe5431c3e965e475b9c9f17f6adcd99a5a671f406e1285dac928a9a1f8",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/specs/m68k.copy_grid.v1.json": "36a5273f1ce8e61986f80235ba401f3792aa866b3191404333f3a4b435154a4b",
+    "/home/misael/Projects/REX-INTEGRATION-2026-10-05/data/rex_profiles/integration_20261016/visual-copy-v2/width1.scope.bin": "d3903c62d0996b0925ae4b88338a3e6a4fbec7cf23db618ed575d6029391513e",
+    "/home/misael/Projects/REX-INTEGRATION-2026-10-05/data/rex_profiles/integration_20261016/visual-copy-v2/width1.rgba": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6",
+    "/home/misael/Projects/REX-INTEGRATION-2026-10-05/data/rex_profiles/integration_20261016/visual-copy-v2/width2.scope.bin": "2e682f3d26fab1b3a0c8d5d2d0fd010b0a09a4bf69df3ecb35d3e8cb5dc7a88f",
+    "/home/misael/Projects/REX-INTEGRATION-2026-10-05/data/rex_profiles/integration_20261016/visual-copy-v2/width2.rgba": "f98f7a01bd6c73e724f15d5d4fd4a3d25a70c4fcd74e6fde3895af8b96741864",
+    "/home/misael/Projects/REX-INTEGRATION-2026-10-05/data/rex_profiles/integration_20261016/visual-copy-v2/oracle.json": "7878d670d8631d1af25ba4c0b70a159c28c02e8226c9a6043daa70a5f5cb3b80",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-final-author-forward-journey-v3.json": "c42050270cbb70cba0ecf454715ab6b988736f779ed8fe342ddee032137b8ca9",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src/components/viewport/ViewportPanel.tsx": "b5956558fd9849c314cad89bb23c3779ba062f11ec829a8b66873f52b5991e8c",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src/components/viewport/gameFramePresentation.ts": "4d0df5eb3f2a780b8af72c5b88a79467c8d3b55583b2d765647612d173a0cec2"
+  },
+  "expectation_origin": "Existing author v2 regression reused unchanged; v1FAIL86/89 retained; not commercial proof",
+  "expected": {
+    "checks": 88,
+    "ram_changed_offsets": 162,
+    "causal_pixel_positions": 3309,
+    "absolute_rgba_tolerance": 0
+  },
+  "path_only_update": "reverse may use byte-identical fresh forward copy with same SHA; before reverse measurement update spec pin accordingly",
+  "platform_addendum": {
+    "previous_unexecuted_freeze_sha256": "079ec7c578eb8ca1a736925c6bf4fa15189357850c8cc8fb0094117dc8b5040d",
+    "before_measurement": true,
+    "change": "New app after generic padded console target sniff; expectations/core/references unchanged, prior277a freeze not executed."
+  },
+  "native_resolution_addendum": {
+    "generated_at": "2026-10-19T01:18:40.931452+00:00",
+    "before_measurement": true,
+    "preserved_freeze_sha256": "f09b1f87209112b0655b836a8050ce131a62161729656a7dab71ff41b6e186b8",
+    "addendum_sha256": "d88bc1f9ae92e3b9727fcb74d33cf7c4a1beb7837aa181c19c0bff46efac861b",
+    "change": "New app66cb3d71 with generic accepted-frame native canvas dimensions. Same core/ROM/independent memory, asset pixels, copy/IPS and full actualcanvas criteria; fresh003 paths. No earlier failure reclassified."
+  }
+}

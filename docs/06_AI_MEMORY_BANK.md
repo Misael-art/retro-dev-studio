@@ -1,21 +1,297 @@
+### Checkpoint 2026-10-19 UTC (rodada 4) — Studio Gráfico: paletas planejadas no build e composição personagem + cenário + HUD (Experimental)
+
+Produção `ae0d66cd`, binário 016 `d3777958…b782b8`. Plano determinístico de paletas no build/editor/inspeção, troca por golpe, importação de cenário pela UI. `cert4-nodegraph` FAIL preservado (janela de 2,5 s perdia o salto em host lento; Adendo I), `r4i-nodegraph-001` PASS só com mudança no harness; `studio-paletas` PASS (cert4 + r4i); `host:certify` tentativa 1 interrompida, tentativa 2 READY (7 gates, 1145 frontend, 1066 Rust/102 IGNORE), fmt OK. Manifesto `data/studio_grafico/final-manifest-r4.json`. Atalho local de teste e projeto de demonstração criados (não é release). Reserva/renomear/remapeamento não exercitados; validação humana pendente. Sem push/release/promoção.
+
+### Checkpoint 2026-10-19 UTC (rodada 3) — Studio Gráfico: identidade no mesmo caminho e HUD ancorado com câmera (Experimental)
+
+Checkpoint anterior preservado (`cce18a00`). `checkRuntimeNavigation` confere sempre o SHA do conteúdo atual (lido no clique); HUD usa o plano WINDOW com câmera de mundo. Binário 014 `5f4c815a…`: cert3-e1e3 (com E3c) e cert3-e2e5 PASS; studio-hud-camera: 6 falhas preservadas (harness/medição) e r7 PASS, controle negativo no 013 falha como esperado; `host:certify` READY. Defeito aberto: tilemap em projeto MUGEN usa PAL0 fixo e estraga as cores do personagem/fonte. Manifesto `data/studio_grafico/final-manifest-r3.json`. Validação humana: sessão preparada, não executada. Sem push/release/promoção.
+
+### Checkpoint 2026-10-19 UTC (rodada 2) — Studio Gráfico Integrado: lacunas técnicas da revisão fechadas (Experimental)
+
+Mesmo branch/worktree. Vínculo com identidade de conteúdo (troca de asset/imagem com mesmos IDs agora é recusada); caixas editáveis por ocorrência com efeito acerto/sem acerto na ROM; tiles/colisão interpolados e câmera de mundo funcional; camadas Colisões/Áudio na inspeção; auditoria/renomear/aplicar ao modelo/reverter com cópia em `.rds/backups`; E6 completo (editar perfil → cópia+IPS → jogar → voltar à original); teclado em campos não vai mais ao joypad. Binário final 013 `cf928038…`: 9/9 jornadas `cert2-*` PASS em corrida única + `cert2-mugen-real-oracle` (entrada do oráculo; projeto mantido); `host:certify` tentativa 1 FALHOU no gate frontend sem causa atribuída, tentativa 2 READY (ambas preservadas). Manifesto `data/studio_grafico/final-manifest-r2.json` (verificável). Abertos: HUD rola com a câmera, efeito de jogabilidade do campo E6 (herdado), leitor de tela, facing, PAL; validação humana pendente. Sem push/release/promoção.
+
+### Checkpoint 2026-10-19 UTC — Studio Gráfico Integrado S0–S6: fatia integrada demonstrada (Experimental)
+
+Branch `codex/rex-studio-grafico-20261019` (worktree `REX-STUDIO-GRAFICO-2026-10-19`, base `40a17169`). Contexto compartilhado com retorno/câmera/desfazer; editor Personagem por ocorrência (Ken real, `occurrence_ids`, eventos de som); golpe autoral por Clsn1×Clsn2; texto de interface ligado à vida; vínculo `retrodev.runtime_link/v1` + Inspecionar; ajustes temporários de teste; revisão navegável + exportação; ponte para perfis REX comprovados. Binário final `6e87ba14…`: jornadas E1/E3, E2/E5, E4, E6 PASS; `mugen-real` (+oráculo Pillow) e `mugen-import` PASS; `nodegraph-authoring` falha preexistente reproduzida no baseline, retentativa PASS; `host:certify` READY. Estado, falhas preservadas, mapa REQ e próximos passos: `docs/studio_grafico/MISSION.md`, `REQUIREMENTS_MAP.md`, `data/studio_grafico/final-manifest.json`. Validação humana pendente; sem push/release/promoção.
+
+### Auditoria de conclusão 2026-10-19 UTC — M0–M5 conferidos contra o pedido reapresentado
+
+Sobre eb2ee726, a implementação e o binário66cb3d71…c12e5 permanecem idênticos aos gates/jornadas finais. Auditoria adicional reavaliou42grupos de requisitos e os artefatos efetivos:287pins,12IPS,22capturas e quatro traces368295eventos; expectativas comerciais regeneradas sem entrada de captura modificada. Reanálise dos mesmos dados, não novas corridas/cobertura ou promoção. Índice consolidado304registros em `data/rex_profiles/commercial_recovery_20261016/completion-experiment-index.json`, mapa/evidência em `COMPLETION-AUDIT.json`, reprodução e falha001do auditor preservada no adendo de `MISSION.md`. A lacuna documental do índice inicial restrito aoM0 foi corrigida com navegação derivada, sem segunda fonte de estado ou resultados inventados. Hostdiagnose novoREADY; certificado final7gates/1049frontend/1038Rust e seis jornadas permanecem aplicáveis à produção inalterada. Limites Experimental, sessões MAME/GX separadas, causalidade gráfica condicional, transferência GoldenAxe de memória, quatro reservados somente estáticos e somOPEN continuam intactos.
+
+### Checkpoint 2026-10-19 UTC — recuperação comercial M0–M5 demonstrada nos domínios delimitados (Experimental)
+
+Na branch isolada `codex/rex-commercial-recovery-20261016`, derivada da integração03ddc59d, a retomada reconciliou df688146 sem alterar integração/pesquisa. M0–M4 preservam os aceites delimitados e evidências anteriores; a cadeia comercial Enigma→buffer→cópia→layout/descritor/SAT→DMA→pixels e sua edição/reversão foram reexecutadas na UI final. M4 usa reconstrução semântica tipada do corpo, MOVE+postincrement+DBRA, condições/estado/origem/desconhecidos nos nodes; edição de largura muda opcode, além de constantes. Não é compilador de topologia geral.
+
+M5: segunda implementação contígua GoldenAxe (inicializadores/um DBRA, diferente da grade aninhada Sonic) passou140/140ida e138/138volta na UI nativa. Cópia5725630a…09f18/IPS independente, um byte2AA2, span432bytes com162posições discriminantes; reversão restaura SHA75613dde…5df4b. Consumo/estado original e editado observados no MAME externo, com controles qualificados; sessão GX/UI distinta demonstra efeito de memória. Vídeo inalterado nesse episódio; não há alegação de efeito visual editado ou engine completa. Quatro alvos reservados passaram reconstrução/publicação/IPS com zero código REX e zero perfil adicional após freeze; não houve chamada nos episódios congelados desses quatro. Métrica estática/publicação não vira consumo comercial.
+
+Duas falhas nativas do primeiro alvo preservadas: cabeçalho legado e canvas fixo320×224 contra frame256×192. Adendos anteriores a novas medições autorizaram correções genéricas sem dependência/core/tolerância novos. Fonte final18f9ab59, freeze1351b0b, nativo7a03e81c; binárioSHA66cb3d71ea4f5df2efd37b031fe0c4c76b822b11d55d55ca240024638c7c12e5. No mesmo binário: Sonic135/135ida+128/128volta; autoralv2 88/88ida+88/88volta,162bytes/3309pixels/RGBA0. Provas autorais/comerciais e referências condicionais medidas permanecem separadas.
+
+Certificação final `certify-20261019T012630Z` READY: sete gates exit0,1049frontend/3SKIP e1038Rust/94IGNORE; Clippy padrão-Dwarnings e fmt também exit0. Skips/ignores não são PASS; números herdados não contam como execuções novas. Integridade dos16links M2/M3/M4, quatro traces privados e quatro fontes REX congeladas conferida; auditoria histórica bruta exit1 preservada e reconciliada como quatro fontes avançadas citadas duas vezes, sem artefato ausente. Dois JSON não rastreados preexistentes preservados por hash e backup pequeno verificado.
+
+Limites: entrada Sonic assistida e regiões declaradas; geometria/câmera/animação/paleta medidas, sem previsão de física/cena inteira; MAME e GX não são uma sessão; Nemesis sem entrada/chamador traçados; sem validação humana de usabilidade, recuperação universal, outros consoles ou certificação Windows. V1FAIL86/89, BYOR1/2 anteriores, falhas de protocolo/instrumento e pendência sonoraOPEN mantidos. Sem bloqueio restante dentro dos domínios aceitos, sem push/merge remoto/release/promoção. Custo M5 primeiro alvo:418adições/22remoções de produção em7fontes, excluindo testes; configuração/instrumentação/testes separados.
+
+Inventário, matriz requisito→implementação→teste→resultado→limite, índice e comandos em `docs/rex_profiles/commercial_recovery_20261016/MISSION.md`; aceites M2/M3/M4/M5 e manifesto final em `data/rex_profiles/commercial_recovery_20261016/`. Primeira retomada reproduzível: `rtk proxy python3 scripts/rex_profiles/commercial_recovery_20261016/prepare-native-reproduction.py data/rex_profiles/commercial_recovery_20261016/m5-ui-golden-axe-journey-v3.json data/rex_profiles/commercial_recovery_20261016/m5-ui-golden-axe-freeze-v3.json m3-native-REPLAY-golden-001` — valida pins, cria só caminhos novos e imprime o comando exato; usar ID inédito.
+
+### Checkpoint 2026-10-18 UTC — M5 candidato genérico congelado; validação final pendente
+
+M0–M4 mantêm os aceites delimitados e falhas históricos. M5 encontrou cópias contíguas MOVE.B/W/L + DBRA único com LEA absolute-short/long/PC-relative e MOVEQ/MOVE.W, diferentes do loop aninhado primário. Primeiro alvo Golden Axe: chamada real observada,432bytes, D/A completos e SR previstos, seis negativos recusados; uma leitura ROM não-transferência explicitamente separada em adendo após falha original preservada. Batman/MUSHA não atingiram regiões no episódio congelado; ToyStory atingiu duas vezes mas verificador ainda recusa leituras de código sobrepostas à janela de fonte. Não são PASS de estado nem bloqueios funcionais dos jogos.
+
+Extensão genérica do mesmo CopyGrid/ponte/publicador, sem despacho por título/hash, atribuída ao primeiro alvo Golden Axe; perfil genérico revisão2, domínio discreto1,2,4 para cópia contígua e contrato anterior1,2 para grade. Sete testes Rust PASS/0IGNORE incluem quatro regiões comerciais, reconstrução tipada original/editada e publicação; aplicador IPS independente exato nas quatro. Quarenta testes frontend da ponte PASS. Primeira tentativa de publicação falhou ENOSPC no TMPDIR da sessão (/run/user/1000 cheio); repetição usa scratch privado em disco, sem apagar arquivos alheios. Não contar sete testes como jornada UI nem como três transferências zero-código.
+
+Freeze de produção e custos sem testes em m5-generic-adaptation-freeze.json; quatro ROMs reservadas até esse freeze. Próximo: sondar reservados sem alterar produção, congelar correspondência GX original/efeito de memória para Golden Axe, construir app final e executar UI/ida+volta afetadas e host:certify. M5 e missão permanecem em andamento; Experimental, sem push. ROMs/dumps/capturas apenas scratch privado.
+
+### Checkpoint 2026-10-18 UTC — M4 consolidado no domínio comercial; M5 a selecionar
+
+IR CopyGrid existente regenerou30bytes sem cache de origem: original-rebuilt igual à ROM inteira c7da53a1…81ebb; edited-rebuilt igual à cópia UI cb471c95…ad97a. Cinco testes Rust PASS/0IGNORE, incluindo BYOR normalmente ignorado, com recusas de operador/fluxo/mapa/alias. MAME editado no observerv3 byte-idêntico observou4096MOVE.W/8192bytes; destino4a51997c…6e8e4, A0FF6000/A1FF4020, D1/D2FFFF e D0 preservado; SR2300 previsto/observado (original2304). Seis negativos de trace recusados. Hipótese inicial de papéis D0/D1 preservada, corrigida antes do trace editado e discriminada por quatro vetores de sentinela/CCR.
+
+Jornada nativa M4 passou135/135, incluindo sete checks dos detalhes de nodes: operações/contadores DBRA/FFFF, estado/pointers, origem e desconhecidos, com edição de opcode e efeito comercial pela ponte canônica. Sem novo código de produção/classe/core. M3 permanece128/128ida+volta; último certifyREADY1047frontend/1036Rust em fontes de produção idênticas. Estados externos não viram badge estático do app. Demais registradores/stack/IRQs/ciclos/áudio não comparados; referência visual condicional explicitamente medida, não física prevista. Mapa em m4-bounded-acceptance.json. Próximo: proteger checkpoint e congelar seleção/expectativas M5 para implementação diferente, sem contar Kosinski compartilhado. Experimental; missão em andamento, sem push.
+
+### Checkpoint 2026-10-18 UTC — M3 consolidado no escopo condicional; M4 congelado
+
+M3 PASS128/128 ida+128/128volta no SHA22dc259a…5347, com prévia anterior à edição, persistência/fechar/reabrir/cópia/IPS/execução/comparação/reversão exata. Certify020824Z terminou READY:1047frontend/3SKIP,1036Rust/93IGNORE, sete gates exit0. Escopo e mapa requisito→teste→limite em m3-bounded-acceptance.json; referência condicional medida explicitamente, não previsão de física/cena inteira. Falhas001 e003, etapas110/110 e históricoM2/v1/BYOR/som permanecem visíveis.
+
+M4 congelado antes da execução externa editada em m4-freeze-v2.json: usar IR CopyGrid existente, reconstrução sem bytes salvos, condição DBRA e estado delimitado. Contadores reais D1/D2, D0 preservado; hipótese inicial D0/D1 errada é preservada e substituída após sentinelas distintas. Original002 passou4096leituras/escritas, memória e registradores observados/CCR, quatro vetores sintéticos do verificador; não é holdout nem qualificação CPU autoral. Próximo: cinco testes de reconstrução/recusas incluindo BYOR ignorado, depois MAME editado com observerv3 idêntico e jornada de detalhes dos nodes; um job pesado por vez. M5 pendente. Sem alteração adicional de produção; Experimental, sem push.
+
+### Checkpoint 2026-10-18 UTC — M3 cadeia comercial na UI: 128/128 ida e 128/128 volta; cert final pendente
+
+No app22dc259a…5347, prévia comercial antes da edição → Stop → nodes/edição MOVE.B↔MOVE.W → Salvar → encerrar/reabrir → cópia/IPS → episódio preparado → comparação → reversão passaram. Cópia cb471c95…ad97a, um byte1B6F8, IPS independente exato; retorno restaura ROM SHA c7da53a1…81ebb e RGBA13723a0e…ae5f1. Originais intactos; stream Enigma adulterado, região adulterada, ROM errada, domínio3/no-op, patch divergente, resultado antigo, cor errada e largura antiga recusados. Resposta atrasada de outro contexto é controle da suíte do componente, separado do controle E2E de resultado antigo. 10534pixels originais/8067editados,2008posições condicionais discriminantes, RGB0 e core/canvas exatos. Trajetória/câmera/coordenadas/animação/paleta são entradas observadas; sem alegar física/cena inteira prevista. Expectativa não recebe captura modificada.
+
+Falha003124/126 preservada: header sob toolbar; Stop+Enquadrar+hit-test real antes de Delete passaram sem relaxar guardas. Corridas anteriores110/110 preservadas como etapa anterior. Certificação da árvore QA final pendente, depois proteger fechamentoM3; M4/M5 pendentes. Experimental; sem push/release/promoção. Processos das jornadas encerrados, zero vivos.
+
+### Checkpoint 2026-10-18 UTC — M3 ida/volta comerciais aprovadas; complemento de sequência pendente
+
+No app22dc259a…5347, ida110/110 e volta110/110 passaram no cenário canônico. Cópia cb471c95…ad97a difere só em1B6F8, IPS independente exato; reversão restaura SHA c7da53a1…81ebb. Persistência, fechar/reabrir, republicação, original/original, no-op, ROM/região errada, domínio3, patch divergente e resultado antigo passaram. Original10534pixels, editada8067pixels e2008posições condicionais que rejeitam width1: RGB0, core/canvas exato, destino12224 e SAT independente conferem. Referência não usa captura modificada; controles de geometria/estado são explicitamente medidos. Falha001 de envelope de recusa preservada, adendo002 corrigiu apenas QA. Nenhuma alegação de trajetória completa/hardware.
+
+M3 ainda receberá complemento explícito de prévia comercial ANTES da edição na mesma sessão e controle de stream Enigma adulterado. As corridas110/110 ficam preservadas; sem mudança de oráculo/tolerância. Depois, nova certificação da instrumentação QA e checkpoint protegido. M4/M5 pendentes; missão em andamento, Experimental.
+
+### Checkpoint 2026-10-18 UTC — M3: referências originais GX qualificadas antes da edição
+
+M2 fechado no domínio declarado em d9d0dc54; ref m2-closed/bundle004 verificado, metadados protection-mission-004.json. M3 continua em preparação: nenhuma cópia comercial executada. Survey GX original encontra cópia concluída no quadro137; framebuffer180 repete referência exata. Cauda4096bytes é bcb49f12…92064, não zerada, igual em todas as fronteiras amostradas e ao MAME. Isso não prova estabilidade intraquadro.
+
+GX autoral qualificado separadamente: antesDMA atraso0, depoisDMA atraso1;1024pixels por quadro e13quadros reservados por caso exatos. Primeira hipótese255 incorreta FAIL preservada; adendo usa conversão GX239 já qualificada, não captura. Modelo independente de descritores/SAT passou cinco quadros originais176–180:10245/10317/10390/10461/10534pixels, RGB0, tiles e cores errados recusados. Coordenadas/câmera/frame e bits de seletor de paleta0x6000 são entradas medidas explícitas; ponteiro/tile/flip/prioridade pinados. Hipótese inicial de base inteira imutável reprovou e permanece preservada. Modelo não prevê trajetória/física nem cena completa. Próximo: preparar jornada comercial no runner canônico, congelar cópia/reversão e predição causal independente antes de executar a primeira edição. M4/M5 pendentes; Experimental, sem push.
+
+### Checkpoint 2026-10-18 UTC — M2 consolidado no domínio observado; M3 em preparação
+
+Qualificação autoral de fase IRQ/DMA:1024pixels exatos, quatro quadros de treino e treze reservados; fase errada e identidade errada recusadas. Adendo anterior à medição comercial002:8482pixels reais conferem com tolerânciaRGB0;48pixels encobertos excluídos por domínio. Os16sprites projetados têm vínculo layout→lookup→descritor→SAT→DMA,715escritas verificadas e cinco negativos recusados. FF4000 é buffer descomprimido antes da cópia e tabela reutilizada depois. Falha visual001 permanece FAIL6912/8217; não foi apagada nem reclassificada.
+
+Certificação pós-fase certify-20261018T012359Z READY:1047frontend/3SKIP,1036Rust/93IGNORE, sete gates exit0. App22dc259a…5347 mantém jornadas34/34 e regressões autorais88/88ida+volta; fmt/clippy padrão/lint passaram. Cadeia original assistida observada no MAME, com correspondência GX restrita à fronteira inicial da cópia; não são a mesma sessão. Nemesis não teve entrada/chamador traçados. Projeção usa estado observado e não é oráculo contrafactual da edição. Aceite e mapa requisito→teste→limite: data/rex_profiles/commercial_recovery_20261016/m2-bounded-acceptance.json.
+
+M3 inicia pela preparação original-only de referências GX antes de editar, incluindo fonte8192bytes não presumida zerada e instante inicial da cópia. M3–M5 ainda não demonstrados. Experimental; sem push/release/promoção. Missão em andamento; histórico de falhas, BYOR e somOPEN preservado em MISSION.md.
+
+### Checkpoint 2026-10-17 — M2: DMA qualificado; projeção visual reprovada, fase ainda aberta
+
+V3 autoral passou4controles+3capturas+4DMA. Comercialv3 preservou Enigma/cópia;17registros SAT conferem. Análise DMA002 passou67SAT+67paletas, destinos finais exatos e arte249tiles pinada emVRAM;001FAIL do controle negativo preservado. Origem ampliada NÃO tem cauda zerada. Witness visual001 FAIL6912/8217: falta qualificar fase CPU/VDP/imagem com sinal autoral, sem escolher captura por melhor coincidência. M2 aberto;M3–M5 não iniciados.
+
+Produto permanece no SHA22dc259a…5347: replay pausado34/34 e regressões autorais88/88ida+volta, cert anteriorREADY1047frontend/1036Rust. Clippy padrão e lint final passaram. Novo certify após DMA adiado pelo preflight de RAM/swap, sem iniciar job pesado. Experimental; sem push/release/promoção. Detalhes/falhas/adendos: `docs/rex_profiles/commercial_recovery_20261016/MISSION.md` e `data/rex_profiles/commercial_recovery_20261016/`.
+
+### Checkpoint 2026-10-17 — M2: replay pausado corrigido e verificado; DMA em qualificação
+
+MAME v2 qualificou a captura do alvo apresentado após duas hipóteses de superfície reprovadas e preservadas. O episódio comercial v2 produziu capturas reais e vinte amostras de cabeças do laço de sprites. O replay GX preparado preserva a fronteira inicial de cópia; igualdade com RAM final do MAME reprovou e permanece registrada, sem alegação de sessão única.
+
+A primeira jornada nativa no app74033134…670e passou replay/framebuffer/RAM, mas falhou na apresentação do canvas pausado. Correção genérica integrada, com regressões verificadas: assinatura passiva de frames e guardas de ROM/época/ordem; sem avanço artificial, nova dependência ou mudança do core. Testes específicos frontend8/8 e TypeScript passaram. Certificação anterior READY (1045frontend/1036Rust) antecede a correção; nova certificação terminou READY:1047frontend/1036Rust,3SKIP/93IGNORE; todos os sete gates passaram. Build canônico passou; binário22dc259a…5347. Jornada de replay pausado passou34/34, incluindo duas épocas/180frames e RGBA referência/core/canvas exato; falha anterior preservada. Regressão autoral v2 no mesmo novo SHA passou88/88ida e88/88volta;162bytes/3309pixels exatos. Clippy default complementar ainda pendente.
+
+M2 segue aberto: DMA interno e dataflow gráfico completo ainda desconhecidos. M3–M5 não iniciados; Experimental, sem push/release/promoção. Histórico v1/v2/BYOR/som permanece separado. Estado/reprodução/falhas/adendos em `docs/rex_profiles/commercial_recovery_20261016/MISSION.md` e `data/rex_profiles/commercial_recovery_20261016/`.
+
+### Checkpoint 2026-10-17 — recuperação comercial: consumo Enigma/cópia observado no MAME; M2 aberto (Experimental)
+
+Worktree `codex/rex-commercial-recovery-20261016`, base03ddc59d; M0 consolidado78d64311,
+M1 congelado2a9d318f, instrumento autoral congelado17cd5bca. Pesquisaee8c581f e integração
+preservadas limpas. No MAME0.289 externo, estado de fase especial preparado explicitamente:
+PC171E/retorno1B6D8/A0=65432/A1=FF4000/D0.word=0; buffer4096 confere SHA322a1483…44d0;
+4096 leituras/escritas em1B6F8, referência do destino8128 confere integralmente.
+Não é sessão GX/app; nenhuma edição/cópia comercial executada ou prova gráfica nova.
+Quatro qualificações autorais e dez negativos de registro passaram; falhas de ferramenta,
+clock global estrito e snapshot ausente preservadas. Clock recua36ns na fronteira notifier/CPU.
+M2 ainda exige superfície gráfica, correspondência com app e host:certify; M3–M5 não iniciados.
+Host diagnoseREADY; houve adiamento por RAM<3GiB. Janela recuperada às06:36UTC, certify em execução, sem resultado pressuposto.
+Detalhes, requisitos/testes/limites/retomada: `docs/rex_profiles/commercial_recovery_20261016/MISSION.md`.
+Resultados/metadados: `data/rex_profiles/commercial_recovery_20261016/`; comercial só no scratch.
+Produção Rust/TS/dependências alteradas0; v1FAIL86/89, v2autoral88/88 ida/volta e somOPEN preservados.
+Retomada: conferir término do certify atual e preflight; depois qualificar revisão candidata indicada no MISSION.md.
+Sem push/merge/release/promoção. Missão não concluída.
+
+### Checkpoint 2026-10-16 — recuperação comercial: M0 consolidado (Experimental)
+
+Worktree isolado `codex/rex-commercial-recovery-20261016`, base reconciliada `03ddc59d`; pesquisa `ee8c581f` preservada. Host diagnose novo READY. Inventário, limites e índice em `docs/rex_profiles/commercial_recovery_20261016/MISSION.md`; auditoria de artefatos e proteção em `data/rex_profiles/commercial_recovery_20261016/`. V1 FAIL 86/89, v2 autoral 88/88 ida/volta, duas tentativas BYOR e som OPEN são evidência herdada separada; nenhuma nova prova comercial ou mudança de produto. M1–M5 pendentes. Sem push/merge/release/promoção.
+
 # 06 - AI MEMORY BANK & CONTEXT TRACKER
 
-### Checkpoint 2026-10-07 (revisão da PR #110) — BPS estrito + interop Flips, exclusividade do core, Kosinski auditado, Sonic+SoR no mesmo binário, CX (Experimental mantido)
+### Checkpoint 2026-10-16 — aceite autoral visual copy v2 fechado; v1 preservada (Experimental)
 
-Código `f130358b`, binário `24ae1787…`, base da PR `4be2049d`. Fecho completo, pins e limites em `docs/rex_profiles/integration_20261007/FECHO-PR110-REVISAO-2026-10-07.md`; manifesto de 54 artefatos em `data/rex_profiles/integration_20261007/evidencia-pr110/MANIFEST.json`.
-Valem daqui para frente: (1) `apply_bps_checked` é estrito (varint, teto de saída antes de alocar, ações dentro da saída/origem, TargetCopy só de histórico, consumo exato, 3 CRCs); interop **bidirecional com Flips v201 pinado** (66/66); BPS legado reconhecido e **nunca** aplicado automaticamente;
-(2) **um dono do core por processo** (`CoreLease`, adquirido antes do dlopen/callbacks, liberado após unload; segunda instância = `core_busy`; `clear_active_emulator` só limpa o próprio slot); (3) o encoder Kosinski ótimo minimiza custo em bits modelado — não alega mínimo em bytes; teto 64 KiB; poda por dominância;
-(4) política: capturas com quadros do jogo, BPS e cópias de ROM **não vão ao Git** (ficam em `~/rds-evidence/...` com SHA no manifesto); (5) teste de janela só vale se o `innerWidth/innerHeight` efetivo for medido (o harness priorizava `RDS_E2E_WINDOW_*`); (6) o hit-test do WebKit ignora botões desabilitados e a scrollbar overlay cobre a base de controles.
-Pendências: remover do histórico da PR as 4 capturas/BPS antigos (decisão do dono), paleta real SoR, validação com pessoas, CI por SHA final. Sem merge, release ou promoção.
+O operador autorizou explicitamente corrigir o oráculo após a falha v1, com
+fundamentação no core pinado, vetores literais e novo freeze antes da jornada.
+Adendo/modelo/vetores/expectativas/specs congelados em d8be191e, às 23:09:14 UTC,
+antes da primeira jornada v2. É correção metodológica posterior à observação,
+não validação cega. Fonte oficial46a55214…16872: palette_init→pixel_lut[1],
+MAKE_PIXEL RGB565, color_update_m5 normal; config_default e negociação de
+formato 2 verificados no código e por auditoria estática do binário pinado.
+Paleta codificada CRAM, framebuffer RGB565→RGBA no adaptador e canvas da UI
+estão separados. O contrato vale só para app/core/configuração/mode pinados,
+sem generalização a hardware real ou outros cores. Não há novo codec/classe/node.
 
-### Checkpoint 2026-10-07 — segundo jogo: fonte do Streets of Rage (Kosinski) editada pela UI; BPS corrigido; SIGABRT explicado (Experimental mantido)
+Antes da jornada passaram 31 vetores literais, 9 negativos de conversão,
+11 de imagem/buffer e 13 do comparador real. Incluem preto, canais isolados,
+intermediários, máximo, misturas, curva verde RGB565 vs555, conversão antiga,
+alteração de um nível em cada canal e tentativa de ampliar tolerância.
+O compositor espacial/oráculo RAM v1 não mudou. Comparação absoluta v2 usa
+**zero tolerância RGBA**; geometria, ROI, posições, RAM, guardas, identidade,
+publicação e conjunto causal mantêm os critérios anteriores. Freeze permaneceu
+intacto durante as duas corridas; apenas os três checks do componente de cor
+mudaram de resultado nas novas observações.
 
-Branch `codex/rex-second-game-graphics` (base `d85485b1`), commit de código `5f778f7e`, binário `45dabcb3…`. Fecho completo, pins, comparação Sonic × SoR, limites e reprodução em
-`docs/rex_profiles/integration_20261007/FECHO-SOR-FONT-2026-10-07.md`; expectativas congeladas + ADENDO em `EXPECTATIONS-SOR-FONT-2026-10-07.md`; evidência com SHA em `data/rex_profiles/integration_20261007/evidencia-sor-font/`.
-**Fluxo de edição gráfica comprovado nos dois perfis descritos** (Sonic 1 e SoR World PtBr, fonte em `0x389A0`); sem alegar suporte universal. Jornada nativa 27/27, oráculo independente 27/27, gates verdes (`host:certify` READY).
-Achados que valem para o futuro: (1) o `patch_studio` gravava BPS fora da spec (varint sem `-1`) — corrigido; (2) SIGABRT `longjmp` = dois cores GPGX concorrentes no mesmo processo (reprodução em `core_concurrency_repro.py`), não o aPLib;
-(3) SoR valida o checksum do cabeçalho no boot; (4) encoder Kosinski do crate é guloso (precisa do parse ótimo para caber no slot); (5) core recusa caminho de ROM ≥ 256 caracteres; (6) o app só cai na tela de texto da introdução sem input após ~588 quadros.
-Pendências: paleta real do SoR, letras/dígitos não rotulados, outra ROM SoR (não PtBr), relocação, CI por SHA (consultar no PR), validação de usabilidade com pessoas. Sem merge, release ou promoção.
+Reutilizado app SHA 74033134f47510c1ef37d8e6025a8bc6986436d4060ae3e96b1ba9bcc3d1670e,
+core Genesis Plus GX SHA 07c10476…8310b1 e ROMs pinadas, sem rebuild ou alteração
+em src/ ou src-tauri/. Jornada nativa **88/88 ida 1→2 + 88/88 volta 2→1**:
+recuperar→nodes→editar/no-op→salvar→encerrar→reabrir→cópia/IPS→emular.
+Nas seis capturas, oráculo/core/canvas têm RGBA idêntico byte a byte, zero
+pixels divergentes. Scope 484 bytes igual em cada largura, diferença exata
+162 bytes e 3309 posições de pixels; original/repetição idênticos, no-op sem
+publicação, reversão para a ROM base SHA fbc72b25…0435. A cópia e IPS são os
+mesmos do produto anterior; classe copy_grid e pipeline canônico intactos.
+
+**V1 continua 86/89 REPROVADA**, com suas três falhas de imagem absoluta e todos
+os artefatos preservados por hash. **BYOR permanece sem vínculo gráfico
+demonstrado**, duas tentativas anteriores reutilizadas, sem nova alegação
+comercial ou PC/chamador/args observados. **Pendência sonora nodegraph-authoring
+OPEN**, histórico mantido. Aceite fechado é da cena autoral nesta combinação
+pinada; não promove maturidade geral. Sem participante humano.
+
+Certificação da rodada: **READY** — tree/lint/tsc, **1045 frontend passed/3 skipped**,
+**1036 Rust passed/93 ignored**, Clippy lib/padrão -D warnings, fmt e
+upstream SGDK/PVSnesLib oficiais passaram. Snapshot/log preservados. Regressões v1 ainda
+aplicáveis 60/60, 63/63 e 55/55 reaproveitadas no mesmo binário; comportamento do
+comparador v1 preservado e testado. Relatório, hashes, escada de evidências,
+matriz requisito→implementação→teste→resultado→limite e reprodução em
+`docs/rex_profiles/integration_20261016/VISUAL-COPY-V2-RESULTS.md`,
+`VISUAL-COPY-CONTRACT-V2.md` e `VISUAL-COPY-V2-REPRODUCE.md`;
+evidência `data/rex_profiles/integration_20261016/evidence/visual-copy-v2/`.
+Sem push/merge/release/promoção/dependência ou core novo; pesquisa ee8c581f preservada limpa.
+
+
+### Checkpoint 2026-10-16 — cópia ligada à cena autoral; aceite gráfico v1 bloqueado (Experimental)
+
+Sobre 2f078dc2, com freeze b0f9f8d8 e oráculo 8a0cd9d2 anteriores ao build/core,
+a classe copy_grid existente alimenta descritores carregados de recurso de 64 bytes,
+buffer fonte, destino e conversão autoral explícita em 112 palavras VDP via SGDK.
+Nenhuma classe/node/codec/publicador/dependência/core novo. A apresentação e o
+wrapper ABI são autoria de QA, não código recuperado. No binário app
+74033134f47510c1ef37d8e6025a8bc6986436d4060ae3e96b1ba9bcc3d1670e,
+a GUI nativa edita 1→2, salva, encerra, reabre do disco, gera cópia/IPS e executa.
+Os 484 bytes de scope completo (fonte/destino/mapa/guardas/marcador) conferem nas
+duas larguras; diff exato de 162 bytes e 3309 posições de pixels; core/canvas são
+idênticos. No-op tem plano vazio e publicação bloqueada; original/repetição
+são idênticos; volta 2→1 restaura a ROM SHA fbc72b25…0435. Nove negativos
+anteriores ao core rejeitam dados incorretos. Diagnóstico agora distingue região
+recuperada e não sugere evento autoral; grafos autorais/mistos e portas mantêm
+validação; a entrada executável do engine não mudou. Sem participante humano.
+
+**A imagem absoluta v1 foi REPROVADA e a entrega integral NÃO está aprovada.**
+O oráculo congelou 255 ±7; core oficial observado entrega 239. A fonte da revisão
+indicada pelo binário explica esse nível por CRAM 0..14 e expansão RGB565. O erro
+estava na suposição do oráculo. A instrução explícita proíbe alterar expectativas
+após observar; v1, tolerância, capturas e relatórios permanecem intactos. Exceção
+para contrato v2 foi pedida, sem pressupor aprovação. Gates verdes não mudam
+esse resultado. Detalhes em VISUAL-COPY-COLOR-DIAGNOSIS.md.
+
+BYOR: revalidação estática de 37 pontos e codec Enigma de 4096 bytes SHA 322a1483…44d0
+passa novamente, pesquisa ee8c581f limpa. Primeiro episódio neutro 180/Start 1/
+neutro 180/direita 120/neutro 60 termina em título: três cargas, 15 amostras,
+inputs aceitos/consultados, controle reproduzível, nenhum framebuffer diferente
+original/cópia e nenhuma fonte igual ao recurso estático. Trace indisponível;
+PC/chamador/args e consumidor comercial continuam desconhecidos. Segunda
+tentativa com Start tardio foi congelada em 50363df3: 600/10/240/1200/60 frames;
+três cargas, 15 novas amostras, cena de gameplay visível, original/cópia ainda
+idênticos e recurso estático não observado na fonte. Continua bloqueada.
+**Parte comercial não concluída. Pendência sonora nodegraph-authoring OPEN,
+com histórico preservado e sem investigação nova.**
+
+Regressões no mesmo binário: copy-grid 60/60, comparação holdout 63/63,
+comparação com chamada opaca 55/55. Certificação **READY**: 1045 frontend passed/3 skipped, 1036 Rust passed/93 ignored;
+Clippy lib/padrão -D warnings, fmt e upstream SGDK/PVSnesLib passaram. Relatório
+preservado antes do novo diagnose. Corrida autoral final 86/89: só as três
+comparações de cor absoluta reprovam, mesmo após conferir os hashes do oráculo,
+input neutro e identidade na captura.
+Relatório, cadeia, requisito→implementação→teste→resultado→limite e reprodução:
+`docs/rex_profiles/integration_20261016/VISUAL-COPY-RESULTS.md` e
+`VISUAL-COPY-REPRODUCE.md`; evidência `data/rex_profiles/integration_20261016/evidence/visual-copy/`.
+Sem push, merge, release ou promoção; bytes/patches/capturas comerciais só em scratch privado.
+
+
+### Checkpoint 2026-10-16 — copy-grid no motor semântico, edição de largura comprovada (Experimental)
+
+Sobre 89189485, com contrato congelado em 2eed076d e pesquisa ee8c581f
+preservada limpa, entrou a classe genérica `copy_grid` no caminho existente
+SemanticEngine/rexProfileEdit/revisão/publicação/persistência. Perfil em dado
+`m68k.copy_grid.v1`; nenhum crate, registry, path-dep ou core novo. Núcleo Rust
+valida os oito operandos, DBRA/sign-extension, mapa, aliases, alinhamento e
+spans; reconstrução de campos tipados não usa bytes de procedência. Canvas
+compacto entrada→cópia→saída, oito mappings e proposta de stride/span;
+somente largura byte/word é editável, sem compilação de topologia.
+
+No app SHA 51b338ced43399545e7df6388d270a632991050083d32659db8369e8c77acc02,
+GUI 004 **60/60**: declarar/recuperar/revisar/editar 1→2/salvar pelo menu/
+encerrar/reabrir/cópia+IPS/executar original e cópia. Diff único 0x410 na
+fixture autoral; IPS independente e base intacta. WRAM coincide entre o core
+do produto Genesis Plus GX e BlastEm; 72 bytes diferem exatamente como previsto.
+Fixture e região BYOR pinada passaram quatro execuções independentes cada,
+com sentinel e referência de toda WRAM relevante (stack reservada excluída).
+BYOR no backend real mudou somente 0x1B6F8; corpus/patch continuam privados.
+Regressões no mesmo binário: comparação curada **63/63**, anterior opaca
+**55/55** e 60 entradas. Host certify **READY**, frontend **1043/3 skips**,
+Rust **1036/93 ignored**, lint/tsc/Clippy, upstream SGDK/PVSnesLib verdes.
+Fmt/diff check passaram; falhas do roteiro preservadas sem mudar expectativas.
+Controle reverso 2→1 também passou **60/60** na GUI e voltou ao SHA autoral exato.
+
+**Pendência sonora preexistente do nodegraph-authoring permanece aberta.**
+Prova é de região em harness com estado inicial declarado; não há observação
+de chamada pelo jogo original, consumidor gráfico, vídeo/áudio ou vivacidade
+de flags/registradores. Não é decompilação universal nem compilador do grafo.
+Contrato, mapa requisito→implementação→teste→resultado→limite, métricas, hashes,
+controle reverso e reprodução: `docs/rex_profiles/integration_20261016/COPY-GRID-RESULTS.md`
+e `COPY-GRID-REPRODUCE.md`; evidência `data/rex_profiles/integration_20261016/evidence/copy-grid/`.
+Sem push, merge, release, promoção ou alteração de outra frente.
+
+
+### Checkpoint 2026-10-16 — comparação recuperada do laboratório na jornada canônica (Experimental)
+
+No destino `codex/rex-integrator-sonic-103104`, base `3aee1128`, foi incorporada
+somente a fixture autoral e o pacote de comparação da pesquisa `ee8c581f`.
+Backend real rederiva a região declarada `0x240..0x25E`, normaliza `>=` assinado,
+limiar 5 e nove mappings; a assinatura do pacote coincide sem exceção na revisão.
+No app SHA `f913ed903f64bbd8a86e2f269d9e872f8b596344eb48723fab1b415aa6c8f46b`,
+a jornada GUI passou **63/63**: recuperar → abrir nodes → editar limiar 5→6 →
+Salvar pelo menu → destruir janela → reabrir do disco → cópia/IPS → execução.
+A regressão da jornada anterior, com guarda e chamada opaca, passou **55/55**
+e 60 casos no mesmo binário. A correção de produto verifica request_id e hash
+do perfil na resposta da ponte; comparação assinada fica explícita. Sem node,
+classe, codec ou publicador novo, sem alteração de registry ou dependências.
+
+ROM autoral base SHA `8246bb88…f6f218`, 2593 bytes; cópia `65e48daa…4528`,
+IPS `bf9faf05…cc09`. Única diferença em `0x247`; original intacta; aplicador
+Python independente reproduz a cópia. Mesmo Genesis Plus GX v1.7.4 46a5521,
+SHA `07c10476…10b1`, com SHA dos bytes efetivamente carregados conferido.
+No domínio `INT32_MIN,-1,0,4,5,6,INT32_MAX`, ledger observado mudou
+`0,0,0,0,1,1,1`→`0,0,0,0,0,1,1`. Contador/estado finais observados:
+`0x7FFFFFFF`/`1`. Inputs por caso são declarados pelo caller autoral; não há
+captura de argumentos do jogo nem prova de chamada em ROM comercial. Flags,
+registradores, stack, vídeo/áudio e outros estados não foram comparados.
+
+`host:certify` **READY**, exit 0: tree/lint/tsc, frontend **1041/0/3 skips**,
+Clippy, Rust **1032/0/92 ignored**, Ghidra operacional e upstream SGDK/SNES.
+Fmt e diff check passaram. Gates não promovem recuperação universal nem
+usabilidade humana. **Pendência sonora preexistente do nodegraph-authoring
+permanece aberta**: falha e aprovação no mesmo binário não foram diagnosticadas
+nem apagadas por esta missão. O aviso herdado de #[test] duplicado também foi
+preservado. GUI 001 (61/61, save por API) e GUI 002 (falha do localizador do
+botão com atalho) ficam no histórico; GUI 003 usa o clique nativo corrigido.
+
+Mapa requisito→implementação→teste→resultado→limite e comandos/hashes completos:
+`docs/rex_profiles/integration_20261016/REQUIREMENTS.md`, `REPRODUCE.md` e
+`data/rex_profiles/integration_20261016/evidence/`. Próximo candidato de pesquisa:
+contrato de memória/proveniência de copy-grid como inspeção somente leitura,
+condicionado a tipos/portas/lowering/testes antes de habilitar execução ou edição;
+nenhuma outra classe foi integrada nesta rodada. Sem push/merge/release/promoção.
+
 
 ### Checkpoint 2026-10-02 — barreira incremental de frames em Build & Run
 
@@ -2712,3 +2988,90 @@ Evidência nova em `data/rex_profiles/integration_20261006/evidencia-fecho/` (SH
 (risco residual s1disasm), revisão do pacote atual a solicitar ao principal, CI terminal só vale no SHA final
 pushado, aviso pré-existente `ast_generator.rs:3479` (#[test] duplicado, test-profile). Composição gráfica é a
 missão seguinte. Sem merge, release ou promoção.
+
+### Checkpoint 2026-10-07 — integrador: remontagem somente-leitura da fase especial Sonic (paredes e objetos confirmados), Experimental
+
+Código `d85485b1`; binário `762e10b5…` (build de `d85485b1`, árvore limpa). Módulos genéricos `rex_nemesis` (decoder Nemesis) e `rex_mdgfx`
+(tiles, mappings, PLC, CRAM, composição indexada) + perfil `sonic_ss_walls` + IPC `rex_inspection_sonic_ss_walls/_wall_compose` + UI
+`SonicSsWallPanel` (painel da célula do Mapa de IDs). Confirmado por pixel contra o core genesis_plus_gx: paredes IDs 1–36 × 16 frames e
+13 pares (ptr/campo/frame) dos IDs 39,41–44,49,65,74 em 2 capturas independentes (sementes 11/23); produto = referências Python
+independentes; canvas desktop = oráculo JS. Jornadas no binário final: layouts 85/85, consumers 24/24, sequencia 42/42. Não confirmado:
+23 pares só da exploração, IDs 37/45–48/50/51/59–64/70–73 sem imagem, IDs 58/66–69 sem arte (base 0x7B2 fora do PLC). Paleta é sempre
+candidata estática (nunca estado do jogo). Detalhes, limites e reprodução em
+`docs/rex_profiles/integration_20261007/FECHO-SS-REMONTAGEM-2026-10-07.md`. Sem push/merge/promoção; edição e reinserção ficam para missão posterior.
+
+### Checkpoint 2026-10-07 (b) — integrador: pulo do Sonic 1 localizado, pulo duplo PROPOSTO e lógica em nodes, Experimental
+
+Localizados nos bytes (objdump m68k do toolchain): `Sonic_Control` 0x12C58 + tabela de modos 0x12CC0, `Sonic_Jump` 0x133EA, `Sonic_JumpHeight` 0x13498, flag `$3C(a0)` (escrita 0x1344A, reset 0x137E4). Pulo duplo como patch IPS de 105 bytes
+(`data/rex_profiles/integration_20261007/patches/`), verificado no core genesis_plus_gx (A/B/C, toque/segurando): 2º salto no ar, ápice 910→870/816, sem triplo; nunca aplicado a ROM do repositório.
+Três NodeGraph v1 descritivos (70 nós/72 arestas) com origem/endereço/bytes por nó; deserializer do produto mantém tudo; não abertos visualmente no editor. Detalhes e limites em
+`docs/rex_profiles/integration_20261007/PULO-DUPLO-E-LOGICA-2026-10-07.md`. Corpos das demais rotinas não recuperados; sem hardware real.
+
+### Checkpoint 2026-10-08 — integrador: perfil `m68k.platformer_jump.v1` (localizar o pulo por assinatura e editar constantes), Sonic 1 + Sonic Delta, Experimental
+
+Novos módulos genéricos `rex_sigscan` (padrões com capturas), `rex_platformer_jump` (perfil), `rex_jump_ipc` (comandos `rex_jump_locate/_edit`) e painel `RexJumpLogicPanel` na aba Code. Localiza 1 instância no Sonic 1 e 3 no Sonic Delta Reloaded
+(layouts de objeto diferentes; o Delta exigiu 2 variantes). Edição de constantes sem crescer a ROM (cópia + IPS, nunca sobrescreve); efeito medido no core: apice do pulo 94→182 (impulso) e 34→81 (corte), iguais no Sonic 1 e no Sonic do Delta; as outras duas
+instâncias do Delta não afetam o Sonic. Limites: forma+consistência (não prova uso), pareamento só mútuo, cap/imps não verificados em execução, edição direta no canvas ainda não ligada. Detalhes em
+`docs/rex_profiles/integration_20261007/PERFIL-PULO-ASSINATURA-2026-10-08.md`.
+
+### Checkpoint 2026-10-08 (b) — integrador: ponte canvas ↔ ROM do pulo (editar no nó gera cópia + IPS), Sonic 1 + Sonic Delta, Experimental
+
+Grafo gerado do perfil `m68k.platformer_jump.v1` agora carrega identidade da ROM/valor original/faixa/offsets; botão "Abrir como nodes", painel "Ponte ROM ↔ nodes" no editor e campo `RomValueInput` nos cartões editáveis.
+Editar o valor no nó → ponte lista as diferenças → núcleo revalida (faixa, bytes antigos, identidade da ROM) e grava cópia + IPS. Jornada desktop `jump-canvas-journey` 24/24 (Sonic 1 e Delta), conferida no disco. O grafo segue descritivo
+(nunca altera a ROM sozinho). Não reexecutei as outras jornadas desktop com o editor alterado. Detalhes: `docs/rex_profiles/integration_20261007/PERFIL-PULO-ASSINATURA-2026-10-08.md`.
+
+
+### Checkpoint 2026-10-09 — integrador: ponte canvas → pulo → ROM → gameplay fechada (fronteiras, regressão do editor, persistência, efeito da cópia), Sonic 1 + Sonic Delta, Experimental
+
+Branch `codex/rex-integrator-sonic-103104` (sem push/merge/release/promoção). Binário final `ad06bfa8c047…` construído em `67b720da` (árvore limpa); produto (`src`, `src-tauri`) idêntico ao de `e044a53c`. Detalhes, pins completos (ROMs-base, 8 cópias e IPS por SHA, core, Xvfb, host) e histórico em
+`docs/rex_profiles/integration_20261007/FECHO-PULO-CANVAS-GAMEPLAY-2026-10-09.md`; evidência com `SHA256SUMS` em `data/rex_profiles/integration_20261007/evidencia-pulo-canvas-gameplay/`.
+
+Fronteiras (commit `d91e6897`, reconfirmadas): duplicados recusados; grafo revisado contra o canônico da ROM (topologia/origem/campo não viram "lógica aplicada"); identidade obrigatória no canvas e no formulário; resultado assíncrono associado a ROM/instância/valores; publicação conjunta cópia+IPS sem apagar arquivo alheio; domínio IPS (`0x1000100`, EOF, tamanhos). Regressão do editor no binário final: `nodegraph-authoring` 13/13, `jump-canvas-journey` 87/87 (inclui salvar → destruir → reiniciar → reabrir do disco), `jump-profile-journey` 24/24, layouts 85/85, consumers 24/24. Prova causal (cópias do canvas, teclado nativo, RAM como sonda rotulada): allPass; impulso +88 px (segurar), corte +47 px (toque), `both` ambos; no Delta só a instância `a` (`0x16914`) afeta o Sonic observado (`b`/`c` sem efeito; nada se afirma sobre quem são).
+
+Falhas preservadas: 5 execuções de gameplay anteriores reprovaram/ficaram inconclusivas por protocolo do "segurar" (limiares nunca mudaram; adendos v2/v2.1/v2.2 congelados antes de cada rodada; errata de numeração no fecho). `jump-profile-journey` reprovou 2/24 por expectativa antiga (`jump-error`→`jump-failure`), corrigida sem afrouxar. Correção de doc: dois imediatos de 16 bits editados, três bytes efetivamente diferem.
+
+Não verificado em execução: `cap`, `imps`, `impw`, `cutw`; faixa aceita pelo perfil ≠ "segura em gameplay". Usabilidade humana NÃO testada (sem participante). Gates em `67b720da`: check:tree/lint/tsc rc=0, vitest 1018/0 (6 skip), fmt/clippy canônico rc=0, `cargo test --lib` 941/0 (88 ignorados), `host:certify` rc=0 READY; audits e `clippy --all-targets` não rodados. Sem CI remoto (sem push). A PR #110 não foi integrada.
+
+Próximo alvo preparado (nada executado): rotina `$085A2` do Streets of Rage (World), com consumidores estáticos e saídas esperadas já versionadas — `PROXIMO-ALVO-STREETS-OF-RAGE-2026-10-09.md`. Vida/anéis não iniciados.
+
+### Decisão 2026-10-09 — integrador: direção do REX = recuperação de lógica universal no futuro, sem casos customizados (ordem do operador)
+
+Registrada em `docs/14_REX_ARQUITETURA_UNIVERSAL.md` (referenciada em `docs/08_TREE_ARCHITECTURE.md`, `docs/12_DECOMPILACAO_PAREADA_PLANO.md`, `AGENTS.md` e `CLAUDE.md`). Não altera as "Decisões Arquiteturais Consolidadas". Conteúdo: (1) decisão e consequências — código novo que nomeia jogo/campo é sinal de alarme; "universal" é direção, nunca alegação; desconhecido permanece desconhecido; (2) arquitetura-alvo motor × perfil (dado versionado) × escada de evidência L0–L6, com classificação inicial dos módulos de `decomp/` (a auditoria completa é a F0); (3) problema aberto: observar execução de forma genérica — os cores Libretro não expõem o PC pela API padrão; opções C (amostragem por quadro, já usada no pulo), A (executor m68k mínimo isolado com teste diferencial) e B (core com gancho de PC, exige aprovação de dependência); (4) escopo dentro/fora; (5) fases F0–F5 com critério de saída mensurável (o pulo vira o 1º perfil em dado; `$085A2` do Streets of Rage é o teste de generalidade F3; vida/anéis só na F5); (6) métrica de generalidade por alvo e regra de parada (se o código novo por alvo não cair em três alvos seguidos, re-arquitetar); (7) protocolo para qualquer agente (classificar motor/perfil/evidência/caso, congelar expectativas antes de medir, declarar nível de evidência, só o integrador atualiza docs canônicos em rodadas paralelas). Pendências do operador: D1 sonda (C+A recomendado; B só com aprovação), D2 local dos perfis em dado (`data/rex_profiles/specs/` proposto), D3 escopo SoR 1/2/3, D4 risco jurídico de distribuição. Nada foi implementado por esta decisão; é documentação de direção.
+
+### Checkpoint 2026-10-09 (b) — integrador: F0 do REX universal fechada (auditoria e contrato), Experimental
+
+Expectativas congeladas em `e6a56860`; resultado em `docs/rex_profiles/integration_20261007/FECHO-F0-AUDITORIA-CONTRATO-2026-10-09.md`. Auditoria reproduzível de 70 arquivos (`data/rex_profiles/integration_20261009/auditoria/`): motor 50 / perfil 7 / misto 7 / caso 6; achados corrigem `docs/14` §2.1 (dois perfis com mecânica duplicada, `inspection.rs` e `sprite_composition.rs` como maior débito de generalidade, executor m68k parcial já existente em `rex-gameplay`, SHA-256 implementado seis vezes). Contrato em tipos sem uso em produção: `rex_evidence.rs` (L0–L6, base obrigatória de L3 em diante) e `rex_profile_spec.rs` (esquema + validação estrita); rascunho do pulo como dado em `data/rex_profiles/specs/` reproduz o `locate()` do código na ROM sintética e em ROMs reais (Sonic 1: 1, Delta: 3 instâncias idênticas). Gates: `cargo test --lib` 961/0, clippy/fmt/check:tree/lint/tsc rc=0; único arquivo de produto existente alterado: `decomp/mod.rs`. Jornadas desktop não reexecutadas por declaração prévia (código morto). Próximo: F1 (içar mecânica genérica para os dois perfis; exige reexecutar jornadas). Pendências do operador: D1–D4 do doc 14. Sem push/merge/release/promoção.
+
+### Checkpoint 2026-10-09 (c) — integrador: F1 do REX universal fechada (núcleo de edição, publicação e motor de perfis em dado), Experimental
+
+Expectativas congeladas em `9543b256`; fecho em `docs/rex_profiles/integration_20261007/FECHO-F1-NUCLEO-DE-EDICAO-E-MOTOR-2026-10-09.md`. Extraídos `rex_edit` (Patch/apply/IPS estrito/plano de campos) e `rex_publish` (cópia+IPS sem sobrescrever) e promovido `rex_profile_engine` (subsumes/pair/follow); o pulo virou adaptador do motor com o perfil em dado `data/rex_profiles/specs/m68k.platformer_jump.v1.json` (experimental), com o `locate` antigo mantido só como oráculo de teste. Equivalência: `JumpInstance` completo idêntica em variantes sintéticas e em ROMs reais (Sonic 1: 1, Delta: 3). Segundo perfil sintético passou pelo mesmo corpo de teste em commit sem `.rs` (`cdfdd52b`; 10 fixtures). Binário `a56a60c7…` (build de `cdfdd52b`): canvas 87/87, perfil 24/24, `nodegraph-authoring` 13/13, gameplay allPass; **as 8 cópias e 8 IPS têm SHA idêntico aos do código antigo**. Gates: `cargo test --lib` 971/0, clippy/fmt/check:tree/lint/tsc rc=0, vitest 1018/0, `host:certify` rc=0. Limites: cobre só a classe subsumes/pair/follow; `counter_threshold_state_gate.v1` não migrado (F1b; risco de o esquema não cobri-lo); `inspection.rs` e `sprite_composition.rs` intocados. Sem push/merge/release/promoção. Pendências do operador: D1–D4 do doc 14.
+
+### Checkpoint 2026-10-09 (d) — integrador: motor de perfis declarativos (conclusão de F0 + F1), Experimental
+
+Base real encontrada `95138430` (a F0/F1 estreita da sessão anterior foi preservada e reutilizada). Expectativas congeladas em `48a9833e`; fecho em `docs/rex_profiles/integration_20261007/FECHO-MOTOR-DE-PERFIS-DECLARATIVOS-2026-10-09.md`; correções do plano em `ADENDO-CORRECOES-DO-PLANO-2026-10-09.md` (o `TraceBackend` só atende ao mock; execução isolada não demonstra chamada pelo jogo; efeito e trace não formam escala total; a rotina `$085A2` do SoR é idêntica à do Sonic em 160 bytes — registrado por ordem do operador, não reconferido; três perfis seguidos com zero código novo são sucesso). Não altera as "Decisões Arquiteturais Consolidadas".
+
+Entregue: contrato `rex-profile-spec/v2` (capturas tipadas, restrições, empate explícito, projeção para nodes, procedência, vínculo com ROM, limites, evidência com referência e escopo; offset de arquivo × endereço de barramento × deslocamento de endereço efetivo); `rex_profile_engine`, `rex_profile_graph` (projeção e revisão do grafo), `rex_profile_registry` (perfis embutidos enumerados de `data/rex_profiles/specs/*.json` por `build.rs` + pasta de perfis em execução), `rex_profile_ipc` (comandos `rex_profile_catalog/locate/edit`; `rex_jump_*` removidos); `rex_edit`/`rex_publish` reutilizados. O pulo virou dado (revisão 2); `rex_platformer_jump.rs` e `rex_jump_ipc.rs` compilam só em teste (adaptadores + oráculos). Frontend genérico: `profileGraphBridge.ts`, `RexProfileLogicPanel.tsx`, `ProfileGraphBridgePanel.tsx`. Segundo perfil autoral `m68k.authored_timer_gate.v1` em `data/rex_profiles/authoring/timer_gate/`, commit só de dado `103ee686`, depois do congelamento `ece9823b` (512 arquivos, `sha256sum -c` OK), com o mesmo binário `08339204…`.
+
+Provas: equivalência motor × código antigo (localização e grafo, mesma assinatura estrutural) em ROM sintética e em ROMs reais (Sonic 1: 1; Delta: 3); 4 grafos salvos antes da migração reabrem nas ROMs reais; mutação 15/15. Jornadas no binário `08339204…`: profile 24/24, canvas 87/87 com as 8 cópias e 8 IPS de SHA idêntico ao código anterior, nodegraph 13/13, consumers 24/24, layouts 85/85 na 2ª execução (a 1ª reprovou num clique bloqueado após reinício), jornada do segundo perfil 66/66. Gameplay: 1ª execução reprovou (14/19; Delta inconclusivo por G6 na variante `noop`, a ROM original, por validade do input nativo); **repetição no mesmo binário: allPass 19/19** (+88 impulso/segurar, +47 corte/toque, `b`/`c` sem efeito). Mutação no HEAD final 15/15; `host:certify` rc=0 READY. Gates em `103ee686`: check:tree/lint/tsc rc=0, vitest 1033/0 (6 skip), fmt/clippy rc=0, `cargo test --lib` 1008/0 (90 ignorados).
+
+Limites: uma classe (`pair` + `subsumes` + `follow`), m68k; `counter_threshold_state_gate.v1` não migrado (F1b); o segundo perfil é sintético e não cego, e motivou um ajuste de validação antes do congelamento; consumo em execução não é observado em nenhum alvo; `inspection.rs`/`sprite_composition.rs` intocados; usabilidade humana não testada. Lacunas L1–L9 no fecho. Próximo (proposta, não implementada): `PROPOSTA-INVESTIGACAO-INSTRUMENTACAO-DO-CORE-2026-10-09.md`. Sem push/merge/release/promoção; PR #110 não integrada. Pendências do operador: D1–D4 do doc 14.
+
+### Checkpoint 2026-10-09 (e) — integrador: confiança das evidências + F1b (classe contador→comparação→estado no motor compartilhado), Experimental
+
+Base `d8b1e0cf`. Expectativas congeladas em `7e0fe350`; fecho em `docs/rex_profiles/integration_20261007/FECHO-F1B-EVIDENCIA-E-CLASSE-SEMANTICA-2026-10-09.md`. Não altera as "Decisões Arquiteturais Consolidadas". Sem push/merge/release/promoção; PR #110 não integrada.
+
+**Evidências por origem** (`rex_evidence_origin.rs`, `data/rex_profiles/evidence/curated.json`): toda afirmação de execução é `declarada` (só o JSON do autor), `histórica curada` (registro embutido, com relatório+SHA, binário, commit, ROM, instância e arquivo de perfil a que se aplica) ou `observada pelo aplicativo` (com identificador da sessão); o resto é desconhecido. Perfil de pasta nunca herda curadoria; registro só vale para ROM + instância + arquivo de perfil listados; integridade do registro não é veracidade. Negativos N1–N5 escritos e vistos reprovar antes (`fcf9a462`), verdes depois. Nada foi apagado: 8 registros do pulo (4 herdados de antes da migração) e 1 da classe semântica (prova de 2026-09-28, herdada).
+
+**F1b:** esquema novo `rex-semantic-profile/v1` (o `rex-profile-spec/v2` e os hashes dos dois perfis v2 não mudaram); o registro escolhe a classe pelo esquema do arquivo e o motor pelo `analyzer.kind`; o analisador é `crates/rex-gameplay`, reutilizado sem alteração. A classe passou a usar catálogo, localização (com `declared_regions`), projeção/revisão do grafo (a revisão re-deriva da ROM), persistência no grafo da entidade, anti-obsoleto, `rex_edit::Patch` e `rex_publish::publish_pair`. Removidos do produto: comandos `rex_gameplay_*`, `RexGameplayRulePanel` e a escrita própria; `rex_gameplay.rs` compila só em teste. Blocos `recovered_rule` já gravados não são apagados: o painel os mostra como formato anterior e preenche a região para re-recuperar. Seleção sempre rotulada (candidato por varredura estrutural | região declarada); chamada externa continua opaca.
+
+**Demonstração:** variante autoral executável nova (`data/rex_profiles/authoring/counter_gate/`, ROM `df1b57b1…`; outros registradores, endereços, passo, ordem do `CMP` e operador `<`; não cega). Referência independente = core Libretro: 60 casos na original e 60 na cópia editada (limiar 40 → 100), 0 divergências em processo e pela interface; 5 casos mudam; só contador e estado são comparados. Binário `acc49225…` (de `f018c762`): `semantic-gate-journey` 50/50, `jump-profile` 24/24, `jump-canvas` 87/87 com 8+8 SHA idênticos, `profile-authoring` 66/66, `nodegraph-authoring` 13/13 — todas na 1ª execução. **`jump-gameplay-journey` REPROVOU (14/19; Delta inconclusivo por validade do toque) e não foi repetida**; a leitura dos 11 relatórios versionados mostra que a falta de confirmação do input no toque ocorre em todas as execuções, com qualquer binário (`gameplay-validade-do-toque.md`) — causa da falta de confirmação não isolada. Mutação 22/23, sobrevivente fechado com teste. Gates: cargo 1026/0 (92 ignorados), vitest 1026/0, clippy/fmt/tsc/lint/check:tree rc=0, `host:certify` READY.
+
+**Correções por adendo:** `103ee686` contém também um gerador Python auxiliar (não é "só dados"); resíduo de pilha é pista, não comprovação temporal de chamada (investigação não implementada).
+
+**Limites:** uma classe semântica, um analisador, 12 instruções, só o limiar editável; segundo perfil da classe semântica não demonstrado; aceitar a classe custou código de motor (~720 linhas em `rex_profile_semantic.rs`); a variante executável é autoral; consumo em jogo comercial não observado; usabilidade humana não testada. **Pendente para quem continuar:** estabilizar a confirmação do toque no `jump-gameplay-journey` (medição, não REX) antes de usá-lo de novo como regressão; pendências D1–D4 do doc 14.
+
+### Checkpoint 2026-10-10 — missão 3 em andamento (diagnóstico de input, ainda sem fechamento)
+
+Retomada no checkout `/home/misael/Projects/REX-INTEGRATION-2026-10-05`, branch `codex/rex-integrator-sonic-103104`, HEAD `c2c26b6562b62423ad7e2819cb37352f32111cb2`. Árvore limpa na reconciliação; `host:diagnose` READY (fingerprint `60249508…`). Binário **não** reconstruído: `40c98750dacc3086407cda8ac6f15e3b66660bd70be9d514f1eb387c6347fc25`, frontend `index-QJIgg2kn` com commit de build `8814a910a1ef07f96b7d99d19f71b8f2235b584e`. O commit `c2c26b65` só altera o harness externo. O gate de commit do frontend vale para inspeção, não para `jump-gameplay-journey`. Gameplay 14/19 e mutação 22/23 continuam falhas preservadas. Estado e comando exato: `docs/rex_profiles/integration_20261007/MISSAO3-ESTADO-2026-10-10.md`.
+
+Diagnóstico v2.2 concluído (saída 0, `allPass` nulo; quantitativo em `DIAGNOSTICO-INPUT-v22-2026-10-10.md`; não aprova a regressão). Canvas novo concluído: saída 0, 87/87, manifesto `d2312b9916a013ba9745305cb4970ab36f6a48743d00f82d5c622b723d5e3f5e`. Primeira `jump-gameplay-journey` v3 concluída com saída real **1**: relatório `jump-gameplay-2026-10-10T03-48-51-643Z-report.json`, **18/19**, falha única `delta.G2_imp` toque +13 contra o teto 12. A segunda corrida não foi executada. Detalhe em `JOGADA-GAMEPLAY-v3-A-2026-10-10.md`. As quatro tentativas sem salto têm o botão lido pelo core e efeito físico ausente; borda do jogo e aptidão do personagem permanecem desconhecidas (`ANALISE-TENTATIVAS-SEM-SALTO-v3-2026-10-10.md`). Adendo v4 (`v4-quadros-exatos`, exatamente 3/120 quadros do core pelos controles da interface) registrado antes de medir. A calibração curta dos itens 1 a 9 passou no mesmo binário `40c98750…`: saída 0, 44/44, relatório `jump-gameplay-2026-10-10T08-58-59-365Z-calibracao-passo.json`. Cada passo do core foi +1 e a segunda leitura 200 ms depois não andou; a apresentação não acompanhou o core e não decide. O aperto de 3 foi lido nos quadros 43–45 e a soltura no 46. A distinção seguinte, saída 0, leu 3 quadros (36–38, soltura 39) e 120 quadros (40–159, soltura 160) na mesma sessão e época. Uma tentativa de toque no original, saída 0, teve N=3 exato e ápice 47 px; não é veredito G. O protocolo não commitado `v4-controle` tem calibração preservada em `04-calibracao-v4-a/` (saída 0, 156/156; não é jornada nem veredito G) e fica fora desta medição. As duas jornadas `v4-quadros-exatos` terminaram com saída real 0 e 19/19, no mesmo binário `40c98750…` e no mesmo harness, sem edição entre elas. Relatórios `jump-gameplay-2026-10-10T09-19-02-947Z-report.json` (SHA `6525f9eb…`) e `jump-gameplay-2026-10-10T13-42-03-665Z-report.json` (SHA `8db655f3…`). G2 ficou em +88 na segura e +5 no toque, teto 12 intacto. Isso fecha o par automatizado e não reclassifica a v3 (18/19). Não é confiabilidade de teclado em tempo real. G7 é observação visual, fora dos 19 checks. O motor está congelado em `08100d31`, manifesto `CONGELAMENTO-MOTOR-2026-10-10.sha256` (516 arquivos, SHA `e541f5e9…`), antes do segundo perfil semântico. O segundo perfil `m68k.counter_equality_state_gate.v1` entrou depois, no commit `7113e762`, sem Rust ou TypeScript de produção. A jornada `semantic-gate-journey` no binário `40c98750…` saiu 0, **49/49**, relatório `semantic-gate-2026-10-11T01-07-05-187Z-report.json` (SHA `2f2814dc…`): igualdade sem guarda, passo 2, só contador e estado; dois casos mudam ao limiar 12. Não é descompilação universal. A bateria nova de mutação, na árvore `8b4a0681`, matou 23/23 por teste nomeado; baseline depois 287 passed e 0 failed. Relatório `11-mutacao/mutacao.json` (SHA `e76c8249…`). O 22/23 antigo permanece. `jump-profile-journey` no mesmo binário saiu 0, **24/24**, Sonic 1 e Delta (`jump-profile-2026-10-11T01-25-34-104Z-report.json`, SHA `43ae7100…`). `profile-authoring-journey` saiu 0, **66/66**, temporizador autoral (`profile-authoring-2026-10-11T01-27-41-888Z-report.json`, SHA `b865aed3…`). `nodegraph-authoring` no mesmo binário saiu **1** na primeira corrida (1320 Hz em 7,29) e **0** na segunda, 13/13, com 1320 Hz em 1244 (`nodegraph-authoring-2026-10-11T08-34-57-984Z-report.json`, SHA `db9dbd62…`). A primeira não é reclassificada. O som neste binário não ficou estável. Os oito gates na árvore `1ce5378e` saíram 0, inclusive `host:certify` READY com fingerprint `60249508…`. G7 foi observado nas capturas das duas jornadas: o sprite da segura de `both` aparece acima do original (`OBSERVACAO-G7-APICE-v4-2026-10-11.md`). Isso não fecha a missão. Proposta futura, não implementada: libretro alternativa com amostra de PC (`PROPOSTA-LIBRETRO-ALTERNATIVA-PC-2026-10-10.md`); o binário `40c98750…` continua a identidade das provas atuais. **Missão em andamento.** Sem push, merge, release ou promoção.

@@ -1,0 +1,10 @@
+{
+  "scenario": "semantic-gate-journey",
+  "display": ":1",
+  "screen": "1920x1080x24",
+  "xvfb_sha256": "5bfd315a8c7bc626d0b183d176e130c34f910a4a1279d9d53ea45769f62a3351",
+  "app_sha256": "f913ed903f64bbd8a86e2f269d9e872f8b596344eb48723fab1b415aa6c8f46b",
+  "rom_sha256": "df1b57b1b3f4d07637e3c4f41ca3fca2f89cc66861d6fd170036a38ee6cab500",
+  "system_display_modified": false,
+  "exit_code": 0
+}

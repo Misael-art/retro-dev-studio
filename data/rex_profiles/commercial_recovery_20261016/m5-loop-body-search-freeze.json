@@ -1,0 +1,185 @@
+{
+  "schema": "rex-m5-loop-body-search-freeze/v1",
+  "generated_at": "2026-10-18T02:32:59.742583+00:00",
+  "inputs": {
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/find-transfer-candidates.py": "b61a929622250bb0b5d3dfe7ff805e85e6f2b7c1393ef2b7e7793ca4edb10e16",
+    "/home/misael/emulation/roms/genesis/Alien Soldier (Europe) (Translated PtBr).zip": "e00d01bd803fadfad1a86210b68875df865b02e08371d8f07b8ac0be7e4e0468",
+    "/home/misael/emulation/roms/genesis/Contra - Hard Corps (USA, Korea) (Translated PtBr).zip": "58f53ec6eca1a588b89791aaa5a86469fe6b1b12783d5eeee47c307bd7b3c697",
+    "/home/misael/emulation/roms/genesis/Rocket Knight Adventures (USA) (Translated PtBr).zip": "26c8e48c0e5b6b8bc22fdedbfad7a4a306207ddb47bd853bf7ed51918f7d1c58",
+    "/home/misael/emulation/roms/genesis/Aladdin (USA) (Translated PtBr).zip": "247f0df125757c46483c3e0cb6053c4204a10cfc7b2827e495558ea4a76efd38",
+    "/home/misael/emulation/roms/genesis/Golden Axe (World) (Translated PtBr).zip": "123440e91aa8b03deae86c256009eab36ca5525eedbd9d7f1a73219931a42a13",
+    "/home/misael/emulation/roms/genesis/Streets of Rage 2 (USA) (Translated PtBr).zip": "ddb70b2f986ac46b8e7d95176eb6d6212d0f64f4c3cbd5a3d59e7ed7c21236ac",
+    "/home/misael/emulation/roms/genesis/Story of Thor, The (Europe) (Translated PtBr).zip": "91f0661a3fdf7b46b99e24642e67ae7f6499677117b1e7ad1bf7d596107e0401",
+    "/home/misael/emulation/roms/genesis/Monster World IV (Japan) (Translated En) (Translated PtBr).zip": "eeeea20074eda675f05fba7e07b2442f665d6536d05c2587591c3630dde6fd1c",
+    "/home/misael/emulation/roms/genesis/Wonder Boy in Monster World (USA, Europe) (Translated PtBr).zip": "0106b8908c52214138add7706da9a48ab144aebc5fe12fb8d945d02096bdf4c6",
+    "/home/misael/emulation/roms/genesis/Vectorman (USA, Europe) (Translated PtBr).zip": "551f2708d77680fe1c50b153e71335e1b079ae3d54160fb5a5a31f92612e1ad9",
+    "/home/misael/emulation/roms/genesis/Adventures of Batman & Robin, The (USA) (Translated PtBr).zip": "ba29fc7fefa020e52f79ff44f3aad067d94175595057dbad589308b39cb2d193",
+    "/home/misael/emulation/roms/genesis/Pulseman (Japan) (Translated En) (Translated PtBr).zip": "4285cf5654b255e19ebb77b60e2bc3719fd33460a35590c1aebd6220aa501a9c",
+    "/home/misael/emulation/roms/genesis/MUSHA - Metallic Uniframe Super Hybrid Armor (USA) (Translated PtBr).zip": "b3bf67dbd03ed85d49f8f50fb5ea55ccd1e6ea790d5f4b9143e6a00b5783eb61",
+    "/home/misael/emulation/roms/genesis/Toy Story (USA) (Translated PtBr).zip": "0484543620eb35aed4c63456a416d3331b44b229b8c733331fcce1527e982cb4",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs": "a8af27a316582620735e10b24816cd7bef2eec16af782500dc7a6dd13c418ff4",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs": "fd2eb873c3bc3c155c1f589d8a9a3e8ddad26a1b8b0af57a678fe027b890a540",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_profile_ipc.rs": "22c565041377eaa0ae6d8ac547f6a4907d10770fba1094f9ff7b76a4843a8e07",
+    "/home/misael/emulation/roms/genesis/Gargoyles (USA) (Translated PtBr).zip": "b222361c7280211dec12b8b2fff7fa44d1fc72e032575eaf88f5ab9d225c03b8",
+    "/home/misael/emulation/roms/genesis/Shinobi III - Return of the Ninja Master (USA) (Translated PtBr).zip": "bbe8cd5a4489fb06a0a3e5c41e149172127d1ad18de0d3b5712a960b53136ae7",
+    "/home/misael/emulation/roms/genesis/Castle of Illusion Starring Mickey Mouse (USA, Europe) (Translated PtBr).zip": "c5a16f13acf074a551cee0f020afedddb344956b068d08bac79f14e9fb6b13a5",
+    "/home/misael/emulation/roms/genesis/Strider (USA, Europe) (Translated PtBr).zip": "a24242ee1128e21773b466e98716aad43ba7c52803224d470fec4708965e99e9",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/survey-copy-loop-bodies.py": "ac2aa626b00e202a0d9c71d36362e63a8ea21911d69f2440dd06236b0a2f34b9",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/qualify-copy-loop-search.py": "6757f6437138d8293d901cfb6e199d7ed67daa9ed423715d395014c1ef294c84"
+  },
+  "targets": [
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Alien Soldier (Europe) (Translated PtBr).zip",
+      "archive_sha256": "e00d01bd803fadfad1a86210b68875df865b02e08371d8f07b8ac0be7e4e0468",
+      "member": "Alien Soldier (Europe).md",
+      "rom_bytes": 2097152,
+      "rom_sha256": "dd8659e12a97f60f27ef170080887ef135e311b1c16af5355c25b104f2fae96b",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied."
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Contra - Hard Corps (USA, Korea) (Translated PtBr).zip",
+      "archive_sha256": "58f53ec6eca1a588b89791aaa5a86469fe6b1b12783d5eeee47c307bd7b3c697",
+      "member": "Contra - Hard Corps (USA, Korea).bin",
+      "rom_bytes": 2097152,
+      "rom_sha256": "8e178b439e1326e766177450a02c43e2ebcfc976c076d65c3bd786f2881144be",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied."
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Rocket Knight Adventures (USA) (Translated PtBr).zip",
+      "archive_sha256": "26c8e48c0e5b6b8bc22fdedbfad7a4a306207ddb47bd853bf7ed51918f7d1c58",
+      "member": "Rocket Knight Adventures (USA).md",
+      "rom_bytes": 1048576,
+      "rom_sha256": "a30de82de4a8871820a9f295e7275fc3ed9d8a753f021bc794121d9b92eafe34",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied."
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Aladdin (USA) (Translated PtBr).zip",
+      "archive_sha256": "247f0df125757c46483c3e0cb6053c4204a10cfc7b2827e495558ea4a76efd38",
+      "member": "Aladdin (USA).bin",
+      "rom_bytes": 2097152,
+      "rom_sha256": "bd7a0a821827ffc86aa9395f5542de2dba79333c50511c5b4c1750dfb6ed414d",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied."
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Golden Axe (World) (Translated PtBr).zip",
+      "archive_sha256": "123440e91aa8b03deae86c256009eab36ca5525eedbd9d7f1a73219931a42a13",
+      "member": "Golden Axe (World).gen",
+      "rom_bytes": 524288,
+      "rom_sha256": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied."
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Streets of Rage 2 (USA) (Translated PtBr).zip",
+      "archive_sha256": "ddb70b2f986ac46b8e7d95176eb6d6212d0f64f4c3cbd5a3d59e7ed7c21236ac",
+      "member": "Streets of Rage 2 (USA).bin",
+      "rom_bytes": 2097152,
+      "rom_sha256": "a6faf732f7038c5ff3951001bc22628015d1028a33c452c22ad39f61b8afcf4a",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied."
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Story of Thor, The (Europe) (Translated PtBr).zip",
+      "archive_sha256": "91f0661a3fdf7b46b99e24642e67ae7f6499677117b1e7ad1bf7d596107e0401",
+      "member": "Story of Thor, The (Europe).gen",
+      "rom_bytes": 3145728,
+      "rom_sha256": "86e79eeaa90fbd7cebbc121a6dada007a4ee406b8f9946495950b9b8b06a265b",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied."
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Monster World IV (Japan) (Translated En) (Translated PtBr).zip",
+      "archive_sha256": "eeeea20074eda675f05fba7e07b2442f665d6536d05c2587591c3630dde6fd1c",
+      "member": "Monster World IV (Japan) (Translated En).gen",
+      "rom_bytes": 2097152,
+      "rom_sha256": "f503821a378b96e78fbc318e8c003be5c8857d69a48c7a9d7cd9c2113c12332e",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied."
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Wonder Boy in Monster World (USA, Europe) (Translated PtBr).zip",
+      "archive_sha256": "0106b8908c52214138add7706da9a48ab144aebc5fe12fb8d945d02096bdf4c6",
+      "member": "Wonder Boy in Monster World (USA, Europe).gen",
+      "rom_bytes": 786432,
+      "rom_sha256": "bea673043b8a227a44a01f6d130c330011f3478b6db64ceb2383376e316e77fe",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied."
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Vectorman (USA, Europe) (Translated PtBr).zip",
+      "archive_sha256": "551f2708d77680fe1c50b153e71335e1b079ae3d54160fb5a5a31f92612e1ad9",
+      "member": "Vectorman (USA, Europe).bin",
+      "rom_bytes": 3145728,
+      "rom_sha256": "ff854c6f554153d86c86c6f30d85c357aff94539b203c4a7049763a044ea87af",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied."
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Adventures of Batman & Robin, The (USA) (Translated PtBr).zip",
+      "archive_sha256": "ba29fc7fefa020e52f79ff44f3aad067d94175595057dbad589308b39cb2d193",
+      "member": "Adventures of Batman & Robin, The (USA).bin",
+      "rom_bytes": 2097152,
+      "rom_sha256": "a87e79fae59a8545c2529b6c0ce7045884be707a69cf5912e1d0545ff8b9211f",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied."
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Pulseman (Japan) (Translated En) (Translated PtBr).zip",
+      "archive_sha256": "4285cf5654b255e19ebb77b60e2bc3719fd33460a35590c1aebd6220aa501a9c",
+      "member": "Pulseman (Japan) (Translated En).gen",
+      "rom_bytes": 2097152,
+      "rom_sha256": "0745e1a248548bcec0fcd50343c0df1f2b9cfd0303c07010ca6ef933e5b4ec43",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied."
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/MUSHA - Metallic Uniframe Super Hybrid Armor (USA) (Translated PtBr).zip",
+      "archive_sha256": "b3bf67dbd03ed85d49f8f50fb5ea55ccd1e6ea790d5f4b9143e6a00b5783eb61",
+      "member": "MUSHA - Metallic Uniframe Super Hybrid Armor (USA).gen",
+      "rom_bytes": 525548,
+      "rom_sha256": "938c97a04f4da7bdfa993111adb8f37235cdceb987e71cbfd35debf656eca896",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied."
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Toy Story (USA) (Translated PtBr).zip",
+      "archive_sha256": "0484543620eb35aed4c63456a416d3331b44b229b8c733331fcce1527e982cb4",
+      "member": "Toy Story (USA).md",
+      "rom_bytes": 4194304,
+      "rom_sha256": "df86b688eaef6178ff43288561838a9389e0e02d30fcce584616d898da0a78b2",
+      "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied."
+    }
+  ],
+  "reserved_targets": [
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Gargoyles (USA) (Translated PtBr).zip",
+      "archive_sha256": "b222361c7280211dec12b8b2fff7fa44d1fc72e032575eaf88f5ab9d225c03b8",
+      "member": "Gargoyles (USA).md",
+      "rom_bytes": 3145728,
+      "rom_sha256": "de4ef5bb385bf58d2d12a5f386473e40f3ec1355db6f57dff2ddcff3c1780fcb",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Shinobi III - Return of the Ninja Master (USA) (Translated PtBr).zip",
+      "archive_sha256": "bbe8cd5a4489fb06a0a3e5c41e149172127d1ad18de0d3b5712a960b53136ae7",
+      "member": "Shinobi III - Return of the Ninja Master (USA).bin",
+      "rom_bytes": 1048576,
+      "rom_sha256": "28572709d7cd442dd681109b14641157c2943498943fa7791f524eaf530710ef",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Castle of Illusion Starring Mickey Mouse (USA, Europe) (Translated PtBr).zip",
+      "archive_sha256": "c5a16f13acf074a551cee0f020afedddb344956b068d08bac79f14e9fb6b13a5",
+      "member": "Castle of Illusion Starring Mickey Mouse (USA, Europe).md",
+      "rom_bytes": 524288,
+      "rom_sha256": "dbc7b2cb0f66f2a5ac4af1b810549802e9c2d7fa380ae9bd791b952d1cfdf603",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Strider (USA, Europe) (Translated PtBr).zip",
+      "archive_sha256": "a24242ee1128e21773b466e98716aad43ba7c52803224d470fec4708965e99e9",
+      "member": "Strider (USA, Europe).gen",
+      "rom_bytes": 1048576,
+      "rom_sha256": "99bbe15a80cc7a47d9a666ec5e9aa6ce51290007090f58dc1371490604a3ec5d",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    }
+  ],
+  "budget_seconds": 60,
+  "previous_survey_sha256": "a0ffc0fa38cc9b59efedd9c880cfe85ce28779a7ed1787ca90a440a352786e61",
+  "hypothesis": "Complete-initializer shape absent in14ROMs. Locate nested copy bodies independently of pointer/row initialization; distinguish MOVEQ/MOVE.W register/immediate column reset and source/destination row gap. Caller inputs remain unknown, no production adaptation yet.",
+  "classification": "14payloads now exploratory/inspected by first survey; four additional payloads identity-only reserved, global prior inspection unknown, not claimed global blind. Reserved code is not read by this scanner.",
+  "selection": "Actual different operator/addressing/control/state initialization must later be demonstrated, plus real invocation and semantic lowering; static metadata is not transfer proof.",
+  "production_changes": 0,
+  "command": "rtk proxy python3 scripts/rex_profiles/commercial_recovery_20261016/survey-copy-loop-bodies.py /home/misael/rds-scratch/commercial_recovery_20261016/m5-loop-body-survey-001.json"
+}

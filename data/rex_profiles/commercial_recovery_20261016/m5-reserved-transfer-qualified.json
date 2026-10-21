@@ -1,0 +1,161 @@
+{
+  "schema": "rex-m5-reserved-transfer-result/v1",
+  "generated_at": "2026-10-18T08:51:10.987949+00:00",
+  "status": "PASS_FOUR_CONSECUTIVE_ZERO_PRODUCTION_STATIC_PUBLICATION_TRANSFERS",
+  "production_freeze_sha256": "7ccade2b7d5be05940453877be8bad7b438135e99b62e287fd69cc0f004f0b70",
+  "tests": {
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0,
+    "commercial_cases": 4,
+    "raw_log_sha256": "b12129f857ca9dc69d51803ae1a08421bcd2d96d869c0f3915f065619e2a0716"
+  },
+  "cases": [
+    {
+      "id": "gargoyles",
+      "production_rust_ts_delta": 0,
+      "profile_definition_delta": 0,
+      "declarative_region": {
+        "entry": 24088,
+        "exit": 24108
+      },
+      "independent_ips_exact": true,
+      "original_intact": true,
+      "original_region_reconstructed": true,
+      "edited_region_reconstructed": true,
+      "outputs": {
+        "original-rebuilt-region.bin": "4387756ba754acec2487d07f8339cb181bec2ab2a8754c517d51ae2e33c10985",
+        "modified-rebuilt-region.bin": "80089ce447e2ba4be69d84b2d32771331c3c82d3dd6696b461eb469ea7857b7a",
+        "published-copy.bin": "126b3fcf877787bd8ebf7e38bc3f77b6e392955f8e512af4c87af8e369a410f2",
+        "published.ips": "5ef6aaa466336153b7d52bd75454ea1f2efdc2de1e0a7bd61dcab2b567f048e4",
+        "graph.nodegraph.json": "21b343529776a7a2ba75327837663175514c96bc56fb685629b47d1a79c0e2b6"
+      },
+      "runtime": {
+        "id": "m5-profile-gargoyles-001",
+        "exit_code": 0,
+        "pid": 2122307,
+        "owned_process_alive": false,
+        "elapsed_seconds": 4.739638443003059,
+        "manifest_sha256": "8243a00a63650eeb1b473563b603178f8e477b73cd219ef08889f38428d4dacc",
+        "log_sha256": "e8bfbc9bec4911d386673cb36e4754dbd623678328d78f1e0d8c8b86c42e3f6f",
+        "events_sha256": "2afcd94fd0458b1478889ba4edd5c535c88bb2f979851c0f6230561ca2d864f3",
+        "events_bytes": 5822,
+        "status": "NO_REGION_EXECUTION_OBSERVED",
+        "case_freeze_sha256": "43f8e9035e48b0a8bb40db4ee9bf6079b02e1db693b5fc90f399239c797f0976",
+        "target": "gargoyles",
+        "production_changes_since_generic_freeze": 0,
+        "entries": 0
+      }
+    },
+    {
+      "id": "shinobi3",
+      "production_rust_ts_delta": 0,
+      "profile_definition_delta": 0,
+      "declarative_region": {
+        "entry": 81798,
+        "exit": 81816
+      },
+      "independent_ips_exact": true,
+      "original_intact": true,
+      "original_region_reconstructed": true,
+      "edited_region_reconstructed": true,
+      "outputs": {
+        "original-rebuilt-region.bin": "7966b7198ba0b2cb27fd5301563bc56b29c1925aadbb37d51316fd7b6b2907c2",
+        "modified-rebuilt-region.bin": "d7fed7f17f447cd9db460ad6ea3a69b12e281e590d408f1f2d872385d37168e8",
+        "published-copy.bin": "e9536d0e4c05f46d855e93d28839e300f8733e1e23e2587e3cfa227ec9501825",
+        "published.ips": "74538daab7d2cca8e0feaccdf7846df0777652040872c13e702c317e869acc62",
+        "graph.nodegraph.json": "3210f4a9618f16c5a1209e7d8d6ef6379afd2251190eeb6a078c2a56b4390a8e"
+      },
+      "runtime": {
+        "id": "m5-profile-shinobi3-001",
+        "exit_code": 0,
+        "pid": 2124137,
+        "owned_process_alive": false,
+        "elapsed_seconds": 4.333962894001161,
+        "manifest_sha256": "d36818bd3a24f1f93ff6e36f43c24c6d92ce7f8a1b962e150c95d479749663b1",
+        "log_sha256": "a4dd1eda264312dfc89da30dc944c1dcd28dc9e162be105f42400f018750cdc9",
+        "events_sha256": "821f610a97b3b3f5a01562e42f57cdb3273d5d7b83d1165d88bb1eedcd0ccaa5",
+        "events_bytes": 5490,
+        "status": "NO_REGION_EXECUTION_OBSERVED",
+        "case_freeze_sha256": "ff9a8ee73d4752dadfde055d2997f20b1799679ea8ac7d5f65fec48e15ae2718",
+        "target": "shinobi3",
+        "production_changes_since_generic_freeze": 0,
+        "entries": 0
+      }
+    },
+    {
+      "id": "castle-illusion",
+      "production_rust_ts_delta": 0,
+      "profile_definition_delta": 0,
+      "declarative_region": {
+        "entry": 64510,
+        "exit": 64532
+      },
+      "independent_ips_exact": true,
+      "original_intact": true,
+      "original_region_reconstructed": true,
+      "edited_region_reconstructed": true,
+      "outputs": {
+        "original-rebuilt-region.bin": "46d885ee73e4689f3dad5247d3af7af66565f73e5916efe1f30a383acc7c5596",
+        "modified-rebuilt-region.bin": "d1c74920096bd59bf64ee73a4c91f05bcd2b7582151b87439d40207c4d84f16f",
+        "published-copy.bin": "dc7289d2832d202afb8ed670e4e65a7969d9d4a82bd97269046809285def459f",
+        "published.ips": "fd96e995632c7679b332a223957e2c79551f35e6dc35f6190bc84a64311d5192",
+        "graph.nodegraph.json": "f1943b9c645c51f569ab30076410bcbeeb3949092b78fd1b71809db5cdf8c249"
+      },
+      "runtime": {
+        "id": "m5-profile-castle-illusion-001",
+        "exit_code": 0,
+        "pid": 2124721,
+        "owned_process_alive": false,
+        "elapsed_seconds": 4.426538036001148,
+        "manifest_sha256": "fff1a85fba79e70fb004bb665302c4c05c023b4a0a3476f4e706dc47b906b4b6",
+        "log_sha256": "fb61772fa183662bb3dee2124c618a18ca7870f2269f944f40dba946685fd9ce",
+        "events_sha256": "a1ea6169898bdaf569744b4cd8984640ee18bed6e964ed5051cf3949311e4860",
+        "events_bytes": 7550,
+        "status": "NO_REGION_EXECUTION_OBSERVED",
+        "case_freeze_sha256": "a2b234e1c164447ac87beb7c7c159f3850d435375376e4397d2cf7f527f8f420",
+        "target": "castle-illusion",
+        "production_changes_since_generic_freeze": 0,
+        "entries": 0
+      }
+    },
+    {
+      "id": "strider",
+      "production_rust_ts_delta": 0,
+      "profile_definition_delta": 0,
+      "declarative_region": {
+        "entry": 99230,
+        "exit": 99248
+      },
+      "independent_ips_exact": true,
+      "original_intact": true,
+      "original_region_reconstructed": true,
+      "edited_region_reconstructed": true,
+      "outputs": {
+        "original-rebuilt-region.bin": "763a1b9eaedcec9be685ade47e4bc116386063134e05fa75cd17e032118e9c7c",
+        "modified-rebuilt-region.bin": "869d05d47b5dcb766621f5a1be0f573576f4defa79e3028980d8bea2dd7e8f31",
+        "published-copy.bin": "7d93b8da058edf4ca27885b59691464b00acf81b4ac858ff67ed56e1c4534301",
+        "published.ips": "ee0f8d7252271fb9bdec45c8226efc8f152d5658cb2a79121d43a5d10a357b10",
+        "graph.nodegraph.json": "b5e685269081da272f12b2db5290bfcff250b34a6103efc58672c92fac3bea5c"
+      },
+      "runtime": {
+        "id": "m5-profile-strider-001",
+        "exit_code": 0,
+        "pid": 2128519,
+        "owned_process_alive": false,
+        "elapsed_seconds": 3.97617099800118,
+        "manifest_sha256": "36820d0b93635bfe850ab7999177817a588564a11a26ec8557a33aa72792523d",
+        "log_sha256": "2de94e6813d7e2da7b7d7c9fd86ec28f42801de206c51a253b5cbb1e756e2b86",
+        "events_sha256": "4ce065c338f88f345e20dc0ff1521835c11bc07aa3eda0b87e10247aff2e8f29",
+        "events_bytes": 5542,
+        "status": "NO_REGION_EXECUTION_OBSERVED",
+        "case_freeze_sha256": "e80db294bce52f89f353b2df806fa258b6390375d0bd8cfe7644f2d6aebfef9b",
+        "target": "strider",
+        "production_changes_since_generic_freeze": 0,
+        "entries": 0
+      }
+    }
+  ],
+  "metric_scope": "Four consecutive distinct ROM targets zero Rust/TS and zero profile-definition changes for declared-region recovery/reconstruction/publication/IPS. No calls observed in frozen1200frame episodes: not four game-consumption passes or functional failures. Full nativeUI/causalgame transfer primary second implementation GoldenAxe remains separate pending.",
+  "limits": "Reserved means first code interpretation after generic adaptation in this mission; prior external inspection unknown. Local translated derivatives, not pristine retail claims."
+}

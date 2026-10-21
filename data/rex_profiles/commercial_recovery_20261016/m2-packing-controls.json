@@ -1,0 +1,5 @@
+{
+  "literal_rows_and_padding": "PASS",
+  "negative_pitch_truncation_zero_width": "3/3 refused",
+  "scope": "buffer row packing only; no renderer/color oracle change"
+}

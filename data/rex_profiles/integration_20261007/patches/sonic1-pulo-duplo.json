@@ -1,0 +1,20 @@
+{
+ "rom_original_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+ "rom_patchada_sha256": "12c9fb5bb3fe578b384d16a933e72b4575c98fcf0bd3433f0bf42d303da351f4",
+ "ips_sha256": "c8d4c673da70d64d9d8bf63768c25c28a07dccb283cf4f0c74be74c38ccc21b3",
+ "ips_bytes": 105,
+ "registros": [
+  {
+   "offset": "0x13498",
+   "bytes": 2
+  },
+  {
+   "offset": "0x1349b",
+   "bytes": 3
+  },
+  {
+   "offset": "0x81c79",
+   "bytes": 77
+  }
+ ]
+}

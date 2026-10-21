@@ -1,0 +1,19 @@
+{
+  "schema": "rex-experiment-failure/v1",
+  "id": "prepared-replay-001",
+  "result": "FAIL_SOURCE_VIDEO_ASSERTION",
+  "command": [
+    "rtk",
+    "proxy",
+    "python3",
+    "scripts/rex_profiles/commercial_recovery_20261016/prepare-replay.py",
+    "prepared-replay-001"
+  ],
+  "exit_code": 1,
+  "source_commit": "338d06a",
+  "generator_sha256": "48dde483d1474ba8ecfd0ab8cc6c6a65e8751c40db438accc4dff38e386273a3",
+  "inputs": "m2-app-replay-freeze.json",
+  "failure": "assert c.fmt==2 and (width,height,pitch)==(320,224,640)",
+  "limit": "actual video tuple was not recorded by this first generator; no replay/app proof exists; this metadata recorded after the exception",
+  "next_hypothesis": "match existing product row packing, keep format/width/height strict and record source pitch before assertion; no image rescale/crop/calibration"
+}

@@ -1,0 +1,264 @@
+{
+  "schema": "rex-gx-author-phase/v1",
+  "status": "PASS_AUTHOR_GX_TWO_CADENCES",
+  "id": "gx-phase-qualify-002",
+  "freeze_sha256": "0237da52a4cdc6fbbe25431081bda720e9e939c2c096fcc8f614875a96ccc314",
+  "cases": {
+    "write-before-dma": {
+      "rom_sha256": "8b3c47215bc6baeeb559121a0cea75e0028997af0cfdea983232907bcf8da1e7",
+      "ram_to_presented_updates": 0,
+      "literal_pixels_per_frame": 1024,
+      "records": [
+        {
+          "frame": 4,
+          "counter": 3,
+          "source_x": 24,
+          "presented_x": 24,
+          "lag": 0
+        },
+        {
+          "frame": 5,
+          "counter": 4,
+          "source_x": 32,
+          "presented_x": 32,
+          "lag": 0
+        },
+        {
+          "frame": 6,
+          "counter": 5,
+          "source_x": 40,
+          "presented_x": 40,
+          "lag": 0
+        },
+        {
+          "frame": 7,
+          "counter": 6,
+          "source_x": 48,
+          "presented_x": 48,
+          "lag": 0
+        },
+        {
+          "frame": 8,
+          "counter": 7,
+          "source_x": 56,
+          "presented_x": 56,
+          "lag": 0
+        },
+        {
+          "frame": 9,
+          "counter": 8,
+          "source_x": 64,
+          "presented_x": 64,
+          "lag": 0
+        },
+        {
+          "frame": 10,
+          "counter": 9,
+          "source_x": 72,
+          "presented_x": 72,
+          "lag": 0
+        },
+        {
+          "frame": 11,
+          "counter": 10,
+          "source_x": 80,
+          "presented_x": 80,
+          "lag": 0
+        },
+        {
+          "frame": 12,
+          "counter": 11,
+          "source_x": 88,
+          "presented_x": 88,
+          "lag": 0
+        },
+        {
+          "frame": 13,
+          "counter": 12,
+          "source_x": 96,
+          "presented_x": 96,
+          "lag": 0
+        },
+        {
+          "frame": 14,
+          "counter": 13,
+          "source_x": 104,
+          "presented_x": 104,
+          "lag": 0
+        },
+        {
+          "frame": 15,
+          "counter": 14,
+          "source_x": 112,
+          "presented_x": 112,
+          "lag": 0
+        },
+        {
+          "frame": 16,
+          "counter": 15,
+          "source_x": 120,
+          "presented_x": 120,
+          "lag": 0
+        },
+        {
+          "frame": 17,
+          "counter": 16,
+          "source_x": 128,
+          "presented_x": 128,
+          "lag": 0
+        },
+        {
+          "frame": 18,
+          "counter": 17,
+          "source_x": 136,
+          "presented_x": 136,
+          "lag": 0
+        },
+        {
+          "frame": 19,
+          "counter": 18,
+          "source_x": 144,
+          "presented_x": 144,
+          "lag": 0
+        },
+        {
+          "frame": 20,
+          "counter": 19,
+          "source_x": 152,
+          "presented_x": 152,
+          "lag": 0
+        }
+      ],
+      "wrong_phase_refused": true
+    },
+    "write-after-dma": {
+      "rom_sha256": "921a8412e711433c19d7603fcef751e8ab2abb1ac464cb54c61ca96433994f0a",
+      "ram_to_presented_updates": 1,
+      "literal_pixels_per_frame": 1024,
+      "records": [
+        {
+          "frame": 4,
+          "counter": 3,
+          "source_x": 24,
+          "presented_x": 16,
+          "lag": 1
+        },
+        {
+          "frame": 5,
+          "counter": 4,
+          "source_x": 32,
+          "presented_x": 24,
+          "lag": 1
+        },
+        {
+          "frame": 6,
+          "counter": 5,
+          "source_x": 40,
+          "presented_x": 32,
+          "lag": 1
+        },
+        {
+          "frame": 7,
+          "counter": 6,
+          "source_x": 48,
+          "presented_x": 40,
+          "lag": 1
+        },
+        {
+          "frame": 8,
+          "counter": 7,
+          "source_x": 56,
+          "presented_x": 48,
+          "lag": 1
+        },
+        {
+          "frame": 9,
+          "counter": 8,
+          "source_x": 64,
+          "presented_x": 56,
+          "lag": 1
+        },
+        {
+          "frame": 10,
+          "counter": 9,
+          "source_x": 72,
+          "presented_x": 64,
+          "lag": 1
+        },
+        {
+          "frame": 11,
+          "counter": 10,
+          "source_x": 80,
+          "presented_x": 72,
+          "lag": 1
+        },
+        {
+          "frame": 12,
+          "counter": 11,
+          "source_x": 88,
+          "presented_x": 80,
+          "lag": 1
+        },
+        {
+          "frame": 13,
+          "counter": 12,
+          "source_x": 96,
+          "presented_x": 88,
+          "lag": 1
+        },
+        {
+          "frame": 14,
+          "counter": 13,
+          "source_x": 104,
+          "presented_x": 96,
+          "lag": 1
+        },
+        {
+          "frame": 15,
+          "counter": 14,
+          "source_x": 112,
+          "presented_x": 104,
+          "lag": 1
+        },
+        {
+          "frame": 16,
+          "counter": 15,
+          "source_x": 120,
+          "presented_x": 112,
+          "lag": 1
+        },
+        {
+          "frame": 17,
+          "counter": 16,
+          "source_x": 128,
+          "presented_x": 120,
+          "lag": 1
+        },
+        {
+          "frame": 18,
+          "counter": 17,
+          "source_x": 136,
+          "presented_x": 128,
+          "lag": 1
+        },
+        {
+          "frame": 19,
+          "counter": 18,
+          "source_x": 144,
+          "presented_x": 136,
+          "lag": 1
+        },
+        {
+          "frame": 20,
+          "counter": 19,
+          "source_x": 152,
+          "presented_x": 144,
+          "lag": 1
+        }
+      ],
+      "wrong_phase_refused": true
+    }
+  },
+  "elapsed_seconds": 1.089334290001716,
+  "limits": "Pinned GX author fixtures only; does not prove Sonic cadence or commercial visual equivalence. Source coordinates are independently qualified inputs, not a predicted game trajectory."
+}

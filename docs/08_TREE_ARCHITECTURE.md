@@ -63,6 +63,7 @@ RetroDevStudio/
 |   |-- 09_AGENT_DEV_MODE.md
 |   |-- 10_QA_ROTEIRO_RC.md
 |   |-- 13_PLANO_EXECUCAO_PARALELA.md
+|   |-- 14_REX_ARQUITETURA_UNIVERSAL.md  (direcao/arquitetura REX: motor x perfil x evidencia; Experimental)
 |   |-- AVALIACAO_DESENVOLVIMENTO_2026_09_06.md
 |   |-- PROMPT_AGENTE_INTEGRADOR.md
 |   |-- PROMPT_AGENTE_A.md
@@ -255,4 +256,5 @@ RetroDevStudio/
 
 - O plano ampliado permanece no documento canônico `docs/12_DECOMPILACAO_PAREADA_PLANO.md`, seção Programa REX; não constitui implementação ou promoção de suporte.
 - `docs/PROMPT_AGENTE_RECONSTRUCAO_ROM.md` contém o handoff executável do Programa REX.
+- `docs/14_REX_ARQUITETURA_UNIVERSAL.md` registra a decisão do operador (2026-10-09) de que o REX caminha para recuperação de lógica **universal no futuro, sem casos customizados**: motor genérico + perfis em dado + escada de evidência, com fases, escopo, métrica de generalidade e protocolo para qualquer agente. É direção, não promessa nem implementação.
 - Relatórios gerados usam os diretórios de validação existentes ou diretório BYOR externo; nenhuma ROM ou asset comercial entra no Git.

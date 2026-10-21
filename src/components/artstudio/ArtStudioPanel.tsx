@@ -3368,6 +3368,19 @@ export default function ArtStudioPanel() {
       });
       return false;
     }
+    // Sequencias do ArtStudio nao representam ocorrencias repetidas, ordem, eixo, caixas nem eventos
+    // MUGEN; aplicar aqui apagaria esses dados. A edicao de personagem MUGEN fica no editor Personagem.
+    if (
+      targetSprite &&
+      Object.values(targetSprite.animations ?? {}).some((animation) => Array.isArray(animation.mugen_frames))
+    ) {
+      dispatch({
+        type: "SET_VALIDATION_ERROR",
+        message:
+          "Esta entidade usa animacoes MUGEN importadas; aplicar sequencias do ArtStudio apagaria ocorrencias, caixas e eventos. Use o editor Personagem.",
+      });
+      return false;
+    }
     if (!artState.spriteSheetUrl) {
       dispatch({
         type: "SET_VALIDATION_ERROR",

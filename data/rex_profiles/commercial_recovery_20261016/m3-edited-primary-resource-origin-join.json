@@ -1,0 +1,90 @@
+{
+  "schema": "rex-commercial-edited-resource-origin-join/v1",
+  "generated_at": "2026-10-18T02:21:51.060051+00:00",
+  "status": "PASS_ALL_PROJECTED_EDITED_RESOURCE_SPRITES_FROM_PRIMARY_DECODE",
+  "methodology": "Post-observation join of previously frozen byte-index copy model and previously generated conditional expected sprite records; no new image criteria or modified framebuffer read. Not holdout.",
+  "expected_file_sha256": "e3244b1ea551a50f8a6c0071b9458c10d581e57ca1336b48b92a59bfdc387ad1",
+  "source8192_sha256": "06e94b74b4a5deeb5df0d357587294d8610c0c76a8ce9d8db5b60d77f02d5aa6",
+  "primary_decoded4096_sha256": "322a14830b8f3be05d59507ccf41c7a57ff8e835cd2727573943cd61d4c944d0",
+  "sprite_origins": [
+    {
+      "sprite_index": 1,
+      "layout_address": 16715815,
+      "decoded_source_offset": 7
+    },
+    {
+      "sprite_index": 2,
+      "layout_address": 16715816,
+      "decoded_source_offset": 8
+    },
+    {
+      "sprite_index": 3,
+      "layout_address": 16715817,
+      "decoded_source_offset": 9
+    },
+    {
+      "sprite_index": 4,
+      "layout_address": 16715818,
+      "decoded_source_offset": 10
+    },
+    {
+      "sprite_index": 5,
+      "layout_address": 16715819,
+      "decoded_source_offset": 11
+    },
+    {
+      "sprite_index": 6,
+      "layout_address": 16715820,
+      "decoded_source_offset": 12
+    },
+    {
+      "sprite_index": 7,
+      "layout_address": 16716071,
+      "decoded_source_offset": 199
+    },
+    {
+      "sprite_index": 8,
+      "layout_address": 16716076,
+      "decoded_source_offset": 204
+    },
+    {
+      "sprite_index": 9,
+      "layout_address": 16716199,
+      "decoded_source_offset": 263
+    },
+    {
+      "sprite_index": 10,
+      "layout_address": 16716204,
+      "decoded_source_offset": 268
+    },
+    {
+      "sprite_index": 11,
+      "layout_address": 16716456,
+      "decoded_source_offset": 456
+    },
+    {
+      "sprite_index": 16,
+      "layout_address": 16716584,
+      "decoded_source_offset": 520
+    },
+    {
+      "sprite_index": 18,
+      "layout_address": 16716591,
+      "decoded_source_offset": 527
+    },
+    {
+      "sprite_index": 19,
+      "layout_address": 16716592,
+      "decoded_source_offset": 528
+    },
+    {
+      "sprite_index": 20,
+      "layout_address": 16716593,
+      "decoded_source_offset": 529
+    }
+  ],
+  "projected_resource_pixels": 8067,
+  "conditional_discriminating_pixels": 2008,
+  "tail_derived_projected_resource_sprites": 0,
+  "limits": "Measured geometry/frame/palette inputs remain explicit; all15selected descriptor owners map to primary4096bytes before nonresource masking. Therefore8067retained pixels and2008discriminating subset derive from primary Enigma layout, not merely incidental tail data."
+}

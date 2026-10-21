@@ -2524,6 +2524,8 @@ fn derive_sgdk_sprite_sheet_from_rescomp_png(
         animations.insert(
             anim_name,
             AnimationDef {
+                occurrence_ids: None,
+                frame_events: Vec::new(),
                 frames: frame_indices,
                 fps,
                 looping,
@@ -5585,6 +5587,7 @@ fn platformer_seed_scene() -> Scene {
             "#22C55E".to_string(),
             "#F8FAFC".to_string(),
         ],
+        ..Default::default()
     }];
     scene.entities = vec![
         Entity {
@@ -5622,6 +5625,7 @@ fn platformer_gm_seed_scene() -> Scene {
             "#15803D".to_string(), // Green
             "#F1F5F9".to_string(), // White
         ],
+        ..Default::default()
     }];
 
     // Configure 5 layers: BACKGROUND, MIDGROUND, FOREGROUND, INSTANCES, COLLISIONS
@@ -8101,6 +8105,7 @@ fn mugen_actions_to_animation_defs(
             .frames
             .iter()
             .map(|frame| MugenAnimationFrame {
+                clsn_edited: false,
                 group: frame.group,
                 image: frame.image,
                 axis: Some(Pivot {
@@ -8116,6 +8121,8 @@ fn mugen_actions_to_animation_defs(
         animations.insert(
             format!("action_{}", action.action_no),
             AnimationDef {
+                occurrence_ids: None,
+                frame_events: Vec::new(),
                 frames,
                 fps,
                 looping: action.loop_start.is_some(),
@@ -10196,6 +10203,8 @@ fn gamemaker_player_animations(frame_count: u32) -> BTreeMap<String, AnimationDe
     animations.insert(
         "idle".to_string(),
         AnimationDef {
+            occurrence_ids: None,
+            frame_events: Vec::new(),
             frames: vec![0],
             fps: 6,
             looping: true,
@@ -10211,6 +10220,8 @@ fn gamemaker_player_animations(frame_count: u32) -> BTreeMap<String, AnimationDe
         animations.insert(
             "walk".to_string(),
             AnimationDef {
+                occurrence_ids: None,
+                frame_events: Vec::new(),
                 frames: walk_frames,
                 fps: 10,
                 looping: true,
@@ -11738,6 +11749,8 @@ fn godot_animation_defs<'a>(
         animations.insert(
             trimmed.to_string(),
             AnimationDef {
+                occurrence_ids: None,
+                frame_events: Vec::new(),
                 frames: vec![0],
                 fps: 8,
                 looping: true,
@@ -13374,6 +13387,7 @@ fn openbor_animation_to_def(block: &OpenBorAnimationBlock) -> AnimationDef {
         );
         (0..frame_count)
             .map(|index| MugenAnimationFrame {
+                clsn_edited: false,
                 group: 0,
                 image: index as i32,
                 axis: block.offset.clone(),
@@ -13395,6 +13409,8 @@ fn openbor_animation_to_def(block: &OpenBorAnimationBlock) -> AnimationDef {
     });
 
     AnimationDef {
+        occurrence_ids: None,
+        frame_events: Vec::new(),
         frames,
         fps,
         looping: block.looping,
@@ -15556,6 +15572,8 @@ fn reference_player_prefab() -> Entity {
     animations.insert(
         "idle".to_string(),
         AnimationDef {
+            occurrence_ids: None,
+            frame_events: Vec::new(),
             frames: vec![0, 1],
             fps: 4,
             looping: true,
@@ -15569,6 +15587,8 @@ fn reference_player_prefab() -> Entity {
     animations.insert(
         "run".to_string(),
         AnimationDef {
+            occurrence_ids: None,
+            frame_events: Vec::new(),
             frames: vec![2, 3],
             fps: 8,
             looping: true,
@@ -15582,6 +15602,8 @@ fn reference_player_prefab() -> Entity {
     animations.insert(
         "jump".to_string(),
         AnimationDef {
+            occurrence_ids: None,
+            frame_events: Vec::new(),
             frames: vec![4],
             fps: 1,
             looping: false,
@@ -15719,6 +15741,8 @@ fn reference_goal_prefab() -> Entity {
                 animations: BTreeMap::from([(
                     "idle".to_string(),
                     AnimationDef {
+                        occurrence_ids: None,
+                        frame_events: Vec::new(),
                         frames: vec![0],
                         fps: 1,
                         looping: true,
@@ -15754,6 +15778,8 @@ fn reference_passage_prefab() -> Entity {
                 animations: BTreeMap::from([(
                     "closed".to_string(),
                     AnimationDef {
+                        occurrence_ids: None,
+                        frame_events: Vec::new(),
                         frames: vec![0],
                         fps: 1,
                         looping: true,
@@ -15812,8 +15838,9 @@ fn reference_camera_prefab() -> Entity {
         components: Components {
             camera: Some(CameraComponent {
                 follow_entity: Some("player".to_string()),
-                offset_x: 0,
-                offset_y: 0,
+                // Canto da camera = jogador - meia tela: o jogador fica perto do centro.
+                offset_x: -152,
+                offset_y: -112,
             }),
             ..Components::default()
         },
@@ -15866,6 +15893,7 @@ fn reference_platformer_scene() -> Scene {
                 "#BA7E52".to_string(),
                 "#8E583E".to_string(),
             ],
+            ..Default::default()
         },
         PaletteEntry {
             slot: 1,
@@ -15886,6 +15914,7 @@ fn reference_platformer_scene() -> Scene {
                 "#EEEEAA".to_string(),
                 "#EEEECC".to_string(),
             ],
+            ..Default::default()
         },
         PaletteEntry {
             slot: 2,
@@ -15906,6 +15935,7 @@ fn reference_platformer_scene() -> Scene {
                 "#EECC00".to_string(),
                 "#EEEEAA".to_string(),
             ],
+            ..Default::default()
         },
         PaletteEntry {
             slot: 3,
@@ -15926,6 +15956,7 @@ fn reference_platformer_scene() -> Scene {
                 "#EE0000".to_string(),
                 "#EEAA88".to_string(),
             ],
+            ..Default::default()
         },
     ];
     scene.layers = Some(vec![
@@ -16676,6 +16707,7 @@ fn starter_scene(scene_id: &str, display_name: String, _target: &str) -> Scene {
             "#F9E2AF".to_string(),
             "#FFFFFF".to_string(),
         ],
+        ..Default::default()
     }];
     scene.entities = vec![Entity {
         entity_id: "player".to_string(),
@@ -17382,7 +17414,8 @@ pub fn validate_scene(scene: &Scene) -> Result<(), LoadError> {
     )?;
 
     let mut seen_palette_slots = HashSet::new();
-    for PaletteEntry { slot, .. } in &scene.palettes {
+    // Recursos do plano de paletas (com `id`) nao usam `slot`; so as paletas de referencia sim.
+    for PaletteEntry { slot, .. } in scene.palettes.iter().filter(|p| p.id.is_none()) {
         if !seen_palette_slots.insert(*slot) {
             return Err(LoadError(format!(
                 "scene '{}': slot de paleta duplicado: {}.",
@@ -22612,6 +22645,8 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
                         (
                             "idle".to_string(),
                             AnimationDef {
+                                occurrence_ids: None,
+                                frame_events: Vec::new(),
                                 frames: vec![0],
                                 fps: 6,
                                 looping: true,
@@ -22625,6 +22660,8 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
                         (
                             "run".to_string(),
                             AnimationDef {
+                                occurrence_ids: None,
+                                frame_events: Vec::new(),
                                 frames: vec![1, 2, 3],
                                 fps: 12,
                                 looping: true,
@@ -22678,6 +22715,8 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
         assert_eq!(
             sprite.animations.get("idle"),
             Some(&AnimationDef {
+                occurrence_ids: None,
+                frame_events: Vec::new(),
                 frames: vec![0],
                 fps: 6,
                 looping: true,
@@ -22691,6 +22730,8 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
         assert_eq!(
             sprite.animations.get("run"),
             Some(&AnimationDef {
+                occurrence_ids: None,
+                frame_events: Vec::new(),
                 frames: vec![1, 2, 3],
                 fps: 12,
                 looping: true,

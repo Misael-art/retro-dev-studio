@@ -476,49 +476,6 @@ export interface InspectionEdit {
   base_rom_sha256_after?: string | null;
   /** true quando o valor solicitado ja era o vigente: ok explicito, nenhuma escrita. */
   noop?: boolean;
-  /** Recurso comprimido reinserido em slot (formato `md_4bpp_kosinski_stream`). */
-  stream_len?: number | null;
-  slot_len?: number | null;
-  guards_verified?: number | null;
-  patch_bps_path?: string | null;
-  patch_bps_sha256?: string | null;
-}
-
-/** Edicao de pixel 4bpp de um tile (linha/coluna 0..7, indice 0..15). */
-export interface SorPixelEdit {
-  tile: number;
-  row: number;
-  col: number;
-  index: number;
-}
-
-export interface SorGlyph {
-  tile: number;
-  label: string;
-  /** observed = medido no core; inferred = por contiguidade do alfabeto. */
-  basis: "observed" | "inferred";
-}
-
-export interface SorFontInfo {
-  profile_id: string;
-  resource_id: string;
-  supported: boolean;
-  diagnostic: string;
-  rom_sha256: string;
-  stream_offset: number;
-  slot_len: number;
-  plain_len: number;
-  tiles: number;
-  consumers: { offset: number; note: string }[];
-  glyphs: SorGlyph[];
-  original_plain_b64: string;
-  current_plain_b64: string;
-  current_stream_len: number;
-  tiles_changed: number[];
-  copy_active: boolean;
-  scope_note: string;
-  proof: string[];
-  limits: string[];
 }
 
 /** Registro cumulativo de uma edicao efetivamente aplicada a copia imutavel. */
@@ -1414,27 +1371,6 @@ export interface GameplayRebuildResponse {
   checksum_updated: boolean;
 }
 
-export function rexGameplayScan(request: GameplayScanRequest): Promise<GameplayScanResponse> {
-  return invoke<GameplayScanResponse>("rex_gameplay_scan", { request });
-}
-
-export function rexGameplayRecover(
-  request: GameplayRecoverRequest
-): Promise<GameplayRecoverResponse> {
-  return invoke<GameplayRecoverResponse>("rex_gameplay_recover", { request });
-}
-
-export function rexGameplayEditThreshold(
-  request: GameplayEditRequest
-): Promise<GameplayEditResponse> {
-  return invoke<GameplayEditResponse>("rex_gameplay_edit_threshold", { request });
-}
-
-export function rexGameplayRebuild(
-  request: GameplayRebuildRequest
-): Promise<GameplayRebuildResponse> {
-  return invoke<GameplayRebuildResponse>("rex_gameplay_rebuild", { request });
-}
 
 export function romGetXrefs(romPath: string): Promise<CodeXref[]> {
   return invoke<CodeXref[]>("rom_get_xrefs", { romPath });
@@ -1671,12 +1607,234 @@ export function rexResourceContextHit(
   });
 }
 
-/** Perfil Streets of Rage: estado da fonte Kosinski (ou diagnostico de ROM sem perfil). */
-export function inspectionSorFontInfo(sessionId: string): Promise<SorFontInfo> {
-  return invoke<SorFontInfo>("rex_inspection_sor_font_info", { sessionId });
+/** Afirmação de evidência obtida em execução, com referência e escopo (ROMs, instâncias, valores). */
+export interface RexProfileClaim {
+  id: string;
+  level: string;
+  level_label: string;
+  statement: string;
+  fields: string[];
+  values: [string, number[]][];
+  roms: [string, number[]][];
+  conditions: string;
+  refs: string[];
+  /** "declared": só a palavra do autor. "curated": há registro histórico no repositório. Nunca é observação do aplicativo. */
+  origin: "declared" | "curated";
+  records: RexCuratedRecord[];
 }
 
-/** Reinsere a fonte editada no slot original (revalida, recomprime, gera BPS). */
-export function inspectionEditSorFont(sessionId: string, pixels: SorPixelEdit[]): Promise<InspectionEdit> {
-  return invoke<InspectionEdit>("rex_inspection_edit_sor_font", { sessionId, pixels });
+/** Registro curado (do repositório) de UMA medição passada. Integridade do registro não é veracidade do conteúdo. */
+export interface RexCuratedRecord {
+  id: string;
+  profile_id: string;
+  claim_id: string;
+  measured_under: { profile_form: string; profile_sha256: string | null; commit: string; binary_sha256: string };
+  applies_to_profile_sha256: string[];
+  carried_by: string;
+  rom_sha256: string;
+  instance_offsets: number[];
+  report: { path: string; sha256: string };
+}
+
+/** Algo que o APLICATIVO fez e conferiu, com a sessão em que o fez. */
+export interface RexAppObservation {
+  kind: string;
+  session: string;
+  request_id: string;
+}
+
+/** Perfil REX carregado (dado versionado): identidade, procedência e o que ele NÃO prova. */
+export interface RexProfileInfo {
+  /** "signature": localizada por assinatura. "semantic_region": derivada por um analisador numa região. */
+  class: "signature" | "semantic_region";
+  /** Como uma instância pode ser escolhida: "signature", "structural_scan", "declared_region". */
+  selection_modes: string[];
+  id: string;
+  revision: number;
+  /** SHA-256 do arquivo do perfil: identidade exata do dado. */
+  sha256: string;
+  title: string;
+  summary: string;
+  status: string;
+  origin: "builtin" | "directory";
+  file: string;
+  arch: string;
+  rom_binding: string;
+  instance_param: string;
+  author: string;
+  created: string;
+  derived_from: string[];
+  editable: string[];
+  limits: string[];
+  unknown: string[];
+  claims: RexProfileClaim[];
+}
+
+export interface RexProfileRejected {
+  file: string;
+  rule: string;
+  message: string;
+}
+
+/** Afirmação de execução sobre um campo, com a sua ORIGEM. Nunca é observação do aplicativo. */
+export interface RexProfileClaimOnField {
+  claim: string;
+  level: string;
+  level_label: string;
+  values: number[];
+  origin: "declared" | "curated";
+  /** O registro curado vale para ESTA ROM, instância e arquivo de perfil? */
+  applicability: "this_instance" | "other_target" | "other_revision" | "not_curated";
+  records: RexCuratedRecord[];
+  /** Medido antes de o perfil ser este arquivo e transportado por equivalência. */
+  inherited: boolean;
+  /** O escopo DECLARADO pelo autor cita esta ROM e instância (não comprova nada). */
+  declared_scope_matches: boolean;
+  conditions: string;
+  refs: string[];
+}
+
+export interface RexProfileField {
+  name: string;
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  /** Offsets de ARQUIVO. */
+  rom_offsets: number[];
+  /** Endereços de BARRAMENTO correspondentes (null: fora do mapeamento). */
+  bus_addresses: (number | null)[];
+  width: number;
+  signed: boolean;
+  little_endian: boolean;
+  /** Verificação estática desta instância: "L1" (forma) ou "L2" (forma + consistência). */
+  static_level: string;
+  static_label: string;
+  claims: RexProfileClaimOnField[];
+}
+
+export interface RexProfileCapture {
+  source: string;
+  name: string;
+  role: "immediate" | "ea_displacement" | "bus_address" | "opaque";
+  value: number;
+  file_offset: number;
+  designates_bus_address: number | null;
+  designates_file_offset: number | null;
+}
+
+/** Operação da regra, DERIVADA dos bytes por um analisador (não vem do perfil). */
+export interface RexProfileOperation {
+  id: string;
+  kind: string;
+  text: string;
+  origin: string;
+  rom_ranges: [number, number][];
+  editable: boolean;
+  /** Parte não compreendida (ex.: chamada externa): registrada, não recuperada. */
+  opaque: boolean;
+}
+
+export interface RexProfileInstance {
+  /** Como a instância foi escolhida (rotulado; nunca "descoberta de rotina"). */
+  selection: { mode: string; label: string };
+  operations: RexProfileOperation[];
+  /** O que foi DECLARADO (pelo usuário ou pelo perfil) e não derivado da ROM. */
+  declared: string[];
+  region_exits: number[];
+  instance_offset: number;
+  instance_bus_address: number | null;
+  anchor_pattern: string;
+  links: { relation: string; pattern: string; file_offset: number }[];
+  fields: RexProfileField[];
+  notes: string[];
+  details: [string, string][];
+  captures: RexProfileCapture[];
+  ambiguities: string[];
+  graph_json: string;
+  /** Sempre false: assinatura encontrada não é consumidor executado. */
+  consumer_observed: boolean;
+  /** O que o aplicativo fez e conferiu nesta instância (reconhecimento estático), com a sessão. */
+  observations: RexAppObservation[];
+}
+
+export interface RexProfileMatch {
+  profile: RexProfileInfo;
+  instances: RexProfileInstance[];
+  rejected_by_constraint: number;
+  bound: boolean;
+  error: { code: string; message: string } | null;
+}
+
+export interface RexProfileLocateResponse {
+  request_id: string;
+  /** Sessão do aplicativo que produziu a resposta. */
+  app_session: string;
+  rom_sha256: string;
+  rom_size: number;
+  matches: RexProfileMatch[];
+  rejected: RexProfileRejected[];
+  limites: string[];
+}
+
+export interface RexProfileEditResponse {
+  request_id: string;
+  app_session: string;
+  /** O que o aplicativo conferiu ao gerar esta cópia (releitura, IPS). Não é efeito em jogo. */
+  observations: RexAppObservation[];
+  rom_sha256_before: string;
+  rom_sha256_after: string;
+  /** Identidade (ROM, perfil, instância) a que o resultado pertence. */
+  identity_rom_sha256: string;
+  profile_id: string;
+  profile_sha256: string;
+  instance_offset: number;
+  /** Valores que ESTA cópia aplica (campo, valor). */
+  values_applied: [string, number][];
+  patched_path: string;
+  ips_path: string;
+  ips_sha256: string;
+  patches: { offset: number; old: number[]; new: number[] }[];
+  bytes_changed: number;
+  size_unchanged: boolean;
+  original_untouched: boolean;
+  /** O IPS gravado, reaplicado por um aplicador independente, reproduz a cópia byte a byte. */
+  ips_reproduces_copy: boolean;
+  values_after: [string, number][];
+  avisos: string[];
+  checksum_updated: boolean;
+}
+
+/** Região DECLARADA pelo usuário para um perfil da classe semântica. */
+export interface RexDeclaredRegion {
+  profile_id: string;
+  entry: number;
+  exits: number[];
+}
+
+/** Localiza na ROM as lógicas que os perfis carregados reconhecem (embutidos + pasta opcional). */
+export function rexProfileLocate(request: { rom_path: string; request_id: string; profiles_dir?: string | null; declared_regions?: RexDeclaredRegion[] }): Promise<RexProfileLocateResponse> {
+  return invoke<RexProfileLocateResponse>("rex_profile_locate", { request });
+}
+
+export function rexProfileEdit(request: {
+  rom_path: string;
+  profile_id: string;
+  /** SHA-256 do perfil da localização; ausente só em grafos gravados antes do vínculo por hash. */
+  profile_sha256?: string | null;
+  instance_offset: number;
+  /** Valores diretos (formulário). Mutuamente exclusivo com `graph_json`. */
+  values?: Record<string, number>;
+  /** Grafo do canvas: o núcleo o revisa contra o canônico reconstruído da ROM. */
+  graph_json?: string | null;
+  output_dir: string;
+  request_id: string;
+  /** OBRIGATÓRIA: identidade (SHA-256) da ROM da localização/grafo. */
+  expected_rom_sha256: string;
+  profiles_dir?: string | null;
+  /** Classe semântica, pelo formulário: saídas e modo de seleção da região (pelo grafo, vêm do grafo). */
+  region_exits?: number[];
+  region_selection?: string | null;
+}): Promise<RexProfileEditResponse> {
+  return invoke<RexProfileEditResponse>("rex_profile_edit", { request });
 }

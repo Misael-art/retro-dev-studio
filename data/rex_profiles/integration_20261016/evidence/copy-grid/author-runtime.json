@@ -1,0 +1,187 @@
+{
+  "schema": "rex-copy-grid-runtime/v1",
+  "status": "passed_with_limits",
+  "started": "2026-10-16T17:25:55.333Z",
+  "spec": {
+    "input_sha256": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+    "entry": 1024,
+    "source": 16732160,
+    "destination": 16740352,
+    "rows": 4,
+    "columns": 8,
+    "gap": 16
+  },
+  "checks": [
+    {
+      "name": "input_identity",
+      "pass": true,
+      "observed": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31"
+    },
+    {
+      "name": "typed_original_equal",
+      "pass": true
+    },
+    {
+      "name": "typed_modified_equal",
+      "pass": true
+    },
+    {
+      "name": "only_width_byte_changed",
+      "pass": true,
+      "offsets": [
+        1040
+      ]
+    },
+    {
+      "name": "independent_core_pin",
+      "pass": true
+    },
+    {
+      "name": "libretro_header_pin",
+      "pass": true
+    },
+    {
+      "name": "original.binutils_boundaries",
+      "pass": true,
+      "sites": [
+        1024,
+        1030,
+        1036,
+        1038,
+        1040,
+        1042,
+        1046,
+        1050
+      ]
+    },
+    {
+      "name": "original.completion_sentinel",
+      "pass": true
+    },
+    {
+      "name": "original.all_relevant_wram_matches_independent_reference",
+      "pass": true,
+      "differences": []
+    },
+    {
+      "name": "reconstructed.binutils_boundaries",
+      "pass": true,
+      "sites": [
+        1024,
+        1030,
+        1036,
+        1038,
+        1040,
+        1042,
+        1046,
+        1050
+      ]
+    },
+    {
+      "name": "reconstructed.completion_sentinel",
+      "pass": true
+    },
+    {
+      "name": "reconstructed.all_relevant_wram_matches_independent_reference",
+      "pass": true,
+      "differences": []
+    },
+    {
+      "name": "modified.binutils_boundaries",
+      "pass": true,
+      "sites": [
+        1024,
+        1030,
+        1036,
+        1038,
+        1040,
+        1042,
+        1046,
+        1050
+      ]
+    },
+    {
+      "name": "modified.completion_sentinel",
+      "pass": true
+    },
+    {
+      "name": "modified.all_relevant_wram_matches_independent_reference",
+      "pass": true,
+      "differences": []
+    },
+    {
+      "name": "modified_reconstructed.binutils_boundaries",
+      "pass": true,
+      "sites": [
+        1024,
+        1030,
+        1036,
+        1038,
+        1040,
+        1042,
+        1046,
+        1050
+      ]
+    },
+    {
+      "name": "modified_reconstructed.completion_sentinel",
+      "pass": true
+    },
+    {
+      "name": "modified_reconstructed.all_relevant_wram_matches_independent_reference",
+      "pass": true,
+      "differences": []
+    },
+    {
+      "name": "original_equals_reconstruction",
+      "pass": true
+    },
+    {
+      "name": "modified_equals_reconstruction",
+      "pass": true
+    },
+    {
+      "name": "causal_first_difference",
+      "pass": true,
+      "first": 28680,
+      "count": 72
+    }
+  ],
+  "runs": [
+    {
+      "name": "original",
+      "image_sha256": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+      "harness_sha256": "1449c27d7035b8273cb71350ef5ebc75d7b9a64e7ff790dd7006c8de389da975",
+      "wram_sha256": "e53c683ee8648e8828ae1eb12955fd559a233f6bdffd1be5fa21e21f51835766",
+      "window_sha256": "6c4053377b679719fb5d14eb85ed932a0eca252d4e6ff59ed027f292a5680e27",
+      "frames": 16
+    },
+    {
+      "name": "reconstructed",
+      "image_sha256": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+      "harness_sha256": "1449c27d7035b8273cb71350ef5ebc75d7b9a64e7ff790dd7006c8de389da975",
+      "wram_sha256": "e53c683ee8648e8828ae1eb12955fd559a233f6bdffd1be5fa21e21f51835766",
+      "window_sha256": "6c4053377b679719fb5d14eb85ed932a0eca252d4e6ff59ed027f292a5680e27",
+      "frames": 16
+    },
+    {
+      "name": "modified",
+      "image_sha256": "3726adec97308332d58cd1adfeef1308fb4a6441189ee099434210221ea3947f",
+      "harness_sha256": "687d1b842a7e376808e4b96e603c3041b151b28f6fd00e9fcb9b39b2e8e7b50f",
+      "wram_sha256": "984f96ddd442f07d0302ffaf0d2cf4498d36dc414d512844024d034b5d68e3b2",
+      "window_sha256": "6c4053377b679719fb5d14eb85ed932a0eca252d4e6ff59ed027f292a5680e27",
+      "frames": 16
+    },
+    {
+      "name": "modified_reconstructed",
+      "image_sha256": "3726adec97308332d58cd1adfeef1308fb4a6441189ee099434210221ea3947f",
+      "harness_sha256": "687d1b842a7e376808e4b96e603c3041b151b28f6fd00e9fcb9b39b2e8e7b50f",
+      "wram_sha256": "984f96ddd442f07d0302ffaf0d2cf4498d36dc414d512844024d034b5d68e3b2",
+      "window_sha256": "6c4053377b679719fb5d14eb85ed932a0eca252d4e6ff59ed027f292a5680e27",
+      "frames": 16
+    }
+  ],
+  "scope": "extracted region under explicitly supplied synthetic caller; no game reachability/render/audio claim",
+  "probe_source_sha256": "a7d2f5306cedeac4d7e75ae8f7ea3b6f5e83896d1523b342eca16c7d7313dc83",
+  "finished": "2026-10-16T17:25:56.113Z"
+}

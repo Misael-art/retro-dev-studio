@@ -17,11 +17,16 @@ import {
 } from "react-resizable-panels";
 import Console from "./components/common/Console";
 import LayoutSplitter from "./components/common/LayoutSplitter";
+import { StudioContextBar } from "./components/common/StudioContextBar";
+import DeliveryPanel from "./components/tools/DeliveryPanel";
 import UnifiedTopBar, {
   type UnifiedTopBarSection,
 } from "./components/common/UnifiedTopBar";
 import HierarchyPanel from "./components/hierarchy/HierarchyPanel";
 import { buildTilemapAuthoringBrush } from "./core/entityAuthoring";
+import { parseRuntimeLink } from "./core/runtimeLink";
+import { setNextAudioImportPath } from "./core/audioImport";
+import { setNextImageImportPath } from "./core/sceneryImport";
 import LayerPanel from "./components/hierarchy/LayerPanel";
 import type { ToolTab, ToolWorkspace } from "./components/tools/ToolsPanel";
 import { buildProject, generateCCode, validateProject } from "./core/ipc/buildService";
@@ -31,9 +36,11 @@ import {
   emulatorObserve,
   emulatorStop,
   getAudioOutputTelemetry,
+  emulatorInputObservation,
   readReceivedAudioSamples,
   type AudioOutputTelemetry,
 } from "./core/ipc/emulatorService";
+import { joinInputConsumption, type InputConsumption } from "./core/inputConsumption";
 import { inspectRomMastering } from "./core/ipc/projectCapabilityService";
 import { getHwStatus } from "./core/ipc/hwService";
 import {
@@ -67,6 +74,7 @@ import {
   useEditorStore,
   type EditorWorkspace,
   type JoypadObservation,
+  type JoypadTransition,
 } from "./core/store/editorStore";
 import {
   clearSceneDraft,
@@ -564,11 +572,6 @@ function getInitialWorkspaceGuideExpanded() {
 
 function WorkspaceGuideCard({ guide }: { guide: WorkspaceGuide }) {
   const [expanded, setExpanded] = useState(getInitialWorkspaceGuideExpanded);
-  // Modo de inspeção: o guia do workspace se compacta (sem persistir a preferência) para devolver altura ao editor.
-  const inspectionExpandedGuide = useEditorStore((state) => state.inspectionExpanded);
-  useEffect(() => {
-    if (inspectionExpandedGuide) setExpanded(false);
-  }, [inspectionExpandedGuide]);
   const signalToneClass =
     guide.signal?.tone === "error"
       ? "border-[#f38ba8]/35 bg-[#f38ba8]/10 text-[#f38ba8]"
@@ -1493,7 +1496,12 @@ type AutomationApi = {
     joypadSessionId: string | null;
     joypadSessionHold: boolean;
     joypadBlockedCount: number;
+    /** Registro limitado das transições da sessão, por sequência, com o desfecho no backend. */
+    joypadLog: JoypadTransition[];
   };
+  /** Junta, por época e geração, o que a UI solicitou e o backend aceitou com o que o CORE leu
+   * (em que quadro, ou nunca). Aceitação não é consumo. E2E / QA. */
+  getInputConsumption: () => Promise<InputConsumption>;
   /** Para o emulador pelo mesmo caminho do controle visível "Parar",
    * desligando o runtime do core — a carga seguinte parte de power-on real.
    * E2E / QA. */
@@ -1557,6 +1565,8 @@ type AutomationApi = {
   /** Proximo caminho devolvido pelo seletor de pasta da importacao externa, no lugar do
    * dialogo nativo (que a automacao nao dirige). O resto do fluxo continua visivel. E2E / QA. */
   setNextExternalImportPath: (path: string) => boolean;
+  setNextAudioImportPath: (path: string) => boolean;
+  setNextImageImportPath: (path: string) => boolean;
   getState: () => AutomationState;
 };
 
@@ -1621,8 +1631,6 @@ export default function App() {
   const [toolPanelShowAdvanced, setToolPanelShowAdvanced] = useState(false);
   const [leftPanelTab, setLeftPanelTab] = useState<"scene" | "layers">("scene");
   const [focusedShell, setFocusedShell] = useState(false);
-  const inspectionExpanded = useEditorStore((state) => state.inspectionExpanded);
-  const setInspectionExpanded = useEditorStore((state) => state.setInspectionExpanded);
   const [layoutPreset, setLayoutPreset] = useState<LayoutPresetId>("authoring");
   const [shellWidth, setShellWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1440
@@ -1727,6 +1735,7 @@ export default function App() {
   const [creatingProject, setCreatingProject] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
+  const [showDelivery, setShowDelivery] = useState(false);
   const [projectSettings, setProjectSettings] = useState<ProjectSettingsSnapshot | null>(null);
   const [projectSettingsDraft, setProjectSettingsDraft] =
     useState<ProjectSettingsPayload | null>(null);
@@ -1845,6 +1854,16 @@ export default function App() {
     setToolPanelWorkspace(workspace);
     setToolPanelShowAdvanced(showAdvanced);
   }
+
+  // Ponte Studio → REX: um pedido da inspeção do teste abre a ferramenta Reverse no perfil comprovado.
+  const rexBridgeRequest = useEditorStore((state) => state.rexBridgeRequest);
+  const lastRexBridgeSeq = useRef<number | null>(null);
+  useEffect(() => {
+    if (!rexBridgeRequest || lastRexBridgeSeq.current === rexBridgeRequest.seq) return;
+    lastRexBridgeSeq.current = rexBridgeRequest.seq;
+    setActiveWorkspace("debug");
+    openToolsWorkspace("reverse", "debug", true);
+  }, [rexBridgeRequest]);
 
   function openRuntimeSetupForIssue() {
     setActiveWorkspace("debug");
@@ -2061,32 +2080,8 @@ export default function App() {
     }
   }
 
-  // Modo de inspeção: reaproveita o layout existente (Group left/center/right); só muda os tamanhos
-  // e restaura o layout anterior ao sair. Sair do workspace de debug também sai do modo.
   useEffect(() => {
-    if (inspectionExpanded && activeWorkspace !== "debug") {
-      setInspectionExpanded(false);
-      return;
-    }
-    if (inspectionExpanded) {
-      const current = panelGroupRef.current?.getLayout();
-      if (current) {
-        lastNonFocusLayoutRef.current = {
-          left: current.left ?? 0,
-          center: current.center ?? 100,
-          right: current.right ?? 0,
-        };
-      }
-      applyShellLayout({ left: 0, center: 20, right: 80 });
-      return;
-    }
-    if (lastNonFocusLayoutRef.current && !focusedShell) {
-      applyShellLayout(lastNonFocusLayoutRef.current);
-    }
-  }, [inspectionExpanded]);
-
-  useEffect(() => {
-    if (focusedShell || inspectionExpanded) {
+    if (focusedShell) {
       return;
     }
 
@@ -2462,6 +2457,29 @@ export default function App() {
           disabled: !activeProjectDir,
           shortcut: getShortcutLabel("scene.save", shortcuts),
           title: getShortcutTitle("scene.save", "Salvar cena ativa", shortcuts),
+        },
+        {
+          label: "Revisar projeto",
+          onClick: () => setShowDelivery(true),
+          disabled: !activeProjectDir,
+          title: "Revisar problemas, conferir a ROM no destino e exportar (Experimental)",
+          testId: "menu-action-review",
+        },
+        {
+          label: "Desfazer",
+          onClick: () => executeAppCommand("edit.undo"),
+          disabled: !activeProjectDir,
+          shortcut: getShortcutLabel("edit.undo", shortcuts),
+          title: getShortcutTitle("edit.undo", "Desfazer a ultima alteracao (inclui a selecao daquele momento)", shortcuts),
+          testId: "menu-action-undo",
+        },
+        {
+          label: "Refazer",
+          onClick: () => executeAppCommand("edit.redo"),
+          disabled: !activeProjectDir,
+          shortcut: getShortcutLabel("edit.redo", shortcuts),
+          title: getShortcutTitle("edit.redo", "Refazer a alteracao desfeita", shortcuts),
+          testId: "menu-action-redo",
         },
         {
           label: "Relatorio MUGEN",
@@ -3481,6 +3499,7 @@ export default function App() {
       setBuilding(true);
       setRomMasteringStatus("pending");
       setLastBuildSourceMap(null);
+      useEditorStore.getState().setLastRuntimeLink(null);
       logMessage("info", "Iniciando build...");
 
       if (!(await persistActiveScene(activeProjectDir, "Build"))) {
@@ -3506,10 +3525,13 @@ export default function App() {
       }
       hwStatus.warnings.forEach((warning) => logMessage("warn", `[HW] ${warning}`));
 
+      const buildRevision = useEditorStore.getState().sceneRevision;
       const result = await buildProject(activeProjectDir, (line) => {
         logMessage(line.level, line.message);
       });
       setLastBuildSourceMap(result.build_source_map ?? null);
+      useEditorStore.getState().setLastRuntimeLink(result.ok ? parseRuntimeLink(result.runtime_link) : null);
+      useEditorStore.getState().setLastBuildSceneRevision(result.ok ? buildRevision : null);
       if (!result.ok) {
         trackProductMetric({ kind: "build_failed" });
         const errorLines = result.log
@@ -4035,6 +4057,14 @@ export default function App() {
         pendingExternalImportPathRef.current = path;
         return true;
       },
+      setNextAudioImportPath: (path: string) => {
+        setNextAudioImportPath(path);
+        return true;
+      },
+      setNextImageImportPath: (path: string) => {
+        setNextImageImportPath(path);
+        return true;
+      },
       loadRomForEmulation: async (
         romPath: string,
         options?: { startPaused?: boolean }
@@ -4064,7 +4094,15 @@ export default function App() {
           joypadSessionHold: state.joypadSessionHold,
           joypadBlockedCount: state.joypadBlockedCount,
           coreEpoch: state.coreEpoch,
+          joypadLog: state.joypadLog,
         };
+      },
+      getInputConsumption: async () => {
+        // o registro da UI é lido ANTES e DEPOIS da consulta ao backend: se a sessão mudou no meio, a
+        // junção é recusada em vez de misturar duas cargas
+        const before = useEditorStore.getState();
+        const backend = await emulatorInputObservation();
+        return joinInputConsumption(before.joypadSessionId, useEditorStore.getState().joypadSessionId, before.joypadLog, backend);
       },
       stopEmulator: async () => {
         await handleEmulatorStop();
@@ -4337,6 +4375,15 @@ export default function App() {
         }
 
         return {
+          // Observacao do contexto compartilhado do Studio (somente leitura para o harness).
+          studio: {
+            focus: state.studio.focus,
+            returnDepth: state.studio.returnStack.length,
+            cameras: state.studio.cameras,
+            restoreSeq: state.studio.restoreSeq,
+          },
+          viewportZoom: state.viewportZoom,
+          undoDepth: state.undoStack.length,
           mugenCompatibility: {
             open: mugenStateRef.current.open,
             characters: mugenStateRef.current.reports.map((loaded) => ({
@@ -4379,6 +4426,7 @@ export default function App() {
                 sceneId: state.activeScene.scene_id,
                 displayName: state.activeScene.display_name ?? state.activeScene.scene_id,
                 entityCount: state.activeScene.entities.length,
+                palettes: structuredClone(state.activeScene.palettes ?? []),
                 worldBounds: sceneWorldMetrics.bounds,
                 viewportFrame: sceneWorldMetrics.frame,
                 backgroundLayerCount: state.activeScene.background_layers.length,
@@ -4393,6 +4441,7 @@ export default function App() {
                   spriteAsset: entity.components.sprite?.asset ?? null,
                   tilemap: entity.components.tilemap
                     ? {
+                        tileset: entity.components.tilemap.tileset,
                         mapWidth: entity.components.tilemap.map_width,
                         mapHeight: entity.components.tilemap.map_height,
                         tileWidth: 8,
@@ -5524,6 +5573,8 @@ export default function App() {
         <WorkspaceGuideCard key={workspaceMeta.id} guide={workspaceGuide} />
       )}
 
+      {!showProjectWizard ? <StudioContextBar /> : null}
+      {showDelivery ? <DeliveryPanel onClose={() => setShowDelivery(false)} /> : null}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside
           data-testid="workspace-activity-bar"

@@ -1,0 +1,153 @@
+{
+  "schema": "rex-sonic-logic-graphs/v1",
+  "prefix": "sonic-logic-graphs-2026-10-08T00-42-42-999Z",
+  "checks": [
+    {
+      "name": "modos.aplicado_pelo_caminho_do_editor",
+      "pass": true,
+      "applied": true
+    },
+    {
+      "name": "modos.todos_os_nos_aparecem",
+      "pass": true,
+      "esperado": 33,
+      "visto": {
+        "total": 33,
+        "have": 33
+      }
+    },
+    {
+      "name": "modos.arestas_desenhadas_iguais_ao_arquivo",
+      "pass": true,
+      "esperado": 32,
+      "desenhadas": 32
+    },
+    {
+      "name": "modos.nos_na_tela_iguais_ao_arquivo",
+      "pass": true,
+      "esperado": 33,
+      "na_tela": 33
+    },
+    {
+      "name": "modos.validador_do_editor_sem_erros",
+      "pass": true,
+      "erros": [],
+      "painel": "VALIDADOR DO GRAFO\nBranch 'MdNormal (no chao, andando)' tem saida sem destino: transitions.\nBranch 'MdJump (no ar)' tem saida sem destino: transitions.\nBranch 'MdRoll (rolando no chao)' tem saida sem destino: transitions.\nCOMPORTAMENTOS (EXPERIMENTAL)\nNenhum ainda. Comportamentos prontos geram os nos para voce e podem ser reconfigurados depois.\nADICIONAR A ESTA ENTIDADE\n+ Movimento e salto\nAnda pa"
+    },
+    {
+      "name": "pulo.aplicado_pelo_caminho_do_editor",
+      "pass": true,
+      "applied": true
+    },
+    {
+      "name": "pulo.todos_os_nos_aparecem",
+      "pass": true,
+      "esperado": 27,
+      "visto": {
+        "total": 27,
+        "have": 27
+      }
+    },
+    {
+      "name": "pulo.arestas_desenhadas_iguais_ao_arquivo",
+      "pass": true,
+      "esperado": 30,
+      "desenhadas": 30
+    },
+    {
+      "name": "pulo.nos_na_tela_iguais_ao_arquivo",
+      "pass": true,
+      "esperado": 27,
+      "na_tela": 27
+    },
+    {
+      "name": "pulo.validador_do_editor_sem_erros",
+      "pass": true,
+      "erros": [],
+      "painel": "VALIDADOR DO GRAFO\nBranch 'Folga acima da cabeca >= 6 px (rotina em 0x14D48)' tem saida sem destino: false.\nCOMPORTAMENTOS (EXPERIMENTAL)\nNenhum ainda. Comportamentos prontos geram os nos para voce e podem ser reconfigurados depois.\nADICIONAR A ESTA ENTIDADE\n+ Movimento e salto\nAnda para os lados enquanto o botao estiver segurado e salta ao apertar, somente quando esta apoiado no chao (uma pressao"
+    },
+    {
+      "name": "pulo-duplo.aplicado_pelo_caminho_do_editor",
+      "pass": true,
+      "applied": true
+    },
+    {
+      "name": "pulo-duplo.todos_os_nos_aparecem",
+      "pass": true,
+      "esperado": 12,
+      "visto": {
+        "total": 12,
+        "have": 12
+      }
+    },
+    {
+      "name": "pulo-duplo.arestas_desenhadas_iguais_ao_arquivo",
+      "pass": true,
+      "esperado": 13,
+      "desenhadas": 13
+    },
+    {
+      "name": "pulo-duplo.nos_na_tela_iguais_ao_arquivo",
+      "pass": true,
+      "esperado": 12,
+      "na_tela": 12
+    },
+    {
+      "name": "pulo-duplo.validador_do_editor_sem_erros",
+      "pass": true,
+      "erros": [],
+      "painel": ""
+    },
+    {
+      "name": "cena_salva_contem_o_ultimo_grafo",
+      "pass": true,
+      "arquivo": "/home/misael/Documents/RetroDevProjects/Sonic1_Logica_Localizada_muytb97m/scenes/main.json"
+    }
+  ],
+  "steps": [
+    {
+      "step": "modos",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/sonic-logic-graphs-2026-10-08T00-42-42-999Z-modos.png",
+      "info": {
+        "edges": 32,
+        "amostra": [
+          "A Cada FrameA cada quadro (60x por segundo)Eventos e controle▸ Detalhes tecnicos",
+          "Chamada externaChamada a unha rutina que NON se recuperou: coñecense alvo e argu",
+          "Estado (FSM)Um estado da maquina de estados.EstadotransicoesEstadoMdNormal▸ Deta"
+        ],
+        "cards": 33
+      },
+      "validador": "VALIDADOR DO GRAFO\nBranch 'MdNormal (no chao, andando)' tem saida sem destino: transitions.\nBranch 'MdJump (no ar)' tem saida sem destino: transitions.\nBranch 'MdRoll (rolando no chao)' tem saida sem destino: transitions.\nCOMPORTAMENTOS (EXPERIMENTAL)\nNenhum ainda. Comportamentos prontos geram os nos para voce e podem ser reconfigurados depois.\nADICIONAR A ESTA ENTIDADE\n+ Movimento e salto\nAnda pa"
+    },
+    {
+      "step": "pulo",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/sonic-logic-graphs-2026-10-08T00-42-42-999Z-pulo.png",
+      "info": {
+        "edges": 30,
+        "amostra": [
+          "A Cada FrameA cada quadro (60x por segundo)Eventos e controle▸ Detalhes tecnicos",
+          "Input PressionadoAo apertar BUTTON_A|B|CBUTTON_A|B|Cteclado—BotaoBUTTON_A|B|CBot",
+          "CompararSe A >= 6CondicoesabSimNaoOperador>=B6▸ Detalhes tecnicos"
+        ],
+        "cards": 27
+      },
+      "validador": "VALIDADOR DO GRAFO\nBranch 'Folga acima da cabeca >= 6 px (rotina em 0x14D48)' tem saida sem destino: false.\nCOMPORTAMENTOS (EXPERIMENTAL)\nNenhum ainda. Comportamentos prontos geram os nos para voce e podem ser reconfigurados depois.\nADICIONAR A ESTA ENTIDADE\n+ Movimento e salto\nAnda para os lados enquanto o botao estiver segurado e salta ao apertar, somente quando esta apoiado no chao (uma pressao"
+    },
+    {
+      "step": "pulo-duplo",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/sonic-logic-graphs-2026-10-08T00-42-42-999Z-pulo-duplo.png",
+      "info": {
+        "edges": 13,
+        "amostra": [
+          "A Cada FrameA cada quadro (60x por segundo)Eventos e controle▸ Detalhes tecnicos",
+          "CompararSe A == 0CondicoesabSimNaoOperador==B0▸ Detalhes tecnicos",
+          "CompararSe A == 1CondicoesabSimNaoOperador==B1▸ Detalhes tecnicos"
+        ],
+        "cards": 12
+      },
+      "validador": ""
+    }
+  ],
+  "allPass": true,
+  "projectDir": "/home/misael/Documents/RetroDevProjects/Sonic1_Logica_Localizada_muytb97m"
+}
