@@ -1,5 +1,20 @@
 ### Checkpoint 2026-10-19 UTC (rodada 4) — Studio Gráfico: paletas planejadas no build e composição personagem + cenário + HUD (Experimental)
 
+## 2026-10-21 — continuidade para reinstalação do host
+
+A branch pública `recovery/studio-preformat-20261021` preserva o código runtime do Studio local `a8550af0e0bdd74c44478f94d301576b988747a1`, com igualdade de árvores em `src/`, `src-tauri/`, `crates/` e `scripts/`. O primeiro snapshot é `50ad8e20`; o HEAD de recuperação inclui este checkpoint documental. Não houve merge, release ou promoção; Experimental mantido. A branch `main` não representa essa ponta local.
+
+Entrada de retomada: `docs/handoffs/PREFORMAT-CONTINUITY-2026-10-21.md`. O histórico original completo, overlays locais, projetos, evidências binárias e contexto de agentes estão no backup privado preformat, com relatórios por arquivo. O laboratório REA `ee8c581f`, a frente comercial `40a17169` e a integração `03ddc59d` continuam separadamente recuperáveis no bundle; não presumir que esta branch integra todas as pesquisas. O snapshot público omite 80 evidências binárias novas, identificadas no manifesto do handoff, mantendo código e fixtures autorais necessárias. Não dar push do bundle bruto ao repositório público.
+
+Os relatos textuais da auditoria de jornada estão em `docs/studio_grafico/auditoria_20261020/`; galeria de 61 cartões, capturas e logs completos continuam privados. As 16 jornadas foram parciais/bloqueadas, sem aceite humano completo nem aceite Build → ROM → Emulação nessa auditoria. Priorizar a recuperação do host e o fechamento das jornadas/fricções registradas. Preservar erratas e limites dos revisores. Pendência sonora separada; decompilação universal não demonstrada.
+
+Coleções de ROMs ficam sob backup manual do operador e não foram removidas. A limpeza liberou espaço removendo apenas intermediários Cargo regeneráveis; fontes, trabalho local, evidências de validação, ferramentas instaladas e binário 016 foram preservados. O bundle foi restaurado em diretório independente; houve também clone novo do snapshot público e verificação da igualdade da fonte. Isso não é certificação do sistema reinstalado: executar bootstrap, diagnose, gates e certify de novo no novo OS.
+
+A proteção final depende do destino sobrevivente confirmado pelo operador e do estado VERIFIED dos relatórios privados. O contexto da sessão ativa é um prefixo datado, complementado pelo handoff. Não declarar a formatação liberada com base apenas no censo ou em arquivos com estado WRITING/FAILED.
+
+---
+
+
 Produção `ae0d66cd`, binário 016 `d3777958…b782b8`. Plano determinístico de paletas no build/editor/inspeção, troca por golpe, importação de cenário pela UI. `cert4-nodegraph` FAIL preservado (janela de 2,5 s perdia o salto em host lento; Adendo I), `r4i-nodegraph-001` PASS só com mudança no harness; `studio-paletas` PASS (cert4 + r4i); `host:certify` tentativa 1 interrompida, tentativa 2 READY (7 gates, 1145 frontend, 1066 Rust/102 IGNORE), fmt OK. Manifesto `data/studio_grafico/final-manifest-r4.json`. Atalho local de teste e projeto de demonstração criados (não é release). Reserva/renomear/remapeamento não exercitados; validação humana pendente. Sem push/release/promoção.
 
 ### Checkpoint 2026-10-19 UTC (rodada 3) — Studio Gráfico: identidade no mesmo caminho e HUD ancorado com câmera (Experimental)

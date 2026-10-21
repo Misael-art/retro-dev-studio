@@ -1,5 +1,7 @@
 # RetroDev Studio
 
+> **Retomada após reinstalação (2026-10-21):** esta branch é um snapshot de recuperação do Studio. Comece por [continuidade e limites](docs/handoffs/PREFORMAT-CONTINUITY-2026-10-21.md), pelo Memory Bank e pela [auditoria de jornada preservada](docs/studio_grafico/auditoria_20261020/LEIA-ME.md). Projetos e evidências privadas exigem o backup complementar; o novo sistema ainda precisa de certificação própria.
+
 > Plataforma desktop para desenvolvimento, preservacao e engenharia reversa de jogos 16-bit, com foco atual em Mega Drive e SNES.
 
 ![Status](https://img.shields.io/badge/Status-Beta_Tecnica_%2F_Hardening-orange.svg)

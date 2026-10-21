@@ -1,0 +1,41 @@
+{
+  "copied_from_private_audit": [
+    {
+      "name": "ACHADOS.md",
+      "sha256": "0e8774931bb76401ab72302b061b47771e2a4bd07623c077e81c66dc39efcd7b",
+      "bytes": 9143
+    },
+    {
+      "name": "PARECER_DO_AUDITOR.md",
+      "sha256": "58630eae3095466557934f09a6bb7e5732ed8641bf151045d213e7e652c9a3b4",
+      "bytes": 5768
+    },
+    {
+      "name": "REVISOES_INDEPENDENTES.md",
+      "sha256": "3d7a7b465b98385cc4a59978db4809378bb319b2ff1eac60428226116197f329",
+      "bytes": 15652
+    },
+    {
+      "name": "ERRATA_CADEIA_LOT006.md",
+      "sha256": "c203e104998afec71d910121b7eae1c1859e4bcfc87a59f2d33c14e622c099fc",
+      "bytes": 2179
+    },
+    {
+      "name": "coverage.csv",
+      "sha256": "85fa412b2b53f06dba152854a7eef0f36e4a3f5e9cf290478ce533580d569b50",
+      "bytes": 9127
+    },
+    {
+      "name": "achados.jsonl",
+      "sha256": "8e7b679f1bf2d00ab8f43a3b220c14aa87e2bece9abe23265426dd03abcc4287",
+      "bytes": 26793
+    },
+    {
+      "name": "SESSION.md",
+      "sha256": "06f0896544dbed6cc058fca8e915060c12384a12bfd86d5dba91f6ddba8b027b",
+      "bytes": 40770
+    }
+  ],
+  "images": "private backup only; 61 gallery cards",
+  "acceptance": "partial/blocked; no human usability sign-off"
+}
