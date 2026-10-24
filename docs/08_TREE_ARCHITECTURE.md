@@ -234,6 +234,7 @@ RetroDevStudio/
 - `scripts/run-cargo-msvc.cmd` e o wrapper canonico para comandos `cargo` em ambiente MSVC preparado no Windows institucional.
 - `scripts/e2e-tauri-build-run.mjs` e o runner canonico de regressao desktop/Tauri para `Build -> Load ROM -> Run frames` e grava evidencia de sucesso por commit/cenario/target.
 - `scripts/host-manager.mjs` e a fonte canonica cross-platform para `host:diagnose`, `host:ensure` e `host:certify`; os bootstraps Bash/PowerShell permanecem entrypoints de nivel zero quando Node ainda nao existe.
+- `scripts/new-host.sh` / `scripts/new-host.ps1` sao launchers de retomada em host vazio; delegam instalacao aos bootstraps existentes. `scripts/new-host.mjs` coordena ambiente por processo, disco/jobs, recibos e comandos canonicos (sem novo instalador de SDK). `scripts/new-host.test.mjs` cobre falhas/isolamento. Onboarding em `docs/handoffs/NOVO_HOST_INICIO.md`; gerados vivem fora do checkout, nos caches nativos e na pasta de trabalho do operador, nunca em uma nova raiz versionada.
 - `scripts/license-inventory.mjs`, `scripts/security-contract.test.mjs` e `NOTICE` formam o inventario/politica de seguranca e redistribuicao; nenhum deles autoriza redistribuir cores/toolchains.
 - `scripts/architecture-metrics.mjs` registra a linha de base de acoplamento; `scripts/release-rehearsal-linux.mjs` agrega evidencia Linux sem autorizar release publico.
 - `scripts/validate-upstream-windows.ps1` e o script canonico de validacao upstream real com SGDK, PVSnesLib e cores Libretro oficiais.
