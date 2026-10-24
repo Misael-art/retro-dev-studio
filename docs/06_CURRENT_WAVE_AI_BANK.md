@@ -1,3 +1,17 @@
+### Checkpoint 2026-10-24 — retomada orientada à coesão das jornadas
+
+Reavaliação documental/de código com inspeção de capturas históricas; sem nova execução GUI, suite de testes ou certificação. Base pública anterior 87b6b7fd; código runtime continua igual a a8550af0. Plano operacional em docs/handoffs/PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md e fundamentação em REAVALIACAO_PRODUTO_2026-10-24.md, no mesmo diretório. A fonte operacional de estado continua neste Memory Bank/Current Wave; os dois handoffs são plano e evidência de avaliação.
+
+Retificação do resumo de migração de 2026-10-21: a auditoria avançou além dos primeiros lotes. LOT028 registra edição, salvar/reabrir, Build & Run, verificação e exportação byte-idêntica; LOT031 acrescenta execução/Stop e deslocamento compatível com Right, sem isolar causalidade por evento/frame ou keyup. Não repetir que nenhuma ROM foi compilada/executada na auditoria. As 16 jornadas de coverage.csv continuam parciais e não houve aceite humano de usabilidade.
+
+Prioridade: uma frente sequencial de integração do produto, reaproveitando editorStore/studioContext/runtimeLink/plano de paletas e serviços canônicos. E0 reconciliar/reproduzir; E1 contexto/revisões/save-build-run-review; E2 vertical autoral; E3 MUGEN real; E4 navegação e edição compartilhadas; E5 regressão REX delimitada; E6 certificação técnica e preparação/execução humana quando houver participante. Não abrir novo motor universal, importador, plataforma ou megastore paralelo nesta missão.
+
+Casos prioritários: Review mostra “ainda não executado” após emulação; LOT025 tem dois builds bloqueados pelo atlas de 177192960 px, com teto de 67108864; LOT029/030 têm guards MUGEN, alguns anteriores à edição observada. Não elevar o teto, perder frames ou imputar causa ao hardware/último clique sem investigação. UI dirty após Undo, antes de Salvar, não caracteriza corrupção por si só. A tabela antiga de requisitos deve ser lida com o adendo da rodada 4; não reabrir o antigo defeito PAL0 como fato atual sem reprodução.
+
+Preservados contratos, lotes, pins e erratas. Os hashes atuais de coverage, ACHADOS, HANDOFF_PROXIMO_AGENTE, BACKLOG_PROPOSTO e SESSION coincidiram com o backup privado project-data-v4. Pendência sonora e limites de generalidade permanecem separados. Experimental mantido; nenhum merge, release, promoção ou mudança de fonte runtime.
+
+---
+
 ### Auditoria de conclusão 2026-10-19 UTC — M0–M5 conferidos contra o pedido reapresentado
 
 Sobre eb2ee726, a implementação e o binário66cb3d71…c12e5 permanecem idênticos aos gates/jornadas finais. Auditoria adicional reavaliou42grupos de requisitos e os artefatos efetivos:287pins,12IPS,22capturas e quatro traces368295eventos; expectativas comerciais regeneradas sem entrada de captura modificada. Reanálise dos mesmos dados, não novas corridas/cobertura ou promoção. Índice consolidado304registros em `data/rex_profiles/commercial_recovery_20261016/completion-experiment-index.json`, mapa/evidência em `COMPLETION-AUDIT.json`, reprodução e falha001do auditor preservada no adendo de `MISSION.md`. A lacuna documental do índice inicial restrito aoM0 foi corrigida com navegação derivada, sem segunda fonte de estado ou resultados inventados. Hostdiagnose novoREADY; certificado final7gates/1049frontend/1038Rust e seis jornadas permanecem aplicáveis à produção inalterada. Limites Experimental, sessões MAME/GX separadas, causalidade gráfica condicional, transferência GoldenAxe de memória, quatro reservados somente estáticos e somOPEN continuam intactos.

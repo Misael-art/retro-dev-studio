@@ -1,3 +1,17 @@
+### Checkpoint 2026-10-24 — retomada orientada à coesão das jornadas
+
+Reavaliação documental/de código com inspeção de capturas históricas; sem nova execução GUI, suite de testes ou certificação. Base pública anterior 87b6b7fd; código runtime continua igual a a8550af0. Plano operacional em docs/handoffs/PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md e fundamentação em REAVALIACAO_PRODUTO_2026-10-24.md, no mesmo diretório. A fonte operacional de estado continua neste Memory Bank/Current Wave; os dois handoffs são plano e evidência de avaliação.
+
+Retificação do resumo de migração de 2026-10-21: a auditoria avançou além dos primeiros lotes. LOT028 registra edição, salvar/reabrir, Build & Run, verificação e exportação byte-idêntica; LOT031 acrescenta execução/Stop e deslocamento compatível com Right, sem isolar causalidade por evento/frame ou keyup. Não repetir que nenhuma ROM foi compilada/executada na auditoria. As 16 jornadas de coverage.csv continuam parciais e não houve aceite humano de usabilidade.
+
+Prioridade: uma frente sequencial de integração do produto, reaproveitando editorStore/studioContext/runtimeLink/plano de paletas e serviços canônicos. E0 reconciliar/reproduzir; E1 contexto/revisões/save-build-run-review; E2 vertical autoral; E3 MUGEN real; E4 navegação e edição compartilhadas; E5 regressão REX delimitada; E6 certificação técnica e preparação/execução humana quando houver participante. Não abrir novo motor universal, importador, plataforma ou megastore paralelo nesta missão.
+
+Casos prioritários: Review mostra “ainda não executado” após emulação; LOT025 tem dois builds bloqueados pelo atlas de 177192960 px, com teto de 67108864; LOT029/030 têm guards MUGEN, alguns anteriores à edição observada. Não elevar o teto, perder frames ou imputar causa ao hardware/último clique sem investigação. UI dirty após Undo, antes de Salvar, não caracteriza corrupção por si só. A tabela antiga de requisitos deve ser lida com o adendo da rodada 4; não reabrir o antigo defeito PAL0 como fato atual sem reprodução.
+
+Preservados contratos, lotes, pins e erratas. Os hashes atuais de coverage, ACHADOS, HANDOFF_PROXIMO_AGENTE, BACKLOG_PROPOSTO e SESSION coincidiram com o backup privado project-data-v4. Pendência sonora e limites de generalidade permanecem separados. Experimental mantido; nenhum merge, release, promoção ou mudança de fonte runtime.
+
+---
+
 ### Checkpoint 2026-10-19 UTC (rodada 4) — Studio Gráfico: paletas planejadas no build e composição personagem + cenário + HUD (Experimental)
 
 ## 2026-10-21 — continuidade para reinstalação do host
