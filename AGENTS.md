@@ -31,6 +31,7 @@ Se houver conflito entre documentos, siga esta ordem:
 Responda com `[Contexto Carregado]` antes de propor qualquer acao relevante.
 
 ## Protocolo Obrigatorio Do Host
+0. Em host reinstalado/vazio, leia `docs/handoffs/NOVO_HOST_INICIO.md`. Use `bash scripts/new-host.sh --plan` e depois `--install --certify --build` (Windows: `scripts/new-host.ps1 -Mode Install -Certify -Build`). O launcher reutiliza o bootstrap/host-manager e ativa o ambiente por processo; nao exige Node previamente instalado. Para comandos diarios, use `--run`/`-Mode Run` quando o PATH global divergir. Nao certificar o novo OS com READY herdado.
 1. Se `node` estiver disponivel, rode `npm run host:diagnose` ao iniciar uma sessao de desenvolvimento.
 2. Se Node estiver ausente, ou o diagnostico nao retornar `READY`, execute o launcher do host:
    - Linux Arch/Manjaro x64: `scripts/bootstrap.sh --ensure --profile full`
@@ -38,6 +39,11 @@ Responda com `[Contexto Carregado]` antes de propor qualquer acao relevante.
 3. Nao altere codigo do produto enquanto `src-tauri/target-test/validation/host-readiness.json` permanecer `BLOCKED`, `DRIFTED` ou `UNSUPPORTED`; corrija o host ou registre o bloqueio no Memory Bank.
 4. Rode `npm run host:certify` antes de encerrar mudancas em build, emulacao, toolchains ou infraestrutura.
 5. Nunca trate corpus/ROM BYOR como dependencia provisionavel e nunca aceite artefato sem origem imutavel e SHA-256.
+
+## Prioridade Da Retomada 2026-10-24
+Uma frente sequencial de coesao do produto: `docs/handoffs/PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md`. Reconciliar estado/revisoes; fechar vertical autoral e MUGEN real; simplificar a navegacao usando editorStore/studioContext/runtimeLink/plano de paletas existentes. Nao iniciar outro motor universal nem reescrita geral. Diagnostico e limites em `docs/handoffs/REAVALIACAO_PRODUTO_2026-10-24.md`; auditoria preservada em `docs/studio_grafico/auditoria_20261020/`. LOT028 teve build/run/export: nao repetir o resumo inicial superado. As 16 jornadas continuam parciais, sem validacao humana.
+
+Um build pesado por vez; gerados/cache/experimentos fora da arvore fonte, com recibos e limites de espaco. Nao apagar evidencias, projetos ou trabalho alheio para liberar disco. Checkpoints pequenos devem registrar SHA, resultado, limite e proximo comando.
 
 ## Regras Criticas
 - Nao antecipe fases futuras do roadmap.

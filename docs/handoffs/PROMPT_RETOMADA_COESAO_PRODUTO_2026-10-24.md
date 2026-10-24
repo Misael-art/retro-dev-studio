@@ -4,6 +4,8 @@ Você assume como agente principal de produto e implementação. Trabalhe sequen
 
 ## Contexto de partida
 
+**Atualização de entrada em host vazio:** antes de implementar, leia `NOVO_HOST_INICIO.md` neste diretório. A branch `codex/new-host-cohesion-20261024` acrescenta os launchers e o diagnóstico de retomada sobre o checkpoint público `95d5ef23`; use essa ponta ou sua integração descendente, conferida por SHA. O checkpoint abaixo é a base histórica da primeira redação, não uma ordem de retroceder. Execute a instalação/certificação pelo launcher, conserve recibos e só depois prossiga E0–E6. Não há novo aceite humano ou GUI produzido pela simples preparação do host.
+
 Repositório: https://github.com/Misael-art/retro-dev-studio
 
 Branch de recuperação: `recovery/studio-preformat-20261021`.

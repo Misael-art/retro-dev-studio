@@ -1,3 +1,15 @@
+### Checkpoint 2026-10-24 — novo host e continuidade da coesão do produto
+
+Preparação em `codex/new-host-cohesion-20261024`, sobre recuperação pública `95d5ef23`; PR dirigida à branch de recuperação, sem merge/release/promoção. Entrada: `docs/handoffs/NOVO_HOST_INICIO.md`. Launchers `scripts/new-host.sh`/`.ps1` funcionam como nível zero; `new-host.mjs` coordena sessões e delega instalação ao bootstrap/host-manager existente. Node/npm/Rust continuam fixados; cache e Cargo target por lock, jobs limitados, temporários não ocultos e recibos separados, sem alterar HOME/perfil global ou baixar BYOR. A falta de espaço bloqueia sem limpeza destrutiva.
+
+Diagnóstico de jornada consolidado por referência à reavaliação, pareceres A/B/C, coverage e adendos. As 16 jornadas seguem parciais e sem estudo humano; LOT028 teve build/run/export. Próxima missão continua sendo `PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md`, uma frente sequencial que entrega verticais autoral/MUGEN e coerência de contexto/revisões. Não iniciar outra pesquisa de decompilação universal; som comercial continua separado.
+
+Na preparação, o npm global deste host era Node26/npm12, enquanto o launcher ativou o pin Node24/npm11. Audit da base encontrou seis pacotes afetados (duas severidades altas); manutenção limitada a Vite6.4.5, Vitest4.1.12 e Undici7.30.1, sem major/dependência nova ou exceção. Detalhes e estado real dos gates em `docs/handoffs/VALIDACAO_NOVO_HOST_2026-10-24.md`. Não confundir teste neste host já provisionado com instalação limpa em outro OS; Windows requer prova operacional própria. A necessidade de backup privado sobrevivente antes da formatação continua; GitHub não contém projetos/capturas/contexto privado completos.
+
+
+Resultados medidos nesta preparação: host:certify READY (7 gates), suíte frontend final: 1164 aprovados/3 skips; Rust: 1066 aprovados/102 ignorados; suíte dirigida: 58/58, cinco crates, fmt/clippy, smokes SGDK/PVSnesLib, bundle frontend e reentrada offline do instalador aprovados no host existente. npm audit zero vulnerabilidades; cargo-audit rc0 com 12 warnings permitidos, sem exceção nova. Windows: parser/plano sem Node executados em Linux, instalação operacional não demonstrada. Portable novo e jornadas GUI/humana não executados. Resumo curado/hash da fonte final em data/development_host_20261024/validation.json.
+---
+
 ### Checkpoint 2026-10-24 — retomada orientada à coesão das jornadas
 
 Reavaliação documental/de código com inspeção de capturas históricas; sem nova execução GUI, suite de testes ou certificação. Base pública anterior 87b6b7fd; código runtime continua igual a a8550af0. Plano operacional em docs/handoffs/PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md e fundamentação em REAVALIACAO_PRODUTO_2026-10-24.md, no mesmo diretório. A fonte operacional de estado continua neste Memory Bank/Current Wave; os dois handoffs são plano e evidência de avaliação.
