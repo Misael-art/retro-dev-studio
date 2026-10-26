@@ -129,3 +129,7 @@ Peças principais: `retrodevstudio-all-refs.bundle`, `worktree-overlays-v3.tar`,
 ## 8. Limite da preparação
 
 Testes dos launchers e sua execução neste host não equivalem a reinstalação limpa executada. O Windows precisa de execução real em Windows, e cada novo OS exige seu próprio diagnóstico, build, certify e jornadas. A certificação do instalador não corrige por si só os gaps de UX acima. O mapa de validação desta entrega e seus resultados efetivamente medidos estão em `VALIDACAO_NOVO_HOST_2026-10-24.md`, no mesmo diretório.
+
+## Recuperação organizada — 2026-10-26
+
+Raiz única neste host: `/home/misael/Projects/RetroDevStudio`, base `ba7dc26eb6526bdfd7a707ad5948dcb0ecb5857a`. Histórico privado recuperado em namespace local de revisão, sem recriar os checkouts históricos e sem publicá-lo. Cópias independentes dos arquivos privados foram verificadas por SHA-256 no disco principal; pesquisa não foi mesclada ao código. Runtime do host-manager configurado por `RDS_WORK_ROOT`, separado da árvore fonte. A instalação/qualificação atual deve ser conferida pelo recibo do launcher; READY e provas do host antigo não se transferem. Próxima tarefa de produto continua sendo a coesão descrita neste handoff; publicação do código deve preservar a curadoria pública e excluir dados/históricos privados.
