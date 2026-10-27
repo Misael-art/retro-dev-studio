@@ -31,6 +31,7 @@ import {
   UI_LAYOUT_ORACLE_TARGETS,
   buildUiLayoutOracleReport,
   evaluateUiLayoutOracleSnapshot,
+  visibleUiRect,
 } from "./ui-layout-oracle.mjs";
 import { diagnose as diagnoseHost } from "./host-manager.mjs";
 import { renderSonicFrameReference } from "./qa/sonic-frame-reference.mjs";
@@ -3649,6 +3650,7 @@ async function collectUiLayoutOracleSnapshot(sessionId, targetId, resolutionTag)
   return executeScript(
     sessionId,
     `
+      const clippedRect = ${visibleUiRect.toString()};
       const targetId = arguments[0];
       const resolutionTag = arguments[1];
       const allowedHorizontalScrollTestIds = new Set([
@@ -3860,8 +3862,14 @@ async function collectUiLayoutOracleSnapshot(sessionId, targetId, resolutionTag)
         const node = document.querySelector(selector);
         if (!(node instanceof HTMLElement || node instanceof SVGElement)) return null;
         const container = containerSelector ? document.querySelector(containerSelector) : node.parentElement;
+        const snapshot = snapshotNode(node, key);
+        // Scene is an intentionally panned world. Measure its usable visible
+        // viewport; retain the full world bounds for auditing. Other surfaces
+        // still require their complete main visual to fit the panel.
+        const visibleWorld = kind === "scene" ? clippedRect(node) : null;
         return {
-          ...snapshotNode(node, key),
+          ...snapshot,
+          ...(kind === "scene" ? { rect: visibleWorld ?? snapshot.rect, visible: !!visibleWorld, worldRect: snapshot.rect } : {}),
           kind,
           containerRect: rectOf(container instanceof Element ? container : node.parentElement),
         };
@@ -4528,6 +4536,7 @@ async function assertNoGrossMainShellTextOverlap(sessionId) {
   const overlaps = await executeScript(
     sessionId,
     `
+      const clippedRect = ${visibleUiRect.toString()};
       const directText = (element) => Array.from(element.childNodes)
         .filter((node) => node.nodeType === Node.TEXT_NODE)
         .map((node) => node.textContent ?? "")
@@ -4538,12 +4547,8 @@ async function assertNoGrossMainShellTextOverlap(sessionId) {
         if (!(element instanceof HTMLElement)) {
           return false;
         }
-        const style = window.getComputedStyle(element);
-        const rect = element.getBoundingClientRect();
-        return style.visibility !== "hidden" &&
-          style.display !== "none" &&
-          Number(style.opacity || "1") > 0.05 &&
-          rect.width > 8 &&
+        const rect = clippedRect(element);
+        return rect && rect.width > 8 &&
           rect.height > 8;
       };
       const scopeSelectors = [
@@ -4576,7 +4581,7 @@ async function assertNoGrossMainShellTextOverlap(sessionId) {
       const elements = Array.from(document.querySelectorAll(scopeSelectors.join(",")))
         .filter(isVisible)
         .map((element) => {
-          const rect = element.getBoundingClientRect();
+          const rect = clippedRect(element);
           const text = resolveLabelText(element);
           return { element, rect, text };
         })
@@ -25953,11 +25958,11 @@ async function main() {
         }
         await waitFor(
           async () => {
-            const text = await executeScript(
-              sessionId,
-              "return document.querySelector('[data-testid=\"viewport-asset-health\"]')?.textContent ?? '';"
-            );
-            return /assets\s+\d+\/\d+/.test(String(text));
+            const health = await executeScript(sessionId,
+              "const e=document.querySelector('[data-testid=\"viewport-asset-health-summary\"]');return e?{...e.dataset}:null;");
+            return health && Number(health.referenced) > 0 && Number(health.loading) === 0
+              && Number(health.failed) === 0 && Number(health.missing) === 0
+              && Number(health.ready) === Number(health.referenced);
           },
           25000,
           "Projeto SGDK importado nao exibiu estado auditavel de assets no viewport.",
@@ -26104,6 +26109,9 @@ async function main() {
             "Bloco G: Shift+clique em pilha densa nao abriu o picker contextual.",
             250
           );
+          const expectedDenseId = await executeScript(sessionId,
+            "return document.querySelector('[data-testid=\"viewport-dense-stack-picker\"] [role=\"option\"][aria-selected=\"true\"] .font-mono')?.textContent?.trim() ?? null;");
+          if (!expectedDenseId) fail("Bloco G: picker nao identifica o candidato destacado.");
           await executeScript(
             sessionId,
             `
@@ -26118,11 +26126,14 @@ async function main() {
           await waitFor(
             async () => {
               const state = await readAutomationState(sessionId);
-              const dockText = await executeScript(
+              const solo = await executeScript(
                 sessionId,
-                "return document.querySelector('[data-testid=\"viewport-creator-command-dock\"]')?.textContent ?? '';"
+                "const e=document.querySelector('[data-testid=\"viewport-entity-solo-toggle\"]');return e?{border:getComputedStyle(e).borderTopColor,pickerOpen:!!document.querySelector('[data-testid=\"viewport-dense-stack-picker\"]')}:null;"
               );
-              return state?.selectedEntityId && String(dockText).includes("Solo:") ? { state, dockText } : false;
+              const selectedStack = state?.selectedEntityId === expectedDenseId;
+              const selectedWithSolo = state?.consoleEntries?.some(entry => String(entry.message).includes("Selecionado da pilha:") && String(entry.message).includes("(solo ativo)"));
+              manualQaReport.denseSoloDiagnostic = { expectedEntityId: expectedDenseId, actualEntityId: state?.selectedEntityId, selectedWithSolo, ...solo };
+              return selectedStack && selectedWithSolo && solo?.border === "rgb(249, 226, 175)" && !solo.pickerOpen ? { state, solo } : false;
             },
             15000,
             "Bloco G: picker denso nao selecionou/focou com solo ativo.",
@@ -26612,11 +26623,11 @@ async function main() {
         );
         await waitFor(
           async () => {
-            const text = await executeScript(
-              sessionId,
-              "return document.querySelector('[data-testid=\"viewport-asset-health\"]')?.textContent ?? '';"
-            );
-            return /assets\s+\d+\/\d+/.test(String(text));
+            const health = await executeScript(sessionId,
+              "const e=document.querySelector('[data-testid=\"viewport-asset-health-summary\"]');return e?{...e.dataset}:null;");
+            return health && Number(health.referenced) > 0 && Number(health.loading) === 0
+              && Number(health.failed) === 0 && Number(health.missing) === 0
+              && Number(health.ready) === Number(health.referenced);
           },
           25000,
           "Projeto SGDK reaberto sem estado auditavel de assets no viewport.",
@@ -26763,6 +26774,9 @@ async function main() {
         return;
       } catch (error) {
         const failure = classifyFailureMetadata(error);
+        manualQaReport.failureDiagnostics = await collectAppDiagnostics(sessionId).catch(() => null);
+        const failedShot = await captureScreenshot(sessionId, `${artifactPrefix}-${currentBlock}-failure.png`).catch(() => null);
+        if (failedShot) registerArtifact(manualQaReport, failedShot, `${currentBlock} - failure preserved`);
         await markManualQaBlock(
           manualQaReport,
           currentBlock,
