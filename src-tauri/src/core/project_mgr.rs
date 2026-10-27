@@ -3847,8 +3847,21 @@ fn import_sgdk_resources_into_scene(
     let mut fallbacks: Vec<String> = Vec::new();
     let mut mappings: Vec<SgdkImportMapping> = Vec::new();
 
+    // Different source directories can contain the same filename (e.g. both
+    // fighters have idle.png). Resolve the whole set before copying anything.
+    let mut destination_sources: HashMap<String, HashSet<PathBuf>> = HashMap::new();
     for resource in resources {
-        let Some(destination) = sgdk_asset_destination(&resource.kind, &resource.asset_path) else {
+        if let Some(destination) = sgdk_asset_destination(&resource.kind, &resource.asset_path) {
+            destination_sources
+                .entry(destination)
+                .or_default()
+                .insert(sgdk_resource_source_path(sgdk_path, &resource.asset_path));
+        }
+    }
+
+    for resource in resources {
+        let Some(mut destination) = sgdk_asset_destination(&resource.kind, &resource.asset_path)
+        else {
             let reason = match resource.kind.as_str() {
                 "VGM" => "ForbiddenFormat",
                 _ => "UnsupportedKind",
@@ -3865,6 +3878,30 @@ fn import_sgdk_resources_into_scene(
         };
 
         let source_path = sgdk_resource_source_path(sgdk_path, &resource.asset_path);
+        if destination_sources[&destination].len() > 1 {
+            let relative = source_path.strip_prefix(sgdk_path).map_err(|_| {
+                LoadError(format!(
+                    "Asset SGDK fora da raiz doadora: {}",
+                    source_path.display()
+                ))
+            })?;
+            if relative
+                .components()
+                .any(|component| !matches!(component, Component::Normal(_)))
+            {
+                return Err(LoadError(format!(
+                    "Caminho SGDK ambiguo: {}",
+                    relative.display()
+                )));
+            }
+            destination = normalize_relative_path(
+                &Path::new(&destination)
+                    .parent()
+                    .expect("asset category")
+                    .join("sgdk-source")
+                    .join(relative),
+            );
+        }
         if !source_path.is_file() {
             if resource.kind == "VGM" {
                 skipped_sources.push(SgdkSkippedSource {
@@ -5245,19 +5282,15 @@ fn resolve_sgdk_import_root(requested_root: &Path) -> Result<SgdkResolvedImportR
 }
 
 fn find_sgdk_manifest_paths(sgdk_path: &Path) -> Result<Vec<PathBuf>, LoadError> {
+    let mut manifests = Vec::new();
     let direct = sgdk_path.join("resources.res");
     if direct.is_file() {
-        return Ok(vec![direct]);
-    }
-
-    let canonical = sgdk_path.join("res").join("resources.res");
-    if canonical.is_file() {
-        return Ok(vec![canonical]);
+        manifests.push(direct);
     }
 
     let res_dir = sgdk_path.join("res");
     if res_dir.is_dir() {
-        let mut manifests = Vec::new();
+        let mut split_manifests = Vec::new();
         for entry in fs::read_dir(&res_dir).map_err(|error| {
             LoadError(format!(
                 "Nao foi possivel listar manifests SGDK em '{}': {}",
@@ -5273,17 +5306,28 @@ fn find_sgdk_manifest_paths(sgdk_path: &Path) -> Result<Vec<PathBuf>, LoadError>
                 ))
             })?;
             let path = entry.path();
-            if path
-                .extension()
-                .is_some_and(|extension| extension.eq_ignore_ascii_case("res"))
+            if path.is_file()
+                && path
+                    .extension()
+                    .is_some_and(|extension| extension.eq_ignore_ascii_case("res"))
             {
-                manifests.push(path);
+                split_manifests.push(path);
             }
         }
-        manifests.sort();
-        if !manifests.is_empty() {
-            return Ok(manifests);
-        }
+        // Enumerate once even on case-insensitive filesystems, keeping the
+        // conventional manifest first without inserting it a second time.
+        split_manifests.sort_by_key(|path| {
+            (
+                !path
+                    .file_name()
+                    .is_some_and(|name| name.eq_ignore_ascii_case("resources.res")),
+                path.clone(),
+            )
+        });
+        manifests.extend(split_manifests);
+    }
+    if !manifests.is_empty() {
+        return Ok(manifests);
     }
 
     Err(LoadError(format!(
@@ -19970,6 +20014,84 @@ void tick_player(void) {\n\
 
         let _ = fs::remove_dir_all(donor_dir);
         let _ = fs::remove_dir_all(project_dir);
+    }
+
+    #[test]
+    fn sgdk_import_canonical_manifest_does_not_hide_split_resources_or_overwrite_namesakes() {
+        let donor = temp_dir("sgdk-canonical-split-donor");
+        let project = temp_dir("sgdk-canonical-split-project");
+        create_project_skeleton(&project, "Split Resources", "megadrive").unwrap();
+        for (name, color) in [
+            ("fighter_a", [255, 0, 0, 255]),
+            ("fighter_b", [0, 255, 0, 255]),
+        ] {
+            let folder = donor.join("res").join(name);
+            fs::create_dir_all(&folder).unwrap();
+            write_test_png(&folder.join("idle.png"), 16, 16, color);
+            fs::write(
+                donor.join("res").join(format!("{name}.res")),
+                format!("SPRITE {name} \"{name}/idle.png\" 2 2 NONE 0\n"),
+            )
+            .unwrap();
+        }
+        fs::write(
+            donor.join("res/resources.res"),
+            "XGM2 music \"theme.vgm\"\n",
+        )
+        .unwrap();
+        fs::write(donor.join("res/theme.vgm"), b"Vgm ").unwrap();
+        let report = import_sgdk_project(&project, &donor).unwrap();
+        assert_eq!(report.source_summary.manifests.len(), 3);
+        assert_eq!(report.source_summary.resources_accepted, 3);
+        let sprites: Vec<_> = report
+            .primary_scene
+            .entities
+            .iter()
+            .filter_map(|e| e.components.sprite.as_ref())
+            .collect();
+        assert_eq!(
+            sprites.len(),
+            2,
+            "canonical music manifest must not hide either fighter"
+        );
+        assert_ne!(sprites[0].asset, sprites[1].asset);
+        for (name, color) in [
+            ("fighter_a", [255, 0, 0, 255]),
+            ("fighter_b", [0, 255, 0, 255]),
+        ] {
+            let sprite = report
+                .primary_scene
+                .entities
+                .iter()
+                .find(|e| e.entity_id == name)
+                .unwrap()
+                .components
+                .sprite
+                .as_ref()
+                .unwrap();
+            assert_eq!(
+                image::open(project.join(&sprite.asset))
+                    .unwrap()
+                    .to_rgba8()
+                    .get_pixel(0, 0)
+                    .0,
+                color
+            );
+        }
+        let again = import_sgdk_project(&project, &donor).unwrap();
+        assert_eq!(again.primary_scene, report.primary_scene);
+        let canonical = donor.join("res/resources.res");
+        let mixed_case = donor.join("res/Resources.RES");
+        // Rename through another name so the case change also applies on
+        // case-insensitive hosts; the manifest must still be included once.
+        let rename_staging = donor.join("res/rename-staging.res");
+        fs::rename(&canonical, &rename_staging).unwrap();
+        fs::rename(&rename_staging, &mixed_case).unwrap();
+        let mixed_case_report = import_sgdk_project(&project, &donor).unwrap();
+        assert_eq!(mixed_case_report.source_summary.manifests.len(), 3);
+        assert_eq!(mixed_case_report.primary_scene, report.primary_scene);
+        let _ = fs::remove_dir_all(donor);
+        let _ = fs::remove_dir_all(project);
     }
 
     #[test]

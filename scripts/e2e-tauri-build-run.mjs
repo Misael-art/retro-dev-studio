@@ -512,6 +512,7 @@ function parseArgs(argv) {
           "mugen-real",
           "mugen-original",
           "studio-e1",
+          "sgdk-split-resources",
           "studio-e4",
           "studio-e2e5",
           "studio-e6",
@@ -5955,6 +5956,70 @@ async function verifyPagedKenBuild(sessionId, project, animations) {
   }
   if (word(logical, 14) !== maxTiles || word(logical, 16) !== maxSprites) fail("Residencia nao cobre todas as paginas.");
   return { animations: names.length, occurrences, pixels_compared: pixels, max_page_pixels: maxPagePixels, palettes_identical: true, compiled_indices_verified: true, max_tiles: maxTiles, max_sprites: maxSprites };
+}
+
+async function runSgdkSplitResourcesScenario(sessionId, timeoutMs, onProjectCreated) {
+  const source = process.env.RDS_SGDK_REAL_SOURCE;
+  const output = process.env.RDS_SGDK_OUTPUT;
+  const expected = JSON.parse(process.env.RDS_SGDK_EXPECTED ?? "null");
+  if (!source || !output || !expected?.manifests || !expected?.resources || !expected?.sprites) {
+    fail("RDS_SGDK_REAL_SOURCE, RDS_SGDK_OUTPUT and RDS_SGDK_EXPECTED {manifests,resources,sprites} required.");
+  }
+  await mkdir(output, { recursive: true });
+  const prefix = `sgdk-split-${artifactTimestamp()}`;
+  const hashFile = async (file) => createHash("sha256").update(await readFile(file)).digest("hex");
+  const report = { schema: "retrodev.sgdk_split_resources/v1", source, expected,
+    app_sha256: await hashFile(currentE2eRunContext.appPath), steps: [], artifacts: [],
+    qualification: "resource import; original C gameplay equivalence is not certified" };
+  try {
+    await setSessionWindowRect(sessionId, 1280, 800);
+    await waitForOnboardingWizard(sessionId);
+    await clickByTestId(sessionId, "wizard-external-import-toggle");
+    await executeScript(sessionId, `const e=document.querySelector('[data-testid="external-import-profile-select"]');
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,'sgdk');
+      e.dispatchEvent(new Event('change',{bubbles:true}));`);
+    await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', `SGDK_Resources_${Date.now()}`);
+    await executeScript(sessionId, "return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source]);
+    await clickByTestId(sessionId, "external-import-confirm");
+    const imported = await waitFor(async () => {
+      const state = await readAutomationState(sessionId);
+      return state?.activeProjectDir && state.projectSourceKind === "imported_sgdk" ? state : false;
+    }, 120000, "SGDK import did not open its project.", 250);
+    const project = imported.activeProjectDir;
+    report.project = project;
+    currentE2eRunContext.project = project;
+    onProjectCreated(project);
+    const ledgerDir = path.join(project, ".rds/imports/sgdk");
+    const ledgers = (await readdir(ledgerDir)).filter(name => name.endsWith(".json"));
+    if (ledgers.length !== 1) fail(`Expected one import ledger, got ${ledgers.length}.`);
+    const ledger = JSON.parse(await readFile(path.join(ledgerDir, ledgers[0]), "utf8"));
+    report.ledger = ledger;
+    const scene = JSON.parse(await readFile(path.join(project, "scenes/main.json"), "utf8"));
+    const sprites = scene.entities.filter(e => e.components.sprite);
+    if (ledger.manifests.length !== expected.manifests || ledger.mappings.length !== expected.resources || sprites.length !== expected.sprites) {
+      fail(`Import lost resources: ${JSON.stringify({ manifests: ledger.manifests.length, resources: ledger.mappings.length, sprites: sprites.length })}`);
+    }
+    const destinations = new Map();
+    for (const mapping of ledger.mappings) {
+      const original = path.join(source, mapping.source_relative);
+      const materialized = path.join(project, mapping.destination);
+      const hash = await hashFile(original);
+      if (await hashFile(materialized) !== hash) fail(`Materialized asset differs: ${mapping.resource_name}`);
+      if (destinations.has(mapping.destination) && destinations.get(mapping.destination) !== hash) fail(`Asset collision: ${mapping.destination}`);
+      destinations.set(mapping.destination, hash);
+    }
+    addReportStep(report, "all_manifest_resources_preserved", "passed", { manifests: ledger.manifests.length, resources: ledger.mappings.length, sprites: sprites.length });
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-import.png`), "Imported resources in native UI");
+    console.log(`[sgdk-split] all ${ledger.mappings.length} resources verified against source`);
+    report.build = await runBuildRunAndCollect(sessionId, "SGDK split resource scene", timeoutMs, report, prefix, { nativeClick: true });
+    report.status = "passed";
+  } catch (error) {
+    report.status = "failed";
+    report.error = String(error);
+    throw error;
+  } finally {
+    await writeFile(path.join(output, `${prefix}.json`), JSON.stringify(report, null, 2));
+  }
 }
 
 async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, onProjectCreated) {
@@ -22919,6 +22984,7 @@ async function main() {
     options.scenario !== "mugen-real" &&
     options.scenario !== "mugen-original" &&
     options.scenario !== "studio-e1" &&
+    options.scenario !== "sgdk-split-resources" &&
     options.scenario !== "studio-e4" &&
     options.scenario !== "studio-e2e5" &&
     options.scenario !== "studio-e6" &&
@@ -24748,6 +24814,10 @@ async function main() {
     }
     if (options.scenario === "studio-e1") {
       await runStudioE1Scenario(sessionId,emulatorActivationTimeoutMs,uiBootstrapTimeoutMs,(created)=>{temporaryProjectDir=created;});
+      return;
+    }
+    if (options.scenario === "sgdk-split-resources") {
+      await runSgdkSplitResourcesScenario(sessionId,emulatorActivationTimeoutMs,(created)=>{temporaryProjectDir=created;});
       return;
     }
     if (options.scenario === "mugen-real") {
