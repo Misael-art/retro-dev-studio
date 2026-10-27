@@ -186,6 +186,8 @@ O debounce do rascunho é de 2 s, acrescido do tempo até o recibo nativo de gra
 
 Executar pelo launcher oficial, com `RDS_WORK_ROOT` definido conforme acima: `bash scripts/new-host.sh --run "$RDS_WORK_ROOT/sessions/draft-recovery-20261027/binaries/retro-dev-studio-826e2553"`. As três partidas frias e o cenário separado de falhas foram automatizados no Tauri real; não são aceite humano nem certificação Windows. A guarda de atlas MUGEN corrigida continua preservada. Nenhuma promoção de maturidade, merge, release ou deploy decorre deste roteiro.
 
+Neste desktop, o atalho **RetroDev Studio — Testar** (`retrodev-studio-testar.desktop`, na pasta de `xdg-user-dir DESKTOP`) abre esse binário pelo launcher oficial com `RDS_WORK_ROOT` externo e `RDS_BUILD_JOBS=1`. Usa o perfil normal do usuário, sem overrides de QA. Arquivo executável e sintaxe validados; abertura pelo atalho conferida no KDE/KWin em 2026-10-27. É configuração local, não um instalador ou atalho recuperado de backup antigo. Se o binário congelado mudar, conferir o novo SHA e atualizar explicitamente o destino do atalho.
+
 
 ## Continuidade do atlas MUGEN — 2026-10-27 (validação técnica local PASS, Experimental)
 
