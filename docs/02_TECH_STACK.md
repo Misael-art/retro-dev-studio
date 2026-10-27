@@ -31,6 +31,7 @@
 - Tauri Rust `2.11.5`, build `2.6.3`, opener `2.5.4` e dialog `2.7.1`, fixados no Cargo lock
 - IPC Tauri para toda operacao de filesystem, build e emulacao
 - `serde` / `serde_json` para schema UGDM
+- Rascunhos desktop: `scenePersistence.ts` mantém formato/contexto/revisão e usa IPC `scene_draft_storage`, no backend existente, para escrita atômica + sincronização + leitura de confirmação em `<projeto>/.rds/scene-drafts/<SHA256(scenePath)>.json`. `localStorage` é entrada legada de migração; sua leitura não comprova durabilidade após matar WebKit. Sem novo banco, dependência ou autosave paralelo; a cena editável só muda pelo save canônico. Falha antes do recibo deixa o rascunho não confirmado. Isso não garante sobrevivência a perda do disco ou falha de energia em qualquer filesystem.
 
 ### Emulacao
 - Libretro API via FFI no Rust

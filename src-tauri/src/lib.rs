@@ -4013,82 +4013,158 @@ fn create_scene(project_dir: String, display_name: Option<String>) -> Result<Sce
         .map_err(|error| error.to_string())
 }
 
-/// Salva o JSON de cena de volta para o arquivo entry_scene do projeto.
+#[derive(serde::Serialize)]
+struct SceneSaveResult {
+    ok: bool,
+    message: String,
+    scene_json: Option<String>,
+    conflict: bool,
+}
+
+static SCENE_DRAFT_IO_LOCK: Mutex<()> = Mutex::new(());
+
+/// Durable backing for scenePersistence's existing draft record. localStorage
+/// remains a legacy migration source; the editable scene is never written here.
+#[tauri::command]
+fn scene_draft_storage(
+    project_dir: String,
+    scene_path: String,
+    operation: String,
+    value: Option<String>,
+    expected: Option<String>,
+) -> Result<Option<String>, String> {
+    let _guard = SCENE_DRAFT_IO_LOCK.lock().map_err(|e| e.to_string())?;
+    let root = Path::new(&project_dir)
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    load_project(&root).map_err(|e| e.to_string())?;
+    if scene_path.is_empty()
+        || Path::new(&scene_path)
+            .components()
+            .any(|c| !matches!(c, Component::Normal(_)))
+    {
+        return Err("Identidade de cena invalida para rascunho.".into());
+    }
+    let folder = root.join(".rds").join("scene-drafts");
+    for directory in [root.join(".rds"), folder.clone()] {
+        if fs::symlink_metadata(&directory).is_ok_and(|m| m.file_type().is_symlink()) {
+            return Err("Diretorio de rascunho nao pode ser um link simbolico.".into());
+        }
+    }
+    let file = folder.join(format!("{}.json", sha256_hex(scene_path.as_bytes())));
+    if fs::symlink_metadata(&file).is_ok_and(|m| m.file_type().is_symlink()) {
+        return Err("Arquivo de rascunho nao pode ser um link simbolico.".into());
+    }
+    let read = || match fs::read_to_string(&file) {
+        Ok(raw) => Ok(Some(raw)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    };
+    let current = read()?;
+    if operation == "read" {
+        return Ok(current);
+    }
+    if current != expected {
+        return Err("O rascunho mudou durante a operacao. A copia existente foi preservada; leia novamente.".into());
+    }
+    match operation.as_str() {
+        "write" => {
+            let raw = value.ok_or("Rascunho ausente.")?;
+            let record: serde_json::Value =
+                serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+            if record["schemaVersion"] != 2
+                || record["projectDir"] != project_dir
+                || record["scenePath"] != scene_path
+                || record["revision"].as_u64().is_none()
+            {
+                return Err("Identidade ou revisao invalida no rascunho.".into());
+            }
+            let _: Scene = serde_json::from_str(
+                record["sourceSceneJson"]
+                    .as_str()
+                    .ok_or("Cena ausente no rascunho.")?,
+            )
+            .map_err(|e| e.to_string())?;
+            fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+            core::project_mgr::write_text_atomically_with_retry(&file, &raw)
+                .map_err(|e| e.to_string())?;
+            let persisted = read()?;
+            if persisted.as_deref() != Some(raw.as_str()) {
+                return Err("Rascunho nao confirmado apos gravacao.".into());
+            }
+            Ok(persisted)
+        }
+        "remove" => {
+            if current.is_some() {
+                fs::remove_file(&file).map_err(|e| e.to_string())?;
+                core::project_mgr::sync_parent_dir(&file).map_err(|e| e.to_string())?;
+            }
+            Ok(None)
+        }
+        _ => Err("Operacao de rascunho desconhecida.".into()),
+    }
+}
+
+/// Saves through the existing atomic writer. An optional loaded baseline detects
+/// external edits before graph/file writes; older callers keep their contract.
 #[tauri::command]
 fn save_scene_data(
     project_dir: String,
     scene_json: String,
     scene_path: Option<String>,
     resolved_scene_json: Option<String>,
-) -> EmulatorCommandResult {
-    if project_dir.is_empty() {
-        return EmulatorCommandResult {
-            ok: false,
-            message: "Nenhum projeto aberto.".into(),
-        };
-    }
-    let dir = PathBuf::from(&project_dir);
-    let project = match load_project(&dir) {
-        Ok(p) => p,
-        Err(e) => {
-            return EmulatorCommandResult {
-                ok: false,
-                message: e.to_string(),
+    expected_scene_json: Option<String>,
+) -> SceneSaveResult {
+    let mut conflict_json = None;
+    let result = (|| -> Result<String, String> {
+        if project_dir.is_empty() {
+            return Err("Nenhum projeto aberto.".into());
+        }
+        let dir = PathBuf::from(&project_dir);
+        let project = load_project(&dir).map_err(|e| e.to_string())?;
+        let target = scene_path
+            .as_deref()
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+            .unwrap_or(project.entry_scene.as_str());
+        if let Some(expected) = expected_scene_json.as_deref() {
+            let expected: ugdm::entities::Scene = serde_json::from_str(expected)
+                .map_err(|e| format!("Base de salvamento invalida: {e}"))?;
+            let current = load_scene(&dir, target).map_err(|e| e.to_string())?;
+            if serde_json::to_value(&expected).map_err(|e| e.to_string())?
+                != serde_json::to_value(&current).map_err(|e| e.to_string())?
+            {
+                conflict_json = Some(serde_json::to_string(&current).map_err(|e| e.to_string())?);
+                return Err("O arquivo salvo mudou desde a abertura. Rascunho preservado; revise a divergencia antes de salvar.".into());
             }
         }
-    };
-    // Valida que é JSON válido antes de salvar
-    if serde_json::from_str::<serde_json::Value>(&scene_json).is_err() {
-        return EmulatorCommandResult {
-            ok: false,
-            message: "JSON de cena inválido.".into(),
-        };
-    }
-    let mut scene = match serde_json::from_str::<ugdm::entities::Scene>(&scene_json) {
-        Ok(scene) => scene,
-        Err(e) => {
-            return EmulatorCommandResult {
-                ok: false,
-                message: format!("JSON de cena invalido: {}", e),
-            }
+        let mut scene: ugdm::entities::Scene =
+            serde_json::from_str(&scene_json).map_err(|e| format!("JSON de cena invalido: {e}"))?;
+        if let Some(json) = resolved_scene_json
+            .as_deref()
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+        {
+            let resolved: ugdm::entities::Scene = serde_json::from_str(json)
+                .map_err(|e| format!("JSON de cena resolvida invalido: {e}"))?;
+            sync_external_graph_refs(&dir, &mut scene, &resolved).map_err(|e| e.to_string())?;
         }
-    };
-    if let Some(resolved_scene_json) = resolved_scene_json
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        let resolved_scene =
-            match serde_json::from_str::<ugdm::entities::Scene>(resolved_scene_json) {
-                Ok(scene) => scene,
-                Err(error) => {
-                    return EmulatorCommandResult {
-                        ok: false,
-                        message: format!("JSON de cena resolvida invalido: {}", error),
-                    }
-                }
-            };
-
-        if let Err(error) = sync_external_graph_refs(&dir, &mut scene, &resolved_scene) {
-            return EmulatorCommandResult {
-                ok: false,
-                message: error.to_string(),
-            };
-        }
-    }
-    let target_scene_path = scene_path
-        .as_deref()
-        .map(str::trim)
-        .filter(|path| !path.is_empty())
-        .unwrap_or(project.entry_scene.as_str());
-    match save_scene(&dir, target_scene_path, &scene) {
-        Ok(()) => EmulatorCommandResult {
+        save_scene(&dir, target, &scene).map_err(|e| e.to_string())?;
+        let persisted = load_scene(&dir, target).map_err(|e| e.to_string())?;
+        serde_json::to_string(&persisted).map_err(|e| e.to_string())
+    })();
+    match result {
+        Ok(json) => SceneSaveResult {
             ok: true,
             message: "Cena salva.".into(),
+            scene_json: Some(json),
+            conflict: false,
         },
-        Err(e) => EmulatorCommandResult {
+        Err(message) => SceneSaveResult {
             ok: false,
-            message: e.to_string(),
+            message,
+            conflict: conflict_json.is_some(),
+            scene_json: conflict_json,
         },
     }
 }
@@ -6087,6 +6163,7 @@ pub fn run() {
             list_scenes,
             create_scene,
             save_scene_data,
+            scene_draft_storage,
             set_project_target,
             get_project_settings,
             update_project_settings,
@@ -9517,6 +9594,66 @@ pub extern "C" fn retro_run() {
     }
 
     #[test]
+    fn scene_draft_storage_preserves_scenes_and_refuses_stale_replacement_or_removal() {
+        let dir = temp_dir("scene-draft-storage");
+        create_project_skeleton(&dir, "Draft Storage", "megadrive").unwrap();
+        let project = dir.to_string_lossy().to_string();
+        let raw = |scene_path: &str, revision| {
+            serde_json::json!({
+            "schemaVersion": 2, "projectDir": project, "scenePath": scene_path,
+            "revision": revision, "sourceSceneJson": "{\"scene_id\":\"main\",\"entities\":[],\"background_layers\":[],\"palettes\":[]}"
+        }).to_string()
+        };
+        let operate = |scene: &str, operation: &str, value, expected| {
+            scene_draft_storage(
+                project.clone(),
+                scene.into(),
+                operation.into(),
+                value,
+                expected,
+            )
+        };
+        let a = raw("scenes/main.json", 1);
+        let b = raw("scenes/second.json", 2);
+        assert_eq!(
+            operate("scenes/main.json", "write", Some(a.clone()), None).unwrap(),
+            Some(a.clone())
+        );
+        assert_eq!(
+            operate("scenes/second.json", "write", Some(b.clone()), None).unwrap(),
+            Some(b.clone())
+        );
+        let newer = raw("scenes/main.json", 3);
+        assert!(operate("scenes/main.json", "write", Some(newer.clone()), None).is_err());
+        assert!(operate("scenes/main.json", "remove", None, Some(newer.clone())).is_err());
+        assert_eq!(
+            operate("scenes/main.json", "read", None, None).unwrap(),
+            Some(a.clone())
+        );
+        assert_eq!(
+            operate("scenes/main.json", "write", Some(newer.clone()), Some(a)).unwrap(),
+            Some(newer.clone())
+        );
+        assert!(operate("../escape.json", "write", Some(newer.clone()), None).is_err());
+        assert!(operate(
+            "scenes/main.json",
+            "write",
+            Some(b.clone()),
+            Some(newer.clone())
+        )
+        .is_err());
+        assert_eq!(
+            operate("scenes/main.json", "remove", None, Some(newer)).unwrap(),
+            None
+        );
+        assert_eq!(
+            operate("scenes/second.json", "read", None, None).unwrap(),
+            Some(b)
+        );
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
     fn save_scene_data_keeps_graph_ref_externalized_when_resolved_scene_is_supplied() {
         let project_dir = temp_dir("save-scene-graph-ref");
         create_project_skeleton(&project_dir, "Graph Save", "megadrive")
@@ -9575,6 +9712,7 @@ pub extern "C" fn retro_run() {
             serde_json::to_string_pretty(&source_scene).expect("serialize source scene"),
             Some("scenes/main.json".to_string()),
             Some(serde_json::to_string_pretty(&resolved_scene).expect("serialize resolved scene")),
+            None,
         );
 
         assert!(result.ok, "{}", result.message);
@@ -9587,6 +9725,37 @@ pub extern "C" fn retro_run() {
         let saved_graph = fs::read_to_string(project_dir.join("graphs").join("player_logic.json"))
             .expect("read saved graph");
         assert!(saved_graph.contains("\"event_start\""));
+
+        // A stale editor must not touch either the scene or its external graph.
+        let baseline = result.scene_json.expect("canonical saved-source receipt");
+        let mut external: serde_json::Value = serde_json::from_str(&baseline).unwrap();
+        external["entities"][0]["transform"]["x"] = serde_json::json!(91);
+        let scene_path = project_dir.join("scenes/main.json");
+        fs::write(
+            &scene_path,
+            serde_json::to_string_pretty(&external).unwrap(),
+        )
+        .unwrap();
+        let disk_before = fs::read(&scene_path).unwrap();
+        let mut changed_graph = resolved_scene.clone();
+        changed_graph["entities"][0]["components"]["logic"]["graph"] =
+            serde_json::json!("{\"version\":1,\"nodes\":[],\"edges\":[]}");
+        let refused = save_scene_data(
+            project_dir.to_string_lossy().to_string(),
+            serde_json::to_string(&source_scene).unwrap(),
+            Some("scenes/main.json".into()),
+            Some(serde_json::to_string(&changed_graph).unwrap()),
+            Some(baseline),
+        );
+        assert!(!refused.ok && refused.conflict);
+        assert_eq!(fs::read(&scene_path).unwrap(), disk_before);
+        assert_eq!(
+            fs::read_to_string(project_dir.join("graphs/player_logic.json")).unwrap(),
+            saved_graph
+        );
+        let current: serde_json::Value =
+            serde_json::from_str(&refused.scene_json.unwrap()).unwrap();
+        assert_eq!(current["entities"][0]["transform"]["x"], 91);
 
         let _ = fs::remove_dir_all(project_dir);
     }

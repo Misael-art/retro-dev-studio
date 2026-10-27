@@ -17797,7 +17797,10 @@ fn write_json<T: serde::Serialize>(path: impl AsRef<Path>, value: &T) -> Result<
     write_text_atomically_with_retry(path, &json)
 }
 
-fn write_text_atomically_with_retry(path: &Path, contents: &str) -> Result<(), LoadError> {
+pub(crate) fn write_text_atomically_with_retry(
+    path: &Path,
+    contents: &str,
+) -> Result<(), LoadError> {
     let mut last_error = None;
     for attempt in 1..=FILE_IO_RETRY_ATTEMPTS {
         match write_text_atomically_once(path, contents) {
@@ -17995,7 +17998,7 @@ fn replace_file_atomically_windows(temp_path: &Path, destination: &Path) -> Resu
 }
 
 #[cfg(unix)]
-fn sync_parent_dir(path: &Path) -> io::Result<()> {
+pub(crate) fn sync_parent_dir(path: &Path) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         File::open(parent)?.sync_all()?;
     }
@@ -18003,7 +18006,7 @@ fn sync_parent_dir(path: &Path) -> io::Result<()> {
 }
 
 #[cfg(not(unix))]
-fn sync_parent_dir(_path: &Path) -> io::Result<()> {
+pub(crate) fn sync_parent_dir(_path: &Path) -> io::Result<()> {
     Ok(())
 }
 

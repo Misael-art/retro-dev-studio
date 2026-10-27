@@ -390,13 +390,18 @@ export function getSceneData(projectDir: string, scenePath?: string): Promise<Sc
   return invoke("get_scene_data", { projectDir, scenePath });
 }
 
+export function sceneDraftStorage(projectDir: string, scenePath: string, operation: "read" | "write" | "remove", value: string | null = null, expected: string | null = null): Promise<string | null> {
+  return invoke("scene_draft_storage", { projectDir, scenePath, operation, value, expected });
+}
+
 export function saveSceneData(
   projectDir: string,
   sceneJson: string,
   scenePath?: string,
-  resolvedSceneJson?: string
-): Promise<{ ok: boolean; message: string }> {
-  return invoke("save_scene_data", { projectDir, sceneJson, scenePath, resolvedSceneJson });
+  resolvedSceneJson?: string,
+  expectedSceneJson?: string
+): Promise<{ ok: boolean; message: string; scene_json?: string | null; conflict?: boolean }> {
+  return invoke("save_scene_data", { projectDir, sceneJson, scenePath, resolvedSceneJson, expectedSceneJson });
 }
 
 export function listScenes(projectDir: string): Promise<SceneInfo[]> {

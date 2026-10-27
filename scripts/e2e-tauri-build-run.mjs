@@ -4,6 +4,8 @@ import {
   access,
   appendFile,
   copyFile,
+  chmod,
+  stat,
   cp,
   mkdir,
   mkdtemp,
@@ -471,6 +473,7 @@ function parseArgs(argv) {
           "create-game-from-zero",
           "reference-platformer",
           "authoring-acceptance",
+          "draft-recovery",
           "nodegraph-authoring",
           "behaviors-independence",
           "collect-goal",
@@ -1236,7 +1239,7 @@ function readProcStat(pid) {
     const raw = readFileSync(`/proc/${pid}/stat`, "utf8");
     // pid (comm) state ppid ... starttime = campo 22; comm pode conter espacos/parenteses.
     const tail = raw.slice(raw.lastIndexOf(")") + 2).split(" ");
-    return { ppid: Number(tail[1]), start: tail[19] };
+    return { state: tail[0], ppid: Number(tail[1]), start: tail[19] };
   } catch {
     return null;
   }
@@ -10170,6 +10173,322 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
 // Everything is done through the normal UI with native WebDriver input. The game is
 // played with the real keyboard in the running Game View: no emulator_send_input, no
 // manual frame stepping. RAM, framebuffer and received audio are only *observed*.
+// Recovery (Experimental): native edits, actual owned-app SIGKILL, UI recovery.
+// Only the secondary initial scene and explicitly labelled fault fixtures use disk writes.
+async function runDraftRecoveryScenario(initialSessionId, appPath, timeoutMs, uiTimeout, onProjectCreated) {
+  if (process.platform !== "linux" || !ownedDriverPid) fail("draft-recovery requires the owned Linux process ledger; no unqualified kill fallback.");
+  let sessionId = initialSessionId;
+  const prefix = `draft-recovery-${artifactTimestamp()}`;
+  const faults = process.env.RDS_RECOVERY_FAULTS === "1";
+  const sha = async (p) => createHash("sha256").update(await readFile(p)).digest("hex");
+  const report = { schema: "retrodev.draft_recovery/v1", maturity: "Experimental", run_id: prefix,
+    app_sha256: await sha(appPath), faults, projects: [], steps: [], artifacts: [], interruptions: [],
+    interaction: "Native WebDriver editing/scene/recovery/save/build controls; existing DOM wizard/menu clicks invoke visible UI handlers. Read-only DOM/storage/filesystem probes. Initial second scene is a declared fixture copy; faults are explicit injections. No JSON/storage writes stand in for UI editing or recovery.",
+    profile: { process_data_home: process.env.XDG_DATA_HOME ?? null, global_settings_changed: false } };
+  const reportPath = path.join(validationDir, `${prefix}-report.json`);
+  const js = (script, args = []) => executeScript(sessionId, script, args);
+  const state = () => readAutomationState(sessionId);
+  const click = (id) => clickButtonByTestIdNative(sessionId, id);
+  const step = async (id, detail = {}) => {
+    report.steps.push({ id, status: "passed", ...detail });
+    await writeFile(reportPath, JSON.stringify(report, null, 2));
+    console.log(`[draft-recovery] ${id}`);
+  };
+  const shot = async (label) => addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label);
+  const saveStatus = () => js(`const e=document.querySelector('[data-testid="scene-save-status"]');return e?{...e.dataset,text:e.textContent}:null;`);
+  const x = () => js(`return Number(document.querySelector('[data-testid="inspector-transform-x"]')?.value);`);
+  const selectPlayer = async () => {
+    await click("workspace-rail-scene");
+    if (await js(`return !!document.querySelector('[data-testid="guided-step-personagem"]');`)) await click("guided-step-personagem");
+    await waitFor(async () => (await state())?.selectedEntityId === "player", 10000, "Native guided action did not select Player.", 100);
+    await waitFor(async () => js(`return !!document.querySelector('[data-testid="inspector-transform-x"]');`), 10000, "Player properties absent.", 100);
+  };
+  const editX = async (value) => {
+    await selectPlayer();
+    const baselineX = await x();
+    const st = await state();
+    const diskPath = path.join(st.activeProjectDir, st.activeScenePath);
+    const nativePosition = async (position) => {
+      await setInputByTestIdNative(sessionId, "inspector-transform-x", String(position));
+      const el = await findElement(sessionId, '[data-testid="inspector-transform-x"]');
+      await webdriverRequest("POST", `/session/${sessionId}/element/${el}/value`, { text: "", value: [""] });
+      await waitFor(async () => (await x()) === position && (await saveStatus())?.status === "saved", 10000, "Native Inspector auto-save did not settle.", 100);
+    };
+    // Inspector auto-saves. Native Undo after two ordinary edits creates a real
+    // unsaved revision with the original disk baseline, without fabricated data.
+    await nativePosition(value);
+    await nativePosition(baselineX);
+    const diskBeforeUndo = await sha(diskPath);
+    for (let count = 0; count < 12 && await x() !== value; count += 1) {
+      await clickTopBarMenuAction(sessionId, "Desfazer");
+    }
+    await waitFor(async () => (await x()) === value && (await saveStatus())?.status === "dirty", 10000, "Native Undo did not produce the expected unsaved edit.", 100);
+    if (await sha(diskPath) !== diskBeforeUndo) fail("Undo wrote the scene file.");
+    await step("native_undo_creates_unsaved_revision", { expected_x: value, disk_x: baselineX, disk_sha256: diskBeforeUndo, interaction: "Inspector edit/save, edit original/save, native Undo" });
+  };
+  const confirmed = async () => waitFor(async () => {
+    const s = await saveStatus();
+    return s?.draftStatus === "confirmed" && s.draftRevision === s.revision ? s : false;
+  }, 12000, "Current revision draft was not readback-confirmed.", 100);
+  const draftKey = (project, scene) => `retrodev-scene-draft::v2::${encodeURIComponent(project)}::${encodeURIComponent(scene)}`;
+  const readDraft = (project, scene) => executeAsyncScript(sessionId, `
+    const done=arguments[arguments.length-1];
+    window.__TAURI_INTERNALS__.invoke('scene_draft_storage',{projectDir:arguments[0],scenePath:arguments[1],operation:'read',value:null,expected:null})
+      .then(done).catch(e=>done({error:String(e)}));`, [project, scene]);
+  const fileX = async (project, scene) => JSON.parse(await readFile(path.join(project, scene), "utf8")).entities.find((e) => e.entity_id === "player").transform.x;
+  const createProject = async (name) => {
+    await waitForOnboardingWizard(sessionId);
+    await click("template-card-reference_platformer");
+    await clickButtonByText(sessionId, "Mega Drive", "exact");
+    await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
+    await clickButtonByText(sessionId, "Criar Projeto", "exact");
+    const created = await waitFor(async () => { const st = await state(); return st?.activeProjectName === name ? st : false; }, 60000, "Controlled project not created.", 200);
+    report.projects.push({ name, projectDir: created.activeProjectDir }); onProjectCreated(created.activeProjectDir);
+    currentE2eRunContext.project = created.activeProjectDir;
+    await click("shell-persona-guiado"); await selectPlayer();
+    return { name, dir: created.activeProjectDir };
+  };
+  const closeProject = async () => { await clickTopBarMenuAction(sessionId, "Fechar"); await waitForOnboardingWizard(sessionId); };
+  const openProject = async (project) => {
+    await waitForOnboardingWizard(sessionId);
+    await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', project.name);
+    await waitFor(async () => js(`return !!document.querySelector('[data-testid="wizard-existing-project-card"]');`), 30000, "Existing project card absent.", 100);
+    await click("wizard-open-existing-project");
+    await waitFor(async () => (await state())?.activeProjectDir === project.dir, 30000, "Project did not reopen.", 100);
+    currentE2eRunContext.project = project.dir; await click("shell-persona-guiado"); await selectPlayer();
+  };
+  const sceneSelect = async (scene) => {
+    const option = await findElement(sessionId, `select[title="Selecionar cena ativa"] option[value="${scene}"]`);
+    await clickElement(sessionId, option);
+    await waitFor(async () => (await state())?.activeScenePath === scene, 30000, "Scene switch did not settle.", 100);
+    await selectPlayer();
+  };
+  const recoveryVisible = async () => waitFor(async () => js(`return document.querySelector('[data-testid="scene-draft-recovery"]')?.textContent ?? null;`), 10000, "No recovery UI after interruption.", 100);
+  const recoveryLayout = async () => {
+    await setSessionWindowRect(sessionId, 1280, 800);
+    const controls = await js(`return ['scene-draft-restore','scene-draft-keep-disk','scene-draft-discard'].map(id=>{
+      const e=document.querySelector('[data-testid="'+id+'"]');if(!e)return {id,ok:false};
+      const r=e.getBoundingClientRect();const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
+      return {id,ok:r.width>0&&r.height>0&&r.x>=0&&r.y>=0&&r.right<=innerWidth&&r.bottom<=innerHeight&&!!hit&&(hit===e||e.contains(hit))};
+    });`);
+    if (controls.some(e=>!e.ok)) fail(`Recovery choices inaccessible at 1280: ${JSON.stringify(controls)}`);
+    await shot("01b-recovery-1280");
+    await setSessionWindowRect(sessionId, 1920, 1080);
+    await step("recovery_choices_reachable_at_1280", { controls });
+  };
+  const recover = async (expected, diskBefore) => {
+    await recoveryVisible(); await click("scene-draft-restore");
+    await waitFor(async () => (await x()) === expected, 10000, "UI recovery did not restore the edit.", 100);
+    if ((await saveStatus()).status === "saved") fail("Recovered edit incorrectly marked saved.");
+    await clickTopBarMenuAction(sessionId, "Desfazer");
+    await waitFor(async () => (await x()) === diskBefore, 10000, "Recovery undo did not restore prior editor state.", 100);
+    await clickTopBarMenuAction(sessionId, "Refazer");
+    await waitFor(async () => (await x()) === expected, 10000, "Recovery redo did not restore the edit.", 100);
+    await confirmed();
+  };
+  const save = async () => {
+    await click("toolbar-save");
+    await waitFor(async () => (await saveStatus())?.status === "saved", 20000, "Explicit save did not confirm the disk revision.", 100);
+  };
+  const crashAndReopen = async (project, label) => {
+    trackOwnedProcesses();
+    const apps = [...ownedProcesses.entries()].filter(([pid, entry]) => ownedProcessAlive(pid) && readProcStat(pid)?.state !== "Z"
+      && (entry.cmd === appPath || entry.cmd.startsWith(`${appPath} `)));
+    if (apps.length !== 1) fail(`Cannot uniquely identify own QA app: ${JSON.stringify(apps)}`);
+    const [pid, entry] = apps[0];
+    if (readProcStat(pid)?.start !== entry.start) fail("QA app PID was reused.");
+    const targets = [...listDescendants(pid).reverse(), pid].map(targetPid => {
+      const tracked = ownedProcesses.get(targetPid);
+      if (!tracked || readProcStat(targetPid)?.start !== tracked.start) fail("Unqualified QA app descendant; refusing interruption.");
+      return { pid: targetPid, starttime: tracked.start, cmd: tracked.cmd };
+    });
+    report.interruptions.push({ label, pid, starttime: entry.start, signal: "SIGKILL", app_sha256: report.app_sha256,
+      targets, target: "only tracked QA app and its WebKit descendants; stop parent then kill descendants and parent, before WebDriver cleanup; no pagehide/graceful close" });
+    await writeFile(reportPath, JSON.stringify(report, null, 2));
+    process.kill(pid, "SIGSTOP");
+    for (const target of targets) {
+      if (readProcStat(target.pid)?.start === target.starttime) process.kill(target.pid, "SIGKILL");
+    }
+    await waitFor(() => { const p = readProcStat(pid); return !p || p.state === "Z"; }, 10000, "Owned app did not stop.", 100);
+    await deleteSession(sessionId);
+    sessionId = await createSession(appPath); currentE2eRunContext.sessionId = sessionId;
+    await waitForAppWindowReady(sessionId, uiTimeout, "App did not reopen after SIGKILL.");
+    await setSessionWindowRect(sessionId, 1920, 1080); await openProject(project);
+  };
+  let restoreDirectory = null;
+  try {
+    await setSessionWindowRect(sessionId, 1920, 1080);
+    const A = await createProject(`Recovery_A_${Date.now()}`);
+    const main = "scenes/main.json", second = "scenes/recovery_secondary.json";
+    const initial = JSON.parse(await readFile(path.join(A.dir, main), "utf8"));
+    const originalX = initial.entities.find((e) => e.entity_id === "player").transform.x;
+    // Fixture preparation only: a second initial scene, before any editing/recovery proof.
+    await writeFile(path.join(A.dir, second), JSON.stringify({ ...initial, scene_id: "recovery_secondary", display_name: "Recovery Secondary" }, null, 2));
+    await step("controlled_second_scene_fixture", { scene: second, preparation: "copy of initial scene only; no edit/recovery simulated" });
+    await closeProject(); const B = await createProject(`Recovery_B_${Date.now()}`); await closeProject(); await openProject(A);
+    const originalMainSha = await sha(path.join(A.dir, main));
+    const baselineRun = await runBuildRunAndCollect(sessionId, "Recovery baseline", timeoutMs, report, `${prefix}-baseline`, { nativeClick: true });
+    await selectPlayer();
+    let finalX = originalX + 15;
+    await editX(finalX); const firstConfirmation = await confirmed();
+    const mainDraft = await readDraft(A.dir, main);
+    if (!mainDraft || await sha(path.join(A.dir, main)) !== originalMainSha) fail("Draft confirmation changed the saved file or omitted its record.");
+    await shot("01-confirmed-before-kill"); await step("native_edit_confirmed_without_disk_write", { expected_x: finalX, confirmation: firstConfirmation, disk_sha256: originalMainSha });
+    await crashAndReopen(A, "scene-main"); await recoveryVisible(); await recoveryLayout();
+    await sceneSelect(second); const secondaryX = originalX + 31;
+    await editX(secondaryX); await confirmed(); const secondaryDraft = await readDraft(A.dir, second);
+    if (await readDraft(A.dir, main) !== mainDraft || !secondaryDraft) {
+      const receipt = raw => raw ? { sha256: createHash("sha256").update(raw).digest("hex"), record: JSON.parse(raw) } : null;
+      report.draft_comparison_failure = { main_before: receipt(mainDraft), main_after: receipt(await readDraft(A.dir, main)), secondary: receipt(secondaryDraft) };
+      fail("Two scenes interfered with each other's draft.");
+    }
+    await crashAndReopen(A, "scene-secondary"); await recoveryVisible();
+    if ((await state()).activeScenePath !== second) fail("Wrong scene identity reopened.");
+    await sceneSelect(main); await recoveryVisible();
+    if (await readDraft(A.dir, second) !== secondaryDraft) fail("Opening main removed secondary draft.");
+    await recover(finalX, originalX);
+    if (await sha(path.join(A.dir, main)) !== originalMainSha) fail("UI recovery overwrote disk without explicit save.");
+    await shot("02-restored-dirty"); await step("two_scene_sigkill_recovery_undo_redo", { scene_path: main, recovered_x: finalX, disk_untouched: true, other_scene_draft_preserved: true });
+    if (faults) {
+      const scenesDir = path.join(A.dir, "scenes"); const mode = (await stat(scenesDir)).mode & 0o777;
+      restoreDirectory = { path: scenesDir, mode }; await chmod(scenesDir, 0o555);
+      await click("toolbar-save");
+      await waitFor(async () => (await saveStatus())?.status === "failed", 10000, "Controlled write denial did not report failure.", 100);
+      if (await sha(path.join(A.dir, main)) !== originalMainSha || await x() !== finalX) fail("Failed save damaged file/editor.");
+      await confirmed(); await shot("03-write-denied");
+      await crashAndReopen(A, "failed-save");
+      await chmod(scenesDir, mode); restoreDirectory = null;
+      await recover(finalX, originalX);
+      await step("controlled_write_failure_sigkill_recovery", { injection: "own scenes directory temporarily read-only; no disk/quota filling", old_file_sha256: originalMainSha });
+    }
+    await save();
+    if (await fileX(A.dir, main) !== finalX || await readDraft(A.dir, second) !== secondaryDraft) fail("Save lost edited content or the other scene draft.");
+    await closeProject(); await openProject(A);
+    if (await x() !== finalX || (await saveStatus()).status !== "saved") fail("Saved recovery did not survive normal close/reopen.");
+    await step("explicit_save_close_reopen_keeps_correct_revision", { expected_x: finalX });
+    await closeProject(); await openProject(B);
+    const bOriginal = await fileX(B.dir, main), bEdit = bOriginal + 47;
+    await editX(bEdit); await confirmed();
+    await crashAndReopen(B, "different-project"); await recover(bEdit, bOriginal); await save();
+    if (await readDraft(A.dir, second) !== secondaryDraft || await fileX(A.dir, main) !== finalX) fail("Another project's save touched A.");
+    await step("two_projects_are_isolated", { a_x: finalX, b_x: bEdit, secondary_draft_preserved: true });
+    await closeProject(); await openProject(A);
+    if ((await state()).activeScenePath !== main) await sceneSelect(main);
+    // Additional fault controls are appended below, all against owned generated fixtures.
+    if (faults) {
+      await runRecoveryFaultControls();
+    }
+    const finalRun = await runBuildRunAndCollect(sessionId, "Recovered saved revision", timeoutMs, report, `${prefix}-recovered`, { nativeClick: true });
+    if (finalRun.rom_sha256 === baselineRun.rom_sha256 || await fileX(A.dir, main) !== finalX) fail("Build did not reflect recovered/saved source.");
+    const progress = await readCanonicalGameProgress(sessionId);
+    if (progress.romSha256 !== finalRun.rom_sha256 || !progress.renderedFrames) fail("Core identity does not match recovered build.");
+    await click("toolbar-review"); await click("delivery-verify-rom");
+    await waitFor(async () => js(`return document.querySelector('[data-testid="delivery-export"]')?.disabled===false;`), 30000, "Recovered ROM verification did not enable export.", 100);
+    await click("delivery-export");
+    const exported = await waitFor(async () => js(`const e=document.querySelector('[data-testid="delivery-exported"]');return e?{path:e.dataset.path,sha:e.dataset.sha256}:null;`), 30000, "Export missing.", 100);
+    if (exported.sha !== finalRun.rom_sha256 || await sha(exported.path) !== finalRun.rom_sha256) fail("Export differs from recovered/tested ROM.");
+    await shot("99-recovered-export"); await step("recovered_revision_build_core_export_identity", { saved_x: finalX, saved_scene_sha256: await sha(path.join(A.dir, main)), baseline_rom_sha256: baselineRun.rom_sha256, tested_rom_sha256: finalRun.rom_sha256, exported });
+    report.allPass = true;
+
+    async function runRecoveryFaultControls() {
+      // Fault injection only. Real data is still produced by native editing.
+      await js(`
+        const f={fetch:window.fetch,
+          quota:false,corruptKey:null,delay:false,blocked:false,released:false,project:arguments[0],draftX:arguments[1]};
+        window.__rdsRecoveryFault=f;
+        // Tauri's invoke property is immutable. Intercept the real IPC transport
+        // response through fetch; no product/store mutation is used for this fault.
+        window.fetch=async function(input,options){
+          let command='',args;
+          try { const url=new URL(String(input));if(url.protocol==='ipc:'){command=decodeURIComponent(url.pathname.slice(1));args=JSON.parse(options.body);} }catch{}
+          const response=(value,ok)=>new Response(JSON.stringify(value),{headers:{'Tauri-Response':ok?'ok':'error','Content-Type':'application/json'}});
+          if(command==='scene_draft_storage'&&args?.operation==='write'&&f.quota)return response('Controlled QA quota refusal',false);
+          const result=f.fetch.call(window,input,options);
+          if(command==='scene_draft_storage'&&args?.operation==='read'&&f.corruptKey==='retrodev-scene-draft::v2::'+encodeURIComponent(args.projectDir)+'::'+encodeURIComponent(args.scenePath))return result.then(()=>response('{controlled-corruption',true));
+          if(command==='resolve_scene_prefabs'&&f.delay&&args?.projectDir===f.project){
+            let scene;try{scene=JSON.parse(args.sceneJson);}catch{}
+            if(scene?.scene_id==='recovery_secondary'&&scene.entities.find(e=>e.entity_id==='player')?.transform.x===f.draftX){
+              return result.then(value=>new Promise(resolve=>{f.blocked=true;f.release=()=>{f.delay=false;resolve(value);setTimeout(()=>{f.released=true;},0);};}));
+            }
+          }
+          return result;
+        };
+      `, [A.dir, secondaryX]);
+
+      await sceneSelect(second); await recoveryVisible();
+      await js(`window.__rdsRecoveryFault.delay=true;`);
+      await click("scene-draft-restore");
+      await waitFor(async () => js(`return window.__rdsRecoveryFault.blocked;`), 10000, "Deferred real prefab response was not captured.", 100);
+      await closeProject(); await openProject(B); const latestB = bEdit + 2;
+      await editX(latestB); const latestConfirmation = await confirmed();
+      const latestRaw = await readDraft(B.dir, main);
+      await js(`window.__rdsRecoveryFault.release();`);
+      await waitFor(async () => js(`return window.__rdsRecoveryFault.released;`), 10000, "Old prefab response did not release.", 100);
+      if ((await state()).activeProjectDir !== B.dir || await x() !== latestB || await readDraft(B.dir, main) !== latestRaw) fail("Old restore changed the new project/edit/draft.");
+      const after = await saveStatus();
+      if (after.revision !== latestConfirmation.revision || after.draftRevision !== after.revision) fail("Old response changed the new revision.");
+      await step("deferred_real_response_refused_after_native_context_switch", { injection: "hold actual resolve_scene_prefabs response; no scene/storage contents fabricated", preserved_project: "B", latest_x: latestB, confirmation: after });
+      await closeProject(); await openProject(A); await sceneSelect(main);
+
+      const conflictX = finalX + 3;
+      await editX(conflictX); await confirmed();
+      const external = JSON.parse(await readFile(path.join(A.dir, main), "utf8"));
+      const externalX = conflictX + 19; external.entities.find(e=>e.entity_id==='player').transform.x=externalX;
+      // Explicit external-writer fault fixture, not proof of an editor operation.
+      await writeFile(path.join(A.dir, main), JSON.stringify(external, null, 2));
+      const externalSha = await sha(path.join(A.dir, main));
+      await click("toolbar-save");
+      await waitFor(async () => (await saveStatus())?.status === "failed", 10000, "External disk change was not refused.", 100);
+      await recoveryVisible();
+      if (await sha(path.join(A.dir, main)) !== externalSha || await x() !== conflictX) fail("Conflict refusal overwrote disk/editor.");
+      const preserved = await readDraft(A.dir, main);
+      await shot("04-disk-conflict"); await click("scene-draft-keep-disk");
+      await waitFor(async () => (await x()) === externalX, 10000, "Keeping disk did not load its content.", 100);
+      if (await readDraft(A.dir, main) !== preserved) fail("Keep-disk decision removed recoverable draft.");
+      await click("scene-draft-reopen"); await recoveryVisible(); await recover(conflictX, externalX);
+      if (await sha(path.join(A.dir, main)) !== externalSha) fail("Recovering over divergent disk wrote without Save.");
+      await save(); finalX = conflictX;
+      await step("disk_divergence_explicit_keep_then_recover_preserves_both", { injection: "external edit of own fixture file", external_x: externalX, recovered_x: finalX, prior_disk_sha256: externalSha });
+
+      const corruptionX = finalX + 1;
+      await editX(corruptionX); await confirmed();
+      const key = draftKey(A.dir, main), originalRaw = await readDraft(A.dir, main);
+      await js(`window.__rdsRecoveryFault.corruptKey=arguments[0];`, [key]);
+      await closeProject(); await openProject(A);
+      await waitFor(async () => js(`return document.querySelector('[data-testid="scene-draft-warning"]')?.textContent.includes('inválido');`), 10000, "Malformed-read warning absent.", 100);
+      const underlyingRaw = await readFile(path.join(A.dir, ".rds", "scene-drafts", `${createHash("sha256").update(main).digest("hex")}.json`), "utf8");
+      if (underlyingRaw !== originalRaw) fail("Malformed-read fault deleted original storage.");
+      await shot("05-invalid-read-preserved");
+      await js(`window.__rdsRecoveryFault.corruptKey=null;`); await click("scene-draft-retry");
+      await waitFor(async () => js(`return !document.querySelector('[data-testid="scene-draft-warning"]');`), 10000, "Valid storage retry did not recover.", 100);
+      if (await x() !== corruptionX) fail("Storage retry changed editor source.");
+      await save(); finalX = corruptionX;
+      await step("controlled_malformed_read_keeps_real_record_and_recovers", { injection: "draft read response returns malformed content; actual persisted bytes untouched", expected_x: finalX });
+
+      const beforeQuotaSha = await sha(path.join(A.dir, main));
+      await js(`window.__rdsRecoveryFault.quota=true;`); const quotaX = finalX + 1;
+      await editX(quotaX);
+      await waitFor(async () => (await saveStatus())?.draftStatus === "failed", 12000, "Quota fault did not produce unconfirmed-draft state.", 100);
+      if (await sha(path.join(A.dir, main)) !== beforeQuotaSha || await x() !== quotaX) fail("Quota fault changed disk or lost editor work.");
+      const warning = await js(`return document.querySelector('[data-testid="scene-draft-warning"]')?.textContent ?? '';`);
+      if (!warning.includes('não confirmado')) fail(`Quota warning not actionable: ${warning}`);
+      await shot("06-quota-unconfirmed");
+      await js(`window.__rdsRecoveryFault.quota=false;`); await click("scene-draft-retry"); await confirmed();
+      if (await sha(path.join(A.dir, main)) !== beforeQuotaSha) fail("Draft retry wrote the project file.");
+      await save(); finalX = quotaX;
+      await step("controlled_quota_visible_retry_confirms_without_disk_write", { injection: "draft write IPC rejects with quota refusal; no disk filling", expected_x: finalX });
+    }
+  } catch (error) {
+    report.allPass = false; report.error = String(error);
+    await shot("failure").catch(() => null); throw error;
+  } finally {
+    if (restoreDirectory) await chmod(restoreDirectory.path, restoreDirectory.mode);
+    await js(`const f=window.__rdsRecoveryFault;if(f){window.fetch=f.fetch;delete window.__rdsRecoveryFault;}`).catch(() => null);
+    report.finished_at = new Date().toISOString(); await writeFile(reportPath, JSON.stringify(report, null, 2));
+    console.log(`Recovery evidence: ${reportPath}`);
+  }
+}
+
 async function runAuthoringAcceptanceScenario(initialSessionId, appPath, uiBootstrapTimeoutMs, onProjectCreated) {
   let sessionId = initialSessionId;
   const artifactPrefix = `authoring-acceptance-${artifactTimestamp()}`;
@@ -22585,6 +22904,7 @@ async function main() {
     options.scenario !== "create-game-from-zero" &&
     options.scenario !== "reference-platformer" &&
     options.scenario !== "authoring-acceptance" &&
+    options.scenario !== "draft-recovery" &&
     options.scenario !== "nodegraph-authoring" &&
     options.scenario !== "behaviors-independence" &&
     options.scenario !== "collect-goal" &&
@@ -24264,6 +24584,14 @@ async function main() {
       console.log(`Evidencias: ${wizardScreenshot}`);
       console.log(`Evidencias: ${editorScreenshot}`);
       console.log(`Evidencias: ${layerScreenshot}`);
+      return;
+    }
+
+    if (options.scenario === "draft-recovery") {
+      await runDraftRecoveryScenario(sessionId, options.app, emulatorActivationTimeoutMs, uiBootstrapTimeoutMs, (projectDir) => {
+        temporaryProjectDir = projectDir;
+        currentE2eRunContext.project = projectDir;
+      });
       return;
     }
 

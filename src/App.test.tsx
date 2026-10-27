@@ -612,6 +612,8 @@ vi.mock("./core/ipc/projectService", () => ({
 }));
 
 vi.mock("./core/scenePersistence", () => ({
+  flushPendingEdits: vi.fn(),
+  SCENE_DRAFT_DELAY_MS: 2000,
   hydrateSceneResult: mocks.hydrateSceneResult,
   persistActiveScene: mocks.persistActiveScene,
   reloadSceneFromDisk: mocks.reloadSceneFromDisk,
@@ -1179,6 +1181,11 @@ describe("App build flow", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    mocks.loadSceneDraft.mockReset().mockResolvedValue(null);
+    mocks.sceneDraftDiffersFromActiveSource.mockReset().mockReturnValue(false);
+    mocks.saveActiveSceneDraft.mockReset().mockReturnValue(true);
+    mocks.restoreSceneDraft.mockReset().mockResolvedValue(false);
+    mocks.clearSceneDraft.mockReset().mockReturnValue(true);
     localStorage.clear();
     mocks.authorizeProjectAssetScope.mockResolvedValue(
       "F:/Projects/RetroDevStudio/tests/fixtures/projects/megadrive_dummy"
@@ -1187,6 +1194,9 @@ describe("App build flow", () => {
     useEditorStore.setState({
       activeProjectDir: "F:/Projects/RetroDevStudio/tests/fixtures/projects/megadrive_dummy",
       activeProjectName: "Mega Dummy",
+      sceneDiskBaseline: null,
+      sceneDraftState: { status: "idle", revision: null, savedAt: null, message: null },
+      sceneSaveState: { status: "idle", revision: null, at: null, message: null },
       activeTarget: "megadrive",
       emulatorLoaded: false,
       selectedEntityId: null,
@@ -1548,6 +1558,72 @@ describe("App build flow", () => {
       await flush();
     });
     container.remove();
+  });
+
+  it("recovery: hydration does not overwrite an unresolved draft after the debounce", async () => {
+    const state = useEditorStore.getState();
+    const source = { ...state.activeSceneSource!, palettes: [] };
+    const record = { savedAt: "2026-10-27T12:00:00Z", scenePath: "scenes/recovery.json", sourceSceneJson: JSON.stringify({ ...source, scene_id: "draft" }), storageValue: "draft-A" };
+    mocks.loadSceneDraft.mockResolvedValue(record);
+    mocks.sceneDraftDiffersFromActiveSource.mockReturnValue(true);
+    await act(async () => { state.setActiveScenePath("scenes/recovery.json"); state.setActiveScene(source, source); await flush(); });
+    expect(container.querySelector('[data-testid="scene-draft-recovery"]')).not.toBeNull();
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 2150)); });
+    expect(mocks.saveActiveSceneDraft).not.toHaveBeenCalled();
+    expect(mocks.persistActiveScene).not.toHaveBeenCalled();
+  });
+
+  it("recovery: local protection failure has a visible retry without claiming disk save", async () => {
+    const state = useEditorStore.getState();
+    await act(async () => {
+      state.setActiveScenePath("scenes/retry.json");
+      state.setActiveScene({ ...state.activeSceneSource!, palettes: [] });
+      useEditorStore.setState({ sceneRevision: useEditorStore.getState().sceneRevision + 1 });
+      state.setSceneDraftState({ status: "failed", revision: null, savedAt: null, message: "quota: rascunho não confirmado" });
+    });
+    expect(container.querySelector('[data-testid="scene-draft-warning"]')?.textContent).toContain("quota");
+    mocks.saveActiveSceneDraft.mockImplementation(() => {
+      const current = useEditorStore.getState();
+      current.setSceneDraftState({ status: "confirmed", revision: current.sceneRevision, savedAt: new Date().toISOString(), message: null });
+      return true;
+    });
+    await act(async () => { (container.querySelector('[data-testid="scene-draft-retry"]') as HTMLButtonElement).click(); });
+    expect(container.querySelector('[data-testid="scene-save-status"]')?.textContent).toBe("Rascunho confirmado");
+    expect(container.querySelector('[data-testid="scene-draft-warning"]')).toBeNull();
+    expect(mocks.persistActiveScene).not.toHaveBeenCalled();
+  });
+
+  it("recovery: divergence requires an explicit choice and keeping disk preserves the draft", async () => {
+    const state = useEditorStore.getState();
+    const source = { ...state.activeSceneSource!, palettes: [] };
+    const record = { savedAt: "2026-10-27T12:00:00Z", scenePath: "scenes/conflict.json", sourceSceneJson: JSON.stringify(source), diskConflict: true, storageValue: "conflicted" };
+    mocks.loadSceneDraft.mockResolvedValue(record); mocks.sceneDraftDiffersFromActiveSource.mockReturnValue(true);
+    await act(async () => { state.setActiveScenePath("scenes/conflict.json"); state.setActiveScene(source); await flush(); });
+    expect(container.querySelector('[data-testid="scene-draft-recovery"]')?.textContent).toContain("diverge");
+    expect(container.querySelector('[data-testid="scene-draft-restore"]')?.textContent).toBe("Usar rascunho no editor");
+    await act(async () => { (container.querySelector('[data-testid="scene-draft-keep-disk"]') as HTMLButtonElement).click(); await flush(); });
+    expect(mocks.clearSceneDraft).not.toHaveBeenCalled();
+    expect(mocks.persistActiveScene).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="scene-draft-recovery"]')).toBeNull();
+    await act(async () => { (container.querySelector('[data-testid="scene-draft-reopen"]') as HTMLButtonElement).click(); });
+    expect(container.querySelector('[data-testid="scene-draft-recovery"]')).not.toBeNull();
+    await act(async () => { (container.querySelector('[data-testid="scene-draft-restore"]') as HTMLButtonElement).click(); });
+    expect(mocks.restoreSceneDraft).toHaveBeenCalledWith(state.activeProjectDir, record, { acceptDiskChange: true });
+  });
+
+  it("recovery: a late restore callback cannot dismiss another scene's recovery prompt", async () => {
+    const state = useEditorStore.getState(); const source = { ...state.activeSceneSource!, palettes: [] };
+    let complete!: (value: boolean) => void;
+    mocks.restoreSceneDraft.mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
+    mocks.sceneDraftDiffersFromActiveSource.mockReturnValue(true);
+    const record = (name: string) => ({ savedAt: "2026-10-27T12:00:00Z", scenePath: `scenes/${name}.json`, sourceSceneJson: JSON.stringify(source), storageValue: name });
+    mocks.loadSceneDraft.mockResolvedValue(record("A"));
+    await act(async () => { state.setActiveScenePath("scenes/A.json"); state.setActiveScene(source); await flush(); });
+    await act(async () => { (container.querySelector('[data-testid="scene-draft-restore"]') as HTMLButtonElement).click(); });
+    mocks.loadSceneDraft.mockResolvedValue(record("B"));
+    await act(async () => { state.setActiveScenePath("scenes/B.json"); state.setActiveScene(source); await flush(); });
+    await act(async () => { complete(true); await flush(); });
+    expect(container.querySelector('[data-testid="scene-draft-recovery"]')?.textContent).toContain("scenes/B.json");
   });
 
   it("hydrates an existing project through the automation openProject bridge", async () => {

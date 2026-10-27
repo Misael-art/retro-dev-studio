@@ -79,6 +79,7 @@ import {
 } from "./core/store/editorStore";
 import {
   clearSceneDraft,
+  flushPendingEdits,
   hydrateSceneResult,
   loadSceneDraft,
   persistActiveScene,
@@ -86,6 +87,7 @@ import {
   restoreSceneDraft,
   saveActiveSceneDraft,
   sceneDraftDiffersFromActiveSource,
+  SCENE_DRAFT_DELAY_MS,
   type SceneDraftRecord,
 } from "./core/scenePersistence";
 import {
@@ -1595,6 +1597,9 @@ export default function App() {
     activeScenePath,
     activeSceneSource,
     sceneRevision,
+    projectSessionId,
+    sceneDiskBaseline,
+    sceneDraftState,
     setActiveProject,
     activeTarget,
     setActiveTarget,
@@ -1644,9 +1649,11 @@ export default function App() {
   const [shellPersona, setShellPersona] = useState<ShellPersona>(() => loadShellPersona());
   const [personaSuggestion, setPersonaSuggestion] = useState<ShellPersona | null>(null);
   const [pendingSceneDraft, setPendingSceneDraft] = useState<SceneDraftRecord | null>(null);
-  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const dismissedDraftRef = useRef<{ session: number; raw?: string } | null>(null);
   const shellDensity = getShellDensity(shellWidth);
   const hasActiveSceneSource = Boolean(activeSceneSource);
+  const draftConflict = sceneDraftState.status === "conflict";
+  const lastRecoveryCheckRef = useRef<{ session: number; scenePath: string; baseline: string; conflict: boolean } | null>(null);
 
   // Metricas locais de produto (Experimental): localStorage apenas, sem rede.
   useEffect(() => {
@@ -1654,28 +1661,60 @@ export default function App() {
     setPersonaSuggestion(getPersonaSuggestion(getProductMetricsSnapshot(), loadShellPersona()));
   }, []);
 
-  // Autosave de rascunho local (Experimental): debounce apos mutacao de cena.
+  // A confirmation covers only this exact scene/session/revision. Clean disk
+  // hydration and an unresolved recovery must never overwrite a prior draft.
   useEffect(() => {
-    if (!activeProjectDir || sceneRevision === 0) {
-      return;
-    }
+    const started = useEditorStore.getState();
+    if (!activeProjectDir || !activeScenePath || !hasActiveSceneSource
+        || !sceneDiskBaseline || sceneDiskBaseline.projectDir !== activeProjectDir
+        || sceneDiskBaseline.scenePath !== activeScenePath
+        || (started.sceneSaveState.revision === sceneRevision && started.sceneDraftState.status === "idle")) return;
     const handle = window.setTimeout(() => {
-      if (saveActiveSceneDraft(activeProjectDir)) {
-        setDraftSavedAt(new Date().toISOString());
-      }
-    }, 2000);
+      const current = useEditorStore.getState();
+      if (current.projectSessionId !== projectSessionId || current.activeProjectDir !== activeProjectDir
+          || current.activeScenePath !== activeScenePath || current.sceneRevision !== sceneRevision
+          || ["recovery", "invalid", "conflict"].includes(current.sceneDraftState.status)) return;
+      void saveActiveSceneDraft(activeProjectDir);
+    }, SCENE_DRAFT_DELAY_MS);
     return () => window.clearTimeout(handle);
-  }, [activeProjectDir, sceneRevision]);
+  }, [activeProjectDir, activeScenePath, projectSessionId, sceneRevision, hasActiveSceneSource, sceneDiskBaseline]);
+
+  useEffect(() => {
+    const protect = () => {
+      flushPendingEdits();
+      const state = useEditorStore.getState();
+      if (state.activeProjectDir && state.activeSceneSource && state.sceneRevision !== state.sceneSaveState.revision) {
+        void saveActiveSceneDraft(state.activeProjectDir);
+      }
+    };
+    window.addEventListener("pagehide", protect);
+    return () => window.removeEventListener("pagehide", protect);
+  }, []);
 
   // Detecta rascunho divergente quando a cena hidrata (recuperacao pos-crash).
   useEffect(() => {
-    if (!activeProjectDir || !hasActiveSceneSource) {
+    if (!activeProjectDir || !hasActiveSceneSource || !sceneDiskBaseline
+        || sceneDiskBaseline.projectDir !== activeProjectDir || sceneDiskBaseline.scenePath !== activeScenePath) {
       setPendingSceneDraft(null);
       return;
     }
-    const draft = loadSceneDraft(activeProjectDir);
-    setPendingSceneDraft(draft && sceneDraftDiffersFromActiveSource(draft) ? draft : null);
-  }, [activeProjectDir, hasActiveSceneSource]);
+    const state = useEditorStore.getState();
+    if (state.sceneSaveState.revision !== sceneRevision && state.sceneDraftState.status !== "conflict") return;
+    const checked = lastRecoveryCheckRef.current;
+    if (checked?.session === projectSessionId && checked.scenePath === activeScenePath && checked.baseline === sceneDiskBaseline.sourceSceneJson
+        && checked.conflict === draftConflict) return;
+    lastRecoveryCheckRef.current = { session: projectSessionId, scenePath: activeScenePath, baseline: sceneDiskBaseline.sourceSceneJson, conflict: draftConflict };
+    let cancelled = false;
+    void loadSceneDraft(activeProjectDir).then((draft) => {
+      if (cancelled || useEditorStore.getState().projectSessionId !== projectSessionId) return;
+      const dismissed = dismissedDraftRef.current?.session === projectSessionId
+        && dismissedDraftRef.current?.raw === draft?.storageValue;
+      setPendingSceneDraft(!dismissed && draft && (sceneDraftDiffersFromActiveSource(draft) || state.sceneDraftState.status === "conflict") ? draft : null);
+    });
+    return () => { cancelled = true; };
+    // Only a loaded disk baseline/context or an explicit conflict opens recovery.
+    // Ordinary edits and draft confirmations do not re-open the prompt.
+  }, [activeProjectDir, activeScenePath, projectSessionId, hasActiveSceneSource, sceneDiskBaseline, sceneRevision, draftConflict]);
 
   function trackProductMetric(event: ProductMetricEvent) {
     recordProductMetric(event);
@@ -1691,23 +1730,48 @@ export default function App() {
     }
   }
 
-  async function handleRestoreSceneDraft() {
+  async function handleRestoreSceneDraft(acceptDiskChange = false) {
     if (!pendingSceneDraft || !activeProjectDir) {
       return;
     }
-    const restored = await restoreSceneDraft(activeProjectDir, pendingSceneDraft);
-    if (restored) {
+    const context = useEditorStore.getState();
+    const restored = await restoreSceneDraft(activeProjectDir, pendingSceneDraft, { acceptDiskChange });
+    if (restored && useEditorStore.getState().projectSessionId === context.projectSessionId
+        && useEditorStore.getState().activeScenePath === context.activeScenePath) {
       setPendingSceneDraft(null);
     }
   }
 
-  function handleDiscardSceneDraft() {
+  async function handleKeepSavedScene() {
+    if (!pendingSceneDraft || !activeProjectDir) return;
+    const context = useEditorStore.getState();
+    const record = pendingSceneDraft;
+    if (await reloadSceneFromDisk(activeProjectDir, "Recuperação")) {
+      if (useEditorStore.getState().projectSessionId !== context.projectSessionId) return;
+      dismissedDraftRef.current = { session: context.projectSessionId, raw: record.storageValue };
+      setPendingSceneDraft(null);
+      context.setSceneDraftState({ status: "recovery", revision: record.revision ?? null, savedAt: record.savedAt,
+        message: "Arquivo salvo aberto. Rascunho anterior preservado; recupere-o ou use Salvar para proteger novas mudanças." });
+    }
+  }
+
+  async function handleDiscardSceneDraft() {
     if (!activeProjectDir) {
       return;
     }
-    clearSceneDraft(activeProjectDir);
-    setPendingSceneDraft(null);
-    logMessage("info", "[Autosave] Rascunho local descartado.");
+    const context = useEditorStore.getState();
+    const cleared = await clearSceneDraft(activeProjectDir, undefined, activeScenePath, pendingSceneDraft ? {
+      key: pendingSceneDraft.storageKey, raw: pendingSceneDraft.storageValue,
+    } : undefined);
+    if (useEditorStore.getState().projectSessionId !== context.projectSessionId) return;
+    if (cleared) {
+      setPendingSceneDraft(null);
+      dismissedDraftRef.current = null;
+      useEditorStore.getState().setSceneDraftState({ status: "idle", revision: null, savedAt: null, message: null });
+      const state = useEditorStore.getState();
+      if (state.sceneRevision !== state.sceneSaveState.revision) void saveActiveSceneDraft(activeProjectDir);
+      logMessage("info", "[Recuperação] Rascunho selecionado descartado por sua escolha; arquivo salvo preservado.");
+    } else logMessage("warn", "[Recuperação] Rascunho preservado: não foi possível confirmar o descarte; leia novamente.");
   }
   const [newProjName, setNewProjName] = useState("MeuProjeto");
   const [projectNameSuggestionMode, setProjectNameSuggestionMode] = useState<"auto" | "manual">(
@@ -2617,6 +2681,11 @@ export default function App() {
     scope: string,
     preferredScenePath?: string | null
   ) {
+    flushPendingEdits();
+    const previous = useEditorStore.getState();
+    if (previous.activeProjectDir && previous.activeSceneSource && previous.sceneRevision !== previous.sceneSaveState.revision) {
+      await saveActiveSceneDraft(previous.activeProjectDir);
+    }
     await resetEmulatorSession(true);
     const hw = await getHwStatus(projectDir);
     const normalizedPreferredScene = preferredScenePath?.trim() || null;
@@ -5504,13 +5573,13 @@ export default function App() {
             {activeProjectDir ? <SceneSaveStatusChip /> : null}
             <ToolbarButton label="Salvar" testId="toolbar-save" disabled={!activeProjectDir}
               onClick={() => void handleSaveScene()} title={getShortcutTitle("scene.save", "Salvar cena ativa", shortcuts)} />
-            {draftSavedAt ? (
+            {sceneDraftState.status === "confirmed" && sceneDraftState.savedAt && sceneDraftState.revision === sceneRevision ? (
               <span
                 data-testid="scene-draft-saved-at"
                 className="hidden shrink-0 text-[9px] text-[var(--rds-text-muted)] xl:inline"
-                title={`Autosave local (Experimental): rascunho salvo as ${new Date(draftSavedAt).toLocaleTimeString()}. Nada foi gravado em disco; use Salvar para persistir.`}
+                title="Rascunho local confirmado por releitura (Experimental). Arquivo salvo só muda ao usar Salvar. A confirmação não garante sobrevivência a falha do disco ou energia."
               >
-                Rascunho {new Date(draftSavedAt).toLocaleTimeString()}
+                Rascunho {new Date(sceneDraftState.savedAt).toLocaleTimeString()}
               </span>
             ) : null}
             <details className="relative shrink-0">
@@ -5596,22 +5665,50 @@ export default function App() {
             Rascunho local encontrado (Experimental)
           </span>
           <span className="text-[var(--rds-text-secondary)]">
-            Autosave de {new Date(pendingSceneDraft.savedAt).toLocaleString()} difere da cena
-            aberta. Restaurar traz o rascunho para o editor sem gravar em disco.
+            {pendingSceneDraft.scenePath} · revisão {pendingSceneDraft.revision ?? "antiga"} · {new Date(pendingSceneDraft.savedAt).toLocaleString()}.
+            {pendingSceneDraft.diskConflict || sceneDraftState.status === "conflict"
+              ? " O arquivo salvo diverge da base (ou a base antiga é desconhecida). Escolha qual conteúdo abrir; o rascunho será preservado."
+              : " Restaurar abre uma edição pendente, com desfazer/refazer; não grava no arquivo salvo."}
           </span>
           <div className="ml-auto flex shrink-0 gap-2">
             <ToolbarButton
-              label="Restaurar rascunho"
+              label={pendingSceneDraft.diskConflict || sceneDraftState.status === "conflict" ? "Usar rascunho no editor" : "Restaurar rascunho"}
               accent="primary"
               testId="scene-draft-restore"
-              onClick={() => void handleRestoreSceneDraft()}
+              onClick={() => void handleRestoreSceneDraft(Boolean(pendingSceneDraft.diskConflict || sceneDraftState.status === "conflict"))}
             />
+            <ToolbarButton label="Manter arquivo salvo" testId="scene-draft-keep-disk" onClick={() => void handleKeepSavedScene()} />
             <ToolbarButton
-              label="Descartar"
+              label="Descartar este rascunho"
               testId="scene-draft-discard"
               onClick={handleDiscardSceneDraft}
             />
           </div>
+        </div>
+      ) : null}
+
+      {activeProjectDir && ["failed", "invalid", "recovery", "conflict"].includes(sceneDraftState.status) ? (
+        <div data-testid="scene-draft-warning" role="alert" className="mx-4 mt-2 flex flex-wrap items-center gap-2 rounded border border-[var(--rds-status-warning)]/40 px-3 py-2 text-[11px] text-[var(--rds-status-warning)]">
+          <span>{sceneDraftState.message}</span>
+          <ToolbarButton label={sceneDraftState.status === "invalid" ? "Reler rascunho" : "Tentar proteger novamente"}
+            testId="scene-draft-retry" onClick={async () => {
+              const state = useEditorStore.getState();
+              if (state.sceneDraftState.status === "invalid") {
+                const record = await loadSceneDraft(state.activeProjectDir);
+                if (useEditorStore.getState().projectSessionId !== state.projectSessionId) return;
+                if (record && sceneDraftDiffersFromActiveSource(record)) setPendingSceneDraft(record);
+              }
+              else await saveActiveSceneDraft(state.activeProjectDir);
+            }} />
+          {!pendingSceneDraft ? <ToolbarButton label="Ver rascunho preservado" testId="scene-draft-reopen" onClick={async () => {
+            dismissedDraftRef.current = null;
+            const context = useEditorStore.getState();
+            const draft = await loadSceneDraft(context.activeProjectDir);
+            if (useEditorStore.getState().projectSessionId === context.projectSessionId) setPendingSceneDraft(draft);
+          }} /> : null}
+          {sceneDraftState.raw ? <details className="w-full"><summary>Ver conteúdo preservado para copiar</summary>
+            <textarea aria-label="Conteúdo do rascunho preservado" readOnly value={sceneDraftState.raw} className="mt-2 h-28 w-full bg-[var(--rds-surface-panel)] font-mono" />
+          </details> : null}
         </div>
       ) : null}
 
@@ -5868,6 +5965,7 @@ useEditorStore.subscribe((state, previous) => {
 
 function SceneSaveStatusChip() {
   const saveState = useEditorStore((state) => state.sceneSaveState);
+  const draftState = useEditorStore((state) => state.sceneDraftState);
   const sceneRevision = useEditorStore((state) => state.sceneRevision);
   const status =
     saveState.status === "saving"
@@ -5883,7 +5981,8 @@ function SceneSaveStatusChip() {
     saving: "Salvando…",
     saved: "Salvo",
     failed: "Falha ao salvar",
-    dirty: "Alterações não salvas",
+    dirty: draftState.status === "confirmed" && draftState.revision === sceneRevision
+      ? "Rascunho confirmado" : "Alterações só no editor",
     idle: "Sem alterações",
   }[status];
   const tone = {
@@ -5899,9 +5998,12 @@ function SceneSaveStatusChip() {
       data-status={status}
       data-revision={sceneRevision}
       data-saved-revision={saveState.revision ?? ""}
+      data-draft-status={draftState.status}
+      data-draft-revision={draftState.revision ?? ""}
       role="status"
       aria-live="polite"
-      title={status === "failed" ? `Falha ao salvar: ${saveState.message ?? "erro desconhecido"}. As alterações continuam no editor.` : label}
+      title={status === "failed" ? `Falha ao salvar: ${saveState.message ?? "erro desconhecido"}. As alterações continuam no editor.`
+        : status === "dirty" ? `${label}. O rascunho aguarda até ${SCENE_DRAFT_DELAY_MS / 1000} segundos sem edição e confirmação por releitura. Antes disso pode haver perda; não garante recuperação após falha de energia/disco. Use Salvar para gravar o arquivo.` : label}
       className={`shrink-0 rounded border px-2 py-0.5 text-[10px] font-semibold ${tone}`}
     >
       {label}

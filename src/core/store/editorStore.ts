@@ -41,12 +41,45 @@ import {
 
 export const UNDO_STACK_LIMIT = 50;
 
+/** Semantic source equality for disk baselines and draft recovery; array order is significant. */
+export function sceneSourcesEqual(left: string, right: string): boolean {
+  const ordered = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(ordered);
+    if (value && typeof value === "object") return Object.fromEntries(
+      Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, ordered(item)])
+    );
+    return value;
+  };
+  try { return JSON.stringify(ordered(JSON.parse(left))) === JSON.stringify(ordered(JSON.parse(right))); }
+  catch { return false; }
+}
+
 export type SceneSaveState = {
   status: "idle" | "saving" | "saved" | "failed";
   message: string | null;
   at: number | null;
   /** sceneRevision that the last successful save persisted. */
   revision: number | null;
+};
+
+export type SceneDraftState = {
+  status: "idle" | "pending" | "confirmed" | "failed" | "invalid" | "recovery" | "conflict";
+  revision: number | null;
+  savedAt: string | null;
+  message: string | null;
+  /** Raw storage is retained for inspection when decoding fails. */
+  raw?: string;
+  diskSourceJson?: string;
+};
+
+const EMPTY_SCENE_DRAFT_STATE: SceneDraftState = {
+  status: "idle", revision: null, savedAt: null, message: null,
+};
+
+export type SceneDiskBaseline = {
+  projectDir: string;
+  scenePath: string;
+  sourceSceneJson: string;
 };
 
 export interface HwStatus {
@@ -219,6 +252,8 @@ export interface StoreState {
   coreEpoch: number | null;
   /** Truthful save status of the active scene: set by persistActiveScene only. */
   sceneSaveState: SceneSaveState;
+  sceneDraftState: SceneDraftState;
+  sceneDiskBaseline: SceneDiskBaseline | null;
   /** Última intenção CONFIRMADA pelo backend (`ok: true`). Este é o único
    * campo que demonstra entrega aceita pelo emulador. Acks cuja sequência não
    * corresponde à solicitação corrente são descartados (ack atrasado). */
@@ -388,6 +423,7 @@ export interface StoreActions {
   recordJoypadBlocked: () => void;
   setCoreEpoch: (epoch: number | null) => void;
   setSceneSaveState: (state: SceneSaveState) => void;
+  setSceneDraftState: (state: SceneDraftState) => void;
   setViewportZoom: (zoom: number) => void;
   resetViewportZoom: () => void;
   setProjectSourceKind: (kind: string) => void;
@@ -625,6 +661,16 @@ function restoreFocusFromUndo(state: StoreState, entry: UndoEntry): StudioContex
   return entry.studioFocus ? { ...state.studio, focus: { ...entry.studioFocus } } : state.studio;
 }
 
+function saveStateAfterHistory(state: EditorState, source: Scene | null, revision: number): SceneSaveState {
+  if (state.sceneSaveState.status === "saving") return state.sceneSaveState;
+  const baseline = state.sceneDiskBaseline;
+  if (source && baseline?.projectDir === state.activeProjectDir && baseline.scenePath === state.activeScenePath
+      && state.sceneDraftState.status !== "conflict" && sceneSourcesEqual(JSON.stringify(source), baseline.sourceSceneJson)) {
+    return { status: "saved", revision, at: state.sceneSaveState.at, message: null };
+  }
+  return state.sceneSaveState;
+}
+
 export const useEditorStore = create<EditorState>((set, get) => ({
   activeProjectDir: "",
   projectSessionId: 0,
@@ -635,6 +681,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       activeProjectDir: dir,
       projectSessionId: state.projectSessionId + 1,
       activeProjectName: name,
+      sceneDiskBaseline: null,
+      sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
       lastBuildSourceMap: null,
       lastRuntimeLink: null,
       lastBuildSceneRevision: null,
@@ -652,6 +700,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   activeScenePath: "",
   setActiveScenePath: (path) => set((state) => state.activeScenePath === path ? state : ({
     activeScenePath: path,
+    sceneDiskBaseline: null,
+    sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
     projectSessionId: state.projectSessionId + 1,
     lastBuildSourceMap: null,
     lastRuntimeLink: null,
@@ -920,6 +970,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return {
         activeScene: scene,
         activeSceneSource: sourceScene,
+        sceneDiskBaseline: sourceScene ? {
+          projectDir: state.activeProjectDir,
+          scenePath: state.activeScenePath,
+          sourceSceneJson: JSON.stringify(sourceScene),
+        } : null,
+        sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
         selectedEntityId: resolveSceneSelection(scene, state.selectedEntityId),
         sceneRevision: nextRevision,
         // A scene set from outside (disk load/hydration) is the saved baseline.
@@ -1148,6 +1204,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         redoStack: pushHistoryEntry(state.redoStack, createUndoEntry(state)),
         pendingHistorySnapshot: null,
         sceneRevision: state.sceneRevision + 1,
+        sceneSaveState: saveStateAfterHistory(state, previous.activeSceneSource, state.sceneRevision + 1),
       };
     }),
   redo: () =>
@@ -1169,6 +1226,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         redoStack: state.redoStack.slice(0, -1),
         pendingHistorySnapshot: null,
         sceneRevision: state.sceneRevision + 1,
+        sceneSaveState: saveStateAfterHistory(state, next.activeSceneSource, state.sceneRevision + 1),
       };
     }),
 
@@ -1182,6 +1240,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   joypadBlockedCount: 0,
   coreEpoch: null,
   sceneSaveState: { status: "idle", message: null, at: null, revision: null },
+  sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
+  sceneDiskBaseline: null,
   setEmulPaused: (paused) => set({ emulPaused: paused }),
   beginJoypadSessionHold: () =>
     set({
@@ -1199,6 +1259,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((state) => ({ joypadBlockedCount: state.joypadBlockedCount + 1 })),
   setCoreEpoch: (epoch) => set({ coreEpoch: epoch }),
   setSceneSaveState: (sceneSaveState) => set({ sceneSaveState }),
+  setSceneDraftState: (sceneDraftState) => set({ sceneDraftState }),
   recordJoypadRequest: (sessionId, seq, joypad) =>
     set((state) =>
       !state.joypadSessionHold && state.joypadSessionId === sessionId
