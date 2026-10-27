@@ -706,6 +706,44 @@ describe("ArtStudioPanel import flow", () => {
     expect(mocks.artProcessPalette).toHaveBeenCalledWith("D:/Downloads/hero.webp");
   });
 
+  it("keeps an explicitly loaded sheet while the selected entity still references its old asset", async () => {
+    await act(async () => {
+      useEditorStore.setState({ selectedEntityId: "hero", activeScene: {
+        scene_id: "main", background_layers: [], palettes: [], entities: [{ entity_id: "hero", prefab: null,
+          transform: { x: 0, y: 0 }, components: { sprite: { asset: "assets/sprites/old.png", frame_width: 32, frame_height: 32, palette_slot: 0, animations: {}, priority: "foreground", meta_sprite: false } } }],
+      } });
+      await flush(); await flush();
+    });
+    mocks.open.mockResolvedValue("D:/Downloads/replacement.ppm");
+    await act(async () => {
+      findButton(container, "Importar imagem").click();
+      await flush(); await flush(); await flush();
+    });
+    expect(window.__RDS_ARTSTUDIO_E2E__?.getState().spriteSheetSourcePath).toBe("D:/Downloads/replacement.ppm");
+    expect(mocks.artProcessPalette.mock.calls.map(call => call[0]).filter(path => String(path).endsWith("old.png"))).toHaveLength(1);
+  });
+
+  it("refuses a delayed entity-image response after a newer explicit image load", async () => {
+    const processed = await mocks.artProcessPalette();
+    let finish!: (value: typeof processed) => void;
+    mocks.artProcessPalette.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    await act(async () => {
+      useEditorStore.setState({ selectedEntityId: "hero", activeScene: {
+        scene_id: "main", background_layers: [], palettes: [], entities: [{ entity_id: "hero", prefab: null,
+          transform: { x: 0, y: 0 }, components: { sprite: { asset: "assets/sprites/old.png", frame_width: 32, frame_height: 32, palette_slot: 0, animations: {}, priority: "foreground", meta_sprite: false } } }],
+      } });
+      await flush();
+    });
+    mocks.open.mockResolvedValue("D:/Downloads/newer.ppm");
+    await act(async () => {
+      findButton(container, "Importar imagem").click();
+      await flush(); await flush();
+    });
+    await act(async () => { finish(processed); await flush(); await flush(); });
+    expect(window.__RDS_ARTSTUDIO_E2E__?.getState().spriteSheetSourcePath).toBe("D:/Downloads/newer.ppm");
+    expect(window.__RDS_ARTSTUDIO_E2E__?.getState().spritePath).toBe("");
+  });
+
   it("exposes an automation hook for file-picker-safe BYOR sprite ingestion", async () => {
     const automationWindow = window as Window & {
       __RDS_ARTSTUDIO_E2E__?: {

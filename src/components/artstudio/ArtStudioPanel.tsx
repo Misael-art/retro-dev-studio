@@ -2661,6 +2661,7 @@ export default function ArtStudioPanel() {
     logMessage,
     activeScene,
     activeProjectDir,
+    projectSessionId,
     activeTarget,
     hwStatus,
     selectedEntityId,
@@ -2683,6 +2684,7 @@ export default function ArtStudioPanel() {
   const stageScrollRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const processingRequestIdRef = useRef(0);
+  const imageRequestIdRef = useRef(0);
   const autoHydratedSpriteRef = useRef<string | null>(null);
   const saveFeedbackTimeoutRef = useRef<number | null>(null);
   const panStateRef = useRef<{
@@ -2805,6 +2807,9 @@ export default function ArtStudioPanel() {
 
   useEffect(() => {
     return () => {
+      imageRequestIdRef.current += 1;
+      processingRequestIdRef.current += 1;
+      autoHydratedSpriteRef.current = null;
       if (saveFeedbackTimeoutRef.current !== null) {
         window.clearTimeout(saveFeedbackTimeoutRef.current);
       }
@@ -2871,6 +2876,15 @@ export default function ArtStudioPanel() {
 
   const ingestSpriteSheet = useCallback(
     async (request: ArtStudioImageRequest) => {
+      const requestId = ++imageRequestIdRef.current;
+      processingRequestIdRef.current += 1;
+      const current = () => {
+        const editor = useEditorStore.getState();
+        return imageRequestIdRef.current === requestId && editor.projectSessionId === projectSessionId
+          && editor.activeProjectDir === activeProjectDir && editor.activeTarget === activeTarget
+          && editor.selectedEntityId === selectedEntityId;
+      };
+      if (!current()) return false;
       const sourcePath = request.sourcePath ?? (request.file ? resolveDroppedFilePath(request.file) : null);
       const sourceLabel = sourcePath ?? request.file?.name ?? "imagem";
       dispatch({ type: "START_SPRITE_LOAD", sourceLabel: basenameWithExtension(sourceLabel) });
@@ -2883,11 +2897,13 @@ export default function ArtStudioPanel() {
         }
 
         const processed = await artProcessPalette(sourcePath);
+        if (!current()) return false;
         if (!processed.ok || !processed.processed_base64) {
           throw new Error(processed.error ?? "Falha ao processar a imagem no backend.");
         }
 
         const loaded = await loadArtStudioPreviewFromBase64(processed.processed_base64);
+        if (!current()) return false;
 
         const relativeAssetPath =
           activeProjectDir && sourcePath
@@ -2950,16 +2966,19 @@ export default function ArtStudioPanel() {
           relativeAssetPath ? "success" : "info",
           `[ArtStudio] Imagem processada no backend: ${basenameWithExtension(sourcePath)} (${processed.format ?? "imagem"} ${loaded.size.width}x${loaded.size.height}, paleta ${processed.palette_size}/16).`
         );
+        return true;
       } catch (error) {
+        if (!current()) return false;
         const friendlyMessage = getArtStudioFriendlyError(sourceLabel, error);
         dispatch({ type: "LOAD_SPRITE_ERROR", message: friendlyMessage });
         logMessage(
           "error",
           `[ArtStudio] ${friendlyMessage} Detalhe tecnico: ${describeError(error)}`
         );
+        return false;
       }
     },
-    [activeProjectDir, activeTarget, logMessage]
+    [activeProjectDir, activeTarget, projectSessionId, selectedEntityId, logMessage]
   );
 
   const handleLoadSpriteSheet = useCallback(async () => {
@@ -3057,17 +3076,15 @@ export default function ArtStudioPanel() {
     if (!spriteAsset) {
       return;
     }
-    if (
-      autoHydratedSpriteRef.current === spriteAsset &&
-      (state.spritePath === spriteAsset || state.spriteSourceAssetPath === spriteAsset)
-    ) {
-      return;
-    }
-    autoHydratedSpriteRef.current = spriteAsset;
+    const contextKey = JSON.stringify([projectSessionId, activeProjectDir, activeTarget, selectedEntityId, spriteAsset]);
+    // Loading another sheet is an explicit editor intent, not a context change.
+    if (autoHydratedSpriteRef.current === contextKey) return;
+    autoHydratedSpriteRef.current = contextKey;
     const absolutePath = normalizeFsPath(`${activeProjectDir}/${spriteAsset}`);
-    void ingestSpriteSheet({
-      sourcePath: absolutePath,
-    }).then(() => {
+    const loading = ingestSpriteSheet({ sourcePath: absolutePath });
+    const requestId = imageRequestIdRef.current;
+    void loading.then((loaded) => {
+      if (!loaded || imageRequestIdRef.current !== requestId || autoHydratedSpriteRef.current !== contextKey) return;
       dispatch({
         type: "SET_IMPORTED_ASSET",
         path: spriteAsset,
@@ -3087,11 +3104,12 @@ export default function ArtStudioPanel() {
     });
   }, [
     activeProjectDir,
+    projectSessionId,
+    activeTarget,
+    selectedEntityId,
     ingestSpriteSheet,
     logMessage,
     selectedEntitySprite,
-    state.spritePath,
-    state.spriteSourceAssetPath,
   ]);
 
   useEffect(() => {
@@ -3106,19 +3124,15 @@ export default function ArtStudioPanel() {
       logMessage("warn", `[ArtStudio] Asset selecionado pelo browser nao e imagem suportada: ${directAssetPath}.`);
       return;
     }
-    if (
-      autoHydratedSpriteRef.current === directAssetPath &&
-      (state.spritePath === directAssetPath || state.spriteSourceAssetPath === directAssetPath)
-    ) {
-      return;
-    }
-
-    autoHydratedSpriteRef.current = directAssetPath;
+    const contextKey = JSON.stringify([projectSessionId, activeProjectDir, activeTarget, selectedEntityId, "browser", directAssetPath]);
+    if (autoHydratedSpriteRef.current === contextKey) return;
+    autoHydratedSpriteRef.current = contextKey;
     const absolutePath = normalizeFsPath(`${activeProjectDir}/${directAssetPath}`);
     const suggestedFrame = constrainSpriteFrameSize(activeTarget, directAssetPath, 32, 32);
-    void ingestSpriteSheet({
-      sourcePath: absolutePath,
-    }).then(() => {
+    const loading = ingestSpriteSheet({ sourcePath: absolutePath });
+    const requestId = imageRequestIdRef.current;
+    void loading.then((loaded) => {
+      if (!loaded || imageRequestIdRef.current !== requestId || autoHydratedSpriteRef.current !== contextKey) return;
       dispatch({
         type: "SET_IMPORTED_ASSET",
         path: directAssetPath,
@@ -3135,13 +3149,13 @@ export default function ArtStudioPanel() {
     });
   }, [
     activeProjectDir,
+    projectSessionId,
     activeTarget,
     artStudioAssetPath,
     ingestSpriteSheet,
     logMessage,
+    selectedEntityId,
     selectedEntitySprite,
-    state.spritePath,
-    state.spriteSourceAssetPath,
   ]);
 
   const handleDrop = useCallback(
@@ -3653,12 +3667,10 @@ export default function ArtStudioPanel() {
 
     window.__RDS_ARTSTUDIO_E2E__ = {
       ingestSpriteSheet: async (sourcePath: string) => {
-        await ingestSpriteSheet({ sourcePath });
-        return true;
+        return ingestSpriteSheet({ sourcePath });
       },
       loadImage: async (sourcePath: string) => {
-        await ingestSpriteSheet({ sourcePath });
-        return true;
+        return ingestSpriteSheet({ sourcePath });
       },
       importToProject: async () => {
         await handleImportToProject();
