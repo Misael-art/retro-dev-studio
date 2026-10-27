@@ -612,6 +612,50 @@ where
             return failed_build_result(target.target, log, Some(&host_root));
         }
 
+        emit!(
+            "info",
+            "Escopo C original: cenas, entidades e grafos do Studio nao sao consumidos por este build; apenas assets projetados de res/ (hardlink) chegam ao C."
+        );
+        let diverged = diverged_overlay_assets(project_dir, &host_root);
+        if !diverged.is_empty() {
+            for (destination, source) in &diverged {
+                emit!(
+                    "error",
+                    format!(
+                        "Asset '{destination}' foi alterado no Studio mas nao e o arquivo consumido pelo C ('{source}'); a edicao seria ignorada."
+                    )
+                );
+            }
+            emit!(
+                "error",
+                "Build recusado: edicoes do Studio desvinculadas da raiz C original."
+            );
+            return failed_build_result(target.target, log, Some(&host_root));
+        }
+
+        if find_makefile(&host_root).is_none() {
+            if let Some(bridge) = find_sgdkforge_wrapper_bridge(&host_root) {
+                emit!(
+                    "info",
+                    format!(
+                        "Modo C original (SGDKForge wrapper) detectado. Logica, instancias e cenas sao controladas pelo C em '{}'.",
+                        host_root.display()
+                    )
+                );
+                emit!("info", format!("Wrapper oficial: {}", bridge.display()));
+                return match run_sgdkforge_wrapper_build(&host_root, &bridge, &mut log, &on_log) {
+                    Ok(rom_path) => {
+                        emit!("success", format!("ROM gerada: {}", rom_path.display()));
+                        successful_build_result(rom_path, log, None, None, None)
+                    }
+                    Err(error) => {
+                        emit!("error", error);
+                        failed_build_result(target.target, log, Some(&host_root))
+                    }
+                };
+            }
+        }
+
         let Some(makefile_path) = find_makefile(&host_root) else {
             emit!(
                 "error",
@@ -1270,6 +1314,213 @@ fn legacy_sgdk_host_root(project_dir: &Path, project: &Project) -> Result<Option
     }
 
     Ok(Some(PathBuf::from(source_path)))
+}
+
+#[derive(serde::Deserialize)]
+struct OverlayImportLedger {
+    #[serde(default)]
+    mappings: Vec<crate::core::project_mgr::SgdkImportMapping>,
+}
+
+/// Assets do overlay cujo conteudo difere do arquivo da raiz C que o build consome
+/// (ex.: hardlink quebrado por um editor que salva via rename).
+fn diverged_overlay_assets(overlay_dir: &Path, host_root: &Path) -> Vec<(String, String)> {
+    let Ok(entries) = fs::read_dir(overlay_dir.join(".rds").join("imports").join("sgdk")) else {
+        return Vec::new();
+    };
+    let mut diverged = Vec::new();
+    for entry in entries.flatten() {
+        let Ok(ledger) = fs::read_to_string(entry.path())
+            .map_err(|_| ())
+            .and_then(|raw| serde_json::from_str::<OverlayImportLedger>(&raw).map_err(|_| ()))
+        else {
+            continue;
+        };
+        for mapping in ledger.mappings {
+            let projected = overlay_dir.join(&mapping.destination);
+            let source = host_root.join(&mapping.source_relative);
+            if let (Ok(projected_bytes), Ok(source_bytes)) =
+                (fs::read(&projected), fs::read(&source))
+            {
+                if projected_bytes != source_bytes {
+                    diverged.push((mapping.destination, mapping.source_relative));
+                }
+            }
+        }
+    }
+    diverged.sort();
+    diverged.dedup();
+    diverged
+}
+
+/// Projetos do SGDKForge nao possuem Makefile: `build.bat`/`build.sh` delegam para
+/// `tools/sgdk_wrapper`. No Linux o wrapper executa `build_sgdk_wine_bridge.sh`.
+fn find_sgdkforge_wrapper_bridge(host_root: &Path) -> Option<PathBuf> {
+    let delegates = fs::read_to_string(host_root.join("build.bat"))
+        .map(|raw| raw.to_ascii_lowercase().contains("sgdk_wrapper"))
+        .unwrap_or(false);
+    if !delegates {
+        return None;
+    }
+    host_root
+        .ancestors()
+        .skip(1)
+        .map(|ancestor| {
+            ancestor
+                .join("tools")
+                .join("sgdk_wrapper")
+                .join("build_sgdk_wine_bridge.sh")
+        })
+        .find(|candidate| candidate.is_file())
+}
+
+#[derive(serde::Deserialize)]
+struct SgdkForgeBuildReport {
+    status: String,
+    exit_code: i64,
+    output_dir: String,
+    started_at: String,
+    rom: SgdkForgeBuildReportRom,
+}
+
+#[derive(serde::Deserialize)]
+struct SgdkForgeBuildReportRom {
+    path: String,
+    sha256: Option<String>,
+}
+
+/// Executa o build oficial em `out/tests/<run>` unico (contrato do wrapper para builds
+/// nao-default) e so aceita a ROM se o recibo deste run e o SHA-256 do arquivo batem.
+/// Nao toca `out/rom.bin` do projeto nem reutiliza artefato anterior.
+fn run_sgdkforge_wrapper_build<F>(
+    host_root: &Path,
+    bridge: &Path,
+    log: &mut Vec<BuildLogLine>,
+    on_log: &F,
+) -> Result<PathBuf, String>
+where
+    F: Fn(BuildLogLine),
+{
+    if !cfg!(target_os = "linux") {
+        return Err(
+            "Build C original via SGDKForge wrapper so esta integrado no Linux (wine bridge); neste host use o build.bat do projeto fora do Studio."
+                .to_string(),
+        );
+    }
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis())
+        .unwrap_or_default();
+    let run_id = format!("rds_{stamp}");
+    let output_rel = format!("out/tests/{run_id}");
+    let report_rel = format!("out/tests/{run_id}_logs");
+    if host_root.join(&output_rel).exists() || host_root.join(&report_rel).exists() {
+        return Err(format!(
+            "Diretorio de run '{output_rel}' ja existe; build recusado."
+        ));
+    }
+
+    let output = Command::new("bash")
+        .arg(bridge)
+        .arg("--project-root")
+        .arg(host_root)
+        .arg("--output-dir")
+        .arg(&output_rel)
+        .arg("--report-dir")
+        .arg(&report_rel)
+        .current_dir(host_root)
+        .output()
+        .map_err(|e| {
+            format!(
+                "Falha ao iniciar wrapper SGDKForge '{}': {}",
+                bridge.display(),
+                e
+            )
+        })?;
+    for (level, stream) in [("info", &output.stdout), ("warn", &output.stderr)] {
+        for line in String::from_utf8_lossy(stream).lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let level = if line.contains("status=blocked") || line.contains("[ERROR]") {
+                "error"
+            } else {
+                level
+            };
+            let entry = BuildLogLine {
+                level: level.to_string(),
+                message: line.to_string(),
+            };
+            on_log(entry.clone());
+            log.push(entry);
+        }
+    }
+    let report_path = host_root
+        .join(&report_rel)
+        .join("linux_wine_build_report.json");
+    if !output.status.success() {
+        return Err(format!(
+            "Build C original recusado pelo wrapper (exit {}). Nenhuma ROM anterior sera executada. Recibo: {}",
+            output.status.code().unwrap_or(-1),
+            report_path.display()
+        ));
+    }
+    verify_sgdkforge_build_receipt(host_root, &output_rel, &report_path)
+}
+
+fn verify_sgdkforge_build_receipt(
+    host_root: &Path,
+    output_rel: &str,
+    report_path: &Path,
+) -> Result<PathBuf, String> {
+    let raw = fs::read_to_string(report_path).map_err(|e| {
+        format!(
+            "Wrapper terminou sem recibo de build '{}': {}",
+            report_path.display(),
+            e
+        )
+    })?;
+    let report: SgdkForgeBuildReport = serde_json::from_str(&raw).map_err(|e| {
+        format!(
+            "Recibo de build invalido '{}': {}",
+            report_path.display(),
+            e
+        )
+    })?;
+    if report.status != "buildado" || report.exit_code != 0 {
+        return Err(format!(
+            "Recibo de build indica falha (status '{}', exit {}).",
+            report.status, report.exit_code
+        ));
+    }
+    if report.output_dir != output_rel || report.started_at.trim().is_empty() {
+        return Err(format!(
+            "Recibo de build nao pertence a este run (output_dir '{}', esperado '{}').",
+            report.output_dir, output_rel
+        ));
+    }
+    let expected_rom = host_root.join(output_rel).join("rom.bin");
+    if Path::new(&report.rom.path) != expected_rom {
+        return Err(format!(
+            "Recibo aponta ROM fora do run atual: '{}'.",
+            report.rom.path
+        ));
+    }
+    let bytes = fs::read(&expected_rom).map_err(|e| {
+        format!(
+            "ROM do run atual ausente '{}': {}",
+            expected_rom.display(),
+            e
+        )
+    })?;
+    let actual = crate::core::rom_mastering::sha256_hex(&bytes);
+    if report.rom.sha256.as_deref() != Some(actual.as_str()) {
+        return Err(format!(
+            "SHA-256 da ROM ({actual}) nao confere com o recibo ({}).",
+            report.rom.sha256.as_deref().unwrap_or("ausente")
+        ));
+    }
+    Ok(expected_rom)
 }
 
 fn find_makefile(root: &Path) -> Option<PathBuf> {
@@ -5882,6 +6133,148 @@ PY\n"
             .any(|line| line.message.contains("Delegando build para host")));
 
         let _ = fs::remove_dir_all(host_dir);
+    }
+
+    /// Layout SGDKForge minimo: `<forge>/tools/sgdk_wrapper/build_sgdk_wine_bridge.sh`
+    /// falso e `<forge>/SGDK_projects/game` com `build.bat` delegando ao wrapper e uma
+    /// ROM antiga em `out/rom.bin`. `mode` controla o comportamento do wrapper falso.
+    #[cfg(target_os = "linux")]
+    fn sgdkforge_wrapper_fixture(label: &str, mode: &str) -> (PathBuf, PathBuf) {
+        let forge = temp_dir(label);
+        let wrapper_dir = forge.join("tools").join("sgdk_wrapper");
+        let host = forge.join("SGDK_projects").join("game");
+        fs::create_dir_all(&wrapper_dir).expect("create wrapper dir");
+        fs::create_dir_all(host.join("src")).expect("create host src");
+        fs::create_dir_all(host.join("out")).expect("create host out");
+        fs::write(
+            host.join("src").join("main.c"),
+            "int main(void){return 0;}\n",
+        )
+        .expect("write main.c");
+        fs::write(
+            host.join("build.bat"),
+            "call \"%~dp0..\\..\\tools\\sgdk_wrapper\\build.bat\" \"%~dp0.\"\r\n",
+        )
+        .expect("write build.bat");
+        fs::write(host.join("out").join("rom.bin"), b"STALE ROM").expect("write stale rom");
+        let script = format!(
+            r#"#!/usr/bin/env bash
+set -eu
+mode="{mode}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --project-root) root="$2"; shift 2 ;;
+    --output-dir) out="$2"; shift 2 ;;
+    --report-dir) rep="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+if [ "$mode" = fail ]; then echo "wine_bridge_status=blocked reason=sgdk_make_failed"; exit 2; fi
+if [ "$mode" = stale ]; then echo "wine_bridge_status=buildado"; exit 0; fi
+mkdir -p "$root/$out" "$root/$rep"
+printf 'SEGA MEGA DRIVE fresh' > "$root/$out/rom.bin"
+sha="$(sha256sum "$root/$out/rom.bin" | cut -d ' ' -f 1)"
+if [ "$mode" = tamper ]; then sha=0000; fi
+printf '{{"status":"buildado","exit_code":0,"output_dir":"%s","started_at":"2026-10-27T00:00:00Z","rom":{{"path":"%s","sha256":"%s"}}}}\n' "$out" "$root/$out/rom.bin" "$sha" > "$root/$rep/linux_wine_build_report.json"
+echo "wine_bridge_status=buildado"
+"#
+        );
+        fs::write(wrapper_dir.join("build_sgdk_wine_bridge.sh"), script).expect("write bridge");
+        let overlay =
+            crate::core::project_mgr::import_legacy_sgdk_project(&host, Some("Forge Game"))
+                .expect("wrap sgdkforge host");
+        (forge, overlay)
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn legacy_sgdk_overlay_delegates_to_sgdkforge_wrapper_with_verified_receipt() {
+        let _serial = test_serial_guard();
+        let (forge, overlay) = sgdkforge_wrapper_fixture("sgdkforge-wrapper-ok", "ok");
+        let host = forge.join("SGDK_projects").join("game");
+
+        let result = run_build(&overlay, |_| {});
+
+        assert!(result.ok, "wrapper build log: {:?}", result.log);
+        let rom = PathBuf::from(&result.rom_path);
+        assert!(rom.starts_with(host.join("out").join("tests")));
+        assert_eq!(
+            fs::read(&rom).expect("read fresh rom"),
+            b"SEGA MEGA DRIVE fresh"
+        );
+        assert_eq!(
+            fs::read(host.join("out").join("rom.bin")).unwrap(),
+            b"STALE ROM"
+        );
+        assert!(result
+            .log
+            .iter()
+            .any(|line| line.message.contains("Modo C original (SGDKForge wrapper)")));
+
+        let _ = fs::remove_dir_all(forge);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn legacy_sgdk_overlay_sgdkforge_wrapper_never_falls_back_to_stale_rom() {
+        let _serial = test_serial_guard();
+        for mode in ["fail", "stale", "tamper"] {
+            let (forge, overlay) =
+                sgdkforge_wrapper_fixture(&format!("sgdkforge-wrapper-{mode}"), mode);
+            let host = forge.join("SGDK_projects").join("game");
+
+            let result = run_build(&overlay, |_| {});
+
+            assert!(!result.ok, "mode {mode} must fail: {:?}", result.log);
+            assert!(
+                result.rom_path.is_empty(),
+                "mode {mode}: {}",
+                result.rom_path
+            );
+            assert_eq!(
+                fs::read(host.join("out").join("rom.bin")).unwrap(),
+                b"STALE ROM"
+            );
+            let _ = fs::remove_dir_all(forge);
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn legacy_sgdk_overlay_refuses_build_when_studio_asset_is_detached_from_c_root() {
+        let _serial = test_serial_guard();
+        let (forge, overlay) = sgdkforge_wrapper_fixture("sgdkforge-wrapper-detached", "ok");
+        let host = forge.join("SGDK_projects").join("game");
+        fs::create_dir_all(host.join("res")).expect("create res");
+        fs::write(host.join("res").join("hero.png"), b"original").expect("write source");
+        fs::create_dir_all(overlay.join("assets").join("sprites")).expect("create assets");
+        fs::write(
+            overlay.join("assets").join("sprites").join("hero.png"),
+            b"edited",
+        )
+        .expect("write detached edit");
+        let ledger_dir = overlay.join(".rds").join("imports").join("sgdk");
+        fs::create_dir_all(&ledger_dir).expect("create ledger dir");
+        fs::write(
+            ledger_dir.join("detached.json"),
+            r#"{"mappings":[{"resource_kind":"SPRITE","resource_name":"hero","source_relative":"res/hero.png","destination":"assets/sprites/hero.png"}]}"#,
+        )
+        .expect("write ledger");
+
+        let result = run_build(&overlay, |_| {});
+
+        assert!(
+            !result.ok,
+            "detached edit must refuse build: {:?}",
+            result.log
+        );
+        assert!(result
+            .log
+            .iter()
+            .any(|line| line.message.contains("a edicao seria ignorada")));
+        assert!(!host.join("out").join("tests").exists());
+
+        let _ = fs::remove_dir_all(forge);
     }
 
     #[test]

@@ -724,6 +724,17 @@ enum SgdkAssetMaterialization {
     LinkOrCopy,
 }
 
+/// Politica para recursos SPRITE do doador. Um recurso de animacao e catalogo,
+/// nao prova de instancia ativa: so vira entidade de cena quando o import puder
+/// representar a cena; caso contrario permanece apenas como asset referenciado.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SgdkSpriteInstancing {
+    /// Cada SPRITE vira entidade da cena primaria (doadores pequenos, conversao no-code).
+    SceneEntities,
+    /// Logica C original controla as instancias; recursos ficam so no catalogo.
+    NativeCatalogOnly,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct LegacySgdkIndex {
     pub host_root: String,
@@ -3426,6 +3437,7 @@ pub fn import_sgdk_project(
         &resolved_root,
         &resources,
         SgdkAssetMaterialization::Copy,
+        SgdkSpriteInstancing::SceneEntities,
         "Imported SGDK Project",
     )
 }
@@ -3705,6 +3717,7 @@ pub fn import_legacy_sgdk_project(
             &legacy_resolved_root,
             &resources,
             SgdkAssetMaterialization::LinkOrCopy,
+            SgdkSpriteInstancing::NativeCatalogOnly,
             "Legacy SGDK Overlay",
         )?;
     }
@@ -3832,9 +3845,18 @@ fn import_sgdk_resources_into_scene(
     resolved_root: &SgdkResolvedImportRoot,
     resources: &[SgdkResourceEntry],
     materialization: SgdkAssetMaterialization,
+    requested_instancing: SgdkSpriteInstancing,
     scene_name: &str,
 ) -> Result<SgdkImportReport, LoadError> {
     let sgdk_path = resolved_root.effective_root.as_path();
+    let sprite_resource_count = resources
+        .iter()
+        .filter(|resource| resource.kind == "SPRITE")
+        .count();
+    // Mais recursos SPRITE do que o hardware exibe de uma vez prova que o catalogo
+    // nao e uma cena simultanea; sem evidencia de instancias, nada e instanciado.
+    let catalog_only = requested_instancing == SgdkSpriteInstancing::NativeCatalogOnly
+        || sprite_resource_count > crate::hardware::md_profile::MD_SPRITES_PER_SCREEN as usize;
     let mut imported_tilemaps: HashSet<String> = HashSet::new();
     let mut audio_sfx: HashMap<String, String> = HashMap::new();
     let mut audio_bgm: Option<String> = None;
@@ -4042,6 +4064,19 @@ fn import_sgdk_resources_into_scene(
         }
     }
 
+    if catalog_only && !sprite_entities.is_empty() {
+        warnings.push(format!(
+            "sprite_catalog_only: {} recurso(s) SPRITE preservados no catalogo de assets sem instancia em cena; a correspondencia com instancias do jogo {}.",
+            sprite_entities.len(),
+            if requested_instancing == SgdkSpriteInstancing::NativeCatalogOnly {
+                "e controlada pela logica C original"
+            } else {
+                "nao e conhecida (catalogo excede o limite de sprites simultaneos)"
+            }
+        ));
+        sprite_entities.clear();
+        first_sprite_id = None;
+    }
     let donor_logic_scan = scan_sgdk_donor_logic_scan(sgdk_path);
     let mut phase_d_ledger = SgdkImportLedgerPhaseD {
         detected_main_c_token_groups: donor_logic_scan.ledger_token_groups(),
@@ -19937,6 +19972,60 @@ void tick_player(void) {\n\
     }
 
     #[test]
+    fn import_sgdk_project_keeps_sprite_catalog_beyond_hardware_budget_out_of_scene() {
+        let donor_dir = temp_dir("sgdk-sprite-catalog-donor");
+        let project_dir = temp_dir("sgdk-sprite-catalog-project");
+        create_project_skeleton(&project_dir, "Sprite Catalog", "megadrive")
+            .expect("create project skeleton");
+        fs::create_dir_all(donor_dir.join("res").join("sprites")).expect("create donor res");
+        fs::create_dir_all(donor_dir.join("src")).expect("create donor src");
+        fs::write(
+            donor_dir.join("src").join("main.c"),
+            "int main(void){return 0;}\n",
+        )
+        .expect("write main.c");
+        let count = crate::hardware::md_profile::MD_SPRITES_PER_SCREEN as usize + 1;
+        let mut manifest = String::new();
+        for index in 0..count {
+            write_test_png(
+                &donor_dir
+                    .join("res")
+                    .join("sprites")
+                    .join(format!("anim_{index}.png")),
+                16,
+                16,
+                [index as u8, 80, 160, 255],
+            );
+            manifest.push_str(&format!(
+                "SPRITE anim_{index} \"sprites/anim_{index}.png\" 2 2 NONE 0\n"
+            ));
+        }
+        fs::write(donor_dir.join("res").join("resources.res"), manifest).expect("write manifest");
+
+        let report = import_sgdk_project(&project_dir, &donor_dir).expect("import catalog donor");
+
+        assert!(report
+            .primary_scene
+            .entities
+            .iter()
+            .all(|entity| entity.components.sprite.is_none()));
+        for index in 0..count {
+            assert!(project_dir
+                .join("assets")
+                .join("sprites")
+                .join(format!("anim_{index}.png"))
+                .is_file());
+        }
+        assert!(report
+            .warnings
+            .iter()
+            .any(|warning| warning.starts_with("sprite_catalog_only:")));
+
+        let _ = fs::remove_dir_all(donor_dir);
+        let _ = fs::remove_dir_all(project_dir);
+    }
+
+    #[test]
     fn import_sgdk_project_combines_split_manifests_and_keeps_visual_entities_in_front_of_audio() {
         let donor_dir = temp_dir("sgdk-split-import-donor");
         let project_dir = temp_dir("sgdk-split-import-project");
@@ -22083,11 +22172,12 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
             .join("audio")
             .join("jump.wav")
             .is_file());
+        // Modo C original: o SPRITE fica no catalogo de assets, sem instancia em cena.
         assert!(scene
             .entities
             .iter()
-            .any(|entity| entity.entity_id == "hero"));
-        assert!(scene
+            .all(|entity| entity.components.sprite.is_none()));
+        assert!(!scene
             .entities
             .iter()
             .any(|entity| entity.entity_id == "main_camera"));

@@ -231,3 +231,7 @@ rtk proxy env RDS_BUILD_JOBS=1 RDS_E2E_KEEP_PROJECT=1 GDK_BACKEND=x11 LIBGL_ALWA
 ```
 
 Esse cenário exige Build → ROM → Emulação para PASS integral; não reclassificar sua falha como aprovação do jogo só porque os recursos conferiram. Encerrar somente app/driver/display próprios e registrar qualquer realocação dos projetos de QA.
+
+## Mugenesis pelo build C original — 2026-10-27 (Experimental)
+
+Abrir a raiz original do jogo (Abrir Projeto) cria/reabre o overlay `rds/`; Build & Run delega ao wrapper SGDKForge e executa só a ROM provada pelo recibo do run. Reprodução: `RDS_SGDK_REAL_SOURCE` (raiz original), `RDS_SGDK_OUTPUT`, `RDS_SGDK_EXPECTED='{"manifests":6,"resources":251,"sprites":177}'`, `DISPLAY` próprio e o launcher oficial com `--scenario sgdk-native-c --skip-build --app <binário>`. O cenário nunca registra o overlay como projeto temporário. Rodar testes Node com `TMPDIR` não oculto (ex.: `/tmp`), senão `new-host.test.mjs` falha por `work_root_must_be_a_non_hidden_subdirectory`. Estado completo no Memory Bank.

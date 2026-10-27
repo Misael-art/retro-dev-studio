@@ -525,13 +525,26 @@ export default function ExplorerWorkspace({
                     {legacyIndexedFileCount} arquivo(s) indexado(s)
                   </span>
                   <span className="rounded-full border border-[#313244] bg-[#0b1120] px-2 py-0.5">
-                    Build &amp; Run delega ao Makefile do host
+                    Build &amp; Run delega ao build C do host (Makefile ou wrapper SGDKForge)
+                  </span>
+                  <span className="rounded-full border border-[#f9e2af]/30 bg-[#f9e2af]/10 px-2 py-0.5 text-[#f9e2af]">
+                    Experimental
                   </span>
                 </div>
-                <p className="mt-3 text-[11px] leading-5 text-[#94a3b8]">
-                  Cenas e assets abaixo continuam editáveis no overlay <span className="font-mono text-[#e4e4e7]">rds/</span>.
-                  Arquivos do host SGDK seguem somente leitura nesta workspace.
-                </p>
+                <ul data-testid="legacy-host-edit-scope" className="mt-3 space-y-1 text-[11px] leading-5 text-[#94a3b8]">
+                  <li>
+                    <span className="font-semibold text-[#a6e3a1]">Consumido pelo build C:</span> assets projetados de{" "}
+                    <span className="font-mono text-[#e4e4e7]">res/</span> editados no mesmo arquivo (hardlink). Edições desvinculadas recusam o build.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-[#f9e2af]">Só organização no Studio:</span> cenas, entidades e grafos do overlay{" "}
+                    <span className="font-mono text-[#e4e4e7]">rds/</span>. Recursos de animação ficam no catálogo, sem instância em cena; instâncias, estados e transições são do C.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-[#f38ba8]">Requer integração adicional:</span> código C e manifests{" "}
+                    <span className="font-mono text-[#e4e4e7]">.res</span> (somente leitura nesta workspace).
+                  </li>
+                </ul>
               </section>
             ) : null}
 

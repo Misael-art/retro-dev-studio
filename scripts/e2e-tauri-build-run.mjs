@@ -513,6 +513,7 @@ function parseArgs(argv) {
           "mugen-original",
           "studio-e1",
           "sgdk-split-resources",
+          "sgdk-native-c",
           "studio-e4",
           "studio-e2e5",
           "studio-e6",
@@ -6012,6 +6013,100 @@ async function runSgdkSplitResourcesScenario(sessionId, timeoutMs, onProjectCrea
     addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-import.png`), "Imported resources in native UI");
     console.log(`[sgdk-split] all ${ledger.mappings.length} resources verified against source`);
     report.build = await runBuildRunAndCollect(sessionId, "SGDK split resource scene", timeoutMs, report, prefix, { nativeClick: true });
+    report.status = "passed";
+  } catch (error) {
+    report.status = "failed";
+    report.error = String(error);
+    throw error;
+  } finally {
+    await writeFile(path.join(output, `${prefix}.json`), JSON.stringify(report, null, 2));
+  }
+}
+
+// Original C game opened in place (legacy overlay): the SGDKForge wrapper builds the C, the
+// Studio runs the ROM proved by the wrapper receipt, and sprite resources stay in the catalog.
+// The overlay lives in <source>/rds and is never registered as a temporary project.
+async function runSgdkNativeCScenario(sessionId) {
+  const source = process.env.RDS_SGDK_REAL_SOURCE;
+  const output = process.env.RDS_SGDK_OUTPUT;
+  const expected = JSON.parse(process.env.RDS_SGDK_EXPECTED ?? "null");
+  if (!source || !output || !expected?.manifests || !expected?.resources || !expected?.sprites) {
+    fail("RDS_SGDK_REAL_SOURCE, RDS_SGDK_OUTPUT and RDS_SGDK_EXPECTED {manifests,resources,sprites} required.");
+  }
+  await mkdir(output, { recursive: true });
+  const prefix = `sgdk-native-c-${artifactTimestamp()}`;
+  const hashFile = async (file) => createHash("sha256").update(await readFile(file)).digest("hex");
+  const report = { schema: "retrodev.sgdk_native_c/v1", maturity: "Experimental", source, expected,
+    app_sha256: await hashFile(currentE2eRunContext.appPath), steps: [], artifacts: [],
+    qualification: "original C built by the SGDKForge wrapper and run in the integrated emulator under the E2E driver; no human acceptance or hardware" };
+  const overlay = path.join(source, "rds");
+  const openAndInspect = async (label) => {
+    await executeScript(sessionId, "return window.__RDS_E2E__.openProject(arguments[0]);", [source]);
+    const state = await waitFor(async () => {
+      const next = await readAutomationState(sessionId);
+      return next?.activeProjectDir && path.resolve(next.activeProjectDir) === overlay && next.projectSourceKind === "external_sgdk" ? next : false;
+    }, 180000, `Original C root did not open as overlay (${label}).`, 250);
+    const ledgerDir = path.join(overlay, ".rds/imports/sgdk");
+    const ledgers = (await readdir(ledgerDir)).filter((name) => name.endsWith(".json"));
+    if (ledgers.length !== 1) fail(`Expected one import ledger, got ${ledgers.length}.`);
+    const ledger = JSON.parse(await readFile(path.join(ledgerDir, ledgers[0]), "utf8"));
+    const scene = JSON.parse(await readFile(path.join(overlay, "scenes/main.json"), "utf8"));
+    const sceneSprites = scene.entities.filter((entity) => entity.components.sprite).length;
+    const spriteResources = ledger.mappings.filter((mapping) => mapping.resource_kind === "SPRITE").length;
+    if (ledger.manifests.length !== expected.manifests || ledger.mappings.length !== expected.resources || spriteResources !== expected.sprites || sceneSprites !== 0) {
+      fail(`Catalog contract broken (${label}): ${JSON.stringify({ manifests: ledger.manifests.length, resources: ledger.mappings.length, spriteResources, sceneSprites })}`);
+    }
+    const destinations = new Map();
+    for (const mapping of ledger.mappings) {
+      const hash = await hashFile(path.join(source, mapping.source_relative));
+      if (await hashFile(path.join(overlay, mapping.destination)) !== hash) fail(`Catalog asset differs: ${mapping.resource_name}`);
+      if (destinations.has(mapping.destination) && destinations.get(mapping.destination) !== hash) fail(`Asset collision: ${mapping.destination}`);
+      destinations.set(mapping.destination, hash);
+    }
+    addReportStep(report, `catalog_${label}`, "passed", { project: state.activeProjectDir, manifests: ledger.manifests.length, resources: ledger.mappings.length, spriteResources, sceneSprites });
+    return state;
+  };
+  try {
+    await setSessionWindowRect(sessionId, 1280, 800);
+    await waitForOnboardingWizard(sessionId).catch(() => null);
+    await openAndInspect("open");
+    await callAutomationApi(sessionId, "selectWorkspace", ["explorer"]).catch(() => null);
+    const scope = await executeScript(sessionId, "return document.querySelector('[data-testid=\"legacy-host-edit-scope\"]')?.textContent ?? '';");
+    addReportStep(report, "edit_scope_visible", scope.includes("Consumido pelo build C") ? "passed" : "not_observed", { scope });
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-open.png`), "Original C root opened as overlay");
+
+    const build = await runBuildRunAndCollect(sessionId, "SGDK original C", 900000, report, prefix, { nativeClick: true });
+    report.build = build;
+    const runDir = path.dirname(build.rom_path);
+    if (path.dirname(runDir) !== path.join(source, "out", "tests") || !path.basename(runDir).startsWith("rds_")) {
+      fail(`ROM did not come from a fresh wrapper run: ${build.rom_path}`);
+    }
+    const receipt = JSON.parse(await readFile(`${runDir}_logs/linux_wine_build_report.json`, "utf8"));
+    if (receipt.status !== "buildado" || receipt.rom.sha256 !== build.rom_sha256) fail(`Receipt does not match executed ROM: ${JSON.stringify(receipt.rom)}`);
+    report.receipt = { path: `${runDir}_logs/linux_wine_build_report.json`, started_at: receipt.started_at, completed_at: receipt.completed_at, rom_sha256: receipt.rom.sha256, sdk_content_sha256: receipt.sdk_content_sha256, source_tree_sha256: receipt.build_input_snapshot?.source_tree_sha256 };
+    addReportStep(report, "rom_matches_wrapper_receipt", "passed", report.receipt);
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-boot.png`), "ROM running after boot");
+
+    const frames = [await readFramebufferStats(sessionId)];
+    const inputs = [["Enter", 120], ["Enter", 120], ["ArrowRight", 600], ["KeyZ", 120], ["ArrowLeft", 600], ["KeyX", 120], ["KeyC", 120]];
+    for (const [code, holdMs] of inputs) {
+      await sendNativeGameKeyTap(sessionId, code, holdMs, `native-c ${code}`);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      frames.push(await readFramebufferStats(sessionId));
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-after-${code}-${frames.length}.png`), `After ${code}`);
+    }
+    const hashes = frames.map((frame) => frame?.framebuffer_hash ?? null);
+    report.input = { inputs, framebuffer_hashes: hashes, non_black: frames.map((frame) => frame?.non_black_pixels ?? null), last_input: await callAutomationApi(sessionId, "getLastInputObservation").catch(() => null) };
+    if (new Set(hashes).size < 2) fail("Framebuffer did not change while the original C game ran with input.");
+    report.audio = await callAutomationApi(sessionId, "getAudioOutputTelemetry").catch(() => null);
+    addReportStep(report, "native_input_exercised", "passed", { distinct_frames: new Set(hashes).size });
+
+    await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
+    await waitFor(async () => (await readAutomationState(sessionId))?.emulatorLoaded === false, 15000, "Emulator did not stop.", 150);
+    addReportStep(report, "stopped", "passed");
+    await callAutomationApi(sessionId, "closeProject");
+    await openAndInspect("reopen");
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-reopen.png`), "Reopened original C root");
     report.status = "passed";
   } catch (error) {
     report.status = "failed";
@@ -22985,6 +23080,7 @@ async function main() {
     options.scenario !== "mugen-original" &&
     options.scenario !== "studio-e1" &&
     options.scenario !== "sgdk-split-resources" &&
+    options.scenario !== "sgdk-native-c" &&
     options.scenario !== "studio-e4" &&
     options.scenario !== "studio-e2e5" &&
     options.scenario !== "studio-e6" &&
@@ -24814,6 +24910,10 @@ async function main() {
     }
     if (options.scenario === "studio-e1") {
       await runStudioE1Scenario(sessionId,emulatorActivationTimeoutMs,uiBootstrapTimeoutMs,(created)=>{temporaryProjectDir=created;});
+      return;
+    }
+    if (options.scenario === "sgdk-native-c") {
+      await runSgdkNativeCScenario(sessionId);
       return;
     }
     if (options.scenario === "sgdk-split-resources") {

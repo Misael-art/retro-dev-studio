@@ -147,11 +147,15 @@ describe("ExplorerWorkspace", () => {
       "Overlay rds/"
     );
     expect(container.querySelector("[data-testid='legacy-host-summary']")?.textContent).toContain(
-      "Build & Run delega ao Makefile do host"
+      "Build & Run delega ao build C do host (Makefile ou wrapper SGDKForge)"
     );
     expect(container.querySelector("[data-testid='legacy-host-summary']")?.textContent).toContain(
       "5 arquivo(s) indexado(s)"
     );
+    const editScope = container.querySelector("[data-testid='legacy-host-edit-scope']")?.textContent;
+    expect(editScope).toContain("Consumido pelo build C:");
+    expect(editScope).toContain("Só organização no Studio:");
+    expect(editScope).toContain("Requer integração adicional:");
     expect(container.querySelector("[data-testid='legacy-host-summary']")?.textContent).toContain(
       LEGACY_INDEX.host_root
     );
