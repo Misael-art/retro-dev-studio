@@ -11,7 +11,9 @@ use crate::compiler::build_provenance::{
     attach_rom_artifact, build_source_map, serialize_source_map, BuildSourceMap,
     SOURCE_MAP_FILE_NAME,
 };
-use crate::compiler::sgdk_emitter::emit_sgdk_with_collision;
+use crate::compiler::sgdk_emitter::{
+    emit_sgdk_with_collision, sprite_resource_pages, SGDK_SPRITE_CANVAS_MAX_PIXELS,
+};
 use crate::compiler::snes_emitter::emit_snes_with_collision;
 use crate::core::diagnostics::{build_diagnostics_from_log, ActionableDiagnostic};
 use crate::core::project_mgr::{
@@ -1378,6 +1380,18 @@ fn stage_project_assets(
     workspace_root: &Path,
     ast: &AstOutput,
 ) -> Result<(), String> {
+    let mut names: std::collections::HashSet<String> = ast
+        .sprite_assets
+        .iter()
+        .map(|asset| asset.resource_name.clone())
+        .chain(
+            collect_tilemap_assets(ast)
+                .into_iter()
+                .map(|asset| asset.resource_name),
+        )
+        .chain(collect_sfx_resources(ast).into_iter().map(|(name, _)| name))
+        .chain(collect_bgm_tracks(ast).into_iter().map(|(name, _)| name))
+        .collect();
     for asset in &ast.sprite_assets {
         let source_rel = sanitize_relative_asset_path(&asset.asset_path)?;
         let source = project_dir.join(&source_rel);
@@ -1388,6 +1402,40 @@ fn stage_project_assets(
             ));
         }
 
+        let pages = sprite_resource_pages(asset);
+        if pages.len() > 1 {
+            let source_image = image::open(&source)
+                .map_err(|e| format!("Falha ao ler '{}': {e}", source.display()))?;
+            // A single palette, in logical row/raster order, for every physical
+            // page. Independently indexing each page would recolor animations.
+            let (palette, _, _) = sprite_page_palette(&source_image, &pages)?;
+            for page in &pages {
+                if !names.insert(page.resource_name.clone()) {
+                    return Err(format!(
+                        "Recurso SGDK de pagina duplicado: '{}'. Renomeie o recurso em conflito.",
+                        page.resource_name
+                    ));
+                }
+                let destination =
+                    workspace_root.join(sanitize_relative_asset_path(&page.asset_path)?);
+                if let Some(parent) = destination.parent() {
+                    fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                }
+                let image = arrange_sgdk_animation_rows(&source_image, page)?;
+                let mut fixed_palette = palette.clone();
+                let indexed = index_image_with_palette(
+                    &image,
+                    image.width(),
+                    image.height(),
+                    16,
+                    &mut fixed_palette,
+                    &mut Default::default(),
+                    false,
+                )?;
+                write_indexed_bmp_data(indexed, &destination, image.width(), image.height())?;
+            }
+            continue;
+        }
         let destination_rel = sgdk_bitmap_staging_path(&source_rel);
         let destination = workspace_root.join(&destination_rel);
         if let Some(parent) = destination.parent() {
@@ -1601,7 +1649,7 @@ fn stage_sgdk_sprite_asset(
             e
         )
     })?;
-    let image = arrange_sgdk_animation_rows(image, asset)?;
+    let image = arrange_sgdk_animation_rows(&image, asset)?;
     let width = image.width();
     let height = image.height();
     let canvas_width = round_up_to_multiple(width, frame_width).max(frame_width);
@@ -1629,11 +1677,11 @@ fn stage_sgdk_sprite_asset(
 }
 
 fn arrange_sgdk_animation_rows(
-    source: image::DynamicImage,
+    source: &image::DynamicImage,
     asset: &SpriteAsset,
 ) -> Result<image::DynamicImage, String> {
     if asset.animations.is_empty() {
-        return Ok(source);
+        return Ok(source.clone());
     }
     let fw = asset.frame_width.max(8);
     let fh = asset.frame_height.max(8);
@@ -1658,7 +1706,7 @@ fn arrange_sgdk_animation_rows(
     let height = fh
         .checked_mul(asset.animations.len() as u32)
         .ok_or("Altura de animacao excedida")?;
-    if u64::from(width) * u64::from(height) > 64 * 1024 * 1024 {
+    if u64::from(width) * u64::from(height) > SGDK_SPRITE_CANVAS_MAX_PIXELS {
         return Err(format!(
             "Sprite '{}': atlas de animacoes excede 64 megapixels; divida o recurso.",
             asset.resource_name
@@ -1772,6 +1820,16 @@ fn write_indexed_bmp_8bit_with_canvas_palette_limit(
     canvas_height: u32,
     max_palette_colors: usize,
 ) -> Result<(), String> {
+    let indexed = index_image(image, canvas_width, canvas_height, max_palette_colors)?;
+    write_indexed_bmp_data(indexed, destination, canvas_width, canvas_height)
+}
+
+fn write_indexed_bmp_data(
+    indexed: IndexedImage,
+    destination: &Path,
+    canvas_width: u32,
+    canvas_height: u32,
+) -> Result<(), String> {
     let width = canvas_width as usize;
     let height = canvas_height as usize;
     let row_stride = (width + 3) & !3;
@@ -1779,7 +1837,6 @@ fn write_indexed_bmp_8bit_with_canvas_palette_limit(
     let palette_size = 256 * 4;
     let pixel_offset = 14 + 40 + palette_size;
     let file_size = pixel_offset + pixel_data_size;
-    let indexed = index_image(image, canvas_width, canvas_height, max_palette_colors)?;
     let (palette, indices) = (indexed.palette_bgr0, indexed.indices);
 
     let mut bytes = Vec::with_capacity(file_size);
@@ -1839,14 +1896,32 @@ pub(crate) fn index_image(
     canvas_height: u32,
     max_palette_colors: usize,
 ) -> Result<IndexedImage, String> {
+    index_image_with_palette(
+        image,
+        canvas_width,
+        canvas_height,
+        max_palette_colors,
+        &mut vec![[0, 0, 0, 0]],
+        &mut Default::default(),
+        true,
+    )
+}
+
+fn index_image_with_palette(
+    image: &image::DynamicImage,
+    canvas_width: u32,
+    canvas_height: u32,
+    max_palette_colors: usize,
+    palette: &mut Vec<[u8; 4]>,
+    distinct: &mut std::collections::HashSet<[u8; 4]>,
+    extend_palette: bool,
+) -> Result<IndexedImage, String> {
     let rgba = image.to_rgba8();
     let width = canvas_width as usize;
     let height = canvas_height as usize;
     let max_palette_colors = max_palette_colors.clamp(1, 256);
-    let mut palette: Vec<[u8; 4]> = vec![[0, 0, 0, 0]];
     let mut indices = vec![0u8; width * height];
     let mut quantized_pixels = 0usize;
-    let mut distinct: std::collections::HashSet<[u8; 4]> = Default::default();
 
     for y in 0..rgba.height() as usize {
         for x in 0..rgba.width() as usize {
@@ -1863,12 +1938,12 @@ pub(crate) fn index_image(
                 .skip(1) // Index zero is transparency, including when RGB is black.
                 .find_map(|(index, entry)| (*entry == color).then_some(index))
                 .or_else(|| {
-                    if palette.len() < max_palette_colors {
+                    if extend_palette && palette.len() < max_palette_colors {
                         palette.push(color);
                         Some(palette.len() - 1)
                     } else if max_palette_colors < 256 {
                         quantized_pixels += 1;
-                        nearest_palette_index(&palette, color)
+                        nearest_palette_index(palette, color)
                     } else {
                         None
                     }
@@ -1884,11 +1959,34 @@ pub(crate) fn index_image(
         }
     }
     Ok(IndexedImage {
-        palette_bgr0: palette,
+        palette_bgr0: palette.clone(),
         indices,
         quantized_pixels,
         source_colors: distinct.len(),
     })
+}
+
+fn sprite_page_palette(
+    source: &image::DynamicImage,
+    pages: &[SpriteAsset],
+) -> Result<(Vec<[u8; 4]>, usize, usize), String> {
+    let mut palette = vec![[0, 0, 0, 0]];
+    let mut distinct = Default::default();
+    let mut quantized = 0;
+    for page in pages {
+        let image = arrange_sgdk_animation_rows(source, page)?;
+        let indexed = index_image_with_palette(
+            &image,
+            image.width(),
+            image.height(),
+            16,
+            &mut palette,
+            &mut distinct,
+            true,
+        )?;
+        quantized += indexed.quantized_pixels;
+    }
+    Ok((palette, quantized, distinct.len()))
 }
 
 /// Paleta (RGB, indice 0 = transparencia) que o build gera para um asset SGDK: sprite (com o
@@ -1904,7 +2002,16 @@ pub(crate) fn sgdk_asset_palette(
         image::open(&source).map_err(|e| format!("Falha ao ler '{}': {}", source.display(), e))?;
     let (image, w, h) = match sprite {
         Some(asset) => {
-            let image = arrange_sgdk_animation_rows(image, asset)?;
+            let pages = sprite_resource_pages(asset);
+            if pages.len() > 1 {
+                let (palette, quantized, colors) = sprite_page_palette(&image, &pages)?;
+                return Ok((
+                    palette.iter().map(|c| [c[2], c[1], c[0]]).collect(),
+                    quantized,
+                    colors,
+                ));
+            }
+            let image = arrange_sgdk_animation_rows(&image, asset)?;
             let fw = asset.frame_width.max(8);
             let fh = asset.frame_height.max(8);
             let w = round_up_to_multiple(image.width(), fw).max(fw);
@@ -3535,7 +3642,7 @@ mod tests {
             ],
         };
         let result =
-            arrange_sgdk_animation_rows(image::DynamicImage::ImageRgba8(source.clone()), &asset)
+            arrange_sgdk_animation_rows(&image::DynamicImage::ImageRgba8(source.clone()), &asset)
                 .unwrap()
                 .to_rgba8();
         assert_eq!(result.dimensions(), (24, 16));
@@ -3545,9 +3652,168 @@ mod tests {
         assert_eq!(result.get_pixel(8, 8).0, [2, 0, 0, 255]);
         assert_eq!(result.get_pixel(16, 8).0, [3, 0, 0, 255]);
         asset.animations[1].frames.push(4);
-        let error = arrange_sgdk_animation_rows(image::DynamicImage::ImageRgba8(source), &asset)
+        let error = arrange_sgdk_animation_rows(&image::DynamicImage::ImageRgba8(source), &asset)
             .unwrap_err();
         assert!(error.contains("frame 4 inexistente"));
+    }
+
+    #[test]
+    fn sgdk_paged_animation_atlas_preserves_every_occurrence_pixel_and_palette() {
+        use crate::compiler::ast_generator::SpriteAnimation;
+        let root = workspace_copy("megadrive_dummy");
+        let source = image::RgbaImage::from_fn(480, 168, |x, y| {
+            if y < 2 {
+                return Rgba([0, 0, 0, 0]);
+            }
+            if x % 160 == 3 {
+                return Rgba([0, 0, 0, 255]);
+            }
+            match x / 160 {
+                0 => Rgba([224, 0, 0, 255]),
+                1 => Rgba([0, 0, 224, 255]),
+                _ => Rgba([0, 224, 0, 255]),
+            }
+        });
+        fs::create_dir_all(root.join("assets/sprites")).unwrap();
+        source.save(root.join("assets/sprites/paged.png")).unwrap();
+        let asset = SpriteAsset {
+            resource_name: "hero".into(),
+            asset_path: "assets/sprites/paged.png".into(),
+            frame_width: 160,
+            frame_height: 168,
+            palette_slot: 0,
+            animation_count: 103,
+            default_animation: None,
+            animations: (0..103)
+                .map(|i| SpriteAnimation {
+                    name: format!("action_{i}"),
+                    frame_time: i + 1,
+                    looping: true,
+                    mugen: None,
+                    frames: if i == 0 {
+                        (0..64).map(|f| f % 2).collect()
+                    } else {
+                        vec![2; if i <= 47 { 4 } else { 3 }]
+                    },
+                })
+                .collect(),
+        };
+        assert_eq!(
+            asset
+                .animations
+                .iter()
+                .map(|a| a.frames.len())
+                .sum::<usize>(),
+            417
+        );
+        assert!(arrange_sgdk_animation_rows(
+            &image::DynamicImage::ImageRgba8(source.clone()),
+            &asset
+        )
+        .unwrap_err()
+        .contains("64 megapixels"));
+        let ast = AstOutput {
+            nodes: vec![],
+            sprite_assets: vec![asset.clone()],
+            logic_scripts: vec![],
+        };
+        let resources = root.join("page-resources");
+        stage_project_assets(&root, &resources, &ast).unwrap();
+        let (planned, quantized, colors) =
+            sgdk_asset_palette(&root, &asset.asset_path, Some(&asset)).unwrap();
+        assert_eq!((quantized, colors), (0, 4));
+        let mut baseline_palette = None;
+        for (i, page) in sprite_resource_pages(&asset).iter().enumerate() {
+            assert_eq!(page.animations[0], asset.animations[i]);
+            let bmp = fs::read(resources.join(&page.asset_path)).unwrap();
+            let palette = &bmp[54..1078];
+            if let Some(ref expected) = baseline_palette {
+                assert_eq!(palette, expected);
+            } else {
+                baseline_palette = Some(palette.to_vec());
+            }
+            for (index, rgb) in planned.iter().enumerate() {
+                assert_eq!(
+                    &palette[index * 4..index * 4 + 3],
+                    &[rgb[2], rgb[1], rgb[0]]
+                );
+            }
+            let width = u32::from_le_bytes(bmp[18..22].try_into().unwrap()) as usize;
+            let height = u32::from_le_bytes(bmp[22..26].try_into().unwrap()) as usize;
+            let offset = u32::from_le_bytes(bmp[10..14].try_into().unwrap()) as usize;
+            assert_eq!(
+                (width, height),
+                (asset.animations[i].frames.len() * 160, 168)
+            );
+            assert!(width * height <= SGDK_SPRITE_CANVAS_MAX_PIXELS as usize);
+            for (column, frame) in asset.animations[i].frames.iter().enumerate() {
+                for y in 0..168 {
+                    for x in 0..160 {
+                        let pixel = source.get_pixel(frame * 160 + x, y).0;
+                        let index = bmp
+                            [offset + (167 - y as usize) * width + column * 160 + x as usize]
+                            as usize;
+                        if pixel[3] == 0 {
+                            assert_eq!(index, 0);
+                        } else {
+                            assert_ne!(index, 0);
+                            assert_eq!(
+                                &palette[index * 4..index * 4 + 3],
+                                &[pixel[2], pixel[1], pixel[0]]
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        let emitted = emit_sgdk_with_collision(&ast, "Paged", None);
+        assert_eq!(
+            emitted
+                .resources_res
+                .lines()
+                .filter(|l| l.starts_with("SPRITE "))
+                .count(),
+            103
+        );
+        assert!(emitted.resources_res.contains(
+            "SPRITE hero__rds_page_1 \"rds_generated/sprites/hero/animation_1.bmp\" 20 21 NONE 2"
+        ));
+        assert!(emitted.main_c.contains("hero.numAnimation = 103;"));
+        assert!(emitted
+            .main_c
+            .contains("rds_hero_animation_refs[102] = hero__rds_page_102.animations[0];"));
+        assert!(!emitted.main_c.contains("malloc("));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn sgdk_paged_animation_atlas_keeps_the_individual_page_allocation_guard() {
+        use crate::compiler::ast_generator::SpriteAnimation;
+        assert_eq!(SGDK_SPRITE_CANVAS_MAX_PIXELS, 67_108_864);
+        let asset = SpriteAsset {
+            resource_name: "oversized".into(),
+            asset_path: "oversized.png".into(),
+            frame_width: 2048,
+            frame_height: 2048,
+            palette_slot: 0,
+            animation_count: 2,
+            default_animation: None,
+            animations: (0..2)
+                .map(|i| SpriteAnimation {
+                    name: format!("a{i}"),
+                    frame_time: 1,
+                    looping: false,
+                    mugen: None,
+                    frames: vec![0; 17],
+                })
+                .collect(),
+        };
+        let pages = sprite_resource_pages(&asset);
+        assert_eq!(pages.len(), 2);
+        let source = image::DynamicImage::new_rgba8(1, 1);
+        assert!(sprite_page_palette(&source, &pages)
+            .unwrap_err()
+            .contains("64 megapixels"));
     }
 
     #[test]

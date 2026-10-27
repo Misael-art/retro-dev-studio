@@ -5884,9 +5884,75 @@ async function runMugenRealScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, 
 // (o3 reutiliza a imagem de o1) -> desfazer/refazer -> voltar a cena com zoom preservado -> salvar ->
 // destruir janela -> reabrir -> Build & Run -> teclado nativo + "Step 1 frame" da UI com sonda de RAM
 // (rotulada) -> restaurar pela UI -> rebuild com bytes iguais ao baseline. Nenhum JSON e editado a mao.
+async function verifyPagedKenBuild(sessionId, project, animations) {
+  const scene = JSON.parse(await readFile(path.join(project, "scenes/main.json"), "utf8"));
+  const sprite = scene.entities.find((e) => e.entity_id === "kenmasters").components.sprite;
+  const source = decodeWindowPng(await readFile(path.join(project, sprite.asset)));
+  const names = Object.keys(animations).sort();
+  const { frame_width: fw, frame_height: fh } = sprite;
+  const columns = Math.ceil(source.width / fw);
+  let pixels = 0;
+  let maxPagePixels = 0;
+  let palette = null;
+  for (let i = 0; i < names.length; i += 1) {
+    const frames = animations[names[i]].frames;
+    const bmp = await readFile(path.join(project, `build/megadrive/res/rds_generated/sprites/kenmasters/animation_${i}.bmp`));
+    const w = bmp.readUInt32LE(18), h = bmp.readUInt32LE(22), offset = bmp.readUInt32LE(10);
+    if (bmp.toString("ascii", 0, 2) !== "BM" || bmp.readUInt16LE(28) !== 8 || bmp.readUInt32LE(30) !== 0 || w !== fw * frames.length || h !== fh || w * h > 67108864) fail(`Pagina ${i} fora do contrato.`);
+    const colors = bmp.subarray(54, 1078);
+    if (palette && !palette.equals(colors)) fail(`Paleta da pagina ${i} divergiu.`);
+    palette = colors;
+    const stride = (w + 3) & ~3;
+    for (let occurrence = 0; occurrence < frames.length; occurrence += 1) {
+      const sx = (frames[occurrence] % columns) * fw, sy = Math.floor(frames[occurrence] / columns) * fh;
+      for (let y = 0; y < fh; y += 1) for (let x = 0; x < fw; x += 1) {
+        const at = ((sy + y) * source.width + sx + x) * source.channels;
+        const index = bmp[offset + (h - y - 1) * stride + occurrence * fw + x];
+        const alpha = sx + x >= source.width || sy + y >= source.height ? 0 : source.channels === 4 ? source.pixels[at + 3] : 255;
+        if (!alpha ? index !== 0 : index === 0 || colors[index * 4] !== source.pixels[at + 2] || colors[index * 4 + 1] !== source.pixels[at + 1] || colors[index * 4 + 2] !== source.pixels[at]) {
+          fail(`Pixel divergente ${names[i]}/${occurrence} em (${x},${y}).`);
+        }
+        pixels += 1;
+      }
+    }
+    maxPagePixels = Math.max(maxPagePixels, w * h);
+  }
+  // Independent ABI read of the pinned SGDK 2.11 structures: SpriteDefinition
+  // has numAnimation at +8, animations at +10, maxima at +14/+16; Animation
+  // begins with u8 numFrame. Runtime RAM is word-swapped by this pinned core.
+  const symbols = parseElf32Symbols(await readFile(path.join(project, "build/megadrive/out/rom.out")));
+  const rom = await readFile(path.join(project, "build/megadrive/out/rom.bin"));
+  const readRam = async (address, length) => {
+    if (!Number.isInteger(address)) fail("Simbolo da tabela paginada ausente.");
+    const r = await executeAsyncScript(sessionId, `const done=arguments[arguments.length-1];const invoke=window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke;
+      invoke("emulator_read_memory",{region:2,offset:arguments[0]&65535,length:arguments[1]}).then(v=>done(v.data)).catch(e=>done({error:String(e)}));`, [address, length]);
+    if (!Array.isArray(r) || r.length !== length) fail(`RAM da tabela ilegivel: ${JSON.stringify(r)}`);
+    return Buffer.from(r);
+  };
+  const word = (b, at) => b[at] | (b[at + 1] << 8);
+  const pointer = (b, at) => (word(b, at) * 65536 + word(b, at + 2)) >>> 0;
+  const logical = await readRam(symbols.get("kenmasters"), 18);
+  if (word(logical, 8) !== names.length) fail("Tabela logica perdeu animacoes.");
+  const refs = await readRam(pointer(logical, 10), names.length * 4);
+  let occurrences = 0, maxTiles = 0, maxSprites = 0;
+  for (let i = 0; i < names.length; i += 1) {
+    const physical = symbols.get(`kenmasters__rds_page_${i}`);
+    if (!Number.isInteger(physical) || physical + 18 > rom.length || rom.readUInt16BE(physical + 8) !== 1) fail(`Definicao fisica ${i} invalida.`);
+    const animation = rom.readUInt32BE(rom.readUInt32BE(physical + 10));
+    const count = rom[animation];
+    if (pointer(refs, i * 4) !== animation || count !== animations[names[i]].frames.length) fail(`Animacao ${names[i]} perdeu indices/ocorrencias no ROM: ${count}.`);
+    occurrences += count;
+    maxTiles = Math.max(maxTiles, rom.readUInt16BE(physical + 14));
+    maxSprites = Math.max(maxSprites, rom.readUInt16BE(physical + 16));
+  }
+  if (word(logical, 14) !== maxTiles || word(logical, 16) !== maxSprites) fail("Residencia nao cobre todas as paginas.");
+  return { animations: names.length, occurrences, pixels_compared: pixels, max_page_pixels: maxPagePixels, palettes_identical: true, compiled_indices_verified: true, max_tiles: maxTiles, max_sprites: maxSprites };
+}
+
 async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, onProjectCreated) {
   const source = process.env.RDS_MUGEN_REAL_SOURCE;
   const output = process.env.RDS_STUDIO_E1_OUTPUT;
+  const fullActions = process.env.RDS_MUGEN_FULL_ACTIONS === "1";
   if (!source || !output) fail("RDS_MUGEN_REAL_SOURCE e RDS_STUDIO_E1_OUTPUT obrigatorios (BYOR fora do Git).");
   await mkdir(output, { recursive: true });
   const prefix = `studio-e1-${artifactTimestamp()}`;
@@ -5930,7 +5996,10 @@ async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
   }
   await shot("metadata-choices");
   await select("mugen-source-palette", "ken1.act");
-  for (const n of [0, 20, 21, 200]) await clickByTestId(sessionId, `mugen-source-action-${n}`);
+  const actionControls = fullActions ? await js(`return Array.from(document.querySelectorAll('[data-testid^="mugen-source-action-"]')).map(e=>e.dataset.testid);`)
+    : [0, 20, 21, 200].map(n => `mugen-source-action-${n}`);
+  for (const id of actionControls) await clickByTestId(sessionId, id);
+  report.import_scope = fullActions ? "all listed source actions, explicitly selected through UI" : "actions 0/20/21/200";
   await clickByTestId(sessionId, "mugen-source-authored-demo");
   await clickByTestId(sessionId, "mugen-source-analyze");
   await waitFor(async () => js(`const e=document.querySelector('[data-testid="mugen-source-import"]');return e && !e.disabled;`), 120000, "Analise Ken recusada.", 200);
@@ -5938,9 +6007,11 @@ async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
   const imported = await waitFor(async () => { const s = await state(); return s?.mugenCompatibility?.open && s.mugenCompatibility.characters.some((c) => c.id === "kenmasters") ? s : false; }, 120000, "Importacao Ken nao abriu relatorio.", 200);
   const project = imported.activeProjectDir;
   report.projectDir = project;
+  currentE2eRunContext.project = project;
   onProjectCreated(project);
   await clickByTestId(sessionId, "mugen-compat-close");
   const before = await kenAnims(project);
+  if (fullActions && (Object.keys(before).length !== 103 || Object.values(before).reduce((n, a) => n + a.frames.length, 0) !== 417)) fail("Configuracao completa difere do criterio congelado 103/417.");
   const a200 = before.action_200;
   if (!a200 || JSON.stringify(a200.occurrence_ids) !== JSON.stringify(["o1", "o2", "o3"])) fail(`action_200 sem ocorrencias o1..o3: ${JSON.stringify(a200?.occurrence_ids)}`);
   const img = (i) => `${a200.mugen_frames[i].group},${a200.mugen_frames[i].image}`;
@@ -5953,6 +6024,10 @@ async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
   const baseline = await runBuildRunAndCollect(sessionId, "Ken E1 baseline", timeoutMs, report, `${prefix}-baseline`);
   report.baseline_rom_sha256 = await hashFile(baseline.rom_path);
   step("baseline_build", { rom_sha256: report.baseline_rom_sha256 });
+  if (fullActions) {
+    report.paged_resource_audit = await verifyPagedKenBuild(sessionId, project, before);
+    step("all_animation_pages_pixels_palette_and_compiled_indices", report.paged_resource_audit);
+  }
 
   // 3. Cena -> zoom -> Inspector "abrir arte" -> Personagem com contexto.
   await clickByTestId(sessionId, "workspace-rail-scene");
@@ -6163,8 +6238,14 @@ async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
     await closeVisibleConsoleDrawer(sessionId, "E3b");
     const t = await js(`const b=document.querySelector('[data-testid="inspect-box-kenmasters"]');if(!b)return null;const r=b.getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height*0.4)};`);
     if (!t) fail("Caixa do Ken ausente no overlay.");
-    const under = await js(`return document.elementFromPoint(arguments[0],arguments[1])?.closest('[data-testid]')?.getAttribute('data-testid') ?? null;`, [t.x, t.y]);
-    if (under !== "inspect-overlay") fail(`Clique no Ken coberto por '${under}'.`);
+    const hit = await js(`const e=document.elementFromPoint(arguments[0],arguments[1]);return {
+      id:e?.closest('[data-testid]')?.getAttribute('data-testid')??null,
+      surface:!!e?.closest('[data-testid="inspect-overlay"]'),
+      interactive:!!e?.closest('button,input,select,textarea,a,[role="dialog"]')};`, [t.x, t.y]);
+    if (!hit?.surface || hit.interactive) fail(`Clique no Ken coberto por '${JSON.stringify(hit)}'.`);
+    // Alerts are non-interactive children of this same surface: the real
+    // pointer event bubbles to its canvas hit-test; do not reject that target.
+    (report.native_inspection_targets ??= []).push(hit);
     const c = await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{ type: "pointer", id: "rds-inspect-b", parameters: { pointerType: "mouse" },
       actions: [{ type: "pointerMove", origin: "viewport", x: t.x, y: t.y }, { type: "pointerDown", button: 0 }, { type: "pointerUp", button: 0 }] }] });
     if (!c.ok) fail("Clique nativo recusado.");
@@ -6237,6 +6318,18 @@ async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
   await clickByTestId(sessionId, "studio-return-origin");
   await writeFile(kenAssetPath, originalBytes);
   step("e3_same_path_content_change_refused_restored_accepted_rebuild_valid", { asset: kenAsset, original_sha256: originalSha, edited_sha256: editedSha, rebuilt_rom_sha256: rebuilt.romSha });
+  if (fullActions) {
+    const finalRun = await runBuildRunAndCollect(sessionId, "Ken completo restaurado", timeoutMs, report, `${prefix}-final`);
+    if (finalRun.rom_sha256 !== report.baseline_rom_sha256) fail("ROM final nao restaurou o baseline completo.");
+    await clickButtonByTestIdNative(sessionId, "toolbar-review");
+    await clickButtonByTestIdNative(sessionId, "delivery-verify-rom");
+    await waitFor(async () => js(`return document.querySelector('[data-testid="delivery-export"]')?.disabled === false;`), 30000, "ROM completa nao liberou exportacao.", 150);
+    await clickButtonByTestIdNative(sessionId, "delivery-export");
+    const exported = await waitFor(async () => js(`const e=document.querySelector('[data-testid="delivery-exported"]');return e?{path:e.dataset.path,sha:e.dataset.sha256}:null;`), 30000, "Exportacao completa nao concluiu.", 150);
+    if (exported.sha !== finalRun.rom_sha256 || await hashFile(exported.path) !== finalRun.rom_sha256) fail("Exportacao completa divergiu da ROM testada.");
+    await shot("full-export");
+    step("export_full_configuration_identical_to_tested_baseline", exported);
+  }
   report.allPass = true;
   await writeFile(path.join(output, `${prefix}-report.json`), `${JSON.stringify(report, null, 2)}\n`);
   console.log(`Studio E1 evidence: ${path.join(output, `${prefix}-report.json`)}`);
