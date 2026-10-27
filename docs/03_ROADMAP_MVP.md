@@ -2,6 +2,8 @@
 
 # 03 - ROADMAP MACRO & MVP TATICO
 
+**Complemento MUGEN — 2026-10-27 (Experimental):** código `1925716a`, app `35fe9ab2…`; configuração completa LOT025 agora fecha importar→editar→salvar/reabrir→build→core→inspeção→revisar/exportar sem aumentar a guarda de 64 MP. Paginação SGDK preserva 103 animações/417 ocorrências e paleta/índices; três corridas frias completas, três autorais e seis regressões PASS no mesmo binário, sete gates READY (1174 frontend/11 skip; 1070 Rust/102 ignored), fmt/Clippy padrão e CI/Desktop E2E do código PASS. Falha por suspensão/reboot e demais erratas preservadas; série final reiniciada inteira. Mapa em `data/studio_grafico/mugen-atlas-20261027.json`; Memory Bank/handoff registram provas, pacote privado local e lacuna remota. Fecha essa configuração técnica, mantendo demonstração autoral, quantização avisada, CNS geral não suportado, estudo humano/Windows pendentes e 16 jornadas parciais; sem promoção.
+
 **Coesão da UI — 2026-10-27 (Experimental, validação local):** código `d3233714`, binário `73b69d84…`; ações principais/contexto/wizard legíveis, Inspector conferido em 125%, save/build/paletas recusam respostas antigas e Stop/revisão/exportação preservam identidade. Três corridas frias autorais, três MUGEN e seis regressões desktop PASS no mesmo binário; host:certify READY, Clippy/fmt/build PASS. Evidências e falhas preservadas em `data/studio_grafico/ui-cohesion-20261027.json` e no Memory Bank. As 16 jornadas seguem parciais; não constitui aceite humano, requalificação Windows ou correção do atlas completo LOT025.
 
 

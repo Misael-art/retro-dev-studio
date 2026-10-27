@@ -1,5 +1,7 @@
 # Novo host: instalação, diagnóstico e continuidade do produto
 
+> **Estado atual 2026-10-27:** coesão principal e configuração MUGEN completa validadas tecnicamente no binário `35fe9ab2…`; detalhes, falhas/limites e reprodução na seção “Continuidade do atlas MUGEN” ao final. As prioridades antigas abaixo são o diagnóstico de entrada; estudo humano, Windows e CNS geral continuam com aceites próprios.
+
 Entrada operacional da retomada de 2026-10-24. Leia também o Memory Bank, o roadmap e as instruções do checkout. Este documento organiza instalação e execução; o diagnóstico está em [REAVALIACAO_PRODUTO_2026-10-24.md](REAVALIACAO_PRODUTO_2026-10-24.md) e a missão de implementação em [PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md](PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md). Não são três fontes concorrentes de estado.
 
 ## 1. Qual código recuperar
@@ -152,3 +154,48 @@ RDS_WORK_ROOT=/home/misael/Shared/ProjectRuntime/RetroDevStudio bash scripts/new
 ```
 
 Se outro build substituir esse artefato, usar a cópia congelada `RDS_WORK_ROOT/sessions/ui-cohesion-20261027/binaries/retro-dev-studio-73b69d84` e conferir seu SHA. Próximo desenvolvimento: diagnóstico delimitado do atlas completo LOT025, depois aceite humano das jornadas conforme o prompt de coesão, sem elevar guardas, criar outro motor ou declarar UI/produto inteiro pronto. REX E6 revalidou cópia/IPS independente, original íntegro, execução/reversão; efeito causal em física do jogo comercial não foi provado por esse cenário. Windows exige execução própria. Sem merge, release, deploy ou promoção de maturidade.
+
+
+## Roteiro neutro de observação humana da coesão
+
+**Estado: pendente de participante.** Dono: operador/avaliador humano. Automação, capturas e revisão por IA são aceite técnico separado. Usar o binário final identificado no índice da rodada, host/lock registrados e cópias privadas dos mesmos insumos; nunca o lote congelado. Preparar janela de 1280×800 e repetir os pontos de leitura em 1366×768/125%. Registrar apenas identificador anônimo, data, SHA do app, tarefa, tempo, ajuda, erros e recuperação, nos destinos privados de evidência. O facilitador lê a tarefa sem apontar controles; toda intervenção conta como ajuda. Não preencher resultados por inferência nem alterar JSON para completar uma operação ausente na UI.
+
+| Tarefa apresentada ao participante | Resultado observável esperado |
+|---|---|
+| Crie uma pequena fase com o modelo autoral disponível e encontre o personagem. | Projeto/cena/seleção identificáveis, ação principal e propriedades localizáveis. |
+| Mude a posição do personagem; desfaça e refaça a mudança. | Uma intenção corresponde a um passo; valor recusado preserva o estado válido. |
+| Abra o editor do personagem, escolha uma ocorrência e altere sua duração; volte à cena. | Ocorrência e alcance visíveis; retorno preserva seleção, zoom/câmera e contexto. |
+| Consulte os usos de uma paleta/modelo compartilhado e revise uma alteração; desfaça. | Número de usos/impacto compreensível; instâncias independentes preservadas; uma transação de Undo. |
+| Salve, feche o aplicativo e retome o mesmo projeto. | Conteúdo reaparece; salvo/pendente/rascunho e erros têm interpretação correta. |
+| Teste o projeto, inspecione o personagem e volte ao editor indicado; retorne ao teste. | ROM atual identificada, vínculo verificável abre a ocorrência correta e preserva o quadro pausado. |
+| Pare o teste, revise e exporte o projeto. | Recibo do teste permanece; artefato verificado/exportado é o mesmo, com erro/retentativa úteis quando necessário. |
+| Importe o Ken privado, revise escolhas/perdas, edite uma ocorrência e repita salvar/reabrir/testar/exportar. | Arte preservada; escolhas e limites compreensíveis; comportamento autoral distinguido de conversão da origem. |
+
+Aceite por tarefa: concluída sem ajuda, concluída com ajuda, falhou ou não executada. Registrar tentativas, mensagens, retorno de foco e recuperação; capturas antes/depois devem mostrar o estado realmente observado. Não transformar uma execução assistida em sucesso autônomo. Ao fechar a sessão humana, reconciliar resultados no Memory Bank e no índice requisito→implementação→prova→resultado→limite, mantendo falhas e maturidade Experimental até decisão própria de promoção. As 16 jornadas históricas não são automaticamente encerradas por este roteiro.
+
+
+## Continuidade do atlas MUGEN — 2026-10-27 (validação técnica local PASS, Experimental)
+
+Código publicado `1925716ae4210d87f73e7c092a10a63a70627a56`, mesma branch/PR #112. Binário congelado `35fe9ab21ab0383305de1aeac2ef6b0b48805f83b5b2543bfc3ae06f007fff41` (418656160 bytes); fontes de produto conferidas por SHA com o commit. Índice da rodada: `data/studio_grafico/mugen-atlas-20261027.json`, com mapa requisito → implementação → prova → resultado → limite. O índice anterior da UI permanece histórico.
+
+LOT025 foi reproduzido no binário anterior: retângulo 10240×17304 = 177192960 pixels, contra 11208960 pixels de ocorrências úteis. O adaptador SGDK agora pagina por animação e monta uma tabela lógica estática, mantendo todos os índices, máximos residentes e paleta compartilhada. A guarda continua 67108864 pixels **por página**, com teste de recusa acima desse limite. Na configuração real: 103 animações/417 ocorrências, maior página 1720320 pixels; comparação independente de todos os pixels dos BMPs ao atlas convertido e dos índices/contagens no ELF/ROM/RAM. Não se compararam todos os quadros renderizados de todas as animações ao SFF bruto.
+
+Duas verticais iniciais completas passaram no binário congelado, incluindo edição de o3 por controle da UI, recusa de zero, desfazer/refazer, salvar/fechar/reabrir, duração medida no core, restauração byte-idêntica, inspeção exata/retorno, recusas de vínculo/conteúdo alterado e revisar/verificar/exportar com SHA independente. A terceira tentativa foi interrompida por suspensão confirmada no journal (09:41:14Z→10:19:10Z), depois houve reboot. Sua falha permanece preservada; a série de três partidas frias foi reiniciada inteira, com os mesmos critérios e prazos. **A série final fechou com 12 sessões PASS: três MUGEN completas consecutivas, três autorais e seis regressões (E4, E2/E5, paletas, REX E6, onboarding/Stop/revisar/exportar e SNES)**, todas no mesmo binário, com captura autoral em 125% e exportação final conferidas. Novo diagnóstico READY no mesmo host/lock; inibição de idle é temporária e ligada ao processo de QA, sem mudar política global ou impedir suspensão explícita.
+
+Certificação `2026-10-27T09-22-41-547Z-2002991`: READY, sete gates PASS, frontend 1174/11 skip, Rust 1070/102 ignored, smokes oficiais SGDK/PVSnesLib. Clippy padrão incluindo binário e fmt adicionais PASS. Esses gates foram executados antes do reboot no mesmo OS/lock/fontes; diagnóstico após reboot não é outra certificação. CI/Desktop E2E do código 1925716a passaram. O push notificou alertas Dependabot da branch padrão; não atribuir esse aviso ao lock da PR nem declarar auditoria nova nesta fatia sem executá-la.
+
+Para reproduzir no host disponível, definir `RDS_UI_APP` para o binário cujo SHA foi conferido, `RDS_MUGEN_REAL_SOURCE` para a entrada privada do operador com os sete hashes do índice e `RDS_STUDIO_E1_OUTPUT` para evidência durável fora da fonte. Usar display de QA próprio ativo e os drivers oficiais ativados pelo launcher:
+
+```bash
+rtk proxy env RDS_BUILD_JOBS=1 RDS_E2E_KEEP_PROJECT=1 RDS_MUGEN_FULL_ACTIONS=1 GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 bash scripts/new-host.sh --run node scripts/e2e-tauri-build-run.mjs --skip-build --scenario studio-e1 --app "$RDS_UI_APP"
+```
+
+O `DISPLAY`, `RDS_WORK_ROOT` e as três variáveis acima precisam estar exportados no processo. Para um build novo, usar primeiro o launcher/build oficial, registrar outro SHA e repetir os aceites pertinentes; não presumir identidade com o binário privado desta rodada. O runner mistura ações DOM e WebDriver nativas; o seletor de pasta é preparado pelo helper existente. Leituras de disco/RAM são sondas; a alteração direta de bytes do PNG é um controle negativo de conteúdo stale, restaurado, e **não** prova edição de pixels pela UI. Nenhum JSON foi editado para provar a edição de duração.
+
+Limites preservados: demonstração autoral explicitamente escolhida, estados 0/20/21/200/facing fixo; CNS original é referência, não comportamento integral convertido. Todas as animações no ROM não tornam todos os golpes originais jogáveis. A redução de 22 cores VDP para 15 slots já aproxima 2707 pixels e é avisada pelo importador; paginação não acrescenta mudança. Sons copiados do SND exigem vínculo autoral/eventos, exercitados no cenário delimitado E2/E5; som comercial permanece separado. Avisos de estimativa de orçamento continuam visíveis; não se certifica desempenho de toda combinação/hardware físico. Windows e estudo humano exigem execução própria; as 16 jornadas continuam parciais.
+
+Retenção: `RDS_WORK_ROOT/sessions/mugen-atlas-20261027/` conserva planos, ledgers, erratas, certificação e binários; recibos/logs ficam em cada sessão do launcher. Projetos e capturas privados não entram no Git. A lacuna remota da Page/Biblioteca continua explícita: 20 partes Git com metadados, sem download binário qualificado; 23 ZIPs maiores declarados não enviados e sem referências nesta Page. Não há listagem exaustiva da Biblioteca geral. Código público e metadados não restauram esses arquivos.
+
+Proteção desta rodada: pacote privado local em `~/_-backups-_/Projects/RetroDevStudio-UI-2026-10-27/ui-mugen-evidence-1925716a.tar.zst`. São 1287 arquivos/1418302875 bytes de conteúdo, arquivo 291807298 bytes, SHA `a22c1490e9b39f4bba966ad0289629a242964deb546f6fe5a2b1c74b114f7f97`; `content-manifest.json` e `receipt.json` no mesmo diretório. Compressão e leitura integral do tar verificaram tamanho/SHA de cada arquivo, sem extrair sobre fontes. Inclui evidências/binários e 11 projetos próprios gerados, sem apagar originais. **Mesmo filesystem; cópia fora do host não qualificada.** Retenção do operador até aceite humano e proteção privada independente; não apagar evidência para liberar disco. A lacuna remota histórica não é resolvida por esse pacote local.
+
+Fechamento operacional: nenhum app/driver próprio vivo, Xvfb de QA encerrado e inibidor de idle liberado. Originais Ken/snapshot/Sonic/Hamoopig e três exportações finais reconferidos por SHA. O próximo passo de aceite é executar o roteiro humano acima no binário identificado; falhas humanas e Windows devem ser registradas separadamente. Para continuar código, usar o checkout único e o índice/Memory Bank atualizados, não repetir o diagnóstico antigo como estado vigente.

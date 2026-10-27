@@ -1,3 +1,15 @@
+### Checkpoint 2026-10-27 — atlas MUGEN e coesão final validados localmente (Experimental)
+
+Código `1925716a` publicado/CI/Desktop E2E PASS, app `35fe9ab2…`; três MUGEN completas consecutivas, três autorais e seis regressões desktop PASS após reboot, no mesmo binário. LOT025: 103 animações/417 ocorrências, páginas/paleta/pixels e índices ROM+RAM íntegros, guarda 64 MP mantida; revisão/exportação idênticas às ROMs testadas. Certificação READY: sete gates, frontend 1174/11 skip, Rust 1070/102 ignored; fmt/Clippy padrão PASS. Falhas e suspensão da série anterior preservadas; originais reconferidos e pacote privado local verificado (mesmo filesystem, sem proteção fora do host qualificada). Mapa de requisitos/provas/limites em `data/studio_grafico/mugen-atlas-20261027.json`; estado completo no topo do Memory Bank. Demonstração autoral não é CNS integral; 16 jornadas parciais, estudo humano/Windows pendentes. Próximo: protocolo humano do handoff, sem promoção/merge/release.
+
+---
+
+### Checkpoint 2026-10-27 — atlas MUGEN, fechamento técnico em andamento (Experimental)
+
+Código `1925716a` publicado na mesma branch/PR #112, CI/Desktop E2E PASS; binário `35fe9ab2…`. Guarda LOT025 reproduzida; paginação SGDK preserva 103 animações/417 ocorrências/paleta/índices, sem elevar 64 MP. Duas verticais iniciais completas PASS; uma tentativa seguinte interrompida por suspensão confirmada e reboot, preservada. Nova série de três corridas frias completas em andamento após diagnóstico READY; duas já PASS. Host:certify antes do reboot no mesmo OS/lock/fontes: READY, sete gates, frontend 1174/11 skip, Rust 1070/102 ignored; fmt/Clippy padrão PASS. Índice `data/studio_grafico/mugen-atlas-20261027.json` ainda em validação, com mapa requisito/prova/limite. Estado exato, falhas, processos e próximo comando no topo do Memory Bank. Autoria/regressões finais, estudo humano e Windows não são inferidos; CNS geral continua fora do suporte demonstrado.
+
+---
+
 ### Checkpoint 2026-10-27 — coesão da UI principal validada localmente (Experimental)
 
 Código `d3233714`, binário `73b69d84…`: três corridas frias autorais, três MUGEN e seis regressões desktop PASS no mesmo binário; Inspector em 125% conferido por captura/gate geométrico. Host:certify READY (sete gates, 1174 frontend/11 skip, 1067 Rust/102 ignored), Clippy padrão/fmt/build debug PASS. Estado, falhas preservadas, limites e próximo passo no checkpoint de mesma data de `06_AI_MEMORY_BANK.md`; índice em `data/studio_grafico/ui-cohesion-20261027.json`. Aceite humano, atlas MUGEN completo e Windows continuam pendentes; sem promoção de maturidade.
