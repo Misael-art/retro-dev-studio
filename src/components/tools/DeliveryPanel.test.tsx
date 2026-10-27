@@ -55,6 +55,10 @@ describe("DeliveryPanel", () => {
   afterEach(() => {
     act(() => root.unmount());
     host.remove();
+    if (vi.isFakeTimers()) {
+      vi.runAllTimers();
+      vi.useRealTimers();
+    }
   });
 
   function built(s: Scene) {
@@ -68,6 +72,7 @@ describe("DeliveryPanel", () => {
   }
 
   it("a blocking HUD error opens the exact property and blocks export", async () => {
+    vi.useFakeTimers();
     built(scene(36));
     const onClose = await render();
     expect(q("delivery-errors")!.dataset.count).toBe("1");
@@ -77,6 +82,16 @@ describe("DeliveryPanel", () => {
     expect(onClose).toHaveBeenCalled();
     expect(useEditorStore.getState().studio.focus).toMatchObject({ task: "interface", entityId: "vida" });
     expect(useEditorStore.getState().activeWorkspace).toBe("scene");
+    // The inspector mounts after navigation. Exercise the retry and complete
+    // the focus request before the test environment is torn down.
+    await act(async () => vi.advanceTimersByTime(0));
+    const field = document.createElement("input");
+    field.dataset.testid = "inspector-hud-column";
+    host.appendChild(field);
+    await act(async () => vi.advanceTimersByTime(50));
+    expect(document.activeElement).toBe(field);
+    await act(async () => vi.runAllTimers());
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("a safe-area warning does not block a valid export; export requires ROM verification and current build", async () => {
