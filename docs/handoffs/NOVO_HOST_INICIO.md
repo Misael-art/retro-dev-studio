@@ -133,3 +133,22 @@ Testes dos launchers e sua execução neste host não equivalem a reinstalação
 ## Recuperação organizada — 2026-10-26
 
 Raiz única neste host: `/home/misael/Projects/RetroDevStudio`, base `ba7dc26eb6526bdfd7a707ad5948dcb0ecb5857a`. Histórico privado recuperado em namespace local de revisão, sem recriar os checkouts históricos e sem publicá-lo. Cópias independentes dos arquivos privados foram verificadas por SHA-256 no disco principal; pesquisa não foi mesclada ao código. Runtime do host-manager configurado por `RDS_WORK_ROOT`, separado da árvore fonte. A instalação atual passou pelo launcher oficial, incluindo compilação da toolchain, npm ci e check de árvore, com recibo novo neste host. O `--check` passou e a suíte frontend registrou 1156 pass/11 skip (127 arquivos pass/2 skip). Isso não certifica jornadas GUI nem usabilidade. READY e provas do host antigo não se transferem. Próxima tarefa de produto continua sendo a coesão descrita neste handoff; publicação do código deve preservar a curadoria pública e excluir dados/históricos privados.
+
+
+## Continuidade da UI — 2026-10-27
+
+Este checkpoint atualiza o resultado operacional das prioridades de coesão acima, preservando a auditoria histórica. Código `d32337142dcde6deb6d1a6d4232c014ed7f56963`, PR #112/mesma branch; binário final `73b69d84fd1db9045f86c7336905722a011d21c3a5083c27cd03222f5c0702c4` (417754784 bytes). O índice `data/studio_grafico/ui-cohesion-20261027.json` liga as fontes por hash ao commit, registra três corridas frias autorais, três MUGEN e seis regressões PASS, além de falhas/iterações preservadas. O binário foi construído antes do commit; não se afirma build limpo/reprodutível apenas por essa vinculação.
+
+Ações principais explícitas, wizard/diálogos com foco, canvas sem dock inicial sobreposto, Inspector legível em 125%, edição contextual e isolamento de respostas antigas usam os componentes/stores/pipeline existentes. Stop mantém recibo do quadro da ROM testada; revisão/exportação conferem o mesmo SHA e os bytes exportados. Triagem MUGEN retorna metadados sem converter tudo antes de escolher ações; análise integral permanece obrigatória. A configuração real validada seleciona 0/20/21/200 + ken1.act + demonstração autoral; **não fecha o atlas completo LOT025 nem CNS geral**.
+
+Host atual BigLinux/Linux x64: certificação `2026-10-27T03-56-46-001Z-1128073` READY, sete gates, frontend 1174/11 skip, Rust 1067/102 ignored, smokes SGDK/PVSnesLib; Clippy padrão, fmt e build debug PASS. O diagnóstico BYOR de prévia modificada falhou inicialmente por caminho antigo da referência; agora usa `RDS_HAMOOPIG_ROM`, confere o SHA congelado e faz asserções de pixels. O arquivo original está no backup do operador e não foi copiado para recriar checkout antigo. Neste host, configurar essa variável para a referência verificada antes de repetir a certificação enquanto o artefato privado modificado estiver presente. Nunca baixar a ROM para liberar o gate. Logs/recibos de falha e sucesso são a evidência: `new-host --run` posterior sobrescreve o `host-readiness.json` compartilhado com um diagnóstico sem lista de gates.
+
+Runtime desta sessão: `RDS_WORK_ROOT/sessions/ui-cohesion-20261027/` contém `binaries/`, `final/` e `evidence/`; capturas e relatórios autorais também estão em `src-tauri/target-test/validation/`. Binários anteriores e falhas foram preservados, sem apagar projetos/corpus. Xvfb e serviços temporários próprios foram encerrados. Não publicar estes dados privados nem os binários no Git. QA usou Tauri/WebKitWebDriver/Xvfb com ações nativas e DOM; não foi um participante humano.
+
+Próximo comando, da raiz única (para avaliação humana; a árvore mantém o artefato debug final):
+
+```bash
+RDS_WORK_ROOT=/home/misael/Shared/ProjectRuntime/RetroDevStudio bash scripts/new-host.sh --run src-tauri/target-test/debug/retro-dev-studio
+```
+
+Se outro build substituir esse artefato, usar a cópia congelada `RDS_WORK_ROOT/sessions/ui-cohesion-20261027/binaries/retro-dev-studio-73b69d84` e conferir seu SHA. Próximo desenvolvimento: diagnóstico delimitado do atlas completo LOT025, depois aceite humano das jornadas conforme o prompt de coesão, sem elevar guardas, criar outro motor ou declarar UI/produto inteiro pronto. REX E6 revalidou cópia/IPS independente, original íntegro, execução/reversão; efeito causal em física do jogo comercial não foi provado por esse cenário. Windows exige execução própria. Sem merge, release, deploy ou promoção de maturidade.

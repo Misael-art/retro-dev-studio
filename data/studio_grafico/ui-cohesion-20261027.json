@@ -1,0 +1,1074 @@
+{
+  "schema": "retrodev.ui_cohesion_delivery/v1",
+  "status": "passed_local_experimental",
+  "maturity": "Experimental",
+  "date": "2026-10-27",
+  "base_commit": "a2e4d58a7f38c79ccecf2da7ac8b18c8c8fd0bc8",
+  "code_commit": "d32337142dcde6deb6d1a6d4232c014ed7f56963",
+  "binary": {
+    "path": "src-tauri/target-test/debug/retro-dev-studio",
+    "frozen_runtime_file": "retro-dev-studio-73b69d84",
+    "sha256": "73b69d84fd1db9045f86c7336905722a011d21c3a5083c27cd03222f5c0702c4",
+    "bytes": 417754784,
+    "built_with_uncommitted_tree": true,
+    "build_session": "2026-10-27T04-06-12-952Z-1152692",
+    "source_commit": "d32337142dcde6deb6d1a6d4232c014ed7f56963"
+  },
+  "frontend_index_sha256": "efd8cf1a927a12bbdf4bf844b530885d8d60ea95f3086f819a97c84b24249060",
+  "host": {
+    "fingerprint": "60249508aff61897cdd43160d4716b2344d69282507a36c5a457c0028143f6e2",
+    "lock_digest": "dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377",
+    "platform": {
+      "platform": "linux",
+      "arch": "x64",
+      "os_id": "biglinux",
+      "os_version": "6.18.49-1-MANJARO",
+      "abi": "2.44"
+    }
+  },
+  "display": {
+    "backend": "Tauri + WebKitWebDriver + Xvfb",
+    "physical_human_session": false,
+    "interaction": "Existing harness combines native WebDriver actions with DOM actions and automation observations; captured Tauri/WebKit output, not a human participant."
+  },
+  "authoring_cold_runs": [
+    {
+      "report": "authoring-acceptance-2026-10-27T04-09-35-878Z-report.json",
+      "sha256": "8fe026f27c06d3c3a1e0ef66953898b7fb10cc8e48f27c57ce950215ad4ecea3",
+      "all_pass": true,
+      "scope_width_ratio_125_percent": 0.8771435884310212,
+      "steps": [
+        "create_and_see_resources",
+        "layout_and_keyboard_reachability",
+        "undo_redo_keyboard",
+        "scene_edit",
+        "blocker_and_animation",
+        "passages",
+        "sound_binding",
+        "saved",
+        "restart_reopen_preserved",
+        "keyboard_play_to_victory"
+      ]
+    },
+    {
+      "report": "authoring-acceptance-2026-10-27T04-10-41-448Z-report.json",
+      "sha256": "243d1113871ee2daa2b39552ea3050704ecee8453ed7d9b4ba64c8440157cd1e",
+      "all_pass": true,
+      "scope_width_ratio_125_percent": 0.8771435884310212,
+      "steps": [
+        "create_and_see_resources",
+        "layout_and_keyboard_reachability",
+        "undo_redo_keyboard",
+        "scene_edit",
+        "blocker_and_animation",
+        "passages",
+        "sound_binding",
+        "saved",
+        "restart_reopen_preserved",
+        "keyboard_play_to_victory"
+      ]
+    },
+    {
+      "report": "authoring-acceptance-2026-10-27T04-11-32-617Z-report.json",
+      "sha256": "94156380176213f409ebc076feedc5b75c84c13c69dc42cf27ea4f6972a2fd5d",
+      "all_pass": true,
+      "scope_width_ratio_125_percent": 0.8771435884310212,
+      "steps": [
+        "create_and_see_resources",
+        "layout_and_keyboard_reachability",
+        "undo_redo_keyboard",
+        "scene_edit",
+        "blocker_and_animation",
+        "passages",
+        "sound_binding",
+        "saved",
+        "restart_reopen_preserved",
+        "keyboard_play_to_victory"
+      ]
+    }
+  ],
+  "mugen_final_runs": [
+    {
+      "report": "studio-e1-2026-10-27T04-12-23-171Z-report.json",
+      "sha256": "0cbbf3096eddd35ab1483712b41d0b77481db8fe627d54c9f0d0efad1139f812",
+      "all_pass": true,
+      "metadata_ms": 502,
+      "steps": [
+        "import_real_ken",
+        "baseline_build",
+        "open_character_editor_with_context",
+        "edit_single_occurrence_undo_redo",
+        "return_to_origin",
+        "save_destroy_window_reopen",
+        "rom_effect_measured_in_emulated_frames",
+        "restore_rebuild_bytes_equal_baseline",
+        "e3_runtime_selection_opens_exact_occurrence_and_returns",
+        "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+        "e3_same_path_content_change_refused_restored_accepted_rebuild_valid"
+      ]
+    },
+    {
+      "report": "studio-e1-2026-10-27T04-13-58-979Z-report.json",
+      "sha256": "77a46249f9730bbfdd0b224b24171a641e759e07c541eec8cefd3764c51b948a",
+      "all_pass": true,
+      "metadata_ms": 480,
+      "steps": [
+        "import_real_ken",
+        "baseline_build",
+        "open_character_editor_with_context",
+        "edit_single_occurrence_undo_redo",
+        "return_to_origin",
+        "save_destroy_window_reopen",
+        "rom_effect_measured_in_emulated_frames",
+        "restore_rebuild_bytes_equal_baseline",
+        "e3_runtime_selection_opens_exact_occurrence_and_returns",
+        "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+        "e3_same_path_content_change_refused_restored_accepted_rebuild_valid"
+      ]
+    },
+    {
+      "report": "studio-e1-2026-10-27T04-15-34-800Z-report.json",
+      "sha256": "1d8a22209e0f9fcfd1eb24a6cf7950dfc6ff091a385cf3325de9c6938c724b45",
+      "all_pass": true,
+      "metadata_ms": 503,
+      "steps": [
+        "import_real_ken",
+        "baseline_build",
+        "open_character_editor_with_context",
+        "edit_single_occurrence_undo_redo",
+        "return_to_origin",
+        "save_destroy_window_reopen",
+        "rom_effect_measured_in_emulated_frames",
+        "restore_rebuild_bytes_equal_baseline",
+        "e3_runtime_selection_opens_exact_occurrence_and_returns",
+        "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+        "e3_same_path_content_change_refused_restored_accepted_rebuild_valid"
+      ]
+    }
+  ],
+  "final_certification": {
+    "session": "2026-10-27T03-56-46-001Z-1128073",
+    "state": "READY",
+    "gates": [
+      {
+        "label": "check:tree",
+        "status": "passed"
+      },
+      {
+        "label": "lint",
+        "status": "passed"
+      },
+      {
+        "label": "typescript",
+        "status": "passed"
+      },
+      {
+        "label": "frontend-tests",
+        "status": "passed"
+      },
+      {
+        "label": "rust-clippy --lib",
+        "status": "passed"
+      },
+      {
+        "label": "rust-tests",
+        "status": "passed"
+      },
+      {
+        "label": "upstream",
+        "status": "passed"
+      }
+    ],
+    "frontend": {
+      "passed": 1174,
+      "skipped": 11
+    },
+    "rust": {
+      "passed": 1067,
+      "failed": 0,
+      "ignored": 102
+    },
+    "evidence": "canonical host:certify command exit 0 with READY; command.log and launcher receipt, not a later diagnose snapshot",
+    "artifacts": [
+      {
+        "file": "command.log",
+        "sha256": "ff6d7cd6d4baf797f0853daf07ff7045c77050b94e6d9afd3efec64ce07ef935"
+      },
+      {
+        "file": "receipt.json",
+        "sha256": "442d90817c6a72f3f163dd3d4de438e928b25db17eba37bd6c5744f13eb6ef0f"
+      }
+    ],
+    "note": "Subsequent new-host --run diagnoses overwrite the shared host-readiness.json and clear its gate list; the certification command log and receipt are preserved independently.",
+    "extra_checks": [
+      {
+        "command": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
+        "session": "2026-10-27T04-05-33-660Z-1150904",
+        "status": "PASS"
+      },
+      {
+        "command": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
+        "session": "2026-10-27T04-05-47-091Z-1151634",
+        "status": "PASS"
+      }
+    ]
+  },
+  "limitations": [
+    "Human usability pending; automation is not a human participant.",
+    "MUGEN supported configuration selects actions 0, 20, 21, 200 with authored demonstration; not full CNS conversion.",
+    "The full-action atlas limit reported in LOT025 is not raised or certified as fixed.",
+    "REX remains Experimental; no new profile, engine or universal support.",
+    "No Windows requalification, merge, release or deployment.",
+    "REX E6 verifies a known profile edit, independent IPS reproduction, original integrity, copy execution and reversal; it does not establish a causal change to commercial gameplay physics."
+  ],
+  "preserved_failed_runs": [
+    {
+      "session": "2026-10-27T02-37-55-017Z-914578",
+      "reason": "Outdated Scene Editor text assertion after visible labels changed to Portuguese.",
+      "resolution": "Assert canonical controls and guide presence; native menu/canvas checks added."
+    },
+    {
+      "session": "2026-10-27T02-49-29-884Z-949144",
+      "reason": "Native persona click attempted without opening the display selector.",
+      "resolution": "Open the visible selector with native input before choosing the persona."
+    },
+    {
+      "session": "2026-10-27T02-54-35-116Z-964611",
+      "reason": "Preexisting contradictory probe focused guided-step-cenario but waited for inspector-hud-column.",
+      "resolution": "Wait for guided-step-cenario, consistent with the immediately following assertion."
+    },
+    {
+      "session": "2026-10-27T03-16-35-199Z-1026608",
+      "reason": "Hover probe used an off-screen palette usage button without scrolling its panel.",
+      "resolution": "Scroll the real target into view and verify hit-testing before native hover.",
+      "preserved_report": "failure.json"
+    },
+    {
+      "session": "2026-10-27T03-42-22-825Z-1088966",
+      "reason": "Certification ran the preexisting BYOR modified-preview diagnostic because its artifact had been restored, but the original reference was still read through an obsolete checkout path.",
+      "result": {
+        "frontend_passed": 1174,
+        "frontend_skipped": 11,
+        "rust_passed": 1066,
+        "rust_failed": 1,
+        "rust_ignored": 102
+      },
+      "resolution": "Use the existing RDS_HAMOOPIG_ROM reference resolver, verify the pinned SHA, and assert modified pixels plus preview identity. No disabled gate or new ignore."
+    }
+  ],
+  "mugen_inputs": [
+    {
+      "file": "ken.air",
+      "bytes": 34325,
+      "sha256": "b1f6c8d093dfd0849091035d7721a5748b59a476084bbc7ebf1ce2e1c6e7ed3a"
+    },
+    {
+      "file": "ken.cmd",
+      "bytes": 25391,
+      "sha256": "728e914f4de8d6de84af7c572af1e811c03ef142e1b168e49057bc0ba0416e16"
+    },
+    {
+      "file": "ken.cns",
+      "bytes": 66613,
+      "sha256": "0b4593b7fec0e555c41b21a032a95ea5efc540b61f201d2504a409cd4d692755"
+    },
+    {
+      "file": "ken.sff",
+      "bytes": 547131,
+      "sha256": "911e21b778af3e7a93cd69fe6132b8e87fb1cacddac757ada5842a8cb1c2172c"
+    },
+    {
+      "file": "ken.snd",
+      "bytes": 943098,
+      "sha256": "4f0cfdc8a9b3dc825bbbfac14853d1d31ffa8cd5f9c64b92e8575fb131980521"
+    },
+    {
+      "file": "ken1.act",
+      "bytes": 768,
+      "sha256": "89942f64862be6cb2bb0c094b2ab0ebb5cb411c06b7f1a6f9d69af64647687f2"
+    },
+    {
+      "file": "ken8.def",
+      "bytes": 944,
+      "sha256": "fdbe2fb2498be72078232ca68f2cc74fd8347aac2c8304c626d5f15dc68f5fc8"
+    }
+  ],
+  "mugen_inputs_match_historical_pins": true,
+  "final_cold_run_acceptance": {
+    "authoring": true,
+    "mugen": true
+  },
+  "validated_previous_iteration": {
+    "binary": {
+      "path": "src-tauri/target-test/debug/retro-dev-studio",
+      "sha256": "9ffa499211c10eef37404652bbd610caa643d4457572940f6cee592e4f884c79",
+      "bytes": 417745728,
+      "frozen_runtime_file": "retro-dev-studio-ui-shell-9ffa4992"
+    },
+    "authoring_cold_runs": [
+      {
+        "scenario": "authoring-acceptance",
+        "report": "authoring-acceptance-2026-10-27T02-55-40-317Z-report.json",
+        "sha256": "c4c3db5950b09b24fc42594a75dcb0b655fdfd100841107659a3a561418a0942",
+        "steps": [
+          {
+            "id": "create_and_see_resources",
+            "status": "passed"
+          },
+          {
+            "id": "layout_and_keyboard_reachability",
+            "status": "passed"
+          },
+          {
+            "id": "undo_redo_keyboard",
+            "status": "passed"
+          },
+          {
+            "id": "scene_edit",
+            "status": "passed"
+          },
+          {
+            "id": "blocker_and_animation",
+            "status": "passed"
+          },
+          {
+            "id": "passages",
+            "status": "passed"
+          },
+          {
+            "id": "sound_binding",
+            "status": "passed"
+          },
+          {
+            "id": "saved",
+            "status": "passed"
+          },
+          {
+            "id": "restart_reopen_preserved",
+            "status": "passed"
+          },
+          {
+            "id": "keyboard_play_to_victory",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "scenario": "authoring-acceptance",
+        "report": "authoring-acceptance-2026-10-27T02-57-41-298Z-report.json",
+        "sha256": "5355e2093cedb035c4ac6ac872b581e03130cb7c38533ac98bcbc6bc4518a686",
+        "steps": [
+          {
+            "id": "create_and_see_resources",
+            "status": "passed"
+          },
+          {
+            "id": "layout_and_keyboard_reachability",
+            "status": "passed"
+          },
+          {
+            "id": "undo_redo_keyboard",
+            "status": "passed"
+          },
+          {
+            "id": "scene_edit",
+            "status": "passed"
+          },
+          {
+            "id": "blocker_and_animation",
+            "status": "passed"
+          },
+          {
+            "id": "passages",
+            "status": "passed"
+          },
+          {
+            "id": "sound_binding",
+            "status": "passed"
+          },
+          {
+            "id": "saved",
+            "status": "passed"
+          },
+          {
+            "id": "restart_reopen_preserved",
+            "status": "passed"
+          },
+          {
+            "id": "keyboard_play_to_victory",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "scenario": "authoring-acceptance",
+        "report": "authoring-acceptance-2026-10-27T02-58-36-979Z-report.json",
+        "sha256": "f8486f77c16b5e70efdfbc20e062d69843d0afd2659618ffb9c9f59eaeecac2f",
+        "steps": [
+          {
+            "id": "create_and_see_resources",
+            "status": "passed"
+          },
+          {
+            "id": "layout_and_keyboard_reachability",
+            "status": "passed"
+          },
+          {
+            "id": "undo_redo_keyboard",
+            "status": "passed"
+          },
+          {
+            "id": "scene_edit",
+            "status": "passed"
+          },
+          {
+            "id": "blocker_and_animation",
+            "status": "passed"
+          },
+          {
+            "id": "passages",
+            "status": "passed"
+          },
+          {
+            "id": "sound_binding",
+            "status": "passed"
+          },
+          {
+            "id": "saved",
+            "status": "passed"
+          },
+          {
+            "id": "restart_reopen_preserved",
+            "status": "passed"
+          },
+          {
+            "id": "keyboard_play_to_victory",
+            "status": "passed"
+          }
+        ]
+      }
+    ],
+    "mugen_cold_runs": [
+      {
+        "scenario": "studio-e1",
+        "report": "studio-e1-2026-10-27T02-59-40-854Z-report.json",
+        "sha256": "ffd3f38c800c23b30567a6f24b315c73e94398718b7567d2db0817c762964a03",
+        "all_pass": true,
+        "steps": [
+          "import_real_ken",
+          "baseline_build",
+          "open_character_editor_with_context",
+          "edit_single_occurrence_undo_redo",
+          "return_to_origin",
+          "save_destroy_window_reopen",
+          "rom_effect_measured_in_emulated_frames",
+          "restore_rebuild_bytes_equal_baseline",
+          "e3_runtime_selection_opens_exact_occurrence_and_returns",
+          "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+          "e3_same_path_content_change_refused_restored_accepted_rebuild_valid"
+        ]
+      },
+      {
+        "scenario": "studio-e1",
+        "report": "studio-e1-2026-10-27T03-03-13-128Z-report.json",
+        "sha256": "0d231a6fe0ab243b0a3d912983bdf2980cf65d5feea558ccf62b4506196f1945",
+        "all_pass": true,
+        "steps": [
+          "import_real_ken",
+          "baseline_build",
+          "open_character_editor_with_context",
+          "edit_single_occurrence_undo_redo",
+          "return_to_origin",
+          "save_destroy_window_reopen",
+          "rom_effect_measured_in_emulated_frames",
+          "restore_rebuild_bytes_equal_baseline",
+          "e3_runtime_selection_opens_exact_occurrence_and_returns",
+          "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+          "e3_same_path_content_change_refused_restored_accepted_rebuild_valid"
+        ]
+      },
+      {
+        "scenario": "studio-e1",
+        "report": "studio-e1-2026-10-27T03-06-31-064Z-report.json",
+        "sha256": "78cebc822dcf81f32d8e739d9e6c3789f4a7b1bb38bcbb4769fe56016a837956",
+        "all_pass": true,
+        "steps": [
+          "import_real_ken",
+          "baseline_build",
+          "open_character_editor_with_context",
+          "edit_single_occurrence_undo_redo",
+          "return_to_origin",
+          "save_destroy_window_reopen",
+          "rom_effect_measured_in_emulated_frames",
+          "restore_rebuild_bytes_equal_baseline",
+          "e3_runtime_selection_opens_exact_occurrence_and_returns",
+          "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+          "e3_same_path_content_change_refused_restored_accepted_rebuild_valid"
+        ]
+      }
+    ]
+  },
+  "regressions": [
+    {
+      "report": "studio-e4-2026-10-27T04-17-11-147Z-report.json",
+      "sha256": "18286fa890b541436fb9052cf486dedc77d4be6d3bdd461ea0f999281d93d3a2",
+      "all_pass": true,
+      "steps": [
+        "import_real_ken",
+        "duplicate_and_local_change",
+        "model_edit_one_undo_step_and_save",
+        "rom_local_vs_shared"
+      ]
+    },
+    {
+      "report": "studio-e2e5-2026-10-27T04-18-08-221Z-report.json",
+      "sha256": "484ebb498bf756dde1150f2002b77424647ec2e1c637370f0224540d7da486fd",
+      "all_pass": true,
+      "steps": [
+        "import_real_ken",
+        "training_target_duplicate",
+        "authored_sound_on_attack_occurrence",
+        "authored_strike_behavior_applied",
+        "hud_bound_error_navigates_to_property",
+        "rom_strike_sound_hud",
+        "inspection_layers_collisions_audio",
+        "temporary_adjust_no_hit_apply_undo",
+        "export_canonical_rom",
+        "graphic_box_edit_rom_effect_and_undo"
+      ]
+    },
+    {
+      "report": "studio-paletas-2026-10-27T04-20-22-296Z-report.json",
+      "sha256": "e961995af7497381eacfd1a824d052d8dc1306056b34c598399263c69f67a0a9",
+      "all_pass": true,
+      "steps": [
+        "import_real_ken",
+        "scenery_added_from_hierarchy",
+        "target_strike_life_text_and_hud_band",
+        "palette_summary_and_navigable_uses",
+        "local_variant_and_library_palette",
+        "shared_edit_impact_and_single_undo",
+        "palette_swap_behavior_applied",
+        "save_close_reopen_preserves_palettes",
+        "rom_composition_matches_references",
+        "rom_swap_only_target_once_and_restored",
+        "rom_walk_camera_scenery_exact_hud_anchored",
+        "inspection_shows_planned_banks_and_opens_target",
+        "rom_shared_edit_changes_only_its_users",
+        "restore_from_file_rom_byte_identical",
+        "export_canonical_rom"
+      ]
+    },
+    {
+      "report": "studio-e6-2026-10-27T04-22-06-272Z-report.json",
+      "sha256": "8e4d9cfc5871a80837d49c25e5ee28592da7fd96de5140a20fe7a5a52af79abc",
+      "all_pass": true,
+      "steps": [
+        "prepared_commercial_rom_paused",
+        "unknown_point_no_semantic_editor",
+        "proven_profile_opens_profile_editor",
+        "profile_edit_copy_ips_run_verify_revert"
+      ]
+    }
+  ],
+  "metadata_opening_ms": [
+    502,
+    480,
+    503
+  ],
+  "rust_test_existing_warnings": [
+    "duplicated #[test] in compiler/ast_generator.rs",
+    "unused sym in core/mugen_profile.rs tests"
+  ],
+  "validated_before_scaled_inspector_fix": {
+    "binary": {
+      "path": "src-tauri/target-test/debug/retro-dev-studio",
+      "frozen_runtime_file": "retro-dev-studio-b058e9fd",
+      "sha256": "b058e9fd814cd6866c585c8be6cd8df86e2cc8097c24e7ea273dcc75b14d6e5b",
+      "bytes": 417754528,
+      "built_with_uncommitted_tree": true
+    },
+    "frontend_index_sha256": "e5c019f4cb0d04c89aded5ba34c50a1fa5e316f1c08137d2dbfa6edff7e6ab0a",
+    "authoring_cold_runs": [
+      {
+        "report": "authoring-acceptance-2026-10-27T03-31-48-080Z-report.json",
+        "sha256": "dbc4321657799960f1f07978ad05938eac8617c56f8f3659a3b98f1b3c29ffbb",
+        "all_pass": true,
+        "steps": [
+          "create_and_see_resources",
+          "layout_and_keyboard_reachability",
+          "undo_redo_keyboard",
+          "scene_edit",
+          "blocker_and_animation",
+          "passages",
+          "sound_binding",
+          "saved",
+          "restart_reopen_preserved",
+          "keyboard_play_to_victory"
+        ]
+      },
+      {
+        "report": "authoring-acceptance-2026-10-27T03-32-37-507Z-report.json",
+        "sha256": "903461300d546dd419c4902e04bb1b4e455de6d5542bf3eafbaa13bec8d5c25c",
+        "all_pass": true,
+        "steps": [
+          "create_and_see_resources",
+          "layout_and_keyboard_reachability",
+          "undo_redo_keyboard",
+          "scene_edit",
+          "blocker_and_animation",
+          "passages",
+          "sound_binding",
+          "saved",
+          "restart_reopen_preserved",
+          "keyboard_play_to_victory"
+        ]
+      },
+      {
+        "report": "authoring-acceptance-2026-10-27T03-33-27-325Z-report.json",
+        "sha256": "e9b379b08353c6a08a372ad140495352bcd445c56f08399fef9c0cd12b7c90c1",
+        "all_pass": true,
+        "steps": [
+          "create_and_see_resources",
+          "layout_and_keyboard_reachability",
+          "undo_redo_keyboard",
+          "scene_edit",
+          "blocker_and_animation",
+          "passages",
+          "sound_binding",
+          "saved",
+          "restart_reopen_preserved",
+          "keyboard_play_to_victory"
+        ]
+      }
+    ],
+    "mugen_final_runs": [
+      {
+        "report": "studio-e1-2026-10-27T03-25-47-865Z-report.json",
+        "sha256": "0b4e4cf2248e48a33bebc29ac56ab95fb702f909ad961f5f6ac1167160d0179a",
+        "all_pass": true,
+        "metadata_ms": 481,
+        "steps": [
+          "import_real_ken",
+          "baseline_build",
+          "open_character_editor_with_context",
+          "edit_single_occurrence_undo_redo",
+          "return_to_origin",
+          "save_destroy_window_reopen",
+          "rom_effect_measured_in_emulated_frames",
+          "restore_rebuild_bytes_equal_baseline",
+          "e3_runtime_selection_opens_exact_occurrence_and_returns",
+          "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+          "e3_same_path_content_change_refused_restored_accepted_rebuild_valid"
+        ]
+      },
+      {
+        "report": "studio-e1-2026-10-27T03-27-25-579Z-report.json",
+        "sha256": "c73bb8ddfc68c3ed3aa5f7afad063271f601c1d2824b9f56a437579be46995be",
+        "all_pass": true,
+        "metadata_ms": 486,
+        "steps": [
+          "import_real_ken",
+          "baseline_build",
+          "open_character_editor_with_context",
+          "edit_single_occurrence_undo_redo",
+          "return_to_origin",
+          "save_destroy_window_reopen",
+          "rom_effect_measured_in_emulated_frames",
+          "restore_rebuild_bytes_equal_baseline",
+          "e3_runtime_selection_opens_exact_occurrence_and_returns",
+          "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+          "e3_same_path_content_change_refused_restored_accepted_rebuild_valid"
+        ]
+      },
+      {
+        "report": "studio-e1-2026-10-27T03-29-00-810Z-report.json",
+        "sha256": "9c9cbcf2ec83bb62dc2cc5263346ee6c7a43eb6745b9c8207268344d9277330c",
+        "all_pass": true,
+        "metadata_ms": 499,
+        "steps": [
+          "import_real_ken",
+          "baseline_build",
+          "open_character_editor_with_context",
+          "edit_single_occurrence_undo_redo",
+          "return_to_origin",
+          "save_destroy_window_reopen",
+          "rom_effect_measured_in_emulated_frames",
+          "restore_rebuild_bytes_equal_baseline",
+          "e3_runtime_selection_opens_exact_occurrence_and_returns",
+          "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+          "e3_same_path_content_change_refused_restored_accepted_rebuild_valid"
+        ]
+      }
+    ],
+    "regressions": [
+      {
+        "report": "studio-e2e5-2026-10-27T03-35-12-845Z-report.json",
+        "sha256": "528f4b7700a91cd57dfd924f40f48ef0193fe1b283c0795ce768836d39e6816d",
+        "all_pass": true,
+        "steps": [
+          "import_real_ken",
+          "training_target_duplicate",
+          "authored_sound_on_attack_occurrence",
+          "authored_strike_behavior_applied",
+          "hud_bound_error_navigates_to_property",
+          "rom_strike_sound_hud",
+          "inspection_layers_collisions_audio",
+          "temporary_adjust_no_hit_apply_undo",
+          "export_canonical_rom",
+          "graphic_box_edit_rom_effect_and_undo"
+        ]
+      },
+      {
+        "report": "studio-e4-2026-10-27T03-34-17-021Z-report.json",
+        "sha256": "f9de903f196d26ecee7d1ae022ee2b305a9515ff49ffd7f2839b49c80fa15df2",
+        "all_pass": true,
+        "steps": [
+          "import_real_ken",
+          "duplicate_and_local_change",
+          "model_edit_one_undo_step_and_save",
+          "rom_local_vs_shared"
+        ]
+      },
+      {
+        "report": "studio-e6-2026-10-27T03-41-11-435Z-report.json",
+        "sha256": "dd18ca4ca10d95da2cc0f6c50e21475ecf32873bb55b88c70176c910e237a965",
+        "all_pass": true,
+        "steps": [
+          "prepared_commercial_rom_paused",
+          "unknown_point_no_semantic_editor",
+          "proven_profile_opens_profile_editor",
+          "profile_edit_copy_ips_run_verify_revert"
+        ]
+      },
+      {
+        "report": "studio-paletas-2026-10-27T03-37-27-615Z-report.json",
+        "sha256": "3a197b683613d7d14aa9dd9ae66237dc7edb2c08f095afb1d65e951f760bae85",
+        "all_pass": true,
+        "steps": [
+          "import_real_ken",
+          "scenery_added_from_hierarchy",
+          "target_strike_life_text_and_hud_band",
+          "palette_summary_and_navigable_uses",
+          "local_variant_and_library_palette",
+          "shared_edit_impact_and_single_undo",
+          "palette_swap_behavior_applied",
+          "save_close_reopen_preserves_palettes",
+          "rom_composition_matches_references",
+          "rom_swap_only_target_once_and_restored",
+          "rom_walk_camera_scenery_exact_hud_anchored",
+          "inspection_shows_planned_banks_and_opens_target",
+          "rom_shared_edit_changes_only_its_users",
+          "restore_from_file_rom_byte_identical",
+          "export_canonical_rom"
+        ]
+      }
+    ],
+    "onboarding_review_export": {
+      "report": "onboarding-shell-2026-10-27T03-41-39-835Z-cohesion.json",
+      "sha256": "318033f4c4d155f7c162de4fd9bb8ab9b50a8055c273bb9305b36c3f72040ae7",
+      "status": "passed",
+      "steps": [
+        "build_run_current_rom",
+        "stop_verify_export_same_sha",
+        "review_returns_focus"
+      ],
+      "window": {
+        "height": 800,
+        "width": 1280
+      },
+      "exported_rom_sha256": "70a685e4d59abf7557c44093a5fa238d70cd506a00217ad66185ea542fd5f8a3"
+    },
+    "metadata_opening_ms": [
+      481,
+      486,
+      499
+    ],
+    "final_cold_run_acceptance": {
+      "authoring": true,
+      "mugen": true
+    }
+  },
+  "scaled_inspector_visual_review": {
+    "finding": "At 125% scale, the entity header squeezed the scope text and clipped the tools selector. Previous automated reachability checks did not cover these elements.",
+    "preserved_capture": "authoring-acceptance-2026-10-27T03-31-48-080Z-03-layout-scaled.png",
+    "resolution": "Full-width entity scope, wrapping property controls and selector; native regression checks scope width and reachable tabs.",
+    "status": "passed_on_final_binary",
+    "final_capture": "authoring-acceptance-2026-10-27T04-09-35-878Z-03-layout-scaled.png"
+  },
+  "validation_receipts_before_scaled_fix": {
+    "snes_native": {
+      "session": "2026-10-27T03-42-06-085Z-1087836",
+      "status": "PASS",
+      "binary_sha256": "b058e9fd814cd6866c585c8be6cd8df86e2cc8097c24e7ea273dcc75b14d6e5b"
+    }
+  },
+  "rust_diagnostic_inputs": [
+    {
+      "file": "hamoopig-reference.bin",
+      "sha256": "558bea6c80c76ec3da23afd584d4b56ece7722847ab1efc8c2f23f43f8529be9",
+      "bytes": 917504,
+      "origin": "operator-restored historical local BYOR evidence, read-only"
+    },
+    {
+      "file": "rex-lz4w-modified-261618d9f19f8176c45dc66f3f398d6998d1d68772c2205b55ef8ce70fb76192.bin",
+      "sha256": "261618d9f19f8176c45dc66f3f398d6998d1d68772c2205b55ef8ce70fb76192",
+      "bytes": 917504,
+      "origin": "operator-restored historical local BYOR evidence, read-only"
+    }
+  ],
+  "rust_diagnostic_retest": {
+    "session": "2026-10-27T03-54-38-181Z-1123498",
+    "passed": 1,
+    "failed": 0,
+    "source": "test-only reference resolver and stronger pixel assertions"
+  },
+  "formatting_correction": {
+    "failed_session": "2026-10-27T03-56-39-221Z-1127705",
+    "reason": "rustfmt required the new expect message to wrap",
+    "resolution": "Applied exact rustfmt output; file check and final canonical fmt passed (session 2026-10-27T04-05-33-660Z-1150904)."
+  },
+  "source_snapshot": [
+    {
+      "file": "scripts/e2e-tauri-build-run.mjs",
+      "sha256": "f77b7002207fe2f495476ff5c40047ffb638ef35fcda7c58cf2c20bd1d64de11"
+    },
+    {
+      "file": "src-tauri/src/core/mugen_profile.rs",
+      "sha256": "59973bc79d8bbdc45307c2f0d6a414539ca664f3198af64499b247e87ca1e273"
+    },
+    {
+      "file": "src-tauri/src/core/project_mgr.rs",
+      "sha256": "dfd8727a3df4b0ea03cecd864c595d634e9ebe9f3435ffeb61e1c51d21c010fa"
+    },
+    {
+      "file": "src-tauri/src/lib.rs",
+      "sha256": "140caffee34ff37f9a5d94a6ed1643ec51b1d4d3730f1c6b1a4d73e027ec8779"
+    },
+    {
+      "file": "src-tauri/src/tools/reverse/decomp/rex_resources.rs",
+      "sha256": "7f3f9e4f7227b118b321ae1a15ae2bdebfe799e5f6af1bee1d26449e564fc9d5"
+    },
+    {
+      "file": "src/App.test.tsx",
+      "sha256": "3006f71299ebb98388a1bd18263ac545b88025747b7afcfc72fa33faa4af1e3d"
+    },
+    {
+      "file": "src/App.tsx",
+      "sha256": "2105e84013a016e4ebafbfb9cd71130f2e19bc47fc43b0282908d17340344aed"
+    },
+    {
+      "file": "src/components/artstudio/CharacterTimelinePanel.test.tsx",
+      "sha256": "24499a564a6e312379be8f7bbc04435317b8a80175c45e332dd4993c695a2bdc"
+    },
+    {
+      "file": "src/components/artstudio/CharacterTimelinePanel.tsx",
+      "sha256": "0cc81e2ebd74bce5512f0447bfea0efaf67c5546e9bd419a837f1b6e9c4e7a6e"
+    },
+    {
+      "file": "src/components/common/Dialog.tsx",
+      "sha256": "8c36f390d83c46a952a5d58c3f475f52526c56f2cfed861d50c55c9d643b6090"
+    },
+    {
+      "file": "src/components/common/MugenSourceReviewPanel.test.tsx",
+      "sha256": "c230f7b252c38e0ad5b2d630a634d69989040af25390b489036065d08cd9ed6c"
+    },
+    {
+      "file": "src/components/common/MugenSourceReviewPanel.tsx",
+      "sha256": "db4c5a5a26d278414d93d89a105f8cec1e324d5772effe90bc9f9156eefef95a"
+    },
+    {
+      "file": "src/components/common/SceneWorkspaceNotice.tsx",
+      "sha256": "32ddafb791f62e14fb2037f76b5c2fce9b13640641be3de4f705d8703173e22f"
+    },
+    {
+      "file": "src/components/common/StudioContextBar.tsx",
+      "sha256": "89da6a903ccc8ec08a0755b6e799ce89b23240243f9fde6df43809e135bc6801"
+    },
+    {
+      "file": "src/components/common/UnifiedTopBar.tsx",
+      "sha256": "7bd9c802632d78c58da3a30b7a729e2458b3dfdbe541d99cb37aa6d9db693b2d"
+    },
+    {
+      "file": "src/components/hierarchy/HierarchyPanel.tsx",
+      "sha256": "c23cb6e9041ac66d7c5b31447bd527fb76cb5b27a757849d24bdea981e47b99c"
+    },
+    {
+      "file": "src/components/inspector/EditScopeBadge.tsx",
+      "sha256": "3e98f13559054be3364b8e7a1df14a55b3211d571c3d8c7265ca12dd04ad9007"
+    },
+    {
+      "file": "src/components/inspector/InspectorPanel.tsx",
+      "sha256": "9837a9c3168b9e357844dc675a89e515908fc802af0d572ad983d8c9bfa26e15"
+    },
+    {
+      "file": "src/components/inspector/PalettePanel.tsx",
+      "sha256": "33aca6922f5a78f5e4d0cfa33271a66d7ddfcea3aba347057708c402e2a77764"
+    },
+    {
+      "file": "src/components/tools/DeliveryPanel.test.tsx",
+      "sha256": "1db636c4c42696d2a655fee4f872fd8f770e44272a54d2a2af3749b66f6043ab"
+    },
+    {
+      "file": "src/components/tools/DeliveryPanel.tsx",
+      "sha256": "cbdef99af78b85cb4d4d2fac1d669f4cf3b5bee0eab778ff9e5f79848c786de9"
+    },
+    {
+      "file": "src/components/viewport/ViewportPanel.tsx",
+      "sha256": "9f754d074df428887b584f4772cdf067b5020b54fa457f097c0218ebac8f7eff"
+    },
+    {
+      "file": "src/core/buildFreshness.test.ts",
+      "sha256": "f8120d8036a4da7f7ddafde0e67f10f8a8561ffe9513750993fd3e007ab2963f"
+    },
+    {
+      "file": "src/core/buildFreshness.ts",
+      "sha256": "c6640fa6ea74f936941185ce113b5b576c445b54fc69c95ca559b3edf3072373"
+    },
+    {
+      "file": "src/core/mugenReview.ts",
+      "sha256": "18fa0094a1c2c50841b9edd965605e2ec6249d2bbb59596becc2f7ace64a9cf6"
+    },
+    {
+      "file": "src/core/palettePlanStore.test.ts",
+      "sha256": "75fdf0babd91ef5d71d7af53c9074152bab4509a8a0fba0929d5f5b63aed8fca"
+    },
+    {
+      "file": "src/core/palettePlanStore.ts",
+      "sha256": "4ade11af4cc3795372da52fcf55688c16a456a0b3f1697e1a6130c6720830f61"
+    },
+    {
+      "file": "src/core/scenePersistence.draft.test.ts",
+      "sha256": "5df246b6404e8c9bcce7bd27a58fcd63a8af61a2e8f6e4205f4d2693cc520dd4"
+    },
+    {
+      "file": "src/core/scenePersistence.save.test.ts",
+      "sha256": "43d3235c86b7f8ff7fe5defef98d604529fc172fc9b4bff41dad3e8e84869b38"
+    },
+    {
+      "file": "src/core/scenePersistence.ts",
+      "sha256": "7079c91bc3eb493b93c116725e6e79df47c48de5c0b331beb1951f39d054b495"
+    },
+    {
+      "file": "src/core/store/editorStore.test.ts",
+      "sha256": "c95eee5c8711cc326c4639486a4c378a06ac14f5026bf8b7b559cd46a69e44e8"
+    },
+    {
+      "file": "src/core/store/editorStore.ts",
+      "sha256": "84fbda213042210abfc4e66b65ec5d03aa1c8000b3b0c2274b7bc0992a547573"
+    },
+    {
+      "file": "src/core/surfaceRegistry.ts",
+      "sha256": "a416b809d7be2a441391cc568ef54405e6f48bd7e2f545579e0c945e41fbb51b"
+    }
+  ],
+  "source_snapshot_matches_code_commit": true,
+  "onboarding_review_export": {
+    "report": "onboarding-shell-2026-10-27T04-22-23-707Z-cohesion.json",
+    "sha256": "4b59bab026561d36a81ad35369dd8942f51e7a14bae36f8156572ed3f4f9b96e",
+    "status": "passed",
+    "steps": [
+      "build_run_current_rom",
+      "stop_verify_export_same_sha",
+      "review_returns_focus"
+    ],
+    "window": {
+      "height": 800,
+      "width": 1280
+    },
+    "exported_rom_sha256": "fbdad4616bbc332b25274e5455b580c0a3a844a83e326ea5b1df0e0b9e76e4e2"
+  },
+  "final_native_sessions": [
+    {
+      "session": "2026-10-27T04-09-32-596Z-1159613",
+      "status": "PASS",
+      "receipt_sha256": "2ef01b7cf1205aa38ba895655af227d6dccc90a7dd410ae2f3f7e9c3348098c6",
+      "command_log_sha256": "2bba0aa9c2568bb5c33fa9703b83d53ed7e32fc58c9ad1c4ed60789185ca7dc2"
+    },
+    {
+      "session": "2026-10-27T04-10-38-609Z-1162586",
+      "status": "PASS",
+      "receipt_sha256": "e58ea72c7557c0b86510e93b849abba1e384b2fe9d656952419ebc374bad4546",
+      "command_log_sha256": "9036358540f2ef9a1456a01638201c01cf49e4a7b2ba89d0c8c34fd957eb7779"
+    },
+    {
+      "session": "2026-10-27T04-11-29-843Z-1164968",
+      "status": "PASS",
+      "receipt_sha256": "4a804a9b5bac4168d8f9cc7d51b32044c56f8867e03bce2bb85d1e1d2e73b98d",
+      "command_log_sha256": "fdfeffadd05e7fdbf902c5209eda3c1182f4d0bdf6f6932cbdae4442e0d14414"
+    },
+    {
+      "session": "2026-10-27T04-12-20-320Z-1167247",
+      "status": "PASS",
+      "receipt_sha256": "242e441b21a3aad16da937cd924e5794f6983d23c140425c20fcf3907c22956d",
+      "command_log_sha256": "d7bc7cbf7b737664830ca478692e3fbf22d0c9917a4f50d594f2b0dd6231d3dd"
+    },
+    {
+      "session": "2026-10-27T04-13-56-226Z-1171717",
+      "status": "PASS",
+      "receipt_sha256": "f12f2c9091eb507053463e4b1e06466de000cc0b92d3756b57823c08a0773fe3",
+      "command_log_sha256": "228b83c40d1c6e4a67404b6311cdf1b74dc8874fd654f76aeae778dfc9155049"
+    },
+    {
+      "session": "2026-10-27T04-15-31-954Z-1176124",
+      "status": "PASS",
+      "receipt_sha256": "d69a358b8d7469d832d123b2d2e50e8cb474cdee349fe6b40e56caa09b5bcb29",
+      "command_log_sha256": "fd12c5cc3cebf6d50eb1cb7d9f0f60e3e7036ff62d82f6b76eb4d2e7c4d38a82"
+    },
+    {
+      "session": "2026-10-27T04-17-08-361Z-1180725",
+      "status": "PASS",
+      "receipt_sha256": "a865b02ba23dd2926bb67b423c70d438ed40f87e09221ffe34f1611cb2edab34",
+      "command_log_sha256": "276a680022523102a4ad3cf730cf490bd4469895856c9cedabcc329f8a28cb77"
+    },
+    {
+      "session": "2026-10-27T04-18-05-445Z-1183257",
+      "status": "PASS",
+      "receipt_sha256": "652328c2ad118ea3c3f435cb69c02f8d22b8803de18278538cfd5aa4dfe48d84",
+      "command_log_sha256": "d1181938b0d6e0e10591140606549118da619045dbb19e405ede91570e86ff1a"
+    },
+    {
+      "session": "2026-10-27T04-20-19-482Z-1189069",
+      "status": "PASS",
+      "receipt_sha256": "36699e92243dceac6e94e5ce1bbb0191037f1963d349d58402dc013780852af6",
+      "command_log_sha256": "61974fabf618dc436b9d52ee5ce19e44cdc1dfa09fdd7f984c53ae7f43edc60d"
+    },
+    {
+      "session": "2026-10-27T04-22-03-473Z-1193542",
+      "status": "PASS",
+      "receipt_sha256": "b73881e29049c7e7d99840a0f971f84a3b74462d6e730aaa2db44a398013ec54",
+      "command_log_sha256": "b87d0c45c4cdccf10175f34094c60756499fa31f25367db534fcb88e9d1abdc5"
+    },
+    {
+      "session": "2026-10-27T04-22-20-819Z-1194691",
+      "status": "PASS",
+      "receipt_sha256": "77d471ff131f39aaeb7d8206968e1e060244a963b2bf7ab62a54dcab0b5b0e7c",
+      "command_log_sha256": "527d006b33d3781083beffa090382e845a81eaaf75d34e01a8199b3a635e339d"
+    },
+    {
+      "session": "2026-10-27T04-22-35-878Z-1195660",
+      "status": "PASS",
+      "receipt_sha256": "7c90b00ebed69a3c1d338fde6457eaa97495e8a097bef87c0d56ab2456c596a7",
+      "command_log_sha256": "429a81a64b2a727d26563f3f67f2920c29132024905969365c4f6f845dc3e4dd"
+    }
+  ],
+  "snes_native": {
+    "session": "2026-10-27T04-22-35-878Z-1195660",
+    "status": "PASS",
+    "fixture": "src-tauri/tests/fixtures/projects/snes_dummy",
+    "binary_sha256": "73b69d84fd1db9045f86c7336905722a011d21c3a5083c27cd03222f5c0702c4"
+  },
+  "inspection_rom": {
+    "file": "Sonic the Hedgehog (USA, Europe).bin",
+    "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+    "bytes": 531577,
+    "original_integrity_after_tests": true
+  },
+  "completion_scope": "Cohesion of the main MVP UI and declared verticals; not all audited journeys, human usability, full MUGEN atlas or universal REX.",
+  "temporary_qa_services": "own Xvfb stopped; scenario app/driver cleanup verified zero live processes",
+  "mugen_inputs_final_recheck": true,
+  "documentation_tree_check": {
+    "session": "2026-10-27T04-24-24-819Z-1199833",
+    "status": "PASS"
+  }
+}

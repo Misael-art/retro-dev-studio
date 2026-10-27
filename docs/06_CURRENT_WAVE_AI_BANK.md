@@ -1,3 +1,9 @@
+### Checkpoint 2026-10-27 — coesão da UI principal validada localmente (Experimental)
+
+Código `d3233714`, binário `73b69d84…`: três corridas frias autorais, três MUGEN e seis regressões desktop PASS no mesmo binário; Inspector em 125% conferido por captura/gate geométrico. Host:certify READY (sete gates, 1174 frontend/11 skip, 1067 Rust/102 ignored), Clippy padrão/fmt/build debug PASS. Estado, falhas preservadas, limites e próximo passo no checkpoint de mesma data de `06_AI_MEMORY_BANK.md`; índice em `data/studio_grafico/ui-cohesion-20261027.json`. Aceite humano, atlas MUGEN completo e Windows continuam pendentes; sem promoção de maturidade.
+
+---
+
 ### Checkpoint 2026-10-24 — novo host e continuidade da coesão do produto
 
 Preparação em `codex/new-host-cohesion-20261024`, sobre recuperação pública `95d5ef23`; PR dirigida à branch de recuperação, sem merge/release/promoção. Entrada: `docs/handoffs/NOVO_HOST_INICIO.md`. Launchers `scripts/new-host.sh`/`.ps1` funcionam como nível zero; `new-host.mjs` coordena sessões e delega instalação ao bootstrap/host-manager existente. Node/npm/Rust continuam fixados; cache e Cargo target por lock, jobs limitados, temporários não ocultos e recibos separados, sem alterar HOME/perfil global ou baixar BYOR. A falta de espaço bloqueia sem limpeza destrutiva.
