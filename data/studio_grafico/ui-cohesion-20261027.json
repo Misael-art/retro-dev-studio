@@ -1070,5 +1070,2302 @@
   "documentation_tree_check": {
     "session": "2026-10-27T04-24-24-819Z-1199833",
     "status": "PASS"
+  },
+  "draft_recovery_hardening": {
+    "schema": "retrodev.draft_recovery_delivery/v1",
+    "status": "passed_local_experimental",
+    "maturity": "Experimental",
+    "base_commit": "36e948532142caabcedeb869c3e64cd3bb8f33dc",
+    "code_commits": [
+      "108fd2d3a8abec62487f1edd97ccc18cc959860b",
+      "ba60d5e1f31c6f5942558fd1777cc64bfdf64b51",
+      "796086266831d8de5e129016562f3376f9e3424f"
+    ],
+    "binary": {
+      "sha256": "826e2553cfc6d20351acd6e7d3561b18dba043ecb7c4679d4ca7013dd9b56814",
+      "bytes": 419453528,
+      "frozen_file": "retro-dev-studio-826e2553",
+      "base_commit": "108fd2d3a8abec62487f1edd97ccc18cc959860b",
+      "source_dirty": true,
+      "build_session": "2026-10-27T15-04-15-015Z-803464",
+      "frontend_index_sha256": "69522b03e8f56283553d2b8398e97904873d303f9af00d2385df692fd48c92ec",
+      "source_snapshot": [
+        {
+          "file": "src/core/scenePersistence.ts",
+          "sha256": "15e6bb23ccb9b49d03025fad3008ca09c2d5f1d830d4d2939348f70fe964defb"
+        },
+        {
+          "file": "src/core/store/editorStore.ts",
+          "sha256": "6324aa3826243205cc4e3296c3b09a2d2b541759bbdf509b37c22519f1c5e8e9"
+        },
+        {
+          "file": "src/core/ipc/sceneService.ts",
+          "sha256": "b06c38ed8404d02a22694f1350e7403cf12bb098d87bc964dbf6d38065aa1e72"
+        },
+        {
+          "file": "src/App.tsx",
+          "sha256": "640b8baf5027f727901430427a70edd3fcd7dfa8a4540dc02534ad5f9d6b5596"
+        },
+        {
+          "file": "src-tauri/src/lib.rs",
+          "sha256": "89b7a6531243b6a2122f21015ea730fa266bf6d9c1fcf6189d1aaa81ef67148c"
+        },
+        {
+          "file": "src-tauri/src/core/project_mgr.rs",
+          "sha256": "796cdfcbdd352c5890592bb64aff8087a2b04084d939d98bd9729c6def3029cd"
+        },
+        {
+          "file": "src/components/artstudio/ArtStudioPanel.tsx",
+          "sha256": "fb78908ef310fef5d118c14e356f69078affb55f3688080eefb0df1e4bbeb656"
+        }
+      ],
+      "harness_sha256": "593e9343b44f0e595874976f19a0b06e3b62ec11eb16fe0f017b05f1f2d521bd",
+      "oracle_sha256": "fc84585a0abb09251b833deab31ff3ac5295965264888e43096af9242b21f74a",
+      "frozen_at": "2026-10-27T15:12:27.461Z",
+      "source_commit": "796086266831d8de5e129016562f3376f9e3424f",
+      "qa_rc": {
+        "session": "2026-10-27T15-10-18-161Z-818950",
+        "all_pass": true,
+        "report_sha256": "a524f2aa62fa3f8f4c2ed180d9a6de59b7267fed6d3602adc033da16477aa901"
+      },
+      "production_sources_match_commit": true,
+      "built_from_dirty_tree": true
+    },
+    "cold_runs": [
+      {
+        "id": "recovery-cold-1",
+        "scenario": "draft-recovery",
+        "faults": false,
+        "started_at": "2026-10-27T15:14:55.568Z",
+        "status": "PASS",
+        "launcher_log": "recovery-cold-1-launcher.log",
+        "session": "2026-10-27T15-14-55-718Z-835810",
+        "exit_code": 0,
+        "finished_at": "2026-10-27T15:16:07.147Z",
+        "reports": [
+          "desktop-e2e-host-readiness.json",
+          "draft-recovery-2026-10-27T15-14-59-328Z-report.json",
+          "host-readiness.json",
+          "runtime-dependency-diagnostics.json"
+        ],
+        "report": {
+          "file": "draft-recovery-2026-10-27T15-14-59-328Z-report.json",
+          "bytes": 7839,
+          "sha256": "bed2d989383cc6f279b3a96fd3c8278c145a5d47e61a03366864bae83a08ffd2",
+          "schema": "retrodev.draft_recovery/v1",
+          "scenario": "retrodev.draft_recovery/v1",
+          "report_status": "passed",
+          "steps": [
+            {
+              "id": "controlled_second_scene_fixture",
+              "status": "passed"
+            },
+            {
+              "id": "native_undo_creates_unsaved_revision",
+              "status": "passed"
+            },
+            {
+              "id": "native_edit_confirmed_without_disk_write",
+              "status": "passed"
+            },
+            {
+              "id": "recovery_choices_reachable_at_1280",
+              "status": "passed"
+            },
+            {
+              "id": "native_undo_creates_unsaved_revision",
+              "status": "passed"
+            },
+            {
+              "id": "two_scene_sigkill_recovery_undo_redo",
+              "status": "passed"
+            },
+            {
+              "id": "explicit_save_close_reopen_keeps_correct_revision",
+              "status": "passed"
+            },
+            {
+              "id": "native_undo_creates_unsaved_revision",
+              "status": "passed"
+            },
+            {
+              "id": "two_projects_are_isolated",
+              "status": "passed"
+            },
+            {
+              "id": "recovered_revision_build_core_export_identity",
+              "status": "passed"
+            }
+          ],
+          "tested_application": null,
+          "interruptions": [
+            {
+              "label": "scene-main",
+              "signal": "SIGKILL",
+              "processes": 3
+            },
+            {
+              "label": "scene-secondary",
+              "signal": "SIGKILL",
+              "processes": 3
+            },
+            {
+              "label": "different-project",
+              "signal": "SIGKILL",
+              "processes": 3
+            }
+          ]
+        },
+        "source_x": 47,
+        "scene_sha256": "b8a9c56e3c5bff4f00a101a984c3c1fded8bbf1c08cf3258438138209e8b1404",
+        "baseline_rom_sha256": "e45a45d57c544370a0425a2e73b5025864ca707509321897986b2c8240499a60",
+        "export_sha256": "937eb217128eb704c2ee7b8cb86d95b13f7ad684e5a948564daab30b2d9783ab",
+        "export_bytes": 524288
+      },
+      {
+        "id": "recovery-cold-2",
+        "scenario": "draft-recovery",
+        "faults": false,
+        "started_at": "2026-10-27T15:16:08.005Z",
+        "status": "PASS",
+        "launcher_log": "recovery-cold-2-launcher.log",
+        "session": "2026-10-27T15-16-08-142Z-840444",
+        "exit_code": 0,
+        "finished_at": "2026-10-27T15:17:20.611Z",
+        "reports": [
+          "desktop-e2e-host-readiness.json",
+          "draft-recovery-2026-10-27T15-16-11-317Z-report.json",
+          "host-readiness.json",
+          "runtime-dependency-diagnostics.json"
+        ],
+        "report": {
+          "file": "draft-recovery-2026-10-27T15-16-11-317Z-report.json",
+          "bytes": 7839,
+          "sha256": "f975f864dcbd391bae011521b2619d1bc2e94b27c0e09e29c583819a1bb24c39",
+          "schema": "retrodev.draft_recovery/v1",
+          "scenario": "retrodev.draft_recovery/v1",
+          "report_status": "passed",
+          "steps": [
+            {
+              "id": "controlled_second_scene_fixture",
+              "status": "passed"
+            },
+            {
+              "id": "native_undo_creates_unsaved_revision",
+              "status": "passed"
+            },
+            {
+              "id": "native_edit_confirmed_without_disk_write",
+              "status": "passed"
+            },
+            {
+              "id": "recovery_choices_reachable_at_1280",
+              "status": "passed"
+            },
+            {
+              "id": "native_undo_creates_unsaved_revision",
+              "status": "passed"
+            },
+            {
+              "id": "two_scene_sigkill_recovery_undo_redo",
+              "status": "passed"
+            },
+            {
+              "id": "explicit_save_close_reopen_keeps_correct_revision",
+              "status": "passed"
+            },
+            {
+              "id": "native_undo_creates_unsaved_revision",
+              "status": "passed"
+            },
+            {
+              "id": "two_projects_are_isolated",
+              "status": "passed"
+            },
+            {
+              "id": "recovered_revision_build_core_export_identity",
+              "status": "passed"
+            }
+          ],
+          "tested_application": null,
+          "interruptions": [
+            {
+              "label": "scene-main",
+              "signal": "SIGKILL",
+              "processes": 3
+            },
+            {
+              "label": "scene-secondary",
+              "signal": "SIGKILL",
+              "processes": 3
+            },
+            {
+              "label": "different-project",
+              "signal": "SIGKILL",
+              "processes": 3
+            }
+          ]
+        },
+        "source_x": 47,
+        "scene_sha256": "b8a9c56e3c5bff4f00a101a984c3c1fded8bbf1c08cf3258438138209e8b1404",
+        "baseline_rom_sha256": "41246c4d0e869b8863a9a2f495ef31b9c68aa27daeaa61314ce132fd6094eb14",
+        "export_sha256": "67f78b52fd3d1bb1df05f4e0cf16b347e7ada438fb83c39736c02487091b3877",
+        "export_bytes": 524288
+      },
+      {
+        "id": "recovery-cold-3",
+        "scenario": "draft-recovery",
+        "faults": false,
+        "started_at": "2026-10-27T15:17:21.298Z",
+        "status": "PASS",
+        "launcher_log": "recovery-cold-3-launcher.log",
+        "session": "2026-10-27T15-17-21-419Z-845165",
+        "exit_code": 0,
+        "finished_at": "2026-10-27T15:18:29.938Z",
+        "reports": [
+          "desktop-e2e-host-readiness.json",
+          "draft-recovery-2026-10-27T15-17-24-024Z-report.json",
+          "host-readiness.json",
+          "runtime-dependency-diagnostics.json"
+        ],
+        "report": {
+          "file": "draft-recovery-2026-10-27T15-17-24-024Z-report.json",
+          "bytes": 7839,
+          "sha256": "71bdbdda50fbb3d1bc056ab2f66b378ec8db24f3b3e4a0a42aa63f9e925765b8",
+          "schema": "retrodev.draft_recovery/v1",
+          "scenario": "retrodev.draft_recovery/v1",
+          "report_status": "passed",
+          "steps": [
+            {
+              "id": "controlled_second_scene_fixture",
+              "status": "passed"
+            },
+            {
+              "id": "native_undo_creates_unsaved_revision",
+              "status": "passed"
+            },
+            {
+              "id": "native_edit_confirmed_without_disk_write",
+              "status": "passed"
+            },
+            {
+              "id": "recovery_choices_reachable_at_1280",
+              "status": "passed"
+            },
+            {
+              "id": "native_undo_creates_unsaved_revision",
+              "status": "passed"
+            },
+            {
+              "id": "two_scene_sigkill_recovery_undo_redo",
+              "status": "passed"
+            },
+            {
+              "id": "explicit_save_close_reopen_keeps_correct_revision",
+              "status": "passed"
+            },
+            {
+              "id": "native_undo_creates_unsaved_revision",
+              "status": "passed"
+            },
+            {
+              "id": "two_projects_are_isolated",
+              "status": "passed"
+            },
+            {
+              "id": "recovered_revision_build_core_export_identity",
+              "status": "passed"
+            }
+          ],
+          "tested_application": null,
+          "interruptions": [
+            {
+              "label": "scene-main",
+              "signal": "SIGKILL",
+              "processes": 3
+            },
+            {
+              "label": "scene-secondary",
+              "signal": "SIGKILL",
+              "processes": 3
+            },
+            {
+              "label": "different-project",
+              "signal": "SIGKILL",
+              "processes": 3
+            }
+          ]
+        },
+        "source_x": 47,
+        "scene_sha256": "b8a9c56e3c5bff4f00a101a984c3c1fded8bbf1c08cf3258438138209e8b1404",
+        "baseline_rom_sha256": "ed1bed2b9f6f1bd94bb1e9aee104ac407ba959395d3cd276c35c9bc9198ea8cd",
+        "export_sha256": "bed37d0a507193d54f9a883a84c9d0bec32e9e89632dfe7cf794003d8daedc0e",
+        "export_bytes": 524288
+      }
+    ],
+    "fault_run": {
+      "session": "2026-10-27T15-12-27-649Z-826582",
+      "report": "draft-recovery-2026-10-27T15-12-30-831Z-report.json",
+      "sha256": "c340993700df912cb53c70ae2abe4e8dd695d1c35d69f41aceb37d0f3006a324",
+      "app_sha256": "826e2553cfc6d20351acd6e7d3561b18dba043ecb7c4679d4ca7013dd9b56814",
+      "code_commit": "796086266831d8de5e129016562f3376f9e3424f",
+      "all_pass": true,
+      "interruptions": 4,
+      "steps": [
+        "controlled_second_scene_fixture",
+        "native_undo_creates_unsaved_revision",
+        "native_edit_confirmed_without_disk_write",
+        "recovery_choices_reachable_at_1280",
+        "native_undo_creates_unsaved_revision",
+        "two_scene_sigkill_recovery_undo_redo",
+        "controlled_write_failure_sigkill_recovery",
+        "explicit_save_close_reopen_keeps_correct_revision",
+        "native_undo_creates_unsaved_revision",
+        "two_projects_are_isolated",
+        "native_undo_creates_unsaved_revision",
+        "deferred_real_response_refused_after_native_context_switch",
+        "native_undo_creates_unsaved_revision",
+        "disk_divergence_explicit_keep_then_recover_preserves_both",
+        "native_undo_creates_unsaved_revision",
+        "controlled_malformed_read_keeps_real_record_and_recovers",
+        "native_undo_creates_unsaved_revision",
+        "controlled_quota_visible_retry_confirms_without_disk_write",
+        "recovered_revision_build_core_export_identity"
+      ],
+      "raw_report": {
+        "file": "draft-recovery-2026-10-27T15-12-30-831Z-report.json",
+        "bytes": 12313,
+        "sha256": "c340993700df912cb53c70ae2abe4e8dd695d1c35d69f41aceb37d0f3006a324",
+        "schema": "retrodev.draft_recovery/v1",
+        "scenario": "retrodev.draft_recovery/v1",
+        "report_status": "passed",
+        "steps": [
+          {
+            "id": "controlled_second_scene_fixture",
+            "status": "passed"
+          },
+          {
+            "id": "native_undo_creates_unsaved_revision",
+            "status": "passed"
+          },
+          {
+            "id": "native_edit_confirmed_without_disk_write",
+            "status": "passed"
+          },
+          {
+            "id": "recovery_choices_reachable_at_1280",
+            "status": "passed"
+          },
+          {
+            "id": "native_undo_creates_unsaved_revision",
+            "status": "passed"
+          },
+          {
+            "id": "two_scene_sigkill_recovery_undo_redo",
+            "status": "passed"
+          },
+          {
+            "id": "controlled_write_failure_sigkill_recovery",
+            "status": "passed"
+          },
+          {
+            "id": "explicit_save_close_reopen_keeps_correct_revision",
+            "status": "passed"
+          },
+          {
+            "id": "native_undo_creates_unsaved_revision",
+            "status": "passed"
+          },
+          {
+            "id": "two_projects_are_isolated",
+            "status": "passed"
+          },
+          {
+            "id": "native_undo_creates_unsaved_revision",
+            "status": "passed"
+          },
+          {
+            "id": "deferred_real_response_refused_after_native_context_switch",
+            "status": "passed"
+          },
+          {
+            "id": "native_undo_creates_unsaved_revision",
+            "status": "passed"
+          },
+          {
+            "id": "disk_divergence_explicit_keep_then_recover_preserves_both",
+            "status": "passed"
+          },
+          {
+            "id": "native_undo_creates_unsaved_revision",
+            "status": "passed"
+          },
+          {
+            "id": "controlled_malformed_read_keeps_real_record_and_recovers",
+            "status": "passed"
+          },
+          {
+            "id": "native_undo_creates_unsaved_revision",
+            "status": "passed"
+          },
+          {
+            "id": "controlled_quota_visible_retry_confirms_without_disk_write",
+            "status": "passed"
+          },
+          {
+            "id": "recovered_revision_build_core_export_identity",
+            "status": "passed"
+          }
+        ],
+        "tested_application": null,
+        "interruptions": [
+          {
+            "label": "scene-main",
+            "signal": "SIGKILL",
+            "processes": 3
+          },
+          {
+            "label": "scene-secondary",
+            "signal": "SIGKILL",
+            "processes": 3
+          },
+          {
+            "label": "failed-save",
+            "signal": "SIGKILL",
+            "processes": 3
+          },
+          {
+            "label": "different-project",
+            "signal": "SIGKILL",
+            "processes": 3
+          }
+        ]
+      },
+      "export_sha256": "be57f248ac86f4cac749fa7e2e24a2deebff6fbdf4570140bc41dd270f4fca1e"
+    },
+    "regressions": [
+      {
+        "id": "authoring",
+        "scenario": "authoring-acceptance",
+        "started_at": "2026-10-27T15:30:53.295Z",
+        "status": "PASS",
+        "launcher_log": "authoring-launcher.log",
+        "session": "2026-10-27T15-30-53-435Z-893791",
+        "exit_code": 0,
+        "finished_at": "2026-10-27T15:31:58.511Z",
+        "reports": [
+          {
+            "file": "authoring-acceptance-2026-10-27T15-30-57-055Z-report.json",
+            "bytes": 13094,
+            "sha256": "ec2176ccd7d8406b66886652226ac76f10d9b0dc2ec51161b04a047514800601",
+            "scenario": "authoring-acceptance",
+            "report_status": null,
+            "steps": [
+              {
+                "id": "create_and_see_resources",
+                "status": "passed"
+              },
+              {
+                "id": "layout_and_keyboard_reachability",
+                "status": "passed"
+              },
+              {
+                "id": "undo_redo_keyboard",
+                "status": "passed"
+              },
+              {
+                "id": "scene_edit",
+                "status": "passed"
+              },
+              {
+                "id": "blocker_and_animation",
+                "status": "passed"
+              },
+              {
+                "id": "passages",
+                "status": "passed"
+              },
+              {
+                "id": "sound_binding",
+                "status": "passed"
+              },
+              {
+                "id": "saved",
+                "status": "passed"
+              },
+              {
+                "id": "restart_reopen_preserved",
+                "status": "passed"
+              },
+              {
+                "id": "keyboard_play_to_victory",
+                "status": "passed"
+              }
+            ],
+            "tested_application": {
+              "path": "/home/misael/Shared/ProjectRuntime/RetroDevStudio/sessions/draft-recovery-20261027/binaries/retro-dev-studio-826e2553",
+              "sha256": "826e2553cfc6d20351acd6e7d3561b18dba043ecb7c4679d4ca7013dd9b56814"
+            }
+          }
+        ],
+        "receipt": {
+          "file": "receipt.json",
+          "bytes": 2409,
+          "sha256": "642ca2ce28362900ad39fc89f16cc34ae85dc87d86b8f4041893f064608b6561"
+        },
+        "log": {
+          "file": "command.log",
+          "bytes": 1692,
+          "sha256": "41d3d9abcf90e1df3714abcba63f917a2a9c557e0d718fffff27108dc0ae0197"
+        }
+      },
+      {
+        "id": "mugen-full",
+        "scenario": "studio-e1",
+        "full_actions": true,
+        "started_at": "2026-10-27T15:31:59.443Z",
+        "status": "PASS",
+        "launcher_log": "mugen-full-launcher.log",
+        "session": "2026-10-27T15-31-59-588Z-898499",
+        "exit_code": 0,
+        "finished_at": "2026-10-27T15:39:29.560Z",
+        "reports": [
+          {
+            "file": "studio-e1-2026-10-27T15-32-03-417Z-report.json",
+            "bytes": 10234,
+            "sha256": "b834bb3af724d4c3f5f2967b62298fc633ae45b2d4721b5021f1b01e2984aed8",
+            "schema": "retrodev.studio_e1/v1",
+            "scenario": "retrodev.studio_e1/v1",
+            "report_status": "passed",
+            "steps": [
+              {
+                "id": "import_real_ken",
+                "status": "passed"
+              },
+              {
+                "id": "baseline_build",
+                "status": "passed"
+              },
+              {
+                "id": "all_animation_pages_pixels_palette_and_compiled_indices",
+                "status": "passed"
+              },
+              {
+                "id": "open_character_editor_with_context",
+                "status": "passed"
+              },
+              {
+                "id": "edit_single_occurrence_undo_redo",
+                "status": "passed"
+              },
+              {
+                "id": "return_to_origin",
+                "status": "passed"
+              },
+              {
+                "id": "save_destroy_window_reopen",
+                "status": "passed"
+              },
+              {
+                "id": "rom_effect_measured_in_emulated_frames",
+                "status": "passed"
+              },
+              {
+                "id": "restore_rebuild_bytes_equal_baseline",
+                "status": "passed"
+              },
+              {
+                "id": "e3_runtime_selection_opens_exact_occurrence_and_returns",
+                "status": "passed"
+              },
+              {
+                "id": "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+                "status": "passed"
+              },
+              {
+                "id": "e3_same_path_content_change_refused_restored_accepted_rebuild_valid",
+                "status": "passed"
+              },
+              {
+                "id": "export_full_configuration_identical_to_tested_baseline",
+                "status": "passed"
+              }
+            ],
+            "tested_application": null,
+            "paged_resource_audit": {
+              "animations": 103,
+              "occurrences": 417,
+              "pixels_compared": 11208960,
+              "max_page_pixels": 1720320,
+              "palettes_identical": true,
+              "compiled_indices_verified": true,
+              "max_tiles": 114,
+              "max_sprites": 15
+            },
+            "export_sha256": "afb55545eec4021eedc904665248d1efc6dea7f958e6a57249be5131b3b62110"
+          }
+        ],
+        "receipt": {
+          "file": "receipt.json",
+          "bytes": 2409,
+          "sha256": "ceebab01cb920828058851e35ebf958058b4a7133f42d5f1d4a9d1c50b03debb"
+        },
+        "log": {
+          "file": "command.log",
+          "bytes": 5700,
+          "sha256": "57796069137f4e23b68d3d3b32eb95420c8fc9eca325d2fd4b8165ddf23859e3"
+        }
+      },
+      {
+        "id": "studio-e4",
+        "scenario": "studio-e4",
+        "started_at": "2026-10-27T15:39:30.477Z",
+        "status": "PASS",
+        "launcher_log": "studio-e4-launcher.log",
+        "session": "2026-10-27T15-39-30-596Z-927356",
+        "exit_code": 0,
+        "finished_at": "2026-10-27T15:40:36.029Z",
+        "reports": [
+          {
+            "file": "studio-e4-2026-10-27T15-39-33-481Z-report.json",
+            "bytes": 12151,
+            "sha256": "0f5a2ae1c21063946ef169f2db64a5bd33eedddf1ca1e70a61ca58b088c071ca",
+            "schema": "retrodev.studio_e4/v1",
+            "scenario": "retrodev.studio_e4/v1",
+            "report_status": "passed",
+            "steps": [
+              {
+                "id": "import_real_ken",
+                "status": "passed"
+              },
+              {
+                "id": "duplicate_and_local_change",
+                "status": "passed"
+              },
+              {
+                "id": "model_edit_one_undo_step_and_save",
+                "status": "passed"
+              },
+              {
+                "id": "rom_local_vs_shared",
+                "status": "passed"
+              }
+            ],
+            "tested_application": null
+          }
+        ],
+        "receipt": {
+          "file": "receipt.json",
+          "bytes": 2409,
+          "sha256": "fdb19e1844738cd1980b8bbb07bad3551de6a28b33e1a5911f673fc89901bcc9"
+        },
+        "log": {
+          "file": "command.log",
+          "bytes": 1550,
+          "sha256": "ce636fb505453ebf36d31f15a4a49c504195047d39b59713b045d2b028eb76a6"
+        }
+      },
+      {
+        "id": "studio-e2e5",
+        "scenario": "studio-e2e5",
+        "started_at": "2026-10-27T15:40:36.628Z",
+        "status": "PASS",
+        "launcher_log": "studio-e2e5-launcher.log",
+        "session": "2026-10-27T15-40-36-736Z-931726",
+        "exit_code": 0,
+        "finished_at": "2026-10-27T15:43:06.341Z",
+        "reports": [
+          {
+            "file": "studio-e2e5-2026-10-27T15-40-40-023Z-report.json",
+            "bytes": 25000,
+            "sha256": "b812e8444d233fa7f83363f86b5e8d951f77eaf54dc4d9c9d4fc1f6a61abb10f",
+            "schema": "retrodev.studio_e2e5/v1",
+            "scenario": "retrodev.studio_e2e5/v1",
+            "report_status": "passed",
+            "steps": [
+              {
+                "id": "import_real_ken",
+                "status": "passed"
+              },
+              {
+                "id": "training_target_duplicate",
+                "status": "passed"
+              },
+              {
+                "id": "authored_sound_on_attack_occurrence",
+                "status": "passed"
+              },
+              {
+                "id": "authored_strike_behavior_applied",
+                "status": "passed"
+              },
+              {
+                "id": "hud_bound_error_navigates_to_property",
+                "status": "passed"
+              },
+              {
+                "id": "rom_strike_sound_hud",
+                "status": "passed"
+              },
+              {
+                "id": "inspection_layers_collisions_audio",
+                "status": "passed"
+              },
+              {
+                "id": "temporary_adjust_no_hit_apply_undo",
+                "status": "passed"
+              },
+              {
+                "id": "export_canonical_rom",
+                "status": "passed"
+              },
+              {
+                "id": "graphic_box_edit_rom_effect_and_undo",
+                "status": "passed"
+              }
+            ],
+            "tested_application": null
+          }
+        ],
+        "receipt": {
+          "file": "receipt.json",
+          "bytes": 2409,
+          "sha256": "ad112b2c8afeda9b9c47ebdacba7dd82cd684c13ed9a889cc2ce6f7192df1c90"
+        },
+        "log": {
+          "file": "command.log",
+          "bytes": 1772,
+          "sha256": "4be3b3cacddf59b07bbc12497dff869a29114af7b436d318f0413775d0fd09c4"
+        }
+      },
+      {
+        "id": "studio-paletas",
+        "scenario": "studio-paletas",
+        "started_at": "2026-10-27T15:43:06.943Z",
+        "status": "PASS",
+        "launcher_log": "studio-paletas-launcher.log",
+        "session": "2026-10-27T15-43-07-102Z-939882",
+        "exit_code": 0,
+        "finished_at": "2026-10-27T15:44:51.430Z",
+        "reports": [
+          {
+            "file": "studio-paletas-2026-10-27T15-43-10-051Z-report.json",
+            "bytes": 10267,
+            "sha256": "3066d673f1e06361fdcd849926ce8db10bf1f40b20a199bf3e9a7fa355d703c1",
+            "schema": "retrodev.studio_paletas/v1",
+            "scenario": "retrodev.studio_paletas/v1",
+            "report_status": "passed",
+            "steps": [
+              {
+                "id": "import_real_ken",
+                "status": "passed"
+              },
+              {
+                "id": "scenery_added_from_hierarchy",
+                "status": "passed"
+              },
+              {
+                "id": "target_strike_life_text_and_hud_band",
+                "status": "passed"
+              },
+              {
+                "id": "palette_summary_and_navigable_uses",
+                "status": "passed"
+              },
+              {
+                "id": "local_variant_and_library_palette",
+                "status": "passed"
+              },
+              {
+                "id": "shared_edit_impact_and_single_undo",
+                "status": "passed"
+              },
+              {
+                "id": "palette_swap_behavior_applied",
+                "status": "passed"
+              },
+              {
+                "id": "save_close_reopen_preserves_palettes",
+                "status": "passed"
+              },
+              {
+                "id": "rom_composition_matches_references",
+                "status": "passed"
+              },
+              {
+                "id": "rom_swap_only_target_once_and_restored",
+                "status": "passed"
+              },
+              {
+                "id": "rom_walk_camera_scenery_exact_hud_anchored",
+                "status": "passed"
+              },
+              {
+                "id": "inspection_shows_planned_banks_and_opens_target",
+                "status": "passed"
+              },
+              {
+                "id": "rom_shared_edit_changes_only_its_users",
+                "status": "passed"
+              },
+              {
+                "id": "restore_from_file_rom_byte_identical",
+                "status": "passed"
+              },
+              {
+                "id": "export_canonical_rom",
+                "status": "passed"
+              }
+            ],
+            "tested_application": null
+          }
+        ],
+        "receipt": {
+          "file": "receipt.json",
+          "bytes": 2409,
+          "sha256": "7708ab3c726fea7c9220dee92a0bfdb083d6373ab9e6f2e5f9e9649034e93595"
+        },
+        "log": {
+          "file": "command.log",
+          "bytes": 2389,
+          "sha256": "cf0052b6322c0c0f4155e861b6536cbbd44f848c4765f1e53700e089614c30d6"
+        }
+      },
+      {
+        "id": "studio-e6",
+        "scenario": "studio-e6",
+        "started_at": "2026-10-27T15:44:52.002Z",
+        "status": "PASS",
+        "launcher_log": "studio-e6-launcher.log",
+        "session": "2026-10-27T15-44-52-152Z-944689",
+        "exit_code": 0,
+        "finished_at": "2026-10-27T15:45:08.988Z",
+        "reports": [
+          {
+            "file": "studio-e6-2026-10-27T15-44-54-949Z-report.json",
+            "bytes": 2927,
+            "sha256": "a48f5be799e22b772e0161c89f2f708eecc98a11154a8df54776b33db14372a7",
+            "schema": "retrodev.studio_e6/v1",
+            "scenario": "retrodev.studio_e6/v1",
+            "report_status": "passed",
+            "steps": [
+              {
+                "id": "prepared_commercial_rom_paused",
+                "status": "passed"
+              },
+              {
+                "id": "unknown_point_no_semantic_editor",
+                "status": "passed"
+              },
+              {
+                "id": "proven_profile_opens_profile_editor",
+                "status": "passed"
+              },
+              {
+                "id": "profile_edit_copy_ips_run_verify_revert",
+                "status": "passed"
+              }
+            ],
+            "tested_application": null
+          }
+        ],
+        "receipt": {
+          "file": "receipt.json",
+          "bytes": 2409,
+          "sha256": "963864a1d3407c750bbfaec147defa08f468b8098a5fc3a33f80ff42e387e0da"
+        },
+        "log": {
+          "file": "command.log",
+          "bytes": 1366,
+          "sha256": "d7739e75159600fa165128acf236d118675220d08c332c18362dc4be24d771da"
+        }
+      },
+      {
+        "id": "onboarding-shell",
+        "scenario": "onboarding-shell",
+        "started_at": "2026-10-27T15:45:09.551Z",
+        "status": "PASS",
+        "launcher_log": "onboarding-shell-launcher.log",
+        "session": "2026-10-27T15-45-09-696Z-945870",
+        "exit_code": 0,
+        "finished_at": "2026-10-27T15:45:23.943Z",
+        "reports": [
+          {
+            "file": "onboarding-shell-2026-10-27T15-45-12-460Z-cohesion.json",
+            "bytes": 1857,
+            "sha256": "0e3db2d2bd05a0c55daca84ef97e59bf864d408c357d39373a8f708fa6d07bed",
+            "schema": "retrodev.ui_cohesion/v1",
+            "scenario": "retrodev.ui_cohesion/v1",
+            "report_status": "passed",
+            "steps": [
+              {
+                "id": "build_run_current_rom"
+              },
+              {
+                "id": "stop_verify_export_same_sha"
+              },
+              {
+                "id": "review_returns_focus"
+              }
+            ],
+            "tested_application": null,
+            "export_sha256": "270025d57891ee84b3f4330d58a564aa81e6948d4a9f0d4d9ec49d77b7771d25"
+          }
+        ],
+        "receipt": {
+          "file": "receipt.json",
+          "bytes": 2409,
+          "sha256": "2e5594ea1097c6798e4f86243b0d007570fc5a042b5910daa779bb21d11fb060"
+        },
+        "log": {
+          "file": "command.log",
+          "bytes": 1755,
+          "sha256": "67c34d7a25f0d667fe83a3b3f780635236e9aea6059100a575bb18e39f4a7c83"
+        }
+      },
+      {
+        "id": "snes",
+        "scenario": "build-run",
+        "project": "src-tauri/tests/fixtures/projects/snes_dummy",
+        "started_at": "2026-10-27T15:45:24.505Z",
+        "status": "PASS",
+        "launcher_log": "snes-launcher.log",
+        "session": "2026-10-27T15-45-24-649Z-946882",
+        "exit_code": 0,
+        "finished_at": "2026-10-27T15:45:31.062Z",
+        "reports": [
+          {
+            "file": "desktop-e2e-success-build-run-snes.json",
+            "bytes": 359,
+            "sha256": "d0fd4748ebc5c3b27e819f26a13409d39598574121528f8de599a51b3a54425e",
+            "schema": "rds-desktop-e2e-success/v1",
+            "scenario": "build-run",
+            "report_status": null,
+            "steps": [],
+            "tested_application": null
+          }
+        ],
+        "receipt": {
+          "file": "receipt.json",
+          "bytes": 2409,
+          "sha256": "f0ef1b7d7cf69425b04310f2bac39fd2142888fd8698eaaa944b3afe19c153e0"
+        },
+        "log": {
+          "file": "command.log",
+          "bytes": 2211,
+          "sha256": "a8b5e4c29a53f56c03564fe02c542c0678520f13adeebeadbea8dbefba3f6344"
+        }
+      }
+    ],
+    "qa_rc": {
+      "session": "2026-10-27T15-10-18-161Z-818950",
+      "blocks": {
+        "A": "passed",
+        "B": "passed",
+        "C": "passed",
+        "D": "passed",
+        "E": "passed",
+        "F": "passed",
+        "G": "passed",
+        "H": "passed"
+      },
+      "report": {
+        "file": "manual-qa-status.json",
+        "bytes": 18851,
+        "sha256": "a524f2aa62fa3f8f4c2ed180d9a6de59b7267fed6d3602adc033da16477aa901"
+      },
+      "oracle": {
+        "file": "ui-layout-oracle.json",
+        "bytes": 19634,
+        "sha256": "6d346252ea30a7b332c0576db9bbe60e31926858f8c8e3e176a3bc60413e493f"
+      },
+      "matrix": {
+        "total": 32,
+        "passed": 32,
+        "failed": 0
+      },
+      "captures": 48
+    },
+    "native_pass_sessions": 13,
+    "complete_owned_process_interruptions": 13,
+    "failed_runs": [
+      {
+        "directory": "failed-01-selection",
+        "files": [
+          {
+            "file": "command.log",
+            "bytes": 1265,
+            "sha256": "8734f34526d0c4a2075cfe40f9a51c9e5488c7e73a00f3ab9b5a57f255fe6674"
+          },
+          {
+            "file": "draft-recovery-2026-10-27T13-42-53-281Z-failure.png",
+            "bytes": 256349,
+            "sha256": "eb71f9791b5ab48b75c21edceecd23981de95cdf115011270556f174ba0e0284"
+          },
+          {
+            "file": "draft-recovery-2026-10-27T13-42-53-281Z-report.json",
+            "bytes": 1260,
+            "sha256": "ac10717610f210d89f87a82ad0462850e047cf7ff09ce6d06576eec652312508"
+          },
+          {
+            "file": "erratum.json",
+            "bytes": 536,
+            "sha256": "2e0ea924ca8164c3ecfabc848c128badea5a074eb3e2e5235bfd5ae113ba539f"
+          },
+          {
+            "file": "receipt.json",
+            "bytes": 2089,
+            "sha256": "9345ba1a7498ba2458405bc0c7fe1d5dc6bae453313db9ba982c1ea25c2de166"
+          }
+        ]
+      },
+      {
+        "directory": "failed-02-autosave",
+        "files": [
+          {
+            "file": "draft-recovery-2026-10-27T13-45-12-893Z-failure.png",
+            "bytes": 257660,
+            "sha256": "1b49aac67481163ebdb5e7fda17a47411370c67d180c7f96f29bcdae51d152ad"
+          },
+          {
+            "file": "draft-recovery-2026-10-27T13-45-12-893Z-report.json",
+            "bytes": 1677,
+            "sha256": "b3d01ad5522933af35236df920e0af54ccb792038e61fe383d3573bedb15ed14"
+          },
+          {
+            "file": "erratum.json",
+            "bytes": 320,
+            "sha256": "88bc9de6b2da4e72b3fbb2f830dfef04fa590b04145398894cf7c0ce777229ce"
+          }
+        ]
+      },
+      {
+        "directory": "failed-03-native-history",
+        "files": [
+          {
+            "file": "draft-recovery-2026-10-27T13-51-56-622Z-failure.png",
+            "bytes": 269564,
+            "sha256": "57e129c446aae4cb936db38ba2e4b8a131a56c0793b79aabda1475b156955b25"
+          },
+          {
+            "file": "draft-recovery-2026-10-27T13-51-56-622Z-report.json",
+            "bytes": 1682,
+            "sha256": "2c33625fad47b757c994f8309d81d5e6204c44848adbecaee0638eb393fd6c74"
+          },
+          {
+            "file": "erratum.json",
+            "bytes": 309,
+            "sha256": "fb0d8c9cff3d5442064d8e8b5449f5c48818974e9006978a216c9612376f3a96"
+          }
+        ]
+      },
+      {
+        "directory": "failed-04-record-comparison",
+        "files": [
+          {
+            "file": "draft-recovery-2026-10-27T13-57-06-946Z-01-confirmed-before-kill.png",
+            "bytes": 259898,
+            "sha256": "fb7d07e7c70f5fe3d218628c4752b8209805cfe2dda68039503d5eb46cfdd3ac"
+          },
+          {
+            "file": "draft-recovery-2026-10-27T13-57-06-946Z-01b-recovery-1280.png",
+            "bytes": 201384,
+            "sha256": "28b9c5f1bbbc588421721b4b525adc6b03da0c7f5072c60cf232d18bfe042d0f"
+          },
+          {
+            "file": "draft-recovery-2026-10-27T13-57-06-946Z-failure.png",
+            "bytes": 258830,
+            "sha256": "15f4adedc82289443dda93fce49fb73cc89563e376fdbe288b340deef861f1ac"
+          },
+          {
+            "file": "draft-recovery-2026-10-27T13-57-06-946Z-report.json",
+            "bytes": 3657,
+            "sha256": "a2a8b1b7eebeeccc6750bb8fd221acfc079f675ae0d14aebf0cfc6f6468fb6b5"
+          },
+          {
+            "file": "erratum.json",
+            "bytes": 548,
+            "sha256": "74e347849e1c1f9314b50ce2c929d8b766b1e20129a16fb17a0847ee980efcca"
+          }
+        ]
+      },
+      {
+        "directory": "failed-05-webkit-flush",
+        "files": [
+          {
+            "file": "draft-recovery-2026-10-27T14-03-02-353Z-01-confirmed-before-kill.png",
+            "bytes": 259929,
+            "sha256": "0870414c9f2b50591a36ebd16affac8dfc09a5ca48d04d77a01914912e86bc19"
+          },
+          {
+            "file": "draft-recovery-2026-10-27T14-03-02-353Z-failure.png",
+            "bytes": 258775,
+            "sha256": "36765e4c0532786dd9db1136397b8c453704147f68b77af6479d4a95450e3581"
+          },
+          {
+            "file": "draft-recovery-2026-10-27T14-03-02-353Z-report.json",
+            "bytes": 3595,
+            "sha256": "d957712ae3c88d076cf7e81260c024adfac2884a8bd0ee96594b0632628361ad"
+          },
+          {
+            "file": "erratum.json",
+            "bytes": 675,
+            "sha256": "cbd32b0a2df80c8c9b1beba33e42abd59f3716e59f1d5d833f6e03e6dfafeb22"
+          }
+        ]
+      },
+      {
+        "directory": "failed-06-immutable-invoke",
+        "files": [
+          {
+            "file": "draft-recovery-2026-10-27T14-16-32-689Z-01-confirmed-before-kill.png",
+            "bytes": 259816,
+            "sha256": "1ce1d2c9e02fc490b8784a0b5b04a0085bd4da1983be74a4cc9996827aee9132"
+          },
+          {
+            "file": "draft-recovery-2026-10-27T14-16-32-689Z-01b-recovery-1280.png",
+            "bytes": 200736,
+            "sha256": "438b303a5e61a2cee17b3b8f81d72bdd21639dd3d8d61944e03f1e12075a48dc"
+          },
+          {
+            "file": "draft-recovery-2026-10-27T14-16-32-689Z-02-restored-dirty.png",
+            "bytes": 257484,
+            "sha256": "880cf118b5698e3b44fa68c79c68050345b3e3cb23bc6542b8b636926e70258b"
+          },
+          {
+            "file": "draft-recovery-2026-10-27T14-16-32-689Z-03-write-denied.png",
+            "bytes": 309502,
+            "sha256": "d590522e51ad3705d9db2c43c5cdb7df48824a7a6116f2a1ad6b0744c241584c"
+          },
+          {
+            "file": "draft-recovery-2026-10-27T14-16-32-689Z-failure.png",
+            "bytes": 259978,
+            "sha256": "967e65b564338a4bea80a470c24a60f803e75ce88aba8274873ec89ff78a31b3"
+          },
+          {
+            "file": "draft-recovery-2026-10-27T14-16-32-689Z-report.json",
+            "bytes": 8579,
+            "sha256": "71a69fdb68740691eafae008459c086abe351fe516ce68cdf1017fdfad5990a0"
+          },
+          {
+            "file": "erratum.json",
+            "bytes": 605,
+            "sha256": "a9bfb36c59bd604c147c86e7f5d8459f04931e97b2fcfcec7cd2797f17d11d40"
+          }
+        ]
+      },
+      {
+        "directory": "failed-07-qa-rc-geometry",
+        "files": [
+          {
+            "file": "erratum.json",
+            "bytes": 649,
+            "sha256": "13f302368376f0f415f1bad3e630d3b1b4240b063b4571efd8f28cc6915d70f7"
+          },
+          {
+            "file": "manual-qa-status.json",
+            "bytes": 2885,
+            "sha256": "2206b815fb92cad3032b8e8f1fd9a2f160ef088beaf6571ec81b8f3784b4e95b"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-37-54-601Z-A-wizard.png",
+            "bytes": 180668,
+            "sha256": "b7f86b2ad19d465142b890f6e04cc8c840b7436086f35eae39e03d6d215553a7"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-37-54-601Z-H-ui-oracle-1366x768-import-wizard.png",
+            "bytes": 132025,
+            "sha256": "036741dc828469af0aed4ee973a34bcc6afb745b11ed47653e22a0fc4fe3ebb4"
+          }
+        ]
+      },
+      {
+        "directory": "failed-08-qa-rc-asset-selector",
+        "files": [
+          {
+            "file": "erratum.json",
+            "bytes": 715,
+            "sha256": "f19477a8047ff5e093e1812ed8563c873dfcfc05789f43c2ec91abb4021d4517"
+          },
+          {
+            "file": "manual-qa-status.json",
+            "bytes": 5733,
+            "sha256": "29228a2d6838bd6cc417441f6dc53e3d2b4b472e1608e51e0455664329b277ec"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-39-37-621Z-A-editor.png",
+            "bytes": 186328,
+            "sha256": "83059c1cc583493161ab04aed7493a4be24f69f631c19162f4dabf847e2ee21d"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-39-37-621Z-A-layers.png",
+            "bytes": 184660,
+            "sha256": "55721aaa9beddea8e596bcfb5070c416c95da6df4983e5a70b0764c5e545846c"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-39-37-621Z-A-wizard.png",
+            "bytes": 180668,
+            "sha256": "b7f86b2ad19d465142b890f6e04cc8c840b7436086f35eae39e03d6d215553a7"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-39-37-621Z-B-layer-hidden.png",
+            "bytes": 182874,
+            "sha256": "5cf4ecb587e46019488bf29e831eb69ecd143be25145850fa09ba4850bad884e"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-39-37-621Z-C-painted-scene.png",
+            "bytes": 195350,
+            "sha256": "5e9226c84cc2d5f2d58d8590fc40d9015f1175f145b8c1872d86906e594bba8c"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-39-37-621Z-D-game-view.png",
+            "bytes": 149238,
+            "sha256": "fe1f9ea563e4aaf5c28ee9d1fc147fb340426c9dddb30418304a8daafa904424"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-39-37-621Z-F-reopen.png",
+            "bytes": 159691,
+            "sha256": "c3e99cb75d9daaf70b71f0fe635f6c20ba5df4307d6330ff0c5d5789a9e0cb05"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-39-37-621Z-H-ui-oracle-1366x768-import-wizard.png",
+            "bytes": 132022,
+            "sha256": "dd39f97d4ab9f754d0e0bd36aa1f9f1f9d816fbd09050070aae07ac3bccb8aaa"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-39-37-621Z-H-ui-oracle-1600x900-import-wizard.png",
+            "bytes": 153411,
+            "sha256": "a1fb2c02640494c18b78c3d6db5bc56dbcd4c8a6c9be326df649c816aeae3dcf"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-39-37-621Z-H-ui-oracle-1920x1080-import-wizard.png",
+            "bytes": 180406,
+            "sha256": "9b2ffae4b8d942ba5d23c107bbbc0bf9bd0f7dfa1fc0703dc40cc223b426cf40"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-39-37-621Z-H-ui-oracle-2560x1080-import-wizard.png",
+            "bytes": 189048,
+            "sha256": "da6626054763741c58f322a026499898090ddc1f7232b67cc915b0346227c55a"
+          }
+        ]
+      },
+      {
+        "directory": "failed-09-qa-rc-solo-indicator",
+        "files": [
+          {
+            "file": "erratum.json",
+            "bytes": 506,
+            "sha256": "9b651f7326f523bc45a1fd2858e54296275353e1fc676d0208e30aa599065632"
+          },
+          {
+            "file": "manual-qa-status.json",
+            "bytes": 6117,
+            "sha256": "7406704452b199432fb7d869f0177656e37feb2139a56e11ea74dd77673aaf52"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-42-19-427Z-A-editor.png",
+            "bytes": 186389,
+            "sha256": "528209198315770106b8a1984b926686f691ddfe8ba8873ae4e325941fbb5109"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-42-19-427Z-A-layers.png",
+            "bytes": 184732,
+            "sha256": "4131e83c9c3fdef2dd6d936e4f6f6630ee39455992cd10b9b03d48846828ddb1"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-42-19-427Z-A-wizard.png",
+            "bytes": 180668,
+            "sha256": "b7f86b2ad19d465142b890f6e04cc8c840b7436086f35eae39e03d6d215553a7"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-42-19-427Z-B-layer-hidden.png",
+            "bytes": 182930,
+            "sha256": "e0cbc75ce59cc12ef0575ca546d1be8de43805d2a0d61c8a191e078b6d2715f6"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-42-19-427Z-C-painted-scene.png",
+            "bytes": 195654,
+            "sha256": "3fd85fe605d66230930a4506a4af4da4237d1022139d0d48d4414dd073b30ff6"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-42-19-427Z-D-game-view.png",
+            "bytes": 149434,
+            "sha256": "168e9d5cee384c3f7565b602ab5fd116e960e126c08af692f95cd12c2c13eea8"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-42-19-427Z-F-reopen.png",
+            "bytes": 160487,
+            "sha256": "0f1382f63fd37fcf081e8049743c6936f7cef568a57544b656f8e57a1c426b33"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-42-19-427Z-G-scene-authoring.png",
+            "bytes": 180483,
+            "sha256": "4aad1b315d93600db017570429d185670a383814b04968a356b633b08e3266a4"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-42-19-427Z-G-scene-import-summary.png",
+            "bytes": 166178,
+            "sha256": "aad1f9945c9b58ac0f300eb4f88f94a9986754f1eb4e1cfeb5c30a2eaefda974"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-42-19-427Z-H-ui-oracle-1366x768-import-wizard.png",
+            "bytes": 132022,
+            "sha256": "9e65191c5422844cb448b51b76a655d148111bb87fbeaa3b05608a47a104af93"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-42-19-427Z-H-ui-oracle-1600x900-import-wizard.png",
+            "bytes": 153411,
+            "sha256": "a1fb2c02640494c18b78c3d6db5bc56dbcd4c8a6c9be326df649c816aeae3dcf"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-42-19-427Z-H-ui-oracle-1920x1080-import-wizard.png",
+            "bytes": 180406,
+            "sha256": "9b2ffae4b8d942ba5d23c107bbbc0bf9bd0f7dfa1fc0703dc40cc223b426cf40"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-42-19-427Z-H-ui-oracle-2560x1080-import-wizard.png",
+            "bytes": 189048,
+            "sha256": "da6626054763741c58f322a026499898090ddc1f7232b67cc915b0346227c55a"
+          }
+        ]
+      },
+      {
+        "directory": "failed-10-qa-rc-solo-assumption",
+        "files": [
+          {
+            "file": "erratum.json",
+            "bytes": 563,
+            "sha256": "db233664fd2a8368db6f3eb1dfbafe46e77de84c95d997d4e76a12b7368da3c1"
+          },
+          {
+            "file": "manual-qa-status.json",
+            "bytes": 6117,
+            "sha256": "9cccc24408db2b5f9cbdb2fa1be1b2ed194674e5d1ecacd360374aa9fdf45f6b"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-44-32-637Z-A-editor.png",
+            "bytes": 186390,
+            "sha256": "73a33d57765c38a4a23d51b62f87ae657823a38341f5aab641c876bf9ab64aea"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-44-32-637Z-A-layers.png",
+            "bytes": 184717,
+            "sha256": "e1a24fb1789bf5c5f58d9a0a3885b62e2fe26bf7afe764a2adeb696f0e134a62"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-44-32-637Z-A-wizard.png",
+            "bytes": 180668,
+            "sha256": "b7f86b2ad19d465142b890f6e04cc8c840b7436086f35eae39e03d6d215553a7"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-44-32-637Z-B-layer-hidden.png",
+            "bytes": 182929,
+            "sha256": "01cd71fc6d8e30cc762d131d2fa13f11f3b885ae76b7293212f163fff395669d"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-44-32-637Z-C-painted-scene.png",
+            "bytes": 195376,
+            "sha256": "53e5c42f9d4785c3f3817af8e0329e8b86e130a27db4f055ae08e449a553078b"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-44-32-637Z-D-game-view.png",
+            "bytes": 150476,
+            "sha256": "70940963ec57c8368111fe46e8593134f0bfdb6cafca9bfecda772237c69a80d"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-44-32-637Z-F-reopen.png",
+            "bytes": 160149,
+            "sha256": "08a7aaae4fa59d68d19a9707727555cab3b38abe09717ff3fe0a72c9def81ca1"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-44-32-637Z-G-scene-authoring.png",
+            "bytes": 167202,
+            "sha256": "9fd6526ebce14fadd77393f2972ea75a7a4cea320e36d57fb311786f8846f537"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-44-32-637Z-G-scene-import-summary.png",
+            "bytes": 166113,
+            "sha256": "886d5b56c00790e1053a9ee9cacfd5c4cbcbf0bebcfb6fbd4f21d7277ff6906f"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-44-32-637Z-H-ui-oracle-1366x768-import-wizard.png",
+            "bytes": 132022,
+            "sha256": "dd39f97d4ab9f754d0e0bd36aa1f9f1f9d816fbd09050070aae07ac3bccb8aaa"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-44-32-637Z-H-ui-oracle-1600x900-import-wizard.png",
+            "bytes": 153411,
+            "sha256": "a1fb2c02640494c18b78c3d6db5bc56dbcd4c8a6c9be326df649c816aeae3dcf"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-44-32-637Z-H-ui-oracle-1920x1080-import-wizard.png",
+            "bytes": 180406,
+            "sha256": "9b2ffae4b8d942ba5d23c107bbbc0bf9bd0f7dfa1fc0703dc40cc223b426cf40"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-44-32-637Z-H-ui-oracle-2560x1080-import-wizard.png",
+            "bytes": 189048,
+            "sha256": "da6626054763741c58f322a026499898090ddc1f7232b67cc915b0346227c55a"
+          }
+        ]
+      },
+      {
+        "directory": "failed-11-qa-rc-clipped-text",
+        "files": [
+          {
+            "file": "erratum.json",
+            "bytes": 603,
+            "sha256": "87b075d5565450266c90a1924205c56465589e22400551ab6fb6cfae63b85977"
+          },
+          {
+            "file": "manual-qa-status.json",
+            "bytes": 9074,
+            "sha256": "816c9c398883c49b76bb75f95c78fc015773eb5cd7703dbfaf9978c8cbf53985"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-A-editor.png",
+            "bytes": 186519,
+            "sha256": "9bd7468e2c6743079e623dcfa375b2a48e3a48ceb243edd9e261b940f8d11ac0"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-A-layers.png",
+            "bytes": 184856,
+            "sha256": "b41bd1e27fac61334f126ef8b6ee2e3f72bb0eb4e3785fecb22f40e919f90cff"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-A-wizard.png",
+            "bytes": 180668,
+            "sha256": "b7f86b2ad19d465142b890f6e04cc8c840b7436086f35eae39e03d6d215553a7"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-B-layer-hidden.png",
+            "bytes": 183069,
+            "sha256": "a9e47065525af316672a49968dc4528af8cef163ef7a19d1b02ece9e9ed6254c"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-C-painted-scene.png",
+            "bytes": 195733,
+            "sha256": "4131ba3b58d8f3bd59063836593b5d9156e78a3e7ef0f5d59b6d3d511f9ce566"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-D-game-view.png",
+            "bytes": 150804,
+            "sha256": "3790b06fdbba7a32247de4fcc2a7db70a186b468ab16081eb59f73b310d44b6b"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-F-reopen.png",
+            "bytes": 160385,
+            "sha256": "2dc288d9d573e94ac2e967cf868e0dee23a99ab2810ef5207946cc9e37a3df13"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-G-dense-solo-authoring.png",
+            "bytes": 176852,
+            "sha256": "0e575cfa2876a93afec930f03ef7a119b9da9527b1a8bad3895ac97f52a0ab80"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-G-failure.png",
+            "bytes": 185877,
+            "sha256": "b377e7046619035df124565b4c6f6ab3148305543d75029c77a8e846c8981d3a"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-G-scene-authoring.png",
+            "bytes": 167738,
+            "sha256": "a89375b86064285829d761490454799ad3eb046fa199c7d916a67579b379751c"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-G-scene-import-summary.png",
+            "bytes": 166562,
+            "sha256": "1853c1703494dc63b14ddc9a6169cf568c729b91a6a068267a9375fa881d7299"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-G-tilemap-authoring.png",
+            "bytes": 179260,
+            "sha256": "113c50b43214f2bc0f2e31f3f12415469438dfd8d1e27a4ae2293257b61e2dff"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-H-ui-oracle-1366x768-import-wizard.png",
+            "bytes": 132023,
+            "sha256": "8c4405eec98bf173740bf0bab970d7bc8fb1785d675ef9463d5100b2115db6c2"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-H-ui-oracle-1600x900-import-wizard.png",
+            "bytes": 153411,
+            "sha256": "a1fb2c02640494c18b78c3d6db5bc56dbcd4c8a6c9be326df649c816aeae3dcf"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-H-ui-oracle-1920x1080-import-wizard.png",
+            "bytes": 180406,
+            "sha256": "9b2ffae4b8d942ba5d23c107bbbc0bf9bd0f7dfa1fc0703dc40cc223b426cf40"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-47-21-168Z-H-ui-oracle-2560x1080-import-wizard.png",
+            "bytes": 189048,
+            "sha256": "da6626054763741c58f322a026499898090ddc1f7232b67cc915b0346227c55a"
+          }
+        ]
+      },
+      {
+        "directory": "failed-12-art-sheet-replaced",
+        "files": [
+          {
+            "file": "erratum.json",
+            "bytes": 1286,
+            "sha256": "c84859febdf847e2cf53546715fcb1e61ea44fb0946515b23cb6e2bdedf4c633"
+          },
+          {
+            "file": "manual-qa-status.json",
+            "bytes": 11791,
+            "sha256": "eb3a2b5c2da8ff04e3524dddb06cdaadcdc28828abbfb248faf38db0e24deede"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-A-editor.png",
+            "bytes": 186675,
+            "sha256": "881722ddf56125634573c166b1c4441e7f79e07bc34ba1a758a4bbafc30fa0f6"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-A-layers.png",
+            "bytes": 185007,
+            "sha256": "64aa5914ba7589b265850ff4ee6ac73ff73c83e17be44f97d295152db3eb01f0"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-A-wizard.png",
+            "bytes": 180668,
+            "sha256": "b7f86b2ad19d465142b890f6e04cc8c840b7436086f35eae39e03d6d215553a7"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-B-layer-hidden.png",
+            "bytes": 183360,
+            "sha256": "49e12a71bc91380a389a83f5c9b5d9ae424b165d2aa0c4ae20100f8999c718fa"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-C-painted-scene.png",
+            "bytes": 195546,
+            "sha256": "6005b32eea9f4ae45632095e7efe3dfa5c0122f85f5c3c7128fe17c2b920140d"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-D-game-view.png",
+            "bytes": 149571,
+            "sha256": "369ab9afc9c6ce21971dc14ca95dd70497f66299f1dbb336515faecd181fe7c5"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-F-reopen.png",
+            "bytes": 160706,
+            "sha256": "3f50f366fb88b7a9a9227ac55cb58f4f42b3ce853f5f08e4a8f155bf32890f86"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-G-art-workspace.png",
+            "bytes": 146829,
+            "sha256": "0c0fa5341d7a77f614344609c2888792b3e55fce98b4a1b14e95a653023cbc6e"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-G-dense-solo-authoring.png",
+            "bytes": 176610,
+            "sha256": "378ffb3a6bd68d4485ac2a20d778677d18391573681e96707fde4f9d18621db1"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-G-failure.png",
+            "bytes": 262844,
+            "sha256": "686c9793720167f7820d921f7a11dbadfa626ce86b4ee8f2b75c535a80c44d44"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-G-gap-bridge-panel.png",
+            "bytes": 185295,
+            "sha256": "c6e8499a5ea624f057f24c32f417e2ea157ad737f05a63a0f3c4c16ef324bc5c"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-G-logic-fsm-graph.png",
+            "bytes": 185641,
+            "sha256": "e163d1679350aedf16b081e6c15324c26418add0a04ce7a25e2067065553a62d"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-G-node-source-mapping.png",
+            "bytes": 185641,
+            "sha256": "e163d1679350aedf16b081e6c15324c26418add0a04ce7a25e2067065553a62d"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-G-scene-authoring.png",
+            "bytes": 167445,
+            "sha256": "ff25ede6e8119b8654b00a2f441639f1e8550dc6fa0f22b5330d266d4b9e487c"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-G-scene-import-summary.png",
+            "bytes": 166355,
+            "sha256": "8c64faa27475edd4cc2d55cd3d07e18a1346e1c6cecad569ecefbc7ae1d5bb79"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-G-tilemap-authoring.png",
+            "bytes": 178966,
+            "sha256": "e99071d792d697909259b0f17f6f72760f92bfcbec52def2bbab3df274c3e432"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-H-ui-oracle-1366x768-import-wizard.png",
+            "bytes": 132022,
+            "sha256": "9e65191c5422844cb448b51b76a655d148111bb87fbeaa3b05608a47a104af93"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-H-ui-oracle-1600x900-import-wizard.png",
+            "bytes": 153411,
+            "sha256": "a1fb2c02640494c18b78c3d6db5bc56dbcd4c8a6c9be326df649c816aeae3dcf"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-H-ui-oracle-1920x1080-import-wizard.png",
+            "bytes": 180406,
+            "sha256": "9b2ffae4b8d942ba5d23c107bbbc0bf9bd0f7dfa1fc0703dc40cc223b426cf40"
+          },
+          {
+            "file": "qa-rc-2026-10-27T14-51-10-322Z-H-ui-oracle-2560x1080-import-wizard.png",
+            "bytes": 189048,
+            "sha256": "da6626054763741c58f322a026499898090ddc1f7232b67cc915b0346227c55a"
+          }
+        ]
+      },
+      {
+        "directory": "failed-13-scene-world-clip",
+        "files": [
+          {
+            "file": "erratum.json",
+            "bytes": 617,
+            "sha256": "c5c09b8588515f07d7358b23bdc027e8f7d9e7be63c21131cf072dd32885f68b"
+          },
+          {
+            "file": "manual-qa-status.json",
+            "bytes": 9816,
+            "sha256": "80804f3315e8bdac90068f2da155b1da32c1ad8e2a5792a07b427adeb9e336f2"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-A-editor.png",
+            "bytes": 186561,
+            "sha256": "6bb745b406ce38e6fceec46f2bedb6ae87f94910f29f65e81bf65c6c605b660b"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-A-layers.png",
+            "bytes": 184887,
+            "sha256": "77f1c3c7ee4125c2f35ef204c1b07e109e0496852c70405f9df4fafdddbc94e4"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-A-wizard.png",
+            "bytes": 180668,
+            "sha256": "b7f86b2ad19d465142b890f6e04cc8c840b7436086f35eae39e03d6d215553a7"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-B-layer-hidden.png",
+            "bytes": 183108,
+            "sha256": "d287b008f1d5ddb36c25e6dfc06afa33111be21c076d70c54a3f773cbb20c781"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-C-painted-scene.png",
+            "bytes": 195682,
+            "sha256": "5e978668c9d205b2c91e4259e0471df5d59eb6ff7b8a2e967dddc9ba852b25a2"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-D-game-view.png",
+            "bytes": 149327,
+            "sha256": "5a148cf680fe57c8370928985805dbd81ecdc861ec9563108a8d46a69c48b408"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-F-reopen.png",
+            "bytes": 160598,
+            "sha256": "b5726ea0c5cd82b589b3ca444d70d491f2924b1de42a62bf023a444443a7fe36"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-G-art-workspace.png",
+            "bytes": 147172,
+            "sha256": "5dd194766f14ceb965727da107573c38e1e597d1dfaac500402303738f724af9"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-G-dense-solo-authoring.png",
+            "bytes": 176361,
+            "sha256": "079ff5757eb847dd13dc725fcea4b55f4d25ad88341a3c57a41d4a0a5986c32c"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-G-gap-bridge-panel.png",
+            "bytes": 185050,
+            "sha256": "78df4a3d7d8ccdaaa59733e4d2ff4946831c68dd1807d29ecdb9cc17e74b871c"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-G-logic-fsm-graph.png",
+            "bytes": 185400,
+            "sha256": "2be6e3297413a0084064ca28eb13225326f6aac145396e34db86e7bfa80d0db5"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-G-node-source-mapping.png",
+            "bytes": 185400,
+            "sha256": "2be6e3297413a0084064ca28eb13225326f6aac145396e34db86e7bfa80d0db5"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-G-scene-authoring.png",
+            "bytes": 167269,
+            "sha256": "0ba2a1b7df44f911a0d8fcb60a6c8c1f8ffabc3b4731550da4c003ad8f91ef8c"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-G-scene-import-summary.png",
+            "bytes": 166184,
+            "sha256": "8a466dcf96b19bb570f6dc345bfe4332157960bdd7734e9c60ef2867edd41cc8"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-G-sgdk-chain.png",
+            "bytes": 148663,
+            "sha256": "d0d860203b88ff46b312f76795345ea04fd64e8d0f3b7a314ad35c79d91c0538"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-G-tilemap-authoring.png",
+            "bytes": 178914,
+            "sha256": "393dda5121c6c2302b4c9fef1b3997bc7fcc127a5d49d027a3004f28a3f0aa8a"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-H-failure.png",
+            "bytes": 196788,
+            "sha256": "17eaed50bf96976c13fb4182824f28e861d0ee3c89f6cf6ca3049e1939edff54"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-H-ui-oracle-1366x768-import-wizard.png",
+            "bytes": 132022,
+            "sha256": "ca7c2d793407b3332fc7e7869d0d6f33088ecf3e10cb3df98ba8a9e9082a5f89"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-H-ui-oracle-1366x768-scene.png",
+            "bytes": 196788,
+            "sha256": "17eaed50bf96976c13fb4182824f28e861d0ee3c89f6cf6ca3049e1939edff54"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-H-ui-oracle-1600x900-import-wizard.png",
+            "bytes": 153411,
+            "sha256": "a1fb2c02640494c18b78c3d6db5bc56dbcd4c8a6c9be326df649c816aeae3dcf"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-H-ui-oracle-1920x1080-import-wizard.png",
+            "bytes": 180406,
+            "sha256": "9b2ffae4b8d942ba5d23c107bbbc0bf9bd0f7dfa1fc0703dc40cc223b426cf40"
+          },
+          {
+            "file": "qa-rc-2026-10-27T15-07-11-916Z-H-ui-oracle-2560x1080-import-wizard.png",
+            "bytes": 189048,
+            "sha256": "da6626054763741c58f322a026499898090ddc1f7232b67cc915b0346227c55a"
+          }
+        ]
+      },
+      {
+        "directory": "failed-14-webkit-startup",
+        "files": [
+          {
+            "file": "command.log",
+            "bytes": 1281,
+            "sha256": "f0198aadb5cd07349a7d9e32bea4ec81c3e4a6be569f841c7532a914656d1ee6"
+          },
+          {
+            "file": "erratum.json",
+            "bytes": 732,
+            "sha256": "c50ddc016445f76f3f7466120ca26435f390d2158de0907402105a00ff875396"
+          },
+          {
+            "file": "receipt.json",
+            "bytes": 2089,
+            "sha256": "1c1c2cb7ce865f73cc72b83417bd73f97a605344dbbaea5bee57fda04d84c503"
+          }
+        ]
+      },
+      {
+        "directory": "failed-15-display-unavailable",
+        "files": [
+          {
+            "file": "command.log",
+            "bytes": 1270,
+            "sha256": "98f5c06f5099e8b0508c7a0c3d1116e6108334d17fda1dac7ec80ff25f496047"
+          },
+          {
+            "file": "erratum.json",
+            "bytes": 747,
+            "sha256": "8eeb375d5af9c53d3995f19f3dde55f2bccbc94a9edf0e6ad52c74b00d931192"
+          },
+          {
+            "file": "receipt.json",
+            "bytes": 2089,
+            "sha256": "b62fb3fdb3d05174597cee7f669be395880ca28c41c5ecf4cf09e1a983eaa0fd"
+          }
+        ]
+      }
+    ],
+    "display": {
+      "at": "2026-10-27T15:31:09.847Z",
+      "display": ":1",
+      "pid": 881120,
+      "start": "1835028",
+      "argv": "Xvfb -displayfd 3 -screen 0 3840x2160x24 -nolisten tcp ",
+      "dimensions": "3840x2160 pixels (975x549 millimeters)",
+      "owned_socket_entries": [
+        "00000000fdcc3114: 00000003 00000000 00000000 0001 03 4799558 @/tmp/.X11-unix/X1",
+        "0000000052bfcb9d: 00000003 00000000 00000000 0001 03 4794295 @/tmp/.X11-unix/X1",
+        "00000000f478f067: 00000002 00000000 00010000 0001 01 4738906 /tmp/.X11-unix/X1",
+        "00000000c0862461: 00000002 00000000 00010000 0001 01 4738905 @/tmp/.X11-unix/X1"
+      ],
+      "log": "/home/misael/Shared/ProjectRuntime/RetroDevStudio/sessions/draft-recovery-20261027/xvfb-detached.log",
+      "owner": "task only; verify PID/start/argv/socket before cleanup",
+      "qualification_note": "displayfd does not create .X1-lock; socket ownership verified via /proc/fd and /proc/net/unix. Batch started before this completed receipt; no native result accepted before qualification."
+    },
+    "visual_review": {
+      "captures": [
+        {
+          "file": "draft-recovery-2026-10-27T15-14-59-328Z-01b-recovery-1280.png",
+          "bytes": 201025,
+          "sha256": "dfdad788f39a96d4853741773ab80d9139a94e9aa17f589257fbfba621f285d9"
+        },
+        {
+          "file": "draft-recovery-2026-10-27T15-14-59-328Z-99-recovered-export.png",
+          "bytes": 188289,
+          "sha256": "2b45ab0914a98bc4decfb86c08da871cc8827b19f57a75d638598e183d6d9839"
+        },
+        {
+          "file": "qa-rc-2026-10-27T15-10-21-301Z-G-art-workspace.png",
+          "bytes": 144210,
+          "sha256": "5c09269f807213b57665ebebecc3b8743452515f9748032d31717ceb154ec2ca"
+        }
+      ],
+      "scope": "Agent inspection of final-binary captures; recovery controls readable/reachable, disk versus draft state explicit, verified ROM/export identity visible. Does not replace participant acceptance."
+    },
+    "limits": [
+      "Debounce 2s plus native I/O confirmation; edits before confirmation are not guaranteed after interruption. No universal loss-zero/power-failure guarantee.",
+      "Legacy storage migration is preserved; malformed/identity-conflicting drafts require explicit choice.",
+      "Atomic scene write/CAS does not provide a whole-project transaction or synchronization with uncooperative external writers.",
+      "Faults and initial secondary-scene fixture are separately declared in raw reports; no external data writes replace native editing or recovery.",
+      "Startup page crash and display disappearance retained; original Xvfb SIGTERM sender unknown; GTK unavailable display confirmed. No inferred product/OOM cause.",
+      "Human acceptance, Windows operational proof and independent private backup remain pending; 16 journeys partial; no maturity promotion.",
+      "Authoring audio measured through app/core/WebAudio, not acoustic loopback; MUGEN fixture is not general CNS support."
+    ],
+    "created_at": "2026-10-27T15:57:21.817Z",
+    "host": {
+      "state": "READY",
+      "fingerprint": "60249508aff61897cdd43160d4716b2344d69282507a36c5a457c0028143f6e2",
+      "lock_digest": "dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377",
+      "certification_session": "2026-10-27T15-46-50-018Z-950770",
+      "gates": [
+        {
+          "label": "check:tree",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "lint",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "typescript",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "frontend-tests",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "rust-clippy",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "rust-tests",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "upstream",
+          "ok": true,
+          "exit_code": 0
+        }
+      ],
+      "frontend": {
+        "passed": 1203,
+        "skipped": 11
+      },
+      "rust": {
+        "passed": 1071,
+        "failed": 0,
+        "ignored": 102
+      },
+      "additional_checks": [
+        {
+          "name": "fmt",
+          "args": [
+            "cargo",
+            "fmt",
+            "--manifest-path",
+            "src-tauri/Cargo.toml",
+            "--",
+            "--check"
+          ],
+          "started_at": "2026-10-27T15:54:47.922Z",
+          "finished_at": "2026-10-27T15:54:50.781Z",
+          "status": "PASS",
+          "exit_code": 0,
+          "session": "2026-10-27T15-54-47-990Z-981014"
+        },
+        {
+          "name": "clippy-default",
+          "args": [
+            "cargo",
+            "clippy",
+            "--manifest-path",
+            "src-tauri/Cargo.toml",
+            "--",
+            "-D",
+            "warnings"
+          ],
+          "started_at": "2026-10-27T15:54:50.781Z",
+          "finished_at": "2026-10-27T15:54:52.375Z",
+          "status": "PASS",
+          "exit_code": 0,
+          "session": "2026-10-27T15-54-50-848Z-981264"
+        },
+        {
+          "name": "npm-audit",
+          "args": [
+            "npm",
+            "run",
+            "security:audit"
+          ],
+          "started_at": "2026-10-27T15:54:52.376Z",
+          "finished_at": "2026-10-27T15:54:54.193Z",
+          "status": "PASS",
+          "exit_code": 0,
+          "session": "2026-10-27T15-54-52-435Z-981498"
+        },
+        {
+          "name": "licenses",
+          "args": [
+            "npm",
+            "run",
+            "security:licenses"
+          ],
+          "started_at": "2026-10-27T15:54:54.194Z",
+          "finished_at": "2026-10-27T15:54:55.624Z",
+          "status": "PASS",
+          "exit_code": 0,
+          "session": "2026-10-27T15-54-54-257Z-981695"
+        },
+        {
+          "name": "cargo-audit",
+          "args": [
+            "cargo",
+            "audit",
+            "--file",
+            "src-tauri/Cargo.lock"
+          ],
+          "started_at": "2026-10-27T15:54:55.625Z",
+          "finished_at": "2026-10-27T15:54:58.565Z",
+          "status": "PASS",
+          "exit_code": 0,
+          "session": "2026-10-27T15-54-55-702Z-981907"
+        }
+      ],
+      "artifacts": [
+        {
+          "file": "cargo-audit-command.log",
+          "bytes": 3064,
+          "sha256": "e759636222f817a50922f0cafd9f2eb1c0136072dba80770997b7fe8b16074bb"
+        },
+        {
+          "file": "cargo-audit-launcher.log",
+          "bytes": 370,
+          "sha256": "e1b72fe9ef32500acda7e2678c33db410625bafc50a24b0b1bd2bea2fa10551b"
+        },
+        {
+          "file": "cargo-audit-receipt.json",
+          "bytes": 2409,
+          "sha256": "99223b6cf7bf54c3acd2e3037508c131fb192b7047e37e8595270e5de35d247e"
+        },
+        {
+          "file": "clippy-default-command.log",
+          "bytes": 158,
+          "sha256": "9d1e379fd75f17a1ac570efa647c4c9cab0f3f0f5c9d47f4f43a2e782a209c68"
+        },
+        {
+          "file": "clippy-default-launcher.log",
+          "bytes": 370,
+          "sha256": "aee39b87e4d3409a01d8a6e9b18ecf288899e0c45b3e080f093ac87e311b3cc9"
+        },
+        {
+          "file": "clippy-default-receipt.json",
+          "bytes": 2409,
+          "sha256": "a111613b42253f9951b50f331d51fffcdf17dc82e23a79c347df72cd6bf8289d"
+        },
+        {
+          "file": "fmt-command.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "file": "fmt-launcher.log",
+          "bytes": 370,
+          "sha256": "23245c53b1c2f9413e9ab20652209b3ce9c6175078448a4478ebbb54020681ed"
+        },
+        {
+          "file": "fmt-receipt.json",
+          "bytes": 2409,
+          "sha256": "66008ec96a6fed96f2a72f316ff9d0bc998638a8c57f5a796d8f9e380ebc7e39"
+        },
+        {
+          "file": "gates.json",
+          "bytes": 2200,
+          "sha256": "dfb4fcc0112ff0825851e16b30369e433d221be27e8fde9dee99434e1659fac7"
+        },
+        {
+          "file": "host-certify-command.log",
+          "bytes": 137171,
+          "sha256": "7705441cc7d00d360d000425758f6b0db0c228d225c77e36d56b2165dbfdaeff"
+        },
+        {
+          "file": "host-certify-launcher.log",
+          "bytes": 370,
+          "sha256": "917d1218560e3ea8f5602a3d7853f5780c0c70495fc39abea914517275e48500"
+        },
+        {
+          "file": "host-certify-receipt.json",
+          "bytes": 2409,
+          "sha256": "3acdab7a9c1d4d7e624b75d399ae154e395b56111b522e46be6e1ae667b45f47"
+        },
+        {
+          "file": "host-readiness.json",
+          "bytes": 11322,
+          "sha256": "c79c7930fb6302d612b2049393c0a366d9ddcb95cf6299a164fffe1e3bcba78e"
+        },
+        {
+          "file": "licenses-command.log",
+          "bytes": 230,
+          "sha256": "ab44151136eff0fb1a7f650e5f869117ebe2499ca0559fc85194113af9b2ac33"
+        },
+        {
+          "file": "licenses-launcher.log",
+          "bytes": 370,
+          "sha256": "f7585881a71f60f946701674397248f32eef683329a70c00c91c8544a38dc8d9"
+        },
+        {
+          "file": "licenses-receipt.json",
+          "bytes": 2409,
+          "sha256": "c77116600a21927c1ff4ed55b60491a85ed9dd946b6a20858b272d60077abcab"
+        },
+        {
+          "file": "npm-audit-command.log",
+          "bytes": 96,
+          "sha256": "3a7e99e3819ecf1f30da156f47df0e0d47562a09448bf5f6156a7b90c028e59a"
+        },
+        {
+          "file": "npm-audit-launcher.log",
+          "bytes": 370,
+          "sha256": "811641736d895fd000a7cd6477bcaf7cccc2b493172784e66a6280cfd2b2fa96"
+        },
+        {
+          "file": "npm-audit-receipt.json",
+          "bytes": 2409,
+          "sha256": "68a6c8d09e4b8356a8767651b196c3c7b20756564375a1a014b51ee318b94960"
+        },
+        {
+          "file": "upstream-validation-linux.json",
+          "bytes": 3926,
+          "sha256": "279e3aa19f9fb59db29e0b2990f275e5f39a3f0238917048ceef9fc5e80e2d24"
+        }
+      ]
+    },
+    "temporary_qa_services": {
+      "at": "2026-10-27T15:47:09.724Z",
+      "display": ":1",
+      "pid": 881120,
+      "start": "1835028",
+      "signal": "SIGTERM",
+      "owner_verified": true,
+      "other_display_processes_untouched": true,
+      "native_runner_finished": true,
+      "native_scenarios_reported_zero_survivors": true
+    },
+    "private_protection": {
+      "schema": "retrodev.private-recovery-backup-receipt/v1",
+      "archive": "draft-recovery-evidence-79608626.tar.zst",
+      "bytes": 514710214,
+      "sha256": "e41435059697de9fb69eb6ce2b2b5b63b792c3b0c1aacc23e1900f127eaed5ca",
+      "content_manifest_sha256": "714d2be67d556ac82ca3cd84310f4bf27d1b6249504bc630a78b456d6e0f4955",
+      "files_verified": 3163,
+      "all_streamed_bytes_verified": true,
+      "same_filesystem": true,
+      "off_host_copy_qualified": false,
+      "owner": "operator",
+      "retention": "Preserve through human acceptance and independent private backup verification; no automatic deletion.",
+      "created_at": "2026-10-27T15:56:16.208937+00:00",
+      "public_repository_contains_archive": false,
+      "recovery_limit": "Private archive verified on same filesystem; no independent/off-host copy qualified. Original BYOR inputs remain protected by existing operator backups; no claim to restore missing remote volumes.",
+      "curation_supplement": {
+        "directory": "draft-recovery-curation",
+        "manifest_sha256": "f971a0515712aa7a2ce0ffa52dbd4591b62bfbe13099f3b0aa8898491ea2b74c",
+        "files_verified": 8,
+        "all_bytes_verified": true,
+        "same_filesystem": true,
+        "off_host_copy_qualified": false
+      }
+    },
+    "original_integrity": {
+      "mugen": [
+        {
+          "file": "ken.air",
+          "bytes": 34325,
+          "sha256": "b1f6c8d093dfd0849091035d7721a5748b59a476084bbc7ebf1ce2e1c6e7ed3a"
+        },
+        {
+          "file": "ken.cmd",
+          "bytes": 25391,
+          "sha256": "728e914f4de8d6de84af7c572af1e811c03ef142e1b168e49057bc0ba0416e16"
+        },
+        {
+          "file": "ken.cns",
+          "bytes": 66613,
+          "sha256": "0b4593b7fec0e555c41b21a032a95ea5efc540b61f201d2504a409cd4d692755"
+        },
+        {
+          "file": "ken.sff",
+          "bytes": 547131,
+          "sha256": "911e21b778af3e7a93cd69fe6132b8e87fb1cacddac757ada5842a8cb1c2172c"
+        },
+        {
+          "file": "ken.snd",
+          "bytes": 943098,
+          "sha256": "4f0cfdc8a9b3dc825bbbfac14853d1d31ffa8cd5f9c64b92e8575fb131980521"
+        },
+        {
+          "file": "ken1.act",
+          "bytes": 768,
+          "sha256": "89942f64862be6cb2bb0c094b2ab0ebb5cb411c06b7f1a6f9d69af64647687f2"
+        },
+        {
+          "file": "ken8.def",
+          "bytes": 944,
+          "sha256": "fdbe2fb2498be72078232ca68f2cc74fd8347aac2c8304c626d5f15dc68f5fc8"
+        }
+      ],
+      "byor": [
+        {
+          "file": "Sonic the Hedgehog (USA, Europe).bin",
+          "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+        },
+        {
+          "file": "hamoopig-reference.bin",
+          "sha256": "558bea6c80c76ec3da23afd584d4b56ece7722847ab1efc8c2f23f43f8529be9"
+        }
+      ],
+      "all_unchanged_after_final_gates": true,
+      "checked_at": "2026-10-27T15:57:21.959Z"
+    },
+    "requirements": [
+      {
+        "id": "project_scene_revision_identity",
+        "implementation": [
+          "src/core/scenePersistence.ts",
+          "src-tauri/src/lib.rs"
+        ],
+        "proof": "three cold draft-recovery runs: two scenes, two projects; preservation and legacy/invalid unit cases",
+        "result": "passed_local",
+        "limit": "Legacy without scene identity requires explicit operator decision."
+      },
+      {
+        "id": "old_async_save_and_cleanup_guards",
+        "implementation": [
+          "src/core/scenePersistence.ts",
+          "src/core/store/editorStore.ts",
+          "src/App.tsx",
+          "src/core/ipc/sceneService.ts"
+        ],
+        "proof": "deferred_real_response_refused_after_native_context_switch plus queued-save/stale-context unit regressions",
+        "result": "passed_local",
+        "limit": "Uncooperative external writers are not synchronized by in-process queues."
+      },
+      {
+        "id": "truthful_states_and_useful_failure",
+        "implementation": [
+          "src/App.tsx",
+          "src/core/scenePersistence.ts"
+        ],
+        "proof": "confirmed-before-kill, controlled_write_failure_sigkill_recovery, controlled_quota_visible_retry_confirms_without_disk_write",
+        "result": "passed_local",
+        "limit": "2s debounce plus native I/O; no confirmation before durable receipt."
+      },
+      {
+        "id": "memory_recovery_history_and_disk_conflict",
+        "implementation": [
+          "src/core/scenePersistence.ts",
+          "src/core/store/editorStore.ts",
+          "src-tauri/src/lib.rs"
+        ],
+        "proof": "two_scene_sigkill_recovery_undo_redo and disk_divergence_explicit_keep_then_recover_preserves_both",
+        "result": "passed_local",
+        "limit": "Explicit save writes canonical scene; whole-project transaction is outside this mechanism."
+      },
+      {
+        "id": "storage_invalid_unavailable_quota_and_retry",
+        "implementation": [
+          "src/core/scenePersistence.ts",
+          "src/App.tsx",
+          "src-tauri/src/lib.rs"
+        ],
+        "proof": "invalid/empty/unavailable storage unit cases, real write permission refusal, explicit malformed/quota native transport fault injections",
+        "result": "passed_local",
+        "limit": "Malformed/quota read responses injected, labelled separately; no disk filling or corruption of real draft bytes."
+      },
+      {
+        "id": "recovered_revision_build_core_export",
+        "implementation": [
+          "src/core/scenePersistence.ts",
+          "src-tauri/src/lib.rs",
+          "scripts/e2e-tauri-build-run.mjs"
+        ],
+        "proof": "three cold runs plus fault run: recovered_revision_build_core_export_identity; independent scene/ROM/export SHA",
+        "result": "passed_local",
+        "limit": "Controlled authoring projects and official pinned SDK/core; human and Windows acceptance pending."
+      },
+      {
+        "id": "preserve_art_and_affected_verticals",
+        "implementation": [
+          "src/components/artstudio/ArtStudioPanel.tsx",
+          "scripts/ui-layout-oracle.mjs"
+        ],
+        "proof": "ArtStudio regression test, qa-rc A-H/32 layout cases; authoring, full103x417 MUGEN, E4/E2E5/palettes/E6/onboarding/SNES",
+        "result": "passed_local",
+        "limit": "Partial surfaces remain Experimental; 16 journeys not institutionally closed."
+      }
+    ],
+    "runtime_evidence": "RDS_WORK_ROOT/sessions/draft-recovery-20261027",
+    "publication": {
+      "branch": "codex/new-host-cohesion-20261024",
+      "pr": 112,
+      "state": "OPEN",
+      "product_code_commit": "796086266831d8de5e129016562f3376f9e3424f",
+      "merge": false,
+      "release": false,
+      "deploy": false
+    },
+    "evidence_curation_review": {
+      "original_projection_preserved": true,
+      "reviewed_projection": "completion-native-reviewed.json",
+      "reviewed_projection_sha256": "5242779aef24e7a50a81088123ebbb7f6060e900985b0a0d396c2abee16b5c45",
+      "errata": [
+        {
+          "file": "curation-review-erratum.json",
+          "sha256": "6af093b1e87112f6573b060b049d1ae567a413b94b626bb789e15cb89dfdf7b1"
+        },
+        {
+          "file": "curator-schema-erratum.json",
+          "sha256": "014aa7cd9d1e9f47720cb80c480d821e125bc1be3e87f3bea7646c11150b0a65"
+        }
+      ],
+      "reason": "Correct filename classification for full MUGEN/onboarding/SNES and respect existing report schemas; all final cases require original reports. No native report, binary, criteria or runtime result changed."
+    },
+    "documentation_tree_check": {
+      "session": "2026-10-27T15-58-17-029Z-992503",
+      "status": "PASS",
+      "receipt_sha256": "870da1d6514c0d369e5ef838a9d2d16a271caa659e5562d946d610234dd1ed56",
+      "log_sha256": "495ab8e4df3329e4fffcba69baa99d11b115fdd7382ea9f7fe37aaeadbd76f64",
+      "scope": "Final documentation/index-only changes after full source certification; diff/JSON/structure reviewed."
+    }
+  },
+  "latest_delivery": {
+    "section": "draft_recovery_hardening",
+    "code_commit": "796086266831d8de5e129016562f3376f9e3424f",
+    "binary_sha256": "826e2553cfc6d20351acd6e7d3561b18dba043ecb7c4679d4ca7013dd9b56814"
   }
 }

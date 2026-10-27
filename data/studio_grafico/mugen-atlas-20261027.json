@@ -1899,5 +1899,92 @@
   "documentation_tree_check": {
     "session": "2026-10-27T11-28-53-242Z-147367",
     "status": "PASS"
+  },
+  "draft_recovery_regression": {
+    "index": "data/studio_grafico/ui-cohesion-20261027.json",
+    "section": "draft_recovery_hardening",
+    "app_sha256": "826e2553cfc6d20351acd6e7d3561b18dba043ecb7c4679d4ca7013dd9b56814",
+    "code_commit": "796086266831d8de5e129016562f3376f9e3424f",
+    "session": "2026-10-27T15-31-59-588Z-898499",
+    "status": "PASS",
+    "reports": [
+      {
+        "file": "studio-e1-2026-10-27T15-32-03-417Z-report.json",
+        "bytes": 10234,
+        "sha256": "b834bb3af724d4c3f5f2967b62298fc633ae45b2d4721b5021f1b01e2984aed8",
+        "schema": "retrodev.studio_e1/v1",
+        "scenario": "retrodev.studio_e1/v1",
+        "report_status": "passed",
+        "steps": [
+          {
+            "id": "import_real_ken",
+            "status": "passed"
+          },
+          {
+            "id": "baseline_build",
+            "status": "passed"
+          },
+          {
+            "id": "all_animation_pages_pixels_palette_and_compiled_indices",
+            "status": "passed"
+          },
+          {
+            "id": "open_character_editor_with_context",
+            "status": "passed"
+          },
+          {
+            "id": "edit_single_occurrence_undo_redo",
+            "status": "passed"
+          },
+          {
+            "id": "return_to_origin",
+            "status": "passed"
+          },
+          {
+            "id": "save_destroy_window_reopen",
+            "status": "passed"
+          },
+          {
+            "id": "rom_effect_measured_in_emulated_frames",
+            "status": "passed"
+          },
+          {
+            "id": "restore_rebuild_bytes_equal_baseline",
+            "status": "passed"
+          },
+          {
+            "id": "e3_runtime_selection_opens_exact_occurrence_and_returns",
+            "status": "passed"
+          },
+          {
+            "id": "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+            "status": "passed"
+          },
+          {
+            "id": "e3_same_path_content_change_refused_restored_accepted_rebuild_valid",
+            "status": "passed"
+          },
+          {
+            "id": "export_full_configuration_identical_to_tested_baseline",
+            "status": "passed"
+          }
+        ],
+        "tested_application": null,
+        "paged_resource_audit": {
+          "animations": 103,
+          "occurrences": 417,
+          "pixels_compared": 11208960,
+          "max_page_pixels": 1720320,
+          "palettes_identical": true,
+          "compiled_indices_verified": true,
+          "max_tiles": 114,
+          "max_sprites": 15
+        },
+        "export_sha256": "afb55545eec4021eedc904665248d1efc6dea7f958e6a57249be5131b3b62110"
+      }
+    ],
+    "original_inputs_unchanged": true,
+    "human_acceptance": "pending",
+    "maturity": "Experimental"
   }
 }
