@@ -1,6 +1,6 @@
 # Novo host: instalação, diagnóstico e continuidade do produto
 
-> **Estado atual 2026-10-27:** coesão principal e configuração MUGEN completa validadas tecnicamente no binário `35fe9ab2…`; detalhes, falhas/limites e reprodução na seção “Continuidade do atlas MUGEN” ao final. As prioridades antigas abaixo são o diagnóstico de entrada; estudo humano, Windows e CNS geral continuam com aceites próprios.
+> **Estado atual 2026-10-27:** recuperação de rascunhos validada no binário `826e2553…`; investigação posterior do Mugenesis_Demo recuperou recursos SGDK, mas o jogo C ainda não foi reconstruído. Consulte os checkpoints mais recentes do Memory Bank e a seção “Importação SGDK com manifests divididos” abaixo. Atlas MUGEN, estudo humano e Windows têm evidências/aceites próprios; não confundir os dois importadores.
 
 Entrada operacional da retomada de 2026-10-24. Leia também o Memory Bank, o roadmap e as instruções do checkout. Este documento organiza instalação e execução; o diagnóstico está em [REAVALIACAO_PRODUTO_2026-10-24.md](REAVALIACAO_PRODUTO_2026-10-24.md) e a missão de implementação em [PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md](PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md). Não são três fontes concorrentes de estado.
 
@@ -186,7 +186,7 @@ O debounce do rascunho é de 2 s, acrescido do tempo até o recibo nativo de gra
 
 Executar pelo launcher oficial, com `RDS_WORK_ROOT` definido conforme acima: `bash scripts/new-host.sh --run "$RDS_WORK_ROOT/sessions/draft-recovery-20261027/binaries/retro-dev-studio-826e2553"`. As três partidas frias e o cenário separado de falhas foram automatizados no Tauri real; não são aceite humano nem certificação Windows. A guarda de atlas MUGEN corrigida continua preservada. Nenhuma promoção de maturidade, merge, release ou deploy decorre deste roteiro.
 
-Neste desktop, o atalho **RetroDev Studio — Testar** (`retrodev-studio-testar.desktop`, na pasta de `xdg-user-dir DESKTOP`) abre esse binário pelo launcher oficial com `RDS_WORK_ROOT` externo e `RDS_BUILD_JOBS=1`. Usa o perfil normal do usuário, sem overrides de QA. Arquivo executável e sintaxe validados; abertura pelo atalho conferida no KDE/KWin em 2026-10-27. É configuração local, não um instalador ou atalho recuperado de backup antigo. Se o binário congelado mudar, conferir o novo SHA e atualizar explicitamente o destino do atalho.
+No checkpoint de recuperação, o atalho **RetroDev Studio — Testar** (`retrodev-studio-testar.desktop`, na pasta de `xdg-user-dir DESKTOP`) apontava para esse binário pelo launcher oficial com `RDS_WORK_ROOT` externo e `RDS_BUILD_JOBS=1`. Usa o perfil normal do usuário, sem overrides de QA. Arquivo executável e sintaxe validados; abertura pelo atalho conferida no KDE/KWin em 2026-10-27. É configuração local, não um instalador ou atalho recuperado de backup antigo. Se o binário congelado mudar, conferir o novo SHA e atualizar explicitamente o destino do atalho.
 
 
 ## Continuidade do atlas MUGEN — 2026-10-27 (validação técnica local PASS, Experimental)
@@ -214,3 +214,20 @@ Retenção: `RDS_WORK_ROOT/sessions/mugen-atlas-20261027/` conserva planos, ledg
 Proteção desta rodada: pacote privado local em `~/_-backups-_/Projects/RetroDevStudio-UI-2026-10-27/ui-mugen-evidence-1925716a.tar.zst`. São 1287 arquivos/1418302875 bytes de conteúdo, arquivo 291807298 bytes, SHA `a22c1490e9b39f4bba966ad0289629a242964deb546f6fe5a2b1c74b114f7f97`; `content-manifest.json` e `receipt.json` no mesmo diretório. Compressão e leitura integral do tar verificaram tamanho/SHA de cada arquivo, sem extrair sobre fontes. Inclui evidências/binários e 11 projetos próprios gerados, sem apagar originais. **Mesmo filesystem; cópia fora do host não qualificada.** Retenção do operador até aceite humano e proteção privada independente; não apagar evidência para liberar disco. A lacuna remota histórica não é resolvida por esse pacote local.
 
 Fechamento operacional: nenhum app/driver próprio vivo, Xvfb de QA encerrado e inibidor de idle liberado. Originais Ken/snapshot/Sonic/Hamoopig e três exportações finais reconferidos por SHA. O próximo passo de aceite é executar o roteiro humano acima no binário identificado; falhas humanas e Windows devem ser registradas separadamente. Para continuar código, usar o checkout único e o índice/Memory Bank atualizados, não repetir o diagnóstico antigo como estado vigente.
+
+
+## Importação SGDK com manifests divididos — 2026-10-27 (parcial, Experimental)
+
+O Mugenesis_Demo usa seis manifests; `res/resources.res` contém apenas música. A descoberta anterior ignorava os outros cinco. O importador agora enumera todos os `.res` de `res/`, além do canônico da raiz quando presente, e mantém separados assets homônimos de origens distintas. O teste de regressão cobre dois personagens com `idle.png` diferentes, canônico com música, reimportação estável e variação de caixa no nome do canônico.
+
+A prova nativa antes/depois passou de 1/1/0 para **6 manifests/251 recursos/177 sprites**, com comparação SHA-256 de todas as cópias. O build da cena gerada continua bloqueado: as 177 animações viraram entidades simultâneas, acima de 80 sprites. As 24 cenas geradas são agrupamentos de recursos; não representam os estados/cenas originais do jogo. Não alterar o limite, descartar recursos nem carregar silenciosamente `out/rom.bin` para declarar equivalência. O recurso `legacy_sgdk_overlay` preserva C, mas o contrato atual exige Makefile local, ausente neste projeto que usa o wrapper do SGDKForge. A continuidade precisa integrar esse contrato existente e provar o build original, ou implementar uma conversão de lógica com escopo explícito.
+
+Evidências privadas em `RDS_WORK_ROOT/sessions/sgdk-split-resources-20261027/`; projetos próprios de teste retidos em `projects/before`, `projects/after` e `projects/final`, sem alterar a fonte do operador. O resultado completo FAIL permanece preservado ao lado do passo de recursos PASS. Código `79eee48a`/fixture `ec23be8c`; binário final `0ad1b0d3594a33697f566bf99439477cdcd934bde336623abba9347a1625e3e2` em `RDS_WORK_ROOT/sessions/sgdk-split-resources-20261027/binaries/retro-dev-studio-0ad1b0d3`. Fontes conferidas contra o commit; build em árvore suja. Certify final READY: 1203 frontend/11 skip, 1072 Rust/102 ignored; fmt/Clippy padrão/build/smokes PASS. Atalho **RetroDev Studio — Testar** atualizado explicitamente para esse binário e validado com `desktop-file-validate`; o binário foi exercitado em QA própria, sem reabertura do atalho no desktop. A descrição do atalho informa a reconstrução pendente.
+
+Reprodução pelo cenário existente `sgdk-split-resources`: exportar `RDS_SGDK_REAL_SOURCE` (origem privada), `RDS_SGDK_OUTPUT` (evidência no runtime), `RDS_SGDK_EXPECTED='{"manifests":6,"resources":251,"sprites":177}'`, `RDS_UI_APP` (binário conferido), `DISPLAY` de QA próprio e `RDS_WORK_ROOT`. Usar o launcher com drivers oficiais e perfil de QA separado, preservando o projeto para inspeção:
+
+```bash
+rtk proxy env RDS_BUILD_JOBS=1 RDS_E2E_KEEP_PROJECT=1 GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 bash scripts/new-host.sh --run node scripts/e2e-tauri-build-run.mjs --skip-build --scenario sgdk-split-resources --app "$RDS_UI_APP"
+```
+
+Esse cenário exige Build → ROM → Emulação para PASS integral; não reclassificar sua falha como aprovação do jogo só porque os recursos conferiram. Encerrar somente app/driver/display próprios e registrar qualquer realocação dos projetos de QA.
