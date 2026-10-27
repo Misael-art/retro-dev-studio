@@ -49,7 +49,7 @@ const PERSONA_STORAGE_KEY = "retrodev-shell-persona";
 
 const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> = {
   scene: {
-    label: "Scene",
+    label: "Cena",
     icon: "SC",
     description: "Composicao e edicao da cena",
     domain: "core",
@@ -59,7 +59,7 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
     roadmapRef: "Scene workspace",
   },
   game: {
-    label: "Game",
+    label: "Teste",
     icon: "GM",
     description: "Playtest e runtime",
     domain: "core",
@@ -69,7 +69,7 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
     roadmapRef: "Game workspace",
   },
   explorer: {
-    label: "Explorer",
+    label: "Arquivos",
     icon: "EX",
     description: "Arquivos, assets e cenas",
     domain: "core",
@@ -79,7 +79,7 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
     roadmapRef: "Explorer workspace",
   },
   logic: {
-    label: "Logic",
+    label: "Ações",
     icon: "LG",
     description: "Fluxo visual e scripting",
     domain: "authoring",
@@ -89,7 +89,7 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
     roadmapRef: "Logic workspace / NodeGraph canonico",
   },
   artstudio: {
-    label: "Art",
+    label: "Arte",
     icon: "AT",
     description: "Sprites, slicing e preview",
     domain: "authoring",
@@ -99,7 +99,7 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
     roadmapRef: "ArtStudio workspace",
   },
   retrofx: {
-    label: "FX",
+    label: "Efeitos",
     icon: "FX",
     description: "Profundidade e parallax",
     domain: "authoring",
@@ -109,7 +109,7 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
     roadmapRef: "RetroFX workspace",
   },
   debug: {
-    label: "Debug",
+    label: "Depurar",
     icon: "DB",
     description: "Analise e ferramentas avancadas",
     domain: "advanced",

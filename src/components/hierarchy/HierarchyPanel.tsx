@@ -689,6 +689,7 @@ export default function HierarchyPanel({
           {activeProjectDir && loadShellPersona() !== "guiado" ? (
             <div className="mt-2">
               <SceneWorkspaceNotice
+                compact
                 context={sceneContext}
                 testId="hierarchy-scene-notice"
                 actions={

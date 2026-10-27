@@ -1317,7 +1317,11 @@ describe("App build flow", () => {
       readonly: true,
       note: "Arquivo legado somente leitura.",
     });
-    mocks.persistActiveScene.mockResolvedValue(true);
+    mocks.persistActiveScene.mockImplementation(async () => {
+      const state = useEditorStore.getState();
+      state.setSceneSaveState({ status: "saved", revision: state.sceneRevision, at: Date.now(), message: null });
+      return true;
+    });
     mocks.reloadSceneFromDisk.mockResolvedValue(true);
     mocks.dialogOpen.mockResolvedValue("F:/Projects/RetroDevStudio/tests/fixtures");
     mocks.listProjectTemplates.mockResolvedValue(defaultProjectTemplates());
@@ -2068,6 +2072,49 @@ describe("App build flow", () => {
     expect(useEditorStore.getState().joypadSessionId).not.toBeNull();
     expect(container.textContent).toContain("Emulador ativo");
     expect(putImageDataSpy).toHaveBeenCalled();
+  });
+
+  it("does not publish or run a build response after reopening the project", async () => {
+    let complete!: (result: unknown) => void;
+    mocks.buildProject.mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
+    await act(async () => { findBuildRunButton(container).click(); await flush(); });
+    expect(mocks.buildProject).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      const current = useEditorStore.getState();
+      current.setActiveProject(current.activeProjectDir, "Reaberto");
+      complete({ ok: true, rom_path: "old.md", build_source_map: { artifact: { sha256: "old", path: "old.md" } }, log: [] });
+      await flush();
+    });
+    expect(useEditorStore.getState().lastBuildSourceMap).toBeNull();
+    expect(mocks.emulatorLoadRom).not.toHaveBeenCalled();
+    expect(useEditorStore.getState().activeWorkspace).toBe("scene");
+  });
+
+  it("keeps the saved revision attached to a build edited while compiling and asks to retry", async () => {
+    let complete!: (result: unknown) => void;
+    mocks.buildProject.mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
+    await act(async () => { findBuildRunButton(container).click(); await flush(); });
+    const revision = useEditorStore.getState().sceneRevision;
+    await act(async () => {
+      useEditorStore.setState({ sceneRevision: revision + 1 });
+      complete({ ok: true, rom_path: "old.md", log: [] });
+      await flush();
+    });
+    expect(useEditorStore.getState().lastBuildSceneRevision).toBe(revision);
+    expect(mocks.emulatorLoadRom).not.toHaveBeenCalled();
+    expect(useEditorStore.getState().consoleEntries.some((entry) => entry.message.includes("Teste novamente"))).toBe(true);
+  });
+
+  it("does not build unsaved edits that arrive during Save", async () => {
+    mocks.persistActiveScene.mockImplementationOnce(async () => {
+      const state = useEditorStore.getState();
+      state.setSceneSaveState({ status: "saved", revision: state.sceneRevision, at: Date.now(), message: null });
+      useEditorStore.setState({ sceneRevision: state.sceneRevision + 1 });
+      return true;
+    });
+    await act(async () => { findBuildRunButton(container).click(); await flush(); });
+    expect(mocks.buildProject).not.toHaveBeenCalled();
+    expect(mocks.emulatorLoadRom).not.toHaveBeenCalled();
   });
 
   it("logs an actionable diagnostic instead of a generic build failure", async () => {
@@ -2941,10 +2988,10 @@ describe("App build flow", () => {
     expect(topbar).toBeInstanceOf(HTMLElement);
     expect(statusBar).toBeInstanceOf(HTMLElement);
     expect(warningBadge).toBeInstanceOf(HTMLButtonElement);
-    expect(topbar?.textContent).toContain("Build");
-    expect(topbar?.textContent).toContain("Play");
-    expect(topbar?.textContent).toContain("Stop");
-    expect(topbar?.textContent).toContain("Pause");
+    expect(topbar?.textContent).toContain("Testar projeto");
+    expect(topbar?.textContent).toContain("Continuar teste");
+    expect(topbar?.textContent).toContain("Parar");
+    expect(topbar?.textContent).toContain("Pausar");
     expect(topbar?.textContent).not.toContain(warning);
     expect(statusBar?.textContent).toContain("Build: warn");
     expect(statusBar?.textContent).toContain("Emulacao: idle");
@@ -3068,7 +3115,7 @@ describe("App build flow", () => {
     });
 
     await act(async () => {
-      findButton(container, "Play").click();
+      findButton(container, "Continuar teste").click();
       await flush();
     });
 
@@ -4415,7 +4462,7 @@ describe("App build flow", () => {
     expect(container.querySelector("[data-testid='tools']")).toBeNull();
 
     await act(async () => {
-      findButton(container, "Tools").click();
+      findButton(container, "Ferramentas").click();
       await flush();
     });
 
@@ -4423,7 +4470,7 @@ describe("App build flow", () => {
     expect(container.querySelector("[data-testid='inspector']")).toBeNull();
 
     await act(async () => {
-      findButton(container, "Insp").click();
+      findButton(container, "Propriedades").click();
       await flush();
     });
 

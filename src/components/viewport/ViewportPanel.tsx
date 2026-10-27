@@ -575,8 +575,8 @@ export default function ViewportPanel({
   const [showStagingOverlay, setShowStagingOverlay] = useState(false);
   const [showViewportWarnings, setShowViewportWarnings] = useState(false);
   const [showSceneNavigator, setShowSceneNavigator] = useState(false);
-  // The floating composition card covers the scene; the guided mode starts with it closed.
-  const [showCommandDock, setShowCommandDock] = useState(() => loadShellPersona() !== "guiado");
+  // Composition tools remain available from the toolbar without covering the canvas on entry.
+  const [showCommandDock, setShowCommandDock] = useState(false);
   const [showKeyColor, setShowKeyColor] = useState(false);
   const [guideSnap, setGuideSnap] = useState(true);
   const [gameViewLight, setGameViewLight] = useState(false);
@@ -1554,6 +1554,7 @@ export default function ViewportPanel({
     if (!canvas) return;
 
     if (!paintGameFrame(canvas, payload)) return;
+    current.recordBuildTestFrame(payload.core_epoch!, payload.rom_sha256!, payload.frame_index ?? 0);
     setGameFrameSize((current) => current.width === payload.width && current.height === payload.height
       ? current : { width: payload.width, height: payload.height });
     lastPresentedFrameRef.current = { epoch: payload.core_epoch!, sequence: payload.frame_sequence! };
@@ -4563,7 +4564,7 @@ export default function ViewportPanel({
             {/* Toolbar horizontal dedicada (V, B, E, C, G, Zoom) */}
             <div
               data-testid="viewport-scene-toolbar"
-              className="flex min-w-0 shrink-0 items-center gap-1 overflow-x-auto overflow-y-hidden border-b border-[#313244] bg-[#181825] px-2 py-1.5 [scrollbar-width:thin] [&>button]:shrink-0 [&>div]:shrink-0 [&>span]:shrink-0"
+              className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 border-b border-[#313244] bg-[#181825] px-2 py-1.5 [&>button]:shrink-0 [&>div]:shrink-0 [&>span]:shrink-0"
             >
               {([
                 { id: "select" as const, icon: "🖱️", label: "Selecionar (V)", activeColor: "bg-[#89b4fa]" },
@@ -4575,6 +4576,8 @@ export default function ViewportPanel({
                   key={tool.id}
                   type="button"
                   data-testid={`viewport-tool-${tool.id}`}
+                  aria-label={tool.label}
+                  aria-pressed={editorMode === tool.id}
                   onClick={() => setEditorMode(tool.id)}
                   className={`rounded px-2 py-1 text-[10px] font-semibold transition-all ${
                     editorMode === tool.id
@@ -4583,147 +4586,9 @@ export default function ViewportPanel({
                   }`}
                   title={tool.label}
                 >
-                  {tool.icon}
+                  {tool.icon} {tool.label.split(" (")[0]}
                 </button>
               ))}
-              <div className="mx-1 w-px bg-[#313244] self-stretch" />
-              <button
-                type="button"
-                onClick={() => setGridSnap((current) => !current)}
-                className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  gridSnap
-                    ? "border border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
-                    : "border border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Snap ao grid 8px (G)"
-              >
-                G
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowGrid((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showGrid
-                    ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#89b4fa]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Mostrar grid principal"
-              >
-                Grid
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowSubGrid((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showSubGrid
-                    ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#89b4fa]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Mostrar sub-grid"
-              >
-                Sub
-              </button>
-              <button
-                type="button"
-                onClick={() => setGuideSnap((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  guideSnap
-                    ? "border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Snap para guias e grid"
-              >
-                Guide
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowBackground((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showBackground
-                    ? "border-[#a6e3a1] bg-[#a6e3a1]/15 text-[#a6e3a1]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Mostrar background"
-              >
-                BG
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowTilemaps((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showTilemaps
-                    ? "border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Mostrar tilemaps"
-              >
-                TM
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowSprites((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showSprites
-                    ? "border-[#cba6f7] bg-[#cba6f7]/15 text-[#cba6f7]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Mostrar sprites"
-              >
-                SP
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCollisionOverlay((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showCollisionOverlay
-                    ? "border-[#f38ba8] bg-[#f38ba8]/15 text-[#f38ba8]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title={
-                  activeScene?.collision_map
-                    ? `Overlay de colisão (${activeScene.collision_map.width}×${activeScene.collision_map.height} tiles importados/cena)`
-                    : "Mostrar overlay de colisao (sem collision_map na cena)"
-                }
-              >
-                Col
-              </button>
-              {([
-                ["Cam", showCameraOverlay, setShowCameraOverlay, "Mostrar camera e janela MD"],
-                ["Bnd", showEntityBounds, setShowEntityBounds, "Mostrar bounds das entidades"],
-                ["Lbl", showEntityLabels, setShowEntityLabels, "Mostrar labels das entidades"],
-                ["Stg", showStagingOverlay, setShowStagingOverlay, "Mostrar staging importado"],
-                ["Warn", showViewportWarnings, setShowViewportWarnings, "Mostrar avisos de autoria no viewport"],
-                ["Nav", showSceneNavigator, setShowSceneNavigator, "Mostrar navegador do mundo"],
-                ["Key", showKeyColor, setShowKeyColor, "Mostrar cor-chave magenta para debug"],
-                ["Dock", showCommandDock, setShowCommandDock, "Mostrar dock do objeto selecionado"],
-              ] as const).map(([label, active, setter, title]) => (
-                <button
-                  key={label}
-                  type="button"
-                  data-testid={`viewport-toggle-${label.toLowerCase()}`}
-                  onClick={() => setter((current) => !current)}
-                  className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                    active
-                      ? "border-[#89dceb] bg-[#89dceb]/15 text-[#89dceb]"
-                      : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                  }`}
-                  title={title}
-                >
-                  {label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setGameViewLight((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  gameViewLight
-                    ? "border-[#f9e2af] bg-[#f9e2af]/15 text-[#f9e2af]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Game View Light"
-              >
-                GV
-              </button>
               <div className="mx-1 w-px bg-[#313244] self-stretch" />
               <button
                 type="button"
@@ -4767,6 +4632,7 @@ export default function ViewportPanel({
               <button
                 type="button"
                 onClick={() => setClampViewportToWorld((current) => !current)}
+                aria-pressed={clampViewportToWorld}
                 className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
                   clampViewportToWorld
                     ? "border-[#a6e3a1]/40 bg-[#a6e3a1]/10 text-[#a6e3a1]"
@@ -4826,6 +4692,159 @@ export default function ViewportPanel({
                 +
               </button>
             </div>
+
+            <details data-testid="viewport-view-options" className="shrink-0 border-b border-[#313244] bg-[#181825] text-[11px]">
+              <summary className="cursor-pointer px-3 py-1.5 font-semibold text-[#a6adc8]">Visualização · grade, camadas e guias</summary>
+              <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
+              <button
+                type="button"
+                onClick={() => setGridSnap((current) => !current)}
+                aria-pressed={gridSnap}
+                className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  gridSnap
+                    ? "border border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
+                    : "border border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Snap ao grid 8px (G)"
+              >
+                Ajustar à grade (G)
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowGrid((current) => !current)}
+                aria-pressed={showGrid}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showGrid
+                    ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#89b4fa]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Mostrar grid principal"
+              >
+                Grade
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSubGrid((current) => !current)}
+                aria-pressed={showSubGrid}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showSubGrid
+                    ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#89b4fa]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Mostrar sub-grid"
+              >
+                Subgrade
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuideSnap((current) => !current)}
+                aria-pressed={guideSnap}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  guideSnap
+                    ? "border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Snap para guias e grid"
+              >
+                Guias magnéticas
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBackground((current) => !current)}
+                aria-pressed={showBackground}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showBackground
+                    ? "border-[#a6e3a1] bg-[#a6e3a1]/15 text-[#a6e3a1]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Mostrar background"
+              >
+                Fundo
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowTilemaps((current) => !current)}
+                aria-pressed={showTilemaps}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showTilemaps
+                    ? "border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Mostrar tilemaps"
+              >
+                Tilemaps
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSprites((current) => !current)}
+                aria-pressed={showSprites}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showSprites
+                    ? "border-[#cba6f7] bg-[#cba6f7]/15 text-[#cba6f7]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Mostrar sprites"
+              >
+                Sprites
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCollisionOverlay((current) => !current)}
+                aria-pressed={showCollisionOverlay}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showCollisionOverlay
+                    ? "border-[#f38ba8] bg-[#f38ba8]/15 text-[#f38ba8]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title={
+                  activeScene?.collision_map
+                    ? `Overlay de colisão (${activeScene.collision_map.width}×${activeScene.collision_map.height} tiles importados/cena)`
+                    : "Mostrar overlay de colisao (sem collision_map na cena)"
+                }
+              >
+                Colisões
+              </button>
+              {([
+                ["Cam", showCameraOverlay, setShowCameraOverlay, "Mostrar camera e janela MD"],
+                ["Bnd", showEntityBounds, setShowEntityBounds, "Mostrar bounds das entidades"],
+                ["Lbl", showEntityLabels, setShowEntityLabels, "Mostrar labels das entidades"],
+                ["Stg", showStagingOverlay, setShowStagingOverlay, "Mostrar staging importado"],
+                ["Warn", showViewportWarnings, setShowViewportWarnings, "Mostrar avisos de autoria no viewport"],
+                ["Nav", showSceneNavigator, setShowSceneNavigator, "Mostrar navegador do mundo"],
+                ["Key", showKeyColor, setShowKeyColor, "Mostrar cor-chave magenta para debug"],
+                ["Dock", showCommandDock, setShowCommandDock, "Mostrar dock do objeto selecionado"],
+              ] as const).map(([label, active, setter, title]) => (
+                <button
+                  key={label}
+                  type="button"
+                  data-testid={`viewport-toggle-${label.toLowerCase()}`}
+                  onClick={() => setter((current) => !current)}
+                  aria-pressed={active}
+                  className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                    active
+                      ? "border-[#89dceb] bg-[#89dceb]/15 text-[#89dceb]"
+                      : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                  }`}
+                  title={title}
+                >
+                  {title.replace(/^Mostrar /, "")}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setGameViewLight((current) => !current)}
+                aria-pressed={gameViewLight}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  gameViewLight
+                    ? "border-[#f9e2af] bg-[#f9e2af]/15 text-[#f9e2af]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Game View Light"
+              >
+                Prévia sem guias
+              </button>
+              </div>
+            </details>
 
             {/* Área de canvas com overflow para mais espaço */}
             <div
@@ -5600,7 +5619,7 @@ export default function ViewportPanel({
               Array.isArray(animation.mugen_frames)
             ) ? (
               <Suspense fallback={<WorkspaceViewportFallback label="Carregando Personagem..." />}>
-                <CharacterTimelinePanel entity={selectedEntity} />
+                <CharacterTimelinePanel key={selectedEntity.entity_id} entity={selectedEntity} />
               </Suspense>
             ) : (
               <Suspense fallback={<WorkspaceViewportFallback label="Carregando ArtStudio..." />}>

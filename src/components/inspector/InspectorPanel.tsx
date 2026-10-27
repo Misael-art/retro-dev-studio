@@ -1278,7 +1278,7 @@ export default function InspectorPanel() {
         ) : entity ? (
           <>
             {/* Entity header badge */}
-            <div className="flex items-center gap-2 border-b border-[#313244] bg-[#181825] px-3 py-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 border-b border-[#313244] bg-[#181825] px-3 py-2">
               <span
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[#cba6f7]/40 bg-[#cba6f7]/10 text-[9px] font-bold text-[#cba6f7]"
                 aria-hidden
@@ -1291,7 +1291,7 @@ export default function InspectorPanel() {
                       ? "SP"
                       : "OBJ"}
               </span>
-              <div className="min-w-0 flex-1">
+              <div className="col-span-2 row-start-2 min-w-0">
                 <p className="truncate font-mono text-[11px] font-semibold text-[#cdd6f4]" title={getEntityDisplayName(entity)}>
                   {getEntityDisplayName(entity)}
                 </p>
@@ -1379,13 +1379,13 @@ export default function InspectorPanel() {
                   ) : null}
                 </div>
               </div>
-              <div className="flex shrink-0 flex-col items-end gap-0.5 text-[8px] text-[#45475a]">
+              <div className="col-start-2 row-start-1 flex flex-wrap justify-end gap-2 text-[8px] text-[#7f849c]">
                 <span>{Object.values(entity.components).filter(Boolean).length} comp.</span>
                 <span>({entity.transform.x}, {entity.transform.y})</span>
               </div>
             </div>
             <EntityPaletteSection entityId={entity.entity_id} />
-            <div className="flex items-center gap-2 border-b border-[#313244] px-3 py-1.5 text-[10px] text-[#a6adc8]">
+            <div className="flex flex-wrap items-center gap-2 border-b border-[#313244] px-3 py-1.5 text-[10px] text-[#a6adc8]">
               <label className="flex items-center gap-1">
                 X
                 <input

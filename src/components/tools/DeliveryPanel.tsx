@@ -1,6 +1,7 @@
 import { usePalettePlanStore } from "../../core/palettePlanStore";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Dialog from "../common/Dialog";
 
 import { describeBuildFreshness } from "../../core/buildFreshness";
 import { inspectRomMastering } from "../../core/ipc/projectCapabilityService";
@@ -16,26 +17,50 @@ type ExportResult = { path: string; sha256: string; report: RomMasteringReport }
  * no destino (mastering) e exporta só quando não há erro real e a ROM é a da revisão atual.
  */
 export default function DeliveryPanel({ onClose }: { onClose: () => void }) {
+  const project = useEditorStore((s) => s.activeProjectDir);
+  const session = useEditorStore((s) => s.projectSessionId);
+  const revision = useEditorStore((s) => s.sceneRevision);
+  const target = useEditorStore((s) => s.activeTarget);
+  const artifact = useEditorStore((s) => s.lastBuildSourceMap?.artifact);
+  // Remount synchronously: a new build/revision can never reuse an old verification.
+  const identity = JSON.stringify([project, session, revision, target, artifact?.path, artifact?.sha256]);
+  return <DeliveryReview key={identity} onClose={onClose} />;
+}
+
+function DeliveryReview({ onClose }: { onClose: () => void }) {
   const activeScene = useEditorStore((state) => state.activeScene);
   const activeProjectDir = useEditorStore((state) => state.activeProjectDir);
   const sceneRevision = useEditorStore((state) => state.sceneRevision);
   const lastBuildSceneRevision = useEditorStore((state) => state.lastBuildSceneRevision);
   const sourceMap = useEditorStore((state) => state.lastBuildSourceMap);
   const runningRom = useEditorStore((state) => state.emulatorRomIdentity?.sha256 ?? null);
+  const testedBuild = useEditorStore((state) => state.lastBuildTest);
+  const activeTarget = useEditorStore((state) => state.activeTarget);
   const openStudioEditor = useEditorStore((state) => state.openStudioEditor);
   const logMessage = useEditorStore((state) => state.logMessage);
   const [reviewSeq, setReviewSeq] = useState(0);
   const [references, setReferences] = useState<AuditedReference[]>([]);
+  const [auditStatus, setAuditStatus] = useState<"pending" | "ready" | "failed">("pending");
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; };
+  }, []);
   useEffect(() => {
     if (!activeProjectDir) return;
     let cancelled = false;
+    setAuditStatus("pending");
     // Auditoria de arquivos no disco (o que o build vai ler); cancelada se a revisão for refeita.
     void Promise.resolve(auditProjectPaths(activeProjectDir))
       .then((refs) => {
-        if (!cancelled) setReferences(Array.isArray(refs) ? refs : []);
+        if (!Array.isArray(refs)) throw new Error("A auditoria de arquivos não retornou um resultado válido.");
+        if (!cancelled) {
+          setReferences(refs);
+          setAuditStatus("ready");
+        }
       })
       .catch(() => {
-        if (!cancelled) setReferences([]);
+        if (!cancelled) setAuditStatus("failed");
       });
     return () => {
       cancelled = true;
@@ -50,6 +75,8 @@ export default function DeliveryPanel({ onClose }: { onClose: () => void }) {
   const [mastering, setMastering] = useState<RomMasteringReport | null>(null);
   const [exported, setExported] = useState<ExportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<"verify" | "export" | null>(null);
+  const operationRef = useRef(false);
   const romPath = sourceMap?.artifact.path ?? null;
   const romSha = sourceMap?.artifact.sha256 ?? null;
   const freshness = describeBuildFreshness({
@@ -57,15 +84,19 @@ export default function DeliveryPanel({ onClose }: { onClose: () => void }) {
     lastBuildSceneRevision,
     builtRomSha256: romSha,
     runningRomSha256: runningRom,
+    testedBuild,
   });
   // A ROM só representa o projeto se foi gerada a partir da revisão atual da cena.
   const stale = lastBuildSceneRevision === null || sceneRevision !== lastBuildSceneRevision;
   const exportBlockedReason =
-    review.errors > 0
+    !activeProjectDir ? "Abra um projeto para exportar"
+    : busy ? "Aguarde a operação atual"
+    : auditStatus !== "ready" ? "Verifique os arquivos do projeto antes de exportar"
+    : review.errors > 0
       ? `Resolva ${review.errors} erro(s) para exportar`
       : stale || !romPath || !romSha
         ? "Compile o projeto atual antes de exportar"
-        : !mastering
+        : !mastering || mastering.sha256 !== romSha
           ? "Verifique a ROM no destino antes de exportar"
           : mastering.blockers.length > 0
             ? "A ROM tem bloqueios de destino"
@@ -88,17 +119,29 @@ export default function DeliveryPanel({ onClose }: { onClose: () => void }) {
   }
 
   async function verifyRom() {
-    if (!romPath) return;
+    if (!romPath || !romSha || operationRef.current) return;
+    operationRef.current = true;
+    setBusy("verify");
     setError(null);
+    setMastering(null);
+    setExported(null);
     try {
-      setMastering(await inspectRomMastering(romPath));
+      const report = await inspectRomMastering(romPath);
+      if (!alive.current) return;
+      if (report.sha256 !== romSha) throw new Error("A ROM no disco mudou desde o build. Compile e teste novamente antes de exportar.");
+      setMastering(report);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      if (alive.current) setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      operationRef.current = false;
+      if (alive.current) setBusy(null);
     }
   }
 
   async function exportRom() {
-    if (!romPath || !romSha || !activeProjectDir) return;
+    if (!romPath || !romSha || !activeProjectDir || exportBlockedReason || operationRef.current) return;
+    operationRef.current = true;
+    setBusy("export");
     setError(null);
     try {
       const result = await invoke<ExportResult>("export_game_rom", {
@@ -106,26 +149,32 @@ export default function DeliveryPanel({ onClose }: { onClose: () => void }) {
         romPath,
         expectedSha256: romSha,
       });
+      if (!alive.current) return;
+      if (result.sha256 !== romSha) throw new Error("A exportação retornou uma ROM diferente da ROM verificada.");
       setExported(result);
       logMessage("success", `[Entrega] ROM exportada: ${result.path} (${result.sha256.slice(0, 12)}…)`);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      if (alive.current) setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      operationRef.current = false;
+      if (alive.current) setBusy(null);
     }
   }
 
   return (
-    <div role="dialog" aria-label="Revisar projeto" data-testid="delivery-panel" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-[#313244] bg-[#0b1120] text-[11px] text-[#cdd6f4]">
+    <Dialog open title="Revisar projeto" description="Experimental · confira o projeto, a revisão e a ROM antes de exportar."
+      onClose={onClose} portal={false} testId="delivery-panel" closeTestId="delivery-close"
+      className="!w-[min(768px,calc(100vw-24px))] text-[11px] text-[#cdd6f4]">
+      <div className="flex flex-col">
         <header className="flex items-center gap-2 border-b border-[#313244] px-4 py-2">
-          <h2 className="text-sm font-semibold text-white">Revisar projeto</h2>
-          <span className="rounded bg-[#1e293b] px-1 text-[9px] uppercase text-[#94a3b8]">Experimental</span>
-          <span data-testid="delivery-freshness" data-kind={freshness.kind} className="ml-auto text-[10px] text-[#fbbf24]">
+          <span data-testid="delivery-freshness" data-kind={freshness.kind} data-tested-rom-sha={testedBuild?.romSha256 ?? ""}
+            data-tested-revision={testedBuild?.sceneRevision ?? ""} className="ml-auto text-[10px] text-[#fbbf24]">
             {freshness.label}
           </span>
-          <button type="button" data-testid="delivery-close" onClick={onClose} aria-label="Fechar" className="rounded border border-[#334155] px-2">
-            ✕
-          </button>
         </header>
+        <p role="status" data-testid="delivery-audit-status" className="px-4 py-2 text-[#a6adc8]">
+          {auditStatus === "pending" ? "Verificando arquivos do projeto…" : auditStatus === "failed" ? "Falha ao verificar arquivos. Use Verificar novamente para tentar de novo." : "Arquivos do projeto verificados."}
+        </p>
         <div className="grid grid-cols-3 gap-2 px-4 py-3">
           <div data-testid="delivery-errors" data-count={review.errors} className="rounded border border-[#f38ba8]/50 p-2">
             <p className="text-base font-semibold text-[#f38ba8]">✖ {review.errors} erro(s)</p>
@@ -179,20 +228,20 @@ export default function DeliveryPanel({ onClose }: { onClose: () => void }) {
         </ul>
         <footer className="space-y-1 border-t border-[#313244] px-4 py-2">
           <p className="text-[#a6adc8]">
-            Destino: Mega Drive (ROM SGDK) · ROM do último build:{" "}
-            <span className="font-mono" data-testid="delivery-rom-sha">{romSha ? `${romSha.slice(0, 12)}…` : "nenhuma"}</span>
+            Destino: {activeTarget === "snes" ? "SNES (ROM PVSnesLib)" : "Mega Drive (ROM SGDK)"} · Revisão {lastBuildSceneRevision ?? "—"} · ROM do último build:{" "}
+            <span className="font-mono" data-testid="delivery-rom-sha" title={romSha ?? undefined}>{romSha ? `${romSha.slice(0, 12)}…` : "nenhuma"}</span>
             {mastering ? (
               <span data-testid="delivery-mastering" data-blockers={mastering.blockers.length}>
                 {" "}· checksum {mastering.checksum.status} · {mastering.blockers.length} bloqueio(s)
               </span>
             ) : null}
           </p>
-          <div className="flex items-center gap-2">
-            <button type="button" data-testid="delivery-recheck" onClick={() => setReviewSeq((v) => v + 1)} className="rounded border border-[#334155] px-2 py-0.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" data-testid="delivery-recheck" disabled={Boolean(busy)} onClick={() => setReviewSeq((v) => v + 1)} className="rounded border border-[#334155] px-2 py-0.5">
               Verificar novamente
             </button>
-            <button type="button" data-testid="delivery-verify-rom" disabled={!romPath} onClick={() => void verifyRom()} className="rounded border border-[#334155] px-2 py-0.5 disabled:opacity-40">
-              Verificar ROM no destino
+            <button type="button" data-testid="delivery-verify-rom" disabled={!romPath || stale || Boolean(busy)} onClick={() => void verifyRom()} className="rounded border border-[#334155] px-2 py-0.5 disabled:opacity-40">
+              {busy === "verify" ? "Verificando ROM…" : "Verificar ROM no destino"}
             </button>
             <button
               type="button"
@@ -206,7 +255,7 @@ export default function DeliveryPanel({ onClose }: { onClose: () => void }) {
             </button>
           </div>
           {exported ? (
-            <p data-testid="delivery-exported" className="text-[#a6e3a1]">
+            <p data-testid="delivery-exported" data-path={exported.path} data-sha256={exported.sha256} className="break-all text-[#a6e3a1]">
               Exportado: <span className="font-mono">{exported.path}</span> ({exported.sha256.slice(0, 12)}…)
             </p>
           ) : null}
@@ -217,6 +266,6 @@ export default function DeliveryPanel({ onClose }: { onClose: () => void }) {
           ) : null}
         </footer>
       </div>
-    </div>
+    </Dialog>
   );
 }

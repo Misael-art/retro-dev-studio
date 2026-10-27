@@ -3,6 +3,7 @@ import { dispatchGraphHistory } from "./core/nodegraph/graphHistory";
 import { open } from "@tauri-apps/plugin-dialog";
 import { MugenCompatibilityPanel } from "./components/common/MugenCompatibilityPanel";
 import MugenSourceReviewPanel from "./components/common/MugenSourceReviewPanel";
+import Dialog from "./components/common/Dialog";
 import type { MugenReviewOptions } from "./core/mugenReview";
 import {
   loadMugenImportReports,
@@ -514,6 +515,7 @@ function WorkspaceRailButton({
     <button
       type="button"
       aria-label={`${label}: ${title}`}
+      aria-current={active ? "page" : undefined}
       title={title}
       data-testid={testId}
       onClick={onClick}
@@ -529,7 +531,7 @@ function WorkspaceRailButton({
       >
         {icon}
       </span>
-      <span className="sr-only">{label}</span>
+      <span className="text-[11px] font-medium leading-tight">{label}</span>
       {badge ? (
         <span
           aria-hidden="true"
@@ -1046,6 +1048,8 @@ function ToolbarWarningBadge({
       <button
         type="button"
         data-testid="toolbar-warning-badge"
+        aria-haspopup="dialog"
+        aria-expanded={open}
         onClick={() => {
           if (!open) {
             onOpen?.();
@@ -1059,9 +1063,10 @@ function ToolbarWarningBadge({
         <span className="ml-1 font-mono">{issues.length}</span>
       </button>
       {open ? (
+        <Dialog open portal={false} title="Diagnóstico do projeto" onClose={() => setOpen(false)}>
         <div
           data-testid="toolbar-warning-popover"
-          className="absolute right-0 top-[calc(100%+8px)] z-30 w-80 rounded border border-[#313244] bg-[#0b1120] p-3 text-[11px] text-[#cbd5e1] shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
+          className="text-[11px] text-[#cbd5e1]"
         >
           <p className="text-[10px] font-semibold uppercase text-[#fab387]">
             Diagnostico
@@ -1074,6 +1079,7 @@ function ToolbarWarningBadge({
             ))}
           </ul>
         </div>
+        </Dialog>
       ) : null}
     </div>
   );
@@ -2511,6 +2517,13 @@ export default function App() {
       title: "Ferramentas",
       actions: [
         {
+          label: "Abrir ROM externa…",
+          onClick: () => void handleEmulatorLoadRom(),
+          disabled: building,
+          title: "Escolher uma ROM do operador para executar; esta ação não compila o projeto aberto",
+          testId: "menu-action-rom-open",
+        },
+        {
           label: "Validar",
           onClick: () => void handleValidate(),
           disabled: !activeProjectDir,
@@ -3443,7 +3456,7 @@ export default function App() {
 
   async function handlePlay() {
     if (!emulatorLoaded) {
-      await handleEmulatorLoadRom();
+      await handleBuildAndRun();
       return;
     }
 
@@ -3463,6 +3476,14 @@ export default function App() {
       return;
     }
     buildInFlightRef.current = true;
+    const buildContext = useEditorStore.getState();
+    const isBuildContextCurrent = () => {
+      const current = useEditorStore.getState();
+      return current.projectSessionId === buildContext.projectSessionId
+        && current.activeProjectDir === activeProjectDir && current.activeTarget === activeTarget
+        && current.activeScenePath === buildContext.activeScenePath;
+    };
+    const staleBuildMessage = () => logMessage("warn", "O projeto ou a cena mudou durante o build. Teste novamente para executar a revisão atual.");
 
     try {
       const state = useEditorStore.getState();
@@ -3494,7 +3515,7 @@ export default function App() {
         [...requiredDependencies],
         `Build & Run para ${activeTarget === "megadrive" ? "Mega Drive" : "SNES"} requer componentes de terceiros.`
       );
-      if (!dependenciesReady) return;
+      if (!dependenciesReady || !isBuildContextCurrent()) return;
 
       setBuilding(true);
       setRomMasteringStatus("pending");
@@ -3505,8 +3526,19 @@ export default function App() {
       if (!(await persistActiveScene(activeProjectDir, "Build"))) {
         return;
       }
+      if (!isBuildContextCurrent()) return;
+      const buildRevision = useEditorStore.getState().sceneSaveState.revision;
+      if (buildRevision === null || buildRevision !== useEditorStore.getState().sceneRevision) {
+        staleBuildMessage();
+        return;
+      }
 
       const hwStatus = await getHwStatus(activeProjectDir);
+      if (!isBuildContextCurrent()) return;
+      if (buildRevision !== useEditorStore.getState().sceneRevision) {
+        staleBuildMessage();
+        return;
+      }
       setHwStatus(hwStatus);
       if (hwStatus.errors.length > 0) {
         hwStatus.errors.forEach((error) =>
@@ -3525,10 +3557,10 @@ export default function App() {
       }
       hwStatus.warnings.forEach((warning) => logMessage("warn", `[HW] ${warning}`));
 
-      const buildRevision = useEditorStore.getState().sceneRevision;
       const result = await buildProject(activeProjectDir, (line) => {
-        logMessage(line.level, line.message);
+        if (isBuildContextCurrent()) logMessage(line.level, line.message);
       });
+      if (!isBuildContextCurrent()) return;
       setLastBuildSourceMap(result.build_source_map ?? null);
       useEditorStore.getState().setLastRuntimeLink(result.ok ? parseRuntimeLink(result.runtime_link) : null);
       useEditorStore.getState().setLastBuildSceneRevision(result.ok ? buildRevision : null);
@@ -3550,8 +3582,13 @@ export default function App() {
 
       logMessage("success", `Build concluido. ROM: ${result.rom_path}`);
       trackProductMetric({ kind: "build_ok" });
+      if (buildRevision !== useEditorStore.getState().sceneRevision) {
+        staleBuildMessage();
+        return;
+      }
       try {
         const mastering = await inspectRomMastering(result.rom_path);
+        if (!isBuildContextCurrent()) return;
         const nextStatus =
           mastering.blockers.length > 0
             ? "blocked"
@@ -3566,8 +3603,13 @@ export default function App() {
           `[ROM Mastering] ${mastering.platform ?? "unknown"} checksum=${mastering.checksum.status} sram=${mastering.sram.status} region=${mastering.region.status}`
         );
       } catch (error) {
+        if (!isBuildContextCurrent()) return;
         setRomMasteringStatus("inspect_failed");
         logMessage("error", `[ROM Mastering] ${error instanceof Error ? error.message : String(error)}`);
+      }
+      if (!isBuildContextCurrent() || buildRevision !== useEditorStore.getState().sceneRevision) {
+        staleBuildMessage();
+        return;
       }
       // Same epoch contract as loadRomIntoEmulator: the backend bumps the core epoch on
       // every load and refuses input carrying an older one, so the store must hold the
@@ -3576,8 +3618,11 @@ export default function App() {
       let loadResult: Awaited<ReturnType<typeof emulatorLoadRom>>;
       try {
         loadResult = await emulatorLoadRom(result.rom_path);
+        if (!isBuildContextCurrent()) return;
         if (loadResult.ok) {
-          useEditorStore.getState().setCoreEpoch(await emulatorGetCoreEpoch().catch(() => null));
+          const epoch = await emulatorGetCoreEpoch().catch(() => null);
+          if (!isBuildContextCurrent()) return;
+          useEditorStore.getState().setCoreEpoch(epoch);
         }
       } finally {
         useEditorStore.getState().releaseJoypadSessionHold();
@@ -3603,6 +3648,7 @@ export default function App() {
       setEmulatorLoaded(true);
       // Same identity contract as loadRomIntoEmulator: the Game View shows which ROM runs.
       const builtIdentity = await emulatorObserve().catch(() => null);
+      if (!isBuildContextCurrent()) return;
       if (builtIdentity?.ok) {
         setEmulatorRomIdentity({
           path: builtIdentity.rom_path,
@@ -3619,6 +3665,7 @@ export default function App() {
       setActiveViewportTab("game");
       setActiveWorkspace("game");
     } catch (error) {
+      if (!isBuildContextCurrent()) return;
       reportDiagnostic(
         createFallbackDiagnostic({
           area: buildAreaForTarget(activeTarget),
@@ -4533,22 +4580,147 @@ export default function App() {
       className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--rds-surface-panel-strong)] text-[var(--rds-text-primary)]"
     >
       {showProjectWizard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3">
-          <div className="flex max-h-[calc(100vh-1.5rem)] min-h-0 w-[52rem] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg border border-[#313244] bg-[#181825] p-5 shadow-2xl">
-            <div className="space-y-1">
-              <h2 className="text-sm font-bold text-[#cba6f7]">
-                {activeProjectDir ? "Novo Projeto" : "Wizard de Primeiro Uso"}
-              </h2>
-              <p className="text-[10px] leading-tight text-[#7f849c]">
-                Escolha um template, ajuste target/nome/pasta base e crie um projeto editavel
-                sem sair do fluxo canonico do editor.
-              </p>
-            </div>
+        <Dialog open portal={false} title={activeProjectDir ? "Novo Projeto" : "Wizard de Primeiro Uso"}
+          description="Escolha o nome, a pasta, o console e um modelo para começar."
+          initialFocusRef={inputRef} closeDisabled={creatingProject} onClose={() => setShowProjectWizard(false)}
+          className="!w-[min(832px,calc(100vw-24px))]">
+          <div className="flex max-h-[calc(100vh-160px)] min-h-0 flex-col">
 
             <div
               data-testid="project-wizard-body"
               className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
             >
+              <section aria-label="Dados do projeto" className="space-y-3">
+            <div className="flex gap-2">
+              {(["megadrive", "snes"] as const).map((target) => (
+                <button
+                  key={target}
+                  type="button"
+                  data-testid={`wizard-target-${target}`}
+                  aria-pressed={newProjTarget === target}
+                  disabled={selectedTemplateMegadriveOnly && target === "snes"}
+                  onClick={() => setNewProjTarget(target)}
+                  className={`flex-1 rounded px-3 py-2 text-xs font-semibold transition-colors ${
+                    newProjTarget === target
+                      ? target === "megadrive"
+                        ? "bg-[#a6e3a1] text-[#1e1e2e]"
+                        : "bg-[#89b4fa] text-[#1e1e2e]"
+                      : "bg-[#313244] text-[#a6adc8] hover:bg-[#45475a]"
+                  } disabled:cursor-not-allowed disabled:opacity-40`}
+                >
+                  {target === "megadrive" ? "Mega Drive" : "SNES"}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-[1fr_1.1fr]">
+              <div className="space-y-2">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={newProjName}
+                  onChange={(event) => handleProjectNameChange(event.target.value)}
+                  onKeyDown={(event) => event.key === "Enter" && void confirmNewProject()}
+                  placeholder="Nome do projeto"
+                  aria-label="Nome do projeto"
+                  data-testid="wizard-project-name"
+                  className="w-full rounded border border-[#313244] bg-[#1e1e2e] px-2 py-1.5 text-sm text-[#cdd6f4] focus:border-[#cba6f7] focus:outline-none"
+                />
+
+                {pendingSuggestedProjectName ? (
+                  <div className="rounded border border-[#45475a] bg-[#11111b] p-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-[#7f849c]">Nome sugerido</p>
+                        <p
+                          data-testid="wizard-project-name-suggestion"
+                          className="truncate text-xs font-semibold text-[#a6e3a1]"
+                        >
+                          {pendingSuggestedProjectName}
+                        </p>
+                      </div>
+                      <ToolbarButton label="Usar" onClick={applySuggestedProjectName} />
+                    </div>
+                    <p className="mt-2 text-[10px] leading-5 text-[#7f849c]">
+                      {projectDestinationPreview?.collision_status === "existing_project"
+                        ? "O nome original aponta para um projeto RetroDev ja valido. Use o nome sugerido para criar outro sem sobrescrever o existente."
+                        : "O nome atual ja ocupa a pasta preferida. Use o nome sugerido para o RetroDev criar o projeto em um destino livre ja nesta tentativa."}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="rounded border border-[#313244] bg-[#11111b] p-2">
+                <div className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] text-[#7f849c]">Pasta base</p>
+                    <p className="truncate font-mono text-[10px] text-[#cdd6f4]">
+                      {newProjBaseDir || automaticBaseDirHint || "(automatico pelo sistema)"}
+                    </p>
+                  </div>
+                  <ToolbarButton label="Escolher" onClick={() => void chooseNewProjectBaseDir()} />
+                </div>
+                <div className="mt-2 border-t border-[#313244] pt-2">
+                  <p className="text-[10px] text-[#7f849c]">Destino estimado</p>
+                  <p
+                    data-testid="wizard-project-destination"
+                    className="truncate font-mono text-[10px] text-[#f9e2af]"
+                  >
+                    {estimatedProjectDestination}
+                  </p>
+                </div>
+                <p className="mt-2 text-[10px] leading-5 text-[#7f849c]">
+                  {detectedExistingProjectPreview
+                    ? `Ja existe um projeto RetroDev valido em '${detectedExistingProjectPreview.preferred_path}'. Se quiser continuar nele, use 'Abrir projeto existente'. Se preferir criar outro, o wizard sugere um nome livre automaticamente.`
+                    : newProjBaseDir
+                    ? `Pasta manual selecionada. Se ela falhar na escrita, o backend fara fallback seguro; se '${estimatedProjectDirName}' ja existir, o RetroDev cria '${estimatedProjectDirName}_2' automaticamente.`
+                    : automaticBaseDirHint
+                      ? `Se voce nao escolher uma pasta, o RetroDev usara '${automaticBaseDirHint}' automaticamente. Se '${estimatedProjectDirName}' ja existir, ele cria '${estimatedProjectDirName}_2' para manter o fluxo.`
+                      : `Se voce nao escolher uma pasta, o backend tentara resolver uma localizacao automatica segura. Se '${estimatedProjectDirName}' ja existir, ele criara '${estimatedProjectDirName}_2' automaticamente.`}
+                </p>
+              </div>
+            </div>
+
+            {detectedExistingProjectPreview?.existing_project_path ? (
+              <div
+                data-testid="wizard-existing-project-card"
+                className="mt-3 rounded border border-[#89b4fa]/40 bg-[#11111b] p-3"
+              >
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#89b4fa]">
+                  Projeto RetroDev encontrado
+                </p>
+                <p className="mt-2 text-xs text-[#cdd6f4]">
+                  O nome original ja aponta para{" "}
+                  <span className="font-semibold text-[#a6e3a1]">
+                    {detectedExistingProjectPreview.existing_project_name ?? "um projeto existente"}
+                  </span>
+                  .
+                </p>
+                <p
+                  data-testid="wizard-existing-project-path"
+                  className="mt-2 truncate font-mono text-[10px] text-[#94e2d5]"
+                >
+                  {detectedExistingProjectPreview.existing_project_path}
+                </p>
+                <p className="mt-2 text-[10px] leading-5 text-[#7f849c]">
+                  {pendingSuggestedProjectName
+                    ? `Se a sua intencao era continuar no projeto original, abra-o agora. Se voce queria um projeto novo, o wizard pode trocar o campo para '${pendingSuggestedProjectName}' sem interromper o fluxo.`
+                    : `Se voce queria um projeto novo, o wizard ja ajustou o nome para '${newProjName}' e manteve o projeto original intacto. Se a intencao era continuar no original, voce pode abri-lo daqui.`}
+                </p>
+                <div className="mt-3 flex flex-wrap justify-end gap-2">
+                  {pendingSuggestedProjectName ? (
+                    <ToolbarButton label="Usar nome sugerido" onClick={applySuggestedProjectName} />
+                  ) : null}
+                  <ToolbarButton
+                    label="Abrir projeto existente"
+                    onClick={() => void openDetectedExistingProject()}
+                    accent="success"
+                    testId="wizard-open-existing-project"
+                  />
+                </div>
+              </div>
+            ) : null}
+              </section>
               <div data-testid="wizard-recommended-start" className="grid gap-3 md:grid-cols-2">
                 <p className="col-span-full text-[9px] font-semibold uppercase tracking-[0.14em] text-[#a6e3a1]">
                   Primeiro Projeto
@@ -4847,132 +5019,6 @@ export default function App() {
               </div>
             )}
 
-            <div className="flex gap-2">
-              {(["megadrive", "snes"] as const).map((target) => (
-                <button
-                  key={target}
-                  type="button"
-                  data-testid={`wizard-target-${target}`}
-                  disabled={selectedTemplateMegadriveOnly && target === "snes"}
-                  onClick={() => setNewProjTarget(target)}
-                  className={`flex-1 rounded px-3 py-2 text-xs font-semibold transition-colors ${
-                    newProjTarget === target
-                      ? target === "megadrive"
-                        ? "bg-[#a6e3a1] text-[#1e1e2e]"
-                        : "bg-[#89b4fa] text-[#1e1e2e]"
-                      : "bg-[#313244] text-[#a6adc8] hover:bg-[#45475a]"
-                  } disabled:cursor-not-allowed disabled:opacity-40`}
-                >
-                  {target === "megadrive" ? "Mega Drive" : "SNES"}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-[1fr_1.1fr]">
-              <div className="space-y-2">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={newProjName}
-                  onChange={(event) => handleProjectNameChange(event.target.value)}
-                  onKeyDown={(event) => event.key === "Enter" && void confirmNewProject()}
-                  placeholder="Nome do projeto"
-                  className="w-full rounded border border-[#313244] bg-[#1e1e2e] px-2 py-1.5 text-sm text-[#cdd6f4] focus:border-[#cba6f7] focus:outline-none"
-                />
-
-                {pendingSuggestedProjectName ? (
-                  <div className="rounded border border-[#45475a] bg-[#11111b] p-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-[10px] text-[#7f849c]">Nome sugerido</p>
-                        <p
-                          data-testid="wizard-project-name-suggestion"
-                          className="truncate text-xs font-semibold text-[#a6e3a1]"
-                        >
-                          {pendingSuggestedProjectName}
-                        </p>
-                      </div>
-                      <ToolbarButton label="Usar" onClick={applySuggestedProjectName} />
-                    </div>
-                    <p className="mt-2 text-[10px] leading-5 text-[#7f849c]">
-                      {projectDestinationPreview?.collision_status === "existing_project"
-                        ? "O nome original aponta para um projeto RetroDev ja valido. Use o nome sugerido para criar outro sem sobrescrever o existente."
-                        : "O nome atual ja ocupa a pasta preferida. Use o nome sugerido para o RetroDev criar o projeto em um destino livre ja nesta tentativa."}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="rounded border border-[#313244] bg-[#11111b] p-2">
-                <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] text-[#7f849c]">Pasta base</p>
-                    <p className="truncate font-mono text-[10px] text-[#cdd6f4]">
-                      {newProjBaseDir || automaticBaseDirHint || "(automatico pelo sistema)"}
-                    </p>
-                  </div>
-                  <ToolbarButton label="Escolher" onClick={() => void chooseNewProjectBaseDir()} />
-                </div>
-                <div className="mt-2 border-t border-[#313244] pt-2">
-                  <p className="text-[10px] text-[#7f849c]">Destino estimado</p>
-                  <p
-                    data-testid="wizard-project-destination"
-                    className="truncate font-mono text-[10px] text-[#f9e2af]"
-                  >
-                    {estimatedProjectDestination}
-                  </p>
-                </div>
-                <p className="mt-2 text-[10px] leading-5 text-[#7f849c]">
-                  {detectedExistingProjectPreview
-                    ? `Ja existe um projeto RetroDev valido em '${detectedExistingProjectPreview.preferred_path}'. Se quiser continuar nele, use 'Abrir projeto existente'. Se preferir criar outro, o wizard sugere um nome livre automaticamente.`
-                    : newProjBaseDir
-                    ? `Pasta manual selecionada. Se ela falhar na escrita, o backend fara fallback seguro; se '${estimatedProjectDirName}' ja existir, o RetroDev cria '${estimatedProjectDirName}_2' automaticamente.`
-                    : automaticBaseDirHint
-                      ? `Se voce nao escolher uma pasta, o RetroDev usara '${automaticBaseDirHint}' automaticamente. Se '${estimatedProjectDirName}' ja existir, ele cria '${estimatedProjectDirName}_2' para manter o fluxo.`
-                      : `Se voce nao escolher uma pasta, o backend tentara resolver uma localizacao automatica segura. Se '${estimatedProjectDirName}' ja existir, ele criara '${estimatedProjectDirName}_2' automaticamente.`}
-                </p>
-              </div>
-            </div>
-
-            {detectedExistingProjectPreview?.existing_project_path ? (
-              <div
-                data-testid="wizard-existing-project-card"
-                className="mt-3 rounded border border-[#89b4fa]/40 bg-[#11111b] p-3"
-              >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#89b4fa]">
-                  Projeto RetroDev encontrado
-                </p>
-                <p className="mt-2 text-xs text-[#cdd6f4]">
-                  O nome original ja aponta para{" "}
-                  <span className="font-semibold text-[#a6e3a1]">
-                    {detectedExistingProjectPreview.existing_project_name ?? "um projeto existente"}
-                  </span>
-                  .
-                </p>
-                <p
-                  data-testid="wizard-existing-project-path"
-                  className="mt-2 truncate font-mono text-[10px] text-[#94e2d5]"
-                >
-                  {detectedExistingProjectPreview.existing_project_path}
-                </p>
-                <p className="mt-2 text-[10px] leading-5 text-[#7f849c]">
-                  {pendingSuggestedProjectName
-                    ? `Se a sua intencao era continuar no projeto original, abra-o agora. Se voce queria um projeto novo, o wizard pode trocar o campo para '${pendingSuggestedProjectName}' sem interromper o fluxo.`
-                    : `Se voce queria um projeto novo, o wizard ja ajustou o nome para '${newProjName}' e manteve o projeto original intacto. Se a intencao era continuar no original, voce pode abri-lo daqui.`}
-                </p>
-                <div className="mt-3 flex flex-wrap justify-end gap-2">
-                  {pendingSuggestedProjectName ? (
-                    <ToolbarButton label="Usar nome sugerido" onClick={applySuggestedProjectName} />
-                  ) : null}
-                  <ToolbarButton
-                    label="Abrir projeto existente"
-                    onClick={() => void openDetectedExistingProject()}
-                    accent="success"
-                    testId="wizard-open-existing-project"
-                  />
-                </div>
-              </div>
-            ) : null}
             </div>
 
             <div
@@ -5003,7 +5049,7 @@ export default function App() {
               />
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {showProjectSettings && (
@@ -5330,7 +5376,7 @@ export default function App() {
               <option value="snes">SNES</option>
             </select>
             <ToolbarButton
-              label="Build ▶"
+              label={building ? "Compilando…" : "▶ Testar projeto"}
               onClick={() => void handleBuildAndRun()}
               disabled={building || !activeProjectDir || liveBuildBlocked}
               accent="success"
@@ -5345,18 +5391,20 @@ export default function App() {
               describedBy={liveBuildBlocked ? "build-disabled-reason" : undefined}
             />
             <ToolbarButton
-              label="Play"
+              label="Continuar teste"
               onClick={() => void handlePlay()}
-              disabled={!activeProjectDir}
+              disabled={!emulatorLoaded || building}
             />
             <ToolbarButton
-              label="Stop"
+              label="Parar"
+              testId="toolbar-emulator-stop"
               onClick={() => void handleEmulatorStop()}
               disabled={!emulatorLoaded}
               accent="danger"
             />
             <ToolbarButton
-              label={emulPaused ? "Resume" : "Pause"}
+              label={emulPaused ? "Retomar" : "Pausar"}
+              testId="toolbar-emulator-pause"
               onClick={handleEmulatorPause}
               disabled={!emulatorLoaded}
             />
@@ -5427,6 +5475,8 @@ export default function App() {
               warning={Boolean(buildWarningSummary)}
               romMasteringStatus={romMasteringStatus}
             />
+            <ToolbarButton label="Revisar e exportar" testId="toolbar-review" disabled={!activeProjectDir || building}
+              onClick={() => setShowDelivery(true)} title="Revisar a cena, verificar a ROM e exportar (Experimental)" />
           </>
         }
         rightContent={
@@ -5452,6 +5502,8 @@ export default function App() {
               />
             )}
             {activeProjectDir ? <SceneSaveStatusChip /> : null}
+            <ToolbarButton label="Salvar" testId="toolbar-save" disabled={!activeProjectDir}
+              onClick={() => void handleSaveScene()} title={getShortcutTitle("scene.save", "Salvar cena ativa", shortcuts)} />
             {draftSavedAt ? (
               <span
                 data-testid="scene-draft-saved-at"
@@ -5461,12 +5513,16 @@ export default function App() {
                 Rascunho {new Date(draftSavedAt).toLocaleTimeString()}
               </span>
             ) : null}
+            <details className="relative shrink-0">
+              <summary className="cursor-pointer rounded border border-[var(--rds-border-subtle)] px-2 py-1 text-[11px] text-[var(--rds-text-secondary)]">
+                Exibição: {getShellPersonaLabel(shellPersona)}
+              </summary>
             <div
               data-testid="shell-persona-selector"
               role="radiogroup"
               aria-label="Modo de experiencia do shell (Experimental)"
               title="Modo de experiencia (Experimental): controla quais workspaces o rail revela. Nao altera dados do projeto."
-              className="flex h-7 shrink-0 items-center overflow-hidden rounded-full border border-[var(--rds-border-subtle)] bg-[var(--rds-surface-panel-strong)]"
+              className="absolute right-0 top-full z-50 mt-2 flex min-w-64 flex-col gap-1 rounded border border-[var(--rds-border-subtle)] bg-[var(--rds-surface-panel-strong)] p-2 shadow-xl"
             >
               {SHELL_PERSONAS.map((persona) => (
                 <button
@@ -5475,13 +5531,20 @@ export default function App() {
                   role="radio"
                   aria-checked={shellPersona === persona}
                   data-testid={`shell-persona-${persona}`}
-                  onClick={() => handlePersonaSelect(persona)}
+                  onClick={(event) => {
+                    handlePersonaSelect(persona);
+                    const details = event.currentTarget.closest("details");
+                    if (details) {
+                      details.open = false;
+                      details.querySelector("summary")?.focus();
+                    }
+                  }}
                   title={
                     personaSuggestion === persona
                       ? `Sugestao: seu uso recente indica o modo ${getShellPersonaLabel(persona)}.`
                       : `Modo ${getShellPersonaLabel(persona)}`
                   }
-                  className={`relative h-full shrink-0 px-2 text-[9px] font-semibold uppercase tracking-[0.08em] transition-colors ${
+                  className={`relative w-full rounded px-3 py-2 text-left text-xs font-semibold transition-colors ${
                     shellPersona === persona
                       ? "bg-[var(--rds-accent)] text-[var(--rds-on-accent)]"
                       : "text-[var(--rds-text-muted)] hover:text-[var(--rds-text-primary)]"
@@ -5498,6 +5561,7 @@ export default function App() {
                 </button>
               ))}
             </div>
+            </details>
             <ToolbarButton
               label={focusedShell ? "Sair do foco" : "Focus"}
               onClick={toggleFocusMode}
@@ -5578,7 +5642,8 @@ export default function App() {
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside
           data-testid="workspace-activity-bar"
-          className="flex w-[56px] shrink-0 flex-col border-r border-[#27272a] bg-[#09090b]"
+          aria-label="Áreas do projeto"
+          className="flex w-[88px] shrink-0 flex-col border-r border-[#27272a] bg-[#09090b]"
         >
           <div className="flex flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto px-1.5 py-3">
             {WORKSPACE_GROUPS.map((group) => {
@@ -5706,28 +5771,30 @@ export default function App() {
           >
             {shellConfig.showRight ? (
             <div className="flex h-full min-h-0 flex-col bg-[#09090b]">
-              <div className="flex items-center justify-between border-b border-[#27272a] bg-[#111827] px-3 py-1.5">
+              <div className="flex flex-col gap-2 border-b border-[#27272a] bg-[#111827] px-3 py-2">
                 <div className="min-w-0">
                   <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">
-                    {rightPanelMode === "tools" ? shellConfig.rightLabel : shellConfig.rightLabel}
+                    {rightPanelMode === "tools" ? "Ferramentas" : "Propriedades da seleção"}
                   </div>
                 </div>
                 {shellConfig.defaultRightMode !== "hidden" ? (
-                <div className="flex shrink-0 items-center gap-1 rounded-full border border-[#313244] bg-[#09090b] p-0.5">
+                <div className="flex shrink-0 flex-wrap items-center justify-center gap-1 rounded border border-[#313244] bg-[#09090b] p-0.5">
                   <button
                     type="button"
+                    data-testid="right-panel-properties"
                     onClick={() => setRightPanelMode("inspector")}
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors ${
+                    className={`min-w-[90px] flex-1 rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
                       rightPanelMode === "inspector"
                         ? "bg-[#cba6f7] text-[#111827]"
                         : "text-[#94a3b8] hover:bg-[#1f2937] hover:text-[#e5e7eb]"
                     }`}
                     title="Inspector de entidade"
                   >
-                    Insp
+                    Propriedades
                   </button>
                   <button
                     type="button"
+                    data-testid="right-panel-tools"
                     onClick={() =>
                       openToolsWorkspace(
                         toolPanelActive === "setup" ? "palette" : toolPanelActive,
@@ -5735,14 +5802,14 @@ export default function App() {
                         activeWorkspace === "debug" || toolPanelShowAdvanced
                       )
                     }
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors ${
+                    className={`min-w-[90px] flex-1 rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
                       rightPanelMode === "tools"
                         ? "bg-[#cba6f7] text-[#111827]"
                         : "text-[#94a3b8] hover:bg-[#1f2937] hover:text-[#e5e7eb]"
                     }`}
                     title="Ferramentas contextuais"
                   >
-                    Tools
+                    Ferramentas
                   </button>
                 </div>
                 ) : null}

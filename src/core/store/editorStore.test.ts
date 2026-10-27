@@ -48,6 +48,28 @@ beforeEach(() => {
 
 // ── addEntity ─────────────────────────────────────────────────────────────────
 
+describe("build test receipt", () => {
+  it("records an executed frame only for the built ROM and current epoch, and preserves it on Stop", () => {
+    const store = useEditorStore.getState();
+    store.setActiveProject("/project", "Project");
+    useEditorStore.setState({ lastBuildSceneRevision: 5, lastBuildSourceMap: { artifact: { sha256: "built" } } as never });
+    store.setEmulatorLoaded(true);
+    store.setCoreEpoch(7);
+    store.setEmulatorRomIdentity({ sha256: "built" } as never);
+    store.recordBuildTestFrame(6, "built", 1);
+    store.recordBuildTestFrame(7, "other", 1);
+    store.recordBuildTestFrame(7, "built", 0);
+    expect(useEditorStore.getState().lastBuildTest).toBeNull();
+    store.recordBuildTestFrame(7, "built", 1);
+    const receipt = useEditorStore.getState().lastBuildTest;
+    expect(receipt).toMatchObject({ projectDir: "/project", romSha256: "built", sceneRevision: 5, coreEpoch: 7 });
+    store.setEmulatorLoaded(false);
+    expect(useEditorStore.getState().lastBuildTest).toBe(receipt);
+    store.setActiveProject("/other", "Other");
+    expect(useEditorStore.getState().lastBuildTest).toBeNull();
+  });
+});
+
 describe("addEntity", () => {
   it("não faz nada se não há cena ativa", () => {
     const { addEntity } = useEditorStore.getState();

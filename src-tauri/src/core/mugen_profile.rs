@@ -179,6 +179,7 @@ pub(crate) fn package_digest(root: &Path) -> Result<String, LoadError> {
 pub(crate) fn analyze_source(
     root: &Path,
     requested: Option<ReviewOptions>,
+    metadata_only: bool,
 ) -> Result<serde_json::Value, LoadError> {
     use rex_mugen::source::{parse_def, resolve, Resolution};
     let files = package_files(root)?;
@@ -319,6 +320,11 @@ pub(crate) fn analyze_source(
     options.def_file = def_file.clone();
     options.source_sha256 = Some(digest);
     out["options"] = serde_json::to_value(&options).map_err(|e| LoadError(e.to_string()))?;
+    // Opening the review lists choices without rasterizing every action. A full
+    // reviewed conversion is still required at analysis and import boundaries.
+    if metadata_only {
+        return Ok(out);
+    }
     if options.authored_demo
         && [0, 20, 21, 200].iter().any(|n| {
             !ad.actions.contains_key(n)
@@ -4523,6 +4529,35 @@ mod tests {
     }
 
     #[test]
+    fn source_metadata_lists_choices_but_import_still_requires_full_conversion() {
+        let root = temp("review-metadata");
+        let donor = root.join("donor");
+        copy_dir(&probe_dir(), &donor);
+        let metadata = super::analyze_source(&donor, None, true).unwrap();
+        assert!(metadata["report"].is_null());
+        assert!(!metadata["actions"].as_array().unwrap().is_empty());
+        assert!(!metadata["sprites"].as_array().unwrap().is_empty());
+        let mut options: super::ReviewOptions =
+            serde_json::from_value(metadata["options"].clone()).unwrap();
+        let reviewed = super::analyze_source(&donor, Some(options.clone()), false).unwrap();
+        assert!(!reviewed["report"].is_null());
+
+        // Even with a current digest, metadata cannot certify invalid pixels.
+        fs::write(donor.join("probe.sff"), b"invalid SFF").unwrap();
+        options.source_sha256 = Some(super::package_digest(&donor).unwrap());
+        let project = root.join("project");
+        create_project_skeleton(&project, "Probe", "megadrive").unwrap();
+        assert!(crate::core::project_mgr::import_mugen_project_with_review(
+            &project,
+            &donor,
+            "mugen",
+            Some(&options),
+        )
+        .is_err());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn review_palette_selection_changes_real_pixels_and_survives_reopen() {
         let root = temp("review-act");
         let donor = root.join("donor");
@@ -4534,14 +4569,14 @@ mod tests {
         fs::write(donor.join("choice.act"), &act).unwrap();
         let def = fs::read_to_string(donor.join("probe.def")).unwrap();
         fs::write(donor.join("probe.def"), format!("{def}\npal1=choice.act\n")).unwrap();
-        let initial = super::analyze_source(&donor, None).unwrap();
+        let initial = super::analyze_source(&donor, None, false).unwrap();
         let options = super::ReviewOptions {
             def_file: "probe.def".into(),
             palette_file: Some("choice.act".into()),
             source_sha256: Some(initial["source_sha256"].as_str().unwrap().into()),
             ..Default::default()
         };
-        let chosen = super::analyze_source(&donor, Some(options.clone())).unwrap();
+        let chosen = super::analyze_source(&donor, Some(options.clone()), false).unwrap();
         assert!(!chosen["report"].is_null(), "{chosen}");
         let selected = super::convert_character_v1_with_review(
             &donor,
@@ -4611,7 +4646,7 @@ mod tests {
         let root = temp("review-def");
         copy_dir(&probe_dir(), &root);
         fs::copy(root.join("probe.def"), root.join("alternative.def")).unwrap();
-        let a = super::analyze_source(&root, None).unwrap();
+        let a = super::analyze_source(&root, None, false).unwrap();
         assert_eq!(a["defs"].as_array().unwrap().len(), 2);
         assert!(a["selected_def"].is_null());
         assert!(import_mugen_project(&root.join("project"), &root)
@@ -4630,6 +4665,7 @@ mod tests {
                 def_file: "probe.def".into(),
                 ..Default::default()
             }),
+            false,
         )
         .unwrap();
         assert!(a["diagnostics"]
@@ -4651,7 +4687,7 @@ mod tests {
             .replace("probe.sff", "PROBE.SFF")
             .replace("probe.cmd", "PROBE.CMD");
         fs::write(donor.join("probe.def"), text).unwrap();
-        let a = super::analyze_source(&donor, None).unwrap();
+        let a = super::analyze_source(&donor, None, false).unwrap();
         let options: super::ReviewOptions = serde_json::from_value(a["options"].clone()).unwrap();
         assert!(!a["report"].is_null(), "{a}");
         let project = root.join("project");
@@ -4678,7 +4714,7 @@ mod tests {
             "[Info]\nname=Stage\n[StageInfo]\nzoffset=180\n[BGdef]\n",
         )
         .unwrap();
-        let a = super::analyze_source(&root, None).unwrap();
+        let a = super::analyze_source(&root, None, false).unwrap();
         assert_eq!(a["legacy_kind"], "stage");
         assert!(a["report"].is_null());
         assert_eq!(a["diagnostics"][0]["severity"], "warning");
@@ -4703,7 +4739,7 @@ mod tests {
             source_sha256: Some(super::package_digest(&source).unwrap()),
             ..Default::default()
         };
-        let analysis = super::analyze_source(&source, Some(options.clone())).unwrap();
+        let analysis = super::analyze_source(&source, Some(options.clone()), false).unwrap();
         assert!(!analysis["report"].is_null(), "{analysis}");
         fs::write(
             output.join("analysis.json"),
@@ -5035,7 +5071,8 @@ mod tests {
         .unwrap_err();
         assert!(e.0.contains("source.chain.selection"), "{e}");
         assert_untouched(&project);
-        let analysis = super::analyze_source(&donor, Some(walker_chain_options(&donor))).unwrap();
+        let analysis =
+            super::analyze_source(&donor, Some(walker_chain_options(&donor)), false).unwrap();
         assert_eq!(analysis["original_chain"]["status"], "converted");
         assert_eq!(
             analysis["original_chain_candidates"]["available"][0]["state"],
@@ -5502,7 +5539,7 @@ mod tests {
             source_sha256: Some(super::package_digest(&source).unwrap()),
             ..Default::default()
         };
-        let analysis = super::analyze_source(&source, Some(options.clone())).unwrap();
+        let analysis = super::analyze_source(&source, Some(options.clone()), false).unwrap();
         assert!(!analysis["report"].is_null(), "{analysis}");
         fs::write(
             output.join("analysis.json"),

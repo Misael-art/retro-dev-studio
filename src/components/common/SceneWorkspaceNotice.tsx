@@ -12,20 +12,18 @@ type SceneWorkspaceNoticeProps = {
   context: SceneWorkspaceContext;
   testId?: string;
   actions?: ReactNode;
+  compact?: boolean;
 };
 
 export default function SceneWorkspaceNotice({
   context,
   testId,
   actions,
+  compact = false,
 }: SceneWorkspaceNoticeProps) {
-  return (
-    <section
-      data-testid={testId}
-      className={`rounded-xl border px-3 py-2 ${NOTICE_TONE[context.tone]}`}
-    >
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-        <div className="min-w-0 flex-1">
+  const content = (
+      <div className="flex flex-wrap items-start gap-2">
+        <div className="min-w-0 flex-[1_1_220px]">
           <p className="text-[9px] font-semibold uppercase tracking-[0.18em]">
             {context.eyebrow}
           </p>
@@ -55,8 +53,14 @@ export default function SceneWorkspaceNotice({
             {context.detail}
           </p>
         </div>
-        {actions ? <div className="flex shrink-0 flex-wrap gap-2">{actions}</div> : null}
+        {actions ? <div className="flex max-w-full flex-wrap gap-2">{actions}</div> : null}
       </div>
-    </section>
   );
+  const className = `rounded border px-3 py-2 ${NOTICE_TONE[context.tone]}`;
+  return compact ? (
+    <details data-testid={testId} className={className}>
+      <summary className="cursor-pointer text-[11px] font-semibold">{context.title}</summary>
+      <div className="mt-2">{content}</div>
+    </details>
+  ) : <section data-testid={testId} className={className}>{content}</section>;
 }

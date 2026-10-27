@@ -5596,10 +5596,15 @@ fn import_external_project_impl_with_review(
 async fn analyze_mugen_source(
     project_path: String,
     options: Option<core::mugen_profile::ReviewOptions>,
+    metadata_only: Option<bool>,
 ) -> Result<serde_json::Value, String> {
     run_heavy_result_command("analyze_mugen_source", move || {
-        core::mugen_profile::analyze_source(Path::new(project_path.trim()), options)
-            .map_err(|e| e.to_string())
+        core::mugen_profile::analyze_source(
+            Path::new(project_path.trim()),
+            options,
+            metadata_only.unwrap_or(false),
+        )
+        .map_err(|e| e.to_string())
     })
     .await
 }

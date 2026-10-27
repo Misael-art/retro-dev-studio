@@ -5885,7 +5885,7 @@ pub(crate) fn import_mugen_project_with_review(
     let mut verified_analysis = None;
     let candidates = if let Some(review) = review {
         let mut analysis =
-            crate::core::mugen_profile::analyze_source(mugen_path, Some(review.clone()))?;
+            crate::core::mugen_profile::analyze_source(mugen_path, Some(review.clone()), false)?;
         if review.source_sha256.as_deref() != analysis["source_sha256"].as_str() {
             return Err(LoadError(
                 "Pacote mudou desde a revisao; analise novamente antes de importar.".into(),

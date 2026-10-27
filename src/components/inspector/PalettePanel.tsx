@@ -21,7 +21,7 @@ import {
   type PlanResource,
   type PlanUse,
 } from "../../core/palettePlan";
-import { applyPalettes, usePalettePlanStore } from "../../core/palettePlanStore";
+import { applyPalettes, palettePlanContextKey, usePalettePlanStore } from "../../core/palettePlanStore";
 import { useEditorStore } from "../../core/store/editorStore";
 
 export function safeId(id: string): string {
@@ -29,15 +29,15 @@ export function safeId(id: string): string {
 }
 
 function usePlan(): PalettePlan | null {
-  const revision = useEditorStore((s) => s.sceneRevision);
-  const projectDir = useEditorStore((s) => s.activeProjectDir);
+  const contextKey = useEditorStore(palettePlanContextKey);
+  const planKey = usePalettePlanStore((s) => s.contextKey);
   const plan = usePalettePlanStore((s) => s.plan);
   const refresh = usePalettePlanStore((s) => s.refresh);
   useEffect(() => {
     const t = setTimeout(() => void refresh(), 150);
     return () => clearTimeout(t);
-  }, [revision, projectDir, refresh]);
-  return plan;
+  }, [contextKey, refresh]);
+  return planKey === contextKey ? plan : null;
 }
 
 function currentPalettes() {

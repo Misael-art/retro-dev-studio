@@ -6,6 +6,7 @@ export type BuildFreshness =
   | { kind: "rebuild-needed"; label: string }
   | { kind: "running-previous"; label: string }
   | { kind: "built-not-running"; label: string }
+  | { kind: "tested"; label: string }
   | { kind: "confirmed"; label: string };
 
 export function describeBuildFreshness(input: {
@@ -13,6 +14,7 @@ export function describeBuildFreshness(input: {
   lastBuildSceneRevision: number | null;
   builtRomSha256: string | null;
   runningRomSha256: string | null;
+  testedBuild?: { romSha256: string; sceneRevision: number } | null;
 }): BuildFreshness {
   const { sceneRevision, lastBuildSceneRevision, builtRomSha256, runningRomSha256 } = input;
   if (lastBuildSceneRevision === null || !builtRomSha256) {
@@ -23,7 +25,12 @@ export function describeBuildFreshness(input: {
       ? { kind: "running-previous", label: "Recompilação necessária · executando build anterior" }
       : { kind: "rebuild-needed", label: "Prévia atualizada · recompilação necessária" };
   }
-  if (!runningRomSha256) return { kind: "built-not-running", label: "Build atual pronto · ainda não executado" };
+  if (!runningRomSha256) {
+    if (input.testedBuild?.romSha256 === builtRomSha256 && input.testedBuild.sceneRevision === lastBuildSceneRevision) {
+      return { kind: "tested", label: "Build atual testado · execução encerrada" };
+    }
+    return { kind: "built-not-running", label: "Build atual pronto · ainda não executado" };
+  }
   if (runningRomSha256 !== builtRomSha256) {
     return { kind: "running-previous", label: "Executando build anterior" };
   }

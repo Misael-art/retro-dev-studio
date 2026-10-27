@@ -3459,7 +3459,13 @@ mod tests {
             target.decoded[30], target.candidate.num_tiles
         );
         // Os dois renders devem divergir no pixel (4,7) do tile 0.
-        let orig_rom = std::fs::read("/home/misael/Projects/RetroDevStudio-CANONICAL-2026-09-21/data/canonical-local-2026-09-21/corpus/references/hamoopig-reference.bin").unwrap();
+        let (orig_rom, orig_sha) = hamoopig_rom().expect(
+            "artefato modificado presente: informe a referência original por RDS_HAMOOPIG_ROM",
+        );
+        assert_eq!(
+            orig_sha,
+            "558bea6c80c76ec3da23afd584d4b56ece7722847ab1efc8c2f23f43f8529be9"
+        );
         let orig_set = verify_lz4w_resource_set(&orig_rom, &limits).unwrap();
         let orig_target = orig_set
             .resources
@@ -3478,6 +3484,8 @@ mod tests {
         );
         let (png, _, _, pixels_sha_direct) = render_resource_png(&target.decoded).unwrap();
         let same_as_result = Some(&pixels_sha_direct) == result.preview_pixels_sha256.as_ref();
+        assert_ne!(rgba_mod, rgba_orig, "a edição precisa alterar os pixels");
+        assert!(same_as_result, "a prévia precisa corresponder ao artefato");
         eprintln!(
             "PREVIEW_MOD: pixels_sha_direto={} png_len={} igual_ao_resultado={same_as_result}",
             pixels_sha_direct.get(0..16).unwrap_or("?"),

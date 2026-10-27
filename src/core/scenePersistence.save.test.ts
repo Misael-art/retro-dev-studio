@@ -30,6 +30,7 @@ describe("persistActiveScene", () => {
     vi.clearAllMocks();
     localStorage.clear();
     useEditorStore.setState({
+      activeProjectDir: "/tmp/project",
       activeScene: scene(77),
       activeSceneSource: scene(77),
       activeScenePath: "scenes/main.json",
@@ -74,5 +75,43 @@ describe("persistActiveScene", () => {
     unregister();
     expect(mocks.saveSceneData.mock.calls[0][1]).toContain('"x": 99');
     expect(useEditorStore.getState().sceneSaveState).toMatchObject({ status: "saved", revision: 6 });
+  });
+
+  it("does not mark another project saved when an old response arrives, even at the same path", async () => {
+    let complete!: (result: { ok: boolean; message: string }) => void;
+    mocks.saveSceneData.mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
+    const saving = persistActiveScene("/tmp/project", "Teste");
+    await Promise.resolve();
+    useEditorStore.getState().setActiveProject("/tmp/project", "Reaberto");
+    useEditorStore.getState().setSceneSaveState({ status: "idle", revision: null, at: null, message: null });
+    complete({ ok: true, message: "" });
+    expect(await saving).toBe(false);
+    expect(useEditorStore.getState().sceneSaveState.status).toBe("idle");
+  });
+
+  it("keeps a newer draft dirty when editing during a successful save", async () => {
+    mocks.saveSceneData.mockImplementationOnce(async () => {
+      useEditorStore.setState({ activeSceneSource: scene(99), activeScene: scene(99), sceneRevision: 6 });
+      return { ok: true, message: "" };
+    });
+    expect(await persistActiveScene("/tmp/project", "Teste")).toBe(true);
+    expect(useEditorStore.getState().sceneSaveState.revision).toBe(5);
+    expect(localStorage.getItem(sceneDraftStorageKey("/tmp/project"))).toContain('99');
+  });
+
+  it("serializes saves and preserves the newest snapshot on disk", async () => {
+    let complete!: (result: { ok: boolean; message: string }) => void;
+    mocks.saveSceneData.mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
+    mocks.saveSceneData.mockResolvedValueOnce({ ok: true, message: "" });
+    const first = persistActiveScene("/tmp/project", "Teste");
+    await Promise.resolve();
+    useEditorStore.setState({ activeSceneSource: scene(99), activeScene: scene(99), sceneRevision: 6 });
+    const second = persistActiveScene("/tmp/project", "Teste");
+    expect(mocks.saveSceneData).toHaveBeenCalledTimes(1);
+    complete({ ok: true, message: "" });
+    expect(await first).toBe(false);
+    expect(await second).toBe(true);
+    expect(mocks.saveSceneData.mock.calls[1][1]).toContain('"x": 99');
+    expect(useEditorStore.getState().sceneSaveState.revision).toBe(6);
   });
 });

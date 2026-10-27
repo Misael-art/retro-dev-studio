@@ -179,11 +179,24 @@ export interface EmulatorLaunchRequest {
   sourceLabel: string;
 }
 
+/** Um quadro real da ROM do build foi apresentado. Stop preserva o recibo;
+ * trocar de projeto o descarta. Não equivale a aceite de gameplay ou usabilidade. */
+export interface BuildTestReceipt {
+  projectDir: string;
+  sceneRevision: number;
+  romSha256: string;
+  coreEpoch: number;
+  sessionId: string;
+  testedAt: number;
+}
+
 let joypadSessionCounter = 0;
 let emulatorLaunchRequestCounter = 0;
 
 export interface StoreState {
   activeProjectDir: string;
+  /** Invalida respostas assíncronas inclusive ao reabrir o mesmo caminho. */
+  projectSessionId: number;
   activeProjectName: string;
   activeTarget: "megadrive" | "snes";
   activeScenePath: string;
@@ -236,6 +249,7 @@ export interface StoreState {
   lastRuntimeLink: RuntimeLink | null;
   /** `sceneRevision` no início do último build bem-sucedido; null = nenhum build nesta sessão. */
   lastBuildSceneRevision: number | null;
+  lastBuildTest: BuildTestReceipt | null;
   /** Ajustes temporários da sessão de teste (não são do projeto até "Aplicar ao projeto"). */
   testAdjustments: TestAdjustment[];
   /** Pedido para abrir o editor de perfil REX numa instância comprovada (Experimental). */
@@ -316,6 +330,7 @@ export interface StoreActions {
   setLastBuildSourceMap: (sourceMap: BuildSourceMap | null) => void;
   setLastRuntimeLink: (link: RuntimeLink | null) => void;
   setLastBuildSceneRevision: (revision: number | null) => void;
+  recordBuildTestFrame: (coreEpoch: number, romSha256: string, frameIndex: number) => void;
   setTestAdjustments: (adjustments: TestAdjustment[]) => void;
   setRexBridgeRequest: (request: RexBridgeRequest | null) => void;
   setLastFileBackup: (backup: { id: string; reason: string } | null) => void;
@@ -612,20 +627,36 @@ function restoreFocusFromUndo(state: StoreState, entry: UndoEntry): StudioContex
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   activeProjectDir: "",
+  projectSessionId: 0,
   activeProjectName: "",
   activeTarget: "megadrive",
   setActiveProject: (dir, name) =>
-    set({
+    set((state) => ({
       activeProjectDir: dir,
+      projectSessionId: state.projectSessionId + 1,
       activeProjectName: name,
       lastBuildSourceMap: null,
       lastRuntimeLink: null,
       lastBuildSceneRevision: null,
+      lastBuildTest: null,
       studio: loadStudioContext(dir),
-    }),
-  setActiveTarget: (target) => set({ activeTarget: target }),
+    })),
+  setActiveTarget: (target) => set((state) => state.activeTarget === target ? state : ({
+    activeTarget: target,
+    projectSessionId: state.projectSessionId + 1,
+    lastBuildSourceMap: null,
+    lastRuntimeLink: null,
+    lastBuildSceneRevision: null,
+    lastBuildTest: null,
+  })),
   activeScenePath: "",
-  setActiveScenePath: (path) => set({ activeScenePath: path }),
+  setActiveScenePath: (path) => set((state) => state.activeScenePath === path ? state : ({
+    activeScenePath: path,
+    projectSessionId: state.projectSessionId + 1,
+    lastBuildSourceMap: null,
+    lastRuntimeLink: null,
+    lastBuildSceneRevision: null,
+  })),
   emulatorLoaded: false,
   emulatorRomIdentity: null,
   emulatorLaunchRequest: null,
@@ -657,7 +688,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   clearEmulatorLaunchRequest: () => set({ emulatorLaunchRequest: null }),
 
   selectedEntityId: null,
-  setSelectedEntityId: (id) => set({ selectedEntityId: id }),
+  setSelectedEntityId: (id) => set((state) => ({
+    selectedEntityId: id,
+    studio: refineStudioFocusState(state.studio, { entityId: id }),
+  })),
   studio: initialStudioContext(),
   openStudioEditor: (nav) => {
     set((state) => {
@@ -786,6 +820,24 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setLastRuntimeLink: (link) => set({ lastRuntimeLink: link }),
   lastBuildSceneRevision: null,
   setLastBuildSceneRevision: (revision) => set({ lastBuildSceneRevision: revision }),
+  lastBuildTest: null,
+  recordBuildTestFrame: (coreEpoch, romSha256, frameIndex) => {
+    const state = get();
+    if (!Number.isSafeInteger(frameIndex) || frameIndex <= 0 || !state.emulatorLoaded || state.joypadSessionHold
+      || state.coreEpoch !== coreEpoch || !state.joypadSessionId
+      || state.emulatorRomIdentity?.sha256 !== romSha256
+      || state.lastBuildSourceMap?.artifact.sha256 !== romSha256
+      || state.lastBuildSceneRevision === null
+      || state.lastBuildTest?.sessionId === state.joypadSessionId) return;
+    set({ lastBuildTest: {
+      projectDir: state.activeProjectDir,
+      sceneRevision: state.lastBuildSceneRevision,
+      romSha256,
+      coreEpoch,
+      sessionId: state.joypadSessionId,
+      testedAt: Date.now(),
+    } });
+  },
   testAdjustments: [],
   setTestAdjustments: (adjustments) => set({ testAdjustments: adjustments }),
   rexBridgeRequest: null,

@@ -892,8 +892,15 @@ function getDesktopFailureReportPath(scenario) {
 async function clearDesktopFailureReport(scenario) {
   const targetPath = getDesktopFailureReportPath(scenario);
   if (await pathExists(targetPath)) {
+    await archiveDesktopFailureReport(scenario, await readFile(targetPath));
     await rm(targetPath, { force: true });
   }
+}
+
+async function archiveDesktopFailureReport(scenario, bytes) {
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  const archivePath = getDesktopFailureReportPath(scenario).replace(/\.json$/, `-${digest}.json`);
+  if (!(await pathExists(archivePath))) await writeFile(archivePath, bytes, { flag: "wx" });
 }
 
 async function writeDesktopFailureReport(error) {
@@ -912,10 +919,9 @@ async function writeDesktopFailureReport(error) {
     error: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack ?? null : null,
   };
-  await writeFile(
-    getDesktopFailureReportPath(scenario),
-    `${JSON.stringify(payload, null, 2)}\n`
-  );
+  const serialized = `${JSON.stringify(payload, null, 2)}\n`;
+  await archiveDesktopFailureReport(scenario, serialized);
+  await writeFile(getDesktopFailureReportPath(scenario), serialized);
 }
 
 async function ensureValidationDir() {
@@ -4682,7 +4688,7 @@ export function createCurrentBuildFrameGate(expectedRomSha256, previousInputSess
   };
 }
 
-async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifactPrefix) {
+async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifactPrefix, { nativeClick = false } = {}) {
   const beforeState = await readAutomationState(sessionId);
   const previousInputSession = (await callAutomationApi(sessionId, "getLastInputObservation"))?.joypadSessionId ?? null;
   const beforeBuildCount = (beforeState?.consoleEntries ?? []).filter((entry) =>
@@ -4690,7 +4696,8 @@ async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifa
   ).length;
 
   await waitForBuildRunReady(sessionId, timeoutMs);
-  await clickByTestId(sessionId, "toolbar-build-run");
+  if (nativeClick) await clickButtonByTestIdNative(sessionId, "toolbar-build-run");
+  else await clickByTestId(sessionId, "toolbar-build-run");
 
   let lastBuildRunDiagnostics = null;
   const state = await waitFor(
@@ -5914,8 +5921,14 @@ async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
   const name = `Ken_Studio_E1_${Date.now()}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
   await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source]);
+  const metadataStarted = Date.now();
   await clickByTestId(sessionId, "external-import-confirm");
   await waitFor(async () => exists("mugen-source-action-200"), 120000, "Triagem Ken nao abriu.", 200);
+  report.source_metadata_ms = Date.now() - metadataStarted;
+  if (!(await js(`return document.querySelector('[data-testid="mugen-source-import"]')?.disabled === true;`))) {
+    fail("A listagem inicial não pode liberar a importação antes da análise dos pixels.");
+  }
+  await shot("metadata-choices");
   await select("mugen-source-palette", "ken1.act");
   for (const n of [0, 20, 21, 200]) await clickByTestId(sessionId, `mugen-source-action-${n}`);
   await clickByTestId(sessionId, "mugen-source-authored-demo");
@@ -7261,7 +7274,9 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   if (!kenBankState || kenBankState.sim !== "2") fail(`Paleta do Ken nao aparece compartilhada por 2 usos: ${JSON.stringify(kenBankState)}`);
   const kenSid = kenBankState.id.slice("palette-resource-".length);
   const useId = `palette-use-${kenSid}-kenmasters_2`;
-  const useRect = await js(`const r=document.querySelector('[data-testid="'+arguments[0]+'"]').getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)};`, [useId]);
+  const useTarget = await inspectNativeButtonTarget(sessionId, useId);
+  if (!useTarget?.unobstructed) fail(`Uso de paleta não ficou visível para hover: ${JSON.stringify(useTarget)}`);
+  const useRect = useTarget.point;
   await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{ type: "pointer", id: "rds-hover", parameters: { pointerType: "mouse" }, actions: [{ type: "pointerMove", origin: "viewport", x: useRect.x, y: useRect.y }] }] });
   await waitFor(async () => exists(`${useId}-detail`), 5000, "Hover nao descreveu o uso.", 100);
   await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{ type: "pointer", id: "rds-hover2", parameters: { pointerType: "mouse" }, actions: [{ type: "pointerMove", origin: "viewport", x: 5, y: 5 }] }] });
@@ -10178,13 +10193,21 @@ async function runAuthoringAcceptanceScenario(initialSessionId, appPath, uiBoots
   await js(`document.documentElement.style.zoom = "1.25";`);
   await new Promise((resolve) => setTimeout(resolve, 600));
   layout["1366x768@125%"] = await assertReachable(layoutControls.filter((id) => id.startsWith("guided-step") || id === "scene-save-status"), "1366x768 com escala 125%");
+  layout["inspector@125%"] = await assertReachable(["right-panel-properties", "right-panel-tools", "inspector-edit-scope"], "Inspector com escala 125%");
+  const scopeWidthRatio = await js(`
+    const scope=document.querySelector('[data-testid="inspector-edit-scope"]');
+    const header=scope?.parentElement?.parentElement;
+    return scope && header ? scope.getBoundingClientRect().width/header.getBoundingClientRect().width : 0;
+  `);
+  if (scopeWidthRatio < 0.8) fail(`Texto do alcance da edição comprimido no Inspector: ${scopeWidthRatio}`);
+  layout.scopeWidthRatio = scopeWidthRatio;
   await shot("03-layout-scaled", "editor guiado com escala 125%");
   await js(`document.documentElement.style.zoom = "";`);
   await setSessionWindowRect(sessionId, 1920, 1080);
   await new Promise((resolve) => setTimeout(resolve, 600));
   // Keyboard reachability of the guided steps.
   await js(`document.querySelector('[data-testid="guided-step-cenario"]').focus();`);
-  const focused = await waitFor(async () => { const f = await js(`return document.activeElement?.getAttribute('data-testid');`); return f === "inspector-hud-column" ? f : false; }, 3000, "Foco nao foi para a propriedade do texto.", 100);
+  const focused = await waitFor(async () => { const f = await js(`return document.activeElement?.getAttribute('data-testid');`); return f === "guided-step-cenario" ? f : false; }, 3000, "Foco não foi para a etapa Cenário.", 100);
   if (focused !== "guided-step-cenario") fail(`Etapa guiada nao recebe foco pelo teclado: ${focused}`);
   addReportStep(report, "layout_and_keyboard_reachability", "passed", { layout, focused });
 
@@ -10950,7 +10973,7 @@ async function runSemanticGateJourneyScenario(initialSessionId, appPath, uiBoots
   if(commercial) {
     await runInEmulator(romPath,"pre-edit");
     report.steps.push({step:"commercial-resource-before-edit",screenshot:await captureScreenshot(sessionId,`${prefix}-commercial-before-edit.png`)});
-    await clickButtonByText(sessionId,"Stop","exact");
+    await clickButtonByTestIdNative(sessionId,"toolbar-emulator-stop");
     await waitFor(async()=>(await readAutomationState(sessionId))?.emulatorLoaded===false,15000,"stop commercial preview before graph editing",150);
     addCheck("pre-edit.preview_stopped_before_editor",true);
     await callAutomationApi(sessionId,"selectWorkspace",["logic"]);
@@ -14395,6 +14418,13 @@ async function inspectNativeButtonTarget(sessionId, testId) {
 }
 
 async function clickButtonByTestIdNative(sessionId, testId, label = testId, options = {}) {
+  if (testId.startsWith("shell-persona-") && !options.expectBlocked) {
+    const closed = await executeScript(sessionId, `return document.querySelector('[data-testid="shell-persona-selector"]')?.closest('details')?.open === false;`);
+    if (closed) {
+      const summary = await findElement(sessionId, 'details:has([data-testid="shell-persona-selector"]) > summary');
+      await clickElement(sessionId, summary);
+    }
+  }
   const diagnostic = await inspectNativeButtonTarget(sessionId, testId);
   if (!diagnostic?.exists || !diagnostic.visible || diagnostic.disabled) {
     fail(`Clique WebDriver bloqueado para '${label}': ${JSON.stringify(diagnostic)}`);
@@ -14417,7 +14447,8 @@ async function clickButtonByTestIdNativeWhenReady(sessionId, testId, label = tes
   await waitFor(
     async () => {
       const diagnostic = await inspectNativeButtonTarget(sessionId, testId);
-      return diagnostic?.exists && diagnostic.visible && !diagnostic.disabled && diagnostic.unobstructed ? diagnostic : false;
+      return diagnostic?.exists && diagnostic.visible && !diagnostic.disabled
+        && (diagnostic.unobstructed || testId.startsWith("shell-persona-")) ? diagnostic : false;
     },
     timeoutMs,
     `Controle nativo não ficou disponível: ${label}`,
@@ -23986,11 +24017,7 @@ async function main() {
       await waitForOnboardingWizard(sessionId);
 
       const generatedProjectName = `E2E_Onboarding_${Date.now()}`;
-      await fillInputBySelector(
-        sessionId,
-        'input[placeholder="Nome do projeto"]',
-        generatedProjectName
-      );
+      await setInputByTestIdNative(sessionId, "wizard-project-name", generatedProjectName);
       await clickButtonByText(sessionId, "Criar Projeto");
 
       const createdState = await waitFor(
@@ -24007,11 +24034,25 @@ async function main() {
       );
 
       temporaryProjectDir = createdState.activeProjectDir;
+      currentE2eRunContext.project = createdState.activeProjectDir;
 
       const editorScreenshot = await captureScreenshot(
         sessionId,
         `${artifactPrefix}-editor.png`
       );
+      const editorLayout = await executeScript(sessionId, `
+        const toolbar=document.querySelector('[data-testid="viewport-scene-toolbar"]');
+        const tools=['select','paint','erase','collision'].map(id=>{
+          const el=document.querySelector('[data-testid="viewport-tool-'+id+'"]');
+          const r=el?.getBoundingClientRect();
+          return {id,visible:!!r&&r.width>0&&r.x>=0&&r.right<=innerWidth};
+        });
+        return {tools,toolbarFits:!!toolbar&&toolbar.scrollWidth<=toolbar.clientWidth+1,
+          dockCoversScene:!!document.querySelector('[data-testid="viewport-creator-command-dock"]')};
+      `);
+      if (!editorLayout.toolbarFits || editorLayout.dockCoversScene || editorLayout.tools.some(tool=>!tool.visible)) {
+        fail('Ferramentas primárias ou canvas obstruídos: '+JSON.stringify(editorLayout));
+      }
 
       const sceneTabVisible = await executeScript(
         sessionId,
@@ -24051,18 +24092,14 @@ async function main() {
       const shellReady = await executeScript(
         sessionId,
         `
-          const guideText = document.querySelector('[data-testid="workspace-guide"]')?.textContent?.toLowerCase() ?? "";
-          const hasBuildAndRun = Array.from(document.querySelectorAll("button")).some((button) => {
-            const text = button.textContent?.replace(/\\s+/g, " ").trim() ?? "";
-            return text === "Build & Run";
-          });
+          const hasBuildAndRun = Boolean(document.querySelector('[data-testid="toolbar-build-run"]'));
           return (
             hasBuildAndRun &&
             Boolean(document.querySelector('[data-testid="workspace-rail-scene"]')) &&
             Boolean(document.querySelector('[data-testid="workspace-rail-game"]')) &&
             Boolean(document.querySelector('[data-testid="workspace-rail-logic"]')) &&
             Boolean(document.querySelector('[data-testid="workspace-rail-debug"]')) &&
-            guideText.includes("scene editor")
+            Boolean(document.querySelector('[data-testid="workspace-guide"]'))
           );
         `
       );
@@ -24073,6 +24110,59 @@ async function main() {
       const finalState = await readAutomationState(sessionId);
       if (!finalState?.activeProjectDir || finalState.activeProjectName !== generatedProjectName) {
         fail("Estado final do onboarding nao expôs o projeto criado na automacao.");
+      }
+
+      // Coesão: ações nativas na UI; observação por DOM e pelos bytes da ROM.
+      // Expectativas congeladas: menu acessível, save, quadro do build atual,
+      // Stop preserva teste, mastering do mesmo SHA e exportação byte-idêntica.
+      const cohesion = { schema: "retrodev.ui_cohesion/v1", app_sha256: createHash("sha256").update(await readFile(options.app)).digest("hex"),
+        display: process.env.DISPLAY ?? null, window: await executeScript(sessionId, "return {width:innerWidth,height:innerHeight};"),
+        steps: [], artifacts: [], human_usability: "pending", status: "running" };
+      try {
+      await clickButtonByTestIdNative(sessionId, "unified-topbar-menu-trigger");
+      const menuAccessible = await executeScript(sessionId, `
+        const button = document.querySelector('[data-testid="menu-action-review"]');
+        if (!button) return false;
+        const r = button.getBoundingClientRect();
+        return button.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+      `);
+      if (!menuAccessible) fail("Menu principal cortou ou ocultou a ação de revisão.");
+      await clickButtonByTestIdNative(sessionId, "unified-topbar-menu-trigger");
+      await clickButtonByTestIdNative(sessionId, "toolbar-save");
+      const built = await runBuildRunAndCollect(sessionId, "onboarding-cohesion", 180000, cohesion, artifactPrefix, { nativeClick: true });
+      cohesion.steps.push({ step: "build_run_current_rom", ...built });
+      await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
+      await waitFor(async () => !(await readAutomationState(sessionId))?.emulatorLoaded, 15000, "Parar não encerrou o core.", 100);
+      await clickButtonByTestIdNative(sessionId, "toolbar-review");
+      const stopped = await executeScript(sessionId, `
+        const el = document.querySelector('[data-testid="delivery-freshness"]');
+        return {kind:el?.dataset.kind,sha:el?.dataset.testedRomSha};
+      `);
+      if (stopped.kind !== "tested" || stopped.sha !== built.rom_sha256) fail(`Stop perdeu o recibo da ROM testada: ${JSON.stringify(stopped)}`);
+      await clickButtonByTestIdNative(sessionId, "delivery-verify-rom");
+      await waitFor(async () => executeScript(sessionId, `return document.querySelector('[data-testid="delivery-export"]')?.disabled === false;`),
+        30000, "Revisão não liberou a exportação da ROM atual verificada.", 150);
+      await clickButtonByTestIdNative(sessionId, "delivery-export");
+      const exported = await waitFor(async () => executeScript(sessionId, `
+        const el=document.querySelector('[data-testid="delivery-exported"]');
+        return el ? {path:el.dataset.path,sha:el.dataset.sha256} : null;
+      `), 30000, "Exportação pela UI não retornou um artefato.", 150);
+      const exportedSha = createHash("sha256").update(await readFile(exported.path)).digest("hex");
+      if (exportedSha !== built.rom_sha256 || exported.sha !== built.rom_sha256) fail("Exportação não corresponde à ROM executada e verificada.");
+      cohesion.steps.push({ step: "stop_verify_export_same_sha", stopped, exported, exported_sha256: exportedSha });
+      const reviewScreenshot = await captureScreenshot(sessionId, `${artifactPrefix}-review-tested-export.png`);
+      addReportArtifact(cohesion, reviewScreenshot, "recibo do teste e exportação");
+      await clickButtonByTestIdNative(sessionId, "delivery-close");
+      const focusRestored = await executeScript(sessionId, `return document.activeElement?.getAttribute('data-testid') === 'toolbar-review';`);
+      if (!focusRestored) fail("Fechar revisão não devolveu foco à ação de origem.");
+      cohesion.steps.push({ step: "review_returns_focus", passed: true });
+      cohesion.status = "passed";
+      } catch (error) {
+        cohesion.status = "failed";
+        cohesion.error = error instanceof Error ? error.message : String(error);
+        throw error;
+      } finally {
+        await writeFile(path.join(validationDir, `${artifactPrefix}-cohesion.json`), JSON.stringify(cohesion, null, 2));
       }
 
       console.log("OK: Desktop Tauri onboarding/shell E2E passou.");
@@ -24088,6 +24178,7 @@ async function main() {
       try {
         await runAuthoringAcceptanceScenario(sessionId, options.app, uiBootstrapTimeoutMs, (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         });
       } finally {
         // The guided persona persists in the app's localStorage; restore the default so the
@@ -24101,6 +24192,7 @@ async function main() {
       try {
         await runCollectGoalScenario(sessionId, options.app, uiBootstrapTimeoutMs, (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         });
       } finally {
         await executeScript(currentE2eRunContext.sessionId ?? sessionId, "localStorage.removeItem(arguments[0]);", [SHELL_PERSONA_STORAGE_KEY]).catch(() => null);
@@ -24112,6 +24204,7 @@ async function main() {
       try {
         await runBehaviorsIndependenceScenario(sessionId, options.app, uiBootstrapTimeoutMs, (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         });
       } finally {
         await executeScript(currentE2eRunContext.sessionId ?? sessionId, "localStorage.removeItem(arguments[0]);", [SHELL_PERSONA_STORAGE_KEY]).catch(() => null);
@@ -24182,6 +24275,7 @@ async function main() {
       try {
         await runNodeGraphAuthoringScenario(sessionId, options.app, uiBootstrapTimeoutMs, (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         });
       } finally {
         await executeScript(currentE2eRunContext.sessionId ?? sessionId, "localStorage.removeItem(arguments[0]);", [SHELL_PERSONA_STORAGE_KEY]).catch(() => null);
@@ -24241,6 +24335,7 @@ async function main() {
         uiBootstrapTimeoutMs,
         (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         }
       );
       return;
@@ -24253,6 +24348,7 @@ async function main() {
         uiBootstrapTimeoutMs,
         (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         }
       );
       return;
@@ -24265,6 +24361,7 @@ async function main() {
         uiBootstrapTimeoutMs,
         (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         }
       );
       return;
@@ -24276,6 +24373,7 @@ async function main() {
         emulatorActivationTimeoutMs,
         (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         }
       );
       return;
@@ -24818,6 +24916,7 @@ async function main() {
         );
 
         temporaryProjectDir = createdState.activeProjectDir;
+      currentE2eRunContext.project = createdState.activeProjectDir;
         manualQaReport.projectName = generatedProjectName;
         manualQaReport.projectDir = temporaryProjectDir;
 

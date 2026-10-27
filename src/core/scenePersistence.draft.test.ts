@@ -28,6 +28,7 @@ beforeEach(() => {
   localStorage.clear();
   vi.mocked(invoke).mockReset();
   useEditorStore.setState({
+    activeProjectDir: "/proj/a",
     activeScene: structuredClone(SCENE),
     activeSceneSource: structuredClone(SCENE),
     activeScenePath: "scenes/main.json",

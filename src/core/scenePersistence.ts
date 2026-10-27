@@ -106,29 +106,46 @@ export function flushPendingEdits(): void {
   for (const flush of [...pendingEditFlushers]) flush();
 }
 
+// Preserve write order when Save and Build are requested in quick succession.
+let sceneSaveQueue: Promise<unknown> = Promise.resolve();
+let sceneSaveRequest = 0;
+
 export async function persistActiveScene(
   projectDir: string,
   scope: string,
   successMessage?: string
 ): Promise<boolean> {
   flushPendingEdits();
-  const { activeScene, activeScenePath, activeSceneSource, logMessage, sceneRevision, setSceneSaveState } =
+  const { activeScene, activeScenePath, activeSceneSource, logMessage, sceneRevision, setSceneSaveState, projectSessionId } =
     useEditorStore.getState();
+  if (projectDir !== useEditorStore.getState().activeProjectDir) return false;
   if (!activeSceneSource || !activeScene) {
     return true;
   }
 
+  const request = ++sceneSaveRequest;
+  const stillCurrent = () => {
+    const current = useEditorStore.getState();
+    return current.projectSessionId === projectSessionId && current.activeProjectDir === projectDir
+      && current.activeScenePath === activeScenePath && request === sceneSaveRequest;
+  };
+  const sourceJson = JSON.stringify(activeSceneSource, null, 2);
+  const resolvedJson = JSON.stringify(activeScene, null, 2);
   setSceneSaveState({ status: "saving", message: null, at: Date.now(), revision: null });
   let failure: string;
   try {
-    const result = await saveSceneData(
+    const operation = sceneSaveQueue.then(() => saveSceneData(
       projectDir,
-      JSON.stringify(activeSceneSource, null, 2),
+      sourceJson,
       activeScenePath || undefined,
-      JSON.stringify(activeScene, null, 2)
-    );
+      resolvedJson
+    ));
+    sceneSaveQueue = operation.catch(() => undefined);
+    const result = await operation;
+    if (!stillCurrent()) return false;
     if (result.ok) {
-      clearSceneDraft(projectDir);
+      if (useEditorStore.getState().sceneRevision === sceneRevision) clearSceneDraft(projectDir);
+      else saveActiveSceneDraft(projectDir);
       setSceneSaveState({ status: "saved", message: null, at: Date.now(), revision: sceneRevision });
       if (successMessage) {
         logMessage("success", `[${scope}] ${successMessage}`);
@@ -139,6 +156,8 @@ export async function persistActiveScene(
   } catch (error) {
     failure = describeError(error);
   }
+
+  if (!stillCurrent()) return false;
 
   // A failed save must never discard the work in memory: no reload from disk. The
   // editor keeps the scene, a local draft protects it, and the error is shown.
