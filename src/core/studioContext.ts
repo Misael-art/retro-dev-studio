@@ -22,8 +22,8 @@ export const STUDIO_TASK_WORKSPACE: Record<StudioTask, EditorWorkspace> = {
 
 export const STUDIO_TASK_LABEL: Record<StudioTask, string> = {
   scene: "Cena",
-  character: "Personagem",
-  actions: "Ações",
+  character: "Arte",
+  actions: "Lógica",
   interface: "Interface",
   test: "Teste",
   delivery: "Entrega",

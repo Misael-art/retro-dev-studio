@@ -67,7 +67,9 @@ import { paintGameFrame } from "./gameFramePresentation";
 import RuntimeInspectOverlay from "./RuntimeInspectOverlay";
 import { gameMayTakeKeyDown } from "../../core/keyboardFocus";
 import TestAdjustPanel from "./TestAdjustPanel";
+const GameCodeLogic = lazy(() => import("../nodegraph/GameCodeLogic").then((m) => ({ default: m.GameCodeLogic })));
 import { bankLetter, entityPaletteMarks } from "../../core/palettePlan";
+import { layoutTags } from "./viewportTagLayout";
 import { usePalettePlanStore } from "../../core/palettePlanStore";
 
 const VIEWPORT_TABS = [
@@ -570,6 +572,8 @@ export default function ViewportPanel({
   const [showBackground, setShowBackground] = useState(true);
   const [showTilemaps, setShowTilemaps] = useState(true);
   const [showSprites, setShowSprites] = useState(true);
+  const nativeCProject = hwStatus?.analysis_mode === "native_c";
+  const [logicSource, setLogicSource] = useState<"code" | "nodes">("code");
   const paletteMapEnabled = usePalettePlanStore((s) => s.mapEnabled);
   const paletteBankFilter = usePalettePlanStore((s) => s.bankFilter);
   const palettePlan = usePalettePlanStore((s) => s.plan);
@@ -3023,6 +3027,15 @@ export default function ViewportPanel({
       }
     }
 
+    const tags: {
+      entityId: string;
+      x: number;
+      y: number;
+      text: string;
+      color: string;
+      priority: number;
+      pill: "donor" | "staging" | "inferred" | string | null;
+    }[] = [];
     orderedEntities.forEach(({ entity, index }) => {
       const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
       const x = worldToSceneCanvasX(bounds.x);
@@ -3098,39 +3111,16 @@ export default function ViewportPanel({
         if (showEntityBounds || isSelected || isDensePreview || isSoloFocus) {
           context.strokeRect(x + 0.5, y + 0.5, width, height);
         }
-        if (showEntityLabels) {
-          context.fillStyle = isSelected || isSoloFocus ? "#ffffff" : isDensePreview ? "#f9e2af" : color;
-          context.font = "10px monospace";
-          context.fillText(entityDisplayLabel(entity).slice(0, 22), x + 6, y + 14);
-        }
         const posCtx = resolveImportedEntityContext(entity);
-        if (showEntityLabels && posCtx.positionMode) {
-          const tag =
-            posCtx.positionMode === "donor"
-              ? "DOADOR"
-              : posCtx.positionMode === "staging"
-                ? "STAGING"
-                : "INFERIDA";
-          const pillBg =
-            posCtx.positionMode === "donor"
-              ? "rgba(166,227,161,0.92)"
-              : posCtx.positionMode === "staging"
-                ? "rgba(250,179,135,0.95)"
-                : "rgba(137,180,250,0.92)";
-          context.font = "bold 8px monospace";
-          const tw = context.measureText(tag).width;
-          const px = x + 6;
-          const py = y + 18;
-          context.fillStyle = pillBg;
-          context.fillRect(px, py, tw + 8, 12);
-          context.strokeStyle = "rgba(17,17,27,0.55)";
-          context.lineWidth = 1;
-          context.strokeRect(px + 0.5, py + 0.5, tw + 8, 12);
-          context.fillStyle = "#11111b";
-          context.textAlign = "left";
-          context.fillText(tag, px + 4, py + 9);
-          context.textAlign = "left";
-        }
+        tags.push({
+          entityId: entity.entity_id,
+          x,
+          y,
+          text: showEntityLabels ? entityDisplayLabel(entity) : "",
+          color: isSelected || isSoloFocus ? "#ffffff" : isDensePreview ? "#f9e2af" : color,
+          priority: isSelected ? 2 : isSoloFocus || isDensePreview ? 1 : 0,
+          pill: showEntityLabels && posCtx.positionMode ? posCtx.positionMode : null,
+        });
         if (isSelected) {
           context.save();
           context.strokeStyle = "#f9e2af";
@@ -3153,38 +3143,71 @@ export default function ViewportPanel({
         context.strokeStyle = "rgba(205,214,244,0.55)";
         context.strokeRect(x + 0.5, y + 0.5, width, height);
       }
-      if (showEntityLabels) {
-        context.fillStyle = "#cdd6f4";
-        context.font = "10px monospace";
-        context.fillText(entityDisplayLabel(entity).slice(0, 22), x + 6, y + 14);
-      }
+      tags.push({
+        entityId: entity.entity_id,
+        x,
+        y,
+        text: showEntityLabels ? entityDisplayLabel(entity) : "",
+        color: "#cdd6f4",
+        priority: isSelected ? 2 : 0,
+        pill: null,
+      });
     });
 
-    // Mapa de paletas: selo "A ✓" por objeto, na cor do banco; objetos na mesma origem
-    // (camadas de tela inteira) ficam lado a lado em vez de sobrepostos.
-    if (paletteMapEnabled && paletteMarks) {
-      const stacked = new Map<string, number>();
+    // Etiquetas: uma por objeto (selo de paleta + nome + modo de posição), sem sobreposição.
+    {
       context.save();
-      context.font = "bold 10px monospace";
-      orderedEntities.forEach(({ entity }) => {
-        const mark = paletteMarks.get(entity.entity_id);
-        if (!mark) return;
-        const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
-        const key = `${bounds.x},${bounds.y}`;
-        const slot = stacked.get(key) ?? 0;
-        stacked.set(key, slot + 1);
-        const bx = worldToSceneCanvasX(bounds.x) + 2 + slot * 30;
-        const by = worldToSceneCanvasY(bounds.y) + 2;
-        const swatch = mark.bank !== undefined ? palettePlan?.banks[mark.bank]?.colors.find((c, i) => i > 0 && c) : undefined;
-        context.fillStyle = "rgba(17,17,27,0.85)";
-        context.fillRect(bx, by, 28, 14);
-        context.fillStyle = swatch ?? "#585b70";
-        context.fillRect(bx + 1, by + 1, 4, 12);
-        context.fillStyle = "#cdd6f4";
-        context.fillText(mark.bank !== undefined ? bankLetter(mark.bank) : "?", bx + 7, by + 11);
-        context.fillStyle = mark.ok ? "#a6e3a1" : "#f38ba8";
-        context.fillText(mark.ok ? "✓" : "!", bx + 17, by + 11);
-      });
+      const chips = tags
+        .map((tag) => {
+          const mark = paletteMapEnabled ? paletteMarks?.get(tag.entityId) : undefined;
+          const name = tag.text.length > 18 ? `${tag.text.slice(0, 17)}…` : tag.text;
+          const pill = tag.pill === "donor" ? "DOADOR" : tag.pill === "staging" ? "STAGING" : tag.pill ? "INFERIDA" : "";
+          context.font = "10px monospace";
+          const nameWidth = name ? context.measureText(name).width + 8 : 0;
+          context.font = "bold 8px monospace";
+          const pillWidth = pill ? context.measureText(pill).width + 10 : 0;
+          const width = (mark ? 26 : 0) + nameWidth + pillWidth;
+          return { tag, mark, name, pill, nameWidth, width };
+        })
+        .filter((chip) => chip.width > 0);
+      const placed = new Map(
+        layoutTags(
+          chips.map((chip) => ({ id: chip.tag.entityId, x: chip.tag.x + 2, y: chip.tag.y + 2, width: chip.width, height: 14, priority: chip.tag.priority }))
+        ).map((spot) => [spot.id, spot])
+      );
+      for (const chip of chips) {
+        const spot = placed.get(chip.tag.entityId);
+        if (!spot) continue;
+        let cx = spot.x;
+        const cy = spot.y;
+        context.fillStyle = "rgba(17,17,27,0.82)";
+        context.fillRect(cx, cy, chip.width, 14);
+        if (chip.mark) {
+          const swatch = chip.mark.bank !== undefined ? palettePlan?.banks[chip.mark.bank]?.colors.find((c, i) => i > 0 && c) : undefined;
+          context.fillStyle = swatch ?? "#585b70";
+          context.fillRect(cx + 1, cy + 1, 4, 12);
+          context.font = "bold 10px monospace";
+          context.fillStyle = "#cdd6f4";
+          context.fillText(chip.mark.bank !== undefined ? bankLetter(chip.mark.bank) : "?", cx + 7, cy + 11);
+          context.fillStyle = chip.mark.ok ? "#a6e3a1" : "#f38ba8";
+          context.fillText(chip.mark.ok ? "✓" : "!", cx + 16, cy + 11);
+          cx += 26;
+        }
+        if (chip.name) {
+          context.font = "10px monospace";
+          context.fillStyle = chip.tag.color;
+          context.fillText(chip.name, cx + 4, cy + 11);
+          cx += chip.nameWidth;
+        }
+        if (chip.pill) {
+          context.fillStyle =
+            chip.tag.pill === "donor" ? "rgba(166,227,161,0.92)" : chip.tag.pill === "staging" ? "rgba(250,179,135,0.95)" : "rgba(137,180,250,0.92)";
+          context.fillRect(cx + 1, cy + 1, chip.width - (cx - spot.x) - 2, 12);
+          context.font = "bold 8px monospace";
+          context.fillStyle = "#11111b";
+          context.fillText(chip.pill, cx + 5, cy + 10);
+        }
+      }
       context.restore();
     }
 
@@ -5645,10 +5668,41 @@ export default function ViewportPanel({
         )}
 
         {activeViewportTab === "logic" && (
-          <div className="h-full w-full">
-            <Suspense fallback={<WorkspaceViewportFallback label="Carregando Logic..." />}>
-              <NodeGraphEditor />
-            </Suspense>
+          <div className="flex h-full w-full flex-col">
+            {nativeCProject && activeProjectDir ? (
+              <div role="tablist" aria-label="Origem da lógica" className="flex shrink-0 items-center gap-1 border-b border-[#313244] bg-[#11111b] px-2 py-1 text-[11px]">
+                {(
+                  [
+                    ["code", "Código do jogo (C)", "O comportamento real deste jogo, organizado por arquivo e máquina de estado"],
+                    ["nodes", "Nodes do Studio", "Lógica visual das entidades da cena do Studio"],
+                  ] as const
+                ).map(([mode, label, hint]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="tab"
+                    data-testid={`logic-source-${mode}`}
+                    aria-selected={logicSource === mode}
+                    title={hint}
+                    onClick={() => setLogicSource(mode)}
+                    className={`rounded px-2 py-0.5 ${logicSource === mode ? "bg-[#1e3a5f] font-semibold text-white" : "text-[#93c5fd] hover:bg-[#1e293b]"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div className="relative min-h-0 flex-1">
+              {nativeCProject && activeProjectDir && logicSource === "code" ? (
+                <Suspense fallback={<WorkspaceViewportFallback label="Carregando código..." />}>
+                  <GameCodeLogic projectDir={activeProjectDir} />
+                </Suspense>
+              ) : (
+                <Suspense fallback={<WorkspaceViewportFallback label="Carregando Logic..." />}>
+                  <NodeGraphEditor />
+                </Suspense>
+              )}
+            </div>
           </div>
         )}
 

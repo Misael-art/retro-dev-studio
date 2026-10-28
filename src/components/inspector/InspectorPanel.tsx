@@ -1311,22 +1311,20 @@ export default function InspectorPanel() {
                       data-testid="inspector-open-character"
                       onClick={() => openStudioEditor({ focus: { task: "character", entityId: entity.entity_id } })}
                       className="rounded border border-[#89b4fa]/50 px-2 py-0.5 text-[9px] text-[#89b4fa] hover:bg-[#89b4fa]/10"
-                      title="Abrir esta entidade na tarefa Personagem (animações, caixas e eventos)"
+                      title="Editar o sprite e as animações deste objeto na Arte"
                     >
-                      Abrir no Personagem
+                      Abrir na Arte
                     </button>
                     <AssetRenameControl asset={entity.components.sprite.asset} />
-                    {entity.components.logic ? (
-                      <button
-                        type="button"
-                        data-testid="inspector-open-actions"
-                        onClick={() => openStudioEditor({ focus: { task: "actions", entityId: entity.entity_id } })}
-                        className="rounded border border-[#a6e3a1]/50 px-2 py-0.5 text-[9px] text-[#a6e3a1] hover:bg-[#a6e3a1]/10"
-                        title="Abrir os comportamentos desta entidade na tarefa Ações"
-                      >
-                        Abrir em Ações
-                      </button>
-                    ) : null}
+                    <button
+                      type="button"
+                      data-testid="inspector-open-actions"
+                      onClick={() => openStudioEditor({ focus: { task: "actions", entityId: entity.entity_id } })}
+                      className="rounded border border-[#a6e3a1]/50 px-2 py-0.5 text-[9px] text-[#a6e3a1] hover:bg-[#a6e3a1]/10"
+                      title="Editar o comportamento deste objeto em nodes"
+                    >
+                      Editar lógica (nodes)
+                    </button>
                   </div>
                 ) : null}
                 <div

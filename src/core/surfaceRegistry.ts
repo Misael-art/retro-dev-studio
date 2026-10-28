@@ -79,7 +79,7 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
     roadmapRef: "Explorer workspace",
   },
   logic: {
-    label: "Ações",
+    label: "Lógica",
     icon: "LG",
     description: "Fluxo visual e scripting",
     domain: "authoring",

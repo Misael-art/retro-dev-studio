@@ -2,7 +2,23 @@ import { UNDO_STACK_LIMIT, useEditorStore } from "../../core/store/editorStore";
 import { revertLastFileOperation } from "../../core/projectFileOps";
 import { getEntityDisplayName } from "../../core/entityDisplay";
 import { describeBuildFreshness } from "../../core/buildFreshness";
-import { STUDIO_TASK_LABEL, STUDIO_TASK_WORKSPACE, workspaceToStudioTask } from "../../core/studioContext";
+import { STUDIO_TASK_LABEL, STUDIO_TASK_WORKSPACE, type StudioTask, workspaceToStudioTask } from "../../core/studioContext";
+
+type FlowEntity = { components: { sprite?: unknown; hud?: unknown } };
+
+/** Os destinos do fluxo de trabalho para o objeto selecionado, na ordem Cena → Arte → Lógica. */
+const FLOW_STEPS: { task: StudioTask; testId: string; label: string; hint: string; when: (e: FlowEntity) => boolean }[] = [
+  { task: "scene", testId: "scene", label: "Cena", hint: "Ver o objeto na cena, posicionar e conferir o resultado", when: () => true },
+  {
+    task: "character",
+    testId: "character",
+    label: "Arte e animação",
+    hint: "Editar o sprite, os quadros e as animações deste objeto",
+    when: (e) => Boolean(e.components.sprite),
+  },
+  { task: "actions", testId: "actions", label: "Lógica (nodes)", hint: "Editar o comportamento deste objeto em nodes", when: () => true },
+  { task: "interface", testId: "interface", label: "Interface", hint: "Editar este texto de HUD", when: (e) => Boolean(e.components.hud) },
+];
 
 /**
  * Faixa de contexto compartilhado (Experimental): mostra o que está em foco na tarefa atual e
@@ -80,20 +96,31 @@ export function StudioContextBar() {
         ))}
       </ol>
       {entity ? (
-        <div className="flex flex-wrap items-center gap-1" aria-label="Editar seleção">
-          {entity.components.sprite ? (
-            <button type="button" data-testid="studio-open-character" disabled={task === "character"}
-              onClick={() => openStudioEditor({ focus: { task: "character", entityId: entity.entity_id } })}
-              className="rounded border border-[#334155] px-2 py-1 disabled:opacity-50">Personagem</button>
-          ) : null}
-          <button type="button" data-testid="studio-open-actions" disabled={task === "actions"}
-            onClick={() => openStudioEditor({ focus: { task: "actions", entityId: entity.entity_id } })}
-            className="rounded border border-[#334155] px-2 py-1 disabled:opacity-50">Ações</button>
-          {entity.components.hud ? (
-            <button type="button" data-testid="studio-open-interface" disabled={task === "interface"}
-              onClick={() => openStudioEditor({ focus: { task: "interface", entityId: entity.entity_id } })}
-              className="rounded border border-[#334155] px-2 py-1 disabled:opacity-50">Interface</button>
-          ) : null}
+        <div
+          role="group"
+          aria-label={`Trabalhar em ${getEntityDisplayName(entity)}`}
+          data-testid="studio-flow"
+          className="flex items-center overflow-hidden rounded-md border border-[#334155]"
+        >
+          {FLOW_STEPS.filter((step) => step.when(entity)).map((step) => {
+            const current = task === step.task;
+            return (
+              <button
+                key={step.task}
+                type="button"
+                data-testid={`studio-open-${step.testId}`}
+                aria-current={current ? "page" : undefined}
+                disabled={current}
+                title={step.hint}
+                onClick={() => openStudioEditor({ focus: { task: step.task, entityId: entity.entity_id } })}
+                className={`border-l border-[#334155] px-2 py-1 first:border-l-0 ${
+                  current ? "bg-[#1e3a5f] font-semibold text-white" : "text-[#93c5fd] hover:bg-[#1e293b]"
+                }`}
+              >
+                {step.label}
+              </button>
+            );
+          })}
         </div>
       ) : null}
       {undoDepth >= UNDO_STACK_LIMIT ? (

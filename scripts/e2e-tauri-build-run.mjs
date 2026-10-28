@@ -6147,6 +6147,31 @@ async function runSgdkNativeCScenario(sessionId) {
     await new Promise((resolve) => setTimeout(resolve, 800));
     addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-palette-map-filter.png`), "Palette map on, bank A hidden");
     await clickByTestId(sessionId, "palette-filter-0");
+    // Fluxo Cena -> Arte -> Logica -> Arte -> Cena pelo objeto selecionado, pelos botoes reais.
+    {
+      const sprite = capturedScene.entities.find((e) => e.entity_id.startsWith("rom_sprite_"));
+      await callAutomationApi(sessionId, "setSelectedEntityId", [sprite.entity_id]);
+      const workspaceIs = (ws, why) => waitFor(async () => (await readAutomationState(sessionId))?.activeWorkspace === ws, 15000, why, 150);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-flow-scene.png`), "Scene with palette map and labels");
+      await clickButtonByTestIdNativeWhenReady(sessionId, "studio-open-character", "Arte e animação");
+      await workspaceIs("artstudio", "Flow bar did not open Art.");
+      await clickButtonByTestIdNativeWhenReady(sessionId, "artstudio-open-logic", "Editar lógica");
+      await workspaceIs("logic", "Art did not open Logic.");
+      await waitFor(async () => (await executeScript(sessionId, `return Boolean(document.querySelector('[data-testid="game-code-logic"] [data-testid="c-graph-panel"], [data-testid="game-code-logic"]'));`)), 20000, "Game C code is not reachable in Logic.", 200);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-flow-logic-code.png`), "Logic: game C code");
+      await clickButtonByTestIdNativeWhenReady(sessionId, "logic-source-nodes", "Nodes do Studio");
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-flow-logic-nodes.png`), "Logic: Studio nodes");
+      await clickButtonByTestIdNativeWhenReady(sessionId, "nodegraph-bridge-open-art", "Arte e animação");
+      await workspaceIs("artstudio", "Logic did not open Art.");
+      await clickButtonByTestIdNativeWhenReady(sessionId, "studio-open-scene", "Cena");
+      await workspaceIs("scene", "Flow bar did not return to Scene.");
+      const selected = (await readAutomationState(sessionId))?.selectedEntityId;
+      if (selected !== sprite.entity_id) fail(`Selection lost across the flow: ${selected}`);
+      addReportStep(report, "scene_art_logic_flow", "passed", { entity: sprite.entity_id });
+    }
     report.rom_capture_palettes = { errors: paletteErrors, slots_used: bankSlots, layers: (capturedScene.layers ?? []).map((l) => l.id) };
     addReportStep(report, "rom_capture_palettes_without_conflict", "passed", report.rom_capture_palettes);
 
@@ -25275,7 +25300,7 @@ async function main() {
       );
       addReportStep(report, "save_player_entity_before_logic", "passed");
 
-      await clickButtonByText(sessionId, "Voltar para Cena", "exact");
+      await clickButtonByText(sessionId, "Ver na Cena", "exact");
       await waitFor(
         async () => {
           const state = await readAutomationState(sessionId);

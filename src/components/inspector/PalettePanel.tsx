@@ -252,23 +252,27 @@ function PaletteMap({ plan }: { plan: PalettePlan }) {
         const conflict = b.state === "conflito";
         const names = b.resources.map((r) => plan.resources.find((x) => x.id === r)?.name ?? r).join(" + ");
         return (
-          <div key={b.bank} data-testid={`palette-map-bank-${b.bank}`} data-used={used} data-state={b.state} className="flex items-center gap-1">
-            <label className="flex w-16 items-center gap-1" title="Exibir no viewport só os objetos deste banco">
-              <input type="checkbox" data-testid={`palette-filter-${b.bank}`} checked={filter.includes(b.bank)} onChange={() => toggle(b.bank)} />
-              <span className="font-semibold">{bankLetter(b.bank)}</span>
-              <span className="text-[#7f849c]">PAL{b.bank}</span>
-            </label>
-            <span data-testid={`palette-map-check-${b.bank}`} aria-label={conflict ? "em conflito" : "sem conflito"} className={conflict ? "text-[#f38ba8]" : "text-[#a6e3a1]"}>
-              {conflict ? "!" : "✓"}
-            </span>
-            <Swatches colors={b.colors} testid={`palette-map-colors-${b.bank}`} />
-            <span data-testid={`palette-map-count-${b.bank}`} className={`w-24 shrink-0 ${used >= slots ? "text-[#f9e2af]" : "text-[#a6adc8]"}`}>
-              {used}/{slots} usados · restam {Math.max(0, slots - used)}
-            </span>
-            <span className="truncate text-[#7f849c]" title={names}>
+          <div key={b.bank} data-testid={`palette-map-bank-${b.bank}`} data-used={used} data-state={b.state} className="rounded border border-[#313244] px-1 py-0.5">
+            <div className="flex items-center gap-1">
+              <label className="flex items-center gap-1" title="Exibir no viewport só os objetos deste banco">
+                <input type="checkbox" data-testid={`palette-filter-${b.bank}`} checked={filter.includes(b.bank)} onChange={() => toggle(b.bank)} />
+                <span className="font-semibold">{bankLetter(b.bank)}</span>
+                <span className="text-[#7f849c]">PAL{b.bank}</span>
+              </label>
+              <span data-testid={`palette-map-check-${b.bank}`} aria-label={conflict ? "em conflito" : "sem conflito"} className={conflict ? "text-[#f38ba8]" : "text-[#a6e3a1]"}>
+                {conflict ? "!" : "✓"}
+              </span>
+              <span data-testid={`palette-map-count-${b.bank}`} className={`ml-auto shrink-0 ${used >= slots ? "text-[#f9e2af]" : "text-[#a6adc8]"}`}>
+                {used}/{slots} usados · restam {Math.max(0, slots - used)}
+              </span>
+            </div>
+            <div className="mt-0.5 flex flex-nowrap gap-px overflow-hidden">
+              <Swatches colors={b.colors} testid={`palette-map-colors-${b.bank}`} />
+            </div>
+            <p className="truncate text-[#7f849c]" title={names}>
               {BANK_STATE_LABEL[b.state]}
               {names ? ` · ${names}` : ""}
-            </span>
+            </p>
           </div>
         );
       })}

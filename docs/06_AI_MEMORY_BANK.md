@@ -3292,3 +3292,18 @@ Relato do operador: o painel de paletas acusava conflito em capturas, mas o jogo
   - O checkbox de filtro oculta no viewport os objetos daquele banco.
   - "Mapa de paletas no viewport" desenha sobre cada objeto um selo com a letra do banco, a cor do banco e ✓ ou "!", com a validação vinda do mesmo plano do build.
 - **Não feito:** botão "otimizar paletas" (unir paletas parecidas), anotado pelo operador como futuro.
+
+### Checkpoint 2026-10-28 (c) — Fluxo Cena ↔ Arte ↔ Lógica, lógica C acessível e etiquetas organizadas (Experimental)
+
+- **Barra de fluxo (`StudioContextBar`):** segmentos Cena · Arte e animação · Lógica (nodes) · Interface, focados no objeto selecionado, em toda tarefa; a seleção é preservada.
+  - Antes não havia "Cena", e "Personagem" designava a Arte.
+  - Nomes unificados: o rail mostra "Lógica"; as tarefas são rotuladas "Arte"/"Lógica".
+  - Botões adicionados: no Inspector, "Abrir na Arte" e "Editar lógica (nodes)" (este agora sempre visível); na Arte, "Ver na Cena" e "Editar lógica"; na Lógica, "Ver na Cena" e "Arte e animação".
+- **Lógica:**
+  - O estado vazio guiado ficava sob a barra flutuante, cortado e inacessível. Agora começa abaixo da barra, rola e respeita o painel lateral.
+  - Em projeto C nativo a Lógica abre por padrão em "Código do jogo (C)" (`GameCodeLogic`): arquivos por pasta com contagem de FSM/funções, busca por arquivo/função/estado e o `CGraphPanel`, começando pelo arquivo com mais máquinas de estado. "Nodes do Studio" continua disponível.
+- **Viewport:**
+  - Selo de paleta, nome e modo de posição viram uma etiqueta única por objeto.
+  - `viewportTagLayout.layoutTags` posiciona sem sobreposição (seleção primeiro); objetos na mesma origem formam lista empilhada.
+- **Mapa de paletas:** cada banco tem cabeçalho, amostras numa linha e o estado abaixo.
+- **Provas:** E2E real `sgdk-native-c` passou com o fluxo Cena → Arte → Lógica (código C) → Nodes → Arte → Cena, com a seleção preservada (capturas `*-flow-*.png`, 2026-10-28T09-23). O ajuste de layout do mapa de paletas (só CSS) veio depois e não foi repetido no app real: o host ficou sem memória (≈1 GB livre) e a janela do WebKit deixou de redimensionar. Gates frontend verdes.

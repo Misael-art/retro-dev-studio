@@ -1125,7 +1125,7 @@ describe("ArtStudioPanel import flow", () => {
     expect(bridge?.textContent).toContain("assets/sprites/hero_old.png");
 
     await act(async () => {
-      findButton(container, "Voltar para Cena").click();
+      findButton(container, "Ver na Cena").click();
       await flush();
     });
 

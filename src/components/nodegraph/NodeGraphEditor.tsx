@@ -2073,9 +2073,10 @@ function EmptyStateOverlay({
   return (
     <div
       data-testid="nodegraph-empty-overlay"
-      className="absolute inset-0 z-10 flex items-center justify-center bg-[#11111b]/60 px-6 py-8"
+      className="absolute bottom-0 left-0 top-0 z-10 flex justify-center overflow-y-auto bg-[#11111b]/60 px-6 pb-8 pt-14"
+      style={{ right: 288 }}
     >
-      <div className="w-full max-w-6xl rounded-2xl border border-dashed border-[#45475a] bg-[#181825]/95 p-6 shadow-2xl backdrop-blur-sm">
+      <div className="h-fit w-full max-w-6xl rounded-2xl border border-dashed border-[#45475a] bg-[#181825]/95 p-6 shadow-2xl backdrop-blur-sm">
         <div className="mb-5 flex flex-col gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#89b4fa]">
             Guided Empty State
@@ -3733,14 +3734,28 @@ export default function NodeGraphEditor() {
                       : "Sem fonte rastreavel: navegue pelo Inspector se houver contexto externo."}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  data-testid="nodegraph-bridge-back-scene"
-                  onClick={handleFocusSelectedEntityInScene}
-                  className="shrink-0 rounded border border-[#94e2d5]/40 bg-[#94e2d5]/10 px-2 py-1 text-[9px] font-semibold text-[#94e2d5] transition-colors hover:bg-[#94e2d5]/20"
-                >
-                  Focar objeto
-                </button>
+                <div className="flex shrink-0 flex-col gap-1">
+                  <button
+                    type="button"
+                    data-testid="nodegraph-bridge-back-scene"
+                    onClick={handleFocusSelectedEntityInScene}
+                    className="rounded border border-[#94e2d5]/40 bg-[#94e2d5]/10 px-2 py-1 text-[9px] font-semibold text-[#94e2d5] transition-colors hover:bg-[#94e2d5]/20"
+                  >
+                    Ver na Cena
+                  </button>
+                  {selectedEntity.components?.sprite ? (
+                    <button
+                      type="button"
+                      data-testid="nodegraph-bridge-open-art"
+                      onClick={() =>
+                        useEditorStore.getState().openStudioEditor({ focus: { task: "character", entityId: selectedEntity.entity_id } })
+                      }
+                      className="rounded border border-[#f9e2af]/40 bg-[#f9e2af]/10 px-2 py-1 text-[9px] font-semibold text-[#f9e2af] transition-colors hover:bg-[#f9e2af]/20"
+                    >
+                      Arte e animação
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
 

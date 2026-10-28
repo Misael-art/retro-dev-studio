@@ -4088,7 +4088,18 @@ export default function ArtStudioPanel() {
               onClick={returnToSceneWithSelectedContext}
               className="rounded-lg border border-[#94e2d5]/45 bg-[#94e2d5]/12 px-3 py-1.5 text-[10px] font-semibold text-[#94e2d5] transition-colors hover:bg-[#94e2d5]/22"
             >
-              Voltar para Cena
+              Ver na Cena
+            </button>
+            <button
+              type="button"
+              data-testid="artstudio-open-logic"
+              onClick={() =>
+                useEditorStore.getState().openStudioEditor({ focus: { task: "actions", entityId: selectedEntity.entity_id } })
+              }
+              className="rounded-lg border border-[#89b4fa]/45 bg-[#89b4fa]/12 px-3 py-1.5 text-[10px] font-semibold text-[#89b4fa] transition-colors hover:bg-[#89b4fa]/22"
+              title="Editar o comportamento deste sprite em nodes"
+            >
+              Editar lógica
             </button>
             <button
               type="button"
