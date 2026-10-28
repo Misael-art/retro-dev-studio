@@ -756,6 +756,7 @@ pub struct ProjectTemplateSummary {
     pub source_kind: String,
     pub recommended_target: String,
     pub experimental: bool,
+    pub mega_drive_only: bool,
     pub available: bool,
     pub availability_reason: Option<String>,
     pub default_donor_path: Option<String>,
@@ -1103,6 +1104,7 @@ pub fn seed_project_template(
     target: &str,
     donor_path: Option<&Path>,
 ) -> Result<Scene, LoadError> {
+    validate_project_template_target(template_id, target)?;
     match template_id {
         "empty" => return load_scene(project_dir, DEFAULT_ENTRY_SCENE),
         "starter_guided" => return seed_onboarding_template(project_dir, target),
@@ -1123,6 +1125,29 @@ pub fn seed_project_template(
         "platformer_gm" => seed_platformer_gm_template(project_dir, &donor),
         _ => import_sgdk_project(project_dir, &donor).map(|report| report.primary_scene),
     }
+}
+
+/// Shared by the catalog/UI and creation preflight, before reserving any project directory.
+pub fn validate_project_template_target(template_id: &str, target: &str) -> Result<(), LoadError> {
+    if !matches!(target, "megadrive" | "snes") {
+        return Err(LoadError(format!(
+            "Console de projeto nao suportado: '{target}'."
+        )));
+    }
+    let registry = template_registry()?;
+    let entry = registry
+        .templates
+        .iter()
+        .find(|entry| entry.id == template_id)
+        .ok_or_else(|| LoadError(format!("Template desconhecido: '{template_id}'.")))?;
+    if template_megadrive_only(entry) && target != "megadrive" {
+        return Err(LoadError(format!("O modelo '{}' e exclusivo de Mega Drive nesta wave. Para SNES, escolha Projeto Vazio ou Primeiro Projeto.", entry.name)));
+    }
+    Ok(())
+}
+
+fn template_megadrive_only(entry: &TemplateRegistryEntry) -> bool {
+    entry.source_kind == "external_sgdk" || entry.id == "reference_platformer"
 }
 
 struct DonorDimensions {
@@ -4833,6 +4858,7 @@ fn project_template_summary(entry: &TemplateRegistryEntry) -> ProjectTemplateSum
         source_kind: entry.source_kind.clone(),
         recommended_target: entry.recommended_target.clone(),
         experimental: entry.experimental,
+        mega_drive_only: template_megadrive_only(entry),
         available,
         availability_reason,
         default_donor_path: entry.default_donor_path.clone(),

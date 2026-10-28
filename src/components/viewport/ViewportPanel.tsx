@@ -5738,8 +5738,8 @@ export default function ViewportPanel({
       <div className="flex h-6 shrink-0 items-center gap-4 border-t border-[#313244] bg-[#181825] px-3">
         <span className="select-none text-[10px] text-[#45475a]">{targetLabel}</span>
         <span className="select-none text-[10px] text-[#45475a]">{resolution} / 60fps</span>
-        <span className="select-none text-[10px] text-[#45475a]">
-          Sprites: {activeScene?.entities.length ?? 0} / {spriteLimit}
+        <span data-testid="viewport-scene-sprites" title="Instâncias com componente sprite nesta cena. Metasprites e o jogo C original exigem seu próprio orçamento/captura." className="select-none text-[10px] text-[#45475a]">
+          Sprites: {activeScene?.entities.filter((entity) => entity.components.sprite).length ?? 0} / {spriteLimit}
         </span>
         <span className="select-none text-[10px] text-[#45475a]">
           BG Layers: {activeScene?.background_layers.length ?? 0} / {bgLayerLimit}

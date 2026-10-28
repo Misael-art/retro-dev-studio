@@ -958,6 +958,7 @@ function defaultProjectTemplates() {
     },
     {
       id: "reference_platformer",
+      mega_drive_only: true,
       name: "Jogo de Referência — Plataforma",
       description:
         "Pequeno jogo autocontido com personagem animado, movimento, salto, colisão, tilemap, câmera, áudio e objetivo por NodeGraph.",
@@ -3283,7 +3284,7 @@ describe("App build flow", () => {
     );
   });
 
-  it("exposes the self-contained reference platformer through the real wizard controls", async () => {
+  it("exposes the reference platformer and prevents selecting its unsupported SNES target", async () => {
     await act(async () => {
       useEditorStore.setState({
         activeProjectDir: "",
@@ -3305,8 +3306,15 @@ describe("App build flow", () => {
 
     const createButton = findButton(container, "Criar Projeto");
     await act(async () => {
+      findButton(container, "SNES").click();
+      await flush();
       referenceCard?.click();
       await flush();
+    });
+    expect((findButton(container, "SNES") as HTMLButtonElement).disabled).toBe(true);
+    expect(findButton(container, "Mega Drive").getAttribute("aria-pressed")).toBe("true");
+    expect(container.textContent).toContain("Este modelo é exclusivo de Mega Drive");
+    await act(async () => {
       createButton.click();
       await flush();
       await flush();

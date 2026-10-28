@@ -4700,7 +4700,7 @@ export function createCurrentBuildFrameGate(expectedRomSha256, previousInputSess
   };
 }
 
-async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifactPrefix, { nativeClick = false } = {}) {
+async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifactPrefix, { nativeClick = false, target = "megadrive" } = {}) {
   const beforeState = await readAutomationState(sessionId);
   const previousInputSession = (await callAutomationApi(sessionId, "getLastInputObservation"))?.joypadSessionId ?? null;
   const beforeBuildCount = (beforeState?.consoleEntries ?? []).filter((entry) =>
@@ -4798,7 +4798,14 @@ async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifa
     fail(`Console nao registrou caminho de ROM para ${label}.`);
   }
   await assertPathExists(romPath, `ROM gerada nao encontrada para ${label}: ${romPath}`);
-  const rom = await assertSegaHeader(romPath);
+  let rom;
+  if (target === "snes") {
+    const mastering = await executeAsyncScript(sessionId, `const done=arguments[arguments.length-1];
+      const invoke=window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke;
+      invoke("inspect_rom_mastering",{romPath:arguments[0]}).then(done).catch(e=>done({error:String(e)}));`, [romPath]);
+    if (mastering.platform !== "snes" || mastering.blockers?.length !== 0) fail(`SNES ROM format/mastering refused: ${JSON.stringify(mastering)}`);
+    rom = { header: mastering.header_signature, sizeBytes: mastering.size_bytes };
+  } else rom = await assertSegaHeader(romPath);
   const romSha256 = createHash("sha256").update(await readFile(romPath)).digest("hex");
   const frameReady = createCurrentBuildFrameGate(romSha256, previousInputSession);
 
@@ -4815,7 +4822,8 @@ async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifa
   return {
     label,
     rom_path: romPath,
-    sega_header: rom.header,
+    sega_header: target === "megadrive" ? rom.header : null,
+    target,
     rom_size_bytes: rom.sizeBytes,
     rom_sha256: romSha256,
     framebuffer,
@@ -6008,8 +6016,11 @@ async function runSgdkSplitResourcesScenario(sessionId, timeoutMs, onProjectCrea
     report.ledger = ledger;
     const scene = JSON.parse(await readFile(path.join(project, "scenes/main.json"), "utf8"));
     const sprites = scene.entities.filter(e => e.components.sprite);
-    if (ledger.manifests.length !== expected.manifests || ledger.mappings.length !== expected.resources || sprites.length !== expected.sprites) {
-      fail(`Import lost resources: ${JSON.stringify({ manifests: ledger.manifests.length, resources: ledger.mappings.length, sprites: sprites.length })}`);
+    const spriteResources = ledger.mappings.filter((mapping) => mapping.resource_kind === "SPRITE").length;
+    const expectedSceneSprites = expected.sceneSprites ?? expected.sprites;
+    if (ledger.manifests.length !== expected.manifests || ledger.mappings.length !== expected.resources
+      || spriteResources !== expected.sprites || sprites.length !== expectedSceneSprites) {
+      fail(`Import resource/instance contract differs: ${JSON.stringify({ manifests: ledger.manifests.length, resources: ledger.mappings.length, spriteResources, sceneSprites: sprites.length, expectedSceneSprites })}`);
     }
     const destinations = new Map();
     for (const mapping of ledger.mappings) {
@@ -6020,7 +6031,10 @@ async function runSgdkSplitResourcesScenario(sessionId, timeoutMs, onProjectCrea
       if (destinations.has(mapping.destination) && destinations.get(mapping.destination) !== hash) fail(`Asset collision: ${mapping.destination}`);
       destinations.set(mapping.destination, hash);
     }
-    addReportStep(report, "all_manifest_resources_preserved", "passed", { manifests: ledger.manifests.length, resources: ledger.mappings.length, sprites: sprites.length });
+    addReportStep(report, "all_manifest_resources_preserved", "passed", { manifests: ledger.manifests.length, resources: ledger.mappings.length, spriteResources, sceneSprites: sprites.length });
+    const footer = await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-scene-sprites"]')?.textContent ?? '';`);
+    if (!footer.includes(`Sprites: ${expectedSceneSprites} /`)) fail(`Viewport counts resources or non-sprite entities as sprites: ${footer}`);
+    addReportStep(report, "viewport_counts_scene_sprites_not_catalog_or_other_entities", "passed", { footer, spriteResources, sceneSprites: sprites.length });
     addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-import.png`), "Imported resources in native UI");
     console.log(`[sgdk-split] all ${ledger.mappings.length} resources verified against source`);
     report.build = await runBuildRunAndCollect(sessionId, "SGDK split resource scene", timeoutMs, report, prefix, { nativeClick: true });
@@ -6095,13 +6109,36 @@ async function runSgdkNativeCScenario(sessionId) {
       const receiptPath = path.join(runRoot, "out", "logs", "linux_wine_build_report.json");
       const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
       if (receipt.status !== "buildado" || receipt.rom.sha256 !== build.rom_sha256) fail(`Receipt does not match executed ROM (${label}): ${JSON.stringify(receipt.rom)}`);
-      const detail = { path: receiptPath, started_at: receipt.started_at, completed_at: receipt.completed_at, rom_sha256: receipt.rom.sha256, sdk_content_sha256: receipt.sdk_content_sha256, source_tree_sha256: receipt.build_input_snapshot?.source_tree_sha256 };
+      const evidenceRom = path.join(output, `${prefix}-${label}.rom.bin`);
+      const evidenceReceipt = path.join(output, `${prefix}-${label}-wrapper-receipt.json`);
+      await copyFile(build.rom_path, evidenceRom);
+      await copyFile(receiptPath, evidenceReceipt);
+      if (await hashFile(evidenceRom) !== build.rom_sha256) fail(`Retained ROM differs (${label}).`);
+      // The next native build replaces c_build. Retain provenance before that.
+      const retained = [];
+      for (const [kind, file, expectedSha] of [
+        ["inputs", path.join(runRoot, receipt.build_input_snapshot.path), receipt.build_input_snapshot.sha256],
+        ["build-log", path.join(runRoot, receipt.build_log_path), receipt.build_log_sha256],
+        ["sdk-identity", receipt.sdk_identity_report, null],
+        ["elf", path.join(path.dirname(build.rom_path), "rom.out"), null],
+      ]) {
+        const destination = path.join(output, `${prefix}-${label}-${kind}${path.extname(file)}`);
+        await copyFile(file, destination);
+        const sha256 = await hashFile(destination);
+        if (expectedSha && sha256 !== expectedSha) fail(`Retained ${kind} differs from receipt (${label}).`);
+        retained.push({ kind, path: destination, sha256 });
+      }
+      const detail = { path: receiptPath, evidence_rom: evidenceRom, evidence_receipt: evidenceReceipt, retained, started_at: receipt.started_at, completed_at: receipt.completed_at, rom_sha256: receipt.rom.sha256, sdk_content_sha256: receipt.sdk_content_sha256, source_tree_sha256: receipt.build_input_snapshot?.source_tree_sha256 };
       addReportStep(report, `rom_matches_wrapper_receipt_${label}`, "passed", detail);
       return detail;
     };
     const build = await runBuildRunAndCollect(sessionId, "SGDK original C", 900000, report, prefix, { nativeClick: true });
     report.build = build;
     report.receipt = await checkReceipt(build, "original");
+    // A C ROM has no generated Studio NodeGraph map. Its verified artifact must
+    // still be recognized by the shared build/review surface.
+    const nativeFreshness = await executeScript(sessionId, `return document.querySelector('[data-testid="studio-build-freshness"]')?.textContent ?? '';`);
+    addReportStep(report, "native_build_identity_visible", nativeFreshness.includes("build C em execução") ? "passed" : "failed", { label: nativeFreshness });
     addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-boot.png`), "ROM running after boot");
 
     const frames = [await readFramebufferStats(sessionId)];
@@ -6198,6 +6235,69 @@ async function runSgdkNativeCScenario(sessionId) {
     report.rom_capture_palettes = { errors: paletteErrors, slots_used: bankSlots, layers: (capturedScene.layers ?? []).map((l) => l.id) };
     addReportStep(report, "rom_capture_palettes_without_conflict", "passed", report.rom_capture_palettes);
 
+    if (process.env.RDS_SGDK_FIGHT_PROBE === "1") {
+      // Operator-provided Mugenesis QA input, not a game-specific product adapter.
+      // Bind the probe to source declarations and the freshly linked ELF.
+      const vars = await readFile(path.join(source, "inc/game_vars.h"), "utf8");
+      if (!/APP_SCENE_DEMO\s*=\s*3/.test(vars) || !/typedef struct AppState\s*\{\s*AppScene currentScene;/.test(vars)) fail("Fight probe source layout changed.");
+      const symbols = parseElf32Symbols(await readFile(path.join(path.dirname(build.rom_path), "rom.out")));
+      const appAddress = symbols.get("gApp");
+      if (!appAddress) fail("Fresh ELF has no gApp for the declared fight probe.");
+      report.fight_probe_samples = [];
+      const sceneProbe = async () => {
+        // This source's enum is a 32-bit int (movel in APP_changeScene in
+        // the linked ELF). GPGX exposes WRAM with each 68k word byte-swapped.
+        const value = await readEmulatorMemory(sessionId, 2, appAddress & 0xffff, 4);
+        const scene = ((value.data[0] | (value.data[1] << 8)) * 65536) + (value.data[2] | (value.data[3] << 8));
+        report.fight_probe_samples.push({ data: value.data, scene });
+        return scene;
+      };
+      await callAutomationApi(sessionId, "selectWorkspace", ["game"]);
+      const states = [await sceneProbe()];
+      for (let i = 0; i < 6 && states.at(-1) !== 3; i += 1) {
+        await sendNativeGameKeyTap(sessionId, "Enter", 800, `fight menu Start ${i + 1}`);
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        states.push(await sceneProbe());
+        addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-fight-menu-${i + 1}.png`), `Fight navigation ${i + 1}`);
+      }
+      if (states.at(-1) !== 3) fail(`Fight did not start through native Start: ${JSON.stringify(states)}`);
+      // Entering the scene is still the 90-tick round intro, with controls
+      // disabled in the original C. Wait on observed core frames, not wall time.
+      const introFrame = (await readFramebufferStats(sessionId)).rendered_frames;
+      await waitFor(async () => (await readFramebufferStats(sessionId)).rendered_frames >= introFrame + 120,
+        90000, "Fight intro did not advance 120 observed core frames.", 500);
+      // MgFight begins with p[2]; the declared MgPlayer prefix is three 32-bit
+      // pointers + four u8, then s32 fixed-point x. Source-bound QA, not REX.
+      const runtimeHeader = await readFile(path.join(source, "inc/mg/mg_runtime.h"), "utf8");
+      if (!/struct MgPlayer\s*\{[\s\S]*?const MgCharDef \*def;[\s\S]*?const MgCharDef \*sdef;[\s\S]*?MgPlayer \*enemy;[\s\S]*?u8 side;[\s\S]*?u8 pal;[\s\S]*?u8 palette_variant;[\s\S]*?u8 is_cpu;[\s\S]*?mgfx x, y, vx, vy;/.test(runtimeHeader)) fail("Fight position probe source prefix changed.");
+      const fightAddress = symbols.get("mg_fight");
+      if (!fightAddress) fail("Fresh ELF has no mg_fight position probe symbol.");
+      const playerState = async () => {
+        const { data } = await readEmulatorMemory(sessionId, 2, fightAddress & 0xffff, 48);
+        const bytes = Buffer.from(data).swap16();
+        return { x_fixed: bytes.readInt32BE(16), state_no: bytes.readInt16BE(34), ctrl: bytes[47] };
+      };
+      const initialX = (await playerState()).x_fixed;
+      const observations = [];
+      // Measure both directions before initiating attacks, which deliberately
+      // disable ctrl in the original game. Keep attack observations separate.
+      for (const code of ["ArrowRight", "ArrowLeft", "KeyZ", "KeyX"]) {
+        const before = code.startsWith("Arrow")
+          ? await waitFor(async () => { const s = await playerState(); return s.ctrl === 1 ? s : false; }, 15000, "Fight player has no directional control.", 250)
+          : await playerState();
+        await sendNativeGameKeyTap(sessionId, code, 800, `fight ${code}`);
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        observations.push({ code, before, ...await playerState(), frame: await readFramebufferStats(sessionId) });
+        addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-fight-${code}.png`), `Fight input ${code}`);
+      }
+      const rightX = observations.find((o) => o.code === "ArrowRight").x_fixed;
+      const leftX = observations.find((o) => o.code === "ArrowLeft").x_fixed;
+      if (!(rightX > initialX && leftX < rightX)) fail(`Native fight movement did not follow directions: ${JSON.stringify({initialX,rightX,leftX,observations})}`);
+      addReportStep(report, "native_fight_direction_changes_player_position", "passed", { initialX, rightX, leftX, intro_frames_observed: 120, address: fightAddress + 16 });
+      addReportStep(report, "native_fight_started_and_inputs_sent", "passed", { states, gApp_address: appAddress, observations,
+        limit: "scene observed in core RAM and native inputs sent; no full match, gameplay equivalence, latency or hardware acceptance" });
+    }
+
     await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
     await waitFor(async () => (await readAutomationState(sessionId))?.emulatorLoaded === false, 15000, "Emulator did not stop.", 150);
     addReportStep(report, "stopped", "passed");
@@ -6250,6 +6350,14 @@ async function runSgdkNativeCScenario(sessionId) {
       addReportStep(report, "cgraph_block_edited_in_ui", "passed", { file: target.file, node: target.id, statement: expectedStatement, previous: target.block.args[0] });
       addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-cgraph-edited.png`), "Block edited through the panel");
 
+      await clickButtonByTestIdNative(sessionId, "toolbar-review");
+      const staleReview = await waitFor(async () => executeScript(sessionId, `const kind=document.querySelector('[data-testid="delivery-freshness"]')?.dataset.kind;
+        return kind==='rebuild-needed'?{kind,verifyDisabled:document.querySelector('[data-testid="delivery-verify-rom"]')?.disabled,exportDisabled:document.querySelector('[data-testid="delivery-export"]')?.disabled}:null;`), 15000, "C edit did not invalidate the prior ROM review.", 150);
+      if (!staleReview.verifyDisabled || !staleReview.exportDisabled) fail("Stale C ROM can still be verified/exported.");
+      addReportStep(report, "c_edit_refuses_previous_rom_review_export", "passed", staleReview);
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-c-edit-stale-review.png`), "C edit requires recompilation before review/export");
+      await clickButtonByTestIdNative(sessionId, "delivery-close");
+
       const edited = await runBuildRunAndCollect(sessionId, "SGDK C edited via nodes", 900000, report, `${prefix}-edited`, { nativeClick: true });
       report.edited_build = edited;
       report.edited_receipt = await checkReceipt(edited, "edited");
@@ -6261,6 +6369,16 @@ async function runSgdkNativeCScenario(sessionId) {
       addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-edited-boot.png`), "Edited ROM running");
       await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
       await waitFor(async () => (await readAutomationState(sessionId))?.emulatorLoaded === false, 15000, "Emulator did not stop.", 150);
+      await clickButtonByTestIdNative(sessionId, "toolbar-review");
+      await waitFor(async () => executeScript(sessionId, `return document.querySelector('[data-testid="delivery-native-scope"]')?.textContent;`), 15000, "Native C delivery scope missing.", 150);
+      await clickButtonByTestIdNativeWhenReady(sessionId, "delivery-verify-rom", "Verificar ROM C");
+      await waitFor(async () => executeScript(sessionId, `return document.querySelector('[data-testid="delivery-export"]')?.disabled === false;`), 30000, "Verified C ROM cannot be exported.", 200);
+      await clickButtonByTestIdNative(sessionId, "delivery-export");
+      const exported = await waitFor(async () => executeScript(sessionId, `const e=document.querySelector('[data-testid="delivery-exported"]');return e?{path:e.dataset.path,sha:e.dataset.sha256}:null;`), 30000, "Native C export missing.", 200);
+      if (exported.sha !== edited.rom_sha256 || await hashFile(exported.path) !== edited.rom_sha256) fail("Exported C ROM differs from the edited and executed build.");
+      addReportStep(report, "native_c_review_export_matches_executed_rom", "passed", exported);
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-delivery.png`), "Native C ROM verified and exported after Stop");
+      await clickButtonByTestIdNative(sessionId, "delivery-close");
     } finally {
       await writeFile(target.graphFile, target.graphRaw);
     }
@@ -6269,6 +6387,7 @@ async function runSgdkNativeCScenario(sessionId) {
     await callAutomationApi(sessionId, "closeProject");
     await openAndInspect("reopen");
     addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-reopen.png`), "Reopened original C root");
+    if (report.steps.some((entry) => entry.status === "failed")) fail("Native C journey has failed assertions; see report.");
     report.status = "passed";
   } catch (error) {
     report.status = "failed";
@@ -6292,7 +6411,7 @@ async function runPixelEditorScenario(sessionId) {
   await mkdir(output, { recursive: true });
   const prefix = `pixel-editor-${artifactTimestamp()}`;
   const overlay = path.join(source, "rds");
-  const report = { schema: "retrodev.pixel_editor/v1", maturity: "Experimental", source, steps: [], artifacts: [] };
+  const report = { schema: "retrodev.pixel_editor/v1", maturity: "Experimental", source, app_sha256: createHash("sha256").update(await readFile(currentE2eRunContext.appPath)).digest("hex"), steps: [], artifacts: [] };
   const shot = async (name, label) => addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${name}.png`), label);
   const js = (code, args = []) => executeScript(sessionId, code, args);
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -6364,6 +6483,8 @@ async function runPixelEditorScenario(sessionId) {
       return { statusText: await js(`return document.querySelector('[data-testid="pixel-status"]')?.textContent ?? "";`) };
     });
     await shot("painted", "Pixel editor after drawing a line");
+    // Own asset name: never overwrite the operator's previous pixel documents.
+    await fillInputBySelector(sessionId, '[data-testid="pixel-doc-name"]', `qa_pixel_${Date.now()}`);
     const saved = await step("save_png", async () => {
       await clickByTestId(sessionId, "pixel-save");
       await waitFor(async () => (await js(`return document.querySelector('[data-testid="pixel-save"]')?.textContent?.includes("Salvo") ? true : null;`)) || false, 20000, "Save did not finish.", 250);
@@ -6376,7 +6497,40 @@ async function runPixelEditorScenario(sessionId) {
     if (saved.bitDepth !== 4 || saved.colorType !== 3) fail(`PNG nao e indexado 4-bit: ${JSON.stringify(saved)}`);
     await sleep(800);
     await shot("saved", "Saved PNG reopened in Art");
-    report.status = "passed";
+    await executeScript(sessionId, `document.querySelector('[data-testid="pixel-frame-duplicate"]').click(); return true;`);
+    await sleep(200);
+    await clickByTestId(sessionId, "pixel-save");
+    await waitFor(async () => js(`return document.querySelector('[data-testid="pixel-save"]')?.textContent?.includes("Salvo");`), 20000, "Second save did not finish.", 250);
+    await executeScript(sessionId, `document.querySelector('[data-testid="pixel-editor"]').dispatchEvent(new KeyboardEvent("keydown", { key:"z", ctrlKey:true, bubbles:true })); return true;`);
+    await sleep(300);
+    const undone = await js(`return { frames:document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length, saved:document.querySelector('[data-testid="pixel-save"]')?.textContent?.includes("Salvo") };`);
+    addReportStep(report, "undo_does_not_claim_saved", undone.frames === saved.frames && !undone.saved ? "passed" : "failed", undone);
+    await shot("undo", "Undo after saving must show pending pixel edits");
+    await clickByTestId(sessionId, "artstudio-mode-prepare");
+    await clickByTestId(sessionId, "artstudio-mode-pixel");
+    const returned = await js(`return { frames:document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length, name:document.querySelector('[data-testid="pixel-doc-name"]')?.value };`);
+    addReportStep(report, "mode_switch_preserves_document", returned.frames === undone.frames && returned.name === saved.name ? "passed" : "failed", returned);
+    await shot("returned", "Pixel document after switching modes");
+    await callAutomationApi(sessionId, "selectWorkspace", ["scene"]);
+    await callAutomationApi(sessionId, "selectWorkspace", ["artstudio"]);
+    await clickByTestId(sessionId, "artstudio-mode-pixel");
+    const acrossWorkspace = await js(`return { frames:document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length, name:document.querySelector('[data-testid="pixel-doc-name"]')?.value };`);
+    addReportStep(report, "workspace_switch_preserves_document", acrossWorkspace.frames === undone.frames && acrossWorkspace.name === saved.name ? "passed" : "failed", acrossWorkspace);
+    // Save the current revision, close/reopen through the product, then open
+    // its own indexed PNG + native document through Art (no JSON authorship).
+    await clickByTestId(sessionId, "pixel-save");
+    await waitFor(async () => js(`return document.querySelector('[data-testid="pixel-save"]')?.textContent?.includes("Salvo");`), 20000, "Current pixel revision did not save.", 250);
+    await callAutomationApi(sessionId, "closeProject");
+    await js("window.__RDS_E2E__.openProject(arguments[0]); return true;", [source]);
+    await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === overlay, 30000, "Pixel project did not reopen.", 250);
+    await callAutomationApi(sessionId, "openAssetInArtStudio", [`assets/sprites/pixel/${saved.name}.png`]);
+    await clickByTestId(sessionId, "artstudio-mode-pixel");
+    await waitFor(async () => js(`return document.querySelector('[data-testid="pixel-import-art"]')?.textContent?.includes(arguments[0]);`, [saved.name]), 20000, "Saved asset was not selected in Art.", 250);
+    await clickByTestId(sessionId, "pixel-import-art");
+    const reopened = await waitFor(async () => js(`return document.querySelector('[data-testid="pixel-status"]')?.textContent?.includes("reaberto com layers") ? {frames:document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length,name:document.querySelector('[data-testid="pixel-doc-name"]')?.value} : null;`), 20000, "Native pixel document did not reopen.", 250);
+    addReportStep(report, "saved_pixel_document_reopened_in_art", reopened.frames === undone.frames && reopened.name === saved.name ? "passed" : "failed", reopened);
+    await shot("reopened", "Saved native pixel document reopened through Art");
+    report.status = report.steps.every((entry) => entry.status === "passed") ? "passed" : "failed";
     report.imported = imported;
   } catch (error) {
     report.status = "failed";
@@ -6560,6 +6714,17 @@ async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
   await clickByTestId(sessionId, "external-import-confirm");
   await waitFor(async () => exists("mugen-source-action-200"), 120000, "Triagem Ken nao abriu.", 200);
   report.source_metadata_ms = Date.now() - metadataStarted;
+  // Cancel the real source review before any conversion/project creation,
+  // then retry through the same visible import path.
+  await clickByTestId(sessionId, "mugen-source-cancel");
+  await waitFor(async () => !(await exists("mugen-source-import")), 15000, "MUGEN review did not close on Cancel.", 150);
+  const canceledState = await state();
+  const canceledCandidate = path.join(os.homedir(), "Documents", "RetroDevProjects", name);
+  if (canceledState?.activeProjectDir || existsSync(canceledCandidate)) fail("Canceled MUGEN review left an active/partial project.");
+  step("cancel_source_review_without_creating_project", { activeProjectDir: canceledState.activeProjectDir, projectDirectoryExists: false, limit: "Cancellation before conversion; not a mid-build abort" });
+  await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source]);
+  await clickByTestId(sessionId, "external-import-confirm");
+  await waitFor(async () => exists("mugen-source-action-200"), 120000, "MUGEN review did not reopen after Cancel.", 200);
   if (!(await js(`return document.querySelector('[data-testid="mugen-source-import"]')?.disabled === true;`))) {
     fail("A listagem inicial não pode liberar a importação antes da análise dos pixels.");
   }
@@ -9208,7 +9373,73 @@ async function runMugenLocomotionScenario(sessionId, timeoutMs, uiBootstrapTimeo
   console.log(`OK: Desktop Tauri mugen-locomotion E2E passou. Relatorio: ${reportPath}`);
 }
 
+async function runSnesGuidedAuthoringScenario(sessionId, timeoutMs, onProjectCreated) {
+  const prefix = `snes-guided-authoring-${artifactTimestamp()}`;
+  const report = { schema: "retrodev.snes_guided_authoring/v1", app_sha256: createHash("sha256").update(await readFile(currentE2eRunContext.appPath)).digest("hex"), steps: [], artifacts: [],
+    limit: "UI creation/edit/save/reopen/build/core/export of the supported guided starter; MD reference is refused; not full SNES gameplay, audio or genre parity" };
+  const hash = async (file) => createHash("sha256").update(await readFile(file)).digest("hex");
+  const js = (code, args = []) => executeScript(sessionId, code, args);
+  try {
+    await setSessionWindowRect(sessionId, 1366, 768);
+    await waitForOnboardingWizard(sessionId);
+    await clickByTestId(sessionId, "template-card-reference_platformer");
+    await waitFor(async () => js(`return [...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='SNES')?.disabled === true;`), 5000, "MD-only reference template did not disable SNES.", 100);
+    addReportStep(report, "md_reference_snes_combination_refused_in_wizard", "passed");
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-md-scope.png`), "Reference template scope: Mega Drive only");
+    await clickByTestId(sessionId, "template-card-starter_guided");
+    await clickButtonByText(sessionId, "SNES", "exact");
+    const name = `SNES_Authoring_${Date.now()}`;
+    await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
+    await clickButtonByText(sessionId, "Criar Projeto", "exact");
+    const created = await waitFor(async () => {
+      const s = await readAutomationState(sessionId);
+      return s?.activeProjectName === name && s.activeTarget === "snes" ? s : false;
+    }, 60000, "SNES guided starter template was not created through the wizard.", 250);
+    const project = created.activeProjectDir;
+    onProjectCreated(project);
+    report.project = project;
+    currentE2eRunContext.project = project;
+    await callAutomationApi(sessionId, "setSelectedEntityId", ["player"]);
+    await setInputByTestIdNative(sessionId, "inspector-transform-x", "120");
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await clickButtonByTestIdNative(sessionId, "toolbar-save");
+    const playerOnDisk = async () => JSON.parse(await readFile(path.join(project, "scenes/main.json"), "utf8")).entities.find((e) => e.entity_id === "player");
+    await waitFor(async () => (await playerOnDisk())?.transform.x === 120, 15000, "SNES native Inspector edit did not persist.", 200);
+    addReportStep(report, "wizard_snes_starter_and_native_inspector_edit_saved", "passed", { project, x: 120 });
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-edited.png`), "SNES guided starter created and edited through the UI");
+    await callAutomationApi(sessionId, "closeProject");
+    await js("return window.__RDS_E2E__.openProject(arguments[0]);", [project]);
+    await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === project, 30000, "SNES project did not reopen.", 250);
+    if ((await playerOnDisk())?.transform.x !== 120) fail("SNES position changed after reopen.");
+    addReportStep(report, "snes_saved_project_reopened", "passed", { x: 120 });
+    const build = await runBuildRunAndCollect(sessionId, "SNES authored starter", timeoutMs, report, prefix, { nativeClick: true, target: "snes" });
+    report.build = build;
+    const core = await executeAsyncScript(sessionId, `const done=arguments[arguments.length-1];
+      const invoke=window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke;
+      invoke("emulator_observe").then(done).catch(e=>done({error:String(e)}));`);
+    report.core = { label: core.core_label, sha256: core.rom_sha256 };
+    if (!/snes9x/i.test(core.core_label ?? "") || core.rom_sha256 !== build.rom_sha256) fail(`SNES guided starter used an unexpected core/ROM: ${JSON.stringify(report.core)}`);
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-running.png`), "SNES guided starter in the official core");
+    await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
+    await waitFor(async () => !(await readAutomationState(sessionId))?.emulatorLoaded, 15000, "SNES core did not stop.", 150);
+    await clickButtonByTestIdNative(sessionId, "toolbar-review");
+    await clickButtonByTestIdNativeWhenReady(sessionId, "delivery-verify-rom", "Verificar ROM SNES");
+    await waitFor(async () => js(`return document.querySelector('[data-testid="delivery-export"]')?.disabled === false;`), 30000, "SNES guided starter export remains blocked.", 250);
+    await clickButtonByTestIdNative(sessionId, "delivery-export");
+    const exported = await waitFor(async () => js(`const e=document.querySelector('[data-testid="delivery-exported"]');return e?{path:e.dataset.path,sha:e.dataset.sha256}:null;`), 30000, "SNES guided starter was not exported.", 200);
+    if (exported.sha !== build.rom_sha256 || await hash(exported.path) !== build.rom_sha256) fail("SNES export differs from the executed build.");
+    addReportStep(report, "snes_authored_build_core_export_same_rom", "passed", exported);
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-exported.png`), "SNES authored starter verified and exported");
+    report.status = "passed";
+  } catch (error) { report.status = "failed"; report.error = String(error);
+    report.last_state = await readAutomationState(sessionId).catch(() => null);
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-failed.png`).catch(() => null), "SNES creation/build failure");
+    throw error; }
+  finally { await writeFile(path.join(validationDir, `${prefix}-report.json`), JSON.stringify(report, null, 2)); }
+}
+
 async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCreated) {
+  if (process.env.RDS_AUTHORING_TARGET === "snes") return runSnesGuidedAuthoringScenario(sessionId, timeoutMs, onProjectCreated);
   const artifactPrefix = `reference-platformer-${artifactTimestamp()}`;
   const reportPath = path.join(validationDir, `${artifactPrefix}-report.json`);
   const report = {

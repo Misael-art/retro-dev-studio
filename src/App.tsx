@@ -1900,7 +1900,8 @@ export default function App() {
   const importAdvancedProjectTemplates = projectTemplates.filter(
     (template) => template.source_kind !== "builtin" || template.experimental
   );
-  const selectedTemplateMegadriveOnly = selectedTemplate?.source_kind === "external_sgdk";
+  const selectedTemplateMegadriveOnly = selectedTemplate?.mega_drive_only
+    ?? selectedTemplate?.source_kind === "external_sgdk";
   const selectedTemplateAvailability = selectedTemplate
     ? templateAvailability(selectedTemplate)
     : null;
@@ -5038,7 +5039,7 @@ export default function App() {
                 </p>
                 {selectedTemplateMegadriveOnly ? (
                   <p className="mt-2 text-[#fab387]">
-                    Este seed experimental e Mega Drive only nesta wave.
+                    Este modelo é exclusivo de Mega Drive. Para SNES, escolha Projeto Vazio ou Primeiro Projeto.
                   </p>
                 ) : null}
                 {selectedTemplate ? (

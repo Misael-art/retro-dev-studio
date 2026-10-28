@@ -5214,6 +5214,8 @@ fn create_project_from_template_at_base_dir(
     template_id: &str,
     donor_path: Option<&Path>,
 ) -> Result<OpenProjectResult, String> {
+    crate::core::project_mgr::validate_project_template_target(template_id, target)
+        .map_err(|error| error.to_string())?;
     let (project_dir, notice) = reserve_project_dir(base_dir, project_name)?;
 
     let project = create_project_skeleton(&project_dir, project_name, target)
@@ -9779,6 +9781,42 @@ pub extern "C" fn retro_run() {
                 && profile.importable
                 && profile.support_status == "Experimental"
         }));
+    }
+
+    #[test]
+    fn template_target_refusal_happens_before_project_directory_reservation() {
+        let base = temp_dir("template-target-preflight");
+        let result = create_project_from_template_at_base_dir(
+            &base,
+            "NoPartialProject",
+            "snes",
+            "reference_platformer",
+            None,
+        );
+        assert!(result.err().unwrap().contains("exclusivo de Mega Drive"));
+        assert!(!base.join("NoPartialProject").exists());
+        assert_eq!(fs::read_dir(&base).unwrap().count(), 0);
+        let catalog = list_registered_project_templates().unwrap();
+        assert!(
+            catalog
+                .iter()
+                .find(|t| t.id == "reference_platformer")
+                .unwrap()
+                .mega_drive_only
+        );
+        assert!(
+            !catalog
+                .iter()
+                .find(|t| t.id == "starter_guided")
+                .unwrap()
+                .mega_drive_only
+        );
+        assert!(crate::core::project_mgr::validate_project_template_target(
+            "starter_guided",
+            "snes"
+        )
+        .is_ok());
+        fs::remove_dir_all(base).unwrap();
     }
 
     #[test]

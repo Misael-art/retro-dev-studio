@@ -45,6 +45,7 @@ export interface ProjectTemplateSummary {
   source_kind: string;
   recommended_target: "megadrive" | "snes";
   experimental: boolean;
+  mega_drive_only?: boolean;
   available: boolean;
   availability_reason?: string | null;
   default_donor_path?: string | null;
