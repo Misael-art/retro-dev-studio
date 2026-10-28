@@ -49,6 +49,7 @@
 - `libloading` para carregar cores Libretro
 - `sevenz-rust2` para leitura de corpus/projetos compactados; downloads e extracao de toolchains pertencem exclusivamente ao host-manager, nao ao runtime Rust
 - `image` para staging/conversao de asset real no caminho SNES e processamento Photo2SGDK (quantizacao, palette snapping Mega Drive)
+- `tree-sitter` 0.25 + `tree-sitter-c` 0.24 (aprovado pelo operador em 2026-10-27) para o grafo C sem perdas de projetos SGDK importados (`core/sgdk_c_graph.rs`, Experimental): parser C real, round-trip byte-a-byte e build do C editado nos nodes
 
 ### Ferramentas aprovadas de validacao e processo
 - `scripts/check-tree.cjs` para validar a estrutura raiz

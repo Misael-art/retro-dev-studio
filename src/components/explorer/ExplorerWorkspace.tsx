@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import AssetPreview from "../common/AssetPreview";
+import { CGraphPanel } from "./CGraphPanel";
 import {
   listScenes,
   switchScene,
@@ -541,7 +542,13 @@ export default function ExplorerWorkspace({
                     <span className="font-mono text-[#e4e4e7]">rds/</span>. Recursos de animação ficam no catálogo, sem instância em cena; instâncias, estados e transições são do C.
                   </li>
                   <li>
-                    <span className="font-semibold text-[#f38ba8]">Requer integração adicional:</span> código C e manifests{" "}
+                    <span className="font-semibold text-[#a6e3a1]">Consumido pelo build C:</span> lógica C de{" "}
+                    <span className="font-mono text-[#e4e4e7]">src/</span> e{" "}
+                    <span className="font-mono text-[#e4e4e7]">inc/</span> editada pelos nodes (grafo em{" "}
+                    <span className="font-mono text-[#e4e4e7]">rds/code/</span>; build em cópia).
+                  </li>
+                  <li>
+                    <span className="font-semibold text-[#f38ba8]">Requer integração adicional:</span> manifests{" "}
                     <span className="font-mono text-[#e4e4e7]">.res</span> (somente leitura nesta workspace).
                   </li>
                 </ul>
@@ -812,6 +819,9 @@ export default function ExplorerWorkspace({
                     </>
                   ) : null}
                 </div>
+                {activeProjectDir && /^(src|inc)\/.*\.(c|h)$/i.test(selection.path) ? (
+                  <CGraphPanel projectDir={activeProjectDir} sourceFile={selection.path} />
+                ) : null}
               </div>
             ) : null}
           </div>

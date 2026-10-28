@@ -612,10 +612,6 @@ where
             return failed_build_result(target.target, log, Some(&host_root));
         }
 
-        emit!(
-            "info",
-            "Escopo C original: cenas, entidades e grafos do Studio nao sao consumidos por este build; apenas assets projetados de res/ (hardlink) chegam ao C."
-        );
         let diverged = diverged_overlay_assets(project_dir, &host_root);
         if !diverged.is_empty() {
             for (destination, source) in &diverged {
@@ -633,8 +629,55 @@ where
             return failed_build_result(target.target, log, Some(&host_root));
         }
 
-        if find_makefile(&host_root).is_none() {
-            if let Some(bridge) = find_sgdkforge_wrapper_bridge(&host_root) {
+        let edited_sources =
+            match crate::core::sgdk_c_graph::edited_c_sources(&host_root, project_dir) {
+                Ok(edited) => edited,
+                Err(error) => {
+                    emit!("error", error);
+                    return failed_build_result(target.target, log, Some(&host_root));
+                }
+            };
+        let wrapper_bridge = if find_makefile(&host_root).is_none() {
+            find_sgdkforge_wrapper_bridge(&host_root)
+        } else {
+            None
+        };
+        let host_root = if edited_sources.is_empty() {
+            emit!(
+                "info",
+                "Escopo C original: o build consome o C da raiz (sem edicoes nos grafos C de code/) e os assets projetados de res/; cenas e entidades do Studio nao entram."
+            );
+            host_root
+        } else {
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|elapsed| elapsed.as_millis())
+                .unwrap_or_default();
+            let staging = project_dir
+                .join(".rds")
+                .join("c_build")
+                .join(format!("run_{stamp}"));
+            if let Err(error) =
+                crate::core::sgdk_c_graph::stage_c_project(&host_root, &staging, &edited_sources)
+            {
+                emit!("error", format!("Falha ao preparar C editado: {error}"));
+                return failed_build_result(target.target, log, Some(&host_root));
+            }
+            for (rel, _) in &edited_sources {
+                emit!("info", format!("Fonte regenerada do grafo C: {rel}"));
+            }
+            emit!(
+                "info",
+                format!(
+                    "Build usa copia com C regenerado dos nodes em '{}'; a raiz original nao e alterada.",
+                    staging.display()
+                )
+            );
+            staging
+        };
+
+        {
+            if let Some(bridge) = wrapper_bridge {
                 emit!(
                     "info",
                     format!(
@@ -6173,6 +6216,7 @@ if [ "$mode" = fail ]; then echo "wine_bridge_status=blocked reason=sgdk_make_fa
 if [ "$mode" = stale ]; then echo "wine_bridge_status=buildado"; exit 0; fi
 mkdir -p "$root/$out" "$root/$rep"
 printf 'SEGA MEGA DRIVE fresh' > "$root/$out/rom.bin"
+if [ "$mode" = embed ]; then cat "$root/src/main.c" >> "$root/$out/rom.bin"; fi
 sha="$(sha256sum "$root/$out/rom.bin" | cut -d ' ' -f 1)"
 if [ "$mode" = tamper ]; then sha=0000; fi
 printf '{{"status":"buildado","exit_code":0,"output_dir":"%s","started_at":"2026-10-27T00:00:00Z","rom":{{"path":"%s","sha256":"%s"}}}}\n' "$out" "$root/$out/rom.bin" "$sha" > "$root/$rep/linux_wine_build_report.json"
@@ -6212,6 +6256,84 @@ echo "wine_bridge_status=buildado"
             .any(|line| line.message.contains("Modo C original (SGDKForge wrapper)")));
 
         let _ = fs::remove_dir_all(forge);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn legacy_sgdk_overlay_builds_c_regenerated_from_edited_c_graph() {
+        let _serial = test_serial_guard();
+        let (forge, overlay) = sgdkforge_wrapper_fixture("sgdkforge-cgraph-edit", "embed");
+        let host = forge.join("SGDK_projects").join("game");
+        let graph_path = crate::core::sgdk_c_graph::graph_path_for(&overlay, "src/main.c");
+        let raw = fs::read_to_string(&graph_path).expect("c graph written on import");
+        let edited = raw.replace("return 0;", "return 7;");
+        assert_ne!(raw, edited, "grafo deve conter o statement original");
+        fs::write(&graph_path, edited).expect("edit graph");
+
+        let result = run_build(&overlay, |_| {});
+
+        assert!(result.ok, "wrapper build log: {:?}", result.log);
+        let rom = fs::read(&result.rom_path).expect("read rom");
+        assert!(String::from_utf8_lossy(&rom).contains("return 7;"));
+        assert!(PathBuf::from(&result.rom_path).starts_with(overlay.join(".rds").join("c_build")));
+        assert_eq!(
+            fs::read_to_string(host.join("src").join("main.c")).unwrap(),
+            "int main(void){return 0;}\n",
+            "raiz C original nao e alterada"
+        );
+        assert!(result.log.iter().any(|line| line
+            .message
+            .contains("Fonte regenerada do grafo C: src/main.c")));
+
+        // Fonte alterada fora do Studio com grafo editado: recusa sem ROM.
+        fs::write(
+            host.join("src").join("main.c"),
+            "int main(void){return 1;}\n",
+        )
+        .unwrap();
+        let refused = run_build(&overlay, |_| {});
+        assert!(!refused.ok);
+
+        let _ = fs::remove_dir_all(forge);
+    }
+
+    /// Prova real: `RDS_SGDK_C_GRAPH_BUILD_ROOT` = raiz SGDKForge original. Compara a ROM
+    /// do C original com a ROM do C regenerado dos nodes (edicao neutra em comentario).
+    #[cfg(target_os = "linux")]
+    #[test]
+    #[ignore]
+    fn legacy_sgdk_overlay_c_graph_real_rom_equivalence() {
+        let host = PathBuf::from(std::env::var("RDS_SGDK_C_GRAPH_BUILD_ROOT").expect("root"));
+        let overlay = crate::core::project_mgr::import_legacy_sgdk_project(&host, None).unwrap();
+        let graph_path = crate::core::sgdk_c_graph::graph_path_for(&overlay, "src/main.c");
+        let pristine = fs::read_to_string(&graph_path).unwrap();
+        let sha = |path: &str| crate::core::rom_mastering::sha256_hex(&fs::read(path).unwrap());
+
+        let original = run_build(&overlay, |_| {});
+        assert!(original.ok, "{:?}", original.log);
+        let mut graph = crate::core::sgdk_c_graph::load_c_graph(&graph_path).unwrap();
+        fn first_syntax(node: &mut crate::core::sgdk_c_graph::CGraphNode) -> Option<&mut String> {
+            if node.kind == "syntax" && node.text.as_deref().is_some_and(|t| t.ends_with('\n')) {
+                return node.text.as_mut();
+            }
+            node.children.iter_mut().find_map(first_syntax)
+        }
+        first_syntax(&mut graph.root)
+            .unwrap()
+            .push_str("/* rds c-graph */\n");
+        fs::write(&graph_path, serde_json::to_string(&graph).unwrap()).unwrap();
+        let regenerated = run_build(&overlay, |_| {});
+        fs::write(&graph_path, &pristine).unwrap();
+        assert!(regenerated.ok, "{:?}", regenerated.log);
+        println!(
+            "CGRAPH_ROM original={} {} regenerated={} {}",
+            original.rom_path,
+            sha(&original.rom_path),
+            regenerated.rom_path,
+            sha(&regenerated.rom_path)
+        );
+        assert!(regenerated.rom_path.contains("c_build"));
+        assert_eq!(sha(&original.rom_path), sha(&regenerated.rom_path));
     }
 
     #[cfg(target_os = "linux")]

@@ -221,3 +221,63 @@ export function updateProjectSettings(
 ): Promise<ProjectSettingsUpdateResult> {
   return invoke("update_project_settings", { projectDir, settings });
 }
+
+export interface CGraphNode {
+  id: string;
+  kind: string;
+  role: "item" | "syntax" | "comment";
+  label: string;
+  start_line: number;
+  end_line: number;
+  text?: string;
+  children?: CGraphNode[];
+  function?: string;
+  calls?: string[];
+}
+
+export interface CGraphFile {
+  schema: string;
+  source_file: string;
+  source_sha256: string;
+  parse_error_nodes: number;
+  root: CGraphNode;
+}
+
+export interface CGraphIndex {
+  schema: string;
+  files: {
+    source_file: string;
+    graph_file: string;
+    source_sha256: string;
+    roundtrip_exact: boolean;
+    parse_error_nodes: number;
+    stale: boolean;
+  }[];
+  functions: { file: string; name: string; line: number; node_id: string; calls: string[] }[];
+  state_machines: {
+    file: string;
+    function: string | null;
+    subject: string;
+    states: string[];
+    line: number;
+    node_id: string;
+  }[];
+  entry_points: string[];
+}
+
+export function getSgdkCGraphIndex(projectDir: string): Promise<CGraphIndex> {
+  return invoke("sgdk_c_graph_index", { projectDir });
+}
+
+export function getSgdkCGraphFile(projectDir: string, sourceFile: string): Promise<CGraphFile> {
+  return invoke("sgdk_c_graph_file", { projectDir, sourceFile });
+}
+
+export function updateSgdkCGraphNode(
+  projectDir: string,
+  sourceFile: string,
+  nodeId: string,
+  text: string
+): Promise<CGraphFile> {
+  return invoke("sgdk_c_graph_update_node", { projectDir, sourceFile, nodeId, text });
+}

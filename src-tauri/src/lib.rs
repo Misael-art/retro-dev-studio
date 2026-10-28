@@ -3403,6 +3403,36 @@ fn open_path_with_system_default(path: &Path) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn sgdk_c_graph_index(
+    project_dir: String,
+) -> Result<crate::core::sgdk_c_graph::CGraphIndex, String> {
+    crate::core::sgdk_c_graph::load_c_graph_index(Path::new(project_dir.trim()))
+}
+
+#[tauri::command]
+fn sgdk_c_graph_file(
+    project_dir: String,
+    source_file: String,
+) -> Result<crate::core::sgdk_c_graph::CGraphFile, String> {
+    crate::core::sgdk_c_graph::load_indexed_c_graph(Path::new(project_dir.trim()), &source_file)
+}
+
+#[tauri::command]
+fn sgdk_c_graph_update_node(
+    project_dir: String,
+    source_file: String,
+    node_id: String,
+    text: String,
+) -> Result<crate::core::sgdk_c_graph::CGraphFile, String> {
+    crate::core::sgdk_c_graph::update_c_graph_node(
+        Path::new(project_dir.trim()),
+        &source_file,
+        &node_id,
+        &text,
+    )
+}
+
+#[tauri::command]
 fn read_legacy_project_file(
     project_dir: String,
     relative_path: String,
@@ -6270,6 +6300,9 @@ pub fn run() {
             read_project_asset_bytes,
             open_project_source_path,
             read_legacy_project_file,
+            sgdk_c_graph_index,
+            sgdk_c_graph_file,
+            sgdk_c_graph_update_node,
             third_party_get_status,
             third_party_install,
             third_party_detect_rom_dependency,

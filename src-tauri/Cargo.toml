@@ -39,3 +39,5 @@ rex-mugen = { path = "../crates/rex-mugen" }
 libloading = "0.8"
 image = { version = "0.25", default-features = false, features = ["bmp", "png", "pnm", "jpeg", "gif", "webp"] }
 sevenz-rust2 = { version = "0.16", features = ["util"] }
+tree-sitter = "0.25"
+tree-sitter-c = "0.24"

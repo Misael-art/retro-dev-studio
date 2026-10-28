@@ -3682,6 +3682,8 @@ pub fn import_legacy_sgdk_project(
     let overlay_dir = sgdk_root.join("rds");
     if overlay_dir.join("project.rds").is_file() {
         write_legacy_sgdk_index(&overlay_dir, &index)?;
+        crate::core::sgdk_c_graph::write_c_graph_project(sgdk_root, &overlay_dir)
+            .map_err(LoadError)?;
         return Ok(overlay_dir);
     }
 
@@ -3732,6 +3734,7 @@ pub fn import_legacy_sgdk_project(
         Some("legacy_sgdk_overlay_v1".to_string()),
     )?;
     write_legacy_sgdk_index(&overlay_dir, &index)?;
+    crate::core::sgdk_c_graph::write_c_graph_project(sgdk_root, &overlay_dir).map_err(LoadError)?;
     Ok(overlay_dir)
 }
 

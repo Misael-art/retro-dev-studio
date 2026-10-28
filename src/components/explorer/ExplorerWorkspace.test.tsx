@@ -156,6 +156,7 @@ describe("ExplorerWorkspace", () => {
     expect(editScope).toContain("Consumido pelo build C:");
     expect(editScope).toContain("Só organização no Studio:");
     expect(editScope).toContain("Requer integração adicional:");
+    expect(editScope).toContain("rds/code/");
     expect(container.querySelector("[data-testid='legacy-host-summary']")?.textContent).toContain(
       LEGACY_INDEX.host_root
     );
