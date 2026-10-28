@@ -149,7 +149,12 @@ function NodeRow({
   const expanded = open || (selectedId !== null && !selected && containsId(node, selectedId));
   const rowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (selected) rowRef.current?.scrollIntoView?.({ block: "center" });
+    // Centraliza só dentro da árvore; não rola a página nem a Lógica inteira.
+    const row = rowRef.current;
+    const tree = row?.closest<HTMLElement>("[data-cgraph-tree]");
+    if (!selected || !row || !tree) return;
+    const offset = row.getBoundingClientRect().top - tree.getBoundingClientRect().top;
+    tree.scrollTop += offset - tree.clientHeight / 2 + row.clientHeight / 2;
   }, [selected]);
   return (
     <li>
@@ -383,7 +388,7 @@ export function CGraphPanel({ projectDir, sourceFile, focusNodeId = null }: CGra
       ) : null}
       {graph ? (
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
-          <ul className="max-h-[420px] overflow-auto rounded-2xl border border-[#1f2937] bg-[#020617] p-2">
+          <ul data-cgraph-tree="true" className="max-h-[420px] overflow-auto rounded-2xl border border-[#1f2937] bg-[#020617] p-2">
             {roots.map((node) => (
               <NodeRow key={node.id} node={node} depth={0} selectedId={selectedId} onSelect={select} />
             ))}

@@ -3325,3 +3325,7 @@ Relato do operador: o painel de paletas acusava conflito em capturas, mas o jogo
 - **Não validado no app real:** o E2E foi bloqueado pelo ambiente.
   - (1) O shell passou a ter `WAYLAND_DISPLAY=wayland-0` e o app abria no desktop real, onde a janela não redimensiona. Para o E2E, rodar com `env -u WAYLAND_DISPLAY GDK_BACKEND=x11 DISPLAY=:173`.
   - (2) Em seguida, o build Wine falhou porque o tmpfs `/run/user/1000` (1,5 GB) está cheio. A causa é `forge-sessions/1bf5a050/audio.raw` (1,5 GB), de outra sessão (Xvfb `:100`), que não foi removida.
+- **Atualização (d):** E2E real `sgdk-native-c` **14/14** com o tmpfs liberado (rodar com `env -u WAYLAND_DISPLAY GDK_BACKEND=x11 DISPLAY=:173`).
+  - A captura teve 17 entidades e 13 sprites ligados.
+  - O Inspector mostrou `mg_ken_shadow`; o clique levou à Lógica com `MG_fightUseSharedShadow(&mg_ken_shadow)` (`scene_demo.c:1692`) selecionado e o editor do bloco aberto.
+  - O node é centralizado só dentro da árvore (antes rolava a página e escondia as abas).
