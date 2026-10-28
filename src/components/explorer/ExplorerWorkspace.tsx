@@ -782,6 +782,9 @@ export default function ExplorerWorkspace({
 
             {selection?.kind === "legacy" ? (
               <div className="space-y-4">
+                {activeProjectDir && /^(src|inc)\/.*\.(c|h)$/i.test(selection.path) ? (
+                  <CGraphPanel projectDir={activeProjectDir} sourceFile={selection.path} />
+                ) : null}
                 <div className="rounded-3xl border border-[#1f2937] bg-[#0b1120]/70 p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -793,7 +796,7 @@ export default function ExplorerWorkspace({
                       </h2>
                     </div>
                     <span className="rounded-full border border-[#313244] bg-[#111827] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#f9e2af]">
-                      Read-only
+                      {/^(src|inc)\/.*\.(c|h)$/i.test(selection.path) ? "Original · edite pelos nodes" : "Read-only"}
                     </span>
                   </div>
 
@@ -819,9 +822,6 @@ export default function ExplorerWorkspace({
                     </>
                   ) : null}
                 </div>
-                {activeProjectDir && /^(src|inc)\/.*\.(c|h)$/i.test(selection.path) ? (
-                  <CGraphPanel projectDir={activeProjectDir} sourceFile={selection.path} />
-                ) : null}
               </div>
             ) : null}
           </div>

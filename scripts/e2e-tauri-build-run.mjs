@@ -6071,20 +6071,26 @@ async function runSgdkNativeCScenario(sessionId) {
     await waitForOnboardingWizard(sessionId).catch(() => null);
     await openAndInspect("open");
     await callAutomationApi(sessionId, "selectWorkspace", ["explorer"]).catch(() => null);
-    const scope = await executeScript(sessionId, "return document.querySelector('[data-testid=\"legacy-host-edit-scope\"]')?.textContent ?? '';");
+    const scope = await waitFor(async () => executeScript(sessionId, "return document.querySelector('[data-testid=\"legacy-host-edit-scope\"]')?.textContent ?? '';"), 30000, "Edit scope not rendered.", 250).catch(() => "");
     addReportStep(report, "edit_scope_visible", scope.includes("Consumido pelo build C") ? "passed" : "not_observed", { scope });
     addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-open.png`), "Original C root opened as overlay");
 
+    // O build roda numa copia nova em rds/.rds/c_build/run_*/ com saida padrao out/.
+    const checkReceipt = async (build, label) => {
+      const runRoot = path.dirname(path.dirname(build.rom_path));
+      if (path.dirname(runRoot) !== path.join(overlay, ".rds", "c_build") || !path.basename(runRoot).startsWith("run_") || path.basename(path.dirname(build.rom_path)) !== "out") {
+        fail(`ROM did not come from a fresh staged wrapper run (${label}): ${build.rom_path}`);
+      }
+      const receiptPath = path.join(runRoot, "out", "logs", "linux_wine_build_report.json");
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      if (receipt.status !== "buildado" || receipt.rom.sha256 !== build.rom_sha256) fail(`Receipt does not match executed ROM (${label}): ${JSON.stringify(receipt.rom)}`);
+      const detail = { path: receiptPath, started_at: receipt.started_at, completed_at: receipt.completed_at, rom_sha256: receipt.rom.sha256, sdk_content_sha256: receipt.sdk_content_sha256, source_tree_sha256: receipt.build_input_snapshot?.source_tree_sha256 };
+      addReportStep(report, `rom_matches_wrapper_receipt_${label}`, "passed", detail);
+      return detail;
+    };
     const build = await runBuildRunAndCollect(sessionId, "SGDK original C", 900000, report, prefix, { nativeClick: true });
     report.build = build;
-    const runDir = path.dirname(build.rom_path);
-    if (path.dirname(runDir) !== path.join(source, "out", "tests") || !path.basename(runDir).startsWith("rds_")) {
-      fail(`ROM did not come from a fresh wrapper run: ${build.rom_path}`);
-    }
-    const receipt = JSON.parse(await readFile(`${runDir}_logs/linux_wine_build_report.json`, "utf8"));
-    if (receipt.status !== "buildado" || receipt.rom.sha256 !== build.rom_sha256) fail(`Receipt does not match executed ROM: ${JSON.stringify(receipt.rom)}`);
-    report.receipt = { path: `${runDir}_logs/linux_wine_build_report.json`, started_at: receipt.started_at, completed_at: receipt.completed_at, rom_sha256: receipt.rom.sha256, sdk_content_sha256: receipt.sdk_content_sha256, source_tree_sha256: receipt.build_input_snapshot?.source_tree_sha256 };
-    addReportStep(report, "rom_matches_wrapper_receipt", "passed", report.receipt);
+    report.receipt = await checkReceipt(build, "original");
     addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-boot.png`), "ROM running after boot");
 
     const frames = [await readFramebufferStats(sessionId)];
@@ -6104,6 +6110,71 @@ async function runSgdkNativeCScenario(sessionId) {
     await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
     await waitFor(async () => (await readAutomationState(sessionId))?.emulatorLoaded === false, 15000, "Emulator did not stop.", 150);
     addReportStep(report, "stopped", "passed");
+
+    // Grafo C: abrir o painel no app real, editar um bloco pela UI e provar que a ROM muda.
+    const codeIndex = JSON.parse(await readFile(path.join(overlay, "code", "index.json"), "utf8"));
+    const findLiteral = (node, inFn) => {
+      const scoped = inFn || node.kind === "function_definition";
+      const b = node.block;
+      if (scoped && b?.form === "assign" && b.operator === "=" && /^[1-9][0-9]?$/.test(b.args?.[0] ?? "")) return { id: node.id, block: b };
+      for (const child of node.children ?? []) {
+        const found = findLiteral(child, scoped);
+        if (found) return found;
+      }
+      return null;
+    };
+    let target = null;
+    for (const entry of codeIndex.files.filter((e) => e.source_file.startsWith("src/") && e.source_file.endsWith(".c"))) {
+      const graphFile = path.join(overlay, entry.graph_file);
+      const graphRaw = await readFile(graphFile, "utf8");
+      const found = findLiteral(JSON.parse(graphRaw).root, false);
+      if (found) { target = { ...found, file: entry.source_file, graphFile, graphRaw }; break; }
+    }
+    if (!target) fail("No literal assignment block found in the C graph.");
+    const newValue = String(Number(target.block.args[0]) + 1);
+    try {
+      await callAutomationApi(sessionId, "selectWorkspace", ["explorer"]);
+      await waitFor(async () => executeScript(sessionId, `return Boolean([...document.querySelectorAll('button')].find((x)=>x.getAttribute('title')===arguments[0]));`, [target.file]), 30000, `Legacy file ${target.file} not listed in Explorer.`, 250);
+      const fileSelected = await executeScript(sessionId, `const b=[...document.querySelectorAll('button')].find((x)=>x.getAttribute('title')===arguments[0]);if(!b)return false;b.click();return true;`, [target.file]);
+      if (!fileSelected) fail(`Legacy file ${target.file} not listed in Explorer.`);
+      await waitFor(async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"cgraph-panel\"] [data-testid^=\"cgraph-node-\"]'));"), 60000, "C graph panel did not render nodes.", 250);
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-cgraph-panel.png`), "C graph panel open on host file");
+      const parts = target.id.split(".");
+      for (let i = 2; i <= parts.length; i += 1) {
+        const id = parts.slice(0, i).join(".");
+        const opened = await executeScript(sessionId, `const row=document.querySelector('[data-testid="cgraph-node-'+arguments[0]+'"]');if(!row)return 'missing';
+          if(arguments[1]){row.click();return 'selected';}
+          const toggle=row.parentElement.querySelector('button[aria-label="Expandir"]');if(toggle)toggle.click();return 'ok';`, [id, i === parts.length]);
+        if (opened === "missing") fail(`C graph node ${id} not reachable in the panel.`);
+      }
+      await waitFor(async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"cgraph-block-editor\"]'));"), 15000, "Block editor did not open.", 200);
+      const applied = await executeScript(sessionId, `const ed=document.querySelector('[data-testid="cgraph-block-editor"]');const input=ed.querySelector('input[aria-label="Valor do bloco"]');
+        if(!input||input.value!==arguments[0])return 'value:'+(input&&input.value);
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,arguments[1]);input.dispatchEvent(new Event('input',{bubbles:true}));
+        return 'typed';`, [target.block.args[0], newValue]);
+      if (applied !== "typed") fail(`Block editor did not show the expected value: ${applied}`);
+      await executeScript(sessionId, `[...document.querySelectorAll('[data-testid="cgraph-block-editor"] button')].find((b)=>b.textContent==='Aplicar bloco').click();return true;`);
+      const expectedStatement = `${target.block.target} = ${newValue};`;
+      await waitFor(async () => (await readFile(target.graphFile, "utf8")).includes(expectedStatement.replace(/"/g, '\\"')), 30000, "Block edit was not persisted to the C graph.", 250);
+      addReportStep(report, "cgraph_block_edited_in_ui", "passed", { file: target.file, node: target.id, statement: expectedStatement, previous: target.block.args[0] });
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-cgraph-edited.png`), "Block edited through the panel");
+
+      const edited = await runBuildRunAndCollect(sessionId, "SGDK C edited via nodes", 900000, report, `${prefix}-edited`, { nativeClick: true });
+      report.edited_build = edited;
+      report.edited_receipt = await checkReceipt(edited, "edited");
+      if (edited.rom_sha256 === build.rom_sha256) fail("Editing a C graph block did not change the ROM.");
+      if (!(await readFile(path.join(source, target.file), "utf8")).includes(`${target.block.target} = ${target.block.args[0]};`)) fail("Original C root was modified.");
+      const editedFrame = await readFramebufferStats(sessionId);
+      if (!editedFrame?.non_black_pixels) fail("Edited ROM did not render.");
+      addReportStep(report, "edited_rom_differs_and_runs", "passed", { original_sha256: build.rom_sha256, edited_sha256: edited.rom_sha256, non_black_pixels: editedFrame.non_black_pixels });
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-edited-boot.png`), "Edited ROM running");
+      await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
+      await waitFor(async () => (await readAutomationState(sessionId))?.emulatorLoaded === false, 15000, "Emulator did not stop.", 150);
+    } finally {
+      await writeFile(target.graphFile, target.graphRaw);
+    }
+    addReportStep(report, "cgraph_restored", "passed", { graph: target.graphFile });
+
     await callAutomationApi(sessionId, "closeProject");
     await openAndInspect("reopen");
     addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-reopen.png`), "Reopened original C root");

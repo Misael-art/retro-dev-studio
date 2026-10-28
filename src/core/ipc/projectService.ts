@@ -233,6 +233,15 @@ export interface CGraphNode {
   children?: CGraphNode[];
   function?: string;
   calls?: string[];
+  block?: CBlock;
+}
+
+export interface CBlock {
+  node_type: string;
+  form: "call" | "assign";
+  target: string;
+  operator: string;
+  args: string[];
 }
 
 export interface CGraphFile {
@@ -259,6 +268,7 @@ export interface CGraphIndex {
     function: string | null;
     subject: string;
     states: string[];
+    transitions: { from: string; to: string; line: number; node_id: string }[];
     line: number;
     node_id: string;
   }[];
@@ -280,4 +290,13 @@ export function updateSgdkCGraphNode(
   text: string
 ): Promise<CGraphFile> {
   return invoke("sgdk_c_graph_update_node", { projectDir, sourceFile, nodeId, text });
+}
+
+export function updateSgdkCGraphBlock(
+  projectDir: string,
+  sourceFile: string,
+  nodeId: string,
+  block: CBlock
+): Promise<CGraphFile> {
+  return invoke("sgdk_c_graph_update_block", { projectDir, sourceFile, nodeId, block });
 }

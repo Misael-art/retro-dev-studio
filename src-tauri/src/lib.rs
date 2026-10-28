@@ -3433,6 +3433,21 @@ fn sgdk_c_graph_update_node(
 }
 
 #[tauri::command]
+fn sgdk_c_graph_update_block(
+    project_dir: String,
+    source_file: String,
+    node_id: String,
+    block: crate::core::sgdk_c_graph::CBlock,
+) -> Result<crate::core::sgdk_c_graph::CGraphFile, String> {
+    crate::core::sgdk_c_graph::update_c_graph_block(
+        Path::new(project_dir.trim()),
+        &source_file,
+        &node_id,
+        &block,
+    )
+}
+
+#[tauri::command]
 fn read_legacy_project_file(
     project_dir: String,
     relative_path: String,
@@ -6303,6 +6318,7 @@ pub fn run() {
             sgdk_c_graph_index,
             sgdk_c_graph_file,
             sgdk_c_graph_update_node,
+            sgdk_c_graph_update_block,
             third_party_get_status,
             third_party_install,
             third_party_detect_rom_dependency,

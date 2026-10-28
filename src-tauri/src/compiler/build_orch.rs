@@ -642,7 +642,8 @@ where
         } else {
             None
         };
-        let host_root = if edited_sources.is_empty() {
+        let staged = !edited_sources.is_empty() || wrapper_bridge.is_some();
+        let host_root = if !staged {
             emit!(
                 "info",
                 "Escopo C original: o build consome o C da raiz (sem edicoes nos grafos C de code/) e os assets projetados de res/; cenas e entidades do Studio nao entram."
@@ -653,14 +654,23 @@ where
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|elapsed| elapsed.as_millis())
                 .unwrap_or_default();
-            let staging = project_dir
-                .join(".rds")
-                .join("c_build")
-                .join(format!("run_{stamp}"));
+            let c_build = project_dir.join(".rds").join("c_build");
+            // So a copia do build atual e mantida (cada copia e regeneravel).
+            if let Ok(entries) = fs::read_dir(&c_build) {
+                for entry in entries.flatten() {
+                    if entry.file_name().to_string_lossy().starts_with("run_") {
+                        let _ = fs::remove_dir_all(entry.path());
+                    }
+                }
+            }
+            let staging = c_build.join(format!("run_{stamp}"));
             if let Err(error) =
                 crate::core::sgdk_c_graph::stage_c_project(&host_root, &staging, &edited_sources)
             {
-                emit!("error", format!("Falha ao preparar C editado: {error}"));
+                emit!(
+                    "error",
+                    format!("Falha ao preparar copia de build C: {error}")
+                );
                 return failed_build_result(target.target, log, Some(&host_root));
             }
             for (rel, _) in &edited_sources {
@@ -669,8 +679,9 @@ where
             emit!(
                 "info",
                 format!(
-                    "Build usa copia com C regenerado dos nodes em '{}'; a raiz original nao e alterada.",
-                    staging.display()
+                    "Build usa copia da raiz C em '{}' ({} fonte(s) regenerada(s) dos nodes); a raiz original nao e alterada.",
+                    staging.display(),
+                    edited_sources.len()
                 )
             );
             staging
@@ -686,7 +697,9 @@ where
                     )
                 );
                 emit!("info", format!("Wrapper oficial: {}", bridge.display()));
-                return match run_sgdkforge_wrapper_build(&host_root, &bridge, &mut log, &on_log) {
+                return match run_sgdkforge_wrapper_build(
+                    &host_root, &bridge, staged, &mut log, &on_log,
+                ) {
                     Ok(rom_path) => {
                         emit!("success", format!("ROM gerada: {}", rom_path.display()));
                         successful_build_result(rom_path, log, None, None, None)
@@ -1438,6 +1451,7 @@ struct SgdkForgeBuildReportRom {
 fn run_sgdkforge_wrapper_build<F>(
     host_root: &Path,
     bridge: &Path,
+    staged: bool,
     log: &mut Vec<BuildLogLine>,
     on_log: &F,
 ) -> Result<PathBuf, String>
@@ -1454,9 +1468,17 @@ where
         .duration_since(std::time::UNIX_EPOCH)
         .map(|elapsed| elapsed.as_millis())
         .unwrap_or_default();
-    let run_id = format!("rds_{stamp}");
-    let output_rel = format!("out/tests/{run_id}");
-    let report_rel = format!("out/tests/{run_id}_logs");
+    // Copia de build nova: saida padrao `out/` (sem depender de `out/rom_head.bin` de um
+    // build anterior). Na raiz do doador, run unico em `out/tests/` para nao tocar `out/rom.bin`.
+    let (output_rel, report_rel) = if staged {
+        ("out".to_string(), "out/logs".to_string())
+    } else {
+        let run_id = format!("rds_{stamp}");
+        (
+            format!("out/tests/{run_id}"),
+            format!("out/tests/{run_id}_logs"),
+        )
+    };
     if host_root.join(&output_rel).exists() || host_root.join(&report_rel).exists() {
         return Err(format!(
             "Diretorio de run '{output_rel}' ja existe; build recusado."
@@ -6241,7 +6263,12 @@ echo "wine_bridge_status=buildado"
 
         assert!(result.ok, "wrapper build log: {:?}", result.log);
         let rom = PathBuf::from(&result.rom_path);
-        assert!(rom.starts_with(host.join("out").join("tests")));
+        assert!(rom.starts_with(overlay.join(".rds").join("c_build")));
+        assert!(rom.ends_with("out/rom.bin"));
+        assert!(
+            !host.join("out").join("tests").exists(),
+            "host nao recebe saida do build"
+        );
         assert_eq!(
             fs::read(&rom).expect("read fresh rom"),
             b"SEGA MEGA DRIVE fresh"
@@ -6297,22 +6324,42 @@ echo "wine_bridge_status=buildado"
         let _ = fs::remove_dir_all(forge);
     }
 
-    /// Prova real: `RDS_SGDK_C_GRAPH_BUILD_ROOT` = raiz SGDKForge original. Compara a ROM
-    /// do C original com a ROM do C regenerado dos nodes (edicao neutra em comentario).
+    /// Prova real: `RDS_SGDK_C_GRAPH_BUILD_ROOT` = raiz SGDKForge original. (1) ROM do C
+    /// original == ROM do C regenerado dos nodes com edicao neutra; (2) edicao semantica por
+    /// bloco (literal inteiro de uma atribuicao em `src/`) compila e muda a ROM.
     #[cfg(target_os = "linux")]
     #[test]
     #[ignore]
     fn legacy_sgdk_overlay_c_graph_real_rom_equivalence() {
+        use crate::core::sgdk_c_graph as cg;
         let host = PathBuf::from(std::env::var("RDS_SGDK_C_GRAPH_BUILD_ROOT").expect("root"));
         let overlay = crate::core::project_mgr::import_legacy_sgdk_project(&host, None).unwrap();
-        let graph_path = crate::core::sgdk_c_graph::graph_path_for(&overlay, "src/main.c");
-        let pristine = fs::read_to_string(&graph_path).unwrap();
+        let index = cg::load_c_graph_index(&overlay).unwrap();
+        let main_file = index.entry_points[0].split(':').next().unwrap().to_string();
         let sha = |path: &str| crate::core::rom_mastering::sha256_hex(&fs::read(path).unwrap());
+        let restore: Vec<(PathBuf, String)> = index
+            .files
+            .iter()
+            .map(|e| overlay.join(&e.graph_file))
+            .map(|p| {
+                let raw = fs::read_to_string(&p).unwrap();
+                (p, raw)
+            })
+            .collect();
+        let restore_all = || {
+            for (path, raw) in &restore {
+                fs::write(path, raw).unwrap();
+            }
+            cg::refresh_c_graph_index(&overlay).unwrap();
+        };
 
         let original = run_build(&overlay, |_| {});
         assert!(original.ok, "{:?}", original.log);
-        let mut graph = crate::core::sgdk_c_graph::load_c_graph(&graph_path).unwrap();
-        fn first_syntax(node: &mut crate::core::sgdk_c_graph::CGraphNode) -> Option<&mut String> {
+        let original_sha = sha(&original.rom_path);
+
+        let graph_path = cg::graph_path_for(&overlay, &main_file);
+        let mut graph = cg::load_c_graph(&graph_path).unwrap();
+        fn first_syntax(node: &mut cg::CGraphNode) -> Option<&mut String> {
             if node.kind == "syntax" && node.text.as_deref().is_some_and(|t| t.ends_with('\n')) {
                 return node.text.as_mut();
             }
@@ -6323,17 +6370,55 @@ echo "wine_bridge_status=buildado"
             .push_str("/* rds c-graph */\n");
         fs::write(&graph_path, serde_json::to_string(&graph).unwrap()).unwrap();
         let regenerated = run_build(&overlay, |_| {});
-        fs::write(&graph_path, &pristine).unwrap();
+        restore_all();
         assert!(regenerated.ok, "{:?}", regenerated.log);
+        let regenerated_sha = sha(&regenerated.rom_path);
+
+        // Bloco de atribuicao com literal inteiro dentro de uma funcao de `src/*.c`.
+        fn find_literal(node: &cg::CGraphNode, in_fn: bool) -> Option<(String, cg::CBlock)> {
+            let in_fn = in_fn || node.kind == "function_definition";
+            if let Some(block) = node.block.as_ref().filter(|b| {
+                in_fn
+                    && b.form == "assign"
+                    && b.operator == "="
+                    && b.args
+                        .first()
+                        .is_some_and(|v| v.parse::<u8>().is_ok_and(|n| n > 0 && n < 100))
+            }) {
+                return Some((node.id.clone(), block.clone()));
+            }
+            node.children.iter().find_map(|c| find_literal(c, in_fn))
+        }
+        let (file, node_id, block) = index
+            .files
+            .iter()
+            .filter(|e| e.source_file.starts_with("src/") && e.source_file.ends_with(".c"))
+            .find_map(|e| {
+                let g = cg::load_c_graph(&overlay.join(&e.graph_file)).ok()?;
+                find_literal(&g.root, false).map(|(id, b)| (e.source_file.clone(), id, b))
+            })
+            .expect("bloco de atribuicao literal");
+        let mut edited = block.clone();
+        let value: u8 = edited.args[0].parse().unwrap();
+        edited.args[0] = (value + 1).to_string();
+        cg::update_c_graph_block(&overlay, &file, &node_id, &edited).unwrap();
+        let semantic = run_build(&overlay, |_| {});
+        restore_all();
+        assert!(semantic.ok, "{:?}", semantic.log);
+        let semantic_sha = sha(&semantic.rom_path);
         println!(
-            "CGRAPH_ROM original={} {} regenerated={} {}",
-            original.rom_path,
-            sha(&original.rom_path),
-            regenerated.rom_path,
-            sha(&regenerated.rom_path)
+            "CGRAPH_ROM original={original_sha} regenerated={regenerated_sha} semantic={semantic_sha} edit={file}:{node_id} {} = {} -> {}",
+            block.target, value, value + 1
         );
-        assert!(regenerated.rom_path.contains("c_build"));
-        assert_eq!(sha(&original.rom_path), sha(&regenerated.rom_path));
+        assert_eq!(original_sha, regenerated_sha);
+        assert_ne!(
+            original_sha, semantic_sha,
+            "edicao semantica deve chegar a ROM"
+        );
+        assert!(
+            cg::edited_c_sources(&host, &overlay).unwrap().is_empty(),
+            "grafos restaurados"
+        );
     }
 
     #[cfg(target_os = "linux")]
