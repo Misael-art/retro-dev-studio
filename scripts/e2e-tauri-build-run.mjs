@@ -515,6 +515,7 @@ function parseArgs(argv) {
           "sgdk-split-resources",
           "sgdk-native-c",
           "sgdk-corpus",
+          "pixel-editor",
           "studio-e4",
           "studio-e2e5",
           "studio-e6",
@@ -6283,6 +6284,110 @@ async function runSgdkNativeCScenario(sessionId) {
 // screen captured as a scene (palettes, sprite -> C links), the C logic in Logic and a game sprite
 // in Art with the frame declared by its .res. Each step records its own result; a failed build
 // still lets the static views be inspected.
+// Editor de pixels (Experimental): sprite real do jogo -> frames indexados -> pintar -> salvar PNG 4-bit.
+async function runPixelEditorScenario(sessionId) {
+  const source = process.env.RDS_SGDK_REAL_SOURCE;
+  const output = process.env.RDS_SGDK_OUTPUT;
+  if (!source || !output) fail("RDS_SGDK_REAL_SOURCE and RDS_SGDK_OUTPUT required.");
+  await mkdir(output, { recursive: true });
+  const prefix = `pixel-editor-${artifactTimestamp()}`;
+  const overlay = path.join(source, "rds");
+  const report = { schema: "retrodev.pixel_editor/v1", maturity: "Experimental", source, steps: [], artifacts: [] };
+  const shot = async (name, label) => addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${name}.png`), label);
+  const js = (code, args = []) => executeScript(sessionId, code, args);
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const step = async (name, fn) => {
+    const detail = await fn();
+    addReportStep(report, name, "passed", detail ?? {});
+    return detail;
+  };
+  try {
+    await setSessionWindowRect(sessionId, 1440, 900);
+    await waitForOnboardingWizard(sessionId).catch(() => null);
+    await js("window.__RDS_E2E__.openProject(arguments[0]); return true;", [source]);
+    await waitFor(async () => {
+      const next = await readAutomationState(sessionId);
+      return next?.activeProjectDir && path.resolve(next.activeProjectDir) === overlay ? next : false;
+    }, 900000, "Project did not open.", 1000);
+    const catalog = JSON.parse(await readFile(path.join(overlay, "assets/sprites/sgdk_sprite_catalog.json"), "utf8"));
+    const sprite = catalog.filter((e) => e.asset && e.frame_width <= 64 && e.frame_height <= 64).sort((a, b) => b.refs.length - a.refs.length)[0] ?? catalog.find((e) => e.asset);
+    await step("open_sprite_in_art", async () => {
+      await callAutomationApi(sessionId, "openAssetInArtStudio", [sprite.asset]);
+      await waitFor(async () => (await js(`return document.querySelector('[data-testid="artstudio-game-sprite"]') ? true : null;`)) || false, 30000, "Art did not load the sprite.", 250);
+      return { resource: sprite.name, frame: [sprite.frame_width, sprite.frame_height] };
+    });
+    await step("pixel_mode", async () => {
+      await clickByTestId(sessionId, "artstudio-mode-pixel");
+      await waitFor(async () => (await js(`return document.querySelector('[data-testid="pixel-editor"]') ? true : null;`)) || false, 15000, "Pixel editor did not render.", 250);
+      return {};
+    });
+    const imported = await step("import_frames", async () => {
+      await clickByTestId(sessionId, "pixel-import-art");
+      return waitFor(async () => {
+        const info = await js(`
+          const counts = [0,1,2,3].map((l) => document.querySelector('[data-testid="pixel-palette-count-' + l + '"]')?.textContent ?? "");
+          return {
+            frames: document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length,
+            counts,
+            statusText: document.querySelector('[data-testid="pixel-status"]')?.textContent ?? "",
+            hardware: document.querySelector('[data-testid="pixel-hardware"]')?.textContent ?? "",
+          };`);
+        return info && info.counts.some((c) => !c.startsWith("0/")) ? info : false;
+      }, 30000, "Frames were not imported.", 300);
+    });
+    await sleep(600);
+    await shot("imported", `Pixel editor: ${sprite.name}`);
+    await step("paint_with_tools", async () => {
+      const result = await js(`
+        const canvas = document.querySelector('[data-testid="pixel-canvas"]');
+        const r = canvas.getBoundingClientRect();
+        const fire = (type, x, y, button = 0) => canvas.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: r.left + x, clientY: r.top + y, button, pointerId: 1 }));
+        document.querySelector('[data-testid="pixel-tool-line"]').click();
+        return true;`);
+      await sleep(200);
+      await js(`
+        const canvas = document.querySelector('[data-testid="pixel-canvas"]');
+        const r = canvas.getBoundingClientRect();
+        const fire = (type, x, y) => canvas.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: r.left + x, clientY: r.top + y, button: 0, pointerId: 1 }));
+        fire("pointerdown", 4, 4); fire("pointermove", r.width - 4, r.height - 4); fire("pointerup", r.width - 4, r.height - 4);
+        return true;`);
+      await sleep(300);
+      return { tool: "line", ok: result };
+    });
+    await step("hover_tile_info", async () => {
+      await js(`
+        const canvas = document.querySelector('[data-testid="pixel-canvas"]');
+        const r = canvas.getBoundingClientRect();
+        canvas.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, pointerId: 1 }));
+        return true;`);
+      await sleep(300);
+      return { statusText: await js(`return document.querySelector('[data-testid="pixel-status"]')?.textContent ?? "";`) };
+    });
+    await shot("painted", "Pixel editor after drawing a line");
+    const saved = await step("save_png", async () => {
+      await clickByTestId(sessionId, "pixel-save");
+      await waitFor(async () => (await js(`return document.querySelector('[data-testid="pixel-save"]')?.textContent?.includes("Salvo") ? true : null;`)) || false, 20000, "Save did not finish.", 250);
+      const name = await js(`return document.querySelector('[data-testid="pixel-doc-name"]')?.value ?? "";`);
+      const png = await readFile(path.join(overlay, "assets/sprites/pixel", `${name}.png`));
+      const doc = JSON.parse(await readFile(path.join(overlay, "assets/sprites/pixel", `${name}.rdspixel.json`), "utf8"));
+      // IHDR: bit depth 4, color type 3 (indexado).
+      return { name, bytes: png.length, bitDepth: png[24], colorType: png[25], width: png.readUInt32BE(16), height: png.readUInt32BE(20), frames: doc.frames.length };
+    });
+    if (saved.bitDepth !== 4 || saved.colorType !== 3) fail(`PNG nao e indexado 4-bit: ${JSON.stringify(saved)}`);
+    await sleep(800);
+    await shot("saved", "Saved PNG reopened in Art");
+    report.status = "passed";
+    report.imported = imported;
+  } catch (error) {
+    report.status = "failed";
+    report.error = String(error);
+  }
+  const reportPath = path.join(output, `${prefix}.json`);
+  await writeFile(reportPath, JSON.stringify(report, null, 2));
+  console.log(`[pixel-editor] ${report.status} ${reportPath}`);
+  if (report.status !== "passed") fail(`pixel-editor falhou: ${report.error}`);
+}
+
 async function runSgdkCorpusScenario(sessionId) {
   const source = process.env.RDS_SGDK_REAL_SOURCE;
   const output = process.env.RDS_SGDK_OUTPUT;
@@ -23378,6 +23483,7 @@ async function main() {
     options.scenario !== "sgdk-split-resources" &&
     options.scenario !== "sgdk-native-c" &&
     options.scenario !== "sgdk-corpus" &&
+    options.scenario !== "pixel-editor" &&
     options.scenario !== "studio-e4" &&
     options.scenario !== "studio-e2e5" &&
     options.scenario !== "studio-e6" &&
@@ -25213,7 +25319,10 @@ async function main() {
       await runSgdkNativeCScenario(sessionId);
       return;
     }
-    if (options.scenario === "sgdk-corpus") {
+    if (options.scenario === "pixel-editor") {
+      await runPixelEditorScenario(sessionId);
+      return;
+    } else if (options.scenario === "sgdk-corpus") {
       await runSgdkCorpusScenario(sessionId);
       return;
     }

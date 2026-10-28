@@ -2129,6 +2129,77 @@ fn capture_rom_scene(
     crate::core::rom_scene_capture::write_rom_capture_scene(&dir, &name, &snapshot, source.as_ref())
 }
 
+#[derive(serde::Serialize)]
+pub struct SavedPixelArt {
+    pub png_relative: String,
+    pub doc_relative: String,
+    pub png_absolute: String,
+}
+
+/// Grava o PNG indexado e o documento editavel do Editor de pixels em `assets/sprites/pixel/`.
+#[tauri::command]
+fn save_pixel_art_asset(
+    project_dir: String,
+    name: String,
+    png: Vec<u8>,
+    doc_json: String,
+) -> Result<SavedPixelArt, String> {
+    write_pixel_art_asset(Path::new(&project_dir), &name, &png, &doc_json)
+}
+
+fn write_pixel_art_asset(
+    project_dir: &Path,
+    name: &str,
+    png: &[u8],
+    doc_json: &str,
+) -> Result<SavedPixelArt, String> {
+    if !project_dir.join("project.rds").is_file() {
+        return Err("Projeto invalido: project.rds ausente.".to_string());
+    }
+    if !png.starts_with(&[137, 80, 78, 71, 13, 10, 26, 10]) {
+        return Err("O conteudo enviado nao e um PNG.".to_string());
+    }
+    let stem: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_string();
+    let stem = if stem.is_empty() {
+        "sprite".to_string()
+    } else {
+        stem
+    };
+    let dir = project_dir.join("assets").join("sprites").join("pixel");
+    fs::create_dir_all(&dir).map_err(|e| format!("Falha ao criar '{}': {e}", dir.display()))?;
+    let png_path = dir.join(format!("{stem}.png"));
+    fs::write(&png_path, png).map_err(|e| format!("Falha ao gravar PNG: {e}"))?;
+    fs::write(dir.join(format!("{stem}.rdspixel.json")), doc_json)
+        .map_err(|e| format!("Falha ao gravar documento: {e}"))?;
+    Ok(SavedPixelArt {
+        png_relative: format!("assets/sprites/pixel/{stem}.png"),
+        doc_relative: format!("assets/sprites/pixel/{stem}.rdspixel.json"),
+        png_absolute: png_path.to_string_lossy().to_string(),
+    })
+}
+
+#[tauri::command]
+fn load_pixel_art_doc(project_dir: String, doc_relative: String) -> Result<String, String> {
+    if !doc_relative.starts_with("assets/sprites/pixel/")
+        || doc_relative.contains("..")
+        || !doc_relative.ends_with(".rdspixel.json")
+    {
+        return Err("Caminho de documento de pixel art invalido.".to_string());
+    }
+    fs::read_to_string(Path::new(&project_dir).join(&doc_relative)).map_err(|e| e.to_string())
+}
+
 /// Catalogo dos sprites do jogo SGDK (quadro declarado no `.res` e pontos do C que os usam).
 #[tauri::command]
 fn sgdk_sprite_catalog(
@@ -6429,6 +6500,8 @@ pub fn run() {
             capture_rom_scene,
             rom_capture_links,
             sgdk_sprite_catalog,
+            save_pixel_art_asset,
+            load_pixel_art_doc,
             sgdk_c_graph_file,
             sgdk_c_graph_update_node,
             sgdk_c_graph_update_block,
@@ -9165,6 +9238,27 @@ pub extern "C" fn retro_run() {
         assert!(legacy_dir.join("rds").join("project.rds").is_file());
 
         let _ = fs::remove_dir_all(legacy_dir);
+    }
+
+    #[test]
+    fn write_pixel_art_asset_sanitizes_name_and_rejects_non_png() {
+        let dir = temp_dir("pixel-art-save");
+        fs::write(dir.join("project.rds"), "{}").unwrap();
+        let png = [137u8, 80, 78, 71, 13, 10, 26, 10, 0];
+        let saved = write_pixel_art_asset(&dir, "../Ken Soco!", &png, "{}").expect("save");
+        assert_eq!(saved.png_relative, "assets/sprites/pixel/ken_soco.png");
+        assert!(dir.join(&saved.doc_relative).is_file());
+        assert!(write_pixel_art_asset(&dir, "x", b"GIF89a", "{}").is_err());
+        assert!(load_pixel_art_doc(
+            dir.to_string_lossy().to_string(),
+            "assets/sprites/pixel/../../x.rdspixel.json".into()
+        )
+        .is_err());
+        assert_eq!(
+            load_pixel_art_doc(dir.to_string_lossy().to_string(), saved.doc_relative).unwrap(),
+            "{}"
+        );
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]

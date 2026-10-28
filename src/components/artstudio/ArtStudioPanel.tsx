@@ -29,6 +29,7 @@ import { parseInputCommandFile } from "../../core/ipc/inputCommandService";
 import { getSgdkSpriteCatalog, type SgdkSpriteCatalogEntry } from "../../core/ipc/projectService";
 import { openCodeRef } from "../inspector/SpriteCodeLink";
 import AssetQualityPanel from "./AssetQualityPanel";
+import PixelEditor from "./PixelEditor";
 import type {
   AnimationDef,
   SpriteAnimationHitbox,
@@ -2690,6 +2691,7 @@ export default function ArtStudioPanel() {
   const stageScrollRef = useRef<HTMLDivElement>(null);
   /** Sprite do jogo SGDK aberto (catálogo do `.res`), com quadro declarado e uso no C. */
   const [gameSprite, setGameSprite] = useState<SgdkSpriteCatalogEntry | null>(null);
+  const [artMode, setArtMode] = useState<"prepare" | "pixel">("prepare");
   /** Área visível do stage (sem o padding), para o zoom de enquadramento. */
   const stageViewportSize = useCallback(() => {
     const stage = stageScrollRef.current;
@@ -4090,7 +4092,31 @@ export default function ArtStudioPanel() {
             ingestao · slicing · animacao
           </span>
         </div>
-        <span className="text-[10px] text-[#6c7086]">{ARTSTUDIO_SUPPORTED_FORMATS_LABEL}</span>
+        <div className="flex items-center gap-2">
+          <div className="flex overflow-hidden rounded-lg border border-[#313244] text-[10px] font-semibold" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              data-testid="artstudio-mode-prepare"
+              aria-selected={artMode === "prepare"}
+              onClick={() => setArtMode("prepare")}
+              className={`px-3 py-1 ${artMode === "prepare" ? "bg-[#7dd3fc]/20 text-[#7dd3fc]" : "text-[#94a3b8] hover:bg-[#1f2937]"}`}
+            >
+              Preparar e animar
+            </button>
+            <button
+              type="button"
+              role="tab"
+              data-testid="artstudio-mode-pixel"
+              aria-selected={artMode === "pixel"}
+              onClick={() => setArtMode("pixel")}
+              className={`px-3 py-1 ${artMode === "pixel" ? "bg-[#7dd3fc]/20 text-[#7dd3fc]" : "text-[#94a3b8] hover:bg-[#1f2937]"}`}
+            >
+              Editor de pixels (MD)
+            </button>
+          </div>
+          <span className="hidden text-[10px] text-[#6c7086] lg:inline">{ARTSTUDIO_SUPPORTED_FORMATS_LABEL}</span>
+        </div>
       </div>
 
       {gameSprite && state.spriteSourceAssetPath === gameSprite.asset ? (
@@ -4202,6 +4228,37 @@ export default function ArtStudioPanel() {
         </div>
       ) : null}
 
+      {artMode === "pixel" ? (
+        <div className="min-h-0 flex-1 px-3 pb-3">
+          <PixelEditor
+            projectDir={activeProjectDir}
+            source={
+              state.spriteSheetUrl
+                ? gameSprite && state.spriteSourceAssetPath === gameSprite.asset
+                  ? {
+                      // Sprite do jogo: quadro e grade declarados no .res, todos os frames.
+                      url: state.spriteSheetUrl,
+                      sourcePath: normalizeFsPath(state.spriteSheetSourcePath),
+                      name: gameSprite.name,
+                      frameWidth: gameSprite.frame_width,
+                      frameHeight: gameSprite.frame_height,
+                      frames: Array.from({ length: Math.max(1, gameSprite.columns * gameSprite.rows) }, (_, i) => i),
+                    }
+                  : {
+                      url: state.spriteSheetUrl,
+                      sourcePath: normalizeFsPath(state.spriteSheetSourcePath),
+                      name: state.spriteName || state.spriteSheetDisplayName || "sprite",
+                      frameWidth: state.frameWidth,
+                      frameHeight: state.frameHeight,
+                      frames: activeSequence?.frames ?? [0],
+                    }
+                : null
+            }
+            log={logMessage}
+            onSaved={(pngAbsolute) => void ingestSpriteSheet({ sourcePath: pngAbsolute })}
+          />
+        </div>
+      ) : (
       <div className="grid min-h-0 flex-1 gap-3 px-3 pb-3 xl:grid-cols-[minmax(0,1fr)_360px]">
         <Group
           orientation="vertical"
@@ -4376,6 +4433,7 @@ export default function ArtStudioPanel() {
 
         <ArtStudioInspectorSection />
       </div>
+      )}
       </div>
     </ArtStudioContext.Provider>
   );

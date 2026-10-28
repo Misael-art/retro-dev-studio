@@ -3352,3 +3352,30 @@ Relato do operador: o painel de paletas acusava conflito em capturas, mas o jogo
   - `#if` dentro de inicializadores fica como C bruto.
   - Ponteiros de função não são seguidos.
   - Recursos IMAGE viram uma cena cada (BLAZE tem 29).
+
+### Checkpoint 2026-10-28 (f) — Editor de pixels Mega Drive na Arte (Experimental)
+
+- **Onde fica:** modo "Editor de pixels (MD)" na Arte, ao lado de "Preparar e animar". O layout segue o do Piskel adaptado ao Studio: ferramentas à esquerda, canvas no centro, prévia/paletas/hardware/layers/transformar/exportar à direita e frames embaixo.
+- **Modelo (`src/core/pixelEditor.ts`):**
+  - Cada pixel é `linha*16+índice`, e o índice 0 é sempre transparente.
+  - Cores em 9-bit (0..7 por canal).
+  - O canvas é sempre múltiplo de 8.
+- **Ferramentas, com atalhos:** lápis P (pincel 1–8, espelho ↔/↕), borracha E, balde B, trocar cor A, reta L (Shift 0/45/90), retângulo R e círculo C (Shift perfeito, cheio opcional), dithering D, clarear/escurecer U (na mesma linha, por luminância), seleção S, mover M (wrap, todos os frames/layers), conta-gotas I.
+  - X troca primária e secundária; `[` e `]` mudam o pincel; H/V espelham; Ctrl+Z/Y desfaz e refaz.
+- **Paletas:**
+  - 4 × 16 da CRAM com o índice 0 marcado, contagem "n/15 usadas · restam m", editor 9-bit e as 512 cores mestras.
+  - A "trava de paleta por tile" recusa misturar linhas num tile 8×8.
+- **Hardware:** cores e tiles únicos (dedup com flip), VRAM, peças de até 4×4 tiles por frame e carga por scanline (limite 20), com avisos.
+- **Animação:** frames (novo/duplicar/mover/excluir), onion skin e prévia de 1–24 FPS, que pode gravar a duração em ticks de 60 Hz. As layers são de edição; o export junta tudo.
+- **Importar:** "Editar frames de …" quantiza a folha da Arte numa linha só. Para sprite do jogo, usa o quadro e a grade do `.res` e o nome do recurso.
+- **Salvar:**
+  - Grava uma folha horizontal em PNG 4-bit indexado (o formato que o rescomp lê) e `.rdspixel.json` editável, ambos em `assets/sprites/pixel/` (IPC `save_pixel_art_asset`/`load_pixel_art_doc`).
+  - Em seguida recarrega na Arte.
+  - Copia a paleta CRAM em C e a linha `.res`.
+- **E2E real `pixel-editor` (Mugenesis):** `mg_ken_g121` com 64×64 e 2 frames entrou em PAL0 (8/15 cores, 95/97 tiles únicos, 4 peças, 2/20 por scanline). Depois uma reta foi desenhada e o arquivo salvo como PNG 128×64, 4-bit, tipo 3.
+- **Não feito:**
+  - Shadow/Highlight.
+  - Atributos por tile (prioridade/flip) e tilemap.
+  - Exportar GIF ou ZIP.
+  - Seleção laço e por cor.
+  - Atribuição automática de várias linhas de paleta.

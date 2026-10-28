@@ -86,9 +86,11 @@ RetroDevStudio/
 |   |   |-- tools/
 |   |   |-- artstudio/
 |   |   |   |-- ArtStudioPanel.tsx
+|   |   |   |-- PixelEditor.tsx (editor de pixels indexado Mega Drive: ferramentas, CRAM 4x16, frames, layers)
 |   |   |   `-- useSpriteAnimator.ts
 |   |   `-- viewport/
 |   |-- core/
+|   |   |-- pixelEditor.ts (modelo do editor de pixels: ferramentas, limites VDP, PNG 4-bit, .rdspixel.json)
 |   |   |-- ipc/
 |   |   |-- nodegraph/
 |   |   |   |-- nodeTypes.ts
