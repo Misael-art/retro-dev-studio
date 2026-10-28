@@ -34,12 +34,16 @@ export function StudioContextBar() {
   const logMessage = useEditorStore((state) => state.logMessage);
   const lastFileBackup = useEditorStore((state) => state.lastFileBackup);
   const undoDepth = useEditorStore((state) => state.undoStack.length);
+  const artifact = useEditorStore((state) => state.lastBuildArtifact);
+  const mappedRomSha = useEditorStore((state) => state.lastBuildSourceMap?.artifact.sha256 ?? null);
+  const nativeCodeRevision = useEditorStore((state) => state.nativeCodeRevision);
   const freshness = describeBuildFreshness({
     sceneRevision: useEditorStore((state) => state.sceneRevision),
     lastBuildSceneRevision: useEditorStore((state) => state.lastBuildSceneRevision),
-    builtRomSha256: useEditorStore((state) => state.lastBuildSourceMap?.artifact.sha256 ?? null),
+    builtRomSha256: artifact?.sha256 ?? mappedRomSha,
     runningRomSha256: useEditorStore((state) => state.emulatorRomIdentity?.sha256 ?? null),
     testedBuild: useEditorStore((state) => state.lastBuildTest),
+    nativeCode: artifact?.nativeCodeRevision != null ? { revision: nativeCodeRevision, builtRevision: artifact.nativeCodeRevision } : null,
   });
 
   const origin = studio.returnStack[studio.returnStack.length - 1] ?? null;

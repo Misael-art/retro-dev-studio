@@ -50,7 +50,7 @@ describe("DeliveryPanel", () => {
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
-    useEditorStore.setState({ studio: initialStudioContext(), activeWorkspace: "debug", activeProjectDir: "/p" });
+    useEditorStore.setState({ studio: initialStudioContext(), activeWorkspace: "debug", activeProjectDir: "/p", lastBuildArtifact: null, nativeCodeRevision: 0 });
   });
   afterEach(() => {
     act(() => root.unmount());
@@ -70,6 +70,24 @@ describe("DeliveryPanel", () => {
       emulatorRomIdentity: null,
     });
   }
+
+  it("reviews a verified native C artifact independently of reference scenes and blocks edited C", async () => {
+    built(scene(36));
+    useEditorStore.setState({ lastBuildSourceMap: null, lastBuildSceneRevision: null,
+      lastBuildArtifact: { path: "/p/c_build/run/out/rom.bin", sha256: "abc", nativeCodeRevision: 0 },
+      lastBuildTest: { romSha256: "abc", sceneRevision: 1 } as never });
+    mocks.mastering.mockResolvedValue({ sha256: "abc", checksum: { status: "ok" }, blockers: [] });
+    await render();
+    expect(q("delivery-freshness")!.dataset.kind).toBe("tested");
+    expect(q("delivery-native-scope")!.textContent).toContain("não a lógica C");
+    expect(q("delivery-errors")!.dataset.count).toBe("0");
+    await act(async () => q("delivery-verify-rom")!.click());
+    expect(q("delivery-export")!.hasAttribute("disabled")).toBe(false);
+    await act(async () => useEditorStore.getState().recordNativeCodeEdit());
+    expect(q("delivery-freshness")!.dataset.kind).toBe("rebuild-needed");
+    expect(q("delivery-export")!.hasAttribute("disabled")).toBe(true);
+    expect(q("delivery-verify-rom")!.hasAttribute("disabled")).toBe(true);
+  });
 
   it("a blocking HUD error opens the exact property and blocks export", async () => {
     vi.useFakeTimers();

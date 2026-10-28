@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { PixelDoc } from "../pixelEditor";
 
 import {
   diagnosticConsoleMessage,
@@ -139,6 +140,17 @@ export interface UndoEntry {
   studioFocus?: StudioFocus;
 }
 
+/** Pixel work survives workspace unmounts, isolated by project. Session memory, not autosave. */
+export interface PixelEditorSession {
+  doc: PixelDoc;
+  past: PixelDoc[];
+  future: PixelDoc[];
+  frameIndex: number;
+  layerIndex: number;
+  savedPath: string | null;
+  savedSource: string | null;
+}
+
 export type EditorMode = "select" | "paint" | "erase" | "collision";
 export type TilePaintTool = "pencil" | "eraser" | "picker" | "rect" | "fill" | "stamp";
 
@@ -223,6 +235,13 @@ export interface BuildTestReceipt {
   testedAt: number;
 }
 
+export interface BuildArtifactIdentity {
+  path: string;
+  sha256: string;
+  /** null: scene build; number: C overlay revision, independent of reference scenes. */
+  nativeCodeRevision: number | null;
+}
+
 let joypadSessionCounter = 0;
 let emulatorLaunchRequestCounter = 0;
 
@@ -276,10 +295,13 @@ export interface StoreState {
   activeWorkspace: EditorWorkspace;
   activeViewportTab: string;
   artStudioAssetPath: string | null;
+  pixelEditorSessions: Record<string, PixelEditorSession>;
   consoleEntries: ConsoleEntry[];
   consoleVisible: boolean;
   lastParityReport: ParityReport | null;
   lastBuildSourceMap: BuildSourceMap | null;
+  lastBuildArtifact: BuildArtifactIdentity | null;
+  nativeCodeRevision: number;
   /** Vínculo execução → projeto do último build bem-sucedido (Experimental). */
   lastRuntimeLink: RuntimeLink | null;
   /** `sceneRevision` no início do último build bem-sucedido; null = nenhum build nesta sessão. */
@@ -357,12 +379,15 @@ export interface StoreActions {
   assignEntityToLayer: (entityId: string, layerId: string | null) => void;
   setActiveViewportTab: (id: string) => void;
   setArtStudioAssetPath: (path: string | null) => void;
+  setPixelEditorSession: (projectKey: string, session: PixelEditorSession) => void;
   logMessage: (level: ConsoleEntry["level"], message: string) => void;
   logDiagnostic: (diagnostic: ActionableDiagnostic) => void;
   clearConsole: () => void;
   toggleConsole: () => void;
   setLastParityReport: (report: ParityReport | null) => void;
   setLastBuildSourceMap: (sourceMap: BuildSourceMap | null) => void;
+  setLastBuildArtifact: (artifact: BuildArtifactIdentity | null) => void;
+  recordNativeCodeEdit: () => void;
   setLastRuntimeLink: (link: RuntimeLink | null) => void;
   setLastBuildSceneRevision: (revision: number | null) => void;
   recordBuildTestFrame: (coreEpoch: number, romSha256: string, frameIndex: number) => void;
@@ -684,6 +709,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       sceneDiskBaseline: null,
       sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
       lastBuildSourceMap: null,
+      lastBuildArtifact: null,
+      nativeCodeRevision: 0,
       lastRuntimeLink: null,
       lastBuildSceneRevision: null,
       lastBuildTest: null,
@@ -693,6 +720,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     activeTarget: target,
     projectSessionId: state.projectSessionId + 1,
     lastBuildSourceMap: null,
+    lastBuildArtifact: null,
     lastRuntimeLink: null,
     lastBuildSceneRevision: null,
     lastBuildTest: null,
@@ -703,7 +731,9 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     sceneDiskBaseline: null,
     sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
     projectSessionId: state.projectSessionId + 1,
+    // Captured scenes do not change a native C build or its ROM identity.
     lastBuildSourceMap: null,
+    lastBuildArtifact: state.lastBuildArtifact?.nativeCodeRevision != null ? state.lastBuildArtifact : null,
     lastRuntimeLink: null,
     lastBuildSceneRevision: null,
   })),
@@ -813,6 +843,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setActiveViewportTab: (id) => set({ activeViewportTab: id }),
   artStudioAssetPath: null,
   setArtStudioAssetPath: (path) => set({ artStudioAssetPath: path }),
+  pixelEditorSessions: {},
+  setPixelEditorSession: (projectKey, session) => set((state) => ({
+    pixelEditorSessions: { ...state.pixelEditorSessions, [projectKey]: session },
+  })),
 
   consoleEntries: [
     {
@@ -865,7 +899,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   lastParityReport: null,
   setLastParityReport: (report) => set({ lastParityReport: report }),
   lastBuildSourceMap: null,
-  setLastBuildSourceMap: (sourceMap) => set({ lastBuildSourceMap: sourceMap }),
+  lastBuildArtifact: null,
+  nativeCodeRevision: 0,
+  setLastBuildArtifact: (artifact) => set({ lastBuildArtifact: artifact }),
+  recordNativeCodeEdit: () => set((state) => ({ nativeCodeRevision: state.nativeCodeRevision + 1 })),
+  setLastBuildSourceMap: (sourceMap) => set({ lastBuildSourceMap: sourceMap, lastBuildArtifact: null }),
   lastRuntimeLink: null,
   setLastRuntimeLink: (link) => set({ lastRuntimeLink: link }),
   lastBuildSceneRevision: null,
@@ -876,12 +914,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (!Number.isSafeInteger(frameIndex) || frameIndex <= 0 || !state.emulatorLoaded || state.joypadSessionHold
       || state.coreEpoch !== coreEpoch || !state.joypadSessionId
       || state.emulatorRomIdentity?.sha256 !== romSha256
-      || state.lastBuildSourceMap?.artifact.sha256 !== romSha256
-      || state.lastBuildSceneRevision === null
+      || (state.lastBuildArtifact?.sha256 ?? state.lastBuildSourceMap?.artifact.sha256) !== romSha256
+      || (state.lastBuildSceneRevision === null && state.lastBuildArtifact?.nativeCodeRevision == null)
       || state.lastBuildTest?.sessionId === state.joypadSessionId) return;
     set({ lastBuildTest: {
       projectDir: state.activeProjectDir,
-      sceneRevision: state.lastBuildSceneRevision,
+      sceneRevision: state.lastBuildSceneRevision ?? state.sceneRevision,
       romSha256,
       coreEpoch,
       sessionId: state.joypadSessionId,

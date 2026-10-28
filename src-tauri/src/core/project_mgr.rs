@@ -18105,9 +18105,16 @@ pub(crate) fn write_text_atomically_with_retry(
     path: &Path,
     contents: &str,
 ) -> Result<(), LoadError> {
+    write_bytes_atomically_with_retry(path, contents.as_bytes())
+}
+
+pub(crate) fn write_bytes_atomically_with_retry(
+    path: &Path,
+    contents: &[u8],
+) -> Result<(), LoadError> {
     let mut last_error = None;
     for attempt in 1..=FILE_IO_RETRY_ATTEMPTS {
-        match write_text_atomically_once(path, contents) {
+        match write_bytes_atomically_once(path, contents) {
             Ok(()) => return Ok(()),
             Err(e) => {
                 let is_retriable = is_retriable_atomic_write_error(&e);
@@ -18138,7 +18145,7 @@ fn is_retriable_atomic_write_error(error: &LoadError) -> bool {
         || error.0.contains("Sharing")
 }
 
-fn write_text_atomically_once(path: &Path, contents: &str) -> Result<(), LoadError> {
+fn write_bytes_atomically_once(path: &Path, contents: &[u8]) -> Result<(), LoadError> {
     let temp_path = temp_path_for(path);
     let mut file = File::create(&temp_path).map_err(|e| {
         LoadError(format!(
@@ -18148,10 +18155,7 @@ fn write_text_atomically_once(path: &Path, contents: &str) -> Result<(), LoadErr
         ))
     })?;
 
-    if let Err(error) = file
-        .write_all(contents.as_bytes())
-        .and_then(|_| file.sync_all())
-    {
+    if let Err(error) = file.write_all(contents).and_then(|_| file.sync_all()) {
         let _ = fs::remove_file(&temp_path);
         return Err(LoadError(format!(
             "Nao foi possivel gravar '{}': {}",

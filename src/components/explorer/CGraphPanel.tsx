@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEditorStore } from "../../core/store/editorStore";
 import {
   getSgdkCGraphFile,
   getSgdkCGraphIndex,
@@ -320,7 +321,10 @@ export function CGraphPanel({ projectDir, sourceFile, focusNodeId = null }: CGra
       setBusy(true);
       setError(null);
       try {
-        setGraph(await action());
+        const graph = await action();
+        const editor = useEditorStore.getState();
+        if (editor.activeProjectDir === projectDir) editor.recordNativeCodeEdit();
+        setGraph(graph);
         setSelectedId(null);
         // O backend recalcula funções/FSMs após cada edição.
         setIndex(await getSgdkCGraphIndex(projectDir));

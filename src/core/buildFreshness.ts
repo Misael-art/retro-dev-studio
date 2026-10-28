@@ -15,8 +15,18 @@ export function describeBuildFreshness(input: {
   builtRomSha256: string | null;
   runningRomSha256: string | null;
   testedBuild?: { romSha256: string; sceneRevision: number } | null;
+  nativeCode?: { revision: number; builtRevision: number } | null;
 }): BuildFreshness {
   const { sceneRevision, lastBuildSceneRevision, builtRomSha256, runningRomSha256 } = input;
+  if (input.nativeCode && builtRomSha256) {
+    if (input.nativeCode.revision !== input.nativeCode.builtRevision) {
+      return { kind: "rebuild-needed", label: "Código C alterado · recompile antes de revisar/exportar" };
+    }
+    if (runningRomSha256 === builtRomSha256) return { kind: "confirmed", label: "Último build C em execução · cena de referência" };
+    if (runningRomSha256) return { kind: "running-previous", label: "Executando outra ROM · último build C preservado" };
+    if (input.testedBuild?.romSha256 === builtRomSha256) return { kind: "tested", label: "Último build C testado · cena de referência" };
+    return { kind: "built-not-running", label: "Último build C pronto · ainda não executado" };
+  }
   if (lastBuildSceneRevision === null || !builtRomSha256) {
     return { kind: "no-build", label: "Prévia atualizada · ainda sem build nesta sessão" };
   }

@@ -2153,12 +2153,19 @@ fn write_pixel_art_asset(
     png: &[u8],
     doc_json: &str,
 ) -> Result<SavedPixelArt, String> {
+    // Two-file saves are serialized; failed publication restores the previous pair.
+    // Each file uses the project manager's synced atomic writer. This is not a
+    // filesystem transaction across an OS/power interruption.
+    static SAVE_LOCK: Mutex<()> = Mutex::new(());
+    let _save = SAVE_LOCK.lock().map_err(|e| e.to_string())?;
     if !project_dir.join("project.rds").is_file() {
         return Err("Projeto invalido: project.rds ausente.".to_string());
     }
     if !png.starts_with(&[137, 80, 78, 71, 13, 10, 26, 10]) {
         return Err("O conteudo enviado nao e um PNG.".to_string());
     }
+    serde_json::from_str::<serde_json::Value>(doc_json)
+        .map_err(|e| format!("Documento de pixels invalido: {e}"))?;
     let stem: String = name
         .chars()
         .map(|c| {
@@ -2179,9 +2186,50 @@ fn write_pixel_art_asset(
     let dir = project_dir.join("assets").join("sprites").join("pixel");
     fs::create_dir_all(&dir).map_err(|e| format!("Falha ao criar '{}': {e}", dir.display()))?;
     let png_path = dir.join(format!("{stem}.png"));
-    fs::write(&png_path, png).map_err(|e| format!("Falha ao gravar PNG: {e}"))?;
-    fs::write(dir.join(format!("{stem}.rdspixel.json")), doc_json)
-        .map_err(|e| format!("Falha ao gravar documento: {e}"))?;
+    let doc_path = dir.join(format!("{stem}.rdspixel.json"));
+    let read_previous = |file: &Path| match fs::read(file) {
+        Ok(bytes) => Ok(Some(bytes)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(format!(
+            "Nao foi possivel preservar '{}': {e}",
+            file.display()
+        )),
+    };
+    let previous_png = read_previous(&png_path)?;
+    let previous_doc = read_previous(&doc_path)?;
+    let publish = || -> Result<(), String> {
+        crate::core::project_mgr::write_bytes_atomically_with_retry(&png_path, png)
+            .map_err(|e| format!("Falha ao gravar PNG: {e}"))?;
+        crate::core::project_mgr::write_text_atomically_with_retry(&doc_path, doc_json)
+            .map_err(|e| format!("Falha ao gravar documento: {e}"))
+    };
+    if let Err(error) = publish() {
+        let mut recovery_errors = Vec::new();
+        for (file, previous) in [(&png_path, previous_png), (&doc_path, previous_doc)] {
+            let recovery = match previous {
+                Some(bytes) => {
+                    crate::core::project_mgr::write_bytes_atomically_with_retry(file, &bytes)
+                        .map_err(|e| e.to_string())
+                }
+                None => match fs::remove_file(file) {
+                    Ok(()) => Ok(()),
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                    Err(e) => Err(e.to_string()),
+                },
+            };
+            if let Err(e) = recovery {
+                recovery_errors.push(format!("{}: {e}", file.display()));
+            }
+        }
+        return Err(if recovery_errors.is_empty() {
+            error
+        } else {
+            format!(
+                "{error}. Recuperacao incompleta, preserve os arquivos: {}",
+                recovery_errors.join("; ")
+            )
+        });
+    }
     Ok(SavedPixelArt {
         png_relative: format!("assets/sprites/pixel/{stem}.png"),
         doc_relative: format!("assets/sprites/pixel/{stem}.rdspixel.json"),
@@ -9259,6 +9307,25 @@ pub extern "C" fn retro_run() {
             "{}"
         );
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn pixel_save_refuses_invalid_or_unwritable_document_without_replacing_previous_png() {
+        let dir = temp_dir("pixel-save-preserve");
+        fs::write(dir.join("project.rds"), "{}").unwrap();
+        let png = [137u8, 80, 78, 71, 13, 10, 26, 10, 1];
+        let saved = write_pixel_art_asset(&dir, "sprite", &png, "{}").unwrap();
+        let new_png = [137u8, 80, 78, 71, 13, 10, 26, 10, 2];
+        assert!(write_pixel_art_asset(&dir, "sprite", &new_png, "invalid json").is_err());
+        assert_eq!(fs::read(dir.join(&saved.png_relative)).unwrap(), png);
+        fs::remove_file(dir.join(&saved.doc_relative)).unwrap();
+        fs::create_dir(dir.join(&saved.doc_relative)).unwrap();
+        let error = write_pixel_art_asset(&dir, "sprite", &new_png, "{}")
+            .err()
+            .unwrap();
+        assert!(error.contains("preservar"));
+        assert_eq!(fs::read(dir.join(&saved.png_relative)).unwrap(), png);
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

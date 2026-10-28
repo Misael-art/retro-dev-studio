@@ -4231,6 +4231,7 @@ export default function ArtStudioPanel() {
       {artMode === "pixel" ? (
         <div className="min-h-0 flex-1 px-3 pb-3">
           <PixelEditor
+            key={activeProjectDir ?? ""}
             projectDir={activeProjectDir}
             source={
               state.spriteSheetUrl

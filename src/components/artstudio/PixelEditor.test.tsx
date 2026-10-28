@@ -13,6 +13,7 @@ vi.mock("../../core/pixelEditor", async (importOriginal) => {
 });
 
 import PixelEditor from "./PixelEditor";
+import { useEditorStore } from "../../core/store/editorStore";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -24,6 +25,7 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   saveMock.mockReset();
+  useEditorStore.setState({ pixelEditorSessions: {} });
   HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as never;
   HTMLCanvasElement.prototype.setPointerCapture = vi.fn();
   HTMLCanvasElement.prototype.getBoundingClientRect = () => ({ left: 0, top: 0, width: 320, height: 320, right: 320, bottom: 320, x: 0, y: 0, toJSON: () => ({}) });
@@ -49,6 +51,65 @@ function render(projectDir: string | null = "/proj") {
 }
 
 describe("PixelEditor", () => {
+  const savedResult = { png_relative: "assets/sprites/pixel/novo_sprite.png", doc_relative: "x", png_absolute: "/proj/assets/sprites/pixel/novo_sprite.png" };
+  const key = (key: string) => act(() => q("pixel-editor").dispatchEvent(new KeyboardEvent("keydown", { key, ctrlKey: true, bubbles: true })));
+
+  it("keeps the document, selection and undo history across unmounts without crossing projects", () => {
+    render();
+    act(() => q("pixel-frame-duplicate").click());
+    act(() => root.render(null));
+    render("/other");
+    expect(container.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length).toBe(1);
+    act(() => root.render(null));
+    render();
+    expect(container.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length).toBe(2);
+    key("z");
+    expect(container.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length).toBe(1);
+    key("y");
+    expect(container.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length).toBe(2);
+    expect(q("pixel-save-state").textContent).toContain("Salve antes de fechar");
+  });
+
+  it("marks Undo pending and Redo saved only when the document matches the written revision", async () => {
+    saveMock.mockResolvedValue(savedResult);
+    render();
+    act(() => q("pixel-frame-duplicate").click());
+    await act(async () => q("pixel-save").click());
+    expect(q("pixel-editor").dataset.dirty).toBe("false");
+    key("z");
+    expect(q("pixel-editor").dataset.dirty).toBe("true");
+    expect(q("pixel-save").textContent).not.toContain("Salvo");
+    expect(q("pixel-status").textContent).not.toContain("PNG e documento salvos");
+    key("y");
+    expect(q("pixel-editor").dataset.dirty).toBe("false");
+  });
+
+  it("a delayed save cannot mark newer edits saved or send the old sheet to Art", async () => {
+    let resolve!: (value: typeof savedResult) => void;
+    saveMock.mockReturnValue(new Promise((done) => { resolve = done; }));
+    const { onSaved } = render();
+    await act(async () => q("pixel-save").click());
+    expect((q("pixel-save") as HTMLButtonElement).disabled).toBe(true);
+    act(() => q("pixel-frame-duplicate").click());
+    await act(async () => resolve(savedResult));
+    expect(q("pixel-editor").dataset.dirty).toBe("true");
+    expect(q("pixel-save").textContent).not.toContain("Salvo");
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(q("pixel-status").textContent).toContain("versão anterior");
+  });
+
+  it("keeps edits and retry available after a failed save", async () => {
+    saveMock.mockRejectedValue(new Error("disco somente leitura"));
+    render();
+    act(() => q("pixel-frame-duplicate").click());
+    await act(async () => q("pixel-save").click());
+    expect(q("pixel-status").textContent).toContain("Falha ao salvar");
+    expect(q("pixel-editor").dataset.dirty).toBe("true");
+    expect((q("pixel-save") as HTMLButtonElement).disabled).toBe(false);
+    saveMock.mockResolvedValue(savedResult);
+    await act(async () => q("pixel-save").click());
+    expect(q("pixel-editor").dataset.dirty).toBe("false");
+  });
   it("shows tools with shortcuts and switches tool by keyboard", () => {
     render();
     expect(q("pixel-tool-pencil").dataset.active).toBe("true");

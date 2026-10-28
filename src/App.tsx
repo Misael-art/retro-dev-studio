@@ -3676,6 +3676,7 @@ export default function App() {
       }
       if (!isBuildContextCurrent()) return;
       const buildRevision = useEditorStore.getState().sceneSaveState.revision;
+      const nativeCodeRevision = useEditorStore.getState().nativeCodeRevision;
       if (buildRevision === null || buildRevision !== useEditorStore.getState().sceneRevision) {
         staleBuildMessage();
         return;
@@ -3737,6 +3738,11 @@ export default function App() {
       try {
         const mastering = await inspectRomMastering(result.rom_path);
         if (!isBuildContextCurrent()) return;
+        useEditorStore.getState().setLastBuildArtifact({
+          path: result.rom_path,
+          sha256: mastering.sha256,
+          nativeCodeRevision: hwStatus.analysis_mode === "native_c" ? nativeCodeRevision : null,
+        });
         const nextStatus =
           mastering.blockers.length > 0
             ? "blocked"
@@ -3762,7 +3768,8 @@ export default function App() {
         setRomMasteringStatus("inspect_failed");
         logMessage("error", `[ROM Mastering] ${error instanceof Error ? error.message : String(error)}`);
       }
-      if (!isBuildContextCurrent() || buildRevision !== useEditorStore.getState().sceneRevision) {
+      if (!isBuildContextCurrent() || buildRevision !== useEditorStore.getState().sceneRevision
+        || (hwStatus.analysis_mode === "native_c" && nativeCodeRevision !== useEditorStore.getState().nativeCodeRevision)) {
         staleBuildMessage();
         return;
       }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   MAX_SPRITES_PER_LINE,
   TILE,
@@ -46,6 +46,7 @@ import {
   type PixelTarget,
 } from "../../core/pixelEditor";
 import { loadPixelArtDoc, savePixelArtAsset } from "../../core/ipc/artStudioService";
+import { useEditorStore } from "../../core/store/editorStore";
 
 export type PixelTool =
   | "pencil"
@@ -159,11 +160,13 @@ export async function importFramesFromSheet(source: PixelEditorSource, line: num
 }
 
 export default function PixelEditor({ projectDir, source, log, onSaved }: PixelEditorProps) {
-  const [doc, setDocState] = useState<PixelDoc>(() => createPixelDoc(32, 32));
-  const [past, setPast] = useState<PixelDoc[]>([]);
-  const [future, setFuture] = useState<PixelDoc[]>([]);
-  const [frameIndex, setFrameIndex] = useState(0);
-  const [layerIndex, setLayerIndex] = useState(0);
+  const projectKey = projectDir ?? "";
+  const initial = useRef(useEditorStore.getState().pixelEditorSessions[projectKey]).current;
+  const [doc, setDocState] = useState<PixelDoc>(() => initial?.doc ?? createPixelDoc(32, 32));
+  const [past, setPast] = useState<PixelDoc[]>(initial?.past ?? []);
+  const [future, setFuture] = useState<PixelDoc[]>(initial?.future ?? []);
+  const [frameIndex, setFrameIndex] = useState(initial?.frameIndex ?? 0);
+  const [layerIndex, setLayerIndex] = useState(initial?.layerIndex ?? 0);
   const [tool, setTool] = useState<PixelTool>("pencil");
   const [activeLine, setActiveLine] = useState(0);
   const [primary, setPrimary] = useState(packPixel(0, 1));
@@ -186,12 +189,32 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   const [previewFrame, setPreviewFrame] = useState(0);
   const [status, setStatus] = useState<string | null>(null);
   const [preview, setPreview] = useState<Uint8Array | null>(null);
-  const [savedPath, setSavedPath] = useState<string | null>(null);
+  const [savedPath, setSavedPath] = useState<string | null>(initial?.savedPath ?? null);
+  const [savedSource, setSavedSource] = useState<string | null>(initial?.savedSource ?? null);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const mounted = useRef(true);
+  const importRequest = useRef(0);
+  const sourceIdentity = JSON.stringify(source);
+  const sourceIdentityRef = useRef(sourceIdentity);
+  sourceIdentityRef.current = sourceIdentity;
   const dragRef = useRef<Drag | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewRef = useRef<HTMLCanvasElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const serialized = useMemo(() => serializePixelDoc(doc), [doc]);
+  const isSaved = savedPath !== null && serialized === savedSource;
+
+  useLayoutEffect(() => {
+    useEditorStore.getState().setPixelEditorSession(projectKey, {
+      doc, past, future, frameIndex, layerIndex, savedPath, savedSource,
+    });
+  }, [projectKey, doc, past, future, frameIndex, layerIndex, savedPath, savedSource]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; importRequest.current += 1; };
+  }, []);
 
   const frame = Math.min(frameIndex, doc.frames.length - 1);
   const layer = Math.min(layerIndex, doc.layers.length - 1);
@@ -205,16 +228,17 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
     setFuture([]);
     docRef.current = next;
     setDocState(next);
-    setSavedPath(null);
   }, []);
   const undo = useCallback(() => {
     if (past.length === 0) return;
+    setStatus(null);
     setFuture((f) => [docRef.current, ...f]);
     setDocState(past[past.length - 1]);
     setPast(past.slice(0, -1));
   }, [past]);
   const redo = useCallback(() => {
     if (future.length === 0) return;
+    setStatus(null);
     setPast((p) => [...p, docRef.current]);
     setDocState(future[0]);
     setFuture(future.slice(1));
@@ -495,16 +519,24 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   // ── Teclado ──
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
-    if (target.tagName === "INPUT" || target.tagName === "SELECT") return;
     const key = event.key.toLowerCase();
+    if ((event.ctrlKey || event.metaKey) && key === "s") {
+      event.preventDefault();
+      event.stopPropagation();
+      void save();
+      return;
+    }
+    if (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA") return;
     if ((event.ctrlKey || event.metaKey) && key === "z") {
       event.preventDefault();
+      event.stopPropagation();
       if (event.shiftKey) redo();
       else undo();
       return;
     }
     if ((event.ctrlKey || event.metaKey) && key === "y") {
       event.preventDefault();
+      event.stopPropagation();
       redo();
       return;
     }
@@ -534,12 +566,20 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   // ── Abrir / salvar ──
   const importFromArt = async () => {
     if (!source) return;
+    const request = ++importRequest.current;
+    const startingDoc = docRef.current;
+    const stillCurrent = () => mounted.current && request === importRequest.current
+      && docRef.current === startingDoc && sourceIdentityRef.current === sourceIdentity;
     try {
       const pixelDoc = source.sourcePath.match(/(assets\/sprites\/pixel\/[^/]+)\.png$/);
       if (pixelDoc && projectDir) {
-        const json = await loadPixelArtDoc(projectDir, `${pixelDoc[1]}.rdspixel.json`).catch(() => null);
+        const json = await loadPixelArtDoc(projectDir, `${pixelDoc[1]}.rdspixel.json`);
+        if (!stillCurrent()) return;
         if (json) {
-          commit(deserializePixelDoc(json));
+          const opened = deserializePixelDoc(json);
+          commit(opened);
+          setSavedPath(`${pixelDoc[1]}.png`);
+          setSavedSource(serializePixelDoc(opened));
           setFrameIndex(0);
           setLayerIndex(0);
           setStatus("Documento de pixel art reaberto com layers e frames.");
@@ -547,6 +587,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
         }
       }
       const { doc: imported, warnings } = await importFramesFromSheet(source, activeLine, doc);
+      if (!stillCurrent()) return;
       commit(imported);
       setFrameIndex(0);
       setLayerIndex(0);
@@ -555,23 +596,41 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
         `${imported.frames.length} frame(s) de ${source.name} em PAL${activeLine}.` + (warnings.length ? ` ${warnings.join(" ")}` : "")
       );
     } catch (error) {
+      if (!stillCurrent()) return;
       setStatus(error instanceof Error ? error.message : String(error));
     }
   };
 
   const save = async () => {
+    if (savingRef.current) return;
     if (!projectDir) {
       setStatus("Abra um projeto para salvar.");
       return;
     }
+    const snapshot = docRef.current;
+    const snapshotSource = serializePixelDoc(snapshot);
+    savingRef.current = true;
+    setSaving(true);
     try {
-      const sheet = await exportSheetPng(doc);
-      const saved = await savePixelArtAsset(projectDir, doc.name, sheet.png, serializePixelDoc(doc));
+      const sheet = await exportSheetPng(snapshot);
+      if (!mounted.current) return;
+      const saved = await savePixelArtAsset(projectDir, snapshot.name, sheet.png, snapshotSource);
+      if (!mounted.current) return;
       setSavedPath(saved.png_relative);
-      log("success", `[Editor de pixels] ${saved.png_relative} (${doc.frames.length} frame(s), PAL${sheet.line}, PNG 4-bit).`);
-      onSaved(saved.png_absolute);
+      setSavedSource(snapshotSource);
+      log("success", `[Editor de pixels] ${saved.png_relative} (${snapshot.frames.length} frame(s), PAL${sheet.line}, PNG 4-bit).`);
+      if (serializePixelDoc(docRef.current) === snapshotSource) {
+        // The revision-bound save-state line is the single save indicator.
+        // Tool errors (e.g. a rejected palette tile) keep their own feedback.
+        setStatus(null);
+        onSaved(saved.png_absolute);
+      } else setStatus("A versão anterior foi salva. Há novas alterações de pixels pendentes.");
     } catch (error) {
+      if (!mounted.current) return;
       setStatus(`Falha ao salvar: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      savingRef.current = false;
+      if (mounted.current) setSaving(false);
     }
   };
 
@@ -602,6 +661,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
       tabIndex={0}
       onKeyDown={onKeyDown}
       data-testid="pixel-editor"
+      data-dirty={String(!isSaved)}
       className="flex h-full min-h-0 flex-col gap-2 outline-none"
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -610,7 +670,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
         <input
           data-testid="pixel-doc-name"
           value={doc.name}
-          onChange={(e) => setDocState({ ...doc, name: sanitizeSymbol(e.target.value) })}
+          onChange={(e) => commit({ ...doc, name: sanitizeSymbol(e.target.value) })}
           className="w-32 rounded border border-[#313244] bg-[#0b0f19] px-2 py-1 font-mono"
           title="Nome do recurso (vira spr_<nome> no .res)"
         />
@@ -672,13 +732,18 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
           <button
             type="button"
             data-testid="pixel-save"
+            disabled={saving}
             onClick={() => void save()}
             className="rounded border border-[#a6e3a1]/50 bg-[#a6e3a1]/15 px-3 py-1 font-semibold text-[#a6e3a1] hover:bg-[#a6e3a1]/25"
           >
-            {savedPath ? "Salvo ✓" : "Salvar no projeto"}
+            {saving ? "Salvando…" : isSaved ? "Salvo ✓" : "Salvar no projeto"}
           </button>
         </span>
       </div>
+      <p data-testid="pixel-save-state" role="status" className="px-1 text-[10px] text-[#a6adc8]">
+        {isSaved ? `PNG e documento salvos: ${savedPath}.` : "Pixels pendentes · mantidos nesta sessão ao trocar de ferramenta. Salve antes de fechar o aplicativo."}
+        {" "}Salvar pixels cria um recurso; aplicar na cena ou integrar no C é uma etapa separada.
+      </p>
 
       <div className="grid min-h-0 flex-1 grid-cols-[52px_minmax(0,1fr)_280px] gap-2">
         {/* Ferramentas */}

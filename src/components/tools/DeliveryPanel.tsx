@@ -22,8 +22,10 @@ export default function DeliveryPanel({ onClose }: { onClose: () => void }) {
   const revision = useEditorStore((s) => s.sceneRevision);
   const target = useEditorStore((s) => s.activeTarget);
   const artifact = useEditorStore((s) => s.lastBuildSourceMap?.artifact);
+  const builtArtifact = useEditorStore((s) => s.lastBuildArtifact);
+  const codeRevision = useEditorStore((s) => s.nativeCodeRevision);
   // Remount synchronously: a new build/revision can never reuse an old verification.
-  const identity = JSON.stringify([project, session, revision, target, artifact?.path, artifact?.sha256]);
+  const identity = JSON.stringify([project, session, revision, target, artifact?.path, artifact?.sha256, builtArtifact, codeRevision]);
   return <DeliveryReview key={identity} onClose={onClose} />;
 }
 
@@ -33,6 +35,9 @@ function DeliveryReview({ onClose }: { onClose: () => void }) {
   const sceneRevision = useEditorStore((state) => state.sceneRevision);
   const lastBuildSceneRevision = useEditorStore((state) => state.lastBuildSceneRevision);
   const sourceMap = useEditorStore((state) => state.lastBuildSourceMap);
+  const builtArtifact = useEditorStore((state) => state.lastBuildArtifact);
+  const codeRevision = useEditorStore((state) => state.nativeCodeRevision);
+  const nativeBuild = builtArtifact?.nativeCodeRevision != null;
   const runningRom = useEditorStore((state) => state.emulatorRomIdentity?.sha256 ?? null);
   const testedBuild = useEditorStore((state) => state.lastBuildTest);
   const activeTarget = useEditorStore((state) => state.activeTarget);
@@ -71,23 +76,27 @@ function DeliveryReview({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     void refreshPalettePlan();
   }, [activeScene, refreshPalettePlan]);
-  const review = useMemo(() => reviewProject(activeScene, references, palettePlan), [activeScene, references, palettePlan]);
+  const review = useMemo(() => nativeBuild
+    ? { errors: 0, warnings: 0, passed: 0, items: [] }
+    : reviewProject(activeScene, references, palettePlan), [activeScene, references, palettePlan, nativeBuild]);
   const [mastering, setMastering] = useState<RomMasteringReport | null>(null);
   const [exported, setExported] = useState<ExportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"verify" | "export" | null>(null);
   const operationRef = useRef(false);
-  const romPath = sourceMap?.artifact.path ?? null;
-  const romSha = sourceMap?.artifact.sha256 ?? null;
+  const romPath = builtArtifact?.path ?? sourceMap?.artifact.path ?? null;
+  const romSha = builtArtifact?.sha256 ?? sourceMap?.artifact.sha256 ?? null;
   const freshness = describeBuildFreshness({
     sceneRevision,
     lastBuildSceneRevision,
     builtRomSha256: romSha,
     runningRomSha256: runningRom,
     testedBuild,
+    nativeCode: nativeBuild ? { revision: codeRevision, builtRevision: builtArtifact.nativeCodeRevision! } : null,
   });
   // A ROM só representa o projeto se foi gerada a partir da revisão atual da cena.
-  const stale = lastBuildSceneRevision === null || sceneRevision !== lastBuildSceneRevision;
+  const stale = nativeBuild ? codeRevision !== builtArtifact.nativeCodeRevision
+    : lastBuildSceneRevision === null || sceneRevision !== lastBuildSceneRevision;
   const exportBlockedReason =
     !activeProjectDir ? "Abra um projeto para exportar"
     : busy ? "Aguarde a operação atual"
@@ -175,6 +184,10 @@ function DeliveryReview({ onClose }: { onClose: () => void }) {
         <p role="status" data-testid="delivery-audit-status" className="px-4 py-2 text-[#a6adc8]">
           {auditStatus === "pending" ? "Verificando arquivos do projeto…" : auditStatus === "failed" ? "Falha ao verificar arquivos. Use Verificar novamente para tentar de novo." : "Arquivos do projeto verificados."}
         </p>
+        {nativeBuild ? <p data-testid="delivery-native-scope" className="px-4 py-2 text-[#fbbf24]">
+          Build C original: a cena é referência e não representa o jogo. A verificação abaixo cobre identidade e formato da ROM,
+          não a lógica C nem alterações externas desde o build. Recompile após editar arquivos fora do Studio.
+        </p> : null}
         <div className="grid grid-cols-3 gap-2 px-4 py-3">
           <div data-testid="delivery-errors" data-count={review.errors} className="rounded border border-[#f38ba8]/50 p-2">
             <p className="text-base font-semibold text-[#f38ba8]">✖ {review.errors} erro(s)</p>
@@ -224,7 +237,7 @@ function DeliveryReview({ onClose }: { onClose: () => void }) {
               </div>
             </li>
           ))}
-          {review.items.length === 0 ? <li className="text-[#a6e3a1]">Nenhum problema encontrado nas verificações desta versão.</li> : null}
+          {review.items.length === 0 ? <li className="text-[#a6e3a1]">{nativeBuild ? "Validação de cenas/nodes do Studio não se aplica à ROM compilada do C original." : "Nenhum problema encontrado nas verificações desta versão."}</li> : null}
         </ul>
         <footer className="space-y-1 border-t border-[#313244] px-4 py-2">
           <p className="text-[#a6adc8]">
