@@ -3271,3 +3271,24 @@ Corpus: OpenBOR origem conhecida 18 → **37/70** (local 18 + chamador 19), Muge
 - `emulator_vram_usage` mede a VRAM real do core (snapshot do VDP quando a API não expõe), na barra superior ("VRAM real"), na barra de status e no painel de hardware.
 
 **Provas:** E2E real `sgdk-native-c`, binário `3810f7eda26a8f9b50c3b8e52513381b89bf5e16514243543c985108994dee9f`, **12/12**: "VRAM real 13 / 64 KB" no medidor; captura com 15 entidades (2 planos + 13 sprites), ativa no editor e conferida na imagem (menu "ESCOLHA O MODO", Ken e Ryu); edição de bloco → ROM `29e0791f…` e demais passos anteriores. A captura do E2E ficou em `rds/scenes/rom_capture_quadro_20261028024108.json` do Mugenesis (overlay do Studio).
+
+### Checkpoint 2026-10-28 (b) — Captura da ROM organizada por prioridade e linha de paleta; mapa de paletas A–D (Experimental)
+
+Relato do operador: o painel de paletas acusava conflito em capturas, mas o jogo não tem conflito (cada parte da tela usa sua linha da CRAM). Também pediu tela coesa quanto a tile/sprite.
+
+- **Causa:** a captura gravava cada plano inteiro como uma imagem; uma imagem misturava várias linhas de paleta e o planejador (corretamente) via >15 cores num recurso.
+- **VDP (`vdp_snapshot.rs`):**
+  - `plane_pixel` devolve índice, linha de paleta e prioridade de cada pixel dos planos A, B e Window. O Window segue R3/R17/R18 e substitui o plano A na região dele.
+  - Sprites carregam o bit de prioridade.
+  - A composição segue a ordem do VDP: backdrop, planos baixos, sprites baixos, planos altos, sprites altos. Sombra/realce e o limite por linha não são modelados.
+  - Contra o framebuffer real continua com **diferença máxima de 4**.
+- **Captura (`rom_scene_capture.rs`):**
+  - Grava uma imagem por (prioridade, plano, linha de paleta) e um sprite por entrada da SAT, e cada entidade usa exatamente uma linha.
+  - `scene.layers` segue a ordem de prioridade: `rom_planes_low`, `rom_sprites_low`, `rom_planes_high`, `rom_sprites_high`.
+  - `scene.palettes` declara as 4 linhas da CRAM (`cram:pal0..3`, banco fixado, `uses` das entidades).
+  - O planejador do build fica sem erro (teste em `plan_megadrive`).
+- **Mapa de paletas (`PalettePanel`/`ViewportPanel`):**
+  - Sempre visível sob o resumo, com uma linha por banco A–D (PAL0–3): ✓ ou "!", amostras e "n/15 usados · restam m".
+  - O checkbox de filtro oculta no viewport os objetos daquele banco.
+  - "Mapa de paletas no viewport" desenha sobre cada objeto um selo com a letra do banco, a cor do banco e ✓ ou "!", com a validação vinda do mesmo plano do build.
+- **Não feito:** botão "otimizar paletas" (unir paletas parecidas), anotado pelo operador como futuro.

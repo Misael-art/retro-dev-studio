@@ -15,6 +15,12 @@ interface PalettePlanState {
   /** Usos fixados pelo clique (lista aberta) — `resourceId`. */
   pinnedUses: string | null;
   setPinnedUses: (resourceId: string | null) => void;
+  /** Mapa de paletas no viewport: selo A–D com validação sobre cada objeto. */
+  mapEnabled: boolean;
+  setMapEnabled: (enabled: boolean) => void;
+  /** Bancos exibidos no viewport (filtro A–D); objetos de outros bancos ficam ocultos. */
+  bankFilter: number[];
+  toggleBankFilter: (bank: number) => void;
   refresh: () => Promise<void>;
 }
 
@@ -38,6 +44,13 @@ export const usePalettePlanStore = create<PalettePlanState>((set, get) => ({
   loading: false,
   pinnedUses: null,
   setPinnedUses: (resourceId) => set({ pinnedUses: resourceId }),
+  mapEnabled: false,
+  setMapEnabled: (enabled) => set({ mapEnabled: enabled }),
+  bankFilter: [0, 1, 2, 3],
+  toggleBankFilter: (bank) =>
+    set((s) => ({
+      bankFilter: s.bankFilter.includes(bank) ? s.bankFilter.filter((b) => b !== bank) : [...s.bankFilter, bank].sort(),
+    })),
   refresh: async () => {
     const { projectDir, scene, revision, contextKey } = currentScene();
     if (!projectDir || !scene) {

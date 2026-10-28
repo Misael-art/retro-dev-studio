@@ -67,6 +67,8 @@ import { paintGameFrame } from "./gameFramePresentation";
 import RuntimeInspectOverlay from "./RuntimeInspectOverlay";
 import { gameMayTakeKeyDown } from "../../core/keyboardFocus";
 import TestAdjustPanel from "./TestAdjustPanel";
+import { bankLetter, entityPaletteMarks } from "../../core/palettePlan";
+import { usePalettePlanStore } from "../../core/palettePlanStore";
 
 const VIEWPORT_TABS = [
   { id: "scene", label: "Cena", icon: "SC" },
@@ -568,6 +570,19 @@ export default function ViewportPanel({
   const [showBackground, setShowBackground] = useState(true);
   const [showTilemaps, setShowTilemaps] = useState(true);
   const [showSprites, setShowSprites] = useState(true);
+  const paletteMapEnabled = usePalettePlanStore((s) => s.mapEnabled);
+  const paletteBankFilter = usePalettePlanStore((s) => s.bankFilter);
+  const palettePlan = usePalettePlanStore((s) => s.plan);
+  const paletteMarks = useMemo(() => (palettePlan ? entityPaletteMarks(palettePlan) : null), [palettePlan]);
+  /** Objetos fora dos bancos escolhidos no filtro A–D do painel de paletas. */
+  const paletteFilteredOut = useCallback(
+    (entityId: string) => {
+      if (!paletteMarks || paletteBankFilter.length === 4) return false;
+      const bank = paletteMarks.get(entityId)?.bank;
+      return bank !== undefined && !paletteBankFilter.includes(bank);
+    },
+    [paletteMarks, paletteBankFilter]
+  );
   const [showCollisionOverlay, setShowCollisionOverlay] = useState(false);
   const [showCameraOverlay, setShowCameraOverlay] = useState(true);
   const [showEntityBounds, setShowEntityBounds] = useState(true);
@@ -2479,7 +2494,7 @@ export default function ViewportPanel({
         index,
         depth: compositionLayerDepthByEntityId.get(entity.entity_id) ?? 0,
       }))
-      .filter(({ entity }) => !compositionHiddenByLayer.has(entity.entity_id))
+      .filter(({ entity }) => !compositionHiddenByLayer.has(entity.entity_id) && !paletteFilteredOut(entity.entity_id))
       .sort((left, right) => {
         if (left.depth !== right.depth) {
           return left.depth - right.depth;
@@ -2871,6 +2886,7 @@ export default function ViewportPanel({
     showBackground,
     showSprites,
     showTilemaps,
+    paletteFilteredOut,
   ]);
 
   useEffect(() => {
@@ -2944,7 +2960,7 @@ export default function ViewportPanel({
         index,
         depth: layerDepthByEntityId.get(entity.entity_id) ?? 0,
       }))
-      .filter(({ entity }) => !hiddenByLayer.has(entity.entity_id))
+      .filter(({ entity }) => !hiddenByLayer.has(entity.entity_id) && !paletteFilteredOut(entity.entity_id))
       .sort((left, right) => {
         if (left.depth !== right.depth) {
           return left.depth - right.depth;
@@ -3143,6 +3159,34 @@ export default function ViewportPanel({
         context.fillText(entityDisplayLabel(entity).slice(0, 22), x + 6, y + 14);
       }
     });
+
+    // Mapa de paletas: selo "A ✓" por objeto, na cor do banco; objetos na mesma origem
+    // (camadas de tela inteira) ficam lado a lado em vez de sobrepostos.
+    if (paletteMapEnabled && paletteMarks) {
+      const stacked = new Map<string, number>();
+      context.save();
+      context.font = "bold 10px monospace";
+      orderedEntities.forEach(({ entity }) => {
+        const mark = paletteMarks.get(entity.entity_id);
+        if (!mark) return;
+        const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
+        const key = `${bounds.x},${bounds.y}`;
+        const slot = stacked.get(key) ?? 0;
+        stacked.set(key, slot + 1);
+        const bx = worldToSceneCanvasX(bounds.x) + 2 + slot * 30;
+        const by = worldToSceneCanvasY(bounds.y) + 2;
+        const swatch = mark.bank !== undefined ? palettePlan?.banks[mark.bank]?.colors.find((c, i) => i > 0 && c) : undefined;
+        context.fillStyle = "rgba(17,17,27,0.85)";
+        context.fillRect(bx, by, 28, 14);
+        context.fillStyle = swatch ?? "#585b70";
+        context.fillRect(bx + 1, by + 1, 4, 12);
+        context.fillStyle = "#cdd6f4";
+        context.fillText(mark.bank !== undefined ? bankLetter(mark.bank) : "?", bx + 7, by + 11);
+        context.fillStyle = mark.ok ? "#a6e3a1" : "#f38ba8";
+        context.fillText(mark.ok ? "✓" : "!", bx + 17, by + 11);
+      });
+      context.restore();
+    }
 
     const spotlightEntityId = soloEntityId ?? (denseStackSpotlight ? denseStackPreviewEntityId : null);
     if (spotlightEntityId) {
@@ -3389,6 +3433,10 @@ export default function ViewportPanel({
     activeTilemapId,
     worldToSceneCanvasX,
     worldToSceneCanvasY,
+    paletteFilteredOut,
+    paletteMapEnabled,
+    paletteMarks,
+    palettePlan,
   ]);
 
   useEffect(() => {

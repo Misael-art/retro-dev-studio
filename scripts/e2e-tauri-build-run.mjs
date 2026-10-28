@@ -6133,6 +6133,23 @@ async function runSgdkNativeCScenario(sessionId) {
     await new Promise((resolve) => setTimeout(resolve, 1500));
     addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-rom-capture-scene.png`), "Captured ROM scene in the editor");
 
+    // Paletas da captura: cada camada usa uma linha da CRAM, sem conflito; mapa A-D e filtro.
+    const domAttr = (testId, name) => executeScript(sessionId, `return document.querySelector('[data-testid="${testId}"]')?.getAttribute('${name}') ?? null;`);
+    const paletteErrors = await waitFor(async () => {
+      const value = await domAttr("palette-summary", "data-errors");
+      return value === null ? false : value;
+    }, 30000, "Palette summary did not appear for the captured scene.", 250);
+    if (paletteErrors !== "0") fail(`Captured scene has ${paletteErrors} palette conflict(s).`);
+    const bankSlots = [];
+    for (const bank of [0, 1, 2, 3]) bankSlots.push(await domAttr(`palette-map-bank-${bank}`, "data-used"));
+    await clickByTestId(sessionId, "palette-map-toggle");
+    await clickByTestId(sessionId, "palette-filter-0");
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-palette-map-filter.png`), "Palette map on, bank A hidden");
+    await clickByTestId(sessionId, "palette-filter-0");
+    report.rom_capture_palettes = { errors: paletteErrors, slots_used: bankSlots, layers: (capturedScene.layers ?? []).map((l) => l.id) };
+    addReportStep(report, "rom_capture_palettes_without_conflict", "passed", report.rom_capture_palettes);
+
     await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
     await waitFor(async () => (await readAutomationState(sessionId))?.emulatorLoaded === false, 15000, "Emulator did not stop.", 150);
     addReportStep(report, "stopped", "passed");

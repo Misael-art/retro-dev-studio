@@ -201,3 +201,37 @@ export function affectedBy(plan: PalettePlan, resource: PlanResource, index: num
   }
   return [...out];
 }
+
+/** Letra do banco no mapa de paletas (banco 0 = A … banco 3 = D). */
+export function bankLetter(bank: number): string {
+  return String.fromCharCode(65 + bank);
+}
+
+/** Slots ocupados de um banco (índice 0 é transparente e não conta). */
+export function bankSlotsUsed(bank: PlanBank, colorsPerBank = 16): number {
+  return bank.colors.slice(1, colorsPerBank).filter((c) => Boolean(c)).length;
+}
+
+export interface EntityPaletteMark {
+  bank?: number;
+  ok: boolean;
+  reason: string;
+}
+
+/** Banco e validação de cada objeto da cena, do mesmo plano do build. */
+export function entityPaletteMarks(plan: PalettePlan): Map<string, EntityPaletteMark> {
+  const marks = new Map<string, EntityPaletteMark>();
+  for (const resource of plan.resources) {
+    for (const use of resource.uses) {
+      const bank = plan.entity_banks[use.entity_id] ?? resource.bank;
+      const problem = plan.diagnostics.find((d) => d.severity === "error" && (d.uses.includes(use.entity_id) || d.resources.includes(resource.id)));
+      const ok = bank !== undefined && !problem && resource.state !== "conflito" && resource.state !== "sem_banco";
+      marks.set(use.entity_id, {
+        bank,
+        ok,
+        reason: problem?.message ?? (bank === undefined ? "sem banco de paleta" : `${resource.name} no banco ${bankLetter(bank)} sem conflito`),
+      });
+    }
+  }
+  return marks;
+}

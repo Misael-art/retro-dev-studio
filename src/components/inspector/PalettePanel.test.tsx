@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EntityPaletteSection, PaletteSummary } from "./PalettePanel";
 import type { PaletteEntry, Scene } from "../../core/ipc/sceneService";
 import type { PalettePlan, PlanResource } from "../../core/palettePlan";
+import { entityPaletteMarks } from "../../core/palettePlan";
 import { usePalettePlanStore } from "../../core/palettePlanStore";
 import { useEditorStore } from "../../core/store/editorStore";
 
@@ -116,9 +117,29 @@ describe("PaletteSummary", () => {
     expect(summary.dataset.used).toBe("3");
     expect(summary.textContent).toContain("3/4 bancos");
     await act(async () => summary.click());
-    expect(q("palette-bank-1")!.dataset.state).toBe("compartilhada");
-    expect(q("palette-bank-1")!.textContent).toContain("Compartilhada");
-    expect(q("palette-bank-3")!.textContent).toContain("Livre");
+    expect(q("palette-map-bank-1")!.dataset.state).toBe("compartilhada");
+    expect(q("palette-map-bank-1")!.textContent).toContain("Compartilhada");
+    expect(q("palette-map-bank-3")!.textContent).toContain("Livre");
+  });
+
+  it("palette map counts used slots per bank, filters banks and marks each object", async () => {
+    await render(<PaletteSummary />);
+    const plan = usePalettePlanStore.getState().plan!;
+    for (const bank of plan.banks) {
+      const used = bank.colors.slice(1).filter(Boolean).length;
+      expect(q(`palette-map-bank-${bank.bank}`)!.dataset.used).toBe(String(used));
+      expect(q(`palette-map-count-${bank.bank}`)!.textContent).toBe(`${used}/15 usados · restam ${15 - used}`);
+    }
+    await act(async () => q<HTMLInputElement>("palette-map-toggle")!.click());
+    expect(usePalettePlanStore.getState().mapEnabled).toBe(true);
+    await act(async () => q<HTMLInputElement>("palette-filter-1")!.click());
+    expect(usePalettePlanStore.getState().bankFilter).toEqual([0, 2, 3]);
+    await act(async () => q<HTMLInputElement>("palette-filter-1")!.click());
+    expect(usePalettePlanStore.getState().bankFilter).toEqual([0, 1, 2, 3]);
+    const marks = entityPaletteMarks(plan);
+    for (const [entity, bank] of Object.entries(plan.entity_banks)) {
+      expect(marks.get(entity)?.bank).toBe(bank);
+    }
   });
 
   it("hover and focus describe a use; click pins the list and opens the element with return", async () => {

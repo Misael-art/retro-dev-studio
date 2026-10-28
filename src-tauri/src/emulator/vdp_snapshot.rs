@@ -9,8 +9,8 @@
 //! core e os registradores tem de descrever o modo 5; senao a leitura e recusada.
 //!
 //! Com o snapshot, a tela e recomposta como o VDP faz (planos A/B com tiles 4bpp, paletas,
-//! flips e scroll; sprites pela cadeia de links da SAT). Prioridade por tile/sprite e o
-//! plano Window nao sao compostos (limite documentado).
+//! flips e scroll; plano Window; sprites pela cadeia de links da SAT) respeitando a prioridade
+//! por tile/sprite. Sombra/realce e o limite de sprites por linha nao sao modelados.
 
 use image::{Rgba, RgbaImage};
 
@@ -175,38 +175,117 @@ impl VdpSnapshot {
         (self.vsram[index.min(39)] & 0x3FF) as i32
     }
 
-    /// Plano (A ou B) como aparece na tela, com scroll; pixels de cor 0 transparentes.
-    pub fn render_plane(&self, plane_b: bool) -> RgbaImage {
-        let (w, h) = (self.screen_width(), self.screen_height());
-        let (cells_w, cells_h) = self.plane_size();
-        let (pw, ph) = (cells_w as i32 * 8, cells_h as i32 * 8);
-        let base = if plane_b {
-            self.plane_b_base()
+    fn window_base(&self) -> usize {
+        let mask = if self.screen_width() == 320 {
+            0x3C
         } else {
-            self.plane_a_base()
+            0x3E
         };
+        ((self.regs[3] as usize) & mask) << 10
+    }
+
+    /// O plano Window substitui o plano A nas linhas/colunas definidas por R17/R18.
+    fn in_window(&self, sx: usize, sy: usize) -> bool {
+        let (h, v) = (self.regs[17], self.regs[18]);
+        let hp = ((h & 0x1F) as usize) * 16;
+        let vp = ((v & 0x1F) as usize) * 8;
+        let in_h = if h & 0x80 != 0 { sx >= hp } else { sx < hp };
+        let in_v = if v & 0x80 != 0 { sy >= vp } else { sy < vp };
+        in_h || in_v
+    }
+
+    /// Pixel de um plano na tela: indice de cor (0 = transparente), linha de paleta e prioridade.
+    pub fn plane_pixel(&self, plane: VdpPlane, sx: usize, sy: usize) -> PlanePixel {
+        let (base, cells_w, px, py) = match plane {
+            VdpPlane::Window => {
+                if !self.in_window(sx, sy) {
+                    return PlanePixel::default();
+                }
+                let cells = if self.screen_width() == 320 { 64 } else { 32 };
+                (self.window_base(), cells, sx, sy)
+            }
+            VdpPlane::A | VdpPlane::B => {
+                if plane == VdpPlane::A && self.in_window(sx, sy) {
+                    return PlanePixel::default();
+                }
+                let plane_b = plane == VdpPlane::B;
+                let (cells_w, cells_h) = self.plane_size();
+                let (pw, ph) = (cells_w as i32 * 8, cells_h as i32 * 8);
+                let px = (sx as i32 - self.hscroll(plane_b, sy)).rem_euclid(pw) as usize;
+                let py = (sy as i32 + self.vscroll(plane_b, sx)).rem_euclid(ph) as usize;
+                let base = if plane_b {
+                    self.plane_b_base()
+                } else {
+                    self.plane_a_base()
+                };
+                (base, cells_w, px, py)
+            }
+        };
+        let entry = self.vword(base + ((py / 8) * cells_w + px / 8) * 2);
+        let (mut tx, mut ty) = (px % 8, py % 8);
+        if entry & 0x0800 != 0 {
+            tx = 7 - tx;
+        }
+        if entry & 0x1000 != 0 {
+            ty = 7 - ty;
+        }
+        PlanePixel {
+            index: self.tile_pixel((entry & 0x7FF) as usize, tx, ty),
+            palette: ((entry >> 13) & 3) as usize,
+            high: entry & 0x8000 != 0,
+        }
+    }
+
+    /// Camada de um plano filtrada por prioridade e, opcionalmente, por linha de paleta.
+    /// Pixels fora do filtro ficam transparentes; a tela e a soma das camadas.
+    pub fn render_plane_layer(
+        &self,
+        plane: VdpPlane,
+        high: bool,
+        palette: Option<usize>,
+    ) -> RgbaImage {
+        let (w, h) = (self.screen_width(), self.screen_height());
         let mut image = RgbaImage::new(w, h);
         for sy in 0..h as usize {
-            let hs = self.hscroll(plane_b, sy);
             for sx in 0..w as usize {
-                let px = (sx as i32 - hs).rem_euclid(pw) as usize;
-                let py = (sy as i32 + self.vscroll(plane_b, sx)).rem_euclid(ph) as usize;
-                let entry = self.vword(base + ((py / 8) * cells_w + px / 8) * 2);
-                let tile = (entry & 0x7FF) as usize;
-                let palette = ((entry >> 13) & 3) as usize;
-                let (mut tx, mut ty) = (px % 8, py % 8);
-                if entry & 0x0800 != 0 {
-                    tx = 7 - tx;
-                }
-                if entry & 0x1000 != 0 {
-                    ty = 7 - ty;
-                }
-                let index = self.tile_pixel(tile, tx, ty);
-                if index != 0 {
-                    image.put_pixel(sx as u32, sy as u32, self.color(palette * 16 + index));
+                let pixel = self.plane_pixel(plane, sx, sy);
+                if pixel.index != 0
+                    && pixel.high == high
+                    && palette.is_none_or(|p| p == pixel.palette)
+                {
+                    let color = self.color(pixel.palette * 16 + pixel.index);
+                    image.put_pixel(sx as u32, sy as u32, color);
                 }
             }
         }
+        image
+    }
+
+    /// Linhas de paleta com pixels visiveis numa camada de plano.
+    pub fn plane_layer_palettes(&self, plane: VdpPlane, high: bool) -> Vec<usize> {
+        let mut seen = [false; 4];
+        for sy in 0..self.screen_height() as usize {
+            for sx in 0..self.screen_width() as usize {
+                let pixel = self.plane_pixel(plane, sx, sy);
+                if pixel.index != 0 && pixel.high == high {
+                    seen[pixel.palette] = true;
+                }
+            }
+        }
+        (0..4).filter(|p| seen[*p]).collect()
+    }
+
+    /// Plano (A ou B) como aparece na tela, com scroll; pixels de cor 0 transparentes.
+    #[cfg(test)]
+    pub fn render_plane(&self, plane_b: bool) -> RgbaImage {
+        let plane = if plane_b { VdpPlane::B } else { VdpPlane::A };
+        let mut image = self.render_plane_layer(plane, false, None);
+        image::imageops::overlay(
+            &mut image,
+            &self.render_plane_layer(plane, true, None),
+            0,
+            0,
+        );
         image
     }
 
@@ -231,6 +310,7 @@ impl VdpSnapshot {
                 palette: ((attr >> 13) & 3) as usize,
                 hflip: attr & 0x0800 != 0,
                 vflip: attr & 0x1000 != 0,
+                high: attr & 0x8000 != 0,
             };
             sprites.push(sprite);
             let link = (self.vram[(at + 3) & 0xFFFF] & 0x7F) as usize;
@@ -260,23 +340,30 @@ impl VdpSnapshot {
         image
     }
 
-    /// Tela composta: backdrop, plano B, plano A e sprites (do fundo da cadeia para a frente).
+    /// Tela composta na ordem de prioridade do VDP: backdrop, B/A/Window baixos, sprites
+    /// baixos, B/A/Window altos, sprites altos (sombra/realce nao modelados).
     #[cfg(test)]
     pub fn compose_screen(&self) -> RgbaImage {
         let (w, h) = (self.screen_width(), self.screen_height());
         let mut screen = RgbaImage::from_pixel(w, h, self.backdrop());
-        let mut blit = |layer: &RgbaImage, ox: i32, oy: i32| {
-            for (x, y, pixel) in layer.enumerate_pixels() {
-                let (sx, sy) = (ox + x as i32, oy + y as i32);
-                if pixel[3] != 0 && sx >= 0 && sy >= 0 && (sx as u32) < w && (sy as u32) < h {
-                    screen.put_pixel(sx as u32, sy as u32, *pixel);
-                }
+        let sprites = self.sprites();
+        for high in [false, true] {
+            for plane in [VdpPlane::B, VdpPlane::A, VdpPlane::Window] {
+                image::imageops::overlay(
+                    &mut screen,
+                    &self.render_plane_layer(plane, high, None),
+                    0,
+                    0,
+                );
             }
-        };
-        blit(&self.render_plane(true), 0, 0);
-        blit(&self.render_plane(false), 0, 0);
-        for sprite in self.sprites().iter().rev() {
-            blit(&self.render_sprite(sprite), sprite.x, sprite.y);
+            for sprite in sprites.iter().rev().filter(|s| s.high == high) {
+                image::imageops::overlay(
+                    &mut screen,
+                    &self.render_sprite(sprite),
+                    sprite.x as i64,
+                    sprite.y as i64,
+                );
+            }
         }
         screen
     }
@@ -302,6 +389,21 @@ pub struct VdpSprite {
     pub palette: usize,
     pub hflip: bool,
     pub vflip: bool,
+    pub high: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VdpPlane {
+    A,
+    B,
+    Window,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct PlanePixel {
+    pub index: usize,
+    pub palette: usize,
+    pub high: bool,
 }
 
 #[cfg(test)]
