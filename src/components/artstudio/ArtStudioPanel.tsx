@@ -26,6 +26,8 @@ import {
   type ArtSuggestedFrame,
 } from "../../core/ipc/artStudioService";
 import { parseInputCommandFile } from "../../core/ipc/inputCommandService";
+import { getSgdkSpriteCatalog, type SgdkSpriteCatalogEntry } from "../../core/ipc/projectService";
+import { openCodeRef } from "../inspector/SpriteCodeLink";
 import AssetQualityPanel from "./AssetQualityPanel";
 import type {
   AnimationDef,
@@ -2686,6 +2688,8 @@ export default function ArtStudioPanel() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const stageScrollRef = useRef<HTMLDivElement>(null);
+  /** Sprite do jogo SGDK aberto (catálogo do `.res`), com quadro declarado e uso no C. */
+  const [gameSprite, setGameSprite] = useState<SgdkSpriteCatalogEntry | null>(null);
   /** Área visível do stage (sem o padding), para o zoom de enquadramento. */
   const stageViewportSize = useCallback(() => {
     const stage = stageScrollRef.current;
@@ -2905,7 +2909,22 @@ export default function ArtStudioPanel() {
           );
         }
 
-        const processed = await artProcessPalette(sourcePath);
+        // Sprite do jogo SGDK: o quadro vem do `.res` (grade exata), não de uma estimativa.
+        const relativeForCatalog =
+          activeProjectDir && sourcePath ? resolveArtStudioSpriteAssetPath(activeProjectDir, sourcePath) : null;
+        const catalogEntry =
+          activeProjectDir && relativeForCatalog
+            ? ((await getSgdkSpriteCatalog(activeProjectDir).catch(() => [])).find((e) => e.asset === relativeForCatalog) ?? null)
+            : null;
+        if (!current()) return false;
+        setGameSprite(catalogEntry);
+        const processed = catalogEntry
+          ? await artProcessPalette(sourcePath, {
+              gridWidth: catalogEntry.frame_width,
+              gridHeight: catalogEntry.frame_height,
+              slicingMode: "grid",
+            })
+          : await artProcessPalette(sourcePath);
         if (!current()) return false;
         if (!processed.ok || !processed.processed_base64) {
           throw new Error(processed.error ?? "Falha ao processar a imagem no backend.");
@@ -2963,8 +2982,8 @@ export default function ArtStudioPanel() {
           metaSpriteCandidate: processed.meta_sprite_candidate,
           suggestedFrames: processed.suggested_frames,
           slicingMode: processed.slicing_mode,
-          suggestedFrameWidth: suggestedFrame.frameWidth,
-          suggestedFrameHeight: suggestedFrame.frameHeight,
+          suggestedFrameWidth: catalogEntry?.frame_width ?? suggestedFrame.frameWidth,
+          suggestedFrameHeight: catalogEntry?.frame_height ?? suggestedFrame.frameHeight,
         });
 
         imageRef.current = loaded.image;
@@ -4073,6 +4092,43 @@ export default function ArtStudioPanel() {
         </div>
         <span className="text-[10px] text-[#6c7086]">{ARTSTUDIO_SUPPORTED_FORMATS_LABEL}</span>
       </div>
+
+      {gameSprite && state.spriteSourceAssetPath === gameSprite.asset ? (
+        <div
+          data-testid="artstudio-game-sprite"
+          data-resource={gameSprite.name}
+          className="mx-3 flex flex-wrap items-center gap-2 rounded-xl border border-[#a6e3a1]/35 bg-[#a6e3a1]/8 px-3 py-2 text-[11px] text-[#cdd6f4]"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#a6e3a1]">Sprite do jogo (SGDK)</p>
+            <p className="mt-1 truncate">
+              <span className="font-mono font-semibold text-white">{gameSprite.name}</span>
+              <span className="text-[#94a3b8]">
+                {" "}
+                · quadro {gameSprite.frame_width}×{gameSprite.frame_height} do .res · {gameSprite.rows} animação(ões) ×{" "}
+                {gameSprite.columns} quadro(s)
+              </span>
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {gameSprite.refs
+              .filter((ref) => ref.function)
+              .slice(0, 3)
+              .map((ref) => (
+                <button
+                  key={`${ref.file}:${ref.line}`}
+                  type="button"
+                  data-testid={`artstudio-game-sprite-ref-${ref.file}:${ref.line}`}
+                  title={ref.text}
+                  onClick={() => openCodeRef(ref, selectedEntity?.entity_id ?? "")}
+                  className="rounded-lg border border-[#a6e3a1]/45 px-2 py-1 text-[10px] text-[#a6e3a1] hover:bg-[#a6e3a1]/15"
+                >
+                  {ref.function}() · {ref.file.split("/").pop()}:{ref.line}
+                </button>
+              ))}
+          </div>
+        </div>
+      ) : null}
 
       {selectedEntity && selectedEntitySprite ? (
         <div

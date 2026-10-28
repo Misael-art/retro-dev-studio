@@ -514,6 +514,7 @@ function parseArgs(argv) {
           "studio-e1",
           "sgdk-split-resources",
           "sgdk-native-c",
+          "sgdk-corpus",
           "studio-e4",
           "studio-e2e5",
           "studio-e6",
@@ -4704,6 +4705,9 @@ async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifa
   const beforeBuildCount = (beforeState?.consoleEntries ?? []).filter((entry) =>
     String(entry.message ?? "").includes("Build concluido.")
   ).length;
+  const beforeRefusedCount = (beforeState?.consoleEntries ?? []).filter((entry) =>
+    /recusado pelo wrapper|Build falhou/.test(String(entry.message ?? ""))
+  ).length;
 
   await waitForBuildRunReady(sessionId, timeoutMs);
   if (nativeClick) await clickButtonByTestIdNative(sessionId, "toolbar-build-run");
@@ -4757,7 +4761,13 @@ async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifa
     },
     timeoutMs,
     `Build & Run nao concluiu para ${label}.`,
-    1000
+    1000,
+    async () => {
+      const refused = ((await readAutomationState(sessionId))?.consoleEntries ?? [])
+        .filter((entry) => /recusado pelo wrapper|Build falhou/.test(String(entry.message ?? "")))
+        .slice(beforeRefusedCount);
+      return refused.length > 0 ? `build falhou: ${String(refused.at(-1).message).slice(0, 400)}` : null;
+    }
   ).catch(async (error) => {
     const diagnosticPayload = {
       label,
@@ -6263,6 +6273,141 @@ async function runSgdkNativeCScenario(sessionId) {
     report.status = "failed";
     report.error = String(error);
     throw error;
+  } finally {
+    await writeFile(path.join(output, `${prefix}.json`), JSON.stringify(report, null, 2));
+  }
+}
+
+// Any SGDK project opened in place (legacy overlay), with no per-project expectations: what the
+// Studio understood (scenes, sprite catalog, C graph), the original C built and run, the running
+// screen captured as a scene (palettes, sprite -> C links), the C logic in Logic and a game sprite
+// in Art with the frame declared by its .res. Each step records its own result; a failed build
+// still lets the static views be inspected.
+async function runSgdkCorpusScenario(sessionId) {
+  const source = process.env.RDS_SGDK_REAL_SOURCE;
+  const output = process.env.RDS_SGDK_OUTPUT;
+  if (!source || !output) fail("RDS_SGDK_REAL_SOURCE and RDS_SGDK_OUTPUT required.");
+  await mkdir(output, { recursive: true });
+  const slug = path.basename(source).replace(/[^A-Za-z0-9]+/g, "_").slice(0, 40);
+  const prefix = `sgdk-corpus-${slug}-${artifactTimestamp()}`;
+  const overlay = path.join(source, "rds");
+  const report = { schema: "retrodev.sgdk_corpus/v1", maturity: "Experimental", source, steps: [], artifacts: [] };
+  const shot = async (name, label) => addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${name}.png`), label);
+  const js = (code, args = []) => executeScript(sessionId, code, args);
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const soft = async (name, fn) => {
+    try {
+      const detail = await fn();
+      addReportStep(report, name, "passed", detail ?? {});
+      return detail;
+    } catch (error) {
+      addReportStep(report, name, "failed", { error: String(error).slice(0, 600) });
+      return null;
+    }
+  };
+  try {
+    await setSessionWindowRect(sessionId, 1280, 800);
+    await waitForOnboardingWizard(sessionId).catch(() => null);
+    // Reabrir um overlay desatualizado reimporta (grafo C, catalogo): pode levar minutos.
+    await js("window.__RDS_E2E__.openProject(arguments[0]); return true;", [source]);
+    await waitFor(async () => {
+      const next = await readAutomationState(sessionId);
+      return next?.activeProjectDir && path.resolve(next.activeProjectDir) === overlay && next.projectSourceKind === "external_sgdk" ? next : false;
+    }, 900000, "Project did not open as overlay.", 1000);
+    const catalog = JSON.parse(await readFile(path.join(overlay, "assets/sprites/sgdk_sprite_catalog.json"), "utf8").catch(() => "[]"));
+    const codeIndex = JSON.parse(await readFile(path.join(overlay, "code/index.json"), "utf8"));
+    report.understood = {
+      scenes: (await readdir(path.join(overlay, "scenes"))).filter((f) => f.endsWith(".json") && !f.startsWith("rom_capture_")).length,
+      c_files: codeIndex.files.length, functions: codeIndex.functions.length, state_machines: codeIndex.state_machines.length,
+      sprite_catalog: catalog.length, sprite_catalog_with_asset: catalog.filter((e) => e.asset).length,
+      sprite_catalog_used_in_code: catalog.filter((e) => e.refs.some((r) => r.function)).length,
+    };
+    addReportStep(report, "opened", "passed", report.understood);
+    await callAutomationApi(sessionId, "selectWorkspace", ["scene"]).catch(() => null);
+    await sleep(1500);
+    await shot("open-scene", "Entry scene after import");
+
+    // Logic: the game's C code, organized.
+    await soft("logic_game_code", async () => {
+      await callAutomationApi(sessionId, "selectWorkspace", ["logic"]);
+      const files = await waitFor(async () => (await js(`return document.querySelectorAll('[data-testid^="game-code-file-"]').length;`)) || false, 30000, "Game C code view did not render.", 250);
+      await waitFor(async () => (await js(`return document.querySelectorAll('[data-testid="game-code-logic"] [data-testid^="cgraph-node-"]').length;`)) || false, 30000, "C nodes did not render.", 250);
+      await sleep(800);
+      await shot("logic-code", "Logic: game C code");
+      return { files };
+    });
+
+    // Art: the most used game sprite, sliced by the frame declared in .res.
+    const artSprite = [...catalog].filter((e) => e.asset).sort((a, b) => b.refs.length - a.refs.length)[0];
+    if (artSprite) {
+      await soft("art_game_sprite", async () => {
+        await callAutomationApi(sessionId, "openAssetInArtStudio", [artSprite.asset]);
+        const resource = await waitFor(async () => (await js(`return document.querySelector('[data-testid="artstudio-game-sprite"]')?.dataset.resource ?? null;`)) || false, 30000, "Art did not identify the game sprite.", 250);
+        await sleep(1000);
+        await shot("art-sprite", `Art: ${artSprite.name}`);
+        return { resource, frame: [artSprite.frame_width, artSprite.frame_height], grid: [artSprite.columns, artSprite.rows] };
+      });
+    } else {
+      addReportStep(report, "art_game_sprite", "skipped", { reason: "no SPRITE resource in .res" });
+    }
+
+    // Build & Run of the original C, then the running screen as a scene.
+    const build = await soft("build_run_original_c", async () => {
+      await callAutomationApi(sessionId, "selectWorkspace", ["scene"]).catch(() => null);
+      const result = await runBuildRunAndCollect(sessionId, "SGDK corpus", 900000, report, prefix, { nativeClick: true });
+      return { rom_sha256: result.rom_sha256 };
+    });
+    if (build) {
+      await sleep(3000);
+      for (const code of ["Enter", "Enter"]) {
+        await sendNativeGameKeyTap(sessionId, code, 120, `corpus ${code}`).catch(() => null);
+        await sleep(1500);
+      }
+      await shot("running", "Game running");
+      const capture = await soft("capture_screen_as_scene", async () => {
+        const before = new Set(await readdir(path.join(overlay, "scenes")));
+        await clickButtonByTestIdNative(sessionId, "toolbar-capture-rom-scene");
+        const file = await waitFor(async () => {
+          const added = (await readdir(path.join(overlay, "scenes"))).filter((f) => !before.has(f) && f.startsWith("rom_capture_"));
+          return added.length === 1 ? added[0] : false;
+        }, 60000, "Capture did not create a scene.", 250);
+        const scene = JSON.parse(await readFile(path.join(overlay, "scenes", file), "utf8"));
+        const dir = path.dirname(scene.entities[0].components.sprite.asset);
+        const links = JSON.parse(await readFile(path.join(overlay, dir, "links.json"), "utf8").catch(() => "{}"));
+        const sprites = scene.entities.filter((e) => e.entity_id.startsWith("rom_sprite_")).length;
+        return { file, entities: scene.entities.length, sprites, linked_sprites: Object.keys(links).length, layers: (scene.layers ?? []).map((l) => l.id) };
+      });
+      if (capture) {
+        await callAutomationApi(sessionId, "selectWorkspace", ["scene"]).catch(() => null);
+        await soft("captured_scene_palettes", async () => {
+          const errors = await waitFor(async () => (await js(`return document.querySelector('[data-testid="palette-summary"]')?.dataset.errors ?? null;`)) ?? false, 30000, "Palette summary missing.", 250);
+          if (errors !== "0") throw new Error(`${errors} palette conflict(s)`);
+          return { errors };
+        });
+        await clickByTestId(sessionId, "palette-map-toggle").catch(() => null);
+        await sleep(1200);
+        await shot("captured-scene", "Captured screen as Studio scene (palette map on)");
+        await clickByTestId(sessionId, "palette-map-toggle").catch(() => null);
+        if (capture.linked_sprites > 0) {
+          await soft("sprite_to_code", async () => {
+            const links = JSON.parse(await readFile(path.join(overlay, path.dirname(JSON.parse(await readFile(path.join(overlay, "scenes", capture.file), "utf8")).entities[0].components.sprite.asset), "links.json"), "utf8"));
+            const [entityId, link] = Object.entries(links)[0];
+            await callAutomationApi(sessionId, "setSelectedEntityId", [entityId]);
+            const ref = await waitFor(async () => (await js(`return document.querySelector('[data-testid="sprite-code-link"] [data-testid^="sprite-code-ref-"]')?.dataset.testid ?? null;`)) || false, 20000, "Inspector shows no code link.", 250);
+            await clickButtonByTestIdNativeWhenReady(sessionId, ref, "code ref");
+            await waitFor(async () => (await js(`return document.querySelector('[data-testid="game-code-logic"] [data-selected="true"]')?.textContent ?? null;`)) || false, 20000, "Linked C node not selected.", 250);
+            await sleep(800);
+            await shot("sprite-code", "Sprite opened at its C code");
+            return { entity: entityId, resource: link.resource, ref };
+          });
+        }
+      }
+      await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop").catch(() => null);
+    }
+    report.status = report.steps.every((step) => step.status !== "failed") ? "passed" : "partial";
+  } catch (error) {
+    report.status = "failed";
+    report.error = String(error);
   } finally {
     await writeFile(path.join(output, `${prefix}.json`), JSON.stringify(report, null, 2));
   }
@@ -23232,6 +23377,7 @@ async function main() {
     options.scenario !== "studio-e1" &&
     options.scenario !== "sgdk-split-resources" &&
     options.scenario !== "sgdk-native-c" &&
+    options.scenario !== "sgdk-corpus" &&
     options.scenario !== "studio-e4" &&
     options.scenario !== "studio-e2e5" &&
     options.scenario !== "studio-e6" &&
@@ -25065,6 +25211,10 @@ async function main() {
     }
     if (options.scenario === "sgdk-native-c") {
       await runSgdkNativeCScenario(sessionId);
+      return;
+    }
+    if (options.scenario === "sgdk-corpus") {
+      await runSgdkCorpusScenario(sessionId);
       return;
     }
     if (options.scenario === "sgdk-split-resources") {

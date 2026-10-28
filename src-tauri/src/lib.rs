@@ -2129,6 +2129,20 @@ fn capture_rom_scene(
     crate::core::rom_scene_capture::write_rom_capture_scene(&dir, &name, &snapshot, source.as_ref())
 }
 
+/// Catalogo dos sprites do jogo SGDK (quadro declarado no `.res` e pontos do C que os usam).
+#[tauri::command]
+fn sgdk_sprite_catalog(
+    project_dir: String,
+) -> Result<Vec<crate::core::project_mgr::SgdkSpriteCatalogEntry>, String> {
+    let path = Path::new(project_dir.trim()).join(crate::core::project_mgr::SGDK_SPRITE_CATALOG);
+    match std::fs::read_to_string(&path) {
+        Ok(raw) => {
+            serde_json::from_str(&raw).map_err(|e| format!("Catalogo de sprites invalido: {e}"))
+        }
+        Err(_) => Ok(Vec::new()),
+    }
+}
+
 /// Ligacoes sprite -> recurso -> C gravadas por uma captura (`assets/rom_capture/<nome>/links.json`).
 #[tauri::command]
 fn rom_capture_links(
@@ -5464,7 +5478,16 @@ fn resolve_or_wrap_project_dir(
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "Projeto".to_string());
 
-    if let Ok(project_dir) = discover_project_rds(selected_dir) {
+    let host_needs_reimport = crate::core::project_mgr::legacy_overlay_needs_reimport(selected_dir);
+    if let Ok(project_dir) = discover_project_rds(selected_dir).and_then(|dir| {
+        if host_needs_reimport {
+            Err(crate::core::project_mgr::LoadError(
+                "overlay SGDK desatualizado".to_string(),
+            ))
+        } else {
+            Ok(dir)
+        }
+    }) {
         let (project_name, preferred_scene_path) = load_project(&project_dir)
             .map(|p| (p.name, p.entry_scene))
             .unwrap_or((fallback_name, DEFAULT_ENTRY_SCENE.to_string()));
@@ -6405,6 +6428,7 @@ pub fn run() {
             emulator_vram_usage,
             capture_rom_scene,
             rom_capture_links,
+            sgdk_sprite_catalog,
             sgdk_c_graph_file,
             sgdk_c_graph_update_node,
             sgdk_c_graph_update_block,
@@ -9139,6 +9163,31 @@ pub extern "C" fn retro_run() {
             .as_deref()
             .is_some_and(|notice| notice.contains("overlay 'rds/'")));
         assert!(legacy_dir.join("rds").join("project.rds").is_file());
+
+        let _ = fs::remove_dir_all(legacy_dir);
+    }
+
+    #[test]
+    fn open_project_path_refreshes_existing_legacy_overlay_missing_sprite_catalog() {
+        let legacy_dir = temp_dir("open-legacy-sgdk-refresh");
+        write_generic_sgdk_donor_fixture(&legacy_dir);
+        assert!(open_project_path(legacy_dir.to_string_lossy().to_string()).selected);
+        let catalog = legacy_dir
+            .join("rds")
+            .join(crate::core::project_mgr::SGDK_SPRITE_CATALOG);
+        fs::remove_file(&catalog).expect("catalog from first import");
+
+        let reopened = open_project_path(legacy_dir.to_string_lossy().to_string());
+
+        assert!(reopened.selected);
+        assert_eq!(reopened.path, legacy_dir.join("rds").to_string_lossy());
+        assert!(
+            catalog.is_file(),
+            "reopen should rebuild the sprite catalog"
+        );
+        assert!(!crate::core::project_mgr::legacy_overlay_needs_reimport(
+            &legacy_dir
+        ));
 
         let _ = fs::remove_dir_all(legacy_dir);
     }

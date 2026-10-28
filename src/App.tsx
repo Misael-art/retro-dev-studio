@@ -1561,6 +1561,8 @@ type AutomationApi = {
     showAdvanced?: boolean
   ) => boolean;
   selectWorkspace: (workspace: EditorWorkspace) => boolean;
+  /** Abre um asset do projeto no ArtStudio, como o botão do Asset Browser. */
+  openAssetInArtStudio: (relativePath: string) => boolean;
   setConsoleVisible: (visible: boolean) => boolean;
   setEntityLogicGraph: (entityId: string, graphJson: string) => boolean;
   setEntityTransform: (entityId: string, x: number, y: number) => boolean;
@@ -3742,7 +3744,14 @@ export default function App() {
               ? "partial"
               : mastering.checksum.status;
         setRomMasteringStatus(nextStatus);
-        mastering.blockers.forEach(reportDiagnostic);
+        // No playtest o bloqueio de mastering e aviso: ele so impede exportar/publicar.
+        mastering.blockers.forEach((blocker) =>
+          reportDiagnostic({
+            ...blocker,
+            severity: blocker.severity === "error" ? "warn" : blocker.severity,
+            user_message: `${blocker.user_message} (bloqueia exportar, nao o teste)`,
+          })
+        );
         mastering.warnings.forEach((warning) => logMessage("warn", `[ROM Mastering] ${warning}`));
         logMessage(
           mastering.blockers.length > 0 ? "warn" : "info",
@@ -4376,6 +4385,14 @@ export default function App() {
         showAdvanced = false
       ) => {
         openToolsWorkspace(activeTool, workspace, showAdvanced);
+        return true;
+      },
+      openAssetInArtStudio: (relativePath: string) => {
+        const store = useEditorStore.getState();
+        store.setArtStudioAssetPath(relativePath);
+        store.setSelectedEntityId(null);
+        store.setActiveWorkspace("artstudio");
+        store.setActiveViewportTab("artstudio");
         return true;
       },
       selectWorkspace: (workspace: EditorWorkspace) => {

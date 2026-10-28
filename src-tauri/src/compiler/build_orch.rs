@@ -1524,13 +1524,36 @@ where
         .join(&report_rel)
         .join("linux_wine_build_report.json");
     if !output.status.success() {
+        let build_log = fs::read_to_string(host_root.join(&report_rel).join("build_output.log"))
+            .unwrap_or_default();
+        // O log do make traz o motivo concreto; o stdout do bridge so diz `sgdk_make_failed`.
+        let reason = wrapper_refusal_reason(&build_log)
+            .or_else(|| wrapper_refusal_reason(&String::from_utf8_lossy(&output.stdout)))
+            .map(|reason| format!(" Motivo: {reason}."))
+            .unwrap_or_default();
         return Err(format!(
-            "Build C original recusado pelo wrapper (exit {}). Nenhuma ROM anterior sera executada. Recibo: {}",
+            "Build C original recusado pelo wrapper (exit {}).{reason} Nenhuma ROM anterior sera executada. Recibo: {}",
             output.status.code().unwrap_or(-1),
             report_path.display()
         ));
     }
     verify_sgdkforge_build_receipt(host_root, &output_rel, &report_path)
+}
+
+/// Motivo da recusa do wrapper: a ultima linha `{"status":"blocked","reason":...}`
+/// ou `wine_bridge_status=blocked reason=...`.
+fn wrapper_refusal_reason(text: &str) -> Option<String> {
+    text.lines().rev().find_map(|line| {
+        let line = line.trim();
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(line) {
+            return value
+                .get("reason")
+                .and_then(|reason| reason.as_str())
+                .map(str::to_string);
+        }
+        let rest = line.strip_prefix("wine_bridge_status=blocked")?;
+        Some(rest.trim().trim_start_matches("reason=").to_string())
+    })
 }
 
 fn verify_sgdkforge_build_receipt(
@@ -3583,6 +3606,23 @@ fn repo_root() -> PathBuf {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn wrapper_refusal_reason_reads_json_and_bridge_lines() {
+        let log = "make: ok\n{\"status\": \"blocked\", \"reason\": \"domestic ROM title is still a template placeholder: SAMPLE PROGRAM\"}\n";
+        assert_eq!(
+            super::wrapper_refusal_reason(log).as_deref(),
+            Some("domestic ROM title is still a template placeholder: SAMPLE PROGRAM")
+        );
+        assert_eq!(
+            super::wrapper_refusal_reason(
+                "x\nwine_bridge_status=blocked reason=sgdk_missing path=/x\n"
+            )
+            .as_deref(),
+            Some("sgdk_missing path=/x")
+        );
+        assert_eq!(super::wrapper_refusal_reason("all good\n"), None);
+    }
+
     #[test]
     fn indexed_bitmap_keeps_opaque_black_distinct_from_transparency() {
         let destination = std::env::temp_dir().join(format!("rds-mask-{}.bmp", std::process::id()));

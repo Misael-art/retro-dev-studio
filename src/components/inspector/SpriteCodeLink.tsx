@@ -36,7 +36,9 @@ function refLabel(ref: SpriteCodeRef): string {
 export function openCodeRef(ref: SpriteCodeRef, entityId: string) {
   useCodeFocusStore.getState().focusCode({ file: ref.file, nodeId: ref.node_id, line: ref.line });
   const store = useEditorStore.getState();
-  if (store.activeWorkspace !== "logic") store.openStudioEditor({ focus: { task: "actions", entityId } });
+  if (store.activeWorkspace === "logic") return;
+  if (entityId) store.openStudioEditor({ focus: { task: "actions", entityId } });
+  else store.setActiveWorkspace("logic");
 }
 
 export function SpriteCodeLinkCard({ entityId, link, compact = false }: { entityId: string; link: SpriteLink; compact?: boolean }) {

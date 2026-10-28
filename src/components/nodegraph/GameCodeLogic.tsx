@@ -69,7 +69,10 @@ export function GameCodeLogic({ projectDir }: GameCodeLogicProps) {
       list.push({ file: name, machines: machines.length, functions: functions.length });
       byDir.set(dir, list);
     }
-    return [...byDir.entries()].sort(([a], [b]) => a.localeCompare(b));
+    // Pastas com codigo (funcoes/FSMs) primeiro; headers sem funcao vao para o fim.
+    const weight = (files: { functions: number; machines: number }[]) =>
+      files.some((f) => f.functions > 0 || f.machines > 0) ? 0 : 1;
+    return [...byDir.entries()].sort(([a, fa], [b, fb]) => weight(fa) - weight(fb) || a.localeCompare(b));
   }, [index, filter]);
 
   if (error) {

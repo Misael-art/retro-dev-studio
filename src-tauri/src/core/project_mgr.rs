@@ -3680,10 +3680,28 @@ pub fn import_legacy_sgdk_project(
 ) -> Result<PathBuf, LoadError> {
     let index = scan_legacy_sgdk_project(sgdk_root)?;
     let overlay_dir = sgdk_root.join("rds");
+    if overlay_dir.join("project.rds").is_file() && legacy_overlay_opens(&overlay_dir).is_err() {
+        // Cena de entrada apagada: aponta para outra cena valida e preserva o restante.
+        repair_legacy_overlay_entry_scene(&overlay_dir);
+    }
+    if overlay_dir.join("project.rds").is_file() {
+        if let Err(why) = legacy_overlay_opens(&overlay_dir) {
+            // Overlay que nao abre (config antiga/corrompida): guarda uma copia e recria.
+            let backup = backup_broken_legacy_overlay(&overlay_dir)?;
+            let _ = fs::write(
+                backup.join("motivo.txt"),
+                format!(
+                    "Overlay nao abria e foi recriado pelo importador:\n{}\n",
+                    why.0
+                ),
+            );
+        }
+    }
     if overlay_dir.join("project.rds").is_file() {
         write_legacy_sgdk_index(&overlay_dir, &index)?;
         crate::core::sgdk_c_graph::write_c_graph_project(sgdk_root, &overlay_dir)
             .map_err(LoadError)?;
+        write_sgdk_sprite_catalog(sgdk_root, &overlay_dir)?;
         return Ok(overlay_dir);
     }
 
@@ -3735,7 +3753,182 @@ pub fn import_legacy_sgdk_project(
     )?;
     write_legacy_sgdk_index(&overlay_dir, &index)?;
     crate::core::sgdk_c_graph::write_c_graph_project(sgdk_root, &overlay_dir).map_err(LoadError)?;
+    write_sgdk_sprite_catalog(sgdk_root, &overlay_dir)?;
     Ok(overlay_dir)
+}
+
+pub const SGDK_SPRITE_CATALOG: &str = "assets/sprites/sgdk_sprite_catalog.json";
+
+/// Sprite do jogo como o `.res` o declara: folha, tamanho do quadro e onde o C o usa.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct SgdkSpriteCatalogEntry {
+    pub name: String,
+    /// PNG no projeto de origem (relativo a raiz SGDK).
+    pub source: String,
+    /// Mesma imagem dentro do overlay, quando materializada.
+    pub asset: Option<String>,
+    pub frame_width: u32,
+    pub frame_height: u32,
+    pub columns: u32,
+    pub rows: u32,
+    pub refs: Vec<crate::core::rom_sprite_link::SpriteCodeRef>,
+}
+
+/// `rds/assets/sprites/sgdk_sprite_catalog.json`: cada SPRITE do `.res` com o quadro declarado
+/// (largura/altura em tiles x 8; cada linha da folha e uma animacao no SGDK) e os pontos do C.
+fn write_sgdk_sprite_catalog(sgdk_root: &Path, overlay_dir: &Path) -> Result<(), LoadError> {
+    let resources = load_sgdk_resources_if_present(sgdk_root)?;
+    // Imagens do overlay por tamanho, para achar a copia/link de cada PNG de origem.
+    let mut overlay_sprites: Vec<(u64, PathBuf)> = Vec::new();
+    let mut stack = vec![overlay_dir.join("assets").join("sprites")];
+    while let Some(dir) = stack.pop() {
+        for entry in fs::read_dir(&dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if path
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("png"))
+            {
+                overlay_sprites.push((entry.metadata().map(|m| m.len()).unwrap_or(0), path));
+            }
+        }
+    }
+    let images = sgdk_sprite_resource_images(sgdk_root);
+    let mut entries = Vec::new();
+    for resource in resources.iter().filter(|r| r.kind == "SPRITE") {
+        let Some((_, png)) = images.iter().find(|(name, _)| *name == resource.name) else {
+            continue;
+        };
+        let tiles = |i: usize| {
+            resource
+                .params
+                .get(i)
+                .and_then(|v| v.parse::<u32>().ok())
+                .filter(|v| *v > 0)
+        };
+        let (Some(tw), Some(th)) = (tiles(0), tiles(1)) else {
+            continue;
+        };
+        let (frame_width, frame_height) = (tw * 8, th * 8);
+        let Ok((width, height)) = image::image_dimensions(png) else {
+            continue;
+        };
+        let bytes = fs::read(png).unwrap_or_default();
+        let asset = overlay_sprites
+            .iter()
+            .filter(|(len, _)| *len == bytes.len() as u64)
+            .find(|(_, path)| fs::read(path).map(|b| b == bytes).unwrap_or(false))
+            .and_then(|(_, path)| path.strip_prefix(overlay_dir).ok())
+            .map(|p| p.to_string_lossy().replace('\\', "/"));
+        let mut refs =
+            crate::core::rom_sprite_link::code_refs(overlay_dir, sgdk_root, &resource.name);
+        refs.truncate(8);
+        entries.push(SgdkSpriteCatalogEntry {
+            name: resource.name.clone(),
+            source: png
+                .strip_prefix(sgdk_root)
+                .unwrap_or(png)
+                .to_string_lossy()
+                .replace('\\', "/"),
+            asset,
+            frame_width,
+            frame_height,
+            columns: (width / frame_width).max(1),
+            rows: (height / frame_height).max(1),
+            refs,
+        });
+    }
+    let path = overlay_dir.join(SGDK_SPRITE_CATALOG);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| LoadError(e.to_string()))?;
+    }
+    fs::write(
+        &path,
+        serde_json::to_string_pretty(&entries).map_err(|e| LoadError(e.to_string()))?,
+    )
+    .map_err(|e| LoadError(format!("Falha ao gravar '{}': {e}", path.display())))
+}
+
+/// O overlay abre como no app: projeto e cena de entrada carregam.
+/// Overlay `rds/` ja existente de um host SGDK que precisa passar de novo pelo
+/// importador: nao abre, ou foi criado por versao anterior sem indice/grafo C/catalogo.
+pub fn legacy_overlay_needs_reimport(sgdk_root: &Path) -> bool {
+    let overlay_dir = sgdk_root.join("rds");
+    if !overlay_dir.join("project.rds").is_file() || !looks_like_sgdk_host(sgdk_root) {
+        return false;
+    }
+    legacy_overlay_opens(&overlay_dir).is_err()
+        || !overlay_dir.join("legacy_sgdk_index.json").is_file()
+        || !overlay_dir.join("code/index.json").is_file()
+        || !overlay_dir.join(SGDK_SPRITE_CATALOG).is_file()
+}
+
+fn looks_like_sgdk_host(sgdk_root: &Path) -> bool {
+    sgdk_root.join("src").is_dir() || sgdk_root.join("res").is_dir()
+}
+
+fn repair_legacy_overlay_entry_scene(overlay_dir: &Path) {
+    let Ok(project) = load_project(overlay_dir) else {
+        return;
+    };
+    if overlay_dir.join(&project.entry_scene).is_file() {
+        return;
+    }
+    let mut candidates: Vec<String> = fs::read_dir(overlay_dir.join("scenes"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| entry.file_name().to_str().map(str::to_string))
+        .filter(|name| name.ends_with(".json"))
+        .map(|name| format!("scenes/{name}"))
+        .collect();
+    candidates.sort_by_key(|path| (path != "scenes/main.json", path.clone()));
+    for candidate in candidates {
+        if set_entry_scene(overlay_dir, &candidate).is_ok() {
+            return;
+        }
+    }
+}
+
+fn legacy_overlay_opens(overlay_dir: &Path) -> Result<(), LoadError> {
+    let project = load_project(overlay_dir)?;
+    load_scene(overlay_dir, &project.entry_scene)?;
+    Ok(())
+}
+
+/// Move a configuracao do overlay (projeto, cenas, prefabs, grafos, indice) para
+/// `rds/.backup/<instante>/`. Assets e o grafo C ficam (sao regerados ou reaproveitados).
+fn backup_broken_legacy_overlay(overlay_dir: &Path) -> Result<PathBuf, LoadError> {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let backup = overlay_dir.join(".backup").join(format!("overlay_{stamp}"));
+    fs::create_dir_all(&backup).map_err(|e| {
+        LoadError(format!(
+            "Nao foi possivel criar '{}': {e}",
+            backup.display()
+        ))
+    })?;
+    for name in [
+        "project.rds",
+        "scenes",
+        "prefabs",
+        "graphs",
+        "legacy_sgdk_index.json",
+    ] {
+        let from = overlay_dir.join(name);
+        if from.exists() {
+            fs::rename(&from, backup.join(name)).map_err(|e| {
+                LoadError(format!(
+                    "Nao foi possivel guardar '{}': {e}",
+                    from.display()
+                ))
+            })?;
+        }
+    }
+    Ok(backup)
 }
 
 struct SgdkTilemapMaterialization {
@@ -22129,6 +22322,234 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
 
             let _ = fs::remove_dir_all(project_dir);
         }
+    }
+
+    /// Importa todos os projetos SGDK de `RDS_SGDK_CORPUS_ROOT` e grava um relatorio do que o
+    /// importador compreendeu (`RDS_SGDK_CORPUS_REPORT`). Projetos sem `src/*.c` sao listados como
+    /// "sem codigo"; um overlay que nao abre e guardado e recriado pelo proprio importador.
+    #[test]
+    #[ignore]
+    fn legacy_sgdk_corpus_import_report() {
+        let root = PathBuf::from(std::env::var("RDS_SGDK_CORPUS_ROOT").expect("corpus root"));
+        let mut report = Vec::new();
+        let mut dirs: Vec<_> = fs::read_dir(&root)
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.is_dir())
+            .collect();
+        dirs.sort();
+        for dir in dirs {
+            let name = dir.file_name().unwrap().to_string_lossy().to_string();
+            let has_c = crate::core::sgdk_c_graph::collect_c_sources(&dir)
+                .iter()
+                .any(|p| p.extension().is_some_and(|e| e == "c"));
+            if !has_c {
+                report.push(serde_json::json!({ "project": name, "status": "sem_codigo" }));
+                continue;
+            }
+            let had_overlay = dir.join("rds/project.rds").is_file();
+            let backups_before = fs::read_dir(dir.join("rds/.backup"))
+                .map(|d| d.count())
+                .unwrap_or(0);
+            let started = std::time::Instant::now();
+            let overlay = match import_legacy_sgdk_project(&dir, None) {
+                Ok(o) => o,
+                Err(e) => {
+                    report.push(serde_json::json!({ "project": name, "status": "import_falhou", "erro": e.0 }));
+                    continue;
+                }
+            };
+            let import_ms = started.elapsed().as_millis();
+            let backups_after = fs::read_dir(overlay.join(".backup"))
+                .map(|d| d.count())
+                .unwrap_or(0);
+            let opens = legacy_overlay_opens(&overlay).map_err(|e| e.0);
+            let graph = crate::core::sgdk_c_graph::load_c_graph_index(&overlay).ok();
+            let (files, exact, parse_errors, functions, machines, transitions, origins) =
+                match &graph {
+                    Some(g) => {
+                        let mut origins = std::collections::BTreeMap::<String, usize>::new();
+                        let mut transitions = 0;
+                        for m in &g.state_machines {
+                            for t in &m.transitions {
+                                transitions += 1;
+                                *origins.entry(t.origin.clone()).or_default() += 1;
+                            }
+                        }
+                        (
+                            g.files.len(),
+                            g.files.iter().filter(|f| f.roundtrip_exact).count(),
+                            g.files.iter().map(|f| f.parse_error_nodes).sum::<usize>(),
+                            g.functions.len(),
+                            g.state_machines.len(),
+                            transitions,
+                            origins,
+                        )
+                    }
+                    None => (0, 0, 0, 0, 0, 0, Default::default()),
+                };
+            let resources = load_sgdk_resources_if_present(&dir).unwrap_or_default();
+            let mut kinds = std::collections::BTreeMap::<String, usize>::new();
+            for r in &resources {
+                *kinds.entry(r.kind.clone()).or_default() += 1;
+            }
+            let sprite_images = sgdk_sprite_resource_images(&dir);
+            let sprites_decodable = sprite_images
+                .iter()
+                .filter(|(_, p)| image::open(p).is_ok())
+                .count();
+            let sprite_declared = kinds.get("SPRITE").copied().unwrap_or(0);
+            let mut scenes = Vec::new();
+            for info in list_scenes(&overlay).unwrap_or_default() {
+                let loaded = load_scene(&overlay, &info.path);
+                let (entities, sprite_entities, missing_assets, palette_errors) = match &loaded {
+                    Ok(scene) => {
+                        let sprites: Vec<_> = scene
+                            .entities
+                            .iter()
+                            .filter_map(|e| e.components.sprite.as_ref())
+                            .collect();
+                        let missing = sprites
+                            .iter()
+                            .filter(|s| !overlay.join(&s.asset).is_file())
+                            .count();
+                        let ast = crate::compiler::ast_generator::AstOutput {
+                            nodes: vec![],
+                            sprite_assets: vec![],
+                            logic_scripts: vec![],
+                        };
+                        let plan =
+                            crate::compiler::palette_plan::plan_megadrive(&overlay, scene, &ast);
+                        let errors: Vec<String> = plan
+                            .diagnostics
+                            .iter()
+                            .filter(|d| d.severity == "error")
+                            .map(|d| d.code.clone())
+                            .collect();
+                        (scene.entities.len(), sprites.len(), missing, errors)
+                    }
+                    Err(_) => (0, 0, 0, vec![]),
+                };
+                scenes.push(serde_json::json!({
+                    "path": info.path, "opens": loaded.is_ok(), "error": loaded.err().map(|e| e.0),
+                    "entities": entities, "sprites": sprite_entities, "missing_assets": missing_assets,
+                    "palette_errors": palette_errors,
+                }));
+            }
+            report.push(serde_json::json!({
+                "project": name, "status": "importado", "had_overlay": had_overlay,
+                "overlay_recreated": backups_after > backups_before, "opens": opens.is_ok(),
+                "open_error": opens.err(), "import_ms": import_ms,
+                "c": { "files": files, "roundtrip_exact": exact, "parse_error_nodes": parse_errors,
+                       "functions": functions, "state_machines": machines, "transitions": transitions,
+                       "origins": origins, "entry_points": graph.as_ref().map(|g| g.entry_points.clone()) },
+                "resources": { "by_kind": kinds, "sprite_declared": sprite_declared,
+                               "sprite_png_found": sprite_images.len(), "sprite_png_decodable": sprites_decodable },
+                "scenes": scenes,
+            }));
+            println!("[corpus] {name}: {}ms", import_ms);
+        }
+        let out =
+            std::env::var("RDS_SGDK_CORPUS_REPORT").unwrap_or_else(|_| "corpus_report.json".into());
+        fs::write(&out, serde_json::to_string_pretty(&report).unwrap()).unwrap();
+        println!("[corpus] report={out}");
+    }
+
+    #[test]
+    fn import_legacy_sgdk_project_writes_sprite_catalog_with_res_frames_and_code_refs() {
+        let legacy_dir = temp_dir("legacy-sprite-catalog");
+        fs::create_dir_all(legacy_dir.join("src")).expect("src");
+        fs::create_dir_all(legacy_dir.join("res/sprite")).expect("res");
+        image::RgbaImage::from_pixel(96, 64, image::Rgba([200, 0, 0, 255]))
+            .save(legacy_dir.join("res/sprite/hero.png"))
+            .expect("png");
+        fs::write(
+            legacy_dir.join("res/resources.res"),
+            "SPRITE spr_hero \"sprite/hero.png\" 4 4 FAST 5\n",
+        )
+        .expect("res");
+        fs::write(
+            legacy_dir.join("src/main.c"),
+            "#include \"resources.h\"\nint main(void){ SPR_addSprite(&spr_hero, 0, 0, 0); return 0; }\n",
+        )
+        .expect("main");
+        let overlay = import_legacy_sgdk_project(&legacy_dir, None).expect("import");
+        let catalog: Vec<SgdkSpriteCatalogEntry> =
+            serde_json::from_str(&fs::read_to_string(overlay.join(SGDK_SPRITE_CATALOG)).unwrap())
+                .unwrap();
+        assert_eq!(catalog.len(), 1);
+        let hero = &catalog[0];
+        assert_eq!(
+            (hero.frame_width, hero.frame_height, hero.columns, hero.rows),
+            (32, 32, 3, 2)
+        );
+        assert_eq!(hero.source, "res/sprite/hero.png");
+        let asset = hero.asset.as_ref().expect("asset no overlay");
+        assert!(overlay.join(asset).is_file());
+        assert_eq!(hero.refs[0].function.as_deref(), Some("main"));
+    }
+
+    #[test]
+    fn import_legacy_sgdk_project_repoints_missing_entry_scene_without_backup() {
+        let legacy_dir = temp_dir("legacy-sgdk-missing-entry");
+        write_generic_sgdk_donor_fixture(&legacy_dir);
+        let overlay = import_legacy_sgdk_project(&legacy_dir, None).expect("first import");
+        let mut project = load_project(&overlay).expect("project");
+        project.entry_scene = "scenes/rom_capture_apagada.json".to_string();
+        fs::write(
+            overlay.join("project.rds"),
+            serde_json::to_string_pretty(&project).unwrap(),
+        )
+        .unwrap();
+        assert!(legacy_overlay_needs_reimport(&legacy_dir));
+
+        import_legacy_sgdk_project(&legacy_dir, None).expect("reimport");
+
+        assert!(legacy_overlay_opens(&overlay).is_ok());
+        assert!(
+            !overlay.join(".backup").exists(),
+            "only the entry scene is repaired"
+        );
+        assert_ne!(
+            load_project(&overlay).unwrap().entry_scene,
+            "scenes/rom_capture_apagada.json"
+        );
+        let _ = fs::remove_dir_all(legacy_dir);
+    }
+
+    #[test]
+    fn import_legacy_sgdk_project_backs_up_and_recreates_overlay_that_does_not_open() {
+        let legacy_dir = temp_dir("legacy-overlay-broken");
+        fs::create_dir_all(legacy_dir.join("src")).expect("src");
+        fs::write(
+            legacy_dir.join("src").join("main.c"),
+            b"int main(void){return 0;}",
+        )
+        .expect("main");
+        let overlay_dir =
+            import_legacy_sgdk_project(&legacy_dir, Some("Quebrado")).expect("first import");
+        fs::write(overlay_dir.join("project.rds"), b"{ nao e json").expect("corrupt");
+
+        let reopened = import_legacy_sgdk_project(&legacy_dir, None).expect("reimport repairs");
+        load_project(&reopened).expect("overlay opens again");
+        load_scene(&reopened, DEFAULT_ENTRY_SCENE).expect("entry scene opens");
+        let backups: Vec<_> = fs::read_dir(reopened.join(".backup"))
+            .expect("backup dir")
+            .flatten()
+            .map(|e| e.path())
+            .collect();
+        assert_eq!(backups.len(), 1);
+        assert_eq!(
+            fs::read(backups[0].join("project.rds")).expect("backup kept"),
+            b"{ nao e json"
+        );
+        assert!(fs::read_to_string(backups[0].join("motivo.txt"))
+            .unwrap()
+            .contains("recriado"));
+        // Overlay valido nao e tocado de novo.
+        import_legacy_sgdk_project(&legacy_dir, None).expect("third import");
+        assert_eq!(fs::read_dir(reopened.join(".backup")).unwrap().count(), 1);
     }
 
     #[test]

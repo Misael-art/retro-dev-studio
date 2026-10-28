@@ -3329,3 +3329,26 @@ Relato do operador: o painel de paletas acusava conflito em capturas, mas o jogo
   - A captura teve 17 entidades e 13 sprites ligados.
   - O Inspector mostrou `mg_ken_shadow`; o clique levou à Lógica com `MG_fightUseSharedShadow(&mg_ken_shadow)` (`scene_demo.c:1692`) selecionado e o editor do bloco aberto.
   - O node é centralizado só dentro da árvore (antes rolava a página e escondia as abas).
+
+### Checkpoint 2026-10-28 (e) — Corpus SGDK real no app: catálogo de sprites, reabertura robusta, falhas de build claras (Experimental)
+
+- **Importador:**
+  - Grava `rds/assets/sprites/sgdk_sprite_catalog.json` (frame do `.res`, colunas/linhas, asset do overlay, refs no C; IPC `sgdk_sprite_catalog`). A Arte fatia pela grade do catálogo.
+- **Reabertura (`legacy_overlay_needs_reimport`):**
+  - Um overlay `rds/` existente volta pelo importador quando não abre ou quando faltam índice, grafo C ou catálogo. Antes, reabrir pulava o importador.
+  - Se só a cena de entrada sumiu, ela é reapontada para outra cena válida (`main.json` primeiro) e o resto é preservado.
+  - Só depois disso ocorre o backup em `rds/.backup/overlay_<ms>/` (com `motivo.txt`) e a recriação.
+- **Build:**
+  - A recusa do wrapper traz o motivo concreto, lido do log do make ou da linha `wine_bridge_status=blocked`.
+  - No playtest, o bloqueio de ROM Mastering vira aviso: continua bloqueando exportar, mas não cobre a cena.
+- **Lógica:** pastas com código vêm antes dos headers sem função.
+- **E2E real `sgdk-corpus`, 15 pastas com `src`:**
+  - Todas abrem, mostram o C em nodes e (com SPRITE no `.res`) o sprite na Arte.
+  - Fluxo completo (build → captura com 0 conflito de paleta) em HAMOOPIG, Mugenesis (sprite → C ✓), OpenBOR, REINA_CHAN (sprite → C ✓), FORGE_REFERENCE e TAIKETSU HERO ×2.
+  - Recusa do wrapper "título SAMPLE PROGRAM": KIRBY, Celestial ×2, SMOKE_TEST e TAIKETSU REBIRTH ×2. É política do SGDKForge; corrigir em `rom_head.c` do projeto.
+  - SHADOWDANCER não tem `build.bat` nem Makefile.
+  - BLAZE tem rescomp acima de 15 min (o build passa do orçamento do E2E).
+- **Limites conhecidos:**
+  - `#if` dentro de inicializadores fica como C bruto.
+  - Ponteiros de função não são seguidos.
+  - Recursos IMAGE viram uma cena cada (BLAZE tem 29).

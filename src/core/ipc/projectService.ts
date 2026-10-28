@@ -319,3 +319,19 @@ export function updateSgdkCGraphBlock(
 ): Promise<CGraphFile> {
   return invoke("sgdk_c_graph_update_block", { projectDir, sourceFile, nodeId, block });
 }
+
+/** Sprite do jogo SGDK como o `.res` declara: quadro, grade e pontos do C que o usam. */
+export interface SgdkSpriteCatalogEntry {
+  name: string;
+  source: string;
+  asset: string | null;
+  frame_width: number;
+  frame_height: number;
+  columns: number;
+  rows: number;
+  refs: import("./emulatorService").SpriteCodeRef[];
+}
+
+export function getSgdkSpriteCatalog(projectDir: string): Promise<SgdkSpriteCatalogEntry[]> {
+  return invoke("sgdk_sprite_catalog", { projectDir });
+}

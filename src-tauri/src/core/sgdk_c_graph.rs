@@ -1858,4 +1858,40 @@ int main(bool hard)
             );
         }
     }
+
+    #[test]
+    #[ignore]
+    fn probe_parse_errors_of_file() {
+        let path = std::env::var("RDS_C_PROBE_FILE").expect("file");
+        let source = fs::read_to_string(&path).unwrap();
+        let mut parser = tree_sitter::Parser::new();
+        parser.set_language(&c_language()).unwrap();
+        let tree = parser.parse(&source, None).unwrap();
+        let mut shown = 0;
+        let mut stack = vec![tree.root_node()];
+        while let Some(node) = stack.pop() {
+            if (node.is_error() || node.is_missing()) && shown < 12 {
+                shown += 1;
+                let line = node.start_position().row;
+                println!(
+                    "ERR {} L{}: {}",
+                    node.kind(),
+                    line + 1,
+                    source
+                        .lines()
+                        .nth(line)
+                        .unwrap_or("")
+                        .chars()
+                        .take(120)
+                        .collect::<String>()
+                );
+            }
+            let mut w = node.walk();
+            for c in node.children(&mut w) {
+                if c.has_error() || c.is_missing() {
+                    stack.push(c);
+                }
+            }
+        }
+    }
 }
