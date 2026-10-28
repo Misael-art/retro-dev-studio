@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getSgdkCGraphFile,
   getSgdkCGraphIndex,
@@ -14,6 +14,8 @@ import {
 interface CGraphPanelProps {
   projectDir: string;
   sourceFile: string;
+  /** Node a selecionar ao abrir (ex.: ponto do C que usa o sprite selecionado). */
+  focusNodeId?: string | null;
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -145,9 +147,15 @@ function NodeRow({
   const [open, setOpen] = useState(depth < 1);
   const selected = selectedId === node.id;
   const expanded = open || (selectedId !== null && !selected && containsId(node, selectedId));
+  const rowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (selected) rowRef.current?.scrollIntoView?.({ block: "center" });
+  }, [selected]);
   return (
     <li>
       <div
+        ref={rowRef}
+        data-selected={selected ? "true" : undefined}
         className={`flex items-center gap-1 rounded px-1 py-0.5 ${selected ? "bg-[#1e3a5f]" : "hover:bg-[#111827]"}`}
         style={{ paddingLeft: depth * 12 }}
       >
@@ -243,7 +251,7 @@ function BlockEditor({
   );
 }
 
-export function CGraphPanel({ projectDir, sourceFile }: CGraphPanelProps) {
+export function CGraphPanel({ projectDir, sourceFile, focusNodeId = null }: CGraphPanelProps) {
   const [graph, setGraph] = useState<CGraphFile | null>(null);
   const [index, setIndex] = useState<CGraphIndex | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -297,6 +305,10 @@ export function CGraphPanel({ projectDir, sourceFile }: CGraphPanelProps) {
     },
     [graph, select]
   );
+
+  useEffect(() => {
+    if (focusNodeId) selectById(focusNodeId);
+  }, [focusNodeId, selectById]);
 
   const run = useCallback(
     async (action: () => Promise<CGraphFile>) => {

@@ -2113,7 +2113,37 @@ fn capture_rom_scene(
         let core = emu.0.lock().map_err(|e| e.to_string())?;
         core.vdp_snapshot()?
     };
-    crate::core::rom_scene_capture::write_rom_capture_scene(&dir, &name, &snapshot)
+    // Overlay de projeto SGDK legado: liga cada sprite ao recurso e ao C de origem.
+    let host_root = crate::core::project_mgr::load_legacy_sgdk_index(&dir)
+        .ok()
+        .flatten()
+        .map(|index| PathBuf::from(index.host_root));
+    let source = host_root
+        .as_ref()
+        .map(|root| crate::core::rom_scene_capture::CaptureSource {
+            host_root: root,
+            sheets: crate::core::rom_sprite_link::load_sheets(
+                &crate::core::project_mgr::sgdk_sprite_resource_images(root),
+            ),
+        });
+    crate::core::rom_scene_capture::write_rom_capture_scene(&dir, &name, &snapshot, source.as_ref())
+}
+
+/// Ligacoes sprite -> recurso -> C gravadas por uma captura (`assets/rom_capture/<nome>/links.json`).
+#[tauri::command]
+fn rom_capture_links(
+    project_dir: String,
+    capture_dir: String,
+) -> Result<serde_json::Value, String> {
+    let rel = capture_dir.trim().trim_end_matches('/');
+    if !rel.starts_with("assets/rom_capture/") || rel.contains("..") || rel.contains('\\') {
+        return Err("Pasta de captura invalida.".to_string());
+    }
+    let path = Path::new(project_dir.trim()).join(rel).join("links.json");
+    match std::fs::read_to_string(&path) {
+        Ok(raw) => serde_json::from_str(&raw).map_err(|e| format!("links.json invalido: {e}")),
+        Err(_) => Ok(serde_json::json!({})),
+    }
 }
 
 /// Le uma faixa da memoria exposta pelo core Libretro ativo.
@@ -6374,6 +6404,7 @@ pub fn run() {
             sgdk_c_graph_index,
             emulator_vram_usage,
             capture_rom_scene,
+            rom_capture_links,
             sgdk_c_graph_file,
             sgdk_c_graph_update_node,
             sgdk_c_graph_update_block,

@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ArtStudioPanel, {
+  getInitialSourceZoom,
   buildArtStudioCommandBindings,
   buildArtStudioAnimations,
   buildArtStudioHitboxCMetadata,
@@ -1220,5 +1221,18 @@ describe("ArtStudioPanel import flow", () => {
     expect(state.activeTilemapId).toBe("tilemap_focus");
     expect(state.activeBrush?.kind).toBe("tile");
     expect(state.activeBrush?.assetPath).toBe("assets/tilesets/stage.png");
+  });
+});
+
+describe("getInitialSourceZoom", () => {
+  it("enlarges a small captured piece to fill the visible stage in whole steps", () => {
+    expect(getInitialSourceZoom({ width: 32, height: 8 }, { width: 700, height: 300 })).toBe(21);
+    expect(getInitialSourceZoom({ width: 32, height: 32 }, { width: 700, height: 300 })).toBe(9);
+  });
+
+  it("shrinks a large sheet to fit and caps tiny pieces at the maximum zoom", () => {
+    expect(getInitialSourceZoom({ width: 2000, height: 500 }, { width: 1000, height: 400 })).toBeCloseTo(0.5);
+    expect(getInitialSourceZoom({ width: 8, height: 8 }, { width: 1000, height: 1000 })).toBe(24);
+    expect(getInitialSourceZoom({ width: 100, height: 100 }, null)).toBe(5);
   });
 });

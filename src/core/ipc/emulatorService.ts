@@ -473,6 +473,30 @@ export interface RomSceneCapture {
   vram_used_bytes: number;
   width: number;
   height: number;
+  linked_sprites: number;
+}
+
+export interface SpriteCodeRef {
+  file: string;
+  line: number;
+  function: string | null;
+  node_id: string | null;
+  text: string;
+  via: string | null;
+}
+
+/** Sprite capturado ligado ao recurso SGDK de origem e aos pontos do C que o usam. */
+export interface SpriteLink {
+  resource: string;
+  sheet: string;
+  rect: [number, number, number, number];
+  flipped: boolean;
+  refs: SpriteCodeRef[];
+}
+
+/** Ligações gravadas por uma captura, por entidade (`rom_sprite_NN`). */
+export function romCaptureLinks(projectDir: string, captureDir: string): Promise<Record<string, SpriteLink>> {
+  return invoke<Record<string, SpriteLink>>("rom_capture_links", { projectDir, captureDir });
 }
 
 /** Grava a tela atual do jogo (planos e sprites do VDP) como cena do projeto. */

@@ -3307,3 +3307,21 @@ Relato do operador: o painel de paletas acusava conflito em capturas, mas o jogo
   - `viewportTagLayout.layoutTags` posiciona sem sobreposição (seleção primeiro); objetos na mesma origem formam lista empilhada.
 - **Mapa de paletas:** cada banco tem cabeçalho, amostras numa linha e o estado abaixo.
 - **Provas:** E2E real `sgdk-native-c` passou com o fluxo Cena → Arte → Lógica (código C) → Nodes → Arte → Cena, com a seleção preservada (capturas `*-flow-*.png`, 2026-10-28T09-23). O ajuste de layout do mapa de paletas (só CSS) veio depois e não foi repetido no app real: o host ficou sem memória (≈1 GB livre) e a janela do WebKit deixou de redimensionar. Gates frontend verdes.
+
+### Checkpoint 2026-10-28 (d) — Zoom da Arte e sprite capturado ligado ao recurso e ao C (Experimental)
+
+- **Zoom da Arte:** `getInitialSourceZoom` usa a área visível real do stage, sem o teto fixo de 2×. Peças pequenas (8–32 px) ampliam em passos inteiros até 24×, e folhas grandes reduzem para caber. "Ajustar" usa a mesma regra.
+- **Ligação sprite → recurso → C (`core/rom_sprite_link.rs`):**
+  - Na captura, cada sprite da SAT é procurado pixel a pixel (cores em 3 bits por canal, como o VDP, com ou sem espelhamento) nas folhas `SPRITE` dos manifestos (`project_mgr::sgdk_sprite_resource_images`), pré-filtradas pelas cores. Peças com menos de 8 pixels opacos não são ligadas.
+  - O símbolo do recurso é procurado no C indexado. Uma referência fora de função (tabela/array) é seguida uma vez pelo nome da tabela até as funções que a usam.
+  - Cada referência traz arquivo, linha, função (do grafo C) e `node_id`.
+  - O resultado fica em `assets/rom_capture/<nome>/links.json` (IPC `rom_capture_links`).
+- **UI:**
+  - Inspector e Lógica (código C) mostram "No código do jogo": o recurso, o retângulo na folha e as funções que o usam.
+  - O clique abre a Lógica em "Código do jogo (C)", no arquivo, com o node selecionado e rolado até ele (`codeFocusStore`, `CGraphPanel.focusNodeId`).
+- **Prova real (Mugenesis, quadro do menu):** 13/13 sprites ligados em 2,2 s.
+  - Ken → `mg_ken_g0` (`res/mugen/ken/sheets/g0.png`) e Ryu → `mg_ryu_g0`, com o retângulo exato de cada peça. Os dois seguem pela tabela `sheets` até `frameRenderBounds()` em `src/mg/mg_fight.c:1556`.
+  - Sombra do Ken → `mg_ken_shadow`, usada em `scene_demo_fight_init()`.
+- **Não validado no app real:** o E2E foi bloqueado pelo ambiente.
+  - (1) O shell passou a ter `WAYLAND_DISPLAY=wayland-0` e o app abria no desktop real, onde a janela não redimensiona. Para o E2E, rodar com `env -u WAYLAND_DISPLAY GDK_BACKEND=x11 DISPLAY=:173`.
+  - (2) Em seguida, o build Wine falhou porque o tmpfs `/run/user/1000` (1,5 GB) está cheio. A causa é `forge-sessions/1bf5a050/audio.raw` (1,5 GB), de outra sessão (Xvfb `:100`), que não foi removida.

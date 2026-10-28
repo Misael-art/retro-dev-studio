@@ -236,13 +236,17 @@ export function getArtStudioWheelZoomState({
   };
 }
 
-function getInitialSourceZoom(size: { width: number; height: number }): number {
-  const fitZoom = Math.min(
-    2,
-    900 / Math.max(size.width, 1),
-    560 / Math.max(size.height, 1)
-  );
-  return clampZoom(fitZoom);
+/**
+ * Zoom que enquadra a imagem inteira na área visível do stage. Sprites pequenos (peças de 8–32 px)
+ * são ampliados até ocupar a área, em passos inteiros para manter o pixel nítido.
+ */
+export function getInitialSourceZoom(
+  size: { width: number; height: number },
+  viewport?: { width: number; height: number } | null
+): number {
+  const area = viewport && viewport.width > 32 && viewport.height > 32 ? viewport : { width: 900, height: 560 };
+  const fitZoom = Math.min(area.width / Math.max(size.width, 1), area.height / Math.max(size.height, 1));
+  return clampZoom(fitZoom >= 1 ? Math.max(1, Math.floor(fitZoom)) : fitZoom);
 }
 
 async function loadImageElement(url: string): Promise<HTMLImageElement> {
@@ -2682,6 +2686,11 @@ export default function ArtStudioPanel() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const stageScrollRef = useRef<HTMLDivElement>(null);
+  /** Área visível do stage (sem o padding), para o zoom de enquadramento. */
+  const stageViewportSize = useCallback(() => {
+    const stage = stageScrollRef.current;
+    return stage ? { width: stage.clientWidth - 48, height: stage.clientHeight - 48 } : null;
+  }, []);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const processingRequestIdRef = useRef(0);
   const imageRequestIdRef = useRef(0);
@@ -2942,7 +2951,7 @@ export default function ArtStudioPanel() {
           displayName: basenameWithExtension(sourcePath),
           format: processed.format ?? getArtStudioImageFormatLabel(sourcePath, request.file?.type),
           scope,
-          zoom: getInitialSourceZoom(loaded.size),
+          zoom: getInitialSourceZoom(loaded.size, stageViewportSize()),
           message,
           frameCount: processed.frame_count,
           backgroundMode: processed.background_mode,
@@ -3278,9 +3287,9 @@ export default function ArtStudioPanel() {
     }
     dispatch({
       type: "SET_SOURCE_ZOOM",
-      value: getInitialSourceZoom(state.spriteSheetSize),
+      value: getInitialSourceZoom(state.spriteSheetSize, stageViewportSize()),
     });
-  }, [state.spriteSheetSize]);
+  }, [state.spriteSheetSize, stageViewportSize]);
 
   const handleStageWheel = useCallback(
     (event: ReactWheelEvent<HTMLDivElement>) => {

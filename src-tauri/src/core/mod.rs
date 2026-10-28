@@ -17,6 +17,7 @@ pub mod project_mgr;
 pub mod project_refs;
 pub mod rom_mastering;
 pub mod rom_scene_capture;
+pub mod rom_sprite_link;
 pub mod runtime_contracts;
 pub mod sgdk_c_graph;
 pub mod sgdk_corpus_inventory;

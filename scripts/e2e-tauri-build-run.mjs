@@ -6154,6 +6154,18 @@ async function runSgdkNativeCScenario(sessionId) {
       const workspaceIs = (ws, why) => waitFor(async () => (await readAutomationState(sessionId))?.activeWorkspace === ws, 15000, why, 150);
       await new Promise((resolve) => setTimeout(resolve, 800));
       addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-flow-scene.png`), "Scene with palette map and labels");
+      // Sprite -> recurso -> C: o Inspector mostra o recurso e leva ao node exato na Logica.
+      const linkResource = await waitFor(async () => (await executeScript(sessionId, `return document.querySelector('[data-testid="sprite-code-link"]')?.dataset.resource ?? null;`)) || false, 20000, "Sprite has no link to its SGDK resource.", 200);
+      const refId = await executeScript(sessionId, `return document.querySelector('[data-testid="sprite-code-link"] [data-testid^="sprite-code-ref-"]')?.dataset.testid ?? null;`);
+      if (!refId) fail("Sprite link has no C function reference.");
+      await clickButtonByTestIdNativeWhenReady(sessionId, refId, "Ponto do C");
+      await workspaceIs("logic", "Sprite code link did not open Logic.");
+      const focusedNode = await waitFor(async () => (await executeScript(sessionId, `return document.querySelector('[data-testid="game-code-logic"] [data-selected="true"]')?.textContent ?? null;`)) || false, 20000, "C node of the sprite was not selected.", 200);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-flow-sprite-code.png`), "Sprite linked to its C code");
+      report.sprite_code_link = { resource: linkResource, ref: refId, node: String(focusedNode).slice(0, 80) };
+      await clickButtonByTestIdNativeWhenReady(sessionId, "studio-open-scene", "Cena");
+      await workspaceIs("scene", "Did not return to Scene.");
       await clickButtonByTestIdNativeWhenReady(sessionId, "studio-open-character", "Arte e animação");
       await workspaceIs("artstudio", "Flow bar did not open Art.");
       await clickButtonByTestIdNativeWhenReady(sessionId, "artstudio-open-logic", "Editar lógica");

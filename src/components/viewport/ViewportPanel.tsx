@@ -70,6 +70,7 @@ import TestAdjustPanel from "./TestAdjustPanel";
 const GameCodeLogic = lazy(() => import("../nodegraph/GameCodeLogic").then((m) => ({ default: m.GameCodeLogic })));
 import { bankLetter, entityPaletteMarks } from "../../core/palettePlan";
 import { layoutTags } from "./viewportTagLayout";
+import { useCodeFocusStore } from "../../core/codeFocusStore";
 import { usePalettePlanStore } from "../../core/palettePlanStore";
 
 const VIEWPORT_TABS = [
@@ -573,7 +574,8 @@ export default function ViewportPanel({
   const [showTilemaps, setShowTilemaps] = useState(true);
   const [showSprites, setShowSprites] = useState(true);
   const nativeCProject = hwStatus?.analysis_mode === "native_c";
-  const [logicSource, setLogicSource] = useState<"code" | "nodes">("code");
+  const logicSource = useCodeFocusStore((s) => s.logicSource);
+  const setLogicSource = useCodeFocusStore((s) => s.setLogicSource);
   const paletteMapEnabled = usePalettePlanStore((s) => s.mapEnabled);
   const paletteBankFilter = usePalettePlanStore((s) => s.bankFilter);
   const palettePlan = usePalettePlanStore((s) => s.plan);

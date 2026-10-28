@@ -2,6 +2,7 @@ import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState 
 import AssetPreview from "../common/AssetPreview";
 import EditScopeBadge from "./EditScopeBadge";
 import { EntityPaletteSection, PaletteSummary } from "./PalettePanel";
+import { EntitySpriteCodeLink } from "./SpriteCodeLink";
 import HudTextInspector from "./HudTextInspector";
 import AssetRenameControl from "./AssetRenameControl";
 import {
@@ -1326,6 +1327,9 @@ export default function InspectorPanel() {
                       Editar lógica (nodes)
                     </button>
                   </div>
+                ) : null}
+                {entity.components.sprite ? (
+                  <EntitySpriteCodeLink entityId={entity.entity_id} asset={entity.components.sprite.asset} />
                 ) : null}
                 <div
                   data-testid="inspector-entity-context"

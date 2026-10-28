@@ -5409,6 +5409,35 @@ fn validate_sgdk_project_path(sgdk_path: &Path) -> Result<(), LoadError> {
     Ok(())
 }
 
+/// Recursos `SPRITE` dos manifestos do projeto, com o PNG resolvido (relativo ao manifesto ou a `res/`).
+pub fn sgdk_sprite_resource_images(sgdk_path: &Path) -> Vec<(String, PathBuf)> {
+    let Ok(manifests) = find_sgdk_manifest_paths(sgdk_path) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for manifest in manifests {
+        let Ok(text) = fs::read_to_string(&manifest) else {
+            continue;
+        };
+        let dir = manifest.parent().unwrap_or(sgdk_path);
+        for entry in parse_sgdk_manifest(&text) {
+            if entry.kind != "SPRITE" {
+                continue;
+            }
+            let local = dir.join(&entry.asset_path);
+            let path = if local.is_file() {
+                local
+            } else {
+                sgdk_resource_source_path(sgdk_path, &entry.asset_path)
+            };
+            if path.is_file() {
+                out.push((entry.name, path));
+            }
+        }
+    }
+    out
+}
+
 fn load_sgdk_resources(sgdk_path: &Path) -> Result<Vec<SgdkResourceEntry>, LoadError> {
     let manifest_paths = find_sgdk_manifest_paths(sgdk_path)?;
     let mut resources = Vec::new();

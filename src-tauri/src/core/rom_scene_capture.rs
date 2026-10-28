@@ -22,6 +22,14 @@ pub struct RomSceneCapture {
     pub vram_used_bytes: u32,
     pub width: u32,
     pub height: u32,
+    /// Sprites ligados a um recurso SGDK (e ao C que o usa).
+    pub linked_sprites: usize,
+}
+
+/// Contexto para ligar sprites capturados ao projeto C de origem (overlay SGDK legado).
+pub struct CaptureSource<'a> {
+    pub host_root: &'a Path,
+    pub sheets: crate::core::rom_sprite_link::SpriteSheets,
 }
 
 fn slug(name: &str) -> String {
@@ -100,6 +108,7 @@ pub fn write_rom_capture_scene(
     project_dir: &Path,
     name: &str,
     snapshot: &VdpSnapshot,
+    source: Option<&CaptureSource>,
 ) -> Result<RomSceneCapture, String> {
     let slug = slug(name);
     let scene_id = format!("rom_capture_{slug}");
@@ -145,6 +154,7 @@ pub fn write_rom_capture_scene(
     layer_ids[0].push("rom_backdrop".to_string());
     uses[(snapshot.regs[7] as usize >> 4) & 3].push("rom_backdrop".to_string());
     let sprites = snapshot.sprites();
+    let mut links = serde_json::Map::new();
     for (level, high) in [(0usize, false), (2usize, true)] {
         let tier = if high { "alta" } else { "baixa" };
         for (plane, code, label) in [
@@ -175,6 +185,25 @@ pub fn write_rom_capture_scene(
         for sprite in sprites.iter().rev().filter(|s| s.high == high) {
             let id = format!("rom_sprite_{:02}", sprite.slot);
             let image = snapshot.render_sprite(sprite);
+            let link = source.and_then(|src| {
+                let mut link = crate::core::rom_sprite_link::match_sprite_resource(
+                    &image,
+                    &src.sheets,
+                    src.host_root,
+                )?;
+                link.refs = crate::core::rom_sprite_link::code_refs(
+                    project_dir,
+                    src.host_root,
+                    &link.resource,
+                );
+                Some(link)
+            });
+            if let Some(link) = &link {
+                links.insert(
+                    id.clone(),
+                    serde_json::to_value(link).map_err(|e| e.to_string())?,
+                );
+            }
             entities.push(image_entity(ImageEntity {
                 id: &id,
                 name: &format!(
@@ -239,6 +268,13 @@ pub fn write_rom_capture_scene(
         "collision_map": null,
         "layers": layers
     });
+    if !links.is_empty() {
+        fs::write(
+            asset_dir.join("links.json"),
+            serde_json::to_string_pretty(&links).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| format!("Falha ao gravar links.json: {e}"))?;
+    }
     fs::write(
         &scene_path,
         serde_json::to_string_pretty(&scene).map_err(|e| e.to_string())?,
@@ -251,6 +287,7 @@ pub fn write_rom_capture_scene(
         vram_used_bytes: snapshot.vram_used_bytes(),
         width: w,
         height: h,
+        linked_sprites: links.len(),
     })
 }
 
@@ -283,7 +320,8 @@ mod tests {
             regs,
         };
 
-        let result = write_rom_capture_scene(&dir, "Tela Título", &snapshot).expect("capture");
+        let result =
+            write_rom_capture_scene(&dir, "Tela Título", &snapshot, None).expect("capture");
         assert_eq!(result.scene_path, "scenes/rom_capture_tela_t_tulo.json");
         assert_eq!(result.sprite_count, 1);
         let scene =
@@ -329,7 +367,7 @@ mod tests {
             .join("assets/rom_capture/tela_t_tulo/sprite_00.png")
             .is_file());
         assert!(
-            write_rom_capture_scene(&dir, "Tela Título", &snapshot).is_err(),
+            write_rom_capture_scene(&dir, "Tela Título", &snapshot, None).is_err(),
             "nao sobrescreve"
         );
         let _ = fs::remove_dir_all(&dir);

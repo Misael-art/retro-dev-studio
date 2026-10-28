@@ -3,8 +3,11 @@
 // máquinas de estado e funções), com o mesmo editor por nodes do Explorer.
 import { useEffect, useMemo, useState } from "react";
 
+import { useCodeFocusStore } from "../../core/codeFocusStore";
 import { getSgdkCGraphIndex, type CGraphIndex } from "../../core/ipc/projectService";
+import { useEditorStore } from "../../core/store/editorStore";
 import { CGraphPanel } from "../explorer/CGraphPanel";
+import { SpriteCodeLinkCard, useSpriteLink } from "../inspector/SpriteCodeLink";
 
 interface GameCodeLogicProps {
   projectDir: string;
@@ -15,6 +18,17 @@ export function GameCodeLogic({ projectDir }: GameCodeLogicProps) {
   const [error, setError] = useState<string | null>(null);
   const [file, setFile] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  const focus = useCodeFocusStore((s) => s.focus);
+  const selectedEntityId = useEditorStore((s) => s.selectedEntityId);
+  const selectedAsset = useEditorStore(
+    (s) => s.activeScene?.entities.find((e) => e.entity_id === s.selectedEntityId)?.components.sprite?.asset
+  );
+  const link = useSpriteLink(selectedEntityId, selectedAsset);
+
+  // Ir ao código a partir de um sprite: abre o arquivo do ponto escolhido.
+  useEffect(() => {
+    if (focus) setFile(focus.file);
+  }, [focus]);
 
   useEffect(() => {
     let alive = true;
@@ -83,6 +97,11 @@ export function GameCodeLogic({ projectDir }: GameCodeLogicProps) {
             className="mt-1 w-full rounded border border-[#45475a] bg-[#181825] px-2 py-1 text-[11px] text-[#cdd6f4]"
           />
         </div>
+        {link && selectedEntityId ? (
+          <div className="border-b border-[#313244] p-2">
+            <SpriteCodeLinkCard entityId={selectedEntityId} link={link} />
+          </div>
+        ) : null}
         <nav aria-label="Arquivos do jogo" className="min-h-0 flex-1 overflow-y-auto p-1">
           {groups.map(([dir, files]) => (
             <div key={dir} className="mb-1">
@@ -110,7 +129,14 @@ export function GameCodeLogic({ projectDir }: GameCodeLogicProps) {
         </nav>
       </aside>
       <section className="min-h-0 min-w-0 flex-1 overflow-y-auto p-2">
-        {file ? <CGraphPanel key={file} projectDir={projectDir} sourceFile={file} /> : null}
+        {file ? (
+          <CGraphPanel
+            key={file}
+            projectDir={projectDir}
+            sourceFile={file}
+            focusNodeId={focus?.file === file ? focus.nodeId : null}
+          />
+        ) : null}
       </section>
     </div>
   );
