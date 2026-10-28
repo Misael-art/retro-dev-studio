@@ -2060,6 +2060,62 @@ fn collect_rom_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
+#[derive(serde::Serialize)]
+struct EmulatorVramUsage {
+    available: bool,
+    used_bytes: u32,
+    total_bytes: u32,
+}
+
+/// Ocupacao real da VRAM no core em execucao: blocos de 32 bytes (1 tile) com algum byte
+/// diferente de zero. Inclui tiles, tilemaps e tabelas (SAT/scroll) — o que o jogo de fato
+/// carregou, e nao uma estimativa da cena do Studio.
+fn vram_usage_from_bytes(bytes: &[u8]) -> EmulatorVramUsage {
+    let used = bytes
+        .chunks(32)
+        .filter(|tile| tile.iter().any(|byte| *byte != 0))
+        .map(|tile| tile.len() as u32)
+        .sum();
+    EmulatorVramUsage {
+        available: !bytes.is_empty(),
+        used_bytes: used,
+        total_bytes: bytes.len() as u32,
+    }
+}
+
+#[tauri::command]
+fn emulator_vram_usage(emu: State<EmulatorCoreState>) -> Result<EmulatorVramUsage, String> {
+    let core = emu.0.lock().map_err(|e| e.to_string())?;
+    // A maioria dos cores nao expoe VRAM pela API de memoria; o savestate do GPGX sim.
+    if let Ok((bytes, _)) = core.read_memory(3, 0, usize::MAX) {
+        if !bytes.is_empty() {
+            return Ok(vram_usage_from_bytes(&bytes));
+        }
+    }
+    match core.vdp_snapshot() {
+        Ok(snapshot) => Ok(vram_usage_from_bytes(&snapshot.vram)),
+        Err(_) => Ok(vram_usage_from_bytes(&[])),
+    }
+}
+
+/// Grava a tela atual do jogo (planos e sprites lidos do VDP) como cena do projeto.
+#[tauri::command]
+fn capture_rom_scene(
+    project_dir: String,
+    name: String,
+    emu: State<EmulatorCoreState>,
+) -> Result<crate::core::rom_scene_capture::RomSceneCapture, String> {
+    let dir = PathBuf::from(project_dir.trim());
+    if !dir.join("project.rds").is_file() {
+        return Err("Abra um projeto antes de capturar a cena da ROM.".to_string());
+    }
+    let snapshot = {
+        let core = emu.0.lock().map_err(|e| e.to_string())?;
+        core.vdp_snapshot()?
+    };
+    crate::core::rom_scene_capture::write_rom_capture_scene(&dir, &name, &snapshot)
+}
+
 /// Le uma faixa da memoria exposta pelo core Libretro ativo.
 #[tauri::command]
 fn emulator_read_memory(
@@ -6316,6 +6372,8 @@ pub fn run() {
             open_project_source_path,
             read_legacy_project_file,
             sgdk_c_graph_index,
+            emulator_vram_usage,
+            capture_rom_scene,
             sgdk_c_graph_file,
             sgdk_c_graph_update_node,
             sgdk_c_graph_update_block,
@@ -6341,6 +6399,18 @@ mod tests {
     use std::hash::{Hash, Hasher};
     use std::time::{SystemTime, UNIX_EPOCH};
     use tools::dependency_manager::{dependency_status_report, install_dependency};
+
+    #[test]
+    fn vram_usage_counts_only_tiles_with_data() {
+        let mut vram = vec![0u8; 64 * 1024];
+        vram[0] = 1;
+        vram[32 * 10 + 31] = 7;
+        let usage = vram_usage_from_bytes(&vram);
+        assert!(usage.available);
+        assert_eq!(usage.used_bytes, 64);
+        assert_eq!(usage.total_bytes, 65536);
+        assert!(!vram_usage_from_bytes(&[]).available);
+    }
 
     fn temp_dir(prefix: &str) -> PathBuf {
         let nonce = SystemTime::now()

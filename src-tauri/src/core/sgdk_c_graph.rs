@@ -72,6 +72,43 @@ pub struct CStateTransition {
     pub to: String,
     pub line: usize,
     pub node_id: String,
+    /// Funcao onde a atribuicao acontece.
+    #[serde(default)]
+    pub function: Option<String>,
+    /// `local` (guarda no mesmo trecho), `caller` (guarda achada subindo pelos chamadores),
+    /// `unguarded` (chamadores achados, nenhum guarda o estado) ou `unknown` (sem chamador).
+    #[serde(default)]
+    pub origin: String,
+    /// Cadeia reversa de chamadas ate a guarda (`funcao@arquivo:linha`).
+    #[serde(default)]
+    pub via: Vec<String>,
+    /// Condicoes que precisam valer (locais e dos chamadores), classificadas.
+    #[serde(default)]
+    pub conditions: Vec<CLink>,
+    /// Efeitos no mesmo bloco da transicao (som, sprite, cena, scroll, VDP...).
+    #[serde(default)]
+    pub effects: Vec<CLink>,
+}
+
+/// Ligacao classificada de uma transicao: `category` em `input` (comando), `timer`,
+/// `collision`, `state`, `event` (condicoes) ou no vocabulario de blocos (efeitos).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CLink {
+    pub category: String,
+    pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<String>,
+}
+
+/// Ponto de chamada com o contexto (guardas de estado e condicoes) ativo naquele ponto.
+#[derive(Debug, Clone)]
+pub struct CCallSite {
+    pub callee: String,
+    pub caller: Option<String>,
+    pub file: String,
+    pub line: usize,
+    pub guards: Vec<(String, String)>,
+    pub conditions: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -557,14 +594,72 @@ fn is_state_like_name(target: &str) -> bool {
         .any(|word| last.contains(word))
 }
 
+fn name_words(name: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut current = String::new();
+    let mut prev_lower = false;
+    for ch in name.chars() {
+        if ch == '_' || !ch.is_alphanumeric() {
+            if !current.is_empty() {
+                words.push(std::mem::take(&mut current));
+            }
+            prev_lower = false;
+            continue;
+        }
+        if ch.is_uppercase() && prev_lower && !current.is_empty() {
+            words.push(std::mem::take(&mut current));
+        }
+        prev_lower = ch.is_lowercase() || ch.is_ascii_digit();
+        current.push(ch.to_ascii_lowercase());
+    }
+    if !current.is_empty() {
+        words.push(current);
+    }
+    words
+}
+
+const STATE_NOUNS: &[&str] = &[
+    "state", "scene", "mode", "phase", "screen", "level", "stage", "step",
+];
+
+/// `changeState`, `APP_changeScene`, `requestScreen`... (verbo + substantivo final de estado).
+/// APIs de hardware SGDK (`VDP_setScrollingMode`) nao sao troca de estado do jogo.
 fn is_state_change_call(name: &str) -> bool {
-    let lower = name.to_ascii_lowercase();
-    ["set", "change", "goto", "enter", "switch"]
-        .iter()
-        .any(|verb| lower.contains(verb))
-        && ["state", "scene", "mode", "phase"]
+    if [
+        "VDP_", "SPR_", "PAL_", "DMA_", "SYS_", "JOY_", "XGM", "SND_", "PSG_", "MAP_", "Z80_",
+    ]
+    .iter()
+    .any(|prefix| name.starts_with(prefix))
+    {
+        return false;
+    }
+    let words = name_words(name);
+    let verbs = [
+        "set", "change", "goto", "go", "enter", "switch", "request", "push", "load", "next",
+    ];
+    words.len() >= 2
+        && words[..words.len() - 1]
             .iter()
-            .any(|noun| lower.contains(noun))
+            .any(|w| verbs.contains(&w.as_str()))
+        && STATE_NOUNS.contains(&words[words.len() - 1].as_str())
+}
+
+/// A guarda `guarded == X` vale para o estado `subject`? Igualdade textual; mesmo campo
+/// final por outro caminho (`p->state` x `player.state`); ou chamada de troca cujo
+/// substantivo aparece no campo guardado (`changeScene` x `gApp.currentScene`).
+fn guard_matches(subject: &str, guarded: &str) -> bool {
+    if subject == guarded {
+        return true;
+    }
+    let is_path = |s: &str| s.contains('.') || s.contains('>');
+    if is_path(subject) && is_path(guarded) && last_segment(subject) == last_segment(guarded) {
+        return true;
+    }
+    if !is_path(subject) && is_state_change_call(subject) {
+        let noun = name_words(subject).pop().unwrap_or_default();
+        return last_segment(guarded).to_ascii_lowercase().contains(&noun);
+    }
+    false
 }
 
 /// Pares `subject == VALOR` de uma condicao (`if (a == B && c)`).
@@ -592,18 +687,92 @@ fn equality_guards(label: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-struct TransitionWalk<'a> {
-    switch_subjects: &'a BTreeSet<String>,
-    found: Vec<(String, CStateTransition)>,
+fn classify_condition(text: &str) -> &'static str {
+    let lower = text.to_ascii_lowercase();
+    let has = |words: &[&str]| words.iter().any(|w| lower.contains(w));
+    if has(&[
+        "joy_", "button_", "joy", "input", "pad", "press", "held", "key",
+    ]) {
+        "input"
+    } else if has(&[
+        "timer", "frame", "tick", "counter", "count", "delay", "cooldown", "elapsed",
+    ]) {
+        "timer"
+    } else if has(&[
+        "collid",
+        "collision",
+        "hit",
+        "overlap",
+        "contact",
+        "intersect",
+        "hurt",
+    ]) {
+        "collision"
+    } else if has(&["state", "mode", "phase", "step", "scene"]) {
+        "state"
+    } else {
+        "event"
+    }
 }
 
-impl TransitionWalk<'_> {
-    fn walk(
-        &mut self,
-        node: &CGraphNode,
-        current_switch: Option<&str>,
-        guards: &mut Vec<(String, String)>,
-    ) {
+fn condition_links(conditions: &[String]) -> Vec<CLink> {
+    conditions
+        .iter()
+        .map(|text| CLink {
+            category: classify_condition(text).to_string(),
+            text: text.clone(),
+            node_id: None,
+        })
+        .collect()
+}
+
+/// Efeitos observaveis dos blocos diretos de um bloco/case.
+fn block_effects(node: &CGraphNode) -> Vec<CLink> {
+    node.children
+        .iter()
+        .filter_map(|child| {
+            let block = child.block.as_ref()?;
+            let category = if block.form == "call" && is_state_change_call(&block.target) {
+                "scene_change"
+            } else {
+                block.node_type.as_str()
+            };
+            (!matches!(category, "set_variable" | "c_call")).then(|| CLink {
+                category: category.to_string(),
+                text: block_statement_text(block),
+                node_id: Some(child.id.clone()),
+            })
+        })
+        .collect()
+}
+
+fn if_condition(label: &str) -> String {
+    switch_subject(
+        label
+            .trim()
+            .trim_start_matches("else")
+            .trim()
+            .trim_start_matches("if"),
+    )
+}
+
+struct TransitionWalk<'a> {
+    file: &'a str,
+    switch_subjects: &'a BTreeSet<String>,
+    found: Vec<(String, CStateTransition)>,
+    call_sites: Vec<CCallSite>,
+}
+
+struct WalkContext<'a> {
+    current_switch: Option<String>,
+    function: Option<&'a str>,
+    guards: Vec<(String, String)>,
+    conditions: Vec<String>,
+    effects: Vec<CLink>,
+}
+
+impl<'a> TransitionWalk<'a> {
+    fn walk(&mut self, node: &'a CGraphNode, ctx: &mut WalkContext<'a>) {
         if let Some(block) = &node.block {
             let target = normalized(&block.target);
             let assign = block.form == "assign"
@@ -619,51 +788,192 @@ impl TransitionWalk<'_> {
             };
             if let Some(to) = to.filter(|value| !value.contains('(')) {
                 let subject = if assign { target } else { block.target.clone() };
-                let from = guards
+                let local = ctx
+                    .guards
                     .iter()
                     .rev()
-                    .find(|(guarded, _)| *guarded == subject)
-                    .map(|(_, state)| state.clone())
-                    .unwrap_or_else(|| "*".to_string());
+                    .find(|(guarded, _)| guard_matches(&subject, guarded))
+                    .map(|(_, state)| state.clone());
                 self.found.push((
                     subject,
                     CStateTransition {
-                        from,
+                        origin: if local.is_some() { "local" } else { "unknown" }.to_string(),
+                        from: local.unwrap_or_else(|| "*".to_string()),
                         to: to.trim().to_string(),
                         line: node.start_line,
                         node_id: node.id.clone(),
+                        function: ctx.function.map(str::to_string),
+                        via: Vec::new(),
+                        conditions: condition_links(&ctx.conditions),
+                        effects: ctx
+                            .effects
+                            .iter()
+                            .filter(|e| e.node_id.as_deref() != Some(node.id.as_str()))
+                            .cloned()
+                            .collect(),
                     },
                 ));
             }
         }
-        let pushed = match node.kind.as_str() {
-            "case_statement" => current_switch
-                .map(|subject| {
-                    guards.push((subject.to_string(), case_name(&node.label)));
-                    1
-                })
-                .unwrap_or(0),
-            _ => 0,
-        };
-        let inner_subject = if node.kind == "switch_statement" {
-            Some(normalized(&switch_subject(&node.label)))
+        if node.text.is_some() {
+            for callee in &node.calls {
+                self.call_sites.push(CCallSite {
+                    callee: callee.clone(),
+                    caller: ctx.function.map(str::to_string),
+                    file: self.file.to_string(),
+                    line: node.start_line,
+                    guards: ctx.guards.clone(),
+                    conditions: ctx.conditions.clone(),
+                });
+            }
+        }
+
+        let saved_switch = ctx.current_switch.clone();
+        let saved_function = ctx.function;
+        let (guards_len, conditions_len) = (ctx.guards.len(), ctx.conditions.len());
+        let saved_effects = if matches!(node.kind.as_str(), "compound_statement" | "case_statement")
+        {
+            Some(std::mem::replace(&mut ctx.effects, block_effects(node)))
         } else {
             None
         };
-        for child in &node.children {
-            // A guarda de um `if` vale para o ramo verdadeiro, nao para o `else`.
-            let if_guards = if node.kind == "if_statement" && child.kind != "else_clause" {
-                equality_guards(&node.label)
-            } else {
-                Vec::new()
-            };
-            let count = if_guards.len();
-            guards.extend(if_guards);
-            let subject = inner_subject.as_deref().or(current_switch);
-            self.walk(child, subject, guards);
-            guards.truncate(guards.len() - count);
+        if node.kind == "function_definition" {
+            ctx.function = node.function.as_deref();
+            ctx.guards.clear();
+            ctx.conditions.clear();
         }
-        guards.truncate(guards.len() - pushed);
+        if node.kind == "case_statement" {
+            if let Some(subject) = ctx.current_switch.clone() {
+                let state = case_name(&node.label);
+                ctx.conditions.push(format!("{subject} == {state}"));
+                ctx.guards.push((subject, state));
+            }
+        }
+        if node.kind == "switch_statement" {
+            ctx.current_switch = Some(normalized(&switch_subject(&node.label)));
+        }
+        for child in &node.children {
+            let (g, c) = (ctx.guards.len(), ctx.conditions.len());
+            if node.kind == "if_statement" {
+                let condition = if_condition(&node.label);
+                if child.kind == "else_clause" {
+                    ctx.conditions.push(format!("!({condition})"));
+                } else if child.role != "syntax" {
+                    ctx.guards.extend(equality_guards(&node.label));
+                    ctx.conditions.push(condition);
+                }
+            }
+            self.walk(child, ctx);
+            ctx.guards.truncate(g);
+            ctx.conditions.truncate(c);
+        }
+        ctx.current_switch = saved_switch;
+        if node.kind == "function_definition" {
+            ctx.function = saved_function;
+        }
+        ctx.guards.truncate(guards_len);
+        ctx.conditions.truncate(conditions_len);
+        if let Some(effects) = saved_effects {
+            ctx.effects = effects;
+        }
+    }
+}
+
+fn last_segment(subject: &str) -> &str {
+    subject
+        .rsplit(['.', '>'])
+        .find(|part| !part.is_empty())
+        .unwrap_or(subject)
+}
+
+/// Caminho reverso: transicoes sem guarda local sobem pelos pontos de chamada (todos os
+/// arquivos, ate 4 niveis) ate achar `case`/`if (subject == X)` do mesmo estado. O mesmo
+/// estado acessado por outro caminho (`p->state` x `player.state`) casa pelo ultimo campo.
+pub fn resolve_transition_origins(machines: &mut [CStateMachine], sites: &[CCallSite]) {
+    const MAX_DEPTH: usize = 4;
+    for machine in machines.iter_mut() {
+        let subject = normalized(&machine.subject);
+        for transition in machine
+            .transitions
+            .iter_mut()
+            .filter(|t| t.origin == "unknown")
+        {
+            let Some(start) = transition.function.clone() else {
+                continue;
+            };
+            let mut frontier = vec![(start.clone(), Vec::<String>::new(), Vec::<String>::new())];
+            let mut visited = BTreeSet::from([start]);
+            let mut froms: Vec<String> = Vec::new();
+            let (mut via, mut conditions) = (Vec::new(), Vec::new());
+            let mut saw_caller = false;
+            let mut trigger: Option<(Vec<String>, Vec<String>)> = None;
+            for _ in 0..MAX_DEPTH {
+                let mut next = Vec::new();
+                for (function, chain, conds) in &frontier {
+                    for site in sites.iter().filter(|site| &site.callee == function) {
+                        saw_caller = true;
+                        let mut site_chain = chain.clone();
+                        site_chain.push(format!(
+                            "{}@{}:{}",
+                            site.caller.as_deref().unwrap_or("?"),
+                            site.file,
+                            site.line
+                        ));
+                        let mut site_conds = conds.clone();
+                        site_conds.extend(site.conditions.iter().cloned());
+                        let hit = site
+                            .guards
+                            .iter()
+                            .rev()
+                            .find(|(guarded, _)| guard_matches(&subject, guarded));
+                        if trigger.is_none() && !site_conds.is_empty() {
+                            trigger = Some((site_chain.clone(), site_conds.clone()));
+                        }
+                        if let Some((_, state)) = hit {
+                            if !froms.contains(state) {
+                                froms.push(state.clone());
+                            }
+                            if via.is_empty() {
+                                via = site_chain;
+                                conditions = site_conds;
+                            }
+                        } else if let Some(caller) = &site.caller {
+                            if visited.insert(caller.clone()) {
+                                next.push((caller.clone(), site_chain, site_conds));
+                            }
+                        }
+                    }
+                }
+                if !froms.is_empty() || next.is_empty() {
+                    break;
+                }
+                frontier = next;
+            }
+            if !froms.is_empty() {
+                transition.from = froms.join(" | ");
+                transition.origin = "caller".to_string();
+                transition.via = via;
+                transition.conditions.extend(condition_links(&conditions));
+            } else if saw_caller {
+                // Sem guarda de estado nos chamadores: a origem segue `*`, mas o gatilho
+                // (comando, colisao, timer...) do chamador mais proximo fica ligado.
+                transition.origin = "unguarded".to_string();
+                if let Some((chain, conds)) = trigger {
+                    transition.via = chain;
+                    transition.conditions.extend(condition_links(&conds));
+                }
+            }
+        }
+        for state in machine
+            .transitions
+            .iter()
+            .flat_map(|t| t.from.split(" | ").map(str::to_string).collect::<Vec<_>>())
+            .collect::<Vec<_>>()
+        {
+            if state != "*" && !machine.states.contains(&state) {
+                machine.states.push(state);
+            }
+        }
     }
 }
 
@@ -671,6 +981,7 @@ fn summarize(
     graph: &CGraphFile,
     functions: &mut Vec<CGraphFunction>,
     machines: &mut Vec<CStateMachine>,
+    call_sites: &mut Vec<CCallSite>,
 ) {
     let mut file_machines = Vec::new();
     visit(&graph.root, None, &mut |node, function| {
@@ -707,10 +1018,20 @@ fn summarize(
         .map(|m| normalized(&m.subject))
         .collect();
     let mut walk = TransitionWalk {
+        file: &graph.source_file,
         switch_subjects: &switch_subjects,
         found: Vec::new(),
+        call_sites: Vec::new(),
     };
-    walk.walk(&graph.root, None, &mut Vec::new());
+    let mut ctx = WalkContext {
+        current_switch: None,
+        function: None,
+        guards: Vec::new(),
+        conditions: Vec::new(),
+        effects: Vec::new(),
+    };
+    walk.walk(&graph.root, &mut ctx);
+    call_sites.append(&mut walk.call_sites);
 
     let mut loose: std::collections::BTreeMap<String, Vec<CStateTransition>> = Default::default();
     for (subject, transition) in walk.found {
@@ -827,6 +1148,7 @@ pub fn write_c_graph_project(host_root: &Path, overlay_dir: &Path) -> Result<CGr
     let mut entries = Vec::new();
     let mut functions = Vec::new();
     let mut machines = Vec::new();
+    let mut call_sites = Vec::new();
     for file in collect_c_sources(host_root) {
         let rel = rel_string(host_root, &file);
         let bytes =
@@ -855,7 +1177,7 @@ pub fn write_c_graph_project(host_root: &Path, overlay_dir: &Path) -> Result<CGr
                 (fresh, false)
             }
         };
-        summarize(&graph, &mut functions, &mut machines);
+        summarize(&graph, &mut functions, &mut machines, &mut call_sites);
         entries.push(CGraphIndexEntry {
             source_file: rel.clone(),
             graph_file: rel_string(overlay_dir, &graph_path),
@@ -865,6 +1187,7 @@ pub fn write_c_graph_project(host_root: &Path, overlay_dir: &Path) -> Result<CGr
             stale,
         });
     }
+    resolve_transition_origins(&mut machines, &call_sites);
     let entry_points = functions
         .iter()
         .filter(|f| f.name == "main" && f.file.ends_with(".c"))
@@ -983,11 +1306,12 @@ pub fn update_c_graph_node(
 /// Recalcula funcoes, FSMs e entradas do indice a partir dos grafos gravados (apos edicao).
 pub fn refresh_c_graph_index(overlay_dir: &Path) -> Result<CGraphIndex, String> {
     let mut index = load_c_graph_index(overlay_dir)?;
-    let (mut functions, mut machines) = (Vec::new(), Vec::new());
+    let (mut functions, mut machines, mut call_sites) = (Vec::new(), Vec::new(), Vec::new());
     for entry in &index.files {
         let graph = load_c_graph(&overlay_dir.join(&entry.graph_file))?;
-        summarize(&graph, &mut functions, &mut machines);
+        summarize(&graph, &mut functions, &mut machines, &mut call_sites);
     }
+    resolve_transition_origins(&mut machines, &call_sites);
     index.entry_points = functions
         .iter()
         .filter(|f| f.name == "main" && f.file.ends_with(".c"))
@@ -1169,8 +1493,9 @@ int main(bool hard)
     #[test]
     fn c_graph_extracts_functions_calls_and_switch_state_machines() {
         let graph = parse_c_source("src/main.c", SAMPLE).expect("parse");
-        let (mut functions, mut machines) = (Vec::new(), Vec::new());
-        summarize(&graph, &mut functions, &mut machines);
+        let (mut functions, mut machines, mut call_sites) = (Vec::new(), Vec::new(), Vec::new());
+        summarize(&graph, &mut functions, &mut machines, &mut call_sites);
+        resolve_transition_origins(&mut machines, &call_sites);
         let names: Vec<_> = functions.iter().map(|f| f.name.as_str()).collect();
         assert_eq!(names, ["dbg", "tick", "update", "main"]);
         let main = functions.iter().find(|f| f.name == "main").unwrap();
@@ -1229,6 +1554,72 @@ int main(bool hard)
         assert_eq!(sgdk_call_node_type("SPR_setPosition"), "sprite_move");
         assert_eq!(sgdk_call_node_type("XGM_startPlay"), "action_sound");
         assert_eq!(sgdk_call_node_type("update"), "c_call");
+    }
+
+    #[test]
+    fn c_graph_resolves_transition_origin_through_callers_across_files() {
+        let logic = parse_c_source(
+            "src/logic.c",
+            "void player_jump(Player *p) {\n    p->state = ST_JUMP;\n    XGM_startPlayPCM(SFX_JUMP, 1, SOUND_PCM_CH2);\n}\nvoid player_land(Player *p) { p->state = ST_IDLE; }\n",
+        )
+        .unwrap();
+        let game = parse_c_source(
+            "src/game.c",
+            "void handle(void) {\n    if (player.state == ST_IDLE) {\n        if (joy & BUTTON_A) jump_wrapper();\n    }\n    if (hit_ground) player_land(&player);\n}\nvoid jump_wrapper(void) { player_jump(&player); }\n",
+        )
+        .unwrap();
+        let (mut functions, mut machines, mut sites) = (Vec::new(), Vec::new(), Vec::new());
+        summarize(&logic, &mut functions, &mut machines, &mut sites);
+        summarize(&game, &mut functions, &mut machines, &mut sites);
+        resolve_transition_origins(&mut machines, &sites);
+        let machine = machines
+            .iter()
+            .find(|m| m.subject == "p->state")
+            .expect("fsm p->state");
+        let jump = machine
+            .transitions
+            .iter()
+            .find(|t| t.to == "ST_JUMP")
+            .unwrap();
+        assert_eq!(jump.origin, "caller");
+        assert_eq!(jump.from, "ST_IDLE");
+        assert_eq!(
+            jump.via.len(),
+            2,
+            "player_jump <- jump_wrapper <- handle: {:?}",
+            jump.via
+        );
+        assert!(jump.via[1].starts_with("handle@src/game.c"));
+        assert!(jump
+            .conditions
+            .iter()
+            .any(|c| c.category == "input" && c.text.contains("BUTTON_A")));
+        assert!(jump.effects.iter().any(|e| e.category == "action_sound"));
+        let land = machine
+            .transitions
+            .iter()
+            .find(|t| t.to == "ST_IDLE")
+            .unwrap();
+        assert_eq!(
+            land.origin, "unguarded",
+            "chamador existe mas nao guarda o estado"
+        );
+        assert_eq!(land.from, "*");
+        assert!(land
+            .conditions
+            .iter()
+            .any(|c| c.category == "collision" && c.text == "hit_ground"));
+    }
+
+    #[test]
+    fn c_graph_state_change_calls_are_recognized_by_name_shape() {
+        assert!(is_state_change_call("APP_changeScene") && is_state_change_call("MG_changeState"));
+        assert!(is_state_change_call("requestScreen"));
+        assert!(!is_state_change_call("VDP_setScrollingMode"));
+        assert!(!is_state_change_call("set_stage_scroll"));
+        assert!(guard_matches("APP_changeScene", "gApp.currentScene"));
+        assert!(guard_matches("p->state", "player.state"));
+        assert!(!guard_matches("p->state", "p->mode"));
     }
 
     fn find_mut<'a>(
@@ -1389,6 +1780,7 @@ int main(bool hard)
             let mut leaves = 0usize;
             let mut block_types: std::collections::BTreeMap<String, usize> =
                 std::collections::BTreeMap::new();
+            let mut call_sites = Vec::new();
             for file in collect_c_sources(root) {
                 let Ok(source) = fs::read_to_string(&file) else {
                     continue;
@@ -1403,7 +1795,7 @@ int main(bool hard)
                         *block_types.entry(block.node_type.clone()).or_insert(0) += 1;
                     }
                 });
-                summarize(&graph, &mut functions, &mut machines);
+                summarize(&graph, &mut functions, &mut machines, &mut call_sites);
                 if graph.parse_error_nodes > 0 {
                     println!(
                         "CGRAPH_ERR {} {}",
@@ -1417,6 +1809,25 @@ int main(bool hard)
                 functions.len(),
                 machines.len()
             );
+            resolve_transition_origins(&mut machines, &call_sites);
+            let mut origins: std::collections::BTreeMap<String, usize> = Default::default();
+            let mut links: std::collections::BTreeMap<String, usize> = Default::default();
+            for t in machines.iter().flat_map(|m| &m.transitions) {
+                *origins.entry(t.origin.clone()).or_default() += 1;
+                for l in t.conditions.iter().chain(&t.effects) {
+                    *links.entry(l.category.clone()).or_default() += 1;
+                }
+            }
+            println!("CGRAPH_ORIGINS {origins:?}");
+            println!("CGRAPH_LINKS {links:?}");
+            for t in machines
+                .iter()
+                .flat_map(|m| &m.transitions)
+                .filter(|t| t.origin == "caller")
+                .take(3)
+            {
+                println!("CGRAPH_CALLER {} -> {} via {:?}", t.from, t.to, t.via);
+            }
             let transitions: usize = machines.iter().map(|m| m.transitions.len()).sum();
             let with_transitions = machines
                 .iter()

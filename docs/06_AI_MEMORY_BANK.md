@@ -3246,3 +3246,28 @@ Fecha os cinco itens pendentes do checkpoint (b).
 - **App Tauri real (Xvfb `:173`, driver E2E, binário `0f8c371da299593c70e5499bf52ef6dfa3179c4286dd6fd11cdbfcb2f8d73cd9`, cenário `sgdk-native-c` estendido):** 10/10 passos. Abrir → build original `8a85d300…` com recibo → input nativo → painel aberto em `src/core/app.c` → valor do bloco editado no formulário → grafo persistido → Build & Run → ROM `29e0791f…` com recibo, diferente da original, renderizando → raiz C intocada → grafo restaurado → reabrir. A 1ª tentativa falhou por o cenário não voltar ao Explorer após o build (corrigido no cenário). O painel foi movido para cima do preview "Read-only", após inspeção da captura. Relatório: `scratchpad/e2e-native-c/sgdk-native-c-2026-10-28T01-48-08-910Z.json`; capturas em `src-tauri/target-test/validation/`.
 
 Limites: os blocos cobrem statement simples (chamada/atribuição); laços/condições editam como C. A FSM é inferida por convenção de nomes e guardas locais, sem prova de equivalência semântica. Gameplay da ROM editada não foi exercitado além do boot. Sem aceite humano; o chip "READ-ONLY HOST" do resumo do overlay ainda aparece. Windows sem wrapper.
+
+### Checkpoint 2026-10-28 — SGDK C nativo: origem de transições por caminho reverso, cena capturada do VDP e VRAM real (Experimental)
+
+Três problemas relatados pelo operador.
+
+**1. Transições com origem "qualquer".** `sgdk_c_graph` agora faz caminho reverso:
+- cada transição guarda a função, as condições (locais e dos chamadores, classificadas em `input`/comando, `timer`, `collision`, `state`, `event`) e os efeitos do mesmo bloco (som, sprite, cena, scroll, paleta, VDP, com `node_id`);
+- um índice global de pontos de chamada (todos os arquivos, até 4 níveis) sobe até o `case`/`if (var == X)` que guarda o estado;
+- o casamento de estado aceita o mesmo campo final por outro caminho (`p->state` × `player.state`) e chamadas de troca pelo substantivo final (`APP_changeScene` × `gApp.currentScene`); nomes são tokenizados (verbo + substantivo final), com prefixos de hardware SGDK excluídos (`VDP_setScrollingMode` não conta);
+- origem: `local`, `caller` (com `via` = cadeia `funcao@arquivo:linha`), `unguarded` (chamadores sem guarda de estado, mas com o gatilho do chamador ligado, ex.: `hit_ground` → colisão) ou `unknown`.
+
+Corpus: OpenBOR origem conhecida 18 → **37/70** (local 18 + chamador 19), Mugenesis 10 → **20/64**; demais com gatilho ligado. Limite: chamadas por ponteiro de função/tabela não são seguidas. O painel mostra origem, via, gatilhos e efeitos clicáveis.
+
+**2. Cena ilegível.**
+- *Causa:* os recursos do Mugenesis são TILESET em fita (`hud_tiles.png` 1136×8); a tela é montada pelo C em runtime, então nenhum recurso isolado mostra o jogo.
+- *Solução genérica:* `emulator/vdp_snapshot.rs` lê o VDP do savestate do Genesis Plus GX 1.7. O GPGX **não** expõe VRAM pela API Libretro (região 3 = 0 bytes, sondado). O layout `state.c`/`vdp_context_save` é ancorado pela WRAM byte a byte e validado pelos registradores do modo 5; cabeçalho ou WRAM divergentes recusam. VRAM em u16 LE (confirmado pela cadeia de links da SAT).
+- *Recomposição:* planos A/B (tiles 4bpp, paletas, flips, scroll H tela/célula/linha e V) e sprites pela cadeia de links. Contra o framebuffer do próprio core no título do Mugenesis: **diferença máxima 4 níveis por canal (RGB565), 0 pixels acima de 8**; níveis de cor ~34/passo como o GPGX.
+- *Gravação:* `core/rom_scene_capture.rs` grava `scenes/rom_capture_<nome>.json` + `assets/rom_capture/<nome>/` (plano B com backdrop, plano A, um PNG por sprite na posição da tela) e nunca sobrescreve. Botão "Capturar cena" (`capture_rom_scene`).
+- *Limites:* prioridade por tile/sprite e plano Window não compostos; a cena é referência visual de um quadro; o painel de paletas acusa conflitos nessas imagens multi-paleta.
+
+**3. Alerta de VRAM enganoso.** Era a análise estática da cena de entrada do Studio (4 KB do HUD), não o jogo.
+- Projeto overlay C nativo agora tem `analysis_mode=native_c`: só os limites do Mega Drive, sem warnings estimados.
+- `emulator_vram_usage` mede a VRAM real do core (snapshot do VDP quando a API não expõe), na barra superior ("VRAM real"), na barra de status e no painel de hardware.
+
+**Provas:** E2E real `sgdk-native-c`, binário `3810f7eda26a8f9b50c3b8e52513381b89bf5e16514243543c985108994dee9f`, **12/12**: "VRAM real 13 / 64 KB" no medidor; captura com 15 entidades (2 planos + 13 sprites), ativa no editor e conferida na imagem (menu "ESCOLHA O MODO", Ken e Ryu); edição de bloco → ROM `29e0791f…` e demais passos anteriores. A captura do E2E ficou em `rds/scenes/rom_capture_quadro_20261028024108.json` do Mugenesis (overlay do Studio).

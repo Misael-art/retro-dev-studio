@@ -169,8 +169,17 @@ export default function HardwareLimitsPanel({ compact = false }: { compact?: boo
           <p className="px-3 py-1 text-[9px] text-[#6c7086]" title={liveMessage}>
             {liveMessage}
           </p>
-          <GaugeRow label="VRAM" used={status.vram_used} limit={status.vram_limit} unit="KB" />
-          <GaugeRow label="Sprites" used={status.sprite_count} limit={status.sprite_limit} />
+          {status.analysis_mode === "native_c" ? (
+            <p data-testid="hardware-limits-native-c" className="px-3 pb-2 text-[9px] text-[#a6adc8]">
+              Projeto C nativo: limites do Mega Drive (VRAM {Math.round(status.vram_limit / 1024)} KB, {status.sprite_limit}{" "}
+              sprites). O uso é decidido pelo C em runtime; a barra superior mostra a VRAM real medida no emulador.
+            </p>
+          ) : (
+            <>
+              <GaugeRow label="VRAM" used={status.vram_used} limit={status.vram_limit} unit="KB" />
+              <GaugeRow label="Sprites" used={status.sprite_count} limit={status.sprite_limit} />
+            </>
+          )}
           {(status.errors[0] || status.warnings[0]) && (
             <p
               className="px-3 pb-2 text-[9px] text-[#fab387]"

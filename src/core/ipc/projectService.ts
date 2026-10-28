@@ -252,6 +252,25 @@ export interface CGraphFile {
   root: CGraphNode;
 }
 
+export interface CLink {
+  category: string;
+  text: string;
+  node_id?: string;
+}
+
+export interface CStateTransition {
+  from: string;
+  to: string;
+  line: number;
+  node_id: string;
+  function?: string | null;
+  /** local | caller | unguarded | unknown */
+  origin?: string;
+  via?: string[];
+  conditions?: CLink[];
+  effects?: CLink[];
+}
+
 export interface CGraphIndex {
   schema: string;
   files: {
@@ -268,7 +287,7 @@ export interface CGraphIndex {
     function: string | null;
     subject: string;
     states: string[];
-    transitions: { from: string; to: string; line: number; node_id: string }[];
+    transitions: CStateTransition[];
     line: number;
     node_id: string;
   }[];

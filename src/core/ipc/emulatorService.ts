@@ -454,3 +454,28 @@ export function keyToJoypad(
   if (!button) return null;
   return { ...current, [button]: pressed };
 }
+
+export interface EmulatorVramUsage {
+  available: boolean;
+  used_bytes: number;
+  total_bytes: number;
+}
+
+/** Ocupação real da VRAM no core em execução (tiles com dados). */
+export function emulatorVramUsage(): Promise<EmulatorVramUsage> {
+  return invoke<EmulatorVramUsage>("emulator_vram_usage");
+}
+
+export interface RomSceneCapture {
+  scene_path: string;
+  scene_id: string;
+  sprite_count: number;
+  vram_used_bytes: number;
+  width: number;
+  height: number;
+}
+
+/** Grava a tela atual do jogo (planos e sprites do VDP) como cena do projeto. */
+export function captureRomScene(projectDir: string, name: string): Promise<RomSceneCapture> {
+  return invoke<RomSceneCapture>("capture_rom_scene", { projectDir, name });
+}

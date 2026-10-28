@@ -36,10 +36,13 @@ import {
   emulatorLoadRom,
   emulatorObserve,
   emulatorStop,
+  emulatorVramUsage,
+  captureRomScene,
   getAudioOutputTelemetry,
   emulatorInputObservation,
   readReceivedAudioSamples,
   type AudioOutputTelemetry,
+  type EmulatorVramUsage,
 } from "./core/ipc/emulatorService";
 import { joinInputConsumption, type InputConsumption } from "./core/inputConsumption";
 import { inspectRomMastering } from "./core/ipc/projectCapabilityService";
@@ -68,6 +71,7 @@ import {
 import { pollProjectAssetChanges } from "./core/ipc/projectWatcherService";
 import {
   getSceneData,
+  switchScene,
   type Entity,
   type Scene,
 } from "./core/ipc/sceneService";
@@ -926,12 +930,29 @@ function ToolbarVramBudget({
   limit,
   hasErrors,
   hasWarnings,
+  nativeC = false,
 }: {
-  used: number;
+  used: number | null;
   limit: number;
   hasErrors: boolean;
   hasWarnings: boolean;
+  /** Projeto C nativo: `used` vem da VRAM real do core; `null` = jogo ainda não rodou. */
+  nativeC?: boolean;
 }) {
+  if (used === null) {
+    return (
+      <div
+        data-testid="toolbar-vram-budget"
+        className="pointer-events-none flex h-7 min-w-[6.5rem] shrink-0 items-center gap-1 rounded border border-[#313244] bg-[#11111b] px-2"
+        title="Projeto C nativo: a VRAM é alocada pelo código C e é medida no emulador enquanto o jogo roda."
+      >
+        <span className="text-[10px] text-[#7f849c]">VRAM</span>
+        <span data-testid="toolbar-vram-budget-label" className="font-mono text-[#cdd6f4]">
+          — / {Math.round(limit / 1024)} KB
+        </span>
+      </div>
+    );
+  }
   const percent = Math.min(100, Math.round((used / Math.max(limit, 1)) * 100));
   const toneClass = hasErrors
     ? "bg-[#f38ba8]"
@@ -943,9 +964,11 @@ function ToolbarVramBudget({
     <div
       data-testid="toolbar-vram-budget"
       className="pointer-events-none flex h-7 min-w-[6.5rem] shrink-0 items-center gap-1 rounded border border-[#313244] bg-[#11111b] px-2"
-      title={`VRAM ${Math.round(used / 1024)}KB / ${Math.round(limit / 1024)}KB (${percent}%)`}
+      title={`VRAM ${Math.round(used / 1024)}KB / ${Math.round(limit / 1024)}KB (${percent}%)${
+        nativeC ? " — medida no emulador (tiles com dados na VRAM real)" : ""
+      }`}
     >
-      <span className="text-[10px] text-[#7f849c]">VRAM</span>
+      <span className="text-[10px] text-[#7f849c]">{nativeC ? "VRAM real" : "VRAM"}</span>
         <span data-testid="toolbar-vram-budget-label" className="font-mono text-[#cdd6f4]">
           {Math.round(used / 1024)} / {Math.round(limit / 1024)} KB
         </span>
@@ -1633,6 +1656,32 @@ export default function App() {
     setArtStudioAssetPath,
     setLastBuildSourceMap,
   } = useEditorStore();
+
+  // Projeto C nativo: a VRAM real vem do core em execução (amostrada 1x/s).
+  const nativeCProject = hwStatus?.analysis_mode === "native_c";
+  const [measuredVram, setMeasuredVram] = useState<EmulatorVramUsage | null>(null);
+  useEffect(() => {
+    if (!nativeCProject || !emulatorLoaded) {
+      setMeasuredVram(null);
+      return;
+    }
+    let cancelled = false;
+    const sample = () => {
+      emulatorVramUsage()
+        .then((usage) => {
+          if (!cancelled) setMeasuredVram(usage);
+        })
+        .catch(() => {
+          if (!cancelled) setMeasuredVram(null);
+        });
+    };
+    sample();
+    const timer = window.setInterval(sample, 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [emulatorLoaded, nativeCProject]);
 
   const [building, setBuilding] = useState(false);
   const [romMasteringStatus, setRomMasteringStatus] = useState<string>("not_inspected");
@@ -2473,9 +2522,13 @@ export default function App() {
             : "idle";
   const importStatus = projectSourceKind || "builtin";
   const emulationStatus = emulatorLoaded ? (emulPaused ? "paused" : "loaded") : "idle";
-  const hardwareSummary = hwStatus
-    ? `VRAM ${Math.round(hwStatus.vram_used / 1024)}/${Math.round(hwStatus.vram_limit / 1024)}KB sprites ${hwStatus.sprite_count}/${hwStatus.sprite_limit}`
-    : "hardware n/a";
+  const hardwareSummary = !hwStatus
+    ? "hardware n/a"
+    : hwStatus.analysis_mode === "native_c"
+      ? measuredVram?.available
+        ? `VRAM real ${Math.round(measuredVram.used_bytes / 1024)}/${Math.round(hwStatus.vram_limit / 1024)}KB (C nativo)`
+        : `VRAM —/${Math.round(hwStatus.vram_limit / 1024)}KB (C nativo: medida ao rodar)`
+      : `VRAM ${Math.round(hwStatus.vram_used / 1024)}/${Math.round(hwStatus.vram_limit / 1024)}KB sprites ${hwStatus.sprite_count}/${hwStatus.sprite_limit}`;
   const lastConsoleMessage =
     [...consoleEntries].reverse().find((entry) => entry.level === "error" || entry.level === "warn")
       ?.message ?? consoleEntries[consoleEntries.length - 1]?.message ?? "";
@@ -3402,6 +3455,30 @@ export default function App() {
     // The request is consumed exactly once. Loading still goes through the
     // same canonical function used by the visible ROM loader and Build & Run.
   }, [emulatorLaunchRequest, clearEmulatorLaunchRequest]);
+
+  async function handleCaptureRomScene() {
+    if (!activeProjectDir || !emulatorLoaded) return;
+    const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
+    try {
+      const capture = await captureRomScene(activeProjectDir, `quadro ${stamp}`);
+      logMessage(
+        "success",
+        `[Captura ROM] Cena ${capture.scene_path}: planos A/B + ${capture.sprite_count} sprite(s), VRAM em uso ${Math.round(
+          capture.vram_used_bytes / 1024
+        )} KB.`
+      );
+      if (!(await persistActiveScene(activeProjectDir, "Captura ROM"))) return;
+      const result = await switchScene(activeProjectDir, capture.scene_path);
+      if (!result.ok) throw new Error(result.error);
+      const hydrated = await hydrateSceneResult(activeProjectDir, result);
+      if (!hydrated) throw new Error("Falha ao reidratar a cena capturada.");
+      setSelectedEntityId(null);
+      setActiveScenePath(result.scene_path);
+      setActiveScene(hydrated.resolvedScene, hydrated.sourceScene);
+    } catch (error) {
+      logMessage("error", `[Captura ROM] ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 
   function handleEmulatorPause() {
     if (!emulatorLoaded) {
@@ -5477,6 +5554,13 @@ export default function App() {
               onClick={handleEmulatorPause}
               disabled={!emulatorLoaded}
             />
+            <ToolbarButton
+              label="Capturar cena"
+              testId="toolbar-capture-rom-scene"
+              onClick={() => void handleCaptureRomScene()}
+              disabled={!emulatorLoaded || !activeProjectDir}
+              title="Grava a tela atual do jogo (planos e sprites lidos do VDP) como cena do projeto"
+            />
             {buildLiveIndicator && (
               <span
                 data-testid="build-live-state"
@@ -5552,7 +5636,12 @@ export default function App() {
           <>
             {hwStatus && hwStatus.vram_limit > 0 && (
               <ToolbarVramBudget
-                used={hwStatus.vram_used}
+                nativeC={hwStatus.analysis_mode === "native_c"}
+                used={
+                  hwStatus.analysis_mode === "native_c"
+                    ? (measuredVram?.available ? measuredVram.used_bytes : null)
+                    : hwStatus.vram_used
+                }
                 limit={hwStatus.vram_limit}
                 hasErrors={hwStatus.errors.length > 0}
                 hasWarnings={hwStatus.warnings.length > 0}

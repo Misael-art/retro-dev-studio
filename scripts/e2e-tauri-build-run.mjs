@@ -6107,6 +6107,32 @@ async function runSgdkNativeCScenario(sessionId) {
     report.audio = await callAutomationApi(sessionId, "getAudioOutputTelemetry").catch(() => null);
     addReportStep(report, "native_input_exercised", "passed", { distinct_frames: new Set(hashes).size });
 
+    // VRAM real (lida do VDP do core) no medidor, e captura da tela do jogo como cena.
+    const vramLabel = await waitFor(async () => {
+      const text = await executeScript(sessionId, "const c=document.querySelector('[data-testid=\"toolbar-vram-budget\"]');return c?c.textContent:'';");
+      return /VRAM real\s*\d+ \/ 64 KB/.test(text) && !/VRAM real\s*0 \//.test(text) ? text : false;
+    }, 20000, "Toolbar did not show measured VRAM for the native C game.", 500);
+    addReportStep(report, "vram_measured_from_core", "passed", { label: vramLabel });
+    const scenesBefore = new Set(await readdir(path.join(overlay, "scenes")));
+    await clickButtonByTestIdNative(sessionId, "toolbar-capture-rom-scene");
+    const captured = await waitFor(async () => {
+      const added = (await readdir(path.join(overlay, "scenes"))).filter((f) => !scenesBefore.has(f) && f.startsWith("rom_capture_"));
+      return added.length === 1 ? added[0] : false;
+    }, 30000, "ROM scene capture did not create a scene.", 250);
+    const capturedScene = JSON.parse(await readFile(path.join(overlay, "scenes", captured), "utf8"));
+    const capturedAssets = capturedScene.entities.map((e) => e.components.sprite.asset);
+    for (const asset of capturedAssets) await readFile(path.join(overlay, asset));
+    const activePath = await waitFor(async () => {
+      const st = await readAutomationState(sessionId);
+      return st?.activeScenePath?.endsWith(captured) ? st.activeScenePath : false;
+    }, 30000, "Captured scene did not become the active scene.", 250);
+    report.rom_capture = { scene: captured, entities: capturedScene.entities.length, sprites: capturedScene.entities.filter((e) => e.entity_id.startsWith("rom_sprite_")).length, active: activePath };
+    if (report.rom_capture.sprites < 1) fail("Captured scene has no sprites.");
+    addReportStep(report, "rom_scene_captured_and_active", "passed", report.rom_capture);
+    await callAutomationApi(sessionId, "selectWorkspace", ["scene"]).catch(() => null);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-rom-capture-scene.png`), "Captured ROM scene in the editor");
+
     await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
     await waitFor(async () => (await readAutomationState(sessionId))?.emulatorLoaded === false, 15000, "Emulator did not stop.", 150);
     addReportStep(report, "stopped", "passed");

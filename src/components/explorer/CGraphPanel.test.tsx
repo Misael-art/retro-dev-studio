@@ -90,7 +90,18 @@ describe("CGraphPanel", () => {
           function: "main",
           subject: "state",
           states: ["IDLE", "WALK"],
-          transitions: [{ from: "IDLE", to: "WALK", line: 2, node_id: "n.0.1.0" }],
+          transitions: [
+            {
+              from: "IDLE",
+              to: "WALK",
+              line: 2,
+              node_id: "n.0.1.0",
+              origin: "caller",
+              via: ["handle@src/game.c:12"],
+              conditions: [{ category: "input", text: "joy & BUTTON_RIGHT" }],
+              effects: [{ category: "action_sound", text: "XGM_startPlayPCM(SFX, 1, CH);", node_id: "n.0.1.0" }],
+            },
+          ],
           line: 1,
           node_id: "n.0",
         },
@@ -156,6 +167,10 @@ describe("CGraphPanel blocks and state machines", () => {
     const fsm = container.querySelector("[data-testid='cgraph-state-machines']")!;
     expect(fsm.textContent).toContain("FSM state");
     expect(fsm.textContent).toContain("IDLE → WALK");
+    expect(fsm.textContent).toContain("guarda no chamador");
+    expect(fsm.textContent).toContain("via handle@src/game.c:12");
+    expect(fsm.textContent).toContain("comandojoy & BUTTON_RIGHT");
+    expect(fsm.textContent).toContain("somXGM_startPlayPCM");
 
     await act(async () => {
       [...fsm.querySelectorAll("button")].find((b) => b.textContent === "IDLE → WALK")!.click();

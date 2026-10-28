@@ -8,6 +8,7 @@ import {
   type CGraphFile,
   type CGraphIndex,
   type CGraphNode,
+  type CStateTransition,
 } from "../../core/ipc/projectService";
 
 interface CGraphPanelProps {
@@ -31,6 +32,81 @@ const KIND_LABEL: Record<string, string> = {
   preproc_include: "include",
   preproc_def: "define",
 };
+
+const ORIGIN_LABEL: Record<string, string> = {
+  local: "guarda local",
+  caller: "guarda no chamador",
+  unguarded: "sem guarda de estado",
+  unknown: "sem chamador conhecido",
+};
+
+const LINK_LABEL: Record<string, string> = {
+  input: "comando",
+  timer: "timer",
+  collision: "colisão",
+  state: "estado",
+  event: "evento",
+  action_sound: "som",
+  scene_change: "cena",
+  sprite_anim: "sprite",
+  sprite_move: "sprite",
+  sprite_op: "sprite",
+  spawn_entity: "sprite",
+  destroy_entity: "sprite",
+  scroll_tilemap: "scroll",
+  palette_op: "paleta",
+  vdp_op: "vdp",
+  dma_budget: "dma",
+  input_held: "comando",
+  system_op: "sistema",
+};
+
+function TransitionDetail({
+  transition,
+  onSelect,
+}: {
+  transition: CStateTransition;
+  onSelect: (id: string) => void;
+}) {
+  const links = [...(transition.conditions ?? []), ...(transition.effects ?? [])];
+  return (
+    <li data-testid="cgraph-transition" className="rounded-lg border border-[#313244] px-2 py-1">
+      <button
+        type="button"
+        className="font-mono text-[10px] text-[#cbd5e1] hover:text-[#89b4fa]"
+        title={`L${transition.line}`}
+        onClick={() => onSelect(transition.node_id)}
+      >
+        {transition.from === "*" ? "qualquer" : transition.from} → {transition.to}
+      </button>
+      {transition.origin ? (
+        <span className="ml-2 text-[9px] uppercase tracking-wide text-[#7f849c]">
+          {ORIGIN_LABEL[transition.origin] ?? transition.origin}
+        </span>
+      ) : null}
+      {transition.via && transition.via.length > 0 ? (
+        <div className="mt-0.5 font-mono text-[9px] text-[#64748b]">via {transition.via.join(" ← ")}</div>
+      ) : null}
+      {links.length > 0 ? (
+        <ul className="mt-1 flex flex-wrap gap-1">
+          {links.map((link, index) => (
+            <li key={`${link.category}-${index}`}>
+              <button
+                type="button"
+                disabled={!link.node_id}
+                className="rounded border border-[#1f2937] px-1.5 py-0.5 text-left font-mono text-[9px] text-[#a6adc8] enabled:hover:border-[#89b4fa]"
+                onClick={() => link.node_id && onSelect(link.node_id)}
+              >
+                <span className="mr-1 uppercase text-[#f9e2af]">{LINK_LABEL[link.category] ?? link.category}</span>
+                {link.text.length > 60 ? `${link.text.slice(0, 60)}…` : link.text}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </li>
+  );
+}
 
 function nodeText(node: CGraphNode): string {
   return (node.text ?? "") + (node.children ?? []).map(nodeText).join("");
@@ -277,18 +353,13 @@ export function CGraphPanel({ projectDir, sourceFile }: CGraphPanelProps) {
               </button>
               <div className="mt-1 text-[11px] text-[#94a3b8]">Estados: {machine.states.join(", ")}</div>
               {machine.transitions.length > 0 ? (
-                <ul className="mt-1 flex flex-wrap gap-1">
+                <ul className="mt-1 space-y-1">
                   {machine.transitions.map((transition) => (
-                    <li key={`${transition.node_id}-${transition.to}`}>
-                      <button
-                        type="button"
-                        className="rounded-lg border border-[#313244] px-2 py-0.5 font-mono text-[10px] text-[#cbd5e1] hover:border-[#89b4fa]"
-                        title={`L${transition.line}`}
-                        onClick={() => selectById(transition.node_id)}
-                      >
-                        {transition.from === "*" ? "qualquer" : transition.from} → {transition.to}
-                      </button>
-                    </li>
+                    <TransitionDetail
+                      key={`${transition.node_id}-${transition.to}`}
+                      transition={transition}
+                      onSelect={selectById}
+                    />
                   ))}
                 </ul>
               ) : (
