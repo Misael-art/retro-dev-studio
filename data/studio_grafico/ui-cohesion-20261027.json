@@ -3364,9 +3364,9 @@
     }
   },
   "latest_delivery": {
-    "section": "draft_recovery_hardening",
-    "code_commit": "796086266831d8de5e129016562f3376f9e3424f",
-    "binary_sha256": "826e2553cfc6d20351acd6e7d3561b18dba043ecb7c4679d4ca7013dd9b56814"
+    "section": "console_appearance_20261029",
+    "code_commit": "d1865bd46160db0bd5ccff77bafd187324a1bac1",
+    "binary_sha256": "700dff469db621dc4677225a2b2b3f44ba2a0723ca6e5c44f8facc79f26377ab"
   },
   "latest_checkpoint": "product_diagnosis_20261028",
   "last_updated_at": "2026-10-29T01:04:32.889Z",
@@ -4210,5 +4210,1341 @@
         "bytes": 1094957
       }
     }
+  },
+  "console_appearance_20261029": {
+    "schema": "retrodev.console_appearance/v1",
+    "status": "passed_local_experimental",
+    "maturity": "Experimental",
+    "date": "2026-10-29",
+    "base_commit": "e343283f6f71c31418d9c7a50fd568190362fb86",
+    "code_commit": "d1865bd46160db0bd5ccff77bafd187324a1bac1",
+    "binary": {
+      "at": "2026-10-29T14:40:52.910Z",
+      "sha256": "700dff469db621dc4677225a2b2b3f44ba2a0723ca6e5c44f8facc79f26377ab",
+      "bytes": 427667440,
+      "base_commit": "e343283f6f71c31418d9c7a50fd568190362fb86",
+      "built_from_dirty_tree": true,
+      "build_session": "2026-10-29T14-38-14-571Z-159204",
+      "source_snapshot": [
+        {
+          "file": "src/App.tsx",
+          "sha256": "9355307605acb1ee0f6473ad742bf04d0f33098b087c8ee81f2303a4c26ec487"
+        },
+        {
+          "file": "src/components/common/Icon.tsx",
+          "sha256": "7fe80ea1e4dc1b4fe74eb016dcd69827fce666ae0aa5a6041d49259fe4f11e6d"
+        },
+        {
+          "file": "src/components/common/StudioAppearancePicker.tsx",
+          "sha256": "3f7bc12ab3eb51ba6e10eac2d69da5480824421718f28942743922b53ab8e4a2"
+        },
+        {
+          "file": "src/core/studioAppearance.ts",
+          "sha256": "411b8e8a71351a1109f2df1a78d33b14ecbe974e2f7d72822db19b8221ad03ca"
+        },
+        {
+          "file": "src/core/surfaceRegistry.ts",
+          "sha256": "d0f8844622fc4facf3b78e104127c79ab7f3cfbc4a463726fe30a1b443a6bf8d"
+        },
+        {
+          "file": "src/components/viewport/ViewportPanel.tsx",
+          "sha256": "b1c314732bd5eb860de119346f9eb485de7be3e3f5b7de89fb7b2008691e428f"
+        },
+        {
+          "file": "src/styles/index.css",
+          "sha256": "0df9bb5bea808e410ca5f33a42bde6625a5e06718bf435ab9fa15ffcadb08e6f"
+        },
+        {
+          "file": "scripts/e2e-tauri-build-run.mjs",
+          "sha256": "6fccb8569077faf469237f57e5b6ac2e6dd3594c45fa3c1da29967895e4d2ee1"
+        }
+      ],
+      "file": "retro-dev-studio-700dff46",
+      "source_snapshot_matches_code_commit": true
+    },
+    "scope": "Creation workspace/guide/tool pictograms, four editor themes, semantic chrome colors, local preference; existing Icon/Surface Registry/Dialog/tokens reused. No new dependency, game asset/template/palette/engine change.",
+    "themes": [
+      "Super 16",
+      "Mega Drive",
+      "Portátil",
+      "Arcade"
+    ],
+    "preference": {
+      "key": "retrodev-studio-theme",
+      "default": "super-16",
+      "backend": "existing browser localStorage for appearance only",
+      "storage_failure": "applies for session and announces inability to remember; work drafts still use native canonical persistence"
+    },
+    "appearance": {
+      "session": "2026-10-29T14-40-54-221Z-166770",
+      "report": {
+        "file": "studio-appearance-2026-10-29T14-40-58-772Z-report.json",
+        "bytes": 17718,
+        "sha256": "b0a0d6fdf824fffa3a538c102a42782f08427480f836f73eb89cc32be3b7c785"
+      },
+      "steps": [
+        {
+          "step": "official_build_core_paused",
+          "status": "passed",
+          "rom_sha256": "8911128fba09a18f2430e589db07bec712746d10bf49dd355566488309cb5269"
+        },
+        {
+          "step": "four_themes_preserve_exact_game_canvas_pixels",
+          "status": "passed",
+          "png_sha256": "c134646d7d613f774ed3f45c94a9942b741b922c3ae46d47a2bc6329268c75be"
+        },
+        {
+          "step": "native_radio_keyboard_and_escape_focus",
+          "status": "passed"
+        },
+        {
+          "step": "canonical_workspaces_and_guided_icons",
+          "status": "passed",
+          "guided": [
+            {
+              "text": " 1. Cenário",
+              "icon": "studio-scene"
+            },
+            {
+              "text": " 2. Personagem",
+              "icon": "studio-art"
+            },
+            {
+              "text": " 3. Regras",
+              "icon": "studio-logic"
+            },
+            {
+              "text": " 4. Sons",
+              "icon": "music"
+            },
+            {
+              "text": " 5. Testar",
+              "icon": "studio-game"
+            }
+          ]
+        },
+        {
+          "step": "scene_bytes_unchanged",
+          "status": "passed",
+          "sha256": "5600d79b21d2123b08d44fc4b8ac15f6a1b8337f47e3760bd917e64e33d8fbf8"
+        },
+        {
+          "step": "theme_persists_across_cold_reopen",
+          "status": "passed",
+          "theme": "portable"
+        }
+      ],
+      "matrix": [
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1280,
+          "height": 800,
+          "theme": "super-16",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ]
+        },
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1280,
+          "height": 800,
+          "theme": "mega-drive",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ]
+        },
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1280,
+          "height": 800,
+          "theme": "portable",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ]
+        },
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1280,
+          "height": 800,
+          "theme": "arcade",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ]
+        },
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1920,
+          "height": 1080,
+          "theme": "super-16",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ]
+        },
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1920,
+          "height": 1080,
+          "theme": "mega-drive",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ]
+        },
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1920,
+          "height": 1080,
+          "theme": "portable",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ]
+        },
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1920,
+          "height": 1080,
+          "theme": "arcade",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ]
+        }
+      ],
+      "artifacts": [
+        {
+          "file": "studio-appearance-2026-10-29T14-40-58-772Z-super-16-1280-scene.png",
+          "bytes": 166307,
+          "sha256": "fe6d6d4cb6fc1ef8c25f53e646f230ef550804b274326e4f1ac4fefbb311ff25"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T14-40-58-772Z-mega-drive-1280-scene.png",
+          "bytes": 166017,
+          "sha256": "126eb2e86520a3fda90ac5d9e09d7c0a52e8bc636d8f7ce084cedbd7c3aba895"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T14-40-58-772Z-portable-1280-scene.png",
+          "bytes": 166389,
+          "sha256": "0131497c9bfbf157f4f7fa8b15f536e25fcea25e06e7e27a8a166dc6687223ec"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T14-40-58-772Z-arcade-1280-scene.png",
+          "bytes": 166660,
+          "sha256": "350b745b5f0266b4664ccf49a46b99f88094b3e3777b7b555b99928c24213c59"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T14-40-58-772Z-super-16-1920-scene.png",
+          "bytes": 211543,
+          "sha256": "da7248645676323d62e170b18ed5371730d0098b6b1702c2d025d49e2c94904d"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T14-40-58-772Z-mega-drive-1920-scene.png",
+          "bytes": 211202,
+          "sha256": "c2f1494cecb0a90443450c835554d872232b4a9c0a553abbe73c5e67e06f960a"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T14-40-58-772Z-portable-1920-scene.png",
+          "bytes": 211381,
+          "sha256": "50fb5a3a69dc974a1e94eb56887897d97489cc3b154b5b8539caa861c2e82621"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T14-40-58-772Z-arcade-1920-scene.png",
+          "bytes": 212159,
+          "sha256": "d31119e202907b1b54a7577e48257fefe6eae41ee78ac1cfc0a00a0f5b4577f0"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T14-40-58-772Z-theme-chooser.png",
+          "bytes": 220023,
+          "sha256": "79d7397755a7ca12537b28d55bc4f96824ee5e319813ac4b2cc99404e66d35ff"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T14-40-58-772Z-guided-creation.png",
+          "bytes": 192633,
+          "sha256": "d09bf1a300749b59ad21a1d8b317b7282f61c349d0995ad97677b9cd836c60a7"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T14-40-58-772Z-cold-reopen-portable.png",
+          "bytes": 110904,
+          "sha256": "edb6a4b835aa6901319088873b908a5626f419695c5b3bca3210384b47bc069b"
+        }
+      ],
+      "interaction": "Native WebDriver clicks/radio keys/Escape and cold restart; read-only DOM/canvas/disk probes. Scoped QA profile, no programmatic store or game-palette mutation."
+    },
+    "qa_rc": {
+      "session": "2026-10-29T14-41-18-661Z-168337",
+      "blocks": {
+        "A": "passed",
+        "B": "passed",
+        "C": "passed",
+        "D": "passed",
+        "E": "passed",
+        "F": "passed",
+        "G": "passed",
+        "H": "passed"
+      },
+      "matrix": {
+        "total": 32,
+        "passed": 32,
+        "failed": 0
+      },
+      "report": {
+        "file": "manual-qa-status.json",
+        "bytes": 18845,
+        "sha256": "ea614ea6d702137ba9b27d00f7903450b780d736dc3bb65d179c878b687fe9a5"
+      },
+      "oracle": {
+        "file": "ui-layout-oracle.json",
+        "bytes": 19634,
+        "sha256": "22bc5e91f752053331800b45361f05dbf42ff4d34580e6d4235bc1cc5f3e1f0e"
+      },
+      "artifacts": [
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-A-wizard.png",
+          "bytes": 192806,
+          "sha256": "04abbdc0a1ad04123db705960af7c6018e4525c2242cfe4323bd206a36f58cc2"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1366x768-import-wizard.png",
+          "bytes": 141819,
+          "sha256": "3590b2544a53ab2eaa29927c28ffa5c9c4550d51156da61b77c4356073d9eaa0"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1600x900-import-wizard.png",
+          "bytes": 165345,
+          "sha256": "d8a28321c440e0a7857059a32044d5185acecda6514e3e10eee7dae41fd69783"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1920x1080-import-wizard.png",
+          "bytes": 192471,
+          "sha256": "f5811b6fec2afb80ed9a04c8de017fcbb542f472d208070bc3038d0be8556776"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-2560x1080-import-wizard.png",
+          "bytes": 203455,
+          "sha256": "8ff52b75893ce0ff59305b09fd671025afdc230df0828cac6177d052df477f24"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-A-editor.png",
+          "bytes": 210798,
+          "sha256": "e243dce935375bc851f8c2f89ee713ef27797497c8929dd2df26aa563c5f6819"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-A-layers.png",
+          "bytes": 207093,
+          "sha256": "16290412cf4946e0398da0c3695b7db0e6323fe044b9af351a5978ea5a25aa32"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-B-layer-hidden.png",
+          "bytes": 199510,
+          "sha256": "d0e392ca6234590265b168909f274916585adac49daa93a5c5d18b1925c372f7"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-C-painted-scene.png",
+          "bytes": 214907,
+          "sha256": "f16a92353cd8e1feb557a92610c2969591b2939e15e43f3964f2ff8ad97e0035"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-D-game-view.png",
+          "bytes": 164174,
+          "sha256": "bedabe68076b5b8a8c50776de514037d88084fcfaf2d96795cd052510c2b80ae"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-F-reopen.png",
+          "bytes": 173477,
+          "sha256": "e7daa7e08d7292594f14e687e1044326e62c6deb28ee638f2ff9d4023480d0a9"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-G-scene-import-summary.png",
+          "bytes": 175496,
+          "sha256": "548b835d1d56bb8e6f3e0fbe2ac03d1d5d48396a5351ee14872be9d9b05fd660"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-G-scene-authoring.png",
+          "bytes": 192867,
+          "sha256": "11c931b7c63d8069cc7136034781bab8070e1be585a6d9ac8db98ce69d200edc"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-G-dense-solo-authoring.png",
+          "bytes": 189408,
+          "sha256": "8916d8e31f5b824b9cc0ff8d6c402c864bffbe439d372f4af521a21efe556978"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-G-tilemap-authoring.png",
+          "bytes": 190022,
+          "sha256": "fc0c38e3bb9007f65fb681ccdd3930c338f8b6fbdc99658d0ad7fc10e7bbe84d"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-G-logic-fsm-graph.png",
+          "bytes": 195264,
+          "sha256": "7990e2aaed3bc168d0caa99d52d8b89f11f2781e50bc100463249a48692c148a"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-G-node-source-mapping.png",
+          "bytes": 195270,
+          "sha256": "c0eb6e0611df606d715362d7ce873f2de977b0bf2dda9a7b3f9f6c2ec236c669"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-G-gap-bridge-panel.png",
+          "bytes": 194950,
+          "sha256": "35f12a6044e14a20c60a9ee6aca7987cbe8a124170d4b0f2200658919ef5ae5b"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-G-art-workspace.png",
+          "bytes": 159339,
+          "sha256": "c9df7b170f814ead58f26a91dbe2ad6f8a45b821665bc1d40c89e8090b86826e"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-G-sgdk-chain.png",
+          "bytes": 157256,
+          "sha256": "ce433a67bfbef482c3a44d0b3c413a3c40c96422ff0302a3dcd4041c65588f33"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1366x768-scene.png",
+          "bytes": 205943,
+          "sha256": "a989773760bde3d23c1a8c86432fbf95621966d81fa038e1262a29a632deb5eb"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1366x768-art.png",
+          "bytes": 160533,
+          "sha256": "a183519b9fff90b75e73bb59cf9ceee2069d5bba1b7ff9c9d856551c2d3fdbba"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1366x768-logic.png",
+          "bytes": 201326,
+          "sha256": "a14b69c4e1f9acbf77f5d4a51690bf629ee4aae063be3ea00cf1acb164094b86"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1366x768-nodegraph.png",
+          "bytes": 201326,
+          "sha256": "a14b69c4e1f9acbf77f5d4a51690bf629ee4aae063be3ea00cf1acb164094b86"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1366x768-game.png",
+          "bytes": 153273,
+          "sha256": "bb939aff2dc8d985025d25b37d9e672f3d01945789d6d5fc06049c5e3016b635"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1366x768-debug.png",
+          "bytes": 149089,
+          "sha256": "ec41030099c181fbe1ec415089db6b858babea6b84cb0f3d10f2ccf664b3d9ad"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1366x768-runtime-setup.png",
+          "bytes": 205373,
+          "sha256": "fe6ab2e2f429c84ce72962d8ca88489f729afb9629fe81e34f119da31775fbb5"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1600x900-scene.png",
+          "bytes": 244998,
+          "sha256": "14729426e48b145290d2017dd982c82fec80b957014526a2bae262804c679f93"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1600x900-art.png",
+          "bytes": 187769,
+          "sha256": "9ee119a2a41cb2f1a47de8ad07d7845d84bbbe379e268c0d8f7100c780c99400"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1600x900-logic.png",
+          "bytes": 241481,
+          "sha256": "ea5cd935c9aaf66d4b0b38c41159da2eea60b42d6c9dd28f5fe668f9bf41070d"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1600x900-nodegraph.png",
+          "bytes": 241481,
+          "sha256": "ea5cd935c9aaf66d4b0b38c41159da2eea60b42d6c9dd28f5fe668f9bf41070d"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1600x900-game.png",
+          "bytes": 164804,
+          "sha256": "e8fa3b0d5f1069b5bd9adbef4a6cb245420b5e883f0368b557a403f062d9e657"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1600x900-debug.png",
+          "bytes": 207969,
+          "sha256": "31605e5ccaa7535e3d8a959532bb0e47d4308c7041712a8c1975c719e68fe064"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1600x900-runtime-setup.png",
+          "bytes": 244094,
+          "sha256": "dde97ab20086f697a1cc40ad427ae8b3a8695d1ddc4d5e39b0c9e173b16a611a"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1920x1080-scene.png",
+          "bytes": 274912,
+          "sha256": "c6754c3b28e4be2ebee9828f38bf48343a1b7165b10e7a28d3a358255573d4dd"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1920x1080-art.png",
+          "bytes": 213116,
+          "sha256": "662bd4b7133ba9b3d85684113ba8e6b6ea6e25453c675bb3b75b4cbf41d90063"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1920x1080-logic.png",
+          "bytes": 279089,
+          "sha256": "210f05a6dcbabc0725939a55ebbd848ace5f057fb2f50ae95db8e974083f0ace"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1920x1080-nodegraph.png",
+          "bytes": 279089,
+          "sha256": "210f05a6dcbabc0725939a55ebbd848ace5f057fb2f50ae95db8e974083f0ace"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1920x1080-game.png",
+          "bytes": 169112,
+          "sha256": "eaeed615b25569f1d214f128b277dc7139a1b82d5cd66d1839fa2a209e6dea2a"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1920x1080-debug.png",
+          "bytes": 213488,
+          "sha256": "3dfa797531a45a89008531196e1c18d9bb9bf5914d6ffe9d644f092f2a7a9ab8"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-1920x1080-runtime-setup.png",
+          "bytes": 293243,
+          "sha256": "b8c15367060ad5ea4cedc46da66f048b091b91e258ed7d563c7793e0b6c6c922"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-2560x1080-scene.png",
+          "bytes": 283730,
+          "sha256": "2d5897a09dcb245f0fa8385eadca0d5dabe7dbd76083cb1b34a5bdffa7657587"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-2560x1080-art.png",
+          "bytes": 224839,
+          "sha256": "c331bbc2fbe81be225b38dc36ae4a0bb0416c07127b674b14b2b0e13d2166a43"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-2560x1080-logic.png",
+          "bytes": 286404,
+          "sha256": "ad2015be0856b98710d622429ae3c212a17b44bfc1ba0291237450bf1d3a6e80"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-2560x1080-nodegraph.png",
+          "bytes": 286404,
+          "sha256": "ad2015be0856b98710d622429ae3c212a17b44bfc1ba0291237450bf1d3a6e80"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-2560x1080-game.png",
+          "bytes": 183764,
+          "sha256": "e4e0bf772b2d96acd31311e534646bfcb0ef38257fc459b04a67896819e8a758"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-2560x1080-debug.png",
+          "bytes": 220182,
+          "sha256": "5bf15a379e8d3c9ca373fe601662fa539ad82b9b032180a17a17b6acaf5d5117"
+        },
+        {
+          "file": "qa-rc-2026-10-29T14-41-21-619Z-H-ui-oracle-2560x1080-runtime-setup.png",
+          "bytes": 324445,
+          "sha256": "96a95de1b6e32e919f4dbc1c8bce14d98568c8e89364e22c8352128823b98016"
+        }
+      ]
+    },
+    "host": {
+      "state": "READY",
+      "fingerprint": "60249508aff61897cdd43160d4716b2344d69282507a36c5a457c0028143f6e2",
+      "lock_digest": "dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377",
+      "session": "2026-10-29T14-48-23-291Z-199065",
+      "gates": [
+        {
+          "label": "check:tree",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "lint",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "typescript",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "frontend-tests",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "rust-clippy",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "rust-tests",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "upstream",
+          "ok": true,
+          "exit_code": 0
+        }
+      ],
+      "frontend": {
+        "passed": 1238,
+        "skipped": 11
+      },
+      "rust": {
+        "passed": 1098,
+        "failed": 0,
+        "ignored": 109
+      },
+      "additional_checks": [
+        {
+          "id": "fmt",
+          "session": "2026-10-29T14-55-48-201Z-226041",
+          "started_at": "2026-10-29T14:55:48.139Z",
+          "finished_at": "2026-10-29T14:55:51.054Z",
+          "status": "PASS",
+          "exit_code": 0
+        },
+        {
+          "id": "clippy-default",
+          "session": "2026-10-29T14-55-51-120Z-226252",
+          "started_at": "2026-10-29T14:55:51.055Z",
+          "finished_at": "2026-10-29T14:55:52.246Z",
+          "status": "PASS",
+          "exit_code": 0
+        }
+      ],
+      "artifacts": [
+        {
+          "file": "certified-retry-host-readiness.json",
+          "bytes": 11322,
+          "sha256": "ca665a22705678714a972ae6a0440146336af3770db91108983b69036a5b94bb"
+        },
+        {
+          "file": "certified-retry-upstream-validation-linux.json",
+          "bytes": 3926,
+          "sha256": "510367de705637dc01ae5043a2abe4e2d8e14ecc0b3dd6a34bcf0922bad17705"
+        },
+        {
+          "file": "certify-retry-command.log",
+          "bytes": 140525,
+          "sha256": "f4a0b1c4daa75b816b14e933ee824a3c33d39da622fdb5fc8ef705a838c5788f"
+        },
+        {
+          "file": "certify-retry-receipt.json",
+          "bytes": 2409,
+          "sha256": "a61f315bbe0fa1d8bb220fa8f45cafd5c893b1bb29625d9d6f39238662309dae"
+        }
+      ],
+      "audits": "Dependencies/locks/security unchanged; no new dependency audit claimed."
+    },
+    "preserved_failures": [
+      {
+        "session": "2026-10-29T14-25-39-373Z-114351",
+        "reason": "TypeScript literal color union too narrow; explicit string parameter fixed; directed type/14-case retest passed.",
+        "receipt": {
+          "file": "receipt.json",
+          "bytes": 2089,
+          "sha256": "47dc1c53b2f95ff14befa3e525dd4e1d3b83f4b5a9a5514336504ce36ad76656"
+        },
+        "log": {
+          "file": "command.log",
+          "bytes": 644,
+          "sha256": "6c09951355fef909a155dad40d224ded28120faea09acf75c5b155aefbb1f868"
+        }
+      },
+      {
+        "session": "2026-10-29T14-35-39-290Z-145329",
+        "reason": "First appearance run reached native restart, then incorrect harness helper name failed; original raw report retained. Review also exposed flex-shrunk rail groups clipping items; product fixed and complete native round repeated on new binary.",
+        "receipt": {
+          "file": "receipt.json",
+          "bytes": 2089,
+          "sha256": "af0f3b0247b1b230597b337722fdad10d52e8205c9cf038ff3fe7dbec5516d37"
+        },
+        "log": {
+          "file": "command.log",
+          "bytes": 1315,
+          "sha256": "41e9ce409a471df065117c08b5b5cf9c8877f0ed32e0252e42947707a106b1cc"
+        }
+      },
+      {
+        "session": "2026-10-29T14-42-46-067Z-174217",
+        "reason": "1237 frontend pass/1 fail: old Core/Debug text expected after intentional Projeto/Avançado rename. Routing assertion retained, pictogram assertions added, full certification repeated without skips/relaxed native criteria.",
+        "receipt": {
+          "file": "receipt.json",
+          "bytes": 2091,
+          "sha256": "2a2bfe98c9accde811c2a0d1317e04b7b7428544f12c7a3ffdc39269636ce645"
+        },
+        "log": {
+          "file": "command.log",
+          "bytes": 4030,
+          "sha256": "a9dc43059866e1b0f75d82370895eaf964df34356289f08da11ad4e6daf0a6d8"
+        }
+      }
+    ],
+    "runtime_evidence": "RDS_WORK_ROOT/sessions/studio-appearance-20261029",
+    "qa_environment": {
+      "display": ":1",
+      "pid": 137683,
+      "start": "322415",
+      "argv": "/usr/sbin/Xvfb -displayfd 3 -screen 0 3840x2160x24 -nolisten tcp ",
+      "dimensions": "3840x2160 pixels (975x549 millimeters)",
+      "executable_sha256": "5bfd315a8c7bc626d0b183d176e130c34f910a4a1279d9d53ea45769f62a3351",
+      "package": "/usr/bin/Xvfb is owned by xorg-server-xvfb 21.1.24-1",
+      "setup_erratum": "Historical standalone cache path absent; reused installed official distro package, no download/install/other display touched.",
+      "owner": "current task only; PID/start/argv guard on cleanup",
+      "created_at": "2026-10-29T14:34:23.415Z"
+    },
+    "temporary_services": {
+      "at": "2026-10-29T14:44:27.593Z",
+      "pid": 137683,
+      "start": "322415",
+      "display": ":1",
+      "owner_verified": true,
+      "signal": "SIGTERM",
+      "native_checks_finished": true,
+      "other_processes_untouched": true
+    },
+    "desktop_shortcut": {
+      "at": "2026-10-29T15:09:28.478Z",
+      "file": "retrodev-studio-testar.desktop",
+      "display_name": "RetroDev Studio — Testar",
+      "mode": "755",
+      "validated": true,
+      "binary_sha256": "700dff469db621dc4677225a2b2b3f44ba2a0723ca6e5c44f8facc79f26377ab",
+      "sha256": "f4e1cfeac59de84ac1e4164ed4a796ed9f12b13a1d27748196cb616620cb92d3",
+      "launcher": "canonical new-host.sh --run",
+      "previous_file_preserved": true
+    },
+    "private_protection": {
+      "archive": "studio-appearance-20261029-700dff46.tar.zst",
+      "bytes": 188713238,
+      "sha256": "e1ab4a60038a2aa992e599510b4247b9ed875ba3e823812747385543260269fb",
+      "manifest_sha256": "f46d833bde794a4f6b8797ab2d27a360ce6911c554c956faf004c4f961ab085a",
+      "files_verified": 327,
+      "all_bytes_verified": true,
+      "projects": 4,
+      "same_filesystem": true,
+      "off_host_copy_qualified": false,
+      "owner": "operator",
+      "retention": "Preserve through human acceptance and independent private backup verification; no automatic deletion.",
+      "created_at": "2026-10-29T15:09:41.787812+00:00"
+    },
+    "limitations": [
+      "Recognition/productivity by novice participants not measured; human acceptance pending.",
+      "Contrast tests cover main semantic palette text/workspace colors; this is not an exhaustive accessibility audit of legacy surfaces.",
+      "Four themes x two sizes plus default-theme canonical QA RC x four resolutions; not every theme x every legacy dialog.",
+      "Tauri/WebKit/Xvfb/software and pinned official SDK/core; no GPU/audio-physical/Windows/console acceptance.",
+      "16 journeys and template backlog remain partial; no new template distributed or maturity promotion.",
+      "Private archive is on the same filesystem; independent/off-host copy unqualified."
+    ]
   }
 }

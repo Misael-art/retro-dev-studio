@@ -1,3 +1,9 @@
+### Checkpoint 2026-10-29 — ícones de criação e temas de consoles (Experimental)
+
+Código d1865bd4, app 700dff46…; pictogramas/nomes nas áreas, etapas e ferramentas, quatro paletas em Tema com preferência e mensagem de falha. Aparência nativa oito casos/teclado/reinício/pixels e cena intactos PASS; qa-rc A–H/32 casos PASS. Certify READY, frontend 1238/11 skip, Rust 1098/109 ignored; Clippy padrão/fmt PASS. Atalho atualizado; falhas e proteção privada local verificadas, sem backup independente/humano/Windows/GPU qualificados. Estado/SHAs/recibos/limites no topo do Memory Bank e no índice UI, seção console_appearance_20261029; 16 jornadas/TPL parciais preservados, sem promoção/merge/release/deploy.
+
+---
+
 ### Checkpoint 2026-10-29 UTC — Bosque aprimorado e Jardim Mares (Experimental)
 
 Continuação base **29b53493**, mesma branch/PR #112/app **fdf0c4fb…**, sem código/seed/registry/lock/guard novos. **Zero modelos novos distribuídos**, TPL-01. Bosque Aurora ganhou cenário original de 15 cores e colisão alinhada na UI (128 sólidos); eliminada a aproximação de 2788 pixels. Jornada final reaberta: sementes 0→2→3, portão/conclusão 0→1, bloqueio x=218. ROM executada/exportada **131587e2…fffaf20**, 524288 bytes, revisão 0 erros/1 aviso de fonte/17 OK.
