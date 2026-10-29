@@ -1,5 +1,25 @@
 # Reference Platformer — arte original
 
+## Instância autoral Bosque Aurora — 2026-10-28/29, parcial
+
+O builtin deste diretório não foi substituído. Uma instância foi criada pelo wizard e editada exclusivamente no Studio: raposa Lume, três sementes âmbar originais desenhadas no PixelEditor, portão condicionado à coleta, salto apoiado, chegada, instruções e camadas. Quatro células pintadas retiram as amostras técnicas do céu; colisão permanece 88. Arte da raposa/portão/bandeira/paisagem reutilizada com a procedência abaixo. Nenhum asset comercial novo.
+
+Para abrir no host de autoria, use **Abrir Projeto → `Bosque_Aurora/project.rds`**, na pasta padrão de projetos. Criar outro `reference_platformer` pelo catálogo ainda gera o conteúdo anterior. O projeto e as capturas são artefatos privados no destino operacional do Memory Bank, não uma entrada distribuída do catálogo; TPL-01 no roadmap registra a falta desse fluxo oficial.
+
+Controles: **Setas** movem e **Z** salta. Colete as duas sementes do chão e salte para a semente sobre a plataforma; as três abrem o portão. Toque a bandeira: ela some e toca o som de conclusão. Esta é a regra observada, ainda sem apresentação final ou reinício acabados.
+
+Para editar pela interface:
+
+- Hierarchy → **Lume - raposa aventureira** → Lógica → **Comportamentos**: editar movimento/salto, contador, coletas, passagem e objetivo. O contador é compartilhado e cada item vale um ponto uma vez por partida.
+- **Semente 1/2/3** → Inspector X/Y altera só a instância. O recurso `assets/sprites/pixel/sementeaurora.png` e seu documento nativo são compartilhados; usar Arte/Pixels para alterá-lo exige revisar o plano de paletas antes do build.
+- Camadas **Background**, **Gameplay**, **Camera** e **Interface** organizam cenário, elementos jogáveis, câmera e textos. Salvar → Testar projeto → Revisar/exportar é o fluxo exercitado.
+
+App Tauri SHA `fdf0c4fb7eecc4b5b91295d7f26f2098c9b8b1abc564aabc61308d0d7aa84f5c`; instância reaberta, executada e exportada com ROM SHA **7935b17a702674bb4eeddff261668e5b0662b756ebf8d12adf63265a3c646ee8**. Recibo privado `RDS_WORK_ROOT/sessions/templates-authoring-20261028/receipt.json`, SHA `5e3d2ccc8d0716955fa93c3ee906f16681206f1ffaa2fdaa31d6c73b084c1d23`. Quadros reais `20-reopened-game.png`, `21-final-gate-closed.png`, `22-final-platform.png`, `23-final-victory.png`; revisão/exportação em `24-review-export.png`.
+
+O resultado continua **parcial/Experimental**: terreno e música provisórios, 2788 pixels aproximados na fonte herdada do cenário, HUD sem vínculo de contador e falta de publicação oficial do projeto como template. Compartilhamento de paleta foi configurado na UI, mantendo quatro bancos. Inspeção do agente em display virtual/software não é aceite estético humano ou teste em console. Demais limites/owners/aceites: TPL-01..08 no roadmap.
+
+## Fontes e integração anteriores
+
 Estas duas imagens são conceitos originais gerados para o template builtin `reference_platformer`:
 
 - `fox-concept.png`: raposinha aventureira kawaii com cachecol vermelho e espada de madeira, em cinco poses.

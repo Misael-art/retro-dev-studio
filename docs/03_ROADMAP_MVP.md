@@ -323,6 +323,32 @@ Capacidades nao visuais, importadores e itens legados continuam nas secoes propr
 5. Continuar o hardening do shell e do primeiro sucesso sem abrir frentes novas antes da hora.
 6. Manter todas as superficies `Experimental` claramente fora da leitura de fechamento do MVP ate existir prova correspondente.
 
+### Templates pela interface — 2026-10-28/29 (parcial, Experimental)
+
+**Zero novos modelos distribuídos nesta rodada.** O `reference_platformer` passou novamente 16 passos nativos; uma instância, **Bosque Aurora**, foi criada/editada no Studio, salva/reaberta, compilada, jogada e exportada. Semente original no PixelEditor, três coletas/contador, salto apoiado, portão/objetivo, textos, camadas e quatro células do céu foram autorados pela UI. É projeto parcial; não altera o builtin. Evidência/ROM/limites no Memory Bank. Pedido do operador: lacunas do editor ficam para implementação futura, sem editar JSON/C externamente para substituí-las.
+
+| ID / prioridade | Reprodução e impacto | Owner / aceite futuro |
+| --- | --- | --- |
+| TPL-01 / P1 | Projeto salvo → Revisar/exportar oferece ROM; não há rota de projeto autoral para pacote/catalogo. Registry tem nove entradas; `seed_project_template` usa builtins ou doadores SGDK, não o projeto salvo. Impede distribuir novos modelos com essa procedência. | Templates / `project_mgr` / wizard: projeto salvo → pacote oficial → catálogo → instância independente da máquina, com hashes/procedência e assets/grafos/prefabs relativos. Excluir build/ROM/caminho privado do seed. Não criar empacotador concorrente nesta missão. |
+| TPL-02 / P1 | Três sementes disputam PAL1 com a raposa. Atribuir outra paleta a uma instância é recusado porque o conflito remanescente passa de três para dois usos e é tratado como novo. O conteúdo foi resolvido ajustando os cinco índices do recurso compartilhado e fixando PAL2, compatível com bandeira/fonte. | `palettePlan::newErrors` / palettePlanStore / PalettePanel: permitir redução de conflito existente sem novo conflito. Cobrir três→dois→um→zero usos, recusas reais e UI/build, preservando quatro bancos. |
+| TPL-03 / P2 | HUD → Mostrar valor oferece texto/vida de golpe, sem o contador autoral `Sementes`; instruções estáticas funcionam, progresso 0/3→3/3 não é oferecido. | HudTextInspector / `hud_runtime`: vínculo de contador pela UI, salvar/reabrir e observar 0/3,1/3,2/3,3/3 na ROM, com posição/fonte/orçamento válidos. |
+| TPL-04 / P2, conteúdo | Cenário herdado tem 16 cores opacas para 15 + transparência; build/revisão informam **2788 pixels aproximados**. Pintar sobre as amostras do céu não corrige a fonte inteira. | Conteúdo / Arte: reduzir a fonte pelo fluxo autoral suportado, preservar colisão/legibilidade e obter build sem essa aproximação; revisar ampliado e em 320×224. Não aumentar o limite. |
+| TPL-05 / P2, conteúdo | `reference_theme_vgm` herdado é um tom PSG de meio segundo e fim; áudio não silencioso no core não qualifica trilha acabada. | Conteúdo / Sons: trilha original com procedência, importação/configuração UI e repetição/transições observadas na ROM. Composição musical no Studio não foi qualificada nesta rodada. |
+| TPL-06 / P2 | Objetivo permite marcar conclusão, esconder entidade e tocar SFX. Partida com três sementes abre o portão; chegada esconde bandeira, com flag final 1. Faltam apresentação de vitória e nova partida compreensíveis; não há inimigos/derrota neste percurso. | Conteúdo / Comportamentos / Interface: criar pela UI feedback e reinício que restaure itens/contador/portão; distinguir o que já é suportado das lacunas futuras, sem código externo do jogo. |
+| TPL-07 / P2 | Em Pro, faixa/paleta cobre o topo do canvas: hit-test nativo da célula (1,0) encontra `tile-tool-picker`. Em Guiado, mantendo brush #1, foi possível pintar (1..4,0); colisão ficou 88 e a ROM mostrou céu limpo. | ViewportPanel / ContextualPalette: todas as linhas editáveis com paleta acessível no mesmo perfil, sem interceptar o alvo; prova nativa de pintura/Undo/save/reopen. Não remover DOM/overlay por script. |
+| TPL-08 / P3 | Revisão mostra “O jogo mostra cores aproximadas” também no aviso de fonte compartilhada que declara “nenhuma cor muda”. A aproximação do cenário é distinta e real. | Revisão / diagnósticos: impacto específico por código; compartilhamento compatível não anuncia quantização. Manter aviso real e recusas de conflito. |
+
+Sequência selecionada conforme o suporte exercitado:
+
+| Modelo | Base e limite |
+| --- | --- |
+| 1. Plataforma — Bosque Aurora | Projeto parcial acima; fechar distribuição e acabamento antes de promover. |
+| 2. Puzzle de coleta/regras | Contador/coleta única/passagem/objetivo exercitados; próximo conteúdo independente viável, ainda não criado, exige arte própria e ciclo completo. |
+| 3. Exploração superior | Movimento por nodes e cenas existem; quatro direções/câmera/transições precisam de jornada nativa própria. |
+| Arena / nave | Entrada/animação/áudio e nodes de criação/movimento aparecem na UI; isso não prova spawn/projéteis/dano/reinício no compilador canônico. Nenhum novo modelo dessa classe entregue. |
+
+Ferramentas exercitadas: PixelEditor → recurso/sprite/instâncias → paleta compartilhada → camadas → Comportamentos/NodeGraph → HUD → pintura → build/core/export. Câmera/fundo/animações/SFX reutilizados do builtin. Parallax, transições, prefabs novos e composição musical não ganharam nova prova autoral: aplicações futuras são profundidade/segunda área da exploração, itens reutilizáveis e trilhas por área. Os modelos externos RPG/ação/luta/corrida exigem doador SGDK escolhido; não são jogos originais prontos nem autorização para distribuir seus assets.
+
 ### Fora do MVP/Q2
 
 - Docking livre completo como default

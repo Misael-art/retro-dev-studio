@@ -1,5 +1,29 @@
 # Novo host: instalação, diagnóstico e continuidade do produto
 
+## Continuidade 2026-10-28/29 — templates autorados no Studio, parcial
+
+Base `b80ae708a4f1ebe31998f0247ce1b97cea499fd4`, mesma branch/PR #112. Código/registry/seeds/locks/guardas não mudaram; só documentação rastreada e um projeto privado criado/editado pela UI. **Nenhum modelo novo distribuído no catálogo.** O pedido impede corrigir lacunas do editor nesta missão; TPL-01..08 no roadmap contêm reprodução/owner/aceite. Não converter o tar de proteção em suposto formato oficial de template.
+
+**Bosque Aurora**: abrir `/home/misael/Documents/RetroDevProjects/Bosque_Aurora/project.rds` pelo app congelado abaixo. Instruções de jogo/edição em `data/reference_platformer_art/README.md`. Semente original feita no PixelEditor; três coletas/contador, salto apoiado, portão, objetivo, HUD, céu e camadas pela UI. Sem edição externa de JSON/C. Terreno/música/apresentação final continuam parciais. Criar outro builtin pelo catálogo não contém essas mudanças.
+
+Provas: diagnóstico fresco READY; runner canônico `reference-platformer` 16/16 PASS em `2026-10-29T01-45-45-457Z`; projeto próprio salvo/encerrado/reaberto com 11 entidades/quatro camadas, rebuild SGDK/core oficial, teclado e revisão/exportação. Contador final 0→2→3, portão 0→1, conclusão 0→1; bloqueio em x=218 com dois itens. ROM reaberta/executada/exportada **7935b17a702674bb4eeddff261668e5b0662b756ebf8d12adf63265a3c646ee8**, 524288 bytes; export em `Bosque_Aurora/export/Bosque_Aurora-7935b17a.bin`.
+
+Evidência em `RDS_WORK_ROOT/sessions/templates-authoring-20261028/`: `receipt.json` SHA **5e3d2ccc8d0716955fa93c3ee906f16681206f1ffaa2fdaa31d6c73b084c1d23**, 19 arquivos autorais/490 operações e observações, `baseline/`, capturas reais e driver privado. Falha de paleta recusada foi resolvida como conteúdo (índices compartilhados e banco2), não por mudança do guard. Um Xvfb próprio terminou com143; causa não isolada, saved state reaberto. Rascunho anterior protegido em tar antes de dispensar pela UI. Processos próprios encerrados; display/sessões alheios preservados.
+
+Nível: Tauri/WebKitWebDriver/Xvfb/software, input nativo, leituras DOM/RAM/ELF; sem humano/áudio físico/GPU/Windows/console. Não repetir números de suíte/certify da rodada anterior como novos gates desta fatia. Próximo passo de produto: TPL-01 (pacote de projeto autoral no mecanismo oficial); próximo conteúdo independente viável: puzzle de coleta/regras, ainda não criado. Seguir a regra do operador sobre lacunas futuras, sem motor/editor paralelo.
+
+Para abrir no desktop, conferir o SHA `fdf0c4fb…` e executar na raiz canônica:
+
+```bash
+rtk proxy env RDS_WORK_ROOT=/home/misael/Shared/ProjectRuntime/RetroDevStudio RDS_BUILD_JOBS=1 bash scripts/new-host.sh --run /home/misael/Shared/ProjectRuntime/RetroDevStudio/sessions/product-diagnosis-20261028/binaries/final
+```
+
+Em seguida usar Abrir Projeto no arquivo indicado. Git contém documentação, não o projeto/ROM/capturas. Proteção privada no destino de backup existente: **`templates-authoring-bosque-7935b17a.tar.gz`**, **10092150 bytes**, SHA **94f2213520c130f38fd98d567855e39bf2c69666ea2c9ce4d82e4bb1d82bca7a**. Os **163 arquivos/16294644 bytes** de Bosque Aurora, projeto do baseline e evidências foram relidos integralmente do tar e comparados por tamanho/SHA ao manifesto `01a33475f5b1f2aa4c170d4d04cc2115cd3293d6d761ddc2be615374ae9cae7a`. Recibos/manifesto ao lado do pacote em `RetroDevStudio-UI-2026-10-27`; `protection-receipt.json` também no runtime. **Mesmo filesystem, sem cópia independente fora do host qualificada**; owner operador, reter até aceite e proteção independente verificada. É backup, não formato de template.
+
+Checks deste incremento documental: `npm run check:tree`, `git diff --check`, revisão dos cinco arquivos, referências/contratos e recibo/hashes. Suites globais de produto não repetidas porque código/seeds/locks permaneceram inalterados; a prova comportamental foi nativa, descrita acima. SHA de publicação deve ser lido no Git/PR #112 da mesma branch; o commit inclui este checkpoint, portanto não contém seu próprio SHA. Sem merge/release/deploy/promoção.
+
+---
+
 > **Estado atual 2026-10-28:** o overlay existente já compila/executa o C original do Mugenesis_Demo, permite editar trechos pelo grafo C e captura o VDP como referência visual. Isso não converte o jogo para cenas/nodes do Studio. A auditoria funcional atual e suas correções estão no checkpoint mais recente do Memory Bank; consulte-o antes dos relatos históricos abaixo. Atlas MUGEN, rascunhos, estudo humano e Windows têm evidências/aceites próprios; não confundir os importadores nem herdar certificação de outro binário/host.
 
 Entrada operacional da retomada de 2026-10-24. Leia também o Memory Bank, o roadmap e as instruções do checkout. Este documento organiza instalação e execução; o diagnóstico está em [REAVALIACAO_PRODUTO_2026-10-24.md](REAVALIACAO_PRODUTO_2026-10-24.md) e a missão de implementação em [PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md](PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md). Não são três fontes concorrentes de estado.
