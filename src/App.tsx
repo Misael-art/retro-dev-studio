@@ -1,3 +1,5 @@
+import Icon, { type IconName } from "./components/common/Icon";
+import StudioAppearancePicker from "./components/common/StudioAppearancePicker";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { dispatchGraphHistory } from "./core/nodegraph/graphHistory";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -225,6 +227,7 @@ function ToolbarButton({
   testId,
   title,
   describedBy,
+  icon,
 }: {
   label: string;
   onClick: () => void;
@@ -233,14 +236,15 @@ function ToolbarButton({
   testId?: string;
   title?: string;
   describedBy?: string;
+  icon?: IconName;
 }) {
   const palette =
     accent === "primary"
       ? "bg-[var(--rds-accent)] text-[var(--rds-on-accent)] hover:bg-[var(--rds-accent-hover)]"
       : accent === "success"
-        ? "bg-[var(--rds-status-success)] text-[var(--rds-on-accent)] hover:bg-[var(--rds-status-success-hover)]"
+        ? "bg-[var(--rds-status-success)] text-[#10251a] hover:bg-[var(--rds-status-success-hover)]"
         : accent === "danger"
-          ? "bg-[var(--rds-status-error)] text-[var(--rds-on-accent)] hover:bg-[var(--rds-status-error-hover)]"
+          ? "bg-[var(--rds-action-danger)] text-[var(--rds-on-accent)] hover:bg-[var(--rds-status-error-hover)]"
           : "bg-[var(--rds-surface-control)] text-[var(--rds-text-secondary)] hover:bg-[var(--rds-surface-control-hover)]";
 
   return (
@@ -250,8 +254,9 @@ function ToolbarButton({
       data-testid={testId}
       title={title}
       aria-describedby={describedBy}
-      className={`shrink-0 whitespace-nowrap rounded px-2 py-1 text-xs font-semibold leading-none transition-colors ${palette} disabled:cursor-not-allowed disabled:opacity-40`}
+      className={`inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap rounded px-2 py-1 text-xs font-semibold leading-none transition-colors ${palette} disabled:cursor-not-allowed disabled:opacity-40`}
     >
+      {icon ? <Icon name={icon} size={18} /> : null}
       {label}
     </button>
   );
@@ -346,7 +351,7 @@ const EXECUTABLE_COMMAND_IDS = new Set([
 const WORKSPACE_ITEMS: {
   id: EditorWorkspace;
   label: string;
-  icon: string;
+  icon: IconName;
   description: string;
   group: WorkspaceGroupId;
   badge?: string;
@@ -365,9 +370,9 @@ const WORKSPACE_GROUPS: {
   id: WorkspaceGroupId;
   label: string;
 }[] = [
-  { id: "core", label: "Core" },
+  { id: "core", label: "Projeto" },
   { id: "authoring", label: "Autoria" },
-  { id: "advanced", label: "Debug" },
+  { id: "advanced", label: "Avançado" },
 ];
 
 type FirstSuccessStep = {
@@ -499,24 +504,19 @@ function WorkspaceRailButton({
   active,
   title,
   onClick,
-  accent = "default",
   badge,
   testId,
+  workspace,
 }: {
-  icon: string;
+  icon: IconName;
   label: string;
   active: boolean;
   title: string;
   onClick: () => void;
-  accent?: "default" | "debug";
+  workspace: EditorWorkspace;
   badge?: string;
   testId?: string;
 }) {
-  const activeTone =
-    accent === "debug"
-      ? "border-[#f9e2af]/45 bg-[#f9e2af]/12 text-[#f9e2af]"
-      : "border-[#cba6f7]/45 bg-[#cba6f7]/14 text-[#e9d5ff]";
-
   return (
     <button
       type="button"
@@ -525,17 +525,11 @@ function WorkspaceRailButton({
       title={title}
       data-testid={testId}
       onClick={onClick}
-      className={`group flex w-full shrink-0 flex-col items-center gap-1 rounded-2xl border px-2 py-1.5 text-center transition-colors ${
-        active
-          ? activeTone
-          : "border-transparent text-[#7f849c] hover:border-[#313244] hover:bg-[#11111b] hover:text-[#e5e7eb]"
-      }`}
+      data-workspace={workspace}
+      className="rds-workspace-button"
     >
-      <span
-        aria-hidden="true"
-        className="rounded-xl border border-current/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
-      >
-        {icon}
+      <span aria-hidden="true" className="rds-workspace-icon">
+        <Icon name={icon} size={32} />
       </span>
       <span className="text-[11px] font-medium leading-tight">{label}</span>
       {badge ? (
@@ -5547,7 +5541,8 @@ export default function App() {
               <option value="snes">SNES</option>
             </select>
             <ToolbarButton
-              label={building ? "Compilando…" : "▶ Testar projeto"}
+              icon="studio-game"
+              label={building ? "Compilando…" : "Testar projeto"}
               onClick={() => void handleBuildAndRun()}
               disabled={building || !activeProjectDir || liveBuildBlocked}
               accent="success"
@@ -5567,13 +5562,14 @@ export default function App() {
               disabled={!emulatorLoaded || building}
             />
             <ToolbarButton
-              label="Parar"
+              label="Parar" icon="square"
               testId="toolbar-emulator-stop"
               onClick={() => void handleEmulatorStop()}
               disabled={!emulatorLoaded}
               accent="danger"
             />
             <ToolbarButton
+              icon={emulPaused ? "play" : "pause"}
               label={emulPaused ? "Retomar" : "Pausar"}
               testId="toolbar-emulator-pause"
               onClick={handleEmulatorPause}
@@ -5653,7 +5649,7 @@ export default function App() {
               warning={Boolean(buildWarningSummary)}
               romMasteringStatus={romMasteringStatus}
             />
-            <ToolbarButton label="Revisar e exportar" testId="toolbar-review" disabled={!activeProjectDir || building}
+            <ToolbarButton icon="export" label="Revisar e exportar" testId="toolbar-review" disabled={!activeProjectDir || building}
               onClick={() => setShowDelivery(true)} title="Revisar a cena, verificar a ROM e exportar (Experimental)" />
           </>
         }
@@ -5685,7 +5681,7 @@ export default function App() {
               />
             )}
             {activeProjectDir ? <SceneSaveStatusChip /> : null}
-            <ToolbarButton label="Salvar" testId="toolbar-save" disabled={!activeProjectDir}
+            <ToolbarButton icon="save" label="Salvar" testId="toolbar-save" disabled={!activeProjectDir}
               onClick={() => void handleSaveScene()} title={getShortcutTitle("scene.save", "Salvar cena ativa", shortcuts)} />
             {sceneDraftState.status === "confirmed" && sceneDraftState.savedAt && sceneDraftState.revision === sceneRevision ? (
               <span
@@ -5696,6 +5692,7 @@ export default function App() {
                 Rascunho {new Date(sceneDraftState.savedAt).toLocaleTimeString()}
               </span>
             ) : null}
+            <StudioAppearancePicker />
             <details className="relative shrink-0">
               <summary className="cursor-pointer rounded border border-[var(--rds-border-subtle)] px-2 py-1 text-[11px] text-[var(--rds-text-secondary)]">
                 Exibição: {getShellPersonaLabel(shellPersona)}
@@ -5870,7 +5867,7 @@ export default function App() {
                 <div
                   key={group.id}
                   data-testid={`workspace-rail-group-${group.id}`}
-                  className="overflow-hidden rounded-2xl border border-[#18181b] bg-[#0b1120] px-1 py-1.5"
+                  className="shrink-0 overflow-hidden rounded-2xl border border-[#18181b] bg-[#0b1120] px-1 py-1.5"
                 >
                   <p
                     className="truncate px-1 text-center text-[8px] font-semibold uppercase text-[#475569]"
@@ -5886,7 +5883,7 @@ export default function App() {
                         label={workspace.label}
                         active={activeWorkspace === workspace.id}
                         title={workspace.description}
-                        accent={workspace.id === "debug" ? "debug" : "default"}
+                        workspace={workspace.id}
                         badge={workspace.badge}
                         testId={`workspace-rail-${workspace.id}`}
                         onClick={() => handleWorkspaceSelect(workspace.id)}
@@ -6156,9 +6153,10 @@ function GuidedStepBar({
   const select = (entityId: string | null) => {
     if (entityId) useEditorStore.getState().setSelectedEntityId(entityId);
   };
-  const steps: { id: GuidedStepId; label: string; hint: string; run: () => void }[] = [
+  const steps: { id: GuidedStepId; icon: IconName; label: string; hint: string; run: () => void }[] = [
     {
       id: "cenario",
+      icon: "studio-scene",
       label: "Cenário",
       hint: "Pintar tiles e ajustar a colisão do mapa",
       run: () => {
@@ -6178,6 +6176,7 @@ function GuidedStepBar({
     },
     {
       id: "personagem",
+      icon: "studio-art",
       label: "Personagem",
       hint: "Posição, sprite e animações do jogador",
       run: () => {
@@ -6189,6 +6188,7 @@ function GuidedStepBar({
     },
     {
       id: "regras",
+      icon: "studio-logic",
       label: "Regras",
       hint: "Quando → Se → Fazer, passagens e condições de vitória",
       run: () => {
@@ -6198,6 +6198,7 @@ function GuidedStepBar({
     },
     {
       id: "sons",
+      icon: "music",
       label: "Sons",
       hint: "Associar efeitos sonoros aos eventos",
       run: () => {
@@ -6206,7 +6207,7 @@ function GuidedStepBar({
         window.setTimeout(() => document.querySelector("[data-testid='nodegraph-sounds']")?.scrollIntoView({ block: "center" }), 50);
       },
     },
-    { id: "testar", label: "Testar", hint: "Compilar e jogar pelo teclado (setas; botoes e teclas em Regras)", run: onTest },
+    { id: "testar", icon: "studio-game", label: "Testar", hint: "Compilar e jogar pelo teclado (setas; botoes e teclas em Regras)", run: onTest },
   ];
   const current: GuidedStepId | null =
     lastStep === "sons" && activeWorkspace === "logic"
@@ -6233,13 +6234,13 @@ function GuidedStepBar({
             setLastStep(step.id);
             step.run();
           }}
-          className={`rounded-md border px-3 py-1 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#89b4fa] ${
+          className={`inline-flex items-center gap-2 rounded-md border px-3 py-1 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#89b4fa] ${
             current === step.id
               ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#cdd6f4]"
               : "border-[#313244] text-[#a6adc8] hover:border-[#89b4fa] hover:text-[#cdd6f4]"
           }`}
         >
-          {index + 1}. {step.label}
+          <Icon name={step.icon} size={21} /> {index + 1}. {step.label}
         </button>
       ))}
       <span className="ml-auto text-[11px] text-[#7f849c]">{steps.find((step) => step.id === current)?.hint ?? "Escolha uma etapa"}</span>

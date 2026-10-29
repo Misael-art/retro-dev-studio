@@ -2905,9 +2905,11 @@ describe("App build flow", () => {
 
     expect(logicButton).toBeInstanceOf(HTMLButtonElement);
     expect(artButton).toBeInstanceOf(HTMLButtonElement);
-    expect(activityBar?.textContent).toContain("Core");
+    expect(activityBar?.textContent).toContain("Projeto");
     expect(activityBar?.textContent).toContain("Autoria");
-    expect(activityBar?.textContent).toContain("Debug");
+    expect(activityBar?.textContent).toContain("Avançado");
+    expect(logicButton?.querySelector("svg")?.getAttribute("data-icon")).toBe("studio-logic");
+    expect(artButton?.querySelector("svg")?.getAttribute("data-icon")).toBe("studio-art");
     expect(artButton?.textContent).toContain("Exp.");
 
     await act(async () => {

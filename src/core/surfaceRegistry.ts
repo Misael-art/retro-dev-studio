@@ -1,3 +1,4 @@
+import type { IconName } from "../components/common/Icon";
 import type { EditorWorkspace } from "./store/editorStore";
 
 /**
@@ -21,7 +22,7 @@ export type SurfaceMaturity = "hardening" | "experimental";
 export type WorkspaceSurface = {
   id: EditorWorkspace;
   label: string;
-  icon: string;
+  icon: IconName;
   description: string;
   domain: SurfaceDomain;
   minPersona: ShellPersona;
@@ -50,7 +51,7 @@ const PERSONA_STORAGE_KEY = "retrodev-shell-persona";
 const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> = {
   scene: {
     label: "Cena",
-    icon: "SC",
+    icon: "studio-scene",
     description: "Composicao e edicao da cena",
     domain: "core",
     minPersona: "guiado",
@@ -60,7 +61,7 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
   },
   game: {
     label: "Teste",
-    icon: "GM",
+    icon: "studio-game",
     description: "Playtest e runtime",
     domain: "core",
     minPersona: "guiado",
@@ -70,7 +71,7 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
   },
   explorer: {
     label: "Arquivos",
-    icon: "EX",
+    icon: "studio-files",
     description: "Arquivos, assets e cenas",
     domain: "core",
     minPersona: "guiado",
@@ -80,7 +81,7 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
   },
   logic: {
     label: "Lógica",
-    icon: "LG",
+    icon: "studio-logic",
     description: "Fluxo visual e scripting",
     domain: "authoring",
     minPersona: "criador",
@@ -90,7 +91,7 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
   },
   artstudio: {
     label: "Arte",
-    icon: "AT",
+    icon: "studio-art",
     description: "Sprites, slicing e preview",
     domain: "authoring",
     minPersona: "criador",
@@ -100,7 +101,7 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
   },
   retrofx: {
     label: "Efeitos",
-    icon: "FX",
+    icon: "studio-fx",
     description: "Profundidade e parallax",
     domain: "authoring",
     minPersona: "pro",
@@ -110,7 +111,7 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
   },
   debug: {
     label: "Depurar",
-    icon: "DB",
+    icon: "studio-debug",
     description: "Analise e ferramentas avancadas",
     domain: "advanced",
     minPersona: "pro",

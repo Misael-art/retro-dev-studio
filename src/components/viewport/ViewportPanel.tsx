@@ -1,3 +1,4 @@
+import Icon, { type IconName } from "../common/Icon";
 import { hudBand } from "../../core/hudText";
 import { isPpmPath, loadProjectPpmImageData } from "../../core/ppmImage";
 import { loadShellPersona } from "../../core/surfaceRegistry";
@@ -4643,10 +4644,10 @@ export default function ViewportPanel({
               className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 border-b border-[#313244] bg-[#181825] px-2 py-1.5 [&>button]:shrink-0 [&>div]:shrink-0 [&>span]:shrink-0"
             >
               {([
-                { id: "select" as const, icon: "🖱️", label: "Selecionar (V)", activeColor: "bg-[#89b4fa]" },
-                { id: "paint" as const, icon: "✏️", label: "Pintar (B)", activeColor: "bg-[#89b4fa]" },
-                { id: "erase" as const, icon: "🧹", label: "Apagar (E)", activeColor: "bg-[#89b4fa]" },
-                { id: "collision" as const, icon: "🛡️", label: "Colis\u00e3o (C)", activeColor: "bg-[#f38ba8]" },
+                { id: "select" as const, icon: "cursor" as IconName, label: "Selecionar (V)", activeColor: "bg-[#89b4fa]" },
+                { id: "paint" as const, icon: "brush" as IconName, label: "Pintar (B)", activeColor: "bg-[#89b4fa]" },
+                { id: "erase" as const, icon: "eraser" as IconName, label: "Apagar (E)", activeColor: "bg-[#89b4fa]" },
+                { id: "collision" as const, icon: "collision" as IconName, label: "Colis\u00e3o (C)", activeColor: "bg-[#f38ba8]" },
               ]).map((tool) => (
                 <button
                   key={tool.id}
@@ -4655,14 +4656,14 @@ export default function ViewportPanel({
                   aria-label={tool.label}
                   aria-pressed={editorMode === tool.id}
                   onClick={() => setEditorMode(tool.id)}
-                  className={`rounded px-2 py-1 text-[10px] font-semibold transition-all ${
+                  className={`inline-flex items-center gap-1.5 rounded px-2 py-1 text-[10px] font-semibold transition-all ${
                     editorMode === tool.id
                       ? `${tool.activeColor} text-[#11111b]`
                       : "text-[#7f849c] hover:bg-[#313244] hover:text-[#cdd6f4]"
                   }`}
                   title={tool.label}
                 >
-                  {tool.icon} {tool.label.split(" (")[0]}
+                  <Icon name={tool.icon} size={19} /> {tool.label.split(" (")[0]}
                 </button>
               ))}
               <div className="mx-1 w-px bg-[#313244] self-stretch" />

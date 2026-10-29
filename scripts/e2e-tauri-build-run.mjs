@@ -475,6 +475,7 @@ function parseArgs(argv) {
           "reference-platformer",
           "authoring-acceptance",
           "draft-recovery",
+          "studio-appearance",
           "nodegraph-authoring",
           "behaviors-independence",
           "collect-goal",
@@ -11016,6 +11017,111 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
 // manual frame stepping. RAM, framebuffer and received audio are only *observed*.
 // Recovery (Experimental): native edits, actual owned-app SIGKILL, UI recovery.
 // Only the secondary initial scene and explicitly labelled fault fixtures use disk writes.
+async function runStudioAppearanceScenario(initialSessionId, appPath, timeoutMs, uiTimeout, onProjectCreated) {
+  let sessionId = initialSessionId;
+  const prefix = `studio-appearance-${artifactTimestamp()}`;
+  const report = { schema: "retrodev.studio_appearance/v1", maturity: "Experimental",
+    app_sha256: createHash("sha256").update(await readFile(appPath)).digest("hex"),
+    steps: [], artifacts: [], matrix: [], human_usability: "pending", status: "running" };
+  const reportPath = path.join(validationDir, `${prefix}-report.json`);
+  const js = (script, args = []) => executeScript(sessionId, script, args);
+  const click = (id) => clickButtonByTestIdNative(sessionId, id);
+  const key = (value) => webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [
+    { type: "key", id: "appearance-keyboard", actions: [{ type: "keyDown", value }, { type: "keyUp", value }] },
+  ] });
+  const shot = async (label) => addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label);
+  const theme = () => js("return document.documentElement.dataset.studioTheme;");
+  async function choose(id) {
+    await click("studio-theme-open");
+    await clickElement(sessionId, await findElement(sessionId, `[data-testid="studio-theme-${id}"]`));
+    await waitFor(async () => (await theme()) === id, 5000, "Tema não foi aplicado.", 100);
+    await key("\uE00C");
+    if (!(await js("return document.activeElement?.dataset.testid === 'studio-theme-open';"))) fail("Fechar cores não devolveu o foco.");
+  }
+  try {
+    await waitForOnboardingWizard(sessionId);
+    await clickElement(sessionId, await findElement(sessionId, '[data-testid="template-card-starter_guided"]'));
+    const name = `Appearance_${Date.now()}`;
+    await setInputByTestIdNative(sessionId, "wizard-project-name", name);
+    await clickButtonByText(sessionId, "Criar Projeto");
+    const created = await waitFor(async () => {
+      const s = await readAutomationState(sessionId);
+      return s?.activeProjectName === name && s.activeScenePath ? s : false;
+    }, 45000, "Projeto de aparência não foi criado.", 200);
+    onProjectCreated(created.activeProjectDir);
+    const scenePath = path.join(created.activeProjectDir, created.activeScenePath);
+    const sceneBefore = createHash("sha256").update(await readFile(scenePath)).digest("hex");
+    await click("shell-persona-pro");
+    const built = await runBuildRunAndCollect(sessionId, "appearance-official-core", timeoutMs, report, prefix, { nativeClick: true });
+    await click("toolbar-emulator-pause");
+    await waitFor(async () => (await readAutomationState(sessionId))?.emulPaused, 15000, "Core não pausou.", 100);
+    const canvas = () => js("return document.querySelector('[data-testid=viewport-game-canvas]')?.toDataURL('image/png') ?? null;");
+    const beforePixels = await canvas();
+    if (!beforePixels) fail("Framebuffer pausado ausente.");
+    report.steps.push({ step: "official_build_core_paused", status: "passed", rom_sha256: built.rom_sha256 });
+    for (const id of ["super-16", "mega-drive", "portable", "arcade"]) {
+      await choose(id);
+      if (await canvas() !== beforePixels) fail(`Tema ${id} alterou o framebuffer pausado.`);
+    }
+    report.steps.push({ step: "four_themes_preserve_exact_game_canvas_pixels", status: "passed",
+      png_sha256: createHash("sha256").update(Buffer.from(beforePixels.split(",")[1], "base64")).digest("hex") });
+    await click("toolbar-emulator-stop");
+    await click("workspace-rail-scene");
+    for (const width of [1280, 1920]) {
+      await webdriverRequest("POST", `/session/${sessionId}/window/rect`, { x: 0, y: 0, width, height: width === 1280 ? 800 : 1080 });
+      for (const id of ["super-16", "mega-drive", "portable", "arcade"]) {
+        await choose(id);
+        const geometry = await js(`
+          const controls=['studio-theme-open','toolbar-save','toolbar-build-run','viewport-tool-select','viewport-tool-paint','viewport-tool-erase','viewport-tool-collision'];
+          const checks=controls.map(id=>{const e=document.querySelector('[data-testid="'+id+'"]'),r=e?.getBoundingClientRect();
+            return {id,ok:!!r&&r.width>0&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))};});
+          const rail=[...document.querySelectorAll('[data-workspace]')].map(e=>({label:e.textContent.trim(),icon:e.querySelector('svg')?.dataset.icon,size:e.querySelector('svg')?.getBoundingClientRect().width}));
+          const groups=[...document.querySelectorAll('[data-testid^="workspace-rail-group-"]')].map(e=>({id:e.dataset.testid,clipped:e.scrollHeight>e.clientHeight+1}));
+          return {width:innerWidth,height:innerHeight,theme:document.documentElement.dataset.studioTheme,checks,rail,groups};
+        `);
+        if (geometry.checks.some(c => !c.ok) || geometry.rail.length !== 7 || geometry.rail.some(r => !r.icon?.startsWith("studio-") || r.size < 30) || geometry.groups.some(g => g.clipped)) fail(`Ícones/controles obstruídos: ${JSON.stringify(geometry)}`);
+        report.matrix.push(geometry);
+        await shot(`${id}-${width}-scene`);
+      }
+    }
+    await click("studio-theme-open");
+    await shot("theme-chooser");
+    await clickElement(sessionId, await findElement(sessionId, '[data-testid="studio-theme-mega-drive"]'));
+    await key("\uE014");
+    if (await theme() !== "portable") fail("Seta nativa não selecionou o próximo tema.");
+    await key("\uE00C");
+    report.steps.push({ step: "native_radio_keyboard_and_escape_focus", status: "passed" });
+    for (const workspace of ["logic", "artstudio", "retrofx", "explorer", "debug", "scene"]) {
+      await click(`workspace-rail-${workspace}`);
+      await waitFor(async () => (await readAutomationState(sessionId))?.activeWorkspace === workspace, 15000, "Workspace não abriu.", 100);
+    }
+    await click("shell-persona-guiado");
+    const guided = await js("return [...document.querySelectorAll('[data-testid=guided-steps] button')].map(b=>({text:b.textContent,icon:b.querySelector('svg')?.dataset.icon}));");
+    if (guided.length !== 5 || guided.some(s => !s.icon)) fail("Etapas guiadas sem pictogramas.");
+    await shot("guided-creation");
+    report.steps.push({ step: "canonical_workspaces_and_guided_icons", status: "passed", guided });
+    const sceneAfter = createHash("sha256").update(await readFile(scenePath)).digest("hex");
+    if (sceneAfter !== sceneBefore) fail("Preferência visual alterou arquivo da cena.");
+    report.steps.push({ step: "scene_bytes_unchanged", status: "passed", sha256: sceneBefore });
+    await deleteSession(sessionId);
+    sessionId = await createSession(appPath);
+    currentE2eRunContext.sessionId = sessionId;
+    await waitForAppWindowReady(sessionId, uiTimeout, "App não reabriu para conferir o tema.");
+    await waitFor(async () => await theme() === "portable", 10000, "Tema não sobreviveu ao reinício.", 100);
+    await shot("cold-reopen-portable");
+    report.steps.push({ step: "theme_persists_across_cold_reopen", status: "passed", theme: "portable" });
+    report.status = "passed";
+    console.log(`Relatorio de aparência: ${reportPath}`);
+    return sessionId;
+  } catch (error) {
+    report.status = "failed"; report.error = String(error);
+    await shot("failure").catch(() => null);
+    throw error;
+  } finally {
+    await writeFile(reportPath, JSON.stringify(report, null, 2));
+  }
+}
+
 async function runDraftRecoveryScenario(initialSessionId, appPath, timeoutMs, uiTimeout, onProjectCreated) {
   if (process.platform !== "linux" || !ownedDriverPid) fail("draft-recovery requires the owned Linux process ledger; no unqualified kill fallback.");
   let sessionId = initialSessionId;
@@ -23746,6 +23852,7 @@ async function main() {
     options.scenario !== "reference-platformer" &&
     options.scenario !== "authoring-acceptance" &&
     options.scenario !== "draft-recovery" &&
+    options.scenario !== "studio-appearance" &&
     options.scenario !== "nodegraph-authoring" &&
     options.scenario !== "behaviors-independence" &&
     options.scenario !== "collect-goal" &&
@@ -25429,6 +25536,14 @@ async function main() {
       console.log(`Evidencias: ${wizardScreenshot}`);
       console.log(`Evidencias: ${editorScreenshot}`);
       console.log(`Evidencias: ${layerScreenshot}`);
+      return;
+    }
+
+    if (options.scenario === "studio-appearance") {
+      sessionId = await runStudioAppearanceScenario(sessionId, options.app, emulatorActivationTimeoutMs, uiBootstrapTimeoutMs, (projectDir) => {
+        temporaryProjectDir = projectDir;
+        currentE2eRunContext.project = projectDir;
+      });
       return;
     }
 

@@ -493,6 +493,121 @@
 }
 
 @layer utilities {
+  /* Console-inspired chrome uses the existing semantic tokens. Canvas pixels,
+     asset palettes and semantic error/warning/success colors are untouched. */
+  :root[data-studio-theme] { color-scheme: dark; }
+  :root[data-studio-theme] :is([class~="bg-[#11111b]"], [class~="bg-[#09090b]"], [class~="bg-[#090b12]"], [class~="bg-[#0b1120]"], [class~="bg-[#0b1220]"], [class~="bg-[#10131d]"], [class~="bg-[#111827]"]) {
+    background-color: var(--rds-surface-base);
+  }
+  :root[data-studio-theme] :is([class~="bg-[#181825]"], [class~="bg-[#1e1e2e]"], [class~="bg-[#1e2233]"]) {
+    background-color: var(--rds-surface-panel);
+  }
+  :root[data-studio-theme] :is([class~="bg-[#313244]"], [class~="bg-[#252a3d]"]) {
+    background-color: var(--rds-surface-elevated);
+  }
+  :root[data-studio-theme] :is([class~="border-[#313244]"], [class~="border-[#27272a]"], [class~="border-[#18181b]"], [class~="border-[#334155]"]) {
+    border-color: var(--rds-border-subtle);
+  }
+  :root[data-studio-theme] :is([class~="text-[#cdd6f4]"], [class~="text-[#e2e8f0]"], [class~="text-[#e5e7eb]"]) {
+    color: var(--rds-text-primary);
+  }
+  :root[data-studio-theme] :is([class~="text-[#6c7086]"], [class~="text-[#7f849c]"], [class~="text-[#94a3b8]"], [class~="text-[#a6adc8]"], [class~="text-[#475569]"]) {
+    color: var(--rds-text-muted);
+  }
+
+  [data-testid="unified-topbar"]::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 2px;
+    background: linear-gradient(90deg, var(--rds-workspace-scene) 0% 25%, var(--rds-workspace-game) 25% 50%, var(--rds-workspace-explorer) 50% 75%, var(--rds-workspace-artstudio) 75%);
+    pointer-events: none;
+  }
+
+  .rds-workspace-button {
+    --workspace-color: var(--rds-workspace-scene);
+    position: relative;
+    display: flex;
+    width: 100%;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 7px 2px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    color: var(--rds-text-secondary);
+    cursor: pointer;
+    transition: background-color 120ms ease, border-color 120ms ease;
+  }
+  .rds-workspace-button[data-workspace="game"] { --workspace-color: var(--rds-workspace-game); }
+  .rds-workspace-button[data-workspace="explorer"] { --workspace-color: var(--rds-workspace-explorer); }
+  .rds-workspace-button[data-workspace="logic"] { --workspace-color: var(--rds-workspace-logic); }
+  .rds-workspace-button[data-workspace="artstudio"] { --workspace-color: var(--rds-workspace-artstudio); }
+  .rds-workspace-button[data-workspace="retrofx"] { --workspace-color: var(--rds-workspace-retrofx); }
+  .rds-workspace-button[data-workspace="debug"] { --workspace-color: var(--rds-workspace-debug); }
+  .rds-workspace-button:hover {
+    background: color-mix(in srgb, var(--workspace-color) 8%, var(--rds-surface-base));
+    border-color: color-mix(in srgb, var(--workspace-color) 35%, transparent);
+  }
+  .rds-workspace-button[aria-current="page"] {
+    border-color: color-mix(in srgb, var(--workspace-color) 65%, transparent);
+    background: color-mix(in srgb, var(--workspace-color) 14%, var(--rds-surface-base));
+    color: var(--rds-text-primary);
+    box-shadow: inset 3px 0 0 var(--workspace-color);
+  }
+  .rds-workspace-icon {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 39px;
+    border-radius: 9px;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--workspace-color) 14%, var(--rds-surface-panel)), var(--rds-surface-base));
+    color: var(--workspace-color);
+  }
+  .rds-theme-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 7px;
+    border: 1px solid var(--rds-border-default);
+    border-radius: 6px;
+    color: var(--rds-studio-accent);
+    background: var(--rds-surface-panel);
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .rds-theme-trigger:hover { background: var(--rds-surface-hover); }
+  .rds-theme-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 4px;
+  }
+  .rds-theme-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px;
+    border: 2px solid var(--rds-border-subtle);
+    border-radius: 10px;
+    background: var(--rds-surface-panel);
+    cursor: pointer;
+  }
+  .rds-theme-card:has(input:focus-visible) { outline: 2px solid var(--rds-focus-ring); outline-offset: 2px; }
+  .rds-theme-card input { position: absolute; right: 14px; top: 68px; accent-color: var(--rds-studio-accent); }
+  .rds-theme-preview { display: flex; align-items: end; height: 46px; gap: 6px; padding: 8px; border-radius: 5px; }
+  .rds-theme-preview > span { width: 30%; height: 100%; border-radius: 3px; margin-right: auto; }
+  .rds-theme-preview i { width: 17px; height: 17px; border-radius: 50%; }
+  .rds-theme-name { color: var(--rds-text-primary); font-weight: 650; padding-right: 20px; }
+  .rds-theme-description { color: var(--rds-text-muted); font-size: 12px; line-height: 1.5; }
+  @media (max-width: 520px) { .rds-theme-options { grid-template-columns: 1fr; } }
+
   .rds-surface-panel {
     background-color: var(--rds-surface-panel);
   }

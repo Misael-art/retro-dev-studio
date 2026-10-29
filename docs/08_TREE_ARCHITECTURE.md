@@ -77,7 +77,9 @@ RetroDevStudio/
 |   |-- main.tsx
 |   |-- components/
 |   |   |-- common/
+|   |   |   |-- Icon.tsx               (vetores compartilhados, incluindo pictogramas de criacao)
 |   |   |   |-- LayoutSplitter.tsx
+|   |   |   |-- StudioAppearancePicker.tsx (seletor sobre os tokens existentes)
 |   |   |   `-- UnifiedTopBar.tsx
 |   |   |-- explorer/
 |   |   |   `-- ExplorerWorkspace.tsx
