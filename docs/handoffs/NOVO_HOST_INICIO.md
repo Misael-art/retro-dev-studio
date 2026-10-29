@@ -1,6 +1,25 @@
 # Novo host: instalação, diagnóstico e continuidade do produto
 
-## Continuidade 2026-10-28/29 — templates autorados no Studio, parcial
+## Continuidade 2026-10-29 — dois candidatos autorais, Experimental
+
+Base desta continuação **29b53493346f539aa8686931d67732dcf1e2662c**, mesma branch/PR #112. Só documentação rastreada mudou; projetos/arte/fontes/ROMs/capturas permanecem privados. **Zero templates novos no catálogo**, TPL-01; não criar pacote paralelo nem implementar lacunas nesta missão.
+
+- Abrir `/home/misael/Documents/RetroDevProjects/Bosque_Aurora/project.rds`: novo cenário original 320×224/15 cores, piso/ilha alinhados pela UI, três sementes, salto, portão e bandeira. Partida final após reabertura: contador 0→2→3, bloqueio x=218, portão/conclusão 0→1. ROM executada/exportada **131587e2c7cfec58e8729e228c19608608b8860db325dc8cd8a25e082fffaf20**, 524288 bytes. Revisão 0 erros/1 aviso de fonte/17 OK; aproximação anterior de 2788 pixels resolvida nesta instância.
+- Abrir `/home/misael/Documents/RetroDevProjects/Jardim_Mares/project.rds`: Nalu, corais, quatro setas, três pérolas e retorno ao farol no alto. Cinco quadros/duas poses preparados no PixelEditor; gravidade false, HUD e quatro camadas. Partida final após reabertura: 0→1→2→3 pérolas, farol antes das três não conclui, retorno conclui. ROM **2c67153cf691848fa23e1d62fa469cb4ee526f5d40938c205dbc6a4b135350e7**, 524288 bytes; revisão 0 erros/0 avisos/19 OK. **Sair pelo topo leva a y negativo** (TPL-12), embora a revisão não acuse: manter parcial.
+
+Controles/instruções de edição/procedência em `data/reference_platformer_art/README.md`. App congelado **fdf0c4fb…**, mesmo launcher oficial abaixo, sem novo build de app necessário para abrir os projetos. Evidência desta continuação em `RDS_WORK_ROOT/sessions/templates-content-20261029/receipt.json`, resultados nativos e capturas **37..41** (Bosque) e **29..36** (Jardim). Captura inicial 27 tem nome prematuro de vitória, mas flag 0; usar 33/35 da jornada repetida, flag 1.
+
+O cenário importado no fim ocultou sprites na ROM `96a85a79…`; tentativa protegida e checkpoint anterior restaurado byte a byte (19 arquivos, recibo). Troca de cenário/colisão/posições refeita na UI, sem autoria externa de JSON/C. Puzzle de sequência bloqueado na sonda de parâmetros de variáveis/FSM; exploração foi a atividade independente seguinte. TPL-01..14 no roadmap incluem esse limite, ordem de cenário/sprites, reidratação/merge de animações, contenção, número negativo e referências de camada. Não retomar implementação de editor ou oferecer arena/nave sem qualificação autoral real.
+
+Próximo: abrir os candidatos no desktop pelo comando do launcher abaixo para avaliação humana; retomar arte/trilha/conteúdo independente dentro dos limites e reservar as lacunas ao backlog. Distribuição exige primeiro a rota oficial TPL-01, fora da implementação autorizada nesta missão. Sem aceite humano, GPU/áudio físico/desempenho, Windows ou console; runner 16/16 anterior não é execução nova. Fechamento de gates, proteção e SHA remoto no adendo atual do Memory Bank; sem merge/release/deploy.
+
+Certificação final desta continuação **READY/sete gates**, sessão `2026-10-29T07-55-51-422Z-1805366`, frontend 1233/11 skip e Rust 1098/109 ignored; Clippy padrão incluindo binário/fmt/smokes oficiais PASS. A primeira execução falhou por não aplicar a variável BYOR já documentada. Quando repetir `host:certify` com o artefato REX modificado presente, usar `RDS_HAMOOPIG_ROM=/home/misael/_-backups-_/Projects/RetroDevStudio-CANONICAL-2026-09-21/data/canonical-local-2026-09-21/corpus/references/hamoopig-reference.bin`, conferindo SHA `558bea6c…529be9`. Essa referência somente leitura é do gate existente, não dependência dos candidatos; não copiar para fontes/modelos, baixar ROM ou apagar o modificado para obter PASS. Falha e reteste 1/1 preservados; relatório certificado congelado antes de outros `--run`.
+
+Recibo **f01c8ae393ea05ab07f424782095dd74ae4daaf2d7f104e7e1c545035de99611**, 20/24 arquivos autorais, 1299 operações/observações e 45 capturas. Backup privado no destino abaixo: **`templates-content-20261029-131587e2-2c67153c.tar.gz`**, 14540513 bytes, SHA **7777e3e9ca7af34525c26d59770ae74bbcc0eb5257e9c011ea565e87f05a02eb**, 230 arquivos/21041822 bytes verificados integralmente. Manifesto **64efc584…64bb47a**/recibo ao lado; mesmo filesystem, cópia independente não qualificada. Reter até aceite/cópia privada independente verificada, owner operador. Processos próprios encerrados; não é pacote de catálogo. `publication-receipt.json` no runtime e ao lado do backup registra o SHA remoto depois do push.
+
+---
+
+## Histórico 2026-10-28/29 — primeiro candidato autorado no Studio
 
 Base `b80ae708a4f1ebe31998f0247ce1b97cea499fd4`, mesma branch/PR #112. Código/registry/seeds/locks/guardas não mudaram; só documentação rastreada e um projeto privado criado/editado pela UI. **Nenhum modelo novo distribuído no catálogo.** O pedido impede corrigir lacunas do editor nesta missão; TPL-01..08 no roadmap contêm reprodução/owner/aceite. Não converter o tar de proteção em suposto formato oficial de template.
 
