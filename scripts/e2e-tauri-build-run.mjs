@@ -3822,7 +3822,7 @@ async function collectUiLayoutOracleSnapshot(sessionId, targetId, resolutionTag)
 
       function oracleScopeRoot() {
         if (targetId === "import-wizard") {
-          return document.querySelector('[data-testid="project-wizard-body"]') || document.body;
+          return document.querySelector('[data-testid="project-start-wizard"]') || document.body;
         }
         return document.body;
       }
@@ -3990,7 +3990,7 @@ async function collectUiLayoutOracleSnapshot(sessionId, targetId, resolutionTag)
         }));
 
       const mainVisuals = [
-        mainVisual('[data-testid="project-wizard-body"]', '[data-testid="project-wizard-body"]', "import-wizard", "wizard"),
+        mainVisual('[data-testid="project-start-wizard"]', '[data-testid="project-start-wizard"]', "import-wizard", "wizard"),
         mainVisual('[data-testid="viewport-scene-canvas"]', '[data-testid="viewport-scene-stage"]', "viewport-scene-canvas", "scene"),
         mainVisual('[data-testid="viewport-game-canvas"]', '[data-testid="viewport-game-stage"]', "viewport-game-canvas", "game"),
         mainVisual('[data-testid="nodegraph-canvas"]', '[data-panel-id="center"], #center', "nodegraph-canvas", "nodegraph"),
@@ -4056,7 +4056,7 @@ async function prepareUiLayoutOracleTarget(sessionId, target) {
   }
 
   if (target.id === "import-wizard") {
-    await waitForOnboardingWizard(sessionId);
+    await prepareDefaultProjectWizard(sessionId);
     return;
   }
 
@@ -4989,8 +4989,8 @@ async function runMugenImportScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs
 
   // 1. Wizard visivel -> importador externo -> perfil MUGEN -> Importar.
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   const selected = await js(`
     const select = document.querySelector('[data-testid="external-import-profile-select"]');
     if (!(select instanceof HTMLSelectElement)) return null;
@@ -5177,9 +5177,7 @@ async function runMugenImportScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto importado.", 300);
-  await clickByTestId(sessionId, "wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "Projeto importado nao reabriu.", 300);
   await clickByTestId(sessionId, "workspace-rail-scene");
   await clickByTestId(sessionId, "hierarchy-entity-probe");
@@ -5280,9 +5278,9 @@ async function runMugenImportScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs
   const escapeName = `Mugen_Escape_${Date.now()}`;
   const before = (await readdir(baseDir)).filter((n) => n.startsWith("Mugen_Escape_"));
   await clickTopBarMenuAction(sessionId, "Novo Projeto");
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   const toggled = await js(`return Boolean(document.querySelector('[data-testid="external-import-profile-select"]'));`);
-  if (!toggled) await clickByTestId(sessionId, "wizard-external-import-toggle");
+  if (!toggled) await prepareExternalImportWizard(sessionId);
   await js(`
     const select = document.querySelector('[data-testid="external-import-profile-select"]');
     const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set;
@@ -5458,8 +5456,8 @@ async function runMugenControlScenario(sessionId, timeoutMs, uiBootstrapTimeoutM
 
   // 1. Importar pela UI.
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   const selected = await js(`
     const select = document.querySelector('[data-testid="external-import-profile-select"]');
     if (!(select instanceof HTMLSelectElement)) return null;
@@ -5542,9 +5540,7 @@ async function runMugenControlScenario(sessionId, timeoutMs, uiBootstrapTimeoutM
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto importado.", 300);
-  await clickByTestId(sessionId, "wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "Projeto importado nao reabriu.", 300);
   await clickByTestId(sessionId, "workspace-rail-scene");
   await clickByTestId(sessionId, "hierarchy-entity-walker");
@@ -5769,8 +5765,8 @@ async function runMugenRealScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, 
     if (result !== String(value)) fail(`Select ${id} nao aceitou ${value}.`);
   };
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   await select("external-import-profile-select", "mugen");
   const name = `Ken_Majik_Real_${Date.now()}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
@@ -5837,9 +5833,7 @@ async function runMugenRealScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, 
   await waitForAppWindowReady(sessionId,uiBootstrapTimeoutMs,"App nao reabriu.");
   await waitFor(async () => js("return !!window.__RDS_E2E__;"),uiBootstrapTimeoutMs,"API nao voltou.",200);
   await setSessionWindowRect(sessionId,1920,1080);
-  await fillInputBySelector(sessionId,'input[placeholder="Nome do projeto"]',name);
-  await waitFor(async () => js(`return !!document.querySelector('[data-testid="wizard-existing-project-card"]');`),30000,"Wizard nao encontrou Ken.",200);
-  await clickByTestId(sessionId,"wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, project);
   await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir===project,60000,"Ken nao reabriu.",200);
   await clickByTestId(sessionId,"workspace-rail-scene");
   await clickByTestId(sessionId,"hierarchy-entity-kenmasters");
@@ -6000,8 +5994,8 @@ async function runSgdkSplitResourcesScenario(sessionId, timeoutMs, onProjectCrea
     qualification: "resource import; original C gameplay equivalence is not certified" };
   try {
     await setSessionWindowRect(sessionId, 1280, 800);
-    await waitForOnboardingWizard(sessionId);
-    await clickByTestId(sessionId, "wizard-external-import-toggle");
+    await prepareDefaultProjectWizard(sessionId);
+    await prepareExternalImportWizard(sessionId);
     await executeScript(sessionId, `const e=document.querySelector('[data-testid="external-import-profile-select"]');
       Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,'sgdk');
       e.dispatchEvent(new Event('change',{bubbles:true}));`);
@@ -6100,7 +6094,7 @@ async function runSgdkNativeCScenario(sessionId) {
   };
   try {
     await setSessionWindowRect(sessionId, 1280, 800);
-    await waitForOnboardingWizard(sessionId).catch(() => null);
+    await prepareDefaultProjectWizard(sessionId).catch(() => null);
     await openAndInspect("open");
     await callAutomationApi(sessionId, "selectWorkspace", ["explorer"]).catch(() => null);
     const scope = await waitFor(async () => executeScript(sessionId, "return document.querySelector('[data-testid=\"legacy-host-edit-scope\"]')?.textContent ?? '';"), 30000, "Edit scope not rendered.", 250).catch(() => "");
@@ -6467,7 +6461,7 @@ async function runPixelEditorScenario(sessionId) {
   };
   try {
     await setSessionWindowRect(sessionId, 1440, 900);
-    await waitForOnboardingWizard(sessionId).catch(() => null);
+    await prepareDefaultProjectWizard(sessionId).catch(() => null);
     await js("window.__RDS_E2E__.openProject(arguments[0]); return true;", [source]);
     await waitFor(async () => {
       const next = await readAutomationState(sessionId);
@@ -6611,7 +6605,7 @@ async function runSgdkCorpusScenario(sessionId) {
   };
   try {
     await setSessionWindowRect(sessionId, 1280, 800);
-    await waitForOnboardingWizard(sessionId).catch(() => null);
+    await prepareDefaultProjectWizard(sessionId).catch(() => null);
     // Reabrir um overlay desatualizado reimporta (grafo C, catalogo): pode levar minutos.
     await js("window.__RDS_E2E__.openProject(arguments[0]); return true;", [source]);
     await waitFor(async () => {
@@ -6749,8 +6743,8 @@ async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
 
   // 1. Importacao real (mesma revisao do cenario mugen-real).
   await setSessionWindowRect(sessionId, 1280, 800);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   await select("external-import-profile-select", "mugen");
   const name = `Ken_Studio_E1_${Date.now()}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
@@ -6874,9 +6868,7 @@ async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu.");
   await waitFor(async () => js("return !!window.__RDS_E2E__;"), uiBootstrapTimeoutMs, "API nao voltou.", 200);
   await setSessionWindowRect(sessionId, 1280, 800);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
-  await waitFor(async () => exists("wizard-existing-project-card"), 30000, "Wizard nao encontrou o projeto.", 200);
-  await clickByTestId(sessionId, "wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, project);
   await waitFor(async () => (await state())?.activeProjectDir === project, 60000, "Projeto nao reabriu.", 200);
   await clickByTestId(sessionId, "workspace-rail-scene");
   await clickByTestId(sessionId, "hierarchy-entity-kenmasters");
@@ -7147,8 +7139,8 @@ async function runStudioE4Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
   const sceneJson = async (project) => JSON.parse(await readFile(path.join(project, "scenes/main.json"), "utf8"));
 
   await setSessionWindowRect(sessionId, 1280, 800);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   await select("external-import-profile-select", "mugen");
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', `Ken_Studio_E4_${Date.now()}`);
   await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source]);
@@ -7319,8 +7311,8 @@ async function runStudioE2E5Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs,
 
   // A. Importacao real.
   await setSessionWindowRect(sessionId, 1280, 800);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   await selectByJs("external-import-profile-select", "mugen");
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', `Ken_Studio_E2E5_${Date.now()}`);
   await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source]);
@@ -7678,7 +7670,7 @@ async function runStudioE6Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs) {
   const text = (id) => js(`return document.querySelector('[data-testid="'+arguments[0]+'"]')?.textContent ?? null;`, [id]);
   await setSessionWindowRect(sessionId, 1280, 800);
   await waitFor(async () => js("return !!window.__RDS_E2E__;"), uiBootstrapTimeoutMs, "API de automacao ausente.", 200);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickByTestId(sessionId, "wizard-continue-without-project");
   const loaded = await executeAsyncScript(sessionId, `const done=arguments[arguments.length-1];window.__RDS_E2E__.loadRomForEmulation(arguments[0],{startPaused:true}).then((v)=>done(v)).catch((e)=>done(String(e)));`, [rom]);
   if (loaded !== true) fail(`ROM nao carregou: ${loaded}`);
@@ -7819,8 +7811,8 @@ async function runStudioHudCameraScenario(sessionId, timeoutMs, uiBootstrapTimeo
 
   // A. Importacao real do Ken (mesmo caminho do E2/E5).
   await setSessionWindowRect(sessionId, 1280, 800);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   await selectByJs("external-import-profile-select", "mugen");
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', `Ken_Hud_Camera_${Date.now()}`);
   await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source]);
@@ -8071,8 +8063,8 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   // A. Importacao real do Ken.
   const name = `Ken_Paletas_${Date.now()}`;
   await setSessionWindowRect(sessionId, 1280, 800);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   await selectByJs("external-import-profile-select", "mugen");
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
   await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source]);
@@ -8205,9 +8197,7 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu.");
   await waitFor(async () => js("return !!window.__RDS_E2E__;"), uiBootstrapTimeoutMs, "API nao voltou.", 200);
   await setSessionWindowRect(sessionId, 1280, 800);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
-  await waitFor(async () => exists("wizard-existing-project-card"), 30000, "Wizard nao encontrou o projeto.", 200);
-  await clickByTestId(sessionId, "wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, project);
   await waitFor(async () => (await state())?.activeProjectDir === project, 60000, "Projeto nao reabriu.", 200);
   await clickByTestId(sessionId, "workspace-rail-scene");
   const canon = (v) => JSON.stringify(v, (_, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b))) : x));
@@ -8424,9 +8414,8 @@ async function runStudioSceneScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs
 
   // A. Projeto pelo assistente (template de referencia).
   await setSessionWindowRect(sessionId, 1280, 800);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickByTestId(sessionId, "template-card-reference_platformer");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', `Studio_Scene_${Date.now()}`);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
   const created = await waitFor(async () => { const st = await state(); return st?.activeProjectDir && st.activeScene?.entities?.some((e) => e.id === "reference_tilemap") ? st : false; }, 120000, "Template nao criou a cena.", 250);
@@ -8597,9 +8586,8 @@ async function runStudioModelScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs
     await webdriverRequest("POST", `/session/${sessionId}/element/${el}/value`, { text: "", value: [""] });
   };
   await setSessionWindowRect(sessionId, 1280, 800);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickByTestId(sessionId, "template-card-reference_platformer");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', `Studio_Model_${Date.now()}`);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
   const created = await waitFor(async () => { const st = await state(); return st?.activeProjectDir && st.activeScene?.entities?.some((e) => e.id === "player") ? st : false; }, 120000, "Template nao criou a cena.", 250);
@@ -8803,8 +8791,8 @@ async function runMugenOriginalScenario(sessionId, timeoutMs, uiBootstrapTimeout
   `, [root]);
 
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   await select("external-import-profile-select", "mugen");
   const name = `Ken_Majik_Chain_${Date.now()}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
@@ -8876,9 +8864,7 @@ async function runMugenOriginalScenario(sessionId, timeoutMs, uiBootstrapTimeout
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu.");
   await waitFor(async () => js("return !!window.__RDS_E2E__;"), uiBootstrapTimeoutMs, "API nao voltou.", 200);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
-  await waitFor(async () => js(`return !!document.querySelector('[data-testid="wizard-existing-project-card"]');`), 30000, "Wizard nao encontrou Ken.", 200);
-  await clickByTestId(sessionId, "wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, project);
   await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === project, 60000, "Ken nao reabriu.", 200);
   await clickTopBarMenuAction(sessionId, "Relatorio MUGEN");
   await waitFor(async () => js(`return !!document.querySelector('[data-testid="mugen-chain-review"]');`), 30000, "Origem do comportamento nao reabriu.", 200);
@@ -9108,8 +9094,8 @@ async function runMugenLocomotionScenario(sessionId, timeoutMs, uiBootstrapTimeo
 
   // ── 1. Importar pela UI e conferir o relatorio ───────────────────────────────────────────
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   const selected = await js(`
     const select = document.querySelector('[data-testid="external-import-profile-select"]');
     if (!(select instanceof HTMLSelectElement)) return null;
@@ -9215,9 +9201,7 @@ async function runMugenLocomotionScenario(sessionId, timeoutMs, uiBootstrapTimeo
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto importado.", 300);
-  await clickByTestId(sessionId, "wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "Projeto importado nao reabriu.", 300);
   await clickByTestId(sessionId, "workspace-rail-scene");
   await clickByTestId(sessionId, "hierarchy-entity-strider");
@@ -9391,9 +9375,9 @@ async function runMugenLocomotionScenario(sessionId, timeoutMs, uiBootstrapTimeo
   await writeFile(path.join(badDonor, "strider.cns"), cnsOriginal.replace("x = 2.5", "x = const(velocity.walk.fwd.x)"));
   const badName = `Mugen_Strider_Bad_${Date.now()}`;
   await clickTopBarMenuAction(sessionId, "Novo Projeto");
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   const toggled = await js(`return Boolean(document.querySelector('[data-testid="external-import-profile-select"]'));`);
-  if (!toggled) await clickByTestId(sessionId, "wizard-external-import-toggle");
+  if (!toggled) await prepareExternalImportWizard(sessionId);
   await js(`
     const select = document.querySelector('[data-testid="external-import-profile-select"]');
     const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set;
@@ -9426,13 +9410,11 @@ async function runSnesGuidedAuthoringScenario(sessionId, timeoutMs, onProjectCre
   const js = (code, args = []) => executeScript(sessionId, code, args);
   try {
     await setSessionWindowRect(sessionId, 1366, 768);
-    await waitForOnboardingWizard(sessionId);
-    await clickByTestId(sessionId, "template-card-reference_platformer");
-    await waitFor(async () => js(`return [...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='SNES')?.disabled === true;`), 5000, "MD-only reference template did not disable SNES.", 100);
-    addReportStep(report, "md_reference_snes_combination_refused_in_wizard", "passed");
-    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-md-scope.png`), "Reference template scope: Mega Drive only");
-    await clickByTestId(sessionId, "template-card-starter_guided");
-    await clickButtonByText(sessionId, "SNES", "exact");
+    await prepareWizardTemplateGallery(sessionId, "snes");
+    if (await js(`return !!document.querySelector('[data-testid="template-card-reference_platformer"]');`)) fail("Modelo exclusivo MD apareceu no catálogo SNES.");
+    addReportStep(report, "md_reference_excluded_from_snes_gallery", "passed");
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-snes-scope.png`), "SNES: only compatible models");
+    await clickButtonByTestIdNative(sessionId, "template-card-starter_guided");
     const name = `SNES_Authoring_${Date.now()}`;
     await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
     await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -9510,14 +9492,13 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   };
 
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   addReportArtifact(
     report,
     await captureScreenshot(sessionId, `${artifactPrefix}-01-wizard.png`),
     "reference template wizard"
   );
   await clickByTestId(sessionId, "template-card-reference_platformer");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const generatedProjectName = `Reference_Platformer_${Date.now()}`;
   await fillInputBySelector(
     sessionId,
@@ -10092,6 +10073,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     "Projeto nao reiniciou para validar salvar/reabrir do limiar.",
     250
   );
+  await prepareExistingProjectWizard(sessionId);
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', generatedProjectName);
   await waitFor(
     async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"wizard-existing-project-card\"]'));"),
@@ -10602,6 +10584,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     "Projeto de referencia nao fechou com retorno ao wizard.",
     250
   );
+  await prepareExistingProjectWizard(sessionId);
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', generatedProjectName);
   await waitFor(
     async () => {
@@ -10862,9 +10845,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     },
     15000, "Projeto nao fechou antes de reabrir a segunda passagem.", 250
   );
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', generatedProjectName);
-  await waitFor(async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"wizard-existing-project-card\"]'));"), 30000, "Wizard nao listou o projeto para reabrir.", 500);
-  await clickByTestId(sessionId, "wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, createdState.activeProjectDir);
   await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === createdState.activeProjectDir, 45000, "Projeto nao reabriu com a segunda passagem.", 500);
   await clickByTestId(sessionId, "hierarchy-entity-player");
   await waitFor(async () => (await readAutomationState(sessionId))?.selectedEntityId === "player", 10000, "player nao selecionado apos reabrir.", 200);
@@ -11039,8 +11020,52 @@ async function runStudioAppearanceScenario(initialSessionId, appPath, timeoutMs,
     if (!(await js("return document.activeElement?.dataset.testid === 'studio-theme-open';"))) fail("Fechar cores não devolveu o foco.");
   }
   try {
-    await waitForOnboardingWizard(sessionId);
-    await clickElement(sessionId, await findElement(sessionId, '[data-testid="template-card-starter_guided"]'));
+    await setSessionWindowRect(sessionId, 1280, 800);
+    await prepareWizardHome(sessionId);
+    const initial = await js(`return {intents:document.querySelectorAll('[data-testid^="wizard-intent-"]').length,name:!!document.querySelector('[data-testid="wizard-project-name"]'),create:!!document.querySelector('[data-testid="wizard-create-project"]'),open:!!document.querySelector('[data-testid="wizard-open-project"]')};`);
+    if (initial.intents !== 4 || initial.name || initial.create || initial.open) fail(`Início não progressivo: ${JSON.stringify(initial)}`);
+    await shot("wizard-home-four-intents");
+    report.steps.push({step:"wizard_progressive_home",status:"passed",...initial});
+    await click("wizard-intent-open");
+    await js("return window.__RDS_E2E__.setNextProjectOpenFile(null);");
+    await click("wizard-open-project");
+    if ((await waitForProjectWizard(sessionId)).step !== "open") fail("Cancelar seleção de arquivo perdeu a etapa.");
+    await js("return window.__RDS_E2E__.setNextProjectOpenFile('/invalid/other.rds');");
+    await click("wizard-open-project");
+    await waitFor(() => js("return document.querySelector('[role=alert]')?.textContent.includes('project.rds');"), 5000, "Arquivo inválido não apresentou orientação.", 100);
+    await prepareWizardHome(sessionId);
+    report.steps.push({step:"saved_file_cancel_and_invalid_selection",status:"passed",dialog_fixture:"only native file chooser result substituted"});
+    for (const target of ["megadrive", "snes"]) {
+      await prepareBlankProjectWizard(sessionId, target);
+      const blankName = `Wizard_Zero_${target}_${Date.now()}`;
+      await setInputByTestIdNative(sessionId, "wizard-project-name", blankName);
+      await shot(`wizard-blank-${target}`);
+      await click("wizard-create-project");
+      const blank = await waitFor(async () => {const state=await readAutomationState(sessionId);return state?.activeProjectName===blankName&&state.activeTarget===target?state:false;}, 45000, `Projeto vazio ${target} não abriu.`, 150);
+      onProjectCreated(blank.activeProjectDir);
+      report.steps.push({step:`blank_${target}_created_without_directory_picker`,status:"passed",project:blank.activeProjectDir});
+      await clickTopBarMenuAction(sessionId, "Fechar");
+      await waitForProjectWizard(sessionId);
+    }
+    for (const profile of ["sgdk", "mugen"]) {
+      await prepareWizardHome(sessionId);
+      await click("wizard-intent-import");
+      await shot(`wizard-import-${profile}-origins`);
+      await click(`external-import-profile-${profile}`);
+      const importStep = await js(`return {step:document.querySelector('[data-testid="project-start-wizard"]').dataset.step,cta:document.querySelector('[data-testid="external-import-confirm"]')?.textContent,create:!!document.querySelector('[data-testid="wizard-create-project"]')};`);
+      if (importStep.step!=="details" || !importStep.cta?.includes("Selecionar pasta") || importStep.create) fail("Importação misturou criação/modelos.");
+      await shot(`wizard-import-${profile}-details`);
+    }
+    await prepareWizardTemplateGallery(sessionId, "snes");
+    if (await js(`return !!document.querySelector('[data-testid="template-card-reference_platformer"]');`)) fail("Modelo MD apareceu para SNES.");
+    await shot("wizard-snes-models");
+    await prepareWizardTemplateGallery(sessionId);
+    await click("template-card-starter_guided");
+    await setInputByTestIdNative(sessionId, "wizard-project-name", "Nome preservado");
+    await click("wizard-back");
+    await click("template-card-starter_guided");
+    if (await js(`return document.querySelector('[data-testid="wizard-project-name"]').value;`) !== "Nome preservado") fail("Voltar apagou o nome digitado.");
+    report.steps.push({step:"import_branches_console_filter_and_back_preserve_name",status:"passed"});
     const name = `Appearance_${Date.now()}`;
     await setInputByTestIdNative(sessionId, "wizard-project-name", name);
     await clickButtonByText(sessionId, "Criar Projeto");
@@ -11051,6 +11076,14 @@ async function runStudioAppearanceScenario(initialSessionId, appPath, timeoutMs,
     onProjectCreated(created.activeProjectDir);
     const scenePath = path.join(created.activeProjectDir, created.activeScenePath);
     const sceneBefore = createHash("sha256").update(await readFile(scenePath)).digest("hex");
+    await shot("wizard-model-created");
+    await clickTopBarMenuAction(sessionId, "Fechar");
+    await prepareWizardHome(sessionId);
+    await click("wizard-intent-open");
+    await js("return window.__RDS_E2E__.setNextProjectOpenFile(arguments[0]);", [path.join(created.activeProjectDir, "project.rds")]);
+    await click("wizard-open-project");
+    await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === created.activeProjectDir && !(await js(`return !!document.querySelector('[data-testid="project-start-wizard"]');`)), 30000, "Arquivo project.rds não reabriu o projeto.", 150);
+    report.steps.push({step:"model_created_without_picker_and_reopened_from_saved_file",status:"passed",dialog_fixture:"only file chooser result substituted",project:created.activeProjectDir});
     await click("shell-persona-pro");
     const built = await runBuildRunAndCollect(sessionId, "appearance-official-core", timeoutMs, report, prefix, { nativeClick: true });
     await click("toolbar-emulator-pause");
@@ -11059,7 +11092,7 @@ async function runStudioAppearanceScenario(initialSessionId, appPath, timeoutMs,
     const beforePixels = await canvas();
     if (!beforePixels) fail("Framebuffer pausado ausente.");
     report.steps.push({ step: "official_build_core_paused", status: "passed", rom_sha256: built.rom_sha256 });
-    for (const id of ["super-16", "mega-drive", "portable", "arcade"]) {
+    for (const id of ["super-nintendo", "super-famicom", "mega-drive-night", "mega-drive-16bit"]) {
       await choose(id);
       if (await canvas() !== beforePixels) fail(`Tema ${id} alterou o framebuffer pausado.`);
     }
@@ -11069,7 +11102,7 @@ async function runStudioAppearanceScenario(initialSessionId, appPath, timeoutMs,
     await click("workspace-rail-scene");
     for (const width of [1280, 1920]) {
       await webdriverRequest("POST", `/session/${sessionId}/window/rect`, { x: 0, y: 0, width, height: width === 1280 ? 800 : 1080 });
-      for (const id of ["super-16", "mega-drive", "portable", "arcade"]) {
+      for (const id of ["super-nintendo", "super-famicom", "mega-drive-night", "mega-drive-16bit"]) {
         await choose(id);
         const geometry = await js(`
           const controls=['studio-theme-open','toolbar-save','toolbar-build-run','viewport-tool-select','viewport-tool-paint','viewport-tool-erase','viewport-tool-collision'];
@@ -11077,18 +11110,34 @@ async function runStudioAppearanceScenario(initialSessionId, appPath, timeoutMs,
             return {id,ok:!!r&&r.width>0&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))};});
           const rail=[...document.querySelectorAll('[data-workspace]')].map(e=>({label:e.textContent.trim(),icon:e.querySelector('svg')?.dataset.icon,size:e.querySelector('svg')?.getBoundingClientRect().width}));
           const groups=[...document.querySelectorAll('[data-testid^="workspace-rail-group-"]')].map(e=>({id:e.dataset.testid,clipped:e.scrollHeight>e.clientHeight+1}));
-          return {width:innerWidth,height:innerHeight,theme:document.documentElement.dataset.studioTheme,checks,rail,groups};
+          return {width:innerWidth,height:innerHeight,theme:document.documentElement.dataset.studioTheme,scheme:document.documentElement.dataset.theme,colorScheme:getComputedStyle(document.documentElement).colorScheme,checks,rail,groups};
         `);
         if (geometry.checks.some(c => !c.ok) || geometry.rail.length !== 7 || geometry.rail.some(r => !r.icon?.startsWith("studio-") || r.size < 30) || geometry.groups.some(g => g.clipped)) fail(`Ícones/controles obstruídos: ${JSON.stringify(geometry)}`);
+        const expectedScheme = id.startsWith("super-") ? "light" : "dark";
+        if (geometry.scheme !== expectedScheme || geometry.colorScheme !== expectedScheme) fail(`Modo de cor incorreto: ${JSON.stringify(geometry)}`);
+        const contrast = await js(`
+          function luminance(c){const v=c.match(/[\\d.]+/g).slice(0,3).map(Number).map(x=>{x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4;});return v[0]*.2126+v[1]*.7152+v[2]*.0722;}
+          const pairs=[['console','[data-testid="console-drawer"] [role="log"] span.text-left','[data-testid="console-drawer"]'],['guide','[data-testid="workspace-guide"] h2','[data-testid="workspace-guide"]'],['breadcrumb','[data-testid="unified-topbar"] [class*="bg-[#0b1220]"] span:last-child','[data-testid="unified-topbar"] [class*="bg-[#0b1220]"]']];
+          return pairs.map(([id,text,bg])=>{const e=document.querySelector(text),b=document.querySelector(bg);if(!e||!b)return {id,present:false};const color=getComputedStyle(e).color,background=getComputedStyle(b).backgroundColor,L1=luminance(color),L2=luminance(background);return {id,present:true,color,background,ratio:(Math.max(L1,L2)+.05)/(Math.min(L1,L2)+.05)};});
+        `);
+        if (contrast.some(c => c.present && c.ratio < 4.5) || !contrast.some(c=>c.id==="console"&&c.present)) fail(`Superfície legada ilegível: ${JSON.stringify(contrast)}`);
+        geometry.contrast = contrast;
         report.matrix.push(geometry);
         await shot(`${id}-${width}-scene`);
+        await clickTopBarMenuAction(sessionId, "Novo Projeto");
+        await prepareWizardHome(sessionId);
+        const homeGeometry=await js(`return [...document.querySelectorAll('[data-testid^="wizard-intent-"]')].map(e=>{const r=e.getBoundingClientRect();return {id:e.dataset.testid,visible:r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))};});`);
+        if(homeGeometry.length!==4||homeGeometry.some(e=>!e.visible)) fail(`Início inacessível em ${id}/${width}: ${JSON.stringify(homeGeometry)}`);
+        geometry.wizard=homeGeometry;
+        await shot(`${id}-${width}-wizard-home`);
+        await click("wizard-cancel");
       }
     }
     await click("studio-theme-open");
     await shot("theme-chooser");
-    await clickElement(sessionId, await findElement(sessionId, '[data-testid="studio-theme-mega-drive"]'));
+    await clickElement(sessionId, await findElement(sessionId, '[data-testid="studio-theme-super-nintendo"]'));
     await key("\uE014");
-    if (await theme() !== "portable") fail("Seta nativa não selecionou o próximo tema.");
+    if (await theme() !== "super-famicom") fail("Seta nativa não selecionou o próximo tema.");
     await key("\uE00C");
     report.steps.push({ step: "native_radio_keyboard_and_escape_focus", status: "passed" });
     for (const workspace of ["logic", "artstudio", "retrofx", "explorer", "debug", "scene"]) {
@@ -11107,9 +11156,9 @@ async function runStudioAppearanceScenario(initialSessionId, appPath, timeoutMs,
     sessionId = await createSession(appPath);
     currentE2eRunContext.sessionId = sessionId;
     await waitForAppWindowReady(sessionId, uiTimeout, "App não reabriu para conferir o tema.");
-    await waitFor(async () => await theme() === "portable", 10000, "Tema não sobreviveu ao reinício.", 100);
-    await shot("cold-reopen-portable");
-    report.steps.push({ step: "theme_persists_across_cold_reopen", status: "passed", theme: "portable" });
+    await waitFor(async () => await theme() === "super-famicom", 10000, "Tema não sobreviveu ao reinício.", 100);
+    await shot("cold-reopen-super-famicom");
+    report.steps.push({ step: "theme_persists_across_cold_reopen", status: "passed", theme: "super-famicom" });
     report.status = "passed";
     console.log(`Relatorio de aparência: ${reportPath}`);
     return sessionId;
@@ -11184,9 +11233,9 @@ async function runDraftRecoveryScenario(initialSessionId, appPath, timeoutMs, ui
       .then(done).catch(e=>done({error:String(e)}));`, [project, scene]);
   const fileX = async (project, scene) => JSON.parse(await readFile(path.join(project, scene), "utf8")).entities.find((e) => e.entity_id === "player").transform.x;
   const createProject = async (name) => {
-    await waitForOnboardingWizard(sessionId);
+    await prepareDefaultProjectWizard(sessionId);
     await click("template-card-reference_platformer");
-    await clickButtonByText(sessionId, "Mega Drive", "exact");
+    await prepareExistingProjectWizard(sessionId);
     await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
     await clickButtonByText(sessionId, "Criar Projeto", "exact");
     const created = await waitFor(async () => { const st = await state(); return st?.activeProjectName === name ? st : false; }, 60000, "Controlled project not created.", 200);
@@ -11195,9 +11244,11 @@ async function runDraftRecoveryScenario(initialSessionId, appPath, timeoutMs, ui
     await click("shell-persona-guiado"); await selectPlayer();
     return { name, dir: created.activeProjectDir };
   };
-  const closeProject = async () => { await clickTopBarMenuAction(sessionId, "Fechar"); await waitForOnboardingWizard(sessionId); };
+  const closeProject = async () => { await clickTopBarMenuAction(sessionId, "Fechar"); await prepareDefaultProjectWizard(sessionId); };
   const openProject = async (project) => {
-    await waitForOnboardingWizard(sessionId);
+    await prepareWizardTemplateGallery(sessionId);
+    await click("template-card-starter_guided");
+    await prepareExistingProjectWizard(sessionId);
     await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', project.name);
     await waitFor(async () => js(`return !!document.querySelector('[data-testid="wizard-existing-project-card"]');`), 30000, "Existing project card absent.", 100);
     await click("wizard-open-existing-project");
@@ -11519,9 +11570,8 @@ async function runAuthoringAcceptanceScenario(initialSessionId, appPath, uiBoots
 
   // 1. Create the stage from the wizard and switch to the guided mode.
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await click("template-card-reference_platformer", "modelo de fase de referencia");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Acceptance_${Date.now()}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -11673,9 +11723,7 @@ async function runAuthoringAcceptanceScenario(initialSessionId, appPath, uiBoots
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto salvo.", 300);
-  await click("wizard-open-existing-project", "reabrir projeto");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "Projeto nao reabriu.", 300);
   if (!(await js(`return Boolean(document.querySelector('[data-testid="guided-steps"]'));`))) await click("shell-persona-guiado", "modo guiado apos reinicio");
   await click("guided-step-personagem", "etapa Personagem apos reinicio");
@@ -11867,9 +11915,8 @@ async function runJumpProfileJourneyScenario(sessionId, uiBootstrapTimeoutMs) {
   const rom2 = process.env.RDS_JUMP_DELTA_ROM;
   if (!rom1) fail("RDS_INSPECTION_ROM ausente");
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickButtonByTestIdNative(sessionId, "template-card-starter_guided", "modelo Primeiro Projeto");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Jump_Profile_${Date.now().toString(36)}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -11972,9 +12019,8 @@ async function runPreparedRuntimeObservationScenario(sessionId, appPath) {
   const specPath = process.env.RDS_PREPARED_OBSERVATION_SPEC;
   if (!specPath) fail("RDS_PREPARED_OBSERVATION_SPEC ausente");
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickButtonByTestIdNative(sessionId, "template-card-starter_guided", "modelo Primeiro Projeto");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Prepared_Observation_${Date.now().toString(36)}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -12035,9 +12081,8 @@ async function runSemanticGateJourneyScenario(initialSessionId, appPath, uiBoots
   addCheck("rom_e_a_do_spec", shaBase === spec.rom_sha256, { observado: shaBase });
   await mkdir(outBase, { recursive: true });
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickButtonByTestIdNative(sessionId, "template-card-starter_guided", "modelo Primeiro Projeto");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Semantic_Gate_${Date.now().toString(36)}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -12439,9 +12484,7 @@ async function runSemanticGateJourneyScenario(initialSessionId, appPath, uiBoots
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto salvo.", 300);
-  await clickButtonByTestIdNative(sessionId, "wizard-open-existing-project", "reabrir projeto");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir, 60000, "Projeto nao reabriu.", 300);
   await closeVisibleConsoleDrawer(sessionId, "apos reabrir").catch(() => undefined);
   await callAutomationApi(sessionId, "setSelectedEntityId", [entityId]);
@@ -12554,9 +12597,8 @@ async function runProfileAuthoringJourneyScenario(initialSessionId, appPath, uiB
   addCheck("rom_e_a_do_spec", shaBase === spec.rom_sha256, { observado: shaBase, esperado: spec.rom_sha256 });
   await mkdir(outBase, { recursive: true });
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickButtonByTestIdNative(sessionId, "template-card-starter_guided", "modelo Primeiro Projeto");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Profile_Authoring_${Date.now().toString(36)}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -12757,9 +12799,7 @@ async function runProfileAuthoringJourneyScenario(initialSessionId, appPath, uiB
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto salvo.", 300);
-  await clickButtonByTestIdNative(sessionId, "wizard-open-existing-project", "reabrir projeto");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir, 60000, "Projeto nao reabriu.", 300);
   await closeVisibleConsoleDrawer(sessionId, "apos reabrir").catch(() => undefined);
   await callAutomationApi(sessionId, "setSelectedEntityId", [entityId]);
@@ -12799,9 +12839,8 @@ async function runJumpCanvasJourneyScenario(initialSessionId, appPath, uiBootstr
   if (!rom1) fail("RDS_INSPECTION_ROM ausente");
   await mkdir(copiesDir, { recursive: true });
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickButtonByTestIdNative(sessionId, "template-card-starter_guided", "modelo Primeiro Projeto");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Jump_Canvas_${Date.now().toString(36)}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -12990,9 +13029,7 @@ async function runJumpCanvasJourneyScenario(initialSessionId, appPath, uiBootstr
     await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
     await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
     await setSessionWindowRect(sessionId, 1920, 1080);
-    await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-    await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto salvo.", 300);
-    await clickButtonByTestIdNative(sessionId, "wizard-open-existing-project", "reabrir projeto");
+    await openSavedProjectWizard(sessionId, projectDir);
     await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir, 60000, "Projeto nao reabriu.", 300);
     await closeVisibleConsoleDrawer(sessionId, "apos reabrir").catch(() => undefined);
     await callAutomationApi(sessionId, "setSelectedEntityId", [entityId]);
@@ -13104,9 +13141,8 @@ async function runJumpGameplayJourneyScenario(sessionId, uiBootstrapTimeoutMs) {
     delta: { rom: rom2, base: 0xb000, yOff: 0x14, vyOff: 0x1a, flOff: 0x40, nome: "Sonic Delta (personagem 1 = Sonic)" },
   };
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickButtonByTestIdNative(sessionId, "template-card-starter_guided", "modelo Primeiro Projeto");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Jump_Gameplay_${Date.now().toString(36)}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -14074,9 +14110,8 @@ async function runSonicLogicGraphsScenario(sessionId, uiBootstrapTimeoutMs) {
   const js = (script, args = []) => executeScript(sessionId, script, args);
   const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickButtonByTestIdNative(sessionId, "template-card-starter_guided", "modelo Primeiro Projeto");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Sonic1_Logica_Localizada_${Date.now().toString(36)}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -14243,9 +14278,8 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
 
   // 1. Create the reference stage and a second passage blocker through the UI.
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await click("template-card-reference_platformer", "modelo de fase de referencia");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `NodeGraph_${Date.now()}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -14456,9 +14490,7 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto salvo.", 300);
-  await click("wizard-open-existing-project", "reabrir projeto");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "Projeto nao reabriu.", 300);
   if (!(await js(`return Boolean(document.querySelector('[data-testid="guided-steps"]'));`))) await click("shell-persona-guiado", "modo guiado apos reinicio");
   await click("guided-step-regras", "etapa Regras apos reinicio");
@@ -14741,9 +14773,8 @@ async function runBehaviorsIndependenceScenario(initialSessionId, appPath, uiBoo
 
   // 1. Project and two copies of the player (manual logic is NOT copied — warned first).
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await click("template-card-reference_platformer", "modelo de fase de referencia");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Behaviors_${Date.now()}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -14891,9 +14922,7 @@ async function runBehaviorsIndependenceScenario(initialSessionId, appPath, uiBoo
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto salvo.", 300);
-  await click("wizard-open-existing-project", "reabrir projeto");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "Projeto nao reabriu.", 300);
   if (!(await js(`return Boolean(document.querySelector('[data-testid="guided-steps"]'));`))) await click("shell-persona-guiado", "modo guiado apos reinicio");
   await click("guided-step-regras", "etapa Regras apos reinicio");
@@ -15214,9 +15243,8 @@ async function runCollectGoalScenario(initialSessionId, appPath, uiBootstrapTime
 
   // 1. Project and entities (all through the UI).
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await click("template-card-reference_platformer", "modelo de fase de referencia");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Collect_${Date.now()}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -15273,9 +15301,7 @@ async function runCollectGoalScenario(initialSessionId, appPath, uiBootstrapTime
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto salvo.", 300);
-  await click("wizard-open-existing-project", "reabrir projeto");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "Projeto nao reabriu.", 300);
   if (!(await js(`return Boolean(document.querySelector('[data-testid="guided-steps"]'));`))) await click("shell-persona-guiado", "modo guiado apos reinicio");
   await click("guided-step-regras", "etapa Regras apos reinicio");
@@ -17184,7 +17210,7 @@ async function runSonicAnimIntegradaScenario(sessionId, app, romPath, base, save
           sessionIdRef,
           `return {
             visible: Boolean(document.querySelector('[data-testid="project-wizard-body"]')),
-            firstUse: document.body.innerText.includes("Wizard de Primeiro Uso"),
+            firstUse: document.body.innerText.includes("Seu próximo jogo"),
             explicitClose: Boolean(document.querySelector('[data-testid="wizard-continue-without-project"]')),
           };`
         );
@@ -17197,7 +17223,7 @@ async function runSonicAnimIntegradaScenario(sessionId, app, romPath, base, save
       sessionIdRef,
       `return {
         visible: Boolean(document.querySelector('[data-testid="project-wizard-body"]')),
-        firstUse: document.body.innerText.includes("Wizard de Primeiro Uso"),
+        firstUse: document.body.innerText.includes("Seu próximo jogo"),
         explicitClose: Boolean(document.querySelector('[data-testid="wizard-continue-without-project"]')),
       };`
     ));
@@ -19435,20 +19461,13 @@ async function handleProjectWizardVisibly(sessionId, label) {
     return { label, action: "not-visible" };
   }
 
-  const wizardAction = await waitFor(
-    async () => executeScript(
-      sessionId,
-      `return document.querySelector('[data-testid="wizard-open-existing-project"]') ? "existing" : document.querySelector('[data-testid="template-card-empty"]') ? "empty" : false;`
-    ),
-    15000,
-    `Controles do wizard não apareceram (${label})`,
-    100
-  );
-  if (wizardAction === "existing") {
+  const existing = await executeScript(sessionId, `return !!document.querySelector('[data-testid="wizard-open-existing-project"]');`);
+  const wizardAction = existing ? "existing" : "empty";
+  if (existing) {
+    await clickElement(sessionId, await findElement(sessionId, '.rds-start-more > summary'));
     await clickButtonByTestIdNativeWhenReady(sessionId, "wizard-open-existing-project", `${label}: abrir projeto existente`);
   } else {
-    await clickButtonByTestIdNativeWhenReady(sessionId, "template-card-empty", `${label}: selecionar Projeto Vazio`);
-    await clickButtonByTestIdNativeWhenReady(sessionId, "wizard-target-megadrive", `${label}: selecionar Mega Drive`);
+    await prepareBlankProjectWizard(sessionId);
     await clickButtonByTestIdNativeWhenReady(sessionId, "wizard-create-project", `${label}: concluir wizard`);
   }
 
@@ -23572,29 +23591,57 @@ async function waitForAppWindowReady(sessionId, timeoutMs, label) {
   }
 }
 
-async function waitForOnboardingWizard(sessionId) {
-  return waitFor(
-    async () =>
-      executeScript(
-        sessionId,
-        `
-          const templateCard = document.querySelector('[data-testid="template-card-starter_guided"]');
-          const nameInput = document.querySelector('input[placeholder="Nome do projeto"]');
-          const createButton = Array.from(document.querySelectorAll("button")).find((button) => {
-            const text = button.textContent?.replace(/\\s+/g, " ").trim() ?? "";
-            return text === "Criar Projeto";
-          });
-          return templateCard && nameInput && createButton
-            ? {
-                createDisabled: Boolean(createButton.disabled),
-              }
-            : false;
-        `
-      ),
-    30000,
-    "Wizard de primeiro uso nao ficou pronto com template e acoes visiveis.",
-    250
-  );
+// These builders deliberately navigate the real progressive wizard. They do not
+// inject application state or add compatibility controls to the product.
+async function waitForProjectWizard(sessionId) {
+  return waitFor(() => executeScript(sessionId, `const e=document.querySelector('[data-testid="project-start-wizard"]');return e?{step:e.dataset.step,target:e.dataset.target}:false;`), 30000, "Assistente de projeto não apareceu.", 100);
+}
+async function prepareWizardHome(sessionId) {
+  await waitForProjectWizard(sessionId);
+  for (let n = 0; n < 5; n += 1) {
+    if ((await waitForProjectWizard(sessionId)).step === "home") return;
+    await clickButtonByTestIdNative(sessionId, "wizard-back");
+  }
+  fail("Não foi possível voltar ao início do assistente.");
+}
+async function prepareWizardTemplateGallery(sessionId, target = "megadrive") {
+  await prepareWizardHome(sessionId);
+  await clickButtonByTestIdNative(sessionId, "wizard-intent-template");
+  await clickButtonByTestIdNative(sessionId, `wizard-target-${target}`);
+  await waitFor(() => executeScript(sessionId, `return !!document.querySelector('[data-testid="template-card-starter_guided"]');`), 15000, "Catálogo do console não carregou.", 100);
+}
+async function prepareDefaultProjectWizard(sessionId) {
+  const state = await waitForProjectWizard(sessionId);
+  if (state.step === "home") await prepareWizardTemplateGallery(sessionId);
+  return waitForProjectWizard(sessionId);
+}
+// Legacy collision/reopen journeys still exercise the visible known-path card.
+// Its name field and location details now belong to a dedicated creation step.
+async function prepareExistingProjectWizard(sessionId) {
+  if ((await waitForProjectWizard(sessionId)).step !== "details") {
+    await prepareWizardTemplateGallery(sessionId);
+    await clickButtonByTestIdNative(sessionId, "template-card-starter_guided");
+  }
+  const closed = await executeScript(sessionId, `return document.querySelector('.rds-start-more')?.open === false;`);
+  if (closed) await clickElement(sessionId, await findElement(sessionId, '.rds-start-more > summary'));
+}
+async function prepareBlankProjectWizard(sessionId, target = "megadrive") {
+  await prepareWizardHome(sessionId);
+  await clickButtonByTestIdNative(sessionId, "wizard-intent-new");
+  await clickButtonByTestIdNative(sessionId, `wizard-target-${target}`);
+}
+async function openSavedProjectWizard(sessionId, projectDir) {
+  await prepareWizardHome(sessionId);
+  await clickButtonByTestIdNative(sessionId, "wizard-intent-open");
+  // Only substitute the OS file chooser result. The visible action and canonical
+  // project reader/hydrator still perform the entire open operation.
+  await executeScript(sessionId, "return window.__RDS_E2E__.setNextProjectOpenFile(arguments[0]);", [path.join(projectDir, "project.rds")]);
+  await clickButtonByTestIdNative(sessionId, "wizard-open-project");
+}
+async function prepareExternalImportWizard(sessionId) {
+  await prepareWizardHome(sessionId);
+  await clickButtonByTestIdNative(sessionId, "wizard-intent-import");
+  await clickElement(sessionId, await findElement(sessionId, '[data-testid="wizard-external-import-section"] > summary'));
 }
 
 function summarizeDriverLogs(logs) {
@@ -25371,7 +25418,7 @@ async function main() {
 
     if (options.scenario === "onboarding-shell") {
       const artifactPrefix = `onboarding-shell-${artifactTimestamp()}`;
-      await waitForOnboardingWizard(sessionId);
+      await prepareDefaultProjectWizard(sessionId);
       const wizardScreenshot = await captureScreenshot(
         sessionId,
         `${artifactPrefix}-wizard.png`
@@ -25379,7 +25426,7 @@ async function main() {
 
       const templateCard = await findElement(sessionId, "[data-testid='template-card-starter_guided']");
       await clickElement(sessionId, templateCard);
-      await waitForOnboardingWizard(sessionId);
+      await prepareDefaultProjectWizard(sessionId);
 
       const generatedProjectName = `E2E_Onboarding_${Date.now()}`;
       await setInputByTestIdNative(sessionId, "wizard-project-name", generatedProjectName);
@@ -25798,7 +25845,7 @@ async function main() {
 
       await setSessionWindowRect(sessionId, 1920, 1080);
 
-      await waitForOnboardingWizard(sessionId);
+      await prepareDefaultProjectWizard(sessionId);
       addReportArtifact(
         report,
         await captureScreenshot(sessionId, `${artifactPrefix}-01-wizard.png`),
@@ -25806,8 +25853,7 @@ async function main() {
       );
       addReportStep(report, "open_wizard", "passed");
 
-      await clickByTestId(sessionId, "template-card-empty");
-      await clickButtonByText(sessionId, "Mega Drive", "exact");
+      await prepareBlankProjectWizard(sessionId);
 
       const generatedProjectName = `E2E_Create_From_Zero_${Date.now()}`;
       await fillInputBySelector(
@@ -26155,6 +26201,7 @@ async function main() {
         "closed wizard"
       );
 
+      await prepareExistingProjectWizard(sessionId);
       await fillInputBySelector(
         sessionId,
         'input[placeholder="Nome do projeto"]',
@@ -26260,7 +26307,7 @@ async function main() {
 
       try {
         await setSessionWindowRect(sessionId, 1920, 1080);
-        await waitForOnboardingWizard(sessionId);
+        await prepareDefaultProjectWizard(sessionId);
         const wizardScreenshot = await captureScreenshot(
           sessionId,
           `${artifactPrefix}-A-wizard.png`
@@ -26271,7 +26318,7 @@ async function main() {
         const importWizardTarget = UI_LAYOUT_ORACLE_TARGETS.find((target) => target.id === "import-wizard");
         for (const resolution of UI_LAYOUT_ORACLE_RESOLUTIONS) {
           await setSessionWindowRect(sessionId, resolution.width, resolution.height);
-          await waitForOnboardingWizard(sessionId);
+          await prepareDefaultProjectWizard(sessionId);
           await runUiLayoutOracleCheck(
             sessionId,
             importWizardTarget,
@@ -26287,7 +26334,7 @@ async function main() {
 
         const templateCard = await findElement(sessionId, "[data-testid='template-card-starter_guided']");
         await clickElement(sessionId, templateCard);
-        await waitForOnboardingWizard(sessionId);
+        await prepareDefaultProjectWizard(sessionId);
 
         const generatedProjectName = `QA_RC_${Date.now()}`;
         await fillInputBySelector(

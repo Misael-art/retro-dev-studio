@@ -15,8 +15,8 @@ afterEach(() => { vi.restoreAllMocks(); localStorage.clear(); });
 
 describe("studio appearance preferences", () => {
   it("remembers a choice and rejects unknown or missing preferences", () => {
-    expect(saveStudioTheme("mega-drive")).toBe(true);
-    expect(loadStudioTheme()).toBe("mega-drive");
+    expect(saveStudioTheme("mega-drive-night")).toBe(true);
+    expect(loadStudioTheme()).toBe("mega-drive-night");
     expect(normalizeStudioTheme("unrecognized")).toBe(DEFAULT_STUDIO_THEME);
     expect(normalizeStudioTheme(null)).toBe(DEFAULT_STUDIO_THEME);
   });
@@ -25,7 +25,15 @@ describe("studio appearance preferences", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw Error("unavailable"); });
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw Error("quota"); });
     expect(loadStudioTheme()).toBe(DEFAULT_STUDIO_THEME);
-    expect(saveStudioTheme("arcade")).toBe(false);
+    expect(saveStudioTheme("mega-drive-16bit")).toBe(false);
+  });
+
+  it("migrates the previous four theme choices without leaving an unknown palette", () => {
+    expect(normalizeStudioTheme("super-16")).toBe("super-nintendo");
+    expect(normalizeStudioTheme("mega-drive")).toBe("mega-drive-night");
+    expect(normalizeStudioTheme("portable")).toBe("super-famicom");
+    expect(normalizeStudioTheme("arcade")).toBe("mega-drive-16bit");
+    expect(STUDIO_THEMES.filter(t => t.scheme === "light").map(t => t.id)).toEqual(["super-nintendo", "super-famicom"]);
   });
 
   it("keeps normal text readable and workspace colors distinct from their panels in every theme", () => {
@@ -35,11 +43,10 @@ describe("studio appearance preferences", () => {
           expect(contrast(foreground, background), `${theme.id}: ${foreground}/${background}`).toBeGreaterThanOrEqual(4.5);
         }
       }
-      expect(contrast("#ffffff", theme.primary), theme.id).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(theme.onPrimary, theme.primary), theme.id).toBeGreaterThanOrEqual(4.5);
       for (const color of theme.colors) expect(contrast(color, theme.panel), theme.id).toBeGreaterThanOrEqual(3);
       const tokens = getStudioThemeVariables(theme.id);
-      expect(tokens["--rds-status-error"]).toBeUndefined();
-      expect(tokens["--rds-status-success"]).toBeUndefined();
+      expect(tokens["--rds-status-error"]).not.toEqual(tokens["--rds-status-success"]);
     }
   });
 });

@@ -19,6 +19,7 @@ describe("studio appearance picker", () => {
   afterEach(() => {
     act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); localStorage.clear();
     delete document.documentElement.dataset.studioTheme;
+    delete document.documentElement.dataset.theme;
     if (originalStyle === null) document.documentElement.removeAttribute("style");
     else document.documentElement.setAttribute("style", originalStyle);
   });
@@ -28,9 +29,9 @@ describe("studio appearance picker", () => {
   it("applies the chosen theme immediately, persists it and restores focus on closing", () => {
     const trigger = container.querySelector<HTMLButtonElement>("button")!;
     trigger.focus(); open();
-    act(() => document.querySelector<HTMLInputElement>('[data-testid="studio-theme-arcade"]')!.click());
-    expect(document.documentElement.dataset.studioTheme).toBe("arcade");
-    expect(localStorage.getItem("retrodev-studio-theme")).toBe("arcade");
+    act(() => document.querySelector<HTMLInputElement>('[data-testid="studio-theme-mega-drive-16bit"]')!.click());
+    expect(document.documentElement.dataset.studioTheme).toBe("mega-drive-16bit");
+    expect(localStorage.getItem("retrodev-studio-theme")).toBe("mega-drive-16bit");
     act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
@@ -39,10 +40,10 @@ describe("studio appearance picker", () => {
   it("announces a session-only choice after a storage error and keeps the radio selected", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw Error("unavailable"); });
     open();
-    const option = document.querySelector<HTMLInputElement>('[data-testid="studio-theme-portable"]')!;
+    const option = document.querySelector<HTMLInputElement>('[data-testid="studio-theme-super-famicom"]')!;
     act(() => option.click());
     expect(option.checked).toBe(true);
-    expect(document.documentElement.dataset.studioTheme).toBe("portable");
+    expect(document.documentElement.dataset.studioTheme).toBe("super-famicom");
     expect(document.querySelector('[role="status"]')?.textContent).toContain("nesta sessão");
     expect(document.querySelector('[role="status"]')?.textContent).not.toContain("será lembrada");
   });

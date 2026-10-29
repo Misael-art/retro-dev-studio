@@ -2462,35 +2462,14 @@ describe("App build flow", () => {
       await flush();
     });
 
-    expect(container.textContent).toContain("Wizard de Primeiro Uso");
-    expect(container.textContent).toContain("Mega Drive");
-    expect(container.textContent).toContain("Projeto Vazio");
-    expect(container.textContent).toContain("Primeiro Projeto");
-    expect(container.textContent).toContain("Plataforma");
-    expect(container.textContent).toContain("Experimental");
-    expect(container.textContent).toContain("Criar Projeto");
-    expect(container.textContent).toContain("Importar projeto existente");
-    expect(container.textContent).toContain("Abrir importador");
-    expect(container.textContent).not.toContain("Importando...");
-    expect(container.querySelector("[data-testid='project-wizard-body']")).toBeInstanceOf(HTMLDivElement);
-    const recommendedStart = container.querySelector("[data-testid='wizard-recommended-start']");
-    const importAdvanced = container.querySelector("[data-testid='wizard-import-advanced']");
-    expect(recommendedStart?.textContent).toContain("Projeto Vazio");
-    expect(recommendedStart?.textContent).toContain("Primeiro Projeto");
-    expect(recommendedStart?.textContent).not.toContain("Plataforma");
-    expect(importAdvanced?.textContent).toContain("Plataforma");
-    expect(importAdvanced?.textContent).toContain("Experimental");
-    const wizardActions = container.querySelector("[data-testid='project-wizard-actions']");
-    expect(wizardActions).toBeInstanceOf(HTMLDivElement);
-    expect(wizardActions?.textContent).toContain("Criar Projeto");
-    expect(wizardActions?.textContent).toContain("Abrir Projeto");
-    expect(wizardActions?.textContent).not.toContain("Importar Projeto Externo");
-    expect(container.querySelector("[data-testid='template-first-success']")?.textContent).toContain(
-      "Primeiro Projeto"
-    );
-    expect(container.querySelector("[data-testid='template-first-success']")?.textContent).toContain(
-      "Rodar Build & Run (Mega Drive)"
-    );
+    expect(container.textContent).toContain("O que você quer criar hoje?");
+    for (const intent of ["new", "template", "open", "import"]) {
+      expect(container.querySelector('[data-testid="wizard-intent-' + intent + '"]')).toBeInstanceOf(HTMLButtonElement);
+    }
+    expect(container.querySelector('[data-testid="wizard-project-name"]')).toBeNull();
+    expect(container.querySelector('[data-testid="wizard-create-project"]')).toBeNull();
+    expect(container.querySelector('[data-testid="wizard-open-project"]')).toBeNull();
+    expect(container.querySelector('[data-testid="external-import-confirm"]')).toBeNull();
   });
 
   it("closes the first-use wizard explicitly and keeps onboarding available afterwards", async () => {
@@ -2506,12 +2485,12 @@ describe("App build flow", () => {
       await flush();
     });
 
-    expect(container.textContent).toContain("Wizard de Primeiro Uso");
+    expect(container.textContent).toContain("Seu próximo jogo");
     const closeButton = container.querySelector<HTMLButtonElement>(
       "[data-testid='wizard-continue-without-project']"
     );
     expect(closeButton).toBeInstanceOf(HTMLButtonElement);
-    expect(closeButton?.textContent).toContain("Continuar sem projeto");
+    expect(closeButton?.textContent).toContain("Explorar sem projeto");
 
     await act(async () => {
       closeButton?.click();
@@ -2536,7 +2515,7 @@ describe("App build flow", () => {
       await flush();
     });
 
-    expect(container.textContent).toContain("Wizard de Primeiro Uso");
+    expect(container.textContent).toContain("Seu próximo jogo");
     expect(
       container.querySelector("[data-testid='wizard-continue-without-project']")
     ).toBeInstanceOf(HTMLButtonElement);
@@ -3239,436 +3218,124 @@ describe("App build flow", () => {
     );
   });
 
-  it("creates a project from the selected template card", async () => {
+  async function wizardClick(id: string) {
+    const button = container.querySelector('[data-testid="' + id + '"]') as HTMLButtonElement;
+    expect(button, id).toBeInstanceOf(HTMLButtonElement);
+    await act(async () => { button.click(); await flush(); await flush(); });
+  }
+  async function wizardHome() {
     await act(async () => {
-      useEditorStore.setState({
-        activeProjectDir: "",
-        activeProjectName: "",
-        activeScenePath: "",
-        activeScene: null,
-        hwStatus: null,
-      });
-      await flush();
-      await flush();
+      useEditorStore.setState({activeProjectDir:"",activeProjectName:"",activeScenePath:"",activeScene:null,activeSceneSource:null,hwStatus:null});
+      await flush(); await flush();
     });
+  }
+  async function wizardTemplate(target = "megadrive", id = "starter_guided") {
+    await wizardClick("wizard-intent-template"); await wizardClick("wizard-target-"+target);
+    await wizardClick("template-card-"+id);
+  }
+  async function wizardImport(profile = "sgdk") {
+    await wizardClick("wizard-intent-import"); await wizardClick("external-import-profile-"+profile);
+  }
 
-    const starterCard = container.querySelector(
-      "[data-testid='template-card-starter_guided']"
-    ) as HTMLButtonElement | null;
-    const chooseButton = findButtonInContext(container, "Escolher", "Pasta base");
-    const createButton = findButton(container, "Criar Projeto");
-
-    await act(async () => {
-      starterCard?.click();
-      await flush();
-    });
-
-    await act(async () => {
-      chooseButton.click();
-      await flush();
-      await flush();
-    });
-
-    expect(container.textContent).toContain("F:/Projects/RetroDevStudio/tests/fixtures");
-
-    await act(async () => {
-      createButton.click();
-      await flush();
-      await flush();
-    });
-
-    expect(mocks.createProjectFromTemplate).toHaveBeenCalledWith(
-      "MeuProjeto",
-      "megadrive",
-      "F:/Projects/RetroDevStudio/tests/fixtures",
-      "starter_guided",
-      undefined
-    );
+  it("creates a new copy from a template without opening a destination picker", async () => {
+    await wizardHome(); await wizardTemplate();
+    expect(mocks.dialogOpen).not.toHaveBeenCalled();
+    await wizardClick("wizard-create-project");
+    expect(mocks.createProjectFromTemplate).toHaveBeenCalledWith("MeuProjeto","megadrive","","starter_guided",undefined);
+    expect(mocks.openProjectDialog).not.toHaveBeenCalled();
   });
-
-  it("exposes the reference platformer and prevents selecting its unsupported SNES target", async () => {
-    await act(async () => {
-      useEditorStore.setState({
-        activeProjectDir: "",
-        activeProjectName: "",
-        activeScenePath: "",
-        activeScene: null,
-        activeSceneSource: null,
-        hwStatus: null,
-      });
-      await flush();
-      await flush();
-    });
-
-    const referenceCard = container.querySelector(
-      "[data-testid='template-card-reference_platformer']"
-    ) as HTMLButtonElement | null;
-    expect(referenceCard).toBeInstanceOf(HTMLButtonElement);
-    expect(referenceCard?.textContent).toContain("Experimental");
-
-    const createButton = findButton(container, "Criar Projeto");
-    await act(async () => {
-      findButton(container, "SNES").click();
-      await flush();
-      referenceCard?.click();
-      await flush();
-    });
-    expect((findButton(container, "SNES") as HTMLButtonElement).disabled).toBe(true);
-    expect(findButton(container, "Mega Drive").getAttribute("aria-pressed")).toBe("true");
-    expect(container.textContent).toContain("Este modelo é exclusivo de Mega Drive");
-    await act(async () => {
-      createButton.click();
-      await flush();
-      await flush();
-    });
-
-    expect(mocks.createProjectFromTemplate).toHaveBeenCalledWith(
-      "MeuProjeto",
-      "megadrive",
-      "",
-      "reference_platformer",
-      undefined
-    );
+  it("creates a blank Super Nintendo project through the platform branch", async () => {
+    await wizardHome(); await wizardClick("wizard-intent-new"); await wizardClick("wizard-target-snes");
+    expect(container.textContent).toContain("Projeto do zero");
+    await wizardClick("wizard-create-project");
+    expect(mocks.createProjectFromTemplate).toHaveBeenCalledWith("MeuProjeto","snes","","empty",undefined);
+    expect(mocks.dialogOpen).not.toHaveBeenCalled();
   });
-
-  it("allows creating a project without choosing a base directory explicitly", async () => {
-    await act(async () => {
-      useEditorStore.setState({
-        activeProjectDir: "",
-        activeProjectName: "",
-        activeScenePath: "",
-        activeScene: null,
-        activeSceneSource: null,
-        hwStatus: null,
-      });
-      await flush();
-      await flush();
-    });
-
-    const starterCard = container.querySelector(
-      "[data-testid='template-card-starter_guided']"
-    ) as HTMLButtonElement | null;
-    const createButton = findButton(container, "Criar Projeto");
-
-    await act(async () => {
-      starterCard?.click();
-      await flush();
-    });
-
-    await act(async () => {
-      createButton.click();
-      await flush();
-      await flush();
-    });
-
-    expect(mocks.createProjectFromTemplate).toHaveBeenCalledWith(
-      "MeuProjeto",
-      "megadrive",
-      "",
-      "starter_guided",
-      undefined
-    );
+  it("filters Mega Drive-only models from the SNES gallery and restores them after Back", async () => {
+    await wizardHome(); await wizardClick("wizard-intent-template"); await wizardClick("wizard-target-snes");
+    expect(container.querySelector('[data-testid="template-card-reference_platformer"]')).toBeNull();
+    expect(container.querySelector('[data-testid="template-card-starter_guided"]')).toBeInstanceOf(HTMLButtonElement);
+    await wizardClick("wizard-back"); await wizardClick("wizard-target-megadrive");
+    await wizardClick("template-card-reference_platformer"); await wizardClick("wizard-create-project");
+    expect(mocks.createProjectFromTemplate).toHaveBeenCalledWith("MeuProjeto","megadrive","","reference_platformer",undefined);
   });
-
-  it("requires a donor folder before creating an external SGDK template project", async () => {
-    await act(async () => {
-      useEditorStore.setState({
-        activeProjectDir: "",
-        activeProjectName: "",
-        activeScenePath: "",
-        activeScene: null,
-        activeSceneSource: null,
-        hwStatus: null,
-      });
-      await flush();
-      await flush();
-    });
-
-    const platformerCard = container.querySelector(
-      "[data-testid='template-card-platformer_seed']"
-    ) as HTMLButtonElement | null;
-    const createButton = findButton(container, "Criar Projeto");
-
-    await act(async () => {
-      platformerCard?.click();
-      await flush();
-    });
-
+  it("keeps external donor templates in the import branch and blocks creation until a donor is chosen", async () => {
+    await wizardHome(); await wizardClick("wizard-intent-import");
+    await wizardClick("template-card-platformer_seed");
+    const create=container.querySelector('[data-testid="wizard-create-project"]') as HTMLButtonElement;
+    expect(create.disabled).toBe(true);
     expect(container.textContent).toContain("Requer pasta");
-    expect(createButton.disabled).toBe(true);
-    expect(container.querySelector("[data-testid='template-first-success']")?.textContent).toContain(
-      "Escolher pasta doadora SGDK"
-    );
-    expect(container.querySelector("[data-testid='template-first-success']")?.textContent).toContain(
-      "Bloqueio"
-    );
-
-    await act(async () => {
-      createButton.click();
-      await flush();
-      await flush();
-    });
-
+    expect(container.querySelector('[data-testid="template-first-success"]')?.textContent).toContain("Bloqueio");
+    await act(async () => { create.click(); await flush(); });
     expect(mocks.createProjectFromTemplate).not.toHaveBeenCalled();
   });
-
-  it("creates an external SGDK template project after choosing a donor folder manually", async () => {
-    await act(async () => {
-      useEditorStore.setState({
-        activeProjectDir: "",
-        activeProjectName: "",
-        activeScenePath: "",
-        activeScene: null,
-        activeSceneSource: null,
-        hwStatus: null,
-      });
-      await flush();
-      await flush();
-    });
-
+  it("creates an external donor model only after explicitly choosing its source folder", async () => {
+    await wizardHome(); await wizardClick("wizard-intent-import"); await wizardClick("template-card-platformer_seed");
     mocks.dialogOpen.mockResolvedValueOnce("F:/Projects/RetroDevStudio/tests/donors/platformer");
-
-    const platformerCard = container.querySelector(
-      "[data-testid='template-card-platformer_seed']"
-    ) as HTMLButtonElement | null;
-    const chooseDonorButton = findButtonInContext(container, "Escolher pasta...", "Template doador");
-    const createButton = findButton(container, "Criar Projeto");
-
-    await act(async () => {
-      platformerCard?.click();
-      await flush();
-    });
-
-    await act(async () => {
-      chooseDonorButton.click();
-      await flush();
-      await flush();
-    });
-
-    expect(container.textContent).toContain("Configurado");
-    expect(createButton.disabled).toBe(false);
-    expect(container.textContent).toContain("F:/Projects/RetroDevStudio/tests/donors/platformer");
-    expect(container.querySelector("[data-testid='template-first-success']")?.textContent).toContain(
-      "Pasta doadora configurada"
-    );
-    expect(container.querySelector("[data-testid='template-first-success']")?.textContent).toContain(
-      "Pronto"
-    );
-
-    await act(async () => {
-      createButton.click();
-      await flush();
-      await flush();
-    });
-
-    expect(mocks.createProjectFromTemplate).toHaveBeenCalledWith(
-      "MeuProjeto",
-      "megadrive",
-      "",
-      "platformer_seed",
-      "F:/Projects/RetroDevStudio/tests/donors/platformer"
-    );
+    await act(async () => { findButtonInContext(container,"Escolher pasta...","Template doador").click(); await flush(); await flush(); });
+    await wizardClick("wizard-create-project");
+    expect(mocks.createProjectFromTemplate).toHaveBeenCalledWith("MeuProjeto","megadrive","","platformer_seed","F:/Projects/RetroDevStudio/tests/donors/platformer");
   });
-
-  it("shows the backend-provided automatic base directory hint in the wizard", async () => {
-    await act(async () => {
-      useEditorStore.setState({
-        activeProjectDir: "",
-        activeProjectName: "",
-        activeScenePath: "",
-        activeScene: null,
-        activeSceneSource: null,
-        hwStatus: null,
-      });
-      await flush();
-      await flush();
-    });
-
-    expect(container.textContent).toContain("C:/Users/Test/Documents/RetroDevProjects");
-    expect(container.textContent).toContain(
-      "Se voce nao escolher uma pasta, o RetroDev usara"
-    );
+  it("shows the automatic location only after choosing a creation path", async () => {
+    await wizardHome(); expect(container.textContent).not.toContain("C:/Users/Test/Documents/RetroDevProjects");
+    await wizardTemplate();
+    expect(container.querySelector('[data-testid="wizard-project-destination"]')?.textContent).toContain("C:/Users/Test/Documents/RetroDevProjects/MeuProjeto");
+    expect(container.textContent).toContain("local padrão");
+    expect(Array.from(container.querySelectorAll("button")).some(b=>b.textContent?.trim()==="Escolher")).toBe(false);
   });
-
-  it("shows the estimated project destination and the automatic suffix hint in the wizard", async () => {
-    await act(async () => {
-      useEditorStore.setState({
-        activeProjectDir: "",
-        activeProjectName: "",
-        activeScenePath: "",
-        activeScene: null,
-        activeSceneSource: null,
-        hwStatus: null,
-      });
-      await flush();
-      await flush();
-    });
-
-    const destination = container.querySelector(
-      "[data-testid='wizard-project-destination']"
-    ) as HTMLElement | null;
-    const nameInput = container.querySelector(
-      "input[placeholder='Nome do projeto']"
-    ) as HTMLInputElement | null;
-
-    expect(destination?.textContent).toContain(
-      "C:/Users/Test/Documents/RetroDevProjects/MeuProjeto"
-    );
-    expect(container.textContent).toContain("MeuProjeto_2");
-
-    await act(async () => {
-      if (!nameInput) {
-        throw new Error("Project name input not found");
-      }
-      const descriptor = Object.getOwnPropertyDescriptor(
-        window.HTMLInputElement.prototype,
-        "value"
-      );
-      descriptor?.set?.call(nameInput, "Meu Projeto!");
-      nameInput.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
-      nameInput.dispatchEvent(new Event("change", { bubbles: true }));
-      await flush();
-      await flush();
-    });
-
-    expect(destination?.textContent).toContain(
-      "C:/Users/Test/Documents/RetroDevProjects/Meu_Projeto"
-    );
-    expect(container.textContent).toContain("Meu_Projeto_2");
+  it("updates the destination preview when the user edits the name", async () => {
+    await wizardHome(); await wizardTemplate();
+    const input=container.querySelector('[data-testid="wizard-project-name"]') as HTMLInputElement;
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value")?.set?.call(input,"Meu Projeto!"); input.dispatchEvent(new Event("input",{bubbles:true}));input.dispatchEvent(new Event("change",{bubbles:true}));await flush();await flush(); });
+    expect(container.querySelector('[data-testid="wizard-project-destination"]')?.textContent).toContain("Meu_Projeto");
   });
-
-  it("offers to open an existing RetroDev project and auto-suggests a free name", async () => {
-    mocks.previewProjectDestination.mockImplementation((projectName: string, baseDir: string) => {
-      if (projectName === "MeuProjeto") {
-        return Promise.resolve(
-          createProjectDestinationPreview(projectName, baseDir, {
-            suggested_name: "MeuProjeto 2",
-            suggested_dir_name: "MeuProjeto_2",
-            resolved_path: `${baseDir}/MeuProjeto_2`,
-            collision_status: "existing_project",
-            existing_project_path: `${baseDir}/MeuProjeto`,
-            existing_project_name: "Projeto Antigo",
-          })
-        );
-      }
-
-      return Promise.resolve(createProjectDestinationPreview(projectName, baseDir));
-    });
-    mocks.openProjectPath.mockResolvedValue({
-      selected: true,
-      path: "C:/Users/Test/Documents/RetroDevProjects/MeuProjeto",
-      name: "Projeto Antigo",
-    });
-
-    await act(async () => {
-      useEditorStore.setState({
-        activeProjectDir: "",
-        activeProjectName: "",
-        activeScenePath: "",
-        activeScene: null,
-        activeSceneSource: null,
-        hwStatus: null,
-      });
-      await flush();
-      await flush();
-    });
-
-    await flushUntil(() => {
-      const nameInput = container.querySelector(
-        "input[placeholder='Nome do projeto']"
-      ) as HTMLInputElement | null;
-      return nameInput?.value === "MeuProjeto 2";
-    });
-
-    const nameInput = container.querySelector(
-      "input[placeholder='Nome do projeto']"
-    ) as HTMLInputElement | null;
-    const existingProjectButton = container.querySelector(
-      "[data-testid='wizard-open-existing-project']"
-    ) as HTMLButtonElement | null;
-
-    expect(nameInput?.value).toBe("MeuProjeto 2");
-    expect(container.textContent).toContain("Projeto RetroDev encontrado");
+  it("preserves collision detection and opens the known existing project without a picker", async () => {
+    mocks.previewProjectDestination.mockImplementation((name:string,base:string)=>Promise.resolve(createProjectDestinationPreview(name,base,name==="MeuProjeto"?{suggested_name:"MeuProjeto 2",suggested_dir_name:"MeuProjeto_2",resolved_path:base+"/MeuProjeto_2",collision_status:"existing_project",existing_project_path:base+"/MeuProjeto",existing_project_name:"Projeto Antigo"}:{})));
+    mocks.openProjectPath.mockResolvedValue({selected:true,path:"C:/Users/Test/Documents/RetroDevProjects/MeuProjeto",name:"Projeto Antigo"});
+    await wizardHome(); await wizardTemplate();
     expect(container.textContent).toContain("Projeto Antigo");
-    expect(container.textContent).toContain("MeuProjeto 2");
-    expect(
-      container.querySelector("[data-testid='wizard-existing-project-path']")?.textContent
-    ).toContain("C:/Users/Test/Documents/RetroDevProjects/MeuProjeto");
-
-    await act(async () => {
-      existingProjectButton?.click();
-      await flush();
-      await flush();
-    });
-
-    expect(mocks.openProjectPath).toHaveBeenCalledWith(
-      "C:/Users/Test/Documents/RetroDevProjects/MeuProjeto"
-    );
+    expect(container.querySelector('[data-testid="wizard-project-name"]')).toHaveProperty("value","MeuProjeto 2");
+    await wizardClick("wizard-open-existing-project");
+    expect(mocks.openProjectPath).toHaveBeenCalledWith("C:/Users/Test/Documents/RetroDevProjects/MeuProjeto");
+    expect(mocks.dialogOpen).not.toHaveBeenCalled();
   });
-
-  it("imports an arbitrary external project from the wizard using the default profile", async () => {
-    await act(async () => {
-      useEditorStore.setState({
-        activeProjectDir: "",
-        activeProjectName: "",
-        activeScenePath: "",
-        activeScene: null,
-        activeSceneSource: null,
-        hwStatus: null,
-      });
-      await flush();
-      await flush();
-    });
-
-    const importToggle = container.querySelector(
-      "[data-testid='wizard-external-import-toggle']"
-    ) as HTMLButtonElement | null;
-
-    expect(importToggle).toBeInstanceOf(HTMLButtonElement);
-
-    await act(async () => {
-      importToggle?.click();
-      await flush();
-    });
-
-    const importButton = findButton(container, "Importar Projeto Externo");
-
-    await act(async () => {
-      importButton.click();
-      await flush();
-      await flush();
-    });
-
-    expect(mocks.importExternalProject).toHaveBeenCalledWith(
-      "MeuProjeto",
-      "",
-      "sgdk",
-      "F:/Projects/RetroDevStudio/tests/fixtures"
-    );
+  it("does not open a source folder until the import confirmation", async () => {
+    await wizardHome(); await wizardImport();
+    expect(mocks.dialogOpen).not.toHaveBeenCalled();
+    await wizardClick("external-import-confirm");
+    expect(mocks.importExternalProject).toHaveBeenCalledWith("MeuProjeto","","sgdk","F:/Projects/RetroDevStudio/tests/fixtures");
+    expect(mocks.dialogOpen).toHaveBeenCalledWith(expect.objectContaining({directory:true}));
+  });
+  it("keeps other supported import profiles available in the secondary branch", async () => {
+    await wizardHome(); await wizardClick("wizard-intent-import");
+    for (const id of ["construct","rpg_maker","openbor"]) expect(container.querySelector('[data-testid="external-import-profile-'+id+'"]')).toBeInstanceOf(HTMLButtonElement);
+    await wizardClick("external-import-profile-godot"); await wizardClick("external-import-confirm");
+    expect(mocks.importExternalProject).toHaveBeenCalledWith("MeuProjeto","","godot","F:/Projects/RetroDevStudio/tests/fixtures");
+  });
+  it("opens only an explicitly selected project.rds file from the Open branch", async () => {
+    mocks.dialogOpen.mockResolvedValueOnce("F:/Saved Game/project.rds");
+    mocks.openProjectPath.mockResolvedValue({selected:true,path:"F:/Saved Game",name:"Saved Game"});
+    await wizardHome(); await wizardClick("wizard-intent-open"); await wizardClick("wizard-open-project");
+    expect(mocks.dialogOpen).toHaveBeenCalledWith(expect.objectContaining({directory:false,filters:[{name:"Projeto RetroDev (project.rds)",extensions:["rds"]}]}));
+    expect(mocks.openProjectPath).toHaveBeenCalledWith("F:/Saved Game");
+    expect(mocks.createProjectFromTemplate).not.toHaveBeenCalled();
+  });
+  it("keeps the open branch available after cancelling a file picker", async () => {
+    mocks.dialogOpen.mockResolvedValueOnce(null);
+    await wizardHome(); await wizardClick("wizard-intent-open"); await wizardClick("wizard-open-project");
+    expect(container.querySelector('[data-testid="project-start-wizard"]')?.getAttribute("data-step")).toBe("open");
+    expect(mocks.openProjectPath).not.toHaveBeenCalled();
+  });
+  it("shows creation errors inline without closing or losing the chosen model", async () => {
+    mocks.createProjectFromTemplate.mockRejectedValueOnce(new Error("write refused"));
+    await wizardHome(); await wizardTemplate(); await wizardClick("wizard-create-project");
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("write refused");
+    expect(container.querySelector('[data-testid="project-start-wizard"]')?.getAttribute("data-step")).toBe("details");
+    expect(container.textContent).toContain("Primeiro Projeto");
   });
 
   it("shows SGDK capabilities as an explicit matrix instead of a single support chip", async () => {
-    await act(async () => {
-      useEditorStore.setState({
-        activeProjectDir: "",
-        activeProjectName: "",
-        activeScenePath: "",
-        activeScene: null,
-        activeSceneSource: null,
-        hwStatus: null,
-      });
-      await flush();
-      await flush();
-    });
-
-    const importToggle = container.querySelector(
-      "[data-testid='wizard-external-import-toggle']"
-    ) as HTMLButtonElement | null;
-
-    await act(async () => {
-      importToggle?.click();
-      await flush();
-    });
+    await wizardHome(); await wizardImport();
 
     const matrix = container.querySelector("[data-testid='sgdk-capability-matrix']");
 
@@ -3701,33 +3368,7 @@ describe("App build flow", () => {
       },
     });
 
-    await act(async () => {
-      useEditorStore.setState({
-        activeProjectDir: "",
-        activeProjectName: "",
-        activeScenePath: "",
-        activeScene: null,
-        activeSceneSource: null,
-        hwStatus: null,
-      });
-      await flush();
-      await flush();
-    });
-
-    const importToggle = container.querySelector(
-      "[data-testid='wizard-external-import-toggle']"
-    ) as HTMLButtonElement | null;
-
-    await act(async () => {
-      importToggle?.click();
-      await flush();
-    });
-
-    await act(async () => {
-      findButton(container, "Importar Projeto Externo").click();
-      await flush();
-      await flush();
-    });
+    await wizardHome(); await wizardImport(); await wizardClick("external-import-confirm");
 
     const summary = container.querySelector("[data-testid='sgdk-import-summary']");
 
@@ -3743,98 +3384,6 @@ describe("App build flow", () => {
     expect(summary?.textContent).toContain("inline assembly branch blocks equivalence");
     expect(summary?.textContent).toContain("src/main.c");
     expect(summary?.textContent).toContain("src/player.c");
-  });
-
-  it("imports an arbitrary external project with the selected profile", async () => {
-    await act(async () => {
-      useEditorStore.setState({
-        activeProjectDir: "",
-        activeProjectName: "",
-        activeScenePath: "",
-        activeScene: null,
-        activeSceneSource: null,
-        hwStatus: null,
-      });
-      await flush();
-      await flush();
-    });
-
-    const importToggle = container.querySelector(
-      "[data-testid='wizard-external-import-toggle']"
-    ) as HTMLButtonElement | null;
-
-    expect(importToggle).toBeInstanceOf(HTMLButtonElement);
-
-    await act(async () => {
-      importToggle?.click();
-      await flush();
-    });
-
-    const profileSelect = container.querySelector(
-      "[data-testid='external-import-profile-select']"
-    ) as HTMLSelectElement | null;
-    const importButton = findButton(container, "Importar Projeto Externo");
-
-    await act(async () => {
-      if (!profileSelect) {
-        throw new Error("External import profile select not found");
-      }
-      profileSelect.value = "godot";
-      profileSelect.dispatchEvent(new Event("change", { bubbles: true }));
-      await flush();
-    });
-
-    await act(async () => {
-      importButton.click();
-      await flush();
-      await flush();
-    });
-
-    expect(mocks.importExternalProject).toHaveBeenCalledWith(
-      "MeuProjeto",
-      "",
-      "godot",
-      "F:/Projects/RetroDevStudio/tests/fixtures"
-    );
-  });
-
-  it("shows the newly supported external profiles in the selector", async () => {
-    await act(async () => {
-      useEditorStore.setState({
-        activeProjectDir: "",
-        activeProjectName: "",
-        activeScenePath: "",
-        activeScene: null,
-        activeSceneSource: null,
-        hwStatus: null,
-      });
-      await flush();
-      await flush();
-    });
-
-    const importToggle = container.querySelector(
-      "[data-testid='wizard-external-import-toggle']"
-    ) as HTMLButtonElement | null;
-
-    expect(importToggle).toBeInstanceOf(HTMLButtonElement);
-
-    await act(async () => {
-      importToggle?.click();
-      await flush();
-    });
-
-    const profileSelect = container.querySelector(
-      "[data-testid='external-import-profile-select']"
-    ) as HTMLSelectElement | null;
-
-    if (!profileSelect) {
-      throw new Error("External import profile select not found");
-    }
-
-    const options = Array.from(profileSelect.options).map((option) => option.value);
-    expect(options).toContain("construct");
-    expect(options).toContain("rpg_maker");
-    expect(options).toContain("openbor");
   });
 
   it("does not start the frame loop when the game tab opens without a loaded ROM", async () => {

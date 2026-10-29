@@ -28,7 +28,7 @@ export default function StudioAppearancePicker() {
             data-testid={`studio-theme-${option.id}`} onChange={() => choose(option.id)} />
           <span className="rds-theme-preview" aria-hidden="true" style={{ background: option.base }}>
             <span style={{ background: option.elevated }} />
-            {option.colors.slice(0, 4).map((color) => <i key={color} style={{ background: color }} />)}
+            {option.hardware.map((color) => <i key={color} style={{ background: color }} />)}
           </span>
           <span className="rds-theme-name">{option.label}</span>
           <span className="rds-theme-description">{option.description}</span>

@@ -1,3 +1,4 @@
+import ProjectStartWizard from "./components/common/ProjectStartWizard";
 import Icon, { type IconName } from "./components/common/Icon";
 import StudioAppearancePicker from "./components/common/StudioAppearancePicker";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
@@ -242,7 +243,7 @@ function ToolbarButton({
     accent === "primary"
       ? "bg-[var(--rds-accent)] text-[var(--rds-on-accent)] hover:bg-[var(--rds-accent-hover)]"
       : accent === "success"
-        ? "bg-[var(--rds-status-success)] text-[#10251a] hover:bg-[var(--rds-status-success-hover)]"
+        ? "bg-[var(--rds-status-success)] text-[var(--rds-status-success-text)] hover:bg-[var(--rds-status-success-hover)]"
         : accent === "danger"
           ? "bg-[var(--rds-action-danger)] text-[var(--rds-on-accent)] hover:bg-[var(--rds-status-error-hover)]"
           : "bg-[var(--rds-surface-control)] text-[var(--rds-text-secondary)] hover:bg-[var(--rds-surface-control-hover)]";
@@ -598,7 +599,7 @@ function WorkspaceGuideCard({ guide }: { guide: WorkspaceGuide }) {
       data-testid="workspace-guide"
       data-expanded={expanded ? "true" : "false"}
       title={`${guide.title} — ${guide.summary}`}
-      className={`mx-4 mt-2 rounded-xl border border-[#313244] bg-[linear-gradient(135deg,#0b1020,#111827_55%,#0f172a)] px-3 shadow-[0_12px_24px_rgba(0,0,0,0.16)] ${
+      className={`mx-4 mt-2 rounded-xl border border-[#313244] bg-[var(--rds-surface-panel)] px-3 shadow-[0_12px_24px_rgba(0,0,0,0.16)] ${
         expanded ? "py-2.5" : "py-1.5"
       }`}
     >
@@ -1592,6 +1593,8 @@ type AutomationApi = {
   /** Proximo caminho devolvido pelo seletor de pasta da importacao externa, no lugar do
    * dialogo nativo (que a automacao nao dirige). O resto do fluxo continua visivel. E2E / QA. */
   setNextExternalImportPath: (path: string) => boolean;
+  /** Substitui apenas o resultado do seletor de arquivo, preservando o fluxo de abertura. E2E / QA. */
+  setNextProjectOpenFile: (path: string | null) => boolean;
   setNextAudioImportPath: (path: string) => boolean;
   setNextImageImportPath: (path: string) => boolean;
   getState: () => AutomationState;
@@ -1846,8 +1849,10 @@ export default function App() {
   mugenStateRef.current = { open: mugenPanelOpen, reports: mugenReports };
   // Automacao E2E: substitui SO o dialogo nativo de pasta (que o WebDriver nao dirige).
   const pendingExternalImportPathRef = useRef<string | null>(null);
+  const pendingProjectOpenFileRef = useRef<{ path: string | null } | null>(null);
   const [showProjectWizard, setShowProjectWizard] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
+  const [projectWizardError, setProjectWizardError] = useState("");
   const [showAbout, setShowAbout] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showDelivery, setShowDelivery] = useState(false);
@@ -1866,7 +1871,6 @@ export default function App() {
   );
   const [copiedEntity, setCopiedEntity] = useState<Entity | null>(null);
   const [explorerBreadcrumb, setExplorerBreadcrumb] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const buildInFlightRef = useRef(false);
   const panelGroupRef = useRef<GroupImperativeHandle | null>(null);
   const lastNonFocusLayoutRef = useRef<LayoutMap | null>(null);
@@ -1888,11 +1892,8 @@ export default function App() {
 
   const selectedTemplate =
     projectTemplates.find((template) => template.id === selectedTemplateId) ?? null;
-  const recommendedProjectTemplates = projectTemplates.filter(
-    (template) => template.source_kind === "builtin" && !template.experimental
-  );
   const importAdvancedProjectTemplates = projectTemplates.filter(
-    (template) => template.source_kind !== "builtin" || template.experimental
+    (template) => template.source_kind !== "builtin"
   );
   const selectedTemplateMegadriveOnly = selectedTemplate?.mega_drive_only
     ?? selectedTemplate?.source_kind === "external_sgdk";
@@ -2241,12 +2242,6 @@ export default function App() {
     }
   }, [activeWorkspace]);
 
-  useEffect(() => {
-    if (showProjectWizard && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [showProjectWizard]);
 
   useEffect(() => {
     if (!showProjectWizard) {
@@ -2285,6 +2280,7 @@ export default function App() {
         if (!cancelled) {
           setProjectTemplates([]);
           setExternalImportProfiles([]);
+          setProjectWizardError("Não foi possível carregar os modelos e formatos. Feche e abra o assistente para tentar novamente.");
           logMessage("error", `[Projeto] Falha ao carregar templates: ${describeError(error)}`);
         }
       } finally {
@@ -2557,7 +2553,7 @@ export default function App() {
         },
         {
           label: creatingProject ? "Importando..." : "Importar Projeto Externo",
-          onClick: () => void handleImportExternalProject(),
+          onClick: () => { setShowExternalImportSection(true); setShowProjectWizard(true); setProjectWizardError(""); },
           disabled: creatingProject || templatesLoading,
           title: "Importar SGDK, GameMaker, Godot, MUGEN, OpenBOR ou outro projeto externo suportado",
           testId: "menu-action-project-import-external",
@@ -2915,6 +2911,25 @@ export default function App() {
     return true;
   }
 
+  async function handleWizardOpenFile() {
+    setProjectWizardError("");
+    try {
+      const fixture = pendingProjectOpenFileRef.current;
+      pendingProjectOpenFileRef.current = null;
+      const chosen = fixture ? fixture.path : await open({ title: "Abrir projeto RetroDev", directory: false, multiple: false, filters: [{ name: "Projeto RetroDev (project.rds)", extensions: ["rds"] }] });
+      if (typeof chosen !== "string") return;
+      if (!/(?:^|[\\/])project\.rds$/i.test(chosen)) throw new Error("Selecione o arquivo project.rds do projeto.");
+      let directory = chosen.slice(0, Math.max(chosen.lastIndexOf("/"), chosen.lastIndexOf("\\")));
+      if (/^[A-Za-z]:$/.test(directory)) directory += "\\";
+      if (!directory) directory = "/";
+      setCreatingProject(true);
+      await openProjectAtPath(directory, "Projeto");
+    } catch (error) {
+      const message = describeError(error); setProjectWizardError(message);
+      logMessage("error", "[Projeto] Falha ao abrir: " + message);
+    } finally { setCreatingProject(false); }
+  }
+
   async function handleSwitchTarget(target: "megadrive" | "snes") {
     if (!activeProjectDir || target === activeTarget) return;
     try {
@@ -3054,6 +3069,7 @@ export default function App() {
   }
 
   async function confirmNewProject() {
+    setProjectWizardError("");
     if (!newProjName.trim()) {
       logMessage("warn", "[Projeto] Informe um nome para o projeto.");
       return;
@@ -3116,6 +3132,7 @@ export default function App() {
         logMessage("warn", `[Projeto] Projeto criado, mas a cena inicial nao foi hidratada: ${result.name}`);
       }
     } catch (error) {
+      setProjectWizardError("Não foi possível criar o projeto. " + describeError(error));
       if (selectedTemplate.source_kind === "external_sgdk") {
         reportDiagnostic(
           createFallbackDiagnostic({
@@ -3160,6 +3177,7 @@ export default function App() {
   }
 
   async function handleImportExternalProject(review?: MugenReviewOptions, reviewedPath?: string) {
+    setProjectWizardError("");
     if (!newProjName.trim()) {
       logMessage("warn", "[Projeto] Informe um nome para o projeto importado.");
       return;
@@ -3232,6 +3250,7 @@ export default function App() {
         );
       }
     } catch (error) {
+      setProjectWizardError("Não foi possível importar o projeto. " + describeError(error));
       reportDiagnostic(
         createFallbackDiagnostic({
           area: importAreaForProfile(selectedExternalImportProfile.id),
@@ -4261,6 +4280,10 @@ export default function App() {
         pendingExternalImportPathRef.current = path;
         return true;
       },
+      setNextProjectOpenFile: (path: string | null) => {
+        pendingProjectOpenFileRef.current = { path };
+        return true;
+      },
       setNextAudioImportPath: (path: string) => {
         setNextAudioImportPath(path);
         return true;
@@ -4744,478 +4767,24 @@ export default function App() {
       data-shell-persona={shellPersona}
       className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--rds-surface-panel-strong)] text-[var(--rds-text-primary)]"
     >
-      {showProjectWizard && (
-        <Dialog open portal={false} title={activeProjectDir ? "Novo Projeto" : "Wizard de Primeiro Uso"}
-          description="Escolha o nome, a pasta, o console e um modelo para começar."
-          initialFocusRef={inputRef} closeDisabled={creatingProject} onClose={() => setShowProjectWizard(false)}
-          className="!w-[min(832px,calc(100vw-24px))]">
-          <div className="flex max-h-[calc(100vh-160px)] min-h-0 flex-col">
-
-            <div
-              data-testid="project-wizard-body"
-              className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
-            >
-              <section aria-label="Dados do projeto" className="space-y-3">
-            <div className="flex gap-2">
-              {(["megadrive", "snes"] as const).map((target) => (
-                <button
-                  key={target}
-                  type="button"
-                  data-testid={`wizard-target-${target}`}
-                  aria-pressed={newProjTarget === target}
-                  disabled={selectedTemplateMegadriveOnly && target === "snes"}
-                  onClick={() => setNewProjTarget(target)}
-                  className={`flex-1 rounded px-3 py-2 text-xs font-semibold transition-colors ${
-                    newProjTarget === target
-                      ? target === "megadrive"
-                        ? "bg-[#a6e3a1] text-[#1e1e2e]"
-                        : "bg-[#89b4fa] text-[#1e1e2e]"
-                      : "bg-[#313244] text-[#a6adc8] hover:bg-[#45475a]"
-                  } disabled:cursor-not-allowed disabled:opacity-40`}
-                >
-                  {target === "megadrive" ? "Mega Drive" : "SNES"}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-[1fr_1.1fr]">
-              <div className="space-y-2">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={newProjName}
-                  onChange={(event) => handleProjectNameChange(event.target.value)}
-                  onKeyDown={(event) => event.key === "Enter" && void confirmNewProject()}
-                  placeholder="Nome do projeto"
-                  aria-label="Nome do projeto"
-                  data-testid="wizard-project-name"
-                  className="w-full rounded border border-[#313244] bg-[#1e1e2e] px-2 py-1.5 text-sm text-[#cdd6f4] focus:border-[#cba6f7] focus:outline-none"
-                />
-
-                {pendingSuggestedProjectName ? (
-                  <div className="rounded border border-[#45475a] bg-[#11111b] p-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-[10px] text-[#7f849c]">Nome sugerido</p>
-                        <p
-                          data-testid="wizard-project-name-suggestion"
-                          className="truncate text-xs font-semibold text-[#a6e3a1]"
-                        >
-                          {pendingSuggestedProjectName}
-                        </p>
-                      </div>
-                      <ToolbarButton label="Usar" onClick={applySuggestedProjectName} />
-                    </div>
-                    <p className="mt-2 text-[10px] leading-5 text-[#7f849c]">
-                      {projectDestinationPreview?.collision_status === "existing_project"
-                        ? "O nome original aponta para um projeto RetroDev ja valido. Use o nome sugerido para criar outro sem sobrescrever o existente."
-                        : "O nome atual ja ocupa a pasta preferida. Use o nome sugerido para o RetroDev criar o projeto em um destino livre ja nesta tentativa."}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="rounded border border-[#313244] bg-[#11111b] p-2">
-                <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] text-[#7f849c]">Pasta base</p>
-                    <p className="truncate font-mono text-[10px] text-[#cdd6f4]">
-                      {newProjBaseDir || automaticBaseDirHint || "(automatico pelo sistema)"}
-                    </p>
-                  </div>
-                  <ToolbarButton label="Escolher" onClick={() => void chooseNewProjectBaseDir()} />
-                </div>
-                <div className="mt-2 border-t border-[#313244] pt-2">
-                  <p className="text-[10px] text-[#7f849c]">Destino estimado</p>
-                  <p
-                    data-testid="wizard-project-destination"
-                    className="truncate font-mono text-[10px] text-[#f9e2af]"
-                  >
-                    {estimatedProjectDestination}
-                  </p>
-                </div>
-                <p className="mt-2 text-[10px] leading-5 text-[#7f849c]">
-                  {detectedExistingProjectPreview
-                    ? `Ja existe um projeto RetroDev valido em '${detectedExistingProjectPreview.preferred_path}'. Se quiser continuar nele, use 'Abrir projeto existente'. Se preferir criar outro, o wizard sugere um nome livre automaticamente.`
-                    : newProjBaseDir
-                    ? `Pasta manual selecionada. Se ela falhar na escrita, o backend fara fallback seguro; se '${estimatedProjectDirName}' ja existir, o RetroDev cria '${estimatedProjectDirName}_2' automaticamente.`
-                    : automaticBaseDirHint
-                      ? `Se voce nao escolher uma pasta, o RetroDev usara '${automaticBaseDirHint}' automaticamente. Se '${estimatedProjectDirName}' ja existir, ele cria '${estimatedProjectDirName}_2' para manter o fluxo.`
-                      : `Se voce nao escolher uma pasta, o backend tentara resolver uma localizacao automatica segura. Se '${estimatedProjectDirName}' ja existir, ele criara '${estimatedProjectDirName}_2' automaticamente.`}
-                </p>
-              </div>
-            </div>
-
-            {detectedExistingProjectPreview?.existing_project_path ? (
-              <div
-                data-testid="wizard-existing-project-card"
-                className="mt-3 rounded border border-[#89b4fa]/40 bg-[#11111b] p-3"
-              >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#89b4fa]">
-                  Projeto RetroDev encontrado
-                </p>
-                <p className="mt-2 text-xs text-[#cdd6f4]">
-                  O nome original ja aponta para{" "}
-                  <span className="font-semibold text-[#a6e3a1]">
-                    {detectedExistingProjectPreview.existing_project_name ?? "um projeto existente"}
-                  </span>
-                  .
-                </p>
-                <p
-                  data-testid="wizard-existing-project-path"
-                  className="mt-2 truncate font-mono text-[10px] text-[#94e2d5]"
-                >
-                  {detectedExistingProjectPreview.existing_project_path}
-                </p>
-                <p className="mt-2 text-[10px] leading-5 text-[#7f849c]">
-                  {pendingSuggestedProjectName
-                    ? `Se a sua intencao era continuar no projeto original, abra-o agora. Se voce queria um projeto novo, o wizard pode trocar o campo para '${pendingSuggestedProjectName}' sem interromper o fluxo.`
-                    : `Se voce queria um projeto novo, o wizard ja ajustou o nome para '${newProjName}' e manteve o projeto original intacto. Se a intencao era continuar no original, voce pode abri-lo daqui.`}
-                </p>
-                <div className="mt-3 flex flex-wrap justify-end gap-2">
-                  {pendingSuggestedProjectName ? (
-                    <ToolbarButton label="Usar nome sugerido" onClick={applySuggestedProjectName} />
-                  ) : null}
-                  <ToolbarButton
-                    label="Abrir projeto existente"
-                    onClick={() => void openDetectedExistingProject()}
-                    accent="success"
-                    testId="wizard-open-existing-project"
-                  />
-                </div>
-              </div>
-            ) : null}
-              </section>
-              <div data-testid="wizard-recommended-start" className="grid gap-3 md:grid-cols-2">
-                <p className="col-span-full text-[9px] font-semibold uppercase tracking-[0.14em] text-[#a6e3a1]">
-                  Primeiro Projeto
-                </p>
-              {templatesLoading ? (
-                <div className="col-span-full rounded border border-[#313244] bg-[#11111b] p-4 text-xs text-[#7f849c]">
-                  Carregando galeria de templates...
-                </div>
-              ) : (
-                recommendedProjectTemplates.map((template) => {
-                  const availability = templateAvailability(template);
-                  const isSelected = template.id === selectedTemplateId;
-                  const donorPath =
-                    templateDonorPaths[template.id] || template.default_donor_path || "";
-                  const isExternalSgdk = template.source_kind === "external_sgdk";
-
-                  return (
-                    <div
-                      key={template.id}
-                      className={`overflow-hidden rounded border ${
-                        isSelected
-                          ? "border-[#cba6f7] bg-[#1e1e2e]"
-                          : "border-[#313244] bg-[#11111b]"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        data-testid={`template-card-${template.id}`}
-                        disabled={!availability.available}
-                        onClick={() => {
-                          setSelectedTemplateId(template.id);
-                          if (template.source_kind === "external_sgdk") {
-                            setNewProjTarget("megadrive");
-                          }
-                        }}
-                        className="flex w-full flex-col gap-2 p-3 text-left disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h3 className="text-sm font-semibold text-[#cdd6f4]">{template.name}</h3>
-                            <p className="text-[10px] uppercase tracking-wide text-[#7f849c]">
-                              {template.genre}
-                            </p>
-                          </div>
-                          {template.experimental ? (
-                            <span className="rounded border border-[#fab387] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#fab387]">
-                              Experimental
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="min-h-[3rem] text-[11px] leading-5 text-[#a6adc8]">
-                          {template.description}
-                        </p>
-                        <div className="flex flex-wrap gap-1">
-                          <span className="rounded bg-[#313244] px-1.5 py-0.5 text-[10px] text-[#cdd6f4]">
-                            {template.difficulty}
-                          </span>
-                          <span
-                            className={`rounded px-1.5 py-0.5 text-[10px] ${
-                              availability.tone === "success"
-                                ? "bg-[#a6e3a1]/15 text-[#a6e3a1]"
-                                : availability.tone === "warn"
-                                  ? "bg-[#fab387]/15 text-[#fab387]"
-                                  : "bg-[#f38ba8]/15 text-[#f38ba8]"
-                            }`}
-                          >
-                            {availability.statusLabel}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {template.features.length > 0 ? (
-                            template.features.map((feature) => (
-                              <span
-                                key={feature}
-                                className="rounded bg-[#181825] px-1.5 py-0.5 text-[10px] text-[#7f849c]"
-                              >
-                                {feature}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-[10px] text-[#6c7086]">Sem presets iniciais.</span>
-                          )}
-                        </div>
-                      </button>
-
-                      {isExternalSgdk ? (
-                        <div className="border-t border-[#313244] p-3 text-[10px] text-[#7f849c]">
-                          <div className="mb-2">
-                            <p className="text-[#a6adc8]">Template doador</p>
-                            <p className="truncate font-mono text-[#cdd6f4]">
-                              {donorPath || "(selecione uma pasta doadora)"}
-                            </p>
-                          </div>
-                          {availability.reason ? (
-                            <p className="mb-2 text-[#fab387]">{availability.reason}</p>
-                          ) : (
-                            <p className="mb-2 text-[#7f849c]">
-                              Usa assets limpos do template SGDK externo sem copiar ROM, VGM ou artefatos.
-                            </p>
-                          )}
-                          <ToolbarButton
-                            label="Escolher pasta..."
-                            onClick={() => void chooseTemplateDonorPath(template.id)}
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {!templatesLoading && importAdvancedProjectTemplates.length > 0 ? (
-              <section
-                data-testid="wizard-import-advanced"
-                className="rounded border border-[#313244] bg-[#11111b]/70 p-3"
-              >
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#fab387]">
-                      Importar / Avancado
-                    </p>
-                    <p className="mt-1 text-[10px] leading-5 text-[#94a3b8]">
-                      Templates doadores e experimentais ficam fora do primeiro caminho para manter o fluxo MVP claro.
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-full border border-[#fab387]/35 bg-[#fab387]/10 px-2 py-1 text-[9px] font-semibold text-[#fab387]">
-                    Experimental
-                  </span>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  {importAdvancedProjectTemplates.map(renderProjectTemplateCard)}
-                </div>
-              </section>
-            ) : null}
-
-            <div className="grid gap-3">
-              <div className="rounded border border-[#313244] bg-[#11111b] p-3 text-[10px] text-[#7f849c]">
-                <p className="mb-1 text-[#cdd6f4]">
-                  Template selecionado: <span className="font-semibold">{selectedTemplate?.name ?? "Nenhum"}</span>
-                </p>
-                <p className="leading-5">
-                  {selectedTemplate?.description ??
-                    "A galeria de templates sera exibida assim que o catalogo for carregado."}
-                </p>
-                {selectedTemplateMegadriveOnly ? (
-                  <p className="mt-2 text-[#fab387]">
-                    Este modelo é exclusivo de Mega Drive. Para SNES, escolha Projeto Vazio ou Primeiro Projeto.
-                  </p>
-                ) : null}
-                {selectedTemplate ? (
-                  <div className="mt-3 rounded border border-[#313244] bg-[#181825] px-3 py-2">
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#94e2d5]">
-                      Validacao do fluxo
-                    </p>
-                    <p
-                      className={`mt-1 leading-5 ${
-                        selectedTemplateAvailability?.readyToCreate
-                          ? "text-[#a6e3a1]"
-                          : selectedTemplateAvailability?.available
-                            ? "text-[#fab387]"
-                            : "text-[#f38ba8]"
-                      }`}
-                    >
-                      {selectedTemplateAvailability?.readyToCreate
-                        ? "Template pronto para criar projeto."
-                        : selectedTemplateAvailability?.reason || "Template ainda indisponivel para este fluxo."}
-                    </p>
-                    {selectedTemplate.source_kind === "external_sgdk" ? (
-                      <p className="mt-1 leading-5 text-[#fab387]">
-                        {selectedTemplateDonorPath
-                          ? `Template doador atual: ${selectedTemplateDonorPath}`
-                          : "Escolha uma pasta doadora SGDK antes de criar este template experimental."}
-                      </p>
-                    ) : (
-                      <p className="mt-1 leading-5 text-[#94a3b8]">
-                        Template interno: nenhuma pasta doadora externa e necessaria.
-                      </p>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-
-              <div
-                data-testid="wizard-external-import-section"
-                className="rounded border border-[#313244] bg-[#11111b] p-3 text-[10px] text-[#7f849c]"
-              >
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#fab387]">
-                      Trilha secundaria
-                    </p>
-                    <p className="mt-1 text-[#cdd6f4]">
-                      Importar projeto existente
-                    </p>
-                    <p className="mt-1 leading-5 text-[#94a3b8]">
-                      Use esta area quando voce ja tiver um projeto externo real e quiser
-                      converter esse projeto para o formato nativo do RetroDev sem misturar isso com o
-                      primeiro sucesso do wizard.
-                    </p>
-                  </div>
-                  <ToolbarButton
-                    label={showExternalImportSection ? "Ocultar importador" : "Abrir importador"}
-                    onClick={() =>
-                      setShowExternalImportSection((current) => !current)
-                    }
-                    testId="wizard-external-import-toggle"
-                  />
-                </div>
-                {showExternalImportSection ? (
-                  <div className="mt-3 rounded border border-[#313244] bg-[#181825] p-3">
-                    <p className="mb-1 text-[#cdd6f4]">
-                      Importador externo:{" "}
-                      <span className="font-semibold">
-                        {selectedExternalImportProfile?.name ?? "Nenhum"}
-                      </span>
-                    </p>
-                    <p className="leading-5">
-                      {selectedExternalImportProfile?.description ??
-                        "Escolha um adaptador externo para importar projetos reais para o formato nativo do RetroDev."}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-1">
-                      <span className="rounded bg-[#313244] px-1.5 py-0.5 text-[10px] text-[#cdd6f4]">
-                        {selectedExternalImportProfile?.family ?? "External"}
-                      </span>
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-[10px] ${
-                          selectedExternalImportProfile?.importable
-                            ? "bg-[#a6e3a1]/15 text-[#a6e3a1]"
-                            : "bg-[#fab387]/15 text-[#fab387]"
-                        }`}
-                      >
-                        {selectedExternalImportProfile?.support_status ?? "Nao suportado"}
-                      </span>
-                      {selectedExternalImportProfile?.supported_levels.map((level) => (
-                        <span
-                          key={level}
-                          className="rounded bg-[#11111b] px-1.5 py-0.5 text-[10px] text-[#7f849c]"
-                        >
-                          {level}
-                        </span>
-                      ))}
-                    </div>
-                    <select
-                      data-testid="external-import-profile-select"
-                      value={selectedExternalImportProfileId}
-                      onChange={(event) => setSelectedExternalImportProfileId(event.target.value)}
-                      className="mt-3 w-full rounded border border-[#313244] bg-[#1e1e2e] px-2 py-1.5 text-[11px] text-[#cdd6f4] focus:border-[#cba6f7] focus:outline-none"
-                    >
-                      {externalImportProfiles.map((profile) => (
-                        <option key={profile.id} value={profile.id}>
-                          {profile.name} · {profile.support_status}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-2 leading-5 text-[#94a3b8]">
-                      {selectedExternalImportProfile?.mega_drive_only
-                        ? "Esta wave de importacao externa continua Mega Drive only para manter o caminho canonico enxuto."
-                        : "Perfil externo compativel com o fluxo atual do wizard."}
-                    </p>
-                    {selectedExternalImportProfile?.id === "sgdk" ? (
-                      <SgdkCapabilityMatrix profile={selectedExternalImportProfile} />
-                    ) : null}
-                    <div className="mt-3 flex justify-end">
-                      <ToolbarButton
-                        label={creatingProject ? "Importando..." : "Importar Projeto Externo"}
-                        onClick={() => void handleImportExternalProject()}
-                        disabled={creatingProject || templatesLoading}
-                        testId="external-import-confirm"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-3 rounded border border-[#313244] bg-[#181825] px-3 py-2 text-[10px] leading-5 text-[#94a3b8]">
-                    Perfil atual:{" "}
-                    <span className="font-semibold text-[#cdd6f4]">
-                      {selectedExternalImportProfile?.name ?? "Nenhum"}
-                    </span>
-                    . Abra o importador quando precisar converter um projeto existente em vez
-                    de criar um template novo.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {selectedTemplate ? (
-              <TemplateFirstSuccessCard
-                templateName={selectedTemplate.name}
-                targetLabel={getTargetLabel(newProjTarget)}
-                steps={selectedTemplateFirstSuccessSteps}
-              />
-            ) : (
-              <div className="rounded border border-[#313244] bg-[#11111b] p-3 text-[10px] leading-5 text-[#7f849c]">
-                Escolha um template para o wizard montar um caminho recomendado ate o primeiro
-                playtest no fluxo canonico atual.
-              </div>
-            )}
-
-            </div>
-
-            <div
-              data-testid="project-wizard-actions"
-              className="mt-4 flex flex-wrap justify-end gap-2 border-t border-[#313244] bg-[#181825] pt-3"
-            >
-              <ToolbarButton
-                label={activeProjectDir ? "Cancelar" : "Continuar sem projeto"}
-                onClick={() => setShowProjectWizard(false)}
-                testId={activeProjectDir ? "wizard-cancel" : "wizard-continue-without-project"}
-              />
-              <ToolbarButton
-                label="Abrir Projeto"
-                onClick={() => void handleOpenProject()}
-                testId="wizard-open-project"
-              />
-              <ToolbarButton
-                label={creatingProject ? "Criando..." : "Criar Projeto"}
-                onClick={() => void confirmNewProject()}
-                accent="primary"
-                testId="wizard-create-project"
-                disabled={
-                  creatingProject ||
-                  templatesLoading ||
-                  !selectedTemplate ||
-                  !selectedTemplateAvailability?.readyToCreate
-                }
-              />
-            </div>
-          </div>
-        </Dialog>
-      )}
+      {showProjectWizard && <ProjectStartWizard
+        activeProject={Boolean(activeProjectDir)} busy={creatingProject} loading={templatesLoading}
+        name={newProjName} target={newProjTarget} templates={projectTemplates}
+        selectedTemplate={selectedTemplate} canCreateSelected={Boolean(selectedTemplateAvailability?.readyToCreate)} profiles={externalImportProfiles} selectedProfile={selectedExternalImportProfile}
+        destination={estimatedProjectDestination} collision={detectedExistingProjectPreview}
+        suggestedName={pendingSuggestedProjectName} error={projectWizardError}
+        startInImport={showExternalImportSection}
+        firstSuccess={selectedTemplate ? <TemplateFirstSuccessCard templateName={selectedTemplate.name} targetLabel={getTargetLabel(newProjTarget)} steps={selectedTemplateFirstSuccessSteps} /> : null}
+        advancedTemplates={<div className="rds-start-grid">{importAdvancedProjectTemplates.map(renderProjectTemplateCard)}</div>}
+        importDetails={selectedExternalImportProfile?.id === "sgdk" ? <SgdkCapabilityMatrix profile={selectedExternalImportProfile} /> : null}
+        onName={handleProjectNameChange} onTarget={setNewProjTarget} onTemplate={setSelectedTemplateId}
+        onProfile={id => { setSelectedExternalImportProfileId(id); const profile = externalImportProfiles.find(p => p.id === id); if (profile) setNewProjTarget(profile.recommended_target); }}
+        onBegin={intent => { setProjectWizardError(""); setSelectedTemplateId(intent === "new" ? "empty" : ""); if (intent !== "import") setNewProjBaseDir(""); }}
+        onCreate={() => void confirmNewProject()} onImport={() => void handleImportExternalProject()}
+        onOpen={() => void handleWizardOpenFile()} onOpenDetected={() => void openDetectedExistingProject()}
+        onSuggestedName={applySuggestedProjectName} onChooseImportDestination={() => void chooseNewProjectBaseDir()}
+        onClose={() => { if (!creatingProject) { setShowProjectWizard(false); setProjectWizardError(""); } }}
+      />}
 
       {showProjectSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3">
