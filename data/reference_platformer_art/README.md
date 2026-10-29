@@ -1,6 +1,20 @@
 # Reference Platformer — arte original
 
-## Candidatos autorais — continuação de 2026-10-29, Experimental
+## Bosque Aurora — selo de conclusão, 2026-10-29 (Experimental)
+
+Abrir [Bosque Aurora](/home/misael/Documents/RetroDevProjects/Bosque_Aurora/project.rds) no Studio. **Setas** movem e **Z** salta. Recolher as três sementes abre o portão; alcançar a bandeira revela o **broto dourado** no canto superior direito. O cadeado permanece antes da conclusão e a bandeira continua como marco de chegada. Para outra partida, usar **Parar → Testar projeto** no Studio; reinício pelo Start dentro do jogo não foi entregue (TPL-15).
+
+Dois selos originais **32×32**, de cinco cores visíveis, foram desenhados e salvos no **PixelEditor**, com documentos nativos: `selofechado` e `seloaurora`. Compartilham os índices compatíveis do banco 2 existente; nenhum banco ou limite foi ampliado. A composição usa duas instâncias na mesma posição (264,56); **Objetivo → Esconder ao cumprir** aponta para o cadeado. O broto fica atrás dele. A legenda estática `BROTO DOURADO = VITORIA` explica o resultado. **Interface** agrupa os dois sprites e três textos; projeto com 14 entidades, quatro camadas e os mesmos 128 sólidos.
+
+Edição: selecionar **Lume → Editar lógica (nodes) → Comportamentos → Objetivo** para mudar a condição/som. Para a imagem: **Selo fechado/Selo Aurora → Arte → Editor de pixels → Editar frames de…**; conferir recurso, nome e tamanho antes de desenhar e salvar antes de fechar. Alterar um recurso compartilhado exige conferir a paleta e a ROM. O cenário, a raposa e a progressão preservam a procedência dos checkpoints abaixo.
+
+Após salvar/encerrar/reabrir e compilar: contador **0→2→3**, portão **0→1**, conclusão **0→1**; bloqueio x=218 com dois itens, terceira semente em (208,128), chegada (274,168) e broto visível. ROM executada/exportada **254875044b65a0b31d2eba6eac46bb6d61a5b180fc52418bb164f46bcd8d4c35**, **524288 bytes**; revisão **0 erros/1 aviso de fonte compartilhada/21 OK**. Depois da sonda de combate, a restauração pelo Inspector preservou os 24 arquivos autorais byte a byte; novo build manteve esse SHA e reinicializou contador/portão/conclusão em zero.
+
+Evidência privada: `RDS_WORK_ROOT/sessions/templates-feedback-20261029/receipt.json`, `bosque-seal-native-result.json`, capturas **16/17/18/24** e revisão/exportação **21**. Algumas capturas iniciais mostram renderização incompleta; a mesma ROM depois mostrou todos os sprites, sem causa isolada. Não são prova de defeito determinístico dos novos assets. Tauri/WebKit/Xvfb/software, teclado X11 nativo e leituras DOM/RAM/ELF; sem aceite humano, áudio físico, GPU, Windows ou console.
+
+**Nenhum novo template distribuído.** TPL-01 continua bloqueando pacote oficial/catálogo. Bosque e Jardim Mares permanecem candidatos parciais: trilha, HUD de progresso e replay não acabados; Jardim conserva também TPL-12. Jardim não mudou nesta fatia. Sondas de Carregar Cena e Golpe autoral registradas em TPL-15/16; não há arena nova ou código do jogo escrito por fora. TPL-17 registra o build recusado por revisão alterada enquanto a sonda estava aberta no NodeGraph. Owners/aceites no roadmap existente.
+
+## Histórico dos candidatos — cenário e Jardim Mares, 2026-10-29
 
 **O catálogo/builtin permanece inalterado; nenhum novo template foi distribuído.** Os projetos abaixo foram montados pela interface do Studio e ficam no destino privado de projetos/artefatos. O bloqueio projeto salvo → pacote oficial → catálogo está em TPL-01, no roadmap. Os arquivos deste diretório continuam sendo as fontes do builtin anterior.
 

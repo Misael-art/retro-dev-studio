@@ -1,6 +1,22 @@
 # Novo host: instalação, diagnóstico e continuidade do produto
 
-## Continuidade 2026-10-29 — dois candidatos autorais, Experimental
+## Continuidade 2026-10-29 — selo de vitória do Bosque, Experimental
+
+Entrada **52a478f55e002357cf6129a305a39a4287e6b5b0**, mesma branch/PR #112. Somente documentação rastreada mudou; autoria privada feita pela UI do app congelado **fdf0c4fb…**, com launcher oficial abaixo. **Zero templates novos no catálogo** (TPL-01); não implementar lacunas do editor nesta missão.
+
+Abrir `/home/misael/Documents/RetroDevProjects/Bosque_Aurora/project.rds`: três sementes abrem o portão; chegar à bandeira esconde o cadeado e revela o **broto dourado** no alto. Dois selos originais 32×32/cinco cores feitos no PixelEditor e legenda HUD, 14 entidades/quatro camadas/128 sólidos. Setas/Z preservados. ROM executada após reabrir e exportada **254875044b65a0b31d2eba6eac46bb6d61a5b180fc52418bb164f46bcd8d4c35**, 524288 bytes; revisão 0 erros/1 aviso de fonte compatível/21 OK. Bloqueio x=218 com dois itens, terceira coleta (208,128), chegada (274,168), conclusão 1 e broto visível. Para outra partida, **Parar → Testar projeto** no Studio reinicializa os contadores; Start dentro do jogo continua sem replay.
+
+`Jardim_Mares/project.rds` permanece igual ao checkpoint anterior, inclusive TPL-12. Sondas novas: **TPL-15/P1**, Carregar Cena emite ramo vazio; **TPL-16/P1**, Golpe autoral com sprites comuns falha na compilação C, exige dados MUGEN; **TPL-17/P2**, revisão muda com sonda aberta no NodeGraph e bloqueia execução stale. Arena não entregue. Sonda de combate removida no Inspector, 24 arquivos autorais byte a byte iguais ao checkpoint jogado; rebuild com mesmo SHA. Reservar integração/reinício ao backlog, sem código externo do jogo.
+
+Evidências privadas em `RDS_WORK_ROOT/sessions/templates-feedback-20261029/`, recibo/resultados/erratas, capturas **16/17/18/21/24**. Capturas iniciais incompletas não são prova causal de defeito dos assets. Instruções de autoria em `data/reference_platformer_art/README.md`; gates/proteção/SHA remoto no fechamento atual do Memory Bank. App/driver/display :183 próprios encerrados. Sem aceite humano/GPU/áudio físico/Windows/console; sem merge/release/deploy. Próximo: abrir os candidatos para avaliação humana e continuar acabamento de conteúdo viável, mantendo os bloqueios explícitos.
+
+Launcher `--certify` fresco **PASS**, sessão `2026-10-29T09-14-14-547Z-2092641`: READY/sete gates, **1233 frontend/11 skip**, **1098 Rust/109 ignored**, smokes oficiais, fmt e cinco pacotes registrados PASS. Auditoria npm zero vulnerabilidades; cargo audit exit0/**12 avisos permitidos pela política existente**, preservados. Clippy padrão incluindo binário PASS em `2026-10-29T09-38-50-537Z-2174908`. `host-certified.json` foi congelado antes do último `--run`; não inferir os sete gates pelo relatório global depois dele. BYOR/ambiente seguem o comando documentado no histórico abaixo, somente leitura.
+
+Recibo **12f44ed3…ea8c3d49**, 24 arquivos autorais/599 operações e observações/24 capturas. Backup **`templates-feedback-20261029-25487504.tar.gz`**, 3995647 bytes, SHA **6d1b01ff71e6d92c43bacc11a4805cfb49c79fecb973c7de6f1b2b7eadfde90b**, 130 arquivos/8895805 bytes verificados integralmente no destino privado existente abaixo; manifesto **1bf09c2a…a47fd73**. Mesmo filesystem, sem cópia independente qualificada; owner operador, reter até aceite/proteção independente. Publicação documental e SHA remoto no PR #112/recibo privado, sem incluir projetos/ROMs/assets no Git.
+
+---
+
+## Histórico 2026-10-29 — cenário e Jardim Mares, Experimental
 
 Base desta continuação **29b53493346f539aa8686931d67732dcf1e2662c**, mesma branch/PR #112. Só documentação rastreada mudou; projetos/arte/fontes/ROMs/capturas permanecem privados. **Zero templates novos no catálogo**, TPL-01; não criar pacote paralelo nem implementar lacunas nesta missão.
 
