@@ -1,6 +1,20 @@
 # Novo host: instalação, diagnóstico e continuidade do produto
 
-## Continuidade 2026-10-29 — indicador e farol do Jardim, Experimental
+## Continuidade 2026-10-29 — ciclo de Nalu e aparência do modelo, Experimental
+
+Entrada **ec7a4e93543a88ba3b42c45629729dd9c9bb9be3**, mesma branch/PR #112. Abrir `/home/misael/Documents/RetroDevProjects/Jardim_Mares/project.rds` pelo launcher congelado abaixo. Nalu ganhou cinco quadros/ciclo com quatro poses visíveis, oscilação/nadadeiras feitas no PixelEditor; ArtStudio `nado_continuo` 0..4/6 FPS/loop. A rota **Aplicar nesta entidade → Aparência → Aplicar ao modelo (1)** substituiu só o sprite de `reference_player`, com cópia nativa **b1793277440130780160**; removeu as chaves herdadas e a exceção de sprite. Física/comportamento seguem locais, não é prefab superior completo. TPL-11 complementado com alternativa exercitada e limites de vínculo/grade/rascunho; não implementar editor nesta missão.
+
+Salvar/fechar/reabrir/build comprovou dez ticks por quadro e quatro poses distintas nas capturas estáveis **06-nalu-frame-0..4**, posição fixa (144,96). Repetida coleta 0→1→2→3, sem duplicação, farol antecipado recusado/conclusão só no retorno, indicador/luz conferidos por pixels. Parar/Testar restaura todos os estados. ROM executada/exportada/recompilada **a9a973832cd72e6ee95043dcc9cbacc8382136197d297537a12fb300723c4a34**, 524288 bytes; revisão **0 erros/0 avisos/27 OK**. DMA estimado **95→88%**, aviso mantido, sem mudar guardas. TPL-12 y=-10 persiste. Bosque permanece igual por hash.
+
+Evidência privada **`RDS_WORK_ROOT/sessions/templates-nalu-cycle-20261029/`**: expectativas/resultados/erratas/ledger, capturas **06/07/09/11/12/16/17/18**. As primeiras capturas de transição não mostraram todas as poses; falha preservada, nova amostragem estável confirmou as quatro sem mudar conteúdo/motor. App/driver/display :185 próprios encerrados. Só quatro documentos rastreados mudaram; conteúdo privado permanece com 30 arquivos/19 entidades/quatro camadas/zero sólidos. Gates/proteção no fechamento atual do Memory Bank. **Zero templates novos distribuídos** (TPL-01); áudio/replay/HUD nativo/limites da tela continuam parciais. Sem aceite humano/desktop físico/GPU/áudio/Windows/console, merge/release/deploy.
+
+Próximo: abrir os candidatos pelo launcher abaixo para avaliação humana e continuar conteúdo viável; instruções de edição no README de arte. Conferir usos antes de aplicar ao modelo e salvar/aplicar sequência antes de fechar Arte; TPL-01..17 continuam no roadmap existente.
+
+Fechamento: **READY/sete gates**, sessão **2026-10-29T12-45-15-176Z-399846**, frontend **1233/11 skip**, Rust **1098/109 ignored**, smokes SGDK/PVSnesLib; Clippy padrão/fmt PASS nos launchers **12-53-21-137Z-429188**/**12-53-36-009Z-430088**. Relatório congelado em `host-certified.json`, logs/recibos protegidos; auditorias não repetidas, código/locks/segurança intactos. Recibo **b574d9e2…**, 1088 operações/observações/28 capturas. Backup **`templates-nalu-cycle-20261029-a9a97383.tar.gz`**, **3970384 bytes**, SHA **8825ce36fa03d603f1735757f9ee88f8003686233ab8d8ae56d2f0f1be55a830**; **138 arquivos/7720112 bytes** integralmente verificados, manifesto **013bf6b3…4ce4fbe**. Mesmo filesystem; cópia independente não qualificada, owner operador/reter até aceite e proteção independente. Publicação/SHA remoto no PR #112 e recibo privado posterior ao push.
+
+---
+
+## Histórico 2026-10-29 — indicador e farol do Jardim, Experimental
 
 Entrada **be53aa116b579e475f672db9c729cb7c97ffa5e9**, mesma branch/PR #112; autoria pela UI do app congelado **fdf0c4fb…**, launcher oficial abaixo. Nenhum código de produto, seed, registry, lock ou guarda alterado. **Zero modelos novos distribuídos** (TPL-01); não implementar lacunas de editor nesta missão.
 

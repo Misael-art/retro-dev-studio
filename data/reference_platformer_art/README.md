@@ -1,5 +1,17 @@
 # Reference Platformer — arte original
 
+## Jardim Mares — ciclo de Nalu, 2026-10-29 (Experimental)
+
+No mesmo [Jardim Mares](/home/misael/Documents/RetroDevProjects/Jardim_Mares/project.rds), Nalu ganhou oscilação vertical e movimento das nadadeiras, feitos no **PixelEditor**. A folha continua **160×32**, cinco quadros 32×32, cinco cores visíveis e transparência binária, sem recorte de pixels. A sequência única **Nado continuo** usa 0/1/2/3/4, loop e 6 FPS nominais: dez ticks por quadro na ROM, sem alegação de velocidade real no display virtual. O primeiro e o último desenho coincidem para fechar o ciclo.
+
+Para editar: **Nalu → Arte e animação → Editor de pixels → Editar frames de…**. Salvar o documento; voltar a **Preparar e animar**, conferir **Frame W/H = 32**, grade exata, quadros e FPS antes de aplicar. Nesta sessão, salvar pixels deixou o asset canônico pendente; voltar à Cena e reabrir Arte restaurou o vínculo, mas exigiu recriar a sequência ainda não aplicada. Renomear Idle antes de remover as demais evita a reidratação observada em TPL-11. Reconfirmar Frame W=32 refez a grade 32×32, em vez das sugestões automáticas de 24×24.
+
+**Aplicar nesta entidade → Cena → Aparência → Aplicar ao modelo (1)** substituiu a aparência completa do modelo `reference_player` usado apenas por Nalu e removeu a exceção de sprite da instância. Depois de salvar/reabrir, só `nado_continuo` permaneceu; idle/run/jump/nadar herdados não participam do build. A operação guarda cópia nativa e oferece **Reverter**. Conferir sempre o número de usos antes de aplicar ao modelo. Física e comportamento continuam como exceções locais: isso não transforma o prefab herdado em um personagem superior completo e reutilizável.
+
+Estimativa de DMA **95→88%**, com aviso preservado; 12 sprites/80 e quatro bancos. Após reabrir/build, coleta **0→1→2→3**, indicador **000→100→110→111**, retorno antecipado recusado, sem duplicação de coleta e conclusão só no farol. Parar/Testar restaurou todos os estados em zero. ROM executada/exportada/recompilada **a9a973832cd72e6ee95043dcc9cbacc8382136197d297537a12fb300723c4a34**, **524288 bytes**; revisão **0 erros/0 avisos/27 OK**, distinta do aviso de hardware. Mudaram somente PNG/documento de Nalu, aparência do modelo e remoção da exceção na cena; os demais recursos/grafo/colisões não mudaram. Bosque permaneceu byte a byte igual.
+
+Evidências privadas em `RDS_WORK_ROOT/sessions/templates-nalu-cycle-20261029/`, com passos de UI, leituras de RAM/ELF e capturas nativas. **Zero novos templates distribuídos** (TPL-01); TPL-11 não foi corrigido no editor, TPL-12 continua permitindo sair pelo topo (y=-10), trilha/replay/HUD nativo seguem parciais. Tauri/core oficial em Xvfb/software, sem aceite humano ou console.
+
 ## Jardim Mares — indicador e farol, 2026-10-29 (Experimental)
 
 Abrir [Jardim Mares](/home/misael/Documents/RetroDevProjects/Jardim_Mares/project.rds) pelo Studio. **Quatro setas** movem Nalu. Recolher as três pérolas preenche, da esquerda para a direita, os três espaços do indicador. Retornar ao farol depois das três acende sua luz e conclui o objetivo. Chegar antes não conclui. Para repetir, usar **Parar → Testar projeto** no Studio.
