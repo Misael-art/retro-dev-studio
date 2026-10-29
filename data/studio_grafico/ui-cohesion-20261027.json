@@ -3367,5 +3367,848 @@
     "section": "draft_recovery_hardening",
     "code_commit": "796086266831d8de5e129016562f3376f9e3424f",
     "binary_sha256": "826e2553cfc6d20351acd6e7d3561b18dba043ecb7c4679d4ca7013dd9b56814"
+  },
+  "latest_checkpoint": "product_diagnosis_20261028",
+  "last_updated_at": "2026-10-29T01:04:32.889Z",
+  "product_diagnosis_20261028": {
+    "schema": "retrodev.product_diagnosis/v1",
+    "status": "validated_local_experimental_partial",
+    "maturity": "Experimental",
+    "source_commits": [
+      "2783f234708d8d6b422d1179d249303da3a862a7",
+      "041daec7471046ea8f5ccc40c0f82aa25f186955",
+      "b608469545f4b4aaa6ef47798e69489e18277bcd"
+    ],
+    "journeys": [
+      {
+        "id": "md_authoring",
+        "ui": "Primeiro Projeto → Cena/Inspector/Regras/Sons → Salvar/reabrir → Testar",
+        "owner": [
+          "src/App.tsx",
+          "src/core/store/editorStore.ts",
+          "src-tauri/src/compiler"
+        ],
+        "observed": "Controlled platformer edited through UI, cold reopen, native keyboard, two passages, goal flag and SFX samples",
+        "state": "demonstrated_local",
+        "limit": "Not arbitrary game generation, human usability, physical audio or music authoring qualification"
+      },
+      {
+        "id": "snes_authoring",
+        "ui": "Primeiro Projeto SNES → Inspector → Salvar/reabrir → Testar → Revisar/exportar",
+        "owner": [
+          "src-tauri/src/core/project_mgr.rs",
+          "src/App.tsx",
+          "src-tauri/src/compiler"
+        ],
+        "observed": "Supported starter sprite edited x120, PVSnesLib/Snes9x and exported exact executed SHA; MD reference blocked before folder creation",
+        "state": "demonstrated_local_limited",
+        "limit": "Not the MD platformer, full SNES gameplay, audio or genre parity; shared palette-plan editor currently reports MD-only in the Inspector"
+      },
+      {
+        "id": "native_sgdk_c",
+        "ui": "Open original root → legacy overlay → Build/Run → C graph block edit → Build → Review/export",
+        "owner": [
+          "src/App.tsx",
+          "src/components/explorer/CGraphPanel.tsx",
+          "src/components/tools/DeliveryPanel.tsx",
+          "src/core/buildFreshness.ts",
+          "src-tauri/src/compiler/build_orch.rs"
+        ],
+        "observed": "Fresh wrapper receipt and ROM; source-preserving catalog, VDP capture, C edit produces another ROM; exact export; existing Training/Idle selected by native keys, ctrl ready, neutral10frames, Right/Left changed position; graph sprite/DMA estimates unavailable, actual VDP VRAM measured",
+        "state": "demonstrated_local_limited",
+        "limit": "Original C executed, not converted into Studio scenes/nodes; references/assets may need manual .res/C integration; Linux wrapper only; no full-match equivalence"
+      },
+      {
+        "id": "generic_sgdk_resources",
+        "ui": "Importar/Avançado → SGDK → Scene",
+        "owner": [
+          "src-tauri/src/core/project_mgr.rs",
+          "src/components/viewport/ViewportPanel.tsx"
+        ],
+        "observed": "6 manifests,251 resources,177 catalog SPRITE,0 scene sprite instances; all resource copies SHA equal. Footer0/80. Build refuses142x1 tile strip as MD plane.",
+        "state": "partial_build_refused",
+        "limit": "Not original game reconstruction. Keep hardware limits; native C is the chosen recovery route."
+      },
+      {
+        "id": "mugen_authoring",
+        "ui": "Review source → Cancel/retry → Analyze → All actions → authored demo → Art/Scene/Rules → Build/review/export",
+        "owner": [
+          "src/components/common/MugenSourceReviewPanel.tsx",
+          "src-tauri/src/core/mugen_profile.rs",
+          "src-tauri/src/compiler/sgdk_emitter.rs"
+        ],
+        "observed": "103 animations/417 occurrences, atlas pixels/palettes and ELF/ROM/RAM indices; UI duration edit/Undo/Redo/save/reopen affects core timing; restored exact ROM",
+        "state": "demonstrated_local_limited",
+        "limit": "Authored0/20/21/200/fixed facing; original CNS reference, not full original behavior.22→15 colors/2707 approximated pixels;64MP guard per page preserved. Cancel tested before conversion, not mid-build."
+      },
+      {
+        "id": "pixel_editor",
+        "ui": "Arte → Pixels → frames/layers → Save → switch tools → reopen native resource",
+        "owner": [
+          "src/components/artstudio/PixelEditor.tsx",
+          "src/core/store/editorStore.ts",
+          "src-tauri/src/lib.rs"
+        ],
+        "observed": "10 native checks: Undo pending, mode/workspace retains document/history, PNG+native doc reopens. Delayed/failed save covered by regression.",
+        "state": "corrected_demonstrated_local",
+        "limit": "Pending pixels live in session memory, explicit Save before app close. Pair publication rollback handles reported failure, not a power-cut transaction."
+      },
+      {
+        "id": "studio_recovery",
+        "ui": "Edit → interruption → draft decision → Undo/Redo/save/reopen → build/export",
+        "owner": [
+          "src/core/scenePersistence.ts",
+          "src/core/store/editorStore.ts",
+          "src/App.tsx"
+        ],
+        "observed": "Native draft-recovery and cold process restarts, two projects/scenes, receipt identity",
+        "state": "demonstrated_local",
+        "limit": "Scene recovery contract, not unsaved pixel crash recovery or atomic whole-project transaction"
+      },
+      {
+        "id": "cross_tool_and_layout",
+        "ui": "Cena ↔ Arte ↔ Lógica; models/instances, attacks/events/SFX/HUD/palettes/camera; QA RC",
+        "owner": [
+          "src/core/studioContext.ts",
+          "src/core/runtimeLink.ts",
+          "src/components"
+        ],
+        "observed": "E4,E2E5,palettes,onboarding,qa-rc native scenarios with shared context and exact artifacts",
+        "state": "demonstrated_local",
+        "limit": "Dense hierarchy, small auxiliary text, contrast and terminology require human evaluation. Screenshots/geometry do not certify accessibility."
+      },
+      {
+        "id": "other_importers",
+        "ui": "External import profile registry",
+        "owner": [
+          "src-tauri/src/core/project_mgr.rs",
+          "docs/03_ROADMAP_MVP.md"
+        ],
+        "observed": "Existing implementations, bridges and unit/integration coverage; no new native real-project qualification in this round",
+        "state": "experimental_unqualified_this_round",
+        "limit": "GameMaker/Godot/Construct/RPGMaker/Ikemen/OpenBOR remain bounded by their own contracts; no general equivalence claim"
+      },
+      {
+        "id": "mugen_original_chain",
+        "ui": "Review source → original chain option → state200 → origin review → import → save/restart/reopen → build/native keys",
+        "owner": [
+          "src/components/common/MugenSourceReviewPanel.tsx",
+          "src-tauri/src/core/mugen_chain.rs",
+          "scripts/verify-mugen-chain.py"
+        ],
+        "observed": "336ticks with0 mismatches against independent CMD/CNS/AIR reference;296frames correct at0vblank lag;7negative controls rejected",
+        "state": "demonstrated_local_pilot",
+        "limit": "One state200 chain only; idle0 authored stand-in (common1.cns absent);HitDef/PlaySnd/poweradd opaque;command semantics approximate;no original MUGEN runtime equivalence"
+      },
+      {
+        "id": "mugen_velset_locomotion",
+        "ui": "Import Strider fixture → Inspector velocity/duplicate → save/restart/reopen → build/native keys",
+        "owner": [
+          "src/components/common/MugenSourceReviewPanel.tsx",
+          "src-tauri/src/core/mugen_profile.rs"
+        ],
+        "observed": "2.5→3.75px/tick edited through Inspector;Q8.8 motion0mismatches;second instance stays stationary;unsupported syntax refused",
+        "state": "demonstrated_local_fixture",
+        "limit": "Constant horizontal VelSet only;fixed facing;no collision/damage/combat/PAL/real-time equivalence"
+      }
+    ],
+    "fixes": [
+      {
+        "id": "D01",
+        "priority": "P1",
+        "problem": "Pixel document/history lost on mode change",
+        "change": "Per-project session in existing editorStore",
+        "regression": "Remount/project isolation and native mode/workspace switches"
+      },
+      {
+        "id": "D02",
+        "priority": "P1",
+        "problem": "False saved state after Undo or stale async save",
+        "change": "Compare confirmed serialized snapshot; ignore old save/import responses",
+        "regression": "Undo/Redo baseline, deferred save, failed retry; native save/reopen"
+      },
+      {
+        "id": "D03",
+        "priority": "P1",
+        "problem": "Native C build invisible to freshness/review/export without NodeGraph map",
+        "change": "Verified ROM identity independent of optional map plus native edit revision",
+        "regression": "Unit freshness/delivery and native C stale refusal/new build/exact export"
+      },
+      {
+        "id": "D04",
+        "priority": "P1",
+        "problem": "Pixel PNG could be replaced before document write failed",
+        "change": "Reuse existing atomic synced writer, prevalidate/preserve and rollback reported failure",
+        "regression": "Rust invalid/non-file document destination keeps previous PNG"
+      },
+      {
+        "id": "D05",
+        "priority": "P1",
+        "problem": "Wizard accepted MD-only template with SNES and left empty project skeleton",
+        "change": "Catalog exposes target scope and shared backend preflight before directory reservation",
+        "regression": "85 App tests, Rust no-partial-folder test and real SNES wizard/starter journey"
+      },
+      {
+        "id": "D06",
+        "priority": "P2",
+        "problem": "Scene footer counted non-sprite entities as sprites",
+        "change": "Count only sprite components; explain scope without changing hardware guard",
+        "regression": "Native generic SGDK177 catalog/0 instances with tilemap+audio displays0/80"
+      },
+      {
+        "id": "D07",
+        "priority": "P2",
+        "problem": "Native C overlay displayed zero sprites/DMA from unrelated generic node estimates",
+        "change": "Show unavailable for graph-only metrics when executed SHA matches native C artifact; keep real VDP VRAM and live FPS",
+        "regression": "Native C overlay scope assertion before game inputs"
+      }
+    ],
+    "acceptance": {
+      "unit_and_integration": true,
+      "native_virtual_display": true,
+      "native_interaction": "Existing harness combines native WebDriver keyboard/clicks, DOM controls and automation observations; no direct JSON authorship for graphical claims",
+      "human": false,
+      "physical_hardware": false,
+      "physical_desktop_performance": false,
+      "windows_operational_journeys": false,
+      "broad_stage_closed": false,
+      "remaining_in_priority_order": [
+        "Verify independent private backup by restoring a sample; current backup is same filesystem",
+        "Human acceptance of16partial journeys and physical desktop/Windows target packages",
+        "Native C original: full match, controlled inputs/audio and reimport conflict/failure matrix; preserve C route rather than universal conversion",
+        "SNES gameplay/camera/collisions/HUD/audio beyond starter; music authoring qualification",
+        "Real corpus/end-to-end per remaining import profile, cancel/retry during conversion/build; keep Experimental",
+        "Readability/contrast/terminology and progressive guidance based on observed human errors"
+      ]
+    },
+    "public_artifacts": "Only sources, recipes, curated hashes and documentation; private inputs/assets/ROMs/screenshots/binaries/projects stay outside Git",
+    "date": "2026-10-28",
+    "completed_at": "2026-10-29T01:04:32.889Z",
+    "binary": {
+      "frozen_runtime_file": "binaries/final",
+      "sha256": "fdf0c4fb7eecc4b5b91295d7f26f2098c9b8b1abc564aabc61308d0d7aa84f5c",
+      "bytes": 427657968,
+      "build_session": "2026-10-29T00-10-50-754Z-269022",
+      "built_with_uncommitted_tree": true,
+      "production_source_commit": "b608469545f4b4aaa6ef47798e69489e18277bcd",
+      "source_manifest_sha256": "95d1255d346882bc17aaa874c18bca25f01eb1a3cbe14f5b1c1a5f841a46d42e",
+      "tracked_sources_and_recipes": 959,
+      "production_source_mismatches": [],
+      "qa_recipe_changes": [
+        {
+          "path": "scripts/e2e-tauri-build-run.mjs",
+          "build_sha256": "4724cd4fd1348ecd39e4d0d795405037a4e4640b413ed70e9f020f1926ff24bf",
+          "final_sha256": "c8d50447b21ee62fe67720cfc519cb5588a139076ca0f2929443a3ad9a3d908f"
+        }
+      ],
+      "clean_reproducible_build_claim": false
+    },
+    "native_runs": {
+      "selected_total": 13,
+      "passed": 12,
+      "failed": 1,
+      "all_same_executable": true,
+      "results": [
+        {
+          "scenario": "pixel-editor",
+          "status": "passed",
+          "exit_code": 0,
+          "started_at": "2026-10-29T00:15:08.195Z",
+          "finished_at": "2026-10-29T00:15:24.190Z",
+          "ledger": {
+            "path": "final/runs-2026-10-29T00-15-08-193Z.json",
+            "sha256": "786dfdb44923c8e6031c7f4e38a39f76697496bf4f3af79547255446cc1f81f6",
+            "bytes": 10443
+          },
+          "launcher_log": {
+            "path": "final/pixel-editor-2026-10-29T00-15-08-195Z-launcher.log",
+            "sha256": "d774a756cb1f4e23c34e09d72e1661b7bb9e204f9b8a073893835fdfdc53e611",
+            "bytes": 371
+          }
+        },
+        {
+          "scenario": "sgdk-native-c",
+          "status": "passed",
+          "exit_code": 0,
+          "started_at": "2026-10-29T00:15:24.190Z",
+          "finished_at": "2026-10-29T00:21:08.439Z",
+          "ledger": {
+            "path": "final/runs-2026-10-29T00-15-08-193Z.json",
+            "sha256": "786dfdb44923c8e6031c7f4e38a39f76697496bf4f3af79547255446cc1f81f6",
+            "bytes": 10443
+          },
+          "launcher_log": {
+            "path": "final/sgdk-native-c-2026-10-29T00-15-24-190Z-launcher.log",
+            "sha256": "36540485c59fe8b4ce405af60b7107e945ccc029933c779100da50f199683e90",
+            "bytes": 371
+          }
+        },
+        {
+          "scenario": "authoring-acceptance",
+          "status": "passed",
+          "exit_code": 0,
+          "started_at": "2026-10-29T00:21:08.445Z",
+          "finished_at": "2026-10-29T00:21:59.126Z",
+          "ledger": {
+            "path": "final/runs-2026-10-29T00-15-08-193Z.json",
+            "sha256": "786dfdb44923c8e6031c7f4e38a39f76697496bf4f3af79547255446cc1f81f6",
+            "bytes": 10443
+          },
+          "launcher_log": {
+            "path": "final/authoring-acceptance-2026-10-29T00-21-08-445Z-launcher.log",
+            "sha256": "d595a5908e5bd235046fe1180602e6c34da835a70d1c0afef80b5982c5a727a1",
+            "bytes": 371
+          }
+        },
+        {
+          "scenario": "studio-e1",
+          "status": "passed",
+          "exit_code": 0,
+          "started_at": "2026-10-29T00:21:59.126Z",
+          "finished_at": "2026-10-29T00:28:39.134Z",
+          "ledger": {
+            "path": "final/runs-2026-10-29T00-15-08-193Z.json",
+            "sha256": "786dfdb44923c8e6031c7f4e38a39f76697496bf4f3af79547255446cc1f81f6",
+            "bytes": 10443
+          },
+          "launcher_log": {
+            "path": "final/studio-e1-2026-10-29T00-21-59-126Z-launcher.log",
+            "sha256": "63cc0b3228717b0476bc6a10e3c5b7b9f6ec3b5d526c6c769d549375b27b4d10",
+            "bytes": 371
+          }
+        },
+        {
+          "scenario": "studio-e4",
+          "status": "passed",
+          "exit_code": 0,
+          "started_at": "2026-10-29T00:28:39.138Z",
+          "finished_at": "2026-10-29T00:29:32.282Z",
+          "ledger": {
+            "path": "final/runs-2026-10-29T00-15-08-193Z.json",
+            "sha256": "786dfdb44923c8e6031c7f4e38a39f76697496bf4f3af79547255446cc1f81f6",
+            "bytes": 10443
+          },
+          "launcher_log": {
+            "path": "final/studio-e4-2026-10-29T00-28-39-138Z-launcher.log",
+            "sha256": "f61470712085b427f7ec80be29db1f7bf47db0093df5224adf671bf58db81f7f",
+            "bytes": 371
+          }
+        },
+        {
+          "scenario": "studio-e2e5",
+          "status": "passed",
+          "exit_code": 0,
+          "started_at": "2026-10-29T00:29:32.284Z",
+          "finished_at": "2026-10-29T00:31:40.421Z",
+          "ledger": {
+            "path": "final/runs-2026-10-29T00-15-08-193Z.json",
+            "sha256": "786dfdb44923c8e6031c7f4e38a39f76697496bf4f3af79547255446cc1f81f6",
+            "bytes": 10443
+          },
+          "launcher_log": {
+            "path": "final/studio-e2e5-2026-10-29T00-29-32-284Z-launcher.log",
+            "sha256": "f8084f07199d4237337f718522ddead35c84bada0ed21f91c168d6c32919873f",
+            "bytes": 371
+          }
+        },
+        {
+          "scenario": "studio-paletas",
+          "status": "passed",
+          "exit_code": 0,
+          "started_at": "2026-10-29T00:31:40.422Z",
+          "finished_at": "2026-10-29T00:33:24.746Z",
+          "ledger": {
+            "path": "final/runs-2026-10-29T00-15-08-193Z.json",
+            "sha256": "786dfdb44923c8e6031c7f4e38a39f76697496bf4f3af79547255446cc1f81f6",
+            "bytes": 10443
+          },
+          "launcher_log": {
+            "path": "final/studio-paletas-2026-10-29T00-31-40-422Z-launcher.log",
+            "sha256": "ffe27989c3f084afc19153089f347ecf5ffcf4f85b5ebfc31c593e1a48baef38",
+            "bytes": 371
+          }
+        },
+        {
+          "scenario": "build-run",
+          "status": "passed",
+          "exit_code": 0,
+          "started_at": "2026-10-29T00:33:24.747Z",
+          "finished_at": "2026-10-29T00:33:31.559Z",
+          "ledger": {
+            "path": "final/runs-2026-10-29T00-15-08-193Z.json",
+            "sha256": "786dfdb44923c8e6031c7f4e38a39f76697496bf4f3af79547255446cc1f81f6",
+            "bytes": 10443
+          },
+          "launcher_log": {
+            "path": "final/build-run-2026-10-29T00-33-24-747Z-launcher.log",
+            "sha256": "74e4274d0842d8da82bee23ade1f3178b1f6b76df846a8cd6d9ebe53ec470b6e",
+            "bytes": 371
+          }
+        },
+        {
+          "scenario": "draft-recovery",
+          "status": "passed",
+          "exit_code": 0,
+          "started_at": "2026-10-29T00:33:31.560Z",
+          "finished_at": "2026-10-29T00:34:36.255Z",
+          "ledger": {
+            "path": "final/runs-2026-10-29T00-15-08-193Z.json",
+            "sha256": "786dfdb44923c8e6031c7f4e38a39f76697496bf4f3af79547255446cc1f81f6",
+            "bytes": 10443
+          },
+          "launcher_log": {
+            "path": "final/draft-recovery-2026-10-29T00-33-31-560Z-launcher.log",
+            "sha256": "9fdf5260d3b26ab11250d81720bcd70ce2a3b1b8ae43f6cc655d65e6f2578fa9",
+            "bytes": 371
+          }
+        },
+        {
+          "scenario": "qa-rc",
+          "status": "passed",
+          "exit_code": 0,
+          "started_at": "2026-10-29T00:34:36.255Z",
+          "finished_at": "2026-10-29T00:36:00.209Z",
+          "ledger": {
+            "path": "final/runs-2026-10-29T00-15-08-193Z.json",
+            "sha256": "786dfdb44923c8e6031c7f4e38a39f76697496bf4f3af79547255446cc1f81f6",
+            "bytes": 10443
+          },
+          "launcher_log": {
+            "path": "final/qa-rc-2026-10-29T00-34-36-255Z-launcher.log",
+            "sha256": "0bcc8c113485a02920751d0a8e327abf53fd0940aff50bb1353174e32a015085",
+            "bytes": 371
+          }
+        },
+        {
+          "scenario": "onboarding-shell",
+          "status": "passed",
+          "exit_code": 0,
+          "started_at": "2026-10-29T00:36:00.209Z",
+          "finished_at": "2026-10-29T00:36:18.056Z",
+          "ledger": {
+            "path": "final/runs-2026-10-29T00-15-08-193Z.json",
+            "sha256": "786dfdb44923c8e6031c7f4e38a39f76697496bf4f3af79547255446cc1f81f6",
+            "bytes": 10443
+          },
+          "launcher_log": {
+            "path": "final/onboarding-shell-2026-10-29T00-36-00-209Z-launcher.log",
+            "sha256": "b20cee9b1264ed8bdae34cf1445c45a9948fd7f849665e4b170863e9da28b65f",
+            "bytes": 371
+          }
+        },
+        {
+          "scenario": "sgdk-split-resources",
+          "status": "failed",
+          "exit_code": 10,
+          "started_at": "2026-10-29T00:36:18.057Z",
+          "finished_at": "2026-10-29T00:36:28.238Z",
+          "ledger": {
+            "path": "final/runs-2026-10-29T00-15-08-193Z.json",
+            "sha256": "786dfdb44923c8e6031c7f4e38a39f76697496bf4f3af79547255446cc1f81f6",
+            "bytes": 10443
+          },
+          "launcher_log": {
+            "path": "final/sgdk-split-resources-2026-10-29T00-36-18-057Z-launcher.log",
+            "sha256": "be854d9f213bc0911e4d89ed93927377585738a37ba261eacb72bb267a82690f",
+            "bytes": 272
+          }
+        },
+        {
+          "scenario": "reference-platformer",
+          "status": "passed",
+          "exit_code": 0,
+          "started_at": "2026-10-29T00:36:28.239Z",
+          "finished_at": "2026-10-29T00:36:42.422Z",
+          "ledger": {
+            "path": "final/runs-2026-10-29T00-15-08-193Z.json",
+            "sha256": "786dfdb44923c8e6031c7f4e38a39f76697496bf4f3af79547255446cc1f81f6",
+            "bytes": 10443
+          },
+          "launcher_log": {
+            "path": "final/reference-platformer-2026-10-29T00-36-28-239Z-launcher.log",
+            "sha256": "83067463f02fc28b60fc25c18c40618d7882adae380fa48fea6e02e4760939ce",
+            "bytes": 371
+          }
+        }
+      ],
+      "overall_final_total": 15,
+      "overall_final_passed": 14,
+      "overall_final_failed": 1
+    },
+    "reports": [
+      {
+        "path": "final/pixel-editor-2026-10-29T00-15-12-532Z.json",
+        "sha256": "0fb0e6d239b082d5fb3d45f2a82c66ba509dca45661780930ee3d8f837302e06",
+        "bytes": 4107
+      },
+      {
+        "path": "final/sgdk-native-c-2026-10-29T00-15-27-056Z.json",
+        "sha256": "9a4a3b068bfe03a181a6d90d769d88f826c107a825d3df5952bc507b17738532",
+        "bytes": 37021
+      },
+      {
+        "path": "final/studio-e1-2026-10-29T00-22-02-207Z-report.json",
+        "sha256": "c1650e2ea1255912dae8a8981c169048f0729710c6299f34b40db29cda549721",
+        "bytes": 10476
+      },
+      {
+        "path": "final/studio-e2e5-2026-10-29T00-29-35-103Z-report.json",
+        "sha256": "38626f690204521e64705592e640b70b0d75813e97e4a1224a179aedb0c0af24",
+        "bytes": 24997
+      },
+      {
+        "path": "final/studio-e4-2026-10-29T00-28-42-172Z-report.json",
+        "sha256": "93856ad5a87317ed83dedf0e541f6c46366e0ea97287fd45d51fd9c848ba446e",
+        "bytes": 12151
+      },
+      {
+        "path": "final/studio-paletas-2026-10-29T00-31-43-294Z-report.json",
+        "sha256": "b3281765d951a5c5dd77ae341040db18b9beebf6e4768c8584b5ec9a6032be9e",
+        "bytes": 10264
+      },
+      {
+        "path": "artifacts/authoring-acceptance-2026-10-29T00-21-11-345Z-report.json",
+        "sha256": "65ca5529c22e47c582ee97227a85fc2330d6e45d6174cb5cc8f8408c6ef11855",
+        "bytes": 13077
+      },
+      {
+        "path": "artifacts/snes-guided-authoring-2026-10-29T00-36-31-669Z-report.json",
+        "sha256": "4e0570d5c6d07455e28d70837210b4f9c905bfa9e807df84bfd34730dc9a2e6a",
+        "bytes": 3063
+      }
+    ],
+    "supplemental_native_runs": {
+      "results": [
+        {
+          "scenario": "mugen-original",
+          "status": "passed",
+          "exit_code": 0,
+          "ledger": {
+            "path": "final/additional-mugen-2026-10-29T00-45-17-824Z.json",
+            "sha256": "e2aaa24acf4ce2baa0061adf84e4839ba85a90b94170ef1ca24b42ccb085fa29",
+            "bytes": 1700
+          },
+          "launcher_log": {
+            "path": "final/mugen-original-2026-10-29T00-45-17-826Z-launcher.log",
+            "sha256": "257d776bb60bff89d35b8b0f60da5fcfe1f91b40fb1f0205c95f1d85c0be7cc7",
+            "bytes": 371
+          }
+        },
+        {
+          "scenario": "mugen-locomotion",
+          "status": "passed",
+          "exit_code": 0,
+          "ledger": {
+            "path": "final/additional-mugen-2026-10-29T00-52-37-596Z.json",
+            "sha256": "69f44f67dd5c4b1677d57dacbffc374558369a7a2020f53da20616939f44748a",
+            "bytes": 1151
+          },
+          "launcher_log": {
+            "path": "final/mugen-locomotion-2026-10-29T00-52-37-611Z-launcher.log",
+            "sha256": "4a3d275056b465725d0b64de74af8e3d6fa1d415681c3591c83723bbac72c628",
+            "bytes": 371
+          }
+        }
+      ],
+      "failed_attempts_retained": [
+        {
+          "scenario": "mugen-locomotion",
+          "path": "final/additional-mugen-2026-10-29T00-45-17-824Z.json",
+          "sha256": "e2aaa24acf4ce2baa0061adf84e4839ba85a90b94170ef1ca24b42ccb085fa29",
+          "bytes": 1700
+        }
+      ],
+      "original_chain_reference": {
+        "path": "final/mugen-original-pilot/independent/chain-independent-report.json",
+        "sha256": "2871aa6fc213e85da404556b13097dc54e4bcd159147492445ab678e8cf6aad2",
+        "bytes": 11527,
+        "ticks": 336,
+        "mismatches": 0,
+        "pixels_checked": 296,
+        "pixel_mismatches_at_lag0": 0,
+        "negative_controls": {
+          "attack_one_tick_late": "rejected",
+          "ctrl_not_cleared": "rejected",
+          "wrong_animation": "rejected",
+          "duration_changed": "rejected",
+          "extra_attack_on_hold": "rejected",
+          "velocity_leak": "rejected",
+          "time_not_reset": "rejected"
+        },
+        "limits": [
+          "state 0 is an authored stand-in (common1.cns absent)",
+          "command buffer.time default and plain-button press edge not verified in primary cmd.html",
+          "HitDef/PlaySnd/poweradd effects are opaque, not simulated",
+          "Pos y fixed at 0: no converted or referenced controller moves y"
+        ]
+      },
+      "original_chain_ui": {
+        "path": "final/mugen-original-pilot/ui-report.json",
+        "sha256": "c91d25ab89d0771622327970cc36cd3b3ec029e48e400b1e771ccdbe1358ad34",
+        "bytes": 562536
+      },
+      "locomotion": {
+        "path": "artifacts/mugen-locomotion-2026-10-29T00-52-41-377Z-report.json",
+        "sha256": "5fc19027299410ae4adceff687cc6ec50dafbc30c2113ad590fb7a7cb49e3734",
+        "bytes": 15801
+      },
+      "helper_correction": "Old helper waited for enabled Import without clicking Analyze. Required visible Analyze action added; no product guard or expected motion changed."
+    },
+    "validation_qa_recipe_note": "Legacy finishMugenSourceReview must click existing Analyze action before importing; helper corrected after binary build/baseline certification, native Strider regression and node --check passed. Product sources unchanged.",
+    "validation": {
+      "state": "READY",
+      "generated_at": "2026-10-29T00:44:44.274Z",
+      "host_fingerprint": "60249508aff61897cdd43160d4716b2344d69282507a36c5a457c0028143f6e2",
+      "lock_digest": "dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377",
+      "gates": [
+        {
+          "label": "check:tree",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "lint",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "typescript",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "frontend-tests",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "rust-clippy",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "rust-tests",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "upstream",
+          "ok": true,
+          "exit_code": 0
+        }
+      ],
+      "frontend": {
+        "passed": 1233,
+        "skipped": 11
+      },
+      "rust": {
+        "passed": 1098,
+        "ignored": 109
+      },
+      "full_clippy": true,
+      "format": true,
+      "official_sgdk_and_pvsneslib_smokes": true,
+      "new_dependencies_or_locks": false,
+      "evidence": {
+        "path": "certification/host-readiness-final.json",
+        "sha256": "8f6f41607211b1aa1f570021f59a748d43e43e8c836ddd87a2aa4259c9396499",
+        "bytes": 11322
+      },
+      "supporting_log": {
+        "path": "certification/full-final-command.log",
+        "sha256": "4e96996df2cd6db5646f004714df34b172682e64020b6c2365da7e37c9c85332",
+        "bytes": 140598
+      },
+      "recipe": {
+        "path": "final-gates.sh",
+        "sha256": "547bd9ff8b52be8e0297b9701aac351e86f50d7ef17d617b32dfec89320726f9",
+        "bytes": 1011
+      }
+    },
+    "rom_identity": {
+      "native_c_original": "ff909dbf499b23bbc06c7951e4bdde698834a4eb2ac66ff9a1e7ec3575b533b9",
+      "native_c_edited_executed_exported": "90fe6369814ed3abeaa6bffa8943c1d0ab6830188dcf9ec5bf8c9e65e9ccae1b",
+      "sdk_content_sha256": "fa4d70402a5819eca642e6f9d10a9cfbcc1a97de0c4769b2d788175365b498aa",
+      "original_source_tree_sha256": "65b4028bb3c5124e8a0ff60b63afd69f5a4e3bf9462f0e4adc663a6d862a46d3",
+      "edited_source_tree_sha256": "f0a10d7a1ff9593bf90959878195ec12cd732f740a20b74a863eae9fb93a0193",
+      "snes_starter_executed_exported": "985bb9b77a61dde71c6d3fdbb1804d7bb43fe6e5bcf96fff34610a4eb5a029c0"
+    },
+    "original_inputs": {
+      "files": 403,
+      "changed": [],
+      "source_snapshot": {
+        "path": "source-input-before.json",
+        "sha256": "5da28338cc66a90fd2da5a2c2a134e612336f4d3a2880c78a511e946f7a1109d",
+        "bytes": 65654
+      },
+      "wrapper_recipes": {
+        "path": "inputs/sgdk-wrapper-recipes.json",
+        "sha256": "463c63950125d1a5e4830cb4c7c53b3b8c5ea89ced28a36af483903a66006d88",
+        "bytes": 16993
+      }
+    },
+    "failures_retained": {
+      "all_ledgers": [
+        {
+          "path": "final/runs-2026-10-28T22-20-49-552Z.json",
+          "sha256": "e0f6e3dca06715547d2c07147138eaa489a1966d88e095b498154c08cb1ee6a0",
+          "bytes": 1641,
+          "app_sha256": "72e2233ba7aa6953f3a14e26a3dfa1b4ecf11a74a8a79f28f87f4dfbb664a830",
+          "failed_runs": []
+        },
+        {
+          "path": "final/runs-2026-10-28T22-39-31-505Z.json",
+          "sha256": "0a211d207ba3ca31cf792bcfc1840f346fecd760ecb3444f1c01de3355e8e609",
+          "bytes": 9619,
+          "app_sha256": "b8ad297cfa4f6a13fdda57514bcdde7948bc4d62551fb8cc1c00dbc0f88ba002",
+          "failed_runs": [
+            "sgdk-split-resources"
+          ]
+        },
+        {
+          "path": "final/runs-2026-10-28T23-00-52-711Z.json",
+          "sha256": "c5a7cd97395ad385550ff4139b09d531f32fe982f8fbc4f685b4b69b57bd9a5f",
+          "bytes": 1456,
+          "app_sha256": "b8ad297cfa4f6a13fdda57514bcdde7948bc4d62551fb8cc1c00dbc0f88ba002",
+          "failed_runs": [
+            "sgdk-native-c",
+            "reference-platformer"
+          ]
+        },
+        {
+          "path": "final/runs-2026-10-28T23-30-19-148Z.json",
+          "sha256": "54973417f41df168f878067b748480853d060db6ac4c84d90d4f24ad79a36156",
+          "bytes": 1159,
+          "app_sha256": "bf1595f1c64cb6c9a0d83f4eb00ebe597eaef509e89e0c75208cae5240d4cc26",
+          "failed_runs": []
+        },
+        {
+          "path": "final/runs-2026-10-28T23-30-54-338Z.json",
+          "sha256": "6b1bfe6f1acda134e633073c7e30e02aa21486ded7bf4c11caa5c8f0bb118c8f",
+          "bytes": 9386,
+          "app_sha256": "bf1595f1c64cb6c9a0d83f4eb00ebe597eaef509e89e0c75208cae5240d4cc26",
+          "failed_runs": [
+            "sgdk-native-c",
+            "sgdk-split-resources"
+          ]
+        },
+        {
+          "path": "final/runs-2026-10-28T23-52-02-352Z.json",
+          "sha256": "d68bbf0e02f56f70aa71986758c22c0b7f0e1f76db51db0d4631b3270bc8d0bf",
+          "bytes": 897,
+          "app_sha256": "bf1595f1c64cb6c9a0d83f4eb00ebe597eaef509e89e0c75208cae5240d4cc26",
+          "failed_runs": [
+            "sgdk-native-c"
+          ]
+        },
+        {
+          "path": "final/runs-2026-10-28T23-57-13-180Z.json",
+          "sha256": "9d9223201014185c40b64081f534232a61de400d7457f754de137b4dfe58b31a",
+          "bytes": 897,
+          "app_sha256": "bf1595f1c64cb6c9a0d83f4eb00ebe597eaef509e89e0c75208cae5240d4cc26",
+          "failed_runs": [
+            "sgdk-native-c"
+          ]
+        },
+        {
+          "path": "final/runs-2026-10-29T00-03-12-090Z.json",
+          "sha256": "236f6ac100f7d28bf6627b8ad1c1e514b14ecea8ff92c8859e302c69d77d73f8",
+          "bytes": 1145,
+          "app_sha256": "bf1595f1c64cb6c9a0d83f4eb00ebe597eaef509e89e0c75208cae5240d4cc26",
+          "failed_runs": []
+        },
+        {
+          "path": "final/runs-2026-10-29T00-15-08-193Z.json",
+          "sha256": "786dfdb44923c8e6031c7f4e38a39f76697496bf4f3af79547255446cc1f81f6",
+          "bytes": 10443,
+          "app_sha256": "fdf0c4fb7eecc4b5b91295d7f26f2098c9b8b1abc564aabc61308d0d7aa84f5c",
+          "failed_runs": [
+            "sgdk-split-resources"
+          ]
+        }
+      ],
+      "notes": {
+        "path": "audit-notes.json",
+        "sha256": "26078c6afea5207cbafa0d29a60e5627524273009b67c0aeb99541ca8cda92ee",
+        "bytes": 7174
+      },
+      "observed_corrections": [
+        "Initial pixel Undo false saved and document loss",
+        "Intermediate palette refusal accidentally erased by message cleanup: test failed, corrected without relaxing assertion",
+        "Isolated XDG hid existing Wine Flatpak installation; reused existing installation with explicit user-dir",
+        "C enum probe corrected to32bit using linked ELF evidence",
+        "Arcade hits/guard contaminate asynchronous movement; select existing Training/Idle; wait on actual ctrl after intro; neutral control and strict directions",
+        "MD-only template plus SNES left partial skeleton; now preflight before reservation",
+        "Generic SGDK142x1 plane refusal remains a failed conversion journey"
+      ]
+    },
+    "accepted_screenshots": [
+      {
+        "step": "01",
+        "path": "accepted/01-snes-created-and-running.png",
+        "sha256": "df644a9cbecd61c8d7d8bd5f8e32c9da43660b4028db749280e3e3261c7a9b93",
+        "inspected_and_accepted": true,
+        "note": "Starter SNES created/edited/saved/reopened and executing in Snes9x; limited sprite demo"
+      },
+      {
+        "step": "02",
+        "path": "accepted/02-pixel-undo-pending.png",
+        "sha256": "8ee535f2f9937edf88196344ddbbfff665c28954bc07f64bc4dec606330ab6fb",
+        "inspected_and_accepted": true,
+        "note": "Undo after save shows pending pixel work; two frames retained"
+      },
+      {
+        "step": "03",
+        "path": "accepted/03-c-native-fight.png",
+        "sha256": "501ff2734a2c5ff9d29838718e19b5785b3486a39cbd929a1c4a1945a65970f8",
+        "inspected_and_accepted": true
+      },
+      {
+        "step": "04",
+        "path": "accepted/04-c-delivery.png",
+        "sha256": "4f2ac65cad42f8ee927c44b52d64bea99c1697d38971a02f021ef267e5fe5895",
+        "inspected_and_accepted": true
+      },
+      {
+        "step": "05",
+        "path": "accepted/05-md-authored-goal.png",
+        "sha256": "6cd6a7de772a6e64fd552d4fb9edd788a35fbd470196a8a8edb6f2382650049a",
+        "inspected_and_accepted": true,
+        "note": "MD authored platformer after native keyboard journey; goal/SFX proven by report/RAM/audio, not a visible victory caption"
+      }
+    ],
+    "visual_capture_limits": [
+      {
+        "path": "artifacts/snes-guided-authoring-2026-10-29T00-36-31-669Z-md-scope.png",
+        "claim": "Visible SNES disabled state",
+        "reason": "Target controls outside scrolled view. Kept raw; restriction proven by native DOM assertion and backend/UI regressions, not by this picture."
+      },
+      {
+        "path": "artifacts/snes-guided-authoring-2026-10-29T00-36-31-669Z-edited.png",
+        "claim": "Save visibly complete",
+        "reason": "UI says Salvando in this frame. Kept raw as edit-in-progress; completion proved by subsequent save/reopen/core/export report and stable running picture."
+      }
+    ],
+    "retention": {
+      "runtime_root": "RDS_WORK_ROOT/sessions/product-diagnosis-20261028",
+      "owner": "operator",
+      "retention": "Until human acceptance and verified independent private backup",
+      "archive": "product-diagnosis-20261028-fdf0c4fb.tar.zst",
+      "archive_sha256": "6842d762ca615b4caf1805787df25279b70016424ce61d76dd876b3bd52da726",
+      "archive_bytes": 635990914,
+      "verification": {
+        "status": "verified_all_members",
+        "records": 5309,
+        "bytes": 2662887000,
+        "manifest_sha256": "50de5f9993ce910917dada655030ff113f786463affac63b95955b5e11d109bb"
+      },
+      "same_filesystem": true,
+      "independent_off_host_backup_qualified": false,
+      "manifest": {
+        "path": "evidence-manifest.json",
+        "sha256": "50de5f9993ce910917dada655030ff113f786463affac63b95955b5e11d109bb",
+        "bytes": 1094957
+      }
+    }
   }
 }

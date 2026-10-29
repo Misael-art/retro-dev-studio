@@ -4837,6 +4837,12 @@ async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifa
 // com caminho fora da pasta falha sem deixar projeto. So o dialogo nativo de pasta e
 // substituido (setNextExternalImportPath), como no importSgdkProject existente.
 async function finishMugenSourceReview(sessionId) {
+  // Metadata alone intentionally cannot authorize import. Legacy callers must
+  // perform the same visible Analyze action as the current source-review flow.
+  const pendingAnalysis = await waitFor(async () => executeScript(sessionId, `const b=document.querySelector('[data-testid="mugen-source-import"]');
+    const a=document.querySelector('[data-testid="mugen-source-analyze"]');
+    return b && (!b.disabled || (a && !a.disabled)) ? { importDisabled:b.disabled } : null;`), 120000, "Triagem MUGEN nao terminou.", 200);
+  if (pendingAnalysis.importDisabled) await clickByTestId(sessionId, "mugen-source-analyze");
   await waitFor(async () => executeScript(sessionId, `const b=document.querySelector('[data-testid="mugen-source-import"]'); return b && !b.disabled;`), 120000, "Analise MUGEN nao liberou a importacao revisada.", 200);
   await clickByTestId(sessionId, "mugen-source-import");
 }
