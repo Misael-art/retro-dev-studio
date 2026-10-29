@@ -3364,9 +3364,9 @@
     }
   },
   "latest_delivery": {
-    "section": "console_appearance_20261029",
-    "code_commit": "d1865bd46160db0bd5ccff77bafd187324a1bac1",
-    "binary_sha256": "700dff469db621dc4677225a2b2b3f44ba2a0723ca6e5c44f8facc79f26377ab"
+    "section": "project_start_console_themes_20261029",
+    "code_commit": "996738c02c6d6e89d608dd2483217cf6ef598337",
+    "binary_sha256": "f3a7954b2577472dfe487392f1992f91e9d5e5bcf4402957486f5b16f841d00e"
   },
   "latest_checkpoint": "product_diagnosis_20261028",
   "last_updated_at": "2026-10-29T01:04:32.889Z",
@@ -5545,6 +5545,1919 @@
       "Tauri/WebKit/Xvfb/software and pinned official SDK/core; no GPU/audio-physical/Windows/console acceptance.",
       "16 journeys and template backlog remain partial; no new template distributed or maturity promotion.",
       "Private archive is on the same filesystem; independent/off-host copy unqualified."
+    ]
+  },
+  "project_start_console_themes_20261029": {
+    "schema": "retrodev.project_start_console_themes/v1",
+    "status": "passed_local_experimental_with_known_sgdk_conversion_limit",
+    "maturity": "Experimental",
+    "date": "2026-10-29",
+    "base_commit": "6678a20a8e72113eabaa89078c736f0c39a084e0",
+    "code_commit": "996738c02c6d6e89d608dd2483217cf6ef598337",
+    "binary": {
+      "at": "2026-10-29T20:43:36.944772+00:00",
+      "path": null,
+      "sha256": "f3a7954b2577472dfe487392f1992f91e9d5e5bcf4402957486f5b16f841d00e",
+      "bytes": 427670896,
+      "base_commit": "6678a20a8e72113eabaa89078c736f0c39a084e0",
+      "built_from_dirty_tree": true,
+      "build_session": "2026-10-29T20-38-23-558Z-239342",
+      "source_snapshot": [
+        {
+          "file": "src/App.tsx",
+          "sha256": "17c62f5e11d5ddebf1d120e4c2958e80305e33f645d3cdb54e48be0100819d5f"
+        },
+        {
+          "file": "src/components/common/ProjectStartWizard.tsx",
+          "sha256": "41d84f2de80ab24793c89d6b6a821f7f56c7f44e091644502e601a607f55b979"
+        },
+        {
+          "file": "src/components/common/StudioAppearancePicker.tsx",
+          "sha256": "f6cff9859bbe55bd9ed38d926c0d5f4c5157a9f3eccb9e07cc716f4e3a14523d"
+        },
+        {
+          "file": "src/core/studioAppearance.ts",
+          "sha256": "84b2ddf12dc9086dcffbd9c72429d4093da65e4f43850923d231b3758b555390"
+        },
+        {
+          "file": "src/styles/index.css",
+          "sha256": "cdac62efb2cdabbeb5091c16e8208d258b4307d60200acc6a0a24410e13b51c6"
+        },
+        {
+          "file": "src/components/nodegraph/NodeGraphEditor.tsx",
+          "sha256": "7822f589a806cefd2a7a657ee1f1f2190c65d08cffc771aa7306313b312bf4e0"
+        }
+      ],
+      "file": "retro-dev-studio-f3a7954b",
+      "source_snapshot_matches_code_commit": true
+    },
+    "scope": "Progressive project wizard using existing catalog/importers/hydration/default destination; saved project.rds file open. Existing appearance tokens and preference now provide SNES/SFC light and MD Night/16-bit dark. No dependency, engine, project asset/palette or template changes.",
+    "themes": [
+      "Super Nintendo",
+      "Super Famicom",
+      "Mega Drive Night",
+      "Mega Drive 16-bit"
+    ],
+    "preference": {
+      "key": "retrodev-studio-theme",
+      "default": "super-nintendo",
+      "legacy_choices_migrated": true
+    },
+    "color_reference": {
+      "title": "Nintendo Super Famicom controller",
+      "url": "https://support.nintendo.com/jp/switch/controller/superfamicom.html",
+      "qualification": "Inspired colors; no claim of official brand RGB values or licensed assets."
+    },
+    "native_checks": {
+      "appearance": {
+        "id": "appearance",
+        "session": "2026-10-29T20-43-38-295Z-262750",
+        "started_at": "2026-10-29T20:43:38.151Z",
+        "finished_at": "2026-10-29T20:44:19.279Z",
+        "status": "PASS",
+        "exit_code": 0,
+        "harness_sha256": "aac4ea916365c765243a86925f9a5c02b07b6de5964b7f7f83b285be8793b5ab",
+        "binary_sha256": "f3a7954b2577472dfe487392f1992f91e9d5e5bcf4402957486f5b16f841d00e"
+      },
+      "qa-rc": {
+        "id": "qa-rc",
+        "session": "2026-10-29T20-44-20-408Z-268018",
+        "started_at": "2026-10-29T20:44:20.284Z",
+        "finished_at": "2026-10-29T20:45:51.153Z",
+        "status": "PASS",
+        "exit_code": 0,
+        "harness_sha256": "aac4ea916365c765243a86925f9a5c02b07b6de5964b7f7f83b285be8793b5ab",
+        "binary_sha256": "f3a7954b2577472dfe487392f1992f91e9d5e5bcf4402957486f5b16f841d00e"
+      },
+      "snes": {
+        "id": "snes",
+        "session": "2026-10-29T20-45-52-286Z-278528",
+        "started_at": "2026-10-29T20:45:52.125Z",
+        "finished_at": "2026-10-29T20:46:07.491Z",
+        "status": "PASS",
+        "exit_code": 0,
+        "harness_sha256": "aac4ea916365c765243a86925f9a5c02b07b6de5964b7f7f83b285be8793b5ab",
+        "binary_sha256": "f3a7954b2577472dfe487392f1992f91e9d5e5bcf4402957486f5b16f841d00e"
+      },
+      "mugen-import": {
+        "id": "mugen-import",
+        "session": "2026-10-29T20-46-08-313Z-280027",
+        "started_at": "2026-10-29T20:46:08.177Z",
+        "finished_at": "2026-10-29T20:48:41.962Z",
+        "status": "PASS",
+        "exit_code": 0,
+        "harness_sha256": "aac4ea916365c765243a86925f9a5c02b07b6de5964b7f7f83b285be8793b5ab",
+        "binary_sha256": "f3a7954b2577472dfe487392f1992f91e9d5e5bcf4402957486f5b16f841d00e"
+      },
+      "certify": {
+        "id": "certify",
+        "session": "2026-10-29T20-50-32-220Z-294692",
+        "started_at": "2026-10-29T20:50:32.104Z",
+        "finished_at": "2026-10-29T20:57:39.506Z",
+        "status": "PASS",
+        "exit_code": 0,
+        "harness_sha256": "aac4ea916365c765243a86925f9a5c02b07b6de5964b7f7f83b285be8793b5ab",
+        "binary_sha256": "f3a7954b2577472dfe487392f1992f91e9d5e5bcf4402957486f5b16f841d00e"
+      },
+      "fmt": {
+        "id": "fmt",
+        "session": "2026-10-29T20-57-40-385Z-322721",
+        "started_at": "2026-10-29T20:57:40.270Z",
+        "finished_at": "2026-10-29T20:57:43.146Z",
+        "status": "PASS",
+        "exit_code": 0,
+        "harness_sha256": "aac4ea916365c765243a86925f9a5c02b07b6de5964b7f7f83b285be8793b5ab",
+        "binary_sha256": "f3a7954b2577472dfe487392f1992f91e9d5e5bcf4402957486f5b16f841d00e"
+      },
+      "clippy-default": {
+        "id": "clippy-default",
+        "session": "2026-10-29T20-57-43-910Z-322991",
+        "started_at": "2026-10-29T20:57:43.791Z",
+        "finished_at": "2026-10-29T20:57:44.949Z",
+        "status": "PASS",
+        "exit_code": 0,
+        "harness_sha256": "aac4ea916365c765243a86925f9a5c02b07b6de5964b7f7f83b285be8793b5ab",
+        "binary_sha256": "f3a7954b2577472dfe487392f1992f91e9d5e5bcf4402957486f5b16f841d00e"
+      }
+    },
+    "appearance": {
+      "steps": [
+        {
+          "step": "wizard_progressive_home",
+          "status": "passed",
+          "intents": 4,
+          "name": false,
+          "create": false,
+          "open": false
+        },
+        {
+          "step": "saved_file_cancel_and_invalid_selection",
+          "status": "passed",
+          "dialog_fixture": "only native file chooser result substituted"
+        },
+        {
+          "step": "blank_megadrive_created_without_directory_picker",
+          "status": "passed",
+          "project": "/home/misael/Documents/RetroDevProjects/Wizard_Zero_megadrive_1793306623693"
+        },
+        {
+          "step": "blank_snes_created_without_directory_picker",
+          "status": "passed",
+          "project": "/home/misael/Documents/RetroDevProjects/Wizard_Zero_snes_1793306626216"
+        },
+        {
+          "step": "import_branches_console_filter_and_back_preserve_name",
+          "status": "passed"
+        },
+        {
+          "step": "model_created_without_picker_and_reopened_from_saved_file",
+          "status": "passed",
+          "dialog_fixture": "only file chooser result substituted",
+          "project": "/home/misael/Documents/RetroDevProjects/Appearance_1793306630592"
+        },
+        {
+          "step": "official_build_core_paused",
+          "status": "passed",
+          "rom_sha256": "e6fecac47943bb43911281ffd1af3c0916c1e8c8546bac2b8f2b4f98530877b9"
+        },
+        {
+          "step": "four_themes_preserve_exact_game_canvas_pixels",
+          "status": "passed",
+          "png_sha256": "b8f96d1f362a932eceddea56dd043d4d37343544e9cdd27b60cb0b5c9a14b2d6"
+        },
+        {
+          "step": "native_radio_keyboard_and_escape_focus",
+          "status": "passed"
+        },
+        {
+          "step": "canonical_workspaces_and_guided_icons",
+          "status": "passed",
+          "guided": [
+            {
+              "text": " 1. Cenário",
+              "icon": "studio-scene"
+            },
+            {
+              "text": " 2. Personagem",
+              "icon": "studio-art"
+            },
+            {
+              "text": " 3. Regras",
+              "icon": "studio-logic"
+            },
+            {
+              "text": " 4. Sons",
+              "icon": "music"
+            },
+            {
+              "text": " 5. Testar",
+              "icon": "studio-game"
+            }
+          ]
+        },
+        {
+          "step": "scene_bytes_unchanged",
+          "status": "passed",
+          "sha256": "5600d79b21d2123b08d44fc4b8ac15f6a1b8337f47e3760bd917e64e33d8fbf8"
+        },
+        {
+          "step": "theme_persists_across_cold_reopen",
+          "status": "passed",
+          "theme": "super-famicom"
+        }
+      ],
+      "matrix": [
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1280,
+          "height": 800,
+          "colorScheme": "light",
+          "theme": "super-nintendo",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ],
+          "scheme": "light",
+          "contrast": [
+            {
+              "color": "rgb(41, 35, 53)",
+              "ratio": 12.333945688874541,
+              "id": "console",
+              "background": "rgb(232, 231, 238)",
+              "present": true
+            },
+            {
+              "color": "rgb(41, 35, 53)",
+              "ratio": 13.958140794611833,
+              "id": "guide",
+              "background": "rgb(246, 245, 249)",
+              "present": true
+            },
+            {
+              "color": "rgb(93, 83, 108)",
+              "ratio": 5.856293620325908,
+              "id": "breadcrumb",
+              "background": "rgb(232, 231, 238)",
+              "present": true
+            }
+          ],
+          "wizard": [
+            {
+              "visible": true,
+              "id": "wizard-intent-new"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-template"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-open"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-import"
+            }
+          ]
+        },
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1280,
+          "height": 800,
+          "colorScheme": "light",
+          "theme": "super-famicom",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ],
+          "scheme": "light",
+          "contrast": [
+            {
+              "color": "rgb(35, 43, 42)",
+              "ratio": 11.662506099999383,
+              "id": "console",
+              "background": "rgb(229, 231, 231)",
+              "present": true
+            },
+            {
+              "color": "rgb(35, 43, 42)",
+              "ratio": 13.4810898664507,
+              "id": "guide",
+              "background": "rgb(246, 247, 246)",
+              "present": true
+            },
+            {
+              "color": "rgb(80, 94, 90)",
+              "ratio": 5.474723417787845,
+              "id": "breadcrumb",
+              "background": "rgb(229, 231, 231)",
+              "present": true
+            }
+          ],
+          "wizard": [
+            {
+              "visible": true,
+              "id": "wizard-intent-new"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-template"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-open"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-import"
+            }
+          ]
+        },
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1280,
+          "height": 800,
+          "colorScheme": "dark",
+          "theme": "mega-drive-night",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ],
+          "scheme": "dark",
+          "contrast": [
+            {
+              "color": "rgb(244, 244, 243)",
+              "ratio": 17.165213949452774,
+              "id": "console",
+              "background": "rgb(16, 17, 19)",
+              "present": true
+            },
+            {
+              "color": "rgb(244, 244, 243)",
+              "ratio": 15.348316048353949,
+              "id": "guide",
+              "background": "rgb(27, 29, 32)",
+              "present": true
+            },
+            {
+              "color": "rgb(195, 197, 200)",
+              "ratio": 10.921901731784729,
+              "id": "breadcrumb",
+              "background": "rgb(16, 17, 19)",
+              "present": true
+            }
+          ],
+          "wizard": [
+            {
+              "visible": true,
+              "id": "wizard-intent-new"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-template"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-open"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-import"
+            }
+          ]
+        },
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1280,
+          "height": 800,
+          "colorScheme": "dark",
+          "theme": "mega-drive-16bit",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ],
+          "scheme": "dark",
+          "contrast": [
+            {
+              "color": "rgb(245, 241, 231)",
+              "ratio": 16.331426188530603,
+              "id": "console",
+              "background": "rgb(21, 20, 17)",
+              "present": true
+            },
+            {
+              "color": "rgb(245, 241, 231)",
+              "ratio": 14.077507771220619,
+              "id": "guide",
+              "background": "rgb(36, 34, 30)",
+              "present": true
+            },
+            {
+              "color": "rgb(205, 195, 175)",
+              "ratio": 10.544255862426997,
+              "id": "breadcrumb",
+              "background": "rgb(21, 20, 17)",
+              "present": true
+            }
+          ],
+          "wizard": [
+            {
+              "visible": true,
+              "id": "wizard-intent-new"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-template"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-open"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-import"
+            }
+          ]
+        },
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1920,
+          "height": 1080,
+          "colorScheme": "light",
+          "theme": "super-nintendo",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ],
+          "scheme": "light",
+          "contrast": [
+            {
+              "color": "rgb(41, 35, 53)",
+              "ratio": 12.333945688874541,
+              "id": "console",
+              "background": "rgb(232, 231, 238)",
+              "present": true
+            },
+            {
+              "color": "rgb(41, 35, 53)",
+              "ratio": 13.958140794611833,
+              "id": "guide",
+              "background": "rgb(246, 245, 249)",
+              "present": true
+            },
+            {
+              "color": "rgb(93, 83, 108)",
+              "ratio": 5.856293620325908,
+              "id": "breadcrumb",
+              "background": "rgb(232, 231, 238)",
+              "present": true
+            }
+          ],
+          "wizard": [
+            {
+              "visible": true,
+              "id": "wizard-intent-new"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-template"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-open"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-import"
+            }
+          ]
+        },
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1920,
+          "height": 1080,
+          "colorScheme": "light",
+          "theme": "super-famicom",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ],
+          "scheme": "light",
+          "contrast": [
+            {
+              "color": "rgb(35, 43, 42)",
+              "ratio": 11.662506099999383,
+              "id": "console",
+              "background": "rgb(229, 231, 231)",
+              "present": true
+            },
+            {
+              "color": "rgb(35, 43, 42)",
+              "ratio": 13.4810898664507,
+              "id": "guide",
+              "background": "rgb(246, 247, 246)",
+              "present": true
+            },
+            {
+              "color": "rgb(80, 94, 90)",
+              "ratio": 5.474723417787845,
+              "id": "breadcrumb",
+              "background": "rgb(229, 231, 231)",
+              "present": true
+            }
+          ],
+          "wizard": [
+            {
+              "visible": true,
+              "id": "wizard-intent-new"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-template"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-open"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-import"
+            }
+          ]
+        },
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1920,
+          "height": 1080,
+          "colorScheme": "dark",
+          "theme": "mega-drive-night",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ],
+          "scheme": "dark",
+          "contrast": [
+            {
+              "color": "rgb(244, 244, 243)",
+              "ratio": 17.165213949452774,
+              "id": "console",
+              "background": "rgb(16, 17, 19)",
+              "present": true
+            },
+            {
+              "color": "rgb(244, 244, 243)",
+              "ratio": 15.348316048353949,
+              "id": "guide",
+              "background": "rgb(27, 29, 32)",
+              "present": true
+            },
+            {
+              "color": "rgb(195, 197, 200)",
+              "ratio": 10.921901731784729,
+              "id": "breadcrumb",
+              "background": "rgb(16, 17, 19)",
+              "present": true
+            }
+          ],
+          "wizard": [
+            {
+              "visible": true,
+              "id": "wizard-intent-new"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-template"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-open"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-import"
+            }
+          ]
+        },
+        {
+          "rail": [
+            {
+              "size": 32,
+              "label": "Cena",
+              "icon": "studio-scene"
+            },
+            {
+              "size": 32,
+              "label": "Teste",
+              "icon": "studio-game"
+            },
+            {
+              "size": 32,
+              "label": "Arquivos",
+              "icon": "studio-files"
+            },
+            {
+              "size": 32,
+              "label": "Lógica",
+              "icon": "studio-logic"
+            },
+            {
+              "size": 32,
+              "label": "ArteExp.",
+              "icon": "studio-art"
+            },
+            {
+              "size": 32,
+              "label": "EfeitosExp.",
+              "icon": "studio-fx"
+            },
+            {
+              "size": 32,
+              "label": "Depurar",
+              "icon": "studio-debug"
+            }
+          ],
+          "checks": [
+            {
+              "ok": true,
+              "id": "studio-theme-open"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-save"
+            },
+            {
+              "ok": true,
+              "id": "toolbar-build-run"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-select"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-paint"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-erase"
+            },
+            {
+              "ok": true,
+              "id": "viewport-tool-collision"
+            }
+          ],
+          "width": 1920,
+          "height": 1080,
+          "colorScheme": "dark",
+          "theme": "mega-drive-16bit",
+          "groups": [
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-core"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-authoring"
+            },
+            {
+              "clipped": false,
+              "id": "workspace-rail-group-advanced"
+            }
+          ],
+          "scheme": "dark",
+          "contrast": [
+            {
+              "color": "rgb(245, 241, 231)",
+              "ratio": 16.331426188530603,
+              "id": "console",
+              "background": "rgb(21, 20, 17)",
+              "present": true
+            },
+            {
+              "color": "rgb(245, 241, 231)",
+              "ratio": 14.077507771220619,
+              "id": "guide",
+              "background": "rgb(36, 34, 30)",
+              "present": true
+            },
+            {
+              "color": "rgb(205, 195, 175)",
+              "ratio": 10.544255862426997,
+              "id": "breadcrumb",
+              "background": "rgb(21, 20, 17)",
+              "present": true
+            }
+          ],
+          "wizard": [
+            {
+              "visible": true,
+              "id": "wizard-intent-new"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-template"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-open"
+            },
+            {
+              "visible": true,
+              "id": "wizard-intent-import"
+            }
+          ]
+        }
+      ],
+      "artifacts": [
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-wizard-home-four-intents.png",
+          "bytes": 123778,
+          "sha256": "129ff4c7d05a81c58a5d64e0ab5ef0980577e469e94c2b4587b9ebdec7070a19"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-wizard-blank-megadrive.png",
+          "bytes": 142559,
+          "sha256": "1d1bfe8d16222460ad3b07b1ae00d5cf1188a0092be21a3c07e11433c1bdb3bf"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-wizard-blank-snes.png",
+          "bytes": 151468,
+          "sha256": "766dc3613d654474c6434c670a32dd9edf3b3426892d17ba98d700d8d25b434d"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-wizard-import-sgdk-origins.png",
+          "bytes": 160470,
+          "sha256": "28968a203f20ca373041e46f5137cc9768f18af5f9e1d20975f300ba2b52550c"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-wizard-import-sgdk-details.png",
+          "bytes": 154094,
+          "sha256": "fcc01996ae1879e94bcac6baf5c25a324e8e4191b6e0631f726a09f073214772"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-wizard-import-mugen-origins.png",
+          "bytes": 159159,
+          "sha256": "3b2a413485186d46e93556fb05266fa52923d3b97548da03dc095f734c8c83be"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-wizard-import-mugen-details.png",
+          "bytes": 153929,
+          "sha256": "8b34b55426b74632d246a21cd3b2afe5defc849a4baad98baae542fa3c272a5d"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-wizard-snes-models.png",
+          "bytes": 149350,
+          "sha256": "a413b63f9902f93915d30eec9c23c8d6061afbbd3bdbfbfa2394faeb2eebdfc3"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-wizard-model-created.png",
+          "bytes": 180655,
+          "sha256": "715d3745ab2afa1a40ffdc3f6d4f305da164ca039dc97c78a41726309519ac69"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-super-nintendo-1280-scene.png",
+          "bytes": 194696,
+          "sha256": "9686c8fcf3ccbc80bb0e2218e12752b868c546dc6e0fb03cf1c345cf5fe29214"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-super-nintendo-1280-wizard-home.png",
+          "bytes": 169405,
+          "sha256": "b815ab76e11c47967091e1222c86d6730bb51075d5dec4bf1af132ca68fba92e"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-super-famicom-1280-scene.png",
+          "bytes": 194181,
+          "sha256": "686bcf7bbde47be2fe7d268c6300a2e0c707893f8498a4ca3055b0f6cbafc149"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-super-famicom-1280-wizard-home.png",
+          "bytes": 167782,
+          "sha256": "dd4e68abef3131c31df85f2426649a90235c74f17fb5adad0b252c57648fc97e"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-mega-drive-night-1280-scene.png",
+          "bytes": 191213,
+          "sha256": "73ab653a2a1cb2103d3200004063ce99be6735ebb3f69fd70d9bbb1200516660"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-mega-drive-night-1280-wizard-home.png",
+          "bytes": 164953,
+          "sha256": "5f2ec73f54ca709c68f500f4997463f2e1333ae39e0762f4d0a118ae829cd8c0"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-mega-drive-16bit-1280-scene.png",
+          "bytes": 192855,
+          "sha256": "edf2ae7f9a74719c0d173d82ad35b63e6f47d31b3b35e5ad38b8825be6b4f713"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-mega-drive-16bit-1280-wizard-home.png",
+          "bytes": 165388,
+          "sha256": "48b3deabcb78870832a62cb6a1a2c8b5f83a6cd5e43b979d8e66090c1791c888"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-super-nintendo-1920-scene.png",
+          "bytes": 253768,
+          "sha256": "b4acb2b5c596f98b92620f30ec282713d3a40235574c887b5c5a6d677a26c609"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-super-nintendo-1920-wizard-home.png",
+          "bytes": 252857,
+          "sha256": "1a3db0d72e315bc06d75cbe6c0ca479d56dbff3e5d37b997fd1a2f17284d4d49"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-super-famicom-1920-scene.png",
+          "bytes": 253187,
+          "sha256": "88b47ec977cad10d5a816b44d8720e31e6b70f47bfa2e9b219ebc8c66cb3e269"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-super-famicom-1920-wizard-home.png",
+          "bytes": 249943,
+          "sha256": "699c5f5389dba60fab78b487dec2561d07ebc458e15975595c8d849b16845b1d"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-mega-drive-night-1920-scene.png",
+          "bytes": 250893,
+          "sha256": "9ade8340b03148c81f0b42810cde16ce1c312f87a863274fcc0d1812b6003e3f"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-mega-drive-night-1920-wizard-home.png",
+          "bytes": 249228,
+          "sha256": "1e0dbc0a37a1b84290575c3b954d0fcf203fefaab8b8b1c1536807678be1fae5"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-mega-drive-16bit-1920-scene.png",
+          "bytes": 252734,
+          "sha256": "e87f0af7f2407fe759bebf0a948c9084e45790f0d1ebaaba59ab2b8fa52216bd"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-mega-drive-16bit-1920-wizard-home.png",
+          "bytes": 250011,
+          "sha256": "f7123391e8eeb873ddde3fa13c28faa0659e769174ac43b9cf385f78849ef98b"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-theme-chooser.png",
+          "bytes": 259874,
+          "sha256": "eb39e5cb5ecd506941db86297c478781aadb8b012d03e12522d2970395bde107"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-guided-creation.png",
+          "bytes": 240902,
+          "sha256": "13fe92f03c8ebabc1a9ccd76b50bddb37d64a86daece56176353544848b346ef"
+        },
+        {
+          "file": "studio-appearance-2026-10-29T20-43-41-402Z-cold-reopen-super-famicom.png",
+          "bytes": 97384,
+          "sha256": "7b1c1df60faac0438c17898f7fa802106057a1e65c16b92b64234f2a2c822d8f"
+        }
+      ]
+    },
+    "qa_rc": {
+      "blocks": {
+        "A": "passed",
+        "B": "passed",
+        "C": "passed",
+        "D": "passed",
+        "E": "passed",
+        "F": "passed",
+        "G": "passed",
+        "H": "passed"
+      },
+      "matrix": {
+        "total": 32,
+        "passed": 32,
+        "failed": 0
+      },
+      "reports": [
+        {
+          "file": "manual-qa-status.json",
+          "bytes": 18856,
+          "sha256": "3f551b1076f4c73cdfc8990aadf791cd639fadfeb9b4738513596c813ce6453b"
+        },
+        {
+          "file": "ui-layout-oracle.json",
+          "bytes": 19634,
+          "sha256": "4143572ce3bf0e0ed528ae4f035803439603e16f2d00f827dc1c4eaf16611ec1"
+        }
+      ]
+    },
+    "snes": {
+      "status": "passed",
+      "steps": [
+        {
+          "id": "md_reference_excluded_from_snes_gallery",
+          "status": "passed",
+          "at": "2026-10-29T20:45:57.333Z"
+        },
+        {
+          "id": "wizard_snes_starter_and_native_inspector_edit_saved",
+          "status": "passed",
+          "at": "2026-10-29T20:45:59.157Z",
+          "project": "/home/misael/Documents/RetroDevProjects/SNES_Authoring_1793306757588",
+          "x": 120
+        },
+        {
+          "id": "snes_saved_project_reopened",
+          "status": "passed",
+          "at": "2026-10-29T20:45:59.489Z",
+          "x": 120
+        },
+        {
+          "id": "snes_authored_build_core_export_same_rom",
+          "status": "passed",
+          "at": "2026-10-29T20:46:07.217Z",
+          "path": "/home/misael/Documents/RetroDevProjects/SNES_Authoring_1793306757588/export/SNES_Authoring_1793306757588-442e0e10.sfc",
+          "sha": "442e0e1020c97fbec728a366aaf62d3b8e7c925bf4a4c0e5b1af67eb1e93c1fa"
+        }
+      ],
+      "rom_sha256": "442e0e1020c97fbec728a366aaf62d3b8e7c925bf4a4c0e5b1af67eb1e93c1fa"
+    },
+    "mugen": {
+      "steps": [
+        {
+          "id": "import_via_ui_and_panel",
+          "status": {
+            "sprites": "direct",
+            "animations": "direct",
+            "commands": "direct",
+            "states": "direct",
+            "collisions": "manual",
+            "sound": "absent",
+            "stage": "absent"
+          },
+          "at": "2026-10-29T20:46:16.633Z",
+          "projectDir": "/home/misael/Documents/RetroDevProjects/Mugen_Probe_1793306773563",
+          "panelDom": {
+            "preview": [
+              64,
+              48
+            ],
+            "collisionLoss": "Precisa de ajuste seuColisoescollisionNo jogo: golpes nao acertam nem recebem dano sozinhos; e preciso ligar a logica de colisao manualmente.Motivo: as caixas sao preservadas por frame, mas nenhuma regra de jogo as usa no perfil v1.Origem: probe.air",
+            "rawLength": 64515,
+            "summary": "12 funcionam igual, 0 com diferenca, 1 precisam de ajuste seu, 0 nao convertidos (0 pontes manuais no grafo).",
+            "stage": "Cenario (stage)Nao existe neste pacotepacote de personagem: cenario nao faz parte desta importacao"
+          },
+          "consoleSummary": "[MUGEN] probe (Experimental): 12 funcionam igual, 0 com diferenca, 1 precisam de ajuste seu, 0 nao convertidos (0 pontes manuais no grafo).",
+          "totals": {
+            "manual": 1,
+            "unsupported": 0,
+            "approximate": 0,
+            "direct": 12
+          }
+        },
+        {
+          "id": "build_run_original",
+          "status": "passed",
+          "at": "2026-10-29T20:47:21.883Z",
+          "rom": "/home/misael/Documents/RetroDevProjects/Mugen_Probe_1793306773563/build/megadrive/out/rom.bin",
+          "rom_sha256": "a61b0e8e59a89217a37b21837a077fd0aa83631a4d43434aff31bee11d1b5501",
+          "x": 96,
+          "y": 96,
+          "idle": {
+            "idle0": 8,
+            "idle1": 17,
+            "other": 0
+          },
+          "dwell": {
+            "label": "original",
+            "frames": 320,
+            "idle0Ticks": [
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5,
+              5
+            ],
+            "idle1Ticks": [
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9
+            ],
+            "otherRuns": 0
+          }
+        },
+        {
+          "id": "inspector_edit_ticks",
+          "status": "passed",
+          "at": "2026-10-29T20:47:23.068Z",
+          "ui": {
+            "labels": [
+              "Quadro 1 (ticks)",
+              "5 ticks = 0,083 s",
+              "Quadro 2 (ticks)",
+              "9 ticks = 0,150 s"
+            ],
+            "frame0": "5",
+            "help": "Cada numero e quanto tempo aquele quadro fica na tela, em ticks (1 tick = 1/60 s; 60 ticks = 1 s). Cada quadro tem o seu proprio tempo e so o quadro editado muda. Use -1 para o quadro ficar parado. Valores validos: 1 a 255 ou -1.",
+            "frame1": "9",
+            "nativeFpsInputForMugen": false
+          },
+          "edited": {
+            "frame": 1,
+            "from": 5,
+            "to": 20
+          },
+          "invalidResults": [
+            {
+              "input": "0",
+              "diagnostic": "0 nao e aceito: use 1 a 255 ticks, ou -1 para o quadro ficar parado. Mantido: 20."
+            },
+            {
+              "input": "-2",
+              "diagnostic": "-2 nao e valido: use 1 a 255 ticks, ou -1 para parar. Mantido: 20."
+            },
+            {
+              "input": "x",
+              "diagnostic": "\"x\" nao e um numero inteiro. Use ticks inteiros (1 a 255) ou -1. Mantido: 20."
+            }
+          ],
+          "valueAfterBlur": "20",
+          "typingAttempts": [
+            {
+              "attempt": 1,
+              "typed": "20",
+              "observed": "20",
+              "accepted": true,
+              "error": null
+            },
+            {
+              "attempt": 1,
+              "typed": "0",
+              "observed": "0",
+              "accepted": true,
+              "error": null
+            },
+            {
+              "attempt": 1,
+              "typed": "-2",
+              "observed": "-2",
+              "accepted": true,
+              "error": null
+            },
+            {
+              "attempt": 1,
+              "typed": "x",
+              "observed": "x",
+              "accepted": true,
+              "error": null
+            }
+          ]
+        },
+        {
+          "id": "edit_and_save",
+          "status": "passed",
+          "at": "2026-10-29T20:47:23.405Z",
+          "from": 96,
+          "to": 140,
+          "savedDurations": {
+            "action_0": [
+              20,
+              9
+            ],
+            "action_200": [
+              3,
+              6,
+              4,
+              2
+            ]
+          }
+        },
+        {
+          "id": "restart_reopen",
+          "status": "passed",
+          "at": "2026-10-29T20:47:26.086Z",
+          "reopenedX": 140,
+          "reopenedTicks": [
+            "20",
+            "9"
+          ]
+        },
+        {
+          "id": "report_reopened_after_restart",
+          "status": {
+            "sprites": "direct",
+            "animations": "direct",
+            "commands": "direct",
+            "states": "direct",
+            "collisions": "manual",
+            "sound": "absent",
+            "stage": "absent"
+          },
+          "at": "2026-10-29T20:47:26.702Z",
+          "totals": {
+            "manual": 1,
+            "unsupported": 0,
+            "approximate": 0,
+            "direct": 12
+          },
+          "losses": [
+            "mugen-compat-loss-collision"
+          ],
+          "identicalToImportPanel": true
+        },
+        {
+          "id": "build_run_edited",
+          "status": "passed",
+          "at": "2026-10-29T20:48:38.580Z",
+          "rom": "/home/misael/Documents/RetroDevProjects/Mugen_Probe_1793306773563/build/megadrive/out/rom.bin",
+          "rom_sha256": "f001b4daec16d74592bd83abac9bb6b6afa826a87f40ff2332e02ca61149fa96",
+          "idle": {
+            "idle0": 16,
+            "idle1": 9,
+            "other": 0
+          },
+          "oldSpot": {
+            "idle0": 0,
+            "idle1": 0,
+            "other": 25
+          },
+          "dwell": {
+            "label": "editado",
+            "frames": 320,
+            "idle0Ticks": [
+              20,
+              20,
+              20,
+              20,
+              20,
+              20,
+              20,
+              20,
+              20,
+              20,
+              20
+            ],
+            "idle1Ticks": [
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9,
+              9
+            ],
+            "otherRuns": 0
+          }
+        },
+        {
+          "id": "negative_path_escape",
+          "status": "passed",
+          "at": "2026-10-29T20:48:41.625Z",
+          "escapeName": "Mugen_Escape_1793306918584",
+          "userMessage": "Confira os pixels e as perdas antes de criar o projeto. O pacote original será preservado./home/misael/Projects/RetroDevStudio/src-tauri/target-test/validation/mugen-import-2026-10-29T20-46-11-404Z-work/escape/probeDEF de personagem Escolha explicitamente…Probe · probe.defPaleta Embutida no SFFAções incluídas (vazio = todas) Comportamento autoral para demonstrar arte (ações 0, 20, 21 e 200)A demonstração autoral usa →/← e botão A, facing fixo à direita e velocidades 2,5/−1,75 px por tick editáveis. Isso não converte o CNS original, colisão ou dano. Controllers originais ficam como referência. Converter uma cadeia original do CMD/CNS (comando → condição → estado → animação → retorno)Analisar escolhasSelecione as ações e a paleta, depois use Analisar escolhas para conferir pixels, perdas e custo antes de importar.probe.def:9: sprite = ../fora.sff: externalArquivos e dependênciascmd: probe.cmd — resolvedcns: probe.cns — resolvedsprite: ../fora.sff — externalanim: probe.air — resolvedCancelarImportar escolhas revisadas",
+          "suggestedAction": "corrigir referencia; nenhum projeto criado",
+          "technicalDetail": "source.reference.external",
+          "baseDir": "/home/misael/Documents/RetroDevProjects",
+          "leftovers": [
+            "Mugen_Escape_1790639205721"
+          ]
+        }
+      ],
+      "sample": "existing authored probe fixture",
+      "report": {
+        "file": "mugen-import-2026-10-29T20-46-11-404Z-report.json",
+        "bytes": 12224,
+        "sha256": "597479b6523f9973e37375221162b38b8ec1443d3f8b18c8900d299a9dd30f05"
+      }
+    },
+    "sgdk": {
+      "import": "251 resources, six manifests, 177 SPRITE resources, zero sprite instances verified in native UI",
+      "build": "FAIL: existing generic conversion limitation for 142x1 tile map; original C gameplay equivalence not certified",
+      "session": "2026-10-29T20-18-47-122Z-164363",
+      "regression": "Same documented limitation from product-diagnosis-20261028; no guard relaxed or engine change."
+    },
+    "host": {
+      "state": "READY",
+      "fingerprint": "60249508aff61897cdd43160d4716b2344d69282507a36c5a457c0028143f6e2",
+      "lock_digest": "dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377",
+      "gates": [
+        {
+          "label": "check:tree",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "lint",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "typescript",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "frontend-tests",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "rust-clippy",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "rust-tests",
+          "ok": true,
+          "exit_code": 0
+        },
+        {
+          "label": "upstream",
+          "ok": true,
+          "exit_code": 0
+        }
+      ],
+      "frontend": {
+        "passed": 1241,
+        "skipped": 11
+      },
+      "rust": {
+        "passed": 1098,
+        "failed": 0,
+        "ignored": 109
+      }
+    },
+    "preserved_native_failures": [
+      {
+        "id": "qa-rc",
+        "session": "2026-10-29T17-08-24-852Z-527116",
+        "started_at": "2026-10-29T17:08:24.731Z",
+        "finished_at": "2026-10-29T17:08:31.531Z",
+        "status": "FAIL",
+        "exit_code": 10
+      },
+      {
+        "id": "qa-rc",
+        "session": "2026-10-29T17-13-13-713Z-542427",
+        "started_at": "2026-10-29T17:13:13.599Z",
+        "finished_at": "2026-10-29T17:13:20.542Z",
+        "status": "FAIL",
+        "exit_code": 10
+      },
+      {
+        "id": "mugen-import",
+        "session": "2026-10-29T17-15-59-409Z-552147",
+        "started_at": "2026-10-29T17:15:59.243Z",
+        "finished_at": "2026-10-29T17:17:13.169Z",
+        "status": "FAIL",
+        "exit_code": 10
+      },
+      {
+        "id": "mugen-import",
+        "started_at": "2026-10-29T20:14:08.513Z",
+        "finished_at": "2026-10-29T20:14:08.692Z",
+        "status": "FAIL",
+        "exit_code": 10
+      },
+      {
+        "id": "sgdk",
+        "session": "2026-10-29T20-18-47-122Z-164363",
+        "started_at": "2026-10-29T20:18:47.005Z",
+        "finished_at": "2026-10-29T20:18:58.087Z",
+        "status": "FAIL",
+        "exit_code": 10
+      }
+    ],
+    "preserved_directed_failures": [
+      "TypeScript old theme literals",
+      "Legacy wizard assertions before route-specific tests",
+      "Close action copy expectation"
+    ],
+    "oracle_adaptation": "Minimum thresholds unchanged; measure and inspect the complete progressive wizard, including heading, Back and footer, instead of only the former dense body. Earlier 252/280px body failures retained.",
+    "dialog_fixture": "Only native file/folder chooser result substituted in QA; real visible actions, IPC, disk reader/importer, hydration, builds/core and assertions retained. No store/game-state writes stand in for wizard behavior.",
+    "runtime_evidence": "RDS_WORK_ROOT/sessions/project-start-console-themes-20261029",
+    "temporary_services": {
+      "at": "2026-10-29T20:59:22.011328+00:00",
+      "own_display": {
+        "pid": 153092,
+        "display": ":1",
+        "start_ticks": "284245",
+        "argv": "/usr/sbin/Xvfb -displayfd 4 -screen 0 3840x2160x24 -nolisten tcp ",
+        "boot_id": "3a9a0321-a994-4f62-96fc-d7592751c5e5",
+        "created_at": "2026-10-29T20:15:58.360184+00:00",
+        "scope": "own QA display only"
+      },
+      "action": "SIGTERM verified owned Xvfb; native app/driver sessions already closed normally",
+      "unrelated_processes_stopped": 0,
+      "gates_finished": true
+    },
+    "desktop_shortcut": {
+      "file": "/home/misael/Área de trabalho/retrodev-studio-testar.desktop",
+      "executable": true,
+      "validation": "PASS",
+      "binary_sha256": "f3a7954b2577472dfe487392f1992f91e9d5e5bcf4402957486f5b16f841d00e",
+      "launcher": "scripts/new-host.sh --run",
+      "actual_exec": "Exec=/usr/bin/env RDS_WORK_ROOT=/home/misael/Shared/ProjectRuntime/RetroDevStudio RDS_BUILD_JOBS=1 /usr/bin/bash /home/misael/Projects/RetroDevStudio/scripts/new-host.sh --run /home/misael/Shared/ProjectRuntime/RetroDevStudio/sessions/project-start-console-themes-20261029/retro-dev-studio-f3a7954b",
+      "desktop_launch": "PASS: KDE app service, separate from Codex process",
+      "launched_at": "2026-10-29T21:00:35.966370+00:00",
+      "processes": [
+        {
+          "pid": 328186,
+          "argv0": "/home/misael/Shared/ProjectRuntime/RetroDevStudio/sessions/project-start-console-themes-20261029/retro-dev-studio-f3a7954b",
+          "cgroup": "0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-retrodev\\x2dstudio\\x2dtestar@a1d512ef489c45c98be79416736b83f0.service",
+          "cgroup_decoded": "0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-retrodev-studio-testar@a1d512ef489c45c98be79416736b83f0.service"
+        }
+      ],
+      "launcher_owner": {
+        "pid": 328032,
+        "receipt": "/home/misael/Shared/ProjectRuntime/RetroDevStudio/sessions/2026-10-29T20-59-22-470Z-328032/receipt.json"
+      },
+      "launcher_source_commit": "996738c02c6d6e89d608dd2483217cf6ef598337",
+      "left_open_for_user": true
+    },
+    "private_protection": {
+      "archive": "project-start-console-themes-20261029-f3a7954b.tar.zst",
+      "bytes": 303076255,
+      "sha256": "7dcdd3b9777481b23ccc2fa5c304903516bd59dc0ba879bb5a26ef669fdbd680",
+      "manifest_sha256": "d74e7824439bc3b681c5c68d5d37fb8c10054315d0ca800a9b5bbd3370a74c3c",
+      "files_verified": 1325,
+      "all_bytes_verified": true,
+      "projects": 23,
+      "same_filesystem": true,
+      "off_host_copy_qualified": false,
+      "owner": "operator",
+      "retention": "Preserve through human acceptance and independent private backup verification; no automatic deletion.",
+      "created_at": "2026-10-29T21:00:51.998003+00:00"
+    },
+    "limitations": [
+      "Human usability/novice recognition and all 16 journeys remain partial.",
+      "Linux Tauri/WebKit/Xvfb/software automation; Windows, physical audio/GPU and console acceptance not claimed.",
+      "Saved file dialog options unit-tested; native chooser result substituted in WebDriver.",
+      "Four themes x two sizes cover wizard/scene; QA RC covers the default light theme x four sizes, not every theme x every legacy surface.",
+      "Theme contrast checks cover main palette and Console/guide/breadcrumb; Art/node readability additionally reviewed in native captures, not exhaustive accessibility audit.",
+      "SGDK generic 142x1 conversion remains blocked; MUGEN proof uses authored probe subset.",
+      "Private archive on same filesystem; independent/off-host copy unqualified."
     ]
   }
 }

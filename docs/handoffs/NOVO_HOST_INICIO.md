@@ -1,3 +1,13 @@
+## Wizard e temas dos consoles — 2026-10-29
+
+Atualização atual: código **996738c02c6d6e89d608dd2483217cf6ef598337**, app **f3a7954b…**, atalho **RetroDev Studio — Testar** via launcher oficial, RDS_WORK_ROOT/sessions/project-start-console-themes-20261029/retro-dev-studio-f3a7954b. Se o aplicativo já estiver aberto, encerre normalmente e abra pelo atalho; não remova a trava de uma sessão ativa. Para iniciar pelo KDE, usar kioclient exec no .desktop, preservando independência do processo Codex.
+
+Para avaliar: MENU → Novo Projeto. Escolher Criar do zero ou Começar com um modelo, depois console e nome; cria no local padrão sem pasta. Abrir projeto pede project.rds. Importar projeto oferece SGDK/MUGEN e só então escolhe a origem. Formatos/doadores adicionais em detalhes. Em Tema: Super Nintendo/Super Famicom claros e Mega Drive Night/16-bit escuros; preferências antigas migradas.
+
+Wizard/temas/qa-rc/32, SNES oficial e MUGEN probe passaram; SGDK preserva 251 recursos, mas a conversão genérica 142×1 continua bloqueada. Gates READY/1241 frontend/1098 Rust e Clippy/fmt PASS. Falhas e recuperação de trava vazia de antes do reboot preservadas. Limites, SHAs, provas e pacote privado local no índice UI, seção project_start_console_themes_20261029 e Memory Bank. Pedir a um iniciante para percorrer as quatro intenções e escolher/reabrir o tema; automação não mede compreensão humana. Sem qualificação Windows/GPU/áudio físico, promoção, merge ou release.
+
+---
+
 ## Aparência do editor — 2026-10-29
 
 No desktop KDE, abrir o atalho pelo gerenciador de arquivos/área de trabalho ou por `kioclient exec "$(xdg-user-dir DESKTOP)/retrodev-studio-testar.desktop"`, para que a sessão pertença ao serviço de aplicação do KDE. Uma abertura anterior por ferramenta deixou trava com owner já encerrado e bloqueou tentativas posteriores. Recuperação manual preservou trava/recibos após comprovar ESRCH; não apagar travas por aparência de abandono nem interromper owner vivo. Ciclo KDE abrir→fechar→reabrir comprovou recibo PASS e liberação da trava. Evidência: sessions/desktop-shortcut-repair-20261029. Trava viva durante o app aberto é esperada; seu owner deve ser conferido antes de qualquer recuperação.

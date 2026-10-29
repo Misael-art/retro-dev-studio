@@ -1,3 +1,15 @@
+### Checkpoint 2026-10-29 — wizard progressivo e cores dos consoles (Experimental)
+
+Pedido explícito de reformar o início para leigos e oferecer temas claros. Código **996738c02c6d6e89d608dd2483217cf6ef598337**, app **f3a7954b2577472dfe487392f1992f91e9d5e5bcf4402957486f5b16f841d00e**, build oficial **2026-10-29T20-38-23-558Z-239342**, mesma raiz/branch/PR #112. Fontes do binário conferidas contra o commit; construção em árvore suja, sem alegação de build limpo/reprodutível. Índice existente, seção **project_start_console_themes_20261029**, passa a ser a entrega atual; checkpoints anteriores são históricos.
+
+Primeira tela com quatro caminhos: **Criar do zero → console → nome**, **Começar com um modelo → console → modelo → nome**, **Abrir projeto → arquivo project.rds**, **Importar projeto → SGDK/MUGEN → nome → pasta de origem**. Criação automática no diretório padrão, sem seletor de pasta; Voltar conserva o nome, colisões preservam o projeto anterior, falhas aparecem na própria etapa. Modelos exclusivos MD não aparecem para SNES. Demais perfis/doadores existentes ficam em detalhes secundários, com seus limites/Experimental; nenhuma plataforma, catálogo, motor, store ou importador paralelo.
+
+**Tema** oferece **Super Nintendo** claro (gelo/cinza/roxo/lilás), **Super Famicom** claro (cinza/azul/vermelho/amarelo/verde), **Mega Drive Night** (preto/branco/cinza) e **Mega Drive 16-bit** (preto/prata/dourado). Preferência anterior migrada; Console, breadcrumb, guia, painéis de Arte/Efeitos/Arquivos e cartões/portas de Lógica usam superfícies/texto semânticos legíveis. Paletas de projeto e pixels não são alterados; sem dependências novas.
+
+Native wizard/temas, qa-rc/32, starter SNES e MUGEN probe PASS; SGDK 251 recursos importados, conversão 142×1 continua bloqueada. Certify READY/1241 frontend/1098 Rust, Clippy/fmt PASS. Atalho f3a7954b…; detalhes, falhas, recibos e proteção no topo do Memory Bank e índice UI existente. Aceite humano/Windows e jornadas completas pendentes.
+
+---
+
 ### Checkpoint 2026-10-29 — ícones de criação e temas de consoles (Experimental)
 
 Código d1865bd4, app 700dff46…; pictogramas/nomes nas áreas, etapas e ferramentas, quatro paletas em Tema com preferência e mensagem de falha. Aparência nativa oito casos/teclado/reinício/pixels e cena intactos PASS; qa-rc A–H/32 casos PASS. Certify READY, frontend 1238/11 skip, Rust 1098/109 ignored; Clippy padrão/fmt PASS. Atalho atualizado; falhas e proteção privada local verificadas, sem backup independente/humano/Windows/GPU qualificados. Estado/SHAs/recibos/limites no topo do Memory Bank e no índice UI, seção console_appearance_20261029; 16 jornadas/TPL parciais preservados, sem promoção/merge/release/deploy.
