@@ -527,13 +527,22 @@
 
   /* Neutral legacy surfaces follow the same theme, including translucent drawers.
      Explicit asset swatches and canvas pixels use inline colors and stay separate. */
-  :root[data-studio-theme] :is([class*="bg-[#11111b]/"], [class*="bg-[#0b1020]/"], [class*="bg-[#0b1120]/"], [class*="bg-[#0b1220]/"], [class*="bg-[#0f172a]/"], [class*="bg-[#111827]/"], [class~="bg-[#0b0f19]"]) { background-color: var(--rds-surface-base); }
-  :root[data-studio-theme] :is([class*="bg-[#181825]/"], [class*="bg-[#1e1e2e]/"], [class~="bg-[#1e293b]"], [class~="bg-[#1f2937]"]) { background-color: var(--rds-surface-panel); }
-  :root[data-studio-theme] :is([class*="bg-[#313244]/"], [class*="bg-[#45475a]/"]) { background-color: var(--rds-surface-elevated); }
+  :root[data-studio-theme] :is([class^="bg-[#11111b]/"], [class*=" bg-[#11111b]/"], [class^="bg-[#0b1020]/"], [class*=" bg-[#0b1020]/"], [class^="bg-[#0b1120]/"], [class*=" bg-[#0b1120]/"], [class^="bg-[#0b1220]/"], [class*=" bg-[#0b1220]/"], [class^="bg-[#0f172a]/"], [class*=" bg-[#0f172a]/"], [class^="bg-[#111827]/"], [class*=" bg-[#111827]/"], [class~="bg-[#0b0f19]"]) { background-color: var(--rds-surface-base); }
+  :root[data-studio-theme] :is([class^="bg-[#181825]/"], [class*=" bg-[#181825]/"], [class^="bg-[#1e1e2e]/"], [class*=" bg-[#1e1e2e]/"], [class~="bg-[#1e293b]"], [class~="bg-[#1f2937]"]) { background-color: var(--rds-surface-panel); }
+  :root[data-studio-theme] :is([class^="bg-[#313244]/"], [class*=" bg-[#313244]/"], [class^="bg-[#45475a]/"], [class*=" bg-[#45475a]/"]) { background-color: var(--rds-surface-elevated); }
   :root[data-studio-theme] :is([class~="text-[#bac2de]"], [class~="text-[#cbd5e1]"], [class~="text-[#d4d4d8]"], [class~="text-[#e4e4e7]"], [class~="text-[#f1f5f9]"]) { color: var(--rds-text-primary); }
   :root[data-studio-theme] :is([class~="text-[#a1a1aa]"], [class~="text-[#64748b]"]) { color: var(--rds-text-muted); }
   :root[data-studio-theme] :is([class~="bg-[#1e3a5f]"], [class~="bg-[#1e40af]"]) { background-color: var(--rds-selection-fill); color: var(--rds-text-on-selection); }
   :root[data-studio-theme] :is([class~="text-[#93c5fd]"], [class~="text-[#bfdbfe]"]) { color: var(--rds-studio-accent); }
+
+  :root[data-studio-theme] :is(
+    [class~="bg-[linear-gradient(180deg,#111827,#0f172a)]"],
+    [class~="bg-[linear-gradient(180deg,#111827,#0b1220)]"],
+    [class~="bg-[radial-gradient(circle_at_top,#162032,#0b1120_68%)]"],
+    [class~="bg-[radial-gradient(circle_at_top,#111827,#05070f_72%)]"],
+    [class~="bg-[radial-gradient(circle_at_top,rgba(30,41,59,0.35),transparent_45%),linear-gradient(180deg,#09090b,#111827)]"],
+    [class~="bg-[linear-gradient(180deg,#0f172a_0%,#101826_38%,#090c14_100%)]"]
+  ) { background: var(--rds-surface-panel); }
 
   .rds-start { display: flex; flex-direction: column; max-height: calc(100vh - 155px); }
   .rds-start-heading { padding: 14px 0; }
