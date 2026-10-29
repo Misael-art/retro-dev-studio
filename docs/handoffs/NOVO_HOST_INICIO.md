@@ -1,6 +1,22 @@
 # Novo host: instalação, diagnóstico e continuidade do produto
 
-## Continuidade 2026-10-29 — selo de vitória do Bosque, Experimental
+## Continuidade 2026-10-29 — indicador e farol do Jardim, Experimental
+
+Entrada **be53aa116b579e475f672db9c729cb7c97ffa5e9**, mesma branch/PR #112; autoria pela UI do app congelado **fdf0c4fb…**, launcher oficial abaixo. Nenhum código de produto, seed, registry, lock ou guarda alterado. **Zero modelos novos distribuídos** (TPL-01); não implementar lacunas de editor nesta missão.
+
+Abrir `/home/misael/Documents/RetroDevProjects/Jardim_Mares/project.rds`: quatro setas movem Nalu; três espaços mostram a quantidade de pérolas e retornar com as três acende o farol. Cobertura 16×16 e faróis 24×24 originais feitos no PixelEditor, cinco cores por recurso. Objetivos 1/2/3 controlam a composição do indicador, em cena com câmera fixa; vínculo numérico nativo permanece TPL-03. Pode haver sobreposição com o personagem nessa faixa. São 19 entidades/quatro camadas/zero sólidos/30 arquivos autorais. Redesenho dos faróis 32→24 reduziu DMA estimado **101→95%**, sem mudar limites; tentativa anterior preservada.
+
+Após reabrir/build/jogar: contador **0→1→2→3**, indicador **000→100→110→111**; repetir a primeira coleta mantém 1, retorno ao farol muda conclusão 0→1. Novo teste restaura todos em 0 e farol apagado. ROM executada/exportada **455e3ae0658867ace006e2f83fd1fbfdd08b757c3612e778d7e593f5f729054a**, 524288 bytes, revisão 0 erros/0 avisos/28 OK; painel de hardware conserva aviso DMA 95%. **TPL-12 continua y=-10**; voltar pelos controles foi exercitado. Trilhas/replay/distribuição permanecem parciais. Bosque Aurora não mudou nesta fatia.
+
+Evidência privada `RDS_WORK_ROOT/sessions/templates-pearl-meter-20261029/`: resultados/expectativas/contagens de pixels dos framebuffers, quadros **07/09/10/11/12/16/17/18**. Instruções de edição no README de arte existente; gates/proteção/SHA remoto no fechamento atual do Memory Bank. App/driver/display :184 próprios encerrados. Sem aceite humano, desktop/GPU/áudio físico, Windows ou console. Próximo: abrir os candidatos para avaliação humana e continuar conteúdo viável, preservando TPL-01..17; sem merge/release/deploy.
+
+Certificação fresca **READY/sete gates**, sessão `2026-10-29T11-11-45-952Z-114090`, frontend **1233/11 skip**, Rust **1098/109 ignored**, smokes oficiais PASS. Clippy padrão incluindo binário e fmt PASS nos launchers `11-18-37-654Z-134948`/`11-19-08-338Z-136229`; relatório congelado em `host-certified.json` antes deles. Auditorias de dependências não repetidas, pois código/locks/segurança não mudaram. O ambiente BYOR do gate permanece o do histórico abaixo, somente leitura e hashes reconferidos.
+
+Recibo **2dce24d7…e53bd0c**, 30 arquivos autorais/876 operações e observações/20 capturas. Backup **`templates-pearl-meter-20261029-455e3ae0.tar.gz`**, 3440821 bytes, SHA **927479d2c69edb7c1ff5c9419b44dea3218493e83db29eb529a100823a69178d**; 129 arquivos/7185738 bytes verificados integralmente, manifesto **bddf567b…7a87bcea**, no destino privado existente abaixo. Mesmo filesystem; cópia independente não qualificada, owner operador, retenção até aceite/proteção independente. Publicação documental/SHA remoto no PR #112/recibo privado, sem assets/ROMs/projetos no Git.
+
+---
+
+## Histórico 2026-10-29 — selo de vitória do Bosque, Experimental
 
 Entrada **52a478f55e002357cf6129a305a39a4287e6b5b0**, mesma branch/PR #112. Somente documentação rastreada mudou; autoria privada feita pela UI do app congelado **fdf0c4fb…**, com launcher oficial abaixo. **Zero templates novos no catálogo** (TPL-01); não implementar lacunas do editor nesta missão.
 

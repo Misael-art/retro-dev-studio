@@ -1,6 +1,20 @@
 # Reference Platformer — arte original
 
-## Bosque Aurora — selo de conclusão, 2026-10-29 (Experimental)
+## Jardim Mares — indicador e farol, 2026-10-29 (Experimental)
+
+Abrir [Jardim Mares](/home/misael/Documents/RetroDevProjects/Jardim_Mares/project.rds) pelo Studio. **Quatro setas** movem Nalu. Recolher as três pérolas preenche, da esquerda para a direita, os três espaços do indicador. Retornar ao farol depois das três acende sua luz e conclui o objetivo. Chegar antes não conclui. Para repetir, usar **Parar → Testar projeto** no Studio.
+
+O indicador é uma **composição de sprites na cena com câmera fixa**, não um vínculo numérico de HUD. Três objetivos usam o contador `Perolas` com limiares 1/2/3 e uma área sensora não sólida 320×224; cada um esconde uma cobertura e revela uma instância da pérola existente. Os espaços representam quantidade, não itens específicos. Como são sprites da cena, podem se sobrepor ao personagem se ele nadar para essa faixa; não prometem acompanhar uma câmera móvel. O vínculo nativo permanece em TPL-03.
+
+Arte original feita no PixelEditor: cobertura **16×16** e faróis apagado/aceso **24×24**, cada recurso com cinco cores visíveis e documento nativo. Três coberturas compartilham um PNG; três pérolas do indicador reutilizam o mesmo recurso dos itens. O objetivo principal esconde o farol apagado, revelando a imagem acesa na mesma posição (140,52). Paleta compatível no banco 2; quatro bancos preservados. A versão 32×32 ficou preservada apenas como tentativa por **101% de DMA estimado**; redesenhar em 24×24 reduziu para **95%**, com aviso no painel de hardware e sem ampliar guardas. Não é medição de desempenho em console.
+
+Para editar as regras: **Nalu → Editar lógica (nodes) → Comportamentos → Objetivo**. Os três objetivos da área controlam o indicador; o objetivo do sensor do farol exige três pérolas e toca o SFX de vitória. Para a imagem: selecionar indicador/farol → **Arte → Editor de pixels → Editar frames de…**; conferir recurso/nome/tamanho antes de salvar. **interface** agrupa três textos/seis sprites; **jogabilidade** mantém Nalu, itens, faróis e sensores. São **19 entidades/quatro camadas/zero sólidos/30 arquivos autorais**.
+
+Após salvar/encerrar/reabrir/rebuild: **0→1→2→3** pérolas e espaços visíveis correspondentes; revisitar a primeira não duplicou a coleta. Três itens antes de voltar mantiveram conclusão 0; retorno ao farol mudou para 1 e mostrou os feixes. Novo teste reinicializou contador, três objetivos do indicador e conclusão em zero, com farol apagado. ROM executada/exportada/recompilada **455e3ae0658867ace006e2f83fd1fbfdd08b757c3612e778d7e593f5f729054a**, **524288 bytes**. Revisão **0 erros/0 avisos/28 OK**, distinta do aviso de DMA do painel de hardware.
+
+Evidência privada `RDS_WORK_ROOT/sessions/templates-pearl-meter-20261029/receipt.json`: resultados nativos e verificação visual por contagem de pixels nos quadros **07/09/10/11/12/16**, exportação **17**, reset **18**. Capturas são do core no Tauri/WebKit/Xvfb/software, sem escrita de RAM/store para jogar. **Sair pelo topo ainda levou a y=-10** (TPL-12), seguido de retorno pelos controles. Trilhas, HUD nativo, replay e distribuição oficial continuam parciais; nenhum novo template no catálogo (TPL-01). Sem aceite humano/GPU/áudio físico/Windows/console. Bosque Aurora não mudou nesta fatia.
+
+## Checkpoint anterior — selo do Bosque Aurora, 2026-10-29
 
 Abrir [Bosque Aurora](/home/misael/Documents/RetroDevProjects/Bosque_Aurora/project.rds) no Studio. **Setas** movem e **Z** salta. Recolher as três sementes abre o portão; alcançar a bandeira revela o **broto dourado** no canto superior direito. O cadeado permanece antes da conclusão e a bandeira continua como marco de chegada. Para outra partida, usar **Parar → Testar projeto** no Studio; reinício pelo Start dentro do jogo não foi entregue (TPL-15).
 
