@@ -449,6 +449,7 @@ export default function ViewportPanel({
     emulatorLoaded,
     setEmulatorLoaded,
     emulatorRomIdentity,
+    lastBuildArtifact,
     lastJoypadRequest,
     lastJoypadAck,
     selectedEntityId,
@@ -4411,7 +4412,9 @@ export default function ViewportPanel({
     Math.round((dmaUsageBytes / Math.max(dmaBudgetBytes, 1)) * 100)
   );
   const overlayFps = frameTimingRef.current.fps > 0 ? frameTimingRef.current.fps.toFixed(1) : "0.0";
-  const overlaySpriteCount = overlayHwStatus?.sprite_count ?? activeScene?.entities.length ?? 0;
+  const overlaySpriteCount = overlayHwStatus?.sprite_count ?? activeScene?.entities.filter((entity) => entity.components.sprite).length ?? 0;
+  const nativeCOverlay = lastBuildArtifact?.nativeCodeRevision != null
+    && lastBuildArtifact.sha256 === emulatorRomIdentity?.sha256;
   const sceneAssetHealth = (() => {
     if (!activeScene || !activeProjectDir) {
       return summarizeSceneAssetHealth([]);
@@ -5513,11 +5516,12 @@ export default function ViewportPanel({
                 {showPerformanceOverlay && (
                   <div
                     data-testid="viewport-performance-overlay"
+                    data-native-c={nativeCOverlay}
                     className="pointer-events-none absolute left-2 top-2 flex flex-col gap-1 rounded border border-[#313244] bg-[#11111b]/80 px-2 py-1 font-mono text-[10px] text-[#cdd6f4]"
                   >
                     <span>FPS {overlayFps}</span>
-                    <span>Sprites {overlaySpriteCount}</span>
-                    <span>DMA est. {Math.round(dmaUsageBytes / 1024)}KB / {Math.round(dmaBudgetBytes / 1024)}KB ({dmaUsagePercent}%)</span>
+                    <span>Sprites {nativeCOverlay ? "indisponíveis (C)" : overlaySpriteCount}</span>
+                    <span>DMA est. {nativeCOverlay ? "indisponível (C)" : `${Math.round(dmaUsageBytes / 1024)}KB / ${Math.round(dmaBudgetBytes / 1024)}KB (${dmaUsagePercent}%)`}</span>
                   </div>
                 )}
                 <div className="pointer-events-none absolute bottom-2 right-2 rounded border border-[#313244] bg-[#11111b]/80 px-2 py-1 text-[10px] font-mono text-[#7f849c]">

@@ -6139,6 +6139,9 @@ async function runSgdkNativeCScenario(sessionId) {
     // still be recognized by the shared build/review surface.
     const nativeFreshness = await executeScript(sessionId, `return document.querySelector('[data-testid="studio-build-freshness"]')?.textContent ?? '';`);
     addReportStep(report, "native_build_identity_visible", nativeFreshness.includes("build C em execução") ? "passed" : "failed", { label: nativeFreshness });
+    const overlayScope = await executeScript(sessionId, `const e=document.querySelector('[data-testid="viewport-performance-overlay"]');return e?{native:e.dataset.nativeC,text:e.textContent}:null;`);
+    if (overlayScope?.native !== "true" || !overlayScope.text.includes("Sprites indisponíveis (C)") || !overlayScope.text.includes("DMA est. indisponível (C)")) fail(`Native C overlay presents unsupported node metrics: ${JSON.stringify(overlayScope)}`);
+    addReportStep(report, "native_c_overlay_does_not_invent_sprite_dma_metrics", "passed", overlayScope);
     addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-boot.png`), "ROM running after boot");
 
     const frames = [await readFramebufferStats(sessionId)];
@@ -6236,66 +6239,101 @@ async function runSgdkNativeCScenario(sessionId) {
     addReportStep(report, "rom_capture_palettes_without_conflict", "passed", report.rom_capture_palettes);
 
     if (process.env.RDS_SGDK_FIGHT_PROBE === "1") {
-      // Operator-provided Mugenesis QA input, not a game-specific product adapter.
-      // Bind the probe to source declarations and the freshly linked ELF.
-      const vars = await readFile(path.join(source, "inc/game_vars.h"), "utf8");
-      if (!/APP_SCENE_DEMO\s*=\s*3/.test(vars) || !/typedef struct AppState\s*\{\s*AppScene currentScene;/.test(vars)) fail("Fight probe source layout changed.");
-      const symbols = parseElf32Symbols(await readFile(path.join(path.dirname(build.rom_path), "rom.out")));
-      const appAddress = symbols.get("gApp");
-      if (!appAddress) fail("Fresh ELF has no gApp for the declared fight probe.");
-      report.fight_probe_samples = [];
-      const sceneProbe = async () => {
-        // This source's enum is a 32-bit int (movel in APP_changeScene in
-        // the linked ELF). GPGX exposes WRAM with each 68k word byte-swapped.
-        const value = await readEmulatorMemory(sessionId, 2, appAddress & 0xffff, 4);
-        const scene = ((value.data[0] | (value.data[1] << 8)) * 65536) + (value.data[2] | (value.data[3] << 8));
-        report.fight_probe_samples.push({ data: value.data, scene });
-        return scene;
-      };
-      await callAutomationApi(sessionId, "selectWorkspace", ["game"]);
-      const states = [await sceneProbe()];
-      for (let i = 0; i < 6 && states.at(-1) !== 3; i += 1) {
-        await sendNativeGameKeyTap(sessionId, "Enter", 800, `fight menu Start ${i + 1}`);
-        await new Promise((resolve) => setTimeout(resolve, 4000));
-        states.push(await sceneProbe());
-        addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-fight-menu-${i + 1}.png`), `Fight navigation ${i + 1}`);
+      try {
+        // Operator-provided Mugenesis QA input, not a game-specific product adapter.
+        // Bind the probe to source declarations and the freshly linked ELF.
+        const vars = await readFile(path.join(source, "inc/game_vars.h"), "utf8");
+        if (!/APP_SCENE_DEMO\s*=\s*3/.test(vars) || !/typedef struct AppState\s*\{\s*AppScene currentScene;/.test(vars)) fail("Fight probe source layout changed.");
+        const symbols = parseElf32Symbols(await readFile(path.join(path.dirname(build.rom_path), "rom.out")));
+        const appAddress = symbols.get("gApp");
+        if (!appAddress) fail("Fresh ELF has no gApp for the declared fight probe.");
+        report.fight_probe_samples = [];
+        const sceneProbe = async () => {
+          // This source's enum is a 32-bit int (movel in APP_changeScene in
+          // the linked ELF). GPGX exposes WRAM with each 68k word byte-swapped.
+          const value = await readEmulatorMemory(sessionId, 2, appAddress & 0xffff, 4);
+          const scene = ((value.data[0] | (value.data[1] << 8)) * 65536) + (value.data[2] | (value.data[3] << 8));
+          report.fight_probe_samples.push({ data: value.data, scene });
+          return scene;
+        };
+        await callAutomationApi(sessionId, "selectWorkspace", ["game"]);
+        // Select the game's existing training/idle mode through native keys.
+        // Arcade AI can hit/push the player during an asynchronous observation.
+        const menuSource = await readFile(path.join(source, "src/scenes/scene_menu.c"), "utf8");
+        if (!/static u8 sSelectedMode;/.test(menuSource) || !/static u8 sMenuPage;/.test(menuSource)
+          || !/MENU_MODE_ARCADE = 0,\s*MENU_MODE_VERSUS,\s*MENU_MODE_TRAINING,/.test(menuSource)) fail("Training menu probe source changed.");
+        const readByteSymbol = async (name) => {
+          const address = symbols.get(name);
+          if (!address) fail(`Fresh ELF has no ${name}.`);
+          const { data } = await readEmulatorMemory(sessionId, 2, (address & 0xffff) & ~1, 2);
+          return data[(address & 1) ^ 1];
+        };
+        if (await sceneProbe() !== 2 || await readByteSymbol("sMenuPage") !== 0) fail("Training selection requires the observed main menu.");
+        for (let i = 0; i < 8 && await readByteSymbol("sSelectedMode") !== 2; i += 1) {
+          await sendNativeGameKeyTap(sessionId, "ArrowDown", 800, "select existing training mode");
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+        if (await readByteSymbol("sSelectedMode") !== 2) fail("Native menu keys did not select training.");
+        addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-training-menu.png`), "Existing training mode selected through native keys");
+        const states = [await sceneProbe()];
+        for (let i = 0; i < 6 && states.at(-1) !== 3; i += 1) {
+          await sendNativeGameKeyTap(sessionId, "Enter", 800, `fight menu Start ${i + 1}`);
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+          states.push(await sceneProbe());
+          addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-fight-menu-${i + 1}.png`), `Fight navigation ${i + 1}`);
+        }
+        if (states.at(-1) !== 3) fail(`Fight did not start through native Start: ${JSON.stringify(states)}`);
+        // Entering the scene is still the 90-tick round intro, with controls
+        // disabled in the original C. Wait on observed core frames, not wall time.
+        const introFrame = (await readFramebufferStats(sessionId)).rendered_frames;
+        await waitFor(async () => (await readFramebufferStats(sessionId)).rendered_frames >= introFrame + 120,
+          90000, "Fight intro did not advance 120 observed core frames.", 500);
+        // MgFight begins with p[2]; the declared MgPlayer prefix is three 32-bit
+        // pointers + four u8, then s32 fixed-point x. Source-bound QA, not REX.
+        const runtimeHeader = await readFile(path.join(source, "inc/mg/mg_runtime.h"), "utf8");
+        if (!/struct MgPlayer\s*\{[\s\S]*?const MgCharDef \*def;[\s\S]*?const MgCharDef \*sdef;[\s\S]*?MgPlayer \*enemy;[\s\S]*?u8 side;[\s\S]*?u8 pal;[\s\S]*?u8 palette_variant;[\s\S]*?u8 is_cpu;[\s\S]*?mgfx x, y, vx, vy;/.test(runtimeHeader)) fail("Fight position probe source prefix changed.");
+        const fightAddress = symbols.get("mg_fight");
+        if (!fightAddress) fail("Fresh ELF has no mg_fight position probe symbol.");
+        const playerState = async () => {
+          const { data } = await readEmulatorMemory(sessionId, 2, fightAddress & 0xffff, 48);
+          const bytes = Buffer.from(data).swap16();
+          return { x_fixed: bytes.readInt32BE(16), state_no: bytes.readInt16BE(34), ctrl: bytes[47] };
+        };
+        const fightSource = await readFile(path.join(source, "src/mg/mg_fight.c"), "utf8");
+        if (!/static u8 sTrainingMode;/.test(fightSource) || !/static u8 sTrainingSparring = MG_TRAINING_IDLE;/.test(fightSource)) fail("Training runtime probe source changed.");
+        const training = { mode: await readByteSymbol("sTrainingMode"), sparring: await readByteSymbol("sTrainingSparring") };
+        if (training.mode !== 1 || training.sparring !== 0) fail(`Fight is not the selected training/idle mode: ${JSON.stringify(training)}`);
+        const neutralBefore = await waitFor(async () => { const value = await playerState(); return value.ctrl === 1 ? value : false; }, 30000, "Training player did not gain control after the intro.", 250);
+        addReportStep(report, "native_training_control_ready", "passed", { ...neutralBefore, frame: await readFramebufferStats(sessionId) });
+        const neutralFrame = (await readFramebufferStats(sessionId)).rendered_frames;
+        await waitFor(async () => (await readFramebufferStats(sessionId)).rendered_frames >= neutralFrame + 10, 15000, "Neutral control did not advance.", 200);
+        const neutralAfter = await playerState();
+        if (neutralBefore.ctrl !== 1 || neutralAfter.ctrl !== 1 || neutralBefore.x_fixed !== neutralAfter.x_fixed) fail(`Player did not remain stationary/controllable without input in training: ${JSON.stringify({training,neutralBefore,neutralAfter})}`);
+        addReportStep(report, "native_training_idle_neutral_control", "passed", { training, before: neutralBefore, after: neutralAfter, frames: 10 });
+        const initialX = neutralAfter.x_fixed;
+        const observations = [];
+        // Measure both directions before initiating attacks, which deliberately
+        // disable ctrl in the original game. Keep attack observations separate.
+        for (const code of ["ArrowRight", "ArrowLeft", "KeyZ", "KeyX"]) {
+          const before = code.startsWith("Arrow")
+            ? await waitFor(async () => { const s = await playerState(); return s.ctrl === 1 ? s : false; }, 15000, "Fight player has no directional control.", 250)
+            : await playerState();
+          await sendNativeGameKeyTap(sessionId, code, 800, `fight ${code}`);
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          observations.push({ code, before, ...await playerState(), frame: await readFramebufferStats(sessionId) });
+          addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-fight-${code}.png`), `Fight input ${code}`);
+        }
+        const rightX = observations.find((o) => o.code === "ArrowRight").x_fixed;
+        const leftX = observations.find((o) => o.code === "ArrowLeft").x_fixed;
+        if (!(rightX > initialX && leftX < rightX
+          && rightX > observations[0].before.x_fixed && leftX < observations[1].before.x_fixed)) fail(`Native fight movement did not follow directions: ${JSON.stringify({initialX,rightX,leftX,observations})}`);
+        addReportStep(report, "native_fight_direction_changes_player_position", "passed", { initialX, rightX, leftX, intro_frames_observed: 120, address: fightAddress + 16 });
+        addReportStep(report, "native_fight_started_and_inputs_sent", "passed", { states, gApp_address: appAddress, observations,
+          limit: "scene observed in core RAM and native inputs sent; no full match, gameplay equivalence, latency or hardware acceptance" });
+      } catch (error) {
+        addReportStep(report, "native_fight_direction_probe", "failed", { error: String(error) });
+        addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-fight-probe-failed.png`).catch(() => null), "Directional probe refused; independent C edit/build/export still exercised");
       }
-      if (states.at(-1) !== 3) fail(`Fight did not start through native Start: ${JSON.stringify(states)}`);
-      // Entering the scene is still the 90-tick round intro, with controls
-      // disabled in the original C. Wait on observed core frames, not wall time.
-      const introFrame = (await readFramebufferStats(sessionId)).rendered_frames;
-      await waitFor(async () => (await readFramebufferStats(sessionId)).rendered_frames >= introFrame + 120,
-        90000, "Fight intro did not advance 120 observed core frames.", 500);
-      // MgFight begins with p[2]; the declared MgPlayer prefix is three 32-bit
-      // pointers + four u8, then s32 fixed-point x. Source-bound QA, not REX.
-      const runtimeHeader = await readFile(path.join(source, "inc/mg/mg_runtime.h"), "utf8");
-      if (!/struct MgPlayer\s*\{[\s\S]*?const MgCharDef \*def;[\s\S]*?const MgCharDef \*sdef;[\s\S]*?MgPlayer \*enemy;[\s\S]*?u8 side;[\s\S]*?u8 pal;[\s\S]*?u8 palette_variant;[\s\S]*?u8 is_cpu;[\s\S]*?mgfx x, y, vx, vy;/.test(runtimeHeader)) fail("Fight position probe source prefix changed.");
-      const fightAddress = symbols.get("mg_fight");
-      if (!fightAddress) fail("Fresh ELF has no mg_fight position probe symbol.");
-      const playerState = async () => {
-        const { data } = await readEmulatorMemory(sessionId, 2, fightAddress & 0xffff, 48);
-        const bytes = Buffer.from(data).swap16();
-        return { x_fixed: bytes.readInt32BE(16), state_no: bytes.readInt16BE(34), ctrl: bytes[47] };
-      };
-      const initialX = (await playerState()).x_fixed;
-      const observations = [];
-      // Measure both directions before initiating attacks, which deliberately
-      // disable ctrl in the original game. Keep attack observations separate.
-      for (const code of ["ArrowRight", "ArrowLeft", "KeyZ", "KeyX"]) {
-        const before = code.startsWith("Arrow")
-          ? await waitFor(async () => { const s = await playerState(); return s.ctrl === 1 ? s : false; }, 15000, "Fight player has no directional control.", 250)
-          : await playerState();
-        await sendNativeGameKeyTap(sessionId, code, 800, `fight ${code}`);
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        observations.push({ code, before, ...await playerState(), frame: await readFramebufferStats(sessionId) });
-        addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-fight-${code}.png`), `Fight input ${code}`);
-      }
-      const rightX = observations.find((o) => o.code === "ArrowRight").x_fixed;
-      const leftX = observations.find((o) => o.code === "ArrowLeft").x_fixed;
-      if (!(rightX > initialX && leftX < rightX)) fail(`Native fight movement did not follow directions: ${JSON.stringify({initialX,rightX,leftX,observations})}`);
-      addReportStep(report, "native_fight_direction_changes_player_position", "passed", { initialX, rightX, leftX, intro_frames_observed: 120, address: fightAddress + 16 });
-      addReportStep(report, "native_fight_started_and_inputs_sent", "passed", { states, gApp_address: appAddress, observations,
-        limit: "scene observed in core RAM and native inputs sent; no full match, gameplay equivalence, latency or hardware acceptance" });
     }
 
     await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
