@@ -7863,6 +7863,20 @@
       "all_bytes_unchanged": true
     },
     "capture_scope": "Targeted native screenshot partially frames window;startup evidence only,not whole UI audit",
-    "next_step": "Operator uses open app/desktop shortcut. New UI and color proposals still need private quality,new build,native journeys before binary replacement;preserve active user lease."
+    "next_step": "Operator uses open app/desktop shortcut. New UI and color proposals still need private quality,new build,native journeys before binary replacement;preserve active user lease.",
+    "code_commit": "9366bcca8aa51b11c22a1b6f88b0181deb70b102",
+    "source_matches_private_checkpoint": true,
+    "source_files_verified": 2,
+    "protection": {
+      "bytes": 787126,
+      "sha256": "f9c48570947f1d446099cde133e58c7d2c5e8a1f02a0cd5555d5c8b421cbdea2",
+      "files_verified": 61,
+      "all_bytes_verified": true,
+      "manifest_sha256": "6a3c5768ad10b9e089034c3df2c38e5f8cce04a91fb11909c4815499db89ea0a",
+      "same_filesystem": true,
+      "off_host_copy_qualified": false,
+      "owner": "operator"
+    },
+    "archive": "desktop-shortcut-recovery-20261030-checkpoint-162213.tar.gz"
   }
 }

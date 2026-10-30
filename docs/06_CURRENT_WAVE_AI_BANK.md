@@ -4,6 +4,8 @@ Lease08:45 de antes do reboot15:15UTC arquivada após comprovar PIDs ausentes; p
 
 KDE abriu a entrada real, app821d172a/PID265601; operador iniciou uso de projeto108/GIF53quadros. **Mantido aberto**, lease2026-10-30T16-16-09-626Z-265424; fechamento/reabertura não exercitados para preservar uso ativo. Oito arquivos dos baselines106/107 iguais, zero escrita pelo agente. Evidências `RDS_WORK_ROOT/sessions/desktop-shortcut-recovery-20261030`; detalhes/proteção no topo do Memory Bank e índice desktop_shortcut_recovery_20261030. UI9b2034cf não instalada; testes Rust padrão passaram, mas qualidade privada/new build/native/ROM ainda pendentes. Sem promoção/merge/release/deploy.
 
+Código **9366bcca8aa51b11c22a1b6f88b0181deb70b102**, scripts conferidos contra proteção privada **desktop-shortcut-recovery-20261030-checkpoint-162213.tar.gz**, SHA **f9c48570947f1d446099cde133e58c7d2c5e8a1f02a0cd5555d5c8b421cbdea2**,61arquivos relidos/787126bytes. Mesmo filesystem/proteção independente pendente; estado e próximos passos no Memory Bank.
+
 ---
 
 ### Editor de imagem por tarefas — 2026-10-30 (proposta Experimental)
