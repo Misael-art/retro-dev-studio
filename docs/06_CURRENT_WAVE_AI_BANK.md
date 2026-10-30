@@ -2,6 +2,8 @@
 
 **GIF53 e editor por tarefas — 2026-10-30 (entrega local Experimental):** app263205d8 substitui821d172a no atalho; KDE abriu e app foi mantido disponível ao operador. Diagnóstico separa atlas do cartucho de buffers de quadro; paleta inicial única, extras/limpeza explícitas, guia de movimento opt-in, resize proporcional com recuperação e ferramentas nomeadas.28passos Tauri/ROM/core, reabertura da cópia108 sem escrita, qa-rc32, SNES e MUGEN103/417 PASS. Certify READY/sete comandos,1305frontend/11skip e1122Rust/111ignored; demais checks PASS. Evidências, causas, SHAs e limites no topo do Memory Bank; relatório privado em RDS_WORK_ROOT/sessions/gif-authoring-usability-20261030/audit/index.html. Fonte do novo app inclui proposta9b2034cf e correções de cores, agora testadas no alvo nativo. Sem segmentação neural/aceite humano/60FPS certificado/Windows nem conclusão das16jornadas amplas. Não fechar o app nem remover lease atual2026-10-30T17-53-49-993Z-679249; encerramento normal cabe ao operador.
 
+Código **69d6540593c309173b73497e6f65d767c41698a3**; app263205d8/28casos nativos e regressões no mesmo SHA. Proteção privada **gif-authoring-usability-20261030-263205d8-180445.tar.zst**, SHA **2c85fd665e3239b5f0a86392e4953747ca456064e0837dfc39488879e6d15921**,1514arquivos relidos; mesmo filesystem/owner operador, cópia independente pendente. Detalhes no topo do Memory Bank.
+
 ---
 
 ### Atalho após reboot — 2026-10-30 (validado localmente)

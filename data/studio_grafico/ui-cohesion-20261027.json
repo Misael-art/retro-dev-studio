@@ -3365,10 +3365,11 @@
   },
   "latest_delivery": {
     "section": "gif_authoring_usability_20261030",
-    "binary_sha256": "263205d8887a718b9eb7f020fadd3ed7c783b146c762df9fac06fd7386b5aa99"
+    "binary_sha256": "263205d8887a718b9eb7f020fadd3ed7c783b146c762df9fac06fd7386b5aa99",
+    "code_commit": "69d6540593c309173b73497e6f65d767c41698a3"
   },
   "latest_checkpoint": "gif_authoring_usability_20261030",
-  "last_updated_at": "2026-10-30T18:02:11.817871+00:00",
+  "last_updated_at": "2026-10-30T18:07:02.985485+00:00",
   "product_diagnosis_20261028": {
     "schema": "retrodev.product_diagnosis/v1",
     "status": "validated_local_experimental_partial",
@@ -7930,6 +7931,19 @@
       "physical949x593logical display below qualified1280x800 workspace;startup only onphysical",
       "instrumented core capture6.2FPS;60FPS presentation not certified",
       "physical Wayland clipboard,Windows,screenreader,whole keyboard journey and16broad journeys remain pending"
-    ]
+    ],
+    "code_commit": "69d6540593c309173b73497e6f65d767c41698a3",
+    "source_matches_commit": true,
+    "protection": {
+      "archive": "/home/misael/_-backups-_/Projects/RetroDevStudio-UI-2026-10-27/gif-authoring-usability-20261030-263205d8-180445.tar.zst",
+      "bytes": 241073661,
+      "sha256": "2c85fd665e3239b5f0a86392e4953747ca456064e0837dfc39488879e6d15921",
+      "files_verified": 1514,
+      "manifest": "/home/misael/_-backups-_/Projects/RetroDevStudio-UI-2026-10-27/gif-authoring-usability-20261030-263205d8-180445.manifest.json",
+      "manifest_sha256": "f58c1769ed446f4627cd0827b43745c4d9d6991b89be29438ea69db0e0ce2590",
+      "same_filesystem": true,
+      "off_host_qualified": false,
+      "code_commit": "69d6540593c309173b73497e6f65d767c41698a3"
+    }
   }
 }
