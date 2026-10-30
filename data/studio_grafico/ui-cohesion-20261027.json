@@ -3364,12 +3364,12 @@
     }
   },
   "latest_delivery": {
-    "section": "sgdk_mounted_images_20261029",
-    "code_commit": "012c1a6194c7e8d546b2e577243142e0555cc91d",
-    "binary_sha256": "af7631b75371675498e3d21a9d9b6073307f2b01b8d80ac7bf5268be2d5f047e"
+    "section": "image_ingress_20261030",
+    "code_commit": "1e849549d0628fc0ba09930ae13840ef281a20ce",
+    "binary_sha256": "821d172a20fcef93b9b422678148481f21391d1417aa8092e640ecd7c6d3c318"
   },
-  "latest_checkpoint": "sgdk_mounted_images_20261029",
-  "last_updated_at": "2026-10-29T01:04:32.889Z",
+  "latest_checkpoint": "image_ingress_20261030",
+  "last_updated_at": "2026-10-30T05:45:39.772786+00:00",
   "product_diagnosis_20261028": {
     "schema": "retrodev.product_diagnosis/v1",
     "status": "validated_local_experimental_partial",
@@ -7553,5 +7553,105 @@
       "all16broader journeys remain partial"
     ],
     "next_step": "Human exercise of project table and Scene/Assets/Add/Art/apply/save/reopen using canonical runtime;no merge/release/deploy"
+  },
+  "image_ingress_20261030": {
+    "status": "validated_local_native_experimental",
+    "maturity": "Experimental",
+    "base_commit": "2047739c38ed4137f9460443d88fbf3f0ddff170",
+    "code_commit": "1e849549d0628fc0ba09930ae13840ef281a20ce",
+    "binary_sha256": "821d172a20fcef93b9b422678148481f21391d1417aa8092e640ecd7c6d3c318",
+    "source_snapshot_sha256": "5b978d198111f52cf9b79b3df2f15cb51cf83ede911f876c3cf5ec392e02a988",
+    "source_snapshot_matches_code_commit": true,
+    "clean_reproducible_build_claimed": false,
+    "runtime_evidence": "sessions/image-ingress-20261029",
+    "report": "sessions/image-ingress-20261029/report/index.html",
+    "native_final": {
+      "steps": 15,
+      "result": "PASS",
+      "runner_sha256": "0e6bcca95552a74d4dffb40b822ca051a5e82a781c65b9d11a678521a09bdedf",
+      "clipboard_fixture_sha256": "3e47d452762ffb707fd03fd131f8f10b69efc94f02af71b11110dd49c0b49787",
+      "rom_sha256": "c375b2cf3d9303fa652933bde52d806a9c20d120dd445a653ab5886641f1a1d5",
+      "session": "2026-10-30T05-30-18-732Z-2319298",
+      "close_via_actual_menu_discard_prompts": 0,
+      "gif_source_frames": 6,
+      "edited_reopened_frames": 7,
+      "edited_frame_ticks": 9,
+      "library_reuse_in_new_scene": true,
+      "native_html_empty_transfer_fixture": true,
+      "viewport": "1280x800@125%"
+    },
+    "validation": {
+      "certification": "READY",
+      "session": "2026-10-30T05-07-14-447Z-2239549",
+      "gates": 7,
+      "frontend_passed": 1276,
+      "frontend_skipped": 11,
+      "rust_passed": 1117,
+      "rust_ignored": 109,
+      "focused_ingress": 40,
+      "focused_asset_regressions": 96,
+      "rust_ingress": 8,
+      "rust_timing": 1,
+      "normal_clippy_fmt_build_tree_syntax": "PASS",
+      "npm_cargo_audit_licenses": "PASS;12 preexisting allowed Cargo warnings",
+      "shortcut_kde_open_normal_close": "PASS",
+      "kde_session": "2026-10-30T05-32-06-323Z-2325243"
+    },
+    "broader_native_regressions": {
+      "binary": "260ad42f05bd0e16d27a820eb03e3d59b52cf92797cb022fcd98fe6e42c654d0",
+      "qa_rc_cases": 32,
+      "snes_starter": "PASS",
+      "mugen_full": "PASS;103 animations/417 occurrences;build/core/edit/rebuild/export",
+      "later_production_delta": [
+        "src/core/imageIngress.ts",
+        "src/core/imageIngress.test.ts"
+      ],
+      "delta_scope": "Prioritize original browser image for extensionless HTTPS URLs; retain explicit animation files. No subsequent Rust/runtime/importer changes. Final affected journey repeated on821d172a.",
+      "all_native_same_binary": false
+    },
+    "web_example": {
+      "page": "https://commons.wikimedia.org/wiki/File:Animexample.gif",
+      "author": "Branko",
+      "license": "Public domain",
+      "source_sha256": "42392f2f86d2ff7f3ef112b7b5fcb70246c51ff745593b2c71137515af19dd1a",
+      "browser_context_menu_copy_image_automated": false,
+      "native_fixture_scope": "Actual GTK OS clipboard URL/raster/HTML+PNG and GTK file drag;one additional synthetic empty DataTransfer over real OS clipboard;line painting uses pointer fixture in real Tauri."
+    },
+    "protection": {
+      "archive": "image-ingress-20261030-821d172a.tar.zst",
+      "bytes": 686182118,
+      "sha256": "52c933b8ac080ff3886764146b8b3b0c068ebc8ba77c0cf6be75c0b89de4ad8e",
+      "manifest_sha256": "2329a635928f7b282a883c361fabe7fd0d736c379c822632ac3ab01d54639f54",
+      "files_verified": 1370,
+      "all_bytes_verified": true,
+      "roots": 112,
+      "same_filesystem": true,
+      "off_host_copy_qualified": false,
+      "owner": "operator",
+      "retention": "Preserve through human acceptance and independent private backup verification; no automatic deletion.",
+      "created_at": "2026-10-30T05:41:54.686618+00:00"
+    },
+    "changes": [
+      "one global image ingress over existing Photo2SGDK, PixelEditor writer, editorStore history and palette plan",
+      "native PNG clipboard bridge and original HTTPS metadata including extensionless URLs",
+      "full GIF/APNG/animated WebP decoder frames and per-frame timings;shared MD palette",
+      "preserved original SHA/native document;original reopen and uniform border background tool with Undo",
+      "library projects saved native geometry and timing into existing catalog;new-scene reuse uses same palette proposal",
+      "scene/source/palette one history transaction and stale-context guards",
+      "SGDK per-occurrence timing emitted without changing MUGEN path"
+    ],
+    "limits": [
+      "Quick conversion qualified for Mega Drive60Hz;15colors+alpha;sprites64x64;static backgrounds320x224;proportional fit and original preserved",
+      "Input20MiB,total64MP,source256frames;runtime255occurrences;excess rejected without silently truncating animation",
+      "Uniform border-connected background removal;no neural segmentation of complex photos",
+      "SNES quick ingress remains Experimental unsupported;existing tools retained",
+      "Original browser animation recoverable when original file or accessible public HTTPS metadata is available;native Copy Image context menu itself not automated",
+      "KDE shortcut opening/normal closing tested;physical Wayland clipboard interaction not qualified because Computer Use ydotool CLI/service unavailable",
+      "No full human beginner/screenreader/contrast/Windows/physical GPU/audio/console acceptance;16broader journeys remain partial"
+    ],
+    "delivery_complete_for_local_increment": true,
+    "broader_ui_complete": false,
+    "human_acceptance": false,
+    "next_step": "Human exercise of CtrlV/drop/image picker,role,palette overflow,frames/background/original/save/build and physical Wayland clipboard;preserve canonical owners and private evidence;no merge/release/deploy"
   }
 }

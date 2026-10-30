@@ -1,3 +1,13 @@
+### Entrada rápida de imagens/GIF — 2026-10-30 (Experimental)
+
+Código **1e849549d0628fc0ba09930ae13840ef281a20ce**, app **821d172a20fcef93b9b422678148481f21391d1417aa8092e640ecd7c6d3c318**, PR#112; índice **image_ingress_20261030**, detalhes/limites no topo do Memory Bank. Ctrl+V/soltar/Imagem reutilizam Photo2SGDK, writer de pixels, histórico e plano de paletas: papel fundo/objeto e banco somente se necessário; quadros/tempos/original preservados, edição/fundo/Undo, nova cena/biblioteca e lógica. Sem novo motor/store/planner. Dependências/compatibilidade justificadas no Tech Stack.
+
+Quinze passos Tauri/X11 no app final PASS, incluindo seis→sete quadros/150ms, fechamento real sem descarte, clipboard nativo com HTML e transferência vazia, arraste sem duplicação, quatro bancos e ROM animada. READY/7gates,1276frontend/1117Rust, Clippy/fmt/auditorias/licenças PASS. qa-rc32/SNES/MUGEN103/417 em260ad42f, antes apenas do ajuste de URL sem extensão, com fluxo afetado repetido no final. Atalho KDE abre/fecha normalmente; clipboard no Wayland físico pendente por ferramenta de entrada indisponível.
+
+Relatório/projetos: **RDS_WORK_ROOT/sessions/image-ingress-20261029/report/index.html**. Proteção **image-ingress-20261030-821d172a.tar.zst**, SHA **52c933b8ac080ff3886764146b8b3b0c068ebc8ba77c0cf6be75c0b89de4ad8e**,1370arquivos relidos; mesmo filesystem/owner operador/reter até aceite e cópia independente. MD60Hz/15cores+alfa/sprite64×64/fundo320×224/20MiB/64MP/255ocorrências; recorte uniforme, sem segmentação neural. Humano/Windows/alvos físicos e16jornadas não promovidos. Próximo: teste humano de colar/soltar/quadros/paletas/fundo/original/Salvar/Testar; sem merge/release/deploy.
+
+---
+
 ### Checkpoint 2026-10-29 local / 2026-10-30 UTC — importações e imagens validadas (Experimental)
 
 Código **012c1a6194c7e8d546b2e577243142e0555cc91d**, app **af7631b75371675498e3d21a9d9b6073307f2b01b8d80ac7bf5268be2d5f047e**, PR #112. Seção atual do índice UI: **sgdk_mounted_images_20261029**; checkpoint detalhado no topo do Memory Bank. Corrigidos índices do atlas, prioridade de mapas/imagens, compatibilidade legada em memória, layouts/animações/aliases no catálogo e ArtStudio, painéis compactos e recuperação de erros. Navegar/fechar sem editar não grava cenas compatibilizadas; Salvar sinaliza operação antes do await. Sem novo motor/store/registry/dependência/relaxamento de guardas.
