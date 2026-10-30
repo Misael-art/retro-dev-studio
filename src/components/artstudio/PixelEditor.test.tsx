@@ -60,6 +60,34 @@ function render(projectDir: string | null = "/proj") {
 }
 
 describe("PixelEditor", () => {
+  it("starts without motion ghosts, exposes one bank, and restores all frames after successive frame sizes", async () => {
+    const gif = createPixelDoc(64, 56, { name: "moving", frames: 53 });
+    gif.frames.forEach((f, i) => { f.cels[0][55 * 64 + 63] = 1; f.durationMs = 40 + i * 10; });
+    loadMock.mockResolvedValue(serializePixelDoc(gif));
+    await act(async () => root.render(<PixelEditor projectDir="/proj" source={{url:"",sourcePath:"assets/sprites/pixel/moving.png",name:"moving",frameWidth:64,frameHeight:56,frames:Array.from({length:53},(_,i)=>i),autoOpen:true}} log={vi.fn()} onSaved={vi.fn()}/>));
+    expect((q("pixel-onion") as HTMLInputElement).checked).toBe(false);
+    expect(q("pixel-onion-notice")).toBeNull();
+    act(() => q("pixel-onion").click());
+    expect(q("pixel-onion-notice").textContent).toContain("não são salvos");
+    expect(q("pixel-palette-line-1")).toBeNull();
+    const choose = (value: string) => act(() => { const select = q("pixel-doc-size") as HTMLSelectElement; select.value = value; select.dispatchEvent(new Event("change", {bubbles:true})); });
+    for (const value of ["8x8", "32x32", "64x56"]) {
+      choose(value);
+      const doc = useEditorStore.getState().pixelEditorSessions["/proj"].doc;
+      expect(doc.frames).toHaveLength(53);
+      expect(doc.frames.every(f => f.cels[0].some(v => v > 0))).toBe(true);
+      expect(doc.frames.map(f => f.durationMs)).toEqual(gif.frames.map(f => f.durationMs));
+    }
+    expect(useEditorStore.getState().pixelEditorSessions["/proj"].doc.frames).toEqual(gif.frames);
+    choose("8x8"); act(() => q("pixel-restore-size").click());
+    expect(useEditorStore.getState().pixelEditorSessions["/proj"].doc.frames).toEqual(gif.frames);
+    act(() => q("pixel-show-all-palettes").click());
+    act(() => q("pixel-enable-palette-1").click());
+    expect(q("pixel-palette-line-1")).not.toBeNull();
+    act(() => q("pixel-disable-palette-1").click());
+    expect(q("pixel-palette-line-1")).toBeNull();
+    expect(useEditorStore.getState().pixelEditorSessions["/proj"].doc.frames).toEqual(gif.frames);
+  });
   it("does not publish a completed save into a different image context", async () => {
     let finish!: (value: unknown) => void;
     saveMock.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
@@ -256,6 +284,7 @@ describe("PixelEditor", () => {
     render();
     expect(q("pixel-palette-count-0").textContent).toContain("0/15");
     act(() => q("pixel-show-all-palettes").click());
+    act(() => q("pixel-enable-palette-2").click());
     act(() => q("pixel-slot-2-5").click());
     expect(q("pixel-palette-line-2").dataset.active).toBe("true");
     act(() => {
@@ -269,6 +298,7 @@ describe("PixelEditor", () => {
   it("blocks mixing palette lines inside one 8x8 tile while the lock is on", () => {
     render();
     act(() => q("pixel-show-all-palettes").click());
+    act(() => q("pixel-enable-palette-1").click());
     act(() => q("pixel-slot-0-1").click());
     act(() => {
       pointer("pointerdown", 5, 5);

@@ -1,3 +1,9 @@
+### GIF53 — entrega local 2026-10-30
+
+**GIF53 e editor por tarefas — 2026-10-30 (entrega local Experimental):** app263205d8 substitui821d172a no atalho; KDE abriu e app foi mantido disponível ao operador. Diagnóstico separa atlas do cartucho de buffers de quadro; paleta inicial única, extras/limpeza explícitas, guia de movimento opt-in, resize proporcional com recuperação e ferramentas nomeadas.28passos Tauri/ROM/core, reabertura da cópia108 sem escrita, qa-rc32, SNES e MUGEN103/417 PASS. Certify READY/sete comandos,1305frontend/11skip e1122Rust/111ignored; demais checks PASS. Evidências, causas, SHAs e limites no topo do Memory Bank; relatório privado em RDS_WORK_ROOT/sessions/gif-authoring-usability-20261030/audit/index.html. Fonte do novo app inclui proposta9b2034cf e correções de cores, agora testadas no alvo nativo. Sem segmentação neural/aceite humano/60FPS certificado/Windows nem conclusão das16jornadas amplas. Não fechar o app nem remover lease atual2026-10-30T17-53-49-993Z-679249; encerramento normal cabe ao operador.
+
+---
+
 ### Atalho após reboot — 2026-10-30 (validado localmente)
 
 Lease08:45 de antes do reboot15:15UTC arquivada após comprovar PIDs ausentes; projeto preservado. Novas leases Linux registram boot_id e arquivam somente boot comprovadamente diferente, com mutex do host-manager; mesmo boot/legado/ambígua permanecem bloqueantes. Release verifica proprietário; .desktop habilita notificação de falha.56 focados PASS; **READY/7 gates**,1300frontend/11skip,1120Rust/110ignored,smokes oficiais,Clippy padrão/fmt/auditorias PASS. Coordenador certify PASS, wrapper de bookkeeping saiu143 depois do encerramento; complementos em nova TTY PASS, falha preservada.

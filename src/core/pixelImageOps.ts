@@ -1,11 +1,34 @@
 /** Image operations over the canonical indexed document. No second editor state. */
-import { addLayer, alignToTile, channelToMd, mdLevelTo8, newPixelId, pixelIndex, pixelLine, quantizeRgba, type MdColor, type PixelDoc, type PixelRect, type PixelEditScope } from "./pixelEditor";
+import { addLayer, alignToTile, channelToMd, enabledPixelPalettes, mdLevelTo8, newPixelId, pixelIndex, pixelLine, pixelPaletteUsage, quantizeRgba, type MdColor, type PixelDoc, type PixelRect, type PixelEditScope } from "./pixelEditor";
 export type { PixelEditScope } from "./pixelEditor";
 
 /** Publish through the existing writer under a new name; the prior resource
  * remains usable by other occurrences and scenes. Name and pixels share Undo. */
 export function copyPixelDoc(doc: PixelDoc): PixelDoc {
   return { ...doc, name: `${doc.name.split("_copy_")[0].slice(0, 48)}_${newPixelId("copy")}` };
+}
+
+export function enablePixelPalette(doc: PixelDoc, line: number): PixelDoc {
+  if (line < 0 || line > 3 || !Number.isInteger(line)) throw new Error("Escolha uma das quatro paletas do Mega Drive.");
+  if (enabledPixelPalettes(doc).includes(line)) return doc;
+  return { ...doc, paletteLines: [...enabledPixelPalettes(doc), line].sort(), palettes: doc.palettes.map((p, i) => i === line ? p.map((_, slot) => slot ? [0, 0, 0] as MdColor : [7, 0, 7] as MdColor) : p) };
+}
+
+export function clearUnusedPixelColors(doc: PixelDoc, line: number): PixelDoc {
+  const used = pixelPaletteUsage(doc)[line];
+  let changed = false;
+  const palette = doc.palettes[line].map((c, slot) => {
+    if (!slot || used.has(slot) || c.every(channel => channel === 0)) return c;
+    changed = true; return [0, 0, 0] as MdColor;
+  });
+  return changed ? { ...doc, palettes: doc.palettes.map((p, i) => i === line ? palette : p) } : doc;
+}
+
+export function disablePixelPalette(doc: PixelDoc, line: number): PixelDoc {
+  if (pixelPaletteUsage(doc)[line].size) throw new Error("Esta paleta ainda colore pixels. Use Unificar paletas para juntar as cores antes de retirá-la.");
+  const lines = enabledPixelPalettes(doc).filter(l => l !== line);
+  if (!lines.length) throw new Error("Mantenha pelo menos uma paleta para desenhar.");
+  return { ...clearUnusedPixelColors(doc, line), paletteLines: lines };
 }
 
 /** Explicit whole-resource conversion, including hidden layers and all frames.
@@ -25,7 +48,7 @@ export function unifyPixelPalettes(doc: PixelDoc): PixelDoc {
   const quantized = quantizeRgba(Uint8Array.from(ranked.flatMap(c => [...c.rgb, 255])), ranked.length, 1, 0);
   const mapped = new Map(ranked.map((color, i) => [color.rgb.join(","), quantized.pixels[i]]));
   const lookup = Array.from(counts, (count, value) => count ? mapped.get(rgbOf(doc, value).join(",")) ?? 0 : 0);
-  return { ...doc, palettes: doc.palettes.map((p, i) => i === 0 ? quantized.palette : p),
+  return { ...doc, paletteLines: [0], palettes: doc.palettes.map((p, i) => i === 0 ? quantized.palette : p.map((_, slot) => slot ? [0, 0, 0] as MdColor : [7, 0, 7] as MdColor)),
     frames: doc.frames.map(frame => ({ ...frame, cels: frame.cels.map(cel => cel.map(value => lookup[value])) })) };
 }
 
@@ -149,6 +172,24 @@ function dimensions(doc: PixelDoc, width: number, height: number): [number, numb
   const w = alignToTile(width), h = alignToTile(height);
   if (w * h * doc.frames.length * doc.layers.length > 64 * 1024 * 1024) throw new Error("Esta edição ultrapassa 64 milhões de pixels somando quadros e camadas.");
   return [w, h];
+}
+
+/** Frame size is a fit operation. Cropping is a separate, explicit tool. Keep
+ * every cel/timing and retain at least one sample from each nonempty cel. */
+export function fitPixelDoc(doc: PixelDoc, width: number, height: number): PixelDoc {
+  const [w, h] = dimensions(doc, width, height), scale = Math.min(w / doc.width, h / doc.height);
+  const cw = Math.max(1, Math.min(w, Math.round(doc.width * scale))), ch = Math.max(1, Math.min(h, Math.round(doc.height * scale)));
+  const ox = Math.floor((w - cw) / 2), oy = Math.floor((h - ch) / 2);
+  return { ...doc, width: w, height: h, frames: doc.frames.map(f => ({ ...f, cels: f.cels.map(cel => {
+    const out = new Uint8Array(w * h);
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++)
+      out[(oy + y) * w + ox + x] = cel[Math.min(doc.height - 1, Math.floor((y + .5) * doc.height / ch)) * doc.width + Math.min(doc.width - 1, Math.floor((x + .5) * doc.width / cw))];
+    if (!out.some(value => pixelIndex(value))) {
+      const first = cel.findIndex(value => pixelIndex(value) !== 0);
+      if (first >= 0) out[(oy + Math.min(ch - 1, Math.floor(Math.floor(first / doc.width) * ch / doc.height))) * w + ox + Math.min(cw - 1, Math.floor((first % doc.width) * cw / doc.width))] = cel[first];
+    }
+    return out;
+  }) })) };
 }
 
 export function cropPixelDoc(doc: PixelDoc, rect: PixelRect): PixelDoc {

@@ -16,6 +16,7 @@ import {
   drawRect,
   drawShade,
   drawStroke,
+  enabledPixelPalettes,
   exportSheetPng,
   flipCel,
   floodFill,
@@ -29,6 +30,7 @@ import {
   pixelCss,
   pixelIndex,
   pixelLine,
+  pixelPaletteUsage,
   quantizeRgba,
   removeFrame,
   removeLayer,
@@ -36,7 +38,6 @@ import {
   replaceAllColor,
   replaceCel,
   resLine,
-  resizeDoc,
   rotateCel,
   sanitizeSymbol,
   serializePixelDoc,
@@ -51,7 +52,7 @@ import {
 import { loadPixelArtDoc, savePixelArtAsset } from "../../core/ipc/artStudioService";
 import { useEditorStore } from "../../core/store/editorStore";
 import { prepareImage } from "../../core/imageIngress";
-import { copyPixelDoc, duplicatePixelLayer, erasePixelRegion, mergePixelLayerDown, type PixelEditScope } from "../../core/pixelImageOps";
+import { clearUnusedPixelColors, copyPixelDoc, disablePixelPalette, duplicatePixelLayer, enablePixelPalette, erasePixelRegion, fitPixelDoc, mergePixelLayerDown, type PixelEditScope } from "../../core/pixelImageOps";
 import Icon, { type IconName } from "../common/Icon";
 import PixelImagePanel, { PIXEL_TASKS, type PixelTask, type PixelTileView } from "./PixelImagePanel";
 
@@ -196,7 +197,8 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   const [mirrorY, setMirrorY] = useState(false);
   const [filled, setFilled] = useState(false);
   const [lockTilePalette, setLockTilePalette] = useState(true);
-  const [onion, setOnion] = useState(true);
+  const [onion, setOnion] = useState(false);
+  const [sizeHistory, setSizeHistory] = useState<{ base: PixelDoc; result: PixelDoc } | null>(null);
   const [zoom, setZoom] = useState(12);
   const [hover, setHover] = useState<[number, number] | null>(null);
   const [selection, setSelection] = useState<PixelRect | null>(null);
@@ -286,6 +288,9 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   }, [fitCanvas]);
 
   const report = useMemo(() => analyzeHardware(doc, frame), [doc, frame]);
+  const paletteUsage = useMemo(() => pixelPaletteUsage(doc), [doc]);
+  const paletteLines = useMemo(() => enabledPixelPalettes(doc), [doc]);
+  useEffect(() => { setSizeHistory(null); }, [sourceIdentity]);
   const displayDoc = imagePreview ?? doc;
   const editScope: PixelEditScope = { frame, layer, allFrames: allImageFrames, rect: selection, color: isolation };
   useEffect(() => { setImagePreview(null); setSelection(null); setIsolation(null); }, [doc.width, doc.height, sourceIdentity]);
@@ -738,7 +743,10 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   const tileUnderCursor = hover ? report.tiles.find((t) => t.tx === Math.floor(hover[0] / TILE) && t.ty === Math.floor(hover[1] / TILE)) : null;
   const tilePoint = selection ? [selection.x, selection.y] : hover;
   const selectedTile = tilePoint ? tileReuse.find(t => t.tx === Math.floor(tilePoint[0] / TILE) && t.ty === Math.floor(tilePoint[1] / TILE)) : undefined;
-  const usedByLine = (line: number) => report.lineUsage.find((u) => u.line === line)?.colors ?? 0;
+  const usedByLine = (line: number) => paletteUsage[line].size;
+  const frameSizes = new Map([...SIZE_PRESETS.map(([w, h]) => ({ label: `${w}×${h}`, size: [w, h] })), ...(doc.target === "plane" ? PLANE_PRESETS : [])].map(p => [p.size.join("x"), p]));
+  if (!frameSizes.has(`${doc.width}x${doc.height}`)) frameSizes.set(`${doc.width}x${doc.height}`, { label: `${doc.width}×${doc.height}`, size: [doc.width, doc.height] });
+  if (sizeHistory && !frameSizes.has(`${sizeHistory.base.width}x${sizeHistory.base.height}`)) frameSizes.set(`${sizeHistory.base.width}x${sizeHistory.base.height}`, { label: `Antes do ajuste: ${sizeHistory.base.width}×${sizeHistory.base.height}`, size: [sizeHistory.base.width, sizeHistory.base.height] });
 
   const swatch = (value: number) => pixelCss(doc, value);
 
@@ -778,23 +786,26 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
           value={`${doc.width}x${doc.height}`}
           onChange={(e) => {
             const [w, h] = e.target.value.split("x").map(Number);
-            const resized = resizeDoc(doc, w, h); commit(source?.autoOpen ? copyPixelDoc(resized) : resized);
+            const current = docRef.current;
+            const base = sizeHistory?.result === current ? sizeHistory.base : current;
+            try {
+              const fitted = fitPixelDoc(base, w, h);
+              const result = source?.autoOpen ? copyPixelDoc(fitted) : fitted;
+              setSizeHistory({ base, result }); commit(result);
+              setStatus("Quadros ajustados sem recortar o desenho. Mudanças seguidas usam a imagem antes do ajuste; Voltar ao tamanho anterior recupera seus pixels.");
+            } catch (error) { setStatus(error instanceof Error ? error.message : String(error)); }
           }}
           className="rounded border border-[#313244] bg-[#0b0f19] px-1 py-1"
-          title="Tamanho do canvas (múltiplos de 8)"
+          title="Tamanho do quadro · ajusta a imagem sem recortar"
+          aria-label="Tamanho do quadro"
         >
-          {[...SIZE_PRESETS.map(([w, h]) => ({ label: `${w}×${h}`, size: [w, h] })), ...PLANE_PRESETS]
-            .concat(
-              SIZE_PRESETS.some(([w, h]) => w === doc.width && h === doc.height) || PLANE_PRESETS.some((p) => p.size[0] === doc.width && p.size[1] === doc.height)
-                ? []
-                : [{ label: `${doc.width}×${doc.height}`, size: [doc.width, doc.height] }]
-            )
-            .map((preset) => (
+          {[...frameSizes.values()].map((preset) => (
               <option key={preset.label} value={`${preset.size[0]}x${preset.size[1]}`}>
                 {preset.label}
               </option>
             ))}
         </select>
+        {sizeHistory?.result === doc && <button type="button" data-testid="pixel-restore-size" className="rounded border border-[#7dd3fc]/50 px-2 py-1" onClick={() => { if (docRef.current !== sizeHistory.result) return; commit(sizeHistory.base); setSizeHistory(null); setStatus("Tamanho e pixels anteriores recuperados. Ctrl+Z desfaz esta recuperação."); }}>Voltar ao tamanho anterior</button>}
         <button type="button" onClick={() => commit(createPixelDoc(doc.width, doc.height, { target: doc.target }))} className="rounded border border-[#313244] px-2 py-1 hover:bg-[#1f2937]">
           Novo
         </button>
@@ -806,7 +817,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
             className="max-w-48 truncate rounded border border-[#7dd3fc]/45 bg-[#7dd3fc]/10 px-2 py-1 text-[#7dd3fc] hover:bg-[#7dd3fc]/20"
             title="Traz os frames da sequência ativa, quantizados para a paleta ativa"
           >
-            Reabrir recurso: {source.name}
+            Recuperar imagem salva
           </button>
         ) : null}
         <span className="ml-auto flex items-center gap-1">
@@ -903,9 +914,10 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
               Trava de paleta por tile
             </label>
             <label className="flex items-center gap-1">
-              <input type="checkbox" checked={onion} onChange={(e) => setOnion(e.target.checked)} />
-              Quadros vizinhos
+              <input type="checkbox" data-testid="pixel-onion" checked={onion} onChange={(e) => setOnion(e.target.checked)} />
+              Guia de movimento
             </label>
+            {onion && <span className="text-[#f9e2af]" data-testid="pixel-onion-notice">Quadros vizinhos são só uma guia; não são salvos nem aparecem no jogo.</span>}
             <label className="flex items-center gap-1"><input type="checkbox" data-testid="pixel-grid" checked={showGrid} onChange={e => setShowGrid(e.target.checked)} />Grade</label>
             <span className="ml-auto flex items-center gap-1">
               <button type="button" onClick={fitCanvas} className="rounded border border-[#313244] px-1.5 py-1">Enquadrar</button>
@@ -961,7 +973,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
         {/* Coluna direita */}
         <div ref={optionsRef} aria-label="Opções da tarefa de edição" className="flex min-h-0 flex-col gap-2 overflow-y-auto pr-1 text-xs text-[#cdd6f4]">
           <PixelImagePanel task={task} doc={doc} projectDir={projectDir} scope={editScope} primary={primary} assetLine={report.lineUsage[0]?.line ?? pixelLine(primary)} onPrimary={value => { setPrimary(value); setActiveLine(pixelLine(value)); }} originalAvailable={Boolean(originalPath)} onReconvert={method => void reopenOriginal(method)}
-            onCommit={(next, base, separate) => { if (docRef.current !== base) { setStatus("A imagem mudou. Gere uma nova prévia; seu trabalho foi preservado."); return; } commit(separate && source?.autoOpen ? copyPixelDoc(next) : next); setImagePreview(null); setIsolation(null); }} onPreview={setImagePreview}
+            onCommit={(next, base, separate) => { if (docRef.current !== base) { setStatus("A imagem mudou. Gere uma nova prévia; seu trabalho foi preservado."); return; } commit(separate && source?.autoOpen ? copyPixelDoc(next) : next); if (!enabledPixelPalettes(next).includes(activeLine)) { const line = enabledPixelPalettes(next)[0]; setActiveLine(line); setPrimary(packPixel(line, 1)); setSecondary(packPixel(line, 2)); setEditingSlot(null); } setImagePreview(null); setIsolation(null); }} onPreview={setImagePreview}
             onSelectLayer={setLayerIndex} onSelectTool={next => { setTool(next); setTileMap(false); }} onSelection={setSelection} onIsolation={setIsolation}
             tolerance={backgroundTolerance} onTolerance={setBackgroundTolerance} allFrames={allImageFrames} onAllFrames={setAllImageFrames}
             tileMap={tileMap} onTileMap={setTileMap} tileView={tileView} onTileView={setTileView} tiles={tileReuse} selectedTile={selectedTile}
@@ -994,11 +1006,11 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
           </Section>
 
           <Section title="Paletas · escolha uma cor" priority={task === "colors"}>
-            <p className="mb-1 text-[#a6adc8]">Paleta ativa e paletas usadas nesta imagem. A posição 0 é transparente.</p>
+            <p className="mb-1 text-[#a6adc8]">{paletteLines.length} paleta(s) neste recurso · contagem de todos os quadros e camadas. A posição 0 é transparente. Os outros quadrados são cores disponíveis para pintar; a contagem mostra apenas as usadas.</p>
             <div className="flex flex-col gap-1" data-testid="pixel-palettes">
               {doc.palettes.map((palette, line) => {
                 const used = usedByLine(line);
-                if (!showAllPalettes && line !== activeLine && used === 0) return null;
+                if (!paletteLines.includes(line)) return showAllPalettes ? <div key={line} className="rounded-lg border border-dashed border-[#313244] p-2"><p>Paleta {line + 1} · não usada · vazia</p><button type="button" data-testid={`pixel-enable-palette-${line}`} className="mt-1 rounded border border-[#313244] px-2 py-1" onClick={() => { commit(enablePixelPalette(doc, line)); setActiveLine(line); setPrimary(packPixel(line, 1)); setSecondary(packPixel(line, 2)); setEditingSlot(1); }}>Adicionar esta paleta</button></div> : null;
                 return (
                   <div
                     key={line}
@@ -1035,7 +1047,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
                               background:
                                 slot === 0
                                   ? `repeating-conic-gradient(#555 0 25%, #999 0 50%) 0 0/6px 6px`
-                                  : mdColorToCss(color),
+                                  : !paletteUsage[line].has(slot) && color.every(c => c === 0) ? "repeating-linear-gradient(135deg,transparent 0 4px,#7f849c33 4px 5px)" : mdColorToCss(color),
                             }}
                           >
                             {isPrimary ? <span className="absolute inset-0 text-[8px] leading-5 text-white mix-blend-difference">1</span> : null}
@@ -1044,11 +1056,14 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
                         );
                       })}
                     </div>
+                    <div className="mt-2 flex flex-wrap gap-1"><button type="button" data-testid={`pixel-clear-unused-${line}`} className="rounded border border-[#313244] px-2 py-1" onClick={() => { commit(clearUnusedPixelColors(doc, line)); setStatus("Cores sem uso limpas. Pixels de todos os quadros e camadas preservados; Ctrl+Z desfaz."); }}>Limpar cores sem uso</button><button type="button" data-testid={`pixel-disable-palette-${line}`} disabled={used > 0 || paletteLines.length === 1} className="rounded border border-[#313244] px-2 py-1 disabled:opacity-40" title={used ? "Use Unificar paletas antes de retirar uma paleta usada pelos pixels" : "Retira esta paleta de edição"} onClick={() => { try { const next = disablePixelPalette(doc, line); commit(next); const remaining = enabledPixelPalettes(next)[0]; setActiveLine(remaining); setPrimary(packPixel(remaining, 1)); setSecondary(packPixel(remaining, 2)); setEditingSlot(null); } catch (error) { setStatus(String(error)); } }}>Retirar paleta</button></div>
                   </div>
                 );
               })}
             </div>
-            <button type="button" data-testid="pixel-show-all-palettes" aria-expanded={showAllPalettes} onClick={() => setShowAllPalettes(!showAllPalettes)} className="mt-1 rounded border border-[#313244] px-2 py-1">{showAllPalettes ? "Ocultar paletas sem uso" : "Mostrar as 4 paletas"}</button>
+            <button type="button" data-testid="pixel-show-all-palettes" aria-expanded={showAllPalettes} onClick={() => setShowAllPalettes(!showAllPalettes)} className="mt-1 rounded border border-[#313244] px-2 py-1">{showAllPalettes ? "Fechar bancos disponíveis" : "Adicionar outra paleta"}</button>
+            <button type="button" className="mt-1 rounded border border-[#313244] px-2 py-1" onClick={() => { setActiveLine(pixelLine(primary)); setEditingSlot(pixelIndex(primary) || 1); }}>Editar cor selecionada</button>
+            <p className="mt-1 text-[#a6adc8]">Cada tile 8×8 usa uma paleta. O PNG deste recurso sai com uma paleta; em Cores e filtros, Unificar paletas prepara as cores extras para salvar com prévia.</p>
             <div className="mt-2 flex gap-2 text-xs"><button type="button" className="rounded border border-[#313244] px-2 py-1" onClick={() => { setIsolation(primary); setTask("colors"); }}>Isolar esta cor</button>{isolation !== null && <button type="button" className="rounded border border-[#313244] px-2 py-1" onClick={() => setIsolation(null)}>Mostrar todas</button>}</div>
             {editingSlot !== null ? (
               <ColorEditor

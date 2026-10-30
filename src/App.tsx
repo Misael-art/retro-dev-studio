@@ -4771,7 +4771,6 @@ export default function App() {
       data-shell-persona={shellPersona}
       className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--rds-surface-panel-strong)] text-[var(--rds-text-primary)]"
     >
-      <ImageIngress onWorkspaceSelect={handleWorkspaceSelect} />
       {showProjectWizard && <ProjectStartWizard
         activeProject={Boolean(activeProjectDir)} busy={creatingProject} loading={templatesLoading}
         name={newProjName} target={newProjTarget} templates={projectTemplates}
@@ -5332,6 +5331,8 @@ export default function App() {
           </>
         }
       />
+
+      <ImageIngress onWorkspaceSelect={handleWorkspaceSelect} />
 
       {!liveBuildBlocked && buildWarningSummary ? (
         <span data-testid="build-warning-summary" className="sr-only">

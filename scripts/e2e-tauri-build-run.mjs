@@ -580,6 +580,7 @@ function buildSpriteOverflowScene(target) {
 }
 
 function buildVramOverflowScene(target) {
+  if(target!=="snes") return buildAuthoredVramPressureScene("live_vram_overflow",128,128,5);
   const frameWidth = target === "snes" ? 64 : 32;
   const frameHeight = frameWidth;
   const frameCount = target === "snes" ? 33 : 129;
@@ -615,6 +616,7 @@ function buildVramOverflowScene(target) {
 }
 
 function buildVramWarningScene(target) {
+  if(target!=="snes") return buildAuthoredVramPressureScene("live_vram_warning",64,128,7);
   const frameWidth = target === "snes" ? 64 : 32;
   const frameHeight = frameWidth;
   const frameCount = target === "snes" ? 30 : 112;
@@ -647,6 +649,12 @@ function buildVramWarningScene(target) {
       },
     ],
   };
+}
+
+// Stress simultaneous frame buffers, not the number of frames in ROM. These
+// live-only drafts must continue proving genuine MD warning/overflow guards.
+function buildAuthoredVramPressureScene(id,width,height,count) {
+  return {scene_id:id,display_name:id,background_layers:[],palettes:[],entities:Array.from({length:count},(_,i)=>({entity_id:`${id}_${i}`,transform:{x:16,y:i*32},components:{sprite:{asset:"assets/sprites/hero.png",frame_width:width,frame_height:height,palette_slot:0,meta_sprite:true,priority:"foreground",animations:{stress:{frames:[0,1],fps:12,loop:true}}}}}))};
 }
 
 function buildSpriteWarningScene(target) {
@@ -6817,6 +6825,7 @@ async function runSgdkNativeCScenario(sessionId) {
 // still lets the static views be inspected.
 // Editor de pixels (Experimental): sprite real do jogo -> frames indexados -> pintar -> salvar PNG 4-bit.
 async function runImageIngressScenario(sessionId, timeoutMs, onProjectCreated) {
+  const hashFile = async file => createHash("sha256").update(await readFile(file)).digest("hex");
   const output = process.env.RDS_IMAGE_INGRESS_OUTPUT;
   const helper = process.env.RDS_IMAGE_CLIPBOARD_HELPER ?? path.resolve("scripts/image-clipboard-fixture.py");
   const gifPath = process.env.RDS_IMAGE_GIF;
@@ -7092,12 +7101,77 @@ async function runImageIngressScenario(sessionId, timeoutMs, onProjectCreated) {
         await shot("workspace-collage");await undoDoc();await assertRestored();
         addReportStep(report,"pixel_workspace_collage_preserves_existing_layers_and_palette","passed",{picker:"canonical selected-path fixture;actual decoder/converter/layers/writer",restored:true});
 
-        await click("pixel-task-tiles");await clickByTestId(sessionId,"pixel-canvas");
+        await click("pixel-task-tiles");
+        const tilePoint=await js(`const c=document.querySelector('[data-testid="pixel-canvas"]');c.scrollIntoView({block:'center',inline:'center'});const r=c.getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)};`);
+        await webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"pointer",id:"pixel-tile",parameters:{pointerType:"mouse"},actions:[{type:"pointerMove",origin:"viewport",x:tilePoint.x,y:tilePoint.y},{type:"pointerDown",button:0},{type:"pointerUp",button:0}]}]});
         await waitFor(async()=>js(`return !!document.querySelector('[data-testid="pixel-tile-inspector"]');`),5000,"Clicking the tile map did not expose pattern/flip information.",150);
         await shot("workspace-tile-map");
         addReportStep(report,"pixel_workspace_tile_map_is_identifiable_and_operational","passed",{inspector:await js(`return document.querySelector('[data-testid="pixel-tile-inspector"]').textContent;`),scope:"current-frame pattern estimate;not measured whole-scene VRAM"});
         await click("pixel-task-draw");await js(`document.querySelector('[data-testid="pixel-editor"]').focus();return true;`);await escape();
         await click("workspace-rail-scene");
+      }
+    }
+    const realGif=process.env.RDS_IMAGE_REAL_GIF;
+    if(realGif){
+      // A separate empty scene uses the operator's non-ideal GIF through the
+      // real GTK clipboard and the same application owners as regular users.
+      await callAutomationApi(sessionId,"selectWorkspace",["scene"]);
+      const previous=(await state()).activeScenePath;
+      await waitFor(async()=>js(`const b=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Nova Cena');if(!b||b.disabled)return false;const p=window.prompt;window.prompt=()=>"GIF recovery";try{b.click();}finally{window.prompt=p;}return true;`),15000,"GIF scene control unavailable.",150);
+      await waitFor(async()=>{const s=await state();return s.activeScenePath!==previous&&s.activeScene.entityCount===0;},15000,"GIF scene did not open.",150);
+      await produce("url",pathToFileURL(realGif).href);await js("document.activeElement?.blur?.();return true;");await chord("v");await ready(53);
+      if(await js(`return !!document.querySelector('[data-testid="image-ingress-background"]');`))fail("Animation offered an unsupported background route.");
+      await shot("real-gif-prepared");await click("image-ingress-sprite");await inserted(1);await stop();
+      const entity=(await disk()).entities[0],resource=entity.components.sprite.asset;
+      const readRealDoc=async()=>JSON.parse(await readFile(path.join(project,resource.replace(/\.png$/,".rdspixel.json")),"utf8"));
+      const native=await readRealDoc();
+      const source=entity.components.logic.logic_hints.find(h=>h.startsWith("art_ingress:original=")).split("=")[1];
+      if(!(await readFile(path.join(project,source))).equals(await readFile(realGif)))fail("Real GIF original changed.");
+      if(native.frames.length!==53 || native.frames.some(f=>!Buffer.from(f.cels[0],"base64").some(v=>v>0)) || JSON.stringify(native.paletteLines)!=="[0]")fail("Real GIF lost visible frames or default palette.");
+      await waitFor(async()=>{const s=await state();return s.hwValidationState==="fresh"&&s.hwStatus?.errorCount===0&&!s.liveSnapshot.disabled;},15000,"Real GIF has a false hardware blocker.",150);
+      await shot("real-gif-scene");
+      addReportStep(report,"real_gif_53_frames_one_palette_original_safe_no_false_overflow","passed",{source_sha256:await hashFile(realGif),frame:[native.width,native.height],durations:native.frames.map(f=>f.durationMs),hardware:(await state()).hwStatus});
+      await click("image-ingress-edit");
+      await waitFor(async()=>js(`return document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length===53;`),20000,"Real GIF frames did not open.",150);
+      if(await js(`return document.querySelector('[data-testid="pixel-onion"]').checked || !!document.querySelector('[data-testid="pixel-palette-line-1"]');`))fail("Default editor has motion ghosts or unused palette banks.");
+      await click("pixel-frame-4");await shot("real-gif-frame-4-clean");
+      await click("studio-theme-open");await clickByTestId(sessionId,"studio-theme-super-nintendo");await escape();
+      await shot("real-gif-frame-4-light-theme");
+      const selectSize=async value=>{await js(`const e=document.querySelector('[data-testid="pixel-doc-size"]');e.value=arguments[0];e.dispatchEvent(new Event('change',{bubbles:true}));return true;`,[value]);await new Promise(r=>setTimeout(r,150));};
+      // Store-backed persistence is checked through the normal writer, never
+      // by injecting or mutating an editor document from the test harness.
+      await selectSize("8x8");
+      const thumbnails=await js(`return [...document.querySelectorAll('[data-testid^="pixel-frame-"][data-active] canvas')].map(c=>{const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;return d.some((v,i)=>i%4===3&&v>0);});`);
+      if(thumbnails.length!==53||thumbnails.some(v=>!v))fail("A frame disappeared after resizing the real GIF.");
+      await shot("real-gif-small-fit");await selectSize("32x32");await selectSize(`${native.width}x${native.height}`);await click("pixel-restore-size");
+      await click("pixel-show-all-palettes");await click("pixel-enable-palette-1");await click("pixel-disable-palette-1");
+      await click("pixel-save");await waitFor(async()=>js(`return document.querySelector('[data-testid="pixel-editor"]').dataset.dirty==='false';`),20000,"Restored GIF save failed.",150);
+      const restored=await readRealDoc();
+      if(JSON.stringify(restored.frames)!==JSON.stringify(native.frames))fail("Successive sizes/palette manager changed restored GIF pixels or timing.");
+      await clickElement(sessionId,await findElement(sessionId,'[data-testid="pixel-onion"]'));if(!await js(`return !!document.querySelector('[data-testid="pixel-onion-notice"]');`))fail("Motion guide missing explanation.");await shot("real-gif-motion-guide-explained");await clickElement(sessionId,await findElement(sessionId,'[data-testid="pixel-onion"]'));
+      addReportStep(report,"real_gif_resize_restore_palette_management_no_pixel_loss","passed",{frames:53,restored_exactly:true});
+      await callAutomationApi(sessionId,"selectWorkspace",["scene"]);await closeVisibleConsoleDrawer(sessionId,"antes do GIF real");
+      const builtReal=await runBuildRunAndCollect(sessionId,"real-gif",timeoutMs,report,prefix,{nativeClick:true});
+      const samples=[];
+      for(let i=0;i<24;i++){
+        samples.push(await js(`const c=document.querySelector('[data-testid="viewport-game-canvas"]'),data=c.getContext('2d').getImageData(arguments[0],arguments[1],arguments[2],arguments[3]).data;let hash=2166136261,lit=0;for(let j=0;j<data.length;j+=4){if(data[j]+data[j+1]+data[j+2]>80)lit++;for(let k=0;k<3;k++)hash=Math.imul(hash^data[j+k],16777619);}return {hash:hash>>>0,lit};`,[entity.transform.x,entity.transform.y,native.width,native.height]));await new Promise(r=>setTimeout(r,130));
+      }
+      if(new Set(samples.map(s=>s.hash)).size<4||!samples.some(s=>s.lit>40))fail("Real compiled GIF does not visibly animate.");
+      await shot("real-gif-core");await callAutomationApi(sessionId,"stopEmulator");
+      addReportStep(report,"real_gif_build_rom_core_visibly_animates","passed",{...builtReal,samples});
+      const legacy=process.env.RDS_IMAGE_LEGACY_PROJECT;
+      if(legacy){
+        const receipt=JSON.parse(await readFile(process.env.RDS_IMAGE_LEGACY_MANIFEST,"utf8"));
+        if(await callAutomationApi(sessionId,"persistScene",["real-gif-before-legacy"])!==true)fail("GIF project did not save before legacy reopen.");
+        await clickTopBarMenuAction(sessionId,"Fechar");await waitFor(async()=>(await state()).activeProjectDir==="",10000,"GIF project did not close.",150);
+        await openSavedProjectWizard(sessionId,legacy);
+        await waitFor(async()=>{const s=await state();return s.activeProjectDir===legacy&&s.hwValidationState==="fresh"&&s.hwStatus?.errorCount===0&&!s.liveSnapshot.disabled;},20000,"Legacy GIF still has a false hardware blocker.",150);
+        const scene=JSON.parse(await readFile(path.join(legacy,(await state()).activeScenePath),"utf8"));
+        await callAutomationApi(sessionId,"setSelectedEntityId",[scene.entities[0].entity_id]);await callAutomationApi(sessionId,"selectWorkspace",["artstudio"]);
+        await waitFor(async()=>js(`return document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length===53 && !document.querySelector('[data-testid="pixel-palette-line-1"]');`),15000,"Legacy frames/palettes did not open cleanly.",150);
+        await click("pixel-frame-4");await shot("legacy-gif-recovered-without-reimport");
+        for(const [relative,item] of Object.entries(receipt.files))if(await hashFile(path.join(legacy,relative))!==item.sha256)fail(`Opening legacy GIF rewrote ${relative}`);
+        addReportStep(report,"legacy_gif_opens_one_palette_all_frames_no_reimport_no_rewrite","passed",{files_unchanged:Object.keys(receipt.files).length,frames:53,hardware:(await state()).hwStatus});
       }
     }
     report.status="passed";

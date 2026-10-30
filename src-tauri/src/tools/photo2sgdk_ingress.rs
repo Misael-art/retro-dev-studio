@@ -245,26 +245,67 @@ fn convert_frames_with_method(
                 .into(),
         );
     }
-    let first = &frames[0];
-    let scale = if role == "sprite" {
-        (64.0 / first.width().max(first.height()) as f64).min(1.0)
+    let first = frames.first().ok_or("A imagem não contém quadros.")?;
+    if delays.len() != frames.len()
+        || frames
+            .iter()
+            .any(|frame| frame.dimensions() != first.dimensions())
+    {
+        return Err(
+            "A animação contém medidas ou tempos incompletos. O original foi preservado.".into(),
+        );
+    }
+    let analyses: Vec<_> = frames
+        .iter()
+        .map(|frame| {
+            if role == "sprite" && background != "keep" {
+                detect_transparency(frame)
+            } else {
+                no_background(frame)
+            }
+        })
+        .collect();
+    // Trim one COMMON transparent rectangle, never recenter individual frames:
+    // the animation's feet, effects and frame-to-frame offsets stay aligned.
+    let trim = role == "sprite"
+        && frames.len() > 1
+        && frames
+            .iter()
+            .any(|f| f.pixels().any(|p| p[3] < ALPHA_TRANSPARENT_THRESHOLD));
+    let (mut min_x, mut min_y, mut max_x, mut max_y) = (first.width(), first.height(), 0, 0);
+    if trim {
+        for (frame, analysis) in frames.iter().zip(&analyses) {
+            let masked = analysis.transparent_pixels < analysis.mask.len();
+            for (x, y, p) in frame.enumerate_pixels() {
+                if p[3] >= ALPHA_TRANSPARENT_THRESHOLD
+                    && (!masked || !analysis.mask[(y * frame.width() + x) as usize])
+                {
+                    min_x = min_x.min(x);
+                    min_y = min_y.min(y);
+                    max_x = max_x.max(x + 1);
+                    max_y = max_y.max(y + 1);
+                }
+            }
+        }
+    }
+    let (crop_x, crop_y, crop_w, crop_h) = if trim && max_x > min_x && max_y > min_y {
+        (min_x, min_y, max_x - min_x, max_y - min_y)
     } else {
-        (320.0 / first.width() as f64)
-            .min(224.0 / first.height() as f64)
-            .min(1.0)
+        (0, 0, first.width(), first.height())
     };
-    let w = ((first.width() as f64 * scale).round() as u32).max(1);
-    let h = ((first.height() as f64 * scale).round() as u32).max(1);
+    let scale = if role == "sprite" {
+        (64.0 / crop_w.max(crop_h) as f64).min(1.0)
+    } else {
+        (320.0 / crop_w as f64).min(224.0 / crop_h as f64).min(1.0)
+    };
+    let w = ((crop_w as f64 * scale).round() as u32).max(1);
+    let h = ((crop_h as f64 * scale).round() as u32).max(1);
     let (fw, fh) = (align_up(w, 8), align_up(h, 8));
     // Preserve GIF canvas positions and quantize one palette over ALL frames.
     let mut strip = RgbaImage::new(fw * frames.len() as u32, fh);
     let mut removed = 0;
     for (i, frame) in frames.iter().enumerate() {
-        let analysis = if role == "sprite" && background != "keep" {
-            detect_transparency(frame)
-        } else {
-            no_background(frame)
-        };
+        let analysis = &analyses[i];
         let mut rgba = frame.clone();
         // Reject a background guess that would erase the entire object.
         if analysis.transparent_pixels < analysis.mask.len() {
@@ -287,7 +328,8 @@ fn convert_frames_with_method(
         } else {
             image::imageops::FilterType::Lanczos3
         };
-        let resized = image::imageops::resize(&rgba, w, h, filter);
+        let cropped = image::imageops::crop_imm(&rgba, crop_x, crop_y, crop_w, crop_h).to_image();
+        let resized = image::imageops::resize(&cropped, w, h, filter);
         image::imageops::overlay(&mut strip, &resized, (i as u32 * fw) as i64, 0);
     }
     let transparency = no_background(&strip);
@@ -319,8 +361,13 @@ fn convert_frames_with_method(
         }}
         serde_json::json!({"id":format!("frame_{i}"),"durationMs":delays[i],"cels":[BASE64.encode(pixels)]})
     }).collect();
-    let doc = serde_json::json!({"schema":"retrodev.pixel/v1","name":name,"conversionMethod":method,"width":fw,"height":fh,"target":if role=="sprite" {"sprite"} else {"plane"},"palettes":[colors,colors,colors,colors],"layers":[{"id":"art","name":"Imagem","visible":true}],"frames":docs});
+    let mut empty_colors = vec![vec![0, 0, 0]; 16];
+    empty_colors[0] = vec![7, 0, 7];
+    let doc = serde_json::json!({"schema":"retrodev.pixel/v1","name":name,"conversionMethod":method,"paletteLines":[0],"width":fw,"height":fh,"target":if role=="sprite" {"sprite"} else {"plane"},"palettes":[colors,empty_colors,empty_colors,empty_colors],"layers":[{"id":"art","name":"Imagem","visible":true}],"frames":docs});
     let mut warnings = Vec::new();
+    if (crop_w, crop_h) != first.dimensions() {
+        warnings.push(format!("Margens transparentes retiradas de todos os quadros com o mesmo recorte ({crop_w}×{crop_h}). Posições e tempos da animação preservados."));
+    }
     if scale < 1.0 {
         warnings.push(format!(
             "{}×{} → {}×{} px; original preservado.",
@@ -914,6 +961,65 @@ mod tests {
             .err()
             .expect("must refuse rather than truncate");
         assert!(error.contains("256 quadros"));
+    }
+
+    #[test]
+    #[ignore = "requires operator-supplied GIF and private output directory"]
+    fn ingress_operator_gif_report() {
+        let input = std::env::var("RDS_OPERATOR_GIF").expect("RDS_OPERATOR_GIF");
+        let output = std::path::PathBuf::from(
+            std::env::var("RDS_OPERATOR_GIF_OUTPUT").expect("RDS_OPERATOR_GIF_OUTPUT"),
+        );
+        let bytes = fs::read(input).unwrap();
+        let (frames, delays, _) = decode_frames(&bytes).unwrap();
+        let (raw, png, _, warnings) =
+            convert_frames(&frames, &delays, "operator_gif", "sprite", "auto").unwrap();
+        fs::create_dir_all(&output).unwrap();
+        for (i, frame) in frames.iter().enumerate() {
+            frame
+                .save(output.join(format!("decoded-{i:03}.png")))
+                .unwrap();
+        }
+        fs::write(output.join("converted.rdspixel.json"), raw).unwrap();
+        fs::write(output.join("converted.png"), BASE64.decode(png).unwrap()).unwrap();
+        fs::write(output.join("report.json"), serde_json::to_vec_pretty(&serde_json::json!({"source_sha256":crate::core::rom_mastering::sha256_hex(&bytes),"frames":frames.len(),"delays":delays,"warnings":warnings})).unwrap()).unwrap();
+    }
+
+    #[test]
+    fn ingress_animated_trim_uses_one_shared_crop_and_one_palette_without_losing_positions() {
+        let mut first = RgbaImage::new(80, 40);
+        let mut second = first.clone();
+        for y in 16..24 {
+            for x in 16..24 {
+                first.put_pixel(x, y, Rgba([255, 0, 0, 255]));
+                second.put_pixel(x + 32, y, Rgba([0, 0, 255, 255]));
+            }
+        }
+        let (raw, _, _, warnings) =
+            convert_frames(&[first, second], &[40, 150], "moving", "sprite", "keep").unwrap();
+        let doc: serde_json::Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(doc["width"], 40);
+        assert_eq!(doc["height"], 8);
+        assert_eq!(doc["frames"][0]["durationMs"], 40);
+        assert_eq!(doc["frames"][1]["durationMs"], 150);
+        let a = BASE64
+            .decode(doc["frames"][0]["cels"][0].as_str().unwrap())
+            .unwrap();
+        let b = BASE64
+            .decode(doc["frames"][1]["cels"][0].as_str().unwrap())
+            .unwrap();
+        assert!(a[0] > 0);
+        assert_eq!(a[32], 0);
+        assert_eq!(b[0], 0);
+        assert!(b[32] > 0);
+        assert_eq!(doc["paletteLines"], serde_json::json!([0]));
+        for line in 1..4 {
+            for slot in 1..16 {
+                assert_eq!(doc["palettes"][line][slot], serde_json::json!([0, 0, 0]));
+            }
+        }
+        assert!(warnings.iter().any(|w| w.contains("transparentes")));
+        assert!(convert_frames(&[], &[], "empty", "sprite", "keep").is_err());
     }
 
     #[test]

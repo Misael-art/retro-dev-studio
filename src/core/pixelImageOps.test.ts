@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addFrame, addLayer, analyzeHardware, analyzeTileReuse, compositeFrame, createPixelDoc, flipCel, floodFill, pixelCss, removePixelBackground, serializePixelDoc } from "./pixelEditor";
-import { addPixelBorder, applyPixelEffect, collagePixelDoc, cropPixelDoc, duplicatePixelLayer, erasePixelRegion, mergePixelLayerDown, PIXEL_EFFECTS, rotatePixelDoc, scalePixelDoc, unifyPixelPalettes } from "./pixelImageOps";
+import { addPixelBorder, applyPixelEffect, collagePixelDoc, cropPixelDoc, duplicatePixelLayer, erasePixelRegion, mergePixelLayerDown, PIXEL_EFFECTS, rotatePixelDoc, scalePixelDoc, unifyPixelPalettes, fitPixelDoc, enablePixelPalette, disablePixelPalette, clearUnusedPixelColors } from "./pixelImageOps";
 
 function artwork() {
   let doc = createPixelDoc(16, 8);
@@ -12,6 +12,40 @@ function artwork() {
 }
 
 describe("indexed image operations preserve the editing contract", () => {
+  it("fits every cel inside a smaller frame and keeps sparse and hidden content recoverable", () => {
+    const doc = createPixelDoc(64, 56, { frames: 53 });
+    doc.originalSource = "original.gif";
+    doc.frames.forEach((f, i) => { f.cels[0][55 * 64 + 63] = i % 15 + 1; f.durationMs = 40 + i * 10; });
+    const before = serializePixelDoc(doc);
+    for (const [w, h] of [[8, 8], [32, 16], [320, 224]]) {
+      const next = fitPixelDoc(doc, w, h);
+      expect(next.frames).toHaveLength(53);
+      expect(next.frames.every(f => f.cels.every(c => c.some(v => v > 0)))).toBe(true);
+      expect(next.frames.map(f => f.durationMs)).toEqual(doc.frames.map(f => f.durationMs));
+      expect(next.originalSource).toBe("original.gif");
+    }
+    expect(serializePixelDoc(fitPixelDoc(doc, 64, 56))).toBe(before);
+    expect(serializePixelDoc(doc)).toBe(before);
+    expect(() => fitPixelDoc(doc, Infinity, 8)).toThrow();
+  });
+
+  it("only clears unused palette colors and refuses removing banks used in hidden or later frames", () => {
+    let doc = artwork(); doc.palettes[0][15] = [7, 7, 7];
+    doc = enablePixelPalette(doc, 2);
+    expect(doc.palettes[2].slice(1).every(c => c.every(v => v === 0))).toBe(true);
+    expect(disablePixelPalette(doc, 2).paletteLines).toEqual([0]);
+    doc.frames[1].cels[1][10] = 33; doc.palettes[2][1] = [0, 7, 0];
+    const before = serializePixelDoc(doc), next = clearUnusedPixelColors(doc, 0);
+    expect(next.palettes[0][1]).toEqual([7, 0, 0]);
+    expect(next.palettes[0][15]).toEqual([0, 0, 0]);
+    expect(next.frames).toEqual(doc.frames);
+    expect(() => disablePixelPalette(doc, 2)).toThrow();
+    expect(serializePixelDoc(doc)).toBe(before);
+    const unified = unifyPixelPalettes(doc);
+    expect(unified.paletteLines).toEqual([0]);
+    expect(unified.palettes[2].slice(1).every(c => c.every(v => v === 0))).toBe(true);
+    expect(() => disablePixelPalette(createPixelDoc(8, 8), 0)).toThrow();
+  });
   it("unifies different banks without losing alpha, hidden cels, frame timing or provenance", () => {
     const doc = artwork(); doc.originalSource = ".rds/art-sources/source.png";
     doc.palettes[2][1] = [0, 7, 0]; doc.frames[1].cels[1][2] = 33;

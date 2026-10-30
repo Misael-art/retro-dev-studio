@@ -34,6 +34,8 @@ export interface PixelDoc {
   height: number;
   target: PixelTarget;
   palettes: MdColor[][];
+  /** Editing banks explicitly enabled; legacy documents infer banks from pixels. */
+  paletteLines?: number[];
   layers: PixelLayerMeta[];
   frames: PixelFrame[];
 }
@@ -136,6 +138,7 @@ export function createPixelDoc(width: number, height: number, options: { name?: 
     height: h,
     target: options.target ?? "sprite",
     palettes: defaultPalettes(),
+    paletteLines: [0],
     layers,
     frames: Array.from({ length: Math.max(1, options.frames ?? 1) }, () => ({
       id: newPixelId("frame"),
@@ -147,6 +150,21 @@ export function createPixelDoc(width: number, height: number, options: { name?: 
 
 export function alignToTile(value: number): number {
   return Math.max(TILE, Math.ceil(Math.max(1, Math.round(value)) / TILE) * TILE);
+}
+
+/** Count consumers across all frames and hidden layers, not just the preview. */
+export function pixelPaletteUsage(doc: PixelDoc): Set<number>[] {
+  const used = Array.from({ length: 4 }, () => new Set<number>());
+  for (const frame of doc.frames) for (const cel of frame.cels) for (const value of cel)
+    if (pixelIndex(value)) used[pixelLine(value)].add(pixelIndex(value));
+  return used;
+}
+
+export function enabledPixelPalettes(doc: PixelDoc): number[] {
+  const used = pixelPaletteUsage(doc);
+  const lines = new Set(doc.paletteLines?.length ? doc.paletteLines : [0]);
+  used.forEach((colors, line) => { if (colors.size) lines.add(line); });
+  return [...lines].filter(line => Number.isInteger(line) && line >= 0 && line < 4).sort();
 }
 
 export function compositeFrame(doc: PixelDoc, frameIndex: number): Uint8Array {
@@ -946,6 +964,7 @@ export function deserializePixelDoc(json: string): PixelDoc {
     height: data.height,
     target: data.target,
     palettes: data.palettes,
+    paletteLines: Array.isArray(data.paletteLines) ? [...new Set(data.paletteLines.filter(line => Number.isInteger(line) && line >= 0 && line < 4))] : undefined,
     layers: data.layers,
     frames: data.frames.map((f) => ({ id: f.id, durationMs: f.durationMs, cels: f.cels.map((c) => fromBase64(c, size)) })),
   };

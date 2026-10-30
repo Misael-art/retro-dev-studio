@@ -29,7 +29,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   useEditorStore.getState().setActiveProject("/one","One");
   useEditorStore.getState().setActiveScene(structuredClone(scene));
-  useEditorStore.setState({activeTarget:"megadrive",activeScenePath:"scenes/main.json"});
+  useEditorStore.setState({activeTarget:"megadrive",activeScenePath:"scenes/main.json",activeWorkspace:"scene"});
   mocks.prepare.mockResolvedValue(prepared);
   mocks.capture.mockResolvedValue(null);
   const entity = createSpriteEntityFromAsset({assetPath:"assets/sprites/pixel/gif.png",target:"megadrive",existingEntityIds:[],suggestedName:"gif"});
@@ -49,6 +49,22 @@ it("captures native image bytes when WebKit supplies an empty paste payload",asy
   expect(mocks.capture).toHaveBeenCalledWith("/one");
   expect(document.querySelector('[data-testid="image-ingress-sprite"]')).toBeTruthy();
   await click("image-ingress-sprite");expect(useEditorStore.getState().activeScene?.entities).toHaveLength(1);
+});
+
+it("offers the valid animation journey without an unusable background choice",async()=>{
+  await paste();
+  expect(document.querySelector('[data-testid="image-ingress-background"]')).toBeNull();
+  expect(document.querySelector('[data-testid="image-ingress-sprite"]')?.textContent).toContain("Usar animação na cena");
+  expect(document.querySelector('[data-testid="image-ingress-dialog"]')?.textContent).toContain("todos os 2 quadros");
+});
+
+it("keeps success in the layout and removes it when moving to editing tools",async()=>{
+  await paste(); await click("image-ingress-sprite");
+  const notice=document.querySelector('[data-testid="image-ingress-notice"]');
+  expect(notice?.textContent).toContain("Salvo no projeto");
+  expect(notice?.classList.contains("fixed")).toBe(false);
+  act(()=>useEditorStore.getState().setActiveWorkspace("artstudio"));
+  expect(document.querySelector('[data-testid="image-ingress-notice"]')).toBeNull();
 });
 
 it("reuses a native library document without guessing a grid or asking its role again",async()=>{

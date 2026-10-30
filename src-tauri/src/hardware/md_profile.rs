@@ -95,6 +95,7 @@ fn estimate_max_scanline_sprites(scene: &Scene) -> u32 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MdVramAnalysisMode {
     NativeStatic,
+    NativeFrameUpload,
     SgdkManaged,
 }
 
@@ -102,6 +103,7 @@ impl MdVramAnalysisMode {
     fn as_str(self) -> &'static str {
         match self {
             Self::NativeStatic => "native_static",
+            Self::NativeFrameUpload => "native_frame_upload",
             Self::SgdkManaged => "sgdk_managed",
         }
     }
@@ -260,6 +262,11 @@ fn analyze_md_vram(scene: &Scene, source_kind: Option<&str>) -> MdVramAnalysis {
 
     let mode = if is_sgdk_managed_source(source_kind) {
         MdVramAnalysisMode::SgdkManaged
+    } else if source_kind == Some("builtin") {
+        // The canonical authored SGDK emitter uses SPR_addSprite. The pinned
+        // engine allocates maxNumTile and uploads the current frame, not the
+        // whole animation atlas. Unknown/standalone contexts stay conservative.
+        MdVramAnalysisMode::NativeFrameUpload
     } else {
         MdVramAnalysisMode::NativeStatic
     };
@@ -297,6 +304,22 @@ fn analyze_md_vram(scene: &Scene, source_kind: Option<&str>) -> MdVramAnalysis {
                 if hud_hint {
                     hud_sprite_resident_bytes =
                         hud_sprite_resident_bytes.saturating_add(sprite_project);
+                }
+            }
+            MdVramAnalysisMode::NativeFrameUpload => {
+                // Account for EVERY authored instance; do not borrow the
+                // imported-project heuristic that omits nonresident banks.
+                // Two frame buffers conservatively bound SGDK's one-frame
+                // allocation plus a queued update. No frame is discarded.
+                let reserved = frame_bytes.saturating_mul(if total_frames > 1 { 2 } else { 1 });
+                resident_sprite_bytes = resident_sprite_bytes.saturating_add(reserved);
+                streamable_sprite_bytes =
+                    streamable_sprite_bytes.saturating_add(sprite_project.saturating_sub(reserved));
+                if total_frames > 1 {
+                    animated_swap_bytes = animated_swap_bytes.saturating_add(frame_bytes);
+                }
+                if hud_hint {
+                    hud_sprite_resident_bytes = hud_sprite_resident_bytes.saturating_add(reserved);
                 }
             }
             MdVramAnalysisMode::SgdkManaged => {
@@ -376,6 +399,9 @@ fn analyze_md_vram(scene: &Scene, source_kind: Option<&str>) -> MdVramAnalysis {
     let streamable_vram_bytes = streamable_sprite_bytes;
     let dma_frame_bytes = match mode {
         MdVramAnalysisMode::NativeStatic => resident_vram_bytes,
+        MdVramAnalysisMode::NativeFrameUpload => {
+            animated_swap_bytes.saturating_add(tilemap_resident_bytes.min(1024))
+        }
         MdVramAnalysisMode::SgdkManaged => {
             let stream_step = streamable_vram_bytes / 4;
             let tilemap_step = tilemap_resident_bytes.min(1024);
@@ -954,11 +980,11 @@ mod tests {
     #[test]
     fn live_vram_warning_draft_matches_desktop_e2e_fixture() {
         let mut scene = empty_scene();
-        scene
-            .entities
-            .push(animated_sprite_entity("warning_vram_entity", 32, 32, 112));
+        scene.entities = (0..7)
+            .map(|i| animated_meta_sprite_entity(&format!("warning_vram_entity_{i}"), 64, 128, 2))
+            .collect();
 
-        let errors = validate_scene(&scene);
+        let errors = validate_scene_with_source_kind(&scene, Some("builtin"));
         let warnings: Vec<&str> = errors
             .iter()
             .filter(|error| !error.is_fatal)
@@ -969,7 +995,7 @@ mod tests {
             warnings
                 .iter()
                 .any(|message| message.contains("VRAM Warning (resident)")),
-            "expected resident VRAM warning for 112-frame stress draft: {warnings:?}"
+            "expected resident VRAM warning for simultaneous frame buffers: {warnings:?}"
         );
         assert!(!errors.iter().any(|error| error.is_fatal));
     }
@@ -1032,6 +1058,36 @@ mod tests {
         assert_eq!(status.palette_banks_limit, MD_PALETTE_SLOTS as u32);
         assert_eq!(status.bg_layers_limit, 3);
         assert!(status.errors.is_empty());
+    }
+
+    #[test]
+    fn builtin_gif_uses_current_frame_residency_without_ignoring_real_overflow() {
+        let mut scene = empty_scene();
+        scene
+            .entities
+            .push(animated_meta_sprite_entity("gif", 64, 56, 53));
+        let status = hw_status_with_source_kind(&scene, Some("builtin"));
+        assert_eq!(status.analysis_mode, "native_frame_upload");
+        assert_eq!(status.project_asset_bytes, 94_976);
+        assert_eq!(status.resident_vram_bytes, 3_584);
+        assert_eq!(status.dma_frame_bytes, 1_792);
+        assert!(status.errors.is_empty());
+        assert!(validate_scene_with_source_kind(&scene, None)
+            .iter()
+            .any(|e| e.is_fatal && e.message.contains("VRAM Overflow")));
+        // Every simultaneous instance still consumes memory; do not borrow the
+        // imported-scene policy which can omit nonresident sprite banks.
+        scene.entities = (0..20)
+            .map(|i| animated_meta_sprite_entity(&format!("gif_{i}"), 64, 56, 53))
+            .collect();
+        assert!(validate_scene_with_source_kind(&scene, Some("builtin"))
+            .iter()
+            .any(|e| e.is_fatal && e.message.contains("VRAM Overflow")));
+        scene.entities = vec![animated_sprite_entity("small", 16, 16, 53)];
+        assert_eq!(
+            hw_status_with_source_kind(&scene, Some("builtin")).resident_vram_bytes,
+            256
+        );
     }
 
     #[test]

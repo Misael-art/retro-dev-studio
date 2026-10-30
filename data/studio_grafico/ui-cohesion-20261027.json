@@ -3364,12 +3364,11 @@
     }
   },
   "latest_delivery": {
-    "section": "image_ingress_20261030",
-    "code_commit": "1e849549d0628fc0ba09930ae13840ef281a20ce",
-    "binary_sha256": "821d172a20fcef93b9b422678148481f21391d1417aa8092e640ecd7c6d3c318"
+    "section": "gif_authoring_usability_20261030",
+    "binary_sha256": "263205d8887a718b9eb7f020fadd3ed7c783b146c762df9fac06fd7386b5aa99"
   },
-  "latest_checkpoint": "desktop_shortcut_recovery_20261030",
-  "last_updated_at": "2026-10-30T05:45:39.772786+00:00",
+  "latest_checkpoint": "gif_authoring_usability_20261030",
+  "last_updated_at": "2026-10-30T18:02:11.817871+00:00",
   "product_diagnosis_20261028": {
     "schema": "retrodev.product_diagnosis/v1",
     "status": "validated_local_experimental_partial",
@@ -7878,5 +7877,59 @@
       "owner": "operator"
     },
     "archive": "desktop-shortcut-recovery-20261030-checkpoint-162213.tar.gz"
+  },
+  "gif_authoring_usability_20261030": {
+    "status": "passed_local_experimental",
+    "binary_sha256": "263205d8887a718b9eb7f020fadd3ed7c783b146c762df9fac06fd7386b5aa99",
+    "frozen_runtime_file": "retro-dev-studio-263205d8",
+    "source_base_commit": "3b0bcc553a8ed480140982819191554d500cff8b",
+    "source_dirty_build": true,
+    "production_files_verified": 421,
+    "runner_sha256": "3812a3c365f65b4c18e3811107691f8a76396615ee08c471a27334977b7af1e9",
+    "private_session": "gif-authoring-usability-20261030",
+    "report": "audit/index.html",
+    "native_cases": 28,
+    "gif_frames": 53,
+    "source_sha256": "3b84ab30e312775b4b69326f8b42ecbec057be6016cac7f56ecfd5a7f686f64b",
+    "raw_atlas_estimate_bytes": 94976,
+    "sprite_frame_reserve_estimate_bytes": 3584,
+    "real_vdp_measurement": false,
+    "independent_gif_decode_and_alpha": "PASS;53frames exact;integer-center resize oracle",
+    "frame_resize_restore": "PASS;53nonempty thumbnails at8x8,original pixels/timings restored exactly afterSave",
+    "palette_default": 1,
+    "palette_management": "opt-in;clear unused across all frames/hidden layers;used-bank removal guarded",
+    "legacy_project_files_unchanged": 6,
+    "gif_rom_sha256": "06cb5ea7583fcced5f1b777b35c61d8a42845dc71d6e5c429103666fc6c1a3c7",
+    "core_observation": "24samples;4distinct raster states;correct character visibly present;not full53frame cycle",
+    "quality_reference_squared_rgb_error_reduction_percent": 25.310532451922978,
+    "regressions": {
+      "qa_rc": 32,
+      "snes": "PASS;official toolchain/core/export",
+      "mugen": "PASS;103animations/417occurrences/11208960pixels;export equals testedROM"
+    },
+    "certify": {
+      "status": "PASS READY",
+      "session": "2026-10-30T17-34-42-792Z-609131",
+      "commands": 7,
+      "frontend_pass": 1305,
+      "frontend_skip": 11,
+      "rust_pass": 1122,
+      "rust_ignored": 111,
+      "snapshot_limit": "gate array overwritten by subsequent diagnose;immutable receipt/log retained"
+    },
+    "desktop": "validated existing shortcut;KDE opened PID679386;maximized and left available",
+    "current_app_lease_session": "2026-10-30T17-53-49-993Z-679249",
+    "own_qa_services_stopped": true,
+    "operator_original_written": false,
+    "delivery_complete_for_local_increment": true,
+    "broader_ui_complete": false,
+    "human_acceptance": false,
+    "limits": [
+      "uniform connected background only;no neural complex photo segmentation",
+      "single palette per exported resource;explicit unification when incompatible",
+      "physical949x593logical display below qualified1280x800 workspace;startup only onphysical",
+      "instrumented core capture6.2FPS;60FPS presentation not certified",
+      "physical Wayland clipboard,Windows,screenreader,whole keyboard journey and16broad journeys remain pending"
+    ]
   }
 }

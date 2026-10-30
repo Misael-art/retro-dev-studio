@@ -10,7 +10,9 @@ pub struct HwStatus {
     pub vram_used: u32,
     pub vram_limit: u32,
     /// Modo de análise aplicado ao orçamento de VRAM.
-    /// `native_static` (conservador) | `sgdk_managed` (residência/streaming).
+    /// `native_static` (contexto desconhecido/conservador) |
+    /// `native_frame_upload` (autoria SGDK, todas as instâncias) |
+    /// `sgdk_managed` (heurística de residência/streaming importado).
     pub analysis_mode: String,
     /// Volume total de assets considerados na cena/projeto.
     pub project_asset_bytes: u32,

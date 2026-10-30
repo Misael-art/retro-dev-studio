@@ -27,6 +27,7 @@ export default function ImageIngress({ onWorkspaceSelect }: { onWorkspaceSelect:
   const session = useEditorStore(s => s.projectSessionId);
   const scenePath = useEditorStore(s => s.activeScenePath);
   const target = useEditorStore(s => s.activeTarget);
+  const workspace = useEditorStore(s => s.activeWorkspace);
   const [prepared, setPrepared] = useState<PreparedImage | null>(null);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -77,6 +78,7 @@ export default function ImageIngress({ onWorkspaceSelect }: { onWorkspaceSelect:
   }, []);
 
   useEffect(() => { cancel();setNotice("");setInserted(null); }, [project, session, scenePath, target, cancel]);
+  useEffect(() => { if (inserted && workspace !== "scene") setNotice(""); }, [workspace, inserted]);
   useEffect(() => () => { ++generation.current;active.current = null; }, []);
 
   useEffect(() => {
@@ -181,7 +183,7 @@ export default function ImageIngress({ onWorkspaceSelect }: { onWorkspaceSelect:
   },[prepared,busy,candidate,error]);
 
   return <>
-    {notice && <div data-testid="image-ingress-notice" role="status" className="rds-surface-panel rds-border-subtle fixed bottom-10 left-24 right-6 z-40 rounded-xl border p-3 text-sm shadow-xl">
+    {notice && <div data-testid="image-ingress-notice" role="status" className="rds-surface-panel rds-border-subtle mx-3 my-1 shrink-0 rounded-xl border p-3 text-sm">
       <p>{notice}</p><div className="mt-2 flex flex-wrap gap-2">
       {inserted && <><button type="button" data-testid="image-ingress-edit" className="rounded border px-3 py-2" onClick={()=>{useEditorStore.getState().setSelectedEntityId(inserted);onWorkspaceSelect("artstudio");setNotice("");}}>Editar imagem e quadros</button>
       <button type="button" className="rounded border px-3 py-2" onClick={()=>{useEditorStore.getState().setSelectedEntityId(inserted);onWorkspaceSelect("logic");setNotice("");}}>Adicionar lógica</button></>}
@@ -192,17 +194,17 @@ export default function ImageIngress({ onWorkspaceSelect }: { onWorkspaceSelect:
       {prepared && <><img alt="Prévia da imagem recebida" src={prepared.preview_url ?? `data:image/png;base64,${prepared.preview_base64}`} className="mx-auto max-h-52 max-w-full rounded bg-slate-950 object-contain [image-rendering:pixelated]"/>
       <p className="my-3 text-sm">{prepared.name} · {prepared.source_width}×{prepared.source_height} · {prepared.frame_count} quadro(s)</p>
       {!active.current?.request.nativeDocument && <details className="mb-3 rounded-lg border p-3 text-sm"><summary>Conversão: {IMAGE_CONVERSIONS.find(m => m.id === conversion)?.name}</summary><label className="mt-2 block">Método de cores<select disabled={Boolean(busy)} data-testid="image-conversion-method" value={conversion} onChange={e => setConversion(e.target.value as PixelConversion)} className="ml-2 rounded border bg-[var(--rds-surface-panel)] p-2">{IMAGE_CONVERSIONS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label><p className="mt-2">{IMAGE_CONVERSIONS.find(m => m.id === conversion)?.description} O original permanece preservado para comparar outro método no editor.</p></details>}</>}
-      {prepared && prepared.frame_count > 1 && !plan && <p className="mb-3 text-sm">Animações entram como personagem ou objeto para manter todos os quadros.</p>}
+      {prepared && prepared.frame_count > 1 && !plan && <p className="mb-3 text-sm">Animação reconhecida: todos os {prepared.frame_count} quadros entram como objeto. O cartucho guarda a animação; o jogo carrega os quadros conforme são usados. Margens transparentes comuns são ajustadas automaticamente.</p>}
       {error && <p role="alert" className="my-3 rounded border border-red-500 p-3 text-sm">{error}</p>}
       {error && !prepared && !busy && <button type="button" className="rounded border px-3 py-2" onClick={()=>{const request=active.current?.request;if(request){active.current=null;void begin(request);}}}>Tentar novamente</button>}
       {busy ? <p aria-live="polite" className="p-3 text-sm">Processando localmente. Você pode cancelar sem substituir os objetos existentes.</p> : plan && candidate ? <div className="grid gap-3">{plan.banks.map(b=>{
         const names=plan.resources.filter(r=>r.bank===b.bank).flatMap(r=>r.uses.map(u=>useEditorStore.getState().activeScene?.entities.find(e=>e.entity_id===u.entity_id)?.display_name || u.entity_id));
         return <button key={b.bank} type="button" data-testid={`image-ingress-bank-${b.bank}`} className="rounded-xl border p-4 text-left hover:bg-violet-500/10" onClick={async()=>{const operation=active.current;setBusy("Aplicando a paleta escolhida…");setError("");try {await finish(candidate,b.bank);} catch(e){if(active.current===operation)setError(message(e));}finally{if(active.current===operation||!active.current)setBusy("");}}}>
           <strong>Paleta {String.fromCharCode(65+b.bank)}</strong><p className="mt-1 text-sm">{names.length ? `As cores de ${[...new Set(names)].join(", ")} serão trocadas. As imagens originais permanecem intactas.` : "Banco disponível."}</p></button>;
-      })}</div> : active.current?.request.nativeDocument ? <p>Preparando a imagem da biblioteca…</p> : prepared && <div className="grid gap-3 sm:grid-cols-2">
-        <button type="button" data-testid="image-ingress-background" disabled={prepared.frame_count>1} className="rounded-xl border p-5 text-left hover:bg-blue-500/10 disabled:opacity-40" onClick={()=>void convert("background")}>
-          <Icon name="studio-scene" size={28}/><strong className="mt-2 block">Cenário / fundo</strong><span className="mt-1 block text-sm">Mantém o fundo e prepara a imagem inteira para a cena.</span></button>
-        <div className="rounded-xl border p-5"><button type="button" data-testid="image-ingress-sprite" className="w-full text-left" onClick={()=>void convert("sprite")}><Icon name="studio-art" size={28}/><strong className="mt-2 block">Personagem / objeto</strong><span className="mt-1 block text-sm">Preserva a animação e remove o fundo uniforme conectado às bordas.</span></button>
+      })}</div> : active.current?.request.nativeDocument ? <p>Preparando a imagem da biblioteca…</p> : prepared && <div className={`grid gap-3 ${prepared.frame_count > 1 ? "" : "sm:grid-cols-2"}`}>
+        {prepared.frame_count === 1 && <button type="button" data-testid="image-ingress-background" className="rounded-xl border p-5 text-left hover:bg-blue-500/10" onClick={()=>void convert("background")}>
+          <Icon name="studio-scene" size={28}/><strong className="mt-2 block">Cenário / fundo</strong><span className="mt-1 block text-sm">Mantém o fundo e prepara a imagem inteira para a cena.</span></button>}
+        <div className="rounded-xl border p-5"><button type="button" data-testid="image-ingress-sprite" className="w-full text-left" onClick={()=>void convert("sprite")}><Icon name="studio-art" size={28}/><strong className="mt-2 block">{prepared.frame_count > 1 ? "Usar animação na cena" : "Personagem / objeto"}</strong><span className="mt-1 block text-sm">Preserva todos os quadros e seus tempos. Remove apenas o fundo uniforme conectado às bordas.</span></button>
           <button type="button" data-testid="image-ingress-keep-background" className="mt-3 rounded border px-3 py-2 text-sm" onClick={()=>void convert("sprite","keep")}>Usar como objeto, mantendo o fundo</button></div>
       </div>}
     </Dialog>
