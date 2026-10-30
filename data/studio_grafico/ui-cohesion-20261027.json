@@ -7795,6 +7795,20 @@
       "count": 6,
       "all_equal_prior_baseline": true,
       "comparison": "operator-project-readonly-comparison.json"
-    }
+    },
+    "proposed_code_commit": "9b2034cff35415a7086bbea96e4a9c4237f3adbe",
+    "source_and_runner_match_private_checkpoint": true,
+    "verified_source_files": 16,
+    "protection": {
+      "bytes": 2717469,
+      "sha256": "b632aaa56361057e28f70ca1ca685d7c6ee7bce4526f1aaaa87f15bfbb1f3f32",
+      "files_verified": 110,
+      "all_bytes_verified": true,
+      "manifest_sha256": "51eb5d5da018d47840104656f63bf65bec62065e17158d7117129647dd502895",
+      "same_filesystem": true,
+      "off_host_copy_qualified": false,
+      "owner": "operator"
+    },
+    "archive": "pixel-workspace-20261030-proposed-checkpoint-113242.tar.gz"
   }
 }

@@ -4,6 +4,8 @@ Base6b771fd3/PR#112; **não instalado**, atalho continua821d172a. PixelEditor ga
 
 Capturas do componente real em Browser/fixture sem projeto e checks frontend preliminares não qualificam Tauri/ROM. Relatório com sete passos/limites: `RDS_WORK_ROOT/sessions/pixel-workspace-20261030/audit/index.html`. Segmentação de cenário complexo Remove.bg **ausente**, texto rasterizado e adesivos por arquivo. Lease viva2026-10-30T08-45-51-102Z-2985848 impede Rust/build/certify/native/novo atalho; salvar/fechar normalmente solicitado, preservar processo. Receitas prontas reutilizam runner canônico com `RDS_PIXEL_WORKSPACE=1`, sete passos adicionais planejados, não executados. Detalhes/recibos/proteção e próximo comando no topo do Memory Bank e índice `pixel_workspace_20261030`. Entregas abaixo são históricas; não promovem esta proposta/16jornadas/humano.
 
+Proposta **9b2034cff35415a7086bbea96e4a9c4237f3adbe**, frontend preliminar1293PASS/14skip e focados finais60PASS; quatro testes decomp sem ambiente ativado, oito BYOR e dois Windows explicam os skips condicionais já existentes. Proteção privada **pixel-workspace-20261030-proposed-checkpoint-113242.tar.gz**, SHA **b632aaa56361057e28f70ca1ca685d7c6ee7bce4526f1aaaa87f15bfbb1f3f32**,110arquivos relidos/2717469bytes; mesmo filesystem, proteção independente pendente. Fontes conferidas contra o pacote; novo executável ainda não qualificado.
+
 ---
 
 ### Entrada rápida de imagens/GIF — 2026-10-30 (Experimental)
