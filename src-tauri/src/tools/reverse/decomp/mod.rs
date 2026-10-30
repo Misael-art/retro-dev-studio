@@ -37,6 +37,7 @@ mod rex_copy_grid;
 #[cfg(test)]
 pub mod rex_jump_ipc;
 pub mod rex_kosinski;
+pub mod rex_libsig;
 pub mod rex_mdgfx;
 pub mod rex_nemesis;
 #[cfg(test)]

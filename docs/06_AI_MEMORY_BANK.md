@@ -3679,3 +3679,9 @@ Relato do operador: o painel de paletas acusava conflito em capturas, mas o jogo
   - Exportar GIF ou ZIP.
   - Seleção laço e por cor.
   - Atribuição automática de várias linhas de paleta.
+
+### Checkpoint 2026-10-30 — Dicionário de assinaturas de biblioteca M68K `rex-libsig/v1` (Experimental, L1)
+- Motor `decomp/rex_libsig.rs` (decodificador de tamanho 68000 + normalização tolerante a relocação + aprendizado por consenso entre projetos independentes) e dado `data/rex_profiles/libsig/sgdk-2.11.gcc13-lto.libsig.json` (331 assinaturas).
+- `libmd.a` release do SGDK 2.11 é LTO (sem código): o dicionário vem de ROMs+`symbol.txt` dos projetos SGDKForge.
+- Holdout leave-one-project-out (9 projetos): P 0,898–0,938, R 0,954–0,988. Corpus BYOR 40 ROMs: 12 ROMs da família SGDK identificadas pelo núcleo asm; corpos C não atravessam versões do SDK.
+- Fecho: `docs/rex_profiles/libsig/FECHO-LIBSIG-SGDK-2026-10-30.md`. Próximo: recursos SGDK por forma de estrutura.

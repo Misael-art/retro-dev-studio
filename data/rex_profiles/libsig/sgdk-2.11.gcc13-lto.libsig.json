@@ -1,0 +1,2365 @@
+{
+  "schema": "rex-libsig/v1",
+  "toolchain": "sgdk-2.11/gcc13-lto",
+  "min_projects": 2,
+  "source_projects": [
+    "Celestial",
+    "FORGE_REFERENCE",
+    "HAMOOPIG",
+    "KIRBY_FAN",
+    "Mugenesis_Demo",
+    "OpenBOR_Demo",
+    "REINA_CHAN_PORT",
+    "SMOKE_TEST",
+    "TAIKETSU"
+  ],
+  "signatures": [
+    {
+      "name": ".code_pair",
+      "size": 12,
+      "anchor": "6100948166002004",
+      "hash": "313c446871668a1b4073d51715e0d201",
+      "projects": 9
+    },
+    {
+      "name": ".lit0_mat1",
+      "size": 30,
+      "anchor": "d241444145f110fe",
+      "hash": "71aff32388e2c5faba8ff14476338fad",
+      "projects": 9
+    },
+    {
+      "name": ".lit0_mat2",
+      "size": 32,
+      "anchor": "d241444145f110fe",
+      "hash": "8008b0606badde771bbc5204f0d5fbad",
+      "projects": 9
+    },
+    {
+      "name": ".lit0_mat3",
+      "size": 34,
+      "anchor": "d241444145f110fe",
+      "hash": "c21d06ae34deca90f2dde20b8f9724ea",
+      "projects": 9
+    },
+    {
+      "name": ".lit0_mat4",
+      "size": 36,
+      "anchor": "d241444145f110fe",
+      "hash": "0d9272b77ea9bfa9f2c92af26e9c2033",
+      "projects": 9
+    },
+    {
+      "name": ".lit0_mat5",
+      "size": 38,
+      "anchor": "d241444145f110fe",
+      "hash": "d6b9c3e0cc98d37aac3ebdfd816e770b",
+      "projects": 9
+    },
+    {
+      "name": ".lit0_mat6",
+      "size": 40,
+      "anchor": "d241444145f110fe",
+      "hash": "7125bf54493c9d5a2dbcbdb604da3cda",
+      "projects": 9
+    },
+    {
+      "name": ".lit0_mat7",
+      "size": 42,
+      "anchor": "d241444145f110fe",
+      "hash": "08d52c0b56e7ea75dd7ee4c9e1faf171",
+      "projects": 9
+    },
+    {
+      "name": ".lit0_mat8",
+      "size": 44,
+      "anchor": "d241444145f110fe",
+      "hash": "3a06103e5664cd49f67ec63d313c98fb",
+      "projects": 9
+    },
+    {
+      "name": ".lit0_mat9",
+      "size": 46,
+      "anchor": "d241444145f110fe",
+      "hash": "fd2ed2826f208633847246c3fa05ffc7",
+      "projects": 9
+    },
+    {
+      "name": ".lit0_matA",
+      "size": 48,
+      "anchor": "d241444145f110fe",
+      "hash": "7a786a1e12b1656e6aa1a592422a54a8",
+      "projects": 9
+    },
+    {
+      "name": ".lit0_matB",
+      "size": 50,
+      "anchor": "d241444145f110fe",
+      "hash": "08cbb914536eed4d324cff12a85b6bf0",
+      "projects": 9
+    },
+    {
+      "name": ".lit0_matC",
+      "size": 52,
+      "anchor": "d241444145f110fe",
+      "hash": "044435ed0d2469a160e7de4357af0740",
+      "projects": 9
+    },
+    {
+      "name": ".lit0_matD",
+      "size": 54,
+      "anchor": "d241444145f110fe",
+      "hash": "5f8a6a3f29f12715c0cad2bc4b8e41e5",
+      "projects": 9
+    },
+    {
+      "name": ".lit0_matE",
+      "size": 56,
+      "anchor": "d241444145f110fe",
+      "hash": "59bef20eebf31af4cd6453717e1f234e",
+      "projects": 9
+    },
+    {
+      "name": ".lit0_matF",
+      "size": 58,
+      "anchor": "d241444145f110fe",
+      "hash": "f1cea4992315115ba82859a66419c25b",
+      "projects": 9
+    },
+    {
+      "name": ".lit1_mat1",
+      "size": 32,
+      "anchor": "32d8d241444145f1",
+      "hash": "da0e0e712a33411328c47cb722c6bfb0",
+      "projects": 9
+    },
+    {
+      "name": ".lit1_mat2",
+      "size": 34,
+      "anchor": "32d8d241444145f1",
+      "hash": "37ecf6f37e26ba7d4f3d36c01fe5db6f",
+      "projects": 9
+    },
+    {
+      "name": ".lit1_mat3",
+      "size": 36,
+      "anchor": "32d8d241444145f1",
+      "hash": "17e367d2b45866898c2aa9066f73ea6a",
+      "projects": 9
+    },
+    {
+      "name": ".lit1_mat4",
+      "size": 38,
+      "anchor": "32d8d241444145f1",
+      "hash": "391e71e904073fcfc617439f6ee761a8",
+      "projects": 9
+    },
+    {
+      "name": ".lit1_mat5",
+      "size": 40,
+      "anchor": "32d8d241444145f1",
+      "hash": "cb34855725e338b2a02c3e021deaffc2",
+      "projects": 9
+    },
+    {
+      "name": ".lit1_mat6",
+      "size": 42,
+      "anchor": "32d8d241444145f1",
+      "hash": "21e1771a71a564b535d48f3ae3ae74bd",
+      "projects": 9
+    },
+    {
+      "name": ".lit1_mat7",
+      "size": 44,
+      "anchor": "32d8d241444145f1",
+      "hash": "b9758999b7d07a752ab99b96d8aee883",
+      "projects": 9
+    },
+    {
+      "name": ".lit1_mat8",
+      "size": 46,
+      "anchor": "32d8d241444145f1",
+      "hash": "55bdb45fc158d4198910b191e11d3ba4",
+      "projects": 9
+    },
+    {
+      "name": ".lit1_mat9",
+      "size": 48,
+      "anchor": "32d8d241444145f1",
+      "hash": "2e180e252a8d5225c6e67fe472feebc3",
+      "projects": 9
+    },
+    {
+      "name": ".lit1_matA",
+      "size": 50,
+      "anchor": "32d8d241444145f1",
+      "hash": "ff6936d82ac1f7096c912ea6d722ccf3",
+      "projects": 9
+    },
+    {
+      "name": ".lit1_matB",
+      "size": 52,
+      "anchor": "32d8d241444145f1",
+      "hash": "4fbb5fc000ea296fb38cc5bb50114f1f",
+      "projects": 9
+    },
+    {
+      "name": ".lit1_matC",
+      "size": 54,
+      "anchor": "32d8d241444145f1",
+      "hash": "d3d59cf4256539812c4c97f60933a53b",
+      "projects": 9
+    },
+    {
+      "name": ".lit1_matD",
+      "size": 56,
+      "anchor": "32d8d241444145f1",
+      "hash": "63807921c34d5376565ba982ed3db8b6",
+      "projects": 9
+    },
+    {
+      "name": ".lit1_matE",
+      "size": 58,
+      "anchor": "32d8d241444145f1",
+      "hash": "3d51f3d82f2fa8136042aad019c54608",
+      "projects": 9
+    },
+    {
+      "name": ".lit1_matF",
+      "size": 60,
+      "anchor": "32d8d241444145f1",
+      "hash": "0821abe07d53feea89f47938b2b55b3a",
+      "projects": 9
+    },
+    {
+      "name": ".lm_rom",
+      "size": 12,
+      "anchor": "d24145f000fe287b",
+      "hash": "4d361f45e16ab24eb662e2abc7d0281c",
+      "projects": 9
+    },
+    {
+      "name": ".lmr_len_00",
+      "size": 530,
+      "anchor": "22da720070001018",
+      "hash": "2a62eb3422b347e86b4a3d979c4b4db5",
+      "projects": 9
+    },
+    {
+      "name": ".lmr_len_01",
+      "size": 276,
+      "anchor": "22da32da72007000",
+      "hash": "7da0962c678a6910305807c60ab958ab",
+      "projects": 9
+    },
+    {
+      "name": ".long_match_1",
+      "size": 18,
+      "anchor": "3018d040650045f1",
+      "hash": "192bd511d7adf9050cfc66a7ead6dbbc",
+      "projects": 9
+    },
+    {
+      "name": ".long_match_2",
+      "size": 18,
+      "anchor": "3018d040650045f1",
+      "hash": "192bd511d7adf9050cfc66a7ead6dbbc",
+      "projects": 9
+    },
+    {
+      "name": ".long_match_3",
+      "size": 18,
+      "anchor": "3018d040650045f1",
+      "hash": "192bd511d7adf9050cfc66a7ead6dbbc",
+      "projects": 9
+    },
+    {
+      "name": ".next",
+      "size": 16,
+      "anchor": "700010181218d040",
+      "hash": "824273155a9b98e055548d7bf5343abb",
+      "projects": 9
+    },
+    {
+      "name": ".short_match",
+      "size": 14,
+      "anchor": "74031018e2086700",
+      "hash": "e054b4d7a0d2103db615abec2d68e669",
+      "projects": 9
+    },
+    {
+      "name": "APP_changeScene",
+      "size": 94,
+      "anchor": "2f02242f00084eb9",
+      "hash": "5964e48c15a77571488da0bb952be095",
+      "projects": 5
+    },
+    {
+      "name": "APP_update",
+      "size": 666,
+      "anchor": "4fefffd82f0a2f02",
+      "hash": "a80d383cfdfe1a40100e2422826e6b15",
+      "projects": 3
+    },
+    {
+      "name": "AUDIO_init",
+      "size": 102,
+      "anchor": "2f0a4eb900000000",
+      "hash": "c8a4204b88f0ae518b101fa66fd387d7",
+      "projects": 2
+    },
+    {
+      "name": "AUDIO_startBrandBgm",
+      "size": 24,
+      "anchor": "13fc000100000000",
+      "hash": "85fe5d385d732fb91e9734b6192e3475",
+      "projects": 3
+    },
+    {
+      "name": "AUDIO_stopAll",
+      "size": 68,
+      "anchor": "2f0a4878000042a7",
+      "hash": "04e746948ee66377eff0b5ea81756314",
+      "projects": 2
+    },
+    {
+      "name": "AUDIO_update",
+      "size": 66,
+      "anchor": "2f0a103900000000",
+      "hash": "8fa21c4abfbcb1b43125edc8a01fe21c",
+      "projects": 2
+    },
+    {
+      "name": "DMA_allocateAndQueueDma",
+      "size": 122,
+      "anchor": "48e73800282f0010",
+      "hash": "ffe37e177cb2a7c9a3367311e6fc45a9",
+      "projects": 9
+    },
+    {
+      "name": "DMA_allocateTemp",
+      "size": 60,
+      "anchor": "2f02203900000000",
+      "hash": "bc5854f847eb179cc30d2016aa4f6986",
+      "projects": 9
+    },
+    {
+      "name": "DMA_doCPUCopyDirect",
+      "size": 320,
+      "anchor": "48e73020246f0014",
+      "hash": "84481cd565f289e8f9c188320d1da491",
+      "projects": 9
+    },
+    {
+      "name": "DMA_doDmaFast",
+      "size": 380,
+      "anchor": "598f48e73c20242f",
+      "hash": "4e74c88e9cd1fdaedd72d3c9647fb8bc",
+      "projects": 9
+    },
+    {
+      "name": "DMA_doVRamFill",
+      "size": 338,
+      "anchor": "48e73c00242f0014",
+      "hash": "7681225f16a4bf43a62504acbdcf5fdd",
+      "projects": 9
+    },
+    {
+      "name": "DMA_flushQueue",
+      "size": 212,
+      "anchor": "2f032f0236390000",
+      "hash": "6564cbc0aadd1191d36147e832910f7d",
+      "projects": 9
+    },
+    {
+      "name": "DMA_getMaxTransferSize",
+      "size": 18,
+      "anchor": "3039000000000c40",
+      "hash": "9cda7e68de8c1c7b1b8b937b5902252b",
+      "projects": 9
+    },
+    {
+      "name": "DMA_init",
+      "size": 22,
+      "anchor": "42a72f3c00000000",
+      "hash": "c22402710d1fa054df27d1735325516e",
+      "projects": 9
+    },
+    {
+      "name": "DMA_initEx",
+      "size": 474,
+      "anchor": "48e73c00262f0014",
+      "hash": "162a1696113a907d40a16cf3ff1edb48",
+      "projects": 9
+    },
+    {
+      "name": "DMA_queueDma",
+      "size": 144,
+      "anchor": "48e73f00242f0020",
+      "hash": "543bce7bedb81f6254f078227734f6d0",
+      "projects": 9
+    },
+    {
+      "name": "DMA_queueDmaFast",
+      "size": 334,
+      "anchor": "48e73e00202f001c",
+      "hash": "4d3289a24c2b8b53fe84b1eca31948e9",
+      "projects": 9
+    },
+    {
+      "name": "DMA_releaseTemp",
+      "size": 16,
+      "anchor": "7000302f0006d080",
+      "hash": "63f52144870a3630c863d79c152ca9a8",
+      "projects": 9
+    },
+    {
+      "name": "DMA_setMaxTransferSizeToDefault",
+      "size": 28,
+      "anchor": "323900000000303c",
+      "hash": "6c96969b3932cee5f35c2c423e4f06d2",
+      "projects": 9
+    },
+    {
+      "name": "DMA_transfer",
+      "size": 584,
+      "anchor": "48e73f30222f0024",
+      "hash": "80b6ce7cfcb7d1b121b92aadb08e3bb2",
+      "projects": 9
+    },
+    {
+      "name": "FUNCAO_CHECK_FRAME_ADVANTAGE",
+      "size": 116,
+      "anchor": "1039000000001239",
+      "hash": "4c8535a26777085de9f4fb95575fb265",
+      "projects": 2
+    },
+    {
+      "name": "INPUT_held",
+      "size": 16,
+      "anchor": "303900000000c06f",
+      "hash": "80971eab1be33e4330adfd93715c6585",
+      "projects": 7
+    },
+    {
+      "name": "INPUT_init",
+      "size": 64,
+      "anchor": "4878000042a74eb9",
+      "hash": "90f4bcc35a822cdefbcc518451220140",
+      "projects": 6
+    },
+    {
+      "name": "INPUT_pressed",
+      "size": 16,
+      "anchor": "303900000000c06f",
+      "hash": "80971eab1be33e4330adfd93715c6585",
+      "projects": 7
+    },
+    {
+      "name": "INPUT_update",
+      "size": 58,
+      "anchor": "2f0242a74eb90000",
+      "hash": "cfea85c970933be18d10270ac5d4cb8e",
+      "projects": 6
+    },
+    {
+      "name": "JOY_getJoypadType",
+      "size": 32,
+      "anchor": "202f00040c400007",
+      "hash": "02d038c2a9ca688ee5f655a40001f4ab",
+      "projects": 8
+    },
+    {
+      "name": "JOY_init",
+      "size": 12,
+      "anchor": "42b9000000004ef9",
+      "hash": "bb36007bcc422a9cff6559eec0403095",
+      "projects": 9
+    },
+    {
+      "name": "JOY_readJoypad",
+      "size": 124,
+      "anchor": "48e73f00202f001c",
+      "hash": "8e3e0bc0eb048cb55a1ed46242402d09",
+      "projects": 9
+    },
+    {
+      "name": "JOY_reset",
+      "size": 1596,
+      "anchor": "48e7302033fcffff",
+      "hash": "ae85ef9eb6e350b6fe04884328459e60",
+      "projects": 9
+    },
+    {
+      "name": "JOY_setSupport",
+      "size": 1468,
+      "anchor": "48e73e00242f0018",
+      "hash": "d819dcb506c5e75325ce882106f02e31",
+      "projects": 9
+    },
+    {
+      "name": "KDebug_Alert",
+      "size": 28,
+      "anchor": "206f0004303c9e00",
+      "hash": "b733b226f70a34ad165fe947729e5104",
+      "projects": 9
+    },
+    {
+      "name": "KLog",
+      "size": 32,
+      "anchor": "206f00044a106600",
+      "hash": "50c2931af2684d6b584e2fcf83de736f",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__Console_GetPosAsXY",
+      "size": 38,
+      "anchor": "2f0b4e6b200b4840",
+      "hash": "57d12ce0def014b1f112d0ace0cadcad",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__Console_Init",
+      "size": 62,
+      "anchor": "4bf9000000004ded",
+      "hash": "07e2e44ad417c11f22c5687e1e9fc0b6",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__Console_InitShared",
+      "size": 74,
+      "anchor": "200b4840024000ff",
+      "hash": "c3e6dbaea5279d7b55a5b15d1bd19cf8",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__Console_SetBasePattern",
+      "size": 28,
+      "anchor": "2f0b2f004e6b200b",
+      "hash": "8804b119fe83ea53c274e342cc7f5b9b",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__Console_SetPosAsXY",
+      "size": 52,
+      "anchor": "48e760104e6b240b",
+      "hash": "b157e5c108e750a2612fb1b977a57a99",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__Console_SetWidth",
+      "size": 30,
+      "anchor": "2f0b2f004e6b200b",
+      "hash": "a9d579cd03dac8c35a26f57f9dcdbf37",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__Console_StartNewLine",
+      "size": 46,
+      "anchor": "2f0b2f004e6b200b",
+      "hash": "af1f9f7012bdd44668ff8ad3ce6fc01c",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__Console_Write",
+      "size": 198,
+      "anchor": "48e77f124e6b240b",
+      "hash": "bebd0db292755ad45f398f3025815d28",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__Console_Write_Formatted",
+      "size": 48,
+      "anchor": "2f0c49fa00004fef",
+      "hash": "e09eec55a5e4f0fc4f70f8f1947c362a",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__Decomp1bpp",
+      "size": 28,
+      "anchor": "741e10181200e609",
+      "hash": "6566738391d2a4a0cd31177669326819",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__ErrorHandler_ClearConsole",
+      "size": 42,
+      "anchor": "48e7c4564e6b200b",
+      "hash": "afc2ab15828358cd97265291a646af2f",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__ErrorHandler_ConsoleOnly",
+      "size": 38,
+      "anchor": "46fc27004feffff0",
+      "hash": "df5be5183b2e43bc07c79dceba115704",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__ErrorHandler_PagesController",
+      "size": 96,
+      "anchor": "48e7fffe3f3c0000",
+      "hash": "eaa515c6b2b232ef21cdff56b559da4d",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__ErrorHandler_PauseConsole",
+      "size": 58,
+      "anchor": "48e7c0d04e6b200b",
+      "hash": "b84cbd037211f606dedb033864ed701e",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__ErrorHandler_SetupVDP",
+      "size": 54,
+      "anchor": "4bf9000000004ded",
+      "hash": "ab431bc77ae543d4900dd3380235b440",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__Error_DrawOffsetLocation__inj",
+      "size": 142,
+      "anchor": "43fa00004eba0000",
+      "hash": "390839a7a9423d8e97b4cd9211daa2a7",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__Error_IdleLoop",
+      "size": 26,
+      "anchor": "4e71600072004eba",
+      "hash": "70caea16b2bf8ef1c567c34f57187f45",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__Error_InitConsole",
+      "size": 12,
+      "anchor": "43fa000045fa0000",
+      "hash": "4b9eca099c17ad860b08aa2044f8b603",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__Error_MaskStackBoundaries",
+      "size": 106,
+      "anchor": "223c000000002409",
+      "hash": "254b80c825fe805bde2941472412d315",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__FormatString",
+      "size": 218,
+      "anchor": "48e7f81010d95fcf",
+      "hash": "8819416630dbf8513373e4cc51459f99",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__KDebug_Write",
+      "size": 46,
+      "anchor": "3f072f0d4bf90000",
+      "hash": "59a2381e5a1b6edbca25b8db9286b539",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__KDebug_Write_Formatted",
+      "size": 84,
+      "anchor": "2f0c49fa00004fef",
+      "hash": "fd285faf06a619f49890b4f5267b4eff",
+      "projects": 9
+    },
+    {
+      "name": "MDDBG__VSync",
+      "size": 58,
+      "anchor": "41f90000000044d0",
+      "hash": "e3b51585e6afdd15f03ace61efc9b631",
+      "projects": 9
+    },
+    {
+      "name": "MDRuntimeProbe_exportToSRAM",
+      "size": 194,
+      "anchor": "48e730384eb90000",
+      "hash": "01aaf69c92e6f12b8c177f11fd130d55",
+      "projects": 5
+    },
+    {
+      "name": "MDRuntimeProbe_init",
+      "size": 130,
+      "anchor": "700041f900000000",
+      "hash": "b888c549836793a001634ea2003f395c",
+      "projects": 2
+    },
+    {
+      "name": "MDRuntimeProbe_noteSpriteAlloc",
+      "size": 18,
+      "anchor": "33ef000600000000",
+      "hash": "a3bed57bdd9362f8bb762f81d68960ce",
+      "projects": 3
+    },
+    {
+      "name": "MDRuntimeProbe_writeHeartbeat",
+      "size": 138,
+      "anchor": "2f0a4eb900000000",
+      "hash": "d27b13281ad8bec84a0896adb15817d9",
+      "projects": 6
+    },
+    {
+      "name": "MEM_alloc",
+      "size": 214,
+      "anchor": "2f032f02262f000c",
+      "hash": "4f2101a099471121381c6dff19ac3a29",
+      "projects": 9
+    },
+    {
+      "name": "MEM_free",
+      "size": 18,
+      "anchor": "206f0004b0fc0000",
+      "hash": "767fa6d282116350935522351c38a5b5",
+      "projects": 9
+    },
+    {
+      "name": "MEM_pack",
+      "size": 104,
+      "anchor": "48e73f2020790000",
+      "hash": "24def6a12463f7ca16f2dc28dd8dbb30",
+      "projects": 9
+    },
+    {
+      "name": "PAL_fadeIn",
+      "size": 108,
+      "anchor": "48e72030142f0023",
+      "hash": "27c86b4f2ca70448907daacb4d10b806",
+      "projects": 2
+    },
+    {
+      "name": "PAL_fadeOutAll",
+      "size": 140,
+      "anchor": "4fefff8048e72030",
+      "hash": "71a1fac09a91ebf1ebbab84344aae4c9",
+      "projects": 3
+    },
+    {
+      "name": "PAL_getColors",
+      "size": 458,
+      "anchor": "48e73020262f0010",
+      "hash": "92e6979821995d849c0840aeed9adb9d",
+      "projects": 9
+    },
+    {
+      "name": "PAL_setColor",
+      "size": 36,
+      "anchor": "222f0008302f0006",
+      "hash": "25c866fcde886bdc4f61ee2a16ee3913",
+      "projects": 8
+    },
+    {
+      "name": "PAL_setColors",
+      "size": 46,
+      "anchor": "487800007000302f",
+      "hash": "efbb5532d076622cdaba797881d82dc4",
+      "projects": 5
+    },
+    {
+      "name": "PAL_setPalette",
+      "size": 42,
+      "anchor": "4878000048780000",
+      "hash": "2a83c43381d8ab9ddc52181739cffb3e",
+      "projects": 9
+    },
+    {
+      "name": "PAL_setPaletteColors",
+      "size": 48,
+      "anchor": "206f000848780000",
+      "hash": "4f2301813c773e9c884b2c32457e6a5b",
+      "projects": 6
+    },
+    {
+      "name": "POOL_allocate",
+      "size": 34,
+      "anchor": "206f000420280008",
+      "hash": "7c49aa4a54943bf65c8e51628963c60d",
+      "projects": 8
+    },
+    {
+      "name": "POOL_create",
+      "size": 228,
+      "anchor": "48e73c30282f001c",
+      "hash": "4152e3b6f9d84d1efa5c454924985316",
+      "projects": 9
+    },
+    {
+      "name": "POOL_destroy",
+      "size": 64,
+      "anchor": "2f0a246f0008b4fc",
+      "hash": "7451a9a63295b276f4362897daaaaa40",
+      "projects": 9
+    },
+    {
+      "name": "POOL_getNumAllocated",
+      "size": 24,
+      "anchor": "206f000420280008",
+      "hash": "e74af5f6740376b1cdd63d0cc27d6875",
+      "projects": 9
+    },
+    {
+      "name": "POOL_release",
+      "size": 72,
+      "anchor": "2f0b2f0a206f000c",
+      "hash": "1d11e244f5aed1fc158ca7add6e3b59b",
+      "projects": 8
+    },
+    {
+      "name": "POOL_reset",
+      "size": 128,
+      "anchor": "48e73c30246f001c",
+      "hash": "29aa536f30c0eed53972779d122103a6",
+      "projects": 9
+    },
+    {
+      "name": "PSG_reset",
+      "size": 56,
+      "anchor": "207c00c0001110bc",
+      "hash": "c8cf3028c2127a15f917b9fb9c72748b",
+      "projects": 9
+    },
+    {
+      "name": "PSG_setEnvelope",
+      "size": 32,
+      "anchor": "202f0004eb080200",
+      "hash": "a25f57b57768364d781d90efda71d2a9",
+      "projects": 7
+    },
+    {
+      "name": "PSG_setFrequency",
+      "size": 148,
+      "anchor": "2f02242f0008202f",
+      "hash": "346d6429c55bd2f0283091ee86d67deb",
+      "projects": 7
+    },
+    {
+      "name": "PSG_setNoise",
+      "size": 34,
+      "anchor": "102f0007d000d000",
+      "hash": "3293632562a04d162b52dd8838038e9f",
+      "projects": 6
+    },
+    {
+      "name": "SCENE_bootEnter",
+      "size": 148,
+      "anchor": "2f0a13fc00010000",
+      "hash": "20c0b53f3b6b944c2619ccfd9e4813f0",
+      "projects": 6
+    },
+    {
+      "name": "SCENE_bootUpdate",
+      "size": 72,
+      "anchor": "2f0a0c7900b40000",
+      "hash": "ea5bbdbf788a02fb2fc54720949f9617",
+      "projects": 6
+    },
+    {
+      "name": "SCENE_brandingEnter",
+      "size": 24,
+      "anchor": "42390000000050f9",
+      "hash": "d87b4814860fc3a725e97fc76535397d",
+      "projects": 2
+    },
+    {
+      "name": "SCENE_brandingV2Enter",
+      "size": 128,
+      "anchor": "2f0a423900000000",
+      "hash": "72169fa9add630bc762d377cc18b3459",
+      "projects": 3
+    },
+    {
+      "name": "SCENE_brandingV2Exit",
+      "size": 134,
+      "anchor": "2f0a42a74eb90000",
+      "hash": "c181f0b5c7ea18af13ff3cb8a7ea6efd",
+      "projects": 3
+    },
+    {
+      "name": "SCENE_cleanupLineScroll",
+      "size": 44,
+      "anchor": "2f02242f000842a7",
+      "hash": "9fc358bea802ea197859e486a291371c",
+      "projects": 3
+    },
+    {
+      "name": "SCENE_demoEnter",
+      "size": 384,
+      "anchor": "48e7203048780000",
+      "hash": "94f774af85d7bf29ef80ec3064079458",
+      "projects": 4
+    },
+    {
+      "name": "SCENE_demoUpdate",
+      "size": 1382,
+      "anchor": "4fefffd848e73c30",
+      "hash": "0bfb47eb3fa02635ab50d4734aa7e57a",
+      "projects": 5
+    },
+    {
+      "name": "SCENE_menuEnter",
+      "size": 258,
+      "anchor": "2f0a4eb900000000",
+      "hash": "31d6bcca00595fa8ebc026f64486b89f",
+      "projects": 3
+    },
+    {
+      "name": "SCENE_menuUpdate",
+      "size": 92,
+      "anchor": "2f0a4878000045f9",
+      "hash": "a2592a6c31c4e8500b20d4c35de7bd40",
+      "projects": 3
+    },
+    {
+      "name": "SND_DPCM2_loadDriver",
+      "size": 138,
+      "anchor": "48e72030142f0013",
+      "hash": "df025161175476854846aa54c14d99ff",
+      "projects": 9
+    },
+    {
+      "name": "SND_NULL_loadDriver",
+      "size": 90,
+      "anchor": "4eb9000000004878",
+      "hash": "4be6cb8ecb128c74ddde43ab81f79aef",
+      "projects": 8
+    },
+    {
+      "name": "SND_PCM4_loadDriver",
+      "size": 158,
+      "anchor": "48e72030142f0013",
+      "hash": "89debe1ad128feb0d7c8f511c377e21e",
+      "projects": 9
+    },
+    {
+      "name": "SND_PCM_loadDriver",
+      "size": 138,
+      "anchor": "48e72030142f0013",
+      "hash": "41822bc47dbdb15157564a6f0362f8b8",
+      "projects": 9
+    },
+    {
+      "name": "SPR_addSprite",
+      "size": 40,
+      "anchor": "487800007000302f",
+      "hash": "82980bc1bed1052971b3cee4dc8065c9",
+      "projects": 6
+    },
+    {
+      "name": "SPR_addSpriteEx",
+      "size": 704,
+      "anchor": "48e73f30266f0024",
+      "hash": "b376718286dfd4d436d29ebab0e336ba",
+      "projects": 8
+    },
+    {
+      "name": "SPR_addSpriteExSafe",
+      "size": 94,
+      "anchor": "48e73830242f0018",
+      "hash": "424dcc780019322c00c46c66f2c4c15f",
+      "projects": 2
+    },
+    {
+      "name": "SPR_defragVRAM",
+      "size": 184,
+      "anchor": "48e7383048790000",
+      "hash": "236bd20bae9e33d09f112eac7ffbb207",
+      "projects": 9
+    },
+    {
+      "name": "SPR_end",
+      "size": 94,
+      "anchor": "4ab9000000006700",
+      "hash": "6a0e0131210c34e94b30ae9df701953d",
+      "projects": 9
+    },
+    {
+      "name": "SPR_getNumActiveSprite",
+      "size": 16,
+      "anchor": "2f39000000004eb9",
+      "hash": "ef4ce3bd4c6699d81622b2c7fa0f10ae",
+      "projects": 9
+    },
+    {
+      "name": "SPR_getUsedVDPSprite",
+      "size": 12,
+      "anchor": "3039000000000240",
+      "hash": "801892cc65844e0ea7b6fd33cca59d26",
+      "projects": 4
+    },
+    {
+      "name": "SPR_init",
+      "size": 14,
+      "anchor": "487800004eb90000",
+      "hash": "4b7d32acb29581ae6ab8b392aee1001a",
+      "projects": 5
+    },
+    {
+      "name": "SPR_initEx",
+      "size": 284,
+      "anchor": "2f032f02242f000c",
+      "hash": "937f95126516712e3a6dd5743f8cfb3e",
+      "projects": 9
+    },
+    {
+      "name": "SPR_isInitialized",
+      "size": 12,
+      "anchor": "4ab90000000056c0",
+      "hash": "c98ce395302fa65f9ab9cde72c03ec41",
+      "projects": 9
+    },
+    {
+      "name": "SPR_releaseSprite",
+      "size": 176,
+      "anchor": "2f0a246f00084a52",
+      "hash": "f6251e1f15cfb19be15a717ee66b9ca3",
+      "projects": 5
+    },
+    {
+      "name": "SPR_reset",
+      "size": 60,
+      "anchor": "487800002f390000",
+      "hash": "79c16f53c4b4da4266842ba52bc5eaf8",
+      "projects": 9
+    },
+    {
+      "name": "SPR_setAlwaysOnTop",
+      "size": 30,
+      "anchor": "206f00040c688000",
+      "hash": "dbda6298dadcaf73dfbd0a4654876e63",
+      "projects": 2
+    },
+    {
+      "name": "SPR_setAnim",
+      "size": 58,
+      "anchor": "206f0004202f0008",
+      "hash": "ec285da4538468ae8b41ba3ef116cf4f",
+      "projects": 3
+    },
+    {
+      "name": "SPR_setAnimAndFrame",
+      "size": 82,
+      "anchor": "2f0a206f0008222f",
+      "hash": "83dd0a0a5b66834965efd4b438f29ec4",
+      "projects": 5
+    },
+    {
+      "name": "SPR_setAutoAnimation",
+      "size": 44,
+      "anchor": "206f00044a2f000b",
+      "hash": "eaf94049bcfff98fd6ac29e1e96aaa84",
+      "projects": 2
+    },
+    {
+      "name": "SPR_setAutoTileUpload",
+      "size": 28,
+      "anchor": "206f000430104a2f",
+      "hash": "4308a980da7d5c49fdadd4d9c107aaed",
+      "projects": 3
+    },
+    {
+      "name": "SPR_setDefinition",
+      "size": 270,
+      "anchor": "48e72030246f0010",
+      "hash": "8a7485deb48c46299ea3635c9fa6324b",
+      "projects": 3
+    },
+    {
+      "name": "SPR_setDepth",
+      "size": 30,
+      "anchor": "206f0004202f0008",
+      "hash": "55900e591439f9643fe522b2408ee38c",
+      "projects": 5
+    },
+    {
+      "name": "SPR_setFrame",
+      "size": 34,
+      "anchor": "206f0004202f0008",
+      "hash": "1416244eee1e33bd4a32ab9d57251664",
+      "projects": 7
+    },
+    {
+      "name": "SPR_setHFlip",
+      "size": 74,
+      "anchor": "206f0004122f000b",
+      "hash": "b0b3d4fec01b0481fa0724f62254c6a4",
+      "projects": 7
+    },
+    {
+      "name": "SPR_setPalette",
+      "size": 42,
+      "anchor": "2f032f02206f000c",
+      "hash": "6a4199c0643ce9425af9fff6bc303670",
+      "projects": 2
+    },
+    {
+      "name": "SPR_setPosition",
+      "size": 74,
+      "anchor": "206f0004302f000a",
+      "hash": "7c5939dfadfdae63a3a36bd854f500d3",
+      "projects": 8
+    },
+    {
+      "name": "SPR_setPriority",
+      "size": 42,
+      "anchor": "206f0004122f000b",
+      "hash": "4bba47c91ebf12a8105f3475d226606e",
+      "projects": 2
+    },
+    {
+      "name": "SPR_setVFlip",
+      "size": 74,
+      "anchor": "206f0004122f000b",
+      "hash": "f372a1a0cbfe9e422561cf4b77333fb1",
+      "projects": 3
+    },
+    {
+      "name": "SPR_setVRAMTileIndex",
+      "size": 156,
+      "anchor": "48e73c20246f0018",
+      "hash": "0aff88d2b01b1390e18963973ba5d6cc",
+      "projects": 4
+    },
+    {
+      "name": "SPR_setVisibility",
+      "size": 146,
+      "anchor": "2f02206f0008202f",
+      "hash": "baabedeaa4efcbb230b9a4fdb1f11a4f",
+      "projects": 7
+    },
+    {
+      "name": "SPR_update",
+      "size": 1710,
+      "anchor": "598f48e73f3e2479",
+      "hash": "8c2d37e154e81356805b9709febb765d",
+      "projects": 9
+    },
+    {
+      "name": "SRAM_readByte",
+      "size": 16,
+      "anchor": "206f0004d1c8d1fc",
+      "hash": "d7d98e5955c4db8fe80b453460a7e5df",
+      "projects": 3
+    },
+    {
+      "name": "SRAM_writeByte",
+      "size": 18,
+      "anchor": "206f0004d1c8d1fc",
+      "hash": "1d6e13142a9c1a61ae1d119b6a7a6de9",
+      "projects": 9
+    },
+    {
+      "name": "SYS_disableInts",
+      "size": 50,
+      "anchor": "3039000000006600",
+      "hash": "5f74d820451c73ab1340cc252401b391",
+      "projects": 9
+    },
+    {
+      "name": "SYS_doVBlankProcessEx.constprop.0",
+      "size": 566,
+      "anchor": "2f02487800004eb9",
+      "hash": "f51ff13bb0d43d1c5fb9cc49d2f2f388",
+      "projects": 9
+    },
+    {
+      "name": "SYS_enableInts",
+      "size": 46,
+      "anchor": "3039000000006600",
+      "hash": "f5bbaa52c3e9536ee5d956c1383ec1cd",
+      "projects": 9
+    },
+    {
+      "name": "SYS_getAndSetInterruptMaskLevel",
+      "size": 26,
+      "anchor": "322f000602410007",
+      "hash": "c2cd7006babd236aab0e44e38fb64096",
+      "projects": 9
+    },
+    {
+      "name": "SYS_getCPULoad",
+      "size": 16,
+      "anchor": "303900000000c0fc",
+      "hash": "11af5bbf88bd37b95c43df0886e038c2",
+      "projects": 9
+    },
+    {
+      "name": "SYS_getShowFrameLoad",
+      "size": 12,
+      "anchor": "1039000000000200",
+      "hash": "c18cf579c8a73b46a513ba5233b61fb9",
+      "projects": 9
+    },
+    {
+      "name": "SYS_hardReset",
+      "size": 36,
+      "anchor": "46fc27002e780000",
+      "hash": "1ca5955e82aa0c6427e3157c080e07e2",
+      "projects": 2
+    },
+    {
+      "name": "SYS_isPAL",
+      "size": 12,
+      "anchor": "3039000000000240",
+      "hash": "bce9a34030bf505806867ba7fc455689",
+      "projects": 9
+    },
+    {
+      "name": "SYS_setExtIntCallback",
+      "size": 28,
+      "anchor": "202f0004670023c0",
+      "hash": "7d1ca757c82f74d07c80fbb97d5953f3",
+      "projects": 9
+    },
+    {
+      "name": "SYS_setHIntCallback",
+      "size": 28,
+      "anchor": "202f0004670023c0",
+      "hash": "7d1ca757c82f74d07c80fbb97d5953f3",
+      "projects": 4
+    },
+    {
+      "name": "SYS_setInterruptMaskLevel",
+      "size": 24,
+      "anchor": "302f000602400007",
+      "hash": "b5d2232f774db4665f15cff8114ab36a",
+      "projects": 9
+    },
+    {
+      "name": "SYS_setVBlankCallback",
+      "size": 28,
+      "anchor": "202f0004670023c0",
+      "hash": "7d1ca757c82f74d07c80fbb97d5953f3",
+      "projects": 3
+    },
+    {
+      "name": "SYS_setVIntCallback",
+      "size": 28,
+      "anchor": "202f0004670023c0",
+      "hash": "7d1ca757c82f74d07c80fbb97d5953f3",
+      "projects": 4
+    },
+    {
+      "name": "VDP_clearPlane",
+      "size": 196,
+      "anchor": "2f02202f0008222f",
+      "hash": "fb0ddeca69fb5a818a115d18aec70bc9",
+      "projects": 9
+    },
+    {
+      "name": "VDP_clearTextArea",
+      "size": 162,
+      "anchor": "48e73e00262f0018",
+      "hash": "757c1a64df053e1232bfef626c83cdeb",
+      "projects": 8
+    },
+    {
+      "name": "VDP_clearTileMap",
+      "size": 62,
+      "anchor": "2f02142f00174878",
+      "hash": "b838105d270213748251ae2ee911eb13",
+      "projects": 9
+    },
+    {
+      "name": "VDP_clearTileMapRect",
+      "size": 246,
+      "anchor": "48e73f00262f001c",
+      "hash": "59d8a4a0288c6876aa7e6488395af694",
+      "projects": 3
+    },
+    {
+      "name": "VDP_doVBlankScrollProcess",
+      "size": 194,
+      "anchor": "48e7380030390000",
+      "hash": "e289aa4eb82952e0d1c2d02d8a24e924",
+      "projects": 9
+    },
+    {
+      "name": "VDP_drawImageEx",
+      "size": 170,
+      "anchor": "48e73c20246f001c",
+      "hash": "af7abac4f4165abffc31d62943b8cf09",
+      "projects": 6
+    },
+    {
+      "name": "VDP_drawText",
+      "size": 238,
+      "anchor": "4e56ff0048e73f30",
+      "hash": "f054391ea9d44307547edb14c97d0fdd",
+      "projects": 9
+    },
+    {
+      "name": "VDP_drawTextEx",
+      "size": 236,
+      "anchor": "4e56ff0048e73f20",
+      "hash": "ccbe50045e0235769bc71e1f211aa520",
+      "projects": 9
+    },
+    {
+      "name": "VDP_drawTextFill",
+      "size": 452,
+      "anchor": "4e56000048e73f30",
+      "hash": "d56d9c5796d069cf3930db7ee0972cf0",
+      "projects": 8
+    },
+    {
+      "name": "VDP_fillTileData",
+      "size": 64,
+      "anchor": "2f02142f00174878",
+      "hash": "b0c7701ac31832887b78b84cf74f7dec",
+      "projects": 9
+    },
+    {
+      "name": "VDP_fillTileMapRect",
+      "size": 258,
+      "anchor": "48e73f302e2f0024",
+      "hash": "6d59b5898aaba101660d4c13dd2e6c46",
+      "projects": 9
+    },
+    {
+      "name": "VDP_getHVLatching",
+      "size": 12,
+      "anchor": "1039000000000200",
+      "hash": "5f3e4875af174e1e9d6028cf068195b5",
+      "projects": 9
+    },
+    {
+      "name": "VDP_getHorizontalScrollingMode",
+      "size": 12,
+      "anchor": "1039000000000200",
+      "hash": "54c346b5da1810f354317a650c3df0dc",
+      "projects": 8
+    },
+    {
+      "name": "VDP_getPlaneAddress",
+      "size": 178,
+      "anchor": "2f032f02202f000c",
+      "hash": "1f1b75bda89120321aa9c1ca2a25527f",
+      "projects": 9
+    },
+    {
+      "name": "VDP_getReg",
+      "size": 32,
+      "anchor": "202f00040c400012",
+      "hash": "cff6e6aa3b3cee8811a46d94ee759d5a",
+      "projects": 9
+    },
+    {
+      "name": "VDP_getVerticalScrollingMode",
+      "size": 14,
+      "anchor": "103900000000e408",
+      "hash": "2e9d008112dd8359b7ec4c05d6e5683a",
+      "projects": 8
+    },
+    {
+      "name": "VDP_init",
+      "size": 422,
+      "anchor": "3039000000003200",
+      "hash": "978402775f424c26c6b14a4e4bd5e7a3",
+      "projects": 9
+    },
+    {
+      "name": "VDP_loadFont",
+      "size": 152,
+      "anchor": "2f0a2f02206f000c",
+      "hash": "fda756fa996cdf75d2da99632899196f",
+      "projects": 9
+    },
+    {
+      "name": "VDP_loadTileData",
+      "size": 46,
+      "anchor": "48780000202f0010",
+      "hash": "d4a22668c56f025bf0be34967753a20d",
+      "projects": 2
+    },
+    {
+      "name": "VDP_loadTileSet",
+      "size": 142,
+      "anchor": "2f0a2f02206f000c",
+      "hash": "a6a7057fdbec8a8e1f47d506a7f065e0",
+      "projects": 8
+    },
+    {
+      "name": "VDP_resetScreen",
+      "size": 454,
+      "anchor": "4fefffd848e73838",
+      "hash": "b2df5b2d0d2d268a17abaac537e7e54b",
+      "projects": 9
+    },
+    {
+      "name": "VDP_setAutoInc",
+      "size": 26,
+      "anchor": "202f000413c00000",
+      "hash": "3c6d9bc65ad9edd2755f8e2b03257453",
+      "projects": 9
+    },
+    {
+      "name": "VDP_setBackgroundColor",
+      "size": 30,
+      "anchor": "102f00070200003f",
+      "hash": "e4d2d3a61210c7b95127eb8592410502",
+      "projects": 9
+    },
+    {
+      "name": "VDP_setEnable",
+      "size": 64,
+      "anchor": "1039000000004a2f",
+      "hash": "a80f92458e80bb46e31a14443d626bef",
+      "projects": 2
+    },
+    {
+      "name": "VDP_setHInterrupt",
+      "size": 64,
+      "anchor": "1039000000004a2f",
+      "hash": "7e37006407b0c8c059eb2fad96ab95a3",
+      "projects": 4
+    },
+    {
+      "name": "VDP_setHVLatching",
+      "size": 64,
+      "anchor": "1039000000004a2f",
+      "hash": "db67893845b5240d276cd1d1f1708cb9",
+      "projects": 9
+    },
+    {
+      "name": "VDP_setHilightShadow",
+      "size": 64,
+      "anchor": "1039000000004a2f",
+      "hash": "2546e723501b04f475c5dc7cbb8483fe",
+      "projects": 6
+    },
+    {
+      "name": "VDP_setHorizontalScroll",
+      "size": 106,
+      "anchor": "2f02206f000c3239",
+      "hash": "13b249cc60f0a70ccd5bd1d57cb2a39d",
+      "projects": 9
+    },
+    {
+      "name": "VDP_setHorizontalScrollLine",
+      "size": 104,
+      "anchor": "2f02222f00144240",
+      "hash": "b6772fe27b92b3f561a227506e6faf28",
+      "projects": 3
+    },
+    {
+      "name": "VDP_setPlaneSize",
+      "size": 3358,
+      "anchor": "48e73800202f0010",
+      "hash": "9ab9254f752f7d5d60993f5768d374e8",
+      "projects": 8
+    },
+    {
+      "name": "VDP_setReg",
+      "size": 824,
+      "anchor": "48e73800242f0010",
+      "hash": "f60b7c85df0d9e50c35b26a39ea10968",
+      "projects": 9
+    },
+    {
+      "name": "VDP_setScreenHeight224",
+      "size": 40,
+      "anchor": "1039000000000200",
+      "hash": "8e396bdd8638e358966ae8ed320c4307",
+      "projects": 9
+    },
+    {
+      "name": "VDP_setScreenWidth320",
+      "size": 56,
+      "anchor": "1039000000000000",
+      "hash": "dea86adf6b6f919305eb2d511e119a4f",
+      "projects": 9
+    },
+    {
+      "name": "VDP_setScrollingMode",
+      "size": 56,
+      "anchor": "102f000bd000d000",
+      "hash": "0477ca3ad3c0088a281b06688917dfbf",
+      "projects": 8
+    },
+    {
+      "name": "VDP_setTextPalette",
+      "size": 36,
+      "anchor": "2f02323900000000",
+      "hash": "9568a0b4109278e19168bedda1f4eaa5",
+      "projects": 9
+    },
+    {
+      "name": "VDP_setTextPriority",
+      "size": 32,
+      "anchor": "2f02323900000000",
+      "hash": "d96c155bc753e75b0193cd4439b8c1c0",
+      "projects": 9
+    },
+    {
+      "name": "VDP_setTileMapDataEx",
+      "size": 224,
+      "anchor": "48e73c202a2f0018",
+      "hash": "0433497f7ad258abec0513a28eacb763",
+      "projects": 9
+    },
+    {
+      "name": "VDP_setTileMapDataRect",
+      "size": 1214,
+      "anchor": "4feffff448e73f3e",
+      "hash": "feacb8a36248868dd08f5fd6dd77fa0c",
+      "projects": 6
+    },
+    {
+      "name": "VDP_setTileMapDataRectEx",
+      "size": 742,
+      "anchor": "4feffff448e73f3e",
+      "hash": "40dc42b6bae9b28ee7d09e432c50e99c",
+      "projects": 7
+    },
+    {
+      "name": "VDP_setTileMapDataRowEx",
+      "size": 218,
+      "anchor": "48e73f38246f0028",
+      "hash": "cf608784ee779c3219a01092a477df12",
+      "projects": 9
+    },
+    {
+      "name": "VDP_setTileMapEx",
+      "size": 224,
+      "anchor": "48e73f20246f0024",
+      "hash": "066c248e2d8a3a38ceedf50739aef791",
+      "projects": 7
+    },
+    {
+      "name": "VDP_setTileMapXY",
+      "size": 298,
+      "anchor": "48e73800202f0010",
+      "hash": "4f98c026547df9e0e0ae8833a09cd445",
+      "projects": 3
+    },
+    {
+      "name": "VDP_setVerticalScroll",
+      "size": 46,
+      "anchor": "226f00087001b0af",
+      "hash": "ebd09bc058a1ce3ee027c325b7307997",
+      "projects": 9
+    },
+    {
+      "name": "VDP_setVerticalScrollTile",
+      "size": 112,
+      "anchor": "2f02222f0014302f",
+      "hash": "85e61596fd851a1856031ed65961c9a4",
+      "projects": 9
+    },
+    {
+      "name": "VDP_setWindowFullScreen",
+      "size": 30,
+      "anchor": "303900000000e648",
+      "hash": "cbed4107c090b9ec5e234363bd565c9a",
+      "projects": 3
+    },
+    {
+      "name": "VDP_setWindowOff",
+      "size": 28,
+      "anchor": "423900000000207c",
+      "hash": "fc810ab24194cb877a2fe62492d4a1c0",
+      "projects": 5
+    },
+    {
+      "name": "VDP_setWindowVPos",
+      "size": 36,
+      "anchor": "302f000a0240007f",
+      "hash": "b2398f43ad830792075ecedd6b4e2e5f",
+      "projects": 3
+    },
+    {
+      "name": "VDP_updateSprites",
+      "size": 110,
+      "anchor": "202f00044a406700",
+      "hash": "f6765a69596f0a8978f853f249f7fdef",
+      "projects": 9
+    },
+    {
+      "name": "VDP_waitDMACompletion",
+      "size": 14,
+      "anchor": "3039000000000800",
+      "hash": "94feb0915ef1861b08734ce038cc405c",
+      "projects": 9
+    },
+    {
+      "name": "VDP_waitVBlank",
+      "size": 478,
+      "anchor": "598f2f032f022279",
+      "hash": "31bd83ab9f425f0b7d5cf605d0a1e157",
+      "projects": 9
+    },
+    {
+      "name": "VDP_waitVSync",
+      "size": 14,
+      "anchor": "487800004eb90000",
+      "hash": "4b7d32acb29581ae6ab8b392aee1001a",
+      "projects": 9
+    },
+    {
+      "name": "VRAM_alloc",
+      "size": 192,
+      "anchor": "48e73030246f0014",
+      "hash": "6d9c708f7190c33b44e5a47b6c3c24e8",
+      "projects": 9
+    },
+    {
+      "name": "VRAM_clearRegion",
+      "size": 36,
+      "anchor": "206f000430280002",
+      "hash": "a1d5f883d4c386dbdbf3c68d7d0f0800",
+      "projects": 9
+    },
+    {
+      "name": "VRAM_createRegion",
+      "size": 80,
+      "anchor": "2f0a246f0008202f",
+      "hash": "2465fd836f8670e1b0f8786efb16aeda",
+      "projects": 9
+    },
+    {
+      "name": "VRAM_free",
+      "size": 40,
+      "anchor": "206f0004202f0008",
+      "hash": "232f025976c30dccb1aefb70d27e63c2",
+      "projects": 7
+    },
+    {
+      "name": "VRAM_releaseRegion",
+      "size": 26,
+      "anchor": "2f0a246f00082f2a",
+      "hash": "d33af652d49d6a4d195a385a72fa61c9",
+      "projects": 9
+    },
+    {
+      "name": "XGM2_doVBlankFadeProcess",
+      "size": 176,
+      "anchor": "3039000000005340",
+      "hash": "15d1479ae4bc0d227341fad7cacb3bbd",
+      "projects": 9
+    },
+    {
+      "name": "XGM2_isPlaying",
+      "size": 82,
+      "anchor": "2f02487800004878",
+      "hash": "d9dc59a5813fe6e8545b9666de6baf6a",
+      "projects": 5
+    },
+    {
+      "name": "XGM2_load",
+      "size": 196,
+      "anchor": "4e56fe0c48e73820",
+      "hash": "15524f31cf673bf658a0740797b66d9f",
+      "projects": 6
+    },
+    {
+      "name": "XGM2_loadDriver",
+      "size": 194,
+      "anchor": "48e72030142f0013",
+      "hash": "2a2ec73f31a6022b3f0942e7b9dc2207",
+      "projects": 9
+    },
+    {
+      "name": "XGM2_pause",
+      "size": 170,
+      "anchor": "48e7203e48780000",
+      "hash": "e1c024c95eec84794f857d2c628a250a",
+      "projects": 9
+    },
+    {
+      "name": "XGM2_play",
+      "size": 22,
+      "anchor": "2f2f00044eb90000",
+      "hash": "ee51e8a08866b5b240cd233cf4df2341",
+      "projects": 6
+    },
+    {
+      "name": "XGM2_playPCMEx",
+      "size": 772,
+      "anchor": "518f48e73f3e262f",
+      "hash": "5bf4974655a83a8962015d2529e6bdbc",
+      "projects": 7
+    },
+    {
+      "name": "XGM2_playTrack",
+      "size": 404,
+      "anchor": "48e7383e262f0024",
+      "hash": "eaaf9574be49cf8692c2400dac22445d",
+      "projects": 6
+    },
+    {
+      "name": "XGM2_resume",
+      "size": 256,
+      "anchor": "48e7203e48780000",
+      "hash": "45528575e97094f1128a297611bef4d9",
+      "projects": 2
+    },
+    {
+      "name": "XGM2_setFMVolume",
+      "size": 44,
+      "anchor": "2f02242f00084878",
+      "hash": "47dcaa071340f2ab44dca92cf1bec967",
+      "projects": 3
+    },
+    {
+      "name": "XGM2_setPSGVolume",
+      "size": 44,
+      "anchor": "2f02242f00084878",
+      "hash": "47dcaa071340f2ab44dca92cf1bec967",
+      "projects": 3
+    },
+    {
+      "name": "XGM2_stop",
+      "size": 190,
+      "anchor": "48e7203e48780000",
+      "hash": "7f85ef650585061691852f6f555e4b81",
+      "projects": 9
+    },
+    {
+      "name": "XGM2_stopPCM",
+      "size": 28,
+      "anchor": "42a742a748780000",
+      "hash": "91a093733645dd3e0bc3afc178d0d906",
+      "projects": 7
+    },
+    {
+      "name": "XGM2_unloadDriver",
+      "size": 12,
+      "anchor": "42a74eb900000000",
+      "hash": "83b3070be0e82ce6c916e22cdd16c3cb",
+      "projects": 9
+    },
+    {
+      "name": "XGM_doVBlankProcess",
+      "size": 94,
+      "anchor": "2f032f0234390000",
+      "hash": "e41c0150d849d640447b9bfe995c5cd7",
+      "projects": 9
+    },
+    {
+      "name": "XGM_loadDriver",
+      "size": 656,
+      "anchor": "48e72030142f0013",
+      "hash": "1859f75bb2b5c79f81a83772845a23b3",
+      "projects": 9
+    },
+    {
+      "name": "XGM_unloadDriver",
+      "size": 28,
+      "anchor": "3039000000000240",
+      "hash": "b0051db5754aa098bdfe355aaa750a68",
+      "projects": 9
+    },
+    {
+      "name": "YM2612_reset",
+      "size": 986,
+      "anchor": "48e73f0048780000",
+      "hash": "80cca6e2eaa3a1767c82a3f7da7f27dc",
+      "projects": 6
+    },
+    {
+      "name": "Z80_clear",
+      "size": 110,
+      "anchor": "2f024eb900000000",
+      "hash": "136cd3c5f80c50ef5b9fb08694548184",
+      "projects": 9
+    },
+    {
+      "name": "Z80_disableBusProtection",
+      "size": 104,
+      "anchor": "2f02343900000000",
+      "hash": "6629e9d07dd2863ce329d8355fc24a37",
+      "projects": 9
+    },
+    {
+      "name": "Z80_enableBusProtection",
+      "size": 104,
+      "anchor": "2f02343900000000",
+      "hash": "c9783ba96c251c544bb377aef61d55bf",
+      "projects": 9
+    },
+    {
+      "name": "Z80_getAndRequestBus",
+      "size": 54,
+      "anchor": "122f0007207c00a1",
+      "hash": "c0f369bc52e517fea649d55a05d77114",
+      "projects": 9
+    },
+    {
+      "name": "Z80_getForceDelayDMA",
+      "size": 12,
+      "anchor": "1039000000000200",
+      "hash": "c18cf579c8a73b46a513ba5233b61fb9",
+      "projects": 9
+    },
+    {
+      "name": "Z80_init",
+      "size": 104,
+      "anchor": "33fc010000000000",
+      "hash": "061a697bfa603f160af5df0335c6936e",
+      "projects": 9
+    },
+    {
+      "name": "Z80_isBusTaken",
+      "size": 18,
+      "anchor": "303900000000e048",
+      "hash": "d1523f5e039220941efa3a38b3f27282",
+      "projects": 9
+    },
+    {
+      "name": "Z80_isDriverReady",
+      "size": 92,
+      "anchor": "2f024eb900000000",
+      "hash": "a032bdde1a45def8b57e652ab5e4987d",
+      "projects": 9
+    },
+    {
+      "name": "Z80_loadDriver",
+      "size": 284,
+      "anchor": "48e73800242f0010",
+      "hash": "6375a736a0178c0afa43ceab9043eb5d",
+      "projects": 9
+    },
+    {
+      "name": "Z80_loadDriverInternal",
+      "size": 122,
+      "anchor": "48e72030266f0010",
+      "hash": "405c534fefb0ab6da0a80d86c95b14f7",
+      "projects": 9
+    },
+    {
+      "name": "Z80_requestBus",
+      "size": 38,
+      "anchor": "102f000733fc0100",
+      "hash": "71e7027fed09de1a3f6cf4137b62b211",
+      "projects": 9
+    },
+    {
+      "name": "Z80_upload",
+      "size": 170,
+      "anchor": "48e73830246f001c",
+      "hash": "259e7c776ed3a938c80f68fb8a6c620c",
+      "projects": 9
+    },
+    {
+      "name": "_EXTINT",
+      "size": 18,
+      "anchor": "48e7c0c020790000",
+      "hash": "dcd5a83c46b882fb96be57119e2ce778",
+      "projects": 9
+    },
+    {
+      "name": "_INT",
+      "size": 18,
+      "anchor": "48e7c0c020790000",
+      "hash": "dcd5a83c46b882fb96be57119e2ce778",
+      "projects": 9
+    },
+    {
+      "name": "_VINT",
+      "size": 34,
+      "anchor": "0817000566004a79",
+      "hash": "60289f19cb10a197c1ed44fdafd92832",
+      "projects": 9
+    },
+    {
+      "name": "__udivsi3",
+      "size": 40,
+      "anchor": "2f02222f000c202f",
+      "hash": "2fd1c704247140d58be84be4a8e1ff0a",
+      "projects": 9
+    },
+    {
+      "name": "__udivsi3_internal",
+      "size": 40,
+      "anchor": "2f02222f000c202f",
+      "hash": "2fd1c704247140d58be84be4a8e1ff0a",
+      "projects": 9
+    },
+    {
+      "name": "_reset_entry",
+      "size": 30,
+      "anchor": "2f0a4eb900000000",
+      "hash": "8feb62da7a838b6382a34aa7b1937c19",
+      "projects": 9
+    },
+    {
+      "name": "_start_entry",
+      "size": 250,
+      "anchor": "2f0a2f02203ce0ff",
+      "hash": "6ac370a6ef01930b7844039dfab27c63",
+      "projects": 4
+    },
+    {
+      "name": "_trap_0",
+      "size": 36,
+      "anchor": "23c80000000041f9",
+      "hash": "2d22901d01a01ec140741d0eb17af55b",
+      "projects": 9
+    },
+    {
+      "name": "addFrameLoad",
+      "size": 172,
+      "anchor": "48e73020222f0010",
+      "hash": "e62f272f472f9548a8b3ff521a7a74fe",
+      "projects": 9
+    },
+    {
+      "name": "brandApplyForgeLight",
+      "size": 190,
+      "anchor": "48e73f3e202f0030",
+      "hash": "8207528a36f900937e916d9488d08594",
+      "projects": 3
+    },
+    {
+      "name": "brandHammerSetFrame",
+      "size": 218,
+      "anchor": "48e73c00282f0014",
+      "hash": "200f268acf1f932c9d299b4f062de781",
+      "projects": 3
+    },
+    {
+      "name": "brandRevealWall",
+      "size": 432,
+      "anchor": "1039000000000c00",
+      "hash": "ea1cf83bbf11692b06920560424ac93c",
+      "projects": 3
+    },
+    {
+      "name": "divs",
+      "size": 12,
+      "anchor": "202f0004222f0008",
+      "hash": "24c1a965067daced42b7fe4914537080",
+      "projects": 3
+    },
+    {
+      "name": "divu",
+      "size": 12,
+      "anchor": "202f0004222f0008",
+      "hash": "f5ade96d6621e30e6a42fd16c7629655",
+      "projects": 9
+    },
+    {
+      "name": "externalIntCB",
+      "size": 232,
+      "anchor": "48e7380034390000",
+      "hash": "dc8249a99b0ae2f514dedba97210451c",
+      "projects": 9
+    },
+    {
+      "name": "getAdjustedVCounterInternal",
+      "size": 102,
+      "anchor": "2f032f02202f0010",
+      "hash": "0251364d4badd984c98e8f87c8d8ade4",
+      "projects": 9
+    },
+    {
+      "name": "getSubTick",
+      "size": 118,
+      "anchor": "2f032f0224390000",
+      "hash": "213a0949d7eb0351b785cad28856f54b",
+      "projects": 2
+    },
+    {
+      "name": "getTick",
+      "size": 38,
+      "anchor": "3039000000002239",
+      "hash": "c195b1a5c20d08ff24b015836de3676f",
+      "projects": 9
+    },
+    {
+      "name": "i_ldiv",
+      "size": 16,
+      "anchor": "4a8166000000203c",
+      "hash": "7ed62279fc9bb879e62e4504a5e24b0b",
+      "projects": 9
+    },
+    {
+      "name": "i_lmul",
+      "size": 28,
+      "anchor": "24433401c4c02601",
+      "hash": "975d1148057e33b7174178a31bd7862c",
+      "projects": 9
+    },
+    {
+      "name": "intToStr",
+      "size": 1548,
+      "anchor": "4feffff048e73c22",
+      "hash": "235c8f2d9213030bc11c2765a62a93b9",
+      "projects": 2
+    },
+    {
+      "name": "internal_reset",
+      "size": 232,
+      "anchor": "4eb90000000023fc",
+      "hash": "fd333eca00968a7781eb32a542564997",
+      "projects": 9
+    },
+    {
+      "name": "ldivu",
+      "size": 14,
+      "anchor": "202f0004222f0008",
+      "hash": "433c7eb559295eeaa116f6bc3fa303bc",
+      "projects": 9
+    },
+    {
+      "name": "lmulu",
+      "size": 14,
+      "anchor": "202f0004222f0008",
+      "hash": "433c7eb559295eeaa116f6bc3fa303bc",
+      "projects": 9
+    },
+    {
+      "name": "lremu",
+      "size": 16,
+      "anchor": "202f0004222f0008",
+      "hash": "1c1260b53c734d75c3a3d2ec320f5192",
+      "projects": 9
+    },
+    {
+      "name": "ltuns",
+      "size": 16,
+      "anchor": "e289e28a66000000",
+      "hash": "572845aeba58a62dbf3ecec0cd17b4d0",
+      "projects": 9
+    },
+    {
+      "name": "lz4w_unpack_a",
+      "size": 26,
+      "anchor": "48e7007847fa0000",
+      "hash": "45404d10570cc1c948cddda181183af6",
+      "projects": 9
+    },
+    {
+      "name": "main",
+      "size": 72,
+      "anchor": "48e7003e7000102f",
+      "hash": "c1a5f14659f9b33d0a5ffbf31c486917",
+      "projects": 3
+    },
+    {
+      "name": "memcpy",
+      "size": 16,
+      "anchor": "7000302f000e2f40",
+      "hash": "4a99a27d83fc83067673c32cc885ae90",
+      "projects": 9
+    },
+    {
+      "name": "memcpy_",
+      "size": 164,
+      "anchor": "302f000e6700226f",
+      "hash": "a78fa538d4f21f10728f00195e0c8460",
+      "projects": 9
+    },
+    {
+      "name": "memset",
+      "size": 26,
+      "anchor": "7000302f000e2f40",
+      "hash": "f2be9191eb743869f758daa23e521e0a",
+      "projects": 9
+    },
+    {
+      "name": "memsetU16",
+      "size": 94,
+      "anchor": "302f000e6700206f",
+      "hash": "f67ead5681c68b1e7e9a97ac07b89c9e",
+      "projects": 9
+    },
+    {
+      "name": "memset_",
+      "size": 120,
+      "anchor": "302f000e6700206f",
+      "hash": "e5387ab19f086fef8b92a8efe71a0473",
+      "projects": 9
+    },
+    {
+      "name": "no_bmp_task",
+      "size": 22,
+      "anchor": "2079000000004e90",
+      "hash": "d163e537bd83d828de6af1b2e7c0c059",
+      "projects": 9
+    },
+    {
+      "name": "norm",
+      "size": 16,
+      "anchor": "0c81000000016600",
+      "hash": "4958c08c36d2d8bb4a8b8b9797a1e6e3",
+      "projects": 9
+    },
+    {
+      "name": "not1",
+      "size": 26,
+      "anchor": "0c80000000006200",
+      "hash": "4734fc20e0357cf8f40fdf87b0daa503",
+      "projects": 9
+    },
+    {
+      "name": "nz1",
+      "size": 20,
+      "anchor": "2443b08162000000",
+      "hash": "51249a95ad3d57f7a0fbe9334aefe7a9",
+      "projects": 9
+    },
+    {
+      "name": "prepareTileMapDataColumnEx",
+      "size": 276,
+      "anchor": "48e73f3c206f002c",
+      "hash": "1167f80857a7638a766c251dfd0a807d",
+      "projects": 7
+    },
+    {
+      "name": "random",
+      "size": 38,
+      "anchor": "2f02323900000000",
+      "hash": "dc87a0e454ea4f3546695f9800ef01c1",
+      "projects": 2
+    },
+    {
+      "name": "read6Btn",
+      "size": 204,
+      "anchor": "48e738207000302f",
+      "hash": "a46a81a645d3ea896f35052ce3fa0a6e",
+      "projects": 9
+    },
+    {
+      "name": "readLightgun",
+      "size": 1164,
+      "anchor": "48e73830242f0018",
+      "hash": "21e4a845fe41e550f5ae3b9942d05c7e",
+      "projects": 9
+    },
+    {
+      "name": "readMouse",
+      "size": 1058,
+      "anchor": "4feffff448e73f38",
+      "hash": "146f820e73de89faa6ae957b3000efb0",
+      "projects": 9
+    },
+    {
+      "name": "readTeamPlayer",
+      "size": 1792,
+      "anchor": "4fefffe048e73f3e",
+      "hash": "a2946716f9bccd707d06473ff0a77b80",
+      "projects": 9
+    },
+    {
+      "name": "readTrackball",
+      "size": 462,
+      "anchor": "48e73e207400342f",
+      "hash": "9388c9a96fc79d2ea3958172b57d777c",
+      "projects": 9
+    },
+    {
+      "name": "setFMVolume",
+      "size": 198,
+      "anchor": "48e7383e262f0024",
+      "hash": "db1c2b2e17a4a5c2c058720ed5086f5f",
+      "projects": 9
+    },
+    {
+      "name": "setLoopNumber",
+      "size": 134,
+      "anchor": "48e7303e262f0020",
+      "hash": "320e7a87daf1e0245fdab98b4cdbba81",
+      "projects": 9
+    },
+    {
+      "name": "setMusicTempo",
+      "size": 192,
+      "anchor": "48e7303e202f0020",
+      "hash": "0b87260a7edf78cbec86c68bddbe4b6b",
+      "projects": 9
+    },
+    {
+      "name": "setNextXFrame",
+      "size": 102,
+      "anchor": "2f032f02242f000c",
+      "hash": "b19f9d8a57e7b31109b924540678fcff",
+      "projects": 9
+    },
+    {
+      "name": "setPSGVolume",
+      "size": 198,
+      "anchor": "48e7383e262f0024",
+      "hash": "14d7c1a80d9cb0b2cd84478c9629b1de",
+      "projects": 9
+    },
+    {
+      "name": "setRandomSeed",
+      "size": 24,
+      "anchor": "302f00060a40d94b",
+      "hash": "9aab8395f68fa0c536ae1dd5e5456083",
+      "projects": 9
+    },
+    {
+      "name": "setTileMapDataColumn",
+      "size": 802,
+      "anchor": "48e73f3e2a2f0030",
+      "hash": "5a89fb9ab70f11c9e74759c8dbe93b61",
+      "projects": 6
+    },
+    {
+      "name": "setTileMapDataColumnEx",
+      "size": 544,
+      "anchor": "48e73f3c2e2f002c",
+      "hash": "6da8786dd780b50e5eab067fb568d026",
+      "projects": 7
+    },
+    {
+      "name": "setTileMapDataRowEx",
+      "size": 482,
+      "anchor": "48e73f30246f0028",
+      "hash": "6e66765eca069e50282ba97164ad544f",
+      "projects": 9
+    },
+    {
+      "name": "slow",
+      "size": 44,
+      "anchor": "0c81000000006200",
+      "hash": "91809baa35f1fb7ca76b3a68f1e17c64",
+      "projects": 9
+    },
+    {
+      "name": "sortSprite.isra.0",
+      "size": 326,
+      "anchor": "2f0b2f0a226f000c",
+      "hash": "175704496920f9196ee41fd928693217",
+      "projects": 6
+    },
+    {
+      "name": "sprintf",
+      "size": 30,
+      "anchor": "4e560000486e0010",
+      "hash": "bf07b2132b6a3d0c32108eab78bd93b9",
+      "projects": 9
+    },
+    {
+      "name": "strcat",
+      "size": 28,
+      "anchor": "2f0a202f0008246f",
+      "hash": "cf428229f5d12ad067519fc20ca940f5",
+      "projects": 2
+    },
+    {
+      "name": "strlen",
+      "size": 18,
+      "anchor": "222f000420414a18",
+      "hash": "c79cf58019b092e862cfffec400369a0",
+      "projects": 9
+    },
+    {
+      "name": "uint16ToStr",
+      "size": 722,
+      "anchor": "48e73830222f0018",
+      "hash": "6d1be90c8a6c605acd504e342778ac28",
+      "projects": 3
+    },
+    {
+      "name": "uintToStr",
+      "size": 862,
+      "anchor": "4feffff048e73c32",
+      "hash": "1f4cb772c6eac3c39a1310e74dc74ea2",
+      "projects": 2
+    },
+    {
+      "name": "unpack",
+      "size": 56,
+      "anchor": "222f0008206f000c",
+      "hash": "42ae551fd85e68cc87f63507e82f7587",
+      "projects": 9
+    },
+    {
+      "name": "unpackTileMap",
+      "size": 182,
+      "anchor": "48e72030266f0010",
+      "hash": "af71a70a9ab8230bd6dab8d353e2681d",
+      "projects": 7
+    },
+    {
+      "name": "unpackTileSet",
+      "size": 162,
+      "anchor": "2f0b2f0a266f000c",
+      "hash": "a74844a5752912ddd46f76f21765391e",
+      "projects": 9
+    },
+    {
+      "name": "updateFrame",
+      "size": 190,
+      "anchor": "48e73830246f0018",
+      "hash": "f6c7f213703ba1597b46c3d3c6c72fe9",
+      "projects": 9
+    },
+    {
+      "name": "updateUserTileMaxIndex",
+      "size": 26,
+      "anchor": "303900000000ea48",
+      "hash": "a5c09c0a9aa94abfc09526231d98ee5f",
+      "projects": 9
+    },
+    {
+      "name": "userYield",
+      "size": 42,
+      "anchor": "40c046fc27003f00",
+      "hash": "8fae9426db14a9e93b1181ffb788e21d",
+      "projects": 9
+    },
+    {
+      "name": "waitMs",
+      "size": 162,
+      "anchor": "2f032f02202f000c",
+      "hash": "9f6a529bb900507ea9432b344d71d3ba",
+      "projects": 9
+    },
+    {
+      "name": "waitSubTick",
+      "size": 98,
+      "anchor": "2f02242f00080c82",
+      "hash": "d0097604e525496d3c4021c033975671",
+      "projects": 9
+    },
+    {
+      "name": "waitSubTick.part.0",
+      "size": 268,
+      "anchor": "48e73e3024390000",
+      "hash": "65c7acd07d819cd06ddf612280671d69",
+      "projects": 9
+    },
+    {
+      "name": "waitTick",
+      "size": 298,
+      "anchor": "48e73020262f0010",
+      "hash": "07609e0dbf14fb99c045264f469c5940",
+      "projects": 9
+    }
+  ],
+  "unstable": [
+    "APP_boot",
+    "AUDIO_playCue",
+    "CLEAR_VDP",
+    "FUNCAO_ANIMACAO",
+    "FUNCAO_CHECK_GUARD",
+    "FUNCAO_DEBUG",
+    "FUNCAO_DEPTH",
+    "FUNCAO_FSM",
+    "FUNCAO_FSM_NORMAL_ATTACKS",
+    "FUNCAO_INICIALIZACAO",
+    "FUNCAO_PHYSICS",
+    "FUNCAO_SPR_POSITION",
+    "MDRuntimeProbe_shouldHoldScene",
+    "MDRuntimeProbe_tick",
+    "MEM_init",
+    "PAL_doFadeStep",
+    "PAL_initFade",
+    "SCENE_brandingUpdate",
+    "SCENE_brandingV2Update",
+    "VDP_resetSprites",
+    "brandResetScreen",
+    "brandSetPhase",
+    "brandSparkUpdate",
+    "enter",
+    "exit",
+    "reset_scene_metrics",
+    "reset_scene_metrics.part.0",
+    "update"
+  ]
+}
