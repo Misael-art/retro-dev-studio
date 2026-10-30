@@ -7010,6 +7010,28 @@ async function runImageIngressScenario(sessionId, timeoutMs, onProjectCreated) {
     await ready(6);await shot("native-html-fallback");await escape();await stop();
     if(JSON.stringify(await disk())!==beforeNativeFallback)fail("Cancelling native HTML fallback altered the scene.");
     addReportStep(report,"native_html_original_recovers_six_frames_with_empty_webkit_transfer_fixture","passed",{frames:6,gesture:"synthetic empty DataTransfer; actual GTK OS HTML+PNG clipboard"});
+    const colorReference=process.env.RDS_IMAGE_COLOR_REFERENCE;
+    if(colorReference){
+      await setSessionWindowRect(sessionId,1440,900);
+      await produce("url",pathToFileURL(colorReference).href);await js("document.activeElement?.blur?.();return true;");await chord("v");await ready(1);await click("image-ingress-background");await inserted(2);await stop();
+      const colorScene=await disk(),bg=colorScene.entities.find(e=>e.components.tilemap);
+      const art=JSON.parse(await readFile(path.join(project,bg.components.tilemap.tileset.replace(/\.png$/,".rdspixel.json")),"utf8"));
+      const pixels=Buffer.from(art.frames[0].cels[0],"base64"),levels=[0,36,73,109,146,182,219,255],samples=[];
+      for(let i=23;i<pixels.length&&samples.length<32;i+=997){const x=i%art.width,y=Math.floor(i/art.width);if(x<10||x>=art.width-10||y<24||y>=art.height-10||pixels[i]===0)continue;if(colorScene.entities.some(e=>e.components.sprite&&x+bg.transform.x>=e.transform.x-2&&x+bg.transform.x<=e.transform.x+e.components.sprite.frame_width+2&&y+bg.transform.y>=e.transform.y-2&&y+bg.transform.y<=e.transform.y+e.components.sprite.frame_height+2))continue;samples.push({x:x+bg.transform.x,y:y+bg.transform.y,rgb:art.palettes[0][pixels[i]].map(c=>levels[c])});}
+      if(samples.length<8)fail("Too few opaque background samples for a meaningful color comparison.");
+      const bounds=(await state()).activeScene.worldBounds;
+      const sourcePixels=()=>js(`const c=document.querySelector('[data-testid="viewport-scene-canvas"]'),ctx=c?.getContext('2d');if(!ctx)return null;return arguments[0].map(p=>{const rgba=ctx.getImageData(p.x-arguments[1],p.y-arguments[2],1,1).data;return {expected:p.rgb,actual:Array.from(rgba).slice(0,3)};});`,[samples,bounds.minX,bounds.minY]);
+      const sampled=await waitFor(async()=>{const v=await sourcePixels();return v?.every(p=>p.expected.every((c,i)=>c===p.actual[i]))?v:false;},15000,"Scene did not render native indexed PNG colors exactly.",150);
+      const interior=()=>js(`const base=document.querySelector('[data-testid="viewport-scene-canvas"]'),c=document.querySelector('[data-testid="viewport-scene-overlay"]'),ctx=c.getContext('2d'),sx=c.width/base.width,sy=c.height/base.height;const data=ctx.getImageData(Math.round((arguments[0]-arguments[4]+20)*sx),Math.round((arguments[1]-arguments[5]+24)*sy),Math.floor((arguments[2]-40)*sx),Math.floor((arguments[3]-40)*sy)).data;let hash=2166136261,alpha=0;for(let i=0;i<data.length;i++){hash=Math.imul(hash^data[i],16777619);if(i%4===3)alpha+=data[i];}return {hash:hash>>>0,alpha,bytes:data.length};`,[bg.transform.x,bg.transform.y,art.width,art.height,bounds.minX,bounds.minY]);
+      await waitFor(async()=>(await state()).selectedEntityId===bg.entity_id,5000,"Imported background was not selected.",150);
+      const selected=await interior();await shot("reference-selected");await callAutomationApi(sessionId,"setSelectedEntityId",[null]);await new Promise(r=>setTimeout(r,200));const unselected=await interior();
+      if(JSON.stringify(selected)!==JSON.stringify(unselected))fail("Selecting the background recolored its interior.");
+      await shot("reference-unselected");addReportStep(report,"reference_background_colors_match_png_and_selection_preserves_interior","passed",{samples:sampled,selected,unselected,used_colors:new Set(pixels).size-1});
+      await closeVisibleConsoleDrawer(sessionId,"antes do build de fidelidade de cores");const colorBuild=await runBuildRunAndCollect(sessionId,"color-fidelity",timeoutMs,report,prefix,{nativeClick:true});
+      const coreColors=await js(`const ctx=document.querySelector('[data-testid="viewport-game-canvas"]').getContext('2d');return arguments[0].map(p=>({expected:p.rgb,actual:Array.from(ctx.getImageData(p.x,p.y,1,1).data).slice(0,3)}));`,[samples]);
+      if(!coreColors.every(p=>p.expected.every((c,i)=>Math.abs(c-p.actual[i])<=36)))fail("Compiled background palette differs from authoring beyond one hardware color level.");
+      addReportStep(report,"reference_background_build_rom_core_palette","passed",{...colorBuild,samples:coreColors,tolerance_per_channel:36});await callAutomationApi(sessionId,"stopEmulator");
+    }
     report.status="passed";
   } catch(error) {report.status="failed";report.error=String(error);report.last_state=await state().catch(()=>null);report.last_ui=await js(`return {frames:document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length,pixelStatus:document.querySelector('[data-testid="pixel-status"]')?.textContent,dialog:document.querySelector('[role="dialog"]')?.textContent,clipboard:window.__RDS_IMAGE_PASTE_PROBE__};`).catch(()=>null);await shot("failure").catch(()=>null);}
   finally { await stop(); }

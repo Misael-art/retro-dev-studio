@@ -3101,10 +3101,8 @@ export default function ViewportPanel({
           context.font = "10px monospace";
           context.fillText(`TM ${entityDisplayLabel(entity)}`.slice(0, 22), x + 6, y + 14);
         }
-        if (isSelected || isDensePreview || isSoloFocus) {
-          context.fillStyle = "rgba(148,226,213,0.16)";
-          context.fillRect(x, y, width, height);
-        }
+        // Selection/focus is drawn by the outline. A fill changes the perceived
+        // colors of imported artwork and makes palette conversion look broken.
         return;
       }
 

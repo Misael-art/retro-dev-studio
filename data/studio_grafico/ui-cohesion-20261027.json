@@ -3368,7 +3368,7 @@
     "code_commit": "1e849549d0628fc0ba09930ae13840ef281a20ce",
     "binary_sha256": "821d172a20fcef93b9b422678148481f21391d1417aa8092e640ecd7c6d3c318"
   },
-  "latest_checkpoint": "image_ingress_20261030",
+  "latest_checkpoint": "image_color_fidelity_20261030",
   "last_updated_at": "2026-10-30T05:45:39.772786+00:00",
   "product_diagnosis_20261028": {
     "schema": "retrodev.product_diagnosis/v1",
@@ -7653,5 +7653,74 @@
     "broader_ui_complete": false,
     "human_acceptance": false,
     "next_step": "Human exercise of CtrlV/drop/image picker,role,palette overflow,frames/background/original/save/build and physical Wayland clipboard;preserve canonical owners and private evidence;no merge/release/deploy"
+  },
+  "image_color_fidelity_20261030": {
+    "status": "implementation_pending_rust_quality_and_native_validation",
+    "maturity": "Experimental",
+    "base_commit": "d0009cb81d2ed84c6a051197c4bdb69386891d9a",
+    "runtime_evidence": "sessions/image-color-fidelity-20261030",
+    "current_operator_binary_sha256": "821d172a20fcef93b9b422678148481f21391d1417aa8092e640ecd7c6d3c318",
+    "shortcut_updated": false,
+    "causes": [
+      "Selected/focused tilemap overlay tinted artwork green at alpha0.16.",
+      "Pixel median-cut followed by MD projection/deduplication could waste visible palette positions."
+    ],
+    "proposed_changes": [
+      "Keep tilemap selection/focus outline without interior fill.",
+      "Deterministic frequency-weighted hardware-bin quantization, bounded refinement and duplicate replacement over canonical Photo2SGDK path."
+    ],
+    "validation": {
+      "host_diagnose": "READY;fresh",
+      "lint": "PASS",
+      "typescript": "PASS",
+      "tree": "PASS",
+      "rustfmt": "PASS",
+      "runner_syntax": "PASS",
+      "diff_check": "PASS",
+      "rust_tests": "NOT RUN",
+      "private_color_quality_gate": "NOT RUN;requires explicit --ignored and operator reference envs",
+      "native_ingress_color_and_core": "NOT RUN",
+      "certification": "NOT RUN for these changes",
+      "static_checks_scope": "Preliminary direct Node26.8.1 checks;not managed Node24.18.0 gates or certification. Cargo fmt uses pinned toolchain."
+    },
+    "frozen_acceptance": [
+      "Compared to preserved original at same dimensions, new RGB squared error must be lower than prior PNG.",
+      "At least8 opaque background samples must match native document RGB exactly in scene base canvas.",
+      "Selected and unselected overlay interior bytes must match.",
+      "Compiled ROM/core samples may differ by at most one MD hardware level per channel."
+    ],
+    "tests_added": {
+      "default_synthetic_rust": 2,
+      "explicit_private_reference_ignored": 1,
+      "canonical_native_extension": "RDS_IMAGE_COLOR_REFERENCE in existing image-ingress scenario"
+    },
+    "blocking_condition": {
+      "kind": "operator_app_holds_exclusive_development_lease",
+      "session": "2026-10-30T08-45-51-102Z-2985848",
+      "launcher_result": "EEXIST",
+      "action_requested": "Operator saves and closes the app normally. Preserve live lock and operator process.",
+      "operator_project_written_by_agent": false
+    },
+    "limits": [
+      "No measured quality improvement or final native PASS yet.",
+      "15visiblecolors+alpha is the quick converter per-resource budget, not the full console screen limit.",
+      "Existing edited assets require explicit original reopen/save after new app is qualified.",
+      "Prior delivery gates do not qualify this pending patch;16broader journeys/human acceptance remain partial."
+    ],
+    "delivery_complete_for_local_increment": false,
+    "human_acceptance": false,
+    "next_command": "rtk proxy python /home/misael/Shared/ProjectRuntime/RetroDevStudio/sessions/image-color-fidelity-20261030/run-gates.py rust-colors rust-ingress color-reference clippy build",
+    "next_condition": "After normal operator app closure releases lease;check RAM/disk,run gates,inspect quality,freeze app,exercise native image-ingress reference path/regressions,certify,update/test shortcut and preserve evidence.",
+    "protection": {
+      "archive": "image-color-fidelity-20261030-proposed-checkpoint-092439.tar.gz",
+      "bytes": 1050855,
+      "sha256": "948b663fc2029795a843d66503a0466a9c4e9aa10226560441a18d4b4c36e58c",
+      "files_verified": 19,
+      "all_bytes_verified": true,
+      "manifest_sha256": "6488deab496ac14efe071078ae6adb0e1a5463e56471db1247207a1d99b5775c",
+      "same_filesystem": true,
+      "off_host_copy_qualified": false,
+      "owner": "operator"
+    }
   }
 }

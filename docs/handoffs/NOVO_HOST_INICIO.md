@@ -1,3 +1,9 @@
+### Fidelidade de cores — 2026-10-30 (em andamento, não entregue)
+
+Correção proposta sobre d0009cb8: seleção não tinge o cenário e quantização MD ponderada conserva posições úteis. Lint/tipos/árvore/fmt/sintaxe/diff PASS; Rust/medição/Tauri/ROM/core ainda pendentes. O operador mantém821d172a aberto pela sessão **2026-10-30T08-45-51-102Z-2985848**, bloqueando o launcher com EEXIST. Foi solicitado salvar/fechar normalmente; não remover lock vivo nem encerrar seu app. O atalho continua no app validado anterior. Índice **image_color_fidelity_20261030**, detalhes no topo do Memory Bank. Conferir recurso/lease ao retomar e executar `rtk proxy python /home/misael/Shared/ProjectRuntime/RetroDevStudio/sessions/image-color-fidelity-20261030/run-gates.py rust-colors rust-ingress color-reference clippy build`; depois congelar e validar roteiro image-ingress com referência, regressões pertinentes/certify/fmt/atalho. O teste privado de qualidade requer `--ignored` explícito e seus envs já estão na receita; não inferir PASS da suíte padrão. Não escrever no projeto do operador; original/edições permanecem seus.
+
+---
+
 ### Entrada rápida de imagens/GIF — 2026-10-30 (Experimental)
 
 Código **1e849549d0628fc0ba09930ae13840ef281a20ce**, app **821d172a20fcef93b9b422678148481f21391d1417aa8092e640ecd7c6d3c318**, PR#112; índice **image_ingress_20261030**, detalhes/limites no topo do Memory Bank. Ctrl+V/soltar/Imagem reutilizam Photo2SGDK, writer de pixels, histórico e plano de paletas: papel fundo/objeto e banco somente se necessário; quadros/tempos/original preservados, edição/fundo/Undo, nova cena/biblioteca e lógica. Sem novo motor/store/planner. Dependências/compatibilidade justificadas no Tech Stack.

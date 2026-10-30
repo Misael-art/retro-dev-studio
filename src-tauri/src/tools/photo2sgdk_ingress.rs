@@ -617,6 +617,60 @@ pub fn pixel_asset_authoring(
 mod tests {
     use super::*;
     #[test]
+    #[ignore = "operator-provided private color reference and output directory required"]
+    fn ingress_color_reference_quality_report() {
+        let source = std::env::var("RDS_COLOR_REFERENCE").expect("RDS_COLOR_REFERENCE");
+        let previous = std::env::var("RDS_COLOR_PREVIOUS").expect("RDS_COLOR_PREVIOUS");
+        let output = std::env::var("RDS_COLOR_OUTPUT").expect("RDS_COLOR_OUTPUT");
+        let (frames, delays, _) = decode_frames(&fs::read(source).unwrap()).unwrap();
+        let (doc, preview, _, _) =
+            convert_frames(&frames, &delays, "color_reference", "background", "keep").unwrap();
+        let converted = image::load_from_memory(&BASE64.decode(preview).unwrap())
+            .unwrap()
+            .into_rgba8();
+        let prior = image::open(previous).unwrap().into_rgba8();
+        assert_eq!(converted.dimensions(), prior.dimensions());
+        let scale = (320.0 / frames[0].width() as f64)
+            .min(224.0 / frames[0].height() as f64)
+            .min(1.0);
+        let w = (frames[0].width() as f64 * scale).round() as u32;
+        let h = (frames[0].height() as f64 * scale).round() as u32;
+        let reference =
+            image::imageops::resize(&frames[0], w, h, image::imageops::FilterType::Lanczos3);
+        let error = |image: &RgbaImage| -> u64 {
+            reference
+                .enumerate_pixels()
+                .map(|(x, y, p)| {
+                    (0..3)
+                        .map(|c| {
+                            let d = i64::from(p[c]) - i64::from(image.get_pixel(x, y)[c]);
+                            (d * d) as u64
+                        })
+                        .sum::<u64>()
+                })
+                .sum()
+        };
+        let before = error(&prior);
+        let after = error(&converted);
+        assert!(
+            after < before,
+            "color error must improve: before={before},after={after}"
+        );
+        fs::create_dir_all(&output).unwrap();
+        converted
+            .save(Path::new(&output).join("converted.png"))
+            .unwrap();
+        fs::write(Path::new(&output).join("converted.rdspixel.json"), doc).unwrap();
+        let report = serde_json::json!({"before_squared_rgb_error":before,"after_squared_rgb_error":after,"reduction_percent":100.0*(before-after) as f64/before as f64,"content_width":w,"content_height":h,"comparison":"same Lanczos resize, opaque content only, fixed MD 15-color budget"});
+        fs::write(
+            Path::new(&output).join("quality.json"),
+            serde_json::to_vec_pretty(&report).unwrap(),
+        )
+        .unwrap();
+        println!("{report}");
+    }
+
+    #[test]
     fn ingress_native_catalog_preserves_layout_without_any_scene_and_refuses_stale_documents() {
         let dir = std::env::temp_dir().join(format!(
             "rds-pixel-catalog-{}-{}",
