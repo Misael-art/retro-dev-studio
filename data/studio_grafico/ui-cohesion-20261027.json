@@ -7721,6 +7721,8 @@
       "same_filesystem": true,
       "off_host_copy_qualified": false,
       "owner": "operator"
-    }
+    },
+    "proposed_code_commit": "2f7fce16eaa861fbbb3077fddf1c70aee69952d6",
+    "source_and_runner_match_private_checkpoint": true
   }
 }
