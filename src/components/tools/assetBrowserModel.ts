@@ -116,6 +116,7 @@ function hasAnySegment(value: string, patterns: string[]): boolean {
 
 export function classifyAssetBrowserAsset(asset: ProjectAssetEntry): AssetBrowserClassification {
   const path = normalizeAssetPath(asset.relative_path);
+  if (path.endsWith(".rdspixel.json")) return {typeId:"source_art",typeLabel:"Documento de pixels",generated:false};
   const generated = hasAnySegment(path, [
     "/generated/",
     "/gen/",

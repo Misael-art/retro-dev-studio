@@ -943,6 +943,11 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
       );
       const entity = createEntityFromProjectAsset({ asset, target: activeTarget, projectSourceKind, scene: currentScene });
 
+      if (asset.sgdk_resource?.pixel_document && activeTarget === "megadrive") {
+        window.dispatchEvent(new CustomEvent("rds:use-pixel-asset",{detail:{document:asset.sgdk_resource.pixel_document,asset:asset.relative_path}}));
+        return;
+      }
+
       addEntity(entity);
       setSelectedEntityId(entity.entity_id);
       setActiveViewportTab("scene");

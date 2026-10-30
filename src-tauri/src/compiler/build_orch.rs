@@ -3986,6 +3986,7 @@ mod tests {
                     frames: vec![0],
                     frame_time: 10,
                     looping: true,
+                    frame_times: None,
                     mugen: None,
                 },
                 SpriteAnimation {
@@ -3993,6 +3994,7 @@ mod tests {
                     frames: vec![3, 1, 2],
                     frame_time: 5,
                     looping: true,
+                    frame_times: None,
                     mugen: None,
                 },
             ],
@@ -4045,6 +4047,7 @@ mod tests {
                     name: format!("action_{i}"),
                     frame_time: i + 1,
                     looping: true,
+                    frame_times: None,
                     mugen: None,
                     frames: if i == 0 {
                         (0..64).map(|f| f % 2).collect()
@@ -4159,6 +4162,7 @@ mod tests {
                     name: format!("a{i}"),
                     frame_time: 1,
                     looping: false,
+                    frame_times: None,
                     mugen: None,
                     frames: vec![0; 17],
                 })

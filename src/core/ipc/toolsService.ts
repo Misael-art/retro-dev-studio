@@ -49,6 +49,8 @@ export interface ImportedAssetResource {
   resource_name: string;
   resource_kind: string;
   sprite: SpriteComponent | null;
+  /** Existing catalog wire field also carries native pixel authoring metadata. */
+  pixel_document?: string;
   variants?: ImportedAssetResource[];
 }
 

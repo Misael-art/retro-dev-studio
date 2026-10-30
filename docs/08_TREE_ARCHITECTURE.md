@@ -88,11 +88,13 @@ RetroDevStudio/
 |   |   |-- tools/
 |   |   |-- artstudio/
 |   |   |   |-- ArtStudioPanel.tsx
+|   |   |   |-- ImageIngress.tsx (entrada única de imagens/GIF por colar, soltar e seletor; fluxo Experimental MD)
 |   |   |   |-- PixelEditor.tsx (editor de pixels indexado Mega Drive: ferramentas, CRAM 4x16, frames, layers)
 |   |   |   `-- useSpriteAnimator.ts
 |   |   `-- viewport/
 |   |-- core/
 |   |   |-- pixelEditor.ts (modelo do editor de pixels: ferramentas, limites VDP, PNG 4-bit, .rdspixel.json)
+|   |   |-- imageIngress.ts (transporte, publicação pelo writer de pixels e propostas pelo plano canônico de paletas)
 |   |   |-- ipc/
 |   |   |-- nodegraph/
 |   |   |   |-- nodeTypes.ts
@@ -145,6 +147,7 @@ RetroDevStudio/
 |       |   |-- dependency_manager.rs
 |       |   |-- patch_studio.rs
 |       |   |-- photo2sgdk.rs
+|       |   |-- photo2sgdk_ingress.rs (adaptador de entrada: originais por SHA, animações completas, limites e HTTPS; reutiliza Photo2SGDK)
 |       |   |-- reverse_explorer.rs
 |       |   `-- reverse/
 |       |       |-- annotations.rs
@@ -176,6 +179,7 @@ RetroDevStudio/
 |   |-- create-icon.mjs
 |   |-- diagnose-desktop-e2e.ps1
 |   |-- e2e-tauri-build-run.mjs
+|   |-- image-clipboard-fixture.py (produtor Linux de clipboard/arraste para QA nativo; não integra o runtime do aplicativo)
 |   |-- verify-mugen-real.py
 |   |-- verify-mugen-chain.py
 |   |-- license-inventory.mjs

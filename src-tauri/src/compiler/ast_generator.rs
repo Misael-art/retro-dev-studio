@@ -147,6 +147,8 @@ pub struct SpriteAnimation {
     pub name: String,
     pub frames: Vec<u32>,
     pub frame_time: u32,
+    /// Optional per-occurrence authoring times, in target frame ticks.
+    pub frame_times: Option<Vec<u32>>,
     pub looping: bool,
     /// Tabela de runtime MUGEN (perfil `mugen.character.v1`), quando a animacao veio de
     /// um AIR. `Err` = dados do modelo fora do que o runtime representa: bloqueia o build.
@@ -1014,6 +1016,16 @@ fn sprite_animations(project_fps: u32, sprite: &SpriteComponent) -> Vec<SpriteAn
             name: name.clone(),
             frames: normalized_frames(animation),
             frame_time: animation_frame_time(project_fps, animation.fps),
+            frame_times: if animation.mugen_frames.is_none() {
+                animation.frame_durations.as_ref().map(|times| {
+                    times
+                        .iter()
+                        .map(|time| u32::try_from(*time).unwrap_or(u32::MAX))
+                        .collect()
+                })
+            } else {
+                None
+            },
             looping: animation.looping,
             mugen: mugen_anim_table(sprite, animation),
         })

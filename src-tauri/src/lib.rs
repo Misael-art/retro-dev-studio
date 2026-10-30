@@ -2167,8 +2167,8 @@ fn write_pixel_art_asset(
     if !png.starts_with(&[137, 80, 78, 71, 13, 10, 26, 10]) {
         return Err("O conteudo enviado nao e um PNG.".to_string());
     }
-    serde_json::from_str::<serde_json::Value>(doc_json)
-        .map_err(|e| format!("Documento de pixels invalido: {e}"))?;
+    let document: serde_json::Value =
+        serde_json::from_str(doc_json).map_err(|e| format!("Documento de pixels invalido: {e}"))?;
     let stem: String = name
         .chars()
         .map(|c| {
@@ -2186,10 +2186,33 @@ fn write_pixel_art_asset(
     } else {
         stem
     };
-    let dir = project_dir.join("assets").join("sprites").join("pixel");
+    let category = if document["target"] == "plane" {
+        "tilesets"
+    } else {
+        "sprites"
+    };
+    let root = project_dir.canonicalize().map_err(|e| e.to_string())?;
+    let mut dir = root.clone();
+    for component in ["assets", category, "pixel"] {
+        dir.push(component);
+        if dir.exists()
+            && !dir
+                .canonicalize()
+                .map_err(|e| e.to_string())?
+                .starts_with(&root)
+        {
+            return Err("A pasta da imagem aponta para fora do projeto.".into());
+        }
+        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    }
     fs::create_dir_all(&dir).map_err(|e| format!("Falha ao criar '{}': {e}", dir.display()))?;
     let png_path = dir.join(format!("{stem}.png"));
     let doc_path = dir.join(format!("{stem}.rdspixel.json"));
+    if png_path.is_symlink() || doc_path.is_symlink() {
+        return Err(
+            "O destino da imagem é um link. Preserve o arquivo e escolha outro nome.".into(),
+        );
+    }
     let read_previous = |file: &Path| match fs::read(file) {
         Ok(bytes) => Ok(Some(bytes)),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -2234,21 +2257,37 @@ fn write_pixel_art_asset(
         });
     }
     Ok(SavedPixelArt {
-        png_relative: format!("assets/sprites/pixel/{stem}.png"),
-        doc_relative: format!("assets/sprites/pixel/{stem}.rdspixel.json"),
+        png_relative: format!("assets/{category}/pixel/{stem}.png"),
+        doc_relative: format!("assets/{category}/pixel/{stem}.rdspixel.json"),
         png_absolute: png_path.to_string_lossy().to_string(),
     })
 }
 
 #[tauri::command]
 fn load_pixel_art_doc(project_dir: String, doc_relative: String) -> Result<String, String> {
-    if !doc_relative.starts_with("assets/sprites/pixel/")
+    if !(doc_relative.starts_with("assets/sprites/pixel/")
+        || doc_relative.starts_with("assets/tilesets/pixel/"))
         || doc_relative.contains("..")
         || !doc_relative.ends_with(".rdspixel.json")
     {
         return Err("Caminho de documento de pixel art invalido.".to_string());
     }
-    fs::read_to_string(Path::new(&project_dir).join(&doc_relative)).map_err(|e| e.to_string())
+    let root = Path::new(&project_dir)
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    let file = root
+        .join(&doc_relative)
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    if !file.starts_with(&root) {
+        return Err("O documento aponta para fora do projeto.".into());
+    }
+    if file.metadata().map_err(|e| e.to_string())?.len() > 20 * 1024 * 1024 {
+        return Err(
+            "O documento de pixels excede 20 MB. Preserve os arquivos e reabra o original.".into(),
+        );
+    }
+    fs::read_to_string(file).map_err(|e| e.to_string())
 }
 
 /// Catalogo dos sprites do jogo SGDK (quadro declarado no `.res` e pontos do C que os usam).
@@ -3400,7 +3439,14 @@ fn list_project_assets(project_dir: String) -> Result<Vec<ProjectAssetEntry>, St
     collect_project_assets(&assets_dir, &assets_dir, &mut entries)?;
     let catalog = core::project_mgr::sgdk_asset_authoring(Path::new(trimmed));
     for entry in &mut entries {
-        entry.sgdk_resource = catalog.get(&entry.relative_path).cloned();
+        entry.sgdk_resource = catalog.get(&entry.relative_path).cloned().or_else(|| {
+            tools::photo2sgdk::ingress::pixel_asset_authoring(
+                Path::new(trimmed),
+                &entry.relative_path,
+                entry.image_width,
+                entry.image_height,
+            )
+        });
     }
     entries.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
     Ok(entries)
@@ -6576,6 +6622,8 @@ pub fn run() {
             // Photo2SGDK
             tools::photo2sgdk::art_process_palette,
             tools::photo2sgdk::import_art_asset,
+            tools::photo2sgdk::ingress::art_ingest_input,
+            tools::photo2sgdk::ingress::art_ingest_clipboard,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -9323,6 +9371,48 @@ pub extern "C" fn retro_run() {
             "{}"
         );
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn pixel_plane_document_uses_the_tileset_folder_and_reopens() {
+        let dir = temp_dir("pixel-plane-save");
+        fs::write(dir.join("project.rds"), "{}").unwrap();
+        let png = [137u8, 80, 78, 71, 13, 10, 26, 10, 0];
+        let saved =
+            write_pixel_art_asset(&dir, "landscape", &png, r#"{"target":"plane"}"#).unwrap();
+        assert_eq!(saved.png_relative, "assets/tilesets/pixel/landscape.png");
+        assert_eq!(
+            load_pixel_art_doc(dir.to_string_lossy().into(), saved.doc_relative).unwrap(),
+            r#"{"target":"plane"}"#
+        );
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn pixel_document_symlink_cannot_read_or_replace_an_outside_file() {
+        let (dir, outside) = (temp_dir("pixel-symlink"), temp_dir("pixel-outside"));
+        fs::write(dir.join("project.rds"), "{}").unwrap();
+        fs::write(outside.join("document.json"), "preserve").unwrap();
+        fs::create_dir_all(dir.join("assets/tilesets/pixel")).unwrap();
+        std::os::unix::fs::symlink(
+            outside.join("document.json"),
+            dir.join("assets/tilesets/pixel/bg.rdspixel.json"),
+        )
+        .unwrap();
+        assert!(load_pixel_art_doc(
+            dir.to_string_lossy().into(),
+            "assets/tilesets/pixel/bg.rdspixel.json".into()
+        )
+        .is_err());
+        let png = [137u8, 80, 78, 71, 13, 10, 26, 10, 0];
+        assert!(write_pixel_art_asset(&dir, "bg", &png, r#"{"target":"plane"}"#).is_err());
+        assert_eq!(
+            fs::read_to_string(outside.join("document.json")).unwrap(),
+            "preserve"
+        );
+        fs::remove_dir_all(dir).unwrap();
+        fs::remove_dir_all(outside).unwrap();
     }
 
     #[test]

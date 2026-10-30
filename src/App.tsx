@@ -1,4 +1,5 @@
 import ProjectStartWizard from "./components/common/ProjectStartWizard";
+import ImageIngress from "./components/artstudio/ImageIngress";
 import Icon, { type IconName } from "./components/common/Icon";
 import StudioAppearancePicker from "./components/common/StudioAppearancePicker";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
@@ -4770,6 +4771,7 @@ export default function App() {
       data-shell-persona={shellPersona}
       className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--rds-surface-panel-strong)] text-[var(--rds-text-primary)]"
     >
+      <ImageIngress onWorkspaceSelect={handleWorkspaceSelect} />
       {showProjectWizard && <ProjectStartWizard
         activeProject={Boolean(activeProjectDir)} busy={creatingProject} loading={templatesLoading}
         name={newProjName} target={newProjTarget} templates={projectTemplates}
@@ -5154,6 +5156,9 @@ export default function App() {
               disabled={!emulatorLoaded || !activeProjectDir}
               title="Grava a tela atual do jogo (planos e sprites lidos do VDP) como cena do projeto"
             />
+            <ToolbarButton icon="studio-art" label="Imagem" testId="toolbar-add-image"
+              title="Adicionar imagem: cole com Ctrl+V ou solte uma imagem/GIF na cena"
+              disabled={!activeProjectDir} onClick={() => window.dispatchEvent(new Event("rds:choose-image"))} />
             {buildLiveIndicator && (
               <span
                 data-testid="build-live-state"

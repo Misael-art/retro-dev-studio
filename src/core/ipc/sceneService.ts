@@ -11,7 +11,7 @@ export interface AnimationDef {
   frames: number[];
   fps: number;
   loop: boolean;
-  /** Ticks de 1/60 s por quadro (-1 = parado). Fonte da ROM nas animacoes MUGEN. */
+  /** Ticks de 1/60 s por ocorrência na ROM Mega Drive; -1 = parado no perfil MUGEN. */
   frame_durations?: number[];
   loop_start?: number;
   /** Presente so nas animacoes importadas de MUGEN; `duration` espelha `frame_durations`. */

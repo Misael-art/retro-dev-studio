@@ -11,6 +11,9 @@ use std::fs::{self, File};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
+#[path = "photo2sgdk_ingress.rs"]
+pub mod ingress;
+
 /// Niveis RGB do Mega Drive (3 bits por canal = 8 niveis).
 const MD_LEVELS: [u8; 8] = [0, 36, 73, 109, 146, 182, 219, 255];
 

@@ -3,9 +3,12 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const saveMock = vi.fn();
+const loadMock = vi.fn();
+const prepareMock = vi.fn();
+vi.mock("../../core/imageIngress", () => ({prepareImage: (...args: unknown[]) => prepareMock(...args)}));
 vi.mock("../../core/ipc/artStudioService", () => ({
   savePixelArtAsset: (...args: unknown[]) => saveMock(...args),
-  loadPixelArtDoc: vi.fn(),
+  loadPixelArtDoc: (...args: unknown[]) => loadMock(...args),
 }));
 vi.mock("../../core/pixelEditor", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../core/pixelEditor")>();
@@ -14,6 +17,7 @@ vi.mock("../../core/pixelEditor", async (importOriginal) => {
 
 import PixelEditor from "./PixelEditor";
 import { useEditorStore } from "../../core/store/editorStore";
+import { createPixelDoc, serializePixelDoc } from "../../core/pixelEditor";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -25,6 +29,8 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   saveMock.mockReset();
+  loadMock.mockReset();
+  prepareMock.mockReset();
   useEditorStore.setState({ pixelEditorSessions: {} });
   HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as never;
   HTMLCanvasElement.prototype.setPointerCapture = vi.fn();
@@ -51,6 +57,40 @@ function render(projectDir: string | null = "/proj") {
 }
 
 describe("PixelEditor", () => {
+  it("does not publish a completed save into a different image context", async () => {
+    let finish!: (value: unknown) => void;
+    saveMock.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+    const {onSaved}=render();
+    await act(async()=>q("pixel-save").click());
+    expect(saveMock).toHaveBeenCalledOnce();
+    act(()=>root.render(<PixelEditor projectDir="/proj" source={{url:"",name:"another",sourcePath:"assets/sprites/another.png",frameWidth:32,frameHeight:32,frames:[0]}} log={vi.fn()} onSaved={onSaved}/>));
+    await act(async()=>finish({png_relative:"assets/sprites/pixel/old.png",png_absolute:"/proj/assets/sprites/pixel/old.png"}));
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+  it("reopens the preserved source with its background and allows returning to previous edits", async () => {
+    render();act(()=>q("pixel-frame-duplicate").click());
+    const before = useEditorStore.getState().pixelEditorSessions["/proj"].doc;
+    const original = createPixelDoc(24,24,{frames:3});
+    prepareMock.mockResolvedValue({doc_json:serializePixelDoc(original)});
+    act(()=>root.render(<PixelEditor projectDir="/proj" source={{url:"",sourcePath:"assets/sprites/pixel/gif.png",originalPath:"/proj/.rds/art-sources/source.gif",name:"gif",frameWidth:24,frameHeight:24,frames:[0,1,2]}} log={vi.fn()} onSaved={vi.fn()}/>));
+    await act(async()=>q("pixel-reopen-original").click());
+    expect(prepareMock).toHaveBeenCalledWith("/proj",expect.objectContaining({path:"/proj/.rds/art-sources/source.gif"}),"sprite","keep");
+    expect(useEditorStore.getState().pixelEditorSessions["/proj"].doc.frames).toHaveLength(3);
+    key("z");expect(useEditorStore.getState().pixelEditorSessions["/proj"].doc).toEqual(before);
+  });
+  it("opens all native animation frames automatically and preserves the previous unsaved document in Undo", async () => {
+    render();
+    act(() => q("pixel-frame-duplicate").click());
+    const previous = useEditorStore.getState().pixelEditorSessions["/proj"].doc;
+    const gif = createPixelDoc(24, 24, { name: "gif", frames: 6 });
+    gif.frames[1].durationMs = 150;
+    loadMock.mockResolvedValue(serializePixelDoc(gif));
+    await act(async () => root.render(<PixelEditor projectDir="/proj" source={{ url: "", sourcePath: "assets/sprites/pixel/gif.png", name: "gif", frameWidth: 24, frameHeight: 24, frames: [0,1,2,3,4,5], autoOpen: true }} log={vi.fn()} onSaved={vi.fn()}/>));
+    expect(container.querySelectorAll('[data-testid^="pixel-frame-"][data-active]')).toHaveLength(6);
+    expect(useEditorStore.getState().pixelEditorSessions["/proj"].doc.frames[1].durationMs).toBe(150);
+    key("z");
+    expect(useEditorStore.getState().pixelEditorSessions["/proj"].doc).toEqual(previous);
+  });
   const savedResult = { png_relative: "assets/sprites/pixel/novo_sprite.png", doc_relative: "x", png_absolute: "/proj/assets/sprites/pixel/novo_sprite.png" };
   const key = (key: string) => act(() => q("pixel-editor").dispatchEvent(new KeyboardEvent("keydown", { key, ctrlKey: true, bubbles: true })));
 
@@ -164,7 +204,7 @@ describe("PixelEditor", () => {
       q("pixel-save").click();
     });
     expect(saveMock).toHaveBeenCalledWith("/proj", "novo_sprite", expect.any(Uint8Array), expect.stringContaining("retrodev.pixel/v1"));
-    expect(onSaved).toHaveBeenCalledWith("/proj/assets/sprites/pixel/novo_sprite.png");
+    expect(onSaved).toHaveBeenCalledWith("/proj/assets/sprites/pixel/novo_sprite.png", expect.objectContaining({ frames: expect.any(Array) }));
     expect(q("pixel-save").textContent).toContain("Salvo");
   });
 });

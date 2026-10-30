@@ -119,8 +119,22 @@ pub fn emit_sgdk_with_collision(
     project_name: &str,
     collision_map_data: Option<&[u8]>,
 ) -> EmitOutput {
+    let mut main_c = build_main_c_with_collision(ast, project_name, collision_map_data);
+    if ast
+        .sprite_assets
+        .iter()
+        .flat_map(|asset| &asset.animations)
+        .any(|animation| {
+            animation.frame_times.as_ref().is_some_and(|times| {
+                times.len() != animation.frames.len()
+                    || times.iter().any(|time| !(1..=255).contains(time))
+            })
+        })
+    {
+        main_c.insert_str(0, "#error Duracoes por quadro invalidas: use uma duracao de 1 a 255 ticks por ocorrencia.\n");
+    }
     EmitOutput {
-        main_c: build_main_c_with_collision(ast, project_name, collision_map_data),
+        main_c,
         resources_res: build_resources_res(ast),
     }
 }
@@ -1243,14 +1257,21 @@ fn render_runtime_evidence_probe_tick(out: &mut String) {
 }
 
 fn resource_animation_time(asset: &SpriteAsset) -> String {
-    if asset.animations.len() > 1 {
+    if asset.animations.len() > 1 || asset.animations.iter().any(|a| a.frame_times.is_some()) {
         let rows = asset
             .animations
             .iter()
             .map(|animation| {
                 format!(
                     "[{}]",
-                    vec![animation.frame_time.to_string(); animation.frames.len()].join(",")
+                    animation
+                        .frame_times
+                        .clone()
+                        .unwrap_or_else(|| vec![animation.frame_time; animation.frames.len()])
+                        .iter()
+                        .map(u32::to_string)
+                        .collect::<Vec<_>>()
+                        .join(",")
                 )
             })
             .collect::<String>();
@@ -3324,6 +3345,7 @@ mod tests {
             frames: vec![0, 1, 2, 3],
             frame_time,
             looping,
+            frame_times: None,
             mugen: None,
         };
         SpriteAsset {
@@ -3458,9 +3480,27 @@ mod tests {
             frames: vec![1, 2, 3],
             frame_time: 5,
             looping: true,
+            frame_times: None,
             mugen: None,
         });
         assert_eq!(resource_animation_time(&asset), "[[10][5,5,5]]");
+    }
+
+    #[test]
+    fn resources_res_preserves_authoring_frame_delays_and_rejects_wrapping() {
+        let mut asset = sprite_asset_with_animation(10, true);
+        asset.animations[0].frame_times = Some(vec![2, 6, 9, 255]);
+        assert_eq!(resource_animation_time(&asset), "[[2,6,9,255]]");
+        let mut ast = AstOutput {
+            nodes: vec![],
+            sprite_assets: vec![asset],
+            logic_scripts: vec![],
+        };
+        assert!(!emit_sgdk(&ast, "Animation").main_c.starts_with("#error"));
+        ast.sprite_assets[0].animations[0].frame_times = Some(vec![2, 6, 9, 256]);
+        assert!(emit_sgdk(&ast, "Animation")
+            .main_c
+            .starts_with("#error Duracoes"));
     }
 
     #[test]

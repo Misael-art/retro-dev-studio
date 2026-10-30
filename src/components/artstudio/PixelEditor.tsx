@@ -31,6 +31,7 @@ import {
   quantizeRgba,
   removeFrame,
   removeLayer,
+  removePixelBackground,
   replaceAllColor,
   replaceCel,
   resLine,
@@ -47,6 +48,7 @@ import {
 } from "../../core/pixelEditor";
 import { loadPixelArtDoc, savePixelArtAsset } from "../../core/ipc/artStudioService";
 import { useEditorStore } from "../../core/store/editorStore";
+import { prepareImage } from "../../core/imageIngress";
 
 export type PixelTool =
   | "pencil"
@@ -100,13 +102,16 @@ export interface PixelEditorSource {
   frameWidth: number;
   frameHeight: number;
   frames: number[];
+  /** Open the canonical imported document; previous edits remain in Undo. */
+  autoOpen?: boolean;
+  originalPath?: string;
 }
 
 interface PixelEditorProps {
   projectDir: string | null;
   source: PixelEditorSource | null;
   log: (level: "info" | "warn" | "error" | "success", message: string) => void;
-  onSaved: (pngAbsolute: string) => void;
+  onSaved: (pngAbsolute: string, doc?: PixelDoc) => void;
 }
 
 type Drag = {
@@ -198,6 +203,8 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   const sourceIdentity = JSON.stringify(source);
   const sourceIdentityRef = useRef(sourceIdentity);
   sourceIdentityRef.current = sourceIdentity;
+  const projectIdentityRef = useRef(projectDir);
+  projectIdentityRef.current = projectDir;
   const dragRef = useRef<Drag | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewRef = useRef<HTMLCanvasElement | null>(null);
@@ -217,6 +224,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   }, []);
 
   const frame = Math.min(frameIndex, doc.frames.length - 1);
+  const originalPath = source?.originalPath ?? (projectDir && doc.originalSource && /^\.rds\/art-sources\/[a-f0-9]{64}\.[a-z0-9]+$/.test(doc.originalSource) ? `${projectDir}/${doc.originalSource}` : undefined);
   const layer = Math.min(layerIndex, doc.layers.length - 1);
 
   const docRef = useRef(doc);
@@ -571,7 +579,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
     const stillCurrent = () => mounted.current && request === importRequest.current
       && docRef.current === startingDoc && sourceIdentityRef.current === sourceIdentity;
     try {
-      const pixelDoc = source.sourcePath.match(/(assets\/sprites\/pixel\/[^/]+)\.png$/);
+      const pixelDoc = source.sourcePath.match(/(assets\/(?:sprites|tilesets)\/pixel\/[^/]+)\.png$/);
       if (pixelDoc && projectDir) {
         const json = await loadPixelArtDoc(projectDir, `${pixelDoc[1]}.rdspixel.json`);
         if (!stillCurrent()) return;
@@ -601,6 +609,31 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
     }
   };
 
+  const autoOpenedSource = useRef("");
+  const autoSourceIdentity = `${projectDir ?? ""}|${source?.sourcePath ?? ""}`;
+  const openSourceRef = useRef(importFromArt);
+  openSourceRef.current = importFromArt;
+  useEffect(() => {
+    if (source?.autoOpen && autoSourceIdentity !== autoOpenedSource.current) {
+      autoOpenedSource.current = autoSourceIdentity;
+      void openSourceRef.current();
+    }
+  }, [source?.autoOpen, autoSourceIdentity]);
+
+  const reopenOriginal = async () => {
+    if (!originalPath || !projectDir) return;
+    const request = ++importRequest.current, snapshot = docRef.current;
+    const stillCurrent = () => mounted.current && request === importRequest.current && docRef.current === snapshot && sourceIdentityRef.current === sourceIdentity;
+    setStatus("Preparando novamente o original preservado…");
+    try {
+      const prepared = await prepareImage(projectDir,{path:originalPath,name:snapshot.name},snapshot.target === "plane" ? "background" : "sprite","keep");
+      if (!stillCurrent() || !prepared.doc_json) return;
+      const opened = deserializePixelDoc(prepared.doc_json); opened.name = snapshot.name;
+      commit(opened);setFrameIndex(0);setLayerIndex(0);
+      setStatus("Original reaberto com o fundo preservado. Ctrl+Z volta às edições anteriores; Salvar atualiza a cena.");
+    } catch(e) { if (stillCurrent()) setStatus(e instanceof Error ? e.message : String(e)); }
+  };
+
   const save = async () => {
     if (savingRef.current) return;
     if (!projectDir) {
@@ -609,13 +642,14 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
     }
     const snapshot = docRef.current;
     const snapshotSource = serializePixelDoc(snapshot);
+    const stillCurrent = () => mounted.current && projectIdentityRef.current === projectDir && sourceIdentityRef.current === sourceIdentity;
     savingRef.current = true;
     setSaving(true);
     try {
       const sheet = await exportSheetPng(snapshot);
-      if (!mounted.current) return;
+      if (!stillCurrent()) return;
       const saved = await savePixelArtAsset(projectDir, snapshot.name, sheet.png, snapshotSource);
-      if (!mounted.current) return;
+      if (!stillCurrent()) return;
       setSavedPath(saved.png_relative);
       setSavedSource(snapshotSource);
       log("success", `[Editor de pixels] ${saved.png_relative} (${snapshot.frames.length} frame(s), PAL${sheet.line}, PNG 4-bit).`);
@@ -623,7 +657,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
         // The revision-bound save-state line is the single save indicator.
         // Tool errors (e.g. a rejected palette tile) keep their own feedback.
         setStatus(null);
-        onSaved(saved.png_absolute);
+        onSaved(saved.png_absolute, snapshot);
       } else setStatus("A versão anterior foi salva. Há novas alterações de pixels pendentes.");
     } catch (error) {
       if (!mounted.current) return;
@@ -676,6 +710,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
         />
         <select
           data-testid="pixel-doc-target"
+          disabled={source?.autoOpen}
           value={doc.target}
           onChange={(e) => commit({ ...doc, target: e.target.value as PixelTarget })}
           className="rounded border border-[#313244] bg-[#0b0f19] px-1 py-1"
@@ -720,6 +755,14 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
           </button>
         ) : null}
         <span className="ml-auto flex items-center gap-1">
+          {originalPath && <button type="button" data-testid="pixel-reopen-original" onClick={()=>void reopenOriginal()} className="rounded border border-[#313244] px-2 py-1" title="Prepara outra vez a cópia original com o fundo, sem apagar suas edições anteriores do Desfazer">Reabrir original</button>}
+          <button type="button" data-testid="pixel-remove-background" onClick={() => {
+            const next = removePixelBackground(doc);
+            commit(next);
+            setStatus(next === doc ? "Nenhum fundo uniforme seguro foi identificado. Use a borracha para refinar." : "Fundo uniforme removido de todos os quadros. Ctrl+Z restaura os pixels.");
+          }} className="rounded border border-[#313244] px-2 py-1" title="Remove a cor uniforme conectada às bordas em todos os quadros; permite desfazer">
+            Remover fundo
+          </button>
           <button type="button" onClick={undo} disabled={past.length === 0} className="rounded border border-[#313244] px-2 py-1 disabled:opacity-40" title="Desfazer (Ctrl+Z)">
             ↶
           </button>
@@ -742,7 +785,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
       </div>
       <p data-testid="pixel-save-state" role="status" className="px-1 text-[10px] text-[#a6adc8]">
         {isSaved ? `PNG e documento salvos: ${savedPath}.` : "Pixels pendentes · mantidos nesta sessão ao trocar de ferramenta. Salve antes de fechar o aplicativo."}
-        {" "}Salvar pixels cria um recurso; aplicar na cena ou integrar no C é uma etapa separada.
+        {" "}{source?.autoOpen ? "Salvar atualiza os pixels, os quadros e a imagem selecionada na cena." : "Salvar pixels cria um recurso; aplicar na cena ou integrar no C é uma etapa separada."}
       </p>
 
       <div className="grid min-h-0 flex-1 grid-cols-[52px_minmax(0,1fr)_280px] gap-2">
@@ -836,8 +879,8 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
               <FrameThumb key={f.id} doc={doc} index={i} active={i === frame} onSelect={() => setFrameIndex(i)} />
             ))}
             <div className="flex flex-col justify-center gap-1 text-[10px]">
-              <button type="button" data-testid="pixel-frame-add" onClick={() => { commit(addFrame(doc, frame, false)); setFrameIndex(frame + 1); }} className="rounded border border-[#313244] px-2 py-0.5 hover:bg-[#1f2937]">+ Novo</button>
-              <button type="button" data-testid="pixel-frame-duplicate" onClick={() => { commit(addFrame(doc, frame, true)); setFrameIndex(frame + 1); }} className="rounded border border-[#313244] px-2 py-0.5 hover:bg-[#1f2937]">⧉ Duplicar</button>
+              <button type="button" data-testid="pixel-frame-add" disabled={source?.autoOpen && doc.target==="plane"} onClick={() => { commit(addFrame(doc, frame, false)); setFrameIndex(frame + 1); }} className="rounded border border-[#313244] px-2 py-0.5 hover:bg-[#1f2937] disabled:opacity-40">+ Novo</button>
+              <button type="button" data-testid="pixel-frame-duplicate" disabled={source?.autoOpen && doc.target==="plane"} onClick={() => { commit(addFrame(doc, frame, true)); setFrameIndex(frame + 1); }} className="rounded border border-[#313244] px-2 py-0.5 hover:bg-[#1f2937] disabled:opacity-40">⧉ Duplicar</button>
             </div>
             <div className="flex flex-col justify-center gap-1 text-[10px]">
               <span className="flex gap-1">
@@ -860,6 +903,12 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
               <input type="range" min={1} max={24} value={fps} onChange={(e) => setFps(Number(e.target.value))} className="flex-1" />
               <span className="w-12 text-right">{fps} FPS</span>
             </div>
+            <label className="mt-2 flex items-center justify-between gap-2">Duração do quadro (ms)
+              <input type="number" data-testid="pixel-frame-duration" min={1} max={600000} value={doc.frames[frame].durationMs} onChange={e => {
+                const ms = Math.max(1, Math.min(600000, Number(e.target.value) || 1));
+                commit({ ...doc, frames: doc.frames.map((f,i) => i === frame ? { ...f, durationMs: ms } : f) });
+              }} className="w-20 rounded border border-[#313244] bg-[#0b0f19] p-1"/>
+            </label>
             <button
               type="button"
               className="mt-1 w-full rounded border border-[#313244] px-2 py-0.5 hover:bg-[#1f2937]"

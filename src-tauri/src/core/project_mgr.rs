@@ -166,6 +166,10 @@ pub struct SgdkAssetAuthoring {
     pub resource_name: String,
     pub resource_kind: String,
     pub sprite: Option<SpriteComponent>,
+    /// Native pixel document when this shared catalog projection comes from
+    /// authoring rather than a donor manifest. No second metadata file is written.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pixel_document: Option<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub variants: Vec<SgdkAssetAuthoring>,
 }
@@ -16976,6 +16980,7 @@ pub fn sgdk_asset_authoring(project_dir: &Path) -> HashMap<String, SgdkAssetAuth
                 resource_name: mapping.resource_name,
                 resource_kind: mapping.resource_kind,
                 sprite,
+                pixel_document: None,
                 variants: Vec::new(),
             };
             if let Some(existing) = catalog.get_mut(&mapping.destination) {

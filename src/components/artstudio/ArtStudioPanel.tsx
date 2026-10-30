@@ -31,6 +31,8 @@ import { listProjectAssets } from "../../core/ipc/toolsService";
 import { openCodeRef } from "../inspector/SpriteCodeLink";
 import AssetQualityPanel from "./AssetQualityPanel";
 import PixelEditor from "./PixelEditor";
+import { persistActiveScene } from "../../core/scenePersistence";
+import { applyImageEdits } from "../../core/imageIngress";
 import type {
   AnimationDef,
   SpriteAnimationHitbox,
@@ -2670,6 +2672,7 @@ export default function ArtStudioPanel() {
     activeScene,
     activeProjectDir,
     projectSessionId,
+    activeScenePath,
     activeTarget,
     hwStatus,
     selectedEntityId,
@@ -2727,6 +2730,10 @@ export default function ArtStudioPanel() {
   const activeSequence = state.sequences.find((sequence) => sequence.id === state.activeSequenceId);
   const selectedEntity = activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId);
   const selectedEntitySprite = selectedEntity?.components?.sprite;
+  const importedPixelPath = selectedEntity?.components.logic?.logic_hints?.some(h => h.startsWith("art_ingress:original=") || h.startsWith("pixel_art:document="))
+    ? selectedEntitySprite?.asset ?? selectedEntity?.components.tilemap?.tileset : undefined;
+  const imageOriginalRelative = selectedEntity?.components.logic?.logic_hints?.find(h=>h.startsWith("art_ingress:original="))?.slice("art_ingress:original=".length);
+  useEffect(() => { if (importedPixelPath) setArtMode("pixel"); }, [importedPixelPath]);
   const canUpdateEntity = Boolean(selectedEntitySprite);
   const returnToSceneWithSelectedContext = useCallback(() => {
     setActiveWorkspace("scene");
@@ -4217,7 +4224,7 @@ export default function ArtStudioPanel() {
             >
               Editar lógica
             </button>
-            <button
+            {!(importedPixelPath && artMode === "pixel") && <button
               type="button"
               data-testid="artstudio-apply-selected-entity"
               onClick={() => {
@@ -4228,12 +4235,12 @@ export default function ArtStudioPanel() {
               title={canApplyToScene ? "Aplicar sprite/animacoes na entidade selecionada" : applyNextStepLabel}
             >
               Aplicar nesta entidade
-            </button>
+            </button>}
           </div>
         </div>
       ) : null}
 
-      {selectedEntity && !selectedEntitySprite ? (
+      {selectedEntity && !selectedEntitySprite && !importedPixelPath ? (
         <div
           data-testid="artstudio-no-sprite-context"
           className="mx-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#fab387]/40 bg-[#fab387]/10 px-3 py-2 text-[11px] text-[#fde68a]"
@@ -4259,7 +4266,12 @@ export default function ArtStudioPanel() {
             key={activeProjectDir ?? ""}
             projectDir={activeProjectDir}
             source={
-              state.spriteSheetUrl
+              importedPixelPath ? {
+                url: "", sourcePath: `${activeProjectDir}/${importedPixelPath}`, name: importedPixelPath,
+                frameWidth: selectedEntitySprite?.frame_width ?? 8, frameHeight: selectedEntitySprite?.frame_height ?? 8,
+                frames: selectedEntitySprite?.animations?.idle?.frames ?? [0], autoOpen: true,
+                originalPath: imageOriginalRelative && /^\.rds\/art-sources\/[a-f0-9]{64}\.[a-z0-9]+$/.test(imageOriginalRelative) ? `${activeProjectDir}/${imageOriginalRelative}` : undefined,
+              } : state.spriteSheetUrl
                 ? gameSprite && state.spriteSourceAssetPath === gameSprite.asset
                   ? {
                       // Sprite do jogo: quadro e grade declarados no .res, todos os frames.
@@ -4281,7 +4293,16 @@ export default function ArtStudioPanel() {
                 : null
             }
             log={logMessage}
-            onSaved={(pngAbsolute) => void ingestSpriteSheet({ sourcePath: pngAbsolute })}
+            onSaved={(pngAbsolute, doc) => {
+              if (importedPixelPath && doc && selectedEntityId && activeProjectDir) {
+                const s = useEditorStore.getState();
+                if (!s.activeScene || !s.activeSceneSource || s.activeProjectDir !== activeProjectDir || s.projectSessionId !== projectSessionId || s.activeScenePath !== activeScenePath || s.selectedEntityId !== selectedEntityId) return;
+                const prefix = `${normalizeFsPath(activeProjectDir).replace(/\/$/, "")}/`;
+                const asset = normalizeFsPath(pngAbsolute).slice(prefix.length);
+                s.replaceScenesWithHistory(applyImageEdits(s.activeScene,selectedEntityId,asset,doc),applyImageEdits(s.activeSceneSource,selectedEntityId,asset,doc));
+                void persistActiveScene(activeProjectDir,"Imagem");
+              } else if (!importedPixelPath) void ingestSpriteSheet({ sourcePath: pngAbsolute });
+            }}
           />
         </div>
       ) : (

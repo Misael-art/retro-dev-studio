@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addFrame,
+  addLayer,
   analyzeHardware,
   buildSheetIndices,
   compositeFrame,
@@ -18,6 +19,7 @@ import {
   packPixel,
   paletteToC,
   quantizeRgba,
+  removePixelBackground,
   replaceCel,
   resLine,
   resizeDoc,
@@ -28,6 +30,43 @@ import {
 } from "./pixelEditor";
 
 describe("pixelEditor", () => {
+  it("retains original provenance and refuses incomplete or unbounded native documents before allocating pixels",()=>{
+    const doc=createPixelDoc(8,8);doc.originalSource=".rds/art-sources/source.png";
+    expect(deserializePixelDoc(serializePixelDoc(doc)).originalSource).toBe(doc.originalSource);
+    const raw=JSON.parse(serializePixelDoc(doc));raw.width=65536;raw.height=65536;
+    expect(()=>deserializePixelDoc(JSON.stringify(raw))).toThrow("64 MP");
+    raw.width=8;raw.height=8;raw.frames[0].cels[0]=btoa("short");
+    expect(()=>deserializePixelDoc(JSON.stringify(raw))).toThrow("incompleto");
+  });
+  it("removing an opaque background reveals lower artwork and preserves hidden layers", () => {
+    let doc=createPixelDoc(8,8);
+    doc.palettes[0][1]=[7,0,0];doc.palettes[0][2]=[7,7,7];
+    doc.frames[0].cels[0][3*8+3]=1;
+    doc=addLayer(doc,"Background");doc.frames[0].cels[1].fill(2);doc.frames[0].cels[1][2*8+2]=1;
+    doc=addLayer(doc,"Hidden");doc.layers[2].visible=false;doc.frames[0].cels[2].fill(2);
+    const removed=removePixelBackground(doc);
+    expect(compositeFrame(removed,0)[3*8+3]).toBe(1);
+    expect(removed.frames[0].cels[2]).toEqual(doc.frames[0].cels[2]);
+  });
+  it("removes connected uniform background in every frame, preserves enclosed details and the source document", () => {
+    const doc = createPixelDoc(8, 8, { frames: 2 });
+    doc.palettes[0][1] = [7, 7, 7]; doc.palettes[0][2] = [7, 0, 0];
+    for (const frame of doc.frames) {
+      frame.cels[0].fill(1);
+      for (let y = 2; y <= 5; y++) for (let x = 2; x <= 5; x++) frame.cels[0][y * 8 + x] = 2;
+      frame.cels[0][3 * 8 + 3] = 1;
+    }
+    const before = serializePixelDoc(doc);
+    const removed = removePixelBackground(doc);
+    for (const frame of removed.frames) {
+      expect(frame.cels[0][0]).toBe(0);
+      expect(frame.cels[0][2 * 8 + 2]).toBe(2);
+      expect(frame.cels[0][3 * 8 + 3]).toBe(1);
+    }
+    expect(serializePixelDoc(doc)).toBe(before);
+    doc.frames.forEach(f => f.cels[0].fill(1));
+    expect(removePixelBackground(doc)).toBe(doc); // Never erase a solid object.
+  });
   it("aligns canvas to 8x8 tiles and starts transparent", () => {
     const doc = createPixelDoc(20, 9);
     expect([doc.width, doc.height]).toEqual([24, 16]);

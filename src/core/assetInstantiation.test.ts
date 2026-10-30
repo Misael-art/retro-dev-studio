@@ -32,6 +32,19 @@ function entityWithTilemap(tileset: string): Pick<Entity, "entity_id" | "compone
 }
 
 describe("assetInstantiation", () => {
+  it("retains native document geometry and animation without any existing scene reference", () => {
+    const sprite={asset:"assets/sprites/pixel/ball.png",frame_width:64,frame_height:64,meta_sprite:true,animations:{idle:{frames:[0,1,2],frame_durations:[6,9,12],fps:10,loop:true}}};
+    const pixel_document="assets/sprites/pixel/ball.rdspixel.json";
+    const entity=createEntityFromProjectAsset({asset:{kind:"image",relative_path:sprite.asset,absolute_path:"/project/"+sprite.asset,image_width:192,image_height:64,sgdk_resource:{resource_name:"Ball",resource_kind:"SPRITE",sprite,pixel_document}},projectSourceKind:"blank",target:"megadrive",scene:{entities:[],background_layers:[]}});
+    expect(entity.components.sprite).toEqual(sprite);
+    expect(entity.components.logic?.logic_hints).toContain(`pixel_art:document=${pixel_document}`);
+  });
+  it("assembles a native background and refuses a broken native document instead of guessing a frame grid", () => {
+    const asset={kind:"image" as const,relative_path:"assets/tilesets/pixel/bg.png",absolute_path:"/project/bg.png",image_width:32,image_height:16,sgdk_resource:{resource_name:"Background",resource_kind:"IMAGE",pixel_document:"assets/tilesets/pixel/bg.rdspixel.json",sprite:null}};
+    const entity=createEntityFromProjectAsset({asset,projectSourceKind:"blank",target:"megadrive",scene:{entities:[],background_layers:[]}});
+    expect(entity.components.tilemap).toMatchObject({map_width:4,map_height:2,cells:[1,2,3,4,5,6,7,8]});
+    expect(()=>createEntityFromProjectAsset({asset:{...asset,sgdk_resource:{...asset.sgdk_resource,resource_kind:"SPRITE"}},projectSourceKind:"blank",target:"megadrive",scene:{entities:[],background_layers:[]}})).toThrow("documento de pixels");
+  });
   it("preserves declared SGDK meta-sprite frames and animations when adding a catalog resource", () => {
     const sprite = { asset: "assets/sprites/fighter.png", frame_width: 96, frame_height: 112, meta_sprite: true, animations: { idle: { frames: [0, 1], fps: 10, loop: true } } };
     const entity = createEntityFromProjectAsset({

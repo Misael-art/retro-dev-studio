@@ -127,6 +127,10 @@ export function classifyImageAssetInstantiation(options: {
   }
 
   const normalized = normalizeAssetRelativePath(asset.relative_path);
+  if (asset.sgdk_resource?.pixel_document) {
+    const kind = asset.sgdk_resource.resource_kind === "IMAGE" ? "tilemap" : "sprite";
+    return {kind,reason:"documento-pixels",title:"Imagem pronta para a cena",detail:"Medidas e animação vêm do documento de pixels salvo.",entityLabel:kind==="sprite"?"Sprite":"Tilemap",nextStep:"Edite os pixels e quadros em Arte; Salvar atualiza a imagem na cena."};
+  }
 
   const usedAsTileset = sceneEntities.some((e) => {
     const ts = e.components?.tilemap?.tileset?.trim();
@@ -201,6 +205,10 @@ export function createEntityFromProjectAsset(options: {
     existingEntityIds: scene.entities.map(e => e.entity_id),
     suggestedName: asset.sgdk_resource?.resource_name,
   };
+  const withDocument = (entity: Entity) => {
+    if (asset.sgdk_resource?.pixel_document) entity.components.logic = { ...entity.components.logic, logic_hints: [...(entity.components.logic?.logic_hints ?? []), `pixel_art:document=${asset.sgdk_resource.pixel_document}`] };
+    return entity;
+  };
   if (classifyImageAssetInstantiation({ asset, projectSourceKind, sceneEntities: scene.entities }).kind === "tilemap") {
     const entity = createTilemapEntityFromAsset({
       ...common,
@@ -208,7 +216,8 @@ export function createEntityFromProjectAsset(options: {
       mapHeight: asset.image_height ? Math.max(1, Math.floor(asset.image_height / 8)) : undefined,
     });
     if (asset.sgdk_resource?.resource_kind === "TILESET") entity.components.logic = { logic_hints: ["sgdk_import:tileset_bank"] };
-    return entity;
+    if (asset.sgdk_resource?.pixel_document && entity.components.tilemap) entity.components.tilemap.cells = Array.from({length:entity.components.tilemap.map_width*entity.components.tilemap.map_height},(_,i)=>i+1);
+    return withDocument(entity);
   }
   const entity = createSpriteEntityFromAsset({
     ...common, target, includeStarterLogic: scene.entities.length === 0 && scene.background_layers.length === 0,
@@ -218,13 +227,14 @@ export function createEntityFromProjectAsset(options: {
     // sprites. Do not clip it with the simple-sprite factory's 32px default.
     entity.components.sprite = { ...structuredClone(spriteLayout), asset: asset.relative_path };
   }
-  return entity;
+  return withDocument(entity);
 }
 
 export function getAssetInstantiationIssue(asset: ProjectAssetEntry, entities: Pick<Entity, "components">[]): string | null {
   if (asset.kind !== "image") return "Este arquivo está na biblioteca. Apenas imagens podem ser adicionadas como objetos na cena.";
   if (asset.sgdk_resource?.resource_kind === "PALETTE") return "Esta é uma paleta de cores. Abra sua imagem em Arte para editar; ela não é um objeto da cena.";
   if (asset.sgdk_resource?.resource_kind === "SPRITE" && !asset.sgdk_resource.sprite && !entities.some(e => e.components.sprite?.asset === asset.relative_path)) {
+    if (asset.sgdk_resource.pixel_document) return "O documento de pixels não confere com a imagem. Reabra o original ou repare o documento em Arte antes de adicionar à cena.";
     return "Este recurso não tem um layout de quadros válido na importação. Confira a imagem e suas medidas na origem e importe novamente em um novo projeto, preservando seu trabalho atual.";
   }
   return null;

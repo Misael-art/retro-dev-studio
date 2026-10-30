@@ -26,6 +26,7 @@ export interface PixelFrame {
 
 export interface PixelDoc {
   name: string;
+  originalSource?: string;
   width: number;
   height: number;
   target: PixelTarget;
@@ -341,6 +342,41 @@ export function drawEllipse(cel: Uint8Array, width: number, height: number, a: [
       if (filled || edge) out[y * width + x] = value;
     }
   return out;
+}
+
+/** Remove a dominant, uniform border color from every frame, preserving holes
+ * enclosed by the drawing and retaining at least one visible pixel per frame. */
+export function removePixelBackground(doc: PixelDoc): PixelDoc {
+  let changed = false;
+  const frames = doc.frames.map((frame, frameIndex) => {
+    const pixels = compositeFrame(doc, frameIndex);
+    const border = new Set<number>();
+    for (let x = 0; x < doc.width; x++) { border.add(x); border.add((doc.height - 1) * doc.width + x); }
+    for (let y = 0; y < doc.height; y++) { border.add(y * doc.width); border.add(y * doc.width + doc.width - 1); }
+    const counts = new Map<string, number>();
+    for (const i of border) { const c = pixelCss(doc, pixels[i]); if (c) counts.set(c, (counts.get(c) ?? 0) + 1); }
+    const dominant = [...counts].sort((a, b) => b[1] - a[1])[0];
+    if (!dominant || dominant[1] < border.size * 0.35) return frame;
+    const seen = new Uint8Array(pixels.length);
+    const queue = [...border];
+    let cleared = 0;
+    for (let q = 0; q < queue.length; q++) {
+      const i = queue[q]; if (seen[i]) continue; seen[i] = 1;
+      const color = pixelCss(doc, pixels[i]);
+      if (color && color !== dominant[0]) continue;
+      seen[i] = 2; if (color) cleared++;
+      const x = i % doc.width, y = Math.floor(i / doc.width);
+      if (x) queue.push(i - 1); if (x < doc.width - 1) queue.push(i + 1);
+      if (y) queue.push(i - doc.width); if (y < doc.height - 1) queue.push(i + doc.width);
+    }
+    const visible = pixels.reduce((n, p) => n + (pixelIndex(p) ? 1 : 0), 0);
+    if (!cleared || cleared >= visible) return frame;
+    changed = true;
+    return { ...frame, cels: frame.cels.map((cel, layer) => doc.layers[layer].visible
+      ? Uint8Array.from(cel, (p, i) => seen[i] === 2 && pixelCss(doc,p) === dominant[0] ? 0 : p)
+      : cel) };
+  });
+  return changed ? { ...doc, frames } : doc;
 }
 
 export function floodFill(cel: Uint8Array, width: number, height: number, x: number, y: number, value: number): Uint8Array {
@@ -804,6 +840,7 @@ function toBase64(bytes: Uint8Array): string {
 
 function fromBase64(text: string, size: number): Uint8Array {
   const raw = atob(text);
+  if (raw.length !== size) throw new Error("O documento contém um quadro incompleto. Preserve os arquivos e reabra a imagem original.");
   const out = new Uint8Array(size);
   for (let i = 0; i < Math.min(size, raw.length); i += 1) out[i] = raw.charCodeAt(i);
   return out;
@@ -822,8 +859,12 @@ export function deserializePixelDoc(json: string): PixelDoc {
   const data = JSON.parse(json) as SerializedDoc;
   if (data.schema !== "retrodev.pixel/v1") throw new Error("Arquivo de pixel art em formato desconhecido.");
   const size = data.width * data.height;
+  if (!Number.isSafeInteger(data.width) || !Number.isSafeInteger(data.height) || data.width < 8 || data.height < 8 || data.width % 8 || data.height % 8 || !Array.isArray(data.frames) || !data.frames.length || !Array.isArray(data.layers) || !data.layers.length || size * data.frames.length * data.layers.length > 64 * 1024 * 1024) throw new Error("O documento de pixels possui medidas inválidas ou excede 64 MP somados.");
+  if (typeof data.name !== "string" || !["sprite","plane"].includes(data.target) || !Array.isArray(data.palettes) || data.palettes.length !== 4 || data.palettes.some(p => !Array.isArray(p) || p.length !== 16 || p.some(c => !Array.isArray(c) || c.length !== 3 || c.some(v => !Number.isInteger(v) || v < 0 || v > 7)))) throw new Error("O documento possui uma paleta ou um tipo de imagem inválido.");
+  if (data.frames.some(f => !Number.isFinite(f.durationMs) || f.durationMs < 1 || f.durationMs > 600000 || !Array.isArray(f.cels) || f.cels.length !== data.layers.length || f.cels.some(c => typeof c !== "string"))) throw new Error("O documento possui quadros incompletos ou durações inválidas.");
   return {
     name: data.name,
+    originalSource: data.originalSource,
     width: data.width,
     height: data.height,
     target: data.target,

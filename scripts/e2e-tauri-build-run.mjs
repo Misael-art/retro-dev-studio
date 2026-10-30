@@ -517,6 +517,7 @@ function parseArgs(argv) {
           "sgdk-native-c",
           "sgdk-corpus",
           "pixel-editor",
+          "image-ingress",
           "studio-e4",
           "studio-e2e5",
           "studio-e6",
@@ -4657,7 +4658,7 @@ async function clickTopBarMenuAction(sessionId, label) {
         `
           const label = String(arguments[0] ?? "").trim();
           const normalize = (value) => String(value ?? "").replace(/\\s+/g, " ").trim();
-          const button = Array.from(document.querySelectorAll("button")).find((candidate) => {
+          const button = Array.from(document.querySelectorAll("#studio-main-menu button")).find((candidate) => {
             const actionLabel = normalize(candidate.querySelector("span")?.textContent ?? candidate.textContent);
             return candidate instanceof HTMLButtonElement && actionLabel === label;
           });
@@ -6815,6 +6816,207 @@ async function runSgdkNativeCScenario(sessionId) {
 // in Art with the frame declared by its .res. Each step records its own result; a failed build
 // still lets the static views be inspected.
 // Editor de pixels (Experimental): sprite real do jogo -> frames indexados -> pintar -> salvar PNG 4-bit.
+async function runImageIngressScenario(sessionId, timeoutMs, onProjectCreated) {
+  const output = process.env.RDS_IMAGE_INGRESS_OUTPUT;
+  const helper = process.env.RDS_IMAGE_CLIPBOARD_HELPER ?? path.resolve("scripts/image-clipboard-fixture.py");
+  const gifPath = process.env.RDS_IMAGE_GIF;
+  const gifUrl = process.env.RDS_IMAGE_GIF_URL;
+  if (!output || !helper || !gifPath || !gifUrl) fail("Image ingress requires output, native clipboard helper, GIF path and public URL receipts.");
+  await mkdir(output, {recursive:true});
+  const prefix = `image-ingress-${artifactTimestamp()}`;
+  const report = {schema:"retrodev.image_ingress/v1",maturity:"Experimental",steps:[],artifacts:[]};
+  const js = (code,args=[]) => executeScript(sessionId,code,args);
+  const state = () => readAutomationState(sessionId);
+  const click = id => clickButtonByTestIdNative(sessionId,id);
+  const shot = async name => addReportArtifact(report,await captureScreenshot(sessionId,`${prefix}-${name}.png`),name);
+  const chord = key => webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"key",id:"image-paste",actions:[{type:"keyDown",value:"\uE009"},{type:"keyDown",value:key},{type:"keyUp",value:key},{type:"keyUp",value:"\uE009"}]}]});
+  const escape = () => webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"key",id:"image-cancel",actions:[{type:"keyDown",value:"\uE00C"},{type:"keyUp",value:"\uE00C"}]}]});
+  let producer;
+  const stop = async () => { if (producer) { producer.kill("SIGTERM");await waitForProcessExit(producer,5000);producer=null; } };
+  const produce = async (mode,value) => {
+    await stop();
+    producer=spawn("python3",[helper,mode,value],{env:process.env,stdio:["ignore","pipe","pipe"]});
+    producer.stdout.on("data",data=>{report.fixture_log=(report.fixture_log??"")+mode+": "+data.toString();});
+    producer.stderr.on("data",data=>{report.fixture_log=(report.fixture_log??"")+mode+" stderr: "+data.toString();});
+    await new Promise((resolve,reject)=> { producer.stdout.once("data",resolve);producer.once("error",reject);producer.once("exit",code=>reject(new Error(`Clipboard fixture exited ${code}`))); });
+  };
+  const ready = async frames => waitFor(async()=>js(`const p=document.querySelector('[data-testid="image-ingress-dialog"]');return p?.textContent?.includes(arguments[0]+' quadro(s)') && document.querySelector('[data-testid="image-ingress-sprite"]') ? true : false;`,[frames]),45000,"Image role chooser not ready.",150);
+  const inserted = async count => waitFor(async()=> { const s=await state();const notice=await js(`return document.querySelector('[data-testid="image-ingress-notice"]')?.textContent;`);return s?.activeScene?.entityCount===count && notice?.includes("Salvo no projeto") ? s : false; },30000,"Image not inserted and saved.",200);
+  try {
+    await setSessionWindowRect(sessionId,1440,900);
+    await prepareBlankProjectWizard(sessionId);
+    const name=`Images_${Date.now()}`;
+    await fillInputBySelector(sessionId,'input[placeholder="Nome do projeto"]',name);
+    await clickButtonByText(sessionId,"Criar Projeto","exact");
+    const created=await waitFor(async()=>{const s=await state();return s?.activeProjectName===name?s:false;},60000,"Image project not created.",250);
+    const project=created.activeProjectDir;onProjectCreated(project);currentE2eRunContext.project=project;report.project=project;
+    const disk=async()=>JSON.parse(await readFile(path.join(project,(await state()).activeScenePath),"utf8"));
+    await produce("browser",gifPath);await js("document.activeElement?.blur?.(); return true;");await chord("v");
+    await ready(6);await shot("gif-received");await click("image-ingress-sprite");const added=await inserted(1);await stop();
+    const sprite=(await disk()).entities[0];
+    const asset=sprite.components.sprite.asset;
+    const original=sprite.components.logic.logic_hints.find(h=>h.startsWith("art_ingress:original=")).split("=")[1];
+    if (!(await readFile(path.join(project,original))).equals(await readFile(gifPath))) fail("Original GIF bytes changed.");
+    const doc=JSON.parse(await readFile(path.join(project,asset.replace(/\.png$/,".rdspixel.json")),"utf8"));
+    if (doc.frames.length!==6 || sprite.components.sprite.animations.idle.frames.length!==6) fail("GIF frames were discarded.");
+    if (!sprite.components.logic.graph) fail("Empty-scene image did not receive starter logic.");
+    addReportStep(report,"native_browser_format_clipboard_to_six_frame_sprite_and_logic","passed",{source:gifUrl,asset,original,frames:doc.frames.length,selected:added.selectedEntityId});
+    await click("image-ingress-edit");
+    await waitFor(async()=>js(`return document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length===6;`),30000,"All GIF frames did not open in PixelEditor.",200);
+    await click("pixel-frame-duplicate");
+    await setInputByTestIdNative(sessionId,"pixel-frame-duration","150");
+    await click("pixel-tool-line");
+    await js(`const c=document.querySelector('[data-testid="pixel-canvas"]'),r=c.getBoundingClientRect();for (const [type,x,y] of [['pointerdown',4,4],['pointermove',r.width-4,r.height-4],['pointerup',r.width-4,r.height-4]])c.dispatchEvent(new PointerEvent(type,{bubbles:true,clientX:r.left+x,clientY:r.top+y,pointerId:1,button:0}));return true;`);
+    await click("pixel-reopen-original");
+    await waitFor(async()=>js(`return document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length===6 && document.querySelector('[data-testid="pixel-status"]')?.textContent.includes("Original reaberto");`),20000,"Preserved original could not reopen.",150);
+    await click("pixel-remove-background");
+    await waitFor(async()=>js(`return document.querySelector('[data-testid="pixel-status"]')?.textContent.includes("Fundo uniforme removido");`),5000,"Uniform background tool did not operate.",150);
+    await chord("z");await new Promise(r=>setTimeout(r,150));await chord("z");
+    await waitFor(async()=>js(`return document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length===7;`),5000,"Undo did not restore the edited animation after original/background tools.",150);
+    addReportStep(report,"reopen_original_remove_background_undo_edits_preserved","passed",{frames:7});
+    await click("pixel-save");
+    await waitFor(async()=>{ const s=await disk();return s.entities[0].components.sprite.animations.idle.frames.length===7 && s.entities[0].components.sprite.animations.idle.frame_durations.includes(9); },20000,"Edited animation metadata did not save to scene.",200);
+    await shot("edited-frames");
+    addReportStep(report,"edit_pixels_duplicate_frame_change_delay_save","passed",{frames:7,ticks:9});
+    await callAutomationApi(sessionId,"selectWorkspace",["scene"]);
+    // Real GTK -> Tauri OS file drag, not a DOM drop fixture.
+    await produce("drop",gifPath);
+    addReportArtifact(report,(await captureWindowRaster(sessionId,`${prefix}-native-drag-source.png`)).path,"native drag source and target");
+    const rect=await js(`const r=document.querySelector('[data-testid="viewport-scene-canvas"]').getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)};`);
+    const xd = args => new Promise((resolve,reject)=>execFile("xdotool",args,{env:process.env,timeout:10000},(e)=>e?reject(e):resolve()));
+    await xd(["mousemove","--sync","100","800","mousedown","1"]);
+    for (let n=1;n<=12;n++) {await xd(["mousemove","--sync",String(Math.round(100+(rect.x-100)*n/12)),String(Math.round(800+(rect.y-800)*n/12))]);await new Promise(r=>setTimeout(r,70));}
+    await xd(["mouseup","1"]);await ready(6);await stop();await shot("native-file-drop");
+    await escape();
+    await waitFor(async()=>!(await js(`return !!document.querySelector('[data-testid="image-ingress-dialog"]');`)),5000,"Cancel failed.",150);
+    if ((await state()).activeScene.entityCount!==1) fail("Cancelled native drop altered scene.");
+    addReportStep(report,"native_file_drop_cancel_preserves_scene","passed",rect);
+    await produce("drop",gifPath);
+    await xd(["mousemove","--sync","100","800","mousedown","1"]);
+    for(let n=1;n<=12;n++){await xd(["mousemove","--sync",String(Math.round(100+(rect.x-100)*n/12)),String(Math.round(800+(rect.y-800)*n/12))]);await new Promise(r=>setTimeout(r,70));}
+    await xd(["mouseup","1"]);await ready(6);await click("image-ingress-sprite");await inserted(2);await stop();
+    await new Promise(r=>setTimeout(r,350));
+    if(await js(`return !!document.querySelector('[data-testid="image-ingress-dialog"]');`))fail("Native file drop was also queued as a duplicate DOM drop.");
+    await js("document.activeElement?.blur?.();return true;");await chord("z");await waitFor(async()=>(await state()).activeScene.entityCount===1,5000,"Native drop Undo failed.",150);
+    addReportStep(report,"native_file_drop_commits_once_and_undoes","passed",{frames:6});
+    // A browser-derived raster copied as actual OS image bytes exercises Ctrl+V.
+    const raster=path.join(output,"browser-first-frame.png");
+    await new Promise((resolve,reject)=>execFile("convert",[`${gifPath}[0]`,raster],{timeout:10000},e=>e?reject(e):resolve()));
+    await produce("image",raster);await js(`document.addEventListener('paste',e=>{window.__RDS_IMAGE_PASTE_PROBE__={types:Array.from(e.clipboardData?.types??[]),files:Array.from(e.clipboardData?.files??[]).map(f=>({name:f.name,type:f.type,size:f.size})),items:Array.from(e.clipboardData?.items??[]).map(i=>({kind:i.kind,type:i.type,file:!!i.getAsFile?.()}))};},{capture:true,once:true});document.activeElement?.blur?.();return true;`);await chord("v");await ready(1);await click("image-ingress-background");await inserted(2);await stop();
+    const withBackground=await disk();
+    if (!withBackground.entities[0].components.tilemap || !withBackground.entities[1].components.sprite) fail("Background hides/reorders the character.");
+    if (withBackground.entities[0].components.tilemap.cells.length===0) fail("Image was left as an unassembled tile bank.");
+    await shot("sprite-and-background");
+    addReportStep(report,"native_raster_clipboard_background_assembled_before_sprite","passed",{cells:withBackground.entities[0].components.tilemap.cells.length});
+    await js("document.activeElement?.blur?.();return true;");await chord("z");
+    await waitFor(async()=>(await state()).activeScene.entityCount===1,5000,"Undo did not remove background.",150);
+    await chord("y");await waitFor(async()=>(await state()).activeScene.entityCount===2,5000,"Redo did not restore background.",150);
+    const pasteGif = async () => {await produce("url",gifUrl);await js("document.activeElement?.blur?.();return true;");await chord("v");await ready(6);await click("image-ingress-sprite");};
+    let beforeFull,fullCount;
+    for(let attempt=0;attempt<4;attempt++) {
+      beforeFull=await disk();fullCount=(await state()).activeScene.entityCount;
+      await pasteGif();
+      const decision=await waitFor(async()=>{
+        if(await js(`return !!document.querySelector('[data-testid="image-ingress-bank-2"]');`))return "replace";
+        const st=await state();return st.activeScene.entityCount===fullCount+1?"inserted":false;
+      },30000,"Image neither inserted nor requested a palette.",150);
+      if(decision==="replace")break;
+      await inserted(fullCount+1);
+    }
+    if(!(await js(`return !!document.querySelector('[data-testid="image-ingress-bank-2"]');`)))fail("Full palette fixture did not reach a replacement decision.");
+    if((await state()).activeScene.entityCount!==fullCount)fail("Palette decision already modified the scene.");
+    await shot("palette-choice");await escape();
+    if(JSON.stringify(await disk())!==JSON.stringify(beforeFull))fail("Cancelling palette replacement wrote the scene.");
+    await pasteGif();await waitFor(async()=>js(`return !!document.querySelector('[data-testid="image-ingress-bank-2"]');`),30000,"Second palette decision absent.",150);
+    await click("image-ingress-bank-2");await inserted(fullCount+1);await stop();
+    await js("document.activeElement?.blur?.();return true;");await chord("z");
+    await waitFor(async()=>(await state()).activeScene.entityCount===fullCount,5000,"Palette insertion Undo not atomic.",150);
+    if(JSON.stringify((await state()).activeScene.palettes)!==JSON.stringify(beforeFull.palettes??[]))fail("Undo did not restore the previous palette assignments.");
+    await chord("y");await waitFor(async()=>(await state()).activeScene.entityCount===fullCount+1,5000,"Palette insertion Redo failed.",150);
+    for(let i=0;i<fullCount-1;i++){await chord("z");await new Promise(r=>setTimeout(r,120));}
+    await waitFor(async()=>(await state()).activeScene.entityCount===2,5000,"Controlled palette fixtures did not undo.",150);
+    addReportStep(report,"four_banks_explicit_choice_cancel_atomic_undo_redo","passed",{bank:2});
+    await closeVisibleConsoleDrawer(sessionId,"antes do build de imagens");
+    const built=await runBuildRunAndCollect(sessionId,"image-ingress",timeoutMs,report,prefix,{nativeClick:true});report.build=built;
+    addReportStep(report,"build_rom_emulation","passed",built);
+    const roiSamples=[];
+    for(let i=0;i<12;i++){
+      const sample=await js(`const c=document.querySelector('[data-testid="viewport-game-canvas"]'),ctx=c?.getContext('2d');if(!ctx)return null;const data=ctx.getImageData(arguments[0],arguments[1],64,64).data;let hash=2166136261,red=0;for(let j=0;j<data.length;j+=4){for(let k=0;k<3;k++)hash=Math.imul(hash^data[j+k],16777619);if(data[j]>80 && data[j]>data[j+1]*1.5 && data[j]>data[j+2]*1.5)red++;}return {hash:hash>>>0,red};`,[sprite.transform.x,sprite.transform.y]);
+      roiSamples.push(sample);await new Promise(r=>setTimeout(r,110));
+    }
+    if(new Set(roiSamples.filter(Boolean).map(s=>s.hash)).size<2 || !roiSamples.some(s=>s?.red>0))fail("Compiled GIF did not visibly animate over the background.");
+    addReportStep(report,"gif_animation_visible_in_core_above_background","passed",{samples:roiSamples});
+    await callAutomationApi(sessionId,"stopEmulator");
+    const resources=await readFile(path.join(project,"build/megadrive/res/resources.res"),"utf8");
+    report.resources_res=resources;
+    if (!resources.includes("[[6,9,6,6,6,6,6]]")) fail("Edited frame durations absent from resource recipe.");
+    if(await callAutomationApi(sessionId,"persistScene",["image-before-close"])!==true)fail("Image scene did not finish its canonical save before close.");
+    await waitFor(async()=>js(`const e=document.querySelector('[data-testid="scene-save-status"]');return e?.dataset.status==='saved'&&e.dataset.revision===e.dataset.savedRevision;`),10000,"Image save revision not confirmed.",150);
+    const scene=await disk();
+    // Closing must actually finish and must never depend on accepting discard.
+    await js(`window.__RDS_IMAGE_PRIOR_CONFIRM__=window.confirm;window.__RDS_IMAGE_DISCARD_REQUESTS__=[];window.confirm=message=>{window.__RDS_IMAGE_DISCARD_REQUESTS__.push(String(message));return false;};return true;`);
+    try{
+      await clickTopBarMenuAction(sessionId,"Fechar");
+      await waitFor(async()=> (await state()).activeProjectDir==="" || (await js(`return window.__RDS_IMAGE_DISCARD_REQUESTS__.length;`))>0,10000,"Image project close did not finish or report a failure.",150);
+    }finally{await js(`window.confirm=window.__RDS_IMAGE_PRIOR_CONFIRM__;return true;`);}
+    if((await js(`return window.__RDS_IMAGE_DISCARD_REQUESTS__;`)).length)fail("Closing the saved image project requested discarding changes.");
+    await waitFor(async()=>(await state()).activeProjectDir==="",10000,"Image project did not really close.",150);
+    await openSavedProjectWizard(sessionId,project);
+    await waitFor(async()=>(await state()).activeProjectDir===project,20000,"Image project did not reopen.",200);
+    const reopened=await disk();if (JSON.stringify(reopened)!==JSON.stringify(scene)) fail("Reopening rewrote the image scene.");
+    await callAutomationApi(sessionId,"setSelectedEntityId",[sprite.entity_id]);await callAutomationApi(sessionId,"selectWorkspace",["artstudio"]);
+    await waitFor(async()=>js(`return document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length===7;`),20000,"Edited GIF frames did not reopen.",200);
+    await shot("reopened");addReportStep(report,"save_close_reopen_all_frames","passed",{frames:7,discard_prompts:0});
+    // Create another scene through the actual UI. Only the prompt's text is
+    // supplied by the fixture; the canonical scene creation/save/open is real.
+    await callAutomationApi(sessionId,"selectWorkspace",["scene"]);
+    const previousScene=(await state()).activeScenePath;
+    await waitFor(async()=>js(`const b=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Nova Cena');if(!b||b.disabled)return false;const prompt=window.prompt;window.prompt=()=>"Image Library";try{b.click();}finally{window.prompt=prompt;}return true;`),15000,"New scene control did not finish loading.",150);
+    await waitFor(async()=>{const st=await state();return st.activeScenePath!==previousScene&&st.activeScene.entityCount===0;},15000,"New scene creation failed.",150);
+    await callAutomationApi(sessionId,"openToolsWorkspace",["assets","editing",true]);
+    await waitForBodyText(sessionId,"Assets canonicos",30000,"Native image catalog absent.");
+    await clickButtonByText(sessionId,"Miniaturas","exact");
+    await waitFor(async()=>js(`const e=[...document.querySelectorAll('[data-testid="asset-browser-item"]')].find(e=>e.dataset.assetPath===arguments[0]);if(!e)return false;e.scrollIntoView({block:'center'});const b=[...e.querySelectorAll('button')].find(e=>e.textContent.trim()==='Adicionar à cena');if(!b||b.disabled)return false;b.click();return true;`,[asset]),15000,"Saved image absent or unavailable in library.",150);
+    await inserted(1);
+    const reused=(await disk()).entities[0];
+    if(reused.components.sprite.frame_width!==64 || reused.components.sprite.frame_height!==64 || reused.components.sprite.animations.idle.frames.length!==7 || !reused.components.sprite.animations.idle.frame_durations.includes(9))fail("Native library reuse guessed the frame layout or lost animation timing.");
+    await shot("library-reuse");
+    addReportStep(report,"library_reuse_without_scene_references_preserves_edited_frames_and_timing","passed",{frames:7,width:64,height:64,asset:reused.components.sprite.asset});
+    await clickButtonByText(sessionId,"Adicionar lógica","exact");
+    await waitFor(async()=>js(`return !!document.querySelector('[data-testid="nodegraph-canvas"]') && document.querySelectorAll('[data-testid^="node-card-"]').length>0;`),20000,"Image logic action did not open its editable graph.",150);
+    await shot("image-logic");addReportStep(report,"image_action_opens_editable_starter_logic","passed",{nodes:await js(`return document.querySelectorAll('[data-testid^="node-card-"]').length;`)});
+    await callAutomationApi(sessionId,"selectWorkspace",["scene"]);
+    // Corrupt input must retain the working scene and allow retrying the same
+    // source after repair, without leaving a half-created object.
+    const damaged=path.join(output,"repairable.png"),baseline=JSON.stringify(await disk());
+    await writeFile(damaged,"not an image");await produce("url",new URL(`file://${damaged}`).href);await js("document.activeElement?.blur?.();return true;");await chord("v");
+    await waitFor(async()=>js(`return !!document.querySelector('[data-testid="image-ingress-dialog"] [role="alert"]');`),15000,"Corrupt image did not show an actionable error.",150);
+    if(JSON.stringify(await disk())!==baseline)fail("Corrupt image altered the scene.");
+    await writeFile(damaged,await readFile(raster));await clickButtonByText(sessionId,"Tentar novamente","exact");await ready(1);await escape();await stop();
+    if(JSON.stringify(await disk())!==baseline)fail("Cancelling repaired image altered the scene.");
+    addReportStep(report,"corrupt_image_retry_after_repair_preserves_scene","passed",{});
+    // Verify the role buttons remain usable in a reduced, enlarged viewport.
+    await setSessionWindowRect(sessionId,1280,800);await js("document.documentElement.style.zoom='1.25';return true;");
+    await produce("url",gifUrl);await js("document.activeElement?.blur?.();return true;");await chord("v");await ready(6);
+    const layout=await js(`const d=document.querySelector('[data-testid="image-ingress-dialog"]'),b=document.querySelector('[data-testid="image-ingress-sprite"]');b.scrollIntoView({block:'center'});const r=b.getBoundingClientRect();return {dialog:!!d,hit:!!document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.closest('[data-testid="image-ingress-sprite"]'),width:innerWidth,height:innerHeight,zoom:getComputedStyle(document.documentElement).zoom};`);
+    if(!layout.hit)fail("Sprite choice is inaccessible at 1280x800 with 125% zoom.");await shot("enlarged-small-window");await escape();await stop();
+    await js("document.documentElement.style.zoom='';return true;");
+    addReportStep(report,"role_choice_at_1280x800_and_125_percent_zoom","passed",layout);
+    // Explicit WebKit-empty-transfer fixture over an actual OS clipboard. This
+    // exercises native HTML+RGBA capture, not only the DOM HTML paste channel.
+    const beforeNativeFallback=JSON.stringify(await disk());
+    await produce("browser",gifPath);
+    await js(`const e=new Event('paste',{bubbles:true,cancelable:true});Object.defineProperty(e,'clipboardData',{value:{files:[],items:[],getData:()=>''}});document.body.dispatchEvent(e);return true;`);
+    await ready(6);await shot("native-html-fallback");await escape();await stop();
+    if(JSON.stringify(await disk())!==beforeNativeFallback)fail("Cancelling native HTML fallback altered the scene.");
+    addReportStep(report,"native_html_original_recovers_six_frames_with_empty_webkit_transfer_fixture","passed",{frames:6,gesture:"synthetic empty DataTransfer; actual GTK OS HTML+PNG clipboard"});
+    report.status="passed";
+  } catch(error) {report.status="failed";report.error=String(error);report.last_state=await state().catch(()=>null);report.last_ui=await js(`return {frames:document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length,pixelStatus:document.querySelector('[data-testid="pixel-status"]')?.textContent,dialog:document.querySelector('[role="dialog"]')?.textContent,clipboard:window.__RDS_IMAGE_PASTE_PROBE__};`).catch(()=>null);await shot("failure").catch(()=>null);}
+  finally { await stop(); }
+  const receipt=path.join(output,`${prefix}.json`);await writeFile(receipt,JSON.stringify(report,null,2));console.log(`[image-ingress] ${report.status} ${receipt}`);
+  if(report.status!=="passed")fail(report.error);
+}
+
 async function runPixelEditorScenario(sessionId) {
   const source = process.env.RDS_SGDK_REAL_SOURCE;
   const output = process.env.RDS_SGDK_OUTPUT;
@@ -24294,6 +24496,7 @@ async function main() {
     options.scenario !== "sgdk-native-c" &&
     options.scenario !== "sgdk-corpus" &&
     options.scenario !== "pixel-editor" &&
+    options.scenario !== "image-ingress" &&
     options.scenario !== "studio-e4" &&
     options.scenario !== "studio-e2e5" &&
     options.scenario !== "studio-e6" &&
@@ -26139,6 +26342,9 @@ async function main() {
     }
     if (options.scenario === "pixel-editor") {
       await runPixelEditorScenario(sessionId);
+      return;
+    } else if (options.scenario === "image-ingress") {
+      await runImageIngressScenario(sessionId, emulatorActivationTimeoutMs, created => { temporaryProjectDir = created; });
       return;
     } else if (options.scenario === "sgdk-corpus") {
       await runSgdkCorpusScenario(sessionId);
