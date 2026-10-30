@@ -6,7 +6,7 @@ import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync,
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { detectHost, diagnose, isSupportedHost, nativeCacheBase, readManifest, repoRoot } from "./host-manager.mjs";
+import { acquireOperationLock, detectHost, diagnose, isSupportedHost, nativeCacheBase, readManifest, repoRoot } from "./host-manager.mjs";
 
 const GiB = 1024 ** 3;
 const hash = (file) => createHash("sha256").update(readFileSync(file)).digest("hex");
@@ -139,9 +139,51 @@ export function recordLockfiles(receipt, mode, root) {
   if (mode !== "--run" && receipt.lockfiles_changed.length) throw new Error(`lockfile_changed:${receipt.lockfiles_changed.join(",")}`);
 }
 
+function linuxBootId() {
+  if (process.platform !== "linux") return null;
+  try { return readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim(); } catch { return null; }
+}
+
+/** Recover only a lease proven to belong to another boot. A dead coordinator
+ * in this boot can still have a running child; preserve such leases for review.
+ * Reuse the host-manager mutex so competing launchers cannot archive a new owner. */
+export function acquireDevelopmentLease(plan, receiptPath, { bootId = linuxBootId() } = {}) {
+  const guard = acquireOperationLock(path.join(plan.work, "development-lease-guard"));
+  if (!guard) throw new Error("development_session_busy: outra abertura está em andamento; tente novamente em instantes");
+  const lockPath = path.join(plan.work, "development-operation.lock");
+  const validBoot = (id) => typeof id === "string" && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id);
+  const owner = JSON.stringify({ pid: process.pid, receipt: receiptPath, boot_id: validBoot(bootId) ? bootId : null });
+  const recovered = [];
+  try {
+    if (existsSync(lockPath)) {
+      let previous;
+      try { previous = JSON.parse(readFileSync(lockPath, "utf8")); }
+      catch { throw new Error(`development_lock_unreadable: trava preservada para inspeção: ${lockPath}`); }
+      if (!validBoot(bootId) || !validBoot(previous.boot_id) || previous.boot_id.toLowerCase() === bootId.toLowerCase())
+        throw new Error(`development_session_busy: sessão anterior preservada (PID ${previous.pid ?? "desconhecido"}); feche o RetroDev normalmente ou confira o recibo ${previous.receipt ?? lockPath}`);
+      const preserved = path.join(path.dirname(receiptPath), "previous-boot-development-operation.lock");
+      if (existsSync(preserved)) throw new Error(`recovery_evidence_already_exists:${preserved}`);
+      renameSync(lockPath, preserved);
+      recovered.push({ reason: "previous_boot", owner: previous, preserved, sha256: hash(preserved) });
+    }
+    const fd = openSync(lockPath, "wx", 0o600);
+    try { writeFileSync(fd, owner); } finally { closeSync(fd); }
+    return { boot_id: validBoot(bootId) ? bootId : null, recovered, release: () => {
+      // Never unlink a lease that has been replaced by another owner.
+      if (existsSync(lockPath) && readFileSync(lockPath, "utf8") === owner) unlinkSync(lockPath);
+    } };
+  } finally { guard.release(); }
+}
+
+export function notifyDesktopFailure(error, receiptPath, env = process.env, runner = spawnSync) {
+  if (env.RDS_DESKTOP_LAUNCH !== "1" || process.platform !== "linux") return null;
+  const message = `${error.message}\n${receiptPath ? `Detalhes: ${receiptPath}` : "Confira o launcher do projeto."}`;
+  const result = runner("notify-send", ["--app-name=RetroDev Studio", "--urgency=critical", "RetroDev Studio não abriu", message], { env, timeout: 3000, stdio: "ignore" });
+  return { exit_code: result.status, error: result.error?.message ?? null };
+}
+
 export function main(args = process.argv.slice(2)) {
-  let receipt, receiptPath, lockPath;
-  let ownsLock = false;
+  let receipt, receiptPath, lease;
   const persist = () => {
     if (!receiptPath) return;
     writeFileSync(`${receiptPath}.tmp`, `${JSON.stringify(receipt, null, 2)}\n`);
@@ -166,11 +208,10 @@ export function main(args = process.argv.slice(2)) {
     const sourceStatus = spawnSync("git", ["status", "--porcelain", "--untracked-files=normal"], { cwd: plan.repo, encoding: "utf8" });
     receipt = { ...plan, directory, mode: options.mode, status: "RUNNING", started_at: new Date().toISOString(), source_commit: snapshot.stdout?.trim() || null, source_dirty: sourceStatus.status === 0 ? Boolean(sourceStatus.stdout.trim()) : null, stages: [], certification: options.certify ? "pending" : "not_run", gui_acceptance: "not_run", lockfiles: Object.fromEntries(["package-lock.json", "src-tauri/Cargo.lock", "toolchains/host-requirements.lock.json"].map((file) => [file, hash(path.join(plan.repo, file))])) };
     persist();
-    // Stale locks are preserved: inspect their PID and receipt, never delete automatically.
-    lockPath = path.join(plan.work, "development-operation.lock");
-    const lockFd = openSync(lockPath, "wx", 0o600);
-    ownsLock = true;
-    try { writeFileSync(lockFd, JSON.stringify({ pid: process.pid, receipt: receiptPath })); } finally { closeSync(lockFd); }
+    lease = acquireDevelopmentLease(plan, receiptPath);
+    receipt.boot_id = lease.boot_id;
+    receipt.recovered_locks = lease.recovered;
+    persist();
     const initialEnv = sessionEnvironment(plan);
     const initial = diagnose({ env: initialEnv });
     copyFileSync(initial.report.paths.report, path.join(directory, "host-before.json"));
@@ -201,9 +242,11 @@ export function main(args = process.argv.slice(2)) {
       receipt.status = "FAIL"; receipt.error = error.message; receipt.finished_at = new Date().toISOString(); persist();
     }
     console.error(`[NEW HOST] ${error.message}${receiptPath ? `; receipt: ${receiptPath}` : ""}`);
+    const notification = notifyDesktopFailure(error, receiptPath);
+    if (receipt && notification) { receipt.desktop_notification = notification; persist(); }
     return 10;
   } finally {
-    if (ownsLock) unlinkSync(lockPath);
+    lease?.release();
   }
 }
 

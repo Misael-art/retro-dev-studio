@@ -3368,7 +3368,7 @@
     "code_commit": "1e849549d0628fc0ba09930ae13840ef281a20ce",
     "binary_sha256": "821d172a20fcef93b9b422678148481f21391d1417aa8092e640ecd7c6d3c318"
   },
-  "latest_checkpoint": "pixel_workspace_20261030",
+  "latest_checkpoint": "desktop_shortcut_recovery_20261030",
   "last_updated_at": "2026-10-30T05:45:39.772786+00:00",
   "product_diagnosis_20261028": {
     "schema": "retrodev.product_diagnosis/v1",
@@ -7677,7 +7677,7 @@
       "rustfmt": "PASS",
       "runner_syntax": "PASS",
       "diff_check": "PASS",
-      "rust_tests": "NOT RUN",
+      "rust_tests": "Subsequent full default Rust1120PASS/110ignored;private quality test remains NOT RUN.",
       "private_color_quality_gate": "NOT RUN;requires explicit --ignored and operator reference envs",
       "native_ingress_color_and_core": "NOT RUN",
       "certification": "NOT RUN for these changes",
@@ -7756,7 +7756,7 @@
       "focused_tests": "60 PASS on final source;preliminary-focused-113146.log",
       "static": "tree/lint/types/fmt/runner syntax/diff PASS on final production source;preliminary direct pinned tools;not managed certification",
       "browser": "Real PixelEditor component in isolated fixture,1280x800;no project/IPC/Tauri/save;10 captures across iterations;7-step partial audit report",
-      "rust": "NOT RUN;three-method alpha/timing/frame diffusion test written",
+      "rust": "Subsequent managed host certification1120PASS/110ignored on unchanged Rust production source;private color test not run;new app/native UI still pending.",
       "private_color_quality": "NOT RUN;explicit --ignored required",
       "native": "NOT RUN;7 steps added to canonical17-step color ingress,24 planned",
       "certification": "NOT RUN for proposed changes",
@@ -7810,5 +7810,59 @@
       "owner": "operator"
     },
     "archive": "pixel-workspace-20261030-proposed-checkpoint-113242.tar.gz"
+  },
+  "desktop_shortcut_recovery_20261030": {
+    "status": "passed_local_desktop_launch",
+    "base_commit": "3b27690250c0150ce4ae29e84e342d6b5764a806",
+    "runtime_evidence": "sessions/desktop-shortcut-recovery-20261030",
+    "cause": "Development lease from08:45 survived host reboot~15:15UTC;owner/app PIDs absent;Terminal=false hid EEXIST",
+    "manual_legacy_recovery": "Old lock archived byte-for-byte,original receipt unchanged,no live process killed",
+    "archived_lock_sha256": "b5a25242dae6c5a434291acdf69f933f8e95bab0073a3ef47c3d1b621b57558a",
+    "changes": [
+      "New Linux leases record boot_id;recover only valid different-boot lease by archiving in the new session with hash/receipt",
+      "Current-boot,legacy,corrupt or unavailable boot identity preserved for inspection,even if parent dead",
+      "Reuse host-manager mutex to serialize acquisition/recovery;release only matching owner",
+      "Optional RDS_DESKTOP_LAUNCH=1 host notification with3s timeout and receipt path;normal CLI unchanged"
+    ],
+    "binary_sha256": "821d172a20fcef93b9b422678148481f21391d1417aa8092e640ecd7c6d3c318",
+    "binary_replaced": false,
+    "desktop_environment_updated": true,
+    "ui_proposal_installed": false,
+    "validation": {
+      "focused_host_tests": "56 PASS;official managed launcher",
+      "syntax": "PASS",
+      "desktop_file_validate": "PASS",
+      "binary_sha_integrity": "PASS",
+      "certify": "READY/7gates;official launcher receipt2026-10-30T15-58-47-069Z-188815 PASS",
+      "desktop_open_close_reopen": "PENDING",
+      "frontend": "1300PASS/11conditional skips",
+      "rust": "1120PASS/110ignored;private color quality intentionally requires explicit --ignored and was not run",
+      "clippy_default": "PASS",
+      "rustfmt": "PASS",
+      "npm_security_audit": "PASS",
+      "cargo_audit": "PASS;preexisting allowed notices",
+      "desktop_open": "PASS;KDE kioclient exec of actual desktop entry,visible native window PID265601",
+      "normal_close_reopen": "NOT PERFORMED;operator actively created project108/imported a53-frame GIF after opening;leave window available",
+      "outer_wrapper": "Python bookkeeping exit143 after canonical PASS;coordinator receipt and seven-gate READY report retained;remaining checks separately PASS"
+    },
+    "operator_project_written": false,
+    "limits": [
+      "No native new UI build/ROM/color qualification from a launcher repair",
+      "Unknown boot identity and legacy/current-boot locks remain deliberately blocking;child may still be alive",
+      "Host desktop notification depends on optional notify-send already available;does not install a service or dependency",
+      "No physical Windows or cross-compositor qualification"
+    ],
+    "delivery_complete_for_local_increment": true,
+    "broader_ui_complete": false,
+    "human_acceptance": false,
+    "left_open_for_operator": true,
+    "current_app_lease_session": "2026-10-30T16-16-09-626Z-265424",
+    "operator_baselines": {
+      "project106_files": 6,
+      "project107_files": 2,
+      "all_bytes_unchanged": true
+    },
+    "capture_scope": "Targeted native screenshot partially frames window;startup evidence only,not whole UI audit",
+    "next_step": "Operator uses open app/desktop shortcut. New UI and color proposals still need private quality,new build,native journeys before binary replacement;preserve active user lease."
   }
 }

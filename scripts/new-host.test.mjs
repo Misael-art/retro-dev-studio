@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkSpace, createPlan, inside, parseArgs, performStages, recordLockfiles, sessionEnvironment, stagesFor } from "./new-host.mjs";
+import { acquireDevelopmentLease, checkSpace, createPlan, inside, notifyDesktopFailure, parseArgs, performStages, recordLockfiles, sessionEnvironment, stagesFor } from "./new-host.mjs";
 import { repoRoot, sourceBuildJobs } from "./host-manager.mjs";
 
 const temp = [];
@@ -77,6 +77,38 @@ describe("new host: storage and pinned environment", () => {
 });
 
 describe("new host: fail-closed orchestration", () => {
+  it("archives a previous-boot lease byte-for-byte and releases only its own replacement", () => {
+    const work = directory(), session = directory(), lock = path.join(work, "development-operation.lock");
+    const old = JSON.stringify({pid:123,receipt:"old-receipt.json",boot_id:"11111111-1111-4111-8111-111111111111"});
+    writeFileSync(lock, old);
+    const lease = acquireDevelopmentLease({work}, path.join(session,"receipt.json"), {bootId:"22222222-2222-4222-8222-222222222222"});
+    expect(readFileSync(lease.recovered[0].preserved,"utf8")).toBe(old);
+    expect(lease.recovered[0]).toMatchObject({reason:"previous_boot",sha256:createHash("sha256").update(old).digest("hex")});
+    expect(JSON.parse(readFileSync(lock,"utf8"))).toMatchObject({pid:process.pid,boot_id:lease.boot_id});
+    lease.release();expect(existsSync(lock)).toBe(false);
+  });
+  it("preserves current-boot, legacy, corrupt and unknown-boot owners without removing their leases", () => {
+    const boot = "11111111-1111-4111-8111-111111111111";
+    for (const [raw,current] of [[JSON.stringify({pid:process.pid,boot_id:boot}),boot],[JSON.stringify({pid:99999999,boot_id:boot}),boot],[JSON.stringify({pid:99999999}),boot],["broken",boot],[JSON.stringify({pid:1,boot_id:boot}),null],[JSON.stringify({pid:1,boot_id:"invalid"}),boot]]) {
+      const work=directory(),lock=path.join(work,"development-operation.lock");writeFileSync(lock,raw);
+      expect(()=>acquireDevelopmentLease({work},path.join(directory(),"receipt.json"),{bootId:current})).toThrow();
+      expect(readFileSync(lock,"utf8")).toBe(raw);
+    }
+  });
+  it("serializes lease recovery and never releases another owner's file", () => {
+    const work=directory(),guard=path.join(work,"development-lease-guard","operation.lock");mkdirSync(guard,{recursive:true});writeFileSync(path.join(guard,"owner.json"),JSON.stringify({pid:process.pid}));
+    expect(()=>acquireDevelopmentLease({work},path.join(directory(),"receipt.json"))).toThrow("development_session_busy");
+    rmSync(guard,{recursive:true});
+    const lease=acquireDevelopmentLease({work},path.join(directory(),"receipt.json"));
+    const lock=path.join(work,"development-operation.lock");writeFileSync(lock,"replacement-owner");lease.release();expect(readFileSync(lock,"utf8")).toBe("replacement-owner");
+  });
+  posix("reports desktop launch failures without opening a shell or changing ordinary CLI behavior", () => {
+    if(process.platform!=="linux")return;
+    const calls=[],runner=(...args)=>{calls.push(args);return {status:0};};
+    expect(notifyDesktopFailure(new Error("busy"),"receipt.json",{},runner)).toBeNull();expect(calls).toHaveLength(0);
+    expect(notifyDesktopFailure(new Error("busy"),"receipt.json",{RDS_DESKTOP_LAUNCH:"1"},runner)).toMatchObject({exit_code:0});
+    expect(calls[0][0]).toBe("notify-send");expect(calls[0][1].at(-1)).toContain("Detalhes: receipt.json");expect(calls[0][2]).toMatchObject({timeout:3000,stdio:"ignore"});expect(calls[0][2].shell).not.toBe(true);
+  });
   it("requires stable locks for certification but records an intentional maintenance delta", () => {
     const root = directory();
     writeFileSync(path.join(root, "lock.json"), "updated");

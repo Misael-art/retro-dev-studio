@@ -1,3 +1,11 @@
+### Atalho após reboot — 2026-10-30 (validado localmente)
+
+Lease08:45 de antes do reboot15:15UTC arquivada após comprovar PIDs ausentes; projeto preservado. Novas leases Linux registram boot_id e arquivam somente boot comprovadamente diferente, com mutex do host-manager; mesmo boot/legado/ambígua permanecem bloqueantes. Release verifica proprietário; .desktop habilita notificação de falha.56 focados PASS; **READY/7 gates**,1300frontend/11skip,1120Rust/110ignored,smokes oficiais,Clippy padrão/fmt/auditorias PASS. Coordenador certify PASS, wrapper de bookkeeping saiu143 depois do encerramento; complementos em nova TTY PASS, falha preservada.
+
+KDE abriu a entrada real, app821d172a/PID265601; operador iniciou uso de projeto108/GIF53quadros. **Mantido aberto**, lease2026-10-30T16-16-09-626Z-265424; fechamento/reabertura não exercitados para preservar uso ativo. Oito arquivos dos baselines106/107 iguais, zero escrita pelo agente. Evidências `RDS_WORK_ROOT/sessions/desktop-shortcut-recovery-20261030`; detalhes/proteção no topo do Memory Bank e índice desktop_shortcut_recovery_20261030. UI9b2034cf não instalada; testes Rust padrão passaram, mas qualidade privada/new build/native/ROM ainda pendentes. Sem promoção/merge/release/deploy.
+
+---
+
 ### Editor de imagem por tarefas — 2026-10-30 (proposta Experimental)
 
 Base6b771fd3/PR#112; **não instalado**, atalho continua821d172a. PixelEditor ganha nomes/ícones/atalhos, seis tarefas, prévia/Aplicar/Cancelar/Undo, recorte uniforme/região, geometria por cópia, isolamento, brilho/contraste/13 filtros, colagem/texto/bordas, camadas e mapa de tiles. Conversão tem três métodos adaptados SGDKForge/SMSForge ao RGB333 MD. Paleta exportada respeitada; recursos compartilhados protegidos; mistura incompatível no PNG recusada com Unificar paletas reversível. Nenhum motor/store/writer/dependência novo.
