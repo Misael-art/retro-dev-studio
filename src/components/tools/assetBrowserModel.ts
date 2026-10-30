@@ -125,6 +125,12 @@ export function classifyAssetBrowserAsset(asset: ProjectAssetEntry): AssetBrowse
     "/cache_",
   ]);
 
+  const resourceKind = asset.sgdk_resource?.resource_kind;
+  if (resourceKind === "PALETTE") return { typeId: "palette", typeLabel: "Paleta", generated };
+  if (resourceKind === "SPRITE") return { typeId: "sprite", typeLabel: "Personagem / objeto", generated };
+  if (resourceKind === "TILESET") return { typeId: "tilemap", typeLabel: "Banco de peças", generated };
+  if (["IMAGE", "MAP", "TILEMAP"].includes(resourceKind ?? "")) return { typeId: "tilemap", typeLabel: "Imagem montada", generated };
+
   if (
     asset.kind === "audio" ||
     /\.(wav|vgm|xgm|pcm|ogg|mp3|flac)$/i.test(path) ||
@@ -270,6 +276,8 @@ export function filterAssetBrowserAssets({
       asset.kind,
       classification.typeId.replace("_", " "),
       classification.typeLabel,
+      normalizeAssetPath(asset.sgdk_resource?.resource_name ?? "").replace(/[_-]+/g, " "),
+      ...(asset.sgdk_resource?.variants ?? []).map(resource => normalizeAssetPath(resource.resource_name).replace(/[_-]+/g, " ")),
       classification.generated ? "generated gerado artstudio" : "",
       matches.length === 0 ? "unused orfao" : "used usado referenciado",
       budget.status === "over" ? "over budget over-budget acima orcamento" : "",

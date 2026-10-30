@@ -4,6 +4,7 @@ import {
   classifyImageAssetInstantiation,
   normalizeAssetRelativePath,
   shouldInstantiateImageAsTilemapEntity,
+  createEntityFromProjectAsset,
 } from "./assetInstantiation";
 import type { Entity } from "./ipc/sceneService";
 
@@ -31,6 +32,34 @@ function entityWithTilemap(tileset: string): Pick<Entity, "entity_id" | "compone
 }
 
 describe("assetInstantiation", () => {
+  it("preserves declared SGDK meta-sprite frames and animations when adding a catalog resource", () => {
+    const sprite = { asset: "assets/sprites/fighter.png", frame_width: 96, frame_height: 112, meta_sprite: true, animations: { idle: { frames: [0, 1], fps: 10, loop: true } } };
+    const entity = createEntityFromProjectAsset({
+      asset: { kind: "image", relative_path: sprite.asset, absolute_path: "/project/" + sprite.asset, image_width: 192, image_height: 112, sgdk_resource: { resource_name: "fighter_idle", resource_kind: "SPRITE", sprite } },
+      projectSourceKind: "imported_sgdk", target: "megadrive", scene: { entities: [], background_layers: [] },
+    });
+    expect(entity.components.sprite).toEqual(sprite);
+    expect(entity.display_name).toBe("fighter_idle");
+    expect(entity.components.sprite).not.toBe(sprite);
+  });
+
+  it("adds assembled images at their original size and marks a tileset as a piece bank", () => {
+    for (const resource_kind of ["IMAGE", "TILESET"]) {
+      const entity = createEntityFromProjectAsset({
+        asset: { kind: "image", relative_path: "assets/tilesets/hud.png", absolute_path: "/project/hud.png", image_width: 192, image_height: 88, sgdk_resource: { resource_name: "hud", resource_kind, sprite: null } },
+        projectSourceKind: "imported_sgdk", target: "megadrive", scene: { entities: [], background_layers: [] },
+      });
+      expect(entity.components.tilemap).toMatchObject({ map_width: 24, map_height: 11, cells: [] });
+      expect(entity.components.logic?.logic_hints?.includes("sgdk_import:tileset_bank") ?? false).toBe(resource_kind === "TILESET");
+    }
+  });
+
+  it("refuses to invent a frame grid for an older SGDK catalog and to instantiate palette images", () => {
+    for (const resource_kind of ["SPRITE", "PALETTE"]) expect(() => createEntityFromProjectAsset({
+      asset: { kind: "image", relative_path: "assets/sprites/unknown.png", absolute_path: "/project/unknown.png", sgdk_resource: { resource_name: "unknown", resource_kind, sprite: null } },
+      projectSourceKind: "imported_sgdk", target: "megadrive", scene: { entities: [], background_layers: [] },
+    })).toThrow();
+  });
   it("normalizes slashes for comparison", () => {
     expect(normalizeAssetRelativePath("a\\b\\c.png")).toBe("a/b/c.png");
   });
@@ -97,7 +126,7 @@ describe("assetInstantiation", () => {
     });
     expect(c.kind).toBe("tilemap");
     expect(c.reason).toBe("sgdk-layout-canónico-pastas");
-    expect(c.title).toBe("Instanciar como tilemap");
+    expect(c.title).toBe("Adicionar imagem à cena");
     expect(c.entityLabel).toBe("Tilemap");
     expect(c.detail).toContain("SGDK");
     expect(c.nextStep).toContain("cells[]");
@@ -112,7 +141,7 @@ describe("assetInstantiation", () => {
 
     expect(c.kind).toBe("sprite");
     expect(c.reason).toBe("padrao-sprite-sem-sinais-de-tilemap");
-    expect(c.title).toBe("Instanciar como sprite");
+    expect(c.title).toBe("Adicionar personagem ou objeto");
     expect(c.entityLabel).toBe("Sprite");
     expect(c.detail).toContain("sprite");
   });

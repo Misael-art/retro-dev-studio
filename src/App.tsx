@@ -831,6 +831,8 @@ function SgdkImportSummaryCard({ summary }: { summary: SgdkImportSummary }) {
       title={`Resumo SGDK Logic — ${formatSgdkImportSummaryKind(summary)}`}
       className="mx-3 mt-3 rounded border border-[#89b4fa]/30 bg-[#0b1020] p-3 text-[10px] text-[#94a3b8]"
     >
+      <details open={Boolean(summary.blocking_gaps?.length)}>
+      <summary className="cursor-pointer text-xs font-semibold text-[#cdd6f4]">Detalhes da importação SGDK · Experimental · equivalência do jogo não certificada</summary>
       <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#89b4fa]">
@@ -867,6 +869,7 @@ function SgdkImportSummaryCard({ summary }: { summary: SgdkImportSummary }) {
           arquivos fonte mapeados: {summary.mapped_source_files.join(", ")}
         </p>
       ) : null}
+      </details>
     </section>
   );
 }
@@ -1942,6 +1945,7 @@ export default function App() {
   const workspaceMeta =
     WORKSPACE_ITEMS.find((workspace) => workspace.id === activeWorkspace) ?? WORKSPACE_ITEMS[0];
   const shellConfig = resolveWorkspaceShellConfig(activeWorkspace, shellWidth);
+  const defaultRightMode = shellConfig.defaultRightMode;
   const shortcutConflicts = findShortcutConflicts(shortcuts);
   const paletteCommands = getPaletteCommands(shortcuts).filter((command) =>
     EXECUTABLE_COMMAND_IDS.has(command.id)
@@ -2212,13 +2216,12 @@ export default function App() {
       return;
     }
 
-    const config = resolveWorkspaceShellConfig(activeWorkspace, shellWidth);
-    if (config.defaultRightMode === "tools") {
+    if (defaultRightMode === "tools") {
       setRightPanelMode("tools");
-    } else if (config.defaultRightMode === "inspector") {
+    } else if (defaultRightMode === "inspector") {
       setRightPanelMode("inspector");
     }
-  }, [activeWorkspace, focusedShell, shellWidth]);
+  }, [activeWorkspace, focusedShell, defaultRightMode]);
 
   useEffect(() => {
     if (activeWorkspace === "debug" || activeWorkspace === "explorer") {
@@ -3864,7 +3867,7 @@ export default function App() {
   }
 
   async function handleCloseProject() {
-    const saved = await persistActiveScene(activeProjectDir, "Fechar", "Projeto salvo antes de fechar.");
+    const saved = await persistActiveScene(activeProjectDir, "Fechar", "Projeto salvo antes de fechar.", { onlyIfChanged: true });
     if (!saved) {
       const discard = window.confirm(
         "Falha ao salvar o projeto. Deseja descartar as alteracoes e fechar mesmo assim?"
@@ -5485,7 +5488,7 @@ export default function App() {
           <Panel
             id="left"
             defaultSize={shellConfig.panels.left}
-            minSize={shellConfig.showLeft ? 12 : 0}
+            minSize={shellConfig.showLeft && !focusedShell ? "200px" : 0}
             collapsible
             className="flex flex-col overflow-hidden border-r border-[#313244]"
           >
@@ -5542,7 +5545,7 @@ export default function App() {
           <Panel
             id="right"
             defaultSize={shellConfig.panels.right}
-            minSize={shellConfig.showRight ? 16 : 0}
+            minSize={shellConfig.showRight && !focusedShell ? "320px" : 0}
             collapsible
             className="overflow-hidden border-l border-[#313244]"
           >

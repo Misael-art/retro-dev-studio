@@ -27,6 +27,7 @@ import {
 } from "../../core/ipc/artStudioService";
 import { parseInputCommandFile } from "../../core/ipc/inputCommandService";
 import { getSgdkSpriteCatalog, type SgdkSpriteCatalogEntry } from "../../core/ipc/projectService";
+import { listProjectAssets } from "../../core/ipc/toolsService";
 import { openCodeRef } from "../inspector/SpriteCodeLink";
 import AssetQualityPanel from "./AssetQualityPanel";
 import PixelEditor from "./PixelEditor";
@@ -847,7 +848,7 @@ export function buildArtStudioSequencesFromSpriteMetadata(
     ])
   );
 
-  const base = cloneDefaultArtStudioSequences();
+  const base = cloneDefaultArtStudioSequences().map(sequence => ({ ...sequence, frames: [] as number[] }));
   const usedCanonicalIds = new Set<string>();
 
   for (const [key, animation] of animationEntries) {
@@ -1033,8 +1034,8 @@ type ArtStudioAction =
       type: "SET_IMPORTED_ASSET";
       path: string;
       name: string;
-      width: number;
-      height: number;
+      width?: number;
+      height?: number;
     }
   | {
       type: "UPDATE_SLICING_SUGGESTIONS";
@@ -1139,8 +1140,8 @@ function artStudioReducer(state: ArtStudioState, action: ArtStudioAction): ArtSt
         ...state,
         spritePath: action.path,
         spriteName: action.name,
-        frameWidth: action.width,
-        frameHeight: action.height,
+        frameWidth: action.width ?? state.frameWidth,
+        frameHeight: action.height ?? state.frameHeight,
         validationError: null,
       };
     case "UPDATE_SLICING_SUGGESTIONS":
@@ -1395,7 +1396,7 @@ function artStudioReducer(state: ArtStudioState, action: ArtStudioAction): ArtSt
       return {
         ...state,
         sequences: action.sequences,
-        activeSequenceId: null,
+        activeSequenceId: action.sequences.find(sequence => sequence.frames.length > 0)?.id ?? null,
         validationError: null,
       };
     case "SET_PLAYING":
@@ -2691,6 +2692,16 @@ export default function ArtStudioPanel() {
   const stageScrollRef = useRef<HTMLDivElement>(null);
   /** Sprite do jogo SGDK aberto (catálogo do `.res`), com quadro declarado e uso no C. */
   const [gameSprite, setGameSprite] = useState<SgdkSpriteCatalogEntry | null>(null);
+  const declaredFrameRef = useRef<{ asset: string; target: typeof activeTarget; width: number; height: number; metaSprite: boolean } | null>(null);
+  const constrainFrame = useCallback((asset: string | undefined, width: number, height: number) => {
+    const declared = declaredFrameRef.current;
+    // Opening/applying an unchanged declared composite frame must not crop it
+    // with the simple-sprite default. Build still validates hardware limits.
+    if (declared && declared.target === activeTarget && declared.asset === asset && declared.width === width && declared.height === height) {
+      return { frameWidth: width, frameHeight: height };
+    }
+    return constrainSpriteFrameSize(activeTarget, asset, width, height);
+  }, [activeTarget]);
   const [artMode, setArtMode] = useState<"prepare" | "pixel">("prepare");
   /** Área visível do stage (sem o padding), para o zoom de enquadramento. */
   const stageViewportSize = useCallback(() => {
@@ -2918,12 +2929,19 @@ export default function ArtStudioPanel() {
           activeProjectDir && relativeForCatalog
             ? ((await getSgdkSpriteCatalog(activeProjectDir).catch(() => [])).find((e) => e.asset === relativeForCatalog) ?? null)
             : null;
+        // Keep the selected instance's authored layout; otherwise use the same
+        // imported resource metadata as the browser, including offline copies.
+        const instanceSprite = useEditorStore.getState().activeScene?.entities.find(e => e.entity_id === selectedEntityId)?.components.sprite;
+        const resourceSprite = !catalogEntry && activeProjectDir && relativeForCatalog
+            ? (await listProjectAssets(activeProjectDir).catch(() => [])).find(e => e.relative_path === relativeForCatalog)?.sgdk_resource?.sprite
+            : null;
+        const frameLayout = (instanceSprite?.asset === relativeForCatalog ? instanceSprite : null) ?? catalogEntry ?? resourceSprite;
         if (!current()) return false;
         setGameSprite(catalogEntry);
-        const processed = catalogEntry
+        const processed = frameLayout
           ? await artProcessPalette(sourcePath, {
-              gridWidth: catalogEntry.frame_width,
-              gridHeight: catalogEntry.frame_height,
+              gridWidth: frameLayout.frame_width,
+              gridHeight: frameLayout.frame_height,
               slicingMode: "grid",
             })
           : await artProcessPalette(sourcePath);
@@ -2939,14 +2957,18 @@ export default function ArtStudioPanel() {
           activeProjectDir && sourcePath
             ? resolveArtStudioSpriteAssetPath(activeProjectDir, sourcePath)
             : null;
+        declaredFrameRef.current = frameLayout && relativeAssetPath ? {
+          asset: relativeAssetPath, target: activeTarget, width: frameLayout.frame_width, height: frameLayout.frame_height,
+          metaSprite: instanceSprite?.asset === relativeForCatalog ? Boolean(instanceSprite.meta_sprite)
+            : resourceSprite?.meta_sprite ?? (activeTarget === "megadrive" && (frameLayout.frame_width > 32 || frameLayout.frame_height > 32)),
+        } : null;
         const spriteName = basenameWithoutExtension(relativeAssetPath ?? sourcePath);
         const scope: ArtStudioSourceScope = relativeAssetPath ? "project" : "external";
         const message = relativeAssetPath
           ? "Imagem processada no backend, quantizada e pronta para slicing."
           : "Imagem processada no backend para preparo. Para aplicar na cena, mova ou copie o arquivo para assets/sprites.";
 
-        const suggestedFrame = constrainSpriteFrameSize(
-          activeTarget,
+        const suggestedFrame = constrainFrame(
           relativeAssetPath ?? undefined,
           processed.suggested_frame_width ?? 32,
           processed.suggested_frame_height ?? 32
@@ -2984,9 +3006,13 @@ export default function ArtStudioPanel() {
           metaSpriteCandidate: processed.meta_sprite_candidate,
           suggestedFrames: processed.suggested_frames,
           slicingMode: processed.slicing_mode,
-          suggestedFrameWidth: catalogEntry?.frame_width ?? suggestedFrame.frameWidth,
-          suggestedFrameHeight: catalogEntry?.frame_height ?? suggestedFrame.frameHeight,
+          suggestedFrameWidth: frameLayout?.frame_width ?? suggestedFrame.frameWidth,
+          suggestedFrameHeight: frameLayout?.frame_height ?? suggestedFrame.frameHeight,
         });
+        if (resourceSprite && !selectedEntityId && artStudioStateRef.current.commandLibrary.length === 0
+          && JSON.stringify(artStudioStateRef.current.sequences) === JSON.stringify(DEFAULT_ARTSTUDIO_SEQUENCES)) {
+          dispatch({ type: "HYDRATE_SPRITE_METADATA", sequences: buildArtStudioSequencesFromSpriteMetadata(resourceSprite) });
+        }
 
         imageRef.current = loaded.image;
         if (typeof stageScrollRef.current?.scrollTo === "function") {
@@ -3008,7 +3034,7 @@ export default function ArtStudioPanel() {
         return false;
       }
     },
-    [activeProjectDir, activeTarget, projectSessionId, selectedEntityId, logMessage]
+    [activeProjectDir, activeTarget, projectSessionId, selectedEntityId, constrainFrame, logMessage]
   );
 
   const handleLoadSpriteSheet = useCallback(async () => {
@@ -3158,7 +3184,6 @@ export default function ArtStudioPanel() {
     if (autoHydratedSpriteRef.current === contextKey) return;
     autoHydratedSpriteRef.current = contextKey;
     const absolutePath = normalizeFsPath(`${activeProjectDir}/${directAssetPath}`);
-    const suggestedFrame = constrainSpriteFrameSize(activeTarget, directAssetPath, 32, 32);
     const loading = ingestSpriteSheet({ sourcePath: absolutePath });
     const requestId = imageRequestIdRef.current;
     void loading.then((loaded) => {
@@ -3167,8 +3192,6 @@ export default function ArtStudioPanel() {
         type: "SET_IMPORTED_ASSET",
         path: directAssetPath,
         name: basenameWithoutExtension(directAssetPath),
-        width: suggestedFrame.frameWidth,
-        height: suggestedFrame.frameHeight,
       });
       logMessage("info", `[ArtStudio] Asset do browser carregado: ${directAssetPath}.`);
     }).catch((error) => {
@@ -3229,8 +3252,7 @@ export default function ArtStudioPanel() {
           return;
         }
 
-        const constrained = constrainSpriteFrameSize(
-          activeTarget,
+        const constrained = constrainFrame(
           state.spritePath || state.spriteSourceAssetPath || undefined,
           processed.suggested_frame_width ?? nextWidth,
           processed.suggested_frame_height ?? nextHeight
@@ -3265,7 +3287,7 @@ export default function ArtStudioPanel() {
         );
       }
     },
-    [activeTarget, logMessage, state.spritePath, state.spriteSourceAssetPath]
+    [constrainFrame, logMessage, state.spritePath, state.spriteSourceAssetPath]
   );
 
   const handleCanvasClick = useCallback(
@@ -3361,8 +3383,7 @@ export default function ArtStudioPanel() {
 
   const applyConstrainedFrameSize = useCallback(
     (nextWidth: number, nextHeight: number) => {
-      const constrained = constrainSpriteFrameSize(
-        activeTarget,
+      const constrained = constrainFrame(
         state.spritePath || state.spriteSourceAssetPath || undefined,
         nextWidth,
         nextHeight
@@ -3380,7 +3401,7 @@ export default function ArtStudioPanel() {
         );
       }
     },
-    [activeTarget, refreshSlicingSuggestions, state.spritePath, state.spriteSheetSourcePath, state.spriteSourceAssetPath]
+    [constrainFrame, refreshSlicingSuggestions, state.spritePath, state.spriteSheetSourcePath, state.spriteSourceAssetPath]
   );
 
   const handleApplyToScene = useCallback((forcedEntityId?: string): boolean => {
@@ -3456,8 +3477,7 @@ export default function ArtStudioPanel() {
       return false;
     }
 
-    const constrainedFrame = constrainSpriteFrameSize(
-      activeTarget,
+    const constrainedFrame = constrainFrame(
       artState.spritePath,
       artState.frameWidth,
       artState.frameHeight
@@ -3592,6 +3612,11 @@ export default function ArtStudioPanel() {
         animations,
         commands: commandBindings,
       });
+      if (declaredFrameRef.current?.asset === artState.spritePath && entity.components.sprite) {
+        entity.components.sprite.frame_width = constrainedFrame.frameWidth;
+        entity.components.sprite.frame_height = constrainedFrame.frameHeight;
+        entity.components.sprite.meta_sprite = declaredFrameRef.current.metaSprite;
+      }
       addEntity(entity);
       setSelectedEntityId(entity.entity_id);
       logMessage("success", `[ArtStudio] Entidade '${entity.entity_id}' criada na cena.`);
@@ -3617,6 +3642,7 @@ export default function ArtStudioPanel() {
     selectedEntityId,
     activeProjectDir,
     activeTarget,
+    constrainFrame,
     addEntity,
     setSelectedEntityId,
     updateEntity,
@@ -3823,8 +3849,7 @@ export default function ArtStudioPanel() {
   ]);
 
   useEffect(() => {
-    const constrained = constrainSpriteFrameSize(
-      activeTarget,
+    const constrained = constrainFrame(
       state.spritePath || state.spriteSourceAssetPath || undefined,
       state.frameWidth,
       state.frameHeight
@@ -3839,7 +3864,7 @@ export default function ArtStudioPanel() {
         height: constrained.frameHeight,
       });
     }
-  }, [activeTarget, state.spritePath, state.spriteSourceAssetPath, state.frameWidth, state.frameHeight]);
+  }, [constrainFrame, state.spritePath, state.spriteSourceAssetPath, state.frameWidth, state.frameHeight]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

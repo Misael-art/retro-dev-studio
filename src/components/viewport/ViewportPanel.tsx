@@ -5010,6 +5010,9 @@ export default function ViewportPanel({
                 height={sceneHeight}
                 className="absolute border border-[#45475a]"
                 style={{
+                  // Transparent source tiles must keep a neutral stage surface
+                  // even when the surrounding application uses a light theme.
+                  backgroundColor: "#060816",
                   imageRendering: "pixelated",
                   left: sceneChromeOffset,
                   top: sceneChromeOffset,

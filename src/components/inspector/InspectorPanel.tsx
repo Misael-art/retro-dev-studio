@@ -1867,6 +1867,7 @@ export default function InspectorPanel() {
                     0
                   );
                   const percent = total > 0 ? Math.round((filled / total) * 100) : 0;
+                  const canRestoreOriginal = cells.some(value => value !== 0);
                   const hasCanonicalPaintedCells = hasCanonicalTilemapCells(tm);
                   const tilemapVisualState =
                     assetPreviewStates[tm.tileset]
@@ -1942,12 +1943,12 @@ export default function InspectorPanel() {
                         }
                       >
                         {hasCanonicalPaintedCells
-                          ? "Tilemap com cells[] canônico: render célula-a-célula no viewport."
-                          : "Tilemap em fallback explícito: tileset existe, mas cells[] ainda nao foram materializados."}
+                          ? "Montagem editável por peças no viewport."
+                          : "Imagem original em uso, sem alterações por peças."}
                       </p>
                       {!hasCanonicalPaintedCells ? (
                         <p className="mb-2 text-[10px] leading-relaxed text-[#f9e2af]">
-                          Pinte/importe a malha cells[] para sair do fallback legado e ver o tilemap canônico no viewport.
+                          Use Pintar para alterar as peças desta instância. O arquivo de imagem original será preservado.
                         </p>
                       ) : null}
                       <div className="mb-2 flex flex-wrap gap-1.5">
@@ -1962,20 +1963,21 @@ export default function InspectorPanel() {
                       <div className="flex flex-col gap-2">
                         <button
                           type="button"
-                          disabled={filled === 0}
+                          disabled={!canRestoreOriginal}
                           data-testid="inspector-clear-tilemap-cells"
                           onClick={() => {
                             clearTilemapCells(entity.entity_id);
                             logMessage("info", `[Inspector] Limpeza de células aplicada a '${entity.entity_id}'.`);
                           }}
                           className={`rounded border px-2 py-1.5 text-[10px] font-mono transition-colors ${
-                            filled === 0
+                            !canRestoreOriginal
                               ? "cursor-not-allowed border-[#45475a] bg-slate-800/50 text-[#6c7086] opacity-60"
                               : "border-[#f38ba8]/40 bg-[#f38ba8]/10 text-[#f38ba8] hover:border-[#f38ba8] hover:bg-[#f38ba8]/20"
                           }`}
                         >
-                          🧹 Limpar Células Pintadas
+                          Restaurar imagem original
                         </button>
+                        <p className="text-[10px] text-[#7f849c]">Remove a pintura desta instância e volta à imagem do arquivo. Ctrl+Z desfaz; o arquivo original não é alterado.</p>
                       </div>
                       <p className="mt-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#45475a]">
                         Ferramentas Avancadas (Experimental)

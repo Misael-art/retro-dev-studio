@@ -54,6 +54,52 @@ describe("persistActiveScene", () => {
     expect(localStorage.getItem(sceneDraftStorageKey("/tmp/project"))).toMatch(/\\"x\\":77/);
   });
 
+  it("navigation preserves a loaded compatibility baseline until explicit Save", async () => {
+    useEditorStore.getState().setActiveScene(scene(77), scene(77));
+    const before = useEditorStore.getState().sceneSaveState;
+    expect(await persistActiveScene("/tmp/project", "Hierarchy", undefined, { onlyIfChanged: true })).toBe(true);
+    expect(mocks.saveSceneData).not.toHaveBeenCalled();
+    expect(useEditorStore.getState().sceneSaveState).toEqual(before);
+    mocks.saveSceneData.mockResolvedValue({ ok: true, message: "" });
+    expect(await persistActiveScene("/tmp/project", "Salvar")).toBe(true);
+    expect(mocks.saveSceneData).toHaveBeenCalledTimes(1);
+  });
+
+  it("navigation flushes and saves pending edits through the canonical writer", async () => {
+    useEditorStore.getState().setActiveScene(scene(77), scene(77));
+    mocks.saveSceneData.mockResolvedValue({ ok: true, message: "" });
+    const unregister = registerPendingEditFlusher(() => useEditorStore.setState({
+      activeSceneSource: scene(99), activeScene: scene(99), sceneRevision: useEditorStore.getState().sceneRevision + 1,
+    }));
+    try {
+      expect(await persistActiveScene("/tmp/project", "Hierarchy", undefined, { onlyIfChanged: true })).toBe(true);
+    } finally { unregister(); }
+    expect(mocks.saveSceneData).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(mocks.saveSceneData.mock.calls[0][1]).entities[0].transform.x).toBe(99);
+  });
+
+  it("navigation still blocks on an edited scene when the save fails", async () => {
+    mocks.saveSceneData.mockResolvedValue({ ok: false, message: "disco cheio" });
+    expect(await persistActiveScene("/tmp/project", "Hierarchy", undefined, { onlyIfChanged: true })).toBe(false);
+    expect(useEditorStore.getState().activeSceneSource?.entities[0].transform.x).toBe(77);
+    expect(useEditorStore.getState().sceneSaveState.status).toBe("failed");
+  });
+
+  it("finishes explicit Save before a concurrent close can leave the loaded scene", async () => {
+    useEditorStore.getState().setActiveScene(scene(77), scene(77));
+    mocks.saveSceneData.mockResolvedValue({ ok: true, message: "" });
+    const save = persistActiveScene("/tmp/project", "Salvar");
+    const close = persistActiveScene("/tmp/project", "Fechar", undefined, { onlyIfChanged: true }).then(ok => {
+      if (ok) useEditorStore.getState().setActiveProject("", "");
+      return ok;
+    });
+    await save;
+    expect(await close).toBe(true);
+    expect(mocks.saveSceneData).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(mocks.saveSceneData.mock.calls[0][1]).entities[0].transform.x).toBe(77);
+    expect(useEditorStore.getState().activeProjectDir).toBe("");
+  });
+
   it("keeps the work when the IPC throws, too", async () => {
     mocks.saveSceneData.mockRejectedValue(new Error("IPC caiu"));
     expect(await persistActiveScene("/tmp/project", "Teste")).toBe(false);

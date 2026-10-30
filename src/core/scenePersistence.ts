@@ -399,12 +399,19 @@ export function sceneDraftDiffersFromActiveSource(draft: SceneDraftRecord): bool
   return !source || !sceneSourcesEqual(draft.sourceSceneJson, JSON.stringify(source));
 }
 
-export async function persistActiveScene(projectDir: string, scope: string, successMessage?: string): Promise<boolean> {
+export async function persistActiveScene(projectDir: string, scope: string, successMessage?: string, options: { onlyIfChanged?: boolean } = {}): Promise<boolean> {
   flushPendingEdits();
   const state = useEditorStore.getState();
   const { activeScene, activeSceneSource, activeScenePath, sceneRevision, projectSessionId, logMessage } = state;
   if (projectDir !== state.activeProjectDir) return false;
   if (!activeSceneSource || !activeScene) return true;
+  // Navigation must not serialize load-time compatibility/migration into the
+  // file. Pending input is flushed above; real edits still take the same writer.
+  const baseline = state.sceneDiskBaseline;
+  if (options.onlyIfChanged && state.sceneSaveState.status === "saved"
+      && state.sceneSaveState.revision === sceneRevision && state.sceneDraftState.status !== "conflict"
+      && baseline?.projectDir === projectDir && baseline.scenePath === activeScenePath
+      && sceneSourcesEqual(JSON.stringify(activeSceneSource), baseline.sourceSceneJson)) return true;
   const request = ++sceneSaveRequest;
   const sameContext = () => {
     const current = useEditorStore.getState();
@@ -414,12 +421,12 @@ export async function persistActiveScene(projectDir: string, scope: string, succ
   const stillCurrent = () => sameContext() && request === sceneSaveRequest;
   const storage = defaultDraftStorage(projectDir, activeScenePath);
   const key = sceneDraftStorageKey(projectDir, activeScenePath);
+  state.setSceneSaveState({ status: "saving", message: null, at: Date.now(), revision: null });
   let draftBeforeSave: string | null = null;
   try { draftBeforeSave = (await storage?.getItem(key)) ?? null; } catch { /* save can still protect the file */ }
   if (!stillCurrent()) return false;
   const sourceJson = JSON.stringify(activeSceneSource, null, 2);
   const resolvedJson = JSON.stringify(activeScene, null, 2);
-  state.setSceneSaveState({ status: "saving", message: null, at: Date.now(), revision: null });
   let failure: string;
   let conflictDiskJson: string | undefined;
   try {

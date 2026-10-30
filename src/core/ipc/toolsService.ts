@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import type { ActionableDiagnostic } from "../diagnostics";
+import type { SpriteComponent } from "./sceneService";
 
 // ── Types (mirror do Rust) ────────────────────────────────────────────────────
 
@@ -39,6 +40,16 @@ export interface ProjectAssetEntry {
   relative_path: string;
   absolute_path: string;
   kind: "image" | "audio" | "other";
+  image_width?: number | null;
+  image_height?: number | null;
+  sgdk_resource?: ImportedAssetResource | null;
+}
+
+export interface ImportedAssetResource {
+  resource_name: string;
+  resource_kind: string;
+  sprite: SpriteComponent | null;
+  variants?: ImportedAssetResource[];
 }
 
 export interface LegacyProjectFilePreview {

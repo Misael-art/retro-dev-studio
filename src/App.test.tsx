@@ -4157,7 +4157,7 @@ describe("App build flow", () => {
     expect(paletteLabel?.textContent).toContain("3 / 4");
   });
 
-  it("persists active scene before closing project via topbar menu", async () => {
+  it("requests persistence of pending scene edits before closing via topbar menu", async () => {
     await act(async () => {
       useEditorStore.setState({
         activeProjectDir: "F:/Projects/RetroDevStudio/tests/fixtures/projects/megadrive_dummy",
@@ -4206,7 +4206,8 @@ describe("App build flow", () => {
     expect(mocks.persistActiveScene).toHaveBeenCalledWith(
       "F:/Projects/RetroDevStudio/tests/fixtures/projects/megadrive_dummy",
       "Fechar",
-      expect.any(String)
+      expect.any(String),
+      { onlyIfChanged: true }
     );
 
     const state = useEditorStore.getState();

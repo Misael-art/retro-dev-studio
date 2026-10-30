@@ -754,3 +754,17 @@
 
 .rds-start-more > label { display: grid; gap: .4rem; margin-top: .8rem; font-size: .85rem; }
 .rds-start-more select { padding: .6rem; color: var(--rds-text-primary); background: var(--rds-surface-panel); border: 1px solid var(--rds-border-default); border-radius: .5rem; max-width: 100%; }
+
+/* Respond to the dock's width, rather than the entire desktop viewport. */
+.rds-tools-container { container-type: inline-size; }
+.rds-tools-wide-nav, .rds-tools-active-header { display: none; }
+.rds-tools-compact-nav { display: block; }
+.rds-resource-frame { position: relative; overflow: hidden; flex: none; }
+.rds-resource-frame > div { position: absolute; top: 0; left: 0; display: block; max-width: none; }
+.rds-resource-frame img { width: var(--resource-sheet-width); height: var(--resource-sheet-height); max-width: none; max-height: none; }
+@container (min-width: 720px) {
+  .rds-tools-layout { flex-direction: row; }
+  .rds-tools-wide-nav { display: flex; width: 230px; border-bottom: 0; border-right: 1px solid var(--rds-border-subtle); }
+  .rds-tools-active-header { display: block; }
+  .rds-tools-compact-nav { display: none; }
+}

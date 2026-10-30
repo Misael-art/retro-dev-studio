@@ -155,6 +155,19 @@ pub struct SgdkImportMapping {
     pub resource_name: String,
     pub source_relative: String,
     pub destination: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub params: Vec<String>,
+}
+
+/// Catalog projection of the import ledger. No second asset registry or donor
+/// access: frame layout remains usable after moving the imported project.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SgdkAssetAuthoring {
+    pub resource_name: String,
+    pub resource_kind: String,
+    pub sprite: Option<SpriteComponent>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub variants: Vec<SgdkAssetAuthoring>,
 }
 
 /// Sumario das origens do doador SGDK consumidas nesta importacao.
@@ -301,6 +314,8 @@ struct SgdkImportLedgerPhaseDEntityTrace {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 struct SgdkImportLedger {
     schema_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    tilemap_cell_encoding: Option<String>,
     scene_id: String,
     donor_root: String,
     #[serde(default)]
@@ -1232,7 +1247,8 @@ fn tilemap_dims_from_source(source_path: &Path) -> (u32, u32) {
 /// Reconstroi `cells[]` canonico via deduplicacao 8x8:
 /// - cada tile 8x8 vira uma entrada do dicionario
 /// - tiles totalmente transparentes viram `0` (vazio) em `cells[]`
-/// - demais tiles recebem indice 1-based dentro do dicionario
+/// - demais tiles apontam para a primeira ocorrencia no PNG original (1-based)
+///   sem reordenar, alterar ou gerar outro atlas
 ///
 /// Esse caminho cobre o caso mais comum em SGDK: o "map" e uma PNG monolitica onde a
 /// colocacao ja esta embutida (um grande "background bake"). Para projetos com .tmx
@@ -1242,10 +1258,35 @@ struct ExtractedSgdkTilemap {
     map_height: u32,
     cells: Vec<u32>,
     unique_tiles: u32,
+    // Recognize untouched maps emitted before source-atlas indexing was fixed.
+    legacy_cells: Vec<u32>,
+}
+
+fn read_sgdk_image(source_path: &Path) -> Result<image::DynamicImage, LoadError> {
+    let (width, height) = image::image_dimensions(source_path).map_err(|error| {
+        LoadError(format!(
+            "Imagem SGDK '{}' ilegível: {}. Verifique o arquivo de origem e importe novamente.",
+            source_path.display(),
+            error
+        ))
+    })?;
+    // Bound allocations before decoding; keep the same 64 MP ceiling as the
+    // existing imported-art pipeline. This is an editor memory limit, not VRAM.
+    if u64::from(width) * u64::from(height) > 64 * 1024 * 1024 {
+        return Err(LoadError(format!(
+            "Imagem SGDK '{}' excede 64 MP. Reduza ou divida a imagem antes de importar.",
+            source_path.display()
+        )));
+    }
+    image::ImageReader::open(source_path)
+        .and_then(|reader| reader.with_guessed_format())
+        .map_err(|error| LoadError(format!("Não foi possível abrir a imagem SGDK '{}': {}", source_path.display(), error)))?
+        .decode()
+        .map_err(|error| LoadError(format!("Imagem SGDK '{}' corrompida ou incompatível: {}. Substitua o arquivo de origem e tente novamente.", source_path.display(), error)))
 }
 
 fn extract_sgdk_tilemap_cells(source_path: &Path) -> Option<ExtractedSgdkTilemap> {
-    let img = image::open(source_path).ok()?;
+    let img = read_sgdk_image(source_path).ok()?;
     let rgba = img.to_rgba8();
     let w = rgba.width();
     let h = rgba.height();
@@ -1261,9 +1302,9 @@ fn extract_sgdk_tilemap_cells(source_path: &Path) -> Option<ExtractedSgdkTilemap
 
     let row_stride = (w as usize) * 4;
     let pixels = rgba.as_raw();
-    let mut dict: HashMap<[u8; 256], u32> = HashMap::new();
+    let mut dict: HashMap<[u8; 256], (u32, u32)> = HashMap::new();
     let mut cells: Vec<u32> = Vec::with_capacity((tiles_x * tiles_y) as usize);
-    let mut next_index: u32 = 1;
+    let mut legacy_cells = Vec::with_capacity(cells.capacity());
 
     for ty in 0..tiles_y {
         for tx in 0..tiles_x {
@@ -1279,14 +1320,18 @@ fn extract_sgdk_tilemap_cells(source_path: &Path) -> Option<ExtractedSgdkTilemap
             let fully_transparent = tile_bytes.chunks_exact(4).all(|px| px[3] == 0);
             if fully_transparent {
                 cells.push(0);
+                legacy_cells.push(0);
                 continue;
             }
-            let idx = *dict.entry(tile_bytes).or_insert_with(|| {
-                let current = next_index;
-                next_index = next_index.saturating_add(1);
-                current
-            });
-            cells.push(idx);
+            let dense_index = dict.len() as u32 + 1;
+            let source_index = ty * tiles_x + tx + 1;
+            let (atlas_index, legacy_index) = *dict
+                .entry(tile_bytes)
+                .or_insert((source_index, dense_index));
+            // The asset remains byte-for-byte original. Both viewport and ROM use
+            // N-1 in that source atlas, not an atlas packed by this dictionary.
+            cells.push(atlas_index);
+            legacy_cells.push(legacy_index);
         }
     }
 
@@ -1300,6 +1345,7 @@ fn extract_sgdk_tilemap_cells(source_path: &Path) -> Option<ExtractedSgdkTilemap
         map_height: tiles_y,
         cells,
         unique_tiles: dict.len() as u32,
+        legacy_cells,
     })
 }
 
@@ -3957,6 +4003,8 @@ fn backup_broken_legacy_overlay(overlay_dir: &Path) -> Result<PathBuf, LoadError
 }
 
 struct SgdkTilemapMaterialization {
+    is_tileset_bank: bool,
+    is_declared_map: bool,
     entity: Entity,
     entity_id: String,
     display_name: String,
@@ -4015,12 +4063,22 @@ fn build_sgdk_tilemap_entity(
                 scroll_y: 0,
                 cells,
             }),
-            logic: if hud_overlay_hint {
+            logic: if hud_overlay_hint || resource.kind == "TILESET" || had_cells {
+                let mut hints = Vec::new();
+                if hud_overlay_hint {
+                    hints.push("sgdk_import:hud_overlay".to_string());
+                }
+                if resource.kind == "TILESET" {
+                    hints.push("sgdk_import:tileset_bank".to_string());
+                }
+                if had_cells {
+                    hints.push("sgdk_import:source_atlas_cells_v1".to_string());
+                }
                 Some(LogicComponent {
                     graph: None,
                     graph_ref: None,
                     graph_origin: None,
-                    logic_hints: vec!["sgdk_import:hud_overlay".to_string()],
+                    logic_hints: hints,
                     external_source_refs: Vec::new(),
                     imported_semantics: None,
                     recovered_rule: None,
@@ -4034,6 +4092,8 @@ fn build_sgdk_tilemap_entity(
     };
 
     SgdkTilemapMaterialization {
+        is_tileset_bank: resource.kind == "TILESET",
+        is_declared_map: matches!(resource.kind.as_str(), "MAP" | "TILEMAP"),
         entity,
         entity_id,
         display_name,
@@ -4164,6 +4224,14 @@ fn import_sgdk_resources_into_scene(
             )));
         }
 
+        if matches!(
+            resource.kind.as_str(),
+            "SPRITE" | "IMAGE" | "TILESET" | "MAP" | "TILEMAP" | "PALETTE"
+        ) && image::ImageFormat::from_path(&source_path).is_ok()
+        {
+            read_sgdk_image(&source_path)?;
+        }
+
         materialize_sgdk_asset(
             &source_path,
             &project_dir.join(&destination),
@@ -4181,6 +4249,7 @@ fn import_sgdk_resources_into_scene(
             resource_name: resource.name.clone(),
             source_relative,
             destination: destination.clone(),
+            params: resource.params.clone(),
         });
 
         match resource.kind.as_str() {
@@ -4383,6 +4452,10 @@ fn import_sgdk_resources_into_scene(
     let mut primary_camera_ids: Vec<String> = Vec::new();
     let mut primary_audio_ids: Vec<String> = Vec::new();
 
+    // A TILESET is a bank of pieces, not a reconstructed game screen. Prefer a
+    // renderable IMAGE/MAP while retaining every bank and the stable scene IDs.
+    tilemap_slots
+        .sort_by_key(|slot| (!slot.had_cells, slot.is_tileset_bank, !slot.is_declared_map));
     let mut tilemap_iter = tilemap_slots.into_iter();
     let primary_tilemap = tilemap_iter.next();
     let extra_tilemaps: Vec<SgdkTilemapMaterialization> = tilemap_iter.collect();
@@ -4392,6 +4465,17 @@ fn import_sgdk_resources_into_scene(
         .map(|slot| (slot.cells_count, slot.unique_tiles, slot.had_cells));
 
     if let Some(slot) = primary_tilemap {
+        if requested_instancing == SgdkSpriteInstancing::SceneEntities {
+            primary_scene.display_name = Some(format!(
+                "{} · {}",
+                if slot.is_tileset_bank {
+                    "Banco de peças"
+                } else {
+                    "Imagem montada"
+                },
+                slot.display_name
+            ));
+        }
         primary_tilemap_ids.push(slot.entity_id.clone());
         primary_scene.entities.push(slot.entity);
     }
@@ -4507,8 +4591,12 @@ fn import_sgdk_resources_into_scene(
             disambiguator += 1;
         }
         let scene_path = format!("scenes/{}.json", scene_id);
-        let mut extra_scene =
-            canonical_scene(&scene_id, Some(format!("{} (SGDK)", slot.display_name)));
+        let title = if slot.is_tileset_bank {
+            format!("Banco de peças · {}", slot.display_name)
+        } else {
+            format!("Imagem montada · {}", slot.display_name)
+        };
+        let mut extra_scene = canonical_scene(&scene_id, Some(title));
         let tilemap_ids = vec![slot.entity_id.clone()];
         let extra_collision = slot.entity.components.tilemap.as_ref().and_then(|tm| {
             if tm.cells.is_empty() {
@@ -4759,6 +4847,7 @@ fn write_sgdk_import_ledger(
 
     let ledger = SgdkImportLedger {
         schema_version: SGDK_IMPORT_LEDGER_SCHEMA.to_string(),
+        tilemap_cell_encoding: Some("source_atlas_v1".to_string()),
         scene_id: scene_id.to_string(),
         donor_root: donor_path.to_string_lossy().to_string(),
         effective_root: effective_root.to_string_lossy().to_string(),
@@ -5680,9 +5769,9 @@ fn sgdk_resource_source_path(sgdk_path: &Path, asset_path: &str) -> PathBuf {
     let relative = PathBuf::from(&normalized);
     let under_res = sgdk_path.join("res").join(&relative);
     if under_res.exists() {
-        under_res
+        canonicalize_existing_path(&under_res)
     } else {
-        sgdk_path.join(relative)
+        canonicalize_existing_path(&sgdk_path.join(relative))
     }
 }
 
@@ -16725,6 +16814,193 @@ pub fn load_project(project_dir: &Path) -> Result<Project, LoadError> {
     Ok(project)
 }
 
+// Compatibility for the old importer only: it wrote dictionary indices while
+// keeping the original (unpacked) image. Normalize the same way as schema
+// migration, in memory; saving still belongs exclusively to save_scene.
+fn normalize_legacy_sgdk_tilemap_cells(project_dir: &Path, scene_path: &str, scene: &mut Scene) {
+    let Ok(root) = project_dir.canonicalize() else {
+        return;
+    };
+    let Some(ledger_dir) = sgdk_project_file(&root, SGDK_IMPORT_LEDGER_DIR) else {
+        return;
+    };
+    let Ok(entries) = fs::read_dir(ledger_dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let Ok(path) = entry.path().canonicalize() else {
+            continue;
+        };
+        if !path.starts_with(&root) || path.extension().and_then(|ext| ext.to_str()) != Some("json")
+        {
+            continue;
+        }
+        let Some(ledger) = fs::read_to_string(path)
+            .ok()
+            .and_then(|raw| serde_json::from_str::<SgdkImportLedger>(&raw).ok())
+        else {
+            continue;
+        };
+        if ledger.schema_version != SGDK_IMPORT_LEDGER_SCHEMA
+            || ledger.tilemap_cell_encoding.is_some()
+            || !ledger
+                .scenes
+                .iter()
+                .any(|entry| entry.scene_path == scene_path)
+        {
+            continue;
+        }
+        for entity in &mut scene.entities {
+            let Some(tilemap) = entity.components.tilemap.as_mut() else {
+                continue;
+            };
+            let Some(mapping) = ledger.mappings.iter().find(|mapping| {
+                let id = format!("{}_tilemap", sgdk_entity_id(&mapping.resource_name));
+                matches!(
+                    mapping.resource_kind.as_str(),
+                    "IMAGE" | "MAP" | "TILESET" | "TILEMAP"
+                ) && mapping.destination == tilemap.tileset
+                    && (entity.entity_id == id || entity.entity_id == format!("hud_{}", id))
+            }) else {
+                continue;
+            };
+            let bank_hint = "sgdk_import:tileset_bank";
+            if mapping.resource_kind == "TILESET" {
+                let logic = entity
+                    .components
+                    .logic
+                    .get_or_insert_with(LogicComponent::default);
+                if !logic.logic_hints.iter().any(|h| h == bank_hint) {
+                    logic.logic_hints.push(bank_hint.to_string());
+                }
+            }
+            let encoding_hint = "sgdk_import:source_atlas_cells_v1";
+            if entity
+                .components
+                .logic
+                .as_ref()
+                .is_some_and(|logic| logic.logic_hints.iter().any(|h| h == encoding_hint))
+            {
+                continue;
+            }
+            let Some(asset) = sgdk_project_file(&root, &mapping.destination) else {
+                continue;
+            };
+            let Some(extracted) = extract_sgdk_tilemap_cells(&asset) else {
+                continue;
+            };
+            // A single edited cell means this is authored data. Never replace it
+            // by a guessed reconstruction, even when some indices look legacy.
+            if tilemap.map_width == extracted.map_width
+                && tilemap.map_height == extracted.map_height
+                && tilemap.cells == extracted.legacy_cells
+            {
+                tilemap.cells = extracted.cells;
+                entity
+                    .components
+                    .logic
+                    .get_or_insert_with(LogicComponent::default)
+                    .logic_hints
+                    .push(encoding_hint.to_string());
+            }
+        }
+    }
+}
+
+fn sgdk_project_file(root: &Path, relative: &str) -> Option<PathBuf> {
+    let path = Path::new(relative);
+    if path.is_absolute()
+        || path
+            .components()
+            .any(|part| !matches!(part, std::path::Component::Normal(_)))
+    {
+        return None;
+    }
+    let canonical = root.join(path).canonicalize().ok()?;
+    canonical.starts_with(root).then_some(canonical)
+}
+
+pub fn sgdk_asset_authoring(project_dir: &Path) -> HashMap<String, SgdkAssetAuthoring> {
+    let mut catalog: HashMap<String, SgdkAssetAuthoring> = HashMap::new();
+    let Ok(root) = project_dir.canonicalize() else {
+        return catalog;
+    };
+    let Some(dir) = sgdk_project_file(&root, SGDK_IMPORT_LEDGER_DIR) else {
+        return catalog;
+    };
+    let Ok(entries) = fs::read_dir(dir) else {
+        return catalog;
+    };
+    let mut paths: Vec<_> = entries.flatten().map(|e| e.path()).collect();
+    paths.sort();
+    for path in paths {
+        let Ok(path) = path.canonicalize() else {
+            continue;
+        };
+        if !path.starts_with(&root) || path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let Some(ledger) = fs::read_to_string(path)
+            .ok()
+            .and_then(|raw| serde_json::from_str::<SgdkImportLedger>(&raw).ok())
+        else {
+            continue;
+        };
+        for mapping in ledger.mappings {
+            let sprite = if mapping.resource_kind == "SPRITE" && mapping.params.len() >= 2 {
+                sgdk_project_file(&root, &mapping.destination).and_then(|path| {
+                    let derived = derive_sgdk_sprite_sheet_from_rescomp_png(
+                        &path,
+                        &mapping.resource_name,
+                        &mapping.params,
+                    );
+                    if derived.animations.is_empty() {
+                        return None;
+                    }
+                    Some(SpriteComponent {
+                        asset: mapping.destination.clone(),
+                        frame_width: derived.frame_width,
+                        frame_height: derived.frame_height,
+                        palette_slot: 0,
+                        meta_sprite: derived.frame_width > 32 || derived.frame_height > 32,
+                        animations: derived.animations,
+                        priority: "foreground".to_string(),
+                        pivot: None,
+                        commands: Vec::new(),
+                    })
+                })
+            } else {
+                None
+            };
+            let resource = SgdkAssetAuthoring {
+                resource_name: mapping.resource_name,
+                resource_kind: mapping.resource_kind,
+                sprite,
+                variants: Vec::new(),
+            };
+            if let Some(existing) = catalog.get_mut(&mapping.destination) {
+                existing.variants.push(resource);
+            } else {
+                catalog.insert(mapping.destination, resource);
+            }
+        }
+    }
+    for resource in catalog.values_mut() {
+        let mut all = std::mem::take(&mut resource.variants);
+        all.insert(0, resource.clone());
+        all.sort_by_key(|r| match r.resource_kind.as_str() {
+            "MAP" | "TILEMAP" | "IMAGE" => 0,
+            "TILESET" | "SPRITE" => 1,
+            "PALETTE" => 2,
+            _ => 3,
+        });
+        let mut preferred = all.remove(0);
+        preferred.variants = all;
+        *resource = preferred;
+    }
+    catalog
+}
+
 /// Le e desserializa um arquivo de cena (ex: `scenes/level_01.json`).
 pub fn load_scene(project_dir: &Path, scene_path: &str) -> Result<Scene, LoadError> {
     validate_scene_path(scene_path)?;
@@ -16752,7 +17028,8 @@ pub fn load_scene(project_dir: &Path, scene_path: &str) -> Result<Scene, LoadErr
             scene_path, e
         ))
     })?;
-    let scene = migrate_scene(scene);
+    let mut scene = migrate_scene(scene);
+    normalize_legacy_sgdk_tilemap_cells(project_dir, scene_path, &mut scene);
 
     validate_scene(&scene)?;
     Ok(scene)
@@ -25084,6 +25361,332 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
     // ────────────────────────────────────────────────────────────────────────
     // Fase B - SGDK Real-World Import: multi-scene, cells[] real, SceneLayer
     // ────────────────────────────────────────────────────────────────────────
+
+    // Repeated and transparent tiles before later unique tiles expose the old
+    // dense-dictionary/source-atlas mismatch. Includes a second atlas row.
+    fn write_source_atlas_regression_png(path: &Path) {
+        let colors = [
+            [0, 0, 0, 0],
+            [240, 32, 16, 255],
+            [240, 32, 16, 255],
+            [32, 48, 240, 255],
+            [16, 224, 64, 255],
+            [32, 48, 240, 255],
+        ];
+        let image = image::RgbaImage::from_fn(24, 16, |x, y| {
+            image::Rgba(colors[((y / 8) * 3 + x / 8) as usize])
+        });
+        image
+            .save(path)
+            .expect("write source atlas regression image");
+    }
+
+    fn assert_source_atlas_pixels(path: &Path, cells: &[u32]) {
+        let source = image::open(path).expect("source PNG").to_rgba8();
+        let columns = source.width() / 8;
+        // Independent consumer: index N addresses tile N-1 in the original PNG;
+        // zero preserves the base picture, exactly as viewport and ROM do.
+        let rendered = image::RgbaImage::from_fn(source.width(), source.height(), |x, y| {
+            let index = ((y / 8) * columns + x / 8) as usize;
+            match cells[index] {
+                0 => *source.get_pixel(x, y),
+                n => *source.get_pixel(
+                    ((n - 1) % columns) * 8 + x % 8,
+                    ((n - 1) / columns) * 8 + y % 8,
+                ),
+            }
+        });
+        assert_eq!(
+            rendered.as_raw(),
+            source.as_raw(),
+            "every assembled pixel must equal the original image"
+        );
+    }
+
+    #[test]
+    fn sgdk_source_atlas_indices_reassemble_original_pixels_after_dedup() {
+        let dir = temp_dir("sgdk-source-atlas");
+        let path = dir.join("atlas.png");
+        write_source_atlas_regression_png(&path);
+        let extracted = extract_sgdk_tilemap_cells(&path).expect("extract cells");
+        assert_eq!(extracted.unique_tiles, 3);
+        assert_eq!(extracted.cells, vec![0, 2, 2, 4, 5, 4]);
+        assert_eq!(extracted.legacy_cells, vec![0, 1, 1, 2, 3, 2]);
+        assert_source_atlas_pixels(&path, &extracted.cells);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn sgdk_source_atlas_catalog_retains_sprite_layout_without_accessing_donor() {
+        let donor = temp_dir("sgdk-source-atlas-catalog-donor");
+        let project = temp_dir("sgdk-source-atlas-catalog-project");
+        create_project_skeleton(&project, "Catalog", "megadrive").unwrap();
+        write_generic_sgdk_donor_fixture(&donor);
+        import_sgdk_project(&project, &donor).unwrap();
+        let offline = donor.with_extension("offline");
+        fs::rename(&donor, &offline).unwrap();
+        let catalog = sgdk_asset_authoring(&project);
+        let hero = &catalog["assets/sprites/hero.png"];
+        assert_eq!(hero.resource_name, "hero");
+        let sprite = hero
+            .sprite
+            .as_ref()
+            .expect("layout stored through ledger params");
+        assert_eq!((sprite.frame_width, sprite.frame_height), (16, 16));
+        assert_eq!(sprite.animations["default"].frames, vec![0, 1, 2, 3]);
+        let _ = fs::remove_dir_all(offline);
+        let _ = fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn sgdk_source_atlas_catalog_preserves_all_resource_uses_of_shared_images() {
+        let donor = temp_dir("sgdk-source-atlas-variants-donor");
+        let project = temp_dir("sgdk-source-atlas-variants-project");
+        create_project_skeleton(&project, "Shared images", "megadrive").unwrap();
+        write_generic_sgdk_donor_fixture(&donor);
+        fs::write(donor.join("res/resources.res"), "PALETTE colors maps/stage.png\nIMAGE stage maps/stage.png NONE ALL\nSPRITE hero images/hero.png 2 2 FAST 5\nSPRITE wide images/hero.png 4 2 FAST 10\n").unwrap();
+        import_sgdk_project(&project, &donor).unwrap();
+        let catalog = sgdk_asset_authoring(&project);
+        let stage = &catalog["assets/tilesets/stage.png"];
+        assert_eq!(
+            stage.resource_kind, "IMAGE",
+            "a palette alias must not hide the image's editable use"
+        );
+        assert_eq!(stage.variants[0].resource_name, "colors");
+        let hero = &catalog["assets/sprites/hero.png"];
+        assert_eq!(hero.sprite.as_ref().unwrap().frame_width, 16);
+        assert_eq!(hero.variants[0].resource_name, "wide");
+        let wide = hero.variants[0].sprite.as_ref().unwrap();
+        assert_eq!(wide.frame_width, 32);
+        assert_eq!(wide.animations["default"].frames, vec![0, 1]);
+        assert_eq!(wide.animations["default"].fps, 6);
+        let _ = fs::remove_dir_all(donor);
+        let _ = fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn sgdk_source_atlas_ledger_resolves_parent_segments_without_losing_provenance() {
+        let donor = temp_dir("sgdk-source-atlas-relative-donor");
+        let project = temp_dir("sgdk-source-atlas-relative-project");
+        create_project_skeleton(&project, "Relative assets", "megadrive").unwrap();
+        fs::create_dir_all(donor.join("res")).unwrap();
+        fs::create_dir_all(donor.join("data")).unwrap();
+        write_source_atlas_regression_png(&donor.join("data/scene.png"));
+        fs::write(
+            donor.join("res/resources.res"),
+            "IMAGE scene ../data/scene.png NONE ALL\n",
+        )
+        .unwrap();
+        let report = import_sgdk_project(&project, &donor).unwrap();
+        let ledger: SgdkImportLedger = serde_json::from_str(
+            &fs::read_to_string(project.join(report.manifest_path.unwrap())).unwrap(),
+        )
+        .unwrap();
+        let mapping = &ledger.mappings[0];
+        assert_eq!(mapping.source_relative, "data/scene.png");
+        assert_eq!(
+            fs::read(donor.join(&mapping.source_relative)).unwrap(),
+            fs::read(project.join(&mapping.destination)).unwrap()
+        );
+        let _ = fs::remove_dir_all(donor);
+        let _ = fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn sgdk_source_atlas_import_refuses_corrupt_artwork_instead_of_success_with_blank_preview() {
+        let donor = temp_dir("sgdk-source-atlas-corrupt-donor");
+        let project = temp_dir("sgdk-source-atlas-corrupt-project");
+        create_project_skeleton(&project, "Corrupt", "megadrive").unwrap();
+        write_generic_sgdk_donor_fixture(&donor);
+        let path = donor.join("res/maps/stage.png");
+        let bytes = fs::read(&path).unwrap();
+        fs::write(&path, &bytes[..33]).unwrap();
+        let error = import_sgdk_project(&project, &donor).unwrap_err();
+        assert!(error.0.contains("stage.png"), "{}", error.0);
+        assert!(error.0.contains("Imagem SGDK"), "{}", error.0);
+        assert_eq!(
+            fs::read(&path).unwrap(),
+            &bytes[..33],
+            "refusal must not rewrite source"
+        );
+        let _ = fs::remove_dir_all(donor);
+        let _ = fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn sgdk_source_atlas_import_opens_declared_map_before_auxiliary_images() {
+        let donor = temp_dir("sgdk-source-atlas-map-donor");
+        let project = temp_dir("sgdk-source-atlas-map-project");
+        create_project_skeleton(&project, "Declared map", "megadrive").unwrap();
+        write_generic_sgdk_donor_fixture(&donor);
+        fs::copy(
+            donor.join("res/maps/stage.png"),
+            donor.join("res/maps/collision.png"),
+        )
+        .unwrap();
+        fs::write(
+            donor.join("res/resources.res"),
+            "IMAGE collision maps/collision.png NONE ALL\nMAP level maps/stage.png NONE\n",
+        )
+        .unwrap();
+        let report = import_sgdk_project(&project, &donor).unwrap();
+        let map = report
+            .primary_scene
+            .entities
+            .iter()
+            .find_map(|e| e.components.tilemap.as_ref())
+            .unwrap();
+        assert_eq!(map.tileset, "assets/tilesets/stage.png");
+        assert!(report
+            .additional_scenes
+            .iter()
+            .any(|s| s.scene_id == "collision"));
+        let _ = fs::remove_dir_all(donor);
+        let _ = fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn sgdk_source_atlas_import_prefers_mounted_image_and_retains_raw_bank() {
+        let donor = temp_dir("sgdk-source-atlas-primary-donor");
+        let project = temp_dir("sgdk-source-atlas-primary-project");
+        create_project_skeleton(&project, "Mounted image", "megadrive").expect("project");
+        write_generic_sgdk_donor_fixture(&donor);
+        let source = donor.join("res/maps/stage.png");
+        write_source_atlas_regression_png(&source);
+        image::RgbaImage::from_pixel(64, 8, image::Rgba([224, 32, 48, 255]))
+            .save(donor.join("res/maps/bank.png"))
+            .expect("bank");
+        fs::write(
+            donor.join("res/resources.res"),
+            "TILESET pieces maps/bank.png NONE NONE\nIMAGE stage maps/stage.png NONE ALL\n",
+        )
+        .expect("manifest");
+        let original = fs::read(&source).expect("original bytes");
+        let report = import_sgdk_project(&project, &donor).expect("import");
+        let tilemap = report
+            .primary_scene
+            .entities
+            .iter()
+            .find_map(|e| e.components.tilemap.as_ref())
+            .expect("primary image");
+        assert_eq!(tilemap.tileset, "assets/tilesets/stage.png");
+        assert_source_atlas_pixels(&project.join(&tilemap.tileset), &tilemap.cells);
+        assert_eq!(fs::read(&source).unwrap(), original);
+        assert_eq!(fs::read(project.join(&tilemap.tileset)).unwrap(), original);
+        let bank = report
+            .additional_scenes
+            .iter()
+            .find(|s| s.scene_id == "pieces")
+            .expect("bank retained with stable ID");
+        let bank_scene = load_scene(&project, &bank.scene_path).expect("bank scene");
+        assert!(bank_scene
+            .display_name
+            .as_deref()
+            .unwrap()
+            .starts_with("Banco de peças"));
+        assert!(bank_scene.entities[0]
+            .components
+            .logic
+            .as_ref()
+            .unwrap()
+            .logic_hints
+            .contains(&"sgdk_import:tileset_bank".to_string()));
+        let ledger: SgdkImportLedger = serde_json::from_str(
+            &fs::read_to_string(project.join(report.manifest_path.as_ref().unwrap())).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            ledger.tilemap_cell_encoding.as_deref(),
+            Some("source_atlas_v1")
+        );
+        let _ = fs::remove_dir_all(donor);
+        let _ = fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn sgdk_source_atlas_legacy_load_repairs_only_untouched_generated_cells_without_writing() {
+        let donor = temp_dir("sgdk-source-atlas-legacy-donor");
+        let project = temp_dir("sgdk-source-atlas-legacy-project");
+        create_project_skeleton(&project, "Legacy image", "megadrive").expect("project");
+        write_generic_sgdk_donor_fixture(&donor);
+        write_source_atlas_regression_png(&donor.join("res/maps/stage.png"));
+        let report = import_sgdk_project(&project, &donor).expect("import");
+        let ledger_path = project.join(report.manifest_path.as_ref().unwrap());
+        let mut ledger: SgdkImportLedger =
+            serde_json::from_str(&fs::read_to_string(&ledger_path).unwrap()).unwrap();
+        ledger.tilemap_cell_encoding = None;
+        fs::write(&ledger_path, serde_json::to_vec(&ledger).unwrap()).unwrap();
+        let mut legacy = report.primary_scene;
+        let entity = legacy
+            .entities
+            .iter_mut()
+            .find(|e| e.components.tilemap.is_some())
+            .unwrap();
+        entity.components.tilemap.as_mut().unwrap().cells = vec![0, 1, 1, 2, 3, 2];
+        entity.components.logic = None;
+        save_scene(&project, "scenes/main.json", &legacy).expect("save old generated fixture");
+        let disk_before = fs::read(project.join("scenes/main.json")).unwrap();
+        let ledger_before = fs::read(&ledger_path).unwrap();
+        let png_path = project.join("assets/tilesets/stage.png");
+        let png_before = fs::read(&png_path).unwrap();
+        let repaired = load_scene(&project, "scenes/main.json").expect("load legacy");
+        let tilemap = repaired
+            .entities
+            .iter()
+            .find_map(|e| e.components.tilemap.as_ref())
+            .unwrap();
+        assert_eq!(tilemap.cells, vec![0, 2, 2, 4, 5, 4]);
+        assert_source_atlas_pixels(&png_path, &tilemap.cells);
+        assert_eq!(
+            fs::read(project.join("scenes/main.json")).unwrap(),
+            disk_before
+        );
+        assert_eq!(fs::read(&ledger_path).unwrap(), ledger_before);
+        assert_eq!(fs::read(&png_path).unwrap(), png_before);
+        save_scene(&project, "scenes/main.json", &repaired).expect("normal save");
+        assert_eq!(
+            load_scene(&project, "scenes/main.json").unwrap(),
+            repaired,
+            "save/reopen is stable"
+        );
+
+        // Edited legacy content, resized maps, and unrelated scenes are preserved.
+        let mut edited = legacy.clone();
+        edited
+            .entities
+            .iter_mut()
+            .find_map(|e| e.components.tilemap.as_mut())
+            .unwrap()
+            .cells[2] = u32::MAX;
+        save_scene(&project, "scenes/main.json", &edited).unwrap();
+        assert_eq!(load_scene(&project, "scenes/main.json").unwrap(), edited);
+        let mut resized = legacy.clone();
+        let tilemap = resized
+            .entities
+            .iter_mut()
+            .find_map(|e| e.components.tilemap.as_mut())
+            .unwrap();
+        tilemap.map_width = 2;
+        tilemap.map_height = 3;
+        save_scene(&project, "scenes/main.json", &resized).unwrap();
+        assert_eq!(load_scene(&project, "scenes/main.json").unwrap(), resized);
+        save_scene(&project, "scenes/main.json", &legacy).unwrap();
+        ledger.tilemap_cell_encoding = Some("source_atlas_v1".into());
+        fs::write(&ledger_path, serde_json::to_vec(&ledger).unwrap()).unwrap();
+        assert_eq!(
+            load_scene(&project, "scenes/main.json").unwrap(),
+            legacy,
+            "modern ledger does not reinterpret painted data"
+        );
+        fs::remove_file(&ledger_path).unwrap();
+        assert_eq!(
+            load_scene(&project, "scenes/main.json").unwrap(),
+            legacy,
+            "no provenance means no repair"
+        );
+        let _ = fs::remove_dir_all(donor);
+        let _ = fs::remove_dir_all(project);
+    }
 
     /// Pinta um PNG 128x128 com 4 quadrantes de 64x64 de cores distintas.
     /// Garante reconstrucao de `cells[]` com tiles duplicados (um por quadrante) e

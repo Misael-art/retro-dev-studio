@@ -32,7 +32,11 @@ const mocks = vi.hoisted(() => ({
   artProcessPalette: vi.fn(),
   importArtAsset: vi.fn(),
   parseInputCommandFile: vi.fn(),
+  listProjectAssets: vi.fn(),
 }));
+
+vi.mock("../../core/ipc/toolsService", async (importOriginal) => ({ ...await importOriginal<typeof import("../../core/ipc/toolsService")>(), listProjectAssets: mocks.listProjectAssets }));
+vi.mock("../../core/ipc/projectService", async (importOriginal) => ({ ...await importOriginal<typeof import("../../core/ipc/projectService")>(), getSgdkSpriteCatalog: vi.fn(async () => []) }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: mocks.open,
@@ -502,6 +506,8 @@ describe("ArtStudioPanel import flow", () => {
     mocks.artProcessPalette.mockReset();
     mocks.importArtAsset.mockReset();
     mocks.parseInputCommandFile.mockReset();
+    mocks.listProjectAssets.mockReset();
+    mocks.listProjectAssets.mockResolvedValue([]);
     mocks.artProcessPalette.mockResolvedValue({
       ok: true,
       processed_base64: "ZmFrZS1wbmctcHJldmlldw==",
@@ -585,6 +591,7 @@ describe("ArtStudioPanel import flow", () => {
       activeTarget: "megadrive",
       activeScenePath: "scenes/main.json",
       selectedEntityId: null,
+      artStudioAssetPath: null,
       activeViewportTab: "artstudio",
       emulatorLoaded: false,
       hwStatus: null,
@@ -688,6 +695,27 @@ describe("ArtStudioPanel import flow", () => {
         value: originalRevokeObjectUrl,
       });
     }
+  });
+
+  it("preserves imported composite frames and animations from browser through apply", async () => {
+    const sprite = { asset: "assets/sprites/imported.png", frame_width: 96, frame_height: 112, meta_sprite: true, palette_slot: 0, priority: "foreground", animations: { default: { frames: [0, 1], fps: 8, loop: true } } };
+    mocks.listProjectAssets.mockResolvedValue([{ relative_path: sprite.asset, sgdk_resource: { resource_kind: "SPRITE", resource_name: "hero", sprite } }]);
+    await act(async () => {
+      useEditorStore.setState({ selectedEntityId: null, artStudioAssetPath: sprite.asset });
+      await flush(); await flush(); await flush();
+    });
+    expect(mocks.artProcessPalette).toHaveBeenCalledWith(expect.stringContaining(sprite.asset), { gridWidth: 96, gridHeight: 112, slicingMode: "grid" });
+    const width = [...container.querySelectorAll("label")].find(label => label.textContent?.includes("Frame W"))?.querySelector("input");
+    const height = [...container.querySelectorAll("label")].find(label => label.textContent?.includes("Frame H"))?.querySelector("input");
+    expect(width?.value).toBe("96");
+    expect(height?.value).toBe("112");
+    const selectedSequence = container.querySelector('[data-testid="artstudio-sequence-card-seq_idle"]');
+    expect(selectedSequence?.querySelector('input[type="text"]')?.getAttribute("value")).toBe("Default");
+    expect(selectedSequence?.className).toContain("border-[#cba6f7]/45");
+    await act(async () => { findButton(container, "Aplicar e criar entidade na cena").click(); await flush(); });
+    const added = useEditorStore.getState().activeScene?.entities.find(entity => entity.components.sprite?.asset === sprite.asset)?.components.sprite;
+    expect(added).toMatchObject({ frame_width: 96, frame_height: 112, meta_sprite: true });
+    expect(added?.animations).toEqual(sprite.animations);
   });
 
   it("loads an external image for preparation and keeps apply blocked", async () => {

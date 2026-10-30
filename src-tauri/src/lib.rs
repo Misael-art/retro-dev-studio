@@ -281,6 +281,9 @@ pub struct ProjectAssetEntry {
     pub relative_path: String,
     pub absolute_path: String,
     pub kind: String,
+    pub image_width: Option<u32>,
+    pub image_height: Option<u32>,
+    pub sgdk_resource: Option<core::project_mgr::SgdkAssetAuthoring>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
@@ -3395,6 +3398,10 @@ fn list_project_assets(project_dir: String) -> Result<Vec<ProjectAssetEntry>, St
 
     let mut entries = Vec::new();
     collect_project_assets(&assets_dir, &assets_dir, &mut entries)?;
+    let catalog = core::project_mgr::sgdk_asset_authoring(Path::new(trimmed));
+    for entry in &mut entries {
+        entry.sgdk_resource = catalog.get(&entry.relative_path).cloned();
+    }
     entries.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
     Ok(entries)
 }
@@ -3879,10 +3886,17 @@ fn collect_project_assets(
             .to_string_lossy()
             .replace('\\', "/");
 
+        let kind = project_asset_kind(&path);
+        let dimensions = (kind == "image")
+            .then(|| image::image_dimensions(&path).ok())
+            .flatten();
         entries.push(ProjectAssetEntry {
             relative_path: relative,
             absolute_path: path.to_string_lossy().to_string(),
-            kind: project_asset_kind(&path),
+            kind,
+            image_width: dimensions.map(|(w, _)| w),
+            image_height: dimensions.map(|(_, h)| h),
+            sgdk_resource: None,
         });
     }
 

@@ -12,11 +12,7 @@ import { persistActiveScene } from "../../core/scenePersistence";
 import { resolveSceneWorkspaceContext } from "../../core/sceneWorkspaceContext";
 import { ExperimentalNotice, HeuristicNotice } from "./ToolNotices";
 import type { LegacySgdkIndex } from "../../core/ipc/sceneService";
-import {
-  createSpriteEntityFromAsset,
-  createTilemapEntityFromAsset,
-} from "../../core/editorEntityFactory";
-import { classifyImageAssetInstantiation } from "../../core/assetInstantiation";
+import { classifyImageAssetInstantiation, createEntityFromProjectAsset, getAssetInstantiationIssue } from "../../core/assetInstantiation";
 import {
   buildMultiTarget,
   type BuildLogLine,
@@ -611,14 +607,14 @@ interface AssetBrowserProps {
 }
 
 const ASSET_BROWSER_FILTERS: { id: AssetBrowserFilterId; label: string }[] = [
-  { id: "sprite", label: "sprite" },
-  { id: "tilemap", label: "tilemap" },
-  { id: "palette", label: "palette" },
-  { id: "audio", label: "audio" },
-  { id: "source_art", label: "source art" },
-  { id: "generated", label: "generated" },
-  { id: "unused", label: "unused" },
-  { id: "over_budget", label: "over-budget" },
+  { id: "sprite", label: "Personagens/objetos" },
+  { id: "tilemap", label: "Cenários/peças" },
+  { id: "palette", label: "Paletas" },
+  { id: "audio", label: "Áudio" },
+  { id: "source_art", label: "Arte de origem" },
+  { id: "generated", label: "Gerados" },
+  { id: "unused", label: "Fora da cena" },
+  { id: "over_budget", label: "Acima do orçamento" },
 ];
 
 function AssetTreeView({
@@ -736,6 +732,7 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
     setViewMode,
     toggleTreeNode,
     selectTreeAsset,
+    clearTreeSelection,
     clearLegacyPreview,
     selectLegacyFile,
   } = useAssetBrowserState({
@@ -944,18 +941,7 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
         "info",
         `[Assets] Instanciacao '${asset.relative_path}': modo=${shouldInstantiateAsTilemap ? "tilemap" : "sprite"} (motivo: ${decision.reason}).`
       );
-      const entity = shouldInstantiateAsTilemap
-        ? createTilemapEntityFromAsset({
-            assetPath: asset.relative_path,
-            existingEntityIds: currentScene.entities.map((candidate) => candidate.entity_id),
-          })
-        : createSpriteEntityFromAsset({
-            assetPath: asset.relative_path,
-            target: activeTarget,
-            existingEntityIds: currentScene.entities.map((candidate) => candidate.entity_id),
-            includeStarterLogic:
-              currentScene.entities.length === 0 && currentScene.background_layers.length === 0,
-          });
+      const entity = createEntityFromProjectAsset({ asset, target: activeTarget, projectSourceKind, scene: currentScene });
 
       addEntity(entity);
       setSelectedEntityId(entity.entity_id);
@@ -982,13 +968,14 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
   }
 
   return (
-    <div className="flex min-h-0 flex-col gap-2 overflow-x-hidden p-3">
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-x-hidden p-3">
       <ExperimentalNotice
         compact
         summary="Catalogo visual dos assets. Duplo clique foca referencias ou instancia imagens na cena."
       />
 
       <SceneWorkspaceNotice
+        compact
         context={sceneContext}
         testId="asset-browser-scene-notice"
         actions={
@@ -1012,8 +999,9 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
         }
       />
 
-      <div className="flex shrink-0 items-center justify-between gap-2 overflow-hidden rounded bg-[#1e1e2e] px-3 py-2">
-        <div className="min-w-0">
+      {!(viewMode === "tree" && selectedTreeAsset) ? <>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 overflow-hidden rounded bg-[#1e1e2e] px-3 py-2">
+        <div className="min-w-0 flex-1 basis-32">
           <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#7f849c]">
             Catalogo do projeto
           </p>
@@ -1038,7 +1026,7 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
                     : "text-[#6c7086] hover:text-[#a6adc8]"
                 }`}
               >
-                {mode === "tree" ? "\u25e6" : "\u25a6"} {mode}
+                {mode === "tree" ? "Pastas" : "Miniaturas"}
               </button>
             ))}
           </div>
@@ -1048,12 +1036,15 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
       <div className="flex shrink-0 flex-col gap-2 rounded border border-[#313244] bg-[#11111b] p-2">
         <input
           data-testid="asset-browser-search"
+          aria-label="Buscar recursos do projeto"
           value={assetSearch}
           onChange={(event) => setAssetSearch(event.target.value)}
           placeholder="Buscar por nome, caminho ou tipo"
           className="min-w-0 rounded border border-[#313244] bg-[#0b1020] px-2 py-1 text-[10px] text-[#e2e8f0] outline-none transition-colors placeholder:text-[#475569] focus:border-[#89b4fa]"
         />
-        <div className="flex flex-wrap gap-1">
+        <details data-testid="asset-browser-filters">
+        <summary className="cursor-pointer text-[11px] text-[#a6adc8]">Filtrar recursos{activeFilters.size ? ` · ${activeFilters.size} ativo(s)` : ""}</summary>
+        <div className="mt-2 flex flex-wrap gap-1">
           {ASSET_BROWSER_FILTERS.map((filter) => {
             const active = activeFilters.has(filter.id);
             return (
@@ -1072,7 +1063,9 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
             );
           })}
         </div>
+        </details>
       </div>
+      </> : null}
 
       {busy && <p className="text-[10px] text-[#89b4fa]">Carregando catalogo de assets...</p>}
       {error && (
@@ -1081,7 +1074,7 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
         </div>
       )}
 
-      {viewMode === "tree" && (filteredAssets.length > 0 || legacySections.length > 0) && (
+      {viewMode === "tree" && !selectedTreeAsset && (filteredAssets.length > 0 || legacySections.length > 0) && (
         <div className="scrollbar-thin min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden rounded border border-[#313244] bg-[#11111b] p-2">
           {filteredAssets.length > 0 && (
             <div className="flex flex-col gap-1 pb-3">
@@ -1152,7 +1145,10 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
       )}
 
       {viewMode === "tree" && selectedTreeAsset && (
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
+        <button type="button" data-testid="asset-browser-back" onClick={clearTreeSelection} className="shrink-0 rounded border border-[#313244] px-3 py-2 text-left text-xs text-[#cdd6f4]">← Voltar à biblioteca</button>
         <AssetBrowserSelectionCard
+          key={selectedTreeAsset.relative_path}
           activeProjectDir={activeProjectDir}
           asset={selectedTreeAsset}
           matches={selectedAssetMatches}
@@ -1165,8 +1161,9 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
           onOpenArtStudio={() => handleOpenAssetInArtStudio(selectedTreeAsset)}
           onOpenAuthoringTarget={handleOpenReferenceAuthoringTarget}
           onOpenSource={(match) => void handleOpenReferenceSource(match)}
-          onInstantiate={() => void handleInstantiateAsset(selectedTreeAsset)}
+          onInstantiate={(chosenAsset) => void handleInstantiateAsset(chosenAsset)}
         />
+        </div>
       )}
 
       {viewMode === "tree" && selectedLegacyFile && (
@@ -1229,12 +1226,20 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
         <div className="grid grid-cols-[repeat(auto-fit,minmax(11rem,1fr))] gap-2 p-2">
         {filteredAssets.map((asset) => {
           const matches = references.get(asset.relative_path) ?? [];
-          const canInstantiate = asset.kind === "image" && Boolean(activeProjectDir && activeScene);
+          const issue = getAssetInstantiationIssue(asset, activeScene?.entities ?? []);
+          const canInstantiate = !issue && Boolean(activeProjectDir && activeScene);
           const isInstantiating = instantiatingAssetPath === asset.relative_path;
           const classification = classifyAssetBrowserAsset(asset);
           return (
             <div
               key={asset.relative_path}
+              data-testid="asset-browser-item"
+              data-asset-path={asset.relative_path}
+              data-resource-kind={asset.sgdk_resource?.resource_kind}
+              data-frame-width={asset.sgdk_resource?.sprite?.frame_width}
+              data-frame-height={asset.sgdk_resource?.sprite?.frame_height}
+              data-resource-names={JSON.stringify([asset.sgdk_resource?.resource_name, ...(asset.sgdk_resource?.variants?.map(resource => resource.resource_name) ?? [])].filter(Boolean))}
+              data-resource-layouts={JSON.stringify([asset.sgdk_resource, ...(asset.sgdk_resource?.variants ?? [])].filter(Boolean).map(resource => ({ name: resource?.resource_name, kind: resource?.resource_kind, width: resource?.sprite?.frame_width, height: resource?.sprite?.frame_height })))}
               onDoubleClick={() => {
                 if (asset.kind === "image" && matches.length === 0) {
                   void handleInstantiateAsset(asset);
@@ -1253,10 +1258,13 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
                 {asset.kind === "image" ? (
                   <AssetPreview
                     absolutePath={asset.absolute_path}
+                    projectDir={activeProjectDir}
+                    relativePath={asset.relative_path}
+                    testId="asset-browser-item-preview"
+                    fallbackTestId="asset-browser-item-preview-fallback"
                     alt={asset.relative_path}
                     imageClassName="max-h-14 max-w-full object-contain"
                     fallbackClassName="flex h-14 w-14 items-center justify-center text-[8px] font-bold text-[#89b4fa]"
-                    fallbackLabel="IMG"
                     pixelated
                   />
                 ) : (
@@ -1273,7 +1281,7 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
                   <span className="text-[9px] text-[#a6e3a1]">{matches.length} ref.</span>
                 )}
                 {matches.length === 0 && (
-                  <span className="text-[9px] text-[#f9e2af]">orfao</span>
+                  <span className="text-[9px] text-[#f9e2af]">Fora desta cena</span>
                 )}
               </div>
               <p className="min-w-0 truncate font-mono text-[10px] text-[#cdd6f4]" title={asset.relative_path}>
@@ -1282,10 +1290,13 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
               <div className="mt-auto flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => handleFocusReferencedAsset(asset)}
+                  onClick={() => {
+                    selectTreeAsset(asset);
+                    setViewMode("tree");
+                  }}
                   className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#cdd6f4] transition-colors hover:border-[#cba6f7] hover:text-[#cba6f7]"
                 >
-                  {matches.length > 0 ? "Focar" : "Detalhes"}
+                  Detalhes
                 </button>
                 {asset.kind === "image" && (
                   <button
@@ -1307,10 +1318,10 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
                   title={
                     canInstantiate
                       ? "Criar um sprite ou tilemap na cena ativa usando a regra canonica do editor."
-                      : "Abra uma cena ativa para instanciar assets."
+                      : issue ?? "Abra uma cena ativa para instanciar assets."
                   }
                 >
-                  {isInstantiating ? "Criando..." : "Instanciar"}
+                  {isInstantiating ? "Criando..." : "Adicionar à cena"}
                 </button>
               )}
               </div>
@@ -3055,8 +3066,18 @@ export default function ToolsPanel({
         </>
       }
     >
-      <div className="flex h-full min-h-0 flex-col xl:flex-row">
-        <aside className="flex w-full shrink-0 flex-col border-b border-[#1f2937] bg-[#0b1020] xl:w-[230px] xl:border-b-0 xl:border-r">
+      <div className="rds-tools-container h-full min-h-0 min-w-0">
+      <div className="rds-tools-layout flex h-full min-h-0 flex-col">
+        <label className="rds-tools-compact-nav shrink-0 border-b border-[#313244] bg-[#0b1020] p-2 text-xs text-[#a6adc8]">
+          Ferramenta ativa
+          <select data-testid="tools-compact-select" value={safeActive} onChange={event => {
+            const next = getToolDescriptor(event.target.value as ToolTab);
+            setActive(next.id); setActiveCategory(next.category);
+          }} className="mt-1 w-full rounded border border-[#313244] bg-[#1e1e2e] px-2 py-2 text-xs text-[#cdd6f4]">
+            {visibleTools.map(tool => <option key={tool.id} value={tool.id}>{tool.label}{tool.experimental ? " · Experimental" : ""}</option>)}
+          </select>
+        </label>
+        <aside className="rds-tools-wide-nav w-full shrink-0 flex-col border-b border-[#1f2937] bg-[#0b1020]">
           <div className="border-b border-[#1f2937] px-4 py-4">
             <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#cba6f7]">
               {workspace === "debug" ? "Modo avancado" : "Modo basico"}
@@ -3153,7 +3174,7 @@ export default function ToolsPanel({
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="border-b border-[#1f2937] bg-[#0f172a] px-5 py-4">
+          <div className="rds-tools-active-header border-b border-[#1f2937] bg-[#0f172a] px-5 py-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#7dd3fc]">
@@ -3190,10 +3211,11 @@ export default function ToolsPanel({
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto bg-[#11111b]">
+          <div className={`min-h-0 flex-1 bg-[#11111b] ${safeActive === "assets" ? "overflow-hidden" : "overflow-y-auto"}`}>
             {renderToolPanel(safeActive, onRequestInspector)}
           </div>
         </div>
+      </div>
       </div>
     </Panel>
   );

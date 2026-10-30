@@ -5979,7 +5979,314 @@ async function verifyPagedKenBuild(sessionId, project, animations) {
   return { animations: names.length, occurrences, pixels_compared: pixels, max_page_pixels: maxPagePixels, palettes_identical: true, compiled_indices_verified: true, max_tiles: maxTiles, max_sprites: maxSprites };
 }
 
+// Compare the real scene canvas with the untouched source PNG, independently
+// of cells/dedup. This catches an imported image that exists but is scrambled.
+async function verifySgdkMountedImages(sessionId, project, ledger, report, prefix) {
+  const state = () => readAutomationState(sessionId);
+  await clickElement(sessionId, await findElement(sessionId, '[data-testid="viewport-view-options"] > summary'));
+  const spriteToggle = await findElement(sessionId, 'button[title="Mostrar sprites"]');
+  const spritesWereVisible = await executeScript(sessionId, `return document.querySelector('button[title="Mostrar sprites"]')?.getAttribute('aria-pressed') === 'true';`);
+  if (spritesWereVisible) await clickElement(sessionId, spriteToggle);
+  await clickElement(sessionId, await findElement(sessionId, '[data-testid="viewport-view-options"] > summary'));
+  let checked = 0;
+  for (const descriptor of ledger.scenes) {
+    const scene = JSON.parse(await readFile(path.join(project, descriptor.scene_path), "utf8"));
+    const entity = scene.entities.find(e => e.components.tilemap);
+    const tilemap = entity?.components.tilemap;
+    const mapping = ledger.mappings.find(m => m.destination === tilemap?.tileset);
+    if (!tilemap || !mapping || !/\.png$/i.test(tilemap.tileset) || !tilemap.cells?.length) continue;
+    const option = await findElement(sessionId, `select[title="Selecionar cena ativa"] option[value="${descriptor.scene_path}"]`);
+    await clickElement(sessionId, option);
+    await waitFor(async () => (await state())?.activeScenePath === descriptor.scene_path, 30000, "Imported scene did not activate.", 100);
+    await waitFor(async () => executeScript(sessionId, `const e=document.querySelector('[data-testid="viewport-asset-health-summary"]');return e&&Number(e.dataset.ready)>0&&Number(e.dataset.loading)===0&&Number(e.dataset.failed)===0;`), 30000, "Imported image did not load.", 100);
+    const original = (await readFile(path.join(project, tilemap.tileset))).toString("base64");
+    await executeScript(sessionId, `const img=new Image();window.__sgdkSourceOracle=img;img.src='data:image/png;base64,'+arguments[0];`, [original]);
+    await waitFor(() => executeScript(sessionId, `const i=window.__sgdkSourceOracle;return i?.complete&&i.naturalWidth>0;`), 10000, "Source image oracle did not decode.", 100);
+    const context = await state();
+    const metrics = await waitFor(async () => {
+      const result = await executeScript(sessionId, `
+        const image=window.__sgdkSourceOracle,actual=document.querySelector('[data-testid="viewport-scene-canvas"]');
+        const expected=document.createElement('canvas');expected.width=image.naturalWidth;expected.height=image.naturalHeight;
+        const ctx=expected.getContext('2d');ctx.drawImage(image,0,0);
+        const src=ctx.getImageData(0,0,expected.width,expected.height).data;
+        const [x,y]=arguments[0];
+        if(x<0||y<0||x+expected.width>actual.width||y+expected.height>actual.height)return {outside:true};
+        const dst=actual.getContext('2d').getImageData(x,y,expected.width,expected.height).data;
+        let compared=0,mismatches=0;
+        for(let i=0;i<src.length;i+=4){
+          // Ignore transparent/key-color pixels: the independent backend test
+          // covers all RGBA; here compare every visible opaque artwork pixel.
+          if(src[i+3]!==255||(src[i]===255&&src[i+1]===0&&src[i+2]===255))continue;
+          compared++;if(src[i]!==dst[i]||src[i+1]!==dst[i+1]||src[i+2]!==dst[i+2]||dst[i+3]!==255)mismatches++;
+        }
+        return {compared,mismatches,width:expected.width,height:expected.height};
+      `, [[entity.transform.x - context.activeScene.worldBounds.minX, entity.transform.y - context.activeScene.worldBounds.minY]]);
+      return result?.compared > 0 && result.mismatches === 0 ? result : false;
+    }, 15000, `Source artwork and rendered scene differ: ${descriptor.scene_path}`, 150);
+    addReportStep(report, `mounted_pixels_${descriptor.scene_id}`, "passed", { scene: descriptor.scene_path, resource: mapping.resource_name, ...metrics });
+    if (mapping.resource_kind === "TILESET") {
+      const notice = await executeScript(sessionId, `return document.querySelector('[data-testid="hierarchy-scene-notice"]')?.textContent ?? '';`);
+      if (!notice.includes("Banco de peças")) fail(`Raw bank is presented as a mounted scene: ${descriptor.scene_path}`);
+    }
+    if (/fight|plane_ko|round1/i.test(mapping.resource_name)) {
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${descriptor.scene_id}.png`), "Source artwork assembled in the native scene editor");
+    }
+    checked++;
+  }
+  await executeScript(sessionId, "delete window.__sgdkSourceOracle;");
+  if (!checked) fail("No mounted PNG was checked.");
+  const main = await findElement(sessionId, 'select[title="Selecionar cena ativa"] option[value="scenes/main.json"]');
+  await clickElement(sessionId, main);
+  await waitFor(async () => (await state())?.activeScenePath === "scenes/main.json", 30000, "Primary scene did not reactivate.", 100);
+  if (spritesWereVisible) {
+    await clickElement(sessionId, await findElement(sessionId, '[data-testid="viewport-view-options"] > summary'));
+    await clickElement(sessionId, await findElement(sessionId, 'button[title="Mostrar sprites"]'));
+    await clickElement(sessionId, await findElement(sessionId, '[data-testid="viewport-view-options"] > summary'));
+  }
+  addReportStep(report, "all_mounted_images_match_source", "passed", { checked });
+}
+
+async function runSgdkCorpusAssetReview(sessionId, onProjectCreated) {
+  const corpus = JSON.parse(await readFile(process.env.RDS_SGDK_CORPUS_MANIFEST, "utf8"));
+  const output = process.env.RDS_SGDK_OUTPUT;
+  if (!output || !Array.isArray(corpus.projects)) fail("Corpus review needs a project manifest and output directory.");
+  await mkdir(output, { recursive: true });
+  const prefix = `sgdk-corpus-assets-${artifactTimestamp()}`;
+  const report = { schema: "retrodev.sgdk_corpus_asset_review/v1", app_sha256: createHash("sha256").update(await readFile(currentE2eRunContext.appPath)).digest("hex"),
+    harness_sha256: createHash("sha256").update(await readFile(new URL(import.meta.url))).digest("hex"),
+    qualification: "native imports, source artwork, catalog and authoring; no original C gameplay equivalence or human accessibility certification", projects: [], artifacts: [] };
+  const js = (code, args = []) => executeScript(sessionId, code, args);
+  const state = () => readAutomationState(sessionId);
+  const persist = () => writeFile(path.join(output, `${prefix}.json`), JSON.stringify(report, null, 2));
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  for (const [index, source] of corpus.projects.entries()) {
+    const tag = `${prefix}-${String(index + 1).padStart(2, "0")}`;
+    const result = { id: source.id, source: source.path, steps: [], artifacts: [], status: "running" };
+    report.projects.push(result);
+    try {
+      await prepareExternalImportWizard(sessionId);
+      await js(`const e=document.querySelector('[data-testid="external-import-profile-select"]');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,'sgdk');e.dispatchEvent(new Event('change',{bubbles:true}));`);
+      const projectName = `${source.id} importado ${new Date().toISOString().slice(11,19).replaceAll(':','')}`;
+      await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
+      await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source.path]);
+      await clickButtonByTestIdNative(sessionId, "external-import-confirm");
+      const opened = await waitFor(async () => {
+        const s = await state();
+        if (s?.activeProjectDir && s.activeProjectName === projectName && s.projectSourceKind === "imported_sgdk") return { state: s };
+        const error = await js(`return document.querySelector('[data-testid="project-start-wizard"] [role="alert"]')?.textContent ?? '';`);
+        return error ? { error } : false;
+      }, 180000, `Import did not settle: ${source.id}`, 200);
+      if (opened.error) {
+        result.status = source.resource_count === 0 ? "not_importable_source" : "failed";
+        result.error = opened.error;
+        addReportArtifact(result, await captureScreenshot(sessionId, `${tag}-source-refused.png`), "Source refused with an actionable wizard message");
+        await persist();
+        continue;
+      }
+      const project = opened.state.activeProjectDir;
+      result.project = project; currentE2eRunContext.project = project; onProjectCreated(project);
+      await clickButtonByTestIdNative(sessionId, "shell-persona-pro");
+      if (await js(`return !!document.querySelector('[data-testid="console-drawer"][data-visible="true"]');`)) {
+        await clickButtonByTestIdNative(sessionId,"console-close");
+        await waitFor(() => js(`return !document.querySelector('[data-testid="console-drawer"][data-visible="true"]');`),5000,"Console did not close after recovering from the previous source error.",100);
+        addReportStep(result,"return_to_workspace_preserving_error_logs","passed");
+      }
+      const names = (await readdir(path.join(project, ".rds/imports/sgdk"))).filter(n => n.endsWith(".json"));
+      const ledger = JSON.parse(await readFile(path.join(project, ".rds/imports/sgdk", names[0]), "utf8"));
+      result.resources = ledger.mappings.length;
+      result.scenes = ledger.scenes.length;
+      result.skipped = ledger.skipped_sources;
+      if (path.resolve(ledger.donor_root) !== path.resolve(source.path)) fail("Import opened a different donor than the selected project.");
+      if (ledger.mappings.length === 0) {
+        const scene = JSON.parse(await readFile(path.join(project, "scenes/main.json"), "utf8"));
+        if (!scene.entities.some(e => e.components.logic?.imported_semantics?.audit_flags?.includes("code_only_donor"))) fail("No resources and no explicit code-only bridge.");
+        const body = await js(`return document.querySelector('[data-testid="hierarchy-scene-notice"]')?.textContent ?? '';`);
+        if (!body.includes("sem imagens externas")) fail("Code-only project is presented as a complete image import.");
+        result.status = "code_only_no_external_images";
+        addReportArtifact(result, await captureScreenshot(sessionId, `${tag}-code-only.png`), "Code-only source explicitly distinguished from lost artwork");
+        continue;
+      }
+      const paths = [...new Set(ledger.mappings.map(m => m.destination))];
+      for (const mapping of ledger.mappings) {
+        const original = path.join(ledger.effective_root || source.path, mapping.source_relative);
+        const a = createHash("sha256").update(await readFile(original)).digest("hex");
+        const b = createHash("sha256").update(await readFile(path.join(project, mapping.destination))).digest("hex");
+        if (a !== b) fail(`Asset changed during import: ${mapping.resource_name}`);
+      }
+      addReportStep(result, "resources_unchanged", "passed", { resources: ledger.mappings.length, unique_files: paths.length });
+      addReportArtifact(result, await captureScreenshot(sessionId, `${tag}-01-imported-scene.png`), "Imported primary scene");
+      await verifySgdkMountedImages(sessionId, project, ledger, result, tag);
+      await callAutomationApi(sessionId, "openToolsWorkspace", ["assets", "editing", true]);
+      await waitForBodyText(sessionId, "Assets canonicos", 30000, "Asset catalog did not load.");
+      await clickButtonByText(sessionId, "Miniaturas", "exact");
+      const shown = await waitFor(async () => {
+        const values = await js(`return [...document.querySelectorAll('[data-testid="asset-browser-item"]')].map(e=>e.dataset.assetPath);`);
+        return paths.every(p => values.includes(p)) ? values : false;
+      }, 30000, `Imported files missing from visible catalog: ${source.id}`, 100);
+      const declaredNames = await js(`return [...document.querySelectorAll('[data-testid="asset-browser-item"]')].flatMap(e=>JSON.parse(e.dataset.resourceNames??'[]'));`);
+      for (const mapping of ledger.mappings) if (!declaredNames.includes(mapping.resource_name)) fail(`Declared resource use hidden in catalog: ${mapping.resource_name}`);
+      result.resource_layouts = await js(`return [...document.querySelectorAll('[data-testid="asset-browser-item"]')].flatMap(e=>JSON.parse(e.dataset.resourceLayouts??'[]'));`);
+      const invalidLayouts = result.resource_layouts.filter(r => r.kind === "SPRITE" && !(r.width > 0 && r.height > 0));
+      if (invalidLayouts.length) fail(`Imported sprites have no operational frame layout: ${JSON.stringify(invalidLayouts)}`);
+      const previews = [];
+      for (const assetPath of shown) {
+        // Scroll through every real card to exercise lazy loading. No synthetic
+        // gallery, alternate decoder, asset URL or product state is injected.
+        await js(`const e=[...document.querySelectorAll('[data-testid="asset-browser-item"]')].find(e=>e.dataset.assetPath===arguments[0]);e.scrollIntoView({block:'center'});`, [assetPath]);
+        const visual = await waitFor(async () => {
+          const v = await js(`const e=[...document.querySelectorAll('[data-testid="asset-browser-item"]')].find(e=>e.dataset.assetPath===arguments[0]);const i=e?.querySelector('img');const f=e?.querySelector('[data-testid="asset-browser-item-preview-fallback"]');return {image:!!(i||f),ready:!!i?.complete&&i.naturalWidth>0,failed:['missing','failed'].includes((i??f)?.dataset.visualState),width:i?.naturalWidth,height:i?.naturalHeight,label:e?.textContent};`, [assetPath]);
+          return !v.image || v.ready || v.failed ? v : false;
+        }, 15000, `Preview never resolved: ${assetPath}`, 100);
+        previews.push({ path: assetPath, ...visual });
+        if (visual.image && !visual.ready) fail(`Broken catalog preview: ${assetPath}`);
+      }
+      result.catalog = { assets: shown.length, image_previews: previews.filter(p => p.image).length, previews };
+      addReportStep(result, "every_asset_identifiable_and_every_image_preview_decodes", "passed", { assets: shown.length, image_previews: result.catalog.image_previews });
+      addReportArtifact(result, await captureScreenshot(sessionId, `${tag}-02-catalog.png`), "Resource catalog with names, types and actions");
+      const shared = await js(`return [...document.querySelectorAll('[data-testid="asset-browser-item"]')].map(e=>({path:e.dataset.assetPath,names:JSON.parse(e.dataset.resourceNames??'[]')})).find(e=>e.names.length>1)??null;`);
+      if (shared) {
+        await fillInputBySelector(sessionId, '[data-testid="asset-browser-search"]', shared.path.split('/').pop());
+        await js(`const e=[...document.querySelectorAll('[data-testid="asset-browser-item"]')].find(e=>e.dataset.assetPath===arguments[0]);e.querySelector('button').click();`, [shared.path]);
+        await waitFor(() => js(`return !!document.querySelector('[data-testid="asset-browser-resource-variant"]');`),10000,"Shared resource uses are not selectable.",100);
+        for (let i=0;i<shared.names.length;i++) {
+          await clickElement(sessionId,await findElement(sessionId,`[data-testid="asset-browser-resource-variant"] option[value="${i}"]`));
+          await waitFor(() => js(`const s=document.querySelector('[data-testid="asset-browser-resource-variant"]');return Number(s?.value)===arguments[0];`,[i]),5000,"Resource use did not change.",100);
+        }
+        addReportStep(result,"shared_image_resource_uses_selectable","passed",shared);
+        addReportArtifact(result,await captureScreenshot(sessionId,`${tag}-02-shared-uses.png`),"Shared image uses are individually selectable");
+        await clickButtonByTestIdNative(sessionId,"asset-browser-back");
+        await fillInputBySelector(sessionId,'[data-testid="asset-browser-search"]',"");
+        await clickButtonByText(sessionId,"Miniaturas","exact");
+      }
+      const candidates = await js(`return [...document.querySelectorAll('[data-testid="asset-browser-item"]')].filter(e=>e.dataset.resourceKind==='SPRITE'&&Number(e.dataset.frameWidth)>0).map(e=>({path:e.dataset.assetPath,width:Number(e.dataset.frameWidth),height:Number(e.dataset.frameHeight)})).sort((a,b)=>b.width*b.height-a.width*a.height);`);
+      const sprite = ledger.mappings.find(m => m.resource_kind === "SPRITE" && m.destination === candidates[0]?.path);
+      if (sprite) {
+        await fillInputBySelector(sessionId, '[data-testid="asset-browser-search"]', sprite.destination.split('/').pop());
+        await waitFor(() => js(`return [...document.querySelectorAll('[data-testid="asset-browser-item"]')].some(e=>e.dataset.assetPath===arguments[0]);`, [sprite.destination]), 10000, "Sprite search failed.", 100);
+        await js(`const e=[...document.querySelectorAll('[data-testid="asset-browser-item"]')].find(e=>e.dataset.assetPath===arguments[0]);e.querySelector('button')?.click();`, [sprite.destination]);
+        await waitFor(() => js(`return !!document.querySelector('[data-testid="asset-browser-selection-card"]');`), 10000, "Details did not open.", 100);
+        const layout = await js(`return document.querySelector('[data-testid="asset-browser-image-layout"]')?.textContent ?? '';`);
+        if (!layout.includes("Quadro:")) fail(`Imported frame layout is not identifiable: ${sprite.resource_name}`);
+        addReportArtifact(result, await captureScreenshot(sessionId, `${tag}-03-resource-preview.png`), "Initial frame from the declared layout, with the complete sheet available");
+        await waitFor(() => js(`const c=document.querySelector('[data-testid="asset-browser-selection-card"]');const b=[...c.querySelectorAll('button')].find(e=>e.textContent.trim()==='Adicionar à cena');b?.scrollIntoView({block:'nearest'});if(!b)return false;const r=b.getBoundingClientRect();const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return c.clientWidth>=280&&r.x>=0&&r.y>=0&&r.right<=innerWidth&&r.bottom<=innerHeight&&!!hit&&(hit===b||b.contains(hit));`),10000,"Resource details/action are clipped, covered, or too narrow.",100);
+        addReportArtifact(result, await captureScreenshot(sessionId, `${tag}-03-resource-details.png`), "Declared frame layout and reachable authoring actions");
+        if (index === 0) {
+          for (const [width,height,zoom] of [[1280,800,1],[1366,768,1.25]]) {
+            await setSessionWindowRect(sessionId,width,height);
+            await js(`document.documentElement.style.zoom=arguments[0];`,[String(zoom)]);
+            await waitFor(() => js(`const c=document.querySelector('[data-testid="asset-browser-selection-card"]');const b=[...c.querySelectorAll('button')].find(e=>e.textContent.trim()==='Adicionar à cena');b.scrollIntoView({block:'nearest'});const r=b.getBoundingClientRect();const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return c.clientWidth>=280&&r.x>=0&&r.y>=0&&r.right<=innerWidth&&r.bottom<=innerHeight&&!!hit&&(hit===b||b.contains(hit));`),10000,`Resource action is inaccessible at ${width}x${height}@${zoom}.`,100);
+            await waitFor(() => js(`return document.querySelector('[data-testid="left"][data-panel]')?.clientWidth>=199;`),5000,"Scene hierarchy became too narrow to identify resources.",100);
+            addReportArtifact(result,await captureScreenshot(sessionId,`${tag}-layout-${width}-${zoom}.png`),`Native resource details at ${width}x${height}, interface scale ${zoom}`);
+          }
+          await js(`document.documentElement.style.zoom='';`);
+          await setSessionWindowRect(sessionId,1920,1080);
+          await js(`document.querySelector('[data-testid="asset-browser-back"]').focus();`);
+          await webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"key",id:"catalog-tab",actions:[{type:"keyDown",value:"\uE004"},{type:"keyUp",value:"\uE004"}]}]});
+          await waitFor(() => js(`return !!document.querySelector('[data-testid="asset-browser-selection-card"]')?.contains(document.activeElement);`),3000,"Resource controls cannot be reached from the back button with Tab.",100);
+          addReportStep(result,"resource_layout_and_keyboard_navigation","passed",{layouts:["1280x800","1366x768 at 125%"],keyboard:"native Tab from library back button into resource controls"});
+        }
+        const count = (await state()).activeSceneEntityCount;
+        await js(`const card=document.querySelector('[data-testid="asset-browser-selection-card"]');const b=[...card.querySelectorAll('button')].find(e=>e.textContent.trim()==='Adicionar à cena');if(!b||b.disabled)throw Error('Adicionar indisponível');b.click();`);
+        const added = await waitFor(async () => {
+          const s = await state();return s.activeSceneEntityCount === count + 1 ? s : false;
+        }, 15000, `Catalog sprite was not added: ${sprite.resource_name}`, 100);
+        const instance = added.activeScene.entities.find(e => e.id === added.selectedEntityId);
+        result.authored_instance = instance;
+        if (instance.spriteAsset !== sprite.destination) fail("Added instance has the wrong artwork.");
+        await waitFor(() => js(`const e=document.querySelector('[data-testid="scene-save-status"]');return e?.dataset.status==='saved'&&Number(e.dataset.revision)===arguments[0]&&Number(e.dataset.savedRevision)===arguments[0];`,[added.sceneRevision]),15000,"Added resource did not finish its canonical save.",100);
+        const savedScene = JSON.parse(await readFile(path.join(project, added.activeScenePath), "utf8"));
+        const savedSprite = savedScene.entities.find(e=>e.entity_id===instance.id)?.components.sprite;
+        if (savedSprite?.frame_width !== candidates[0].width || savedSprite?.frame_height !== candidates[0].height) fail("The added sprite was clipped instead of preserving its declared frame.");
+        await callAutomationApi(sessionId,"selectWorkspace",["artstudio"]);
+        const art = await waitFor(async () => {
+          const a=await readArtStudioState(sessionId);
+          return a?.spritePath===sprite.destination&&a.spriteSheetLoadStatus==='loaded'&&a.frameWidth===savedSprite.frame_width&&a.frameHeight===savedSprite.frame_height&&a.activeSequenceId?a:false;
+        },30000,"ArtStudio changed or failed to load the imported frame layout.",100);
+        if (index === 0) await waitFor(() => js(`const c=[...document.querySelectorAll('canvas')].find(c=>c.width===260&&c.height===260);if(!c)return false;const p=c.getContext('2d').getImageData(0,0,260,260).data;for(let i=0;i<p.length;i+=4)if(p[i+3]&&(p[i]!==5||p[i+1]!==7||p[i+2]!==15))return true;return false;`),10000,"ArtStudio initial frame preview stayed blank.",100);
+        addReportStep(result,"catalog_instance_artstudio_layout_preserved","passed",{width:art.frameWidth,height:art.frameHeight,sequences:art.sequences.length});
+        addReportArtifact(result,await captureScreenshot(sessionId,`${tag}-04-artstudio.png`),"Imported frame layout retained in the real art editor");
+        const revisionBeforeApply=(await state()).sceneRevision;
+        await clickButtonByText(sessionId,"Aplicar nesta entidade","exact");
+        const applied=await waitFor(async () => {const s=await state();return s.sceneRevision>revisionBeforeApply?s:false;},10000,"ArtStudio did not apply to the selected instance.",100);
+        await clickTopBarMenuAction(sessionId,"Salvar");
+        await waitFor(() => js(`const e=document.querySelector('[data-testid="scene-save-status"]');return e?.dataset.status==='saved'&&Number(e.dataset.savedRevision)>=arguments[0];`,[applied.sceneRevision]),15000,"ArtStudio apply did not finish saving.",100);
+        const appliedScene=JSON.parse(await readFile(path.join(project,added.activeScenePath),"utf8"));
+        const appliedSprite=appliedScene.entities.find(e=>e.entity_id===instance.id)?.components.sprite;
+        if(appliedSprite?.frame_width!==savedSprite.frame_width||appliedSprite?.frame_height!==savedSprite.frame_height)fail("Applying ArtStudio cropped the declared frame.");
+        const orderedAnimations = animations => Object.entries(animations).sort(([a],[b])=>a.localeCompare(b));
+        if(JSON.stringify(orderedAnimations(appliedSprite.animations))!==JSON.stringify(orderedAnimations(savedSprite.animations)))fail("Applying ArtStudio changed the imported animation definitions.");
+        const mappingOriginal=path.join(ledger.effective_root||source.path,sprite.source_relative);
+        if(createHash("sha256").update(await readFile(mappingOriginal)).digest("hex")!==createHash("sha256").update(await readFile(path.join(project,sprite.destination))).digest("hex"))fail("ArtStudio changed the original source sheet while applying metadata.");
+        addReportStep(result,"artstudio_apply_preserves_frame_geometry_and_sequences","passed",{width:appliedSprite.frame_width,height:appliedSprite.frame_height,animations:Object.keys(appliedSprite.animations).length});
+        await callAutomationApi(sessionId,"selectWorkspace",["scene"]);
+        await clickTopBarMenuAction(sessionId, "Salvar");
+        await clickTopBarMenuAction(sessionId, "Fechar");
+        await openSavedProjectWizard(sessionId, project);
+        const reopened = await waitFor(async () => {const s=await state();return s.activeProjectDir===project?s:false;}, 30000, "Authored project did not reopen.", 100);
+        if (!reopened.activeScene.entities.some(e => e.id === instance.id && e.spriteAsset === instance.spriteAsset)) fail("Authored instance did not survive reopen.");
+        addReportStep(result, "catalog_instance_save_reopen", "passed", { entity: instance.id, resource: sprite.resource_name, layout });
+      }
+      result.status = "passed";
+    } catch (error) {
+      result.status = "failed"; result.error = String(error);
+      await captureScreenshot(sessionId, `${tag}-failure.png`).then(p => addReportArtifact(result, p, "Failure retained")).catch(() => null);
+    } finally {
+      const s = await state().catch(() => null);
+      if (s?.activeProjectDir) await clickTopBarMenuAction(sessionId, "Fechar");
+      await js(`document.documentElement.style.zoom='';`);
+      await setSessionWindowRect(sessionId,1920,1080);
+      await persist();
+      console.log(`[sgdk-corpus] ${source.id}: ${result.status}`);
+    }
+  }
+  report.guard_cases = [];
+  try {
+    const fixture=path.join(output,`invalid-image-fixture-${Date.now()}`);
+    await mkdir(path.join(fixture,"res"),{recursive:true});
+    await mkdir(path.join(fixture,"src"),{recursive:true});
+    const sample=corpus.projects.flatMap(p=>p.resources).find(r=>r.kind==="IMAGE"&&r.format==="PNG");
+    const bytes=await readFile(sample.path);
+    const originalHash=createHash("sha256").update(bytes).digest("hex");
+    await writeFile(path.join(fixture,"res/art.png"),bytes.subarray(0,33));
+    await writeFile(path.join(fixture,"res/resources.res"),'IMAGE broken_art "art.png" NONE ALL\n');
+    await writeFile(path.join(fixture,"src/main.c"),'#include <genesis.h>\nint main(void) { return 0; }\n');
+    const name=`RecursoCorrompido_${Date.now()}`;
+    const importFixture=async () => {
+      await prepareExternalImportWizard(sessionId);
+      await js(`const e=document.querySelector('[data-testid="external-import-profile-select"]');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,'sgdk');e.dispatchEvent(new Event('change',{bubbles:true}));`);
+      await fillInputBySelector(sessionId,'input[placeholder="Nome do projeto"]',name);
+      await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);",[fixture]);
+      await clickButtonByTestIdNative(sessionId,"external-import-confirm");
+    };
+    await importFixture();
+    const refusal=await waitFor(() => js(`return document.querySelector('[data-testid="project-start-wizard"] [role="alert"]')?.textContent??'';`),30000,"Corrupt image did not produce a visible import error.",100);
+    if(!refusal.includes("art.png")||!refusal.includes("Imagem SGDK"))fail(`Corrupt image message does not identify the failed resource: ${refusal}`);
+    if((await state()).activeProjectDir)fail("A corrupt image opened a partially imported project.");
+    const base=path.dirname(report.projects.find(p=>p.project).project);
+    if((await readdir(base)).some(entry=>entry.toLowerCase().startsWith(name.toLowerCase())))fail("Corrupt image left a misleading partial project directory.");
+    if((await readFile(path.join(fixture,"res/art.png"))).length!==33)fail("Failed import rewrote the corrupt source fixture.");
+    const corruptInput=path.join(output,`corrupt-image-input-${Date.now()}.bin`);
+    await writeFile(corruptInput,bytes.subarray(0,33));
+    addReportArtifact(report,await captureScreenshot(sessionId,`${prefix}-corrupt-image-refused.png`),"Corrupt source named in the wizard without opening a partial project");
+    await writeFile(path.join(fixture,"res/art.png"),bytes);
+    await importFixture();
+    const recovered=await waitFor(async () => {const s=await state();return s.activeProjectName===name&&s.activeProjectDir?s:false;},30000,"Retry with the same project name did not recover after fixing the source.",100);
+    currentE2eRunContext.project=recovered.activeProjectDir;onProjectCreated(recovered.activeProjectDir);
+    if(createHash("sha256").update(await readFile(sample.path)).digest("hex")!==originalHash)fail("Original source changed while preparing the test fixture.");
+    report.guard_cases.push({id:"corrupt_image_refusal_cleanup_and_same_name_retry",status:"passed",message:refusal,project:recovered.activeProjectDir,source_fixture:fixture,original_sha256:originalHash,corrupt_input:{path:corruptInput,bytes:33,sha256:createHash("sha256").update(bytes.subarray(0,33)).digest("hex")}});
+    await clickTopBarMenuAction(sessionId,"Fechar");
+  } catch(error) {
+    report.guard_cases.push({id:"corrupt_image_refusal_cleanup_and_same_name_retry",status:"failed",error:String(error)});
+    await persist();throw error;
+  }
+  report.finished_at = new Date().toISOString();
+  report.all_pass = report.projects.every(p => ["passed", "not_importable_source", "code_only_no_external_images"].includes(p.status));
+  await persist();
+  if (!report.all_pass) fail(`Corpus has ${report.projects.filter(p => p.status === "failed").length} failed project(s). Report: ${prefix}.json`);
+}
+
 async function runSgdkSplitResourcesScenario(sessionId, timeoutMs, onProjectCreated) {
+  if (process.env.RDS_SGDK_CORPUS_MANIFEST) return runSgdkCorpusAssetReview(sessionId, onProjectCreated);
   const source = process.env.RDS_SGDK_REAL_SOURCE;
   const output = process.env.RDS_SGDK_OUTPUT;
   const expected = JSON.parse(process.env.RDS_SGDK_EXPECTED ?? "null");
@@ -6038,11 +6345,76 @@ async function runSgdkSplitResourcesScenario(sessionId, timeoutMs, onProjectCrea
     addReportStep(report, "viewport_counts_scene_sprites_not_catalog_or_other_entities", "passed", { footer, spriteResources, sceneSprites: sprites.length });
     addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-import.png`), "Imported resources in native UI");
     console.log(`[sgdk-split] all ${ledger.mappings.length} resources verified against source`);
+    const primaryTilemap = scene.entities.find(e => e.components.tilemap)?.components.tilemap;
+    const primaryMapping = ledger.mappings.find(m => m.destination === primaryTilemap?.tileset);
+    if (ledger.mappings.some(m => ["IMAGE", "MAP"].includes(m.resource_kind)) && primaryMapping?.resource_kind === "TILESET") fail("Raw TILESET chosen before an assembled image.");
+    await verifySgdkMountedImages(sessionId, project, ledger, report, prefix);
     report.build = await runBuildRunAndCollect(sessionId, "SGDK split resource scene", timeoutMs, report, prefix, { nativeClick: true });
+    const legacyProject = process.env.RDS_SGDK_LEGACY_PROJECT;
+    if (legacyProject) {
+      // The caller must prepare an owned QA copy, never pass the live project.
+      const relative = path.relative(process.env.RDS_WORK_ROOT ?? "", legacyProject);
+      if (!process.env.RDS_WORK_ROOT || relative.startsWith("..") || path.isAbsolute(relative) || !relative) fail("Legacy QA project must be inside the official runtime.");
+      const names = (await readdir(path.join(legacyProject, ".rds/imports/sgdk"))).filter(n => n.endsWith(".json"));
+      const legacyLedger = JSON.parse(await readFile(path.join(legacyProject, ".rds/imports/sgdk", names[0]), "utf8"));
+      if (legacyLedger.tilemap_cell_encoding) fail("Legacy QA fixture is already marked as modern.");
+      const before = new Map();
+      for (const descriptor of legacyLedger.scenes) before.set(descriptor.scene_path, await hashFile(path.join(legacyProject, descriptor.scene_path)));
+      report.current_step = "stop_generated_rom_before_legacy_open";
+      await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
+      await clickTopBarMenuAction(sessionId, "Fechar");
+      report.current_step = "legacy_read_only_open_and_visit";
+      await openSavedProjectWizard(sessionId, legacyProject);
+      await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === legacyProject, 30000, "Legacy project did not open.", 100);
+      await verifySgdkMountedImages(sessionId, legacyProject, legacyLedger, report, `${prefix}-legacy`);
+      for (const [file, sha] of before) if (await hashFile(path.join(legacyProject, file)) !== sha) fail(`Loading changed the legacy scene on disk: ${file}`);
+      addReportStep(report, "legacy_images_repaired_on_open_without_reimport_or_disk_write", "passed", { scenes: before.size });
+      await clickTopBarMenuAction(sessionId,"Fechar");
+      for (const [file,sha] of before) if(await hashFile(path.join(legacyProject,file))!==sha)fail(`Closing an unedited project changed the legacy scene: ${file}`);
+      await openSavedProjectWizard(sessionId,legacyProject);
+      await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir===legacyProject,30000,"Read-only legacy visit did not reopen.",100);
+      addReportStep(report,"legacy_passive_close_preserves_scene_files","passed");
+      report.current_step = "legacy_explicit_save_and_reopen";
+      await clickTopBarMenuAction(sessionId, "Salvar");
+      await waitFor(() => executeScript(sessionId,`const e=document.querySelector('[data-testid="scene-save-status"]');return e?.dataset.status==='saved'&&e.dataset.savedRevision===e.dataset.revision;`),15000,"Explicit legacy Save did not finish.",100);
+      const saved = await hashFile(path.join(legacyProject, "scenes/main.json"));
+      await clickTopBarMenuAction(sessionId, "Fechar");
+      await openSavedProjectWizard(sessionId, legacyProject);
+      await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === legacyProject, 30000, "Saved legacy project did not reopen.", 100);
+      await verifySgdkMountedImages(sessionId, legacyProject, legacyLedger, report, `${prefix}-reopened`);
+      const reopenedHash=await hashFile(path.join(legacyProject,"scenes/main.json"));
+      report.legacy_save_observation={before_main_sha256:before.get("scenes/main.json"),saved_main_sha256:saved,reopened_main_sha256:reopenedHash};
+      if (reopenedHash !== saved) fail("Reopening changed the saved scene.");
+      addReportStep(report, "legacy_save_reopen_stable", "passed", { main_sha256: saved });
+      report.current_step = "legacy_restore_original_and_undo";
+      if (await executeScript(sessionId,`return !!document.querySelector('[data-testid="console-drawer"][data-visible="true"]');`)) await clickButtonByTestIdNative(sessionId,"console-close");
+      const mainBeforeRestore=JSON.parse(await readFile(path.join(legacyProject,"scenes/main.json"),"utf8"));
+      const restoredMap=mainBeforeRestore.entities.find(e=>e.components.tilemap);
+      const atlasPath=path.join(legacyProject,restoredMap.components.tilemap.tileset);
+      const atlasHash=await hashFile(atlasPath);
+      await clickHierarchyEntityByLabel(sessionId,restoredMap.display_name||restoredMap.entity_id);
+      await clickButtonByTestIdNative(sessionId,"right-panel-properties");
+      await clickButtonByTestIdNative(sessionId,"inspector-clear-tilemap-cells");
+      await clickTopBarMenuAction(sessionId,"Salvar");
+      await waitFor(async () => {
+        const s=JSON.parse(await readFile(path.join(legacyProject,"scenes/main.json"),"utf8"));
+        return !(s.entities.find(e=>e.entity_id===restoredMap.entity_id).components.tilemap.cells?.length);
+      },15000,"Restore original image did not persist the instance change.",100);
+      await webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"key",id:"restore-original-undo",actions:[{type:"keyDown",value:"\uE009"},{type:"keyDown",value:"z"},{type:"keyUp",value:"z"},{type:"keyUp",value:"\uE009"}]}]});
+      await clickTopBarMenuAction(sessionId,"Salvar");
+      await waitFor(async () => {
+        const s=JSON.parse(await readFile(path.join(legacyProject,"scenes/main.json"),"utf8"));
+        return JSON.stringify(s.entities.find(e=>e.entity_id===restoredMap.entity_id).components.tilemap.cells)===JSON.stringify(restoredMap.components.tilemap.cells);
+      },15000,"Native Ctrl+Z did not restore the original cell edits.",100);
+      if(await hashFile(atlasPath)!==atlasHash)fail("Restoring/undoing an instance modified the source image file.");
+      addReportStep(report,"restore_original_image_and_native_undo_without_asset_write","passed",{entity:restoredMap.entity_id,atlas_sha256:atlasHash});
+    }
     report.status = "passed";
   } catch (error) {
     report.status = "failed";
     report.error = String(error);
+    report.failure_state = await readAutomationState(sessionId).catch(() => null);
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-failure.png`).catch(() => null), "Failed interaction preserved before cleanup");
     throw error;
   } finally {
     await writeFile(path.join(output, `${prefix}.json`), JSON.stringify(report, null, 2));
@@ -6777,7 +7149,16 @@ async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
   await clickByTestId(sessionId, "mugen-source-analyze");
   await waitFor(async () => js(`const e=document.querySelector('[data-testid="mugen-source-import"]');return e && !e.disabled;`), 120000, "Analise Ken recusada.", 200);
   await clickByTestId(sessionId, "mugen-source-import");
-  const imported = await waitFor(async () => { const s = await state(); return s?.mugenCompatibility?.open && s.mugenCompatibility.characters.some((c) => c.id === "kenmasters") ? s : false; }, 120000, "Importacao Ken nao abriu relatorio.", 200);
+  // A full 103-animation import can exceed the small probe's two-minute
+  // observation budget on a loaded debug host. Reuse the bounded run budget;
+  // conversion/pixel/hardware guards and completion criteria remain identical.
+  const imported = await waitFor(async () => { const s = await state(); return s?.mugenCompatibility?.open && s.mugenCompatibility.characters.some((c) => c.id === "kenmasters") ? s : false; }, fullActions ? timeoutMs : 120000, "Importacao Ken nao abriu relatorio.", 200).catch(async error => {
+    report.status = "failed"; report.error = String(error);
+    report.failure_state = await state().catch(() => null);
+    await shot("import-timeout").catch(() => null);
+    await writeFile(path.join(output, `${prefix}.json`), JSON.stringify(report, null, 2));
+    throw error;
+  });
   const project = imported.activeProjectDir;
   report.projectDir = project;
   currentE2eRunContext.project = project;
@@ -26791,12 +27172,12 @@ async function main() {
 
         await waitForBodyText(
           sessionId,
-          "Instanciar",
+          "Adicionar à cena",
           10000,
           "Acao de instanciar nao apareceu para o asset selecionado."
         );
         const entityCountBeforeInstantiate = paintedState.activeScene.entityCount;
-        await clickButtonByText(sessionId, "Instanciar");
+        await clickButtonByText(sessionId, "Adicionar à cena");
         const instancedState = await waitFor(
           async () => {
             const state = await readAutomationState(sessionId);
