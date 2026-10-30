@@ -3364,11 +3364,11 @@
     }
   },
   "latest_delivery": {
-    "section": "project_start_console_themes_20261029",
-    "code_commit": "996738c02c6d6e89d608dd2483217cf6ef598337",
-    "binary_sha256": "f3a7954b2577472dfe487392f1992f91e9d5e5bcf4402957486f5b16f841d00e"
+    "section": "sgdk_mounted_images_20261029",
+    "code_commit": "012c1a6194c7e8d546b2e577243142e0555cc91d",
+    "binary_sha256": "af7631b75371675498e3d21a9d9b6073307f2b01b8d80ac7bf5268be2d5f047e"
   },
-  "latest_checkpoint": "product_diagnosis_20261028",
+  "latest_checkpoint": "sgdk_mounted_images_20261029",
   "last_updated_at": "2026-10-29T01:04:32.889Z",
   "product_diagnosis_20261028": {
     "schema": "retrodev.product_diagnosis/v1",
@@ -7459,5 +7459,99 @@
       "SGDK generic 142x1 conversion remains blocked; MUGEN proof uses authored probe subset.",
       "Private archive on same filesystem; independent/off-host copy unqualified."
     ]
+  },
+  "sgdk_mounted_images_20261029": {
+    "status": "validated_local_native_experimental",
+    "maturity": "Experimental",
+    "base_commit": "6d3d79dbaeaad44004d234ab68fa2e4892e3a6ba",
+    "code_commit": "012c1a6194c7e8d546b2e577243142e0555cc91d",
+    "binary_sha256": "af7631b75371675498e3d21a9d9b6073307f2b01b8d80ac7bf5268be2d5f047e",
+    "production_sources_match_commit": true,
+    "post_freeze_test_only_change": "App.test.tsx expected onlyIfChanged option;87focused and1254fullfrontend PASS",
+    "clean_reproducible_build_claimed": false,
+    "changes": [
+      "source atlas indices without image rewriting",
+      "MAP/IMAGE priority and explicit tile banks",
+      "read-only v4 compatibility restricted to untouched generated vectors",
+      "conditional navigation/close persistence;early saving status",
+      "ledger projection preserves layouts/animations/all resource uses",
+      "responsive catalog/details/preview/ArtStudio and recovery controls",
+      "bounded image validation;corrupt rejection cleanup and same-name retry"
+    ],
+    "validation": {
+      "certification": "READY",
+      "certification_session": "2026-10-30T01-05-06-078Z-1335467",
+      "certification_gates": 7,
+      "frontend_passed": 1254,
+      "frontend_skipped": 11,
+      "rust_passed": 1106,
+      "rust_ignored": 109,
+      "corpus_projects": 14,
+      "graphical_passed": 12,
+      "code_only": 1,
+      "expected_refusal": 1,
+      "resources": 1102,
+      "catalog_files": 1050,
+      "decoded_image_previews": 884,
+      "scenes": 161,
+      "source_pixel_comparisons": 156,
+      "authoring_scope": "largest-frame sample per graphical project;shared-use samples;not individual editing of every asset",
+      "legacy_scenes": 24,
+      "legacy_read_only_close_save_reopen_restore_native_undo": "PASS",
+      "mugen_animations": 103,
+      "mugen_occurrences": 417,
+      "mugen_pixels": 11208960,
+      "qa_rc_cases": 32,
+      "snes_starter": "PASS",
+      "native_same_binary": 5,
+      "clippy_fmt_build_syntax": "PASS",
+      "npm_cargo_audit_licenses": "PASS;12preexistingallowedcargo warnings",
+      "shortcut_kde_open_normal_close": "PASS"
+    },
+    "runtime_evidence": "sessions/import-usability-review-20261029",
+    "report": "sessions/import-usability-review-20261029/report/index.html",
+    "shortcut_binary": "af7631b75371675498e3d21a9d9b6073307f2b01b8d80ac7bf5268be2d5f047e",
+    "operator_project_preservation": {
+      "files_equal_to_post_close_baseline": 277,
+      "older_preclose_equal_files": 276,
+      "older_preclose_difference": "project.rds written by prior application at normal close22:05UTC;field-level previous content unavailable",
+      "validation_used_owned_copies": true
+    },
+    "protection": {
+      "archive": "import-usability-review-20261029-af7631b7.tar.zst",
+      "bytes": 756910711,
+      "sha256": "00722fc8bec0ca67e822797293ee7371f59a4274b3ac4f79ea09fbc7619f46be",
+      "manifest_sha256": "021e0aa7a7472507270bb492b80ca0131f6e664a845764f38225de309f82d467",
+      "files_verified": 11323,
+      "all_bytes_verified": true,
+      "roots": 160,
+      "same_filesystem": true,
+      "off_host_copy_qualified": false,
+      "owner": "operator",
+      "retention": "Preserve through human acceptance and independent private backup verification; no automatic deletion.",
+      "created_at": "2026-10-30T01:17:31.193910+00:00"
+    },
+    "pending_patch_protection_history": {
+      "bytes": 32924,
+      "sha256": "5a25d78f8a58eeffda54cfafe7c06f3bafc5d2181b50b0500bbce90e9a0b52a9",
+      "private_backup_file": "sgdk-mounted-images-20261029-pending-validation.patch",
+      "verified_full_read": true,
+      "independent_copy_qualified": false,
+      "receipt": "sessions/sgdk-mounted-images-20261029/pending-protection-receipt.json"
+    },
+    "previous_pending_runtime": "sessions/sgdk-mounted-images-20261029",
+    "delivery_complete_for_local_increment": true,
+    "broader_ui_complete": false,
+    "human_acceptance": false,
+    "limits": [
+      "original C compositions/gameplay and CNS general not reconstructed",
+      "old ledgers without frame metadata need a new imported copy for new character authoring",
+      "audio integrity/catalog checked;not every sound played",
+      "small auxiliary text/tall notices at125%/slow full MUGEN conversion remain UX work",
+      "no full screenreader/contrast/human/Windows/physical GPU/audio/console qualification",
+      "OpenBOR_Demo corpus entry is SGDK,not native OpenBOR qualification",
+      "all16broader journeys remain partial"
+    ],
+    "next_step": "Human exercise of project table and Scene/Assets/Add/Art/apply/save/reopen using canonical runtime;no merge/release/deploy"
   }
 }

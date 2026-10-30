@@ -1,6 +1,18 @@
-## Wizard e temas dos consoles — 2026-10-29
+## Importações e imagens — entrega local 2026-10-29 / 2026-10-30 UTC (Experimental)
 
-Atualização atual: código **996738c02c6d6e89d608dd2483217cf6ef598337**, app **f3a7954b…**, atalho **RetroDev Studio — Testar** via launcher oficial, RDS_WORK_ROOT/sessions/project-start-console-themes-20261029/retro-dev-studio-f3a7954b. Se o aplicativo já estiver aberto, encerre normalmente e abra pelo atalho; não remova a trava de uma sessão ativa. Para iniciar pelo KDE, usar kioclient exec no .desktop, preservando independência do processo Codex.
+Código **012c1a6194c7e8d546b2e577243142e0555cc91d**, app **af7631b75371675498e3d21a9d9b6073307f2b01b8d80ac7bf5268be2d5f047e**. Atalho **RetroDev Studio — Testar** atualizado, validado no KDE abrindo e fechando normalmente; launcher oficial/jobs=1, sessão 2026-10-30T01-15-06-211Z-1374737 PASS. Não remover travas de sessões vivas. Código de produção confere com o commit; App.test teve apenas expectativa do mock corrigida após congelar o app. Os registros anteriores abaixo são históricos.
+
+Para testar: abrir **RDS_WORK_ROOT/sessions/import-usability-review-20261029/report/index.html**. A tabela fornece os project.rds recém-importados; usar MENU → Abrir projeto, escolher cena e Arquivos → Miniaturas → Detalhes → Adicionar à cena, depois Arte/aplicar/salvar/reabrir. Há também cópia legada, MUGEN completo e starter SNES. Imagens montadas preservadas; bancos de peças identificados, sem prometer a composição definida no C. Catálogos antigos sem medidas orientam nova importação em cópia.
+
+Lote de 14:12 gráficos PASS, um código explícito, uma recusa esperada; 1.102 recursos/1.050 arquivos/884 prévias/156 montagens. Legado de 24 cenas/read-only/Save/reopen/Restore/Undo, MUGEN 103/417/ROM/export, qa-rc 32 e SNES oficial PASS no mesmo app. Certify READY/7 gates, 1.254 frontend/1.106 Rust, Clippy padrão/fmt/auditorias/licenças PASS. Relatos, falhas, escopo de amostras e SHAs no Memory Bank e seção **sgdk_mounted_images_20261029** do índice UI. 277 arquivos originais estáveis após fechamento do app anterior; nota específica sobre project.rds preservada.
+
+Backup privado **import-usability-review-20261029-af7631b7.tar.zst**, SHA **00722fc8bec0ca67e822797293ee7371f59a4274b3ac4f79ea09fbc7619f46be**, 11.323 arquivos integralmente verificados, destino RetroDevStudio-UI-2026-10-27. Mesmo filesystem; cópia independente não qualificada, owner operador/reter até aceite e proteção independente. Dados não entram no Git. Próximo: teste humano do relatório e pontos restantes (texto pequeno/avisos altos/conversão MUGEN lenta), sem promoção das 16 jornadas ou equivalência C/CNS/Windows/hardware. Sem merge/release/deploy.
+
+---
+
+## Histórico — wizard e temas dos consoles — 2026-10-29
+
+Entrega anterior: código **996738c02c6d6e89d608dd2483217cf6ef598337**, app **f3a7954b…**, atalho **RetroDev Studio — Testar** via launcher oficial, RDS_WORK_ROOT/sessions/project-start-console-themes-20261029/retro-dev-studio-f3a7954b. Se o aplicativo já estiver aberto, encerre normalmente e abra pelo atalho; não remova a trava de uma sessão ativa. Para iniciar pelo KDE, usar kioclient exec no .desktop, preservando independência do processo Codex.
 
 Para avaliar: MENU → Novo Projeto. Escolher Criar do zero ou Começar com um modelo, depois console e nome; cria no local padrão sem pasta. Abrir projeto pede project.rds. Importar projeto oferece SGDK/MUGEN e só então escolhe a origem. Formatos/doadores adicionais em detalhes. Em Tema: Super Nintendo/Super Famicom claros e Mega Drive Night/16-bit escuros; preferências antigas migradas.
 
