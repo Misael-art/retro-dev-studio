@@ -1,3 +1,11 @@
+### Editor de imagem por tarefas — 2026-10-30 (proposta Experimental)
+
+Base6b771fd3/PR#112; **não instalado**, atalho continua821d172a. PixelEditor ganha nomes/ícones/atalhos, seis tarefas, prévia/Aplicar/Cancelar/Undo, recorte uniforme/região, geometria por cópia, isolamento, brilho/contraste/13 filtros, colagem/texto/bordas, camadas e mapa de tiles. Conversão tem três métodos adaptados SGDKForge/SMSForge ao RGB333 MD. Paleta exportada respeitada; recursos compartilhados protegidos; mistura incompatível no PNG recusada com Unificar paletas reversível. Nenhum motor/store/writer/dependência novo.
+
+Capturas do componente real em Browser/fixture sem projeto e checks frontend preliminares não qualificam Tauri/ROM. Relatório com sete passos/limites: `RDS_WORK_ROOT/sessions/pixel-workspace-20261030/audit/index.html`. Segmentação de cenário complexo Remove.bg **ausente**, texto rasterizado e adesivos por arquivo. Lease viva2026-10-30T08-45-51-102Z-2985848 impede Rust/build/certify/native/novo atalho; salvar/fechar normalmente solicitado, preservar processo. Receitas prontas reutilizam runner canônico com `RDS_PIXEL_WORKSPACE=1`, sete passos adicionais planejados, não executados. Detalhes/recibos/proteção e próximo comando no topo do Memory Bank e índice `pixel_workspace_20261030`. Entregas abaixo são históricas; não promovem esta proposta/16jornadas/humano.
+
+---
+
 ### Entrada rápida de imagens/GIF — 2026-10-30 (Experimental)
 
 Código **1e849549d0628fc0ba09930ae13840ef281a20ce**, app **821d172a20fcef93b9b422678148481f21391d1417aa8092e640ecd7c6d3c318**, PR#112; índice **image_ingress_20261030**, detalhes/limites no topo do Memory Bank. Ctrl+V/soltar/Imagem reutilizam Photo2SGDK, writer de pixels, histórico e plano de paletas: papel fundo/objeto e banco somente se necessário; quadros/tempos/original preservados, edição/fundo/Undo, nova cena/biblioteca e lógica. Sem novo motor/store/planner. Dependências/compatibilidade justificadas no Tech Stack.

@@ -18,6 +18,7 @@ export type IconName =
   | "studio-scene" | "studio-game" | "studio-files" | "studio-logic"
   | "studio-art" | "studio-fx" | "studio-debug"
   | "cursor" | "brush" | "eraser" | "collision" | "save" | "pause" | "export"
+  | "fill-color" | "color-picker" | "circle" | "crop" | "minus"
   | "flash"
   | "keyboard"
   | "fork"
@@ -71,6 +72,12 @@ export interface IconProps extends Omit<SVGProps<SVGSVGElement>, "children"> {
 
 function IconPaths({ name }: { name: IconName }) {
   switch (name) {
+    // Iconoir v7.11.1 regular icons, MIT (same notice above).
+    case "fill-color": return <><path d="M2.63596 10.2927 9.70703 3.22168 18.1923 11.707 11.1212 18.778c-.781.781-2.047.781-2.8284 0l-5.6568-5.6568a2 2 0 0 1 0-2.8285ZM8.293 1.8076l1.4142 1.4142"/><path d="M20 15s3 2.9934 3 4.8865a3 3 0 0 1-6 0C17 17.9924 20 15 20 15Z"/></>;
+    case "color-picker": return <><path d="m7 13.161 5.4644-5.4644a1 1 0 0 1 1.4142 0L16 9.818a1 1 0 0 1 0 1.414l-7.637 7.637-2.823 1.245a1.5 1.5 0 0 1-1.958-1.958l1.245-2.823L7 13.161h7.071M13.878 3.454 20.242 9.818M16 5.575l1.414-1.414a1 1 0 0 1 1.414 0l.707.707a1 1 0 0 1 0 1.414L18.12 7.697"/></>;
+    case "circle": return <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/>;
+    case "crop": return <path d="M21 18H6V3M3 6h15v15"/>;
+    case "minus": return <path d="M6 12h12"/>;
     // Original editor pictograms: solid silhouettes, colored parts and useful
     // details stay legible at rail/tool sizes. No console logo is reproduced.
     case "studio-scene":

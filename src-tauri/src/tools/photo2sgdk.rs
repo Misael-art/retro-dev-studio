@@ -523,6 +523,14 @@ fn detect_transparency(image: &RgbaImage) -> TransparencyAnalysis {
 /// Quantize on the actual 512-color MD grid. Frequency-weighted refinement
 /// avoids splitting repeated whites/blacks into duplicate palette entries.
 fn build_palette(image: &RgbaImage, transparency: &TransparencyAnalysis) -> Vec<RgbColor> {
+    build_palette_with_method(image, transparency, false)
+}
+
+fn build_palette_with_method(
+    image: &RgbaImage,
+    transparency: &TransparencyAnalysis,
+    dominant: bool,
+) -> Vec<RgbColor> {
     let mut histogram = [[0u64; 4]; 512];
     for (index, pixel) in image.pixels().enumerate() {
         if transparency.mask[index] {
@@ -559,6 +567,13 @@ fn build_palette(image: &RgbaImage, transparency: &TransparencyAnalysis) -> Vec<
     }
     if points.len() <= limit {
         return points.iter().map(|(c, _)| c.snapped()).collect();
+    }
+    if dominant {
+        return points
+            .iter()
+            .take(limit)
+            .map(|(c, _)| c.snapped())
+            .collect();
     }
     let grow = |palette: &mut Vec<RgbColor>| {
         while palette.len() < limit {
@@ -665,6 +680,84 @@ fn render_quantized_preview(
         *pixel = Rgba([nearest.r, nearest.g, nearest.b, 255]);
     }
 
+    preview
+}
+
+/// Floyd–Steinberg adapted from SMSForge's workflow to MD RGB333. Each frame
+/// starts with fresh error buffers; transparent pixels neither receive nor emit error.
+fn render_floyd_preview(
+    image: &RgbaImage,
+    transparency: &TransparencyAnalysis,
+    palette: &[RgbColor],
+    frame_width: u32,
+) -> RgbaImage {
+    let mut preview = RgbaImage::new(image.width(), image.height());
+    let width = frame_width.max(1) as usize;
+    for offset in (0..image.width()).step_by(width) {
+        let mut current = vec![[0f32; 3]; width];
+        let mut next = current.clone();
+        for y in 0..image.height() {
+            for x in 0..width {
+                let gx = offset + x as u32;
+                if gx >= image.width() {
+                    break;
+                }
+                let index = (y * image.width() + gx) as usize;
+                if transparency.mask[index] {
+                    continue;
+                }
+                let p = image.get_pixel(gx, y);
+                let channels = std::array::from_fn::<_, 3, _>(|c| {
+                    (f32::from(p[c]) + current[x][c]).clamp(0.0, 255.0)
+                });
+                let color = RgbColor {
+                    r: channels[0].round() as u8,
+                    g: channels[1].round() as u8,
+                    b: channels[2].round() as u8,
+                };
+                let chosen = palette
+                    .iter()
+                    .min_by_key(|p| color.distance_sq(p))
+                    .copied()
+                    .unwrap_or_else(|| color.snapped());
+                preview.put_pixel(gx, y, Rgba([chosen.r, chosen.g, chosen.b, 255]));
+                let error = [
+                    channels[0] - f32::from(chosen.r),
+                    channels[1] - f32::from(chosen.g),
+                    channels[2] - f32::from(chosen.b),
+                ];
+                for (dx, dy, weight) in [
+                    (1i32, 0, 7.0 / 16.0),
+                    (-1, 1, 3.0 / 16.0),
+                    (0, 1, 5.0 / 16.0),
+                    (1, 1, 1.0 / 16.0),
+                ] {
+                    let nx = x as i32 + dx;
+                    let ny = y + dy;
+                    if nx < 0
+                        || nx as usize >= width
+                        || offset + nx as u32 >= image.width()
+                        || ny >= image.height()
+                    {
+                        continue;
+                    }
+                    if transparency.mask[(ny * image.width() + offset + nx as u32) as usize] {
+                        continue;
+                    }
+                    let dest = if dy == 0 {
+                        &mut current[nx as usize]
+                    } else {
+                        &mut next[nx as usize]
+                    };
+                    for (target, delta) in dest.iter_mut().zip(error) {
+                        *target += delta * weight;
+                    }
+                }
+            }
+            std::mem::swap(&mut current, &mut next);
+            next.fill([0.0; 3]);
+        }
+    }
     preview
 }
 

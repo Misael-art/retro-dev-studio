@@ -12,6 +12,7 @@ import {
   drawRect,
   drawStroke,
   encodeIndexedPng,
+  exportSheetPng,
   flipCel,
   floodFill,
   mdColorToCram,
@@ -30,6 +31,17 @@ import {
 } from "./pixelEditor";
 
 describe("pixelEditor", () => {
+  it("refuses a PNG that would silently recolor conflicting banks while retaining compatible aliases", async () => {
+    const doc = createPixelDoc(8, 8);
+    doc.palettes[0][1] = [7, 0, 0]; doc.palettes[2][1] = [0, 0, 7];
+    doc.frames[0].cels[0][0] = 1; doc.frames[0].cels[0][1] = 33;
+    const before = serializePixelDoc(doc);
+    await expect(exportSheetPng(doc)).rejects.toThrow("Unificar paletas");
+    expect(serializePixelDoc(doc)).toBe(before);
+    doc.palettes[2][1] = [7, 0, 0];
+    // Compatible aliases are lossless; check the canonical sheet keeps both pixels.
+    expect([...buildSheetIndices(doc).indices.slice(0, 2)]).toEqual([1, 1]);
+  });
   it("retains original provenance and refuses incomplete or unbounded native documents before allocating pixels",()=>{
     const doc=createPixelDoc(8,8);doc.originalSource=".rds/art-sources/source.png";
     expect(deserializePixelDoc(serializePixelDoc(doc)).originalSource).toBe(doc.originalSource);

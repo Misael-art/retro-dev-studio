@@ -89,11 +89,13 @@ RetroDevStudio/
 |   |   |-- artstudio/
 |   |   |   |-- ArtStudioPanel.tsx
 |   |   |   |-- ImageIngress.tsx (entrada única de imagens/GIF por colar, soltar e seletor; fluxo Experimental MD)
-|   |   |   |-- PixelEditor.tsx (editor de pixels indexado Mega Drive: ferramentas, CRAM 4x16, frames, layers)
+|   |   |   |-- PixelEditor.tsx (editor indexado MD: desenho, contexto, histórico/salvar, CRAM, frames/layers)
+|   |   |   |-- PixelImagePanel.tsx (controles por tarefa/prévias de imagem, filtros, composição e diagnóstico de tiles)
 |   |   |   `-- useSpriteAnimator.ts
 |   |   `-- viewport/
 |   |-- core/
-|   |   |-- pixelEditor.ts (modelo do editor de pixels: ferramentas, limites VDP, PNG 4-bit, .rdspixel.json)
+|   |   |-- pixelEditor.ts (modelo indexado: ferramentas, limites VDP/tiles, guardas PNG 4-bit, .rdspixel.json)
+|   |   |-- pixelImageOps.ts (operações puras no mesmo PixelDoc: escopo, filtros, geometria, composição e layers; regressões .test.ts)
 |   |   |-- imageIngress.ts (transporte, publicação pelo writer de pixels e propostas pelo plano canônico de paletas)
 |   |   |-- ipc/
 |   |   |-- nodegraph/

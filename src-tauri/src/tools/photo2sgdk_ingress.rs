@@ -214,6 +214,7 @@ fn no_background(image: &RgbaImage) -> TransparencyAnalysis {
     }
 }
 
+#[cfg(test)]
 fn convert_frames(
     frames: &[RgbaImage],
     delays: &[u32],
@@ -221,6 +222,20 @@ fn convert_frames(
     role: &str,
     background: &str,
 ) -> Result<(String, String, String, Vec<String>), String> {
+    convert_frames_with_method(frames, delays, name, role, background, "balanced")
+}
+
+fn convert_frames_with_method(
+    frames: &[RgbaImage],
+    delays: &[u32],
+    name: &str,
+    role: &str,
+    background: &str,
+    method: &str,
+) -> Result<(String, String, String, Vec<String>), String> {
+    if !["balanced", "dominant", "floyd"].contains(&method) {
+        return Err("Método de conversão desconhecido. Escolha Agrupamento, Contornos limpos ou Gradientes.".into());
+    }
     if role != "sprite" && role != "background" {
         return Err("Escolha cenário ou personagem/objeto.".into());
     }
@@ -276,11 +291,15 @@ fn convert_frames(
         image::imageops::overlay(&mut strip, &resized, (i as u32 * fw) as i64, 0);
     }
     let transparency = no_background(&strip);
-    let palette = build_palette(&strip, &transparency);
+    let palette = build_palette_with_method(&strip, &transparency, method == "dominant");
     if palette.is_empty() {
         return Err("A imagem não contém pixels visíveis. O original foi preservado.".into());
     }
-    let preview = render_quantized_preview(&strip, &transparency, &palette);
+    let preview = if method == "floyd" {
+        render_floyd_preview(&strip, &transparency, &palette, fw)
+    } else {
+        render_quantized_preview(&strip, &transparency, &palette)
+    };
     let colors: Vec<_> = std::iter::once(vec![7, 0, 7])
         .chain(palette.iter().map(|c| {
             vec![
@@ -300,7 +319,7 @@ fn convert_frames(
         }}
         serde_json::json!({"id":format!("frame_{i}"),"durationMs":delays[i],"cels":[BASE64.encode(pixels)]})
     }).collect();
-    let doc = serde_json::json!({"schema":"retrodev.pixel/v1","name":name,"width":fw,"height":fh,"target":if role=="sprite" {"sprite"} else {"plane"},"palettes":[colors,colors,colors,colors],"layers":[{"id":"art","name":"Imagem","visible":true}],"frames":docs});
+    let doc = serde_json::json!({"schema":"retrodev.pixel/v1","name":name,"conversionMethod":method,"width":fw,"height":fh,"target":if role=="sprite" {"sprite"} else {"plane"},"palettes":[colors,colors,colors,colors],"layers":[{"id":"art","name":"Imagem","visible":true}],"frames":docs});
     let mut warnings = Vec::new();
     if scale < 1.0 {
         warnings.push(format!(
@@ -325,6 +344,16 @@ fn ingest(
     input: ArtInput,
     role: Option<String>,
     background: Option<String>,
+) -> Result<PreparedArt, String> {
+    ingest_with_method(project_root, input, role, background, "balanced")
+}
+
+fn ingest_with_method(
+    project_root: &Path,
+    input: ArtInput,
+    role: Option<String>,
+    background: Option<String>,
+    method: &str,
 ) -> Result<PreparedArt, String> {
     let root = project_root.canonicalize().map_err(|e| e.to_string())?;
     if !root.join("project.rds").is_file() {
@@ -405,12 +434,13 @@ fn ingest(
         "background"
     };
     let (doc_json, preview_base64, background_mode, warnings) = if let Some(role) = role {
-        let (doc, png, mode, warnings) = convert_frames(
+        let (doc, png, mode, warnings) = convert_frames_with_method(
             &frames,
             &delays,
             &name,
             &role,
             background.as_deref().unwrap_or("auto"),
+            method,
         )?;
         let mut document: serde_json::Value =
             serde_json::from_str(&doc).map_err(|e| e.to_string())?;
@@ -445,9 +475,16 @@ pub async fn art_ingest_input(
     input: ArtInput,
     role: Option<String>,
     background: Option<String>,
+    conversion: Option<String>,
 ) -> Result<PreparedArt, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        ingest(Path::new(&project_root), input, role, background)
+        ingest_with_method(
+            Path::new(&project_root),
+            input,
+            role,
+            background,
+            conversion.as_deref().unwrap_or("balanced"),
+        )
     })
     .await
     .map_err(|e| e.to_string())?
@@ -616,6 +653,66 @@ pub fn pixel_asset_authoring(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn ingress_conversion_choices_preserve_alpha_timing_and_frame_boundaries() {
+        let mut picture = RgbaImage::from_fn(16, 16, |x, y| {
+            Rgba([(x * 17) as u8, (y * 17) as u8, ((x + y) * 8) as u8, 255])
+        });
+        picture.put_pixel(15, 15, Rgba([0, 0, 0, 0]));
+        for method in ["balanced", "dominant", "floyd"] {
+            let frames = [picture.clone(), picture.clone()];
+            let first = convert_frames_with_method(
+                &frames,
+                &[100, 250],
+                "conversion",
+                "sprite",
+                "keep",
+                method,
+            )
+            .unwrap();
+            assert_eq!(
+                first,
+                convert_frames_with_method(
+                    &frames,
+                    &[100, 250],
+                    "conversion",
+                    "sprite",
+                    "keep",
+                    method
+                )
+                .unwrap()
+            );
+            let doc: serde_json::Value = serde_json::from_str(&first.0).unwrap();
+            assert_eq!(doc["conversionMethod"], method);
+            assert_eq!(doc["frames"].as_array().unwrap().len(), 2);
+            assert_eq!(doc["frames"][1]["durationMs"], 250);
+            assert_eq!(
+                doc["frames"][0]["cels"], doc["frames"][1]["cels"],
+                "error diffusion must restart per frame"
+            );
+            let pixels = BASE64
+                .decode(doc["frames"][0]["cels"][0].as_str().unwrap())
+                .unwrap();
+            assert!(pixels[0] > 0, "opaque black must remain visible");
+            assert_eq!(pixels[255], 0);
+            assert!(pixels.iter().all(|p| *p < 16));
+            let preview = image::load_from_memory(&BASE64.decode(first.1).unwrap())
+                .unwrap()
+                .into_rgba8();
+            assert_eq!(preview.get_pixel(15, 15)[3], 0);
+            assert_eq!(preview.get_pixel(0, 0)[3], 255);
+            assert!(doc["palettes"][0].as_array().unwrap().iter().all(|c| c
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|v| v.as_u64().unwrap() <= 7)));
+        }
+        assert!(
+            convert_frames_with_method(&[picture], &[100], "bad", "sprite", "keep", "unknown")
+                .is_err()
+        );
+    }
+
     #[test]
     #[ignore = "operator-provided private color reference and output directory required"]
     fn ingress_color_reference_quality_report() {

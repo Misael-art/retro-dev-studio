@@ -5,7 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const saveMock = vi.fn();
 const loadMock = vi.fn();
 const prepareMock = vi.fn();
-vi.mock("../../core/imageIngress", () => ({prepareImage: (...args: unknown[]) => prepareMock(...args)}));
+const chooseMock = vi.fn();
+vi.mock("../../core/imageIngress", async importOriginal => ({ ...await importOriginal<typeof import("../../core/imageIngress")>(), prepareImage: (...args: unknown[]) => prepareMock(...args) }));
+vi.mock("../../core/sceneryImport", async importOriginal => ({ ...await importOriginal<typeof import("../../core/sceneryImport")>(), chooseImagePath: (...args: unknown[]) => chooseMock(...args) }));
 vi.mock("../../core/ipc/artStudioService", () => ({
   savePixelArtAsset: (...args: unknown[]) => saveMock(...args),
   loadPixelArtDoc: (...args: unknown[]) => loadMock(...args),
@@ -31,6 +33,7 @@ beforeEach(() => {
   saveMock.mockReset();
   loadMock.mockReset();
   prepareMock.mockReset();
+  chooseMock.mockReset();
   useEditorStore.setState({ pixelEditorSessions: {} });
   HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as never;
   HTMLCanvasElement.prototype.setPointerCapture = vi.fn();
@@ -74,7 +77,7 @@ describe("PixelEditor", () => {
     prepareMock.mockResolvedValue({doc_json:serializePixelDoc(original)});
     act(()=>root.render(<PixelEditor projectDir="/proj" source={{url:"",sourcePath:"assets/sprites/pixel/gif.png",originalPath:"/proj/.rds/art-sources/source.gif",name:"gif",frameWidth:24,frameHeight:24,frames:[0,1,2]}} log={vi.fn()} onSaved={vi.fn()}/>));
     await act(async()=>q("pixel-reopen-original").click());
-    expect(prepareMock).toHaveBeenCalledWith("/proj",expect.objectContaining({path:"/proj/.rds/art-sources/source.gif"}),"sprite","keep");
+    expect(prepareMock).toHaveBeenCalledWith("/proj",expect.objectContaining({path:"/proj/.rds/art-sources/source.gif"}),"sprite","keep",undefined);
     expect(useEditorStore.getState().pixelEditorSessions["/proj"].doc.frames).toHaveLength(3);
     key("z");expect(useEditorStore.getState().pixelEditorSessions["/proj"].doc).toEqual(before);
   });
@@ -156,11 +159,103 @@ describe("PixelEditor", () => {
     expect(q("pixel-tool-bucket").title).toContain("(B)");
     act(() => q("pixel-editor").dispatchEvent(new KeyboardEvent("keydown", { key: "b", bubbles: true })));
     expect(q("pixel-tool-bucket").dataset.active).toBe("true");
+    expect(q("pixel-tool-bucket").textContent).toContain("Balde");
+    expect(q("pixel-tool-help").textContent).toContain("Preenche");
+  });
+
+  it("brings the chosen task controls back into view even when selecting the same task", () => {
+    render();
+    const options = container.querySelector('[aria-label="Opções da tarefa de edição"]') as HTMLDivElement;
+    options.scrollTop = 600; act(() => q("pixel-task-colors").click()); expect(options.scrollTop).toBe(0);
+    options.scrollTop = 300; act(() => q("pixel-task-colors").click()); expect(options.scrollTop).toBe(0);
+  });
+
+  it("previews, cancels and applies an image filter as one undoable edit", () => {
+    render();
+    act(() => { pointer("pointerdown", 5, 5); pointer("pointerup", 5, 5); });
+    const before = serializePixelDoc(useEditorStore.getState().pixelEditorSessions["/proj"].doc);
+    act(() => q("pixel-task-colors").click());
+    act(() => q("pixel-filter-invert").click());
+    expect(q("pixel-image-proposal")).not.toBeNull();
+    expect((q("pixel-save") as HTMLButtonElement).disabled).toBe(true);
+    expect(serializePixelDoc(useEditorStore.getState().pixelEditorSessions["/proj"].doc)).toBe(before);
+    act(() => q("pixel-cancel-image").click());
+    expect(serializePixelDoc(useEditorStore.getState().pixelEditorSessions["/proj"].doc)).toBe(before);
+    act(() => q("pixel-filter-invert").click());
+    act(() => q("pixel-apply-image").click());
+    expect(serializePixelDoc(useEditorStore.getState().pixelEditorSessions["/proj"].doc)).not.toBe(before);
+    key("z");
+    expect(serializePixelDoc(useEditorStore.getState().pixelEditorSessions["/proj"].doc)).toBe(before);
+  });
+
+  it("color isolation protects other colors and transparent pixels while drawing", () => {
+    render();
+    act(() => { pointer("pointerdown", 5, 5); pointer("pointerup", 5, 5); });
+    act(() => q("pixel-task-colors").click()); act(() => q("pixel-isolate-color").click());
+    act(() => q("pixel-slot-0-2").click());
+    act(() => { pointer("pointerdown", 5, 5); pointer("pointerup", 5, 5); });
+    act(() => { pointer("pointerdown", 25, 5); pointer("pointerup", 25, 5); });
+    const pixels = useEditorStore.getState().pixelEditorSessions["/proj"].doc.frames[0].cels[0];
+    expect(pixels[0]).toBe(2); expect(pixels[2]).toBe(0);
+  });
+
+  it("duplicates and merges a layer with undo instead of flattening the document implicitly", () => {
+    render(); act(() => q("pixel-task-layers").click());
+    act(() => q("pixel-layer-duplicate").click());
+    expect(useEditorStore.getState().pixelEditorSessions["/proj"].doc.layers).toHaveLength(2);
+    expect(q("pixel-layer-select-1").getAttribute("aria-pressed")).toBe("true");
+    act(() => q("pixel-layer-merge").click());
+    expect(useEditorStore.getState().pixelEditorSessions["/proj"].doc.layers).toHaveLength(1);
+    key("z"); expect(useEditorStore.getState().pixelEditorSessions["/proj"].doc.layers).toHaveLength(2);
+  });
+
+  it("rejects a delayed collage when the user has continued editing", async () => {
+    let resolve!: (value: unknown) => void;
+    chooseMock.mockResolvedValue("/inputs/picture.png");
+    prepareMock.mockImplementation(() => new Promise(done => { resolve = done; }));
+    render(); act(() => q("pixel-task-compose").click());
+    await act(async () => q("pixel-collage").click());
+    act(() => q("pixel-frame-duplicate").click());
+    await act(async () => resolve({ source_relative: ".rds/art-sources/source.png", frame_count: 1, name: "picture" }));
+    const doc = useEditorStore.getState().pixelEditorSessions["/proj"].doc;
+    expect(doc.frames).toHaveLength(2); expect(doc.layers).toHaveLength(1);
+    expect(prepareMock).toHaveBeenCalledOnce();
+  });
+
+  it("passes the chosen conversion method when reopening the preserved original", async () => {
+    render();
+    const original = createPixelDoc(16, 16); original.conversionMethod = "dominant";
+    prepareMock.mockResolvedValue({ doc_json: serializePixelDoc(original) });
+    act(() => root.render(<PixelEditor projectDir="/proj" source={{url:"",sourcePath:"assets/sprites/pixel/source.png",originalPath:"/proj/.rds/art-sources/original.png",name:"source",frameWidth:16,frameHeight:16,frames:[0]}} log={vi.fn()} onSaved={vi.fn()} />));
+    act(() => q("pixel-task-image").click());
+    const select = container.querySelector('select[aria-label="Método de conversão"]') as HTMLSelectElement;
+    act(() => { select.value = "dominant"; select.dispatchEvent(new Event("change", { bubbles: true })); });
+    await act(async () => q("pixel-reconvert").click());
+    expect(prepareMock).toHaveBeenLastCalledWith("/proj", expect.objectContaining({path:"/proj/.rds/art-sources/original.png"}), "sprite", "keep", "dominant");
+    expect(useEditorStore.getState().pixelEditorSessions["/proj"].doc.conversionMethod).toBe("dominant");
+  });
+
+  it("forks scene geometry edits and keeps one-step Undo after the saved copy reopens", async () => {
+    const shared = createPixelDoc(24, 16, { name: "shared", target: "plane" }), onSaved = vi.fn();
+    loadMock.mockResolvedValue(serializePixelDoc(shared));
+    saveMock.mockImplementation((_project: string, name: string) => Promise.resolve({ png_relative: `assets/tilesets/pixel/${name}.png`, png_absolute: `/proj/assets/tilesets/pixel/${name}.png` }));
+    const source = { url: "", sourcePath: "/proj/assets/tilesets/pixel/shared.png", name: "shared", frameWidth: 24, frameHeight: 16, frames: [0], autoOpen: true };
+    await act(async () => root.render(<PixelEditor projectDir="/proj" source={source} log={vi.fn()} onSaved={onSaved} />));
+    act(() => q("pixel-task-image").click()); act(() => q("pixel-rotate-image").click()); act(() => q("pixel-apply-image").click());
+    await act(async () => q("pixel-save").click());
+    expect(saveMock).toHaveBeenLastCalledWith("/proj", expect.stringContaining("shared_copy_"), expect.any(Uint8Array), expect.any(String));
+    const copy = useEditorStore.getState().pixelEditorSessions["/proj"].doc;
+    expect([copy.width, copy.height]).toEqual([16, 24]); expect(shared.width).toBe(24);
+    loadMock.mockResolvedValue(serializePixelDoc(copy));
+    await act(async () => root.render(<PixelEditor projectDir="/proj" source={{...source,sourcePath:`/proj/assets/tilesets/pixel/${copy.name}.png`,frameWidth:16,frameHeight:24}} log={vi.fn()} onSaved={onSaved} />));
+    key("z"); const undone = useEditorStore.getState().pixelEditorSessions["/proj"].doc;
+    expect([undone.name, undone.width, undone.height]).toEqual(["shared", 24, 16]);
   });
 
   it("paints with the active palette and updates the per-line color count", () => {
     render();
     expect(q("pixel-palette-count-0").textContent).toContain("0/15");
+    act(() => q("pixel-show-all-palettes").click());
     act(() => q("pixel-slot-2-5").click());
     expect(q("pixel-palette-line-2").dataset.active).toBe("true");
     act(() => {
@@ -173,6 +268,7 @@ describe("PixelEditor", () => {
 
   it("blocks mixing palette lines inside one 8x8 tile while the lock is on", () => {
     render();
+    act(() => q("pixel-show-all-palettes").click());
     act(() => q("pixel-slot-0-1").click());
     act(() => {
       pointer("pointerdown", 5, 5);

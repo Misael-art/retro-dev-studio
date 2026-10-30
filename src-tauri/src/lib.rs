@@ -5777,8 +5777,13 @@ fn project_restore_backup(
 
 /// Escolher uma imagem de cenario (Experimental; Hierarquia → "Adicionar cenario").
 #[tauri::command]
-async fn pick_image_file_dialog(app: AppHandle) -> Option<String> {
-    let dialog = app.dialog().file().add_filter("Imagem", &["png", "bmp"]);
+async fn pick_image_file_dialog(app: AppHandle, extended: Option<bool>) -> Option<String> {
+    let extensions: &[&str] = if extended.unwrap_or(false) {
+        &["png", "bmp", "jpg", "jpeg", "gif", "webp", "ppm"]
+    } else {
+        &["png", "bmp"]
+    };
+    let dialog = app.dialog().file().add_filter("Imagem", extensions);
     tauri::async_runtime::spawn_blocking(move || dialog.blocking_pick_file())
         .await
         .ok()

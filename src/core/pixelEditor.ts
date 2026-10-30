@@ -10,11 +10,13 @@ export const MAX_SPRITES = 80;
 
 export type MdColor = [number, number, number];
 export type PixelTarget = "sprite" | "plane";
+export type PixelConversion = "balanced" | "dominant" | "floyd";
 
 export interface PixelLayerMeta {
   id: string;
   name: string;
   visible: boolean;
+  originalSource?: string;
 }
 
 export interface PixelFrame {
@@ -27,6 +29,7 @@ export interface PixelFrame {
 export interface PixelDoc {
   name: string;
   originalSource?: string;
+  conversionMethod?: PixelConversion;
   width: number;
   height: number;
   target: PixelTarget;
@@ -195,6 +198,7 @@ export function moveFrame(doc: PixelDoc, from: number, to: number): PixelDoc {
 }
 
 export function addLayer(doc: PixelDoc, name: string): PixelDoc {
+  if (doc.width * doc.height * doc.frames.length * (doc.layers.length + 1) > 64 * 1024 * 1024) throw new Error("A nova camada ultrapassaria 64 milhões de pixels no documento. As camadas atuais foram preservadas.");
   return {
     ...doc,
     layers: [...doc.layers, { id: newPixelId("layer"), name, visible: true }],
@@ -346,48 +350,58 @@ export function drawEllipse(cel: Uint8Array, width: number, height: number, a: [
 
 /** Remove a dominant, uniform border color from every frame, preserving holes
  * enclosed by the drawing and retaining at least one visible pixel per frame. */
-export function removePixelBackground(doc: PixelDoc): PixelDoc {
+export function removePixelBackground(doc: PixelDoc, tolerance = 0, scope?: PixelEditScope): PixelDoc {
   let changed = false;
   const frames = doc.frames.map((frame, frameIndex) => {
-    const pixels = compositeFrame(doc, frameIndex);
+    if (scope && !scope.allFrames && scope.frame !== frameIndex) return frame;
+    const pixels = scope ? frame.cels[scope.layer] : compositeFrame(doc, frameIndex);
+    if (!pixels) return frame;
+    const r = scope?.rect ?? { x: 0, y: 0, w: doc.width, h: doc.height };
+    const x0 = Math.max(0, r.x), y0 = Math.max(0, r.y), x1 = Math.min(doc.width, r.x + r.w), y1 = Math.min(doc.height, r.y + r.h);
+    const eligible = (i: number) => i % doc.width >= x0 && i % doc.width < x1 && Math.floor(i / doc.width) >= y0 && Math.floor(i / doc.width) < y1 && (scope?.color == null || pixels[i] === scope.color);
     const border = new Set<number>();
-    for (let x = 0; x < doc.width; x++) { border.add(x); border.add((doc.height - 1) * doc.width + x); }
-    for (let y = 0; y < doc.height; y++) { border.add(y * doc.width); border.add(y * doc.width + doc.width - 1); }
+    for (let x = x0; x < x1; x++) { border.add(y0 * doc.width + x); border.add((y1 - 1) * doc.width + x); }
+    for (let y = y0; y < y1; y++) { border.add(y * doc.width + x0); border.add(y * doc.width + x1 - 1); }
     const counts = new Map<string, number>();
-    for (const i of border) { const c = pixelCss(doc, pixels[i]); if (c) counts.set(c, (counts.get(c) ?? 0) + 1); }
+    for (const i of border) { const c = pixelCss(doc, pixels[i]); if (c && eligible(i)) counts.set(c, (counts.get(c) ?? 0) + 1); }
     const dominant = [...counts].sort((a, b) => b[1] - a[1])[0];
     if (!dominant || dominant[1] < border.size * 0.35) return frame;
+    const seed = pixels.find(p => pixelCss(doc, p) === dominant[0])!;
+    const reference = doc.palettes[pixelLine(seed)][pixelIndex(seed)].map(mdLevelTo8);
+    const matches = (p: number) => pixelIndex(p) !== 0 && doc.palettes[pixelLine(p)][pixelIndex(p)].every((c, ch) => Math.abs(mdLevelTo8(c) - reference[ch]) <= tolerance);
     const seen = new Uint8Array(pixels.length);
     const queue = [...border];
     let cleared = 0;
     for (let q = 0; q < queue.length; q++) {
       const i = queue[q]; if (seen[i]) continue; seen[i] = 1;
+      if (!eligible(i)) continue;
       const color = pixelCss(doc, pixels[i]);
-      if (color && color !== dominant[0]) continue;
+      if (color && !matches(pixels[i])) continue;
       seen[i] = 2; if (color) cleared++;
       const x = i % doc.width, y = Math.floor(i / doc.width);
       if (x) queue.push(i - 1); if (x < doc.width - 1) queue.push(i + 1);
       if (y) queue.push(i - doc.width); if (y < doc.height - 1) queue.push(i + doc.width);
     }
-    const visible = pixels.reduce((n, p) => n + (pixelIndex(p) ? 1 : 0), 0);
+    const visible = pixels.reduce((n, p, i) => n + (eligible(i) && pixelIndex(p) ? 1 : 0), 0);
     if (!cleared || cleared >= visible) return frame;
     changed = true;
-    return { ...frame, cels: frame.cels.map((cel, layer) => doc.layers[layer].visible
-      ? Uint8Array.from(cel, (p, i) => seen[i] === 2 && pixelCss(doc,p) === dominant[0] ? 0 : p)
+    return { ...frame, cels: frame.cels.map((cel, layer) => (scope ? layer === scope.layer : doc.layers[layer].visible)
+      ? Uint8Array.from(cel, (p, i) => seen[i] === 2 && matches(p) ? 0 : p)
       : cel) };
   });
   return changed ? { ...doc, frames } : doc;
 }
 
-export function floodFill(cel: Uint8Array, width: number, height: number, x: number, y: number, value: number): Uint8Array {
+export function floodFill(cel: Uint8Array, width: number, height: number, x: number, y: number, value: number, rect?: PixelRect | null): Uint8Array {
   const out = new Uint8Array(cel);
   if (x < 0 || y < 0 || x >= width || y >= height) return out;
+  const inside = (i: number) => !rect || i % width >= rect.x && i % width < rect.x + rect.w && Math.floor(i / width) >= rect.y && Math.floor(i / width) < rect.y + rect.h;
   const target = out[y * width + x];
   if (target === value) return out;
   const stack = [y * width + x];
   while (stack.length > 0) {
     const i = stack.pop()!;
-    if (out[i] !== target) continue;
+    if (out[i] !== target || !inside(i)) continue;
     out[i] = value;
     const px = i % width;
     if (px > 0) stack.push(i - 1);
@@ -429,6 +443,14 @@ export interface PixelRect {
   y: number;
   w: number;
   h: number;
+}
+
+export interface PixelEditScope {
+  frame: number;
+  layer: number;
+  allFrames?: boolean;
+  rect?: PixelRect | null;
+  color?: number | null;
 }
 
 export function normalizeRect(a: [number, number], b: [number, number], width: number, height: number): PixelRect {
@@ -583,7 +605,7 @@ export function analyzeHardware(doc: PixelDoc, frameIndex: number): PixelHardwar
         const tile = tilePixels(pixels, doc.width, tx, ty);
         if (tile.every((v) => pixelIndex(v) === 0)) continue;
         totalTiles += 1;
-        const variants = tileVariants(tile);
+        const variants = tileVariants(Uint8Array.from(tile, pixelIndex));
         if (variants.some((key) => seen.has(key))) continue;
         seen.add(variants[0]);
         uniqueTiles += 1;
@@ -645,12 +667,17 @@ export interface QuantizeResult {
   warnings: string[];
 }
 
+export interface PixelQuantizeOptions {
+  /** Slots used outside the operation stay byte-for-byte unchanged. */
+  lockedSlots?: number[];
+}
+
 /**
  * Converte RGBA para indices de uma linha de paleta: quantiza para 9-bit e,
  * se houver mais de 15 cores, mantem as 15 mais frequentes e aproxima o resto.
  * Reaproveita as cores ja presentes na linha quando coincidem.
  */
-export function quantizeRgba(rgba: Uint8ClampedArray | Uint8Array, width: number, height: number, line: number, existing?: MdColor[]): QuantizeResult {
+export function quantizeRgba(rgba: Uint8ClampedArray | Uint8Array, width: number, height: number, line: number, existing?: MdColor[], options: PixelQuantizeOptions = {}): QuantizeResult {
   const counts = new Map<string, { color: MdColor; count: number }>();
   const keys: (string | null)[] = new Array(width * height).fill(null);
   for (let i = 0; i < width * height; i += 1) {
@@ -667,19 +694,26 @@ export function quantizeRgba(rgba: Uint8ClampedArray | Uint8Array, width: number
   if (ranked.length > 15)
     warnings.push(`${ranked.length} cores apos quantizar para 9-bit; mantidas as 15 mais usadas e o restante aproximado.`);
   const palette: MdColor[] = existing ? existing.map((c) => [...c] as MdColor) : defaultPalettes()[line].map((c) => [...c] as MdColor);
-  const chosen = ranked.slice(0, 15).map((entry) => entry.color);
+  const chosen = ranked.map((entry) => entry.color);
   const slotOf = new Map<string, number>();
+  const occupied = new Set(options.lockedSlots?.filter(slot => slot > 0 && slot < 16) ?? []);
+  for (const slot of [...occupied].sort((a, b) => a - b)) {
+    const key = palette[slot].join(","); if (!slotOf.has(key)) slotOf.set(key, slot);
+  }
   let nextSlot = 1;
   for (const color of chosen) {
+    if (slotOf.has(color.join(","))) continue;
     const reuse = palette.findIndex((p, i) => i > 0 && sameMdColor(p, color));
-    if (reuse > 0 && ![...slotOf.values()].includes(reuse)) {
+    if (reuse > 0 && !occupied.has(reuse)) {
       slotOf.set(color.join(","), reuse);
+      occupied.add(reuse);
       continue;
     }
-    while (nextSlot < LINE_SIZE && [...slotOf.values()].includes(nextSlot)) nextSlot += 1;
+    while (nextSlot < LINE_SIZE && occupied.has(nextSlot)) nextSlot += 1;
     if (nextSlot >= LINE_SIZE) break;
     palette[nextSlot] = color;
     slotOf.set(color.join(","), nextSlot);
+    occupied.add(nextSlot);
     nextSlot += 1;
   }
   const nearest = (color: MdColor) => {
@@ -703,6 +737,39 @@ export function quantizeRgba(rgba: Uint8ClampedArray | Uint8Array, width: number
     pixels[i] = packPixel(line, slot);
   }
   return { pixels, palette, sourceColors: ranked.length, warnings };
+}
+
+export interface PixelTileReuse extends PixelTileInfo {
+  id: number;
+  pattern: number;
+  flip: "original" | "horizontal" | "vertical" | "ambos";
+  copies: number;
+  exclusiveColors: number;
+}
+
+/** VDP patterns contain four-bit indices; palette-bank bits live in the map. */
+export function analyzeTileReuse(doc: PixelDoc, pixels: Uint8Array): PixelTileReuse[] {
+  const seen = new Map<string, number>();
+  const uses = new Map<number, Set<number>>();
+  const tiles = analyzeTiles(doc, pixels);
+  const result = tiles.map((tile, id): PixelTileReuse => {
+    const values = tilePixels(pixels, doc.width, tile.tx, tile.ty);
+    for (const value of new Set(values)) if (pixelIndex(value)) {
+      const set = uses.get(value) ?? new Set<number>(); set.add(id); uses.set(value, set);
+    }
+    const variants = tileVariants(Uint8Array.from(values, pixelIndex));
+    const match = variants.findIndex(key => seen.has(key));
+    const pattern = match < 0 ? id : seen.get(variants[match])!;
+    if (match < 0) seen.set(variants[0], id);
+    return { ...tile, id, pattern, flip: (["original", "horizontal", "vertical", "ambos"] as const)[Math.max(0, match)], copies: 0, exclusiveColors: 0 };
+  });
+  const counts = new Map<number, number>();
+  for (const tile of result) counts.set(tile.pattern, (counts.get(tile.pattern) ?? 0) + 1);
+  for (const tile of result) {
+    tile.copies = counts.get(tile.pattern)!;
+    tile.exclusiveColors = [...uses.values()].filter(ids => ids.size === 1 && ids.has(tile.id)).length;
+  }
+  return result;
 }
 
 // ── Exportacao ─────────────────────────────────────────────────────────────
@@ -821,6 +888,15 @@ export async function zlibCompress(raw: Uint8Array): Promise<Uint8Array> {
 
 export async function exportSheetPng(doc: PixelDoc): Promise<{ png: Uint8Array; line: number; width: number; height: number }> {
   const sheet = buildSheetIndices(doc);
+  // An indexed sheet has one palette. Do not silently discard bank bits when
+  // the same index represents different RGB colors in visible artwork.
+  for (let fi = 0; fi < doc.frames.length; fi++) {
+    for (const value of compositeFrame(doc, fi)) {
+      const index = pixelIndex(value);
+      if (index && !sameMdColor(doc.palettes[pixelLine(value)][index], doc.palettes[sheet.line][index]))
+        throw new Error("A imagem mistura paletas com cores diferentes. Em Cores e filtros, visualize Unificar paletas antes de salvar; o documento e o original foram preservados.");
+    }
+  }
   const zlib = await zlibCompress(packIndexedScanlines(sheet.indices, sheet.width, sheet.height));
   return { png: encodeIndexedPng(sheet.width, sheet.height, doc.palettes[sheet.line], zlib), line: sheet.line, width: sheet.width, height: sheet.height };
 }
@@ -865,6 +941,7 @@ export function deserializePixelDoc(json: string): PixelDoc {
   return {
     name: data.name,
     originalSource: data.originalSource,
+    conversionMethod: ["balanced", "dominant", "floyd"].includes(data.conversionMethod ?? "") ? data.conversionMethod : undefined,
     width: data.width,
     height: data.height,
     target: data.target,

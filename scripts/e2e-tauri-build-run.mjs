@@ -7031,6 +7031,74 @@ async function runImageIngressScenario(sessionId, timeoutMs, onProjectCreated) {
       const coreColors=await js(`const ctx=document.querySelector('[data-testid="viewport-game-canvas"]').getContext('2d');return arguments[0].map(p=>({expected:p.rgb,actual:Array.from(ctx.getImageData(p.x,p.y,1,1).data).slice(0,3)}));`,[samples]);
       if(!coreColors.every(p=>p.expected.every((c,i)=>Math.abs(c-p.actual[i])<=36)))fail("Compiled background palette differs from authoring beyond one hardware color level.");
       addReportStep(report,"reference_background_build_rom_core_palette","passed",{...colorBuild,samples:coreColors,tolerance_per_channel:36});await callAutomationApi(sessionId,"stopEmulator");
+      if(process.env.RDS_PIXEL_WORKSPACE === "1") {
+        await click("workspace-rail-scene");
+        await clickByTestId(sessionId,`hierarchy-entity-${bg.entity_id}`);
+        await click("workspace-rail-artstudio");
+        const currentAssetPath=async()=>path.join(project,(await disk()).entities.find(e=>e.entity_id===bg.entity_id).components.tilemap.tileset);
+        const readDoc=async()=>JSON.parse(await readFile((await currentAssetPath()).replace(/\.png$/,".rdspixel.json"),"utf8"));
+        const readPng=async()=>readFile(await currentAssetPath());
+        const originalAssetPath=await currentAssetPath(),baseline=await readDoc(), baselinePng=await readPng();
+        await waitFor(async()=>js(`return document.querySelector('[data-testid="pixel-doc-name"]')?.value===arguments[0] && document.querySelector('[data-testid="pixel-editor"]')?.dataset.dirty==='false';`,[baseline.name]),20000,"Background document did not open in the pixel editor.",150);
+        const saveDoc=async()=>{await click("pixel-save");await waitFor(async()=>js(`return document.querySelector('[data-testid="pixel-editor"]')?.dataset.dirty==='false' && !document.querySelector('[data-testid="pixel-save"]')?.disabled;`),20000,"Pixel workspace save did not finish.",150);await waitFor(async()=>path.basename(await currentAssetPath())===`${String(await js(`return document.querySelector('[data-testid="pixel-doc-name"]').value;`)).toLowerCase()}.png`,20000,"Saved image was not linked back to the scene.",150);return readDoc();};
+        const undoDoc=async()=>{await js(`document.querySelector('[data-testid="pixel-editor"]').focus();return true;`);await chord("z");await new Promise(r=>setTimeout(r,150));return saveDoc();};
+        const assertRestored=async()=>{if(!(await readPng()).equals(baselinePng))fail("Undo/save did not restore the background PNG exactly.");};
+        const labels=await js(`return Array.from(document.querySelectorAll('[data-testid="pixel-tools"] button[data-testid]')).map(b=>({label:b.textContent,accessible:b.getAttribute('aria-label')}));`);
+        if(labels.length<13 || labels.some(t=>!t.label.trim()||!t.accessible))fail("Pixel tools lack persistent names or accessible labels.");
+        await shot("workspace-named-tools");addReportStep(report,"pixel_workspace_named_tools_and_task_navigation","passed",{labels});
+
+        await click("pixel-task-colors");await click("pixel-filter-invert");
+        if(!await js(`return document.querySelector('[data-testid="pixel-save"]').disabled && document.querySelector('[data-testid="pixel-editor"]').dataset.dirty==='false';`))fail("Filter preview changed the saved revision.");
+        await shot("workspace-filter-preview");await click("pixel-cancel-image");await assertRestored();
+        await click("pixel-filter-invert");await click("pixel-apply-image");await saveDoc();
+        if((await readPng()).equals(baselinePng))fail("Inversion did not affect the saved PNG.");
+        await shot("workspace-filter-applied");await undoDoc();await assertRestored();
+        addReportStep(report,"pixel_workspace_filter_preview_cancel_apply_save_undo","passed",{png_restored_exactly:true});
+
+        await click("pixel-task-image");await click("pixel-auto-background");
+        await waitFor(async()=>js(`return !!document.querySelector('[data-testid="pixel-image-proposal"]');`),10000,"Automatic background removal found no safe foreground in the reference image.",150);
+        await shot("workspace-background-preview");await click("pixel-apply-image");
+        const cut=await saveDoc(), opaque=doc=>Buffer.from(doc.frames[0].cels[0],"base64").filter(v=>v>0).length;
+        if(opaque(cut)>=opaque(baseline)||opaque(cut)===0)fail("Automatic background removal erased nothing or the whole foreground.");
+        await undoDoc();await assertRestored();
+        await click("pixel-rotate-image");await click("pixel-apply-image");const rotated=await saveDoc();
+        if(rotated.width!==baseline.height||rotated.height!==baseline.width)fail("Rectangular image rotation lost dimensions.");
+        if((await currentAssetPath())===originalAssetPath || !(await readFile(originalAssetPath)).equals(baselinePng))fail("Geometry edit did not preserve the shared original resource.");
+        await waitFor(async()=>{const t=(await disk()).entities.find(e=>e.entity_id===bg.entity_id)?.components.tilemap;return t?.map_width===rotated.width/8&&t?.map_height===rotated.height/8;},20000,"Saving image rotation did not update scene geometry.",150);
+        await shot("workspace-image-rotated");await undoDoc();await assertRestored();
+        addReportStep(report,"pixel_workspace_background_and_rectangular_rotation_saved_in_scene","passed",{foreground_pixels:opaque(cut),original_pixels:opaque(baseline),restored:true});
+
+        await click("pixel-task-layers");await click("pixel-layer-duplicate");const duplicate=await saveDoc();
+        if(duplicate.layers.length!==baseline.layers.length+1)fail("Duplicate layer missing from native document.");
+        await shot("workspace-layers");await click("pixel-layer-merge");const merged=await saveDoc();
+        if(merged.layers.length!==baseline.layers.length)fail("Merge did not preserve native layer structure.");
+        await undoDoc();await undoDoc();await assertRestored();
+        addReportStep(report,"pixel_workspace_layers_duplicate_merge_save_and_two_undos","passed",{layers:baseline.layers.length});
+
+        const dark=baseline.palettes[0].map((c,i)=>({i,l:c.reduce((s,v)=>s+v,0)})).filter(p=>p.i>0).sort((a,b)=>a.l-b.l)[0].i;
+        await click(`pixel-slot-0-${dark}`);await click("pixel-task-compose");
+        await setInputByTestIdNative(sessionId,"pixel-text","TESTE");await click("pixel-add-text");const textDoc=await saveDoc();
+        if(textDoc.layers.length!==baseline.layers.length+1||!Buffer.from(textDoc.frames[0].cels[textDoc.layers.length-1],"base64").some(v=>v>0))fail("Text was not rasterized into an editable native layer.");
+        await shot("workspace-text");await undoDoc();await assertRestored();
+        await click("pixel-add-border");await click("pixel-apply-image");const bordered=await saveDoc();
+        if(bordered.layers.length!==baseline.layers.length+1)fail("Border did not create an independent layer.");
+        await undoDoc();await assertRestored();
+        addReportStep(report,"pixel_workspace_text_and_border_are_editable_layers","passed",{text_pixels:true,border_layer:true,restored:true});
+
+        await callAutomationApi(sessionId,"setNextImageImportPath",[raster]);await click("pixel-collage");
+        await waitFor(async()=>js(`return document.querySelector('[data-testid="pixel-image-message"]')?.textContent.includes('Imagem centralizada');`),30000,"Collage image did not enter a new layer.",150);
+        const collage=await saveDoc();
+        if(collage.layers.length!==baseline.layers.length+1||JSON.stringify(collage.palettes)!==JSON.stringify(baseline.palettes)||JSON.stringify(collage.frames[0].cels.slice(0,baseline.layers.length))!==JSON.stringify(baseline.frames[0].cels))fail("Collage changed the existing layers or palette.");
+        await shot("workspace-collage");await undoDoc();await assertRestored();
+        addReportStep(report,"pixel_workspace_collage_preserves_existing_layers_and_palette","passed",{picker:"canonical selected-path fixture;actual decoder/converter/layers/writer",restored:true});
+
+        await click("pixel-task-tiles");await clickByTestId(sessionId,"pixel-canvas");
+        await waitFor(async()=>js(`return !!document.querySelector('[data-testid="pixel-tile-inspector"]');`),5000,"Clicking the tile map did not expose pattern/flip information.",150);
+        await shot("workspace-tile-map");
+        addReportStep(report,"pixel_workspace_tile_map_is_identifiable_and_operational","passed",{inspector:await js(`return document.querySelector('[data-testid="pixel-tile-inspector"]').textContent;`),scope:"current-frame pattern estimate;not measured whole-scene VRAM"});
+        await click("pixel-task-draw");await js(`document.querySelector('[data-testid="pixel-editor"]').focus();return true;`);await escape();
+        await click("workspace-rail-scene");
+      }
     }
     report.status="passed";
   } catch(error) {report.status="failed";report.error=String(error);report.last_state=await state().catch(()=>null);report.last_ui=await js(`return {frames:document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length,pixelStatus:document.querySelector('[data-testid="pixel-status"]')?.textContent,dialog:document.querySelector('[role="dialog"]')?.textContent,clipboard:window.__RDS_IMAGE_PASTE_PROBE__};`).catch(()=>null);await shot("failure").catch(()=>null);}

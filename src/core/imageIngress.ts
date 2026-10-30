@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { AnimationDef, Entity, PaletteEntry, Scene } from "./ipc/sceneService";
 import { createSpriteEntityFromAsset, createTilemapEntityFromAsset } from "./editorEntityFactory";
 import { fetchPalettePlan, newErrors, type PalettePlan } from "./palettePlan";
-import { deserializePixelDoc, exportSheetPng, mdColorToCss, serializePixelDoc, type PixelDoc } from "./pixelEditor";
+import { buildSheetIndices, deserializePixelDoc, exportSheetPng, mdColorToCss, serializePixelDoc, type PixelDoc, type PixelConversion } from "./pixelEditor";
 import { savePixelArtAsset } from "./ipc/artStudioService";
 
 export type ImageRole = "sprite" | "background";
@@ -15,6 +15,11 @@ export interface PreparedImage {
 }
 export interface ImageCandidate { entity: Entity; doc: PixelDoc; assetPath: string; prepared: PreparedImage }
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+export const IMAGE_CONVERSIONS: { id: PixelConversion; name: string; description: string }[] = [
+  { id: "balanced", name: "Agrupamento de cores", description: "Inspirado no agrupamento k-means do SGDKForge, adaptado com frequência e inicialização determinística. Equilibra áreas grandes e detalhes no RGB333 do Mega Drive." },
+  { id: "dominant", name: "Contornos limpos", description: "Fluxo sem dithering do SMSForge adaptado ao Mega Drive. Prioriza cores frequentes; indicado para sprites e pixel art." },
+  { id: "floyd", name: "Gradientes suaves", description: "Difusão Floyd–Steinberg do SMSForge adaptada ao Mega Drive. Aproxima transições com pequenos pontos; pode aumentar os tiles únicos." },
+];
 
 export async function imageFileInput(file: File): Promise<ImageInput> {
   if (file.size > MAX_IMAGE_BYTES) throw new Error("A imagem excede 20 MB. Nenhum objeto foi alterado.");
@@ -77,8 +82,8 @@ export function editableImageTarget(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest("input,textarea,[contenteditable='true'],[role='textbox']"));
 }
 
-export function prepareImage(projectRoot: string, input: ImageInput, role?: ImageRole, background = "auto"): Promise<PreparedImage> {
-  return invoke<PreparedImage>("art_ingest_input", { projectRoot, input, role: role ?? null, background });
+export function prepareImage(projectRoot: string, input: ImageInput, role?: ImageRole, background = "auto", conversion?: PixelConversion): Promise<PreparedImage> {
+  return invoke<PreparedImage>("art_ingest_input", { projectRoot, input, role: role ?? null, background, ...(conversion ? { conversion } : {}) });
 }
 
 export async function captureClipboardImage(projectRoot:string):Promise<PreparedImage|null> {
@@ -127,8 +132,20 @@ export async function publishImage(projectDir: string, prepared: PreparedImage, 
 
 export function applyImageEdits(scene: Scene, id: string, asset: string, doc: PixelDoc): Scene {
   const animation = doc.target === "sprite" ? pixelDocAnimation(doc) : undefined;
+  const oldEntity = scene.entities.find(e => e.entity_id === id);
+  if (!oldEntity) return scene;
+  const assetOf = (e: Entity) => e.components.sprite?.asset ?? e.components.tilemap?.tileset;
+  const previousAsset = assetOf(oldEntity);
+  const affected = new Set(scene.entities.filter(e => e.entity_id === id || (asset === previousAsset && assetOf(e) === previousAsset)).map(e => e.entity_id));
+  const colors = doc.palettes[buildSheetIndices(doc).line].map((c, i) => i ? mdColorToCss(c) : "");
   return { ...scene,
-    palettes: scene.palettes?.map(p => p.id === `imagem:${id}` ? { ...p, colors: doc.palettes[0].map((c,i) => i ? mdColorToCss(c) : "") } : p),
+    palettes: scene.palettes?.map(p => {
+      if (!p.id || !p.uses?.some(use => affected.has(use))) return p;
+      const retained = p.uses.filter(use => !affected.has(use));
+      // A copied/edited image must not recolor unrelated users of a shared
+      // explicit palette. Its own PNG becomes the planner's palette source.
+      return retained.length ? { ...p, uses: retained } : { ...p, colors };
+    }),
     entities: scene.entities.map(entity => {
       if (entity.entity_id !== id) return entity;
       const sprite = entity.components.sprite, tilemap = entity.components.tilemap;
@@ -150,7 +167,7 @@ export function replaceImageBank(scene: Scene, candidate: ImageCandidate, plan: 
   // the project so Undo and other scenes keep their original resource.
   for (const p of palettes) if (p.bank === bank) delete p.bank;
   palettes.push({ id: `imagem:${candidate.entity.entity_id}`, name: `${candidate.prepared.name} · cores`, slot: bank, bank,
-    origin: "autoral", colors: candidate.doc.palettes[0].map((c, i) => i ? mdColorToCss(c) : ""), uses: [...affected] });
+    origin: "autoral", colors: candidate.doc.palettes[buildSheetIndices(candidate.doc).line].map((c, i) => i ? mdColorToCss(c) : ""), uses: [...affected] });
   return palettes;
 }
 

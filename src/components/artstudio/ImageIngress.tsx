@@ -12,6 +12,8 @@ import { captureClipboardImage, editableImageTarget, imageFileInput, imageTransf
 import type { PalettePlan } from "../../core/palettePlan";
 import { loadPixelArtDoc } from "../../core/ipc/artStudioService";
 import { deserializePixelDoc } from "../../core/pixelEditor";
+import type { PixelConversion } from "../../core/pixelEditor";
+import { IMAGE_CONVERSIONS } from "../../core/imageIngress";
 
 type Request = { source: File | ImageInput; position?: { x: number; y: number }; nativeDocument?: string; assetPath?: string; clipboard?:Promise<{prepared:PreparedImage|null;error?:unknown}> };
 type Context = { project: string; session: number; scene: string; target: string };
@@ -33,6 +35,7 @@ export default function ImageIngress({ onWorkspaceSelect }: { onWorkspaceSelect:
   const [plan, setPlan] = useState<PalettePlan | null>(null);
   const [inserted, setInserted] = useState<string | null>(null);
   const [committing, setCommitting] = useState(false);
+  const [conversion, setConversion] = useState<PixelConversion>("balanced");
   const queue = useRef<Request[]>([]);
   const active = useRef<{ request: Request; key: string; generation: number } | null>(null);
   const generation = useRef(0);
@@ -162,7 +165,7 @@ export default function ImageIngress({ onWorkspaceSelect }: { onWorkspaceSelect:
     setError("");setBusy("Convertendo cores e preparando todos os quadros…");
     try {
       const s=useEditorStore.getState();
-      const result=op.request.nativeDocument ? prepared : await prepareImage(s.activeProjectDir,{ path:`${s.activeProjectDir}/${prepared.source_relative}`,name:prepared.name },role,background);
+      const result=op.request.nativeDocument ? prepared : await prepareImage(s.activeProjectDir,{ path:`${s.activeProjectDir}/${prepared.source_relative}`,name:prepared.name },role,background,conversion);
       if (active.current!==op || op.key!==contextKey()) return;
       const scene=useEditorStore.getState().activeScene;if (!scene) return;
       const item=await publishImage(s.activeProjectDir,result,role,scene,op.request.position);
@@ -187,7 +190,8 @@ export default function ImageIngress({ onWorkspaceSelect }: { onWorkspaceSelect:
     <Dialog open={Boolean(active.current)} testId="image-ingress-dialog" title={busy || (plan ? "Qual paleta deve dar lugar à imagem?" : "Como usar esta imagem?")}
       description="Entrada rápida · Experimental. O original é preservado; Ctrl+Z desfaz a inserção e a troca de paleta." onClose={cancel} closeDisabled={committing}>
       {prepared && <><img alt="Prévia da imagem recebida" src={prepared.preview_url ?? `data:image/png;base64,${prepared.preview_base64}`} className="mx-auto max-h-52 max-w-full rounded bg-slate-950 object-contain [image-rendering:pixelated]"/>
-      <p className="my-3 text-sm">{prepared.name} · {prepared.source_width}×{prepared.source_height} · {prepared.frame_count} quadro(s)</p></>}
+      <p className="my-3 text-sm">{prepared.name} · {prepared.source_width}×{prepared.source_height} · {prepared.frame_count} quadro(s)</p>
+      {!active.current?.request.nativeDocument && <details className="mb-3 rounded-lg border p-3 text-sm"><summary>Conversão: {IMAGE_CONVERSIONS.find(m => m.id === conversion)?.name}</summary><label className="mt-2 block">Método de cores<select disabled={Boolean(busy)} data-testid="image-conversion-method" value={conversion} onChange={e => setConversion(e.target.value as PixelConversion)} className="ml-2 rounded border bg-[var(--rds-surface-panel)] p-2">{IMAGE_CONVERSIONS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label><p className="mt-2">{IMAGE_CONVERSIONS.find(m => m.id === conversion)?.description} O original permanece preservado para comparar outro método no editor.</p></details>}</>}
       {prepared && prepared.frame_count > 1 && !plan && <p className="mb-3 text-sm">Animações entram como personagem ou objeto para manter todos os quadros.</p>}
       {error && <p role="alert" className="my-3 rounded border border-red-500 p-3 text-sm">{error}</p>}
       {error && !prepared && !busy && <button type="button" className="rounded border px-3 py-2" onClick={()=>{const request=active.current?.request;if(request){active.current=null;void begin(request);}}}>Tentar novamente</button>}

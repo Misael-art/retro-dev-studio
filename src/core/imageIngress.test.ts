@@ -37,6 +37,21 @@ describe("image ingress", () => {
     expect(next.palettes![0]).toMatchObject({bank:2,uses:[a.entity_id]});
     expect(next.palettes![0].colors[1]).toBe("#ff0000");
   });
+  it("uses the exported bank and protects unrelated palette consumers when saving a copy", () => {
+    const a = sprite("a"), b = sprite("b"); b.components.sprite!.asset = a.components.sprite!.asset;
+    const scene = { entities: [a, b], palettes: [{ id: "shared", slot: 2, bank: 2, colors: ["", "#ffffff"], uses: [a.entity_id, b.entity_id] }] } as Scene;
+    const before = structuredClone(scene), doc = createPixelDoc(8, 8);
+    doc.palettes[0][1] = [0, 0, 7]; doc.palettes[2][1] = [7, 0, 0]; doc.frames[0].cels[0].fill(33);
+    const copy = applyImageEdits(scene, a.entity_id, "copy.png", doc);
+    expect(scene).toEqual(before);
+    expect(copy.entities[1]).toEqual(b);
+    expect(copy.palettes![0]).toMatchObject({ colors: ["", "#ffffff"], uses: [b.entity_id], bank: 2 });
+    const shared = applyImageEdits(scene, a.entity_id, a.components.sprite!.asset, doc);
+    expect(shared.palettes![0].colors[1]).toBe("#ff0000");
+    expect(shared.palettes![0].uses).toEqual([a.entity_id, b.entity_id]);
+    const separate = { ...scene, palettes: [{ ...scene.palettes![0], uses: [a.entity_id] }] };
+    expect(applyImageEdits(separate, a.entity_id, "copy.png", doc).palettes![0].colors[1]).toBe("#ff0000");
+  });
   it("preserves unequal animation delays and splits long holds without duplicating source frames", () => {
     const doc = createPixelDoc(16,16,{ frames: 3 });
     [40,150,5000].forEach((ms,i) => { doc.frames[i].durationMs = ms; });
