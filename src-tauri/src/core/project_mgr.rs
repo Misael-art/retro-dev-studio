@@ -2996,25 +2996,6 @@ fn needs_sgdk_authoring_staging_layout(sprite_entities: &[Entity]) -> bool {
     dense_count >= 10 && area <= (320 * 224 / 3)
 }
 
-fn sgdk_role_lane_base_y(entity: &Entity) -> i32 {
-    let role = entity
-        .components
-        .logic
-        .as_ref()
-        .and_then(|logic| logic.imported_semantics.as_ref())
-        .map(|semantics| semantics.entity_role.as_str())
-        .unwrap_or("");
-    match role {
-        "player_avatar" => 88,
-        "fighter_actor" => 120,
-        "enemy_actor" => 152,
-        "hud_actor" => 200,
-        "support_actor" => 48,
-        "projectile_actor" => 32,
-        _ => 176,
-    }
-}
-
 fn apply_sgdk_authoring_staging_layout(sprite_entities: &mut [Entity]) -> usize {
     if !needs_sgdk_authoring_staging_layout(sprite_entities) {
         for entity in sprite_entities.iter_mut() {
@@ -3043,17 +3024,42 @@ fn apply_sgdk_authoring_staging_layout(sprite_entities: &mut [Entity]) -> usize 
             })
     });
 
+    // Prateleira que respeita o tamanho de cada sprite: linhas de ate SHELF_WIDTH px, cada linha
+    // com a altura do maior sprite dela, e uma linha nova quando o papel (jogador, inimigo...)
+    // muda. Assim nenhum sprite cobre outro e a prateleira nao inventa sobrecarga de scanline.
+    const SHELF_X: i32 = 16;
+    const SHELF_Y: i32 = 32;
+    const SHELF_WIDTH: i32 = 640;
+    const GAP: i32 = 16;
     let mut staged = 0usize;
-    let slots_per_page = 4usize;
-    let lanes_per_page = 2usize;
-    let lane_gap = 28i32;
-    for (index, entity) in sprite_entities.iter_mut().enumerate() {
-        let page = index / (slots_per_page * lanes_per_page);
-        let page_slot = index % (slots_per_page * lanes_per_page);
-        let column = page_slot % slots_per_page;
-        let lane = page_slot / slots_per_page;
-        entity.transform.x = 48 + (column as i32 * 64) + (page as i32 * 320);
-        entity.transform.y = sgdk_role_lane_base_y(entity) + (lane as i32 * lane_gap);
+    let mut cursor_x = SHELF_X;
+    let mut row_y = SHELF_Y;
+    let mut row_height = 0i32;
+    let mut row_role: Option<i32> = None;
+    for entity in sprite_entities.iter_mut() {
+        let (width, height) = entity
+            .components
+            .sprite
+            .as_ref()
+            .map(|sprite| {
+                (
+                    sprite.frame_width.max(8) as i32,
+                    sprite.frame_height.max(8) as i32,
+                )
+            })
+            .unwrap_or((16, 16));
+        let role = sprite_role_priority(entity);
+        let role_changed = row_role.is_some_and(|current| current != role);
+        if row_height > 0 && (role_changed || cursor_x + width > SHELF_X + SHELF_WIDTH) {
+            row_y += row_height + GAP;
+            cursor_x = SHELF_X;
+            row_height = 0;
+        }
+        row_role = Some(role);
+        entity.transform.x = cursor_x;
+        entity.transform.y = row_y;
+        cursor_x += width + GAP;
+        row_height = row_height.max(height);
         append_position_audit(
             entity,
             "position:staging_layout",
@@ -16485,40 +16491,41 @@ fn reference_platformer_logic_graph() -> String {
         "version": 1,
         "nodes": [
             { "id": "start", "type": "event_start", "label": "Start", "x": 0, "y": 0, "params": {} },
-            { "id": "music", "type": "action_music", "label": "Play Theme", "x": 180, "y": 0, "params": { "action": "play", "track": "reference_theme", "fade_ms": 0 } },
-            { "id": "update_right", "type": "event_update", "label": "Update Right", "x": 0, "y": 160, "params": {} },
-            { "id": "right", "type": "input_held", "label": "Hold Right", "x": 180, "y": 140, "params": { "pad": "JOY_1", "button": "BUTTON_RIGHT" } },
-            { "id": "passage_collision", "type": "condition_overlap", "label": "Would Enter Passage (Right)", "x": 360, "y": 120, "params": { "passage_id": "passage_main", "passage_role": "gate", "a": "player", "b": "passage_blocker", "probe_dx": 2, "probe_dy": 0, "semantic": "moving right would enter the passage blocker AABB; an already-overlapping player may move out" } },
-            { "id": "passage_open_value", "type": "var_get", "label": "Read Passage State", "x": 540, "y": 40, "params": { "passage_id": "passage_main", "passage_role": "open_get", "var_name": "goal_open" } },
-            { "id": "passage_open", "type": "condition_compare", "label": "Passage Is Open", "x": 720, "y": 80, "params": { "passage_id": "passage_main", "passage_role": "open_check", "operator": "==", "b": 1 } },
-            { "id": "move_right", "type": "sprite_move", "label": "Move Right", "x": 360, "y": 140, "params": { "target": "player", "dx": 2, "dy": 0 } },
-            { "id": "update_left", "type": "event_update", "label": "Update Left", "x": 0, "y": 300, "params": {} },
-            { "id": "left", "type": "input_held", "label": "Hold Left", "x": 180, "y": 280, "params": { "pad": "JOY_1", "button": "BUTTON_LEFT" } },
-            { "id": "passage_collision_left", "type": "condition_overlap", "label": "Would Enter Passage (Left)", "x": 360, "y": 260, "params": { "passage_id": "passage_main", "passage_role": "gate", "a": "player", "b": "passage_blocker", "probe_dx": -2, "probe_dy": 0, "semantic": "moving left would enter the passage blocker AABB" } },
-            { "id": "passage_open_left_value", "type": "var_get", "label": "Read Passage State (Left)", "x": 540, "y": 340, "params": { "passage_id": "passage_main", "passage_role": "open_get", "var_name": "goal_open" } },
-            { "id": "passage_open_left", "type": "condition_compare", "label": "Passage Is Open (Left)", "x": 540, "y": 260, "params": { "passage_id": "passage_main", "passage_role": "open_check", "operator": "==", "b": 1 } },
-            { "id": "move_left", "type": "sprite_move", "label": "Move Left", "x": 720, "y": 280, "params": { "target": "player", "dx": -2, "dy": 0 } },
-            { "id": "update_jump", "type": "event_update", "label": "Update Jump", "x": 0, "y": 440, "params": {} },
-            { "id": "jump", "type": "input_pressed", "label": "Press A", "x": 180, "y": 420, "params": { "pad": "JOY_1", "button": "BUTTON_A" } },
-            { "id": "jump_velocity", "type": "set_velocity", "label": "Jump", "x": 360, "y": 400, "params": { "target": "player", "vx": 0, "vy": -64 } },
-            { "id": "jump_sound", "type": "action_sound", "label": "Jump Sound", "x": 540, "y": 400, "params": { "sfx": "jump" } },
-            { "id": "update_score", "type": "event_update", "label": "Update Score", "x": 0, "y": 720, "params": {} },
-            { "id": "score_input", "type": "input_held", "label": "Score Right Input", "x": 180, "y": 700, "params": { "pad": "JOY_1", "button": "BUTTON_RIGHT" } },
-            { "id": "score_get", "type": "var_get", "label": "Read Reference Score", "x": 360, "y": 820, "params": { "var_name": "reference_score", "semantic": "current score accumulated from real right input" } },
-            { "id": "score_add", "type": "logic_math", "label": "Add One Point", "x": 540, "y": 760, "params": { "operator": "+", "b": 1, "semantic": "one point per consumed right-input frame" } },
-            { "id": "score_set", "type": "var_set", "label": "Write Reference Score", "x": 720, "y": 700, "params": { "var_name": "reference_score", "value": 0 } },
-            { "id": "score_threshold_get", "type": "var_get", "label": "Read Updated Score", "x": 900, "y": 820, "params": { "passage_id": "passage_main", "passage_role": "rule_score_get", "var_name": "reference_score", "semantic": "read the stored post-increment value; do not add again" } },
-            { "id": "score_threshold", "type": "condition_compare", "label": "Score Opens Passage", "x": 900, "y": 700, "params": { "passage_id": "passage_main", "passage_role": "rule", "operator": ">=", "b": 6, "authoring_origin": "authored_builtin_reference_platformer", "semantic": "reference_score >= threshold opens the goal passage", "source_path": "graphs/reference_platformer_logic.json", "source_line": 24 } },
-            { "id": "open_goal", "type": "var_set", "label": "Mark Passage Open", "x": 1100, "y": 650, "params": { "passage_id": "passage_main", "passage_role": "open_set", "var_name": "goal_open", "value": 1, "semantic": "the threshold opens the passage blocker and enables movement through its AABB" } },
-            { "id": "hide_goal", "type": "destroy_entity", "label": "Hide Passage Blocker", "x": 1300, "y": 650, "params": { "passage_id": "passage_main", "passage_role": "hide", "target": "passage_blocker", "semantic": "hide only the passage blocker after collision gating allows traversal" } },
-            { "id": "close_goal", "type": "var_set", "label": "Keep Passage Closed", "x": 1100, "y": 780, "params": { "passage_id": "passage_main", "passage_role": "close_set", "var_name": "goal_open", "value": 0, "semantic": "the false branch preserves the visible passage blocker" } },
-            { "id": "update_goal", "type": "event_update", "label": "Update Goal", "x": 0, "y": 580, "params": {} },
-            { "id": "goal_overlap", "type": "condition_overlap", "label": "Reach Goal Sensor", "x": 180, "y": 560, "params": { "a": "player", "b": "goal_sensor" } },
-            { "id": "goal_state_get", "type": "var_get", "label": "Read Win State", "x": 360, "y": 650, "params": { "var_name": "goal_reached" } },
-            { "id": "goal_not_reached", "type": "condition_compare", "label": "First Goal Contact", "x": 540, "y": 560, "params": { "operator": "==", "b": 0, "semantic": "play the goal event only before the win state is recorded" } },
-            { "id": "goal_sound", "type": "action_sound", "label": "Goal Sound", "x": 720, "y": 540, "params": { "sfx": "goal_sound" } },
-            { "id": "mark_goal", "type": "var_set", "label": "Record Objective Complete", "x": 900, "y": 540, "params": { "var_name": "goal_reached", "value": 1, "semantic": "persistent win condition set by the separate objective sensor" } }
+            { "id": "music", "type": "action_music", "label": "Play Theme", "x": 320, "y": 0, "params": { "action": "play", "track": "reference_theme", "fade_ms": 0 } },
+            { "id": "update_right", "type": "event_update", "label": "Update Right", "x": 0, "y": 304, "params": {} },
+            { "id": "right", "type": "input_held", "label": "Hold Right", "x": 320, "y": 304, "params": { "pad": "JOY_1", "button": "BUTTON_RIGHT" } },
+            { "id": "passage_collision", "type": "condition_overlap", "label": "Would Enter Passage (Right)", "x": 640, "y": 304, "params": { "passage_id": "passage_main", "passage_role": "gate", "a": "player", "b": "passage_blocker", "probe_dx": 2, "probe_dy": 0, "semantic": "moving right would enter the passage blocker AABB; an already-overlapping player may move out" } },
+            { "id": "passage_open_value", "type": "var_get", "label": "Read Passage State", "x": 640, "y": 572, "params": { "passage_id": "passage_main", "passage_role": "open_get", "var_name": "goal_open" } },
+            { "id": "passage_open", "type": "condition_compare", "label": "Passage Is Open", "x": 960, "y": 438, "params": { "passage_id": "passage_main", "passage_role": "open_check", "operator": "==", "b": 1 } },
+            { "id": "move_right", "type": "sprite_move", "label": "Move Right", "x": 1280, "y": 371, "params": { "target": "player", "dx": 2, "dy": 0 } },
+            { "id": "update_left", "type": "event_update", "label": "Update Left", "x": 0, "y": 876, "params": {} },
+            { "id": "left", "type": "input_held", "label": "Hold Left", "x": 320, "y": 876, "params": { "pad": "JOY_1", "button": "BUTTON_LEFT" } },
+            { "id": "passage_collision_left", "type": "condition_overlap", "label": "Would Enter Passage (Left)", "x": 640, "y": 876, "params": { "passage_id": "passage_main", "passage_role": "gate", "a": "player", "b": "passage_blocker", "probe_dx": -2, "probe_dy": 0, "semantic": "moving left would enter the passage blocker AABB" } },
+            { "id": "passage_open_left_value", "type": "var_get", "label": "Read Passage State (Left)", "x": 640, "y": 1144, "params": { "passage_id": "passage_main", "passage_role": "open_get", "var_name": "goal_open" } },
+            { "id": "passage_open_left", "type": "condition_compare", "label": "Passage Is Open (Left)", "x": 960, "y": 1010, "params": { "passage_id": "passage_main", "passage_role": "open_check", "operator": "==", "b": 1 } },
+            { "id": "move_left", "type": "sprite_move", "label": "Move Left", "x": 1280, "y": 943, "params": { "target": "player", "dx": -2, "dy": 0 } },
+            { "id": "update_jump", "type": "event_update", "label": "Update Jump", "x": 0, "y": 1448, "params": {} },
+            { "id": "jump", "type": "input_pressed", "label": "Press A", "x": 320, "y": 1448, "params": { "pad": "JOY_1", "button": "BUTTON_A" } },
+            { "id": "jump_velocity", "type": "set_velocity", "label": "Jump", "x": 640, "y": 1448, "params": { "target": "player", "vx": 0, "vy": -64 } },
+            { "id": "jump_sound", "type": "action_sound", "label": "Jump Sound", "x": 960, "y": 1448, "params": { "sfx": "jump" } },
+            { "id": "update_score", "type": "event_update", "label": "Update Score", "x": 0, "y": 1752, "params": {} },
+            { "id": "score_input", "type": "input_held", "label": "Score Right Input", "x": 320, "y": 1752, "params": { "pad": "JOY_1", "button": "BUTTON_RIGHT" } },
+            { "id": "score_get", "type": "var_get", "label": "Read Reference Score", "x": 0, "y": 2020, "params": { "var_name": "reference_score", "semantic": "current score accumulated from real right input" } },
+            { "id": "score_add", "type": "logic_math", "label": "Add One Point", "x": 320, "y": 2020, "params": { "operator": "+", "b": 1, "semantic": "one point per consumed right-input frame" } },
+            { "id": "score_set", "type": "var_set", "label": "Write Reference Score", "x": 640, "y": 1886, "params": { "var_name": "reference_score", "value": 0 } },
+            { "id": "score_threshold_get", "type": "var_get", "label": "Read Updated Score", "x": 640, "y": 2154, "params": { "passage_id": "passage_main", "passage_role": "rule_score_get", "var_name": "reference_score", "semantic": "read the stored post-increment value; do not add again" } },
+            { "id": "score_threshold", "type": "condition_compare", "label": "Score Opens Passage", "x": 960, "y": 2020, "params": { "passage_id": "passage_main", "passage_role": "rule", "operator": ">=", "b": 6, "authoring_origin": "authored_builtin_reference_platformer", "semantic": "reference_score >= threshold opens the goal passage", "source_path": "graphs/reference_platformer_logic.json", "source_line": 24 } },
+            { "id": "open_goal", "type": "var_set", "label": "Mark Passage Open", "x": 1280, "y": 2020, "params": { "passage_id": "passage_main", "passage_role": "open_set", "var_name": "goal_open", "value": 1, "semantic": "the threshold opens the passage blocker and enables movement through its AABB" } },
+            { "id": "hide_goal", "type": "destroy_entity", "label": "Hide Passage Blocker", "x": 1600, "y": 2020, "params": { "passage_id": "passage_main", "passage_role": "hide", "target": "passage_blocker", "semantic": "hide only the passage blocker after collision gating allows traversal" } },
+            { "id": "close_goal", "type": "var_set", "label": "Keep Passage Closed", "x": 1280, "y": 2288, "params": { "passage_id": "passage_main", "passage_role": "close_set", "var_name": "goal_open", "value": 0, "semantic": "the false branch preserves the visible passage blocker" } },
+            { "id": "update_goal", "type": "event_update", "label": "Update Goal", "x": 0, "y": 2592, "params": {} },
+            { "id": "goal_overlap", "type": "condition_overlap", "label": "Reach Goal Sensor", "x": 320, "y": 2592, "params": { "a": "player", "b": "goal_sensor" } },
+            { "id": "goal_state_get", "type": "var_get", "label": "Read Win State", "x": 320, "y": 2860, "params": { "var_name": "goal_reached" } },
+            { "id": "goal_not_reached", "type": "condition_compare", "label": "First Goal Contact", "x": 640, "y": 2726, "params": { "operator": "==", "b": 0, "semantic": "play the goal event only before the win state is recorded" } },
+            { "id": "goal_sound", "type": "action_sound", "label": "Goal Sound", "x": 960, "y": 2726, "params": { "sfx": "goal_sound" } },
+            { "id": "mark_goal", "type": "var_set", "label": "Record Objective Complete", "x": 1280, "y": 2726, "params": { "var_name": "goal_reached", "value": 1, "semantic": "persistent win condition set by the separate objective sensor" } }
         ],
+        "groups": [{"id":"reference_music","label":"Música","nodeIds":["start","music"],"collapsed":false},{"id":"reference_right","label":"Mover à direita","nodeIds":["update_right","right","passage_collision","passage_open_value","passage_open","move_right"],"collapsed":false},{"id":"reference_left","label":"Mover à esquerda","nodeIds":["update_left","left","passage_collision_left","passage_open_left_value","passage_open_left","move_left"],"collapsed":false},{"id":"reference_jump","label":"Salto","nodeIds":["update_jump","jump","jump_velocity","jump_sound"],"collapsed":false},{"id":"reference_score","label":"Pontos e passagem","nodeIds":["update_score","score_input","score_get","score_add","score_set","score_threshold_get","score_threshold","open_goal","hide_goal","close_goal"],"collapsed":false},{"id":"reference_goal","label":"Objetivo","nodeIds":["update_goal","goal_overlap","goal_state_get","goal_not_reached","goal_sound","mark_goal"],"collapsed":false}],
         "edges": [
             { "id": "start_music", "fromNode": "start", "fromPort": "exec", "toNode": "music", "toPort": "exec" },
             { "id": "right_input", "fromNode": "update_right", "fromPort": "exec", "toNode": "right", "toPort": "exec" },
@@ -21167,6 +21174,44 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
         );
         let _ = fs::remove_dir_all(&donor_dir);
         let _ = fs::remove_dir_all(&project_dir);
+    }
+
+    #[test]
+    fn sgdk_staging_shelf_never_overlaps_sprites_of_different_sizes() {
+        let mut entities: Vec<Entity> = (0..12)
+            .map(|index| {
+                let mut entity: Entity = serde_json::from_value(serde_json::json!({
+                    "entity_id": format!("spr_{index}"),
+                    "transform": { "x": 32, "y": 32 },
+                    "components": { "sprite": {
+                        "asset": format!("assets/sprites/{index}.png"),
+                        "frame_width": if index % 3 == 0 { 64 } else { 24 },
+                        "frame_height": if index % 3 == 0 { 104 } else { 24 }
+                    } }
+                }))
+                .expect("entity");
+                entity.display_name = None;
+                entity
+            })
+            .collect();
+        assert_eq!(apply_sgdk_authoring_staging_layout(&mut entities), 12);
+        let rect = |e: &Entity| {
+            let s = e.components.sprite.as_ref().expect("sprite");
+            (
+                e.transform.x,
+                e.transform.y,
+                s.frame_width as i32,
+                s.frame_height as i32,
+            )
+        };
+        for (i, a) in entities.iter().enumerate() {
+            for b in entities.iter().skip(i + 1) {
+                let (ax, ay, aw, ah) = rect(a);
+                let (bx, by, bw, bh) = rect(b);
+                let overlap = ax < bx + bw && bx < ax + aw && ay < by + bh && by < ay + ah;
+                assert!(!overlap, "{} cobre {}", a.entity_id, b.entity_id);
+            }
+        }
     }
 
     #[test]

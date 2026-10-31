@@ -189,8 +189,8 @@ function DeliveryReview({ onClose }: { onClose: () => void }) {
           não a lógica C nem alterações externas desde o build. Recompile após editar arquivos fora do Studio.
         </p> : null}
         <div className="grid grid-cols-3 gap-2 px-4 py-3">
-          <div data-testid="delivery-errors" data-count={review.errors} className="rounded border border-[#f38ba8]/50 p-2">
-            <p className="text-base font-semibold text-[#f38ba8]">✖ {review.errors} erro(s)</p>
+          <div data-testid="delivery-errors" data-count={review.errors} className={`rounded border p-2 ${review.errors > 0 ? "border-[#f38ba8]/50" : "border-[#a6e3a1]/50"}`}>
+            <p className={`text-base font-semibold ${review.errors > 0 ? "text-[#f38ba8]" : "text-[#a6e3a1]"}`}>{review.errors > 0 ? "✖" : "✓"} {review.errors} erro(s)</p>
             <p className="text-[#a6adc8]">Impedem a exportação</p>
           </div>
           <div data-testid="delivery-warnings" data-count={review.warnings} className="rounded border border-[#fbbf24]/50 p-2">

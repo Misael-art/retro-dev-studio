@@ -14940,7 +14940,14 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
   const shot = async (name, label) => addReportArtifact(report, await captureScreenshot(sessionId, `${artifactPrefix}-${name}.png`), label);
   const state = () => readAutomationState(sessionId);
   const js = (script, args = []) => executeScript(sessionId, script, args);
-  const click = (testId, label = testId) => clickButtonByTestIdNative(sessionId, testId, label);
+  const revealAction = async (testId) => {
+    const state = await js(`const el = document.querySelector('[data-testid="' + arguments[0] + '"]'); const menu = document.querySelector('[data-testid="nodegraph-visual-tools"]'); return menu ? { inside: Boolean(el && menu.contains(el)), open: menu.matches(':popover-open') } : null;`, [testId]);
+    if (state && state.inside !== state.open) await clickButtonByTestIdNative(sessionId, "nodegraph-more-actions", "mais acoes do grafo");
+  };
+  const click = async (testId, label = testId) => {
+    await revealAction(testId);
+    return clickButtonByTestIdNative(sessionId, testId, label);
+  };
   const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const selectOption = async (testId, value) => {
     await js(`document.querySelector('[data-testid="' + arguments[0] + '"]')?.scrollIntoView({ block: "center", inline: "center" });`, [testId]);
@@ -15005,7 +15012,10 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
     if (g.maxDeviation > 2) fail(`${label}: fio fora da porta (${g.maxDeviation.toFixed(2)} px): ${JSON.stringify(g.worst)}`);
   };
   const assertReachable = async (testIds, label) => {
-    const result = await js(`
+    const result = [];
+    for (const testId of testIds) {
+      await revealAction(testId);
+      result.push(...await js(`
       return arguments[0].map((id) => {
         const el = document.querySelector('[data-testid="' + id + '"]');
         if (!el) return { id, ok: false, reason: "ausente" };
@@ -15016,7 +15026,9 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
         const hit = document.elementFromPoint(cx, cy);
         return { id, ok: inside && Boolean(hit && (hit === el || el.contains(hit))), inside, hit: hit?.getAttribute?.("data-testid") ?? hit?.tagName };
       });
-    `, [testIds]);
+    `, [[testId]]));
+    }
+    await revealAction("nodegraph-more-actions");
     const bad = result.filter((entry) => !entry.ok);
     if (bad.length) fail(`${label}: controles inacessiveis/cobertos: ${JSON.stringify(bad)}`);
     return result;
@@ -15061,6 +15073,42 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
   const positionsShipped = await worldPositions();
   await shot("01-before-organize", "grafo como entregue pelo template (enquadrado)");
   addReportStep(report, "graph_before_organize", "passed", { geometry: before });
+
+  // Inserção não exige organizar todo o grafo e precisa funcionar fora da vista inicial.
+  const insertionLayouts = [];
+  for (const [width, height] of [[1280, 800], [1366, 768], [949, 593]]) {
+    await setSessionWindowRect(sessionId, width, height);
+    const previousPositions = await worldPositions();
+    const previousEdges = await js(`return document.querySelectorAll('path[data-from-node]').length;`);
+    await click("nodegraph-fit-view", "visao geral antes de inserir");
+    await js(`const shell = document.querySelector('[data-testid="nodegraph-canvas-shell"]'); const r = shell.getBoundingClientRect(); shell.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: r.left + 150, clientY: r.top + 120, deltaY: 1500 }));`);
+    if (await js(`return document.querySelector('[data-testid="nodegraph-side-rail"]').hidden;`)) {
+      await clickElement(sessionId, await findElement(sessionId, '[data-testid="nodegraph-toolbar"] button:first-child'));
+    }
+    await click("nodegraph-add-event_start", "inserir primeiro no");
+    await click("nodegraph-add-event_start", "inserir segundo no");
+    const insertion = await js(`
+      const cards = [...document.querySelectorAll('[data-testid^="node-card-"]')];
+      const original = arguments[0];
+      const added = cards.filter(el => !(el.dataset.testid.slice(10) in original));
+      const overlaps = [];
+      for (const a of added) for (const b of cards.filter(el => el !== a)) {
+        const x = Number(a.dataset.x), y = Number(a.dataset.y), bx = Number(b.dataset.x), by = Number(b.dataset.y);
+        if (x < bx + b.offsetWidth && bx < x + a.offsetWidth && y < by + b.offsetHeight && by < y + a.offsetHeight) overlaps.push([a.dataset.testid, b.dataset.testid]);
+      }
+      const selected = added.find(el => el.dataset.selected === "true");
+      const r = selected?.getBoundingClientRect(), c = document.querySelector('[data-testid="nodegraph-canvas"]').getBoundingClientRect();
+      return { added: added.length, overlaps, zoom: Number(document.querySelector('[data-testid="nodegraph-canvas"]').dataset.zoom), visible: r && r.left >= c.left && r.right <= c.right + 1 && r.top >= c.top + 54 && r.bottom <= c.bottom + 1, uncovered: r && selected.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)) };
+    `, [previousPositions]);
+    if (insertion.added !== 2 || insertion.overlaps.length || insertion.zoom < 0.75 || !insertion.visible || !insertion.uncovered) fail(`Insercao ${width}x${height}: ${JSON.stringify(insertion)}`);
+    await click("nodegraph-undo", "desfazer segundo no");
+    await click("nodegraph-undo", "desfazer primeiro no");
+    if (JSON.stringify(await worldPositions()) !== JSON.stringify(previousPositions) || await js(`return document.querySelectorAll('path[data-from-node]').length;`) !== previousEdges) fail("Inserir/desfazer alterou posicoes ou conexoes existentes.");
+    insertionLayouts.push({ width, height, ...insertion });
+  }
+  addReportStep(report, "insertion_focus", "passed", insertionLayouts);
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  if (await js(`return document.querySelector('[data-testid="nodegraph-context-rail"]').hidden;`)) await click("nodegraph-toggle-context", "abrir comportamentos e detalhes");
 
   // 3. Locate and understand the jump from the rules view.
   const jumpRuleText = await text("rule-update_jump");
@@ -15147,7 +15195,7 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
   const selection = await text("nodegraph-selection-count");
   if (!selection?.startsWith("4 selecionado")) fail(`Comportamento do pulo nao tem 4 nos: ${selection}`);
   await click("nodegraph-group-selection", "agrupar");
-  const groupId = await waitFor(async () => js(`return document.querySelector('[data-testid^="nodegraph-group-name-"]')?.dataset.testid.replace("nodegraph-group-name-", "") ?? null;`), 5000, "Grupo nao criado.", 100);
+  const groupId = await waitFor(async () => js(`return [...document.querySelectorAll('[data-testid^="nodegraph-group-name-"]')].find(el => el.value === "Pulo")?.dataset.testid.replace("nodegraph-group-name-", "") ?? null;`), 5000, "Grupo nao criado.", 100);
   if ((await value(`nodegraph-group-name-${groupId}`)) !== "Pulo") fail("Nome sugerido do grupo nao e 'Pulo'.");
   await setInputByTestIdNative(sessionId, `nodegraph-group-name-${groupId}`, "Pulo (botao B)");
   await waitFor(async () => (await value(`nodegraph-group-name-${groupId}`)) === "Pulo (botao B)", 5000, "Grupo nao renomeado.", 100);
@@ -15157,6 +15205,10 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
   addReportStep(report, "group_behavior", "passed", { groupId, selection });
 
   // 9. Sizes and scales: controls reachable, no overlaps, wires on ports (also zoomed in).
+  // A edição conserva escala legível: o grupo recolhido não expõe portas.
+  // Revele um fluxo conectado antes de exigir uma medição de fios visíveis.
+  await click("nodegraph-toggle-minimap", "abrir mapa para medir fluxo conectado");
+  await click("nodegraph-minimap-node-start", "revelar entrada conectada");
   const layouts = {};
   layouts["1920x1080"] = { reach: await assertReachable(toolbar, "1920x1080"), geometry: await geometry("1920x1080") };
   await setSessionWindowRect(sessionId, 1366, 768);
@@ -15204,7 +15256,7 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
     jumpPosition: [node(saved, "jump")?.x, node(saved, "jump")?.y],
   };
   if (savedChecks.jumpButton !== "BUTTON_B" || savedChecks.mainThreshold !== 12 || savedChecks.secondThreshold !== 60 || savedChecks.goalSfx !== "victory" ||
-      savedChecks.groups?.[0]?.label !== "Pulo (botao B)" || savedChecks.groups?.[0]?.collapsed !== true ||
+      savedChecks.groups?.find(group => group.id === groupId)?.label !== "Pulo (botao B)" || savedChecks.groups?.find(group => group.id === groupId)?.collapsed !== true ||
       savedChecks.jumpPosition.join() !== positionsOrganized.jump.join()) {
     fail(`Arquivo salvo nao reflete as edicoes: ${JSON.stringify(savedChecks)}`);
   }
@@ -15249,7 +15301,7 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
       mainThreshold: await value("passage-passage_main-threshold"),
       secondThreshold: await value("passage-passage_2-threshold"),
       sound: await value("rule-edit-goal_sound-sfx"),
-      group: await js(`const el = document.querySelector('[data-testid^="nodegraph-group-box-"]'); return el ? { collapsed: el.dataset.collapsed, label: el.textContent } : null;`),
+      group: await js(`const el = document.querySelector('[data-testid="nodegraph-group-box-' + arguments[0] + '"]'); return el ? { collapsed: el.dataset.collapsed, label: el.textContent } : null;`, [groupId]),
       positions: await worldPositions(),
     };
     return v.jumpRule ? v : false;

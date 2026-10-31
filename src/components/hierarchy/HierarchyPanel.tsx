@@ -774,6 +774,24 @@ export default function HierarchyPanel({
           {/* Entities (grouped by type) */}
           {entityGroups.map((group) => {
             const isCollapsed = collapsedGroups.has(group.type);
+            // Selos iguais em todo o grupo viram um resumo único no cabeçalho, em vez de 60 repetições.
+            const uniform = (values: (string | null | undefined)[]) =>
+              group.entities.length > 1 && values.every((v) => v && v === values[0]) ? (values[0] as string) : null;
+            const contexts = group.entities.map((e) => resolveImportedEntityContext(e));
+            const sharedRole = uniform(contexts.map((c) => c.roleLabel));
+            const sharedConfidence = uniform(contexts.map((c) => c.confidenceLabel));
+            const sharedPosition = uniform(contexts.map((c) => c.positionMode));
+            const sharedLogic = uniform(group.entities.map((e) => {
+              const signal = getEntityLogicImportSignal(e);
+              return signal.status === "none" ? null : signal.label;
+            }));
+            const sharedSummary = [
+              sharedRole ? "importados" : null,
+              sharedConfidence?.toLowerCase(),
+              sharedLogic ? sharedLogic.toLowerCase() : null,
+              sharedPosition === "staging" ? "na prateleira de importação" : sharedPosition === "donor" ? "na posição original" : null,
+            ].filter(Boolean).join(" · ");
+            const hiddenPill = "sr-only";
             return (
               <li key={`group::${group.type}`}>
                 <button
@@ -786,6 +804,11 @@ export default function HierarchyPanel({
                   <span>{GROUP_LABELS[group.type] ?? group.type}</span>
                   <span className="ml-auto font-mono text-[#45475a]">{group.entities.length}</span>
                 </button>
+                {!isCollapsed && sharedSummary ? (
+                  <p data-testid={`hierarchy-group-summary-${group.type}`} className="px-6 pb-1 text-[9px] normal-case text-[#7f849c]">
+                    Todos: {sharedSummary}
+                  </p>
+                ) : null}
                 {!isCollapsed && (
                   <ul>
                     {group.entities.map((entity) => {
@@ -817,7 +840,7 @@ export default function HierarchyPanel({
                           {importedContext.roleLabel ? (
                             <span
                               data-testid={`hierarchy-imported-role-${entity.entity_id}`}
-                              className={`rounded-full border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] ${importedRoleBadgeClass(importedContext.roleLabel)}`}
+                              className={sharedRole ? hiddenPill : `rounded-full border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] ${importedRoleBadgeClass(importedContext.roleLabel)}`}
                               title={[
                                 importedContext.roleLabel,
                                 importedContext.detail ?? importedContext.summary,
@@ -830,7 +853,7 @@ export default function HierarchyPanel({
                           ) : null}
                           {importedContext.confidenceLabel ? (
                             <span
-                              className="rounded-full border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-[#94a3b8]"
+                              className={sharedConfidence ? hiddenPill : "rounded-full border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-[#94a3b8]"}
                               title={importedContext.reason ?? undefined}
                             >
                               {importedContext.confidenceLabel}
@@ -844,7 +867,7 @@ export default function HierarchyPanel({
                           {logicImportSignal.status !== "none" ? (
                             <span
                               data-testid={`hierarchy-logic-signal-${entity.entity_id}`}
-                              className={[
+                              className={sharedLogic ? hiddenPill : [
                                 "rounded-full border px-1.5 py-0.5 text-[8px] font-semibold",
                                 logicImportSignal.status === "functional"
                                   ? "border-[#a6e3a1]/35 bg-[#a6e3a1]/10 text-[#a6e3a1]"
@@ -859,7 +882,7 @@ export default function HierarchyPanel({
                           ) : null}
                           {importedContext.positionLabel ? (
                             <span
-                              className={`rounded-full border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] ${
+                              className={sharedPosition ? hiddenPill : `rounded-full border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] ${
                                 importedContext.positionMode === "donor"
                                   ? "border-[#a6e3a1]/35 bg-[#a6e3a1]/10 text-[#a6e3a1]"
                                   : importedContext.positionMode === "staging"

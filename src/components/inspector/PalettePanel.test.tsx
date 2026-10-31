@@ -124,6 +124,8 @@ describe("PaletteSummary", () => {
 
   it("palette map counts used slots per bank, filters banks and marks each object", async () => {
     await render(<PaletteSummary />);
+    expect(q("palette-map")).toBeNull();
+    await act(async () => q("palette-summary")!.click());
     const plan = usePalettePlanStore.getState().plan!;
     for (const bank of plan.banks) {
       const used = bank.colors.slice(1).filter(Boolean).length;

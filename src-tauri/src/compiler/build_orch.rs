@@ -1743,11 +1743,10 @@ fn stage_project_assets(
 
         let pages = sprite_resource_pages(asset);
         if pages.len() > 1 {
-            let source_image = image::open(&source)
-                .map_err(|e| format!("Falha ao ler '{}': {e}", source.display()))?;
+            let (source_image, seed) = open_sgdk_sprite_image(&source)?;
             // A single palette, in logical row/raster order, for every physical
             // page. Independently indexing each page would recolor animations.
-            let (palette, _, _) = sprite_page_palette(&source_image, &pages)?;
+            let (palette, _, _) = sprite_page_palette(&source_image, &pages, seed)?;
             for page in &pages {
                 if !names.insert(page.resource_name.clone()) {
                     return Err(format!(
@@ -1980,12 +1979,10 @@ fn stage_sgdk_sprite_asset(
 ) -> Result<(), String> {
     let frame_width = asset.frame_width.max(8);
     let frame_height = asset.frame_height.max(8);
-    let image = image::open(source).map_err(|e| {
+    let (image, mut seed) = open_sgdk_sprite_image(source).map_err(|e| {
         format!(
-            "Falha ao ler asset SGDK sprite '{}' para recurso '{}': {}",
-            source.display(),
-            asset.resource_name,
-            e
+            "Falha ao ler asset SGDK sprite para recurso '{}': {}",
+            asset.resource_name, e
         )
     })?;
     let image = arrange_sgdk_animation_rows(&image, asset)?;
@@ -1994,13 +1991,16 @@ fn stage_sgdk_sprite_asset(
     let canvas_width = round_up_to_multiple(width, frame_width).max(frame_width);
     let canvas_height = round_up_to_multiple(height, frame_height).max(frame_height);
 
-    write_indexed_bmp_8bit_with_canvas_palette_limit(
+    index_image_with_palette(
         &image,
-        destination,
         canvas_width,
         canvas_height,
         16,
+        &mut seed,
+        &mut Default::default(),
+        true,
     )
+    .and_then(|indexed| write_indexed_bmp_data(indexed, destination, canvas_width, canvas_height))
     .map_err(|e| {
         format!(
             "Falha ao converter asset SGDK sprite '{}' para '{}' (frame {}x{}, canvas {}x{}): {}",
@@ -2305,11 +2305,66 @@ fn index_image_with_palette(
     })
 }
 
+/// Paleta embutida (PLTE) de um PNG indexado com 2..=16 entradas, como o SGDK a usa: o indice 0
+/// e a transparencia e a ordem das cores e preservada. `None` para PNG nao indexado, com mais
+/// de 16 entradas ou com a cor do indice 0 repetida (ambiguidade: cai na indexacao por aparicao).
+pub(crate) fn indexed_png_palette(path: &Path) -> Option<Vec<[u8; 3]>> {
+    let bytes = fs::read(path).ok()?;
+    if bytes.len() < 8 || &bytes[..8] != b"\x89PNG\r\n\x1a\n" {
+        return None;
+    }
+    let mut offset = 8usize;
+    let mut indexed = false;
+    while offset + 8 <= bytes.len() {
+        let length = u32::from_be_bytes(bytes[offset..offset + 4].try_into().ok()?) as usize;
+        let kind = &bytes[offset + 4..offset + 8];
+        let data = bytes.get(offset + 8..offset + 8 + length)?;
+        match kind {
+            b"IHDR" => indexed = data.get(9) == Some(&3),
+            b"PLTE" if indexed => {
+                let colors: Vec<[u8; 3]> =
+                    data.chunks_exact(3).map(|c| [c[0], c[1], c[2]]).collect();
+                let key = *colors.first()?;
+                let ok = (2..=16).contains(&colors.len()) && !colors[1..].contains(&key);
+                return ok.then_some(colors);
+            }
+            b"IDAT" | b"IEND" => return None,
+            _ => {}
+        }
+        offset += 12 + length;
+    }
+    None
+}
+
+/// Abre um asset de sprite. Se for PNG indexado (ver `indexed_png_palette`), os pixels da cor do
+/// indice 0 viram transparentes e a paleta-semente preserva a ordem do arquivo; senao, a paleta
+/// comeca so com a transparencia (ordem de primeira aparicao).
+pub(crate) fn open_sgdk_sprite_image(
+    path: &Path,
+) -> Result<(image::DynamicImage, Vec<[u8; 4]>), String> {
+    let image =
+        image::open(path).map_err(|e| format!("Falha ao ler '{}': {}", path.display(), e))?;
+    let Some(plte) = indexed_png_palette(path) else {
+        return Ok((image, vec![[0, 0, 0, 0]]));
+    };
+    let key = plte[0];
+    let mut rgba = image.to_rgba8();
+    for pixel in rgba.pixels_mut() {
+        if pixel[0] == key[0] && pixel[1] == key[1] && pixel[2] == key[2] {
+            pixel[3] = 0;
+        }
+    }
+    let mut seed = vec![[0, 0, 0, 0]];
+    seed.extend(plte[1..].iter().map(|c| [c[2], c[1], c[0], 0]));
+    Ok((image::DynamicImage::ImageRgba8(rgba), seed))
+}
+
 fn sprite_page_palette(
     source: &image::DynamicImage,
     pages: &[SpriteAsset],
+    seed: Vec<[u8; 4]>,
 ) -> Result<(Vec<[u8; 4]>, usize, usize), String> {
-    let mut palette = vec![[0, 0, 0, 0]];
+    let mut palette = seed;
     let mut distinct = Default::default();
     let mut quantized = 0;
     for page in pages {
@@ -2337,13 +2392,19 @@ pub(crate) fn sgdk_asset_palette(
 ) -> Result<(Vec<[u8; 3]>, usize, usize), String> {
     let rel = sanitize_relative_asset_path(asset_path)?;
     let source = project_dir.join(rel);
-    let image =
-        image::open(&source).map_err(|e| format!("Falha ao ler '{}': {}", source.display(), e))?;
+    let (image, mut seed) = match sprite {
+        Some(_) => open_sgdk_sprite_image(&source)?,
+        None => (
+            image::open(&source)
+                .map_err(|e| format!("Falha ao ler '{}': {}", source.display(), e))?,
+            vec![[0, 0, 0, 0]],
+        ),
+    };
     let (image, w, h) = match sprite {
         Some(asset) => {
             let pages = sprite_resource_pages(asset);
             if pages.len() > 1 {
-                let (palette, quantized, colors) = sprite_page_palette(&image, &pages)?;
+                let (palette, quantized, colors) = sprite_page_palette(&image, &pages, seed)?;
                 return Ok((
                     palette.iter().map(|c| [c[2], c[1], c[0]]).collect(),
                     quantized,
@@ -2362,7 +2423,8 @@ pub(crate) fn sgdk_asset_palette(
             (image, w, h)
         }
     };
-    let indexed = index_image(&image, w, h, 16)?;
+    let indexed =
+        index_image_with_palette(&image, w, h, 16, &mut seed, &mut Default::default(), true)?;
     Ok((
         indexed
             .palette_bgr0
@@ -3648,6 +3710,93 @@ mod tests {
         std::fs::remove_file(destination).unwrap();
     }
     use super::*;
+
+    /// PNG indexado de 4x1 (8 bits/pixel), PLTE dado, sem compressao (deflate "stored").
+    fn indexed_png(plte: &[[u8; 3]], pixels: &[u8]) -> Vec<u8> {
+        fn crc32(data: &[u8]) -> u32 {
+            let mut crc = 0xFFFF_FFFFu32;
+            for byte in data {
+                crc ^= u32::from(*byte);
+                for _ in 0..8 {
+                    crc = if crc & 1 != 0 {
+                        (crc >> 1) ^ 0xEDB8_8320
+                    } else {
+                        crc >> 1
+                    };
+                }
+            }
+            !crc
+        }
+        fn chunk(out: &mut Vec<u8>, kind: &[u8], data: &[u8]) {
+            out.extend_from_slice(&(data.len() as u32).to_be_bytes());
+            let mut body = kind.to_vec();
+            body.extend_from_slice(data);
+            out.extend_from_slice(&body);
+            out.extend_from_slice(&crc32(&body).to_be_bytes());
+        }
+        let mut raw = vec![0u8];
+        raw.extend_from_slice(pixels);
+        let (mut a, mut b) = (1u32, 0u32);
+        for byte in &raw {
+            a = (a + u32::from(*byte)) % 65521;
+            b = (b + a) % 65521;
+        }
+        let mut zlib = vec![0x78, 0x01, 0x01];
+        zlib.extend_from_slice(&(raw.len() as u16).to_le_bytes());
+        zlib.extend_from_slice(&(!(raw.len() as u16)).to_le_bytes());
+        zlib.extend_from_slice(&raw);
+        zlib.extend_from_slice(&((b << 16) | a).to_be_bytes());
+        let mut out = b"\x89PNG\r\n\x1a\n".to_vec();
+        let mut ihdr = (pixels.len() as u32).to_be_bytes().to_vec();
+        ihdr.extend_from_slice(&1u32.to_be_bytes());
+        ihdr.extend_from_slice(&[8, 3, 0, 0, 0]);
+        chunk(&mut out, b"IHDR", &ihdr);
+        chunk(&mut out, b"PLTE", &plte.concat());
+        chunk(&mut out, b"IDAT", &zlib);
+        chunk(&mut out, b"IEND", &[]);
+        out
+    }
+
+    #[test]
+    fn indexed_png_keeps_file_palette_order_and_index_zero_is_transparent() {
+        let dir = std::env::temp_dir().join(format!("rds-plte-{}", std::process::id()));
+        fs::create_dir_all(&dir).expect("dir");
+        // Magenta no indice 0 (chave), cores em ordem que difere da ordem de aparicao.
+        let plte = [[255, 0, 255], [10, 20, 30], [40, 50, 60], [70, 80, 90]];
+        let path = dir.join("frame.png");
+        fs::write(&path, indexed_png(&plte, &[3, 0, 1, 3])).expect("png");
+        assert_eq!(indexed_png_palette(&path), Some(plte.to_vec()));
+        let (colors, quantized, distinct) = sgdk_asset_palette(&dir, "frame.png", None)
+            .map(|_| ())
+            .and_then(|_| {
+                let (image, mut seed) = open_sgdk_sprite_image(&path)?;
+                let indexed = index_image_with_palette(
+                    &image,
+                    4,
+                    1,
+                    16,
+                    &mut seed,
+                    &mut Default::default(),
+                    true,
+                )?;
+                assert_eq!(
+                    indexed.indices,
+                    vec![3, 0, 1, 3],
+                    "indices do arquivo; magenta transparente"
+                );
+                Ok((
+                    indexed.palette_bgr0,
+                    indexed.quantized_pixels,
+                    indexed.source_colors,
+                ))
+            })
+            .expect("index");
+        assert_eq!(colors.len(), 4, "magenta nao vira cor visivel");
+        assert_eq!(colors[1], [30, 20, 10, 0]);
+        assert_eq!((quantized, distinct), (0, 2));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
     use crate::core::diagnostics::{ActionableDiagnostic, DiagnosticArea, DiagnosticSeverity};
     use crate::tools::photo2sgdk::import_art_asset_internal;
     use crate::ugdm::entities::{ProjectSettings, SaveRamConfig};
@@ -4171,7 +4320,7 @@ mod tests {
         let pages = sprite_resource_pages(&asset);
         assert_eq!(pages.len(), 2);
         let source = image::DynamicImage::new_rgba8(1, 1);
-        assert!(sprite_page_palette(&source, &pages)
+        assert!(sprite_page_palette(&source, &pages, vec![[0, 0, 0, 0]])
             .unwrap_err()
             .contains("64 megapixels"));
     }

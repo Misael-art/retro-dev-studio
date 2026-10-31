@@ -3,6 +3,7 @@ import AssetPreview from "../common/AssetPreview";
 import Panel from "../common/Panel";
 import SceneWorkspaceNotice from "../common/SceneWorkspaceNotice";
 import { useEditorStore } from "../../core/store/editorStore";
+import { useSceneAttentionStore } from "../../core/sceneAttentionStore";
 import ContextualPalette from "./ContextualPalette";
 import ToolPathField from "./ToolPathField";
 import { getEntityDisplayName } from "../../core/entityDisplay";
@@ -12,7 +13,7 @@ import { persistActiveScene } from "../../core/scenePersistence";
 import { resolveSceneWorkspaceContext } from "../../core/sceneWorkspaceContext";
 import { ExperimentalNotice, HeuristicNotice } from "./ToolNotices";
 import type { LegacySgdkIndex } from "../../core/ipc/sceneService";
-import { classifyImageAssetInstantiation, createEntityFromProjectAsset, getAssetInstantiationIssue } from "../../core/assetInstantiation";
+import { classifyImageAssetInstantiation, createEntityFromProjectAsset, getAssetInstantiationIssue, normalizeAssetRelativePath } from "../../core/assetInstantiation";
 import {
   buildMultiTarget,
   type BuildLogLine,
@@ -617,18 +618,26 @@ const ASSET_BROWSER_FILTERS: { id: AssetBrowserFilterId; label: string }[] = [
   { id: "over_budget", label: "Acima do orçamento" },
 ];
 
+/** Só a referência completa prova o vínculo; nomes finais iguais não bastam. */
+function assetPathMatches(relativePath: string, scenePath: string): boolean {
+  return normalizeAssetRelativePath(relativePath).replace(/^\.\//, "") === normalizeAssetRelativePath(scenePath).replace(/^\.\//, "");
+}
+
 function AssetTreeView({
   node,
   collapsed,
   onToggle,
   onSelect,
   depth,
+  highlightPath,
 }: {
   node: AssetTreeNode;
   collapsed: Set<string>;
   onToggle: (path: string) => void;
   onSelect: (asset: ProjectAssetEntry) => void;
   depth: number;
+  /** Asset usado pelo objeto selecionado na cena: destacado para mostrar a ligação. */
+  highlightPath?: string | null;
 }) {
   if (node.isDir) {
     const isCollapsed = collapsed.has(node.path);
@@ -655,6 +664,7 @@ function AssetTreeView({
               onToggle={onToggle}
               onSelect={onSelect}
               depth={node.name ? depth + 1 : depth}
+              highlightPath={highlightPath}
             />
           ))}
       </>
@@ -663,11 +673,15 @@ function AssetTreeView({
 
   const asset = node.asset!;
   const classification = classifyAssetBrowserAsset(asset);
+  const linked = Boolean(highlightPath) && assetPathMatches(asset.relative_path, highlightPath!);
   return (
     <button
       type="button"
       onClick={() => onSelect(asset)}
-      className="flex min-w-0 w-full items-center gap-2 rounded py-0.5 text-left text-[10px] text-[#cdd6f4] transition-colors hover:bg-[#313244]"
+      data-linked={linked || undefined}
+      className={`flex min-w-0 w-full items-center gap-2 rounded py-0.5 text-left text-[10px] text-[#cdd6f4] transition-colors hover:bg-[#313244] ${
+        linked ? "bg-[#89b4fa]/12 ring-1 ring-[#89b4fa]/60" : ""
+      }`}
       style={{ paddingLeft: `${depth * 12 + 4}px` }}
       title={asset.relative_path}
     >
@@ -688,6 +702,7 @@ function AssetTreeView({
         </span>
       )}
       <span className="min-w-0 truncate">{node.name}</span>
+      {linked ? <span className="shrink-0 text-[8px] text-[#89b4fa]">objeto selecionado</span> : null}
       <span className="ml-auto shrink-0 rounded bg-[#313244] px-1 py-0.5 text-[8px] uppercase text-[#7f849c]">
         {classification.typeLabel}
       </span>
@@ -776,6 +791,23 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
     [legacySections]
   );
   const hasAssetFilter = assetSearch.trim().length > 0 || activeFilters.size > 0;
+  const selectedEntityAsset = useEditorStore(
+    (s) => {
+      const entity = s.activeScene?.entities.find((e) => e.entity_id === s.selectedEntityId);
+      return entity?.components.sprite?.asset ?? entity?.components.tilemap?.tileset ?? null;
+    }
+  );
+  // "Ver no Asset Browser" (Inspector): abre a ficha do asset pedido, limpando filtros que o esconderiam.
+  const assetReveal = useSceneAttentionStore((s) => s.assetReveal);
+  useEffect(() => {
+    if (!assetReveal) return;
+    const asset = assets.find((candidate) => assetPathMatches(candidate.relative_path, assetReveal.path));
+    if (!asset) return;
+    setAssetSearch("");
+    setActiveFilters(new Set());
+    setViewMode("tree");
+    selectTreeAsset(asset);
+  }, [assetReveal, assets]);
 
   function toggleAssetFilter(filterId: AssetBrowserFilterId) {
     setActiveFilters((current) => {
@@ -1098,6 +1130,7 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
                   }
                 }}
                 depth={0}
+                highlightPath={selectedEntityAsset}
               />
             </div>
           )}

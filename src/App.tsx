@@ -4,6 +4,7 @@ import RomDropDecompile from "./components/tools/RomDropDecompile";
 import Icon, { type IconName } from "./components/common/Icon";
 import StudioAppearancePicker from "./components/common/StudioAppearancePicker";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { APP_COMMAND_EVENT } from "./core/sceneAttentionStore";
 import { dispatchGraphHistory } from "./core/nodegraph/graphHistory";
 import { open } from "@tauri-apps/plugin-dialog";
 import { MugenCompatibilityPanel } from "./components/common/MugenCompatibilityPanel";
@@ -605,9 +606,9 @@ function WorkspaceGuideCard({ guide }: { guide: WorkspaceGuide }) {
         expanded ? "py-2.5" : "py-1.5"
       }`}
     >
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className={`flex gap-2 ${expanded ? "flex-col lg:flex-row lg:items-center" : "items-center"} lg:justify-between`}>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#89b4fa]">
+          <p className={`${expanded ? "block" : "hidden"} text-[10px] font-semibold uppercase tracking-[0.22em] text-[#89b4fa]`}>
             {guide.eyebrow}
           </p>
           <h2
@@ -632,7 +633,7 @@ function WorkspaceGuideCard({ guide }: { guide: WorkspaceGuide }) {
               ))}
             </div>
           ) : null}
-          {guide.signal ? (
+          {guide.signal && (expanded || guide.signal.tone === "warn" || guide.signal.tone === "error") ? (
             <div
               data-testid="workspace-guide-signal"
               className={`mt-2 inline-flex max-w-full items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${signalToneClass}`}
@@ -831,10 +832,16 @@ function SgdkImportSummaryCard({ summary }: { summary: SgdkImportSummary }) {
     <section
       data-testid="sgdk-import-summary"
       title={`Resumo SGDK Logic — ${formatSgdkImportSummaryKind(summary)}`}
-      className="mx-3 mt-3 rounded border border-[#89b4fa]/30 bg-[#0b1020] p-3 text-[10px] text-[#94a3b8]"
+      className="mx-3 mt-1 rounded border border-[#313244] bg-transparent px-2 py-0.5 text-[10px] text-[#94a3b8]"
     >
       <details open={Boolean(summary.blocking_gaps?.length)}>
-      <summary className="cursor-pointer text-xs font-semibold text-[#cdd6f4]">Detalhes da importação SGDK · Experimental · equivalência do jogo não certificada</summary>
+      <summary
+        className="cursor-pointer text-[10px] text-[#7f849c] hover:text-[#cdd6f4]"
+        title="Experimental: a equivalência com o jogo original não é certificada."
+      >
+        Relatório da importação <span className="text-[#585b70]">· Experimental</span>
+      </summary>
+      <p className="mt-1 text-[#fab387]">Experimental: a equivalência com o jogo original não é certificada.</p>
       <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#89b4fa]">
@@ -946,7 +953,7 @@ function ToolbarVramBudget({
         className="pointer-events-none flex h-7 min-w-[6.5rem] shrink-0 items-center gap-1 rounded border border-[#313244] bg-[#11111b] px-2"
         title="Projeto C nativo: a VRAM é alocada pelo código C e é medida no emulador enquanto o jogo roda."
       >
-        <span className="text-[10px] text-[#7f849c]">VRAM</span>
+        <span className="text-[10px] text-[#7f849c]" title="VRAM">Memória de vídeo</span>
         <span data-testid="toolbar-vram-budget-label" className="font-mono text-[#cdd6f4]">
           — / {Math.round(limit / 1024)} KB
         </span>
@@ -1001,10 +1008,10 @@ function ToolbarScanlineBudget({
   return (
     <div
       data-testid="toolbar-scanline-budget"
-      className="pointer-events-none hidden h-7 min-w-[5rem] shrink-0 items-center gap-1 rounded border border-[#313244] bg-[#11111b] px-2 2xl:flex"
+      className="pointer-events-none flex h-7 min-w-[5rem] shrink-0 items-center gap-1 rounded border border-[#313244] bg-[#11111b] px-2"
       title={`Sprites por scanline ${peak} / ${limit} (${percent}%)`}
     >
-      <span className="text-[10px] text-[#7f849c]">SL</span>
+      <span className="text-[10px] text-[#7f849c]" title="Sprites por scanline">Sprites por linha</span>
         <span data-testid="toolbar-scanline-budget-label" className="font-mono text-[#cdd6f4]">
           {peak} / {limit}
         </span>
@@ -1037,10 +1044,10 @@ function ToolbarPaletteBudget({
   return (
     <div
       data-testid="toolbar-palette-budget"
-      className="pointer-events-none hidden h-7 min-w-[4.5rem] shrink-0 items-center gap-1 rounded border border-[#313244] bg-[#11111b] px-2 2xl:flex"
+      className="pointer-events-none flex h-7 min-w-[4.5rem] shrink-0 items-center gap-1 rounded border border-[#313244] bg-[#11111b] px-2"
       title={`Bancos de paleta ${used} / ${limit} (${percent}%)`}
     >
-      <span className="text-[10px] text-[#7f849c]">PAL</span>
+      <span className="text-[10px] text-[#7f849c]" title="Bancos de paleta (PAL)">Paletas</span>
         <span data-testid="toolbar-palette-budget-label" className="font-mono text-[#cdd6f4]">
           {used} / {limit}
         </span>
@@ -2050,6 +2057,18 @@ export default function App() {
     if (commandId === "emulator.stop") return !emulatorLoaded;
     return false;
   }
+
+  // Painéis (ex.: "Próximos passos") pedem comandos canônicos sem acoplar ao shell.
+  const executeAppCommandRef = useRef<(commandId: string) => void>(() => {});
+  executeAppCommandRef.current = executeAppCommand;
+  useEffect(() => {
+    const onCommand = (event: Event) => {
+      const commandId = (event as CustomEvent<{ commandId?: string }>).detail?.commandId;
+      if (commandId) executeAppCommandRef.current(commandId);
+    };
+    window.addEventListener(APP_COMMAND_EVENT, onCommand);
+    return () => window.removeEventListener(APP_COMMAND_EVENT, onCommand);
+  }, []);
 
   function executeAppCommand(commandId: string) {
     if (isCommandDisabled(commandId)) {
@@ -3943,8 +3962,9 @@ export default function App() {
             }
           : buildWarningSummary
             ? {
+                // O detalhe já aparece, com ação, em "Próximos passos" no viewport; aqui só apontamos.
                 tone: "warn" as const,
-                label: buildWarningSummary,
+                label: "Pode compilar, mas há pontos de atenção — veja “Próximos passos” na cena.",
               }
             : emulatorLoaded && activeWorkspace === "game"
               ? {
@@ -5159,6 +5179,28 @@ export default function App() {
             <ToolbarButton icon="studio-art" label="Imagem" testId="toolbar-add-image"
               title="Adicionar imagem: cole com Ctrl+V ou solte uma imagem/GIF na cena"
               disabled={!activeProjectDir} onClick={() => window.dispatchEvent(new Event("rds:choose-image"))} />
+            {activeProjectDir ? (
+            <div data-testid="toolbar-build-status" className="relative shrink-0">
+              <button type="button" popoverTarget="studio-build-details" data-testid="toolbar-build-details-open"
+                className="flex h-7 cursor-pointer list-none items-center gap-1.5 rounded border border-[var(--rds-border-subtle)] px-2 text-[11px] text-[var(--rds-text-secondary)]"
+                title="Status do build: validação ao vivo, avisos e fases até a ROM. Clique para detalhes."
+              >
+                <span
+                  aria-hidden
+                  className={`h-2 w-2 rounded-full ${
+                    liveBuildBlocked
+                      ? "bg-[#f38ba8]"
+                      : buildWarningSummary || toolbarIssues.length > 0 || buildLiveIndicator?.tone === "warn"
+                        ? "bg-[#fab387]"
+                        : buildLiveIndicator?.tone === "info"
+                          ? "bg-[#89b4fa]"
+                          : "bg-[#a6e3a1]"
+                  }`}
+                />
+                {liveBuildBlocked ? "Compilação bloqueada" : buildWarningSummary ? "Prévia com avisos" : "Verificação"}
+              </button>
+              <div id="studio-build-details" popover="auto" className="fixed left-4 top-24 m-0 max-h-[calc(100vh-120px)] w-[min(600px,calc(100vw-32px))] overflow-auto rounded border border-[var(--rds-border-subtle)] bg-[var(--rds-surface-panel-strong)] p-3 text-xs text-[var(--rds-text-primary)] shadow-xl">
+              <div className="flex flex-wrap items-center gap-2">
             {buildLiveIndicator && (
               <span
                 data-testid="build-live-state"
@@ -5226,12 +5268,38 @@ export default function App() {
               warning={Boolean(buildWarningSummary)}
               romMasteringStatus={romMasteringStatus}
             />
+              </div>
+              </div>
+            </div>
+            ) : null}
             <ToolbarButton icon="export" label="Revisar e exportar" testId="toolbar-review" disabled={!activeProjectDir || building}
               onClick={() => setShowDelivery(true)} title="Revisar a cena, verificar a ROM e exportar (Experimental)" />
           </>
         }
         rightContent={
           <>
+            {hwStatus ? (
+            <div data-testid="toolbar-hardware-status" className="relative shrink-0">
+              <button type="button" popoverTarget="studio-hardware-details"
+                className="flex h-7 cursor-pointer list-none items-center gap-1.5 rounded border border-[var(--rds-border-subtle)] px-2 text-[11px] text-[var(--rds-text-secondary)]"
+                title="Status do hardware (memória de vídeo, sprites por linha, paletas). Clique para detalhes."
+              >
+                <span
+                  aria-hidden
+                  className={`h-2 w-2 rounded-full ${
+                    hwStatus.errors.length > 0 ||
+                    hwStatus.scanline_sprite_peak > hwStatus.scanline_sprite_limit ||
+                    hwStatus.palette_banks_used > hwStatus.palette_banks_limit
+                      ? "bg-[#f38ba8]"
+                      : hwStatus.warnings.length > 0
+                        ? "bg-[#fab387]"
+                        : "bg-[#a6e3a1]"
+                  }`}
+                />
+                Hardware
+              </button>
+              <div id="studio-hardware-details" popover="auto" className="fixed left-auto right-4 top-12 m-0 max-h-[calc(100vh-80px)] max-w-[calc(100vw-32px)] overflow-auto rounded border border-[var(--rds-border-subtle)] bg-[var(--rds-surface-panel-strong)] p-3 text-xs text-[var(--rds-text-primary)] shadow-xl">
+              <div className="flex flex-col gap-2">
             {hwStatus && hwStatus.vram_limit > 0 && (
               <ToolbarVramBudget
                 nativeC={hwStatus.analysis_mode === "native_c"}
@@ -5257,6 +5325,10 @@ export default function App() {
                 limit={hwStatus.palette_banks_limit}
               />
             )}
+              </div>
+              </div>
+            </div>
+            ) : null}
             {activeProjectDir ? <SceneSaveStatusChip /> : null}
             <ToolbarButton icon="save" label="Salvar" testId="toolbar-save" disabled={!activeProjectDir}
               onClick={() => void handleSaveScene()} title={getShortcutTitle("scene.save", "Salvar cena ativa", shortcuts)} />

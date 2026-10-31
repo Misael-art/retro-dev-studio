@@ -74,6 +74,8 @@ import {
 import {
   NODE_CARD_LAYOUT_WIDTH,
   estimateNodeCardSize,
+  findFreeNodePosition,
+  getNodeEditingView,
   findNodeOverlaps,
   graphSemanticSignature,
   layoutNodeGraph,
@@ -2212,6 +2214,10 @@ export default function NodeGraphEditor() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [view, setView] = useState<NodeGraphView>({ x: 0, y: 0, zoom: 1 });
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [paletteOpen, setPaletteOpen] = useState(() => window.innerWidth >= 1100);
+  const [contextOpen, setContextOpen] = useState(() => window.innerWidth >= 1440);
+  const [minimapOpen, setMinimapOpen] = useState(false);
+  const initialFocusPendingRef = useRef(false);
   const [guidedCommentary, setGuidedCommentary] = useState<GuidedFlowCommentary | null>(null);
   const [gapFilter, setGapFilter] = useState("");
   const [executionInspectorEnabled, setExecutionInspectorEnabled] = useState(false);
@@ -2279,6 +2285,7 @@ export default function NodeGraphEditor() {
         return;
       }
       hydratedEntityIdRef.current = entityId;
+      initialFocusPendingRef.current = true;
       hydratingGraphRef.current = true;
       currentGraphRef.current = nextGraph;
       setGraphState(nextGraph);
@@ -2338,17 +2345,30 @@ export default function NodeGraphEditor() {
   }, [activeProjectDir, activeSceneSource, selectedEntity]);
 
   useEffect(() => {
+    let previous = { width: 0, height: 0 };
     function measureCanvas() {
       const rect = canvasRef.current?.getBoundingClientRect();
-      setCanvasSize({
-        width: rect?.width ?? 0,
-        height: rect?.height ?? 0,
-      });
+      const next = { width: rect?.width ?? 0, height: rect?.height ?? 0 };
+      if (previous.width === next.width && previous.height === next.height) return;
+      if (previous.width > 0 && previous.height > 0) {
+        const dx = (next.width - previous.width) / 2;
+        const dy = (next.height - previous.height) / 2;
+        setView((current) => ({ ...current, x: current.x + dx, y: current.y + dy }));
+      }
+      previous = next;
+      setCanvasSize(next);
     }
 
     measureCanvas();
-    window.addEventListener("resize", measureCanvas);
-    return () => window.removeEventListener("resize", measureCanvas);
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(measureCanvas) : null;
+    if (canvasRef.current) observer?.observe(canvasRef.current);
+    const onResize = () => {
+      if (window.innerWidth < 1100) setPaletteOpen(false);
+      if (window.innerWidth < 1440) setContextOpen(false);
+      measureCanvas();
+    };
+    window.addEventListener("resize", onResize);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", onResize); };
   }, []);
 
   useEffect(() => {
@@ -2463,6 +2483,14 @@ export default function NodeGraphEditor() {
     },
     [cardMetrics]
   );
+
+  useEffect(() => {
+    if (!initialFocusPendingRef.current || !graph.nodes.length || !canvasSize.width || !canvasSize.height) return;
+    const first = graph.nodes.find((node) => EVENT_NODE_TYPES.includes(node.type)) ?? graph.nodes[0];
+    initialFocusPendingRef.current = false;
+    setSelectedId(first.id);
+    setView(getNodeEditingView({ ...nodeSizeOf(first), x: first.x, y: first.y }, canvasSize));
+  }, [canvasSize, graph.nodes, nodeSizeOf]);
 
   const onCardMeasure = useCallback((nodeId: string, metrics: NodeCardMetrics) => {
     setCardMetrics((current) => {
@@ -2803,10 +2831,18 @@ export default function NodeGraphEditor() {
 
   // ── Add node from palette ──────────────────────────────────────────────────
   const addNode = useCallback((type: NodeType) => {
-    const node = makeNode(type, 200, 200);
-    setGraph((g) => ({ ...g, nodes: [...g.nodes, node] }));
+    const current = currentGraphRef.current;
+    const node = makeNode(type, 0, 0);
+    const size = nodeSizeOf(node);
+    const anchor = { x: (canvasSize.width / 2 - view.x) / view.zoom - size.width / 2, y: (canvasSize.height / 2 - view.y) / view.zoom - size.height / 2 };
+    Object.assign(node, findFreeNodePosition(current, size, anchor, { sizeOf: nodeSizeOf, collapsed: collapsedOccupantsRef.current }));
+    setGraph({ ...current, nodes: [...current.nodes, node] }, "Adicionar nó");
+    setSelectedId(node.id);
+    setSelectedIds(new Set([node.id]));
+    setMinimapOpen(false);
+    setView(getNodeEditingView({ ...size, x: node.x, y: node.y }, canvasSize));
     logMessage("info", `No adicionado: ${getNodeDisplayName(type)}`);
-  }, [logMessage]);
+  }, [canvasSize, logMessage, nodeSizeOf, setGraph, view]);
 
   const applyQuickActionTemplate = useCallback((template: QuickActionTemplate) => {
     const nextGraph = template.buildGraph(quickActionContext);
@@ -3115,7 +3151,7 @@ export default function NodeGraphEditor() {
 
   const organizeGraph = useCallback((scope: "all" | "selection") => {
     const current = currentGraphRef.current;
-    const selection = [...selectedIds];
+    const selection = selectedIds.size ? [...selectedIds] : selectedId ? [selectedId] : [];
     if (scope === "selection" && selection.length === 0) {
       logMessage("warn", "[NodeGraph] Selecione nos (Shift+clique ou 'Selecionar comportamento') para organizar a selecao.");
       return;
@@ -3137,12 +3173,13 @@ export default function NodeGraphEditor() {
     if (result.movedNodeIds.length > 0) {
       setGraph(result.graph, scope === "all" ? "Organizar tudo" : "Organizar selecao");
     }
-    if (scope === "all") fitViewTo(result.graph.nodes);
+    const focus = result.graph.nodes.find((node) => node.id === selectedId) ?? result.graph.nodes[0];
+    if (focus && canvasSize.width && canvasSize.height) setView(getNodeEditingView({ ...nodeSizeOf(focus), x: focus.x, y: focus.y }, canvasSize));
     logMessage(
       result.conflicts.length ? "warn" : "info",
       `[NodeGraph] Organizar ${scope === "all" ? "tudo" : "selecao"}: ${result.movedNodeIds.length} no(s) movido(s) em ${ms} ms, ${overlaps} sobreposicao(oes), ${result.conflicts.length} conflito(s). Conexoes e parametros intactos.`
     );
-  }, [fitViewTo, logMessage, nodeSizeOf, selectedIds, setGraph]);
+  }, [canvasSize, logMessage, nodeSizeOf, selectedId, selectedIds, setGraph]);
 
   const selectionIds = useMemo(
     () => (selectedIds.size > 0 ? [...selectedIds] : selectedId ? [selectedId] : []),
@@ -3391,7 +3428,7 @@ export default function NodeGraphEditor() {
   ]);
 
   const focusNode = useCallback((nodeId: string) => {
-    const targetNode = graph.nodes.find((node) => node.id === nodeId);
+    const targetNode = currentGraphRef.current.nodes.find((node) => node.id === nodeId);
     if (!targetNode) {
       return;
     }
@@ -3400,16 +3437,12 @@ export default function NodeGraphEditor() {
     const width = rect?.width ?? canvasSize.width;
     const height = rect?.height ?? canvasSize.height;
 
-    const desiredX = Math.max(FOCUS_PADDING, width / 2 - NODE_CARD_WIDTH / 2);
-    const desiredY = Math.max(FOCUS_PADDING, height / 2 - NODE_CARD_HEIGHT / 2);
-
-    setView((current) => ({
-      ...current,
-      x: desiredX - targetNode.x * current.zoom,
-      y: desiredY - targetNode.y * current.zoom,
-    }));
+    const group = graph.groups?.find((item) => item.collapsed && item.nodeIds.includes(nodeId));
+    if (group) setGraph((current) => ({ ...current, groups: current.groups?.map((item) => item.id === group.id ? { ...item, collapsed: false } : item) }), "Revelar grupo");
+    setView(getNodeEditingView({ ...nodeSizeOf(targetNode), x: targetNode.x, y: targetNode.y }, { width, height }));
     setSelectedId(nodeId);
-  }, [canvasSize.height, canvasSize.width, graph.nodes]);
+    setMinimapOpen(false);
+  }, [canvasSize.height, canvasSize.width, graph.groups, nodeSizeOf, setGraph]);
 
   const focusEntryNode = useCallback(() => {
     const firstEntryNode = graphSummary.entryNodeIds[0];
@@ -3495,7 +3528,8 @@ export default function NodeGraphEditor() {
       {/* ── Palette sidebar ── */}
       <div
         data-testid="nodegraph-side-rail"
-        className="flex w-40 shrink-0 flex-col overflow-x-hidden border-r border-[#313244] bg-[#181825]"
+        hidden={!paletteOpen}
+        className={`${paletteOpen ? "flex" : "hidden"} w-40 shrink-0 flex-col overflow-x-hidden border-r border-[#313244] bg-[#181825]`}
       >
         <div className="shrink-0 border-b border-[#313244] p-2">
           <div className="relative">
@@ -3531,7 +3565,8 @@ export default function NodeGraphEditor() {
                     <button
                       key={type}
                       className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#a6adc8] transition-colors hover:bg-[#313244] hover:text-[#cdd6f4] disabled:cursor-not-allowed disabled:opacity-40"
-                      onMouseDown={() => addNode(type)}
+                      onClick={() => addNode(type)}
+                      data-testid={`nodegraph-add-${type}`}
                       disabled={!selectedEntity}
                       title={`${getNodeCategory(type).label}: ${getNodeCatalogEntry(type).description}`}
                     >
@@ -3590,17 +3625,19 @@ export default function NodeGraphEditor() {
           data-zoom={view.zoom.toFixed(3)}
           aria-hidden="true"
           className="pointer-events-none absolute inset-y-0 left-0 z-0"
-          style={{ right: selectedEntity ? 288 : 0 }}
+          style={{ right: selectedEntity && contextOpen ? 288 : 0 }}
         />
         {selectedEntity && (
           <div
             data-testid="nodegraph-toolbar"
             role="toolbar"
             aria-label="Organizacao do grafo"
-            className="absolute left-2 top-2 z-30 flex flex-wrap items-center gap-1 rounded-lg border border-[#313244] bg-[#181825]/95 p-1 text-[11px] shadow-lg"
-            style={{ maxWidth: `calc(100% - ${selectedEntity ? 304 : 16}px)` }}
+            className="absolute left-2 top-2 z-30 flex flex-wrap items-center gap-1 rounded-lg border border-[#313244] bg-[#181825]/95 p-1 text-xs shadow-lg [&>button]:min-h-8"
+            style={{ maxWidth: `calc(100% - ${selectedEntity && contextOpen ? 304 : 16}px)` }}
             onMouseDown={(event) => event.stopPropagation()}
           >
+            <button type="button" aria-expanded={paletteOpen} onClick={() => { setPaletteOpen((open) => !open); if (window.innerWidth < 1100) setContextOpen(false); }} className="rounded px-2 py-1 text-[#cdd6f4]">Nós</button>
+            <button type="button" aria-expanded={contextOpen} data-testid="nodegraph-toggle-context" onClick={() => { setContextOpen((open) => !open); if (window.innerWidth < 1100) setPaletteOpen(false); }} className="rounded px-2 py-1 text-[#cdd6f4]">Comportamentos</button>
             <button type="button" data-testid="nodegraph-undo" onClick={undoGraph} disabled={history.past.length === 0}
               title={history.past.length ? `Desfazer: ${history.past[history.past.length - 1].label} (Ctrl+Z)` : "Nada para desfazer"}
               className="flex items-center gap-1 rounded px-2 py-1 text-[#cdd6f4] hover:bg-[#313244] disabled:opacity-40">
@@ -3611,7 +3648,16 @@ export default function NodeGraphEditor() {
               className="flex items-center gap-1 rounded px-2 py-1 text-[#cdd6f4] hover:bg-[#313244] disabled:opacity-40">
               <Icon name="redo" size={14} /> Refazer
             </button>
-            <span className="mx-1 h-4 w-px bg-[#313244]" aria-hidden="true" />
+            <button type="button" data-testid="nodegraph-fit-view" onClick={() => fitViewTo(graph.nodes.filter((node) => !hiddenNodeIds.has(node.id)))} disabled={graph.nodes.length === 0}
+              title="Mostra o grafo inteiro. Escolha um nó para voltar à escala de edição."
+              className="rounded px-2 py-1 text-[#cdd6f4] hover:bg-[#313244] disabled:opacity-40">Visão geral</button>
+            <button type="button" data-testid="nodegraph-more-actions" popoverTarget="nodegraph-visual-tools" className="rounded border border-[#45475a] px-2 py-1 text-[#cdd6f4]">Mais ações</button>
+            <div id="nodegraph-visual-tools" data-testid="nodegraph-visual-tools" popover="auto"
+              className="fixed left-4 top-24 m-0 max-h-[calc(100vh-120px)] w-[min(480px,calc(100vw-32px))] overflow-y-auto rounded-lg border border-[#313244] bg-[var(--rds-surface-panel)] p-3 text-xs text-[var(--rds-text-primary)] shadow-xl"
+              onClick={(event) => { if ((event.target as Element).closest("button")) event.currentTarget.hidePopover?.(); }}
+              onWheel={(event) => event.stopPropagation()}>
+            <div className="flex flex-wrap items-center gap-2 [&>button]:min-h-8">
+            <button type="button" aria-expanded={minimapOpen} data-testid="nodegraph-toggle-minimap" onClick={() => setMinimapOpen((open) => !open)} className="rounded px-2 py-1 text-[#cdd6f4]">Mapa</button>
             <button type="button" data-testid="nodegraph-organize-all" onClick={() => organizeGraph("all")} disabled={graph.nodes.length === 0}
               title="Organizar visualmente: so muda posicoes, segue as conexoes e nunca cria ou remove ligacoes. Nos fixados ficam parados."
               className="flex items-center gap-1 rounded border border-[#89b4fa]/40 bg-[#89b4fa]/10 px-2 py-1 font-semibold text-[#89b4fa] hover:bg-[#89b4fa]/20 disabled:opacity-40">
@@ -3621,11 +3667,6 @@ export default function NodeGraphEditor() {
               title="Organiza so os nos selecionados; o resto nao se move."
               className="rounded border border-[#89b4fa]/40 px-2 py-1 text-[#89b4fa] hover:bg-[#89b4fa]/20 disabled:opacity-40">
               Organizar selecao
-            </button>
-            <button type="button" data-testid="nodegraph-fit-view" onClick={() => fitViewTo(graph.nodes.filter((node) => !hiddenNodeIds.has(node.id)))} disabled={graph.nodes.length === 0}
-              title="Enquadrar: mostra o grafo inteiro (so a vista; nada muda no grafo)."
-              className="rounded px-2 py-1 text-[#cdd6f4] hover:bg-[#313244] disabled:opacity-40">
-              Enquadrar
             </button>
             <button type="button" data-testid="nodegraph-select-behavior" onClick={() => selectBehavior()} disabled={!selectedId}
               title="Seleciona todos os nos ligados ao no atual (um comportamento)."
@@ -3646,6 +3687,8 @@ export default function NodeGraphEditor() {
             <span data-testid="nodegraph-selection-count" className="px-1 text-[10px] text-[#6c7086]">
               {selectionIds.length > 0 ? `${selectionIds.length} selecionado(s)` : "Shift+clique seleciona varios"} · {Math.round(view.zoom * 100)}%
             </span>
+            </div>
+            </div>
           </div>
         )}
         {!selectedEntity && (
@@ -3659,7 +3702,8 @@ export default function NodeGraphEditor() {
         {selectedEntity && (
           <aside
             data-testid="nodegraph-context-rail"
-            className="absolute inset-y-0 right-0 z-20 flex w-72 flex-col overflow-hidden border-l border-[#313244] bg-[#181825]/95 shadow-[-18px_0_40px_rgba(0,0,0,0.24)] backdrop-blur-sm"
+            hidden={!contextOpen}
+            className={`absolute inset-y-0 right-0 z-20 ${contextOpen ? "flex" : "hidden"} w-72 flex-col overflow-hidden border-l border-[#313244] bg-[#181825]/95 shadow-[-18px_0_40px_rgba(0,0,0,0.24)] backdrop-blur-sm`}
             onMouseDown={(event) => event.stopPropagation()}
             onWheel={(event) => event.stopPropagation()}
           >
@@ -3670,7 +3714,7 @@ export default function NodeGraphEditor() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#89b4fa]">
-                  Logic Context
+                  Comportamentos do objeto
                 </p>
                 <label className="block">
                   <span className="sr-only">Editar logica de</span>
@@ -4554,7 +4598,9 @@ export default function NodeGraphEditor() {
         {selectedEntity && graph.nodes.length > 0 && (
           <div
             data-testid="nodegraph-minimap"
-            className="absolute bottom-3 right-3 z-10 rounded-xl border border-[#313244] bg-[#181825]/95 p-2 shadow-lg backdrop-blur-sm"
+            hidden={!minimapOpen}
+            style={{ right: selectedEntity && contextOpen ? 300 : 12 }}
+            className={`${minimapOpen ? "block" : "hidden"} absolute bottom-3 right-3 z-10 rounded-xl border border-[#313244] bg-[#181825]/95 p-2 shadow-lg backdrop-blur-sm`}
           >
             <div className="mb-2 flex items-center justify-between gap-3 text-[9px] uppercase tracking-[0.16em] text-[#6c7086]">
               <span>MiniMapa</span>

@@ -50,6 +50,8 @@ O prompt operacional está em `PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md`, ne
 
 ## Adendo 2026-10-31 — diagnóstico de UX/UI para usuário leigo
 
+**Continuidade de implementação — 2026-10-31, lote1 verificado (Experimental):** inserção/foco/painéis/grupos iniciais/enquadramento e atenção contextual implementados nos owners existentes. Certificação ampla1317 frontend/1153 Rust e sete gates PASS; reteste gerenciado155/TS/lint/Clippy completo PASS. Executável final `6d95ab70…`: QA-RC A–H/oráculos PASS e NodeGraph14 passos PASS, incluindo três resoluções, fios, persistência e gameplay da ROM autoral `8030ad59…`. Falhas intermediárias e correções estão preservadas no Memory Bank e em `RDS_WORK_ROOT/sessions/ux-journey-fixes-20261031/`. Wayland renderizado após redimensionar; tamanho inicial excede desktop948×593 e deve ser limitado no próximo lote. Ponteiro/teclado físico e humano não qualificados. Próximo: preservar lote no PR112 e tratar ROM/ZIP/7z, resultado SGDK e imagem. As16jornadas permanecem parciais; sem merge/release/deploy.
+
 ### Parecer
 
 A entrada pelo wizard é clara e o produto tem recursos úteis de navegação contextual, edição e revisão. A jornada completa ainda não oferece autonomia previsível a um usuário leigo. Os problemas principais são densidade visual, enquadramento, diferença entre os resultados dos importadores e distância entre a recuperação técnica de uma ROM e um projeto visual completamente editável. Acrescentar explicações extensas não resolve esses problemas de interação.

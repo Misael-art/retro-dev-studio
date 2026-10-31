@@ -62,6 +62,8 @@ import {
   resolveSceneWorldMetrics,
 } from "../../core/sceneWorldModel";
 import SceneAssetHealthBadge from "./SceneAssetHealthBadge";
+import SceneAttentionPanel from "./SceneAttentionPanel";
+import { useSceneAttentionStore } from "../../core/sceneAttentionStore";
 import { TilePalette } from "../tools/ContextualPalette";
 import { getGameViewportScale } from "./gameViewportScale";
 import { paintGameFrame } from "./gameFramePresentation";
@@ -570,8 +572,8 @@ export default function ViewportPanel({
   const [emulatorActive, setEmulatorActive] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [gridSnap, setGridSnap] = useState(true);
-  const [showGrid, setShowGrid] = useState(true);
-  const [showSubGrid, setShowSubGrid] = useState(true);
+  const [showGrid, setShowGrid] = useState(false);
+  const [showSubGrid, setShowSubGrid] = useState(false);
   const [showBackground, setShowBackground] = useState(true);
   const [showTilemaps, setShowTilemaps] = useState(true);
   const [showSprites, setShowSprites] = useState(true);
@@ -591,6 +593,8 @@ export default function ViewportPanel({
     },
     [paletteMarks, paletteBankFilter]
   );
+  const attentionFocus = useSceneAttentionStore((s) => s.focus);
+  const setAttentionFocus = useSceneAttentionStore((s) => s.setFocus);
   const [showCollisionOverlay, setShowCollisionOverlay] = useState(false);
   const [showCameraOverlay, setShowCameraOverlay] = useState(true);
   const [showEntityBounds, setShowEntityBounds] = useState(true);
@@ -1092,11 +1096,12 @@ export default function ViewportPanel({
     focusWorldPoint(sceneWorld.centerX, sceneWorld.centerY);
   }, [focusWorldPoint, sceneWorld.centerX, sceneWorld.centerY]);
   const resetSceneView = useCallback(() => {
-    resetViewportZoom();
-    window.setTimeout(() => {
-      focusWorldPoint(sceneWorld.centerX, sceneWorld.centerY, 1);
-    }, 0);
-  }, [focusWorldPoint, resetViewportZoom, sceneWorld.centerX, sceneWorld.centerY]);
+    const stage = sceneStageRef.current?.getBoundingClientRect();
+    if (!stage?.width || !stage.height) return;
+    const zoom = Math.max(0.25, Math.min(1.75, (stage.width - 48) / sceneWidth, (stage.height - 48) / sceneHeight));
+    setViewportZoom(zoom);
+    focusWorldPoint(sceneWorld.bounds.minX + sceneWidth / 2, sceneWorld.bounds.minY + sceneHeight / 2, zoom);
+  }, [focusWorldPoint, sceneHeight, sceneWidth, sceneWorld.bounds.minX, sceneWorld.bounds.minY, setViewportZoom]);
   const focusCollisionMapCenter = useCallback(() => {
     const sz = sceneWorld.collisionWorldSize;
     if (sz) {
@@ -1221,15 +1226,16 @@ export default function ViewportPanel({
     });
   }, [clampPanToStage]);
 
+  const initialSceneFocusRef = useRef<string | null>(null);
   useEffect(() => {
-    if (activeViewportTab !== "scene" || !activeScene?.scene_id) {
+    if (activeViewportTab !== "scene" || !activeScene?.scene_id || !sceneStageSize.width || !sceneStageSize.height) {
       return;
     }
-    const rafId = window.requestAnimationFrame(() => {
-      centerViewportOnCamera();
-    });
-    return () => window.cancelAnimationFrame(rafId);
-  }, [activeScene?.scene_id, activeScenePath, activeViewportTab, centerViewportOnCamera]);
+    const key = `${activeProjectDir}:${activeScenePath}:${activeScene.scene_id}`;
+    if (initialSceneFocusRef.current === key) return;
+    initialSceneFocusRef.current = key;
+    resetSceneView();
+  }, [activeProjectDir, activeScene?.scene_id, activeScenePath, activeViewportTab, resetSceneView, sceneStageSize]);
 
   useEffect(() => {
     setSceneGuides(loadSceneGuides(sceneGuideStorageKey));
@@ -3163,7 +3169,7 @@ export default function ViewportPanel({
         .map((tag) => {
           const mark = paletteMapEnabled ? paletteMarks?.get(tag.entityId) : undefined;
           const name = tag.text.length > 18 ? `${tag.text.slice(0, 17)}…` : tag.text;
-          const pill = tag.pill === "donor" ? "DOADOR" : tag.pill === "staging" ? "STAGING" : tag.pill ? "INFERIDA" : "";
+          const pill = !showStagingOverlay ? "" : tag.pill === "donor" ? "DOADOR" : tag.pill === "staging" ? "STAGING" : tag.pill ? "INFERIDA" : "";
           context.font = "10px monospace";
           const nameWidth = name ? context.measureText(name).width + 8 : 0;
           context.font = "bold 8px monospace";
@@ -3238,6 +3244,32 @@ export default function ViewportPanel({
           context.fillStyle = "#f9e2af";
           context.fillText("SOLO", sx + 4, Math.max(12, sy - 8));
         }
+        context.restore();
+      }
+    }
+
+    // Pontos de atenção: "mostrar só esses" escurece o resto e contorna os objetos envolvidos.
+    if (attentionFocus && !spotlightEntityId) {
+      const focused = activeScene.entities.filter((entity) => attentionFocus.entityIds.includes(entity.entity_id));
+      if (focused.length > 0) {
+        const rects = focused.map((entity) => {
+          const fb = getEntityBounds(entity, activeTarget, activeScene.entities);
+          return {
+            x: worldToSceneCanvasX(fb.x),
+            y: worldToSceneCanvasY(fb.y),
+            w: scaleSceneDimension(fb.width),
+            h: scaleSceneDimension(fb.height),
+          };
+        });
+        context.save();
+        context.fillStyle = "rgba(0,0,0,0.55)";
+        context.fillRect(0, 0, sceneScaleWidth, sceneScaleHeight);
+        context.globalCompositeOperation = "destination-out";
+        rects.forEach((r) => context.fillRect(Math.max(0, r.x - 4), Math.max(0, r.y - 4), Math.max(1, r.w + 8), Math.max(1, r.h + 8)));
+        context.globalCompositeOperation = "source-over";
+        context.strokeStyle = "#fab387";
+        context.lineWidth = 2;
+        rects.forEach((r) => context.strokeRect(r.x - 2.5, r.y - 2.5, r.w + 4, r.h + 4));
         context.restore();
       }
     }
@@ -3440,6 +3472,7 @@ export default function ViewportPanel({
     denseStackSpotlight,
     denseStackPreviewEntityId,
     soloEntityId,
+    attentionFocus,
     showCollisionOverlay,
     showCameraOverlay,
     showEntityBounds,
@@ -4702,7 +4735,7 @@ export default function ViewportPanel({
                 className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#a6adc8] transition-colors hover:text-[#cdd6f4]"
                 title="Resetar vista (zoom + pan)"
               >
-                Reset View
+                Enquadrar cena
               </button>
               <button
                 type="button"
@@ -4921,6 +4954,9 @@ export default function ViewportPanel({
               </div>
             </details>
 
+            {activeScene && !gameViewLight ? (
+              <SceneAttentionPanel assets={{ missing: sceneAssetHealth.missing, failed: sceneAssetHealth.failed }} />
+            ) : null}
             {/* Área de canvas com overflow para mais espaço */}
             <div
               ref={sceneStageRef}
@@ -5448,6 +5484,16 @@ export default function ViewportPanel({
                 {sceneAssetHealth.compactSummary}
               </span>
             )}
+            {attentionFocus ? (
+              <button
+                type="button"
+                data-testid="viewport-attention-clear"
+                onClick={() => setAttentionFocus(null)}
+                className="absolute bottom-8 left-1/2 z-20 -translate-x-1/2 rounded-full border border-[#fab387]/60 bg-[#11111b]/95 px-3 py-1 text-[10px] text-[#fab387]"
+              >
+                Mostrando só {attentionFocus.entityIds.length} objeto(s) com problema — mostrar tudo
+              </button>
+            ) : null}
             {/* Shown only when something needs attention, so it never covers a healthy scene. */}
             {activeScene &&
               sceneAssetHealth.referenced > 0 &&

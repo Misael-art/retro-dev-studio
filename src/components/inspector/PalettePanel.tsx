@@ -1,7 +1,7 @@
 // Paletas da cena (Experimental): resumo de ocupação e conflitos, painel completo e a seção do
 // objeto selecionado. O plano exibido é o do build (IPC `scene_palette_plan`); cada ação calcula
 // o plano proposto antes e só aplica sem erro novo, numa transação de desfazer.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   affectedBy,
@@ -25,6 +25,7 @@ import {
 } from "../../core/palettePlan";
 import { applyPalettes, palettePlanContextKey, usePalettePlanStore } from "../../core/palettePlanStore";
 import { useEditorStore } from "../../core/store/editorStore";
+import { useSceneAttentionStore } from "../../core/sceneAttentionStore";
 
 export function safeId(id: string): string {
   return id.replace(/[^A-Za-z0-9_-]/g, "_");
@@ -285,6 +286,14 @@ export function PaletteSummary() {
   const plan = usePlan();
   const [open, setOpen] = useState(false);
   const error = usePalettePlanStore((s) => s.error);
+  // "Resolver paletas" em Próximos passos abre este painel e o traz à vista.
+  const paletteRequest = useSceneAttentionStore((s) => s.paletteRequest);
+  const summaryRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (paletteRequest === 0) return;
+    setOpen(true);
+    summaryRef.current?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+  }, [paletteRequest]);
   if (error) {
     return (
       <p data-testid="palette-summary-unavailable" className="px-3 py-1 text-[9px] text-[#7f849c]">
@@ -296,7 +305,7 @@ export function PaletteSummary() {
   const used = plan.banks.filter((b) => b.resources.length > 0).length;
   const errors = errorCount(plan);
   return (
-    <div className="border-b border-[#313244] px-3 py-1">
+    <div ref={summaryRef} className="border-b border-[#313244] px-3 py-1">
       <button
         type="button"
         data-testid="palette-summary"
@@ -308,8 +317,7 @@ export function PaletteSummary() {
       >
         Paletas — {used}/{plan.capacity.banks} bancos ocupados · {errors} conflito(s)
       </button>
-      <PaletteMap plan={plan} />
-      {open ? <PalettePanelBody plan={plan} /> : null}
+      {open ? <><PaletteMap plan={plan} /><PalettePanelBody plan={plan} /></> : null}
     </div>
   );
 }

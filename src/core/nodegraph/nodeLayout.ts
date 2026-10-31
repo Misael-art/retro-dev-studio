@@ -77,6 +77,40 @@ export function rectsOverlap(a: NodeRect, b: NodeRect, gap = 0): boolean {
   );
 }
 
+/** Insere perto do foco sem deslocar decisões visuais já tomadas pelo autor. */
+export function findFreeNodePosition(
+  graph: NodeGraph,
+  size: NodeSize,
+  anchor: { x: number; y: number },
+  options: LayoutOptions = {}
+): { x: number; y: number } {
+  const sizeOf = options.sizeOf ?? defaultSize;
+  const hidden = new Set(options.collapsed?.flatMap((group) => group.nodeIds) ?? []);
+  const obstacles = [
+    ...graph.nodes.filter((node) => !hidden.has(node.id)).map((node) => ({ ...sizeOf(node), x: node.x, y: node.y })),
+    ...(options.collapsed ?? []).map((group) => group.rect),
+  ];
+  const x = Math.round(anchor.x);
+  let y = Math.round(anchor.y);
+  // Cada colisão avança além de pelo menos um obstáculo: termina em no máximo n+1 passos.
+  for (let step = 0; step <= obstacles.length; step += 1) {
+    const hits = obstacles.filter((rect) => rectsOverlap({ x, y, ...size }, rect, LAYOUT_ROW_GAP));
+    if (hits.length === 0) return { x, y };
+    y = Math.ceil(Math.max(...hits.map((rect) => rect.y + rect.height)) + LAYOUT_ROW_GAP);
+  }
+  return { x, y };
+}
+
+/** Vista de edição legível; o panorama completo continua sendo uma ação explícita. */
+export function getNodeEditingView(rect: NodeRect, viewport: NodeSize) {
+  const zoom = Math.max(0.75, Math.min(1, (viewport.width - 48) / rect.width, (viewport.height - 96) / rect.height));
+  return {
+    zoom,
+    x: Math.max(24, (viewport.width - rect.width * zoom) / 2) - rect.x * zoom,
+    y: Math.max(64, (viewport.height - rect.height * zoom) / 2) - rect.y * zoom,
+  };
+}
+
 function portOrder(port: string): number {
   if (port === "exec" || port === "true" || port === "tick" || port === "matched" || port === "body") return 0;
   if (port === "false" || port === "done" || port === "next" || port === "transitions") return 1;

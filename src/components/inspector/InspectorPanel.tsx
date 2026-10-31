@@ -48,6 +48,7 @@ import {
   type BuildSourceMap,
 } from "../../core/nodegraph/buildProvenance";
 import knowledgeBase from "./knowledgeBase.json";
+import EntityAttentionSection from "./EntityAttentionSection";
 import { duplicateBehaviorLogic } from "../../core/nodegraph/behaviorLibrary";
 import type { NodeGraph } from "../../core/nodegraph/nodeTypes";
 
@@ -1250,12 +1251,12 @@ export default function InspectorPanel() {
   }
 
   return (
-    <Panel title="Inspector" className="flex h-full flex-col">
+    <Panel title="Propriedades" className="flex h-full flex-col">
       <div className="flex-1 overflow-x-hidden overflow-y-auto">
         <PaletteSummary />
         {!selectedEntityId ? (
           <div className="px-3 py-4 text-xs text-[#45475a]">
-            <p className="italic">Selecione uma entidade na Hierarchy.</p>
+            <p className="italic">Selecione um objeto na lista da cena.</p>
             {activeScene?.collision_map ? (
               <div className="mt-3 rounded border border-[#313244] bg-[#11111b]/40 p-2 text-[#cdd6f4]">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-[#89b4fa]">
@@ -1386,6 +1387,7 @@ export default function InspectorPanel() {
                 <span>({entity.transform.x}, {entity.transform.y})</span>
               </div>
             </div>
+            <EntityAttentionSection entityId={entity.entity_id} />
             <EntityPaletteSection entityId={entity.entity_id} />
             <div className="flex flex-wrap items-center gap-2 border-b border-[#313244] px-3 py-1.5 text-[10px] text-[#a6adc8]">
               <label className="flex items-center gap-1">

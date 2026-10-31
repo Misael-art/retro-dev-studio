@@ -6,6 +6,8 @@ import {
   countEdgeCrossings,
   estimateNodeCardSize,
   findNodeOverlaps,
+  findFreeNodePosition,
+  getNodeEditingView,
   graphSemanticSignature,
   layoutNodeGraph,
   rectsOverlap,
@@ -56,7 +58,11 @@ describe("layoutNodeGraph", () => {
   it("organizes the real reference graph without touching semantics or creating edges", () => {
     const graph = referenceGraph();
     expect(graph.nodes).toHaveLength(34);
-    expect(findNodeOverlaps(graph, size).length).toBeGreaterThan(0); // estado de fabrica sobreposto
+    expect(findNodeOverlaps(graph, size)).toEqual([]); // novos modelos já abrem organizados
+    expect(graph.groups?.map((group) => group.label)).toContain("Salto");
+    // Reprodução do defeito histórico sem reintroduzi-lo no modelo distribuído.
+    graph.nodes = graph.nodes.map((node) => ({ ...node, x: 200, y: 200 }));
+    expect(findNodeOverlaps(graph, size).length).toBeGreaterThan(0);
 
     const result = layoutNodeGraph(graph, { sizeOf: size });
 
@@ -186,6 +192,7 @@ describe("layoutNodeGraph", () => {
 
   it("serializes graphs without groups exactly as before (no new keys)", () => {
     const graph = referenceGraph();
+    delete graph.groups;
     expect(Object.keys(JSON.parse(serializeNodeGraph(graph)))).toEqual(["version", "nodes", "edges"]);
   });
 });
@@ -226,6 +233,30 @@ describe("collapsed groups as occupants", () => {
 });
 
 describe("edge routing and helpers", () => {
+  it("places successive cards outside fixed cards and collapsed groups without changing the graph", () => {
+    const graph = referenceGraph();
+    graph.nodes[0].pinned = true;
+    const before = serializeNodeGraph(graph);
+    const collapsed = [{ id: "g", label: "Salto", nodeIds: [graph.nodes[0].id], rect: { x: -100, y: -100, width: 700, height: 400 } }];
+    const first = findFreeNodePosition(graph, { width: 232, height: 240 }, { x: 0, y: 0 }, { collapsed });
+    expect(rectsOverlap({ ...first, width: 232, height: 240 }, collapsed[0].rect)).toBe(false);
+    expect(serializeNodeGraph(graph)).toBe(before);
+    const added = { ...graph.nodes[0], id: "new", ...first };
+    const next = findFreeNodePosition({ ...graph, nodes: [...graph.nodes, added] }, { width: 232, height: 240 }, first, { collapsed, sizeOf: () => ({ width: 232, height: 240 }) });
+    expect(rectsOverlap({ ...first, width: 232, height: 240 }, { ...next, width: 232, height: 240 })).toBe(false);
+  });
+
+  it("reveals a distant node at reading scale, independently of the previous panorama", () => {
+    const rect = { x: -8000, y: 9000, width: 232, height: 240 };
+    for (const viewport of [{ width: 949, height: 400 }, { width: 500, height: 300 }]) {
+      const view = getNodeEditingView(rect, viewport);
+      expect(view.zoom).toBeGreaterThanOrEqual(0.75);
+      expect(rect.x * view.zoom + view.x).toBeGreaterThanOrEqual(24);
+      expect(rect.y * view.zoom + view.y).toBeGreaterThanOrEqual(64);
+      expect((rect.x + rect.width) * view.zoom + view.x).toBeLessThanOrEqual(viewport.width);
+      expect((rect.y + rect.height) * view.zoom + view.y).toBeLessThanOrEqual(viewport.height);
+    }
+  });
   it("routes forward edges as curves and backward edges around the cards", () => {
     expect(routeEdgePath({ x: 0, y: 10 }, { x: 200, y: 50 })).toMatch(/^M 0 10 C /);
     const back = routeEdgePath({ x: 300, y: 10 }, { x: 100, y: 20 }, 400);

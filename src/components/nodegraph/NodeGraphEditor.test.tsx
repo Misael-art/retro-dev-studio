@@ -979,7 +979,7 @@ describe("NodeGraphEditor", () => {
     expect(contextRail).toBeInstanceOf(HTMLElement);
     expect(overview?.closest("[data-testid='nodegraph-canvas']")).toBeNull();
     expect(overview?.closest("[data-testid='nodegraph-context-rail']")).toBe(contextRail);
-    expect(contextRail?.textContent).toContain("Logic Context");
+    expect(contextRail?.textContent).toContain("Comportamentos do objeto");
   });
 
   it("zooms and pans the canvas without losing the selected node or edge hover state", async () => {
@@ -1306,7 +1306,7 @@ describe("NodeGraphEditor", () => {
     );
     expect(paletteButton).toBeInstanceOf(HTMLButtonElement);
     await act(async () => {
-      paletteButton!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      paletteButton!.click();
       await flush();
     });
     expect(countCards()).toBe(hydratedCount + 1);

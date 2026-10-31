@@ -125,6 +125,31 @@ describe("NodeGraphEditor authoring (reference graph)", () => {
     });
   });
 
+  it("adds separate selected nodes after pan and zoom, keeps existing positions, and undoes insertion", async () => {
+    const positions = () => [...container.querySelectorAll<HTMLElement>("[data-testid^='node-card-']")].map((card) => [card.dataset.testid, card.dataset.x, card.dataset.y]);
+    const before = positions();
+    const shell = q<HTMLDivElement>("nodegraph-canvas-shell")!;
+    await act(async () => {
+      shell.dispatchEvent(new WheelEvent("wheel", { bubbles: true, deltaY: 2000, clientX: 200, clientY: 150 }));
+      shell.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 1, clientX: 100, clientY: 100 }));
+      shell.dispatchEvent(new MouseEvent("mousemove", { bubbles: true, clientX: 450, clientY: 300 }));
+      shell.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      await flush();
+    });
+    await click("nodegraph-add-event_start");
+    const first = positions().slice(-1)[0];
+    await click("nodegraph-add-event_start");
+    const second = positions().slice(-1)[0];
+    expect(first.slice(1)).not.toEqual(second.slice(1));
+    expect(positions().slice(0, before.length)).toEqual(before);
+    expect(container.querySelector(`[data-testid='${second[0]}']`)?.getAttribute("data-selected")).toBe("true");
+    expect(Number(shell.dataset.zoom)).toBeGreaterThanOrEqual(0.75);
+    await click("nodegraph-undo");
+    expect(positions().slice(-1)[0]).toEqual(first);
+    await click("nodegraph-redo");
+    expect(positions().slice(-1)[0]).toEqual(second);
+  });
+
   afterEach(async () => {
     await act(async () => {
       root.unmount();
@@ -150,7 +175,9 @@ describe("NodeGraphEditor authoring (reference graph)", () => {
     });
     const saved = storedGraph();
     expect(graphSemanticSignature(saved)).toBe(graphSemanticSignature(original));
-    expect(saved.nodes.find((node) => node.id === "jump")!.x).not.toBe(original.nodes.find((node) => node.id === "jump")!.x);
+    const savedJump = saved.nodes.find((node) => node.id === "jump")!;
+    const originalJump = original.nodes.find((node) => node.id === "jump")!;
+    expect([savedJump.x, savedJump.y]).not.toEqual([originalJump.x, originalJump.y]);
     expect(mocks.persistActiveScene).toHaveBeenCalled();
 
     // Ctrl+Z global chega ao NodeGraph enquanto ele estiver montado.
@@ -225,7 +252,7 @@ describe("NodeGraphEditor authoring (reference graph)", () => {
     await click("nodegraph-select-behavior");
     expect(q("nodegraph-selection-count")!.textContent).toContain("4 selecionado(s)");
     await click("nodegraph-group-selection");
-    const nameInput = container.querySelector<HTMLInputElement>("[data-testid^='nodegraph-group-name-']")!;
+    const nameInput = [...container.querySelectorAll<HTMLInputElement>("[data-testid^='nodegraph-group-name-']")].find((input) => input.value === "Pulo")!;
     expect(nameInput.value).toBe("Pulo");
     const groupId = nameInput.dataset.testid!.replace("nodegraph-group-name-", "");
     await act(async () => {
@@ -264,9 +291,11 @@ describe("NodeGraphEditor authoring (reference graph)", () => {
       const b = saved.nodes.find((node) => node.id === id)!;
       expect([b.x - a.x, b.y - a.y]).toEqual([96, 48]);
     }
-    expect(saved.groups).toHaveLength(1);
-    expect(saved.groups![0]).toMatchObject({ id: groupId, label: "Pulo da raposa", collapsed: true });
-    expect([...saved.groups![0].nodeIds].sort()).toEqual(["jump", "jump_sound", "jump_velocity", "update_jump"]);
+    expect(saved.groups).toHaveLength(original.groups!.length);
+    const savedGroup = saved.groups!.find((group) => group.id === groupId)!;
+    expect(savedGroup).toMatchObject({ id: groupId, label: "Pulo da raposa", collapsed: true });
+    expect([...savedGroup.nodeIds].sort()).toEqual(["jump", "jump_sound", "jump_velocity", "update_jump"]);
+    expect(saved.groups!.filter((group) => group.id !== groupId)).toEqual(original.groups!.filter((group) => group.id !== "reference_jump"));
   });
 
   it("never lets a collapsed group cover another node's controls; organize, expand, undo and reopen", async () => {

@@ -673,6 +673,22 @@ describe("ToolsPanel Asset Browser", () => {
     expect(mocks.persistActiveScene).not.toHaveBeenCalled();
   });
 
+  it("highlights only an exact resource reference, preserving path and case identity", async () => {
+    const setAsset = async (asset: string) => act(async () => {
+      useEditorStore.setState({ selectedEntityId: "hero", activeScene: { scene_id: "main", background_layers: [], entities: [{ entity_id: "hero", prefab: null, transform: { x: 0, y: 0 }, components: { sprite: { asset, frame_width: 16, frame_height: 16 } } }] } });
+      await flush();
+    });
+    await setAsset("onboarding_player.ppm");
+    for (const label of ["Avancado OFF", /Experimental/, /Asset Browser/]) {
+      await act(async () => { findButton(container, label).click(); await flush(); await flush(); });
+    }
+    expect(container.querySelectorAll("button[data-linked='true']")).toHaveLength(0);
+    await setAsset("assets/sprites/onboarding_player.ppm");
+    expect(container.querySelectorAll("button[data-linked='true']")).toHaveLength(1);
+    await setAsset("assets/sprites/ONBOARDING_PLAYER.ppm");
+    expect(container.querySelectorAll("button[data-linked='true']")).toHaveLength(0);
+  });
+
   it("shows the current scene references for the selected asset", async () => {
     await act(async () => {
       useEditorStore.setState({
