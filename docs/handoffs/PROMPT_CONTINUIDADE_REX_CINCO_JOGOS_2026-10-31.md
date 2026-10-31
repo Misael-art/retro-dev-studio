@@ -150,3 +150,11 @@ W=/home/misael/Shared/ProjectRuntime/RetroDevStudio/rex_five_games
 RDS_REX_ROM=$W/corpus/<sha>/rom.bin RDS_REX_OUT=$W/projects/<nome> RDS_LIBSIG_DICT=$W/inputs/dictionary.json cargo test -j1 --lib write_project_from_rom -- --ignored --nocapture
 RDS_SGDKRES_TRUTH=$W/inputs/truth.tsv cargo test -j1 --lib flow_function_starts_vs_truth -- --ignored --nocapture
 ```
+
+## Checkpoint de execução 2 (2026-10-31)
+
+Feitos os itens 1 (Tanzer/Old Towers) e parte do 3 (o áudio de Tanzer era XGC sem alinhamento, não XGM2). Detalhes no Memory Bank, checkpoint (b). Próximos passos:
+1. Estender o gate de edição a quadros de sprite: hoje só Image tem prova causal.
+2. Precisão das sementes por operando (item 2 do checkpoint 1).
+3. Perfis não-SGDK: Sonic 1 (piloto e codecs existentes) e Mega Turrican.
+4. Mapas/colisões, áudio editável, integração Tauri.

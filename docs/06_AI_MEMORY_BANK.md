@@ -1,3 +1,11 @@
+### Checkpoint 2026-10-31 (b) — REX cinco jogos: SGDK antigo em Tanzer/Old Towers (Experimental, 0/5)
+
+Commits `4e1ac74a`, `ea117749` e `3b54f5ff` (locais; o push está bloqueado pela política de branch do host). Três descobertas, cada uma tratada como layout em dado e validada pela cadeia inteira:
+- **Palette `{index; length; data*}`** (rescomp antigo). Tem a mesma forma de um TileSet não comprimido, então paleta solta só usa esse layout quando uma Image/Sprite da mesma ROM já o provou. A regra rejeitou 6 FPs no corpus de verdade. Leituras sobrepostas ficam marcadas `ambiguous`, e a referência ao campo `data` também conta como evidência de uso.
+- **XGC sem alinhamento de 256 B**: Tanzer passa de 0 para 14 faixas, igual às 14 tags XGMTool. A hipótese anterior de XGM2 estava errada. Nos 60 ROMs locais, nenhuma outra contagem mudou.
+- **Frame SGDK 1.x de palavras (`Sgdk1xWide`)**: Tanzer recupera 218 sprites e 727 quadros, igual aos 727 TileSets adjacentes de uma sonda independente. Old Towers ganha +8 e Darius Mini +230. O corpus de verdade continua 100% nomeado e nenhum ROM não-SGDK mudou.
+Tanzer e Old Towers remontam byte a byte; atribuição de recursos 0,423 e 0,660. Old Towers foi inspecionado no diagnóstico e deixou de ser holdout limpo; Foxy Land, não inspecionado, ficou inalterado. Música continua XGC binário, não editável. Recibos em `$RDS_WORK_ROOT/rex_five_games/receipts/`. Próximo: prova de edição de sprite no gate, P das sementes por operando, perfis não-SGDK (Sonic 1, Turrican), mapas e áudio editável.
+
 ### Checkpoint 2026-10-31 — REX cinco jogos: alvos congelados, gates endurecidos (Experimental, missão em curso)
 
 Meta operacional ampliada pelo operador: cinco jogos MD completos e editáveis (`docs/handoffs/PROMPT_CONTINUIDADE_REX_CINCO_JOGOS_2026-10-31.md`). Não altera Decisões Consolidadas. Base `501a87f7`; o WIP M68K (`rex_m68k_flow.rs`, esqueleto lógico em `rex_sgdk_project.rs`) não tinha commit nem owner registrado; foi preservado e integrado neste checkpoint, com a mesma origem de sessão/operador. Host READY (`60249508…`).
