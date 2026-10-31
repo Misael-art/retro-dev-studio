@@ -354,17 +354,23 @@ pub fn parse_xgm(rom: &[u8], at: usize) -> Option<RecoveredXgm> {
     })
 }
 
-/// Varre inícios alinhados em 256 bytes (o rescomp alinha recursos XGM assim).
+/// Varre inícios pares. O rescomp atual alinha XGM em 256 bytes, mas versões antigas
+/// empacotam faixas logo após a anterior (e após o tag GD3); a validação é a cadeia
+/// exata de quadros, não o alinhamento.
 pub fn recover_xgm(rom: &[u8]) -> Vec<RecoveredXgm> {
+    recover_xgm_aligned(rom, 2)
+}
+
+fn recover_xgm_aligned(rom: &[u8], align: usize) -> Vec<RecoveredXgm> {
     let mut out: Vec<RecoveredXgm> = Vec::new();
     let mut at = 0usize;
     while at + 260 <= rom.len() {
         if let Some(x) = parse_xgm(rom, at) {
-            at += (x.len as usize).div_ceil(256) * 256;
+            at += (x.len as usize).div_ceil(align) * align;
             out.push(x);
             continue;
         }
-        at += 256;
+        at += align;
     }
     out
 }
@@ -864,6 +870,26 @@ mod tests {
     }
 
     #[test]
+    fn xgc_found_when_packed_without_256_alignment() {
+        let one = |rom: &mut Vec<u8>, at: usize| {
+            for e in 0..63 {
+                rom[at + e * 4..at + e * 4 + 4].copy_from_slice(&[0xFF, 0xFF, 0x01, 0x00]);
+            }
+            rom[at + 252..at + 256].fill(0); // SLEN=0, versão 0, NTSC
+            let music = [1u8; 20];
+            rom[at + 256..at + 260].copy_from_slice(&20u32.to_le_bytes());
+            rom[at + 260..at + 280].copy_from_slice(&music);
+            at + 280
+        };
+        let mut rom = vec![0xEEu8; 0x800];
+        let end = one(&mut rom, 0x42);
+        one(&mut rom, end + 0x10); // faixa seguinte logo após um "tag"
+        let found: Vec<u32> = recover_xgm(&rom).iter().map(|x| x.offset).collect();
+        assert_eq!(found, vec![0x42, (end + 0x10) as u32]);
+        assert!(recover_xgm_aligned(&rom, 256).is_empty());
+    }
+
+    #[test]
     fn xgc_requires_frames_to_chain_exactly() {
         let mut rom = vec![0u8; 0x400];
         for e in 0..63 {
@@ -1230,6 +1256,30 @@ mod runner {
 #[cfg(test)]
 mod diag {
     use super::*;
+
+    /// BYOR: nº de XGC por ROM com varredura alinhada em 256 e em 2 bytes
+    /// (`RDS_REX_CORPUS_DIR`, um `.bin` por ROM). Comparar com tags XGMTool externas.
+    #[test]
+    #[ignore = "BYOR: RDS_REX_CORPUS_DIR"]
+    fn xgm_count_by_alignment() {
+        let dir = std::env::var("RDS_REX_CORPUS_DIR").expect("RDS_REX_CORPUS_DIR ausente");
+        let mut files: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap_or_else(|e| panic!("{dir}: {e}"))
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|x| x == "bin"))
+            .collect();
+        files.sort();
+        assert!(!files.is_empty(), "corpus vazio");
+        for f in files {
+            let rom = std::fs::read(&f).unwrap();
+            println!(
+                "xgm\t{}\t{}\t{}",
+                recover_xgm_aligned(&rom, 256).len(),
+                recover_xgm_aligned(&rom, 2).len(),
+                f.file_name().unwrap().to_string_lossy()
+            );
+        }
+    }
 
     /// BYOR: por que uma ROM SGDK fica sem Image? Conta cada aresta que reprova.
     #[test]
