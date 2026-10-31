@@ -452,6 +452,8 @@ Preservados contratos, lotes, pins e erratas. Os hashes atuais de coverage, ACHA
 
 ### Checkpoint 2026-10-19 UTC (rodada 4) — Studio Gráfico: paletas planejadas no build e composição personagem + cenário + HUD (Experimental)
 
+## Checkpoint 2026-10-31 (e) — Sementes de operando REX: P 0,95–0,97 (era 0,71); P estrita segue 0,94 < 0,95 (rótulos MDDBG). Próximo: perfis não-SGDK.
+
 ## Checkpoint 2026-10-31 (d) — Soltar ROM no app gera projeto SGDK REX (Experimental) com ícone para abrir o diretório; sem src/*.c ainda.
 
 ## Checkpoint 2026-10-31 (c) — REX cinco jogos: prova de edição em quadros de sprite (Aratu, Tanzer, Old Towers: 1 byte, reversível). Ainda 0/5 PASS; próximo: precisão das sementes de operando.

@@ -172,3 +172,11 @@ Feitos os itens 1 (Tanzer/Old Towers) e parte do 3 (o áudio de Tanzer era XGC s
 - Aratu pelo comando real: 74 img / 21 spr / 275 quadros / 12 músicas / 163 funções, byte_exact=true.
 - Limite: o projeto tem `res/` (resources.res, PNGs, XGC) e `rex/` (rebuild.json, logic.json esqueleto); ainda não há `src/*.c` compilável — a lógica executável editável continua pendente.
 - Pré-existentes, falham também em HEAD sem esta mudança: 8 testes em `scripts/new-host.test.mjs`, `studioAppearance.test.ts`, `StudioAppearancePicker.test.tsx`.
+
+## Checkpoint de execução 5 (2026-10-31): precisão das sementes de operando
+
+- Causa medida dos FPs do tier inferido (HAMOOPIG P 0,712): (a) operandos que caem no corpo de função já descoberta (rótulos, 114 em HAMOOPIG); (b) constantes `move.l #1000,d0`/`#size,-(sp)` lidas como endereço (ex.: `*_data_size` caindo dentro de libgcc em Mugenesis).
+- Correção genérica: semente só de operando em contexto de ponteiro (`lea`, `pea`, `move.l #x` para destino não-Dn), fora de código já descoberto e logo após terminador (`rts/rte/rtr/bra/jmp`) ou preenchimento.
+- Resultado (`receipts/flow-vs-truth-ptrctx-2026-10-31.txt`): P operandos 0,951–0,971 nos 11 projetos (limiar 0,90 cumprido); HAMOOPIG 0,712→0,970, Mugenesis 0,725→0,970. Recall cai um pouco (HAMOOPIG ok 376→325), mas continua ≥ estrito.
+- Ainda reprova: P estrita 0,937–0,949 < 0,95 em 7 linhas (9 alvos reais de `bsr` em rótulos locais MDDBG ausentes do `symbol.txt`). Critério congelado mantido; não alterado.
+- Próximo: perfis não-SGDK (Sonic 1, Mega Turrican).

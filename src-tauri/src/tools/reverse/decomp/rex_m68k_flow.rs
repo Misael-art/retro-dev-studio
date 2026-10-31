@@ -23,6 +23,9 @@ pub struct DiscoveredFunction {
     pub calls: Vec<u32>,
     /// Operandos estáticos (abs/PC-rel/imediato com cara de endereço) — candidatos a xref.
     pub refs: Vec<u32>,
+    /// Subconjunto de `refs` em contexto de ponteiro de código (`lea`/`pea`/`move.l #x`
+    /// para registrador de endereço ou memória): únicas sementes da camada inferida.
+    pub code_refs: Vec<u32>,
     /// Termina num salto indireto não resolvido (tabela de estados/callbacks).
     pub has_indirect: bool,
 }
@@ -60,6 +63,19 @@ struct Flow {
     stops: bool,
     indirect: bool,
     refs: Vec<u32>,
+    code_refs: Vec<u32>,
+}
+
+/// Operando em contexto de ponteiro: `lea`, `pea`, ou `move.l #imm` cujo destino não é
+/// registrador de dados. Constantes (`move.l #1000,d0`, `cmpi`, `addi`) e leituras de
+/// memória (`move.l lbl,d0`) ficam de fora.
+fn pointer_context(op: u16) -> bool {
+    let src_mode = (op >> 3) & 7;
+    let src_reg = op & 7;
+    let lea = op & 0xF1C0 == 0x41C0;
+    let pea = op & 0xFFC0 == 0x4840;
+    let move_l_imm = op >> 12 == 2 && src_mode == 7 && src_reg == 4 && (op >> 6) & 7 != 0;
+    lea || pea || move_l_imm
 }
 
 fn flow(rom: &[u8], pc: usize) -> Option<Flow> {
@@ -97,6 +113,11 @@ fn flow(rom: &[u8], pc: usize) -> Option<Flow> {
         jump: None,
         stops: false,
         indirect: false,
+        code_refs: if pointer_context(op) {
+            refs.first().copied().into_iter().collect()
+        } else {
+            Vec::new()
+        },
         refs,
     };
     match op {
@@ -150,6 +171,7 @@ pub fn discover(rom: &[u8], seeds: &[u32], code_hi: u32) -> CodeMap {
             code_bytes: 0,
             calls: Vec::new(),
             refs: Vec::new(),
+            code_refs: Vec::new(),
             has_indirect: false,
         };
         let mut work = vec![start];
@@ -172,6 +194,7 @@ pub fn discover(rom: &[u8], seeds: &[u32], code_hi: u32) -> CodeMap {
                 owner.entry(pc).or_insert(start);
                 f.code_bytes += fl.len as u32;
                 f.refs.extend(fl.refs.iter().copied());
+                f.code_refs.extend(fl.code_refs.iter().copied());
                 f.has_indirect |= fl.indirect;
                 if let Some(t) = fl.call.filter(|t| in_rom(*t)) {
                     f.calls.push(t);
@@ -193,6 +216,8 @@ pub fn discover(rom: &[u8], seeds: &[u32], code_hi: u32) -> CodeMap {
         f.calls.dedup();
         f.refs.sort_unstable();
         f.refs.dedup();
+        f.code_refs.sort_unstable();
+        f.code_refs.dedup();
         funcs.insert(start, f);
     }
     let code_bytes = funcs.values().map(|f| f.code_bytes as usize).sum();
@@ -232,25 +257,25 @@ fn walks_as_code(rom: &[u8], at: u32, limit: usize) -> bool {
     false
 }
 
+/// Início de função compilada não é "caído em": o que vem antes é terminador
+/// (`rts`/`rte`/`rtr`, `bra`, `jmp`) ou preenchimento (`0000`/`nop`). Checa as formas
+/// fixas que terminam em `at` (decodificação para trás é ambígua; só estas são aceitas).
+fn follows_terminator(rom: &[u8], at: u32) -> bool {
+    let a = at as usize;
+    let w = |back: usize| a.checked_sub(back).and_then(|p| be16(rom, p));
+    matches!(w(2), Some(0x4E75 | 0x4E73 | 0x4E77 | 0x0000 | 0x4E71))
+        || w(2).is_some_and(|x| x & 0xFF00 == 0x6000 && x & 0xFF != 0 && x & 0xFF != 0xFF)
+        || w(4).is_some_and(|x| x == 0x6000 || x == 0x4EF8 || x & 0xFFF8 == 0x4EE8)
+        || w(4) == Some(0x4EFA)
+        || w(6) == Some(0x4EF9)
+}
+
 /// Segunda camada (rotulada `inferida`): ponteiros para código. Candidatos são palavras
 /// de 32 bits alinhadas em qualquer ponto da ROM (tabelas de estado/callback) e
 /// operandos de funções já descobertas, que caiam em `[0x200, code_hi)`. Aceita-se só o
 /// alvo que caminha como código, não parte uma instrução já decodificada e não cai em
 /// faixa excluída (dados recuperados).
 pub fn pointer_seeds(rom: &[u8], map: &CodeMap, code_hi: u32, exclude: &[(u32, u32)]) -> Vec<u32> {
-    let insn_starts: BTreeSet<u32> = map
-        .ranges
-        .iter()
-        .flat_map(|(s, e)| {
-            let mut v = Vec::new();
-            let mut pc = *s;
-            while pc < *e {
-                v.push(pc);
-                pc += insn_len(&rom[pc as usize..]).map_or(2, |x| x.len) as u32;
-            }
-            v
-        })
-        .collect();
     let inside_code = |a: u32| map.ranges.iter().any(|(s, e)| a >= *s && a < *e);
     let excluded = |a: u32| exclude.iter().any(|(s, e)| a >= *s && a < *e);
     // Só operandos de código já descoberto (ex.: `move.l #fn,-(sp)` antes de registrar um
@@ -258,14 +283,16 @@ pub fn pointer_seeds(rom: &[u8], map: &CodeMap, code_hi: u32, exclude: &[(u32, u
     let cands: BTreeSet<u32> = map
         .functions
         .iter()
-        .flat_map(|f| f.refs.iter().copied())
+        .flat_map(|f| f.code_refs.iter().copied())
         .collect();
     cands
         .into_iter()
         .filter(|a| *a >= 0x200 && *a < code_hi && a.is_multiple_of(2))
         .filter(|a| !map.functions.iter().any(|f| f.start == *a))
         .filter(|a| !excluded(*a))
-        .filter(|a| !inside_code(*a) || insn_starts.contains(a))
+        // Alvo dentro de função já descoberta é rótulo do corpo, não início de função.
+        .filter(|a| !inside_code(*a))
+        .filter(|a| follows_terminator(rom, *a))
         .filter(|a| walks_as_code(rom, *a, 4096))
         .collect()
 }
@@ -316,6 +343,28 @@ mod tests {
         let callee = &map.functions[1];
         assert!(callee.has_indirect, "jsr (a0) é indireto");
         assert!(callee.refs.contains(&0x380), "lea abs.L vira referência");
+    }
+
+    #[test]
+    fn only_pointer_contexts_seed_code() {
+        assert!(super::pointer_context(0x41F9)); // lea abs.l,a0
+        assert!(super::pointer_context(0x4879)); // pea abs.l
+        assert!(super::pointer_context(0x2F3C)); // move.l #x,-(sp)
+        assert!(super::pointer_context(0x207C)); // movea.l #x,a0
+        assert!(!super::pointer_context(0x203C)); // move.l #x,d0: constante
+        assert!(!super::pointer_context(0x0C80)); // cmpi.l #x,d0
+        assert!(!super::pointer_context(0x2039)); // move.l abs.l,d0: leitura de dado
+    }
+
+    #[test]
+    fn function_entry_must_follow_a_terminator() {
+        let mut rom = vec![0u8; 0x40];
+        rom[0x10..0x12].copy_from_slice(&[0x4E, 0x75]); // rts
+        rom[0x12..0x14].copy_from_slice(&[0x44, 0x80]); // neg.l d0
+        assert!(super::follows_terminator(&rom, 0x12));
+        assert!(!super::follows_terminator(&rom, 0x14), "caído de neg.l");
+        rom[0x20..0x26].copy_from_slice(&[0x4E, 0xF9, 0, 0, 0x02, 0x00]); // jmp abs.l
+        assert!(super::follows_terminator(&rom, 0x26));
     }
 
     #[test]
@@ -391,6 +440,24 @@ mod tests {
             let map2 = discover_with_operand_seeds(&rom, rom.len() as u32, &exclude);
             let found2: BTreeSet<u32> = map2.functions.iter().map(|f| f.start).collect();
             let ok2 = found2.intersection(&truth).count();
+            if std::env::var_os("RDS_FLOW_DEBUG").is_some() {
+                // FP do tier inferido por classe: dentro de código estrito (rótulo) ou fora.
+                let inside = |x: u32| map.ranges.iter().any(|(s, e)| x >= *s && x < *e);
+                let (mut lab, mut out) = (Vec::new(), Vec::new());
+                for x in found2.difference(&truth).filter(|x| !found.contains(x)) {
+                    if inside(*x) {
+                        lab.push(format!("{x:06x}"))
+                    } else {
+                        out.push(format!("{x:06x}"))
+                    }
+                }
+                println!(
+                    "fp+ops {} rotulo={} fora={} {out:?}",
+                    c[0],
+                    lab.len(),
+                    out.len()
+                );
+            }
             println!(
                 "flow+ops {:12} found={:5} truth={:5} ok={:5} P={:.3} R={:.3} code_bytes={}",
                 c[0],
