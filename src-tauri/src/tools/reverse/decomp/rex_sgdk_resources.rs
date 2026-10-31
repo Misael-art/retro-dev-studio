@@ -48,16 +48,17 @@ fn rom_ptr(rom: &[u8], at: usize) -> Option<usize> {
 }
 
 /// Decodifica `expected_len` bytes de `ptr` com o codec declarado; só aceita tamanho exato.
+/// Devolve também os bytes do stream consumidos na ROM.
 pub fn decode_declared(
     rom: &[u8],
     compression: HeaderCompression,
     ptr: usize,
     expected_len: usize,
-) -> Option<Vec<u8>> {
+) -> Option<(Vec<u8>, usize)> {
     match compression {
         HeaderCompression::None => rom
             .get(ptr..ptr.checked_add(expected_len)?)
-            .map(<[u8]>::to_vec),
+            .map(|b| (b.to_vec(), expected_len)),
         codec => {
             let cand = TilesetCandidate {
                 header_offset: 0,
@@ -69,10 +70,10 @@ pub fn decode_declared(
             match codec {
                 HeaderCompression::Lz4w => verify_lz4w_resource(rom, &cand, &Lz4wLimits::default())
                     .ok()
-                    .map(|r| r.decoded),
+                    .map(|r| (r.decoded, r.bytes_consumed)),
                 _ => verify_aplib_resource(rom, &cand, &AplibLimits::default())
                     .ok()
-                    .map(|r| r.decoded),
+                    .map(|r| (r.decoded, r.bytes_consumed)),
             }
         }
     }
@@ -110,6 +111,7 @@ pub struct RecoveredTileset {
     pub compression: String,
     pub num_tiles: u32,
     pub stream_offset: u32,
+    pub stream_bytes: u32,
     #[serde(skip)]
     pub tiles: Vec<u8>,
 }
@@ -121,12 +123,13 @@ pub fn parse_tileset(rom: &[u8], at: usize) -> Option<RecoveredTileset> {
     if num == 0 || num > 2048 {
         return None;
     }
-    let tiles = decode_declared(rom, comp, ptr, num * 32)?;
+    let (tiles, stream_bytes) = decode_declared(rom, comp, ptr, num * 32)?;
     Some(RecoveredTileset {
         header_offset: at as u32,
         compression: comp.as_str().to_string(),
         num_tiles: num as u32,
         stream_offset: ptr as u32,
+        stream_bytes: stream_bytes as u32,
         tiles,
     })
 }
@@ -137,6 +140,8 @@ pub struct RecoveredTilemap {
     pub compression: String,
     pub width: u16,
     pub height: u16,
+    pub stream_offset: u32,
+    pub stream_bytes: u32,
     #[serde(skip)]
     pub cells: Vec<u16>,
 }
@@ -149,7 +154,7 @@ pub fn parse_tilemap(rom: &[u8], at: usize, num_tiles: u32) -> Option<RecoveredT
     if w == 0 || h == 0 || w > MAX_MAP_DIM || h > MAX_MAP_DIM {
         return None;
     }
-    let raw = decode_declared(rom, comp, ptr, w * h * 2)?;
+    let (raw, stream_bytes) = decode_declared(rom, comp, ptr, w * h * 2)?;
     let cells: Vec<u16> = raw
         .chunks_exact(2)
         .map(|c| u16::from_be_bytes([c[0], c[1]]))
@@ -162,6 +167,8 @@ pub fn parse_tilemap(rom: &[u8], at: usize, num_tiles: u32) -> Option<RecoveredT
         compression: comp.as_str().to_string(),
         width: w as u16,
         height: h as u16,
+        stream_offset: ptr as u32,
+        stream_bytes: stream_bytes as u32,
         cells,
     })
 }
@@ -461,6 +468,12 @@ impl RecoveredFrame {
     /// Compõe o quadro (índices 0..15) num canvas `w x h`; tiles de cada peça em ordem
     /// de coluna (ordem do VDP). Pixels fora do canvas são recortados.
     pub fn compose(&self, w: usize, h: usize) -> Vec<u8> {
+        self.compose_at(w, h, 0, 0)
+    }
+
+    /// Como `compose`, com a origem do quadro deslocada para `(-ox, -oy)` no canvas
+    /// (peças com deslocamento negativo continuam visíveis).
+    pub fn compose_at(&self, w: usize, h: usize, ox: i32, oy: i32) -> Vec<u8> {
         let mut px = vec![0u8; w * h];
         let mut tile = 0usize;
         for part in &self.parts {
@@ -470,8 +483,8 @@ impl RecoveredFrame {
                         for col in 0..8 {
                             let b = self.tileset.tiles[tile * 32 + row * 4 + col / 2];
                             let idx = if col % 2 == 0 { b >> 4 } else { b & 0x0F };
-                            let x = part.x as i32 + (tx * 8 + col) as i32;
-                            let y = part.y as i32 + (ty * 8 + row) as i32;
+                            let x = part.x as i32 - ox + (tx * 8 + col) as i32;
+                            let y = part.y as i32 - oy + (ty * 8 + row) as i32;
                             if idx != 0 && x >= 0 && y >= 0 && (x as usize) < w && (y as usize) < h
                             {
                                 px[y as usize * w + x as usize] = idx;
@@ -588,10 +601,36 @@ impl RecoveredSprite {
             })
     }
 
-    /// Folha no formato que o rescomp lê de volta: uma linha por animação, um quadro por
-    /// coluna, células do tamanho da definição; pixels indexados 0..15 + linha de paleta 0.
+    /// Célula da folha: união do tamanho declarado com o retângulo de TODAS as peças.
+    /// Devolve `(largura, altura, origem_x, origem_y)`; origem <= 0 quando alguma peça
+    /// tem deslocamento negativo.
+    pub fn sheet_cell(&self) -> (usize, usize, i32, i32) {
+        let (dw, dh) = self.cell_size();
+        let (mut x0, mut y0, mut x1, mut y1) = (0i32, 0i32, dw as i32, dh as i32);
+        for p in self
+            .animations
+            .iter()
+            .flat_map(|a| &a.frames)
+            .flat_map(|f| &f.parts)
+        {
+            x0 = x0.min(i32::from(p.x));
+            y0 = y0.min(i32::from(p.y));
+            x1 = x1.max(i32::from(p.x) + 8 * i32::from(p.w_tiles));
+            y1 = y1.max(i32::from(p.y) + 8 * i32::from(p.h_tiles));
+        }
+        // múltiplo de 8: o rescomp fatia a folha em tiles
+        (
+            ((x1 - x0) as usize).div_ceil(8) * 8,
+            ((y1 - y0) as usize).div_ceil(8) * 8,
+            x0,
+            y0,
+        )
+    }
+
+    /// Folha editável: uma linha por animação, um quadro por coluna, células de
+    /// `sheet_cell` (o quadro declarado fica em `(-origem)`); índices 0..15, paleta 0.
     pub fn sheet_png(&self) -> (u32, u32, Vec<u8>) {
-        let (cw, ch) = self.cell_size();
+        let (cw, ch, ox, oy) = self.sheet_cell();
         let cols = self
             .animations
             .iter()
@@ -603,7 +642,7 @@ impl RecoveredSprite {
         let mut px = vec![0u8; w * h];
         for (r, anim) in self.animations.iter().enumerate() {
             for (c, frame) in anim.frames.iter().enumerate() {
-                let cell = frame.compose(cw, ch);
+                let cell = frame.compose_at(cw, ch, ox, oy);
                 for y in 0..ch {
                     let dst = (r * ch + y) * w + c * cw;
                     px[dst..dst + cw].copy_from_slice(&cell[y * cw..(y + 1) * cw]);

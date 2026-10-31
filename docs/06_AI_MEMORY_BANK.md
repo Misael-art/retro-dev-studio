@@ -3685,3 +3685,9 @@ Relato do operador: o painel de paletas acusava conflito em capturas, mas o jogo
 - `libmd.a` release do SGDK 2.11 é LTO (sem código): o dicionário vem de ROMs+`symbol.txt` dos projetos SGDKForge.
 - Holdout leave-one-project-out (9 projetos): P 0,898–0,938, R 0,954–0,988. Corpus BYOR 40 ROMs: 12 ROMs da família SGDK identificadas pelo núcleo asm; corpos C não atravessam versões do SDK.
 - Fecho: `docs/rex_profiles/libsig/FECHO-LIBSIG-SGDK-2026-10-30.md`. Próximo: recursos SGDK por forma de estrutura.
+
+### Checkpoint 2026-10-30 (b) — Recursos SGDK por forma, projeto recuperado e remontagem exata (Experimental)
+- Motor: `rex_sgdk_resources` (Image/Sprite 1.x+2.x/XGC por forma), `rex_sgdk_project` (ROM → `res/` + `recovered.res` + manifesto de cobertura), `rex_sgdk_rebuild` (projeto → ROM). PNG indexado em `asset_extractor::encode_indexed_png`.
+- Ground truth: Image P=R=100%; Sprite P=100%; 1.418/1.507 quadros idênticos à arte original.
+- Irmãos Aratu: 77,4% dos bytes atribuídos; ROM remontada do projeto com SHA-256 idêntico; edição de 1 pixel → 1 byte previsto.
+- Fecho: `docs/rex_profiles/libsig/FECHO-SGDK-RECURSOS-PROJETO-REMONTAGEM-2026-10-30.md`. Próximo: descoberta de código (fronteiras/chamadas/xref de recursos) para a camada lógica.
