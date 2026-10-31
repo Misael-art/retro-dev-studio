@@ -74,7 +74,7 @@ fn coverage(graph: &SgdkResourceGraph, rom: &[u8], lib: &[LibMatch]) -> Vec<Cove
         push(img.header_offset as usize, 12, "image", label.clone());
         push(
             img.palette.header_offset as usize,
-            6,
+            img.palette.header_bytes(),
             "palette",
             label.clone(),
         );

@@ -84,14 +84,53 @@ pub struct RecoveredPalette {
     pub header_offset: u32,
     pub data_offset: u32,
     pub colors: Vec<u16>,
+    /// Layout do cabeçalho: `len_ptr` (`{u16 length; u16* data}`, SGDK atual) ou
+    /// `index_len_ptr` (`{u16 index; u16 length; u16* data}`, rescomp antigo).
+    #[serde(default = "default_palette_layout")]
+    pub layout: String,
 }
 
+fn default_palette_layout() -> String {
+    "len_ptr".into()
+}
+
+impl RecoveredPalette {
+    /// Bytes do cabeçalho na ROM.
+    pub fn header_bytes(&self) -> usize {
+        if self.layout == "index_len_ptr" {
+            8
+        } else {
+            6
+        }
+    }
+}
+
+/// Layouts de Palette conhecidos, em ordem de tentativa: (nome, offset do length,
+/// offset do ponteiro de dados). Um cabeçalho só vale num layout se a forma inteira fecha.
+const PALETTE_LAYOUTS: [(&str, usize, usize); 2] = [("len_ptr", 0, 2), ("index_len_ptr", 2, 4)];
+
 pub fn parse_palette(rom: &[u8], at: usize) -> Option<RecoveredPalette> {
-    let len = be16(rom, at)? as usize;
+    PALETTE_LAYOUTS
+        .iter()
+        .find_map(|(name, len_at, ptr_at)| parse_palette_layout(rom, at, name, *len_at, *ptr_at))
+}
+
+fn parse_palette_layout(
+    rom: &[u8],
+    at: usize,
+    layout: &str,
+    len_at: usize,
+    ptr_at: usize,
+) -> Option<RecoveredPalette> {
+    // `index` (layout antigo) é a primeira entrada de CRAM: 0..63.
+    if len_at > 0 && be16(rom, at)? >= 64 {
+        return None;
+    }
+    let len = be16(rom, at + len_at)? as usize;
     if !matches!(len, 16 | 32 | 48 | 64) {
         return None;
     }
-    let data = rom_ptr(rom, at + 2)?;
+    let data = rom_ptr(rom, at + ptr_at)?;
     let colors: Vec<u16> = (0..len)
         .map(|i| be16(rom, data + i * 2))
         .collect::<Option<_>>()?;
@@ -102,6 +141,7 @@ pub fn parse_palette(rom: &[u8], at: usize) -> Option<RecoveredPalette> {
         header_offset: at as u32,
         data_offset: data as u32,
         colors,
+        layout: layout.to_string(),
     })
 }
 
@@ -709,11 +749,49 @@ pub fn recover_graph(rom: &[u8]) -> SgdkResourceGraph {
         }
         at += 2;
     }
-    let loose_palettes: Vec<RecoveredPalette> = targets
+    // Código compilado pode endereçar o campo `data` direto (`move.l pal+ptr_at,...`):
+    // ponteiro para o campo também é evidência de uso, desde que o cabeçalho feche.
+    // Os layouts se sobrepõem (o antigo contém um `len_ptr` válido 2 bytes adiante):
+    // agrupa por dados e, se mais de um layout fecha, marca `ambiguous` e só atribui os
+    // 6 bytes comuns (`length` + `data*`).
+    // O layout antigo tem a MESMA forma de um TileSet não comprimido
+    // (`{0; numTile; tiles*}`): solto, só vale se uma aresta tipada (Image/Sprite cujas
+    // outras arestas fecham) já provou esse layout nesta ROM.
+    let sprites = recover_sprites(rom);
+    let proven: std::collections::HashSet<&str> = images
         .iter()
-        .filter(|p| !used_pal.contains(*p))
-        .filter_map(|p| parse_palette(rom, *p as usize))
+        .map(|i| i.palette.layout.as_str())
+        .chain(sprites.iter().map(|s| s.palette.layout.as_str()))
         .collect();
+    let allowed = |layout: &str| layout == "len_ptr" || proven.contains(layout);
+    let mut loose: BTreeMap<u32, RecoveredPalette> = BTreeMap::new();
+    for t in &targets {
+        let direct = parse_palette(rom, *t as usize);
+        let via_field = PALETTE_LAYOUTS.iter().filter_map(|(name, len_at, ptr_at)| {
+            let at = (*t as usize).checked_sub(*ptr_at)?;
+            parse_palette_layout(rom, at, name, *len_at, *ptr_at)
+        });
+        for pal in direct.into_iter().chain(via_field) {
+            if used_pal.contains(&pal.header_offset) || !allowed(&pal.layout) {
+                continue;
+            }
+            match loose.entry(pal.data_offset) {
+                std::collections::btree_map::Entry::Vacant(e) => {
+                    e.insert(pal);
+                }
+                std::collections::btree_map::Entry::Occupied(mut e) => {
+                    let cur = e.get_mut();
+                    if cur.layout != pal.layout {
+                        if pal.layout == "len_ptr" {
+                            cur.header_offset = pal.header_offset;
+                        }
+                        cur.layout = "ambiguous".into();
+                    }
+                }
+            }
+        }
+    }
+    let loose_palettes: Vec<RecoveredPalette> = loose.into_values().collect();
     SgdkResourceGraph {
         images,
         // Sem compressão o decode não prova nada: só entra via pai validado (Image/Sprite).
@@ -725,7 +803,7 @@ pub fn recover_graph(rom: &[u8]) -> SgdkResourceGraph {
         loose_palettes,
         tileset_candidates: candidates.len(),
         music: recover_xgm(rom),
-        sprites: recover_sprites(rom),
+        sprites,
     }
 }
 
@@ -814,6 +892,70 @@ mod tests {
         let mut rom = synthetic();
         put16(&mut rom, 0x110, 0x0001); // cor inválida (bit fora do 9-bit)
         assert!(parse_image(&rom, 0x500).is_none());
+    }
+
+    /// Mesma Image com Palette no layout antigo `{index; length; data*}` @0x180.
+    fn synthetic_indexed_palette() -> Vec<u8> {
+        let mut rom = synthetic();
+        put16(&mut rom, 0x180, 0);
+        put16(&mut rom, 0x182, 16);
+        put32(&mut rom, 0x184, 0x110);
+        put32(&mut rom, 0x500, 0x180);
+        rom
+    }
+
+    #[test]
+    fn recovers_image_with_indexed_palette_layout() {
+        let g = recover_graph(&synthetic_indexed_palette());
+        assert_eq!(g.images.len(), 1);
+        let pal = &g.images[0].palette;
+        assert_eq!(
+            (pal.header_offset, pal.layout.as_str()),
+            (0x180, "index_len_ptr")
+        );
+        assert_eq!((pal.data_offset, pal.header_bytes()), (0x110, 8));
+        // index fora da CRAM (>= 64) não é Palette antiga.
+        let mut rom = synthetic_indexed_palette();
+        put16(&mut rom, 0x180, 64);
+        assert!(recover_graph(&rom).images.is_empty());
+    }
+
+    #[test]
+    fn loose_palette_is_evidenced_by_reference_to_its_data_field() {
+        // Image @0x500 (layout antigo) prova o layout; a 2ª paleta @0x700 é só referida
+        // pelo campo `data`.
+        let mut rom = synthetic_indexed_palette();
+        put16(&mut rom, 0x700, 0);
+        put16(&mut rom, 0x702, 16);
+        put32(&mut rom, 0x704, 0x110);
+        put32(&mut rom, 0x600, 0x704); // `move.l pal+4,...`
+        let g = recover_graph(&rom);
+        let found: Vec<_> = g
+            .loose_palettes
+            .iter()
+            .map(|p| (p.header_offset, p.layout.as_str()))
+            .collect();
+        // O campo também fecha como `len_ptr` @0x702: sem outra evidência, é ambíguo.
+        assert_eq!(found, vec![(0x702, "ambiguous")]);
+        // Sem nenhuma referência, a forma sozinha não basta.
+        put32(&mut rom, 0x600, 0);
+        assert!(recover_graph(&rom).loose_palettes.is_empty());
+    }
+
+    #[test]
+    fn indexed_layout_needs_a_typed_edge_before_loose_use() {
+        // TileSet não comprimido {0; 16; tiles*} tem a forma de Palette antiga.
+        let mut rom = synthetic();
+        put16(&mut rom, 0x700, 0);
+        put16(&mut rom, 0x702, 16);
+        put32(&mut rom, 0x704, 0x110);
+        put32(&mut rom, 0x600, 0x700);
+        let g = recover_graph(&rom);
+        assert!(
+            g.loose_palettes.iter().all(|p| p.layout == "len_ptr"),
+            "{:?}",
+            g.loose_palettes
+        );
     }
 }
 
@@ -1082,5 +1224,75 @@ mod runner {
                 );
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod diag {
+    use super::*;
+
+    /// BYOR: por que uma ROM SGDK fica sem Image? Conta cada aresta que reprova.
+    #[test]
+    #[ignore = "BYOR: RDS_REX_ROM"]
+    fn image_edge_failures() {
+        let p = std::env::var("RDS_REX_ROM").expect("RDS_REX_ROM ausente");
+        let rom = std::fs::read(&p).unwrap_or_else(|e| panic!("{p}: {e}"));
+        let cands = scan_tileset_headers(&rom);
+        let mut ts = BTreeMap::new();
+        let mut by_comp: BTreeMap<String, usize> = BTreeMap::new();
+        for c in &cands {
+            if let Some(t) = parse_tileset(&rom, c.header_offset) {
+                *by_comp.entry(t.compression.clone()).or_default() += 1;
+                ts.insert(t.header_offset, t);
+            }
+        }
+        println!(
+            "candidatos={} tilesets={} {by_comp:?}",
+            cands.len(),
+            ts.len()
+        );
+        let (mut refs, mut pal_fail, mut map_fail, mut shown) = (0, 0, 0, 0);
+        let mut at = 0;
+        while at + 12 <= rom.len() {
+            if let Some(t) = be32(&rom, at + 4).and_then(|p| ts.get(&p)) {
+                refs += 1;
+                let pal = rom_ptr(&rom, at).and_then(|p| parse_palette(&rom, p));
+                let map = rom_ptr(&rom, at + 8).and_then(|p| parse_tilemap(&rom, p, t.num_tiles));
+                pal_fail += usize::from(pal.is_none());
+                map_fail += usize::from(map.is_none());
+                if (pal.is_none() || map.is_none()) && shown < 6 {
+                    shown += 1;
+                    let dump = |a: Option<usize>| {
+                        a.and_then(|a| rom.get(a..a + 12))
+                            .map(|b| format!("{b:02x?}"))
+                    };
+                    println!(
+                        "@{at:#x} ts={:#x} n={} pal={:?} {:?} map={:?} {:?} prev={:02x?}",
+                        t.header_offset,
+                        t.num_tiles,
+                        pal.is_some(),
+                        dump(rom_ptr(&rom, at)),
+                        map.is_some(),
+                        dump(rom_ptr(&rom, at + 8)),
+                        &rom[at.saturating_sub(8)..at + 12]
+                    );
+                }
+            }
+            at += 2;
+        }
+        println!("refs_a_tileset={refs} pal_falha={pal_fail} map_falha={map_fail}");
+        let g = recover_graph(&rom);
+        for p in &g.loose_palettes {
+            println!(
+                "loose_pal {:x} {:x} {}",
+                p.header_offset, p.data_offset, p.layout
+            );
+        }
+        println!(
+            "images={} sprites={} music={}",
+            g.images.len(),
+            g.sprites.len(),
+            g.music.len()
+        );
     }
 }
