@@ -71,6 +71,13 @@ pub enum Emitter {
         #[serde(default)]
         tile_lines: Vec<u8>,
     },
+    /// Grade de layout (JSON `{width, height, cells}`): bytes sem compressão, tamanho fixo.
+    Layout {
+        offset: u32,
+        width: u32,
+        height: u32,
+        file: String,
+    },
     /// Mapa Enigma (palavras em JSON) ou dados Kosinski (binário descomprimido): fonte
     /// inalterada restitui `original`; editada é reencodada e precisa caber em `len`.
     Codec {
@@ -372,6 +379,29 @@ pub fn plan(rom: &[u8], graph: &SgdkResourceGraph) -> RebuildPlan {
             });
         }
     }
+    // Grades de layout; uma grade dentro dos bytes de outra é a mesma fonte (não emite).
+    let grids: Vec<&super::rex_md_tables::LayoutGrid> =
+        graph.md.layouts.iter().flat_map(|t| &t.grids).collect();
+    let end = |g: &super::rex_md_tables::LayoutGrid| g.offset + 2 + g.width * g.height;
+    for g in &grids {
+        let inside = grids
+            .iter()
+            .any(|o| o.offset < g.offset && end(g) <= end(o));
+        if inside {
+            preserved_items.push((
+                format!("layout_{:06x}", g.offset),
+                "grade dentro de outra (bytes compartilhados)".into(),
+            ));
+            continue;
+        }
+        covered.push((g.offset as usize, (2 + g.width * g.height) as usize));
+        emitters.push(Emitter::Layout {
+            offset: g.offset,
+            width: g.width,
+            height: g.height,
+            file: format!("res/map/layout_{:06x}.json", g.offset),
+        });
+    }
     for st in &graph.nemesis {
         let (tile_lines, _) = nemesis_palette(graph, st.offset);
         covered.push((st.offset as usize, st.len as usize));
@@ -527,6 +557,30 @@ pub fn rebuild(dir: &Path) -> Result<Vec<u8>, String> {
                 rom.get_mut(s..s + region.len())
                     .ok_or("fora da ROM")?
                     .copy_from_slice(&region);
+            }
+            Emitter::Layout {
+                offset,
+                width,
+                height,
+                file,
+            } => {
+                let v: serde_json::Value =
+                    serde_json::from_slice(&read(file)?).map_err(|e| format!("{file}: {e}"))?;
+                let cells: Vec<u8> = serde_json::from_value(v["cells"].clone())
+                    .map_err(|e| format!("{file}: {e}"))?;
+                if v["width"] != *width
+                    || v["height"] != *height
+                    || cells.len() != (*width * *height) as usize
+                {
+                    return Err(format!(
+                        "{file}: tamanho da grade mudou; redimensionar ainda não é suportado"
+                    ));
+                }
+                let s = *offset as usize;
+                let region = rom.get_mut(s..s + 2 + cells.len()).ok_or("fora da ROM")?;
+                region[0] = (*width - 1) as u8;
+                region[1] = (*height - 1) as u8;
+                region[2..].copy_from_slice(&cells);
             }
             Emitter::Codec {
                 codec,

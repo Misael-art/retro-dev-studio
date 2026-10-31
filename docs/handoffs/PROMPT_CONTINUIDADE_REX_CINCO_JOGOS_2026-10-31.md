@@ -203,3 +203,19 @@ Novo módulo `rex_md_tables.rs` (motor; sem nome de jogo/offset), cada estrutura
 - Sonic 1 (`receipts/sonic1-tables-edit-2026-10-31.txt`): no-op byte-exato; 12/12 mapas e 123/137 artes absorvem edição contida no próprio stream; atribuição 0,276 → 0,411.
 - Controle (`receipts/md-tables-corpus-2026-10-31.tsv`, 60 ROMs): registros/ligações/mapas só em Sonic 1; tabelas de paleta soltas em Tanzer/Turrican/Dino Fighters não entram em nada (só contam como recuperadas se usadas por ligação). Aratu/Tanzer/Old Towers inalterados.
 - Pendente: layout de nível (grade de chunks) — a forma `{w-1,h-1}` contígua não se confirmou na ROM; não foi forçada. Linha 0 sem fonte única. Arte de objetos (fora dos registros) segue em cinza.
+
+## Checkpoint de execução 8 (2026-10-31): layout de nível e paleta da arte de objetos
+
+Layout (motor; sem offset/nome):
+- O formato foi aprendido lendo o carregador (`0x6d12`: índice = (zona,ato)×3 + fg/bg numa tabela de deslocamentos de words; cabeçalho `{w-1,h-1}` + grade de bytes), e a regra final é só de forma: tabela de deslocamentos cujas grades distintas se encadeiam sem lacuna (contígua, alinhamento par, ou inteiramente dentro da anterior — bytes compartilhados), ≥8 grades e toda célula (`&0x7F`) ≤ nº de chunks do maior conjunto Kosinski provado. Sonic 1: só a tabela real `0x68bd6` (84 entradas, 47 grades); as 7 candidatas espúrias da regra frouxa caíram com contenção estrita + ≥8 grades.
+- Ligação zona: 84 entradas ÷ 7 linhas do registro = 12 por zona (inferida por divisão exata).
+- `row_art`: tabela de listas confirmada pela arte do próprio campo; as etiquetas dos demais campos ponteiro indexam listas DELA (GHZ carrega arte em 2 listas). Isso também subiu as artes de nível ligadas de 8 para 13.
+- Prévia montada `layout→chunk(16×16 blocos, &0x3FF, flips 11/12)→bloco(2×2 tiles)→tile→paleta` (`LEVEL_FORMAT`, dados medidos; base de ID de chunk = 1 escolhida por render: base 0 repete chão). Inspeção visual: GHZ1 com coqueiros/xadrez/loop; LZ e zona urbana coerentes. Lacunas em GHZ1 = pontes (objetos) sobre céu.
+- Projeto: `res/map/layout_*.json` (`{width,height,cells}`) + `layout_*_preview.png` (não é fonte); `Emitter::Layout` (tamanho fixo; grade dentro de outra não é emitida duas vezes). Editar 1 célula muda exatamente 1 byte.
+
+Paleta de objetos:
+- Linha 0 com 3 candidatas de 1 linha: escolhida a mais carregada em código (`moveq #id,Dn` antes de chamada a rotina que faz `lea tabela`): id 3 em 5 sítios vs 1 (exige ≥2 e ≥2× a 2ª); registrado em `lines_by_code_load`.
+- Arte sem votos de mapa: imediatos `move.w #padrão,d16(An)` (palavra de padrão do VDP) cuja base de tile = base VRAM da arte → uma linha para o stream (≥80% de concordância), cores da zona que carrega a arte; `evidence = palavra_de_padrao`. Muitas têm 1–2 votos: evidência fraca, rotulada.
+- Sonic 1: 55/137 artes com paleta (13 por mapa + 42 por palavra de padrão). Inspeção: lava de MZ em fogo, rocha roxa de GHZ.
+- Recibos: `receipts/sonic1-layout-objpal-2026-10-31.txt` (no-op byte-exato; layout 1 byte; 12/12 mapas; 123/137 artes), `receipts/md-tables-corpus-2026-10-31b.tsv` (60 ROMs: só Sonic 1 tem links/mapas/layouts). Aratu/Tanzer/Old Towers inalterados.
+- Pendente: oráculo de runtime para paleta (core libretro ausente neste host; baixar = dependência externa, não feito); 82 artes Nemesis ainda sem paleta (fora das listas das zonas: título, especial, finais); sem mapeamentos de sprite de objeto.

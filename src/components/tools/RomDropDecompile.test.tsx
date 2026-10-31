@@ -45,7 +45,7 @@ describe("RomDropDecompile", () => {
   it("soltar ROM gera o projeto e o ícone abre o diretório da extração", async () => {
     mocks.decompileRomToSgdk.mockResolvedValue({
       out_dir: "/work/extract/abc/sgdk_project", header_title: "JOGO", normalized_sha256: "abc",
-      images: 2, sprites: 3, sprite_frames: 9, music: 1, nemesis_streams: 0, nemesis_with_palette: 0, enigma_maps: 0, kosinski_blocks: 0, code_functions: 40, coverage_ratio: 0.5, byte_exact: true,
+      images: 2, sprites: 3, sprite_frames: 9, music: 1, nemesis_streams: 0, nemesis_with_palette: 0, enigma_maps: 0, kosinski_blocks: 0, level_layouts: 0, code_functions: 40, coverage_ratio: 0.5, byte_exact: true,
     });
     mocks.revealExtractionDir.mockResolvedValue(undefined);
     act(() => root.render(<RomDropDecompile />));

@@ -38,6 +38,8 @@ pub struct ProjectManifest {
     /// Artes Nemesis com paleta provada (registro → tabela de paletas → votos do mapa).
     pub nemesis_with_palette: usize,
     pub enigma_maps: usize,
+    /// Grades de layout de nível (tabela de deslocamentos de grades encadeadas).
+    pub level_layouts: usize,
     pub kosinski_blocks: usize,
     pub library_functions: usize,
     pub code_functions: usize,
@@ -167,6 +169,22 @@ fn coverage(graph: &SgdkResourceGraph, rom: &[u8], lib: &[LibMatch]) -> Vec<Cove
                 format!("{kind}_{:06x}", c.offset),
             );
         }
+    }
+    for g in graph.md.layouts.iter().flat_map(|t| &t.grids) {
+        push(
+            g.offset as usize,
+            (2 + g.width * g.height) as usize,
+            "level_layout",
+            format!("layout_{:06x}", g.offset),
+        );
+    }
+    for t in &graph.md.layouts {
+        push(
+            t.base as usize,
+            t.entries.len() * 2,
+            "layout_table",
+            format!("layouts_{:06x}", t.base),
+        );
     }
     for t in &graph.md.records {
         push(
@@ -433,6 +451,45 @@ pub fn write_recovered_project(
             &rom[s..e],
         )?;
     }
+    // Layouts: grade editável (JSON) e prévia montada (layout→chunk→bloco→tile→paleta) da
+    // linha de registro do grupo da entrada; a prévia não é fonte.
+    let mut layouts = 0usize;
+    for lt in &graph.md.layouts {
+        for g in &lt.grids {
+            let cells = &rom[g.offset as usize + 2..][..(g.width * g.height) as usize];
+            std::fs::write(
+                out.join(format!("res/map/layout_{:06x}.json", g.offset)),
+                serde_json::json!({"width": g.width, "height": g.height, "cells": cells})
+                    .to_string(),
+            )?;
+            layouts += 1;
+            let (Some(per_row), Some(rec)) = (lt.per_row, graph.md.records.first()) else {
+                continue;
+            };
+            let Some(e) = lt.entries.iter().position(|t| *t == g.offset) else {
+                continue;
+            };
+            let row = e / per_row as usize;
+            if g.width * g.height < 16 || row >= rec.rows as usize {
+                continue;
+            }
+            if let Some((w, h, px)) = super::rex_md_tables::render_layout(
+                rom,
+                &graph.nemesis,
+                &graph.md,
+                rec,
+                row,
+                g,
+                super::rex_md_tables::LEVEL_FORMAT,
+                4,
+            ) {
+                if let Some(img) = image::RgbaImage::from_raw(w, h, px) {
+                    img.save(out.join(format!("res/map/layout_{:06x}_preview.png", g.offset)))
+                        .map_err(std::io::Error::other)?;
+                }
+            }
+        }
+    }
     std::fs::write(out.join("res/recovered.res"), res)?;
     let (logic, code_ranges) = logic_skeleton(rom, &graph, &library);
     let mut ranges = coverage(&graph, rom, &library);
@@ -462,6 +519,7 @@ pub fn write_recovered_project(
             .filter(|st| graph.md.art_palettes.iter().any(|a| a.stream == st.offset))
             .count(),
         enigma_maps: graph.md.enigma.len(),
+        level_layouts: layouts,
         kosinski_blocks: graph.md.kosinski.len(),
         library_functions: library.len(),
         code_functions: logic.len(),
@@ -705,6 +763,24 @@ mod tests {
             }
             std::fs::write(out.join(file), original).unwrap();
         }
+        // Layout: 1 célula editada => exatamente 1 byte muda.
+        if let Some(super::super::rex_sgdk_rebuild::Emitter::Layout { offset, file, width, height }) = plan
+            .emitters
+            .iter()
+            .find(|e| matches!(e, super::super::rex_sgdk_rebuild::Emitter::Layout { width, height, .. } if width * height >= 16))
+        {
+            let original = std::fs::read(out.join(file)).unwrap();
+            let mut v: serde_json::Value = serde_json::from_slice(&original).unwrap();
+            let c = v["cells"][0].as_u64().unwrap();
+            v["cells"][0] = serde_json::json!((c + 1) % 0x80);
+            std::fs::write(out.join(file), v.to_string()).unwrap();
+            let edited = super::super::rex_sgdk_rebuild::rebuild(&out).unwrap();
+            let diffs: Vec<usize> = (0..rom.len()).filter(|i| edited[*i] != rom[*i]).collect();
+            println!("edicao layout {width}x{height}: bytes alterados={diffs:x?} esperado=[{:#x}]", *offset as usize + 2);
+            assert_eq!(diffs, vec![*offset as usize + 2]);
+            std::fs::write(out.join(file), original).unwrap();
+            proven.push("res/map/layout");
+        }
         if ctried > 0 {
             println!("edicao mapas: {cfit}/{ctried} streams Enigma/Kosinski absorvem 1 edição sem crescer");
             assert!(cfit > 0 || !require_edit, "nenhum mapa aceita edição");
@@ -729,8 +805,8 @@ mod tests {
         let has_target = !proven.is_empty();
         println!("remontagem identica=true sha={sha} edicao={has_target} tipos={proven:?}");
         println!(
-            "projeto {} images={} sprites={} frames={} music={} nemesis={} (com paleta {}) enigma={} kosinski={} lib={} funcs={} (estritas {}) recursos={:.3} ({} / {} bytes) codigo_alcancado={}",
-            m.header_title, m.images, m.sprites, m.sprite_frames, m.music, m.nemesis_streams, m.nemesis_with_palette, m.enigma_maps, m.kosinski_blocks, m.library_functions, m.code_functions, m.code_functions_strict,
+            "projeto {} images={} sprites={} frames={} music={} nemesis={} (com paleta {}) enigma={} kosinski={} layouts={} lib={} funcs={} (estritas {}) recursos={:.3} ({} / {} bytes) codigo_alcancado={}",
+            m.header_title, m.images, m.sprites, m.sprite_frames, m.music, m.nemesis_streams, m.nemesis_with_palette, m.enigma_maps, m.kosinski_blocks, m.level_layouts, m.library_functions, m.code_functions, m.code_functions_strict,
             m.coverage_ratio, m.attributed_bytes, m.rom_size, m.code_discovered_bytes
         );
     }

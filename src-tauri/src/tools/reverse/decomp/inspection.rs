@@ -375,6 +375,7 @@ pub struct SgdkDecompileReport {
     pub nemesis_with_palette: usize,
     pub enigma_maps: usize,
     pub kosinski_blocks: usize,
+    pub level_layouts: usize,
     pub code_functions: usize,
     pub coverage_ratio: f64,
     /// O projeto recompõe a ROM normalizada byte a byte (no-op).
@@ -412,6 +413,7 @@ pub fn decompile_to_sgdk(rom_path: &str) -> Result<SgdkDecompileReport, String> 
         nemesis_with_palette: m.nemesis_with_palette,
         enigma_maps: m.enigma_maps,
         kosinski_blocks: m.kosinski_blocks,
+        level_layouts: m.level_layouts,
         code_functions: m.code_functions,
         coverage_ratio: m.coverage_ratio,
         byte_exact,

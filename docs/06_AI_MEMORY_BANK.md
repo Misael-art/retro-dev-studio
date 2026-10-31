@@ -452,6 +452,8 @@ Preservados contratos, lotes, pins e erratas. Os hashes atuais de coverage, ACHA
 
 ### Checkpoint 2026-10-19 UTC (rodada 4) — Studio Gráfico: paletas planejadas no build e composição personagem + cenário + HUD (Experimental)
 
+## Checkpoint 2026-10-31 (h) — Sonic 1: layouts de nível (47 grades, editáveis, prévia montada) e paleta de objetos (55/137 artes com paleta; linha 0 por carga em código). Ainda 0/5 PASS.
+
 ## Checkpoint 2026-10-31 (g) — Paleta ligada à arte Nemesis (8 artes de nível de Sonic 1), blocos Enigma e chunks Kosinski extraídos e editáveis (12/12), encoders Enigma/Kosinski ótimo. Layout de nível pendente. Ainda 0/5 PASS.
 
 ## Checkpoint 2026-10-31 (f) — Nemesis genérico por listas PLC: Sonic 1 132 streams, no-op byte-exato, 118/132 editáveis por reencode. Ainda 0/5 PASS.

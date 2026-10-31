@@ -877,6 +877,7 @@ export interface SgdkDecompileReport {
   nemesis_with_palette: number;
   enigma_maps: number;
   kosinski_blocks: number;
+  level_layouts: number;
   code_functions: number;
   coverage_ratio: number;
   byte_exact: boolean;
