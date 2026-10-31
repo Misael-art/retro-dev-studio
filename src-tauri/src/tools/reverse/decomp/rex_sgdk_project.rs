@@ -426,64 +426,91 @@ mod tests {
         assert_eq!(rebuilt.len(), rom.len(), "tamanho remontado diverge");
         assert!(rebuilt == rom, "no-op não é byte-exato");
         assert_eq!(super::super::fingerprint::sha256_hex(&rebuilt), sha);
-        // Prova de edição: 1 pixel numa Image regenerada => exatamente 1 byte de tile muda.
+        // Prova de edição: 1 pixel num tile regenerado => exatamente 1 byte muda.
+        // Vale por tipo recuperado: Image e quadro de Sprite têm prova própria.
         let plan: super::super::rex_sgdk_rebuild::RebuildPlan =
             serde_json::from_str(&std::fs::read_to_string(out.join("rex/rebuild.json")).unwrap())
                 .unwrap();
-        let mut graph = recover_graph(&rom);
-        let target = plan.emitters.iter().find_map(|e| match e {
-            super::super::rex_sgdk_rebuild::Emitter::Tiles {
-                offset, png, tiles, ..
-            } if png.starts_with("res/img/") => Some((*offset, png.clone(), tiles[0].clone())),
-            _ => None,
-        });
-        // ROM sem Image regenerável não tem prova de edição: o chamador decide se exige.
+        let graph = recover_graph(&rom);
         let require_edit = std::env::var_os("RDS_REX_REQUIRE_EDIT").is_some();
-        let has_target = target.is_some();
-        assert!(
-            has_target || !require_edit,
-            "nenhuma Image regenerável: prova de edição ausente"
-        );
-        if let Some((offset, png, src)) = target {
-            let img = graph
-                .images
-                .iter_mut()
-                .find(|i| i.tileset.stream_offset == offset)
-                .unwrap();
-            let original = std::fs::read(out.join(&png)).unwrap();
+        let mut proven = Vec::new();
+        for (kind, present) in [("res/img/", m.images > 0), ("res/spr/", m.sprites > 0)] {
+            let target = plan.emitters.iter().find_map(|e| match e {
+                super::super::rex_sgdk_rebuild::Emitter::Tiles {
+                    offset, png, tiles, ..
+                } if png.starts_with(kind) => Some((*offset, png.clone(), tiles[0].clone())),
+                _ => None,
+            });
+            // Tipo recuperado sem tile regenerável não tem prova: o chamador decide se exige.
+            assert!(
+                target.is_some() || !present || !require_edit,
+                "{kind}: nenhum tile regenerável, prova de edição ausente"
+            );
+            let Some((offset, png, src)) = target else {
+                continue;
+            };
+            let mut g = graph.clone();
             // pixel (0,0) do tile 0, desfazendo o flip da célula-fonte
             let col = if src.hflip { 7 } else { 0 };
             let row = if src.vflip { 7 } else { 0 };
             let at = row * 4 + col / 2;
             let shift = if col % 2 == 0 { 4 } else { 0 };
-            let cur = (img.tileset.tiles[at] >> shift) & 0x0F;
             let line = usize::from(src.pal_line) * 16;
-            let next = (1..16u8)
-                .find(|i| {
-                    *i != cur
-                        && img.palette.colors[line + *i as usize]
-                            != img.palette.colors[line + cur as usize]
-                })
-                .unwrap();
-            img.tileset.tiles[at] = (img.tileset.tiles[at] & !(0x0F << shift)) | (next << shift);
-            std::fs::write(
-                out.join(&png),
-                super::super::rex_sgdk_resources::image_png(img),
-            )
-            .unwrap();
+            let pick = |tiles: &[u8], colors: &[u16]| {
+                let cur = (tiles[at] >> shift) & 0x0F;
+                let next = (1..16u8)
+                    .find(|i| {
+                        *i != cur && colors[line + *i as usize] != colors[line + cur as usize]
+                    })
+                    .unwrap();
+                (tiles[at] & !(0x0F << shift)) | (next << shift)
+            };
+            let new_png = if kind == "res/img/" {
+                let img = g
+                    .images
+                    .iter_mut()
+                    .find(|i| i.tileset.stream_offset == offset)
+                    .unwrap();
+                img.tileset.tiles[at] = pick(&img.tileset.tiles, &img.palette.colors);
+                super::super::rex_sgdk_resources::image_png(img)
+            } else {
+                let name = png.trim_start_matches("res/spr/").trim_end_matches(".png");
+                let sp = g
+                    .sprites
+                    .iter_mut()
+                    .find(|s| format!("spr_{:06x}", s.header_offset) == name)
+                    .unwrap();
+                let colors = sp.palette.colors.clone();
+                let mut word = None;
+                // TileSet compartilhado entre quadros: todos veem a mesma edição.
+                for f in sp.animations.iter_mut().flat_map(|a| a.frames.iter_mut()) {
+                    if f.tileset.stream_offset == offset {
+                        let w = *word.get_or_insert_with(|| pick(&f.tileset.tiles, &colors));
+                        f.tileset.tiles[at] = w;
+                    }
+                }
+                sp.sheet_png().2
+            };
+            let original = std::fs::read(out.join(&png)).unwrap();
+            std::fs::write(out.join(&png), new_png).unwrap();
             let edited = super::super::rex_sgdk_rebuild::rebuild(&out).unwrap();
             let diffs: Vec<usize> = (0..rom.len()).filter(|i| edited[*i] != rom[*i]).collect();
             println!(
-                "edicao 1 pixel: bytes alterados={:?} esperado=[{:#x}]",
+                "edicao 1 pixel {kind}: bytes alterados={:?} esperado=[{:#x}]",
                 diffs.iter().map(|d| format!("{d:#x}")).collect::<Vec<_>>(),
                 offset as usize + at
             );
-            assert_eq!(diffs, vec![offset as usize + at]);
+            assert_eq!(diffs, vec![offset as usize + at], "{kind}");
             std::fs::write(out.join(&png), original).unwrap();
             let reverted = super::super::rex_sgdk_rebuild::rebuild(&out).unwrap();
-            assert!(reverted == rom, "reverter a edição não restituiu a ROM");
+            assert!(
+                reverted == rom,
+                "{kind}: reverter a edição não restituiu a ROM"
+            );
+            proven.push(kind);
         }
-        println!("remontagem identica=true sha={sha} edicao={has_target}");
+        let has_target = !proven.is_empty();
+        println!("remontagem identica=true sha={sha} edicao={has_target} tipos={proven:?}");
         println!(
             "projeto {} images={} sprites={} frames={} music={} lib={} funcs={} (estritas {}) recursos={:.3} ({} / {} bytes) codigo_alcancado={}",
             m.header_title, m.images, m.sprites, m.sprite_frames, m.music, m.library_functions, m.code_functions, m.code_functions_strict,

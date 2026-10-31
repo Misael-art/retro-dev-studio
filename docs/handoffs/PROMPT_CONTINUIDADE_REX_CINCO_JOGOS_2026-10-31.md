@@ -158,3 +158,10 @@ Feitos os itens 1 (Tanzer/Old Towers) e parte do 3 (o áudio de Tanzer era XGC s
 2. Precisão das sementes por operando (item 2 do checkpoint 1).
 3. Perfis não-SGDK: Sonic 1 (piloto e codecs existentes) e Mega Turrican.
 4. Mapas/colisões, áudio editável, integração Tauri.
+
+## Checkpoint de execução 3 (2026-10-31)
+
+- Prova de edição de `write_project_from_rom` agora vale por tipo recuperado (Image e quadro de Sprite); com `RDS_REX_REQUIRE_EDIT`, cada tipo presente sem tile regenerável falha.
+- Resultado (receipt `receipts/edit-sprite-2026-10-31.txt`): Aratu img 0x1b4296 + spr 0x238896; Tanzer spr 0x199802; Old Towers img 0xaa902 + spr 0x96a80. Em todos: 1 byte alterado, reverter restitui a ROM, no-op byte-exato.
+- Ainda 0/5 PASS. Próximo: precisão do tier com sementes de operando (0.71 HAMOOPIG; limiar 0.90 congelado).
+- Comando: `RDS_REX_REQUIRE_EDIT=1 RDS_REX_ROM=$W/corpus/<sha>/rom.bin RDS_REX_OUT=$W/projects/edit_<sha8> cargo test --lib -j1 write_project_from_rom -- --ignored --nocapture`

@@ -452,6 +452,8 @@ Preservados contratos, lotes, pins e erratas. Os hashes atuais de coverage, ACHA
 
 ### Checkpoint 2026-10-19 UTC (rodada 4) — Studio Gráfico: paletas planejadas no build e composição personagem + cenário + HUD (Experimental)
 
+## Checkpoint 2026-10-31 (c) — REX cinco jogos: prova de edição em quadros de sprite (Aratu, Tanzer, Old Towers: 1 byte, reversível). Ainda 0/5 PASS; próximo: precisão das sementes de operando.
+
 ## 2026-10-21 — continuidade para reinstalação do host
 
 A branch pública `recovery/studio-preformat-20261021` preserva o código runtime do Studio local `a8550af0e0bdd74c44478f94d301576b988747a1`, com igualdade de árvores em `src/`, `src-tauri/`, `crates/` e `scripts/`. O primeiro snapshot é `50ad8e20`; o HEAD de recuperação inclui este checkpoint documental. Não houve merge, release ou promoção; Experimental mantido. A branch `main` não representa essa ponta local.
