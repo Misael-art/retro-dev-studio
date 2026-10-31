@@ -1,3 +1,154 @@
+### GIF53 — entrega local 2026-10-30
+
+**GIF53 e editor por tarefas — 2026-10-30 (entrega local Experimental):** app263205d8 substitui821d172a no atalho; KDE abriu e app foi mantido disponível ao operador. Diagnóstico separa atlas do cartucho de buffers de quadro; paleta inicial única, extras/limpeza explícitas, guia de movimento opt-in, resize proporcional com recuperação e ferramentas nomeadas.28passos Tauri/ROM/core, reabertura da cópia108 sem escrita, qa-rc32, SNES e MUGEN103/417 PASS. Certify READY/sete comandos,1305frontend/11skip e1122Rust/111ignored; demais checks PASS. Evidências, causas, SHAs e limites no topo do Memory Bank; relatório privado em RDS_WORK_ROOT/sessions/gif-authoring-usability-20261030/audit/index.html. Fonte do novo app inclui proposta9b2034cf e correções de cores, agora testadas no alvo nativo. Sem segmentação neural/aceite humano/60FPS certificado/Windows nem conclusão das16jornadas amplas. Não fechar o app nem remover lease atual2026-10-30T17-53-49-993Z-679249; encerramento normal cabe ao operador.
+
+Código **69d6540593c309173b73497e6f65d767c41698a3**; app263205d8/28casos nativos e regressões no mesmo SHA. Proteção privada **gif-authoring-usability-20261030-263205d8-180445.tar.zst**, SHA **2c85fd665e3239b5f0a86392e4953747ca456064e0837dfc39488879e6d15921**,1514arquivos relidos; mesmo filesystem/owner operador, cópia independente pendente. Detalhes no topo do Memory Bank.
+
+---
+
+### Atalho após reboot — 2026-10-30 (validado localmente)
+
+Lease08:45 de antes do reboot15:15UTC arquivada após comprovar PIDs ausentes; projeto preservado. Novas leases Linux registram boot_id e arquivam somente boot comprovadamente diferente, com mutex do host-manager; mesmo boot/legado/ambígua permanecem bloqueantes. Release verifica proprietário; .desktop habilita notificação de falha.56 focados PASS; **READY/7 gates**,1300frontend/11skip,1120Rust/110ignored,smokes oficiais,Clippy padrão/fmt/auditorias PASS. Coordenador certify PASS, wrapper de bookkeeping saiu143 depois do encerramento; complementos em nova TTY PASS, falha preservada.
+
+KDE abriu a entrada real, app821d172a/PID265601; operador iniciou uso de projeto108/GIF53quadros. **Mantido aberto**, lease2026-10-30T16-16-09-626Z-265424; fechamento/reabertura não exercitados para preservar uso ativo. Oito arquivos dos baselines106/107 iguais, zero escrita pelo agente. Evidências `RDS_WORK_ROOT/sessions/desktop-shortcut-recovery-20261030`; detalhes/proteção no topo do Memory Bank e índice desktop_shortcut_recovery_20261030. UI9b2034cf não instalada; testes Rust padrão passaram, mas qualidade privada/new build/native/ROM ainda pendentes. Sem promoção/merge/release/deploy.
+
+Código **9366bcca8aa51b11c22a1b6f88b0181deb70b102**, scripts conferidos contra proteção privada **desktop-shortcut-recovery-20261030-checkpoint-162213.tar.gz**, SHA **f9c48570947f1d446099cde133e58c7d2c5e8a1f02a0cd5555d5c8b421cbdea2**,61arquivos relidos/787126bytes. Mesmo filesystem/proteção independente pendente; estado e próximos passos no Memory Bank.
+
+---
+
+### Editor de imagem por tarefas — 2026-10-30 (proposta Experimental)
+
+Base6b771fd3/PR#112; **não instalado**, atalho continua821d172a. PixelEditor ganha nomes/ícones/atalhos, seis tarefas, prévia/Aplicar/Cancelar/Undo, recorte uniforme/região, geometria por cópia, isolamento, brilho/contraste/13 filtros, colagem/texto/bordas, camadas e mapa de tiles. Conversão tem três métodos adaptados SGDKForge/SMSForge ao RGB333 MD. Paleta exportada respeitada; recursos compartilhados protegidos; mistura incompatível no PNG recusada com Unificar paletas reversível. Nenhum motor/store/writer/dependência novo.
+
+Capturas do componente real em Browser/fixture sem projeto e checks frontend preliminares não qualificam Tauri/ROM. Relatório com sete passos/limites: `RDS_WORK_ROOT/sessions/pixel-workspace-20261030/audit/index.html`. Segmentação de cenário complexo Remove.bg **ausente**, texto rasterizado e adesivos por arquivo. Lease viva2026-10-30T08-45-51-102Z-2985848 impede Rust/build/certify/native/novo atalho; salvar/fechar normalmente solicitado, preservar processo. Receitas prontas reutilizam runner canônico com `RDS_PIXEL_WORKSPACE=1`, sete passos adicionais planejados, não executados. Detalhes/recibos/proteção e próximo comando no topo do Memory Bank e índice `pixel_workspace_20261030`. Entregas abaixo são históricas; não promovem esta proposta/16jornadas/humano.
+
+Proposta **9b2034cff35415a7086bbea96e4a9c4237f3adbe**, frontend preliminar1293PASS/14skip e focados finais60PASS; quatro testes decomp sem ambiente ativado, oito BYOR e dois Windows explicam os skips condicionais já existentes. Proteção privada **pixel-workspace-20261030-proposed-checkpoint-113242.tar.gz**, SHA **b632aaa56361057e28f70ca1ca685d7c6ee7bce4526f1aaaa87f15bfbb1f3f32**,110arquivos relidos/2717469bytes; mesmo filesystem, proteção independente pendente. Fontes conferidas contra o pacote; novo executável ainda não qualificado.
+
+---
+
+### Entrada rápida de imagens/GIF — 2026-10-30 (Experimental)
+
+Código **1e849549d0628fc0ba09930ae13840ef281a20ce**, app **821d172a20fcef93b9b422678148481f21391d1417aa8092e640ecd7c6d3c318**, PR#112; índice **image_ingress_20261030**, detalhes/limites no topo do Memory Bank. Ctrl+V/soltar/Imagem reutilizam Photo2SGDK, writer de pixels, histórico e plano de paletas: papel fundo/objeto e banco somente se necessário; quadros/tempos/original preservados, edição/fundo/Undo, nova cena/biblioteca e lógica. Sem novo motor/store/planner. Dependências/compatibilidade justificadas no Tech Stack.
+
+Quinze passos Tauri/X11 no app final PASS, incluindo seis→sete quadros/150ms, fechamento real sem descarte, clipboard nativo com HTML e transferência vazia, arraste sem duplicação, quatro bancos e ROM animada. READY/7gates,1276frontend/1117Rust, Clippy/fmt/auditorias/licenças PASS. qa-rc32/SNES/MUGEN103/417 em260ad42f, antes apenas do ajuste de URL sem extensão, com fluxo afetado repetido no final. Atalho KDE abre/fecha normalmente; clipboard no Wayland físico pendente por ferramenta de entrada indisponível.
+
+Relatório/projetos: **RDS_WORK_ROOT/sessions/image-ingress-20261029/report/index.html**. Proteção **image-ingress-20261030-821d172a.tar.zst**, SHA **52c933b8ac080ff3886764146b8b3b0c068ebc8ba77c0cf6be75c0b89de4ad8e**,1370arquivos relidos; mesmo filesystem/owner operador/reter até aceite e cópia independente. MD60Hz/15cores+alfa/sprite64×64/fundo320×224/20MiB/64MP/255ocorrências; recorte uniforme, sem segmentação neural. Humano/Windows/alvos físicos e16jornadas não promovidos. Próximo: teste humano de colar/soltar/quadros/paletas/fundo/original/Salvar/Testar; sem merge/release/deploy.
+
+---
+
+### Checkpoint 2026-10-29 local / 2026-10-30 UTC — importações e imagens validadas (Experimental)
+
+Código **012c1a6194c7e8d546b2e577243142e0555cc91d**, app **af7631b75371675498e3d21a9d9b6073307f2b01b8d80ac7bf5268be2d5f047e**, PR #112. Seção atual do índice UI: **sgdk_mounted_images_20261029**; checkpoint detalhado no topo do Memory Bank. Corrigidos índices do atlas, prioridade de mapas/imagens, compatibilidade legada em memória, layouts/animações/aliases no catálogo e ArtStudio, painéis compactos e recuperação de erros. Navegar/fechar sem editar não grava cenas compatibilizadas; Salvar sinaliza operação antes do await. Sem novo motor/store/registry/dependência/relaxamento de guardas.
+
+Cinco jornadas Tauri no mesmo app PASS: lote de 14 SGDK (12 gráficos, um código, uma recusa esperada),1.102 declarações/884 prévias/156 montagens; legado de 24 cenas com visita/fechar sem escrita e Save/reopen/Restore/CtrlZ; MUGEN 103/417 com páginas/paletas/índices/ROM/export; qa-rc 32; starter SNES oficial. Certify **READY/7 gates**,1.254 frontend/11 skip e 1.106 Rust/109 ignored; Clippy padrão/fmt/build/auditorias/licenças PASS. Falhas e ajuste de observação MUGEN 120→300 s preservados; produto permanece com 64 MP e demais limites.
+
+Atalho af7631b7… validado pelo KDE com fechamento normal; 277 arquivos do operador iguais ao baseline pós-fechamento (distinção do project.rds escrito pelo app anterior registrada no Memory Bank). Relatório e caminhos dos projetos em **RDS_WORK_ROOT/sessions/import-usability-review-20261029/report/index.html**. Proteção **import-usability-review-20261029-af7631b7.tar.zst**, SHA **00722fc8bec0ca67e822797293ee7371f59a4274b3ac4f79ea09fbc7619f46be**, 11.323 arquivos relidos integralmente; mesmo filesystem, owner operador, reter até aceite/cópia independente. Serviços próprios fechados. Código/receitas no Git; dados privados fora dele.
+
+Aceite humano, áudio individual, leitor de tela/contraste integral e alvos físicos/Windows pendentes. Avisos altos, textos pequenos e conversão MUGEN demorada permanecem pontos de UX. C/CNS geral e as16 jornadas não promovidos. Próximo: teste humano pela tabela do relatório, Cena/Arquivos → Adicionar → Arte → aplicar → salvar/reabrir. Registros abaixo históricos; sem merge/release/deploy.
+
+---
+
+### Histórico 2026-10-29 — imagens SGDK: checkpoint pendente superado pela validação acima
+
+Novo relato humano com capturas de MeuProjeto 105: HUD em faixa 142×1 e K.O./FIGHT! embaralhados. **Causa confirmada por leitura do importador, renderer, emitter e PNGs originais:** `extract_sgdk_tilemap_cells` emitia índices densos de um dicionário deduplicado, mas o PNG copiado permanecia na ordem original. Viewport e ROM interpretam N como tile N−1 desse PNG. Os arquivos K.O./FIGHT! já contêm a imagem montada. `TILESET` do HUD é um banco de peças; não é prova de recuperação da composição definida no C.
+
+**Código local ainda não validado**, sobre **6d3d79dbaeaad44004d234ab68fa2e4892e3a6ba**, mesma raiz/branch/PR #112: índices apontam para a primeira ocorrência no atlas original; novos imports preferem IMAGE/MAP renderizável a TILESET; banco de peças recebe nome/contexto explícito. `load_scene` reconhece somente vetores antigos intactos por ledger SGDK v4, recurso, asset, ID e dimensões, normalizando em memória; célula manualmente editada/mapa redimensionado/sem proveniência ficam preservados. Abrir não escreve cena, ledger ou PNG; Salvar continua sendo o writer canônico. Marker opcional no ledger e hint existente em Logic distinguem dados novos/salvos. Sem novo importador, atlas derivado, IPC, store, dependência, relaxamento de guardas ou alteração nos arquivos do operador.
+
+Três regressões Rust e uma frontend foram **escritas, não executadas**: recomposição de pixels com repetições/transparência antes de tiles únicos; imagem montada como primária e banco preservado; compatibilidade legada/salvar/reabrir/proteção de edições; texto do banco. Cenário nativo `sgdk-split-resources` estendido para comparar os pixels opacos do canvas real com os PNGs originais e, opcionalmente, abrir cópia legada própria sob o runtime. Esse roteiro também **não foi executado**.
+
+**Bloqueio concreto:** diagnose de entrada READY, porém o app do usuário f3a7954b permanece aberto, PID **328186**, launcher/lease **328032**, recibo **2026-10-29T20-59-22-470Z-328032**. Launcher recusou fmt com **EEXIST**, recibo **2026-10-29T21-44-56-668Z-488700**. Não remover a trava nem encerrar o usuário. Pedido assíncrono para salvar/fechar normalmente está pendente. Não contornar usando PATH/caches alternativos. Node global v26.8.1/npm12 divergem dos pins; cargo ausente no PATH global. Todos os gates, fmt, build, teste Tauri e novo atalho estão **pendentes**; nenhum PASS anterior certifica este código. O atalho continua no último app validado **f3a7954b…**. `git diff --check` passou; CI/desktop do HEAD anterior 6d3d79db foram observados SUCCESS, sem qualificar a árvore modificada.
+
+Continuidade privada: `RDS_WORK_ROOT/sessions/sgdk-mounted-images-20261029/work-receipt.json`, manifesto somente leitura de **277 arquivos** do projeto, patch **32924 bytes**, SHA **5a25d78f8a58eeffda54cfafe7c06f3bafc5d2181b50b0500bbce90e9a0b52a9**. Código permanece na árvore de trabalho, sem commit/push de código não validado. Patch também protegido e relido integralmente no destino privado existente `RetroDevStudio-UI-2026-10-27/sgdk-mounted-images-20261029-pending-validation.patch`; mesmo filesystem, proteção independente não qualificada. Recibo `pending-protection-receipt.json` no runtime; reter até validação/commit, owner operador. Próximo, depois da liberação normal da lease: `rtk proxy env RDS_WORK_ROOT=/home/misael/Shared/ProjectRuntime/RetroDevStudio RDS_BUILD_JOBS=1 bash scripts/new-host.sh --run cargo fmt --manifest-path src-tauri/Cargo.toml`, regressões `cargo test --manifest-path src-tauri/Cargo.toml --lib sgdk_source_atlas -- --nocapture --test-threads=1`, gates completos/certify, build oficial e QA Tauri com **cópia controlada**, preservando hashes do original. Conferir K.O./FIGHT!/Round1, banco explicado, salvar/reabrir, pintura e Build → ROM → Emulação; só então congelar app/atualizar atalho/commitar/publicar. Importação genérica, equivalência C, as 16 jornadas e aceite humano continuam parciais/Experimentais.
+
+---
+
+### Checkpoint 2026-10-29 — wizard progressivo e cores dos consoles (Experimental)
+
+Pedido explícito de reformar o início para leigos e oferecer temas claros. Código **996738c02c6d6e89d608dd2483217cf6ef598337**, app **f3a7954b2577472dfe487392f1992f91e9d5e5bcf4402957486f5b16f841d00e**, build oficial **2026-10-29T20-38-23-558Z-239342**, mesma raiz/branch/PR #112. Fontes do binário conferidas contra o commit; construção em árvore suja, sem alegação de build limpo/reprodutível. Índice existente, seção **project_start_console_themes_20261029**, passa a ser a entrega atual; checkpoints anteriores são históricos.
+
+Primeira tela com quatro caminhos: **Criar do zero → console → nome**, **Começar com um modelo → console → modelo → nome**, **Abrir projeto → arquivo project.rds**, **Importar projeto → SGDK/MUGEN → nome → pasta de origem**. Criação automática no diretório padrão, sem seletor de pasta; Voltar conserva o nome, colisões preservam o projeto anterior, falhas aparecem na própria etapa. Modelos exclusivos MD não aparecem para SNES. Demais perfis/doadores existentes ficam em detalhes secundários, com seus limites/Experimental; nenhuma plataforma, catálogo, motor, store ou importador paralelo.
+
+**Tema** oferece **Super Nintendo** claro (gelo/cinza/roxo/lilás), **Super Famicom** claro (cinza/azul/vermelho/amarelo/verde), **Mega Drive Night** (preto/branco/cinza) e **Mega Drive 16-bit** (preto/prata/dourado). Preferência anterior migrada; Console, breadcrumb, guia, painéis de Arte/Efeitos/Arquivos e cartões/portas de Lógica usam superfícies/texto semânticos legíveis. Paletas de projeto e pixels não são alterados; sem dependências novas.
+
+Native wizard/temas, qa-rc/32, starter SNES e MUGEN probe PASS; SGDK 251 recursos importados, conversão 142×1 continua bloqueada. Certify READY/1241 frontend/1098 Rust, Clippy/fmt PASS. Atalho f3a7954b…; detalhes, falhas, recibos e proteção no topo do Memory Bank e índice UI existente. Aceite humano/Windows e jornadas completas pendentes.
+
+---
+
+### Checkpoint 2026-10-29 — ícones de criação e temas de consoles (Experimental)
+
+Código d1865bd4, app 700dff46…; pictogramas/nomes nas áreas, etapas e ferramentas, quatro paletas em Tema com preferência e mensagem de falha. Aparência nativa oito casos/teclado/reinício/pixels e cena intactos PASS; qa-rc A–H/32 casos PASS. Certify READY, frontend 1238/11 skip, Rust 1098/109 ignored; Clippy padrão/fmt PASS. Atalho atualizado; falhas e proteção privada local verificadas, sem backup independente/humano/Windows/GPU qualificados. Estado/SHAs/recibos/limites no topo do Memory Bank e no índice UI, seção console_appearance_20261029; 16 jornadas/TPL parciais preservados, sem promoção/merge/release/deploy.
+
+---
+
+### Checkpoint 2026-10-29 UTC — Bosque aprimorado e Jardim Mares (Experimental)
+
+Continuação base **29b53493**, mesma branch/PR #112/app **fdf0c4fb…**, sem código/seed/registry/lock/guard novos. **Zero modelos novos distribuídos**, TPL-01. Bosque Aurora ganhou cenário original de 15 cores e colisão alinhada na UI (128 sólidos); eliminada a aproximação de 2788 pixels. Jornada final reaberta: sementes 0→2→3, portão/conclusão 0→1, bloqueio x=218. ROM executada/exportada **131587e2…fffaf20**, 524288 bytes, revisão 0 erros/1 aviso de fonte/17 OK.
+
+Jardim Mares criado pelo Studio: laguna/Nalu originais, cinco quadros/duas poses de nadadeiras e pérola no PixelEditor, quatro direções/gravidade false, três coletas/contador/retorno ao farol, HUD e quatro camadas. Após reabrir/build: contador 0→1→2→3, farol antes das três recusado, conclusão 1. ROM executada/exportada **2c67153c…35350e7**, 524288 bytes; 0 erros/0 avisos/19 OK. **Borda superior falha, y=-10; retorno por teclado**. Revisão verde não aprova gameplay inteiro.
+
+TPL-09..14 reproduzem cenário no fim ocultando sprites, parâmetros de variável/FSM sem edição (puzzle não criado), reidratação/merge de animações, limites da exploração, digitação negativa e ID de camada após exclusão. Conteúdo prosseguiu pelos controles existentes; sem corrigir o motor por fora. Tentativa com sprites ocultos protegida; 19 arquivos do checkpoint restaurados byte a byte e mudanças refeitas pela UI. `sessions/templates-content-20261029/receipt.json`, resultados nativos e capturas preservam falhas e jornadas finais; captura inicial 27 não vale como vitória, usar 33/35. Gates/proteção finais no adendo do Memory Bank e abertura no handoff existente. Tauri/Xvfb/software, sem aceite humano/desktop físico/áudio físico/Windows/console. Música, HUD progressivo, vitória/replay e distribuição parciais; arena/nave sem nova qualificação. Sem merge/release/deploy.
+
+Fechamento: **READY/sete gates**, 1233 frontend/11 skip e 1098 Rust/109 ignored; Clippy padrão/fmt/smokes oficiais PASS. Primeira execução falhou no gate BYOR por variável documentada ausente; referência do operador por SHA/ambiente, reteste e suíte completa passaram, sem baixar/apagar corpus ou mudar código/testes. Recibo **f01c8ae3…**, 1299 operações/observações/45 capturas/20+24 arquivos autorais. Backup **7777e3e9…**, 14540513 bytes/230 arquivos verificados integralmente, mesmo filesystem; proteção independente pendente. Processos próprios encerrados. Detalhes e hashes completos no Memory Bank; SHA de publicação no PR #112/Git.
+
+---
+
+### Checkpoint 2026-10-29 UTC — autoria de templates, parcial (Experimental)
+
+Mesma branch/PR #112, base `b80ae708`, **zero mudanças de produto/seed/guard**. Host diagnose fresco READY; app `fdf0c4fb…`. Baseline nativo `reference-platformer` **16/16 PASS**. Projeto **Bosque Aurora** criado/editado só pela UI: PixelEditor/semente original, três coletas/contador, salto apoiado, portão/objetivo, HUD/céu/camadas; salvar/encerrar/reabrir, build SGDK, teclado e revisão/exportação conferidos. Contador 0→2→3, portão 0→1, conclusão 0→1; bloqueio com duas sementes x=218. ROM reaberta/executada/exportada **7935b17a702674bb4eeddff261668e5b0662b756ebf8d12adf63265a3c646ee8**. Recibo privado `sessions/templates-authoring-20261028/receipt.json`, SHA `5e3d2ccc…`, 19 arquivos autorais/490 operações e observações/capturas reais.
+
+**Zero novos templates distribuídos:** falta projeto salvo → pacote/catalogo, TPL-01 no roadmap canônico. TPL-02..08: atribuição individual de paletas em conflito remanescente, HUD sem contador, 2788 pixels aproximados do cenário herdado, música técnica, apresentação/replay, paleta interceptando topo e impacto impreciso de revisão. Conteúdo resolveu cores/banco2 pelos controles existentes; quatro bancos mantidos. Terreno/música provisórios; plataforma parcial, puzzle próximo conteúdo viável ainda não criado. Sem promoção/humano/Windows/hardware; full suite/certify abaixo são históricos, não repetidos nesta fatia. Backup privado **94f22135…**, 10092150 bytes/163 arquivos verificados integralmente; mesmo filesystem, proteção independente pendente. Estado detalhado/proteção/próximo comando no Memory Bank e handoff. Sem merge/release/deploy.
+
+---
+
+### Checkpoint 2026-10-28 — diagnóstico funcional, estado atual (Experimental)
+
+Código 2783f234/041daec7/b6084695 na mesma branch/PR #112, CI/Desktop E2E SUCCESS no código. App final fdf0c4fb7eecc4b5b91295d7f26f2098c9b8b1abc564aabc61308d0d7aa84f5c; fontes de produção conferidas, build em árvore suja. Sete correções de pixels/salvo/escrita/identidade C/template/contagem/escopo de métricas.15 jornadas finais no mesmo app: 14PASS e1FAIL delimitado (SGDK genérico conserva recursos, plano142×1 recusado); C original 22 passos com Treino/neutro/direções/edição/novo build/export exato. MUGEN 103/417 autoral, piloto CMD/CNS 200 com 336 ticks/296 frames/ref independente e Strider VelSet 0 divergências são contratos separados, não CNS integral. SNES starter, recuperação, E4/E2E5/paletas/layout/onboarding aprovados no domínio exercitado.
+
+Certify READY/7 gates:1233 frontend/11 skip,1098 Rust/109 ignored, Clippy padrão/fmt/smokes oficiais PASS. Originais403 + receitas105 intactos; pacote privado 635990914 bytes SHA 6842d762… com 5309 registros verificados, mesmo filesystem. Humano, desktop físico/desempenho/áudio, jornadas Windows, proteção independente e generalidade de importação/SNES permanecem pendentes; etapa ampla não fechada. Fonte de estado detalhada no topo do Memory Bank, matriz e próximos passos no handoff existente e índice UI product_diagnosis_20261028. Histórico abaixo não descreve o bloqueio atual dos 177 SPRITE: agora são catálogo,0 instâncias, e o C original já compila/executa. Sem merge/release/deploy.
+
+---
+### Checkpoint 2026-10-27 — importação SGDK dividida; reconstrução do jogo ainda bloqueada
+
+Código `79eee48a`/fixture `ec23be8c`, app final `0ad1b0d3…`. Certify READY: 1203 frontend/11 skip e 1072 Rust/102 ignored; fmt, Clippy padrão, build debug e smokes oficiais PASS. Mugenesis_Demo reproduziu importação de apenas música (1 manifesto/1 recurso/0 sprites). Correção lê os seis manifests e preserva assets homônimos de diretórios diferentes: prova Tauri recuperou 251 recursos/177 sprites, com SHA de cada cópia igual à origem. Porém Build & Run continua FAIL: o importador instancia os 177 recursos, ultrapassando 80 sprites, e não reconstrói a lógica C original. Recursos recuperados não significam jogo recuperado. Não elevar guardas nem executar a ROM original como suposta reconstrução. Fonte SGDK preservada; evidências privadas e situação de certificação/commit no topo do Memory Bank. Próximo: definir continuidade pelo C original/build do wrapper ou conversão explícita de lógica; não há qualificação automática de nenhum desses caminhos. Experimental mantido.
+
+---
+
+### Checkpoint 2026-10-27 — recuperação após interrupção validada localmente (Experimental)
+
+Código 108fd2d3/ba60d5e1/79608626, app 826e2553…; três partidas frias + falhas controladas + qa-rc A–H + oito regressões = 13 sessões nativas finais PASS, com 13 interrupções completas próprias e exportações verificadas. MUGEN 103/417/SNES preservadas. Certify READY/sete gates, frontend 1203/11 skip e Rust 1071/102 ignored; fmt/Clippy padrão/audits/licenças PASS. Rascunho por cena com confirmação nativa, migração/guardas/conflito/retentativa; ArtStudio preserva sheet explícita. Falhas/ledgers originais não substituídos, incluindo display perdido e oráculos corrigidos com controles negativos. Pacote privado verificado (3163 arquivos), mesmo filesystem; humano/Windows/proteção independente pendentes, 16 jornadas parciais. Estado/SHAs/recibos/limites no topo do Memory Bank e seção draft_recovery_hardening do índice UI existente. Próximo: observação humana pelo handoff e cópia privada independente, sem promoção/merge/release/deploy.
+
+---
+
+### Checkpoint 2026-10-27 — atlas MUGEN e coesão final validados localmente (Experimental)
+
+Código `1925716a` publicado/CI/Desktop E2E PASS, app `35fe9ab2…`; três MUGEN completas consecutivas, três autorais e seis regressões desktop PASS após reboot, no mesmo binário. LOT025: 103 animações/417 ocorrências, páginas/paleta/pixels e índices ROM+RAM íntegros, guarda 64 MP mantida; revisão/exportação idênticas às ROMs testadas. Certificação READY: sete gates, frontend 1174/11 skip, Rust 1070/102 ignored; fmt/Clippy padrão PASS. Falhas e suspensão da série anterior preservadas; originais reconferidos e pacote privado local verificado (mesmo filesystem, sem proteção fora do host qualificada). Mapa de requisitos/provas/limites em `data/studio_grafico/mugen-atlas-20261027.json`; estado completo no topo do Memory Bank. Demonstração autoral não é CNS integral; 16 jornadas parciais, estudo humano/Windows pendentes. Próximo: protocolo humano do handoff, sem promoção/merge/release.
+
+---
+
+### Checkpoint 2026-10-27 — atlas MUGEN, fechamento técnico em andamento (Experimental)
+
+Código `1925716a` publicado na mesma branch/PR #112, CI/Desktop E2E PASS; binário `35fe9ab2…`. Guarda LOT025 reproduzida; paginação SGDK preserva 103 animações/417 ocorrências/paleta/índices, sem elevar 64 MP. Duas verticais iniciais completas PASS; uma tentativa seguinte interrompida por suspensão confirmada e reboot, preservada. Nova série de três corridas frias completas em andamento após diagnóstico READY; duas já PASS. Host:certify antes do reboot no mesmo OS/lock/fontes: READY, sete gates, frontend 1174/11 skip, Rust 1070/102 ignored; fmt/Clippy padrão PASS. Índice `data/studio_grafico/mugen-atlas-20261027.json` ainda em validação, com mapa requisito/prova/limite. Estado exato, falhas, processos e próximo comando no topo do Memory Bank. Autoria/regressões finais, estudo humano e Windows não são inferidos; CNS geral continua fora do suporte demonstrado.
+
+---
+
+### Checkpoint 2026-10-27 — coesão da UI principal validada localmente (Experimental)
+
+Código `d3233714`, binário `73b69d84…`: três corridas frias autorais, três MUGEN e seis regressões desktop PASS no mesmo binário; Inspector em 125% conferido por captura/gate geométrico. Host:certify READY (sete gates, 1174 frontend/11 skip, 1067 Rust/102 ignored), Clippy padrão/fmt/build debug PASS. Estado, falhas preservadas, limites e próximo passo no checkpoint de mesma data de `06_AI_MEMORY_BANK.md`; índice em `data/studio_grafico/ui-cohesion-20261027.json`. Aceite humano, atlas MUGEN completo e Windows continuam pendentes; sem promoção de maturidade.
+
+---
+
+### Checkpoint 2026-10-24 — novo host e continuidade da coesão do produto
+
+Preparação em `codex/new-host-cohesion-20261024`, sobre recuperação pública `95d5ef23`; PR dirigida à branch de recuperação, sem merge/release/promoção. Entrada: `docs/handoffs/NOVO_HOST_INICIO.md`. Launchers `scripts/new-host.sh`/`.ps1` funcionam como nível zero; `new-host.mjs` coordena sessões e delega instalação ao bootstrap/host-manager existente. Node/npm/Rust continuam fixados; cache e Cargo target por lock, jobs limitados, temporários não ocultos e recibos separados, sem alterar HOME/perfil global ou baixar BYOR. A falta de espaço bloqueia sem limpeza destrutiva.
+
+Diagnóstico de jornada consolidado por referência à reavaliação, pareceres A/B/C, coverage e adendos. As 16 jornadas seguem parciais e sem estudo humano; LOT028 teve build/run/export. Próxima missão continua sendo `PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md`, uma frente sequencial que entrega verticais autoral/MUGEN e coerência de contexto/revisões. Não iniciar outra pesquisa de decompilação universal; som comercial continua separado.
+
+Na preparação, o npm global deste host era Node26/npm12, enquanto o launcher ativou o pin Node24/npm11. Audit da base encontrou seis pacotes afetados (duas severidades altas); manutenção limitada a Vite6.4.5, Vitest4.1.12 e Undici7.30.1, sem major/dependência nova ou exceção. Detalhes e estado real dos gates em `docs/handoffs/VALIDACAO_NOVO_HOST_2026-10-24.md`. Não confundir teste neste host já provisionado com instalação limpa em outro OS; Windows requer prova operacional própria. A necessidade de backup privado sobrevivente antes da formatação continua; GitHub não contém projetos/capturas/contexto privado completos.
+
+
+Resultados medidos nesta preparação: host:certify READY (7 gates), suíte frontend final: 1164 aprovados/3 skips; Rust: 1066 aprovados/102 ignorados; suíte dirigida: 58/58, cinco crates, fmt/clippy, smokes SGDK/PVSnesLib, bundle frontend e reentrada offline do instalador aprovados no host existente. npm audit zero vulnerabilidades; cargo-audit rc0 com 12 warnings permitidos, sem exceção nova. Windows: parser/plano sem Node executados em Linux, instalação operacional não demonstrada. Portable novo e jornadas GUI/humana não executados. Resumo curado/hash da fonte final em data/development_host_20261024/validation.json.
+---
+
 ### Checkpoint 2026-10-24 — retomada orientada à coesão das jornadas
 
 Reavaliação documental/de código com inspeção de capturas históricas; sem nova execução GUI, suite de testes ou certificação. Base pública anterior 87b6b7fd; código runtime continua igual a a8550af0. Plano operacional em docs/handoffs/PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md e fundamentação em REAVALIACAO_PRODUTO_2026-10-24.md, no mesmo diretório. A fonte operacional de estado continua neste Memory Bank/Current Wave; os dois handoffs são plano e evidência de avaliação.

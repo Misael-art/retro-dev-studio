@@ -1,3 +1,4 @@
+import Icon, { type IconName } from "../common/Icon";
 import { hudBand } from "../../core/hudText";
 import { isPpmPath, loadProjectPpmImageData } from "../../core/ppmImage";
 import { loadShellPersona } from "../../core/surfaceRegistry";
@@ -67,6 +68,11 @@ import { paintGameFrame } from "./gameFramePresentation";
 import RuntimeInspectOverlay from "./RuntimeInspectOverlay";
 import { gameMayTakeKeyDown } from "../../core/keyboardFocus";
 import TestAdjustPanel from "./TestAdjustPanel";
+const GameCodeLogic = lazy(() => import("../nodegraph/GameCodeLogic").then((m) => ({ default: m.GameCodeLogic })));
+import { bankLetter, entityPaletteMarks } from "../../core/palettePlan";
+import { layoutTags } from "./viewportTagLayout";
+import { useCodeFocusStore } from "../../core/codeFocusStore";
+import { usePalettePlanStore } from "../../core/palettePlanStore";
 
 const VIEWPORT_TABS = [
   { id: "scene", label: "Cena", icon: "SC" },
@@ -444,6 +450,7 @@ export default function ViewportPanel({
     emulatorLoaded,
     setEmulatorLoaded,
     emulatorRomIdentity,
+    lastBuildArtifact,
     lastJoypadRequest,
     lastJoypadAck,
     selectedEntityId,
@@ -568,6 +575,22 @@ export default function ViewportPanel({
   const [showBackground, setShowBackground] = useState(true);
   const [showTilemaps, setShowTilemaps] = useState(true);
   const [showSprites, setShowSprites] = useState(true);
+  const nativeCProject = hwStatus?.analysis_mode === "native_c";
+  const logicSource = useCodeFocusStore((s) => s.logicSource);
+  const setLogicSource = useCodeFocusStore((s) => s.setLogicSource);
+  const paletteMapEnabled = usePalettePlanStore((s) => s.mapEnabled);
+  const paletteBankFilter = usePalettePlanStore((s) => s.bankFilter);
+  const palettePlan = usePalettePlanStore((s) => s.plan);
+  const paletteMarks = useMemo(() => (palettePlan ? entityPaletteMarks(palettePlan) : null), [palettePlan]);
+  /** Objetos fora dos bancos escolhidos no filtro A–D do painel de paletas. */
+  const paletteFilteredOut = useCallback(
+    (entityId: string) => {
+      if (!paletteMarks || paletteBankFilter.length === 4) return false;
+      const bank = paletteMarks.get(entityId)?.bank;
+      return bank !== undefined && !paletteBankFilter.includes(bank);
+    },
+    [paletteMarks, paletteBankFilter]
+  );
   const [showCollisionOverlay, setShowCollisionOverlay] = useState(false);
   const [showCameraOverlay, setShowCameraOverlay] = useState(true);
   const [showEntityBounds, setShowEntityBounds] = useState(true);
@@ -575,8 +598,8 @@ export default function ViewportPanel({
   const [showStagingOverlay, setShowStagingOverlay] = useState(false);
   const [showViewportWarnings, setShowViewportWarnings] = useState(false);
   const [showSceneNavigator, setShowSceneNavigator] = useState(false);
-  // The floating composition card covers the scene; the guided mode starts with it closed.
-  const [showCommandDock, setShowCommandDock] = useState(() => loadShellPersona() !== "guiado");
+  // Composition tools remain available from the toolbar without covering the canvas on entry.
+  const [showCommandDock, setShowCommandDock] = useState(false);
   const [showKeyColor, setShowKeyColor] = useState(false);
   const [guideSnap, setGuideSnap] = useState(true);
   const [gameViewLight, setGameViewLight] = useState(false);
@@ -1554,6 +1577,7 @@ export default function ViewportPanel({
     if (!canvas) return;
 
     if (!paintGameFrame(canvas, payload)) return;
+    current.recordBuildTestFrame(payload.core_epoch!, payload.rom_sha256!, payload.frame_index ?? 0);
     setGameFrameSize((current) => current.width === payload.width && current.height === payload.height
       ? current : { width: payload.width, height: payload.height });
     lastPresentedFrameRef.current = { epoch: payload.core_epoch!, sequence: payload.frame_sequence! };
@@ -2478,7 +2502,7 @@ export default function ViewportPanel({
         index,
         depth: compositionLayerDepthByEntityId.get(entity.entity_id) ?? 0,
       }))
-      .filter(({ entity }) => !compositionHiddenByLayer.has(entity.entity_id))
+      .filter(({ entity }) => !compositionHiddenByLayer.has(entity.entity_id) && !paletteFilteredOut(entity.entity_id))
       .sort((left, right) => {
         if (left.depth !== right.depth) {
           return left.depth - right.depth;
@@ -2870,6 +2894,7 @@ export default function ViewportPanel({
     showBackground,
     showSprites,
     showTilemaps,
+    paletteFilteredOut,
   ]);
 
   useEffect(() => {
@@ -2943,7 +2968,7 @@ export default function ViewportPanel({
         index,
         depth: layerDepthByEntityId.get(entity.entity_id) ?? 0,
       }))
-      .filter(({ entity }) => !hiddenByLayer.has(entity.entity_id))
+      .filter(({ entity }) => !hiddenByLayer.has(entity.entity_id) && !paletteFilteredOut(entity.entity_id))
       .sort((left, right) => {
         if (left.depth !== right.depth) {
           return left.depth - right.depth;
@@ -3006,6 +3031,15 @@ export default function ViewportPanel({
       }
     }
 
+    const tags: {
+      entityId: string;
+      x: number;
+      y: number;
+      text: string;
+      color: string;
+      priority: number;
+      pill: "donor" | "staging" | "inferred" | string | null;
+    }[] = [];
     orderedEntities.forEach(({ entity, index }) => {
       const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
       const x = worldToSceneCanvasX(bounds.x);
@@ -3067,10 +3101,8 @@ export default function ViewportPanel({
           context.font = "10px monospace";
           context.fillText(`TM ${entityDisplayLabel(entity)}`.slice(0, 22), x + 6, y + 14);
         }
-        if (isSelected || isDensePreview || isSoloFocus) {
-          context.fillStyle = "rgba(148,226,213,0.16)";
-          context.fillRect(x, y, width, height);
-        }
+        // Selection/focus is drawn by the outline. A fill changes the perceived
+        // colors of imported artwork and makes palette conversion look broken.
         return;
       }
 
@@ -3081,39 +3113,16 @@ export default function ViewportPanel({
         if (showEntityBounds || isSelected || isDensePreview || isSoloFocus) {
           context.strokeRect(x + 0.5, y + 0.5, width, height);
         }
-        if (showEntityLabels) {
-          context.fillStyle = isSelected || isSoloFocus ? "#ffffff" : isDensePreview ? "#f9e2af" : color;
-          context.font = "10px monospace";
-          context.fillText(entityDisplayLabel(entity).slice(0, 22), x + 6, y + 14);
-        }
         const posCtx = resolveImportedEntityContext(entity);
-        if (showEntityLabels && posCtx.positionMode) {
-          const tag =
-            posCtx.positionMode === "donor"
-              ? "DOADOR"
-              : posCtx.positionMode === "staging"
-                ? "STAGING"
-                : "INFERIDA";
-          const pillBg =
-            posCtx.positionMode === "donor"
-              ? "rgba(166,227,161,0.92)"
-              : posCtx.positionMode === "staging"
-                ? "rgba(250,179,135,0.95)"
-                : "rgba(137,180,250,0.92)";
-          context.font = "bold 8px monospace";
-          const tw = context.measureText(tag).width;
-          const px = x + 6;
-          const py = y + 18;
-          context.fillStyle = pillBg;
-          context.fillRect(px, py, tw + 8, 12);
-          context.strokeStyle = "rgba(17,17,27,0.55)";
-          context.lineWidth = 1;
-          context.strokeRect(px + 0.5, py + 0.5, tw + 8, 12);
-          context.fillStyle = "#11111b";
-          context.textAlign = "left";
-          context.fillText(tag, px + 4, py + 9);
-          context.textAlign = "left";
-        }
+        tags.push({
+          entityId: entity.entity_id,
+          x,
+          y,
+          text: showEntityLabels ? entityDisplayLabel(entity) : "",
+          color: isSelected || isSoloFocus ? "#ffffff" : isDensePreview ? "#f9e2af" : color,
+          priority: isSelected ? 2 : isSoloFocus || isDensePreview ? 1 : 0,
+          pill: showEntityLabels && posCtx.positionMode ? posCtx.positionMode : null,
+        });
         if (isSelected) {
           context.save();
           context.strokeStyle = "#f9e2af";
@@ -3136,12 +3145,73 @@ export default function ViewportPanel({
         context.strokeStyle = "rgba(205,214,244,0.55)";
         context.strokeRect(x + 0.5, y + 0.5, width, height);
       }
-      if (showEntityLabels) {
-        context.fillStyle = "#cdd6f4";
-        context.font = "10px monospace";
-        context.fillText(entityDisplayLabel(entity).slice(0, 22), x + 6, y + 14);
-      }
+      tags.push({
+        entityId: entity.entity_id,
+        x,
+        y,
+        text: showEntityLabels ? entityDisplayLabel(entity) : "",
+        color: "#cdd6f4",
+        priority: isSelected ? 2 : 0,
+        pill: null,
+      });
     });
+
+    // Etiquetas: uma por objeto (selo de paleta + nome + modo de posição), sem sobreposição.
+    {
+      context.save();
+      const chips = tags
+        .map((tag) => {
+          const mark = paletteMapEnabled ? paletteMarks?.get(tag.entityId) : undefined;
+          const name = tag.text.length > 18 ? `${tag.text.slice(0, 17)}…` : tag.text;
+          const pill = tag.pill === "donor" ? "DOADOR" : tag.pill === "staging" ? "STAGING" : tag.pill ? "INFERIDA" : "";
+          context.font = "10px monospace";
+          const nameWidth = name ? context.measureText(name).width + 8 : 0;
+          context.font = "bold 8px monospace";
+          const pillWidth = pill ? context.measureText(pill).width + 10 : 0;
+          const width = (mark ? 26 : 0) + nameWidth + pillWidth;
+          return { tag, mark, name, pill, nameWidth, width };
+        })
+        .filter((chip) => chip.width > 0);
+      const placed = new Map(
+        layoutTags(
+          chips.map((chip) => ({ id: chip.tag.entityId, x: chip.tag.x + 2, y: chip.tag.y + 2, width: chip.width, height: 14, priority: chip.tag.priority }))
+        ).map((spot) => [spot.id, spot])
+      );
+      for (const chip of chips) {
+        const spot = placed.get(chip.tag.entityId);
+        if (!spot) continue;
+        let cx = spot.x;
+        const cy = spot.y;
+        context.fillStyle = "rgba(17,17,27,0.82)";
+        context.fillRect(cx, cy, chip.width, 14);
+        if (chip.mark) {
+          const swatch = chip.mark.bank !== undefined ? palettePlan?.banks[chip.mark.bank]?.colors.find((c, i) => i > 0 && c) : undefined;
+          context.fillStyle = swatch ?? "#585b70";
+          context.fillRect(cx + 1, cy + 1, 4, 12);
+          context.font = "bold 10px monospace";
+          context.fillStyle = "#cdd6f4";
+          context.fillText(chip.mark.bank !== undefined ? bankLetter(chip.mark.bank) : "?", cx + 7, cy + 11);
+          context.fillStyle = chip.mark.ok ? "#a6e3a1" : "#f38ba8";
+          context.fillText(chip.mark.ok ? "✓" : "!", cx + 16, cy + 11);
+          cx += 26;
+        }
+        if (chip.name) {
+          context.font = "10px monospace";
+          context.fillStyle = chip.tag.color;
+          context.fillText(chip.name, cx + 4, cy + 11);
+          cx += chip.nameWidth;
+        }
+        if (chip.pill) {
+          context.fillStyle =
+            chip.tag.pill === "donor" ? "rgba(166,227,161,0.92)" : chip.tag.pill === "staging" ? "rgba(250,179,135,0.95)" : "rgba(137,180,250,0.92)";
+          context.fillRect(cx + 1, cy + 1, chip.width - (cx - spot.x) - 2, 12);
+          context.font = "bold 8px monospace";
+          context.fillStyle = "#11111b";
+          context.fillText(chip.pill, cx + 5, cy + 10);
+        }
+      }
+      context.restore();
+    }
 
     const spotlightEntityId = soloEntityId ?? (denseStackSpotlight ? denseStackPreviewEntityId : null);
     if (spotlightEntityId) {
@@ -3388,6 +3458,10 @@ export default function ViewportPanel({
     activeTilemapId,
     worldToSceneCanvasX,
     worldToSceneCanvasY,
+    paletteFilteredOut,
+    paletteMapEnabled,
+    paletteMarks,
+    palettePlan,
   ]);
 
   useEffect(() => {
@@ -4337,7 +4411,9 @@ export default function ViewportPanel({
     Math.round((dmaUsageBytes / Math.max(dmaBudgetBytes, 1)) * 100)
   );
   const overlayFps = frameTimingRef.current.fps > 0 ? frameTimingRef.current.fps.toFixed(1) : "0.0";
-  const overlaySpriteCount = overlayHwStatus?.sprite_count ?? activeScene?.entities.length ?? 0;
+  const overlaySpriteCount = overlayHwStatus?.sprite_count ?? activeScene?.entities.filter((entity) => entity.components.sprite).length ?? 0;
+  const nativeCOverlay = lastBuildArtifact?.nativeCodeRevision != null
+    && lastBuildArtifact.sha256 === emulatorRomIdentity?.sha256;
   const sceneAssetHealth = (() => {
     if (!activeScene || !activeProjectDir) {
       return summarizeSceneAssetHealth([]);
@@ -4563,167 +4639,31 @@ export default function ViewportPanel({
             {/* Toolbar horizontal dedicada (V, B, E, C, G, Zoom) */}
             <div
               data-testid="viewport-scene-toolbar"
-              className="flex min-w-0 shrink-0 items-center gap-1 overflow-x-auto overflow-y-hidden border-b border-[#313244] bg-[#181825] px-2 py-1.5 [scrollbar-width:thin] [&>button]:shrink-0 [&>div]:shrink-0 [&>span]:shrink-0"
+              className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 border-b border-[#313244] bg-[#181825] px-2 py-1.5 [&>button]:shrink-0 [&>div]:shrink-0 [&>span]:shrink-0"
             >
               {([
-                { id: "select" as const, icon: "🖱️", label: "Selecionar (V)", activeColor: "bg-[#89b4fa]" },
-                { id: "paint" as const, icon: "✏️", label: "Pintar (B)", activeColor: "bg-[#89b4fa]" },
-                { id: "erase" as const, icon: "🧹", label: "Apagar (E)", activeColor: "bg-[#89b4fa]" },
-                { id: "collision" as const, icon: "🛡️", label: "Colis\u00e3o (C)", activeColor: "bg-[#f38ba8]" },
+                { id: "select" as const, icon: "cursor" as IconName, label: "Selecionar (V)", activeColor: "bg-[#89b4fa]" },
+                { id: "paint" as const, icon: "brush" as IconName, label: "Pintar (B)", activeColor: "bg-[#89b4fa]" },
+                { id: "erase" as const, icon: "eraser" as IconName, label: "Apagar (E)", activeColor: "bg-[#89b4fa]" },
+                { id: "collision" as const, icon: "collision" as IconName, label: "Colis\u00e3o (C)", activeColor: "bg-[#f38ba8]" },
               ]).map((tool) => (
                 <button
                   key={tool.id}
                   type="button"
                   data-testid={`viewport-tool-${tool.id}`}
+                  aria-label={tool.label}
+                  aria-pressed={editorMode === tool.id}
                   onClick={() => setEditorMode(tool.id)}
-                  className={`rounded px-2 py-1 text-[10px] font-semibold transition-all ${
+                  className={`inline-flex items-center gap-1.5 rounded px-2 py-1 text-[10px] font-semibold transition-all ${
                     editorMode === tool.id
                       ? `${tool.activeColor} text-[#11111b]`
                       : "text-[#7f849c] hover:bg-[#313244] hover:text-[#cdd6f4]"
                   }`}
                   title={tool.label}
                 >
-                  {tool.icon}
+                  <Icon name={tool.icon} size={19} /> {tool.label.split(" (")[0]}
                 </button>
               ))}
-              <div className="mx-1 w-px bg-[#313244] self-stretch" />
-              <button
-                type="button"
-                onClick={() => setGridSnap((current) => !current)}
-                className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  gridSnap
-                    ? "border border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
-                    : "border border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Snap ao grid 8px (G)"
-              >
-                G
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowGrid((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showGrid
-                    ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#89b4fa]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Mostrar grid principal"
-              >
-                Grid
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowSubGrid((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showSubGrid
-                    ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#89b4fa]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Mostrar sub-grid"
-              >
-                Sub
-              </button>
-              <button
-                type="button"
-                onClick={() => setGuideSnap((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  guideSnap
-                    ? "border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Snap para guias e grid"
-              >
-                Guide
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowBackground((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showBackground
-                    ? "border-[#a6e3a1] bg-[#a6e3a1]/15 text-[#a6e3a1]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Mostrar background"
-              >
-                BG
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowTilemaps((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showTilemaps
-                    ? "border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Mostrar tilemaps"
-              >
-                TM
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowSprites((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showSprites
-                    ? "border-[#cba6f7] bg-[#cba6f7]/15 text-[#cba6f7]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Mostrar sprites"
-              >
-                SP
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCollisionOverlay((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showCollisionOverlay
-                    ? "border-[#f38ba8] bg-[#f38ba8]/15 text-[#f38ba8]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title={
-                  activeScene?.collision_map
-                    ? `Overlay de colisão (${activeScene.collision_map.width}×${activeScene.collision_map.height} tiles importados/cena)`
-                    : "Mostrar overlay de colisao (sem collision_map na cena)"
-                }
-              >
-                Col
-              </button>
-              {([
-                ["Cam", showCameraOverlay, setShowCameraOverlay, "Mostrar camera e janela MD"],
-                ["Bnd", showEntityBounds, setShowEntityBounds, "Mostrar bounds das entidades"],
-                ["Lbl", showEntityLabels, setShowEntityLabels, "Mostrar labels das entidades"],
-                ["Stg", showStagingOverlay, setShowStagingOverlay, "Mostrar staging importado"],
-                ["Warn", showViewportWarnings, setShowViewportWarnings, "Mostrar avisos de autoria no viewport"],
-                ["Nav", showSceneNavigator, setShowSceneNavigator, "Mostrar navegador do mundo"],
-                ["Key", showKeyColor, setShowKeyColor, "Mostrar cor-chave magenta para debug"],
-                ["Dock", showCommandDock, setShowCommandDock, "Mostrar dock do objeto selecionado"],
-              ] as const).map(([label, active, setter, title]) => (
-                <button
-                  key={label}
-                  type="button"
-                  data-testid={`viewport-toggle-${label.toLowerCase()}`}
-                  onClick={() => setter((current) => !current)}
-                  className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                    active
-                      ? "border-[#89dceb] bg-[#89dceb]/15 text-[#89dceb]"
-                      : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                  }`}
-                  title={title}
-                >
-                  {label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setGameViewLight((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  gameViewLight
-                    ? "border-[#f9e2af] bg-[#f9e2af]/15 text-[#f9e2af]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Game View Light"
-              >
-                GV
-              </button>
               <div className="mx-1 w-px bg-[#313244] self-stretch" />
               <button
                 type="button"
@@ -4767,6 +4707,7 @@ export default function ViewportPanel({
               <button
                 type="button"
                 onClick={() => setClampViewportToWorld((current) => !current)}
+                aria-pressed={clampViewportToWorld}
                 className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
                   clampViewportToWorld
                     ? "border-[#a6e3a1]/40 bg-[#a6e3a1]/10 text-[#a6e3a1]"
@@ -4826,6 +4767,159 @@ export default function ViewportPanel({
                 +
               </button>
             </div>
+
+            <details data-testid="viewport-view-options" className="shrink-0 border-b border-[#313244] bg-[#181825] text-[11px]">
+              <summary className="cursor-pointer px-3 py-1.5 font-semibold text-[#a6adc8]">Visualização · grade, camadas e guias</summary>
+              <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
+              <button
+                type="button"
+                onClick={() => setGridSnap((current) => !current)}
+                aria-pressed={gridSnap}
+                className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  gridSnap
+                    ? "border border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
+                    : "border border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Snap ao grid 8px (G)"
+              >
+                Ajustar à grade (G)
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowGrid((current) => !current)}
+                aria-pressed={showGrid}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showGrid
+                    ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#89b4fa]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Mostrar grid principal"
+              >
+                Grade
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSubGrid((current) => !current)}
+                aria-pressed={showSubGrid}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showSubGrid
+                    ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#89b4fa]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Mostrar sub-grid"
+              >
+                Subgrade
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuideSnap((current) => !current)}
+                aria-pressed={guideSnap}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  guideSnap
+                    ? "border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Snap para guias e grid"
+              >
+                Guias magnéticas
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBackground((current) => !current)}
+                aria-pressed={showBackground}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showBackground
+                    ? "border-[#a6e3a1] bg-[#a6e3a1]/15 text-[#a6e3a1]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Mostrar background"
+              >
+                Fundo
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowTilemaps((current) => !current)}
+                aria-pressed={showTilemaps}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showTilemaps
+                    ? "border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Mostrar tilemaps"
+              >
+                Tilemaps
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSprites((current) => !current)}
+                aria-pressed={showSprites}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showSprites
+                    ? "border-[#cba6f7] bg-[#cba6f7]/15 text-[#cba6f7]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Mostrar sprites"
+              >
+                Sprites
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCollisionOverlay((current) => !current)}
+                aria-pressed={showCollisionOverlay}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showCollisionOverlay
+                    ? "border-[#f38ba8] bg-[#f38ba8]/15 text-[#f38ba8]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title={
+                  activeScene?.collision_map
+                    ? `Overlay de colisão (${activeScene.collision_map.width}×${activeScene.collision_map.height} tiles importados/cena)`
+                    : "Mostrar overlay de colisao (sem collision_map na cena)"
+                }
+              >
+                Colisões
+              </button>
+              {([
+                ["Cam", showCameraOverlay, setShowCameraOverlay, "Mostrar camera e janela MD"],
+                ["Bnd", showEntityBounds, setShowEntityBounds, "Mostrar bounds das entidades"],
+                ["Lbl", showEntityLabels, setShowEntityLabels, "Mostrar labels das entidades"],
+                ["Stg", showStagingOverlay, setShowStagingOverlay, "Mostrar staging importado"],
+                ["Warn", showViewportWarnings, setShowViewportWarnings, "Mostrar avisos de autoria no viewport"],
+                ["Nav", showSceneNavigator, setShowSceneNavigator, "Mostrar navegador do mundo"],
+                ["Key", showKeyColor, setShowKeyColor, "Mostrar cor-chave magenta para debug"],
+                ["Dock", showCommandDock, setShowCommandDock, "Mostrar dock do objeto selecionado"],
+              ] as const).map(([label, active, setter, title]) => (
+                <button
+                  key={label}
+                  type="button"
+                  data-testid={`viewport-toggle-${label.toLowerCase()}`}
+                  onClick={() => setter((current) => !current)}
+                  aria-pressed={active}
+                  className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                    active
+                      ? "border-[#89dceb] bg-[#89dceb]/15 text-[#89dceb]"
+                      : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                  }`}
+                  title={title}
+                >
+                  {title.replace(/^Mostrar /, "")}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setGameViewLight((current) => !current)}
+                aria-pressed={gameViewLight}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  gameViewLight
+                    ? "border-[#f9e2af] bg-[#f9e2af]/15 text-[#f9e2af]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Game View Light"
+              >
+                Prévia sem guias
+              </button>
+              </div>
+            </details>
 
             {/* Área de canvas com overflow para mais espaço */}
             <div
@@ -4914,6 +5008,9 @@ export default function ViewportPanel({
                 height={sceneHeight}
                 className="absolute border border-[#45475a]"
                 style={{
+                  // Transparent source tiles must keep a neutral stage surface
+                  // even when the surrounding application uses a light theme.
+                  backgroundColor: "#060816",
                   imageRendering: "pixelated",
                   left: sceneChromeOffset,
                   top: sceneChromeOffset,
@@ -5421,11 +5518,12 @@ export default function ViewportPanel({
                 {showPerformanceOverlay && (
                   <div
                     data-testid="viewport-performance-overlay"
+                    data-native-c={nativeCOverlay}
                     className="pointer-events-none absolute left-2 top-2 flex flex-col gap-1 rounded border border-[#313244] bg-[#11111b]/80 px-2 py-1 font-mono text-[10px] text-[#cdd6f4]"
                   >
                     <span>FPS {overlayFps}</span>
-                    <span>Sprites {overlaySpriteCount}</span>
-                    <span>DMA est. {Math.round(dmaUsageBytes / 1024)}KB / {Math.round(dmaBudgetBytes / 1024)}KB ({dmaUsagePercent}%)</span>
+                    <span>Sprites {nativeCOverlay ? "indisponíveis (C)" : overlaySpriteCount}</span>
+                    <span>DMA est. {nativeCOverlay ? "indisponível (C)" : `${Math.round(dmaUsageBytes / 1024)}KB / ${Math.round(dmaBudgetBytes / 1024)}KB (${dmaUsagePercent}%)`}</span>
                   </div>
                 )}
                 <div className="pointer-events-none absolute bottom-2 right-2 rounded border border-[#313244] bg-[#11111b]/80 px-2 py-1 text-[10px] font-mono text-[#7f849c]">
@@ -5578,10 +5676,41 @@ export default function ViewportPanel({
         )}
 
         {activeViewportTab === "logic" && (
-          <div className="h-full w-full">
-            <Suspense fallback={<WorkspaceViewportFallback label="Carregando Logic..." />}>
-              <NodeGraphEditor />
-            </Suspense>
+          <div className="flex h-full w-full flex-col">
+            {nativeCProject && activeProjectDir ? (
+              <div role="tablist" aria-label="Origem da lógica" className="flex shrink-0 items-center gap-1 border-b border-[#313244] bg-[#11111b] px-2 py-1 text-[11px]">
+                {(
+                  [
+                    ["code", "Código do jogo (C)", "O comportamento real deste jogo, organizado por arquivo e máquina de estado"],
+                    ["nodes", "Nodes do Studio", "Lógica visual das entidades da cena do Studio"],
+                  ] as const
+                ).map(([mode, label, hint]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="tab"
+                    data-testid={`logic-source-${mode}`}
+                    aria-selected={logicSource === mode}
+                    title={hint}
+                    onClick={() => setLogicSource(mode)}
+                    className={`rounded px-2 py-0.5 ${logicSource === mode ? "bg-[#1e3a5f] font-semibold text-white" : "text-[#93c5fd] hover:bg-[#1e293b]"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div className="relative min-h-0 flex-1">
+              {nativeCProject && activeProjectDir && logicSource === "code" ? (
+                <Suspense fallback={<WorkspaceViewportFallback label="Carregando código..." />}>
+                  <GameCodeLogic projectDir={activeProjectDir} />
+                </Suspense>
+              ) : (
+                <Suspense fallback={<WorkspaceViewportFallback label="Carregando Logic..." />}>
+                  <NodeGraphEditor />
+                </Suspense>
+              )}
+            </div>
           </div>
         )}
 
@@ -5600,7 +5729,7 @@ export default function ViewportPanel({
               Array.isArray(animation.mugen_frames)
             ) ? (
               <Suspense fallback={<WorkspaceViewportFallback label="Carregando Personagem..." />}>
-                <CharacterTimelinePanel entity={selectedEntity} />
+                <CharacterTimelinePanel key={selectedEntity.entity_id} entity={selectedEntity} />
               </Suspense>
             ) : (
               <Suspense fallback={<WorkspaceViewportFallback label="Carregando ArtStudio..." />}>
@@ -5615,8 +5744,8 @@ export default function ViewportPanel({
       <div className="flex h-6 shrink-0 items-center gap-4 border-t border-[#313244] bg-[#181825] px-3">
         <span className="select-none text-[10px] text-[#45475a]">{targetLabel}</span>
         <span className="select-none text-[10px] text-[#45475a]">{resolution} / 60fps</span>
-        <span className="select-none text-[10px] text-[#45475a]">
-          Sprites: {activeScene?.entities.length ?? 0} / {spriteLimit}
+        <span data-testid="viewport-scene-sprites" title="Instâncias com componente sprite nesta cena. Metasprites e o jogo C original exigem seu próprio orçamento/captura." className="select-none text-[10px] text-[#45475a]">
+          Sprites: {activeScene?.entities.filter((entity) => entity.components.sprite).length ?? 0} / {spriteLimit}
         </span>
         <span className="select-none text-[10px] text-[#45475a]">
           BG Layers: {activeScene?.background_layers.length ?? 0} / {bgLayerLimit}

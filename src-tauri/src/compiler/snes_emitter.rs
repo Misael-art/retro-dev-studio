@@ -2320,6 +2320,7 @@ mod tests {
             frames: vec![0, 1, 2],
             frame_time: 6,
             looping: true,
+            frame_times: None,
             mugen: None,
         };
         SpriteAsset {

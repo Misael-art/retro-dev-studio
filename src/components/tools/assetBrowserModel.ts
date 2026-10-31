@@ -116,6 +116,7 @@ function hasAnySegment(value: string, patterns: string[]): boolean {
 
 export function classifyAssetBrowserAsset(asset: ProjectAssetEntry): AssetBrowserClassification {
   const path = normalizeAssetPath(asset.relative_path);
+  if (path.endsWith(".rdspixel.json")) return {typeId:"source_art",typeLabel:"Documento de pixels",generated:false};
   const generated = hasAnySegment(path, [
     "/generated/",
     "/gen/",
@@ -124,6 +125,12 @@ export function classifyAssetBrowserAsset(asset: ProjectAssetEntry): AssetBrowse
     "/build/generated",
     "/cache_",
   ]);
+
+  const resourceKind = asset.sgdk_resource?.resource_kind;
+  if (resourceKind === "PALETTE") return { typeId: "palette", typeLabel: "Paleta", generated };
+  if (resourceKind === "SPRITE") return { typeId: "sprite", typeLabel: "Personagem / objeto", generated };
+  if (resourceKind === "TILESET") return { typeId: "tilemap", typeLabel: "Banco de peças", generated };
+  if (["IMAGE", "MAP", "TILEMAP"].includes(resourceKind ?? "")) return { typeId: "tilemap", typeLabel: "Imagem montada", generated };
 
   if (
     asset.kind === "audio" ||
@@ -270,6 +277,8 @@ export function filterAssetBrowserAssets({
       asset.kind,
       classification.typeId.replace("_", " "),
       classification.typeLabel,
+      normalizeAssetPath(asset.sgdk_resource?.resource_name ?? "").replace(/[_-]+/g, " "),
+      ...(asset.sgdk_resource?.variants ?? []).map(resource => normalizeAssetPath(resource.resource_name).replace(/[_-]+/g, " ")),
       classification.generated ? "generated gerado artstudio" : "",
       matches.length === 0 ? "unused orfao" : "used usado referenciado",
       budget.status === "over" ? "over budget over-budget acima orcamento" : "",

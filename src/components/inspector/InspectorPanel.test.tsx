@@ -403,7 +403,27 @@ describe("InspectorPanel", () => {
 
     expect(
       container.querySelector("[data-testid='inspector-tilemap-legacy-fallback']")?.textContent ?? ""
-    ).toContain("fallback explícito");
+    ).toContain("Imagem original em uso");
+  });
+
+  it("restores the source image after all cells were erased and supports undo", async () => {
+    const entity = tilemapFixtureEntity(true);
+    entity.components.tilemap!.cells = Array(16).fill(4294967295);
+    const scene = { ...EMPTY_SCENE, entities: [entity] };
+    await act(async () => {
+      useEditorStore.setState({ activeScene: scene, activeSceneSource: scene, selectedEntityId: entity.entity_id, undoStack: [], redoStack: [], sceneRevision: 2 });
+      root.render(<InspectorPanel />);
+      await flush();
+    });
+    const button = container.querySelector('[data-testid="inspector-clear-tilemap-cells"]') as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toContain("Restaurar imagem original");
+    expect(container.textContent).toContain("Montagem editável por peças");
+    await act(async () => { button.click(); await flush(); });
+    expect(useEditorStore.getState().activeScene?.entities[0].components.tilemap?.cells).toBeUndefined();
+    expect(container.textContent).toContain("Imagem original em uso");
+    await act(async () => { useEditorStore.getState().undo(); await flush(); });
+    expect(useEditorStore.getState().activeScene?.entities[0].components.tilemap?.cells).toEqual(Array(16).fill(4294967295));
   });
 
   it("shows target and layer context for the selected entity", async () => {

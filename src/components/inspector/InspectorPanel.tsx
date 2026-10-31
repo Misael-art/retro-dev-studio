@@ -2,6 +2,7 @@ import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState 
 import AssetPreview from "../common/AssetPreview";
 import EditScopeBadge from "./EditScopeBadge";
 import { EntityPaletteSection, PaletteSummary } from "./PalettePanel";
+import { EntitySpriteCodeLink } from "./SpriteCodeLink";
 import HudTextInspector from "./HudTextInspector";
 import AssetRenameControl from "./AssetRenameControl";
 import {
@@ -1278,7 +1279,7 @@ export default function InspectorPanel() {
         ) : entity ? (
           <>
             {/* Entity header badge */}
-            <div className="flex items-center gap-2 border-b border-[#313244] bg-[#181825] px-3 py-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 border-b border-[#313244] bg-[#181825] px-3 py-2">
               <span
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[#cba6f7]/40 bg-[#cba6f7]/10 text-[9px] font-bold text-[#cba6f7]"
                 aria-hidden
@@ -1291,7 +1292,7 @@ export default function InspectorPanel() {
                       ? "SP"
                       : "OBJ"}
               </span>
-              <div className="min-w-0 flex-1">
+              <div className="col-span-2 row-start-2 min-w-0">
                 <p className="truncate font-mono text-[11px] font-semibold text-[#cdd6f4]" title={getEntityDisplayName(entity)}>
                   {getEntityDisplayName(entity)}
                 </p>
@@ -1311,23 +1312,24 @@ export default function InspectorPanel() {
                       data-testid="inspector-open-character"
                       onClick={() => openStudioEditor({ focus: { task: "character", entityId: entity.entity_id } })}
                       className="rounded border border-[#89b4fa]/50 px-2 py-0.5 text-[9px] text-[#89b4fa] hover:bg-[#89b4fa]/10"
-                      title="Abrir esta entidade na tarefa Personagem (animações, caixas e eventos)"
+                      title="Editar o sprite e as animações deste objeto na Arte"
                     >
-                      Abrir no Personagem
+                      Abrir na Arte
                     </button>
                     <AssetRenameControl asset={entity.components.sprite.asset} />
-                    {entity.components.logic ? (
-                      <button
-                        type="button"
-                        data-testid="inspector-open-actions"
-                        onClick={() => openStudioEditor({ focus: { task: "actions", entityId: entity.entity_id } })}
-                        className="rounded border border-[#a6e3a1]/50 px-2 py-0.5 text-[9px] text-[#a6e3a1] hover:bg-[#a6e3a1]/10"
-                        title="Abrir os comportamentos desta entidade na tarefa Ações"
-                      >
-                        Abrir em Ações
-                      </button>
-                    ) : null}
+                    <button
+                      type="button"
+                      data-testid="inspector-open-actions"
+                      onClick={() => openStudioEditor({ focus: { task: "actions", entityId: entity.entity_id } })}
+                      className="rounded border border-[#a6e3a1]/50 px-2 py-0.5 text-[9px] text-[#a6e3a1] hover:bg-[#a6e3a1]/10"
+                      title="Editar o comportamento deste objeto em nodes"
+                    >
+                      Editar lógica (nodes)
+                    </button>
                   </div>
+                ) : null}
+                {entity.components.sprite ? (
+                  <EntitySpriteCodeLink entityId={entity.entity_id} asset={entity.components.sprite.asset} />
                 ) : null}
                 <div
                   data-testid="inspector-entity-context"
@@ -1379,13 +1381,13 @@ export default function InspectorPanel() {
                   ) : null}
                 </div>
               </div>
-              <div className="flex shrink-0 flex-col items-end gap-0.5 text-[8px] text-[#45475a]">
+              <div className="col-start-2 row-start-1 flex flex-wrap justify-end gap-2 text-[8px] text-[#7f849c]">
                 <span>{Object.values(entity.components).filter(Boolean).length} comp.</span>
                 <span>({entity.transform.x}, {entity.transform.y})</span>
               </div>
             </div>
             <EntityPaletteSection entityId={entity.entity_id} />
-            <div className="flex items-center gap-2 border-b border-[#313244] px-3 py-1.5 text-[10px] text-[#a6adc8]">
+            <div className="flex flex-wrap items-center gap-2 border-b border-[#313244] px-3 py-1.5 text-[10px] text-[#a6adc8]">
               <label className="flex items-center gap-1">
                 X
                 <input
@@ -1865,6 +1867,7 @@ export default function InspectorPanel() {
                     0
                   );
                   const percent = total > 0 ? Math.round((filled / total) * 100) : 0;
+                  const canRestoreOriginal = cells.some(value => value !== 0);
                   const hasCanonicalPaintedCells = hasCanonicalTilemapCells(tm);
                   const tilemapVisualState =
                     assetPreviewStates[tm.tileset]
@@ -1940,12 +1943,12 @@ export default function InspectorPanel() {
                         }
                       >
                         {hasCanonicalPaintedCells
-                          ? "Tilemap com cells[] canônico: render célula-a-célula no viewport."
-                          : "Tilemap em fallback explícito: tileset existe, mas cells[] ainda nao foram materializados."}
+                          ? "Montagem editável por peças no viewport."
+                          : "Imagem original em uso, sem alterações por peças."}
                       </p>
                       {!hasCanonicalPaintedCells ? (
                         <p className="mb-2 text-[10px] leading-relaxed text-[#f9e2af]">
-                          Pinte/importe a malha cells[] para sair do fallback legado e ver o tilemap canônico no viewport.
+                          Use Pintar para alterar as peças desta instância. O arquivo de imagem original será preservado.
                         </p>
                       ) : null}
                       <div className="mb-2 flex flex-wrap gap-1.5">
@@ -1960,20 +1963,21 @@ export default function InspectorPanel() {
                       <div className="flex flex-col gap-2">
                         <button
                           type="button"
-                          disabled={filled === 0}
+                          disabled={!canRestoreOriginal}
                           data-testid="inspector-clear-tilemap-cells"
                           onClick={() => {
                             clearTilemapCells(entity.entity_id);
                             logMessage("info", `[Inspector] Limpeza de células aplicada a '${entity.entity_id}'.`);
                           }}
                           className={`rounded border px-2 py-1.5 text-[10px] font-mono transition-colors ${
-                            filled === 0
+                            !canRestoreOriginal
                               ? "cursor-not-allowed border-[#45475a] bg-slate-800/50 text-[#6c7086] opacity-60"
                               : "border-[#f38ba8]/40 bg-[#f38ba8]/10 text-[#f38ba8] hover:border-[#f38ba8] hover:bg-[#f38ba8]/20"
                           }`}
                         >
-                          🧹 Limpar Células Pintadas
+                          Restaurar imagem original
                         </button>
+                        <p className="text-[10px] text-[#7f849c]">Remove a pintura desta instância e volta à imagem do arquivo. Ctrl+Z desfaz; o arquivo original não é alterado.</p>
                       </div>
                       <p className="mt-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#45475a]">
                         Ferramentas Avancadas (Experimental)

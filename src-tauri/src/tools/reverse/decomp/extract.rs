@@ -160,7 +160,14 @@ pub(crate) fn reject_if_symlink(path: &Path) -> Result<(), String> {
 
 /// Componentes de caminho FIXOS aceitos sem validação hex — qualquer outro
 /// componente é obrigatoriamente hex64 (sha256). Nada de passagem livre.
-const LITERAL_COMPONENTS: [&str; 5] = ["extract", "previews", "sessions", "choices", "edits"];
+const LITERAL_COMPONENTS: [&str; 6] = [
+    "extract",
+    "previews",
+    "sessions",
+    "choices",
+    "edits",
+    "sgdk_project",
+];
 
 /// Diretório canônico sob `work_dir` para um caminho relativo de componentes
 /// fixos mais componentes hex validáveis: cada componente existente é checado

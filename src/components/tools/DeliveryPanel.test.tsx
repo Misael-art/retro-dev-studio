@@ -45,15 +45,20 @@ async function render(onClose = vi.fn()) {
 describe("DeliveryPanel", () => {
   beforeEach(() => {
     mocks.invoke.mockReset();
+    mocks.invoke.mockResolvedValue([]);
     mocks.mastering.mockReset();
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
-    useEditorStore.setState({ studio: initialStudioContext(), activeWorkspace: "debug", activeProjectDir: "/p" });
+    useEditorStore.setState({ studio: initialStudioContext(), activeWorkspace: "debug", activeProjectDir: "/p", lastBuildArtifact: null, nativeCodeRevision: 0 });
   });
   afterEach(() => {
     act(() => root.unmount());
     host.remove();
+    if (vi.isFakeTimers()) {
+      vi.runAllTimers();
+      vi.useRealTimers();
+    }
   });
 
   function built(s: Scene) {
@@ -66,7 +71,26 @@ describe("DeliveryPanel", () => {
     });
   }
 
+  it("reviews a verified native C artifact independently of reference scenes and blocks edited C", async () => {
+    built(scene(36));
+    useEditorStore.setState({ lastBuildSourceMap: null, lastBuildSceneRevision: null,
+      lastBuildArtifact: { path: "/p/c_build/run/out/rom.bin", sha256: "abc", nativeCodeRevision: 0 },
+      lastBuildTest: { romSha256: "abc", sceneRevision: 1 } as never });
+    mocks.mastering.mockResolvedValue({ sha256: "abc", checksum: { status: "ok" }, blockers: [] });
+    await render();
+    expect(q("delivery-freshness")!.dataset.kind).toBe("tested");
+    expect(q("delivery-native-scope")!.textContent).toContain("não a lógica C");
+    expect(q("delivery-errors")!.dataset.count).toBe("0");
+    await act(async () => q("delivery-verify-rom")!.click());
+    expect(q("delivery-export")!.hasAttribute("disabled")).toBe(false);
+    await act(async () => useEditorStore.getState().recordNativeCodeEdit());
+    expect(q("delivery-freshness")!.dataset.kind).toBe("rebuild-needed");
+    expect(q("delivery-export")!.hasAttribute("disabled")).toBe(true);
+    expect(q("delivery-verify-rom")!.hasAttribute("disabled")).toBe(true);
+  });
+
   it("a blocking HUD error opens the exact property and blocks export", async () => {
+    vi.useFakeTimers();
     built(scene(36));
     const onClose = await render();
     expect(q("delivery-errors")!.dataset.count).toBe("1");
@@ -76,12 +100,22 @@ describe("DeliveryPanel", () => {
     expect(onClose).toHaveBeenCalled();
     expect(useEditorStore.getState().studio.focus).toMatchObject({ task: "interface", entityId: "vida" });
     expect(useEditorStore.getState().activeWorkspace).toBe("scene");
+    // The inspector mounts after navigation. Exercise the retry and complete
+    // the focus request before the test environment is torn down.
+    await act(async () => vi.advanceTimersByTime(0));
+    const field = document.createElement("input");
+    field.dataset.testid = "inspector-hud-column";
+    host.appendChild(field);
+    await act(async () => vi.advanceTimersByTime(50));
+    expect(document.activeElement).toBe(field);
+    await act(async () => vi.runAllTimers());
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("a safe-area warning does not block a valid export; export requires ROM verification and current build", async () => {
     built(scene(0));
-    mocks.mastering.mockResolvedValue({ checksum: { status: "ok" }, blockers: [] });
-    mocks.invoke.mockResolvedValue({ path: "/p/export/p-abc.bin", sha256: "abc", report: {} });
+    mocks.mastering.mockResolvedValue({ sha256: "abc", checksum: { status: "ok" }, blockers: [] });
+    mocks.invoke.mockImplementation(async (command) => command === "export_game_rom" ? { path: "/p/export/p-abc.bin", sha256: "abc", report: {} } : []);
     await render();
     expect(q("delivery-warnings")!.dataset.count).toBe("1");
     expect(q("delivery-export")!.textContent).toContain("Verifique a ROM");
@@ -98,5 +132,48 @@ describe("DeliveryPanel", () => {
     await render();
     expect(q("delivery-freshness")!.dataset.kind).toBe("rebuild-needed");
     expect(q("delivery-export")!.textContent).toContain("Compile o projeto atual");
+  });
+
+  it("invalidates verification when the build changes while the review stays open", async () => {
+    built(scene(2));
+    mocks.mastering.mockResolvedValue({ sha256: "abc", checksum: { status: "ok" }, blockers: [] });
+    await render();
+    await act(async () => q("delivery-verify-rom")!.click());
+    expect(q("delivery-export")!.hasAttribute("disabled")).toBe(false);
+    await act(async () => useEditorStore.setState({ lastBuildSourceMap: { artifact: { path: "/p/out/rom.bin", sha256: "def" } } as never }));
+    expect(q("delivery-export")!.hasAttribute("disabled")).toBe(true);
+    expect(q("delivery-mastering")).toBeNull();
+    expect(q("delivery-rom-sha")!.textContent).toContain("def");
+  });
+
+  it("discards a verification response from a previous project", async () => {
+    built(scene(2));
+    let complete!: (result: unknown) => void;
+    mocks.mastering.mockImplementationOnce(() => new Promise((resolve) => { complete = resolve; }));
+    await render();
+    await act(async () => q("delivery-verify-rom")!.click());
+    await act(async () => useEditorStore.getState().setActiveProject("/other", "Other"));
+    await act(async () => complete({ sha256: "abc", checksum: { status: "ok" }, blockers: [] }));
+    expect(q("delivery-mastering")).toBeNull();
+    expect(q("delivery-export")!.hasAttribute("disabled")).toBe(true);
+  });
+
+  it("refuses a ROM changed at the same path since the build", async () => {
+    built(scene(2));
+    mocks.mastering.mockResolvedValue({ sha256: "changed", checksum: { status: "ok" }, blockers: [] });
+    await render();
+    await act(async () => q("delivery-verify-rom")!.click());
+    expect(q("delivery-error")!.textContent).toContain("mudou desde o build");
+    expect(q("delivery-export")!.hasAttribute("disabled")).toBe(true);
+  });
+
+  it("reports an audit failure and allows retry without claiming missing files were checked", async () => {
+    built(scene(2));
+    mocks.invoke.mockRejectedValueOnce(new Error("disco indisponível"));
+    await render();
+    expect(q("delivery-audit-status")!.textContent).toContain("Falha");
+    expect(q("delivery-export")!.hasAttribute("disabled")).toBe(true);
+    await act(async () => q("delivery-recheck")!.click());
+    expect(q("delivery-audit-status")!.textContent).toContain("verificados");
   });
 });

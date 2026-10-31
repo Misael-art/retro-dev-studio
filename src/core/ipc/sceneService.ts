@@ -11,7 +11,7 @@ export interface AnimationDef {
   frames: number[];
   fps: number;
   loop: boolean;
-  /** Ticks de 1/60 s por quadro (-1 = parado). Fonte da ROM nas animacoes MUGEN. */
+  /** Ticks de 1/60 s por ocorrência na ROM Mega Drive; -1 = parado no perfil MUGEN. */
   frame_durations?: number[];
   loop_start?: number;
   /** Presente so nas animacoes importadas de MUGEN; `duration` espelha `frame_durations`. */
@@ -390,13 +390,18 @@ export function getSceneData(projectDir: string, scenePath?: string): Promise<Sc
   return invoke("get_scene_data", { projectDir, scenePath });
 }
 
+export function sceneDraftStorage(projectDir: string, scenePath: string, operation: "read" | "write" | "remove", value: string | null = null, expected: string | null = null): Promise<string | null> {
+  return invoke("scene_draft_storage", { projectDir, scenePath, operation, value, expected });
+}
+
 export function saveSceneData(
   projectDir: string,
   sceneJson: string,
   scenePath?: string,
-  resolvedSceneJson?: string
-): Promise<{ ok: boolean; message: string }> {
-  return invoke("save_scene_data", { projectDir, sceneJson, scenePath, resolvedSceneJson });
+  resolvedSceneJson?: string,
+  expectedSceneJson?: string
+): Promise<{ ok: boolean; message: string; scene_json?: string | null; conflict?: boolean }> {
+  return invoke("save_scene_data", { projectDir, sceneJson, scenePath, resolvedSceneJson, expectedSceneJson });
 }
 
 export function listScenes(projectDir: string): Promise<SceneInfo[]> {

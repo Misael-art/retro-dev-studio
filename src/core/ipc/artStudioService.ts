@@ -95,3 +95,17 @@ export async function importArtAsset(
     slicingMode: options?.slicingMode ?? null,
   });
 }
+
+export interface SavedPixelArt {
+  png_relative: string;
+  doc_relative: string;
+  png_absolute: string;
+}
+
+export function savePixelArtAsset(projectDir: string, name: string, png: Uint8Array, docJson: string): Promise<SavedPixelArt> {
+  return invoke<SavedPixelArt>("save_pixel_art_asset", { projectDir, name, png: Array.from(png), docJson });
+}
+
+export function loadPixelArtDoc(projectDir: string, docRelative: string): Promise<string> {
+  return invoke<string>("load_pixel_art_doc", { projectDir, docRelative });
+}

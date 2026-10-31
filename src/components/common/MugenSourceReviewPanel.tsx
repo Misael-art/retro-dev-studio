@@ -11,24 +11,24 @@ export default function MugenSourceReviewPanel({ sourcePath, onCancel, onImport 
   const [options,setOptions]=useState<MugenReviewOptions|null>(null);
   const [busy,setBusy]=useState(false); const [error,setError]=useState("");
   const generation=useRef(0);
-  const analyze=async (choice?:MugenReviewOptions) => {
+  const analyze=async (choice?:MugenReviewOptions, metadataOnly=false) => {
     const gen=++generation.current; setBusy(true);setError("");setAnalysis(null);
-    try {const a=await analyzeMugenSource(sourcePath,choice); if(gen!==generation.current)return;
+    try {const a=await analyzeMugenSource(sourcePath,choice,metadataOnly); if(gen!==generation.current)return;
       setAnalysis(a);setOptions(a.options ?? choice ?? {def_file:a.selected_def ?? "",actions:[],palette_file:null,authored_demo:false,original_chain:false,chain_state:null,source_sha256:a.source_sha256});
     } catch(e){if(gen===generation.current)setError(String(e));}
     finally {if(gen===generation.current)setBusy(false);}
   };
-  useEffect(()=>{void analyze();return()=>{generation.current+=1;};},[sourcePath]);
+  useEffect(()=>{void analyze(undefined,true);return()=>{generation.current+=1;};},[sourcePath]);
   const edit=(patch:Partial<MugenReviewOptions>)=>{if(options){setOptions({...options,...patch,source_sha256:null});setAnalysis((a)=>a?{...a,report:null}:null);}};
   const visual=analysis?.report ? visualReviewOf(analysis.report) : null;
   const canImport=!!analysis?.report && !busy && options?.source_sha256===analysis.source_sha256 && !analysis.diagnostics.some((d)=>d.severity==="error");
-  return <Dialog open title="Revisar personagem MUGEN · Experimental" onClose={onCancel} className="w-[980px] max-w-[95vw] max-h-[90vh] overflow-auto rounded border border-[#45475a] bg-[#1e1e2e] p-4">
+  return <Dialog open title="Revisar personagem MUGEN · Experimental" onClose={onCancel} className="!w-[min(980px,calc(100vw-24px))] max-h-[90vh] overflow-auto rounded border border-[#45475a] bg-[#1e1e2e] p-4">
     <div data-testid="mugen-source-review" className="space-y-3 text-xs text-[#cdd6f4]">
       <p>Confira os pixels e as perdas antes de criar o projeto. O pacote original será preservado.</p>
       <p className="break-all text-[#a6adc8]">{sourcePath}</p>
       {analysis?.format && <p>{analysis.format.format} {analysis.format.version.join(".")} · {analysis.sprites?.length ?? 0} sprites disponíveis · {analysis.actions.length} ações</p>}
-      {options && !analysis?.legacy_kind && <>
-        <label className="block">DEF de personagem <select data-testid="mugen-source-def" value={options.def_file} onChange={(e)=>void analyze({...options,def_file:e.target.value,actions:[],palette_file:null,source_sha256:null})} className="ml-2 bg-[#313244] p-1">
+      {options && !analysis?.legacy_kind && <fieldset disabled={busy} className="contents">
+        <label className="block">DEF de personagem <select data-testid="mugen-source-def" value={options.def_file} onChange={(e)=>void analyze({...options,def_file:e.target.value,actions:[],palette_file:null,source_sha256:null},true)} className="ml-2 bg-[#313244] p-1">
           <option value="">Escolha explicitamente…</option>{analysis?.defs.map((d)=><option key={d.file} value={d.file}>{d.name} · {d.file}</option>)}
         </select></label>
         <label className="block">Paleta <select data-testid="mugen-source-palette" value={options.palette_file ?? ""} onChange={(e)=>edit({palette_file:e.target.value || null})} className="ml-2 bg-[#313244] p-1">
@@ -46,8 +46,9 @@ export default function MugenSourceReviewPanel({ sourcePath, onCancel, onImport 
           {(analysis?.original_chain_candidates?.refused ?? []).length>0 && <details><summary>{analysis?.original_chain_candidates?.refused.length} alvos do estado -1 nao selecionaveis (com motivo)</summary><ul className="text-[10px] text-[#a6adc8]">{analysis?.original_chain_candidates?.refused.map((r)=><li key={r.state}>Estado {r.state}: {r.reason}</li>)}</ul></details>}
         </fieldset>}
         <button data-testid="mugen-source-analyze" disabled={busy} onClick={()=>void analyze(options)} className="rounded bg-[#45475a] px-3 py-2">{busy?"Analisando…":"Analisar escolhas"}</button>
-      </>}
-      {busy && <p>Verificando arquivos, paleta, animações e transformações…</p>}
+      </fieldset>}
+      {analysis && !analysis.legacy_kind && !analysis.report && !busy && <p role="status">Selecione as ações e a paleta, depois use Analisar escolhas para conferir pixels, perdas e custo antes de importar.</p>}
+      {busy && <p role="status">Verificando arquivos, paleta, animações e transformações…</p>}
       {error && <p role="alert" className="text-[#f38ba8]">{error}</p>}
       <ul>{analysis?.diagnostics.map((d,i)=><li key={i} className={d.severity==="error"?"text-[#f38ba8]":"text-[#f9e2af]"}>{d.source}: {d.message}</li>)}</ul>
       {analysis?.original_chain?.status==="converted" && <MugenChainReview chain={analysis.original_chain} />}

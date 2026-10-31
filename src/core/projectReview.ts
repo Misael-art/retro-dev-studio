@@ -139,7 +139,7 @@ export function reviewProject(
             title: "Evento sem quadro",
             detail: `O evento ${event.id} de ${name} (${animation}) aponta para uma ocorrência que não existe mais.`,
             consequence: "O build é recusado; o evento não seria tocado.",
-            action: "Abrir no Personagem",
+            action: "Abrir na Arte",
             chips: [`Personagem: ${name}`, `Animação: ${animation}`],
             target: { task: "character", entityId: entity.entity_id, animation, eventId: event.id },
           });
@@ -152,7 +152,7 @@ export function reviewProject(
             title: "Evento fora do quadro",
             detail: `O evento ${event.id} de ${name} está no tick ${event.tick}, depois do fim da ocorrência ${event.occurrence}.`,
             consequence: "O build é recusado; o evento não é deslocado automaticamente.",
-            action: "Abrir no Personagem",
+            action: "Abrir na Arte",
             chips: [`Personagem: ${name}`, `Animação: ${animation}`, `Ocorrência: ${event.occurrence}`],
             target: { task: "character", entityId: entity.entity_id, animation, occurrenceId: event.occurrence, eventId: event.id },
           });
@@ -166,7 +166,7 @@ export function reviewProject(
             title: "Som não encontrado",
             detail: `${name} toca “${event.sound ?? "?"}” em ${animation} (${event.occurrence}), mas esse som não está no Áudio do projeto.`,
             consequence: "O build é recusado: o evento sonoro não tem som para tocar.",
-            action: "Abrir no Personagem",
+            action: "Abrir na Arte",
             chips: [`Personagem: ${name}`, `Som: ${event.sound ?? "—"}`, `Ocorrência: ${event.occurrence}`],
             target: { task: "character", entityId: entity.entity_id, animation, occurrenceId: event.occurrence, eventId: event.id },
           });
@@ -225,7 +225,7 @@ export function reviewProject(
         title: "Instâncias do personagem divergentes",
         detail: `${diverging.display_name || diverging.entity_id} usa o mesmo personagem com animações diferentes das outras ${users.length - 1} instância(s).`,
         consequence: "O build é recusado: a animação é do modelo e vale para todas as instâncias.",
-        action: "Abrir no Personagem",
+        action: "Abrir na Arte",
         chips: [`Modelo: ${users[0].components.sprite?.asset}`, `${users.length} usos`],
         target: { task: "character", entityId: diverging.entity_id },
       });

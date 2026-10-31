@@ -491,7 +491,7 @@ describe("ToolsPanel Asset Browser", () => {
     });
 
     await act(async () => {
-      findButton(container, "Instanciar").click();
+      findButton(container, "Adicionar à cena").click();
       await flush();
       await flush();
     });
@@ -539,15 +539,15 @@ describe("ToolsPanel Asset Browser", () => {
 
     expect(
       container.querySelector("[data-testid='asset-browser-reference-summary']")?.textContent
-    ).toContain("Asset orfao");
+    ).toContain("Disponível na biblioteca");
     expect(
       container.querySelector("[data-testid='asset-browser-instantiation-notice']")?.textContent
-    ).toContain("Instanciar como sprite");
+    ).toContain("Adicionar personagem ou objeto");
     expect(
       container.querySelector("[data-testid='asset-browser-instantiation-notice']")?.textContent
     ).toContain("padrao-sprite-sem-sinais-de-tilemap");
     expect(container.querySelector("[data-testid='asset-browser-budget-summary']")?.textContent).toContain(
-      "Orfao"
+      "Fora desta cena"
     );
   });
 
@@ -581,7 +581,8 @@ describe("ToolsPanel Asset Browser", () => {
 
     await act(async () => {
       changeInputValue(search, "");
-      findButton(container, "source art").click();
+      (container.querySelector('[data-testid="asset-browser-filters"] > summary') as HTMLElement).click();
+      findButton(container, "Arte de origem").click();
       await flush();
     });
 

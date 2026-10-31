@@ -54,8 +54,8 @@ export interface MugenSourceAnalysis {
   original_chain_candidates?: MugenChainCandidates;
   report: (MugenImportReport & { visual_review?: MugenVisualReview }) | null;
 }
-export function analyzeMugenSource(projectPath: string, options?: MugenReviewOptions) {
-  return invoke<MugenSourceAnalysis>("analyze_mugen_source", { projectPath, options: options ?? null });
+export function analyzeMugenSource(projectPath: string, options?: MugenReviewOptions, metadataOnly = false) {
+  return invoke<MugenSourceAnalysis>("analyze_mugen_source", { projectPath, options: options ?? null, metadataOnly });
 }
 
 export function visualReviewOf(report: MugenImportReport): MugenVisualReview | null {

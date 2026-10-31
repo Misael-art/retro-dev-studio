@@ -45,6 +45,7 @@ export interface ProjectTemplateSummary {
   source_kind: string;
   recommended_target: "megadrive" | "snes";
   experimental: boolean;
+  mega_drive_only?: boolean;
   available: boolean;
   availability_reason?: string | null;
   default_donor_path?: string | null;
@@ -220,4 +221,118 @@ export function updateProjectSettings(
   settings: ProjectSettingsPayload
 ): Promise<ProjectSettingsUpdateResult> {
   return invoke("update_project_settings", { projectDir, settings });
+}
+
+export interface CGraphNode {
+  id: string;
+  kind: string;
+  role: "item" | "syntax" | "comment";
+  label: string;
+  start_line: number;
+  end_line: number;
+  text?: string;
+  children?: CGraphNode[];
+  function?: string;
+  calls?: string[];
+  block?: CBlock;
+}
+
+export interface CBlock {
+  node_type: string;
+  form: "call" | "assign";
+  target: string;
+  operator: string;
+  args: string[];
+}
+
+export interface CGraphFile {
+  schema: string;
+  source_file: string;
+  source_sha256: string;
+  parse_error_nodes: number;
+  root: CGraphNode;
+}
+
+export interface CLink {
+  category: string;
+  text: string;
+  node_id?: string;
+}
+
+export interface CStateTransition {
+  from: string;
+  to: string;
+  line: number;
+  node_id: string;
+  function?: string | null;
+  /** local | caller | unguarded | unknown */
+  origin?: string;
+  via?: string[];
+  conditions?: CLink[];
+  effects?: CLink[];
+}
+
+export interface CGraphIndex {
+  schema: string;
+  files: {
+    source_file: string;
+    graph_file: string;
+    source_sha256: string;
+    roundtrip_exact: boolean;
+    parse_error_nodes: number;
+    stale: boolean;
+  }[];
+  functions: { file: string; name: string; line: number; node_id: string; calls: string[] }[];
+  state_machines: {
+    file: string;
+    function: string | null;
+    subject: string;
+    states: string[];
+    transitions: CStateTransition[];
+    line: number;
+    node_id: string;
+  }[];
+  entry_points: string[];
+}
+
+export function getSgdkCGraphIndex(projectDir: string): Promise<CGraphIndex> {
+  return invoke("sgdk_c_graph_index", { projectDir });
+}
+
+export function getSgdkCGraphFile(projectDir: string, sourceFile: string): Promise<CGraphFile> {
+  return invoke("sgdk_c_graph_file", { projectDir, sourceFile });
+}
+
+export function updateSgdkCGraphNode(
+  projectDir: string,
+  sourceFile: string,
+  nodeId: string,
+  text: string
+): Promise<CGraphFile> {
+  return invoke("sgdk_c_graph_update_node", { projectDir, sourceFile, nodeId, text });
+}
+
+export function updateSgdkCGraphBlock(
+  projectDir: string,
+  sourceFile: string,
+  nodeId: string,
+  block: CBlock
+): Promise<CGraphFile> {
+  return invoke("sgdk_c_graph_update_block", { projectDir, sourceFile, nodeId, block });
+}
+
+/** Sprite do jogo SGDK como o `.res` declara: quadro, grade e pontos do C que o usam. */
+export interface SgdkSpriteCatalogEntry {
+  name: string;
+  source: string;
+  asset: string | null;
+  frame_width: number;
+  frame_height: number;
+  columns: number;
+  rows: number;
+  refs: import("./emulatorService").SpriteCodeRef[];
+}
+
+export function getSgdkSpriteCatalog(projectDir: string): Promise<SgdkSpriteCatalogEntry[]> {
+  return invoke("sgdk_sprite_catalog", { projectDir });
 }

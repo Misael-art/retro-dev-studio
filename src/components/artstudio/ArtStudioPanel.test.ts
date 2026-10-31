@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ArtStudioPanel, {
+  getInitialSourceZoom,
   buildArtStudioCommandBindings,
   buildArtStudioAnimations,
   buildArtStudioHitboxCMetadata,
@@ -31,7 +32,11 @@ const mocks = vi.hoisted(() => ({
   artProcessPalette: vi.fn(),
   importArtAsset: vi.fn(),
   parseInputCommandFile: vi.fn(),
+  listProjectAssets: vi.fn(),
 }));
+
+vi.mock("../../core/ipc/toolsService", async (importOriginal) => ({ ...await importOriginal<typeof import("../../core/ipc/toolsService")>(), listProjectAssets: mocks.listProjectAssets }));
+vi.mock("../../core/ipc/projectService", async (importOriginal) => ({ ...await importOriginal<typeof import("../../core/ipc/projectService")>(), getSgdkSpriteCatalog: vi.fn(async () => []) }));
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: mocks.open,
@@ -501,6 +506,8 @@ describe("ArtStudioPanel import flow", () => {
     mocks.artProcessPalette.mockReset();
     mocks.importArtAsset.mockReset();
     mocks.parseInputCommandFile.mockReset();
+    mocks.listProjectAssets.mockReset();
+    mocks.listProjectAssets.mockResolvedValue([]);
     mocks.artProcessPalette.mockResolvedValue({
       ok: true,
       processed_base64: "ZmFrZS1wbmctcHJldmlldw==",
@@ -584,6 +591,7 @@ describe("ArtStudioPanel import flow", () => {
       activeTarget: "megadrive",
       activeScenePath: "scenes/main.json",
       selectedEntityId: null,
+      artStudioAssetPath: null,
       activeViewportTab: "artstudio",
       emulatorLoaded: false,
       hwStatus: null,
@@ -689,6 +697,27 @@ describe("ArtStudioPanel import flow", () => {
     }
   });
 
+  it("preserves imported composite frames and animations from browser through apply", async () => {
+    const sprite = { asset: "assets/sprites/imported.png", frame_width: 96, frame_height: 112, meta_sprite: true, palette_slot: 0, priority: "foreground", animations: { default: { frames: [0, 1], fps: 8, loop: true } } };
+    mocks.listProjectAssets.mockResolvedValue([{ relative_path: sprite.asset, sgdk_resource: { resource_kind: "SPRITE", resource_name: "hero", sprite } }]);
+    await act(async () => {
+      useEditorStore.setState({ selectedEntityId: null, artStudioAssetPath: sprite.asset });
+      await flush(); await flush(); await flush();
+    });
+    expect(mocks.artProcessPalette).toHaveBeenCalledWith(expect.stringContaining(sprite.asset), { gridWidth: 96, gridHeight: 112, slicingMode: "grid" });
+    const width = [...container.querySelectorAll("label")].find(label => label.textContent?.includes("Frame W"))?.querySelector("input");
+    const height = [...container.querySelectorAll("label")].find(label => label.textContent?.includes("Frame H"))?.querySelector("input");
+    expect(width?.value).toBe("96");
+    expect(height?.value).toBe("112");
+    const selectedSequence = container.querySelector('[data-testid="artstudio-sequence-card-seq_idle"]');
+    expect(selectedSequence?.querySelector('input[type="text"]')?.getAttribute("value")).toBe("Default");
+    expect(selectedSequence?.className).toContain("border-[#cba6f7]/45");
+    await act(async () => { findButton(container, "Aplicar e criar entidade na cena").click(); await flush(); });
+    const added = useEditorStore.getState().activeScene?.entities.find(entity => entity.components.sprite?.asset === sprite.asset)?.components.sprite;
+    expect(added).toMatchObject({ frame_width: 96, frame_height: 112, meta_sprite: true });
+    expect(added?.animations).toEqual(sprite.animations);
+  });
+
   it("loads an external image for preparation and keeps apply blocked", async () => {
     mocks.open.mockResolvedValue("D:/Downloads/hero.webp");
 
@@ -704,6 +733,44 @@ describe("ArtStudioPanel import flow", () => {
     expect(container.textContent).toContain("corner (128 px)");
     expect(findButton(container, /Aplicar/).disabled).toBe(true);
     expect(mocks.artProcessPalette).toHaveBeenCalledWith("D:/Downloads/hero.webp");
+  });
+
+  it("keeps an explicitly loaded sheet while the selected entity still references its old asset", async () => {
+    await act(async () => {
+      useEditorStore.setState({ selectedEntityId: "hero", activeScene: {
+        scene_id: "main", background_layers: [], palettes: [], entities: [{ entity_id: "hero", prefab: null,
+          transform: { x: 0, y: 0 }, components: { sprite: { asset: "assets/sprites/old.png", frame_width: 32, frame_height: 32, palette_slot: 0, animations: {}, priority: "foreground", meta_sprite: false } } }],
+      } });
+      await flush(); await flush();
+    });
+    mocks.open.mockResolvedValue("D:/Downloads/replacement.ppm");
+    await act(async () => {
+      findButton(container, "Importar imagem").click();
+      await flush(); await flush(); await flush();
+    });
+    expect(window.__RDS_ARTSTUDIO_E2E__?.getState().spriteSheetSourcePath).toBe("D:/Downloads/replacement.ppm");
+    expect(mocks.artProcessPalette.mock.calls.map(call => call[0]).filter(path => String(path).endsWith("old.png"))).toHaveLength(1);
+  });
+
+  it("refuses a delayed entity-image response after a newer explicit image load", async () => {
+    const processed = await mocks.artProcessPalette();
+    let finish!: (value: typeof processed) => void;
+    mocks.artProcessPalette.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    await act(async () => {
+      useEditorStore.setState({ selectedEntityId: "hero", activeScene: {
+        scene_id: "main", background_layers: [], palettes: [], entities: [{ entity_id: "hero", prefab: null,
+          transform: { x: 0, y: 0 }, components: { sprite: { asset: "assets/sprites/old.png", frame_width: 32, frame_height: 32, palette_slot: 0, animations: {}, priority: "foreground", meta_sprite: false } } }],
+      } });
+      await flush();
+    });
+    mocks.open.mockResolvedValue("D:/Downloads/newer.ppm");
+    await act(async () => {
+      findButton(container, "Importar imagem").click();
+      await flush(); await flush();
+    });
+    await act(async () => { finish(processed); await flush(); await flush(); });
+    expect(window.__RDS_ARTSTUDIO_E2E__?.getState().spriteSheetSourcePath).toBe("D:/Downloads/newer.ppm");
+    expect(window.__RDS_ARTSTUDIO_E2E__?.getState().spritePath).toBe("");
   });
 
   it("exposes an automation hook for file-picker-safe BYOR sprite ingestion", async () => {
@@ -1087,7 +1154,7 @@ describe("ArtStudioPanel import flow", () => {
     expect(bridge?.textContent).toContain("assets/sprites/hero_old.png");
 
     await act(async () => {
-      findButton(container, "Voltar para Cena").click();
+      findButton(container, "Ver na Cena").click();
       await flush();
     });
 
@@ -1182,5 +1249,18 @@ describe("ArtStudioPanel import flow", () => {
     expect(state.activeTilemapId).toBe("tilemap_focus");
     expect(state.activeBrush?.kind).toBe("tile");
     expect(state.activeBrush?.assetPath).toBe("assets/tilesets/stage.png");
+  });
+});
+
+describe("getInitialSourceZoom", () => {
+  it("enlarges a small captured piece to fill the visible stage in whole steps", () => {
+    expect(getInitialSourceZoom({ width: 32, height: 8 }, { width: 700, height: 300 })).toBe(21);
+    expect(getInitialSourceZoom({ width: 32, height: 32 }, { width: 700, height: 300 })).toBe(9);
+  });
+
+  it("shrinks a large sheet to fit and caps tiny pieces at the maximum zoom", () => {
+    expect(getInitialSourceZoom({ width: 2000, height: 500 }, { width: 1000, height: 400 })).toBeCloseTo(0.5);
+    expect(getInitialSourceZoom({ width: 8, height: 8 }, { width: 1000, height: 1000 })).toBe(24);
+    expect(getInitialSourceZoom({ width: 100, height: 100 }, null)).toBe(5);
   });
 });

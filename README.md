@@ -1,6 +1,6 @@
 # RetroDev Studio
 
-> **Retomada após reinstalação (2026-10-21):** esta branch é um snapshot de recuperação do Studio. Comece por [continuidade e limites](docs/handoffs/PREFORMAT-CONTINUITY-2026-10-21.md), pelo Memory Bank e pela [auditoria de jornada preservada](docs/studio_grafico/auditoria_20261020/LEIA-ME.md). Projetos e evidências privadas exigem o backup complementar; o novo sistema ainda precisa de certificação própria.
+> **Retomada em host vazio (2026-10-24):** comece por [instalação e próximo agente](docs/handoffs/NOVO_HOST_INICIO.md), pelo Memory Bank e pela [reavaliação atualizada](docs/handoffs/REAVALIACAO_PRODUTO_2026-10-24.md). Esta branch preserva o Studio recuperado; `main` não é automaticamente essa ponta. Projetos/evidências privadas exigem o backup complementar. Usabilidade humana e certificação do OS reinstalado continuam pendentes.
 
 > Plataforma desktop para desenvolvimento, preservacao e engenharia reversa de jogos 16-bit, com foco atual em Mega Drive e SNES.
 
@@ -15,7 +15,7 @@
 ## Estado Atual
 
 - Fase ativa real: `release candidate / beta tecnica em hardening`.
-- Fotografia atual em `main`: PR #5 mergeado em `a31357072c93431ce441ff51a88a51004365ca88`; `npm run release:readiness:promotion` passou com `Pronto para promocao: SIM`.
+- Marco histórico em `main`: PR #5 mergeado em `a31357072c93431ce441ff51a88a51004365ca88`, com readiness então aprovado. Não descreve a ponta desta branch nem autoriza promoção atual; consulte o Memory Bank e o handoff de retomada.
 - O foco atual nao e abrir escopo novo; e manter o fluxo canonico `Build -> ROM -> Emulacao` repetivel e documentado com honestidade.
 - O estado operacional canonico fica em [docs/06_AI_MEMORY_BANK.md](./docs/06_AI_MEMORY_BANK.md).
 - A matriz permanente de fases, superficies e importadores fica em [docs/03_ROADMAP_MVP.md](./docs/03_ROADMAP_MVP.md).
@@ -37,6 +37,8 @@ RetroDev Studio ja passou de prototipo. O produto hoje consegue:
 - validar o caminho principal por gates locais, readiness e smoke desktop
 
 O produto ainda nao deve ser descrito como engine totalmente pronta para producao comercial. A prioridade atual e consistencia, ergonomia e repetibilidade dos fluxos certificados.
+
+Na interface, o botão **Tema** permite escolher **Super 16, Mega Drive, Portátil ou Arcade**. A preferência visual é lembrada neste dispositivo; cores dos jogos permanecem no projeto. Áreas, etapas do modo Guiado e ferramentas principais combinam pictogramas de criação com nomes visíveis. Aparência ainda Experimental; validação técnica e aceite humano têm resultados próprios no Memory Bank.
 
 Na frente SGDK/no-code, o PR #5 removeu fake da prova Stable e foi integrado em `main`. O jogo no-code real e gerado 100% por nodes, compila com SGDK oficial, gera ROM persistente e roda no Genesis Plus GX; o corpus real cobre 122 projetos, com 68 builds/ROMs/emulacoes reais e 54 bridges formais; `BLAZE_ENGINE` tem modo compativel real com build, ROM e emulacao. A camada semantica SGDK agora tambem expoe `canonical_model.logic_systems` para funcoes, FSMs, transicoes, acoes, source mappings e bridges formais. A exposicao publica de maturidade ainda deve seguir o roadmap e as badges reais da UI, sem promocao automatica de superficies experimentais.
 
@@ -110,15 +112,23 @@ Essas superficies existem de verdade no produto, mas continuam com rotulo de mat
 
 ---
 
-## Windows Limpo
+## Host limpo e ambiente de desenvolvimento
 
-Para subir o projeto de forma conservadora em um host Windows novo:
+Sem Node/Rust previamente instalados, após obter o checkout com Git:
 
-1. `npm ci`
-2. `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\bootstrap.ps1`
-3. `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\validate-upstream-windows.ps1 -SkipRustTests`
+```bash
+# Linux x64 Arch/Manjaro/BigLinux
+bash scripts/new-host.sh --plan
+bash scripts/new-host.sh --install --certify --build
+```
 
-O bootstrap atual nao cria scaffold, nao reescreve arquivos do repositorio e pode opcionalmente rodar o baseline completo do projeto.
+```powershell
+# Windows x64
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\new-host.ps1 -Mode Plan
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\new-host.ps1 -Mode Install -Certify -Build
+```
+
+Os launchers reutilizam o bootstrap/host-manager canônico, ativam as versões fixadas, limitam jobs e separam cache/temporários/recibos. Não baixam corpus nem alteram o perfil global do shell. Outros hosts permanecem explicitamente não suportados pelo provisionamento full. Para uso diário: `bash scripts/new-host.sh --run npm run tauri dev` (Windows: `-Mode Run npm run tauri dev`). Veja [política de recursos, backup e limites](docs/handoffs/NOVO_HOST_INICIO.md).
 
 Para uma fotografia consolidada de readiness no Windows:
 

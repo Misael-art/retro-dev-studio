@@ -2,7 +2,23 @@ import { UNDO_STACK_LIMIT, useEditorStore } from "../../core/store/editorStore";
 import { revertLastFileOperation } from "../../core/projectFileOps";
 import { getEntityDisplayName } from "../../core/entityDisplay";
 import { describeBuildFreshness } from "../../core/buildFreshness";
-import { STUDIO_TASK_LABEL, workspaceToStudioTask } from "../../core/studioContext";
+import { STUDIO_TASK_LABEL, STUDIO_TASK_WORKSPACE, type StudioTask, workspaceToStudioTask } from "../../core/studioContext";
+
+type FlowEntity = { components: { sprite?: unknown; hud?: unknown } };
+
+/** Os destinos do fluxo de trabalho para o objeto selecionado, na ordem Cena → Arte → Lógica. */
+const FLOW_STEPS: { task: StudioTask; testId: string; label: string; hint: string; when: (e: FlowEntity) => boolean }[] = [
+  { task: "scene", testId: "scene", label: "Cena", hint: "Ver o objeto na cena, posicionar e conferir o resultado", when: () => true },
+  {
+    task: "character",
+    testId: "character",
+    label: "Arte e animação",
+    hint: "Editar o sprite, os quadros e as animações deste objeto",
+    when: (e) => Boolean(e.components.sprite),
+  },
+  { task: "actions", testId: "actions", label: "Lógica (nodes)", hint: "Editar o comportamento deste objeto em nodes", when: () => true },
+  { task: "interface", testId: "interface", label: "Interface", hint: "Editar este texto de HUD", when: (e) => Boolean(e.components.hud) },
+];
 
 /**
  * Faixa de contexto compartilhado (Experimental): mostra o que está em foco na tarefa atual e
@@ -12,22 +28,30 @@ export function StudioContextBar() {
   const studio = useEditorStore((state) => state.studio);
   const activeWorkspace = useEditorStore((state) => state.activeWorkspace);
   const activeScene = useEditorStore((state) => state.activeScene);
+  const selectedEntityId = useEditorStore((state) => state.selectedEntityId);
+  const openStudioEditor = useEditorStore((state) => state.openStudioEditor);
   const returnToStudioOrigin = useEditorStore((state) => state.returnToStudioOrigin);
   const logMessage = useEditorStore((state) => state.logMessage);
   const lastFileBackup = useEditorStore((state) => state.lastFileBackup);
   const undoDepth = useEditorStore((state) => state.undoStack.length);
+  const artifact = useEditorStore((state) => state.lastBuildArtifact);
+  const mappedRomSha = useEditorStore((state) => state.lastBuildSourceMap?.artifact.sha256 ?? null);
+  const nativeCodeRevision = useEditorStore((state) => state.nativeCodeRevision);
   const freshness = describeBuildFreshness({
     sceneRevision: useEditorStore((state) => state.sceneRevision),
     lastBuildSceneRevision: useEditorStore((state) => state.lastBuildSceneRevision),
-    builtRomSha256: useEditorStore((state) => state.lastBuildSourceMap?.artifact.sha256 ?? null),
+    builtRomSha256: artifact?.sha256 ?? mappedRomSha,
     runningRomSha256: useEditorStore((state) => state.emulatorRomIdentity?.sha256 ?? null),
+    testedBuild: useEditorStore((state) => state.lastBuildTest),
+    nativeCode: artifact?.nativeCodeRevision != null ? { revision: nativeCodeRevision, builtRevision: artifact.nativeCodeRevision } : null,
   });
 
   const origin = studio.returnStack[studio.returnStack.length - 1] ?? null;
-  const task = workspaceToStudioTask(activeWorkspace);
+  const task = STUDIO_TASK_WORKSPACE[studio.focus.task] === activeWorkspace
+    ? studio.focus.task : workspaceToStudioTask(activeWorkspace);
   const focus = studio.focus;
-  const entity = focus.entityId
-    ? activeScene?.entities.find((candidate) => candidate.entity_id === focus.entityId) ?? null
+  const entity = selectedEntityId
+    ? activeScene?.entities.find((candidate) => candidate.entity_id === selectedEntityId) ?? null
     : null;
 
   if (!origin && !entity && !lastFileBackup && undoDepth < UNDO_STACK_LIMIT) {
@@ -37,9 +61,9 @@ export function StudioContextBar() {
   const crumbs = [
     STUDIO_TASK_LABEL[task],
     entity ? getEntityDisplayName(entity) : null,
-    focus.animation,
-    focus.occurrenceId ? `Ocorrência ${focus.occurrenceId}` : null,
-    focus.eventId ? `Evento ${focus.eventId}` : null,
+    entity?.entity_id === focus.entityId ? focus.animation : null,
+    entity?.entity_id === focus.entityId && focus.occurrenceId ? `Ocorrência ${focus.occurrenceId}` : null,
+    entity?.entity_id === focus.entityId && focus.eventId ? `Evento ${focus.eventId}` : null,
   ].filter((value): value is string => Boolean(value));
 
   function handleReturn() {
@@ -58,11 +82,11 @@ export function StudioContextBar() {
       aria-label="Contexto do Studio"
       data-testid="studio-context-bar"
       data-task={task}
-      data-entity-id={focus.entityId ?? ""}
+      data-entity-id={selectedEntityId ?? ""}
       data-animation={focus.animation ?? ""}
       data-occurrence-id={focus.occurrenceId ?? ""}
       data-return-depth={studio.returnStack.length}
-      className="flex min-h-[30px] items-center gap-2 border-b border-[#27272a] bg-[#0b1120] px-3 text-[11px] text-[#cbd5e1]"
+      className="flex min-h-[30px] flex-wrap items-center gap-2 border-b border-[#27272a] bg-[#0b1120] px-3 py-1 text-[11px] text-[#cbd5e1]"
     >
       <span className="rounded bg-[#1e293b] px-1.5 py-0.5 text-[9px] font-semibold uppercase text-[#94a3b8]">
         Experimental
@@ -75,6 +99,34 @@ export function StudioContextBar() {
           </li>
         ))}
       </ol>
+      {entity ? (
+        <div
+          role="group"
+          aria-label={`Trabalhar em ${getEntityDisplayName(entity)}`}
+          data-testid="studio-flow"
+          className="flex items-center overflow-hidden rounded-md border border-[#334155]"
+        >
+          {FLOW_STEPS.filter((step) => step.when(entity)).map((step) => {
+            const current = task === step.task;
+            return (
+              <button
+                key={step.task}
+                type="button"
+                data-testid={`studio-open-${step.testId}`}
+                aria-current={current ? "page" : undefined}
+                disabled={current}
+                title={step.hint}
+                onClick={() => openStudioEditor({ focus: { task: step.task, entityId: entity.entity_id } })}
+                className={`border-l border-[#334155] px-2 py-1 first:border-l-0 ${
+                  current ? "bg-[#1e3a5f] font-semibold text-white" : "text-[#93c5fd] hover:bg-[#1e293b]"
+                }`}
+              >
+                {step.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       {undoDepth >= UNDO_STACK_LIMIT ? (
         <span data-testid="studio-history-limit" className="whitespace-nowrap text-[10px] text-[#fbbf24]" title="O desfazer guarda os últimos passos; os mais antigos foram descartados">
           Desfazer: últimos {UNDO_STACK_LIMIT} passos
@@ -95,7 +147,7 @@ export function StudioContextBar() {
         data-testid="studio-build-freshness"
         data-kind={freshness.kind}
         title="Estado da última mudança em relação à ROM"
-        className={`whitespace-nowrap text-[10px] ${freshness.kind === "confirmed" ? "text-[#a6e3a1]" : "text-[#fbbf24]"}`}
+        className={`text-[10px] ${freshness.kind === "confirmed" || freshness.kind === "tested" ? "text-[#a6e3a1]" : "text-[#fbbf24]"}`}
       >
         {freshness.kind === "confirmed" ? "✓ " : "◷ "}
         {freshness.label}

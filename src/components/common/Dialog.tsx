@@ -51,12 +51,15 @@ export interface DialogProps {
   children: ReactNode;
   onClose: () => void;
   closeOnEscape?: boolean;
+  closeDisabled?: boolean;
   closeLabel?: string;
   initialFocusRef?: RefObject<HTMLElement | null>;
   portal?: boolean;
   portalContainer?: Element | DocumentFragment | null;
   className?: string;
   overlayClassName?: string;
+  testId?: string;
+  closeTestId?: string;
 }
 
 export default function Dialog({
@@ -66,12 +69,15 @@ export default function Dialog({
   children,
   onClose,
   closeOnEscape = true,
+  closeDisabled = false,
   closeLabel = "Fechar diálogo",
   initialFocusRef,
   portal = true,
   portalContainer,
   className = "",
   overlayClassName = "",
+  testId,
+  closeTestId,
 }: DialogProps) {
   const reactId = useId();
   const titleId = generatedId("rds-dialog-title", reactId);
@@ -113,7 +119,7 @@ export default function Dialog({
       }
 
       if (event.key === "Escape") {
-        if (closeOnEscape) {
+        if (closeOnEscape && !closeDisabled) {
           event.preventDefault();
           event.stopPropagation();
           onCloseRef.current();
@@ -157,7 +163,7 @@ export default function Dialog({
         invoker.focus();
       }
     };
-  }, [closeOnEscape, initialFocusRef, open]);
+  }, [closeOnEscape, closeDisabled, initialFocusRef, open]);
 
   if (!open) {
     return null;
@@ -171,6 +177,7 @@ export default function Dialog({
       <div
         ref={dialogRef}
         role="dialog"
+        data-testid={testId}
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
@@ -190,6 +197,8 @@ export default function Dialog({
           </div>
           <button
             type="button"
+            data-testid={closeTestId}
+            disabled={closeDisabled}
             aria-label={closeLabel}
             title={closeLabel}
             onClick={onClose}

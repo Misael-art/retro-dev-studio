@@ -47,6 +47,7 @@ export default function UnifiedTopBar({
 }: UnifiedTopBarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -58,22 +59,34 @@ export default function UnifiedTopBar({
         setMenuOpen(false);
       }
     }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMenuOpen(false);
+        triggerRef.current?.focus();
+      }
+    }
 
     window.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [menuOpen]);
 
   return (
     <header
       data-testid="unified-topbar"
-      className="relative z-20 flex min-h-[42px] shrink-0 items-center gap-2 overflow-hidden border-b border-[#27272a] bg-[#10131d] px-2 py-1"
+      className="relative z-20 grid shrink-0 grid-cols-[minmax(200px,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-[#27272a] bg-[#10131d] px-3 py-2"
     >
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="col-start-1 row-start-1 flex min-w-0 items-center gap-2">
         <div ref={menuRef} className="relative shrink-0">
           <button
             type="button"
+            ref={triggerRef}
+            aria-expanded={menuOpen}
+            aria-controls="studio-main-menu"
             data-testid="unified-topbar-menu-trigger"
             onClick={() => setMenuOpen((current) => !current)}
             className="flex h-8 items-center justify-center rounded border border-[#3f3f46] bg-[#111827] px-2 text-[10px] font-semibold uppercase text-[#e2e8f0] transition-colors hover:border-[#6366f1]/30 hover:bg-[#1f2937]"
@@ -82,7 +95,7 @@ export default function UnifiedTopBar({
           </button>
 
           {menuOpen && (
-            <div className="absolute left-0 top-[calc(100%+8px)] w-72 overflow-hidden rounded border border-[#313244] bg-[#0b1120] shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
+            <div id="studio-main-menu" className="absolute left-0 top-[calc(100%+8px)] z-50 max-h-[calc(100vh-100px)] w-72 overflow-y-auto rounded border border-[#313244] bg-[#0b1120] shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
               {menuSections.map((section, sectionIndex) => (
                 <div
                   key={`${section.title ?? "section"}-${sectionIndex}`}
@@ -154,15 +167,15 @@ export default function UnifiedTopBar({
 
       <div
         data-testid="unified-topbar-center"
-        className="flex min-w-0 flex-[0_1_520px] items-center justify-center overflow-x-auto overflow-y-visible [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="col-span-2 row-start-2 flex min-w-0 items-center overflow-x-auto pb-1"
       >
-        <div className="relative z-[5] flex min-w-0 flex-nowrap items-center justify-center gap-1.5 px-0.5">
+        <div className="relative z-[5] flex flex-nowrap items-center gap-2 px-0.5">
           {centerContent}
         </div>
       </div>
 
-      <div className="flex min-w-0 flex-1 items-center justify-end overflow-hidden">
-        <div className="flex min-w-0 items-center justify-end gap-2 overflow-hidden">{rightContent}</div>
+      <div className="col-start-2 row-start-1 flex min-w-0 items-center justify-end">
+        <div className="flex min-w-0 items-center justify-end gap-2">{rightContent}</div>
       </div>
     </header>
   );

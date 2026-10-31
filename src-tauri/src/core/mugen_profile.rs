@@ -179,6 +179,7 @@ pub(crate) fn package_digest(root: &Path) -> Result<String, LoadError> {
 pub(crate) fn analyze_source(
     root: &Path,
     requested: Option<ReviewOptions>,
+    metadata_only: bool,
 ) -> Result<serde_json::Value, LoadError> {
     use rex_mugen::source::{parse_def, resolve, Resolution};
     let files = package_files(root)?;
@@ -319,6 +320,11 @@ pub(crate) fn analyze_source(
     options.def_file = def_file.clone();
     options.source_sha256 = Some(digest);
     out["options"] = serde_json::to_value(&options).map_err(|e| LoadError(e.to_string()))?;
+    // Opening the review lists choices without rasterizing every action. A full
+    // reviewed conversion is still required at analysis and import boundaries.
+    if metadata_only {
+        return Ok(out);
+    }
     if options.authored_demo
         && [0, 20, 21, 200].iter().any(|n| {
             !ad.actions.contains_key(n)
@@ -696,6 +702,9 @@ fn visual_review(p: &plan::CharacterPlan, sff: &sff::Sff) -> Result<serde_json::
     let (w, h) = (p.cell_w + 2 * pad, p.cell_h + 2 * pad);
     let mut frames = Vec::new();
     let mut budget = 0usize;
+    // Occurrences remain separate (time, boxes, source line). Only identical
+    // composed pixels share the expensive PNG encoding within this conversion.
+    let mut renders = BTreeMap::<_, (String, String, String, String)>::new();
     for a in p.actions.values() {
         for (element, f) in a.frames.iter().enumerate() {
             if frames.len() >= 1024 {
@@ -706,56 +715,69 @@ fn visual_review(p: &plan::CharacterPlan, sff: &sff::Sff) -> Result<serde_json::
             let cell = f.cell.unwrap();
             let c = &p.cells[cell];
             let s = &sff.sprites[&c.sprite];
-            let mut original = RgbaImage::new(w as u32, h as u32);
-            let mut converted = RgbaImage::new(w as u32, h as u32);
-            let rendered = p.render_cell(sff, cell);
-            for y in 0..p.cell_h {
-                for x in 0..p.cell_w {
-                    let ox = if f.hflip { p.cell_w - 1 - x } else { x };
-                    let oy = if f.vflip { p.cell_h - 1 - y } else { y };
-                    let dx = pad as i32
-                        + ox as i32
-                        + f.x
-                        + if f.hflip {
-                            2 * p.anchor_x as i32 - p.cell_w as i32
-                        } else {
-                            0
-                        };
-                    let dy = pad as i32
-                        + oy as i32
-                        + f.y
-                        + if f.vflip {
-                            2 * p.anchor_y as i32 - p.cell_h as i32
-                        } else {
-                            0
-                        };
-                    if dx < 0 || dy < 0 || dx >= w as i32 || dy >= h as i32 {
-                        return Err(LoadError(
-                            "offset AIR fora do palco de revisao; selecione menos acoes".into(),
-                        ));
-                    }
-                    if x >= c.dx && y >= c.dy && x - c.dx < s.width && y - c.dy < s.height {
-                        let i = s.pixels[(y - c.dy) * s.width + x - c.dx] as usize;
-                        if i != 0 {
-                            let rgb = s.palette[i];
-                            original.put_pixel(
+            let key = (cell, f.x, f.y, f.hflip, f.vflip);
+            let (op, cp, original_sha, converted_sha) = if let Some(render) = renders.get(&key) {
+                render.clone()
+            } else {
+                let mut original = RgbaImage::new(w as u32, h as u32);
+                let mut converted = RgbaImage::new(w as u32, h as u32);
+                let rendered = p.render_cell(sff, cell);
+                for y in 0..p.cell_h {
+                    for x in 0..p.cell_w {
+                        let ox = if f.hflip { p.cell_w - 1 - x } else { x };
+                        let oy = if f.vflip { p.cell_h - 1 - y } else { y };
+                        let dx = pad as i32
+                            + ox as i32
+                            + f.x
+                            + if f.hflip {
+                                2 * p.anchor_x as i32 - p.cell_w as i32
+                            } else {
+                                0
+                            };
+                        let dy = pad as i32
+                            + oy as i32
+                            + f.y
+                            + if f.vflip {
+                                2 * p.anchor_y as i32 - p.cell_h as i32
+                            } else {
+                                0
+                            };
+                        if dx < 0 || dy < 0 || dx >= w as i32 || dy >= h as i32 {
+                            return Err(LoadError(
+                                "offset AIR fora do palco de revisao; selecione menos acoes".into(),
+                            ));
+                        }
+                        if x >= c.dx && y >= c.dy && x - c.dx < s.width && y - c.dy < s.height {
+                            let i = s.pixels[(y - c.dy) * s.width + x - c.dx] as usize;
+                            if i != 0 {
+                                let rgb = s.palette[i];
+                                original.put_pixel(
+                                    dx as u32,
+                                    dy as u32,
+                                    Rgba([rgb[0], rgb[1], rgb[2], 255]),
+                                );
+                            }
+                        }
+                        if let Some(rgb) = rendered[y * p.cell_w + x] {
+                            converted.put_pixel(
                                 dx as u32,
                                 dy as u32,
                                 Rgba([rgb[0], rgb[1], rgb[2], 255]),
                             );
                         }
                     }
-                    if let Some(rgb) = rendered[y * p.cell_w + x] {
-                        converted.put_pixel(
-                            dx as u32,
-                            dy as u32,
-                            Rgba([rgb[0], rgb[1], rgb[2], 255]),
-                        );
-                    }
                 }
-            }
-            let op = png_data(&original)?;
-            let cp = png_data(&converted)?;
+                let op = png_data(&original)?;
+                let cp = png_data(&converted)?;
+                let render = (
+                    op,
+                    cp,
+                    sha256_hex(original.as_raw()),
+                    sha256_hex(converted.as_raw()),
+                );
+                renders.insert(key, render.clone());
+                render
+            };
             budget += op.len() + cp.len();
             if budget > 16 * 1024 * 1024 {
                 return Err(LoadError(
@@ -770,7 +792,7 @@ fn visual_review(p: &plan::CharacterPlan, sff: &sff::Sff) -> Result<serde_json::
                 "duration":if f.timer==0 {-1} else {f.timer as i32},
                 "indices_sha256":sha256_hex(&s.pixels),
                 "palette_sha256":sha256_hex(&s.palette.iter().flatten().copied().collect::<Vec<_>>()),
-                "original_sha256":sha256_hex(original.as_raw()),"converted_sha256":sha256_hex(converted.as_raw()),
+                "original_sha256":original_sha,"converted_sha256":converted_sha,
                 "original_png":op,"converted_png":cp
             }));
         }
@@ -4523,6 +4545,67 @@ mod tests {
     }
 
     #[test]
+    fn visual_review_reuses_pixels_without_merging_occurrences_or_transforms() {
+        let air = super::air::parse(
+            "[Begin Action 0]\n0,0,0,0,2\n0,0,0,0,6\n0,0,5,0,2\n0,0,5,0,2,H\n",
+            "review.air",
+        );
+        let sff = super::sff::parse(
+            &fs::read(probe_dir().join("probe.sff")).unwrap(),
+            "probe.sff",
+        )
+        .unwrap();
+        let plan = super::plan::plan(&super::plan::Inputs {
+            air: &air,
+            air_sha256: "air",
+            sff: &sff,
+            sff_sha256: "sff",
+            actions: &[],
+        })
+        .unwrap();
+        let review = super::visual_review(&plan, &sff).unwrap();
+        let frames = review["frames"].as_array().unwrap();
+        assert_eq!(frames.len(), 4);
+        assert_eq!(frames[0]["original_png"], frames[1]["original_png"]);
+        assert_eq!(frames[0]["converted_sha256"], frames[1]["converted_sha256"]);
+        assert_eq!(frames[0]["duration"], 2);
+        assert_eq!(frames[1]["duration"], 6);
+        assert_eq!(frames[1]["element"], 1);
+        assert_ne!(frames[0]["original_sha256"], frames[2]["original_sha256"]);
+        assert_ne!(frames[2]["converted_sha256"], frames[3]["converted_sha256"]);
+        assert_eq!(frames[3]["hflip"], true);
+    }
+
+    #[test]
+    fn source_metadata_lists_choices_but_import_still_requires_full_conversion() {
+        let root = temp("review-metadata");
+        let donor = root.join("donor");
+        copy_dir(&probe_dir(), &donor);
+        let metadata = super::analyze_source(&donor, None, true).unwrap();
+        assert!(metadata["report"].is_null());
+        assert!(!metadata["actions"].as_array().unwrap().is_empty());
+        assert!(!metadata["sprites"].as_array().unwrap().is_empty());
+        let mut options: super::ReviewOptions =
+            serde_json::from_value(metadata["options"].clone()).unwrap();
+        let reviewed = super::analyze_source(&donor, Some(options.clone()), false).unwrap();
+        assert!(!reviewed["report"].is_null());
+
+        // Even with a current digest, metadata cannot certify invalid pixels.
+        fs::write(donor.join("probe.sff"), b"invalid SFF").unwrap();
+        options.source_sha256 = Some(super::package_digest(&donor).unwrap());
+        let project = root.join("project");
+        create_project_skeleton(&project, "Probe", "megadrive").unwrap();
+        assert!(crate::core::project_mgr::import_mugen_project_with_review(
+            &project,
+            &donor,
+            "mugen",
+            Some(&options),
+        )
+        .is_err());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn review_palette_selection_changes_real_pixels_and_survives_reopen() {
         let root = temp("review-act");
         let donor = root.join("donor");
@@ -4534,14 +4617,14 @@ mod tests {
         fs::write(donor.join("choice.act"), &act).unwrap();
         let def = fs::read_to_string(donor.join("probe.def")).unwrap();
         fs::write(donor.join("probe.def"), format!("{def}\npal1=choice.act\n")).unwrap();
-        let initial = super::analyze_source(&donor, None).unwrap();
+        let initial = super::analyze_source(&donor, None, false).unwrap();
         let options = super::ReviewOptions {
             def_file: "probe.def".into(),
             palette_file: Some("choice.act".into()),
             source_sha256: Some(initial["source_sha256"].as_str().unwrap().into()),
             ..Default::default()
         };
-        let chosen = super::analyze_source(&donor, Some(options.clone())).unwrap();
+        let chosen = super::analyze_source(&donor, Some(options.clone()), false).unwrap();
         assert!(!chosen["report"].is_null(), "{chosen}");
         let selected = super::convert_character_v1_with_review(
             &donor,
@@ -4611,7 +4694,7 @@ mod tests {
         let root = temp("review-def");
         copy_dir(&probe_dir(), &root);
         fs::copy(root.join("probe.def"), root.join("alternative.def")).unwrap();
-        let a = super::analyze_source(&root, None).unwrap();
+        let a = super::analyze_source(&root, None, false).unwrap();
         assert_eq!(a["defs"].as_array().unwrap().len(), 2);
         assert!(a["selected_def"].is_null());
         assert!(import_mugen_project(&root.join("project"), &root)
@@ -4630,6 +4713,7 @@ mod tests {
                 def_file: "probe.def".into(),
                 ..Default::default()
             }),
+            false,
         )
         .unwrap();
         assert!(a["diagnostics"]
@@ -4651,7 +4735,7 @@ mod tests {
             .replace("probe.sff", "PROBE.SFF")
             .replace("probe.cmd", "PROBE.CMD");
         fs::write(donor.join("probe.def"), text).unwrap();
-        let a = super::analyze_source(&donor, None).unwrap();
+        let a = super::analyze_source(&donor, None, false).unwrap();
         let options: super::ReviewOptions = serde_json::from_value(a["options"].clone()).unwrap();
         assert!(!a["report"].is_null(), "{a}");
         let project = root.join("project");
@@ -4678,7 +4762,7 @@ mod tests {
             "[Info]\nname=Stage\n[StageInfo]\nzoffset=180\n[BGdef]\n",
         )
         .unwrap();
-        let a = super::analyze_source(&root, None).unwrap();
+        let a = super::analyze_source(&root, None, false).unwrap();
         assert_eq!(a["legacy_kind"], "stage");
         assert!(a["report"].is_null());
         assert_eq!(a["diagnostics"][0]["severity"], "warning");
@@ -4703,7 +4787,7 @@ mod tests {
             source_sha256: Some(super::package_digest(&source).unwrap()),
             ..Default::default()
         };
-        let analysis = super::analyze_source(&source, Some(options.clone())).unwrap();
+        let analysis = super::analyze_source(&source, Some(options.clone()), false).unwrap();
         assert!(!analysis["report"].is_null(), "{analysis}");
         fs::write(
             output.join("analysis.json"),
@@ -5035,7 +5119,8 @@ mod tests {
         .unwrap_err();
         assert!(e.0.contains("source.chain.selection"), "{e}");
         assert_untouched(&project);
-        let analysis = super::analyze_source(&donor, Some(walker_chain_options(&donor))).unwrap();
+        let analysis =
+            super::analyze_source(&donor, Some(walker_chain_options(&donor)), false).unwrap();
         assert_eq!(analysis["original_chain"]["status"], "converted");
         assert_eq!(
             analysis["original_chain_candidates"]["available"][0]["state"],
@@ -5502,7 +5587,7 @@ mod tests {
             source_sha256: Some(super::package_digest(&source).unwrap()),
             ..Default::default()
         };
-        let analysis = super::analyze_source(&source, Some(options.clone())).unwrap();
+        let analysis = super::analyze_source(&source, Some(options.clone()), false).unwrap();
         assert!(!analysis["report"].is_null(), "{analysis}");
         fs::write(
             output.join("analysis.json"),

@@ -166,7 +166,7 @@ export default function HierarchyPanel({
     if (!activeProjectDir || !scenePath || isSwitchingScene) {
       return false;
     }
-    if (!options?.skipPersist && !(await persistActiveScene(activeProjectDir, "Hierarchy"))) {
+    if (!options?.skipPersist && !(await persistActiveScene(activeProjectDir, "Hierarchy", undefined, { onlyIfChanged: true }))) {
       return false;
     }
 
@@ -551,7 +551,7 @@ export default function HierarchyPanel({
       return;
     }
 
-    if (!(await persistActiveScene(activeProjectDir, "Hierarchy"))) {
+    if (!(await persistActiveScene(activeProjectDir, "Hierarchy", undefined, { onlyIfChanged: true }))) {
       return;
     }
 
@@ -689,6 +689,7 @@ export default function HierarchyPanel({
           {activeProjectDir && loadShellPersona() !== "guiado" ? (
             <div className="mt-2">
               <SceneWorkspaceNotice
+                compact
                 context={sceneContext}
                 testId="hierarchy-scene-notice"
                 actions={

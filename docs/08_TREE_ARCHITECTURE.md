@@ -77,18 +77,27 @@ RetroDevStudio/
 |   |-- main.tsx
 |   |-- components/
 |   |   |-- common/
+|   |   |   |-- Icon.tsx               (vetores compartilhados, incluindo pictogramas de criacao)
 |   |   |   |-- LayoutSplitter.tsx
+|   |   |   |-- StudioAppearancePicker.tsx (seletor sobre os tokens existentes)
 |   |   |   `-- UnifiedTopBar.tsx
 |   |   |-- explorer/
 |   |   |   `-- ExplorerWorkspace.tsx
 |   |   |-- hierarchy/
 |   |   |-- inspector/
 |   |   |-- tools/
+|   |   |   `-- RomDropDecompile.tsx (soltar ROM MD => projeto SGDK REX e abrir diretório; Experimental)
 |   |   |-- artstudio/
 |   |   |   |-- ArtStudioPanel.tsx
+|   |   |   |-- ImageIngress.tsx (entrada única de imagens/GIF por colar, soltar e seletor; fluxo Experimental MD)
+|   |   |   |-- PixelEditor.tsx (editor indexado MD: desenho, contexto, histórico/salvar, CRAM, frames/layers)
+|   |   |   |-- PixelImagePanel.tsx (controles por tarefa/prévias de imagem, filtros, composição e diagnóstico de tiles)
 |   |   |   `-- useSpriteAnimator.ts
 |   |   `-- viewport/
 |   |-- core/
+|   |   |-- pixelEditor.ts (modelo indexado: ferramentas, limites VDP/tiles, guardas PNG 4-bit, .rdspixel.json)
+|   |   |-- pixelImageOps.ts (operações puras no mesmo PixelDoc: escopo, filtros, geometria, composição e layers; regressões .test.ts)
+|   |   |-- imageIngress.ts (transporte, publicação pelo writer de pixels e propostas pelo plano canônico de paletas)
 |   |   |-- ipc/
 |   |   |-- nodegraph/
 |   |   |   |-- nodeTypes.ts
@@ -141,6 +150,7 @@ RetroDevStudio/
 |       |   |-- dependency_manager.rs
 |       |   |-- patch_studio.rs
 |       |   |-- photo2sgdk.rs
+|       |   |-- photo2sgdk_ingress.rs (adaptador de entrada: originais por SHA, animações completas, limites e HTTPS; reutiliza Photo2SGDK)
 |       |   |-- reverse_explorer.rs
 |       |   `-- reverse/
 |       |       |-- annotations.rs
@@ -172,6 +182,7 @@ RetroDevStudio/
 |   |-- create-icon.mjs
 |   |-- diagnose-desktop-e2e.ps1
 |   |-- e2e-tauri-build-run.mjs
+|   |-- image-clipboard-fixture.py (produtor Linux de clipboard/arraste para QA nativo; não integra o runtime do aplicativo)
 |   |-- verify-mugen-real.py
 |   |-- verify-mugen-chain.py
 |   |-- license-inventory.mjs
@@ -225,6 +236,7 @@ RetroDevStudio/
 - `data/template_registry.json` e o catalogo canonico da galeria de templates do wizard; seeds externos apontam para donor paths locais do usuario e nao devem embutir ROMs, VGMs de terceiros ou artefatos de build no repositorio.
 - ROMs, packs MUGEN/Ikemen, screenpacks e outros corpus locais de validacao devem permanecer fora da arvore versionada do repositorio. Quando necessarios para QA local, devem viver em diretorio externo BYOR e nunca ser tratados como fixture canonica do app.
 - `prefabs/` e `graphs/` sao diretorios de projeto gerados dentro de cada workspace `.rds` do usuario; nao vivem na raiz do repositorio e devem continuar sendo tratados como dados do projeto, nao como modulos do app.
+- `<projeto>/.rds/scene-drafts/` guarda os registros recuperáveis do mecanismo de `scenePersistence`, indexados por SHA-256 do caminho da cena e validados pela identidade interna de projeto/cena. Dados privados do projeto, fora das fontes/build e sem distribuição pública; o escritor atômico do `project_mgr` e a comparação condicional existentes são reutilizados. `localStorage` anterior é migrado com confirmação antes de remover sua cópia.
 - Projetos SGDK externos podem conter um subdiretorio `rds/` (overlay) com `project.rds`, `scenes/`, `graphs/`, `prefabs/` e junctions NTFS para `assets/` e `build/`. O backend faz discovery de `project.rds` em subdiretorios de primeiro nivel quando nao encontra na raiz. Ver `docs/05_ARCHITECTURE_UGDM.md` secao 10.
 - O caminho SNES real usa staging de asset no workspace e gera `hdr.asm`, `data.asm` e regras `gfx4snes`.
 - `scripts/build.mjs` e o script canonico de compilacao: gera MSI, EXE Debug e EXE Portable. Uso: `node scripts/build.mjs <debug|msi|portable|all> [--open-dir]`. Scripts npm: `build:debug`, `build:debug:open`, `build:msi`, `build:msi:open`, `build:portable`, `build:portable:open`, `build:all`. O `build-test.bat` e um wrapper legado que chama `build.mjs debug`.
@@ -234,6 +246,7 @@ RetroDevStudio/
 - `scripts/run-cargo-msvc.cmd` e o wrapper canonico para comandos `cargo` em ambiente MSVC preparado no Windows institucional.
 - `scripts/e2e-tauri-build-run.mjs` e o runner canonico de regressao desktop/Tauri para `Build -> Load ROM -> Run frames` e grava evidencia de sucesso por commit/cenario/target.
 - `scripts/host-manager.mjs` e a fonte canonica cross-platform para `host:diagnose`, `host:ensure` e `host:certify`; os bootstraps Bash/PowerShell permanecem entrypoints de nivel zero quando Node ainda nao existe.
+- `scripts/new-host.sh` / `scripts/new-host.ps1` sao launchers de retomada em host vazio; delegam instalacao aos bootstraps existentes. `scripts/new-host.mjs` coordena ambiente por processo, disco/jobs, recibos e comandos canonicos (sem novo instalador de SDK). `scripts/new-host.test.mjs` cobre falhas/isolamento. Onboarding em `docs/handoffs/NOVO_HOST_INICIO.md`; gerados vivem fora do checkout, nos caches nativos e na pasta de trabalho do operador, nunca em uma nova raiz versionada.
 - `scripts/license-inventory.mjs`, `scripts/security-contract.test.mjs` e `NOTICE` formam o inventario/politica de seguranca e redistribuicao; nenhum deles autoriza redistribuir cores/toolchains.
 - `scripts/architecture-metrics.mjs` registra a linha de base de acoplamento; `scripts/release-rehearsal-linux.mjs` agrega evidencia Linux sem autorizar release publico.
 - `scripts/validate-upstream-windows.ps1` e o script canonico de validacao upstream real com SGDK, PVSnesLib e cores Libretro oficiais.

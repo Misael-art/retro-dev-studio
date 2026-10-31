@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { PixelDoc } from "../pixelEditor";
 
 import {
   diagnosticConsoleMessage,
@@ -41,12 +42,45 @@ import {
 
 export const UNDO_STACK_LIMIT = 50;
 
+/** Semantic source equality for disk baselines and draft recovery; array order is significant. */
+export function sceneSourcesEqual(left: string, right: string): boolean {
+  const ordered = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(ordered);
+    if (value && typeof value === "object") return Object.fromEntries(
+      Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, ordered(item)])
+    );
+    return value;
+  };
+  try { return JSON.stringify(ordered(JSON.parse(left))) === JSON.stringify(ordered(JSON.parse(right))); }
+  catch { return false; }
+}
+
 export type SceneSaveState = {
   status: "idle" | "saving" | "saved" | "failed";
   message: string | null;
   at: number | null;
   /** sceneRevision that the last successful save persisted. */
   revision: number | null;
+};
+
+export type SceneDraftState = {
+  status: "idle" | "pending" | "confirmed" | "failed" | "invalid" | "recovery" | "conflict";
+  revision: number | null;
+  savedAt: string | null;
+  message: string | null;
+  /** Raw storage is retained for inspection when decoding fails. */
+  raw?: string;
+  diskSourceJson?: string;
+};
+
+const EMPTY_SCENE_DRAFT_STATE: SceneDraftState = {
+  status: "idle", revision: null, savedAt: null, message: null,
+};
+
+export type SceneDiskBaseline = {
+  projectDir: string;
+  scenePath: string;
+  sourceSceneJson: string;
 };
 
 export interface HwStatus {
@@ -104,6 +138,17 @@ export interface UndoEntry {
   editorMode: EditorMode;
   /** Foco rico do Studio no momento da entrada (animação/ocorrência/caixa/evento). */
   studioFocus?: StudioFocus;
+}
+
+/** Pixel work survives workspace unmounts, isolated by project. Session memory, not autosave. */
+export interface PixelEditorSession {
+  doc: PixelDoc;
+  past: PixelDoc[];
+  future: PixelDoc[];
+  frameIndex: number;
+  layerIndex: number;
+  savedPath: string | null;
+  savedSource: string | null;
 }
 
 export type EditorMode = "select" | "paint" | "erase" | "collision";
@@ -179,11 +224,31 @@ export interface EmulatorLaunchRequest {
   sourceLabel: string;
 }
 
+/** Um quadro real da ROM do build foi apresentado. Stop preserva o recibo;
+ * trocar de projeto o descarta. Não equivale a aceite de gameplay ou usabilidade. */
+export interface BuildTestReceipt {
+  projectDir: string;
+  sceneRevision: number;
+  romSha256: string;
+  coreEpoch: number;
+  sessionId: string;
+  testedAt: number;
+}
+
+export interface BuildArtifactIdentity {
+  path: string;
+  sha256: string;
+  /** null: scene build; number: C overlay revision, independent of reference scenes. */
+  nativeCodeRevision: number | null;
+}
+
 let joypadSessionCounter = 0;
 let emulatorLaunchRequestCounter = 0;
 
 export interface StoreState {
   activeProjectDir: string;
+  /** Invalida respostas assíncronas inclusive ao reabrir o mesmo caminho. */
+  projectSessionId: number;
   activeProjectName: string;
   activeTarget: "megadrive" | "snes";
   activeScenePath: string;
@@ -206,6 +271,8 @@ export interface StoreState {
   coreEpoch: number | null;
   /** Truthful save status of the active scene: set by persistActiveScene only. */
   sceneSaveState: SceneSaveState;
+  sceneDraftState: SceneDraftState;
+  sceneDiskBaseline: SceneDiskBaseline | null;
   /** Última intenção CONFIRMADA pelo backend (`ok: true`). Este é o único
    * campo que demonstra entrega aceita pelo emulador. Acks cuja sequência não
    * corresponde à solicitação corrente são descartados (ack atrasado). */
@@ -228,14 +295,18 @@ export interface StoreState {
   activeWorkspace: EditorWorkspace;
   activeViewportTab: string;
   artStudioAssetPath: string | null;
+  pixelEditorSessions: Record<string, PixelEditorSession>;
   consoleEntries: ConsoleEntry[];
   consoleVisible: boolean;
   lastParityReport: ParityReport | null;
   lastBuildSourceMap: BuildSourceMap | null;
+  lastBuildArtifact: BuildArtifactIdentity | null;
+  nativeCodeRevision: number;
   /** Vínculo execução → projeto do último build bem-sucedido (Experimental). */
   lastRuntimeLink: RuntimeLink | null;
   /** `sceneRevision` no início do último build bem-sucedido; null = nenhum build nesta sessão. */
   lastBuildSceneRevision: number | null;
+  lastBuildTest: BuildTestReceipt | null;
   /** Ajustes temporários da sessão de teste (não são do projeto até "Aplicar ao projeto"). */
   testAdjustments: TestAdjustment[];
   /** Pedido para abrir o editor de perfil REX numa instância comprovada (Experimental). */
@@ -308,14 +379,18 @@ export interface StoreActions {
   assignEntityToLayer: (entityId: string, layerId: string | null) => void;
   setActiveViewportTab: (id: string) => void;
   setArtStudioAssetPath: (path: string | null) => void;
+  setPixelEditorSession: (projectKey: string, session: PixelEditorSession) => void;
   logMessage: (level: ConsoleEntry["level"], message: string) => void;
   logDiagnostic: (diagnostic: ActionableDiagnostic) => void;
   clearConsole: () => void;
   toggleConsole: () => void;
   setLastParityReport: (report: ParityReport | null) => void;
   setLastBuildSourceMap: (sourceMap: BuildSourceMap | null) => void;
+  setLastBuildArtifact: (artifact: BuildArtifactIdentity | null) => void;
+  recordNativeCodeEdit: () => void;
   setLastRuntimeLink: (link: RuntimeLink | null) => void;
   setLastBuildSceneRevision: (revision: number | null) => void;
+  recordBuildTestFrame: (coreEpoch: number, romSha256: string, frameIndex: number) => void;
   setTestAdjustments: (adjustments: TestAdjustment[]) => void;
   setRexBridgeRequest: (request: RexBridgeRequest | null) => void;
   setLastFileBackup: (backup: { id: string; reason: string } | null) => void;
@@ -373,6 +448,7 @@ export interface StoreActions {
   recordJoypadBlocked: () => void;
   setCoreEpoch: (epoch: number | null) => void;
   setSceneSaveState: (state: SceneSaveState) => void;
+  setSceneDraftState: (state: SceneDraftState) => void;
   setViewportZoom: (zoom: number) => void;
   resetViewportZoom: () => void;
   setProjectSourceKind: (kind: string) => void;
@@ -610,22 +686,57 @@ function restoreFocusFromUndo(state: StoreState, entry: UndoEntry): StudioContex
   return entry.studioFocus ? { ...state.studio, focus: { ...entry.studioFocus } } : state.studio;
 }
 
+function saveStateAfterHistory(state: EditorState, source: Scene | null, revision: number): SceneSaveState {
+  if (state.sceneSaveState.status === "saving") return state.sceneSaveState;
+  const baseline = state.sceneDiskBaseline;
+  if (source && baseline?.projectDir === state.activeProjectDir && baseline.scenePath === state.activeScenePath
+      && state.sceneDraftState.status !== "conflict" && sceneSourcesEqual(JSON.stringify(source), baseline.sourceSceneJson)) {
+    return { status: "saved", revision, at: state.sceneSaveState.at, message: null };
+  }
+  return state.sceneSaveState;
+}
+
 export const useEditorStore = create<EditorState>((set, get) => ({
   activeProjectDir: "",
+  projectSessionId: 0,
   activeProjectName: "",
   activeTarget: "megadrive",
   setActiveProject: (dir, name) =>
-    set({
+    set((state) => ({
       activeProjectDir: dir,
+      projectSessionId: state.projectSessionId + 1,
       activeProjectName: name,
+      sceneDiskBaseline: null,
+      sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
       lastBuildSourceMap: null,
+      lastBuildArtifact: null,
+      nativeCodeRevision: 0,
       lastRuntimeLink: null,
       lastBuildSceneRevision: null,
+      lastBuildTest: null,
       studio: loadStudioContext(dir),
-    }),
-  setActiveTarget: (target) => set({ activeTarget: target }),
+    })),
+  setActiveTarget: (target) => set((state) => state.activeTarget === target ? state : ({
+    activeTarget: target,
+    projectSessionId: state.projectSessionId + 1,
+    lastBuildSourceMap: null,
+    lastBuildArtifact: null,
+    lastRuntimeLink: null,
+    lastBuildSceneRevision: null,
+    lastBuildTest: null,
+  })),
   activeScenePath: "",
-  setActiveScenePath: (path) => set({ activeScenePath: path }),
+  setActiveScenePath: (path) => set((state) => state.activeScenePath === path ? state : ({
+    activeScenePath: path,
+    sceneDiskBaseline: null,
+    sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
+    projectSessionId: state.projectSessionId + 1,
+    // Captured scenes do not change a native C build or its ROM identity.
+    lastBuildSourceMap: null,
+    lastBuildArtifact: state.lastBuildArtifact?.nativeCodeRevision != null ? state.lastBuildArtifact : null,
+    lastRuntimeLink: null,
+    lastBuildSceneRevision: null,
+  })),
   emulatorLoaded: false,
   emulatorRomIdentity: null,
   emulatorLaunchRequest: null,
@@ -657,7 +768,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   clearEmulatorLaunchRequest: () => set({ emulatorLaunchRequest: null }),
 
   selectedEntityId: null,
-  setSelectedEntityId: (id) => set({ selectedEntityId: id }),
+  setSelectedEntityId: (id) => set((state) => ({
+    selectedEntityId: id,
+    studio: refineStudioFocusState(state.studio, { entityId: id }),
+  })),
   studio: initialStudioContext(),
   openStudioEditor: (nav) => {
     set((state) => {
@@ -729,6 +843,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setActiveViewportTab: (id) => set({ activeViewportTab: id }),
   artStudioAssetPath: null,
   setArtStudioAssetPath: (path) => set({ artStudioAssetPath: path }),
+  pixelEditorSessions: {},
+  setPixelEditorSession: (projectKey, session) => set((state) => ({
+    pixelEditorSessions: { ...state.pixelEditorSessions, [projectKey]: session },
+  })),
 
   consoleEntries: [
     {
@@ -781,11 +899,33 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   lastParityReport: null,
   setLastParityReport: (report) => set({ lastParityReport: report }),
   lastBuildSourceMap: null,
-  setLastBuildSourceMap: (sourceMap) => set({ lastBuildSourceMap: sourceMap }),
+  lastBuildArtifact: null,
+  nativeCodeRevision: 0,
+  setLastBuildArtifact: (artifact) => set({ lastBuildArtifact: artifact }),
+  recordNativeCodeEdit: () => set((state) => ({ nativeCodeRevision: state.nativeCodeRevision + 1 })),
+  setLastBuildSourceMap: (sourceMap) => set({ lastBuildSourceMap: sourceMap, lastBuildArtifact: null }),
   lastRuntimeLink: null,
   setLastRuntimeLink: (link) => set({ lastRuntimeLink: link }),
   lastBuildSceneRevision: null,
   setLastBuildSceneRevision: (revision) => set({ lastBuildSceneRevision: revision }),
+  lastBuildTest: null,
+  recordBuildTestFrame: (coreEpoch, romSha256, frameIndex) => {
+    const state = get();
+    if (!Number.isSafeInteger(frameIndex) || frameIndex <= 0 || !state.emulatorLoaded || state.joypadSessionHold
+      || state.coreEpoch !== coreEpoch || !state.joypadSessionId
+      || state.emulatorRomIdentity?.sha256 !== romSha256
+      || (state.lastBuildArtifact?.sha256 ?? state.lastBuildSourceMap?.artifact.sha256) !== romSha256
+      || (state.lastBuildSceneRevision === null && state.lastBuildArtifact?.nativeCodeRevision == null)
+      || state.lastBuildTest?.sessionId === state.joypadSessionId) return;
+    set({ lastBuildTest: {
+      projectDir: state.activeProjectDir,
+      sceneRevision: state.lastBuildSceneRevision ?? state.sceneRevision,
+      romSha256,
+      coreEpoch,
+      sessionId: state.joypadSessionId,
+      testedAt: Date.now(),
+    } });
+  },
   testAdjustments: [],
   setTestAdjustments: (adjustments) => set({ testAdjustments: adjustments }),
   rexBridgeRequest: null,
@@ -868,6 +1008,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return {
         activeScene: scene,
         activeSceneSource: sourceScene,
+        sceneDiskBaseline: sourceScene ? {
+          projectDir: state.activeProjectDir,
+          scenePath: state.activeScenePath,
+          sourceSceneJson: JSON.stringify(sourceScene),
+        } : null,
+        sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
         selectedEntityId: resolveSceneSelection(scene, state.selectedEntityId),
         sceneRevision: nextRevision,
         // A scene set from outside (disk load/hydration) is the saved baseline.
@@ -1096,6 +1242,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         redoStack: pushHistoryEntry(state.redoStack, createUndoEntry(state)),
         pendingHistorySnapshot: null,
         sceneRevision: state.sceneRevision + 1,
+        sceneSaveState: saveStateAfterHistory(state, previous.activeSceneSource, state.sceneRevision + 1),
       };
     }),
   redo: () =>
@@ -1117,6 +1264,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         redoStack: state.redoStack.slice(0, -1),
         pendingHistorySnapshot: null,
         sceneRevision: state.sceneRevision + 1,
+        sceneSaveState: saveStateAfterHistory(state, next.activeSceneSource, state.sceneRevision + 1),
       };
     }),
 
@@ -1130,6 +1278,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   joypadBlockedCount: 0,
   coreEpoch: null,
   sceneSaveState: { status: "idle", message: null, at: null, revision: null },
+  sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
+  sceneDiskBaseline: null,
   setEmulPaused: (paused) => set({ emulPaused: paused }),
   beginJoypadSessionHold: () =>
     set({
@@ -1147,6 +1297,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set((state) => ({ joypadBlockedCount: state.joypadBlockedCount + 1 })),
   setCoreEpoch: (epoch) => set({ coreEpoch: epoch }),
   setSceneSaveState: (sceneSaveState) => set({ sceneSaveState }),
+  setSceneDraftState: (sceneDraftState) => set({ sceneDraftState }),
   recordJoypadRequest: (sessionId, seq, joypad) =>
     set((state) =>
       !state.joypadSessionHold && state.joypadSessionId === sessionId

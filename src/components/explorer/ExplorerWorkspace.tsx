@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import AssetPreview from "../common/AssetPreview";
+import { CGraphPanel } from "./CGraphPanel";
 import {
   listScenes,
   switchScene,
@@ -525,13 +526,32 @@ export default function ExplorerWorkspace({
                     {legacyIndexedFileCount} arquivo(s) indexado(s)
                   </span>
                   <span className="rounded-full border border-[#313244] bg-[#0b1120] px-2 py-0.5">
-                    Build &amp; Run delega ao Makefile do host
+                    Build &amp; Run delega ao build C do host (Makefile ou wrapper SGDKForge)
+                  </span>
+                  <span className="rounded-full border border-[#f9e2af]/30 bg-[#f9e2af]/10 px-2 py-0.5 text-[#f9e2af]">
+                    Experimental
                   </span>
                 </div>
-                <p className="mt-3 text-[11px] leading-5 text-[#94a3b8]">
-                  Cenas e assets abaixo continuam editáveis no overlay <span className="font-mono text-[#e4e4e7]">rds/</span>.
-                  Arquivos do host SGDK seguem somente leitura nesta workspace.
-                </p>
+                <ul data-testid="legacy-host-edit-scope" className="mt-3 space-y-1 text-[11px] leading-5 text-[#94a3b8]">
+                  <li>
+                    <span className="font-semibold text-[#a6e3a1]">Consumido pelo build C:</span> assets projetados de{" "}
+                    <span className="font-mono text-[#e4e4e7]">res/</span> editados no mesmo arquivo (hardlink). Edições desvinculadas recusam o build.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-[#f9e2af]">Só organização no Studio:</span> cenas, entidades e grafos do overlay{" "}
+                    <span className="font-mono text-[#e4e4e7]">rds/</span>. Recursos de animação ficam no catálogo, sem instância em cena; instâncias, estados e transições são do C.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-[#a6e3a1]">Consumido pelo build C:</span> lógica C de{" "}
+                    <span className="font-mono text-[#e4e4e7]">src/</span> e{" "}
+                    <span className="font-mono text-[#e4e4e7]">inc/</span> editada pelos nodes (grafo em{" "}
+                    <span className="font-mono text-[#e4e4e7]">rds/code/</span>; build em cópia).
+                  </li>
+                  <li>
+                    <span className="font-semibold text-[#f38ba8]">Requer integração adicional:</span> manifests{" "}
+                    <span className="font-mono text-[#e4e4e7]">.res</span> (somente leitura nesta workspace).
+                  </li>
+                </ul>
               </section>
             ) : null}
 
@@ -762,6 +782,9 @@ export default function ExplorerWorkspace({
 
             {selection?.kind === "legacy" ? (
               <div className="space-y-4">
+                {activeProjectDir && /^(src|inc)\/.*\.(c|h)$/i.test(selection.path) ? (
+                  <CGraphPanel projectDir={activeProjectDir} sourceFile={selection.path} />
+                ) : null}
                 <div className="rounded-3xl border border-[#1f2937] bg-[#0b1120]/70 p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -773,7 +796,7 @@ export default function ExplorerWorkspace({
                       </h2>
                     </div>
                     <span className="rounded-full border border-[#313244] bg-[#111827] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#f9e2af]">
-                      Read-only
+                      {/^(src|inc)\/.*\.(c|h)$/i.test(selection.path) ? "Original · edite pelos nodes" : "Read-only"}
                     </span>
                   </div>
 

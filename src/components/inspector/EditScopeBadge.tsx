@@ -72,8 +72,8 @@ export default function EditScopeBadge({ entityId }: { entityId: string }) {
           {scope.overridden.length > 0 ? (
             <ul className="mt-0.5 space-y-0.5">
               {scope.overridden.map((component) => (
-                <li key={component} className="flex items-center gap-1">
-                  <span>Exceção local: {COMPONENT_LABEL[component] ?? component}</span>
+                <li key={component} className="flex flex-wrap items-center gap-1">
+                  <span className="w-full">Exceção local: {COMPONENT_LABEL[component] ?? component}</span>
                   <button
                     type="button"
                     data-testid={`inspector-edit-scope-apply-${component}`}

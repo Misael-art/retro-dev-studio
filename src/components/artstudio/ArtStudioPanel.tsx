@@ -26,7 +26,13 @@ import {
   type ArtSuggestedFrame,
 } from "../../core/ipc/artStudioService";
 import { parseInputCommandFile } from "../../core/ipc/inputCommandService";
+import { getSgdkSpriteCatalog, type SgdkSpriteCatalogEntry } from "../../core/ipc/projectService";
+import { listProjectAssets } from "../../core/ipc/toolsService";
+import { openCodeRef } from "../inspector/SpriteCodeLink";
 import AssetQualityPanel from "./AssetQualityPanel";
+import PixelEditor from "./PixelEditor";
+import { persistActiveScene } from "../../core/scenePersistence";
+import { applyImageEdits } from "../../core/imageIngress";
 import type {
   AnimationDef,
   SpriteAnimationHitbox,
@@ -236,13 +242,17 @@ export function getArtStudioWheelZoomState({
   };
 }
 
-function getInitialSourceZoom(size: { width: number; height: number }): number {
-  const fitZoom = Math.min(
-    2,
-    900 / Math.max(size.width, 1),
-    560 / Math.max(size.height, 1)
-  );
-  return clampZoom(fitZoom);
+/**
+ * Zoom que enquadra a imagem inteira na área visível do stage. Sprites pequenos (peças de 8–32 px)
+ * são ampliados até ocupar a área, em passos inteiros para manter o pixel nítido.
+ */
+export function getInitialSourceZoom(
+  size: { width: number; height: number },
+  viewport?: { width: number; height: number } | null
+): number {
+  const area = viewport && viewport.width > 32 && viewport.height > 32 ? viewport : { width: 900, height: 560 };
+  const fitZoom = Math.min(area.width / Math.max(size.width, 1), area.height / Math.max(size.height, 1));
+  return clampZoom(fitZoom >= 1 ? Math.max(1, Math.floor(fitZoom)) : fitZoom);
 }
 
 async function loadImageElement(url: string): Promise<HTMLImageElement> {
@@ -840,7 +850,7 @@ export function buildArtStudioSequencesFromSpriteMetadata(
     ])
   );
 
-  const base = cloneDefaultArtStudioSequences();
+  const base = cloneDefaultArtStudioSequences().map(sequence => ({ ...sequence, frames: [] as number[] }));
   const usedCanonicalIds = new Set<string>();
 
   for (const [key, animation] of animationEntries) {
@@ -1026,8 +1036,8 @@ type ArtStudioAction =
       type: "SET_IMPORTED_ASSET";
       path: string;
       name: string;
-      width: number;
-      height: number;
+      width?: number;
+      height?: number;
     }
   | {
       type: "UPDATE_SLICING_SUGGESTIONS";
@@ -1132,8 +1142,8 @@ function artStudioReducer(state: ArtStudioState, action: ArtStudioAction): ArtSt
         ...state,
         spritePath: action.path,
         spriteName: action.name,
-        frameWidth: action.width,
-        frameHeight: action.height,
+        frameWidth: action.width ?? state.frameWidth,
+        frameHeight: action.height ?? state.frameHeight,
         validationError: null,
       };
     case "UPDATE_SLICING_SUGGESTIONS":
@@ -1388,7 +1398,7 @@ function artStudioReducer(state: ArtStudioState, action: ArtStudioAction): ArtSt
       return {
         ...state,
         sequences: action.sequences,
-        activeSequenceId: null,
+        activeSequenceId: action.sequences.find(sequence => sequence.frames.length > 0)?.id ?? null,
         validationError: null,
       };
     case "SET_PLAYING":
@@ -2661,6 +2671,8 @@ export default function ArtStudioPanel() {
     logMessage,
     activeScene,
     activeProjectDir,
+    projectSessionId,
+    activeScenePath,
     activeTarget,
     hwStatus,
     selectedEntityId,
@@ -2681,8 +2693,27 @@ export default function ArtStudioPanel() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const stageScrollRef = useRef<HTMLDivElement>(null);
+  /** Sprite do jogo SGDK aberto (catálogo do `.res`), com quadro declarado e uso no C. */
+  const [gameSprite, setGameSprite] = useState<SgdkSpriteCatalogEntry | null>(null);
+  const declaredFrameRef = useRef<{ asset: string; target: typeof activeTarget; width: number; height: number; metaSprite: boolean } | null>(null);
+  const constrainFrame = useCallback((asset: string | undefined, width: number, height: number) => {
+    const declared = declaredFrameRef.current;
+    // Opening/applying an unchanged declared composite frame must not crop it
+    // with the simple-sprite default. Build still validates hardware limits.
+    if (declared && declared.target === activeTarget && declared.asset === asset && declared.width === width && declared.height === height) {
+      return { frameWidth: width, frameHeight: height };
+    }
+    return constrainSpriteFrameSize(activeTarget, asset, width, height);
+  }, [activeTarget]);
+  const [artMode, setArtMode] = useState<"prepare" | "pixel">("prepare");
+  /** Área visível do stage (sem o padding), para o zoom de enquadramento. */
+  const stageViewportSize = useCallback(() => {
+    const stage = stageScrollRef.current;
+    return stage ? { width: stage.clientWidth - 48, height: stage.clientHeight - 48 } : null;
+  }, []);
   const imageRef = useRef<HTMLImageElement | null>(null);
   const processingRequestIdRef = useRef(0);
+  const imageRequestIdRef = useRef(0);
   const autoHydratedSpriteRef = useRef<string | null>(null);
   const saveFeedbackTimeoutRef = useRef<number | null>(null);
   const panStateRef = useRef<{
@@ -2699,6 +2730,10 @@ export default function ArtStudioPanel() {
   const activeSequence = state.sequences.find((sequence) => sequence.id === state.activeSequenceId);
   const selectedEntity = activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId);
   const selectedEntitySprite = selectedEntity?.components?.sprite;
+  const importedPixelPath = selectedEntity?.components.logic?.logic_hints?.some(h => h.startsWith("art_ingress:original=") || h.startsWith("pixel_art:document="))
+    ? selectedEntitySprite?.asset ?? selectedEntity?.components.tilemap?.tileset : undefined;
+  const imageOriginalRelative = selectedEntity?.components.logic?.logic_hints?.find(h=>h.startsWith("art_ingress:original="))?.slice("art_ingress:original=".length);
+  useEffect(() => { if (importedPixelPath) setArtMode("pixel"); }, [importedPixelPath]);
   const canUpdateEntity = Boolean(selectedEntitySprite);
   const returnToSceneWithSelectedContext = useCallback(() => {
     setActiveWorkspace("scene");
@@ -2805,6 +2840,9 @@ export default function ArtStudioPanel() {
 
   useEffect(() => {
     return () => {
+      imageRequestIdRef.current += 1;
+      processingRequestIdRef.current += 1;
+      autoHydratedSpriteRef.current = null;
       if (saveFeedbackTimeoutRef.current !== null) {
         window.clearTimeout(saveFeedbackTimeoutRef.current);
       }
@@ -2871,6 +2909,15 @@ export default function ArtStudioPanel() {
 
   const ingestSpriteSheet = useCallback(
     async (request: ArtStudioImageRequest) => {
+      const requestId = ++imageRequestIdRef.current;
+      processingRequestIdRef.current += 1;
+      const current = () => {
+        const editor = useEditorStore.getState();
+        return imageRequestIdRef.current === requestId && editor.projectSessionId === projectSessionId
+          && editor.activeProjectDir === activeProjectDir && editor.activeTarget === activeTarget
+          && editor.selectedEntityId === selectedEntityId;
+      };
+      if (!current()) return false;
       const sourcePath = request.sourcePath ?? (request.file ? resolveDroppedFilePath(request.file) : null);
       const sourceLabel = sourcePath ?? request.file?.name ?? "imagem";
       dispatch({ type: "START_SPRITE_LOAD", sourceLabel: basenameWithExtension(sourceLabel) });
@@ -2882,25 +2929,53 @@ export default function ArtStudioPanel() {
           );
         }
 
-        const processed = await artProcessPalette(sourcePath);
+        // Sprite do jogo SGDK: o quadro vem do `.res` (grade exata), não de uma estimativa.
+        const relativeForCatalog =
+          activeProjectDir && sourcePath ? resolveArtStudioSpriteAssetPath(activeProjectDir, sourcePath) : null;
+        const catalogEntry =
+          activeProjectDir && relativeForCatalog
+            ? ((await getSgdkSpriteCatalog(activeProjectDir).catch(() => [])).find((e) => e.asset === relativeForCatalog) ?? null)
+            : null;
+        // Keep the selected instance's authored layout; otherwise use the same
+        // imported resource metadata as the browser, including offline copies.
+        const instanceSprite = useEditorStore.getState().activeScene?.entities.find(e => e.entity_id === selectedEntityId)?.components.sprite;
+        const resourceSprite = !catalogEntry && activeProjectDir && relativeForCatalog
+            ? (await listProjectAssets(activeProjectDir).catch(() => [])).find(e => e.relative_path === relativeForCatalog)?.sgdk_resource?.sprite
+            : null;
+        const frameLayout = (instanceSprite?.asset === relativeForCatalog ? instanceSprite : null) ?? catalogEntry ?? resourceSprite;
+        if (!current()) return false;
+        setGameSprite(catalogEntry);
+        const processed = frameLayout
+          ? await artProcessPalette(sourcePath, {
+              gridWidth: frameLayout.frame_width,
+              gridHeight: frameLayout.frame_height,
+              slicingMode: "grid",
+            })
+          : await artProcessPalette(sourcePath);
+        if (!current()) return false;
         if (!processed.ok || !processed.processed_base64) {
           throw new Error(processed.error ?? "Falha ao processar a imagem no backend.");
         }
 
         const loaded = await loadArtStudioPreviewFromBase64(processed.processed_base64);
+        if (!current()) return false;
 
         const relativeAssetPath =
           activeProjectDir && sourcePath
             ? resolveArtStudioSpriteAssetPath(activeProjectDir, sourcePath)
             : null;
+        declaredFrameRef.current = frameLayout && relativeAssetPath ? {
+          asset: relativeAssetPath, target: activeTarget, width: frameLayout.frame_width, height: frameLayout.frame_height,
+          metaSprite: instanceSprite?.asset === relativeForCatalog ? Boolean(instanceSprite.meta_sprite)
+            : resourceSprite?.meta_sprite ?? (activeTarget === "megadrive" && (frameLayout.frame_width > 32 || frameLayout.frame_height > 32)),
+        } : null;
         const spriteName = basenameWithoutExtension(relativeAssetPath ?? sourcePath);
         const scope: ArtStudioSourceScope = relativeAssetPath ? "project" : "external";
         const message = relativeAssetPath
           ? "Imagem processada no backend, quantizada e pronta para slicing."
           : "Imagem processada no backend para preparo. Para aplicar na cena, mova ou copie o arquivo para assets/sprites.";
 
-        const suggestedFrame = constrainSpriteFrameSize(
-          activeTarget,
+        const suggestedFrame = constrainFrame(
           relativeAssetPath ?? undefined,
           processed.suggested_frame_width ?? 32,
           processed.suggested_frame_height ?? 32
@@ -2926,7 +3001,7 @@ export default function ArtStudioPanel() {
           displayName: basenameWithExtension(sourcePath),
           format: processed.format ?? getArtStudioImageFormatLabel(sourcePath, request.file?.type),
           scope,
-          zoom: getInitialSourceZoom(loaded.size),
+          zoom: getInitialSourceZoom(loaded.size, stageViewportSize()),
           message,
           frameCount: processed.frame_count,
           backgroundMode: processed.background_mode,
@@ -2938,9 +3013,13 @@ export default function ArtStudioPanel() {
           metaSpriteCandidate: processed.meta_sprite_candidate,
           suggestedFrames: processed.suggested_frames,
           slicingMode: processed.slicing_mode,
-          suggestedFrameWidth: suggestedFrame.frameWidth,
-          suggestedFrameHeight: suggestedFrame.frameHeight,
+          suggestedFrameWidth: frameLayout?.frame_width ?? suggestedFrame.frameWidth,
+          suggestedFrameHeight: frameLayout?.frame_height ?? suggestedFrame.frameHeight,
         });
+        if (resourceSprite && !selectedEntityId && artStudioStateRef.current.commandLibrary.length === 0
+          && JSON.stringify(artStudioStateRef.current.sequences) === JSON.stringify(DEFAULT_ARTSTUDIO_SEQUENCES)) {
+          dispatch({ type: "HYDRATE_SPRITE_METADATA", sequences: buildArtStudioSequencesFromSpriteMetadata(resourceSprite) });
+        }
 
         imageRef.current = loaded.image;
         if (typeof stageScrollRef.current?.scrollTo === "function") {
@@ -2950,16 +3029,19 @@ export default function ArtStudioPanel() {
           relativeAssetPath ? "success" : "info",
           `[ArtStudio] Imagem processada no backend: ${basenameWithExtension(sourcePath)} (${processed.format ?? "imagem"} ${loaded.size.width}x${loaded.size.height}, paleta ${processed.palette_size}/16).`
         );
+        return true;
       } catch (error) {
+        if (!current()) return false;
         const friendlyMessage = getArtStudioFriendlyError(sourceLabel, error);
         dispatch({ type: "LOAD_SPRITE_ERROR", message: friendlyMessage });
         logMessage(
           "error",
           `[ArtStudio] ${friendlyMessage} Detalhe tecnico: ${describeError(error)}`
         );
+        return false;
       }
     },
-    [activeProjectDir, activeTarget, logMessage]
+    [activeProjectDir, activeTarget, projectSessionId, selectedEntityId, constrainFrame, logMessage]
   );
 
   const handleLoadSpriteSheet = useCallback(async () => {
@@ -3057,17 +3139,15 @@ export default function ArtStudioPanel() {
     if (!spriteAsset) {
       return;
     }
-    if (
-      autoHydratedSpriteRef.current === spriteAsset &&
-      (state.spritePath === spriteAsset || state.spriteSourceAssetPath === spriteAsset)
-    ) {
-      return;
-    }
-    autoHydratedSpriteRef.current = spriteAsset;
+    const contextKey = JSON.stringify([projectSessionId, activeProjectDir, activeTarget, selectedEntityId, spriteAsset]);
+    // Loading another sheet is an explicit editor intent, not a context change.
+    if (autoHydratedSpriteRef.current === contextKey) return;
+    autoHydratedSpriteRef.current = contextKey;
     const absolutePath = normalizeFsPath(`${activeProjectDir}/${spriteAsset}`);
-    void ingestSpriteSheet({
-      sourcePath: absolutePath,
-    }).then(() => {
+    const loading = ingestSpriteSheet({ sourcePath: absolutePath });
+    const requestId = imageRequestIdRef.current;
+    void loading.then((loaded) => {
+      if (!loaded || imageRequestIdRef.current !== requestId || autoHydratedSpriteRef.current !== contextKey) return;
       dispatch({
         type: "SET_IMPORTED_ASSET",
         path: spriteAsset,
@@ -3087,11 +3167,12 @@ export default function ArtStudioPanel() {
     });
   }, [
     activeProjectDir,
+    projectSessionId,
+    activeTarget,
+    selectedEntityId,
     ingestSpriteSheet,
     logMessage,
     selectedEntitySprite,
-    state.spritePath,
-    state.spriteSourceAssetPath,
   ]);
 
   useEffect(() => {
@@ -3106,25 +3187,18 @@ export default function ArtStudioPanel() {
       logMessage("warn", `[ArtStudio] Asset selecionado pelo browser nao e imagem suportada: ${directAssetPath}.`);
       return;
     }
-    if (
-      autoHydratedSpriteRef.current === directAssetPath &&
-      (state.spritePath === directAssetPath || state.spriteSourceAssetPath === directAssetPath)
-    ) {
-      return;
-    }
-
-    autoHydratedSpriteRef.current = directAssetPath;
+    const contextKey = JSON.stringify([projectSessionId, activeProjectDir, activeTarget, selectedEntityId, "browser", directAssetPath]);
+    if (autoHydratedSpriteRef.current === contextKey) return;
+    autoHydratedSpriteRef.current = contextKey;
     const absolutePath = normalizeFsPath(`${activeProjectDir}/${directAssetPath}`);
-    const suggestedFrame = constrainSpriteFrameSize(activeTarget, directAssetPath, 32, 32);
-    void ingestSpriteSheet({
-      sourcePath: absolutePath,
-    }).then(() => {
+    const loading = ingestSpriteSheet({ sourcePath: absolutePath });
+    const requestId = imageRequestIdRef.current;
+    void loading.then((loaded) => {
+      if (!loaded || imageRequestIdRef.current !== requestId || autoHydratedSpriteRef.current !== contextKey) return;
       dispatch({
         type: "SET_IMPORTED_ASSET",
         path: directAssetPath,
         name: basenameWithoutExtension(directAssetPath),
-        width: suggestedFrame.frameWidth,
-        height: suggestedFrame.frameHeight,
       });
       logMessage("info", `[ArtStudio] Asset do browser carregado: ${directAssetPath}.`);
     }).catch((error) => {
@@ -3135,13 +3209,13 @@ export default function ArtStudioPanel() {
     });
   }, [
     activeProjectDir,
+    projectSessionId,
     activeTarget,
     artStudioAssetPath,
     ingestSpriteSheet,
     logMessage,
+    selectedEntityId,
     selectedEntitySprite,
-    state.spritePath,
-    state.spriteSourceAssetPath,
   ]);
 
   const handleDrop = useCallback(
@@ -3185,8 +3259,7 @@ export default function ArtStudioPanel() {
           return;
         }
 
-        const constrained = constrainSpriteFrameSize(
-          activeTarget,
+        const constrained = constrainFrame(
           state.spritePath || state.spriteSourceAssetPath || undefined,
           processed.suggested_frame_width ?? nextWidth,
           processed.suggested_frame_height ?? nextHeight
@@ -3221,7 +3294,7 @@ export default function ArtStudioPanel() {
         );
       }
     },
-    [activeTarget, logMessage, state.spritePath, state.spriteSourceAssetPath]
+    [constrainFrame, logMessage, state.spritePath, state.spriteSourceAssetPath]
   );
 
   const handleCanvasClick = useCallback(
@@ -3264,9 +3337,9 @@ export default function ArtStudioPanel() {
     }
     dispatch({
       type: "SET_SOURCE_ZOOM",
-      value: getInitialSourceZoom(state.spriteSheetSize),
+      value: getInitialSourceZoom(state.spriteSheetSize, stageViewportSize()),
     });
-  }, [state.spriteSheetSize]);
+  }, [state.spriteSheetSize, stageViewportSize]);
 
   const handleStageWheel = useCallback(
     (event: ReactWheelEvent<HTMLDivElement>) => {
@@ -3317,8 +3390,7 @@ export default function ArtStudioPanel() {
 
   const applyConstrainedFrameSize = useCallback(
     (nextWidth: number, nextHeight: number) => {
-      const constrained = constrainSpriteFrameSize(
-        activeTarget,
+      const constrained = constrainFrame(
         state.spritePath || state.spriteSourceAssetPath || undefined,
         nextWidth,
         nextHeight
@@ -3336,7 +3408,7 @@ export default function ArtStudioPanel() {
         );
       }
     },
-    [activeTarget, refreshSlicingSuggestions, state.spritePath, state.spriteSheetSourcePath, state.spriteSourceAssetPath]
+    [constrainFrame, refreshSlicingSuggestions, state.spritePath, state.spriteSheetSourcePath, state.spriteSourceAssetPath]
   );
 
   const handleApplyToScene = useCallback((forcedEntityId?: string): boolean => {
@@ -3412,8 +3484,7 @@ export default function ArtStudioPanel() {
       return false;
     }
 
-    const constrainedFrame = constrainSpriteFrameSize(
-      activeTarget,
+    const constrainedFrame = constrainFrame(
       artState.spritePath,
       artState.frameWidth,
       artState.frameHeight
@@ -3548,6 +3619,11 @@ export default function ArtStudioPanel() {
         animations,
         commands: commandBindings,
       });
+      if (declaredFrameRef.current?.asset === artState.spritePath && entity.components.sprite) {
+        entity.components.sprite.frame_width = constrainedFrame.frameWidth;
+        entity.components.sprite.frame_height = constrainedFrame.frameHeight;
+        entity.components.sprite.meta_sprite = declaredFrameRef.current.metaSprite;
+      }
       addEntity(entity);
       setSelectedEntityId(entity.entity_id);
       logMessage("success", `[ArtStudio] Entidade '${entity.entity_id}' criada na cena.`);
@@ -3573,6 +3649,7 @@ export default function ArtStudioPanel() {
     selectedEntityId,
     activeProjectDir,
     activeTarget,
+    constrainFrame,
     addEntity,
     setSelectedEntityId,
     updateEntity,
@@ -3653,12 +3730,10 @@ export default function ArtStudioPanel() {
 
     window.__RDS_ARTSTUDIO_E2E__ = {
       ingestSpriteSheet: async (sourcePath: string) => {
-        await ingestSpriteSheet({ sourcePath });
-        return true;
+        return ingestSpriteSheet({ sourcePath });
       },
       loadImage: async (sourcePath: string) => {
-        await ingestSpriteSheet({ sourcePath });
-        return true;
+        return ingestSpriteSheet({ sourcePath });
       },
       importToProject: async () => {
         await handleImportToProject();
@@ -3781,8 +3856,7 @@ export default function ArtStudioPanel() {
   ]);
 
   useEffect(() => {
-    const constrained = constrainSpriteFrameSize(
-      activeTarget,
+    const constrained = constrainFrame(
       state.spritePath || state.spriteSourceAssetPath || undefined,
       state.frameWidth,
       state.frameHeight
@@ -3797,7 +3871,7 @@ export default function ArtStudioPanel() {
         height: constrained.frameHeight,
       });
     }
-  }, [activeTarget, state.spritePath, state.spriteSourceAssetPath, state.frameWidth, state.frameHeight]);
+  }, [constrainFrame, state.spritePath, state.spriteSourceAssetPath, state.frameWidth, state.frameHeight]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -4050,8 +4124,69 @@ export default function ArtStudioPanel() {
             ingestao · slicing · animacao
           </span>
         </div>
-        <span className="text-[10px] text-[#6c7086]">{ARTSTUDIO_SUPPORTED_FORMATS_LABEL}</span>
+        <div className="flex items-center gap-2">
+          <div className="flex overflow-hidden rounded-lg border border-[#313244] text-[10px] font-semibold" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              data-testid="artstudio-mode-prepare"
+              aria-selected={artMode === "prepare"}
+              onClick={() => setArtMode("prepare")}
+              className={`px-3 py-1 ${artMode === "prepare" ? "bg-[#7dd3fc]/20 text-[#7dd3fc]" : "text-[#94a3b8] hover:bg-[#1f2937]"}`}
+            >
+              Preparar e animar
+            </button>
+            <button
+              type="button"
+              role="tab"
+              data-testid="artstudio-mode-pixel"
+              aria-selected={artMode === "pixel"}
+              onClick={() => setArtMode("pixel")}
+              className={`px-3 py-1 ${artMode === "pixel" ? "bg-[#7dd3fc]/20 text-[#7dd3fc]" : "text-[#94a3b8] hover:bg-[#1f2937]"}`}
+            >
+              Editor de pixels (MD)
+            </button>
+          </div>
+          <span className="hidden text-[10px] text-[#6c7086] lg:inline">{ARTSTUDIO_SUPPORTED_FORMATS_LABEL}</span>
+        </div>
       </div>
+
+      {gameSprite && state.spriteSourceAssetPath === gameSprite.asset ? (
+        <div
+          data-testid="artstudio-game-sprite"
+          data-resource={gameSprite.name}
+          className="mx-3 flex flex-wrap items-center gap-2 rounded-xl border border-[#a6e3a1]/35 bg-[#a6e3a1]/8 px-3 py-2 text-[11px] text-[#cdd6f4]"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#a6e3a1]">Sprite do jogo (SGDK)</p>
+            <p className="mt-1 truncate">
+              <span className="font-mono font-semibold text-white">{gameSprite.name}</span>
+              <span className="text-[#94a3b8]">
+                {" "}
+                · quadro {gameSprite.frame_width}×{gameSprite.frame_height} do .res · {gameSprite.rows} animação(ões) ×{" "}
+                {gameSprite.columns} quadro(s)
+              </span>
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {gameSprite.refs
+              .filter((ref) => ref.function)
+              .slice(0, 3)
+              .map((ref) => (
+                <button
+                  key={`${ref.file}:${ref.line}`}
+                  type="button"
+                  data-testid={`artstudio-game-sprite-ref-${ref.file}:${ref.line}`}
+                  title={ref.text}
+                  onClick={() => openCodeRef(ref, selectedEntity?.entity_id ?? "")}
+                  className="rounded-lg border border-[#a6e3a1]/45 px-2 py-1 text-[10px] text-[#a6e3a1] hover:bg-[#a6e3a1]/15"
+                >
+                  {ref.function}() · {ref.file.split("/").pop()}:{ref.line}
+                </button>
+              ))}
+          </div>
+        </div>
+      ) : null}
 
       {selectedEntity && selectedEntitySprite ? (
         <div
@@ -4076,9 +4211,20 @@ export default function ArtStudioPanel() {
               onClick={returnToSceneWithSelectedContext}
               className="rounded-lg border border-[#94e2d5]/45 bg-[#94e2d5]/12 px-3 py-1.5 text-[10px] font-semibold text-[#94e2d5] transition-colors hover:bg-[#94e2d5]/22"
             >
-              Voltar para Cena
+              Ver na Cena
             </button>
             <button
+              type="button"
+              data-testid="artstudio-open-logic"
+              onClick={() =>
+                useEditorStore.getState().openStudioEditor({ focus: { task: "actions", entityId: selectedEntity.entity_id } })
+              }
+              className="rounded-lg border border-[#89b4fa]/45 bg-[#89b4fa]/12 px-3 py-1.5 text-[10px] font-semibold text-[#89b4fa] transition-colors hover:bg-[#89b4fa]/22"
+              title="Editar o comportamento deste sprite em nodes"
+            >
+              Editar lógica
+            </button>
+            {!(importedPixelPath && artMode === "pixel") && <button
               type="button"
               data-testid="artstudio-apply-selected-entity"
               onClick={() => {
@@ -4089,12 +4235,12 @@ export default function ArtStudioPanel() {
               title={canApplyToScene ? "Aplicar sprite/animacoes na entidade selecionada" : applyNextStepLabel}
             >
               Aplicar nesta entidade
-            </button>
+            </button>}
           </div>
         </div>
       ) : null}
 
-      {selectedEntity && !selectedEntitySprite ? (
+      {selectedEntity && !selectedEntitySprite && !importedPixelPath ? (
         <div
           data-testid="artstudio-no-sprite-context"
           className="mx-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#fab387]/40 bg-[#fab387]/10 px-3 py-2 text-[11px] text-[#fde68a]"
@@ -4114,6 +4260,52 @@ export default function ArtStudioPanel() {
         </div>
       ) : null}
 
+      {artMode === "pixel" ? (
+        <div className="min-h-0 flex-1 px-3 pb-3">
+          <PixelEditor
+            key={activeProjectDir ?? ""}
+            projectDir={activeProjectDir}
+            source={
+              importedPixelPath ? {
+                url: "", sourcePath: `${activeProjectDir}/${importedPixelPath}`, name: importedPixelPath,
+                frameWidth: selectedEntitySprite?.frame_width ?? 8, frameHeight: selectedEntitySprite?.frame_height ?? 8,
+                frames: selectedEntitySprite?.animations?.idle?.frames ?? [0], autoOpen: true,
+                originalPath: imageOriginalRelative && /^\.rds\/art-sources\/[a-f0-9]{64}\.[a-z0-9]+$/.test(imageOriginalRelative) ? `${activeProjectDir}/${imageOriginalRelative}` : undefined,
+              } : state.spriteSheetUrl
+                ? gameSprite && state.spriteSourceAssetPath === gameSprite.asset
+                  ? {
+                      // Sprite do jogo: quadro e grade declarados no .res, todos os frames.
+                      url: state.spriteSheetUrl,
+                      sourcePath: normalizeFsPath(state.spriteSheetSourcePath),
+                      name: gameSprite.name,
+                      frameWidth: gameSprite.frame_width,
+                      frameHeight: gameSprite.frame_height,
+                      frames: Array.from({ length: Math.max(1, gameSprite.columns * gameSprite.rows) }, (_, i) => i),
+                    }
+                  : {
+                      url: state.spriteSheetUrl,
+                      sourcePath: normalizeFsPath(state.spriteSheetSourcePath),
+                      name: state.spriteName || state.spriteSheetDisplayName || "sprite",
+                      frameWidth: state.frameWidth,
+                      frameHeight: state.frameHeight,
+                      frames: activeSequence?.frames ?? [0],
+                    }
+                : null
+            }
+            log={logMessage}
+            onSaved={(pngAbsolute, doc) => {
+              if (importedPixelPath && doc && selectedEntityId && activeProjectDir) {
+                const s = useEditorStore.getState();
+                if (!s.activeScene || !s.activeSceneSource || s.activeProjectDir !== activeProjectDir || s.projectSessionId !== projectSessionId || s.activeScenePath !== activeScenePath || s.selectedEntityId !== selectedEntityId) return;
+                const prefix = `${normalizeFsPath(activeProjectDir).replace(/\/$/, "")}/`;
+                const asset = normalizeFsPath(pngAbsolute).slice(prefix.length);
+                s.replaceScenesWithHistory(applyImageEdits(s.activeScene,selectedEntityId,asset,doc),applyImageEdits(s.activeSceneSource,selectedEntityId,asset,doc));
+                void persistActiveScene(activeProjectDir,"Imagem");
+              } else if (!importedPixelPath) void ingestSpriteSheet({ sourcePath: pngAbsolute });
+            }}
+          />
+        </div>
+      ) : (
       <div className="grid min-h-0 flex-1 gap-3 px-3 pb-3 xl:grid-cols-[minmax(0,1fr)_360px]">
         <Group
           orientation="vertical"
@@ -4288,6 +4480,7 @@ export default function ArtStudioPanel() {
 
         <ArtStudioInspectorSection />
       </div>
+      )}
       </div>
     </ArtStudioContext.Provider>
   );

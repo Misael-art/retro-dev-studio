@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 
 import AssetPreview from "../common/AssetPreview";
-import { classifyImageAssetInstantiation } from "../../core/assetInstantiation";
+import { classifyImageAssetInstantiation, getAssetInstantiationIssue } from "../../core/assetInstantiation";
 import type { Entity } from "../../core/ipc/sceneService";
 import type { ProjectAssetEntry } from "../../core/ipc/toolsService";
 import type { HwStatus } from "../../core/store/editorStore";
@@ -24,7 +24,7 @@ type AssetBrowserSelectionCardProps = {
   onOpenArtStudio: () => void;
   onOpenAuthoringTarget: (match: AssetReference) => void;
   onOpenSource: (match: AssetReference) => void;
-  onInstantiate: () => void;
+  onInstantiate: (asset: ProjectAssetEntry) => void;
 };
 
 function referenceRoleBadgeClass(roleLabel: string | null): string {
@@ -57,7 +57,7 @@ function getAuthoringActionLabel(match: AssetReference | null): string | null {
 
 export default function AssetBrowserSelectionCard({
   activeProjectDir,
-  asset,
+  asset: sourceAsset,
   matches,
   projectSourceKind,
   sceneEntities,
@@ -70,13 +70,17 @@ export default function AssetBrowserSelectionCard({
   onOpenSource,
   onInstantiate,
 }: AssetBrowserSelectionCardProps) {
+  const [showSheet, setShowSheet] = useState(false);
+  const [variant, setVariant] = useState(0);
+  const variants = sourceAsset.sgdk_resource ? [sourceAsset.sgdk_resource, ...(sourceAsset.sgdk_resource.variants ?? [])] : [];
+  const asset = { ...sourceAsset, sgdk_resource: variants[variant] ?? sourceAsset.sgdk_resource };
   const classification = useMemo(() => classifyAssetBrowserAsset(asset), [asset]);
   const budgetSummary = useMemo(
     () => buildAssetBudgetSummary(asset, matches, hwStatus),
     [asset, hwStatus, matches]
   );
   const instantiationDecision = useMemo(() => {
-    if (asset.kind !== "image") {
+    if (asset.kind !== "image" || asset.sgdk_resource?.resource_kind === "PALETTE") {
       return null;
     }
     return classifyImageAssetInstantiation({
@@ -87,14 +91,30 @@ export default function AssetBrowserSelectionCard({
   }, [asset, projectSourceKind, sceneEntities]);
   const primaryMatch = matches[0] ?? null;
   const authoringActionLabel = getAuthoringActionLabel(primaryMatch);
+  const instantiationIssue = getAssetInstantiationIssue(asset, sceneEntities);
+  const frame = asset.sgdk_resource?.sprite;
+  const frameScale = frame ? Math.min(160 / frame.frame_width, 96 / frame.frame_height, 4) : 1;
+  const showFirstFrame = Boolean(frame && asset.image_width && asset.image_height && !showSheet);
 
   return (
     <div
       data-testid="asset-browser-selection-card"
-      className="flex flex-col gap-2 rounded border border-[#cba6f7]/30 bg-[#1e1e2e] p-3"
+      className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded border border-[#cba6f7]/30 bg-[#1e1e2e] p-3"
     >
+      {variants.length > 1 ? <label className="shrink-0 text-[11px] text-[#a6adc8]">Usos declarados para esta imagem
+        <select data-testid="asset-browser-resource-variant" value={variant} onChange={event => { setVariant(Number(event.target.value)); setShowSheet(false); }} className="mt-1 w-full rounded border border-[#313244] bg-[#11111b] px-2 py-2 text-xs text-[#cdd6f4]">
+          {variants.map((resource, index) => <option key={`${resource.resource_kind}-${resource.resource_name}-${index}`} value={index}>{resource.resource_name} · {resource.resource_kind}</option>)}
+        </select>
+      </label> : null}
       {asset.kind === "image" && (
+        <div className="shrink-0">
+        {frame ? <button type="button" data-testid="asset-browser-preview-mode" onClick={() => setShowSheet(value => !value)} className="mb-2 rounded border border-[#313244] px-2 py-1 text-[11px] text-[#cdd6f4]">{showSheet ? "Ver quadro inicial" : "Ver folha completa"}</button> : null}
         <div className="flex h-24 w-full min-w-0 items-center justify-center overflow-hidden rounded bg-black/20">
+          <div className={showFirstFrame ? "rds-resource-frame" : "contents"} style={showFirstFrame && frame ? {
+            width: frame.frame_width * frameScale, height: frame.frame_height * frameScale,
+            "--resource-sheet-width": `${(asset.image_width ?? 0) * frameScale}px`,
+            "--resource-sheet-height": `${(asset.image_height ?? 0) * frameScale}px`,
+          } as CSSProperties : undefined}>
           <AssetPreview
             testId="asset-browser-selected-preview"
             fallbackTestId="asset-browser-selected-preview-fallback"
@@ -107,6 +127,9 @@ export default function AssetBrowserSelectionCard({
             fallbackLabel="Preview indisponivel"
             pixelated
           />
+          </div>
+        </div>
+        {frame && !showSheet ? <p className="mt-1 text-[10px] text-[#7f849c]">Quadro inicial conforme a divisão declarada na origem.</p> : null}
         </div>
       )}
       {asset.kind !== "image" && (
@@ -119,9 +142,12 @@ export default function AssetBrowserSelectionCard({
         </div>
       )}
       <div className="min-w-0">
+        {asset.sgdk_resource ? <p className="break-words text-xs font-semibold text-[#cdd6f4]">{asset.sgdk_resource.resource_name}</p> : null}
         <p className="truncate font-mono text-[10px] text-[#cdd6f4]" title={asset.relative_path}>
           {asset.relative_path}
         </p>
+        {asset.image_width && asset.image_height ? <p data-testid="asset-browser-image-layout" className="mt-1 text-[11px] text-[#a6adc8]">Imagem: {asset.image_width} × {asset.image_height} pixels{asset.sgdk_resource?.sprite ? ` · Quadro: ${asset.sgdk_resource.sprite.frame_width} × ${asset.sgdk_resource.sprite.frame_height} · ${Object.keys(asset.sgdk_resource.sprite.animations ?? {}).length} animação(ões)` : ""}</p> : null}
+        {asset.sgdk_resource?.resource_kind === "SPRITE" && !asset.sgdk_resource.sprite ? <p className="mt-1 text-[11px] text-[#f9e2af]">As medidas dos quadros não estão disponíveis nesta importação. Confira a origem e importe em um novo projeto para recuperá-las.</p> : null}
         <p className="mt-1 text-[9px] uppercase tracking-[0.16em] text-[#6c7086]">
           {classification.typeLabel}
           {classification.generated ? " · generated" : ""}
@@ -152,7 +178,7 @@ export default function AssetBrowserSelectionCard({
           </span>
           {matches.length === 0 ? (
             <span className="rounded border border-[#f9e2af]/35 bg-[#f9e2af]/10 px-1.5 py-0.5 font-semibold uppercase tracking-[0.12em] text-[#f9e2af]">
-              Orfao
+              Fora desta cena
             </span>
           ) : null}
           {budgetSummary.status === "over" ? (
@@ -237,8 +263,7 @@ export default function AssetBrowserSelectionCard({
           </div>
         ) : (
           <p>
-            Asset orfao: ainda nao usado pela cena ativa. Esta selecao continua pronta para
-            autoria a partir do browser.
+            Disponível na biblioteca e ainda não usado nesta cena. Pode estar em outra cena do projeto.
           </p>
         )}
       </div>
@@ -251,7 +276,7 @@ export default function AssetBrowserSelectionCard({
           <>
             <p className="font-semibold text-[#89b4fa]">{instantiationDecision.title}</p>
             <p className="mt-1 leading-relaxed text-[#cdd6f4]">{instantiationDecision.detail}</p>
-            <p className="mt-2 text-[#94a3b8]">
+            <details className="mt-2 text-[#94a3b8]"><summary className="cursor-pointer">Detalhes técnicos</summary><p>
               Tipo criado:{" "}
               <span className="font-semibold text-[#e2e8f0]">{instantiationDecision.entityLabel}</span>
               <span className="mx-1 text-[#45475a]">|</span>
@@ -262,6 +287,7 @@ export default function AssetBrowserSelectionCard({
               Classe de decisao:{" "}
               <span className="font-mono text-[#cdd6f4]">{instantiationDecision.kind}</span>
             </p>
+            </details>
             <p className="mt-1 text-[#7f849c]">{instantiationDecision.nextStep}</p>
           </>
         ) : (
@@ -276,13 +302,13 @@ export default function AssetBrowserSelectionCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
+        {matches.length > 0 ? <button
           type="button"
           onClick={onFocus}
           className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#cdd6f4] transition-colors hover:border-[#cba6f7] hover:text-[#cba6f7]"
         >
-          {matches.length > 0 ? "Focar na cena" : "Abrir contexto"}
-        </button>
+          Focar na cena
+        </button> : null}
         {asset.kind === "image" ? (
           <button
             type="button"
@@ -316,14 +342,16 @@ export default function AssetBrowserSelectionCard({
         {asset.kind === "image" ? (
           <button
             type="button"
-            onClick={onInstantiate}
-            disabled={!canInstantiate || instantiating}
+            onClick={() => onInstantiate(asset)}
+            disabled={!canInstantiate || instantiating || Boolean(instantiationIssue)}
+            title={instantiationIssue ?? "Adicionar à cena ativa"}
             className="rounded border border-[#89b4fa]/40 bg-[#89b4fa]/10 px-2 py-1 text-[10px] font-semibold text-[#89b4fa] transition-colors hover:bg-[#89b4fa]/20 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {instantiating ? "Criando..." : "Instanciar"}
+            {instantiating ? "Criando..." : "Adicionar à cena"}
           </button>
         ) : null}
       </div>
+      {asset.kind === "image" && instantiationIssue ? <p className="text-[11px] text-[#f9e2af]">{instantiationIssue}</p> : null}
     </div>
   );
 }

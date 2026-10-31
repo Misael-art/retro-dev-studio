@@ -80,6 +80,8 @@ export default function AssetPreview({
     return (
       <div
         data-testid={fallbackTestId}
+        data-visual-state={visualState.kind}
+        aria-label={`${alt}: ${visualState.title}`}
         className={fallbackClassName}
         title={visualState.detail}
       >
@@ -100,6 +102,7 @@ export default function AssetPreview({
       ) : null}
       <img
         data-testid={testId}
+        data-visual-state={visualState.kind}
         src={src}
         alt={alt}
         loading="lazy"
