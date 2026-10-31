@@ -35,6 +35,10 @@ pub struct ProjectManifest {
     pub music: usize,
     /// Streams Nemesis (arte comprimida) editáveis por reencode.
     pub nemesis_streams: usize,
+    /// Artes Nemesis com paleta provada (registro → tabela de paletas → votos do mapa).
+    pub nemesis_with_palette: usize,
+    pub enigma_maps: usize,
+    pub kosinski_blocks: usize,
     pub library_functions: usize,
     pub code_functions: usize,
     pub code_functions_strict: usize,
@@ -149,6 +153,42 @@ fn coverage(graph: &SgdkResourceGraph, rom: &[u8], lib: &[LibMatch]) -> Vec<Cove
             st.len as usize,
             "nemesis_art",
             format!("nem_{:06x}", st.offset),
+        );
+    }
+    for (kind, list) in [
+        ("enigma_map", &graph.md.enigma),
+        ("kosinski_data", &graph.md.kosinski),
+    ] {
+        for c in list {
+            push(
+                c.offset as usize,
+                c.len as usize,
+                kind,
+                format!("{kind}_{:06x}", c.offset),
+            );
+        }
+    }
+    for t in &graph.md.records {
+        push(
+            t.offset as usize,
+            (t.stride * t.rows) as usize,
+            "record_table",
+            format!("records_{:06x}", t.offset),
+        );
+    }
+    // Só tabelas de paleta usadas por uma ligação provada contam como recuperadas.
+    for t in graph.md.palettes.iter().filter(|t| {
+        graph
+            .md
+            .art_palettes
+            .iter()
+            .any(|a| a.palette_table == t.offset)
+    }) {
+        push(
+            t.offset as usize,
+            t.entries.len() * 8,
+            "palette_table",
+            format!("palettes_{:06x}", t.offset),
         );
     }
     for m in lib {
@@ -306,7 +346,15 @@ pub fn write_recovered_project(
 ) -> std::io::Result<ProjectManifest> {
     let graph = recover_graph(rom);
     let library = dict.map(|d| scan(d, rom)).unwrap_or_default();
-    for sub in ["res/img", "res/spr", "res/music", "res/nem", "rex/nem"] {
+    for sub in [
+        "res/img",
+        "res/spr",
+        "res/music",
+        "res/nem",
+        "res/map",
+        "rex/nem",
+        "rex/map",
+    ] {
         std::fs::create_dir_all(out.join(sub))?;
     }
     let mut res = String::from(
@@ -349,19 +397,41 @@ pub fn write_recovered_project(
             "BIN {name} \"music/{name}.xgc\" 256 256 0 NONE FALSE\n"
         ));
     }
-    // Nemesis: PNG indexado em tons de cinza (índice = valor; paleta ainda não ligada)
-    // e o stream original para conservação byte a byte.
-    let gray: Vec<[u8; 3]> = (0..16u8).map(|i| [i * 17; 3]).collect();
+    // Nemesis: PNG indexado de 64 cores (linha de paleta por tile quando provada; senão
+    // tons de cinza) e o stream original para conservação byte a byte.
     for st in &graph.nemesis {
         let (s, e) = (st.offset as usize, (st.offset + st.len) as usize);
         let dec = super::rex_nemesis::decode(&rom[s..], &Default::default())
             .map_err(|e| std::io::Error::other(e.code()))?;
-        let (w, h, px) = super::rex_nemesis::tiles_to_sheet(&dec.bytes);
+        let (lines, pal) = super::rex_sgdk_rebuild::nemesis_palette(&graph, st.offset);
         std::fs::write(
             out.join(format!("res/nem/nem_{s:06x}.png")),
-            crate::tools::asset_extractor::encode_indexed_png(&px, w, h, &gray),
+            super::rex_sgdk_rebuild::nemesis_png(&dec.bytes, &lines, &pal),
         )?;
         std::fs::write(out.join(format!("rex/nem/{s:06x}.nem")), &rom[s..e])?;
+    }
+    // Mapas Enigma (palavras) e dados Kosinski (bytes) tipados pelos registros.
+    for c in &graph.md.enigma {
+        let (s, e) = (c.offset as usize, (c.offset + c.len) as usize);
+        let words = rex_enigma::decode(&rom[s..], &Default::default())
+            .map_err(|_| std::io::Error::other("enigma"))?
+            .words;
+        std::fs::write(
+            out.join(format!("res/map/enigma_{s:06x}.json")),
+            serde_json::to_string(&words).unwrap_or_default(),
+        )?;
+        std::fs::write(out.join(format!("rex/map/enigma_{s:06x}.orig")), &rom[s..e])?;
+    }
+    for c in &graph.md.kosinski {
+        let (s, e) = (c.offset as usize, (c.offset + c.len) as usize);
+        let plain = ::rex_kosinski::decode(&rom[s..], 0x10000, 4_000_000)
+            .map_err(|_| std::io::Error::other("kosinski"))?
+            .output;
+        std::fs::write(out.join(format!("res/map/kosinski_{s:06x}.bin")), plain)?;
+        std::fs::write(
+            out.join(format!("rex/map/kosinski_{s:06x}.orig")),
+            &rom[s..e],
+        )?;
     }
     std::fs::write(out.join("res/recovered.res"), res)?;
     let (logic, code_ranges) = logic_skeleton(rom, &graph, &library);
@@ -386,6 +456,13 @@ pub fn write_recovered_project(
         sprite_frames: frames,
         music: graph.music.len(),
         nemesis_streams: graph.nemesis.len(),
+        nemesis_with_palette: graph
+            .nemesis
+            .iter()
+            .filter(|st| graph.md.art_palettes.iter().any(|a| a.stream == st.offset))
+            .count(),
+        enigma_maps: graph.md.enigma.len(),
+        kosinski_blocks: graph.md.kosinski.len(),
         library_functions: library.len(),
         code_functions: logic.len(),
         code_functions_strict: logic.iter().filter(|f| f.tier == "estrita").count(),
@@ -537,49 +614,103 @@ mod tests {
         // Nemesis: 1 pixel editado => bytes mudam só dentro do stream, que decodifica nos
         // tiles editados; conta quantos streams absorvem a edição sem crescer.
         let (mut fit, mut tried) = (0usize, 0usize);
-        for st in &graph.nemesis {
-            let png = format!("res/nem/nem_{:06x}.png", st.offset);
-            let original = std::fs::read(out.join(&png)).unwrap();
-            let img = image::load_from_memory(&original).unwrap().to_rgba8();
+        for e in &plan.emitters {
+            let super::super::rex_sgdk_rebuild::Emitter::Nemesis {
+                offset,
+                len,
+                tiles,
+                png,
+                tile_lines,
+                ..
+            } = e
+            else {
+                continue;
+            };
+            let original = std::fs::read(out.join(png)).unwrap();
+            let mut t = super::super::rex_sgdk_rebuild::nemesis_tiles_from_png(
+                &original,
+                tile_lines,
+                *tiles as usize,
+            )
+            .unwrap();
+            t[0] = (t[0] & 0x0F) | (((t[0] >> 4) + 1) % 16) << 4;
             let pal = super::super::rex_sgdk_rebuild::png_palette(&original).unwrap();
-            let mut px: Vec<u8> = img
-                .pixels()
-                .map(|p| {
-                    pal.iter()
-                        .position(|c| *c == [p.0[0], p.0[1], p.0[2]])
-                        .unwrap() as u8
-                })
-                .collect();
-            px[0] = (px[0] + 1) % 16;
-            let gray: Vec<[u8; 3]> = (0..16u8).map(|i| [i * 17; 3]).collect();
             std::fs::write(
-                out.join(&png),
-                crate::tools::asset_extractor::encode_indexed_png(
-                    &px,
-                    img.width(),
-                    img.height(),
-                    &gray,
-                ),
+                out.join(png),
+                super::super::rex_sgdk_rebuild::nemesis_png(&t, tile_lines, &pal),
             )
             .unwrap();
             tried += 1;
             if let Ok(edited) = super::super::rex_sgdk_rebuild::rebuild(&out) {
-                let (s, e) = (st.offset as usize, (st.offset + st.len) as usize);
+                let (s, e) = (*offset as usize, (*offset + *len) as usize);
                 assert!(
                     (0..rom.len()).all(|i| edited[i] == rom[i] || (s..e).contains(&i)),
                     "nem_{s:06x}: edição vazou para fora do stream"
                 );
-                let want =
-                    super::super::rex_nemesis::sheet_to_tiles(&px, img.width(), st.tiles as usize);
                 let got =
                     super::super::rex_nemesis::decode(&edited[s..], &Default::default()).unwrap();
-                assert_eq!(
-                    got.bytes, want,
-                    "nem_{s:06x}: stream não decodifica na edição"
-                );
+                assert_eq!(got.bytes, t, "nem_{s:06x}: stream não decodifica na edição");
                 fit += 1;
             }
-            std::fs::write(out.join(&png), original).unwrap();
+            std::fs::write(out.join(png), original).unwrap();
+        }
+        // Mapas Enigma e dados Kosinski: 1 palavra/byte editado, mesma prova de contenção.
+        let (mut cfit, mut ctried) = (0usize, 0usize);
+        for e in &plan.emitters {
+            let super::super::rex_sgdk_rebuild::Emitter::Codec {
+                codec,
+                offset,
+                len,
+                file,
+                ..
+            } = e
+            else {
+                continue;
+            };
+            let original = std::fs::read(out.join(file)).unwrap();
+            let edited_src: Vec<u8> = if codec == "enigma" {
+                let mut w: Vec<u16> = serde_json::from_slice(&original).unwrap();
+                w[0] ^= 0x0800; // inverte o flip horizontal da 1ª célula
+                serde_json::to_vec(&w).unwrap()
+            } else {
+                let mut b = original.clone();
+                b[0] = b[0].wrapping_add(1);
+                b
+            };
+            std::fs::write(out.join(file), &edited_src).unwrap();
+            ctried += 1;
+            if let Ok(edited) = super::super::rex_sgdk_rebuild::rebuild(&out) {
+                let (s, e) = (*offset as usize, (*offset + *len) as usize);
+                assert!(
+                    (0..rom.len()).all(|i| edited[i] == rom[i] || (s..e).contains(&i)),
+                    "{codec}_{s:06x}: edição vazou para fora do stream"
+                );
+                let got: Vec<u8> = if codec == "enigma" {
+                    serde_json::to_vec(
+                        &rex_enigma::decode(&edited[s..], &Default::default())
+                            .unwrap()
+                            .words,
+                    )
+                    .unwrap()
+                } else {
+                    ::rex_kosinski::decode(&edited[s..], 0x10000, 4_000_000)
+                        .unwrap()
+                        .output
+                };
+                assert_eq!(
+                    got, edited_src,
+                    "{codec}_{s:06x}: stream não decodifica na edição"
+                );
+                cfit += 1;
+            }
+            std::fs::write(out.join(file), original).unwrap();
+        }
+        if ctried > 0 {
+            println!("edicao mapas: {cfit}/{ctried} streams Enigma/Kosinski absorvem 1 edição sem crescer");
+            assert!(cfit > 0 || !require_edit, "nenhum mapa aceita edição");
+            if cfit > 0 {
+                proven.push("res/map/");
+            }
         }
         if tried > 0 {
             assert!(
@@ -598,8 +729,8 @@ mod tests {
         let has_target = !proven.is_empty();
         println!("remontagem identica=true sha={sha} edicao={has_target} tipos={proven:?}");
         println!(
-            "projeto {} images={} sprites={} frames={} music={} nemesis={} lib={} funcs={} (estritas {}) recursos={:.3} ({} / {} bytes) codigo_alcancado={}",
-            m.header_title, m.images, m.sprites, m.sprite_frames, m.music, m.nemesis_streams, m.library_functions, m.code_functions, m.code_functions_strict,
+            "projeto {} images={} sprites={} frames={} music={} nemesis={} (com paleta {}) enigma={} kosinski={} lib={} funcs={} (estritas {}) recursos={:.3} ({} / {} bytes) codigo_alcancado={}",
+            m.header_title, m.images, m.sprites, m.sprite_frames, m.music, m.nemesis_streams, m.nemesis_with_palette, m.enigma_maps, m.kosinski_blocks, m.library_functions, m.code_functions, m.code_functions_strict,
             m.coverage_ratio, m.attributed_bytes, m.rom_size, m.code_discovered_bytes
         );
     }

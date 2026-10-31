@@ -312,3 +312,44 @@ fn nunca_panic_em_plains_arbitrarios_com_seed() {
         assert_eq!(d.bytes_consumed, st.len());
     }
 }
+
+/// `encode_optimal`: mesmo contrato P1 (round-trip exato, consumo fecha no terminator) em
+/// todos os plains golden e em dados sintéticos; nunca maior que o `encode` guloso.
+#[test]
+fn encode_optimal_roundtrips_and_never_loses_to_greedy() {
+    use rex_kosinski::encode_optimal;
+    let mut plains: Vec<(String, Vec<u8>)> = Vec::new();
+    for e in std::fs::read_dir(perfil().join("golden")).expect("golden") {
+        let p = e.unwrap().path();
+        if p.to_string_lossy().ends_with(".expected.bin") {
+            plains.push((p.display().to_string(), std::fs::read(&p).unwrap()));
+        }
+    }
+    let mut seed = 7u32;
+    let mut noisy = Vec::new();
+    for i in 0..20_000u32 {
+        seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12345);
+        noisy.push(if i % 97 < 60 {
+            (i % 13) as u8
+        } else {
+            (seed >> 16) as u8
+        });
+    }
+    plains.push(("sintetico".into(), noisy));
+    plains.push(("vazio".into(), Vec::new()));
+    plains.push(("corrida".into(), vec![0xAB; 3000]));
+    assert!(plains.len() > 3, "golden ausente");
+    for (nome, plain) in plains {
+        let st = encode_optimal(&plain, 1 << 24, 1 << 28)
+            .expect("encode_optimal")
+            .stream;
+        let d = decode(&st, plain.len() + 16, 1 << 26)
+            .unwrap_or_else(|e| panic!("{nome}: decode falhou {e:?}"));
+        assert_eq!(d.output, plain, "{nome}: round-trip divergiu");
+        assert_eq!(d.bytes_consumed, st.len(), "{nome}: consumo não fecha");
+        assert!(
+            st.len() <= enc_big(&plain).len(),
+            "{nome}: ótimo maior que guloso"
+        );
+    }
+}

@@ -189,3 +189,17 @@ Feitos os itens 1 (Tanzer/Old Towers) e parte do 3 (o áudio de Tanzer era XGC s
 - Projeto/remontagem: `res/nem/*.png` (índice = tom de cinza; paleta ainda não ligada) + `Emitter::Nemesis` (PNG inalterado => stream original; editado => reencode que precisa caber, senão erro explícito; relocação não suportada).
 - Sonic 1 (`receipts/sonic1-nemesis-edit-2026-10-31.txt`): no-op byte-exato; 118/132 streams absorvem 1 pixel com bytes alterados só dentro do stream e decode igual à edição; reverter restitui a ROM; atribuição 0,276. Aratu/Tanzer/Old Towers inalterados; Mega Turrican segue 0 (outro codec).
 - Ainda 0/5 PASS. Próximo: ligar paleta às artes Nemesis, Kosinski (blocos/chunks) e mapas de Sonic; codec de Mega Turrican.
+
+## Checkpoint de execução 7 (2026-10-31): paleta ligada à arte, blocos Enigma e chunks Kosinski
+
+Novo módulo `rex_md_tables.rs` (motor; sem nome de jogo/offset), cada estrutura ancorada em algo provado:
+- Tabelas de deslocamentos → listas de carga com contador, ancoradas em ≥2 listas já provadas: recuperam listas de 1 entrada (Sonic 1: 132 → 137 streams Nemesis).
+- Registros de passo fixo com campo de arte provada em todas as linhas; irmãos tipados só se exatamente um codec estrito (Enigma/Kosinski/Nemesis) decodifica em todas as linhas; registro só vale se tipar algo novo (Sonic 1: 1 tabela, 7 linhas, `enigma@4`, `kosinski@8`).
+- Tabelas de paleta `{ptr, destino, contador}` (3 leituras do contador; todas as cores válidas); índice = campo de byte que varia e cabe; linha faltante só por entrada de 1 linha única.
+- Linha de paleta por tile: votos das palavras Enigma da linha do registro sobre a VRAM declarada pela lista de carga da etiqueta. Sonic 1: 8 artes de nível ligadas (lines 1–3 provadas; linha 0 ambígua → 41 de ~4.400 tiles ficam em cinza). Inspeção visual: GHZ com grama/xadrez/água corretos.
+- PNG Nemesis de 64 cores; cores repetidas numa linha recebem desvio imperceptível para inversa exata (remontagem só lê índices).
+- Encoders: `enigma_encode` (novo; 3–6% menor que os originais em Sonic 1) e `rex_kosinski::encode_optimal` (parse ótimo por custo em bits, aditivo ao crate; ~6% menor que os originais; contrato P1 em todos os golden + "nunca pior que o guloso").
+- Projeto: `res/map/enigma_*.json` (palavras), `res/map/kosinski_*.bin` (bytes), `Emitter::Codec` (inalterado → original; editado → reencode que precisa caber).
+- Sonic 1 (`receipts/sonic1-tables-edit-2026-10-31.txt`): no-op byte-exato; 12/12 mapas e 123/137 artes absorvem edição contida no próprio stream; atribuição 0,276 → 0,411.
+- Controle (`receipts/md-tables-corpus-2026-10-31.tsv`, 60 ROMs): registros/ligações/mapas só em Sonic 1; tabelas de paleta soltas em Tanzer/Turrican/Dino Fighters não entram em nada (só contam como recuperadas se usadas por ligação). Aratu/Tanzer/Old Towers inalterados.
+- Pendente: layout de nível (grade de chunks) — a forma `{w-1,h-1}` contígua não se confirmou na ROM; não foi forçada. Linha 0 sem fonte única. Arte de objetos (fora dos registros) segue em cinza.

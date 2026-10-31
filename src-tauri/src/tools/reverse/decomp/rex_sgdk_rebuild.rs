@@ -67,7 +67,80 @@ pub enum Emitter {
         png: String,
         original: String,
         label: String,
+        /// Linha de paleta (0..3) de cada tile no PNG de 64 cores; vazio = tons de cinza.
+        #[serde(default)]
+        tile_lines: Vec<u8>,
     },
+    /// Mapa Enigma (palavras em JSON) ou dados Kosinski (binário descomprimido): fonte
+    /// inalterada restitui `original`; editada é reencodada e precisa caber em `len`.
+    Codec {
+        codec: String,
+        offset: u32,
+        len: u32,
+        file: String,
+        original: String,
+        label: String,
+    },
+}
+
+/// Paleta de 64 cores e linhas por tile da arte Nemesis `offset` (ligação provada em
+/// `md.art_palettes`; sem ligação: linhas zeradas e tons de cinza, índice = valor).
+/// Cores repetidas numa linha recebem um desvio imperceptível (+1 no azul, até ficar
+/// única): o PNG continua fiel à vista e a inversa cor→índice é exata. A remontagem da arte
+/// só lê índices; as cores da ROM vêm das paletas, nunca deste PNG.
+pub fn nemesis_palette(graph: &SgdkResourceGraph, offset: u32) -> (Vec<u8>, Vec<[u8; 3]>) {
+    let gray: Vec<[u8; 3]> = (0..16u8).map(|i| [i * 17; 3]).collect();
+    let mut pal: Vec<[u8; 3]> = gray.repeat(4);
+    let Some(link) = graph.md.art_palettes.iter().find(|a| a.stream == offset) else {
+        return (Vec::new(), pal);
+    };
+    for (l, line) in link.lines.iter().enumerate() {
+        if let Some(words) = line {
+            for (i, w) in words.iter().enumerate() {
+                pal[l * 16 + i] = super::rex_resources::md_color_word_to_rgb(*w);
+            }
+        }
+        for i in 1..16 {
+            while pal[l * 16..l * 16 + i].contains(&pal[l * 16 + i]) {
+                pal[l * 16 + i][2] = pal[l * 16 + i][2].wrapping_add(1);
+            }
+        }
+    }
+    (link.tile_lines.clone(), pal)
+}
+
+/// PNG indexado (16 colunas de tiles) da arte Nemesis com a linha de cada tile.
+pub fn nemesis_png(tiles: &[u8], lines: &[u8], pal: &[[u8; 3]]) -> Vec<u8> {
+    let (w, h, mut px) = super::rex_nemesis::tiles_to_sheet(tiles);
+    let cols = (w / 8) as usize;
+    for (i, p) in px.iter_mut().enumerate() {
+        let t = (i / w as usize / 8) * cols + (i % w as usize) / 8;
+        *p += 16 * lines.get(t).copied().unwrap_or(0);
+    }
+    crate::tools::asset_extractor::encode_indexed_png(&px, w, h, pal)
+}
+
+/// Inversa de `nemesis_png`: tiles 4bpp lidos pela cor dentro da linha de cada tile.
+pub fn nemesis_tiles_from_png(png: &[u8], lines: &[u8], tiles: usize) -> Result<Vec<u8>, String> {
+    let pal = png_palette(png).ok_or("PNG sem PLTE")?;
+    let rgba = image::load_from_memory(png)
+        .map_err(|e| e.to_string())?
+        .to_rgba8();
+    let (w, cols) = (rgba.width() as usize, rgba.width() as usize / 8);
+    let mut px = vec![0u8; rgba.pixels().len()];
+    for (i, p) in rgba.pixels().enumerate() {
+        let t = (i / w / 8) * cols + (i % w) / 8;
+        if t >= tiles {
+            continue;
+        }
+        let l = usize::from(lines.get(t).copied().unwrap_or(0)) * 16;
+        px[i] = pal
+            .get(l..l + 16)
+            .and_then(|line| line.iter().position(|c| *c == [p.0[0], p.0[1], p.0[2]]))
+            .ok_or_else(|| format!("cor fora da linha de paleta no pixel {i}"))?
+            as u8;
+    }
+    Ok(super::rex_nemesis::sheet_to_tiles(&px, rgba.width(), tiles))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -282,9 +355,28 @@ pub fn plan(rom: &[u8], graph: &SgdkResourceGraph) -> RebuildPlan {
             label: format!("music_{i:02}"),
         });
     }
+    for (codec, list) in [
+        ("enigma", &graph.md.enigma),
+        ("kosinski", &graph.md.kosinski),
+    ] {
+        for c in list {
+            let ext = if codec == "enigma" { "json" } else { "bin" };
+            covered.push((c.offset as usize, c.len as usize));
+            emitters.push(Emitter::Codec {
+                codec: codec.into(),
+                offset: c.offset,
+                len: c.len,
+                file: format!("res/map/{codec}_{:06x}.{ext}", c.offset),
+                original: format!("rex/map/{codec}_{:06x}.orig", c.offset),
+                label: format!("{codec}_{:06x}", c.offset),
+            });
+        }
+    }
     for st in &graph.nemesis {
+        let (tile_lines, _) = nemesis_palette(graph, st.offset);
         covered.push((st.offset as usize, st.len as usize));
         emitters.push(Emitter::Nemesis {
+            tile_lines,
             offset: st.offset,
             len: st.len,
             tiles: st.tiles,
@@ -412,30 +504,70 @@ pub fn rebuild(dir: &Path) -> Result<Vec<u8>, String> {
                 png,
                 original,
                 label,
+                tile_lines,
             } => {
                 let orig = read(original)?;
                 let dec = super::rex_nemesis::decode(&orig, &Default::default())
                     .map_err(|e| format!("{label}: original não decodifica ({})", e.code()))?;
-                let bytes = read(png)?;
-                let pal = png_palette(&bytes).ok_or("PNG sem PLTE")?;
-                let rgba = image::load_from_memory(&bytes)
-                    .map_err(|e| e.to_string())?
-                    .to_rgba8();
-                let px: Vec<u8> = rgba
-                    .pixels()
-                    .map(|p| {
-                        pal.iter()
-                            .take(16)
-                            .position(|c| *c == [p.0[0], p.0[1], p.0[2]])
-                            .map(|i| i as u8)
-                            .ok_or_else(|| format!("{png}: cor fora da paleta"))
-                    })
-                    .collect::<Result<_, _>>()?;
-                let edited = super::rex_nemesis::sheet_to_tiles(&px, rgba.width(), *tiles as usize);
+                let edited = nemesis_tiles_from_png(&read(png)?, tile_lines, *tiles as usize)
+                    .map_err(|e| format!("{png}: {e}"))?;
                 let mut region = orig.clone();
                 if edited != dec.bytes {
                     let enc = super::rex_nemesis::encode(&edited)
                         .ok_or_else(|| format!("{label}: reencode falhou"))?;
+                    if enc.len() > *len as usize {
+                        return Err(format!(
+                            "{label}: edição gera {} bytes, o espaço original tem {len}; relocação ainda não suportada",
+                            enc.len()
+                        ));
+                    }
+                    region[..enc.len()].copy_from_slice(&enc);
+                }
+                let s = *offset as usize;
+                rom.get_mut(s..s + region.len())
+                    .ok_or("fora da ROM")?
+                    .copy_from_slice(&region);
+            }
+            Emitter::Codec {
+                codec,
+                offset,
+                len,
+                file,
+                original,
+                label,
+            } => {
+                let orig = read(original)?;
+                let src = read(file)?;
+                let plain: Vec<u8> = if codec == "enigma" {
+                    let words: Vec<u16> =
+                        serde_json::from_slice(&src).map_err(|e| format!("{file}: {e}"))?;
+                    words.iter().flat_map(|w| w.to_be_bytes()).collect()
+                } else {
+                    src
+                };
+                let current: Vec<u8> = if codec == "enigma" {
+                    rex_enigma::decode(&orig, &Default::default())
+                        .map_err(|_| format!("{label}: original não decodifica"))?
+                        .bytes_be()
+                } else {
+                    ::rex_kosinski::decode(&orig, 0x10000, 4_000_000)
+                        .map_err(|_| format!("{label}: original não decodifica"))?
+                        .output
+                };
+                let mut region = orig.clone();
+                if plain != current {
+                    let enc = if codec == "enigma" {
+                        let words: Vec<u16> = plain
+                            .chunks_exact(2)
+                            .map(|c| u16::from_be_bytes([c[0], c[1]]))
+                            .collect();
+                        super::rex_md_tables::enigma_encode(&words)
+                    } else {
+                        ::rex_kosinski::encode_optimal(&plain, 0x20000, 256_000_000)
+                            .ok()
+                            .map(|e| e.stream)
+                    }
+                    .ok_or_else(|| format!("{label}: reencode falhou"))?;
                     if enc.len() > *len as usize {
                         return Err(format!(
                             "{label}: edição gera {} bytes, o espaço original tem {len}; relocação ainda não suportada",

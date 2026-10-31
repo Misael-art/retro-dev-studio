@@ -874,6 +874,9 @@ export interface SgdkDecompileReport {
   sprite_frames: number;
   music: number;
   nemesis_streams: number;
+  nemesis_with_palette: number;
+  enigma_maps: number;
+  kosinski_blocks: number;
   code_functions: number;
   coverage_ratio: number;
   byte_exact: boolean;

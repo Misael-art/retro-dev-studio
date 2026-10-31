@@ -70,7 +70,8 @@ export default function RomDropDecompile() {
           <p>{state.report.header_title || state.name}</p>
           <p>
             {state.report.images} imagens · {state.report.sprites} sprites ({state.report.sprite_frames} quadros) ·{" "}
-            {state.report.music} músicas · {state.report.nemesis_streams} artes Nemesis ·{" "}
+            {state.report.music} músicas · {state.report.nemesis_streams} artes Nemesis ({state.report.nemesis_with_palette} com paleta) ·{" "}
+            {state.report.enigma_maps} mapas Enigma · {state.report.kosinski_blocks} blocos Kosinski ·{" "}
             {state.report.code_functions} funções ·{" "}
             {(state.report.coverage_ratio * 100).toFixed(1)}% atribuído
           </p>

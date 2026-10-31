@@ -755,6 +755,9 @@ pub struct SgdkResourceGraph {
     /// Arte Nemesis provada por listas `{ptr.l, vram.w}` (motores não-SGDK).
     #[serde(default)]
     pub nemesis: Vec<super::rex_nemesis::LocatedStream>,
+    /// Tabelas não-SGDK provadas por arestas tipadas (registros, paletas, mapas).
+    #[serde(default)]
+    pub md: super::rex_md_tables::MdTables,
 }
 
 pub fn recover_graph(rom: &[u8]) -> SgdkResourceGraph {
@@ -832,6 +835,8 @@ pub fn recover_graph(rom: &[u8]) -> SgdkResourceGraph {
         }
     }
     let loose_palettes: Vec<RecoveredPalette> = loose.into_values().collect();
+    let (nemesis, offsets) = super::rex_md_tables::locate_art_streams(rom);
+    let md = super::rex_md_tables::recover(rom, &nemesis, offsets);
     SgdkResourceGraph {
         images,
         // Sem compressão o decode não prova nada: só entra via pai validado (Image/Sprite).
@@ -844,7 +849,8 @@ pub fn recover_graph(rom: &[u8]) -> SgdkResourceGraph {
         tileset_candidates: candidates.len(),
         music: recover_xgm(rom),
         sprites,
-        nemesis: super::rex_nemesis::locate_plc_streams(rom, 2),
+        nemesis,
+        md,
     }
 }
 
