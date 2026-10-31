@@ -33,6 +33,8 @@ pub struct ProjectManifest {
     pub sprites: usize,
     pub sprite_frames: usize,
     pub music: usize,
+    /// Streams Nemesis (arte comprimida) editáveis por reencode.
+    pub nemesis_streams: usize,
     pub library_functions: usize,
     pub code_functions: usize,
     pub code_functions_strict: usize,
@@ -139,6 +141,14 @@ fn coverage(graph: &SgdkResourceGraph, rom: &[u8], lib: &[LibMatch]) -> Vec<Cove
             x.len as usize,
             "music_xgc",
             format!("music_{i:02}"),
+        );
+    }
+    for st in &graph.nemesis {
+        push(
+            st.offset as usize,
+            st.len as usize,
+            "nemesis_art",
+            format!("nem_{:06x}", st.offset),
         );
     }
     for m in lib {
@@ -296,7 +306,7 @@ pub fn write_recovered_project(
 ) -> std::io::Result<ProjectManifest> {
     let graph = recover_graph(rom);
     let library = dict.map(|d| scan(d, rom)).unwrap_or_default();
-    for sub in ["res/img", "res/spr", "res/music", "rex"] {
+    for sub in ["res/img", "res/spr", "res/music", "res/nem", "rex/nem"] {
         std::fs::create_dir_all(out.join(sub))?;
     }
     let mut res = String::from(
@@ -339,6 +349,20 @@ pub fn write_recovered_project(
             "BIN {name} \"music/{name}.xgc\" 256 256 0 NONE FALSE\n"
         ));
     }
+    // Nemesis: PNG indexado em tons de cinza (índice = valor; paleta ainda não ligada)
+    // e o stream original para conservação byte a byte.
+    let gray: Vec<[u8; 3]> = (0..16u8).map(|i| [i * 17; 3]).collect();
+    for st in &graph.nemesis {
+        let (s, e) = (st.offset as usize, (st.offset + st.len) as usize);
+        let dec = super::rex_nemesis::decode(&rom[s..], &Default::default())
+            .map_err(|e| std::io::Error::other(e.code()))?;
+        let (w, h, px) = super::rex_nemesis::tiles_to_sheet(&dec.bytes);
+        std::fs::write(
+            out.join(format!("res/nem/nem_{s:06x}.png")),
+            crate::tools::asset_extractor::encode_indexed_png(&px, w, h, &gray),
+        )?;
+        std::fs::write(out.join(format!("rex/nem/{s:06x}.nem")), &rom[s..e])?;
+    }
     std::fs::write(out.join("res/recovered.res"), res)?;
     let (logic, code_ranges) = logic_skeleton(rom, &graph, &library);
     let mut ranges = coverage(&graph, rom, &library);
@@ -361,6 +385,7 @@ pub fn write_recovered_project(
         sprites: graph.sprites.len(),
         sprite_frames: frames,
         music: graph.music.len(),
+        nemesis_streams: graph.nemesis.len(),
         library_functions: library.len(),
         code_functions: logic.len(),
         code_functions_strict: logic.iter().filter(|f| f.tier == "estrita").count(),
@@ -509,11 +534,72 @@ mod tests {
             );
             proven.push(kind);
         }
+        // Nemesis: 1 pixel editado => bytes mudam só dentro do stream, que decodifica nos
+        // tiles editados; conta quantos streams absorvem a edição sem crescer.
+        let (mut fit, mut tried) = (0usize, 0usize);
+        for st in &graph.nemesis {
+            let png = format!("res/nem/nem_{:06x}.png", st.offset);
+            let original = std::fs::read(out.join(&png)).unwrap();
+            let img = image::load_from_memory(&original).unwrap().to_rgba8();
+            let pal = super::super::rex_sgdk_rebuild::png_palette(&original).unwrap();
+            let mut px: Vec<u8> = img
+                .pixels()
+                .map(|p| {
+                    pal.iter()
+                        .position(|c| *c == [p.0[0], p.0[1], p.0[2]])
+                        .unwrap() as u8
+                })
+                .collect();
+            px[0] = (px[0] + 1) % 16;
+            let gray: Vec<[u8; 3]> = (0..16u8).map(|i| [i * 17; 3]).collect();
+            std::fs::write(
+                out.join(&png),
+                crate::tools::asset_extractor::encode_indexed_png(
+                    &px,
+                    img.width(),
+                    img.height(),
+                    &gray,
+                ),
+            )
+            .unwrap();
+            tried += 1;
+            if let Ok(edited) = super::super::rex_sgdk_rebuild::rebuild(&out) {
+                let (s, e) = (st.offset as usize, (st.offset + st.len) as usize);
+                assert!(
+                    (0..rom.len()).all(|i| edited[i] == rom[i] || (s..e).contains(&i)),
+                    "nem_{s:06x}: edição vazou para fora do stream"
+                );
+                let want =
+                    super::super::rex_nemesis::sheet_to_tiles(&px, img.width(), st.tiles as usize);
+                let got =
+                    super::super::rex_nemesis::decode(&edited[s..], &Default::default()).unwrap();
+                assert_eq!(
+                    got.bytes, want,
+                    "nem_{s:06x}: stream não decodifica na edição"
+                );
+                fit += 1;
+            }
+            std::fs::write(out.join(&png), original).unwrap();
+        }
+        if tried > 0 {
+            assert!(
+                super::super::rex_sgdk_rebuild::rebuild(&out).unwrap() == rom,
+                "reverter edições Nemesis não restituiu a ROM"
+            );
+            println!("edicao nemesis: {fit}/{tried} streams absorvem 1 pixel sem crescer");
+            assert!(
+                fit > 0 || !require_edit,
+                "nenhum stream Nemesis aceita edição"
+            );
+            if fit > 0 {
+                proven.push("res/nem/");
+            }
+        }
         let has_target = !proven.is_empty();
         println!("remontagem identica=true sha={sha} edicao={has_target} tipos={proven:?}");
         println!(
-            "projeto {} images={} sprites={} frames={} music={} lib={} funcs={} (estritas {}) recursos={:.3} ({} / {} bytes) codigo_alcancado={}",
-            m.header_title, m.images, m.sprites, m.sprite_frames, m.music, m.library_functions, m.code_functions, m.code_functions_strict,
+            "projeto {} images={} sprites={} frames={} music={} nemesis={} lib={} funcs={} (estritas {}) recursos={:.3} ({} / {} bytes) codigo_alcancado={}",
+            m.header_title, m.images, m.sprites, m.sprite_frames, m.music, m.nemesis_streams, m.library_functions, m.code_functions, m.code_functions_strict,
             m.coverage_ratio, m.attributed_bytes, m.rom_size, m.code_discovered_bytes
         );
     }

@@ -371,6 +371,7 @@ pub struct SgdkDecompileReport {
     pub sprites: usize,
     pub sprite_frames: usize,
     pub music: usize,
+    pub nemesis_streams: usize,
     pub code_functions: usize,
     pub coverage_ratio: f64,
     /// O projeto recompõe a ROM normalizada byte a byte (no-op).
@@ -404,6 +405,7 @@ pub fn decompile_to_sgdk(rom_path: &str) -> Result<SgdkDecompileReport, String> 
         sprites: m.sprites,
         sprite_frames: m.sprite_frames,
         music: m.music,
+        nemesis_streams: m.nemesis_streams,
         code_functions: m.code_functions,
         coverage_ratio: m.coverage_ratio,
         byte_exact,

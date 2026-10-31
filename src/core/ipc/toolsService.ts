@@ -873,6 +873,7 @@ export interface SgdkDecompileReport {
   sprites: number;
   sprite_frames: number;
   music: number;
+  nemesis_streams: number;
   code_functions: number;
   coverage_ratio: number;
   byte_exact: boolean;

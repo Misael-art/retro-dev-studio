@@ -58,6 +58,16 @@ pub enum Emitter {
         file: String,
         label: String,
     },
+    /// Arte Nemesis: PNG inalterado restitui `original`; editado é reencodado e precisa
+    /// caber em `len` (o resto do intervalo mantém os bytes originais).
+    Nemesis {
+        offset: u32,
+        len: u32,
+        tiles: u32,
+        png: String,
+        original: String,
+        label: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -272,6 +282,17 @@ pub fn plan(rom: &[u8], graph: &SgdkResourceGraph) -> RebuildPlan {
             label: format!("music_{i:02}"),
         });
     }
+    for st in &graph.nemesis {
+        covered.push((st.offset as usize, st.len as usize));
+        emitters.push(Emitter::Nemesis {
+            offset: st.offset,
+            len: st.len,
+            tiles: st.tiles,
+            png: format!("res/nem/nem_{:06x}.png", st.offset),
+            original: format!("rex/nem/{:06x}.nem", st.offset),
+            label: format!("nem_{:06x}", st.offset),
+        });
+    }
     // Segmentos preservados = complemento da união regenerada.
     let mut mask = vec![false; rom.len()];
     for (s, n) in &covered {
@@ -383,6 +404,50 @@ pub fn rebuild(dir: &Path) -> Result<Vec<u8>, String> {
                     let at = *offset as usize + i * 2;
                     rom[at..at + 2].copy_from_slice(&w.to_be_bytes());
                 }
+            }
+            Emitter::Nemesis {
+                offset,
+                len,
+                tiles,
+                png,
+                original,
+                label,
+            } => {
+                let orig = read(original)?;
+                let dec = super::rex_nemesis::decode(&orig, &Default::default())
+                    .map_err(|e| format!("{label}: original não decodifica ({})", e.code()))?;
+                let bytes = read(png)?;
+                let pal = png_palette(&bytes).ok_or("PNG sem PLTE")?;
+                let rgba = image::load_from_memory(&bytes)
+                    .map_err(|e| e.to_string())?
+                    .to_rgba8();
+                let px: Vec<u8> = rgba
+                    .pixels()
+                    .map(|p| {
+                        pal.iter()
+                            .take(16)
+                            .position(|c| *c == [p.0[0], p.0[1], p.0[2]])
+                            .map(|i| i as u8)
+                            .ok_or_else(|| format!("{png}: cor fora da paleta"))
+                    })
+                    .collect::<Result<_, _>>()?;
+                let edited = super::rex_nemesis::sheet_to_tiles(&px, rgba.width(), *tiles as usize);
+                let mut region = orig.clone();
+                if edited != dec.bytes {
+                    let enc = super::rex_nemesis::encode(&edited)
+                        .ok_or_else(|| format!("{label}: reencode falhou"))?;
+                    if enc.len() > *len as usize {
+                        return Err(format!(
+                            "{label}: edição gera {} bytes, o espaço original tem {len}; relocação ainda não suportada",
+                            enc.len()
+                        ));
+                    }
+                    region[..enc.len()].copy_from_slice(&enc);
+                }
+                let s = *offset as usize;
+                rom.get_mut(s..s + region.len())
+                    .ok_or("fora da ROM")?
+                    .copy_from_slice(&region);
             }
             Emitter::Tiles {
                 offset,

@@ -180,3 +180,12 @@ Feitos os itens 1 (Tanzer/Old Towers) e parte do 3 (o áudio de Tanzer era XGC s
 - Resultado (`receipts/flow-vs-truth-ptrctx-2026-10-31.txt`): P operandos 0,951–0,971 nos 11 projetos (limiar 0,90 cumprido); HAMOOPIG 0,712→0,970, Mugenesis 0,725→0,970. Recall cai um pouco (HAMOOPIG ok 376→325), mas continua ≥ estrito.
 - Ainda reprova: P estrita 0,937–0,949 < 0,95 em 7 linhas (9 alvos reais de `bsr` em rótulos locais MDDBG ausentes do `symbol.txt`). Critério congelado mantido; não alterado.
 - Próximo: perfis não-SGDK (Sonic 1, Mega Turrican).
+
+## Checkpoint de execução 6 (2026-10-31): arte Nemesis (perfil genérico não-SGDK)
+
+- `rex_nemesis::locate_plc_streams`: streams provados por listas `{ptr.l, vram.w}` (≥2 entradas consecutivas, VRAM múltiplo de 32, todos os alvos decodificando no contrato estrito e cabendo na VRAM; uma entrada ruim derruba a lista). Sem nome de jogo, sem offsets.
+- Controle de falso positivo (`receipts/plc-corpus-2026-10-31.tsv`, 60 ROMs): só Sonic 1 (132 streams/27 listas) e Sonic Delta Reloaded (93) acusam; SGDK e demais não-SGDK = 0 (antes da regra de VRAM, 3 ROMs tinham streams espúrios de ~32767 tiles). Folhas de contato inspecionadas: arte coerente; streams contíguos sem sobreposição.
+- `rex_nemesis::encode` (produção): DP de partição por custo + tabela canônica ≤8 bits com Kraft ≤ 63/64 e poda de entradas não lucrativas, validado pelo próprio decoder. Reencode de Sonic 1: 147.301 vs 146.020 bytes originais; 119/132 cabem sem edição.
+- Projeto/remontagem: `res/nem/*.png` (índice = tom de cinza; paleta ainda não ligada) + `Emitter::Nemesis` (PNG inalterado => stream original; editado => reencode que precisa caber, senão erro explícito; relocação não suportada).
+- Sonic 1 (`receipts/sonic1-nemesis-edit-2026-10-31.txt`): no-op byte-exato; 118/132 streams absorvem 1 pixel com bytes alterados só dentro do stream e decode igual à edição; reverter restitui a ROM; atribuição 0,276. Aratu/Tanzer/Old Towers inalterados; Mega Turrican segue 0 (outro codec).
+- Ainda 0/5 PASS. Próximo: ligar paleta às artes Nemesis, Kosinski (blocos/chunks) e mapas de Sonic; codec de Mega Turrican.

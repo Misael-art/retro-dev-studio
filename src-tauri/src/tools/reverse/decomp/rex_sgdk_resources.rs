@@ -752,6 +752,9 @@ pub struct SgdkResourceGraph {
     pub tileset_candidates: usize,
     pub music: Vec<RecoveredXgm>,
     pub sprites: Vec<RecoveredSprite>,
+    /// Arte Nemesis provada por listas `{ptr.l, vram.w}` (motores não-SGDK).
+    #[serde(default)]
+    pub nemesis: Vec<super::rex_nemesis::LocatedStream>,
 }
 
 pub fn recover_graph(rom: &[u8]) -> SgdkResourceGraph {
@@ -841,6 +844,7 @@ pub fn recover_graph(rom: &[u8]) -> SgdkResourceGraph {
         tileset_candidates: candidates.len(),
         music: recover_xgm(rom),
         sprites,
+        nemesis: super::rex_nemesis::locate_plc_streams(rom, 2),
     }
 }
 

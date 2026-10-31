@@ -70,7 +70,8 @@ export default function RomDropDecompile() {
           <p>{state.report.header_title || state.name}</p>
           <p>
             {state.report.images} imagens · {state.report.sprites} sprites ({state.report.sprite_frames} quadros) ·{" "}
-            {state.report.music} músicas · {state.report.code_functions} funções ·{" "}
+            {state.report.music} músicas · {state.report.nemesis_streams} artes Nemesis ·{" "}
+            {state.report.code_functions} funções ·{" "}
             {(state.report.coverage_ratio * 100).toFixed(1)}% atribuído
           </p>
           <p className={state.report.byte_exact ? "text-emerald-300" : "text-amber-300"}>
