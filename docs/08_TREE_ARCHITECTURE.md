@@ -86,6 +86,7 @@ RetroDevStudio/
 |   |   |-- hierarchy/
 |   |   |-- inspector/
 |   |   |-- tools/
+|   |   |   `-- RomDropDecompile.tsx (soltar ROM MD => projeto SGDK REX e abrir diretório; Experimental)
 |   |   |-- artstudio/
 |   |   |   |-- ArtStudioPanel.tsx
 |   |   |   |-- ImageIngress.tsx (entrada única de imagens/GIF por colar, soltar e seletor; fluxo Experimental MD)

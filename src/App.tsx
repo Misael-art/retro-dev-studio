@@ -1,5 +1,6 @@
 import ProjectStartWizard from "./components/common/ProjectStartWizard";
 import ImageIngress from "./components/artstudio/ImageIngress";
+import RomDropDecompile from "./components/tools/RomDropDecompile";
 import Icon, { type IconName } from "./components/common/Icon";
 import StudioAppearancePicker from "./components/common/StudioAppearancePicker";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
@@ -5333,6 +5334,7 @@ export default function App() {
       />
 
       <ImageIngress onWorkspaceSelect={handleWorkspaceSelect} />
+      <RomDropDecompile />
 
       {!liveBuildBlocked && buildWarningSummary ? (
         <span data-testid="build-warning-summary" className="sr-only">

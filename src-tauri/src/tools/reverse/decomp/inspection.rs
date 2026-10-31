@@ -45,7 +45,7 @@ pub struct InspectionError {
 }
 
 impl InspectionError {
-    fn new(code: &str, message: impl Into<String>, retryable: bool) -> Self {
+    pub(crate) fn new(code: &str, message: impl Into<String>, retryable: bool) -> Self {
         Self {
             code: code.to_string(),
             message: message.into(),
@@ -359,6 +359,71 @@ fn read_identity_and_normalized(path: &Path) -> Result<(RexRomIdentity, Vec<u8>)
     let (_, normalized) = crate::tools::reverse::platform::identify_md(&raw)
         .map_err(|e| error("rom_identity", e.message(), true))?;
     Ok((identity, normalized))
+}
+
+/// Resultado de soltar uma ROM no app: projeto SGDK recuperado (Experimental).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SgdkDecompileReport {
+    pub out_dir: String,
+    pub header_title: String,
+    pub normalized_sha256: String,
+    pub images: usize,
+    pub sprites: usize,
+    pub sprite_frames: usize,
+    pub music: usize,
+    pub code_functions: usize,
+    pub coverage_ratio: f64,
+    /// O projeto recompõe a ROM normalizada byte a byte (no-op).
+    pub byte_exact: bool,
+}
+
+/// Decompila, extrai recursos e gera o projeto SGDK sob o work_dir canônico.
+pub fn decompile_to_sgdk(rom_path: &str) -> Result<SgdkDecompileReport, String> {
+    let path = ensure_rom_path(rom_path)?;
+    let (identity, normalized) = read_identity_and_normalized(&path)?;
+    let out = canonical_dir_under(
+        &decomp_work_dir(),
+        &["extract", &identity.normalized_sha256, "sgdk_project"],
+    )?;
+    let m =
+        super::rex_sgdk_project::write_recovered_project(&normalized, None, &out).map_err(|e| {
+            error(
+                "project_io",
+                format!("Falha ao gravar o projeto: {e}"),
+                true,
+            )
+        })?;
+    let byte_exact = super::rex_sgdk_rebuild::rebuild(&out)
+        .map(|r| r == normalized)
+        .unwrap_or(false);
+    Ok(SgdkDecompileReport {
+        out_dir: out.to_string_lossy().into_owned(),
+        header_title: m.header_title,
+        normalized_sha256: identity.normalized_sha256,
+        images: m.images,
+        sprites: m.sprites,
+        sprite_frames: m.sprite_frames,
+        music: m.music,
+        code_functions: m.code_functions,
+        coverage_ratio: m.coverage_ratio,
+        byte_exact,
+    })
+}
+
+/// Só revela diretórios gerados pelo REX (sob o work_dir canônico).
+pub fn extraction_dir_under_work(dir: &str) -> Result<PathBuf, String> {
+    let root =
+        fs::canonicalize(decomp_work_dir()).map_err(|e| error("work_dir", e.to_string(), false))?;
+    let target = fs::canonicalize(dir)
+        .map_err(|e| error("out_dir", format!("Diretório indisponível: {e}"), true))?;
+    if !target.starts_with(&root) || !target.is_dir() {
+        return Err(error(
+            "out_dir",
+            "Diretório fora da área de extração do REX",
+            false,
+        ));
+    }
+    Ok(target)
 }
 
 fn session_dir(work_dir: &Path, normalized_sha: &str) -> Result<PathBuf, String> {
@@ -1970,6 +2035,23 @@ pub fn restore_sonic_sequence(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reveal_refuses_dirs_outside_rex_work_dir() {
+        let err = extraction_dir_under_work("/").unwrap_err();
+        assert!(err.contains("out_dir"), "{err}");
+    }
+
+    #[test]
+    #[ignore = "BYOR: RDS_REX_ROM e RDS_DECOMP_WORK"]
+    fn drop_rom_generates_byte_exact_sgdk_project() {
+        let rom = std::env::var("RDS_REX_ROM").expect("RDS_REX_ROM ausente: corpus obrigatório");
+        let report = decompile_to_sgdk(&rom).unwrap();
+        let dir = extraction_dir_under_work(&report.out_dir).unwrap();
+        assert!(dir.join("res/resources.res").is_file() || dir.join("rex/rebuild.json").is_file());
+        assert!(report.byte_exact, "projeto gerado não recompõe a ROM");
+        println!("{report:?}");
+    }
 
     #[test]
     #[ignore = "BYOR Sonic pinado; RDS_SONIC_MULTIFRAME_ROM obrigatório; escreva em RDS_DECOMP_WORK isolado"]

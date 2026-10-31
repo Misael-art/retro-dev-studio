@@ -864,6 +864,28 @@ export interface InspectionSpriteFrame {
   } | null;
 }
 
+/** Projeto SGDK gerado ao soltar uma ROM no app (REX, Experimental). */
+export interface SgdkDecompileReport {
+  out_dir: string;
+  header_title: string;
+  normalized_sha256: string;
+  images: number;
+  sprites: number;
+  sprite_frames: number;
+  music: number;
+  code_functions: number;
+  coverage_ratio: number;
+  byte_exact: boolean;
+}
+
+export function decompileRomToSgdk(romPath: string): Promise<SgdkDecompileReport> {
+  return invoke<SgdkDecompileReport>("rex_decompile_rom", { romPath });
+}
+
+export function revealExtractionDir(dir: string): Promise<void> {
+  return invoke<void>("rex_reveal_extraction_dir", { dir });
+}
+
 export const INSPECTION_PROGRESS_EVENT = "rex://inspection-progress";
 
 export function inspectionOpen(romPath: string): Promise<InspectionSession> {

@@ -165,3 +165,10 @@ Feitos os itens 1 (Tanzer/Old Towers) e parte do 3 (o áudio de Tanzer era XGC s
 - Resultado (receipt `receipts/edit-sprite-2026-10-31.txt`): Aratu img 0x1b4296 + spr 0x238896; Tanzer spr 0x199802; Old Towers img 0xaa902 + spr 0x96a80. Em todos: 1 byte alterado, reverter restitui a ROM, no-op byte-exato.
 - Ainda 0/5 PASS. Próximo: precisão do tier com sementes de operando (0.71 HAMOOPIG; limiar 0.90 congelado).
 - Comando: `RDS_REX_REQUIRE_EDIT=1 RDS_REX_ROM=$W/corpus/<sha>/rom.bin RDS_REX_OUT=$W/projects/edit_<sha8> cargo test --lib -j1 write_project_from_rom -- --ignored --nocapture`
+
+## Checkpoint de execução 4 (2026-10-31): soltar ROM no app
+
+- Soltar `.md/.bin/.gen/.smd` na janela chama `rex_decompile_rom` (normaliza, recupera o grafo SGDK, grava `extract/<sha>/sgdk_project` sob `RDS_DECOMP_WORK`, verifica no-op byte-exato). O painel `RomDropDecompile` (Experimental) mostra contagens e um ícone que abre o diretório (`rex_reveal_extraction_dir`, só dentro do work_dir).
+- Aratu pelo comando real: 74 img / 21 spr / 275 quadros / 12 músicas / 163 funções, byte_exact=true.
+- Limite: o projeto tem `res/` (resources.res, PNGs, XGC) e `rex/` (rebuild.json, logic.json esqueleto); ainda não há `src/*.c` compilável — a lógica executável editável continua pendente.
+- Pré-existentes, falham também em HEAD sem esta mudança: 8 testes em `scripts/new-host.test.mjs`, `studioAppearance.test.ts`, `StudioAppearancePicker.test.tsx`.

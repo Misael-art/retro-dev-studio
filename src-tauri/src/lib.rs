@@ -2781,6 +2781,38 @@ async fn rex_inspection_open(
 }
 
 #[tauri::command]
+async fn rex_decompile_rom(
+    rom_path: String,
+) -> Result<
+    tools::reverse::decomp::inspection::SgdkDecompileReport,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_inspection_command("rex_decompile_rom", move || {
+        tools::reverse::decomp::inspection::decompile_to_sgdk(&rom_path)
+    })
+    .await
+}
+
+#[tauri::command]
+fn rex_reveal_extraction_dir(
+    app: AppHandle,
+    dir: String,
+) -> Result<(), tools::reverse::decomp::inspection::InspectionError> {
+    use tauri_plugin_opener::OpenerExt;
+    let target = tools::reverse::decomp::inspection::extraction_dir_under_work(&dir)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)?;
+    app.opener()
+        .open_path(target.to_string_lossy(), None::<&str>)
+        .map_err(|e| {
+            tools::reverse::decomp::inspection::InspectionError::new(
+                "open_dir",
+                e.to_string(),
+                true,
+            )
+        })
+}
+
+#[tauri::command]
 async fn rex_inspection_reopen(
     rom_path: String,
     session_id: String,
@@ -6570,6 +6602,8 @@ pub fn run() {
             rom_extract_audio,
             rom_save_annotations,
             rex_inspection_open,
+            rex_decompile_rom,
+            rex_reveal_extraction_dir,
             rex_inspection_reopen,
             rex_inspection_start,
             rex_inspection_cancel,
