@@ -383,6 +383,10 @@ pub enum SpriteLayout {
     /// `Animation {u16 nFrame; Frame**; u16 len; u8* seq; s16 loop}`,
     /// `Frame {u8 nSpr; u8 w; u8 h; u8 timer; 4x{parts*; collision*}; TileSet*}`.
     Sgdk1x,
+    /// SGDK 1.x antigo: Definition/Animation como `Sgdk1x`, mas
+    /// `Frame {u16 nSpr; Part** parts; Collision*; TileSet*; s16 w; s16 h; u16 timer}` e
+    /// `Part {s16 y; u16 size; s16 x; u16 numTile}` em palavras.
+    Sgdk1xWide,
     /// SGDK 2.x: `{u16 w; u16 h; Palette*; u16 nAnim; Animation**; u16 maxTile; u16 maxSpr}`,
     /// `Animation {u8 nFrame; u8 loop; Frame**}`, `Frame {u8 nSpr; u8 timer; TileSet*; ...}`.
     Sgdk2x,
@@ -460,6 +464,18 @@ fn parse_frame(
             Some((u16::from(*rom.get(at + 1)?), u16::from(*rom.get(at + 2)?))),
             rom_ptr(rom, at + 36)?,
         ),
+        SpriteLayout::Sgdk1xWide => {
+            let n = be16(rom, at)?;
+            let (w, h, timer) = (
+                be16(rom, at + 14)?,
+                be16(rom, at + 16)?,
+                be16(rom, at + 18)?,
+            );
+            if n > 0xFF || timer > 0xFF || w == 0 || h == 0 || w > 512 || h > 512 {
+                return None;
+            }
+            (n as u8, timer as u8, Some((w, h)), rom_ptr(rom, at + 10)?)
+        }
         // 2.x: bit 7 de numSprite é flag do rescomp; a contagem está nos 7 bits baixos.
         SpriteLayout::Sgdk2x => (
             *rom.get(at)? & 0x7F,
@@ -483,6 +499,17 @@ fn parse_frame(
             .map(|p| {
                 let b = rom.get(p..p + 4)?;
                 part_from(b[2], i16::from(b[3] as i8), i16::from(b[1] as i8), b[0])
+            })
+            .collect::<Option<Vec<_>>>()?,
+        SpriteLayout::Sgdk1xWide => ptr_array(rom, rom_ptr(rom, at + 2)?, n)?
+            .into_iter()
+            .map(|p| {
+                let (y, size) = (be16(rom, p)? as i16, be16(rom, p + 2)?);
+                let (x, num) = (be16(rom, p + 4)? as i16, be16(rom, p + 6)?);
+                if size > 0xFF || num > 0xFF {
+                    return None;
+                }
+                part_from(size as u8, x, y, num as u8)
             })
             .collect::<Option<Vec<_>>>()?,
         // 2.x: `FrameVDPSprite {offY; offYFlip; size; offX; offXFlip; numTile}` em linha.
@@ -552,7 +579,7 @@ fn parse_animation(
     max_tile: u16,
 ) -> Option<RecoveredAnimation> {
     let (n, frames_at, sequence, loop_index) = match layout {
-        SpriteLayout::Sgdk1x => {
+        SpriteLayout::Sgdk1x | SpriteLayout::Sgdk1xWide => {
             let n = be16(rom, at)? as usize;
             let len = be16(rom, at + 6)? as usize;
             let seq_at = rom_ptr(rom, at + 8)?;
@@ -583,7 +610,7 @@ fn parse_animation(
 
 pub fn parse_sprite(rom: &[u8], at: usize, layout: SpriteLayout) -> Option<RecoveredSprite> {
     let (pal_at, n_at, anims_at, max_at, size_px) = match layout {
-        SpriteLayout::Sgdk1x => (at, at + 4, at + 6, at + 10, None),
+        SpriteLayout::Sgdk1x | SpriteLayout::Sgdk1xWide => (at, at + 4, at + 6, at + 10, None),
         SpriteLayout::Sgdk2x => (
             at + 4,
             at + 8,
@@ -621,7 +648,11 @@ fn recover_sprites(rom: &[u8]) -> Vec<RecoveredSprite> {
     let mut out = Vec::new();
     let mut at = 0usize;
     while at + 18 <= rom.len() {
-        for layout in [SpriteLayout::Sgdk1x, SpriteLayout::Sgdk2x] {
+        for layout in [
+            SpriteLayout::Sgdk1x,
+            SpriteLayout::Sgdk1xWide,
+            SpriteLayout::Sgdk2x,
+        ] {
             if let Some(sp) = parse_sprite(rom, at, layout) {
                 out.push(sp);
                 break;
@@ -867,6 +898,73 @@ mod tests {
         // tile 1 = 0x34 com hflip e paleta 1: coluna 8 lê o nibble da coluna 7 (=4)
         assert_eq!(px[8], 16 + 4);
         assert_eq!(px[15], 16 + 3);
+    }
+
+    /// Cadeia `Sgdk1xWide` mínima: Definition @0x1F0 → Animation @0x1D0 → Frame @0x1A0
+    /// (2 peças: 4x4 + 4x2 = 24 tiles) → TileSet @0x200; Palette antiga @0x100.
+    fn synthetic_sprite_1x_wide() -> Vec<u8> {
+        let mut rom = vec![0u8; 0x800];
+        put16(&mut rom, 0x100, 0);
+        put16(&mut rom, 0x102, 16);
+        put32(&mut rom, 0x104, 0x110);
+        for i in 0..16u16 {
+            put16(&mut rom, 0x110 + i as usize * 2, (i * 0x0222) & 0x0EEE);
+        }
+        for (at, w) in [(0x180, [0, 0x0F, 0, 16]), (0x188, [0x20, 0x0D, 0, 8])] {
+            for (i, v) in w.iter().enumerate() {
+                put16(&mut rom, at + i * 2, *v);
+            }
+        }
+        put32(&mut rom, 0x190, 0x180);
+        put32(&mut rom, 0x194, 0x188);
+        for (i, v) in [2u16, 0, 0, 0, 0, 0, 0, 32, 48, 3].iter().enumerate() {
+            put16(&mut rom, 0x1A0 + i * 2, *v);
+        }
+        put32(&mut rom, 0x1A2, 0x190);
+        put32(&mut rom, 0x1AA, 0x200);
+        put32(&mut rom, 0x1C0, 0x1A0);
+        put16(&mut rom, 0x1D0, 1);
+        put32(&mut rom, 0x1D2, 0x1C0);
+        put16(&mut rom, 0x1D6, 2);
+        put32(&mut rom, 0x1D8, 0x1C4);
+        put32(&mut rom, 0x1E0, 0x1D0);
+        put32(&mut rom, 0x1F0, 0x100);
+        put16(&mut rom, 0x1F4, 1);
+        put32(&mut rom, 0x1F6, 0x1E0);
+        put16(&mut rom, 0x1FA, 24);
+        put16(&mut rom, 0x1FC, 2);
+        put16(&mut rom, 0x200, 0);
+        put16(&mut rom, 0x202, 24);
+        put32(&mut rom, 0x204, 0x400);
+        for i in 0..24 * 32 {
+            rom[0x400 + i] = 0x11;
+        }
+        rom
+    }
+
+    #[test]
+    fn recovers_sprite_with_wide_1x_frame_layout() {
+        let rom = synthetic_sprite_1x_wide();
+        let sp = recover_sprites(&rom);
+        assert_eq!(sp.len(), 1);
+        let (s, f) = (&sp[0], &sp[0].animations[0].frames[0]);
+        assert_eq!(
+            (s.header_offset, s.layout),
+            (0x1F0, SpriteLayout::Sgdk1xWide)
+        );
+        assert_eq!(s.palette.layout, "index_len_ptr");
+        assert_eq!((f.num_sprite, f.timer, f.size_px), (2, 3, Some((32, 48))));
+        assert_eq!(s.animations[0].sequence, vec![0, 0]);
+        let tiles: Vec<_> = f
+            .parts
+            .iter()
+            .map(|p| (p.w_tiles, p.h_tiles, p.y))
+            .collect();
+        assert_eq!(tiles, vec![(4, 4, 0), (4, 2, 32)]);
+        // Peças que não somam o TileSet (15 em vez de 16 tiles) derrubam a cadeia.
+        let mut bad = rom.clone();
+        put16(&mut bad, 0x186, 15);
+        assert!(recover_sprites(&bad).is_empty());
     }
 
     #[test]
