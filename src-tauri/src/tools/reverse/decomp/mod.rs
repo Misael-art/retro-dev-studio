@@ -52,6 +52,7 @@ pub mod rex_profile_spec;
 mod rex_profile_testkit;
 pub mod rex_publish;
 pub mod rex_resources;
+pub mod rex_sgdk_resources;
 pub mod rex_sigscan;
 pub mod rom_library;
 pub mod sonic_cadence;
