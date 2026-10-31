@@ -34,8 +34,13 @@ pub struct ProjectManifest {
     pub sprite_frames: usize,
     pub music: usize,
     pub library_functions: usize,
-    /// Bytes da ROM atribuídos a algo recuperado (sem dupla contagem).
+    pub code_functions: usize,
+    pub code_functions_strict: usize,
+    /// Bytes da ROM atribuídos a recursos/bibliotecas recuperados (sem dupla contagem).
+    /// Código descoberto fica fora desta métrica: alcançar instruções não é recuperá-las.
     pub attributed_bytes: usize,
+    /// Bytes de instrução alcançados pela descoberta de fluxo (medida separada).
+    pub code_discovered_bytes: usize,
     pub coverage_ratio: f64,
     pub ranges: Vec<CoverageRange>,
     pub library: Vec<LibMatch>,
@@ -174,6 +179,115 @@ fn union_len(ranges: &[CoverageRange]) -> usize {
     total
 }
 
+/// Função do esqueleto lógico: camada de evidência, nome e o que ela referencia.
+#[derive(Debug, Clone, Serialize)]
+pub struct LogicFunction {
+    pub start: u32,
+    pub name: String,
+    /// `estrita` (descida a partir dos vetores) ou `operando` (ponteiro em operando).
+    pub tier: &'static str,
+    pub code_bytes: u32,
+    pub calls: Vec<String>,
+    pub resources: Vec<String>,
+    pub strings: Vec<String>,
+    pub has_indirect: bool,
+}
+
+fn c_string_at(rom: &[u8], at: usize) -> Option<String> {
+    let bytes = rom.get(at..)?;
+    let end = bytes.iter().take(96).position(|b| *b == 0)?;
+    let s = &bytes[..end];
+    (s.len() >= 4 && s.iter().all(|b| (0x20..0x7F).contains(b)))
+        .then(|| String::from_utf8_lossy(s).into_owned())
+}
+
+/// Constrói o esqueleto lógico e devolve também as faixas de código descobertas.
+pub fn logic_skeleton(
+    rom: &[u8],
+    graph: &SgdkResourceGraph,
+    library: &[LibMatch],
+) -> (Vec<LogicFunction>, Vec<(u32, u32)>) {
+    use super::rex_m68k_flow::{discover, discover_with_operand_seeds, vector_seeds};
+    use std::collections::HashMap;
+    let mut exclude: Vec<(u32, u32)> = Vec::new();
+    let mut names: HashMap<u32, String> = HashMap::new();
+    for img in &graph.images {
+        let n = format!("img_{:06x}", img.header_offset);
+        exclude.push((
+            img.tileset.stream_offset,
+            img.tileset.stream_offset + img.tileset.stream_bytes,
+        ));
+        exclude.push((
+            img.tilemap.stream_offset,
+            img.tilemap.stream_offset + img.tilemap.stream_bytes,
+        ));
+        for a in [
+            img.header_offset,
+            img.palette.header_offset,
+            img.tileset.header_offset,
+            img.tilemap.header_offset,
+        ] {
+            names.entry(a).or_insert_with(|| n.clone());
+        }
+    }
+    for sp in &graph.sprites {
+        let n = format!("spr_{:06x}", sp.header_offset);
+        names.entry(sp.header_offset).or_insert_with(|| n.clone());
+        names
+            .entry(sp.palette.header_offset)
+            .or_insert_with(|| n.clone());
+        for f in sp.animations.iter().flat_map(|a| &a.frames) {
+            exclude.push((
+                f.tileset.stream_offset,
+                f.tileset.stream_offset + f.tileset.stream_bytes,
+            ));
+        }
+    }
+    for (i, m) in graph.music.iter().enumerate() {
+        exclude.push((m.offset, m.offset + m.len));
+        names.insert(m.offset, format!("music_{i:02}"));
+    }
+    let lib: HashMap<u32, &str> = library.iter().map(|m| (m.addr, m.name.as_str())).collect();
+    let strict: std::collections::HashSet<u32> =
+        discover(rom, &vector_seeds(rom), rom.len() as u32)
+            .functions
+            .iter()
+            .map(|f| f.start)
+            .collect();
+    let map = discover_with_operand_seeds(rom, rom.len() as u32, &exclude);
+    let fname = |a: u32| {
+        lib.get(&a)
+            .map_or_else(|| format!("fn_{a:06x}"), |n| (*n).to_string())
+    };
+    let funcs = map
+        .functions
+        .iter()
+        .map(|f| LogicFunction {
+            start: f.start,
+            name: fname(f.start),
+            tier: if strict.contains(&f.start) {
+                "estrita"
+            } else {
+                "operando"
+            },
+            code_bytes: f.code_bytes,
+            calls: f.calls.iter().map(|c| fname(*c)).collect(),
+            resources: f
+                .refs
+                .iter()
+                .filter_map(|r| names.get(r).cloned())
+                .collect(),
+            strings: f
+                .refs
+                .iter()
+                .filter_map(|r| c_string_at(rom, *r as usize))
+                .collect(),
+            has_indirect: f.has_indirect,
+        })
+        .collect();
+    (funcs, map.ranges)
+}
+
 /// Escreve o projeto recuperado em `out` e devolve o manifesto.
 pub fn write_recovered_project(
     rom: &[u8],
@@ -226,8 +340,17 @@ pub fn write_recovered_project(
         ));
     }
     std::fs::write(out.join("res/recovered.res"), res)?;
-    let ranges = coverage(&graph, rom, &library);
+    let (logic, code_ranges) = logic_skeleton(rom, &graph, &library);
+    let mut ranges = coverage(&graph, rom, &library);
     let attributed = union_len(&ranges);
+    ranges.extend(code_ranges.iter().map(|(s, e)| CoverageRange {
+        start: *s,
+        end: *e,
+        kind: "code".into(),
+        label: "descoberto".into(),
+    }));
+    ranges.sort_by_key(|c| (c.start, c.end));
+    let code_discovered: usize = code_ranges.iter().map(|(s, e)| (e - s) as usize).sum();
     let manifest = ProjectManifest {
         schema: "rex-sgdk-project/v1",
         rom_sha256: super::fingerprint::sha256_hex(rom),
@@ -239,12 +362,16 @@ pub fn write_recovered_project(
         sprite_frames: frames,
         music: graph.music.len(),
         library_functions: library.len(),
+        code_functions: logic.len(),
+        code_functions_strict: logic.iter().filter(|f| f.tier == "estrita").count(),
         attributed_bytes: attributed,
+        code_discovered_bytes: code_discovered,
         coverage_ratio: attributed as f64 / rom.len().max(1) as f64,
         ranges,
         library,
         limits: vec![
-            "código de jogo não reconhecido não é convertido em C (preservado na ROM original)",
+            "código de jogo não é convertido em C: há esqueleto (funções, chamadas, xrefs) em rex/logic.json",
+            "despacho indireto (tabelas de salto, ponteiros carregados de dados) não é seguido",
             "música XGM2, PCM avulso, fontes e mapas de nível fora de Image ainda não recuperados",
             "SPRITE usa timer do 1º quadro; timers por quadro ficam no manifesto do grafo",
         ],
@@ -256,6 +383,10 @@ pub fn write_recovered_project(
     std::fs::write(
         out.join("rex/graph.json"),
         serde_json::to_string_pretty(&graph).unwrap_or_default(),
+    )?;
+    std::fs::write(
+        out.join("rex/logic.json"),
+        serde_json::to_string_pretty(&logic).unwrap_or_default(),
     )?;
     let plan = super::rex_sgdk_rebuild::plan(rom, &graph);
     super::rex_sgdk_rebuild::write_plan(rom, &plan, out)?;
@@ -281,13 +412,20 @@ mod tests {
     #[test]
     #[ignore = "BYOR: RDS_REX_ROM, RDS_REX_OUT, RDS_LIBSIG_DICT opcional"]
     fn write_project_from_rom() {
-        let rom = std::fs::read(std::env::var("RDS_REX_ROM").unwrap()).unwrap();
+        let path = std::env::var("RDS_REX_ROM").expect("RDS_REX_ROM ausente: corpus obrigatório");
+        let rom = std::fs::read(&path).unwrap_or_else(|e| panic!("ROM {path}: {e}"));
         let dict: Option<LibSigDictionary> = std::env::var("RDS_LIBSIG_DICT")
             .ok()
             .map(|p| serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap());
-        let out = std::path::PathBuf::from(std::env::var("RDS_REX_OUT").unwrap());
+        let out =
+            std::path::PathBuf::from(std::env::var("RDS_REX_OUT").expect("RDS_REX_OUT ausente"));
         let m = write_recovered_project(&rom, dict.as_ref(), &out).unwrap();
         let rebuilt = super::super::rex_sgdk_rebuild::rebuild(&out).unwrap();
+        let sha = super::super::fingerprint::sha256_hex(&rom);
+        // Gate de conservação: no-op tem de restituir a ROM byte a byte.
+        assert_eq!(rebuilt.len(), rom.len(), "tamanho remontado diverge");
+        assert!(rebuilt == rom, "no-op não é byte-exato");
+        assert_eq!(super::super::fingerprint::sha256_hex(&rebuilt), sha);
         // Prova de edição: 1 pixel numa Image regenerada => exatamente 1 byte de tile muda.
         let plan: super::super::rex_sgdk_rebuild::RebuildPlan =
             serde_json::from_str(&std::fs::read_to_string(out.join("rex/rebuild.json")).unwrap())
@@ -299,6 +437,13 @@ mod tests {
             } if png.starts_with("res/img/") => Some((*offset, png.clone(), tiles[0].clone())),
             _ => None,
         });
+        // ROM sem Image regenerável não tem prova de edição: o chamador decide se exige.
+        let require_edit = std::env::var_os("RDS_REX_REQUIRE_EDIT").is_some();
+        let has_target = target.is_some();
+        assert!(
+            has_target || !require_edit,
+            "nenhuma Image regenerável: prova de edição ausente"
+        );
         if let Some((offset, png, src)) = target {
             let img = graph
                 .images
@@ -335,16 +480,14 @@ mod tests {
             );
             assert_eq!(diffs, vec![offset as usize + at]);
             std::fs::write(out.join(&png), original).unwrap();
+            let reverted = super::super::rex_sgdk_rebuild::rebuild(&out).unwrap();
+            assert!(reverted == rom, "reverter a edição não restituiu a ROM");
         }
+        println!("remontagem identica=true sha={sha} edicao={has_target}");
         println!(
-            "remontagem identica={} sha={}",
-            rebuilt == rom,
-            super::super::fingerprint::sha256_hex(&rebuilt)
-        );
-        println!(
-            "projeto {} images={} sprites={} frames={} music={} lib={} cobertura={:.3} ({} / {} bytes)",
-            m.header_title, m.images, m.sprites, m.sprite_frames, m.music, m.library_functions,
-            m.coverage_ratio, m.attributed_bytes, m.rom_size
+            "projeto {} images={} sprites={} frames={} music={} lib={} funcs={} (estritas {}) recursos={:.3} ({} / {} bytes) codigo_alcancado={}",
+            m.header_title, m.images, m.sprites, m.sprite_frames, m.music, m.library_functions, m.code_functions, m.code_functions_strict,
+            m.coverage_ratio, m.attributed_bytes, m.rom_size, m.code_discovered_bytes
         );
     }
 }

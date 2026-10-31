@@ -1,0 +1,425 @@
+//! Descoberta de código 68000 por descida recursiva (motor; sem nome de jogo).
+//!
+//! A partir dos vetores (reset e interrupções), segue o fluxo de controle com o
+//! decodificador de tamanho de `rex_libsig`: desvios relativos (`Bcc/BRA/BSR/DBcc`) e
+//! `JSR/JMP` com alvo estático (abs.W/abs.L/d16(PC)). Produz funções (alvos de chamada),
+//! grafo de chamadas e referências estáticas de cada função (endereços absolutos e
+//! PC-relativos usados como operando), que o chamador cruza com recursos/strings.
+//!
+//! Limites honestos: chamadas indiretas (`jsr (a0)`, tabelas de ponteiros) não são
+//! seguidas — sementes extras podem ser passadas por quem tem evidência (ex.: ponteiros
+//! de função provados). Bytes não alcançados continuam "desconhecidos".
+
+use serde::Serialize;
+use std::collections::{BTreeMap, BTreeSet};
+
+use super::rex_libsig::insn_len;
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct DiscoveredFunction {
+    pub start: u32,
+    /// Bytes de instrução alcançados a partir deste início (pode ser descontíguo).
+    pub code_bytes: u32,
+    pub calls: Vec<u32>,
+    /// Operandos estáticos (abs/PC-rel/imediato com cara de endereço) — candidatos a xref.
+    pub refs: Vec<u32>,
+    /// Termina num salto indireto não resolvido (tabela de estados/callbacks).
+    pub has_indirect: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct CodeMap {
+    pub functions: Vec<DiscoveredFunction>,
+    /// Inícios de instrução alcançados (para cobertura/desmontagem).
+    pub insn_count: usize,
+    pub code_bytes: usize,
+    /// Faixas contíguas de instruções alcançadas `[início, fim)`.
+    pub ranges: Vec<(u32, u32)>,
+    pub invalid_stops: usize,
+}
+
+fn be16(rom: &[u8], at: usize) -> Option<u16> {
+    Some(u16::from_be_bytes([*rom.get(at)?, *rom.get(at + 1)?]))
+}
+
+fn be32(rom: &[u8], at: usize) -> Option<u32> {
+    Some(u32::from_be_bytes([
+        *rom.get(at)?,
+        *rom.get(at + 1)?,
+        *rom.get(at + 2)?,
+        *rom.get(at + 3)?,
+    ]))
+}
+
+/// Alvos estáticos de uma instrução: (alvo, é_chamada, é_salto_incondicional, é_desvio).
+struct Flow {
+    len: usize,
+    branch: Option<u32>,
+    call: Option<u32>,
+    jump: Option<u32>,
+    stops: bool,
+    indirect: bool,
+    refs: Vec<u32>,
+}
+
+fn flow(rom: &[u8], pc: usize) -> Option<Flow> {
+    let shape = insn_len(rom.get(pc..)?)?;
+    let op = be16(rom, pc)?;
+    let mut refs = Vec::new();
+    for (at, n) in &shape.link_dependent {
+        let ext = pc + at;
+        let v = match n {
+            4 => be32(rom, ext)?,
+            _ => {
+                let w = be16(rom, ext)?;
+                // abs.W é sinal-estendido; d16(PC)/d8(PC,Xn) são relativos à extensão.
+                let mode = (op >> 3) & 7;
+                let reg = op & 7;
+                let src_is_pcrel = mode == 7 && (reg == 2 || reg == 3);
+                if src_is_pcrel && *at == 2 {
+                    if reg == 3 {
+                        (ext as i64 + i64::from((w & 0xFF) as u8 as i8)) as u32
+                    } else {
+                        (ext as i64 + i64::from(w as i16)) as u32
+                    }
+                } else {
+                    w as i16 as i32 as u32
+                }
+            }
+        };
+        refs.push(v & 0x00FF_FFFF);
+    }
+    let rel = shape.branch.map(|(_, _, r)| (pc as i64 + r) as u32);
+    let mut f = Flow {
+        len: shape.len,
+        branch: None,
+        call: None,
+        jump: None,
+        stops: false,
+        indirect: false,
+        refs,
+    };
+    match op {
+        0x4E75 | 0x4E73 | 0x4E77 => f.stops = true,
+        _ if op & 0xFF00 == 0x6100 => f.call = rel, // BSR
+        _ if op & 0xFF00 == 0x6000 => {
+            f.jump = rel; // BRA
+            f.stops = true;
+        }
+        _ if op >> 12 == 6 || op & 0xF0F8 == 0x50C8 => f.branch = rel, // Bcc / DBcc
+        _ if op & 0xFFC0 == 0x4E80 || op & 0xFFC0 == 0x4EC0 => {
+            let is_call = op & 0xFFC0 == 0x4E80;
+            let mode = (op >> 3) & 7;
+            let reg = op & 7;
+            let static_target = (mode == 7 && reg <= 2)
+                .then(|| f.refs.first().copied())
+                .flatten();
+            match (is_call, static_target) {
+                (true, Some(t)) => f.call = Some(t),
+                (false, Some(t)) => {
+                    f.jump = Some(t);
+                    f.stops = true;
+                }
+                (true, None) => f.indirect = true,
+                (false, None) => {
+                    f.indirect = true;
+                    f.stops = true;
+                }
+            }
+        }
+        _ => {}
+    }
+    Some(f)
+}
+
+/// Descobre código a partir de `seeds` (endereços de função). Endereços fora de
+/// `[code_lo, code_hi)` ou ímpares não são seguidos.
+pub fn discover(rom: &[u8], seeds: &[u32], code_hi: u32) -> CodeMap {
+    let in_rom =
+        |a: u32| a >= 0x200 && a < code_hi && a.is_multiple_of(2) && (a as usize) < rom.len();
+    let mut owner: BTreeMap<u32, u32> = BTreeMap::new(); // pc -> função
+    let mut funcs: BTreeMap<u32, DiscoveredFunction> = BTreeMap::new();
+    let mut fqueue: Vec<u32> = seeds.iter().copied().filter(|a| in_rom(*a)).collect();
+    let mut invalid = 0usize;
+    while let Some(start) = fqueue.pop() {
+        if funcs.contains_key(&start) {
+            continue;
+        }
+        let mut f = DiscoveredFunction {
+            start,
+            code_bytes: 0,
+            calls: Vec::new(),
+            refs: Vec::new(),
+            has_indirect: false,
+        };
+        let mut work = vec![start];
+        let mut seen = BTreeSet::new();
+        while let Some(mut pc) = work.pop() {
+            loop {
+                if !seen.insert(pc) || owner.get(&pc).is_some_and(|o| *o != start) && pc != start {
+                    break;
+                }
+                let Some(fl) = flow(rom, pc as usize) else {
+                    if std::env::var_os("RDS_FLOW_DEBUG").is_some() {
+                        eprintln!(
+                            "invalid@{pc:#x} {:02x?}",
+                            rom.get(pc as usize..pc as usize + 6)
+                        );
+                    }
+                    invalid += 1;
+                    break;
+                };
+                owner.entry(pc).or_insert(start);
+                f.code_bytes += fl.len as u32;
+                f.refs.extend(fl.refs.iter().copied());
+                f.has_indirect |= fl.indirect;
+                if let Some(t) = fl.call.filter(|t| in_rom(*t)) {
+                    f.calls.push(t);
+                    fqueue.push(t);
+                }
+                if let Some(t) = fl.branch.filter(|t| in_rom(*t)) {
+                    work.push(t);
+                }
+                if let Some(t) = fl.jump.filter(|t| in_rom(*t)) {
+                    work.push(t);
+                }
+                if fl.stops {
+                    break;
+                }
+                pc += fl.len as u32;
+            }
+        }
+        f.calls.sort_unstable();
+        f.calls.dedup();
+        f.refs.sort_unstable();
+        f.refs.dedup();
+        funcs.insert(start, f);
+    }
+    let code_bytes = funcs.values().map(|f| f.code_bytes as usize).sum();
+    let mut ranges: Vec<(u32, u32)> = Vec::new();
+    for pc in owner.keys() {
+        let len = insn_len(&rom[*pc as usize..]).map_or(2, |s| s.len) as u32;
+        match ranges.last_mut() {
+            Some((_, end)) if *end == *pc => *end = pc + len,
+            _ => ranges.push((*pc, pc + len)),
+        }
+    }
+    CodeMap {
+        insn_count: owner.len(),
+        code_bytes,
+        ranges,
+        invalid_stops: invalid,
+        functions: funcs.into_values().collect(),
+    }
+}
+
+/// Caminha linearmente a partir de `at` até um terminador (rts/rte/rtr/jmp/bra) sem
+/// opcode inválido, em no máximo `limit` bytes: forma mínima de "isto é código".
+fn walks_as_code(rom: &[u8], at: u32, limit: usize) -> bool {
+    let mut pc = at as usize;
+    let end = (at as usize + limit).min(rom.len());
+    let mut n = 0;
+    while pc < end {
+        let Some(fl) = flow(rom, pc) else {
+            return false;
+        };
+        n += 1;
+        if fl.stops {
+            return n >= 2;
+        }
+        pc += fl.len;
+    }
+    false
+}
+
+/// Segunda camada (rotulada `inferida`): ponteiros para código. Candidatos são palavras
+/// de 32 bits alinhadas em qualquer ponto da ROM (tabelas de estado/callback) e
+/// operandos de funções já descobertas, que caiam em `[0x200, code_hi)`. Aceita-se só o
+/// alvo que caminha como código, não parte uma instrução já decodificada e não cai em
+/// faixa excluída (dados recuperados).
+pub fn pointer_seeds(rom: &[u8], map: &CodeMap, code_hi: u32, exclude: &[(u32, u32)]) -> Vec<u32> {
+    let insn_starts: BTreeSet<u32> = map
+        .ranges
+        .iter()
+        .flat_map(|(s, e)| {
+            let mut v = Vec::new();
+            let mut pc = *s;
+            while pc < *e {
+                v.push(pc);
+                pc += insn_len(&rom[pc as usize..]).map_or(2, |x| x.len) as u32;
+            }
+            v
+        })
+        .collect();
+    let inside_code = |a: u32| map.ranges.iter().any(|(s, e)| a >= *s && a < *e);
+    let excluded = |a: u32| exclude.iter().any(|(s, e)| a >= *s && a < *e);
+    // Só operandos de código já descoberto (ex.: `move.l #fn,-(sp)` antes de registrar um
+    // callback). Varredura cega de palavras da ROM foi medida e rejeitada (P 0,19–0,61).
+    let cands: BTreeSet<u32> = map
+        .functions
+        .iter()
+        .flat_map(|f| f.refs.iter().copied())
+        .collect();
+    cands
+        .into_iter()
+        .filter(|a| *a >= 0x200 && *a < code_hi && a.is_multiple_of(2))
+        .filter(|a| !map.functions.iter().any(|f| f.start == *a))
+        .filter(|a| !excluded(*a))
+        .filter(|a| !inside_code(*a) || insn_starts.contains(a))
+        .filter(|a| walks_as_code(rom, *a, 4096))
+        .collect()
+}
+
+/// Descoberta completa: vetores + operandos que apontam para código, até ponto fixo.
+pub fn discover_with_operand_seeds(rom: &[u8], code_hi: u32, exclude: &[(u32, u32)]) -> CodeMap {
+    let mut seeds = vector_seeds(rom);
+    let mut map = discover(rom, &seeds, code_hi);
+    for _ in 0..16 {
+        let extra = pointer_seeds(rom, &map, code_hi, exclude);
+        if extra.is_empty() {
+            break;
+        }
+        seeds.extend(extra);
+        map = discover(rom, &seeds, code_hi);
+    }
+    map
+}
+
+/// Sementes do cabeçalho 68000: reset (vetor 1) e vetores de exceção/interrupção que
+/// apontam para a ROM.
+pub fn vector_seeds(rom: &[u8]) -> Vec<u32> {
+    (1..64)
+        .filter_map(|i| be32(rom, i * 4))
+        .filter(|a| *a >= 0x200 && (*a as usize) < rom.len() && a.is_multiple_of(2))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn follows_calls_branches_and_stops_at_returns() {
+        let mut rom = vec![0u8; 0x400];
+        rom[4..8].copy_from_slice(&0x200u32.to_be_bytes());
+        // 0x200: jsr $00000300 ; bne.s +2 ; nop ; rts
+        rom[0x200..0x20C]
+            .copy_from_slice(&[0x4E, 0xB9, 0, 0, 3, 0, 0x66, 0x02, 0x4E, 0x71, 0x4E, 0x75]);
+        // 0x300: lea $00000380,a0 ; jsr (a0) ; rts
+        rom[0x300..0x30A].copy_from_slice(&[0x41, 0xF9, 0, 0, 3, 0x80, 0x4E, 0x90, 0x4E, 0x75]);
+        let map = discover(&rom, &vector_seeds(&rom), 0x400);
+        assert_eq!(map.functions.len(), 2);
+        let main = &map.functions[0];
+        assert_eq!((main.start, main.calls.clone()), (0x200, vec![0x300]));
+        let callee = &map.functions[1];
+        assert!(callee.has_indirect, "jsr (a0) é indireto");
+        assert!(callee.refs.contains(&0x380), "lea abs.L vira referência");
+    }
+
+    #[test]
+    fn pc_relative_reference_is_resolved() {
+        let mut rom = vec![0u8; 0x400];
+        // 0x200: lea $10(pc),a0 ; rts   => alvo = 0x202 + 0x10
+        rom[0x200..0x206].copy_from_slice(&[0x41, 0xFA, 0x00, 0x10, 0x4E, 0x75]);
+        let map = discover(&rom, &[0x200], 0x400);
+        assert_eq!(map.functions[0].refs, vec![0x212]);
+    }
+
+    /// BYOR: compara inícios de função descobertos com `symbol.txt` (T/t) por projeto.
+    #[test]
+    #[ignore = "BYOR: RDS_SGDKRES_TRUTH"]
+    fn flow_function_starts_vs_truth() {
+        // Limiares congelados antes da medição (FREEZE-2026-10-31).
+        const MIN_P_STRICT: f64 = 0.95;
+        const MIN_P_OPS: f64 = 0.90;
+        let list = std::env::var("RDS_SGDKRES_TRUTH").expect("RDS_SGDKRES_TRUTH ausente");
+        let mut failures = Vec::new();
+        let mut rows = 0;
+        for line in std::fs::read_to_string(&list)
+            .unwrap_or_else(|e| panic!("{list}: {e}"))
+            .lines()
+        {
+            rows += 1;
+            let c: Vec<&str> = line.split('\t').collect();
+            let rom = std::fs::read(c[1]).unwrap_or_else(|e| panic!("{}: {e}", c[1]));
+            let truth: BTreeSet<u32> = std::fs::read_to_string(c[2])
+                .unwrap_or_else(|e| panic!("{}: {e}", c[2]))
+                .lines()
+                .filter_map(|l| {
+                    let mut it = l.split_whitespace();
+                    let a = u32::from_str_radix(it.next()?, 16).ok()?;
+                    matches!(it.next()?, "T" | "t").then_some(a)
+                })
+                .collect();
+            let map = discover(&rom, &vector_seeds(&rom), rom.len() as u32);
+            let found: BTreeSet<u32> = map.functions.iter().map(|f| f.start).collect();
+            let ok = found.intersection(&truth).count();
+            if std::env::var_os("RDS_FLOW_DEBUG").is_some() {
+                let fp: Vec<String> = found
+                    .difference(&truth)
+                    .map(|a| format!("{a:06x}"))
+                    .collect();
+                println!("fp {}: {fp:?}", c[0]);
+            }
+            println!(
+                "flow {:16} found={:5} truth={:5} ok={:5} P={:.3} R={:.3} code_bytes={} invalid={}",
+                c[0],
+                found.len(),
+                truth.len(),
+                ok,
+                ok as f64 / found.len().max(1) as f64,
+                ok as f64 / truth.len().max(1) as f64,
+                map.code_bytes,
+                map.invalid_stops
+            );
+            // Camada inferida: entrada é só a ROM e os recursos recuperados (sem vazamento
+            // do ground truth).
+            let graph = super::super::rex_sgdk_resources::recover_graph(&rom);
+            let mut exclude: Vec<(u32, u32)> = graph
+                .images
+                .iter()
+                .map(|i| {
+                    (
+                        i.tileset.stream_offset,
+                        i.tileset.stream_offset + i.tileset.stream_bytes,
+                    )
+                })
+                .collect();
+            exclude.extend(graph.music.iter().map(|m| (m.offset, m.offset + m.len)));
+            let map2 = discover_with_operand_seeds(&rom, rom.len() as u32, &exclude);
+            let found2: BTreeSet<u32> = map2.functions.iter().map(|f| f.start).collect();
+            let ok2 = found2.intersection(&truth).count();
+            println!(
+                "flow+ops {:12} found={:5} truth={:5} ok={:5} P={:.3} R={:.3} code_bytes={}",
+                c[0],
+                found2.len(),
+                truth.len(),
+                ok2,
+                ok2 as f64 / found2.len().max(1) as f64,
+                ok2 as f64 / truth.len().max(1) as f64,
+                map2.code_bytes
+            );
+            let p1 = ok as f64 / found.len().max(1) as f64;
+            let p2 = ok2 as f64 / found2.len().max(1) as f64;
+            if truth.is_empty() || found.is_empty() {
+                failures.push(format!("{}: sem funções ou sem verdade", c[0]));
+            }
+            if p1 < MIN_P_STRICT {
+                failures.push(format!("{}: P estrita {p1:.3} < {MIN_P_STRICT}", c[0]));
+            }
+            if p2 < MIN_P_OPS {
+                failures.push(format!("{}: P operandos {p2:.3} < {MIN_P_OPS}", c[0]));
+            }
+            if ok2 < ok {
+                failures.push(format!(
+                    "{}: operandos perderam funções ({ok2} < {ok})",
+                    c[0]
+                ));
+            }
+        }
+        assert!(rows > 0, "lista de verdade vazia");
+        assert!(failures.is_empty(), "limiares reprovados: {failures:#?}");
+    }
+}
