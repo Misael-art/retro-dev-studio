@@ -1,3 +1,7 @@
+### Checkpoint 2026-11-01 — planejamento de câmeras visuais (Experimental)
+
+Novo pedido autorizado: plano detalhado/tarefas, commit e PR antes da implementação, execução imediata por incrementos. Plano canônico CAM01–11 em `docs/handoffs/REAVALIACAO_PRODUTO_2026-10-24.md`, adendo “câmeras visuais”: contratos de coordenadas, câmera ativa, atualização por quadro, limites e conversão legada; cinco padrões iniciais, salas, padrões próprios/avançados e matriz MD/SNES. Reusar UGDM/editorStore/AST/emissores, sem infraestrutura concorrente. Base `6f26edd26d7cac787aa1e5b483fa010ccfb316ee`/PR112, remoto confirmado; CI Windows/Linux/desktop dessa base PASS, revisores SKIPPED. Host READY (60249508…/dd99a22f…). Nenhum código de câmera alterado neste checkpoint. Primeiro incremento: coerência e Tela fixa/Plataforma lateral, com provas de persistência e ROM; demais etapas permanecem abertas, suporte Experimental e aceite humano pendente. Não altera Decisões Consolidadas nem promove16jornadas. Evidências novas no runtime canônico `sessions/camera-workflow-20261101/`; sem merge/release/deploy.
+
 ### Checkpoint 2026-11-01 — jornada UX: importação/ROM/imagem (Experimental)
 
 Continuação do pedido UX01–09. Lote1 publicado e confirmado: `e250ba4790f0582ca13597db976acff794c0949a`, mesma raiz/branch/PR112. Lote2 publicado e confirmado no remoto: código `bc0afcf08f5761420d72cb9436cfdc1708d925fd`; fechamento documental neste incremento. Sem merge/release/deploy e sem promoção das16jornadas.
