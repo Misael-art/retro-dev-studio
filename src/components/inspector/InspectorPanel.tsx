@@ -4,6 +4,7 @@ import EditScopeBadge from "./EditScopeBadge";
 import { EntityPaletteSection, PaletteSummary } from "./PalettePanel";
 import { EntitySpriteCodeLink } from "./SpriteCodeLink";
 import HudTextInspector from "./HudTextInspector";
+import CameraConfigurator from "./CameraConfigurator";
 import AssetRenameControl from "./AssetRenameControl";
 import {
   DEFAULT_TILEMAP_LEGACY_FALLBACK_DETAIL,
@@ -466,7 +467,7 @@ function entityPropSections(entity: Entity): PropSection[] {
     });
   }
 
-  if (entity.components?.camera) {
+  if (entity.components?.camera && !entity.components.camera.visual) {
     sections.push({
       id: "camera",
       title: "Camera",
@@ -1488,6 +1489,7 @@ export default function InspectorPanel() {
               </div>
             ) : null}
             {entity.components.hud ? <HudTextInspector entity={entity} /> : null}
+            {entity.components.camera ? <div className="p-3"><CameraConfigurator entityId={entity.entity_id} /></div> : null}
             {entity.components.sprite &&
             Object.values(entity.components.sprite.animations ?? {}).some((def) => isMugenAnimation(def)) ? (
               <div

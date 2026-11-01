@@ -14,6 +14,7 @@ use crate::ugdm::entities::{Project, Scene};
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum AstNode {
+    ConfigureCamera(Box<super::camera_runtime::CompiledCamera>),
     SpriteSystemInit,
     LoadTilemap {
         resource_name: String,
@@ -931,9 +932,25 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
     let mut logic_scripts = logic_output.scripts;
     // Componente Camera com `follow_entity` passa a valer por si (antes era ignorado sem um no
     // `camera_follow` no grafo). Um no explicito continua tendo precedencia: nada e duplicado.
-    if !logic_scripts
-        .iter()
-        .any(|script| ops_follow_camera(&script.ops))
+    let visual_camera = super::camera_runtime::compile(
+        scene,
+        &sprite_var_names,
+        if project.target == "snes" { 256 } else { 320 },
+        project.fps,
+    );
+    let uses_visual = scene.entities.iter().any(|e| {
+        e.components
+            .camera
+            .as_ref()
+            .is_some_and(|c| c.visual.is_some())
+    });
+    if let Some(camera) = visual_camera {
+        nodes.insert(0, AstNode::ConfigureCamera(Box::new(camera)));
+    }
+    if !uses_visual
+        && !logic_scripts
+            .iter()
+            .any(|script| ops_follow_camera(&script.ops))
     {
         if let Some((target_var, offset_x, offset_y)) = scene.entities.iter().find_map(|entity| {
             let camera = entity.components.camera.as_ref()?;
@@ -2951,6 +2968,7 @@ pub struct UnsupportedSemantic {
 /// ordenada e deduplicada para manter o C gerado deterministico.
 pub fn collect_unsupported_semantics(ast: &AstOutput) -> Vec<UnsupportedSemantic> {
     let mut found = std::collections::BTreeSet::new();
+    found.extend(super::camera_runtime::errors(ast));
     for script in &ast.logic_scripts {
         collect_unsupported_from_ops(&script.ops, &mut found);
     }
@@ -5076,6 +5094,7 @@ mod tests {
                     transform: Transform { x: 0, y: 0 },
                     components: Components {
                         camera: Some(crate::ugdm::components::CameraComponent {
+                            visual: None,
                             follow_entity: Some("hero".to_string()),
                             offset_x: 12,
                             offset_y: 8,

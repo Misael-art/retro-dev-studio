@@ -16,6 +16,16 @@
 3. **Validavel:** Cada campo tem tipo, range e restricoes documentados. O backend Rust valida o schema antes de compilar.
 4. **Extensivel:** Novos componentes podem ser adicionados sem quebrar projetos existentes (campos opcionais com defaults).
 
+### Contrato aditivo de câmera visual v1 (Experimental, 2026-11-01)
+
+`components.camera.visual` é opcional. Ausente/null preserva o componente e os nós legados, inclusive sua interpretação anterior de offsets. Não migrar ao carregar. O editor oferece conversão explícita em uma transação de Desfazer; Cancelar não modifica a cena. O objeto conserva valores efetivos, não referências mutáveis ao catálogo de padrões. A versão aninhada1 identifica este contrato sem reescrever arquivos antigos.
+
+`active` seleciona a câmera visual inicial. Mais de uma ativa é erro de compilação, não “primeira vence”; nenhuma ativa não escolhe outra implicitamente. `pattern` inicia com fixed/platformer/exploration/auto_horizontal/auto_vertical. O catálogo só cria valores editáveis. `anchor_x/y` é um ponto estável relativo à origem mundial do alvo, independente dos quadros de animação; `screen_x/y` é seu ponto em pixels na tela. Destino desejado do canto da câmera = origem do alvo + âncora − ponto na tela + offset; antecipação horizontal acrescenta direção × look_ahead. Na inicialização, direção0 e encaixe imediato; depois, direção é a última variação horizontal não nula. `horizontal/vertical` travam/liberam eixos. Região livre é meia extensão por eixo; resposta inteira1–60 divide a distância restante, arredondando em direção a zero, com passo mínimo1 fora da região e teto `max_speed`1–256 pixels/quadro. Limites são aplicados depois do passo. Teleporte converge com o mesmo teto; alvo inexistente impede build, sem inventar substituto.
+
+`bounds` representa área visível permitida no mundo `{x,y,width,height}`. Canto limitado entre x/y e x/y+max(0,tamanho−tela); sala menor ancora na origem da área. Coordenadas inteiras limitadas a ±16000, extensões positivas e extremidades dentro desse intervalo. Tela MD320×224/SNES256×224. A sugestão do editor usa somente tilemaps/collision_map, com tela mínima quando ausentes; câmera/HUD/guias não aumentam área navegável. Isso não adiciona streaming de mapas. Mapas continuam sujeitos ao orçamento/residência do emissor e hardware profile.
+
+Automáticas usam `speed` assinado em pixels/segundo, acumulador inteiro/retenção do resto por quadro e `paused`. Prévia é temporária, não move entidades nem persiste posições simuladas. A ROM avalia a câmera uma vez após física/lógica, antes da apresentação de sprites; aplica a mesma origem aos planos compatíveis e às posições dos sprites. HUD MD usa a superfície fixa existente; HUD SNES continua explicitamente sem runtime. Comandos antigos de câmera/rolagem/paralaxe ou lógica externa não resolvida bloqueiam conversão/build visual até reconciliação, em vez de disputar silenciosamente. Qualificação por plataforma e extensões deste contrato estão no plano CAM01–11 do handoff de coesão; não inferir suporte completo pela existência destes campos.
+
 ---
 
 ## 2. ESTRUTURA DO ARQUIVO DE PROJETO (`.rds`)

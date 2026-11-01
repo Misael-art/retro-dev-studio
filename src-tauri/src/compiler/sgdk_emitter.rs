@@ -236,7 +236,8 @@ fn build_main_c_inner(
     out.push('\n');
     let has_sprite_pages = render_sprite_page_definitions(&mut out, ast);
     render_sound_id_macros(&mut out, ast);
-    let camera_follow = ast_has_camera_follow(ast);
+    let visual_camera = super::camera_runtime::find(ast).filter(|c| c.errors.is_empty());
+    let camera_follow = visual_camera.is_some() || ast_has_camera_follow(ast);
     if camera_follow {
         // Camera do mundo (Experimental): sprites e planos usam coordenadas de mundo; a tela mostra
         // mundo - camera. Limites = maior tilemap da cena (sem tilemap: so o limite inferior 0).
@@ -252,8 +253,26 @@ fn build_main_c_inner(
         };
         out.push_str("static void rds_camera_apply_scroll(void) {");
         for plane in &planes {
+            if visual_camera.is_none() {
+                out.push_str(&format!(" VDP_setHorizontalScroll({plane}, -rds_camera_x); VDP_setVerticalScroll({plane}, rds_camera_y);"));
+                continue;
+            }
+            let origin = if visual_camera.is_some() {
+                ast.nodes
+                    .iter()
+                    .filter_map(|n| match n {
+                        AstNode::DrawTilemap { x, y, .. } => Some((*x, *y)),
+                        _ => None,
+                    })
+                    .enumerate()
+                    .find(|(i, _)| tilemap_plane(*i) == *plane)
+                    .map(|(_, p)| p)
+                    .unwrap_or((0, 0))
+            } else {
+                (0, 0)
+            };
             out.push_str(&format!(
-                " VDP_setHorizontalScroll({plane}, -rds_camera_x); VDP_setVerticalScroll({plane}, rds_camera_y);"
+                " VDP_setHorizontalScroll({plane}, {x} - rds_camera_x); VDP_setVerticalScroll({plane}, rds_camera_y - {y});", x=origin.0,y=origin.1
             ));
         }
         out.push_str(" }\n#define RDS_CAMERA_SCREEN_X rds_camera_x\n#define RDS_CAMERA_SCREEN_Y rds_camera_y\n");
@@ -457,6 +476,9 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
         }
     }
 
+    if let Some(camera) = visual_camera {
+        out.push_str(&super::camera_runtime::render_definitions(camera));
+    }
     out.push_str("int main() {\n");
     if has_sprite_pages {
         out.push_str("    rds_init_sprite_pages();\n");
@@ -490,6 +512,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
     }
     for node in &ast.nodes {
         match node {
+            AstNode::ConfigureCamera(_) => {},
             AstNode::SpriteSystemInit => {
                 if managed_sprites {
                     let background_tiles = tilemap_assets
@@ -598,8 +621,8 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     resource_name,
                     tile_palette,
                     base_tile,
-                    (*x).max(0) / 8,
-                    (*y).max(0) / 8,
+                    if visual_camera.is_some() { 0 } else { (*x).max(0) / 8 },
+                    if visual_camera.is_some() { 0 } else { (*y).max(0) / 8 },
                     load_palette
                 ));
                 if let Some(asset) = tilemap_assets
@@ -620,8 +643,8 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                             offset = (value - 1) * 8,
                         ));
                     }
-                    let origin_x = (*x).max(0) / 8;
-                    let origin_y = (*y).max(0) / 8;
+                    let origin_x = if visual_camera.is_some() { 0 } else { (*x).max(0) / 8 };
+                    let origin_y = if visual_camera.is_some() { 0 } else { (*y).max(0) / 8 };
                     let total =
                         (asset.map_width as usize).saturating_mul(asset.map_height as usize);
                     for (index, value) in asset.cells.iter().copied().enumerate().take(total) {
@@ -872,8 +895,16 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     &collect_logic_var_names(ast),
                     8,
                 ));
+                if visual_camera.is_some() {
+                    out.push_str("        rds_visual_camera_tick();\n        rds_camera_apply_scroll();\n");
+                }
                 if managed_sprites {
                     out.push_str("        rds_sync_sprite_residency();\n");
+                }
+                if visual_camera.is_some() {
+                    for (var, _, _) in collect_sprite_position_vars(ast) {
+                        out.push_str(&format!("        SPR_setPosition({var}, {var}_x, {var}_y);\n"));
+                    }
                 }
                 out.push_str("        SPR_update();\n");
             }

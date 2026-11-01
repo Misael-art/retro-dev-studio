@@ -1,5 +1,6 @@
 import type { Entity, Scene } from "./ipc/sceneService";
 import { getEntityDisplayName } from "./entityDisplay";
+import { activeVisualCamera, sampleCamera } from "./cameraWorkflow";
 
 export type SceneViewportFrame = {
   width: number;
@@ -79,6 +80,11 @@ export function getSceneEntityBounds(
 
   if (entity.components?.camera) {
     const frame = getSceneViewportFrame(target);
+    if (entity.components.camera.visual) {
+      const followed = entities.find(e => e.entity_id === entity.components.camera?.follow_entity && e.components?.sprite);
+      const position = sampleCamera(entity.components.camera, entity.transform, followed?.transform ?? null, target);
+      return { x: position.x, y: position.y, ...frame, resizable: false };
+    }
     const offsetX = entity.components.camera.offset_x ?? 0;
     const offsetY = entity.components.camera.offset_y ?? 0;
     const followedEntity =
@@ -157,6 +163,8 @@ export function resolveSceneWorldMetrics(
   let tilemapWorldSize: { width: number; height: number } | null = null;
   let collisionWorldSize: { width: number; height: number } | null = null;
   let camera: SceneWorldCameraFrame | null = null;
+  const visual = scene ? activeVisualCamera(scene) : undefined;
+  const usesVisual = scene?.entities.some(e => e.components?.camera?.visual) ?? false;
 
   if (scene?.collision_map) {
     const collisionWidth = scene.collision_map.width * scene.collision_map.tile_width;
@@ -167,7 +175,9 @@ export function resolveSceneWorldMetrics(
 
   for (const entity of scene?.entities ?? []) {
     const entityBounds = getSceneEntityBounds(entity, target, scene?.entities ?? []);
-    bounds = unionBounds(bounds, entityBounds);
+    if (!usesVisual || (!entity.components?.camera && !entity.components?.hud)) {
+      bounds = unionBounds(bounds, entityBounds);
+    }
 
     if (entity.components?.tilemap) {
       const area = entityBounds.width * entityBounds.height;
@@ -181,7 +191,7 @@ export function resolveSceneWorldMetrics(
       }
     }
 
-    if (!camera && entity.components?.camera) {
+    if (!camera && entity.components?.camera && (!usesVisual || visual?.entity_id === entity.entity_id)) {
       const focusX = entityBounds.x + entityBounds.width / 2;
       const focusY = entityBounds.y + entityBounds.height / 2;
       camera = {

@@ -4523,6 +4523,7 @@ fn import_sgdk_resources_into_scene(
             transform: crate::ugdm::entities::Transform { x: 0, y: 0 },
             components: Components {
                 camera: Some(CameraComponent {
+                    visual: None,
                     follow_entity: Some(follow_entity),
                     offset_x: 0,
                     offset_y: 0,
@@ -5977,6 +5978,7 @@ fn platformer_camera_prefab() -> Entity {
         transform: crate::ugdm::entities::Transform { x: 0, y: 0 },
         components: Components {
             camera: Some(CameraComponent {
+                visual: None,
                 follow_entity: Some("player".to_string()),
                 offset_x: 0,
                 offset_y: 0,
@@ -8064,6 +8066,7 @@ fn import_mugen_character_with_review(
         transform: crate::ugdm::entities::Transform { x: 0, y: 0 },
         components: Components {
             camera: Some(CameraComponent {
+                visual: None,
                 follow_entity: Some(entity_id),
                 offset_x: 0,
                 offset_y: 0,
@@ -15532,6 +15535,7 @@ fn imported_camera_entity(
         transform: crate::ugdm::entities::Transform { x: 0, y: 0 },
         components: Components {
             camera: Some(CameraComponent {
+                visual: None,
                 follow_entity,
                 offset_x: 0,
                 offset_y: 0,
@@ -16266,6 +16270,7 @@ fn reference_camera_prefab() -> Entity {
         transform: Transform { x: 0, y: 0 },
         components: Components {
             camera: Some(CameraComponent {
+                visual: None,
                 follow_entity: Some("player".to_string()),
                 // Canto da camera = jogador - meia tela: o jogador fica perto do centro.
                 offset_x: -152,

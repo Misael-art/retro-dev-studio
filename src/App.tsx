@@ -4721,6 +4721,7 @@ export default function App() {
                   x: entity.transform.x,
                   y: entity.transform.y,
                   spriteAsset: entity.components.sprite?.asset ?? null,
+                  camera: entity.components.camera ? structuredClone(entity.components.camera) : null,
                   tilemap: entity.components.tilemap
                     ? {
                         tileset: entity.components.tilemap.tileset,

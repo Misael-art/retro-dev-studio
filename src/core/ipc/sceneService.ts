@@ -218,6 +218,33 @@ export interface CameraComponent {
   follow_entity?: string;
   offset_x?: number;
   offset_y?: number;
+  /** Absent = legacy behavior. Conversion is an explicit editor transaction. */
+  visual?: VisualCameraConfig | null;
+}
+
+export type CameraPattern = "fixed" | "platformer" | "exploration" | "auto_horizontal" | "auto_vertical";
+export interface CameraArea { x: number; y: number; width: number; height: number }
+export interface VisualCameraConfig {
+  version: 1;
+  active: boolean;
+  pattern: CameraPattern;
+  anchor_x: number;
+  anchor_y: number;
+  screen_x: number;
+  screen_y: number;
+  horizontal: boolean;
+  vertical: boolean;
+  /** Integer response divisor: 1 = immediate. Frame rate follows the project. */
+  response_x: number;
+  response_y: number;
+  dead_zone_x: number;
+  dead_zone_y: number;
+  look_ahead: number;
+  max_speed: number;
+  /** Signed pixels per second; runtime retains subpixel remainder. */
+  speed: number;
+  paused: boolean;
+  bounds: CameraArea;
 }
 
 export interface TilemapComponent {

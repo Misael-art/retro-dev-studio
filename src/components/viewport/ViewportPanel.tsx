@@ -1,4 +1,5 @@
 import Icon, { type IconName } from "../common/Icon";
+import CameraConfigurator from "../inspector/CameraConfigurator";
 import { hudBand } from "../../core/hudText";
 import { isPpmPath, loadProjectPpmImageData } from "../../core/ppmImage";
 import { loadShellPersona } from "../../core/surfaceRegistry";
@@ -4725,10 +4726,11 @@ export default function ViewportPanel({
                 type="button"
                 onClick={centerViewportOnCamera}
                 className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#f9e2af] transition-colors hover:border-[#f9e2af]"
-                title="Centralizar camera/janela MD visivel"
+                title="Enquadrar a janela do jogador no editor"
               >
-                Camera
+                Enquadrar câmera
               </button>
+              <CameraConfigurator />
               <button
                 type="button"
                 onClick={resetSceneView}

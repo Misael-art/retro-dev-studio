@@ -1,6 +1,7 @@
 pub mod ast_generator;
 pub mod build_orch;
 pub mod build_provenance;
+pub mod camera_runtime;
 pub mod hud_runtime;
 pub mod mugen_runtime;
 pub mod palette_plan;

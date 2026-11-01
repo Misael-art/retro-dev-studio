@@ -868,6 +868,7 @@ mod tests {
             transform: Transform { x: 0, y: 0 },
             components: Components {
                 camera: Some(crate::ugdm::components::CameraComponent {
+                    visual: None,
                     follow_entity: None,
                     offset_x: 0,
                     offset_y: 0,

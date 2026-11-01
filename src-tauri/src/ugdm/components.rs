@@ -483,11 +483,44 @@ pub struct LogicComponent {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CameraComponent {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visual: Option<VisualCameraConfig>,
     pub follow_entity: Option<String>,
     #[serde(default, deserialize_with = "deserialize_f64_to_i32")]
     pub offset_x: i32,
     #[serde(default, deserialize_with = "deserialize_f64_to_i32")]
     pub offset_y: i32,
+}
+
+/// Effective values, never a live reference to the editor's preset catalog.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct VisualCameraConfig {
+    pub version: u8,
+    pub active: bool,
+    pub pattern: String,
+    pub anchor_x: i32,
+    pub anchor_y: i32,
+    pub screen_x: i32,
+    pub screen_y: i32,
+    pub horizontal: bool,
+    pub vertical: bool,
+    pub response_x: i32,
+    pub response_y: i32,
+    pub dead_zone_x: i32,
+    pub dead_zone_y: i32,
+    pub look_ahead: i32,
+    pub max_speed: i32,
+    pub speed: i32,
+    pub paused: bool,
+    pub bounds: CameraArea,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CameraArea {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
 }
 
 // ── Tilemap ───────────────────────────────────────────────────────────────────
