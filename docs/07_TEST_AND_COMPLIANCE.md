@@ -1,6 +1,6 @@
 # 07 - COMPLIANCE LEGAL & ARQUITETURA DE TESTES
 **Status:** Definitivo
-**Ultima revisao:** 2026-07-13 (NodeGraph build provenance v1 e limites de prova oficial)
+**Ultima revisao:** 2026-11-01 (câmeras visuais e referência cruzada de CPU)
 
 > Este documento existe para impedir duas classes de falha:
 > 1. Violacao de IP/licenca.
@@ -36,6 +36,9 @@
 - `cargo clippy -- -D warnings` protege o baseline de qualidade do backend Rust.
 
 ### 2.2 Unitarios
+- Câmeras visuais: `compiler::camera_runtime` executa trajetórias do C gerado com tipos fixos e avisos tratados como erro. O roteiro existente `scripts/e2e-tauri-build-run.mjs --scenario camera-workflow` cobre os cinco padrões iniciais/suavidade no Tauri/MD; `--scenario camera-advanced` cobre biblioteca/salas/combate/arena/percurso/eventos/paralaxe. `RDS_CAMERA_TARGET=snes` seleciona a matriz SNES; `RDS_CAMERA_OUTPUT` define o destino oficial das evidências. Usar launcher/ambiente gerenciado e uma operação pesada por vez.
+- `scripts/camera-runtime-reference.mjs --reference-dir <recibos-C-Rust> --snes-build-dir <build-autoral-preservado> --sdk <PVSnesLib-oficial> --output <runtime>` verifica SHA dos C de referência aprovados, executa os oráculos no compilador C do host e constrói probes pela SDK. `RDS_CAMERA_REFERENCE_MANIFEST=<manifest.json>` com o cenário `camera-advanced`/SNES carrega esses probes no core real e compara todos os valores observados. É diagnóstico de CPU, com largura lógica de referência320; não aprova a interface, a tela SNES256 nem atualização por VBlank. A qualificação exige também a jornada visual normal. Não substituir SDK, relaxar comparação ou contar um relatório `diagnostic` como aceite de produto.
+- Regressões de câmera devem preservar a inicialização explícita antes do loop e a ordem movimento→câmera→apresentação. No compilador816-tcc pinado, expressões booleanas compostas com comparações largas produziram saltos incorretos e funções grandes excederam endereçamento local8bit. O template compartilhado usa guardas simples/funções pequenas; referência no host isoladamente não protege esse contrato. Preservar C/assembler/ROM/símbolos/recibos de falhas, sem publicar ROMs ou binários no Git.
 - Frontend: Vitest (`vite.config.ts`: `pool=forks`, `maxWorkers=1`, `fileParallelism=false`, timeouts 120s). Evita esgotamento de workers `threads` apos suites pesadas (`App.test.tsx`, `ArtStudioPanel`, `NodeGraphEditor`). Baseline pos-integracao `codex/full-product-cohesion-integration`: **350** testes.
 - Backend: `cargo test --lib -- --nocapture --test-threads=1`.
 - Cobrir parser/schema, hardware profiles, framebuffer, dependency manager e fluxos de editor sensiveis.

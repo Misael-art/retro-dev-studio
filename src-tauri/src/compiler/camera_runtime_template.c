@@ -23,7 +23,7 @@ static u16 rds_cam_offset_left[RDS_VISUAL_CAMERA_COUNT],rds_cam_shake_left[RDS_V
 
 /* RDS_CAMERA_DATA */
 
-static s32 rds_cam_clamp(s32 n,s32 lo,s32 hi){return n<lo?lo:(n>hi?hi:n);}
+static s32 rds_cam_clamp(s32 n,s32 lo,s32 hi){if(n<lo)return lo;if(n>hi)return hi;return n;}
 static s32 rds_cam_approach(s32 from,s32 to,s32 dead,s32 response,s32 speed){
     s32 diff=to-from,distance=diff<0?-diff:diff,step;
     distance-=dead;if(distance<=0)return from;step=distance/response;if(step<1)step=1;if(step>speed)step=speed;
@@ -32,20 +32,24 @@ static s32 rds_cam_approach(s32 from,s32 to,s32 dead,s32 response,s32 speed){
 static u16 rds_cam_target(const RdsCameraConfig *c,s32 *tx,s32 *ty,u16 *separated){
     s32 minx,maxx,miny,maxy,px,py;u16 i;
     *tx=c->tx?*c->tx:0;*ty=c->ty?*c->ty:0;*separated=0;
-    if(c->pattern!=7){return c->tx&&c->ty;}
+    if(c->pattern!=7){if(c->tx==0)return 0;if(c->ty==0)return 0;return 1;}
     if(!c->target_count){return 0;}
     minx=maxx=*rds_cam_targets[c->target_start].x;miny=maxy=*rds_cam_targets[c->target_start].y;
     for(i=1;i<c->target_count;i++){
         px=*rds_cam_targets[c->target_start+i].x;py=*rds_cam_targets[c->target_start+i].y;
         if(px<minx){minx=px;}if(px>maxx){maxx=px;}if(py<miny){miny=py;}if(py>maxy){maxy=py;}
     }
-    *tx=(minx+maxx)/2;*ty=(miny+maxy)/2;*separated=(maxx-minx>RDS_VISUAL_CAMERA_WIDTH||maxy-miny>224);
+    *tx=(minx+maxx)/2;*ty=(miny+maxy)/2;
+    if(maxx-minx>RDS_VISUAL_CAMERA_WIDTH)*separated=1;
+    if(maxy-miny>224)*separated=1;
     return 1;
 }
 static void rds_cam_reset(u16 index,u16 smooth){
     const RdsCameraConfig *c=&rds_cam_configs[index];
     s32 tx,ty;u16 separated;
-    rds_cam_initialized=(smooth&&rds_cam_initialized)?1:0;rds_cam_switching=rds_cam_initialized;
+    if(smooth==0)rds_cam_initialized=0;
+    else if(rds_cam_initialized!=0)rds_cam_initialized=1;
+    rds_cam_switching=rds_cam_initialized;
     rds_camera_active=index;rds_camera_room=-1;rds_cam_direction=0;rds_cam_remainder=0;rds_cam_furthest=-16000;
     rds_cam_target(c,&tx,&ty,&separated);rds_cam_previous_x=tx;rds_cam_path_index=0;rds_cam_path_tick=0;rds_cam_path_fresh=1;
     rds_cam_path_from_x=rds_cam_initialized?rds_camera_base_x:(s32)c->x+c->ox;
@@ -53,7 +57,8 @@ static void rds_cam_reset(u16 index,u16 smooth){
 }
 /* Actions: select, regions, pause, resume, shake, offset, restart. Durations count game frames. */
 static void rds_visual_camera_control(s16 index,s16 action,u16 frames,s16 x,s16 y){
-    if(index<0||index>=RDS_VISUAL_CAMERA_COUNT)return;
+    if(index<0)return;
+    if(index>=RDS_VISUAL_CAMERA_COUNT)return;
     switch(action){
     case 0:rds_cam_manual=1;if(index!=rds_camera_active)rds_cam_reset(index,rds_cam_configs[index].smooth);break;
     case 1:rds_cam_manual=0;break;
@@ -71,8 +76,28 @@ static const RdsCameraPoint *rds_cam_point;
 static s32 rds_cam_tx,rds_cam_ty,rds_cam_cx,rds_cam_cy,rds_cam_dx,rds_cam_dy,rds_cam_px,rds_cam_py;
 static s16 rds_cam_cut;
 
+/* Own lifecycle initialization: target scratch RAM may contain power-on data. */
+static void rds_visual_camera_init(void){
+    u16 i;
+    rds_cam_initialized=0;rds_camera_active=RDS_VISUAL_CAMERA_INITIAL;
+    rds_camera_x=0;rds_camera_y=0;rds_camera_base_x=0;rds_camera_base_y=0;
+    rds_camera_paused=0;rds_camera_separated=0;rds_camera_room=-1;
+    rds_cam_manual=0;rds_cam_switching=0;rds_cam_previous_x=0;rds_cam_direction=0;rds_cam_remainder=0;rds_cam_furthest=-16000;
+    rds_cam_path_index=0;rds_cam_path_fresh=1;rds_cam_path_tick=0;rds_cam_path_from_x=0;rds_cam_path_from_y=0;
+    rds_cam_current=0;rds_cam_point=0;rds_cam_tx=0;rds_cam_ty=0;rds_cam_cx=0;rds_cam_cy=0;
+    rds_cam_dx=0;rds_cam_dy=0;rds_cam_px=0;rds_cam_py=0;rds_cam_cut=0;
+    for(i=0;i<RDS_VISUAL_CAMERA_COUNT;i++){
+        rds_cam_offset_x[i]=0;rds_cam_offset_y[i]=0;rds_cam_shake_x[i]=0;rds_cam_shake_y[i]=0;
+        rds_cam_offset_left[i]=0;rds_cam_shake_left[i]=0;rds_cam_pauses[i]=rds_cam_configs[i].paused;
+    }
+    for(i=0;i<2;i++){rds_camera_ratio_x[i]=100;rds_camera_ratio_y[i]=100;}
+}
 static u16 rds_cam_contains(s32 x,s32 y,s32 left,s32 top,s32 width,s32 height){
-    return x>=left&&x<left+width&&y>=top&&y<top+height;
+    if(x<left)return 0;
+    if(x>=left+width)return 0;
+    if(y<top)return 0;
+    if(y>=top+height)return 0;
+    return 1;
 }
 static void rds_cam_regions(void){
     s16 best=-1,priority=-16001;u16 i,separated;s32 tx,ty;
@@ -80,10 +105,16 @@ static void rds_cam_regions(void){
     if(rds_cam_manual)return;
     for(i=0;i<RDS_VISUAL_CAMERA_COUNT;i++){
         c=&rds_cam_configs[i];
-        if(!c->has_region||!rds_cam_target(c,&tx,&ty,&separated))continue;
-        if(rds_cam_contains(tx+c->ax,ty+c->ay,c->region_x,c->region_y,c->region_w,c->region_h)&&c->priority>priority){best=i;priority=c->priority;}
+        /* Separate guards preserve 816-tcc's branch direction for the zero case. */
+        if(c->has_region==0)continue;
+        if(rds_cam_target(c,&tx,&ty,&separated)==0)continue;
+        if(rds_cam_contains(tx+c->ax,ty+c->ay,c->region_x,c->region_y,c->region_w,c->region_h)==0)continue;
+        if(c->priority<=priority)continue;
+        best=i;priority=c->priority;
     }
-    if(best>=0&&best!=rds_camera_active)rds_cam_reset(best,rds_cam_configs[best].smooth);
+    if(best<0)return;
+    if(best==rds_camera_active)return;
+    rds_cam_reset(best,rds_cam_configs[best].smooth);
 }
 static void rds_cam_desired(void){
     const RdsCameraConfig *c=rds_cam_current;
@@ -100,8 +131,10 @@ static void rds_cam_room(void){
     if(room<0)room=rds_camera_room;
     if(room<0)return;
     r=&rds_cam_rooms[room];
-    if(room!=rds_camera_room&&!r->smooth&&!rds_cam_switching)rds_cam_cut=1;
-    if(room!=rds_camera_room)rds_cam_switching=0;
+    if(room!=rds_camera_room){
+        if(r->smooth==0){if(rds_cam_switching==0)rds_cam_cut=1;}
+        rds_cam_switching=0;
+    }
     rds_camera_room=room;
     rds_cam_dx=rds_cam_clamp(rds_cam_dx,r->x,(s32)r->x+(r->width>RDS_VISUAL_CAMERA_WIDTH?r->width-RDS_VISUAL_CAMERA_WIDTH:0));
     rds_cam_dy=rds_cam_clamp(rds_cam_dy,r->y,(s32)r->y+(r->height>224?r->height-224:0));
@@ -109,15 +142,19 @@ static void rds_cam_room(void){
 static void rds_cam_follow_x(void){
     const RdsCameraConfig *c=rds_cam_current;
     if(c->horizontal)rds_cam_cx=rds_cam_cut?rds_cam_dx:rds_cam_approach(rds_cam_cx,rds_cam_dx,c->dead_x,c->response_x,c->max_speed);
-    if(c->pattern==6&&!c->backtracking&&rds_cam_cx<rds_cam_furthest)rds_cam_cx=rds_cam_furthest;
+    if(c->pattern!=6)return;
+    if(c->backtracking!=0)return;
+    if(rds_cam_cx<rds_cam_furthest)rds_cam_cx=rds_cam_furthest;
 }
 static void rds_cam_follow_y(void){
     const RdsCameraConfig *c=rds_cam_current;
     if(c->vertical)rds_cam_cy=rds_cam_cut?rds_cam_dy:rds_cam_approach(rds_cam_cy,rds_cam_dy,c->dead_y,c->response_y,c->max_speed);
 }
 static void rds_cam_follow(void){
-    if(rds_cam_initialized&&rds_cam_tx!=rds_cam_previous_x)rds_cam_direction=rds_cam_tx>rds_cam_previous_x?1:-1;
-    rds_cam_desired();rds_cam_cut=!rds_cam_initialized;
+    if(rds_cam_initialized!=0){
+        if(rds_cam_tx!=rds_cam_previous_x)rds_cam_direction=rds_cam_tx>rds_cam_previous_x?1:-1;
+    }
+    rds_cam_desired();rds_cam_cut=rds_cam_initialized==0;
     if(rds_cam_current->pattern==5)rds_cam_room();
     rds_cam_follow_x();rds_cam_follow_y();
 }
@@ -126,7 +163,9 @@ static void rds_cam_fixed(void){
     rds_cam_dx=(s32)c->x+c->ox;rds_cam_dy=(s32)c->y+c->oy;
     rds_cam_cx=rds_cam_switching?rds_cam_approach(rds_cam_cx,rds_cam_dx,0,c->response_x,c->max_speed):rds_cam_dx;
     rds_cam_cy=rds_cam_switching?rds_cam_approach(rds_cam_cy,rds_cam_dy,0,c->response_y,c->max_speed):rds_cam_dy;
-    if(rds_cam_cx==rds_cam_dx&&rds_cam_cy==rds_cam_dy)rds_cam_switching=0;
+    if(rds_cam_cx!=rds_cam_dx)return;
+    if(rds_cam_cy!=rds_cam_dy)return;
+    rds_cam_switching=0;
 }
 static s32 rds_cam_lerp(s32 from,s32 to,s32 frames,s32 tick){
     if(!frames)return to;
@@ -143,14 +182,18 @@ static void rds_cam_path_advance(void){
     const RdsCameraConfig *c=rds_cam_current;const RdsCameraPoint *p=rds_cam_point;
     if(rds_cam_path_tick<p->frames+p->wait)return;
     rds_cam_path_index++;rds_cam_path_tick=0;rds_cam_path_from_x=rds_cam_px;rds_cam_path_from_y=rds_cam_py;
-    rds_cam_path_fresh=(rds_cam_path_index<c->path_count&&rds_cam_points[c->path_start+rds_cam_path_index].frames==0);
+    rds_cam_path_fresh=0;
+    if(rds_cam_path_index<c->path_count){
+        if(rds_cam_points[c->path_start+rds_cam_path_index].frames==0)rds_cam_path_fresh=1;
+    }
 }
 static u16 rds_cam_path_step(void){
     const RdsCameraConfig *c=rds_cam_current;
-    if(c->pattern!=8||rds_cam_path_index>=c->path_count)return 0;
+    if(c->pattern!=8)return 0;
+    if(rds_cam_path_index>=c->path_count)return 0;
     if(!rds_camera_paused){
         rds_cam_point=&rds_cam_points[c->path_start+rds_cam_path_index];
-        if(rds_cam_initialized&&!rds_cam_path_fresh)rds_cam_path_tick++;
+        if(rds_cam_initialized!=0){if(rds_cam_path_fresh==0)rds_cam_path_tick++;}
         rds_cam_path_fresh=0;rds_cam_path_move();rds_cam_path_advance();
     }
     return 1;
@@ -159,8 +202,8 @@ static void rds_cam_auto(void){
     const RdsCameraConfig *c=rds_cam_current;s32 step;
     if(!rds_cam_initialized)return;
     rds_cam_remainder+=c->speed;step=rds_cam_remainder/RDS_VISUAL_CAMERA_FPS;rds_cam_remainder-=step*RDS_VISUAL_CAMERA_FPS;
-    if(c->pattern==3&&c->horizontal)rds_cam_cx+=step;
-    if(c->pattern==4&&c->vertical)rds_cam_cy+=step;
+    if(c->pattern==3){if(c->horizontal!=0)rds_cam_cx+=step;}
+    if(c->pattern==4){if(c->vertical!=0)rds_cam_cy+=step;}
 }
 static void rds_cam_base(void){
     const RdsCameraConfig *c=rds_cam_current;
@@ -181,7 +224,17 @@ static void rds_cam_present(void){
 }
 static u16 rds_cam_follows(void){
     s16 p=rds_cam_current->pattern;
-    return p==1||p==2||p==5||p==6||p==7||(p==8&&rds_cam_current->return_target);
+    switch(p){case 1:case 2:case 5:case 6:case 7:return 1;case 8:return rds_cam_current->return_target;default:return 0;}
+}
+static void rds_cam_motion(void){
+    const RdsCameraConfig *c=rds_cam_current;
+    if(c->pattern==0){rds_cam_fixed();return;}
+    if(rds_cam_follows()!=0){
+        if(c->pattern==7){rds_cam_follow();return;}
+        if(c->tx!=0){rds_cam_follow();return;}
+    }
+    if(c->pattern==3){rds_cam_auto();return;}
+    if(c->pattern==4)rds_cam_auto();
 }
 static void rds_visual_camera_tick(void){
     u16 separated,path_active;
@@ -193,11 +246,7 @@ static void rds_visual_camera_tick(void){
     rds_cam_cy=rds_cam_initialized?rds_camera_base_y:(s32)c->y+c->oy;
     if(!rds_cam_initialized){rds_cam_path_from_x=rds_cam_cx;rds_cam_path_from_y=rds_cam_cy;}
     path_active=rds_cam_path_step();
-    if(!rds_camera_paused&&!path_active){
-        if(c->pattern==0)rds_cam_fixed();
-        else if(rds_cam_follows()&&(c->tx||c->pattern==7))rds_cam_follow();
-        else if(c->pattern==3||c->pattern==4)rds_cam_auto();
-    }
+    if(rds_camera_paused==0){if(path_active==0)rds_cam_motion();}
     rds_cam_base();rds_cam_effects();rds_cam_present();
     rds_cam_previous_x=rds_cam_tx;rds_cam_initialized=1;
 }

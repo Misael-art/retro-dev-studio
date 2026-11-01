@@ -857,6 +857,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 out.push_str("    }\n");
                 out.push_str("    SYS_doVBlankProcess();\n");
                 out.push_str("#endif\n");
+                if visual_camera.is_some() { out.push_str("    rds_visual_camera_init();\n"); }
                 out.push_str("\n    while (TRUE) {\n");
             }
             AstNode::SpriteUpdate => {

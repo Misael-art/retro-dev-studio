@@ -442,6 +442,16 @@ mod tests {
             };
             assert!(!c.contains("#error"), "{c}");
             assert_eq!(c.matches("rds_visual_camera_tick();").count(), 1);
+            assert_eq!(c.matches("rds_visual_camera_init();").count(), 1);
+            assert!(
+                c.find("rds_visual_camera_init();").unwrap()
+                    < c.find(if target == "snes" {
+                        "while (1)"
+                    } else {
+                        "while (TRUE)"
+                    })
+                    .unwrap()
+            );
             let tick = c.find("rds_visual_camera_tick();").unwrap();
             let render = c
                 .rfind(if target == "snes" {
@@ -763,7 +773,7 @@ mod tests {
             )
             .unwrap();
             assert!(program.errors.is_empty(), "{}", program.errors.join("; "));
-            let source=format!("#include <assert.h>\n#include <stdint.h>\ntypedef int16_t s16;typedef uint16_t u16;typedef int32_t s32;\ns16 spr_hero_x=400,spr_hero_y=200,spr_other_x=800,spr_other_y=200;\nstatic volatile s16 rds_camera_x=0,rds_camera_y=0;\nstatic s16 rds_camera_ratio_x[2],rds_camera_ratio_y[2];\n{}\nint main(void){{{body}\nreturn 0;}}\n",render_definitions(&program));
+            let source=format!("#include <assert.h>\n#include <stdint.h>\ntypedef int16_t s16;typedef uint16_t u16;typedef int32_t s32;\ns16 spr_hero_x=400,spr_hero_y=200,spr_other_x=800,spr_other_y=200;\nstatic volatile s16 rds_camera_x=0,rds_camera_y=0;\nstatic s16 rds_camera_ratio_x[2],rds_camera_ratio_y[2];\n{}\nint main(void){{rds_cam_offset_left[0]=0x5555;rds_cam_shake_left[0]=0x5555;rds_camera_active=99;rds_visual_camera_init();assert(rds_cam_offset_left[0]==0&&rds_cam_shake_left[0]==0);\n{body}\nreturn 0;}}\n",render_definitions(&program));
             let c = dir.join(format!("{name}.c"));
             let exe = dir.join(name);
             fs::write(&c, &source).unwrap();

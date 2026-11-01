@@ -15091,6 +15091,8 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
     for(let y=0;y<8;y++)for(let x=0;x<32;x++)pixels.set(colors[(Math.floor(x/8)+(x%8===0||y===0?1:0))%4],(y*32+x)*3);
     await mkdir(path.dirname(path.join(project,tileset)),{recursive:true});await writeFile(path.join(project,tileset),Buffer.concat([Buffer.from("P6\n32 8\n255\n"),pixels]));
     player.transform={x:200,y:200};player.display_name="Herói";player.components={sprite:player.components.sprite};
+    // Static idle isolates screen anchoring from the character's changing silhouette.
+    player.components.sprite.animations={...player.components.sprite.animations,idle:{frames:[0],fps:1,loop:true}};
     const other={...structuredClone(player),entity_id:"other",display_name:"Parceiro",transform:{x:400,y:200}};
     const bounds={x:0,y:0,width:512,height:512};
     const fixed={version:1,active:false,pattern:"fixed",anchor_x:0,anchor_y:0,screen_x:128,screen_y:112,horizontal:true,vertical:true,response_x:1,response_y:1,dead_zone_x:0,dead_zone_y:0,look_ahead:0,max_speed:256,speed:60,paused:false,bounds};
@@ -15122,6 +15124,36 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
     await waitFor(async()=>((await state())?.activeScene?.entities??[]).some(e=>e.id==="other"),30000,"Fixture nao abriu.",100);
     await cp(project,path.join(output,"authored-project"),{recursive:true,filter:p=>!path.relative(project,p).split(path.sep).includes("build")});
     step("authored_fixture",{preparation:"Shipped sprite; generated resident map; graph input events; temporary WRAM positions use canonical epoch guard. No commercial ROM."});
+    if(process.env.RDS_CAMERA_REFERENCE_MANIFEST){
+      if(target!=="snes")fail("Referencia cruzada exige SNES.");
+      const plan=JSON.parse(await readFile(process.env.RDS_CAMERA_REFERENCE_MANIFEST,"utf8"));report.reference={template_sha256:plan.template_sha256,logical_width:plan.logical_width,fields:plan.fields,cases:[]};
+      for(const test of plan.cases){
+        if(!await js("return window.__RDS_E2E__.loadRomForEmulation(arguments[0],{startPaused:true});",[test.rom]))fail("Referencia nao carregou.");
+        const ran=await invoke("emulator_run_frames",{frames:180});if(!ran.ok)fail(JSON.stringify(ran));
+        const symbols=new Map((await readFile(test.sym,"utf8")).split(/\r?\n/).flatMap(line=>{const m=line.match(/^([\da-f]+)\s+\S*\.asm_(probe_count|probe_samples)$/i);return m?[[m[2],parseInt(m[1],16)-0x7e0000]]:[];}));
+        if(symbols.size!==2)fail("Marcadores de referencia ausentes.");
+        const countBytes=(await invoke("emulator_read_memory",{region:2,offset:symbols.get("probe_count"),length:2})).data;
+        const count=countBytes?.[0]|countBytes?.[1]<<8;if(count!==test.expected.length){report.reference.cases.push({name:test.name,count,expected_count:test.expected.length,matches:false});continue;}
+        const data=(await invoke("emulator_read_memory",{region:2,offset:symbols.get("probe_samples"),length:count*plan.fields.length*2})).data;
+        const bytes=Buffer.from(data),actual=Array.from({length:count},(_,row)=>plan.fields.map((_,col)=>bytes.readInt16LE((row*plan.fields.length+col)*2)));
+        const matches=JSON.stringify(actual)===JSON.stringify(test.expected);
+        report.reference.cases.push({name:test.name,source_sha256:test.source_sha256,rom_sha256:createHash('sha256').update(await readFile(test.rom)).digest('hex'),actual,expected:test.expected,matches});
+        if(matches)step(`cpu_reference_${test.name}`,{samples:count});
+      }
+      const failures=report.reference.cases.filter(c=>!c.matches);if(failures.length)fail(`Divergencia de CPU: ${failures.map(c=>c.name).join(', ')}. Valores completos no relatorio.`);
+      report.status="diagnostic";report.reference.passed=true;return;
+    }
+    if(process.env.RDS_CAMERA_PROBE_ROM&&process.env.RDS_CAMERA_PROBE_SYM){
+      if(target!=="snes")fail("Probe de SDK exige SNES.");
+      const rom=process.env.RDS_CAMERA_PROBE_ROM,sym=process.env.RDS_CAMERA_PROBE_SYM;
+      const loaded=await js("return window.__RDS_E2E__.loadRomForEmulation(arguments[0],{startPaused:true});",[rom]);if(!loaded)fail("Probe nao carregou.");
+      const result=await invoke("emulator_run_frames",{frames:180});if(!result.ok)fail(JSON.stringify(result));
+      report.probe={rom_sha256:createHash('sha256').update(await readFile(rom)).digest('hex'),memory:{}};
+      for(const line of (await readFile(sym,"utf8")).split(/\r?\n/)){const m=line.match(/^([\da-f]+)\s+\S*\.asm_((?:rds_cam|probe_)[^\s]*)$/i);if(!m)continue;const address=parseInt(m[1],16);if(address<0x7e0000||address>=0x800000)continue;
+        const memory=await invoke("emulator_read_memory",{region:2,offset:address-0x7e0000,length:8});report.probe.memory[m[2]]={address,bytes:memory.data??memory};
+      }
+      report.status="diagnostic";console.log('[camera-advanced] SDK_DIAGNOSTIC '+JSON.stringify(report.probe));return;
+    }
     const available=target==="snes"?["fixed","platformer","exploration","auto_horizontal","auto_vertical","rooms","rooms_smooth","beat_em_up","beat_em_up_backtracking","arena","sequence","parallax","regions","regions_smooth"]:["rooms","rooms_smooth","beat_em_up","beat_em_up_backtracking","arena","sequence","parallax","regions","regions_smooth"];
     const patterns=available.filter(p=>!process.env.RDS_CAMERA_CASES||process.env.RDS_CAMERA_CASES.split(',').includes(p));if(!patterns.length)fail("Nenhum caso de camera selecionado.");
     for(const pattern of patterns){
@@ -15224,7 +15256,7 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
         if(target==="megadrive"){
           const red=(f,x,y)=>{const i=(y*f.framebuffer_width+x)*4;return f.framebuffer_rgba[i]>80&&f.framebuffer_rgba[i]>f.framebuffer_rgba[i+1]*1.3;};let first=0,last=0,same=0;
           for(let y=112;y<144;y++)for(let x=128;x<160;x++){const p=red(a,x,y),q=red(b,x,y);first+=Number(p);last+=Number(q);same+=Number(p&&q);}
-          if(first<40||same<Math.min(first,last)*0.95)fail(`Sprite sem ancoragem visual: ${JSON.stringify({first,last,same})}`);
+          if(first<40||first!==last||same!==first)fail(`Sprite sem ancoragem visual: ${JSON.stringify({first,last,same})}`);
           step("sprite_framebuffer_anchor",{first,last,same,world_delta:16,camera_delta:16});
         }
         await writeFile(path.join(output,"parallax-before.rgba"),Buffer.from(a.framebuffer_rgba));await writeFile(path.join(output,"parallax-after.rgba"),Buffer.from(b.framebuffer_rgba));step("parallax_framebuffer_shift",{equal,total,changed,shift:8});

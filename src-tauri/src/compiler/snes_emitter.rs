@@ -471,6 +471,9 @@ fn build_main_c_with_collision(
                     }
                 }
                 out.push_str("    setScreenOn();\n\n");
+                if visual_camera.is_some() {
+                    out.push_str("    rds_visual_camera_init();\n");
+                }
                 out.push_str("    while (1)\n    {\n");
             }
             AstNode::SpriteUpdate => {

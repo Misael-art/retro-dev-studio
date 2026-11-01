@@ -32,6 +32,8 @@ O nó `camera_control` referencia uma câmera visual por identidade e aceita sel
 
 `camera.patterns` guarda até32 padrões próprios por câmera, visíveis na biblioteca da cena. Cada item contém id/nome e cópia dos valores efetivos, posição e offsets, sem referência viva ao catálogo nem biblioteca recursiva. Reutilizar conserva alvo e seleção ativa do destino; referências de arena/paralaxe removidas exigem reparo explícito. Biblioteca, parâmetros e seleção ativa usam a mesma transação de histórico/persistência. Duplicar uma câmera cria cópia inativa, inclusive quando o componente vem de prefab. O C estático compartilhado é incorporado de `compiler/camera_runtime_template.c` pelo owner `camera_runtime.rs`; os emissores oficiais continuam responsáveis por planos, sprites e apresentação. Não há novo runtime, alocação por quadro ou arquivo externo necessário à execução.
 
+O ciclo de vida chama `rds_visual_camera_init` explicitamente antes do loop, zerando também scratch/temporizadores independentemente do estado inicial da WRAM. Helpers pequenos e guardas sequenciais preservam o mesmo cálculo nos compiladores pinados GCC/816-tcc, sem kernels alternativos por plataforma. Mudanças nesse template exigem comparação de trajetórias, incluindo diagnóstico cruzado de CPU; compilação e referência no host não são prova suficiente do SNES.
+
 ---
 
 ## 2. ESTRUTURA DO ARQUIVO DE PROJETO (`.rds`)
