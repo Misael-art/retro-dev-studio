@@ -15072,7 +15072,7 @@ async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated)
     await webdriverRequest("POST",`/session/${sessionId}/element/${element}/value`,{text:String(value),value:[...String(value)]});
   };
   const currentCamera=async()=>((await state())?.activeScene?.entities??[]).find(e=>e.camera?.visual);
-  const closeGame=async()=>{if((await state())?.emulatorLoaded)await click("toolbar-emulator-stop");};
+  const closeGame=async()=>{if((await state())?.emulatorLoaded){await click("toolbar-emulator-stop");await waitFor(async()=>!(await state())?.emulatorLoaded,10000,"Emulador nao encerrou.",100);}};
   const invoke=async(command,args={})=>executeAsyncScript(sessionId,`const done=arguments[arguments.length-1];const call=window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke;call(arguments[0],arguments[1]).then(done).catch(e=>done({error:String(e)}));`,[command,args]);
   const command=async(id)=>webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"key",id:"camera-history",actions:[{type:"keyDown",value:"\uE009"},{type:"keyDown",value:id==="edit.undo"?"z":"y"},{type:"keyUp",value:id==="edit.undo"?"z":"y"},{type:"keyUp",value:"\uE009"}]}]});
   try {
@@ -15089,7 +15089,7 @@ async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated)
     const sceneFile=path.join(project,metadata.entry_scene);
     const scene=JSON.parse(await readFile(sceneFile,"utf8"));
     // Declared fixture preparation: resident 64x64 map, collision floor, fixed HUD. All gameplay remains from the shipped authored template.
-    const tileset="assets/tilesets/camera_reference.ppm",colors=[[0,68,68],[0,102,170],[68,170,34],[238,238,238]];
+    const tileset="assets/tilesets/camera_reference.ppm",colors=[[0,68,68],[0,102,170],[68,170,34],[170,204,238]];
     const pixels=Buffer.alloc(32*8*3);
     for(let y=0;y<8;y++)for(let x=0;x<32;x++){const tile=Math.floor(x/8);pixels.set(colors[(tile+(x%8===0||y===0?1:0))%4],(y*32+x)*3);}
     await mkdir(path.dirname(path.join(project,tileset)),{recursive:true});
@@ -15121,19 +15121,21 @@ async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated)
     if((await state()).sceneRevision!==before.sceneRevision)fail("Cancelar alterou a cena.");
     if(JSON.stringify((await state()).activeScene.entities.map(e=>[e.id,e.x,e.y]))!==JSON.stringify(before.activeScene.entities.map(e=>[e.id,e.x,e.y])))fail("Previa moveu entidades.");
     record("visual_drag_and_preview_cancel_preserve_scene",{composition,drawn});
-    for(const pattern of ["fixed","platformer","exploration","auto_horizontal","auto_vertical"]){
+    for(const testCase of ["fixed","platformer","exploration","auto_horizontal","auto_vertical"].map(pattern=>({pattern,smooth:false})).concat([{pattern:"platformer",smooth:true}])){
+      const {pattern,smooth}=testCase,caseId=pattern+(smooth?"-smooth":"");
       await closeGame();
+      await click("workspace-rail-scene");
       await click("configure-camera");await click(`camera-pattern-${pattern}`);
       if(["platformer","exploration"].includes(pattern)){
         await setNumber("Ponto na tela X",16);await setNumber("Ponto na tela Y",112);
-        await setNumber("Resposta horizontal (1 = imediata)",1);await setNumber("Resposta vertical (1 = imediata)",1);
+        await setNumber("Resposta horizontal (1 = imediata)",smooth?8:1);await setNumber("Resposta vertical (1 = imediata)",smooth?12:1);
         await js(`const d=[...document.querySelectorAll('[data-testid="camera-configurator"] details')][0];if(d)d.open=true;`);
-        for(const [label,value] of [["Região livre X (meia largura)",0],["Região livre Y (meia altura)",0],["Antecipação horizontal",0],["Velocidade máxima (pixels/quadro)",256]])await setNumber(label,value);
+        for(const [label,value] of [["Região livre X (meia largura)",0],["Região livre Y (meia altura)",smooth?32:0],["Antecipação horizontal",smooth?8:0],["Velocidade máxima (pixels/quadro)",smooth?16:256]])await setNumber(label,value);
       }else if(pattern==="fixed"){
         await setNumber("Posição X",64);await setNumber("Posição Y",32);
       }else await setNumber("Velocidade (pixels por segundo; negativo inverte)",120);
       // Required controls remain reachable at three sizes and at 125% page scale.
-      if(pattern==="platformer"){
+      if(pattern==="platformer"&&!smooth){
         for(const [width,height,scale] of [[1280,800,1],[1366,768,1.25],[949,593,1]]){
           await setSessionWindowRect(sessionId,width,height);await js("document.documentElement.style.zoom=String(arguments[0]);",[scale]);
           for(const id of ["camera-apply","camera-cancel","camera-test"]){
@@ -15154,25 +15156,35 @@ async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated)
       await waitFor(async()=>{const saved=JSON.parse(await readFile(sceneFile,"utf8"));return saved.entities.some(e=>e.components?.camera?.visual?.pattern===pattern);},15000,"Camera nao persistiu.",100);
       await js("return window.__RDS_E2E__.openProject(arguments[0]);",[project]);
       await waitFor(async()=>(await currentCamera())?.camera.visual.pattern===pattern,15000,"Camera nao reabriu.",100);
-      await copyFile(sceneFile,path.join(artifactDir,`${pattern}-scene.json`));
-      const run=await runBuildRunAndCollect(sessionId,`Camera ${pattern}`,timeoutMs,report,`${prefix}-${pattern}`,{nativeClick:true});
+      await copyFile(sceneFile,path.join(artifactDir,`${caseId}-scene.json`));
+      const run=await runBuildRunAndCollect(sessionId,`Camera ${caseId}`,timeoutMs,report,`${prefix}-${caseId}`,{nativeClick:true});
       const link=JSON.parse(await readFile(path.join(project,"build/megadrive/rds-runtime-link.v1.json"),"utf8"));
       const player=link.entities.find(e=>e.entity_id==="player");
       if(!link.camera||!player)fail("Vinculo de camera/personagem ausente.");
       const symbols=parseElf32Symbols(await readFile(path.join(project,"build/megadrive/out/rom.out")));
-      await copyFile(run.rom_path,path.join(artifactDir,`${pattern}.rom`));
-      await copyFile(path.join(project,"build/megadrive/out/rom.out"),path.join(artifactDir,`${pattern}.elf`));
-      await copyFile(path.join(project,"build/megadrive/rds-runtime-link.v1.json"),path.join(artifactDir,`${pattern}-runtime-link.json`));
+      await copyFile(run.rom_path,path.join(artifactDir,`${caseId}.rom`));
+      await copyFile(path.join(project,"build/megadrive/out/rom.out"),path.join(artifactDir,`${caseId}.elf`));
+      await copyFile(path.join(project,"build/megadrive/rds-runtime-link.v1.json"),path.join(artifactDir,`${caseId}-runtime-link.json`));
       const names=["rds_camera_x","rds_camera_y","spr_player_x","spr_player_y"];
       if(names.some(n=>!symbols.has(n)))fail("Simbolos de posicao ausentes.");
       const readPositions=async()=>{const values=[];for(const n of names){const m=await invoke("emulator_read_memory",{region:2,offset:symbols.get(n)&0xffff,length:2});if(!m?.data)fail(`RAM ${n}: ${JSON.stringify(m)}`);const w=m.data[0]|(m.data[1]<<8);values.push(w>32767?w-65536:w);}return {camera_x:values[0],camera_y:values[1],player_x:values[2],player_y:values[3]};};
       await closeVisibleConsoleDrawer(sessionId,"camera-rom");await focusGameCanvasNatively(sessionId);
-      await waitFor(async()=>(await readCanonicalGameProgress(sessionId))?.renderedFrames>=60,60000,"ROM nao passou da inicializacao.",100);
+      // Rendered frames include SDK/audio/resource startup. Observe the camera's first update
+      // before testing steady gameplay; a fixed frame count is not proof of readiness.
+      const initialized=await waitFor(async()=>{const p=await readPositions();return p.camera_x!==0||p.camera_y!==0?p:false;},180000,"A camera nao concluiu a primeira atualizacao da ROM.",100);
+      record(`${caseId}_camera_initialized`,{positions:initialized,frames:(await invokeCoreObserve(sessionId))?.frames_run});
       await click("viewport-pause");await waitFor(async()=>(await state())?.emulPaused,10000,"ROM nao pausou.",100);
+      // Finish the first camera/VDP presentation before taking the invariant HUD baseline.
+      for(let settle=0;settle<2;settle++){
+        const before=await invokeCoreObserve(sessionId);await click("viewport-step-frame");
+        await waitFor(async()=>(await invokeCoreObserve(sessionId))?.frames_run===before.frames_run+1,10000,"Quadro de estabilizacao nao concluiu.",50);
+      }
       const hudPixels=(f)=>{const out=[];for(let y=16;y<24;y++)for(let x=16;x<64;x++){const i=(y*f.framebuffer_width+x)*4;out.push(...f.framebuffer_rgba.slice(i,i+4));}return Buffer.from(out);};
       const first=await readPositions();const trajectory=[];
-      const hudBefore=hudPixels(await invokeCoreObserve(sessionId));
-      let previous=first;
+      const beforeFrame=await invokeCoreObserve(sessionId),hudBefore=hudPixels(beforeFrame);
+      await writeFile(path.join(artifactDir,`${caseId}-hud-before.rgba`),hudBefore);
+      await writeFile(path.join(artifactDir,`${caseId}-frame-before.rgba`),Buffer.from(beforeFrame.framebuffer_rgba));
+      let previous=first,direction=0;
       for(let i=0;i<44;i++){
         if(i===0){await focusGameCanvasNatively(sessionId);await sendNativeGameKey(sessionId,"ArrowRight","keyDown","camera forward");}
         if(i===4){await sendNativeGameKey(sessionId,"ArrowRight","keyUp","camera stop");}
@@ -15184,16 +15196,27 @@ async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated)
         await waitFor(async()=>{const o=await invokeCoreObserve(sessionId);return o?.frames_run===core.frames_run+1;},10000,"Passo nao executou exatamente um quadro.",50);
         const p=await readPositions();
         const clamp=(n,max)=>Math.max(0,Math.min(max,n));
-        const expected=pattern==="fixed"?{x:64,y:32}:["platformer","exploration"].includes(pattern)?{x:clamp(p.player_x-16,192),y:clamp(p.player_y-112,288)}:
+        if(p.player_x!==previous.player_x)direction=Math.sign(p.player_x-previous.player_x);
+        const approach=(from,to,dead,response)=>{const distance=Math.max(0,Math.abs(to-from)-dead);return from+Math.sign(to-from)*(distance?Math.min(16,Math.max(1,Math.trunc(distance/response))):0);};
+        const expected=pattern==="fixed"?{x:64,y:32}:smooth?{x:clamp(approach(previous.camera_x,p.player_x-16+8*direction,0,8),192),y:clamp(approach(previous.camera_y,p.player_y-112,32,12),288)}:["platformer","exploration"].includes(pattern)?{x:clamp(p.player_x-16,192),y:clamp(p.player_y-112,288)}:
           {x:clamp(previous.camera_x+(pattern==="auto_horizontal"?2:0),192),y:clamp(previous.camera_y+(pattern==="auto_vertical"?2:0),288)};
         if(p.camera_x!==expected.x||p.camera_y!==expected.y)fail(`Trajetoria ${pattern}: ${JSON.stringify({p,expected,previous})}`);
         trajectory.push({frame:core.frames_run+1,...p,expected});previous=p;
       }
-      await shot(`${pattern}-rom`);
-      const hudAfter=hudPixels(await invokeCoreObserve(sessionId));
-      if(!hudBefore.equals(hudAfter)||new Set(Array.from({length:hudBefore.length/4},(_,i)=>hudBefore.readUInt32LE(i*4))).size<2)fail(`HUD nao permaneceu fixo/visivel em ${pattern}.`);
-      report.trajectories.push({pattern,rom_sha256:createHash("sha256").update(await readFile(run.rom_path)).digest("hex"),first,samples:trajectory});
-      record(`${pattern}_ui_history_save_reopen_rom_trajectory`,{samples:trajectory.length,fixed_hud_sha256:createHash("sha256").update(hudAfter).digest("hex")});
+      if(!trajectory.some(p=>p.player_x>first.player_x)||!trajectory.some((p,i)=>i>0&&p.player_x<trajectory[i-1].player_x))fail(`Caminhar/inverter nao foi observado em ${pattern}.`);
+      if(!trajectory.some(p=>p.player_y<first.player_y)||!trajectory.some((p,i)=>i>0&&p.player_y>trajectory[i-1].player_y))fail(`Saltar/cair nao foi observado em ${pattern}.`);
+      await shot(`${caseId}-rom`);
+      const afterFrame=await invokeCoreObserve(sessionId),hudAfter=hudPixels(afterFrame);
+      await writeFile(path.join(artifactDir,`${caseId}-hud-after.rgba`),hudAfter);
+      await writeFile(path.join(artifactDir,`${caseId}-frame-after.rgba`),Buffer.from(afterFrame.framebuffer_rgba));
+      const color=(f,x,y)=>f.framebuffer_rgba.slice((y*f.framebuffer_width+x)*4,(y*f.framebuffer_width+x)*4+3).join(',');
+      const scenery=new Set();for(const f of [beforeFrame,afterFrame])for(let y=24;y<40;y++)for(let x=0;x<f.framebuffer_width;x++)scenery.add(color(f,x,y));
+      const candidates=new Map();for(let y=16;y<24;y++)for(let x=16;x<64;x++){const c=color(beforeFrame,x,y);if(c===color(afterFrame,x,y)&&!scenery.has(c))candidates.set(c,(candidates.get(c)??0)+1);}
+      const glyph=[...candidates].sort((a,b)=>b[1]-a[1])[0]?.[0];let g0=0,g1=0,both=0;
+      for(let y=16;y<24;y++)for(let x=16;x<64;x++){const a=color(beforeFrame,x,y)===glyph,b=color(afterFrame,x,y)===glyph;g0+=Number(a);g1+=Number(b);both+=Number(a&&b);}
+      if(g0<40||both<Math.min(g0,g1)*0.95)fail(`HUD sem letras ancoradas em ${caseId}: ${JSON.stringify({glyph,g0,g1,both})}`);
+      report.trajectories.push({pattern,caseId,rom_sha256:createHash("sha256").update(await readFile(run.rom_path)).digest("hex"),first,samples:trajectory});
+      record(`${caseId}_ui_history_save_reopen_rom_trajectory`,{samples:trajectory.length,hud:{glyph,g0,g1,both},frame_size:[afterFrame.framebuffer_width,afterFrame.framebuffer_height]});
     }
     report.status="passed";
   } catch(error){report.status="failed";report.error=String(error);await shot("failure").catch(()=>{});throw error;}
