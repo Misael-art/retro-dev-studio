@@ -234,6 +234,7 @@ export const REQUIRED_NOCODE_NODE_TYPES: NodeType[] = [
   "sprite_anim",
   "set_animation_state",
   "camera_follow",
+  "camera_control",
   "authored_strike",
   "palette_swap",
   "camera_bounds",
@@ -1321,7 +1322,12 @@ const CARD_ENTITY_HEIGHT = 24;
 const CARD_PORT_ROW = 20;
 
 /** Parametros que o cartao edita diretamente (o compilador le exatamente esses campos). */
-function cardEditableParam(node: GraphNode, key: string): "number" | "button" | null {
+function cardEditableParam(node: GraphNode, key: string): "number" | "button" | "camera_action" | "camera_target" | null {
+  if(node.type==="camera_control"){
+    if(key==="target")return "camera_target";
+    if(key==="action")return "camera_action";
+    if(["shake","offset"].includes(String(node.params.action))&&["frames","x","y"].includes(key))return "number";
+  }
   if ((node.type === "input_pressed" || node.type === "input_held") && key === "button") return "button";
   if (node.type === "set_velocity" && (key === "vx" || key === "vy")) return "number";
   if (node.type === "sprite_move" && (key === "dx" || key === "dy")) return "number";
@@ -1439,7 +1445,7 @@ function NodeCard({
   const category = getNodeCategory(node.type);
   const importBadges = getGraphNodeImportBadges(node);
   const editable = canEditGraphNode(node);
-  const essential = (catalog?.essentialParams ?? []).filter((key) => key in node.params);
+  const essential = (node.type==="camera_control"?["target","action",...(["shake","offset"].includes(String(node.params.action))?["frames","x","y"]:[])]:catalog?.essentialParams ?? []).filter((key) => key in node.params);
   const technical = Object.entries(node.params).filter(([key]) => !essential.includes(key));
   const cardRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef(onMeasure);
@@ -1496,6 +1502,13 @@ function NodeCard({
 
   const renderParamValue = (key: string, value: string | number) => {
     const mode = editable ? cardEditableParam(node, key) : null;
+    if(mode==="camera_action"||mode==="camera_target"){
+      const actions=[{id:"select",label:"Selecionar câmera"},{id:"regions",label:"Devolver às regiões"},{id:"pause",label:"Travar / pausar"},{id:"resume",label:"Liberar / continuar"},{id:"shake",label:"Tremor temporário"},{id:"offset",label:"Deslocamento temporário"},{id:"restart",label:"Reiniciar câmera ativa"}];
+      const options=mode==="camera_action"?actions:(useEditorStore.getState().activeScene?.entities??[]).filter(e=>e.components.camera?.visual).map(e=>({id:e.entity_id,label:getEntityDisplayName(e)}));
+      return <select aria-label={mode==="camera_action"?"Ação da câmera":"Câmera controlada"} data-testid={`node-param-${node.id}-${key}`} value={String(value)} onMouseDown={e=>e.stopPropagation()} onChange={e=>onParamChange(node.id,key,e.target.value)} className="max-w-[145px] rounded border bg-[var(--rds-surface-input)] px-1 text-xs">
+        {!options.some(o=>o.id===String(value))&&<option value={String(value)} disabled>Escolha uma câmera visual / ação válida</option>}{options.map(o=><option key={o.id} value={o.id}>{o.label}</option>)}
+      </select>;
+    }
     if (mode === "button") {
       const current = describeInputButton(String(value));
       return (
@@ -1535,8 +1548,8 @@ function NodeCard({
         <input
           data-testid={`node-param-${node.id}-${key}`}
           type="number"
-          min={node.type === "set_velocity" || node.type === "sprite_move" ? -32768 : 0}
-          max={32767}
+          min={node.type==="camera_control"&&key!=="frames"?-1024:node.type === "set_velocity" || node.type === "sprite_move" ? -32768 : 0}
+          max={node.type==="camera_control"?(key==="frames"?36000:1024):32767}
           value={String(value)}
           onMouseDown={(event) => event.stopPropagation()}
           onChange={(event) => onParamChange(node.id, key, Number.parseInt(event.target.value, 10) || 0)}
@@ -3567,7 +3580,7 @@ export default function NodeGraphEditor() {
                       className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#a6adc8] transition-colors hover:bg-[#313244] hover:text-[#cdd6f4] disabled:cursor-not-allowed disabled:opacity-40"
                       onClick={() => addNode(type)}
                       data-testid={`nodegraph-add-${type}`}
-                      disabled={!selectedEntity}
+                      disabled={!selectedEntity || type === "camera_bounds"}
                       title={`${getNodeCategory(type).label}: ${getNodeCatalogEntry(type).description}`}
                     >
                       <span className="opacity-80" style={{ color: getNodeCategory(type).color }}>

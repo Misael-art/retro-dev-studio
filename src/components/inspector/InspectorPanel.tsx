@@ -1031,6 +1031,9 @@ export default function InspectorPanel() {
   }
 
   function requestDuplicateEntity() {
+    if(entity?.components.camera?.visual && (activeScene?.entities.filter(e=>e.components.camera?.visual).length??0)>=8){
+      logMessage("warn","A cena já tem oito câmeras visuais. Reutilize uma configuração existente.");return;
+    }
     const { manualNodes } = effectiveLogic();
     if (manualNodes === 0) {
       handleDuplicateEntity();
@@ -1065,6 +1068,10 @@ export default function InspectorPanel() {
       // logica herdada (grafo inline so com comportamentos, graph_ref vazio = sem arquivo).
       if (logic.hasLogic) components.logic = { graph: serializeNodeGraph(copy.graph), graph_ref: "" };
       else delete components.logic;
+      if(resolvedOriginal.components.camera?.visual){
+        const camera=structuredClone(resolvedOriginal.components.camera);
+        components.camera={...camera,visual:{...camera.visual!,active:false}};
+      }
       return { ...candidate, components, entity_id: entityId, display_name: displayName, transform };
     };
     const resolvedDuplicate: Entity = withLogic(resolvedOriginal);
@@ -1414,6 +1421,8 @@ export default function InspectorPanel() {
                 type="button"
                 data-testid="inspector-duplicate-entity"
                 onClick={requestDuplicateEntity}
+                disabled={Boolean(entity.components.camera?.visual&&(activeScene?.entities.filter(e=>e.components.camera?.visual).length??0)>=8)}
+                title={entity.components.camera?.visual?"Duplicar configuração de câmera (a cópia começa inativa; até oito por cena)":undefined}
                 className="ml-auto rounded border border-[#45475a] px-2 py-0.5 hover:bg-[#313244]"
               >
                 Duplicar

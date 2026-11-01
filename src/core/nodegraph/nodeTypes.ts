@@ -23,6 +23,7 @@ export type NodeType =
   | "condition_overlap"
   | "condition_on_ground"
   | "camera_follow"
+  | "camera_control"
   | "authored_strike"
   | "palette_swap"
   | "camera_bounds"
@@ -179,6 +180,7 @@ export function isNodeType(value: unknown): value is NodeType {
     value === "condition_overlap" ||
     value === "condition_on_ground" ||
     value === "camera_follow" ||
+    value === "camera_control" ||
     value === "authored_strike" ||
     value === "palette_swap" ||
     value === "camera_bounds" ||

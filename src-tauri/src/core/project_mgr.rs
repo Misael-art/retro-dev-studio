@@ -127,6 +127,7 @@ pub struct ProjectSettingsPayload {
 
 #[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
 pub struct ProjectSettingsSnapshot {
+    pub fps: u32,
     pub target: String,
     pub region: String,
     pub video_standard: String,
@@ -4523,6 +4524,7 @@ fn import_sgdk_resources_into_scene(
             transform: crate::ugdm::entities::Transform { x: 0, y: 0 },
             components: Components {
                 camera: Some(CameraComponent {
+                    patterns: Vec::new(),
                     visual: None,
                     follow_entity: Some(follow_entity),
                     offset_x: 0,
@@ -5978,6 +5980,7 @@ fn platformer_camera_prefab() -> Entity {
         transform: crate::ugdm::entities::Transform { x: 0, y: 0 },
         components: Components {
             camera: Some(CameraComponent {
+                patterns: Vec::new(),
                 visual: None,
                 follow_entity: Some("player".to_string()),
                 offset_x: 0,
@@ -8066,6 +8069,7 @@ fn import_mugen_character_with_review(
         transform: crate::ugdm::entities::Transform { x: 0, y: 0 },
         components: Components {
             camera: Some(CameraComponent {
+                patterns: Vec::new(),
                 visual: None,
                 follow_entity: Some(entity_id),
                 offset_x: 0,
@@ -15535,6 +15539,7 @@ fn imported_camera_entity(
         transform: crate::ugdm::entities::Transform { x: 0, y: 0 },
         components: Components {
             camera: Some(CameraComponent {
+                patterns: Vec::new(),
                 visual: None,
                 follow_entity,
                 offset_x: 0,
@@ -15668,6 +15673,7 @@ pub fn update_project_target(project_dir: &Path, target: &str) -> Result<Project
 
 pub fn project_settings_snapshot(project: &Project) -> ProjectSettingsSnapshot {
     ProjectSettingsSnapshot {
+        fps: project.fps,
         target: project.target.clone(),
         region: project.settings.region.clone(),
         video_standard: project.settings.video_standard.clone(),
@@ -16270,6 +16276,7 @@ fn reference_camera_prefab() -> Entity {
         transform: Transform { x: 0, y: 0 },
         components: Components {
             camera: Some(CameraComponent {
+                patterns: Vec::new(),
                 visual: None,
                 follow_entity: Some("player".to_string()),
                 // Canto da camera = jogador - meia tela: o jogador fica perto do centro.

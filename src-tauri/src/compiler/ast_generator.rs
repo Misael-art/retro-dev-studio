@@ -14,7 +14,7 @@ use crate::ugdm::entities::{Project, Scene};
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum AstNode {
-    ConfigureCamera(Box<super::camera_runtime::CompiledCamera>),
+    ConfigureCamera(Box<super::camera_runtime::CompiledCameraProgram>),
     SpriteSystemInit,
     LoadTilemap {
         resource_name: String,
@@ -361,6 +361,15 @@ pub enum LogicOp {
         offset_x: i32,
         offset_y: i32,
     },
+    CameraControl {
+        target_index: i32,
+        action: i32,
+        frames: i32,
+        x: i32,
+        y: i32,
+        node_id: String,
+        error: Option<String>,
+    },
     ShowSprite {
         target_var: String,
         x: LogicMathExpr,
@@ -580,6 +589,7 @@ struct LogicRuntimeSprite {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct LogicRuntimeCamera {
+    visual_index: Option<usize>,
     follow_sprite_var: Option<String>,
     offset_x: i32,
     offset_y: i32,
@@ -985,6 +995,36 @@ fn ops_follow_camera(ops: &[LogicOp]) -> bool {
         | LogicOp::ConditionBool {
             if_true, if_false, ..
         } => ops_follow_camera(if_true) || ops_follow_camera(if_false),
+        _ => false,
+    })
+}
+
+pub fn ops_control_camera(ops: &[LogicOp]) -> bool {
+    ops.iter().any(|op| match op {
+        LogicOp::CameraControl { .. } => true,
+        LogicOp::SourceMapped { op, .. } => ops_control_camera(std::slice::from_ref(op.as_ref())),
+        LogicOp::ConditionOverlap {
+            if_true, if_false, ..
+        }
+        | LogicOp::ConditionBool {
+            if_true, if_false, ..
+        } => ops_control_camera(if_true) || ops_control_camera(if_false),
+        LogicOp::WhileLoop { body, done, .. } | LogicOp::ForLoop { body, done, .. } => {
+            ops_control_camera(body) || ops_control_camera(done)
+        }
+        LogicOp::TimelineSequence { slots, .. } => {
+            slots.iter().any(|s| ops_control_camera(&s.actions))
+        }
+        LogicOp::HardwareBudgetCheck { if_ok, if_warn, .. } => {
+            ops_control_camera(if_ok) || ops_control_camera(if_warn)
+        }
+        LogicOp::HardwareEvent { ops, .. } => ops_control_camera(ops),
+        LogicOp::StateMachine { states, .. } => states.iter().any(|s| {
+            ops_control_camera(&s.body)
+                || s.transitions.iter().any(|t| {
+                    ops_control_camera(&t.if_matched) || ops_control_camera(&t.if_unmatched)
+                })
+        }),
         _ => false,
     })
 }
@@ -1505,6 +1545,7 @@ fn collect_logic_runtime_entities(
     sprite_resource_names: &HashMap<String, String>,
     project_fps: u32,
 ) -> HashMap<String, LogicRuntimeEntity> {
+    let camera_ids = super::camera_runtime::camera_ids(scene);
     scene
         .entities
         .iter()
@@ -1515,6 +1556,7 @@ fn collect_logic_runtime_entities(
                 sprite_var_names.get(&entity.entity_id),
                 sprite_resource_names.get(&entity.entity_id),
                 project_fps,
+                camera_ids.iter().position(|id| id == &entity.entity_id),
             )
             .map(|runtime| (entity.entity_id.clone(), runtime))
         })
@@ -1527,6 +1569,7 @@ fn logic_runtime_entity(
     sprite_var_name: Option<&String>,
     sprite_resource_name: Option<&String>,
     project_fps: u32,
+    camera_index: Option<usize>,
 ) -> Option<LogicRuntimeEntity> {
     let (width, height, offset_x, offset_y) =
         match (&entity.components.collision, &entity.components.sprite) {
@@ -1573,6 +1616,7 @@ fn logic_runtime_entity(
         .camera
         .as_ref()
         .map(|camera| LogicRuntimeCamera {
+            visual_index: camera_index,
             follow_sprite_var: camera
                 .follow_entity
                 .as_ref()
@@ -2247,6 +2291,57 @@ fn compile_logic_node(
             y: resolve_math_expr_from_input(graph, &node.id, "y")
                 .unwrap_or_else(|| LogicMathExpr::Literal(param_i32(node, "y", 0))),
         })),
+        "camera_control" => {
+            let target = param_string(node, "target").unwrap_or_default();
+            let index = runtime_entities
+                .get(&target)
+                .and_then(|e| e.camera.as_ref())
+                .and_then(|c| c.visual_index);
+            let action_name = param_string(node, "action").unwrap_or_else(|| "pause".into());
+            let action = [
+                "select", "regions", "pause", "resume", "shake", "offset", "restart",
+            ]
+            .iter()
+            .position(|s| *s == action_name);
+            let integer = |key: &str, default: i32| match node.params.get(key) {
+                None => Some(default),
+                Some(Value::Number(n)) => n
+                    .as_f64()
+                    .filter(|v| v.fract() == 0.0 && *v >= i32::MIN as f64 && *v <= i32::MAX as f64)
+                    .map(|v| v as i32),
+                Some(Value::String(s)) => s.trim().parse::<i32>().ok(),
+                _ => None,
+            };
+            let values = [integer("frames", 12), integer("x", 4), integer("y", 4)];
+            let frames = values[0].unwrap_or(0);
+            let x = values[1].unwrap_or(0);
+            let y = values[2].unwrap_or(0);
+            let error = if index.is_none() {
+                Some("Escolha uma camera convertida para o fluxo visual.".into())
+            } else if action.is_none() {
+                Some("Acao de camera nao reconhecida.".into())
+            } else if values.iter().any(Option::is_none)
+                || !(0..=36000).contains(&frames)
+                || !(-1024..=1024).contains(&x)
+                || !(-1024..=1024).contains(&y)
+            {
+                Some(
+                    "Camera: duracao de0 a36000 quadros e deslocamentos de-1024 a1024 pixels."
+                        .into(),
+                )
+            } else {
+                None
+            };
+            Some(CompiledLogicNode::Linear(LogicOp::CameraControl {
+                target_index: index.map_or(-1, |i| i as i32),
+                action: action.map_or(-1, |i| i as i32),
+                frames,
+                x,
+                y,
+                node_id: node.id.clone(),
+                error,
+            }))
+        }
         "camera_follow" => {
             let target = param_string(node, "target").unwrap_or_else(|| "camera".to_string());
             let runtime = runtime_entities.get(&target)?;
@@ -3032,6 +3127,17 @@ fn collect_unsupported_from_ops(
 ) {
     for op in ops {
         match op {
+            LogicOp::CameraControl {
+                node_id,
+                error: Some(reason),
+                ..
+            } => {
+                found.insert(UnsupportedSemantic {
+                    node_id: node_id.clone(),
+                    reason: reason.clone(),
+                });
+            }
+            LogicOp::CameraControl { error: None, .. } => {}
             LogicOp::SourceMapped { op, .. } => {
                 collect_unsupported_from_ops(std::slice::from_ref(op.as_ref()), found);
             }
@@ -3093,7 +3199,12 @@ fn collect_unsupported_from_ops(
                 collect_unsupported_from_ops(if_ok, found);
                 collect_unsupported_from_ops(if_warn, found);
             }
-            LogicOp::HardwareEvent { ops, .. } => collect_unsupported_from_ops(ops, found),
+            LogicOp::HardwareEvent { ops, .. } => {
+                if ops_control_camera(ops) {
+                    found.insert(UnsupportedSemantic { node_id: "camera_control.hardware_event".into(), reason: "Controle visual de camera exige evento de gameplay; interrupcoes de video nao podem alterar seu estado durante a avaliacao do quadro.".into() });
+                }
+                collect_unsupported_from_ops(ops, found);
+            }
             LogicOp::StateMachine { states, .. } => {
                 for state in states {
                     collect_unsupported_from_ops(&state.body, found);
@@ -3525,6 +3636,7 @@ fn collect_logic_sound_names_from_ops(
             | LogicOp::SetAnimationState { .. }
             | LogicOp::SetTile { .. }
             | LogicOp::CameraFollow { .. }
+            | LogicOp::CameraControl { .. }
             | LogicOp::ShowSprite { .. }
             | LogicOp::HideSprite { .. } => {}
             LogicOp::ConditionOverlap {
@@ -5094,6 +5206,7 @@ mod tests {
                     transform: Transform { x: 0, y: 0 },
                     components: Components {
                         camera: Some(crate::ugdm::components::CameraComponent {
+                            patterns: Vec::new(),
                             visual: None,
                             follow_entity: Some("hero".to_string()),
                             offset_x: 12,

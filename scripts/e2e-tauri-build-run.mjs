@@ -479,6 +479,7 @@ function parseArgs(argv) {
           "nodegraph-authoring",
           "rom-input",
           "camera-workflow",
+          "camera-advanced",
           "behaviors-independence",
           "collect-goal",
           "inspection",
@@ -15050,6 +15051,206 @@ async function runRomInputScenario(sessionId, appPath, timeoutMs) {
   finally {await stop();await writeFile(path.join(output,`${prefix}.json`),JSON.stringify(report,null,2));}
 }
 
+// Advanced camera qualification uses authored assets and the existing session-scoped RAM test
+// adjustment. No project values are injected through the editor store; primary configurations
+// are applied through the visible dialog and reopened before each real target build.
+async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated) {
+  const target=process.env.RDS_CAMERA_TARGET==="snes"?"snes":"megadrive",width=target==="snes"?256:320;
+  const prefix=`camera-advanced-${target}-${artifactTimestamp()}`;
+  const output=path.join(process.env.RDS_CAMERA_OUTPUT??validationDir,prefix);await mkdir(output,{recursive:true});
+  const report={schema:"retrodev.camera_advanced/v1",maturity:"Experimental",target,app_sha256:createHash("sha256").update(await readFile(currentE2eRunContext.appPath)).digest("hex"),steps:[],artifacts:[],samples:[]};
+  const js=(s,a=[])=>executeScript(sessionId,s,a),state=()=>readAutomationState(sessionId);
+  const click=id=>clickButtonByTestIdNative(sessionId,id,id);
+  const text=s=>clickButtonByText(sessionId,s,"exact");
+  const invoke=(command,args={})=>executeAsyncScript(sessionId,`const done=arguments[arguments.length-1];(window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke)(arguments[0],arguments[1]).then(done).catch(e=>done({error:String(e)}));`,[command,args]);
+  const step=(id,detail={})=>{report.steps.push({id,status:"passed",...detail});console.log(`[camera-advanced] ${target} ${id}`);};
+  const number=async(label,value)=>{await js(`const e=document.querySelector('input[aria-label="'+arguments[0]+'"]');e?.scrollIntoView({block:'center'});e?.focus();e?.select();`,[label]);const el=await findElement(sessionId,`input[aria-label="${label}"]`);await webdriverRequest("POST",`/session/${sessionId}/element/${el}/value`,{text:String(value),value:[...String(value)]});};
+  const checkbox=async(label,checked)=>{
+    const index=await js(`const all=[...document.querySelectorAll('[data-testid="camera-configurator"] input[type="checkbox"]')];return all.findIndex(e=>e.closest('label')?.textContent.trim()===arguments[0]);`,[label]);
+    if(index<0)fail(`Checkbox ausente: ${label}`);
+    const selector=`[data-testid="camera-configurator"] input[type="checkbox"]`;
+    await js(`const e=document.querySelectorAll(arguments[0])[arguments[1]];e.scrollIntoView({block:'center'});`,[selector,index]);
+    const current=await js(`return document.querySelectorAll(arguments[0])[arguments[1]].checked;`,[selector,index]);
+    if(current!==checked){const found=await webdriverRequest("POST",`/session/${sessionId}/elements`,{using:"css selector",value:selector});const el=found.value[index];await clickElement(sessionId,el["element-6066-11e4-a52e-4f735466cecf"]??el.ELEMENT);}
+  };
+  const openDetails=()=>js(`for(const d of document.querySelectorAll('[data-testid="camera-configurator"] details'))d.open=true;`);
+  const stop=async()=>{if((await state())?.emulatorLoaded){await click("toolbar-emulator-stop");await waitFor(async()=>!(await state())?.emulatorLoaded,10000,"Core nao encerrou.",100);}};
+  let project,sceneFile;
+  try {
+    await setSessionWindowRect(sessionId,1280,800);await prepareWizardTemplateGallery(sessionId,target);
+    await click(`template-card-${target==="snes"?"starter_guided":"reference_platformer"}`);
+    const name=`CameraAdvanced_${target}_${Date.now()}`;await fillInputBySelector(sessionId,'input[placeholder="Nome do projeto"]',name);await text("Criar Projeto");
+    const created=await waitFor(async()=>{const s=await state();return s?.activeProjectName===name&&s.activeProjectDir?s:false;},60000,"Projeto nao foi criado.",100);
+    project=created.activeProjectDir;onProjectCreated(project);
+    const metadata=JSON.parse(await readFile(path.join(project,"project.rds"),"utf8"));sceneFile=path.join(project,metadata.entry_scene);
+    const source=JSON.parse(await readFile(sceneFile,"utf8"));
+    const materialized=[];
+    for(const e of source.entities){let components={};if(e.prefab)components=JSON.parse(await readFile(path.join(project,"prefabs",e.prefab),"utf8")).components??{};components={...components,...Object.fromEntries(Object.entries(e.components??{}).filter(([,v])=>v!==null))};materialized.push({...e,prefab:null,components});}
+    const player=materialized.find(e=>e.entity_id==="player"&&e.components.sprite);if(!player)fail("Template sem personagem autoral.");
+    const tileset="assets/tilesets/camera_advanced.ppm",pixels=Buffer.alloc(32*8*3),colors=[[0,68,68],[0,102,170],[68,170,34],[170,204,238]];
+    for(let y=0;y<8;y++)for(let x=0;x<32;x++)pixels.set(colors[(Math.floor(x/8)+(x%8===0||y===0?1:0))%4],(y*32+x)*3);
+    await mkdir(path.dirname(path.join(project,tileset)),{recursive:true});await writeFile(path.join(project,tileset),Buffer.concat([Buffer.from("P6\n32 8\n255\n"),pixels]));
+    player.transform={x:200,y:200};player.display_name="Herói";player.components={sprite:player.components.sprite};
+    const other={...structuredClone(player),entity_id:"other",display_name:"Parceiro",transform:{x:400,y:200}};
+    const bounds={x:0,y:0,width:512,height:512};
+    const fixed={version:1,active:false,pattern:"fixed",anchor_x:0,anchor_y:0,screen_x:128,screen_y:112,horizontal:true,vertical:true,response_x:1,response_y:1,dead_zone_x:0,dead_zone_y:0,look_ahead:0,max_speed:256,speed:60,paused:false,bounds};
+    const controlGraph={nodes:[],edges:[]};
+    for(const [button,action,camera,x,y,frames] of [["UP","pause","main_camera",0,0,0],["DOWN","resume","main_camera",0,0,0],["LEFT","shake","main_camera",4,2,4],["RIGHT","offset","main_camera",5,-3,3],["A","select","main_camera",0,0,0],["B","regions","main_camera",0,0,0],["START","restart","main_camera",0,0,0]]){
+      const id=button.toLowerCase();controlGraph.nodes.push({id:`tick_${id}`,type:"event_update",params:{rate:"frame"}},{id:`input_${id}`,type:"input_pressed",params:{button:`BUTTON_${button}`,pad:"JOY_1"}},{id:`control_${id}`,type:"camera_control",params:{target:camera,action,x,y,frames}});
+      controlGraph.edges.push({fromNode:`tick_${id}`,fromPort:"exec",toNode:`input_${id}`,toPort:"exec"},{fromNode:`input_${id}`,fromPort:"exec",toNode:`control_${id}`,toPort:"exec"});
+    }
+    // Authored variables are volatile in the canonical emitters. Their test adjustments feed
+    // actual Set Position nodes before the camera update, including teleport/respawn cases.
+    controlGraph.nodes.push({id:"init",type:"event_start",params:{}});
+    let previousInit="init";
+    for(const [id,value] of [["x",200],["y",200],["other_x",400],["other_y",200]]){
+      controlGraph.nodes.push({id:`init_${id}`,type:"var_set",params:{var_name:`qa_${id}`,value}},{id:`get_${id}`,type:"var_get",params:{var_name:`qa_${id}`}});
+      controlGraph.edges.push({fromNode:previousInit,fromPort:"exec",toNode:`init_${id}`,toPort:"exec"});previousInit=`init_${id}`;
+    }
+    for(const id of ["player","other"]){const stem=id==="player"?"":"other_";
+      controlGraph.nodes.push({id:`tick_position_${id}`,type:"event_update",params:{rate:"frame"}},{id:`position_${id}`,type:"set_position",params:{target:id,x:200,y:200}});
+      controlGraph.edges.push({fromNode:`tick_position_${id}`,fromPort:"exec",toNode:`position_${id}`,toPort:"exec"},...['x','y'].map(axis=>({fromNode:`get_${stem}${axis}`,fromPort:"value",toNode:`position_${id}`,toPort:axis})));
+    }
+    player.components.logic={graph:JSON.stringify(controlGraph)};
+    const scene={...source,collision_map:null,retrofx:null,entities:[
+      {entity_id:"world",display_name:"Cenário",prefab:null,transform:{x:0,y:0},components:{tilemap:{tileset,map_width:64,map_height:64,scroll_x:0,scroll_y:0,cells:Array.from({length:4096},(_,i)=>1+((i%64)*7+Math.floor(i/64)*3)%4)}}},
+      player,other,{entity_id:"main_camera",display_name:"Câmera principal",prefab:null,transform:{x:0,y:0},components:{camera:{follow_entity:"player",offset_x:0,offset_y:0}}},
+      {entity_id:"region_camera",display_name:"Câmera de região",prefab:null,transform:{x:128,y:32},components:{camera:{follow_entity:"player",offset_x:0,offset_y:0,visual:fixed}}},
+      ...(target==="megadrive"?[{entity_id:"hud",prefab:null,transform:{x:0,y:0},components:{hud:{column:2,row:2,label:"CAMERA"}}}]:[])
+    ]};
+    await writeFile(sceneFile,JSON.stringify(scene,null,2));await js("return window.__RDS_E2E__.openProject(arguments[0]);",[project]);
+    await waitFor(async()=>((await state())?.activeScene?.entities??[]).some(e=>e.id==="other"),30000,"Fixture nao abriu.",100);
+    await cp(project,path.join(output,"authored-project"),{recursive:true,filter:p=>!path.relative(project,p).split(path.sep).includes("build")});
+    step("authored_fixture",{preparation:"Shipped sprite; generated resident map; graph input events; temporary WRAM positions use canonical epoch guard. No commercial ROM."});
+    const available=target==="snes"?["fixed","platformer","exploration","auto_horizontal","auto_vertical","rooms","rooms_smooth","beat_em_up","beat_em_up_backtracking","arena","sequence","parallax","regions","regions_smooth"]:["rooms","rooms_smooth","beat_em_up","beat_em_up_backtracking","arena","sequence","parallax","regions","regions_smooth"];
+    const patterns=available.filter(p=>!process.env.RDS_CAMERA_CASES||process.env.RDS_CAMERA_CASES.split(',').includes(p));if(!patterns.length)fail("Nenhum caso de camera selecionado.");
+    for(const pattern of patterns){
+      await stop();await click("workspace-rail-scene");
+      // Only the secondary authored fixture's activation region varies by case.
+      const disk=JSON.parse(await readFile(sceneFile,"utf8")),region=disk.entities.find(e=>e.entity_id==="region_camera").components.camera.visual;
+      region.max_speed=16;region.advanced={rooms:[],targets:[],path:[],return_to_target:false,allow_backtracking:false,activation:pattern.startsWith("regions")?{x:300,y:0,width:200,height:512}:null,priority:10,smooth_transition:pattern==="regions_smooth",parallax:[]};
+      await writeFile(sceneFile,JSON.stringify(disk,null,2));await js("return window.__RDS_E2E__.openProject(arguments[0]);",[project]);await closeVisibleConsoleDrawer(sessionId,"advanced-config");
+      const mode=pattern.startsWith("rooms")?"rooms":pattern.startsWith("beat_em_up")?"beat_em_up":pattern==="parallax"||pattern.startsWith("regions")?"platformer":pattern;
+      await click("configure-camera");await click(`camera-pattern-${mode}`);await openDetails();
+      for(const [label,value] of [["Área X",0],["Área Y",0],["Largura da área",512],["Altura da área",512]])await number(label,value);
+      if(!["fixed","auto_horizontal","auto_vertical","sequence"].includes(pattern)){
+        for(const [label,value] of [["Ponto na tela X",128],["Ponto na tela Y",112],["Resposta horizontal (1 = imediata)",1],["Resposta vertical (1 = imediata)",1],["Região livre X (meia largura)",0],["Região livre Y (meia altura)",0],["Antecipação horizontal",0],["Velocidade máxima (pixels/quadro)",256]])await number(label,value);
+      }
+      if(pattern==="fixed"){await number("Posição X",64);await number("Posição Y",32);}
+      if(pattern.startsWith("auto_"))await number("Velocidade (pixels por segundo; negativo inverte)",120);
+      if(pattern.startsWith("rooms")){
+        for(let i=1;i<=2;i++){await text("Adicionar sala e desenhar");for(const [key,value] of [["X",i===1?0:192],["Y",0],["largura",i===1?192:320],["altura",512]])await number(`Sala ${i}: ${key}`,value);}
+        if(pattern==="rooms_smooth"){
+          await clickElement(sessionId,await findElement(sessionId,'[aria-label="Salas da câmera"] fieldset:nth-of-type(2) input[type="checkbox"]'));
+          await number("Resposta horizontal (1 = imediata)",8);await number("Velocidade máxima (pixels/quadro)",16);
+        }
+      }
+      if(pattern==="beat_em_up_backtracking")await checkbox("Permitir recuar com a câmera",true);
+      if(pattern==="arena"){await checkbox("Herói",true);await checkbox("Parceiro",true);}
+      if(pattern==="sequence"){
+        for(const [i,x,y,frames,wait] of [[1,120,60,4,2],[2,180,80,0,1]]){await text("Adicionar ponto no cenário");for(const [key,value] of [["X",x],["Y",y],["duração em quadros",frames],["espera em quadros",wait]])await number(`Ponto ${i}: ${key}`,value);}
+        await checkbox("Voltar a acompanhar o personagem ao terminar",true);await number("Posição X",0);await number("Posição Y",0);
+        for(const [label,value] of [["Ponto na tela X",128],["Ponto na tela Y",112],["Resposta horizontal (1 = imediata)",1],["Resposta vertical (1 = imediata)",1],["Região livre X (meia largura)",0],["Região livre Y (meia altura)",0],["Antecipação horizontal",0],["Velocidade máxima (pixels/quadro)",256]])await number(label,value);
+      }
+      if(pattern==="parallax"){await checkbox("Paralaxe: Cenário",true);await number("Cenário: horizontal (%)",50);await number("Cenário: vertical (%)",100);}
+      if(pattern==="rooms"){
+        await text("Salvar como meu padrão");await text("Duplicar padrão");await fillInputBySelector(sessionId,'input[aria-label="Nome do meu padrão"]',"Salas reutilizáveis");await text("Renomear padrão");
+        await number("Área X",12);await text("Usar padrão");
+        if(await js(`return document.querySelector('input[aria-label="Área X"]').value;`)!=="0")fail("Padrão nao restaurou valores efetivos.");
+      }
+      const errors=await js(`return [...document.querySelectorAll('[data-testid="camera-configurator"] [role="alert"]')].map(e=>e.textContent);`);if(errors.length)fail(JSON.stringify(errors));
+      await click("camera-apply");await click("toolbar-save");
+      await waitFor(()=>js(`const e=document.querySelector('[data-testid="scene-save-status"]');return e?.dataset.status==='saved'&&e.dataset.revision===e.dataset.savedRevision;`),15000,"Cena nao confirmou a revisao salva.",100);
+      await waitFor(async()=>JSON.parse(await readFile(sceneFile,"utf8")).entities.find(e=>e.entity_id==="main_camera").components.camera.visual,10000,"Camera nao salvou.",100);
+      await js("return window.__RDS_E2E__.openProject(arguments[0]);",[project]);
+      if(pattern==="rooms"){const saved=JSON.parse(await readFile(sceneFile,"utf8")).entities.find(e=>e.entity_id==="main_camera").components.camera;if(saved.patterns.length!==2||saved.patterns[1].name!=="Salas reutilizáveis")fail("Biblioteca nao reabriu.");}
+      await copyFile(sceneFile,path.join(output,`${pattern}-scene.json`));
+      const run=await runBuildRunAndCollect(sessionId,`Advanced ${target} ${pattern}`,timeoutMs,report,`${prefix}-${pattern}`,{nativeClick:true,target});
+      const build=path.join(project,"build",target);let symbols;
+      await copyFile(path.join(build,"src/main.c"),path.join(output,`${pattern}-main.c`));
+      if(target==="megadrive"){symbols=parseElf32Symbols(await readFile(path.join(build,"out/rom.out")));await copyFile(path.join(build,"out/rom.out"),path.join(output,`${pattern}.elf`));}
+      else {const symFile=(await readdir(build)).find(n=>n.endsWith(".sym"));if(!symFile)fail("Build SNES sem simbolos.");const contents=await readFile(path.join(build,symFile),"utf8");symbols=new Map(contents.split(/\r?\n/).flatMap(line=>{const m=line.match(/^([\da-f]+)\s+(\S+)$/i);return m?[[m[2].replace(/^.*\.asm_/,""),parseInt(m[1],16)]]:[];}));await writeFile(path.join(output,`${pattern}.sym`),contents);}
+      await copyFile(run.rom_path,path.join(output,`${pattern}.rom`));
+      const offset=n=>{let name=n;if(!symbols.has(name)){const sprite=n.match(/^spr_(player|other)_([xy])$/);if(sprite)name=[...symbols.keys()].find(k=>k.endsWith(`__${sprite[1]}_${sprite[2]}`))??n;}if(!symbols.has(name))fail(`Simbolo ausente: ${n}`);return target==="snes"?symbols.get(name)-0x7e0000:symbols.get(name)&0xffff;};
+      const word=async(n,signed=true)=>{const m=await invoke("emulator_read_memory",{region:2,offset:offset(n),length:2});if(!m?.data)fail(JSON.stringify(m));const w=m.data[0]|m.data[1]<<8;return signed&&w>32767?w-65536:w;};
+      await waitFor(async()=>await word("rds_cam_initialized",false)===1,180000,"Camera nao inicializou.",100);
+      await click("viewport-pause");await waitFor(async()=>(await state())?.emulPaused,10000,"Core nao pausou.",100);
+      const epoch=await invoke("emulator_get_core_epoch"),neutral={b:false,y:false,select:false,start:false,up:false,down:false,left:false,right:false,a:false,x:false,l:false,r:false};
+      const write=async(n,value)=>{const symbol=n.replace(/^spr_player_/,"logic_var_qa_").replace(/^spr_other_/,"logic_var_qa_other_");const data=Buffer.alloc(4);
+        // Genesis Plus GX exposes native 16-bit words: a 68000 long keeps the high
+        // word first, with little-endian bytes inside each word. SNES WRAM is LE32.
+        if(target==="megadrive"){data.writeUInt16LE((value>>>16)&65535,0);data.writeUInt16LE(value&65535,2);}else data.writeInt32LE(value);
+        const r=await invoke("emulator_write_test_memory",{offset:offset(symbol),data:[...data],sessionEpoch:epoch});if(!r.ok)fail(JSON.stringify(r));};
+      const advance=async(button)=>{const key=target==="megadrive"&&button==="a"?"y":button;const ack=await invoke("emulator_send_input",{joypad:{...neutral,...(key?{[key]:true}:{})},sessionEpoch:epoch});if(!ack.ok)fail(JSON.stringify(ack));const before=await invokeCoreObserve(sessionId);await click("viewport-step-frame");await waitFor(async()=>(await invokeCoreObserve(sessionId))?.frames_run===before.frames_run+1,10000,"Passo nao foi um quadro.",30);};
+      const positions=async()=>({x:await word("rds_camera_x"),y:await word("rds_camera_y"),base_x:await word("rds_camera_base_x"),base_y:await word("rds_camera_base_y"),active:await word("rds_camera_active",false),paused:await word("rds_camera_paused",false),separated:await word("rds_camera_separated",false),player_x:await word("spr_player_x"),player_y:await word("spr_player_y"),other_x:await word("spr_other_x")});
+      const sample=async(label,expected)=>{const actual=await positions();for(const [key,value] of Object.entries(expected))if(actual[key]!==value)fail(`${target}/${pattern}/${label}: ${JSON.stringify({actual,expected})}`);report.samples.push({pattern,label,...actual,expected});return actual;};
+      await advance();await advance();
+      if(pattern.startsWith("rooms")){
+        await write("spr_player_x",100);await advance();await sample("small-left",{x:0});
+        await write("spr_player_x",192);await advance();await sample("right-border",{x:pattern==="rooms_smooth"?16:192});
+        if(pattern==="rooms_smooth"){await advance();await sample("smooth-next",{x:32});}
+        await write("spr_player_x",700);await advance();await sample("outside-holds",{x:pattern==="rooms_smooth"?48:192});
+        await write("spr_player_x",100);await advance();await sample("return-left",{x:0});
+      }else if(pattern.startsWith("beat_em_up")){
+        await write("spr_player_x",300);await advance();await sample("advance",{x:172});
+        const receded=pattern==="beat_em_up_backtracking"?0:172;
+        await write("spr_player_x",100);await advance();await sample("backtracking-policy",{x:receded});
+        await advance("up");await write("spr_player_x",400);await advance();await sample("event-lock",{x:receded,paused:1});
+        await advance("down");await sample("event-release",{x:512-width,paused:0});
+        await write("spr_player_x",200);await advance("start");await sample("respawn-restart",{x:72,paused:0});
+      }else if(pattern==="arena"){
+        await write("spr_player_x",50);await write("spr_other_x",450);await advance();await sample("separated",{x:122,separated:1});
+        await write("spr_other_x",250);await advance();await sample("together",{x:22,separated:0});
+      }else if(pattern==="sequence"){
+        await advance("start");const xs=[0,30,60,90,120,120,120,180,180];
+        for(let i=0;i<xs.length;i++){if(i)await advance();await sample(`path-${i}`,{x:xs[i]});}
+        for(let i=0;i<120;i++){const p=await positions();if(p.x===72&&p.y===88)break;await advance();}
+        await sample("return-target",{x:72,y:88});
+      }else if(pattern.startsWith("regions")){
+        await write("spr_player_x",350);await advance();await sample("region-select",{active:1,x:pattern==="regions_smooth"?88:128});
+        await advance("start");await advance();await sample("inactive-restart-preserves-selection",{active:1});
+        await advance("a");await sample("manual-select",{active:0,x:Math.min(222,512-width)});
+        await advance();await sample("manual-overrides-region",{active:0});
+        await advance("b");await sample("return-regions",{active:1,x:pattern==="regions_smooth"?Math.min(222,512-width)-16:128});
+        await write("spr_player_x",200);await advance();await sample("outside-holds-current",{active:1});
+      }else if(pattern==="parallax"){
+        await write("spr_player_x",200);await advance();await advance();const a=await invokeCoreObserve(sessionId);
+        await write("spr_player_x",216);await advance();await advance();await sample("half-scroll-camera",{x:88});const b=await invokeCoreObserve(sessionId);
+        const color=(f,x,y)=>f.framebuffer_rgba.slice((y*f.framebuffer_width+x)*4,(y*f.framebuffer_width+x)*4+4).join(',');let equal=0,total=0,changed=0;
+        for(let y=160;y<190;y++)for(let x=40;x<220;x++){total++;equal+=Number(color(b,x,y)===color(a,x+8,y));changed+=Number(color(b,x,y)!==color(a,x,y));}
+        if(equal!==total||changed<100)fail(`Paralaxe sem deslocamento de8px: ${JSON.stringify({equal,total,changed})}`);
+        // The shipped MD character has orange/red pixels absent from this fixture's
+        // background. Its screen anchor stays put while both world and camera move16px.
+        if(target==="megadrive"){
+          const red=(f,x,y)=>{const i=(y*f.framebuffer_width+x)*4;return f.framebuffer_rgba[i]>80&&f.framebuffer_rgba[i]>f.framebuffer_rgba[i+1]*1.3;};let first=0,last=0,same=0;
+          for(let y=112;y<144;y++)for(let x=128;x<160;x++){const p=red(a,x,y),q=red(b,x,y);first+=Number(p);last+=Number(q);same+=Number(p&&q);}
+          if(first<40||same<Math.min(first,last)*0.95)fail(`Sprite sem ancoragem visual: ${JSON.stringify({first,last,same})}`);
+          step("sprite_framebuffer_anchor",{first,last,same,world_delta:16,camera_delta:16});
+        }
+        await writeFile(path.join(output,"parallax-before.rgba"),Buffer.from(a.framebuffer_rgba));await writeFile(path.join(output,"parallax-after.rgba"),Buffer.from(b.framebuffer_rgba));step("parallax_framebuffer_shift",{equal,total,changed,shift:8});
+        // Temporary offsets and shake are cosmetic and return to the base camera.
+        await advance("right");await sample("offset-0",{x:93,y:85});await advance();await sample("offset-1",{x:93,y:85});await advance();await sample("offset-2",{x:93,y:85});await advance();await sample("offset-restored",{x:88,y:88});
+        await advance("left");for(let i=0;i<4;i++){if(i)await advance();await sample(`shake-${i}`,{x:88+(i%2?-4:4),y:88+(i%2?-2:2)});}await advance();await sample("shake-restored",{x:88,y:88});
+      }else if(pattern.startsWith("auto_")){await advance("start");const before=await positions();await advance();await sample("scroll-step",{x:before.x+(pattern==="auto_horizontal"?2:0),y:before.y+(pattern==="auto_vertical"?2:0)});await advance("up");const held=await positions();await advance();await sample("scroll-pause",{x:held.x,y:held.y,paused:1});await advance("down");await sample("scroll-resume",{x:held.x+(pattern==="auto_horizontal"?2:0),y:held.y+(pattern==="auto_vertical"?2:0),paused:0});}
+      else if(pattern==="fixed"){await write("spr_player_x",400);await advance();await sample("fixed",{x:64,y:32});}
+      else {await write("spr_player_x",300);await write("spr_player_y",250);await advance();await sample("follow-anchor",{x:172,y:138});await write("spr_player_x",100);await write("spr_player_y",100);await advance();await sample("follow-reverse-bound",{x:0,y:0});}
+      addReportArtifact(report,await captureScreenshot(sessionId,`${prefix}-${pattern}.png`),pattern);
+      step(`${pattern}_ui_save_reopen_build_rom`,{rom_sha256:createHash("sha256").update(await readFile(run.rom_path)).digest("hex")});
+    }
+    if(patterns.some(p=>p.startsWith("regions"))){
+      await stop();await click("workspace-rail-scene");
+      const missing=JSON.parse(await readFile(sceneFile,"utf8"));missing.entities.find(e=>e.entity_id==="main_camera").components.camera.follow_entity="removed_by_author";
+      await writeFile(sceneFile,JSON.stringify(missing,null,2));await copyFile(sceneFile,path.join(output,"removed-target-scene.json"));
+      await js("return window.__RDS_E2E__.openProject(arguments[0]);",[project]);await click("configure-camera");
+      const before=await readFile(sceneFile),refused=await js(`return document.querySelector('[data-testid="camera-apply"]')?.disabled&&[...document.querySelectorAll('[data-testid="camera-configurator"] [role="alert"]')].some(e=>e.textContent.includes('Escolha um personagem'));`);
+      if(!refused)fail("Referencia ao alvo removido foi aceita.");await click("camera-cancel");
+      if(!before.equals(await readFile(sceneFile)))fail("Cancelar regravou a referencia invalida.");step("removed_target_reference_refused_without_mutation");
+    }
+    report.status="passed";
+  }catch(error){report.status="failed";report.error=String(error);if(project)await cp(path.join(project,"build",target),path.join(output,"failed-build"),{recursive:true}).catch(()=>{});const image=await captureScreenshot(sessionId,`${prefix}-failure.png`).catch(()=>null);if(image)addReportArtifact(report,image,"failure");throw error;}
+  finally{await stop();await writeFile(path.join(output,"report.json"),JSON.stringify(report,null,2));}
+}
+
 // Camera v1: authored fixture only. UI config/save/reopen/build/run and RAM/framebuffer oracles.
 async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated) {
   const prefix = `camera-workflow-${artifactTimestamp()}`;
@@ -15129,7 +15330,7 @@ async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated)
       if(["platformer","exploration"].includes(pattern)){
         await setNumber("Ponto na tela X",16);await setNumber("Ponto na tela Y",112);
         await setNumber("Resposta horizontal (1 = imediata)",smooth?8:1);await setNumber("Resposta vertical (1 = imediata)",smooth?12:1);
-        await js(`const d=[...document.querySelectorAll('[data-testid="camera-configurator"] details')][0];if(d)d.open=true;`);
+        await js(`const d=[...document.querySelectorAll('[data-testid="camera-configurator"] details')].find(d=>d.querySelector('summary')?.textContent==='Personalizar');if(d)d.open=true;`);
         for(const [label,value] of [["Região livre X (meia largura)",0],["Região livre Y (meia altura)",smooth?32:0],["Antecipação horizontal",smooth?8:0],["Velocidade máxima (pixels/quadro)",smooth?16:256]])await setNumber(label,value);
       }else if(pattern==="fixed"){
         await setNumber("Posição X",64);await setNumber("Posição Y",32);
@@ -25019,7 +25220,8 @@ async function main() {
     options.scenario !== "studio-model" &&
     options.scenario !== "studio-hud-camera" &&
     options.scenario !== "studio-paletas" &&
-    options.scenario !== "camera-workflow";
+    options.scenario !== "camera-workflow" &&
+    options.scenario !== "camera-advanced";
   let temporaryProjectDir = "";
   let temporaryInspectionFixtureDir = "";
   if (requiresExistingProject) {
@@ -26801,6 +27003,13 @@ async function main() {
 
     if (options.scenario === "rom-input") {
       await runRomInputScenario(sessionId, options.app, uiBootstrapTimeoutMs);
+      return;
+    }
+
+    if (options.scenario === "camera-advanced") {
+      await runCameraAdvancedScenario(sessionId, emulatorActivationTimeoutMs, (projectDir) => {
+        temporaryProjectDir = projectDir;currentE2eRunContext.project = projectDir;
+      });
       return;
     }
 

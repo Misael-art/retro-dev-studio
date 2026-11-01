@@ -2959,6 +2959,7 @@ mod tests {
             camera.entity_id = "camera".into();
             camera.components = Default::default();
             camera.components.camera = Some(crate::ugdm::components::CameraComponent {
+                patterns: Vec::new(),
                 visual: None,
                 follow_entity: Some("sentinel".into()),
                 offset_x: -152,
@@ -4125,6 +4126,7 @@ mod tests {
         camera.entity_id = "camera".into();
         camera.components = Default::default();
         camera.components.camera = Some(crate::ugdm::components::CameraComponent {
+            patterns: Vec::new(),
             visual: None,
             follow_entity: Some("sentinel".into()),
             offset_x: -152,

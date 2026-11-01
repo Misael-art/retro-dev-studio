@@ -237,6 +237,9 @@ fn build_main_c_inner(
     let has_sprite_pages = render_sprite_page_definitions(&mut out, ast);
     render_sound_id_macros(&mut out, ast);
     let visual_camera = super::camera_runtime::find(ast).filter(|c| c.errors.is_empty());
+    if visual_camera.is_some() {
+        out.push_str("static s16 rds_camera_ratio_x[2] = {100,100}, rds_camera_ratio_y[2] = {100,100};\nstatic void rds_visual_camera_control(s16 index,s16 action,u16 frames,s16 x,s16 y);\n");
+    }
     let camera_follow = visual_camera.is_some() || ast_has_camera_follow(ast);
     if camera_follow {
         // Camera do mundo (Experimental): sprites e planos usam coordenadas de mundo; a tela mostra
@@ -252,7 +255,7 @@ fn build_main_c_inner(
             planes
         };
         out.push_str("static void rds_camera_apply_scroll(void) {");
-        for plane in &planes {
+        for (layer, plane) in planes.iter().enumerate() {
             if visual_camera.is_none() {
                 out.push_str(&format!(" VDP_setHorizontalScroll({plane}, -rds_camera_x); VDP_setVerticalScroll({plane}, rds_camera_y);"));
                 continue;
@@ -272,7 +275,7 @@ fn build_main_c_inner(
                 (0, 0)
             };
             out.push_str(&format!(
-                " VDP_setHorizontalScroll({plane}, {x} - rds_camera_x); VDP_setVerticalScroll({plane}, rds_camera_y - {y});", x=origin.0,y=origin.1
+                " VDP_setHorizontalScroll({plane}, {x} - ((s32)rds_camera_x * rds_camera_ratio_x[{layer}]) / 100); VDP_setVerticalScroll({plane}, ((s32)rds_camera_y * rds_camera_ratio_y[{layer}]) / 100 - {y});", x=origin.0,y=origin.1
             ));
         }
         out.push_str(" }\n#define RDS_CAMERA_SCREEN_X rds_camera_x\n#define RDS_CAMERA_SCREEN_Y rds_camera_y\n");
@@ -1937,6 +1940,19 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     y = render_math_expr(y)
                 ));
             }
+            LogicOp::CameraControl {
+                target_index,
+                action,
+                frames,
+                x,
+                y,
+                error,
+                ..
+            } => {
+                if error.is_none() {
+                    out.push_str(&format!("{indent_str}rds_visual_camera_control({target_index}, {action}, {frames}, {x}, {y});\n"));
+                }
+            }
             LogicOp::CameraFollow {
                 target_var,
                 offset_x,
@@ -2259,6 +2275,7 @@ fn collect_logic_velocity_targets_from_ops(
             | LogicOp::SetAnimationState { .. }
             | LogicOp::SetTile { .. }
             | LogicOp::CameraFollow { .. }
+            | LogicOp::CameraControl { .. }
             | LogicOp::ShowSprite { .. }
             | LogicOp::HideSprite { .. }
             | LogicOp::SetVar { .. }
@@ -2691,6 +2708,7 @@ fn extract_vars_from_op(op: &LogicOp, vars: &mut std::collections::BTreeSet<Stri
         }
         LogicOp::SetAnimationState { .. }
         | LogicOp::CameraFollow { .. }
+        | LogicOp::CameraControl { .. }
         | LogicOp::HideSprite { .. } => {}
         LogicOp::SetVar { var_name, value } => {
             vars.insert(var_name.clone());

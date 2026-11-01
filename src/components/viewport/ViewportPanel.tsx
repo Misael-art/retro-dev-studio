@@ -4730,7 +4730,7 @@ export default function ViewportPanel({
               >
                 Enquadrar câmera
               </button>
-              <CameraConfigurator />
+              <CameraConfigurator entityId={sceneWorld.camera?.entityId} />
               <button
                 type="button"
                 onClick={resetSceneView}

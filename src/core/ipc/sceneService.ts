@@ -220,10 +220,34 @@ export interface CameraComponent {
   offset_y?: number;
   /** Absent = legacy behavior. Conversion is an explicit editor transaction. */
   visual?: VisualCameraConfig | null;
+  patterns?: SavedCameraPattern[];
 }
 
-export type CameraPattern = "fixed" | "platformer" | "exploration" | "auto_horizontal" | "auto_vertical";
+export type CameraPattern = "fixed" | "platformer" | "exploration" | "auto_horizontal" | "auto_vertical" | "rooms" | "beat_em_up" | "arena" | "sequence";
 export interface CameraArea { x: number; y: number; width: number; height: number }
+export interface CameraRoom { id: string; name: string; area: CameraArea; priority: number; smooth: boolean }
+export interface CameraWaypoint { x: number; y: number; frames: number; wait: number }
+export interface CameraParallax { entity_id: string; ratio_x: number; ratio_y: number }
+export interface CameraAdvancedConfig {
+  rooms: CameraRoom[];
+  targets: string[];
+  path: CameraWaypoint[];
+  return_to_target: boolean;
+  allow_backtracking: boolean;
+  activation: CameraArea | null;
+  priority: number;
+  smooth_transition: boolean;
+  parallax: CameraParallax[];
+}
+export interface SavedCameraPattern {
+  id: string;
+  name: string;
+  config: VisualCameraConfig;
+  offset_x: number;
+  offset_y: number;
+  x: number;
+  y: number;
+}
 export interface VisualCameraConfig {
   version: 1;
   active: boolean;
@@ -245,6 +269,7 @@ export interface VisualCameraConfig {
   speed: number;
   paused: boolean;
   bounds: CameraArea;
+  advanced?: CameraAdvancedConfig;
 }
 
 export interface TilemapComponent {

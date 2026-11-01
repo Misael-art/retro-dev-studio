@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CameraComponent, Entity, Scene } from "./ipc/sceneService";
-import { cameraPreset, cameraValidation, cameraWorldArea, initialCameraSample, sampleCamera } from "./cameraWorkflow";
+import { cameraAdvanced, cameraPreset, cameraValidation, cameraWorldArea, initialCameraSample, initialVisualCamera, sampleCamera } from "./cameraWorkflow";
 import { getSceneEntityBounds, resolveSceneWorldMetrics } from "./sceneWorldModel";
 
 function fixture() {
@@ -61,5 +61,72 @@ describe("visual camera contract",()=>{
     scene.entities[0].components.logic={graph:JSON.stringify({nodes:[{type:"camera_follow"}]})};
     expect(cameraValidation(camera,scene,"megadrive").join()).toContain("comandos antigos");
     expect(initialCameraSample().initialized).toBe(false);
+  });
+  it("assigns room borders to the next room, holds outside and cuts into a small room",()=>{
+    const {camera}=fixture(),v=camera.visual!;v.pattern="rooms";v.anchor_x=8;
+    v.advanced={...cameraAdvanced(v),rooms:[
+      {id:"left",name:"Left",area:{x:0,y:0,width:320,height:224},priority:0,smooth:false},
+      {id:"right",name:"Right",area:{x:320,y:0,width:320,height:224},priority:0,smooth:false},
+      {id:"small",name:"Small",area:{x:640,y:0,width:100,height:100},priority:1,smooth:false},
+    ]};
+    let s=sampleCamera(camera,{x:0,y:0},{x:400,y:100},"megadrive");
+    expect(s).toMatchObject({x:320,room_id:"right"});
+    s=sampleCamera(camera,{x:0,y:0},{x:310,y:100},"megadrive",s);expect(s.x).toBe(0);
+    s=sampleCamera(camera,{x:0,y:0},{x:312,y:100},"megadrive",s);expect(s.x).toBe(320);
+    s=sampleCamera(camera,{x:0,y:0},{x:1100,y:500},"megadrive",s);expect(s).toMatchObject({x:320,room_id:"right"});
+    s=sampleCamera(camera,{x:0,y:0},{x:650,y:50},"megadrive",s);expect(s).toMatchObject({x:640,y:0,room_id:"small"});
+  });
+  it("approaches smooth rooms and blocks backtracking until explicitly enabled",()=>{
+    const {camera}=fixture(),v=camera.visual!;v.pattern="rooms";v.look_ahead=0;v.dead_zone_y=0;
+    v.advanced={...cameraAdvanced(v),rooms:[{id:"left",name:"Left",area:{x:0,y:0,width:320,height:224},priority:0,smooth:true},{id:"right",name:"Right",area:{x:320,y:0,width:320,height:224},priority:0,smooth:true}]};
+    let s=sampleCamera(camera,{x:0,y:0},{x:100,y:100},"megadrive");
+    s=sampleCamera(camera,{x:0,y:0},{x:400,y:100},"megadrive",s);expect(s.x).toBe(16);
+    v.pattern="beat_em_up";v.response_x=1;v.max_speed=256;
+    s=sampleCamera(camera,{x:0,y:0},{x:600,y:100},"megadrive");const furthest=s.x;
+    s=sampleCamera(camera,{x:0,y:0},{x:200,y:100},"megadrive",s);expect(s.x).toBe(furthest);
+    v.paused=true;expect(sampleCamera(camera,{x:0,y:0},{x:700,y:100},"megadrive",s).x).toBe(furthest);
+    v.paused=false;v.advanced.allow_backtracking=true;
+    expect(sampleCamera(camera,{x:0,y:0},{x:200,y:100},"megadrive",s).x).toBeLessThan(furthest);
+  });
+  it("centres arena anchors, reports separation and refuses removed members",()=>{
+    const {camera,scene,hero}=fixture(),v=camera.visual!;v.pattern="arena";v.anchor_x=8;v.screen_x=160;v.look_ahead=0;v.response_x=1;v.max_speed=256;
+    v.advanced={...cameraAdvanced(v),targets:["hero","other"]};
+    scene.entities.push({...structuredClone(hero),entity_id:"other",transform:{x:800,y:200}});
+    let s=sampleCamera(camera,{x:0,y:0},null,"megadrive",undefined,60,{hero:{x:400,y:200},other:{x:800,y:200}});
+    expect(s).toMatchObject({x:448,separated:true});
+    s=sampleCamera(camera,{x:0,y:0},null,"megadrive",s,60,{hero:{x:400,y:200},other:{x:500,y:200}});
+    expect(s).toMatchObject({x:298,separated:false});
+    expect(cameraValidation(camera,scene,"megadrive")).toEqual([]);
+    scene.entities.pop();expect(cameraValidation(camera,scene,"megadrive").join()).toContain("arena");
+  });
+  it("honours exact path duration, wait and cuts, then returns to the target",()=>{
+    const {camera}=fixture(),v=camera.visual!;v.pattern="sequence";v.look_ahead=0;v.response_x=1;v.response_y=1;v.max_speed=256;v.dead_zone_y=0;
+    v.advanced={...cameraAdvanced(v),path:[{x:120,y:60,frames:4,wait:2},{x:220,y:80,frames:0,wait:1}]};
+    let s=initialCameraSample();const xs=[];
+    for(let i=0;i<10;i++){s=sampleCamera(camera,{x:0,y:0},{x:400,y:200},"megadrive",s);xs.push(s.x);}
+    expect(xs).toEqual([0,30,60,90,120,120,120,220,220,220]);
+    v.advanced.return_to_target=true;
+    expect(sampleCamera(camera,{x:0,y:0},{x:400,y:200},"megadrive",s)).toMatchObject({x:272,y:88});
+  });
+  it("uses the project PAL clock for signed scrolling and stable priority for initial regions",()=>{
+    const {camera,scene,entity}=fixture(),v=camera.visual!;v.pattern="auto_horizontal";v.speed=-7;v.bounds={x:-1000,y:0,width:2000,height:512};
+    let s=sampleCamera(camera,{x:400,y:0},null,"megadrive",undefined,50);
+    for(let i=0;i<50;i++)s=sampleCamera(camera,{x:400,y:0},null,"megadrive",s,50);
+    expect(s).toMatchObject({x:393,remainder:0});
+    const other=structuredClone(entity);other.entity_id="camera_b";
+    other.components.camera!.visual!.active=false;
+    other.components.camera!.visual!.advanced={...cameraAdvanced(v),activation:{x:300,y:0,width:400,height:512},priority:10};
+    scene.entities.push(other);expect(initialVisualCamera(scene)?.entity_id).toBe("camera_b");
+    other.components.camera!.visual!.advanced.priority=0;
+    v.advanced={...cameraAdvanced(v),activation:{x:300,y:0,width:400,height:512}};
+    expect(initialVisualCamera(scene)?.entity_id).toBe("camera");
+    camera.visual!.active=false;expect(initialVisualCamera(scene)).toBeUndefined();
+  });
+  it("rejects oversized room and activation extents before applying, matching target validation",()=>{
+    const {camera,scene}=fixture(),v=camera.visual!;
+    v.advanced={...cameraAdvanced(v),activation:{x:-16000,y:0,width:32000,height:224}};
+    expect(cameraValidation(camera,scene,"megadrive").join()).toContain("região de ativação");
+    v.advanced.activation=null;v.advanced.rooms=[{id:"room",name:"Room",area:{x:-16000,y:0,width:32000,height:224},priority:0,smooth:false}];
+    expect(cameraValidation(camera,scene,"megadrive").join()).toContain("Salas");
   });
 });

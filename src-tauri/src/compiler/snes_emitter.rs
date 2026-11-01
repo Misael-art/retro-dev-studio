@@ -189,6 +189,9 @@ fn build_main_c_with_collision(
     }
     if let Some(camera) = visual_camera {
         out.push_str("static volatile s16 rds_camera_x = 0, rds_camera_y = 0;\n");
+        out.push_str(
+            "static s16 rds_camera_ratio_x[2] = {100,100}, rds_camera_ratio_y[2] = {100,100};\n",
+        );
         out.push_str(&super::camera_runtime::render_definitions(camera));
     }
     for physics in &physics_applications {
@@ -486,7 +489,7 @@ fn build_main_c_with_collision(
                     }
                     for tilemap in &context.tilemaps {
                         out.push_str(&format!(
-                            "        bgSetScroll({bg}, rds_camera_x - {x}, rds_camera_y - {y});\n",
+                            "        bgSetScroll({bg}, ((s32)rds_camera_x * rds_camera_ratio_x[{bg}]) / 100 - {x}, ((s32)rds_camera_y * rds_camera_ratio_y[{bg}]) / 100 - {y});\n",
                             bg = tilemap.bg_number,
                             x = tilemap.scroll_x,
                             y = tilemap.scroll_y
@@ -1229,6 +1232,19 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], context: &SnesContext, in
                     y = render_math_expr(y)
                 ));
             }
+            LogicOp::CameraControl {
+                target_index,
+                action,
+                frames,
+                x,
+                y,
+                error,
+                ..
+            } => {
+                if error.is_none() {
+                    out.push_str(&format!("{indent_str}rds_visual_camera_control({target_index}, {action}, {frames}, {x}, {y});\n"));
+                }
+            }
             LogicOp::CameraFollow {
                 target_var,
                 offset_x,
@@ -1828,6 +1844,7 @@ fn extract_vars_from_op(op: &LogicOp, vars: &mut std::collections::BTreeSet<Stri
         }
         LogicOp::SetAnimationState { .. }
         | LogicOp::CameraFollow { .. }
+        | LogicOp::CameraControl { .. }
         | LogicOp::HideSprite { .. } => {}
         LogicOp::SetVar { var_name, value } => {
             vars.insert(var_name.clone());
@@ -2131,8 +2148,8 @@ fn snes_button_mask(button: &str) -> Option<&'static str> {
         "_X" | "X" | "BUTTON_A" => Some("KEY_A"),
         "_Y" | "Y" => Some("KEY_L"),
         "_Z" | "Z" => Some("KEY_R"),
-        "START" => Some("KEY_START"),
-        "SELECT" => Some("KEY_SELECT"),
+        "START" | "BUTTON_START" => Some("KEY_START"),
+        "SELECT" | "BUTTON_SELECT" => Some("KEY_SELECT"),
         _ => None,
     }
 }
@@ -2728,6 +2745,14 @@ mod tests {
 
         assert!(output.main_c.contains("if ((padsCurrent(0) & KEY_RIGHT))"));
         assert!(!output.main_c.contains("BUTTON_RIGHT"));
+    }
+
+    #[test]
+    fn snes_start_and_select_aliases_resolve_to_sdk_masks() {
+        assert_eq!(snes_button_mask("BUTTON_START"), Some("KEY_START"));
+        assert_eq!(snes_button_mask("START"), Some("KEY_START"));
+        assert_eq!(snes_button_mask("BUTTON_SELECT"), Some("KEY_SELECT"));
+        assert_eq!(snes_button_mask("SELECT"), Some("KEY_SELECT"));
     }
 
     #[test]

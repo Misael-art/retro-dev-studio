@@ -112,10 +112,11 @@ export const NODE_CATALOG: Record<NodeType, NodeCatalogEntry> = {
   set_animation_state: entry("set_animation_state", "animation", "Movimento", "Estado de Animacao", "film", "Muda o estado de animacao da entidade.", ["target", "state"]),
   condition_on_ground: entry("condition_on_ground", "collision", "Condicoes", "Esta no chao?", "fork", "Pergunta se a entidade (com fisica) esta apoiada no chao neste quadro e segue por Sim ou Nao.", ["target"]),
   condition_overlap: entry("condition_overlap", "collision", "Condicoes", "Objetos se encostam?", "fork", "Pergunta se duas entidades se encostam (ou encostariam ao se mover) e segue por Sim ou Nao.", ["a", "b", "probe_dx"]),
-  camera_follow: entry("camera_follow", "camera", "Camera", "Camera Segue", "camera", "Faz a camera acompanhar a entidade.", ["target"]),
+  camera_follow: entry("camera_follow", "camera", "Camera", "Câmera segue (legado)", "camera", "Seguimento imediato legado. Damping não é executado por este nó; para suavidade e limites, remova o nó e converta em Configurar câmera.", ["target"]),
+  camera_control: entry("camera_control", "camera", "Camera", "Controlar câmera", "camera", "Câmera visual: selecionar, devolver às regiões, travar/liberar, tremor, deslocamento temporário ou reiniciar. Uma atualização após o movimento.", ["target", "action", "frames", "x", "y"]),
   authored_strike: entry("authored_strike", "collision", "Combate", "Golpe autoral", "fork", "Autoral (nao vem do CNS): quando a caixa de ataque do quadro atual do atacante encosta na caixa de corpo do alvo, tira dano uma vez por golpe.", ["attacker", "target", "damage", "health"]),
   palette_swap: entry("palette_swap", "action", "Combate", "Trocar paleta ao sofrer golpe", "film", "A cada acerto do golpe indicado, as cores do alvo viram as da paleta escolhida por alguns quadros e depois voltam. O alcance (so o alvo ou o grupo do banco) e conferido pelo plano de paletas.", ["strike", "target", "palette", "frames", "scope"]),
-  camera_bounds: entry("camera_bounds", "camera", "Camera", "Limites da Camera", "camera", "Impede a camera de sair da area indicada.", ["min_x", "max_x"]),
+  camera_bounds: entry("camera_bounds", "error_unsupported", "Camera", "Limites legados (indisponível)", "camera", "Este nó não tem execução. Remova-o e desenhe a área em Configurar câmera. Projetos com o nó recebem diagnóstico de compilação.", ["min_x", "max_x"]),
   timer: entry("timer", "timer", "Fluxo", "Timer", "clock", "Conta quadros e avisa a cada passo e ao terminar.", ["frames", "repeat"]),
   set_tile: entry("set_tile", "tilemap", "Tilemap", "Definir Tile", "grid", "Troca um bloco do cenario.", ["layer", "tile", "x", "y"]),
   effect_parallax: entry("effect_parallax", "action", "Efeitos", "Parallax", "layers", "Rola uma camada de fundo em velocidade propria.", ["layer", "speed_x"]),
@@ -319,6 +320,10 @@ export function describeNodeAction(node: GraphNode): string {
       return `Calcular A ${num(p.operator)} ${p.b ?? "B"}`;
     case "camera_follow":
       return `Camera segue ${num(p.target)}`;
+    case "camera_control": {
+      const labels:Record<string,string>={select:"Selecionar",regions:"Devolver às regiões",pause:"Travar",resume:"Liberar",shake:"Tremer",offset:"Deslocar temporariamente",restart:"Reiniciar"};
+      return `${labels[String(p.action)]??"Ação inválida"}: ${num(p.target)}`;
+    }
     case "authored_strike":
       return `Se o ataque de ${num(p.attacker)} acertar ${num(p.target)}: tirar ${num(p.damage)} de vida (uma vez por golpe)`;
     case "palette_swap":

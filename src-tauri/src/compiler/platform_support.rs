@@ -9,11 +9,23 @@ use crate::ugdm::entities::Scene;
 
 /// Nos sem traducao por plataforma. `condition_on_ground` depende do estado de apoio
 /// da fisica do emissor Mega Drive, que o emissor SNES nao tem.
-const UNSUPPORTED: &[(&str, &str, &str)] = &[(
-    "snes",
-    "condition_on_ground",
-    "o estado de apoio no chao so existe na fisica do Mega Drive",
-)];
+const UNSUPPORTED: &[(&str, &str, &str)] = &[
+    (
+        "snes",
+        "condition_on_ground",
+        "o estado de apoio no chao so existe na fisica do Mega Drive",
+    ),
+    (
+        "megadrive",
+        "camera_bounds",
+        "o no legado nao tem runtime; remova-o e desenhe limites em Configurar camera",
+    ),
+    (
+        "snes",
+        "camera_bounds",
+        "o no legado nao tem runtime; remova-o e desenhe limites em Configurar camera",
+    ),
+];
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct LogicSupportIssue {

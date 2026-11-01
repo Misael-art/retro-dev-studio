@@ -483,6 +483,8 @@ pub struct LogicComponent {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CameraComponent {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub patterns: Vec<SavedCameraPattern>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visual: Option<VisualCameraConfig>,
     pub follow_entity: Option<String>,
@@ -495,6 +497,8 @@ pub struct CameraComponent {
 /// Effective values, never a live reference to the editor's preset catalog.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct VisualCameraConfig {
+    #[serde(default)]
+    pub advanced: CameraAdvancedConfig,
     pub version: u8,
     pub active: bool,
     pub pattern: String,
@@ -521,6 +525,55 @@ pub struct CameraArea {
     pub y: i32,
     pub width: i32,
     pub height: i32,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct CameraAdvancedConfig {
+    pub rooms: Vec<CameraRoom>,
+    pub targets: Vec<String>,
+    pub path: Vec<CameraWaypoint>,
+    pub return_to_target: bool,
+    pub allow_backtracking: bool,
+    pub activation: Option<CameraArea>,
+    pub priority: i32,
+    pub smooth_transition: bool,
+    pub parallax: Vec<CameraParallax>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CameraRoom {
+    pub id: String,
+    pub name: String,
+    pub area: CameraArea,
+    pub priority: i32,
+    pub smooth: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CameraWaypoint {
+    pub x: i32,
+    pub y: i32,
+    pub frames: i32,
+    pub wait: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CameraParallax {
+    pub entity_id: String,
+    pub ratio_x: i32,
+    pub ratio_y: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SavedCameraPattern {
+    pub id: String,
+    pub name: String,
+    pub config: VisualCameraConfig,
+    pub offset_x: i32,
+    pub offset_y: i32,
+    pub x: i32,
+    pub y: i32,
 }
 
 // ── Tilemap ───────────────────────────────────────────────────────────────────

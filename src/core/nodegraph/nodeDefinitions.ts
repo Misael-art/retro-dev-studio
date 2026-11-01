@@ -159,6 +159,12 @@ export const NODE_DEFS: Record<NodeType, Omit<GraphNode, "id" | "x" | "y">> = {
     outputs: [{ id: "exec", label: ">", kind: "exec" }],
     params: { target: "player", damping: 0 },
   },
+  camera_control: {
+    type: "camera_control", label: "Controlar câmera",
+    inputs: [{ id: "exec", label: ">", kind: "exec" }],
+    outputs: [{ id: "exec", label: ">", kind: "exec" }],
+    params: { target: "main_camera", action: "pause", frames: 12, x: 4, y: 4 },
+  },
   camera_bounds: {
     type: "camera_bounds", label: "Camera Bounds",
     inputs: [{ id: "exec", label: ">", kind: "exec" }],

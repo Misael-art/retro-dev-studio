@@ -1,6 +1,6 @@
 import type { Entity, Scene } from "./ipc/sceneService";
 import { getEntityDisplayName } from "./entityDisplay";
-import { activeVisualCamera, sampleCamera } from "./cameraWorkflow";
+import { initialVisualCamera, sampleCamera } from "./cameraWorkflow";
 
 export type SceneViewportFrame = {
   width: number;
@@ -82,7 +82,8 @@ export function getSceneEntityBounds(
     const frame = getSceneViewportFrame(target);
     if (entity.components.camera.visual) {
       const followed = entities.find(e => e.entity_id === entity.components.camera?.follow_entity && e.components?.sprite);
-      const position = sampleCamera(entity.components.camera, entity.transform, followed?.transform ?? null, target);
+      const position = sampleCamera(entity.components.camera, entity.transform, followed?.transform ?? null, target, undefined, 60,
+        Object.fromEntries(entities.filter(e=>e.components?.sprite).map(e=>[e.entity_id,e.transform])));
       return { x: position.x, y: position.y, ...frame, resizable: false };
     }
     const offsetX = entity.components.camera.offset_x ?? 0;
@@ -163,7 +164,7 @@ export function resolveSceneWorldMetrics(
   let tilemapWorldSize: { width: number; height: number } | null = null;
   let collisionWorldSize: { width: number; height: number } | null = null;
   let camera: SceneWorldCameraFrame | null = null;
-  const visual = scene ? activeVisualCamera(scene) : undefined;
+  const visual = scene ? initialVisualCamera(scene) : undefined;
   const usesVisual = scene?.entities.some(e => e.components?.camera?.visual) ?? false;
 
   if (scene?.collision_map) {

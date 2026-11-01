@@ -1441,7 +1441,7 @@ describe("NodeGraphEditor", () => {
     expect(text).toContain("Enquanto segurar Direcional → (tecla Seta →)");
     expect(text).toContain("Ao apertar Botao A (tecla Z)");
     expect(text).toContain("jump");
-    expect(text).toContain("Camera Segue");
+    expect(text).toContain("Câmera segue (legado)");
     expect(text).toContain("Objetos se encostam?");
     expect(text).toContain("player");
   });

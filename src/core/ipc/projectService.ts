@@ -71,6 +71,8 @@ export interface SaveRamConfig {
 }
 
 export interface ProjectSettingsSnapshot {
+  /** Effective project clock, also used by camera preview; optional for older desktop builds. */
+  fps?: number;
   target: "megadrive" | "snes";
   region: string;
   video_standard: string;

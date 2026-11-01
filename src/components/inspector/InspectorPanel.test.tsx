@@ -8,6 +8,7 @@ import { sha256Text, type BuildSourceMap } from "../../core/nodegraph/buildProve
 import { buildBehaviorSceneContext, planApplyBehavior } from "../../core/nodegraph/behaviorLibrary";
 import { deserializeNodeGraph } from "../../core/nodegraph/nodeDefinitions";
 import { serializeNodeGraph } from "../../core/nodegraph/nodeTypes";
+import { cameraPreset } from "../../core/cameraWorkflow";
 
 const mocks = vi.hoisted(() => ({
   persistActiveScene: vi.fn(),
@@ -236,6 +237,18 @@ describe("InspectorPanel", () => {
     expect(container.textContent).toContain("Graph: 2 nodes, 1 edges");
     expect(container.textContent).toContain("Imported Hints");
     expect(container.textContent).toContain("Hint importado do adapter externo.");
+  });
+
+  it("duplicates an inherited camera as an inactive source override and undoes the copy", async () => {
+    const camera:Entity={entity_id:"camera",prefab:"camera.json",transform:{x:32,y:16},components:{camera:{visual:cameraPreset("fixed",{x:0,y:0,width:640,height:224},"megadrive")}}};
+    const source:Entity={...camera,components:{}};
+    await act(async()=>{useEditorStore.setState({activeScene:{...EMPTY_SCENE,entities:[camera]},activeSceneSource:{...EMPTY_SCENE,entities:[source]},selectedEntityId:"camera"});await flush();});
+    await act(async()=>{(container.querySelector('[data-testid="inspector-duplicate-entity"]') as HTMLButtonElement).click();await flush();});
+    const store=useEditorStore.getState();
+    expect(store.activeScene!.entities.filter(e=>e.components.camera?.visual?.active)).toHaveLength(1);
+    expect(store.activeSceneSource!.entities.find(e=>e.entity_id==="camera_2")?.components.camera?.visual?.active).toBe(false);
+    await act(async()=>{store.undo();await flush();});
+    expect(useEditorStore.getState().activeScene!.entities).toHaveLength(1);
   });
 
   it("renders observed build provenance and explicit unsupported reasons", async () => {
