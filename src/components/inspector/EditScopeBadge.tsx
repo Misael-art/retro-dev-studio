@@ -61,7 +61,7 @@ export default function EditScopeBadge({ entityId }: { entityId: string }) {
     <div
       data-testid="inspector-edit-scope"
       data-scope={scope.kind}
-      className="mt-1 rounded border border-[#a78bfa]/40 bg-[#a78bfa]/10 px-2 py-1 text-[9px] text-[#ddd6fe]"
+      className="mt-1 rounded border border-[var(--rds-border-default)] bg-[var(--rds-surface-panel)] px-2 py-1 text-[11px] text-[var(--rds-text-primary)]"
     >
       <p className="font-semibold">{scope.label}</p>
       {scope.kind === "instance" ? (
@@ -86,7 +86,7 @@ export default function EditScopeBadge({ entityId }: { entityId: string }) {
                       if (!outcome.ok) setError(outcome.message);
                     }}
                     title={`Leva esta exceção para o modelo: muda as ${scope.uses} instâncias (salva o projeto; volta por Reverter)`}
-                    className="rounded border border-[#a6e3a1]/60 px-1 text-[#a6e3a1] disabled:opacity-40"
+                    className="rounded border border-[#a6e3a1]/60 px-2 py-1 text-[var(--rds-text-primary)] disabled:opacity-40"
                   >
                     Aplicar ao modelo ({scope.uses})
                   </button>
@@ -96,7 +96,7 @@ export default function EditScopeBadge({ entityId }: { entityId: string }) {
                     disabled={busy !== null}
                     onClick={() => void revert(component)}
                     title="Remove a exceção desta instância; ela volta a seguir o modelo (pode ser desfeito)"
-                    className="ml-auto rounded border border-[#a78bfa]/60 px-1 disabled:opacity-40"
+                    className="ml-auto rounded border border-[#a78bfa]/60 px-2 py-1 disabled:opacity-40"
                   >
                     {busy === component ? "Restaurando…" : "Restaurar do modelo"}
                   </button>

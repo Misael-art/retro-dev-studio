@@ -209,6 +209,12 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   const [showAllPalettes, setShowAllPalettes] = useState(false);
   const [fps, setFps] = useState(10);
   const [playing, setPlaying] = useState(true);
+  const [optionsOpen, setOptionsOpen] = useState(() => window.innerWidth >= 1280);
+  useEffect(() => {
+    const resize = () => { if (window.innerWidth < 1100) setOptionsOpen(false); };
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
   const [previewFrame, setPreviewFrame] = useState(0);
   const [status, setStatus] = useState<string | null>(null);
   const [preview, setPreview] = useState<Uint8Array | null>(null);
@@ -231,6 +237,8 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   const optionsRef = useRef<HTMLDivElement | null>(null);
   const serialized = useMemo(() => serializePixelDoc(doc), [doc]);
   const isSaved = savedPath !== null && serialized === savedSource;
+  const sourceDocument = Boolean(source && /(?:^|\/)assets\/(?:sprites|tilesets)\/pixel\/[^/]+\.png$/.test(source.sourcePath.replace(/\\/g, "/")));
+  const sharedResource = Boolean(sourceDocument && source?.sourcePath.replace(/\\/g, "/").endsWith(`/${doc.name}.png`));
   useLayoutEffect(() => { if (optionsRef.current) optionsRef.current.scrollTop = 0; }, [task, sourceIdentity]);
 
   useLayoutEffect(() => {
@@ -760,6 +768,11 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
       className="flex h-full min-h-0 flex-col gap-2 outline-none"
       onContextMenu={(e) => e.preventDefault()}
     >
+      <div data-testid="pixel-edit-context" className="flex min-w-0 items-center gap-2 rounded border border-[var(--rds-border-default)] px-2 py-1 text-xs text-[var(--rds-text-primary)]">
+        {source?.url && <img src={source.url} alt="Imagem de origem" className="h-8 w-8 shrink-0 object-contain [image-rendering:pixelated]" />}
+        <div className="min-w-0"><strong>{sharedResource ? "Editando recurso compartilhado" : "Editando outro recurso"}: {doc.name}</strong>
+          {source && <p className="truncate" title={source.name}>Origem selecionada: {source.name}{!source.autoOpen ? ` · ${source.frames.length} quadros disponíveis para criar cópia` : ""}</p>}</div>
+      </div>
       {/* Barra do documento */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#313244] bg-[#111827] px-3 py-2 text-[10px] text-[#cdd6f4]">
         <input
@@ -815,9 +828,9 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
             data-testid="pixel-import-art"
             onClick={() => void importFromArt()}
             className="max-w-48 truncate rounded border border-[#7dd3fc]/45 bg-[#7dd3fc]/10 px-2 py-1 text-[#7dd3fc] hover:bg-[#7dd3fc]/20"
-            title="Traz os frames da sequência ativa, quantizados para a paleta ativa"
+            title={sourceDocument ? "Reabre o documento do recurso com seus quadros, tempos e camadas" : "Cria outro recurso com os quadros indicados; preserva o arquivo, animações e referências originais"}
           >
-            Recuperar imagem salva
+            {sourceDocument ? "Recuperar imagem salva" : "Criar cópia dos quadros"}
           </button>
         ) : null}
         <span className="ml-auto flex items-center gap-1">
@@ -846,20 +859,21 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
             onClick={() => void save()}
             className="rounded border border-[#a6e3a1]/50 bg-[#a6e3a1]/15 px-3 py-1 font-semibold text-[#a6e3a1] hover:bg-[#a6e3a1]/25"
           >
-            {imagePreview ? "Prévia em aberto" : saving ? "Salvando…" : isSaved ? "Salvo ✓" : source?.autoOpen ? "Salvar recurso" : "Salvar no projeto"}
+            {imagePreview ? "Prévia em aberto" : saving ? "Salvando…" : isSaved ? "Salvo ✓" : sharedResource ? "Salvar recurso" : "Salvar no projeto"}
           </button>
         </span>
       </div>
       <p data-testid="pixel-save-state" role="status" className="px-1 text-[10px] text-[#a6adc8]">
         {imagePreview ? "Prévia não aplicada · use Aplicar ou Cancelar no painel da imagem antes de salvar." : isSaved ? `PNG e documento salvos: ${savedPath}.` : "Pixels pendentes · mantidos nesta sessão ao trocar de ferramenta. Salve antes de fechar o aplicativo."}
-        {" "}{source?.autoOpen ? "Salvar atualiza o recurso compartilhado; Salvar cópia aplica apenas à ocorrência selecionada. Mudanças de tamanho/recorte criam uma cópia." : "Salvar cria um recurso. Você pode adicioná-lo à cena pela biblioteca."}
+        {" "}{source?.autoOpen ? "O mesmo nome atualiza o recurso compartilhado; outro nome ou Salvar cópia aplica apenas à ocorrência selecionada. Ctrl+Z recupera edições desta sessão." : sourceDocument ? "Salvar atualiza este documento no projeto; outros objetos podem usar o mesmo recurso. Renomeie para gravar outra cópia." : "Salvar grava este documento no projeto. A imagem de origem permanece preservada; aplique a cópia à cena quando desejar."}
       </p>
 
       <nav aria-label="Tarefas de edição de imagem" className="flex shrink-0 flex-wrap gap-1 rounded-xl border border-[#313244] bg-[#111827] p-1 text-xs">
-        {PIXEL_TASKS.map(t => <button type="button" key={t.id} data-testid={`pixel-task-${t.id}`} aria-pressed={task === t.id} onClick={() => { setTask(t.id); setTileMap(t.id === "tiles"); if (optionsRef.current) optionsRef.current.scrollTop = 0; }} className={`rounded-lg px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7dd3fc] ${task === t.id ? "bg-[#7dd3fc]/20 font-semibold text-[#7dd3fc]" : "text-[#cdd6f4] hover:bg-[#7dd3fc]/10"}`}>{t.label}</button>)}
+        <button type="button" data-testid="pixel-toggle-options" aria-expanded={optionsOpen} onClick={() => setOptionsOpen(v => !v)} className="rounded-lg border px-3 py-2">Opções da tarefa</button>
+        {PIXEL_TASKS.map(t => <button type="button" key={t.id} data-testid={`pixel-task-${t.id}`} aria-pressed={task === t.id} onClick={() => { setTask(t.id); setOptionsOpen(true); setTileMap(t.id === "tiles"); if (optionsRef.current) optionsRef.current.scrollTop = 0; }} className={`rounded-lg px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7dd3fc] ${task === t.id ? "bg-[#7dd3fc]/20 font-semibold text-[#7dd3fc]" : "text-[#cdd6f4] hover:bg-[#7dd3fc]/10"}`}>{t.label}</button>)}
       </nav>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[142px_minmax(0,1fr)_minmax(260px,300px)] gap-2">
+      <div className="grid min-h-0 flex-1 gap-2" style={{ gridTemplateColumns: optionsOpen ? "110px minmax(0,1fr) minmax(230px,280px)" : "110px minmax(0,1fr)" }}>
         {/* Ferramentas */}
         <div className="flex flex-col gap-1 overflow-y-auto rounded-xl border border-[#313244] bg-[#111827] p-1.5" data-testid="pixel-tools" aria-label="Ferramentas de desenho">
           <p className="px-2 py-1 text-[10px] font-semibold text-[#a6adc8]">DESENHAR E RECORTAR</p>
@@ -971,7 +985,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
         </div>
 
         {/* Coluna direita */}
-        <div ref={optionsRef} aria-label="Opções da tarefa de edição" className="flex min-h-0 flex-col gap-2 overflow-y-auto pr-1 text-xs text-[#cdd6f4]">
+        <div ref={optionsRef} hidden={!optionsOpen} aria-label="Opções da tarefa de edição" className={`${optionsOpen ? "flex" : "hidden"} min-h-0 flex-col gap-2 overflow-y-auto pr-1 text-xs text-[#cdd6f4]`}>
           <PixelImagePanel task={task} doc={doc} projectDir={projectDir} scope={editScope} primary={primary} assetLine={report.lineUsage[0]?.line ?? pixelLine(primary)} onPrimary={value => { setPrimary(value); setActiveLine(pixelLine(value)); }} originalAvailable={Boolean(originalPath)} onReconvert={method => void reopenOriginal(method)}
             onCommit={(next, base, separate) => { if (docRef.current !== base) { setStatus("A imagem mudou. Gere uma nova prévia; seu trabalho foi preservado."); return; } commit(separate && source?.autoOpen ? copyPixelDoc(next) : next); if (!enabledPixelPalettes(next).includes(activeLine)) { const line = enabledPixelPalettes(next)[0]; setActiveLine(line); setPrimary(packPixel(line, 1)); setSecondary(packPixel(line, 2)); setEditingSlot(null); } setImagePreview(null); setIsolation(null); }} onPreview={setImagePreview}
             onSelectLayer={setLayerIndex} onSelectTool={next => { setTool(next); setTileMap(false); }} onSelection={setSelection} onIsolation={setIsolation}

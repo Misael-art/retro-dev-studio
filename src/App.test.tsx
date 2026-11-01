@@ -3052,8 +3052,8 @@ describe("App build flow", () => {
     expect(topbar?.textContent).toContain("Parar");
     expect(topbar?.textContent).toContain("Pausar");
     expect(topbar?.textContent).not.toContain(warning);
-    expect(statusBar?.textContent).toContain("Build: warn");
-    expect(statusBar?.textContent).toContain("Emulacao: idle");
+    expect(statusBar?.textContent).toContain("Prévia: Com avisos");
+    expect(statusBar?.textContent).toContain("Emulação: Parada");
     expect(statusBar?.textContent).toContain("sprites 7/80");
 
     await act(async () => {

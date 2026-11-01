@@ -4523,7 +4523,7 @@ export default function NodeGraphEditor() {
                       fontSize={Math.max(8, 10 * view.zoom)}
                       fontWeight={700}
                     >
-                      {kind === "true" ? "Sim" : "Nao"}
+                      {kind === "true" ? "Sim" : "Não"}
                     </text>
                   ) : null}
                 </g>

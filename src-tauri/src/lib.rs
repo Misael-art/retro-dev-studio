@@ -2768,6 +2768,41 @@ async fn rom_extract_audio(rom_path: String) -> Result<Vec<AudioCandidate>, Stri
 }
 
 #[tauri::command]
+async fn rex_input_probe(
+    request_id: String,
+    path: String,
+) -> Result<tools::reverse::rom_input::RomInputProbe, String> {
+    let job = tools::reverse::rom_input::InputJob::begin(request_id)?;
+    run_heavy_result_command("rex_input_probe", move || {
+        tools::reverse::rom_input::probe(&tools::reverse::rom_input::work_dir(), &path, &job)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn rex_input_resolve(
+    request_id: String,
+    input_id: String,
+    member: String,
+) -> Result<tools::reverse::rom_input::RomInputResolved, String> {
+    let job = tools::reverse::rom_input::InputJob::begin(request_id)?;
+    run_heavy_result_command("rex_input_resolve", move || {
+        tools::reverse::rom_input::resolve(
+            &tools::reverse::rom_input::work_dir(),
+            &input_id,
+            &member,
+            &job,
+        )
+    })
+    .await
+}
+
+#[tauri::command]
+fn rex_input_cancel(request_id: String) -> Result<(), String> {
+    tools::reverse::rom_input::cancel(&request_id)
+}
+
+#[tauri::command]
 async fn rex_inspection_open(
     rom_path: String,
 ) -> Result<
@@ -6491,6 +6526,36 @@ pub fn run() {
     std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
 
     tauri::Builder::default()
+        .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                if let Some(monitor) = window
+                    .current_monitor()
+                    .ok()
+                    .flatten()
+                    .or_else(|| app.primary_monitor().ok().flatten())
+                {
+                    let area = monitor
+                        .work_area()
+                        .size
+                        .to_logical::<f64>(monitor.scale_factor());
+                    // Leave room for native decorations on small/scaled desktops.
+                    if area.width < 1280.0 || area.height < 864.0 {
+                        if let Err(error) = window.set_size(tauri::LogicalSize::new(
+                            1280.0f64.min((area.width - 16.0).max(1.0)),
+                            800.0f64.min((area.height - 64.0).max(1.0)),
+                        )) {
+                            eprintln!(
+                                "[Janela] Não foi possível ajustar o tamanho inicial: {error}"
+                            );
+                        }
+                        if let Err(error) = window.center() {
+                            eprintln!("[Janela] Posicionamento inicial indisponível: {error}");
+                        }
+                    }
+                }
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(EmulatorCoreState(Mutex::new(EmulatorCore::new(None))))
@@ -6602,6 +6667,9 @@ pub fn run() {
             rom_extract_audio,
             rom_save_annotations,
             rex_inspection_open,
+            rex_input_probe,
+            rex_input_resolve,
+            rex_input_cancel,
             rex_decompile_rom,
             rex_reveal_extraction_dir,
             rex_inspection_reopen,

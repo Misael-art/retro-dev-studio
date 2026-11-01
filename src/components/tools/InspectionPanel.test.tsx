@@ -170,6 +170,21 @@ describe("InspectionPanel", () => {
     container.remove();
   });
 
+  it("opens a prepared ROM in the existing discovery pipeline and rejects a changed member identity", async () => {
+    mocks.inspectionListSessions.mockResolvedValue([session, { ...session, session_id: "other-rom", identity: { ...session.identity, original_sha256: "c".repeat(64) } }]);
+    await act(async () => { root.render(<InspectionPanel initialRom={{ path: "/prepared/rom.bin", sha256: "a".repeat(64) }} logMessage={vi.fn()} />); await flush(); });
+    expect(mocks.inspectionOpen).toHaveBeenCalledWith("/prepared/rom.bin");
+    expect(mocks.inspectionStart).toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="inspection-prepared-base"]')).not.toBeNull();
+    expect(container.textContent).not.toContain("ROM BYOR");
+    expect(container.querySelectorAll('[data-testid="inspection-saved-session"]')).toHaveLength(1);
+    await act(async () => { root.unmount(); await flush(); });
+    root = createRoot(container);
+    mocks.inspectionStart.mockClear();
+    await act(async () => { root.render(<InspectionPanel initialRom={{ path: "/prepared/changed.bin", sha256: "wrong" }} logMessage={vi.fn()} />); await flush(); });
+    expect(mocks.inspectionStart).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="inspection-identify-state"]')?.getAttribute("data-state")).toBe("failed");
+  });
   it("identifies a BYOR ROM, starts discovery, and cancels through IPC", async () => {
     await act(async () => {
       root.render(<InspectionPanel logMessage={vi.fn()} />);
@@ -236,7 +251,8 @@ describe("InspectionPanel", () => {
 
     expect(mocks.listenInspectionProgress).toHaveBeenCalledBefore(mocks.inspectionStart);
     expect(container.textContent).toContain("Análise concluída");
-    expect(container.textContent).toContain("candidate-a");
+    expect(container.querySelector('[data-testid="inspection-candidate-candidate-a"]')).not.toBeNull();
+    expect(container.textContent).toContain("Possível bloco gráfico");
   });
 
   it("does not let a slow preview for candidate A replace candidate B", async () => {
@@ -257,7 +273,7 @@ describe("InspectionPanel", () => {
     await act(async () => { await flush(); });
     const identifyButton = Array.from(container.querySelectorAll("button")).find((item) => item.textContent?.trim() === "Identificar base") as HTMLButtonElement;
     await act(async () => { identifyButton.click(); await flush(); await flush(); });
-    const candidateButton = (id: string) => Array.from(container.querySelectorAll("button")).find((item) => item.textContent?.includes(id)) as HTMLButtonElement;
+    const candidateButton = (id: string) => container.querySelector(`[data-testid="inspection-candidate-${id}"]`) as HTMLButtonElement;
     await act(async () => { candidateButton("candidate-a").click(); candidateButton("candidate-b").click(); await flush(); });
     await act(async () => { pending.get("candidate-b")?.({ session_id: session.session_id, candidate_id: "candidate-b", available: true, data_url: "data:image/png;base64,B", artifact: null, png_sha256: null, pixels_sha256: null }); await flush(); });
     await act(async () => { pending.get("candidate-a")?.({ session_id: session.session_id, candidate_id: "candidate-a", available: true, data_url: "data:image/png;base64,A", artifact: null, png_sha256: null, pixels_sha256: null }); await flush(); });

@@ -477,6 +477,7 @@ function parseArgs(argv) {
           "draft-recovery",
           "studio-appearance",
           "nodegraph-authoring",
+          "rom-input",
           "behaviors-independence",
           "collect-goal",
           "inspection",
@@ -7302,7 +7303,7 @@ async function runPixelEditorScenario(sessionId) {
     await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === overlay, 30000, "Pixel project did not reopen.", 250);
     await callAutomationApi(sessionId, "openAssetInArtStudio", [`assets/sprites/pixel/${saved.name}.png`]);
     await clickByTestId(sessionId, "artstudio-mode-pixel");
-    await waitFor(async () => js(`return document.querySelector('[data-testid="pixel-import-art"]')?.textContent?.includes(arguments[0]);`, [saved.name]), 20000, "Saved asset was not selected in Art.", 250);
+    await waitFor(async () => js(`return document.querySelector('[data-testid="pixel-edit-context"] p')?.textContent?.includes(arguments[0]) && !!document.querySelector('[data-testid="pixel-import-art"]');`, [saved.name]), 20000, "Saved asset was not selected in Art.", 250);
     await clickByTestId(sessionId, "pixel-import-art");
     const reopened = await waitFor(async () => js(`return document.querySelector('[data-testid="pixel-status"]')?.textContent?.includes("reaberto com layers") ? {frames:document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length,name:document.querySelector('[data-testid="pixel-doc-name"]')?.value} : null;`), 20000, "Native pixel document did not reopen.", 250);
     addReportStep(report, "saved_pixel_document_reopened_in_art", reopened.frames === undone.frames && reopened.name === saved.name ? "passed" : "failed", reopened);
@@ -11770,8 +11771,8 @@ async function runStudioAppearanceScenario(initialSessionId, appPath, timeoutMs,
     await setSessionWindowRect(sessionId, 1280, 800);
     await prepareWizardHome(sessionId);
     const initial = await js(`return {intents:document.querySelectorAll('[data-testid^="wizard-intent-"]').length,name:!!document.querySelector('[data-testid="wizard-project-name"]'),create:!!document.querySelector('[data-testid="wizard-create-project"]'),open:!!document.querySelector('[data-testid="wizard-open-project"]')};`);
-    if (initial.intents !== 4 || initial.name || initial.create || initial.open) fail(`Início não progressivo: ${JSON.stringify(initial)}`);
-    await shot("wizard-home-four-intents");
+    if (initial.intents !== 5 || initial.name || initial.create || initial.open) fail(`Início não progressivo: ${JSON.stringify(initial)}`);
+    await shot("wizard-home-five-intents");
     report.steps.push({step:"wizard_progressive_home",status:"passed",...initial});
     await click("wizard-intent-open");
     await js("return window.__RDS_E2E__.setNextProjectOpenFile(null);");
@@ -11874,7 +11875,7 @@ async function runStudioAppearanceScenario(initialSessionId, appPath, timeoutMs,
         await clickTopBarMenuAction(sessionId, "Novo Projeto");
         await prepareWizardHome(sessionId);
         const homeGeometry=await js(`return [...document.querySelectorAll('[data-testid^="wizard-intent-"]')].map(e=>{const r=e.getBoundingClientRect();return {id:e.dataset.testid,visible:r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))};});`);
-        if(homeGeometry.length!==4||homeGeometry.some(e=>!e.visible)) fail(`Início inacessível em ${id}/${width}: ${JSON.stringify(homeGeometry)}`);
+        if(homeGeometry.length!==5||homeGeometry.some(e=>!e.visible)) fail(`Início inacessível em ${id}/${width}: ${JSON.stringify(homeGeometry)}`);
         geometry.wizard=homeGeometry;
         await shot(`${id}-${width}-wizard-home`);
         await click("wizard-cancel");
@@ -14922,6 +14923,130 @@ async function runSonicLogicGraphsScenario(sessionId, uiBootstrapTimeoutMs) {
   await writeFile(path.join(validationDir, `${prefix}-report.json`), JSON.stringify(report, null, 2));
   if (!report.allPass) fail("sonic-logic-graphs: ha verificacoes reprovadas");
   console.log(`[sonic-logic-graphs] projeto mantido em ${projectDir}`);
+}
+
+// Archive acceptance uses an operator-supplied authored/BYOR ROM, never a download.
+async function runRomInputScenario(sessionId, appPath, timeoutMs) {
+  const rom = process.env.RDS_ROM_INPUT_ROM;
+  const output = process.env.RDS_ROM_INPUT_OUTPUT;
+  if (!rom || !output) fail("rom-input requires RDS_ROM_INPUT_ROM and RDS_ROM_INPUT_OUTPUT.");
+  await mkdir(output, { recursive: true });
+  const prefix = `rom-input-${artifactTimestamp()}`;
+  const report = { schema: "retrodev.rom_input/v1", maturity: "Experimental", application: { path: appPath, sha256: createHash("sha256").update(await readFile(appPath)).digest("hex") }, steps: [], artifacts: [] };
+  const js = (code, args = []) => executeScript(sessionId, code, args);
+  const click = id => clickButtonByTestIdNative(sessionId, id);
+  const shot = async name => addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${name}.png`), name);
+  const run = (command, args, options = {}) => new Promise((resolve, reject) => execFile(command, args, { ...options, env: process.env, timeout: 30000 }, (error, stdout) => error ? reject(error) : resolve(stdout)));
+  const xd = args => run("xdotool", args);
+  const hash = async file => createHash("sha256").update(await readFile(file)).digest("hex");
+  const waitText = text => waitFor(async () => (await js("return document.body.textContent;")).includes(text), 60000, `Missing ${text}`, 150);
+  const close = async () => {
+    await waitFor(async () => !await js(`const b=document.querySelector('[data-testid="rom-drop-decompile"] button[aria-label="Fechar diálogo"]');return b?.disabled ?? true;`), 60000, "ROM session still active", 150);
+    await webdriverRequest("POST", `/session/${sessionId}/actions`, {actions:[{type:"key",id:"close-rom",actions:[{type:"keyDown",value:"\uE00C"},{type:"keyUp",value:"\uE00C"}]}]});
+    await waitFor(async () => !await js(`return !!document.querySelector('[data-testid="rom-drop-decompile"]');`), 5000, "ROM dialog did not close");
+  };
+  let producer;
+  const stop = async () => { if (producer) { producer.kill("SIGTERM"); await waitForProcessExit(producer, 5000); producer = null; } };
+  const drop = async file => {
+    producer = spawn("python3", ["scripts/image-clipboard-fixture.py", "drop", file], {env:process.env, stdio:["ignore","pipe","pipe"]});
+    await new Promise((resolve,reject) => {producer.stdout.once("data",resolve);producer.once("error",reject);producer.once("exit",code=>reject(new Error(`Drop helper exited ${code}`)));});
+    await xd(["mousemove","--sync","100","800","mousedown","1"]);
+    for(let i=1;i<=12;i++){await xd(["mousemove","--sync",String(Math.round(100+500*i/12)),String(Math.round(800-500*i/12))]);await new Promise(r=>setTimeout(r,70));}
+    await xd(["mouseup","1"]); await stop();
+  };
+  const chooseNativeFile = async file => {
+    await new Promise(r => setTimeout(r, 700));
+    const picker = String(await xd(["search", "--onlyvisible", "--name", "^Inspecionar ROM Mega Drive$"])).trim().split("\n")[0];
+    await xd(["windowfocus", "--sync", picker]);
+    await xd(["key", "ctrl+l"]); await new Promise(r => setTimeout(r, 250));
+    await xd(["key", "ctrl+a"]); await xd(["type", "--clearmodifiers", "--delay", "15", "--", file]);
+    await new Promise(r => setTimeout(r, 300)); await xd(["key", "Return"]);
+    await new Promise(r => setTimeout(r, 500));
+    const stillOpen = await xd(["search", "--onlyvisible", "--name", "^Inspecionar ROM Mega Drive$"]).catch(() => "");
+    if(String(stillOpen).trim()) {
+      const raw = String(await xd(["getwindowgeometry", "--shell", picker]));
+      const g = Object.fromEntries(raw.trim().split("\n").map(line => line.split("=")).map(([key,value]) => [key,Number(value)]));
+      await captureWindowRaster(sessionId, `${prefix}-native-picker-confirm.png`);
+      await xd(["mousemove", "--sync", String(g.X+g.WIDTH-50), String(g.Y+g.HEIGHT-23), "click", "1"]);
+    }
+  };
+  try {
+    const sourceSha = await hash(rom);
+    const inputA = path.join(output,"first.md"), inputB = path.join(output,"second.bin");
+    await copyFile(rom,inputA); await copyFile(rom,inputB);
+    for(const kind of ["zip","7z"]){
+      const archive = path.join(output,`${prefix}.${kind}`);
+      await run("7z",["a","-y",archive,"first.md","second.bin"],{cwd:output});
+      const before = await hash(archive);
+      if(kind === "zip") {
+        // Start from the real wizard and its native file selector.
+        await click("wizard-intent-rom"); await chooseNativeFile(archive);
+      } else await drop(archive);
+      await waitText("Há 2 ROMs");
+      if(await js(`return !!document.querySelector('[data-testid="reverse-inspection-panel"]');`))fail("Catalog opened before explicit member choice");
+      await shot(`${kind}-member-choice`);
+      const member = await findElement(sessionId,'input[name="rom-member"][value="second.bin"]');
+      await clickElement(sessionId,member); await click("rom-input-extract");
+      await waitFor(async()=>js(`const s=document.querySelector('[data-testid="inspection-session"]');return s?.dataset.sessionStatus==='completed' && !!document.querySelector('[data-testid="inspection-catalog"]');`),120000,"Recovered catalog did not open",200);
+      const actual = await js(`const s=document.querySelector('[data-testid="inspection-session"]');return {sha:s.dataset.identitySha256,candidates:document.querySelectorAll('[data-testid^="inspection-candidate-"]').length,limits:document.querySelector('[data-testid="inspection-recovery-limits"]').textContent};`);
+      if(actual.sha!==sourceSha)fail("Archive member identity differs from source ROM");
+      await click("inspection-save"); await waitText("salva");
+      await click("inspection-reopen"); await waitText("reaberta e identidade verificada");
+      for(const [width,height] of [[1280,800],[1366,768],[949,593]]) {
+        await webdriverRequest("POST",`/session/${sessionId}/window/rect`,{width,height});
+        const geometry=await js(`const d=document.querySelector('[data-testid="rom-drop-decompile"]');const c=d.querySelector('[data-testid="inspection-catalog"]');c.scrollIntoView({block:'center'});const r=c.getBoundingClientRect();return {width:innerWidth,height:innerHeight,dialogWidth:d.getBoundingClientRect().width,catalogWidth:r.width,horizontal:document.documentElement.scrollWidth>innerWidth+1};`);
+        if(geometry.horizontal||geometry.dialogWidth>geometry.width+1||geometry.catalogWidth>geometry.width)fail("ROM catalog overflows logical desktop");
+        await shot(`${kind}-${width}x${height}`); report.steps.push({id:`${kind}_layout_${width}`,status:"passed",...geometry});
+      }
+      if(await hash(archive)!==before||await hash(rom)!==sourceSha)fail("Original input changed");
+      report.steps.push({id:kind,status:"passed",sourceSha,archiveSha:before,member:"second.bin",...actual});
+      await close();
+      await webdriverRequest("POST",`/session/${sessionId}/window/rect`,{width:1280,height:800});
+    }
+    const corrupt=path.join(output,`${prefix}-invalid.zip`); await writeFile(corrupt,Buffer.from("PK\x03\x04invalid"));
+    await drop(corrupt);
+    await waitFor(async()=>js(`return !!document.querySelector('[data-testid="rom-drop-decompile"] [role="alert"]') && !!document.querySelector('[data-testid="rom-input-choose"]');`),15000,"Invalid archive lacks recovery action");
+    await shot("invalid-recovery");report.steps.push({id:"invalid_archive_recovery",status:"passed"});await close();
+    const byor = process.env.RDS_ROM_INPUT_BYOR;
+    if (byor) {
+      const baseSha = await hash(byor);
+      if(baseSha !== "558bea6c80c76ec3da23afd584d4b56ece7722847ab1efc8c2f23f43f8529be9") fail("Unexpected BYOR identity for frozen compressed-resource oracle");
+      await drop(byor);
+      await waitFor(async()=>js(`return document.querySelector('[data-testid="inspection-run"]')?.dataset.runStatus==='running';`),15000,"Cancellation not exercised: no running analysis",100);
+      await click("inspection-cancel");
+      await waitFor(async()=>js(`return document.querySelector('[data-testid="inspection-run"]')?.dataset.runStatus==='cancelled';`),30000,"Cancellation not acknowledged",100);
+      await shot("analysis-cancelled");
+      await click("inspection-identify");
+      await waitFor(async()=>js(`return document.querySelector('[data-testid="inspection-session"]')?.dataset.sessionStatus==='identified';`),15000,"Base not identified after cancellation",100);
+      await click("inspection-start");
+      await waitFor(async()=>js(`return document.querySelector('[data-testid="inspection-session"]')?.dataset.sessionStatus==='completed';`),120000,"BYOR catalog did not open",200);
+      report.steps.push({id:"cancel_acknowledged_reidentify_restart",status:"passed"});
+      await clickElement(sessionId,await findElement(sessionId,'[data-testid="rom-input-resources"] > summary'));
+      await waitFor(async()=>js(`return !!document.querySelector('[data-testid="rex-resource-select"] option[value="c8cc8"]');`),60000,"Prepared ROM did not reach existing resource catalog",200);
+      await clickElement(sessionId,await findElement(sessionId,'[data-testid="rex-resource-select"] option[value="c8cc8"]'));
+      await waitFor(async()=>js(`return !!document.querySelector('[data-testid="rex-resource-canvas"]');`),30000,"Verified resource has no real preview",200);
+      for(const [id,value] of [["rex-resource-paint-index",15],["rex-resource-edit-tile",0],["rex-resource-edit-row",7],["rex-resource-edit-col",4]]) await fillInputBySelector(sessionId,`[data-testid="${id}"]`,String(value));
+      await click("rex-resource-add-edit"); await click("rex-resource-apply");
+      await waitFor(async()=>js(`return document.querySelector('[data-testid="rex-resource-result"]')?.textContent.includes('applied');`),60000,"Prepared ROM edit not applied",200);
+      const result = await js(`return document.querySelector('[data-testid="rex-resource-result"]').textContent;`);
+      const modified = result.match(/cópia: (\S+)/)?.[1], patch = result.match(/patch: (\S+)/)?.[1];
+      if(!modified || !patch)fail("Edit lacks modified ROM/patch provenance");
+      const modifiedSha=await hash(modified), patchSha=await hash(patch);
+      if(modifiedSha===baseSha || await hash(byor)!==baseSha)fail("Edit did not preserve base identity");
+      const applied=path.join(output,`${prefix}-patch-applied.bin`);
+      const apply = await invokeCoreObserveCommand(sessionId,"patch_apply_bps",{romPath:byor,patchPath:patch,outputPath:applied});
+      if(!apply?.ok || await hash(applied)!==modifiedSha)fail("BPS does not reproduce edited copy");
+      await shot("prepared-resource-edited"); await close();
+      await drop(modified);
+      await waitFor(async()=>js(`return document.querySelector('[data-testid="inspection-session"]')?.dataset.sessionStatus==='completed';`),120000,"Modified ROM did not reopen",200);
+      const reopened=await js(`return document.querySelector('[data-testid="inspection-session"]').dataset.identitySha256;`);
+      if(reopened!==modifiedSha)fail("Modified ROM reopened with another identity");
+      report.steps.push({id:"byor_existing_resource_edit_bps_reopen",status:"passed",baseSha,modifiedSha,patchSha,stream:"0xc8cc8",pixel:{tile:0,row:7,col:4,index:15},scope:"verified compressed resource; gameplay equivalence untested"});
+      await shot("edited-rom-reopened"); await close();
+    }
+    report.status="passed";
+  } catch(error) {report.status="failed";report.error=String(error);await shot("failure").catch(()=>{});throw error;}
+  finally {await stop();await writeFile(path.join(output,`${prefix}.json`),JSON.stringify(report,null,2));}
 }
 
 async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootstrapTimeoutMs, onProjectCreated) {
@@ -26496,6 +26621,11 @@ async function main() {
       } finally {
         await executeScript(currentE2eRunContext.sessionId ?? sessionId, "localStorage.removeItem(arguments[0]);", [SHELL_PERSONA_STORAGE_KEY]).catch(() => null);
       }
+      return;
+    }
+
+    if (options.scenario === "rom-input") {
+      await runRomInputScenario(sessionId, options.app, uiBootstrapTimeoutMs);
       return;
     }
 

@@ -50,6 +50,8 @@ import SonicPixelEditor from "./SonicPixelEditor";
 import { SonicLayoutsPanel } from "./SonicLayoutsPanel";
 
 interface InspectionPanelProps {
+  initialRom?: { path: string; sha256: string };
+  onActivityChange?: (active: boolean) => void;
   logMessage: (level: "info" | "success" | "warn" | "error", message: string) => void;
 }
 
@@ -135,7 +137,7 @@ function readResumeHint(): { sessionId: string; romPath: string } | null {
   }
 }
 
-export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
+export default function InspectionPanel({ logMessage, initialRom, onActivityChange }: InspectionPanelProps) {
   const activeProjectDir = useEditorStore((state) => state.activeProjectDir);
   const requestEmulatorLaunch = useEditorStore((state) => state.requestEmulatorLaunch);
   const consoleVisible = useEditorStore((state) => state.consoleVisible);
@@ -197,7 +199,7 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
   const [patchedRomPath, setPatchedRomPath] = useState("");
   const [patchBusy, setPatchBusy] = useState(false);
   const [originalFrame, setOriginalFrame] = useState<InspectionSpriteFrame | null>(null);
-  const [savedAt, setSavedAt] = useState<number | null>(() => liveInspectionCache?.savedAt ?? null);
+  const [savedAt, setSavedAt] = useState<number | null>(() => initialRom ? null : liveInspectionCache?.savedAt ?? null);
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [paletteMessage, setPaletteMessage] = useState("");
   const [tileMessage, setTileMessage] = useState("");
@@ -331,7 +333,10 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
     void refreshSavedSessions();
     const cached = liveInspectionCache;
     const requestId = ++sessionRequestSeq.current;
-    if (cached) {
+    if (initialRom) {
+      setRomPath(initialRom.path);
+      void identify(initialRom.path).then(next => { if (next && next.status !== "completed") void start(next); });
+    } else if (cached) {
       void (async () => {
         try {
           const status = await inspectionStatus(cached.session.session_id);
@@ -456,8 +461,8 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
     }
   }
 
-  async function identify() {
-    const effectiveRomPath = romPath.trim();
+  async function identify(pathOverride?: string) {
+    const effectiveRomPath = (pathOverride ?? romPath).trim();
     if (!effectiveRomPath) {
       setIdentifyState("failed");
       setIdentifyInput("");
@@ -474,6 +479,7 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
     try {
       const next = await inspectionOpen(effectiveRomPath);
       if (requestId !== sessionRequestSeq.current) return;
+      if (initialRom && effectiveRomPath === initialRom.path && next.identity.original_sha256 !== initialRom.sha256) throw new Error("A ROM preparada mudou de identidade. Selecione o arquivo novamente.");
       generation.current += 1;
       lastSessionId.current = next.session_id;
       savedSessionId.current = next.session_id;
@@ -490,6 +496,7 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
       if (next.status === "completed") void refreshCatalog(next.session_id, 0, queryRef.current, kindRef.current);
       void refreshSavedSessions();
       logMessage("success", `[Inspeção] ${next.identity.variant} identificado (${next.identity.header_title || "sem título"}).`);
+      return next;
     } catch (error) {
       setIdentifyState("failed");
       setIdentifyError(describeError(error));
@@ -541,7 +548,7 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
     if (resumed) setResumeHint(null);
   }
 
-  async function start() {
+  async function start(session = sessionRef.current) {
     if (!session) return;
     setBusy(true);
     const nextGeneration = generation.current + 1;
@@ -1093,7 +1100,7 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
     selectedRef.current = null;
     savedSessionId.current = saved.session_id;
     lastSessionId.current = saved.session_id;
-    setRomPath(saved.rom_path);
+    setRomPath(initialRom?.path ?? saved.rom_path);
     setPatchedRomPath(saved.edit?.modified_rom_path ?? "");
     setSelectedSavedSessionId(saved.session_id);
     setBusy(false);
@@ -1105,6 +1112,9 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
     setPreview(null);
   }
 
+  useEffect(() => { onActivityChange?.(busy || editBusy || patchBusy || cadenceBusy || sequenceBusy || spriteFrameBusy || run?.status === "running"); }, [busy, editBusy, patchBusy, cadenceBusy, sequenceBusy, spriteFrameBusy, run?.status, onActivityChange]);
+
+  const visibleSavedSessions = initialRom ? savedSessions.filter(saved => saved.identity.original_sha256 === initialRom.sha256) : savedSessions;
   const currentProgress = run?.progress;
   const percent = currentProgress ? Math.min(100, Math.round((currentProgress.completed_work / Math.max(currentProgress.total_work, 1)) * 100)) : 0;
   // Ritmo medido no oracle da Etapa 4 (veredito H_N+1): byte N mantem o frame
@@ -1123,12 +1133,12 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
       <div className="rounded border border-[#313244] bg-[#11111b] p-3">
         <div className="mb-2 text-[10px] uppercase tracking-[0.16em] text-[#cba6f7]">Inspeção visual · Experimental</div>
         <p className="mb-3 text-[10px] text-[#94a3b8]">Inspecione a ROM e edite uma cópia nos perfis assistidos disponíveis. A base é preservada; candidatos heurísticos não são sprites montados.</p>
-        <ToolPathField label="ROM BYOR" value={romPath} set={setRomPath} extensions={["md", "gen", "bin", "smd"]} accentColor="cba6f7" />
+        {initialRom ? <p data-testid="inspection-prepared-base" className="text-xs text-[#cdd6f4]">Base preparada a partir do arquivo e membro escolhidos acima. Use “Escolher outra ROM” para trocar a origem.</p> : <ToolPathField label="ROM BYOR" value={romPath} set={setRomPath} extensions={["md", "gen", "bin", "smd"]} accentColor="cba6f7" />}
         <div className="mt-2 flex flex-wrap gap-2">
-          <button type="button" data-testid="inspection-identify" onClick={() => void identify()} disabled={busy} className="rounded bg-[#cba6f7] px-3 py-1 text-[10px] font-semibold text-[#1e1e2e]">Identificar base</button>
-          <button type="button" data-testid="inspection-reopen" onClick={() => void reopen()} disabled={busy || !(session?.session_id || selectedSavedSessionId || lastSessionId.current)} className="rounded border border-[#313244] px-3 py-1 text-[10px] text-[#cdd6f4]">Reabrir sessão</button>
+          <button type="button" data-testid="inspection-identify" onClick={() => void identify()} disabled={busy || run?.status === "running"} className="rounded bg-[#cba6f7] px-3 py-1 text-[10px] font-semibold text-[#1e1e2e]">Identificar base</button>
+          <button type="button" data-testid="inspection-reopen" onClick={() => void reopen()} disabled={busy || run?.status === "running" || !(session?.session_id || selectedSavedSessionId || lastSessionId.current)} className="rounded border border-[#313244] px-3 py-1 text-[10px] text-[#cdd6f4]">Reabrir sessão</button>
           {session && <button type="button" data-testid="inspection-save" onClick={() => void save()} className="rounded border border-[#313244] px-3 py-1 text-[10px] text-[#cdd6f4]">Salvar sessão</button>}
-          {session && <button type="button" data-testid="inspection-close" onClick={closeSession} className="rounded border border-[#313244] px-3 py-1 text-[10px] text-[#f9e2af]">Fechar sessão</button>}
+          {session && !initialRom && <button type="button" data-testid="inspection-close" onClick={closeSession} className="rounded border border-[#313244] px-3 py-1 text-[10px] text-[#f9e2af]">Fechar sessão</button>}
         </div>
         {resumeHint && !session && (
           <div data-testid="inspection-resume-banner" className="mt-2 rounded border border-[#89b4fa]/40 bg-[#101b2e] p-2">
@@ -1137,6 +1147,7 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
             <button type="button" data-testid="inspection-resume-reopen" onClick={() => void resumeFromBanner()} className="mt-2 rounded bg-[#89b4fa] px-3 py-1 text-[10px] font-semibold text-[#111827]">Reabrir última sessão</button>
           </div>
         )}
+        {identifyState === "failed" && <p role="alert" className="mt-2 rounded border border-[#f38ba8] p-2 text-xs text-[#f38ba8]">{identifyError === "rom_path_empty" ? "Selecione uma ROM para continuar." : identifyError} Escolha outra ROM ou tente identificar novamente.</p>}
         <div aria-live="polite" data-testid="inspection-session-message" className="mt-2 break-words text-[10px] text-[#a6e3a1]">{sessionMessage}</div>
         <div
           data-testid="inspection-identify-state"
@@ -1147,13 +1158,13 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
           data-session-status={session?.status ?? ""}
           className="sr-only"
         />
-        <div className="mt-3 rounded border border-[#313244] bg-[#0f172a] p-2">
+        <details open={!initialRom} className="mt-3 rounded border border-[#313244] bg-[#0f172a] p-2"><summary className="cursor-pointer text-xs text-[#cdd6f4]">{initialRom ? "Sessões salvas desta ROM" : "Retomar outra sessão"}</summary>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="text-[10px] uppercase tracking-[0.12em] text-[#7f849c]">Sessões salvas</div>
             <button type="button" data-testid="inspection-refresh-sessions" onClick={() => void refreshSavedSessions()} disabled={savedSessionsBusy} className="rounded border border-[#313244] px-2 py-1 text-[10px] text-[#cdd6f4]">{savedSessionsBusy ? "Atualizando..." : "Atualizar lista"}</button>
           </div>
-          {savedSessions.length === 0 ? <div className="mt-2 text-[10px] text-[#7f849c]">Nenhuma sessão persistida encontrada neste aplicativo.</div> : <div className="mt-2 space-y-2">{savedSessions.map((saved) => <div data-testid="inspection-saved-session" data-session-id={saved.session_id} data-session-status={saved.status} key={saved.session_id} className={`flex flex-wrap items-center justify-between gap-2 rounded border p-2 ${selectedSavedSessionId === saved.session_id ? "border-[#cba6f7] bg-[#1b1630]" : "border-[#1e1e2e]"}`}><div className="min-w-0"><div className="truncate text-[10px] text-[#cdd6f4]">{saved.identity.header_title || "ROM sem título"} · {statusLabel(saved.status)}</div><div className="mt-1 truncate font-mono text-[9px] text-[#7f849c]">{saved.session_id} · {saved.identity.normalized_sha256.slice(0, 16)}…</div><div className="mt-1 truncate text-[9px] text-[#7f849c]">{saved.rom_path}</div></div><button type="button" data-testid={`select-saved-session-${saved.session_id}`} onClick={() => selectSavedSession(saved)} className="rounded border border-[#cba6f7]/50 px-2 py-1 text-[10px] text-[#cba6f7]">Selecionar</button></div>)}</div>}
-        </div>
+          {visibleSavedSessions.length === 0 ? <div className="mt-2 text-[10px] text-[#7f849c]">{initialRom ? "Nenhuma sessão salva para esta ROM." : "Nenhuma sessão persistida encontrada neste aplicativo."}</div> : <div className="mt-2 space-y-2">{visibleSavedSessions.map((saved) => <div data-testid="inspection-saved-session" data-session-id={saved.session_id} data-session-status={saved.status} key={saved.session_id} className={`flex flex-wrap items-center justify-between gap-2 rounded border p-2 ${selectedSavedSessionId === saved.session_id ? "border-[#cba6f7] bg-[#1b1630]" : "border-[#1e1e2e]"}`}><div className="min-w-0"><div className="truncate text-[10px] text-[#cdd6f4]">{saved.identity.header_title || "ROM sem título"} · {statusLabel(saved.status)}</div><div className="mt-1 truncate font-mono text-[9px] text-[#7f849c]">{saved.session_id} · {saved.identity.normalized_sha256.slice(0, 16)}…</div><div className="mt-1 truncate text-[9px] text-[#7f849c]">{saved.rom_path}</div></div><button type="button" data-testid={`select-saved-session-${saved.session_id}`} disabled={busy || run?.status === "running" || editBusy || patchBusy} onClick={() => selectSavedSession(saved)} className="rounded border border-[#cba6f7]/50 px-2 py-1 text-[10px] text-[#cba6f7]">Selecionar</button></div>)}</div>}
+        </details>
       </div>
 
       {session && (
@@ -1165,15 +1176,20 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
             </div>
             <span className="rounded-full border border-[#cba6f7]/40 bg-[#cba6f7]/10 px-2 py-1 text-[#cba6f7]">base: somente leitura</span>
           </div>
-          <div className="mt-3 grid gap-2 md:grid-cols-2">
+          <details open={!initialRom} className="mt-2"><summary className="cursor-pointer">Identidade técnica da sessão</summary><div className="mt-3 grid gap-2 md:grid-cols-2">
             <div className="min-w-0 break-all font-mono text-[#cdd6f4]">ROM {session.identity.original_sha256}</div>
             <div className="min-w-0 break-all font-mono text-[#cdd6f4]">normalizada {session.identity.normalized_sha256}</div>
           </div>
           <div className="mt-2 break-all text-[#7f849c]">Sessão {session.session_id} · catálogo {session.catalog_artifact.sha256} · desconhecido {session.unknown_bytes} bytes</div>
-          {session.identity.size_note && <div className="mt-2 text-[#f9e2af]">Nota de tamanho: {session.identity.size_note}</div>}
+          {session.identity.size_note && <div className="mt-2 text-[#f9e2af]">Nota de tamanho: {session.identity.size_note}</div>}</details>
         </div>
       )}
 
+      {session && <div data-testid="inspection-recovery-limits" className="rounded border border-[#313244] p-3 text-xs text-[#cdd6f4]">
+        <p><strong>Recuperação parcial</strong> · {session.unknown_bytes.toLocaleString("pt-BR")} bytes preservados sem interpretação.</p>
+        <p className="mt-1">Reconhecido: catálogo de candidatos. Editável: somente recursos com ação de edição disponível no perfil. Hipóteses: método e confiança em cada candidato.</p>
+        <p className="mt-1">Execução: {emulatorObservation ? `${emulatorObservation.frames_run} quadros observados no core para a ROM ${emulatorObservation.rom_sha256.slice(0, 12)}…; veja os detalhes da observação.` : "ainda não observada nesta sessão."} Reconstrução idêntica conserva bytes; não comprova edição integral ou gameplay recuperado.</p>
+      </div>}
       {session && !run && session.status !== "completed" && <button type="button" data-testid="inspection-start" onClick={() => void start()} className="rounded bg-[#89b4fa] px-3 py-1 text-[10px] font-semibold text-[#1e1e2e]">Executar descoberta</button>}
       {run && (
         <div data-testid="inspection-run" data-run-id={run.run_id} data-run-status={run.status} data-run-generation={run.generation} className="rounded border border-[#313244] bg-[#11111b] p-3">
@@ -1187,6 +1203,7 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
 
       {session?.status === "completed" && page && (
         <>
+          <details open={!initialRom} data-testid="inspection-assisted-tools"><summary className="cursor-pointer rounded border border-[#313244] p-2 text-xs text-[#cdd6f4]">Edição assistida por perfil · escolha somente recursos correspondentes à ROM</summary>
           <div data-testid={isSonicFrame ? "inspection-animation-area" : undefined} className="contents">
           <div data-testid="inspection-sprite-frame-panel" className="rounded border border-[#cba6f7]/40 bg-[#11111b] p-3 text-[10px]">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1548,16 +1565,20 @@ export default function InspectionPanel({ logMessage }: InspectionPanelProps) {
             </div>}
           </div>
         </div>
-        <div className="rounded border border-[#313244] bg-[#11111b] p-3">
+        </details>
+        <div data-testid="inspection-catalog" className="rounded border border-[#313244] bg-[#11111b] p-3">
+          <h3 className="mb-2 text-sm font-semibold text-[#cdd6f4]">Conteúdo reconhecido e candidatos</h3>
           <div className="flex flex-wrap gap-2">
               <input aria-label="Buscar candidatos" value={query} onChange={(event) => { const nextQuery = event.target.value; queryRef.current = nextQuery; kindRef.current = kind; setQuery(nextQuery); setPageOffset(0); selectedRef.current = null; previewRequestSeq.current += 1; setSelected(null); setPreview(null); void refreshCatalog(session.session_id, 0, nextQuery, kind); }} placeholder="Buscar método ou tipo" className="min-w-[180px] flex-1 rounded border border-[#313244] bg-[#1e1e2e] px-2 py-1 text-[10px] text-[#cdd6f4]" />
-              <select aria-label="Filtrar candidatos" value={kind} onChange={(event) => { const nextKind = event.target.value; queryRef.current = query; kindRef.current = nextKind; setKind(nextKind); setPageOffset(0); selectedRef.current = null; previewRequestSeq.current += 1; setSelected(null); setPreview(null); void refreshCatalog(session.session_id, 0, query, nextKind); }} className="rounded border border-[#313244] bg-[#1e1e2e] px-2 py-1 text-[10px] text-[#cdd6f4]"><option value="">Todos</option><option value="tiles">Tiles</option><option value="palettes">Paletas</option><option value="unknown">Unknown</option></select>
+              <select aria-label="Filtrar candidatos" value={kind} onChange={(event) => { const nextKind = event.target.value; queryRef.current = query; kindRef.current = nextKind; setKind(nextKind); setPageOffset(0); selectedRef.current = null; previewRequestSeq.current += 1; setSelected(null); setPreview(null); void refreshCatalog(session.session_id, 0, query, nextKind); }} className="rounded border border-[#313244] bg-[#1e1e2e] px-2 py-1 text-[10px] text-[#cdd6f4]"><option value="">Todos</option><option value="tiles">Blocos gráficos</option><option value="palettes">Paletas</option><option value="unknown">Sem interpretação</option></select>
             </div>
             <div className="mt-2 text-[10px] text-[#7f849c]">{page.total_candidates} candidato(s) · página {Math.floor(pageOffset / PAGE_SIZE) + 1} · descoberta {page.run_id || "não identificada"}</div>
             <div className="mt-3 grid gap-2 xl:grid-cols-2">
-              {page.candidates.map((candidate) => <button type="button" data-testid={`inspection-candidate-${candidate.id}`} data-preview-expected={candidate.previews.length > 0} data-candidate-offset={candidate.offset} data-candidate-size={candidate.size} data-candidate-kind={candidate.kind} key={candidate.id} onClick={() => void choose(candidate)} className={`rounded border p-3 text-left ${selected?.id === candidate.id ? "border-[#cba6f7] bg-[#1b1630]" : "border-[#1e1e2e] bg-[#0f172a]"}`}><div className="flex justify-between gap-2 text-[10px]"><span className="font-mono text-[#cdd6f4]">{candidate.kind}</span><span className="text-[#7f849c]">{hex(candidate.offset)} +{candidate.size}</span></div><div className="mt-1 font-mono text-[10px] text-[#cdd6f4]">{candidate.id}</div><div className="mt-1 text-[10px] text-[#94a3b8]">{candidate.method} · confiança {(candidate.confidence * 100).toFixed(1)}% · {candidate.status}</div><div className="mt-1 text-[10px] text-[#7f849c]">{candidate.previews.length ? "prévia disponível" : "prévia indisponível"}</div></button>)}
+              {page.candidates.map((candidate) => <button type="button" data-testid={`inspection-candidate-${candidate.id}`} data-preview-expected={candidate.previews.length > 0} data-candidate-offset={candidate.offset} data-candidate-size={candidate.size} data-candidate-kind={candidate.kind} key={candidate.id} title={`${candidate.id} · ${candidate.method}`} onClick={() => void choose(candidate)} className={`rounded border p-3 text-left ${selected?.id === candidate.id ? "border-[#cba6f7] bg-[#1b1630]" : "border-[#1e1e2e] bg-[#0f172a]"}`}><div className="flex justify-between gap-2 text-[10px]"><span className="font-semibold text-[#cdd6f4]">{({ palette64: "Possível paleta", tile4bpp_block: "Possível bloco gráfico", unknown: "Dados sem interpretação" } as Record<string, string>)[candidate.kind] ?? "Recurso em análise"}</span><span className="text-[#7f849c]">{hex(candidate.offset)} +{candidate.size}</span></div><div className="mt-1 text-[10px] text-[#94a3b8]">Confiança {(candidate.confidence * 100).toFixed(1)}% · {({ candidate: "Hipótese", verified: "Verificado", unknown: "Sem interpretação" } as Record<string, string>)[candidate.status] ?? "Em análise"}</div><div className="mt-1 text-[10px] text-[#7f849c]">{candidate.previews.length ? "prévia disponível" : "prévia indisponível"}</div></button>)}
             </div>
-            {page.unknown_regions.map((region) => <div key={`${region.offset}-${region.size}`} className="mt-2 rounded border border-[#f9e2af]/30 bg-[#2a2414] p-2 text-[10px] text-[#f9e2af]">UNKNOWN · {hex(region.offset)} +{region.size} · {region.method}</div>)}
+            <details><summary className="mt-2 cursor-pointer text-xs text-[#f9e2af]">{page.unknown_regions.length} regiões preservadas sem interpretação</summary>
+            {page.unknown_regions.map((region) => <div key={`${region.offset}-${region.size}`} className="mt-2 rounded border border-[#f9e2af]/30 bg-[#2a2414] p-2 text-[10px] text-[#f9e2af]">Preservado sem interpretação · {hex(region.offset)} +{region.size} · {region.method}</div>)}
+            </details>
             <div className="mt-3 flex gap-2"><button type="button" disabled={pageOffset === 0} onClick={() => { const next = Math.max(0, pageOffset - PAGE_SIZE); setPageOffset(next); void refreshCatalog(session.session_id, next); }} className="rounded border border-[#313244] px-3 py-1 text-[10px] text-[#cdd6f4]">Anterior</button><button type="button" disabled={pageOffset + PAGE_SIZE >= page.total_candidates} onClick={() => { const next = pageOffset + PAGE_SIZE; setPageOffset(next); void refreshCatalog(session.session_id, next); }} className="rounded border border-[#313244] px-3 py-1 text-[10px] text-[#cdd6f4]">Próxima</button></div>
           </div>
 

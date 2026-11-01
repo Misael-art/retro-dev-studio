@@ -1878,3 +1878,23 @@ export function rexProfileEdit(request: {
 }): Promise<RexProfileEditResponse> {
   return invoke<RexProfileEditResponse>("rex_profile_edit", { request });
 }
+
+
+export interface RomInputProbe {
+  input_id: string;
+  source_path: string;
+  source_sha256: string;
+  kind: "rom" | "zip" | "7z";
+  members: { name: string; size: number }[];
+}
+export interface RomInputResolved {
+  input: RomInputProbe;
+  member: string;
+  member_sha256: string;
+  normalized_sha256: string;
+  rom_path: string;
+  receipt_path: string;
+}
+export const probeRomInput = (requestId: string, path: string) => invoke<RomInputProbe>("rex_input_probe", { requestId, path });
+export const resolveRomInput = (requestId: string, inputId: string, member: string) => invoke<RomInputResolved>("rex_input_resolve", { requestId, inputId, member });
+export const cancelRomInput = (requestId: string) => invoke<void>("rex_input_cancel", { requestId });

@@ -4,7 +4,7 @@ import RomDropDecompile from "./components/tools/RomDropDecompile";
 import Icon, { type IconName } from "./components/common/Icon";
 import StudioAppearancePicker from "./components/common/StudioAppearancePicker";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
-import { APP_COMMAND_EVENT } from "./core/sceneAttentionStore";
+import { APP_COMMAND_EVENT, requestAppCommand, useSceneAttentionStore } from "./core/sceneAttentionStore";
 import { dispatchGraphHistory } from "./core/nodegraph/graphHistory";
 import { open } from "@tauri-apps/plugin-dialog";
 import { MugenCompatibilityPanel } from "./components/common/MugenCompatibilityPanel";
@@ -822,6 +822,10 @@ function SgdkCapabilityMatrix({ profile }: { profile: ExternalImportProfileSumma
 }
 
 function SgdkImportSummaryCard({ summary }: { summary: SgdkImportSummary }) {
+  const entities = useEditorStore(state => state.activeScene?.entities);
+  const selectedId = useEditorStore(state => state.selectedEntityId);
+  const selectedEntity = entities?.find(e => e.entity_id === selectedId);
+  const resourceCount = new Set(entities?.flatMap(e => [e.components.sprite?.asset, e.components.tilemap?.tileset]).filter(Boolean)).size;
   const rows = [
     ["estados detectados", summary.states_detected ?? 0],
     ["transicoes detectadas", summary.transitions_detected ?? 0],
@@ -834,13 +838,24 @@ function SgdkImportSummaryCard({ summary }: { summary: SgdkImportSummary }) {
       title={`Resumo SGDK Logic — ${formatSgdkImportSummaryKind(summary)}`}
       className="mx-3 mt-1 rounded border border-[#313244] bg-transparent px-2 py-0.5 text-[10px] text-[#94a3b8]"
     >
-      <details open={Boolean(summary.blocking_gaps?.length)}>
+      <div className="flex flex-wrap items-center justify-between gap-2 py-1 text-xs text-[var(--rds-text-primary)]">
+        <p>{resourceCount} recurso(s) visuais na cena · composição e gameplay ainda não certificados</p>
+        <div className="flex gap-2"><button type="button" data-testid="sgdk-import-view-assets" className="rounded border px-2 py-1" onClick={() => requestAppCommand("tools.assetBrowser")}>Ver recursos</button>
+          {selectedEntity?.components.sprite && <button type="button" className="rounded border px-2 py-1" onClick={() => requestAppCommand("workspace.artstudio")}>Editar imagem selecionada</button>}</div>
+      </div>
+      <details className="max-h-[min(32vh,240px)] overflow-y-auto">
       <summary
         className="cursor-pointer text-[10px] text-[#7f849c] hover:text-[#cdd6f4]"
         title="Experimental: a equivalência com o jogo original não é certificada."
       >
-        Relatório da importação <span className="text-[#585b70]">· Experimental</span>
+        Relatório da importação {summary.blocking_gaps?.length ? `· ${summary.blocking_gaps.length} item(s) não convertido(s) ` : ""}<span className="text-[#585b70]">· Experimental</span>
       </summary>
+      <dl className="my-2 grid gap-2 text-xs md:grid-cols-2">
+        <div><dt className="font-semibold">Recursos</dt><dd>Imagens e arquivos disponíveis no catálogo; seleção e origem identificadas por objeto.</dd></div>
+        <div><dt className="font-semibold">Composição</dt><dd>A etiqueta de posição do objeto distingue origem e área de organização aproximada.</dd></div>
+        <div><dt className="font-semibold">Código C nativo</dt><dd>Arquivos mapeados preservados. A rota de compilação C é distinta do grafo visual.</dd></div>
+        <div><dt className="font-semibold">Comportamento visual</dt><dd>{(summary.nodes_generated ?? 0) > 0 ? "Grafo parcial; confira hipóteses e lacunas abaixo." : "Nenhum nó convertido. Crie um comportamento autoral ou continue pelo código C."}</dd></div>
+      </dl>
       <p className="mt-1 text-[#fab387]">Experimental: a equivalência com o jogo original não é certificada.</p>
       <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div>
@@ -1140,16 +1155,16 @@ function ProductionStatusBar({
       <span className="min-w-0 flex-1 truncate" title={lastMessage}>
         {lastMessage || "Sem alertas recentes"}
       </span>
-      <span className="hidden font-mono text-[#cdd6f4] sm:inline">Build: {buildStatus}</span>
-      <span className="hidden font-mono text-[#cdd6f4] md:inline">Import: {importStatus}</span>
-      <span className="hidden font-mono text-[#cdd6f4] md:inline">Emulacao: {emulationStatus}</span>
+      <span className="hidden font-mono text-[#cdd6f4] sm:inline">Prévia: {({ building: "Compilando", blocked: "Bloqueada", warn: "Com avisos", stale: "Desatualizada", ready: "Apta", idle: "Sem projeto" } as Record<string, string>)[buildStatus] ?? buildStatus}</span>
+      <span className="hidden font-mono text-[#cdd6f4] md:inline">Origem: {({ builtin: "Autoral", external_sgdk: "SGDK", sgdk: "SGDK", mugen: "MUGEN" } as Record<string, string>)[importStatus] ?? importStatus}</span>
+      <span className="hidden font-mono text-[#cdd6f4] md:inline">Emulação: {({ loaded: "ROM carregada", paused: "Pausada", idle: "Parada" } as Record<string, string>)[emulationStatus] ?? emulationStatus}</span>
       <span className="hidden font-mono text-[#cdd6f4] lg:inline">{hardwareSummary}</span>
       <button
         type="button"
         onClick={onOpenDetails}
         className="rounded border border-[#313244] bg-[#111827] px-2 py-0.5 text-[10px] font-semibold text-[#cdd6f4] transition-colors hover:border-[#89b4fa] hover:text-[#89b4fa]"
       >
-        Details
+        Detalhes
       </button>
     </div>
   );
@@ -1670,6 +1685,13 @@ export default function App() {
 
   // Projeto C nativo: a VRAM real vem do core em execução (amostrada 1x/s).
   const nativeCProject = hwStatus?.analysis_mode === "native_c";
+  useEffect(() => { useSceneAttentionStore.setState({ focus: null, assetReveal: null, paletteRequest: 0 }); }, [projectSessionId, activeScenePath]);
+  useEffect(() => {
+    const closeWizard = () => setShowProjectWizard(false);
+    window.addEventListener("rds:rom-input-open", closeWizard);
+    return () => window.removeEventListener("rds:rom-input-open", closeWizard);
+  }, []);
+
   const [measuredVram, setMeasuredVram] = useState<EmulatorVramUsage | null>(null);
   useEffect(() => {
     if (!nativeCProject || !emulatorLoaded) {
@@ -4806,6 +4828,7 @@ export default function App() {
         onProfile={id => { setSelectedExternalImportProfileId(id); const profile = externalImportProfiles.find(p => p.id === id); if (profile) setNewProjTarget(profile.recommended_target); }}
         onBegin={intent => { setProjectWizardError(""); setSelectedTemplateId(intent === "new" ? "empty" : ""); if (intent !== "import") setNewProjBaseDir(""); }}
         onCreate={() => void confirmNewProject()} onImport={() => void handleImportExternalProject()}
+        onImportRom={() => { setShowProjectWizard(false); window.dispatchEvent(new Event("rds:choose-rom")); }}
         onOpen={() => void handleWizardOpenFile()} onOpenDetected={() => void openDetectedExistingProject()}
         onSuggestedName={applySuggestedProjectName} onChooseImportDestination={() => void chooseNewProjectBaseDir()}
         onClose={() => { if (!creatingProject) { setShowProjectWizard(false); setProjectWizardError(""); } }}

@@ -422,8 +422,13 @@ pub fn decompile_to_sgdk(rom_path: &str) -> Result<SgdkDecompileReport, String> 
 
 /// Só revela diretórios gerados pelo REX (sob o work_dir canônico).
 pub fn extraction_dir_under_work(dir: &str) -> Result<PathBuf, String> {
-    let root =
-        fs::canonicalize(decomp_work_dir()).map_err(|e| error("work_dir", e.to_string(), false))?;
+    extraction_dir_under_root(&decomp_work_dir(), dir)
+}
+
+fn extraction_dir_under_root(work_dir: &Path, dir: &str) -> Result<PathBuf, String> {
+    let root = fs::canonicalize(work_dir).map_err(|e| {
+        error("out_dir", format!("Área de extração do REX indisponível: {e}. Prepare o conteúdo antes de abrir a pasta."), false)
+    })?;
     let target = fs::canonicalize(dir)
         .map_err(|e| error("out_dir", format!("Diretório indisponível: {e}"), true))?;
     if !target.starts_with(&root) || !target.is_dir() {
@@ -2050,6 +2055,23 @@ mod tests {
     fn reveal_refuses_dirs_outside_rex_work_dir() {
         let err = extraction_dir_under_work("/").unwrap_err();
         assert!(err.contains("out_dir"), "{err}");
+    }
+
+    #[test]
+    fn reveal_with_missing_root_rejects_without_creating_directories() {
+        let work = std::env::temp_dir().join(format!(
+            "rds-reveal-missing-{}-{}",
+            std::process::id(),
+            now_unix()
+        ));
+        assert!(!work.exists());
+        let err = extraction_dir_under_root(&work, "/").unwrap_err();
+        assert!(err.contains("out_dir"), "{err}");
+        assert!(err.contains("indisponível"), "{err}");
+        assert!(
+            !work.exists(),
+            "revealing a directory must not provision an area"
+        );
     }
 
     #[test]

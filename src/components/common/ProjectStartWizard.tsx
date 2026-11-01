@@ -32,6 +32,7 @@ export interface ProjectStartWizardProps {
   onCreate: () => void;
   onImport: () => void;
   onOpen: () => void;
+  onImportRom?: () => void;
   onOpenDetected: () => void;
   onSuggestedName: () => void;
   onChooseImportDestination: () => void;
@@ -93,6 +94,9 @@ export default function ProjectStartWizard(p: ProjectStartWizardProps) {
       </div>
       <div data-testid="project-wizard-body" className="rds-start-body">
         {step === "home" && <div className="rds-start-grid" data-testid="wizard-intents">
+          {p.onImportRom && <button type="button" data-testid="wizard-intent-rom" onClick={p.onImportRom} className="rds-start-card rds-start-rom-card">
+            <Icon name="chip" size={28} /><div className="min-w-0"><strong>Inspecionar uma ROM</strong><span className="block">ROM Mega Drive ou ZIP/7z · localizar e editar recursos recuperados.</span></div><small>Experimental</small>
+          </button>}
           {INTENTS.map(item => <button type="button" key={item.id} data-testid={`wizard-intent-${item.id}`} onClick={() => begin(item.id)} className="rds-start-card">
             <Icon name={item.icon} size={36} /><strong>{item.title}</strong><span>{item.detail}</span><b aria-hidden="true">→</b>
           </button>)}

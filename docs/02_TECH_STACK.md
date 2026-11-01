@@ -57,6 +57,12 @@
 - QA nativo da entrada de imagens: o roteiro Tauri existente usa `scripts/image-clipboard-fixture.py` como produtor GTK3/PyGObject de clipboard e arraste do host Linux, com ImageMagick para uma representação HTML+PNG. Receita versionada, sem dependência Python/ImageMagick no aplicativo e sem um segundo harness de produto; imagens, projetos, ROMs e evidências permanecem no runtime privado.
 - `tree-sitter` 0.25 + `tree-sitter-c` 0.24 (aprovado pelo operador em 2026-10-27) para o grafo C sem perdas de projetos SGDK importados (`core/sgdk_c_graph.rs`, Experimental): parser C real, round-trip byte-a-byte e build do C editado nos nodes
 
+### Entrada de ROM compactada (Experimental, 2026-10-31)
+
+`tools/reverse/rom_input.rs` adapta arquivo bruto/ZIP/7z para o loader e InspectionPanel existentes, sem outro recuperador ou crate. Reutiliza o `7z` já exigido pelo host lock/host-manager, instalado no sistema (QA Linux: pacote7zip26.03-1, executável SHA256 `f802383f13b8331aabaf779def00a356c8d2b8148255170b75b03028f4d23ad4`), chamado por argumentos, sem shell, stdin fechado, um thread e limite de memória64MiB (`-smemx64m`). É opcional: sem ferramenta compatível, mensagem orienta selecionar ROM descompactada; não há download automático. Windows ainda não qualificado e requer `7z` no PATH.
+
+Limites: arquivo128MiB, ROM32MiB, lista1MiB/2048 entradas, total declarado256MiB, diagnóstico8KiB,60s por processo. Cancelamento mata/aguarda apenas o processo próprio. Membros inseguros/duplicados/links/senha são recusados; extração somente em stdout limitado, nunca em caminhos do compactado. Snapshot imutável e manifesto/recibo por SHA no work_dir canônico preservam arquivo, membro e normalização; fontes originais não são alteradas. Não há recuperação automática integral de composição ou gameplay. Contrato de `smemx` conferido no [parser oficial do 7-Zip](https://github.com/ip7z/7zip/blob/main/CPP/7zip/UI/Common/ArchiveCommandLine.cpp). Nenhuma dependência npm/Cargo nova.
+
 ### Ferramentas aprovadas de validacao e processo
 - `scripts/check-tree.cjs` para validar a estrutura raiz
 - `eslint` para lint do frontend

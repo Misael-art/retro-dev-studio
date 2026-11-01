@@ -160,8 +160,9 @@ pub(crate) fn reject_if_symlink(path: &Path) -> Result<(), String> {
 
 /// Componentes de caminho FIXOS aceitos sem validação hex — qualquer outro
 /// componente é obrigatoriamente hex64 (sha256). Nada de passagem livre.
-const LITERAL_COMPONENTS: [&str; 6] = [
+const LITERAL_COMPONENTS: [&str; 7] = [
     "extract",
+    "inputs",
     "previews",
     "sessions",
     "choices",

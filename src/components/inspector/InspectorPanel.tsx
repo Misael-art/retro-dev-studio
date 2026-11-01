@@ -1388,7 +1388,6 @@ export default function InspectorPanel() {
               </div>
             </div>
             <EntityAttentionSection entityId={entity.entity_id} />
-            <EntityPaletteSection entityId={entity.entity_id} />
             <div className="flex flex-wrap items-center gap-2 border-b border-[#313244] px-3 py-1.5 text-[10px] text-[#a6adc8]">
               <label className="flex items-center gap-1">
                 X
@@ -1419,6 +1418,7 @@ export default function InspectorPanel() {
                 Duplicar
               </button>
             </div>
+            <EntityPaletteSection entityId={entity.entity_id} />
             {pendingDuplicate ? (
               <div data-testid="inspector-duplicate-warning" className="border-b border-[#313244] bg-[#fab387]/10 px-3 py-1.5 text-[10px] text-[#fab387]">
                 <p>

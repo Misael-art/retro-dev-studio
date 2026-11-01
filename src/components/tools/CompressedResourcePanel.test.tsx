@@ -92,6 +92,15 @@ describe("CompressedResourcePanel", () => {
     container.remove();
   });
 
+  it("opens the prepared ROM once and does not erase the session when the logging callback changes", async () => {
+    mocked.rexResourceList.mockResolvedValue(["aa".repeat(32), [SUMMARY]]);
+    await act(async () => { root.render(<CompressedResourcePanel initialRomPath="/prepared/rom.bin" logMessage={vi.fn()} />); await flush(); });
+    expect(mocked.rexResourceList).toHaveBeenCalledWith("/prepared/rom.bin");
+    expect((findByTestId(container, "rex-resource-rom-input") as HTMLInputElement).readOnly).toBe(true);
+    await act(async () => { root.render(<CompressedResourcePanel initialRomPath="/prepared/rom.bin" logMessage={vi.fn()} />); await flush(); });
+    expect(mocked.rexResourceList).toHaveBeenCalledTimes(1);
+  });
+
   it("verifica recursos e mostra escopo e sha", async () => {
     mocked.rexResourceList.mockResolvedValue(["aa".repeat(32), [SUMMARY]]);
     await act(async () => {

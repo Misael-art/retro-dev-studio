@@ -1442,7 +1442,7 @@ describe("NodeGraphEditor", () => {
     expect(text).toContain("Ao apertar Botao A (tecla Z)");
     expect(text).toContain("jump");
     expect(text).toContain("Camera Segue");
-    expect(text).toContain("Colisao (Overlap)");
+    expect(text).toContain("Objetos se encostam?");
     expect(text).toContain("player");
   });
 

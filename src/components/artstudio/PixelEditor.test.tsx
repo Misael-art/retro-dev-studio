@@ -60,6 +60,30 @@ function render(projectDir: string | null = "/proj") {
 }
 
 describe("PixelEditor", () => {
+  it("distinguishes the shared resource from a resized copy and preserves animation", async () => {
+    const original = createPixelDoc(16, 16, { name: "shared", frames: 3 });
+    original.frames.forEach((frame, i) => { frame.durationMs = 70 + i * 20; frame.cels[0][0] = 1; });
+    loadMock.mockResolvedValue(serializePixelDoc(original));
+    await act(async () => root.render(<PixelEditor projectDir="/proj" source={{ url: "", sourcePath: "/proj/assets/sprites/pixel/shared.png", name: "shared", frameWidth: 16, frameHeight: 16, frames: [0, 1, 2], autoOpen: true }} log={vi.fn()} onSaved={vi.fn()} />));
+    expect(q("pixel-edit-context").textContent).toContain("Editando recurso compartilhado: shared");
+    act(() => { const size = q("pixel-doc-size") as HTMLSelectElement; size.value = "32x32"; size.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(q("pixel-edit-context").textContent).toContain("Editando outro recurso");
+    const copy = useEditorStore.getState().pixelEditorSessions["/proj"].doc;
+    expect(copy.name).not.toBe(original.name);
+    expect(copy.frames.map(f => f.durationMs)).toEqual(original.frames.map(f => f.durationMs));
+    expect(saveMock).not.toHaveBeenCalled();
+  });
+  it("recognizes an existing pixel document opened from the resource library", async () => {
+    const existing = createPixelDoc(16, 16, { name: "library_image", frames: 4 });
+    existing.frames[2].durationMs = 170;
+    loadMock.mockResolvedValue(serializePixelDoc(existing));
+    await act(async () => root.render(<PixelEditor projectDir="/proj" source={{ url: "", sourcePath: "/proj/assets/sprites/pixel/library_image.png", name: "library_image", frameWidth: 16, frameHeight: 16, frames: [0, 1, 2, 3] }} log={vi.fn()} onSaved={vi.fn()} />));
+    expect(q("pixel-import-art").textContent).toBe("Recuperar imagem salva");
+    await act(async () => q("pixel-import-art").click());
+    expect(q("pixel-edit-context").textContent).toContain("Editando recurso compartilhado: library_image");
+    expect(useEditorStore.getState().pixelEditorSessions["/proj"].doc.frames).toEqual(existing.frames);
+    expect(saveMock).not.toHaveBeenCalled();
+  });
   it("starts without motion ghosts, exposes one bank, and restores all frames after successive frame sizes", async () => {
     const gif = createPixelDoc(64, 56, { name: "moving", frames: 53 });
     gif.frames.forEach((f, i) => { f.cels[0][55 * 64 + 63] = 1; f.durationMs = 40 + i * 10; });

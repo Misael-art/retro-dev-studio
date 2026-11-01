@@ -4195,7 +4195,7 @@ export default function ArtStudioPanel() {
         >
           <div className="min-w-0 flex-1">
             <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#89b4fa]">
-              Scene -&gt; Art
+              Cena → Arte
             </p>
             <p className="mt-1 truncate">
               <span className="font-semibold text-[#fff]">{getEntityDisplayName(selectedEntity)}</span>
@@ -4248,7 +4248,7 @@ export default function ArtStudioPanel() {
           <p className="min-w-0 flex-1">
             A entidade <span className="font-semibold text-[#fff]">{getEntityDisplayName(selectedEntity)}</span> nao
             tem <span className="font-mono">sprite</span>. O Art Studio trabalha com folhas de sprite; selecione um
-            sprite na Hierarchy ou volte à cena para escolher outra entidade.
+            sprite na lista de objetos ou volte à cena para escolher outra entidade.
           </p>
           <button
             type="button"
