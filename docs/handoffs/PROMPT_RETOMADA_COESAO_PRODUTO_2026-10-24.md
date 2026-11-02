@@ -1,121 +1,171 @@
-# Missão — transformar o RetroDevStudio em um ambiente integrado de criação
+# Missão — experiência integrada de criação, importação, edição e teste
 
-**GIF53 e editor por tarefas — 2026-10-30 (entrega local Experimental):** app263205d8 substitui821d172a no atalho; KDE abriu e app foi mantido disponível ao operador. Diagnóstico separa atlas do cartucho de buffers de quadro; paleta inicial única, extras/limpeza explícitas, guia de movimento opt-in, resize proporcional com recuperação e ferramentas nomeadas.28passos Tauri/ROM/core, reabertura da cópia108 sem escrita, qa-rc32, SNES e MUGEN103/417 PASS. Certify READY/sete comandos,1305frontend/11skip e1122Rust/111ignored; demais checks PASS. Evidências, causas, SHAs e limites no topo do Memory Bank; relatório privado em RDS_WORK_ROOT/sessions/gif-authoring-usability-20261030/audit/index.html. Fonte do novo app inclui proposta9b2034cf e correções de cores, agora testadas no alvo nativo. Sem segmentação neural/aceite humano/60FPS certificado/Windows nem conclusão das16jornadas amplas. Não fechar o app nem remover lease atual2026-10-30T17-53-49-993Z-679249; encerramento normal cabe ao operador.
+**Prompt vigente: 2026-11-02.** Handoff executável da frente de coesão. A versão anterior permanece no Git e no Memory Bank como histórico; caminhos, PIDs e SHAs antigos não autorizam retroceder fontes ou encerrar processos. O pedido atual autoriza implementar e validar **PLAT01–12**, preservando as premissas do projeto.
 
-Código atual **69d6540593c309173b73497e6f65d767c41698a3**, app263205d8; proteção1514arquivos/SHA2c85fd665e3239b5f0a86392e4953747ca456064e0837dfc39488879e6d15921 no fechamento do Memory Bank. Prosseguir somente após encerramento normal do app do operador para comandos gerenciados; não repetir implementação/qualificação concluídas.
+## Prompt para o agente executor
 
-**Histórico anterior 2026-10-30:** antes de seguir os checkpoints históricos, leia o topo do Memory Bank. Proposta de editor de imagem por tarefas **9b2034cff35415a7086bbea96e4a9c4237f3adbe** sobre6b771fd3, PR#112, relatórios/receitas em `RDS_WORK_ROOT/sessions/pixel-workspace-20261030`; atalho ainda821d172a. Frontend/preview isolado não aprova Rust/Tauri/ROM. App/lease do operador2026-10-30T08-45-51-102Z-2985848 vivos: preservar processo/trava e aguardar fechamento normal já solicitado. Próximo: `rtk proxy python /home/misael/Shared/ProjectRuntime/RetroDevStudio/sessions/pixel-workspace-20261030/run-gates.py rust-colors rust-ingress color-reference clippy build`; inspecionar qualidade, congelar app e `run-native.py image-ingress-workspace` com `RDS_PIXEL_WORKSPACE=1` já configurado, regressões/certify/fmt/atalho/proteção. Sete novos passos de editor preparados, não executados. Sem modelo neural de recorte complexo; quatro bancos após edição/cópia, humano e Windows pendentes. Não repetir implementação nem confundir proposta com a entrega anterior.
+Você assume a implementação da experiência de uso do RetroDev Studio. Entregue um ambiente em que um usuário leigo consiga **criar ou importar um projeto, encontrar seus elementos organizados, editar arte/animação/lógica/áudio/câmera, jogar, voltar ao ponto de edição e continuar após salvar/reabrir**. Preserve capacidade técnica, fidelidade e compatibilidade. A interface deve ser legível, esteticamente coesa e funcional em cada etapa.
 
-Você assume como agente principal de produto e implementação. Trabalhe sequencialmente. Sua missão é tornar as capacidades existentes utilizáveis em jornadas completas, simples, seguras e fluidas, mantendo o poder técnico e as possibilidades avançadas. Entregue implementação e provas reais, não apenas inventário, recomendações ou uma nova camada visual.
+O pedido é de execução: reproduza, corrija, integre, teste jogando e repita até fechar a jornada. Não encerre em outro diagnóstico, plano, protótipo visual ou build que apenas abre. Use a análise existente como backlog e vá à primeira reprodução verificável.
 
-## Contexto de partida
+### 1. Contexto, autorização e continuidade
 
-**Atualização de entrada em host vazio:** antes de implementar, leia `NOVO_HOST_INICIO.md` neste diretório. A branch `codex/new-host-cohesion-20261024` acrescenta os launchers e o diagnóstico de retomada sobre o checkpoint público `95d5ef23`; use essa ponta ou sua integração descendente, conferida por SHA. O checkpoint abaixo é a base histórica da primeira redação, não uma ordem de retroceder. Execute a instalação/certificação pelo launcher, conserve recibos e só depois prossiga E0–E6. Não há novo aceite humano ou GUI produzido pela simples preparação do host.
+Leia `AGENTS.md`, a política de Projects, Memory Bank, roadmap, árvore, diretivas, modo de agentes, stack/compliance e `docs/handoffs/NOVO_HOST_INICIO.md`. Consulte a arquitetura REX quando tocar a ponte ROM/canvas ou seus perfis.
 
-Repositório: https://github.com/Misael-art/retro-dev-studio
+Leia `docs/handoffs/REAVALIACAO_PRODUTO_2026-10-24.md`, especialmente o adendo de 02/11 e a matriz **PLAT01–12**. Dez capturas e relatório privado: `RDS_WORK_ROOT/sessions/platformer-journey-audit-20261102/`. Se esse runtime faltar, use o registro canônico e declare a evidência indisponível.
 
-Branch de recuperação: `recovery/studio-preformat-20261021`.
-Checkpoint publicado: `87b6b7fd5e3dacdd93eb30d5e25a9570d00ce769`.
-Fonte runtime original: `a8550af0e0bdd74c44478f94d301576b988747a1`.
+Responda `[Contexto Carregado]`. Confira HEAD, branch, remoto, PR112/checks, alterações locais e owners. Base documental: `d295fbcf6b7b5b9727c37de83835e6cc31677447`; avance sobre a ponta válida, preservando trabalho posterior.
 
-Se houver avanço posterior, compare e registre antes de escolher a base. Não volte automaticamente a um checkpoint antigo. A pasta antiga `/mnt/sdcard/Projects/RetroDevStudio` não era o worktree Git completo.
+Use somente `/home/misael/Projects/RetroDevStudio`. Prefixe comandos com RTK. Reutilize launcher/host-manager, diagnóstico e ambiente oficiais; `RDS_WORK_ROOT=/home/misael/Shared/ProjectRuntime/RetroDevStudio`, inicialmente `RDS_BUILD_JOBS=1`. Confira disco/RAM/carga; uma operação pesada por vez.
 
-O backup privado estava em `/mnt/sdcard/Backups/RetroDevStudio-preformat-20261021T181629Z`. Localize seu destino atual; leia LEIA-ME-ANTES-DE-FORMATAR.md, HANDOFF-NOVO-AGENTE.md, inventários, hashes e mapa de branches. O bundle conserva história e pesquisas; o overlay conserva trabalho local; o backup de dados conserva projetos, insumos e evidências. Não sobrescreva o .git novo ou siga links antigos cegamente. ROMs são insumos externos sob responsabilidade do usuário, não dependências provisionáveis.
+Preserve app, dados e leases do operador. Não mate processos alheios nem remova locks legítimos. Se uma etapa exigir sessão exclusiva, solicite uma única ação indispensável pelo fluxo oficial e avance nas partes independentes; não apresente esse impedimento como missão concluída.
 
-Leia as instruções canônicas do checkout: AGENTS, Memory Bank, roadmap, árvore, diretivas, modo de agentes, stack e compliance. Leia a arquitetura REX quando tocar essa frente. Diagnostique/provisione o host antes de mudar produção. Pins do checkpoint: Node 24.18.0 e Rust 1.97.0, sujeitos à conferência dos arquivos atuais. Não reutilize READY antigo nem introduza dependências sem aprovação.
+Não crie outro checkout, store, motor, DSL, editor ou harness concorrente. Preserve decisões arquiteturais consolidadas. Dependência nova indispensável exige justificativa, compatibilidade/lock/stack e gates. Esta missão integra capacidades atuais; não inicia novas plataformas/importadores nem substitui a missão separada de decompilação universal.
 
-## Estado honesto e evidência obrigatória
+Preserve Tauri + React/TypeScript + Rust, UGDM, SGDK/PVSnesLib e Libretro. Sem Electron, Redux ou Python no runtime do aplicativo. Os limites reais de hardware e as guardas de segurança não podem ser elevados, ignorados ou mascarados para fazer a jornada passar.
 
-O produto tem subsistemas e jornadas técnicas comprovados; continua Experimental. Não há decompilador universal completo nem aceite humano de usabilidade.
+### 2. Identifique a versão realmente entregue — PLAT01
 
-Leia os textos em docs/studio_grafico/auditoria_20261020 e o pacote privado studio-audit-20261020-01. Use principalmente HANDOFF_PROXIMO_AGENTE.md (checkpoint 16), coverage.csv, ACHADOS.md, pareceres e erratas LOT025/031. Não se baseie apenas no resumo inicial ou na galeria inicial de 61 cartões.
+Na análise, atalho e processo ativo usavam o app **263205d8 de 30/10**, enquanto a qualificação recente de câmeras pertence ao candidato **29b9b21f** e ao código **c359eab9**. O HEAD do recibo do launcher não identifica sozinho o binário aberto.
 
-Corrija por adendo a leitura antiga de que a auditoria nunca compilou/executou ROM: LOT028 fechou editar → salvar/reabrir → Build & Run → verificar/exportar, com build e export idênticos; LOT031 acrescentou execução e Stop. A cobertura das 16 jornadas ainda é parcial, e a causalidade do input permanece limitada.
+Reconfira fonte incorporada, SHA do executável, launcher e atalho. Prepare o candidato correto e valide sua abertura normal após transição segura, preservando projeto/sessão em uso. Não atribua defeitos do app antigo ao novo nem declare resolvido porque existe um botão na fonte. A entrega final deve abrir pelo atalho usado pelo operador e identificar sua versão efetiva.
 
-Prioridades observadas:
-- Review dizia “ainda não executado” depois da emulação.
-- LOT025 importou/editou/salvou/reabriu Ken, mas dois builds falharam em atlas de 177192960 px, acima de 67108864. Investigue o caso real; não aumente a guarda para aprovar nem retire frames silenciosamente.
-- LOT029/030 encontraram guards MUGEN, alguns anteriores à edição testada. Não atribua ao último clique sem provar a causa.
-- Mensagem stale de duração, opções “Dano” ambíguas e navegação sem transição são casos a reproduzir. Não confunda UI dirty após Undo, antes de salvar, com corrupção de dados.
-- REX LOT024 produziu cópia/BPS sem alterar a base, mas não observou efeito visual nos frames coletados. Não apresentar isso como efeito comprovado nem como refutação das provas históricas de outros episódios.
-- Os revisores A/B/C analisaram lotes compartilhados; isso não equivale a execuções independentes ou participantes humanos.
+### 3. Módulos e scripts que devem trabalhar juntos
 
-## Princípios de implementação
+Inspecione chamadores e testes destes owners, conferindo possíveis renomes. Estenda o caminho oficial; não crie um script isolado por tela.
 
-Reutilize o caminho canônico. Já existem editorStore, studioContext, histórico, runtimeLink, plano de paletas, validação de revisão e serviços de build/patch. Inventarie quem usa cada mecanismo e onde há bypass antes de alterar contratos. Não crie store, orquestrador, gerador, editor, DSL ou harness duplicado.
+| Responsabilidade | Fontes existentes |
+|---|---|
+| Shell, início e navegação | `src/App.tsx`; `src/components/common/ProjectStartWizard.tsx`; `src/core/workspaceLayout.ts`; `src/components/common/StudioContextBar.tsx`; `src/components/common/LayoutSplitter.tsx` |
+| Identidade, contexto, histórico e persistência | `src/core/store/editorStore.ts`; `src/core/studioContext.ts`; `src/core/scenePersistence.ts`; `src/core/runtimeLink.ts` |
+| Template, importação e dados nativos | `data/template_registry.json`; `src-tauri/src/core/project_mgr.rs`; `src/core/ipc/projectService.ts`; `src/core/ipc/sceneService.ts` |
+| Cena, coordenadas e câmera | `src/components/viewport/ViewportPanel.tsx`; `src/core/sceneWorldModel.ts`; `src/core/cameraWorkflow.ts`; `src/components/inspector/CameraConfigurator.tsx`; `src/components/inspector/CameraAdvancedControls.tsx`; `src/components/inspector/InspectorPanel.tsx` |
+| Arquivos, arte e entrada de imagens | `src/components/explorer/ExplorerWorkspace.tsx`; `src/components/artstudio/ArtStudioPanel.tsx`; `src/components/artstudio/PixelEditor.tsx`; `src/components/artstudio/ImageIngress.tsx`; `src/core/imageIngress.ts` |
+| Lógica, organização e comportamento | `src/components/nodegraph/NodeGraphEditor.tsx`; `src/core/nodegraph/nodeLayout.ts`; `src/core/nodegraph/nodeCatalog.ts`; `src/core/nodegraph/nodeDefinitions.ts`; `src/core/nodegraph/behaviorLibrary.ts`; `src/core/nodegraph/graphHistory.ts` |
+| Paletas e apresentação | `src/core/palettePlan.ts`; `src/core/palettePlanStore.ts`; `src/components/inspector/PalettePanel.tsx`; `src/components/common/Icon.tsx`; `src/styles/index.css` |
+| Áudio e diagnóstico | `SoundPanel` no `NodeGraphEditor.tsx`; `src/components/tools/ToolsPanel.tsx`; recursos/serviços de áudio existentes; `runtimeLink` |
+| Compilação e apresentação | `src-tauri/src/compiler/build_orch.rs`; `src-tauri/src/compiler/ast_generator.rs`; `src-tauri/src/compiler/camera_runtime.rs`; `src-tauri/src/compiler/sgdk_emitter.rs`; `src-tauri/src/compiler/snes_emitter.rs` |
+| Host, build e testes desktop | `scripts/new-host.sh`; `scripts/new-host.ps1`; `scripts/new-host.mjs`; `scripts/host-manager.mjs`; `scripts/build.mjs`; `scripts/e2e-tauri-build-run.mjs`; `package.json` |
 
-Defina, por domínio, a fonte autoritativa de projeto/cena, entidade, modelo/instância, asset, animação/ocorrência, revisão, build, ROM e sessão do core. Edição, salvar, compilar, executar, inspecionar e exportar devem se referir ao mesmo conteúdo identificável. Separe estado persistido, rascunho, overrides de teste e resultados de execução.
+### 4. Composição inicial e gestos — PLAT02–03/12
 
-Uma edição precisa ter alcance claro e ser recuperável. Uma intenção de usuário deve corresponder a uma transação de desfazer; operações em arquivo precisam de recuperação explícita. Nenhum save, importação ou erro deve destruir trabalho alheio.
+O template deve abrir pronto: arte montada, personagem no chão, objetivo/sensores coerentes, colisões alinhadas e câmera inicial válida. Enquadrar a visualização não altera posições do projeto.
 
-Mantenha capacidades avançadas acessíveis por aprofundamento contextual. Reduza redundância visual, não capacidade. Evite novas versões GUIADO/CRIADOR/PRO/HACKER do mesmo fluxo. Considere os modos preferências de apresentação sobre os mesmos comandos e dados; preserve compatibilidade até haver migração segura.
+Reproduza a divergência legada: renderer usa `centro do sprite + offset − meia tela`; emissor usa `posição do alvo + offset`, limitada ao mundo. No template, o editor resulta em moldura `(−264,−32)`. Corrija contrato/compatibilidade; não compense deslocando background nem migre projetos existentes silenciosamente na abertura.
 
-## Plano de execução — concluir uma etapa por vez
+Separe coordenadas do mundo, câmera do jogo, pan/zoom e origem do canvas. Arrastar Player não pode realimentar a origem do gesto e escapar do ponteiro. Mostre quem a câmera segue e distinga edição do mundo de prévia da câmera.
 
-### E0 — Reconciliar e reproduzir, sem reiniciar toda a auditoria
+Diferencie mover objeto, mover composição vinculada e pan. Arte, colisão, spawn e sensores só se movem juntos quando escolhido e suportado, numa transação reversível. Restaurar composição do template deve ser ação explícita com prévia e preservação de edições.
 
-Fixe checkout/host/binário/inputs. Reutilize lotes e projetos preservados. Faça mapa curto tarefa → tela → estado → serviço → persistência/build/runtime → evidência. Reproduza as lacunas prioritárias e diferencie defeito de produto, limite declarado, ambiente e instrumento. Registre causa ainda desconhecida como tal.
+Investigue a importação aberta após pan central. Registre ordem/origem dos eventos mouse/pointer/auxclick/paste, clipboard e seleção primária. O conflito de colagem é hipótese, não captura de tela comprovada. Corrija a causa sem debounce arbitrário e sem desabilitar Ctrl+V, soltar imagem ou importação explícita. Teste pans sobre canvas, cartões, portas e bordas com imagem/texto na transferência.
 
-Escolha uma cópia autoral e uma cópia do MUGEN real para conduzir as próximas entregas. Não encerre a rodada apenas com o mapa.
+### 5. Continuidade entre ferramentas — PLAT04–06
 
-### E1 — Fechar contexto e ciclo de vida
+- Lógica geral apresenta comportamentos existentes; entrada por objeto conserva esse objeto. O grafo pronto pertence ao Player; Main Camera pode funcionar por componente sem nós. Diferencie carregamento, erro, ausência legítima e criação de novo fluxo.
+- Ofereça **Ver na cena, Editar arte/animações, Editar comportamento, Configurar câmera e Ver usos**, conforme o tipo. Não encaminhe uma câmera para um editor vazio de sprites como única saída.
+- Arquivo e instância são identidades distintas. Mostre alcance e dependentes; se houver vários usuários de um asset, apresente a escolha. Destino único inequívoco não exige pergunta adicional.
+- Arte deve carregar imagem, quadros e animações existentes; não exigir reimportação. Sem sprite selecionado, ofereça os assets/personagens da cena. Tilemap abre a ferramenta apropriada à sua edição.
+- Torne Configurar câmera visível junto da moldura/Inspector. Reutilize padrões, alvo, composição, limites, suavidade, salas, regiões e eventos implementados. Distinga editar câmera, enquadrar vista e ver o resultado do jogador.
+- Voltar conserva cena, entidade, asset, animação/ocorrência e vista. Cancelar/Undo/Redo/salvar têm alcance previsível. Respostas de outro projeto/revisão nunca sobrescrevem o atual.
 
-Corrija as inconsistências entre seleção, navegação, dirty/saved, save pendente, build, execução e Review. Testar deve usar a revisão atual prometida pela UI; impedir build silencioso de uma cena/grafo antigo. Resultado atrasado de outro projeto/revisão não pode sobrescrever o atual.
+### 6. Lógica visual legível e operacional — PLAT07–09
 
-Parar a execução não deve apagar o fato de que aquele artefato foi testado. Editar depois deve indicar que o teste anterior está desatualizado. Exportar deve identificar exatamente a ROM e revisão verificadas.
+Abra grafos existentes por comportamento: movimento, salto, animação, áudio, objetivo e câmera, conforme conteúdo real. Não substitua lógica por wizard nem invente conexões para preencher a tela.
 
-Defina o fluxo de erro/cancelamento/retentativa. Um build recusado deve explicar o problema, indicar o elemento e abrir sua correção. Play não deve virar um seletor de ROM sem explicar a mudança de tarefa. Runtime Setup deve usar o serviço oficial e o mesmo contexto de host; contagem de ferramentas instaladas não equivale a prontidão.
+Use dimensões reais dos cartões para layout sem sobreposição. Preserve parâmetros, conexões, grupos, fixações e posições manuais; ofereça organização inicial segura e Organizar/Enquadrar/Centralizar com Undo. Não reorganize silenciosamente a cada visita. Minimap deve ser encontrável em grafos grandes, recolhível e com preferência lembrada. Fios, portas e ramos precisam ser legíveis; navegar não inicia outra tarefa.
 
-### E2 — Entregar uma vertical autoral simples e produtiva
+No ponto de uso do som: recurso identificado, seletor, **Ouvir/Parar**, estado e diagnóstico. Reutilize a prévia WAV existente. Música VGM/XGM exige prévia compatível real; limitação permanece explícita enquanto faltar implementação. Botão sem áudio não recebe PASS. A associação deve persistir e tocar no evento correto na ROM.
 
-Pela UI: criar ou derivar projeto → montar cena → editar personagem/animação → criar comportamento → testar → inspecionar/voltar ao editor → corrigir → salvar/reabrir → revisar/exportar.
+Nó que afeta um personagem oferece acesso direto à sua arte/animação e recursos vinculados. Não obrigue localizar novamente o mesmo Hero.
 
-O usuário deve saber onde está, o que está selecionado, o alcance da edição e a próxima ação. Retorno preserva seleção, ocorrência e câmera. Testes temporários não gravam estado no projeto; aplicar mudanças passa por revisão e é reversível.
+Apresente **deslocamento imediato, velocidade mantida, aceleração, gravidade, frenagem e impulso** de forma coerente. Um painel Movimento e salto edita os mesmos nós/componentes, com unidades reais do backend. Não acrescente parâmetro sem consumidor nem outra fórmula/store para simular simplicidade. Prove o efeito de cada ajuste na ROM, além da prévia do editor.
 
-Simplifique o shell enquanto entrega essa vertical: organização à esquerda, trabalho central, propriedades à direita e timeline quando necessária. Reduza rails concorrentes, siglas, banners e controles repetidos; dê espaço ao conteúdo. Não dependa só de cor/hover. Verifique teclado, foco, tooltips, zoom e layout mínimo suportado de 1280×800.
+### 7. Criação e importação entregam projetos utilizáveis
 
-### E3 — Entregar a vertical MUGEN real
+Congele uma matriz de aceite, com insumos existentes/autorizados, revisão/hash, perfil, expectativas e limites:
 
-Com os insumos privados pinados: analisar → normalizar → planejar recursos → revisar perdas/limites → importar → editar animação/golpe → salvar/reabrir → compilar → jogar → exportar.
+1. Template de plataforma Mega Drive novo, sem ajustes iniciais manuais.
+2. Projeto autoral do zero com cena, personagem, comportamento, objetivo e áudio.
+3. Projeto SGDK suportado, com recursos e lógica reconhecidos apresentados corretamente.
+4. Projeto/personagem MUGEN do subset suportado, com animação, comportamento/bridge e limites explícitos.
+5. Projeto nativo editado e reaberto; regressão SNES das capacidades compartilhadas.
 
-Compare escolhas do lote que falha com as provas anteriores, sem assumir mesma configuração. Isole dimensões, eixos, frames repetidos, seleção de animações e empacotamento. Use divisão/paginação/deduplicação/streaming quando adequados e suportados; prove índices e conteúdo preservados. Separe limite do atlas no host de limites medidos do destino. Não substitua sprites reais por formas, não trunque conteúdo em silêncio e não chame comportamento autoral de CNS convertido.
+Use cópias de trabalho identificadas sem duplicar fontes do aplicativo. Preserve originais. Corpus ausente exige indicação precisa, não download de ROM ou conteúdo inventado.
 
-Faça incompatibilidades aparecerem cedo, com ação concreta e preservação do trabalho. Não declare sucesso de importação como sucesso de jogo compilável. A configuração suportada escolhida para esta missão precisa completar a vertical; uma recusa explicada não substitui esse aceite.
+A importação organiza cenas, objetos, assets e comportamentos identificáveis com vínculos rastreáveis e pronta continuidade onde houver suporte. Folha de tiles não se apresenta como cenário montado. Conserve metassprites, aliases, paletas, transparência e duração dos quadros. Preserve o fluxo existente de imagem/GIF sem impor preparação externa desnecessária.
 
-### E4 — Tornar os editores uma mesma experiência
+Use o plano canônico de paletas para mostrar bancos livres, compartilhados, reservados e em conflito, com consumidores identificáveis. Reatribuir/liberar um uso deve ter alcance e impacto claros. Não recolora outros objetos, descarte frames, substitua assets por formas ou reduza qualidade silenciosamente para caber num orçamento. Otimização necessária precisa conservar o conteúdo ou apresentar uma decisão compreensível e reversível.
 
-Conecte Cena, Personagem, Ações/nodes, Interface, Teste e Entrega sem perder identidade/contexto. Use o NodeGraph existente; representações amigáveis Quando → Se → Fazer devem editar a mesma lógica, sem motor paralelo.
+O que não for recuperável deve indicar item, causa, alcance e ação disponível. Bridge/código preservado continua identificado; não vira lógica visual completa por rótulo. Uma recusa correta cobre o negativo, mas não substitui o projeto positivo que precisa fechar o percurso suportado. Não transforme o aceite SGDK/MUGEN numa promessa de conversão geral de C/CNS ou de qualquer ROM.
 
-Unifique alcance “esta ocorrência”, “esta instância” e “modelo compartilhado — N usos”. Mostre dependentes antes de mudanças coletivas; não altere instâncias independentes por acidente.
+### 8. Qualidade estética, acessibilidade e diagnóstico — PLAT10–11
 
-Paletas: plano por cena, bancos disponíveis/compatíveis/reservados/em conflito, referências de uso acessíveis e navegação até cada consumidor. Permita compartilhar quando válido, reatribuir/liberar um uso e trocar paletas por estado/evento. Preveja o impacto coletivo; uma mudança não pode recolorir outros elementos sem indicação. Reuse o planejador existente e mantenha os limites por destino nos adaptadores.
+Use os tokens e a linguagem visual existentes: hierarquia clara, nomes consistentes em português, ícones reconhecíveis com rótulos nas ações importantes, espaçamento coerente e espaço de trabalho em destaque. Reduza banners/instruções redundantes; conserve detalhes avançados por aprofundamento contextual.
 
-Integre animação, caixas, eventos, sons, textos e cenário conforme as capacidades reais. Um som é um evento temporal; não invente uma região de imagem para selecioná-lo. Diagnósticos devem navegar à propriedade exata. Preserve o hash de conteúdo e as guardas de stale ao clicar na execução.
+O Inspector prioriza o objeto editado. Paletas globais/contratos não empurram suas propriedades para fora da tela. Assets têm prévias identificáveis; seleção e alcance são evidentes.
 
-### E5 — Preservar o fluxo avançado REX
+Valide pelo menos 2048×864, 1366×768 e 949×593 pixels lógicos; os quatro temas no teste visual; claro/escuro e zoom 125%, 150% e 200% nos percursos críticos. Timeline, prévias, campos e ações continuam alcançáveis por scroll/teclado. Verifique contraste, foco visível, rótulos e alternativas ao botão central/arraste. Não dependa só de cor, hover ou tooltip para uma tarefa essencial.
 
-Percorra um perfil comercial já suportado: abrir entrada → conhecer escopo/proveniência → visualizar recurso/lógica → editar cópia → gerar patch → executar episódio → medir efeito esperado → salvar/reabrir/reverter.
+Depurar parte do projeto/ROM atuais: por que não compila, onde há colisão, qual estado mudou, qual recurso excedeu o limite e o que está sendo medido. Diferencie estimativa estática, observação do core e apresentação do frontend. Indisponível não é zero; FPS de apresentação não é clock do jogo. Informe origem, janela, versão/artefato e caminho de correção. Não invente telemetria para preencher cartões.
 
-Use insumos fornecidos pelo usuário. Mantenha original imutável, identidade por hash, limites e recusas. Elemento desconhecido não abre um editor adivinhado. Não apresentar codec como identificação gráfica, vínculo estático como consumo ou alteração de bytes como efeito de gameplay. Não expandir para novos jogos/codecs nesta missão.
+### 9. Refazer a jornada jogando e retornando à edição
 
-### E6 — Certificar e preparar observação humana
+Percorra pelos controles reais, nos projetos positivos de aceite:
 
-Gates aplicáveis do projeto e jornadas afetadas devem passar no mesmo binário final. Execute ao menos três partidas frias consecutivas das verticais autoral e MUGEN, com expectativa congelada antes e sem mudar critério entre corridas. Isso é um critério de repetição, não certificação estatística de confiabilidade. Preserve falhas e investigue as intermitências.
+**Atalho/launcher → criar/importar → reconhecer organização → compor cena → mover herói/objetivo e desfazer/refazer → configurar câmera → abrir lógica existente → organizar/navegar → editar arte/animação → escolher/ouvir som → ajustar movimento/regra → salvar → Build→ROM→jogar → pausar/inspecionar → voltar ao elemento → corrigir → reconstruir/jogar → fechar/reabrir → revisar/exportar.**
 
-As ações da jornada devem ocorrer na UI real; sondas internas são observação, não substituição de cliques. Não edite project.rds/JSON por fora para completar uma tarefa ausente na interface. Fixtures de preparação são identificadas separadamente.
+Escolha mudanças observáveis: posição, quadro/duração, velocidade/impulso, condição do objetivo e som de evento. Congele expectativas antes do teste; confira efeito, persistência e hash do artefato executado, não só clique ou mensagem verde.
 
-Teste conteúdo persistido, efeito na ROM/core, igualdade da exportação com o artefato verificado, Undo/Redo, cancelar, respostas antigas, renomear asset, alteração no mesmo caminho e reabertura. Não use apenas snapshots visuais ou testes que repitam a implementação.
+Quando falhar: preserve evidência, determine causa, corrija no owner, acrescente regressão pertinente e repita o trecho e o ciclo afetado. Não troque fixture difícil, elimine cenário ou afrouxe critério para concluir.
 
-Prepare um pacote neutro de antes/depois, passos e limites para revisão externa. Faça sessão humana quando houver participante; registre conclusão, ajuda, erros e recuperação. Sem participante, mantenha usabilidade pendente e entregue separadamente o aceite técnico.
+Negativos obrigatórios: build falho sem executar ROM antiga como nova; asset ausente/incompatível; projeto trocado durante tarefa; cancelar/repetir; recurso compartilhado; paletas ocupadas; limites de hardware; pan com imagem na transferência; resize/zoom; Undo/Redo; retorno de Teste; salvar/reabrir. Recuse resultados/frames de outro core/revisão pelo mecanismo existente.
 
-## Organização, plataforma e entrega
+Repita as verticais autoral e MUGEN três vezes a frio, sem reparos externos entre corridas. Para SGDK e SNES, execute o percurso suportado e declare alcance. Repetição local não é certificação estatística de qualquer entrada.
 
-Não amplie plataformas/importadores nem crie uma nova arquitetura universal agora. Separe conceitos de criação dos adaptadores de hardware e preserve regressões existentes, inclusive SNES. Técnicas avançadas precisam de custo/limite medido; não atribua restrições de um conversor ao console inteiro.
+Não edite JSON/project.rds por fora para completar uma função ausente na UI. Separe preparação de fixture da prova. Sondas internas observam; não substituem ações reais. Use Tauri e SDK/core oficiais; Vite e testes unitários não aprovam desktop ou gameplay.
 
-Use diretórios aprovados e uma única área de evidência da rodada, com manifest, hashes e índice requisito → implementação → teste → resultado → limite. Mantenha estado no Memory Bank/roadmap e evidências detalhadas no local apropriado, sem diários canônicos paralelos. Não apagar lotes congelados, corpus ou scratch alheio.
+### 10. Scripts e gates oficiais
 
-A cada marco, registre código/binário, comandos, provas novas/herdadas, falhas, limites e próximo passo exato. Preserve progresso em commits coerentes e publique apenas material próprio/curado conforme as regras do projeto. Sem force-push, merge, release ou promoção automática. Não deixe processos de teste ou observadores próprios abandonados.
+Use o ambiente/target do launcher, conferindo cobertura dos cenários antes de acrescentar testes. Amplie o runner existente onde necessário, sem harness paralelo. Execute builds/suites pesadas sequencialmente:
 
-Entrega mínima: verticais autoral e MUGEN completas, causas prioritárias resolvidas, navegação/contexto coerentes, UI menos densa com funcionalidade preservada, regressões e evidências no binário final, atalho testado e pendências com dono/critério. Uma coleção de componentes novos ou um relatório extenso não substitui essa entrega.
+```text
+rtk proxy npm run host:diagnose
+rtk proxy npm run check:tree
+rtk proxy npm run lint
+rtk proxy npx tsc --noEmit
+rtk proxy npm test
+rtk proxy cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+rtk proxy cargo test --manifest-path src-tauri/Cargo.toml --lib -- --nocapture --test-threads=1
+rtk proxy cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+rtk proxy npm run build:debug
+rtk proxy npm run test:e2e:desktop:reference-platformer
+rtk proxy npm run test:e2e:desktop:create-game-from-zero
+rtk proxy npm run test:e2e:desktop:nodegraph-authoring
+rtk proxy npm run test:e2e:desktop:authoring-acceptance
+rtk proxy npm run test:e2e:desktop:behaviors-independence
+rtk proxy npm run test:e2e:desktop:qa-rc
+rtk proxy npm run test:e2e:desktop:md
+rtk proxy npm run test:e2e:desktop:snes
+rtk proxy npm run host:certify
+```
 
-Comece pela reconciliação e pela primeira reprodução; siga até fechar as etapas autorizadas, sem solicitar GO a cada subetapa. Falta real de insumo/autorização deve ser descrita com precisão, enquanto você continua tarefas independentes.
+Esses comandos existem; isso não afirma cobertura integral. Forneça parâmetros/fixtures pelo mecanismo oficial e registre-os. Execute auditorias npm/Cargo/licenças se dependências/segurança mudarem e gates de crates quando afetados. Não ignore precondições BYOR nem herde resultados de outro SHA/binário.
+
+### 11. Ordem de execução e fechamento
+
+- **Lote A:** PLAT01–03/12 — versão efetiva, composição/coordenadas e arbitragem de gestos.
+- **Lote B:** PLAT04–07/10 — contexto, acesso à câmera, assets, organização dos nós e legibilidade/reflow.
+- **Lote C:** PLAT08–09/11 — áudio no ponto de uso, movimento compreensível e diagnóstico útil.
+- **Lote D:** criação/importação completas, partidas/retorno, reabertura/exportação e regressões no mesmo binário final.
+
+Feche cada PLAT01–12 com causa, implementação, regressão pertinente, prova UI/runtime e limite. Mantenha matriz requisito→fonte/script→projeto→resultado→artefato/hash→pendência. Diferencie proposto, implementado, validado tecnicamente e aceito pelo usuário.
+
+Aceite técnico: matriz positiva completa no binário final identificado, sem bloqueios conhecidos no percurso prometido; interface organizada/legível, dados preservados, importação útil, edição integrada, efeito no gameplay, retorno previsível, persistência e exportação verificadas. Nenhum botão essencial decorativo. Superfícies parciais continuam Experimental e com caminho de trabalho explícito.
+
+Prepare projeto autoral limpo e roteiro neutro para usuário leigo testar sem condução do agente. Registre conclusão, ajuda, erros e recuperação. Sem participante, entregue o técnico e mantenha aceite humano pendente; não o simule.
+
+Atualize Memory Bank, adendo de reavaliação e este handoff. Preserve falhas, receitas e evidências nos destinos oficiais com hashes/retenção. Não publique screenshots privadas, ROMs, corpus, credenciais ou assets de terceiros no Git. Faça commits curados/push no branch existente, reuse o PR e confirme SHA remoto. Sem merge/release/deploy implícitos.
+
+Prossiga autonomamente nas correções reversíveis autorizadas. Não peça GO a cada arquivo/subetapa. Limite de contexto exige checkpoint retomável com causa, SHA, estado e próximo comando, não conclusão fictícia. Impedimento externo exige pedido único e preciso e avanço no trabalho independente.
+
+**Entrega ao operador:** app pelo atalho correto, projetos de teste organizados, resumo das melhorias de experiência, matriz PLAT01–12, provas criar/importar→editar→jogar→retornar→reabrir, gates/identidade do binário e limites honestos. O resultado deve permitir continuar construindo o jogo sem precisar descobrir a estrutura interna do programa.
