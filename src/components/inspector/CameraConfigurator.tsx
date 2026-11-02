@@ -15,6 +15,24 @@ const button = "min-h-8 rounded border border-[var(--rds-border-default)] px-3 p
 const input = "w-full rounded border border-[var(--rds-border-default)] bg-[var(--rds-surface-input)] p-1.5 text-sm";
 type Draft = { entity: Entity; camera: CameraComponent; revision: number; isNew: boolean };
 
+function CameraNumberField({ label, value, onChange, min, max }: {
+  label: string; value: number; onChange: (value: number) => void; min: number; max: number;
+}) {
+  // Keep incomplete native input (empty or a lone minus) out of the camera model.
+  // A controlled numeric value would restore the old number after the minus key.
+  const [text, setText] = useState(String(value));
+  useEffect(() => setText(String(value)), [value]);
+  const incomplete = text === "";
+  const invalid = incomplete || !Number.isInteger(Number(text)) || Number(text) < min || Number(text) > max;
+  return <label className="flex flex-col gap-1 text-xs">{label}<input className={input} type="number" min={min} max={max} step={1}
+    aria-label={label} aria-invalid={invalid} value={text} onChange={e => {
+      const next = e.currentTarget.value; setText(next);
+      if (next !== "") onChange(Math.round(Number(next)));
+    }} onBlur={() => setText(String(value))}/>{invalid && <span role="alert">{incomplete
+      ? "Conclua o número. Ao sair, o último valor será restaurado."
+      : `Use um inteiro entre ${min} e ${max}.`}</span>}</label>;
+}
+
 export default function CameraConfigurator({ entityId }: { entityId?: string }) {
   const { activeScene: scene, activeTarget: target, projectSessionId, sceneRevision, activeProjectDir } = useEditorStore();
   const [fps,setFps]=useState(60),[clockError,setClockError]=useState("");
@@ -199,8 +217,7 @@ export default function CameraConfigurator({ entityId }: { entityId?: string }) 
     }else if(follows){setProbeId(previewId??"");setProbe(p);setPlaying(true);}
   }
   function number(label: string, value: number, onChange: (n: number) => void, min = -16000, max = 16000) {
-    return <label className="flex flex-col gap-1 text-xs">{label}<input className={input} type="number" min={min} max={max} step={1}
-      aria-label={label} aria-invalid={!Number.isInteger(value)||value<min||value>max} value={value} onChange={e => { if(e.currentTarget.value!=="") onChange(Math.round(Number(e.currentTarget.value))); }} />{(!Number.isInteger(value)||value<min||value>max)&&<span role="alert">Use um inteiro entre {min} e {max}.</span>}</label>;
+    return <CameraNumberField label={label} value={value} onChange={onChange} min={min} max={max}/>;
   }
   const actions = draft && config && scene ? (
         <div className="flex flex-wrap justify-end gap-2 py-3">

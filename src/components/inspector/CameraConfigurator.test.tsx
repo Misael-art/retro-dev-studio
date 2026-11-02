@@ -20,6 +20,24 @@ const sceneFixture=():Scene=>({scene_id:"main",background_layers:[],entities:[
 beforeEach(()=>{vi.resetAllMocks();Object.defineProperty(HTMLElement.prototype,"scrollIntoView",{configurable:true,value:vi.fn()});container=document.createElement("div");document.body.append(container);root=createRoot(container);useEditorStore.setState({activeProjectDir:"",activeScene:sceneFixture(),activeSceneSource:sceneFixture(),activeTarget:"megadrive",sceneRevision:1,undoStack:[],redoStack:[],pendingHistorySnapshot:null});});
 afterEach(async()=>{await act(async()=>root.unmount());container.remove();Reflect.deleteProperty(HTMLElement.prototype,"scrollIntoView");});
 describe("camera configuration transaction",()=>{
+  it("keeps incomplete signed input local and recovers a complete negative edit with undo/redo",async()=>{
+    await act(async()=>root.render(<CameraConfigurator/>));await click("Configurar câmera");
+    await act(async()=>(document.querySelector('[data-testid="camera-pattern-auto_horizontal"]') as HTMLButtonElement).click());
+    const label="Velocidade (pixels por segundo; negativo inverte)";
+    const field=document.querySelector(`input[aria-label="${label}"]`) as HTMLInputElement;
+    await act(async()=>field.focus());await inputValue(label,"");
+    expect(field.value).toBe("");expect(field.getAttribute("aria-invalid")).toBe("true");
+    for(const n of ["-1","-12","-120"])await inputValue(label,n);
+    expect(field.value).toBe("-120");
+    expect((document.querySelector('select[aria-label="Direção da rolagem"]') as HTMLSelectElement).value).toBe("negative");
+    await act(async()=>field.dispatchEvent(new KeyboardEvent("keydown",{key:"z",ctrlKey:true,bubbles:true})));
+    expect(field.value).toBe("60");
+    await act(async()=>field.dispatchEvent(new KeyboardEvent("keydown",{key:"y",ctrlKey:true,bubbles:true})));
+    expect(field.value).toBe("-120");
+    await inputValue(label,"");await act(async()=>field.blur());expect(field.value).toBe("-120");
+    expect(useEditorStore.getState().sceneRevision).toBe(1);
+    await click("Aplicar");expect(useEditorStore.getState().activeScene!.entities[1].components.camera?.visual?.speed).toBe(-120);
+  });
   it("keeps keyboard undo inside the draft and converts PAL seconds to exact project frames",async()=>{
     vi.mocked(getProjectSettings).mockResolvedValue({fps:50,target:"megadrive",region:"europe",video_standard:"pal",internal_rom_name:"Camera",sram:{enabled:false,size_bytes:0},save_slots:0,debug_overlay:false,warnings:[]});
     useEditorStore.setState({activeProjectDir:"/test/camera"});

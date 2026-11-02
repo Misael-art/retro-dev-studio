@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Scene } from "../../core/ipc/sceneService";
 import { getEntityDisplayName } from "../../core/entityDisplay";
 import { sceneArtworkEntities } from "../../core/sceneWorldModel";
-import { getTilemapArtwork, loadSceneArtworkAsset, type ViewportAssetCacheEntry } from "./sceneArtworkRenderer";
+import { getTilemapArtwork, loadSceneArtworkAsset, SCENE_ARTWORK_MAX_PIXELS, type ViewportAssetCacheEntry } from "./sceneArtworkRenderer";
 
 /** Read-only artwork: the same decoder/cells as ViewportPanel, without editor gizmos. */
 export default function SceneArtwork({ scene, project, target, probe, camera }: {
@@ -26,7 +26,7 @@ export default function SceneArtwork({ scene, project, target, probe, camera }: 
     const asset = assets[tilemap?.tileset ?? sprite!.asset];
     const width = tilemap ? tilemap.map_width * 8 : sprite!.frame_width;
     const height = tilemap ? tilemap.map_height * 8 : sprite!.frame_height;
-    if (!asset?.source || width < 1 || height < 1 || width * height > 16777216) return [{ entity, width, height, href: "" }];
+    if (!asset?.source || width < 1 || height < 1 || width * height > SCENE_ARTWORK_MAX_PIXELS) return [{ entity, width, height, href: "" }];
     if (tilemap) return [{ entity, width, height, href: getTilemapArtwork(asset, tilemap)?.toDataURL() ?? "" }];
     const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
     const ctx = canvas.getContext("2d");
@@ -44,7 +44,7 @@ export default function SceneArtwork({ scene, project, target, probe, camera }: 
       const x = position.x + (camera && ratio ? camera.x * (100 - ratio.ratio_x) / 100 : 0);
       const y = position.y + (camera && ratio ? camera.y * (100 - ratio.ratio_y) / 100 : 0);
       return href ? <image key={entity.entity_id} href={href} x={x} y={y} width={width} height={height} style={{ imageRendering: "pixelated" }}><title>{getEntityDisplayName(entity)}</title></image>
-        : <g key={entity.entity_id}><rect x={x} y={y} width={width} height={height} fill="none" stroke="currentColor" strokeDasharray="2 2"/><text x={x + 2} y={y + 12} fontSize="10" fill="currentColor">{getEntityDisplayName(entity)} · {assets[entity.components.tilemap?.tileset ?? entity.components.sprite!.asset]?.status === "error" ? "imagem indisponível" : "carregando arte"}</text></g>;
+        : <g key={entity.entity_id}><rect x={x} y={y} width={width} height={height} fill="none" stroke="currentColor" strokeDasharray="2 2"/><text x={x + 2} y={y + 12} fontSize="10" fill="currentColor">{getEntityDisplayName(entity)} · {["loaded","error","missing"].includes(assets[entity.components.tilemap?.tileset ?? entity.components.sprite!.asset]?.status ?? "loading") ? "imagem indisponível nesta prévia; veja no editor" : "carregando arte"}</text></g>;
     })}
   </g>;
 }

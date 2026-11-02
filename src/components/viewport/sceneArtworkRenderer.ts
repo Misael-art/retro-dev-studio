@@ -12,6 +12,7 @@ export type ViewportAssetCacheEntry = {
   errorMessage?: string;
 };
 
+export const SCENE_ARTWORK_MAX_PIXELS = 16777216;
 const tilemapArtwork = new WeakMap<TilemapComponent, { source: CanvasImageSource; canvas: HTMLCanvasElement }>();
 
 /** Compose each plane separately: empty cells reveal lower planes, never erase them. */
@@ -20,7 +21,7 @@ export function getTilemapArtwork(asset: ViewportAssetCacheEntry, map: TilemapCo
   const cached = tilemapArtwork.get(map);
   if (cached?.source === asset.source) return cached.canvas;
   const width = map.map_width * 8, height = map.map_height * 8;
-  if (width < 1 || height < 1 || width * height > 16777216) return null;
+  if (width < 1 || height < 1 || width * height > SCENE_ARTWORK_MAX_PIXELS) return null;
   const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
@@ -31,6 +32,21 @@ export function getTilemapArtwork(asset: ViewportAssetCacheEntry, map: TilemapCo
   } else drawRepeatedAsset(ctx, asset, 0, 0, width, height, map.scroll_x ?? 0, map.scroll_y ?? 0);
   tilemapArtwork.set(map, { source: asset.source, canvas });
   return canvas;
+}
+
+/** Retain the viewport's direct drawing path when a whole-plane canvas is too large. */
+export function drawTilemapArtwork(context: CanvasRenderingContext2D, asset: ViewportAssetCacheEntry,
+  map: TilemapComponent, x: number, y: number): void {
+  const artwork = getTilemapArtwork(asset, map);
+  if (artwork) { context.drawImage(artwork, x, y); return; }
+  if (!asset.source) return;
+  const width = map.map_width * 8, height = map.map_height * 8;
+  context.save(); context.beginPath(); context.rect(x, y, width, height); context.clip();
+  if (map.cells?.length === map.map_width * map.map_height) {
+    context.drawImage(asset.source, x, y);
+    drawTilemapCells(context, asset, x, y, map.map_width, map.map_height, map.cells, 8, map.scroll_x ?? 0, map.scroll_y ?? 0);
+  } else drawRepeatedAsset(context, asset, x, y, width, height, map.scroll_x ?? 0, map.scroll_y ?? 0);
+  context.restore();
 }
 
 /** Shared IPC decoder for the scene viewport and the isolated camera composer. */

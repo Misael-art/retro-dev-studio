@@ -15063,10 +15063,20 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
   const js=(s,a=[])=>executeScript(sessionId,s,a),state=()=>readAutomationState(sessionId);
   const click=id=>clickButtonByTestIdNative(sessionId,id,id);
   const selectPattern=async id=>{if(!await js(`return document.querySelector('[data-camera-patterns]')?.open;`))await clickElement(sessionId,await findElement(sessionId,'[data-testid="camera-pattern-picker"]'));await click(`camera-pattern-${id}`);};
-  const text=s=>clickButtonByText(sessionId,s,"exact");
+  const text=async s=>{
+    await clickButtonByText(sessionId,s,"exact");
+    await executeAsyncScript(sessionId,"const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));",[]);
+  };
   const invoke=(command,args={})=>executeAsyncScript(sessionId,`const done=arguments[arguments.length-1];(window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke)(arguments[0],arguments[1]).then(done).catch(e=>done({error:String(e)}));`,[command,args]);
   const step=(id,detail={})=>{report.steps.push({id,status:"passed",...detail});console.log(`[camera-advanced] ${target} ${id}`);};
-  const number=async(label,value)=>{await js(`const e=document.querySelector('input[aria-label="'+arguments[0]+'"]');for(let p=e?.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;e?.scrollIntoView({block:'center'});e?.focus();e?.select();`,[label]);const el=await findElement(sessionId,`input[aria-label="${label}"]`);await webdriverRequest("POST",`/session/${sessionId}/element/${el}/value`,{text:String(value),value:[...String(value)]});};
+  const number=async(label,value)=>{
+    await js(`const e=document.querySelector('input[aria-label="'+arguments[0]+'"]');for(let p=e?.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;e?.scrollIntoView({block:'center'});e?.focus();`,[label]);
+    const el=await findElement(sessionId,`input[aria-label="${label}"]`);
+    await webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"key",id:"camera-number-keyboard",actions:[
+      {type:"keyDown",value:"\uE009"},{type:"keyDown",value:"a"},{type:"keyUp",value:"a"},{type:"keyUp",value:"\uE009"}]}]});
+    await webdriverRequest("POST",`/session/${sessionId}/element/${el}/value`,{text:String(value),value:[...String(value)]});
+    await waitFor(()=>js(`return document.querySelector('input[aria-label="'+arguments[0]+'"]')?.valueAsNumber===arguments[1];`,[label,Number(value)]),5000,`Campo de câmera não recebeu ${value}: ${label}`,50);
+  };
   const checkbox=async(label,checked)=>{
     const index=await js(`const all=[...document.querySelectorAll('[data-testid="camera-configurator"] input[type="checkbox"]')];return all.findIndex(e=>e.closest('label')?.textContent.trim()===arguments[0]);`,[label]);
     if(index<0)fail(`Checkbox ausente: ${label}`);
@@ -15181,6 +15191,7 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
       if(pattern.startsWith("auto_")){
         const reverse=pattern.endsWith("_negative");await number("Velocidade (pixels por segundo; negativo inverte)",reverse?-120:120);
         if(reverse){await text("Começar na borda de origem");const axis=mode==="auto_horizontal"?"X":"Y",expected=512-(axis==="X"?width:224);
+          await waitFor(()=>js(`return Number(document.querySelector('input[aria-label="Posição '+arguments[0]+'"]').value)===arguments[1];`,[axis,expected]),5000,"A borda de origem negativa não foi aplicada ao rascunho.",50);
           const actual=Number(await js(`return document.querySelector('input[aria-label="Posição '+arguments[0]+'"]').value;`,[axis]));
           if(actual!==expected)fail(`Borda de origem negativa incorreta: ${JSON.stringify({axis,expected,actual})}`);
           step(`${pattern}_visible_origin_edge`,{axis,expected,actual,speed:-120});

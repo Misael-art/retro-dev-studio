@@ -1,4 +1,4 @@
-import { loadSceneArtworkAsset, drawRepeatedAsset, getTilemapArtwork, type ViewportAssetCacheEntry } from "./sceneArtworkRenderer";
+import { loadSceneArtworkAsset, drawRepeatedAsset, drawTilemapArtwork, type ViewportAssetCacheEntry } from "./sceneArtworkRenderer";
 import Icon, { type IconName } from "../common/Icon";
 import CameraConfigurator from "../inspector/CameraConfigurator";
 import { hudBand } from "../../core/hudText";
@@ -2367,8 +2367,7 @@ export default function ViewportPanel({
           }
 
           const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
-          const artwork = getTilemapArtwork(tilemapAsset, tilemap);
-          if (artwork) context.drawImage(artwork, bounds.x, bounds.y);
+          drawTilemapArtwork(context, tilemapAsset, tilemap, bounds.x, bounds.y);
 
         });
     }
