@@ -1211,7 +1211,8 @@ async function webdriverRequest(method, route, body) {
   const result = await webdriverRequestDetailed(method, route, body);
 
   if (!result.ok) {
-    const details = result.payload?.value?.message ?? result.statusText;
+    const value = result.payload?.value ?? {};
+    const details = [value.error, value.message || result.statusText, `HTTP ${result.status}`].filter(Boolean).join(" · ");
     throw new Error(`${method} ${route} falhou: ${details}`);
   }
 
