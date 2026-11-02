@@ -1207,13 +1207,18 @@ async function webdriverRequestDetailed(method, route, body) {
   };
 }
 
+// Seletor de cada elemento achado, para o erro de clique dizer qual controle falhou.
+const foundElementSelectors = new Map();
+
 async function webdriverRequest(method, route, body) {
   const result = await webdriverRequestDetailed(method, route, body);
 
   if (!result.ok) {
     const value = result.payload?.value ?? {};
     const details = [value.error, value.message || result.statusText, `HTTP ${result.status}`].filter(Boolean).join(" · ");
-    throw new Error(`${method} ${route} falhou: ${details}`);
+    const selector = /\/element\/([^/]+)\//.exec(route)?.[1];
+    const known = selector ? foundElementSelectors.get(selector) : undefined;
+    throw new Error(`${method} ${route} falhou: ${details}${known ? ` · seletor ${known}` : ""}`);
   }
 
   if (result.payload?.value?.error) {
@@ -17095,6 +17100,7 @@ async function findElement(sessionId, selector) {
   if (!element) {
     throw new Error(`Elemento nao encontrado: ${selector}`);
   }
+  foundElementSelectors.set(element, selector);
   return element;
 }
 

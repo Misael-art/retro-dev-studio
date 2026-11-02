@@ -2273,10 +2273,12 @@ export default function App() {
       return;
     }
 
+    // Reaplicado ao abrir projeto/fechar o assistente: um layout aplicado com o grupo
+    // ainda estreito recolhe o painel esquerdo abaixo do minimo e nunca volta sozinho.
     const config = resolveWorkspaceShellConfig(activeWorkspace, shellWidth);
     setLayoutPreset(config.preset);
     applyShellLayout(config.panels);
-  }, [activeWorkspace, shellWidth, focusedShell]);
+  }, [activeWorkspace, shellWidth, focusedShell, showProjectWizard, activeProjectDir]);
 
   useEffect(() => {
     if (focusedShell) {
