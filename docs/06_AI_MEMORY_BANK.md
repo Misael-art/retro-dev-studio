@@ -1,3 +1,13 @@
+### Checkpoint 2026-11-02 (c) — E2E desktop, dois defeitos de jornada corrigidos, atalho repontado (Experimental)
+
+Operador autorizou encerrar o app 263205d8 (PID5058, SIGTERM). Fonte `0601dce35b2d388b252f91454e4519c4ff064eae`; executável debug `43c6ff02ceec996a7eb415e543953d8617c14ccce378032c1c74fba5046a9ae7` copiado para `RDS_WORK_ROOT/sessions/plat-cohesion-20261102/retro-dev-studio-0601dce3`. Atalho `~/Área de trabalho/retrodev-studio-testar.desktop` repontado (backup do anterior na mesma pasta); aberto pelo comando do atalho, `/proc/<pid>/exe` confere o SHA acima (PLAT01 validado tecnicamente; humano pendente).
+- Corrigido: emissor SGDK não emitia `retro_aabb_intersects` quando a sobreposição vinha dentro de `SourceMapped`/laços (link falhava no criar-do-zero). Regressão Rust.
+- Corrigido: ciclo infinito de autosave da Lógica — o eco guardava o texto bruto da cena (outra ordem de chaves) como "persistido", regravando sem parar; todo Build&Run feito na Lógica era descartado como "cena mudou". Achado por sonda temporária (removida); presente também na base bdc6b755. Sem regressão unitária fiel (a simulação não reproduz o escritor real): prova é o E2E.
+- E2E (orçamentos oficiais `RDS_E2E_RUN_TIMEOUT_MS=900000`, `UI=60000`, `DRIVER=300000`, host com carga 12–20): reference-platformer PASS; create-game-from-zero PASS após as duas correções; nodegraph-authoring FAIL preexistente (idêntico com o frontend da base): `element not interactable` ao clicar `hierarchy-entity-passage_blocker` na etapa Personagem — pendente de correção. Runner agora informa código/HTTP do WebDriver.
+- Não executados ainda: authoring-acceptance, behaviors-independence, qa-rc, md, snes, host:certify; PLAT11/12; matriz Lote D; resoluções/zoom/temas; aceite humano.
+
+---
+
 ### Checkpoint 2026-11-02 (b) — PLAT01–10 implementação inicial nos owners (Experimental, sem aceite desktop)
 
 Base `bdc6b755`, branch `codex/new-host-cohesion-20261024` (PR112). Implementado com regressão unitária; **nenhum PLAT promovido a validado em desktop/ROM nesta etapa**.
