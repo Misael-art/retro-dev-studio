@@ -2384,14 +2384,17 @@ export default function NodeGraphEditor() {
         // Compara na forma canonica (deserializada): o eco do salvamento passa pelo
         // deserializador e nao deve virar um passo falso de historico.
         const current = serializeNodeGraph(deserializeNodeGraph(serializeNodeGraph(currentGraphRef.current)));
-        if (serializeNodeGraph(deserializeNodeGraph(serialized)) !== current) {
+        const canonical = serializeNodeGraph(deserializeNodeGraph(serialized));
+        if (canonical !== current) {
           historyRef.current = recordGraphHistory(historyRef.current, currentGraphRef.current, "Atualizado por outro painel");
           setHistory(historyRef.current);
           hydratingGraphRef.current = true;
           currentGraphRef.current = nextGraph;
           setGraphState(nextGraph);
         }
-        lastPersistedGraphRef.current = serialized;
+        // Canonical form, like the autosave compares: storing the raw scene text
+        // (other key order) made every echo look unsaved and re-commit forever.
+        lastPersistedGraphRef.current = canonical === current ? serializeNodeGraph(currentGraphRef.current) : canonical;
         return;
       }
       hydratedEntityIdRef.current = entityId;
