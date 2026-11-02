@@ -5,6 +5,7 @@ import { EntityPaletteSection, PaletteSummary } from "./PalettePanel";
 import { EntitySpriteCodeLink } from "./SpriteCodeLink";
 import HudTextInspector from "./HudTextInspector";
 import CameraConfigurator from "./CameraConfigurator";
+import MovementTuningPanel from "./MovementTuningPanel";
 import AssetRenameControl from "./AssetRenameControl";
 import {
   DEFAULT_TILEMAP_LEGACY_FALLBACK_DETAIL,
@@ -435,7 +436,7 @@ function entityPropSections(entity: Entity): PropSection[] {
   if (entity.components?.physics) {
     sections.push({
       id: "physics",
-      title: "Physics",
+      title: "Física",
       defs: [
         { key: "Gravity", path: ["components", "physics", "gravity"], type: "bool" },
         {
@@ -1261,7 +1262,8 @@ export default function InspectorPanel() {
   return (
     <Panel title="Propriedades" className="flex h-full flex-col">
       <div className="flex-1 overflow-x-hidden overflow-y-auto">
-        <PaletteSummary />
+        {/* PLAT10: the edited object comes first; the global palette plan follows it. */}
+        {!selectedEntityId ? <PaletteSummary /> : null}
         {!selectedEntityId ? (
           <div className="px-3 py-4 text-xs text-[#45475a]">
             <p className="italic">Selecione um objeto na lista da cena.</p>
@@ -1802,6 +1804,7 @@ export default function InspectorPanel() {
                     ))}
                   </tbody>
                 </table>
+                {section.id === "physics" ? <MovementTuningPanel entity={entity} /> : null}
                 {section.id === "audio" && entity.components.audio ? (
                   <RecordListEditor
                     label="Audio SFX"
@@ -2429,6 +2432,7 @@ export default function InspectorPanel() {
             </div>
           </>
         ) : null}
+        {selectedEntityId ? <PaletteSummary /> : null}
       </div>
 
       <div className="shrink-0 border-t border-[#313244]">

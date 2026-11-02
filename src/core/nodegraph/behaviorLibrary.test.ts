@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyMovementNodeTuning,
+  describeMovementTuning,
   buildBehaviorSceneContext,
   defaultBehaviorParams,
   duplicateBehaviorLogic,
@@ -246,5 +248,33 @@ describe("behavior library", () => {
     const moved = apply(EMPTY, "platform_movement", moveParams("fox_2"));
     const without = buildBehaviorSceneContext([{ entity_id: "fox", components: { sprite: sprite() } }], []);
     expect(validateBehaviorInstances(moved.graph, without)).toEqual([expect.objectContaining({ message: expect.stringContaining('"fox_2" nao existe mais') })]);
+  });
+});
+
+describe("movement tuning (PLAT09)", () => {
+  const graph = {
+    nodes: [
+      { id: "run_right", type: "set_velocity", label: "Correr", x: 0, y: 0, params: { target: "player", vx: 32, vy: 0 }, inputs: [], outputs: [] },
+      { id: "jump", type: "set_velocity", label: "Pulo", x: 0, y: 0, params: { target: "player", vx: 0, vy: -64 }, inputs: [], outputs: [] },
+      { id: "nudge", type: "sprite_move", label: "Empurrar", x: 0, y: 0, params: { target: "player", dx: 2, dy: 0 }, inputs: [], outputs: [] },
+      { id: "enemy", type: "set_velocity", label: "Inimigo", x: 0, y: 0, params: { target: "enemy", vx: 8, vy: 0 }, inputs: [], outputs: [] },
+    ],
+    edges: [],
+  } as unknown as NodeGraph;
+
+  it("reads the same nodes and physics the ROM uses, in backend units", () => {
+    const rows = describeMovementTuning(graph, { gravity: true, gravity_strength: 6, friction: 2, max_velocity: { x: 48, y: 96 } }, "player", 60);
+    expect(rows.map((r) => r.kind)).toEqual(["run_speed", "jump_impulse", "displace", "gravity", "braking", "max_speed_x", "max_speed_y"]);
+    expect(rows[0]).toMatchObject({ raw: 32, reading: "2.00 px/quadro · 120 px/s", source: { kind: "node", nodeId: "run_right", param: "vx" } });
+    expect(rows[1].reading).toBe("4.00 px/quadro · 240 px/s");
+    expect(rows[2].reading).toContain("px por execução");
+    expect(rows.some((r) => r.id.startsWith("enemy"))).toBe(false);
+  });
+
+  it("edits only the chosen node parameter and keeps its direction", () => {
+    const next = applyMovementNodeTuning(graph, "jump", "vy", 80);
+    expect(next.nodes.find((n) => n.id === "jump")?.params.vy).toBe(-80);
+    expect(next.nodes.find((n) => n.id === "run_right")).toBe(graph.nodes[0]);
+    expect(next.edges).toBe(graph.edges);
   });
 });

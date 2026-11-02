@@ -74,7 +74,7 @@ describe("sceneWorldModel", () => {
     const metrics = resolveSceneWorldMetrics(scene, "megadrive");
 
     expect(metrics.frame).toEqual({ width: 320, height: 224 });
-    expect(metrics.worldWidth).toBe(864);
+    expect(metrics.worldWidth).toBe(768);
     expect(metrics.worldHeight).toBe(224);
     expect(metrics.largeWorld).toBe(true);
     expect(metrics.dominantTilemapId).toBe("stage");
@@ -82,7 +82,7 @@ describe("sceneWorldModel", () => {
     expect(metrics.camera?.followEntityId).toBe("hero");
   });
 
-  it("derives camera bounds from the followed entity center", () => {
+  it("derives camera bounds with the emitter contract: target origin + offset, clamped to the tilemap world", () => {
     const hero = buildSpriteEntity("hero", 64, 80, 32, 32);
     const camera = {
       entity_id: "main_camera",
@@ -102,8 +102,17 @@ describe("sceneWorldModel", () => {
 
     expect(bounds.width).toBe(320);
     expect(bounds.height).toBe(224);
-    expect(bounds.x).toBe(-64);
-    expect(bounds.y).toBe(-24);
+    // No tilemap: the ROM clamps to 0 (camera_world_limits). Never -264/-32.
+    expect(bounds.x).toBe(0);
+    expect(bounds.y).toBe(0);
+
+    const stage = { entity_id: "stage", display_name: null, prefab: null, transform: { x: 0, y: 0 },
+      components: { tilemap: { tileset: "t.png", map_width: 80, map_height: 40 } } } as unknown as Entity;
+    const templateCamera = { ...camera, components: { camera: { follow_entity: "hero", offset_x: -160, offset_y: -112 } } } satisfies Entity;
+    const far = buildSpriteEntity("hero", 400, 200, 32, 32);
+    expect(getSceneEntityBounds(templateCamera, "megadrive", [stage, far, templateCamera])).toMatchObject({ x: 240, y: 88 });
+    const edge = buildSpriteEntity("hero", 620, 300, 32, 32);
+    expect(getSceneEntityBounds(templateCamera, "megadrive", [stage, edge, templateCamera])).toMatchObject({ x: 320, y: 96 });
   });
 
   it("clamps pan to the visible world when requested", () => {

@@ -58,7 +58,35 @@ fn embed_curated_evidence() {
     fs::write(dest, out).expect("gravar a lista de evidencia curada");
 }
 
+/// Identidade da fonte embutida (PLAT01): o SHA do Git e se havia alterações locais.
+/// `RDS_SOURCE_SHA` definido pelo ambiente de build tem precedência.
+fn embed_source_identity() {
+    let git = |args: &[&str]| {
+        std::process::Command::new("git")
+            .args(args)
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+    };
+    let sha = std::env::var("RDS_SOURCE_SHA")
+        .ok()
+        .or_else(|| git(&["rev-parse", "HEAD"]))
+        .unwrap_or_else(|| "desconhecido".to_string());
+    let dirty = git(&["status", "--porcelain", "--untracked-files=no"])
+        .map(|s| !s.is_empty())
+        .unwrap_or(false);
+    println!("cargo:rustc-env=RDS_SOURCE_SHA={sha}");
+    println!("cargo:rustc-env=RDS_SOURCE_DIRTY={dirty}");
+    println!("cargo:rerun-if-env-changed=RDS_SOURCE_SHA");
+    for head in ["../.git/HEAD", "../.git/index"] {
+        println!("cargo:rerun-if-changed={head}");
+    }
+}
+
 fn main() {
+    embed_source_identity();
     embed_rex_profiles();
     embed_curated_evidence();
     tauri_build::build();

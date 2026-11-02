@@ -2,9 +2,10 @@ import { UNDO_STACK_LIMIT, useEditorStore } from "../../core/store/editorStore";
 import { revertLastFileOperation } from "../../core/projectFileOps";
 import { getEntityDisplayName } from "../../core/entityDisplay";
 import { describeBuildFreshness } from "../../core/buildFreshness";
+import { requestCameraConfiguration } from "../../core/cameraWorkflow";
 import { STUDIO_TASK_LABEL, STUDIO_TASK_WORKSPACE, type StudioTask, workspaceToStudioTask } from "../../core/studioContext";
 
-type FlowEntity = { components: { sprite?: unknown; hud?: unknown } };
+type FlowEntity = { components: { sprite?: unknown; hud?: unknown; camera?: unknown } };
 
 /** Os destinos do fluxo de trabalho para o objeto selecionado, na ordem Cena → Arte → Lógica. */
 const FLOW_STEPS: { task: StudioTask; testId: string; label: string; hint: string; when: (e: FlowEntity) => boolean }[] = [
@@ -125,6 +126,23 @@ export function StudioContextBar() {
               </button>
             );
           })}
+          {entity.components.camera ? (
+            <button
+              type="button"
+              data-testid="studio-open-camera"
+              title="Editar padrão, alvo, enquadramento, limites e suavidade desta câmera"
+              onClick={() => {
+                if (task !== "scene") openStudioEditor({ focus: { task: "scene", entityId: entity.entity_id } });
+                // The Scene toolbar mounts the configurator; wait one frame after switching.
+                window.requestAnimationFrame(() => {
+                  if (!requestCameraConfiguration(entity.entity_id)) logMessage("warn", "[Câmera] Abra a Cena para configurar esta câmera.");
+                });
+              }}
+              className="border-l border-[#334155] px-2 py-1 font-semibold text-[#f9e2af] hover:bg-[#1e293b]"
+            >
+              Configurar câmera
+            </button>
+          ) : null}
         </div>
       ) : null}
       {undoDepth >= UNDO_STACK_LIMIT ? (

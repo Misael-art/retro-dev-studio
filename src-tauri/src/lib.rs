@@ -323,6 +323,24 @@ pub struct ProjectAssetsChangedEvent {
 
 // ── Build commands ────────────────────────────────────────────────────────────
 
+/// PLAT01: identidade efetiva do binário aberto (fonte embutida + hash do executável).
+#[tauri::command]
+fn app_build_identity() -> serde_json::Value {
+    let exe = std::env::current_exe().ok();
+    let exe_sha256 = exe
+        .as_ref()
+        .and_then(|p| std::fs::read(p).ok())
+        .map(|bytes| sha256_hex(&bytes));
+    serde_json::json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "source_sha": env!("RDS_SOURCE_SHA"),
+        "source_dirty": env!("RDS_SOURCE_DIRTY") == "true",
+        "debug": cfg!(debug_assertions),
+        "executable": exe.map(|p| p.display().to_string()),
+        "executable_sha256": exe_sha256,
+    })
+}
+
 #[tauri::command]
 fn validate_project(project_dir: String) -> ValidationResult {
     let dir = PathBuf::from(&project_dir);
@@ -6562,6 +6580,7 @@ pub fn run() {
         .manage(ProjectAssetWatchState::default())
         .manage(ProjectAssetScopeState::default())
         .invoke_handler(tauri::generate_handler![
+            app_build_identity,
             // Build pipeline
             validate_project,
             generate_c_code,

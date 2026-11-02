@@ -1168,3 +1168,110 @@ export function duplicateBehaviorLogic(graph: NodeGraph, sourceId: string, newId
     droppedManualNodes: graph.nodes.length - nodes.length,
   };
 }
+
+// ── Movimento e salto (PLAT09) ───────────────────────────────────────────────
+// Leitura única dos valores que a ROM realmente usa. Unidades do emissor SGDK
+// (render_apply_physics): velocidades em 1/16 px por quadro; gravidade e atrito
+// somam/subtraem 1/16 px por quadro a cada quadro. `sprite_move` desloca px na
+// hora, sem velocidade. Nenhuma fórmula nova: só conversão para leitura.
+
+export const MOVEMENT_SUBPIXELS = 16;
+
+export type MovementTuningKind = "run_speed" | "vertical_speed" | "jump_impulse" | "displace" | "gravity" | "braking" | "max_speed_x" | "max_speed_y";
+export type MovementTuningSource =
+  | { kind: "node"; nodeId: string; param: "vx" | "vy" | "dx" | "dy" }
+  | { kind: "physics"; field: "gravity_strength" | "friction" | "max_velocity.x" | "max_velocity.y" };
+export type MovementTuningRow = {
+  id: string;
+  kind: MovementTuningKind;
+  label: string;
+  /** Valor gravado (unidade do backend), ou null quando é uma expressão. */
+  raw: number | null;
+  expression?: string;
+  /** Leitura em px/quadro e px/s (ou px por execução para deslocamento). */
+  reading: string;
+  source: MovementTuningSource;
+  nodeLabel?: string;
+};
+
+const MOVEMENT_KIND_LABEL: Record<MovementTuningKind, string> = {
+  run_speed: "Velocidade mantida",
+  vertical_speed: "Velocidade vertical mantida",
+  jump_impulse: "Impulso do pulo",
+  displace: "Deslocamento imediato",
+  gravity: "Gravidade",
+  braking: "Frenagem (atrito)",
+  max_speed_x: "Velocidade máxima horizontal",
+  max_speed_y: "Velocidade máxima de queda",
+};
+
+function speedReading(raw: number, fps: number): string {
+  const perFrame = raw / MOVEMENT_SUBPIXELS;
+  return `${perFrame.toFixed(2)} px/quadro · ${Math.round(perFrame * fps)} px/s`;
+}
+
+function accelReading(raw: number, fps: number): string {
+  const perFrame = raw / MOVEMENT_SUBPIXELS;
+  return `${perFrame.toFixed(3)} px/quadro a cada quadro · ${Math.round(perFrame * fps * fps)} px/s²`;
+}
+
+export function describeMovementTuning(
+  graph: NodeGraph | null,
+  physics: { gravity?: boolean; gravity_strength?: number; friction?: number; max_velocity?: { x: number; y: number } } | undefined,
+  target: string,
+  fps = 60,
+): MovementTuningRow[] {
+  const rows: MovementTuningRow[] = [];
+  const numeric = (value: unknown) => (typeof value === "number" ? value : typeof value === "string" && /^-?\d+$/.test(value.trim()) ? Number(value) : null);
+  for (const node of graph?.nodes ?? []) {
+    const nodeTarget = String(node.params.target ?? "");
+    if (nodeTarget && nodeTarget !== target) continue;
+    if (node.type === "set_velocity") {
+      for (const param of ["vx", "vy"] as const) {
+        const value = node.params[param];
+        const raw = numeric(value);
+        if (raw === 0 || value === undefined) continue;
+        const kind: MovementTuningKind = param === "vx" ? "run_speed" : (raw ?? 0) < 0 ? "jump_impulse" : "vertical_speed";
+        rows.push({ id: `${node.id}:${param}`, kind, label: MOVEMENT_KIND_LABEL[kind], raw, expression: raw === null ? String(value) : undefined,
+          reading: raw === null ? "expressão: valor calculado na ROM" : speedReading(Math.abs(raw), fps),
+          source: { kind: "node", nodeId: node.id, param }, nodeLabel: node.label });
+      }
+    } else if (node.type === "sprite_move") {
+      for (const param of ["dx", "dy"] as const) {
+        const value = node.params[param];
+        const raw = numeric(value);
+        if (raw === 0 || value === undefined) continue;
+        rows.push({ id: `${node.id}:${param}`, kind: "displace", label: MOVEMENT_KIND_LABEL.displace, raw, expression: raw === null ? String(value) : undefined,
+          reading: raw === null ? "expressão: valor calculado na ROM" : `${Math.abs(raw)} px por execução do nó (sem velocidade)`,
+          source: { kind: "node", nodeId: node.id, param }, nodeLabel: node.label });
+      }
+    }
+  }
+  if (physics) {
+    if (physics.gravity !== false) {
+      const raw = physics.gravity_strength ?? 6;
+      rows.push({ id: "physics:gravity", kind: "gravity", label: MOVEMENT_KIND_LABEL.gravity, raw, reading: accelReading(raw, fps), source: { kind: "physics", field: "gravity_strength" } });
+    }
+    const friction = physics.friction ?? 0;
+    rows.push({ id: "physics:friction", kind: "braking", label: MOVEMENT_KIND_LABEL.braking, raw: friction,
+      reading: friction > 0 ? accelReading(friction, fps) : "sem frenagem: a velocidade horizontal se mantém", source: { kind: "physics", field: "friction" } });
+    if (physics.max_velocity) {
+      rows.push({ id: "physics:max_x", kind: "max_speed_x", label: MOVEMENT_KIND_LABEL.max_speed_x, raw: physics.max_velocity.x, reading: speedReading(physics.max_velocity.x, fps), source: { kind: "physics", field: "max_velocity.x" } });
+      rows.push({ id: "physics:max_y", kind: "max_speed_y", label: MOVEMENT_KIND_LABEL.max_speed_y, raw: physics.max_velocity.y, reading: speedReading(physics.max_velocity.y, fps), source: { kind: "physics", field: "max_velocity.y" } });
+    }
+  }
+  return rows;
+}
+
+/** Altera somente o parâmetro do nó indicado; preserva sinal (direção) do valor original. */
+export function applyMovementNodeTuning(graph: NodeGraph, nodeId: string, param: string, magnitude: number): NodeGraph {
+  return {
+    ...graph,
+    nodes: graph.nodes.map((node) => {
+      if (node.id !== nodeId) return node;
+      const current = Number(node.params[param] ?? 0);
+      const value = Math.trunc(Math.abs(magnitude)) * (current < 0 ? -1 : 1);
+      return { ...node, params: { ...node.params, [param]: value } };
+    }),
+  };
+}

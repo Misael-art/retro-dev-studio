@@ -69,6 +69,18 @@ export function getSceneViewportFrame(target: "megadrive" | "snes"): SceneViewpo
   };
 }
 
+/** Mirrors `camera_world_limits` in compiler/sgdk_emitter.rs. */
+export function legacyCameraLimits(entities: Entity[], frame: { width: number; height: number }) {
+  let width = 0, height = 0;
+  for (const e of entities) {
+    const tm = e.components?.tilemap;
+    if (!tm) continue;
+    width = Math.max(width, Math.trunc(Math.max(e.transform.x, 0) / 8) * 8 + tm.map_width * 8);
+    height = Math.max(height, Math.trunc(Math.max(e.transform.y, 0) / 8) * 8 + tm.map_height * 8);
+  }
+  return { x: Math.max(0, width - frame.width), y: Math.max(0, height - frame.height) };
+}
+
 export function getSceneEntityBounds(
   entity: Entity,
   target: "megadrive" | "snes",
@@ -100,12 +112,13 @@ export function getSceneEntityBounds(
         : null;
 
     if (followedEntity) {
-      const followedBounds = getSceneEntityBounds(followedEntity, target, entities);
-      const focusX = followedBounds.x + followedBounds.width / 2 + offsetX;
-      const focusY = followedBounds.y + followedBounds.height / 2 + offsetY;
+      // Same contract as the SGDK emitter (CameraFollow): followed sprite origin
+      // plus offset, clamped to the tilemap world. Preview never invents a frame
+      // the ROM cannot show.
+      const limits = legacyCameraLimits(entities, frame);
       return {
-        x: Math.round(focusX - frame.width / 2),
-        y: Math.round(focusY - frame.height / 2),
+        x: Math.max(0, Math.min(limits.x, Math.trunc(followedEntity.transform.x + offsetX))),
+        y: Math.max(0, Math.min(limits.y, Math.trunc(followedEntity.transform.y + offsetY))),
         width: frame.width,
         height: frame.height,
         resizable: false,

@@ -12446,9 +12446,9 @@ async function runAuthoringAcceptanceScenario(initialSessionId, appPath, uiBoots
   await click("sound-goal_sound-preview", "ouvir som associado");
   const previewState = await waitFor(async () => {
     const text = await js(`return document.querySelector('[data-testid="sound-goal_sound-preview-state"]')?.textContent ?? '';`);
-    return /Prévia: |Prévia falhou/.test(text) ? text : false;
+    return /Tocando |Tocou |Prévia falhou/.test(text) ? text : false;
   }, 10000, "Previa do som nao respondeu.", 200);
-  if (!/^Prévia: 0\.4/.test(previewState)) fail(`Previa do som associado falhou: ${previewState}`);
+  if (!/^(Tocando victory · |Tocou victory \()0\.4/.test(previewState)) fail(`Previa do som associado falhou: ${previewState}`);
   const soundIssue = await js(`return document.querySelector('[data-testid="sound-goal_sound-issue"]')?.textContent ?? '';`);
   if (soundIssue) fail(`Som associado reportou problema: ${soundIssue}`);
   await shot("06-sounds", "som de conclusao associado a victory");
@@ -15838,7 +15838,8 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
   // 9. Sizes and scales: controls reachable, no overlaps, wires on ports (also zoomed in).
   // A edição conserva escala legível: o grupo recolhido não expõe portas.
   // Revele um fluxo conectado antes de exigir uma medição de fios visíveis.
-  await click("nodegraph-toggle-minimap", "abrir mapa para medir fluxo conectado");
+  if (!(await js(`return document.querySelector('[data-testid="nodegraph-toggle-minimap"]')?.getAttribute("aria-expanded") === "true";`)))
+    await click("nodegraph-toggle-minimap", "abrir mapa para medir fluxo conectado");
   await click("nodegraph-minimap-node-start", "revelar entrada conectada");
   const layouts = {};
   layouts["1920x1080"] = { reach: await assertReachable(toolbar, "1920x1080"), geometry: await geometry("1920x1080") };

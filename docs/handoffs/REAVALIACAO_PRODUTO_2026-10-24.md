@@ -108,6 +108,8 @@ Todos os itens abaixo são **propostos**, não implementados ou aprovados nesta 
 | PLAT11 / P2 | Depurar responde perguntas sobre o projeto atual | Debug/Profiler/runtimeLink/diagnósticos existentes | Entrada oferece Por que não funciona?, Colisões, Estados/variáveis, Recursos e Desempenho conforme dados realmente disponíveis. ROM atual preenchida pela identidade válida. Cada medida informa origem, janela, valor/limite e ação possível; indisponível não aparece como zero. FPS de apresentação não é rotulado como clock da simulação. |
 | PLAT12 / P1 | Alterar a composição não quebra chão, colisão ou spawn | Entidades/camadas, collision_map, histórico e ferramentas de Cena | Modos explícitos para mover objeto, mover composição vinculada e pan da vista. Grupos/colisões se movem juntos somente quando escolhido e suportado, em transação reversível. Oferecer restaurar composição do template como ação explícita com prévia, preservando edições; nunca reset automático. |
 
+**Atualização 2026-11-02 (b):** PLAT01–04/06–09 implementados e PLAT05/10 parciais nos owners, com regressões unitárias; PLAT11/12 e o Lote D pendentes. Nenhum item validado em desktop/ROM ainda; ver checkpoint (b) do Memory Bank.
+
 ### Ordem de implementação e teste da jornada
 
 1. **Entrega correta e composição estável:** PLAT01–03 e12. Validar primeiro o template sem alterações e depois uma cópia do projeto relatado. Corrigir coordenadas antes de otimizar enquadramento ou sugerir que o usuário mova tudo para caber na moldura.

@@ -8,7 +8,7 @@ import { getEntityDisplayName } from "../../core/entityDisplay";
 import { requestAppCommand } from "../../core/sceneAttentionStore";
 import { getProjectSettings } from "../../core/ipc/projectService";
 import { CAMERA_PATTERNS, activeVisualCamera, cameraAdvanced, cameraFollows, cameraFrame, cameraPreset, cameraValidation,
-  cameraWorldArea, cameraPointerPoint, cameraConflictSources, initialCameraSample, sampleCamera, type CameraSample } from "../../core/cameraWorkflow";
+  cameraWorldArea, cameraPointerPoint, cameraConflictSources, initialCameraSample, sampleCamera, type CameraSample, CONFIGURE_CAMERA_EVENT } from "../../core/cameraWorkflow";
 import type { CameraComponent, Entity, VisualCameraConfig } from "../../core/ipc/sceneService";
 
 const button = "min-h-8 rounded border border-[var(--rds-border-default)] px-3 py-1 text-xs hover:bg-[var(--rds-surface-hover)] disabled:opacity-40";
@@ -133,6 +133,19 @@ export default function CameraConfigurator({ entityId }: { entityId?: string }) 
     return () => window.clearInterval(timer);
   }, [playing, draft, target, previewPoint, scene, previewId, fps, clockReady]);
 
+  // PLAT06: "Configurar câmera" from the context bar opens this same editor.
+  // The first mounted configurator claims the request, so only one dialog opens.
+  const openRef = useRef(open);
+  openRef.current = open;
+  useEffect(() => {
+    const request = (event: Event) => {
+      if (event.defaultPrevented) return;
+      event.preventDefault();
+      openRef.current((event as CustomEvent<{ entityId?: string }>).detail?.entityId);
+    };
+    window.addEventListener(CONFIGURE_CAMERA_EVENT, request);
+    return () => window.removeEventListener(CONFIGURE_CAMERA_EVENT, request);
+  }, []);
   function open(id?: string) {
     const { activeScene: scene, sceneRevision } = useEditorStore.getState();
     const selectedCamera = id ? scene?.entities.find(e=>e.entity_id===id&&e.components.camera) : cameraEntity;

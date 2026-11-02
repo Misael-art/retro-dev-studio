@@ -73,7 +73,7 @@ describe("visual camera contract",()=>{
     expect(cameraWorldArea(scene,"megadrive")).toEqual({x:0,y:0,width:320,height:224});
     expect(resolveSceneWorldMetrics(scene,"megadrive").worldWidth).toBeLessThan(1000);
     delete camera.visual;
-    expect(getSceneEntityBounds(entity,"megadrive",scene.entities)).toMatchObject({x:256,y:112});
+    expect(getSceneEntityBounds(entity,"megadrive",scene.entities)).toMatchObject({x:0,y:0}) // ROM contract: no tilemap clamps the legacy follow camera to 0;
   });
   it("selects only the explicitly active camera and retains no implicit fallback",()=>{
     const {scene,camera}=fixture();camera.visual!.active=false;

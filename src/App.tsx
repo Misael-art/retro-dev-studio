@@ -4,6 +4,7 @@ import RomDropDecompile from "./components/tools/RomDropDecompile";
 import Icon, { type IconName } from "./components/common/Icon";
 import StudioAppearancePicker from "./components/common/StudioAppearancePicker";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { APP_COMMAND_EVENT, requestAppCommand, useSceneAttentionStore } from "./core/sceneAttentionStore";
 import { dispatchGraphHistory } from "./core/nodegraph/graphHistory";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -1132,6 +1133,28 @@ function ToolbarWarningBadge({
   );
 }
 
+type AppBuildIdentity = { version: string; source_sha: string; source_dirty: boolean; debug: boolean; executable: string | null; executable_sha256: string | null };
+
+/** PLAT01: shows which binary is actually open, not the launcher receipt. */
+function BuildIdentityBadge() {
+  const [identity, setIdentity] = useState<AppBuildIdentity | null>(null);
+  useEffect(() => {
+    if (!("__TAURI_INTERNALS__" in window)) return;
+    let alive = true;
+    void Promise.resolve().then(() => invoke<AppBuildIdentity>("app_build_identity")).then(value => { if (alive) setIdentity(value); }, () => undefined);
+    return () => { alive = false; };
+  }, []);
+  if (!identity) return null;
+  const source = identity.source_sha.slice(0, 8) + (identity.source_dirty ? " + alterações locais" : "");
+  const exe = identity.executable_sha256?.slice(0, 8) ?? "indisponível";
+  return (
+    <span data-testid="app-build-identity" className="hidden font-mono text-[#cdd6f4] md:inline"
+      title={`Versão ${identity.version}${identity.debug ? " (debug)" : ""}\nFonte: ${identity.source_sha}${identity.source_dirty ? " (com alterações locais)" : ""}\nExecutável: ${identity.executable ?? "?"}\nSHA-256: ${identity.executable_sha256 ?? "indisponível"}`}>
+      v{identity.version} · fonte {source} · exe {exe}
+    </span>
+  );
+}
+
 function ProductionStatusBar({
   buildStatus,
   importStatus,
@@ -1159,6 +1182,7 @@ function ProductionStatusBar({
       <span className="hidden font-mono text-[#cdd6f4] md:inline">Origem: {({ builtin: "Autoral", external_sgdk: "SGDK", sgdk: "SGDK", mugen: "MUGEN" } as Record<string, string>)[importStatus] ?? importStatus}</span>
       <span className="hidden font-mono text-[#cdd6f4] md:inline">Emulação: {({ loaded: "ROM carregada", paused: "Pausada", idle: "Parada" } as Record<string, string>)[emulationStatus] ?? emulationStatus}</span>
       <span className="hidden font-mono text-[#cdd6f4] lg:inline">{hardwareSummary}</span>
+      <BuildIdentityBadge />
       <button
         type="button"
         onClick={onOpenDetails}

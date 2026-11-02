@@ -88,7 +88,7 @@ describe("creatorWorkflow", () => {
     });
 
     expect(context.frameLabel).toBe("Janela Mega Drive 320x224");
-    expect(context.worldLabel).toBe("Mundo 720x232 px");
+    expect(context.worldLabel).toBe("Mundo 640x224 px");
     expect(context.cameraLabel).toContain("Main Camera");
     expect(context.cameraLabel).toContain("segue hero");
     expect(context.selectedLabel).toBe("Hero");

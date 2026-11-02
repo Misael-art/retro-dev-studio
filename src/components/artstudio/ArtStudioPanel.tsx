@@ -1,3 +1,4 @@
+import { requestCameraConfiguration } from "../../core/cameraWorkflow";
 import {
   createContext,
   useCallback,
@@ -2730,6 +2731,7 @@ export default function ArtStudioPanel() {
   const activeSequence = state.sequences.find((sequence) => sequence.id === state.activeSequenceId);
   const selectedEntity = activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId);
   const selectedEntitySprite = selectedEntity?.components?.sprite;
+  const sceneSpriteEntities = (activeScene?.entities ?? []).filter((entity) => entity.components.sprite);
   const importedPixelPath = selectedEntity?.components.logic?.logic_hints?.some(h => h.startsWith("art_ingress:original=") || h.startsWith("pixel_art:document="))
     ? selectedEntitySprite?.asset ?? selectedEntity?.components.tilemap?.tileset : undefined;
   const imageOriginalRelative = selectedEntity?.components.logic?.logic_hints?.find(h=>h.startsWith("art_ingress:original="))?.slice("art_ingress:original=".length);
@@ -4246,10 +4248,28 @@ export default function ArtStudioPanel() {
           className="mx-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#fab387]/40 bg-[#fab387]/10 px-3 py-2 text-[11px] text-[#fde68a]"
         >
           <p className="min-w-0 flex-1">
-            A entidade <span className="font-semibold text-[#fff]">{getEntityDisplayName(selectedEntity)}</span> nao
-            tem <span className="font-mono">sprite</span>. O Art Studio trabalha com folhas de sprite; selecione um
-            sprite na lista de objetos ou volte à cena para escolher outra entidade.
+            <span className="font-semibold text-[#fff]">{getEntityDisplayName(selectedEntity)}</span> não tem arte de sprite.
+            {sceneSpriteEntities.length ? " Escolha um personagem ou objeto da cena para editar a arte e as animações dele:" : " A cena ainda não tem objetos com sprite."}
           </p>
+          {sceneSpriteEntities.length ? (
+            <div data-testid="artstudio-scene-sprites" className="flex w-full flex-wrap gap-1">
+              {sceneSpriteEntities.map((entity) => (
+                <button key={entity.entity_id} type="button" data-testid={`artstudio-pick-${entity.entity_id}`}
+                  onClick={() => useEditorStore.getState().setSelectedEntityId(entity.entity_id)}
+                  title={entity.components.sprite?.asset}
+                  className="rounded border border-[#fde68a]/50 px-2 py-1 text-[10px] font-semibold text-[#fff] hover:bg-[#fde68a]/15">
+                  {getEntityDisplayName(entity)}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {selectedEntity.components.camera ? (
+            <button type="button" data-testid="artstudio-configure-camera"
+              onClick={() => { returnToSceneWithSelectedContext(); window.requestAnimationFrame(() => requestCameraConfiguration(selectedEntity.entity_id)); }}
+              className="shrink-0 rounded-lg border border-[#f9e2af]/50 px-3 py-1.5 text-[10px] font-semibold text-[#f9e2af]">
+              Configurar câmera
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={returnToSceneWithSelectedContext}

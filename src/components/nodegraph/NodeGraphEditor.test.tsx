@@ -45,6 +45,11 @@ vi.mock("@tauri-apps/api/core", async (importOriginal) => ({
   convertFileSrc: (path: string) => `asset://${path}`,
 }));
 
+vi.mock("../../core/ipc/toolsService", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../core/ipc/toolsService")>()),
+  readProjectAssetBytes: vi.fn(async () => [82, 73, 70, 70]),
+}));
+
 vi.mock("../../core/ipc/projectService", () => ({
   openProjectSourcePath: mocks.openProjectSourcePath,
 }));
@@ -968,6 +973,82 @@ describe("NodeGraphEditor", () => {
     expect(useEditorStore.getState().activeScene?.entities[0].components.logic?.graph).toBe(
       serializeNodeGraph(GRAPH_FIXTURE)
     );
+  });
+
+  it("keeps the minimap in the main toolbar, collapsible and remembered across visits", async () => {
+    const toggle = () => container.querySelector("[data-testid='nodegraph-toggle-minimap']") as HTMLButtonElement;
+    expect(toggle().closest("[data-testid='nodegraph-visual-tools']")).toBeNull();
+    const startedOpen = toggle().getAttribute("aria-expanded") === "true";
+    await act(async () => { toggle().click(); await flush(); });
+    expect(toggle().getAttribute("aria-expanded")).toBe(String(!startedOpen));
+    expect(window.localStorage.getItem("rds.nodegraph.minimap")).toBe(startedOpen ? "closed" : "open");
+    if (!startedOpen) {
+      await act(async () => { (container.querySelector("[data-testid='nodegraph-minimap-close']") as HTMLButtonElement).click(); await flush(); });
+      expect(window.localStorage.getItem("rds.nodegraph.minimap")).toBe("closed");
+    }
+    await act(async () => { root.unmount(); await flush(); });
+    root = createRoot(container);
+    await act(async () => { root.render(<NodeGraphEditor />); await flush(); await flush(); });
+    expect(toggle().getAttribute("aria-expanded")).toBe("false");
+    window.localStorage.removeItem("rds.nodegraph.minimap");
+  });
+
+  it("offers sound choice and Ouvir/Parar on the node card; music states its limitation", async () => {
+    const graph: NodeGraph = { nodes: [
+      { id: "jump_sound", type: "action_sound", label: "Som do pulo", x: 40, y: 40, params: { sfx: "jump" },
+        inputs: [{ id: "exec", label: ">", kind: "exec" }], outputs: [{ id: "exec", label: ">", kind: "exec" }] },
+      { id: "bgm", type: "action_music", label: "Música", x: 40, y: 320, params: { track: "stage" },
+        inputs: [{ id: "exec", label: ">", kind: "exec" }], outputs: [{ id: "exec", label: ">", kind: "exec" }] },
+    ], edges: [] } as unknown as NodeGraph;
+    const hero = buildLogicEntity("hero", "Hero", graph);
+    hero.components.audio = { sfx: { jump: "assets/sfx/jump.wav", victory: "assets/sfx/victory.wav" } } as never;
+    const started: string[] = [];
+    class FakeContext {
+      destination = {};
+      close = vi.fn(async () => undefined);
+      decodeAudioData = vi.fn(async () => ({ duration: 0.42 }));
+      createBufferSource() { return { buffer: null, connect() {}, onended: null, start: () => started.push("start") }; }
+    }
+    Object.defineProperty(window, "AudioContext", { configurable: true, value: FakeContext });
+    await act(async () => {
+      useEditorStore.setState({ activeScene: buildSceneWithGraph(graph, [hero]), activeSceneSource: buildSceneWithGraph(graph, [hero]) });
+      await flush(); await flush();
+    });
+    const select = container.querySelector("[data-testid='node-sound-jump_sound-select']") as HTMLSelectElement;
+    expect(select.value).toBe("jump");
+    const button = () => container.querySelector("[data-testid='node-sound-jump_sound-preview']") as HTMLButtonElement;
+    await act(async () => { button().click(); await flush(); await flush(); });
+    expect(started).toEqual(["start"]);
+    expect(button().textContent).toBe("Parar");
+    expect(container.querySelector("[data-testid='node-sound-jump_sound-state']")?.textContent).toContain("Tocando jump");
+    await act(async () => { button().click(); await flush(); });
+    expect(button().textContent).toBe("Ouvir");
+    await act(async () => {
+      select.value = "victory";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 700));
+    });
+    expect((container.querySelector("[data-testid='node-sound-jump_sound-select']") as HTMLSelectElement).value).toBe("victory");
+    const raw = useEditorStore.getState().activeScene?.entities.find((e) => e.entity_id === "hero")?.components.logic?.graph;
+    const saved = (typeof raw === "string" ? JSON.parse(raw) : raw) as NodeGraph;
+    expect(saved.nodes.find((n) => n.id === "jump_sound")?.params.sfx).toBe("victory");
+    expect(container.querySelector("[data-testid='node-music-preview-bgm']")?.textContent).toContain("indisponível");
+    Reflect.deleteProperty(window, "AudioContext");
+  });
+
+  it("general entry lists each object's behavior state and opens the chosen object", async () => {
+    const camera = { entity_id: "main_camera", display_name: "Main Camera", prefab: null, transform: { x: 0, y: 0 }, components: { camera: { follow_entity: "hero" } } } as unknown as Entity;
+    const rock = { entity_id: "rock", display_name: "Pedra", prefab: null, transform: { x: 0, y: 0 }, components: {} } as unknown as Entity;
+    const ext = { entity_id: "enemy", display_name: "Inimigo", prefab: null, transform: { x: 0, y: 0 }, components: { logic: { graph_ref: "graphs/enemy.json" } } } as unknown as Entity;
+    const scene = buildSceneWithGraph(GRAPH_FIXTURE, [buildLogicEntity("hero", "Hero", GRAPH_FIXTURE), camera, rock, ext]);
+    await act(async () => { useEditorStore.setState({ selectedEntityId: null, activeScene: scene, activeSceneSource: scene }); await flush(); });
+    const text = (id: string) => container.querySelector(`[data-testid='nodegraph-object-${id}']`)?.textContent ?? "";
+    expect(text("hero")).toContain(`${GRAPH_FIXTURE.nodes.length} nós`);
+    expect(text("main_camera")).toContain("câmera por configuração");
+    expect(text("rock")).toContain("sem comportamento · criar");
+    expect(text("enemy")).toContain("graphs/enemy.json");
+    await act(async () => { (container.querySelector("[data-testid='nodegraph-object-hero']") as HTMLButtonElement).click(); await flush(); });
+    expect(useEditorStore.getState().selectedEntityId).toBe("hero");
   });
 
   it("docks the logic context outside the draggable canvas", () => {

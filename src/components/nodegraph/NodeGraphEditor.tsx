@@ -184,6 +184,14 @@ const FOCUS_PADDING = 24;
 const MINIMAP_WIDTH = 176;
 const MINIMAP_HEIGHT = 112;
 const MINIMAP_PADDING = 10;
+const MINIMAP_AUTO_NODES = 12;
+const MINIMAP_PREFERENCE_KEY = "rds.nodegraph.minimap";
+function readMinimapPreference(): boolean | null {
+  try {
+    const value = window.localStorage.getItem(MINIMAP_PREFERENCE_KEY);
+    return value === "open" ? true : value === "closed" ? false : null;
+  } catch { return null; }
+}
 const NODEGRAPH_GRID_SIZE = 24;
 const NODEGRAPH_MIN_ZOOM = 0.35;
 const NODEGRAPH_MAX_ZOOM = 2.4;
@@ -1339,7 +1347,9 @@ const CARD_ENTITY_HEIGHT = 24;
 const CARD_PORT_ROW = 20;
 
 /** Parametros que o cartao edita diretamente (o compilador le exatamente esses campos). */
-function cardEditableParam(node: GraphNode, key: string): "number" | "button" | "camera_action" | "camera_target" | null {
+function cardEditableParam(node: GraphNode, key: string): "number" | "button" | "camera_action" | "camera_target" | "sound" | null {
+  // Seletor de som no cartão (NodeSoundRow): mesma fonte da verdade do painel Sons.
+  if (node.type === "action_sound" && key === "sfx") return "sound";
   if(node.type==="camera_control"){
     if(key==="target")return "camera_target";
     if(key==="action")return "camera_action";
@@ -1388,6 +1398,8 @@ export function getPortAnchor(
 }
 
 interface NodeCardProps {
+  /** Efeitos sonoros da cena (nome → asset) para o seletor no ponto de uso. */
+  sfx?: Record<string, string>;
   node: GraphNode;
   screenX: number;
   screenY: number;
@@ -1457,6 +1469,7 @@ function NodeCard({
   onParamChange,
   onToggleDetails,
   onMeasure,
+  sfx,
 }: NodeCardProps) {
   const catalog = getNodeCatalogEntry(node.type);
   const category = getNodeCategory(node.type);
@@ -1665,6 +1678,12 @@ function NodeCard({
         <div className="flex flex-col items-end">{node.outputs.map((port) => renderPort(port, true))}</div>
       </div>
 
+      {node.type === "action_sound" && sfx ? <NodeSoundRow node={node} sfx={sfx} projectDir={projectDir} editable={editable} onParamChange={onParamChange} /> : null}
+      {node.type === "action_music" ? (
+        <p data-testid={`node-music-preview-${node.id}`} className="border-t border-slate-700/50 px-2 py-1 text-[10px] text-[#f9e2af]">
+          Música VGM/XGM: prévia no editor indisponível (Experimental). Ouça pela ROM em Jogar.
+        </p>
+      ) : null}
       {essential.length > 0 && (
         <div className="flex flex-col border-t border-slate-700/50 px-2 py-1">
           {essential.map((key) => (
@@ -1843,6 +1862,84 @@ function PassagePanel({
  * entity declares (name -> WAV), a real preview of that WAV and validation of missing or
  * incompatible resources. Changing the picker edits the node's `sfx` param only.
  */
+function soundIssue(sfx: Record<string, string>, name: string): string | null {
+  const asset = sfx[name];
+  if (!asset) return `Som '${name}' não existe nos efeitos da cena.`;
+  if (!/\.wav$/i.test(asset)) return `Som '${name}' usa '${asset}', mas o Mega Drive (XGM) só aceita WAV.`;
+  return null;
+}
+
+/** WAV preview shared by the sounds panel and the node card (PLAT08). Toggle = Ouvir/Parar. */
+function useSoundPreview(sfx: Record<string, string>, projectDir: string | null) {
+  const [previewState, setPreviewState] = useState<Record<string, { label: string; playing: boolean }>>({});
+  const playing = useRef<Record<string, { context: AudioContext; source: AudioBufferSourceNode }>>({});
+  useEffect(() => () => { for (const p of Object.values(playing.current)) void p.context.close(); playing.current = {}; }, []);
+  const preview = useCallback(async (key: string, name: string) => {
+    const active = playing.current[key];
+    if (active) {
+      delete playing.current[key];
+      active.source.onended = null;
+      void active.context.close();
+      setPreviewState((current) => ({ ...current, [key]: { label: "Parado", playing: false } }));
+      return;
+    }
+    const asset = sfx[name];
+    if (!asset || !projectDir) return;
+    setPreviewState((current) => ({ ...current, [key]: { label: "Carregando…", playing: true } }));
+    try {
+      const bytes = await readProjectAssetBytes(projectDir, asset);
+      const AudioContextCtor = window.AudioContext
+        ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextCtor) throw new Error("Áudio indisponível neste ambiente");
+      const context = new AudioContextCtor();
+      const buffer = await context.decodeAudioData(Uint8Array.from(bytes).buffer);
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(context.destination);
+      playing.current[key] = { context, source };
+      source.onended = () => {
+        if (playing.current[key]?.source !== source) return;
+        delete playing.current[key];
+        void context.close();
+        setPreviewState((current) => ({ ...current, [key]: { label: `Tocou ${name} (${buffer.duration.toFixed(2)} s)`, playing: false } }));
+      };
+      source.start();
+      setPreviewState((current) => ({ ...current, [key]: { label: `Tocando ${name} · ${buffer.duration.toFixed(2)} s`, playing: true } }));
+    } catch (error) {
+      delete playing.current[key];
+      setPreviewState((current) => ({ ...current, [key]: { label: `Prévia falhou: ${error instanceof Error ? error.message : String(error)}`, playing: false } }));
+    }
+  }, [projectDir, sfx]);
+  return { previewState, preview };
+}
+
+function NodeSoundRow({ node, sfx, projectDir, editable, onParamChange }: {
+  node: GraphNode; sfx: Record<string, string>; projectDir: string | null; editable: boolean;
+  onParamChange: (nodeId: string, key: string, value: string | number) => void;
+}) {
+  const { previewState, preview } = useSoundPreview(sfx, projectDir);
+  const names = Object.keys(sfx).sort();
+  const current = String(node.params.sfx ?? "");
+  const issue = soundIssue(sfx, current);
+  const state = previewState[node.id];
+  return (
+    <div data-testid={`node-sound-${node.id}`} className="flex flex-wrap items-center gap-1 border-t border-slate-700/50 px-2 py-1 text-[10px]" onMouseDown={(event) => event.stopPropagation()}>
+      <select data-testid={`node-sound-${node.id}-select`} aria-label="Som tocado por este nó" value={current} disabled={!editable}
+        onChange={(event) => onParamChange(node.id, "sfx", event.target.value)}
+        className="min-w-0 flex-1 rounded border border-[#f9e2af]/50 bg-[#11111b] px-1 py-0.5 font-mono text-[10px] text-[#cdd6f4]">
+        {!names.includes(current) && <option value={current}>{current || "(nenhum)"} (ausente)</option>}
+        {names.map((name) => <option key={name} value={name}>{name}</option>)}
+      </select>
+      <button type="button" data-testid={`node-sound-${node.id}-preview`} disabled={Boolean(issue) || !projectDir} aria-pressed={Boolean(state?.playing)}
+        onClick={() => void preview(node.id, current)}
+        className="rounded border border-[#f9e2af]/50 px-2 py-0.5 font-semibold text-[#f9e2af] disabled:opacity-40">
+        {state?.playing ? "Parar" : "Ouvir"}
+      </button>
+      {(issue || state) && <span data-testid={`node-sound-${node.id}-state`} role="status" className={`w-full truncate ${issue ? "text-[#f38ba8]" : "text-[#a6adc8]"}`} title={issue ?? state?.label}>{issue ?? state?.label}</span>}
+    </div>
+  );
+}
+
 function SoundPanel({
   graph,
   sfx,
@@ -1855,36 +1952,10 @@ function SoundPanel({
   onGraphChange: (graph: NodeGraph) => void;
 }) {
   const soundNodes = graph.nodes.filter((node) => node.type === "action_sound");
-  const [previewState, setPreviewState] = useState<Record<string, string>>({});
+  const { previewState, preview } = useSoundPreview(sfx, projectDir);
   if (soundNodes.length === 0) return null;
   const names = Object.keys(sfx).sort();
-  const issueFor = (name: string): string | null => {
-    const asset = sfx[name];
-    if (!asset) return `Som '${name}' não existe nos efeitos da cena.`;
-    if (!/\.wav$/i.test(asset)) return `Som '${name}' usa '${asset}', mas o Mega Drive (XGM) só aceita WAV.`;
-    return null;
-  };
-  async function preview(nodeId: string, name: string) {
-    const asset = sfx[name];
-    if (!asset || !projectDir) return;
-    setPreviewState((current) => ({ ...current, [nodeId]: "Tocando…" }));
-    try {
-      const bytes = await readProjectAssetBytes(projectDir, asset);
-      const AudioContextCtor = window.AudioContext
-        ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AudioContextCtor) throw new Error("Áudio indisponível neste ambiente");
-      const context = new AudioContextCtor();
-      const buffer = await context.decodeAudioData(Uint8Array.from(bytes).buffer);
-      const source = context.createBufferSource();
-      source.buffer = buffer;
-      source.connect(context.destination);
-      source.onended = () => void context.close();
-      source.start();
-      setPreviewState((current) => ({ ...current, [nodeId]: `Prévia: ${buffer.duration.toFixed(2)} s` }));
-    } catch (error) {
-      setPreviewState((current) => ({ ...current, [nodeId]: `Prévia falhou: ${error instanceof Error ? error.message : String(error)}` }));
-    }
-  }
+  const issueFor = (name: string) => soundIssue(sfx, name);
   return (
     <div data-testid="nodegraph-sounds" className="rounded border border-[#f9e2af]/35 bg-[#f9e2af]/5 px-2 py-1.5 text-[10px] text-[#cdd6f4]">
       <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#f9e2af]">Sons</p>
@@ -1918,9 +1989,9 @@ function SoundPanel({
               onClick={() => void preview(node.id, current)}
               className="rounded border border-[#f9e2af]/50 px-2 py-0.5 text-[#f9e2af] disabled:opacity-40"
             >
-              Ouvir
+              {previewState[node.id]?.playing ? "Parar" : "Ouvir"}
             </button>
-            {previewState[node.id] && <span data-testid={`sound-${node.id}-preview-state`} className="w-full text-[#a6adc8]">{previewState[node.id]}</span>}
+            {previewState[node.id] && <span data-testid={`sound-${node.id}-preview-state`} className="w-full text-[#a6adc8]">{previewState[node.id].label}</span>}
             {issue && <span data-testid={`sound-${node.id}-issue`} className="w-full text-[#f38ba8]">{issue}</span>}
           </div>
         );
@@ -2246,7 +2317,16 @@ export default function NodeGraphEditor() {
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [paletteOpen, setPaletteOpen] = useState(() => window.innerWidth >= 1100);
   const [contextOpen, setContextOpen] = useState(() => window.innerWidth >= 1440);
-  const [minimapOpen, setMinimapOpen] = useState(false);
+  // PLAT07: explicit choice is remembered; without one, large graphs show the map.
+  const [minimapPreference, setMinimapPreferenceState] = useState<boolean | null>(readMinimapPreference);
+  const minimapOpen = minimapPreference ?? graph.nodes.length >= MINIMAP_AUTO_NODES;
+  const setMinimapOpen = useCallback((next: boolean | ((open: boolean) => boolean)) => {
+    setMinimapPreferenceState((current) => {
+      const value = typeof next === "function" ? next(current ?? graph.nodes.length >= MINIMAP_AUTO_NODES) : next;
+      try { window.localStorage.setItem(MINIMAP_PREFERENCE_KEY, value ? "open" : "closed"); } catch { /* storage optional */ }
+      return value;
+    });
+  }, [graph.nodes.length]);
   const initialFocusPendingRef = useRef(false);
   const [guidedCommentary, setGuidedCommentary] = useState<GuidedFlowCommentary | null>(null);
   const [gapFilter, setGapFilter] = useState("");
@@ -2872,7 +2952,6 @@ export default function NodeGraphEditor() {
     setGraph({ ...current, nodes: [...current.nodes, node] }, "Adicionar nó");
     setSelectedId(node.id);
     setSelectedIds(new Set([node.id]));
-    setMinimapOpen(false);
     setView(getNodeEditingView({ ...size, x: node.x, y: node.y }, canvasSize));
     logMessage("info", `No adicionado: ${getNodeDisplayName(type)}`);
   }, [canvasSize, logMessage, nodeSizeOf, setGraph, view]);
@@ -3474,7 +3553,6 @@ export default function NodeGraphEditor() {
     if (group) setGraph((current) => ({ ...current, groups: current.groups?.map((item) => item.id === group.id ? { ...item, collapsed: false } : item) }), "Revelar grupo");
     setView(getNodeEditingView({ ...nodeSizeOf(targetNode), x: targetNode.x, y: targetNode.y }, { width, height }));
     setSelectedId(nodeId);
-    setMinimapOpen(false);
   }, [canvasSize.height, canvasSize.width, graph.groups, nodeSizeOf, setGraph]);
 
   const focusEntryNode = useCallback(() => {
@@ -3684,13 +3762,15 @@ export default function NodeGraphEditor() {
             <button type="button" data-testid="nodegraph-fit-view" onClick={() => fitViewTo(graph.nodes.filter((node) => !hiddenNodeIds.has(node.id)))} disabled={graph.nodes.length === 0}
               title="Mostra o grafo inteiro. Escolha um nó para voltar à escala de edição."
               className="rounded px-2 py-1 text-[#cdd6f4] hover:bg-[#313244] disabled:opacity-40">Visão geral</button>
+            <button type="button" aria-expanded={minimapOpen} aria-pressed={minimapOpen} data-testid="nodegraph-toggle-minimap" onClick={() => setMinimapOpen((open) => !open)}
+              title={minimapOpen ? "Recolher o minimapa (preferência lembrada)" : "Mostrar o minimapa do grafo (preferência lembrada)"}
+              className={`rounded px-2 py-1 hover:bg-[#313244] ${minimapOpen ? "bg-[#313244] text-[#89b4fa]" : "text-[#cdd6f4]"}`}>Minimapa</button>
             <button type="button" data-testid="nodegraph-more-actions" popoverTarget="nodegraph-visual-tools" className="rounded border border-[#45475a] px-2 py-1 text-[#cdd6f4]">Mais ações</button>
             <div id="nodegraph-visual-tools" data-testid="nodegraph-visual-tools" popover="auto"
               className="fixed left-4 top-24 m-0 max-h-[calc(100vh-120px)] w-[min(480px,calc(100vw-32px))] overflow-y-auto rounded-lg border border-[#313244] bg-[var(--rds-surface-panel)] p-3 text-xs text-[var(--rds-text-primary)] shadow-xl"
               onClick={(event) => { if ((event.target as Element).closest("button")) event.currentTarget.hidePopover?.(); }}
               onWheel={(event) => event.stopPropagation()}>
             <div className="flex flex-wrap items-center gap-2 [&>button]:min-h-8">
-            <button type="button" aria-expanded={minimapOpen} data-testid="nodegraph-toggle-minimap" onClick={() => setMinimapOpen((open) => !open)} className="rounded px-2 py-1 text-[#cdd6f4]">Mapa</button>
             <button type="button" data-testid="nodegraph-organize-all" onClick={() => organizeGraph("all")} disabled={graph.nodes.length === 0}
               title="Organizar visualmente: so muda posicoes, segue as conexoes e nunca cria ou remove ligacoes. Nos fixados ficam parados."
               className="flex items-center gap-1 rounded border border-[#89b4fa]/40 bg-[#89b4fa]/10 px-2 py-1 font-semibold text-[#89b4fa] hover:bg-[#89b4fa]/20 disabled:opacity-40">
@@ -3725,10 +3805,32 @@ export default function NodeGraphEditor() {
           </div>
         )}
         {!selectedEntity && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#11111b]/80">
-            <p className="max-w-xs text-center text-xs text-[#6c7086]">
-              Selecione uma entidade na hierarquia para carregar ou criar o `LogicComponent.graph`.
-            </p>
+          <div className="absolute inset-0 z-10 flex items-center justify-center overflow-y-auto bg-[#11111b]/90 p-4">
+            <section data-testid="nodegraph-object-list" aria-labelledby="nodegraph-object-list-title" className="w-full max-w-md rounded-lg border border-[#313244] bg-[#181825] p-3 text-xs text-[#cdd6f4]">
+              <h3 id="nodegraph-object-list-title" className="text-sm font-semibold">Comportamentos da cena</h3>
+              <p className="mt-1 text-[11px] text-[#a6adc8]">Escolha um objeto para abrir a lógica dele.</p>
+              <ul className="mt-2 space-y-1">
+                {(activeScene?.entities ?? []).map((entity) => {
+                  const embedded = deserializeNodeGraph(entity.components.logic?.graph).nodes.length;
+                  const resolved = resolvedSceneGraphs[entity.entity_id]?.nodes.length ?? 0;
+                  const ref = entity.components.logic?.graph_ref;
+                  const count = embedded || resolved;
+                  const state = count ? `${count} nós` : ref ? `lógica em arquivo (${ref})` : entity.components.camera ? "câmera por configuração, sem nós" : "sem comportamento";
+                  const kind = count || ref ? "open" : entity.components.camera ? "camera" : "create";
+                  return (
+                    <li key={entity.entity_id}>
+                      <button type="button" data-testid={`nodegraph-object-${entity.entity_id}`} data-state={kind}
+                        onClick={() => setSelectedEntityId(entity.entity_id)}
+                        className="flex w-full items-center justify-between gap-2 rounded border border-[#313244] px-2 py-1.5 text-left hover:border-[#89b4fa]">
+                        <span className="min-w-0 truncate font-semibold">{getEntityDisplayName(entity)}</span>
+                        <span className={`shrink-0 text-[10px] ${kind === "create" ? "text-[#6c7086]" : "text-[#94e2d5]"}`}>{state}{kind === "create" ? " · criar" : ""}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {!activeScene?.entities.length ? <p className="mt-2 text-[#6c7086]">A cena ainda não tem objetos.</p> : null}
+            </section>
           </div>
         )}
 
@@ -4611,6 +4713,7 @@ export default function NodeGraphEditor() {
               executionReachable={reachableExecutionNodeIds.has(node.id)}
               entity={nodeCardEntity(node)}
               projectDir={activeProjectDir}
+              sfx={sceneSfx}
               detailsOpen={openDetails.has(node.id)}
               snapPortKey={snapTarget?.nodeId === node.id ? `in:${snapTarget.portId}` : null}
               compatiblePortIds={
@@ -4636,8 +4739,10 @@ export default function NodeGraphEditor() {
             className={`${minimapOpen ? "block" : "hidden"} absolute bottom-3 right-3 z-10 rounded-xl border border-[#313244] bg-[#181825]/95 p-2 shadow-lg backdrop-blur-sm`}
           >
             <div className="mb-2 flex items-center justify-between gap-3 text-[9px] uppercase tracking-[0.16em] text-[#6c7086]">
-              <span>MiniMapa</span>
-              <span>{graph.nodes.length} nos</span>
+              <span>Minimapa</span>
+              <span>{graph.nodes.length} nós</span>
+              <button type="button" data-testid="nodegraph-minimap-close" aria-label="Recolher minimapa" onClick={() => setMinimapOpen(false)}
+                className="rounded px-1 text-[11px] normal-case tracking-normal text-[#cdd6f4] hover:bg-[#313244]">Recolher</button>
             </div>
             <div
               className="relative overflow-hidden rounded border border-[#313244] bg-[#0b1020]"

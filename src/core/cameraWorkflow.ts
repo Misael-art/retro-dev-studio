@@ -236,3 +236,11 @@ export function cameraReferencePoint(camera:CameraComponent,scene:Scene):{x:numb
   }
   return scene.entities.find(e=>e.entity_id===camera.follow_entity&&e.components.sprite)?.transform??null;
 }
+
+/** Window event asking the mounted CameraConfigurator to open (detail: { entityId }). */
+export const CONFIGURE_CAMERA_EVENT = "rds:configure-camera";
+export function requestCameraConfiguration(entityId?: string): boolean {
+  const event = new CustomEvent(CONFIGURE_CAMERA_EVENT, { detail: { entityId }, cancelable: true });
+  window.dispatchEvent(event);
+  return event.defaultPrevented;
+}

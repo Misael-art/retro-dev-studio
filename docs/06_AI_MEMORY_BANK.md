@@ -1,3 +1,21 @@
+### Checkpoint 2026-11-02 (b) — PLAT01–10 implementação inicial nos owners (Experimental, sem aceite desktop)
+
+Base `bdc6b755`, branch `codex/new-host-cohesion-20261024` (PR112). Implementado com regressão unitária; **nenhum PLAT promovido a validado em desktop/ROM nesta etapa**.
+- PLAT01: causa confirmada — atalho `~/Área de trabalho/retrodev-studio-testar.desktop` fixa `--run …/gif-authoring-usability-20261030/retro-dev-studio-263205d8`. `build.rs` embute SHA/estado do Git; comando `app_build_identity` (SHA da fonte, alterações locais, SHA-256 do executável) exibido na barra de status. Atalho NÃO repontado: app do operador (PID5058) em uso; repontar após candidato qualificado.
+- PLAT02: prévia da câmera legada agora segue o emissor (`alvo + offset`, limitada por `camera_world_limits` espelhado em `legacyCameraLimits`); fim da moldura (−264,−32) e do mundo inflado. Seed do template: componente com offset −160/−112 igual ao nó `camera_follow` (só projetos novos; sem migração na abertura). Três testes que codificavam a fórmula antiga atualizados.
+- PLAT03: causa — WebKitGTK responde ao soltar do botão central com `paste` da seleção primária; sem texto, o handler lia o CLIPBOARD e abria o conversor. Arbitragem pelo gesto causal (mousedown/mouseup/auxclick botão1 vs teclado/menu), sem timer; 30 pans + Ctrl+V cobertos. Backend gráfico real não testado.
+- PLAT04: entrada geral da Lógica lista objetos com N nós / lógica em arquivo / câmera por configuração / sem comportamento·criar.
+- PLAT05 (parcial): Arte sem sprite oferece sprites da cena e, para câmera, Configurar câmera.
+- PLAT06: "Configurar câmera" na faixa de contexto abre o `CameraConfigurator` existente (evento `rds:configure-camera`, um único dono).
+- PLAT07: Minimapa na barra principal, recolhível, preferência lembrada; abre sozinho só sem preferência e com ≥12 nós; navegação não o fecha mais.
+- PLAT08: seletor + Ouvir/Parar + estado no cartão `action_sound` (hook WAV compartilhado com o painel Sons); `action_music` declara prévia VGM/XGM indisponível. Prova na ROM pendente.
+- PLAT09: painel Movimento e salto no Inspector lendo os mesmos nós (`set_velocity`, `sprite_move`) e física, unidades do emissor (1/16 px/quadro); aceleração separada declarada inexistente. Efeito na ROM pendente.
+- PLAT10 (parcial): plano global de paletas passa para depois das propriedades do objeto selecionado.
+- Pendentes: PLAT11, PLAT12, resoluções/zoom/temas, Lote D (matriz criar/importar/jogar/reabrir), E2E desktop, repontar atalho, aceite humano.
+Gates nesta etapa: tsc/lint/check:tree/clippy -D warnings/fmt PASS; cargo test --lib 1166 PASS + 1 BYOR (`RDS_HAMOOPIG_ROM` ausente); npm test sem regressões (8 falhas preexistentes na árvore limpa: `scripts/new-host.test.mjs` ×6 e aparência ×2, ligadas a Node 26 do sistema/volume). Host com carga ~20 e ~2 GB livres.
+
+---
+
 ### Checkpoint 2026-11-02 — levantamento da jornada de plataforma do operador
 
 **Prompt de execução atualizado a pedido do operador:** `docs/handoffs/PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md` agora contém a missão vigente PLAT01–12: mapa de módulos/scripts existentes, lotes sequenciais, criação/importação, organização/contexto, edição de câmera/arte/lógica/áudio, partidas com retorno, persistência/exportação, estética/acessibilidade e gates/aceites. Instruções antigas de retomada permanecem no Git/histórico, sem comandar regressão de fontes. Atualização somente documental: nenhum PLAT promovido a implementado/validado por escrever o prompt. Próximo executor deve iniciar pela identidade efetiva do app e reprodução dos bloqueios; não repetir o levantamento como entrega.

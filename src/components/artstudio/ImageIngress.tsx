@@ -90,8 +90,13 @@ export default function ImageIngress({ onWorkspaceSelect }: { onWorkspaceSelect:
       return { x: Math.round(world.bounds.minX + (x-r.left)*canvas.width/r.width), y: Math.round(world.bounds.minY + (y-r.top)*canvas.height/r.height) };
     };
     const otherDialog = () => Boolean(document.querySelector('[role="dialog"]:not([data-testid="image-ingress-dialog"])'));
+    // Linux/WebKitGTK answers a middle-button release with a primary-selection
+    // paste. That paste is caused by navigation (pan), never by an import
+    // request, so the gesture that caused it decides, not a timer.
+    let lastGesture: "middle" | "other" = "other";
+    const gesture = (e: MouseEvent | KeyboardEvent) => { lastGesture = "button" in e && e.button === 1 ? "middle" : "other"; };
     const paste = (e: ClipboardEvent) => {
-      if (editableImageTarget(e.target) || otherDialog() || !e.clipboardData) return;
+      if (lastGesture === "middle" || editableImageTarget(e.target) || otherDialog() || !e.clipboardData) return;
       const sources = imageTransferSources(e.clipboardData);
       if (sources.length) {e.preventDefault();e.stopImmediatePropagation();sources.forEach(source => void begin({ source }));return;}
       const text=e.clipboardData.getData("text/plain");
@@ -123,6 +128,7 @@ export default function ImageIngress({ onWorkspaceSelect }: { onWorkspaceSelect:
     };
     document.addEventListener("paste",paste,true);document.addEventListener("drop",drop,true);document.addEventListener("dragover",over,true);
     document.addEventListener("keydown",modalKeys,true);
+    for (const type of ["mousedown","mouseup","auxclick","contextmenu","keydown"] as const) document.addEventListener(type,gesture,true);
     window.addEventListener("rds:choose-image",choose);
     window.addEventListener("rds:use-pixel-asset",usePixelAsset);
     let dispose: (()=>void) | undefined;let cancelled=false;
@@ -130,7 +136,7 @@ export default function ImageIngress({ onWorkspaceSelect }: { onWorkspaceSelect:
       if (e.payload.type !== "drop" || otherDialog()) return;
       const pos=e.payload.position;for (const path of e.payload.paths) if (/\.(png|gif|jpe?g|webp|bmp|ppm)$/i.test(path)) void begin({ source: { path, name: path.split(/[\\/]/).pop() },position:positionAt(pos.x/devicePixelRatio,pos.y/devicePixelRatio) });
     })).then(fn => { if (cancelled) fn();else dispose=fn; }).catch(e => { if (!cancelled) useEditorStore.getState().logMessage("warn",`[Imagem] Arraste nativo indisponível: ${message(e)}. Colar e Adicionar imagem continuam disponíveis.`); });
-    return () => { cancelled=true;dispose?.();document.removeEventListener("paste",paste,true);document.removeEventListener("drop",drop,true);document.removeEventListener("dragover",over,true);document.removeEventListener("keydown",modalKeys,true);window.removeEventListener("rds:choose-image",choose);window.removeEventListener("rds:use-pixel-asset",usePixelAsset); };
+    return () => { cancelled=true;dispose?.();document.removeEventListener("paste",paste,true);document.removeEventListener("drop",drop,true);document.removeEventListener("dragover",over,true);document.removeEventListener("keydown",modalKeys,true);for (const type of ["mousedown","mouseup","auxclick","contextmenu","keydown"] as const) document.removeEventListener(type,gesture,true);window.removeEventListener("rds:choose-image",choose);window.removeEventListener("rds:use-pixel-asset",usePixelAsset); };
   }, [begin]);
 
   const finish = async (item: ImageCandidate, bank?: number) => {

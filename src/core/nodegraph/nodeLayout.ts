@@ -33,7 +33,9 @@ export const LAYOUT_COMPONENT_GAP = 64;
  */
 export function estimateNodeCardSize(node: GraphNode, essentialParamCount = 2, hasEntity = true): NodeSize {
   const portRows = Math.max(node.inputs.length, node.outputs.length, 1);
-  const height = 30 + 36 + (hasEntity ? 24 : 0) + portRows * 20 + 8 + essentialParamCount * 20 + 22;
+  // Point-of-use rows rendered by NodeCard: sound selector/preview, music limitation.
+  const pointOfUse = node.type === "action_sound" ? 44 : node.type === "action_music" ? 28 : 0;
+  const height = 30 + 36 + (hasEntity ? 24 : 0) + portRows * 20 + 8 + essentialParamCount * 20 + 22 + pointOfUse;
   return { width: NODE_CARD_LAYOUT_WIDTH, height };
 }
 

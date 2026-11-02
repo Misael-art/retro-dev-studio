@@ -5983,8 +5983,10 @@ fn platformer_camera_prefab() -> Entity {
                 patterns: Vec::new(),
                 visual: None,
                 follow_entity: Some("player".to_string()),
-                offset_x: 0,
-                offset_y: 0,
+                // Same offset the template graph's `camera_follow` node emits
+                // (-160/-112), so the editor frame and the ROM frame agree.
+                offset_x: -160,
+                offset_y: -112,
             }),
             ..Components::default()
         },

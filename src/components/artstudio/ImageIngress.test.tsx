@@ -109,3 +109,18 @@ it("keeps scene shortcuts out of the modal and preserves a draft if the scene sa
   expect(useEditorStore.getState().activeScene?.entities).toHaveLength(1);
   expect(document.querySelector('[data-testid="image-ingress-notice"]')?.textContent).toContain("salvamento pendente");
 });
+
+it("ignores the primary-selection paste caused by a middle-button pan but keeps Ctrl+V",async()=>{
+  Object.defineProperty(window,"__TAURI_INTERNALS__",{value:{},configurable:true});mocks.capture.mockResolvedValue(prepared);
+  const emptyPaste=()=>{const event=new Event("paste",{bubbles:true,cancelable:true});Object.defineProperty(event,"clipboardData",{value:{files:[],items:[],types:[],getData:()=>""}});document.body.dispatchEvent(event);};
+  for(let i=0;i<30;i++) await act(async()=>{
+    document.body.dispatchEvent(new MouseEvent("mousedown",{button:1,bubbles:true}));
+    document.body.dispatchEvent(new MouseEvent("mouseup",{button:1,bubbles:true}));
+    document.body.dispatchEvent(new MouseEvent("auxclick",{button:1,bubbles:true}));
+    emptyPaste();await paste();
+  });
+  expect(mocks.capture).not.toHaveBeenCalled();expect(mocks.prepare).not.toHaveBeenCalled();
+  expect(document.querySelector('[data-testid="image-ingress-dialog"]')).toBeNull();
+  await act(async()=>{document.body.dispatchEvent(new KeyboardEvent("keydown",{key:"v",ctrlKey:true,bubbles:true}));emptyPaste();});
+  expect(mocks.capture).toHaveBeenCalledWith("/one");
+});
