@@ -2897,6 +2897,21 @@ fn op_uses_overlap(op: &LogicOp) -> bool {
             if_ok.iter().any(op_uses_overlap) || if_warn.iter().any(op_uses_overlap)
         }
         LogicOp::HardwareEvent { ops, .. } => ops.iter().any(op_uses_overlap),
+        // Rastreabilidade e laços também contêm condições: sem descer neles o C
+        // chama `retro_aabb_intersects` sem o helper (falha de link).
+        LogicOp::SourceMapped { op, .. } => op_uses_overlap(op),
+        LogicOp::WhileLoop {
+            condition,
+            body,
+            done,
+        } => {
+            bool_expr_uses_overlap(condition)
+                || body.iter().any(op_uses_overlap)
+                || done.iter().any(op_uses_overlap)
+        }
+        LogicOp::ForLoop { body, done, .. } => {
+            body.iter().any(op_uses_overlap) || done.iter().any(op_uses_overlap)
+        }
         _ => false,
     }
 }
@@ -3365,6 +3380,40 @@ fn palette_const(slot: u8) -> String {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn overlap_inside_source_mapped_or_loops_requires_the_aabb_helper() {
+        let target = |id: &str| LogicCollisionTarget {
+            entity_id: id.to_string(),
+            position: LogicPositionSource::SpriteVar {
+                var_name: format!("spr_{id}"),
+            },
+            offset_x: 0,
+            offset_y: 0,
+            width: 16,
+            height: 16,
+        };
+        let overlap = LogicOp::ConditionOverlap {
+            left: target("player"),
+            right: target("goal"),
+            if_true: Vec::new(),
+            if_false: Vec::new(),
+        };
+        let mapped = LogicOp::SourceMapped {
+            graph_sha256: "g".to_string(),
+            node_id: "n".to_string(),
+            semantic_stage: "s".to_string(),
+            op: Box::new(overlap.clone()),
+        };
+        assert!(op_uses_overlap(&mapped));
+        let looped = LogicOp::ForLoop {
+            loop_var: "i".to_string(),
+            count: LogicMathExpr::Literal(1),
+            body: vec![mapped],
+            done: Vec::new(),
+        };
+        assert!(op_uses_overlap(&looped));
+    }
     use super::*;
     use crate::compiler::ast_generator::{
         LogicBoolExpr, LogicCollisionTarget, LogicMathExpr, LogicOp, LogicPositionSource,
