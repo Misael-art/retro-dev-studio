@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import NodeGraphEditor, {
+  buildCameraRigQuickActionGraph,
   EMPTY_GRAPH,
   NODE_VISUAL_CATEGORIES,
   REQUIRED_NOCODE_NODE_TYPES,
@@ -1794,5 +1795,23 @@ describe("NodeGraphEditor", () => {
     expect(container.querySelector("[data-testid='nodegraph-overview']")?.textContent).toContain(
       "Atalhos construtivos"
     );
+  });
+});
+
+
+describe("visual camera guided events",()=>{
+  it("uses the selected visual camera and supported controls instead of conflicting legacy scroll nodes",()=>{
+    const graph=buildCameraRigQuickActionGraph({selectedEntityId:"battle",selectedEntityLabel:"Combate",otherEntityId:null,visualCameraId:"battle"});
+    const controls=graph.nodes.filter(n=>n.type==="camera_control");
+    expect(controls.map(n=>n.params.action)).toEqual(["pause","resume","shake","regions"]);
+    expect(controls.every(n=>n.params.target==="battle")).toBe(true);
+    const snes=buildCameraRigQuickActionGraph({selectedEntityId:"battle",selectedEntityLabel:"Combate",otherEntityId:null,visualCameraId:"battle",target:"snes"});
+    expect(snes.nodes.filter(n=>n.type==="input_pressed").map(n=>n.params.button)).toEqual(["BUTTON_A","BUTTON_B","BUTTON_X","BUTTON_START"]);
+    expect(graph.nodes.some(n=>["camera_follow","move_camera","effect_parallax"].includes(n.type))).toBe(false);
+    for(const control of controls){
+      const input=graph.nodes.find(n=>n.id===graph.edges.find(e=>e.toNode===control.id)?.fromNode);
+      expect(input?.type).toBe("input_pressed");
+      expect(graph.nodes.find(n=>n.id===graph.edges.find(e=>e.toNode===input?.id)?.fromNode)?.type).toBe("event_update");
+    }
   });
 });

@@ -15056,15 +15056,17 @@ async function runRomInputScenario(sessionId, appPath, timeoutMs) {
 // are applied through the visible dialog and reopened before each real target build.
 async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated) {
   const target=process.env.RDS_CAMERA_TARGET==="snes"?"snes":"megadrive",width=target==="snes"?256:320;
-  const prefix=`camera-advanced-${target}-${artifactTimestamp()}`;
+  const layered=process.env.RDS_CAMERA_LAYERS==="2",negative=process.env.RDS_CAMERA_NEGATIVE==="1";
+  const prefix=`camera-advanced-${target}${layered?"-two-layers":""}${negative?"-negative":""}-${artifactTimestamp()}`;
   const output=path.join(process.env.RDS_CAMERA_OUTPUT??validationDir,prefix);await mkdir(output,{recursive:true});
-  const report={schema:"retrodev.camera_advanced/v1",maturity:"Experimental",target,app_sha256:createHash("sha256").update(await readFile(currentE2eRunContext.appPath)).digest("hex"),steps:[],artifacts:[],samples:[]};
+  const report={schema:"retrodev.camera_advanced/v1",maturity:"Experimental",target,layers:layered?2:1,negative_coordinates:negative,app_sha256:createHash("sha256").update(await readFile(currentE2eRunContext.appPath)).digest("hex"),steps:[],artifacts:[],samples:[]};
   const js=(s,a=[])=>executeScript(sessionId,s,a),state=()=>readAutomationState(sessionId);
   const click=id=>clickButtonByTestIdNative(sessionId,id,id);
+  const selectPattern=async id=>{if(!await js(`return document.querySelector('[data-camera-patterns]')?.open;`))await clickElement(sessionId,await findElement(sessionId,'[data-testid="camera-pattern-picker"]'));await click(`camera-pattern-${id}`);};
   const text=s=>clickButtonByText(sessionId,s,"exact");
   const invoke=(command,args={})=>executeAsyncScript(sessionId,`const done=arguments[arguments.length-1];(window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke)(arguments[0],arguments[1]).then(done).catch(e=>done({error:String(e)}));`,[command,args]);
   const step=(id,detail={})=>{report.steps.push({id,status:"passed",...detail});console.log(`[camera-advanced] ${target} ${id}`);};
-  const number=async(label,value)=>{await js(`const e=document.querySelector('input[aria-label="'+arguments[0]+'"]');e?.scrollIntoView({block:'center'});e?.focus();e?.select();`,[label]);const el=await findElement(sessionId,`input[aria-label="${label}"]`);await webdriverRequest("POST",`/session/${sessionId}/element/${el}/value`,{text:String(value),value:[...String(value)]});};
+  const number=async(label,value)=>{await js(`const e=document.querySelector('input[aria-label="'+arguments[0]+'"]');for(let p=e?.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;e?.scrollIntoView({block:'center'});e?.focus();e?.select();`,[label]);const el=await findElement(sessionId,`input[aria-label="${label}"]`);await webdriverRequest("POST",`/session/${sessionId}/element/${el}/value`,{text:String(value),value:[...String(value)]});};
   const checkbox=async(label,checked)=>{
     const index=await js(`const all=[...document.querySelectorAll('[data-testid="camera-configurator"] input[type="checkbox"]')];return all.findIndex(e=>e.closest('label')?.textContent.trim()===arguments[0]);`,[label]);
     if(index<0)fail(`Checkbox ausente: ${label}`);
@@ -15073,7 +15075,7 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
     const current=await js(`return document.querySelectorAll(arguments[0])[arguments[1]].checked;`,[selector,index]);
     if(current!==checked){const found=await webdriverRequest("POST",`/session/${sessionId}/elements`,{using:"css selector",value:selector});const el=found.value[index];await clickElement(sessionId,el["element-6066-11e4-a52e-4f735466cecf"]??el.ELEMENT);}
   };
-  const openDetails=()=>js(`for(const d of document.querySelectorAll('[data-testid="camera-configurator"] details'))d.open=true;`);
+  const openDetails=()=>js(`for(const d of document.querySelectorAll('[data-testid="camera-configurator"] details:not([data-camera-patterns])'))d.open=true;`);
   const stop=async()=>{if((await state())?.emulatorLoaded){await click("toolbar-emulator-stop");await waitFor(async()=>!(await state())?.emulatorLoaded,10000,"Core nao encerrou.",100);}};
   let project,sceneFile;
   try {
@@ -15087,14 +15089,14 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
     const materialized=[];
     for(const e of source.entities){let components={};if(e.prefab)components=JSON.parse(await readFile(path.join(project,"prefabs",e.prefab),"utf8")).components??{};components={...components,...Object.fromEntries(Object.entries(e.components??{}).filter(([,v])=>v!==null))};materialized.push({...e,prefab:null,components});}
     const player=materialized.find(e=>e.entity_id==="player"&&e.components.sprite);if(!player)fail("Template sem personagem autoral.");
-    const tileset="assets/tilesets/camera_advanced.ppm",pixels=Buffer.alloc(32*8*3),colors=[[0,68,68],[0,102,170],[68,170,34],[170,204,238]];
+    const tileset="assets/tilesets/camera_advanced.ppm",pixels=Buffer.alloc(32*8*3),colors=[[0,68,68],[0,102,170],[68,34,170],[170,204,238]];
     for(let y=0;y<8;y++)for(let x=0;x<32;x++)pixels.set(colors[(Math.floor(x/8)+(x%8===0||y===0?1:0))%4],(y*32+x)*3);
     await mkdir(path.dirname(path.join(project,tileset)),{recursive:true});await writeFile(path.join(project,tileset),Buffer.concat([Buffer.from("P6\n32 8\n255\n"),pixels]));
     player.transform={x:200,y:200};player.display_name="Herói";player.components={sprite:player.components.sprite};
     // Static idle isolates screen anchoring from the character's changing silhouette.
     player.components.sprite.animations={...player.components.sprite.animations,idle:{frames:[0],fps:1,loop:true}};
     const other={...structuredClone(player),entity_id:"other",display_name:"Parceiro",transform:{x:400,y:200}};
-    const bounds={x:0,y:0,width:512,height:512};
+    const bounds={x:negative?-128:0,y:negative?-64:0,width:512,height:512};
     const fixed={version:1,active:false,pattern:"fixed",anchor_x:0,anchor_y:0,screen_x:128,screen_y:112,horizontal:true,vertical:true,response_x:1,response_y:1,dead_zone_x:0,dead_zone_y:0,look_ahead:0,max_speed:256,speed:60,paused:false,bounds};
     const controlGraph={nodes:[],edges:[]};
     for(const [button,action,camera,x,y,frames] of [["UP","pause","main_camera",0,0,0],["DOWN","resume","main_camera",0,0,0],["LEFT","shake","main_camera",4,2,4],["RIGHT","offset","main_camera",5,-3,3],["A","select","main_camera",0,0,0],["B","regions","main_camera",0,0,0],["START","restart","main_camera",0,0,0]]){
@@ -15114,12 +15116,16 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
       controlGraph.edges.push({fromNode:`tick_position_${id}`,fromPort:"exec",toNode:`position_${id}`,toPort:"exec"},...['x','y'].map(axis=>({fromNode:`get_${stem}${axis}`,fromPort:"value",toNode:`position_${id}`,toPort:axis})));
     }
     player.components.logic={graph:JSON.stringify(controlGraph)};
+    const overlayAsset="assets/tilesets/camera_overlay.ppm",overlayColors=[[221,102,34],[255,204,102]];
+    if(layered){const data=Buffer.alloc(8*8*3);for(let y=0;y<8;y++)for(let x=0;x<8;x++)data.set(overlayColors[x===0||y===0?1:0],(y*8+x)*3);await writeFile(path.join(project,overlayAsset),Buffer.concat([Buffer.from("P6\n8 8\n255\n"),data]));}
     const scene={...source,collision_map:null,retrofx:null,entities:[
-      {entity_id:"world",display_name:"Cenário",prefab:null,transform:{x:0,y:0},components:{tilemap:{tileset,map_width:64,map_height:64,scroll_x:0,scroll_y:0,cells:Array.from({length:4096},(_,i)=>1+((i%64)*7+Math.floor(i/64)*3)%4)}}},
+      ...(layered&&target==="snes"?[{entity_id:"overlay",display_name:"Primeiro plano",prefab:null,transform:{x:0,y:0},components:{tilemap:{tileset:overlayAsset,map_width:64,map_height:64,scroll_x:0,scroll_y:0,cells:Array.from({length:4096},(_,i)=>Math.floor(i/64)>=15&&Math.floor(i/64)<19&&(i%64)%3===0?1:0xffffffff)}}}]:[]),
+      {entity_id:"world",display_name:"Cenário",prefab:null,transform:{x:bounds.x,y:bounds.y},components:{tilemap:{tileset,map_width:64,map_height:64,scroll_x:0,scroll_y:0,cells:Array.from({length:4096},(_,i)=>1+((i%64)*7+Math.floor(i/64)*3)%4)}}},
       player,other,{entity_id:"main_camera",display_name:"Câmera principal",prefab:null,transform:{x:0,y:0},components:{camera:{follow_entity:"player",offset_x:0,offset_y:0}}},
       {entity_id:"region_camera",display_name:"Câmera de região",prefab:null,transform:{x:128,y:32},components:{camera:{follow_entity:"player",offset_x:0,offset_y:0,visual:fixed}}},
       ...(target==="megadrive"?[{entity_id:"hud",prefab:null,transform:{x:0,y:0},components:{hud:{column:2,row:2,label:"CAMERA"}}}]:[])
     ]};
+    if(layered&&target==="megadrive")scene.entities.splice(1,0,{entity_id:"overlay",display_name:"Primeiro plano",prefab:null,transform:{x:0,y:0},components:{tilemap:{tileset:overlayAsset,map_width:64,map_height:64,scroll_x:0,scroll_y:0,cells:Array.from({length:4096},(_,i)=>Math.floor(i/64)>=15&&Math.floor(i/64)<19&&(i%64)%3===0?1:0xffffffff)}}});
     await writeFile(sceneFile,JSON.stringify(scene,null,2));await js("return window.__RDS_E2E__.openProject(arguments[0]);",[project]);
     await waitFor(async()=>((await state())?.activeScene?.entities??[]).some(e=>e.id==="other"),30000,"Fixture nao abriu.",100);
     await cp(project,path.join(output,"authored-project"),{recursive:true,filter:p=>!path.relative(project,p).split(path.sep).includes("build")});
@@ -15149,12 +15155,14 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
       const loaded=await js("return window.__RDS_E2E__.loadRomForEmulation(arguments[0],{startPaused:true});",[rom]);if(!loaded)fail("Probe nao carregou.");
       const result=await invoke("emulator_run_frames",{frames:180});if(!result.ok)fail(JSON.stringify(result));
       report.probe={rom_sha256:createHash('sha256').update(await readFile(rom)).digest('hex'),memory:{}};
+      const frame=await invokeCoreObserve(sessionId);await writeFile(path.join(output,"probe-frame.rgba"),Buffer.from(frame.framebuffer_rgba));
+      await writeFile(path.join(output,"probe-frame.json"),JSON.stringify({width:frame.framebuffer_width,height:frame.framebuffer_height}));
       for(const line of (await readFile(sym,"utf8")).split(/\r?\n/)){const m=line.match(/^([\da-f]+)\s+\S*\.asm_((?:rds_cam|probe_)[^\s]*)$/i);if(!m)continue;const address=parseInt(m[1],16);if(address<0x7e0000||address>=0x800000)continue;
         const memory=await invoke("emulator_read_memory",{region:2,offset:address-0x7e0000,length:8});report.probe.memory[m[2]]={address,bytes:memory.data??memory};
       }
       report.status="diagnostic";console.log('[camera-advanced] SDK_DIAGNOSTIC '+JSON.stringify(report.probe));return;
     }
-    const available=target==="snes"?["fixed","platformer","exploration","auto_horizontal","auto_vertical","rooms","rooms_smooth","beat_em_up","beat_em_up_backtracking","arena","sequence","parallax","regions","regions_smooth"]:["rooms","rooms_smooth","beat_em_up","beat_em_up_backtracking","arena","sequence","parallax","regions","regions_smooth"];
+    const available=target==="snes"?["fixed","platformer","direct_limited","exploration","auto_horizontal","auto_vertical","rooms","rooms_smooth","beat_em_up","beat_em_up_backtracking","arena","sequence","parallax","regions","regions_smooth"]:["direct_limited","rooms","rooms_smooth","beat_em_up","beat_em_up_backtracking","arena","sequence","parallax","regions","regions_smooth"];
     const patterns=available.filter(p=>!process.env.RDS_CAMERA_CASES||process.env.RDS_CAMERA_CASES.split(',').includes(p));if(!patterns.length)fail("Nenhum caso de camera selecionado.");
     for(const pattern of patterns){
       await stop();await click("workspace-rail-scene");
@@ -15162,19 +15170,20 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
       const disk=JSON.parse(await readFile(sceneFile,"utf8")),region=disk.entities.find(e=>e.entity_id==="region_camera").components.camera.visual;
       region.max_speed=16;region.advanced={rooms:[],targets:[],path:[],return_to_target:false,allow_backtracking:false,activation:pattern.startsWith("regions")?{x:300,y:0,width:200,height:512}:null,priority:10,smooth_transition:pattern==="regions_smooth",parallax:[]};
       await writeFile(sceneFile,JSON.stringify(disk,null,2));await js("return window.__RDS_E2E__.openProject(arguments[0]);",[project]);await closeVisibleConsoleDrawer(sessionId,"advanced-config");
-      const mode=pattern.startsWith("rooms")?"rooms":pattern.startsWith("beat_em_up")?"beat_em_up":pattern==="parallax"||pattern.startsWith("regions")?"platformer":pattern;
-      await click("configure-camera");await click(`camera-pattern-${mode}`);await openDetails();
-      for(const [label,value] of [["Área X",0],["Área Y",0],["Largura da área",512],["Altura da área",512]])await number(label,value);
+      const mode=pattern.startsWith("rooms")?"rooms":pattern.startsWith("beat_em_up")?"beat_em_up":pattern==="parallax"||pattern==="direct_limited"||pattern.startsWith("regions")?"platformer":pattern;
+      await click("configure-camera");await selectPattern(mode);await openDetails();await text("Restaurar valores do padrão");
+      for(const [label,value] of [["Área X",bounds.x],["Área Y",bounds.y],["Largura da área",512],["Altura da área",512]])await number(label,value);
       if(!["fixed","auto_horizontal","auto_vertical","sequence"].includes(pattern)){
-        for(const [label,value] of [["Ponto na tela X",128],["Ponto na tela Y",112],["Resposta horizontal (1 = imediata)",1],["Resposta vertical (1 = imediata)",1],["Região livre X (meia largura)",0],["Região livre Y (meia altura)",0],["Antecipação horizontal",0],["Velocidade máxima (pixels/quadro)",256]])await number(label,value);
+        for(const [label,value] of [["Ponto na tela X",128],["Ponto na tela Y",112],["Resposta horizontal (1 = direta)",1],["Resposta vertical (1 = direta)",1],["Região livre X (meia largura)",0],["Região livre Y (meia altura)",0],["Antecipação horizontal",0],["Teto de velocidade (pixels/quadro)",256]])await number(label,value);
       }
+      if(pattern==="direct_limited")await number("Teto de velocidade (pixels/quadro)",16);
       if(pattern==="fixed"){await number("Posição X",64);await number("Posição Y",32);}
       if(pattern.startsWith("auto_"))await number("Velocidade (pixels por segundo; negativo inverte)",120);
       if(pattern.startsWith("rooms")){
         for(let i=1;i<=2;i++){await text("Adicionar sala e desenhar");for(const [key,value] of [["X",i===1?0:192],["Y",0],["largura",i===1?192:320],["altura",512]])await number(`Sala ${i}: ${key}`,value);}
         if(pattern==="rooms_smooth"){
           await clickElement(sessionId,await findElement(sessionId,'[aria-label="Salas da câmera"] fieldset:nth-of-type(2) input[type="checkbox"]'));
-          await number("Resposta horizontal (1 = imediata)",8);await number("Velocidade máxima (pixels/quadro)",16);
+          await number("Resposta horizontal (1 = direta)",8);await number("Teto de velocidade (pixels/quadro)",16);
         }
       }
       if(pattern==="beat_em_up_backtracking")await checkbox("Permitir recuar com a câmera",true);
@@ -15182,7 +15191,7 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
       if(pattern==="sequence"){
         for(const [i,x,y,frames,wait] of [[1,120,60,4,2],[2,180,80,0,1]]){await text("Adicionar ponto no cenário");for(const [key,value] of [["X",x],["Y",y],["duração em quadros",frames],["espera em quadros",wait]])await number(`Ponto ${i}: ${key}`,value);}
         await checkbox("Voltar a acompanhar o personagem ao terminar",true);await number("Posição X",0);await number("Posição Y",0);
-        for(const [label,value] of [["Ponto na tela X",128],["Ponto na tela Y",112],["Resposta horizontal (1 = imediata)",1],["Resposta vertical (1 = imediata)",1],["Região livre X (meia largura)",0],["Região livre Y (meia altura)",0],["Antecipação horizontal",0],["Velocidade máxima (pixels/quadro)",256]])await number(label,value);
+        for(const [label,value] of [["Ponto na tela X",128],["Ponto na tela Y",112],["Resposta horizontal (1 = direta)",1],["Resposta vertical (1 = direta)",1],["Região livre X (meia largura)",0],["Região livre Y (meia altura)",0],["Antecipação horizontal",0],["Teto de velocidade (pixels/quadro)",256]])await number(label,value);
       }
       if(pattern==="parallax"){await checkbox("Paralaxe: Cenário",true);await number("Cenário: horizontal (%)",50);await number("Cenário: vertical (%)",100);}
       if(pattern==="rooms"){
@@ -15217,11 +15226,18 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
       const positions=async()=>({x:await word("rds_camera_x"),y:await word("rds_camera_y"),base_x:await word("rds_camera_base_x"),base_y:await word("rds_camera_base_y"),active:await word("rds_camera_active",false),paused:await word("rds_camera_paused",false),separated:await word("rds_camera_separated",false),player_x:await word("spr_player_x"),player_y:await word("spr_player_y"),other_x:await word("spr_other_x")});
       const sample=async(label,expected)=>{const actual=await positions();for(const [key,value] of Object.entries(expected))if(actual[key]!==value)fail(`${target}/${pattern}/${label}: ${JSON.stringify({actual,expected})}`);report.samples.push({pattern,label,...actual,expected});return actual;};
       await advance();await advance();
-      if(pattern.startsWith("rooms")){
+      if(pattern==="direct_limited"){
+        await write("spr_player_x",300);await write("spr_player_y",250);await advance();await sample("direct-ceiling-first-frame",{x:88,y:104});
+        await advance();await sample("direct-ceiling-next-frame",{x:104,y:120});
+        for(let i=0;i<8;i++)await advance();await sample("direct-reaches-target",{x:172,y:138});
+        await write("spr_player_x",100);await advance();await sample("direct-reversal-ceiling",{x:156});
+      }else if(pattern.startsWith("rooms")){
         await write("spr_player_x",100);await advance();await sample("small-left",{x:0});
         await write("spr_player_x",192);await advance();await sample("right-border",{x:pattern==="rooms_smooth"?16:192});
         if(pattern==="rooms_smooth"){await advance();await sample("smooth-next",{x:32});}
-        await write("spr_player_x",700);await advance();await sample("outside-holds",{x:pattern==="rooms_smooth"?48:192});
+        // The last room remains selected; its internal travel depends on the
+        // target viewport (320px MD, 256px SNES), not on a fixed MD coordinate.
+        await write("spr_player_x",700);await advance();await sample("outside-holds",{x:pattern==="rooms_smooth"?48:512-width});
         await write("spr_player_x",100);await advance();await sample("return-left",{x:0});
       }else if(pattern.startsWith("beat_em_up")){
         await write("spr_player_x",300);await advance();await sample("advance",{x:172});
@@ -15246,23 +15262,69 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
         await advance("b");await sample("return-regions",{active:1,x:pattern==="regions_smooth"?Math.min(222,512-width)-16:128});
         await write("spr_player_x",200);await advance();await sample("outside-holds-current",{active:1});
       }else if(pattern==="parallax"){
-        await write("spr_player_x",200);await advance();await advance();const a=await invokeCoreObserve(sessionId);
-        await write("spr_player_x",216);await advance();await advance();await sample("half-scroll-camera",{x:88});const b=await invokeCoreObserve(sessionId);
+        const probeX=negative?40:200,baseX=probeX+16-128;
+        await write("spr_player_x",probeX);await advance();await advance();const cameraA=await positions(),a=await invokeCoreObserve(sessionId);
+        await write("spr_player_x",probeX+16);await advance();await advance();await sample("half-scroll-camera",{x:baseX});const cameraB=await positions(),b=await invokeCoreObserve(sessionId);
+        await writeFile(path.join(output,"parallax-before.rgba"),Buffer.from(a.framebuffer_rgba));await writeFile(path.join(output,"parallax-after.rgba"),Buffer.from(b.framebuffer_rgba));
+        await writeFile(path.join(output,"parallax-frames.json"),JSON.stringify({width:a.framebuffer_width,height:a.framebuffer_height,cameraA,cameraB}));
         const color=(f,x,y)=>f.framebuffer_rgba.slice((y*f.framebuffer_width+x)*4,(y*f.framebuffer_width+x)*4+4).join(',');let equal=0,total=0,changed=0;
-        for(let y=160;y<190;y++)for(let x=40;x<220;x++){total++;equal+=Number(color(b,x,y)===color(a,x+8,y));changed+=Number(color(b,x,y)!==color(a,x,y));}
-        if(equal!==total||changed<100)fail(`Paralaxe sem deslocamento de8px: ${JSON.stringify({equal,total,changed})}`);
-        // The shipped MD character has orange/red pixels absent from this fixture's
-        // background. Its screen anchor stays put while both world and camera move16px.
-        if(target==="megadrive"){
-          const red=(f,x,y)=>{const i=(y*f.framebuffer_width+x)*4;return f.framebuffer_rgba[i]>80&&f.framebuffer_rgba[i]>f.framebuffer_rgba[i+1]*1.3;};let first=0,last=0,same=0;
-          for(let y=112;y<144;y++)for(let x=128;x<160;x++){const p=red(a,x,y),q=red(b,x,y);first+=Number(p);last+=Number(q);same+=Number(p&&q);}
+        for(let y=0;y<a.framebuffer_height;y++)for(let x=0;x<a.framebuffer_width-8;x++){
+          // Cover all hardware map pages; omit both footprints of the anchored
+          // player when looking eight pixels ahead in the earlier framebuffer.
+          if(y>=112&&y<144&&x>=120&&x<160)continue;
+          if(layered&&y>=32&&y<64)continue;
+          if(target==="megadrive"&&y<32&&x<112)continue; // Fixed WINDOW HUD has its own oracle.
+          total++;equal+=Number(color(b,x,y)===color(a,x+8,y));changed+=Number(color(b,x,y)!==color(a,x,y));
+        }
+        if(equal!==total||changed<total*0.8)fail(`Paralaxe sem deslocamento de8px na tela completa: ${JSON.stringify({equal,total,changed})}`);
+        // Independent world samples catch wrong 32x32 hardware page ordering,
+        // which can still look like correctly shifting repeated artwork.
+        const paletteChecks=[];
+        for(const [frame,camera] of [[a,cameraA],[b,cameraB]])for(const y of [0,1,8,15,32,35,72,75,168,171,200,203,216,223])for(const x of [0,23,79,183,231]){
+          if(target==="megadrive"&&y<32&&x<112)continue;
+          if(layered&&y>=32&&y<64)continue;
+          const wx=Math.trunc(camera.x/2)+x-bounds.x,wy=camera.y+y-bounds.y,cell=(Math.floor(wx/8)*7+Math.floor(wy/8)*3)%4;
+          const expected=colors[(cell+(wx%8===0||wy%8===0?1:0))%4],i=(y*frame.framebuffer_width+x)*4,actual=frame.framebuffer_rgba.slice(i,i+3);
+          if(actual.some((channel,index)=>Math.abs(channel-expected[index])>(target==="snes"?10:36)))fail(`Cor mundial divergente: ${JSON.stringify({target,wx,wy,expected,actual})}`);
+          paletteChecks.push({wx,wy,expected,actual});
+        }
+        step("parallax_framebuffer_world_coordinates",{samples:paletteChecks});
+        if(layered){let foreground=0,background=0;const checks=[];
+          for(const [frame,camera] of [[a,cameraA],[b,cameraB]])for(const y of [40,47,56])for(let x=20;x<236;x+=4){
+            const frontX=camera.x+x,worldY=camera.y+y,front=Math.floor(frontX/8)%3===0;
+            const wx=Math.trunc(camera.x/2)+x,cell=(Math.floor(wx/8)*7+Math.floor(worldY/8)*3)%4;
+            const expected=front?overlayColors[frontX%8===0||worldY%8===0?1:0]:colors[(cell+(wx%8===0||worldY%8===0?1:0))%4];
+            const actual=frame.framebuffer_rgba.slice((y*frame.framebuffer_width+x)*4,(y*frame.framebuffer_width+x)*4+3);
+            if(actual.some((channel,index)=>Math.abs(channel-expected[index])>(target==="snes"?10:36)))fail(`Duas camadas divergentes: ${JSON.stringify({target,frontX,worldY,front,expected,actual})}`);
+            if(front)foreground++;else background++;checks.push({x,y,front,expected,actual});
+          }
+          if(foreground<40||background<80)fail("A prova deve observar ambas as camadas.");
+          step("two_layers_distinct_palettes_and_scroll",{foreground,background,checks});
+        }
+
+        // Shipped actors have red (MD) / green (SNES) ink absent from this
+        // fixture's blue background. Observe pixels, not only actor coordinates.
+        {
+          const ink=(f,x,y)=>{const i=(y*f.framebuffer_width+x)*4,[r,g,b]=f.framebuffer_rgba.slice(i,i+3);return target==="megadrive"?r>80&&r>g*1.3:g>80&&g>r*1.5&&g>b*1.3;};let first=0,last=0,same=0;
+          for(let y=112;y<144;y++)for(let x=128;x<160;x++){const p=ink(a,x,y),q=ink(b,x,y);first+=Number(p);last+=Number(q);same+=Number(p&&q);}
           if(first<40||first!==last||same!==first)fail(`Sprite sem ancoragem visual: ${JSON.stringify({first,last,same})}`);
           step("sprite_framebuffer_anchor",{first,last,same,world_delta:16,camera_delta:16});
+          if(target==="snes"){
+            const source=(await readFile(path.join(project,player.components.sprite.asset),"utf8")).trim().split(/\s+/);
+            if(source[0]!=="P3"||source[1]!=="16"||source[2]!=="16")fail("Fixture SNES precisa de imagem P3 16x16 para conferir a ancora.");
+            const rgb=source.slice(4).map(Number);let expected=0,matches=0;
+            for(let y=0;y<16;y++)for(let x=0;x<16;x++){
+              const i=(y*16+x)*3,green=rgb[i]===46&&rgb[i+1]===139&&rgb[i+2]===87;expected+=Number(green);
+              matches+=Number(ink(a,128+x,112+y)===green)+Number(ink(b,128+x,112+y)===green);
+            }
+            if(expected<40||matches!==512)fail(`Ancora mundial do personagem SNES divergente: ${JSON.stringify({expected,matches})}`);
+            step("sprite_framebuffer_world_anchor",{x:128,y:112,expected_ink:expected,mask_cells:512,matches});
+          }
         }
         await writeFile(path.join(output,"parallax-before.rgba"),Buffer.from(a.framebuffer_rgba));await writeFile(path.join(output,"parallax-after.rgba"),Buffer.from(b.framebuffer_rgba));step("parallax_framebuffer_shift",{equal,total,changed,shift:8});
         // Temporary offsets and shake are cosmetic and return to the base camera.
-        await advance("right");await sample("offset-0",{x:93,y:85});await advance();await sample("offset-1",{x:93,y:85});await advance();await sample("offset-2",{x:93,y:85});await advance();await sample("offset-restored",{x:88,y:88});
-        await advance("left");for(let i=0;i<4;i++){if(i)await advance();await sample(`shake-${i}`,{x:88+(i%2?-4:4),y:88+(i%2?-2:2)});}await advance();await sample("shake-restored",{x:88,y:88});
+        await advance("right");await sample("offset-0",{x:baseX+5,y:85});await advance();await sample("offset-1",{x:baseX+5,y:85});await advance();await sample("offset-2",{x:baseX+5,y:85});await advance();await sample("offset-restored",{x:baseX,y:88});
+        await advance("left");for(let i=0;i<4;i++){if(i)await advance();await sample(`shake-${i}`,{x:baseX+(i%2?-4:4),y:88+(i%2?-2:2)});}await advance();await sample("shake-restored",{x:baseX,y:88});
       }else if(pattern.startsWith("auto_")){await advance("start");const before=await positions();await advance();await sample("scroll-step",{x:before.x+(pattern==="auto_horizontal"?2:0),y:before.y+(pattern==="auto_vertical"?2:0)});await advance("up");const held=await positions();await advance();await sample("scroll-pause",{x:held.x,y:held.y,paused:1});await advance("down");await sample("scroll-resume",{x:held.x+(pattern==="auto_horizontal"?2:0),y:held.y+(pattern==="auto_vertical"?2:0),paused:0});}
       else if(pattern==="fixed"){await write("spr_player_x",400);await advance();await sample("fixed",{x:64,y:32});}
       else {await write("spr_player_x",300);await write("spr_player_y",250);await advance();await sample("follow-anchor",{x:172,y:138});await write("spr_player_x",100);await write("spr_player_y",100);await advance();await sample("follow-reverse-bound",{x:0,y:0});}
@@ -15292,15 +15354,16 @@ async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated)
   const js=(script,args=[])=>executeScript(sessionId,script,args);
   const state=()=>readAutomationState(sessionId);
   const click=(id)=>clickButtonByTestIdNative(sessionId,id,id);
+  const selectPattern=async id=>{if(!await js(`return document.querySelector('[data-camera-patterns]')?.open;`))await clickElement(sessionId,await findElement(sessionId,'[data-testid="camera-pattern-picker"]'));await click(`camera-pattern-${id}`);};
   const shot=async(label)=>addReportArtifact(report,await captureScreenshot(sessionId,`${prefix}-${label}.png`),label);
   const record=(step,detail={})=>{report.steps.push({step,status:"passed",...detail});console.log(`[camera-workflow] ${step}`);};
   const drag=async(selector,from,to)=>{
-    const points=await js(`const e=document.querySelector(arguments[0]);e?.scrollIntoView({block:'center'});const r=e?.getBoundingClientRect();return r?arguments[1].map(p=>({x:Math.round(r.left+r.width*p[0]),y:Math.round(r.top+r.height*p[1])})):null;`,[selector,[from,to]]);
+    const points=await js(`const e=document.querySelector(arguments[0]);e?.scrollIntoView({block:'center'});const r=e?.getBoundingClientRect(),v=e?.viewBox?.baseVal,m=e?.getScreenCTM?.();return r?arguments[1].map(p=>{if(v&&m){const q=new DOMPoint(v.x+v.width*p[0],v.y+v.height*p[1]).matrixTransform(m);return {x:Math.round(q.x),y:Math.round(q.y)};}return {x:Math.round(r.left+r.width*p[0]),y:Math.round(r.top+r.height*p[1])};}):null;`,[selector,[from,to]]);
     if(!points)fail(`Alvo de arraste ausente: ${selector}`);
     await webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"pointer",id:"camera-drag",parameters:{pointerType:"mouse"},actions:[{type:"pointerMove",origin:"viewport",...points[0]},{type:"pointerDown",button:0},{type:"pointerMove",duration:250,origin:"viewport",...points[1]},{type:"pointerUp",button:0}]}]});
   };
   const setNumber=async(label,value)=>{
-    await js(`const e=document.querySelector('input[aria-label="'+arguments[0]+'"]');e?.scrollIntoView({block:'center'});e?.focus();e?.select();`,[label]);
+    await js(`const e=document.querySelector('input[aria-label="'+arguments[0]+'"]');for(let p=e?.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;e?.scrollIntoView({block:'center'});e?.focus();e?.select();`,[label]);
     const element=await findElement(sessionId,`input[aria-label="${label}"]`);
     await webdriverRequest("POST",`/session/${sessionId}/element/${element}/value`,{text:String(value),value:[...String(value)]});
   };
@@ -15341,10 +15404,11 @@ async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated)
     await cp(project,path.join(artifactDir,"authored-project"),{recursive:true,filter:source=>!path.relative(project,source).split(path.sep).includes("build")});
     record("authored_resident_world_prepared",{project,scene_sha256:createHash("sha256").update(await readFile(sceneFile)).digest("hex"),preparation:"map/collision 64x64, generated 4-tile PPM using template colors and fixed HUD written by harness; original template assets unchanged; configuration performed through UI"});
     const before=await state();
-    await click("configure-camera");await click("camera-pattern-platformer");
+    await click("configure-camera");await selectPattern("platformer");
     await drag('svg[aria-label="Enquadramento do personagem"]',[0.4,0.5],[0.65,0.4]);
     const composition=await js(`return Number(document.querySelector('input[aria-label="Ponto na tela X"]').value);`);
     if(Math.abs(composition-208)>2)fail(`Composicao nao acompanhou o arraste: ${composition}`);
+    await js(`const d=[...document.querySelectorAll('[data-testid="camera-configurator"] details')].find(d=>d.querySelector("summary")?.textContent==="Área percorrida pela visão");if(d)d.open=true;`);
     await clickButtonByText(sessionId,"Desenhar limites","exact");
     await drag('[data-testid="camera-scene-preview"]',[0.1,0.2],[0.8,0.85]);
     const drawn=await js(`return ['Área X','Área Y','Largura da área','Altura da área'].map(l=>Number(document.querySelector('input[aria-label="'+l+'"]').value));`);
@@ -15358,12 +15422,12 @@ async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated)
       const {pattern,smooth}=testCase,caseId=pattern+(smooth?"-smooth":"");
       await closeGame();
       await click("workspace-rail-scene");
-      await click("configure-camera");await click(`camera-pattern-${pattern}`);
+      await click("configure-camera");await selectPattern(pattern);await clickButtonByText(sessionId,"Restaurar valores do padrão","exact");
       if(["platformer","exploration"].includes(pattern)){
         await setNumber("Ponto na tela X",16);await setNumber("Ponto na tela Y",112);
-        await setNumber("Resposta horizontal (1 = imediata)",smooth?8:1);await setNumber("Resposta vertical (1 = imediata)",smooth?12:1);
-        await js(`const d=[...document.querySelectorAll('[data-testid="camera-configurator"] details')].find(d=>d.querySelector('summary')?.textContent==='Personalizar');if(d)d.open=true;`);
-        for(const [label,value] of [["Região livre X (meia largura)",0],["Região livre Y (meia altura)",smooth?32:0],["Antecipação horizontal",smooth?8:0],["Velocidade máxima (pixels/quadro)",smooth?16:256]])await setNumber(label,value);
+        await setNumber("Resposta horizontal (1 = direta)",smooth?8:1);await setNumber("Resposta vertical (1 = direta)",smooth?12:1);
+        await js(`const d=[...document.querySelectorAll('[data-testid="camera-configurator"] details:not([data-camera-patterns])')].find(d=>d.querySelector('summary')?.textContent==='Personalizar');if(d)d.open=true;`);
+        for(const [label,value] of [["Região livre X (meia largura)",0],["Região livre Y (meia altura)",smooth?32:0],["Antecipação horizontal",smooth?8:0],["Teto de velocidade (pixels/quadro)",smooth?16:256]])await setNumber(label,value);
       }else if(pattern==="fixed"){
         await setNumber("Posição X",64);await setNumber("Posição Y",32);
       }else await setNumber("Velocidade (pixels por segundo; negativo inverte)",120);

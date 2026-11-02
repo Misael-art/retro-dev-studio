@@ -419,7 +419,7 @@ export interface StoreActions {
   ) => void;
   /** Recursos de paleta da cena (plano de paletas): uma transação de desfazer. */
   setScenePalettes: (palettes: PaletteEntry[]) => void;
-  addEntity: (entity: Entity) => void;
+  addEntity: (entity: Entity, options?: { recordHistory?: boolean }) => void;
   removeEntity: (entityId: string) => void;
   updateBackgroundLayer: (layerId: string, patch: Partial<BackgroundLayer>) => void;
   /**
@@ -1113,7 +1113,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         sceneRevision: state.sceneRevision + 1,
       };
     }),
-  addEntity: (entity) =>
+  addEntity: (entity, options) =>
     set((state) => {
       if (!state.activeScene) return {};
       const sourceScene =
@@ -1121,9 +1121,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           ? state.activeSceneSource
           : state.activeScene;
       return {
-        undoStack: pushHistoryEntry(state.undoStack, createUndoEntry(state)),
-        redoStack: [],
-        pendingHistorySnapshot: null,
+        ...(options?.recordHistory === false ? {} : {
+          undoStack: pushHistoryEntry(state.undoStack, createUndoEntry(state)),
+          redoStack: [],
+          pendingHistorySnapshot: null,
+        }),
         activeScene: {
           ...state.activeScene,
           entities: [...state.activeScene.entities, entity],
@@ -1142,17 +1144,33 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       const sourceScene = preferredSourceScene.entities.some((entity) => entity.entity_id === entityId)
         ? preferredSourceScene
         : state.activeScene;
+      const patterns = state.activeScene.entities.find(e => e.entity_id === entityId)?.components.camera?.patterns ?? [];
+      const receiver = patterns.length ? state.activeScene.entities.find(e => e.entity_id !== entityId && e.components.camera &&
+        (e.components.camera.patterns?.length ?? 0) + patterns.length <= 32) : undefined;
+      if (patterns.length && !receiver) return {
+        consoleVisible: true,
+        consoleEntries: [...state.consoleEntries, { id: ++_entryCounter, level: "error" as const,
+          message: "Esta câmera guarda padrões próprios. Crie outra câmera com espaço na biblioteca antes de removê-la; os padrões serão transferidos na mesma ação de Desfazer.",
+          timestamp: new Date().toLocaleTimeString() }],
+      };
+      const transferredPatterns = structuredClone(patterns).map(p => receiver?.components.camera?.patterns?.some(v => v.id === p.id) ? { ...p, id: crypto.randomUUID() } : p);
+      const remaining = (scene: Scene) => scene.entities.filter(e => e.entity_id !== entityId).map(e => {
+        if (e.entity_id !== receiver?.entity_id) return e;
+        const camera = { ...receiver.components.camera!, ...e.components.camera, patterns: receiver.components.camera!.patterns };
+        const own = camera.patterns ?? [];
+        return { ...e, components: { ...e.components, camera: { ...camera, patterns: [...own, ...transferredPatterns] } } };
+      });
       return {
         undoStack: pushHistoryEntry(state.undoStack, createUndoEntry(state)),
         redoStack: [],
         pendingHistorySnapshot: null,
         activeScene: {
           ...state.activeScene,
-          entities: state.activeScene.entities.filter((entity) => entity.entity_id !== entityId),
+          entities: remaining(state.activeScene),
         },
         activeSceneSource: {
           ...sourceScene,
-          entities: sourceScene.entities.filter((entity) => entity.entity_id !== entityId),
+          entities: remaining(sourceScene),
         },
         selectedEntityId: state.selectedEntityId === entityId ? null : state.selectedEntityId,
         sceneRevision: state.sceneRevision + 1,

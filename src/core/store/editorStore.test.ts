@@ -106,6 +106,23 @@ describe("addEntity", () => {
 // ── removeEntity ──────────────────────────────────────────────────────────────
 
 describe("removeEntity", () => {
+  it("protects the last pattern owner and transfers its library atomically when another camera exists", () => {
+    const config={version:1,active:false,pattern:"fixed"} as import("../ipc/sceneService").VisualCameraConfig;
+    const owner=makeEntity("owner");owner.components.camera={visual:config,patterns:[{id:"own",name:"Minha sala",config,offset_x:0,offset_y:0,x:0,y:0}]};
+    const scene:Scene={...EMPTY_SCENE,entities:[owner]};
+    useEditorStore.setState({activeScene:scene,activeSceneSource:structuredClone(scene),undoStack:[],redoStack:[]});
+    useEditorStore.getState().removeEntity("owner");
+    expect(useEditorStore.getState().activeScene?.entities).toHaveLength(1);
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
+    const receiver=makeEntity("receiver");receiver.components.camera={visual:config};
+    useEditorStore.getState().addEntity(receiver);
+    useEditorStore.getState().removeEntity("owner");
+    expect(useEditorStore.getState().activeScene?.entities[0].components.camera?.patterns?.[0].name).toBe("Minha sala");
+    expect(useEditorStore.getState().activeSceneSource?.entities[0].components.camera?.patterns).toEqual(useEditorStore.getState().activeScene?.entities[0].components.camera?.patterns);
+    useEditorStore.getState().undo();
+    expect(useEditorStore.getState().activeScene?.entities).toHaveLength(2);
+    expect(useEditorStore.getState().activeScene?.entities.find(e=>e.entity_id==="receiver")?.components.camera?.patterns).toBeUndefined();
+  });
   it("remove entidade pelo id", () => {
     const scene: Scene = { ...EMPTY_SCENE, entities: [makeEntity("a"), makeEntity("b")] };
     useEditorStore.setState({ activeScene: scene });

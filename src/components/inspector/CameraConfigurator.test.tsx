@@ -17,9 +17,83 @@ const sceneFixture=():Scene=>({scene_id:"main",background_layers:[],entities:[
   {entity_id:"hero",display_name:"Herói",prefab:null,transform:{x:200,y:100},components:{sprite:{asset:"hero.png",frame_width:16,frame_height:32,palette_slot:0,animations:{}}}},
   {entity_id:"camera",prefab:null,transform:{x:0,y:0},components:{camera:{follow_entity:"hero",offset_x:-160,offset_y:-112}}},
 ]});
-beforeEach(()=>{vi.resetAllMocks();container=document.createElement("div");document.body.append(container);root=createRoot(container);useEditorStore.setState({activeProjectDir:"",activeScene:sceneFixture(),activeSceneSource:sceneFixture(),activeTarget:"megadrive",sceneRevision:1,undoStack:[],redoStack:[],pendingHistorySnapshot:null});});
-afterEach(async()=>{await act(async()=>root.unmount());container.remove();});
+beforeEach(()=>{vi.resetAllMocks();Object.defineProperty(HTMLElement.prototype,"scrollIntoView",{configurable:true,value:vi.fn()});container=document.createElement("div");document.body.append(container);root=createRoot(container);useEditorStore.setState({activeProjectDir:"",activeScene:sceneFixture(),activeSceneSource:sceneFixture(),activeTarget:"megadrive",sceneRevision:1,undoStack:[],redoStack:[],pendingHistorySnapshot:null});});
+afterEach(async()=>{await act(async()=>root.unmount());container.remove();Reflect.deleteProperty(HTMLElement.prototype,"scrollIntoView");});
 describe("camera configuration transaction",()=>{
+  it("keeps keyboard undo inside the draft and converts PAL seconds to exact project frames",async()=>{
+    vi.mocked(getProjectSettings).mockResolvedValue({fps:50,target:"megadrive",region:"europe",video_standard:"pal",internal_rom_name:"Camera",sram:{enabled:false,size_bytes:0},save_slots:0,debug_overlay:false,warnings:[]});
+    useEditorStore.setState({activeProjectDir:"/test/camera"});
+    await act(async()=>root.render(<CameraConfigurator/>));await click("Configurar câmera");
+    await inputValue("Ponto na tela X","100");
+    const input=document.querySelector('input[aria-label="Ponto na tela X"]')!;
+    await act(async()=>input.dispatchEvent(new KeyboardEvent("keydown",{key:"z",ctrlKey:true,bubbles:true})));
+    expect((input as HTMLInputElement).value).toBe("128");
+    await click("Refazer ajuste");
+    await act(async()=>window.dispatchEvent(new KeyboardEvent("keydown",{key:"z",ctrlKey:true,bubbles:true})));
+    expect((input as HTMLInputElement).value).toBe("128");
+    expect(useEditorStore.getState().sceneRevision).toBe(1);
+    await act(async()=>(document.querySelector('[data-testid="camera-pattern-sequence"]') as HTMLButtonElement).click());
+    await click("Criar percurso de exemplo");
+    expect((document.querySelector('input[aria-label="Ponto 2: duração em quadros"]') as HTMLInputElement).value).toBe("100");
+    await inputValue("Ponto 2: duração em segundos","1.5");
+    expect((document.querySelector('input[aria-label="Ponto 2: duração em quadros"]') as HTMLInputElement).value).toBe("75");
+    await click("Cancelar");expect(useEditorStore.getState().activeScene!.entities[1].components.camera?.visual).toBeUndefined();
+  });
+  it("groups a complete field edit and keeps undo/redo inside an open input",async()=>{
+    await act(async()=>root.render(<CameraConfigurator/>));await click("Configurar câmera");
+    const e=document.querySelector('input[aria-label="Ponto na tela X"]') as HTMLInputElement;
+    for(let p=e.parentElement;p;p=p.parentElement)if(p instanceof HTMLDetailsElement)p.open=true;
+    await act(async()=>e.focus());
+    for(const n of ["1","10","100"])await inputValue("Ponto na tela X",n);
+    await act(async()=>e.dispatchEvent(new KeyboardEvent("keydown",{key:"z",ctrlKey:true,bubbles:true})));
+    expect(e.value).toBe("128");
+    await act(async()=>e.dispatchEvent(new KeyboardEvent("keydown",{key:"y",ctrlKey:true,bubbles:true})));
+    expect(e.value).toBe("100");
+    await inputValue("Ponto na tela X","150");await act(async()=>e.blur());
+    await click("Desfazer ajuste");expect(e.value).toBe("100");
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
+  });
+  it("creates a camera in one scene history entry and undo removes it",async()=>{
+    const scene=sceneFixture();scene.entities=scene.entities.filter(e=>!e.components.camera);
+    useEditorStore.setState({activeScene:scene,activeSceneSource:structuredClone(scene)});
+    await act(async()=>root.render(<CameraConfigurator/>));await click("Configurar câmera");await click("Aplicar");
+    expect(useEditorStore.getState().activeScene!.entities).toHaveLength(2);
+    expect(useEditorStore.getState().undoStack).toHaveLength(1);
+    await act(async()=>useEditorStore.getState().undo());expect(useEditorStore.getState().activeScene!.entities).toHaveLength(1);
+    await act(async()=>useEditorStore.getState().redo());expect(useEditorStore.getState().activeScene!.entities).toHaveLength(2);
+  });
+  it("preserves rooms on the selected card and recovers preset changes and explicit restoration locally",async()=>{
+    await act(async()=>root.render(<CameraConfigurator/>));await click("Configurar câmera");
+    const preset=async(id:string)=>act(async()=>(document.querySelector(`[data-testid="camera-pattern-${id}"]`) as HTMLButtonElement).click());
+    await preset("rooms");await click("Adicionar sala e desenhar");await inputValue("Nome da sala 1","Entrada");
+    await preset("rooms");expect(document.querySelector('input[aria-label="Nome da sala 1"]')).not.toBeNull();
+    await preset("sequence");await click("Criar percurso de exemplo");
+    await click("Desfazer ajuste");expect(document.querySelector('input[aria-label="Ponto 1: X"]')).toBeNull();
+    await click("Desfazer ajuste");expect((document.querySelector('input[aria-label="Nome da sala 1"]') as HTMLInputElement).value).toBe("Entrada");
+    await click("Restaurar valores do padrão");expect(document.querySelector('input[aria-label="Nome da sala 1"]')).toBeNull();
+    await click("Desfazer ajuste");expect(document.querySelector('input[aria-label="Nome da sala 1"]')).not.toBeNull();
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
+    await click("Aplicar");expect(useEditorStore.getState().undoStack).toHaveLength(1);
+    expect(useEditorStore.getState().activeScene!.entities[1].components.camera?.visual?.advanced?.rooms[0].name).toBe("Entrada");
+  });
+  it("updates a saved variation without adding entries and undoes reuse as one local adjustment",async()=>{
+    await act(async()=>root.render(<CameraConfigurator/>));await click("Configurar câmera");
+    await inputValue("Ponto na tela X","80");await click("Salvar como meu padrão");
+    await inputValue("Ponto na tela X","100");await click("Atualizar padrão selecionado");
+    await inputValue("Ponto na tela X","200");await click("Usar padrão");
+    expect((document.querySelector('input[aria-label="Ponto na tela X"]') as HTMLInputElement).value).toBe("100");
+    await click("Desfazer ajuste");expect((document.querySelector('input[aria-label="Ponto na tela X"]') as HTMLInputElement).value).toBe("200");
+    await click("Aplicar");expect(useEditorStore.getState().activeScene!.entities[1].components.camera?.patterns).toHaveLength(1);
+    expect(useEditorStore.getState().activeScene!.entities[1].components.camera?.patterns?.[0].config.screen_x).toBe(100);
+  });
+  it("shows the effect of disabling the last initial camera and exposes the direct speed ceiling",async()=>{
+    await act(async()=>root.render(<CameraConfigurator/>));await click("Configurar câmera");
+    const checkbox=document.querySelector('[data-testid="camera-configurator"] input[type="checkbox"]') as HTMLInputElement;
+    await act(async()=>checkbox.click());expect(document.body.textContent).toContain("Nenhuma câmera visual será usada ao iniciar");
+    expect(document.querySelector('input[aria-label="Teto de velocidade (pixels/quadro)"]')).not.toBeNull();
+    expect(document.querySelector('[role="slider"]')).toBeNull();
+    expect(document.querySelector('svg[aria-label="Enquadramento do personagem"]')?.getAttribute("preserveAspectRatio")).toBe("xMidYMid meet");
+  });
   it("cancels without converting, then converts in one undo entry and supports redo",async()=>{
     await act(async()=>root.render(<CameraConfigurator entityId="camera"/>));
     const before=JSON.stringify(useEditorStore.getState().activeScene);

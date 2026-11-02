@@ -192,6 +192,7 @@ fn build_main_c_with_collision(
         out.push_str(
             "static s16 rds_camera_ratio_x[2] = {100,100}, rds_camera_ratio_y[2] = {100,100};\n",
         );
+        out.push_str("static s16 rds_camera_scroll_x[2], rds_camera_scroll_y[2];\n");
         out.push_str(&super::camera_runtime::render_definitions(camera));
     }
     for physics in &physics_applications {
@@ -270,14 +271,20 @@ fn build_main_c_with_collision(
         else {
             continue;
         };
+        // Each resident map owns a subpalette. The converter encodes the same
+        // entry in its map words; distinct backgrounds must not overwrite CGRAM.
+        let palette_entry = tilemap_assets
+            .iter()
+            .position(|candidate| candidate.resource_name == asset.resource_name)
+            .unwrap_or(0);
         out.push_str(&format!(
-            "    bgInitTileSet({bg}, &{name}_til, &{name}_pal, 0, (&{name}_tilend - &{name}_til), (&{name}_palend - &{name}_pal), BG_16COLORS, 0x{tile_addr:04X});\n",
+            "    bgInitTileSet({bg}, &{name}_til, &{name}_pal, {palette_entry}, (&{name}_tilend - &{name}_til), (&{name}_palend - &{name}_pal), BG_16COLORS, 0x{tile_addr:04X});\n",
             bg = tilemap.bg_number,
             name = tilemap.resource_name,
             tile_addr = tilemap_tile_address(tilemap.bg_number)
         ));
         out.push_str(&format!(
-            "    bgInitMapSet({bg}, (u8*)&{name}_map, (&{name}_mapend - &{name}_map), {size_mode}, 0x{map_addr:04X});\n",
+            "    bgInitMapSet({bg}, (u8*)&{name}_map, ((u8*)&{name}_mapend - (u8*)&{name}_map), {size_mode}, 0x{map_addr:04X});\n",
             bg = tilemap.bg_number,
             name = tilemap.resource_name,
             size_mode = snes_map_size_mode(asset),
@@ -293,7 +300,9 @@ fn build_main_c_with_collision(
 
     let mut tile_base = 0u16;
     for asset in &ast.sprite_assets {
-        let vram_address = tile_base.saturating_mul(16);
+        // OBJ data must not overwrite the resident BG maps at 0x0000/0x1000.
+        // PVSnesLib derives OBSEL's base from this VRAM word address.
+        let vram_address = 0x6000u16.saturating_add(tile_base.saturating_mul(16));
         let asset_config = asset_size_configs
             .get(&asset.resource_name)
             .copied()
@@ -488,11 +497,11 @@ fn build_main_c_with_collision(
                 if visual_camera.is_some() {
                     out.push_str("        rds_visual_camera_tick();\n");
                     if context.tilemaps.is_empty() {
-                        out.push_str("        bgSetScroll(0, rds_camera_x, rds_camera_y);\n");
+                        out.push_str("        rds_camera_scroll_x[0] = rds_camera_x;\n        rds_camera_scroll_y[0] = rds_camera_y - 1;\n");
                     }
                     for tilemap in &context.tilemaps {
                         out.push_str(&format!(
-                            "        bgSetScroll({bg}, ((s32)rds_camera_x * rds_camera_ratio_x[{bg}]) / 100 - {x}, ((s32)rds_camera_y * rds_camera_ratio_y[{bg}]) / 100 - {y});\n",
+                            "        rds_camera_scroll_x[{bg}] = ((s32)rds_camera_x * rds_camera_ratio_x[{bg}]) / 100 - {x};\n        rds_camera_scroll_y[{bg}] = ((s32)rds_camera_y * rds_camera_ratio_y[{bg}]) / 100 - {y} - 1;\n",
                             bg = tilemap.bg_number,
                             x = tilemap.scroll_x,
                             y = tilemap.scroll_y
@@ -503,11 +512,24 @@ fn build_main_c_with_collision(
                         out.push_str(&format!("        oamSet({index}, {var}_x - rds_camera_x, {var}_y - rds_camera_y, {priority}, 0, 0, {tile}, {palette});\n",
                             index=spawn.sprite_index,priority=spawn.priority,tile=current_tile_expression(&context,var),palette=spawn.palette_slot));
                     }
+                    // The SDK transfers the prepared OAM shadow during this wait.
+                    // Keep arithmetic outside VBlank; write only PPU scroll registers
+                    // afterward. SNES BG scanlines start at 1, unlike sprite origins.
+                    out.push_str("        WaitForVBlank();\n");
+                    if context.tilemaps.is_empty() {
+                        out.push_str("        bgSetScroll(0, rds_camera_scroll_x[0], rds_camera_scroll_y[0]);\n");
+                    }
+                    for tilemap in &context.tilemaps {
+                        out.push_str(&format!("        bgSetScroll({bg}, rds_camera_scroll_x[{bg}], rds_camera_scroll_y[{bg}]);\n", bg=tilemap.bg_number));
+                    }
+                } else {
+                    out.push_str("        oamUpdate();\n");
                 }
-                out.push_str("        oamUpdate();\n");
             }
             AstNode::VSync => {
-                out.push_str("        WaitForVBlank();\n");
+                if visual_camera.is_none() {
+                    out.push_str("        WaitForVBlank();\n");
+                }
             }
             AstNode::GameLoopEnd => {
                 out.push_str("    }\n");
@@ -574,7 +596,8 @@ fn build_context(
                 };
                 spawn_lookup.insert(var_name.clone(), context.spawns.len());
                 context.spawns.push(spawn);
-                next_sprite_index = next_sprite_index.saturating_add(1);
+                // PVSnesLib takes an OAM byte offset: sprite number * 4.
+                next_sprite_index = next_sprite_index.saturating_add(4);
             }
             AstNode::SetAnimation {
                 var_name,
@@ -2503,7 +2526,7 @@ mod tests {
             "bgInitTileSet(0, &background_tilemap_til, &background_tilemap_pal, 0, (&background_tilemap_tilend - &background_tilemap_til), (&background_tilemap_palend - &background_tilemap_pal), BG_16COLORS, 0x2000);"
         ));
         assert!(output.main_c.contains(
-            "bgInitMapSet(0, (u8*)&background_tilemap_map, (&background_tilemap_mapend - &background_tilemap_map), SC_64x32, 0x0000);"
+            "bgInitMapSet(0, (u8*)&background_tilemap_map, ((u8*)&background_tilemap_mapend - (u8*)&background_tilemap_map), SC_64x32, 0x0000);"
         ));
         assert!(output.main_c.contains("bgSetScroll(0, 24, 28);"));
     }
@@ -3038,6 +3061,14 @@ mod tests {
             "if (retro_aabb_intersects(spr_hero_x + 0, spr_hero_y + 0, 16, 16, spr_enemy_x + 1, spr_enemy_y + 2, 16, 16)) {"
         ));
         assert!(output.main_c.contains("spcPlaySound(SFX_JUMP);"));
+        // SDK IDs are byte offsets, so a second instance must not overwrite
+        // bytes 1..3 of the first actor's OAM entry.
+        assert!(output
+            .main_c
+            .contains("oamSet(4, spr_enemy_x, spr_enemy_y, 0, 0, 0, 0, 0);"));
+        assert!(output.main_c.contains("oamSetEx(4, OBJ_SMALL, OBJ_SHOW);"));
+        assert!(!output.main_c.contains("oamSet(1,"));
+        assert!(output.main_c.contains("0, 0x6000, OBJ_SIZE16_L32);"));
     }
 
     #[test]

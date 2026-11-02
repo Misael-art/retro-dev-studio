@@ -14,6 +14,7 @@ const FOCUSABLE_SELECTOR = [
   "input:not([disabled]):not([type='hidden'])",
   "select:not([disabled])",
   "textarea:not([disabled])",
+  "summary",
   "iframe",
   "object",
   "embed",
@@ -30,10 +31,16 @@ function generatedId(prefix: string, reactId: string) {
 
 function getFocusableElements(container: HTMLElement) {
   return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-    (element) =>
-      !element.hidden &&
-      element.getAttribute("aria-hidden") !== "true" &&
-      !element.closest("[hidden],[inert]")
+    (element) => {
+      if (element.hidden || element.matches(":disabled") || element.getAttribute("aria-hidden") === "true" || element.closest("[hidden],[inert]")) return false;
+      for (let parent = element.parentElement; parent && parent !== container; parent = parent.parentElement) {
+        if (parent.tagName === "DETAILS" && !parent.hasAttribute("open")) {
+          const summary = parent.querySelector(":scope > summary");
+          if (!summary?.contains(element)) return false;
+        }
+      }
+      return true;
+    }
   );
 }
 

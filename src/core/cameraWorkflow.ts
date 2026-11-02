@@ -7,7 +7,7 @@ export const CAMERA_PATTERNS: { id: CameraPattern; name: string; description: st
   { id: "auto_horizontal", name: "Rolagem horizontal", description: "Avança na horizontal na velocidade escolhida.", motion: "▣ →" },
   { id: "auto_vertical", name: "Rolagem vertical", description: "Avança na vertical na velocidade escolhida.", motion: "▣ ↓" },
   { id: "rooms", name: "Salas e telas", description: "Troca de enquadramento ao entrar em uma sala.", motion: "▣ → ▣" },
-  { id: "beat_em_up", name: "Beat’em up", description: "Avança com o personagem e permite travas por evento.", motion: "● → ▣ ▥" },
+  { id: "beat_em_up", name: "Combate lateral", description: "Avança com o personagem e permite travas por evento.", motion: "● → ▣ ▥" },
   { id: "arena", name: "Arena compartilhada", description: "Mantém o centro entre as âncoras dos personagens.", motion: "● ▣ ●" },
   { id: "sequence", name: "Sequência dirigida", description: "Percorre pontos, espera e pode voltar ao personagem.", motion: "① → ②" },
 ];
@@ -15,6 +15,13 @@ export const CAMERA_PATTERNS: { id: CameraPattern; name: string; description: st
 const emptyAdvanced=():CameraAdvancedConfig=>({rooms:[],targets:[],path:[],return_to_target:false,allow_backtracking:false,
   activation:null,priority:0,smooth_transition:false,parallax:[]});
 export function cameraAdvanced(v: VisualCameraConfig): CameraAdvancedConfig { return v.advanced ?? emptyAdvanced(); }
+/** Scene-local reuse never carries references to removed characters or planes. */
+export function reusableCameraConfig(config: VisualCameraConfig, scene: Scene): VisualCameraConfig {
+  const copy = structuredClone(config), a = cameraAdvanced(copy);
+  copy.advanced = { ...a, targets: a.targets.filter(id => scene.entities.some(e => e.entity_id === id && e.components.sprite)),
+    parallax: a.parallax.filter(p => scene.entities.some(e => e.entity_id === p.entity_id && e.components.tilemap)) };
+  return copy;
+}
 export const cameraFollows = (v: VisualCameraConfig) => ["platformer","exploration","rooms","beat_em_up"].includes(v.pattern) || (v.pattern==="sequence" && cameraAdvanced(v).return_to_target);
 export function compareCameraIds(a:string,b:string){const aa=Array.from(a),bb=Array.from(b);for(let i=0;i<Math.min(aa.length,bb.length);i++){const d=aa[i].codePointAt(0)!-bb[i].codePointAt(0)!;if(d)return d;}return aa.length-bb.length;}
 
@@ -28,11 +35,13 @@ export function cameraWorldArea(scene: Scene, target: "megadrive" | "snes"): Cam
   const boxes: CameraArea[] = [];
   if (scene.collision_map) {
     const c = scene.collision_map;
-    boxes.push({ x: 0, y: 0, width: c.width * c.tile_width, height: c.height * c.tile_height });
+    return { x: 0, y: 0, width: c.width * c.tile_width, height: c.height * c.tile_height };
   }
   for (const e of scene.entities) {
     const t = e.components?.tilemap;
-    if (t) boxes.push({ x: e.transform.x, y: e.transform.y, width: t.map_width * 8, height: t.map_height * 8 });
+    const decorative = scene.layers?.some(l => l.kind === "background" && l.entity_ids.includes(e.entity_id))
+      || scene.entities.some(c => c.components.camera?.visual?.advanced?.parallax.some(p => p.entity_id === e.entity_id && (p.ratio_x !== 100 || p.ratio_y !== 100)));
+    if (t && !decorative) boxes.push({ x: e.transform.x, y: e.transform.y, width: t.map_width * 8, height: t.map_height * 8 });
   }
   if (!boxes.length) return { x: 0, y: 0, ...frame };
   const x = Math.min(...boxes.map(b => b.x));
@@ -66,7 +75,36 @@ export function cameraConflict(scene: Scene): boolean {
   });
 }
 
-export function cameraValidation(camera: CameraComponent, scene: Scene, target: "megadrive" | "snes", origin?:{x:number;y:number}): string[] {
+export function cameraConflictSources(scene: Scene): { entityId?: string; nodeId?: string; message: string }[] {
+  const conflicts: { entityId?: string; nodeId?: string; message: string }[] = [];
+  if (scene.retrofx?.parallax_layers.some(l => l.enabled) || scene.retrofx?.raster_lines.some(l => l.enabled))
+    conflicts.push({ message: "RetroFX: paralaxe ou raster ligado disputa os planos da câmera visual." });
+  for (const e of scene.entities) {
+    const name = e.display_name || e.entity_id, logic = e.components.logic;
+    if ((e.components.tilemap?.scroll_x ?? 0) !== 0 || (e.components.tilemap?.scroll_y ?? 0) !== 0)
+      conflicts.push({ entityId: e.entity_id, message: `${name}: zere o deslocamento legado do tilemap; use a posição da entidade.` });
+    if (!logic?.graph && logic?.graph_ref) conflicts.push({ entityId: e.entity_id, message: `${name}: lógica externa ${logic.graph_ref} precisa ser reconciliada.` });
+    if (!logic?.graph) continue;
+    try {
+      const graph = JSON.parse(logic.graph) as { nodes?: { id?: string; type?: string; label?: string }[] };
+      for (const node of graph.nodes ?? []) if (["camera_follow", "camera_bounds", "move_camera", "scroll_tilemap", "effect_parallax", "effect_raster"].includes(node.type ?? ""))
+        conflicts.push({ entityId: e.entity_id, nodeId: node.id, message: `${name}: ${node.label || node.type} (${node.id ?? "sem identidade"}) é um comando antigo que disputa câmera/rolagem.` });
+    } catch { conflicts.push({ entityId: e.entity_id, message: `${name}: grafo ilegível; corrija a lógica antes de converter.` }); }
+  }
+  return conflicts;
+}
+
+/** SVG meet/letterbox mapping, shared by composition, map clicks and drags. */
+export function cameraPointerPoint(client: { x: number; y: number }, rect: { left: number; top: number; width: number; height: number }, area: CameraArea) {
+  const scale = Math.min(rect.width / area.width, rect.height / area.height);
+  if (!Number.isFinite(scale) || scale <= 0) return { x: area.x, y: area.y };
+  const left = rect.left + (rect.width - area.width * scale) / 2;
+  const top = rect.top + (rect.height - area.height * scale) / 2;
+  return { x: Math.round(area.x + Math.max(0, Math.min(area.width, (client.x - left) / scale))),
+    y: Math.round(area.y + Math.max(0, Math.min(area.height, (client.y - top) / scale))) };
+}
+
+export function cameraValidation(camera: CameraComponent, scene: Scene, target: "megadrive" | "snes", origin?:{x:number;y:number}, ownerId?:string): string[] {
   const v = camera.visual;
   if (!v) return [];
   const errors: string[] = [];
@@ -83,8 +121,17 @@ export function cameraValidation(camera: CameraComponent, scene: Scene, target: 
   if (v.response_x < 1 || v.response_x > 60 || v.response_y < 1 || v.response_y > 60 || v.max_speed < 1 || v.max_speed > 256) errors.push("Resposta deve ficar entre 1 e 60; velocidade máxima entre 1 e 256.");
   if (v.screen_x < 0 || v.screen_x > frame.width || v.screen_y < 0 || v.screen_y > frame.height || v.dead_zone_x < 0 || v.dead_zone_y < 0 || v.look_ahead < 0) errors.push("Enquadramento e região livre devem caber na janela do jogador.");
   const a = cameraAdvanced(v);
-  if(scene.entities.filter(e=>e.components.camera?.visual).length>8)errors.push("Use até oito câmeras visuais por cena.");
+  const owner = ownerId ?? scene.entities.find(e=>e.components.camera===camera)?.entity_id;
+  const others = scene.entities.filter(e=>e.entity_id!==owner && e.components.camera?.visual);
+  if(others.length+1>8)errors.push("Use até oito câmeras visuais por cena.");
+  const initial = v.active ? 1 : others.filter(e=>e.components.camera!.visual!.active).length;
+  if(initial>1)errors.push("Há várias câmeras iniciais. Marque esta câmera como inicial para resolver a seleção.");
+  if(!initial)for(const e of scene.entities){try{
+    const nodes = JSON.parse(e.components.logic?.graph??"{}").nodes??[];
+    if(nodes.some((n:{type?:string})=>n.type==="camera_control"))errors.push(`${e.display_name||e.entity_id}: eventos de câmera precisam de uma câmera visual inicial. Marque uma antes de aplicar.`);
+  }catch{/* Malformed graphs are already reported by cameraConflict. */}}
   if(scene.entities.filter(e=>e.components.tilemap).length>2)errors.push("A câmera visual usa até dois planos residentes compatíveis; o HUD tem sua própria superfície.");
+  if(target==="snes")for(const e of scene.entities)if(e.components.hud)errors.push(`${e.display_name||e.entity_id}: HUD fixo ainda não está disponível no SNES. Remova o HUD desta cena para testar este destino.`);
   const validArea=(b:CameraArea)=>[b.x,b.y,b.width,b.height].every(n=>Number.isInteger(n)&&Math.abs(n)<=16000)&&b.width>0&&b.height>0&&Math.abs(b.x+b.width)<=16000&&Math.abs(b.y+b.height)<=16000;
   if(a.rooms.length>16||a.path.length>32||a.targets.length>4) errors.push("Use até 16 salas, 32 pontos e 4 personagens por câmera.");
   if(v.pattern==="rooms"&&!a.rooms.length) errors.push("Adicione pelo menos uma sala.");

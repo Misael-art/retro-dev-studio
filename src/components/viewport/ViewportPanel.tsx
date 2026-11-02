@@ -1,9 +1,9 @@
+import { loadSceneArtworkAsset, drawRepeatedAsset, getTilemapArtwork, type ViewportAssetCacheEntry } from "./sceneArtworkRenderer";
 import Icon, { type IconName } from "../common/Icon";
 import CameraConfigurator from "../inspector/CameraConfigurator";
 import { hudBand } from "../../core/hudText";
-import { isPpmPath, loadProjectPpmImageData } from "../../core/ppmImage";
 import { loadShellPersona } from "../../core/surfaceRegistry";
-import { cellsOnLine, isExplicitEmptyCell, tilesetAtlasIndex } from "../../core/tilemapCells";
+import { cellsOnLine } from "../../core/tilemapCells";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tabs from "../common/Tabs";
 import { useEditorStore } from "../../core/store/editorStore";
@@ -53,14 +53,13 @@ import {
   buildCreatorWorkflowContext,
   resolveEntityFocusTreatment,
 } from "../../core/creatorWorkflow";
-import { applyKeyColorTransparency } from "../../core/keyColorTransparency";
 import { openProjectSourcePath } from "../../core/ipc/projectService";
-import { readProjectAssetBytes } from "../../core/ipc/toolsService";
 import {
   clampViewportPan,
   getSceneEntityBounds,
   getViewportPanForWorldPoint,
   resolveSceneWorldMetrics,
+  sceneArtworkEntities,
 } from "../../core/sceneWorldModel";
 import SceneAssetHealthBadge from "./SceneAssetHealthBadge";
 import SceneAttentionPanel from "./SceneAttentionPanel";
@@ -121,13 +120,6 @@ type QueuedAudioChunk = {
   offset: number;
 };
 
-type ViewportAssetCacheEntry = {
-  status: "loading" | "loaded" | "missing" | "error";
-  source?: CanvasImageSource;
-  width?: number;
-  height?: number;
-  errorMessage?: string;
-};
 
 type SceneGuide = {
   id: string;
@@ -299,104 +291,6 @@ function buildSceneDensityStatus(scene: { entities: Entity[] } | null) {
   };
 }
 
-function drawRepeatedAsset(
-  context: CanvasRenderingContext2D,
-  asset: ViewportAssetCacheEntry,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  offsetX = 0,
-  offsetY = 0
-) {
-  if (!asset.source || !asset.width || !asset.height) {
-    return;
-  }
-
-  const tileWidth = Math.max(1, asset.width);
-  const tileHeight = Math.max(1, asset.height);
-  const normalizedOffsetX = ((offsetX % tileWidth) + tileWidth) % tileWidth;
-  const normalizedOffsetY = ((offsetY % tileHeight) + tileHeight) % tileHeight;
-  const startX = x - normalizedOffsetX;
-  const startY = y - normalizedOffsetY;
-
-  for (let drawY = startY; drawY < y + height; drawY += tileHeight) {
-    for (let drawX = startX; drawX < x + width; drawX += tileWidth) {
-      context.drawImage(asset.source, drawX, drawY, tileWidth, tileHeight);
-    }
-  }
-}
-
-// ── Tilemap cells render ─────────────────────────────────────────────────────
-// Calcula quantas colunas de tiles o tileset real expõe. Um tileset com
-// dimensões não-múltiplas do tile (p.ex. palette PNG geradas por ferramentas
-// externas) são tratadas com `Math.floor` — slices fora do atlas são ignoradas.
-function computeTilesetColumns(
-  asset: ViewportAssetCacheEntry,
-  tileSize: number
-): number {
-  if (!asset.width || tileSize <= 0) return 0;
-  return Math.max(0, Math.floor(asset.width / tileSize));
-}
-
-/**
- * Renderiza a malha pintada (`cells[]`) de um tilemap usando slices reais
- * do tileset. Desenha célula-a-célula com `drawImage(source, sx, sy, ...)`
- * garantindo WYSIWYG entre paleta/ghost/viewport.
- *
- * - Células vazias (índice 0) são puladas.
- * - Índices fora do atlas são desenhados como retângulo de aviso (não silencia).
- * - Scroll inteiro desloca a composição (positivo = puxa para esquerda/topo).
- */
-function drawTilemapCells(
-  context: CanvasRenderingContext2D,
-  asset: ViewportAssetCacheEntry,
-  originX: number,
-  originY: number,
-  mapWidth: number,
-  mapHeight: number,
-  cells: number[],
-  tileSize: number,
-  scrollX: number,
-  scrollY: number
-): void {
-  if (!asset.source || tileSize <= 0) return;
-  const cols = computeTilesetColumns(asset, tileSize);
-  if (cols <= 0) return;
-  const totalCells = mapWidth * mapHeight;
-  context.save();
-  for (let i = 0; i < Math.min(cells.length, totalCells); i++) {
-    const value = cells[i];
-    const col = i % mapWidth;
-    const row = (i - col) / mapWidth;
-    const dx = originX + col * tileSize - scrollX;
-    const dy = originY + row * tileSize - scrollY;
-    if (isExplicitEmptyCell(value)) {
-      // Explicit empty cell: punch the base map out, like the ROM's blank tile.
-      context.clearRect(dx, dy, tileSize, tileSize);
-      continue;
-    }
-    const atlasIdx = tilesetAtlasIndex(value);
-    if (atlasIdx === null) continue;
-    const ax = (atlasIdx % cols) * tileSize;
-    const ay = Math.floor(atlasIdx / cols) * tileSize;
-    if (asset.width && ax + tileSize > asset.width) continue;
-    if (asset.height && ay + tileSize > asset.height) continue;
-    context.clearRect(dx, dy, tileSize, tileSize);
-    context.drawImage(
-      asset.source,
-      ax,
-      ay,
-      tileSize,
-      tileSize,
-      dx,
-      dy,
-      tileSize,
-      tileSize
-    );
-  }
-  context.restore();
-}
 
 function getEntityBounds(
   entity: Entity,
@@ -1312,96 +1206,11 @@ export default function ViewportPanel({
         assetCacheRef.current.set(absolutePath, { status, errorMessage: fullMessage });
         setAssetCacheVersion((current) => current + 1);
       };
-      const loadImageElement = (imageSrc: string, options?: { revokeOnLoad?: boolean }) => {
-        const image = new Image();
-        image.onload = () => {
-          if (options?.revokeOnLoad && typeof URL.revokeObjectURL === "function") {
-            URL.revokeObjectURL(imageSrc);
-          }
-          markLoaded(image, image.naturalWidth || image.width, image.naturalHeight || image.height);
-        };
-        image.onerror = () => {
-          if (options?.revokeOnLoad && typeof URL.revokeObjectURL === "function") {
-            URL.revokeObjectURL(imageSrc);
-          }
-          markFailure("error", "Decode/draw Image falhou no WebView.");
-        };
-        image.src = imageSrc;
-      };
-
-      if (isPpmPath(relativePath)) {
-        // Canonical path: project bytes over IPC + shared P6/P3 decoder (WebKit cannot
-        // decode PPM through asset://).
-        void loadProjectPpmImageData(activeProjectDir, relativePath)
-          .then((imageData) => {
-            const processed = applyKeyColorTransparency(imageData, { showKeyColor }).imageData;
-            const canvas = document.createElement("canvas");
-            canvas.width = processed.width;
-            canvas.height = processed.height;
-            const context = canvas.getContext("2d");
-            if (!context) {
-              throw new Error("Canvas indisponivel");
-            }
-            context.putImageData(processed, 0, 0);
-            markLoaded(canvas, canvas.width, canvas.height);
-          })
-          .catch((err) => {
-            const detail = describeError(err);
-            const status = /not found|nao encontrad|No such file|os error 2/i.test(detail) ? "missing" : "error";
-            markFailure(status, `PPM falhou: ${detail}`);
-          });
-
-        return cacheEntry;
-      }
-
-      // Use the same project-byte IPC boundary as PPM. An Image loaded through
-      // asset:// can paint successfully but taint the scene canvas in WebKit.
-      void readProjectAssetBytes(activeProjectDir, relativePath)
-        .then((bytes) => new Blob([Uint8Array.from(bytes)]))
-        .then((blob) => {
-          const loadBlobImage = () => {
-            if (typeof URL.createObjectURL === "function") {
-              loadImageElement(URL.createObjectURL(blob), {
-                revokeOnLoad: true,
-              });
-              return;
-            }
-            markFailure("error", "WebView nao oferece createImageBitmap nem URL.createObjectURL.");
-          };
-          if (typeof createImageBitmap === "function") {
-            return createImageBitmap(blob).then((bitmap) => {
-              const canvas = document.createElement("canvas");
-              canvas.width = bitmap.width;
-              canvas.height = bitmap.height;
-              const context = canvas.getContext("2d");
-              if (!context) {
-                markLoaded(bitmap, bitmap.width, bitmap.height);
-                return;
-              }
-              context.drawImage(bitmap, 0, 0);
-              const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-              const processed = applyKeyColorTransparency(imageData, { showKeyColor });
-              if (!processed.detected) {
-                markLoaded(bitmap, bitmap.width, bitmap.height);
-                return;
-              }
-              context.putImageData(processed.imageData, 0, 0);
-              bitmap.close?.();
-              markLoaded(canvas, canvas.width, canvas.height);
-            }).catch(() => {
-              // WebKit may reject otherwise valid PNG variants in createImageBitmap.
-              // Retain the IPC bytes; asset:// Image() would taint
-              // the viewport canvas and make its pixels unreadable to the editor.
-              loadBlobImage();
-            });
-          }
-
-          loadBlobImage();
-        })
-        .catch((err) => {
+      void loadSceneArtworkAsset(activeProjectDir, relativePath, showKeyColor)
+        .then(asset => markLoaded(asset.source!, asset.width!, asset.height!))
+        .catch(err => {
           const detail = describeError(err);
-          const status = /not found|nao encontrad|No such file|os error 2/i.test(detail) ? "missing" : "error";
-          markFailure(status, `IPC de asset falhou: ${detail}`);
+          markFailure(/not found|nao encontrad|No such file|os error 2/i.test(detail) ? "missing" : "error", detail);
         });
       return cacheEntry;
     },
@@ -2503,6 +2312,7 @@ export default function ViewportPanel({
       }
     }
 
+    const artworkRank = new Map(sceneArtworkEntities(activeScene, activeTarget).map((e,i)=>[e.entity_id,i]));
     const compositionEntities = activeScene.entities
       .map((entity, index) => ({
         entity,
@@ -2514,7 +2324,7 @@ export default function ViewportPanel({
         if (left.depth !== right.depth) {
           return left.depth - right.depth;
         }
-        return left.index - right.index;
+        return (artworkRank.get(left.entity.entity_id) ?? left.index) - (artworkRank.get(right.entity.entity_id) ?? right.index);
       });
 
     if (showBackground) {
@@ -2557,49 +2367,9 @@ export default function ViewportPanel({
           }
 
           const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
-          const cellsArr = tilemap.cells;
-          const expectedCells = tilemap.map_width * tilemap.map_height;
-          const hasCells =
-            Array.isArray(cellsArr) &&
-            cellsArr.length === expectedCells &&
-            cellsArr.some((v) => v > 0);
-          if (hasCells) {
-            // Same as the ROM: the base map, then the edited cells on top.
-            drawRepeatedAsset(
-              context,
-              tilemapAsset,
-              bounds.x,
-              bounds.y,
-              bounds.width,
-              bounds.height,
-              tilemap.scroll_x ?? 0,
-              tilemap.scroll_y ?? 0
-            );
-            drawTilemapCells(
-              context,
-              tilemapAsset,
-              bounds.x,
-              bounds.y,
-              tilemap.map_width,
-              tilemap.map_height,
-              cellsArr as number[],
-              8,
-              tilemap.scroll_x ?? 0,
-              tilemap.scroll_y ?? 0
-            );
-          } else {
-            // Fallback legado (projetos importados sem `cells[]`): desenho esticado.
-            drawRepeatedAsset(
-              context,
-              tilemapAsset,
-              bounds.x,
-              bounds.y,
-              bounds.width,
-              bounds.height,
-              tilemap.scroll_x ?? 0,
-              tilemap.scroll_y ?? 0
-            );
-          }
+          const artwork = getTilemapArtwork(tilemapAsset, tilemap);
+          if (artwork) context.drawImage(artwork, bounds.x, bounds.y);
+
         });
     }
 

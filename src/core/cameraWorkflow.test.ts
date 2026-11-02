@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CameraComponent, Entity, Scene } from "./ipc/sceneService";
-import { cameraAdvanced, cameraPreset, cameraValidation, cameraWorldArea, initialCameraSample, initialVisualCamera, sampleCamera } from "./cameraWorkflow";
-import { getSceneEntityBounds, resolveSceneWorldMetrics } from "./sceneWorldModel";
+import { cameraAdvanced, reusableCameraConfig, cameraPointerPoint, cameraPreset, cameraValidation, cameraWorldArea, initialCameraSample, initialVisualCamera, sampleCamera } from "./cameraWorkflow";
+import { getSceneEntityBounds, resolveSceneWorldMetrics, sceneArtworkEntities } from "./sceneWorldModel";
 
 function fixture() {
   const hero: Entity = { entity_id:"hero",prefab:null,transform:{x:400,y:200},components:{sprite:{asset:"hero.png",frame_width:32,frame_height:48,palette_slot:0,animations:{}}} };
@@ -11,6 +11,51 @@ function fixture() {
   return {hero,camera,entity,scene};
 }
 describe("visual camera contract",()=>{
+  it("reuses values without missing references or mutation and checks the effective initial selection",()=>{
+    const {scene,camera}=fixture(),v=camera.visual!;
+    v.advanced={...cameraAdvanced(v),targets:["hero","removed"],parallax:[{entity_id:"removed-plane",ratio_x:50,ratio_y:100}]};
+    const reused=reusableCameraConfig(v,scene);
+    expect(reused.advanced!.targets).toEqual(["hero"]);expect(reused.advanced!.parallax).toEqual([]);
+    expect(v.advanced.targets).toEqual(["hero","removed"]);
+    v.active=false;
+    scene.entities[0].components.logic={graph:JSON.stringify({nodes:[{id:"pause",type:"camera_control"}]})};
+    expect(cameraValidation(camera,scene,"megadrive",undefined,"camera").join()).toContain("eventos de câmera precisam");
+    v.active=true;
+    expect(cameraValidation(camera,scene,"megadrive",undefined,"camera").join()).not.toContain("eventos de câmera precisam");
+  });
+  it("maps letterboxed and zoomed previews back to world coordinates",()=>{
+    const rect={left:10,top:20,width:400,height:200};
+    expect(cameraPointerPoint({x:210,y:120},rect,{x:-200,y:-100,width:100,height:100})).toEqual({x:-150,y:-50});
+    expect(cameraPointerPoint({x:10,y:20},rect,{x:-200,y:-100,width:100,height:100})).toEqual({x:-200,y:-100});
+    expect(cameraPointerPoint({x:410,y:220},rect,{x:50,y:60,width:320,height:224})).toEqual({x:370,y:284});
+  });
+  it("uses collision as playable area and excludes distant decorative and parallax maps",()=>{
+    const {scene,camera}=fixture();
+    const map=(id:string,x:number):Entity=>({entity_id:id,prefab:null,transform:{x,y:-20},components:{tilemap:{tileset:"map.png",map_width:80,map_height:40}}});
+    scene.entities.push(map("play",-80),map("decoration",8000),map("parallax",12000));
+    scene.layers=[{id:"bg",name:"Fundo",kind:"background",visible:true,locked:false,depth:0,entity_ids:["decoration"]}];
+    camera.visual!.advanced={...cameraAdvanced(camera.visual!),parallax:[{entity_id:"parallax",ratio_x:50,ratio_y:100}]};
+    expect(cameraWorldArea(scene,"megadrive")).toEqual({x:-80,y:-20,width:640,height:320});
+    scene.collision_map={width:40,height:28,tile_width:8,tile_height:8,data:[]};
+    expect(cameraWorldArea(scene,"megadrive")).toEqual({x:0,y:0,width:320,height:224});
+  });
+  it("composes resident planes in hardware order with sprites above maps without reordering the scene",()=>{
+    const {scene}=fixture();
+    const map=(id:string):Entity=>({entity_id:id,prefab:null,transform:{x:0,y:0},components:{tilemap:{tileset:"map.png",map_width:32,map_height:32}}});
+    scene.entities.push(map("first"),map("second"));
+    const before=JSON.stringify(scene);
+    expect(sceneArtworkEntities(scene,"megadrive").map(e=>e.entity_id)).toEqual(["first","second","hero","camera"]);
+    expect(sceneArtworkEntities(scene,"snes").map(e=>e.entity_id)).toEqual(["second","first","hero","camera"]);
+    expect(JSON.stringify(scene)).toBe(before);
+  });
+  it("preserves the direct response contract: large teleports still respect the visible speed ceiling",()=>{
+    const {camera}=fixture(),v=camera.visual!;Object.assign(v,{response_x:1,response_y:1,look_ahead:0,dead_zone_x:0,dead_zone_y:0});
+    for(const target of ["megadrive","snes"] as const){
+      const first=sampleCamera(camera,{x:0,y:0},{x:400,y:200},target);
+      expect(first.x).toBe(272);
+      expect(sampleCamera(camera,{x:0,y:0},{x:700,y:200},target,first).x).toBe(288);
+    }
+  });
   it("uses a stable authored anchor and screen point, independent of animation dimensions",()=>{
     const {camera,hero,entity,scene}=fixture();
     camera.visual!.anchor_x=8;camera.visual!.anchor_y=16;

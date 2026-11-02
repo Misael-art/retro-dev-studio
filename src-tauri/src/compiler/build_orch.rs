@@ -5,7 +5,7 @@ use std::process::Command;
 
 use crate::compiler::ast_generator::{
     collect_bgm_tracks, collect_sfx_resources, collect_tilemap_assets, generate_ast,
-    generate_ast_with_prefabs, AstOutput, SpriteAsset,
+    generate_ast_with_prefabs, AstOutput, SpriteAsset, TilemapAsset,
 };
 use crate::compiler::build_provenance::{
     attach_rom_artifact, build_source_map, serialize_source_map, BuildSourceMap,
@@ -1850,7 +1850,7 @@ fn stage_snes_assets(project_dir: &Path, src_dir: &Path, ast: &AstOutput) -> Res
         }
 
         let destination = src_dir.join(format!("{}.bmp", asset.resource_name));
-        stage_bitmap_asset(&source, &destination, "SNES")?;
+        stage_snes_tilemap_asset(&source, &destination, &asset)?;
     }
 
     for (resource_name, asset_path) in collect_sfx_resources(ast) {
@@ -1932,6 +1932,71 @@ fn stage_snes_audio_asset(
     })?;
 
     Ok(())
+}
+
+fn stage_snes_tilemap_asset(
+    source: &Path,
+    destination: &Path,
+    asset: &TilemapAsset,
+) -> Result<(), String> {
+    if asset.cells.is_empty() {
+        return stage_bitmap_asset(source, destination, "SNES");
+    }
+    // gfx2snes consumes a composed image. Feeding only the tileset discarded
+    // painted cells and left most of the resident hardware map uninitialized.
+    if !(1..=64).contains(&asset.map_width) || !(1..=64).contains(&asset.map_height) {
+        return Err("SNES: mapa pintado deve caber em até 64×64 tiles residentes.".into());
+    }
+    let tiles = image::open(source)
+        .map_err(|e| format!("Falha ao ler tileset SNES '{}': {e}", source.display()))?
+        .to_rgba8();
+    let columns = tiles.width() / 8;
+    let count = columns * (tiles.height() / 8);
+    let (width, height) = (asset.map_width * 8, asset.map_height * 8);
+    let mut composed = image::RgbaImage::new(width, height);
+    for y in 0..height.min(tiles.height()) {
+        for x in 0..width.min(tiles.width()) {
+            composed.put_pixel(x, y, *tiles.get_pixel(x, y));
+        }
+    }
+    for (index, &cell) in asset
+        .cells
+        .iter()
+        .enumerate()
+        .take((asset.map_width * asset.map_height) as usize)
+    {
+        if cell == 0 {
+            continue;
+        } // Preserve the source picture at this cell.
+        let (x, y) = (
+            index as u32 % asset.map_width * 8,
+            index as u32 / asset.map_width * 8,
+        );
+        let blank = cell == crate::compiler::sgdk_emitter::TILEMAP_CELL_EMPTY;
+        if !blank && cell > count {
+            return Err(format!(
+                "SNES: tile {cell} fora do tileset '{}' ({count} tiles).",
+                asset.resource_name
+            ));
+        }
+        for dy in 0..8 {
+            for dx in 0..8 {
+                let pixel = if blank {
+                    image::Rgba([0, 0, 0, 0])
+                } else {
+                    *tiles.get_pixel((cell - 1) % columns * 8 + dx, (cell - 1) / columns * 8 + dy)
+                };
+                composed.put_pixel(x + dx, y + dy, pixel);
+            }
+        }
+    }
+    write_indexed_bmp_8bit_with_canvas_palette_limit(
+        &image::DynamicImage::ImageRgba8(composed),
+        destination,
+        width,
+        height,
+        16,
+    )
 }
 
 fn stage_bitmap_asset(source: &Path, destination: &Path, target_label: &str) -> Result<(), String> {
@@ -2524,7 +2589,7 @@ fn render_pvsneslib_makefile(project_slug: &str, ast: &AstOutput) -> String {
     out.push_str("clean: cleanBuildRes cleanRom cleanGfx\n\n");
 
     let mut bitmap_targets = Vec::new();
-    for asset in &tilemap_assets {
+    for (palette_entry, asset) in tilemap_assets.iter().enumerate() {
         let pic_target = format!("src/{}.pic", asset.resource_name);
         let map_target = format!("src/{}.map", asset.resource_name);
         let pal_target = format!("src/{}.pal", asset.resource_name);
@@ -2537,7 +2602,9 @@ fn render_pvsneslib_makefile(project_slug: &str, ast: &AstOutput) -> String {
             pic_target, map_target, pal_target, bmp_target
         ));
         out.push_str("\t@echo convert bitmap ... $(notdir $<)\n");
-        out.push_str("\t$(GFXCONV) -s 8 -o 16 -u 16 -e 0 -p -m -t bmp -i $<\n\n");
+        out.push_str(&format!(
+            "\t$(GFXCONV) -s 8 -o 16 -u 16 -e {palette_entry} -p -m -y -t bmp -i $<\n\n"
+        ));
     }
 
     for asset in &ast.sprite_assets {
@@ -3803,6 +3870,49 @@ mod tests {
     use image::{ImageBuffer, Rgba};
     use std::sync::{Mutex, OnceLock};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn snes_resident_layers_use_matching_distinct_palette_entries() {
+        use crate::compiler::ast_generator::AstNode;
+        let mut ast = AstOutput {
+            nodes: Vec::new(),
+            sprite_assets: Vec::new(),
+            logic_scripts: Vec::new(),
+        };
+        for name in ["foreground", "background"] {
+            ast.nodes.push(AstNode::LoadTilemap {
+                resource_name: name.into(),
+                asset_path: format!("{name}.png"),
+                map_width: 64,
+                map_height: 64,
+                cells: Vec::new(),
+            });
+            ast.nodes.push(AstNode::DrawTilemap {
+                resource_name: name.into(),
+                x: 0,
+                y: 0,
+                scroll_x: 0,
+                scroll_y: 0,
+            });
+        }
+        ast.nodes.extend([
+            AstNode::GameLoopBegin,
+            AstNode::SpriteUpdate,
+            AstNode::VSync,
+            AstNode::GameLoopEnd,
+        ]);
+        let makefile = render_pvsneslib_makefile("layers", &ast);
+        assert!(makefile.contains("-e 0 -p -m -y"));
+        assert!(makefile.contains("-e 1 -p -m -y"));
+        let output = super::super::snes_emitter::emit_snes(&ast, "Layers");
+        assert!(output
+            .main_c
+            .contains("bgInitTileSet(0, &foreground_til, &foreground_pal, 0,"));
+        assert!(output
+            .main_c
+            .contains("bgInitTileSet(1, &background_til, &background_pal, 1,"));
+        assert!(output.main_c.contains("SC_64x64, 0x1000)"));
+    }
 
     #[test]
     fn pvsneslib_makefile_sets_romname_before_including_snes_rules() {
@@ -6130,7 +6240,7 @@ PY\n"
         assert!(data_asm.contains(".incbin \"src/background_tilemap.map\""));
         let makefile = fs::read_to_string(project_dir.join("build").join("snes").join("Makefile"))
             .expect("read SNES makefile");
-        assert!(makefile.contains("$(GFXCONV) -s 8 -o 16 -u 16 -e 0 -p -m -t bmp -i $<"));
+        assert!(makefile.contains("$(GFXCONV) -s 8 -o 16 -u 16 -e 0 -p -m -y -t bmp -i $<"));
         let bitmaps_line = makefile
             .lines()
             .find(|line| line.starts_with("bitmaps:"))
@@ -6157,6 +6267,48 @@ PY\n"
         assert!(main_c.contains("bgInitMapSet(0, (u8*)&background_tilemap_map"));
 
         let _ = fs::remove_dir_all(project_dir);
+    }
+
+    #[test]
+    fn snes_painted_map_staging_preserves_base_blank_and_tile_identity() {
+        let dir = temp_dir("snes-painted-map");
+        let source = dir.join("tiles.png");
+        let destination = dir.join("map.bmp");
+        image::RgbImage::from_fn(16, 8, |x, _| {
+            image::Rgb(if x < 8 { [240, 32, 32] } else { [32, 32, 240] })
+        })
+        .save(&source)
+        .unwrap();
+        let mut asset = TilemapAsset {
+            resource_name: "painted".into(),
+            asset_path: "tiles.png".into(),
+            map_width: 2,
+            map_height: 2,
+            cells: vec![0, 2, u32::MAX, 1],
+        };
+        stage_snes_tilemap_asset(&source, &destination, &asset).unwrap();
+        let result = image::open(&destination).unwrap().to_rgb8();
+        assert_eq!(result.dimensions(), (16, 16));
+        for (x, y, rgb) in [
+            (3, 3, [240, 32, 32]),
+            (11, 3, [32, 32, 240]),
+            (3, 11, [0, 0, 0]),
+            (11, 11, [240, 32, 32]),
+        ] {
+            assert_eq!(result.get_pixel(x, y).0, rgb);
+        }
+        asset.cells[1] = 3;
+        assert!(stage_snes_tilemap_asset(&source, &destination, &asset)
+            .unwrap_err()
+            .contains("fora do tileset"));
+        asset.map_width = 65;
+        assert!(stage_snes_tilemap_asset(&source, &destination, &asset)
+            .unwrap_err()
+            .contains("64×64"));
+        asset.cells.clear();
+        stage_snes_tilemap_asset(&source, &destination, &asset).unwrap();
+        assert_eq!(image::open(&destination).unwrap().width(), 16);
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

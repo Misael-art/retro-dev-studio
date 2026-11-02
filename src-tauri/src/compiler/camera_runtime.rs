@@ -455,12 +455,28 @@ mod tests {
             let tick = c.find("rds_visual_camera_tick();").unwrap();
             let render = c
                 .rfind(if target == "snes" {
-                    "oamUpdate();"
+                    "WaitForVBlank();"
                 } else {
                     "SPR_update();"
                 })
                 .unwrap();
             assert!(tick < render);
+            if target == "snes" {
+                assert_eq!(c.matches("WaitForVBlank();").count(), 1);
+                assert!(
+                    !c.contains("oamUpdate();"),
+                    "SDK transfers OAM once in VBlank"
+                );
+                assert!(
+                    c.rfind("oamSet(").unwrap() < render,
+                    "prepare sprite shadow before VBlank"
+                );
+                assert!(
+                    render < c.rfind("bgSetScroll(").unwrap(),
+                    "write scroll in VBlank"
+                );
+                assert!(c.contains("rds_camera_scroll_y[0] = rds_camera_y - 1;"));
+            }
             let program = find(&ast).unwrap();
             let values = &program.cameras[program.initial].config;
             assert_eq!(
@@ -506,7 +522,18 @@ mod tests {
         assert!(md.contains("-24 - ((s32)rds_camera_x * rds_camera_ratio_x[0]) / 100"));
         assert!(md.contains("((s32)rds_camera_y * rds_camera_ratio_y[0]) / 100 - 17"));
         let snes = emit_snes(&generate_ast(&project("snes"), &s), "Camera").main_c;
-        assert!(snes.contains("bgSetScroll(0, ((s32)rds_camera_x * rds_camera_ratio_x[0]) / 100 - -24, ((s32)rds_camera_y * rds_camera_ratio_y[0]) / 100 - 17)"));
+        assert!(snes.contains(
+            "rds_camera_scroll_x[0] = ((s32)rds_camera_x * rds_camera_ratio_x[0]) / 100 - -24;"
+        ));
+        assert!(snes.contains(
+            "rds_camera_scroll_y[0] = ((s32)rds_camera_y * rds_camera_ratio_y[0]) / 100 - 17 - 1;"
+        ));
+        let prepare = snes.find("rds_camera_scroll_y[0] =").unwrap();
+        let vblank = snes.find("WaitForVBlank();").unwrap();
+        let present = snes
+            .find("bgSetScroll(0, rds_camera_scroll_x[0], rds_camera_scroll_y[0]);")
+            .unwrap();
+        assert!(prepare < vblank && vblank < present);
         s.entities
             .last_mut()
             .unwrap()

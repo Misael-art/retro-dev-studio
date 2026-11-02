@@ -158,6 +158,8 @@ type QuickActionContext = {
   selectedEntityId: string | null;
   selectedEntityLabel: string | null;
   otherEntityId: string | null;
+  visualCameraId?: string;
+  target?: "megadrive" | "snes";
 };
 
 type QuickActionTemplate = GuidedFlowCommentary & {
@@ -1006,7 +1008,22 @@ function buildProjectileMotionQuickActionGraph(context: QuickActionContext): Nod
   };
 }
 
-function buildCameraRigQuickActionGraph(context: QuickActionContext): NodeGraph {
+export function buildCameraRigQuickActionGraph(context: QuickActionContext): NodeGraph {
+  if (context.visualCameraId) {
+    const tick = makeNode("event_update", 20, 20);
+    const nodes: GraphNode[] = [tick], edges: NodeEdge[] = [];
+    // Independent button events, wired through the existing execution ports.
+    for (const [index, [button, action]] of [["BUTTON_A", "pause"], ["BUTTON_B", "resume"], [context.target === "snes" ? "BUTTON_X" : "BUTTON_C", "shake"], ["BUTTON_START", "regions"]].entries()) {
+      const event = makeNode("input_pressed", 120, 120 + index * 220);
+      event.params = { ...event.params, button };
+      const control = makeNode("camera_control", 420, 120 + index * 220);
+      control.params = { ...control.params, target: context.visualCameraId, action, frames: 12, x: 4, y: 4 };
+      const update = index === 0 ? tick : makeNode("event_update", 20, 120 + index * 220);
+      if(index !== 0) nodes.push(update);
+      nodes.push(event, control); edges.push(makeEdge(update, "exec", event, "exec"), makeEdge(event, "exec", control, "exec"));
+    }
+    return { nodes, edges };
+  }
   void context;
   const start = makeNode("event_start", 120, 150);
   const cam = makeNode("move_camera", 360, 146);
@@ -1175,13 +1192,13 @@ const QUICK_ACTION_TEMPLATES: QuickActionTemplate[] = [
   },
   {
     id: "camera_rig",
-    actionLabel: "Camera + parallax basico",
-    title: "Camera e parallax",
-    summary: "Encadeia Move Camera com Parallax para um rig inicial de cena larga.",
+    actionLabel: "Câmera: travar, retomar e tremer",
+    title: "Eventos da câmera",
+    summary: "Com câmera visual: A trava, B retoma, C (Mega Drive) ou X (SNES) treme; Start devolve o controle às regiões.",
     comments: [
-      "Ao Iniciar aciona Move Camera com offsets neutros, prontos para amarrar a um alvo depois.",
-      "Parallax Scroll vem logo apos para reforcar leitura de profundidade sem exigir eventos extra.",
-      "Parametros de layer e velocidade sao conservadores para Mega Drive / SNES.",
+      "Escolha uma câmera visual na cena antes de inserir. O alvo é preenchido pelo nome selecionado.",
+      "Altere os botões e a ação nos cartões. Para deslocar temporariamente, escolha Deslocamento e a duração.",
+      "Sem câmera visual, conserva o rig legado de Move Camera e Parallax; converter exige reconciliar esses nós.",
     ],
     hardwareNote:
       "Scroll e camera respeitam o modelo atual de comentarios e chamadas no compilador de nos.",
@@ -2739,8 +2756,11 @@ export default function NodeGraphEditor() {
       selectedEntityLabel: selectedEntity ? getEntityDisplayName(selectedEntity) : null,
       otherEntityId:
         activeScene?.entities.find((entity) => entity.entity_id !== selectedEntityIdValue)?.entity_id ?? null,
+      visualCameraId: selectedEntity?.components.camera?.visual ? selectedEntity.entity_id
+        : activeScene?.entities.find(e => e.components.camera?.visual?.active)?.entity_id,
+      target: activeTarget,
     };
-  }, [activeScene, selectedEntity]);
+  }, [activeScene, selectedEntity, activeTarget]);
   const graphOriginLabel = selectedEntity?.components.logic?.graph_origin;
   const importedSemantics = selectedEntity?.components.logic?.imported_semantics;
   const importedSemanticsKind = formatImportedSemanticsKind(importedSemantics);

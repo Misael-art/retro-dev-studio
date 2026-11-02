@@ -524,6 +524,7 @@ export default function HierarchyPanel({
       const targetEntity = activeScene.entities.find((entity) => entity.entity_id === entityId);
       const name = targetEntity ? getEntityDisplayName(targetEntity) : entityId;
       removeEntity(entityId);
+      if (useEditorStore.getState().activeScene?.entities.some(e => e.entity_id === entityId)) return;
 
       const saved = await persistActiveScene(activeProjectDir, "Hierarchy", `Entidade '${name}' removida.`);
 

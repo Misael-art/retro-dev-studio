@@ -78,6 +78,19 @@ describe("Dialog", () => {
     expect(firstAction).toBeTruthy();
   });
 
+  it("starts at a visible summary and ignores controls inside collapsed details", () => {
+    act(() => root.render(<Dialog open title="Câmera" onClose={() => undefined}>
+      <details><summary tabIndex={0}>Personalizar</summary><button>Oculto</button></details>
+      <button>Aplicar</button>
+    </Dialog>));
+    const summary=document.querySelector("summary");
+    expect(document.activeElement).toBe(summary);
+    const close=document.querySelector<HTMLButtonElement>('button[aria-label="Fechar diálogo"]')!;
+    close.focus();
+    act(()=>document.dispatchEvent(new KeyboardEvent("keydown",{key:"Tab",shiftKey:true,bubbles:true})));
+    expect(document.activeElement?.textContent).toBe("Aplicar");
+  });
+
   it("closes with Escape and restores focus to the invoker", () => {
     function Fixture() {
       const [open, setOpen] = useState(false);

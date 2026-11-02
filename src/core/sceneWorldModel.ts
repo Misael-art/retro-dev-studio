@@ -47,6 +47,12 @@ export type ViewportPan = {
   y: number;
 };
 
+/** Resident planes: SNES BG0 is in front of BG1; MD draws BG_B then BG_A. */
+export function sceneArtworkEntities(scene: Scene, target: "megadrive" | "snes"): Entity[] {
+  const maps = scene.entities.filter(e => e.components.tilemap);
+  return [...(target === "snes" ? maps.reverse() : maps), ...scene.entities.filter(e => !e.components.tilemap)];
+}
+
 export type ViewportPanClampOptions = {
   enabled: boolean;
   pan: ViewportPan;
