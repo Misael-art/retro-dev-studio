@@ -15162,7 +15162,7 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
       }
       report.status="diagnostic";console.log('[camera-advanced] SDK_DIAGNOSTIC '+JSON.stringify(report.probe));return;
     }
-    const available=target==="snes"?["fixed","platformer","direct_limited","exploration","auto_horizontal","auto_vertical","rooms","rooms_smooth","beat_em_up","beat_em_up_backtracking","arena","sequence","parallax","regions","regions_smooth"]:["direct_limited","rooms","rooms_smooth","beat_em_up","beat_em_up_backtracking","arena","sequence","parallax","regions","regions_smooth"];
+    const available=target==="snes"?["fixed","platformer","direct_limited","exploration","auto_horizontal","auto_vertical","auto_horizontal_negative","auto_vertical_negative","rooms","rooms_smooth","beat_em_up","beat_em_up_backtracking","arena","sequence","parallax","regions","regions_smooth"]:["direct_limited","auto_horizontal_negative","auto_vertical_negative","rooms","rooms_smooth","beat_em_up","beat_em_up_backtracking","arena","sequence","parallax","regions","regions_smooth"];
     const patterns=available.filter(p=>!process.env.RDS_CAMERA_CASES||process.env.RDS_CAMERA_CASES.split(',').includes(p));if(!patterns.length)fail("Nenhum caso de camera selecionado.");
     for(const pattern of patterns){
       await stop();await click("workspace-rail-scene");
@@ -15170,15 +15170,22 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
       const disk=JSON.parse(await readFile(sceneFile,"utf8")),region=disk.entities.find(e=>e.entity_id==="region_camera").components.camera.visual;
       region.max_speed=16;region.advanced={rooms:[],targets:[],path:[],return_to_target:false,allow_backtracking:false,activation:pattern.startsWith("regions")?{x:300,y:0,width:200,height:512}:null,priority:10,smooth_transition:pattern==="regions_smooth",parallax:[]};
       await writeFile(sceneFile,JSON.stringify(disk,null,2));await js("return window.__RDS_E2E__.openProject(arguments[0]);",[project]);await closeVisibleConsoleDrawer(sessionId,"advanced-config");
-      const mode=pattern.startsWith("rooms")?"rooms":pattern.startsWith("beat_em_up")?"beat_em_up":pattern==="parallax"||pattern==="direct_limited"||pattern.startsWith("regions")?"platformer":pattern;
+      const mode=pattern.endsWith("_negative")?pattern.replace(/_negative$/,""):pattern.startsWith("rooms")?"rooms":pattern.startsWith("beat_em_up")?"beat_em_up":pattern==="parallax"||pattern==="direct_limited"||pattern.startsWith("regions")?"platformer":pattern;
       await click("configure-camera");await selectPattern(mode);await openDetails();await text("Restaurar valores do padrão");
       for(const [label,value] of [["Área X",bounds.x],["Área Y",bounds.y],["Largura da área",512],["Altura da área",512]])await number(label,value);
-      if(!["fixed","auto_horizontal","auto_vertical","sequence"].includes(pattern)){
+      if(!["fixed","auto_horizontal","auto_vertical","sequence"].includes(mode)){
         for(const [label,value] of [["Ponto na tela X",128],["Ponto na tela Y",112],["Resposta horizontal (1 = direta)",1],["Resposta vertical (1 = direta)",1],["Região livre X (meia largura)",0],["Região livre Y (meia altura)",0],["Antecipação horizontal",0],["Teto de velocidade (pixels/quadro)",256]])await number(label,value);
       }
       if(pattern==="direct_limited")await number("Teto de velocidade (pixels/quadro)",16);
       if(pattern==="fixed"){await number("Posição X",64);await number("Posição Y",32);}
-      if(pattern.startsWith("auto_"))await number("Velocidade (pixels por segundo; negativo inverte)",120);
+      if(pattern.startsWith("auto_")){
+        const reverse=pattern.endsWith("_negative");await number("Velocidade (pixels por segundo; negativo inverte)",reverse?-120:120);
+        if(reverse){await text("Começar na borda de origem");const axis=mode==="auto_horizontal"?"X":"Y",expected=512-(axis==="X"?width:224);
+          const actual=Number(await js(`return document.querySelector('input[aria-label="Posição '+arguments[0]+'"]').value;`,[axis]));
+          if(actual!==expected)fail(`Borda de origem negativa incorreta: ${JSON.stringify({axis,expected,actual})}`);
+          step(`${pattern}_visible_origin_edge`,{axis,expected,actual,speed:-120});
+        }
+      }
       if(pattern.startsWith("rooms")){
         for(let i=1;i<=2;i++){await text("Adicionar sala e desenhar");for(const [key,value] of [["X",i===1?0:192],["Y",0],["largura",i===1?192:320],["altura",512]])await number(`Sala ${i}: ${key}`,value);}
         if(pattern==="rooms_smooth"){
@@ -15223,7 +15230,7 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
         if(target==="megadrive"){data.writeUInt16LE((value>>>16)&65535,0);data.writeUInt16LE(value&65535,2);}else data.writeInt32LE(value);
         const r=await invoke("emulator_write_test_memory",{offset:offset(symbol),data:[...data],sessionEpoch:epoch});if(!r.ok)fail(JSON.stringify(r));};
       const advance=async(button)=>{const key=target==="megadrive"&&button==="a"?"y":button;const ack=await invoke("emulator_send_input",{joypad:{...neutral,...(key?{[key]:true}:{})},sessionEpoch:epoch});if(!ack.ok)fail(JSON.stringify(ack));const before=await invokeCoreObserve(sessionId);await click("viewport-step-frame");await waitFor(async()=>(await invokeCoreObserve(sessionId))?.frames_run===before.frames_run+1,10000,"Passo nao foi um quadro.",30);};
-      const positions=async()=>({x:await word("rds_camera_x"),y:await word("rds_camera_y"),base_x:await word("rds_camera_base_x"),base_y:await word("rds_camera_base_y"),active:await word("rds_camera_active",false),paused:await word("rds_camera_paused",false),separated:await word("rds_camera_separated",false),player_x:await word("spr_player_x"),player_y:await word("spr_player_y"),other_x:await word("spr_other_x")});
+      const positions=async()=>({x:await word("rds_camera_x"),y:await word("rds_camera_y"),base_x:await word("rds_camera_base_x"),base_y:await word("rds_camera_base_y"),active:await word("rds_camera_active",false),paused:await word("rds_camera_paused",false),separated:await word("rds_camera_separated",false),player_x:await word("spr_player_x"),player_y:await word("spr_player_y"),other_x:await word("spr_other_x"),other_y:await word("spr_other_y")});
       const sample=async(label,expected)=>{const actual=await positions();for(const [key,value] of Object.entries(expected))if(actual[key]!==value)fail(`${target}/${pattern}/${label}: ${JSON.stringify({actual,expected})}`);report.samples.push({pattern,label,...actual,expected});return actual;};
       await advance();await advance();
       if(pattern==="direct_limited"){
@@ -15268,20 +15275,29 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
         await writeFile(path.join(output,"parallax-before.rgba"),Buffer.from(a.framebuffer_rgba));await writeFile(path.join(output,"parallax-after.rgba"),Buffer.from(b.framebuffer_rgba));
         await writeFile(path.join(output,"parallax-frames.json"),JSON.stringify({width:a.framebuffer_width,height:a.framebuffer_height,cameraA,cameraB}));
         const color=(f,x,y)=>f.framebuffer_rgba.slice((y*f.framebuffer_width+x)*4,(y*f.framebuffer_width+x)*4+4).join(',');let equal=0,total=0,changed=0;
+        // WINDOW also contains the emitted scene title at(1,1), beyond the CAMERA
+        // label. Prove fixed glyph ink separately; retain transparent BG pixels.
+        const windowInk=(f,x,y)=>{if(target!=="megadrive"||y>=24)return false;const [r,g,b]=f.framebuffer_rgba.slice((y*f.framebuffer_width+x)*4,(y*f.framebuffer_width+x)*4+3);return r>=128&&Math.abs(r-g)<=8&&Math.abs(g-b)<=8;};
+        if(target==="megadrive"){
+          let first=0,last=0,same=0;for(let y=0;y<24;y++)for(let x=0;x<a.framebuffer_width;x++){const p=windowInk(a,x,y),q=windowInk(b,x,y);first+=Number(p);last+=Number(q);same+=Number(p&&q);}
+          if(first<300||first!==last||same!==first)fail(`WINDOW perdeu titulo/HUD fixo: ${JSON.stringify({first,last,same})}`);
+          step("fixed_window_title_and_hud_ink",{first,last,same,rows:[0,23],origin:"Generated scene title at1,1 and CAMERA at2,2; neutral ink absent from authored blue/orange map palette."});
+        }
+        const spriteAt=(camera,x,y)=>[["player",player],["other",other]].some(([id,entity])=>{const left=camera[id+"_x"]-camera.x,top=camera[id+"_y"]-camera.y;return x>=left&&x<left+entity.components.sprite.frame_width&&y>=top&&y<top+entity.components.sprite.frame_height;});
+        const excluded={sprites:0,window_ink:0,foreground_band:0};
         for(let y=0;y<a.framebuffer_height;y++)for(let x=0;x<a.framebuffer_width-8;x++){
-          // Cover all hardware map pages; omit both footprints of the anchored
-          // player when looking eight pixels ahead in the earlier framebuffer.
-          if(y>=112&&y<144&&x>=120&&x<160)continue;
-          if(layered&&y>=32&&y<64)continue;
-          if(target==="megadrive"&&y<32&&x<112)continue; // Fixed WINDOW HUD has its own oracle.
+          if(spriteAt(cameraA,x,y)||spriteAt(cameraA,x+8,y)||spriteAt(cameraB,x,y)){excluded.sprites++;continue;}
+          if(windowInk(a,x,y)||windowInk(a,x+8,y)||windowInk(b,x,y)){excluded.window_ink++;continue;}
+          if(layered&&y>=32&&y<64){excluded.foreground_band++;continue;}
           total++;equal+=Number(color(b,x,y)===color(a,x+8,y));changed+=Number(color(b,x,y)!==color(a,x,y));
         }
+        step("declared_pixel_exclusions",{...excluded,compared:total,foreground_band_oracle:layered?"324 independent absolute samples below":null});
         if(equal!==total||changed<total*0.8)fail(`Paralaxe sem deslocamento de8px na tela completa: ${JSON.stringify({equal,total,changed})}`);
         // Independent world samples catch wrong 32x32 hardware page ordering,
         // which can still look like correctly shifting repeated artwork.
         const paletteChecks=[];
         for(const [frame,camera] of [[a,cameraA],[b,cameraB]])for(const y of [0,1,8,15,32,35,72,75,168,171,200,203,216,223])for(const x of [0,23,79,183,231]){
-          if(target==="megadrive"&&y<32&&x<112)continue;
+          if(windowInk(frame,x,y)||spriteAt(camera,x,y))continue;
           if(layered&&y>=32&&y<64)continue;
           const wx=Math.trunc(camera.x/2)+x-bounds.x,wy=camera.y+y-bounds.y,cell=(Math.floor(wx/8)*7+Math.floor(wy/8)*3)%4;
           const expected=colors[(cell+(wx%8===0||wy%8===0?1:0))%4],i=(y*frame.framebuffer_width+x)*4,actual=frame.framebuffer_rgba.slice(i,i+3);
@@ -15325,7 +15341,15 @@ async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated)
         // Temporary offsets and shake are cosmetic and return to the base camera.
         await advance("right");await sample("offset-0",{x:baseX+5,y:85});await advance();await sample("offset-1",{x:baseX+5,y:85});await advance();await sample("offset-2",{x:baseX+5,y:85});await advance();await sample("offset-restored",{x:baseX,y:88});
         await advance("left");for(let i=0;i<4;i++){if(i)await advance();await sample(`shake-${i}`,{x:baseX+(i%2?-4:4),y:88+(i%2?-2:2)});}await advance();await sample("shake-restored",{x:baseX,y:88});
-      }else if(pattern.startsWith("auto_")){await advance("start");const before=await positions();await advance();await sample("scroll-step",{x:before.x+(pattern==="auto_horizontal"?2:0),y:before.y+(pattern==="auto_vertical"?2:0)});await advance("up");const held=await positions();await advance();await sample("scroll-pause",{x:held.x,y:held.y,paused:1});await advance("down");await sample("scroll-resume",{x:held.x+(pattern==="auto_horizontal"?2:0),y:held.y+(pattern==="auto_vertical"?2:0),paused:0});}
+      }else if(pattern.startsWith("auto_")){
+        const reverse=pattern.endsWith("_negative"),delta=reverse?-2:2,horizontal=mode==="auto_horizontal";
+        await advance("start");const before=await positions();
+        if(reverse){const origin=512-(horizontal?width:224),actual=horizontal?before.x:before.y;if(actual<origin-2||actual>origin)fail(`Reiniciar nao usou a borda negativa: ${JSON.stringify({origin,actual})}`);}
+        await advance();await sample("scroll-step",{x:before.x+(horizontal?delta:0),y:before.y+(horizontal?0:delta)});
+        await advance("up");const held=await positions();await advance();await sample("scroll-pause",{x:held.x,y:held.y,paused:1});
+        await advance("down");await sample("scroll-resume",{x:held.x+(horizontal?delta:0),y:held.y+(horizontal?0:delta),paused:0});
+        if(reverse){await advance();const batch=await invoke("emulator_run_frames",{frames:300});if(!batch.ok)fail(JSON.stringify(batch));await sample("scroll-negative-destination-bound",{x:0,y:0,paused:0});}
+      }
       else if(pattern==="fixed"){await write("spr_player_x",400);await advance();await sample("fixed",{x:64,y:32});}
       else {await write("spr_player_x",300);await write("spr_player_y",250);await advance();await sample("follow-anchor",{x:172,y:138});await write("spr_player_x",100);await write("spr_player_y",100);await advance();await sample("follow-reverse-bound",{x:0,y:0});}
       addReportArtifact(report,await captureScreenshot(sessionId,`${prefix}-${pattern}.png`),pattern);

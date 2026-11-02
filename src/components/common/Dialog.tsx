@@ -56,6 +56,7 @@ export interface DialogProps {
   title: ReactNode;
   description?: ReactNode;
   children: ReactNode;
+  footer?: ReactNode;
   onClose: () => void;
   closeOnEscape?: boolean;
   closeDisabled?: boolean;
@@ -74,6 +75,7 @@ export default function Dialog({
   title,
   description,
   children,
+  footer,
   onClose,
   closeOnEscape = true,
   closeDisabled = false,
@@ -217,6 +219,7 @@ export default function Dialog({
         <div data-rds-dialog-body="" className="min-h-0 flex-1 overflow-auto p-4">
           {children}
         </div>
+        {footer && <div data-rds-dialog-footer="" className="rds-surface-panel rds-border-subtle shrink-0 border-t px-4">{footer}</div>}
       </div>
     </div>
   );

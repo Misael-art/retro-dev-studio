@@ -202,10 +202,17 @@ export default function CameraConfigurator({ entityId }: { entityId?: string }) 
     return <label className="flex flex-col gap-1 text-xs">{label}<input className={input} type="number" min={min} max={max} step={1}
       aria-label={label} aria-invalid={!Number.isInteger(value)||value<min||value>max} value={value} onChange={e => { if(e.currentTarget.value!=="") onChange(Math.round(Number(e.currentTarget.value))); }} />{(!Number.isInteger(value)||value<min||value>max)&&<span role="alert">Use um inteiro entre {min} e {max}.</span>}</label>;
   }
+  const actions = draft && config && scene ? (
+        <div className="flex flex-wrap justify-end gap-2 py-3">
+          <button className={button} data-testid="camera-cancel" type="button" onClick={()=>{setDraft(null);setPlaying(false);}}>Cancelar</button>
+          <button className="rds-button rds-button--primary min-h-8 px-3 text-xs font-semibold" data-testid="camera-apply" type="button" disabled={Boolean(stale)||errors.length>0||!clockReady} onClick={()=>apply()}>Aplicar</button>
+          <button className={button} data-testid="camera-test" type="button" disabled={Boolean(stale)||errors.length>0||!clockReady} onClick={()=>apply(true)}>Aplicar e testar projeto</button>
+        </div>
+  ) : null;
   return <>
     <button type="button" className={button} disabled={!scene} onClick={()=>open()} data-testid="configure-camera">Configurar câmera</button>
     <Dialog open={Boolean(draft)} title="Configurar câmera · Experimental" onClose={()=>{setDraft(null);setPlaying(false);}}
-      className="!w-[min(1120px,96vw)] max-h-[92vh]" testId="camera-configurator">
+      className="!w-[min(1120px,96vw)] max-h-[92vh]" testId="camera-configurator" footer={actions}>
       {draft && config && scene && <div className="space-y-4 text-[var(--rds-text-primary)]" onFocusCapture={e => {
         const field=e.target;
         if (field instanceof HTMLInputElement && ["text","number"].includes(field.type)) {
@@ -216,7 +223,7 @@ export default function CameraConfigurator({ entityId }: { entityId?: string }) 
       }}>
         <p className="text-xs">{getEntityDisplayName(draft.entity)} · {target === "snes" ? "SNES" : "Mega Drive"}. Escolha, ajuste e teste no projeto.</p>
         {!draft.entity.components.camera?.visual && <p role="status" className="text-xs">Aplicar converte esta câmera para o fluxo visual. Cancelar preserva o legado; Desfazer restaura a configuração anterior.</p>}
-        <div className="flex flex-wrap items-center gap-2 sticky top-0 z-10 bg-[var(--rds-surface-panel)] py-2">
+        <div className="flex flex-wrap items-center gap-2 py-2">
           <button type="button" className={button} disabled={!history.current.past.length && !(gesture.current && JSON.stringify(gesture.current)!==JSON.stringify(draft))} onClick={() => travel()}>Desfazer ajuste</button>
           <button type="button" className={button} disabled={!history.current.future.length} onClick={() => travel(true)}>Refazer ajuste</button>
           <button type="button" className={button} onClick={() => choosePattern(config.pattern, true)}>Restaurar valores do padrão</button>
@@ -298,7 +305,7 @@ export default function CameraConfigurator({ entityId }: { entityId?: string }) 
                   onKeyDown={e=>{const moves:Record<string,number[]>={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};const m=moves[e.key];if(m){e.preventDefault();change({screen_x:Math.max(0,Math.min(frame.width,config.screen_x+m[0]*(e.shiftKey?8:1))),screen_y:Math.max(0,Math.min(frame.height,config.screen_y+m[1]*(e.shiftKey?8:1)))});}}}/>
               </svg>
             </> : <svg viewBox={`${preview.x} ${preview.y} ${frame.width} ${frame.height}`} preserveAspectRatio="xMidYMid meet" style={{width:`min(100%, ${frame.width}px, ${frame.width/frame.height*28}vh)`,aspectRatio:`${frame.width}/${frame.height}`,height:"auto",marginInline:"auto",display:"block"}} className=" rounded border bg-[var(--rds-surface-canvas)]" aria-label="Visão do jogador"><SceneArtwork scene={scene} target={target} project={activeProjectDir} camera={{x:preview.x,y:preview.y,ratios:advanced?.parallax??[]}}/></svg>}
-            <p className="text-xs">{frame.width} × {frame.height} · {follows?"Arraste o círculo ou use as setas. Campos exatos em Personalizar.":"Enquadramento final da câmera."}</p>
+            <p className="text-xs">{frame.width} × {frame.height} · {follows?"Círculo: posição desejada. Limites e movimento podem afastar o personagem. Arraste ou use as setas; campos exatos em Personalizar.":"Enquadramento final da câmera."}</p>
             </div>
             <div hidden={previewMode!=="map"} className="space-y-2"><strong className="block text-sm">Mapa geral · composição da cena</strong>
             {(drawing||placingPoint!==null)&&<p role="status" className="text-xs">{placingPoint!==null?"Clique ou arraste para posicionar o ponto.":"Arraste no cenário para desenhar a área selecionada."}</p>}
@@ -354,11 +361,7 @@ export default function CameraConfigurator({ entityId }: { entityId?: string }) 
         {stale&&<p role="alert">A cena mudou durante a configuração. Cancele e abra novamente.</p>}
         {cameraConflictSources(scene).map((issue,i)=><div key={i} className="text-sm"><p>{issue.message}</p><button className={button} type="button" onClick={()=>{setDraft(null);setPlaying(false);const store=useEditorStore.getState();if(issue.entityId)store.openStudioEditor({focus:{task:issue.nodeId?"actions":"scene",entityId:issue.entityId}});else store.setActiveViewportTab("retrofx");}}>Cancelar ajustes e abrir responsável</button></div>)}
         {errors.map(error=><p role="alert" key={error} className="text-sm font-medium text-[var(--rds-text-primary)]">{error}</p>)}
-        <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t bg-[var(--rds-surface-panel)] py-3">
-          <button className={button} data-testid="camera-cancel" type="button" onClick={()=>{setDraft(null);setPlaying(false);}}>Cancelar</button>
-          <button className="rds-button rds-button--primary min-h-8 px-3 text-xs font-semibold" data-testid="camera-apply" type="button" disabled={Boolean(stale)||errors.length>0||!clockReady} onClick={()=>apply()}>Aplicar</button>
-          <button className={button} data-testid="camera-test" type="button" disabled={Boolean(stale)||errors.length>0||!clockReady} onClick={()=>apply(true)}>Aplicar e testar projeto</button>
-        </div>
+
       </div>}
     </Dialog>
   </>;

@@ -91,6 +91,20 @@ describe("Dialog", () => {
     expect(document.activeElement?.textContent).toBe("Aplicar");
   });
 
+  it("keeps footer actions in the keyboard cycle after the scrolling content", () => {
+    const apply=vi.fn();
+    act(()=>root.render(<Dialog open title="Câmera" onClose={()=>undefined} footer={<button onClick={apply}>Aplicar</button>}>
+      <input aria-label="Composição"/>
+    </Dialog>));
+    const footer=document.querySelector<HTMLButtonElement>("[data-rds-dialog-footer] button")!;
+    footer.focus();
+    act(()=>document.dispatchEvent(new KeyboardEvent("keydown",{key:"Tab",bubbles:true})));
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Fechar diálogo");
+    act(()=>document.dispatchEvent(new KeyboardEvent("keydown",{key:"Tab",shiftKey:true,bubbles:true})));
+    expect(document.activeElement).toBe(footer);
+    act(()=>footer.click());expect(apply).toHaveBeenCalledOnce();
+  });
+
   it("closes with Escape and restores focus to the invoker", () => {
     function Fixture() {
       const [open, setOpen] = useState(false);
