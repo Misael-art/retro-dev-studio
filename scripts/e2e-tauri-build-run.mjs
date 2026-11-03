@@ -2972,6 +2972,23 @@ async function pressKey(sessionId, key, options = {}) {
   }
 }
 
+async function pressNativeUndoRedo(sessionId, key) {
+  if (key !== "z" && key !== "y") fail(`Atalho de histórico desconhecido: ${key}`);
+  const response = await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, {
+    actions: [{
+      type: "key", id: "reference-history-keyboard", actions: [
+        { type: "keyDown", value: "\uE009" },
+        { type: "keyDown", value: key },
+        { type: "keyUp", value: key },
+        { type: "keyUp", value: "\uE009" },
+      ],
+    }],
+  });
+  if (!response.ok || response.payload?.value?.error) {
+    fail(`Atalho nativo de histórico ${key} recusado: ${JSON.stringify(response)}`);
+  }
+}
+
 const NATIVE_GAME_KEYS = {
   ArrowRight: "\uE014",
   ArrowLeft: "\uE012",
@@ -10365,6 +10382,9 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   const compositionBefore = await readAutomationState(sessionId);
   const compositionPositions = Object.fromEntries(compositionBefore.activeScene.entities.map((entity) => [entity.id, { x: entity.x, y: entity.y }]));
   const compositionUndoDepth = compositionBefore.undoDepth;
+  // WebDriver keeps input-source state across /actions calls. Reuse the same
+  // mouse source for collision erasure and layer dragging.
+  const compositionPointerId = "reference-composition-pointer";
   const dragComposition = async () => {
     const point = await executeScript(sessionId, `
       const canvas=document.querySelector('[data-testid="viewport-scene-overlay"]');
@@ -10380,7 +10400,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     const under = await executeScript(sessionId, `return document.elementFromPoint(arguments[0],arguments[1])?.closest('[data-testid]')?.getAttribute('data-testid') ?? null;`, [point.x, point.y]);
     if (under !== "viewport-scene-overlay") fail(`Camada nao alcançável no palco: ${under}`);
     const result = await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{
-      type: "pointer", id: "reference-layer-drag", parameters: { pointerType: "mouse" }, actions: [
+      type: "pointer", id: compositionPointerId, parameters: { pointerType: "mouse" }, actions: [
         { type: "pointerMove", origin: "viewport", x: point.x, y: point.y },
         { type: "pointerDown", button: 0 },
         { type: "pointerMove", duration: 250, origin: "viewport", x: point.x + point.dx, y: point.y },
@@ -10389,6 +10409,51 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     }] });
     if (!result.ok) fail(`Arraste de camada recusado: ${JSON.stringify(result)}`);
   };
+  const compositionSceneFile = path.join(createdState.activeProjectDir, "scenes", "main.json");
+  const originalCollisionMap = JSON.parse(await readFile(compositionSceneFile, "utf8")).collision_map;
+  await clickButtonByTestIdNative(sessionId, "viewport-move-object", "mover somente o Player");
+  await dragComposition();
+  const objectMoved = await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state.activeScene.entities.find((entity) => entity.id === "player")?.x !== compositionPositions.player.x ? state : false;
+  }, 10000, "Mover objeto não deslocou o Player.", 100);
+  if (objectMoved.undoDepth !== compositionUndoDepth + 1 || objectMoved.activeScene.entities.some((entity) =>
+    entity.id !== "player" && (entity.x !== compositionPositions[entity.id]?.x || entity.y !== compositionPositions[entity.id]?.y))) {
+    fail("Mover objeto alterou outro membro ou não criou uma entrada de Undo.");
+  }
+  await pressNativeUndoRedo(sessionId, "z");
+  await waitFor(async () => (await readAutomationState(sessionId)).activeScene.entities.find((entity) => entity.id === "player")?.x === compositionPositions.player.x,
+    10000, "Undo do movimento individual não restaurou o Player.", 100);
+  addReportStep(report, "move_object_scope_and_undo", "passed", { movedEntity: "player", otherEntities: "preserved" });
+
+  await clickButtonByTestIdNative(sessionId, "viewport-move-layer", "mover camada sem mapa global");
+  if (await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-move-collision"]')?.getAttribute('aria-pressed');`) !== "false") {
+    fail("Mapa global não estava separado no movimento de camada.");
+  }
+  await dragComposition();
+  const noMapMoved = await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state.activeScene.entities.find((entity) => entity.id === "player")?.x !== compositionPositions.player.x ? state : false;
+  }, 10000, "Mover camada sem mapa não deslocou o Player.", 100);
+  const noMapDelta = noMapMoved.activeScene.entities.find((entity) => entity.id === "player").x - compositionPositions.player.x;
+  if (noMapMoved.undoDepth !== compositionUndoDepth + 1 || noMapMoved.activeScene.entities.some((entity) =>
+    entity.x !== compositionPositions[entity.id].x + (["player", "passage_blocker", "goal", "goal_sensor"].includes(entity.id) ? noMapDelta : 0) ||
+    entity.y !== compositionPositions[entity.id].y)) {
+    fail("Mover camada sem mapa alterou seu alcance ou o histórico.");
+  }
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  const noMapSource = await waitFor(async () => {
+    const scene = JSON.parse(await readFile(compositionSceneFile, "utf8"));
+    return scene.entities.find((entity) => entity.entity_id === "player")?.transform?.x === compositionPositions.player.x + noMapDelta ? scene : false;
+  }, 15000, "Cena-fonte não persistiu o movimento da camada sem mapa.", 200);
+  if (JSON.stringify(noMapSource.collision_map) !== JSON.stringify(originalCollisionMap)) {
+    fail("Mover camada com mapa separado alterou a colisão persistida.");
+  }
+  await pressNativeUndoRedo(sessionId, "z");
+  await waitFor(async () => (await readAutomationState(sessionId)).activeScene.entities.find((entity) => entity.id === "player")?.x === compositionPositions.player.x,
+    10000, "Undo da camada sem mapa não restaurou os membros.", 100);
+  addReportStep(report, "move_layer_without_global_map", "passed", { members: 4, collisionMap: "source_unchanged", undoEntries: 1 });
+
   await clickButtonByTestIdNative(sessionId, "viewport-move-collision", "incluir mapa global");
   await dragComposition();
   const clipped = await readAutomationState(sessionId);
@@ -10396,7 +10461,53 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     entity.x !== compositionPositions[entity.id]?.x || entity.y !== compositionPositions[entity.id]?.y)) {
     fail("Arraste que recortaria o mapa alterou a composicao ou o historico.");
   }
-  await clickButtonByTestIdNative(sessionId, "viewport-move-collision", "separar mapa global");
+  await executeScript(sessionId, `
+    window.__rdsCompositionPointerEvents=[];
+    const canvas=document.querySelector('[data-testid="viewport-scene-overlay"]');
+    for(const type of ['mousedown','mousemove','mouseup','mouseleave']) canvas.addEventListener(type,e=>{
+      if(window.__rdsCompositionPointerEvents.length<60) window.__rdsCompositionPointerEvents.push({type,button:e.button,buttons:e.buttons,x:e.clientX,y:e.clientY});
+    },{capture:true});
+  `);
+  // Make two empty columns on the right through the collision tool, then prove
+  // a positive group+global-map shift. The built ROM must contain that grid.
+  await clickButtonByTestIdNative(sessionId, "viewport-tool-collision", "editar margem do mapa de colisão");
+  await clickButtonByTestIdNative(sessionId, "viewport-collision-free", "apagar colisão com o botão principal");
+  for (const [col, row] of [[38, 26], [39, 26], [38, 27], [39, 27]]) {
+    const point = await executeScript(sessionId, `
+      const canvas=document.querySelector('[data-testid="viewport-scene-overlay"]');
+      const rect=canvas.getBoundingClientRect();
+      const bounds=window.__RDS_E2E__.getState().activeScene.worldBounds;
+      return {x:Math.round(rect.left+((arguments[0]*8+4)-bounds.minX)/bounds.width*rect.width),
+        y:Math.round(rect.top+((arguments[1]*8+4)-bounds.minY)/bounds.height*rect.height)};
+    `, [col, row]);
+    const under = await executeScript(sessionId, `return document.elementFromPoint(arguments[0],arguments[1])?.closest('[data-testid]')?.getAttribute('data-testid') ?? null;`, [point.x, point.y]);
+    if (under !== "viewport-scene-overlay") fail(`Célula de colisão ${col},${row} não alcançável: ${under}`);
+    const cleared = await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{
+      type: "pointer", id: compositionPointerId, parameters: { pointerType: "mouse" }, actions: [
+        { type: "pointerMove", origin: "viewport", x: point.x, y: point.y },
+        { type: "pointerDown", button: 0 }, { type: "pointerUp", button: 0 },
+      ],
+    }] });
+    if (!cleared.ok) fail(`Edição de colisão ${col},${row} recusada: ${JSON.stringify(cleared)}`);
+  }
+  const erasureEvents = await executeScript(sessionId, `return window.__rdsCompositionPointerEvents ?? [];`);
+  if (erasureEvents.filter((event) => event.type === "mousedown" && event.button === 0 && event.buttons === 1).length !== 4 ||
+    erasureEvents.filter((event) => event.type === "mouseup" && event.button === 0 && event.buttons === 0).length !== 4) {
+    fail(`Apagamento nativo não liberou o botão principal após cada célula: ${JSON.stringify(erasureEvents)}`);
+  }
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  const preparedMap = JSON.parse(await readFile(path.join(createdState.activeProjectDir, "scenes", "main.json"), "utf8")).collision_map;
+  if (!preparedMap || preparedMap.width !== 40 || preparedMap.height !== 28 ||
+    [26, 27].some((row) => [38, 39].some((col) => preparedMap.data[row * 40 + col] !== 0))) {
+    fail("Edição nativa não liberou as quatro células da borda do mapa.");
+  }
+  const preparedUndoDepth = (await readAutomationState(sessionId)).undoDepth;
+  await clickButtonByTestIdNative(sessionId, "viewport-move-layer", "voltar a mover camada com mapa global");
+  await waitFor(async () => executeScript(sessionId, `
+    return document.querySelector('[data-testid="viewport-tool-select"]')?.getAttribute('aria-pressed')==='true' &&
+      document.querySelector('[data-testid="viewport-move-layer"]')?.getAttribute('aria-pressed')==='true';
+  `), 5000, "Modo de seleção da camada não ficou ativo após editar colisão.", 100);
+  await executeAsyncScript(sessionId, `const done=arguments[arguments.length-1]; requestAnimationFrame(()=>requestAnimationFrame(done));`);
   await dragComposition();
   const moved = await waitFor(async () => {
     const state = await readAutomationState(sessionId);
@@ -10408,23 +10519,37 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
       selectedEntityId: state?.selectedEntityId, undoDepth: state?.undoDepth,
       entities: state?.activeScene?.entities?.map((entity) => ({ id: entity.id, x: entity.x, y: entity.y })),
       consoleEntries: state?.consoleEntries?.slice(-12),
-    }, controls: await executeScript(sessionId, `return ['viewport-move-layer','viewport-move-collision'].map(id=>({id,pressed:document.querySelector('[data-testid="'+id+'"]')?.getAttribute('aria-pressed')}));`) };
+    }, controls: await executeScript(sessionId, `return ['viewport-move-layer','viewport-move-collision'].map(id=>({id,pressed:document.querySelector('[data-testid="'+id+'"]')?.getAttribute('aria-pressed')}));`),
+    pointerEvents: await executeScript(sessionId, `return window.__rdsCompositionPointerEvents ?? [];`) };
     const diagnosticPath = path.join(validationDir, `${artifactPrefix}-composition-diagnostics.json`);
     await writeFile(diagnosticPath, JSON.stringify(diagnostics, null, 2));
     addReportArtifact(report, await captureScreenshot(sessionId, `${artifactPrefix}-composition-failure.png`), "composition failure");
     fail(`${error.message} diagnostics=${diagnosticPath} ${JSON.stringify(diagnostics.state)}`);
   });
+  const compositionEvents = await executeScript(sessionId, `return window.__rdsCompositionPointerEvents ?? [];`);
+  const dragDownIndex = compositionEvents.findLastIndex((event) => event.type === "mousedown");
+  const dragEvents = compositionEvents.slice(dragDownIndex);
+  if (dragDownIndex < 0 || dragEvents[0]?.button !== 0 || dragEvents[0]?.buttons !== 1 ||
+    !dragEvents.some((event) => event.type === "mousemove" && event.buttons === 1) ||
+    !dragEvents.some((event) => event.type === "mouseup" && event.button === 0 && event.buttons === 0)) {
+    fail(`Arraste da camada não manteve somente o botão principal após apagar colisão: ${JSON.stringify(dragEvents)}`);
+  }
   const layerDelta = moved.activeScene.entities.find((entity) => entity.id === "player").x - compositionPositions.player.x;
   for (const entity of moved.activeScene.entities) {
     const expected = compositionPositions[entity.id].x + (["player", "passage_blocker", "goal", "goal_sensor"].includes(entity.id) ? layerDelta : 0);
     if (entity.x !== expected || entity.y !== compositionPositions[entity.id].y) fail(`Movimento alterou escopo de ${entity.id}: ${JSON.stringify({ expected, entity })}`);
   }
-  if (moved.undoDepth !== compositionUndoDepth + 1) fail("Movimento da camada nao criou uma unica entrada de Undo.");
+  if (moved.undoDepth !== preparedUndoDepth + 1) fail("Movimento da camada nao criou uma unica entrada de Undo.");
   await clickTopBarMenuAction(sessionId, "Salvar");
-  await waitFor(async () => {
+  const movedScene = await waitFor(async () => {
     const saved = JSON.parse(await readFile(path.join(createdState.activeProjectDir, "scenes", "main.json"), "utf8"));
-    return saved.entities.find((entity) => entity.entity_id === "player")?.transform?.x === compositionPositions.player.x + layerDelta;
+    return saved.entities.find((entity) => entity.entity_id === "player")?.transform?.x === compositionPositions.player.x + layerDelta ? saved : false;
   }, 15000, "Composição movida não persistiu no arquivo da cena.", 200);
+  const expectedMovedMap = Array(40 * 28).fill(0);
+  preparedMap.data.forEach((value, index) => { if (value) expectedMovedMap[index + 2] = value; });
+  if (JSON.stringify(movedScene.collision_map?.data) !== JSON.stringify(expectedMovedMap)) {
+    fail("Mover a camada não deslocou o mapa global íntegro em duas colunas.");
+  }
   await clickByTestId(sessionId, "workspace-rail-game");
   const movedBuild = await runBuildRunAndCollect(sessionId, "reference platformer moved composition", timeoutMs, report, artifactPrefix);
   const movedSymbols = parseElf32Symbols(await readFile(path.join(createdState.activeProjectDir, "build", "megadrive", "out", "rom.out")));
@@ -10442,22 +10567,144 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   if (movedPlayerMemory?.error || movedPlayerRuntimeX !== compositionPositions.player.x + layerDelta) {
     fail(`ROM não executou a posição movida do Player: ${JSON.stringify({ expected: compositionPositions.player.x + layerDelta, actual: movedPlayerRuntimeX, memory: movedPlayerMemory })}`);
   }
+  const movedPlayerYAddress = movedSymbols.get("spr_player_y");
+  if (!Number.isInteger(movedPlayerYAddress) || ![0x00ff, 0xe0ff].includes(movedPlayerYAddress >>> 16)) {
+    fail(`Símbolo de altura do Player ausente na ROM movida: ${movedPlayerYAddress}`);
+  }
+  const readMovedPlayerS16 = async (address) => {
+    const result = await executeAsyncScript(sessionId, `
+      const done=arguments[arguments.length-1];
+      const invoke=window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke;
+      invoke('emulator_read_memory',{region:2,offset:arguments[0]&0xffff,length:2}).then(done).catch(e=>done({error:String(e)}));
+    `, [address]);
+    if (result?.error || !result?.data || result.data.length < 2) fail(`Leitura de RAM da ROM movida falhou: ${JSON.stringify(result)}`);
+    const word = result.data[0] | (result.data[1] << 8);
+    return word > 0x7fff ? word - 0x10000 : word;
+  };
   report.roms.push(movedBuild);
+  const movedRomBytes = await readFile(movedBuild.rom_path);
+  const collisionBytesOffset = movedRomBytes.indexOf(Buffer.from(expectedMovedMap));
+  if (collisionBytesOffset < 0) fail("ROM movida não contém os bytes do mapa de colisão deslocado.");
   addReportStep(report, "moved_composition_visible_in_rom", "passed", {
     playerX: movedPlayerRuntimeX, romSha256: movedBuild.rom_sha256, framebufferSha256: movedBuild.framebuffer.framebuffer_sha256,
+    collisionBytesOffset,
+  });
+  await closeVisibleConsoleDrawer(sessionId, "reference platformer moved collision input");
+  await focusGameCanvasNatively(sessionId);
+  await sendNativeGameKey(sessionId, "ArrowLeft", "keyDown", "moved collision left edge");
+  const leftAck = await waitFor(async () => {
+    const observed = await executeScript(sessionId, "return window.__RDS_E2E__?.getLastInputObservation?.() ?? null;");
+    return observed?.lastJoypadAck?.joypad?.left === true ? observed.lastJoypadAck : false;
+  }, 10000, "Entrada esquerda não chegou ao core da ROM movida.", 100);
+  const leftEdgeX = await waitFor(async () => {
+    const x = await readMovedPlayerS16(movedPlayerAddress);
+    return x <= 7 ? { x } : false;
+  }, 20000, "Player não alcançou a faixa sem piso após deslocar o mapa global.", 100);
+  await sendNativeGameKey(sessionId, "ArrowLeft", "keyUp", "moved collision release");
+  const fallenY = await waitFor(async () => {
+    const y = await readMovedPlayerS16(movedPlayerYAddress);
+    return y > compositionPositions.player.y ? y : false;
+  }, 10000, "Player não caiu ao atravessar a faixa liberada pelo mapa deslocado.", 100);
+  addReportStep(report, "moved_collision_observed_in_game", "passed", {
+    romSha256: movedBuild.rom_sha256, playerStartY: compositionPositions.player.y,
+    playerLeftEdgeX: leftEdgeX.x, playerFallenY: fallenY, inputAck: leftAck,
   });
   await clickByTestId(sessionId, "workspace-rail-scene");
-  await pressKey(sessionId, "z", { code: "KeyZ", ctrlKey: true });
+  await pressNativeUndoRedo(sessionId, "z");
   await waitFor(async () => (await readAutomationState(sessionId))?.activeScene?.entities?.find((entity) => entity.id === "player")?.x === compositionPositions.player.x,
     10000, "Undo nao restaurou a composicao.", 100);
-  await pressKey(sessionId, "y", { code: "KeyY", ctrlKey: true });
+  await pressNativeUndoRedo(sessionId, "y");
   await waitFor(async () => (await readAutomationState(sessionId))?.activeScene?.entities?.find((entity) => entity.id === "player")?.x === compositionPositions.player.x + layerDelta,
     10000, "Redo nao restaurou o movimento de grupo.", 100);
-  await pressKey(sessionId, "z", { code: "KeyZ", ctrlKey: true });
+  await pressNativeUndoRedo(sessionId, "z");
   await waitFor(async () => (await readAutomationState(sessionId))?.activeScene?.entities?.find((entity) => entity.id === "player")?.x === compositionPositions.player.x,
     10000, "Undo final nao restaurou o template.", 100);
+  for (let index = 0; index < 4; index += 1) await pressNativeUndoRedo(sessionId, "z");
   await clickTopBarMenuAction(sessionId, "Salvar");
-  addReportStep(report, "move_layer_scope_collision_refusal_and_undo_redo", "passed", { layerDelta, members: 4, globalCollision: "refused_clipping", undoEntries: 1 });
+  const resetMap = JSON.parse(await readFile(path.join(createdState.activeProjectDir, "scenes", "main.json"), "utf8")).collision_map;
+  if ([26, 27].some((row) => [38, 39].some((col) => resetMap.data[row * 40 + col] !== 1))) {
+    fail("Undo das edições de colisão não restaurou o chão completo.");
+  }
+  addReportStep(report, "move_layer_scope_collision_refusal_and_undo_redo", "passed", { layerDelta, members: 4, globalCollision: "clipping_refused_and_positive_rom_bytes", collisionBytesOffset, undoEntries: 1, dragEvents });
+  const mapIncludedBeforeRestore = await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-move-collision"]')?.getAttribute('aria-pressed') ?? null;`);
+  if (mapIncludedBeforeRestore === "true") {
+    await clickButtonByTestIdNative(sessionId, "viewport-move-collision", "manter mapa global separado na prévia do template");
+  }
+  if (await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-move-collision"]')?.getAttribute('aria-pressed') ?? null;`) !== "false") {
+    fail("Mapa global não ficou separado antes de testar a restauração do template.");
+  }
+  await clickButtonByTestIdNative(sessionId, "viewport-move-layer", "selecionar camada antes da restauração do template");
+  await waitFor(async () => (await readAutomationState(sessionId)).editorMode === "select",
+    5000, "Ferramenta de seleção não ficou ativa após editar colisão.", 100);
+  await executeScript(sessionId, `
+    window.__rdsTemplateDragEvents=[];
+    const canvas=document.querySelector('[data-testid="viewport-scene-overlay"]');
+    for(const type of ['mousedown','mousemove','mouseup','mouseleave']) canvas.addEventListener(type,e=>{
+      if(window.__rdsTemplateDragEvents.length<20) window.__rdsTemplateDragEvents.push({type,button:e.button,buttons:e.buttons,x:e.clientX,y:e.clientY});
+    },{capture:true});
+  `);
+  await dragComposition();
+  const beforeTemplateRestore = await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state.activeScene.entities.find((entity) => entity.id === "player")?.x === compositionPositions.player.x + layerDelta ? state : false;
+  }, 10000, "Camada nao moveu antes da restauracao do template.", 100).catch(async (error) => {
+    const state = await readAutomationState(sessionId);
+    const diagnostics = {
+      activeLayerId: state.activeLayerId, editorMode: state.editorMode,
+      selectedEntityId: state.selectedEntityId, undoDepth: state.undoDepth,
+      entities: state.activeScene.entities.map((entity) => ({ id: entity.id, x: entity.x, y: entity.y })),
+      controls: await executeScript(sessionId, `return ['viewport-move-layer','viewport-move-collision'].map(id=>({id,pressed:document.querySelector('[data-testid="'+id+'"]')?.getAttribute('aria-pressed')}));`),
+      pointerEvents: await executeScript(sessionId, `return window.__rdsTemplateDragEvents ?? [];`),
+      consoleEntries: state.consoleEntries.slice(-10),
+    };
+    const diagnosticPath = path.join(validationDir, `${artifactPrefix}-template-restore-diagnostics.json`);
+    await writeFile(diagnosticPath, JSON.stringify(diagnostics, null, 2));
+    addReportArtifact(report, await captureScreenshot(sessionId, `${artifactPrefix}-template-restore-failure.png`), "template restore setup failure");
+    fail(`${error.message} diagnostics=${diagnosticPath}`);
+  });
+  await waitFor(async () => executeScript(sessionId, `return !!document.querySelector('[data-testid="viewport-template-restore"]');`),
+    10000, "Restauracao do template nao apareceu na cena de referencia.", 100);
+  await clickButtonByTestIdNative(sessionId, "viewport-template-restore", "prévia de restauração do template");
+  const previewCount = await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-template-preview-count"]')?.textContent ?? '';`);
+  if (!previewCount.includes("4 posição")) fail(`Prévia da restauração não enumerou os quatro objetos movidos: ${previewCount}`);
+  await clickButtonByTestIdNative(sessionId, "viewport-template-cancel", "cancelar restauração do template");
+  const cancelledTemplate = await readAutomationState(sessionId);
+  if (cancelledTemplate.undoDepth !== beforeTemplateRestore.undoDepth ||
+    cancelledTemplate.sceneRevision !== beforeTemplateRestore.sceneRevision ||
+    JSON.stringify(cancelledTemplate.activeScene.entities) !== JSON.stringify(beforeTemplateRestore.activeScene.entities)) {
+    fail("Cancelar a prévia alterou a cena, a revisão ou o histórico.");
+  }
+  await clickButtonByTestIdNative(sessionId, "viewport-template-restore", "reabrir prévia do template");
+  await clickButtonByTestIdNative(sessionId, "viewport-template-apply", "restaurar posições do template");
+  const restoredTemplate = await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state.activeScene.entities.find((entity) => entity.id === "player")?.x === compositionPositions.player.x ? state : false;
+  }, 10000, "Restauração não voltou às posições do template.", 100);
+  if (restoredTemplate.undoDepth !== beforeTemplateRestore.undoDepth + 1) fail("Restaurar template não criou uma única entrada de Undo.");
+  await pressNativeUndoRedo(sessionId, "z");
+  await waitFor(async () => (await readAutomationState(sessionId)).activeScene.entities.find((entity) => entity.id === "player")?.x === compositionPositions.player.x + layerDelta,
+    10000, "Undo da restauração não recuperou a composição movida.", 100);
+  await pressNativeUndoRedo(sessionId, "y");
+  await waitFor(async () => (await readAutomationState(sessionId)).activeScene.entities.find((entity) => entity.id === "player")?.x === compositionPositions.player.x,
+    10000, "Redo da restauração não devolveu as posições originais.", 100);
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  const restoredSource = await waitFor(async () => {
+    const scene = JSON.parse(await readFile(path.join(createdState.activeProjectDir, "scenes", "main.json"), "utf8"));
+    return scene.entities.find((entity) => entity.entity_id === "player")?.transform?.x === compositionPositions.player.x ? scene : false;
+  }, 15000, "Restauração não persistiu na cena-fonte.", 200);
+  for (const id of ["player", "passage_blocker", "goal", "goal_sensor"]) {
+    const entity = restoredSource.entities.find((candidate) => candidate.entity_id === id);
+    if (entity?.transform?.x !== compositionPositions[id].x || entity?.transform?.y !== compositionPositions[id].y) {
+      fail(`Cena-fonte não concorda com a restauração de ${id}: ${JSON.stringify(entity?.transform)}`);
+    }
+  }
+  if (JSON.stringify(restoredSource.collision_map?.data) !== JSON.stringify(resetMap.data)) {
+    fail("Restauração alterou o mapa global que estava fora de seu alcance.");
+  }
+  addReportStep(report, "preview_and_restore_template_positions", "passed", {
+    changedEntities: 4, undoEntries: 1, undoRedo: "native", sourceAndResolvedAgree: true,
+    collisionMap: "preserved", preparationDragEvents: await executeScript(sessionId, `return window.__rdsTemplateDragEvents ?? [];`),
+  });
   await clickButtonByText(sessionId, "Cena");
 
   await clickByTestId(sessionId, "workspace-rail-game");
@@ -11096,7 +11343,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   if (paintedCollision !== tilemapCollisionBefore) {
     fail(`Pintura visual alterou indevidamente a colisao separada: ${JSON.stringify({ tilemapCollisionBefore, paintedCollision })}`);
   }
-  await pressKey(sessionId, "z", { code: "KeyZ", ctrlKey: true });
+  await pressNativeUndoRedo(sessionId, "z");
   const undoneState = await waitFor(
     async () => {
       const state = await readAutomationState(sessionId);
@@ -11107,7 +11354,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     "Undo nao restaurou a celula original do tilemap.",
     100
   );
-  await pressKey(sessionId, "y", { code: "KeyY", ctrlKey: true });
+  await pressNativeUndoRedo(sessionId, "y");
   const redoneState = await waitFor(
     async () => {
       const state = await readAutomationState(sessionId);
@@ -11117,7 +11364,19 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     10000,
     "Redo nao reaplicou a celula pintada do tilemap.",
     100
-  );
+  ).catch(async (error) => {
+    const state = await readAutomationState(sessionId);
+    const diagnostics = {
+      cause: String(error), undoDepth: state.undoDepth, sceneRevision: state.sceneRevision,
+      editorMode: state.editorMode, tilemapValue: state.activeScene?.entities.find((entity) => entity.id === "reference_tilemap")?.tilemap?.cells?.[tilemapCellIndex] ?? null,
+      focus: await executeScript(sessionId, `return {tag:document.activeElement?.tagName,testId:document.activeElement?.getAttribute('data-testid'),text:document.activeElement?.textContent?.slice(0,80)};`),
+      consoleEntries: state.consoleEntries.slice(-10),
+    };
+    const diagnosticPath = path.join(validationDir, `${artifactPrefix}-tilemap-redo-diagnostics.json`);
+    await writeFile(diagnosticPath, JSON.stringify(diagnostics, null, 2));
+    addReportArtifact(report, await captureScreenshot(sessionId, `${artifactPrefix}-tilemap-redo-failure.png`), "tilemap redo failure");
+    fail(`${error.message} diagnostics=${diagnosticPath}`);
+  });
   const savesBeforeTilemapAuthoring = (redoneState?.consoleEntries ?? []).filter((entry) =>
     String(entry.message ?? "").includes("Cena salva no projeto ativo.")
   ).length;
@@ -11493,6 +11752,15 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   if (reopenedTileValue !== 2) {
     fail(`Tilemap pintado nao persistiu apos reabertura: ${JSON.stringify({ cellIndex: tilemapCellIndex, expected: 2, actual: reopenedTileValue })}`);
   }
+  for (const id of ["player", "passage_blocker", "goal", "goal_sensor"]) {
+    const entity = reopenedState.activeScene.entities.find((candidate) => candidate.id === id);
+    if (entity?.x !== compositionPositions[id].x || entity?.y !== compositionPositions[id].y) {
+      fail(`Posição restaurada de ${id} não sobreviveu à reabertura: ${JSON.stringify(entity)}`);
+    }
+  }
+  if (reopenedState.activeScene.collisionSolidCount !== 88) {
+    fail(`Restauração modificou a colisão após reabrir: ${reopenedState.activeScene.collisionSolidCount}`);
+  }
   report.persistence = {
     projectDir: createdState.activeProjectDir,
     entityIds: (reopenedState.activeScene.entities ?? []).map((entity) => entity.id ?? entity.entity_id),
@@ -11500,6 +11768,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     tilemapCell: tilemapCell,
     tilemapCellIndex,
     tilemapValue: reopenedTileValue,
+    restoredTemplatePositions: "four_members_reopened",
   };
   addReportStep(report, "reopen_project_and_validate_persisted_graph", "passed", report.persistence);
   addReportArtifact(

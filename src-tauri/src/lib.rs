@@ -4269,6 +4269,18 @@ fn get_scene_data(project_dir: String, scene_path: Option<String>) -> SceneDataR
 }
 
 #[tauri::command]
+fn get_reference_template_composition(
+    project_dir: String,
+    scene_path: String,
+) -> Result<Scene, String> {
+    crate::core::project_mgr::reference_platformer_composition_baseline(
+        Path::new(&project_dir),
+        &scene_path,
+    )
+    .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn resolve_scene_prefabs(project_dir: String, scene_json: String) -> ResolveSceneResult {
     resolve_scene_prefabs_result(Path::new(&project_dir), &scene_json)
 }
@@ -6614,6 +6626,7 @@ pub fn run() {
             emulator_stop,
             // Cena
             get_scene_data,
+            get_reference_template_composition,
             resolve_scene_prefabs,
             switch_scene,
             list_scenes,

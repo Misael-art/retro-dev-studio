@@ -1,10 +1,12 @@
 import { loadSceneArtworkAsset, drawRepeatedAsset, drawTilemapArtwork, type ViewportAssetCacheEntry } from "./sceneArtworkRenderer";
 import Icon, { type IconName } from "../common/Icon";
+import Dialog from "../common/Dialog";
+import Button from "../common/Button";
 import CameraConfigurator from "../inspector/CameraConfigurator";
 import { hudBand } from "../../core/hudText";
 import { loadShellPersona } from "../../core/surfaceRegistry";
 import { cellsOnLine } from "../../core/tilemapCells";
-import { layerCompositionEntities, translateCollisionMap } from "../../core/sceneComposition";
+import { layerCompositionEntities, restoreTemplateEntityPositions, translateCollisionMap, type TemplatePositionChange } from "../../core/sceneComposition";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tabs from "../common/Tabs";
 import { useEditorStore } from "../../core/store/editorStore";
@@ -31,7 +33,7 @@ import {
   type JoypadState,
 } from "../../core/ipc/emulatorService";
 import { listenToProjectAssetChanges } from "../../core/ipc/projectWatcherService";
-import type { CollisionMap, Entity } from "../../core/ipc/sceneService";
+import { getReferenceTemplateComposition, type CollisionMap, type Entity, type Scene } from "../../core/ipc/sceneService";
 import { persistActiveScene } from "../../core/scenePersistence";
 import { constrainSpriteFrameSize, ONBOARDING_SPRITE_SIZE } from "../../core/sceneConstraints";
 import {
@@ -344,6 +346,7 @@ export default function ViewportPanel({
     activeScene,
     activeScenePath,
     activeProjectDir,
+    projectSessionId,
     hwStatus,
     emulatorLoaded,
     setEmulatorLoaded,
@@ -477,9 +480,31 @@ export default function ViewportPanel({
   const [gridSnap, setGridSnap] = useState(true);
   const [moveScope, setMoveScope] = useState<"entity" | "layer">("entity");
   const [moveGlobalCollisionMap, setMoveGlobalCollisionMap] = useState(false);
+  const [collisionPaintValue, setCollisionPaintValue] = useState<0 | 1>(1);
+  const [templateCompositionBaseline, setTemplateCompositionBaseline] = useState<Scene | null>(null);
+  const [templateCompositionPreview, setTemplateCompositionPreview] = useState<{
+    projectDir: string;
+    projectSessionId: number;
+    scenePath: string;
+    revision: number;
+    changes: TemplatePositionChange[];
+    missing: string[];
+  } | null>(null);
+  useEffect(() => {
+    let current = true;
+    setTemplateCompositionBaseline(null);
+    setTemplateCompositionPreview(null);
+    if (activeProjectDir && activeScenePath) {
+      void getReferenceTemplateComposition(activeProjectDir, activeScenePath)
+        .then((baseline) => { if (current) setTemplateCompositionBaseline(baseline); })
+        .catch(() => { /* Other project templates have no reference composition. */ });
+    }
+    return () => { current = false; };
+  }, [activeProjectDir, activeScenePath]);
   useEffect(() => {
     setMoveScope("entity");
     setMoveGlobalCollisionMap(false);
+    setCollisionPaintValue(1);
   }, [activeProjectDir, activeScenePath]);
   useEffect(() => setMoveGlobalCollisionMap(false), [activeLayerId]);
   const [showGrid, setShowGrid] = useState(false);
@@ -585,6 +610,41 @@ export default function ViewportPanel({
   const compositionMembers = compositionLayer && activeScene
     ? layerCompositionEntities(compositionLayer, activeScene.entities)
     : null;
+  function previewTemplateComposition() {
+    if (!templateCompositionBaseline || !activeScene || !activeProjectDir || !activeScenePath) return;
+    const preview = restoreTemplateEntityPositions(activeScene, templateCompositionBaseline);
+    if (!preview) return;
+    setTemplateCompositionPreview({
+      projectDir: activeProjectDir,
+      projectSessionId,
+      scenePath: activeScenePath,
+      revision: useEditorStore.getState().sceneRevision,
+      changes: preview.changes,
+      missing: preview.missing,
+    });
+  }
+
+  function applyTemplateComposition() {
+    const preview = templateCompositionPreview;
+    const baseline = templateCompositionBaseline;
+    const state = useEditorStore.getState();
+    if (!preview || !baseline || !state.activeScene || !state.activeSceneSource ||
+      state.activeProjectDir !== preview.projectDir || state.activeScenePath !== preview.scenePath ||
+      state.projectSessionId !== preview.projectSessionId ||
+      state.sceneRevision !== preview.revision) {
+      setTemplateCompositionPreview(null);
+      logMessage("warn", "[Viewport] A cena mudou; abra uma nova prévia antes de restaurar.");
+      return;
+    }
+    const resolved = restoreTemplateEntityPositions(state.activeScene, baseline);
+    const source = restoreTemplateEntityPositions(state.activeSceneSource, baseline);
+    if (!resolved || !source) return;
+    setTemplateCompositionPreview(null);
+    if (resolved.changes.length === 0 && source.changes.length === 0) return;
+    state.replaceScenesWithHistory(resolved.scene, source.scene);
+    void persistActiveScene(preview.projectDir, "Viewport", "Posições do template restauradas.")
+      .catch((error) => logMessage("error", `[Viewport] Falha ao salvar a composição restaurada: ${String(error)}`));
+  }
   const sceneWorld = resolveSceneWorldMetrics(activeScene, activeTarget);
   const hudBandInfo = useMemo(() => (activeTarget === "megadrive" ? hudBand(activeScene) : null), [activeScene, activeTarget]);
   const selectedImportedContext = selectedEntity
@@ -3699,6 +3759,7 @@ export default function ViewportPanel({
     }
 
     if (editorMode === "collision") {
+      if (event.button !== 0 && event.button !== 2) return;
       const cmap = activeScene.collision_map;
       const tw = cmap?.tile_width ?? GRID_SNAP_SIZE;
       const th = cmap?.tile_height ?? GRID_SNAP_SIZE;
@@ -3706,13 +3767,16 @@ export default function ViewportPanel({
       const tileX = Math.floor(mx / tw);
       const tileY = Math.floor(my / th);
       const tileIndex = tileY * mapW + tileX;
-      // left button = solid (1); right button = free (0)
-      const tileValue: 0 | 1 = event.button === 2 ? 0 : 1;
+      // Right click remains a shortcut; the toolbar also makes erasure
+      // available with the primary pointer and keyboard navigation.
+      const tileValue: 0 | 1 = event.button === 2 ? 0 : collisionPaintValue;
       beginHistoryCapture();
       updateCollisionMap(tileIndex, tileValue);
       collisionDragRef.current = { lastPaintTile: tileIndex, paintedInDrag: true, value: tileValue };
       return;
     }
+
+    if (event.button !== 0 || event.buttons !== 1) return;
 
     if (editorMode === "select" && event.shiftKey && event.button === 0) {
       const pickStack = collectEntitiesUnderPoint(mx, my);
@@ -4362,6 +4426,29 @@ export default function ViewportPanel({
 
   return (
     <div className="flex h-full flex-col bg-[#1e1e2e]">
+      {templateCompositionPreview && activeViewportTab === "scene" ? (
+        <Dialog
+          open
+          title="Restaurar posições do template"
+          description="A prévia altera somente a posição das entidades originais que ainda existem. Arte, lógica, propriedades, entidades criadas, camadas e mapa de colisão permanecem como estão. Uma entrada de Desfazer reverte a ação."
+          onClose={() => setTemplateCompositionPreview(null)}
+          testId="viewport-template-preview"
+          overlayClassName="!z-[130]"
+          className="max-w-lg"
+        >
+          <p data-testid="viewport-template-preview-count" className="text-xs font-semibold">{templateCompositionPreview.changes.length} posição(ões) a restaurar · {templateCompositionPreview.missing.length} entidade(s) original(is) ausente(s)</p>
+          <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-xs">
+            {templateCompositionPreview.changes.map((change) => (
+              <li key={change.id}>{change.id}: ({change.from.x}, {change.from.y}) → ({change.to.x}, {change.to.y})</li>
+            ))}
+          </ul>
+          {templateCompositionPreview.missing.length > 0 ? <p className="mt-2 text-xs">Entidades removidas não serão recriadas: {templateCompositionPreview.missing.join(", ")}.</p> : null}
+          <div className="mt-4 flex justify-end gap-2">
+            <Button size="sm" data-testid="viewport-template-cancel" onClick={() => setTemplateCompositionPreview(null)}>Cancelar</Button>
+            <Button size="sm" variant="primary" data-testid="viewport-template-apply" disabled={templateCompositionPreview.changes.length === 0} onClick={applyTemplateComposition}>Restaurar posições</Button>
+          </div>
+        </Dialog>
+      ) : null}
       {denseStackPicker && activeViewportTab === "scene" ? (
         <div
           data-testid="viewport-dense-stack-picker"
@@ -4559,6 +4646,12 @@ export default function ViewportPanel({
                   <Icon name={tool.icon} size={19} /> {tool.label.split(" (")[0]}
                 </button>
               ))}
+              {editorMode === "collision" && (
+                <div role="group" aria-label="Valor da colisão" className="flex items-center gap-1">
+                  <button type="button" data-testid="viewport-collision-solid" aria-pressed={collisionPaintValue === 1} onClick={() => setCollisionPaintValue(1)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${collisionPaintValue === 1 ? "border-[#f38ba8] text-[#f38ba8]" : "border-[#313244] text-[#a6adc8]"}`}>Sólido</button>
+                  <button type="button" data-testid="viewport-collision-free" aria-pressed={collisionPaintValue === 0} onClick={() => setCollisionPaintValue(0)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${collisionPaintValue === 0 ? "border-[#a6e3a1] text-[#a6e3a1]" : "border-[#313244] text-[#a6adc8]"}`}>Livre</button>
+                </div>
+              )}
               <div className="mx-1 w-px bg-[#313244] self-stretch" />
               <button
                 type="button"
@@ -4596,6 +4689,11 @@ export default function ViewportPanel({
                   Mapa global {moveGlobalCollisionMap ? "incluído" : "separado"}
                 </button>
               )}
+              {templateCompositionBaseline ? (
+                <button type="button" data-testid="viewport-template-restore" onClick={previewTemplateComposition} className="rounded border border-[#a6e3a1]/50 px-2 py-1 text-[10px] font-semibold text-[#a6e3a1]" title="Prévia das posições originais do Reference Platformer sem sobrescrever suas edições">
+                  Restaurar template…
+                </button>
+              ) : null}
               <div className="mx-1 w-px bg-[#313244] self-stretch" />
               <button
                 type="button"
@@ -5412,7 +5510,7 @@ export default function ViewportPanel({
                       : editorMode === "erase"
                         ? " | 🧹 Apagar — clique/arraste para remover"
                         : editorMode === "collision"
-                          ? " | 🛡️ Colis\u00e3o — Esq: s\u00f3lido \u00b7 Dir: livre \u00b7 Esc: sair"
+                          ? ` | 🛡️ Colisão — clique: ${collisionPaintValue === 1 ? "sólido" : "livre"} · botão direito: livre · Esc: sair`
                           : ` | arraste para mover${selectedEntityId && !selectedEntityId.startsWith("layer::") ? " / handles para resize" : ""}`
                   }`
                 : "Abra um projeto para visualizar a cena"}

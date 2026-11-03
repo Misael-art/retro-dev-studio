@@ -15853,6 +15853,29 @@ pub fn seed_reference_platformer_template(
     Ok(scene)
 }
 
+/// Read-only composition baseline for the built-in reference project. Never
+/// re-seed an existing project: that would overwrite authored assets and logic.
+pub fn reference_platformer_composition_baseline(
+    project_dir: &Path,
+    scene_path: &str,
+) -> Result<Scene, LoadError> {
+    let project = load_project(project_dir)?;
+    let is_reference = project.template_metadata.as_ref().is_some_and(|meta| {
+        meta.template_id == "reference_platformer" && meta.source_path == "builtin"
+    });
+    if !is_reference
+        || project.target != "megadrive"
+        || project.entry_scene != DEFAULT_ENTRY_SCENE
+        || scene_path != DEFAULT_ENTRY_SCENE
+    {
+        return Err(LoadError(
+            "Restauração disponível apenas na cena principal do template Reference Platformer."
+                .to_string(),
+        ));
+    }
+    Ok(reference_platformer_scene())
+}
+
 fn write_reference_asset(
     project_dir: &Path,
     relative_path: &str,
@@ -19807,6 +19830,34 @@ void tick_player(void) {\n\
         assert_eq!(
             platformer.availability_reason.as_deref(),
             Some(MANUAL_SGDK_DONOR_REQUIRED_MESSAGE)
+        );
+    }
+
+    #[test]
+    fn reference_composition_baseline_is_read_only_and_scoped_to_its_template() {
+        let project_dir = temp_dir("reference-composition-baseline");
+        create_project_skeleton(&project_dir, "Reference", "megadrive").expect("skeleton");
+        seed_reference_platformer_template(&project_dir, "megadrive").expect("seed");
+        assert!(
+            reference_platformer_composition_baseline(&project_dir, DEFAULT_ENTRY_SCENE).is_err()
+        );
+        stamp_project_template_metadata(&project_dir, "reference_platformer", None).expect("stamp");
+        assert!(
+            reference_platformer_composition_baseline(&project_dir, "scenes/other.json").is_err()
+        );
+
+        let mut authored = load_scene(&project_dir, DEFAULT_ENTRY_SCENE).expect("load");
+        authored.entities[0].transform.x += 16;
+        save_scene(&project_dir, DEFAULT_ENTRY_SCENE, &authored).expect("save authored");
+        let baseline = reference_platformer_composition_baseline(&project_dir, DEFAULT_ENTRY_SCENE)
+            .expect("baseline");
+        assert_ne!(
+            baseline.entities[0].transform.x,
+            authored.entities[0].transform.x
+        );
+        assert_eq!(
+            load_scene(&project_dir, DEFAULT_ENTRY_SCENE).expect("reopen"),
+            authored
         );
     }
 

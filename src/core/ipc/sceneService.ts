@@ -442,6 +442,10 @@ export function getSceneData(projectDir: string, scenePath?: string): Promise<Sc
   return invoke("get_scene_data", { projectDir, scenePath });
 }
 
+export function getReferenceTemplateComposition(projectDir: string, scenePath: string): Promise<Scene> {
+  return invoke("get_reference_template_composition", { projectDir, scenePath });
+}
+
 export function sceneDraftStorage(projectDir: string, scenePath: string, operation: "read" | "write" | "remove", value: string | null = null, expected: string | null = null): Promise<string | null> {
   return invoke("scene_draft_storage", { projectDir, scenePath, operation, value, expected });
 }

@@ -1,3 +1,17 @@
+### Checkpoint 2026-11-03 — PLAT12: gesto nativo, restauração e ROM (Experimental)
+
+Base `86831164fe10d9bc841e33f1121d13b8ffcea75f` com sete arquivos de produto/roteiro ainda modificados; o binário foi compilado antes do commit do incremento. A autorização atual do operador permite commit, push normal e atualização do PR #112 nesta branch; as restrições antigas de não publicar eram específicas das retomadas anteriores. Merge, release, deploy e evidência/projeto/ROM privados seguem fora do escopo de publicação.
+
+O WebKitWebDriver entregava `mouseup button=0 buttons=2` depois de `pointerUp(button=2)` ao apagar colisão; o próximo arraste chegava com `buttons=3`. O roteiro oficial agora apaga as quatro células com o botão principal e a opção visível `Livre`, exige `mousedown buttons=1`/`mouseup buttons=0`, e usa atalhos WebDriver nativos para Undo/Redo. O Viewport ignora mousedown não primário/misto na seleção. As falhas anteriores e os diagnósticos de ponteiro continuam em `src-tauri/target-test/validation/`; nenhuma foi reclassificada como PASS.
+
+Binário oficial `719756933855b6493d8854274a0fbc9f9e3d45f8d3899b0b4e4e6e5a70056e9d` (build `RDS_WORK_ROOT/sessions/2026-11-03T18-04-18-437Z-87914/receipt.json`). O Tauri Linux/Xvfb com SGDK e core oficiais passou **22/22** em duas corridas frias completas: `reference-platformer-2026-11-03T18-07-44-362Z-report.json` e `reference-platformer-2026-11-03T18-14-36-303Z-report.json`. Há prova separada de mover objeto, camada sem mapa, recusar corte, deslocar quatro membros e mapa inteiro, Undo/Redo, prévia/cancelamento/restauração, salvar/reabrir e fonte/cena resolvida concordantes. Na última corrida, ROM movida SHA `933d231ea1741668de178ea956cd7c29f89e902017fbca542e0826bf4d6135f8` executou Player em x48; entrada esquerda chegou ao core e RAM observou x6/y178 na faixa sem piso. Uma corrida intermediária no mesmo binário passou PLAT12 e falhou depois no Redo do tilemap com atalho sintético; diagnóstico e captura `reference-platformer-2026-11-03T18-11-42-429Z-tilemap-redo-*` preservados. O roteiro foi corrigido para tecla nativa e a repetição completa passou.
+
+Gates desta árvore: `host:certify` **READY/exit 0** em `RDS_WORK_ROOT/sessions/2026-11-03T18-18-28-076Z-138892/receipt.json` com check:tree, lint, TypeScript, **1376 frontend PASS/11 skip**, **1169 Rust PASS/127 ignored**, Clippy da certificação e smokes oficiais SGDK/PVSnesLib PASS. Clippy completo `-D warnings` e `cargo fmt --check` também PASS nos recibos `18-27-59-157Z-175158` e `18-28-06-628Z-175726`. Referência BYOR SHA `558bea6c…529be9` usada somente em leitura. A certificação não representa Windows, áudio/GPU físicos, console ou aceite humano.
+
+**Próximo comando:** revisar `git diff --check`/arquivos/tamanho/segredos, commitar explicitamente o incremento PLAT12, fazer push normal e confirmar PR #112/checks no SHA novo. Depois PLAT05/10/11, matriz de 16 jornadas, Windows e aceite humano; não promover `Experimental`.
+
+---
+
 ### Checkpoint 2026-11-03 — PLAT12: alcance explícito da composição e prova na ROM (Experimental)
 
 Base local `3656021c` (checkpoint documental de outra frente preservado). Código em `6fa4330db54771e2e12a4a19a6110684bd824d24` e correção de layout em `6439e3be0a5a840c05a6d4e17dec08089e1509f8`, ambos locais, **sem push por restrição vigente**; PR #112 remoto ainda mede `aca5f1b1` e seus dois `desktop-smoke` Windows vermelhos não foram reexecutados nesse SHA. Árvore de produto tinha fonte dirty no build; commits posteriores não mudaram os bytes das fontes incorporadas.

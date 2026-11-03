@@ -1,4 +1,34 @@
-import type { CollisionMap, Entity, SceneLayer } from "./ipc/sceneService";
+import type { CollisionMap, Entity, Scene, SceneLayer } from "./ipc/sceneService";
+
+export interface TemplatePositionChange {
+  id: string;
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+}
+
+/** Restore only transforms of surviving template entities; all authored content stays intact. */
+export function restoreTemplateEntityPositions(current: Scene, baseline: Scene): {
+  scene: Scene;
+  changes: TemplatePositionChange[];
+  missing: string[];
+} | null {
+  if (current.scene_id !== baseline.scene_id) return null;
+  const byId = new Map(current.entities.map((entity) => [entity.entity_id, entity]));
+  const original = new Map(baseline.entities.map((entity) => [entity.entity_id, entity.transform]));
+  const missing = baseline.entities.filter((entity) => !byId.has(entity.entity_id)).map((entity) => entity.entity_id);
+  const changes: TemplatePositionChange[] = [];
+  const entities = current.entities.map((entity) => {
+    const target = original.get(entity.entity_id);
+    if (!target || (entity.transform.x === target.x && entity.transform.y === target.y)) return entity;
+    changes.push({
+      id: entity.entity_id,
+      from: { ...entity.transform },
+      to: { ...target },
+    });
+    return { ...entity, transform: { ...target } };
+  });
+  return { scene: { ...current, entities }, changes, missing };
+}
 
 /** A layer is the only explicit entity group in the scene schema. */
 export function layerCompositionEntities(layer: SceneLayer, entities: Entity[]): Entity[] | null {
