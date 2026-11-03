@@ -1,6 +1,8 @@
 # Reavaliação da retomada — 2026-10-24
 
-Esta é uma reconciliação documental e de código com inspeção de capturas históricas fornecidas, não uma nova sessão GUI, certificação ou estudo humano. Nenhuma fonte de produção foi alterada nesta avaliação.
+**Adendo 2026-11-03, PLAT12:** a camada é o grupo explícito de entidades; `collision_map` continua global, sem vínculo por camada no schema. O editor agora oferece mover objeto/camada e opt-in separado para todo o mapa, com recusa de perda de células sólidas e um histórico reversível. O binário `8b04a7bc…ffe0380a` passou a jornada nativa do template e executou a posição movida no core (Player 32→48; relatório `reference-platformer-2026-11-03T08-39-34-518Z-report.json`). Restauração com prévia do template e prova positiva de mapa global na UI/ROM **não foram feitas**; PLAT12 permanece parcial. O fechamento do splitter após alternar Jogo/Cena precisou confirmação da largura real; a primeira tentativa de layout falhou no reteste, a segunda passou no binário final. Detalhes e gates no topo do Memory Bank.
+
+O texto original abaixo é uma reconciliação documental e de código com inspeção de capturas históricas fornecidas, não uma nova sessão GUI, certificação ou estudo humano. Nenhuma fonte de produção foi alterada naquela avaliação; o adendo acima registra a implementação posterior.
 
 ## Base e correção do resumo anterior
 
