@@ -10386,8 +10386,10 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     const state = await readAutomationState(sessionId);
     return state.activeWorkspace === "artstudio" && state.selectedEntityId === "player" ? state : false;
   }, 10000, "Arte não abriu o usuário correto do arquivo.", 100);
-  const artResource = await executeScript(sessionId, `return document.querySelector('[data-testid="artstudio-scene-context-bridge"]')?.textContent ?? '';`);
-  if (!artResource.includes("assets/sprites/reference_player.png")) fail(`Arte abriu recurso divergente: ${artResource}`);
+  const artResource = await waitFor(async () => {
+    const text = await executeScript(sessionId, `return document.querySelector('[data-testid="artstudio-scene-context-bridge"]')?.textContent ?? '';`);
+    return text.includes("assets/sprites/reference_player.png") ? text : false;
+  }, 10000, "Arte não exibiu o recurso do Player após abrir o workspace.", 100);
   await clickButtonByTestIdNative(sessionId, "studio-return-origin", "voltar ao arquivo a partir da Arte");
   await waitFor(async () => {
     const state = await readAutomationState(sessionId);
@@ -12329,6 +12331,110 @@ async function runStudioAppearanceScenario(initialSessionId, appPath, timeoutMs,
         await click("wizard-cancel");
       }
     }
+    // PLAT10: keep the selected object first and verify that the global
+    // palette remains reachable at every requested logical size/theme/zoom.
+    await setSessionWindowRect(sessionId, 2048, 864);
+    await closeVisibleConsoleDrawer(sessionId, "matriz visual do Inspector");
+    await click("workspace-rail-scene");
+    await waitFor(() => js(`return !!document.querySelector('[data-testid="hierarchy-entity-player"]');`),
+      10000, "Player não apareceu na Hierarquia após abrir Cena.", 100);
+    await clickElement(sessionId, await findElement(sessionId, '[data-testid="hierarchy-entity-player"]'));
+    await click("right-panel-properties");
+    await waitFor(() => js(`return !!document.querySelector('[data-testid="inspector-transform-x"]');`),
+      10000, "Inspector do Player não ficou disponível para a matriz visual.", 100);
+    const criticalIssues = [];
+    const criticalThemes = ["super-nintendo", "super-famicom", "mega-drive-night", "mega-drive-16bit"];
+    const inspectCriticalControls = (ids, includePalette, width, height, zoom) => js(`
+      const checks=arguments[0].map(id=>{
+        const e=document.querySelector('[data-testid="'+id+'"]');
+        if(!e)return {id,present:false,hit:false,label:false};
+        e.scrollIntoView({block:'nearest',inline:'nearest'});
+        const r=e.getBoundingClientRect();
+        const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
+        const label=(e.getAttribute('aria-label')||e.closest('label')?.textContent||e.textContent||e.getAttribute('title')||'').trim();
+        return {id,present:true,hit:r.width>0&&r.height>0&&r.left>=0&&r.top>=0&&r.right<=innerWidth&&r.bottom<=innerHeight&&(hit===e||e.contains(hit)),label:!!label,
+          rect:{x:r.x,y:r.y,w:r.width,h:r.height},name:label.slice(0,70)};
+      });
+      const palette=arguments[1] ? document.querySelector('[data-testid="palette-summary"]')||document.querySelector('[data-testid="palette-summary-unavailable"]') : null;
+      const entity=arguments[1] ? document.querySelector('[data-testid="inspector-entity-context"]') : null;
+      const priority=arguments[1] ? !!entity&&!!palette&&!!(entity.compareDocumentPosition(palette)&Node.DOCUMENT_POSITION_FOLLOWING) : null;
+      if(palette)palette.scrollIntoView({block:'nearest',inline:'nearest'});
+      const pr=palette?.getBoundingClientRect(),ph=pr&&document.elementFromPoint(pr.left+pr.width/2,pr.top+pr.height/2);
+      const paletteHit=arguments[1] ? !!pr&&pr.width>0&&pr.height>0&&pr.left>=0&&pr.top>=0&&pr.right<=innerWidth&&pr.bottom<=innerHeight&&(ph===palette||palette.contains(ph)) : null;
+      return {kind:'critical',width:innerWidth,height:innerHeight,requestedWidth:arguments[2],requestedHeight:arguments[3],zoom:arguments[4],
+        theme:document.documentElement.dataset.studioTheme,priority,paletteHit,paletteLabel:palette?.textContent?.trim().slice(0,100)||null,checks,
+        horizontalOverflow:document.documentElement.scrollWidth>innerWidth+1};
+    `, [ids, includePalette, width, height, zoom]);
+    for (const themeId of criticalThemes) {
+      await js("document.documentElement.style.zoom='';return true;");
+      await setSessionWindowRect(sessionId, 2048, 864);
+      await choose(themeId);
+      for (const [width, height] of [[2048, 864], [1366, 768], [949, 593]]) {
+        await setSessionWindowRect(sessionId, width, height);
+        for (const zoom of [1.25, 1.5, 2]) {
+          await js(`document.documentElement.style.zoom=arguments[0];return true;`, [String(zoom)]);
+          const { compact } = await waitFor(async () => {
+            const isCompact = await js(`return !!document.querySelector('[data-testid="compact-workspace-shell"]');`);
+            return isCompact === (width / zoom < 960) ? { compact: isCompact } : false;
+          }, 5000, "Shell não acompanhou o zoom lógico da janela.", 100);
+          if (compact) await click("compact-shell-tab-canvas");
+          const canvas = await inspectCriticalControls([
+            "studio-theme-open", "toolbar-save", "toolbar-build-run",
+            "viewport-tool-select", "viewport-tool-collision", "viewport-zoom-out",
+            ...(compact ? ["compact-shell-tab-inspector"] : []),
+          ], false, width, height, zoom);
+          if (compact) await click("compact-shell-tab-inspector");
+          const inspector = await inspectCriticalControls([
+            "right-panel-properties", "inspector-transform-x",
+            ...(compact ? ["compact-shell-tab-canvas"] : []),
+          ], true, width, height, zoom);
+          const geometry = { ...inspector, compact, checks: [...canvas.checks, ...inspector.checks],
+            horizontalOverflow: canvas.horizontalOverflow || inspector.horizontalOverflow };
+          report.matrix.push(geometry);
+          const misses = geometry.checks.filter((check) => !check.present || !check.hit || !check.label).map((check) => check.id);
+          if (!geometry.priority || !geometry.paletteHit) misses.push("inspector-palette-order-or-access");
+          if (geometry.horizontalOverflow) misses.push("horizontal-overflow");
+          if (misses.length) criticalIssues.push({ themeId, width, height, zoom, misses, geometry });
+          if (zoom === 2) await shot(`${themeId}-${width}-zoom200-inspector`);
+          if (compact && width === 949 && zoom === 2) {
+            const scrollBefore = await js(`
+              const e=document.querySelector('[data-testid="palette-summary"]')||document.querySelector('[data-testid="palette-summary-unavailable"]');
+              let p=e?.parentElement;
+              while(p && !(p.scrollHeight>p.clientHeight+1 && getComputedStyle(p).overflowY!=='visible'))p=p.parentElement;
+              if(!p)return null;
+              const r=p.getBoundingClientRect();return {top:p.scrollTop,range:p.scrollHeight-p.clientHeight,x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)};
+            `);
+            if (!scrollBefore || scrollBefore.top <= 0 || scrollBefore.range <= 0) {
+              fail(`Inspector não rolou até a paleta em ${themeId}: ${JSON.stringify(scrollBefore)}`);
+            }
+            await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
+              type: "wheel", id: `appearance-inspector-wheel-${themeId}`, actions: [{
+                type: "scroll", x: scrollBefore.x, y: scrollBefore.y, deltaX: 0, deltaY: -240, duration: 200, origin: "viewport",
+              }],
+            }] });
+            const scrollAfter = await waitFor(async () => {
+              const top = await js(`
+                const e=document.querySelector('[data-testid="palette-summary"]')||document.querySelector('[data-testid="palette-summary-unavailable"]');
+                let p=e?.parentElement;while(p && !(p.scrollHeight>p.clientHeight+1 && getComputedStyle(p).overflowY!=='visible'))p=p.parentElement;
+                return p?.scrollTop ?? null;
+              `);
+              return top !== null && top < scrollBefore.top ? top : false;
+            }, 3000, `Roda nativa não rolou o Inspector em ${themeId}.`, 100);
+            await click("compact-shell-tab-canvas");
+            await key("\uE014");
+            const hierarchyFocused = await js(`return document.activeElement?.dataset.testid==='compact-shell-tab-hierarchy' && document.activeElement?.getAttribute('aria-selected')==='true';`);
+            await key("\uE014");
+            const inspectorFocused = await js(`return document.activeElement?.dataset.testid==='compact-shell-tab-inspector' && document.activeElement?.getAttribute('aria-selected')==='true';`);
+            if (!hierarchyFocused || !inspectorFocused) fail(`Teclado não navegou pelas abas compactas em ${themeId}.`);
+            report.steps.push({ step: `compact_inspector_wheel_and_keyboard_${themeId}`, status: "passed", scrollBefore: scrollBefore.top, scrollAfter });
+          }
+        }
+      }
+    }
+    await js("document.documentElement.style.zoom='';return true;");
+    await setSessionWindowRect(sessionId, 1280, 800);
+    if (criticalIssues.length) fail(`Ações/Inspector inacessíveis na matriz PLAT10: ${JSON.stringify(criticalIssues.slice(0, 12))}`);
+    report.steps.push({ step: "critical_sizes_themes_zoom_inspector_and_palette", status: "passed", combinations: 36 });
     await click("studio-theme-open");
     await shot("theme-chooser");
     await clickElement(sessionId, await findElement(sessionId, '[data-testid="studio-theme-super-nintendo"]'));

@@ -1748,9 +1748,12 @@ export default function App() {
   const [toolPanelShowAdvanced, setToolPanelShowAdvanced] = useState(false);
   const [leftPanelTab, setLeftPanelTab] = useState<"scene" | "layers">("scene");
   const [focusedShell, setFocusedShell] = useState(false);
+  const [compactPanel, setCompactPanel] = useState<"hierarchy" | "canvas" | "inspector">("canvas");
   const [layoutPreset, setLayoutPreset] = useState<LayoutPresetId>("authoring");
   const [shellWidth, setShellWidth] = useState(
-    typeof window !== "undefined" ? window.innerWidth : 1440
+    typeof window !== "undefined"
+      ? window.innerWidth / (Number.parseFloat(getComputedStyle(document.documentElement).zoom) || 1)
+      : 1440
   );
   const [shellPersona, setShellPersona] = useState<ShellPersona>(() => loadShellPersona());
   const [personaSuggestion, setPersonaSuggestion] = useState<ShellPersona | null>(null);
@@ -2000,6 +2003,20 @@ export default function App() {
   const workspaceMeta =
     WORKSPACE_ITEMS.find((workspace) => workspace.id === activeWorkspace) ?? WORKSPACE_ITEMS[0];
   const shellConfig = resolveWorkspaceShellConfig(activeWorkspace, shellWidth);
+  const compactShell = shellWidth < 960;
+  const compactVisiblePanel = focusedShell ||
+    (compactPanel === "hierarchy" && !shellConfig.showLeft) ||
+    (compactPanel === "inspector" && !shellConfig.showRight)
+    ? "canvas"
+    : compactPanel;
+  const compactTabs: ["canvas" | "hierarchy" | "inspector", string][] = [
+    ["canvas", workspaceMeta.label],
+    ...(shellConfig.showLeft && !focusedShell ? [["hierarchy", "Hierarquia"]] as ["hierarchy", string][] : []),
+    ...(shellConfig.showRight && !focusedShell ? [["inspector", "Inspector"]] as ["inspector", string][] : []),
+  ];
+  useEffect(() => {
+    setCompactPanel("canvas");
+  }, [activeWorkspace]);
   const defaultRightMode = shellConfig.defaultRightMode;
   const shortcutConflicts = findShortcutConflicts(shortcuts);
   const paletteCommands = getPaletteCommands(shortcuts).filter((command) =>
@@ -2011,12 +2028,16 @@ export default function App() {
 
   useEffect(() => {
     function handleResize() {
-      setShellWidth(window.innerWidth);
+      const zoom = Number.parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+      setShellWidth(window.innerWidth / zoom);
     }
 
     window.addEventListener("resize", handleResize);
+    const zoomObserver = new MutationObserver(handleResize);
+    zoomObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
     return () => {
       window.removeEventListener("resize", handleResize);
+      zoomObserver.disconnect();
     };
   }, []);
 
@@ -4855,6 +4876,101 @@ export default function App() {
     };
   }, [automationEnabled, rightPanelMode]);
 
+  const hierarchyPanelContent = shellConfig.showLeft ? (
+    <>
+      <div className="flex shrink-0 border-b border-[#313244] bg-[#11111b]">
+        <button
+          onClick={() => setLeftPanelTab("scene")}
+          className={`flex-1 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
+            leftPanelTab === "scene" ? "bg-[#313244] text-[#cdd6f4]" : "text-[#45475a] hover:text-[#a6adc8]"
+          }`}
+        >
+          {activeWorkspace === "logic" ? "Contexto" : "Cena"}
+        </button>
+        <button
+          onClick={() => setLeftPanelTab("layers")}
+          className={`flex-1 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
+            leftPanelTab === "layers" ? "bg-[#313244] text-[#cdd6f4]" : "text-[#45475a] hover:text-[#a6adc8]"
+          }`}
+        >
+          Camadas
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {leftPanelTab === "layers" ? <LayerPanel /> : <HierarchyPanel onOpenProject={() => void handleOpenProject()} />}
+      </div>
+    </>
+  ) : null;
+  const workspacePanelContent = activeWorkspace === "explorer" ? (
+    <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Explorer..." />}>
+      <ExplorerWorkspace
+        onSelectionChange={setExplorerBreadcrumb}
+        onOpenSceneEditor={() => handleWorkspaceSelect("scene")}
+      />
+    </Suspense>
+  ) : (
+    <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Workspace..." />}>
+      <ViewportPanel showWorkspaceTabs={false} />
+    </Suspense>
+  );
+  const inspectorPanelContent = shellConfig.showRight ? (
+    <div className="flex h-full min-h-0 flex-col bg-[#09090b]">
+      <div className={`flex flex-col gap-2 border-b border-[#27272a] bg-[#111827] ${compactShell ? "px-2 py-1" : "px-3 py-2"}`}>
+        <div className="min-w-0">
+          <div className={`${compactShell ? "sr-only" : "text-[10px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]"}`}>
+            {rightPanelMode === "tools" ? "Ferramentas" : "Propriedades da seleção"}
+          </div>
+        </div>
+        {shellConfig.defaultRightMode !== "hidden" ? (
+          <div className="flex shrink-0 flex-wrap items-center justify-center gap-1 rounded border border-[#313244] bg-[#09090b] p-0.5">
+            <button
+              type="button"
+              data-testid="right-panel-properties"
+              onClick={() => setRightPanelMode("inspector")}
+              className={`min-w-[90px] flex-1 rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+                rightPanelMode === "inspector" ? "bg-[#cba6f7] text-[#111827]" : "text-[#94a3b8] hover:bg-[#1f2937] hover:text-[#e5e7eb]"
+              }`}
+              title="Inspector de entidade"
+            >
+              Propriedades
+            </button>
+            <button
+              type="button"
+              data-testid="right-panel-tools"
+              onClick={() => openToolsWorkspace(
+                toolPanelActive === "setup" ? "palette" : toolPanelActive,
+                activeWorkspace === "debug" ? "debug" : "editing",
+                activeWorkspace === "debug" || toolPanelShowAdvanced
+              )}
+              className={`min-w-[90px] flex-1 rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+                rightPanelMode === "tools" ? "bg-[#cba6f7] text-[#111827]" : "text-[#94a3b8] hover:bg-[#1f2937] hover:text-[#e5e7eb]"
+              }`}
+              title="Ferramentas contextuais"
+            >
+              Ferramentas
+            </button>
+          </div>
+        ) : null}
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {rightPanelMode === "tools" ? (
+          <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Tools..." />}>
+            <ToolsPanel
+              onRequestInspector={() => setRightPanelMode("inspector")}
+              initialActive={toolPanelActive}
+              workspace={toolPanelWorkspace}
+              showAdvancedByDefault={toolPanelShowAdvanced}
+            />
+          </Suspense>
+        ) : (
+          <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Inspector..." />}>
+            <InspectorPanel />
+          </Suspense>
+        )}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div
       data-density={shellDensity}
@@ -5560,6 +5676,7 @@ export default function App() {
       ) : null}
       {!showProjectWizard &&
         !focusedShell &&
+        !compactShell &&
         shellPersona !== "guiado" &&
         workspaceGuide &&
         activeWorkspace !== "artstudio" &&
@@ -5567,7 +5684,7 @@ export default function App() {
         <WorkspaceGuideCard key={workspaceMeta.id} guide={workspaceGuide} />
       )}
 
-      {!showProjectWizard ? <StudioContextBar /> : null}
+      {!showProjectWizard ? <StudioContextBar compact={compactShell} /> : null}
       {showDelivery ? <DeliveryPanel onClose={() => setShowDelivery(false)} /> : null}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside
@@ -5618,6 +5735,52 @@ export default function App() {
           </div>
         </aside>
 
+        {compactShell ? (
+          <div data-testid="compact-workspace-shell" className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <div role="tablist" aria-label="Painéis do workspace" className="flex shrink-0 overflow-x-auto border-b border-[#313244] bg-[#111827]">
+              {compactTabs.map(([panel, label], index) => (
+                <button
+                  key={panel}
+                  id={`compact-shell-tab-${panel}`}
+                  type="button"
+                  role="tab"
+                  data-testid={`compact-shell-tab-${panel}`}
+                  aria-selected={compactVisiblePanel === panel}
+                  aria-controls="compact-shell-panel"
+                  tabIndex={compactVisiblePanel === panel ? 0 : -1}
+                  onClick={() => setCompactPanel(panel)}
+                  onKeyDown={(event) => {
+                    let nextIndex: number;
+                    if (event.key === "ArrowRight") nextIndex = (index + 1) % compactTabs.length;
+                    else if (event.key === "ArrowLeft") nextIndex = (index - 1 + compactTabs.length) % compactTabs.length;
+                    else if (event.key === "Home") nextIndex = 0;
+                    else if (event.key === "End") nextIndex = compactTabs.length - 1;
+                    else return;
+                    event.preventDefault();
+                    const nextPanel = compactTabs[nextIndex][0];
+                    setCompactPanel(nextPanel);
+                    document.getElementById(`compact-shell-tab-${nextPanel}`)?.focus();
+                  }}
+                  className={`shrink-0 px-3 py-1.5 text-[11px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--rds-focus-ring)] ${
+                    compactVisiblePanel === panel ? "border-b-2 border-[var(--rds-action-primary)] text-[var(--rds-text-primary)]" : "text-[var(--rds-text-secondary)]"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div
+              id="compact-shell-panel"
+              role="tabpanel"
+              aria-labelledby={`compact-shell-tab-${compactVisiblePanel}`}
+              className="min-h-0 min-w-0 flex-1 overflow-hidden"
+            >
+              {compactVisiblePanel === "hierarchy" ? (
+                <div className="flex h-full min-h-0 flex-col">{hierarchyPanelContent}</div>
+              ) : compactVisiblePanel === "inspector" ? inspectorPanelContent : workspacePanelContent}
+            </div>
+          </div>
+        ) : (
         <Group
           id="retrodev-layout"
           orientation="horizontal"
@@ -5638,132 +5801,28 @@ export default function App() {
           <Panel
             id="left"
             defaultSize={shellConfig.panels.left}
-            minSize={shellConfig.showLeft && !focusedShell ? "200px" : 0}
+            minSize={shellConfig.showLeft && !focusedShell && shellWidth >= 960 ? "200px" : 0}
             collapsible
             className="flex flex-col overflow-hidden border-r border-[#313244]"
           >
-            {shellConfig.showLeft ? (
-              <>
-                <div className="flex shrink-0 border-b border-[#313244] bg-[#11111b]">
-                  <button
-                    onClick={() => setLeftPanelTab("scene")}
-                    className={`flex-1 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
-                      leftPanelTab === "scene"
-                        ? "bg-[#313244] text-[#cdd6f4]"
-                        : "text-[#45475a] hover:text-[#a6adc8]"
-                    }`}
-                  >
-                    {activeWorkspace === "logic" ? "Contexto" : "Cena"}
-                  </button>
-                  <button
-                    onClick={() => setLeftPanelTab("layers")}
-                    className={`flex-1 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
-                      leftPanelTab === "layers"
-                        ? "bg-[#313244] text-[#cdd6f4]"
-                        : "text-[#45475a] hover:text-[#a6adc8]"
-                    }`}
-                  >
-                    Camadas
-                  </button>
-                </div>
-                <div className="min-h-0 flex-1 overflow-hidden">
-                  {leftPanelTab === "layers" ? (
-                    <LayerPanel />
-                  ) : (
-                    <HierarchyPanel onOpenProject={() => void handleOpenProject()} />
-                  )}
-                </div>
-              </>
-            ) : null}
+            {hierarchyPanelContent}
           </Panel>
           <LayoutSplitter />
-          <Panel id="center" minSize={20} className="overflow-hidden">
-            {activeWorkspace === "explorer" ? (
-              <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Explorer..." />}>
-                <ExplorerWorkspace
-                  onSelectionChange={setExplorerBreadcrumb}
-                  onOpenSceneEditor={() => handleWorkspaceSelect("scene")}
-                />
-              </Suspense>
-            ) : (
-              <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Workspace..." />}>
-                <ViewportPanel showWorkspaceTabs={false} />
-              </Suspense>
-            )}
+          <Panel id="center" minSize={shellWidth < 960 ? 0 : 20} className="overflow-hidden">
+            {workspacePanelContent}
           </Panel>
           <LayoutSplitter />
           <Panel
             id="right"
             defaultSize={shellConfig.panels.right}
-            minSize={shellConfig.showRight && !focusedShell ? "320px" : 0}
+            minSize={shellConfig.showRight && !focusedShell ? (shellWidth < 960 ? "260px" : "320px") : 0}
             collapsible
             className="overflow-hidden border-l border-[#313244]"
           >
-            {shellConfig.showRight ? (
-            <div className="flex h-full min-h-0 flex-col bg-[#09090b]">
-              <div className="flex flex-col gap-2 border-b border-[#27272a] bg-[#111827] px-3 py-2">
-                <div className="min-w-0">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">
-                    {rightPanelMode === "tools" ? "Ferramentas" : "Propriedades da seleção"}
-                  </div>
-                </div>
-                {shellConfig.defaultRightMode !== "hidden" ? (
-                <div className="flex shrink-0 flex-wrap items-center justify-center gap-1 rounded border border-[#313244] bg-[#09090b] p-0.5">
-                  <button
-                    type="button"
-                    data-testid="right-panel-properties"
-                    onClick={() => setRightPanelMode("inspector")}
-                    className={`min-w-[90px] flex-1 rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
-                      rightPanelMode === "inspector"
-                        ? "bg-[#cba6f7] text-[#111827]"
-                        : "text-[#94a3b8] hover:bg-[#1f2937] hover:text-[#e5e7eb]"
-                    }`}
-                    title="Inspector de entidade"
-                  >
-                    Propriedades
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="right-panel-tools"
-                    onClick={() =>
-                      openToolsWorkspace(
-                        toolPanelActive === "setup" ? "palette" : toolPanelActive,
-                        activeWorkspace === "debug" ? "debug" : "editing",
-                        activeWorkspace === "debug" || toolPanelShowAdvanced
-                      )
-                    }
-                    className={`min-w-[90px] flex-1 rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
-                      rightPanelMode === "tools"
-                        ? "bg-[#cba6f7] text-[#111827]"
-                        : "text-[#94a3b8] hover:bg-[#1f2937] hover:text-[#e5e7eb]"
-                    }`}
-                    title="Ferramentas contextuais"
-                  >
-                    Ferramentas
-                  </button>
-                </div>
-                ) : null}
-              </div>
-              <div className="min-h-0 flex-1 overflow-hidden">
-                {rightPanelMode === "tools" ? (
-                  <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Tools..." />}>
-                    <ToolsPanel
-                      onRequestInspector={() => setRightPanelMode("inspector")}
-                      initialActive={toolPanelActive}
-                      workspace={toolPanelWorkspace}
-                      showAdvancedByDefault={toolPanelShowAdvanced}
-                    />
-                  </Suspense>
-                ) : (
-                  <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Inspector..." />}>
-                    <InspectorPanel />
-                  </Suspense>
-                )}
-              </div>
-            </div>
-            ) : null}
+            {inspectorPanelContent}
           </Panel>
         </Group>
+        )}
       </div>
 
       <ProductionStatusBar

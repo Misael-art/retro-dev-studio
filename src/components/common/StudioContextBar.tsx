@@ -25,7 +25,7 @@ const FLOW_STEPS: { task: StudioTask; testId: string; label: string; hint: strin
  * Faixa de contexto compartilhado (Experimental): mostra o que está em foco na tarefa atual e
  * oferece retorno à origem com seleção e câmera preservadas. Some quando não há nada a mostrar.
  */
-export function StudioContextBar() {
+export function StudioContextBar({ compact = false }: { compact?: boolean } = {}) {
   const studio = useEditorStore((state) => state.studio);
   const activeWorkspace = useEditorStore((state) => state.activeWorkspace);
   const activeScene = useEditorStore((state) => state.activeScene);
@@ -87,7 +87,7 @@ export function StudioContextBar() {
       data-animation={focus.animation ?? ""}
       data-occurrence-id={focus.occurrenceId ?? ""}
       data-return-depth={studio.returnStack.length}
-      className="flex min-h-[30px] flex-wrap items-center gap-2 border-b border-[#27272a] bg-[#0b1120] px-3 py-1 text-[11px] text-[#cbd5e1]"
+      className={`flex min-h-[30px] items-center gap-2 border-b border-[#27272a] bg-[#0b1120] px-3 py-1 text-[11px] text-[#cbd5e1] ${compact ? "flex-nowrap overflow-x-auto" : "flex-wrap"}`}
     >
       <span className="rounded bg-[#1e293b] px-1.5 py-0.5 text-[9px] font-semibold uppercase text-[#94a3b8]">
         Experimental
@@ -105,7 +105,7 @@ export function StudioContextBar() {
           role="group"
           aria-label={`Trabalhar em ${getEntityDisplayName(entity)}`}
           data-testid="studio-flow"
-          className="flex items-center overflow-hidden rounded-md border border-[#334155]"
+          className={`flex items-center overflow-hidden rounded-md border border-[#334155] ${compact ? "shrink-0" : ""}`}
         >
           {FLOW_STEPS.filter((step) => step.when(entity)).map((step) => {
             const current = task === step.task;
@@ -165,7 +165,7 @@ export function StudioContextBar() {
         data-testid="studio-build-freshness"
         data-kind={freshness.kind}
         title="Estado da última mudança em relação à ROM"
-        className={`text-[10px] ${freshness.kind === "confirmed" || freshness.kind === "tested" ? "text-[#a6e3a1]" : "text-[#fbbf24]"}`}
+        className={`text-[10px] ${compact ? "shrink-0 whitespace-nowrap" : ""} ${freshness.kind === "confirmed" || freshness.kind === "tested" ? "text-[#a6e3a1]" : "text-[#fbbf24]"}`}
       >
         {freshness.kind === "confirmed" ? "✓ " : "◷ "}
         {freshness.label}
