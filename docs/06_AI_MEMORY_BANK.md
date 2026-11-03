@@ -1,3 +1,9 @@
+### Checkpoint 2026-11-03 — proposta futura do editor de codigo em texto SGDK
+
+Pedido de planejamento registrado no roadmap como **EC01–EC06**, `Fora do MVP/Q2`, implementacao `Ausente`, certificacao `Nenhuma`. O plano cobre editor C/H, navegacao e produtividade, sincronizacao delimitada com grafo C/nodes/assets/paletas, previews e analises com proveniencia, Build -> ROM -> Emulacao e QA Linux/Windows. A primeira fatia e o contrato de ownership/round-trip: C original somente leitura no overlay, `rds/code/` editavel, C emitido de projeto visual derivado, conflito externo explicito; nenhuma conversao geral de C em nodes ou metrica de runtime inventada. O texto nao muda codigo, maturidade, prioridade de coesao nem os limites de aceite atuais. Branch `codex/new-host-cohesion-20261024`, base local `c7d8884c538dbc5b918b783022936f767994ab54`; trabalho alheio de produto na arvore preservado. **Restricao vigente: sem push/publicacao.** Proximo passo desta iniciativa, quando priorizada: EC01, sem abrir frente de implementacao agora.
+
+---
+
 ### Checkpoint 2026-11-03 — layout após reabrir projeto e matriz desktop local (Experimental)
 
 **Código local `981cdb7d3c0c2cf969aea39bba55a9804651ccbd` sobre `aca5f1b1`; sem push por restrição expressa do operador.** O PR #112 remoto permanece em `aca5f1b1`: CI verde, dois `desktop-smoke` Windows vermelhos ao tentar abrir o tilemap após salvar/jogar/reabrir, com o botão coberto pelo splitter esquerdo. O ciclo de renderização do shell aplicava o preset antes de a biblioteca de painéis receber os novos limites. O shell agora agenda a aplicação para o próximo frame; o diagnóstico E2E registra as larguras do grupo/painel se um clique nativo voltar a ser bloqueado. Isso foi comprovado no Linux, **não** no Windows remoto.
