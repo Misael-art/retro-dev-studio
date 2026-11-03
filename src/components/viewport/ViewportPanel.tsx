@@ -992,10 +992,11 @@ export default function ViewportPanel({
   }, [focusWorldPoint, sceneWorld.centerX, sceneWorld.centerY]);
   const resetSceneView = useCallback(() => {
     const stage = sceneStageRef.current?.getBoundingClientRect();
-    if (!stage?.width || !stage.height) return;
+    if (!stage?.width || !stage.height) return null;
     const zoom = Math.max(0.25, Math.min(1.75, (stage.width - 48) / sceneWidth, (stage.height - 48) / sceneHeight));
     setViewportZoom(zoom);
     focusWorldPoint(sceneWorld.bounds.minX + sceneWidth / 2, sceneWorld.bounds.minY + sceneHeight / 2, zoom);
+    return zoom;
   }, [focusWorldPoint, sceneHeight, sceneWidth, sceneWorld.bounds.minX, sceneWorld.bounds.minY, setViewportZoom]);
   const focusCollisionMapCenter = useCallback(() => {
     const sz = sceneWorld.collisionWorldSize;
@@ -1122,14 +1123,24 @@ export default function ViewportPanel({
   }, [clampPanToStage]);
 
   const initialSceneFocusRef = useRef<string | null>(null);
+  const autoFitRef = useRef<{ zoom: number; width: number; height: number; touched: boolean } | null>(null);
+  const viewportZoomRef = useRef(viewportZoom);
+  viewportZoomRef.current = viewportZoom;
   useEffect(() => {
     if (activeViewportTab !== "scene" || !activeScene?.scene_id || !sceneStageSize.width || !sceneStageSize.height) {
       return;
     }
     const key = `${activeProjectDir}:${activeScenePath}:${activeScene.scene_id}`;
-    if (initialSceneFocusRef.current === key) return;
+    // O painel pode mudar de tamanho depois do primeiro enquadramento (layout reaplicado ao
+    // abrir o projeto); reenquadra so ate a primeira interacao na cena, para nao mover o que o usuario mira.
+    const fit = autoFitRef.current;
+    if (initialSceneFocusRef.current === key) {
+      if (!fit || fit.touched || fit.zoom !== viewportZoomRef.current) return;
+      if (Math.abs(fit.width - sceneStageSize.width) < 2 && Math.abs(fit.height - sceneStageSize.height) < 2) return;
+    }
     initialSceneFocusRef.current = key;
-    resetSceneView();
+    const zoom = resetSceneView();
+    autoFitRef.current = zoom === null ? null : { zoom, width: sceneStageSize.width, height: sceneStageSize.height, touched: false };
   }, [activeProjectDir, activeScene?.scene_id, activeScenePath, activeViewportTab, resetSceneView, sceneStageSize]);
 
   useEffect(() => {
@@ -4732,6 +4743,7 @@ export default function ViewportPanel({
             <div
               ref={sceneStageRef}
               className="relative flex-1 overflow-hidden min-h-0"
+              onPointerDownCapture={() => { if (autoFitRef.current) autoFitRef.current.touched = true; }}
               onWheel={handleSceneStageWheel}
               data-testid="viewport-scene-stage"
             >

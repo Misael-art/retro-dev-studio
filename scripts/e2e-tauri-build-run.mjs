@@ -28573,10 +28573,12 @@ async function main() {
             100
           );
           const worldBounds = stackedState.activeScene?.worldBounds ?? { minX: 0, minY: 0 };
+          // O overlay e desenhado no zoom atual; converte o ponto do mundo para pixels de tela.
+          const overlayScale = Number(stackedState.viewportZoom) || 1;
           await sceneOverlayPointerAction(
             sessionId,
-            stackX - worldBounds.minX + 12,
-            stackY - worldBounds.minY + 12,
+            (stackX - worldBounds.minX + 12) * overlayScale,
+            (stackY - worldBounds.minY + 12) * overlayScale,
             0,
             { shiftKey: true }
           );
