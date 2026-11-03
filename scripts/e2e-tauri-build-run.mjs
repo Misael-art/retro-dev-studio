@@ -10372,6 +10372,46 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   );
   addReportStep(report, "save_reference_platformer", "passed");
 
+  // PLAT05: the file card must lead to the actual resource and preserve the
+  // selected file when returning from Art, Scene and Logic.
+  await clickByTestId(sessionId, "workspace-rail-explorer");
+  await waitFor(async () => executeScript(sessionId, `return !!document.querySelector('[data-testid="explorer-asset-assets/sprites/reference_player.png"]');`),
+    10000, "Arquivo do Player não apareceu em Arquivos.", 100);
+  await clickButtonByTestIdNative(sessionId, "explorer-asset-assets/sprites/reference_player.png", "selecionar arquivo de arte do Player");
+  await clickButtonByTestIdNative(sessionId, "explorer-view-uses", "ver usos do arquivo do Player");
+  const fileUses = await executeScript(sessionId, `return document.querySelector('[data-testid="explorer-asset-uses"]')?.textContent ?? '';`);
+  if (!fileUses.includes("Player")) fail(`Arquivos não mostrou a instância do Player: ${fileUses}`);
+  await clickButtonByTestIdNative(sessionId, "explorer-edit-asset", "editar arte do Player a partir do arquivo");
+  await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state.activeWorkspace === "artstudio" && state.selectedEntityId === "player" ? state : false;
+  }, 10000, "Arte não abriu o usuário correto do arquivo.", 100);
+  const artResource = await executeScript(sessionId, `return document.querySelector('[data-testid="artstudio-scene-context-bridge"]')?.textContent ?? '';`);
+  if (!artResource.includes("assets/sprites/reference_player.png")) fail(`Arte abriu recurso divergente: ${artResource}`);
+  await clickButtonByTestIdNative(sessionId, "studio-return-origin", "voltar ao arquivo a partir da Arte");
+  await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    const fileRestored = await executeScript(sessionId, `return !!document.querySelector('[data-testid="explorer-view-uses"]');`);
+    return state.activeWorkspace === "explorer" && fileRestored ? state : false;
+  }, 10000, "Voltar da Arte não restaurou o arquivo selecionado.", 100);
+  await clickButtonByTestIdNative(sessionId, "explorer-view-in-scene", "localizar Player na cena a partir do arquivo");
+  await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state.activeWorkspace === "scene" && state.selectedEntityId === "player" ? state : false;
+  }, 10000, "Ver na cena não selecionou o Player.", 100);
+  await clickButtonByTestIdNative(sessionId, "studio-return-origin", "retornar ao arquivo após localizar o Player");
+  await waitFor(async () => (await readAutomationState(sessionId)).activeWorkspace === "explorer",
+    10000, "Voltar da cena não restaurou Arquivos.", 100);
+  await clickButtonByTestIdNative(sessionId, "explorer-open-logic", "abrir lógica do usuário do arquivo");
+  await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state.activeWorkspace === "logic" && state.selectedEntityId === "player" ? state : false;
+  }, 10000, "Lógica do usuário não abriu o Player.", 100);
+  await clickButtonByTestIdNative(sessionId, "studio-return-origin", "retornar ao arquivo após a Lógica");
+  await waitFor(async () => (await readAutomationState(sessionId)).activeWorkspace === "explorer",
+    10000, "Voltar da Lógica não restaurou Arquivos.", 100);
+  addReportStep(report, "file_art_scene_logic_round_trip", "passed", { asset: "reference_player.png", entity: "player", returned: true });
+
   // PLAT12: explicit layer movement must be one reversible edit. The template's
   // collision floor touches the map edge, so moving the global map must refuse
   // clipping before changing any entity.
@@ -10472,16 +10512,37 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   // a positive group+global-map shift. The built ROM must contain that grid.
   await clickButtonByTestIdNative(sessionId, "viewport-tool-collision", "editar margem do mapa de colisão");
   await clickButtonByTestIdNative(sessionId, "viewport-collision-free", "apagar colisão com o botão principal");
+  const collisionCellPoint = (col, row) => executeScript(sessionId, `
+    const canvas=document.querySelector('[data-testid="viewport-scene-overlay"]');
+    const stage=document.querySelector('[data-testid="viewport-scene-stage"]');
+    const rect=canvas.getBoundingClientRect();
+    const bounds=window.__RDS_E2E__.getState().activeScene.worldBounds;
+    const x=Math.round(rect.left+((arguments[0]*8+4)-bounds.minX)/bounds.width*rect.width);
+    const y=Math.round(rect.top+((arguments[1]*8+4)-bounds.minY)/bounds.height*rect.height);
+    return {x,y,under:document.elementFromPoint(x,y)?.closest('[data-testid]')?.getAttribute('data-testid')??null,
+      zoom:document.querySelector('[data-testid="viewport-zoom-reset"]')?.textContent?.trim(),
+      stage:stage?.getBoundingClientRect().toJSON(),canvas:rect.toJSON()};
+  `, [col, row]);
+  // Windows CI can expose a smaller stage than the requested window size.
+  // Use the visible zoom control until the far edge is hit-testable.
+  let edgeCell = await collisionCellPoint(39, 27);
+  let collisionZoomSteps = 0;
+  while (edgeCell.under !== "viewport-scene-overlay" && collisionZoomSteps < 12) {
+    const disabled = await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-zoom-out"]')?.disabled ?? true;`);
+    if (disabled) break;
+    const previousZoom = edgeCell.zoom;
+    await clickButtonByTestIdNative(sessionId, "viewport-zoom-out", "expor margem da colisão no palco");
+    await waitFor(async () => (await collisionCellPoint(39, 27)).zoom !== previousZoom,
+      5000, "Controle de zoom não alterou a escala do palco.", 100);
+    collisionZoomSteps += 1;
+    edgeCell = await collisionCellPoint(39, 27);
+  }
+  if (edgeCell.under !== "viewport-scene-overlay") {
+    fail(`Borda da colisão não alcançável mesmo após zoom visível: ${JSON.stringify({ collisionZoomSteps, edgeCell })}`);
+  }
   for (const [col, row] of [[38, 26], [39, 26], [38, 27], [39, 27]]) {
-    const point = await executeScript(sessionId, `
-      const canvas=document.querySelector('[data-testid="viewport-scene-overlay"]');
-      const rect=canvas.getBoundingClientRect();
-      const bounds=window.__RDS_E2E__.getState().activeScene.worldBounds;
-      return {x:Math.round(rect.left+((arguments[0]*8+4)-bounds.minX)/bounds.width*rect.width),
-        y:Math.round(rect.top+((arguments[1]*8+4)-bounds.minY)/bounds.height*rect.height)};
-    `, [col, row]);
-    const under = await executeScript(sessionId, `return document.elementFromPoint(arguments[0],arguments[1])?.closest('[data-testid]')?.getAttribute('data-testid') ?? null;`, [point.x, point.y]);
-    if (under !== "viewport-scene-overlay") fail(`Célula de colisão ${col},${row} não alcançável: ${under}`);
+    const point = await collisionCellPoint(col, row);
+    if (point.under !== "viewport-scene-overlay") fail(`Célula de colisão ${col},${row} não alcançável: ${JSON.stringify(point)}`);
     const cleared = await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{
       type: "pointer", id: compositionPointerId, parameters: { pointerType: "mouse" }, actions: [
         { type: "pointerMove", origin: "viewport", x: point.x, y: point.y },
@@ -10620,12 +10681,17 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   await waitFor(async () => (await readAutomationState(sessionId))?.activeScene?.entities?.find((entity) => entity.id === "player")?.x === compositionPositions.player.x,
     10000, "Undo final nao restaurou o template.", 100);
   for (let index = 0; index < 4; index += 1) await pressNativeUndoRedo(sessionId, "z");
+  await waitFor(async () => (await readAutomationState(sessionId))?.activeScene?.collisionSolidCount ===
+    originalCollisionMap.data.filter(Boolean).length,
+    10000, "Undo nativo não restaurou todas as células sólidas antes de salvar.", 100);
   await clickTopBarMenuAction(sessionId, "Salvar");
-  const resetMap = JSON.parse(await readFile(path.join(createdState.activeProjectDir, "scenes", "main.json"), "utf8")).collision_map;
-  if ([26, 27].some((row) => [38, 39].some((col) => resetMap.data[row * 40 + col] !== 1))) {
-    fail("Undo das edições de colisão não restaurou o chão completo.");
-  }
-  addReportStep(report, "move_layer_scope_collision_refusal_and_undo_redo", "passed", { layerDelta, members: 4, globalCollision: "clipping_refused_and_positive_rom_bytes", collisionBytesOffset, undoEntries: 1, dragEvents });
+  const resetMap = await waitFor(async () => {
+    const saved = JSON.parse(await readFile(compositionSceneFile, "utf8"));
+    return JSON.stringify(saved.collision_map?.data) === JSON.stringify(originalCollisionMap.data)
+      ? saved.collision_map
+      : false;
+  }, 15000, "Undo das edições de colisão não restaurou o mapa original no disco.", 200);
+  addReportStep(report, "move_layer_scope_collision_refusal_and_undo_redo", "passed", { layerDelta, members: 4, globalCollision: "clipping_refused_and_positive_rom_bytes", collisionBytesOffset, collisionZoomSteps, undoEntries: 1, dragEvents });
   const mapIncludedBeforeRestore = await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-move-collision"]')?.getAttribute('aria-pressed') ?? null;`);
   if (mapIncludedBeforeRestore === "true") {
     await clickButtonByTestIdNative(sessionId, "viewport-move-collision", "manter mapa global separado na prévia do template");

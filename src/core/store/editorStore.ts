@@ -295,6 +295,7 @@ export interface StoreState {
   activeWorkspace: EditorWorkspace;
   activeViewportTab: string;
   artStudioAssetPath: string | null;
+  explorerAssetPath: string | null;
   pixelEditorSessions: Record<string, PixelEditorSession>;
   consoleEntries: ConsoleEntry[];
   consoleVisible: boolean;
@@ -379,6 +380,7 @@ export interface StoreActions {
   assignEntityToLayer: (entityId: string, layerId: string | null) => void;
   setActiveViewportTab: (id: string) => void;
   setArtStudioAssetPath: (path: string | null) => void;
+  setExplorerAssetPath: (path: string | null) => void;
   setPixelEditorSession: (projectKey: string, session: PixelEditorSession) => void;
   logMessage: (level: ConsoleEntry["level"], message: string) => void;
   logDiagnostic: (diagnostic: ActionableDiagnostic) => void;
@@ -717,6 +719,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       lastBuildSceneRevision: null,
       lastBuildTest: null,
       studio: loadStudioContext(dir),
+      artStudioAssetPath: null,
+      explorerAssetPath: null,
     })),
   setActiveTarget: (target) => set((state) => state.activeTarget === target ? state : ({
     activeTarget: target,
@@ -801,7 +805,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         studio,
         activeWorkspace: workspace,
         activeViewportTab: viewportTabForWorkspace(workspace, state.activeViewportTab),
-        selectedEntityId: studio.focus.entityId ?? state.selectedEntityId,
+        selectedEntityId: nav.focus.entityId === null ? null : studio.focus.entityId ?? state.selectedEntityId,
         ...(targetCamera ? { viewportZoom: targetCamera.zoom } : {}),
       };
     });
@@ -845,6 +849,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setActiveViewportTab: (id) => set({ activeViewportTab: id }),
   artStudioAssetPath: null,
   setArtStudioAssetPath: (path) => set({ artStudioAssetPath: path }),
+  explorerAssetPath: null,
+  setExplorerAssetPath: (path) => set({ explorerAssetPath: path }),
   pixelEditorSessions: {},
   setPixelEditorSession: (projectKey, session) => set((state) => ({
     pixelEditorSessions: { ...state.pixelEditorSessions, [projectKey]: session },

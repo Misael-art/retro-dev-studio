@@ -1205,6 +1205,8 @@ describe("ArtStudioPanel import flow", () => {
     await act(async () => {
       useEditorStore.setState({
         selectedEntityId: "tilemap_focus",
+        activeWorkspace: "artstudio",
+        activeViewportTab: "artstudio",
         activeScene: {
           scene_id: "main",
           display_name: "Main",
@@ -1235,6 +1237,15 @@ describe("ArtStudioPanel import flow", () => {
 
     const notice = container.querySelector("[data-testid='artstudio-no-sprite-context']");
     expect(notice).not.toBeNull();
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>("[data-testid='artstudio-open-project-assets']")!.click();
+      await flush();
+    });
+    expect(useEditorStore.getState().activeWorkspace).toBe("explorer");
+    await act(async () => { useEditorStore.getState().returnToStudioOrigin(); await flush(); });
+    expect(useEditorStore.getState().activeWorkspace).toBe("artstudio");
+    expect(useEditorStore.getState().selectedEntityId).toBe("tilemap_focus");
 
     await act(async () => {
       findButton(container, "Ir para Cena").click();

@@ -20,8 +20,8 @@ type AssetBrowserSelectionCardProps = {
   hwStatus: HwStatus | null;
   canInstantiate: boolean;
   instantiating: boolean;
-  onFocus: () => void;
-  onOpenArtStudio: () => void;
+  onFocus: (match: AssetReference) => void;
+  onOpenArtStudio: (match: AssetReference | null) => void;
   onOpenAuthoringTarget: (match: AssetReference) => void;
   onOpenSource: (match: AssetReference) => void;
   onInstantiate: (asset: ProjectAssetEntry) => void;
@@ -71,6 +71,7 @@ export default function AssetBrowserSelectionCard({
   onInstantiate,
 }: AssetBrowserSelectionCardProps) {
   const [showSheet, setShowSheet] = useState(false);
+  const [selectedUseIndex, setSelectedUseIndex] = useState(-1);
   const [variant, setVariant] = useState(0);
   const variants = sourceAsset.sgdk_resource ? [sourceAsset.sgdk_resource, ...(sourceAsset.sgdk_resource.variants ?? [])] : [];
   const asset = { ...sourceAsset, sgdk_resource: variants[variant] ?? sourceAsset.sgdk_resource };
@@ -89,8 +90,8 @@ export default function AssetBrowserSelectionCard({
       sceneEntities,
     });
   }, [asset, projectSourceKind, sceneEntities]);
-  const primaryMatch = matches[0] ?? null;
-  const authoringActionLabel = getAuthoringActionLabel(primaryMatch);
+  const chosenMatch = matches.length === 1 ? matches[0] : matches[selectedUseIndex] ?? null;
+  const authoringActionLabel = getAuthoringActionLabel(chosenMatch);
   const instantiationIssue = getAssetInstantiationIssue(asset, sceneEntities);
   const frame = asset.sgdk_resource?.sprite;
   const frameScale = frame ? Math.min(160 / frame.frame_width, 96 / frame.frame_height, 4) : 1;
@@ -240,21 +241,21 @@ export default function AssetBrowserSelectionCard({
               </p>
             ) : null}
             <div className="flex flex-col gap-0.5 border-t border-[#1f2937] pt-1 text-[9px] text-[#7f849c]">
-              {primaryMatch?.scenePath || primaryMatch?.sceneLabel ? (
+              {chosenMatch?.scenePath || chosenMatch?.sceneLabel ? (
                 <p>
                   Cena:{" "}
                   <span className="font-mono text-[#cdd6f4]">
-                    {primaryMatch.scenePath ?? primaryMatch.sceneLabel}
+                    {chosenMatch.scenePath ?? chosenMatch.sceneLabel}
                   </span>
                 </p>
               ) : null}
-              {primaryMatch?.graphRef ? (
+              {chosenMatch?.graphRef ? (
                 <p>
-                  Node: <span className="font-mono text-[#cdd6f4]">{primaryMatch.graphRef}</span>
+                  Node: <span className="font-mono text-[#cdd6f4]">{chosenMatch.graphRef}</span>
                 </p>
               ) : null}
             </div>
-            {primaryMatch?.authoringSurface ? (
+            {chosenMatch?.authoringSurface ? (
               <p className="text-[9px] text-[#94a3b8]">
                 Fluxo pronto:{" "}
                 <span className="font-semibold text-[#cdd6f4]">{authoringActionLabel}</span>
@@ -301,10 +302,20 @@ export default function AssetBrowserSelectionCard({
         )}
       </div>
 
+      {matches.length > 1 ? (
+        <label className="text-[11px] text-[#cdd6f4]">Escolha uma instância antes de abrir sua cena, Arte ou lógica
+          <select data-testid="asset-browser-use-choice" value={selectedUseIndex} onChange={(event) => setSelectedUseIndex(Number(event.target.value))} className="mt-1 w-full rounded border border-[#313244] bg-[#11111b] px-2 py-2 text-xs">
+            <option value={-1}>Escolha uma instância</option>
+            {matches.map((match, index) => <option key={`${match.entityId}-${index}`} value={index}>{match.label}</option>)}
+          </select>
+        </label>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-2">
         {matches.length > 0 ? <button
           type="button"
-          onClick={onFocus}
+          onClick={() => { if (chosenMatch) onFocus(chosenMatch); }}
+          disabled={!chosenMatch || chosenMatch.entityId.startsWith("layer::")}
           className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#cdd6f4] transition-colors hover:border-[#cba6f7] hover:text-[#cba6f7]"
         >
           Focar na cena
@@ -313,27 +324,28 @@ export default function AssetBrowserSelectionCard({
           <button
             type="button"
             data-testid="asset-browser-open-artstudio"
-            onClick={onOpenArtStudio}
+            onClick={() => onOpenArtStudio(chosenMatch)}
+            disabled={matches.length > 1 && !chosenMatch}
             className="rounded border border-[#cba6f7]/40 bg-[#cba6f7]/10 px-2 py-1 text-[10px] font-semibold text-[#cba6f7] transition-colors hover:bg-[#cba6f7]/20"
           >
             Abrir no ArtStudio
           </button>
         ) : null}
-        {primaryMatch && authoringActionLabel ? (
+        {chosenMatch && authoringActionLabel ? (
           <button
             type="button"
             data-testid="asset-browser-open-authoring-target"
-            onClick={() => onOpenAuthoringTarget(primaryMatch)}
+            onClick={() => onOpenAuthoringTarget(chosenMatch)}
             className="rounded border border-[#94e2d5]/40 bg-[#94e2d5]/10 px-2 py-1 text-[10px] font-semibold text-[#94e2d5] transition-colors hover:bg-[#94e2d5]/20"
           >
             {authoringActionLabel}
           </button>
         ) : null}
-        {primaryMatch && primaryMatch.sourcePaths.length > 0 ? (
+        {chosenMatch && chosenMatch.sourcePaths.length > 0 ? (
           <button
             type="button"
             data-testid="asset-browser-open-source"
-            onClick={() => onOpenSource(primaryMatch)}
+            onClick={() => onOpenSource(chosenMatch)}
             className="rounded border border-[#f9e2af]/40 bg-[#f9e2af]/10 px-2 py-1 text-[10px] font-semibold text-[#f9e2af] transition-colors hover:bg-[#f9e2af]/20"
           >
             Fonte real

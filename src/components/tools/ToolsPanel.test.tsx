@@ -673,6 +673,41 @@ describe("ToolsPanel Asset Browser", () => {
     expect(mocks.persistActiveScene).not.toHaveBeenCalled();
   });
 
+  it("requires a specific user when a sprite asset is shared by two scene entities", async () => {
+    await act(async () => {
+      useEditorStore.setState({
+        selectedEntityId: null,
+        activeScene: {
+          scene_id: "main", background_layers: [],
+          entities: ["hero", "enemy"].map((id) => ({
+            entity_id: id, transform: { x: 0, y: 0 },
+            components: { sprite: { asset: "assets/sprites/onboarding_player.ppm", frame_width: 16, frame_height: 16 } },
+          })),
+        },
+      });
+      await flush();
+    });
+    for (const label of ["Avancado OFF", /Experimental/, /Asset Browser/]) {
+      await act(async () => { findButton(container, label).click(); await flush(); await flush(); });
+    }
+    await act(async () => {
+      const fileBtn = Array.from(container.querySelectorAll("button")).find((element) => element.textContent?.includes("onboarding_player.ppm"));
+      fileBtn?.click();
+      await flush();
+    });
+    expect(container.querySelector<HTMLButtonElement>("[data-testid='asset-browser-open-artstudio']")?.disabled).toBe(true);
+    await act(async () => {
+      const select = container.querySelector<HTMLSelectElement>("[data-testid='asset-browser-use-choice']")!;
+      select.value = "1";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      await flush();
+      container.querySelector<HTMLButtonElement>("[data-testid='asset-browser-open-artstudio']")!.click();
+      await flush();
+    });
+    expect(useEditorStore.getState().activeWorkspace).toBe("artstudio");
+    expect(useEditorStore.getState().selectedEntityId).toBe("enemy");
+  });
+
   it("highlights only an exact resource reference, preserving path and case identity", async () => {
     const setAsset = async (asset: string) => act(async () => {
       useEditorStore.setState({ selectedEntityId: "hero", activeScene: { scene_id: "main", background_layers: [], entities: [{ entity_id: "hero", prefab: null, transform: { x: 0, y: 0 }, components: { sprite: { asset, frame_width: 16, frame_height: 16 } } }] } });

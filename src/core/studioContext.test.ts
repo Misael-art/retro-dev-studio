@@ -10,6 +10,7 @@ import {
   refineStudioFocus,
   returnStudioOrigin,
   saveStudioContext,
+  workspaceToStudioTask,
 } from "./studioContext";
 
 function scene(ids: string[]): Scene {
@@ -26,6 +27,12 @@ function scene(ids: string[]): Scene {
 }
 
 describe("studioContext (pure)", () => {
+  it("routes the existing Files workspace through the return stack", () => {
+    expect(workspaceToStudioTask("explorer")).toBe("files");
+    const next = navigateStudio(initialStudioContext(), { workspace: "artstudio", camera: null }, { focus: { task: "files", entityId: null } });
+    expect(next.focus.task).toBe("files");
+    expect(next.returnStack[0]?.workspace).toBe("artstudio");
+  });
   it("stacks origin with its camera and restores it on return", () => {
     let state = refineStudioFocus(initialStudioContext(), { entityId: "ken" });
     state = navigateStudio(

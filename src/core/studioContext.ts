@@ -8,11 +8,12 @@
 import type { Scene } from "./ipc/sceneService";
 import type { EditorWorkspace } from "./store/editorStore";
 
-export type StudioTask = "scene" | "character" | "actions" | "interface" | "test" | "delivery";
+export type StudioTask = "scene" | "files" | "character" | "actions" | "interface" | "test" | "delivery";
 
 /** Tarefa → workspace canônico existente. */
 export const STUDIO_TASK_WORKSPACE: Record<StudioTask, EditorWorkspace> = {
   scene: "scene",
+  files: "explorer",
   character: "artstudio",
   actions: "logic",
   interface: "scene",
@@ -22,6 +23,7 @@ export const STUDIO_TASK_WORKSPACE: Record<StudioTask, EditorWorkspace> = {
 
 export const STUDIO_TASK_LABEL: Record<StudioTask, string> = {
   scene: "Cena",
+  files: "Arquivos",
   character: "Arte",
   actions: "Lógica",
   interface: "Interface",
@@ -77,6 +79,8 @@ export function initialStudioContext(): StudioContextState {
 
 export function workspaceToStudioTask(workspace: EditorWorkspace): StudioTask {
   switch (workspace) {
+    case "explorer":
+      return "files";
     case "artstudio":
       return "character";
     case "logic":

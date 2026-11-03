@@ -722,11 +722,11 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
     addEntity,
     setActiveBrush,
     setActiveTilemapId,
-    setActiveWorkspace,
     setEditorMode,
     setSelectedEntityId,
     setActiveViewportTab,
     setArtStudioAssetPath,
+    openStudioEditor,
     logMessage,
   } = useEditorStore();
   const [instantiatingAssetPath, setInstantiatingAssetPath] = useState<string | null>(null);
@@ -821,45 +821,25 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
     });
   }
 
-  function handleFocusReferencedAsset(asset: ProjectAssetEntry) {
-    const matches = references.get(asset.relative_path) ?? [];
-    if (matches.length === 0) {
-      const currentScene = useEditorStore.getState().activeScene;
-      const decision =
-        asset.kind === "image" && currentScene
-          ? classifyImageAssetInstantiation({
-              asset,
-              projectSourceKind,
-              sceneEntities: currentScene.entities,
-            })
-          : null;
-      logMessage(
-        "info",
-        `[Assets] '${asset.relative_path}' ainda nao esta na cena ativa.${decision ? ` Use Instanciar para criar ${decision.entityLabel.toLowerCase()} (motivo: ${decision.reason}).` : ""}`
-      );
-      return;
-    }
-
-    setSelectedEntityId(matches[0].entityId);
-    setActiveViewportTab("scene");
+  function handleFocusReferencedAsset(match: AssetReference) {
+    if (!activeScene?.entities.some((entity) => entity.entity_id === match.entityId)) return;
+    openStudioEditor({ focus: { task: "scene", entityId: match.entityId } });
     onRequestInspector?.();
-    logMessage("info", `[Assets] Selecionado no Inspector: ${matches[0].label}`);
+    logMessage("info", `[Assets] Selecionado no Inspector: ${match.label}`);
   }
 
-  function handleOpenAssetInArtStudio(asset: ProjectAssetEntry) {
+  function handleOpenAssetInArtStudio(asset: ProjectAssetEntry, match: AssetReference | null) {
     if (asset.kind !== "image") {
       logMessage("warn", `[Assets] Apenas imagens podem ser abertas no ArtStudio: ${asset.relative_path}`);
       return;
     }
 
-    const matches = references.get(asset.relative_path) ?? [];
+    const entity = activeScene?.entities.find((candidate) => candidate.entity_id === match?.entityId);
     setArtStudioAssetPath(asset.relative_path);
-    setSelectedEntityId(matches[0]?.entityId ?? null);
-    setActiveWorkspace("artstudio");
-    setActiveViewportTab("artstudio");
+    openStudioEditor({ focus: { task: "character", entityId: entity?.components.sprite ? entity.entity_id : null } });
     logMessage(
       "info",
-      `[Assets] Abrindo '${asset.relative_path}' no ArtStudio${matches[0] ? ` com contexto ${matches[0].label}` : " sem inserir na cena"}.`
+      `[Assets] Abrindo '${asset.relative_path}' no ArtStudio${entity?.components.sprite ? ` com contexto ${match?.label}` : " sem inserir na cena"}.`
     );
   }
 
@@ -871,12 +851,10 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
       return;
     }
 
-    setSelectedEntityId(entity.entity_id);
     onRequestInspector?.();
 
     if (match.authoringSurface === "tilemap" && entity.components.tilemap) {
-      setActiveWorkspace("scene");
-      setActiveViewportTab("scene");
+      openStudioEditor({ focus: { task: "scene", entityId: entity.entity_id } });
       setEditorMode("paint");
       setActiveTilemapId(entity.entity_id);
       const brush = buildTilemapAuthoringBrush(entity);
@@ -891,8 +869,7 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
     }
 
     if (match.authoringSurface === "logic") {
-      setActiveWorkspace("logic");
-      setActiveViewportTab("logic");
+      openStudioEditor({ focus: { task: "actions", entityId: entity.entity_id } });
       logMessage(
         "info",
         `[Assets] Navegando do Asset Browser para Logic Workspace: ${getEntityDisplayName(entity)}.`
@@ -901,8 +878,8 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
     }
 
     if (match.authoringSurface === "artstudio" && entity.components.sprite) {
-      setActiveWorkspace("artstudio");
-      setActiveViewportTab("artstudio");
+      setArtStudioAssetPath(entity.components.sprite.asset);
+      openStudioEditor({ focus: { task: "character", entityId: entity.entity_id } });
       logMessage(
         "info",
         `[Assets] Navegando do Asset Browser para Art Workspace: ${getEntityDisplayName(entity)}.`
@@ -910,8 +887,7 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
       return;
     }
 
-    setActiveWorkspace("scene");
-    setActiveViewportTab("scene");
+    openStudioEditor({ focus: { task: "scene", entityId: entity.entity_id } });
     logMessage("info", `[Assets] Referencia aberta na cena: ${match.label}.`);
   }
 
@@ -1186,7 +1162,7 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
         <div className="flex min-h-0 flex-1 flex-col gap-2">
         <button type="button" data-testid="asset-browser-back" onClick={clearTreeSelection} className="shrink-0 rounded border border-[#313244] px-3 py-2 text-left text-xs text-[#cdd6f4]">← Voltar à biblioteca</button>
         <AssetBrowserSelectionCard
-          key={selectedTreeAsset.relative_path}
+          key={`${activeProjectDir}:${activeScenePath}:${selectedTreeAsset.relative_path}`}
           activeProjectDir={activeProjectDir}
           asset={selectedTreeAsset}
           matches={selectedAssetMatches}
@@ -1195,8 +1171,8 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
           hwStatus={hwStatus}
           canInstantiate={Boolean(activeProjectDir && activeScene)}
           instantiating={instantiatingAssetPath === selectedTreeAsset.relative_path}
-          onFocus={() => handleFocusReferencedAsset(selectedTreeAsset)}
-          onOpenArtStudio={() => handleOpenAssetInArtStudio(selectedTreeAsset)}
+          onFocus={handleFocusReferencedAsset}
+          onOpenArtStudio={(match) => handleOpenAssetInArtStudio(selectedTreeAsset, match)}
           onOpenAuthoringTarget={handleOpenReferenceAuthoringTarget}
           onOpenSource={(match) => void handleOpenReferenceSource(match)}
           onInstantiate={(chosenAsset) => void handleInstantiateAsset(chosenAsset)}
@@ -1283,11 +1259,16 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
                   void handleInstantiateAsset(asset);
                   return;
                 }
+                if (matches.length > 1) {
+                  selectTreeAsset(asset);
+                  setViewMode("tree");
+                  return;
+                }
                 if (matches[0]?.authoringSurface) {
                   handleOpenReferenceAuthoringTarget(matches[0]);
                   return;
                 }
-                handleFocusReferencedAsset(asset);
+                if (matches[0]) handleFocusReferencedAsset(matches[0]);
               }}
               className="flex min-h-28 flex-col gap-2 rounded border border-[#313244] bg-[#1e1e2e] p-2 text-left transition-colors hover:border-[#cba6f7]"
               title={`${asset.relative_path}${matches.length > 0 ? `\nReferencias: ${matches.map((match) => match.label).join(", ")}` : ""}`}
@@ -1339,11 +1320,18 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
                 {asset.kind === "image" && (
                   <button
                     type="button"
-                    onClick={() => handleOpenAssetInArtStudio(asset)}
+                    onClick={() => {
+                      if (matches.length > 1) {
+                        selectTreeAsset(asset);
+                        setViewMode("tree");
+                      } else {
+                        handleOpenAssetInArtStudio(asset, matches[0] ?? null);
+                      }
+                    }}
                     onDoubleClick={(event) => event.stopPropagation()}
                     className="rounded border border-[#cba6f7]/40 bg-[#cba6f7]/10 px-2 py-1 text-[10px] font-semibold text-[#cba6f7] transition-colors hover:bg-[#cba6f7]/20"
                   >
-                    ArtStudio
+                    {matches.length > 1 ? "Escolher instância" : "ArtStudio"}
                   </button>
                 )}
                 {asset.kind === "image" && (

@@ -4190,6 +4190,13 @@ export default function ArtStudioPanel() {
         </div>
       ) : null}
 
+      {activeProjectDir && !selectedEntity && !artStudioAssetPath ? (
+        <div data-testid="artstudio-project-assets-hint" className="mx-3 flex flex-wrap items-center justify-between gap-2 rounded border border-[#89b4fa]/35 px-3 py-2 text-[11px]">
+          <span>Escolha uma imagem existente do projeto para editar sem criar outro recurso.</span>
+          <button type="button" data-testid="artstudio-open-project-assets" onClick={() => useEditorStore.getState().openStudioEditor({ focus: { task: "files", entityId: null } })} className="rounded border border-[#89b4fa]/50 px-3 py-1.5 font-semibold">Escolher nos Arquivos</button>
+        </div>
+      ) : null}
+
       {selectedEntity && selectedEntitySprite ? (
         <div
           data-testid="artstudio-scene-context-bridge"
@@ -4270,6 +4277,14 @@ export default function ArtStudioPanel() {
               Configurar câmera
             </button>
           ) : null}
+          <button
+            type="button"
+            data-testid="artstudio-open-project-assets"
+            onClick={() => useEditorStore.getState().openStudioEditor({ focus: { task: "files", entityId: null } })}
+            className="shrink-0 rounded-lg border border-[#89b4fa]/50 px-3 py-1.5 text-[10px] font-semibold text-[#89b4fa]"
+          >
+            Escolher imagem nos Arquivos
+          </button>
           <button
             type="button"
             onClick={returnToSceneWithSelectedContext}
