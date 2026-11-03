@@ -4,6 +4,7 @@ import CameraConfigurator from "../inspector/CameraConfigurator";
 import { hudBand } from "../../core/hudText";
 import { loadShellPersona } from "../../core/surfaceRegistry";
 import { cellsOnLine } from "../../core/tilemapCells";
+import { layerCompositionEntities, translateCollisionMap } from "../../core/sceneComposition";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tabs from "../common/Tabs";
 import { useEditorStore } from "../../core/store/editorStore";
@@ -30,7 +31,7 @@ import {
   type JoypadState,
 } from "../../core/ipc/emulatorService";
 import { listenToProjectAssetChanges } from "../../core/ipc/projectWatcherService";
-import type { Entity } from "../../core/ipc/sceneService";
+import type { CollisionMap, Entity } from "../../core/ipc/sceneService";
 import { persistActiveScene } from "../../core/scenePersistence";
 import { constrainSpriteFrameSize, ONBOARDING_SPRITE_SIZE } from "../../core/sceneConstraints";
 import {
@@ -369,6 +370,7 @@ export default function ViewportPanel({
     removeEntity,
     setActiveBrush,
     updateCollisionMap,
+    setCollisionMap,
     activeLayerId,
     assignEntityToLayer,
     tilePaintTool,
@@ -424,6 +426,12 @@ export default function ViewportPanel({
   // poluir o console com uma linha por asset em cenas importadas densas.
   const dragRef = useRef<{
     mode: "move" | "resize";
+    scope?: "entity" | "layer";
+    layerId?: string;
+    layerMembers?: { id: string; x: number; y: number }[];
+    originalCollisionMap?: CollisionMap;
+    projectDir?: string | null;
+    scenePath?: string;
     entityId: string;
     handle?: ResizeHandle;
     startMx: number;
@@ -467,6 +475,13 @@ export default function ViewportPanel({
   const [emulatorActive, setEmulatorActive] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [gridSnap, setGridSnap] = useState(true);
+  const [moveScope, setMoveScope] = useState<"entity" | "layer">("entity");
+  const [moveGlobalCollisionMap, setMoveGlobalCollisionMap] = useState(false);
+  useEffect(() => {
+    setMoveScope("entity");
+    setMoveGlobalCollisionMap(false);
+  }, [activeProjectDir, activeScenePath]);
+  useEffect(() => setMoveGlobalCollisionMap(false), [activeLayerId]);
   const [showGrid, setShowGrid] = useState(false);
   const [showSubGrid, setShowSubGrid] = useState(false);
   const [showBackground, setShowBackground] = useState(true);
@@ -566,6 +581,10 @@ export default function ViewportPanel({
     selectedEntityId && !selectedEntityId.startsWith("layer::")
       ? activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId) ?? null
       : null;
+  const compositionLayer = activeScene?.layers?.find((layer) => layer.id === activeLayerId) ?? null;
+  const compositionMembers = compositionLayer && activeScene
+    ? layerCompositionEntities(compositionLayer, activeScene.entities)
+    : null;
   const sceneWorld = resolveSceneWorldMetrics(activeScene, activeTarget);
   const hudBandInfo = useMemo(() => (activeTarget === "megadrive" ? hudBand(activeScene) : null), [activeScene, activeTarget]);
   const selectedImportedContext = selectedEntity
@@ -3712,12 +3731,14 @@ export default function ViewportPanel({
       }
     }
 
-    const resizeTarget = hitTestResizeHandle(mx, my);
+    const resizeTarget = moveScope === "entity" ? hitTestResizeHandle(mx, my) : null;
     if (resizeTarget) {
       const bounds = getEntityBounds(resizeTarget.entity, activeTarget, activeScene.entities);
       setSelectedEntityId(resizeTarget.entity.entity_id);
       dragRef.current = {
         mode: "resize",
+        projectDir: activeProjectDir,
+        scenePath: activeScenePath,
         entityId: resizeTarget.entity.entity_id,
         handle: resizeTarget.handle,
         startMx: mx,
@@ -3745,7 +3766,7 @@ export default function ViewportPanel({
     }
 
     let entity: Entity;
-    if (event.altKey && stack.length > 1) {
+    if (moveScope === "entity" && event.altKey && stack.length > 1) {
       const prev = densePickRef.current;
       const nearby =
         prev &&
@@ -3765,12 +3786,38 @@ export default function ViewportPanel({
     }
 
     densePickRef.current = null;
-    entity = stack[0]!;
+    entity = moveScope === "layer"
+      ? stack.find((candidate) => compositionMembers?.some((member) => member.entity_id === candidate.entity_id)) ?? stack[0]!
+      : stack.find((candidate) => candidate.entity_id === selectedEntityId)
+        ?? stack.find((candidate) => !candidate.components?.camera)
+        ?? stack[0]!;
+
+    if (moveScope === "layer") {
+      if (!compositionLayer || !compositionMembers ||
+        !compositionMembers.some((member) => member.entity_id === entity.entity_id)) {
+        logMessage("warn", "[Viewport] Escolha uma camada editável e arraste um objeto dela para mover a composição.");
+        return;
+      }
+      if (moveGlobalCollisionMap && !activeScene.collision_map) {
+        logMessage("warn", "[Viewport] Esta cena não tem mapa de colisão para mover.");
+        return;
+      }
+    }
 
     const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
     setSelectedEntityId(entity.entity_id);
     dragRef.current = {
       mode: "move",
+      scope: moveScope,
+      layerId: moveScope === "layer" ? compositionLayer!.id : undefined,
+      layerMembers: moveScope === "layer"
+        ? compositionMembers!.map((member) => ({ id: member.entity_id, x: member.transform.x, y: member.transform.y }))
+        : undefined,
+      originalCollisionMap: moveScope === "layer" && moveGlobalCollisionMap && activeScene.collision_map
+        ? structuredClone(activeScene.collision_map)
+        : undefined,
+      projectDir: activeProjectDir,
+      scenePath: activeScenePath,
       entityId: entity.entity_id,
       startMx: mx,
       startMy: my,
@@ -3984,13 +4031,34 @@ export default function ViewportPanel({
       return;
     }
 
+    if (drag.projectDir !== activeProjectDir || drag.scenePath !== activeScenePath) return;
     const dx = Math.round(mx - drag.startMx);
     const dy = Math.round(my - drag.startMy);
-    let nextX = gridSnap ? snapToGrid(drag.origX + dx, GRID_SNAP_SIZE) : drag.origX + dx;
-    let nextY = gridSnap ? snapToGrid(drag.origY + dy, GRID_SNAP_SIZE) : drag.origY + dy;
-    nextX = snapPositionToGuides(nextX, "vertical");
-    nextY = snapPositionToGuides(nextY, "horizontal");
+    const map = drag.originalCollisionMap;
+    let nextX = map ? drag.origX + Math.round(dx / map.tile_width) * map.tile_width
+      : gridSnap ? snapToGrid(drag.origX + dx, GRID_SNAP_SIZE) : drag.origX + dx;
+    let nextY = map ? drag.origY + Math.round(dy / map.tile_height) * map.tile_height
+      : gridSnap ? snapToGrid(drag.origY + dy, GRID_SNAP_SIZE) : drag.origY + dy;
+    if (!map) {
+      nextX = snapPositionToGuides(nextX, "vertical");
+      nextY = snapPositionToGuides(nextY, "horizontal");
+    }
     if (nextX === drag.lastX && nextY === drag.lastY) {
+      return;
+    }
+
+    const deltaX = nextX - drag.origX;
+    const deltaY = nextY - drag.origY;
+    const nextMap = map ? translateCollisionMap(map, deltaX, deltaY) : null;
+    if (map && !nextMap) {
+      logMessage("warn", "[Viewport] Movimento recusado: a colisão sairia do mapa ou a grade é inválida.");
+      return;
+    }
+    const latest = useEditorStore.getState().activeScene;
+    if (drag.scope === "layer" && (activeLayerId !== drag.layerId ||
+      !latest?.layers?.some((layer) => layer.id === drag.layerId) ||
+      drag.layerMembers?.some((member) => !latest.entities.some((candidate) => candidate.entity_id === member.id)))) {
+      logMessage("warn", "[Viewport] A camada mudou durante o gesto; movimento cancelado.");
       return;
     }
 
@@ -4001,9 +4069,18 @@ export default function ViewportPanel({
 
     drag.lastX = nextX;
     drag.lastY = nextY;
-    updateEntity(drag.entityId, {
-      transform: { x: nextX, y: nextY },
-    }, { recordHistory: false });
+    if (drag.scope === "layer" && drag.layerMembers) {
+      for (const member of drag.layerMembers) {
+        updateEntity(member.id, {
+          transform: { x: member.x + deltaX, y: member.y + deltaY },
+        }, { recordHistory: false });
+      }
+      if (nextMap) setCollisionMap(nextMap);
+    } else {
+      updateEntity(drag.entityId, {
+        transform: { x: nextX, y: nextY },
+      }, { recordHistory: false });
+    }
   }
 
   async function handleMouseUp() {
@@ -4110,6 +4187,10 @@ export default function ViewportPanel({
 
     dragRef.current = null;
     setIsDragging(false);
+    if (drag.projectDir !== activeProjectDir || drag.scenePath !== activeScenePath) {
+      cancelHistoryCapture();
+      return;
+    }
     if (!drag.historyCommitted) {
       cancelHistoryCapture();
       return;
@@ -4478,6 +4559,43 @@ export default function ViewportPanel({
                   <Icon name={tool.icon} size={19} /> {tool.label.split(" (")[0]}
                 </button>
               ))}
+              <div className="mx-1 w-px bg-[#313244] self-stretch" />
+              <button
+                type="button"
+                data-testid="viewport-move-object"
+                aria-pressed={moveScope === "entity"}
+                onClick={() => { setMoveScope("entity"); setMoveGlobalCollisionMap(false); setEditorMode("select"); }}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold ${moveScope === "entity" ? "border-[#89b4fa] text-[#89b4fa]" : "border-[#313244] text-[#a6adc8]"}`}
+                title="Selecionar: arrastar move somente o objeto; espaço+arraste ou botão central move a vista"
+              >
+                Mover objeto
+              </button>
+              <button
+                type="button"
+                data-testid="viewport-move-layer"
+                aria-pressed={moveScope === "layer"}
+                disabled={!compositionMembers}
+                onClick={() => { setMoveScope("layer"); setEditorMode("select"); }}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${moveScope === "layer" ? "border-[#fab387] text-[#fab387]" : "border-[#313244] text-[#a6adc8]"}`}
+                title={compositionMembers
+                  ? `Arrastar um objeto da camada ${compositionLayer?.name} move os ${compositionMembers.length} objetos dessa camada`
+                  : "Selecione uma camada visível, desbloqueada e com objetos no painel Camadas"}
+              >
+                Mover camada{compositionMembers ? ` (${compositionMembers.length})` : ""}
+              </button>
+              {moveScope === "layer" && (
+                <button
+                  type="button"
+                  data-testid="viewport-move-collision"
+                  aria-pressed={moveGlobalCollisionMap}
+                  disabled={!activeScene?.collision_map}
+                  onClick={() => setMoveGlobalCollisionMap((current) => !current)}
+                  className={`rounded border px-2 py-1 text-[10px] font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${moveGlobalCollisionMap ? "border-[#f38ba8] text-[#f38ba8]" : "border-[#313244] text-[#a6adc8]"}`}
+                  title="Opcional: mover TODO o mapa de colisão global junto da camada. Grade alinhada; movimento recusado se cortar células sólidas."
+                >
+                  Mapa global {moveGlobalCollisionMap ? "incluído" : "separado"}
+                </button>
+              )}
               <div className="mx-1 w-px bg-[#313244] self-stretch" />
               <button
                 type="button"

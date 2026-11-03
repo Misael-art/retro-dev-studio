@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useEditorStore } from "./editorStore";
 import type { Scene, Entity, BackgroundLayer, SceneLayer } from "../ipc/sceneService";
+import { translateCollisionMap } from "../sceneComposition";
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,33 @@ beforeEach(() => {
     undoStack: [],
     redoStack: [],
     pendingHistorySnapshot: null,
+  });
+});
+
+describe("composition history", () => {
+  it("undoes and redoes a layer move with its global collision map as one entry", () => {
+    const scene: Scene = {
+      ...EMPTY_SCENE,
+      entities: [makeEntity("player", 8, 8), makeEntity("goal", 24, 8), makeEntity("other", 40, 8)],
+      collision_map: { width: 4, height: 2, tile_width: 8, tile_height: 8,
+        data: [0, 1, 0, 0, 0, 0, 0, 0] },
+    };
+    useEditorStore.setState({ activeScene: scene, activeSceneSource: structuredClone(scene) });
+    const store = useEditorStore.getState();
+    store.beginHistoryCapture();
+    store.commitHistoryCapture();
+    store.updateEntity("player", { transform: { x: 16, y: 8 } }, { recordHistory: false });
+    store.updateEntity("goal", { transform: { x: 32, y: 8 } }, { recordHistory: false });
+    store.setCollisionMap(translateCollisionMap(scene.collision_map!, 8, 0)!);
+    expect(useEditorStore.getState().undoStack).toHaveLength(1);
+    expect(useEditorStore.getState().activeScene?.entities.map((entity) => entity.transform.x)).toEqual([16, 32, 40]);
+    expect(useEditorStore.getState().activeSceneSource?.collision_map?.data[2]).toBe(1);
+    useEditorStore.getState().undo();
+    expect(useEditorStore.getState().activeScene?.entities.map((entity) => entity.transform.x)).toEqual([8, 24, 40]);
+    expect(useEditorStore.getState().activeSceneSource?.collision_map?.data[1]).toBe(1);
+    useEditorStore.getState().redo();
+    expect(useEditorStore.getState().activeScene?.entities.map((entity) => entity.transform.x)).toEqual([16, 32, 40]);
+    expect(useEditorStore.getState().activeScene?.collision_map?.data[2]).toBe(1);
   });
 });
 

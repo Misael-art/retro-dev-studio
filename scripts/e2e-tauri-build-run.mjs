@@ -10355,6 +10355,111 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   );
   addReportStep(report, "save_reference_platformer", "passed");
 
+  // PLAT12: explicit layer movement must be one reversible edit. The template's
+  // collision floor touches the map edge, so moving the global map must refuse
+  // clipping before changing any entity.
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  await clickButtonByText(sessionId, "Camadas");
+  await clickByTestId(sessionId, "layer-row-layer_gameplay");
+  await clickButtonByTestIdNative(sessionId, "viewport-move-layer", "mover camada de gameplay");
+  const compositionBefore = await readAutomationState(sessionId);
+  const compositionPositions = Object.fromEntries(compositionBefore.activeScene.entities.map((entity) => [entity.id, { x: entity.x, y: entity.y }]));
+  const compositionUndoDepth = compositionBefore.undoDepth;
+  const dragComposition = async () => {
+    const point = await executeScript(sessionId, `
+      const canvas=document.querySelector('[data-testid="viewport-scene-overlay"]');
+      const rect=canvas.getBoundingClientRect();
+      const state=window.__RDS_E2E__.getState();
+      const bounds=state.activeScene.worldBounds;
+      const player=state.activeScene.entities.find((entity)=>entity.id==='player');
+      const worldX=player.x+12, worldY=player.y+12;
+      return {x:Math.round(rect.left+(worldX-bounds.minX)/bounds.width*rect.width),
+        y:Math.round(rect.top+(worldY-bounds.minY)/bounds.height*rect.height),
+        dx:Math.round(16/bounds.width*rect.width)};
+    `);
+    const under = await executeScript(sessionId, `return document.elementFromPoint(arguments[0],arguments[1])?.closest('[data-testid]')?.getAttribute('data-testid') ?? null;`, [point.x, point.y]);
+    if (under !== "viewport-scene-overlay") fail(`Camada nao alcançável no palco: ${under}`);
+    const result = await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{
+      type: "pointer", id: "reference-layer-drag", parameters: { pointerType: "mouse" }, actions: [
+        { type: "pointerMove", origin: "viewport", x: point.x, y: point.y },
+        { type: "pointerDown", button: 0 },
+        { type: "pointerMove", duration: 250, origin: "viewport", x: point.x + point.dx, y: point.y },
+        { type: "pointerUp", button: 0 },
+      ],
+    }] });
+    if (!result.ok) fail(`Arraste de camada recusado: ${JSON.stringify(result)}`);
+  };
+  await clickButtonByTestIdNative(sessionId, "viewport-move-collision", "incluir mapa global");
+  await dragComposition();
+  const clipped = await readAutomationState(sessionId);
+  if (clipped.undoDepth !== compositionUndoDepth || clipped.activeScene.entities.some((entity) =>
+    entity.x !== compositionPositions[entity.id]?.x || entity.y !== compositionPositions[entity.id]?.y)) {
+    fail("Arraste que recortaria o mapa alterou a composicao ou o historico.");
+  }
+  await clickButtonByTestIdNative(sessionId, "viewport-move-collision", "separar mapa global");
+  await dragComposition();
+  const moved = await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state?.activeScene?.entities?.find((entity) => entity.id === "player")?.x !== compositionPositions.player.x ? state : false;
+  }, 10000, "Camada de gameplay nao moveu pelo arraste nativo.", 100).catch(async (error) => {
+    const state = await readAutomationState(sessionId);
+    const diagnostics = { state: {
+      activeLayerId: state?.activeLayerId, editorMode: state?.editorMode,
+      selectedEntityId: state?.selectedEntityId, undoDepth: state?.undoDepth,
+      entities: state?.activeScene?.entities?.map((entity) => ({ id: entity.id, x: entity.x, y: entity.y })),
+      consoleEntries: state?.consoleEntries?.slice(-12),
+    }, controls: await executeScript(sessionId, `return ['viewport-move-layer','viewport-move-collision'].map(id=>({id,pressed:document.querySelector('[data-testid="'+id+'"]')?.getAttribute('aria-pressed')}));`) };
+    const diagnosticPath = path.join(validationDir, `${artifactPrefix}-composition-diagnostics.json`);
+    await writeFile(diagnosticPath, JSON.stringify(diagnostics, null, 2));
+    addReportArtifact(report, await captureScreenshot(sessionId, `${artifactPrefix}-composition-failure.png`), "composition failure");
+    fail(`${error.message} diagnostics=${diagnosticPath} ${JSON.stringify(diagnostics.state)}`);
+  });
+  const layerDelta = moved.activeScene.entities.find((entity) => entity.id === "player").x - compositionPositions.player.x;
+  for (const entity of moved.activeScene.entities) {
+    const expected = compositionPositions[entity.id].x + (["player", "passage_blocker", "goal", "goal_sensor"].includes(entity.id) ? layerDelta : 0);
+    if (entity.x !== expected || entity.y !== compositionPositions[entity.id].y) fail(`Movimento alterou escopo de ${entity.id}: ${JSON.stringify({ expected, entity })}`);
+  }
+  if (moved.undoDepth !== compositionUndoDepth + 1) fail("Movimento da camada nao criou uma unica entrada de Undo.");
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  await waitFor(async () => {
+    const saved = JSON.parse(await readFile(path.join(createdState.activeProjectDir, "scenes", "main.json"), "utf8"));
+    return saved.entities.find((entity) => entity.entity_id === "player")?.transform?.x === compositionPositions.player.x + layerDelta;
+  }, 15000, "Composição movida não persistiu no arquivo da cena.", 200);
+  await clickByTestId(sessionId, "workspace-rail-game");
+  const movedBuild = await runBuildRunAndCollect(sessionId, "reference platformer moved composition", timeoutMs, report, artifactPrefix);
+  const movedSymbols = parseElf32Symbols(await readFile(path.join(createdState.activeProjectDir, "build", "megadrive", "out", "rom.out")));
+  const movedPlayerAddress = movedSymbols.get("spr_player_x");
+  if (!Number.isInteger(movedPlayerAddress) || ![0x00ff, 0xe0ff].includes(movedPlayerAddress >>> 16)) {
+    fail(`Símbolo de posição do Player ausente na ROM movida: ${movedPlayerAddress}`);
+  }
+  const movedPlayerMemory = await executeAsyncScript(sessionId, `
+    const done=arguments[arguments.length-1];
+    const invoke=window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke;
+    invoke('emulator_read_memory',{region:2,offset:arguments[0]&0xffff,length:2}).then(done).catch(e=>done({error:String(e)}));
+  `, [movedPlayerAddress]);
+  const movedPlayerRaw = movedPlayerMemory?.data?.[0] | (movedPlayerMemory?.data?.[1] << 8);
+  const movedPlayerRuntimeX = movedPlayerRaw > 0x7fff ? movedPlayerRaw - 0x10000 : movedPlayerRaw;
+  if (movedPlayerMemory?.error || movedPlayerRuntimeX !== compositionPositions.player.x + layerDelta) {
+    fail(`ROM não executou a posição movida do Player: ${JSON.stringify({ expected: compositionPositions.player.x + layerDelta, actual: movedPlayerRuntimeX, memory: movedPlayerMemory })}`);
+  }
+  report.roms.push(movedBuild);
+  addReportStep(report, "moved_composition_visible_in_rom", "passed", {
+    playerX: movedPlayerRuntimeX, romSha256: movedBuild.rom_sha256, framebufferSha256: movedBuild.framebuffer.framebuffer_sha256,
+  });
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  await pressKey(sessionId, "z", { code: "KeyZ", ctrlKey: true });
+  await waitFor(async () => (await readAutomationState(sessionId))?.activeScene?.entities?.find((entity) => entity.id === "player")?.x === compositionPositions.player.x,
+    10000, "Undo nao restaurou a composicao.", 100);
+  await pressKey(sessionId, "y", { code: "KeyY", ctrlKey: true });
+  await waitFor(async () => (await readAutomationState(sessionId))?.activeScene?.entities?.find((entity) => entity.id === "player")?.x === compositionPositions.player.x + layerDelta,
+    10000, "Redo nao restaurou o movimento de grupo.", 100);
+  await pressKey(sessionId, "z", { code: "KeyZ", ctrlKey: true });
+  await waitFor(async () => (await readAutomationState(sessionId))?.activeScene?.entities?.find((entity) => entity.id === "player")?.x === compositionPositions.player.x,
+    10000, "Undo final nao restaurou o template.", 100);
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  addReportStep(report, "move_layer_scope_collision_refusal_and_undo_redo", "passed", { layerDelta, members: 4, globalCollision: "refused_clipping", undoEntries: 1 });
+  await clickButtonByText(sessionId, "Cena");
+
   await clickByTestId(sessionId, "workspace-rail-game");
   await waitFor(
     async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"viewport-game-canvas\"]'));"),

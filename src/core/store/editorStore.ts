@@ -430,6 +430,8 @@ export interface StoreActions {
    * ao redor do drag para criar uma entrada única de undo.
    */
   updateCollisionMap: (tileIndex: number, value: 0 | 1) => void;
+  /** Substitui o mapa inteiro dentro de uma captura de histórico externa. */
+  setCollisionMap: (map: CollisionMap) => void;
   undo: () => void;
   redo: () => void;
   setEmulPaused: (paused: boolean) => void;
@@ -1209,6 +1211,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         },
         activeSceneSource: state.activeSceneSource
           ? { ...state.activeSceneSource, collision_map: updatedCollisionMap }
+          : state.activeSceneSource,
+        sceneRevision: state.sceneRevision + 1,
+      };
+    }),
+  setCollisionMap: (map) =>
+    set((state) => {
+      if (!state.activeScene || !state.activeScene.collision_map) return {};
+      const nextMap = structuredClone(map);
+      return {
+        activeScene: { ...state.activeScene, collision_map: nextMap },
+        activeSceneSource: state.activeSceneSource
+          ? { ...state.activeSceneSource, collision_map: structuredClone(map) }
           : state.activeSceneSource,
         sceneRevision: state.sceneRevision + 1,
       };
