@@ -2273,15 +2273,31 @@ export default function App() {
       return;
     }
 
-    // A biblioteca de paineis ainda pode estar atualizando os limites depois de
-    // trocar de workspace ou fechar o assistente. Aplique quando o DOM ja tiver
-    // recebido os novos limites, antes da proxima pintura.
+    // A biblioteca pode recalcular os limites depois do primeiro frame ao
+    // expandir painéis que estavam recolhidos no workspace Jogo/Lógica.
+    // Confirme a largura real e repita apenas durante esta transição.
     const config = resolveWorkspaceShellConfig(activeWorkspace, shellWidth);
     setLayoutPreset(config.preset);
+    let followupFrame = 0;
+    const panelNeedsRestore = () => {
+      const left = document.querySelector<HTMLElement>('[data-panel][id="left"]');
+      const right = document.querySelector<HTMLElement>('[data-panel][id="right"]');
+      return (config.showLeft && config.panels.left > 0 && (left?.getBoundingClientRect().width ?? 0) < 190) ||
+        (config.showRight && config.panels.right > 0 && (right?.getBoundingClientRect().width ?? 0) < 300);
+    };
+    const restoreIfCollapsed = () => {
+      if (panelNeedsRestore()) applyShellLayout(config.panels);
+    };
     const frame = window.requestAnimationFrame(() => {
       applyShellLayout(config.panels);
+      followupFrame = window.requestAnimationFrame(restoreIfCollapsed);
     });
-    return () => window.cancelAnimationFrame(frame);
+    const timeout = window.setTimeout(restoreIfCollapsed, 180);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.cancelAnimationFrame(followupFrame);
+      window.clearTimeout(timeout);
+    };
   }, [activeWorkspace, shellWidth, focusedShell, showProjectWizard, activeProjectDir]);
 
   useEffect(() => {
