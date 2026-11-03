@@ -1,5 +1,7 @@
 # Missão — experiência integrada de criação, importação, edição e teste
 
+**Retomada local 2026-11-03:** o checkpoint mais recente do Memory Bank registra o commit local `981cdb7d` (layout do shell após reabrir projeto), binário `85545be3…`, sete cenários desktop + QA RC A–H PASS no Linux, e `host:certify` PASS/READY após repetir com a referência BYOR já documentada. A primeira certificação falhou sem essa variável e permanece evidência de falha. O PR #112 remoto ainda está em `aca5f1b1` com dois `desktop-smoke` Windows vermelhos; o operador vedou publicação nesta retomada. Não atribuir os PASS locais ao CI remoto, não repontar o atalho em uso e não promover as jornadas humanas. Próximo incremento autorizado: PLAT12, depois PLAT11 e matriz Lote D; ver limites e comando exato no topo do Memory Bank.
+
 **Prompt vigente: 2026-11-02.** Handoff executável da frente de coesão. A versão anterior permanece no Git e no Memory Bank como histórico; caminhos, PIDs e SHAs antigos não autorizam retroceder fontes ou encerrar processos. O pedido atual autoriza implementar e validar **PLAT01–12**, preservando as premissas do projeto.
 
 ## Prompt para o agente executor
