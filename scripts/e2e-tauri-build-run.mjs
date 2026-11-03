@@ -17221,6 +17221,10 @@ async function inspectNativeButtonTarget(sessionId, testId) {
       const topWithTestId = top instanceof Element ? top.closest("[data-testid]") : null;
       const unobstructed = Boolean(top && (top === button || button.contains(top)));
       const wizard = document.querySelector('[data-testid="project-wizard-body"]');
+      const group = document.querySelector('[data-group="retrodev-layout"]');
+      const leftPanel = document.querySelector('[data-panel="left"]');
+      const groupRect = group?.getBoundingClientRect();
+      const leftRect = leftPanel?.getBoundingClientRect();
       return {
         exists: true,
         testId,
@@ -17234,6 +17238,8 @@ async function inspectNativeButtonTarget(sessionId, testId) {
         topClass: top instanceof Element ? String(top.className ?? "") : "",
         unobstructed,
         wizardVisible: Boolean(wizard),
+        groupWidth: groupRect?.width ?? null,
+        leftPanelWidth: leftRect?.width ?? null,
       };
     `,
     [testId]

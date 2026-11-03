@@ -2273,11 +2273,15 @@ export default function App() {
       return;
     }
 
-    // Reaplicado ao abrir projeto/fechar o assistente: um layout aplicado com o grupo
-    // ainda estreito recolhe o painel esquerdo abaixo do minimo e nunca volta sozinho.
+    // A biblioteca de paineis ainda pode estar atualizando os limites depois de
+    // trocar de workspace ou fechar o assistente. Aplique quando o DOM ja tiver
+    // recebido os novos limites, antes da proxima pintura.
     const config = resolveWorkspaceShellConfig(activeWorkspace, shellWidth);
     setLayoutPreset(config.preset);
-    applyShellLayout(config.panels);
+    const frame = window.requestAnimationFrame(() => {
+      applyShellLayout(config.panels);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [activeWorkspace, shellWidth, focusedShell, showProjectWizard, activeProjectDir]);
 
   useEffect(() => {
