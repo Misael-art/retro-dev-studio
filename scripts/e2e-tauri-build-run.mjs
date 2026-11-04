@@ -6892,8 +6892,18 @@ async function runImageIngressScenario(sessionId, timeoutMs, onProjectCreated) {
     const created=await waitFor(async()=>{const s=await state();return s?.activeProjectName===name?s:false;},60000,"Image project not created.",250);
     const project=created.activeProjectDir;onProjectCreated(project);currentE2eRunContext.project=project;report.project=project;
     const disk=async()=>JSON.parse(await readFile(path.join(project,(await state()).activeScenePath),"utf8"));
-    await produce("browser",gifPath);await js("document.activeElement?.blur?.(); return true;");await chord("v");
-    await ready(6);await shot("gif-received");await click("image-ingress-sprite");const added=await inserted(1);await stop();
+    await produce("browser",gifPath);
+    await js(`window.__RDS_IMAGE_FIRST_INPUT__={activeBefore:document.activeElement?.tagName ?? null};
+      document.addEventListener('keydown',event=>{window.__RDS_IMAGE_FIRST_INPUT__.key={key:event.key,ctrl:event.ctrlKey,target:event.target?.tagName};},{capture:true,once:true});
+      document.addEventListener('paste',event=>{window.__RDS_IMAGE_FIRST_INPUT__.paste={types:Array.from(event.clipboardData?.types??[]),target:event.target?.tagName};},{capture:true,once:true});
+      document.activeElement?.blur?.();return true;`);
+    await chord("v");
+    try { await ready(6); }
+    catch (error) {
+      report.first_input = await js("return window.__RDS_IMAGE_FIRST_INPUT__ ?? null;");
+      fail(`${error instanceof Error ? error.message : String(error)} input=${JSON.stringify(report.first_input)}`);
+    }
+    await shot("gif-received");await click("image-ingress-sprite");const added=await inserted(1);await stop();
     const sprite=(await disk()).entities[0];
     const asset=sprite.components.sprite.asset;
     const original=sprite.components.logic.logic_hints.find(h=>h.startsWith("art_ingress:original=")).split("=")[1];
@@ -6952,23 +6962,33 @@ async function runImageIngressScenario(sessionId, timeoutMs, onProjectCreated) {
     await js("document.activeElement?.blur?.();return true;");await chord("z");
     await waitFor(async()=>(await state()).activeScene.entityCount===1,5000,"Undo did not remove background.",150);
     await chord("y");await waitFor(async()=>(await state()).activeScene.entityCount===2,5000,"Redo did not restore background.",150);
-    const pasteGif = async () => {await produce("url",gifUrl);await js("document.activeElement?.blur?.();return true;");await chord("v");await ready(6);await click("image-ingress-sprite");};
-    let beforeFull,fullCount;
+    // Paletas identicas dividem banco no planejador atual. Variar cores do GIF
+    // publico exercita capacidade real sem fabricar estado de cena por fora da UI.
+    const paletteInputs=[];
+    for (const hue of [133,167,200,233]) {
+      const variant=path.join(output,`${prefix}-palette-${hue}.gif`);
+      await new Promise((resolve,reject)=>execFile("magick",[gifPath,"-coalesce","-modulate",`100,100,${hue}`,variant],{timeout:10000},error=>error?reject(error):resolve()));
+      paletteInputs.push(pathToFileURL(variant).href);
+    }
+    report.palette_fixtures=await Promise.all(paletteInputs.map(async(url)=>({url,sha256:await hashFile(fileURLToPath(url))})));
+    const pasteGif = async (url=gifUrl) => {await produce("url",url);await js("document.activeElement?.blur?.();return true;");await chord("v");await ready(6);await click("image-ingress-sprite");};
+    let beforeFull,fullCount,replacementUrl;
     for(let attempt=0;attempt<4;attempt++) {
       beforeFull=await disk();fullCount=(await state()).activeScene.entityCount;
-      await pasteGif();
+      const candidate=paletteInputs[attempt];
+      await pasteGif(candidate);
       const decision=await waitFor(async()=>{
         if(await js(`return !!document.querySelector('[data-testid="image-ingress-bank-2"]');`))return "replace";
         const st=await state();return st.activeScene.entityCount===fullCount+1?"inserted":false;
       },30000,"Image neither inserted nor requested a palette.",150);
-      if(decision==="replace")break;
+      if(decision==="replace"){replacementUrl=candidate;break;}
       await inserted(fullCount+1);
     }
     if(!(await js(`return !!document.querySelector('[data-testid="image-ingress-bank-2"]');`)))fail("Full palette fixture did not reach a replacement decision.");
     if((await state()).activeScene.entityCount!==fullCount)fail("Palette decision already modified the scene.");
     await shot("palette-choice");await escape();
     if(JSON.stringify(await disk())!==JSON.stringify(beforeFull))fail("Cancelling palette replacement wrote the scene.");
-    await pasteGif();await waitFor(async()=>js(`return !!document.querySelector('[data-testid="image-ingress-bank-2"]');`),30000,"Second palette decision absent.",150);
+    await pasteGif(replacementUrl);await waitFor(async()=>js(`return !!document.querySelector('[data-testid="image-ingress-bank-2"]');`),30000,"Second palette decision absent.",150);
     await click("image-ingress-bank-2");await inserted(fullCount+1);await stop();
     await js("document.activeElement?.blur?.();return true;");await chord("z");
     await waitFor(async()=>(await state()).activeScene.entityCount===fullCount,5000,"Palette insertion Undo not atomic.",150);
@@ -7026,6 +7046,54 @@ async function runImageIngressScenario(sessionId, timeoutMs, onProjectCreated) {
     await clickButtonByText(sessionId,"Adicionar lógica","exact");
     await waitFor(async()=>js(`return !!document.querySelector('[data-testid="nodegraph-canvas"]') && document.querySelectorAll('[data-testid^="node-card-"]').length>0;`),20000,"Image logic action did not open its editable graph.",150);
     await shot("image-logic");addReportStep(report,"image_action_opens_editable_starter_logic","passed",{nodes:await js(`return document.querySelectorAll('[data-testid^="node-card-"]').length;`)});
+    // O pan nativo nao pode importar a imagem que permanece no clipboard.
+    await produce("image",raster);
+    const countBeforePan=(await state()).activeScene.entityCount;
+    await js(`window.__RDS_IMAGE_PAN_PASTES__=[];
+      document.addEventListener('paste',event=>window.__RDS_IMAGE_PAN_PASTES__.push({types:Array.from(event.clipboardData?.types??[]),target:event.target?.tagName}),true);return true;`);
+    await js(`window.__RDS_IMAGE_PAN_EVENTS__=[];
+      const record=(phase,event)=>{if(event.type==='mousemove'&&event.buttons!==4)return;
+        window.__RDS_IMAGE_PAN_EVENTS__.push({phase,type:event.type,button:event.button,buttons:event.buttons,
+          x:event.clientX,y:event.clientY,target:event.target?.tagName,
+          closest:event.target?.closest?.('[data-testid]')?.getAttribute('data-testid')??null});};
+      for(const type of ['mousedown','mousemove','mouseup']){
+        document.addEventListener(type,event=>record('capture',event),true);
+        document.querySelector('[data-testid="nodegraph-canvas-shell"]')?.addEventListener(type,event=>record('shell',event));
+      }return true;`);
+    const panSamples=[];
+    const middlePan=async(label,selector,point="card")=>{
+      await js(`window.__RDS_IMAGE_PAN_EVENTS__=[];return true;`);
+      const target=await js(`const el=document.querySelector(arguments[0]);const shell=document.querySelector('[data-testid="nodegraph-canvas-shell"]');
+        if(!el||!shell)return null;const r=el.getBoundingClientRect();
+        const x=Math.round(r.left+(arguments[1]==='canvas'?r.width*.75:arguments[1]==='border'?3:Math.min(24,r.width/2)));
+        const y=Math.round(r.top+(arguments[1]==='canvas'?r.height*.75:arguments[1]==='border'?r.height/2:Math.min(18,r.height/2)));
+        const hit=document.elementFromPoint(x,y);return {x,y,valid:arguments[1]==='canvas'
+          ?shell.contains(hit)&&!hit?.closest('[data-testid^="node-card-"],[data-testid="nodegraph-toolbar"],[data-testid="nodegraph-minimap"]')
+          :el.contains(hit),hit:hit?.closest('[data-testid]')?.getAttribute('data-testid')??null,tag:hit?.tagName};`,[selector,point]);
+      if(!target?.valid)fail(`Pan ${label} sem alvo nativo livre: ${JSON.stringify(target)}`);
+      const before=await js(`return document.querySelector('[data-testid="nodegraph-canvas-shell"]')?.style.backgroundPosition;`);
+      await webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"pointer",id:`image-pan-${label}`,parameters:{pointerType:"mouse"},actions:[
+        {type:"pointerMove",origin:"viewport",x:target.x,y:target.y},{type:"pointerDown",button:1},
+        {type:"pointerMove",origin:"viewport",x:target.x+36,y:target.y+24,duration:250},{type:"pointerUp",button:1}]}]});
+      await new Promise(resolve=>setTimeout(resolve,500));
+      const after=await js(`return document.querySelector('[data-testid="nodegraph-canvas-shell"]')?.style.backgroundPosition;`);
+      const dialog=await js(`return !!document.querySelector('[data-testid="image-ingress-dialog"]');`);
+      const coordinates=value=>value?.match(/^(-?[\d.]+)px (-?[\d.]+)px$/)?.slice(1).map(Number)??[];
+      const [bx,by]=coordinates(before),[ax,ay]=coordinates(after);
+      const delta=[ax-bx,ay-by];
+      const events=await js(`return window.__RDS_IMAGE_PAN_EVENTS__;`);
+      report.pan_attempts=[...(report.pan_attempts??[]),{label,target,before,after,delta,dialog,events}];
+      if(delta.some((value,index)=>!Number.isFinite(value)||Math.abs(value-[36,24][index])>1)||dialog||(await state()).activeScene.entityCount!==countBeforePan)
+        fail(`Pan ${label} alterou cena/abriu imagem ou deslocou fora do gesto: ${JSON.stringify({before,after,delta,dialog,target,events})}`);
+      panSamples.push({label,before,after,delta,hit:target.hit});
+    };
+    await middlePan("canvas",'[data-testid="nodegraph-canvas-shell"]',"canvas");
+    await middlePan("card",'[data-testid^="node-card-"]');
+    await middlePan("port",'[data-testid^="node-port-"]');
+    await middlePan("border",'[data-testid^="node-card-"]',"border");
+    report.pan_paste_events=await js(`return window.__RDS_IMAGE_PAN_PASTES__;`);
+    await stop();
+    addReportStep(report,"middle_pan_with_image_clipboard_keeps_scene_and_moves_canvas","passed",{samples:panSamples,pasteEvents:report.pan_paste_events,observationMs:500});
     await callAutomationApi(sessionId,"selectWorkspace",["scene"]);
     // Corrupt input must retain the working scene and allow retrying the same
     // source after repair, without leaving a half-created object.

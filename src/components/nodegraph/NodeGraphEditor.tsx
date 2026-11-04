@@ -2627,10 +2627,10 @@ export default function NodeGraphEditor() {
     if (spacePressed && e.button === 0) {
       return;
     }
-    e.stopPropagation();
     if (e.button !== 0) {
       return;
     }
+    e.stopPropagation();
     const target = e.target as HTMLElement;
     if (target.classList.contains("cursor-crosshair") || target.closest("input, select, button, textarea")) return;
     let nextSelection: Set<string>;
@@ -2783,6 +2783,7 @@ export default function NodeGraphEditor() {
 
   // ── Connect ports ──────────────────────────────────────────────────────────
   const onPortMouseDown = useCallback((e: React.MouseEvent, nodeId: string, portId: string, isOutput: boolean) => {
+    if (e.button !== 0) return;
     e.stopPropagation();
     if (isOutput) {
       setPendingEdge({ fromNode: nodeId, fromPort: portId, x: e.clientX, y: e.clientY });
@@ -2791,8 +2792,8 @@ export default function NodeGraphEditor() {
   }, []);
 
   const onPortMouseUp = useCallback((e: React.MouseEvent, nodeId: string, portId: string, isOutput: boolean) => {
+    if (e.button !== 0 || !pendingEdge || isOutput) return;
     e.stopPropagation();
-    if (!pendingEdge || isOutput) return;
     connectPorts(pendingEdge.fromNode, pendingEdge.fromPort, nodeId, portId);
     setPendingEdge(null);
     setSnapTarget(null);
