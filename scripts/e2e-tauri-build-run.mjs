@@ -14412,6 +14412,12 @@ async function runJumpCanvasJourneyScenario(initialSessionId, appPath, uiBootstr
       cutValue: q("node-param-cut-value")?.value ?? null,
       velPos: card("vel") ? [Number(card("vel").dataset.x), Number(card("vel").dataset.y)] : null,
     };`);
+  const visibleHeaderPoint = (nodeId) => js(`const el=document.querySelector('[data-testid="node-card-'+arguments[0]+'"]');
+    const shell=document.querySelector('[data-testid="nodegraph-canvas-shell"]');
+    const header=el?.firstElementChild;if(!el||!header||!shell)return null;
+    const r=header.getBoundingClientRect(),x=Math.round(r.left+Math.min(30,r.width*.25)),y=Math.round(r.top+r.height/2);
+    const hit=document.elementFromPoint(x,y);return {x,y,valid:x>=0&&x<innerWidth&&y>=0&&y<innerHeight&&shell.contains(hit)&&hit?.closest('[data-testid="node-card-'+arguments[0]+'"]')===el,
+      hit:hit?.closest('[data-testid]')?.getAttribute('data-testid')??null,rect:{left:r.left,top:r.top,width:r.width,height:r.height}};`,[nodeId]);
   const setNode = async (campoId, valor) => {
     await js(`document.querySelector('[data-testid="node-param-${campoId}-value"]')?.scrollIntoView({ block: "center", inline: "center" }); return true;`);
     await setInputByTestIdNative(sessionId, `node-param-${campoId}-value`, String(valor));
@@ -14515,22 +14521,25 @@ async function runJumpCanvasJourneyScenario(initialSessionId, appPath, uiBootstr
     addCheck("sonic1.refazer_restaura_a_edicao", rd.cutValue === "-1536", { cutValue: rd.cutValue });
     // organizar e mover sem alterar a semantica
     const antes = await readBridge();
+    await clickButtonByTestIdNativeWhenReady(sessionId, "nodegraph-more-actions", "abrir ações de organização do grafo");
     await clickButtonByTestIdNativeWhenReady(sessionId, "nodegraph-organize-all", "organizar tudo");
     await pause(600);
     const org = await readBridge();
     addCheck("sonic1.organizar_nao_muda_o_plano_nem_a_estrutura", org.edits === antes.edits && !org.estrutura, { antes: antes.edits, depois: org.edits, estrutura: org.estrutura });
-    const rect = await js(`const el = document.querySelector('[data-testid="node-card-vel"]'); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + 40, y: r.top + 8, wx: Number(el.dataset.x), wy: Number(el.dataset.y) };`);
-    await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{ type: "pointer", id: "rds-drag", parameters: { pointerType: "mouse" }, actions: [
-      { type: "pointerMove", duration: 0, x: Math.round(rect.x), y: Math.round(rect.y) }, { type: "pointerDown", button: 0 },
-      { type: "pointerMove", duration: 300, x: Math.round(rect.x + 90), y: Math.round(rect.y + 50) }, { type: "pointerUp", button: 0 } ] }] });
-    await pause(500);
-    const mv = await readBridge();
-    addCheck("sonic1.mover_no_muda_posicao_mas_nao_o_plano_nem_a_estrutura", JSON.stringify(mv.velPos) !== JSON.stringify(org.velPos) && mv.edits === antes.edits && !mv.estrutura, { antes: org.velPos, depois: mv.velPos, edits: mv.edits });
+    await clickButtonByTestIdNativeWhenReady(sessionId, "nodegraph-fit-view", "mostrar o grafo inteiro antes de mover um nó");
+    const rect = await waitFor(async()=>{const point=await visibleHeaderPoint("vel");return point?.valid?point:false;},5000,"Nó vel não ficou visível para arraste nativo após Visão geral",150);
+    const dragResponse=await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{ type: "pointer", id: "rds-drag", parameters: { pointerType: "mouse" }, actions: [
+      { type: "pointerMove", duration: 0, x: rect.x, y: rect.y }, { type: "pointerDown", button: 0 },
+      { type: "pointerMove", duration: 300, x: rect.x + 90, y: rect.y + 50 }, { type: "pointerUp", button: 0 } ] }] });
+    if(!dragResponse.ok||dragResponse.payload?.value?.error)fail(`Arraste nativo do nó vel recusado: ${JSON.stringify({rect,dragResponse})}`);
+    const mv = await waitFor(async()=>{const current=await readBridge();return JSON.stringify(current.velPos)!==JSON.stringify(org.velPos)?current:false;},4000,"Arraste nativo não moveu o nó vel",150);
+    addCheck("sonic1.mover_no_muda_posicao_mas_nao_o_plano_nem_a_estrutura", mv.edits === antes.edits && !mv.estrutura, { antes: org.velPos, depois: mv.velPos, edits: mv.edits });
     // remover um nó tira a estrutura do estado canônico e BLOQUEIA a geração; desfazer restaura
-    const hdr = await js(`const el = document.querySelector('[data-testid="node-card-vel"]'); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + 40, y: r.top + 8 };`);
-    await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{ type: "pointer", id: "rds-sel", parameters: { pointerType: "mouse" }, actions: [
-      { type: "pointerMove", duration: 0, x: Math.round(hdr.x), y: Math.round(hdr.y) }, { type: "pointerDown", button: 0 }, { type: "pointerUp", button: 0 } ] }] });
-    await pause(300);
+    const hdr=await visibleHeaderPoint("vel");if(!hdr?.valid)fail(`Nó vel ficou fora do canvas antes da seleção: ${JSON.stringify(hdr)}`);
+    const selectResponse=await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{ type: "pointer", id: "rds-sel", parameters: { pointerType: "mouse" }, actions: [
+      { type: "pointerMove", duration: 0, x: hdr.x, y: hdr.y }, { type: "pointerDown", button: 0 }, { type: "pointerUp", button: 0 } ] }] });
+    if(!selectResponse.ok||selectResponse.payload?.value?.error)fail(`Seleção nativa do nó vel recusada: ${JSON.stringify({hdr,selectResponse})}`);
+    await waitFor(async()=>js(`return document.querySelector('[data-testid="node-card-vel"]')?.dataset.selected==='true';`),3000,"Nó vel não foi selecionado antes do Delete",100);
     await pressKey("\uE017");
     const rem = await waitEdits((x) => Boolean(x.estrutura), "remocao de no nao foi detectada pela ponte");
     addCheck("sonic1.remover_no_deixa_de_ser_logica_aplicada", rem.estrutura.includes("deixou de representar a lógica da ROM") && rem.generate === true, { estrutura: rem.estrutura.slice(0, 140), generate: rem.generate });
