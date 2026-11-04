@@ -17,7 +17,7 @@
 | J04 animar/desenhar | Tauri | Edição de ocorrência MUGEN e animação autoral persistem; pintura de pixels do personagem real não repetida nessa série. |
 | J05 cenário/colisão | Tauri/ROM | Referência 24/24: objeto/camada/mapa, corte recusado, Undo/Redo e efeito Player/colisão na ROM; outros cenários não provados. |
 | J06 paletas/troca | Tauri | Índices/paleta MUGEN preservados e orçamento diagnosticado; troca visível no jogo pendente. |
-| J07 UI/texto/áudio | Tauri | Regra/passagem e vínculo de som autorais salvos; escuta/saída física e efeito sonoro na ROM pendentes. |
+| J07 UI/texto/áudio | Tauri/ROM | Regra/passagem e vínculo de som autorais salvos; na vitória, amostras do core chegaram ao app e a energia em 1320 Hz subiu de 0,475 para 140,857 nas três corridas. Saída acústica física e texto/HUD completo pendentes. |
 | J08 adaptar projeto | Tauri/ROM | Referência e Ken salvos/reabertos, reconstruídos e executados; cobertura de projetos arbitrários pendente. |
 | J09 NodeGraph | Tauri/ROM | Comportamento de objetivo autoral e referência chega à ROM; organização/interação de grafo grande ainda parcial. |
 | J10 testar/retornar | Tauri/ROM | Build→core→volta→edição/rebuild na referência; outras revisões/cores exigem seus próprios testes. |

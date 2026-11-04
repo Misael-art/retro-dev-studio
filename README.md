@@ -1,6 +1,6 @@
 # RetroDev Studio
 
-> **Retomada em host vazio (2026-10-24):** comece por [instalação e próximo agente](docs/handoffs/NOVO_HOST_INICIO.md), pelo Memory Bank e pela [reavaliação atualizada](docs/handoffs/REAVALIACAO_PRODUTO_2026-10-24.md). Esta branch preserva o Studio recuperado; `main` não é automaticamente essa ponta. Projetos/evidências privadas exigem o backup complementar. Usabilidade humana e certificação do OS reinstalado continuam pendentes.
+> **Retomada em host vazio:** comece por [instalação e próximo agente](docs/handoffs/NOVO_HOST_INICIO.md), pelo Memory Bank e pela [reavaliação atualizada](docs/handoffs/REAVALIACAO_PRODUTO_2026-10-24.md). Esta branch preserva o Studio recuperado; `main` não é automaticamente essa ponta. Projetos/evidências privadas exigem o backup complementar. Confira a certificação do host atual no Memory Bank; READY de outro OS não serve como prova. Usabilidade humana continua pendente.
 
 > Plataforma desktop para desenvolvimento, preservacao e engenharia reversa de jogos 16-bit, com foco atual em Mega Drive e SNES.
 
@@ -38,7 +38,7 @@ RetroDev Studio ja passou de prototipo. O produto hoje consegue:
 
 O produto ainda nao deve ser descrito como engine totalmente pronta para producao comercial. A prioridade atual e consistencia, ergonomia e repetibilidade dos fluxos certificados.
 
-Na interface, o botão **Tema** permite escolher **Super 16, Mega Drive, Portátil ou Arcade**. A preferência visual é lembrada neste dispositivo; cores dos jogos permanecem no projeto. Áreas, etapas do modo Guiado e ferramentas principais combinam pictogramas de criação com nomes visíveis. Aparência ainda Experimental; validação técnica e aceite humano têm resultados próprios no Memory Bank.
+Na interface, o botão **Tema** permite escolher **Super Nintendo, Super Famicom, Mega Drive Night ou Mega Drive 16-bit**. A preferência visual é lembrada neste dispositivo; cores dos jogos permanecem no projeto. Áreas, etapas do modo Guiado e ferramentas principais combinam pictogramas de criação com nomes visíveis. Aparência ainda Experimental; validação técnica e aceite humano têm resultados próprios no Memory Bank.
 
 Na frente SGDK/no-code, o PR #5 removeu fake da prova Stable e foi integrado em `main`. O jogo no-code real e gerado 100% por nodes, compila com SGDK oficial, gera ROM persistente e roda no Genesis Plus GX; o corpus real cobre 122 projetos, com 68 builds/ROMs/emulacoes reais e 54 bridges formais; `BLAZE_ENGINE` tem modo compativel real com build, ROM e emulacao. A camada semantica SGDK agora tambem expoe `canonical_model.logic_systems` para funcoes, FSMs, transicoes, acoes, source mappings e bridges formais. A exposicao publica de maturidade ainda deve seguir o roadmap e as badges reais da UI, sem promocao automatica de superficies experimentais.
 
