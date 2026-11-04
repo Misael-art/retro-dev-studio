@@ -17675,62 +17675,8 @@ async function readLiveStatus(sessionId) {
   return executeScript(
     sessionId,
     `
-      const automationState = window.__RDS_E2E__?.getState?.() ?? null;
-      if (automationState) {
-        const hwStatus = automationState.hwStatus ?? null;
-        const hwValidationState = automationState.hwValidationState ?? "";
-        const activeProjectDir = automationState.activeProjectDir ?? "";
-        const liveBuildBlocked =
-          hwValidationState === "fresh" && Boolean(hwStatus && hwStatus.errorCount > 0);
-
-        let liveState = "";
-        let liveStateDetail = "";
-        if (activeProjectDir) {
-          if (hwValidationState === "pending") {
-            liveState = "ANALISANDO";
-            liveStateDetail = "Preview live em analise.";
-          } else if (hwValidationState === "stale") {
-            liveState = "DESATUAL.";
-            liveStateDetail =
-              "O draft mudou depois da ultima analise live. Edite a cena para acionar a revalidacao automatica ou use Revalidar agora.";
-          } else if (hwValidationState === "error") {
-            liveState = "ERRO LIVE";
-            liveStateDetail = automationState.hwValidationError ?? "Falha ao atualizar o preview live.";
-          } else if (hwValidationState === "fresh" && hwStatus?.errorCount > 0) {
-            liveState = "BLOQUEADO";
-            liveStateDetail = hwStatus.firstError ?? "";
-          } else if (hwValidationState === "fresh" && hwStatus?.warningCount > 0) {
-            liveState = "WARN";
-            liveStateDetail = hwStatus.firstWarning ?? "";
-          } else if (hwValidationState === "fresh") {
-            liveState = "LIVE";
-            liveStateDetail = "Preview live sincronizado.";
-          }
-        }
-
-        return {
-          disabled: liveBuildBlocked,
-          describedBy: liveBuildBlocked ? "build-disabled-reason" : "",
-          reason: liveBuildBlocked && hwStatus?.firstError ? "Build bloqueado: " + hwStatus.firstError : "",
-          summary: !liveBuildBlocked && hwStatus?.warningCount > 0 ? "Build com alerta: " + hwStatus.firstWarning : "",
-          errorSummary: liveState === "ERRO LIVE" ? "Live com falha: " + liveStateDetail : "",
-          pendingSummary: liveState === "ANALISANDO" ? liveStateDetail : "",
-          liveState,
-          liveStateDetail,
-          severity: hwStatus
-            ? hwStatus.errorCount > 0
-              ? "OVERFLOW"
-              : hwStatus.warningCount > 0
-                ? "WARN"
-                : "OK"
-            : "OK",
-          warning: hwStatus?.firstWarning ?? "",
-          error: hwStatus?.firstError ?? "",
-          staleHint: liveState === "DESATUAL." ? "Edite a cena para revalidar" : "",
-          hasStaleRevalidateButton: liveState === "DESATUAL.",
-        };
-      }
-
+      // The scenario asserts the rendered toolbar/diagnostic contract. Internal
+      // automation state is collected separately when a failure needs diagnosis.
       const button = document.querySelector('[data-testid="toolbar-build-run"]');
       const reason = document.querySelector('[data-testid="build-disabled-reason"]');
       const summary = document.querySelector('[data-testid="build-warning-summary"]');
@@ -17740,6 +17686,11 @@ async function readLiveStatus(sessionId) {
       const severity = document.querySelector('[data-testid="hardware-limits-severity"]');
       const warning = document.querySelector('[data-testid="hardware-warning-0"]');
       const error = document.querySelector('[data-testid="hardware-error-0"]');
+      const compactHardware = document.querySelector('[data-testid="hardware-limits-compact"][open]');
+      const compactMessages = compactHardware
+        ? Array.from(compactHardware.querySelectorAll(':scope > div > p[title]'))
+        : [];
+      const compactIssue = compactMessages.length > 1 ? compactMessages.at(-1) : null;
       const staleHint = document.querySelector('[data-testid="build-stale-hint"]');
       const staleRevalidateButton = document.querySelector('[data-testid="build-stale-revalidate"]');
       return {
@@ -17752,7 +17703,7 @@ async function readLiveStatus(sessionId) {
         liveState: liveState?.textContent?.trim() ?? '',
         liveStateDetail: liveState?.getAttribute('title')?.trim() ?? '',
         severity: severity?.textContent?.trim() ?? '',
-        warning: warning?.textContent?.trim() ?? '',
+        warning: warning?.textContent?.trim() ?? compactIssue?.textContent?.trim() ?? '',
         error: error?.textContent?.trim() ?? '',
         staleHint: staleHint?.textContent?.trim() ?? '',
         hasStaleRevalidateButton: Boolean(staleRevalidateButton),
@@ -30146,6 +30097,12 @@ async function main() {
         await waitForLiveValidationFresh(sessionId, liveValidationTimeoutMs, expectedRevision);
       }
 
+      if (!overflowScenario.expectBuildDisabled && !overflowScenario.expectLiveError) {
+        const hardwareSummary = await findElement(sessionId, '[data-testid="hardware-limits-compact"] > summary');
+        await clickElement(sessionId, hardwareSummary);
+        await clickButtonByTestIdNative(sessionId, "toolbar-build-details-open");
+      }
+
       let lastLiveStatus = null;
       let liveStatus;
       try {
@@ -30184,48 +30141,13 @@ async function main() {
         const fallbackLiveStatus = await readLiveStatus(sessionId).catch(() => null);
         const rawDiagnostics = await collectAppDiagnostics(sessionId);
         const diagnosticLiveStatus = deriveLiveStatusFromDiagnostics(rawDiagnostics);
-        if (diagnosticLiveStatus) {
-          const diagnosticsMatch = overflowScenario.expectLiveError
-            ? !diagnosticLiveStatus.disabled &&
-              !diagnosticLiveStatus.reason &&
-              diagnosticLiveStatus.liveState === overflowScenario.expectedToolbarState &&
-              diagnosticLiveStatus.errorSummary.includes(overflowScenario.expectedReasonFragment)
-            : overflowScenario.expectBuildDisabled
-              ? diagnosticLiveStatus.disabled &&
-                diagnosticLiveStatus.liveState === overflowScenario.expectedToolbarState &&
-                diagnosticLiveStatus.reason.includes(overflowScenario.expectedReasonFragment) &&
-                diagnosticLiveStatus.severity === overflowScenario.expectedSeverity
-              : !diagnosticLiveStatus.disabled &&
-                diagnosticLiveStatus.liveState === overflowScenario.expectedToolbarState &&
-                diagnosticLiveStatus.summary.includes(overflowScenario.expectedReasonFragment) &&
-                diagnosticLiveStatus.severity === overflowScenario.expectedSeverity;
-
-          if (diagnosticsMatch) {
-            liveStatus = diagnosticLiveStatus;
-          }
-        }
-
-        if (liveStatus) {
-          console.log("OK: Desktop Tauri live hardware state E2E passou via fallback de diagnostico.");
-          console.log(`Projeto: ${options.project}`);
-          console.log(`Target: ${projectMetadata.target}`);
-          console.log(
-            overflowScenario.expectBuildDisabled
-              ? `Motivo visual: ${liveStatus.reason}`
-              : overflowScenario.expectLiveError
-                ? `Erro visual: ${liveStatus.errorSummary}`
-                : `Warning visual: ${liveStatus.summary}`
-          );
-          await recordE2eLedgerSuccess(options, projectMetadata);
-          return;
-        }
-
         const diagnostics = formatAppDiagnostics(rawDiagnostics);
         const details = error instanceof Error ? error.message : String(error);
         fail(
           [
             details,
             formatLiveStatus(fallbackLiveStatus ?? lastLiveStatus),
+            diagnosticLiveStatus ? `internalDiagnostic=${formatLiveStatus(diagnosticLiveStatus)}` : "",
             diagnostics,
           ]
             .filter(Boolean)
@@ -30317,6 +30239,7 @@ async function main() {
         250
       );
 
+      await clickButtonByTestIdNative(sessionId, "toolbar-build-details-open");
       await setSceneDraft(sessionId, staleScenario.secondDraft);
 
       const staleStatus = await waitFor(
@@ -30335,18 +30258,11 @@ async function main() {
         100
       );
 
-      const clickedRevalidate = await executeScript(
-        sessionId,
-        `
-          const button = document.querySelector('[data-testid="build-stale-revalidate"]');
-          if (!button) return false;
-          button.click();
-          return true;
-        `
-      );
-
-      if (!clickedRevalidate) {
-        fail("Botao Revalidar agora nao ficou disponivel no estado DESATUAL.");
+      try {
+        await clickButtonByTestIdNative(sessionId, "build-stale-revalidate");
+      } catch (error) {
+        const status = await readLiveStatus(sessionId).catch(() => null);
+        fail(`Revalidar agora indisponível após DESATUAL.: ${String(error)}\n${formatLiveStatus(status)}`);
       }
 
       const validationStatus = await waitFor(
