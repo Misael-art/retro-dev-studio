@@ -6,7 +6,7 @@ import { useEditorStore } from "../../core/store/editorStore";
 import { openProjectSourcePath } from "../../core/ipc/projectService";
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="rounded border border-[#45475a] bg-[#181825] p-3" aria-label={title}>
+  return <section className="min-w-0 break-words rounded border border-[#45475a] bg-[#181825] p-3" aria-label={title}>
     <h3 className="font-semibold text-[#cdd6f4]">{title}</h3>
     <div className="mt-2 space-y-2 text-[#bac2de]">{children}</div>
   </section>;
@@ -68,8 +68,8 @@ export default function ProjectDiagnostics({ onRequestInspector }: { onRequestIn
 
   const metric = observation ? observation.frames * 1000 / observation.durationMs : null;
   return <div data-testid="project-diagnostics" className="grid gap-3 p-3 text-xs md:grid-cols-2">
-    <div className="md:col-span-2 text-[#94a3b8]">
-      Projeto {state.activeProjectName} · {state.activeTarget} · revisão {state.sceneRevision} · ROM {artifact?.sha256 ?? "indisponível"}
+    <div className="min-w-0 break-words text-[#94a3b8] md:col-span-2">
+      Projeto {state.activeProjectName} · {state.activeTarget} · revisão {state.sceneRevision} · ROM <span className="break-all">{artifact?.sha256 ?? "indisponível"}</span>
     </div>
 
     <Card title="Por que não compila?">
@@ -106,7 +106,7 @@ export default function ProjectDiagnostics({ onRequestInspector }: { onRequestIn
           : <button type="button" className={actionClass} onClick={() => void readPausedVariables()}>Ler posição, animação e quadro na RAM</button>}
       {sampleError && <p role="alert" className="text-[#f38ba8]">{sampleError}</p>}
       {validSample && <>
-        <p>Leitura em {new Date(validSample.sampledAt).toLocaleString()} · core época {validSample.coreEpoch} · ROM {validSample.romSha}.</p>
+        <p>Leitura em {new Date(validSample.sampledAt).toLocaleString()} · core época {validSample.coreEpoch} · ROM <span className="break-all">{validSample.romSha}</span>.</p>
         {validSample.values.length ? <ul className="space-y-1">{validSample.values.map((value) => <li key={value.entity_id}>
           <button type="button" className={actionClass} onClick={() => { state.setSelectedEntityId(value.entity_id); state.setActiveWorkspace("scene"); state.setActiveViewportTab("scene"); onRequestInspector?.(); }}>{value.entity_id}</button>
           {` x=${value.x} px, y=${value.y} px, animação=${value.anim ?? "indisponível"}, quadro=${value.frame ?? "indisponível"}`}
@@ -135,7 +135,7 @@ export default function ProjectDiagnostics({ onRequestInspector }: { onRequestIn
     <Card title="Qual medida de desempenho existe?">
       {metric === null ? <p>FPS de apresentação indisponível para a ROM e o core atuais. Execute o jogo por pelo menos um segundo.</p>
         : <p>{metric.toFixed(1)} quadros apresentados/s · {observation!.frames} quadros em {(observation!.durationMs / 1000).toFixed(2)} s · medido em {new Date(observation!.measuredAt).toLocaleTimeString()}.</p>}
-      <p className="text-[#94a3b8]">Origem: quadros entregues pelo Libretro à interface; ROM {observation?.romSha256 ?? "indisponível"}, core época {observation?.coreEpoch ?? "indisponível"}. Janela: {observation ? `${Math.round(observation.durationMs)} ms` : "indisponível"}. Unidade: quadros apresentados/s; não mede clock ou FPS da simulação. Ação: comparar janelas durante o jogo e investigar quedas no Profiler.</p>
+      <p className="text-[#94a3b8]">Origem: quadros entregues pelo Libretro à interface; ROM <span className="break-all">{observation?.romSha256 ?? "indisponível"}</span>, core época {observation?.coreEpoch ?? "indisponível"}. Janela: {observation ? `${Math.round(observation.durationMs)} ms` : "indisponível"}. Unidade: quadros apresentados/s; não mede clock ou FPS da simulação. Ação: comparar janelas durante o jogo e investigar quedas no Profiler.</p>
     </Card>
   </div>;
 }
