@@ -8793,6 +8793,14 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
     await clickByTestId(sessionId, "menu-action-undo");
   };
   const sceneFile = () => path.join(report.projectDir, "scenes/main.json");
+  const openLogicContext = async () => {
+    const expanded = await attr("nodegraph-toggle-context", "aria-expanded");
+    if (expanded === "false") await click("nodegraph-toggle-context", "Comportamentos");
+    await waitFor(async () => js(`const rail=document.querySelector('[data-testid="nodegraph-context-rail"]');
+      const select=rail?.querySelector('[data-testid="nodegraph-entity-switch"]');
+      return rail && !rail.hidden && select?.getClientRects().length > 0;`),
+    5000, "Painel de comportamentos nao ficou visivel.", 100);
+  };
   const palettesOnDisk = async () => JSON.parse(await readFile(sceneFile(), "utf8")).palettes ?? [];
   const palettesInStore = async () => (await state())?.activeScene?.palettes ?? null;
 
@@ -8886,6 +8894,7 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   await waitFor(async () => exists("hierarchy-entity-kenmasters_2"), 15000, "Copia nao apareceu.", 100);
   await clickByTestId(sessionId, "workspace-rail-logic");
   await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="nodegraph-entity-switch"] option[value="kenmasters_2"]'));`), 20000, "Logica sem kenmasters_2.", 150);
+  await openLogicContext();
   await selectOption("nodegraph-entity-switch", "kenmasters_2");
   await waitFor(async () => exists("behavior-add-strike"), 15000, "Comportamento Golpe autoral ausente.", 150);
   await click("behavior-add-strike", "Golpe autoral");
@@ -8894,6 +8903,8 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   await click("behavior-apply", "aplicar golpe");
   await waitFor(async () => js(`return [...document.querySelectorAll('[data-testid^="behavior-instance-"]')].some((el) => /golpe/i.test(el.textContent ?? ""));`), 10000, "Instancia do golpe nao apareceu.", 150);
   await clickByTestId(sessionId, "workspace-rail-scene");
+  await waitFor(async () => (await state())?.activeWorkspace === "scene" && await exists("hierarchy-add-hud"),
+    10000, "Cena/Hierarquia nao ficaram prontas para adicionar texto.", 100);
   await click("hierarchy-add-hud", "Adicionar texto");
   await waitFor(async () => exists("inspector-hud"), 15000, "Inspector de texto nao abriu.", 150);
   await typeCommit("inspector-hud-label", "VIDA:");
@@ -8955,6 +8966,7 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
 
   // F. Troca por evento no NodeGraph (alvo com banco proprio).
   await clickByTestId(sessionId, "workspace-rail-logic");
+  await openLogicContext();
   await selectOption("nodegraph-entity-switch", "kenmasters_2");
   await waitFor(async () => exists("behavior-add-palette_swap"), 15000, "Comportamento de troca de paleta ausente.", 150);
   await click("behavior-add-palette_swap", "Trocar paleta ao sofrer golpe");
