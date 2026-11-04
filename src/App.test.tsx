@@ -2015,6 +2015,14 @@ describe("App build flow", () => {
       await flush();
     });
 
+    const baseline = {
+      projectDir: useEditorStore.getState().activeProjectDir,
+      scenePath: useEditorStore.getState().activeScenePath,
+      sourceSceneJson: '{"scene_id":"on-disk"}',
+    };
+    const saved = { status: "saved" as const, message: null, at: 100, revision: prevRevision };
+    useEditorStore.setState({ sceneDiskBaseline: baseline, sceneSaveState: saved });
+
     const receipt = await act(async () => {
       const result = await automationWindow.__RDS_E2E__!.setSceneDraft({
         scene_id: "injected",
@@ -2032,6 +2040,8 @@ describe("App build flow", () => {
 
     const storeRev = useEditorStore.getState().sceneRevision;
     expect(receipt.sceneRevision).toBe(storeRev);
+    expect(useEditorStore.getState().sceneDiskBaseline).toEqual(baseline);
+    expect(useEditorStore.getState().sceneSaveState).toEqual(saved);
 
     delete automationWindow.__TAURI_INTERNALS__;
   });

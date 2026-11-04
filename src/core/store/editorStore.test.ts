@@ -304,6 +304,24 @@ describe("updateBackgroundLayer", () => {
 });
 
 describe("setActiveScene", () => {
+  it("descarta a validação do alvo e da cena anteriores", () => {
+    const hardware = {
+      vram_used: 0, vram_limit: 65536, sprite_count: 0, sprite_limit: 80,
+      scanline_sprite_peak: 0, scanline_sprite_limit: 20, dma_used: 0, dma_limit: 7372,
+      palette_banks_used: 0, palette_banks_limit: 4, bg_layers: 0, bg_layers_limit: 4,
+      errors: [], warnings: [],
+    };
+    useEditorStore.setState({ hwStatus: hardware, hwValidationState: "fresh", hwValidatedRevision: 4 });
+    useEditorStore.getState().setActiveTarget("snes");
+    expect(useEditorStore.getState().hwStatus).toBeNull();
+    expect(useEditorStore.getState().hwValidationState).toBe("idle");
+
+    useEditorStore.setState({ hwStatus: hardware, hwValidationState: "fresh", hwValidatedRevision: 4 });
+    useEditorStore.getState().setActiveScenePath("scenes/other.json");
+    expect(useEditorStore.getState().hwStatus).toBeNull();
+    expect(useEditorStore.getState().hwValidationState).toBe("idle");
+  });
+
   it("incrementa sceneRevision ao carregar cena", () => {
     useEditorStore.setState({ sceneRevision: 7 });
     useEditorStore.getState().setActiveScene({ ...EMPTY_SCENE });

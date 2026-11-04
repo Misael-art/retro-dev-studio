@@ -49,6 +49,7 @@ import {
 } from "./assetBrowserModel";
 import { useAssetBrowserState } from "./useAssetBrowserState";
 import ProjectCapabilityPanel from "./ProjectCapabilityPanel";
+import ProjectDiagnostics from "./ProjectDiagnostics";
 import {
   formatParityEvidenceDetails,
   runCrossCoreParity,
@@ -2332,6 +2333,7 @@ function VramViewer() {
 
 export type ToolTab =
   | "patch"
+  | "projectDiagnostics"
   | "profiler"
   | "extractor"
   | "setup"
@@ -2862,6 +2864,13 @@ const TOOL_CATEGORIES: {
 
 const TOOL_TABS: ToolDescriptor[] = [
   {
+    id: "projectDiagnostics",
+    label: "Diagnóstico do projeto",
+    icon: "DG",
+    category: "analyze",
+    description: "Build, colisão, variáveis observadas, limites e desempenho do projeto e da ROM atuais.",
+  },
+  {
     id: "palette",
     label: "Paleta Contextual",
     icon: "CR",
@@ -2973,6 +2982,8 @@ function renderToolPanel(
   onRequestInspector?: () => void
 ) {
   switch (active) {
+    case "projectDiagnostics":
+      return <ProjectDiagnostics onRequestInspector={onRequestInspector} />;
     case "setup":
       return <RuntimeSetup />;
     case "palette":

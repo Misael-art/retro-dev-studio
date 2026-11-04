@@ -238,8 +238,33 @@ export interface BuildTestReceipt {
 export interface BuildArtifactIdentity {
   path: string;
   sha256: string;
+  /** Escopo explícito dos diagnósticos; builds antigos sem ele não são atribuídos. */
+  projectDir?: string;
+  projectSessionId?: number;
+  target?: "megadrive" | "snes";
   /** null: scene build; number: C overlay revision, independent of reference scenes. */
   nativeCodeRevision: number | null;
+}
+
+/** Resultado de build ligado à sessão e à revisão que o solicitou. */
+export interface BuildFailureReceipt {
+  projectDir: string;
+  projectSessionId: number;
+  scenePath: string;
+  sceneRevision: number;
+  target: "megadrive" | "snes";
+  recordedAt: number;
+  messages: string[];
+  diagnostics: ActionableDiagnostic[];
+}
+
+/** Quadros entregues à interface, não ciclos nem FPS da simulação. */
+export interface PresentationObservation {
+  romSha256: string;
+  coreEpoch: number;
+  frames: number;
+  durationMs: number;
+  measuredAt: number;
 }
 
 let joypadSessionCounter = 0;
@@ -302,6 +327,8 @@ export interface StoreState {
   lastParityReport: ParityReport | null;
   lastBuildSourceMap: BuildSourceMap | null;
   lastBuildArtifact: BuildArtifactIdentity | null;
+  lastBuildFailure: BuildFailureReceipt | null;
+  presentationObservation: PresentationObservation | null;
   nativeCodeRevision: number;
   /** Vínculo execução → projeto do último build bem-sucedido (Experimental). */
   lastRuntimeLink: RuntimeLink | null;
@@ -389,6 +416,8 @@ export interface StoreActions {
   setLastParityReport: (report: ParityReport | null) => void;
   setLastBuildSourceMap: (sourceMap: BuildSourceMap | null) => void;
   setLastBuildArtifact: (artifact: BuildArtifactIdentity | null) => void;
+  setLastBuildFailure: (failure: BuildFailureReceipt | null) => void;
+  setPresentationObservation: (observation: PresentationObservation | null) => void;
   recordNativeCodeEdit: () => void;
   setLastRuntimeLink: (link: RuntimeLink | null) => void;
   setLastBuildSceneRevision: (revision: number | null) => void;
@@ -710,10 +739,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       activeProjectDir: dir,
       projectSessionId: state.projectSessionId + 1,
       activeProjectName: name,
+      hwStatus: null,
+      ...INITIAL_VALIDATION_STATE,
       sceneDiskBaseline: null,
       sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
       lastBuildSourceMap: null,
       lastBuildArtifact: null,
+      lastBuildFailure: null,
+      presentationObservation: null,
       nativeCodeRevision: 0,
       lastRuntimeLink: null,
       lastBuildSceneRevision: null,
@@ -725,8 +758,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setActiveTarget: (target) => set((state) => state.activeTarget === target ? state : ({
     activeTarget: target,
     projectSessionId: state.projectSessionId + 1,
+    hwStatus: null,
+    ...INITIAL_VALIDATION_STATE,
     lastBuildSourceMap: null,
     lastBuildArtifact: null,
+    lastBuildFailure: null,
+    presentationObservation: null,
     lastRuntimeLink: null,
     lastBuildSceneRevision: null,
     lastBuildTest: null,
@@ -734,12 +771,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   activeScenePath: "",
   setActiveScenePath: (path) => set((state) => state.activeScenePath === path ? state : ({
     activeScenePath: path,
+    hwStatus: null,
+    ...INITIAL_VALIDATION_STATE,
     sceneDiskBaseline: null,
     sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
     projectSessionId: state.projectSessionId + 1,
     // Captured scenes do not change a native C build or its ROM identity.
     lastBuildSourceMap: null,
     lastBuildArtifact: state.lastBuildArtifact?.nativeCodeRevision != null ? state.lastBuildArtifact : null,
+    lastBuildFailure: null,
+    presentationObservation: null,
     lastRuntimeLink: null,
     lastBuildSceneRevision: null,
   })),
@@ -750,6 +791,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set(() => ({
       emulatorLoaded: loaded,
       emulatorRomIdentity: null,
+      presentationObservation: null,
       // Toda transição de carga abre uma época nova (ou nenhuma, ao parar):
       // solicitações e confirmações da carga anterior deixam de ser aceitáveis.
       // Ancorar aqui — e não em cada call site — torna a invalidação por
@@ -762,7 +804,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       // Toda carga/parada encerra a sessão de teste: ajustes temporários não sobrevivem.
       testAdjustments: [],
     })),
-  setEmulatorRomIdentity: (identity) => set({ emulatorRomIdentity: identity }),
+  setEmulatorRomIdentity: (identity) => set({ emulatorRomIdentity: identity, presentationObservation: null }),
   requestEmulatorLaunch: (romPath, sourceLabel) =>
     set({
       emulatorLaunchRequest: {
@@ -908,8 +950,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setLastParityReport: (report) => set({ lastParityReport: report }),
   lastBuildSourceMap: null,
   lastBuildArtifact: null,
+  lastBuildFailure: null,
+  presentationObservation: null,
   nativeCodeRevision: 0,
   setLastBuildArtifact: (artifact) => set({ lastBuildArtifact: artifact }),
+  setLastBuildFailure: (failure) => set({ lastBuildFailure: failure }),
+  setPresentationObservation: (observation) => set({ presentationObservation: observation }),
   recordNativeCodeEdit: () => set((state) => ({ nativeCodeRevision: state.nativeCodeRevision + 1 })),
   setLastBuildSourceMap: (sourceMap) => set({ lastBuildSourceMap: sourceMap, lastBuildArtifact: null }),
   lastRuntimeLink: null,

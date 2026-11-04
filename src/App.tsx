@@ -2015,8 +2015,8 @@ export default function App() {
     ...(shellConfig.showRight && !focusedShell ? [["inspector", "Inspector"]] as ["inspector", string][] : []),
   ];
   useEffect(() => {
-    setCompactPanel("canvas");
-  }, [activeWorkspace]);
+    setCompactPanel(activeWorkspace === "debug" && shellConfig.showRight ? "inspector" : "canvas");
+  }, [activeWorkspace, compactShell, shellConfig.showRight]);
   const defaultRightMode = shellConfig.defaultRightMode;
   const shortcutConflicts = findShortcutConflicts(shortcuts);
   const paletteCommands = getPaletteCommands(shortcuts).filter((command) =>
@@ -3759,6 +3759,21 @@ export default function App() {
         && current.activeScenePath === buildContext.activeScenePath;
     };
     const staleBuildMessage = () => logMessage("warn", "O projeto ou a cena mudou durante o build. Teste novamente para executar a revisão atual.");
+    const recordBuildFailure = (messages: string[], diagnostics: ActionableDiagnostic[] = []) => {
+      if (!isBuildContextCurrent()) return;
+      const current = useEditorStore.getState();
+      if (current.sceneRevision !== buildContext.sceneRevision) return;
+      current.setLastBuildFailure({
+        projectDir: activeProjectDir,
+        projectSessionId: current.projectSessionId,
+        scenePath: current.activeScenePath,
+        sceneRevision: buildContext.sceneRevision,
+        target: activeTarget,
+        recordedAt: Date.now(),
+        messages,
+        diagnostics,
+      });
+    };
 
     try {
       const state = useEditorStore.getState();
@@ -3767,6 +3782,7 @@ export default function App() {
         state.hwStatus &&
         state.hwStatus.errors.length > 0
       ) {
+        recordBuildFailure(state.hwStatus.errors);
         state.hwStatus.errors.forEach((error) =>
           reportDiagnostic(
             createFallbackDiagnostic({
@@ -3793,6 +3809,7 @@ export default function App() {
       if (!dependenciesReady || !isBuildContextCurrent()) return;
 
       setBuilding(true);
+      useEditorStore.getState().setLastBuildFailure(null);
       setRomMasteringStatus("pending");
       setLastBuildSourceMap(null);
       useEditorStore.getState().setLastRuntimeLink(null);
@@ -3817,6 +3834,7 @@ export default function App() {
       }
       setHwStatus(hwStatus);
       if (hwStatus.errors.length > 0) {
+        recordBuildFailure(hwStatus.errors);
         hwStatus.errors.forEach((error) =>
           reportDiagnostic(
             createFallbackDiagnostic({
@@ -3846,6 +3864,10 @@ export default function App() {
           .filter((line) => line.level === "error")
           .map((line) => line.message.trim())
           .filter((msg) => msg.length > 0);
+        recordBuildFailure(
+          errorLines.length > 0 ? errorLines : ["Build falhou sem detalhe no log. Abra o Console e repita o build."],
+          normalizeBuildDiagnostics(result, activeTarget, activeProjectDir)
+        );
         if (errorLines.some(looksLikeRuntimeDependencyFailure)) {
           openRuntimeSetupForIssue();
         }
@@ -3868,6 +3890,9 @@ export default function App() {
         useEditorStore.getState().setLastBuildArtifact({
           path: result.rom_path,
           sha256: mastering.sha256,
+          projectDir: activeProjectDir,
+          projectSessionId: useEditorStore.getState().projectSessionId,
+          target: activeTarget,
           nativeCodeRevision: hwStatus.analysis_mode === "native_c" ? nativeCodeRevision : null,
         });
         const nextStatus =
@@ -3955,6 +3980,7 @@ export default function App() {
       setActiveWorkspace("game");
     } catch (error) {
       if (!isBuildContextCurrent()) return;
+      recordBuildFailure([describeError(error)]);
       reportDiagnostic(
         createFallbackDiagnostic({
           area: buildAreaForTarget(activeTarget),
@@ -4013,7 +4039,7 @@ export default function App() {
     const config = resolveWorkspaceShellConfig(workspace, shellWidth);
 
     if (workspace === "debug") {
-      openToolsWorkspace("profiler", "debug", true);
+      openToolsWorkspace("projectDiagnostics", "debug", true);
       setActiveViewportTab("scene");
       return;
     }
@@ -4477,8 +4503,14 @@ export default function App() {
           throw new Error("Nenhum projeto aberto para injetar draft.");
         }
 
+        // O draft substitui o conteúdo em memória, não o arquivo no disco.
+        // Preserve o baseline observado na abertura para que o save seguro
+        // compare com o arquivo real, inclusive no teste de build bloqueado.
+        const diskBaseline = state.sceneDiskBaseline;
+        const lastSave = state.sceneSaveState;
         state.setSelectedEntityId(null);
         state.setActiveScene(scene, scene);
+        useEditorStore.setState({ sceneDiskBaseline: diskBaseline, sceneSaveState: lastSave });
         const receipt = { ok: true as const, sceneRevision: useEditorStore.getState().sceneRevision };
         if (!isValidSceneDraftReceipt(receipt)) throw new Error("setSceneDraft nao produziu recibo valido.");
         return receipt;

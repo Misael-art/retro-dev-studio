@@ -10402,8 +10402,15 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     return state.activeWorkspace === "scene" && state.selectedEntityId === "player" ? state : false;
   }, 10000, "Ver na cena não selecionou o Player.", 100);
   await clickButtonByTestIdNative(sessionId, "studio-return-origin", "retornar ao arquivo após localizar o Player");
-  await waitFor(async () => (await readAutomationState(sessionId)).activeWorkspace === "explorer",
-    10000, "Voltar da cena não restaurou Arquivos.", 100);
+  await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    const ready = await executeScript(sessionId, `return {
+      asset: document.querySelector('[data-testid="explorer-selection-source"]')?.parentElement?.textContent ?? '',
+      logic: !!document.querySelector('[data-testid="explorer-open-logic"]'),
+    };`);
+    return state.activeWorkspace === "explorer" && ready.logic
+      && ready.asset.includes("reference_player.png") ? state : false;
+  }, 10000, "Voltar da cena não restaurou o arquivo e a ação Lógica do Player.", 100);
   await clickButtonByTestIdNative(sessionId, "explorer-open-logic", "abrir lógica do usuário do arquivo");
   await waitFor(async () => {
     const state = await readAutomationState(sessionId);
@@ -10834,6 +10841,49 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     rom: firstBuild.rom_path,
     framebuffer: firstBuild.framebuffer,
   });
+
+  const presented = await waitFor(async () => {
+    const value = await executeScript(sessionId, "return document.querySelector('[data-testid=\"viewport-performance-overlay\"]')?.textContent ?? ''; ");
+    return /FPS apresentação\s+(?!indisponível)\d/.test(value) ? value : false;
+  }, 10000, "Debug nao mediu uma janela real de quadros apresentados pela ROM atual.", 250);
+  await clickByTestId(sessionId, "viewport-pause");
+  await clickByTestId(sessionId, "workspace-rail-debug");
+  const diagnosis = await waitFor(async () => executeScript(sessionId, `
+    const panel = document.querySelector('[data-testid="project-diagnostics"]');
+    if (!panel) return null;
+    const section = (name) => panel.querySelector('[aria-label="' + name + '"]')?.textContent ?? '';
+    return {
+      identity: panel.textContent ?? '',
+      build: section('Por que não compila?'),
+      collision: section('Onde há colisão?'),
+      resources: section('Que recurso excedeu o limite?'),
+      performance: section('Qual medida de desempenho existe?'),
+    };
+  `), 10000, "Debug nao abriu diagnostico do projeto atual.", 250);
+  if (!diagnosis.identity.includes(firstBuild.rom_sha256)
+    || !diagnosis.build.includes("Nenhuma falha de build registrada")
+    || !diagnosis.collision.includes("célula(s) sólida(s)")
+    || !diagnosis.resources.includes("VRAM")
+    || !diagnosis.performance.includes("quadros apresentados/s")
+    || !presented.includes("FPS apresentação")) {
+    fail(`PLAT11 associou diagnostico divergente da ROM/revisao atual: ${JSON.stringify(diagnosis)}`);
+  }
+  await clickButtonByText(sessionId, "Ler posição, animação e quadro na RAM", "exact");
+  const sampledVariables = await waitFor(async () => {
+    const value = await executeScript(sessionId, `
+      return document.querySelector('[aria-label="Quais estados e variáveis foram observados?"]')?.textContent ?? '';
+    `);
+    return value.includes("player") && value.includes("x=") && value.includes(firstBuild.rom_sha256) ? value : false;
+  }, 10000, "Debug nao apresentou leitura de RAM do core pausado.", 250);
+  if (!sampledVariables.includes("player") || !sampledVariables.includes("x=")
+    || !sampledVariables.includes(firstBuild.rom_sha256)) {
+    fail(`PLAT11 nao vinculou Player/RAM a ROM atual: ${sampledVariables}`);
+  }
+  addReportStep(report, "project_debug_build_collision_ram_budget_presentation", "passed", {
+    rom_sha256: firstBuild.rom_sha256, presentation: presented, diagnosis, sampledVariables,
+  });
+  addReportArtifact(report, await captureScreenshot(sessionId, `${artifactPrefix}-debug-project.png`), "PLAT11 project diagnosis");
+  await clickByTestId(sessionId, "workspace-rail-game");
 
   const invokeCore = async (command, args = {}) => executeAsyncScript(
     sessionId,
@@ -11359,7 +11409,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     250
   );
   await closeVisibleConsoleDrawer(sessionId, "antes da autoria de tilemap");
-  await clickButtonByTestIdNative(
+  await clickButtonByTestIdNativeWhenReady(
     sessionId,
     "hierarchy-tilemap-edit-reference_tilemap",
     "abrir autoria do tilemap da referencia"
@@ -17767,8 +17817,8 @@ async function inspectNativeButtonTarget(sessionId, testId) {
       const topWithTestId = top instanceof Element ? top.closest("[data-testid]") : null;
       const unobstructed = Boolean(top && (top === button || button.contains(top)));
       const wizard = document.querySelector('[data-testid="project-wizard-body"]');
-      const group = document.querySelector('[data-group="retrodev-layout"]');
-      const leftPanel = document.querySelector('[data-panel="left"]');
+      const group = document.querySelector('[data-group][id="retrodev-layout"]');
+      const leftPanel = document.querySelector('[data-panel][id="left"]');
       const groupRect = group?.getBoundingClientRect();
       const leftRect = leftPanel?.getBoundingClientRect();
       return {
@@ -17784,6 +17834,7 @@ async function inspectNativeButtonTarget(sessionId, testId) {
         topClass: top instanceof Element ? String(top.className ?? "") : "",
         unobstructed,
         wizardVisible: Boolean(wizard),
+        viewport: { width: window.innerWidth, height: window.innerHeight },
         groupWidth: groupRect?.width ?? null,
         leftPanelWidth: leftRect?.width ?? null,
       };
@@ -30284,10 +30335,16 @@ async function main() {
           );
           return actionable?.message?.includes("Build falhou porque") ? state : false;
         },
-        emulatorActivationTimeoutMs,
+        Math.min(emulatorActivationTimeoutMs, 90000),
         "Build bloqueado nao exibiu diagnostico acionavel.",
         500
-      );
+      ).catch(async (error) => {
+        const state = await readAutomationState(sessionId).catch(() => null);
+        const snapshot = { error: String(error), state, appDiagnostics: await collectAppDiagnostics(sessionId).catch(() => null) };
+        const evidencePath = path.join(validationDir, `build-blocked-diagnostic-${artifactTimestamp()}-failure.json`);
+        await writeFile(evidencePath, JSON.stringify(snapshot, null, 2));
+        fail(`Build bloqueado sem resposta esperada: ${JSON.stringify({ evidencePath, ...snapshot })}`);
+      });
 
       const actionableEntry = diagnosticState.consoleEntries.find(
         (entry) =>
@@ -30341,6 +30398,33 @@ async function main() {
       }
       if (!drawerState.hasEvidence) {
         fail("Painel Details nao exibiu link de artefato/log.");
+      }
+
+      await closeVisibleConsoleDrawer(sessionId, "diagnóstico do projeto após build bloqueado");
+      await clickByTestId(sessionId, "workspace-rail-debug");
+      let lastBuildAnswer = null;
+      const projectBuildAnswer = await waitFor(async () => {
+        const answer = await executeScript(sessionId, `
+          const panel = document.querySelector('[data-testid="project-diagnostics"]');
+          return panel ? {
+            header: panel.firstElementChild?.textContent ?? '',
+            build: panel.querySelector('[aria-label="Por que não compila?"]')?.textContent ?? '',
+          } : null;
+        `);
+        lastBuildAnswer = answer;
+        return answer?.build.includes("Falha no build iniciado") ? answer : false;
+      }, 10000, "Debug não associou a falha de build ao projeto atual.", 250).catch(async (error) => {
+        const evidencePath = path.join(validationDir, `build-blocked-diagnostic-${artifactTimestamp()}-debug-failure.json`);
+        await writeFile(evidencePath, JSON.stringify({
+          error: String(error), lastBuildAnswer,
+          state: await readAutomationState(sessionId).catch(() => null),
+          appDiagnostics: await collectAppDiagnostics(sessionId).catch(() => null),
+        }, null, 2));
+        fail(`Debug não associou a falha de build ao projeto atual: ${evidencePath}`);
+      });
+      if (!projectBuildAnswer.header.includes("ROM indisponível")
+        || !projectBuildAnswer.build.includes("Ação:")) {
+        fail(`Debug atribuiu ROM antiga ou perdeu correção do build: ${JSON.stringify(projectBuildAnswer)}`);
       }
 
       console.log("OK: Desktop Tauri build blocked diagnostic E2E passou.");

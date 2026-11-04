@@ -669,10 +669,8 @@ export default function ViewportPanel({
   const [denseStackPreviewEntityId, setDenseStackPreviewEntityId] = useState<string | null>(null);
   const [soloEntityId, setSoloEntityId] = useState<string | null>(null);
   const lastOverlayHwStatusRef = useRef(hwStatus);
-  const frameTimingRef = useRef<{ lastFrameAt: number; fps: number }>({
-    lastFrameAt: 0,
-    fps: 0,
-  });
+  const frameTimingRef = useRef<{ windowStartAt: number; frames: number }>({ windowStartAt: 0, frames: 0 });
+  const presentationObservation = useEditorStore((state) => state.presentationObservation);
   const sceneWidth = sceneWorld.worldWidth;
   const sceneHeight = sceneWorld.worldHeight;
   const sceneFrameWidth = sceneWorld.frame.width;
@@ -1494,14 +1492,21 @@ export default function ViewportPanel({
     }
 
     const now = performance.now();
-    if (frameTimingRef.current.lastFrameAt > 0) {
-      const deltaMs = now - frameTimingRef.current.lastFrameAt;
-      const nextFps = deltaMs > 0 ? 1000 / deltaMs : 0;
-      frameTimingRef.current.fps = frameTimingRef.current.fps === 0
-        ? nextFps
-        : (frameTimingRef.current.fps * 0.8) + (nextFps * 0.2);
+    const timing = frameTimingRef.current;
+    if (timing.windowStartAt === 0) timing.windowStartAt = now;
+    timing.frames += 1;
+    const durationMs = now - timing.windowStartAt;
+    if (durationMs >= 1000 && timing.frames >= 2) {
+      useEditorStore.getState().setPresentationObservation({
+        romSha256: payload.rom_sha256!,
+        coreEpoch: payload.core_epoch!,
+        frames: timing.frames - 1,
+        durationMs,
+        measuredAt: Date.now(),
+      });
+      timing.windowStartAt = now;
+      timing.frames = 1;
     }
-    frameTimingRef.current.lastFrameAt = now;
   }, []);
 
   useEffect(() => {
@@ -1524,7 +1529,13 @@ export default function ViewportPanel({
   useEffect(() => {
     renderedFrameCounterRef.current = 0;
     setRenderedFrameCount(0);
+    frameTimingRef.current = { windowStartAt: 0, frames: 0 };
   }, [emulatorRomIdentity?.sha256]);
+
+  useEffect(() => {
+    // Pausa não compõe a janela de apresentação da próxima execução.
+    frameTimingRef.current = { windowStartAt: 0, frames: 0 };
+  }, [emulPaused]);
 
   const clearAudioQueue = useCallback(() => {
     audioQueueRef.current = [];
@@ -4369,7 +4380,10 @@ export default function ViewportPanel({
     100,
     Math.round((dmaUsageBytes / Math.max(dmaBudgetBytes, 1)) * 100)
   );
-  const overlayFps = frameTimingRef.current.fps > 0 ? frameTimingRef.current.fps.toFixed(1) : "0.0";
+  const overlayFps = presentationObservation && presentationObservation.romSha256 === emulatorRomIdentity?.sha256
+    && presentationObservation.coreEpoch === useEditorStore.getState().coreEpoch
+    ? (presentationObservation.frames * 1000 / presentationObservation.durationMs).toFixed(1)
+    : null;
   const overlaySpriteCount = overlayHwStatus?.sprite_count ?? activeScene?.entities.filter((entity) => entity.components.sprite).length ?? 0;
   const nativeCOverlay = lastBuildArtifact?.nativeCodeRevision != null
     && lastBuildArtifact.sha256 === emulatorRomIdentity?.sha256;
@@ -5566,7 +5580,7 @@ export default function ViewportPanel({
                     data-native-c={nativeCOverlay}
                     className="pointer-events-none absolute left-2 top-2 flex flex-col gap-1 rounded border border-[#313244] bg-[#11111b]/80 px-2 py-1 font-mono text-[10px] text-[#cdd6f4]"
                   >
-                    <span>FPS {overlayFps}</span>
+                    <span>FPS apresentação {overlayFps ?? "indisponível"} (janela ≥1 s)</span>
                     <span>Sprites {nativeCOverlay ? "indisponíveis (C)" : overlaySpriteCount}</span>
                     <span>DMA est. {nativeCOverlay ? "indisponível (C)" : `${Math.round(dmaUsageBytes / 1024)}KB / ${Math.round(dmaBudgetBytes / 1024)}KB (${dmaUsagePercent}%)`}</span>
                   </div>
