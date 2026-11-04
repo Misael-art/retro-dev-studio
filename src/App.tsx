@@ -21,6 +21,7 @@ import {
   Group,
   Panel,
   type GroupImperativeHandle,
+  type PanelImperativeHandle,
   useDefaultLayout,
 } from "react-resizable-panels";
 import Console from "./components/common/Console";
@@ -1934,6 +1935,8 @@ export default function App() {
   const [explorerBreadcrumb, setExplorerBreadcrumb] = useState<string | null>(null);
   const buildInFlightRef = useRef(false);
   const panelGroupRef = useRef<GroupImperativeHandle | null>(null);
+  const leftPanelRef = useRef<PanelImperativeHandle | null>(null);
+  const rightPanelRef = useRef<PanelImperativeHandle | null>(null);
   const lastNonFocusLayoutRef = useRef<LayoutMap | null>(null);
   const applyingLayoutRef = useRef(false);
   const tauriInternals =
@@ -2212,7 +2215,19 @@ export default function App() {
 
   function applyShellLayout(nextLayout: LayoutMap) {
     applyingLayoutRef.current = true;
+    if (nextLayout.left > 0 && leftPanelRef.current?.isCollapsed()) {
+      leftPanelRef.current.expand();
+    }
+    if (nextLayout.right > 0 && rightPanelRef.current?.isCollapsed()) {
+      rightPanelRef.current.expand();
+    }
     panelGroupRef.current?.setLayout(nextLayout);
+    if (nextLayout.left > 0 && (leftPanelRef.current?.getSize().inPixels ?? 0) < 190) {
+      leftPanelRef.current?.resize("200px");
+    }
+    if (nextLayout.right > 0 && (rightPanelRef.current?.getSize().inPixels ?? 0) < 300) {
+      rightPanelRef.current?.resize("320px");
+    }
     onLayoutChanged(nextLayout);
     window.setTimeout(() => {
       applyingLayoutRef.current = false;
@@ -5832,6 +5847,7 @@ export default function App() {
         >
           <Panel
             id="left"
+            panelRef={leftPanelRef}
             defaultSize={shellConfig.panels.left}
             minSize={shellConfig.showLeft && !focusedShell && shellWidth >= 960 ? "200px" : 0}
             collapsible
@@ -5846,6 +5862,7 @@ export default function App() {
           <LayoutSplitter />
           <Panel
             id="right"
+            panelRef={rightPanelRef}
             defaultSize={shellConfig.panels.right}
             minSize={shellConfig.showRight && !focusedShell ? (shellWidth < 960 ? "260px" : "320px") : 0}
             collapsible

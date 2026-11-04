@@ -481,6 +481,7 @@ export default function ViewportPanel({
   const [moveScope, setMoveScope] = useState<"entity" | "layer">("entity");
   const [moveGlobalCollisionMap, setMoveGlobalCollisionMap] = useState(false);
   const [collisionPaintValue, setCollisionPaintValue] = useState<0 | 1>(1);
+  const [tilePaletteCollapsed, setTilePaletteCollapsed] = useState(false);
   const [templateCompositionBaseline, setTemplateCompositionBaseline] = useState<Scene | null>(null);
   const [templateCompositionPreview, setTemplateCompositionPreview] = useState<{
     projectDir: string;
@@ -5081,6 +5082,21 @@ export default function ViewportPanel({
                 >
                   <div className="flex flex-wrap items-center gap-2 border-b border-[#313244] px-2 py-1 text-[10px] text-[#cdd6f4]">
                     <span className="font-semibold uppercase tracking-wide text-[#89b4fa]">Fluxo tilemap</span>
+                    <button
+                      type="button"
+                      data-testid="viewport-tile-flow-toggle"
+                      aria-expanded={!tilePaletteCollapsed}
+                      onClick={() => setTilePaletteCollapsed((value) => !value)}
+                      className="rounded border border-[#89b4fa]/40 bg-[#89b4fa]/10 px-2 py-1 text-[9px] font-semibold text-[#cdd6f4] hover:bg-[#89b4fa]/20 focus-visible:ring-2 focus-visible:ring-[var(--rds-focus-ring)]"
+                    >
+                      {tilePaletteCollapsed ? "Abrir paleta" : "Recolher paleta"}
+                    </button>
+                    {tilePaletteCollapsed ? (
+                      <span className="truncate text-[#cba6f7]" title={creatorWorkflow.tileBrushLabel}>
+                        {creatorWorkflow.tileBrushLabel}
+                      </span>
+                    ) : (
+                      <>
                     <span className="text-[#a6adc8]">
                       Alvo:{" "}
                       <span className="font-mono text-[#f9e2af]">
@@ -5116,8 +5132,10 @@ export default function ViewportPanel({
                         Voltar select
                       </button>
                     </div>
+                      </>
+                    )}
                   </div>
-                  {activeProjectDir && activeTilemapEntityForPalette?.components.tilemap ? (
+                  {!tilePaletteCollapsed && activeProjectDir && activeTilemapEntityForPalette?.components.tilemap ? (
                     <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#0b0f19]">
                       <TilePalette
                         projectDir={activeProjectDir}
@@ -5130,12 +5148,12 @@ export default function ViewportPanel({
                         tilemapEntityId={activeTilemapEntityForPalette.entity_id}
                       />
                     </div>
-                  ) : (
+                  ) : !tilePaletteCollapsed ? (
                     <p className="pointer-events-none px-2 py-2 text-[9px] text-[#6c7086]">
                       Selecione um tilemap na cena ou abra um projeto para carregar a paleta embutida (fluxo central
                       sem depender só de Tools).
                     </p>
-                  )}
+                  ) : null}
                 </div>
               ) : null}
               <canvas

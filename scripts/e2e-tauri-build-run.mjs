@@ -3025,15 +3025,21 @@ async function clickCanvasPointNatively(sessionId, selector, normalizedX, normal
       if (!(canvas instanceof HTMLElement)) return null;
       const rect = canvas.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return null;
+      const x = Math.round(rect.left + rect.width * arguments[1]);
+      const y = Math.round(rect.top + rect.height * arguments[2]);
+      const hit = document.elementFromPoint(x, y);
       return {
-        x: Math.round(rect.left + rect.width * arguments[1]),
-        y: Math.round(rect.top + rect.height * arguments[2]),
+        x,
+        y,
+        unobstructed: Boolean(hit && (hit === canvas || canvas.contains(hit))),
+        hit: hit instanceof Element ? { tag: hit.tagName, testId: hit.closest('[data-testid]')?.getAttribute('data-testid') ?? null } : null,
         rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
       };
     `,
     [selector, normalizedX, normalizedY]
   );
   if (!point) fail(`Canvas ausente para clique nativo: ${label}`);
+  if (!point.unobstructed) fail(`Canvas obstruído para clique nativo (${label}): ${JSON.stringify(point)}`);
   const response = await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, {
     actions: [{
       type: "pointer",
@@ -10264,7 +10270,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     persistence: {},
   };
 
-  await setSessionWindowRect(sessionId, 1920, 1080);
+  await setSessionWindowRect(sessionId, 1024, 768);
   await prepareDefaultProjectWizard(sessionId);
   addReportArtifact(
     report,
@@ -11431,7 +11437,20 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   const tilemapCellIndex = tilemapCell.row * tilemapWidth + tilemapCell.col;
   const tilemapOriginalValue = Number(tilemapBeforeCells[tilemapCellIndex] ?? 0);
   const tilemapCollisionBefore = Number(tilemapBefore?.activeScene?.collisionSolidCount ?? 0);
+  await waitFor(
+    async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"tile-palette-2\"]'));"),
+    15000,
+    "Tile 2 não carregou na paleta contextual do tilemap.",
+    100
+  );
   await clickByTestId(sessionId, "tile-palette-2");
+  await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-tile-flow-toggle", "recolher paleta do tilemap");
+  await waitFor(
+    async () => executeScript(sessionId, "return document.querySelector('[data-testid=\"viewport-tile-flow-toggle\"]')?.getAttribute('aria-expanded') === 'false';"),
+    5000,
+    "Paleta do tilemap não recolheu após o gesto nativo.",
+    100
+  );
   const worldBounds = tilemapBefore?.activeScene?.worldBounds;
   const tilemapEntity = tilemapBefore?.activeScene?.entities?.find((entity) => entity.id === "reference_tilemap");
   const targetWorldX = Number(tilemapEntity?.x ?? 0) + tilemapCell.col * tilemapTileWidth + tilemapTileWidth / 2;
@@ -11440,7 +11459,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     Math.max(1, Number(worldBounds?.maxX ?? 320) - Number(worldBounds?.minX ?? 0));
   const normalizedY = (targetWorldY - Number(worldBounds?.minY ?? 0)) /
     Math.max(1, Number(worldBounds?.maxY ?? 224) - Number(worldBounds?.minY ?? 0));
-  await clickCanvasPointNatively(
+  const paintedClick = await clickCanvasPointNatively(
     sessionId,
     "[data-testid='viewport-scene-overlay']",
     normalizedX,
@@ -11456,7 +11475,19 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     10000,
     "Pintura do tilemap nao persistiu no draft ativo.",
     100
-  );
+  ).catch(async (error) => {
+    const state = await readAutomationState(sessionId);
+    const diagnosticPath = path.join(validationDir, `${artifactPrefix}-tilemap-paint-diagnostics.json`);
+    await writeFile(diagnosticPath, JSON.stringify({
+      error: String(error),
+      paintedClick: paintedClick.point,
+      editorMode: state?.editorMode,
+      activeTilemapId: state?.activeTilemapId,
+      tilemapValue: state?.activeScene?.entities?.find((entity) => entity.id === "reference_tilemap")?.tilemap?.cells?.[tilemapCellIndex] ?? null,
+    }, null, 2));
+    await captureScreenshot(sessionId, `${artifactPrefix}-tilemap-paint-failure.png`);
+    fail(`${error instanceof Error ? error.message : String(error)} diagnostics=${diagnosticPath}`);
+  });
   const paintedCollision = Number(paintedState?.activeScene?.collisionSolidCount ?? 0);
   if (paintedCollision !== tilemapCollisionBefore) {
     fail(`Pintura visual alterou indevidamente a colisao separada: ${JSON.stringify({ tilemapCollisionBefore, paintedCollision })}`);
@@ -11957,8 +11988,40 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   // build and measure on the core. Threshold 60 because the player only reaches the second
   // blocker around score ~41: a lower threshold would open before arrival and prove nothing.
   const selectOptionByTestIdNative = async (testId, value) => {
-    const elementId = await findElement(sessionId, `[data-testid="${testId}"] option[value="${value}"]`);
-    await webdriverRequest("POST", `/session/${sessionId}/element/${elementId}/click`, {});
+    const target = await executeScript(sessionId, `
+      const select = document.querySelector('[data-testid="' + String(arguments[0]) + '"]');
+      if (!(select instanceof HTMLSelectElement)) return null;
+      select.scrollIntoView({ block: "center", inline: "center" });
+      select.focus();
+      const rect = select.getBoundingClientRect();
+      const x = Math.round(rect.left + rect.width / 2);
+      const y = Math.round(rect.top + rect.height / 2);
+      const hit = document.elementFromPoint(x, y);
+      return {
+        index: Array.from(select.options).findIndex((option) => option.value === String(arguments[1])),
+        current: select.value,
+        visible: rect.width > 0 && rect.height > 0,
+        unobstructed: Boolean(hit && (hit === select || select.contains(hit))),
+      };
+    `, [testId, value]);
+    if (!target?.visible || !target.unobstructed || target.index < 0) {
+      fail(`Seleção nativa indisponível: ${JSON.stringify({ testId, value, target })}`);
+    }
+    if (target.current !== value) {
+      const keys = [
+        { type: "keyDown", value: "\uE011" },
+        { type: "keyUp", value: "\uE011" },
+        ...Array.from({ length: target.index }, () => [
+          { type: "keyDown", value: "\uE015" },
+          { type: "keyUp", value: "\uE015" },
+        ]).flat(),
+        { type: "keyDown", value: "\uE007" },
+        { type: "keyUp", value: "\uE007" },
+      ];
+      await webdriverRequest("POST", `/session/${sessionId}/actions`, {
+        actions: [{ type: "key", id: `reference-select-${testId}`, actions: keys }],
+      });
+    }
     await waitFor(
       async () => (await executeScript(sessionId, `return document.querySelector('[data-testid="${testId}"]')?.value ?? null;`)) === value,
       5000,
@@ -11995,8 +12058,13 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   const solidBeforePit = Number(sceneStateForPit?.activeScene?.collisionSolidCount ?? 0);
   await clickButtonByTestIdNative(sessionId, "hierarchy-tilemap-edit-reference_tilemap", "abrir tilemap para o fosso");
   await waitFor(async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"viewport-tile-paint-flow-strip\"]'));"), 15000, "Pintura de tilemap indisponivel para o fosso.", 250);
+  if (await executeScript(sessionId, "return document.querySelector('[data-testid=\"viewport-tile-flow-toggle\"]')?.getAttribute('aria-expanded') === 'false';")) {
+    await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-tile-flow-toggle", "abrir paleta para o fosso");
+  }
+  await waitFor(async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"tile-palette-empty\"]'));"), 15000, "Celula vazia nao carregou na paleta do fosso.", 100);
   // Explicitly empty cell (distinct from 0 = base map).
   await clickByTestId(sessionId, "tile-palette-empty");
+  await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-tile-flow-toggle", "recolher paleta para pintar o fosso");
   for (const [col, row] of pitCells) {
     const point = cellPoint(col, row);
     await clickCanvasPointNatively(sessionId, "[data-testid='viewport-scene-overlay']", point.x, point.y, `apagar visual ${col},${row}`);
@@ -12043,7 +12111,37 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   await clickByTestId(sessionId, "hierarchy-entity-player");
   await waitFor(async () => (await readAutomationState(sessionId))?.selectedEntityId === "player", 10000, "player nao selecionado.", 200);
   await clickByTestId(sessionId, "workspace-rail-logic");
-  await waitFor(async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"nodegraph-passages\"]'));"), 15000, "Painel de passagens ausente no NodeGraph.", 250);
+  await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state?.activeWorkspace === "logic" && state?.activeViewportTab === "logic";
+  }, 15000, "Workspace Lógica não abriu após o gesto nativo.", 100);
+  if (await executeScript(sessionId, "return document.querySelector('[data-testid=\"nodegraph-toggle-context\"]')?.getAttribute('aria-expanded') === 'false';")) {
+    await clickButtonByTestIdNativeWhenReady(sessionId, "nodegraph-toggle-context", "abrir Comportamentos no NodeGraph");
+  }
+  await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    const visible = await executeScript(sessionId, `
+      const select = document.querySelector('[data-testid="passage-add-blocker"]');
+      const rect = select?.getBoundingClientRect();
+      return Boolean(rect && rect.width > 0 && rect.height > 0);
+    `);
+    return state?.activeWorkspace === "logic" && state?.activeViewportTab === "logic" && visible;
+  }, 15000, "Painel de passagens não ficou visível no NodeGraph.", 100).catch(async (error) => {
+    const state = await readAutomationState(sessionId);
+    const layout = await executeScript(sessionId, `
+      const select = document.querySelector('[data-testid="passage-add-blocker"]');
+      const ancestors = [];
+      for (let node = select; node instanceof Element && ancestors.length < 8; node = node.parentElement) {
+        const rect = node.getBoundingClientRect();
+        ancestors.push({ tag: node.tagName, testId: node.getAttribute('data-testid'), width: rect.width, height: rect.height, display: getComputedStyle(node).display });
+      }
+      return { ancestors, viewport: { width: innerWidth, height: innerHeight } };
+    `);
+    const diagnosticPath = path.join(validationDir, `${artifactPrefix}-passage-panel-diagnostics.json`);
+    await writeFile(diagnosticPath, JSON.stringify({ error: String(error), activeWorkspace: state?.activeWorkspace, activeViewportTab: state?.activeViewportTab, layout }, null, 2));
+    await captureScreenshot(sessionId, `${artifactPrefix}-passage-panel-failure.png`);
+    fail(`${error instanceof Error ? error.message : String(error)} diagnostics=${diagnosticPath}`);
+  });
   await selectOptionByTestIdNative("passage-add-blocker", "passage_blocker_2");
   await setInputByTestIdNative(sessionId, "passage-add-threshold", "60");
   await clickButtonByTestIdNative(sessionId, "passage-add", "adicionar passagem");
@@ -17870,16 +17968,22 @@ async function clickButtonByTestIdNative(sessionId, testId, label = testId, opti
 }
 
 async function clickButtonByTestIdNativeWhenReady(sessionId, testId, label = testId, timeoutMs = 30000) {
-  await waitFor(
-    async () => {
-      const diagnostic = await inspectNativeButtonTarget(sessionId, testId);
-      return diagnostic?.exists && diagnostic.visible && !diagnostic.disabled
-        && (diagnostic.unobstructed || testId.startsWith("shell-persona-")) ? diagnostic : false;
-    },
-    timeoutMs,
-    `Controle nativo não ficou disponível: ${label}`,
-    100
-  );
+  let lastDiagnostic = null;
+  try {
+    await waitFor(
+      async () => {
+        const diagnostic = await inspectNativeButtonTarget(sessionId, testId);
+        lastDiagnostic = diagnostic;
+        return diagnostic?.exists && diagnostic.visible && !diagnostic.disabled
+          && (diagnostic.unobstructed || testId.startsWith("shell-persona-")) ? diagnostic : false;
+      },
+      timeoutMs,
+      `Controle nativo não ficou disponível: ${label}`,
+      100
+    );
+  } catch (error) {
+    fail(`${error instanceof Error ? error.message : String(error)}; último alvo: ${JSON.stringify(lastDiagnostic)}`);
+  }
   return clickButtonByTestIdNative(sessionId, testId, label);
 }
 
