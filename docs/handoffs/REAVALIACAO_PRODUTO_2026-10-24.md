@@ -8,8 +8,9 @@ Checkout único, branch `codex/new-host-cohesion-20261024`, [PR #112](https://gi
 
 | ID | Objetivo e owner | Estado | Evidência, dependência e próximo passo |
 |---|---|---|---|
-| H01 | Publicação íntegra da trava / launcher | em andamento | Trava vazia reproduzida. Testar publicação interrompida e concorrência em runtime descartável. |
-| D01 | Consistência de cena e grafos / persistência | livre | Reproduzir falha parcial e conflito externo em projeto descartável. |
+| H01 | Publicação íntegra da trava / launcher | concluído | Base publicada `d6c6387e`. Duas regressões falharam antes e passaram após a correção. 58 testes do launcher/host passaram no Node gerenciado. KDE/Wayland abriu e fechou por ação nativa duas vezes o binário `36f34289`, com perfil e runtime descartáveis. Recibos PASS `03-15-53-428Z-163997` e `03-16-34-421Z-167720` em `RDS_WORK_ROOT/sessions/closeout-20261105/work/sessions/`. Certificação READY/7 no recibo `03-17-18-733Z-171486`, 1.385 frontend/11 skip e 1.169 Rust/127 ignored. Clippy padrão e fmt PASS nos recibos `03-30-12-657Z-246368` e `03-30-15-587Z-244506`. Incremento identificado pelo commit que contém esta linha. |
+| H01-OP | Recuperar atalho do operador / operador e launcher | bloqueado | Trava vazia preservada. Confirmação do owner solicitada nesta tarefa para arquivamento intacto sob mutex. A espera não impede as próximas correções. |
+| D01 | Consistência de cena e grafos / persistência | em andamento | Reproduzir falha parcial e conflito externo em projeto descartável. |
 | Q01 | Distinguir core, ROM e contagem / runner | livre | JSON SNES e divergência Ken identificados. Usar identidade medida e contador das etapas. |
 | Q02 | Evidência automática, humana e base pública / agregador | livre | Agregador aceitou QA automático na coluna manual. Cobrir entradas ausentes, incompletas e de outro candidato. |
 | V01 | Certificação e prova nativa por candidato / QA | livre | Depende de H01, D01, Q01 e Q02. Um build pesado por vez. |

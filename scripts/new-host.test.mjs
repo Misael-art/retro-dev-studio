@@ -77,6 +77,45 @@ describe("new host: storage and pinned environment", () => {
 });
 
 describe("new host: fail-closed orchestration", () => {
+  it("publishes no partial lease when the owner writer stops before its first byte", () => {
+    const work = directory();
+    const receipt = path.join(directory(), "receipt.json");
+    const interrupted = spawnSync(process.execPath, ["--input-type=module", "-", work, receipt], {
+      cwd: repoRoot,
+      input: `
+        import fs from "node:fs";
+        import { syncBuiltinESMExports } from "node:module";
+        const write = fs.writeFileSync;
+        fs.writeFileSync = (target, ...args) => {
+          if (typeof target === "number") process.exit(77);
+          return write(target, ...args);
+        };
+        syncBuiltinESMExports();
+        const { acquireDevelopmentLease } = await import("./scripts/new-host.mjs");
+        acquireDevelopmentLease({ work: process.argv[2] }, process.argv[3]);
+      `,
+    });
+    expect(interrupted.status).toBe(77);
+    expect(existsSync(path.join(work, "development-operation.lock"))).toBe(false);
+    const lease = acquireDevelopmentLease({work}, receipt);
+    lease.release();
+  });
+
+  it("preserves a previous-boot record whose schema or owner cannot be verified", () => {
+    const work = directory();
+    const receipt = path.join(directory(), "receipt.json");
+    const lock = path.join(work, "development-operation.lock");
+    const boot = "11111111-1111-4111-8111-111111111111";
+    for (const previous of [{ boot_id: boot }, { schema: "future", pid: 42, receipt, boot_id: boot }]) {
+      const original = JSON.stringify(previous);
+      writeFileSync(lock, original);
+      expect(() => acquireDevelopmentLease({work}, receipt, {
+        bootId: "22222222-2222-4222-8222-222222222222",
+      })).toThrow(/development_lock_unreadable/);
+      expect(readFileSync(lock, "utf8")).toBe(original);
+    }
+  });
+
   it("archives a previous-boot lease byte-for-byte and releases only its own replacement", () => {
     const work = directory(), session = directory(), lock = path.join(work, "development-operation.lock");
     const old = JSON.stringify({pid:123,receipt:"old-receipt.json",boot_id:"11111111-1111-4111-8111-111111111111"});

@@ -2,7 +2,7 @@
 // Session coordinator only. host-manager.mjs remains the installer/readiness authority.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, statfsSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, copyFileSync, existsSync, fsyncSync, linkSync, lstatSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, statfsSync, unlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -152,12 +152,20 @@ export function acquireDevelopmentLease(plan, receiptPath, { bootId = linuxBootI
   if (!guard) throw new Error("development_session_busy: outra abertura está em andamento; tente novamente em instantes");
   const lockPath = path.join(plan.work, "development-operation.lock");
   const validBoot = (id) => typeof id === "string" && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id);
-  const owner = JSON.stringify({ pid: process.pid, receipt: receiptPath, boot_id: validBoot(bootId) ? bootId : null });
+  const schema = "rds-development-lease/v1";
+  const owner = JSON.stringify({ schema, pid: process.pid, receipt: receiptPath, boot_id: validBoot(bootId) ? bootId : null });
   const recovered = [];
   try {
-    if (existsSync(lockPath)) {
+    const previousStat = lstatSync(lockPath, { throwIfNoEntry: false });
+    if (previousStat) {
       let previous;
-      try { previous = JSON.parse(readFileSync(lockPath, "utf8")); }
+      try {
+        if (!previousStat.isFile() || previousStat.size > 64 * 1024) throw new Error("invalid_lease_file");
+        previous = JSON.parse(readFileSync(lockPath, "utf8"));
+        if (!previous || (previous.schema !== undefined && previous.schema !== schema)
+          || !Number.isSafeInteger(previous.pid) || previous.pid <= 0
+          || typeof previous.receipt !== "string" || !previous.receipt.trim()) throw new Error("invalid_lease_owner");
+      }
       catch { throw new Error(`development_lock_unreadable: trava preservada para inspeção: ${lockPath}`); }
       if (!validBoot(bootId) || !validBoot(previous.boot_id) || previous.boot_id.toLowerCase() === bootId.toLowerCase())
         throw new Error(`development_session_busy: sessão anterior preservada (PID ${previous.pid ?? "desconhecido"}); feche o RetroDev normalmente ou confira o recibo ${previous.receipt ?? lockPath}`);
@@ -166,8 +174,19 @@ export function acquireDevelopmentLease(plan, receiptPath, { bootId = linuxBootI
       renameSync(lockPath, preserved);
       recovered.push({ reason: "previous_boot", owner: previous, preserved, sha256: hash(preserved) });
     }
-    const fd = openSync(lockPath, "wx", 0o600);
-    try { writeFileSync(fd, owner); } finally { closeSync(fd); }
+    // Stage on the same filesystem inside our mutex. link publishes all bytes
+    // at once and refuses to overwrite a competing owner, even after a crash.
+    const staged = path.join(guard.lockPath, "development-owner.json");
+    const fd = openSync(staged, "wx", 0o600);
+    try {
+      writeFileSync(fd, owner);
+      fsyncSync(fd);
+    } finally { closeSync(fd); }
+    linkSync(staged, lockPath);
+    if (process.platform !== "win32") {
+      const directory = openSync(plan.work, "r");
+      try { fsyncSync(directory); } finally { closeSync(directory); }
+    }
     return { boot_id: validBoot(bootId) ? bootId : null, recovered, release: () => {
       // Never unlink a lease that has been replaced by another owner.
       if (existsSync(lockPath) && readFileSync(lockPath, "utf8") === owner) unlinkSync(lockPath);
