@@ -847,7 +847,7 @@ export type BehaviorPlan = {
   instanceId: string | null;
 };
 
-function nodeSignature(node: Pick<GraphNode, "type" | "params">): string {
+export function nodeSignature(node: Pick<GraphNode, "type" | "params">): string {
   return JSON.stringify({ type: node.type, params: Object.keys(node.params).sort().map((key) => [key, node.params[key]]) });
 }
 

@@ -542,6 +542,7 @@ function parseArgs(argv) {
           "mugen-original",
           "mugen-hitdef",
           "studio-jv",
+          "studio-jv-motion",
           "studio-e1",
           "sgdk-split-resources",
           "sgdk-native-c",
@@ -10129,6 +10130,127 @@ async function runMugenOriginalScenario(sessionId, timeoutMs, uiBootstrapTimeout
  * (build com celulas limpas), estimativa mostrada, campo vazio editavel, cartoes visiveis e
  * divisor conservado ao voltar para Arte.
  */
+/**
+ * JV09/JV10 (Experimental): poses parado/andando/no ar e orientacao pelo proprio comportamento
+ * "Movimento e salto", num projeto real copiado (`RDS_STUDIO_JV_PROJECT`). Preparacao declarada
+ * na copia: retirar os 9 nos manuais da receita do tutorial (o que o JV09 substitui). O resto e UI
+ * e teclado nativo. A ROM e observada pausada: framebuffer do core + posicao na RAM por amostra;
+ * a identificacao de quadro/espelho e feita DEPOIS por um oraculo independente (Pillow, QA).
+ */
+async function runStudioJvMotionScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, onProjectCreated) {
+  const source = process.env.RDS_STUDIO_JV_PROJECT;
+  const output = process.env.RDS_STUDIO_JV_OUTPUT;
+  if (!source || !output) fail("RDS_STUDIO_JV_PROJECT e RDS_STUDIO_JV_OUTPUT obrigatorios.");
+  await mkdir(output, { recursive: true });
+  const prefix = `studio-jv-motion-${artifactTimestamp()}`;
+  const appPath = currentE2eRunContext.appPath;
+  const hashFile = async (p) => createHash("sha256").update(await readFile(p)).digest("hex");
+  const report = { schema: "retrodev.studio_jv_motion/v1", maturity: "Experimental", app_sha256: await hashFile(appPath), steps: [], artifacts: [], samples: [] };
+  const js = (script, args = []) => executeScript(sessionId, script, args);
+  const state = () => readAutomationState(sessionId);
+  const shot = async (label) => { addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label); };
+  const select = async (id, value) => {
+    const r = await js(`const e=document.querySelector('[data-testid="'+arguments[0]+'"]');if(!(e instanceof HTMLSelectElement))return null;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,String(arguments[1]));e.dispatchEvent(new Event('change',{bubbles:true}));return e.value;`, [id, value]);
+    if (r !== String(value)) fail(`Select ${id} nao aceitou ${value}.`);
+  };
+  const project = path.join(output, "project");
+  await cp(source, project, { recursive: true, filter: (p) => !p.includes(`${path.sep}build`) });
+  onProjectCreated(project);
+  const graphPath = path.join(project, "graphs", "reference_platformer_logic.json");
+  const graph = JSON.parse(await readFile(graphPath, "utf8"));
+  const owned = new Set((graph.behaviors ?? []).flatMap((b) => b.nodeIds));
+  const manual = graph.nodes.filter((n) => !owned.has(n.id) && /^node_\d+$/.test(n.id)).map((n) => n.id);
+  graph.nodes = graph.nodes.filter((n) => !manual.includes(n.id));
+  graph.edges = graph.edges.filter((e) => !manual.includes(e.fromNode) && !manual.includes(e.toNode));
+  await writeFile(graphPath, `${JSON.stringify(graph, null, 2)}\n`);
+  addReportStep(report, "prepare_remove_tutorial_manual_animation_nodes", "passed", { removed: manual });
+
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  await openSavedProjectWizard(sessionId, project);
+  await waitFor(async () => (await state())?.activeProjectDir === project, 60000, "Projeto nao abriu.", 200);
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  await clickByTestId(sessionId, "hierarchy-entity-player");
+  await clickByTestId(sessionId, "workspace-rail-logic");
+  await waitFor(async () => js(`return !!document.querySelector('[data-testid="behavior-edit-bh_move_player_1"]');`), 30000, "Instancia Movimento e salto ausente.", 200);
+  await clickByTestId(sessionId, "behavior-edit-bh_move_player_1");
+  await waitFor(async () => js(`return !!document.querySelector('[data-testid="behavior-param-idle_animation"]');`), 15000, "Campos de animacao por estado ausentes.", 200);
+  await select("behavior-param-idle_animation", "idle");
+  await select("behavior-param-run_animation", "run");
+  const summary = await waitFor(async () => { const t = await js(`return document.querySelector('[data-testid="behavior-summary"]')?.textContent ?? "";`); return t.includes('"run" andando') ? t : false; }, 10000, "Resumo nao mostrou as poses.", 100);
+  await shot("01-behavior-form");
+  const form = await js(`return {errors:document.querySelector('[data-testid="behavior-errors"]')?.textContent??null,conflicts:document.querySelector('[data-testid="behavior-conflicts"]')?.textContent??null,disabled:document.querySelector('[data-testid="behavior-apply"]')?.disabled};`);
+  report.behavior_form = form;
+  await writeFile(path.join(output, "ui-report.json"), `${JSON.stringify(report, null, 2)}\n`);
+  if (form.disabled) fail(`Aplicar desabilitado: ${JSON.stringify(form)}`);
+  await clickByTestId(sessionId, "behavior-apply");
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  const nodesOnDisk = async () => JSON.parse(await readFile(graphPath, "utf8")).nodes;
+  await waitFor(async () => (await nodesOnDisk()).some((n) => n.id === "bh_move_player_1__anim_run"), 20000, "Poses do comportamento nao chegaram ao disco.", 300);
+  const faces = (await nodesOnDisk()).filter((n) => /__(right|left)_move$/.test(n.id)).map((n) => n.params.face_direction);
+  if (faces.length !== 2 || faces.some((f) => Number(f) !== 1)) fail(`Orientacao nao ligada nos dois lados: ${JSON.stringify(faces)}`);
+  addReportStep(report, "behavior_edit_idle_run_poses", "passed", { summary, face_direction: faces });
+
+  // reiniciar e reabrir antes do build
+  await deleteSession(sessionId);
+  sessionId = await createSession(appPath);
+  currentE2eRunContext.sessionId = sessionId;
+  await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu.");
+  await waitFor(async () => js("return !!window.__RDS_E2E__;"), uiBootstrapTimeoutMs, "API nao voltou.", 200);
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  await openSavedProjectWizard(sessionId, project);
+  await waitFor(async () => (await state())?.activeProjectDir === project, 60000, "Projeto nao reabriu.", 200);
+  addReportStep(report, "restart_reopen", "passed", {});
+
+  const run = await runBuildRunAndCollect(sessionId, "movimento com poses", timeoutMs, report, `${prefix}-run`);
+  const romSha = await hashFile(run.rom_path);
+  const elf = await readFile(path.join(project, "build", "megadrive", "out", "rom.out"));
+  const symbols = parseElfSymbols(elf);
+  const mainC = await readFile(path.join(project, "build", "megadrive", "src", "main.c"), "utf8");
+  const flips = (mainC.match(/SPR_setHFlip\(spr_player, (TRUE|FALSE)\)/g) ?? []);
+  if (!flips.some((f) => f.includes("TRUE")) || !flips.some((f) => f.includes("FALSE"))) fail(`C sem orientacao nos dois sentidos: ${JSON.stringify(flips)}`);
+  const xSym = Object.keys(symbols).find((k) => /^spr_player_x$/.test(k)), ySym = Object.keys(symbols).find((k) => /^spr_player_y$/.test(k));
+  if (!xSym || !ySym) fail(`Posicao do jogador sem simbolo: ${Object.keys(symbols).filter((k) => k.startsWith("spr_")).join(",")}`);
+  const s16 = async (name) => readI16le((await readEmulatorMemory(sessionId, 2, symbols[name] & 0xffff, 2)).data, 0);
+  if ((await readCanonicalGameProgress(sessionId))?.romSha256 !== romSha) fail("Core executa outra ROM.");
+  await closeVisibleConsoleDrawer(sessionId, "movimento");
+  await focusGameCanvasNatively(sessionId);
+  await waitFor(async () => (await readCanonicalGameProgress(sessionId))?.renderedFrames >= 120, 300000, "Jogo nao saiu do boot.", 200);
+  const frameNow = async () => (await readCanonicalGameProgress(sessionId)).renderedFrames;
+  const waitFrames = async (n, why) => { const start = await frameNow(); await waitFor(async () => (await frameNow()) >= start + n, 240000, `Nao avancou ${why}.`, 100); };
+  const sample = async (phase) => {
+    await clickByTestId(sessionId, "viewport-pause");
+    await waitFor(async () => (await state())?.emulPaused, 15000, "Nao pausou.", 100);
+    const core = await invokeCoreObserve(sessionId);
+    if (!core?.ok || core.rom_sha256 !== romSha) fail("Identidade do core nao demonstrada.");
+    const file = `sample-${String(report.samples.length).padStart(3, "0")}-${phase}.rgba`;
+    await writeFile(path.join(output, file), Buffer.from(core.framebuffer_rgba));
+    report.samples.push({ phase, file, width: core.framebuffer_width, height: core.framebuffer_height, x: await s16(xSym), y: await s16(ySym), frames_run: core.frames_run });
+    await clickByTestId(sessionId, "viewport-resume");
+    await waitFor(async () => !(await state())?.emulPaused, 15000, "Nao retomou.", 100);
+    await focusGameCanvasNatively(sessionId);
+  };
+  for (let i = 0; i < 3; i++) { await waitFrames(6, "parado"); await sample("idle_start"); }
+  await sendNativeGameKey(sessionId, "ArrowRight", "keyDown", "direita");
+  for (let i = 0; i < 6; i++) { await waitFrames(3, "direita"); await sample("run_right"); }
+  await sendNativeGameKey(sessionId, "ArrowRight", "keyUp", "direita");
+  for (let i = 0; i < 2; i++) { await waitFrames(6, "parado direita"); await sample("idle_after_right"); }
+  await sendNativeGameKey(sessionId, "ArrowLeft", "keyDown", "esquerda");
+  for (let i = 0; i < 6; i++) { await waitFrames(3, "esquerda"); await sample("run_left"); }
+  await sendNativeGameKey(sessionId, "ArrowLeft", "keyUp", "esquerda");
+  for (let i = 0; i < 2; i++) { await waitFrames(6, "parado esquerda"); await sample("idle_after_left"); }
+  await sendNativeGameKeyTap(sessionId, "KeyZ", 300, "salto");
+  for (let i = 0; i < 3; i++) { await waitFrames(2, "no ar"); await sample("air_after_left"); }
+  await waitFrames(60, "pouso"); await sample("landed_after_left");
+  await shot("02-played");
+  report.rom_sha256 = romSha;
+  report.elf_sha256 = createHash("sha256").update(elf).digest("hex");
+  report.core = await collectCoreIdentity(await invokeCoreObserve(sessionId));
+  report.flip_statements = flips;
+  addReportStep(report, "official_build_native_keys_samples", "passed", { samples: report.samples.length, oracle: "pendente: scripts de QA Pillow fora do app" });
+  await writeFile(path.join(output, "ui-report.json"), `${JSON.stringify(report, null, 2)}\n`);
+  console.log(`Studio JV motion evidence: ${output}`);
+}
+
 async function runStudioJvScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, onProjectCreated) {
   const source = process.env.RDS_STUDIO_JV_PROJECT;
   const output = process.env.RDS_STUDIO_JV_OUTPUT;
@@ -26608,6 +26730,7 @@ async function main() {
     options.scenario !== "mugen-original" &&
     options.scenario !== "mugen-hitdef" &&
     options.scenario !== "studio-jv" &&
+    options.scenario !== "studio-jv-motion" &&
     options.scenario !== "studio-e1" &&
     options.scenario !== "sgdk-split-resources" &&
     options.scenario !== "sgdk-native-c" &&
@@ -28436,6 +28559,10 @@ async function main() {
 
     if (options.scenario === "mugen-original") {
       await runMugenOriginalScenario(sessionId,emulatorActivationTimeoutMs,uiBootstrapTimeoutMs,(created)=>{temporaryProjectDir=created;});
+      return;
+    }
+    if (options.scenario === "studio-jv-motion") {
+      await runStudioJvMotionScenario(sessionId,emulatorActivationTimeoutMs,uiBootstrapTimeoutMs,(created)=>{temporaryProjectDir=created;});
       return;
     }
     if (options.scenario === "studio-jv") {

@@ -8,6 +8,7 @@ import {
   duplicateBehaviorLogic,
   getBehaviorDefinition,
   manuallyEditedNodes,
+  nodeSignature,
   passageOpenVariable,
   planApplyBehavior,
   planEditBehavior,
@@ -96,6 +97,22 @@ describe("behavior library", () => {
     // sem animacoes por estado: nenhum no extra (projetos existentes inalterados)
     const plain = apply(EMPTY, "platform_movement", moveParams("fox", {}));
     expect(plain.graph.nodes.some((n) => n.id.includes("anim_"))).toBe(false);
+  });
+
+  it("does not flag behaviors created before JV10 as manually edited after reopening", () => {
+    // Projetos antigos: nos de movimento sem face_direction. Reabrir nao pode inventar edicao manual.
+    const { graph, id } = apply(EMPTY, "platform_movement", moveParams("fox", {}));
+    const legacy: NodeGraph = { ...graph, nodes: graph.nodes.map((n) => {
+      if (n.type !== "sprite_move") return n;
+      const params = { ...(n.params as Record<string, unknown>) };
+      delete params.face_direction;
+      return { ...n, params } as typeof n;
+    }) };
+    const instance = { ...legacy.behaviors![0] };
+    instance.generated = Object.fromEntries(legacy.nodes.filter((n) => instance.nodeIds.includes(n.id)).map((n) => [n.id, nodeSignature(n)]));
+    const reopened = deserializeNodeGraph(serializeNodeGraph({ ...legacy, behaviors: [instance] }));
+    expect(manuallyEditedNodes(reopened, reopened.behaviors![0]).map((n) => n.id)).toEqual([]);
+    expect(id).toBeTruthy();
   });
 
   it("keeps two instances on two entities independent (negative control for shared state / wrong target)", () => {
