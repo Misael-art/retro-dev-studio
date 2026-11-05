@@ -1062,6 +1062,10 @@ Worktree isolado `codex/rex-commercial-recovery-20261016`, base reconciliada `03
 
 # 06 - AI MEMORY BANK & CONTEXT TRACKER
 
+### Registro de design e UX — 2026-11-05
+
+O [registro histórico no estudo de UI](ESTUDO_UI_PRODUTO_NAO_CANONICO.md#14-registro-histórico-de-design-e-experiência) reúne conceitos, protótipos de julho preservados no Git, revisões, decisões de experiência e contratos técnicos até a base `3c7de67a`. A classificação mantém separadas proposta, protótipo, implementação, evidência por executável e aceite humano. Entrega documental com `host:diagnose` READY, estrutura, diff e referências revisados. A continuidade operacional segue pela [fila de 2026-11-05](handoffs/REAVALIACAO_PRODUTO_2026-10-24.md#fila-de-execução-de-2026-11-05).
+
 ### Checkpoint 2026-10-16 — aceite autoral visual copy v2 fechado; v1 preservada (Experimental)
 
 O operador autorizou explicitamente corrigir o oráculo após a falha v1, com
