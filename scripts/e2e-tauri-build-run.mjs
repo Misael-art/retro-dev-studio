@@ -6417,7 +6417,11 @@ async function runSgdkSplitResourcesScenario(sessionId, timeoutMs, onProjectCrea
     const primaryMapping = ledger.mappings.find(m => m.destination === primaryTilemap?.tileset);
     if (ledger.mappings.some(m => ["IMAGE", "MAP"].includes(m.resource_kind)) && primaryMapping?.resource_kind === "TILESET") fail("Raw TILESET chosen before an assembled image.");
     await verifySgdkMountedImages(sessionId, project, ledger, report, prefix);
-    report.build = await runBuildRunAndCollect(sessionId, "SGDK split resource scene", timeoutMs, report, prefix, { nativeClick: true });
+    if (process.env.RDS_SGDK_PALETTE_RESOURCE) {
+      await verifySgdkPaletteRoundTrip(sessionId, project, ledger, report, prefix, timeoutMs);
+    } else {
+      report.build = await runBuildRunAndCollect(sessionId, "SGDK split resource scene", timeoutMs, report, prefix, { nativeClick: true });
+    }
     const legacyProject = process.env.RDS_SGDK_LEGACY_PROJECT;
     if (legacyProject) {
       // The caller must prepare an owned QA copy, never pass the live project.
@@ -6487,6 +6491,97 @@ async function runSgdkSplitResourcesScenario(sessionId, timeoutMs, onProjectCrea
   } finally {
     await writeFile(path.join(output, `${prefix}.json`), JSON.stringify(report, null, 2));
   }
+}
+
+// A real imported scene, edited only through the palette UI. This proves the
+// authoring bridge for its resources, never equivalence to the original C game.
+async function verifySgdkPaletteRoundTrip(sessionId, project, ledger, report, prefix, timeoutMs) {
+  const hash = async (file) => createHash("sha256").update(await readFile(file)).digest("hex");
+  const resource = ledger.mappings.find((r) => r.resource_name === process.env.RDS_SGDK_PALETTE_RESOURCE);
+  if (!resource) fail("Requested SGDK palette resource absent.");
+  let selected;
+  for (const descriptor of ledger.scenes) {
+    const scene = JSON.parse(await readFile(path.join(project, descriptor.scene_path), "utf8"));
+    if (scene.entities.some((e) => e.components.tilemap?.tileset === resource.destination)) selected = descriptor;
+  }
+  if (!selected) fail("SGDK resource has no resolved scene.");
+  const activate = async () => {
+    await clickByTestId(sessionId, "workspace-rail-scene");
+    const selector = `select[title="Selecionar cena ativa"] option[value="${selected.scene_path}"]`;
+    await waitFor(() => executeScript(sessionId, "return !!document.querySelector(arguments[0]);", [selector]), 15000, "Scene selector not mounted after workspace navigation.", 100);
+    await clickElement(sessionId, await findElement(sessionId, selector));
+    await waitFor(async () => (await readAutomationState(sessionId))?.activeScenePath === selected.scene_path, 15000, "Palette scene did not activate.", 100);
+    await waitFor(() => executeScript(sessionId, `const e=document.querySelector('[data-testid="palette-summary"]');return e?.dataset.errors==='0'&&Number(e.dataset.used)>0;`), 30000, "Imported palette plan absent or invalid.", 100);
+  };
+  const openPanel = async () => {
+    if (!(await executeScript(sessionId, `return !!document.querySelector('[data-testid="palette-panel"]');`))) await clickButtonByTestIdNativeWhenReady(sessionId, "palette-summary", "Paletas");
+    await waitFor(() => executeScript(sessionId, `return !!document.querySelector('[data-testid="palette-panel"]');`), 15000, "Palette panel did not open.", 100);
+  };
+  const saveReopen = async () => {
+    await clickTopBarMenuAction(sessionId, "Salvar");
+    await waitFor(() => executeScript(sessionId, `const e=document.querySelector('[data-testid="scene-save-status"]');return e?.dataset.status==='saved'&&e.dataset.savedRevision===e.dataset.revision;`), 20000, "Palette save incomplete.", 100);
+    const saved = await hash(path.join(project, selected.scene_path));
+    await clickTopBarMenuAction(sessionId, "Fechar");
+    await openSavedProjectWizard(sessionId, project);
+    await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === project, 30000, "Saved SGDK palette project did not reopen.", 100);
+    await activate();
+    if (await hash(path.join(project, selected.scene_path)) !== saved) fail("Reopen modified saved palette scene.");
+    return saved;
+  };
+  const coreRun = async (label) => {
+    const run = await runBuildRunAndCollect(sessionId, `SGDK palette ${label}`, timeoutMs, report, `${prefix}-${label}`, { nativeClick: true });
+    const frame = await invokeCoreObserve(sessionId);
+    if (!frame?.ok || frame.rom_sha256 !== run.rom_sha256) fail("SGDK palette core/ROM identity differs.");
+    const plan = JSON.parse(await readFile(path.join(project, "build/megadrive/rds-palette-plan.v1.json"), "utf8"));
+    const identity = await collectCoreIdentity(frame);
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), `SGDK palette ${label}`);
+    await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
+    await closeVisibleConsoleDrawer(sessionId, `SGDK palette ${label}`);
+    await activate();
+    return { run, frame, plan, identity };
+  };
+  await activate();
+  await openPanel();
+  const choice = await executeScript(sessionId, `const row=[...document.querySelectorAll('[data-testid^="palette-resource-"]')].find(e=>e.textContent.includes(arguments[0]));
+    const swatch=row?.querySelector('button[data-testid^="palette-color-"]');
+    return swatch?{row:row.dataset.testid,swatch:swatch.dataset.testid,color:swatch.dataset.color,bank:row.dataset.bank}:null;`, [resource.destination]);
+  if (!choice) fail("Imported resource has no editable used palette color.");
+  const originalAssetHash = await hash(path.join(project, resource.destination));
+  const baseline = await coreRun("baseline");
+  await openPanel();
+  const replacement = choice.color.toLowerCase() === "#ff0000" ? "#00ff00" : "#ff0000";
+  await clickButtonByTestIdNativeWhenReady(sessionId, choice.swatch, "Cor usada");
+  await setInputByTestIdNative(sessionId, "palette-color-input", replacement);
+  await clickButtonByTestIdNativeWhenReady(sessionId, "palette-color-apply", "Aplicar cor");
+  await waitFor(() => executeScript(sessionId, `return document.querySelector('[data-testid="'+arguments[0]+'"]')?.dataset.color?.toLowerCase()===arguments[1];`, [choice.swatch, replacement]), 15000, "Edited palette not reflected in UI.", 100);
+  const sceneHash = await saveReopen();
+  const edited = await coreRun("edited");
+  if (edited.run.rom_sha256 === baseline.run.rom_sha256) fail("SGDK palette edit did not change ROM.");
+  const coreColor = (hex) => {
+    const v = [1,3,5].map((i) => Math.floor((parseInt(hex.slice(i,i+2),16)*7+127)/255)*2);
+    const r=(v[0]<<1)|(v[0]>>3),g=(v[1]<<2)|(v[1]>>2),b=(v[2]<<1)|(v[2]>>3);
+    return [((r<<3)|(r>>2))&255,((g<<2)|(g>>4))&255,((b<<3)|(b>>2))&255];
+  };
+  const before = baseline.frame.framebuffer_rgba, after = edited.frame.framebuffer_rgba;
+  if (before.length !== after.length) fail("Palette framebuffer dimensions changed.");
+  const oldColor=coreColor(choice.color), newColor=coreColor(replacement);
+  let changed=0;
+  for(let i=0;i<before.length;i+=4) {
+    if(before.slice(i,i+4).every((v,j)=>v===after[i+j])) continue;
+    if(!oldColor.every((v,j)=>before[i+j]===v)||!newColor.every((v,j)=>after[i+j]===v)||before[i+3]!==after[i+3]) fail(`Unrelated SGDK palette pixel changed at ${i/4}.`);
+    changed++;
+  }
+  if(!changed) fail("No palette effect observed in core pixels.");
+  await openPanel();
+  await clickButtonByTestIdNativeWhenReady(sessionId, choice.row.replace("palette-resource-","palette-restore-"), "Voltar às cores do arquivo");
+  await saveReopen();
+  const restored = await coreRun("restored");
+  if(restored.run.rom_sha256!==baseline.run.rom_sha256 || JSON.stringify(restored.frame.framebuffer_rgba)!==JSON.stringify(before)) fail("Restored palette does not reproduce baseline ROM/pixels.");
+  if(await hash(path.join(project,resource.destination))!==originalAssetHash) fail("Palette edit overwrote the imported source image.");
+  report.palette = {resource:resource.resource_name,scene:selected.scene_path,choice,replacement,changed_pixels:changed,scene_sha256:sceneHash,
+    baseline:baseline.run.rom_sha256,edited:edited.run.rom_sha256,restored:restored.run.rom_sha256,core:edited.identity,
+    baseline_banks:baseline.plan.banks,edited_banks:edited.plan.banks,asset_sha256:originalAssetHash};
+  addReportStep(report,"sgdk_palette_edit_save_reopen_rom_pixels_restore","passed",report.palette);
 }
 
 // Original C game opened in place (legacy overlay): the SGDKForge wrapper builds the C, the
