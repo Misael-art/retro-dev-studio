@@ -8818,7 +8818,7 @@ async function runStudioHudCameraScenario(sessionId, timeoutMs, uiBootstrapTimeo
 }
 
 // Studio Paletas (Experimental, rodada 4): no MESMO projeto Ken real, pela UI -- importar, adicionar cenario
-// pela Hierarquia, alvo + golpe + texto de vida, variante local e paleta "Dano", troca por evento no NodeGraph,
+// pela Hierarquia, alvo + golpe + texto de vida, variante local, quinto banco recusado e paleta "Dano", troca por evento no NodeGraph,
 // salvar/fechar/reabrir, compilar, atacar, caminhar, inspecionar, editar a paleta compartilhada do cenario,
 // voltar as cores do arquivo e exportar. Contrato congelado: docs/studio_grafico/MISSION.md, Adendo H.
 async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, onProjectCreated) {
@@ -9011,6 +9011,37 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   await click("inspector-palette-variant", "Criar variante local");
   await waitFor(async () => (await attr("palette-summary", "data-used")) === "4", 15000, "Variante nao ocupou um banco proprio.", 200);
   if ((await attr("palette-summary", "data-errors")) !== "0") fail("Variante criou conflito.");
+
+  // Quatro bancos ocupados: um terceiro Ken compartilha o original, mas uma
+  // variante simultanea para ele exigiria o quinto banco. A recusa nao edita
+  // a cena, nao cria Undo e explica a acao possivel ao operador.
+  const fourBankScene = (await state())?.activeScene;
+  await clickByTestId(sessionId, "hierarchy-entity-kenmasters");
+  await clickByTestId(sessionId, "inspector-duplicate-entity");
+  if (await exists("inspector-duplicate-confirm")) await clickByTestId(sessionId, "inspector-duplicate-confirm");
+  await waitFor(async () => exists("hierarchy-entity-kenmasters_3"), 15000, "Terceiro Ken nao apareceu.", 100);
+  await clickByTestId(sessionId, "hierarchy-entity-kenmasters_3");
+  await waitFor(async () => exists("inspector-palette-variant"), 10000, "Terceiro Ken nao compartilhou a paleta original.", 100);
+  const beforeFifth = await state();
+  await click("inspector-palette-variant", "tentar quinto banco ocupado");
+  await waitFor(async () => exists("palette-blocked"), 10000, "Quinto banco nao mostrou recusa.", 100);
+  const refusal = await js(`return document.querySelector('[data-testid="palette-blocked"]')?.innerText ?? "";`);
+  const afterFifth = await state();
+  if (!refusal.includes("Sem banco livre") || !refusal.includes("Para resolver")) fail(`Recusa do quinto banco sem causa e acao: ${refusal}`);
+  if (JSON.stringify(afterFifth.activeScene) !== JSON.stringify(beforeFifth.activeScene) ||
+      afterFifth.sceneRevision !== beforeFifth.sceneRevision || afterFifth.undoDepth !== beforeFifth.undoDepth ||
+      (await attr("palette-summary", "data-used")) !== "4" || (await attr("palette-summary", "data-errors")) !== "0") {
+    fail("Tentativa de quinto banco alterou cena, revisao, historico ou plano.");
+  }
+  await shot("fifth-bank-refused");
+  await menuUndo();
+  await waitFor(async () => JSON.stringify((await state())?.activeScene) === JSON.stringify(fourBankScene), 10000,
+    "Desfazer do terceiro Ken nao restaurou os quatro bancos originais.", 100);
+  step("fifth_occupied_bank_refused_without_mutation", { used: 4, reason: refusal });
+
+  await clickByTestId(sessionId, "hierarchy-entity-kenmasters_2");
+  await waitFor(async () => (await state())?.selectedEntityId === "kenmasters_2" && await exists("inspector-palette-new-name"),
+    10000, "Inspector da variante Ken nao voltou apos desfazer o uso temporario.", 100);
   await setInputByTestIdNative(sessionId, "inspector-palette-new-name", "Dano");
   await setInputByTestIdNative(sessionId, "inspector-palette-new-color", "#DB2424");
   await click("inspector-palette-new-create", "Criar paleta Dano");
