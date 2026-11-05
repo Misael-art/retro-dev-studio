@@ -4348,14 +4348,17 @@ export default function ArtStudioPanel() {
           />
         </div>
       ) : (
-      <div className="grid min-h-0 flex-1 gap-3 px-3 pb-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div
+        /* JV05: abaixo de xl o grid empilha palco/timeline e Inspector; a linha do palco precisa de
+           altura definida, senao o Group fica so com o divisor (8 px) e os paineis colapsam a 0. */
+        className="grid min-h-0 flex-1 grid-rows-[minmax(360px,1fr)_auto] gap-3 overflow-y-auto px-3 pb-3 xl:grid-cols-[minmax(0,1fr)_360px] xl:grid-rows-1 xl:overflow-hidden">
         <Group
           orientation="vertical"
-          className="min-h-0"
+          className="h-full min-h-[360px] xl:min-h-0"
           defaultLayout={artLayout.defaultLayout}
           onLayoutChanged={artLayout.onLayoutChanged}
         >
-          <Panel id="stage" minSize={52} defaultSize={78}>
+          <Panel id="stage" minSize="120px" defaultSize={60}>
             <section
           data-testid="artstudio-main-stage"
           className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[#313244] bg-[linear-gradient(180deg,#111827,#0f172a)] shadow-[0_18px_50px_rgba(0,0,0,0.28)]"
@@ -4517,7 +4520,7 @@ export default function ArtStudioPanel() {
         </section>
           </Panel>
           <LayoutSplitter orientation="vertical" />
-          <Panel id="timeline" minSize={18} defaultSize={22}>
+          <Panel id="timeline" minSize="180px" defaultSize={40}>
             <ArtStudioTimelineSection />
           </Panel>
         </Group>

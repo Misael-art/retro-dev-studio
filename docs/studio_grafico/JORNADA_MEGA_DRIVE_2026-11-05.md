@@ -119,3 +119,10 @@ O coordenador longo do driver terminou com 143; a causa não foi isolada e seu r
 | JV02–04, JV07, JV08, JV11–14 | pendentes | — | — | — |
 
 Nenhuma destas mudanças foi repetida na jornada nativa; o candidato congelado `4a139…` não certifica este código.
+
+### Jornadas Tauri do lote (2026-11-05, Experimental)
+
+Candidato debug `72253f9a…dd77` (fonte `9508dab3` + correção JV05 deste commit), Xvfb/Mesa, SGDK e Genesis Plus GX v1.7.4 (`07c10476…10b1`) oficiais. Projeto privado copiado para descarte; evidências em `RDS_WORK_ROOT/sessions/jv01-20261105/ui/`.
+
+- `studio-jv` PASS: **JV01** — células `1..N` (forma do ImageIngress, gravadas em disco na cópia) → Build & Run no Tauri → ROM `a8798730…b5ad` (= base), 0 tiles extras no C, core com a mesma ROM; estimativa 46/64 KB. **JV06** — Prefab vazio é botão 181×18, clique nativo abre, Escape cancela (1 falha intermitente em 5 execuções no mesmo passo, não isolada). **JV05** — a 1366×768 e 949×593 o painel da timeline mede 180/191 px (antes 73/0 px: abaixo de `xl` o Group ficava com 8 px) e os cartões são alcançáveis; setas movem o divisor 191→232 px e ele se mantém ao sair e voltar para Arte.
+- JV09/JV10 continuam sem jornada Tauri.

@@ -540,6 +540,8 @@ function parseArgs(argv) {
           "mugen-locomotion",
           "mugen-real",
           "mugen-original",
+          "mugen-hitdef",
+          "studio-jv",
           "studio-e1",
           "sgdk-split-resources",
           "sgdk-native-c",
@@ -10110,6 +10112,302 @@ async function runMugenOriginalScenario(sessionId, timeoutMs, uiBootstrapTimeout
   report.steps.push({ step: "official_build_native_keyboard_trace_pixels", status: "passed", ticks: tickEnd, recorded_frames: frames.length, independent_verification: "required: verify-mugen-chain.py" });
   await writeFile(path.join(output, "ui-report.json"), `${JSON.stringify(report, null, 2)}\n`);
   console.log(`MUGEN original chain UI evidence: ${output}`);
+}
+
+/**
+ * J03-CNS (mugen.original_chain.v2, Experimental): HitDef ORIGINAL do CNS da fixture autoral
+ * `striker` importado pela revisao do produto, alvo de treino pelo Inspector (Duplicar + escolha),
+ * salvar/reiniciar/reabrir, Build & Run oficial e teclado nativo. Previsao FIXADA antes (ver
+ * `fixture::striker`): vida 120; um toque -> 95; segurar -> um golpe so -> 70; sem entrada nada;
+ * alvo a 16 px (fora do alcance) -> 120. A RAM e lida pelos simbolos do ELF da propria ROM.
+ */
+/**
+ * Curadoria da jornada Mega Drive (JV01/JV05/JV06, Experimental) num projeto real copiado
+ * (`RDS_STUDIO_JV_PROJECT`, privado, nunca no Git). A copia descartavel recebe nas duas
+ * camadas as celulas 1..N exatamente como o ImageIngress grava a imagem montada (preparacao em
+ * disco declarada); o resto e UI/entrada nativa. Esperado: ROM igual a `RDS_STUDIO_JV_ROM_SHA`
+ * (build com celulas limpas), estimativa mostrada, campo vazio editavel, cartoes visiveis e
+ * divisor conservado ao voltar para Arte.
+ */
+async function runStudioJvScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, onProjectCreated) {
+  const source = process.env.RDS_STUDIO_JV_PROJECT;
+  const output = process.env.RDS_STUDIO_JV_OUTPUT;
+  const expectedRom = process.env.RDS_STUDIO_JV_ROM_SHA ?? null;
+  if (!source || !output) fail("RDS_STUDIO_JV_PROJECT e RDS_STUDIO_JV_OUTPUT obrigatorios.");
+  await mkdir(output, { recursive: true });
+  const prefix = `studio-jv-${artifactTimestamp()}`;
+  const appPath = currentE2eRunContext.appPath;
+  const hashFile = async (p) => createHash("sha256").update(await readFile(p)).digest("hex");
+  const report = { schema: "retrodev.studio_jv/v1", maturity: "Experimental", app_sha256: await hashFile(appPath), steps: [], artifacts: [] };
+  const js = (script, args = []) => executeScript(sessionId, script, args);
+  const state = () => readAutomationState(sessionId);
+  const shot = async (label) => { addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label); };
+  const project = path.join(output, "project");
+  await cp(source, project, { recursive: true, filter: (p) => !p.includes(`${path.sep}build`) });
+  onProjectCreated(project);
+  const scenePath = path.join(project, "scenes", "main.json");
+  const scene = JSON.parse(await readFile(scenePath, "utf8"));
+  const layers = [];
+  for (const e of scene.entities) {
+    const t = e.components?.tilemap;
+    if (!t) continue;
+    t.cells = Array.from({ length: t.map_width * t.map_height }, (_, i) => i + 1);
+    layers.push({ id: e.entity_id, cells: t.cells.length });
+  }
+  await writeFile(scenePath, `${JSON.stringify(scene, null, 2)}\n`);
+  addReportStep(report, "prepare_mounted_cells_on_disposable_copy", "passed", { layers, note: "celulas 1..N gravadas em disco, mesma forma do ImageIngress" });
+
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await openSavedProjectWizard(sessionId, project);
+  await waitFor(async () => (await state())?.activeProjectDir === project, 60000, "Projeto nao abriu.", 200);
+
+  // JV06: Prefab vazio por clique nativo e teclado
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  const hero = scene.entities.find((e) => !e.prefab)?.entity_id;
+  if (!hero) fail("Sem entidade sem prefab para JV06.");
+  await clickByTestId(sessionId, `hierarchy-entity-${hero}`);
+  const prefabBox = await waitFor(async () => js(`const b=document.querySelector('[data-testid="inspector-prop-prefab-value"]');if(!b)return null;const r=b.getBoundingClientRect();return {tag:b.tagName,empty:b.dataset.empty,w:r.width,h:r.height};`), 20000, "Campo Prefab ausente.", 200);
+  if (prefabBox.tag !== "BUTTON" || prefabBox.empty !== "true" || prefabBox.w < 32 || prefabBox.h < 12) fail(`Prefab vazio sem area clicavel: ${JSON.stringify(prefabBox)}`);
+  await clickButtonByTestIdNative(sessionId, "inspector-prop-prefab-value");
+  await waitFor(async () => js(`return document.activeElement?.dataset?.testid === 'inspector-prop-prefab-input';`), 10000, "Clique nativo nao abriu o editor do Prefab.", 100).catch(async (e) => { await shot("jv06-fail"); await writeFile(path.join(output, "jv06-diag.json"), JSON.stringify(await js(`const b=document.querySelector('[data-testid="inspector-prop-prefab-value"]');const r=b?.getBoundingClientRect();const top=r?document.elementFromPoint(r.left+r.width/2,r.top+r.height/2):null;return {rect:r?.toJSON(),top:top?.outerHTML?.slice(0,200),active:document.activeElement?.outerHTML?.slice(0,200),input:!!document.querySelector('[data-testid="inspector-prop-prefab-input"]'),vh:innerHeight};`))); throw e; });
+  await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{ type: "key", id: "jv06-esc", actions: [{ type: "keyDown", value: "" }, { type: "keyUp", value: "" }] }] });
+  await waitFor(async () => js(`return !document.querySelector('[data-testid="inspector-prop-prefab-input"]') && document.querySelector('[data-testid="inspector-prop-prefab-value"]')?.dataset.empty === 'true';`), 10000, "Escape nao cancelou.", 100);
+  await shot("jv06-prefab");
+  addReportStep(report, "jv06_empty_prefab_native_click_and_escape", "passed", prefabBox);
+
+  // JV01: estimativa e Build & Run com imagem montada
+  const vram = await js(`return document.querySelector('[data-testid="toolbar-vram-budget-label"]')?.textContent ?? null;`);
+  const run = await runBuildRunAndCollect(sessionId, "imagem montada", timeoutMs, report, `${prefix}-jv01`);
+  const romSha = await hashFile(run.rom_path);
+  const progress = await readCanonicalGameProgress(sessionId);
+  if (progress?.romSha256 !== romSha) fail("Core executa outra ROM.");
+  await waitFor(async () => (await readCanonicalGameProgress(sessionId))?.renderedFrames >= 120, 300000, "Jogo nao avancou 120 quadros.", 200);
+  const core = await invokeCoreObserve(sessionId);
+  if (!core?.ok || core.rom_sha256 !== romSha) fail("Identidade do core nao demonstrada.");
+  const mainC = await readFile(path.join(project, "build", "megadrive", "src", "main.c"), "utf8").catch(() => "");
+  const overlayUploads = (mainC.match(/VDP_loadTileData\(/g) ?? []).length;
+  if (expectedRom && romSha !== expectedRom) fail(`ROM da imagem montada difere da base: ${romSha} != ${expectedRom}`);
+  if (overlayUploads !== 0) fail(`Imagem montada ainda sobe ${overlayUploads} tiles extras.`);
+  await shot("jv01-running");
+  addReportStep(report, "jv01_mounted_image_build_run", "passed", { vram_label: vram, rom_sha256: romSha, expected_rom_sha256: expectedRom, overlay_uploads: overlayUploads, core: await collectCoreIdentity(core) });
+  await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop").catch(() => null);
+
+  // JV05: cartoes visiveis a 1366x768 e 949x593; divisor conservado ao sair/voltar de Arte
+  const cards = () => js(`const c=document.querySelector('[data-testid="artstudio-timeline-cards"]');if(!c)return null;const r=c.getBoundingClientRect();const p=c.closest('[data-panel]')?.getBoundingClientRect();return {h:r.height,panel:p?p.height:null};`);
+  const sizes = [];
+  for (const [w, h] of [[1366, 768], [949, 593]]) {
+    await setSessionWindowRect(sessionId, w, h);
+    await clickByTestId(sessionId, "workspace-rail-artstudio");
+    const c = await waitFor(async () => { const v = await cards(); return v && v.panel >= 170 ? v : false; }, 20000, `Painel da timeline sem altura util em ${w}x${h}.`, 200).catch(async (e) => { await writeFile(path.join(output, "jv05-diag.json"), JSON.stringify({ w, h, cards: await cards() })); throw e; });
+    const reach = await js(`const c=document.querySelector('[data-testid="artstudio-timeline-cards"]');c.scrollIntoView({block:'nearest'});const r=c.getBoundingClientRect();const p=c.closest('[data-panel]').getBoundingClientRect();const card=c.querySelector('button,input');const b=card?.getBoundingClientRect();return {cards_top_visible:r.top>=p.top-1&&r.top<p.bottom,first_control_visible:!!b&&b.top>=p.top-1&&b.bottom<=p.bottom+1};`);
+    if (!reach.cards_top_visible || !reach.first_control_visible) fail(`Cartoes nao alcancaveis em ${w}x${h}: ${JSON.stringify({ c, reach })}`);
+    sizes.push({ w, h, cards_height: c.h, panel_height: c.panel, ...reach });
+    await shot(`jv05-${w}x${h}`);
+  }
+  const before = (await cards()).panel;
+  const focused = await js(`const panel=document.querySelector('[data-testid="artstudio-timeline-cards"]')?.closest('[data-panel]');const s=panel?.previousElementSibling;if(!s||!s.hasAttribute('data-separator'))return false;s.focus();return document.activeElement===s;`);
+  if (!focused) fail("Divisor da Arte nao focavel.");
+  await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{ type: "key", id: "jv05-up", actions: Array.from({ length: 6 }, () => [{ type: "keyDown", value: "\uE013" }, { type: "keyUp", value: "\uE013" }]).flat() }] });
+  const sepBox = null;
+  const moved = await waitFor(async () => { const v = (await cards()).panel; return v && Math.abs(v - before) > 4 ? v : false; }, 10000, "Teclado nao moveu o divisor.", 100).catch(async (e) => {
+    const diag = await js(`const panel=document.querySelector('[data-testid="artstudio-timeline-cards"]')?.closest('[data-panel]');const s=panel?.previousElementSibling;return {panel:panel?.outerHTML.slice(0,300),sep:s?.outerHTML.slice(0,400),group:panel?.parentElement?.getBoundingClientRect().toJSON()};`);
+    await writeFile(path.join(output, "jv05-diag.json"), JSON.stringify({ before, sepBox, diag, sizes }, null, 2));
+    throw e;
+  });
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  await clickByTestId(sessionId, "workspace-rail-artstudio");
+  const kept = await waitFor(async () => (await cards())?.panel ?? false, 20000, "Arte nao reabriu.", 200);
+  if (Math.abs(kept - moved) > 2) fail(`Divisor voltou ao padrao: ${JSON.stringify({ before, moved, kept })}`);
+  await shot("jv05-divider-kept");
+  addReportStep(report, "jv05_cards_visible_and_divider_persisted", "passed", { sizes, divider: { before, moved, kept } });
+  await writeFile(path.join(output, "ui-report.json"), `${JSON.stringify(report, null, 2)}\n`);
+  console.log(`Studio JV evidence: ${output}`);
+}
+
+async function runMugenHitDefScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, onProjectCreated) {
+  const output = process.env.RDS_MUGEN_HITDEF_UI_OUTPUT ?? path.join(validationDir, `mugen-hitdef-${artifactTimestamp()}`);
+  await mkdir(output, { recursive: true });
+  const prefix = `mugen-hitdef-${artifactTimestamp()}`;
+  const appPath = currentE2eRunContext.appPath;
+  const hashFile = async (p) => createHash("sha256").update(await readFile(p)).digest("hex");
+  const report = { schema: "retrodev.mugen_hitdef_ui/v1", maturity: "Experimental", app_sha256: await hashFile(appPath), steps: [], runs: [], artifacts: [],
+    expected: { life: 120, after_first: 95, after_hold: 70, damage: 25, in_range_dx: 10, out_of_range_dx: 16, attack_ticks_with_hit: 14 } };
+  const js = (script, args = []) => executeScript(sessionId, script, args);
+  const state = () => readAutomationState(sessionId);
+  const shot = async (label) => { addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label); };
+  const select = async (id, value) => {
+    const result = await js(`
+      const e = document.querySelector('[data-testid="'+arguments[0]+'"]');
+      if (!(e instanceof HTMLSelectElement)) return null;
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(e, String(arguments[1]));
+      e.dispatchEvent(new Event('change', {bubbles:true})); return e.value;
+    `, [id, value]);
+    if (result !== String(value)) fail(`Select ${id} nao aceitou ${value}.`);
+  };
+  const fixtureDir = path.join(repoRoot, "crates", "rex-mugen", "fixtures", "striker");
+  const donorDir = path.join(output, "donor", "striker");
+  await mkdir(donorDir, { recursive: true });
+  const sourceHashes = {};
+  for (const name of ["striker.def", "striker.air", "striker.cmd", "striker.cns", "striker.sff"]) {
+    const bytes = await readFile(path.join(fixtureDir, name));
+    await writeFile(path.join(donorDir, name), bytes);
+    sourceHashes[name] = createHash("sha256").update(bytes).digest("hex");
+  }
+  report.source = { fixture: "crates/rex-mugen/fixtures/striker", sha256: sourceHashes };
+
+  // 1. Revisao: cadeia original, HitDef visivel com origem
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
+  await select("external-import-profile-select", "mugen");
+  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', `Striker_HitDef_${Date.now()}`);
+  await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [donorDir]);
+  await clickByTestId(sessionId, "external-import-confirm");
+  await waitFor(async () => js(`return !!document.querySelector('[data-testid="mugen-source-action-200"]');`), 120000, "Revisao do striker nao abriu.", 200);
+  for (const n of [0, 200]) await clickByTestId(sessionId, `mugen-source-action-${n}`);
+  await clickByTestId(sessionId, "mugen-source-original-chain");
+  await clickByTestId(sessionId, "mugen-source-analyze");
+  await waitFor(async () => js(`return !!document.querySelector('[data-testid="mugen-source-chain-200"]');`), 120000, "Cadeia 200 nao listada.", 200);
+  await clickByTestId(sessionId, "mugen-source-chain-200");
+  await clickByTestId(sessionId, "mugen-source-analyze");
+  await waitFor(async () => js(`const e=document.querySelector('[data-testid="mugen-source-import"]');return !!e && !e.disabled && !!document.querySelector('[data-testid="mugen-chain-review"]');`), 120000, "Revisao da cadeia recusada.", 200);
+  const review = await js(`
+    const row = (id) => { const r = document.querySelector('[data-testid="mugen-chain-op-'+id+'"]'); return r ? { cls: r.dataset.class, origin: r.children[1]?.textContent ?? '', text: r.children[2]?.textContent ?? '', impl: r.children[3]?.textContent ?? '' } : null; };
+    return { hitdef: row('state.200.controller.0'), damage: row('state.200.controller.0.param.damage'), pausetime: row('state.200.controller.0.param.pausetime'),
+      inert: row('state.200.controller.0.param.ground.velocity'), life: row('target.life'), notice: document.querySelector('[data-testid="mugen-chain-review"]')?.textContent?.includes('alvo de treino') ?? false };
+  `);
+  if (review.hitdef?.cls !== "converted" || !review.hitdef.impl.includes("HitDef") || !review.hitdef.origin.startsWith("striker.cns:")) fail(`HitDef nao aparece convertido com origem: ${JSON.stringify(review)}`);
+  if (review.damage?.cls !== "converted" || review.inert?.cls !== "approximate" || review.life?.cls !== "converted") fail(`Classes dos parametros inesperadas: ${JSON.stringify(review)}`);
+  report.review = review;
+  await shot("01-review-hitdef");
+  addReportStep(report, "source_review_shows_cns_hitdef", "passed", review);
+  await clickByTestId(sessionId, "mugen-source-import");
+  const imported = await waitFor(async () => { const s = await state(); return s?.mugenCompatibility?.open && s.mugenCompatibility.characters.some((c) => c.id === "striker") ? s : false; }, 120000, "Importacao nao abriu o relatorio.", 200);
+  const project = imported.activeProjectDir;
+  report.projectDir = project;
+  onProjectCreated(project);
+  await clickByTestId(sessionId, "mugen-compat-close");
+
+  // 2. Inspector: sem alvo -> aviso; Duplicar; afastar a copia; escolher o alvo; salvar
+  const sceneOnDisk = async () => JSON.parse(await readFile(path.join(project, "scenes", "main.json"), "utf8"));
+  const x0 = (await sceneOnDisk()).entities.find((e) => e.entity_id === "striker").transform.x;
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  await clickByTestId(sessionId, "hierarchy-entity-striker");
+  await waitFor(async () => js(`return document.querySelector('[data-testid="inspector-mugen-hit-target"]')?.value === "";`), 20000, "Inspector nao mostrou o golpe sem alvo.", 200);
+  await clickByTestId(sessionId, "inspector-duplicate-entity");
+  const needsConfirm = await waitFor(async () => js(`return document.querySelector('[data-testid="inspector-duplicate-confirm"]') ? "confirm" : ((window.__RDS_E2E__?.getState?.().selectedEntityId ?? "") !== "striker" ? "done" : false);`), 5000, "Duplicar nao respondeu.", 100);
+  if (needsConfirm === "confirm") await clickByTestId(sessionId, "inspector-duplicate-confirm");
+  const copyId = await waitFor(async () => { const s = (await state())?.selectedEntityId; return s && s !== "striker" ? s : false; }, 15000, "Copia nao selecionada.", 200);
+  const setCopyX = async (x) => {
+    await clickByTestId(sessionId, `hierarchy-entity-${copyId}`);
+    await waitFor(async () => (await state())?.selectedEntityId === copyId, 15000, "Copia nao selecionada.", 100);
+    await typeIntoInputAndExpect(sessionId, "inspector-transform-x", String(x), async () => (await js(`return document.querySelector('[data-testid="inspector-transform-x"]')?.value;`)) === String(x), `x da copia ${x}`);
+  };
+  await setCopyX(x0 + report.expected.in_range_dx);
+  await clickByTestId(sessionId, "hierarchy-entity-striker");
+  await waitFor(async () => !!(await js(`return document.querySelector('[data-testid="inspector-mugen-hit-target"]');`)), 15000, "Seletor de alvo ausente.", 100);
+  await select("inspector-mugen-hit-target", copyId);
+  await shot("02-inspector-target");
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  const graphNode = async () => {
+    const e = (await sceneOnDisk()).entities.find((x) => x.entity_id === "striker");
+    const g = e.components.logic.graph ? JSON.parse(e.components.logic.graph) : JSON.parse(await readFile(path.join(project, e.components.logic.graph_ref), "utf8"));
+    return g.nodes.find((n) => n.type === "mugen_state_program");
+  };
+  await waitFor(async () => (await graphNode())?.params?.hit_target === copyId, 20000, "Alvo do HitDef nao chegou ao disco.", 300);
+  const programSha = JSON.parse((await graphNode()).params.program_json).digest;
+  addReportStep(report, "inspector_duplicate_and_choose_target", "passed", { copyId, x0, copy_x: x0 + 10, program_sha256: programSha });
+
+  // 3. Reiniciar e reabrir
+  await deleteSession(sessionId);
+  sessionId = await createSession(appPath);
+  currentE2eRunContext.sessionId = sessionId;
+  await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu.");
+  await waitFor(async () => js("return !!window.__RDS_E2E__;"), uiBootstrapTimeoutMs, "API nao voltou.", 200);
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  await openSavedProjectWizard(sessionId, project);
+  await waitFor(async () => (await state())?.activeProjectDir === project, 60000, "Projeto nao reabriu.", 200);
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  await clickByTestId(sessionId, "hierarchy-entity-striker");
+  await waitFor(async () => (await js(`return document.querySelector('[data-testid="inspector-mugen-hit-target"]')?.value;`)) === copyId, 20000, "Alvo nao sobreviveu ao reinicio.", 200);
+  if (JSON.parse((await graphNode()).params.program_json).digest !== programSha) fail("Programa mudou apos reabrir.");
+  await shot("03-reopened");
+  addReportStep(report, "restart_reopen_keeps_target_and_program", "passed", { program_sha256: programSha });
+
+  // 4. Build & Run oficial + teclado nativo
+  const playRun = async (label, expectHit) => {
+    const run = await runBuildRunAndCollect(sessionId, `striker ${label}`, timeoutMs, report, `${prefix}-${label}`);
+    const romSha = await hashFile(run.rom_path);
+    const elf = await readFile(path.join(project, "build/megadrive/out/rom.out"));
+    const symbols = parseElfSymbols(elf);
+    const sym = (n) => { const a = symbols[`rds_mc_spr_striker_${n}`]; if (typeof a !== "number") fail(`Simbolo ${n} ausente.`); return a & 0xffff; };
+    const u16 = async (n) => readU16le((await readEmulatorMemory(sessionId, 2, sym(n), 2)).data, 0);
+    const s16 = async (n) => readI16le((await readEmulatorMemory(sessionId, 2, sym(n), 2)).data, 0);
+    if ((await readCanonicalGameProgress(sessionId))?.romSha256 !== romSha) fail("Core executa outra ROM.");
+    await closeVisibleConsoleDrawer(sessionId, "striker");
+    await focusGameCanvasNatively(sessionId);
+    await waitFor(async () => (await u16("tick")) >= 40, 180000, "Jogo nao saiu do boot.", 200);
+    const frameNow = async () => (await readCanonicalGameProgress(sessionId)).renderedFrames;
+    const waitFrames = async (n, why) => { const start = await frameNow(); await waitFor(async () => (await frameNow()) >= start + n, 240000, `Nao avancou ${why}.`, 100); };
+    const sample = async (step) => ({ step, tick: await u16("tick"), stateno: await u16("stateno"), life: await s16("tlife"), hits: await u16("hits"), hd_count: await u16("hd_count"), frozen: await u16("frozen") });
+    const samples = [await sample("start")];
+    await waitFrames(30, "sem entrada"); samples.push(await sample("no_input"));
+    const taps = [];
+    // O joypad e nivel, nao fila: com o core de debug (~10 quadros/s) toques curtos podem nao ser
+    // amostrados (ORIGINAL_CHAIN §5). Pressoes de 700 ms garantem amostra; a contagem esperada de
+    // golpes vem das bordas de A que a PROPRIA ROM amostrou.
+    taps.push(await sendNativeGameKeyTap(sessionId, "KeyZ", 700, "press")); await waitFrames(40, "apos pressao"); samples.push(await sample("after_tap"));
+    await shot(`${label}-after-tap`);
+    taps.push(await sendNativeGameKeyTap(sessionId, "KeyZ", 1200, "hold")); await waitFrames(40, "apos segurar"); samples.push(await sample("after_hold"));
+    await waitFrames(30, "parado"); samples.push(await sample("idle_end"));
+    await clickByTestId(sessionId, "viewport-pause");
+    await waitFor(async () => (await state())?.emulPaused, 15000, "Nao pausou.", 100);
+    const tickEnd = await u16("tick");
+    const ring = (await readEmulatorMemory(sessionId, 2, sym("trace"), 512 * 22)).data;
+    const trace = [];
+    for (let i = 0; i < 512; i++) { const b = i * 22, tick = readU16le(ring, b); if (tick < tickEnd && tick % 512 === i && tick >= tickEnd - 512) trace.push({ tick, stateno: readU16le(ring, b + 2), time: readU16le(ring, b + 4), action: readU16le(ring, b + 8), pad: readU16le(ring, b + 12), animtick: readU16le(ring, b + 14) }); }
+    trace.sort((a, b) => a.tick - b.tick);
+    const n = await u16("hitlog_n"); const log = [];
+    const raw = (await readEmulatorMemory(sessionId, 2, sym("hitlog"), 32 * 16)).data;
+    for (let k = 0; k < Math.min(n, 32); k++) { const b = k * 16; log.push({ tick: readU16le(raw, b), time: readU16le(raw, b + 2), action: readU16le(raw, b + 4), elem: readU16le(raw, b + 6), before: readI16le(raw, b + 8), after: readI16le(raw, b + 10), ax: readI16le(raw, b + 12), tx: readI16le(raw, b + 14) }); }
+    const attacks = []; for (const e of trace) { const last = attacks[attacks.length - 1]; if (e.stateno === 200) { if (last && last.end === e.tick - 1) last.end = e.tick; else attacks.push({ start: e.tick, end: e.tick, pad_at_entry: e.pad }); } }
+    const core = await invokeCoreObserve(sessionId);
+    if (!core?.ok || core.rom_sha256 !== romSha) fail("Identidade do core nao demonstrada.");
+    const result = { label, rom_sha256: romSha, elf_sha256: createHash("sha256").update(elf).digest("hex"), core: await collectCoreIdentity(core), samples, taps, attacks: attacks.map((a) => ({ ...a, ticks: a.end - a.start + 1 })), hitlog: log, trace_ticks: trace.length };
+    result.pad_a_ticks = trace.filter((e) => e.pad & 0x40).map((e) => e.tick);
+    report.runs.push(result);
+    await writeFile(path.join(output, "ui-report.json"), `${JSON.stringify(report, null, 2)}\n`);
+    const at = (step) => samples.find((x) => x.step === step);
+    if (at("no_input").life !== 120 || at("no_input").hits !== 0) fail(`Dano sem entrada: ${JSON.stringify(samples)}`);
+    const edges = trace.filter((e, i) => i > 0 && (e.pad & 0x40) && !(trace[i - 1].pad & 0x40) && trace[i - 1].stateno === 0).length;
+    result.sampled_a_edges_from_idle = edges;
+    if (edges !== 2) fail(`Entrada nao amostrada como duas pressoes (bordas ${edges}); repetir: ${JSON.stringify(result.pad_a_ticks)}`);
+    if (attacks.length !== 2) fail(`Esperava dois golpes (duas pressoes amostradas): ${JSON.stringify(result.attacks)}`);
+    if (expectHit) {
+      if (at("after_tap").life !== 95 || at("after_hold").life !== 70 || at("idle_end").life !== 70 || at("idle_end").hits !== 2) fail(`Vida fora da previsao: ${JSON.stringify(samples)}`);
+      if (!result.attacks.every((a) => a.ticks === 14)) fail(`Golpe com pausa deveria durar 14 ticks: ${JSON.stringify(result.attacks)}`);
+      if (log.length !== 2 || log.some((e) => e.elem !== 1 || e.time !== 3) || log[0].tx - log[0].ax !== 10) fail(`Registro de acertos fora da previsao: ${JSON.stringify(log)}`);
+      for (const [i, a] of attacks.entries()) if (log[i].tick !== a.start + 3) fail(`Contato fora do quadro previsto (P+3): ${JSON.stringify({ a, e: log[i] })}`);
+    } else {
+      if (samples.some((x) => x.life !== 120 || x.hits !== 0) || log.length !== 0) fail(`Fora do alcance nao deveria acertar: ${JSON.stringify(samples)}`);
+      if (!result.attacks.every((a) => a.ticks === 10)) fail(`Sem acerto nao ha pausa (10 ticks): ${JSON.stringify(result.attacks)}`);
+    }
+    await clickByTestId(sessionId, "toolbar-emulator-stop").catch(() => null);
+    return result;
+  };
+  await playRun("in-range", true);
+  addReportStep(report, "official_build_native_keyboard_hit_in_ram", "passed", { life: [120, 95, 70], hold_hits_once: true });
+
+  // 5. Negativo: alvo fora do alcance (16 px), pela UI, sem tocar a fonte
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  await setCopyX(x0 + report.expected.out_of_range_dx);
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  await waitFor(async () => (await sceneOnDisk()).entities.find((e) => e.entity_id === copyId)?.transform?.x === x0 + 16, 20000, "Nova posicao do alvo nao gravada.", 300);
+  await playRun("out-of-range", false);
+  addReportStep(report, "out_of_range_no_damage", "passed", { dx: 16 });
+  if (report.runs[0].rom_sha256 === report.runs[1].rom_sha256) fail("Mover o alvo deveria mudar a ROM (posicao inicial).");
+  await writeFile(path.join(output, "ui-report.json"), `${JSON.stringify(report, null, 2)}\n`);
+  console.log(`MUGEN HitDef UI evidence: ${output}`);
 }
 
 async function runMugenLocomotionScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, onProjectCreated) {
@@ -26308,6 +26606,8 @@ async function main() {
     options.scenario !== "mugen-locomotion" &&
     options.scenario !== "mugen-real" &&
     options.scenario !== "mugen-original" &&
+    options.scenario !== "mugen-hitdef" &&
+    options.scenario !== "studio-jv" &&
     options.scenario !== "studio-e1" &&
     options.scenario !== "sgdk-split-resources" &&
     options.scenario !== "sgdk-native-c" &&
@@ -28136,6 +28436,14 @@ async function main() {
 
     if (options.scenario === "mugen-original") {
       await runMugenOriginalScenario(sessionId,emulatorActivationTimeoutMs,uiBootstrapTimeoutMs,(created)=>{temporaryProjectDir=created;});
+      return;
+    }
+    if (options.scenario === "studio-jv") {
+      await runStudioJvScenario(sessionId,emulatorActivationTimeoutMs,uiBootstrapTimeoutMs,(created)=>{temporaryProjectDir=created;});
+      return;
+    }
+    if (options.scenario === "mugen-hitdef") {
+      await runMugenHitDefScenario(sessionId,emulatorActivationTimeoutMs,uiBootstrapTimeoutMs,(created)=>{temporaryProjectDir=created;});
       return;
     }
     if (options.scenario === "studio-paletas") {
