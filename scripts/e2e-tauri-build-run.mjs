@@ -9284,6 +9284,8 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   const swap = rom1.link.palette?.swaps?.[0];
   const strikeSym = [...s1.keys()].find((k) => /^rds_strike_.*_hits$/.test(k));
   if (!swap || !strikeSym) fail("ROM sem troca ou golpe no vinculo.");
+  const strikeHpSym = strikeSym.replace(/_hits$/, "_hp");
+  const healthBefore = await word(s1.get(strikeHpSym));
   const swapSym = (suffix) => s1.get(`rds_palswap_${swap.id}_${suffix}`);
   const frames = [];
   for (let i = 0; i < 3; i += 1) await stepFrame();
@@ -9307,6 +9309,12 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   if (windowIdx.length !== 12 || windowIdx.some((v, i) => i && v !== windowIdx[i - 1] + 1)) fail(`Janela da troca ${JSON.stringify(windowIdx)} nao e 12 quadros continuos`);
   if (!frames.some((f) => f.hurt > 0)) fail("Cor de dano nunca observada.");
   step("rom_swap_only_target_once_and_restored", { hits, count, restores, window: windowIdx.length, hurt_frames: frames.filter((f) => f.hurt > 0).length });
+  if (process.env.RDS_STRIKE_DAMAGE_PROOF === "1") {
+    const healthAfter = await word(s1.get(strikeHpSym));
+    if (healthBefore !== 100 || healthAfter !== 88) fail(`Golpe autoral 12: vida ${healthBefore}->${healthAfter}, esperado 100->88.`);
+    report.strike_baseline = { authored: true, damage: 12, health_before: healthBefore, health_after: healthAfter, hits, rom_sha256: rom1.romSha };
+    step("authored_strike_baseline_damage_in_ram", report.strike_baseline);
+  }
 
   const beforeWalk = await classify(rom1.link, false);
   await clickByTestId(sessionId, "viewport-resume");
@@ -9376,6 +9384,53 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   const exportedPath = exportedText.match(/Exportado: (.*) \(/)?.[1];
   if (!exportedPath || (await hashFile(exportedPath)) !== rom3.romSha) fail("ROM exportada difere da restaurada.");
   step("export_canonical_rom", { path: exportedPath, sha256: rom3.romSha });
+  if (process.env.RDS_STRIKE_DAMAGE_PROOF === "1") {
+    // This is the existing authored strike, not a recovered original CNS HitDef.
+    // Freeze the expected effect before changing the parameter through the UI.
+    const expectation = { damage: 24, health_before: 100, health_after: 76, hits: 1 };
+    await click("delivery-close", "Fechar entrega");
+    await click("toolbar-emulator-stop", "Parar teste");
+    const showStrike = async () => {
+      await clickByTestId(sessionId, "workspace-rail-logic");
+      await waitFor(async () => exists("nodegraph-entity-switch"), 15000, "Seletor da Logica ainda indisponivel.", 100);
+      await openLogicContext();
+      await selectOption("nodegraph-entity-switch", "kenmasters_2");
+      return waitFor(() => js(`const row=[...document.querySelectorAll('[data-testid^="behavior-instance-"]')].find(e=>/Golpe autoral/i.test(e.textContent));return row?.querySelector('[data-testid^="behavior-edit-"]')?.dataset.testid ?? null;`), 15000, "Golpe autoral ausente.", 100);
+    };
+    const editId = await showStrike();
+    await click(editId, "Editar golpe autoral");
+    await waitFor(async () => exists("behavior-param-damage"), 10000, "Campo de dano nao abriu.", 100);
+    await setInputByTestIdNative(sessionId, "behavior-param-damage", String(expectation.damage));
+    await click("behavior-apply", "Aplicar dano");
+    await clickTopBarMenuAction(sessionId, "Salvar");
+    await waitFor(() => js(`const e=document.querySelector('[data-testid="scene-save-status"]');return e?.dataset.status==='saved'&&e.dataset.savedRevision===e.dataset.revision;`), 20000, "Save do dano incompleto.", 100);
+    await clickTopBarMenuAction(sessionId, "Fechar");
+    await openSavedProjectWizard(sessionId, project);
+    await waitFor(async () => (await state())?.activeProjectDir === project, 30000, "Projeto do golpe nao reabriu.", 100);
+    await showStrike();
+    const summary = await js(`return [...document.querySelectorAll('[data-testid^="behavior-instance-"]')].find(e=>/Golpe autoral/i.test(e.textContent))?.textContent ?? '';`);
+    if (!/tirar 24 de 100/.test(summary)) fail(`Dano nao persistiu na UI: ${summary}`);
+    const damageRun = await buildAndRun("rom4-damage24");
+    if (damageRun.romSha === rom1.romSha) fail("Editar dano nao mudou a ROM.");
+    const symbols = await sym();
+    const readHp = () => word(symbols.get(strikeHpSym));
+    const readHits = () => word(symbols.get(strikeSym));
+    const noInput = { health: await readHp(), hits: await readHits() };
+    for (let i=0;i<3;i++) await stepFrame();
+    if (noInput.health!==100 || noInput.hits!==0 || await readHp()!==100 || await readHits()!==0) fail("Vida/acertos mudaram sem entrada.");
+    await sendNativeGameKey(sessionId,"KeyZ","keyDown","dano autoral 24");
+    await waitFor(async () => (await js("return window.__RDS_E2E__.getLastInputObservation();"))?.lastJoypadAck?.joypad?.y === true,15000,"Entrada do golpe nao confirmada.",50);
+    for(let i=0;i<2;i++) await stepFrame();
+    await sendNativeGameKey(sessionId,"KeyZ","keyUp","dano autoral 24");
+    await waitFor(async () => (await js("return window.__RDS_E2E__.getLastInputObservation();"))?.lastJoypadAck?.joypad?.y === false,15000,"Soltura do golpe nao confirmada.",50);
+    const samples=[];
+    for(let i=0;i<40;i++){await stepFrame();samples.push({health:await readHp(),hits:await readHits()});}
+    const final=samples.at(-1);
+    if(final.health!==expectation.health_after || final.hits!==expectation.hits || samples.some(s=>s.hits>1)) fail(`Dano24 fora do contrato: ${JSON.stringify(samples)}`);
+    report.strike_edited={authored:true,expectation,no_input:noInput,samples,rom_sha256:damageRun.romSha,core:await collectCoreIdentity(await invokeCoreObserve(sessionId))};
+    await shot("authored-damage24");
+    step("authored_damage_edit_persists_and_changes_ram_once",report.strike_edited);
+  }
   report.allPass = true;
   await writeFile(path.join(output, `${prefix}-report.json`), `${JSON.stringify(report, null, 2)}\n`);
   console.log(`Studio paletas evidence: ${path.join(output, `${prefix}-report.json`)}`);

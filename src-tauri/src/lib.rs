@@ -10430,6 +10430,46 @@ pub extern "C" fn retro_run() {
     }
 
     #[test]
+    fn save_scene_data_preserves_inline_logic_with_an_empty_external_reference() {
+        let root = temp_dir("save-inline-empty-ref");
+        create_project_skeleton(&root, "Inline logic", "megadrive").unwrap();
+        let graph = r#"{"version":1,"nodes":[{"id":"start","type":"event_start"}],"edges":[]}"#;
+        let source = serde_json::json!({
+            "scene_id":"main", "background_layers":[], "palettes":[],
+            "entities":[
+                {"entity_id":"authored","transform":{"x":0,"y":0},
+                 "components":{"logic":{"graph_ref":"", "graph":graph, "variables":{}}}},
+                {"entity_id":"empty","transform":{"x":0,"y":0},
+                 "components":{"logic":{"graph_ref":"  ", "variables":{}}}}
+            ]
+        });
+        let result = save_scene_data_impl(
+            root.to_string_lossy().into(),
+            source.to_string(),
+            Some("scenes/main.json".into()),
+            Some(source.to_string()),
+            None,
+            None,
+        );
+        assert!(result.ok, "{}", result.message);
+        assert!(result.graphs.is_empty());
+        let reopened = load_scene(&root, "scenes/main.json").unwrap();
+        let resolved = resolve_prefabs(&root, &reopened).unwrap();
+        assert_eq!(
+            resolved.entities[0]
+                .components
+                .logic
+                .as_ref()
+                .unwrap()
+                .graph
+                .as_deref(),
+            Some(graph)
+        );
+        assert!(!root.join(".rds/scene-save/pending.json").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn save_scene_data_keeps_graph_ref_externalized_when_resolved_scene_is_supplied() {
         let project_dir = temp_dir("save-scene-graph-ref");
         create_project_skeleton(&project_dir, "Graph Save", "megadrive")

@@ -116,6 +116,9 @@ fn apply(root: &Path, intent: &Intent) -> Result<(), LoadError> {
         .entities
         .iter()
         .filter_map(|e| e.components.logic.as_ref()?.graph_ref.as_deref())
+        // Inline/authored logic uses an empty reference as no external graph,
+        // matching resolve_entity_logic_graph and collect_external_graph_refs.
+        .filter(|reference| !reference.trim().is_empty())
         .map(|reference| graph_write_path(root, reference))
         .collect::<Result<_, _>>()?;
     let mut targets = Vec::new();
@@ -212,6 +215,7 @@ pub(crate) fn commit(
         logic
             .graph_ref
             .as_ref()
+            .filter(|reference| !reference.trim().is_empty())
             .filter(|_| logic.graph.as_deref().is_none_or(|g| g.trim().is_empty()))
     }) {
         let path = graph_write_path(root, reference)?;
