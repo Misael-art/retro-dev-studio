@@ -192,6 +192,21 @@ pub struct MugenFrameRuntime {
     pub clsn2: Vec<[i32; 4]>,
 }
 
+/// Celulas que mudam algo sobre a imagem base. A imagem montada (`1..=N` em ordem, todas as
+/// celulas do mapa) desenha exatamente a imagem base, entao vira "sem sobreposicao".
+pub(crate) fn effective_tilemap_cells(map_width: u32, map_height: u32, cells: &[u32]) -> Vec<u32> {
+    if is_mounted_image_cells(map_width, map_height, cells) {
+        Vec::new()
+    } else {
+        cells.to_vec()
+    }
+}
+
+pub(crate) fn is_mounted_image_cells(map_width: u32, map_height: u32, cells: &[u32]) -> bool {
+    let total = (map_width as usize).saturating_mul(map_height as usize);
+    total > 0 && cells.len() == total && cells.iter().enumerate().all(|(i, c)| *c as usize == i + 1)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TilemapAsset {
     pub resource_name: String,
@@ -726,12 +741,17 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
                 .iter()
                 .any(|asset| asset.asset_path == tilemap.tileset)
             {
+                // JV01: a imagem montada (celulas exatamente 1..N, convencao do ImageIngress e
+                // de applyImageEdits) e a propria imagem base; repintar cada celula com o mesmo
+                // tile duplicaria todos os tiles na VRAM. Gera como imagem base.
+                let cells =
+                    effective_tilemap_cells(tilemap.map_width, tilemap.map_height, &tilemap.cells);
                 tilemap_assets.push(TilemapAsset {
                     resource_name: resource_name.clone(),
                     asset_path: tilemap.tileset.clone(),
                     map_width: tilemap.map_width,
                     map_height: tilemap.map_height,
-                    cells: tilemap.cells.clone(),
+                    cells: cells.clone(),
                 });
                 tilemap_resource_names.insert(tilemap.tileset.clone(), resource_name.clone());
 
@@ -740,7 +760,7 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
                     asset_path: tilemap.tileset.clone(),
                     map_width: tilemap.map_width,
                     map_height: tilemap.map_height,
-                    cells: tilemap.cells.clone(),
+                    cells,
                 });
             }
 
@@ -4217,6 +4237,78 @@ mod tests {
                 && *scroll_x == 4
                 && *scroll_y == 8
         )));
+    }
+
+    #[test]
+    fn mounted_image_cells_compile_as_the_base_image_without_duplicate_tiles() {
+        // JV01: ImageIngress grava a imagem montada como celulas 1..N. Antes, cada celula virava
+        // um tile extra carregado DEPOIS dos tiles da imagem (2x a imagem na VRAM).
+        let project: Project = serde_json::from_value(serde_json::json!({
+            "rds_version": "1.0", "schema_version": crate::ugdm::entities::CURRENT_SCHEMA_VERSION,
+            "name": "Mounted", "target": "megadrive", "resolution": {"width": 320, "height": 224},
+            "fps": 60, "palette_mode": "4x16", "entry_scene": "main"
+        }))
+        .unwrap();
+        let layer = |id: &str, cells: Vec<u32>| Entity {
+            entity_id: id.to_string(),
+            display_name: None,
+            prefab: None,
+            transform: Transform { x: 0, y: 0 },
+            components: Components {
+                tilemap: Some(crate::ugdm::components::TilemapComponent {
+                    tileset: format!("assets/tilesets/pixel/{id}.png"),
+                    map_width: 40,
+                    map_height: 28,
+                    scroll_x: 0,
+                    scroll_y: 0,
+                    cells,
+                }),
+                ..Components::default()
+            },
+        };
+        let mounted: Vec<u32> = (1..=1120).collect();
+        let mut painted = mounted.clone();
+        painted[0] = 7; // uma celula realmente repintada
+        let scene = |entities: Vec<Entity>| Scene {
+            scene_id: "main".to_string(),
+            schema_version: Some(crate::ugdm::entities::CURRENT_SCHEMA_VERSION.to_string()),
+            display_name: None,
+            background_layers: Vec::new(),
+            entities,
+            palettes: Vec::new(),
+            retrofx: None,
+            collision_map: None,
+            layers: None,
+        };
+        let emit = |entities| {
+            crate::compiler::sgdk_emitter::emit_sgdk(&generate_ast(&project, &scene(entities)), "M")
+        };
+        let mounted_out = emit(vec![
+            layer("ceu", mounted.clone()),
+            layer("chao", mounted.clone()),
+        ]);
+        let plain_out = emit(vec![layer("ceu", Vec::new()), layer("chao", Vec::new())]);
+        assert_eq!(
+            mounted_out.main_c, plain_out.main_c,
+            "imagem montada = imagem base"
+        );
+        assert_eq!(mounted_out.resources_res, plain_out.resources_res);
+        assert!(!mounted_out.main_c.contains("VDP_loadTileData"));
+        assert!(!mounted_out.resources_res.contains("_cells"));
+        // controle: uma unica celula diferente mantem a sobreposicao pintada inteira
+        let painted_out = emit(vec![layer("ceu", painted)]);
+        assert!(painted_out
+            .resources_res
+            .contains("TILESET ceu_tilemap_cells"));
+        assert!(painted_out.main_c.contains("VDP_loadTileData"));
+        // padrao parcial ou fora de ordem nao e "montado"
+        assert!(!is_mounted_image_cells(40, 28, &mounted[..1119]));
+        assert!(!is_mounted_image_cells(
+            40,
+            28,
+            &[vec![2, 1], (3..=1120).collect()].concat()
+        ));
+        assert!(!is_mounted_image_cells(0, 0, &[]));
     }
 
     #[test]

@@ -217,16 +217,28 @@ fn tilemap_entity_resident_bytes(entity: &Entity) -> u32 {
         .saturating_mul(2);
     let map_bytes_capped = map_bytes.min(32 * 1024);
 
+    // JV01: segue a alocacao do emissor SGDK. Imagem montada (celulas 1..N) = imagem base, com
+    // ate um tile por celula. Celulas pintadas por cima = tiles da imagem base (limite superior:
+    // um por celula do mapa) MAIS os tiles distintos da sobreposicao, carregados depois deles.
+    let total_cells = tilemap.map_width.saturating_mul(tilemap.map_height);
     let tileset_bytes = if tilemap.cells.is_empty() {
         0
+    } else if crate::compiler::ast_generator::is_mounted_image_cells(
+        tilemap.map_width,
+        tilemap.map_height,
+        &tilemap.cells,
+    ) {
+        total_cells.saturating_mul(MD_TILE_BYTES)
     } else {
-        let mut unique_nonzero = std::collections::HashSet::new();
+        let mut unique_overlay = std::collections::HashSet::new();
         for &cell in &tilemap.cells {
-            if cell > 0 {
-                unique_nonzero.insert(cell);
+            if cell > 0 && cell != u32::MAX {
+                unique_overlay.insert(cell);
             }
         }
-        (unique_nonzero.len() as u32).saturating_mul(MD_TILE_BYTES)
+        total_cells
+            .saturating_add(unique_overlay.len() as u32)
+            .saturating_mul(MD_TILE_BYTES)
     };
 
     map_bytes_capped.saturating_add(tileset_bytes)
@@ -1298,6 +1310,50 @@ mod tests {
             status.hud_resident_bytes > 0,
             "token canônico do importador SGDK deve marcar HUD mesmo sem nome/prioridade heurística textual"
         );
+    }
+
+    #[test]
+    fn painted_tilemap_estimate_counts_base_image_plus_overlay_tiles() {
+        // JV01: o emissor carrega os tiles da imagem E depois os da sobreposicao; a estimativa
+        // contava so a sobreposicao. A imagem montada (1..N) e a imagem base: N tiles no maximo.
+        let layer = |cells: Vec<u32>| Entity {
+            entity_id: "ceu".to_string(),
+            display_name: None,
+            prefab: None,
+            transform: Transform { x: 0, y: 0 },
+            components: Components {
+                tilemap: Some(crate::ugdm::components::TilemapComponent {
+                    tileset: "assets/tilesets/ceu.png".to_string(),
+                    map_width: 40,
+                    map_height: 28,
+                    scroll_x: 0,
+                    scroll_y: 0,
+                    cells,
+                }),
+                ..Default::default()
+            },
+        };
+        let map = 40 * 28 * 2;
+        let mounted: Vec<u32> = (1..=1120).collect();
+        assert_eq!(
+            tilemap_entity_resident_bytes(&layer(mounted.clone())),
+            map + 1120 * MD_TILE_BYTES
+        );
+        let mut painted = vec![0u32; 1120];
+        painted[0] = 3;
+        painted[1] = 3;
+        painted[2] = u32::MAX; // celula vazia explicita nao carrega tile
+        assert_eq!(
+            tilemap_entity_resident_bytes(&layer(painted)),
+            map + (1120 + 1) * MD_TILE_BYTES
+        );
+        // duas camadas montadas de tela inteira passam do orcamento e sao sinalizadas
+        let mut scene = empty_scene();
+        scene.entities.push(layer(mounted.clone()));
+        let mut second = layer(mounted);
+        second.entity_id = "chao".into();
+        scene.entities.push(second);
+        assert!(hw_status(&scene).tilemap_resident_bytes > 64 * 1024);
     }
 
     #[test]

@@ -4275,3 +4275,5 @@ Prova: fixture autoral `crates/rex-mugen/fixtures/striker`, previsão escrita an
 Curadoria JV: JV06, JV09, JV10 e JV05 (parcial) implementados com testes unitários; JV01 (P0) e os demais pendentes. Detalhe em `studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md`.
 
 Gates: árvore, lint, tsc, 1397 frontend, Clippy, fmt, rex-mugen PASS; Rust lib 1183 PASS + 1 falha preexistente de ambiente (`rex_resources::byor_preview_of_modified_artifact`, arquivo intocado).
+
+- **JV01 (P0) corrigido** (mesmo dia): imagem montada (células `1..N` do ImageIngress) gerava a imagem base + 1 tile extra por célula, estourando a VRAM com estimativa baixa. `ast_generator::effective_tilemap_cells` gera `1..N` como imagem base; `md_profile` estima pintura = base + sobreposição. Prova real em cópia descartável do Correio das Nuvens (SGDK/GPGX oficiais): ROM com células montadas idêntica à de células limpas (`a8798730…b5ad`) e 6/6 quadros iguais; recibo em `RDS_WORK_ROOT/sessions/jv01-20261105/`. Gates Rust: Clippy/fmt PASS, 1185 PASS + a falha de ambiente conhecida. Jornada Tauri não repetida.

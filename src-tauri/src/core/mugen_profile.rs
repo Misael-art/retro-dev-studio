@@ -5616,6 +5616,84 @@ mod tests {
         eprintln!("estado 200 nao convertidos: {}", serde_json::json!(un));
     }
 
+    /// JV01 (curadoria Mega Drive): copia descartavel de um projeto real (`RDS_JV01_PROJECT`).
+    /// Variante A: celulas limpas (imagem base). Variante B: imagem montada (celulas 1..N,
+    /// como o ImageIngress grava). Exige a mesma ROM e o mesmo framebuffer no core oficial.
+    #[test]
+    #[ignore]
+    fn jv01_mounted_image_real_build_matches_base_image() {
+        let src = PathBuf::from(std::env::var("RDS_JV01_PROJECT").expect("RDS_JV01_PROJECT"));
+        let out = std::env::var("RDS_JV01_OUTPUT").ok().map(PathBuf::from);
+        let mut results = Vec::new();
+        for mounted in [false, true] {
+            let root = temp(if mounted { "jv01-mounted" } else { "jv01-base" });
+            let project = root.join("project");
+            fn copy_tree(from: &Path, to: &Path) {
+                fs::create_dir_all(to).unwrap();
+                for entry in fs::read_dir(from).unwrap() {
+                    let entry = entry.unwrap();
+                    let name = entry.file_name();
+                    if entry.file_type().unwrap().is_dir() {
+                        if name != "build" {
+                            copy_tree(&entry.path(), &to.join(&name));
+                        }
+                    } else {
+                        fs::copy(entry.path(), to.join(&name)).unwrap();
+                    }
+                }
+            }
+            copy_tree(&src, &project);
+            let mut scene = load_scene(&project, DEFAULT_ENTRY_SCENE).unwrap();
+            for e in scene.entities.iter_mut() {
+                if let Some(t) = e.components.tilemap.as_mut() {
+                    t.cells = if mounted {
+                        (1..=t.map_width * t.map_height).collect()
+                    } else {
+                        Vec::new()
+                    };
+                }
+            }
+            save_scene(&project, DEFAULT_ENTRY_SCENE, &scene).unwrap();
+            let (rom, rom_sha, _) = build(&project);
+            let mut emu = EmulatorCore::new(None);
+            emu.load_rom(&rom).expect("load");
+            emu.set_joypad(JoypadState::default()).unwrap();
+            let mut frames = Vec::new();
+            for f in 0..600 {
+                emu.run_frame().unwrap();
+                if f % 100 == 99 {
+                    let (raw, size, format) = emu.get_framebuffer().unwrap();
+                    let fb = framebuffer_to_rgba(&raw, size, format);
+                    if let Some(dir) = &out {
+                        fs::create_dir_all(dir).unwrap();
+                        image::save_buffer(
+                            dir.join(format!(
+                                "{}-{f}.png",
+                                if mounted { "mounted" } else { "base" }
+                            )),
+                            &fb.rgba,
+                            fb.width,
+                            fb.height,
+                            image::ColorType::Rgba8,
+                        )
+                        .unwrap();
+                    }
+                    frames.push(sha(&fb.rgba));
+                }
+            }
+            eprintln!("mounted={mounted} rom={rom_sha} frames={frames:?}");
+            results.push((rom_sha, frames));
+            let _ = fs::remove_dir_all(root);
+        }
+        assert_eq!(results[0].0, results[1].0, "mesma ROM");
+        assert_eq!(results[0].1, results[1].1, "mesmos quadros no core");
+        if let Some(dir) = out {
+            fs::write(dir.join("jv01-receipt.json"), serde_json::to_vec_pretty(&serde_json::json!({
+                "source_project": src, "rom_sha256": results[0].0, "frame_rgba_sha256_every_100": results[0].1,
+                "variants": ["cells cleared (base image)", "mounted cells 1..N"]})).unwrap()).unwrap();
+        }
+    }
+
     #[test]
     fn two_chain_instances_keep_independent_state_variables() {
         let (root, project, r) = import_chain("chain-two", |c| c, |c| c);
