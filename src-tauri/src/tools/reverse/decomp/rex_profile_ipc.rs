@@ -2934,4 +2934,58 @@ mod tests {
             println!("linear profile {entry:#x}..{exit:#x}, width {width}, independent copy exact");
         }
     }
+
+    /// BYOR: varre `RDS_REX_CORPUS_DIR` (um `.bin` por ROM) com os perfis EMBUTIDOS pelo mesmo
+    /// caminho do aplicativo: `ipc_locate`, sem escolha por nome de jogo — todo perfil carregado
+    /// tenta toda ROM, como na UI. Uma linha por (ROM, perfil): instâncias, ocorrências recusadas
+    /// por restrição, vínculo, modo de seleção e recusa. Serve para decidir onde um perfil em dado
+    /// tem contrato provado neste corpus, sem reimplementar o localizador fora do motor.
+    #[test]
+    #[ignore = "BYOR: RDS_REX_CORPUS_DIR"]
+    fn perfis_embutidos_atraves_do_corpus() {
+        let dir = std::env::var("RDS_REX_CORPUS_DIR").expect("RDS_REX_CORPUS_DIR ausente");
+        let mut files: Vec<_> = fs::read_dir(&dir)
+            .unwrap_or_else(|e| panic!("{dir}: {e}"))
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|x| x == "bin"))
+            .collect();
+        files.sort();
+        assert!(!files.is_empty(), "corpus vazio");
+        for f in &files {
+            let nome = f.file_name().unwrap().to_string_lossy().into_owned();
+            let req = ProfileLocateRequest {
+                rom_path: f.to_string_lossy().into_owned(),
+                request_id: "corpus-sweep".into(),
+                profiles_dir: None,
+                declared_regions: Vec::new(),
+            };
+            match ipc_locate(&req) {
+                Err(e) => println!("perfil\t{nome}\t-\t-\t-\t-\t0\t0\trecusa:{}", e.code),
+                Ok(resp) => {
+                    for m in &resp.matches {
+                        // `bound=false`: o perfil não foi tentado nesta ROM (vinculado a outras).
+                        // Sem essa coluna, um zero seria lido como negativo do corpus quando é
+                        // apenas ausência de tentativa (ex.: `copy_grid` nunca varre estruturalmente).
+                        println!(
+                            "perfil\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                            nome,
+                            m.profile.id,
+                            m.profile.class,
+                            m.bound,
+                            m.profile.selection_modes.join("+"),
+                            m.instances.len(),
+                            m.rejected_by_constraint,
+                            m.error.as_ref().map_or(String::new(), |e| e.code.clone()),
+                        );
+                    }
+                    for r in &resp.rejected {
+                        println!(
+                            "perfil\t{nome}\t{}\t-\t-\t-\t0\t0\trejeitado:{}",
+                            r.file, r.rule
+                        );
+                    }
+                }
+            }
+        }
+    }
 }

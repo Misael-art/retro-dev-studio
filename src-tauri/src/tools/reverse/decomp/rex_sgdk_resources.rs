@@ -1389,6 +1389,52 @@ mod diag {
         }
     }
 
+    /// BYOR: quantas tabelas de paleta candidatas têm ligação provada, por ROM do corpus
+    /// (`RDS_REX_CORPUS_DIR`, um `.bin` por ROM). Pergunta ao produto (`recover_graph`), não a um
+    /// predictor próprio: `candidatas` é o localizador de tabelas `{ponteiro,destino,contador}`;
+    /// `ligadas` é o que a exportação aceita como recurso (ligação arte→paleta provada);
+    /// `imagens`/`soltas`/`exportadas` são as paletas que o produto realmente recupera.
+    #[test]
+    #[ignore = "BYOR: RDS_REX_CORPUS_DIR"]
+    fn paletas_candidatas_com_ligacao_no_corpus() {
+        let dir = std::env::var("RDS_REX_CORPUS_DIR").expect("RDS_REX_CORPUS_DIR ausente");
+        let mut files: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap_or_else(|e| panic!("{dir}: {e}"))
+            .filter_map(|e| e.ok().map(|e| e.path()))
+            .filter(|p| p.extension().is_some_and(|x| x == "bin"))
+            .collect();
+        files.sort();
+        assert!(!files.is_empty(), "corpus vazio");
+        for f in files {
+            let rom = std::fs::read(&f).unwrap();
+            let g = recover_graph(&rom);
+            let ligados =
+                g.md.palettes
+                    .iter()
+                    .filter(|t| {
+                        g.md.art_palettes
+                            .iter()
+                            .any(|a| a.palette_table == t.offset)
+                    })
+                    .count();
+            let exportadas: std::collections::BTreeSet<u32> = g
+                .images
+                .iter()
+                .map(|i| i.palette.header_offset)
+                .chain(g.loose_palettes.iter().map(|p| p.header_offset))
+                .collect();
+            println!(
+                "paletas\t{}\t{}\t{}\t{}\t{}\t{}",
+                g.md.palettes.len(),
+                ligados,
+                g.images.len(),
+                g.loose_palettes.len(),
+                exportadas.len(),
+                f.file_name().unwrap().to_string_lossy()
+            );
+        }
+    }
+
     /// BYOR: por que uma ROM SGDK fica sem Image? Conta cada aresta que reprova.
     #[test]
     #[ignore = "BYOR: RDS_REX_ROM"]
