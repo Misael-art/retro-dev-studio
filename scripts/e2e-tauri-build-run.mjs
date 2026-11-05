@@ -10864,11 +10864,14 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     fail(`Apagamento nativo não liberou o botão principal após cada célula: ${JSON.stringify(erasureEvents)}`);
   }
   await clickTopBarMenuAction(sessionId, "Salvar");
-  const preparedMap = JSON.parse(await readFile(path.join(createdState.activeProjectDir, "scenes", "main.json"), "utf8")).collision_map;
-  if (!preparedMap || preparedMap.width !== 40 || preparedMap.height !== 28 ||
-    [26, 27].some((row) => [38, 39].some((col) => preparedMap.data[row * 40 + col] !== 0))) {
-    fail("Edição nativa não liberou as quatro células da borda do mapa.");
-  }
+  // The native click dispatches an asynchronous save. Observe the persisted
+  // revision, as the other composition saves do, without repeating the edit.
+  const preparedMap = await waitFor(async () => {
+    const map = JSON.parse(await readFile(compositionSceneFile, "utf8")).collision_map;
+    return map?.width === 40 && map.height === 28 &&
+      [26, 27].every((row) => [38, 39].every((col) => map.data[row * 40 + col] === 0))
+      ? map : false;
+  }, 15000, "Edição nativa não persistiu as quatro células livres da borda do mapa.", 200);
   const preparedUndoDepth = (await readAutomationState(sessionId)).undoDepth;
   await clickButtonByTestIdNative(sessionId, "viewport-move-layer", "voltar a mover camada com mapa global");
   await waitFor(async () => executeScript(sessionId, `
