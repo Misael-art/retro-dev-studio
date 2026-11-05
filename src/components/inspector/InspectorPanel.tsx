@@ -29,7 +29,9 @@ import {
 } from "../../core/mugenAnimationTiming";
 import {
   parseVelocity,
+  readMugenHitTarget,
   readMugenVelocities,
+  withMugenHitTarget,
   withMugenVelocity,
 } from "../../core/mugenVelocity";
 import { persistActiveScene } from "../../core/scenePersistence";
@@ -88,6 +90,7 @@ interface PropRowProps {
 function PropRow({ label, value, type, sourceState = null, onChange }: PropRowProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value));
+  const cancelled = useRef(false);
   const testIdBase = `inspector-prop-${label
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -162,19 +165,31 @@ function PropRow({ label, value, type, sourceState = null, onChange }: PropRowPr
               data-testid={`${testIdBase}-input`}
               className="w-full rounded border border-[#cba6f7] bg-[#1e1e2e] px-1 py-0.5 font-mono text-xs text-[#cdd6f4] focus:outline-none"
               onChange={(event) => setDraft(event.target.value)}
-              onBlur={commit}
-              onKeyDown={(event) => event.key === "Enter" && commit()}
+              onBlur={() => (cancelled.current ? (cancelled.current = false) : commit())}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") commit();
+                if (event.key === "Escape") {
+                  cancelled.current = true;
+                  setDraft(String(value));
+                  setEditing(false);
+                }
+              }}
             />
           )
         ) : (
-          <span
+          // Botao com area minima: um valor vazio (p.ex. Prefab) continua clicavel e alcancavel
+          // pelo teclado (JV06).
+          <button
+            type="button"
             data-testid={`${testIdBase}-value`}
-            className="cursor-pointer font-mono text-[#cdd6f4] transition-colors hover:text-[#cba6f7]"
+            data-empty={String(value) === "" ? "true" : "false"}
+            className="block min-h-[18px] w-full min-w-[4rem] cursor-pointer rounded px-0.5 text-left font-mono text-[#cdd6f4] transition-colors hover:text-[#cba6f7] focus:outline-none focus:ring-1 focus:ring-[#cba6f7]"
             onClick={() => setEditing(true)}
-            title={`Clique para editar: ${String(value)}`}
+            aria-label={`Editar ${label}${String(value) === "" ? " (vazio)" : `: ${String(value)}`}`}
+            title={`Clique para editar: ${String(value) === "" ? "(vazio)" : String(value)}`}
           >
-            {String(value)}
-          </span>
+            {String(value) === "" ? <span className="italic text-[#6c7086]">(vazio)</span> : String(value)}
+          </button>
         )}
       </td>
     </tr>
@@ -995,6 +1010,21 @@ export default function InspectorPanel() {
     scheduleAutoSave();
   }
 
+  function handleMugenHitTarget(target: string) {
+    if (!entity || !selectedEntityId || !entity.components.logic) return;
+    const graph = withMugenHitTarget(entity, target);
+    if (graph === null) return;
+    updateEntity(
+      selectedEntityId,
+      buildEntityPatch(entity, ["components", "logic"], {
+        ...entity.components.logic,
+        graph,
+        graph_origin: "user_edited_ref",
+      })
+    );
+    scheduleAutoSave();
+  }
+
   function handleMugenVelocityBlur(stateNo: number) {
     const key = String(stateNo);
     setMugenVelocityDrafts((current) => omitKey(current, key));
@@ -1443,6 +1473,46 @@ export default function InspectorPanel() {
                 </div>
               </div>
             ) : null}
+            {(() => {
+              const hit = readMugenHitTarget(entity);
+              if (!hit) return null;
+              const candidates = (activeScene?.entities ?? []).filter(
+                (other) => other.entity_id !== entity.entity_id && other.components.sprite
+              );
+              const missing = hit.target !== "" && !candidates.some((c) => c.entity_id === hit.target);
+              return (
+                <div data-testid="inspector-mugen-hitdef" data-target={hit.target} className="space-y-1.5 border-b border-[#313244] px-3 py-1.5 text-[10px] text-[#a6adc8]">
+                  <span className="text-[9px] uppercase tracking-[0.14em]">Golpe do CNS original · HitDef (MUGEN v2, Experimental)</span>
+                  {hit.hitdefs.map((h) => (
+                    <p key={h.controller} data-testid={`inspector-mugen-hitdef-${h.controller}`} className="leading-relaxed">
+                      Estado {h.state}: dano <b className="text-[#cdd6f4]">{h.damage}</b> quando {h.triggers.filter(Boolean).join(" e ") || "o gatilho vale"}; congela o atacante {h.pause[0]} ticks no acerto.
+                      Origem <span className="font-mono">{h.source}</span>.
+                      {h.hitsStanding ? "" : ` hitflag ${h.hitflag} nao alcanca um alvo em pe: o golpe ativa e nao acerta.`}
+                    </p>
+                  ))}
+                  <label className="flex flex-wrap items-center gap-2">
+                    <span>Alvo de treino</span>
+                    <select
+                      data-testid="inspector-mugen-hit-target"
+                      value={missing ? "" : hit.target}
+                      onChange={(event) => handleMugenHitTarget(event.target.value)}
+                      className="rounded border border-[#45475a] bg-[#11111b] px-1 py-0.5 text-[#cdd6f4]"
+                    >
+                      <option value="">(sem alvo: o golpe ativa e nao acerta)</option>
+                      {candidates.map((c) => (
+                        <option key={c.entity_id} value={c.entity_id}>{c.display_name || c.entity_id}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {missing ? <p role="alert" className="text-[#f38ba8]">O alvo &quot;{hit.target}&quot; nao existe mais na cena; escolha outro ou deixe sem alvo.</p> : null}
+                  {candidates.length === 0 ? <p className="text-[#f9e2af]">Use Duplicar para criar uma copia parada do personagem e escolha-a aqui.</p> : null}
+                  <p className="text-[#7f849c]">
+                    O alvo fica parado, em pe, sem defesa e com vida {hit.life ?? "?"} ({hit.lifeOrigin === "source" ? "[Data] life do CNS" : "padrao MUGEN"}).
+                    O acerto usa as caixas Clsn1/Clsn2 do quadro exibido; um acerto por ativacao. Nao e combate MUGEN completo.
+                  </p>
+                </div>
+              );
+            })()}
             {readMugenVelocities(entity).length > 0 ? (
               <div
                 data-testid="inspector-mugen-velocity"

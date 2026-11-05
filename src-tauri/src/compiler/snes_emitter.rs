@@ -1138,7 +1138,9 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], context: &SnesContext, in
                     indent = indent_str
                 ));
             }
-            LogicOp::MoveSprite { target_var, dx, dy } => {
+            LogicOp::MoveSprite {
+                target_var, dx, dy, ..
+            } => {
                 let Some(spawn) = context
                     .spawns
                     .iter()
@@ -2410,6 +2412,7 @@ mod tests {
                     target_var: "spr_hero".to_string(),
                     dx: 2,
                     dy: -1,
+                    face: false,
                 },
                 LogicOp::ConditionOverlap {
                     left: LogicCollisionTarget {

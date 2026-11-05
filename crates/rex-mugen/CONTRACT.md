@@ -128,7 +128,7 @@ recursos SGDK 2.11 sem compressão. Evidência e limites em
 | `VelSet` com x constante, `trigger1 = 1` (seção «Locomoção horizontal») | `set_velocity` do perfil no corpo do estado e na entrada da transição; integrado no runtime | **direto** (múltiplo de 1/256 px/tick) ou **aproximado** (arredondado, com o valor efetivo no relatório) |
 | `VelSet` fora do contrato (expressão, outro gatilho, y ≠ 0, x omitido, parâmetro extra, fora da faixa) | nó de referência **não ligado** | `unsupported`, com o motivo |
 | VelAdd/PosSet/PosAdd/PlaySnd | nó presente só como referência (`wired: false`), **não executado** | `unsupported` no relatório |
-| HitDef | ponte `mugen_hitdef` (herdado) |
+| HitDef | ponte `mugen_hitdef` (herdado); na cadeia original, subconjunto `mugen.original_chain.v2` (seção «HitDef original») |
 
 Ordem por quadro na ROM: leitura do joypad → FSM (transições) → tick de animação →
 `SPR_update`. O runtime MUGEN existe só no emissor Mega Drive; no SNES, `sprite_anim_done`
@@ -237,6 +237,40 @@ Não é conversão do personagem, de colisão, dano nem combate.
 | Rastro (observabilidade) | anel de 512 entradas × 22 bytes por instância (`rds_mc_<v>_trace`): tick, estado, `Time`, ctrl/statetype, ação, bits de comando, **pad amostrado**, relógio da animação, vx, x, `vtimer`. A prova compara a ROM com a referência independente a partir do pad que a própria ROM amostrou |
 | Estado por instância | `rds_mc_<v>_*` (12 variáveis voláteis + anel) por sprite; duas instâncias não compartilham estado, `Time`, animação nem comandos. Dois programas no mesmo sprite bloqueiam o build |
 | Limites | 1 cadeia por importação; sem facing/virada, colisão, dano, som, energia, projéteis; `Pos y` assumido 0 (nenhum controlador referenciado move y); PAL não medido; tempo real não certificado |
+
+## HitDef original (`mugen.original_chain.v2`, Experimental)
+
+Extensão versionada da cadeia original: um `HitDef` do CNS, num subconjunto explícito, acerta um
+**alvo de treino** e altera a RAM da ROM gerada. Não é combate MUGEN. Implementação nos mesmos
+owners: `core/mugen_chain.rs` (parser/programa tipado), `core/mugen_profile.rs` (forma do AIR),
+`project_mgr.rs` (nó `mugen_state_program`, parâmetro `hit_target`), `ast_generator.rs` (validação),
+`compiler/mugen_runtime.rs` (C), Inspector «Golpe do CNS original». Referência técnica: Mugenesis/SGDK
+Forge (`mg_fight.c` `resolve_hits`/`frames_collide`/`can_hit`, `mg_char.c` troca de estado,
+`native_hitdef.py`), consultado em leitura; **nenhum código ou asset foi copiado**, só métodos.
+
+| Item | Contrato |
+|---|---|
+| Versão | programa v2 só quando a cadeia usa `AnimElem` ou `HitDef` convertido; senão o programa é byte a byte o v1 (campos novos omitidos). Programa v1 com recurso v2 é recusado. Projetos v1 leem, validam e geram o mesmo C |
+| Gatilho novo | `AnimElem = N` (só `=`): 1º tick do elemento N da `anim` do estado; `start` = soma das durações 1..N−1, `período` = total (sem `Loopstart`, recomeça no 1). Recusado com `Loopstart`, elemento −1/0, N fora da ação, estado sem `anim` literal |
+| Onde vale | só em controladores do estado da cadeia; `HitDef` em −1/−2/−3 é recusado |
+| Executado | `damage` (literal 0..9999; 2º componente lido, sem efeito: o alvo nunca defende; omitido = 0), `hitflag` (H/L/M/A/F/D; alvo em pé é alcançado sse H ou M; `+`/`-` recusados), `pausetime` (literais 0..255), `kill` (0 = vida mínima 1), `movetype` do Statedef (só `A` acerta — regra do Mugenesis) |
+| Lido e declarado sem efeito | parâmetros do alvo/visuais/energia (`attr`, `guardflag`, `animtype`, `priority`, `sparkno`, `sparkxy`, `hitsound`, `ground.*`, `air.*`, `guard.*`, `getpower`, `givepower`, `fall*`, `palfx.*`, `envshake.*` …): relatório `approximate` com o motivo por parâmetro |
+| Recusado | qualquer outro (`p1stateno`, `p2stateno`, `ignorehitpause`, `persistent`, `hitonce`, `snap`, `mindist` …), expressões, elemento espelhado na ação do golpe, ação sem Clsn1: o **controlador inteiro** fica não convertido, com motivo |
+| Ativação | na ordem da fonte, quando os gatilhos valem: golpe ativo, sem mudar de estado. Mudança de estado desativa (sem `hitdefpersist`) |
+| Ordem por tick | comandos → −1 → estado atual (ativa) → rastro → avanço de Time/animação do atacante → tick de animação de **todos** os sprites → contato com o quadro **exibido** neste tick |
+| Contato | Clsn1 do quadro do atacante × Clsn2 do quadro do alvo, relativos ao eixo; facing fixo à direita (sem espelhar x); cantos normalizados; bordas **inclusivas** (escolha do Mugenesis) |
+| Efeito | um acerto por ativação: desativa, `hits++`, vida do alvo −dano (piso 0, ou 1 com `kill = 0`), `pause = p1`, tremor `p2` só contado; registro de acertos de 32×16 B (`tick, time, action, elem, antes, depois, x atacante, x alvo`) |
+| Repetição/rearme | contato sustentado não repete; nova execução do `HitDef` (p.ex. novo golpe) rearma |
+| Pausa | nos `p1` ticks seguintes ao contato o atacante não executa controladores e Time/animação/velocidade não avançam (`rds_mugen_<v>_freeze`); pressões nesse intervalo se perdem (buffer 1) |
+| Alvo de treino | outra entidade com sprite MUGEN, escolhida no Inspector (`hit_target`); fica parada, em pé, sem guarda, sem estado de acerto, sem empurrão. Vida = `[Data] life` do CNS (com origem) ou 1000 declarado. Sem alvo: o golpe ativa e nunca acerta (Inspector avisa); alvo = atacante ou inexistente bloqueia o build |
+| Observáveis | `rds_mc_<v>_tlife`, `_hits`, `_hd_active`, `_hd_count`, `_pause`, `_frozen`, `_contact`, `_hitlog` |
+
+Prova (fixture autoral redistribuível `fixtures/striker`, previsão em `fixture::striker` fixada antes):
+`mugen_hitdef_real_build_run` (ignorado; SGDK + Genesis Plus GX oficiais) — no alcance d=10: dois golpes de
+14 ticks (10 do AIR + pausa 4), contato no 1º tick do elemento 2, vida 120→95→70, contato sustentado = 1
+acerto; borda d=15 acerta, d=16 não (golpe de 10 ticks, sem pausa); `hitflag = A` ativa e não acerta;
+contraprova causal `damage = 40` → 120→40, ROM distinta, mesma janela. A previsão é derivação manual do
+contrato a partir da fonte (rota independente do compilador), **não** execução de MUGEN/Ikemen.
 
 ## Esquema de diagnóstico (`rex-mugen/diag/v1`)
 

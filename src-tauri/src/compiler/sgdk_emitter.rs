@@ -1809,7 +1809,19 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     indent = indent_str
                 ));
             }
-            LogicOp::MoveSprite { target_var, dx, dy } => {
+            LogicOp::MoveSprite {
+                target_var,
+                dx,
+                dy,
+                face,
+            } => {
+                if *face && *dx != 0 {
+                    // JV10: orientacao pelo flip H de hardware; caixas/colisao nao mudam.
+                    out.push_str(&format!(
+                        "{indent_str}if ({target_var}) SPR_setHFlip({target_var}, {});\n",
+                        if *dx < 0 { "TRUE" } else { "FALSE" }
+                    ));
+                }
                 let wall_body = WALL_BODIES.with(|bodies| bodies.borrow().get(target_var).copied());
                 match wall_body {
                     Some((width, height)) if *dx != 0 => out.push_str(&format!(
@@ -3382,6 +3394,56 @@ fn palette_const(slot: u8) -> String {
 mod tests {
 
     #[test]
+    fn move_sprite_faces_its_direction_only_when_requested() {
+        // JV10: o comportamento Movimento e salto pede orientacao; outros sprite_move nao.
+        let mut out = String::new();
+        render_logic_ops(
+            &mut out,
+            &[
+                LogicOp::MoveSprite {
+                    target_var: "spr_player".into(),
+                    dx: -2,
+                    dy: 0,
+                    face: true,
+                },
+                LogicOp::MoveSprite {
+                    target_var: "spr_player".into(),
+                    dx: 2,
+                    dy: 0,
+                    face: true,
+                },
+                LogicOp::MoveSprite {
+                    target_var: "spr_enemy".into(),
+                    dx: -1,
+                    dy: 0,
+                    face: false,
+                },
+                LogicOp::MoveSprite {
+                    target_var: "spr_player".into(),
+                    dx: 0,
+                    dy: 1,
+                    face: true,
+                },
+            ],
+            4,
+        );
+        assert!(
+            out.contains("if (spr_player) SPR_setHFlip(spr_player, TRUE);"),
+            "{out}"
+        );
+        assert!(
+            out.contains("if (spr_player) SPR_setHFlip(spr_player, FALSE);"),
+            "{out}"
+        );
+        assert!(!out.contains("SPR_setHFlip(spr_enemy"), "{out}");
+        assert_eq!(
+            out.matches("SPR_setHFlip").count(),
+            2,
+            "dx 0 nao muda a orientacao: {out}"
+        );
+    }
+
+    #[test]
     fn overlap_inside_source_mapped_or_loops_requires_the_aabb_helper() {
         let target = |id: &str| LogicCollisionTarget {
             entity_id: id.to_string(),
@@ -3466,6 +3528,7 @@ mod tests {
                     target_var: "spr_player".to_string(),
                     dx: 2,
                     dy: -1,
+                    face: false,
                 },
                 LogicOp::ConditionOverlap {
                     left: LogicCollisionTarget {
@@ -4451,6 +4514,7 @@ mod tests {
                                 target_var: "spr_player".to_string(),
                                 dx: 2,
                                 dy: 0,
+                                face: false,
                             }],
                             transitions: Vec::new(),
                         },
@@ -4493,6 +4557,7 @@ mod tests {
                         target_var: "spr_player".to_string(),
                         dx: 1,
                         dy: 0,
+                        face: false,
                     }],
                     done: vec![LogicOp::ForLoop {
                         loop_var: "idx".to_string(),
@@ -4537,6 +4602,7 @@ mod tests {
                                 target_var: "spr_player".to_string(),
                                 dx: 2,
                                 dy: 0,
+                                face: false,
                             }],
                         },
                         crate::compiler::ast_generator::LogicTimelineSlot {
@@ -4584,6 +4650,7 @@ mod tests {
                             target_var: "spr_player".to_string(),
                             dx: 1,
                             dy: 0,
+                            face: false,
                         }],
                     }],
                 },

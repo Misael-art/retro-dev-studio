@@ -45,6 +45,11 @@ fn committed_strider_is_reproducible() {
 }
 
 #[test]
+fn committed_striker_is_reproducible() {
+    check_committed("striker", fixture::striker());
+}
+
+#[test]
 fn committed_walker_is_reproducible() {
     check_committed("walker", fixture::walker());
 }

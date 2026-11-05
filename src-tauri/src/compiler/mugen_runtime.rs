@@ -23,7 +23,8 @@ use super::ast_generator::{
     AstNode, AstOutput, LogicBoolExpr, LogicOp, MugenAnimTable, SpriteAsset,
 };
 use crate::core::mugen_chain::{
-    Cmp, Expr, Program, StateProgram, MAX_CHANGES_PER_TICK, TRACE_ENTRIES, TRACE_ENTRY_BYTES,
+    Cmp, Expr, Program, StateProgram, HIT_LOG_ENTRIES, HIT_LOG_ENTRY_BYTES, MAX_CHANGES_PER_TICK,
+    TRACE_ENTRIES, TRACE_ENTRY_BYTES,
 };
 
 fn walk_bool(expr: &LogicBoolExpr, f: &mut dyn FnMut(&LogicBoolExpr)) {
@@ -390,10 +391,22 @@ pub(crate) fn render_decls(ast: &AstOutput) -> String {
     } else {
         "(void)e;"
     };
+    // v2: sprites cujo programa tem HitDef congelam a animacao durante o pausetime p1.
+    let frozen: BTreeSet<String> = mugen_programs(ast)
+        .into_iter()
+        .filter(|(_, p, _)| !p.hitdefs().is_empty())
+        .map(|(v, _, _)| v)
+        .collect();
     for (v, res) in &vars {
         if !matches!(assets.get(res), Some(Ok(_))) {
             continue;
         }
+        let freeze = if frozen.contains(v) {
+            out.push_str(&format!("static volatile u16 rds_mugen_{v}_freeze = 0;\n"));
+            format!("    if (rds_mugen_{v}_freeze) return;\n")
+        } else {
+            String::new()
+        };
         out.push_str(&format!(
             "static u16 rds_mugen_{v}_anim = 0xFFFF;\n\
              static u16 rds_mugen_{v}_frame = 0;\n\
@@ -411,6 +424,7 @@ pub(crate) fn render_decls(ast: &AstOutput) -> String {
              static volatile u16 rds_mugen_{v}_evlast_anim = 0xFFFF;\n\
              static void rds_mugen_{v}_tick(void) {{\n\
              \x20   if (!{v}) return;\n\
+             {freeze}\
              \x20   SPR_setAutoAnimation({v}, FALSE);\n\
              \x20   const u16 anim = {v}->animInd;\n\
              \x20   const rds_mugen_anim_t* a = &rds_mugen_{res}_anims[anim];\n\
@@ -485,6 +499,13 @@ pub(crate) fn render_ticks(ast: &AstOutput, indent: usize) -> String {
         .collect();
     for strike in collect_strikes(ast) {
         out.push_str(&format!("{pad}rds_strike_{}_check();\n", strike.0));
+    }
+    // v2: contato do HitDef depois do tick de animacao de TODOS os sprites (quadro exibido).
+    let mut seen = BTreeSet::new();
+    for (v, p, target) in mugen_programs(ast) {
+        if target.is_some() && !p.hitdefs().is_empty() && seen.insert(v.clone()) {
+            out.push_str(&format!("{pad}rds_mc_{v}_hit();\n"));
+        }
     }
     out
 }
@@ -628,17 +649,23 @@ fn visit_ops(ops: &[LogicOp], f: &mut dyn FnMut(&LogicOp)) {
     }
 }
 
-/// Programas por sprite (variavel). Dois programas para o mesmo sprite sao recusados.
-pub(crate) fn mugen_programs(ast: &AstOutput) -> Vec<(String, Program)> {
-    let mut out: Vec<(String, Program)> = Vec::new();
+/// Programas por sprite (variavel) e o alvo de treino do HitDef. Dois programas para o mesmo
+/// sprite sao recusados.
+pub(crate) fn mugen_programs(ast: &AstOutput) -> Vec<(String, Program, Option<String>)> {
+    let mut out: Vec<(String, Program, Option<String>)> = Vec::new();
     for script in &ast.logic_scripts {
         visit_ops(&script.ops, &mut |op| {
             if let LogicOp::MugenProgramStep {
                 target_var,
                 program,
+                hit_target_var,
             } = op
             {
-                out.push((target_var.clone(), (**program).clone()));
+                out.push((
+                    target_var.clone(),
+                    (**program).clone(),
+                    hit_target_var.clone(),
+                ));
             }
         });
     }
@@ -667,6 +694,9 @@ fn c_expr(v: &str, e: &Expr, cmd_index: &BTreeMap<&str, usize>) -> String {
             "(((s16)rds_mc_{v}_animtick - (s16)rds_mc_{v}_animtotal) {} {value})",
             cmp(op)
         ),
+        Expr::AnimElem { start, period, .. } => {
+            format!("((u16)(rds_mc_{v}_animtick % {period}u) == {start}u)")
+        }
     }
 }
 
@@ -701,6 +731,9 @@ fn c_enter(
     action_index: &dyn Fn(i32) -> Option<usize>,
 ) -> Result<String, String> {
     let mut body = String::new();
+    if let Some(m) = &st.movetype {
+        body.push_str(&format!("rds_mc_{v}_movetype = '{m}'; "));
+    }
     if let Some(t) = &st.statetype {
         body.push_str(&format!("rds_mc_{v}_statetype = '{t}'; "));
     }
@@ -735,8 +768,24 @@ fn render_programs(
          typedef struct {{ u16 tick; u16 stateno; u16 time; u16 flags; u16 action; u16 cmd; u16 pad; u16 animtick; s16 vx; s16 x; u16 vt; }} rds_mc_trace_t;\n\
          _Static_assert(sizeof(rds_mc_trace_t) == {TRACE_ENTRY_BYTES}, \"rds_mc_trace_t != contrato do rastreio\");\n"
     );
+    if programs.iter().any(|(_, p, _)| !p.hitdefs().is_empty()) {
+        out.push_str(&format!(
+            "typedef struct {{ u16 tick; u16 time; u16 action; u16 elem; s16 before; s16 after; s16 ax; s16 tx; }} rds_mc_hit_t;\n\
+             _Static_assert(sizeof(rds_mc_hit_t) == {HIT_LOG_ENTRY_BYTES}, \"rds_mc_hit_t != contrato do registro de acertos\");\n"
+        ));
+    }
+    let anchor_of = |var: &str| -> Option<(String, (i16, i16))> {
+        vars.iter()
+            .find(|(v, _)| v == var)
+            .and_then(|(_, res)| match assets.get(res) {
+                Some(Ok(tables)) => tables
+                    .first()
+                    .map(|t| (res.clone(), (t.anchor.0 as i16, t.anchor.1 as i16))),
+                _ => None,
+            })
+    };
     let mut seen = BTreeSet::new();
-    for (v, program) in &programs {
+    for (v, program, hit_target) in &programs {
         if !seen.insert(v.clone()) {
             out.push_str(&format!(
                 "#error \"RetroDev MUGEN: dois programas de estado para o sprite '{v}'\"\n"
@@ -769,7 +818,24 @@ fn render_programs(
             let name = format!("action_{n}");
             asset.animations.iter().position(|a| a.name == name)
         };
-        match render_program(v, res, program, &action_index) {
+        let hit = match hit_target {
+            Some(t) if !program.hitdefs().is_empty() => match (anchor_of(v), anchor_of(t)) {
+                (Some((_, a)), Some((rt, tanchor))) => Some(HitCtx {
+                    target: t.clone(),
+                    target_res: rt,
+                    attacker_anchor: a,
+                    target_anchor: tanchor,
+                }),
+                _ => {
+                    out.push_str(&format!(
+                        "#error \"RetroDev MUGEN: alvo do HitDef '{t}' sem animacao MUGEN valida\"\n"
+                    ));
+                    continue;
+                }
+            },
+            _ => None,
+        };
+        match render_program(v, res, program, &action_index, hit.as_ref()) {
             Ok(text) => out.push_str(&text),
             Err(e) => out.push_str(&format!(
                 "#error \"RetroDev MUGEN: programa de estado: {}\"\n",
@@ -780,12 +846,23 @@ fn render_programs(
     out
 }
 
+/// Alvo de treino de um programa v2 com HitDef.
+struct HitCtx {
+    target: String,
+    target_res: String,
+    attacker_anchor: (i16, i16),
+    target_anchor: (i16, i16),
+}
+
 fn render_program(
     v: &str,
     res: &str,
     p: &Program,
     action_index: &dyn Fn(i32) -> Option<usize>,
+    hit: Option<&HitCtx>,
 ) -> Result<String, String> {
+    let hitdefs = p.hitdefs();
+    let has_hd = !hitdefs.is_empty();
     let cmd_index: BTreeMap<&str, usize> = p
         .commands
         .iter()
@@ -812,7 +889,31 @@ fn render_program(
          static u8 rds_mc_{v}_started = 0;\n",
         p.entity, p.digest
     ));
-    o.push_str(&format!("static void rds_mc_{v}_enter(u16 no) {{\n    rds_mc_{v}_stateno = no; rds_mc_{v}_time = 0; rds_mc_{v}_changes++;\n    switch (no) {{\n"));
+    if has_hd {
+        let life = p.target_life.as_ref().map(|t| t.value).unwrap_or(0);
+        o.push_str(&format!(
+            "/* {profile}: HitDef contra alvo de treino */\n\
+             static volatile u16 rds_mc_{v}_movetype = 'I';\n\
+             static volatile u16 rds_mc_{v}_hd_active = 0;\n\
+             static volatile u16 rds_mc_{v}_hd_ctrl = 0;\n\
+             static volatile u16 rds_mc_{v}_hd_count = 0;\n\
+             static volatile u16 rds_mc_{v}_pause = 0;\n\
+             static volatile u16 rds_mc_{v}_frozen = 0;\n\
+             static volatile u16 rds_mc_{v}_contact = 0;\n\
+             static volatile u16 rds_mc_{v}_hits = 0;\n\
+             static volatile s16 rds_mc_{v}_tlife = {life};\n\
+             static volatile u16 rds_mc_{v}_tpause = 0;\n\
+             static volatile u16 rds_mc_{v}_hitlog_n = 0;\n\
+             static volatile rds_mc_hit_t rds_mc_{v}_hitlog[{HIT_LOG_ENTRIES}];\n",
+            profile = p.profile
+        ));
+    }
+    let reset = if has_hd {
+        format!(" rds_mc_{v}_hd_active = 0; rds_mc_{v}_contact = 0;")
+    } else {
+        String::new()
+    };
+    o.push_str(&format!("static void rds_mc_{v}_enter(u16 no) {{\n    rds_mc_{v}_stateno = no; rds_mc_{v}_time = 0; rds_mc_{v}_changes++;{reset}\n    switch (no) {{\n"));
     for st in &p.states {
         o.push_str(&c_enter(v, res, st, action_index)?);
     }
@@ -869,6 +970,14 @@ fn render_program(
          \x20   if (!rds_mc_{v}_started) {{ rds_mc_{v}_started = 1; rds_mc_{v}_enter({}); rds_mc_{v}_changes = 0; }}\n",
         p.initial_state
     ));
+    if has_hd {
+        o.push_str(&format!(
+            "    u8 frozen = 0;\n\
+             \x20   if (rds_mc_{v}_tpause) rds_mc_{v}_tpause--;\n\
+             \x20   if (rds_mc_{v}_pause) {{ rds_mc_{v}_pause--; rds_mugen_{v}_freeze = 1; rds_mc_{v}_frozen++; frozen = 1; goto rds_mc_{v}_done; }}\n\
+             \x20   rds_mugen_{v}_freeze = 0;\n"
+        ));
+    }
     let transition = |o: &mut String, c: &crate::core::mugen_chain::Controller, pad: &str| {
         let ctrl = c
             .set_ctrl
@@ -892,7 +1001,18 @@ fn render_program(
         }
         o.push_str(&format!("    case {}:\n", st.no));
         for c in &st.controllers {
-            transition(&mut o, c, "        ");
+            if c.hitdef.is_some() {
+                let k = hitdefs
+                    .iter()
+                    .position(|h| h.id == c.id)
+                    .ok_or("HitDef sem indice")?;
+                o.push_str(&format!(
+                    "        if ({}) {{ rds_mc_{v}_hd_active = 1; rds_mc_{v}_hd_ctrl = {k}; rds_mc_{v}_hd_count++; }}\n",
+                    c_condition(v, c, &cmd_index)
+                ));
+            } else {
+                transition(&mut o, c, "        ");
+            }
         }
         o.push_str("        break;\n");
     }
@@ -906,8 +1026,74 @@ fn render_program(
          \x20       t->action = rds_mc_{v}_action; t->cmd = rds_mc_{v}_cmd; t->pad = rds_mc_{v}_pad; t->animtick = rds_mc_{v}_animtick; t->vx = rds_mugen_{v}_vx; t->x = {v}_x; t->vt = (u16)vtimer;\n\
          \x20       rds_mc_{v}_trace_n++;\n\
          \x20   }}\n\
-         \x20   rds_mc_{v}_tick++; rds_mc_{v}_time++; rds_mc_{v}_animtick++;\n\
-         }}\n"
+         \x20   {advance}\n\
+         }}\n",
+        advance = if has_hd {
+            format!("rds_mc_{v}_tick++; if (!frozen) {{ rds_mc_{v}_time++; rds_mc_{v}_animtick++; }}")
+        } else {
+            format!("rds_mc_{v}_tick++; rds_mc_{v}_time++; rds_mc_{v}_animtick++;")
+        }
     ));
+    if let Some(h) = hit {
+        let t = &h.target;
+        let rt = &h.target_res;
+        let (aax, aay) = h.attacker_anchor;
+        let (tax, tay) = h.target_anchor;
+        let mut cases = String::new();
+        for (k, c) in hitdefs.iter().enumerate() {
+            let d = c.hitdef.as_ref().ok_or("HitDef ausente")?;
+            cases.push_str(&format!(
+                "        case {k}: dmg = {}; kill = {}; p1 = {}; p2 = {}; ok = {}; break;\n",
+                d.damage,
+                u8::from(d.kill),
+                d.pause_p1,
+                d.pause_p2,
+                u8::from(d.hits_standing)
+            ));
+        }
+        o.push_str(&format!(
+            "/* contato do HitDef: Clsn1 do quadro exibido do atacante x Clsn2 do quadro exibido do alvo, \
+             caixas relativas ao eixo, facing fixo a direita, cantos normalizados, bordas inclusivas */\n\
+             static void rds_mc_{v}_hit(void) {{\n\
+             \x20   if (!rds_mc_{v}_hd_active || rds_mc_{v}_movetype != 'A' || rds_mc_{v}_pause || !{v} || !{t}) return;\n\
+             \x20   s16 dmg = 0; u16 kill = 1, p1 = 0, p2 = 0, ok = 0;\n\
+             \x20   switch (rds_mc_{v}_hd_ctrl) {{\n{cases}        default: return;\n    }}\n\
+             \x20   if (!ok) return;\n\
+             \x20   const u16 aa = rds_mugen_{v}_anim, af = rds_mugen_{v}_frame;\n\
+             \x20   const u16 ta = rds_mugen_{t}_anim, tf = rds_mugen_{t}_frame;\n\
+             \x20   if (aa == 0xFFFF || ta == 0xFFFF) return;\n\
+             \x20   const u16 n1 = rds_mugen_{res}_anims[aa].frames[af].c1;\n\
+             \x20   const u16 n2 = rds_mugen_{rt}_anims[ta].frames[tf].c2;\n\
+             \x20   if (n1 == 0 || n2 == 0) return;\n\
+             \x20   const s16* b1 = rds_mugen_{res}_c1[aa][af];\n\
+             \x20   const s16* b2 = rds_mugen_{rt}_c2[ta][tf];\n\
+             \x20   const s16 ax = {v}_x + {aax}, ay = {v}_y + {aay};\n\
+             \x20   const s16 tx = {t}_x + {tax}, ty = {t}_y + {tay};\n\
+             \x20   u16 hit = 0;\n\
+             \x20   for (u16 i = 0; i < n1 && !hit; i++) {{\n\
+             \x20       const s16* p = &b1[i * 4];\n\
+             \x20       const s16 l1 = ax + (p[0] < p[2] ? p[0] : p[2]), r1 = ax + (p[0] < p[2] ? p[2] : p[0]);\n\
+             \x20       const s16 u1 = ay + (p[1] < p[3] ? p[1] : p[3]), d1 = ay + (p[1] < p[3] ? p[3] : p[1]);\n\
+             \x20       for (u16 j = 0; j < n2 && !hit; j++) {{\n\
+             \x20           const s16* q = &b2[j * 4];\n\
+             \x20           const s16 l2 = tx + (q[0] < q[2] ? q[0] : q[2]), r2 = tx + (q[0] < q[2] ? q[2] : q[0]);\n\
+             \x20           const s16 u2 = ty + (q[1] < q[3] ? q[1] : q[3]), d2 = ty + (q[1] < q[3] ? q[3] : q[1]);\n\
+             \x20           if (l1 <= r2 && l2 <= r1 && u1 <= d2 && u2 <= d1) hit = 1;\n\
+             \x20       }}\n\
+             \x20   }}\n\
+             \x20   if (!hit) return;\n\
+             \x20   rds_mc_{v}_hd_active = 0; rds_mc_{v}_contact = 1; rds_mc_{v}_hits++;\n\
+             \x20   const s16 before = rds_mc_{v}_tlife;\n\
+             \x20   s32 after = (s32)before - (s32)dmg;\n\
+             \x20   if (!kill && after < 1) after = before < 1 ? before : 1;\n\
+             \x20   if (after < 0) after = 0;\n\
+             \x20   rds_mc_{v}_tlife = (s16)after; rds_mc_{v}_pause = p1; rds_mc_{v}_tpause = p2;\n\
+             \x20   volatile rds_mc_hit_t* e = &rds_mc_{v}_hitlog[rds_mc_{v}_hitlog_n % {HIT_LOG_ENTRIES}];\n\
+             \x20   e->tick = (u16)(rds_mc_{v}_tick - 1); e->time = (u16)(rds_mc_{v}_time - 1); e->action = rds_mc_{v}_action; e->elem = af;\n\
+             \x20   e->before = before; e->after = (s16)after; e->ax = {v}_x; e->tx = {t}_x;\n\
+             \x20   rds_mc_{v}_hitlog_n++;\n\
+             }}\n"
+        ));
+    }
     Ok(o)
 }

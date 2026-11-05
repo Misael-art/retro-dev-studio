@@ -7548,8 +7548,10 @@ fn original_chain_graph(
         80,
         serde_json::json!({
             "target": entity_id,
-            "profile": crate::core::mugen_chain::PROFILE,
+            "profile": program.profile,
             "program_sha256": program.digest,
+            // v2: alvo de treino do HitDef (outra entidade MUGEN), escolhido no Inspector.
+            "hit_target": "",
             // string: o editor de grafos so conhece parametros string/numero
             "program_json": serde_json::to_string(program).unwrap_or_default(),
         }),
@@ -7820,6 +7822,7 @@ fn import_mugen_character_with_review(
                 state,
                 &totals,
                 &sgdk_entity_id(&candidate.display_name),
+                crate::core::mugen_profile::action_shapes(&ad, &r.actions),
             )?;
             let analysis = crate::core::mugen_chain::analyze(&input);
             match analysis.program {

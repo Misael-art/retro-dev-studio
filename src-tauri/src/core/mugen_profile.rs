@@ -48,6 +48,7 @@ pub(crate) fn chain_input<'a>(
     chain_state: i32,
     actions: &'a BTreeMap<i32, u32>,
     entity: &str,
+    shapes: BTreeMap<i32, crate::core::mugen_chain::ActionShape>,
 ) -> Result<crate::core::mugen_chain::ChainInput<'a>, LoadError> {
     use crate::core::mugen_chain::{ChainInput, CommonDependency, SourceFile};
     use rex_mugen::source::{parse_def, resolve, Resolution};
@@ -94,7 +95,31 @@ pub(crate) fn chain_input<'a>(
         chain_states: vec![chain_state],
         actions,
         entity: entity.to_string(),
+        shapes,
     })
+}
+
+/// Forma por acao AIR (duracoes, Loopstart, flips, Clsn1) para `AnimElem`/`HitDef` (v2).
+/// Respeita a selecao (vazia = todas).
+pub(crate) fn action_shapes(
+    ad: &air::Air,
+    selected: &[i32],
+) -> BTreeMap<i32, crate::core::mugen_chain::ActionShape> {
+    ad.actions
+        .values()
+        .filter(|a| selected.is_empty() || selected.contains(&a.number))
+        .map(|a| {
+            (
+                a.number,
+                crate::core::mugen_chain::ActionShape {
+                    durations: a.frames.iter().map(|f| f.time).collect(),
+                    loopstart: a.loopstart,
+                    flipped: a.frames.iter().map(|f| f.hflip || f.vflip).collect(),
+                    clsn1: a.frames.iter().map(|f| f.clsn1.len()).collect(),
+                },
+            )
+        })
+        .collect()
 }
 
 /// Duracao total (ticks) por acao AIR; 0 = sem fim. Respeita a selecao (vazia = todas).
@@ -338,7 +363,7 @@ pub(crate) fn analyze_source(
         let def_text = String::from_utf8_lossy(&bytes).into_owned();
         let totals = action_totals(&ad, &options.actions);
         let entity = options_entity(&d.name);
-        match chain_input(char_root, &def_text, &def_file, options.chain_state.unwrap_or(-9999), &totals, &entity) {
+        match chain_input(char_root, &def_text, &def_file, options.chain_state.unwrap_or(-9999), &totals, &entity, action_shapes(&ad, &options.actions)) {
             Ok(input) => {
                 out["original_chain_candidates"] = crate::core::mugen_chain::candidates(&input);
                 match options.chain_state {
@@ -5190,6 +5215,405 @@ mod tests {
             assert!(!c.contains("rds_mc_spr_walker_step();") || c.contains("#error"));
             let _ = fs::remove_dir_all(root);
         }
+    }
+
+    // ------------------------------------------------- cadeia original v2: HitDef (striker)
+
+    /// Importa a fixture autoral `striker` (HitDef original do CNS) pela rota canonica e,
+    /// opcionalmente, cria o alvo de treino (copia parada) e o liga ao `hit_target` do no.
+    fn import_striker(
+        name: &str,
+        edit_cns: impl FnOnce(String) -> String,
+        target_dx: Option<i32>,
+    ) -> (PathBuf, PathBuf) {
+        let root = temp(name);
+        let donor = root.join("donor");
+        copy_dir(
+            &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../crates/rex-mugen/fixtures/striker"),
+            &donor,
+        );
+        let cns = fs::read_to_string(donor.join("striker.cns")).unwrap();
+        fs::write(donor.join("striker.cns"), edit_cns(cns)).unwrap();
+        let project = root.join("project");
+        create_project_skeleton(&project, "Striker", "megadrive").unwrap();
+        let options = super::ReviewOptions {
+            def_file: "striker.def".into(),
+            actions: vec![0, 200],
+            original_chain: true,
+            chain_state: Some(200),
+            source_sha256: Some(super::package_digest(&donor).unwrap()),
+            ..Default::default()
+        };
+        crate::core::project_mgr::import_mugen_project_with_review(
+            &project,
+            &donor,
+            "mugen",
+            Some(&options),
+        )
+        .unwrap();
+        if let Some(dx) = target_dx {
+            let mut scene = load_scene(&project, DEFAULT_ENTRY_SCENE).unwrap();
+            let mut target = scene
+                .entities
+                .iter()
+                .find(|e| e.entity_id == "striker")
+                .unwrap()
+                .clone();
+            target.entity_id = "striker_target".into();
+            target.transform.x += dx;
+            target.components.logic = None;
+            scene.entities.push(target);
+            for e in scene
+                .entities
+                .iter_mut()
+                .filter(|e| e.entity_id == "striker")
+            {
+                if let Some(logic) = e.components.logic.as_mut() {
+                    logic.graph = logic.graph.as_ref().map(|g| {
+                        g.replace("\"hit_target\":\"\"", "\"hit_target\":\"striker_target\"")
+                    });
+                }
+            }
+            save_scene(&project, DEFAULT_ENTRY_SCENE, &scene).unwrap();
+            let gp = project.join("graphs/mugen_striker.json");
+            let g = fs::read_to_string(&gp).unwrap();
+            assert!(g.contains("\"hit_target\":\"\""), "no sem hit_target vazio");
+            fs::write(
+                &gp,
+                g.replace("\"hit_target\":\"\"", "\"hit_target\":\"striker_target\""),
+            )
+            .unwrap();
+        }
+        (root, project)
+    }
+
+    fn striker_c(project: &Path) -> String {
+        let proj = crate::core::project_mgr::load_project(project).unwrap();
+        let scene = load_scene(project, DEFAULT_ENTRY_SCENE).unwrap();
+        let ast = crate::compiler::ast_generator::generate_ast(&proj, &scene);
+        crate::compiler::sgdk_emitter::emit_sgdk(&ast, "Striker").main_c
+    }
+
+    fn no_errors(c: &str) {
+        let errs: Vec<&str> = c.lines().filter(|l| l.contains("#error")).collect();
+        assert!(errs.is_empty(), "{}", errs.join("\n"));
+    }
+
+    #[test]
+    fn hitdef_import_from_cns_generates_contact_damage_and_hitpause() {
+        let (root, project) = import_striker("hitdef-wire", |c| c, Some(10));
+        let report: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(project.join("assets/mugen/striker_import_report.json")).unwrap(),
+        )
+        .unwrap();
+        let chain = &report["original_chain"];
+        assert_eq!(chain["profile"], crate::core::mugen_chain::PROFILE_V2);
+        assert_eq!(chain["hitdefs"][0]["damage"], 25);
+        assert_eq!(chain["hitdefs"][0]["source"]["file"], "striker.cns");
+        assert_eq!(chain["target_life"]["value"], 120);
+        let c = striker_c(&project);
+        no_errors(&c);
+        for needle in [
+            "static volatile s16 rds_mc_spr_striker_tlife = 120;",
+            "rds_mc_spr_striker_hit();",
+            "static volatile u16 rds_mugen_spr_striker_freeze = 0;",
+            "if (rds_mugen_spr_striker_freeze) return;",
+            // AnimElem = 2: relogio da animacao mod 10 == 3 (elemento 1 dura 3 ticks)
+            "((u16)(rds_mc_spr_striker_animtick % 10u) == 3u)",
+            "case 0: dmg = 25; kill = 1; p1 = 4; p2 = 6; ok = 1; break;",
+            "rds_mc_spr_striker_movetype = 'A';",
+        ] {
+            assert!(c.contains(needle), "falta {needle}");
+        }
+        // o contato roda depois do tick de animacao dos dois sprites
+        let ticks = c
+            .find("rds_mugen_spr_striker__striker_target_tick();")
+            .expect("tick do alvo");
+        assert!(c[ticks..].contains("rds_mc_spr_striker_hit();"));
+        // o alvo de treino nao tem programa: so o atacante congela
+        assert!(!c.contains("rds_mugen_spr_striker__striker_target_freeze"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn hitdef_without_target_activates_but_never_hits_and_v1_projects_are_unchanged() {
+        let (root, project) = import_striker("hitdef-notarget", |c| c, None);
+        let c = striker_c(&project);
+        no_errors(&c);
+        assert!(c.contains("rds_mc_spr_striker_hd_active = 1;"));
+        assert!(
+            !c.contains("rds_mc_spr_striker_hit();"),
+            "sem alvo, sem contato"
+        );
+        let _ = fs::remove_dir_all(root);
+        // cadeia sem HitDef convertivel (walker: acao 200 sem Clsn1) continua v1 e identica
+        let (root, project, r) = import_chain("hitdef-v1-walker", |c| c, |c| c);
+        r.unwrap();
+        let c = chain_c(&project);
+        assert!(c.contains("mugen.original_chain.v1"));
+        assert!(!c.contains("_freeze") && !c.contains("_tlife"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn hitdef_out_of_contract_parameter_keeps_the_controller_out_with_reason() {
+        let (root, project) = import_striker(
+            "hitdef-refused",
+            |c| c.replace("pausetime = 4, 6", "pausetime = 4, 6\np1stateno = 900"),
+            None,
+        );
+        let report: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(project.join("assets/mugen/striker_import_report.json")).unwrap(),
+        )
+        .unwrap();
+        let chain = &report["original_chain"];
+        assert_eq!(chain["profile"], crate::core::mugen_chain::PROFILE);
+        assert!(chain["unconverted_controllers"]
+            .to_string()
+            .contains("p1stateno"));
+        let c = striker_c(&project);
+        assert!(!c.contains("rds_mc_spr_striker_hd_active"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    /// Por quadro emulado: pad aplicado e observaveis do atacante/alvo lidos da RAM pelos
+    /// simbolos do ELF (estado, vida do alvo, acertos, golpe ativo, pausa). Mais o registro
+    /// de acertos da ROM e as identidades separadas de ROM/ELF/core.
+    fn capture_hits(project: &Path, steps: &[ChainStep]) -> serde_json::Value {
+        let (rom, rom_sha, sym) = build(project);
+        let at = |n: &str| {
+            *sym.get(&format!("rds_mc_spr_striker_{n}"))
+                .unwrap_or_else(|| panic!("simbolo {n}"))
+        };
+        let mut emu = EmulatorCore::new(None);
+        emu.load_rom(&rom).expect("load");
+        emu.set_joypad(JoypadState::default()).unwrap();
+        for _ in 0..60 {
+            emu.run_frame().unwrap();
+        }
+        let mut rows = Vec::new();
+        for step in steps {
+            emu.set_joypad(step.joypad.clone()).unwrap();
+            for _ in 0..step.frames {
+                emu.run_frame().unwrap();
+                rows.push(serde_json::json!({
+                    "step": step.label, "a": step.joypad.y,
+                    "tick": read_u16(&emu, at("tick")), "stateno": read_u16(&emu, at("stateno")),
+                    "pad": read_u16(&emu, at("pad")), "action": read_u16(&emu, at("action")),
+                    "life": read_u16(&emu, at("tlife")) as i16, "hits": read_u16(&emu, at("hits")),
+                    "active": read_u16(&emu, at("hd_active")), "pause": read_u16(&emu, at("pause")),
+                    "frozen": read_u16(&emu, at("frozen")),
+                }));
+            }
+        }
+        let n = read_u16(&emu, at("hitlog_n")) as usize;
+        let raw = read_bytes(
+            &emu,
+            at("hitlog"),
+            crate::core::mugen_chain::HIT_LOG_ENTRIES * 16,
+        );
+        let w = |i: usize| u16::from_le_bytes([raw[i], raw[i + 1]]);
+        let log: Vec<serde_json::Value> = (0..n.min(crate::core::mugen_chain::HIT_LOG_ENTRIES)).map(|k| {
+            let b = k * 16;
+            serde_json::json!({"tick": w(b), "time": w(b + 2), "action": w(b + 4), "elem": w(b + 6),
+                "before": w(b + 8) as i16, "after": w(b + 10) as i16, "ax": w(b + 12) as i16, "tx": w(b + 14) as i16})
+        }).collect();
+        serde_json::json!({"rom_sha256": rom_sha,
+            "elf_sha256": sha(&fs::read(project.join("build/megadrive/out/rom.out")).unwrap()),
+            "core": {"label": emu.loaded_core_label(), "file": emu.loaded_core_file().map(|f| f.display().to_string()),
+                "sha256": emu.loaded_core_file().and_then(|f| fs::read(f).ok()).map(|b| sha(&b))},
+            "rows": rows, "hitlog": log})
+    }
+
+    /// Ataques (inicio, duracao em ticks) pelo estado lido por quadro.
+    fn attack_runs(rows: &[serde_json::Value]) -> Vec<(usize, usize)> {
+        let mut out: Vec<(usize, usize)> = Vec::new();
+        for (i, r) in rows.iter().enumerate() {
+            if r["stateno"] == 200 {
+                match out.last_mut() {
+                    Some((s, l)) if *s + *l == i => *l += 1,
+                    _ => out.push((i, 1)),
+                }
+            }
+        }
+        out
+    }
+
+    /// Prova na ROM oficial (SGDK + Genesis Plus GX): HitDef ORIGINAL do CNS da fixture
+    /// `striker` importado pela rota canonica. Previsao fixada em `fixture::striker` antes da
+    /// execucao. `RDS_MUGEN_HITDEF_OUTPUT` (opcional) guarda o recibo fora do repo.
+    #[test]
+    #[ignore]
+    fn mugen_hitdef_real_build_run() {
+        let tap = |label| ChainStep {
+            label,
+            frames: 1,
+            joypad: pad(true, false),
+        };
+        let idle = |label, frames| ChainStep {
+            label,
+            frames,
+            joypad: pad(false, false),
+        };
+        let script = [
+            idle("no_input", 40),
+            tap("tap1"),
+            idle("after_tap1", 30),
+            ChainStep {
+                label: "hold",
+                frames: 40,
+                joypad: pad(true, false),
+            },
+            idle("release", 30),
+        ];
+        let mut receipt = serde_json::Map::new();
+        let mut run = |name: &str, dx: Option<i32>, edit: &dyn Fn(String) -> String| {
+            let (root, project) = import_striker(&format!("hitdef-real-{name}"), edit, dx);
+            let cap = capture_hits(&project, &script);
+            receipt.insert(name.into(), cap.clone());
+            let _ = fs::remove_dir_all(root);
+            cap
+        };
+        let id = |c: String| c;
+        // 1. no alcance (d = 10): um acerto por golpe, 120 -> 95 -> 70, pausa de 4 ticks
+        let hit = run("in_range_d10", Some(10), &id);
+        let rows = hit["rows"].as_array().unwrap();
+        let attacks = attack_runs(rows);
+        eprintln!("d10 ataques {attacks:?} log {}", hit["hitlog"]);
+        assert_eq!(attacks.len(), 2, "toque e segurar: dois golpes");
+        assert!(
+            attacks.iter().all(|(_, l)| *l == 14),
+            "10 ticks do AIR + 4 de pausa: {attacks:?}"
+        );
+        assert!(
+            rows[..attacks[0].0]
+                .iter()
+                .all(|r| r["life"] == 120 && r["hits"] == 0),
+            "sem entrada: sem dano"
+        );
+        let (s0, _) = attacks[0];
+        assert_eq!(
+            rows[s0 + 2]["life"],
+            120,
+            "elemento 1 (sem Clsn1): sem dano"
+        );
+        assert_eq!(
+            rows[s0 + 3]["life"],
+            95,
+            "contato no 1o tick do elemento 2 (P+3)"
+        );
+        assert_eq!(rows[s0 + 3]["pause"], 4);
+        assert!(
+            (s0 + 4..s0 + 8).all(
+                |i| rows[i]["frozen"].as_u64() == rows[i - 1]["frozen"].as_u64().map(|f| f + 1)
+            ),
+            "P+4..P+7 congelados"
+        );
+        assert!(
+            (s0 + 3..s0 + 14).all(|i| rows[i]["life"] == 95),
+            "contato sustentado: UM acerto"
+        );
+        let (s1, _) = attacks[1];
+        assert_eq!(
+            rows[s1 + 3]["life"],
+            70,
+            "novo golpe rearma e acerta de novo"
+        );
+        assert_eq!(rows.last().unwrap()["hits"], 2);
+        let log = hit["hitlog"].as_array().unwrap();
+        assert_eq!(log.len(), 2);
+        assert_eq!(
+            (
+                log[0]["before"].as_i64(),
+                log[0]["after"].as_i64(),
+                log[0]["elem"].as_u64(),
+                log[0]["time"].as_u64()
+            ),
+            (Some(120), Some(95), Some(1), Some(3))
+        );
+        assert_eq!(
+            log[0]["tx"].as_i64().unwrap() - log[0]["ax"].as_i64().unwrap(),
+            10
+        );
+        // 2. borda inclusiva (d = 15) acerta; fora do alcance (d = 16) nao
+        let edge = run("edge_d15", Some(15), &id);
+        assert_eq!(
+            edge["rows"].as_array().unwrap().last().unwrap()["hits"],
+            2,
+            "d=15 toca a borda"
+        );
+        let far = run("out_of_range_d16", Some(16), &id);
+        let frows = far["rows"].as_array().unwrap();
+        assert!(
+            frows.iter().all(|r| r["life"] == 120 && r["hits"] == 0),
+            "d=16: sem dano"
+        );
+        assert!(
+            attack_runs(frows).iter().all(|(_, l)| *l == 10),
+            "sem acerto nao ha pausa"
+        );
+        // 3. hitflag que nao alcanca alvo em pe: golpe ativa, sem dano
+        let air = run("hitflag_air_only", Some(10), &|c: String| {
+            c.replace("hitflag = MAF", "hitflag = A")
+        });
+        let arows = air["rows"].as_array().unwrap();
+        assert!(arows.iter().any(|r| r["active"] == 1), "o golpe ativa");
+        assert!(arows.iter().all(|r| r["life"] == 120));
+        // 4. contraprova causal: so o dano muda na copia descartavel (25 -> 40)
+        let causal = run("causal_damage_40", Some(10), &|c: String| {
+            c.replace("damage = 25", "damage = 40")
+        });
+        let crows = causal["rows"].as_array().unwrap();
+        assert_eq!(crows.last().unwrap()["life"], 40, "120 - 2 x 40");
+        assert_ne!(causal["rom_sha256"], hit["rom_sha256"]);
+        assert_eq!(attack_runs(crows), attacks, "mesma janela e duracao");
+        if let Ok(dir) = std::env::var("RDS_MUGEN_HITDEF_OUTPUT") {
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(
+                PathBuf::from(dir).join("hitdef-core-receipt.json"),
+                serde_json::to_vec_pretty(&serde_json::Value::Object(receipt)).unwrap(),
+            )
+            .unwrap();
+        }
+    }
+
+    /// BYOR (Ken real, fora do Git): analise v2 pela leitura canonica do pacote. Imprime o
+    /// HitDef convertido ou o motivo exato da recusa. `RDS_MUGEN_REAL_SOURCE` = pasta do ken8.
+    #[test]
+    #[ignore]
+    fn mugen_hitdef_ken_analysis() {
+        let root =
+            PathBuf::from(std::env::var("RDS_MUGEN_REAL_SOURCE").expect("RDS_MUGEN_REAL_SOURCE"));
+        let def = fs::read_to_string(root.join("ken8.def")).unwrap();
+        let ad = rex_mugen::air::parse(
+            &fs::read_to_string(root.join("ken.air")).unwrap(),
+            "ken.air",
+        );
+        let actions = vec![0, 200];
+        let totals = super::action_totals(&ad, &actions);
+        let input = super::chain_input(
+            &root,
+            &def,
+            "ken8.def",
+            200,
+            &totals,
+            "kenmasters",
+            super::action_shapes(&ad, &actions),
+        )
+        .unwrap();
+        let a = crate::core::mugen_chain::analyze(&input);
+        let p = a.program.expect("cadeia");
+        eprintln!(
+            "profile {} hitdefs {} target_life {}",
+            p.profile, a.report["hitdefs"], a.report["target_life"]
+        );
+        let un: Vec<&serde_json::Value> = a.report["unconverted_controllers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|u| u["id"].as_str().is_some_and(|i| i.starts_with("state.200")))
+            .collect();
+        eprintln!("estado 200 nao convertidos: {}", serde_json::json!(un));
     }
 
     #[test]

@@ -16,6 +16,16 @@ use serde::{Deserialize, Serialize};
 
 pub const SCHEMA: &str = "retrodev.mugen_chain/v1";
 pub const PROFILE: &str = "mugen.original_chain.v1";
+/// Extensao versionada (`mugen.original_chain.v2`, Experimental): `AnimElem = N` e `HitDef`
+/// num subconjunto declarado contra um alvo de treino. Programas v1 continuam validos e
+/// serializam exatamente como antes (os campos novos sao omitidos quando vazios).
+pub const SCHEMA_V2: &str = "retrodev.mugen_chain/v2";
+pub const PROFILE_V2: &str = "mugen.original_chain.v2";
+/// Vida inicial do alvo de treino quando o CNS nao declara `[Data] life` (padrao MUGEN).
+pub const DEFAULT_TARGET_LIFE: i32 = 1000;
+/// Entradas do registro de acertos (16 bytes cada) na RAM.
+pub const HIT_LOG_ENTRIES: usize = 32;
+pub const HIT_LOG_ENTRY_BYTES: usize = 16;
 /// Entradas do anel de rastreio na RAM (observabilidade para a prova).
 pub const TRACE_ENTRIES: usize = 512;
 /// Bytes por entrada: 11 palavras de 16 bits (tick, stateno, time, flags, action, cmd, pad,
@@ -60,12 +70,38 @@ impl Cmp {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Expr {
     Always,
-    Command { name: String, negate: bool },
-    StateType { value: String, negate: bool },
-    Ctrl { op: Cmp, value: i32 },
-    StateNo { op: Cmp, value: i32 },
-    Time { op: Cmp, value: i32 },
-    AnimTime { op: Cmp, value: i32 },
+    Command {
+        name: String,
+        negate: bool,
+    },
+    StateType {
+        value: String,
+        negate: bool,
+    },
+    Ctrl {
+        op: Cmp,
+        value: i32,
+    },
+    StateNo {
+        op: Cmp,
+        value: i32,
+    },
+    Time {
+        op: Cmp,
+        value: i32,
+    },
+    AnimTime {
+        op: Cmp,
+        value: i32,
+    },
+    /// v2: `AnimElem = N` — verdadeiro no primeiro tick do elemento N (1-based) da animacao
+    /// do estado. `start` = soma das duracoes dos elementos 1..N-1; `period` = duracao total
+    /// (a animacao sem `Loopstart` recomeca do elemento 1). Derivado do AIR na analise.
+    AnimElem {
+        value: i32,
+        start: u32,
+        period: u32,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -78,10 +114,51 @@ pub struct Trigger {
 pub struct Controller {
     pub id: String,
     pub src: SourceRef,
+    /// Estado alvo do `ChangeState`; `-1` (sem significado) num `HitDef`.
     pub target: i32,
     pub set_ctrl: Option<bool>,
     pub all: Vec<Trigger>,
     pub groups: Vec<Vec<Trigger>>,
+    /// v2: controlador `HitDef` (ativa o golpe; nao muda de estado).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hitdef: Option<HitDef>,
+}
+
+/// Parametro lido de um `HitDef`, com origem. `executed` muda o resultado medido;
+/// `inert` foi lido e declarado sem efeito no alvo de treino do recorte (motivo em `effect`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HitParam {
+    pub key: String,
+    pub value: String,
+    pub class: String,
+    pub effect: String,
+    pub src: SourceRef,
+}
+
+/// `HitDef` do subconjunto v2 (ver CONTRACT.md, «HitDef original»).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HitDef {
+    /// Dano no acerto (`damage` 1o componente), 0..=9999.
+    pub damage: i32,
+    /// `hitflag` normalizado (maiusculas); o padrao MUGEN e `MAF`.
+    pub hitflag: String,
+    /// O alvo de treino fica sempre em pe (`S`): acerta se `hitflag` contem H ou M.
+    pub hits_standing: bool,
+    /// `pausetime` p1 (congelamento do atacante) e p2 (tremor do alvo), em ticks.
+    pub pause_p1: u16,
+    pub pause_p2: u16,
+    /// `kill = 0` deixa o alvo com no minimo 1 de vida.
+    pub kill: bool,
+    pub params: Vec<HitParam>,
+}
+
+/// Vida inicial do alvo de treino (`[Data] life` do CNS, ou o padrao MUGEN declarado).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TargetLife {
+    pub value: i32,
+    /// `source` (lida do CNS) ou `default` (1000, padrao MUGEN; nao veio da fonte).
+    pub origin: String,
+    pub src: Option<SourceRef>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -95,6 +172,9 @@ pub struct StateProgram {
     pub anim: Option<i32>,
     pub src: Option<SourceRef>,
     pub controllers: Vec<Controller>,
+    /// v2: `movetype` do Statedef (`A` = ataque: so assim um HitDef ativo acerta).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub movetype: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -125,9 +205,42 @@ pub struct Program {
     pub states: Vec<StateProgram>,
     pub initial_state: i32,
     pub digest: String,
+    /// v2: vida inicial do alvo de treino (presente somente com HitDef convertido).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_life: Option<TargetLife>,
 }
 
 impl Program {
+    pub fn is_v2(&self) -> bool {
+        self.profile == PROFILE_V2
+    }
+
+    /// Controladores `HitDef` do programa, na ordem em que o runtime os numera.
+    pub fn hitdefs(&self) -> Vec<&Controller> {
+        self.states
+            .iter()
+            .flat_map(|s| s.controllers.iter())
+            .filter(|c| c.hitdef.is_some())
+            .collect()
+    }
+
+    fn uses_v2_features(&self) -> bool {
+        let controllers = || {
+            self.special
+                .iter()
+                .chain(self.states.iter().flat_map(|s| s.controllers.iter()))
+        };
+        self.target_life.is_some()
+            || self.states.iter().any(|s| s.movetype.is_some())
+            || controllers().any(|c| {
+                c.hitdef.is_some()
+                    || c.all
+                        .iter()
+                        .chain(c.groups.iter().flatten())
+                        .any(|t| matches!(t.expr, Expr::AnimElem { .. }))
+            })
+    }
+
     /// Digest canonico de tudo exceto o proprio campo `digest` e o nome da entidade
     /// (copiar o programa para outra entidade nao e adulteracao; a semantica e o mapeamento
     /// de fonte sao cobertos).
@@ -146,8 +259,14 @@ impl Program {
     /// Consistencia interna exigida do grafo antes de gerar C. Qualquer edicao manual do
     /// programa (condicao, alvo, linha de origem) sem refazer o digest e recusada.
     pub fn validate(&self) -> Result<(), String> {
-        if self.schema != SCHEMA || self.profile != PROFILE {
-            return Err("esquema/perfil do programa desconhecido".into());
+        match (self.schema.as_str(), self.profile.as_str()) {
+            (SCHEMA, PROFILE) => {
+                if self.uses_v2_features() {
+                    return Err("programa v1 com recursos do v2 (AnimElem/HitDef)".into());
+                }
+            }
+            (SCHEMA_V2, PROFILE_V2) => {}
+            _ => return Err("esquema/perfil do programa desconhecido".into()),
         }
         if self.digest != self.compute_digest() {
             return Err(
@@ -187,9 +306,42 @@ impl Program {
             .special
             .iter()
             .chain(self.states.iter().flat_map(|s| s.controllers.iter()));
+        if let Some(t) = &self.target_life {
+            if !(1..=32767).contains(&t.value) {
+                return Err(format!("vida do alvo {} fora de 1..=32767", t.value));
+            }
+            match (t.origin.as_str(), &t.src) {
+                ("source", Some(s)) => check_src("vida do alvo", s)?,
+                ("default", None) => {}
+                _ => return Err("vida do alvo: origem/mapeamento inconsistentes".into()),
+            }
+        }
+        if self.is_v2() && !self.hitdefs().is_empty() && self.target_life.is_none() {
+            return Err("HitDef sem vida do alvo declarada".into());
+        }
+        if self.special.iter().any(|c| c.hitdef.is_some()) {
+            return Err("HitDef no estado -1 fora do subconjunto".into());
+        }
         for c in controllers {
             check_src(&format!("controlador {}", c.id), &c.src)?;
-            if !numbers.contains(&c.target) {
+            if let Some(h) = &c.hitdef {
+                if !(0..=9999).contains(&h.damage) {
+                    return Err(format!(
+                        "controlador {}: dano {} fora de 0..=9999",
+                        c.id, h.damage
+                    ));
+                }
+                if h.pause_p1 > 255 || h.pause_p2 > 255 {
+                    return Err(format!("controlador {}: pausetime fora de 0..=255", c.id));
+                }
+                let standing = h.hitflag.contains('H') || h.hitflag.contains('M');
+                if standing != h.hits_standing {
+                    return Err(format!("controlador {}: hitflag incoerente", c.id));
+                }
+                for prm in &h.params {
+                    check_src(&format!("parametro {} de {}", prm.key, c.id), &prm.src)?;
+                }
+            } else if !numbers.contains(&c.target) {
                 return Err(format!(
                     "controlador {}: estado alvo {} inexistente",
                     c.id, c.target
@@ -203,6 +355,16 @@ impl Program {
                 if let Expr::Command { name, .. } = &t.expr {
                     if !names.contains(name.as_str()) {
                         return Err(format!("controlador {}: comando '{name}' ausente", c.id));
+                    }
+                }
+                if let Expr::AnimElem {
+                    value,
+                    start,
+                    period,
+                } = &t.expr
+                {
+                    if *value < 1 || *period == 0 || start >= period {
+                        return Err(format!("controlador {}: AnimElem nao resolvido", c.id));
                     }
                 }
             }
@@ -249,6 +411,21 @@ pub struct ChainInput<'a> {
     /// Acoes AIR selecionadas: numero -> total de ticks (0 = sem fim).
     pub actions: &'a BTreeMap<i32, u32>,
     pub entity: String,
+    /// v2: forma de cada acao selecionada (duracoes, Loopstart, flips, caixas). Vazio =
+    /// `AnimElem`/`HitDef` nao resolviveis (o resultado e o mesmo do v1).
+    pub shapes: BTreeMap<i32, ActionShape>,
+}
+
+/// Forma de uma acao AIR usada para resolver `AnimElem` e validar o golpe.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ActionShape {
+    /// Duracao por elemento; `None` = `-1` (parado).
+    pub durations: Vec<Option<u32>>,
+    pub loopstart: Option<usize>,
+    /// Elemento com flip H ou V.
+    pub flipped: Vec<bool>,
+    /// Numero de Clsn1 por elemento.
+    pub clsn1: Vec<usize>,
 }
 
 pub struct ChainAnalysis {
@@ -388,6 +565,19 @@ pub fn parse_expr(raw: &str) -> Result<Expr, String> {
             Ok(Expr::StateType {
                 value: v,
                 negate: op == Cmp::Ne,
+            })
+        }
+        "animelem" => {
+            if op != Cmp::Eq {
+                return Err("AnimElem so aceita = N (sem , op e sem outros operadores)".into());
+            }
+            let value = parse_int(rhs)
+                .filter(|v| *v >= 1)
+                .ok_or_else(|| format!("animelem: '{rhs}' nao e inteiro literal >= 1"))?;
+            Ok(Expr::AnimElem {
+                value,
+                start: 0,
+                period: 0,
             })
         }
         "ctrl" | "stateno" | "time" | "animtime" => {
@@ -571,6 +761,329 @@ fn row(
     })
 }
 
+/// Resolve `AnimElem = N` contra a animacao do estado (AIR). Recusa com motivo quando a
+/// animacao e desconhecida, tem `Loopstart`, elemento parado (-1) ou N fora da acao.
+fn resolve_animelem(t: &mut Trigger, shape: Option<(i32, &ActionShape)>) -> Result<(), String> {
+    let Expr::AnimElem { value, .. } = t.expr.clone() else {
+        return Ok(());
+    };
+    let Some((anim, sh)) = shape else {
+        return Err("AnimElem exige estado com anim literal e acao selecionada".into());
+    };
+    if sh.loopstart.is_some() {
+        return Err(format!(
+            "AnimElem sobre a acao {anim} com Loopstart fora do subconjunto"
+        ));
+    }
+    let n = value as usize;
+    if n == 0 || n > sh.durations.len() {
+        return Err(format!(
+            "AnimElem = {value}: a acao {anim} tem {} elementos",
+            sh.durations.len()
+        ));
+    }
+    let Some(period) = sh
+        .durations
+        .iter()
+        .try_fold(0u32, |acc, d| d.filter(|v| *v > 0).map(|v| acc + v))
+    else {
+        return Err(format!(
+            "AnimElem sobre a acao {anim} com elemento parado (-1) ou 0"
+        ));
+    };
+    let start: u32 = sh.durations[..n - 1].iter().map(|d| d.unwrap_or(0)).sum();
+    t.expr = Expr::AnimElem {
+        value,
+        start,
+        period,
+    };
+    Ok(())
+}
+
+/// Parametros de `HitDef` lidos e declarados SEM efeito no alvo de treino do recorte v2 (o alvo
+/// fica parado, em pe, sem guarda, sem fisica, sem estado de acerto, sem energia, som ou faisca).
+/// Cada um muda o resultado no motor original; aqui o efeito e registrado como nao modelado.
+const HITDEF_INERT: &[(&str, &str)] = &[
+    (
+        "attr",
+        "atributo so filtra ReversalDef/NotHitBy, que o alvo de treino nao tem",
+    ),
+    ("guardflag", "o alvo de treino nunca defende"),
+    ("animtype", "animacao de reacao do alvo nao modelada"),
+    ("air.animtype", "alvo nunca esta no ar"),
+    ("fall.animtype", "alvo nunca cai"),
+    (
+        "priority",
+        "sem golpe simultaneo do alvo (sem troca de prioridade)",
+    ),
+    ("numhits", "contador de combo nao modelado"),
+    ("sparkno", "faisca de acerto nao desenhada"),
+    ("guard.sparkno", "faisca de defesa nao desenhada"),
+    ("sparkxy", "faisca de acerto nao desenhada"),
+    ("hitsound", "som de acerto nao tocado"),
+    ("guardsound", "som de defesa nao tocado"),
+    ("ground.type", "reacao do alvo nao modelada"),
+    ("air.type", "alvo nunca esta no ar"),
+    ("ground.slidetime", "o alvo nao desliza"),
+    ("ground.hittime", "o alvo nao entra em estado de acerto"),
+    ("ground.velocity", "o alvo nao e empurrado"),
+    ("ground.cornerpush.veloff", "sem canto de tela"),
+    ("guard.slidetime", "o alvo nunca defende"),
+    ("guard.hittime", "o alvo nunca defende"),
+    ("guard.ctrltime", "o alvo nunca defende"),
+    ("guard.velocity", "o alvo nunca defende"),
+    ("guard.dist", "o alvo nunca defende"),
+    ("guard.pausetime", "o alvo nunca defende"),
+    ("guard.kill", "o alvo nunca defende"),
+    ("guard.cornerpush.veloff", "sem canto de tela"),
+    ("airguard.velocity", "o alvo nunca defende no ar"),
+    ("airguard.ctrltime", "o alvo nunca defende no ar"),
+    ("airguard.cornerpush.veloff", "sem canto de tela"),
+    ("air.velocity", "alvo nunca esta no ar"),
+    ("air.hittime", "alvo nunca esta no ar"),
+    ("air.juggle", "sem juggle"),
+    ("air.fall", "alvo nunca esta no ar"),
+    ("air.cornerpush.veloff", "sem canto de tela"),
+    ("down.velocity", "alvo nunca esta deitado"),
+    ("down.hittime", "alvo nunca esta deitado"),
+    ("down.bounce", "alvo nunca esta deitado"),
+    ("down.cornerpush.veloff", "sem canto de tela"),
+    ("getpower", "sem barra de energia"),
+    ("givepower", "sem barra de energia"),
+    ("fall", "o alvo nao cai"),
+    ("fall.recover", "o alvo nao cai"),
+    ("fall.recovertime", "o alvo nao cai"),
+    ("fall.damage", "o alvo nao cai"),
+    ("fall.xvelocity", "o alvo nao cai"),
+    ("fall.yvelocity", "o alvo nao cai"),
+    ("yaccel", "o alvo nao e lancado"),
+    ("id", "sem gatilhos de alvo (NumTarget/TargetState)"),
+    ("chainid", "sem cadeia de golpes no alvo"),
+    ("nochainid", "sem cadeia de golpes no alvo"),
+    ("p1sprpriority", "camada de desenho nao alterada"),
+    ("p2sprpriority", "camada de desenho nao alterada"),
+    ("p2facing", "orientacao do alvo de treino fixa"),
+    ("forcestand", "o alvo ja esta sempre em pe"),
+    ("forcenofall", "o alvo nao cai"),
+    ("envshake.time", "tremor de tela nao modelado"),
+    ("envshake.freq", "tremor de tela nao modelado"),
+    ("envshake.ampl", "tremor de tela nao modelado"),
+    ("envshake.phase", "tremor de tela nao modelado"),
+    ("fall.envshake.time", "tremor de tela nao modelado"),
+    ("fall.envshake.freq", "tremor de tela nao modelado"),
+    ("fall.envshake.ampl", "tremor de tela nao modelado"),
+    ("fall.envshake.phase", "tremor de tela nao modelado"),
+    ("palfx.time", "efeito de paleta nao modelado"),
+    ("palfx.mul", "efeito de paleta nao modelado"),
+    ("palfx.add", "efeito de paleta nao modelado"),
+    ("palfx.sinadd", "efeito de paleta nao modelado"),
+    ("palfx.invertall", "efeito de paleta nao modelado"),
+    ("palfx.color", "efeito de paleta nao modelado"),
+];
+
+/// Inteiro literal, opcionalmente com segundo componente literal (`a, b`).
+fn parse_pair(v: &str) -> Option<(i32, Option<i32>)> {
+    let mut it = v.split(',');
+    let a = parse_int(it.next()?)?;
+    let b = match it.next() {
+        Some(t) => Some(parse_int(t)?),
+        None => None,
+    };
+    if it.next().is_some() {
+        return None;
+    }
+    Some((a, b))
+}
+
+fn convert_hitdef(
+    file: &str,
+    sec: &Section,
+    state_no: i32,
+    index: usize,
+    commands: &BTreeMap<String, CommandDef>,
+    bad_commands: &BTreeMap<String, String>,
+    shape: Option<(i32, &ActionShape)>,
+) -> Result<Controller, String> {
+    if state_no < 0 {
+        return Err("HitDef em estado especial (-1/-2/-3) fora do subconjunto v2".into());
+    }
+    let mut all: Vec<Trigger> = Vec::new();
+    let mut groups: BTreeMap<u32, Vec<Trigger>> = BTreeMap::new();
+    let mut params: Vec<HitParam> = Vec::new();
+    let mut damage: Option<i32> = None;
+    let mut hitflag = "MAF".to_string();
+    let mut pause = (0u16, 0u16);
+    let mut kill = true;
+    let mut why: Vec<String> = Vec::new();
+    for l in &sec.lines {
+        let src = src_of(file, sec, Some(l));
+        let mut exec = |key: &str, effect: String| {
+            params.push(HitParam {
+                key: key.into(),
+                value: l.value.clone(),
+                class: "executed".into(),
+                effect,
+                src: src.clone(),
+            })
+        };
+        match l.key.as_str() {
+            "type" | "name" => {}
+            "triggerall" => match parse_expr(&l.value) {
+                Ok(e) => all.push(Trigger { expr: e, src }),
+                Err(e) => why.push(format!("linha {}: {e}", l.no)),
+            },
+            k if k
+                .strip_prefix("trigger")
+                .and_then(|n| n.parse::<u32>().ok())
+                .is_some() =>
+            {
+                let n = k["trigger".len()..].parse::<u32>().unwrap();
+                match parse_expr(&l.value) {
+                    Ok(e) => groups.entry(n).or_default().push(Trigger { expr: e, src }),
+                    Err(e) => why.push(format!("linha {}: {e}", l.no)),
+                }
+            }
+            "damage" => match parse_pair(&l.value) {
+                Some((d, g)) if (0..=9999).contains(&d) => {
+                    damage = Some(d);
+                    exec(
+                        "damage",
+                        format!(
+                            "dano {d} subtraido da vida do alvo no tick do contato{}",
+                            g.map(|g| format!("; dano na defesa {g} lido, sem efeito (o alvo nunca defende)"))
+                                .unwrap_or_default()
+                        ),
+                    );
+                }
+                _ => why.push(format!(
+                    "linha {}: damage '{}' fora de inteiro literal 0..=9999[, defesa]",
+                    l.no, l.value
+                )),
+            },
+            "hitflag" => {
+                let v = l.value.trim().to_ascii_uppercase();
+                if v.is_empty() || !v.chars().all(|c| "HLMAFD".contains(c)) {
+                    why.push(format!(
+                        "linha {}: hitflag '{}' fora de H/L/M/A/F/D ('+'/'-' exigem estado de acerto do alvo)",
+                        l.no, l.value
+                    ));
+                } else {
+                    hitflag = v.clone();
+                    let standing = v.contains('H') || v.contains('M');
+                    exec(
+                        "hitflag",
+                        if standing {
+                            format!("{v}: alcanca o alvo de treino em pe (H ou M)")
+                        } else {
+                            format!("{v}: NAO alcanca o alvo de treino em pe (sem H/M); o golpe ativa e nao acerta")
+                        },
+                    );
+                }
+            }
+            "pausetime" => match parse_pair(&l.value) {
+                Some((a, b)) if (0..=255).contains(&a) && (0..=255).contains(&b.unwrap_or(0)) => {
+                    let b = b.unwrap_or(0);
+                    pause = (a as u16, b as u16);
+                    exec(
+                        "pausetime",
+                        format!("atacante congela {a} ticks apos o contato (Time, animacao e controladores param); tremor do alvo {b} ticks so contado na RAM"),
+                    );
+                }
+                _ => why.push(format!(
+                    "linha {}: pausetime '{}' fora de literais 0..=255",
+                    l.no, l.value
+                )),
+            },
+            "kill" => match parse_int(&l.value) {
+                Some(v) => {
+                    kill = v != 0;
+                    exec(
+                        "kill",
+                        if kill {
+                            "o acerto pode zerar a vida".into()
+                        } else {
+                            "o acerto deixa no minimo 1 de vida".into()
+                        },
+                    );
+                }
+                None => why.push(format!("linha {}: kill '{}' nao literal", l.no, l.value)),
+            },
+            k => match HITDEF_INERT.iter().find(|(name, _)| *name == k) {
+                Some((name, effect)) => params.push(HitParam {
+                    key: (*name).into(),
+                    value: l.value.clone(),
+                    class: "inert".into(),
+                    effect: (*effect).into(),
+                    src,
+                }),
+                None => why.push(format!(
+                    "linha {}: parametro '{k}' do HitDef fora do subconjunto v2 (altera atacante, alvo ou ordem de forma nao modelada)",
+                    l.no
+                )),
+            },
+        }
+    }
+    if damage.is_none() {
+        // MUGEN: damage omitido = 0. Declarado para que o efeito nulo seja explicito.
+        damage = Some(0);
+    }
+    for t in all.iter_mut().chain(groups.values_mut().flatten()) {
+        if let Err(e) = resolve_animelem(t, shape) {
+            why.push(e);
+        }
+        if let Expr::Command { name, .. } = &t.expr {
+            if let Some(reason) = bad_commands.get(name) {
+                why.push(format!("comando '{name}' nao convertido: {reason}"));
+            } else if !commands.contains_key(name) {
+                why.push(format!("comando '{name}' nao definido no CMD"));
+            }
+        }
+        if matches!(t.expr, Expr::AnimTime { .. }) && shape.is_none() {
+            why.push("AnimTime exige animacao conhecida".into());
+        }
+    }
+    if groups.is_empty() || groups.keys().copied().ne(1..=groups.len() as u32) {
+        why.push("grupos trigger<N> ausentes ou nao contiguos a partir de trigger1".into());
+    }
+    match shape {
+        Some((anim, sh)) => {
+            if sh.flipped.iter().any(|f| *f) {
+                why.push(format!(
+                    "acao {anim} com elemento espelhado: transformacao das caixas pelo flip do elemento fora do subconjunto"
+                ));
+            }
+            if sh.clsn1.iter().all(|n| *n == 0) {
+                why.push(format!(
+                    "acao {anim} sem Clsn1: o golpe nunca alcancaria o alvo"
+                ));
+            }
+        }
+        None => why.push("HitDef exige estado com anim literal e acao selecionada".into()),
+    }
+    if !why.is_empty() {
+        return Err(why.join("; "));
+    }
+    let hits_standing = hitflag.contains('H') || hitflag.contains('M');
+    Ok(Controller {
+        id: format!("{state_no}#{index}"),
+        src: src_of(file, sec, None),
+        target: -1,
+        set_ctrl: None,
+        all,
+        groups: groups.into_values().collect(),
+        hitdef: Some(HitDef {
+            damage: damage.unwrap_or(0),
+            hitflag,
+            hits_standing,
+            pause_p1: pause.0,
+            pause_p2: pause.1,
+            kill,
+            params,
+        }),
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
 fn convert_controller(
     file: &str,
     sec: &Section,
@@ -579,6 +1092,7 @@ fn convert_controller(
     commands: &BTreeMap<String, CommandDef>,
     bad_commands: &BTreeMap<String, String>,
     valid_targets: &BTreeSet<i32>,
+    shape: Option<(i32, &ActionShape)>,
 ) -> Result<Controller, String> {
     let kind = sec
         .lines
@@ -586,6 +1100,9 @@ fn convert_controller(
         .find(|l| l.key == "type")
         .map(|l| l.value.to_ascii_lowercase())
         .unwrap_or_default();
+    if kind == "hitdef" && shape.is_some() {
+        return convert_hitdef(file, sec, state_no, index, commands, bad_commands, shape);
+    }
     if kind != "changestate" {
         let shown = sec
             .lines
@@ -643,6 +1160,11 @@ fn convert_controller(
     }
     let target = value.ok_or("ChangeState sem value")?;
     let mut why: Vec<String> = Vec::new();
+    for t in all.iter_mut().chain(groups.values_mut().flatten()) {
+        if let Err(e) = resolve_animelem(t, shape) {
+            why.push(e);
+        }
+    }
     for t in all.iter().chain(groups.values().flatten()) {
         if let Expr::Command { name, .. } = &t.expr {
             if let Some(reason) = bad_commands.get(name) {
@@ -668,6 +1190,7 @@ fn convert_controller(
         set_ctrl,
         all,
         groups: groups.into_values().collect(),
+        hitdef: None,
     })
 }
 
@@ -686,9 +1209,17 @@ fn convert_statedef(rs: &RawState<'_>) -> StateConv {
         anim: None,
         src: Some(src_of(rs.file, rs.def, None)),
         controllers: Vec::new(),
+        movetype: None,
     };
     let mut rows = Vec::new();
     for l in &rs.def.lines {
+        if l.key == "movetype" {
+            // Registrado aqui; so passa a fazer parte do programa no v2 (HitDef convertido).
+            let v = l.value.trim().to_ascii_uppercase();
+            if matches!(v.as_str(), "A" | "I" | "H") {
+                st.movetype = Some(v);
+            }
+        }
         let src = src_of(rs.file, rs.def, Some(l));
         let id = format!("state.{}.{}", rs.no, l.key);
         match l.key.as_str() {
@@ -895,6 +1426,7 @@ pub fn stand_in_state() -> StateProgram {
         anim: Some(0),
         src: None,
         controllers: Vec::new(),
+        movetype: None,
     }
 }
 
@@ -1066,6 +1598,7 @@ pub fn analyze(input: &ChainInput<'_>) -> ChainAnalysis {
         let Some(rs) = raw_by_no.get(&st.no) else {
             continue;
         };
+        let shape = st.anim.and_then(|a| input.shapes.get(&a).map(|s| (a, s)));
         for (idx, sec) in rs.controllers.iter().enumerate() {
             let id = format!("state.{}.controller.{}", st.no, idx);
             match convert_controller(
@@ -1076,6 +1609,7 @@ pub fn analyze(input: &ChainInput<'_>) -> ChainAnalysis {
                 &commands,
                 &bad_commands,
                 &valid_targets,
+                shape,
             ) {
                 Ok(c) => {
                     if c.groups
@@ -1110,9 +1644,41 @@ pub fn analyze(input: &ChainInput<'_>) -> ChainAnalysis {
                             continue;
                         }
                     }
-                    op(&mut rows, row(&id, "controller", Some(&c.src), "converted",
-                        &format!("ChangeState {} avaliado a cada tick apos o estado -1, na ordem da fonte", c.target),
-                        "mugen_original_chain_real_ken_capture + verify-mugen-chain.py + mugen-original", "-"));
+                    if let Some(h) = &c.hitdef {
+                        op(&mut rows, row(&id, "controller", Some(&c.src), "converted",
+                            &format!("HitDef (v2): ativa o golpe quando os gatilhos valem, na ordem da fonte; um contato Clsn1 x Clsn2 com o alvo de treino aplica dano {} e desativa o golpe", h.damage),
+                            "core::mugen_chain::tests::hitdef_* + mugen_hitdef_real_build_run + mugen-hitdef", "um acerto por ativacao; mudanca de estado desativa; alvo de treino parado e em pe"));
+                        for prm in &h.params {
+                            let (class, limit) = if prm.class == "executed" {
+                                ("converted", "-".to_string())
+                            } else {
+                                ("approximate", format!("lido, sem efeito: {}", prm.effect))
+                            };
+                            op(
+                                &mut rows,
+                                row(
+                                    &format!("{id}.param.{}", prm.key),
+                                    "hitdef_param",
+                                    Some(&prm.src),
+                                    class,
+                                    &if prm.class == "executed" {
+                                        prm.effect.clone()
+                                    } else {
+                                        format!(
+                                            "{} = {} (nao modelado no alvo de treino)",
+                                            prm.key, prm.value
+                                        )
+                                    },
+                                    "core::mugen_chain::tests::hitdef_*",
+                                    &limit,
+                                ),
+                            );
+                        }
+                    } else {
+                        op(&mut rows, row(&id, "controller", Some(&c.src), "converted",
+                            &format!("ChangeState {} avaliado a cada tick apos o estado -1, na ordem da fonte", c.target),
+                            "mugen_original_chain_real_ken_capture + verify-mugen-chain.py + mugen-original", "-"));
+                    }
                     for t in c.all.iter().chain(c.groups.iter().flatten()) {
                         op(
                             &mut rows,
@@ -1157,6 +1723,7 @@ pub fn analyze(input: &ChainInput<'_>) -> ChainAnalysis {
             &commands,
             &bad_commands,
             &valid_targets,
+            None,
         ) {
             Ok(c) => {
                 op(&mut rows, row(&id, "controller", Some(&c.src), "converted",
@@ -1305,9 +1872,96 @@ pub fn analyze(input: &ChainInput<'_>) -> ChainAnalysis {
         };
     }
     program_states.sort_by_key(|s| s.no);
+    // v2 somente quando a cadeia usa AnimElem ou HitDef convertido; caso contrario o
+    // programa e byte a byte o mesmo do v1.
+    let v2 = special
+        .iter()
+        .chain(program_states.iter().flat_map(|s| s.controllers.iter()))
+        .any(|c| {
+            c.hitdef.is_some()
+                || c.all
+                    .iter()
+                    .chain(c.groups.iter().flatten())
+                    .any(|t| matches!(t.expr, Expr::AnimElem { .. }))
+        });
+    let has_hitdef = program_states
+        .iter()
+        .any(|s| s.controllers.iter().any(|c| c.hitdef.is_some()));
+    let mut target_life = None;
+    for st in program_states.iter_mut() {
+        if !has_hitdef {
+            st.movetype = None;
+        }
+    }
+    if has_hitdef {
+        for r in rows.iter_mut() {
+            if r["kind"] == "statedef"
+                && r["id"].as_str().is_some_and(|id| id.ends_with(".movetype"))
+            {
+                r["class"] = serde_json::json!("converted");
+                r["implementation"] = serde_json::json!("movetype aplicado na entrada; um HitDef ativo so acerta com movetype = A (regra adotada do Mugenesis/SGDK Forge)");
+                r["test"] = serde_json::json!("core::mugen_chain::tests::hitdef_*");
+                r["limit"] = serde_json::json!("so A/I/H literais");
+            }
+        }
+        let life = files
+            .iter()
+            .filter(|(n, _)| input.state_files.iter().any(|f| &f.name == n))
+            .flat_map(|(n, secs)| secs.iter().map(move |sec| (n, sec)))
+            .find(|(_, sec)| sec.header.eq_ignore_ascii_case("data"))
+            .and_then(|(n, sec)| {
+                sec.lines
+                    .iter()
+                    .find(|l| l.key == "life")
+                    .map(|l| (parse_int(&l.value), src_of(n, sec, Some(l))))
+            });
+        target_life = Some(match life {
+            Some((Some(v), src)) if (1..=32767).contains(&v) => {
+                op(
+                    &mut rows,
+                    row(
+                        "target.life",
+                        "target",
+                        Some(&src),
+                        "converted",
+                        &format!("vida inicial do alvo de treino = {v} ([Data] life do CNS)"),
+                        "core::mugen_chain::tests::hitdef_*",
+                        "o alvo de treino e uma copia parada do personagem",
+                    ),
+                );
+                TargetLife {
+                    value: v,
+                    origin: "source".into(),
+                    src: Some(src),
+                }
+            }
+            _ => {
+                op(&mut rows, row("target.life", "target", None, "authored",
+                    &format!("vida inicial do alvo de treino = {DEFAULT_TARGET_LIFE} (padrao MUGEN; [Data] life ausente ou fora de 1..=32767)"),
+                    "core::mugen_chain::tests::hitdef_*", "valor nao veio da fonte"));
+                TargetLife {
+                    value: DEFAULT_TARGET_LIFE,
+                    origin: "default".into(),
+                    src: None,
+                }
+            }
+        });
+        op(&mut rows, row("target.training", "target", None, "authored",
+            "alvo de treino: outra entidade MUGEN da cena escolhida no Inspector; fica parada, em pe (S), sem guarda, virada para a direita; Clsn2 do quadro atual",
+            "mugen-hitdef + mugen_hitdef_real_build_run", "nao e um oponente MUGEN: sem estado de acerto, empurrao, defesa, IA ou energia"));
+        op(&mut rows, row("approx.hit_order", "semantics", None, "approximate",
+            "ordem por tick v2: comandos, -1, estado atual (HitDef ativa), rastro, avanco de Time/animacao do atacante, tick de animacao de todos os sprites, depois contato Clsn1 x Clsn2 com o quadro exibido neste tick",
+            "core::mugen_chain::tests::hitdef_* + verify-mugen-chain.py --hitdef", "deteccao apos a logica de todos os jogadores, como cns.html e o Mugenesis; prioridade e troca de golpes nao modeladas"));
+        op(&mut rows, row("approx.hit_geometry", "semantics", None, "approximate",
+            "caixas relativas ao eixo, facing fixo a direita (sem espelhar x), cantos normalizados (min/max) e bordas inclusivas (como o Mugenesis)",
+            "core::mugen_chain::tests::hitdef_* + mugen_hitdef_real_build_run", "borda inclusiva e escolha do Mugenesis; o motor original nao foi executado"));
+        op(&mut rows, row("approx.hit_pause", "semantics", None, "approximate",
+            "pausetime p1: nos p1 ticks seguintes ao contato o atacante nao executa controladores e Time/animacao nao avancam; p2 so e contado na RAM",
+            "mugen_hitdef_real_build_run + verify-mugen-chain.py --hitdef", "comandos pressionados durante a pausa sao perdidos (buffer.time 1); ignorehitpause recusado"));
+    }
     let program = Program {
-        schema: SCHEMA.into(),
-        profile: PROFILE.into(),
+        schema: if v2 { SCHEMA_V2 } else { SCHEMA }.into(),
+        profile: if v2 { PROFILE_V2 } else { PROFILE }.into(),
         entity: input.entity.clone(),
         pad: "JOY_1".into(),
         bindings,
@@ -1316,6 +1970,7 @@ pub fn analyze(input: &ChainInput<'_>) -> ChainAnalysis {
         states: program_states,
         initial_state: 0,
         digest: String::new(),
+        target_life,
     }
     .seal();
     if let Err(e) = program.validate() {
@@ -1349,8 +2004,27 @@ pub fn analyze(input: &ChainInput<'_>) -> ChainAnalysis {
             })
         })
         .collect();
+    let hitdefs: Vec<serde_json::Value> = program
+        .states
+        .iter()
+        .flat_map(|st| st.controllers.iter().map(move |c| (st, c)))
+        .filter_map(|(st, c)| c.hitdef.as_ref().map(|h| serde_json::json!({
+            "controller": c.id, "state": st.no, "anim": st.anim, "source": c.src,
+            "triggers": c.all.iter().chain(c.groups.iter().flatten()).map(|t| serde_json::json!({"text": describe_expr(&t.expr), "source": t.src})).collect::<Vec<_>>(),
+            "damage": h.damage, "hitflag": h.hitflag, "hits_standing_target": h.hits_standing,
+            "pausetime": [h.pause_p1, h.pause_p2], "kill": h.kill,
+            "executed": h.params.iter().filter(|p| p.class == "executed").map(|p| serde_json::json!({"key": p.key, "value": p.value, "effect": p.effect, "source": p.src})).collect::<Vec<_>>(),
+            "inert": h.params.iter().filter(|p| p.class == "inert").map(|p| serde_json::json!({"key": p.key, "value": p.value, "effect": p.effect, "source": p.src})).collect::<Vec<_>>(),
+        })))
+        .collect();
+    let notice = if program.is_v2() {
+        "Cadeia original delimitada com HitDef (v2, Experimental). Nao e conversao integral do personagem nem combate MUGEN: o golpe acerta um alvo de treino parado."
+    } else {
+        "Cadeia original delimitada (Experimental). Nao e conversao integral do personagem; sem colisao, dano ou combate."
+    };
     let report = serde_json::json!({
-        "schema": SCHEMA, "profile": PROFILE, "status": "converted", "maturity": "Experimental",
+        "schema": program.schema, "profile": program.profile, "status": "converted", "maturity": "Experimental",
+        "hitdefs": hitdefs, "target_life": program.target_life,
         "program_sha256": program.digest, "entity": input.entity,
         "command_bits": program.commands.iter().map(|c| c.name.clone()).collect::<Vec<_>>(),
         "chain_states": input.chain_states, "chain": chain, "state_status": state_status,
@@ -1360,7 +2034,7 @@ pub fn analyze(input: &ChainInput<'_>) -> ChainAnalysis {
         "unconverted_commands": unconverted_commands,
         "special_minus1": {"total": special_total, "converted": special_total - special_unconverted, "unconverted": special_unconverted},
         "warnings": warnings,
-        "notice": "Cadeia original delimitada (Experimental). Nao e conversao integral do personagem; sem colisao, dano ou combate.",
+        "notice": notice,
     });
     ChainAnalysis {
         program: Ok(program),
@@ -1445,6 +2119,13 @@ pub fn describe_expr(e: &Expr) -> String {
         Expr::StateNo { op, value } => format!("StateNo {} {value}", c(op)),
         Expr::Time { op, value } => format!("Time {} {value}", c(op)),
         Expr::AnimTime { op, value } => format!("AnimTime {} {value}", c(op)),
+        Expr::AnimElem {
+            value,
+            start,
+            period,
+        } => format!(
+            "AnimElem = {value} (1o tick do elemento {value}: relogio da animacao mod {period} = {start})"
+        ),
     }
 }
 
@@ -1472,6 +2153,7 @@ mod tests {
             chain_states: vec![200],
             actions,
             entity: "kenmasters".into(),
+            shapes: BTreeMap::new(),
         }
     }
 
@@ -1671,5 +2353,233 @@ mod tests {
         );
         assert_ne!(p1.entity, p2.entity);
         assert_eq!(p1.states, p2.states);
+    }
+
+    // ------------------------------------------------------------ v2: HitDef original
+
+    fn ken_shapes() -> BTreeMap<i32, ActionShape> {
+        [
+            (
+                0,
+                ActionShape {
+                    durations: vec![Some(6); 6],
+                    loopstart: None,
+                    flipped: vec![false; 6],
+                    clsn1: vec![0; 6],
+                },
+            ),
+            (
+                200,
+                ActionShape {
+                    durations: vec![Some(2), Some(2), Some(2)],
+                    loopstart: None,
+                    flipped: vec![false; 3],
+                    clsn1: vec![0, 1, 0],
+                },
+            ),
+        ]
+        .into_iter()
+        .collect()
+    }
+
+    fn v2_input<'a>(cns: &str, actions: &'a BTreeMap<i32, u32>) -> ChainInput<'a> {
+        let mut i = input(CMD, cns, actions);
+        i.shapes = ken_shapes();
+        i
+    }
+
+    const KEN_HITDEF: &str = "[Data]\nlife = 1000\n\n[Statedef 200]\ntype = S\nmovetype= A\nphysics = S\nvelset = 0,0\nctrl = 0\nanim = 200\n\n[State 200, 1]\ntype = HitDef\ntrigger1 = AnimElem = 2\nattr = S,NA\ndamage = 34\nanimtype = Light\ngetpower = 30,15\nguardflag = MA\nhitflag = MAF\npriority= 3,Hit\npausetime = 7,8\nsparkxy = -10,-70\nhitsound = S10,0\nground.velocity = -4\nair.velocity = -1.3,-3\n\n[State 200, 2]\ntype = ChangeState\ntrigger1 = AnimTime= 0\nvalue =0\nctrl = 1\n";
+
+    #[test]
+    fn hitdef_converts_with_animelem_source_mapping_and_declared_params() {
+        let a = actions();
+        let r = analyze(&v2_input(KEN_HITDEF, &a));
+        let p = r.program.expect("v2 convertido");
+        assert_eq!(p.profile, PROFILE_V2);
+        assert_eq!(p.schema, SCHEMA_V2);
+        let s200 = p.states.iter().find(|s| s.no == 200).unwrap();
+        assert_eq!(s200.movetype.as_deref(), Some("A"));
+        let hd = &s200.controllers[0];
+        let h = hd.hitdef.as_ref().expect("HitDef");
+        assert_eq!((h.damage, h.pause_p1, h.pause_p2, h.kill), (34, 7, 8, true));
+        assert_eq!(h.hitflag, "MAF");
+        assert!(h.hits_standing);
+        assert_eq!(hd.src.line, 12, "{:?}", hd.src);
+        assert_eq!(
+            hd.groups[0][0].expr,
+            Expr::AnimElem {
+                value: 2,
+                start: 2,
+                period: 6
+            }
+        );
+        let exec: Vec<&str> = h
+            .params
+            .iter()
+            .filter(|p| p.class == "executed")
+            .map(|p| p.key.as_str())
+            .collect();
+        assert_eq!(exec, ["damage", "hitflag", "pausetime"]);
+        assert!(h
+            .params
+            .iter()
+            .all(|p| p.src.line > 0 && !p.src.text.is_empty()));
+        assert!(h
+            .params
+            .iter()
+            .any(|p| p.key == "ground.velocity" && p.class == "inert"));
+        let life = p.target_life.as_ref().unwrap();
+        assert_eq!((life.value, life.origin.as_str()), (1000, "source"));
+        // a ordem da fonte e preservada: HitDef antes do ChangeState de retorno
+        assert!(s200.controllers[1].hitdef.is_none());
+        assert_eq!(s200.controllers[1].target, 0);
+        p.validate().unwrap();
+        let rep = &r.report;
+        assert_eq!(rep["profile"], PROFILE_V2);
+        assert_eq!(rep["hitdefs"][0]["damage"], 34);
+        assert!(rep["operations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|o| o["id"] == "state.200.movetype" && o["class"] == "converted"));
+        assert!(!rep["unconverted_controllers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|u| u["reason"].as_str().unwrap_or("").contains("HitDef")));
+    }
+
+    #[test]
+    fn hitdef_v1_compatibility_without_air_shapes_is_byte_identical() {
+        // Sem a forma do AIR a analise e exatamente a do v1: HitDef nao convertido.
+        let a = actions();
+        let p = analyze(&input(CMD, CNS, &a)).program.unwrap();
+        assert_eq!(p.profile, PROFILE);
+        let json = serde_json::to_string(&p).unwrap();
+        for absent in ["hitdef", "movetype", "target_life"] {
+            assert!(!json.contains(absent), "{absent} vazou no v1: {json}");
+        }
+        // um programa v1 serializado antes do v2 continua lendo e validando
+        let reread: Program = serde_json::from_str(&json).unwrap();
+        reread.validate().unwrap();
+        assert_eq!(reread.compute_digest(), p.digest);
+        // v1 com recurso do v2 e recusado (nao ha promocao silenciosa)
+        let mut bad = p.clone();
+        bad.states[0].movetype = Some("A".into());
+        assert!(bad.seal().validate().unwrap_err().contains("v1"));
+    }
+
+    #[test]
+    fn hitdef_out_of_contract_cases_are_refused_with_the_reason() {
+        let a = actions();
+        let cases: [(&str, &str, &str); 7] = [
+            ("damage = 34", "damage = 34\np2stateno = 5000", "p2stateno"),
+            (
+                "damage = 34",
+                "damage = 34\nignorehitpause = 1",
+                "ignorehitpause",
+            ),
+            ("hitflag = MAF", "hitflag = MAF+", "hitflag"),
+            ("damage = 34", "damage = 34 * 2", "damage"),
+            ("pausetime = 7,8", "pausetime = 7,var(1)", "pausetime"),
+            (
+                "trigger1 = AnimElem = 2",
+                "trigger1 = AnimElem = 9",
+                "elementos",
+            ),
+            (
+                "trigger1 = AnimElem = 2",
+                "trigger1 = MoveContact",
+                "MoveContact",
+            ),
+        ];
+        for (from, to, needle) in cases {
+            let cns = KEN_HITDEF.replace(from, to);
+            let r = analyze(&v2_input(&cns, &a));
+            let p = r.program.unwrap();
+            assert!(p.hitdefs().is_empty(), "{to}: HitDef nao deveria converter");
+            assert_eq!(p.profile, PROFILE, "{to}: sem recurso v2 fica v1");
+            let un = r.report["unconverted_controllers"].to_string();
+            assert!(un.contains(needle), "{to}: motivo sem '{needle}': {un}");
+        }
+        // elemento espelhado na acao do golpe
+        let mut i = v2_input(KEN_HITDEF, &a);
+        i.shapes.get_mut(&200).unwrap().flipped[1] = true;
+        let r = analyze(&i);
+        assert!(r.program.unwrap().hitdefs().is_empty());
+        assert!(r.report["unconverted_controllers"]
+            .to_string()
+            .contains("espelhado"));
+        // Loopstart na acao do golpe
+        let mut i = v2_input(KEN_HITDEF, &a);
+        i.shapes.get_mut(&200).unwrap().loopstart = Some(1);
+        assert!(analyze(&i).program.unwrap().hitdefs().is_empty());
+        // sem Clsn1
+        let mut i = v2_input(KEN_HITDEF, &a);
+        i.shapes.get_mut(&200).unwrap().clsn1 = vec![0, 0, 0];
+        assert!(analyze(&i).report["unconverted_controllers"]
+            .to_string()
+            .contains("Clsn1"));
+    }
+
+    #[test]
+    fn hitdef_defaults_life_and_hitflag_reach() {
+        let a = actions();
+        let cns = KEN_HITDEF
+            .replace("[Data]\nlife = 1000\n\n", "")
+            .replace("hitflag = MAF", "hitflag = A");
+        let p = analyze(&v2_input(&cns, &a)).program.unwrap();
+        let life = p.target_life.clone().unwrap();
+        assert_eq!(
+            (life.value, life.origin.as_str()),
+            (DEFAULT_TARGET_LIFE, "default")
+        );
+        assert!(life.src.is_none());
+        let h = p.hitdefs()[0].hitdef.clone().unwrap();
+        assert!(!h.hits_standing, "hitflag A nao alcanca o alvo em pe");
+    }
+
+    #[test]
+    fn hitdef_tampering_blocks_validation() {
+        let a = actions();
+        let p = analyze(&v2_input(KEN_HITDEF, &a)).program.unwrap();
+        let mut bad = p.clone();
+        bad.states
+            .iter_mut()
+            .find(|s| s.no == 200)
+            .unwrap()
+            .controllers[0]
+            .hitdef
+            .as_mut()
+            .unwrap()
+            .damage = 99;
+        assert!(bad.validate().unwrap_err().contains("adulterado"));
+        let mut bad = p.clone();
+        bad.states
+            .iter_mut()
+            .find(|s| s.no == 200)
+            .unwrap()
+            .controllers[0]
+            .hitdef
+            .as_mut()
+            .unwrap()
+            .params[0]
+            .src
+            .line = 0;
+        assert!(bad.seal().validate().is_err());
+        let mut bad = p.clone();
+        bad.target_life = None;
+        assert!(bad.seal().validate().unwrap_err().contains("vida"));
+        let mut bad = p;
+        bad.states
+            .iter_mut()
+            .find(|s| s.no == 200)
+            .unwrap()
+            .controllers[0]
+            .hitdef
+            .as_mut()
+            .unwrap()
+            .hitflag = "A".into();
+        assert!(bad.seal().validate().unwrap_err().contains("hitflag"));
     }
 }

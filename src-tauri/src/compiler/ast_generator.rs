@@ -297,6 +297,8 @@ pub enum LogicOp {
         target_var: String,
         dx: i32,
         dy: i32,
+        /// JV10: vira o sprite (flip H de hardware) para o lado do deslocamento x.
+        face: bool,
     },
     SetSpritePosition {
         target_var: String,
@@ -349,6 +351,9 @@ pub enum LogicOp {
     MugenProgramStep {
         target_var: String,
         program: Box<crate::core::mugen_chain::Program>,
+        /// v2: sprite do alvo de treino do HitDef (parametro `hit_target` do no). `None` =
+        /// golpe ativa sem alvo (nenhum contato possivel; o Inspector avisa).
+        hit_target_var: Option<String>,
     },
     SetTile {
         layer: String,
@@ -2074,6 +2079,7 @@ fn compile_logic_node(
                 target_var: var_name.clone(),
                 dx: param_i32(node, "dx", 0),
                 dy: param_i32(node, "dy", 0),
+                face: param_bool(node, "face_direction", false),
             }))
         }
         "rom_addq_word" => {
@@ -3377,9 +3383,30 @@ fn compile_mugen_program(
     if let Err(why) = program.validate() {
         return bridge(why);
     }
+    let raw_hit = param_string(node, "hit_target").unwrap_or_default();
+    let hit_target_var = if program.hitdefs().is_empty() {
+        if !raw_hit.is_empty() {
+            return bridge("alvo de HitDef em programa sem HitDef".into());
+        }
+        None
+    } else if raw_hit.is_empty() {
+        None
+    } else {
+        if raw_hit == raw_target {
+            return bridge("o alvo do HitDef nao pode ser o proprio atacante".into());
+        }
+        match runtime_entities
+            .get(&raw_hit)
+            .and_then(|runtime| runtime.sprite.as_ref())
+        {
+            Some(t) => Some(t.var_name.clone()),
+            None => return bridge(format!("alvo de HitDef '{raw_hit}' sem sprite na cena")),
+        }
+    };
     LogicOp::MugenProgramStep {
         target_var: sprite.var_name.clone(),
         program: Box::new(program),
+        hit_target_var,
     }
 }
 
@@ -5940,6 +5967,7 @@ mod tests {
                 target_var: "spr_player".to_string(),
                 dx: 2,
                 dy: -1,
+                face: false,
             }
         );
 
@@ -6575,7 +6603,7 @@ mod tests {
         assert_eq!(state_machine.1[1].body.len(), 1);
         assert!(matches!(
             semantic_op(&state_machine.1[1].body[0]),
-            LogicOp::MoveSprite { target_var, dx: 2, dy: 0 } if target_var == "spr_player"
+            LogicOp::MoveSprite { target_var, dx: 2, dy: 0, .. } if target_var == "spr_player"
         ));
     }
 
