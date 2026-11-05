@@ -137,6 +137,7 @@ RetroDevStudio/
 |       |   `-- snes_emitter.rs
 |       |-- core/
 |       |   |-- project_asset_scope.rs
+|       |   |-- scene_save.rs (intenção durável e recuperação de cena/grafos)
 |       |   `-- project_mgr.rs
 |       |-- emulator/
 |       |   |-- frame_buffer.rs

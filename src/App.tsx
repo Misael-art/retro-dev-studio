@@ -2902,7 +2902,7 @@ export default function App() {
     setSelectedEntityId(null);
     setHwStatus(hw);
     setActiveScenePath(sceneData.scene_path);
-    setActiveScene(hydrated.resolvedScene, hydrated.sourceScene);
+    setActiveScene(hydrated.resolvedScene, hydrated.sourceScene, hydrated.graphs);
     setProjectSourceKind(sceneData.source_kind ?? "");
     setProjectLegacyIndex(sceneData.legacy_sgdk_index ?? null);
     if (sceneData.target === "megadrive" || sceneData.target === "snes") {
@@ -3618,7 +3618,7 @@ export default function App() {
       if (!hydrated) throw new Error("Falha ao reidratar a cena capturada.");
       setSelectedEntityId(null);
       setActiveScenePath(result.scene_path);
-      setActiveScene(hydrated.resolvedScene, hydrated.sourceScene);
+      setActiveScene(hydrated.resolvedScene, hydrated.sourceScene, hydrated.graphs);
     } catch (error) {
       logMessage("error", `[Captura ROM] ${error instanceof Error ? error.message : String(error)}`);
     }

@@ -8,7 +8,10 @@ mod ugdm;
 pub use tools::reverse::matching::BinaryDiffScorer;
 pub use tools::reverse::trace::{CpuState, ExecutionTraceLog};
 
-use std::collections::{HashMap, HashSet};
+#[cfg(test)]
+use core::project_mgr::save_scene;
+
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
@@ -42,17 +45,18 @@ use core::project_capability::{
     inspect_project_capability as inspect_project_capability_impl, ProjectCapabilityReport,
 };
 use core::project_mgr::{
-    append_patch_audit_entry, create_project_skeleton, create_scene as create_project_scene,
-    discover_project_rds, import_external_project as import_external_scene,
+    append_patch_audit_entry, collect_external_graph_refs, create_project_skeleton,
+    create_scene as create_project_scene, discover_project_rds,
+    import_external_project as import_external_scene,
     import_legacy_sgdk_project as wrap_legacy_sgdk_project,
     import_mugen_project as import_mugen_scene, import_sgdk_project as import_sgdk_scene,
     list_external_import_profiles as list_registered_external_import_profiles,
     list_project_templates as list_registered_project_templates,
     list_scenes as list_project_scenes, load_legacy_sgdk_index, load_project,
-    load_project_settings as load_project_settings_impl, load_scene, resolve_prefabs, save_scene,
+    load_project_settings as load_project_settings_impl, load_scene, resolve_prefabs,
     seed_onboarding_template, seed_project_template, set_entry_scene,
     stamp_imported_external_profile_metadata, stamp_imported_mugen_metadata,
-    stamp_imported_sgdk_metadata, stamp_project_template_metadata, sync_external_graph_refs,
+    stamp_imported_sgdk_metadata, stamp_project_template_metadata,
     update_project_settings as update_project_settings_impl, update_project_target,
     ExternalImportProfileSummary, LegacySgdkIndex, ProjectSettingsPayload, ProjectSettingsSnapshot,
     ProjectTemplateSummary, SceneInfo, DEFAULT_ENTRY_SCENE,
@@ -4260,12 +4264,22 @@ pub struct ResolveSceneResult {
     pub ok: bool,
     pub error: String,
     pub scene_json: String,
+    pub graphs: BTreeMap<String, String>,
 }
 
 /// Retorna o JSON completo da cena de entrada do projeto (entry_scene).
 #[tauri::command]
-fn get_scene_data(project_dir: String, scene_path: Option<String>) -> SceneDataResult {
-    load_scene_result(Path::new(&project_dir), scene_path.as_deref())
+async fn get_scene_data(
+    project_dir: String,
+    scene_path: Option<String>,
+) -> Result<SceneDataResult, String> {
+    run_heavy_result_command("get_scene_data", move || {
+        Ok(load_scene_result(
+            Path::new(&project_dir),
+            scene_path.as_deref(),
+        ))
+    })
+    .await
 }
 
 #[tauri::command]
@@ -4281,12 +4295,28 @@ fn get_reference_template_composition(
 }
 
 #[tauri::command]
-fn resolve_scene_prefabs(project_dir: String, scene_json: String) -> ResolveSceneResult {
-    resolve_scene_prefabs_result(Path::new(&project_dir), &scene_json)
+async fn resolve_scene_prefabs(
+    project_dir: String,
+    scene_json: String,
+) -> Result<ResolveSceneResult, String> {
+    run_heavy_result_command("resolve_scene_prefabs", move || {
+        Ok(resolve_scene_prefabs_result(
+            Path::new(&project_dir),
+            &scene_json,
+        ))
+    })
+    .await
 }
 
 #[tauri::command]
-fn switch_scene(project_dir: String, scene_path: String) -> SceneDataResult {
+async fn switch_scene(project_dir: String, scene_path: String) -> Result<SceneDataResult, String> {
+    run_heavy_result_command("switch_scene", move || {
+        Ok(switch_scene_impl(project_dir, scene_path))
+    })
+    .await
+}
+
+fn switch_scene_impl(project_dir: String, scene_path: String) -> SceneDataResult {
     if let Err(error) = set_entry_scene(Path::new(&project_dir), &scene_path) {
         return SceneDataResult {
             ok: false,
@@ -4389,6 +4419,7 @@ fn resolve_scene_prefabs_result(project_dir: &Path, scene_json: &str) -> Resolve
             ok: false,
             error: "Nenhum projeto aberto.".into(),
             scene_json: String::new(),
+            graphs: BTreeMap::new(),
         };
     }
 
@@ -4399,39 +4430,52 @@ fn resolve_scene_prefabs_result(project_dir: &Path, scene_json: &str) -> Resolve
                 ok: false,
                 error: format!("JSON de cena invalido: {}", error),
                 scene_json: String::new(),
+                graphs: BTreeMap::new(),
             }
         }
     };
 
-    match resolve_prefabs(project_dir, &scene) {
-        Ok(resolved_scene) => ResolveSceneResult {
+    let result = core::project_mgr::resolve_prefabs_with_graph_baseline(project_dir, &scene);
+    match result {
+        Ok((resolved_scene, graphs)) => ResolveSceneResult {
             ok: true,
             error: String::new(),
             scene_json: serde_json::to_string_pretty(&resolved_scene).unwrap_or_default(),
+            graphs,
         },
         Err(error) => ResolveSceneResult {
             ok: false,
             error: error.to_string(),
             scene_json: String::new(),
+            graphs: BTreeMap::new(),
         },
     }
 }
 
 #[tauri::command]
-fn list_scenes(project_dir: String) -> Result<Vec<SceneInfo>, String> {
+async fn list_scenes(project_dir: String) -> Result<Vec<SceneInfo>, String> {
     if project_dir.is_empty() {
         return Ok(Vec::new());
     }
-    list_project_scenes(Path::new(&project_dir)).map_err(|error| error.to_string())
+    run_heavy_result_command("list_scenes", move || {
+        list_project_scenes(Path::new(&project_dir)).map_err(|error| error.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
-fn create_scene(project_dir: String, display_name: Option<String>) -> Result<SceneInfo, String> {
+async fn create_scene(
+    project_dir: String,
+    display_name: Option<String>,
+) -> Result<SceneInfo, String> {
     if project_dir.trim().is_empty() {
         return Err("Nenhum projeto aberto.".into());
     }
-    create_project_scene(Path::new(&project_dir), display_name.as_deref())
-        .map_err(|error| error.to_string())
+    run_heavy_result_command("create_scene", move || {
+        create_project_scene(Path::new(&project_dir), display_name.as_deref())
+            .map_err(|error| error.to_string())
+    })
+    .await
 }
 
 #[derive(serde::Serialize)]
@@ -4440,6 +4484,7 @@ struct SceneSaveResult {
     message: String,
     scene_json: Option<String>,
     conflict: bool,
+    graphs: BTreeMap<String, String>,
 }
 
 static SCENE_DRAFT_IO_LOCK: Mutex<()> = Mutex::new(());
@@ -4529,20 +4574,44 @@ fn scene_draft_storage(
 /// Saves through the existing atomic writer. An optional loaded baseline detects
 /// external edits before graph/file writes; older callers keep their contract.
 #[tauri::command]
-fn save_scene_data(
+async fn save_scene_data(
     project_dir: String,
     scene_json: String,
     scene_path: Option<String>,
     resolved_scene_json: Option<String>,
     expected_scene_json: Option<String>,
+    expected_graphs: Option<BTreeMap<String, String>>,
+) -> Result<SceneSaveResult, String> {
+    run_heavy_result_command("save_scene_data", move || {
+        Ok(save_scene_data_impl(
+            project_dir,
+            scene_json,
+            scene_path,
+            resolved_scene_json,
+            expected_scene_json,
+            expected_graphs,
+        ))
+    })
+    .await
+}
+
+fn save_scene_data_impl(
+    project_dir: String,
+    scene_json: String,
+    scene_path: Option<String>,
+    resolved_scene_json: Option<String>,
+    expected_scene_json: Option<String>,
+    expected_graphs: Option<BTreeMap<String, String>>,
 ) -> SceneSaveResult {
     let mut conflict_json = None;
+    let mut graphs = BTreeMap::new();
     let result = (|| -> Result<String, String> {
         if project_dir.is_empty() {
             return Err("Nenhum projeto aberto.".into());
         }
         let dir = PathBuf::from(&project_dir);
         let project = load_project(&dir).map_err(|e| e.to_string())?;
+        let guard = core::scene_save::begin(&dir).map_err(|e| e.to_string())?;
         let target = scene_path
             .as_deref()
             .map(str::trim)
@@ -4558,9 +4627,21 @@ fn save_scene_data(
                 conflict_json = Some(serde_json::to_string(&current).map_err(|e| e.to_string())?);
                 return Err("O arquivo salvo mudou desde a abertura. Rascunho preservado; revise a divergencia antes de salvar.".into());
             }
+            if let Some(expected_graphs) = expected_graphs.as_ref() {
+                let current_graphs = core::project_mgr::external_graph_baseline(&dir, &current)
+                    .map_err(|e| e.to_string())?;
+                if &current_graphs != expected_graphs {
+                    conflict_json =
+                        Some(serde_json::to_string(&current).map_err(|e| e.to_string())?);
+                    return Err("Um grafo externo mudou desde a abertura. Rascunho preservado; recarregue ou revise o conflito antes de salvar.".into());
+                }
+            }
         }
         let mut scene: ugdm::entities::Scene =
             serde_json::from_str(&scene_json).map_err(|e| format!("JSON de cena invalido: {e}"))?;
+        scene = core::project_mgr::migrate_scene(scene);
+        core::project_mgr::validate_scene(&scene).map_err(|e| e.to_string())?;
+        let mut writes = BTreeMap::new();
         if let Some(json) = resolved_scene_json
             .as_deref()
             .map(str::trim)
@@ -4568,10 +4649,14 @@ fn save_scene_data(
         {
             let resolved: ugdm::entities::Scene = serde_json::from_str(json)
                 .map_err(|e| format!("JSON de cena resolvida invalido: {e}"))?;
-            sync_external_graph_refs(&dir, &mut scene, &resolved).map_err(|e| e.to_string())?;
+            writes = collect_external_graph_refs(&dir, &mut scene, &resolved)
+                .map_err(|e| e.to_string())?;
         }
-        save_scene(&dir, target, &scene).map_err(|e| e.to_string())?;
+        core::scene_save::commit(&dir, target, &scene, &writes, &guard)
+            .map_err(|e| e.to_string())?;
         let persisted = load_scene(&dir, target).map_err(|e| e.to_string())?;
+        graphs = core::project_mgr::external_graph_baseline(&dir, &persisted)
+            .map_err(|e| e.to_string())?;
         serde_json::to_string(&persisted).map_err(|e| e.to_string())
     })();
     match result {
@@ -4580,12 +4665,14 @@ fn save_scene_data(
             message: "Cena salva.".into(),
             scene_json: Some(json),
             conflict: false,
+            graphs,
         },
         Err(message) => SceneSaveResult {
             ok: false,
             message,
             conflict: conflict_json.is_some(),
             scene_json: conflict_json,
+            graphs,
         },
     }
 }
@@ -9606,7 +9693,7 @@ pub extern "C" fn retro_run() {
         let opened = open_project_path(legacy_dir.to_string_lossy().to_string());
         assert!(opened.selected);
 
-        let scene_data = get_scene_data(opened.path.clone(), None);
+        let scene_data = load_scene_result(Path::new(&opened.path), None);
         assert!(scene_data.ok, "scene data error: {}", scene_data.error);
         assert_eq!(scene_data.source_kind, "external_sgdk");
 
@@ -10295,6 +10382,54 @@ pub extern "C" fn retro_run() {
     }
 
     #[test]
+    fn save_scene_data_refuses_an_external_change_to_a_graph_inherited_from_a_prefab() {
+        let root = temp_dir("save-scene-inherited-graph");
+        create_project_skeleton(&root, "Inherited graph", "megadrive").unwrap();
+        let graph_path = root.join("graphs/player.json");
+        fs::write(&graph_path, r#"{"nodes":[],"edges":[]}"#).unwrap();
+        let prefab = serde_json::json!({
+            "entity_id":"base","transform":{"x":0,"y":0},
+            "components":{"logic":{"graph_ref":"graphs/player.json","variables":{}}}
+        });
+        fs::write(root.join("prefabs/player.json"), prefab.to_string()).unwrap();
+        let source = serde_json::json!({
+            "scene_id":"main","background_layers":[],"palettes":[],
+            "entities":[{"entity_id":"player","prefab":"player","transform":{"x":0,"y":0},"components":{}}]
+        });
+        let scene: Scene = serde_json::from_value(source).unwrap();
+        save_scene(&root, "scenes/main.json", &scene).unwrap();
+        let loaded = load_scene(&root, "scenes/main.json").unwrap();
+        let source_json = serde_json::to_string(&loaded).unwrap();
+        let hydration = resolve_scene_prefabs_result(&root, &source_json);
+        assert!(hydration.ok, "{}", hydration.error);
+        assert_eq!(
+            hydration.graphs["graphs/player.json"],
+            r#"{"nodes":[],"edges":[]}"#
+        );
+        let changed = r#"{"nodes":[{"id":"external"}],"edges":[]}"#;
+        fs::write(&graph_path, changed).unwrap();
+        let mut edited_source: serde_json::Value = serde_json::from_str(&source_json).unwrap();
+        edited_source["entities"][0]["components"]["logic"] = serde_json::json!({
+            "graph_ref":"graphs/player.json", "graph":"{\"nodes\":[],\"edges\":[]}", "variables":{}
+        });
+        let result = save_scene_data_impl(
+            root.to_string_lossy().into(),
+            edited_source.to_string(),
+            Some("scenes/main.json".into()),
+            Some(hydration.scene_json),
+            Some(source_json),
+            Some(hydration.graphs),
+        );
+        assert!(!result.ok && result.conflict, "{}", result.message);
+        assert_eq!(fs::read_to_string(graph_path).unwrap(), changed);
+        assert!(load_scene(&root, "scenes/main.json").unwrap().entities[0]
+            .components
+            .logic
+            .is_none());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn save_scene_data_keeps_graph_ref_externalized_when_resolved_scene_is_supplied() {
         let project_dir = temp_dir("save-scene-graph-ref");
         create_project_skeleton(&project_dir, "Graph Save", "megadrive")
@@ -10348,11 +10483,33 @@ pub extern "C" fn retro_run() {
             "palettes": []
         });
 
-        let result = save_scene_data(
+        let scene_file = project_dir.join("scenes/main.json");
+        let graph_file = project_dir.join("graphs/player_logic.json");
+        let scene_before = fs::read(&scene_file).unwrap();
+        let graph_before = fs::read(&graph_file).unwrap();
+        let mut invalid_scene = source_scene.clone();
+        invalid_scene["scene_id"] = serde_json::json!("");
+        let invalid = save_scene_data_impl(
+            project_dir.to_string_lossy().to_string(),
+            invalid_scene.to_string(),
+            Some("scenes/main.json".into()),
+            Some(resolved_scene.to_string()),
+            None,
+            None,
+        );
+        assert!(!invalid.ok);
+        assert_eq!(fs::read(&scene_file).unwrap(), scene_before);
+        assert_eq!(
+            fs::read(&graph_file).unwrap(),
+            graph_before,
+            "failed save changed external graph"
+        );
+        let result = save_scene_data_impl(
             project_dir.to_string_lossy().to_string(),
             serde_json::to_string_pretty(&source_scene).expect("serialize source scene"),
             Some("scenes/main.json".to_string()),
             Some(serde_json::to_string_pretty(&resolved_scene).expect("serialize resolved scene")),
+            None,
             None,
         );
 
@@ -10366,6 +10523,21 @@ pub extern "C" fn retro_run() {
         let saved_graph = fs::read_to_string(project_dir.join("graphs").join("player_logic.json"))
             .expect("read saved graph");
         assert!(saved_graph.contains("\"event_start\""));
+
+        let stale_graphs = result.graphs.clone();
+        let concurrent = r#"{"nodes":[{"id":"external"}]}"#;
+        fs::write(&graph_file, concurrent).unwrap();
+        let conflict = save_scene_data_impl(
+            project_dir.to_string_lossy().to_string(),
+            source_scene.to_string(),
+            Some("scenes/main.json".into()),
+            Some(resolved_scene.to_string()),
+            result.scene_json.clone(),
+            Some(stale_graphs),
+        );
+        assert!(!conflict.ok && conflict.conflict);
+        assert_eq!(fs::read_to_string(&graph_file).unwrap(), concurrent);
+        fs::write(&graph_file, &saved_graph).unwrap();
 
         // A stale editor must not touch either the scene or its external graph.
         let baseline = result.scene_json.expect("canonical saved-source receipt");
@@ -10381,12 +10553,13 @@ pub extern "C" fn retro_run() {
         let mut changed_graph = resolved_scene.clone();
         changed_graph["entities"][0]["components"]["logic"]["graph"] =
             serde_json::json!("{\"version\":1,\"nodes\":[],\"edges\":[]}");
-        let refused = save_scene_data(
+        let refused = save_scene_data_impl(
             project_dir.to_string_lossy().to_string(),
             serde_json::to_string(&source_scene).unwrap(),
             Some("scenes/main.json".into()),
             Some(serde_json::to_string(&changed_graph).unwrap()),
             Some(baseline),
+            None,
         );
         assert!(!refused.ok && refused.conflict);
         assert_eq!(fs::read(&scene_path).unwrap(), disk_before);

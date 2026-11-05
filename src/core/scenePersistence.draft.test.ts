@@ -165,6 +165,19 @@ describe("contratos de recuperação após interrupção", () => {
   });
 });
 describe("autosave de rascunho local (Experimental)", () => {
+  it("atualiza a base dos grafos e evita copiar a base de outro projeto", async () => {
+    const baseline = useEditorStore.getState().sceneDiskBaseline!;
+    useEditorStore.setState({ sceneDiskBaseline: { ...baseline, graphs: { "graphs/a.json": "before" } } });
+    expect(await saveActiveSceneDraft("/proj/a")).toBe(true);
+    useEditorStore.setState({ sceneDiskBaseline: { ...baseline, graphs: { "graphs/a.json": "after" } } });
+    expect(await saveActiveSceneDraft("/proj/a")).toBe(true);
+    let stored = JSON.parse(localStorage.getItem(sceneDraftStorageKey("/proj/a"))!);
+    expect(stored.baseGraphs).toEqual({ "graphs/a.json": "after" });
+    useEditorStore.setState({ sceneDiskBaseline: { ...baseline, projectDir: "/proj/b", graphs: { "graphs/other.json": "other" } } });
+    expect(await saveActiveSceneDraft("/proj/a")).toBe(true);
+    stored = JSON.parse(localStorage.getItem(sceneDraftStorageKey("/proj/a"))!);
+    expect(stored.baseGraphs).toBeUndefined();
+  });
   it("salva, carrega e limpa rascunho por projeto", async () => {
     expect((await saveActiveSceneDraft("/proj/a"))).toBe(true);
     const draft = (await loadSceneDraft("/proj/a"));

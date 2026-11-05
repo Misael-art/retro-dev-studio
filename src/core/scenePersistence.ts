@@ -8,7 +8,7 @@ import {
   type Scene,
   type SceneDataResult,
 } from "./ipc/sceneService";
-import { sceneSourcesEqual, useEditorStore } from "./store/editorStore";
+import { sceneGraphBaseline, sceneSourcesEqual, useEditorStore } from "./store/editorStore";
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -17,6 +17,7 @@ function describeError(error: unknown): string {
 export interface HydratedScenePair {
   sourceScene: Scene;
   resolvedScene: Scene;
+  graphs?: Record<string, string>;
 }
 
 export async function hydrateSceneResult(
@@ -41,6 +42,7 @@ export async function hydrateSceneResult(
   return {
     sourceScene,
     resolvedScene,
+    graphs: resolvedResult.graphs,
   };
 }
 
@@ -77,7 +79,7 @@ export async function reloadSceneFromDisk(projectDir: string, scope: string): Pr
     }
 
     setActiveScenePath(sceneData.scene_path);
-    setActiveScene(hydrated.resolvedScene, hydrated.sourceScene);
+    setActiveScene(hydrated.resolvedScene, hydrated.sourceScene, hydrated.graphs);
     if (selectedEntityId) {
       const isLayerSelection = selectedEntityId.startsWith("layer::");
       const selectionStillExists = isLayerSelection
@@ -183,6 +185,7 @@ export interface SceneDraftRecord {
   projectDir?: string;
   revision?: number;
   baseSourceSceneJson?: string | null;
+  baseGraphs?: Record<string, string>;
   editorSessionId?: string;
   /** Read receipt, not serialized into the next draft. Used for conditional removal. */
   storageKey?: string;
@@ -210,6 +213,10 @@ function decodeDraft(raw: string, projectDir: string, scenePath: string): SceneD
   }
   if (draft.schemaVersion !== undefined && draft.schemaVersion !== 2) {
     throw new Error("Versão de rascunho não suportada. A cópia original foi preservada.");
+  }
+  if (draft.baseGraphs !== undefined && (draft.baseGraphs === null || Array.isArray(draft.baseGraphs)
+    || typeof draft.baseGraphs !== "object" || Object.values(draft.baseGraphs).some((value) => typeof value !== "string"))) {
+    throw new Error("Base dos grafos do rascunho inválida. A cópia original foi preservada.");
   }
   if (draft.schemaVersion === 2 && (draft.projectDir !== projectDir || draft.scenePath !== scenePath
       || !Number.isSafeInteger(draft.revision) || (draft.revision ?? -1) < 0)) {
@@ -320,6 +327,7 @@ async function saveActiveSceneDraftNow(
       if (owned && storage.confirmed?.() !== false && existing.revision === state.sceneRevision
           && sceneSourcesEqual(existing.sourceSceneJson, sourceJson)
           && baseline?.projectDir === projectDir && baseline.scenePath === activeScenePath
+          && sceneSourcesEqual(JSON.stringify(existing.baseGraphs ?? {}), JSON.stringify(baseline.graphs ?? {}))
           && existing.baseSourceSceneJson && sceneSourcesEqual(existing.baseSourceSceneJson, baseline.sourceSceneJson)) {
         state.setSceneDraftState({ status: "confirmed", revision: state.sceneRevision, savedAt: existing.savedAt, message: null });
         return true;
@@ -337,6 +345,8 @@ async function saveActiveSceneDraftNow(
     }
     const raw = JSON.stringify({ schemaVersion: 2, projectDir, scenePath: activeScenePath,
       revision: state.sceneRevision, savedAt: now.toISOString(), sourceSceneJson: sourceJson,
+      baseGraphs: state.sceneDiskBaseline?.projectDir === projectDir && state.sceneDiskBaseline.scenePath === activeScenePath
+        ? state.sceneDiskBaseline.graphs : undefined,
       baseSourceSceneJson: state.sceneDiskBaseline?.projectDir === projectDir && state.sceneDiskBaseline.scenePath === activeScenePath
         ? state.sceneDiskBaseline.sourceSceneJson : null,
       editorSessionId: `${DRAFT_EDITOR_SESSION}/${state.projectSessionId}` });
@@ -436,10 +446,14 @@ export async function persistActiveScene(projectDir: string, scope: string, succ
       // in-flight write may have saved successfully while a newer edit arrived.
       const baseline = useEditorStore.getState().sceneDiskBaseline;
       const expectedJson = baseline?.projectDir === projectDir && baseline.scenePath === activeScenePath ? baseline.sourceSceneJson : undefined;
-      const result = await saveSceneData(projectDir, sourceJson, activeScenePath || undefined, resolvedJson, expectedJson);
+      const expectedGraphs = expectedJson ? baseline?.graphs : undefined;
+      const result = await saveSceneData(projectDir, sourceJson, activeScenePath || undefined, resolvedJson, expectedJson, expectedGraphs);
       if (result.ok && sameContext()) {
         const savedJson = result.scene_json && draftScene(result.scene_json) ? result.scene_json : sourceJson;
-        useEditorStore.setState({ sceneDiskBaseline: { projectDir, scenePath: activeScenePath, sourceSceneJson: savedJson } });
+        useEditorStore.setState({ sceneDiskBaseline: {
+          projectDir, scenePath: activeScenePath, sourceSceneJson: savedJson,
+          graphs: result.graphs ?? sceneGraphBaseline(activeSceneSource, activeScene),
+        } });
       }
       return result;
     });
@@ -507,12 +521,18 @@ export async function restoreSceneDraft(
     const diskScene = disk.ok ? parseScene(disk) : null;
     if (!diskScene) throw new Error(disk.error || "Não foi possível conferir o arquivo salvo; rascunho preservado.");
     const diskJson = JSON.stringify(diskScene);
+    const hydratedDisk = await hydrateSceneResult(projectDir, disk);
+    if (!stillCurrent()) return false;
+    if (!hydratedDisk) throw new Error("Não foi possível conferir os grafos salvos.");
+    const diskGraphs = hydratedDisk.graphs ?? sceneGraphBaseline(hydratedDisk.sourceScene, hydratedDisk.resolvedScene);
     const lastObservedDisk = state.sceneDraftState.diskSourceJson ?? state.sceneDiskBaseline?.sourceSceneJson;
     const diskChangedSincePrompt = lastObservedDisk && !sceneSourcesEqual(lastObservedDisk, diskJson);
     const divergent = !draft.baseSourceSceneJson || !sceneSourcesEqual(draft.baseSourceSceneJson, diskJson);
-    if (diskChangedSincePrompt || (divergent && !options.acceptDiskChange)) {
+    const graphChanges = Object.keys(diskGraphs).length > 0
+      && (!draft.baseGraphs || !sceneSourcesEqual(JSON.stringify(draft.baseGraphs), JSON.stringify(diskGraphs)));
+    if (diskChangedSincePrompt || ((divergent || graphChanges) && !options.acceptDiskChange)) {
       state.setSceneDraftState({ status: "conflict", revision: draft.revision ?? null, savedAt: draft.savedAt,
-        message: "O arquivo salvo difere da base do rascunho (ou a base antiga é desconhecida). Escolha explicitamente qual conteúdo abrir; nada foi gravado.", diskSourceJson: diskJson });
+        message: "A cena ou os grafos salvos diferem da base do rascunho (ou a base antiga é desconhecida). Escolha explicitamente qual conteúdo abrir.", diskSourceJson: diskJson });
       return false;
     }
     const resolvedResult = await resolveScenePrefabs(projectDir, source);
@@ -525,7 +545,7 @@ export async function restoreSceneDraft(
       throw new Error("O rascunho mudou durante a recuperação. Leia novamente; nenhuma edição foi substituída.");
     }
     if (!stillCurrent()) return false;
-    useEditorStore.setState({ sceneDiskBaseline: { projectDir, scenePath: activeScenePath, sourceSceneJson: diskJson } });
+    useEditorStore.setState({ sceneDiskBaseline: { projectDir, scenePath: activeScenePath, sourceSceneJson: diskJson, graphs: diskGraphs } });
     if (diskChangedSincePrompt || !state.sceneDiskBaseline || !sceneSourcesEqual(state.sceneDiskBaseline.sourceSceneJson, diskJson)) {
       state.setSceneSaveState({ status: "idle", revision: null, at: null, message: null });
     }

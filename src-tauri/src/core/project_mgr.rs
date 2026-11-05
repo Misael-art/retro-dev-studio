@@ -15658,7 +15658,8 @@ pub fn save_scene(project_dir: &Path, scene_path: &str, scene: &Scene) -> Result
     validate_scene_path(scene_path)?;
     let scene = migrate_scene(scene.clone());
     validate_scene(&scene)?;
-    write_json(project_dir.join(scene_path), &scene)
+    let guard = super::scene_save::begin(project_dir)?;
+    super::scene_save::commit(project_dir, scene_path, &scene, &BTreeMap::new(), &guard)
 }
 
 pub fn update_project_target(project_dir: &Path, target: &str) -> Result<Project, LoadError> {
@@ -17053,6 +17054,7 @@ pub fn sgdk_asset_authoring(project_dir: &Path) -> HashMap<String, SgdkAssetAuth
 /// Le e desserializa um arquivo de cena (ex: `scenes/level_01.json`).
 pub fn load_scene(project_dir: &Path, scene_path: &str) -> Result<Scene, LoadError> {
     validate_scene_path(scene_path)?;
+    super::scene_save::recover(project_dir)?;
 
     let full_path = project_dir.join(scene_path);
 
@@ -17085,20 +17087,32 @@ pub fn load_scene(project_dir: &Path, scene_path: &str) -> Result<Scene, LoadErr
 }
 
 pub fn resolve_prefabs(project_dir: &Path, scene: &Scene) -> Result<Scene, LoadError> {
+    resolve_prefabs_with_graph_baseline(project_dir, scene).map(|(resolved, _)| resolved)
+}
+
+pub(crate) fn resolve_prefabs_with_graph_baseline(
+    project_dir: &Path,
+    scene: &Scene,
+) -> Result<(Scene, BTreeMap<String, String>), LoadError> {
+    super::scene_save::recover(project_dir)?;
+    let mut graphs = BTreeMap::new();
     let entities = scene
         .entities
         .iter()
         .map(|entity| {
             let mut stack = Vec::new();
             let resolved_entity = resolve_entity_prefab(project_dir, entity, &mut stack)?;
-            resolve_entity_logic_graph(project_dir, &resolved_entity)
+            resolve_entity_logic_graph(project_dir, &resolved_entity, &mut graphs)
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(Scene {
-        entities,
-        ..scene.clone()
-    })
+    Ok((
+        Scene {
+            entities,
+            ..scene.clone()
+        },
+        graphs,
+    ))
 }
 
 pub fn load_legacy_sgdk_index(project_dir: &Path) -> Result<Option<LegacySgdkIndex>, LoadError> {
@@ -17126,16 +17140,18 @@ pub fn load_legacy_sgdk_index(project_dir: &Path) -> Result<Option<LegacySgdkInd
     Ok(Some(index))
 }
 
-pub fn sync_external_graph_refs(
+pub fn collect_external_graph_refs(
     project_dir: &Path,
     source_scene: &mut Scene,
     resolved_scene: &Scene,
-) -> Result<(), LoadError> {
+) -> Result<BTreeMap<PathBuf, String>, LoadError> {
+    validate_scene(source_scene)?;
+    validate_scene(resolved_scene)?;
+    let mut writes = BTreeMap::new();
     for source_entity in &mut source_scene.entities {
         let Some(source_logic) = source_entity.components.logic.as_mut() else {
             continue;
         };
-
         let Some(graph_ref) = source_logic
             .graph_ref
             .as_deref()
@@ -17144,13 +17160,11 @@ pub fn sync_external_graph_refs(
         else {
             continue;
         };
-
         let resolved_logic = resolved_scene
             .entities
             .iter()
             .find(|entity| entity.entity_id == source_entity.entity_id)
             .and_then(|entity| entity.components.logic.as_ref());
-
         let Some(graph_json) = resolved_logic
             .and_then(|logic| logic.graph.as_deref())
             .map(str::trim)
@@ -17158,31 +17172,28 @@ pub fn sync_external_graph_refs(
         else {
             continue;
         };
-
         let full_path = graph_write_path(project_dir, graph_ref)?;
-        if let Some(parent) = full_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| {
-                LoadError(format!(
-                    "Nao foi possivel criar diretorio para graph_ref '{}': {}",
-                    graph_ref, error
-                ))
-            })?;
+        let value = serde_json::from_str::<serde_json::Value>(graph_json)
+            .map_err(|e| LoadError(format!("Graph '{graph_ref}' invalido: {e}")))?;
+        let graph_json = render_line_mapped_graph(value);
+        if let Some(previous) = writes.insert(full_path, graph_json.clone()) {
+            if previous != graph_json {
+                return Err(LoadError(format!(
+                    "Graph compartilhado '{graph_ref}' tem edicoes divergentes."
+                )));
+            }
         }
-        // Keep one node per line so node source mappings stay line-accurate after edits.
-        let graph_json = serde_json::from_str::<serde_json::Value>(graph_json)
-            .map(render_line_mapped_graph)
-            .unwrap_or_else(|_| graph_json.to_string());
-        fs::write(&full_path, graph_json).map_err(|error| {
-            LoadError(format!(
-                "Nao foi possivel escrever graph_ref '{}' para entidade '{}': {}",
-                graph_ref, source_entity.entity_id, error
-            ))
-        })?;
         source_logic.graph = None;
         source_logic.graph_origin = Some("user_edited_ref".to_string());
     }
+    Ok(writes)
+}
 
-    Ok(())
+pub(crate) fn external_graph_baseline(
+    project_dir: &Path,
+    scene: &Scene,
+) -> Result<BTreeMap<String, String>, LoadError> {
+    resolve_prefabs_with_graph_baseline(project_dir, scene).map(|(_, graphs)| graphs)
 }
 
 pub fn migrate_project(mut project: Project) -> Project {
@@ -18105,7 +18116,7 @@ fn validate_build_config(build: &BuildConfig) -> Result<(), LoadError> {
     }
 }
 
-fn validate_scene_path(scene_path: &str) -> Result<(), LoadError> {
+pub(super) fn validate_scene_path(scene_path: &str) -> Result<(), LoadError> {
     let trimmed = scene_path.trim();
     if trimmed.is_empty() {
         return Err(LoadError(
@@ -18255,7 +18266,11 @@ fn normalize_prefab_ref(prefab_ref: &str) -> Result<PathBuf, LoadError> {
     Ok(relative)
 }
 
-fn resolve_entity_logic_graph(project_dir: &Path, entity: &Entity) -> Result<Entity, LoadError> {
+fn resolve_entity_logic_graph(
+    project_dir: &Path,
+    entity: &Entity,
+    graphs: &mut BTreeMap<String, String>,
+) -> Result<Entity, LoadError> {
     let Some(logic) = entity.components.logic.as_ref() else {
         return Ok(entity.clone());
     };
@@ -18274,6 +18289,11 @@ fn resolve_entity_logic_graph(project_dir: &Path, entity: &Entity) -> Result<Ent
         .as_deref()
         .is_some_and(|graph| !graph.trim().is_empty())
     {
+        match fs::read_to_string(graph_write_path(project_dir, graph_ref)?) {
+            Ok(contents) => record_graph_baseline(graphs, graph_ref, &contents)?,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+            Err(e) => return Err(LoadError(format!("Graph '{graph_ref}' ilegivel: {e}"))),
+        }
         return Ok(entity.clone());
     }
 
@@ -18286,6 +18306,7 @@ fn resolve_entity_logic_graph(project_dir: &Path, entity: &Entity) -> Result<Ent
     })?;
 
     let mut resolved_entity = entity.clone();
+    record_graph_baseline(graphs, graph_ref, &content)?;
     if let Some(resolved_logic) = resolved_entity.components.logic.as_mut() {
         resolved_logic.graph = Some(content);
         if resolved_logic.graph_origin.is_none() {
@@ -18294,6 +18315,20 @@ fn resolve_entity_logic_graph(project_dir: &Path, entity: &Entity) -> Result<Ent
     }
 
     Ok(resolved_entity)
+}
+
+fn record_graph_baseline(
+    graphs: &mut BTreeMap<String, String>,
+    reference: &str,
+    contents: &str,
+) -> Result<(), LoadError> {
+    if graphs
+        .insert(reference.to_string(), contents.to_string())
+        .is_some_and(|before| before != contents)
+    {
+        return Err(LoadError(format!("Graph '{reference}' mudou durante a leitura. Reabra a cena para obter uma base consistente.")));
+    }
+    Ok(())
 }
 
 fn graph_path(project_dir: &Path, graph_ref: &str) -> Result<PathBuf, LoadError> {
@@ -18311,7 +18346,7 @@ fn graph_path(project_dir: &Path, graph_ref: &str) -> Result<PathBuf, LoadError>
     Ok(full_path)
 }
 
-fn graph_write_path(project_dir: &Path, graph_ref: &str) -> Result<PathBuf, LoadError> {
+pub(super) fn graph_write_path(project_dir: &Path, graph_ref: &str) -> Result<PathBuf, LoadError> {
     let relative = normalize_graph_ref(graph_ref)?;
     Ok(project_dir.join("graphs").join(relative))
 }
@@ -20284,8 +20319,18 @@ void tick_player(void) {\n\
             ..source_scene.clone()
         };
 
-        sync_external_graph_refs(&project_dir, &mut source_scene, &resolved_scene)
-            .expect("sync external graphs");
+        let writes = collect_external_graph_refs(&project_dir, &mut source_scene, &resolved_scene)
+            .expect("prepare external graphs");
+        let guard = super::super::scene_save::begin(&project_dir).unwrap();
+        super::super::scene_save::commit(
+            &project_dir,
+            "scenes/main.json",
+            &source_scene,
+            &writes,
+            &guard,
+        )
+        .unwrap();
+        drop(guard);
 
         let saved_graph = fs::read_to_string(project_dir.join("graphs").join("player_logic.json"))
             .expect("read saved graph");

@@ -19,6 +19,7 @@ pub mod rom_mastering;
 pub mod rom_scene_capture;
 pub mod rom_sprite_link;
 pub mod runtime_contracts;
+pub(crate) mod scene_save;
 pub mod sgdk_c_graph;
 pub mod sgdk_corpus_inventory;
 pub mod sgdk_pattern_templates;

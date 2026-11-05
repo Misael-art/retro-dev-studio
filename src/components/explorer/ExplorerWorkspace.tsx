@@ -438,7 +438,7 @@ export default function ExplorerWorkspace({
 
       setSelectedEntityId(null);
       setActiveScenePath(result.scene_path);
-      setActiveScene(hydrated.resolvedScene, hydrated.sourceScene);
+      setActiveScene(hydrated.resolvedScene, hydrated.sourceScene, hydrated.graphs);
       setSelection({
         kind: "scene",
         scene: {

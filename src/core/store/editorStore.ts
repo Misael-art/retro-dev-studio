@@ -81,7 +81,18 @@ export type SceneDiskBaseline = {
   projectDir: string;
   scenePath: string;
   sourceSceneJson: string;
+  graphs?: Record<string, string>;
 };
+
+export function sceneGraphBaseline(source: Scene, resolved: Scene): Record<string, string> {
+  const snapshots: Record<string, string> = {};
+  for (const entity of source.entities) {
+    const reference = entity.components.logic?.graph_ref;
+    const graph = resolved.entities.find((candidate) => candidate.entity_id === entity.entity_id)?.components.logic?.graph;
+    if (reference && graph !== undefined) snapshots[reference] = graph;
+  }
+  return snapshots;
+}
 
 export interface HwStatus {
   vram_used: number;
@@ -434,7 +445,7 @@ export interface StoreActions {
   setHwValidationError: (revision: number, error: string) => void;
   requestHwValidationRefresh: () => void;
   resetHwValidation: () => void;
-  setActiveScene: (scene: Scene | null, sourceScene?: Scene | null) => void;
+  setActiveScene: (scene: Scene | null, sourceScene?: Scene | null, graphs?: Record<string, string>) => void;
   /**
    * Substitui cena resolvida e cena-fonte numa ÚNICA entrada de desfazer (ex.: remover exceção local
    * de uma instância e re-resolver o modelo). Preserva seleção e histórico.
@@ -1043,7 +1054,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       selectedEntityId: resolveSceneSelection(resolved, state.selectedEntityId),
       sceneRevision: state.sceneRevision + 1,
     })),
-  setActiveScene: (scene, sourceScene = scene) =>
+  setActiveScene: (scene, sourceScene = scene, graphs) =>
     set((state) => {
       const nextRevision = scene ? state.sceneRevision + 1 : 0;
       const nextValidationState =
@@ -1066,6 +1077,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           projectDir: state.activeProjectDir,
           scenePath: state.activeScenePath,
           sourceSceneJson: JSON.stringify(sourceScene),
+          graphs: graphs ?? (scene ? sceneGraphBaseline(sourceScene, scene) : {}),
         } : null,
         sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
         selectedEntityId: resolveSceneSelection(scene, state.selectedEntityId),

@@ -186,7 +186,7 @@ export default function HierarchyPanel({
 
       setSelectedEntityId(null);
       setActiveScenePath(result.scene_path);
-      setActiveScene(hydrated.resolvedScene, hydrated.sourceScene);
+      setActiveScene(hydrated.resolvedScene, hydrated.sourceScene, hydrated.graphs);
       logMessage(
         "success",
         `[Hierarchy] Cena ativa: ${hydrated.resolvedScene.display_name ?? hydrated.resolvedScene.scene_id}`
@@ -250,7 +250,8 @@ export default function HierarchyPanel({
         setActiveScenePath(result.scene_path);
         setActiveScene(
           hydrated?.resolvedScene ?? null,
-          hydrated?.sourceScene ?? null
+          hydrated?.sourceScene ?? null,
+          hydrated?.graphs
         );
         lastHydratedProjectDir = hydrated ? projectDirAtStart : null;
         if (!result.ok) {

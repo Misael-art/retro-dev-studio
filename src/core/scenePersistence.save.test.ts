@@ -114,6 +114,27 @@ describe("persistActiveScene", () => {
     expect(useEditorStore.getState().sceneSaveState).toMatchObject({ status: "saved", revision: 5 });
   });
 
+  it("checks the loaded graph snapshot and takes the next baseline from the native receipt", async () => {
+    const source = scene(77);
+    source.entities[0].components.logic = { graph_ref: "graphs/player.json", variables: {} };
+    const resolved = structuredClone(source);
+    resolved.entities[0].components.logic!.graph = '{"nodes":[]}';
+    const state = useEditorStore.getState();
+    state.setActiveScene(resolved, source);
+    state.replaceScenesWithHistory(resolved, source);
+    const canonicalGraphs = { "graphs/player.json": '{\n"nodes": []\n}' };
+    mocks.saveSceneData.mockResolvedValue({
+      ok: true, message: "", scene_json: JSON.stringify(source), graphs: canonicalGraphs,
+    });
+    expect(await persistActiveScene("/tmp/project", "Salvar")).toBe(true);
+    expect(mocks.saveSceneData.mock.calls[0][5]).toEqual({ "graphs/player.json": '{"nodes":[]}' });
+    expect(useEditorStore.getState().sceneDiskBaseline?.graphs).toEqual(canonicalGraphs);
+    mocks.saveSceneData.mockResolvedValue({ ok: false, conflict: true, message: "Grafo externo alterado", scene_json: JSON.stringify(source) });
+    expect(await persistActiveScene("/tmp/project", "Salvar")).toBe(false);
+    expect(mocks.saveSceneData.mock.calls[1][5]).toEqual(canonicalGraphs);
+    expect(useEditorStore.getState().activeScene?.entities[0].components.logic?.graph).toBe('{"nodes":[]}');
+  });
+
   it("saving the loaded disk scene preserves a different draft from the interrupted session", async () => {
     const key = sceneDraftStorageKey("/tmp/project");
     const raw = JSON.stringify({ schemaVersion: 2, projectDir: "/tmp/project", scenePath: "scenes/main.json",

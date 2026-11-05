@@ -434,6 +434,7 @@ export interface ResolveSceneResult {
   ok: boolean;
   error: string;
   scene_json: string;
+  graphs?: Record<string, string>;
 }
 
 // ── IPC wrappers ──────────────────────────────────────────────────────────────
@@ -455,9 +456,10 @@ export function saveSceneData(
   sceneJson: string,
   scenePath?: string,
   resolvedSceneJson?: string,
-  expectedSceneJson?: string
-): Promise<{ ok: boolean; message: string; scene_json?: string | null; conflict?: boolean }> {
-  return invoke("save_scene_data", { projectDir, sceneJson, scenePath, resolvedSceneJson, expectedSceneJson });
+  expectedSceneJson?: string,
+  expectedGraphs?: Record<string, string>
+): Promise<{ ok: boolean; message: string; scene_json?: string | null; conflict?: boolean; graphs?: Record<string, string> }> {
+  return invoke("save_scene_data", { projectDir, sceneJson, scenePath, resolvedSceneJson, expectedSceneJson, expectedGraphs });
 }
 
 export function listScenes(projectDir: string): Promise<SceneInfo[]> {
