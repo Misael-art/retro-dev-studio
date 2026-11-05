@@ -40,6 +40,31 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
 
+// Library identity and loaded ROM identity have different sources. Never use
+// the ROM digest as evidence of which native core was exercised.
+export async function collectCoreIdentity(core) {
+  if (!core?.core_path || !path.isAbsolute(core.core_path)) {
+    throw new Error("Observed core has no absolute library path; identity is unconfirmed.");
+  }
+  return {
+    label: core.core_label,
+    path: core.core_path,
+    sha256: createHash("sha256").update(await readFile(core.core_path)).digest("hex"),
+    rom_sha256: core.rom_sha256,
+    frames_run: core.frames_run,
+    framebuffer_sha256: core.framebuffer_sha256,
+  };
+}
+
+export function summarizeReportSteps(steps) {
+  return {
+    total: steps.length,
+    passed: steps.filter((step) => step.status === "passed").length,
+    failed: steps.filter((step) => step.status === "failed").length,
+    pending: steps.filter((step) => !["passed", "failed"].includes(step.status)).length,
+  };
+}
+
 function parseElf32Symbols(elf) {
   if (elf.length < 52 || elf.subarray(0, 4).toString("ascii") !== "\x7fELF" || elf[4] !== 1) {
     throw new Error("Expected the SGDK-linked ELF32 image at out/rom.out");
@@ -5936,7 +5961,7 @@ async function runMugenRealScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, 
   const canvas = await js(`const c=document.querySelector('[data-testid="viewport-game-canvas"]');const d=c.getContext('2d').getImageData(0,0,c.width,c.height);return {width:c.width,height:c.height,rgba:Array.from(d.data),png:c.toDataURL('image/png')};`);
   report.core_canvas_equal=core.framebuffer_width===canvas.width&&core.framebuffer_height===canvas.height&&Buffer.from(core.framebuffer_rgba).equals(Buffer.from(canvas.rgba));
   if (!report.core_canvas_equal) fail("Framebuffer do core difere do canvas pausado.");
-  report.core = {label:core.core_label,path:core.core_path,sha256:await hashFile(core.core_path),frames_run:core.frames_run,framebuffer_sha256:core.framebuffer_sha256};
+  report.core = await collectCoreIdentity(core);
   await writeFile(path.join(output,"canvas-paused.png"),Buffer.from(canvas.png.split(",")[1],"base64"));
   await writeFile(path.join(output,"core-paused.rgba"),Buffer.from(core.framebuffer_rgba));
   const frames=await js("CanvasRenderingContext2D.prototype.putImageData=window.__mugenRealRec.orig;return window.__mugenRealRec.frames;");
@@ -8833,7 +8858,11 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
     contract: "docs/studio_grafico/MISSION.md#adendo-h", probe: "RAM via emulator_read_memory e framebuffer do core (emulator_observe); sondas de observacao", steps: [], artifacts: [] };
   const js = (script, args = []) => executeScript(sessionId, script, args);
   const shot = async (label) => addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label);
-  const step = (name, detail = {}) => { report.steps.push({ step: name, status: "passed", ...detail }); console.log(`[studio-paletas] ${name}`); };
+  const step = (name, detail = {}) => {
+    report.steps.push({ step: name, status: "passed", ...detail });
+    report.summary = summarizeReportSteps(report.steps);
+    console.log(`[studio-paletas] ${name} (${report.summary.passed}/${report.summary.total})`);
+  };
   const state = () => readAutomationState(sessionId);
   const exists = (id) => js(`return !!document.querySelector('[data-testid="'+arguments[0]+'"]');`, [id]);
   const attr = (id, name) => js(`return document.querySelector('[data-testid="'+arguments[0]+'"]')?.getAttribute(arguments[1]) ?? null;`, [id, name]);
@@ -9902,7 +9931,7 @@ async function runMugenOriginalScenario(sessionId, timeoutMs, uiBootstrapTimeout
   const canvas = await js(`const c=document.querySelector('[data-testid="viewport-game-canvas"]');const d=c.getContext('2d').getImageData(0,0,c.width,c.height);return {width:c.width,height:c.height,rgba:Array.from(d.data)};`);
   report.core_canvas_equal = core.framebuffer_width === canvas.width && core.framebuffer_height === canvas.height && Buffer.from(core.framebuffer_rgba).equals(Buffer.from(canvas.rgba));
   if (!report.core_canvas_equal) fail("Framebuffer do core difere do canvas pausado.");
-  report.core = { label: core.core_label, path: core.core_path, sha256: await hashFile(core.core_path), frames_run: core.frames_run, framebuffer_sha256: core.framebuffer_sha256 };
+  report.core = await collectCoreIdentity(core);
   const runFrameCalls = log.events.filter((e) => e.cmd === "emulator_run_frame");
   const completed = runFrameCalls.filter((e) => e.end !== undefined && !e.error).length;
   const tickDelta = tickEnd - tickBefore;
@@ -10334,7 +10363,7 @@ async function runSnesGuidedAuthoringScenario(sessionId, timeoutMs, onProjectCre
     const core = await executeAsyncScript(sessionId, `const done=arguments[arguments.length-1];
       const invoke=window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke;
       invoke("emulator_observe").then(done).catch(e=>done({error:String(e)}));`);
-    report.core = { label: core.core_label, sha256: core.rom_sha256 };
+    report.core = await collectCoreIdentity(core);
     if (!/snes9x/i.test(core.core_label ?? "") || core.rom_sha256 !== build.rom_sha256) fail(`SNES guided starter used an unexpected core/ROM: ${JSON.stringify(report.core)}`);
     addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-running.png`), "SNES guided starter in the official core");
     await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");

@@ -1,3 +1,9 @@
+### Q01 — identidade correta da biblioteca e da ROM, 2026-11-05
+
+D01 publicado local/remoto `ceea89394979df33245e245eff485bdcc65f7356`, PR #112 atualizado. Seis checks obrigatórios ainda em andamento na primeira consulta, dois opcionais skipped. Q01 estende o runner existente com leitura única do SHA da biblioteca informada pelo core e campo separado de ROM; o contador Ken deriva dos registros de etapas, inclusive estados pendentes. Oito regressões focadas PASS (`08-21-00-182Z-163420`), sintaxe/diff PASS; lint `08-23-27-944Z-173420` e árvore `08-23-40-509Z-173416` PASS.
+
+Starter SNES no candidato `2931ca1a…d8a26`: **4/4 PASS**, recibo `08-21-27-328Z-165313`, relatório `snes-guided-authoring-2026-11-05T08-22-09-491Z-report.json`. Biblioteca Snes9x SHA `f7eb400380a18e94b996acfae5a22fa4261c8ff90fa24c213336548925036442`, ROM distinta `7f6e936598ee8bee97829e886e538f82b4b4b5a02d1d1621ead5372c25c0ffe3` igual em build/core/export. O digest da biblioteca foi recalculado e coincide com o lock. São provas Tauri/Xvfb/PVSnesLib/Snes9x oficiais; sem aceite humano/físico. O relatório histórico Ken continua associado ao seu binário, e o contador derivado confirma 16/16; não é reteste Ken.
+
 ### D01 — recuperação de cena/grafos no Tauri, 2026-11-05 (validação local concluída; publicação do incremento)
 
 Base publicada `0efb7cb1`, mesma branch/PR #112. A rota canônica de salvar agora prepara e valida cena/grafos antes dos efeitos, registra intenção por SHA, serializa writers por lock de arquivo e usa o writer atômico existente. Ao reabrir, só retoma arquivos nos estados anterior/posterior conhecidos; conflito, schema desconhecido e corrupção permanecem preservados. Base de grafos externos, inclusive herdados de prefab, acompanha hidratação, rascunho e save no IPC/GUI. A I/O dessas rotas saiu do loop da UI. Intenção que comprovadamente não produziu qualquer efeito pode ser encerrada como abortada; parcial/incerta permanece pendente.
