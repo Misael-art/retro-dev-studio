@@ -72,7 +72,7 @@
 - Fixtures canonicas devem permanecer `BYOR-safe`: sem ROM comercial, sem depender de corpus local solto e sem versionar artefatos gerados em `build/`.
 - O backend deve conseguir `Build -> Load ROM -> Run frame` em modo headless.
 - O app desktop deve conseguir `Build -> Load ROM -> Run frames` via Tauri/WebDriver no runner canonico `scripts/e2e-tauri-build-run.mjs`.
-- O cenario `qa-rc` do runner canonico deve conseguir reproduzir o roteiro RC `A-G` e gerar `src-tauri/target-test/validation/manual-qa-status.json` com screenshots anexas da propria rodada. O bloco G deve incluir SGDK Logic: import summary, Logic graph, Source Mapping, Gap/Bridge panel e jogo rodando apos Build & Run quando o host/toolchain permitir.
+- O cenario `qa-rc` do runner canonico deve conseguir reproduzir o roteiro RC automatizado `A-H` e gerar `src-tauri/target-test/validation/manual-qa-status.json` com screenshots anexas da propria rodada. O bloco G deve incluir SGDK Logic: import summary, Logic graph, Source Mapping, Gap/Bridge panel e jogo rodando apos Build & Run quando o host/toolchain permitir.
 - Relatorios exportaveis de capability diagnostics pertencem ao projeto do usuario em `<project>/.rds/reports/...`; nao devem ser versionados como artefatos do app nem usados como substituto de evidencia institucional fresca.
 - Evidencia SGDK Logic fresca (rodada 49, 2026-05-20): `manual-qa-status.json` gerado em `2026-05-20T17:49:35.309Z` com screenshots `qa-rc-2026-05-20T17-49-07-349Z-G-scene-import-summary.png`, `G-logic-fsm-graph.png`, `G-node-source-mapping.png`, `G-gap-bridge-panel.png` e `G-sgdk-chain.png`. O bloco G deve continuar tratando grafo heuristico sem AST/FSM real como gap bloqueante e nunca como equivalencia gameplay certificada.
 - O workflow dedicado `.github/workflows/desktop-e2e.yml` e o entrypoint institucional para repetir esse smoke em Windows, com `workflow_dispatch`, `workflow_call` e gatilhos `push`/`pull_request` filtrados por caminho, ja validado em runner GitHub/Windows real.
@@ -96,7 +96,7 @@
 11. `node scripts/e2e-tauri-build-run.mjs --skip-build --native-driver .\toolchains\webdriver\msedgedriver.exe` quando a mudanca tocar o fluxo publico `Build -> Load ROM -> Run frames`.
 12. `npm run test:e2e:desktop:qa-rc` quando a mudanca tocar onboarding, shell principal, camadas, viewport editavel, inspector, persistencia ou o fluxo desktop `Build & Run`.
 13. Suites de corpus/semantica SGDK aplicaveis: `sgdk_corpus_inventory_real_corpus_report`, `sgdk_logic`, `sgdk_logic_real_corpus_vertical_reports`, `sgdk_matrix_corpus_`, `official_sgdk_nocode_game_builds_and_runs_with_real_toolchain` e `sgdk_corpus_real_build_rom_emulation_report`, sempre com os flags documentados pelos proprios testes e corpus BYOR quando exigido.
-14. `npm run release:readiness:promotion` somente na rodada institucional, com QA `A-G` quando o escopo tocar SGDK/desktop e no minimo `A-F` nos demais casos.
+14. `npm run release:readiness:promotion` somente na rodada institucional, com evidência automatizada e aceite humano separados, ambos A–H, conforme §3.1. A automação não aprova a observação humana.
 15. Em Windows com policy que bloqueia bootstrap interno do driver, usar `--external-driver`; em falha `DevToolsActivePort`/`chrome not reachable`, executar `scripts/diagnose-desktop-e2e.ps1 -SessionProbe` e registrar o resultado.
 16. Atualizar Memory Bank e, somente se a maturidade do produto mudar, `docs/03_ROADMAP_MVP.md`.
 
@@ -113,13 +113,15 @@
 ### 3.1 Agregacao canonica de readiness
 - `node scripts/release-readiness.mjs` gera um snapshot objetivo do estado de release em `src-tauri/target-test/validation/release-readiness.json` e `release-readiness.md`.
 - `npm run release:readiness:baseline` reexecuta os 6 gates locais e, em Windows, tambem dispara automaticamente `build:debug` e `powershell -NoProfile -ExecutionPolicy Bypass -File scripts\validate-upstream-windows.ps1 -SkipRustTests`; se `toolchains/webdriver/msedgedriver.exe` estiver disponivel, o agregador tambem executa o `desktop E2E` canonico com `--skip-build`.
-- `npm run release:readiness:promotion` e a fotografia institucional conservadora para RC -> beta/producao: ele reexecuta a baseline, consome `src-tauri/target-test/validation/manual-qa-status.json` e falha em modo `strict` se qualquer bloco `A-G` aplicavel continuar pendente (`A-F` continua sendo o minimo para escopos sem SGDK/desktop).
+- `npm run release:readiness:promotion` reexecuta a baseline pelo ambiente do launcher, lê a automação em `src-tauri/target-test/validation/manual-qa-status.json` (nome histórico) e o aceite humano independente em `human-qa-status.json`, e falha em `strict` se faltar qualquer bloco A–H em qualquer uma das duas origens. Não apaga nem cria cache Cargo alternativo. A opção histórica `--manual-qa-json` continua somente como alias de entrada **automatizada**; entrada humana usa `--human-qa-json`.
 - Em Windows, o report so deve ficar verde quando `build-report.json`, `upstream-validation.json` e o executavel debug canonico tiverem timestamps frescos da propria rodada.
 - `src-tauri/target-test/validation/build-report.json` deve ser tratado como artefato `fresh-only`: cada execucao registra apenas os modos realmente rodados naquela rodada, sem herdar secoes antigas de `portable`, `msi` ou outros perfis.
-- `src-tauri/target-test/validation/manual-qa-status.json` deve ser tratado como evidencia canonica do roteiro `A-G` quando o escopo tocar SGDK/desktop (`A-F` nos demais casos); screenshots `qa-rc-*.png` da mesma rodada devem acompanhar esse report sempre que a promocao institucional depender do smoke de shell.
+- A automação usa schema `rds-qa-automation/v1`, kind `automated`, scenario `qa-rc`, SHA do executável e do roteiro, identidade Git da rodada e screenshots próprias. Reports antigos sem procedência ficam pendentes; não se retificam retrospectivamente como observação nova. `--candidate-app` identifica por hash o executável avaliado (padrão: debug canônico). Isso identifica o candidato testado; o hash do binário e o commit da execução do roteiro não dispensam o recibo de build que relaciona fonte e executável.
 - Em Windows, os gates Rust da baseline de readiness devem rodar pelo wrapper canonico `scripts/run-cargo-msvc.cmd --manifest-path .\\src-tauri\\Cargo.toml`, e nao por `cargo` cru nem forçando `CARGO_TARGET_DIR=cargo-target-shadow` para esses dois gates.
 - O report deve ser tratado como a fotografia canonica da promocao RC -> beta/producao: artefatos, dirty worktree, baseline, upstream report, QA manual pendente e bloqueadores explicitos.
-- O agregador nao substitui a validacao manual nem o smoke institutional em Windows; ele reduz falso positivo e centraliza evidencias.
+- Aceite humano usa schema `rds-qa-human/v1`, kind `human`, `candidate.app_sha256`, `repository.commit`/`dirty:false`, `generatedAt` válido e `observer` com identificador opaco, `independent:true` e `method:"interactive-session"`. Cada bloco A–H exige status e nota de observação não vazia. O operador registra somente o que foi observado; não gerar flags passed para preencher lacunas. O validador confere formato/procedência declarada, não autentica a existência ou independência da pessoa.
+- Schema desconhecido, arquivo ausente/parcial, candidato/roteiro diferente ou fonte sem identidade verificável ficam pendentes. Só follow-ups exclusivamente documentais podem reutilizar fonte de uma rodada limpa; mudança de produto/roteiro exige nova rodada. A base pública e o upstream precisam ter divergência conhecida; atraso ou referência ausente bloqueiam. Revalidar Git ao final da rodada.
+- O agregador nao substitui a validacao humana nem o smoke institucional em Windows. Sem evidência humana independente não há promoção, mesmo com A–H automatizados aprovados.
 
 ### 3.1.1 Manifesto de distribuicao interna
 - `node scripts/release-manifest.mjs` / `npm run release:manifest` gera `src-tauri/target-test/validation/release-manifest.json`.
@@ -131,7 +133,7 @@
 
 ### 3.2 Criterios de aceite para rodada institucional de beta
 - `npm run release:readiness:promotion` deve fechar verde na propria rodada de promocao.
-- `src-tauri/target-test/validation/manual-qa-status.json` deve registrar os blocos `A-G` aplicaveis como `passed` (`A-F` minimo fora de SGDK/desktop), com screenshots `qa-rc-*.png` da mesma rodada.
+- Os dois reports de §3.1 devem registrar A–H aprovados para o mesmo candidato, com screenshots da automação e notas da observação humana. Ausência não é aprovação.
 - Em Windows, `build-report.json`, `upstream-validation.json` e o executavel debug canonico devem ter timestamps frescos da mesma execucao institucional.
 - O worktree deve estar limpo no momento do snapshot que sera usado como evidencia de promocao.
 - Se o escopo tocar build Mega Drive/SGDK real, a evidencia institucional deve cobrir onboarding, `platformer_seed`, pelo menos um projeto SGDK importado e as fixtures canonicas do smoke upstream oficial.

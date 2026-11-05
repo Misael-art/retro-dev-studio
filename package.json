@@ -69,7 +69,7 @@
     "security:audit": "npm audit --audit-level=high",
     "architecture:metrics": "node scripts/architecture-metrics.mjs",
     "test:watch": "vitest",
-    "release:readiness:promotion": "node scripts/release-readiness.mjs --run-baseline --manual-qa-json src-tauri/target-test/validation/manual-qa-status.json --strict",
+    "release:readiness:promotion": "node scripts/release-readiness.mjs --run-baseline --automated-qa-json src-tauri/target-test/validation/manual-qa-status.json --human-qa-json src-tauri/target-test/validation/human-qa-status.json --strict",
     "tauri": "tauri"
   },
   "dependencies": {

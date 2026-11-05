@@ -1586,6 +1586,8 @@ async function tryAutomationApi(sessionId, methodName, args = [], timeoutMs = 80
 
 function createManualQaReport() {
   return {
+    schema: "rds-qa-automation/v1",
+    kind: "automated",
     generatedAt: null,
     scenario: "qa-rc",
     projectName: "",
@@ -28572,6 +28574,9 @@ async function main() {
       const artifactPrefix = `qa-rc-${artifactTimestamp()}`;
       const manualQaReport = createManualQaReport();
       manualQaReport.app = options.app;
+      manualQaReport.candidate = { app_sha256: createHash("sha256").update(await readFile(options.app)).digest("hex") };
+      manualQaReport.repository = await readGitEvidence();
+      manualQaReport.harness_sha256 = createHash("sha256").update(await readFile(__filename)).digest("hex");
       const uiLayoutOracleRecords = [];
       const uiLayoutShotNames = [];
       let currentBlock = "A";
