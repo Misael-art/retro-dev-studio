@@ -16,7 +16,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Group, Panel } from "react-resizable-panels";
+import { Group, Panel, useDefaultLayout } from "react-resizable-panels";
 import LayoutSplitter from "../common/LayoutSplitter";
 import { useEditorStore, type HwStatus } from "../../core/store/editorStore";
 import { createSpriteEntityFromAsset } from "../../core/editorEntityFactory";
@@ -1601,7 +1601,8 @@ function ArtStudioTimelineSection() {
           </div>
         </div>
 
-        <div className="min-h-0 overflow-x-auto overflow-y-hidden">
+        {/* JV05: a faixa de cartoes nao encolhe ate altura zero; a coluna rola na vertical. */}
+        <div data-testid="artstudio-timeline-cards" className="shrink-0 overflow-x-auto overflow-y-hidden">
           <div className="flex min-h-full gap-3">
             {state.sequences.map((sequence) => {
               const isActive = state.activeSequenceId === sequence.id;
@@ -2668,6 +2669,12 @@ function ArtStudioInspectorSection() {
 }
 
 export default function ArtStudioPanel() {
+  // JV05: o divisor palco/timeline sobrevive a sair e voltar para Arte (mesmo mecanismo do shell).
+  const artLayout = useDefaultLayout({
+    id: "retrodev-artstudio-layout",
+    storage: typeof window !== "undefined" ? localStorage : undefined,
+    panelIds: ["stage", "timeline"],
+  });
   const {
     logMessage,
     activeScene,
@@ -4345,8 +4352,10 @@ export default function ArtStudioPanel() {
         <Group
           orientation="vertical"
           className="min-h-0"
+          defaultLayout={artLayout.defaultLayout}
+          onLayoutChanged={artLayout.onLayoutChanged}
         >
-          <Panel minSize={52} defaultSize={78}>
+          <Panel id="stage" minSize={52} defaultSize={78}>
             <section
           data-testid="artstudio-main-stage"
           className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-[#313244] bg-[linear-gradient(180deg,#111827,#0f172a)] shadow-[0_18px_50px_rgba(0,0,0,0.28)]"
@@ -4508,7 +4517,7 @@ export default function ArtStudioPanel() {
         </section>
           </Panel>
           <LayoutSplitter orientation="vertical" />
-          <Panel minSize={18} defaultSize={22}>
+          <Panel id="timeline" minSize={18} defaultSize={22}>
             <ArtStudioTimelineSection />
           </Panel>
         </Group>

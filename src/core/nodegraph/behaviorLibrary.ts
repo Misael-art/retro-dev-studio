@@ -216,6 +216,8 @@ const movement: BehaviorDefinition = {
     { key: "jump_strength", label: "Forca do salto", kind: "int", min: 8, max: 128, default: 64, help: "Impulso para cima (quanto maior, mais alto)." },
     { key: "jump_animation", label: "Animacao ao saltar", kind: "animation", ofEntityParam: "target" },
     { key: "jump_sound", label: "Som do salto", kind: "sound" },
+    { key: "idle_animation", label: "Animacao parado", kind: "animation", ofEntityParam: "target", help: "Mostrada no chao sem andar. Com corrida, o comportamento escolhe a pose a cada quadro (no ar usa a do salto)." },
+    { key: "run_animation", label: "Animacao andando", kind: "animation", ofEntityParam: "target", help: "Mostrada no chao enquanto anda para qualquer lado." },
   ],
   summarize: (p, context) => {
     const who = entityLabel(context, p.target);
@@ -224,10 +226,16 @@ const movement: BehaviorDefinition = {
     if (p.jump_button) {
       parts.push(`salta (so do chao) com forca ${p.jump_strength} ao apertar ${buttonText(p.jump_button)}${p.jump_animation ? ` (animacao "${p.jump_animation}")` : ""}${p.jump_sound ? ` tocando "${p.jump_sound}"` : ""}`);
     }
+    if (p.idle_animation || p.run_animation) {
+      parts.push(`mostra ${p.idle_animation ? `"${p.idle_animation}" parado` : "a pose atual parado"}${p.run_animation ? ` e "${p.run_animation}" andando` : ""} no chao${p.jump_animation ? ` e "${p.jump_animation}" no ar` : ""}`);
+    }
     return `${parts.join(", ")}.`;
   },
   validate: (p, context, graph) => {
     const errors = commonValidation(movement, p, context, graph);
+    if ((p.idle_animation || p.run_animation) && !(p.idle_animation && p.run_animation)) {
+      errors.push("Animacoes por estado: escolha a animacao parado E a animacao andando (uma so deixaria a pose presa).");
+    }
     const target = context.entities.find((entity) => entity.id === String(p.target ?? ""));
     if (p.jump_button && context.platform === "snes") {
       errors.push('Saltar: no SNES o salto "so do chao" nao e suportado (o estado de apoio existe apenas na fisica do Mega Drive); deixe "Saltar" vazio.');
@@ -237,13 +245,15 @@ const movement: BehaviorDefinition = {
     }
     return errors;
   },
-  build: (p) => {
+  build: (p, instanceId) => {
     const target = String(p.target);
     const speed = Number(p.speed);
+    const states = Boolean(p.idle_animation && p.run_animation);
+    const movingVar = `${instanceId}_moving`;
     const nodes: BuiltNode[] = [
       { role: "right_tick", type: "event_update", label: "A cada quadro (direita)", params: {} },
       { role: "right_input", type: "input_held", label: "Segurar direita", params: { pad: "JOY_1", button: String(p.right_button) } },
-      { role: "right_move", type: "sprite_move", label: "Andar para a direita", params: { target, dx: speed, dy: 0 } },
+      { role: "right_move", type: "sprite_move", label: "Andar para a direita", params: { target, dx: speed, dy: 0, face_direction: 1 } },
     ];
     const edges: BuiltEdge[] = [
       { from: "right_tick", fromPort: "exec", to: "right_input", toPort: "exec" },
@@ -253,12 +263,22 @@ const movement: BehaviorDefinition = {
       nodes.push(
         { role: "left_tick", type: "event_update", label: "A cada quadro (esquerda)", params: {} },
         { role: "left_input", type: "input_held", label: "Segurar esquerda", params: { pad: "JOY_1", button: String(p.left_button) } },
-        { role: "left_move", type: "sprite_move", label: "Andar para a esquerda", params: { target, dx: -speed, dy: 0 } }
+        { role: "left_move", type: "sprite_move", label: "Andar para a esquerda", params: { target, dx: -speed, dy: 0, face_direction: 1 } }
       );
       edges.push(
         { from: "left_tick", fromPort: "exec", to: "left_input", toPort: "exec" },
         { from: "left_input", fromPort: "exec", to: "left_move", toPort: "exec" }
       );
+    }
+    if (states) {
+      // JV09: andar marca a variavel da instancia; um passo por quadro (depois do movimento)
+      // escolhe repouso/corrida no chao ou o salto no ar e limpa a marca. Mesmos nos e compilador.
+      nodes.push({ role: "mark_right", type: "var_set", label: "Marcar andando (direita)", params: { var_name: movingVar, value: 1 } });
+      edges.push({ from: "right_move", fromPort: "exec", to: "mark_right", toPort: "exec" });
+      if (p.left_button) {
+        nodes.push({ role: "mark_left", type: "var_set", label: "Marcar andando (esquerda)", params: { var_name: movingVar, value: 1 } });
+        edges.push({ from: "left_move", fromPort: "exec", to: "mark_left", toPort: "exec" });
+      }
     }
     if (p.jump_button) {
       nodes.push(
@@ -283,6 +303,35 @@ const movement: BehaviorDefinition = {
       if (p.jump_sound) {
         nodes.push({ role: "jump_sound", type: "action_sound", label: "Som do salto", params: { sfx: String(p.jump_sound) } });
         edges.push({ from: last, fromPort: "exec", to: "jump_sound", toPort: "exec" });
+      }
+    }
+    if (states) {
+      nodes.push(
+        { role: "anim_tick", type: "event_update", label: "A cada quadro (animacao)", params: {} },
+        { role: "anim_ground", type: "condition_on_ground", label: "No chao? (animacao)", params: { target } },
+        { role: "anim_read", type: "var_get", label: "Ler andando", params: { var_name: movingVar } },
+        { role: "anim_still", type: "condition_compare", label: "Parado?", params: { operator: "==", b: 0 } },
+        { role: "anim_idle", type: "set_animation_state", label: "Pose parado", params: { target, state: String(p.idle_animation) } },
+        { role: "anim_run", type: "set_animation_state", label: "Pose andando", params: { target, state: String(p.run_animation) } },
+        { role: "anim_clear", type: "var_set", label: "Limpar andando", params: { var_name: movingVar, value: 0 } }
+      );
+      edges.push(
+        { from: "anim_tick", fromPort: "exec", to: "anim_ground", toPort: "exec" },
+        { from: "anim_ground", fromPort: "true", to: "anim_still", toPort: "exec" },
+        { from: "anim_read", fromPort: "value", to: "anim_still", toPort: "a" },
+        { from: "anim_still", fromPort: "true", to: "anim_idle", toPort: "exec" },
+        { from: "anim_still", fromPort: "false", to: "anim_run", toPort: "exec" },
+        { from: "anim_idle", fromPort: "exec", to: "anim_clear", toPort: "exec" },
+        { from: "anim_run", fromPort: "exec", to: "anim_clear", toPort: "exec" }
+      );
+      if (p.jump_animation) {
+        nodes.push({ role: "anim_air", type: "set_animation_state", label: "Pose no ar", params: { target, state: String(p.jump_animation) } });
+        edges.push(
+          { from: "anim_ground", fromPort: "false", to: "anim_air", toPort: "exec" },
+          { from: "anim_air", fromPort: "exec", to: "anim_clear", toPort: "exec" }
+        );
+      } else {
+        edges.push({ from: "anim_ground", fromPort: "false", to: "anim_clear", toPort: "exec" });
       }
     }
     return { nodes, edges };

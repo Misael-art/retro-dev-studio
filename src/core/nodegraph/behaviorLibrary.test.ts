@@ -19,7 +19,7 @@ import { deserializeNodeGraph } from "./nodeDefinitions";
 import { findNodeOverlaps, graphSemanticSignature } from "./nodeLayout";
 import { serializeNodeGraph, type NodeGraph } from "./nodeTypes";
 
-const sprite = (animations: string[] = ["idle", "jump"]) => ({ animations: Object.fromEntries(animations.map((name) => [name, {}])) });
+const sprite = (animations: string[] = ["idle", "jump", "run"]) => ({ animations: Object.fromEntries(animations.map((name) => [name, {}])) });
 const context: BehaviorSceneContext = buildBehaviorSceneContext(
   [
     { entity_id: "fox", display_name: "Raposa", components: { sprite: sprite(), physics: {}, collision: {}, audio: { sfx: { jump: "a.wav" } } } },
@@ -64,6 +64,38 @@ describe("behavior library", () => {
     const reopened = deserializeNodeGraph(serializeNodeGraph(graph));
     expect(reopened.behaviors).toEqual(graph.behaviors);
     expect(validateBehaviorInstances(reopened, context)).toEqual([]);
+  });
+
+  it("chooses idle/run on the ground and jump in the air in the same behavior, and faces the walk direction (JV09/JV10)", () => {
+    const { graph, id, plan } = apply(EMPTY, "platform_movement", moveParams("fox", { idle_animation: "idle", run_animation: "run", jump_animation: "jump" }));
+    expect(plan.summary).toContain('"run" andando');
+    const node = (role: string) => graph.nodes.find((n) => n.id === `${id}__${role}`)!;
+    expect(node("right_move").params.face_direction).toBe(1);
+    expect(node("left_move").params.face_direction).toBe(1);
+    const moving = `${id}_moving`;
+    expect(node("mark_right").params).toMatchObject({ var_name: moving, value: 1 });
+    expect(node("anim_read").params.var_name).toBe(moving);
+    expect(node("anim_idle").params.state).toBe("idle");
+    expect(node("anim_run").params.state).toBe("run");
+    expect(node("anim_air").params.state).toBe("jump");
+    const edge = (from: string, port: string, to: string) =>
+      expect(graph.edges).toEqual(expect.arrayContaining([expect.objectContaining({ fromNode: `${id}__${from}`, fromPort: port, toNode: `${id}__${to}` })]));
+    edge("right_move", "exec", "mark_right");
+    edge("anim_ground", "true", "anim_still");
+    edge("anim_read", "value", "anim_still");
+    edge("anim_still", "true", "anim_idle");
+    edge("anim_still", "false", "anim_run");
+    edge("anim_ground", "false", "anim_air");
+    for (const role of ["anim_idle", "anim_run", "anim_air"]) edge(role, "exec", "anim_clear");
+    // a passagem do quadro de animacao vem depois dos de movimento (ordem dos nos)
+    const order = graph.nodes.map((n) => n.id);
+    expect(order.indexOf(`${id}__anim_tick`)).toBeGreaterThan(order.indexOf(`${id}__left_tick`));
+    expect(findNodeOverlaps(graph)).toEqual([]);
+    // so uma das duas poses de chao e recusada (pose ficaria presa)
+    expect(planApplyBehavior(EMPTY, "platform_movement", moveParams("fox", { idle_animation: "idle" }), context).errors.join(" ")).toContain("parado E");
+    // sem animacoes por estado: nenhum no extra (projetos existentes inalterados)
+    const plain = apply(EMPTY, "platform_movement", moveParams("fox", {}));
+    expect(plain.graph.nodes.some((n) => n.id.includes("anim_"))).toBe(false);
   });
 
   it("keeps two instances on two entities independent (negative control for shared state / wrong target)", () => {

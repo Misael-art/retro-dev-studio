@@ -105,3 +105,16 @@ O PDF ensina o caminho observado e entrega um projeto pronto para reduzir o cust
 Proteção e hashes dos arquivos entregues ficam no manifesto/recibo privado do pacote. A cópia compactada local permanece no mesmo filesystem, sem alegação de recuperação independente. Nenhum asset, ROM, captura ou projeto privado deve entrar no Git público. O roadmap e os aceites humanos permanecem inalterados.
 
 O coordenador longo do driver terminou com 143; a causa não foi isolada e seu recibo original ficou `RUNNING`, preservado. Depois de concluir as capturas/provas, a inspeção confirmou ausência dos PIDs próprios 1715608/1715766/1715770 e de processos com este `RDS_WORK_ROOT`. Só a lease válida e identificada desta missão foi arquivada sob o mutex canônico; recibo separado em `service-cleanup.json`. A trava vazia do operador conservou tamanho e mtime. Esse lançamento interrompido não é certificado nem PASS retroativo; o diagnóstico READY e as provas do aplicativo/core têm recibos próprios.
+
+
+## Implementação da curadoria — 2026-11-05 (lote 1, Experimental)
+
+| ID | Estado | O que mudou | Prova | Falta |
+|---|---|---|---|---|
+| JV06 | corrigido | `PropRow` do Inspector: valor vira botão focável com área mínima e «(vazio)»; Escape cancela, Enter grava | `InspectorPanel.test.tsx` (mouse/teclado em Prefab vazio) | repetir a jornada no Tauri |
+| JV09 | implementado | «Movimento e salto» ganhou «Animação parado/andando»: marca por instância, um passo por quadro escolhe repouso/corrida no chão e salto no ar, com os nós e o compilador existentes (os nove nós da receita, gerados) | `behaviorLibrary.test.ts` | build/core no Tauri; conferir que os ciclos não reiniciam na ROM |
+| JV10 | implementado | `sprite_move` com `face_direction` (opt-in) emite `SPR_setHFlip` pelo sinal de dx; o comportamento liga nos dois lados; outros `sprite_move` inalterados | `sgdk_emitter` `move_sprite_faces_its_direction_only_when_requested` | core/ROM, troca de direção no ar, colisão assimétrica |
+| JV05 | corrigido (parcial) | faixa de cartões da timeline não encolhe a zero; divisor palco/timeline persiste (`useDefaultLayout`, mesmo mecanismo do shell) | tsc + 74 testes ArtStudio | medir 1366×768 e 949×593 no Tauri |
+| JV01, JV02–04, JV07, JV08, JV11–14 | pendentes | — | — | JV01 continua P0: reprodução mínima no owner antes da correção |
+
+Nenhuma destas mudanças foi repetida na jornada nativa; o candidato congelado `4a139…` não certifica este código.

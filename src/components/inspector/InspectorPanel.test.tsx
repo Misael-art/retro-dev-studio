@@ -182,6 +182,42 @@ describe("InspectorPanel", () => {
     container.remove();
   });
 
+  it("keeps an empty Prefab field clickable and editable by mouse and keyboard (JV06)", async () => {
+    const value = () => container.querySelector<HTMLButtonElement>('[data-testid="inspector-prop-prefab-value"]');
+    const input = () => container.querySelector<HTMLInputElement>('[data-testid="inspector-prop-prefab-input"]');
+    const bare = { ...physicsFixtureEntity(), prefab: null } as unknown as Entity;
+    await act(async () => {
+      useEditorStore.setState({ activeScene: { ...EMPTY_SCENE, entities: [bare] }, activeSceneSource: { ...EMPTY_SCENE, entities: [bare] } });
+      await flush();
+    });
+    expect(value()?.tagName).toBe("BUTTON");
+    expect(value()?.dataset.empty).toBe("true");
+    expect(value()?.textContent).toContain("(vazio)");
+    expect(value()?.className).toContain("min-w-");
+    // teclado: botao focavel; Escape cancela sem gravar
+    await act(async () => { value()!.focus(); value()!.click(); await flush(); });
+    expect(input()).not.toBeNull();
+    await act(async () => {
+      input()!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      await flush();
+    });
+    expect(input()).toBeNull();
+    expect(useEditorStore.getState().activeScene?.entities[0].prefab ?? null).toBeNull();
+    // mouse: entrar, digitar e confirmar com Enter
+    await act(async () => { value()!.click(); await flush(); });
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+    await act(async () => {
+      setter.call(input()!, "reference_player.json");
+      input()!.dispatchEvent(new Event("input", { bubbles: true }));
+      await flush();
+    });
+    await act(async () => {
+      input()!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      await flush();
+    });
+    expect(useEditorStore.getState().activeScene?.entities[0].prefab).toBe("reference_player.json");
+  });
+
   it("duplicates a prefab entity without inheriting its manual logic or graph_ref, remapping its behaviors", async () => {
     const context = buildBehaviorSceneContext([{ entity_id: "player", components: { sprite: { animations: {} }, physics: {} } }], []);
     const plan = planApplyBehavior(
@@ -326,7 +362,7 @@ describe("InspectorPanel", () => {
 
   it("persists physics.gravity edits through the canonical entity update path", async () => {
     const row = findRow(container, "Gravity");
-    const valueTrigger = row.querySelector("td:last-child span");
+    const valueTrigger = row.querySelector("td:last-child button");
 
     await act(async () => {
       valueTrigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));

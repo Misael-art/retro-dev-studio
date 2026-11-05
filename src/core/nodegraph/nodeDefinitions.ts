@@ -75,7 +75,7 @@ export const NODE_DEFS: Record<NodeType, Omit<GraphNode, "id" | "x" | "y">> = {
       { id: "dy",     label: "dy", kind: "data", dataType: "int" },
     ],
     outputs: [{ id: "exec", label: "▶", kind: "exec" }],
-    params: { target: "player", dx: 0, dy: 0 },
+    params: { target: "player", dx: 0, dy: 0, face_direction: 0 },
   },
   set_velocity: {
     type: "set_velocity", label: "Set Velocity",
