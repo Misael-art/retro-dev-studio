@@ -408,6 +408,8 @@ export interface SceneInfo {
   path: string;
   scene_id: string;
   display_name: string;
+  /** True for the project's entry scene (where "Testar projeto" starts). */
+  is_entry?: boolean;
 }
 
 export interface LegacySgdkIndex {
@@ -464,6 +466,11 @@ export function saveSceneData(
 
 export function listScenes(projectDir: string): Promise<SceneInfo[]> {
   return invoke("list_scenes", { projectDir });
+}
+
+/** Explicitly sets where the game starts. Opening a scene never changes it. */
+export function setProjectEntryScene(projectDir: string, scenePath: string): Promise<string> {
+  return invoke<string>("set_project_entry_scene", { projectDir, scenePath });
 }
 
 export function switchScene(projectDir: string, scenePath: string): Promise<SceneDataResult> {

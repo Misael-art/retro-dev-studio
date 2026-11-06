@@ -4326,6 +4326,19 @@ async fn resolve_scene_prefabs(
 }
 
 #[tauri::command]
+async fn set_project_entry_scene(
+    project_dir: String,
+    scene_path: String,
+) -> Result<String, String> {
+    run_heavy_result_command("set_project_entry_scene", move || {
+        set_entry_scene(Path::new(&project_dir), &scene_path)
+            .map(|project| project.entry_scene)
+            .map_err(|error| error.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
 async fn switch_scene(project_dir: String, scene_path: String) -> Result<SceneDataResult, String> {
     run_heavy_result_command("switch_scene", move || {
         Ok(switch_scene_impl(project_dir, scene_path))
@@ -4333,8 +4346,12 @@ async fn switch_scene(project_dir: String, scene_path: String) -> Result<SceneDa
     .await
 }
 
+/// Opens a scene for editing. It no longer rewrites `project.entry_scene`: choosing
+/// where the game starts is the explicit `set_project_entry_scene` action.
 fn switch_scene_impl(project_dir: String, scene_path: String) -> SceneDataResult {
-    if let Err(error) = set_entry_scene(Path::new(&project_dir), &scene_path) {
+    if let Err(error) = crate::core::project_mgr::validate_scene_path(&scene_path)
+        .and_then(|_| load_scene(Path::new(&project_dir), &scene_path).map(|_| ()))
+    {
         return SceneDataResult {
             ok: false,
             error: error.to_string(),
@@ -6733,6 +6750,7 @@ pub fn run() {
             get_reference_template_composition,
             resolve_scene_prefabs,
             switch_scene,
+            set_project_entry_scene,
             list_scenes,
             create_scene,
             save_scene_data,
@@ -9505,6 +9523,46 @@ pub extern "C" fn retro_run() {
         assert!(result.selected);
         assert_eq!(result.path, project_dir.to_string_lossy());
         assert!(!result.name.trim().is_empty());
+    }
+
+    #[test]
+    fn switching_scene_no_longer_rewrites_entry_scene_until_explicitly_set() {
+        let project_dir = temp_dir("switch-scene-keeps-entry");
+        create_project_skeleton(&project_dir, "Switch Keeps Entry", "megadrive")
+            .expect("create project skeleton");
+        let other = "scenes/phase_b.json";
+        let mut scene =
+            load_scene(&project_dir, DEFAULT_ENTRY_SCENE).expect("load default entry scene");
+        scene.scene_id = "phase_b".to_string();
+        save_scene(&project_dir, other, &scene).expect("save other scene");
+        let before = std::fs::read(project_dir.join("project.rds")).expect("read project.rds");
+
+        let opened =
+            switch_scene_impl(project_dir.to_string_lossy().to_string(), other.to_string());
+        assert!(opened.ok, "{}", opened.error);
+        assert_eq!(opened.scene_path, other);
+        assert_eq!(
+            std::fs::read(project_dir.join("project.rds")).expect("reread"),
+            before,
+            "opening a scene must not touch project.rds"
+        );
+        let refused = switch_scene_impl(
+            project_dir.to_string_lossy().to_string(),
+            "../x.json".to_string(),
+        );
+        assert!(!refused.ok);
+
+        let entries = |dir: &std::path::Path| {
+            crate::core::project_mgr::list_scenes(dir)
+                .expect("list scenes")
+                .into_iter()
+                .filter(|info| info.is_entry)
+                .map(|info| info.path)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(entries(&project_dir), vec![DEFAULT_ENTRY_SCENE.to_string()]);
+        set_entry_scene(&project_dir, other).expect("explicit entry change");
+        assert_eq!(entries(&project_dir), vec![other.to_string()]);
     }
 
     #[test]

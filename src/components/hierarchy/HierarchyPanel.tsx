@@ -11,6 +11,7 @@ import {
   createScene,
   getSceneData,
   listScenes,
+  setProjectEntryScene,
   switchScene,
   type SceneInfo,
 } from "../../core/ipc/sceneService";
@@ -154,6 +155,12 @@ export default function HierarchyPanel({
   const [isCreatingScene, setIsCreatingScene] = useState(false);
   const [sceneItems, setSceneItems] = useState<SceneInfo[]>([]);
   const [filterText, setFilterText] = useState("");
+  const [settingEntry, setSettingEntry] = useState(false);
+  const entryScenePath = sceneItems.find((item) => item.is_entry)?.path ?? null;
+  // Publish the backend-reported entry scene so the toolbar can tell "this scene" from "the project".
+  useEffect(() => {
+    useEditorStore.getState().setProjectEntryScenePath(entryScenePath);
+  }, [entryScenePath]);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const hydrationGenerationRef = useRef(0);
 
@@ -673,7 +680,7 @@ export default function HierarchyPanel({
               ) : (
                 sceneItems.map((scene) => (
                   <option key={scene.path} value={scene.path}>
-                    {scene.display_name}
+                    {scene.display_name}{scene.is_entry ? " · entrada do jogo" : ""}
                   </option>
                 ))
               )}
@@ -687,6 +694,29 @@ export default function HierarchyPanel({
               {isCreatingScene ? "Criando..." : "Nova Cena"}
             </button>
           </div>
+          {activeProjectDir && activeSceneSelectValue && entryScenePath && activeSceneSelectValue !== entryScenePath ? (
+            <div data-testid="hierarchy-entry-scene" className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-[#7f849c]">
+              <span>O jogo começa em {sceneItems.find((item) => item.is_entry)?.display_name ?? entryScenePath}.</span>
+              <button
+                type="button"
+                data-testid="hierarchy-set-entry-scene"
+                disabled={settingEntry || sceneBusy}
+                onClick={() => {
+                  setSettingEntry(true);
+                  void setProjectEntryScene(activeProjectDir, activeSceneSelectValue)
+                    .then(async () => {
+                      await refreshSceneCatalog(activeProjectDir);
+                      useEditorStore.getState().logMessage("info", `[Cena] Entrada do jogo definida: '${activeSceneSelectValue}'.`);
+                    })
+                    .catch((error) => useEditorStore.getState().logMessage("error", `[Cena] Não foi possível definir a entrada: ${String(error)}`))
+                    .finally(() => setSettingEntry(false));
+                }}
+                className="rounded border border-[#313244] px-1.5 py-0.5 font-semibold text-[#cdd6f4] hover:border-[#89b4fa] disabled:opacity-40"
+              >
+                Definir esta como entrada
+              </button>
+            </div>
+          ) : null}
           {!activeSceneSelectValue ? (
             <p className="mt-1 truncate text-[10px] text-[#7f849c]">Nenhuma cena ativa</p>
           ) : null}

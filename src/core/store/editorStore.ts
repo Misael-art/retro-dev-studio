@@ -419,6 +419,9 @@ export interface StoreActions {
   /** R3-08: editor-only object locks per scene path (never persisted into the scene). */
   lockedEntityIdsByScene: Record<string, string[]>;
   toggleEntityLock: (scenePath: string, entityId: string) => void;
+  /** Project entry scene as last reported by the backend scene catalog (null = unknown). */
+  projectEntryScenePath: string | null;
+  setProjectEntryScenePath: (path: string | null) => void;
   setActiveViewportTab: (id: string) => void;
   setArtStudioAssetPath: (path: string | null) => void;
   setExplorerAssetPath: (path: string | null) => void;
@@ -848,6 +851,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   selectedEntityId: null,
   lockedEntityIdsByScene: readEntityLocks(),
+  projectEntryScenePath: null,
+  setProjectEntryScenePath: (path) => set({ projectEntryScenePath: path }),
   toggleEntityLock: (scenePath, entityId) =>
     set((state) => {
       const current = state.lockedEntityIdsByScene[scenePath] ?? [];

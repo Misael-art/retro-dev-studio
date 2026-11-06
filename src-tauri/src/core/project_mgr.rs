@@ -54,6 +54,8 @@ pub struct SceneInfo {
     pub path: String,
     pub scene_id: String,
     pub display_name: String,
+    /// True for the project's `entry_scene` (where "Testar projeto" starts).
+    pub is_entry: bool,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -15627,6 +15629,12 @@ pub fn list_scenes(project_dir: &Path) -> Result<Vec<SceneInfo>, LoadError> {
         scenes.push(scene_info(&relative_path, &scene));
     }
 
+    if let Ok(project) = load_project(project_dir) {
+        let entry = project.entry_scene.replace('\\', "/");
+        for info in &mut scenes {
+            info.is_entry = info.path == entry;
+        }
+    }
     scenes.sort_by(|left, right| left.path.cmp(&right.path));
     Ok(scenes)
 }
@@ -17869,6 +17877,7 @@ fn scene_info(scene_path: &str, scene: &Scene) -> SceneInfo {
             .clone()
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| scene.scene_id.clone()),
+        is_entry: false,
     }
 }
 
@@ -18119,7 +18128,7 @@ fn validate_build_config(build: &BuildConfig) -> Result<(), LoadError> {
     }
 }
 
-pub(super) fn validate_scene_path(scene_path: &str) -> Result<(), LoadError> {
+pub(crate) fn validate_scene_path(scene_path: &str) -> Result<(), LoadError> {
     let trimmed = scene_path.trim();
     if trimmed.is_empty() {
         return Err(LoadError(

@@ -1669,6 +1669,7 @@ export default function App() {
     activeProjectName,
     activeScene,
     activeScenePath,
+    projectEntryScenePath,
     activeSceneSource,
     sceneRevision,
     projectSessionId,
@@ -5383,6 +5384,16 @@ export default function App() {
               )}
               describedBy={liveBuildBlocked ? "build-disabled-reason" : undefined}
             />
+            {activeScenePath && projectEntryScenePath && activeScenePath !== projectEntryScenePath ? (
+              <ToolbarButton
+                icon="studio-game"
+                label="Testar esta cena"
+                onClick={() => void handleBuildAndRun({ testScene: activeScenePath })}
+                disabled={building || !activeProjectDir || liveBuildBlocked}
+                testId="toolbar-build-run-scene"
+                title={`Compila e roda começando pela entrada de '${activeScenePath}', só nesta ROM de teste. O jogo continua começando em '${projectEntryScenePath}'.`}
+              />
+            ) : null}
             <ToolbarButton
               label="Continuar teste"
               onClick={() => void handlePlay()}
