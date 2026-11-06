@@ -45,3 +45,19 @@ describe("R3-02 Esc priority for derived isolation", () => {
     expect(escapeExitsIsolation({ key: "Escape", defaultPrevented: false, target: div }, doc)).toBe(false);
   });
 });
+
+describe("R3-04 graph scope", () => {
+  it("resolves instance, shared file, inherited and unavailable from source vs resolved scenes", async () => {
+    const { resolveGraphScope, describeGraphScope } = await import("./sceneComposition");
+    const ent = (id: string, logic?: Record<string, unknown>, prefab?: string) => ({ entity_id: id, prefab, components: logic ? { logic } : {} });
+    const scene = (entities: unknown[]) => ({ entities }) as never;
+    const source = scene([ent("a", { graph: "{}" }), ent("b", { graph_ref: "graphs/x.json" }), ent("c", { graph_ref: "graphs/x.json" }), ent("d", undefined, "prefabs/enemy.json"), ent("e")]);
+    const resolved = scene([ent("a", { graph: "{}" }), ent("b", { graph_ref: "graphs/x.json" }), ent("c", { graph_ref: "graphs/x.json" }), ent("d", { graph_ref: "graphs/enemy.json" }, "prefabs/enemy.json"), ent("e")]);
+    expect(resolveGraphScope(source, resolved, "a", true)).toEqual({ kind: "instance" });
+    expect(resolveGraphScope(source, resolved, "b", true)).toEqual({ kind: "shared_file", ref: "graphs/x.json", usersInScene: ["b", "c"] });
+    expect(resolveGraphScope(source, resolved, "d", true)).toEqual({ kind: "inherited", ref: "graphs/enemy.json", prefab: "prefabs/enemy.json", usersInScene: ["d"] });
+    expect(resolveGraphScope(source, resolved, "b", false)).toEqual({ kind: "unavailable", ref: "graphs/x.json" });
+    expect(resolveGraphScope(source, resolved, "e", true)).toEqual({ kind: "none" });
+    expect(describeGraphScope(resolveGraphScope(source, resolved, "b", true))).toBe("Arquivo graphs/x.json · 2 usos nesta cena");
+  });
+});

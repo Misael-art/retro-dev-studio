@@ -95,3 +95,37 @@ export function escapeExitsIsolation(event: { key: string; defaultPrevented: boo
   if (doc?.querySelector("[role='dialog'][aria-modal='true'], [role='menu'], dialog[open]")) return false;
   return true;
 }
+
+export type GraphScope =
+  | { kind: "none" }
+  | { kind: "instance" }
+  | { kind: "shared_file"; ref: string; usersInScene: string[] }
+  | { kind: "inherited"; ref: string; prefab: string | null; usersInScene: string[] }
+  | { kind: "unavailable"; ref: string };
+
+/**
+ * R3-04: where the selected object's logic graph lives, from the real source/resolved
+ * scenes. Users are counted only in this scene; other scenes are not inspected here.
+ */
+export function resolveGraphScope(source: Scene | null | undefined, resolved: Scene | null | undefined, entityId: string, hydrated: boolean): GraphScope {
+  const own = source?.entities.find((entity) => entity.entity_id === entityId);
+  const eff = resolved?.entities.find((entity) => entity.entity_id === entityId) ?? own;
+  const ref = eff?.components.logic?.graph_ref?.trim() || "";
+  if (!ref) return eff?.components.logic?.graph ? { kind: "instance" } : { kind: "none" };
+  if (!hydrated) return { kind: "unavailable", ref };
+  const usersInScene = (resolved?.entities ?? source?.entities ?? [])
+    .filter((entity) => entity.components.logic?.graph_ref?.trim() === ref)
+    .map((entity) => entity.entity_id);
+  const ownRef = own?.components.logic?.graph_ref?.trim();
+  return ownRef ? { kind: "shared_file", ref, usersInScene } : { kind: "inherited", ref, prefab: own?.prefab ?? null, usersInScene };
+}
+
+export function describeGraphScope(scope: GraphScope): string {
+  switch (scope.kind) {
+    case "none": return "Sem lógica";
+    case "instance": return "Lógica desta instância";
+    case "unavailable": return `Arquivo ${scope.ref} indisponível — não editável`;
+    case "shared_file": return scope.usersInScene.length > 1 ? `Arquivo ${scope.ref} · ${scope.usersInScene.length} usos nesta cena` : `Arquivo ${scope.ref}`;
+    case "inherited": return `Herdada do modelo${scope.prefab ? ` ${scope.prefab}` : ""} (${scope.ref})${scope.usersInScene.length > 1 ? ` · ${scope.usersInScene.length} usos nesta cena` : ""}`;
+  }
+}

@@ -4,6 +4,7 @@ import { persistActiveScene, registerPendingEditFlusher } from "../../core/scene
 import { openProjectSourcePath } from "../../core/ipc/projectService";
 import { parseSceneJson, resolveScenePrefabs } from "../../core/ipc/sceneService";
 import { useEditorStore, type HwStatus } from "../../core/store/editorStore";
+import { describeGraphScope, resolveGraphScope } from "../../core/sceneComposition";
 import { getEntityDisplayName } from "../../core/entityDisplay";
 import { resolveEntitySourceRefs } from "../../core/entityAuthoring";
 import type { SgdkPatternTemplate } from "../../core/projectCapability";
@@ -3780,6 +3781,7 @@ export default function NodeGraphEditor() {
             style={{ maxWidth: `calc(100% - ${selectedEntity && contextOpen ? 304 : 16}px)` }}
             onMouseDown={(event) => event.stopPropagation()}
           >
+            <GraphScopeChip entityId={selectedEntity.entity_id} hydrated={graph.nodes.length > 0 || !selectedEntity.components.logic?.graph_ref} />
             <button type="button" aria-expanded={paletteOpen} onClick={() => { setPaletteOpen((open) => !open); if (window.innerWidth < 1100) setContextOpen(false); }} className="rounded px-2 py-1 text-[#cdd6f4]">Nós</button>
             <button type="button" aria-expanded={contextOpen} data-testid="nodegraph-toggle-context" onClick={() => { setContextOpen((open) => !open); if (window.innerWidth < 1100) setPaletteOpen(false); }} className="rounded px-2 py-1 text-[#cdd6f4]">Comportamentos</button>
             <button type="button" data-testid="nodegraph-undo" onClick={undoGraph} disabled={history.past.length === 0}
@@ -4903,5 +4905,25 @@ export default function NodeGraphEditor() {
         )}
       </div>
     </div>
+  );
+}
+
+/** R3-04: graph source/scope chip; same resolution the Inspector reads from the scene. */
+function GraphScopeChip({ entityId, hydrated }: { entityId: string; hydrated: boolean }) {
+  const source = useEditorStore((state) => state.activeSceneSource);
+  const resolved = useEditorStore((state) => state.activeScene);
+  const scope = resolveGraphScope(source, resolved, entityId, hydrated);
+  const text = describeGraphScope(scope);
+  const shared = scope.kind === "shared_file" || scope.kind === "inherited";
+  const warn = scope.kind === "unavailable" || (shared && scope.usersInScene.length > 1);
+  return (
+    <span
+      data-testid="nodegraph-scope"
+      data-scope={scope.kind}
+      title={shared ? `${text}. Editar aqui altera todos os usos deste arquivo (nesta cena: ${scope.usersInScene.join(", ")}); outras cenas não são verificadas aqui.` : text}
+      className={`mr-1 max-w-[16rem] shrink-0 truncate rounded border px-1.5 py-0.5 text-[10px] ${warn ? "border-[#fab387]/60 text-[#fab387]" : "border-[#45475a] text-[#a6adc8]"}`}
+    >
+      {text}
+    </span>
   );
 }

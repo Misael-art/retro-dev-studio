@@ -592,10 +592,13 @@ Branch `codex/new-host-cohesion-20261024`, PR112. Host READY (`host:diagnose`, l
 | R3-02 | validado no Tauri (parcial) | `9573e2c6` | chip «Atenuado · isolamento», Esc com prioridade de campo/popup (teste), troca de cena limpa; Esc do Viewport deixou de engolir a tecla; topo sem sobreposição a 702 px | multisseleção, Normal/Atenuado/Oculto escolhidos, filtros de cor, cenário Céu oculto→isolar→sair |
 | R3-03 | validado no Tauri (parcial) | `80671c66`, `bdbeca03` | proveniência derivada das assinaturas (testes + save/reopen); selos «Gerado · N nós»/«Personalizado nos nós (k/N)»; confirmação de conversão: cancelar sem efeito → personalizar → Desfazer restaura; trilho do grafo não fecha a cada resize | diff/impacto antes de regenerar, conexões externas na regeneração, ciclos idle/run/jump no core |
 | R3-01 (exibição) | validado no Tauri (parcial) | ver commit «feat(r3-01)» | `palettePlanScope.test.ts`; Inspector mostra «PAL1 nesta cena (fixado) · 15 índice(s) · origem» e consumidores; plano antigo já recusado por `contextKey` | escopo de Arte/Animação/Propriedades por bloco; aplicação compartilhada (lote 2) não re-provada no Tauri |
-| R3-04, R3-06, R3-09, R3-10 | a fazer | — | — | T4/T5/T6 pendentes |
+| R3-04 | validado no Tauri (parcial) | ver commit «feat(r3-04)» | `resolveGraphScope` (instância, arquivo compartilhado, herdado do modelo, indisponível; usos nesta cena) com teste; chip na barra do grafo no Tauri | usos em outras cenas não inspecionados; edição compartilhada com lista de usos antes de aplicar; mesma resolução exibida no Inspector |
+| R3-06, R3-09, R3-10 | a fazer | — | — | T4/T5/T6 pendentes |
 | Base R2 itens 1–8 | parcial | — | navegação global preservada nas capturas | menu contextual/gestos, painéis fixáveis, feedback de arco |
 | R5 (trajetos, planos/paralaxe) | a fazer | — | — | contrato de trajeto no modelo/AST/emissor |
 | PLAY01–06 | a fazer | — | — | baseline de cadência, T6, pins, capturas |
 | VIS01–08 | a fazer | — | — | inventário VIS01 primeiro |
+
+Proteção do host (após travamento observado pelo operador em 2026-11-06 12:50–13:10, durante gates/build deste agente): etapas pesadas uma por vez com `nice -n 19 ionice -c3`, Vitest com `--maxWorkers=1`, `CARGO_BUILD_JOBS=1` e espera de carga < 3 antes da jornada Tauri.
 
 Achados de harness registrados: o `element/click` do WebKitWebDriver neste host desloca coordenadas pelo DPR; o roteiro usa ações de ponteiro com coordenadas × DPR e alvo visível no topo (`elementFromPoint`). Retenção de host: 1366×768 não cabe na tela física (1280 px).
