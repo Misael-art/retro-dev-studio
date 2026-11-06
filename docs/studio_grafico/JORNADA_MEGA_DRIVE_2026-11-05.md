@@ -578,3 +578,23 @@ Candidato debug `72253f9a…dd77` (fonte `9508dab3` + correção JV05 deste comm
 
 - `studio-jv` PASS: **JV01** — células `1..N` (forma do ImageIngress, gravadas em disco na cópia) → Build & Run no Tauri → ROM `a8798730…b5ad` (= base), 0 tiles extras no C, core com a mesma ROM; estimativa 46/64 KB. **JV06** — Prefab vazio é botão 181×18, clique nativo abre, Escape cancela (1 falha intermitente em 5 execuções no mesmo passo, não isolada). **JV05** — a 1366×768 e 949×593 o painel da timeline mede 180/191 px (antes 73/0 px: abaixo de `xl` o Group ficava com 8 px) e os cartões são alcançáveis; setas movem o divisor 191→232 px e ele se mantém ao sair e voltar para Arte.
 - `studio-jv-motion` PASS (candidato `f26d9bb1…07c5`): cópia descartável sem os 9 nós manuais da receita (preparação declarada); «Movimento e salto» editado pela UI com Animação parado/andando, salvar/reiniciar/reabrir, Build & Run, setas/Z nativos, 23 amostras pausadas (framebuffer do core + posição na RAM). Oráculo independente `scripts/verify-jv-motion.py` (Pillow/numpy, só QA): 23/23 com 100% dos pixels opacos — direita sem espelho, esquerda/parado/salto após esquerda espelhados (**JV10**); parado 0–3, corrida 4–9 avançando 4→5→7→8→9→4 e 4→5→6→8→9→4, salto 10/11 no ar e parado ao pousar (**JV09**). A jornada revelou e corrigiu um falso «editado manualmente» em instâncias antigas (default `face_direction` no `sprite_move` mudava a assinatura ao reabrir).
+
+<a id="matriz-implementacao-r3-r7"></a>
+## Matriz de implementação R2/R3/R5/R6/R7 — checkpoint 2026-11-06 (Experimental)
+
+Branch `codex/new-host-cohesion-20261024`, PR112. Host READY (`host:diagnose`, launcher `new-host.sh`, `RDS_BUILD_JOBS=1`). Gates de cada commit: `check:tree`, `lint`, `tsc --noEmit`, `npm test` verdes; Rust não alterado nestes lotes (Clippy/`cargo test` não reexecutados). Jornada nativa: binário debug do Tauri real dirigido por `tauri-driver`/WebKitWebDriver (cliques/teclas nativos), 949×593 lógicos (painel 800×1280 girado, escala 1,35), fixture de QA `sessions/ux-r3-20261105/projects/QA_R3_Lote1` (cópia identificada de `UX_Validacao_949`, restaurada a cada execução; projeto autoral intocado). Evidências: `sessions/ux-r3-20261105/evidence/`. Revisão das capturas feita pelo agente; **aceite humano independente não ocorreu**.
+
+| ID | Estado | Commit | Prova | Falta / limite |
+|---|---|---|---|---|
+| R3-05 | integrado (parcial) | `cc7e5f0a` | teste de metadados (faixas canônicas, `jump_strength` em 1/16 px/quadro = 4 px/quadro a 64); padrão visível no formulário | Controle A/Teclado Z já existia; inválido sem mutação já existia (não re-provado no Tauri); conferir impulso no core |
+| R3-08 | validado no Tauri (parcial) | `5b71fbb4` | `sceneCompositionLock.test.ts` (objeto × camada herdada, vizinhos livres, cena autoral intocada); cadeado revelado em hover no Tauri | trava é preferência do editor (localStorage por cena); save/reopen do app e teclado nativo não exercitados |
+| R3-07 | validado no Tauri | `5180502e` | 1ª linha da árvore 407→382 px a 949×593; contraste do hover/breadcrumb no tema claro corrigido | thumbnail da cena no cabeçalho não existe (sem renderer de miniatura); 1366×768 impossível neste host |
+| R3-02 | validado no Tauri (parcial) | `9573e2c6` | chip «Atenuado · isolamento», Esc com prioridade de campo/popup (teste), troca de cena limpa; Esc do Viewport deixou de engolir a tecla; topo sem sobreposição a 702 px | multisseleção, Normal/Atenuado/Oculto escolhidos, filtros de cor, cenário Céu oculto→isolar→sair |
+| R3-03 | validado no Tauri (parcial) | `80671c66`, `bdbeca03` | proveniência derivada das assinaturas (testes + save/reopen); selos «Gerado · N nós»/«Personalizado nos nós (k/N)»; confirmação de conversão: cancelar sem efeito → personalizar → Desfazer restaura; trilho do grafo não fecha a cada resize | diff/impacto antes de regenerar, conexões externas na regeneração, ciclos idle/run/jump no core |
+| R3-01, R3-04, R3-06, R3-09, R3-10 | a fazer | — | — | T1/T4/T5/T6 pendentes |
+| Base R2 itens 1–8 | parcial | — | navegação global preservada nas capturas | menu contextual/gestos, painéis fixáveis, feedback de arco |
+| R5 (trajetos, planos/paralaxe) | a fazer | — | — | contrato de trajeto no modelo/AST/emissor |
+| PLAY01–06 | a fazer | — | — | baseline de cadência, T6, pins, capturas |
+| VIS01–08 | a fazer | — | — | inventário VIS01 primeiro |
+
+Achados de harness registrados: o `element/click` do WebKitWebDriver neste host desloca coordenadas pelo DPR; o roteiro usa ações de ponteiro com coordenadas × DPR e alvo visível no topo (`elementFromPoint`). Retenção de host: 1366×768 não cabe na tela física (1280 px).
