@@ -129,3 +129,57 @@ export function describeGraphScope(scope: GraphScope): string {
     case "inherited": return `Herdada do modelo${scope.prefab ? ` ${scope.prefab}` : ""} (${scope.ref})${scope.usersInScene.length > 1 ? ` · ${scope.usersInScene.length} usos nesta cena` : ""}`;
   }
 }
+
+export interface DeclaredTransition {
+  /** Stable reference: owner entity + GraphNode.id (never a positional number). */
+  ref: string;
+  ownerEntityId: string;
+  ownerLabel: string;
+  nodeId: string;
+  nodeLabel: string;
+  target: string | null;
+  targetStatus: "declared" | "missing" | "unknown";
+  /** T5: the canonical compiler does not execute scene transitions yet. */
+  runtime: "not_executed";
+}
+
+/**
+ * R3-06: transitions declared in this scene's resolved logic graphs. Read-only
+ * projection; it never creates edges or nodes and never asserts ROM execution.
+ */
+export function collectDeclaredTransitions(scene: Scene | null | undefined, knownScenes: readonly string[]): DeclaredTransition[] {
+  const out: DeclaredTransition[] = [];
+  for (const entity of scene?.entities ?? []) {
+    const raw = entity.components.logic?.graph;
+    if (!raw) continue;
+    let nodes: Array<{ id?: unknown; type?: unknown; label?: unknown; params?: Record<string, unknown> }> = [];
+    try {
+      const parsed = JSON.parse(raw) as { nodes?: unknown };
+      if (Array.isArray(parsed.nodes)) nodes = parsed.nodes as typeof nodes;
+    } catch {
+      continue;
+    }
+    for (const node of nodes) {
+      if (node.type !== "load_scene" || typeof node.id !== "string") continue;
+      const value = node.params?.scene;
+      const target = typeof value === "string" && value.trim() ? value.trim() : null;
+      out.push({
+        ref: `${entity.entity_id}/${node.id}`,
+        ownerEntityId: entity.entity_id,
+        ownerLabel: entity.display_name || entity.entity_id,
+        nodeId: node.id,
+        nodeLabel: typeof node.label === "string" ? node.label : "Carregar Cena",
+        target,
+        targetStatus: !target ? "unknown" : knownScenes.includes(target) ? "declared" : "missing",
+        runtime: "not_executed",
+      });
+    }
+  }
+  return out;
+}
+
+export function searchTransitions(list: readonly DeclaredTransition[], query: string): DeclaredTransition[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [...list];
+  return list.filter((t) => [t.ref, t.ownerLabel, t.ownerEntityId, t.nodeId, t.target ?? ""].some((field) => field.toLowerCase().includes(q)));
+}

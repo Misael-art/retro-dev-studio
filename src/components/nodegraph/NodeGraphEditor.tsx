@@ -4,7 +4,8 @@ import { persistActiveScene, registerPendingEditFlusher } from "../../core/scene
 import { openProjectSourcePath } from "../../core/ipc/projectService";
 import { parseSceneJson, resolveScenePrefabs } from "../../core/ipc/sceneService";
 import { useEditorStore, type HwStatus } from "../../core/store/editorStore";
-import { describeGraphScope, resolveGraphScope } from "../../core/sceneComposition";
+import { collectDeclaredTransitions, describeGraphScope, resolveGraphScope, searchTransitions } from "../../core/sceneComposition";
+import { listScenes } from "../../core/ipc/sceneService";
 import { getEntityDisplayName } from "../../core/entityDisplay";
 import { resolveEntitySourceRefs } from "../../core/entityAuthoring";
 import type { SgdkPatternTemplate } from "../../core/projectCapability";
@@ -3475,6 +3476,23 @@ export default function NodeGraphEditor() {
     setSelectedId(nodeIds[0] ?? null);
     fitViewTo(current.nodes.filter((node) => nodeIds.includes(node.id) && !hiddenNodeIdsRef.current.has(node.id)));
   }, [fitViewTo]);
+  // R3-06: "Ver origem" may target another object's graph; focus once that graph is loaded.
+  const pendingFocusRef = useRef<{ entityId: string; nodeId: string } | null>(null);
+  const goToTransitionOrigin = useCallback((entityId: string, nodeId: string) => {
+    if (selectedEntity?.entity_id === entityId) {
+      showNodes([nodeId]);
+      return;
+    }
+    pendingFocusRef.current = { entityId, nodeId };
+    setSelectedEntityId(entityId);
+  }, [selectedEntity?.entity_id, setSelectedEntityId, showNodes]);
+  useEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (!pending || selectedEntity?.entity_id !== pending.entityId) return;
+    if (!graph.nodes.some((node) => node.id === pending.nodeId)) return;
+    pendingFocusRef.current = null;
+    showNodes([pending.nodeId]);
+  }, [graph.nodes, selectedEntity?.entity_id, showNodes]);
 
   // ── Navegacao por entidade ──────────────────────────────────────────────────
   const sceneEntityIds = useMemo(() => (activeScene?.entities ?? []).map((entity) => entity.entity_id), [activeScene?.entities]);
@@ -4114,6 +4132,7 @@ export default function NodeGraphEditor() {
               }}
               onShowInstance={showNodes}
             />
+            <TransitionsPanel projectDir={activeProjectDir} onShowOrigin={goToTransitionOrigin} />
             {collapsedCoverage.length > 0 && (
               <div data-testid="nodegraph-collapsed-overlap" className="rounded border border-[#fab387]/50 bg-[#fab387]/10 px-2 py-1.5 text-[10px] text-[#fab387]">
                 {collapsedCoverage.slice(0, 4).map((item) => (
@@ -4925,5 +4944,61 @@ function GraphScopeChip({ entityId, hydrated }: { entityId: string; hydrated: bo
     >
       {text}
     </span>
+  );
+}
+
+/** R3-06: declared scene transitions (read-only projection; T5: not executed in the ROM). */
+function TransitionsPanel({ projectDir, onShowOrigin }: { projectDir: string | null; onShowOrigin: (entityId: string, nodeId: string) => void }) {
+  const scene = useEditorStore((state) => state.activeScene);
+  const [known, setKnown] = useState<string[] | null>(null);
+  const [query, setQuery] = useState("");
+  const hasTransitions = collectDeclaredTransitions(scene, []).length > 0;
+  useEffect(() => {
+    let alive = true;
+    // Only ask the backend for the scene catalog when there is something to resolve.
+    if (!projectDir || !hasTransitions) { setKnown(null); return; }
+    listScenes(projectDir)
+      .then((scenes) => { if (alive) setKnown(scenes.flatMap((info) => [info.path, info.scene_id, info.display_name])); })
+      .catch(() => { if (alive) setKnown(null); });
+    return () => { alive = false; };
+  }, [projectDir, hasTransitions]);
+  const all = collectDeclaredTransitions(scene, known ?? []);
+  if (all.length === 0) return null;
+  const shown = searchTransitions(all, query);
+  const status = (t: (typeof all)[number]) =>
+    t.targetStatus === "unknown" ? "destino não definido" : known === null ? `→ ${t.target}` : t.targetStatus === "missing" ? `→ ${t.target} (cena não encontrada)` : `→ ${t.target}`;
+  return (
+    <div data-testid="nodegraph-transitions" className="rounded border border-[#313244] bg-[#11111b] px-2 py-1.5 text-[10px] text-[#cdd6f4]">
+      <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#a6adc8]">Transições declaradas ({all.length})</p>
+      <p className="mt-0.5 text-[9px] text-[#fab387]">Ainda sem execução na ROM: a partida fica na cena de entrada.</p>
+      <input
+        type="search"
+        data-testid="nodegraph-transitions-search"
+        aria-label="Buscar transição por objeto, nó ou cena"
+        placeholder="Buscar objeto, nó ou cena"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        className="mt-1 w-full rounded border border-[#313244] bg-[#1e1e2e] px-1.5 py-0.5 text-[10px] text-[#cdd6f4]"
+      />
+      <ul className="mt-1 space-y-0.5">
+        {shown.map((t) => (
+          <li key={t.ref} data-testid={`nodegraph-transition-${t.ref}`} className="flex items-center gap-1">
+            <span className="min-w-0 flex-1 truncate" title={`${t.ownerLabel} · nó ${t.nodeId} · ${status(t)}`}>
+              <span className="font-semibold">{t.ownerLabel}</span> <span className="font-mono text-[#7f849c]">{t.nodeId}</span> {status(t)}
+            </span>
+            <button
+              type="button"
+              data-testid={`nodegraph-transition-origin-${t.ref}`}
+              onClick={() => onShowOrigin(t.ownerEntityId, t.nodeId)}
+              aria-label={`Ver origem: nó ${t.nodeId} de ${t.ownerLabel}`}
+              className="shrink-0 rounded px-1 text-[#89b4fa] hover:bg-[#313244] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#89b4fa]"
+            >
+              Ver origem
+            </button>
+          </li>
+        ))}
+        {shown.length === 0 ? <li className="text-[#7f849c]">Nenhuma transição corresponde à busca.</li> : null}
+      </ul>
+    </div>
   );
 }

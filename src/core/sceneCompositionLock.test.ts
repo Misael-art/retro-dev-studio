@@ -61,3 +61,28 @@ describe("R3-04 graph scope", () => {
     expect(describeGraphScope(resolveGraphScope(source, resolved, "b", true))).toBe("Arquivo graphs/x.json · 2 usos nesta cena");
   });
 });
+
+describe("R3-06 declared transitions", () => {
+  it("uses owner+node id refs (stable across layout), flags missing/unknown targets and never claims ROM execution", async () => {
+    const { collectDeclaredTransitions, searchTransitions } = await import("./sceneComposition");
+    const graph = (x: number) => JSON.stringify({ nodes: [
+      { id: "n_go", type: "load_scene", label: "Ir", x, y: 0, params: { scene: "scenes/cave.json" } },
+      { id: "n_lost", type: "load_scene", x: x + 10, y: 0, params: { scene: "scenes/gone.json" } },
+      { id: "n_blank", type: "load_scene", params: {} },
+      { id: "n_move", type: "sprite_move", params: {} },
+    ], edges: [] });
+    const scene = (x: number) => ({ entities: [
+      { entity_id: "door", display_name: "Porta", components: { logic: { graph: graph(x) } } },
+      { entity_id: "bad", components: { logic: { graph: "{not json" } } },
+    ] }) as never;
+    const a = collectDeclaredTransitions(scene(0), ["scenes/cave.json"]);
+    const b = collectDeclaredTransitions(scene(500), ["scenes/cave.json"]);
+    expect(a.map((t) => t.ref)).toEqual(["door/n_go", "door/n_lost", "door/n_blank"]);
+    expect(b.map((t) => t.ref)).toEqual(a.map((t) => t.ref));
+    expect(a.map((t) => t.targetStatus)).toEqual(["declared", "missing", "unknown"]);
+    expect(a.every((t) => t.runtime === "not_executed")).toBe(true);
+    expect(searchTransitions(a, "cave").map((t) => t.nodeId)).toEqual(["n_go"]);
+    expect(searchTransitions(a, "porta")).toHaveLength(3);
+    expect(searchTransitions(a, "zzz")).toEqual([]);
+  });
+});
