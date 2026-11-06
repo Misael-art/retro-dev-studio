@@ -341,3 +341,25 @@ describe("R3-05 parameter metadata", () => {
     expect(64 / lib.MOVEMENT_SUBPIXELS).toBe(4);
   });
 });
+
+describe("R3-03 provenance", () => {
+  it("layout keeps 'generated'; a direct semantic edit flags only that node; save/reopen preserves it", async () => {
+    const lib = await import("./behaviorLibrary");
+    const { graph, id } = apply(EMPTY, "platform_movement", moveParams("fox"));
+    const instance = graph.behaviors!.find((b) => b.id === id)!;
+    expect(lib.behaviorProvenance(graph, instance)).toMatchObject({ state: "generated", editedNodeIds: [] });
+
+    const moved: NodeGraph = { ...graph, nodes: graph.nodes.map((n) => ({ ...n, x: n.x + 120, y: n.y - 40 })) };
+    expect(lib.behaviorProvenance(moved, instance).state).toBe("generated");
+
+    const target = graph.nodes.find((n) => instance.nodeIds.includes(n.id) && Object.keys(n.params).length > 0)!;
+    const key = Object.keys(target.params)[0]!;
+    const edited: NodeGraph = { ...graph, nodes: graph.nodes.map((n) => (n.id === target.id ? { ...n, params: { ...n.params, [key]: `${String(n.params[key])}_x` } } : n)) };
+    const reopened = deserializeNodeGraph(serializeNodeGraph(edited));
+    const after = lib.behaviorProvenance(reopened, reopened.behaviors!.find((b) => b.id === id)!);
+    expect(after.state).toBe("customized");
+    expect(after.editedNodeIds).toEqual([target.id]);
+    expect(lib.behaviorOwnerOfNode(reopened, target.id)?.id).toBe(id);
+    expect(lib.behaviorOwnerOfNode(reopened, "not-a-node")).toBeUndefined();
+  });
+});

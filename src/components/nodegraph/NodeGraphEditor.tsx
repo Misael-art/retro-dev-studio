@@ -97,7 +97,7 @@ import BehaviorPanel from "./BehaviorPanel";
 import { valueParam } from "../../core/nodegraph/profileGraphBridge";
 import ProfileGraphBridgePanel from "./ProfileGraphBridgePanel";
 import RomValueInput from "./RomValueInput";
-import { buildBehaviorSceneContext } from "../../core/nodegraph/behaviorLibrary";
+import { behaviorOwnerOfNode, buildBehaviorSceneContext, nodeSignature } from "../../core/nodegraph/behaviorLibrary";
 import AssetPreview from "../common/AssetPreview";
 
 // Modelo de dados canonico e serializacao v1 vivem em src/core/nodegraph/
@@ -1398,6 +1398,8 @@ export function getPortAnchor(
 }
 
 interface NodeCardProps {
+  /** R3-03: owning behavior and whether this node diverged from its generated signature. */
+  behaviorOrigin?: { label: string; edited: boolean };
   /** Efeitos sonoros da cena (nome → asset) para o seletor no ponto de uso. */
   sfx?: Record<string, string>;
   node: GraphNode;
@@ -1470,6 +1472,7 @@ function NodeCard({
   onToggleDetails,
   onMeasure,
   sfx,
+  behaviorOrigin,
 }: NodeCardProps) {
   const catalog = getNodeCatalogEntry(node.type);
   const category = getNodeCategory(node.type);
@@ -1655,6 +1658,15 @@ function NodeCard({
         )}
       </div>
 
+      {behaviorOrigin ? (
+        <p
+          data-testid={`node-behavior-origin-${node.id}`}
+          className={`truncate px-2 pb-0.5 text-[9px] ${behaviorOrigin.edited ? "text-[#fab387]" : "text-[#7f849c]"}`}
+          title={behaviorOrigin.edited ? "Este nó foi alterado diretamente; o formulário pedirá decisão antes de regenerar." : "Gerado pelo formulário do comportamento; edite pelo formulário para regenerar com segurança."}
+        >
+          {behaviorOrigin.edited ? "Personalizado nos nós · " : "Gerado por "}{behaviorOrigin.label}
+        </p>
+      ) : null}
       {node.params.authoring_origin ? (
         <p data-testid={`node-origin-${node.id}`} className="truncate px-2 pb-0.5 font-mono text-[9px] text-[#7f849c]" title="Origem autoral (rastreabilidade)">
           origem: {String(node.params.authoring_origin)}
@@ -2475,9 +2487,14 @@ export default function NodeGraphEditor() {
     measureCanvas();
     const observer = typeof ResizeObserver === "function" ? new ResizeObserver(measureCanvas) : null;
     if (canvasRef.current) observer?.observe(canvasRef.current);
+    // Auto-collapse only when the window crosses a breakpoint downward; a rail the
+    // user opened at this width must not close on unrelated resize events (R3-04/JV05).
+    let lastWidth = window.innerWidth;
     const onResize = () => {
-      if (window.innerWidth < 1100) setPaletteOpen(false);
-      if (window.innerWidth < 1440) setContextOpen(false);
+      const width = window.innerWidth;
+      if (lastWidth >= 1100 && width < 1100) setPaletteOpen(false);
+      if (lastWidth >= 1440 && width < 1440) setContextOpen(false);
+      lastWidth = width;
       measureCanvas();
     };
     window.addEventListener("resize", onResize);
@@ -4710,6 +4727,10 @@ export default function NodeGraphEditor() {
             <NodeCard
               key={node.id}
               node={node}
+              behaviorOrigin={(() => {
+                const owner = behaviorOwnerOfNode(graph, node.id);
+                return owner ? { label: owner.label, edited: owner.generated[node.id] !== undefined && owner.generated[node.id] !== nodeSignature(node) } : undefined;
+              })()}
               screenX={node.x * view.zoom + view.x}
               screenY={node.y * view.zoom + view.y}
               zoom={view.zoom}

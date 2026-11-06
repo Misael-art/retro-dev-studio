@@ -1324,3 +1324,14 @@ export function applyMovementNodeTuning(graph: NodeGraph, nodeId: string, param:
     }),
   };
 }
+
+/** R3-03: provenance of a behavior instance, derived only from stored signatures. */
+export function behaviorProvenance(graph: NodeGraph, instance: BehaviorInstance): { state: "generated" | "customized"; nodeCount: number; editedNodeIds: string[] } {
+  const edited = manuallyEditedNodes(graph, instance).map((node) => node.id);
+  return { state: edited.length ? "customized" : "generated", nodeCount: instance.nodeIds.length, editedNodeIds: edited };
+}
+
+/** R3-03: which behavior instance generated a node (layout never changes this). */
+export function behaviorOwnerOfNode(graph: NodeGraph, nodeId: string): BehaviorInstance | undefined {
+  return (graph.behaviors ?? []).find((instance) => instance.nodeIds.includes(nodeId));
+}

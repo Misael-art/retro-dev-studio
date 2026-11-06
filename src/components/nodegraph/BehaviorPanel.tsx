@@ -6,6 +6,7 @@ import {
   getBehaviorDefinition,
   planApplyBehavior,
   planEditBehavior,
+  behaviorProvenance,
   planRemoveBehavior,
   validateBehaviorInstances,
   type BehaviorParamSpec,
@@ -306,7 +307,21 @@ export default function BehaviorPanel({ graph, context, selectedEntityId, projec
             const instanceIssues = issues.filter((issue) => issue.instanceId === instance.id);
             return (
               <li key={instance.id} data-testid={`behavior-instance-${instance.id}`} className="rounded border border-[#313244] bg-[#11111b] px-1.5 py-1">
-                <p className="font-semibold">{instance.label}</p>
+                <p className="flex items-center gap-1 font-semibold">
+                  {instance.label}
+                  {(() => {
+                    const provenance = behaviorProvenance(graph, instance);
+                    return provenance.state === "customized" ? (
+                      <span data-testid={`behavior-provenance-${instance.id}`} className="rounded border border-[#fab387]/50 px-1 text-[9px] font-normal text-[#fab387]" title="Alguns nós gerados foram alterados diretamente no grafo. Editar pelo formulário pedirá decisão sobre eles.">
+                        Personalizado nos nós ({provenance.editedNodeIds.length}/{provenance.nodeCount})
+                      </span>
+                    ) : (
+                      <span data-testid={`behavior-provenance-${instance.id}`} className="rounded border border-[#45475a] px-1 text-[9px] font-normal text-[#7f849c]">
+                        Gerado · {provenance.nodeCount} nós
+                      </span>
+                    );
+                  })()}
+                </p>
                 <p className="text-[#a6adc8]">{instanceDefinition?.summarize(instance.params, context)}</p>
                 {instanceIssues.map((issue) => <p key={issue.message} className="text-[#f38ba8]">{issue.message}</p>)}
                 <div className="mt-1 flex gap-1">
