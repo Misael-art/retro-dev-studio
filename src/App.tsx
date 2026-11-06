@@ -3757,7 +3757,7 @@ export default function App() {
     }
   }
 
-  async function handleBuildAndRun() {
+  async function handleBuildAndRun(options: { testScene?: string } = {}) {
     if (!activeProjectDir) {
       logMessage("warn", "Nenhum projeto aberto. Use Abrir Projeto.");
       return;
@@ -3868,7 +3868,7 @@ export default function App() {
 
       const result = await buildProject(activeProjectDir, (line) => {
         if (isBuildContextCurrent()) logMessage(line.level, line.message);
-      });
+      }, options);
       if (!isBuildContextCurrent()) return;
       setLastBuildSourceMap(result.build_source_map ?? null);
       useEditorStore.getState().setLastRuntimeLink(result.ok ? parseRuntimeLink(result.runtime_link) : null);

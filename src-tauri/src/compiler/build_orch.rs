@@ -429,6 +429,81 @@ where
     result
 }
 
+/// R3-09/T6: validates a transient "test this scene" intent. Only a relative scene path
+/// inside the project that loads is accepted; the override never touches `project.rds`.
+pub fn validate_test_scene(project_dir: &Path, scene_path: &str) -> Result<String, String> {
+    let trimmed = scene_path.trim().replace('\\', "/");
+    if trimmed.is_empty() {
+        return Err("cena de teste vazia".to_string());
+    }
+    let candidate = Path::new(&trimmed);
+    if candidate.is_absolute()
+        || candidate
+            .components()
+            .any(|part| !matches!(part, std::path::Component::Normal(_)))
+    {
+        return Err(format!("cena de teste fora do projeto: '{trimmed}'"));
+    }
+    load_scene(project_dir, &trimmed)
+        .map_err(|error| format!("cena de teste '{trimmed}' invalida: {error}"))?;
+    Ok(trimmed)
+}
+
+/// Same pipeline as [`run_build_with_environment`], with an optional transient entry scene.
+pub fn run_build_with_test_scene<F>(
+    project_dir: &Path,
+    test_scene: Option<&str>,
+    environment: &BuildEnvironment,
+    on_log: F,
+) -> BuildResult
+where
+    F: Fn(BuildLogLine),
+{
+    let Some(requested) = test_scene else {
+        return run_build_with_environment(project_dir, environment, on_log);
+    };
+    let mut log = Vec::new();
+    macro_rules! emit {
+        ($level:expr, $message:expr) => {{
+            let entry = BuildLogLine {
+                level: $level.to_string(),
+                message: $message.to_string(),
+            };
+            on_log(entry.clone());
+            log.push(entry);
+        }};
+    }
+    let mut project = match load_project(project_dir) {
+        Ok(project) => project,
+        Err(error) => {
+            emit!("error", format!("Falha ao carregar project.rds: {}", error));
+            return failed_build_result("project", log, Some(project_dir));
+        }
+    };
+    let scene = match validate_test_scene(project_dir, requested) {
+        Ok(scene) => scene,
+        Err(error) => {
+            emit!(
+                "error",
+                format!("Inicio de teste recusado: {error}. Nada foi executado.")
+            );
+            return failed_build_result("project", log, Some(project_dir));
+        }
+    };
+    if scene == project.entry_scene.replace('\\', "/") {
+        emit!("info", format!("Inicio de teste: '{scene}' ja e a entrada do projeto (mesmo resultado do teste normal)."));
+    } else {
+        emit!("info", format!("Inicio de teste: cena '{scene}' pela sua entrada, so nesta ROM de teste (entrada do projeto '{}' inalterada).", project.entry_scene));
+        project.entry_scene = scene;
+    }
+    let mut result =
+        run_build_for_project_with_environment(project_dir, &project, environment, on_log);
+    let mut combined = log;
+    combined.append(&mut result.log);
+    result.log = combined;
+    result
+}
+
 pub fn run_build_multi_target<F>(
     project_dir: &Path,
     targets: &[String],
@@ -4084,6 +4159,42 @@ mod tests {
         let dst = temp_dir(fixture_name);
         copy_dir_all(&fixture_dir(fixture_name), &dst);
         dst
+    }
+
+    #[test]
+    fn test_scene_override_is_validated_and_never_touches_project_rds() {
+        let project_dir = workspace_copy("megadrive_dummy");
+        let before = fs::read(project_dir.join("project.rds")).expect("read project.rds");
+        assert_eq!(
+            validate_test_scene(&project_dir, "scenes/main.json").as_deref(),
+            Ok("scenes/main.json")
+        );
+        for bad in [
+            "",
+            "../outside.json",
+            "/etc/passwd",
+            "scenes/../../x.json",
+            "scenes/missing.json",
+        ] {
+            assert!(
+                validate_test_scene(&project_dir, bad).is_err(),
+                "accepted {bad:?}"
+            );
+        }
+        let environment = BuildEnvironment::detect();
+        let result =
+            run_build_with_test_scene(&project_dir, Some("../outside.json"), &environment, |_| {});
+        assert!(!result.ok);
+        assert!(result.rom_path.is_empty());
+        assert!(result
+            .log
+            .iter()
+            .any(|line| line.message.contains("Inicio de teste recusado")));
+        assert_eq!(
+            fs::read(project_dir.join("project.rds")).expect("reread"),
+            before
+        );
+        let _ = fs::remove_dir_all(&project_dir);
     }
 
     fn write_project_fixture(project_dir: &Path, project: &Project) {

@@ -532,13 +532,30 @@ fn interrupted_build_result() -> BuildResult {
 }
 
 #[tauri::command]
-async fn build_project(app: AppHandle, project_dir: String) -> BuildResult {
+async fn build_project(
+    app: AppHandle,
+    project_dir: String,
+    test_scene: Option<String>,
+) -> BuildResult {
     let dir = PathBuf::from(&project_dir);
     run_heavy_command_off_main_thread(
         move || {
-            run_build(&dir, move |line: BuildLogLine| {
+            let emit = move |line: BuildLogLine| {
                 let _ = app.emit("build://log", &line);
-            })
+            };
+            match test_scene.as_deref() {
+                // Normal build keeps the previous path unchanged (T6).
+                None => run_build(&dir, emit),
+                Some(scene) => {
+                    let environment = crate::compiler::build_orch::BuildEnvironment::detect();
+                    crate::compiler::build_orch::run_build_with_test_scene(
+                        &dir,
+                        Some(scene),
+                        &environment,
+                        emit,
+                    )
+                }
+            }
         },
         interrupted_build_result,
     )
