@@ -63,3 +63,20 @@ export function translateCollisionMap(map: CollisionMap, dx: number, dy: number)
   }
   return { ...map, data };
 }
+
+export type EntityEditLock = { locked: false } | { locked: true; reason: "object" } | { locked: true; reason: "layer"; layerName: string };
+
+/**
+ * R3-08: effective edit lock for the Canvas. Object locks are editor-only view state
+ * (never written to the scene); layer locks come from the authored `SceneLayer.locked`.
+ */
+export function entityEditLock(entityId: string, layers: SceneLayer[] | null | undefined, lockedEntityIds: readonly string[]): EntityEditLock {
+  if (lockedEntityIds.includes(entityId)) return { locked: true, reason: "object" };
+  const layer = (layers ?? []).find((candidate) => candidate.locked && candidate.entity_ids.includes(entityId));
+  return layer ? { locked: true, reason: "layer", layerName: layer.name } : { locked: false };
+}
+
+export function describeEntityEditLock(lock: EntityEditLock): string {
+  if (!lock.locked) return "";
+  return lock.reason === "object" ? "Objeto bloqueado" : `Bloqueado pela camada «${lock.layerName}»`;
+}

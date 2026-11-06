@@ -1,3 +1,4 @@
+import { describeEntityEditLock, entityEditLock } from "../../core/sceneComposition";
 import { loadShellPersona } from "../../core/surfaceRegistry";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { chooseAndImportImage } from "../../core/sceneryImport";
@@ -827,7 +828,7 @@ export default function HierarchyPanel({
                           onClick={() => setSelectedEntityId(entity.entity_id)}
                           onDoubleClick={() => openEntityAuthoringSurface(entity as Entity)}
                           className={[
-                            "flex items-center gap-2 pl-6 pr-3 py-1 cursor-pointer select-none text-xs transition-colors",
+                            "group flex items-center gap-2 pl-6 pr-3 py-1 cursor-pointer select-none text-xs transition-colors",
                             isSelected
                               ? "bg-[#313244] text-[#cdd6f4]"
                               : isFocusEntity
@@ -835,6 +836,7 @@ export default function HierarchyPanel({
                                 : "text-[#a6adc8] hover:bg-[#24243a] hover:text-[#cdd6f4]",
                           ].join(" ")}
                         >
+                          <EntityLockToggle entityId={entity.entity_id} />
                           <span className="text-[#7f849c]">{TYPE_ICON[type] ?? "○"}</span>
                           <span title={entity.prefab ? `Prefab: ${entity.prefab}` : entity.entity_id}>
                             {getEntityDisplayName(entity)}
@@ -1039,5 +1041,37 @@ export default function HierarchyPanel({
         </ul>
       </Panel>
     </>
+  );
+}
+
+/** R3-08: per-object lock (editor-only). Visible on hover/focus; persistent indicator while locked. */
+function EntityLockToggle({ entityId }: { entityId: string }) {
+  const scenePath = useEditorStore((state) => state.activeScenePath);
+  const layers = useEditorStore((state) => state.activeScene?.layers);
+  const ownLocks = useEditorStore((state) => state.lockedEntityIdsByScene[state.activeScenePath]);
+  const toggleEntityLock = useEditorStore((state) => state.toggleEntityLock);
+  const lock = entityEditLock(entityId, layers, ownLocks ?? []);
+  const objectLocked = lock.locked && lock.reason === "object";
+  const label = objectLocked
+    ? "Desbloquear objeto no Canvas"
+    : lock.locked
+      ? `${describeEntityEditLock(lock)} — bloquear também o objeto`
+      : "Bloquear objeto no Canvas";
+  return (
+    <button
+      type="button"
+      data-testid={`hierarchy-lock-${entityId}`}
+      aria-pressed={objectLocked}
+      aria-label={label}
+      title={label}
+      onClick={(event) => { event.stopPropagation(); toggleEntityLock(scenePath, entityId); }}
+      onDoubleClick={(event) => event.stopPropagation()}
+      className={[
+        "-ml-5 w-4 shrink-0 rounded text-[10px] leading-none focus:outline-none focus-visible:ring-1 focus-visible:ring-[#89b4fa]",
+        lock.locked ? "opacity-100 text-[#f9e2af]" : "opacity-0 text-[#7f849c] group-hover:opacity-100 focus-visible:opacity-100",
+      ].join(" ")}
+    >
+      {lock.locked ? "🔒" : "🔓"}
+    </button>
   );
 }

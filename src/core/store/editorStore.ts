@@ -416,6 +416,9 @@ export interface StoreActions {
   moveLayerDown: (layerId: string) => void;
   /** Atribui uma entidade a uma camada (remove-a de outras camadas primeiro). */
   assignEntityToLayer: (entityId: string, layerId: string | null) => void;
+  /** R3-08: editor-only object locks per scene path (never persisted into the scene). */
+  lockedEntityIdsByScene: Record<string, string[]>;
+  toggleEntityLock: (scenePath: string, entityId: string) => void;
   setActiveViewportTab: (id: string) => void;
   setArtStudioAssetPath: (path: string | null) => void;
   setExplorerAssetPath: (path: string | null) => void;
@@ -740,6 +743,23 @@ function saveStateAfterHistory(state: EditorState, source: Scene | null, revisio
   return state.sceneSaveState;
 }
 
+const ENTITY_LOCKS_KEY = "rds.editor.entityLocks.v1";
+function readEntityLocks(): Record<string, string[]> {
+  try {
+    const raw = globalThis.localStorage?.getItem(ENTITY_LOCKS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : {};
+    if (!parsed || typeof parsed !== "object") return {};
+    return Object.fromEntries(Object.entries(parsed as Record<string, unknown>)
+      .filter(([, ids]) => Array.isArray(ids))
+      .map(([scene, ids]) => [scene, (ids as unknown[]).filter((id): id is string => typeof id === "string")]));
+  } catch {
+    return {};
+  }
+}
+function writeEntityLocks(value: Record<string, string[]>) {
+  try { globalThis.localStorage?.setItem(ENTITY_LOCKS_KEY, JSON.stringify(value)); } catch { /* editor preference only */ }
+}
+
 export const useEditorStore = create<EditorState>((set, get) => ({
   activeProjectDir: "",
   projectSessionId: 0,
@@ -827,6 +847,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   clearEmulatorLaunchRequest: () => set({ emulatorLaunchRequest: null }),
 
   selectedEntityId: null,
+  lockedEntityIdsByScene: readEntityLocks(),
+  toggleEntityLock: (scenePath, entityId) =>
+    set((state) => {
+      const current = state.lockedEntityIdsByScene[scenePath] ?? [];
+      const next = current.includes(entityId) ? current.filter((id) => id !== entityId) : [...current, entityId];
+      const lockedEntityIdsByScene = { ...state.lockedEntityIdsByScene, [scenePath]: next };
+      writeEntityLocks(lockedEntityIdsByScene);
+      return { lockedEntityIdsByScene };
+    }),
   setSelectedEntityId: (id) => set((state) => ({
     selectedEntityId: id,
     studio: refineStudioFocusState(state.studio, { entityId: id }),

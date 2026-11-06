@@ -6,7 +6,7 @@ import CameraConfigurator from "../inspector/CameraConfigurator";
 import { hudBand } from "../../core/hudText";
 import { loadShellPersona } from "../../core/surfaceRegistry";
 import { cellsOnLine } from "../../core/tilemapCells";
-import { layerCompositionEntities, restoreTemplateEntityPositions, translateCollisionMap, type TemplatePositionChange } from "../../core/sceneComposition";
+import { describeEntityEditLock, entityEditLock, layerCompositionEntities, restoreTemplateEntityPositions, translateCollisionMap, type TemplatePositionChange } from "../../core/sceneComposition";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tabs from "../common/Tabs";
 import { useEditorStore } from "../../core/store/editorStore";
@@ -399,6 +399,7 @@ export default function ViewportPanel({
   const sceneOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
   /** Ciclo Alt+clique em sprites sobrepostos (cena densa). */
   const densePickRef = useRef<{ mx: number; my: number; ids: string[]; idx: number } | null>(null);
+  const lastLockedHitRef = useRef<Entity | null>(null);
   const sceneRulerTopRef = useRef<HTMLCanvasElement>(null);
   const sceneRulerLeftRef = useRef<HTMLCanvasElement>(null);
   const [sceneStageSize, setSceneStageSize] = useState({ width: 0, height: 0 });
@@ -3512,9 +3513,16 @@ export default function ViewportPanel({
     }
 
     const stack: Entity[] = [];
+    const lockedIds = useEditorStore.getState().lockedEntityIdsByScene[activeScenePath] ?? [];
+    let lockedHit: Entity | null = null;
     for (let index = activeScene.entities.length - 1; index >= 0; index -= 1) {
       const entity = activeScene.entities[index];
       if (hiddenByLayer.has(entity.entity_id)) {
+        continue;
+      }
+      if (entityEditLock(entity.entity_id, activeScene.layers, lockedIds).locked) {
+        const b = getEntityBounds(entity, activeTarget, activeScene.entities);
+        if (!lockedHit && mx >= b.x && mx <= b.x + b.width && my >= b.y && my <= b.y + b.height) lockedHit = entity;
         continue;
       }
       if (entity.components?.tilemap && !showTilemaps) {
@@ -3534,7 +3542,15 @@ export default function ViewportPanel({
       }
     }
 
+    lastLockedHitRef.current = stack.length === 0 ? lockedHit : null;
     return stack;
+  }
+
+  function explainLockedHit() {
+    const locked = lastLockedHitRef.current;
+    if (!locked || !activeScene) return;
+    const lock = entityEditLock(locked.entity_id, activeScene.layers, useEditorStore.getState().lockedEntityIdsByScene[activeScenePath] ?? []);
+    logMessage("info", `[Viewport] ${getEntityDisplayName(locked)}: ${describeEntityEditLock(lock)}. Selecione ou desbloqueie pela árvore.`);
   }
 
   function hitTest(mx: number, my: number) {
@@ -3551,6 +3567,9 @@ export default function ViewportPanel({
       return null;
     }
 
+    if (entityEditLock(entity.entity_id, activeScene.layers, useEditorStore.getState().lockedEntityIdsByScene[activeScenePath] ?? []).locked) {
+      return null;
+    }
     const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
     if (!bounds.resizable) {
       return null;
@@ -3838,6 +3857,7 @@ export default function ViewportPanel({
     if (stack.length === 0) {
       densePickRef.current = null;
       setSelectedEntityId(null);
+      explainLockedHit();
       return;
     }
 
