@@ -6,7 +6,7 @@ import CameraConfigurator from "../inspector/CameraConfigurator";
 import { hudBand } from "../../core/hudText";
 import { loadShellPersona } from "../../core/surfaceRegistry";
 import { cellsOnLine } from "../../core/tilemapCells";
-import { describeEntityEditLock, entityEditLock, layerCompositionEntities, restoreTemplateEntityPositions, translateCollisionMap, type TemplatePositionChange } from "../../core/sceneComposition";
+import { describeEntityEditLock, entityEditLock, escapeExitsIsolation, layerCompositionEntities, restoreTemplateEntityPositions, translateCollisionMap, type TemplatePositionChange } from "../../core/sceneComposition";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tabs from "../common/Tabs";
 import { useEditorStore } from "../../core/store/editorStore";
@@ -782,6 +782,21 @@ export default function ViewportPanel({
       setSoloEntityId(null);
     }
   }, [activeScene?.entities, soloEntityId]);
+  // R3-02: isolation is a derived editor view; switching scene exits it without touching authoring.
+  useEffect(() => {
+    setSoloEntityId(null);
+  }, [activeScenePath]);
+  useEffect(() => {
+    if (!soloEntityId) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (!escapeExitsIsolation(event)) return;
+      event.preventDefault();
+      setSoloEntityId(null);
+      logMessage("info", "[Viewport] Isolamento encerrado (Esc). Visibilidade escolhida preservada.");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [logMessage, soloEntityId]);
   useEffect(() => {
     if (!denseStackPicker) {
       return;
@@ -2226,6 +2241,10 @@ export default function ViewportPanel({
           return;
         }
         if (key === "escape") {
+          // Only consume Esc when there is a tool/brush to cancel; otherwise let it
+          // cascade to the derived isolation exit (R3-02).
+          const tool = useEditorStore.getState();
+          if (tool.editorMode === "select" && !tool.activeBrush) return;
           event.preventDefault();
           setActiveBrush(null);
           setEditorMode("select");
@@ -4742,6 +4761,7 @@ export default function ViewportPanel({
               <button
                 type="button"
                 data-testid="viewport-entity-solo-toggle"
+                aria-pressed={Boolean(selectedEntity && soloEntityId === selectedEntity.entity_id)}
                 onClick={toggleSelectedEntitySolo}
                 disabled={!selectedEntity}
                 className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
@@ -4753,6 +4773,25 @@ export default function ViewportPanel({
               >
                 Solo
               </button>
+              {soloEntityId ? (
+                <span
+                  data-testid="viewport-isolation-chip"
+                  role="status"
+                  className="inline-flex items-center gap-1 rounded border border-[#f9e2af]/60 px-2 py-0.5 text-[10px] font-semibold text-[#f9e2af]"
+                >
+                  Atenuado · isolamento: {(() => { const e = activeScene?.entities.find((c) => c.entity_id === soloEntityId); return e ? getEntityDisplayName(e) : soloEntityId; })()}
+                  <button
+                    type="button"
+                    data-testid="viewport-isolation-exit"
+                    onClick={() => setSoloEntityId(null)}
+                    aria-label="Sair do isolamento (Esc)"
+                    title="Sair do isolamento (Esc) — não altera a cena"
+                    className="rounded px-1 hover:bg-[#313244] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#89b4fa]"
+                  >
+                    ×
+                  </button>
+                </span>
+              ) : null}
               <button
                 type="button"
                 onClick={centerViewportOnCamera}

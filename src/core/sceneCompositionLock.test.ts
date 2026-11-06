@@ -29,3 +29,19 @@ describe("R3-08 entity edit lock", () => {
     expect(useEditorStore.getState().lockedEntityIdsByScene["scenes/a.json"]).toEqual([]);
   });
 });
+
+describe("R3-02 Esc priority for derived isolation", () => {
+  it("exits only when no field or popup owns Escape", async () => {
+    const { escapeExitsIsolation } = await import("./sceneComposition");
+    const doc = document.implementation.createHTMLDocument("t");
+    const body = doc.body;
+    const input = doc.createElement("input"); body.appendChild(input);
+    const div = doc.createElement("div"); body.appendChild(div);
+    expect(escapeExitsIsolation({ key: "Escape", defaultPrevented: false, target: div }, doc)).toBe(true);
+    expect(escapeExitsIsolation({ key: "Escape", defaultPrevented: false, target: input }, doc)).toBe(false);
+    expect(escapeExitsIsolation({ key: "Escape", defaultPrevented: true, target: div }, doc)).toBe(false);
+    expect(escapeExitsIsolation({ key: "Enter", defaultPrevented: false, target: div }, doc)).toBe(false);
+    const menu = doc.createElement("div"); menu.setAttribute("role", "menu"); body.appendChild(menu);
+    expect(escapeExitsIsolation({ key: "Escape", defaultPrevented: false, target: div }, doc)).toBe(false);
+  });
+});

@@ -80,3 +80,18 @@ export function describeEntityEditLock(lock: EntityEditLock): string {
   if (!lock.locked) return "";
   return lock.reason === "object" ? "Objeto bloqueado" : `Bloqueado pela camada «${lock.layerName}»`;
 }
+
+/**
+ * R3-02: Esc exits the derived isolation only when no field, popup or menu owns the key.
+ * Fields keep their own Esc (clear/cancel) and open dialogs/menus close first.
+ */
+export function escapeExitsIsolation(event: { key: string; defaultPrevented: boolean; target: EventTarget | null }, doc: Document | null = typeof document === "undefined" ? null : document): boolean {
+  if (event.key !== "Escape" || event.defaultPrevented) return false;
+  const el = event.target as HTMLElement | null;
+  if (el && typeof el.closest === "function") {
+    if (el.isContentEditable || el.closest("input, textarea, select, [contenteditable='true']")) return false;
+    if (el.closest("[role='dialog'], [role='menu'], [role='listbox'], dialog[open]")) return false;
+  }
+  if (doc?.querySelector("[role='dialog'][aria-modal='true'], [role='menu'], dialog[open]")) return false;
+  return true;
+}
