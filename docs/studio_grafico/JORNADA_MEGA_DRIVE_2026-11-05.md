@@ -144,6 +144,69 @@ Prioridade sugerida para discussão: **1)** gestos/menu coerentes e contexto per
 
 O próximo passo desta proposta é ajustar os mockups com o operador. Não foram adicionadas superfícies de produto nem modificada a maturidade do roadmap. O PDF e o pacote originais do tutorial permanecem preservados; estes mockups são uma revisão conceitual posterior.
 
+## Reavaliação crítica R2 — 2026-11-05 (proposta vigente para discussão)
+
+O operador forneceu uma avaliação externa baseada nas duas imagens e no resumo, sem leitura da especificação ou das fontes. A crítica identifica problemas reais de comunicação dos mockups R1: navegação global duplicada, duas hierarquias com organizações diferentes, botões de animação dentro de comportamento e isolamento inconsistente. A especificação textual anterior não compensa esses erros visuais. **R2 passa a ser a referência de UX para discussão; R1 fica preservada como histórico. Nenhuma dessas interações foi implementada por esta revisão.**
+
+A fonte do produto inspecionada continua `d51c56da`; a entrada desta revisão é o fechamento documental `5268c968`. Avaliação original, dois PNGs selecionados, prompts integrais e manifesto privados: `RDS_WORK_ROOT/sessions/tutorial-megadrive-20261105/mockups-contextuais/revisao-critica/`. SHA-256 da avaliação recebida `fff3a8de538cf70dbfc164467eb1e05e048a0cb9f528230cc31181ad57f19bc8`. Geração por imagegen embutido; originais e R1 preservados. A segunda imagem é outro estado ilustrativo, com isolamento inativo; não é uma sequência de execução da primeira. Ponte, Gruta, conexões e números de nós são exemplos.
+
+### Decisões sobre os apontamentos
+
+| Apontamento | Reavaliação e síntese R2 |
+|---|---|
+| Navegação duplicada | **Incorporar.** Lateral: Cena, Arquivos, Teste e Depurar. Tarefas da seleção: Arte, Comportamentos e Nós. Sem seleção, mostrar ações da cena/estado vazio, sem abas de objeto sem alvo. Menu e teclado são atalhos das mesmas ações. |
+| Hierarquias divergentes | **Incorporar.** Uma árvore Objetos e camadas; grupos, objetos, visibilidade e bloqueio no mesmo lugar. Ordenação deve corresponder à composição suportada. O drawer do mapa descreve cenas/transições, não outra lista de camadas. |
+| Animação confundida com comportamento | **Incorporar.** Comportamento mostra velocidade, salto e botão. Animações mostra clipes/quadros/tempos. O vínculo é explícito: «Ao pular → animação jump». Nós mostram a regra. A mesma seleção é conservada entre tarefas. |
+| Menu sobre o herói e ações ausentes | **Incorporar.** Posicionar fora da seleção, com ajuste aos limites da janela. Incluir duplicar, renomear, excluir e organização permitida no plano. «Onde Nalu é usado» substitui «Localizar vínculos». Excluir fica separado das ações frequentes. |
+| Alfinetes e resumos | **Incorporar com ajuste.** Resumos mostram valores e escopo. Fixação aparece no hover **e no foco de teclado**; painel fixado conserva indicador. Menu de opções permanece encontrável. Não recolher um painel com foco, popup, arraste ou edição pendente. |
+| Isolamento inconsistente | **Incorporar.** Atenuar todo conteúdo não selecionado, incluindo céu e chão. Preservar máscaras anteriores; uma camada antes oculta não deve reaparecer. Indicador único «Isolando Nalu · só no editor»/Sair. Esc respeita primeiro popups/edições internos. |
+| Mapa reduzindo o grafo | **Incorporar.** Grafo usa a altura útil; mapa abre sob demanda em drawer ou visão ampliada, sem ficar permanentemente empilhado sobre os nós. Em janela estreita, alternar drawer/grafo conservando posição e seleção. |
+| Ligações sem origem | **Incorporar.** Mostrar cena de origem/destino, objeto/gatilho e nó responsável. «Ver origem» abre e enquadra esse nó. Ligações devem derivar dos `load_scene`/contratos existentes, não de um segundo grafo de execução editado à parte. Destino dinâmico/desconhecido deve aparecer como tal, sem inventar uma aresta certa. |
+| Códigos A1, A2… | **Ajustar.** A1 não é intrinsecamente inválido como apelido, mas codificar a cena no identificador cria fragilidade ao mover/copiar. R2 usa N01, N02… como referência visual estável no projeto, cena à parte; IDs internos continuam canônicos. Cópia ganha identidade nova; movimento conserva identidade quando suportado; exclusão não renumera outros nós. |
+| Saída Não solta | **Incorporar.** Mostrar «Sem ação» e «+ Ligar». É um auxiliar da porta livre, não um quinto nó nem erro obrigatório; o ramo pode intencionalmente não executar nada. |
+| Força duplicada no nó e painel | **Incorporar.** Um valor no modelo existente; campos são projeções sincronizadas. Uma superfície de edição ativa, resumo e destaque na outra. A imagem R2 evita duas entradas simultâneas e mostra Editar no nó. |
+| Cor selecionada duplicada | **Incorporar.** Uma indicação de seleção na grade; legenda/valor textual pode explicar o índice sem criar outra amostra que pareça uma segunda seleção. Filtro visual atua no índice/recurso selecionado, não em todos os RGBs semelhantes. |
+| Desfazer visibilidade ou restaurar layout | **Corrigir a alternativa.** Restaurar layout só organiza painéis; Restaurar visão desfaz máscaras/filtros. Sair do isolamento recupera o estado anterior. Oferecer reversão explícita da mudança de visão sem confundir com Undo de autoria. |
+| Estados vazios | **Incorporar.** Cena vazia: «Arraste um sprite ou comece por um modelo». Grafo vazio: «Adicione um comportamento pronto». Sem seleção: instruir seleção, sem painéis de um objeto antigo. Esses estados estão especificados; os dois PNGs mostram estados com conteúdo. |
+| Arco do salto ao vivo | **Incorporar como estimativa.** Mostrar alcance/origem dos parâmetros e o rótulo «Arco estimado · confirmar no teste». Só poderá representar trajetória fiel se usar as mesmas regras discretas, colisões e contexto efetivamente validados no core. |
+| Substituir Salvar por autosave | **Não adotar como troca imediata.** O produto já distingue rascunho, revisão salva, conflito e falha. Mostrar «Rascunho protegido · alterações por salvar» após confirmação real, mantendo Salvar. Autosave do projeto é uma evolução separada, opt-in, condicionada à recuperação, conflitos e assets/grafos coerentes. |
+| Atalhos e busca | **Incorporar com escopo.** Busca de comandos/cenas/objetos/nós, atalhos visíveis e equivalentes por teclado para menus. V/H/I e Ctrl+K são sugestões a reconciliar com bindings existentes; não capturar digitação/IME nem atalhos do editor de campos. |
+| Loop, FPS e onion skin | **Incorporar à apresentação de Arte.** Esses conceitos já existem em `ArtStudioPanel`, `CharacterTimelinePanel` e `useSpriteAnimator`; não criar outro animador. A tira completa fica em Arte, não na tarefa Comportamentos. A ausência no mockup não prova ausência no produto. |
+| Acessibilidade/contraste | **Incorporar como requisito, sem certificar por aparência.** Medir cores/fontes/estados reais, foco e tabulação; cabeçalhos e ações com nomes acessíveis; não depender só de cor, hover ou movimento. Movimento reduzido cobre todos os recolhimentos/transições. |
+| Testar da cena/do objeto | **Incorporar cena atual; qualificar objeto.** «Testar cena atual» encurta o ciclo quando implementado no launcher/runtimeLink oficial. Para um objeto, iniciar perto dele preservando sua cena; não prometer teste isolado que descarte chão, câmera, colisões ou dependências. |
+
+### Onde a concordância não é literal
+
+**Atalhos úteis não são uma segunda navegação global.** Menu de contexto, botão no Inspector e atalho podem levar à mesma tarefa, desde que disparem a mesma ação e reflitam a mesma seleção. A duplicação ruim era ter seletores globais concorrentes no topo e na lateral. Remover todos os acessos alternativos aumentaria o esforço.
+
+**Autoproteção e salvamento durável são estados diferentes.** `scenePersistence.ts` já confere a escrita do rascunho, registra revisão e trata conflito com cena/grafos salvos. R2 não mascara esses estados com um «Salvo há 5 s» genérico. Indicador de sucesso só aparece depois do recibo correspondente. Autosave futuro não substitui Undo, versão ou recuperação por si só.
+
+**Arco, ordenação e teste precisam respeitar o alvo.** A curva desenhada é uma estimativa, não prova do salto na ROM. «Trazer para frente» deve respeitar planos, prioridade e composição efetivamente suportados; por isso o menu usa «Organizar no plano». Testar um objeto mantém o contexto da cena. Essas distinções evitam apresentar uma simulação gráfica como comportamento confirmado do jogo.
+
+**A preocupação com contraste procede; a reprovação AA ainda não foi medida.** A referência WCAG 2.2 pede contraste de texto normal de pelo menos 4,5:1, com exceções como texto grande (3:1). Na implementação, conferir cores de fonte/fundo e estados reais, não inferir o resultado apenas pelo estilo escuro ou por um raster reduzido. [W3C — contraste mínimo](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html). Conteúdo contextual deve também funcionar ao foco, permitir dispensa quando aplicável e permanecer disponível durante a interação; isso fundamenta o ajuste ao «alfinete só no hover». [W3C — conteúdo em hover/foco](https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html). Nenhuma imagem gerada recebe certificação de acessibilidade.
+
+### Acréscimos além da avaliação externa
+
+1. **Escopo da alteração antes da ação:** «Esta instância» versus modelo/recurso compartilhado; mostrar os usos afetados e oferecer variante quando o contrato permitir. Não expandir uma mudança de Nalu para todos os consumidores silenciosamente.
+2. **Separar as três recuperações:** Sair do isolamento restaura a visão anterior; Restaurar visão remove filtros temporários; Restaurar layout reorganiza painéis. Nenhuma deve desfazer uma edição de arte ou lógica por associação implícita.
+3. **Uma origem de verdade:** parâmetros, nós gerados e resumo de comportamento editam o modelo canônico; conexões entre cenas são uma leitura rastreável desse modelo. Mapa, formulários e preview não ganham compiladores/stores concorrentes.
+4. **Seleção múltipla e resposta atrasada:** mostrar «3 objetos»/«valores diferentes», oferecer apenas ações compatíveis e impedir que uma resposta assíncrona aplique edição no objeto selecionado depois. Preservar o trabalho ao trocar tarefa/cena.
+5. **Reversão e foco previsíveis:** Esc fecha primeiro o popup/campo mais interno, depois sai do isolamento quando cabível; desfazer de autoria e reversão de filtros são identificáveis. Não roubar foco nem recolher controles usados pelo teclado.
+6. **Distinguir edição, estimativa e teste:** o editor identifica sua prévia; o teste identifica a cena/revisão executada. Uma ROM anterior ou um arco ilustrativo não pode receber a marca de resultado da edição atual.
+
+### Ordem proposta e aceite antes de implementar mais superfícies
+
+| Lote de UX proposto | Ganho buscado | Aceite da jornada futura |
+|---|---|---|
+| 1 — Contexto único | Navegação, árvore e gestos coerentes | Selecionar Nalu → Arte → Comportamentos → Nós → voltar à cena, sem perder objeto, revisão ou edição; menu e teclado chegam à mesma tarefa. |
+| 2 — Trabalho reversível | Parâmetros claros, isolamento/filtros e painéis previsíveis | Ajustar salto sem montar nós manualmente; foco e painel permanecem durante edição; desfazer restaura o parâmetro. Isolar/filtrar/sair não muda cena/paleta/ROM salvas e recupera máscaras anteriores. |
+| 3 — Rastreabilidade | Nós legíveis e mapa de cenas sob demanda | Encontrar A→C, abrir o nó de origem, distinguir o objeto dono, voltar ao ponto anterior. Organizar/copiar/mover preserva a identidade aplicável e não cria conexão de execução por apenas mover um cartão. |
+| 4 — Ciclo curto de teste | Estimativas úteis e execução oficial identificada | Prévia estimada visível; teste da cena no Tauri → Build → ROM → core com a revisão certa. Estados de salvar, erro e conflito continuam explícitos. |
+
+Acessibilidade, estados vazios, foco e adaptação de janela entram em cada lote, não ficam para uma fase de acabamento. Comparar o fluxo atual e a proposta com iniciante: tempo/ações até editar e testar, hesitações, enganos entre animação e ação e capacidade de desfazer. Não há resultados humanos medidos nesta revisão. Avaliar também 1366×768 e 949×593; a imagem 1586×992 não valida essas dimensões, teclado, leitor de tela ou movimento.
+
+Owners existentes: `ViewportPanel`/`HierarchyPanel`/`LayerPanel`, `StudioContextBar`/`studioContext`/`editorStore`, `scenePersistence`, `ArtStudioPanel`/`CharacterTimelinePanel`/`useSpriteAnimator`, `NodeGraphEditor`/`behaviorLibrary`/`nodeTypes` e `runtimeLink`. Próximo: revisão dos PNGs R2 com o operador, depois um lote restrito no owner com regressão e jornada Tauri. Sem reescrita geral, motor paralelo ou promoção de maturidade. O tutorial/PDF/projeto anteriores continuam preservados.
+
 ## Implementação da curadoria — 2026-11-05 (lote 1, Experimental)
 
 | ID | Estado | O que mudou | Prova | Falta |
