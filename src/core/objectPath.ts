@@ -56,3 +56,33 @@ export function pathCycleFrames(path: PathComponent): number {
   if (path.mode === "pingpong") return legs * 2;
   return legs;
 }
+
+/** World positions of the path points (spawn + relative offsets). */
+export function pathWorldPoints(spawn: { x: number; y: number }, path: PathComponent): Array<{ x: number; y: number }> {
+  return path.points.map((p) => ({ x: spawn.x + p.x, y: spawn.y + p.y }));
+}
+
+/**
+ * Index of the draggable handle under (mx, my) in world units, or null. Point 0 is the object's
+ * own position and is never a path handle; the nearest handle wins on overlap.
+ */
+export function hitPathHandle(points: Array<{ x: number; y: number }>, mx: number, my: number, radius: number): number | null {
+  let best: number | null = null;
+  let bestDist = radius * radius;
+  for (let i = 1; i < points.length; i += 1) {
+    const dx = points[i]!.x - mx;
+    const dy = points[i]!.y - my;
+    const d = dx * dx + dy * dy;
+    if (d <= bestDist) {
+      best = i;
+      bestDist = d;
+    }
+  }
+  return best;
+}
+
+/** Relative offset for a handle dropped at world (wx, wy), clamped and rounded to integers. */
+export function dropOffset(spawn: { x: number; y: number }, wx: number, wy: number): { x: number; y: number } {
+  const clamp = (v: number) => Math.max(-PATH_MAX_OFFSET, Math.min(PATH_MAX_OFFSET, Math.round(v)));
+  return { x: clamp(wx - spawn.x), y: clamp(wy - spawn.y) };
+}

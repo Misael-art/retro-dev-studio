@@ -6,6 +6,7 @@ import CameraConfigurator from "../inspector/CameraConfigurator";
 import { hudBand } from "../../core/hudText";
 import { loadShellPersona } from "../../core/surfaceRegistry";
 import { cellsOnLine } from "../../core/tilemapCells";
+import { dropOffset, hitPathHandle, pathWorldPoints, withPoint } from "../../core/objectPath";
 import { describeEntityEditLock, entityEditLock, escapeExitsIsolation, layerCompositionEntities, restoreTemplateEntityPositions, translateCollisionMap, type TemplatePositionChange } from "../../core/sceneComposition";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tabs from "../common/Tabs";
@@ -400,6 +401,8 @@ export default function ViewportPanel({
   /** Ciclo Alt+clique em sprites sobrepostos (cena densa). */
   const densePickRef = useRef<{ mx: number; my: number; ids: string[]; idx: number } | null>(null);
   const lastLockedHitRef = useRef<Entity | null>(null);
+  // R5: dragging a path handle edits components.path (one undo per drag).
+  const pathDragRef = useRef<{ entityId: string; index: number; moved: boolean } | null>(null);
   const sceneRulerTopRef = useRef<HTMLCanvasElement>(null);
   const sceneRulerLeftRef = useRef<HTMLCanvasElement>(null);
   const [sceneStageSize, setSceneStageSize] = useState({ width: 0, height: 0 });
@@ -3342,6 +3345,38 @@ export default function ViewportPanel({
         context.fillText(`${guide.position}px`, 6, worldToSceneCanvasY(guide.position) - 4);
       }
     });
+
+    // R5: path of the selected object, with draggable handles (point 0 = the object itself).
+    const pathOwner = activeScene?.entities.find((candidate) => candidate.entity_id === selectedEntityId);
+    if (pathOwner?.components.path && pathOwner.components.sprite && editorMode === "select") {
+      const path = pathOwner.components.path;
+      const pts = pathWorldPoints(pathOwner.transform, path).map((p) => ({ x: worldToSceneCanvasX(p.x), y: worldToSceneCanvasY(p.y) }));
+      context.save();
+      context.setLineDash([6, 4]);
+      context.lineWidth = 2;
+      context.strokeStyle = "#f9e2af";
+      context.beginPath();
+      pts.forEach((p, i) => (i === 0 ? context.moveTo(p.x, p.y) : context.lineTo(p.x, p.y)));
+      if (path.mode === "loop" && pts.length > 2) context.closePath();
+      context.stroke();
+      context.setLineDash([]);
+      context.font = "bold 10px monospace";
+      pts.forEach((p, i) => {
+        context.beginPath();
+        context.arc(p.x, p.y, i === 0 ? 4 : 6, 0, Math.PI * 2);
+        context.fillStyle = i === 0 ? "#1e1e2e" : "#f9e2af";
+        context.fill();
+        context.lineWidth = 2;
+        context.strokeStyle = i === 0 ? "#f9e2af" : "#1e1e2e";
+        context.stroke();
+        if (i > 0) {
+          // Point 0 is the object itself (not draggable); only path handles get a number.
+          context.fillStyle = "#f9e2af";
+          context.fillText(String(i), p.x + 8, p.y - 8);
+        }
+      });
+      context.restore();
+    }
   }, [
     activeBrush,
     activeScene,
@@ -3845,6 +3880,19 @@ export default function ViewportPanel({
       }
     }
 
+    // R5: path handles of the selected object come before resize/move.
+    const pathOwner = activeScene.entities.find((candidate) => candidate.entity_id === selectedEntityId);
+    if (pathOwner?.components.path && pathOwner.components.sprite && moveScope === "entity" &&
+      !entityEditLock(pathOwner.entity_id, activeScene.layers, useEditorStore.getState().lockedEntityIdsByScene[activeScenePath] ?? []).locked) {
+      const worldRadius = 7 * (sceneWidth / Math.max(sceneScaleWidth, 1));
+      const handle = hitPathHandle(pathWorldPoints(pathOwner.transform, pathOwner.components.path), mx, my, worldRadius);
+      if (handle !== null) {
+        pathDragRef.current = { entityId: pathOwner.entity_id, index: handle, moved: false };
+        beginHistoryCapture();
+        return;
+      }
+    }
+
     const resizeTarget = moveScope === "entity" ? hitTestResizeHandle(mx, my) : null;
     if (resizeTarget) {
       const bounds = getEntityBounds(resizeTarget.entity, activeTarget, activeScene.entities);
@@ -4061,6 +4109,23 @@ export default function ViewportPanel({
       return;
     }
 
+    const pathDrag = pathDragRef.current;
+    if (pathDrag && event.buttons === 1) {
+      const owner = activeScene?.entities.find((candidate) => candidate.entity_id === pathDrag.entityId);
+      const path = owner?.components.path;
+      if (!owner || !path) return;
+      const snapped = gridSnap ? { x: Math.round(mx / GRID_SNAP_SIZE) * GRID_SNAP_SIZE, y: Math.round(my / GRID_SNAP_SIZE) * GRID_SNAP_SIZE } : { x: mx, y: my };
+      const offset = dropOffset(owner.transform, snapped.x, snapped.y);
+      const current = path.points[pathDrag.index];
+      if (!current || (current.x === offset.x && current.y === offset.y)) return;
+      if (!pathDrag.moved) {
+        commitHistoryCapture();
+        pathDrag.moved = true;
+      }
+      updateEntity(owner.entity_id, { components: { ...owner.components, path: withPoint(path, pathDrag.index, offset) } }, { recordHistory: false });
+      return;
+    }
+
     // Select mode drag (existing behavior)
     const drag = dragRef.current;
     if (!drag || event.buttons !== 1) return;
@@ -4199,6 +4264,23 @@ export default function ViewportPanel({
   }
 
   async function handleMouseUp() {
+    const pathDrag = pathDragRef.current;
+    if (pathDrag) {
+      pathDragRef.current = null;
+      if (!pathDrag.moved) {
+        cancelHistoryCapture();
+        return;
+      }
+      const { activeProjectDir: projectDir } = useEditorStore.getState();
+      if (projectDir) {
+        try {
+          await persistActiveScene(projectDir, "Viewport", `Ponto ${pathDrag.index} do trajeto movido.`);
+        } catch (error: unknown) {
+          logMessage("error", `[Viewport] Falha ao salvar o trajeto: ${describeError(error)}`);
+        }
+      }
+      return;
+    }
     // Collision drag commit — single undo entry + persist
     const collisionDrag = collisionDragRef.current;
     if (collisionDrag) {
@@ -5218,6 +5300,10 @@ export default function ViewportPanel({
               <canvas
                 ref={sceneOverlayCanvasRef}
                 data-testid="viewport-scene-overlay"
+                data-world-min-x={sceneWorldMinX}
+                data-world-min-y={sceneWorldMinY}
+                data-world-width={sceneWidth}
+                data-world-height={sceneHeight}
                 width={sceneScaleWidth}
                 height={sceneScaleHeight}
                 onMouseDown={handleMouseDown}

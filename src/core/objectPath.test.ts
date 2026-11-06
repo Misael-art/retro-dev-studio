@@ -33,3 +33,17 @@ describe("R5 object path model", () => {
     expect(pathCycleFrames({ ...path, mode: "once" })).toBe(90);
   });
 });
+
+describe("R5 canvas handles geometry", () => {
+  it("maps points to world, hits the nearest draggable handle and never point 0", async () => {
+    const { pathWorldPoints, hitPathHandle, dropOffset, defaultPath, withPoint } = await import("./objectPath");
+    const path = withPoint(withPoint(defaultPath(), 1, { x: 64, y: 0 }), 0, {});
+    const pts = pathWorldPoints({ x: 100, y: 50 }, { ...path, points: [...path.points, { x: 66, y: 2, frames: 10, wait: 0 }] });
+    expect(pts).toEqual([{ x: 100, y: 50 }, { x: 164, y: 50 }, { x: 166, y: 52 }]);
+    expect(hitPathHandle(pts, 100, 50, 6)).toBeNull();
+    expect(hitPathHandle(pts, 163, 50, 6)).toBe(1);
+    expect(hitPathHandle(pts, 166, 53, 6)).toBe(2);
+    expect(hitPathHandle(pts, 200, 200, 6)).toBeNull();
+    expect(dropOffset({ x: 100, y: 50 }, 130.6, 9000)).toEqual({ x: 31, y: 2048 });
+  });
+});
