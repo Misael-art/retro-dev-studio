@@ -107,6 +107,43 @@ Proteção e hashes dos arquivos entregues ficam no manifesto/recibo privado do 
 O coordenador longo do driver terminou com 143; a causa não foi isolada e seu recibo original ficou `RUNNING`, preservado. Depois de concluir as capturas/provas, a inspeção confirmou ausência dos PIDs próprios 1715608/1715766/1715770 e de processos com este `RDS_WORK_ROOT`. Só a lease válida e identificada desta missão foi arquivada sob o mutex canônico; recibo separado em `service-cleanup.json`. A trava vazia do operador conservou tamanho e mtime. Esse lançamento interrompido não é certificado nem PASS retroativo; o diagnóstico READY e as provas do aplicativo/core têm recibos próprios.
 
 
+## Proposta contextual de workspace — 2026-11-05 (mockup para ajuste)
+
+Novo pedido do operador: organizar as ideias de contexto, painéis recolhíveis, isolamento, identidade de cenas/nós e filtros de camadas/cores, e apresentar imagens para discussão. **Este incremento é uma proposta visual; não implementa essas interações nem altera o projeto Correio das Nuvens.** As correções JV já executadas estão na seção posterior e mantêm suas evidências próprias.
+
+Dois mockups privados em `RDS_WORK_ROOT/sessions/tutorial-megadrive-20261105/mockups-contextuais/`:
+
+- `01-cena-contextual.png`: herói selecionado, menu do botão direito, isolamento, paleta e camadas, painéis abertos/recolhidos com fixação.
+- `02-cenas-e-logica.png`: mapa de cenas A→B, A→C e C→A; thumbnail e fundo sutil da cena ativa; nós A1…A4, contexto do objeto e Inspector compacto.
+- `prompts.json` e `manifesto.json`: prompts integrais, modo imagegen embutido, origens, dimensões e SHA-256. Imagens 1586×992, aproximadamente 1,7 MB cada; originais preservados. Ponte e Gruta são exemplos visuais, não cenas autoradas no projeto. Os valores, cores e disposição são ilustrativos; animação e responsividade não são demonstradas por uma imagem estática. Cópias no mesmo filesystem, sem backup independente qualificado.
+
+### Ideias do operador organizadas
+
+| Eixo | Interação proposta | Regra para manter clareza |
+|---|---|---|
+| A — Ações no objeto | Clique seleciona; duplo clique no sprite abre arte/animações; botão direito oferece lógica, animações, paleta, novo comportamento/movimento/golpe, isolamento e vínculos. | Mesmas ações no canvas e na hierarquia; título do menu identifica o alvo. A ação também fica disponível por botão e teclado. Escolher uma tarefa conserva o objeto e permite voltar à cena. |
+| B — Painéis contextuais | Paleta, propriedades, animações, comportamentos e camadas mostram cabeçalho compacto, ícone, nome e resumo; abrem para edição completa. Podem ser encaixados, agrupados ou destacados dentro da janela de trabalho. | Usar a paleta do objeto/área selecionada. Fixar mantém aberto; recolher conserva uma linha reconhecível. Abertura por clique/foco intencional, com acesso por teclado; não depender só de hover. |
+| C — Isolamento | Isolar o herói ou um conjunto reduz a presença dos demais itens; opção de atenuar ou ocultar o restante. | Selo «Isolando Nalu», nome do alvo e «Sair» sempre visíveis; Esc/Mostrar tudo restauram a visão anterior. Objetos ocultos continuam encontráveis na hierarquia. |
+| D — Cenas e nós | Mapa mostra ligações dirigidas entre cenas; escolher A abre seus nós. Thumbnail no cabeçalho e marca d'água discreta identificam a cena. Referências A1, A2…; em B, B1, B2… | Direções e condições dos caminhos legíveis, inclusive retornos e bifurcações. A referência visual deve ser estável ao organizar/renomear; não substituir IDs internos nem misturar conexões entre cenas com fios de execução dos nós. |
+| E — Camadas e cores | Fundo A, Fundo B e sprites têm estados Normal/Atenuado/Oculto; a paleta permite filtrar uma cor da seleção. Intensidade da atenuação configurável. | Nomear o estado, sem depender apenas de checkbox, cor ou ícone. Exibir «Só nesta visão» e «Mostrar tudo». Esses filtros servem ao editor; alterar paleta/visibilidade do jogo é uma ação de autoria distinta e explícita. |
+
+### Sugestões adicionais para revisão
+
+1. **Contexto persistente:** projeto → cena → objeto → tarefa, com miniatura do objeto e retorno à cena. Um clique em «Ver nós» deve localizar e enquadrar o comportamento correspondente.
+2. **Recolhimento previsível:** abrir a seção acionada e recolher outra seção livre do mesmo grupo; painéis fixados permanecem. Não recolher durante digitação, arraste, escolha de cor, popup ou operação pendente. Proposta inicial de transição 180–220 ms, respeitando a preferência de movimento reduzido; duração sujeita ao teste de uso.
+3. **Referências estáveis e busca:** A3 continua A3 após «Organizar» ou excluir A2; título humano pode mudar. Para mais de 26 cenas, continuar AA, AB… sem trocar IDs do projeto. Busca por cena/objeto/referência localiza a ocorrência e seus vínculos. A exibição precisa resolver referências por cena mesmo quando há vários grafos de objetos.
+4. **Seleção e bloqueio separados:** cadeado evita arrastar o chão enquanto se move o herói; atenuação só muda a visão. Uma ação de voltar ao layout padrão e a persistência dos painéis por área evitam perder a organização.
+5. **Ações prontas com parâmetros:** no contexto do herói, «Adicionar comportamento» oferece movimento/salto e outros comportamentos realmente suportados. O usuário ajusta os campos e pode abrir os nós gerados. Um golpe novo deve partir do contrato existente, sem prometer CNS ou movimentos ainda não suportados.
+6. **Escopo da paleta visível:** filtrar um índice atua no objeto/recurso selecionado, sem apagar a mesma cor de todos os itens por coincidência de RGB. Trocar uma paleta compartilhada mostra os usos afetados e permite escolher uma variante antes de aplicar.
+
+### Integração prevista e aceite futuro
+
+Inspeção de fonte em `d51c56da`: `ViewportPanel.handleSceneDoubleClick` dá precedência ao grafo de lógica antes do sprite; o canvas apenas cancela `contextmenu`. Isso explica a diferença entre o duplo clique esperado e o caminho de código atual; **não é um novo teste nativo**. O produto já tem Focus/Solo, `LayerPanel`, `StudioContextBar`, `ContextualPalette`, `PalettePanel`, grupos recolhíveis no grafo e histórico/layout existentes. A proposta deve estender esses owners e `editorStore`/`studioContext`/`palettePlan`, sem uma store, um editor de nós ou um sistema de execução paralelo.
+
+Prioridade sugerida para discussão: **1)** gestos/menu coerentes e contexto persistente; **2)** painéis compactos/fixação e filtros/isolamento reversíveis; **3)** visão de cenas, thumbnails e referências estáveis. Aceite de implementação futura: atravessar Cena→Arte→Lógica→Cena mantendo alvo; usar menus por mouse/teclado; conferir painéis e retorno em janelas menores; seguir A→C→A; e comprovar que filtros exclusivamente visuais não alteram cena salva, paleta do jogo ou ROM. `LayerPanel` já persiste `visible`, portanto esse campo não deve ser reutilizado silenciosamente como filtro temporário. Marca d'água desligável e seu contraste dependem da revisão humana.
+
+O próximo passo desta proposta é ajustar os mockups com o operador. Não foram adicionadas superfícies de produto nem modificada a maturidade do roadmap. O PDF e o pacote originais do tutorial permanecem preservados; estes mockups são uma revisão conceitual posterior.
+
 ## Implementação da curadoria — 2026-11-05 (lote 1, Experimental)
 
 | ID | Estado | O que mudou | Prova | Falta |
