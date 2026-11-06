@@ -108,6 +108,16 @@ pub enum AstNode {
         text: String,
         palette_slot: u8,
     },
+    /// Trajeto autoral de objeto (Experimental, R5); ver `compiler/path_runtime.rs`.
+    /// `points` = (x, y, quadros para chegar, espera) relativos a (`start_x`, `start_y`).
+    ObjectPath {
+        entity_id: String,
+        var_name: String,
+        start_x: i32,
+        start_y: i32,
+        mode: String,
+        points: Vec<(i32, i32, u32, u32)>,
+    },
     /// Texto de interface autoral (Experimental); ver `compiler/hud_runtime.rs`.
     HudText {
         entity_id: String,
@@ -855,6 +865,23 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
             y: entity.transform.y,
             priority_high: sprite.priority == "foreground",
         });
+
+        if let Some(path) = &entity.components.path {
+            if crate::ugdm::components::path_issue(path).is_none() {
+                nodes.push(AstNode::ObjectPath {
+                    entity_id: entity.entity_id.clone(),
+                    var_name: var_name.clone(),
+                    start_x: entity.transform.x,
+                    start_y: entity.transform.y,
+                    mode: path.mode.clone(),
+                    points: path
+                        .points
+                        .iter()
+                        .map(|point| (point.x, point.y, point.frames, point.wait))
+                        .collect(),
+                });
+            }
+        }
 
         if let Some(animation) = default_animation {
             nodes.push(AstNode::SetAnimation {
@@ -7151,6 +7178,7 @@ mod tests {
                 transform: Transform { x: 16, y: 24 },
                 components: Components {
                     hud: None,
+                    path: None,
                     sprite: Some(SpriteComponent {
                         asset: "assets/sprites/hero.png".to_string(),
                         frame_width: 16,

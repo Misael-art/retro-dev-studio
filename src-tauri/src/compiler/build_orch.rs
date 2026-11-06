@@ -905,6 +905,10 @@ where
         crate::compiler::platform_support::logic_support_issues(target.target, &resolved_scene);
     support_issues
         .extend(crate::compiler::platform_support::behavior_reference_issues(&resolved_scene));
+    support_issues.extend(crate::compiler::platform_support::path_support_issues(
+        target.target,
+        &resolved_scene,
+    ));
     if !support_issues.is_empty() {
         for issue in &support_issues {
             emit!(

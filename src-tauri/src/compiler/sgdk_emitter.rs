@@ -389,6 +389,7 @@ fn build_main_c_inner(
         ast,
         &collect_logic_var_names(ast),
     ));
+    out.push_str(&super::path_runtime::render_decls(ast));
     if has_rom_addq_word {
         out.push_str(
             "static volatile u32 *const rds_logic_recovery_oracle_value = (volatile u32 *)0xE0FFFF00;\n",
@@ -796,6 +797,8 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 let camera_planes = collect_camera_scroll_planes(ast);
                 render_move_camera(&mut out, target, *x, *y, &camera_planes);
             }
+            // Trajeto: declaracoes e atualizacao por quadro vem de `path_runtime`.
+            AstNode::ObjectPath { .. } => {}
             AstNode::HudText { .. } => {
                 if let Some(hud) = super::hud_runtime::collect_huds(ast)
                     .into_iter()
@@ -899,6 +902,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     &collect_logic_var_names(ast),
                     8,
                 ));
+                out.push_str(&super::path_runtime::render_updates(ast, 8));
                 if visual_camera.is_some() {
                     out.push_str("        rds_visual_camera_tick();\n        rds_camera_apply_scroll();\n");
                 }

@@ -293,9 +293,25 @@ export interface Components {
   camera?: CameraComponent;
   tilemap?: TilemapComponent;
   hud?: HudTextComponent | null;
+  /** Trajeto autoral (Experimental, R5): retas entre pontos relativos ao início do objeto. */
+  path?: PathComponent | null;
 }
 
 /** Texto de interface autoral (Experimental): grade de texto do destino, tiles de 8 px. */
+export interface PathPoint {
+  x: number;
+  y: number;
+  /** Quadros para CHEGAR a este ponto (no ponto 0, só o retorno do modo loop). */
+  frames: number;
+  /** Pausa ao chegar, em quadros. */
+  wait: number;
+}
+
+export interface PathComponent {
+  mode: "once" | "loop" | "pingpong";
+  points: PathPoint[];
+}
+
 export interface HudTextComponent {
   column: number;
   row: number;

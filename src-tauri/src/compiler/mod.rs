@@ -5,6 +5,7 @@ pub mod camera_runtime;
 pub mod hud_runtime;
 pub mod mugen_runtime;
 pub mod palette_plan;
+pub mod path_runtime;
 pub mod platform_support;
 pub mod runtime_link;
 pub mod sgdk_emitter;

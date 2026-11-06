@@ -658,6 +658,71 @@ pub struct Components {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hud: Option<HudTextComponent>,
+    /// Trajeto autoral do objeto (Experimental, R5). Ver `compiler/path_runtime.rs`.
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<PathComponent>,
+}
+
+/// Trajeto em retas entre pontos relativos a posicao inicial do objeto (Experimental, R5).
+/// `points[0]` deve ser (0,0): o objeto nunca salta no inicio. `frames` e o tempo para CHEGAR
+/// ao ponto (no ponto 0, usado so pelo retorno do modo `loop`); `wait` e a pausa ao chegar.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PathComponent {
+    /// `once` (para no fim), `loop` (volta ao inicio pelo ponto 0) ou `pingpong` (ida e volta).
+    pub mode: String,
+    pub points: Vec<PathPoint>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PathPoint {
+    pub x: i32,
+    pub y: i32,
+    #[serde(default)]
+    pub frames: u32,
+    #[serde(default)]
+    pub wait: u32,
+}
+
+pub const PATH_MAX_POINTS: usize = 16;
+pub const PATH_MAX_FRAMES: u32 = 600;
+pub const PATH_MAX_OFFSET: i32 = 2048;
+
+/// Recusa autoral do trajeto (bloqueia o build com diagnostico); `None` = valido.
+pub fn path_issue(path: &PathComponent) -> Option<String> {
+    if !matches!(path.mode.as_str(), "once" | "loop" | "pingpong") {
+        return Some(format!(
+            "modo '{}' invalido (use once, loop ou pingpong)",
+            path.mode
+        ));
+    }
+    if path.points.len() < 2 || path.points.len() > PATH_MAX_POINTS {
+        return Some(format!(
+            "use de 2 a {PATH_MAX_POINTS} pontos (ha {})",
+            path.points.len()
+        ));
+    }
+    let first = &path.points[0];
+    if first.x != 0 || first.y != 0 {
+        return Some("o primeiro ponto deve ser (0,0), a posicao inicial do objeto".to_string());
+    }
+    for (index, point) in path.points.iter().enumerate() {
+        if point.x.abs() > PATH_MAX_OFFSET || point.y.abs() > PATH_MAX_OFFSET {
+            return Some(format!("ponto {index} fora de +-{PATH_MAX_OFFSET} px"));
+        }
+        let needs_frames = index > 0 || path.mode == "loop";
+        if needs_frames && (point.frames == 0 || point.frames > PATH_MAX_FRAMES) {
+            return Some(format!(
+                "ponto {index}: duracao de 1 a {PATH_MAX_FRAMES} quadros"
+            ));
+        }
+        if point.wait > PATH_MAX_FRAMES {
+            return Some(format!(
+                "ponto {index}: espera de 0 a {PATH_MAX_FRAMES} quadros"
+            ));
+        }
+    }
+    None
 }
 
 /// Texto simples de interface na grade de texto do destino (Experimental, REQ-15).

@@ -1,3 +1,4 @@
+import { ObjectPathSection } from "./ObjectPathSection";
 import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import AssetPreview from "../common/AssetPreview";
 import EditScopeBadge from "./EditScopeBadge";
@@ -1461,6 +1462,21 @@ export default function InspectorPanel() {
               </button>
             </div>
             <EntityPaletteSection entityId={entity.entity_id} />
+            {entity.components.sprite ? (
+              <ObjectPathSection
+                path={entity.components.path}
+                fps={60}
+                blockedReason={
+                  entity.components.physics || entity.components.input
+                    ? "Este objeto tem física/entrada, que também movem a posição; a build recusa trajeto junto delas."
+                    : null
+                }
+                onChange={(next) => {
+                  updateEntity(entity.entity_id, buildEntityPatch(entity, ["components", "path"], next));
+                  scheduleAutoSave();
+                }}
+              />
+            ) : null}
             {pendingDuplicate ? (
               <div data-testid="inspector-duplicate-warning" className="border-b border-[#313244] bg-[#fab387]/10 px-3 py-1.5 text-[10px] text-[#fab387]">
                 <p>

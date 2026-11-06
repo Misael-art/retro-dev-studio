@@ -449,6 +449,12 @@ fn build_main_c_with_collision(
                     ground: None,
                 },
             ),
+            AstNode::ObjectPath { entity_id, .. } => {
+                out.push_str(&format!(
+                    "#error \"RetroDev trajeto: objeto '{}' ainda nao tem runtime SNES nesta versao\"\n",
+                    entity_id.replace('"', "'")
+                ));
+            }
             AstNode::HudText { entity_id, .. } => {
                 out.push_str(&format!(
                     "#error \"RetroDev HUD: texto '{}' ainda nao tem runtime SNES nesta versao\"\n",
