@@ -213,7 +213,7 @@ const movement: BehaviorDefinition = {
     { key: "right_button", label: "Andar para a direita", kind: "button", optional: false, default: "BUTTON_RIGHT" },
     { key: "left_button", label: "Andar para a esquerda", kind: "button", optional: true, default: "BUTTON_LEFT" },
     { key: "jump_button", label: "Saltar", kind: "button", optional: true, default: "BUTTON_A" },
-    { key: "jump_strength", label: "Forca do salto", kind: "int", min: 8, max: 128, default: 64, help: "Impulso para cima (quanto maior, mais alto)." },
+    { key: "jump_strength", label: "Forca do salto", kind: "int", min: 8, max: 128, default: 64, unit: "1/16 px por quadro", help: "Impulso inicial para cima em subpixels (escala 16): 64 = 4 px/quadro antes da gravidade; não é a altura do salto." },
     { key: "jump_animation", label: "Animacao ao saltar", kind: "animation", ofEntityParam: "target" },
     { key: "jump_sound", label: "Som do salto", kind: "sound" },
     { key: "idle_animation", label: "Animacao parado", kind: "animation", ofEntityParam: "target", help: "Mostrada no chao sem andar. Com corrida, o comportamento escolhe a pose a cada quadro (no ar usa a do salto)." },

@@ -131,7 +131,7 @@ function ParamField({
             onChange={(event) => onChange(spec.key, event.target.value === "" ? "" : Number(event.target.value))}
             className={`${fieldClass} w-20 text-right font-mono`}
           />
-          <span className="text-[9px] text-[#6c7086]">{spec.unit ? `${spec.unit}, ` : ""}{spec.min}–{spec.max}</span>
+          <span className="text-[9px] text-[#6c7086]">{spec.unit ? `${spec.unit}, ` : ""}{spec.min}–{spec.max} · padrão {spec.default}</span>
         </span>
       );
       break;

@@ -327,3 +327,17 @@ describe("movement tuning (PLAT09)", () => {
     expect(next.edges).toBe(graph.edges);
   });
 });
+
+describe("R3-05 parameter metadata", () => {
+  it("keeps canonical speed/jump ranges and declares jump impulse unit in 1/16 px", async () => {
+    const lib = await import("./behaviorLibrary");
+    const all = (lib as unknown as { BEHAVIOR_LIBRARY?: Array<{ params: Array<Record<string, unknown>> }> }).BEHAVIOR_LIBRARY;
+    expect(all).toBeDefined();
+    const specs = all!.flatMap((d) => d.params);
+    const speed = specs.find((s) => s.key === "speed");
+    const jump = specs.find((s) => s.key === "jump_strength");
+    expect(speed).toMatchObject({ min: 1, max: 8, default: 2, unit: "px por quadro" });
+    expect(jump).toMatchObject({ min: 8, max: 128, default: 64, unit: "1/16 px por quadro" });
+    expect(64 / lib.MOVEMENT_SUBPIXELS).toBe(4);
+  });
+});
