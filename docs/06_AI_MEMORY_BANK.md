@@ -1110,6 +1110,14 @@ Worktree isolado `codex/rex-commercial-recovery-20261016`, base reconciliada `03
 
 # 06 - AI MEMORY BANK & CONTEXT TRACKER
 
+### Prompt integral de implementação e comprovação — 2026-11-06
+
+O operador pediu um prompt para outro agente executar todos os aspectos de design/autoria discutidos, com qualidade visual e funcional real, testes e continuidade sem confirmações rotineiras ou paradas por lote. O [handoff existente](handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#contrato-execucao-integral) agora abre com contrato integral: R2/R3, R5, PLAY01–06, VIS01–08 e as sete famílias VIS07, matriz de cobertura/subitens, ordem integrada, revisão de capturas Tauri, cadeia UI→persistência→nó/configuração→código→ROM→efeito e definição global de entrega.
+
+Notas históricas de proposta/documentação descrevem o baseline; quando encaminhado para implementação, o contrato exige executar a missão completa. Lote é checkpoint, não encerramento; dificuldade ou API ausente não são bloqueio externo automático. Preservar funções/precisão/dados, resolver dependências nos owners oficiais, corrigir regressões e continuar trabalho independente. Dependência externa inevitável deve ter evidência e ação mínima; não fingir aceite humano, hardware/OS indisponível ou feature concluída. SMS/PCE continuam preparação de perfil/contrato prevista, sem antecipar integração de plataforma futura; merge/release/deploy mantêm autorização própria.
+
+Rodada exclusivamente documental, entrada `78261cae565f89e7f25da4824a762f4e33ac5e3d`; roadmap e jornada reconciliados quanto a VIS07. Nenhuma implementação foi iniciada nem transferida automaticamente para outra tarefa. Validação e publicação no recibo `RDS_WORK_ROOT/sessions/tutorial-megadrive-20261105/mockups-contextuais/prompt-integral-20261106/fechamento.json`; preservar topo operacional e alterações alheias em AGENTS. Próximo agente: receber o prompt como missão de execução, carregar contexto atual e iniciar matriz/contratos, seguindo até o aceite integral comprovado.
+
 ### Revisão R7: conservar capacidades e ampliar ferramentas visuais — 2026-11-06
 
 Pedido do operador: jogos de grande complexidade e qualidade com ferramentas amigáveis e robustas, sem perder funções. [R7](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#r7-ferramentas-visuais) complementa R5/R6: paleta contextual expansível com PAL0–3 e troca rápida, perfis semânticos por plataforma; seleção de oclusão/primeiro plano (pilastra e personagem atrás de faixa); pincel de ondulação/distorção modulável; Fantasma/translucidez com técnicas possíveis no alvo, inclusive investigação de composição/software/paletas/shadow-highlight. Não confundir máscara de inspeção, recorte, prioridade, colisão e efeito exportado. Sete ferramentas complementares propostas na mesma seção. Futuro SMS/PCE não significa suporte entregue.

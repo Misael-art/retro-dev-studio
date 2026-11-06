@@ -535,7 +535,7 @@ O caminho é modelo validado → grafo/configuração canônicos → AST/IR → 
 
 ### Outras ferramentas propostas para a fila de qualidade
 
-São sugestões complementares do agente, ainda sem aceite de implementação individual. Priorizar jornadas completas, integrando o que já existe em vez de aumentar apenas a quantidade de ícones.
+Estas sete sugestões complementares foram incorporadas ao [contrato integral de execução](../handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#contrato-execucao-integral), após o pedido do operador, no mesmo dia, de um prompt para implementar todos os aspectos. A implementação permanece pendente. Ordenar jornadas completas, integrando o que já existe em vez de aumentar apenas a quantidade de ícones; nenhuma família pode ser omitida como se priorização significasse exclusão.
 
 | Ferramenta | Ganho para produção e integração | Prova mínima |
 |---|---|---|

@@ -395,6 +395,8 @@ Seleção de região para primeiro plano deve produzir oclusão real, inclusive 
 
 Executar conforme prioridade da frente sequencial e o [handoff](handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#implementacao-visual-r7). VIS01 precede a evolução; VIS04 precisa fechar a semântica de cada recurso antes de conectá-lo a gatilhos. VIS08 valida cada fatia e a composição final. Integrações existentes permanecem Experimental; as novas ferramentas e os perfis futuros não foram implementados por este registro.
 
+**Prompt integral solicitado pelo operador em 2026-11-06:** o [contrato de execução](handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#contrato-execucao-integral) reúne R2/R3, R5, PLAY01–06, VIS01–08 e as sete famílias complementares VIS07. O agente que receber a missão deve executar e comprovar toda a cobertura, sem encerrar por lote ou pedir confirmações rotineiras. A ordem é ajustável por dependências; omissão não é priorização. Permanecem os limites de plataformas futuras e das autorizações de merge/release/deploy. Preparar esse prompt não implementou os recursos nem mudou a maturidade.
+
 ### Editor de codigo em texto SGDK — proposta futura (EC01–EC06; Fora do MVP/Q2)
 
 **Estado:** planejamento; nenhuma etapa EC foi implementada ou certificada. A frente so entra em execucao apos a coesao das jornadas atuais e uma priorizacao explicita. Comecar por Mega Drive/SGDK C em projetos autorais e overlays de C original; SNES/PVSnesLib recebe contrato e prova proprios. O editor textual deve ficar na tarefa Logica e usar selecao/retorno do `editorStore`, `studioContext` e `codeFocusStore`, sem criar outro shell, store de cena, motor de nodes ou pipeline de build. Preservar o rotulo `Experimental` durante as fatias parciais.
