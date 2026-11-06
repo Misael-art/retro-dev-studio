@@ -602,7 +602,7 @@ Branch `codex/new-host-cohesion-20261024`, PR112. Host READY (`host:diagnose`, l
 | PLAY01–06 | a fazer | — | — | baseline de cadência, T6, pins, capturas |
 | VIS01–08 | a fazer | — | — | inventário VIS01 primeiro |
 
-Pico observado: `build:debug` chegou a carga 8,7 no empacotamento Vite/esbuild mesmo com `nice 19`; investigar limite de threads.
+Pico observado: `build:debug` chegou a carga 8,7 no empacotamento Vite/esbuild mesmo com `nice 19`. Teto aprovado pelo operador e medido: `taskset -c 0,1` + `GOMAXPROCS=2 UV_THREADPOOL_SIZE=2` → carga máx. 5,05, CPU total ≤ 71% (≈51% já ocupado por outros apps), build ~2 min 45 s.
 
 Proteção do host (após travamento observado pelo operador em 2026-11-06 12:50–13:10, durante gates/build deste agente): etapas pesadas uma por vez com `nice -n 19 ionice -c3`, Vitest com `--maxWorkers=1`, `CARGO_BUILD_JOBS=1` e espera de carga < 3 antes da jornada Tauri.
 
