@@ -1335,3 +1335,14 @@ export function behaviorProvenance(graph: NodeGraph, instance: BehaviorInstance)
 export function behaviorOwnerOfNode(graph: NodeGraph, nodeId: string): BehaviorInstance | undefined {
   return (graph.behaviors ?? []).find((instance) => instance.nodeIds.includes(nodeId));
 }
+
+/**
+ * R3-03: the first direct semantic edit of a node still owned by an untouched generated
+ * behavior needs an explicit conversion to manual. Already-customized behaviors (or ones
+ * acknowledged in this session) and free nodes edit directly.
+ */
+export function needsManualConversion(graph: NodeGraph, nodeId: string, acknowledged: ReadonlySet<string>): BehaviorInstance | null {
+  const owner = behaviorOwnerOfNode(graph, nodeId);
+  if (!owner || acknowledged.has(owner.id)) return null;
+  return behaviorProvenance(graph, owner).state === "generated" ? owner : null;
+}

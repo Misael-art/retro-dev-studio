@@ -363,3 +363,19 @@ describe("R3-03 provenance", () => {
     expect(lib.behaviorOwnerOfNode(reopened, "not-a-node")).toBeUndefined();
   });
 });
+
+describe("R3-03 manual conversion gate", () => {
+  it("asks once per untouched generated behavior; free nodes, acknowledged and customized behaviors edit directly", async () => {
+    const lib = await import("./behaviorLibrary");
+    const { graph, id } = apply(EMPTY, "platform_movement", moveParams("fox"));
+    const instance = graph.behaviors!.find((b) => b.id === id)!;
+    const owned = instance.nodeIds[0]!;
+    expect(lib.needsManualConversion(graph, owned, new Set())?.id).toBe(id);
+    expect(lib.needsManualConversion(graph, owned, new Set([id]))).toBeNull();
+    expect(lib.needsManualConversion(graph, "free-node", new Set())).toBeNull();
+    const target = graph.nodes.find((n) => instance.nodeIds.includes(n.id) && Object.keys(n.params).length > 0)!;
+    const key = Object.keys(target.params)[0]!;
+    const customized: NodeGraph = { ...graph, nodes: graph.nodes.map((n) => (n.id === target.id ? { ...n, params: { ...n.params, [key]: "changed" } } : n)) };
+    expect(lib.needsManualConversion(customized, owned, new Set())).toBeNull();
+  });
+});

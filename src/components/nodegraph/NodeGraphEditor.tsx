@@ -97,7 +97,7 @@ import BehaviorPanel from "./BehaviorPanel";
 import { valueParam } from "../../core/nodegraph/profileGraphBridge";
 import ProfileGraphBridgePanel from "./ProfileGraphBridgePanel";
 import RomValueInput from "./RomValueInput";
-import { behaviorOwnerOfNode, buildBehaviorSceneContext, nodeSignature } from "../../core/nodegraph/behaviorLibrary";
+import { behaviorOwnerOfNode, buildBehaviorSceneContext, needsManualConversion, nodeSignature } from "../../core/nodegraph/behaviorLibrary";
 import AssetPreview from "../common/AssetPreview";
 
 // Modelo de dados canonico e serializacao v1 vivem em src/core/nodegraph/
@@ -185,6 +185,7 @@ const MINIMAP_WIDTH = 176;
 const MINIMAP_HEIGHT = 112;
 const MINIMAP_PADDING = 10;
 const MINIMAP_AUTO_NODES = 12;
+const MINIMAP_AUTO_MIN_WIDTH = 900;
 const MINIMAP_PREFERENCE_KEY = "rds.nodegraph.minimap";
 function readMinimapPreference(): boolean | null {
   try {
@@ -2331,7 +2332,8 @@ export default function NodeGraphEditor() {
   const [contextOpen, setContextOpen] = useState(() => window.innerWidth >= 1440);
   // PLAT07: explicit choice is remembered; without one, large graphs show the map.
   const [minimapPreference, setMinimapPreferenceState] = useState<boolean | null>(readMinimapPreference);
-  const minimapOpen = minimapPreference ?? graph.nodes.length >= MINIMAP_AUTO_NODES;
+  // Auto-open only when the canvas has room; an explicit (remembered) choice always wins.
+  const minimapOpen = minimapPreference ?? (graph.nodes.length >= MINIMAP_AUTO_NODES && canvasSize.width >= MINIMAP_AUTO_MIN_WIDTH);
   const setMinimapOpen = useCallback((next: boolean | ((open: boolean) => boolean)) => {
     setMinimapPreferenceState((current) => {
       const value = typeof next === "function" ? next(current ?? graph.nodes.length >= MINIMAP_AUTO_NODES) : next;
@@ -3584,7 +3586,9 @@ export default function NodeGraphEditor() {
     focusNode(firstEntryNode);
   }, [focusNode, graphSummary.entryNodeIds]);
 
-  const onParamChange = useCallback((nodeId: string, key: string, value: string | number) => {
+  const [manualAck, setManualAck] = useState<Set<string>>(() => new Set());
+  const [pendingManualEdit, setPendingManualEdit] = useState<{ nodeId: string; key: string; value: string | number; instanceId: string; label: string } | null>(null);
+  const applyParamChange = useCallback((nodeId: string, key: string, value: string | number) => {
     setGraph(
       (currentGraph) => {
         const target = currentGraph.nodes.find((node) => node.id === nodeId);
@@ -3602,6 +3606,14 @@ export default function NodeGraphEditor() {
       `param:${nodeId}:${key}`
     );
   }, [setGraph]);
+  const onParamChange = useCallback((nodeId: string, key: string, value: string | number) => {
+    const owner = needsManualConversion(graph, nodeId, manualAck);
+    if (owner) {
+      setPendingManualEdit({ nodeId, key, value, instanceId: owner.id, label: owner.label });
+      return;
+    }
+    applyParamChange(nodeId, key, value);
+  }, [applyParamChange, graph, manualAck]);
 
   const focusFirstDisconnectedNode = useCallback(() => {
     const firstDisconnectedNode = graphSummary.disconnectedNodeIds[0];
@@ -3764,7 +3776,7 @@ export default function NodeGraphEditor() {
             data-testid="nodegraph-toolbar"
             role="toolbar"
             aria-label="Organizacao do grafo"
-            className="absolute left-2 top-2 z-30 flex flex-wrap items-center gap-1 rounded-lg border border-[#313244] bg-[#181825]/95 p-1 text-xs shadow-lg [&>button]:min-h-8"
+            className="absolute left-2 top-2 z-30 flex flex-nowrap items-center gap-1 overflow-x-auto whitespace-nowrap rounded-lg border border-[#313244] bg-[#181825]/95 p-1 text-xs shadow-lg [&>button]:min-h-8 [&>button]:shrink-0"
             style={{ maxWidth: `calc(100% - ${selectedEntity && contextOpen ? 304 : 16}px)` }}
             onMouseDown={(event) => event.stopPropagation()}
           >
@@ -4710,6 +4722,44 @@ export default function NodeGraphEditor() {
           })()}
         </svg>
 
+        {pendingManualEdit && (
+          <div
+            role="alertdialog"
+            aria-labelledby="nodegraph-manual-convert-title"
+            data-testid="nodegraph-manual-convert"
+            onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setPendingManualEdit(null); } }}
+            className="absolute left-1/2 top-24 z-40 w-[min(30rem,calc(100%-2rem))] -translate-x-1/2 rounded border border-[#fab387]/60 bg-[#181825] px-3 py-2 text-[11px] text-[#cdd6f4] shadow-xl"
+          >
+            <p id="nodegraph-manual-convert-title" className="font-semibold text-[#fab387]">Personalizar nos nós?</p>
+            <p className="mt-1 text-[#a6adc8]">
+              Este nó foi gerado por «{pendingManualEdit.label}». Editá-lo aqui marca o comportamento como personalizado; depois, editar pelo formulário pedirá decisão sobre esta mudança. Desfazer reverte.
+            </p>
+            <div className="mt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                data-testid="nodegraph-manual-convert-cancel"
+                autoFocus
+                onClick={() => setPendingManualEdit(null)}
+                className="rounded px-2 py-1 text-[#a6adc8] hover:bg-[#313244]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                data-testid="nodegraph-manual-convert-confirm"
+                onClick={() => {
+                  const pending = pendingManualEdit;
+                  setManualAck((current) => new Set(current).add(pending.instanceId));
+                  setPendingManualEdit(null);
+                  applyParamChange(pending.nodeId, pending.key, pending.value);
+                }}
+                className="rounded border border-[#fab387]/60 px-2 py-1 font-semibold text-[#fab387] hover:bg-[#fab387]/10"
+              >
+                Personalizar
+              </button>
+            </div>
+          </div>
+        )}
         {pendingEdge && (
           <div
             data-testid="nodegraph-connect-hint"
