@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   affectedBy,
+  describePaletteScope,
   assignResource,
   BANK_STATE_LABEL,
   bankLetter,
@@ -385,13 +386,21 @@ export function EntityPaletteSection({ entityId }: { entityId: string }) {
       <p className="text-[10px] font-semibold uppercase tracking-wide text-[#89b4fa]">Paleta</p>
       <p>
         <span data-testid="inspector-palette-name">{resource.name}</span>
-        <span className="text-[#7f849c]"> · {resource.bank !== undefined ? `banco ${resource.bank}` : RESOURCE_STATE_LABEL[resource.state]}</span>
+        {resource.bank === undefined ? <span className="text-[#7f849c]"> · {RESOURCE_STATE_LABEL[resource.state]}</span> : null}
       </p>
       <p data-testid="inspector-palette-scope" data-others={others.length} className="text-[9px] text-[#a6adc8]">
         {others.length
           ? `Compartilhada com ${others.map((u) => u.entity_id).join(", ")}: editar as cores muda os ${others.length + 1} usos.`
           : "Só este objeto usa esta paleta."}
       </p>
+      {(() => {
+        const scope = describePaletteScope(resource, entityId);
+        return (
+          <p data-testid="inspector-palette-reach" className="text-[9px] text-[#a6adc8]">
+            {scope.allocation} · {scope.ownIndices.length} índice(s) usados por este objeto · origem: {scope.origin}
+          </p>
+        );
+      })()}
       <Swatches colors={resource.colors} used={resource.used_indices} testid="inspector-palette-colors" />
       <div className="mt-1 flex flex-wrap items-center gap-1">
         <label className="text-[9px] text-[#a6adc8]">

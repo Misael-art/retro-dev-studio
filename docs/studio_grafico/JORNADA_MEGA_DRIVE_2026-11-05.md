@@ -591,7 +591,8 @@ Branch `codex/new-host-cohesion-20261024`, PR112. Host READY (`host:diagnose`, l
 | R3-07 | validado no Tauri | `5180502e` | 1ª linha da árvore 407→382 px a 949×593; contraste do hover/breadcrumb no tema claro corrigido | thumbnail da cena no cabeçalho não existe (sem renderer de miniatura); 1366×768 impossível neste host |
 | R3-02 | validado no Tauri (parcial) | `9573e2c6` | chip «Atenuado · isolamento», Esc com prioridade de campo/popup (teste), troca de cena limpa; Esc do Viewport deixou de engolir a tecla; topo sem sobreposição a 702 px | multisseleção, Normal/Atenuado/Oculto escolhidos, filtros de cor, cenário Céu oculto→isolar→sair |
 | R3-03 | validado no Tauri (parcial) | `80671c66`, `bdbeca03` | proveniência derivada das assinaturas (testes + save/reopen); selos «Gerado · N nós»/«Personalizado nos nós (k/N)»; confirmação de conversão: cancelar sem efeito → personalizar → Desfazer restaura; trilho do grafo não fecha a cada resize | diff/impacto antes de regenerar, conexões externas na regeneração, ciclos idle/run/jump no core |
-| R3-01, R3-04, R3-06, R3-09, R3-10 | a fazer | — | — | T1/T4/T5/T6 pendentes |
+| R3-01 (exibição) | validado no Tauri (parcial) | ver commit «feat(r3-01)» | `palettePlanScope.test.ts`; Inspector mostra «PAL1 nesta cena (fixado) · 15 índice(s) · origem» e consumidores; plano antigo já recusado por `contextKey` | escopo de Arte/Animação/Propriedades por bloco; aplicação compartilhada (lote 2) não re-provada no Tauri |
+| R3-04, R3-06, R3-09, R3-10 | a fazer | — | — | T4/T5/T6 pendentes |
 | Base R2 itens 1–8 | parcial | — | navegação global preservada nas capturas | menu contextual/gestos, painéis fixáveis, feedback de arco |
 | R5 (trajetos, planos/paralaxe) | a fazer | — | — | contrato de trajeto no modelo/AST/emissor |
 | PLAY01–06 | a fazer | — | — | baseline de cadência, T6, pins, capturas |

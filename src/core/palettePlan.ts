@@ -235,3 +235,21 @@ export function entityPaletteMarks(plan: PalettePlan): Map<string, EntityPalette
   }
   return marks;
 }
+
+/**
+ * R3-01/T1: palette scope for one object, derived from the plan (never by colour coincidence).
+ * The bank is an allocation in this scene/build context, not an identity of the resource.
+ */
+export function describePaletteScope(resource: PlanResource, entityId: string): {
+  sharedWith: string[];
+  ownIndices: number[];
+  allocation: string;
+  origin: string;
+} {
+  const own = resource.uses.find((use) => use.entity_id === entityId);
+  const sharedWith = [...new Set(resource.uses.filter((use) => use.entity_id !== entityId).map((use) => use.entity_id))];
+  const allocation = resource.bank !== undefined
+    ? `PAL${resource.bank} nesta cena${resource.pinned_bank !== undefined ? " (fixado)" : " (planejado)"}`
+    : "sem banco nesta cena";
+  return { sharedWith, ownIndices: [...(own?.indices ?? [])].sort((a, b) => a - b), allocation, origin: resource.origin };
+}
