@@ -113,8 +113,8 @@ Novo pedido do operador: organizar as ideias de contexto, painéis recolhíveis,
 
 Dois mockups privados em `RDS_WORK_ROOT/sessions/tutorial-megadrive-20261105/mockups-contextuais/`:
 
-- `01-cena-contextual.png`: herói selecionado, menu do botão direito, isolamento, paleta e camadas, painéis abertos/recolhidos com fixação.
-- `02-cenas-e-logica.png`: mapa de cenas A→B, A→C e C→A; thumbnail e fundo sutil da cena ativa; nós A1…A4, contexto do objeto e Inspector compacto.
+- `01-cena-contextual.png` (*composição ilustrativa · não representa um estado único*): herói selecionado, menu do botão direito, isolamento, paleta e camadas, painéis abertos/recolhidos com fixação.
+- `02-cenas-e-logica.png` (*composição ilustrativa · não representa um estado único*): mapa de cenas A→B, A→C e C→A; thumbnail e fundo sutil da cena ativa; nós A1…A4, contexto do objeto e Inspector compacto.
 - `prompts.json` e `manifesto.json`: prompts integrais, modo imagegen embutido, origens, dimensões e SHA-256. Imagens 1586×992, aproximadamente 1,7 MB cada; originais preservados. Ponte e Gruta são exemplos visuais, não cenas autoradas no projeto. Os valores, cores e disposição são ilustrativos; animação e responsividade não são demonstradas por uma imagem estática. Cópias no mesmo filesystem, sem backup independente qualificado.
 
 ### Ideias do operador organizadas
@@ -253,8 +253,8 @@ Artefatos privados, originais, correções e prompts integrais em `RDS_WORK_ROOT
 
 | Visão | O que representa | Arquivo / SHA-256 |
 |---|---|---|
-| Trajetos visuais | Plataforma selecionada, curva com pontos e alças, entrada precisa, duração, ida e volta, prévia e vínculo com regra do objeto. Navegação global completa permanece à esquerda. | `01-trajetos-visuais-r5.png`, 1672×941, `5a788bb85f79e2b797a432857f8dcf917d39ae4f60d7fffde364969c2f6798d4` |
-| Planos e paralaxe | Céu no Plano B isolado; demais conteúdos atenuados. Arraste/sonda de câmera, razões horizontal/vertical e comparação do deslocamento de A/B. | `02-planos-paralaxe-r5.png`, 1672×941, `23d6d9a3cb2720995c329d89cdff1bf2e14a942104f5687a79fc90712a53a993` |
+| Trajetos visuais | Plataforma selecionada, curva com pontos e alças, entrada precisa, duração, ida e volta, prévia e vínculo com regra do objeto. Navegação global completa permanece à esquerda. | `01-trajetos-visuais-r5.png` — *composição ilustrativa · não representa um estado único*, 1672×941, `5a788bb85f79e2b797a432857f8dcf917d39ae4f60d7fffde364969c2f6798d4` |
+| Planos e paralaxe | Céu no Plano B isolado; demais conteúdos atenuados. Arraste/sonda de câmera, razões horizontal/vertical e comparação do deslocamento de A/B. | `02-planos-paralaxe-r5.png` — *composição ilustrativa · não representa um estado único*, 1672×941, `23d6d9a3cb2720995c329d89cdff1bf2e14a942104f5687a79fc90712a53a993` |
 
 Foram solicitadas imagens de apresentação 2560×1440; as saídas efetivas são as dimensões da tabela. Não representam validação em 1366×768 ou 949×593. Ícones, tamanho aparente, posicionamento de pixels, curva e razões ilustradas precisam de correspondência no produto antes de qualquer aceite técnico. O chip «Atenuado pelo isolamento» é informativo; não deve virar opção de estado escolhido. O objeto que recebe edição deve estar efetivamente desbloqueado.
 
@@ -593,7 +593,9 @@ Branch `codex/new-host-cohesion-20261024`, PR112. Host READY (`host:diagnose`, l
 | R3-03 | validado no Tauri (parcial) | `80671c66`, `bdbeca03` | proveniência derivada das assinaturas (testes + save/reopen); selos «Gerado · N nós»/«Personalizado nos nós (k/N)»; confirmação de conversão: cancelar sem efeito → personalizar → Desfazer restaura; trilho do grafo não fecha a cada resize | diff/impacto antes de regenerar, conexões externas na regeneração, ciclos idle/run/jump no core |
 | R3-01 (exibição) | validado no Tauri (parcial) | ver commit «feat(r3-01)» | `palettePlanScope.test.ts`; Inspector mostra «PAL1 nesta cena (fixado) · 15 índice(s) · origem» e consumidores; plano antigo já recusado por `contextKey` | escopo de Arte/Animação/Propriedades por bloco; aplicação compartilhada (lote 2) não re-provada no Tauri |
 | R3-04 | validado no Tauri (parcial) | ver commit «feat(r3-04)» | `resolveGraphScope` (instância, arquivo compartilhado, herdado do modelo, indisponível; usos nesta cena) com teste; chip na barra do grafo no Tauri | usos em outras cenas não inspecionados; edição compartilhada com lista de usos antes de aplicar; mesma resolução exibida no Inspector |
-| R3-06, R3-09, R3-10 | a fazer | — | — | T4/T5/T6 pendentes |
+| R3-10 | integrado (parcial) | ver commit «docs(r3-10)» | mockups R2/R5 identificados como «composição ilustrativa · não representa um estado único»; capturas reais deste checkpoint ficam separadas em `evidence/` | marcadores/legendas dentro dos PNGs não corrigidos: exige skill imagegen (indisponível nesta sessão) preservando originais |
+| T5 / R3-06 | investigado; rótulo honesto | ver commit «docs(r3-10)» | contraprova no caminho oficial: o AST canônico Rust não tem ramo `load_scene` (só a função que carrega `entry_scene`); build lê apenas `project.entry_scene`. Catálogo passa a «Carregar Cena (sem execução na ROM)» | **retenção**: recusar o nó no build (`platform_support.rs`) quebraria importações GML (`gml_to_nodes.rs`, `scene_reset→load_scene`) que hoje compilam — decisão de produto pendente; mapa/drawer de transições e T4 (referências estáveis) a fazer |
+| R3-09 | a fazer | — | — | T6 pendente |
 | Base R2 itens 1–8 | parcial | — | navegação global preservada nas capturas | menu contextual/gestos, painéis fixáveis, feedback de arco |
 | R5 (trajetos, planos/paralaxe) | a fazer | — | — | contrato de trajeto no modelo/AST/emissor |
 | PLAY01–06 | a fazer | — | — | baseline de cadência, T6, pins, capturas |

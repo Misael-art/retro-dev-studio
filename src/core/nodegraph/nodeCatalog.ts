@@ -125,7 +125,7 @@ export const NODE_CATALOG: Record<NodeType, NodeCatalogEntry> = {
   action_sound: entry("action_sound", "audio", "Som", "Tocar Som", "sound", "Toca um efeito sonoro da cena.", ["sfx"]),
   action_music: entry("action_music", "audio", "Som", "Tocar Musica", "music", "Toca ou para uma musica.", ["action", "track"]),
   scroll_tilemap: entry("scroll_tilemap", "tilemap", "Movimento", "Rolar Cenario", "grid", "Rola uma camada do cenario.", ["layer", "dx", "dy"]),
-  load_scene: entry("load_scene", "tilemap", "Tilemap", "Carregar Cena", "grid", "Troca para outra cena.", ["scene"]),
+  load_scene: entry("load_scene", "tilemap", "Tilemap", "Carregar Cena (sem execução na ROM)", "grid", "Declara a transição para outra cena. O compilador atual ainda não a executa: a ROM fica na cena de entrada. Use para planejar; não prova troca de cena.", ["scene"]),
   move_camera: entry("move_camera", "camera", "Movimento", "Mover Camera", "camera", "Move a camera para uma posicao.", ["x", "y"]),
   var_set: entry("var_set", "action", "Variaveis", "Definir Variavel", "variable", "Guarda um valor numa variavel do jogo.", ["var_name", "value"]),
   var_get: entry("var_get", "action", "Variaveis", "Ler Variavel", "variable", "Le o valor atual de uma variavel e o entrega por fio de dados.", ["var_name"]),
