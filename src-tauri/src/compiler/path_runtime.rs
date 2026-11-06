@@ -20,6 +20,7 @@ pub struct PathSpec {
     pub start_y: i32,
     pub mode: String,
     pub points: Vec<(i32, i32, u32, u32)>,
+    pub curves: Vec<Option<(i32, i32)>>,
 }
 
 fn sanitize(id: &str) -> String {
@@ -45,6 +46,7 @@ pub fn collect_paths(ast: &AstOutput) -> Vec<PathSpec> {
                 start_y,
                 mode,
                 points,
+                curves,
             } => Some(PathSpec {
                 id: sanitize(entity_id),
                 var_name: var_name.clone(),
@@ -52,6 +54,7 @@ pub fn collect_paths(ast: &AstOutput) -> Vec<PathSpec> {
                 start_y: *start_y,
                 mode: mode.clone(),
                 points: points.clone(),
+                curves: curves.clone(),
             }),
             _ => None,
         })
@@ -84,6 +87,28 @@ pub fn render_decls(ast: &AstOutput) -> String {
             "static const u16 rds_path_{id}_wait[{n}] = {{ {} }};\n",
             table(path.points.iter().map(|p| p.3))
         ));
+        let curve = |pick: fn(&(i32, i32)) -> i32| {
+            table((0..n).map(|i| {
+                path.curves
+                    .get(i)
+                    .copied()
+                    .flatten()
+                    .map(|c| pick(&c))
+                    .unwrap_or(0)
+            }))
+        };
+        out.push_str(&format!(
+            "static const s16 rds_path_{id}_cx[{n}] = {{ {} }};\n",
+            curve(|c| c.0)
+        ));
+        out.push_str(&format!(
+            "static const s16 rds_path_{id}_cy[{n}] = {{ {} }};\n",
+            curve(|c| c.1)
+        ));
+        out.push_str(&format!(
+            "static const u8 rds_path_{id}_hc[{n}] = {{ {} }};\n",
+            table((0..n).map(|i| u8::from(matches!(path.curves.get(i), Some(Some(_))))))
+        ));
         out.push_str(&format!(
             "static u8 rds_path_{id}_seg = 0; static s8 rds_path_{id}_dir = 1; static u8 rds_path_{id}_done = 0;\n\
              static u16 rds_path_{id}_t = 0; static u16 rds_path_{id}_hold = 0;\n"
@@ -107,10 +132,12 @@ pub fn render_updates(ast: &AstOutput, indent: usize) -> String {
         };
         // Segment time: in pingpong the way back reuses the time of the way out (frames of
         // the higher index), so point 0's unused frames never becomes a divisor.
-        let seg_frames = if path.mode == "pingpong" {
-            format!("rds_path_{id}_frames[rds_path_{id}_dir > 0 ? b : a]")
+        // The same index picks the segment's time and curve control, so the way back of a
+        // pingpong retraces the same curve and point 0's unused frames never divide.
+        let seg_index = if path.mode == "pingpong" {
+            format!("(rds_path_{id}_dir > 0 ? b : a)")
         } else {
-            format!("rds_path_{id}_frames[b]")
+            "b".to_string()
         };
         let on_arrive = match path.mode.as_str() {
             "loop" => String::new(),
@@ -126,11 +153,17 @@ pub fn render_updates(ast: &AstOutput, indent: usize) -> String {
              {pad}    if (!rds_path_{id}_done) {{\n\
              {pad}        if (rds_path_{id}_hold > 0) {{ rds_path_{id}_hold--; }}\n\
              {pad}        else {{\n\
-             {pad}            u16 f = {seg_frames};\n\
-             {pad}            rds_path_{id}_t++;\n\
-             {pad}            px += ((s32)(rds_path_{id}_px[b] - rds_path_{id}_px[a]) * rds_path_{id}_t) / f;\n\
-             {pad}            py += ((s32)(rds_path_{id}_py[b] - rds_path_{id}_py[a]) * rds_path_{id}_t) / f;\n\
-             {pad}            if (rds_path_{id}_t >= f) {{ rds_path_{id}_t = 0; rds_path_{id}_seg = b; rds_path_{id}_hold = rds_path_{id}_wait[b]; {on_arrive}}}\n\
+             {pad}            u16 ci = {seg_index}; s32 f = rds_path_{id}_frames[ci];\n\
+             {pad}            s32 t = ++rds_path_{id}_t; s32 u = f - t;\n\
+             {pad}            if (rds_path_{id}_hc[ci]) {{ /* Bezier quadratica: pesos somam f*f (cabe em s32) */\n\
+             {pad}                s32 ff = f * f;\n\
+             {pad}                px = (rds_path_{id}_px[a] * u * u + 2 * rds_path_{id}_cx[ci] * u * t + rds_path_{id}_px[b] * t * t) / ff;\n\
+             {pad}                py = (rds_path_{id}_py[a] * u * u + 2 * rds_path_{id}_cy[ci] * u * t + rds_path_{id}_py[b] * t * t) / ff;\n\
+             {pad}            }} else {{\n\
+             {pad}                px += ((s32)(rds_path_{id}_px[b] - rds_path_{id}_px[a]) * t) / f;\n\
+             {pad}                py += ((s32)(rds_path_{id}_py[b] - rds_path_{id}_py[a]) * t) / f;\n\
+             {pad}            }}\n\
+             {pad}            if (t >= f) {{ rds_path_{id}_t = 0; rds_path_{id}_seg = b; rds_path_{id}_hold = rds_path_{id}_wait[b]; {on_arrive}}}\n\
              {pad}        }}\n\
              {pad}    }}\n\
              {pad}    {var}_x = {sx} + px; {var}_y = {sy} + py;\n\
@@ -156,6 +189,7 @@ mod tests {
                 start_x: 100,
                 start_y: 50,
                 mode: mode.to_string(),
+                curves: vec![None; points.len()],
                 points,
             }],
             sprite_assets: Vec::new(),
@@ -178,7 +212,8 @@ mod tests {
         assert!(update.contains("SPR_setPosition(spr_plat, spr_plat_x, spr_plat_y);"));
         assert!(update.contains("rds_path_plat_1_dir = -1"));
         assert!(update.contains("b = rds_path_plat_1_seg + rds_path_plat_1_dir"));
-        assert!(update.contains("u16 f = rds_path_plat_1_frames[rds_path_plat_1_dir > 0 ? b : a];"));
+        assert!(update.contains("u16 ci = (rds_path_plat_1_dir > 0 ? b : a);"));
+        assert!(decls.contains("static const u8 rds_path_plat_1_hc[3] = { 0, 0, 0 };"));
     }
 
     #[test]
@@ -188,5 +223,35 @@ mod tests {
         assert!(!looped.contains("_done = 1"));
         let once = render_updates(&ast_with("once", vec![(0, 0, 0, 0), (32, 0, 20, 5)]), 0);
         assert!(once.contains("if (rds_path_plat_1_seg == 1) rds_path_plat_1_done = 1;"));
+    }
+
+    #[test]
+    fn curve_control_is_emitted_and_used_with_the_segment_index() {
+        let mut ast = ast_with("loop", vec![(0, 0, 20, 0), (64, 0, 30, 0)]);
+        if let AstNode::ObjectPath { curves, .. } = &mut ast.nodes[0] {
+            curves[1] = Some((32, -48));
+        }
+        let decls = render_decls(&ast);
+        assert!(decls.contains("static const s16 rds_path_plat_1_cx[2] = { 0, 32 };"));
+        assert!(decls.contains("static const s16 rds_path_plat_1_cy[2] = { 0, -48 };"));
+        assert!(decls.contains("static const u8 rds_path_plat_1_hc[2] = { 0, 1 };"));
+        let update = render_updates(&ast, 0);
+        assert!(update.contains("u16 ci = b;"));
+        assert!(update.contains("if (rds_path_plat_1_hc[ci])"));
+        assert!(update.contains("2 * rds_path_plat_1_cx[ci] * u * t"));
+    }
+
+    /// Mirrors the emitted integer formula; the worst case must fit in s32.
+    #[test]
+    fn quadratic_integer_formula_hits_endpoints_and_stays_in_s32() {
+        let eval = |a: i64, c: i64, b: i64, f: i64, t: i64| {
+            let u = f - t;
+            (a * u * u + 2 * c * u * t + b * t * t) / (f * f)
+        };
+        assert_eq!(eval(0, 32, 64, 30, 0), 0);
+        assert_eq!(eval(0, 32, 64, 30, 30), 64);
+        assert_eq!(eval(0, -48, 0, 30, 15), -24);
+        let worst = 2048_i64 * 600 * 600;
+        assert!(worst < i32::MAX as i64, "{worst}");
     }
 }

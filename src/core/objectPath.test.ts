@@ -47,3 +47,37 @@ describe("R5 canvas handles geometry", () => {
     expect(dropOffset({ x: 100, y: 50 }, 130.6, 9000)).toEqual({ x: 31, y: 2048 });
   });
 });
+
+describe("R5 curves and ellipse", () => {
+  it("validates curves, samples like the ROM integer formula and toggles at the midpoint", async () => {
+    const m = await import("./objectPath");
+    const path = m.defaultPath();
+    const curved = m.toggleCurve(path, 1);
+    expect(curved.points[1]!.curve).toEqual({ x: 32, y: 0 });
+    expect(m.pathIssue(curved)).toBeNull();
+    expect(m.toggleCurve(curved, 1).points[1]!.curve).toBeNull();
+    expect(m.toggleCurve(path, 0)).toBe(path);
+    expect(m.pathIssue(m.withPoint(curved, 1, { curve: { x: 9000, y: 0 } }))).toContain("curva");
+    const samples = m.sampleSegment({ x: 0, y: 0 }, { x: 0, y: 0, frames: 30, wait: 0, curve: { x: 0, y: -48 } }, 30);
+    expect(samples[14]).toEqual({ x: 0, y: -24 });
+    expect(samples[29]).toEqual({ x: 0, y: 0 });
+  });
+
+  it("builds a valid looping ellipse that starts at the object and stays within its box", async () => {
+    const m = await import("./objectPath");
+    const e = m.ellipsePath(48, 24, 8, 12);
+    expect(e.mode).toBe("loop");
+    expect(e.points).toHaveLength(8);
+    expect(e.points[0]).toMatchObject({ x: 0, y: 0 });
+    expect(m.pathIssue(e)).toBeNull();
+    for (const p of e.points) {
+      expect(p.x).toBeGreaterThanOrEqual(0);
+      expect(p.x).toBeLessThanOrEqual(96);
+      expect(Math.abs(p.y)).toBeLessThanOrEqual(24);
+    }
+    const rightmost = e.points[4]!;
+    expect(rightmost).toMatchObject({ x: 96, y: 0 });
+    const hit = m.hitPathHandleOrControl({ x: 0, y: 0 }, e, e.points[2]!.curve!.x, e.points[2]!.curve!.y, 3);
+    expect(hit).toEqual({ index: 2, kind: "control" });
+  });
+});

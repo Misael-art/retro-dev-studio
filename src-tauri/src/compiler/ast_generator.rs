@@ -117,6 +117,8 @@ pub enum AstNode {
         start_y: i32,
         mode: String,
         points: Vec<(i32, i32, u32, u32)>,
+        /// Controle opcional da curva que chega a cada ponto (mesmo indice de `points`).
+        curves: Vec<Option<(i32, i32)>>,
     },
     /// Texto de interface autoral (Experimental); ver `compiler/hud_runtime.rs`.
     HudText {
@@ -878,6 +880,11 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
                         .points
                         .iter()
                         .map(|point| (point.x, point.y, point.frames, point.wait))
+                        .collect(),
+                    curves: path
+                        .points
+                        .iter()
+                        .map(|point| point.curve.map(|curve| (curve.x, curve.y)))
                         .collect(),
                 });
             }

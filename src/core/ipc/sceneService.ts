@@ -305,6 +305,8 @@ export interface PathPoint {
   frames: number;
   /** Pausa ao chegar, em quadros. */
   wait: number;
+  /** Controle da curva quadrática do segmento que chega a este ponto; ausente = reta. */
+  curve?: { x: number; y: number } | null;
 }
 
 export interface PathComponent {

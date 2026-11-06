@@ -6,7 +6,7 @@ import CameraConfigurator from "../inspector/CameraConfigurator";
 import { hudBand } from "../../core/hudText";
 import { loadShellPersona } from "../../core/surfaceRegistry";
 import { cellsOnLine } from "../../core/tilemapCells";
-import { dropOffset, hitPathHandle, pathWorldPoints, withPoint } from "../../core/objectPath";
+import { dropOffset, hitPathHandleOrControl, pathWorldPoints, sampleSegment, withPoint } from "../../core/objectPath";
 import { describeEntityEditLock, entityEditLock, escapeExitsIsolation, layerCompositionEntities, restoreTemplateEntityPositions, translateCollisionMap, type TemplatePositionChange } from "../../core/sceneComposition";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tabs from "../common/Tabs";
@@ -402,7 +402,7 @@ export default function ViewportPanel({
   const densePickRef = useRef<{ mx: number; my: number; ids: string[]; idx: number } | null>(null);
   const lastLockedHitRef = useRef<Entity | null>(null);
   // R5: dragging a path handle edits components.path (one undo per drag).
-  const pathDragRef = useRef<{ entityId: string; index: number; moved: boolean } | null>(null);
+  const pathDragRef = useRef<{ entityId: string; index: number; kind: "point" | "control"; moved: boolean } | null>(null);
   const sceneRulerTopRef = useRef<HTMLCanvasElement>(null);
   const sceneRulerLeftRef = useRef<HTMLCanvasElement>(null);
   const [sceneStageSize, setSceneStageSize] = useState({ width: 0, height: 0 });
@@ -3355,11 +3355,52 @@ export default function ViewportPanel({
       context.setLineDash([6, 4]);
       context.lineWidth = 2;
       context.strokeStyle = "#f9e2af";
+      // Same integer formula as the ROM (sampleSegment), so the preview is the executed path.
+      const spawn = pathOwner.transform;
+      const toCanvas = (p: { x: number; y: number }) => ({ x: worldToSceneCanvasX(spawn.x + p.x), y: worldToSceneCanvasY(spawn.y + p.y) });
+      const segments: Array<[number, number]> = path.points.slice(1).map((_, i) => [i, i + 1]);
+      if (path.mode === "loop") segments.push([path.points.length - 1, 0]);
       context.beginPath();
-      pts.forEach((p, i) => (i === 0 ? context.moveTo(p.x, p.y) : context.lineTo(p.x, p.y)));
-      if (path.mode === "loop" && pts.length > 2) context.closePath();
+      const start = toCanvas(path.points[0]!);
+      context.moveTo(start.x, start.y);
+      for (const [from, to] of segments) {
+        const a = path.points[from]!;
+        const b = path.points[to]!;
+        const head = toCanvas(a);
+        context.moveTo(head.x, head.y);
+        for (const sample of sampleSegment(a, b, b.frames)) {
+          const c = toCanvas(sample);
+          context.lineTo(c.x, c.y);
+        }
+      }
       context.stroke();
       context.setLineDash([]);
+      // Curve controls: thin guides + diamond handles.
+      path.points.forEach((p, i) => {
+        if (!p.curve) return;
+        const prev = i === 0 ? path.points[path.points.length - 1]! : path.points[i - 1]!;
+        const c = toCanvas(p.curve);
+        const a = toCanvas(prev);
+        const b = toCanvas(p);
+        context.lineWidth = 1;
+        context.strokeStyle = "rgba(249,226,175,0.6)";
+        context.beginPath();
+        context.moveTo(a.x, a.y);
+        context.lineTo(c.x, c.y);
+        context.lineTo(b.x, b.y);
+        context.stroke();
+        context.beginPath();
+        context.moveTo(c.x, c.y - 6);
+        context.lineTo(c.x + 6, c.y);
+        context.lineTo(c.x, c.y + 6);
+        context.lineTo(c.x - 6, c.y);
+        context.closePath();
+        context.fillStyle = "#cba6f7";
+        context.fill();
+        context.lineWidth = 2;
+        context.strokeStyle = "#1e1e2e";
+        context.stroke();
+      });
       context.font = "bold 10px monospace";
       pts.forEach((p, i) => {
         context.beginPath();
@@ -3885,9 +3926,9 @@ export default function ViewportPanel({
     if (pathOwner?.components.path && pathOwner.components.sprite && moveScope === "entity" &&
       !entityEditLock(pathOwner.entity_id, activeScene.layers, useEditorStore.getState().lockedEntityIdsByScene[activeScenePath] ?? []).locked) {
       const worldRadius = 7 * (sceneWidth / Math.max(sceneScaleWidth, 1));
-      const handle = hitPathHandle(pathWorldPoints(pathOwner.transform, pathOwner.components.path), mx, my, worldRadius);
+      const handle = hitPathHandleOrControl(pathOwner.transform, pathOwner.components.path, mx, my, worldRadius);
       if (handle !== null) {
-        pathDragRef.current = { entityId: pathOwner.entity_id, index: handle, moved: false };
+        pathDragRef.current = { entityId: pathOwner.entity_id, index: handle.index, kind: handle.kind, moved: false };
         beginHistoryCapture();
         return;
       }
@@ -4117,12 +4158,17 @@ export default function ViewportPanel({
       const snapped = gridSnap ? { x: Math.round(mx / GRID_SNAP_SIZE) * GRID_SNAP_SIZE, y: Math.round(my / GRID_SNAP_SIZE) * GRID_SNAP_SIZE } : { x: mx, y: my };
       const offset = dropOffset(owner.transform, snapped.x, snapped.y);
       const current = path.points[pathDrag.index];
-      if (!current || (current.x === offset.x && current.y === offset.y)) return;
+      if (!current) return;
+      const target = pathDrag.kind === "control" ? current.curve : current;
+      if (!target || (target.x === offset.x && target.y === offset.y)) return;
       if (!pathDrag.moved) {
         commitHistoryCapture();
         pathDrag.moved = true;
       }
-      updateEntity(owner.entity_id, { components: { ...owner.components, path: withPoint(path, pathDrag.index, offset) } }, { recordHistory: false });
+      const nextPath = pathDrag.kind === "control"
+        ? withPoint(path, pathDrag.index, { curve: offset })
+        : withPoint(path, pathDrag.index, offset);
+      updateEntity(owner.entity_id, { components: { ...owner.components, path: nextPath } }, { recordHistory: false });
       return;
     }
 
@@ -4274,7 +4320,7 @@ export default function ViewportPanel({
       const { activeProjectDir: projectDir } = useEditorStore.getState();
       if (projectDir) {
         try {
-          await persistActiveScene(projectDir, "Viewport", `Ponto ${pathDrag.index} do trajeto movido.`);
+          await persistActiveScene(projectDir, "Viewport", pathDrag.kind === "control" ? `Curva do ponto ${pathDrag.index} ajustada.` : `Ponto ${pathDrag.index} do trajeto movido.`);
         } catch (error: unknown) {
           logMessage("error", `[Viewport] Falha ao salvar o trajeto: ${describeError(error)}`);
         }

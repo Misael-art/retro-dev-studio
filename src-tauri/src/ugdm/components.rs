@@ -682,6 +682,17 @@ pub struct PathPoint {
     pub frames: u32,
     #[serde(default)]
     pub wait: u32,
+    /// Controle (relativo ao inicio do objeto) da curva quadratica do segmento que CHEGA a
+    /// este ponto; ausente = reta. Na volta (pingpong) e no retorno (loop) vale a mesma regra.
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub curve: Option<PathCurve>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PathCurve {
+    pub x: i32,
+    pub y: i32,
 }
 
 pub const PATH_MAX_POINTS: usize = 16;
@@ -715,6 +726,16 @@ pub fn path_issue(path: &PathComponent) -> Option<String> {
             return Some(format!(
                 "ponto {index}: duracao de 1 a {PATH_MAX_FRAMES} quadros"
             ));
+        }
+        if let Some(curve) = point.curve {
+            if curve.x.abs() > PATH_MAX_OFFSET || curve.y.abs() > PATH_MAX_OFFSET {
+                return Some(format!(
+                    "curva do ponto {index} fora de +-{PATH_MAX_OFFSET} px"
+                ));
+            }
+            if index == 0 && path.mode != "loop" {
+                return Some("o ponto 0 so tem curva no modo loop (retorno)".to_string());
+            }
         }
         if point.wait > PATH_MAX_FRAMES {
             return Some(format!(

@@ -18,6 +18,11 @@ export function pathIssue(path: PathComponent): string | null {
     const needsFrames = i > 0 || path.mode === "loop";
     if (needsFrames && (p.frames < 1 || p.frames > PATH_MAX_FRAMES)) return `ponto ${i}: duração de 1 a ${PATH_MAX_FRAMES} quadros`;
     if (p.wait < 0 || p.wait > PATH_MAX_FRAMES) return `ponto ${i}: espera de 0 a ${PATH_MAX_FRAMES} quadros`;
+    if (p.curve) {
+      if (![p.curve.x, p.curve.y].every(Number.isInteger)) return `curva do ponto ${i}: use números inteiros`;
+      if (Math.abs(p.curve.x) > PATH_MAX_OFFSET || Math.abs(p.curve.y) > PATH_MAX_OFFSET) return `curva do ponto ${i} fora de ±${PATH_MAX_OFFSET} px`;
+      if (i === 0 && path.mode !== "loop") return "o ponto 0 só tem curva no modo loop (retorno)";
+    }
   }
   return null;
 }
@@ -85,4 +90,82 @@ export function hitPathHandle(points: Array<{ x: number; y: number }>, mx: numbe
 export function dropOffset(spawn: { x: number; y: number }, wx: number, wy: number): { x: number; y: number } {
   const clamp = (v: number) => Math.max(-PATH_MAX_OFFSET, Math.min(PATH_MAX_OFFSET, Math.round(v)));
   return { x: clamp(wx - spawn.x), y: clamp(wy - spawn.y) };
+}
+
+/** Segment (from -> to) sampled exactly like the ROM formula (integer division), for previews. */
+export function sampleSegment(from: { x: number; y: number }, to: PathPoint, frames: number): Array<{ x: number; y: number }> {
+  const out: Array<{ x: number; y: number }> = [];
+  const f = Math.max(1, frames);
+  const div = (n: number, d: number) => Math.trunc(n / d);
+  for (let t = 1; t <= f; t += 1) {
+    const u = f - t;
+    if (to.curve) {
+      out.push({
+        x: div(from.x * u * u + 2 * to.curve.x * u * t + to.x * t * t, f * f),
+        y: div(from.y * u * u + 2 * to.curve.y * u * t + to.y * t * t, f * f),
+      });
+    } else {
+      out.push({ x: from.x + div((to.x - from.x) * t, f), y: from.y + div((to.y - from.y) * t, f) });
+    }
+  }
+  return out;
+}
+
+/** Toggle a point's curve; a new control starts at the segment midpoint (no visual jump). */
+export function toggleCurve(path: PathComponent, index: number): PathComponent {
+  const point = path.points[index];
+  if (!point || (index === 0 && path.mode !== "loop")) return path;
+  if (point.curve) return withPoint(path, index, { curve: null });
+  const prev = index === 0 ? path.points[path.points.length - 1]! : path.points[index - 1]!;
+  return withPoint(path, index, { curve: { x: Math.round((prev.x + point.x) / 2), y: Math.round((prev.y + point.y) / 2) } });
+}
+
+/**
+ * Ellipse as `segments` quadratic curves (loop), centred so it starts at the object (point 0 =
+ * leftmost point). Controls sit on tangent intersections; an approximation, labelled as such.
+ */
+export function ellipsePath(rx: number, ry: number, segments = 8, framesPerSegment = 15): PathComponent {
+  const n = Math.max(4, Math.min(PATH_MAX_POINTS, Math.round(segments)));
+  const cx = rx;
+  const step = (Math.PI * 2) / n;
+  const angle = (k: number) => Math.PI + k * step;
+  // `+ 0` normalises -0 from rounding (e.g. sin(2π)) so the model never stores -0.
+  const r = (v: number) => Math.round(v) + 0;
+  const pt = (k: number) => ({ x: r(cx + rx * Math.cos(angle(k))), y: r(ry * Math.sin(angle(k))) });
+  const control = (k: number) => {
+    const mid = angle(k) - step / 2;
+    const scale = 1 / Math.cos(step / 2);
+    return { x: r(cx + rx * scale * Math.cos(mid)), y: r(ry * scale * Math.sin(mid)) };
+  };
+  const points: PathPoint[] = [];
+  for (let k = 0; k < n; k += 1) {
+    const p = pt(k);
+    points.push({ x: k === 0 ? 0 : p.x, y: k === 0 ? 0 : p.y, frames: framesPerSegment, wait: 0, curve: control(k === 0 ? n : k) });
+  }
+  return { mode: "loop", points };
+}
+
+/** Hit-test of draggable handles: path points (index > 0) and curve controls (any index with a curve). */
+export function hitPathHandleOrControl(
+  spawn: { x: number; y: number },
+  path: PathComponent,
+  mx: number,
+  my: number,
+  radius: number,
+): { index: number; kind: "point" | "control" } | null {
+  let best: { index: number; kind: "point" | "control" } | null = null;
+  let bestDist = radius * radius;
+  path.points.forEach((p, index) => {
+    const candidates: Array<{ x: number; y: number; kind: "point" | "control" }> = [];
+    if (index > 0) candidates.push({ x: spawn.x + p.x, y: spawn.y + p.y, kind: "point" });
+    if (p.curve) candidates.push({ x: spawn.x + p.curve.x, y: spawn.y + p.curve.y, kind: "control" });
+    for (const c of candidates) {
+      const d = (c.x - mx) ** 2 + (c.y - my) ** 2;
+      if (d <= bestDist) {
+        best = { index, kind: c.kind };
+        bestDist = d;
+      }
+    }
+  });
+  return best;
 }
