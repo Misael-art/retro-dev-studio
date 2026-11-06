@@ -607,3 +607,24 @@ Pico observado: `build:debug` chegou a carga 8,7 no empacotamento Vite/esbuild m
 Proteção do host (após travamento observado pelo operador em 2026-11-06 12:50–13:10, durante gates/build deste agente): etapas pesadas uma por vez com `nice -n 19 ionice -c3`, Vitest com `--maxWorkers=1`, `CARGO_BUILD_JOBS=1` e espera de carga < 3 antes da jornada Tauri.
 
 Achados de harness registrados: o `element/click` do WebKitWebDriver neste host desloca coordenadas pelo DPR; o roteiro usa ações de ponteiro com coordenadas × DPR e alvo visível no topo (`elementFromPoint`). Retenção de host: 1366×768 não cabe na tela física (1280 px).
+
+<a id="vis01-inventario"></a>
+### VIS01 — inventário de capacidades visuais (2026-11-06, leitura do código no HEAD da branch)
+
+Hardware possível, adaptador implementado e resultado observado são evidências diferentes; esta tabela registra só o **adaptador implementado** encontrado no código. Nenhuma linha aqui foi re-observada em ROM nesta rodada.
+
+| Capacidade | Owner | Acesso na UI | Mega Drive (emissor) | SNES | Lacuna para VIS02–07 |
+|---|---|---|---|---|---|
+| Plano de paletas | `palette_plan.rs` (`banks: 4`, `colors_per_bank: 16`), `palettePlan.ts`, `PalettePanel.tsx` | Inspector › Paleta; mapa PAL0–3 | plano/alocação por cena com recusa do 5º banco | IPC aceita só MD | troca rápida/variantes por perfil; SNES por domínio/modo (não `N×16` genérico) |
+| Troca de paleta por golpe | `palette_swap` em `ast_generator.rs` | nó/comportamento «Trocar paleta ao sofrer golpe» | emitido | recusado pelo emissor SNES | animação de paleta/atmosfera (VIS07) sem owner |
+| Prioridade de sprite | `sgdk_emitter.rs` (`TILE_ATTR(..., priority, ...)`) | campo do sprite | bit alto/baixo por sprite | — | seleção parcial de primeiro plano/oclusão (VIS03) sem owner: prioridade por tile/região não exposta |
+| Paralaxe por câmera | `camera_runtime.rs`, `sgdk_emitter.rs` (razão X/Y por camada) | Configurar câmera | `VDP_setHorizontalScroll` por razão | — | prévia visual de planos A/B (R5) |
+| Paralaxe/raster RetroFX | nós `effect_parallax`/`effect_raster` → `SetupParallax`/`SetupRasterEffect` | nós de Efeitos | nó lógico é `NoOp`, mas o emissor gera tabela `retro_hscroll_table[224]` com `HSCROLL_LINE` por quadro | coleta camadas/linhas (emissor próprio) | pincel de distorção/ondulação (VIS05): área pintada, envelope e modos não existem; só deslocamento X por linha |
+| Scroll de tilemap | `scroll_tilemap` | nó | `VDP_setHorizontalScroll` | — | — |
+| Shadow/highlight | só `tools/reverse` e `vdp_snapshot.rs` (análise) | nenhum | **não emitido** | — | Fantasma (VIS06) por shadow/highlight exige adaptador novo + prova |
+| Dithering | só ferramentas de análise | nenhum | não emitido | — | Fantasma por dithering exige adaptador |
+| Translucidez | nenhum owner | nenhum | não existe | — | Fantasma: investigar composição/paleta antes de habilitar |
+| Trajetos de objeto | `CameraWaypoint` (câmera, linear) | Configurar câmera | só câmera | — | R5: contrato de trajeto para qualquer objeto (curvas/elipses/loop) inexistente |
+| Transição de cena | `load_scene` | nó «Carregar Cena (sem execução na ROM)» | não executado (T5) | — | decisão do operador: só rótulo |
+
+Ordem de implementação derivada: VIS02 (paletas por perfil) e VIS03 (oclusão) têm owner parcial; VIS05 estende RetroFX; VIS06 e trajetos R5 exigem contrato novo no modelo/AST/emissor antes de qualquer UI.
