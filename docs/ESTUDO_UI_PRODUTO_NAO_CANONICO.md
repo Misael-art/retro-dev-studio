@@ -564,4 +564,12 @@ As 16 jornadas permanecem parciais no produto. Aceite humano por participante, u
 
 **Manutenção do registro.** Ao recuperar outra revisão, acrescentar data, necessidade observada, proposta, decisão, responsável no código e evidência/limite. Referenciar arquivos estáveis ou um commit imutável quando a versão anterior fizer diferença. Preservar decisões substituídas e resultados reprovados com o contexto da época. Maturidade continua no roadmap. Recibos técnicos e próximos passos continuam no Memory Bank e nos handoffs.
 
+### 14.12 Autoria visual robusta — correção de direção R5, 2026-11-06
+
+O operador rejeitou a redução funcional da proposta R4: poucos destinos globais, foco em propriedades pontuais e ausência de ferramentas para construir movimentos e compor planos. A direção atual deve transportar a riqueza de criação de jogos de alta performance, gráficos elaborados e mecânicas complexas para uma interface moderna, amigável, dinâmica e flexível. Organização visual preserva recursos robustos e precisão; não autoriza eliminá-los. Diretriz permanente no AGENTS, Memory Bank e memória fixada do projeto.
+
+A [R5 na jornada Mega Drive](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#r5-autoria-visual) registra a síntese: navegação global persistente à esquerda e horizontal por contexto; Canvas orientado a qualquer objeto compatível; trajetos desenháveis com pontos/alças, retas/curvas/elipses, duração/velocidade, esperas e reprodução; gatilhos e sequência nos nós; planos A/B, sprites, prioridade, isolamento e paralaxe com prévia e números precisos. Máscaras, geometria autoral e estado transitório de prévia têm responsabilidades distintas. O ciclo desenhar/ajustar/testar deve substituir o trabalho de compor deslocamentos mínimos manualmente quando o recurso correspondente estiver implementado.
+
+As duas visões R5 são a referência atual para discussão do Canvas; R4 fica histórica e superada, R2/R3 preservam contratos e proteções com a navegação corrigida. O [prompt existente](handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md) e a [proposta no roadmap](03_ROADMAP_MVP.md#autoria-visual-robusta-r5) foram reconciliados. Já há percurso linear de câmera, paralaxe e prévias; curvas/elipses genéricas de objetos exigem contrato e implementação próprios nos owners oficiais. Nenhum novo motor, suporte de runtime, performance ou aceite humano foi entregue por estes mockups.
+
 **[Fim do estudo]**

@@ -1110,6 +1110,14 @@ Worktree isolado `codex/rex-commercial-recovery-20261016`, base reconciliada `03
 
 # 06 - AI MEMORY BANK & CONTEXT TRACKER
 
+### Diretriz permanente: autoria visual robusta e mockups R5 — 2026-11-06
+
+Pedido explícito do operador: modernizar e tornar amigável a criação de jogos de alta performance, gráficos elaborados e mecânicas ricas, preservando flexibilidade, precisão e recursos robustos. A R4 foi rejeitada porque reduzia áreas globais e representava o Canvas como moldura de poucos ajustes. Não repetir essa redução. A navegação global permanece à esquerda independentemente do contexto; a horizontal navega áreas coligadas. Autoria visual de qualquer objeto compatível, trajetos por pontos/alças/retas/curvas/elipses, vínculo aos nós, planos A/B e paralaxe compõem a direção.
+
+Diretriz adicionada ao `AGENTS.md` a pedido do usuário e à memória permanente fixada `decisions/interface-robusta-autoria-visual.md` (page `01a1b01c-8b73-7932-812e-f8b476feca19`). Especificação, decisões, observações, limites e integração com R2/R3 na [R5](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#r5-autoria-visual); prompt existente, estudo histórico e roadmap reconciliados. As decisões arquiteturais consolidadas e o topo operacional deste arquivo foram preservados.
+
+Duas imagens finais por imagegen embutido, 1672×941, em `RDS_WORK_ROOT/sessions/tutorial-megadrive-20261105/mockups-contextuais/r5-autoria-visual-20261106/`, com prompts, originais e manifesto. R4 preservada como superada. Produto inspecionado `d51c56da`, entrada documental `2bf413c8`; sem alteração de produto/projeto autoral e sem validação Tauri ou humana R5. Já existem percurso linear de câmera e paralaxe; curva/elipse de movimento por objeto permanece proposta. Host diagnosticado READY, árvore/diff/referências novas e SHA das duas imagens conferidos. Verificação ampla encontrou dois links históricos de capturas do host `/mnt/sdcard` indisponíveis aqui, já presentes no HEAD; preservados como evidência histórica. Publicação/SHA remoto no recibo `fechamento.json` junto ao manifesto. Não atribuir CI anterior à proposta nem promover maturidade.
+
 ### Registro de design e UX — 2026-11-05
 
 O [registro histórico no estudo de UI](ESTUDO_UI_PRODUTO_NAO_CANONICO.md#14-registro-histórico-de-design-e-experiência) reúne conceitos, protótipos de julho preservados no Git, revisões, decisões de experiência e contratos técnicos até a base `3c7de67a`. A classificação mantém separadas proposta, protótipo, implementação, evidência por executável e aceite humano. Entrega documental com `host:diagnose` READY, estrutura, diff e referências revisados. A continuidade operacional segue pela [fila de 2026-11-05](handoffs/REAVALIACAO_PRODUTO_2026-10-24.md#fila-de-execução-de-2026-11-05).

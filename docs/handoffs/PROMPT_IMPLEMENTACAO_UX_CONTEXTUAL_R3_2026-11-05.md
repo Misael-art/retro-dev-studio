@@ -1,12 +1,14 @@
-# Prompt de implementação — UX contextual R2 + ajustes R3
+# Prompt de implementação — UX contextual R2/R3 e direção R5 de autoria visual
 
 Use este documento como instrução integral de execução. Ele reúne o pedido, os ajustes aceitos, os owners a integrar, as retenções técnicas e os critérios de entrega. A criação deste prompt foi uma tarefa documental; o produto ainda não recebeu esta implementação de UX.
+
+**Correção do operador, 2026-11-06:** a interface deve preservar a capacidade de produzir jogos com gráficos e mecânicas ricos. Modernizar a experiência não autoriza reduzir ferramentas, retirar áreas globais ou limitar o Canvas a pequenos ajustes. A [R5 — autoria visual robusta](../studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#r5-autoria-visual) é a direção visual atual; a R4 simplificada foi rejeitada. O pedido desta rodada é registrar e idealizar, sem implementação de produto. Este prompt continua destinado à tarefa que receber autorização para implementar; imagens não promovem suporte.
 
 ## Missão
 
 Implemente a melhoria da jornada de criação do RetroDev Studio descrita abaixo, em lotes sequenciais, preservando o fluxo oficial Build → ROM → Emulação. Execute investigação, implementação, regressão, revisão, jornada Tauri e continuidade de cada lote. Não encerre apenas com um plano nem peça confirmação para escolhas reversíveis dentro do escopo. Uma retenção impede o fechamento do item e seus dependentes; prossiga nas partes independentes. Mudança de arquitetura fora deste escopo ou ação destrutiva exige decisão específica do operador.
 
-O objetivo é permitir que um iniciante selecione o herói, edite arte/animação/comportamento, entenda o alcance da mudança, navegue por cenas e nós, teste e desfaça alterações sem perder contexto. Não criar motor universal, editor paralelo, nova store global para uma responsabilidade existente ou reescrita geral. Manter as superfícies parciais como Experimental.
+O objetivo é permitir autoria visual rica e precisa para iniciantes e produtores experientes: selecionar e manipular qualquer objeto compatível, compor planos, editar arte/animação/comportamento, entender o alcance da mudança, navegar por recursos e nós, testar e desfazer sem perder contexto. Herói e fundo são exemplos, não limites. Preservar a capacidade existente e integrar a direção R5 por owners e contratos explícitos. Não criar motor universal, editor paralelo, nova store global para uma responsabilidade existente ou reescrita geral. Manter as superfícies parciais como Experimental.
 
 ## Contexto, fontes e estado observado
 
@@ -39,7 +41,7 @@ Runtime próprio é dado de execução, não outro checkout. Não apagar trava a
 
 Os dez ajustes R3 complementam esta base; implementar só os chips/legendas de R3 não conclui a jornada:
 
-1. **Navegação única:** lateral para Cena, Arquivos, Teste e Depurar; tarefas contextuais Arte, Comportamentos e Nós quando houver seleção compatível. Preservar acesso às ferramentas atuais de interface, efeitos, entrega, importação e depuração pelos destinos apropriados. Não remover funcionalidade para simplificar a aparência. Reutilizar `StudioContextBar`, `studioContext` e `editorStore`; preservar objeto, revisão, ocorrência/animação pertinente, pan/zoom e retorno.
+1. **Navegação global persistente e contexto horizontal (R5):** manter à esquerda os acessos globais existentes, incluindo Cena, Arquivos, Arte, Lógica, Teste, Efeitos e Depurar, independentemente da seleção. Preservar Interface/Entrega/importação nos destinos oficiais. A faixa horizontal navega áreas relacionadas ao objeto/plano/cena: arte vinculada, comportamento, trajeto, nós e composição, conforme capacidade. Mesmo em janela estreita, a lateral continua disponível. Reutilizar `StudioContextBar`, `studioContext` e `editorStore`; preservar objeto, revisão, ocorrência/animação pertinente, pan/zoom e retorno. A correção supera a redução anterior a quatro destinos.
 2. **Gestos e menu:** clique seleciona; duplo clique em sprite abre arte/animação mesmo se houver lógica; preservar o gesto próprio de tilemap/câmera. Canvas e hierarquia usam as mesmas ações. Botão direito identifica o alvo e oferece arte/animação, comportamentos/nós, adicionar comportamento suportado, paleta, usos, duplicar, renomear, organizar no plano, isolamento e excluir. Não inventar golpes/formatos sem contrato. Menu não cobre a seleção quando houver espaço, fica dentro da janela, funciona por teclado e não desativa o menu nativo de campos de texto sem necessidade.
 3. **Uma árvore:** objetos/camadas/ordem/visibilidade/bloqueio na mesma projeção do modelo. Incluir itens sem camada e guias/câmera; respeitar composição e prioridades suportadas. Não criar outra hierarquia independente no Inspector.
 4. **Painéis por contexto:** cabeçalho compacto com nome/ícone/valores, abrir/recolher/fixar e lembrar organização. Não recolher durante foco de teclado, digitação, drag, popup ou operação pendente. Descoberta de ações por hover e foco, indicador persistente de fixado. Movimento reduzido, tamanho mínimo e adaptação em janela estreita; não repetir o colapso de timeline corrigido em JV05.
@@ -174,6 +176,17 @@ Comandos canônicos para passar como argumentos de `--run` ao launcher do exempl
 | Segurança/dependências, quando alteradas | `npm run security:audit` e `cargo audit --file src-tauri/Cargo.lock`, em invocações separadas; inventário de licenças conforme a política |
 
 Não executar esta tabela em paralelo nem assumir que `RDS_BUILD_JOBS=1` limita sozinho as threads dos testes. Repetir após mudança/falha que justifique, não para inflar contagens. Os gates completos aplicáveis e a jornada real precisam pertencer ao incremento final; resultado do candidato anterior permanece histórico.
+
+## Integração R5 e conservação de capacidade
+
+A R5 detalha desenho e manipulação de trajetos (retas, curvas com alças e elipses), execução única/repetida/ida e volta, precisão numérica e ligação dos gatilhos/esperas aos nós. Também detalha planos A/B, sprites e prioridades, isolamento e prévia de paralaxe. Conservar as proteções R3-01…10 e T1–T6; a nova riqueza de autoria não cria outra fonte de estado.
+
+- Antes do lote 1, inventariar as áreas/ferramentas existentes e seu acesso após a mudança. Reprovar revisão que retire capacidade ou deixe recurso órfão. Acesso global e contextual têm papéis diferentes; não fundi-los por semelhança de rótulo.
+- Nos lotes 1/2, integrar seleção/manipulação por capacidade, árvore e campos numéricos. Para paralaxe, examinar `CameraConfigurator`, `CameraAdvancedControls`, `cameraWorkflow`, `SceneArtwork` e `RetroFXDesigner`; separar câmera relativa de scroll contínuo e explicitar conflitos de owner. Não substituir recursos existentes por simulação decorativa.
+- A câmera já possui `CameraWaypoint` com posição/duração/espera e interpolação linear. Isso não implementa curvas de movimento para qualquer objeto. A elipse do PixelEditor é desenho de pixels. A evolução de trajetos precisa de um contrato próprio integrado ao modelo/pipeline oficiais, conforme a proposta do roadmap; não deve ser declarada resolvida por recortar esse percurso de câmera.
+- Investigar e documentar origem relativa/mundo, compartilhamento, transformação/cópia, pontos/alças, velocidade por distância, tempo por alvo, loops sem salto oculto, eventos e interação com física/colisão. Definir custos/limites de memória e processamento por quadro. Só então executar a fatia priorizada e seus testes; não abrir motor universal ou schema paralelo.
+- Prévia de trajeto e sonda de câmera são estados do editor. Parar/cancelar restaura autoria, e nenhum fantasma vira entidade. A faixa de regra no Canvas projeta o grafo oficial; não mantém um segundo conjunto de condições.
+- Evidência exigida na implementação: gesto e número alteram o mesmo valor; Undo/Redo e save/reopen conservam forma/tempo/escopo; todos os destinos globais continuam acessíveis; A/B e sprites respeitam prioridade; teste oficial corresponde à revisão. Exercitar também objeto diferente do herói. O aceite final considera capacidade, precisão, robustez, desempenho e uso repetido, além da legibilidade.
 
 ## Fechamento e definição de concluído
 

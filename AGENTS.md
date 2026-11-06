@@ -4,6 +4,17 @@
 RetroDev Studio: plataforma desktop para desenvolvimento de jogos 16-bit (Mega Drive, SNES), preservacao e engenharia reversa orientada a patches.
 Stack base: Tauri + React + TypeScript + Rust + SGDK/PVSnesLib + Libretro.
 
+## Diretriz de produto: autoria visual robusta
+
+Pedido explícito do operador em 2026-11-06: o RetroDev Studio destina-se à produção de jogos de alta performance, gráficos elaborados e mecânicas ricas. A interface deve tornar essa criação moderna, amigável, dinâmica e flexível, preservando recursos robustos, precisão e liberdade de composição.
+
+- Não tratar simplificação visual como autorização para retirar capacidades, esconder áreas globais ou reduzir o Canvas a uma moldura estática com poucos campos. Organizar a complexidade por hierarquia, contexto e painéis ajustáveis, mantendo caminhos claros para as ferramentas.
+- Preservar a navegação global à esquerda, independente da seleção; a faixa horizontal superior oferece navegação entre áreas relacionadas ao contexto. Uma complementa a outra.
+- Planejar o Canvas para manipular qualquer objeto compatível, além dos exemplos de herói/fundo. Autoria visual e entrada numérica precisam operar sobre os mesmos dados e histórico.
+- Representar ferramentas de trajetos por pontos/alças, retas, curvas e elipses, com tempo/velocidade, esperas, execução única, repetição e ida e volta; nós governam gatilhos e sequência. Representar também planos A/B, sprites, prioridade, isolamento e paralaxe com manipulação e prévia visuais.
+- Não declarar essas capacidades implementadas por estarem no mockup: conferir suporte por objeto/alvo, integrar owners existentes, manter limites do roadmap e validar o fluxo real. Não criar motor, store ou editor concorrente para simular robustez.
+- Antes de entregar uma revisão visual, conferir a conservação de capacidades e acesso, precisão, reversibilidade, composição e uso repetido. Legibilidade e poucos controles visíveis, isoladamente, não aprovam a experiência.
+
 ## Estado Atual
 **Hardening/QA do MVP**.
 O foco real nao e criar feature nova; e fechar o fluxo canonico `Build -> ROM -> Emulacao` com dependencias oficiais e manter o baseline de validacao verde.

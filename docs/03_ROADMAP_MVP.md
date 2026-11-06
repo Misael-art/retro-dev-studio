@@ -346,6 +346,15 @@ Uma linha por importador descreve o estado atual; as rodadas históricas continu
 5. Continuar o hardening do shell e do primeiro sucesso sem abrir frentes novas antes da hora.
 6. Manter todas as superficies `Experimental` claramente fora da leitura de fechamento do MVP ate existir prova correspondente.
 
+<a id="autoria-visual-robusta-r5"></a>
+### Autoria visual robusta R5 — proposta registrada em 2026-11-06
+
+**Direção do operador; planejamento, sem implementação ou promoção de maturidade nesta rodada.** A interface deve tornar acessível a produção de jogos de alta performance, gráficos elaborados e mecânicas ricas, preservando ferramentas robustas e precisão. Navegação global persistente à esquerda e contexto horizontal se complementam. O Canvas deve manipular qualquer objeto compatível e integrar gestos visuais com campos numéricos; reduzir recursos para obter aparência simples contraria o pedido.
+
+O [registro R5](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#r5-autoria-visual) e o [prompt contextual](handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md) mantêm R3, owners e aceites. Navegação e integração visual de planos/paralaxe aproveitam capacidades existentes; a autoria geral de trajetos por retas, curvas/alças e elipses, com tempo/repetição e gatilhos nos nós, exige investigação e fatias próprias no modelo e compilador oficiais. Percurso linear de câmera não equivale a movimento genérico de objetos.
+
+Antes de executar essa evolução, definir prioridade dentro da frente sequencial, suporte por alvo, espaço/origem, compartilhamento, eventos, interação física, limites de precisão/memória/custo por quadro, migração e testes. O pedido atual autoriza o estudo/mockup e seu registro; não antecipa implementação de motor universal nem substitui o hardening vigente. Não prometer performance ou recurso operacional por um desenho. As duas visões R5 são proposta; a R4 reduzida fica superada.
+
 ### Editor de codigo em texto SGDK — proposta futura (EC01–EC06; Fora do MVP/Q2)
 
 **Estado:** planejamento; nenhuma etapa EC foi implementada ou certificada. A frente so entra em execucao apos a coesao das jornadas atuais e uma priorizacao explicita. Comecar por Mega Drive/SGDK C em projetos autorais e overlays de C original; SNES/PVSnesLib recebe contrato e prova proprios. O editor textual deve ficar na tarefa Logica e usar selecao/retorno do `editorStore`, `studioContext` e `codeFocusStore`, sem criar outro shell, store de cena, motor de nodes ou pipeline de build. Preservar o rotulo `Experimental` durante as fatias parciais.

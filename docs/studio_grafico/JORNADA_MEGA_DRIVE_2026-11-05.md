@@ -144,7 +144,9 @@ Prioridade sugerida para discussão: **1)** gestos/menu coerentes e contexto per
 
 O próximo passo desta proposta é ajustar os mockups com o operador. Não foram adicionadas superfícies de produto nem modificada a maturidade do roadmap. O PDF e o pacote originais do tutorial permanecem preservados; estes mockups são uma revisão conceitual posterior.
 
-## Reavaliação crítica R2 — 2026-11-05 (proposta vigente para discussão)
+## Reavaliação crítica R2 — 2026-11-05 (histórico; direção atual em R5)
+
+A direção visual foi revista pelo operador em [R5 — autoria visual robusta](#r5-autoria-visual), em 2026-11-06. A R2 abaixo conserva as decisões e limites da época.
 
 O operador forneceu uma avaliação externa baseada nas duas imagens e no resumo, sem leitura da especificação ou das fontes. A crítica identifica problemas reais de comunicação dos mockups R1: navegação global duplicada, duas hierarquias com organizações diferentes, botões de animação dentro de comportamento e isolamento inconsistente. A especificação textual anterior não compensa esses erros visuais. **R2 passa a ser a referência de UX para discussão; R1 fica preservada como histórico. Nenhuma dessas interações foi implementada por esta revisão.**
 
@@ -231,6 +233,102 @@ Retenções técnicas **T1–T6** no prompt: origem/consumidores; estado de vis�
 Ordem: lote 0 prepara contratos/regressões/linha de base; lote 1 integra navegação, gestos, árvore e contexto/escopo/cabeçalho/bloqueio; lote 2 fecha painéis, filtros, reversão, geração, unidades e paleta; lote 3 rastreabilidade; lote 4 feedback e início de teste. Assim, a base R2 é implementada junto dos ajustes R3 correspondentes. R3-10 é documental e independente. A confirmação de usos não pode ser adiada para depois de habilitar uma nova mutação compartilhada desprotegida. Acessibilidade, estados vazios e Tauri nas duas resoluções acompanham cada lote.
 
 Prova desta preparação: leitura dos dez itens e owners existentes, revisão de referências/diff e checks documentais proporcionais. Host diagnosticado READY no launcher `2026-11-06T01-47-25-268Z-1146152`. O teste completo de produto, implementação de schema/IPC e jornadas nativas R3 ainda não foram executados. `AGENTS.md` do operador preservado; autenticação GitHub ausente continua limitando publicação. Recibo de fechamento junto à entrada R3 privada. Próximo: entregar este prompt a um agente de implementação, que deve revalidar HEAD/host/contratos antes do lote 0.
+
+<a id="r5-autoria-visual"></a>
+## R5 — Canvas de autoria visual robusta — 2026-11-06
+
+**Direção vigente para discussão, por correção explícita do operador.** Esta revisão reúne R2, os contratos R3, as observações da avaliação e o pedido de ferramentas visuais de produção. Entrega desta rodada: mockups e especificação, sem mudança no aplicativo, no projeto autoral ou na maturidade. Base documental `2bf413c8`; fonte de produto inspecionada `d51c56da`.
+
+### Diretriz e erro corrigido
+
+O produto deve apoiar jogos de alta performance, gráficos elaborados e mecânicas ricas por uma interface moderna, amigável, dinâmica e flexível. Clareza deve organizar a capacidade, preservando precisão, ferramentas robustas e liberdade de composição.
+
+A tentativa R4 reduziu a navegação a quatro destinos e mostrou sobretudo seleção, propriedades e teste. O operador rejeitou essa direção: ela representava o Canvas como moldura estática com poucos ajustes e não mostrava como construir movimentos, trabalhar planos ou manipular qualquer objeto. **R4 fica preservada como proposta rejeitada por redução de capacidade; não deve ser copiada como alvo de implementação.** Em R2/R3, a orientação de retirar Arte/Lógica/Efeitos da navegação global foi superada pelo pedido atual. Os contratos de origem, reversão, persistência e evidência continuam válidos.
+
+A diretriz está nas [instruções do projeto](../../AGENTS.md#diretriz-de-produto-autoria-visual-robusta), no Memory Bank e na memória permanente, página `decisions/interface-robusta-autoria-visual.md`, fixada no projeto. Ela não altera as decisões arquiteturais consolidadas nem autoriza uma reescrita.
+
+### Duas visões da mesma proposta
+
+Artefatos privados, originais, correções e prompts integrais em `RDS_WORK_ROOT/sessions/tutorial-megadrive-20261105/mockups-contextuais/r5-autoria-visual-20261106/`; `manifesto.json` registra origem, tamanho e SHA. Geração por imagegen embutido, baseada na captura histórica `entrega/screens/FINAL-editor.png`, no sprite original `nalu32.png` e na linguagem visual já trabalhada. Não foi fornecido vídeo utilizável nesta rodada. Os PNGs são ilustrações sintéticas, não capturas de execução. Plataforma móvel e seu trajeto são exemplos adicionados só ao mockup; os dados do jogo do operador ficaram intactos.
+
+| Visão | O que representa | Arquivo / SHA-256 |
+|---|---|---|
+| Trajetos visuais | Plataforma selecionada, curva com pontos e alças, entrada precisa, duração, ida e volta, prévia e vínculo com regra do objeto. Navegação global completa permanece à esquerda. | `01-trajetos-visuais-r5.png`, 1672×941, `5a788bb85f79e2b797a432857f8dcf917d39ae4f60d7fffde364969c2f6798d4` |
+| Planos e paralaxe | Céu no Plano B isolado; demais conteúdos atenuados. Arraste/sonda de câmera, razões horizontal/vertical e comparação do deslocamento de A/B. | `02-planos-paralaxe-r5.png`, 1672×941, `23d6d9a3cb2720995c329d89cdff1bf2e14a942104f5687a79fc90712a53a993` |
+
+Foram solicitadas imagens de apresentação 2560×1440; as saídas efetivas são as dimensões da tabela. Não representam validação em 1366×768 ou 949×593. Ícones, tamanho aparente, posicionamento de pixels, curva e razões ilustradas precisam de correspondência no produto antes de qualquer aceite técnico. O chip «Atenuado pelo isolamento» é informativo; não deve virar opção de estado escolhido. O objeto que recebe edição deve estar efetivamente desbloqueado.
+
+A R4 anterior está em `mockups-contextuais/r4-canvas-20261106/`, com três imagens, prompts e manifesto. R1/R2 e as versões anteriores à correção R5 permanecem preservadas. Orçamento R5: 32 MiB; quatro PNGs e receitas ocupam cerca de 6,9 MiB. Retenção até revisão do operador e proteção independente. Originais no CODEX_HOME e cópias no runtime estão no mesmo volume; não constituem backup independente. Especificação, decisões, owners e receitas resumidas ficam versionados; assets privados não entram no Git.
+
+### Navegação e autoria por objeto
+
+1. **Navegação global persistente.** Cena, Arquivos, Arte, Lógica, Teste, Efeitos e Depurar permanecem acessíveis à esquerda, independentemente da seleção. Preservar também as entradas existentes de Interface/Entrega/importação nos destinos oficiais; o recorte do mockup não autoriza removê-las. Em janela estreita, reduzir a largura da navegação com rótulo acessível e foco, sem fazê-la desaparecer.
+2. **Faixa horizontal contextual.** Cena/objeto/origem identificados, com atalhos para composição, arte vinculada, movimento, planos, nós ou recursos compatíveis com o alvo. Arte global abre o workspace disponível; «Arte do objeto» abre seu recurso e preserva retorno. São rotas dos owners existentes, não novos editores.
+3. **Qualquer objeto compatível.** Herói, inimigo, plataforma, prop, sprite, mapa, câmera, região e gatilho podem ser selecionados e manipulados conforme seus componentes. Sem seleção: ações da cena e criação/entrada de conteúdo. Seleção múltipla: valores comuns ou «misto», transformações com pivô/alcance claros e aplicação transacional.
+4. **Manipulação visual com precisão.** Arraste, guias, alinhamento, distribuição, grade/encaixe e campos X/Y trabalham sobre os mesmos dados. Ferramentas aparecem por capacidade; escala/rotação de arte, sprite e mapa precisam de contrato do alvo, não de um manipulador genérico que prometa suporte inexistente.
+5. **Acesso e conservação.** Menu de contexto identifica alvo e alcance; árvore resolve sobreposição; duplo clique e teclado chegam às mesmas operações. Salvar, Undo/Redo, cancelamento, bloqueio herdado, perda de seleção e falha de recurso permanecem explícitos. Recolher painéis preserva edição, foco, seleção e estado de retorno.
+
+### Desenhar movimento em vez de montar passos de pixel
+
+**Fluxo proposto:** selecionar objeto → Trajeto → escolher Reta/Curva/Elipse/Caneta → desenhar → ajustar pontos e alças → definir reprodução → conferir prévia → ligar acionamento nos nós → salvar → testar no pipeline oficial.
+
+- **Geometria:** pontos inseríveis/removíveis, segmentos retos e curvas com alças, ponto suave/canto, fechar/abrir trajeto, inverter sentido e encaixar em grade/eixos. Elipse possui centro, raios e orientação editáveis visualmente e por números; converter para pontos deve explicitar a mudança de representação e ter Undo. Movimento do objeto e edição de uma alça não são a mesma ferramenta.
+- **Espaço e origem:** mostrar se o trajeto está relativo à origem do objeto ou ao mundo; indicar início/fim e o objeto dono. Mover/duplicar objeto, aplicar ao modelo e reabrir cena conservam o contrato e não transformam referências compartilhadas em cópias silenciosas.
+- **Tempo:** escolher duração ou velocidade como parâmetro principal; o outro é derivado, sem duas autoridades conflitantes. Definir espera nos pontos/extremidades e aceleração quando suportada. «Constante» em curva significa distância por tempo, não apenas incremento uniforme do parâmetro da curva. Conversão segundos/quadros usa a frequência do alvo e regra de arredondamento declarada.
+- **Reprodução:** uma vez; repetir caminho fechado; ida e volta; reiniciar caminho aberto somente com retorno explicitado. A repetição não pode introduzir teleporte oculto. Definir se duração é por trecho, percurso ou ciclo completo; o exemplo de 2 s é por percurso de ida, com espera de 0,3 s em cada ponta.
+- **Prévia:** reproduzir, pausar, avançar e arrastar o tempo; fantasma é identificado e não cria entidade. Parar restaura o estado autoral, sem gravar posições transitórias. A prévia de geometria não comprova colisão, física, transporte de personagem por plataforma ou resultado na ROM.
+- **Nós:** gatilho, condição, atraso, iniciar, pausar, retomar e parar operam sobre o mesmo trajeto identificado. A faixa «Ao iniciar → Esperar 0,5 s → Seguir trajeto» projeta o grafo do objeto; «Ver grafo» abre e enquadra sua origem. Não criar lógica duplicada no painel. Conclusão de percurso/ciclo, reinício durante execução e exclusão de referência exigem semântica explícita.
+- **Interação e performance:** definir quem controla posição quando física, input e trajeto coexistem; política de colisão, plataforma que transporta atores e interrupção por eventos precisam de casos positivos/negativos. Avaliar representação determinística, precisão fixa e eventual tabela pré-calculada/comprimento de arco no pipeline existente, com limites de pontos, memória, custo por quadro e quantidade de objetos. Essa é investigação técnica pendente, não escolha de um novo motor nem promessa de 60 FPS.
+
+### Planos, composição e paralaxe visuais
+
+A árvore relaciona os objetos aos planos reais: Plano A/Plano B no alvo Mega Drive; sprites e guias ficam identificados separadamente. «Próximo» e «distante» são papéis editoriais do exemplo, não uma regra universal de prioridade. Grupos do editor não criam planos extras de hardware. Tiles e sprites têm prioridades próprias; mostrar conflitos de composição no contexto apropriado.
+
+**Fluxo proposto:** selecionar plano ou mapa → isolar → ajustar origem/área no Canvas → configurar a relação de paralaxe → arrastar a sonda de câmera → comparar com a composição completa → aplicar/desfazer → testar a cena inteira.
+
+- Seleção do Plano B mantém céu normal e atenua A/sprites, preservando conteúdo previamente oculto. «Sair» remove só a máscara; «Restaurar visão» e «Restaurar prévia» têm responsabilidades separadas. Alterações deliberadas feitas durante isolamento são conservadas.
+- Controles de origem/área, guias e campos numéricos se correspondem. Recorte/células/imagem montada respeitam o owner de pixels/mapa, colisão e limites de alocação; nenhum recorte destrutivo silencioso.
+- Razões X/Y são editáveis por alça/slider e número. No exemplo: câmera desloca 160 px, Plano A a 100% desloca magnitude 160 px e B a 25%, 40 px; o scroll de tela tem o sentido correspondente. Isso é conta ilustrativa, não medição de execução.
+- A prévia compara planos em composição, isolamento e referência anterior. Sua câmera é uma sonda do editor; deslocá-la não move a câmera autoral nem muda o spawn.
+- Separar **paralaxe relativa à câmera** de **scroll contínuo por tempo**. Câmera visual, RetroFX e nós não podem disputar a mesma origem de scroll silenciosamente. Conflito de owner fica visível antes de aplicar.
+- Usos da paleta, índices, colisões, câmera e prioridades continuam acessíveis. R3-01/04 protegem edições compartilhadas; R3-02 protege máscaras; novas capacidades não dispensam essas proteções.
+
+### Base real e lacunas a integrar
+
+| Responsabilidade | Evidência de código nesta revisão | Direção R5 |
+|---|---|---|
+| Contexto e retorno | `studioContext.ts`, `editorStore.ts`, `StudioContextBar.tsx`, shell existente | Conservar navegação global e resolver acessos contextuais sobre os mesmos alvos. |
+| Seleção/composição | `ViewportPanel.tsx`, `HierarchyPanel.tsx`, `sceneComposition.ts`, `sceneWorldModel.ts` | Ferramentas visuais por capacidade e árvore única; não limitar autoria ao herói. |
+| Percurso de câmera | `CameraAdvancedControls.tsx`, `cameraWorkflow.ts`, `CameraWaypoint` em TS/Rust | Já existem pontos X/Y, duração/espera e interpolação linear de câmera. Não confundir com trajetória Bézier de objeto. |
+| Paralaxe | `CameraConfigurator.tsx`, `CameraAdvancedControls.tsx`, `CameraParallax`, `SceneArtwork` | Já existem mapas, razões X/Y de 0–200% e prévia. Integrar descoberta e manipulação no Canvas; verificar runtime do alvo. |
+| Scroll/efeitos | `RetroFXDesigner.tsx`, configuração de cena, nós e emitter SGDK | Reconciliar responsabilidade com câmera; não sobrepor writers concorrentes. |
+| Curvas/elipses de objetos | Busca não encontrou autor visual genérico e contrato de execução por objeto; elipse do PixelEditor desenha pixels, não movimento | Capacidade nova proposta. Definir schema, escopo, compilação, eventos, migração e evidência por alvo antes de habilitar. |
+| Grafo e reversão | `behaviorLibrary.ts`, `nodeTypes.ts`, `graphHistory.ts`, persistência de cena/grafo | Referenciar o trajeto único; preservar metadados gerados, conexões externas, Undo, cancelamento e save/reopen. |
+
+### Integração com o plano anterior
+
+Os lotes R3 continuam sendo a base de segurança e coesão. A R5 muda a direção visual e acrescenta investigação de autoria, sem promover novos recursos a implementados.
+
+| Etapa | Complemento R5 | Aceite observável futuro |
+|---|---|---|
+| Lote 0 — contratos | Inventário de capacidades por objeto/alvo, navegação preservada e fronteiras entre dados autorais, máscaras e prévia. Delimitar curva de objeto versus percurso de câmera. | Matriz antes/depois sem ferramentas órfãs; casos de origem/escopo definidos. |
+| Lote 1 — contexto | Menu global persistente, contexto horizontal, árvore de objetos/planos, manipuladores e campos numéricos coerentes. | Chegar a Arte/Lógica/Efeitos com qualquer seleção e voltar ao mesmo objeto; editar também plataforma/mapa/câmera. |
+| Lote 2 — reversão | Integração visual de planos/paralaxe já existentes, isolamento, paleta, unidades e continuidade de painéis. | Arrastar/digitar → cancelar/Undo → salvar/reabrir preserva os mesmos dados; máscaras e prévia não alteram jogo. |
+| Lote 3 — rastreabilidade | Grafo/recursos/nós e faixa contextual apontam para o mesmo owner. | Abrir origem, editar, voltar; sem assinatura manual falsa ou estrutura paralela. |
+| Lote 4 — teste | Manter R3-09/T6: intenção de início, revisão e cena inteira no build oficial. | Falha ou resposta antiga não executa ROM como se fosse revisão atual. |
+| Evolução R5 — trajetos | Contrato e implementação por fatias do novo recurso, seguindo a priorização do roadmap. | Reta/curva/elipse, loops/esperas/eventos, interação física, Undo/migração e efeito real no core; custos medidos. |
+
+O [prompt existente](../handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md) recebeu a correção de direção e os pontos de integração. O registro no [roadmap](../03_ROADMAP_MVP.md#autoria-visual-robusta-r5) é proposta, sem alegar execução ou substituir a prioridade de hardening.
+
+### Qualidade, uso repetido e revisão humana
+
+A composição procura reduzir competição de bordas, preservar tipografia e reservar realces para seleção, foco e modo. Isso não exige remover ferramentas. Painéis redimensionáveis/fixáveis, busca, atalhos e reflow devem manter acesso e estado; não recolher foco/edição pendente. Na janela de 949×593, a navegação global continua presente e o espaço dos painéis pode alternar, com retorno explícito. Não encolher toda a interface para caber nem eliminar comandos avançados.
+
+Revisar no Tauri em 1366×768 e 949×593 com escala real, teclado, ponteiro e nomes acessíveis; medir contraste nas cores finais, tamanho dos alvos e legibilidade dos estados. PNG não comprova esses critérios.
+
+Protocolo humano proposto, ainda não executado: três ciclos de desenhar/alterar trajeto, trocar de objeto, isolar A/B, ajustar paralaxe, visitar os nós e testar/desfazer. Pode-se reservar 20–30 minutos como sessão inicial, ajustável ao participante; não há medição de fadiga ou ganho de produtividade nesta entrega. Registrar tempo/ações, hesitações, procura por ferramentas, erro de escopo, previsibilidade do resultado, capacidade de desfazer e conforto relatado. Comparar com o fluxo atual sem ensinar o caminho antecipadamente.
+
+Antes de aprovar uma revisão, perguntar no roteiro: todas as áreas continuam alcançáveis? O autor consegue construir e modificar algo substancial visualmente? O ajuste numérico corresponde ao gesto? Planos/objetos/recursos permanecem distinguíveis? A precisão e os limites do alvo são claros? A operação é reversível? A execução corresponde à revisão testada? Aparência limpa, isoladamente, não atende essa barra.
 
 ## Implementação da curadoria — 2026-11-05 (lote 1, Experimental)
 
