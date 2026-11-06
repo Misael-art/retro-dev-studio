@@ -237,7 +237,7 @@ Prova desta preparação: leitura dos dez itens e owners existentes, revisão de
 <a id="r5-autoria-visual"></a>
 ## R5 — Canvas de autoria visual robusta — 2026-11-06
 
-**Direção vigente para discussão, por correção explícita do operador.** Esta revisão reúne R2, os contratos R3, as observações da avaliação e o pedido de ferramentas visuais de produção. Entrega desta rodada: mockups e especificação, sem mudança no aplicativo, no projeto autoral ou na maturidade. Base documental `2bf413c8`; fonte de produto inspecionada `d51c56da`.
+**Direção aprovada pelo operador em 2026-11-06, após a correção explícita de escopo.** Esta revisão reúne R2, os contratos R3, as observações da avaliação e o pedido de ferramentas visuais de produção. Aprovação conceitual para orientar a implementação; não é validação humana do aplicativo. Entrega: mockups e especificação, sem mudança no aplicativo, no projeto autoral ou na maturidade. Base documental `2bf413c8`; fonte de produto inspecionada `d51c56da`. O requisito adicional de experiência de jogo está na [R6](#r6-jogar-emulador).
 
 ### Diretriz e erro corrigido
 
@@ -318,7 +318,7 @@ Os lotes R3 continuam sendo a base de segurança e coesão. A R5 muda a direçã
 | Lote 4 — teste | Manter R3-09/T6: intenção de início, revisão e cena inteira no build oficial. | Falha ou resposta antiga não executa ROM como se fosse revisão atual. |
 | Evolução R5 — trajetos | Contrato e implementação por fatias do novo recurso, seguindo a priorização do roadmap. | Reta/curva/elipse, loops/esperas/eventos, interação física, Undo/migração e efeito real no core; custos medidos. |
 
-O [prompt existente](../handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md) recebeu a correção de direção e os pontos de integração. O registro no [roadmap](../03_ROADMAP_MVP.md#autoria-visual-robusta-r5) é proposta, sem alegar execução ou substituir a prioridade de hardening.
+O [prompt existente](../handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md) recebeu a correção de direção e os pontos de integração. O [roadmap](../03_ROADMAP_MVP.md#autoria-visual-robusta-r5) registra a direção aprovada, com implementação pendente, sem substituir a prioridade de hardening.
 
 ### Qualidade, uso repetido e revisão humana
 
@@ -329,6 +329,117 @@ Revisar no Tauri em 1366×768 e 949×593 com escala real, teclado, ponteiro e no
 Protocolo humano proposto, ainda não executado: três ciclos de desenhar/alterar trajeto, trocar de objeto, isolar A/B, ajustar paralaxe, visitar os nós e testar/desfazer. Pode-se reservar 20–30 minutos como sessão inicial, ajustável ao participante; não há medição de fadiga ou ganho de produtividade nesta entrega. Registrar tempo/ações, hesitações, procura por ferramentas, erro de escopo, previsibilidade do resultado, capacidade de desfazer e conforto relatado. Comparar com o fluxo atual sem ensinar o caminho antecipadamente.
 
 Antes de aprovar uma revisão, perguntar no roteiro: todas as áreas continuam alcançáveis? O autor consegue construir e modificar algo substancial visualmente? O ajuste numérico corresponde ao gesto? Planos/objetos/recursos permanecem distinguíveis? A precisão e os limites do alvo são claros? A operação é reversível? A execução corresponde à revisão testada? Aparência limpa, isoladamente, não atende essa barra.
+
+<a id="r6-jogar-emulador"></a>
+## R6 — Jogar no emulador, cenas e marcações — 2026-11-06
+
+**Pedido do operador registrado para implementação futura; R5 aprovada e preservada.** Jogos de grande complexidade precisam de ferramentas amigáveis, precisas e robustas. Acrescentar uma experiência de jogo fluida, com início do jogo, cena escolhida e marcações, sem reduzir a autoria visual. Esta seção é a especificação do novo requisito; não relata implementação, benchmark ou nova captura do aplicativo. Inspeção no HEAD documental `0dc00e68`, com produto ainda na base `d51c56da`; reconferir owners no início do lote.
+
+### Experiência e composição da interface
+
+**Testar/Inspecionar** mantém ferramentas de diagnóstico, pausa, passo e observação. **Jogar** apresenta a experiência de gameplay no emulador oficial integrado, usando a ROM da revisão identificada, áudio e controles. Os dois modos compartilham sessão e owner de execução; não são dois emuladores concorrentes. A proposta não exige Internet para jogar nem presume que a lentidão venha de processamento online. Separar as intenções na interface não resolve sozinho o desempenho.
+
+O comando Jogar fica na faixa de ações superior, com o destino atual legível e uma seta para escolher outro. O rótulo precisa distinguir iniciar de retomar: por exemplo, **Jogar · Início**, **Jogar · Enseada** e **Retomar · Ponte / antes do salto**. O clique principal executa o destino mostrado. A primeira utilização assume o início válido do projeto; se ele estiver indisponível, abre a escolha com explicação. A escolha é lembrada por projeto, mas revalidada a cada uso.
+
+O ponteiro sobre o controle pode revelar um pequeno rolo de miniaturas. A seta e o teclado abrem o mesmo seletor; hover é atalho, nunca a única descoberta ou forma de operar. Mover o ponteiro para o painel não o fecha. Foco permanece previsível, Escape fecha e retorna ao acionador; clicar fora não executa. Passar por uma miniatura só mostra detalhes; iniciar exige clique/Enter no destino. Não tocar áudio, executar o core ou compilar todas as cenas ao passar o mouse.
+
+Esquema de conteúdo, sem fixar tamanho, cores ou implementação de widget:
+
+```text
+Contexto: Cena Enseada / plataforma móvel        [Testar] [▶ Jogar · Enseada ▾]
+                                                     ┌───────────────────────┐
+                                                     │ Buscar cena ou pin    │
+                                                     │ Início | Cenas | Pins │
+                                                     │ [capa] [cena] [cena]  │
+                                                     │ Enseada · 3 marcações │
+                                                     │ [pin] [pin] [momento] │
+                                                     │ Antes do salto       │
+                                                     │ Retomar captura      │
+                                                     └───────────────────────┘
+```
+
+Cada cartão mostra nome, cena, tipo de entrada e condição: **Pronto**, **Preparar**, **Desatualizado**, **Somente nesta sessão** ou **Indisponível**, com motivo e ação pertinente. Miniatura do editor recebe indicação de prévia; captura do emulador representa um momento observado. Nenhuma imagem, isoladamente, prova cena executável. Sem imagem, mostrar substituto com nome/tipo. Informações técnicas de revisão/core ficam nos detalhes, sem poluir o fluxo principal.
+
+Agrupar por cena; pins nomeados e momentos capturados pertencem ao grupo correspondente. Permitir busca, ordem previsível, favoritos e acesso ao local no Canvas separado da ação de jogar. Não confundir ordenação da lista com sequência executável do jogo. Miniaturas são geradas sob demanda e cacheadas por revisão, com carregamento limitado. Em 949×593, adaptar o painel para lista/grade com rolagem interna e nomes acessíveis, mantendo a navegação global à esquerda e o contexto horizontal. Não encolher toda a UI nem manter o rolo aberto sobre a área de trabalho.
+
+Na execução, oferecer pausa, reiniciar destino, capturar momento e voltar ao editor; tela cheia é uma escolha explícita e reversível. Voltar preserva cena, seleção, pan/zoom, painéis e edição pendente. O foco de teclado/controle passa ao jogo apenas ao iniciar; perder foco libera botões pressionados e aplica a política de pausa visível. Atalhos de edição não operam inadvertidamente durante gameplay. Testar ↔ Jogar preserva a sessão quando compatível; trocar o destino é uma reinicialização explícita, não um efeito de abrir o seletor.
+
+### Quatro intenções técnicas, três grupos visuais
+
+| Intenção proposta | O que o usuário escolhe | Estado e limites |
+|---|---|---|
+| `game_start` | Jogar desde o início | Entrada real do projeto e inicialização normal do jogo. Carregar a ROM não comprova que todas as transições estejam implementadas. Mostrar pendências pertinentes; não prometer jornada completa por existir um mapa de cenas. |
+| `scene_entry` | Jogar uma cena | Cena inteira pelo contrato R3-09/T6, com entrada e contexto de inicialização definidos. Inventário, flags, câmera e dependências de cenas anteriores exigem cenário inicial declarado ou captura válida; não adivinhar condições. |
+| `scene_pin` | Iniciar em um pin colocado no Canvas | Definição autoral de ponto e contexto de início, ainda sem estado completo de execução. Preparar a ROM/entrada pelo pipeline oficial; o ponto altera o início, sem recortar mundo, objetos ou lógica. |
+| `runtime_checkpoint` | Retomar um momento capturado | Snapshot real do core e sua miniatura, com identidade/compatibilidade. Retoma também o contexto serializado, como inimigos, temporizadores e progresso, nos limites comprovados do core; não apenas a coordenada do personagem. |
+
+**Um pin estático não cria automaticamente um save state.** No Canvas, criar uma marcação guarda intenção. Ao executar e alcançar um estado válido, **Capturar momento** guarda o snapshot. Um ponto preparado pode ganhar uma captura vinculada, com origem identificada. Se o autor quiser saltar diretamente para uma área, o alvo/projeto precisa suportar a inicialização correspondente; em ROM importada sem esse contrato, oferecer captura do momento alcançado, sem escrever coordenadas arbitrárias em RAM. Nomear a cena desconhecida como desconhecida, sem inferir identidade só pela imagem.
+
+O estado persistido normal do jogo (por exemplo SRAM) é diferente do save state do emulador. Definir perfil inicial para teste e sessão de gameplay; não apagar ou sobrescrever progresso existente ao preparar pins. Resultados de execução não reescrevem posição/valores autorais automaticamente. Variantes de preparação são artefatos de teste identificados, sem mudar `project.entry_scene` salvo nem contaminar o export normal.
+
+### Pins e momentos como ferramentas de autoria
+
+No Canvas, disponibilizar **Adicionar ponto de jogo** pela ferramenta de marcação e pelo menu contextual. Posicionar visualmente, nomear e ajustar numericamente; mostrar coordenadas de mundo e a entidade/entrada controlada quando resolvidas. Ponto de câmera e ponto de nascimento têm significado distinto. O pin continua visível no nível de sobreposição escolhido pelo autor; filtro de pins não altera entidades da cena nem a ROM.
+
+Mover/nomear/excluir/duplicar uma definição passa pelo histórico e persistência oficiais, com Undo/Redo e save/reopen. Usar identidade estável, não índice/nome/ordem da lista. Um pin de plataforma valida apoio, colisão e câmera; outros gêneros usam seus próprios requisitos. Movimento de objeto âncora exige regra explícita de ponto relativo ou absoluto. Dois momentos na mesma coordenada podem ter inventários e inimigos distintos; nunca deduplicá-los só pela posição.
+
+Capturar durante o gameplay pede nome opcional e mostra a miniatura do instante capturado; uma ação curta deve bastar para repetir o teste. O autor pode associar o momento a um pin existente, mantendo as duas identidades. Mover o pin não altera retrospectivamente o snapshot. Remover uma marcação é reversível; a coleta de binários órfãos respeita a janela de Undo e a política de retenção. Nenhuma limpeza automática elimina a única captura útil sem proteção identificada.
+
+### Base técnica observada e owners a estender
+
+| Área | Fonte atual e observação | Trabalho necessário |
+|---|---|---|
+| Orquestração | `src/App.tsx`, `handleBuildAndRun`; `src/core/ipc/buildService.ts`; `src-tauri/src/compiler/build_orch.rs`. Build oficial com verificação de contexto; IPC atual sem intenção de cena/pin. | Estender T6 com destino/revisão, cancelamento e recibo; reutilizar pipeline, sem compilador alternativo. |
+| Loop de execução | `src/core/ipc/emulatorService.ts`, `startFrameLoop`: aguarda `emulatorRunFrame()` e depois agenda mais 16 ms. | Medir tempo de core/IPC/apresentação e substituir o ritmo dependente da UI por cadência do owner de runtime. Essa espera é hipótese de custo, não benchmark. |
+| Runtime e cadência | `src-tauri/src/emulator/libretro_ffi.rs`: consulta `retro_get_system_av_info`; conserva sample rate, mas o campo FPS não é preservado na estrutura de runtime observada. | Conservar/expor frequência válida e alterações de AV pertinentes; agenda monotônica, input, pause/step e captura coordenados no mesmo owner. |
+| Vídeo/áudio/entrada | `src-tauri/src/lib.rs`, `emit_emulator_frame_events`; `src-tauri/src/emulator/frame_buffer.rs`; `src/components/viewport/ViewportPanel.tsx`. RGBA e amostras em eventos; observação de apresentação já tem identidade/época/ordem. | Medir cópias, serialização e filas; preservar rejeição de frames antigos, escalar apresentação e manter áudio/input responsivos. Não usar etiqueta fixa `/60fps` como prova. |
+| Save states | `EmulatorCore::save_state/load_state`: um `saved_state` em memória; comandos IPC sem ID; desmontar core limpa o slot. Métodos `capture_runtime_state_bytes/restore_runtime_state_bytes` já existem. | Reutilizar serialização para vários checkpoints, persistência e validação. Não confundir `SceneSaveState` do editor com snapshot do core. |
+| Instrumentação | `run_frame` captura rewind periodicamente e chama trace; havendo backend de trace, ele serializa estado para amostra. Replay também possui captura inicial/entradas. | Medir custo por modo; tornar instrumentação onerosa configurável/visível em Jogar, preservando depuração e recibos. Replay não é atalho universal de início. |
+| Cena e contexto | `editorStore`, `studioContext`, `src/core/scenePersistence.ts`, `src/core/ipc/sceneService.ts` e writers Rust correspondentes. `runtimeLink` registra vínculo/evidência. | Integrar metadados de pins, migração, histórico e seleção nesses owners. `runtimeLink` não vira controlador fictício de início; não abrir store paralela. |
+
+A inspeção é estática. Não mediu quanto cada custo contribui, nem garante que remover a espera entregue 60 FPS. O comando de vários quadros mantém execução em lote e só publica o resultado; não equivale a um loop interativo que precisa atender entrada, pausa, áudio e apresentação continuamente.
+
+### Contratos de implementação e recuperação
+
+**1. Intenção única de lançamento.** Definir um contrato versionado no fluxo oficial com projeto/alvo, revisão de autoria, cena quando conhecida, tipo de entrada e referência a pin/checkpoint. Resolução gera recibo com ROM/hash, configuração, destino e estado de preparo. Entradas ausentes, tipo sem suporte, cena removida, referência divergente ou contexto trocado falham antes de iniciar. Revalidar após build/preparo; não executar resposta atrasada de outro projeto/cena. Coalescer clique repetido para a mesma operação. Cancelamento não deixa uma sessão fantasma nem sobrescreve a autoria.
+
+**2. Um controle serial do core.** Proposta: fazer a cadência pertencer ao runtime Rust existente, com comandos ordenados e interrupção entre quadros. Auditar callbacks, locks e afinidade de thread antes da migração. Jogar contínuo, Inspecionar, step, save/load, rewind e replay são modos/comandos desse mesmo owner. A UI recebe quadros; não continua chamando `run_frame` em paralelo ao runner. Não manter o mutex bloqueado por um laço interminável nem acumular fila ilimitada. A API Libretro não permite chamadas concorrentes/reentrantes; suporte a serialização é opcional. [Documentação oficial Libretro](https://docs.libretro.com/development/cores/developing-cores/).
+
+**3. Captura coerente.** Pausar a progressão numa fronteira definida de quadro, capturar bytes do core, miniatura, frame e proveniência da mesma sessão e então retomar se antes estava rodando. A captura não deve passar um quadro extra só para obter imagem. Se não houver framebuffer válido ainda, aguardar preparação explícita ou indicar imagem indisponível. O manifesto fica visível apenas após escrita completa e verificação; cancelamento/disco cheio mantém a versão anterior. Capturar não substitui o slot rápido manual sem decisão visível.
+
+**4. Compatibilidade de checkpoint.** Manifesto proposto: versão de formato, IDs de projeto/cena/pin/checkpoint, tipo/origem, revisão de fonte e intenção de preparo, SHA-256 da ROM exata, identidade/hash do core e suas opções, alvo/região, condições relevantes do host e dependências de execução, frame, data, tamanho/hash do snapshot e miniatura. Capturas dependentes de sessão ficam assim rotuladas e não prometem restauração após reabrir. Respeitar limitações de serialização, inclusive inicialização, tamanho variável e portabilidade. Essas limitações existem no contrato oficial, mas precisam ser verificadas no core pinado do projeto. [Cabeçalho oficial Libretro: timing e serialization quirks](https://raw.githubusercontent.com/libretro/libretro-common/master/include/libretro.h).
+
+Compatibilidade conservadora: exigir mesma ROM e core/configuração compatível, não apenas mesmo tamanho do buffer. Edição de código, assets, paleta ou preparação que produza outra ROM deixa a captura anterior **Desatualizada**. Preservar sua origem e oferecer **Preparar novamente este ponto**; opcionalmente **Jogar versão capturada** somente se os artefatos exatos estiverem retidos e suportados. Não migrar estado binário por heurística. Ausência de suporte mantém início/cena disponíveis quando válidos e explica a indisponibilidade de captura.
+
+**5. Restauração e falhas.** Verificar manifesto, integridade, tamanho permitido e compatibilidade antes de entregar bytes ao core. Um `unserialize` que falha pode ter alterado estado interno; o owner deve recuperar uma sessão comprovadamente válida ou parar e oferecer reinício, sem anunciar sucesso nem continuar estado parcial. Reconciliar relógio/frame observado, epoch de apresentação, áudio pendente, botões, rewind e gravação; rejeitar eventos anteriores. O comando atual de load não emite um quadro restaurado. A miniatura pode ilustrar o checkpoint enquanto pausado, claramente como captura; o primeiro quadro novo só pode ser apresentado como execução quando efetivamente produzido. Não avançar o jogo silenciosamente para simular uma imagem atualizada.
+
+**6. Persistência e limites.** Definições de pins são dados do projeto pelo schema/writer existentes, com migração compatível e conflito de revisão. O runtime oficial guarda binários, miniaturas e manifestos por identidade de projeto/captura, fora do Git de fontes; a implementação resolve o diretório pelo owner de runtime, sem caminho absoluto do host embutido. IDs gerados formam chaves; nomes do usuário não viram paths. Gravação atômica, orçamento por captura/projeto, tamanho máximo antes da alocação e política de retenção são parte do contrato. Documentar recuperação/exportação privada de capturas quando suportada; referências a arquivo ausente permanecem explicáveis. Reabrir, mudar de máquina ou trocar core não pode aparentar disponibilidade sem os artefatos compatíveis.
+
+### Desempenho: experiência real de jogo
+
+O objetivo é rodar na velocidade nativa, com áudio sincronizado e entrada responsiva. Usar a frequência informada pelo core para o conteúdo carregado; conteúdo NTSC pode ser próximo de 60 Hz e PAL próximo de 50 Hz. Não forçar 60 Hz acelerando um jogo de 50 Hz, nem confundir ticks do emulador com a taxa de animação interna de um jogo. Se o próprio jogo sofre slowdown no hardware emulado, identificar a diferença entre custo do jogo e lentidão do host. A experiência rica permanece dentro dos limites do alvo real.
+
+Baseline de PLAY01: separar custo do core, serialização de rewind/trace, conversão/transporte, apresentação e áudio. Exemplo de volume bruto, não medição: um quadro RGBA de 320×224 ocupa 286.720 bytes; a 60 quadros/s são cerca de 17,2 MB/s antes de cópias e representação dos eventos. Avaliar transporte binário/mecanismo Tauri disponível e reutilização de buffers com evidência; não adicionar dependência ou renderer concorrente sem necessidade demonstrada. Fila de vídeo limitada pode descartar apresentação atrasada para preservar responsividade, contando as perdas; não descartar lógica/input nem anunciar a mesma imagem repetida como quadros novos. Áudio requer seu próprio controle de buffer e sincronização.
+
+Definir, antes de codificar, máquina/OS/core/ROM/configuração de referência e orçamento de memória, filas, latência e p95/p99 de apresentação. Protocolo inicial: aquecer 10 s, medir 120 s de gameplay repetível em cada modo, repetir após três ciclos de editar → preparar → jogar → retornar; registrar resolução/escala, frequência do monitor e carga concorrente. Alvo inicial para a fixture declarada: velocidade média de emulação entre 99% e 101% da frequência nativa, sem drift acumulado perceptível de áudio e sem crescimento ilimitado de filas. Cadência, perdas, underruns e latência devem ter limites numéricos congelados em PLAY01 a partir do baseline, antes do aceite; não adaptar o limite depois só para aprovar um candidato.
+
+Registrar separadamente FPS de execução, quadros apresentados por segundo, intervalos p95/p99, frames descartados, fila/underruns de áudio, atraso de input, CPU/RAM e tempo para preparar/retomar. Um monitor mais lento ou modo pausado não pode receber diagnóstico falso de velocidade do core. Testes sem apresentação e primeiro frame não aprovam fluidez. A barra discretamente visível pode informar frequência observada e acesso aos detalhes; nenhum badge estático promete 60 FPS.
+
+### Lotes, aceites e transferência para outro agente
+
+As etapas [PLAY01–PLAY06 no roadmap](../03_ROADMAP_MVP.md#jogar-emulador-r6) integram R3-09/T6, preservam R5 e definem a ordem. O [handoff de implementação](../handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#implementacao-play-r6) é o ponto de entrada do agente. Cada lote declara owner confirmado, comportamento, regressão, evidência nativa e limitações; manter Experimental enquanto parcial.
+
+Regressões mínimas, além dos gates aplicáveis:
+
+- Início normal preservado; cena completa por entrada distinta; pin com apoio/câmera/contexto válidos; edição pendente, build falho/cancelado e resposta de contexto antigo não lançam revisão errada. Transições declaradas sem runtime continuam identificadas como não comprovadas.
+- Pin autoral com gesto/número, Undo/Redo, salvar/reabrir e mudança de cena; dois pins na mesma região permanecem distinguíveis. Captura não altera entidades, entrada do projeto ou progresso persistente de outra sessão.
+- Dois ou mais checkpoints com estados diferentes; capturar pausado/em execução; restauração após reabertura quando suportada; mesma entrada subsequente produz estado esperado na fixture do core. Usar imagem e estado/efeito observado, não apenas existência do arquivo.
+- ROM/core/opções incompatíveis, core sem serialização ou dependente de sessão, snapshot corrompido/truncado, arquivo ausente, tamanho excessivo, falha de escrita e restauração recusada; dados anteriores preservados e recuperação clara.
+- Jogar ↔ Inspecionar, pause/step/retomar, perda de foco, controlador, áudio, rewind/replay e troca de projeto/ROM sem segundo loop, entrada presa, quadro antigo ou amostra de áudio anterior à restauração.
+- Rolo por hover, clique e teclado; escape/retorno de foco, nomes repetidos, lista grande, nenhuma miniatura, nenhuma cena válida e destino desatualizado. Contraste e alvos nas cores/tamanhos reais; 1366×768 e 949×593 sem sumir com a navegação global.
+- Tauri real, core e toolchain oficiais, ROM autoral/BYOR, frequência/recursos medidos e retorno ao editor. Provar cada alvo e OS que receber rótulo de suporte; sucesso no Mega Drive/Linux não certifica SNES/Windows. Usar fixture de QA própria, sem alterar o projeto autoral do operador.
+
+Ensaio humano: sem instrução antecipada, pedir iniciar o jogo, escolher outra cena, criar um pin, capturar um momento, editar algo que invalide a captura e encontrar a forma correta de jogar novamente. Repetir três vezes e observar procura, confusão entre iniciar/retomar, confiança no destino, resposta dos controles e conforto. Aprovação da direção visual não substitui esse ensaio. A meta é tornar a complexidade operável com fluidez, mantendo ferramentas de produção e precisão.
 
 ## Implementação da curadoria — 2026-11-05 (lote 1, Experimental)
 

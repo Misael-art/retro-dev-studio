@@ -347,13 +347,31 @@ Uma linha por importador descreve o estado atual; as rodadas históricas continu
 6. Manter todas as superficies `Experimental` claramente fora da leitura de fechamento do MVP ate existir prova correspondente.
 
 <a id="autoria-visual-robusta-r5"></a>
-### Autoria visual robusta R5 — proposta registrada em 2026-11-06
+### Autoria visual robusta R5 — direção aprovada em 2026-11-06
 
-**Direção do operador; planejamento, sem implementação ou promoção de maturidade nesta rodada.** A interface deve tornar acessível a produção de jogos de alta performance, gráficos elaborados e mecânicas ricas, preservando ferramentas robustas e precisão. Navegação global persistente à esquerda e contexto horizontal se complementam. O Canvas deve manipular qualquer objeto compatível e integrar gestos visuais com campos numéricos; reduzir recursos para obter aparência simples contraria o pedido.
+**Direção aprovada pelo operador; implementação pendente, sem promoção de maturidade nesta rodada.** A interface deve tornar acessível a produção de jogos de alta complexidade e alta performance, gráficos elaborados e mecânicas ricas, preservando ferramentas robustas e precisão. Navegação global persistente à esquerda e contexto horizontal se complementam. O Canvas deve manipular qualquer objeto compatível e integrar gestos visuais com campos numéricos; reduzir recursos para obter aparência simples contraria o pedido.
 
 O [registro R5](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#r5-autoria-visual) e o [prompt contextual](handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md) mantêm R3, owners e aceites. Navegação e integração visual de planos/paralaxe aproveitam capacidades existentes; a autoria geral de trajetos por retas, curvas/alças e elipses, com tempo/repetição e gatilhos nos nós, exige investigação e fatias próprias no modelo e compilador oficiais. Percurso linear de câmera não equivale a movimento genérico de objetos.
 
-Antes de executar essa evolução, definir prioridade dentro da frente sequencial, suporte por alvo, espaço/origem, compartilhamento, eventos, interação física, limites de precisão/memória/custo por quadro, migração e testes. O pedido atual autoriza o estudo/mockup e seu registro; não antecipa implementação de motor universal nem substitui o hardening vigente. Não prometer performance ou recurso operacional por um desenho. As duas visões R5 são proposta; a R4 reduzida fica superada.
+Antes de executar essa evolução, definir prioridade dentro da frente sequencial, suporte por alvo, espaço/origem, compartilhamento, eventos, interação física, limites de precisão/memória/custo por quadro, migração e testes. O operador aprovou a direção R5 e pediu seu registro para implementação por outro agente. Essa aprovação orienta o trabalho; não substitui hardening, gates nem validação humana do aplicativo. As duas visões R5 são referências conceituais aprovadas, sem promessa de recurso operacional ou performance. A R4 reduzida fica superada.
+
+<a id="jogar-emulador-r6"></a>
+### Jogar no emulador R6 — requisito registrado em 2026-11-06 (PLAY01–PLAY06)
+
+**Planejado; nenhuma etapa PLAY implementada ou medida nesta rodada.** Complementa R5 e o teste de cena R3-09/T6. Preservar ferramentas robustas e a navegação global; acrescentar um comando discreto **Jogar** com destino visível e seletor de miniaturas de cenas/marcações. Usar o emulador integrado e o pipeline oficial, com experiência fluida na frequência nativa do conteúdo. 60 FPS é a intenção para o alvo compatível, não um selo fixo nem autorização para acelerar conteúdo PAL de 50 Hz.
+
+A [especificação R6](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#r6-jogar-emulador) define interface, estados, contratos, owners, desempenho e regressões; o [handoff](handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#implementacao-play-r6) define a sequência. Um pin colocado no Canvas guarda uma intenção de início; uma captura feita no jogo pode guardar um save state. Clicar numa coordenada não produz por si só o estado completo do jogo. Retomar uma captura exige compatibilidade comprovada com ROM/core/configuração; após editar o jogo, preparar novamente o ponto mantém a autoria e evita restaurar estado antigo sobre código novo.
+
+| ID / ordem | Entrega planejada, com owner existente | Aceite de implementação |
+|---|---|---|
+| PLAY01 / contrato | Inventário por alvo/projeto; baseline de cadência, transporte, áudio e instrumentação; integrar intenções início/cena/pin ao contrato T6 do build, distinguindo checkpoint de runtime. | Matriz de suporte e orçamento de desempenho congelados; revisão/ROM/destino rastreáveis; cena parcial ou transição não comprovada nunca vira jornada completa por thumbnail. |
+| PLAY02 / execução | Evoluir o owner Libretro para cadência nativa independente da solicitação de cada quadro pela UI; modos Jogar/Inspecionar com controle serial único. Reutilizar vídeo, áudio e input. | Frequência real, áudio, latência e recursos medidos; pausa/step/retomada sem duas execuções concorrentes, frames antigos ou perda de comandos. |
+| PLAY03 / início e cena | Estender o pipeline oficial com destino explícito e preparação de cena inteira; reutilizar o seletor contextual, com miniaturas e estados. | Jogar desde entrada real ou cena suportada; erros/cancelamento/contexto trocado não executam outra revisão. Nenhuma mutação temporária da entrada autoral. |
+| PLAY04 / pins de autoria | Criar/nomear/mover pins no Canvas, coordenadas precisas e contexto de inicialização suportado, pelo modelo/persistência/histórico oficiais. | Undo/Redo, salvar/reabrir, câmera/colisão e mundo inteiro preservados; pin sem preparo não aparenta save state. |
+| PLAY05 / momentos capturados | Vários checkpoints persistentes, com miniatura do mesmo quadro, identidade e compatibilidade, usando serialização do core e armazenamento oficial de runtime. | Retomar estado real após reabertura quando suportado; rejeitar snapshot antigo/corrompido/incompatível; preservar anterior em falha e explicar como preparar novamente. |
+| PLAY06 / integração e qualidade | Unificar rolo de miniaturas, busca, cenas/pins/momentos, teclado e retorno ao editor; validar jornada completa no Tauri oficial e uso repetido. | 1366×768 e 949×593, acessibilidade, limites de recursos, Linux/Windows e cada alvo declarado; resultados separados por build/core/hardware. Manter Experimental até os gates e aceites pertinentes. |
+
+Executar na frente sequencial após reconciliar a prioridade operacional. PLAY01 precede os demais; PLAY03/04 dependem de T6; PLAY05 exige controle serial de PLAY02; PLAY06 integra os itens. Um botão separado não corrige sozinho o FPS. Inspeção do código encontrou espera adicional de 16 ms após cada chamada de quadro, transporte de pixels por evento e serialização para rewind/trace; são candidatos a medir, não diagnóstico quantitativo concluído.
 
 ### Editor de codigo em texto SGDK — proposta futura (EC01–EC06; Fora do MVP/Q2)
 
