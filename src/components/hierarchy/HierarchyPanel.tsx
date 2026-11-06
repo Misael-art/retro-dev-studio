@@ -665,7 +665,8 @@ export default function HierarchyPanel({
               }}
               disabled={!activeProjectDir || sceneBusy || sceneItems.length === 0}
               className="min-w-0 flex-1 rounded border border-[#313244] bg-[#1e1e2e] px-2 py-1 text-xs text-[#cdd6f4] focus:border-[#89b4fa] focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-              title="Selecionar cena ativa"
+              title={activeSceneSelectValue ? `Cena ativa: ${activeSceneSelectValue}` : "Selecionar cena ativa"}
+              aria-label={activeSceneSelectValue ? `Cena ativa (${activeSceneSelectValue})` : "Selecionar cena ativa"}
             >
               {sceneItems.length === 0 ? (
                 <option value="">Sem cenas</option>
@@ -686,9 +687,9 @@ export default function HierarchyPanel({
               {isCreatingScene ? "Criando..." : "Nova Cena"}
             </button>
           </div>
-          <p className="mt-1 truncate text-[10px] text-[#45475a]">
-            {activeSceneSelectValue || "Nenhuma cena ativa"}
-          </p>
+          {!activeSceneSelectValue ? (
+            <p className="mt-1 truncate text-[10px] text-[#7f849c]">Nenhuma cena ativa</p>
+          ) : null}
           {activeProjectDir && loadShellPersona() !== "guiado" ? (
             <div className="mt-2">
               <SceneWorkspaceNotice
@@ -711,7 +712,7 @@ export default function HierarchyPanel({
           ) : null}
           <div
             data-testid="hierarchy-scene-summary"
-            className="mt-2 flex flex-wrap gap-1.5 text-[9px] text-[#7f849c]"
+            className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-[#7f849c]"
           >
             {[
               { label: "Cenas", value: sceneItems.length },
@@ -719,10 +720,7 @@ export default function HierarchyPanel({
               { label: "Entidades", value: entities.length },
               { label: "Fundos", value: bgLayers.length },
             ].map((item) => (
-              <span
-                key={item.label}
-                className="rounded-full border border-[#313244] bg-[#181825] px-2 py-0.5"
-              >
+              <span key={item.label}>
                 {item.label}: <span className="font-semibold text-[#cdd6f4]">{item.value}</span>
               </span>
             ))}

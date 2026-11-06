@@ -519,7 +519,8 @@
   :root[data-studio-theme] :is([class~="border-[#cba6f7]"], [class~="border-[#89b4fa]"]) { border-color: var(--rds-studio-accent); }
   :root[data-studio-theme] :is([class~="bg-[#89b4fa]"], [class~="bg-[#cba6f7]"]) { background: var(--rds-selection-fill); color: var(--rds-text-on-selection); }
   :root[data-studio-theme] :is([class~="bg-[#89b4fa]/15"], [class~="bg-[#cba6f7]/15"], [class~="bg-[#89b4fa]/10"], [class~="bg-[#cba6f7]/10"]) { background: color-mix(in srgb, var(--rds-studio-accent) 12%, transparent); }
-  :root[data-studio-theme] [class~="hover:bg-[#313244]"]:hover { background-color: var(--rds-surface-hover); }
+  :root[data-studio-theme] :is([class~="hover:bg-[#313244]"], [class~="hover:bg-[#24243a]"]):hover { background-color: var(--rds-surface-hover); }
+  :root[data-studio-theme] [class~="hover:text-[#cdd6f4]"]:hover { color: var(--rds-text-primary); }
   :root[data-studio-theme][data-theme="light"] :is([class~="text-[#a6e3a1]"], [class~="text-[#bbf7d0]"]) { color: var(--rds-status-success); }
   :root[data-studio-theme][data-theme="light"] :is([class~="text-[#fab387]"], [class~="text-[#f9e2af]"], [class~="text-[#fbbf24]"]) { color: var(--rds-status-warning); }
   :root[data-studio-theme][data-theme="light"] :is([class~="text-[#f38ba8]"], [class~="text-[#fecdd3]"]) { color: var(--rds-status-error); }

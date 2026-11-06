@@ -96,7 +96,7 @@ export function StudioContextBar({ compact = false }: { compact?: boolean } = {}
         {crumbs.map((crumb, index) => (
           <li key={`${index}-${crumb}`} className="flex items-center gap-1 truncate">
             {index > 0 ? <span aria-hidden="true">›</span> : null}
-            <span className={index === crumbs.length - 1 ? "font-semibold text-white" : undefined}>{crumb}</span>
+            <span className={index === crumbs.length - 1 ? "font-semibold text-[#cdd6f4]" : undefined}>{crumb}</span>
           </li>
         ))}
       </ol>
