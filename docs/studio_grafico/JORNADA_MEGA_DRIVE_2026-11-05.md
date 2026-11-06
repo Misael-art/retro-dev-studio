@@ -237,7 +237,7 @@ Prova desta preparação: leitura dos dez itens e owners existentes, revisão de
 <a id="r5-autoria-visual"></a>
 ## R5 — Canvas de autoria visual robusta — 2026-11-06
 
-**Direção aprovada pelo operador em 2026-11-06, após a correção explícita de escopo.** Esta revisão reúne R2, os contratos R3, as observações da avaliação e o pedido de ferramentas visuais de produção. Aprovação conceitual para orientar a implementação; não é validação humana do aplicativo. Entrega: mockups e especificação, sem mudança no aplicativo, no projeto autoral ou na maturidade. Base documental `2bf413c8`; fonte de produto inspecionada `d51c56da`. O requisito adicional de experiência de jogo está na [R6](#r6-jogar-emulador).
+**Direção aprovada pelo operador em 2026-11-06, após a correção explícita de escopo.** Esta revisão reúne R2, os contratos R3, as observações da avaliação e o pedido de ferramentas visuais de produção. Aprovação conceitual para orientar a implementação; não é validação humana do aplicativo. Entrega: mockups e especificação, sem mudança no aplicativo, no projeto autoral ou na maturidade. Base documental `2bf413c8`; fonte de produto inspecionada `d51c56da`. O requisito adicional de experiência de jogo está na [R6](#r6-jogar-emulador). A [R7](#r7-ferramentas-visuais) amplia paletas/composição/efeitos e explicita capacidades omitidas no desenho; a R5 é referência visual parcial, não limite funcional.
 
 ### Diretriz e erro corrigido
 
@@ -440,6 +440,124 @@ Regressões mínimas, além dos gates aplicáveis:
 - Tauri real, core e toolchain oficiais, ROM autoral/BYOR, frequência/recursos medidos e retorno ao editor. Provar cada alvo e OS que receber rótulo de suporte; sucesso no Mega Drive/Linux não certifica SNES/Windows. Usar fixture de QA própria, sem alterar o projeto autoral do operador.
 
 Ensaio humano: sem instrução antecipada, pedir iniciar o jogo, escolher outra cena, criar um pin, capturar um momento, editar algo que invalide a captura e encontrar a forma correta de jogar novamente. Repetir três vezes e observar procura, confusão entre iniciar/retomar, confiança no destino, resposta dos controles e conforto. Aprovação da direção visual não substitui esse ensaio. A meta é tornar a complexidade operável com fluidez, mantendo ferramentas de produção e precisão.
+
+<a id="r7-ferramentas-visuais"></a>
+## R7 — Revisão de capacidades e ferramentas visuais de produção — 2026-11-06
+
+**Requisitos do operador e propostas complementares; sem implementação nesta rodada.** R5 continua aprovada como direção de autoria robusta e R6 conserva o fluxo Jogar. A revisão exige paletas completas por plataforma, seleção de primeiro plano, pintura de distorções, translucidez e outras ferramentas que tornem jogos complexos viáveis de construir. O paradigma é manipulação visual rica, como seleções, pincéis, máscaras e parâmetros de uma ferramenta gráfica profissional, integrada à lógica e ao código reais do jogo. Facilidade de uso não autoriza perder funções existentes.
+
+O mockup R5 omite a expansão multibanco e estas famílias de ferramentas; portanto é referência parcial, não inventário completo nem limite do produto. Na próxima revisão visual, mostrar explicitamente paleta contextual expansível, acesso rápido aos bancos, grupo de composição/efeitos e painel de parâmetros da ferramenta ativa, preservando menu global e faixa contextual. Não exigir todos os painéis abertos ao mesmo tempo: grupos identificados, busca, atalhos, painéis fixáveis/redimensionáveis e retorno estável organizam a complexidade. Sem ícones isolados como único meio de descobrir uma ferramenta.
+
+### Revisão do que já existe e deve ser conservado
+
+Inspeção estática no HEAD `697632a2`, produto base `d51c56da`. Não foram executados novos testes de produto ou benchmarks. A presença do componente, do nó ou do emissor abaixo não certifica toda a jornada.
+
+| Capacidade / owner | Evidência encontrada | Conservação e lacuna |
+|---|---|---|
+| Paletas | `PalettePanel.tsx` já tem `PaletteSummary` expansível, bancos, usos, conflitos, edição, atribuição e reserva. `palettePlan.ts`, store e `compiler/palette_plan.rs` compartilham o plano do build. | Preservar ações e histórico; ampliar descoberta/contexto. A faixa única do desenho não representa o limite do painel existente. |
+| Alvo de paleta | IPC `scene_palette_plan` recusa alvo diferente de `megadrive`; capacidade MD 4×16. Perfil SNES existente não torna esse planner multiplataforma. | Evoluir o mesmo contrato por adaptadores; não trocar somente o número de bancos ou anunciar SNES/SMS/PCE como atendidos. |
+| Prioridade | `SpriteComponent.priority` → `ast_generator.rs` → `TILE_ATTR` SGDK; SNES tem mapeamento próprio. `tilemapCells.ts` representa conteúdo/célula vazia, não um mapa completo de prioridades por região. | Preservar prioridade atual. Seleção da pilastra, máscaras e prioridade dinâmica exigem contrato de região/atributos e integração; ordem de árvore/CSS não basta. |
+| Efeitos | `RetroFXDesigner.tsx`, `RetroFXConfig` e emissores já tratam paralaxe e linhas raster. No SGDK inspecionado, `render_retrofx_frame` monta scroll horizontal de BG_A em 224 linhas. | Preservar painel e nós. Falta provar pincel de área, forma radial, modulação temporal geral e composição de múltiplos efeitos/planos. Não tratar offset de uma linha como distorção local arbitrária. |
+| Nós de efeitos/paleta | `effect_parallax/effect_raster` registram configuração no AST e retornam `NoOp` na parte lógica; `palette_swap` atual é troca por golpe, com alvo/duração/escopo; emissor SNES recusa essa troca. | Não prometer start/stop por qualquer aresta nem usar troca por golpe como animação geral de paleta. Extensão exige semântica executável, preservando contratos atuais e R3-03. |
+| Autoria e inspeção | `ViewportPanel`, `SceneArtwork`, `sceneComposition`, `sceneWorldModel`, PixelEditor/ArtStudio, câmera, animação/hitboxes, história e persistência. | Reutilizar seleção, gestos, recursos e retorno. `opacity` de onion skin é visualização do editor, não translucidez exportável. Não criar outro Canvas, editor de pixels ou store global. |
+
+Garantia de processo: cada lote mantém uma matriz **função → acesso anterior → acesso novo → dados/owner → regressão → prova**. Se uma função desaparecer, ficar inacessível, perder precisão ou deixar de chegar à ROM, o lote não passa. A matriz abrange também Arte, Lógica, Efeitos, Depurar, arquivos, importação/exportação, controles numéricos, Undo/Redo, isolamento, paletas, animação, câmera, trajetos e Jogar. Esta é uma condição de aceite futura, não uma alegação de ausência de regressões já testada.
+
+### Paletas contextuais, completas e rápidas
+
+O resumo mostra a paleta efetivamente usada pelo objeto/parte selecionada, que pode estar em PAL2 ou outro banco; não selecionar PAL0 automaticamente. Havendo vários recursos na seleção, indicar **Múltiplas paletas** e permitir navegar por parte/uso. No Mega Drive, uma faixa compacta apresenta PAL0, PAL1, PAL2 e PAL3, com ocupação, seleção e conflito, e **Expandir paletas** abre recursos e bancos juntos. Preservar o mapa de usos, reservas, compartilhamento, variantes locais e retorno ao recurso de origem já existentes.
+
+Três gestos precisam de significados diferentes:
+
+- **Consultar/trocar a paleta exibida:** navegar por banco/recurso, por clique ou teclado, sem editar a cena. A seleção visual do banco não reassocia objetos.
+- **Aplicar outra paleta à seleção:** prévia temporária, comparação e aplicação numa transação. Distinguir reassociar índices existentes, remapear cores/índices e alterar cores do banco compartilhado; o resultado e os usos afetados diferem. Cancelar não grava. Atalhos anterior/próxima opção elegível e favoritos respeitam foco e podem ser remapeados, sem capturar teclas dos campos de número.
+- **Trocar/animar no jogo:** escolher recurso, destino, gatilho, duração, restauração e alcance por instância/grupo. Explicar se a técnica muda referência de banco ou reescreve cores compartilhadas. Conflitos de troca simultânea e retorno ao estado anterior são resolvidos pelo planner; não duplicar a lógica do nó em uma timeline independente.
+
+Mais recursos de paleta na biblioteca não significam mais bancos residentes simultâneos. Um sprite de hardware MD escolhe um banco; composição em partes pode usar vários sprites/recursos, com custo e suporte explícitos. As quatro paletas são compartilhadas pelos consumidores e PAL0–3 são posições de alocação da cena, não identidades globais. A API oficial descreve quatro paletas de 16 entradas e seleção de banco por sprite. [SGDK: paletas](https://raw.githubusercontent.com/Stephane-D/SGDK/master/inc/pal.h), [atributos de sprite](https://raw.githubusercontent.com/Stephane-D/SGDK/master/inc/vdp_spr.h).
+
+O contrato de capacidade deve conter plataforma/modo, domínio de uso, bancos/faixas de índices, profundidade/quantização, cor de fundo/transparência, granularidade de atribuição, compartilhamento, restrições de escrita e técnicas disponíveis. O layout consome esses dados; o modelo autoral conserva intenção/recursos agnósticos e o adaptador resolve endereços/bits. Não colocar constantes de Mega Drive em toda a UI ou em campos universais do UGDM. Os perfis/constraint engine existentes continuam responsáveis pela validação; a ampliação não cria motor universal paralelo.
+
+| Perfil | Diferença que a região de paletas deve representar | Estado nesta revisão |
+|---|---|---|
+| Mega Drive | Quatro bancos de 16, seleção por tile/sprite, usos compartilhados, índice transparente e backdrop distinguidos no contexto. Trocas temporais não aumentam a capacidade residente livremente. | Planner MD existente; acesso rápido/novas técnicas ainda a integrar. |
+| SNES | CGRAM, domínios BG/OBJ e organização conforme modo/bpp; por exemplo, Mode 1 combina BGs de 16 e 4 cores. Paleta, prioridades, janelas e color math têm contratos próprios. Não apresentar apenas oito cópias de PAL MD. | Perfil/emissor existentes; planner contextual atual sem adaptador SNES. A API PVSnesLib explicita modos, CGRAM e operações de cor. [video.h](https://raw.githubusercontent.com/alekmaul/pvsneslib/master/pvsneslib/include/snes/video.h). |
+| Master System | Em modo 4, dois conjuntos de 16 cores e regras próprias de uso BG/sprites; não assumir que todo objeto escolhe livremente qualquer conjunto. Conversão de cor e transparência são do perfil. | Extensão futura. SMSlib separa acesso/carga BG e sprite e seus endereços de CRAM. [SMSlib](https://github.com/sverx/devkitSMS/blob/master/SMSlib/src/SMSlib.c). |
+| PC Engine | Dezesseis paletas de 16 para tiles e dezesseis para sprites; domínios e prioridades distintos. Seleção filtrada por consumidor, com visão global expansível. | Extensão futura. Não implica toolchain/core integrado. [Documentação HuC](https://raw.githubusercontent.com/uli/huc/master/doc/huc/huc_doc.htm). |
+
+Fontes upstream foram consultadas em 2026-11-06 para verificar conceitos. Antes de implementar, fixar a versão do SDK realmente usada e verificar nela cada API; consulta a `master` não altera o lock do projeto. `docs/04_HARDWARE_SPECS.md` permanece intacto; divergência de regra exige evidência e decisão canônica, sem corrigir limites por conveniência.
+
+### Seleção de primeiro plano e oclusão
+
+Ferramenta proposta **Composição / À frente–Atrás**: selecionar objeto, retângulo, laço/polígono, pincel ou região de pixels/tiles → escolher o que deve encobrir → visualizar região e relações → aplicar. A seleção é reutilizável; modificar prioridade não apaga arte nem altera colisão. Permitir inspecionar o objeto encoberto por árvore, alternância de objetos sob o ponteiro e isolamento. Uma opção de ver através para editar permanece separada do resultado exportado.
+
+**Pilastra:** selecionar só a área que deve encobrir o herói; sua parte de fundo pode continuar atrás. A prévia permite mover um ator/sonda e ver frente, atrás e cruzamento das bordas. Se a pilastra deve alternar conforme posição/estado, criar uma regra visual com condição, região e estado inicial/restauração; caso a geometria e prioridades estáticas já resolvam, não gerar uma rotina dinâmica desnecessária.
+
+**Personagem surgindo atrás de uma faixa:** faixa em primeiro plano, personagem animado atrás, demais elementos preservados. Usar uma fixture autoral equivalente; a referência à abertura do Sonic descreve o resultado visual desejado, sem afirmar como a ROM original o implementa. Não ocultar metade do sprite apagando pixels de todos os seus quadros.
+
+No MD, prioridade e banco são atributos do tile/sprite, não um z-index livre por pixel. Para a região de pilastra em tilemap, identificar células atingidas, mostrar a granularidade de 8×8 no modo normal e o efeito sobre pixels não transparentes desses tiles. Quando parte do tile precisar de outra relação, propor decomposição/máscara/tiles derivados ou composição por sprites/planos, com diferença visual e custos antes de aplicar. Recorte de pixels, prioridade e colisão são máscaras de finalidades distintas. Respeitar ordem dos planos, prioridade baixa/alta, ordem de sprites e transparência; uma seleção em laço não cria um novo plano de hardware. [SGDK: atributos de tiles](https://raw.githubusercontent.com/Stephane-D/SGDK/master/inc/vdp_tile.h).
+
+Representar a seleção em coordenadas de mundo, objeto ou tela explicitamente; âncora, transformações, cópia, animação e edição de asset compartilhado mantêm identidade e escopo. A região persistida pertence ao modelo oficial; compilação gera os atributos/recursos apropriados, com referência ao owner e à revisão. Prioridade dinâmica precisa funcionar após movimento/câmera, em múltiplos sprites e na restauração da condição, sem piscar na fronteira.
+
+### Pincel de distorção e ondulação
+
+Ferramenta proposta **Pintar efeito**: escolher objeto/plano, pintar/adicionar/subtrair área ou usar seleção existente, escolher efeito e ajustar no próprio Canvas. Famílias iniciais: ondulação direcional, água/calor; variantes circular/radial como extensão sujeita à técnica do alvo. Controles conforme capacidade: amplitude em pixels, comprimento de onda, velocidade/período, fase, direção, centro/raio, intensidade/envelope, início, duração, repetição e espera. Alças e números alteram o mesmo valor. Pintura aceita tamanho/dureza do pincel; se o alvo só admitir máscara discreta, mostrar sua discretização em vez de inventar borda suave exportável.
+
+Uma trilha de prévia permite pausar, avançar, comparar com original, ver a área e desfazer o gesto inteiro. O efeito pode acompanhar o objeto, ficar preso ao mundo ou operar na tela, com unidade explícita. Nó de evento/condição controla ativação e modulação; parâmetros compartilhados são referenciados. Somar dois efeitos ou combiná-los com câmera/paralaxe exige ordem e política de composição, nunca último writer vencendo silenciosamente.
+
+No MD, scroll horizontal por linha e vertical por coluna de dois tiles são recursos distintos. Deslocar uma linha do plano pode afetar pixels fora da área pintada. Portanto o painel mostra **área pedida**, **área efetivamente afetada**, técnica e custo. O autor pode aceitar uma faixa maior, reorganizar conteúdo em plano/tiles, ou usar composição/tiles animados/software quando houver adaptador viável. A distorção circular local não é garantida por scroll de linhas; não substituir silenciosamente o desenho radial por uma onda horizontal. A API SGDK explicita essas granularidades. [Controle de scroll](https://raw.githubusercontent.com/Stephane-D/SGDK/master/inc/vdp.h), [operações de scroll por plano](https://stephane-d.github.io/SGDK/vdp__bg_8h.html).
+
+Para SNES e futuros alvos, expor somente operações respaldadas por adaptador e orçamento, inclusive recursos de raster/HDMA quando pertinentes. A forma do pincel representa intenção autoral; a prévia fiel representa o plano de execução. Preview conceitual pode existir identificado, mas não liberar export como se o efeito já fosse suportado. Medir tabelas, transferências, interrupções, CPU/VRAM e interação com áudio, scroll, HUD e sprites.
+
+### Ferramenta Fantasma: transparência com técnica explícita
+
+Ícone de fantasma acompanhado de nome, tooltip e atalho: selecionar objeto/região → escolher aparência e técnica elegível → comparar sobre o conteúdo real → ajustar → aplicar. O objetivo é permitir translucidez útil para produção, inclusive técnicas avançadas viáveis, sem reduzir a ferramenta a ocultar um objeto ou baixar opacidade do Canvas. A entrada de intensidade deve mostrar passos/quantização quando não houver variação contínua fiel.
+
+| Técnica / intenção | O que a ferramenta precisa explicar e produzir |
+|---|---|
+| Ver através no editor | Ajuda a selecionar/editar conteúdo encoberto. É máscara de inspeção, não efeito na ROM; restaurar visão não altera a autoria. |
+| Recorte por índice transparente | Abre regiões transparentes na arte indexada, preservando arquivo original e compartilhamento por variante/máscara conforme owner. Não mistura cores entre frente e fundo. |
+| Cobertura por padrão (dithering) | Alterna pixels opacos/transparentes com padrão, densidade, origem e fase definidos. Aparência depende de escala/saída; prévia digital e simulação opcional de vídeo precisam ser identificadas. Preservar tiles/índices e medir custo de variantes. |
+| Shadow/highlight no MD | Explorar modulação de luminosidade do conteúdo subjacente e composições compatíveis. Há suporte de modo no SDK, mas interação entre prioridade, paletas e cores de controle exige prova por cena; não é mistura alpha geral de qualquer par de cores. |
+| Composição avançada por software/tiles/paletas | Frente explícita para investigar translucidez colorida e efeitos homebrew elaborados: área/superfícies/fontes conhecidas, tabelas/remapeamento, recálculo ou tiles derivados e eventual combinação com shadow/highlight. Exigir protótipo medido, limites de área/objetos/movimento e qualidade, integração no compilador existente e preservação de arte. Não descartar a técnica por não ser um único bit de hardware, nem declará-la geral por uma demonstração externa. |
+| Color math no SNES | Usar operações, seleção de camadas/paletas, main/subscreen e janelas suportadas pelo alvo. Também possui restrições de participação e granularidade; não apresentar alpha RGBA irrestrito por objeto. |
+
+O suporte de shadow/highlight está documentado no [SGDK](https://raw.githubusercontent.com/Stephane-D/SGDK/master/inc/vdp.h); operações de color math e suas máscaras, no [PVSnesLib](https://raw.githubusercontent.com/alekmaul/pvsneslib/master/pvsneslib/include/snes/video.h). A disponibilidade desses recursos de hardware/SDK não prova que o Studio já os exporte. A referência do operador a homebrews recentes motiva investigação, sem importar números de FPS ou métodos de uma demonstração não reproduzida. Não usar CSS alpha ou shader exclusivo do emulador como prova do efeito no console.
+
+Alternância temporal de visibilidade, se oferecida, é uma técnica opcional identificada como cintilação, nunca padrão oculto de um controle de transparência. Comparar em movimento e na saída prevista, permitir pausa e alternativa estável. Para qualquer técnica, mostrar impacto nos usos compartilhados, cores reservadas, prioridades, sprites por linha, tiles, transferências e tempo de quadro. Diante de conflito, preservar a intenção e apresentar alternativas com preview; não empobrecer automaticamente o efeito ou remover outro recurso para fazer caber.
+
+### Mesmos dados no Canvas, nós e código
+
+Contrato a fechar em VIS01/VIS04: seleção/região com ID, geometria e espaço; referência ao objeto/asset/cena; finalidade da máscara; tipo/parâmetros do efeito; modo estático ou ativação por regra; escopo, ordem de composição, duração/restauração e revisão. A técnica/alocação específica do alvo é resolução do compilador/constraint engine, com proveniência; não um segundo modelo editável escondido na UI. Estender os schemas e writers oficiais com migração e limites, em fatias, sem inventar assinatura de API existente.
+
+Cada ferramenta oferece **Ver no grafo** e **Ver código gerado** com origem/revisão. Propriedade estática pode aparecer como configuração ligada ao objeto, sem fingir um evento por quadro; ativação dinâmica precisa ter ramo executável real. Alterar número no nó e gesto no Canvas resolve a mesma definição pelo owner canônico. Nós gerados preservam metadados/partes manuais e conexões externas conforme R3-03. Se um recurso ainda não tiver representação executável, mostrar pendência e não um nó decorativo.
+
+O caminho é modelo validado → grafo/configuração canônicos → AST/IR → emissor do alvo → ROM → observação no core. Source mapping liga região/efeito/nó ao trecho emitido; não equivale a rastreio PC→nó sem evidência. C gerado permanece derivado; edição textual e reconciliação seguem o contrato EC03, sem prometer round-trip de C arbitrário. Preview, desfazer, salvar/reabrir, conflito externo e cancelamento obedecem ao mesmo histórico/persistência. Carimbo, seleção e máscara não podem gravar arquivos paralelos de lógica.
+
+### Outras ferramentas propostas para a fila de qualidade
+
+São sugestões complementares do agente, ainda sem aceite de implementação individual. Priorizar jornadas completas, integrando o que já existe em vez de aumentar apenas a quantidade de ícones.
+
+| Ferramenta | Ganho para produção e integração | Prova mínima |
+|---|---|---|
+| Seleção avançada e transformação | Retângulo/laço/por cor conectada, adicionar/subtrair/intersectar, selecionar sob sobreposição, pivô, alinhar/distribuir e encaixar. Reutilizar Canvas/PixelEditor por domínio. | Mesma seleção alimenta operações compatíveis; coordenadas, escopo compartilhado, precisão e Undo preservados. Rotação/escala distingue autoria de assets de suporte dinâmico do alvo. |
+| Carimbos, terrenos e conjuntos reutilizáveis | Pintar padrões/metatiles e conexões de terreno, distribuir instâncias e variantes de conjuntos, com semente reproduzível quando houver variação. Integrar tiles/prefabs. | Não duplicar assets por acidente; mostrar colisão associada, paleta e orçamento; atualizar origem compartilhada com impacto visível. |
+| Pincel de colisão e regiões de evento | Desenhar sólido, passagem, hit/hurt boxes e gatilhos no contexto; ligar a eventos e visualizar por quadro de animação. | Colisão física, área de oclusão e máscara de efeito são distintas; runtime corresponde ao que se vê, inclusive objetos móveis. |
+| Timeline de propriedades e eventos | Organizar animação, paleta, efeito, câmera e marcas de evento numa vista temporal do mesmo modelo/grafo; prévia com onion skin e comparação. | Alterar chave não cria lógica concorrente; tempo/frequência, pausa, repetição e gatilhos coerentes no alvo. Aproveitar editores atuais. |
+| Câmera e enquadramento visual | Áreas seguras, limites, zonas mortas, trilhos, tremor e transições, com sonda de composição/paralaxe. Ampliar os controles existentes. | Sonda não altera câmera autoral; HUD, prioridades, entrada de cena e movimento real permanecem corretos. |
+| Animação de paleta e atmosfera | Ciclos de índices, fades, pulsos e variações de ambiente, com prévia no conjunto e eventos; gradientes raster quando suportados. | Compartilhamento, restauração, custo e disputa com dano/translucidez/raster resolvidos pelo mesmo planner. |
+| Mapa visual de custos e otimizador assistido | Mostrar pressão por região/scanline, VRAM, sprites, tiles únicos e transferências; propor deduplicação/remapeamento com diff visual. | Estimativa identificada como estimativa, medição com origem; nenhuma otimização muda arte/lógica silenciosamente. Usar HardwareLimitsPanel/constraint engine existentes. |
+
+### Aceite da revisão e da futura implementação
+
+As etapas [VIS01–VIS08](../03_ROADMAP_MVP.md#ferramentas-visuais-r7) e o [handoff](../handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#implementacao-visual-r7) transferem requisitos e ordem ao agente implementador. R3, R5 e PLAY01–06 continuam válidos. A primeira fatia é inventário/contratos e integração com owners; nenhuma nova ferramenta foi certificada nesta revisão.
+
+Fixtures autorais exigidas: (a) quatro bancos MD ocupados e cores compartilhadas, troca local/grupo, conflito, cancelamento, restauração e reabertura; (b) sala com pilastra e ator passando atrás, mais animação surgindo atrás de faixa, com oráculos de pixels dentro/fora da região; (c) ondulação pintada com conteúdo na mesma linha fora da área e câmera/paralaxe ativos, incluindo radial não suportado; (d) Fantasma sobre fundo estático e móvel, duas instâncias e técnicas diferentes, verificando imagem, uso de recursos e limitações; (e) combinação das quatro com trajetos e pins/Jogar, medindo carga, áudio/input e retorno ao editor.
+
+Para efeitos dinâmicos, testar condição falsa, início, pausa, fim, repetição e remoção da regra, verificando quadro/estado e C emitido, não só snapshot do grafo. Atribuição de paleta não pode editar os demais usos; alteração compartilhada deve mostrá-los. Prioridade não pode inverter flip, destruir arte ou alterar colisão. Efeito raster não pode ser reativado indevidamente pela câmera. Falta de suporte não pode gerar ROM aparentemente bem-sucedida sem o efeito.
+
+Validar pelo launcher no Tauri real, duas resoluções (1366×768 e 949×593), teclado/ponteiro, nomes acessíveis, contraste, cores não usadas como único indicador, precisão numérica, Undo/Redo e save/reopen. Medir desempenho no modo nativo do alvo com fixture identificada; técnica que roda numa cena simples não é automaticamente aprovada para cenas complexas. Usar SDK/core oficiais e documentar separadamente eventual prova em console físico. Repetir a matriz por plataforma/OS declarado, sem transformar previsão de SMS/PCE em suporte disponível.
+
+Ensaio humano proposto: criar uma composição com pilastra, trocar paleta, pintar uma onda, experimentar Fantasma e voltar ao grafo/Jogar sem instrução antecipada; repetir ajustes e desfazer. Registrar procura por ferramentas, compreensão de alcance, discrepância preview/ROM, esforço e capacidade preservada. A garantia de robustez exige essa evidência, além de aparência limpa e aprovação conceitual.
 
 ## Implementação da curadoria — 2026-11-05 (lote 1, Experimental)
 

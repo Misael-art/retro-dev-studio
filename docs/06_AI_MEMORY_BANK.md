@@ -1110,6 +1110,16 @@ Worktree isolado `codex/rex-commercial-recovery-20261016`, base reconciliada `03
 
 # 06 - AI MEMORY BANK & CONTEXT TRACKER
 
+### Revisão R7: conservar capacidades e ampliar ferramentas visuais — 2026-11-06
+
+Pedido do operador: jogos de grande complexidade e qualidade com ferramentas amigáveis e robustas, sem perder funções. [R7](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#r7-ferramentas-visuais) complementa R5/R6: paleta contextual expansível com PAL0–3 e troca rápida, perfis semânticos por plataforma; seleção de oclusão/primeiro plano (pilastra e personagem atrás de faixa); pincel de ondulação/distorção modulável; Fantasma/translucidez com técnicas possíveis no alvo, inclusive investigação de composição/software/paletas/shadow-highlight. Não confundir máscara de inspeção, recorte, prioridade, colisão e efeito exportado. Sete ferramentas complementares propostas na mesma seção. Futuro SMS/PCE não significa suporte entregue.
+
+Inspeção estática sobre entrada `697632a201bc06373958a7e4c7104d08bb35cc39`, produto `d51c56da`: PaletteSummary já expande plano; `scene_palette_plan` é restrito a MD; prioridade de sprites chega ao AST/emissores; RetroFX existente gera scroll BG_A no caminho SGDK examinado; nós effect_parallax/effect_raster registram configuração e retornam NoOp lógico. `palette_swap` é troca por golpe e SNES a recusa no emissor. Nenhum desses achados prova o pincel de regiões, radial, gatilhos gerais ou transparência exportável. A única paleta do PNG é omissão da proposta, não limite a impor ao produto.
+
+[Roadmap VIS01–VIS08](03_ROADMAP_MVP.md#ferramentas-visuais-r7), [handoff](handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#implementacao-visual-r7) e histórico reconciliados, todos planejados. Condição de aceite: matriz função/acesso/owner/regressão/prova antes/depois, sem ferramenta órfã ou perda de precisão; mesmos dados no gesto/número/grafo/código; orçamento e resultado real por alvo. Fontes primárias SGDK/PVSnesLib/SMSlib/HuC citadas; SDK pinado deve ser reconferido na implementação. `docs/04_HARDWARE_SPECS.md`, decisões consolidadas e topo operacional preservados. Memória fixada do projeto atualizada com as premissas.
+
+Entrega somente documental, sem nova imagem, mudança no produto/projeto autoral, benchmark ou certificação Tauri. Host READY nesta sessão; validação de estrutura/diff/referências e publicação registradas em `RDS_WORK_ROOT/sessions/tutorial-megadrive-20261105/mockups-contextuais/r7-ferramentas-visuais-20261106/fechamento.json`. Escrita alheia de AGENTS preservada e fora do stage. Próximo passo: reconciliar prioridade sequencial e iniciar VIS01 com inventário/contratos, articulando VIS04 a cada fatia; PLAY01/T6 e hardening não foram substituídos.
+
 ### Aprovação R5 e requisito R6: Jogar por início, cena e marcações — 2026-11-06
 
 O operador aprovou a direção R5 e solicitou registro no roadmap para outro agente implementar. Premissa permanente: produção de jogos de grande complexidade, alta performance, gráficos e mecânicas ricos, com ferramentas amigáveis, visuais, flexíveis e precisas; clareza não reduz capacidades. Aprovação conceitual não equivale a aceite humano do aplicativo. A [R5](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#r5-autoria-visual) foi atualizada, sem alterar a direção consolidada ou o topo operacional deste Memory Bank.

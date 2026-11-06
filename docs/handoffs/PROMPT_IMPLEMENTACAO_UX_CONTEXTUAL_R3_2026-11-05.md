@@ -1,8 +1,10 @@
-# Prompt de implementação — UX R2/R3, autoria visual R5 e Jogar no emulador R6
+# Prompt de implementação — UX R2/R3, autoria R5, Jogar R6 e ferramentas visuais R7
 
 Use este documento como instrução integral de execução. Ele reúne o pedido, os ajustes aceitos, os owners a integrar, as retenções técnicas e os critérios de entrega. A criação deste prompt foi uma tarefa documental; o produto ainda não recebeu esta implementação de UX.
 
 **Direção aprovada pelo operador, 2026-11-06:** a interface deve preservar a capacidade de produzir jogos de grande complexidade, com gráficos e mecânicas ricos, por ferramentas amigáveis e robustas. Modernizar a experiência não autoriza reduzir ferramentas, retirar áreas globais ou limitar o Canvas a pequenos ajustes. A [R5 — autoria visual robusta](../studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#r5-autoria-visual) foi aprovada conceitualmente; a R4 simplificada foi rejeitada. A [R6 — Jogar no emulador](../studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#r6-jogar-emulador) acrescenta início/cena/pins, miniaturas e retomada de momentos. Esta rodada entrega registro e investigação para implementação por outro agente; imagens e especificação não promovem suporte nem comprovam FPS.
+
+**Complemento R7 do mesmo dia:** incluir paletas completas por perfil e troca rápida, seleção de primeiro plano/oclusão, pincel de distorção e ferramenta Fantasma, além da fila de produtividade. Ler a [R7](../studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#r7-ferramentas-visuais) antes de implementar: a faixa única de paleta e as ferramentas mostradas no PNG R5 não esgotam a capacidade exigida. O pedido atual é registro/revisão para implementação; VIS01–VIS08 permanecem planejados.
 
 ## Missão
 
@@ -206,9 +208,24 @@ Não alterar o projeto autoral para provar o recurso. Preparar fixture própria 
 
 Registrar por PLAY: implementado, teste do owner, recibo de revisão/ROM/core, jornada nativa, métricas, limite e próximo passo. Primeiro frame, unit tests, host READY e média de FPS isolada não encerram o aceite. Nesta preparação, todos os PLAY estão planejados; nenhum foi implementado.
 
+<a id="implementacao-visual-r7"></a>
+## Ferramentas visuais R7 — VIS01–VIS08
+
+A [especificação R7](../studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#r7-ferramentas-visuais) contém os fluxos, fontes técnicas e fixtures; a [fila VIS](../03_ROADMAP_MVP.md#ferramentas-visuais-r7) registra a ordem. Transferir premissas e aceites, sem copiar um desenho que omite funções. Preservar R3, autoria R5 e Jogar R6; não criar motor/store, renderer de efeitos ou editor paralelo.
+
+- **Inventário primeiro (VIS01):** matriz função/acesso/owner/regressão/prova antes/depois. Confirmar perfis/constraints, tipos de objeto, granularidade, suporte do compilador e limites. Hardware possível, adaptador implementado e resultado observado são evidências diferentes. Preservar `docs/04_HARDWARE_SPECS.md` e as decisões consolidadas; não contornar restrição reduzindo a capacidade sem informar.
+- **Paletas (VIS02):** estender PalettePanel/palettePlan/planner Rust. Consulta rápida de PAL0–3 não altera atribuição; aplicar recurso não equivale a reescrever banco; mostrar todos os usos afetados. O IPC atual só aceita MD. SNES requer perfil por domínio/modo; SMS/PCE permanecem futuro até integração e prova próprias. Não hardcodar quatro bancos nem apenas generalizar para `N×16` ignorando semântica.
+- **Seleção/oclusão (VIS03):** aproveitar seleção/histórico do Canvas e editores de arte; região persistida, máscara com finalidade, coordenadas e decomposição rastreáveis. Prioridade de sprite já chega ao emissor; isso não conclui a seleção parcial de pilastra. Testar pilastra e faixa autorais, buracos transparentes, prioridades, animação e câmera, preservando colisão e arte.
+- **Grafo/código (VIS04, junto das primeiras fatias):** propriedades estáticas e regras dinâmicas apontam para a mesma definição. Auditar `effect_parallax/effect_raster`, que registram configuração e retornam `NoOp` lógico no AST inspecionado; fechar execução de condições/eventos antes de prometer gatilhos. `palette_swap` atual é ligado a golpe e o emissor SNES o recusa. Não expandir catálogo com nomes sem semântica, nem sobrescrever nós manuais. Source mapping mostra revisão e origem realmente emitida.
+- **Distorção (VIS05):** integrar RetroFX e câmera; uma autoridade calcula o resultado de scroll/raster por recurso, com ordem e conflito explícitos. Área pintada versus área afetada, discretização, modos de onda e envelope devem corresponder ao backend. Radial/local arbitrário depende de técnica demonstrada, não de CSS ou offset de uma linha. Medir custo, registrar retenção e alternativas quando faltar suporte.
+- **Fantasma (VIS06):** separar visualização do editor, recorte, dithering e técnicas de translucidez do alvo. Incluir investigação avançada por composição/software/paletas/shadow-highlight, com protótipo e orçamento antes de habilitar. Não descartar técnicas possíveis por exigirem elaboração, nem importar uma demonstração externa como prova universal. Cancelamento, remoção do efeito e edição de asset compartilhado precisam de reversão correta.
+- **Complementos/QA (VIS07/08):** priorizar as sete sugestões R7 por jornada concreta. Validar cada fatia e uma cena combinada com quatro bancos, oclusão, onda, Fantasma, trajetos e Jogar/pins. Tauri, SDK/core oficiais, oráculo visual/estado, recursos/performance e ensaio humano; duas resoluções, teclado e acessibilidade. Não anunciar suporte de um alvo por prova em outro.
+
+Confirmar nomes/paths no HEAD da implementação: a inspeção R7 ocorreu sobre documentação `697632a2` e código de produto `d51c56da`. Os cinco documentos desta rodada constituem planejamento; nenhum VIS recebeu prova de execução. Cada checkpoint futuro deve registrar item, owner, cenário, revisão/ROM/core, resultado, limite e próximo passo, com preservação demonstrada das capacidades anteriores.
+
 ## Fechamento e definição de concluído
 
-Atualizar a seção de implementação da jornada com R3-01…R3-10, os itens base R2/R5 e PLAY01–PLAY06 cobertos: implementado, teste do owner, jornada nativa, limite e próximo passo. Atualizar Memory Bank/handoff e roadmap quando mudar estado real/superfície; não alterar decisões arquiteturais consolidadas.
+Atualizar a seção de implementação da jornada com R3-01…R3-10, os itens base R2/R5, PLAY01–PLAY06 e VIS01–VIS08 cobertos: implementado, teste do owner, jornada nativa, limite e próximo passo. Atualizar Memory Bank/handoff e roadmap quando mudar estado real/superfície; não alterar decisões arquiteturais consolidadas.
 
 Revisar arquivos explícitos, segredos/tamanho, commit/push na branch vigente, reutilizar PR #112 e confirmar SHA remoto/checks quando houver acesso. Sem stage global, force-push, merge, release ou deploy. Autenticação ausente limita publicação; manter o commit e o recibo, registrar causa/próxima ação oficial sem solicitar credencial no chat e sem repetir um pedido de autenticação já pendente.
 

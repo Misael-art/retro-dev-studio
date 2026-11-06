@@ -580,4 +580,14 @@ Distinção essencial: pin criado no Canvas é uma intenção de início; captur
 
 O fluxo atual já usa Libretro real. Espera de 16 ms após a chamada de cada quadro, transporte de pixels e serialização de rewind/trace são candidatos de custo encontrados no código, sem benchmark nesta rodada. A meta é frequência nativa com áudio/input responsivos; 60 FPS não é garantido por um novo botão nem apropriado como relógio fixo para todo conteúdo. A [fila PLAY01–PLAY06](03_ROADMAP_MVP.md#jogar-emulador-r6) e o handoff integram este requisito a R3-09/T6, com owners e regressões, todos ainda planejados.
 
+### 14.14 Revisão de capacidades R7 — paletas, oclusão, distorção e Fantasma
+
+Pedido explícito do operador em 2026-11-06: conservar a robustez para produção de jogos complexos e ampliar a autoria visual além de trajetos. A [R7](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#r7-ferramentas-visuais) registra paleta contextual expansível e troca rápida entre bancos/recursos, com adaptação semântica a MD, SNES e futuros SMS/PCE; seleção de região para primeiro plano, exemplificada por pilastra/faixa; pincel de ondulação/distorção com modulação e formas; e ferramenta Fantasma com técnicas de translucidez e orçamento por alvo. Gestos, parâmetros, nós e código devem corresponder aos mesmos dados.
+
+A revisão identificou omissão de cobertura no mockup, não desaparecimento dessas bases do código: PaletteSummary já expande bancos/usos/conflitos; prioridade de sprite já chega ao emissor; RetroFX já possui paralaxe/raster. Planejador de paletas contextual é somente MD, efeitos de nó inspecionados entram como configuração e a opacidade de onion skin não é exportação de translucidez. Integrar e ampliar esses owners; não recomeçar por uma interface com menos recursos.
+
+R7 distingue capacidade de hardware, técnica com custo, adaptador disponível, prévia e execução observada. Inclui composição avançada/software como investigação para translucidez colorida, sem limitá-la a esconder objetos nem prometer alpha arbitrário. Área de pincel e alcance efetivo do efeito ficam explícitos; futuros alvos usam seus domínios/modos, não apenas outra contagem de bancos MD.
+
+Sete sugestões complementares: seleção/transformação, carimbos/terrenos, colisão/gatilhos, timeline do mesmo modelo, câmera visual, animação de paleta/atmosfera e mapa de custos/otimização assistida. A [fila VIS01–VIS08](03_ROADMAP_MVP.md#ferramentas-visuais-r7) e o [handoff](handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#implementacao-visual-r7) exigem matriz antes/depois de acesso/capacidade, regressões, ROM/core e uso repetido. R5 aprovada permanece referência parcial; esta revisão não gerou nova imagem, não implementou as ferramentas e não promoveu suporte.
+
 **[Fim do estudo]**
