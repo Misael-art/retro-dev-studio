@@ -160,7 +160,7 @@ export function ObjectPathSection({
         ))}
       </ol>
       <div className="mt-1 flex items-center gap-2">
-        <button type="button" data-testid="inspector-path-add-point" disabled={path.points.length >= PATH_MAX_POINTS} onClick={() => onChange(addPoint(path))} className="rounded border border-[#313244] px-2 py-0.5 text-[#cdd6f4] hover:border-[#89b4fa] disabled:opacity-40">+ Ponto</button>
+        <button type="button" data-testid="inspector-path-add-point" disabled={path.points.length >= PATH_MAX_POINTS} onClick={() => onChange(addPoint(path))} className="shrink-0 whitespace-nowrap rounded border border-[#313244] px-2 py-0.5 text-[#cdd6f4] hover:border-[#89b4fa] disabled:opacity-40">+ Ponto</button>
         <span className="text-[9px] text-[#7f849c]">{path.points.length}/{PATH_MAX_POINTS} · ciclo estimado {cycle} q (~{(cycle / fps).toFixed(1)} s a {fps} Hz NTSC; a ROM é a referência)</span>
       </div>
       <details className="mt-1">
