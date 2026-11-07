@@ -867,7 +867,7 @@ export default function HierarchyPanel({
                           <EntityLockToggle entityId={entity.entity_id} />
                           <span className="text-[#7f849c]">{TYPE_ICON[type] ?? "○"}</span>
                           <span
-                            className="min-w-0 truncate"
+                            className="min-w-[4.5rem] shrink truncate"
                             title={`${getEntityDisplayName(entity)} · ${entity.prefab ? `Prefab: ${entity.prefab}` : entity.entity_id}`}
                           >
                             {getEntityDisplayName(entity)}
@@ -875,7 +875,7 @@ export default function HierarchyPanel({
                           {importedContext.roleLabel ? (
                             <span
                               data-testid={`hierarchy-imported-role-${entity.entity_id}`}
-                              className={sharedRole ? hiddenPill : `shrink-0 rounded-full border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] ${importedRoleBadgeClass(importedContext.roleLabel)}`}
+                              className={sharedRole ? hiddenPill : `min-w-0 max-w-[6.5rem] truncate rounded-full border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] ${importedRoleBadgeClass(importedContext.roleLabel)}`}
                               title={[
                                 importedContext.roleLabel,
                                 importedContext.detail ?? importedContext.summary,
@@ -903,7 +903,7 @@ export default function HierarchyPanel({
                             <span
                               data-testid={`hierarchy-logic-signal-${entity.entity_id}`}
                               className={sharedLogic ? hiddenPill : [
-                                "shrink-0 rounded-full border px-1.5 py-0.5 text-[8px] font-semibold",
+                                "min-w-0 max-w-[6.5rem] truncate rounded-full border px-1.5 py-0.5 text-[8px] font-semibold",
                                 logicImportSignal.status === "functional"
                                   ? "border-[#a6e3a1]/35 bg-[#a6e3a1]/10 text-[#a6e3a1]"
                                   : logicImportSignal.status === "bridge_only"
@@ -917,7 +917,7 @@ export default function HierarchyPanel({
                           ) : null}
                           {importedContext.positionLabel ? (
                             <span
-                              className={sharedPosition ? hiddenPill : `shrink-0 rounded-full border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] ${
+                              className={sharedPosition ? hiddenPill : `min-w-0 max-w-[6.5rem] truncate rounded-full border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] ${
                                 importedContext.positionMode === "donor"
                                   ? "border-[#a6e3a1]/35 bg-[#a6e3a1]/10 text-[#a6e3a1]"
                                   : importedContext.positionMode === "staging"
@@ -934,7 +934,7 @@ export default function HierarchyPanel({
                             </span>
                           ) : null}
                           {isFocusEntity ? (
-                            <span className="rounded-full border border-[#89b4fa]/35 bg-[#89b4fa]/10 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.14em] text-[#89b4fa]">
+                            <span title="Entrada da cena" className="min-w-0 max-w-[4.5rem] truncate rounded-full border border-[#89b4fa]/35 bg-[#89b4fa]/10 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.14em] text-[#89b4fa]">
                               Entrada
                             </span>
                           ) : null}
