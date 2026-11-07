@@ -281,6 +281,10 @@ export interface TilemapComponent {
   /** Malha pintada por célula. Row-major, tamanho `map_width * map_height`.
    *  0 = vazio; >0 = índice do tile no tileset. Omisso em projetos importados. */
   cells?: number[];
+  /** Plano do hardware (R5): "BG_A" frente, "BG_B" fundo; ausente = ordem automática. */
+  plane?: "BG_A" | "BG_B" | null;
+  /** Prioridade alta: o plano fica na frente de sprites de prioridade baixa. */
+  priority?: boolean;
 }
 
 export interface Components {

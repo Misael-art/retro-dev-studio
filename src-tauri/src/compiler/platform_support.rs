@@ -68,6 +68,41 @@ pub fn path_support_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSup
     issues
 }
 
+/// R5: explicit tilemap planes must be valid and unique (two tilemaps on one plane would
+/// overwrite each other). Tilemaps without a choice keep the previous implicit order.
+pub fn tilemap_plane_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSupportIssue> {
+    let mut issues = Vec::new();
+    let mut seen: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
+    for entity in &resolved_scene.entities {
+        let Some(plane) = entity
+            .components
+            .tilemap
+            .as_ref()
+            .and_then(|tilemap| tilemap.plane.as_deref())
+        else {
+            continue;
+        };
+        let reason = if plane != "BG_A" && plane != "BG_B" {
+            Some(format!("plano '{plane}' invalido (use BG_A ou BG_B)"))
+        } else if target != "megadrive" {
+            Some("plano explicito ainda sem runtime nesta plataforma".to_string())
+        } else {
+            seen.insert(plane, entity.entity_id.as_str())
+                .map(|other| format!("o plano {plane} ja e usado por '{other}'"))
+        };
+        if let Some(reason) = reason {
+            issues.push(LogicSupportIssue {
+                platform: target.to_string(),
+                entity_id: entity.entity_id.clone(),
+                node_id: "plane".to_string(),
+                node_type: "plane".to_string(),
+                reason,
+            });
+        }
+    }
+    issues
+}
+
 /// R5: «Iniciar/Parar trajeto» must target an object that has a path in this scene.
 pub fn path_trigger_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSupportIssue> {
     let with_path: std::collections::HashSet<&str> = resolved_scene
@@ -287,6 +322,11 @@ pub fn issue_diagnostic(issue: &LogicSupportIssue) -> ActionableDiagnostic {
                 "O trajeto da entidade '{}' foi recusado em {}: {}.",
                 issue.entity_id, issue.platform, issue.reason
             )
+        } else if issue.node_type == "plane" {
+            format!(
+                "O plano do cenario '{}' foi recusado em {}: {}.",
+                issue.entity_id, issue.platform, issue.reason
+            )
         } else if issue.platform == "any" {
             format!(
                 "A logica da entidade '{}' tem uma referencia quebrada em '{}': {}.",
@@ -304,6 +344,8 @@ pub fn issue_diagnostic(issue: &LogicSupportIssue) -> ActionableDiagnostic {
         ),
         if issue.node_type == "path" {
             "Ajuste os pontos/tempos do trajeto no Inspector, remova fisica/entrada do objeto ou compile para Mega Drive."
+        } else if issue.node_type == "plane" {
+            "Escolha planos diferentes (BG_A e BG_B) para cada cenario no Inspector, ou deixe automatico."
         } else {
             "Remova o no (ou o comportamento que o gerou) dessa entidade, ou compile para Mega Drive."
         },
@@ -334,6 +376,35 @@ mod tests {
         assert_eq!(issues[0].node_id, "halt");
         assert!(issues[0].reason.contains("ghost"));
         assert!(issue_diagnostic(&issues[0]).blocking);
+    }
+
+    #[test]
+    fn explicit_tilemap_planes_must_be_valid_and_unique() {
+        let mut scene = scene_with(r#"{"nodes":[],"edges":[]}"#);
+        let tile = |id: &str, plane: &str| {
+            let mut e = scene_with(r#"{"nodes":[],"edges":[]}"#).entities[0].clone();
+            e.entity_id = id.to_string();
+            e.components = serde_json::from_str(&format!(
+                r#"{{"tilemap":{{"tileset":"t.png","map_width":4,"map_height":4,"plane":"{plane}"}}}}"#
+            ))
+            .expect("tilemap");
+            e
+        };
+        scene.entities = vec![tile("sky", "BG_B"), tile("pillars", "BG_A")];
+        assert!(tilemap_plane_issues("megadrive", &scene).is_empty());
+        scene.entities.push(tile("ground", "BG_A"));
+        let dup = tilemap_plane_issues("megadrive", &scene);
+        assert_eq!(dup.len(), 1);
+        assert!(dup[0].reason.contains("pillars"));
+        assert!(issue_diagnostic(&dup[0])
+            .user_message
+            .contains("plano do cenario"));
+        scene.entities = vec![tile("odd", "WINDOW")];
+        assert!(tilemap_plane_issues("megadrive", &scene)[0]
+            .reason
+            .contains("invalido"));
+        scene.entities = vec![tile("sky", "BG_B")];
+        assert_eq!(tilemap_plane_issues("snes", &scene).len(), 1);
     }
 
     fn scene_with_path(components_json: &str) -> Scene {

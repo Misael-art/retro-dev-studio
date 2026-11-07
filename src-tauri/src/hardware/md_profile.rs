@@ -1329,6 +1329,8 @@ mod tests {
                     scroll_x: 0,
                     scroll_y: 0,
                     cells,
+                    plane: None,
+                    priority: false,
                 }),
                 ..Default::default()
             },
@@ -1372,6 +1374,8 @@ mod tests {
                     scroll_x: 0,
                     scroll_y: 0,
                     cells: vec![1; 64],
+                    plane: None,
+                    priority: false,
                 }),
                 ..Default::default()
             },

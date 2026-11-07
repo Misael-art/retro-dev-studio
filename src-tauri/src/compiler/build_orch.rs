@@ -913,6 +913,10 @@ where
         target.target,
         &resolved_scene,
     ));
+    support_issues.extend(crate::compiler::platform_support::tilemap_plane_issues(
+        target.target,
+        &resolved_scene,
+    ));
     if !support_issues.is_empty() {
         for issue in &support_issues {
             emit!(
@@ -3976,6 +3980,8 @@ mod tests {
                 y: 0,
                 scroll_x: 0,
                 scroll_y: 0,
+                plane: None,
+                priority_high: false,
             });
         }
         ast.nodes.extend([

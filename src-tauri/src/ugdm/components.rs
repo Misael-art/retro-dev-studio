@@ -593,6 +593,13 @@ pub struct TilemapComponent {
     /// do tileset esticado enquanto não houver malha materializada.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub cells: Vec<u32>,
+    /// Plano do hardware escolhido pelo autor (R5): "BG_A" (frente) ou "BG_B" (fundo).
+    /// Ausente = ordem de antes (1o tilemap BG_B, 2o BG_A, 3o WINDOW).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plane: Option<String>,
+    /// Prioridade alta dos tiles: o plano passa NA FRENTE de sprites de prioridade baixa.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub priority: bool,
 }
 
 #[cfg(test)]
@@ -608,6 +615,8 @@ mod tilemap_tests {
             scroll_x: 0,
             scroll_y: 0,
             cells: vec![],
+            plane: None,
+            priority: false,
         };
         let json = serde_json::to_string(&tm).unwrap();
         assert!(
@@ -627,6 +636,8 @@ mod tilemap_tests {
             scroll_x: 0,
             scroll_y: 0,
             cells: vec![0, 1, 2, 3, 0, 5],
+            plane: None,
+            priority: false,
         };
         let json = serde_json::to_string(&tm).unwrap();
         assert!(json.contains("\"cells\":[0,1,2,3,0,5]"));

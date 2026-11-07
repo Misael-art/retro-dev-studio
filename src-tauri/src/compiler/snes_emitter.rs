@@ -565,6 +565,7 @@ fn build_context(
                 y,
                 scroll_x,
                 scroll_y,
+                ..
             } => {
                 context.tilemaps.push(TilemapDraw {
                     resource_name: resource_name.clone(),
@@ -2522,6 +2523,8 @@ mod tests {
                     y: 24,
                     scroll_x: 8,
                     scroll_y: 4,
+                    plane: None,
+                    priority_high: false,
                 },
                 AstNode::GameLoopBegin,
                 AstNode::SpriteUpdate,
@@ -2914,6 +2917,8 @@ mod tests {
                     y: 0,
                     scroll_x: 0,
                     scroll_y: 0,
+                    plane: None,
+                    priority_high: false,
                 },
                 AstNode::GameLoopBegin,
                 AstNode::ScrollTilemap {
@@ -2990,6 +2995,8 @@ mod tests {
                     y: 0,
                     scroll_x: 0,
                     scroll_y: 0,
+                    plane: None,
+                    priority_high: false,
                 },
                 AstNode::LoadTilemap {
                     resource_name: "foreground".to_string(),
@@ -3004,6 +3011,8 @@ mod tests {
                     y: 0,
                     scroll_x: 0,
                     scroll_y: 0,
+                    plane: None,
+                    priority_high: false,
                 },
                 AstNode::GameLoopBegin,
                 AstNode::MoveCamera {

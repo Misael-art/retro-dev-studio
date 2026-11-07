@@ -3845,6 +3845,8 @@ mod tests {
             scroll_x: 0,
             scroll_y: 0,
             cells: vec![],
+            plane: None,
+            priority: false,
         });
         scene.entities.insert(0, world);
         // Cores do personagem pelo mesmo planejador (derivadas do arquivo convertido).
@@ -4146,6 +4148,8 @@ mod tests {
                 .map(|x| (x * 7 + 3) % 4)
                 .collect::<Vec<_>>()
                 .repeat(28),
+            plane: None,
+            priority: false,
         });
         let mut camera = scene.entities[0].clone();
         camera.entity_id = "camera".into();

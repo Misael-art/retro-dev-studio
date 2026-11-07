@@ -161,9 +161,11 @@ fn build_main_c_with_collision(
     };
     WALL_BODIES.with(|cell| *cell.borrow_mut() = bodies);
     PATH_PLATFORMS.with(|cell| *cell.borrow_mut() = super::path_runtime::collect_platforms(ast));
+    TILEMAP_PLANES.with(|cell| *cell.borrow_mut() = resolved_tilemap_planes(ast));
     let main_c = build_main_c_inner(ast, project_name, collision_map_data);
     WALL_BODIES.with(|cell| cell.borrow_mut().clear());
     PATH_PLATFORMS.with(|cell| cell.borrow_mut().clear());
+    TILEMAP_PLANES.with(|cell| cell.borrow_mut().clear());
     main_c
 }
 
@@ -270,7 +272,7 @@ fn build_main_c_inner(
                         _ => None,
                     })
                     .enumerate()
-                    .find(|(i, _)| tilemap_plane(*i) == *plane)
+                    .find(|(i, _)| resolved_tilemap_planes(ast).get(*i).copied() == Some(*plane))
                     .map(|(_, p)| p)
                     .unwrap_or((0, 0))
             } else {
@@ -612,8 +614,14 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 y,
                 scroll_x,
                 scroll_y,
+                priority_high,
+                ..
             } => {
-                let plane = tilemap_plane(tilemap_draw_index);
+                let tile_priority = if *priority_high { "TRUE" } else { "FALSE" };
+                let plane = resolved_tilemap_planes(ast)
+                    .get(tilemap_draw_index)
+                    .copied()
+                    .unwrap_or("WINDOW");
                 let base_tile = tilemap_base_expression(resource_name, &tilemap_assets);
                 // Com plano: banco planejado e sem carregar a paleta da imagem (loadpal FALSE),
                 // que sobrescreveria o banco 0 de outros usos.
@@ -622,10 +630,11 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     None => ("PAL0".to_string(), "TRUE"),
                 };
                 out.push_str(&format!(
-                    "    VDP_drawImageEx({}, &{}, TILE_ATTR_FULL({}, FALSE, FALSE, FALSE, {}), {}, {}, {}, TRUE);\n",
+                    "    VDP_drawImageEx({}, &{}, TILE_ATTR_FULL({}, {}, FALSE, FALSE, {}), {}, {}, {}, TRUE);\n",
                     plane,
                     resource_name,
                     tile_palette,
+                    tile_priority,
                     base_tile,
                     if visual_camera.is_some() { 0 } else { (*x).max(0) / 8 },
                     if visual_camera.is_some() { 0 } else { (*y).max(0) / 8 },
@@ -666,8 +675,8 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                             format!("{slot_base} + {slot}")
                         };
                         out.push_str(&format!(
-                            "    VDP_setTileMapXY({}, TILE_ATTR_FULL({}, FALSE, FALSE, FALSE, {}), {}, {});\n",
-                            plane, tile_palette, tile, cell_x, cell_y
+                            "    VDP_setTileMapXY({}, TILE_ATTR_FULL({}, {}, FALSE, FALSE, {}), {}, {});\n",
+                            plane, tile_palette, tile_priority, tile, cell_x, cell_y
                         ));
                     }
                 }
@@ -1057,6 +1066,8 @@ thread_local! {
     static WALL_BODIES: std::cell::RefCell<std::collections::HashMap<String, (u32, u32)>> =
         std::cell::RefCell::new(std::collections::HashMap::new());
     /// R5 moving platforms for the current emission (path id, sprite var, offset x/y, width).
+    /// Resolved plane of each tilemap (draw order) for the current emission.
+    static TILEMAP_PLANES: std::cell::RefCell<Vec<&'static str>> = const { std::cell::RefCell::new(Vec::new()) };
     static PATH_PLATFORMS: std::cell::RefCell<Vec<super::path_runtime::PlatformSpec>> =
         const { std::cell::RefCell::new(Vec::new()) };
 }
@@ -1967,7 +1978,10 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     p.tilemap_entities
                         .iter()
                         .enumerate()
-                        .find(|(i, _)| tilemap_plane(*i) == plane)
+                        .find(|(i, _)| {
+                            TILEMAP_PLANES
+                                .with(|planes| planes.borrow().get(*i).copied() == Some(plane))
+                        })
                         .and_then(|(_, e)| p.plan.entity_banks.get(e).copied())
                 });
                 out.push_str(&format!(
@@ -3308,7 +3322,10 @@ fn collect_camera_scroll_planes(ast: &AstOutput) -> Vec<&'static str> {
 
     for node in &ast.nodes {
         if matches!(node, AstNode::DrawTilemap { .. }) {
-            let plane = tilemap_plane(tilemap_index);
+            let plane = resolved_tilemap_planes(ast)
+                .get(tilemap_index)
+                .copied()
+                .unwrap_or("WINDOW");
             tilemap_index += 1;
             if plane != "WINDOW" && !planes.contains(&plane) {
                 planes.push(plane);
@@ -3338,6 +3355,24 @@ fn collect_camera_scroll_planes(ast: &AstOutput) -> Vec<&'static str> {
     } else {
         planes
     }
+}
+
+/// Plane of each tilemap in draw order: the author's explicit choice, otherwise the previous
+/// implicit order (so scenes without a choice emit exactly what they did before).
+fn resolved_tilemap_planes(ast: &AstOutput) -> Vec<&'static str> {
+    ast.nodes
+        .iter()
+        .filter_map(|node| match node {
+            AstNode::DrawTilemap { plane, .. } => Some(plane.as_deref()),
+            _ => None,
+        })
+        .enumerate()
+        .map(|(index, plane)| match plane {
+            Some("BG_A") => "BG_A",
+            Some("BG_B") => "BG_B",
+            _ => tilemap_plane(index),
+        })
+        .collect()
 }
 
 fn tilemap_plane(index: usize) -> &'static str {
@@ -3990,6 +4025,8 @@ mod tests {
                     y: 24,
                     scroll_x: 8,
                     scroll_y: 4,
+                    plane: None,
+                    priority_high: false,
                 },
                 AstNode::GameLoopBegin,
                 AstNode::SpriteUpdate,
@@ -4027,6 +4064,8 @@ mod tests {
                     y: 0,
                     scroll_x: 0,
                     scroll_y: 0,
+                    plane: None,
+                    priority_high: false,
                 },
             ],
             sprite_assets: Vec::new(),
@@ -4216,6 +4255,8 @@ mod tests {
                     y: 0,
                     scroll_x: 0,
                     scroll_y: 0,
+                    plane: None,
+                    priority_high: false,
                 },
                 AstNode::GameLoopBegin,
                 AstNode::ScrollTilemap {
@@ -4301,6 +4342,8 @@ mod tests {
                     y: 0,
                     scroll_x: 0,
                     scroll_y: 0,
+                    plane: None,
+                    priority_high: false,
                 },
                 AstNode::LoadTilemap {
                     resource_name: "foreground".to_string(),
@@ -4315,6 +4358,8 @@ mod tests {
                     y: 0,
                     scroll_x: 0,
                     scroll_y: 0,
+                    plane: None,
+                    priority_high: false,
                 },
                 AstNode::GameLoopBegin,
                 AstNode::MoveCamera {
@@ -4717,5 +4762,42 @@ mod tests {
         assert!(output
             .main_c
             .contains("XGM_startPlayPCM(SFX_JUMP, 1, SOUND_PCM_CH2);"));
+    }
+}
+
+#[cfg(test)]
+mod tilemap_plane_tests {
+    use super::*;
+
+    fn tm(plane: Option<&str>) -> AstNode {
+        AstNode::DrawTilemap {
+            resource_name: "t".to_string(),
+            x: 0,
+            y: 0,
+            scroll_x: 0,
+            scroll_y: 0,
+            plane: plane.map(str::to_string),
+            priority_high: false,
+        }
+    }
+
+    fn ast(nodes: Vec<AstNode>) -> AstOutput {
+        AstOutput {
+            nodes,
+            sprite_assets: Vec::new(),
+            logic_scripts: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn implicit_order_is_unchanged_and_explicit_choice_wins() {
+        assert_eq!(
+            resolved_tilemap_planes(&ast(vec![tm(None), tm(None), tm(None)])),
+            vec!["BG_B", "BG_A", "WINDOW"]
+        );
+        assert_eq!(
+            resolved_tilemap_planes(&ast(vec![tm(Some("BG_A")), tm(Some("BG_B"))])),
+            vec!["BG_A", "BG_B"]
+        );
     }
 }

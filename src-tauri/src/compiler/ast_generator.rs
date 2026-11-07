@@ -43,6 +43,10 @@ pub enum AstNode {
         y: i32,
         scroll_x: i32,
         scroll_y: i32,
+        /// Plano explicito ("BG_A"/"BG_B"); `None` = ordem implicita de antes.
+        plane: Option<String>,
+        /// Prioridade alta dos tiles (na frente de sprites de prioridade baixa).
+        priority_high: bool,
     },
     SetupParallax {
         layers: Vec<ParallaxLayerConfig>,
@@ -791,6 +795,8 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
                 y: entity.transform.y,
                 scroll_x: tilemap.scroll_x,
                 scroll_y: tilemap.scroll_y,
+                plane: tilemap.plane.clone(),
+                priority_high: tilemap.priority,
             });
         }
 
@@ -4126,7 +4132,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn generate_ast_uses_default_animation_timing_from_sprite_component() {
         let mut animations = std::collections::BTreeMap::new();
         animations.insert(
@@ -4268,6 +4273,8 @@ mod tests {
                         scroll_x: 4,
                         scroll_y: 8,
                         cells: Vec::new(),
+                        plane: None,
+                        priority: false,
                     }),
                     ..Components::default()
                 },
@@ -4292,7 +4299,8 @@ mod tests {
                 x,
                 y,
                 scroll_x,
-                scroll_y
+                scroll_y,
+                ..
             } if resource_name == "background_tilemap"
                 && *x == 16
                 && *y == 24
@@ -4324,6 +4332,8 @@ mod tests {
                     scroll_x: 0,
                     scroll_y: 0,
                     cells,
+                    plane: None,
+                    priority: false,
                 }),
                 ..Components::default()
             },
@@ -6513,6 +6523,8 @@ mod tests {
                             scroll_x: 0,
                             scroll_y: 0,
                             cells: Vec::new(),
+                            plane: None,
+                            priority: false,
                         }),
                         ..Components::default()
                     },

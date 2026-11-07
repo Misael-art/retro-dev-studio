@@ -1,4 +1,5 @@
 import { ObjectPathSection } from "./ObjectPathSection";
+import { TilemapPlaneControls } from "./TilemapPlaneControls";
 import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import AssetPreview from "../common/AssetPreview";
 import EditScopeBadge from "./EditScopeBadge";
@@ -1982,6 +1983,17 @@ export default function InspectorPanel() {
                     activeBrush?.kind === "tile" ? activeBrush.tileIndex ?? 0 : null;
                   return (
                     <div className="mt-3 border-t border-[#313244] pt-3">
+                      <TilemapPlaneControls
+                        tilemap={tm}
+                        implicitPlane={(() => {
+                          const index = (activeScene?.entities ?? []).filter((e) => e.components.tilemap).findIndex((e) => e.entity_id === entity.entity_id);
+                          return index === 0 ? "BG_B" : index === 1 ? "BG_A" : "WINDOW";
+                        })()}
+                        onChange={(patch) => {
+                          updateEntity(entity.entity_id, buildEntityPatch(entity, ["components", "tilemap"], { ...tm, ...patch }));
+                          scheduleAutoSave();
+                        }}
+                      />
                       {activeProjectDir && tm.tileset ? (
                         <div className="mb-3 overflow-hidden rounded border border-[#313244] bg-[#11111b] p-2">
                           <AssetPreview

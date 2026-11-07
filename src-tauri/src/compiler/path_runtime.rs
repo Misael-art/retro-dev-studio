@@ -192,6 +192,16 @@ pub fn render_updates(ast: &AstOutput, indent: usize) -> String {
     out
 }
 
+/// Moving platform: (path id, sprite var, box offset x, offset y, width).
+pub type PlatformSpec = (String, String, i32, i32, u32);
+
+pub fn collect_platforms(ast: &AstOutput) -> Vec<PlatformSpec> {
+    collect_paths(ast)
+        .into_iter()
+        .filter_map(|p| p.platform.map(|(ox, oy, w)| (p.id, p.var_name, ox, oy, w)))
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -297,14 +307,4 @@ mod tests {
             vec![("plat_1".to_string(), "spr_plat".to_string(), 0, 2, 32)]
         );
     }
-}
-
-/// Moving platform: (path id, sprite var, box offset x, offset y, width).
-pub type PlatformSpec = (String, String, i32, i32, u32);
-
-pub fn collect_platforms(ast: &AstOutput) -> Vec<PlatformSpec> {
-    collect_paths(ast)
-        .into_iter()
-        .filter_map(|p| p.platform.map(|(ox, oy, w)| (p.id, p.var_name, ox, oy, w)))
-        .collect()
 }
