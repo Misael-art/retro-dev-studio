@@ -103,6 +103,18 @@ export const NODE_DEFS: Record<NodeType, Omit<GraphNode, "id" | "x" | "y">> = {
     outputs: [{ id: "exec", label: ">", kind: "exec" }],
     params: { prefab: "enemy", x: 0, y: 0 },
   },
+  path_start: {
+    type: "path_start", label: "Iniciar trajeto",
+    inputs: [{ id: "exec", label: ">", kind: "exec" }],
+    outputs: [{ id: "exec", label: ">", kind: "exec" }],
+    params: { target: "self" },
+  },
+  path_stop: {
+    type: "path_stop", label: "Parar trajeto",
+    inputs: [{ id: "exec", label: ">", kind: "exec" }],
+    outputs: [{ id: "exec", label: ">", kind: "exec" }],
+    params: { target: "self" },
+  },
   destroy_entity: {
     type: "destroy_entity", label: "Destroy",
     inputs: [{ id: "exec", label: ">", kind: "exec" }],

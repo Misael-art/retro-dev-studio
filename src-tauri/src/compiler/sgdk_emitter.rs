@@ -2003,6 +2003,12 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     target = target_var
                 ));
             }
+            LogicOp::PathControl { path_id, on } => {
+                out.push_str(&format!(
+                    "{indent_str}rds_path_{path_id}_on = {};\n",
+                    u8::from(*on)
+                ));
+            }
             LogicOp::HideSprite { target_var } => {
                 out.push_str(&format!(
                     "{indent}SPR_setVisibility({target}, HIDDEN);\n",
@@ -2295,6 +2301,7 @@ fn collect_logic_velocity_targets_from_ops(
             | LogicOp::CameraControl { .. }
             | LogicOp::ShowSprite { .. }
             | LogicOp::HideSprite { .. }
+            | LogicOp::PathControl { .. }
             | LogicOp::SetVar { .. }
             | LogicOp::RomAddQWord { .. }
             | LogicOp::RomBranchCompareWord { .. }
@@ -2726,7 +2733,8 @@ fn extract_vars_from_op(op: &LogicOp, vars: &mut std::collections::BTreeSet<Stri
         LogicOp::SetAnimationState { .. }
         | LogicOp::CameraFollow { .. }
         | LogicOp::CameraControl { .. }
-        | LogicOp::HideSprite { .. } => {}
+        | LogicOp::HideSprite { .. }
+        | LogicOp::PathControl { .. } => {}
         LogicOp::SetVar { var_name, value } => {
             vars.insert(var_name.clone());
             extract_vars_from_math(value, vars);

@@ -107,6 +107,8 @@ export const NODE_CATALOG: Record<NodeType, NodeCatalogEntry> = {
   set_velocity: entry("set_velocity", "sprite", "Movimento", "Definir Velocidade", "jump", "Da um impulso na entidade; vy negativo empurra para cima (pulo).", ["target", "vx", "vy"]),
   set_position: entry("set_position", "sprite", "Movimento", "Definir Posicao", "arrows", "Coloca a entidade numa posicao exata da tela.", ["target", "x", "y"]),
   spawn_entity: entry("spawn_entity", "sprite", "Movimento", "Criar Entidade", "spawn", "Cria uma copia de um prefab na posicao indicada.", ["prefab", "x", "y"]),
+  path_start: entry("path_start", "sprite", "Movimento", "Iniciar trajeto", "arrows", "Liga o trajeto do objeto (Experimental · Mega Drive); continua de onde parou.", ["target"]),
+  path_stop: entry("path_stop", "sprite", "Movimento", "Parar trajeto", "arrows", "Pausa o trajeto do objeto onde ele está (Experimental · Mega Drive).", ["target"]),
   destroy_entity: entry("destroy_entity", "sprite", "Movimento", "Destruir Entidade", "eye-off", "Esconde/remove a entidade da fase.", ["target"]),
   sprite_anim: entry("sprite_anim", "animation", "Movimento", "Animar Sprite", "film", "Troca a animacao exibida pela entidade.", ["target", "anim"]),
   set_animation_state: entry("set_animation_state", "animation", "Movimento", "Estado de Animacao", "film", "Muda o estado de animacao da entidade.", ["target", "state"]),
@@ -292,6 +294,10 @@ export function describeNodeAction(node: GraphNode): string {
       return `Colocar ${num(p.target)} em (${num(p.x)}, ${num(p.y)})`;
     case "spawn_entity":
       return `Criar ${num(p.prefab)} em (${num(p.x)}, ${num(p.y)})`;
+    case "path_start":
+      return `Iniciar trajeto de ${num(p.target)}`;
+    case "path_stop":
+      return `Parar trajeto de ${num(p.target)}`;
     case "destroy_entity":
       return `Esconder ${num(p.target)}`;
     case "sprite_anim":

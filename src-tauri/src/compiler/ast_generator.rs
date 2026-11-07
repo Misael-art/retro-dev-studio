@@ -119,6 +119,7 @@ pub enum AstNode {
         points: Vec<(i32, i32, u32, u32)>,
         /// Controle opcional da curva que chega a cada ponto (mesmo indice de `points`).
         curves: Vec<Option<(i32, i32)>>,
+        autostart: bool,
     },
     /// Texto de interface autoral (Experimental); ver `compiler/hud_runtime.rs`.
     HudText {
@@ -409,6 +410,11 @@ pub enum LogicOp {
     },
     HideSprite {
         target_var: String,
+    },
+    /// Liga/desliga o trajeto autoral de um objeto (R5); `path_id` = id saneado do objeto.
+    PathControl {
+        path_id: String,
+        on: bool,
     },
     ConditionOverlap {
         left: LogicCollisionTarget,
@@ -886,6 +892,7 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
                         .iter()
                         .map(|point| point.curve.map(|curve| (curve.x, curve.y)))
                         .collect(),
+                    autostart: path.autostart,
                 });
             }
         }
@@ -2430,6 +2437,13 @@ fn compile_logic_node(
                     .unwrap_or_else(|| LogicMathExpr::Literal(param_i32(node, "y", 0))),
             }))
         }
+        "path_start" | "path_stop" => {
+            let target = param_string(node, "target")?;
+            Some(CompiledLogicNode::Linear(LogicOp::PathControl {
+                path_id: crate::compiler::path_runtime::path_id(&target),
+                on: node.node_type == "path_start",
+            }))
+        }
         "destroy_entity" => {
             let target = param_string(node, "target").unwrap_or_else(|| "entity".to_string());
             let runtime = runtime_entities.get(&target)?;
@@ -3281,6 +3295,7 @@ fn collect_unsupported_from_ops(
             | LogicOp::SetAnimationState { .. }
             | LogicOp::CameraFollow { .. }
             | LogicOp::HideSprite { .. }
+            | LogicOp::PathControl { .. }
             | LogicOp::PlaySound { .. }
             | LogicOp::PlayMusic { .. }
             | LogicOp::SourceBridgeError { .. } => {}
@@ -3719,7 +3734,8 @@ fn collect_logic_sound_names_from_ops(
             | LogicOp::CameraFollow { .. }
             | LogicOp::CameraControl { .. }
             | LogicOp::ShowSprite { .. }
-            | LogicOp::HideSprite { .. } => {}
+            | LogicOp::HideSprite { .. }
+            | LogicOp::PathControl { .. } => {}
             LogicOp::ConditionOverlap {
                 if_true, if_false, ..
             } => {

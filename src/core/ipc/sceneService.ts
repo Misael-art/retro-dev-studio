@@ -312,6 +312,8 @@ export interface PathPoint {
 export interface PathComponent {
   mode: "once" | "loop" | "pingpong";
   points: PathPoint[];
+  /** true (padrão): anda desde o início; false: espera o nó «Iniciar trajeto». */
+  autostart?: boolean;
 }
 
 export interface HudTextComponent {

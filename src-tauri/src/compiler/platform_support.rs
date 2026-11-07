@@ -68,6 +68,50 @@ pub fn path_support_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSup
     issues
 }
 
+/// R5: «Iniciar/Parar trajeto» must target an object that has a path in this scene.
+pub fn path_trigger_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSupportIssue> {
+    let with_path: std::collections::HashSet<&str> = resolved_scene
+        .entities
+        .iter()
+        .filter(|entity| entity.components.path.is_some())
+        .map(|entity| entity.entity_id.as_str())
+        .collect();
+    let mut issues = Vec::new();
+    for entity in &resolved_scene.entities {
+        let Some(graph) = entity
+            .components
+            .logic
+            .as_ref()
+            .and_then(|logic| logic.graph.as_deref())
+        else {
+            continue;
+        };
+        let Ok(parsed) = serde_json::from_str::<GraphNodes>(graph) else {
+            continue;
+        };
+        for node in parsed.nodes {
+            if node.node_type != "path_start" && node.node_type != "path_stop" {
+                continue;
+            }
+            let goal = node
+                .params
+                .get("target")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if !with_path.contains(goal) {
+                issues.push(LogicSupportIssue {
+                    platform: target.to_string(),
+                    entity_id: entity.entity_id.clone(),
+                    node_id: node.id,
+                    node_type: node.node_type,
+                    reason: format!("o objeto '{goal}' nao tem trajeto nesta cena"),
+                });
+            }
+        }
+    }
+    issues
+}
+
 #[derive(serde::Deserialize)]
 struct GraphNodes {
     #[serde(default)]
@@ -79,6 +123,8 @@ struct GraphNode {
     id: String,
     #[serde(rename = "type")]
     node_type: String,
+    #[serde(default)]
+    params: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Varre os grafos de logica ja resolvidos (prefab e graph_ref aplicados).
@@ -270,6 +316,25 @@ mod tests {
     use crate::ugdm::components::{Components, LogicComponent};
     use crate::ugdm::entities::{Entity, Transform};
     use std::collections::HashMap;
+
+    #[test]
+    fn path_trigger_must_target_an_object_with_a_path() {
+        let mut scene = scene_with(
+            r#"{"nodes":[{"id":"go","type":"path_start","params":{"target":"plat"}},{"id":"halt","type":"path_stop","params":{"target":"ghost"}}],"edges":[]}"#,
+        );
+        let mut plat = scene.entities[0].clone();
+        plat.entity_id = "plat".to_string();
+        plat.components = serde_json::from_str(
+            r#"{"sprite":{"asset":"a.png","frame_width":16,"frame_height":16,"pivot":null},"path":{"mode":"loop","points":[{"x":0,"y":0,"frames":10},{"x":32,"y":0,"frames":10}]}}"#,
+        )
+        .expect("plat");
+        scene.entities.push(plat);
+        let issues = path_trigger_issues("megadrive", &scene);
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].node_id, "halt");
+        assert!(issues[0].reason.contains("ghost"));
+        assert!(issue_diagnostic(&issues[0]).blocking);
+    }
 
     fn scene_with_path(components_json: &str) -> Scene {
         let mut scene = scene_with(r#"{"nodes":[],"edges":[]}"#);

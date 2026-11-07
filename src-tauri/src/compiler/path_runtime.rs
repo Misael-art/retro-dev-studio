@@ -21,6 +21,12 @@ pub struct PathSpec {
     pub mode: String,
     pub points: Vec<(i32, i32, u32, u32)>,
     pub curves: Vec<Option<(i32, i32)>>,
+    pub autostart: bool,
+}
+
+/// C identifier fragment for an object's path (shared with `LogicOp::PathControl`).
+pub fn path_id(entity_id: &str) -> String {
+    sanitize(entity_id)
 }
 
 fn sanitize(id: &str) -> String {
@@ -47,6 +53,7 @@ pub fn collect_paths(ast: &AstOutput) -> Vec<PathSpec> {
                 mode,
                 points,
                 curves,
+                autostart,
             } => Some(PathSpec {
                 id: sanitize(entity_id),
                 var_name: var_name.clone(),
@@ -55,6 +62,7 @@ pub fn collect_paths(ast: &AstOutput) -> Vec<PathSpec> {
                 mode: mode.clone(),
                 points: points.clone(),
                 curves: curves.clone(),
+                autostart: *autostart,
             }),
             _ => None,
         })
@@ -111,7 +119,9 @@ pub fn render_decls(ast: &AstOutput) -> String {
         ));
         out.push_str(&format!(
             "static u8 rds_path_{id}_seg = 0; static s8 rds_path_{id}_dir = 1; static u8 rds_path_{id}_done = 0;\n\
-             static u16 rds_path_{id}_t = 0; static u16 rds_path_{id}_hold = 0;\n"
+             static u16 rds_path_{id}_t = 0; static u16 rds_path_{id}_hold = 0;\n\
+             static u8 rds_path_{id}_on = {on};\n",
+            on = u8::from(path.autostart)
         ));
     }
     out
@@ -150,7 +160,7 @@ pub fn render_updates(ast: &AstOutput, indent: usize) -> String {
             "{pad}{{ /* trajeto {id} ({mode}) */\n\
              {pad}    u16 a = rds_path_{id}_seg; u16 b = {next};\n\
              {pad}    s32 px = rds_path_{id}_px[a]; s32 py = rds_path_{id}_py[a];\n\
-             {pad}    if (!rds_path_{id}_done) {{\n\
+             {pad}    if (!rds_path_{id}_done && rds_path_{id}_on) {{\n\
              {pad}        if (rds_path_{id}_hold > 0) {{ rds_path_{id}_hold--; }}\n\
              {pad}        else {{\n\
              {pad}            u16 ci = {seg_index}; s32 f = rds_path_{id}_frames[ci];\n\
@@ -190,6 +200,7 @@ mod tests {
                 start_y: 50,
                 mode: mode.to_string(),
                 curves: vec![None; points.len()],
+                autostart: mode != "once",
                 points,
             }],
             sprite_assets: Vec::new(),
@@ -253,5 +264,16 @@ mod tests {
         assert_eq!(eval(0, -48, 0, 30, 15), -24);
         let worst = 2048_i64 * 600 * 600;
         assert!(worst < i32::MAX as i64, "{worst}");
+    }
+
+    #[test]
+    fn on_state_gates_the_update_and_follows_autostart() {
+        let started = ast_with("loop", vec![(0, 0, 20, 0), (32, 0, 20, 0)]);
+        assert!(render_decls(&started).contains("static u8 rds_path_plat_1_on = 1;"));
+        assert!(render_updates(&started, 0)
+            .contains("if (!rds_path_plat_1_done && rds_path_plat_1_on)"));
+        let waiting = ast_with("once", vec![(0, 0, 0, 0), (32, 0, 20, 0)]);
+        assert!(render_decls(&waiting).contains("static u8 rds_path_plat_1_on = 0;"));
+        assert_eq!(path_id("plat-1"), "plat_1");
     }
 }

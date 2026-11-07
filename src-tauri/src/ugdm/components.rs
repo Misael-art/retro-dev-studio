@@ -672,6 +672,10 @@ pub struct PathComponent {
     /// `once` (para no fim), `loop` (volta ao inicio pelo ponto 0) ou `pingpong` (ida e volta).
     pub mode: String,
     pub points: Vec<PathPoint>,
+    /// `true` (padrao): o trajeto anda desde o inicio da cena. `false`: parado ate um no
+    /// «Iniciar trajeto» (`path_start`) ligar; «Parar trajeto» (`path_stop`) pausa onde esta.
+    #[serde(default = "default_true")]
+    pub autostart: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

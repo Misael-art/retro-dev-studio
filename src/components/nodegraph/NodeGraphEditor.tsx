@@ -244,6 +244,8 @@ export const REQUIRED_NOCODE_NODE_TYPES: NodeType[] = [
   "set_position",
   "spawn_entity",
   "destroy_entity",
+  "path_start",
+  "path_stop",
   "sprite_anim",
   "set_animation_state",
   "camera_follow",
@@ -1350,7 +1352,9 @@ const CARD_ENTITY_HEIGHT = 24;
 const CARD_PORT_ROW = 20;
 
 /** Parametros que o cartao edita diretamente (o compilador le exatamente esses campos). */
-function cardEditableParam(node: GraphNode, key: string): "number" | "button" | "camera_action" | "camera_target" | "sound" | null {
+function cardEditableParam(node: GraphNode, key: string): "number" | "button" | "camera_action" | "camera_target" | "path_target" | "sound" | null {
+  // R5: «Iniciar/Parar trajeto» só podem apontar para objetos que têm trajeto nesta cena.
+  if ((node.type === "path_start" || node.type === "path_stop") && key === "target") return "path_target";
   // Seletor de som no cartão (NodeSoundRow): mesma fonte da verdade do painel Sons.
   if (node.type === "action_sound" && key === "sfx") return "sound";
   if(node.type==="camera_control"){
@@ -1544,6 +1548,15 @@ function NodeCard({
       return <select aria-label={mode==="camera_action"?"Ação da câmera":"Câmera controlada"} data-testid={`node-param-${node.id}-${key}`} value={String(value)} onMouseDown={e=>e.stopPropagation()} onChange={e=>onParamChange(node.id,key,e.target.value)} className="max-w-[145px] rounded border bg-[var(--rds-surface-input)] px-1 text-xs">
         {!options.some(o=>o.id===String(value))&&<option value={String(value)} disabled>Escolha uma câmera visual / ação válida</option>}{options.map(o=><option key={o.id} value={o.id}>{o.label}</option>)}
       </select>;
+    }
+    if (mode === "path_target") {
+      const options = (useEditorStore.getState().activeScene?.entities ?? []).filter((e) => e.components.path).map((e) => ({ id: e.entity_id, label: getEntityDisplayName(e) }));
+      return (
+        <select aria-label="Objeto com trajeto" data-testid={`node-param-${node.id}-${key}`} value={String(value)} onMouseDown={(e) => e.stopPropagation()} onChange={(e) => onParamChange(node.id, key, e.target.value)} className="max-w-[145px] rounded border bg-[var(--rds-surface-input)] px-1 text-xs">
+          {!options.some((o) => o.id === String(value)) && <option value={String(value)} disabled>{options.length ? "Escolha um objeto com trajeto" : "Nenhum objeto com trajeto nesta cena"}</option>}
+          {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+        </select>
+      );
     }
     if (mode === "button") {
       const current = describeInputButton(String(value));

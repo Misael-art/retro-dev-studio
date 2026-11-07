@@ -117,6 +117,15 @@ export function ObjectPathSection({
           <option value="pingpong">Ida e volta</option>
         </select>
       </label>
+      <label className="mt-1 flex items-center gap-1 text-[#a6adc8]">
+        <input
+          type="checkbox"
+          data-testid="inspector-path-autostart"
+          checked={path.autostart !== false}
+          onChange={(event) => onChange({ ...path, autostart: event.target.checked })}
+        />
+        Começa sozinho <span className="text-[9px] text-[#7f849c]">(desmarcado: espera o nó «Iniciar trajeto»)</span>
+      </label>
       <p className="mt-1 text-[9px] text-[#7f849c]">Pontos em px relativos à posição inicial; duração em quadros para chegar ao ponto; espera ao chegar.</p>
       <ol className="mt-1 space-y-1">
         {path.points.map((_, index) => (

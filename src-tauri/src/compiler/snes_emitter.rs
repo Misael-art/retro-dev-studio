@@ -1300,6 +1300,11 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], context: &SnesContext, in
                     y = render_math_expr(y)
                 ));
             }
+            LogicOp::PathControl { path_id, .. } => {
+                out.push_str(&format!(
+                    "#error \"RetroDev trajeto: controle do trajeto '{path_id}' ainda nao tem runtime SNES\"\n"
+                ));
+            }
             LogicOp::HideSprite { target_var } => {
                 out.push_str(&format!(
                     "{indent}// Hide sprite {target}\n",
@@ -1879,7 +1884,8 @@ fn extract_vars_from_op(op: &LogicOp, vars: &mut std::collections::BTreeSet<Stri
         LogicOp::SetAnimationState { .. }
         | LogicOp::CameraFollow { .. }
         | LogicOp::CameraControl { .. }
-        | LogicOp::HideSprite { .. } => {}
+        | LogicOp::HideSprite { .. }
+        | LogicOp::PathControl { .. } => {}
         LogicOp::SetVar { var_name, value } => {
             vars.insert(var_name.clone());
             extract_vars_from_math(value, vars);

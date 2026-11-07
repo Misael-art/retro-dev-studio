@@ -18,6 +18,8 @@ export type NodeType =
   | "set_position"
   | "spawn_entity"
   | "destroy_entity"
+  | "path_start"
+  | "path_stop"
   | "sprite_anim"
   | "set_animation_state"
   | "condition_overlap"
@@ -175,6 +177,8 @@ export function isNodeType(value: unknown): value is NodeType {
     value === "set_position" ||
     value === "spawn_entity" ||
     value === "destroy_entity" ||
+    value === "path_start" ||
+    value === "path_stop" ||
     value === "sprite_anim" ||
     value === "set_animation_state" ||
     value === "condition_overlap" ||
