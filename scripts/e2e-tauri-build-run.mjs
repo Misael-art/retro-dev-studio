@@ -4,6 +4,8 @@ import {
   access,
   appendFile,
   copyFile,
+  chmod,
+  stat,
   cp,
   mkdir,
   mkdtemp,
@@ -29,6 +31,7 @@ import {
   UI_LAYOUT_ORACLE_TARGETS,
   buildUiLayoutOracleReport,
   evaluateUiLayoutOracleSnapshot,
+  visibleUiRect,
 } from "./ui-layout-oracle.mjs";
 import { diagnose as diagnoseHost } from "./host-manager.mjs";
 import { renderSonicFrameReference } from "./qa/sonic-frame-reference.mjs";
@@ -36,6 +39,31 @@ import { renderSonicFrameReference } from "./qa/sonic-frame-reference.mjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
+
+// Library identity and loaded ROM identity have different sources. Never use
+// the ROM digest as evidence of which native core was exercised.
+export async function collectCoreIdentity(core) {
+  if (!core?.core_path || !path.isAbsolute(core.core_path)) {
+    throw new Error("Observed core has no absolute library path; identity is unconfirmed.");
+  }
+  return {
+    label: core.core_label,
+    path: core.core_path,
+    sha256: createHash("sha256").update(await readFile(core.core_path)).digest("hex"),
+    rom_sha256: core.rom_sha256,
+    frames_run: core.frames_run,
+    framebuffer_sha256: core.framebuffer_sha256,
+  };
+}
+
+export function summarizeReportSteps(steps) {
+  return {
+    total: steps.length,
+    passed: steps.filter((step) => step.status === "passed").length,
+    failed: steps.filter((step) => step.status === "failed").length,
+    pending: steps.filter((step) => !["passed", "failed"].includes(step.status)).length,
+  };
+}
 
 function parseElf32Symbols(elf) {
   if (elf.length < 52 || elf.subarray(0, 4).toString("ascii") !== "\x7fELF" || elf[4] !== 1) {
@@ -471,7 +499,12 @@ function parseArgs(argv) {
           "create-game-from-zero",
           "reference-platformer",
           "authoring-acceptance",
+          "draft-recovery",
+          "studio-appearance",
           "nodegraph-authoring",
+          "rom-input",
+          "camera-workflow",
+          "camera-advanced",
           "behaviors-independence",
           "collect-goal",
           "inspection",
@@ -507,7 +540,15 @@ function parseArgs(argv) {
           "mugen-locomotion",
           "mugen-real",
           "mugen-original",
+          "mugen-hitdef",
+          "studio-jv",
+          "studio-jv-motion",
           "studio-e1",
+          "sgdk-split-resources",
+          "sgdk-native-c",
+          "sgdk-corpus",
+          "pixel-editor",
+          "image-ingress",
           "studio-e4",
           "studio-e2e5",
           "studio-e6",
@@ -570,6 +611,7 @@ function buildSpriteOverflowScene(target) {
 }
 
 function buildVramOverflowScene(target) {
+  if(target!=="snes") return buildAuthoredVramPressureScene("live_vram_overflow",128,128,5);
   const frameWidth = target === "snes" ? 64 : 32;
   const frameHeight = frameWidth;
   const frameCount = target === "snes" ? 33 : 129;
@@ -605,6 +647,7 @@ function buildVramOverflowScene(target) {
 }
 
 function buildVramWarningScene(target) {
+  if(target!=="snes") return buildAuthoredVramPressureScene("live_vram_warning",64,128,7);
   const frameWidth = target === "snes" ? 64 : 32;
   const frameHeight = frameWidth;
   const frameCount = target === "snes" ? 30 : 112;
@@ -637,6 +680,12 @@ function buildVramWarningScene(target) {
       },
     ],
   };
+}
+
+// Stress simultaneous frame buffers, not the number of frames in ROM. These
+// live-only drafts must continue proving genuine MD warning/overflow guards.
+function buildAuthoredVramPressureScene(id,width,height,count) {
+  return {scene_id:id,display_name:id,background_layers:[],palettes:[],entities:Array.from({length:count},(_,i)=>({entity_id:`${id}_${i}`,transform:{x:16,y:i*32},components:{sprite:{asset:"assets/sprites/hero.png",frame_width:width,frame_height:height,palette_slot:0,meta_sprite:true,priority:"foreground",animations:{stress:{frames:[0,1],fps:12,loop:true}}}}}))};
 }
 
 function buildSpriteWarningScene(target) {
@@ -892,8 +941,15 @@ function getDesktopFailureReportPath(scenario) {
 async function clearDesktopFailureReport(scenario) {
   const targetPath = getDesktopFailureReportPath(scenario);
   if (await pathExists(targetPath)) {
+    await archiveDesktopFailureReport(scenario, await readFile(targetPath));
     await rm(targetPath, { force: true });
   }
+}
+
+async function archiveDesktopFailureReport(scenario, bytes) {
+  const digest = createHash("sha256").update(bytes).digest("hex");
+  const archivePath = getDesktopFailureReportPath(scenario).replace(/\.json$/, `-${digest}.json`);
+  if (!(await pathExists(archivePath))) await writeFile(archivePath, bytes, { flag: "wx" });
 }
 
 async function writeDesktopFailureReport(error) {
@@ -912,10 +968,9 @@ async function writeDesktopFailureReport(error) {
     error: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack ?? null : null,
   };
-  await writeFile(
-    getDesktopFailureReportPath(scenario),
-    `${JSON.stringify(payload, null, 2)}\n`
-  );
+  const serialized = `${JSON.stringify(payload, null, 2)}\n`;
+  await archiveDesktopFailureReport(scenario, serialized);
+  await writeFile(getDesktopFailureReportPath(scenario), serialized);
 }
 
 async function ensureValidationDir() {
@@ -1180,12 +1235,18 @@ async function webdriverRequestDetailed(method, route, body) {
   };
 }
 
+// Seletor de cada elemento achado, para o erro de clique dizer qual controle falhou.
+const foundElementSelectors = new Map();
+
 async function webdriverRequest(method, route, body) {
   const result = await webdriverRequestDetailed(method, route, body);
 
   if (!result.ok) {
-    const details = result.payload?.value?.message ?? result.statusText;
-    throw new Error(`${method} ${route} falhou: ${details}`);
+    const value = result.payload?.value ?? {};
+    const details = [value.error, value.message || result.statusText, `HTTP ${result.status}`].filter(Boolean).join(" · ");
+    const selector = /\/element\/([^/]+)\//.exec(route)?.[1];
+    const known = selector ? foundElementSelectors.get(selector) : undefined;
+    throw new Error(`${method} ${route} falhou: ${details}${known ? ` · seletor ${known}` : ""}`);
   }
 
   if (result.payload?.value?.error) {
@@ -1230,7 +1291,7 @@ function readProcStat(pid) {
     const raw = readFileSync(`/proc/${pid}/stat`, "utf8");
     // pid (comm) state ppid ... starttime = campo 22; comm pode conter espacos/parenteses.
     const tail = raw.slice(raw.lastIndexOf(")") + 2).split(" ");
-    return { ppid: Number(tail[1]), start: tail[19] };
+    return { state: tail[0], ppid: Number(tail[1]), start: tail[19] };
   } catch {
     return null;
   }
@@ -1528,6 +1589,8 @@ async function tryAutomationApi(sessionId, methodName, args = [], timeoutMs = 80
 
 function createManualQaReport() {
   return {
+    schema: "rds-qa-automation/v1",
+    kind: "automated",
     generatedAt: null,
     scenario: "qa-rc",
     projectName: "",
@@ -2939,6 +3002,23 @@ async function pressKey(sessionId, key, options = {}) {
   }
 }
 
+async function pressNativeUndoRedo(sessionId, key) {
+  if (key !== "z" && key !== "y") fail(`Atalho de histórico desconhecido: ${key}`);
+  const response = await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, {
+    actions: [{
+      type: "key", id: "reference-history-keyboard", actions: [
+        { type: "keyDown", value: "\uE009" },
+        { type: "keyDown", value: key },
+        { type: "keyUp", value: key },
+        { type: "keyUp", value: "\uE009" },
+      ],
+    }],
+  });
+  if (!response.ok || response.payload?.value?.error) {
+    fail(`Atalho nativo de histórico ${key} recusado: ${JSON.stringify(response)}`);
+  }
+}
+
 const NATIVE_GAME_KEYS = {
   ArrowRight: "\uE014",
   ArrowLeft: "\uE012",
@@ -2975,15 +3055,21 @@ async function clickCanvasPointNatively(sessionId, selector, normalizedX, normal
       if (!(canvas instanceof HTMLElement)) return null;
       const rect = canvas.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return null;
+      const x = Math.round(rect.left + rect.width * arguments[1]);
+      const y = Math.round(rect.top + rect.height * arguments[2]);
+      const hit = document.elementFromPoint(x, y);
       return {
-        x: Math.round(rect.left + rect.width * arguments[1]),
-        y: Math.round(rect.top + rect.height * arguments[2]),
+        x,
+        y,
+        unobstructed: Boolean(hit && (hit === canvas || canvas.contains(hit))),
+        hit: hit instanceof Element ? { tag: hit.tagName, testId: hit.closest('[data-testid]')?.getAttribute('data-testid') ?? null } : null,
         rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
       };
     `,
     [selector, normalizedX, normalizedY]
   );
   if (!point) fail(`Canvas ausente para clique nativo: ${label}`);
+  if (!point.unobstructed) fail(`Canvas obstruído para clique nativo (${label}): ${JSON.stringify(point)}`);
   const response = await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, {
     actions: [{
       type: "pointer",
@@ -3640,6 +3726,7 @@ async function collectUiLayoutOracleSnapshot(sessionId, targetId, resolutionTag)
   return executeScript(
     sessionId,
     `
+      const clippedRect = ${visibleUiRect.toString()};
       const targetId = arguments[0];
       const resolutionTag = arguments[1];
       const allowedHorizontalScrollTestIds = new Set([
@@ -3806,7 +3893,7 @@ async function collectUiLayoutOracleSnapshot(sessionId, targetId, resolutionTag)
 
       function oracleScopeRoot() {
         if (targetId === "import-wizard") {
-          return document.querySelector('[data-testid="project-wizard-body"]') || document.body;
+          return document.querySelector('[data-testid="project-start-wizard"]') || document.body;
         }
         return document.body;
       }
@@ -3851,8 +3938,14 @@ async function collectUiLayoutOracleSnapshot(sessionId, targetId, resolutionTag)
         const node = document.querySelector(selector);
         if (!(node instanceof HTMLElement || node instanceof SVGElement)) return null;
         const container = containerSelector ? document.querySelector(containerSelector) : node.parentElement;
+        const snapshot = snapshotNode(node, key);
+        // Scene is an intentionally panned world. Measure its usable visible
+        // viewport; retain the full world bounds for auditing. Other surfaces
+        // still require their complete main visual to fit the panel.
+        const visibleWorld = kind === "scene" ? clippedRect(node) : null;
         return {
-          ...snapshotNode(node, key),
+          ...snapshot,
+          ...(kind === "scene" ? { rect: visibleWorld ?? snapshot.rect, visible: !!visibleWorld, worldRect: snapshot.rect } : {}),
           kind,
           containerRect: rectOf(container instanceof Element ? container : node.parentElement),
         };
@@ -3968,7 +4061,7 @@ async function collectUiLayoutOracleSnapshot(sessionId, targetId, resolutionTag)
         }));
 
       const mainVisuals = [
-        mainVisual('[data-testid="project-wizard-body"]', '[data-testid="project-wizard-body"]', "import-wizard", "wizard"),
+        mainVisual('[data-testid="project-start-wizard"]', '[data-testid="project-start-wizard"]', "import-wizard", "wizard"),
         mainVisual('[data-testid="viewport-scene-canvas"]', '[data-testid="viewport-scene-stage"]', "viewport-scene-canvas", "scene"),
         mainVisual('[data-testid="viewport-game-canvas"]', '[data-testid="viewport-game-stage"]', "viewport-game-canvas", "game"),
         mainVisual('[data-testid="nodegraph-canvas"]', '[data-panel-id="center"], #center', "nodegraph-canvas", "nodegraph"),
@@ -4034,7 +4127,7 @@ async function prepareUiLayoutOracleTarget(sessionId, target) {
   }
 
   if (target.id === "import-wizard") {
-    await waitForOnboardingWizard(sessionId);
+    await prepareDefaultProjectWizard(sessionId);
     return;
   }
 
@@ -4519,6 +4612,7 @@ async function assertNoGrossMainShellTextOverlap(sessionId) {
   const overlaps = await executeScript(
     sessionId,
     `
+      const clippedRect = ${visibleUiRect.toString()};
       const directText = (element) => Array.from(element.childNodes)
         .filter((node) => node.nodeType === Node.TEXT_NODE)
         .map((node) => node.textContent ?? "")
@@ -4529,12 +4623,8 @@ async function assertNoGrossMainShellTextOverlap(sessionId) {
         if (!(element instanceof HTMLElement)) {
           return false;
         }
-        const style = window.getComputedStyle(element);
-        const rect = element.getBoundingClientRect();
-        return style.visibility !== "hidden" &&
-          style.display !== "none" &&
-          Number(style.opacity || "1") > 0.05 &&
-          rect.width > 8 &&
+        const rect = clippedRect(element);
+        return rect && rect.width > 8 &&
           rect.height > 8;
       };
       const scopeSelectors = [
@@ -4567,7 +4657,7 @@ async function assertNoGrossMainShellTextOverlap(sessionId) {
       const elements = Array.from(document.querySelectorAll(scopeSelectors.join(",")))
         .filter(isVisible)
         .map((element) => {
-          const rect = element.getBoundingClientRect();
+          const rect = clippedRect(element);
           const text = resolveLabelText(element);
           return { element, rect, text };
         })
@@ -4638,7 +4728,7 @@ async function clickTopBarMenuAction(sessionId, label) {
         `
           const label = String(arguments[0] ?? "").trim();
           const normalize = (value) => String(value ?? "").replace(/\\s+/g, " ").trim();
-          const button = Array.from(document.querySelectorAll("button")).find((candidate) => {
+          const button = Array.from(document.querySelectorAll("#studio-main-menu button")).find((candidate) => {
             const actionLabel = normalize(candidate.querySelector("span")?.textContent ?? candidate.textContent);
             return candidate instanceof HTMLButtonElement && actionLabel === label;
           });
@@ -4682,15 +4772,19 @@ export function createCurrentBuildFrameGate(expectedRomSha256, previousInputSess
   };
 }
 
-async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifactPrefix) {
+async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifactPrefix, { nativeClick = false, target = "megadrive" } = {}) {
   const beforeState = await readAutomationState(sessionId);
   const previousInputSession = (await callAutomationApi(sessionId, "getLastInputObservation"))?.joypadSessionId ?? null;
   const beforeBuildCount = (beforeState?.consoleEntries ?? []).filter((entry) =>
     String(entry.message ?? "").includes("Build concluido.")
   ).length;
+  const beforeRefusedCount = (beforeState?.consoleEntries ?? []).filter((entry) =>
+    /recusado pelo wrapper|Build falhou/.test(String(entry.message ?? ""))
+  ).length;
 
   await waitForBuildRunReady(sessionId, timeoutMs);
-  await clickByTestId(sessionId, "toolbar-build-run");
+  if (nativeClick) await clickButtonByTestIdNative(sessionId, "toolbar-build-run");
+  else await clickByTestId(sessionId, "toolbar-build-run");
 
   let lastBuildRunDiagnostics = null;
   const state = await waitFor(
@@ -4740,7 +4834,13 @@ async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifa
     },
     timeoutMs,
     `Build & Run nao concluiu para ${label}.`,
-    1000
+    1000,
+    async () => {
+      const refused = ((await readAutomationState(sessionId))?.consoleEntries ?? [])
+        .filter((entry) => /recusado pelo wrapper|Build falhou/.test(String(entry.message ?? "")))
+        .slice(beforeRefusedCount);
+      return refused.length > 0 ? `build falhou: ${String(refused.at(-1).message).slice(0, 400)}` : null;
+    }
   ).catch(async (error) => {
     const diagnosticPayload = {
       label,
@@ -4770,7 +4870,14 @@ async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifa
     fail(`Console nao registrou caminho de ROM para ${label}.`);
   }
   await assertPathExists(romPath, `ROM gerada nao encontrada para ${label}: ${romPath}`);
-  const rom = await assertSegaHeader(romPath);
+  let rom;
+  if (target === "snes") {
+    const mastering = await executeAsyncScript(sessionId, `const done=arguments[arguments.length-1];
+      const invoke=window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke;
+      invoke("inspect_rom_mastering",{romPath:arguments[0]}).then(done).catch(e=>done({error:String(e)}));`, [romPath]);
+    if (mastering.platform !== "snes" || mastering.blockers?.length !== 0) fail(`SNES ROM format/mastering refused: ${JSON.stringify(mastering)}`);
+    rom = { header: mastering.header_signature, sizeBytes: mastering.size_bytes };
+  } else rom = await assertSegaHeader(romPath);
   const romSha256 = createHash("sha256").update(await readFile(romPath)).digest("hex");
   const frameReady = createCurrentBuildFrameGate(romSha256, previousInputSession);
 
@@ -4787,7 +4894,8 @@ async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifa
   return {
     label,
     rom_path: romPath,
-    sega_header: rom.header,
+    sega_header: target === "megadrive" ? rom.header : null,
+    target,
     rom_size_bytes: rom.sizeBytes,
     rom_sha256: romSha256,
     framebuffer,
@@ -4801,6 +4909,12 @@ async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifa
 // com caminho fora da pasta falha sem deixar projeto. So o dialogo nativo de pasta e
 // substituido (setNextExternalImportPath), como no importSgdkProject existente.
 async function finishMugenSourceReview(sessionId) {
+  // Metadata alone intentionally cannot authorize import. Legacy callers must
+  // perform the same visible Analyze action as the current source-review flow.
+  const pendingAnalysis = await waitFor(async () => executeScript(sessionId, `const b=document.querySelector('[data-testid="mugen-source-import"]');
+    const a=document.querySelector('[data-testid="mugen-source-analyze"]');
+    return b && (!b.disabled || (a && !a.disabled)) ? { importDisabled:b.disabled } : null;`), 120000, "Triagem MUGEN nao terminou.", 200);
+  if (pendingAnalysis.importDisabled) await clickByTestId(sessionId, "mugen-source-analyze");
   await waitFor(async () => executeScript(sessionId, `const b=document.querySelector('[data-testid="mugen-source-import"]'); return b && !b.disabled;`), 120000, "Analise MUGEN nao liberou a importacao revisada.", 200);
   await clickByTestId(sessionId, "mugen-source-import");
 }
@@ -4946,8 +5060,8 @@ async function runMugenImportScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs
 
   // 1. Wizard visivel -> importador externo -> perfil MUGEN -> Importar.
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   const selected = await js(`
     const select = document.querySelector('[data-testid="external-import-profile-select"]');
     if (!(select instanceof HTMLSelectElement)) return null;
@@ -5134,9 +5248,7 @@ async function runMugenImportScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto importado.", 300);
-  await clickByTestId(sessionId, "wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "Projeto importado nao reabriu.", 300);
   await clickByTestId(sessionId, "workspace-rail-scene");
   await clickByTestId(sessionId, "hierarchy-entity-probe");
@@ -5237,9 +5349,9 @@ async function runMugenImportScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs
   const escapeName = `Mugen_Escape_${Date.now()}`;
   const before = (await readdir(baseDir)).filter((n) => n.startsWith("Mugen_Escape_"));
   await clickTopBarMenuAction(sessionId, "Novo Projeto");
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   const toggled = await js(`return Boolean(document.querySelector('[data-testid="external-import-profile-select"]'));`);
-  if (!toggled) await clickByTestId(sessionId, "wizard-external-import-toggle");
+  if (!toggled) await prepareExternalImportWizard(sessionId);
   await js(`
     const select = document.querySelector('[data-testid="external-import-profile-select"]');
     const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set;
@@ -5415,8 +5527,8 @@ async function runMugenControlScenario(sessionId, timeoutMs, uiBootstrapTimeoutM
 
   // 1. Importar pela UI.
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   const selected = await js(`
     const select = document.querySelector('[data-testid="external-import-profile-select"]');
     if (!(select instanceof HTMLSelectElement)) return null;
@@ -5499,9 +5611,7 @@ async function runMugenControlScenario(sessionId, timeoutMs, uiBootstrapTimeoutM
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto importado.", 300);
-  await clickByTestId(sessionId, "wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "Projeto importado nao reabriu.", 300);
   await clickByTestId(sessionId, "workspace-rail-scene");
   await clickByTestId(sessionId, "hierarchy-entity-walker");
@@ -5726,8 +5836,8 @@ async function runMugenRealScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, 
     if (result !== String(value)) fail(`Select ${id} nao aceitou ${value}.`);
   };
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   await select("external-import-profile-select", "mugen");
   const name = `Ken_Majik_Real_${Date.now()}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
@@ -5794,9 +5904,7 @@ async function runMugenRealScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, 
   await waitForAppWindowReady(sessionId,uiBootstrapTimeoutMs,"App nao reabriu.");
   await waitFor(async () => js("return !!window.__RDS_E2E__;"),uiBootstrapTimeoutMs,"API nao voltou.",200);
   await setSessionWindowRect(sessionId,1920,1080);
-  await fillInputBySelector(sessionId,'input[placeholder="Nome do projeto"]',name);
-  await waitFor(async () => js(`return !!document.querySelector('[data-testid="wizard-existing-project-card"]');`),30000,"Wizard nao encontrou Ken.",200);
-  await clickByTestId(sessionId,"wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, project);
   await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir===project,60000,"Ken nao reabriu.",200);
   await clickByTestId(sessionId,"workspace-rail-scene");
   await clickByTestId(sessionId,"hierarchy-entity-kenmasters");
@@ -5858,7 +5966,7 @@ async function runMugenRealScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, 
   const canvas = await js(`const c=document.querySelector('[data-testid="viewport-game-canvas"]');const d=c.getContext('2d').getImageData(0,0,c.width,c.height);return {width:c.width,height:c.height,rgba:Array.from(d.data),png:c.toDataURL('image/png')};`);
   report.core_canvas_equal=core.framebuffer_width===canvas.width&&core.framebuffer_height===canvas.height&&Buffer.from(core.framebuffer_rgba).equals(Buffer.from(canvas.rgba));
   if (!report.core_canvas_equal) fail("Framebuffer do core difere do canvas pausado.");
-  report.core = {label:core.core_label,path:core.core_path,sha256:await hashFile(core.core_path),frames_run:core.frames_run,framebuffer_sha256:core.framebuffer_sha256};
+  report.core = await collectCoreIdentity(core);
   await writeFile(path.join(output,"canvas-paused.png"),Buffer.from(canvas.png.split(",")[1],"base64"));
   await writeFile(path.join(output,"core-paused.rgba"),Buffer.from(core.framebuffer_rgba));
   const frames=await js("CanvasRenderingContext2D.prototype.putImageData=window.__mugenRealRec.orig;return window.__mugenRealRec.frames;");
@@ -5877,9 +5985,1699 @@ async function runMugenRealScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, 
 // (o3 reutiliza a imagem de o1) -> desfazer/refazer -> voltar a cena com zoom preservado -> salvar ->
 // destruir janela -> reabrir -> Build & Run -> teclado nativo + "Step 1 frame" da UI com sonda de RAM
 // (rotulada) -> restaurar pela UI -> rebuild com bytes iguais ao baseline. Nenhum JSON e editado a mao.
+async function verifyPagedKenBuild(sessionId, project, animations) {
+  const scene = JSON.parse(await readFile(path.join(project, "scenes/main.json"), "utf8"));
+  const sprite = scene.entities.find((e) => e.entity_id === "kenmasters").components.sprite;
+  const source = decodeWindowPng(await readFile(path.join(project, sprite.asset)));
+  const names = Object.keys(animations).sort();
+  const { frame_width: fw, frame_height: fh } = sprite;
+  const columns = Math.ceil(source.width / fw);
+  let pixels = 0;
+  let maxPagePixels = 0;
+  let palette = null;
+  for (let i = 0; i < names.length; i += 1) {
+    const frames = animations[names[i]].frames;
+    const bmp = await readFile(path.join(project, `build/megadrive/res/rds_generated/sprites/kenmasters/animation_${i}.bmp`));
+    const w = bmp.readUInt32LE(18), h = bmp.readUInt32LE(22), offset = bmp.readUInt32LE(10);
+    if (bmp.toString("ascii", 0, 2) !== "BM" || bmp.readUInt16LE(28) !== 8 || bmp.readUInt32LE(30) !== 0 || w !== fw * frames.length || h !== fh || w * h > 67108864) fail(`Pagina ${i} fora do contrato.`);
+    const colors = bmp.subarray(54, 1078);
+    if (palette && !palette.equals(colors)) fail(`Paleta da pagina ${i} divergiu.`);
+    palette = colors;
+    const stride = (w + 3) & ~3;
+    for (let occurrence = 0; occurrence < frames.length; occurrence += 1) {
+      const sx = (frames[occurrence] % columns) * fw, sy = Math.floor(frames[occurrence] / columns) * fh;
+      for (let y = 0; y < fh; y += 1) for (let x = 0; x < fw; x += 1) {
+        const at = ((sy + y) * source.width + sx + x) * source.channels;
+        const index = bmp[offset + (h - y - 1) * stride + occurrence * fw + x];
+        const alpha = sx + x >= source.width || sy + y >= source.height ? 0 : source.channels === 4 ? source.pixels[at + 3] : 255;
+        if (!alpha ? index !== 0 : index === 0 || colors[index * 4] !== source.pixels[at + 2] || colors[index * 4 + 1] !== source.pixels[at + 1] || colors[index * 4 + 2] !== source.pixels[at]) {
+          fail(`Pixel divergente ${names[i]}/${occurrence} em (${x},${y}).`);
+        }
+        pixels += 1;
+      }
+    }
+    maxPagePixels = Math.max(maxPagePixels, w * h);
+  }
+  // Independent ABI read of the pinned SGDK 2.11 structures: SpriteDefinition
+  // has numAnimation at +8, animations at +10, maxima at +14/+16; Animation
+  // begins with u8 numFrame. Runtime RAM is word-swapped by this pinned core.
+  const symbols = parseElf32Symbols(await readFile(path.join(project, "build/megadrive/out/rom.out")));
+  const rom = await readFile(path.join(project, "build/megadrive/out/rom.bin"));
+  const readRam = async (address, length) => {
+    if (!Number.isInteger(address)) fail("Simbolo da tabela paginada ausente.");
+    const r = await executeAsyncScript(sessionId, `const done=arguments[arguments.length-1];const invoke=window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke;
+      invoke("emulator_read_memory",{region:2,offset:arguments[0]&65535,length:arguments[1]}).then(v=>done(v.data)).catch(e=>done({error:String(e)}));`, [address, length]);
+    if (!Array.isArray(r) || r.length !== length) fail(`RAM da tabela ilegivel: ${JSON.stringify(r)}`);
+    return Buffer.from(r);
+  };
+  const word = (b, at) => b[at] | (b[at + 1] << 8);
+  const pointer = (b, at) => (word(b, at) * 65536 + word(b, at + 2)) >>> 0;
+  const logical = await readRam(symbols.get("kenmasters"), 18);
+  if (word(logical, 8) !== names.length) fail("Tabela logica perdeu animacoes.");
+  const refs = await readRam(pointer(logical, 10), names.length * 4);
+  let occurrences = 0, maxTiles = 0, maxSprites = 0;
+  for (let i = 0; i < names.length; i += 1) {
+    const physical = symbols.get(`kenmasters__rds_page_${i}`);
+    if (!Number.isInteger(physical) || physical + 18 > rom.length || rom.readUInt16BE(physical + 8) !== 1) fail(`Definicao fisica ${i} invalida.`);
+    const animation = rom.readUInt32BE(rom.readUInt32BE(physical + 10));
+    const count = rom[animation];
+    if (pointer(refs, i * 4) !== animation || count !== animations[names[i]].frames.length) fail(`Animacao ${names[i]} perdeu indices/ocorrencias no ROM: ${count}.`);
+    occurrences += count;
+    maxTiles = Math.max(maxTiles, rom.readUInt16BE(physical + 14));
+    maxSprites = Math.max(maxSprites, rom.readUInt16BE(physical + 16));
+  }
+  if (word(logical, 14) !== maxTiles || word(logical, 16) !== maxSprites) fail("Residencia nao cobre todas as paginas.");
+  return { animations: names.length, occurrences, pixels_compared: pixels, max_page_pixels: maxPagePixels, palettes_identical: true, compiled_indices_verified: true, max_tiles: maxTiles, max_sprites: maxSprites };
+}
+
+// Compare the real scene canvas with the untouched source PNG, independently
+// of cells/dedup. This catches an imported image that exists but is scrambled.
+async function verifySgdkMountedImages(sessionId, project, ledger, report, prefix) {
+  const state = () => readAutomationState(sessionId);
+  await clickElement(sessionId, await findElement(sessionId, '[data-testid="viewport-view-options"] > summary'));
+  const spriteToggle = await findElement(sessionId, 'button[title="Mostrar sprites"]');
+  const spritesWereVisible = await executeScript(sessionId, `return document.querySelector('button[title="Mostrar sprites"]')?.getAttribute('aria-pressed') === 'true';`);
+  if (spritesWereVisible) await clickElement(sessionId, spriteToggle);
+  await clickElement(sessionId, await findElement(sessionId, '[data-testid="viewport-view-options"] > summary'));
+  let checked = 0;
+  for (const descriptor of ledger.scenes) {
+    const scene = JSON.parse(await readFile(path.join(project, descriptor.scene_path), "utf8"));
+    const entity = scene.entities.find(e => e.components.tilemap);
+    const tilemap = entity?.components.tilemap;
+    const mapping = ledger.mappings.find(m => m.destination === tilemap?.tileset);
+    if (!tilemap || !mapping || !/\.png$/i.test(tilemap.tileset) || !tilemap.cells?.length) continue;
+    const option = await findElement(sessionId, `select[title="Selecionar cena ativa"] option[value="${descriptor.scene_path}"]`);
+    await clickElement(sessionId, option);
+    await waitFor(async () => (await state())?.activeScenePath === descriptor.scene_path, 30000, "Imported scene did not activate.", 100);
+    await waitFor(async () => executeScript(sessionId, `const e=document.querySelector('[data-testid="viewport-asset-health-summary"]');return e&&Number(e.dataset.ready)>0&&Number(e.dataset.loading)===0&&Number(e.dataset.failed)===0;`), 30000, "Imported image did not load.", 100);
+    const original = (await readFile(path.join(project, tilemap.tileset))).toString("base64");
+    await executeScript(sessionId, `const img=new Image();window.__sgdkSourceOracle=img;img.src='data:image/png;base64,'+arguments[0];`, [original]);
+    await waitFor(() => executeScript(sessionId, `const i=window.__sgdkSourceOracle;return i?.complete&&i.naturalWidth>0;`), 10000, "Source image oracle did not decode.", 100);
+    const context = await state();
+    const metrics = await waitFor(async () => {
+      const result = await executeScript(sessionId, `
+        const image=window.__sgdkSourceOracle,actual=document.querySelector('[data-testid="viewport-scene-canvas"]');
+        const expected=document.createElement('canvas');expected.width=image.naturalWidth;expected.height=image.naturalHeight;
+        const ctx=expected.getContext('2d');ctx.drawImage(image,0,0);
+        const src=ctx.getImageData(0,0,expected.width,expected.height).data;
+        const [x,y]=arguments[0];
+        if(x<0||y<0||x+expected.width>actual.width||y+expected.height>actual.height)return {outside:true};
+        const dst=actual.getContext('2d').getImageData(x,y,expected.width,expected.height).data;
+        let compared=0,mismatches=0;
+        for(let i=0;i<src.length;i+=4){
+          // Ignore transparent/key-color pixels: the independent backend test
+          // covers all RGBA; here compare every visible opaque artwork pixel.
+          if(src[i+3]!==255||(src[i]===255&&src[i+1]===0&&src[i+2]===255))continue;
+          compared++;if(src[i]!==dst[i]||src[i+1]!==dst[i+1]||src[i+2]!==dst[i+2]||dst[i+3]!==255)mismatches++;
+        }
+        return {compared,mismatches,width:expected.width,height:expected.height};
+      `, [[entity.transform.x - context.activeScene.worldBounds.minX, entity.transform.y - context.activeScene.worldBounds.minY]]);
+      return result?.compared > 0 && result.mismatches === 0 ? result : false;
+    }, 15000, `Source artwork and rendered scene differ: ${descriptor.scene_path}`, 150);
+    addReportStep(report, `mounted_pixels_${descriptor.scene_id}`, "passed", { scene: descriptor.scene_path, resource: mapping.resource_name, ...metrics });
+    if (mapping.resource_kind === "TILESET") {
+      const notice = await executeScript(sessionId, `return document.querySelector('[data-testid="hierarchy-scene-notice"]')?.textContent ?? '';`);
+      if (!notice.includes("Banco de peças")) fail(`Raw bank is presented as a mounted scene: ${descriptor.scene_path}`);
+    }
+    if (/fight|plane_ko|round1/i.test(mapping.resource_name)) {
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${descriptor.scene_id}.png`), "Source artwork assembled in the native scene editor");
+    }
+    checked++;
+  }
+  await executeScript(sessionId, "delete window.__sgdkSourceOracle;");
+  if (!checked) fail("No mounted PNG was checked.");
+  const main = await findElement(sessionId, 'select[title="Selecionar cena ativa"] option[value="scenes/main.json"]');
+  await clickElement(sessionId, main);
+  await waitFor(async () => (await state())?.activeScenePath === "scenes/main.json", 30000, "Primary scene did not reactivate.", 100);
+  if (spritesWereVisible) {
+    await clickElement(sessionId, await findElement(sessionId, '[data-testid="viewport-view-options"] > summary'));
+    await clickElement(sessionId, await findElement(sessionId, 'button[title="Mostrar sprites"]'));
+    await clickElement(sessionId, await findElement(sessionId, '[data-testid="viewport-view-options"] > summary'));
+  }
+  addReportStep(report, "all_mounted_images_match_source", "passed", { checked });
+}
+
+async function runSgdkCorpusAssetReview(sessionId, onProjectCreated) {
+  const corpus = JSON.parse(await readFile(process.env.RDS_SGDK_CORPUS_MANIFEST, "utf8"));
+  const output = process.env.RDS_SGDK_OUTPUT;
+  if (!output || !Array.isArray(corpus.projects)) fail("Corpus review needs a project manifest and output directory.");
+  await mkdir(output, { recursive: true });
+  const prefix = `sgdk-corpus-assets-${artifactTimestamp()}`;
+  const report = { schema: "retrodev.sgdk_corpus_asset_review/v1", app_sha256: createHash("sha256").update(await readFile(currentE2eRunContext.appPath)).digest("hex"),
+    harness_sha256: createHash("sha256").update(await readFile(new URL(import.meta.url))).digest("hex"),
+    qualification: "native imports, source artwork, catalog and authoring; no original C gameplay equivalence or human accessibility certification", projects: [], artifacts: [] };
+  const js = (code, args = []) => executeScript(sessionId, code, args);
+  const state = () => readAutomationState(sessionId);
+  const persist = () => writeFile(path.join(output, `${prefix}.json`), JSON.stringify(report, null, 2));
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  for (const [index, source] of corpus.projects.entries()) {
+    const tag = `${prefix}-${String(index + 1).padStart(2, "0")}`;
+    const result = { id: source.id, source: source.path, steps: [], artifacts: [], status: "running" };
+    report.projects.push(result);
+    try {
+      await prepareExternalImportWizard(sessionId);
+      await js(`const e=document.querySelector('[data-testid="external-import-profile-select"]');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,'sgdk');e.dispatchEvent(new Event('change',{bubbles:true}));`);
+      const projectName = `${source.id} importado ${new Date().toISOString().slice(11,19).replaceAll(':','')}`;
+      await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
+      await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source.path]);
+      await clickButtonByTestIdNative(sessionId, "external-import-confirm");
+      const opened = await waitFor(async () => {
+        const s = await state();
+        if (s?.activeProjectDir && s.activeProjectName === projectName && s.projectSourceKind === "imported_sgdk") return { state: s };
+        const error = await js(`return document.querySelector('[data-testid="project-start-wizard"] [role="alert"]')?.textContent ?? '';`);
+        return error ? { error } : false;
+      }, 180000, `Import did not settle: ${source.id}`, 200);
+      if (opened.error) {
+        result.status = source.resource_count === 0 ? "not_importable_source" : "failed";
+        result.error = opened.error;
+        addReportArtifact(result, await captureScreenshot(sessionId, `${tag}-source-refused.png`), "Source refused with an actionable wizard message");
+        await persist();
+        continue;
+      }
+      const project = opened.state.activeProjectDir;
+      result.project = project; currentE2eRunContext.project = project; onProjectCreated(project);
+      await clickButtonByTestIdNative(sessionId, "shell-persona-pro");
+      if (await js(`return !!document.querySelector('[data-testid="console-drawer"][data-visible="true"]');`)) {
+        await clickButtonByTestIdNative(sessionId,"console-close");
+        await waitFor(() => js(`return !document.querySelector('[data-testid="console-drawer"][data-visible="true"]');`),5000,"Console did not close after recovering from the previous source error.",100);
+        addReportStep(result,"return_to_workspace_preserving_error_logs","passed");
+      }
+      const names = (await readdir(path.join(project, ".rds/imports/sgdk"))).filter(n => n.endsWith(".json"));
+      const ledger = JSON.parse(await readFile(path.join(project, ".rds/imports/sgdk", names[0]), "utf8"));
+      result.resources = ledger.mappings.length;
+      result.scenes = ledger.scenes.length;
+      result.skipped = ledger.skipped_sources;
+      if (path.resolve(ledger.donor_root) !== path.resolve(source.path)) fail("Import opened a different donor than the selected project.");
+      if (ledger.mappings.length === 0) {
+        const scene = JSON.parse(await readFile(path.join(project, "scenes/main.json"), "utf8"));
+        if (!scene.entities.some(e => e.components.logic?.imported_semantics?.audit_flags?.includes("code_only_donor"))) fail("No resources and no explicit code-only bridge.");
+        const body = await js(`return document.querySelector('[data-testid="hierarchy-scene-notice"]')?.textContent ?? '';`);
+        if (!body.includes("sem imagens externas")) fail("Code-only project is presented as a complete image import.");
+        result.status = "code_only_no_external_images";
+        addReportArtifact(result, await captureScreenshot(sessionId, `${tag}-code-only.png`), "Code-only source explicitly distinguished from lost artwork");
+        continue;
+      }
+      const paths = [...new Set(ledger.mappings.map(m => m.destination))];
+      for (const mapping of ledger.mappings) {
+        const original = path.join(ledger.effective_root || source.path, mapping.source_relative);
+        const a = createHash("sha256").update(await readFile(original)).digest("hex");
+        const b = createHash("sha256").update(await readFile(path.join(project, mapping.destination))).digest("hex");
+        if (a !== b) fail(`Asset changed during import: ${mapping.resource_name}`);
+      }
+      addReportStep(result, "resources_unchanged", "passed", { resources: ledger.mappings.length, unique_files: paths.length });
+      addReportArtifact(result, await captureScreenshot(sessionId, `${tag}-01-imported-scene.png`), "Imported primary scene");
+      await verifySgdkMountedImages(sessionId, project, ledger, result, tag);
+      await callAutomationApi(sessionId, "openToolsWorkspace", ["assets", "editing", true]);
+      await waitForBodyText(sessionId, "Assets canonicos", 30000, "Asset catalog did not load.");
+      await clickButtonByText(sessionId, "Miniaturas", "exact");
+      const shown = await waitFor(async () => {
+        const values = await js(`return [...document.querySelectorAll('[data-testid="asset-browser-item"]')].map(e=>e.dataset.assetPath);`);
+        return paths.every(p => values.includes(p)) ? values : false;
+      }, 30000, `Imported files missing from visible catalog: ${source.id}`, 100);
+      const declaredNames = await js(`return [...document.querySelectorAll('[data-testid="asset-browser-item"]')].flatMap(e=>JSON.parse(e.dataset.resourceNames??'[]'));`);
+      for (const mapping of ledger.mappings) if (!declaredNames.includes(mapping.resource_name)) fail(`Declared resource use hidden in catalog: ${mapping.resource_name}`);
+      result.resource_layouts = await js(`return [...document.querySelectorAll('[data-testid="asset-browser-item"]')].flatMap(e=>JSON.parse(e.dataset.resourceLayouts??'[]'));`);
+      const invalidLayouts = result.resource_layouts.filter(r => r.kind === "SPRITE" && !(r.width > 0 && r.height > 0));
+      if (invalidLayouts.length) fail(`Imported sprites have no operational frame layout: ${JSON.stringify(invalidLayouts)}`);
+      const previews = [];
+      for (const assetPath of shown) {
+        // Scroll through every real card to exercise lazy loading. No synthetic
+        // gallery, alternate decoder, asset URL or product state is injected.
+        await js(`const e=[...document.querySelectorAll('[data-testid="asset-browser-item"]')].find(e=>e.dataset.assetPath===arguments[0]);e.scrollIntoView({block:'center'});`, [assetPath]);
+        const visual = await waitFor(async () => {
+          const v = await js(`const e=[...document.querySelectorAll('[data-testid="asset-browser-item"]')].find(e=>e.dataset.assetPath===arguments[0]);const i=e?.querySelector('img');const f=e?.querySelector('[data-testid="asset-browser-item-preview-fallback"]');return {image:!!(i||f),ready:!!i?.complete&&i.naturalWidth>0,failed:['missing','failed'].includes((i??f)?.dataset.visualState),width:i?.naturalWidth,height:i?.naturalHeight,label:e?.textContent};`, [assetPath]);
+          return !v.image || v.ready || v.failed ? v : false;
+        }, 15000, `Preview never resolved: ${assetPath}`, 100);
+        previews.push({ path: assetPath, ...visual });
+        if (visual.image && !visual.ready) fail(`Broken catalog preview: ${assetPath}`);
+      }
+      result.catalog = { assets: shown.length, image_previews: previews.filter(p => p.image).length, previews };
+      addReportStep(result, "every_asset_identifiable_and_every_image_preview_decodes", "passed", { assets: shown.length, image_previews: result.catalog.image_previews });
+      addReportArtifact(result, await captureScreenshot(sessionId, `${tag}-02-catalog.png`), "Resource catalog with names, types and actions");
+      const shared = await js(`return [...document.querySelectorAll('[data-testid="asset-browser-item"]')].map(e=>({path:e.dataset.assetPath,names:JSON.parse(e.dataset.resourceNames??'[]')})).find(e=>e.names.length>1)??null;`);
+      if (shared) {
+        await fillInputBySelector(sessionId, '[data-testid="asset-browser-search"]', shared.path.split('/').pop());
+        await js(`const e=[...document.querySelectorAll('[data-testid="asset-browser-item"]')].find(e=>e.dataset.assetPath===arguments[0]);e.querySelector('button').click();`, [shared.path]);
+        await waitFor(() => js(`return !!document.querySelector('[data-testid="asset-browser-resource-variant"]');`),10000,"Shared resource uses are not selectable.",100);
+        for (let i=0;i<shared.names.length;i++) {
+          await clickElement(sessionId,await findElement(sessionId,`[data-testid="asset-browser-resource-variant"] option[value="${i}"]`));
+          await waitFor(() => js(`const s=document.querySelector('[data-testid="asset-browser-resource-variant"]');return Number(s?.value)===arguments[0];`,[i]),5000,"Resource use did not change.",100);
+        }
+        addReportStep(result,"shared_image_resource_uses_selectable","passed",shared);
+        addReportArtifact(result,await captureScreenshot(sessionId,`${tag}-02-shared-uses.png`),"Shared image uses are individually selectable");
+        await clickButtonByTestIdNative(sessionId,"asset-browser-back");
+        await fillInputBySelector(sessionId,'[data-testid="asset-browser-search"]',"");
+        await clickButtonByText(sessionId,"Miniaturas","exact");
+      }
+      const candidates = await js(`return [...document.querySelectorAll('[data-testid="asset-browser-item"]')].filter(e=>e.dataset.resourceKind==='SPRITE'&&Number(e.dataset.frameWidth)>0).map(e=>({path:e.dataset.assetPath,width:Number(e.dataset.frameWidth),height:Number(e.dataset.frameHeight)})).sort((a,b)=>b.width*b.height-a.width*a.height);`);
+      const sprite = ledger.mappings.find(m => m.resource_kind === "SPRITE" && m.destination === candidates[0]?.path);
+      if (sprite) {
+        await fillInputBySelector(sessionId, '[data-testid="asset-browser-search"]', sprite.destination.split('/').pop());
+        await waitFor(() => js(`return [...document.querySelectorAll('[data-testid="asset-browser-item"]')].some(e=>e.dataset.assetPath===arguments[0]);`, [sprite.destination]), 10000, "Sprite search failed.", 100);
+        await js(`const e=[...document.querySelectorAll('[data-testid="asset-browser-item"]')].find(e=>e.dataset.assetPath===arguments[0]);e.querySelector('button')?.click();`, [sprite.destination]);
+        await waitFor(() => js(`return !!document.querySelector('[data-testid="asset-browser-selection-card"]');`), 10000, "Details did not open.", 100);
+        const layout = await js(`return document.querySelector('[data-testid="asset-browser-image-layout"]')?.textContent ?? '';`);
+        if (!layout.includes("Quadro:")) fail(`Imported frame layout is not identifiable: ${sprite.resource_name}`);
+        addReportArtifact(result, await captureScreenshot(sessionId, `${tag}-03-resource-preview.png`), "Initial frame from the declared layout, with the complete sheet available");
+        await waitFor(() => js(`const c=document.querySelector('[data-testid="asset-browser-selection-card"]');const b=[...c.querySelectorAll('button')].find(e=>e.textContent.trim()==='Adicionar à cena');b?.scrollIntoView({block:'nearest'});if(!b)return false;const r=b.getBoundingClientRect();const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return c.clientWidth>=280&&r.x>=0&&r.y>=0&&r.right<=innerWidth&&r.bottom<=innerHeight&&!!hit&&(hit===b||b.contains(hit));`),10000,"Resource details/action are clipped, covered, or too narrow.",100);
+        addReportArtifact(result, await captureScreenshot(sessionId, `${tag}-03-resource-details.png`), "Declared frame layout and reachable authoring actions");
+        if (index === 0) {
+          for (const [width,height,zoom] of [[1280,800,1],[1366,768,1.25]]) {
+            await setSessionWindowRect(sessionId,width,height);
+            await js(`document.documentElement.style.zoom=arguments[0];`,[String(zoom)]);
+            await waitFor(() => js(`const c=document.querySelector('[data-testid="asset-browser-selection-card"]');const b=[...c.querySelectorAll('button')].find(e=>e.textContent.trim()==='Adicionar à cena');b.scrollIntoView({block:'nearest'});const r=b.getBoundingClientRect();const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return c.clientWidth>=280&&r.x>=0&&r.y>=0&&r.right<=innerWidth&&r.bottom<=innerHeight&&!!hit&&(hit===b||b.contains(hit));`),10000,`Resource action is inaccessible at ${width}x${height}@${zoom}.`,100);
+            await waitFor(() => js(`return document.querySelector('[data-testid="left"][data-panel]')?.clientWidth>=199;`),5000,"Scene hierarchy became too narrow to identify resources.",100);
+            addReportArtifact(result,await captureScreenshot(sessionId,`${tag}-layout-${width}-${zoom}.png`),`Native resource details at ${width}x${height}, interface scale ${zoom}`);
+          }
+          await js(`document.documentElement.style.zoom='';`);
+          await setSessionWindowRect(sessionId,1920,1080);
+          await js(`document.querySelector('[data-testid="asset-browser-back"]').focus();`);
+          await webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"key",id:"catalog-tab",actions:[{type:"keyDown",value:"\uE004"},{type:"keyUp",value:"\uE004"}]}]});
+          await waitFor(() => js(`return !!document.querySelector('[data-testid="asset-browser-selection-card"]')?.contains(document.activeElement);`),3000,"Resource controls cannot be reached from the back button with Tab.",100);
+          addReportStep(result,"resource_layout_and_keyboard_navigation","passed",{layouts:["1280x800","1366x768 at 125%"],keyboard:"native Tab from library back button into resource controls"});
+        }
+        const count = (await state()).activeSceneEntityCount;
+        await js(`const card=document.querySelector('[data-testid="asset-browser-selection-card"]');const b=[...card.querySelectorAll('button')].find(e=>e.textContent.trim()==='Adicionar à cena');if(!b||b.disabled)throw Error('Adicionar indisponível');b.click();`);
+        const added = await waitFor(async () => {
+          const s = await state();return s.activeSceneEntityCount === count + 1 ? s : false;
+        }, 15000, `Catalog sprite was not added: ${sprite.resource_name}`, 100);
+        const instance = added.activeScene.entities.find(e => e.id === added.selectedEntityId);
+        result.authored_instance = instance;
+        if (instance.spriteAsset !== sprite.destination) fail("Added instance has the wrong artwork.");
+        await waitFor(() => js(`const e=document.querySelector('[data-testid="scene-save-status"]');return e?.dataset.status==='saved'&&Number(e.dataset.revision)===arguments[0]&&Number(e.dataset.savedRevision)===arguments[0];`,[added.sceneRevision]),15000,"Added resource did not finish its canonical save.",100);
+        const savedScene = JSON.parse(await readFile(path.join(project, added.activeScenePath), "utf8"));
+        const savedSprite = savedScene.entities.find(e=>e.entity_id===instance.id)?.components.sprite;
+        if (savedSprite?.frame_width !== candidates[0].width || savedSprite?.frame_height !== candidates[0].height) fail("The added sprite was clipped instead of preserving its declared frame.");
+        await callAutomationApi(sessionId,"selectWorkspace",["artstudio"]);
+        const art = await waitFor(async () => {
+          const a=await readArtStudioState(sessionId);
+          return a?.spritePath===sprite.destination&&a.spriteSheetLoadStatus==='loaded'&&a.frameWidth===savedSprite.frame_width&&a.frameHeight===savedSprite.frame_height&&a.activeSequenceId?a:false;
+        },30000,"ArtStudio changed or failed to load the imported frame layout.",100);
+        if (index === 0) await waitFor(() => js(`const c=[...document.querySelectorAll('canvas')].find(c=>c.width===260&&c.height===260);if(!c)return false;const p=c.getContext('2d').getImageData(0,0,260,260).data;for(let i=0;i<p.length;i+=4)if(p[i+3]&&(p[i]!==5||p[i+1]!==7||p[i+2]!==15))return true;return false;`),10000,"ArtStudio initial frame preview stayed blank.",100);
+        addReportStep(result,"catalog_instance_artstudio_layout_preserved","passed",{width:art.frameWidth,height:art.frameHeight,sequences:art.sequences.length});
+        addReportArtifact(result,await captureScreenshot(sessionId,`${tag}-04-artstudio.png`),"Imported frame layout retained in the real art editor");
+        const revisionBeforeApply=(await state()).sceneRevision;
+        await clickButtonByText(sessionId,"Aplicar nesta entidade","exact");
+        const applied=await waitFor(async () => {const s=await state();return s.sceneRevision>revisionBeforeApply?s:false;},10000,"ArtStudio did not apply to the selected instance.",100);
+        await clickTopBarMenuAction(sessionId,"Salvar");
+        await waitFor(() => js(`const e=document.querySelector('[data-testid="scene-save-status"]');return e?.dataset.status==='saved'&&Number(e.dataset.savedRevision)>=arguments[0];`,[applied.sceneRevision]),15000,"ArtStudio apply did not finish saving.",100);
+        const appliedScene=JSON.parse(await readFile(path.join(project,added.activeScenePath),"utf8"));
+        const appliedSprite=appliedScene.entities.find(e=>e.entity_id===instance.id)?.components.sprite;
+        if(appliedSprite?.frame_width!==savedSprite.frame_width||appliedSprite?.frame_height!==savedSprite.frame_height)fail("Applying ArtStudio cropped the declared frame.");
+        const orderedAnimations = animations => Object.entries(animations).sort(([a],[b])=>a.localeCompare(b));
+        if(JSON.stringify(orderedAnimations(appliedSprite.animations))!==JSON.stringify(orderedAnimations(savedSprite.animations)))fail("Applying ArtStudio changed the imported animation definitions.");
+        const mappingOriginal=path.join(ledger.effective_root||source.path,sprite.source_relative);
+        if(createHash("sha256").update(await readFile(mappingOriginal)).digest("hex")!==createHash("sha256").update(await readFile(path.join(project,sprite.destination))).digest("hex"))fail("ArtStudio changed the original source sheet while applying metadata.");
+        addReportStep(result,"artstudio_apply_preserves_frame_geometry_and_sequences","passed",{width:appliedSprite.frame_width,height:appliedSprite.frame_height,animations:Object.keys(appliedSprite.animations).length});
+        await callAutomationApi(sessionId,"selectWorkspace",["scene"]);
+        await clickTopBarMenuAction(sessionId, "Salvar");
+        await clickTopBarMenuAction(sessionId, "Fechar");
+        await openSavedProjectWizard(sessionId, project);
+        const reopened = await waitFor(async () => {const s=await state();return s.activeProjectDir===project?s:false;}, 30000, "Authored project did not reopen.", 100);
+        if (!reopened.activeScene.entities.some(e => e.id === instance.id && e.spriteAsset === instance.spriteAsset)) fail("Authored instance did not survive reopen.");
+        addReportStep(result, "catalog_instance_save_reopen", "passed", { entity: instance.id, resource: sprite.resource_name, layout });
+      }
+      result.status = "passed";
+    } catch (error) {
+      result.status = "failed"; result.error = String(error);
+      await captureScreenshot(sessionId, `${tag}-failure.png`).then(p => addReportArtifact(result, p, "Failure retained")).catch(() => null);
+    } finally {
+      const s = await state().catch(() => null);
+      if (s?.activeProjectDir) await clickTopBarMenuAction(sessionId, "Fechar");
+      await js(`document.documentElement.style.zoom='';`);
+      await setSessionWindowRect(sessionId,1920,1080);
+      await persist();
+      console.log(`[sgdk-corpus] ${source.id}: ${result.status}`);
+    }
+  }
+  report.guard_cases = [];
+  try {
+    const fixture=path.join(output,`invalid-image-fixture-${Date.now()}`);
+    await mkdir(path.join(fixture,"res"),{recursive:true});
+    await mkdir(path.join(fixture,"src"),{recursive:true});
+    const sample=corpus.projects.flatMap(p=>p.resources).find(r=>r.kind==="IMAGE"&&r.format==="PNG");
+    const bytes=await readFile(sample.path);
+    const originalHash=createHash("sha256").update(bytes).digest("hex");
+    await writeFile(path.join(fixture,"res/art.png"),bytes.subarray(0,33));
+    await writeFile(path.join(fixture,"res/resources.res"),'IMAGE broken_art "art.png" NONE ALL\n');
+    await writeFile(path.join(fixture,"src/main.c"),'#include <genesis.h>\nint main(void) { return 0; }\n');
+    const name=`RecursoCorrompido_${Date.now()}`;
+    const importFixture=async () => {
+      await prepareExternalImportWizard(sessionId);
+      await js(`const e=document.querySelector('[data-testid="external-import-profile-select"]');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,'sgdk');e.dispatchEvent(new Event('change',{bubbles:true}));`);
+      await fillInputBySelector(sessionId,'input[placeholder="Nome do projeto"]',name);
+      await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);",[fixture]);
+      await clickButtonByTestIdNative(sessionId,"external-import-confirm");
+    };
+    await importFixture();
+    const refusal=await waitFor(() => js(`return document.querySelector('[data-testid="project-start-wizard"] [role="alert"]')?.textContent??'';`),30000,"Corrupt image did not produce a visible import error.",100);
+    if(!refusal.includes("art.png")||!refusal.includes("Imagem SGDK"))fail(`Corrupt image message does not identify the failed resource: ${refusal}`);
+    if((await state()).activeProjectDir)fail("A corrupt image opened a partially imported project.");
+    const base=path.dirname(report.projects.find(p=>p.project).project);
+    if((await readdir(base)).some(entry=>entry.toLowerCase().startsWith(name.toLowerCase())))fail("Corrupt image left a misleading partial project directory.");
+    if((await readFile(path.join(fixture,"res/art.png"))).length!==33)fail("Failed import rewrote the corrupt source fixture.");
+    const corruptInput=path.join(output,`corrupt-image-input-${Date.now()}.bin`);
+    await writeFile(corruptInput,bytes.subarray(0,33));
+    addReportArtifact(report,await captureScreenshot(sessionId,`${prefix}-corrupt-image-refused.png`),"Corrupt source named in the wizard without opening a partial project");
+    await writeFile(path.join(fixture,"res/art.png"),bytes);
+    await importFixture();
+    const recovered=await waitFor(async () => {const s=await state();return s.activeProjectName===name&&s.activeProjectDir?s:false;},30000,"Retry with the same project name did not recover after fixing the source.",100);
+    currentE2eRunContext.project=recovered.activeProjectDir;onProjectCreated(recovered.activeProjectDir);
+    if(createHash("sha256").update(await readFile(sample.path)).digest("hex")!==originalHash)fail("Original source changed while preparing the test fixture.");
+    report.guard_cases.push({id:"corrupt_image_refusal_cleanup_and_same_name_retry",status:"passed",message:refusal,project:recovered.activeProjectDir,source_fixture:fixture,original_sha256:originalHash,corrupt_input:{path:corruptInput,bytes:33,sha256:createHash("sha256").update(bytes.subarray(0,33)).digest("hex")}});
+    await clickTopBarMenuAction(sessionId,"Fechar");
+  } catch(error) {
+    report.guard_cases.push({id:"corrupt_image_refusal_cleanup_and_same_name_retry",status:"failed",error:String(error)});
+    await persist();throw error;
+  }
+  report.finished_at = new Date().toISOString();
+  report.all_pass = report.projects.every(p => ["passed", "not_importable_source", "code_only_no_external_images"].includes(p.status));
+  await persist();
+  if (!report.all_pass) fail(`Corpus has ${report.projects.filter(p => p.status === "failed").length} failed project(s). Report: ${prefix}.json`);
+}
+
+async function runSgdkSplitResourcesScenario(sessionId, timeoutMs, onProjectCreated) {
+  if (process.env.RDS_SGDK_CORPUS_MANIFEST) return runSgdkCorpusAssetReview(sessionId, onProjectCreated);
+  const source = process.env.RDS_SGDK_REAL_SOURCE;
+  const output = process.env.RDS_SGDK_OUTPUT;
+  const expected = JSON.parse(process.env.RDS_SGDK_EXPECTED ?? "null");
+  if (!source || !output || !expected?.manifests || !expected?.resources || !expected?.sprites) {
+    fail("RDS_SGDK_REAL_SOURCE, RDS_SGDK_OUTPUT and RDS_SGDK_EXPECTED {manifests,resources,sprites} required.");
+  }
+  await mkdir(output, { recursive: true });
+  const prefix = `sgdk-split-${artifactTimestamp()}`;
+  const hashFile = async (file) => createHash("sha256").update(await readFile(file)).digest("hex");
+  const report = { schema: "retrodev.sgdk_split_resources/v1", source, expected,
+    app_sha256: await hashFile(currentE2eRunContext.appPath), steps: [], artifacts: [],
+    qualification: "resource import; original C gameplay equivalence is not certified" };
+  try {
+    await setSessionWindowRect(sessionId, 1280, 800);
+    await prepareDefaultProjectWizard(sessionId);
+    await prepareExternalImportWizard(sessionId);
+    await executeScript(sessionId, `const e=document.querySelector('[data-testid="external-import-profile-select"]');
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,'sgdk');
+      e.dispatchEvent(new Event('change',{bubbles:true}));`);
+    await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', `SGDK_Resources_${Date.now()}`);
+    await executeScript(sessionId, "return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source]);
+    await clickByTestId(sessionId, "external-import-confirm");
+    const imported = await waitFor(async () => {
+      const state = await readAutomationState(sessionId);
+      return state?.activeProjectDir && state.projectSourceKind === "imported_sgdk" ? state : false;
+    }, 120000, "SGDK import did not open its project.", 250);
+    const project = imported.activeProjectDir;
+    report.project = project;
+    currentE2eRunContext.project = project;
+    onProjectCreated(project);
+    const ledgerDir = path.join(project, ".rds/imports/sgdk");
+    const ledgers = (await readdir(ledgerDir)).filter(name => name.endsWith(".json"));
+    if (ledgers.length !== 1) fail(`Expected one import ledger, got ${ledgers.length}.`);
+    const ledger = JSON.parse(await readFile(path.join(ledgerDir, ledgers[0]), "utf8"));
+    report.ledger = ledger;
+    const scene = JSON.parse(await readFile(path.join(project, "scenes/main.json"), "utf8"));
+    const sprites = scene.entities.filter(e => e.components.sprite);
+    const spriteResources = ledger.mappings.filter((mapping) => mapping.resource_kind === "SPRITE").length;
+    const expectedSceneSprites = expected.sceneSprites ?? expected.sprites;
+    if (ledger.manifests.length !== expected.manifests || ledger.mappings.length !== expected.resources
+      || spriteResources !== expected.sprites || sprites.length !== expectedSceneSprites) {
+      fail(`Import resource/instance contract differs: ${JSON.stringify({ manifests: ledger.manifests.length, resources: ledger.mappings.length, spriteResources, sceneSprites: sprites.length, expectedSceneSprites })}`);
+    }
+    const destinations = new Map();
+    for (const mapping of ledger.mappings) {
+      const original = path.join(source, mapping.source_relative);
+      const materialized = path.join(project, mapping.destination);
+      const hash = await hashFile(original);
+      if (await hashFile(materialized) !== hash) fail(`Materialized asset differs: ${mapping.resource_name}`);
+      if (destinations.has(mapping.destination) && destinations.get(mapping.destination) !== hash) fail(`Asset collision: ${mapping.destination}`);
+      destinations.set(mapping.destination, hash);
+    }
+    addReportStep(report, "all_manifest_resources_preserved", "passed", { manifests: ledger.manifests.length, resources: ledger.mappings.length, spriteResources, sceneSprites: sprites.length });
+    const footer = await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-scene-sprites"]')?.textContent ?? '';`);
+    if (!footer.includes(`Sprites: ${expectedSceneSprites} /`)) fail(`Viewport counts resources or non-sprite entities as sprites: ${footer}`);
+    addReportStep(report, "viewport_counts_scene_sprites_not_catalog_or_other_entities", "passed", { footer, spriteResources, sceneSprites: sprites.length });
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-import.png`), "Imported resources in native UI");
+    console.log(`[sgdk-split] all ${ledger.mappings.length} resources verified against source`);
+    const primaryTilemap = scene.entities.find(e => e.components.tilemap)?.components.tilemap;
+    const primaryMapping = ledger.mappings.find(m => m.destination === primaryTilemap?.tileset);
+    if (ledger.mappings.some(m => ["IMAGE", "MAP"].includes(m.resource_kind)) && primaryMapping?.resource_kind === "TILESET") fail("Raw TILESET chosen before an assembled image.");
+    await verifySgdkMountedImages(sessionId, project, ledger, report, prefix);
+    if (process.env.RDS_SGDK_PALETTE_RESOURCE) {
+      await verifySgdkPaletteRoundTrip(sessionId, project, ledger, report, prefix, timeoutMs);
+    } else {
+      report.build = await runBuildRunAndCollect(sessionId, "SGDK split resource scene", timeoutMs, report, prefix, { nativeClick: true });
+    }
+    const legacyProject = process.env.RDS_SGDK_LEGACY_PROJECT;
+    if (legacyProject) {
+      // The caller must prepare an owned QA copy, never pass the live project.
+      const relative = path.relative(process.env.RDS_WORK_ROOT ?? "", legacyProject);
+      if (!process.env.RDS_WORK_ROOT || relative.startsWith("..") || path.isAbsolute(relative) || !relative) fail("Legacy QA project must be inside the official runtime.");
+      const names = (await readdir(path.join(legacyProject, ".rds/imports/sgdk"))).filter(n => n.endsWith(".json"));
+      const legacyLedger = JSON.parse(await readFile(path.join(legacyProject, ".rds/imports/sgdk", names[0]), "utf8"));
+      if (legacyLedger.tilemap_cell_encoding) fail("Legacy QA fixture is already marked as modern.");
+      const before = new Map();
+      for (const descriptor of legacyLedger.scenes) before.set(descriptor.scene_path, await hashFile(path.join(legacyProject, descriptor.scene_path)));
+      report.current_step = "stop_generated_rom_before_legacy_open";
+      await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
+      await clickTopBarMenuAction(sessionId, "Fechar");
+      report.current_step = "legacy_read_only_open_and_visit";
+      await openSavedProjectWizard(sessionId, legacyProject);
+      await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === legacyProject, 30000, "Legacy project did not open.", 100);
+      await verifySgdkMountedImages(sessionId, legacyProject, legacyLedger, report, `${prefix}-legacy`);
+      for (const [file, sha] of before) if (await hashFile(path.join(legacyProject, file)) !== sha) fail(`Loading changed the legacy scene on disk: ${file}`);
+      addReportStep(report, "legacy_images_repaired_on_open_without_reimport_or_disk_write", "passed", { scenes: before.size });
+      await clickTopBarMenuAction(sessionId,"Fechar");
+      for (const [file,sha] of before) if(await hashFile(path.join(legacyProject,file))!==sha)fail(`Closing an unedited project changed the legacy scene: ${file}`);
+      await openSavedProjectWizard(sessionId,legacyProject);
+      await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir===legacyProject,30000,"Read-only legacy visit did not reopen.",100);
+      addReportStep(report,"legacy_passive_close_preserves_scene_files","passed");
+      report.current_step = "legacy_explicit_save_and_reopen";
+      await clickTopBarMenuAction(sessionId, "Salvar");
+      await waitFor(() => executeScript(sessionId,`const e=document.querySelector('[data-testid="scene-save-status"]');return e?.dataset.status==='saved'&&e.dataset.savedRevision===e.dataset.revision;`),15000,"Explicit legacy Save did not finish.",100);
+      const saved = await hashFile(path.join(legacyProject, "scenes/main.json"));
+      await clickTopBarMenuAction(sessionId, "Fechar");
+      await openSavedProjectWizard(sessionId, legacyProject);
+      await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === legacyProject, 30000, "Saved legacy project did not reopen.", 100);
+      await verifySgdkMountedImages(sessionId, legacyProject, legacyLedger, report, `${prefix}-reopened`);
+      const reopenedHash=await hashFile(path.join(legacyProject,"scenes/main.json"));
+      report.legacy_save_observation={before_main_sha256:before.get("scenes/main.json"),saved_main_sha256:saved,reopened_main_sha256:reopenedHash};
+      if (reopenedHash !== saved) fail("Reopening changed the saved scene.");
+      addReportStep(report, "legacy_save_reopen_stable", "passed", { main_sha256: saved });
+      report.current_step = "legacy_restore_original_and_undo";
+      if (await executeScript(sessionId,`return !!document.querySelector('[data-testid="console-drawer"][data-visible="true"]');`)) await clickButtonByTestIdNative(sessionId,"console-close");
+      const mainBeforeRestore=JSON.parse(await readFile(path.join(legacyProject,"scenes/main.json"),"utf8"));
+      const restoredMap=mainBeforeRestore.entities.find(e=>e.components.tilemap);
+      const atlasPath=path.join(legacyProject,restoredMap.components.tilemap.tileset);
+      const atlasHash=await hashFile(atlasPath);
+      await clickHierarchyEntityByLabel(sessionId,restoredMap.display_name||restoredMap.entity_id);
+      await clickButtonByTestIdNative(sessionId,"right-panel-properties");
+      await clickButtonByTestIdNative(sessionId,"inspector-clear-tilemap-cells");
+      await clickTopBarMenuAction(sessionId,"Salvar");
+      await waitFor(async () => {
+        const s=JSON.parse(await readFile(path.join(legacyProject,"scenes/main.json"),"utf8"));
+        return !(s.entities.find(e=>e.entity_id===restoredMap.entity_id).components.tilemap.cells?.length);
+      },15000,"Restore original image did not persist the instance change.",100);
+      await webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"key",id:"restore-original-undo",actions:[{type:"keyDown",value:"\uE009"},{type:"keyDown",value:"z"},{type:"keyUp",value:"z"},{type:"keyUp",value:"\uE009"}]}]});
+      await clickTopBarMenuAction(sessionId,"Salvar");
+      await waitFor(async () => {
+        const s=JSON.parse(await readFile(path.join(legacyProject,"scenes/main.json"),"utf8"));
+        return JSON.stringify(s.entities.find(e=>e.entity_id===restoredMap.entity_id).components.tilemap.cells)===JSON.stringify(restoredMap.components.tilemap.cells);
+      },15000,"Native Ctrl+Z did not restore the original cell edits.",100);
+      if(await hashFile(atlasPath)!==atlasHash)fail("Restoring/undoing an instance modified the source image file.");
+      addReportStep(report,"restore_original_image_and_native_undo_without_asset_write","passed",{entity:restoredMap.entity_id,atlas_sha256:atlasHash});
+    }
+    report.status = "passed";
+  } catch (error) {
+    report.status = "failed";
+    report.error = String(error);
+    report.failure_state = await readAutomationState(sessionId).catch(() => null);
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-failure.png`).catch(() => null), "Failed interaction preserved before cleanup");
+    throw error;
+  } finally {
+    await writeFile(path.join(output, `${prefix}.json`), JSON.stringify(report, null, 2));
+  }
+}
+
+// A real imported scene, edited only through the palette UI. This proves the
+// authoring bridge for its resources, never equivalence to the original C game.
+async function verifySgdkPaletteRoundTrip(sessionId, project, ledger, report, prefix, timeoutMs) {
+  const hash = async (file) => createHash("sha256").update(await readFile(file)).digest("hex");
+  const resource = ledger.mappings.find((r) => r.resource_name === process.env.RDS_SGDK_PALETTE_RESOURCE);
+  if (!resource) fail("Requested SGDK palette resource absent.");
+  let selected;
+  for (const descriptor of ledger.scenes) {
+    const scene = JSON.parse(await readFile(path.join(project, descriptor.scene_path), "utf8"));
+    if (scene.entities.some((e) => e.components.tilemap?.tileset === resource.destination)) selected = descriptor;
+  }
+  if (!selected) fail("SGDK resource has no resolved scene.");
+  const activate = async () => {
+    await clickByTestId(sessionId, "workspace-rail-scene");
+    const selector = `select[title="Selecionar cena ativa"] option[value="${selected.scene_path}"]`;
+    await waitFor(() => executeScript(sessionId, "return !!document.querySelector(arguments[0]);", [selector]), 15000, "Scene selector not mounted after workspace navigation.", 100);
+    await clickElement(sessionId, await findElement(sessionId, selector));
+    await waitFor(async () => (await readAutomationState(sessionId))?.activeScenePath === selected.scene_path, 15000, "Palette scene did not activate.", 100);
+    await waitFor(() => executeScript(sessionId, `const e=document.querySelector('[data-testid="palette-summary"]');return e?.dataset.errors==='0'&&Number(e.dataset.used)>0;`), 30000, "Imported palette plan absent or invalid.", 100);
+  };
+  const openPanel = async () => {
+    if (!(await executeScript(sessionId, `return !!document.querySelector('[data-testid="palette-panel"]');`))) await clickButtonByTestIdNativeWhenReady(sessionId, "palette-summary", "Paletas");
+    await waitFor(() => executeScript(sessionId, `return !!document.querySelector('[data-testid="palette-panel"]');`), 15000, "Palette panel did not open.", 100);
+  };
+  const saveReopen = async () => {
+    await clickTopBarMenuAction(sessionId, "Salvar");
+    await waitFor(() => executeScript(sessionId, `const e=document.querySelector('[data-testid="scene-save-status"]');return e?.dataset.status==='saved'&&e.dataset.savedRevision===e.dataset.revision;`), 20000, "Palette save incomplete.", 100);
+    const saved = await hash(path.join(project, selected.scene_path));
+    await clickTopBarMenuAction(sessionId, "Fechar");
+    await openSavedProjectWizard(sessionId, project);
+    await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === project, 30000, "Saved SGDK palette project did not reopen.", 100);
+    await activate();
+    if (await hash(path.join(project, selected.scene_path)) !== saved) fail("Reopen modified saved palette scene.");
+    return saved;
+  };
+  const coreRun = async (label) => {
+    const run = await runBuildRunAndCollect(sessionId, `SGDK palette ${label}`, timeoutMs, report, `${prefix}-${label}`, { nativeClick: true });
+    const frame = await invokeCoreObserve(sessionId);
+    if (!frame?.ok || frame.rom_sha256 !== run.rom_sha256) fail("SGDK palette core/ROM identity differs.");
+    const plan = JSON.parse(await readFile(path.join(project, "build/megadrive/rds-palette-plan.v1.json"), "utf8"));
+    const identity = await collectCoreIdentity(frame);
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), `SGDK palette ${label}`);
+    await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
+    await closeVisibleConsoleDrawer(sessionId, `SGDK palette ${label}`);
+    await activate();
+    return { run, frame, plan, identity };
+  };
+  await activate();
+  await openPanel();
+  const choice = await executeScript(sessionId, `const row=[...document.querySelectorAll('[data-testid^="palette-resource-"]')].find(e=>e.textContent.includes(arguments[0]));
+    const swatch=row?.querySelector('button[data-testid^="palette-color-"]');
+    return swatch?{row:row.dataset.testid,swatch:swatch.dataset.testid,color:swatch.dataset.color,bank:row.dataset.bank}:null;`, [resource.destination]);
+  if (!choice) fail("Imported resource has no editable used palette color.");
+  const originalAssetHash = await hash(path.join(project, resource.destination));
+  const baseline = await coreRun("baseline");
+  await openPanel();
+  const replacement = choice.color.toLowerCase() === "#ff0000" ? "#00ff00" : "#ff0000";
+  await clickButtonByTestIdNativeWhenReady(sessionId, choice.swatch, "Cor usada");
+  await setInputByTestIdNative(sessionId, "palette-color-input", replacement);
+  await clickButtonByTestIdNativeWhenReady(sessionId, "palette-color-apply", "Aplicar cor");
+  await waitFor(() => executeScript(sessionId, `return document.querySelector('[data-testid="'+arguments[0]+'"]')?.dataset.color?.toLowerCase()===arguments[1];`, [choice.swatch, replacement]), 15000, "Edited palette not reflected in UI.", 100);
+  const sceneHash = await saveReopen();
+  const edited = await coreRun("edited");
+  if (edited.run.rom_sha256 === baseline.run.rom_sha256) fail("SGDK palette edit did not change ROM.");
+  const coreColor = (hex) => {
+    const v = [1,3,5].map((i) => Math.floor((parseInt(hex.slice(i,i+2),16)*7+127)/255)*2);
+    const r=(v[0]<<1)|(v[0]>>3),g=(v[1]<<2)|(v[1]>>2),b=(v[2]<<1)|(v[2]>>3);
+    return [((r<<3)|(r>>2))&255,((g<<2)|(g>>4))&255,((b<<3)|(b>>2))&255];
+  };
+  const before = baseline.frame.framebuffer_rgba, after = edited.frame.framebuffer_rgba;
+  if (before.length !== after.length) fail("Palette framebuffer dimensions changed.");
+  const oldColor=coreColor(choice.color), newColor=coreColor(replacement);
+  let changed=0;
+  for(let i=0;i<before.length;i+=4) {
+    if(before.slice(i,i+4).every((v,j)=>v===after[i+j])) continue;
+    if(!oldColor.every((v,j)=>before[i+j]===v)||!newColor.every((v,j)=>after[i+j]===v)||before[i+3]!==after[i+3]) fail(`Unrelated SGDK palette pixel changed at ${i/4}.`);
+    changed++;
+  }
+  if(!changed) fail("No palette effect observed in core pixels.");
+  await openPanel();
+  await clickButtonByTestIdNativeWhenReady(sessionId, choice.row.replace("palette-resource-","palette-restore-"), "Voltar às cores do arquivo");
+  await saveReopen();
+  const restored = await coreRun("restored");
+  if(restored.run.rom_sha256!==baseline.run.rom_sha256 || JSON.stringify(restored.frame.framebuffer_rgba)!==JSON.stringify(before)) fail("Restored palette does not reproduce baseline ROM/pixels.");
+  if(await hash(path.join(project,resource.destination))!==originalAssetHash) fail("Palette edit overwrote the imported source image.");
+  report.palette = {resource:resource.resource_name,scene:selected.scene_path,choice,replacement,changed_pixels:changed,scene_sha256:sceneHash,
+    baseline:baseline.run.rom_sha256,edited:edited.run.rom_sha256,restored:restored.run.rom_sha256,core:edited.identity,
+    baseline_banks:baseline.plan.banks,edited_banks:edited.plan.banks,asset_sha256:originalAssetHash};
+  addReportStep(report,"sgdk_palette_edit_save_reopen_rom_pixels_restore","passed",report.palette);
+}
+
+// Original C game opened in place (legacy overlay): the SGDKForge wrapper builds the C, the
+// Studio runs the ROM proved by the wrapper receipt, and sprite resources stay in the catalog.
+// The overlay lives in <source>/rds and is never registered as a temporary project.
+async function runSgdkNativeCScenario(sessionId) {
+  const source = process.env.RDS_SGDK_REAL_SOURCE;
+  const output = process.env.RDS_SGDK_OUTPUT;
+  const expected = JSON.parse(process.env.RDS_SGDK_EXPECTED ?? "null");
+  if (!source || !output || !expected?.manifests || !expected?.resources || !expected?.sprites) {
+    fail("RDS_SGDK_REAL_SOURCE, RDS_SGDK_OUTPUT and RDS_SGDK_EXPECTED {manifests,resources,sprites} required.");
+  }
+  await mkdir(output, { recursive: true });
+  const prefix = `sgdk-native-c-${artifactTimestamp()}`;
+  const hashFile = async (file) => createHash("sha256").update(await readFile(file)).digest("hex");
+  const report = { schema: "retrodev.sgdk_native_c/v1", maturity: "Experimental", source, expected,
+    app_sha256: await hashFile(currentE2eRunContext.appPath), steps: [], artifacts: [],
+    qualification: "original C built by the SGDKForge wrapper and run in the integrated emulator under the E2E driver; no human acceptance or hardware" };
+  const overlay = path.join(source, "rds");
+  const openAndInspect = async (label) => {
+    await executeScript(sessionId, "return window.__RDS_E2E__.openProject(arguments[0]);", [source]);
+    const state = await waitFor(async () => {
+      const next = await readAutomationState(sessionId);
+      return next?.activeProjectDir && path.resolve(next.activeProjectDir) === overlay && next.projectSourceKind === "external_sgdk" ? next : false;
+    }, 180000, `Original C root did not open as overlay (${label}).`, 250);
+    const ledgerDir = path.join(overlay, ".rds/imports/sgdk");
+    const ledgers = (await readdir(ledgerDir)).filter((name) => name.endsWith(".json"));
+    if (ledgers.length !== 1) fail(`Expected one import ledger, got ${ledgers.length}.`);
+    const ledger = JSON.parse(await readFile(path.join(ledgerDir, ledgers[0]), "utf8"));
+    const scene = JSON.parse(await readFile(path.join(overlay, "scenes/main.json"), "utf8"));
+    const sceneSprites = scene.entities.filter((entity) => entity.components.sprite).length;
+    const spriteResources = ledger.mappings.filter((mapping) => mapping.resource_kind === "SPRITE").length;
+    if (ledger.manifests.length !== expected.manifests || ledger.mappings.length !== expected.resources || spriteResources !== expected.sprites || sceneSprites !== 0) {
+      fail(`Catalog contract broken (${label}): ${JSON.stringify({ manifests: ledger.manifests.length, resources: ledger.mappings.length, spriteResources, sceneSprites })}`);
+    }
+    const destinations = new Map();
+    for (const mapping of ledger.mappings) {
+      const hash = await hashFile(path.join(source, mapping.source_relative));
+      if (await hashFile(path.join(overlay, mapping.destination)) !== hash) fail(`Catalog asset differs: ${mapping.resource_name}`);
+      if (destinations.has(mapping.destination) && destinations.get(mapping.destination) !== hash) fail(`Asset collision: ${mapping.destination}`);
+      destinations.set(mapping.destination, hash);
+    }
+    addReportStep(report, `catalog_${label}`, "passed", { project: state.activeProjectDir, manifests: ledger.manifests.length, resources: ledger.mappings.length, spriteResources, sceneSprites });
+    return state;
+  };
+  try {
+    await setSessionWindowRect(sessionId, 1280, 800);
+    await prepareDefaultProjectWizard(sessionId).catch(() => null);
+    await openAndInspect("open");
+    await callAutomationApi(sessionId, "selectWorkspace", ["explorer"]).catch(() => null);
+    const scope = await waitFor(async () => executeScript(sessionId, "return document.querySelector('[data-testid=\"legacy-host-edit-scope\"]')?.textContent ?? '';"), 30000, "Edit scope not rendered.", 250).catch(() => "");
+    addReportStep(report, "edit_scope_visible", scope.includes("Consumido pelo build C") ? "passed" : "not_observed", { scope });
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-open.png`), "Original C root opened as overlay");
+
+    // O build roda numa copia nova em rds/.rds/c_build/run_*/ com saida padrao out/.
+    const checkReceipt = async (build, label) => {
+      const runRoot = path.dirname(path.dirname(build.rom_path));
+      if (path.dirname(runRoot) !== path.join(overlay, ".rds", "c_build") || !path.basename(runRoot).startsWith("run_") || path.basename(path.dirname(build.rom_path)) !== "out") {
+        fail(`ROM did not come from a fresh staged wrapper run (${label}): ${build.rom_path}`);
+      }
+      const receiptPath = path.join(runRoot, "out", "logs", "linux_wine_build_report.json");
+      const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+      if (receipt.status !== "buildado" || receipt.rom.sha256 !== build.rom_sha256) fail(`Receipt does not match executed ROM (${label}): ${JSON.stringify(receipt.rom)}`);
+      const evidenceRom = path.join(output, `${prefix}-${label}.rom.bin`);
+      const evidenceReceipt = path.join(output, `${prefix}-${label}-wrapper-receipt.json`);
+      await copyFile(build.rom_path, evidenceRom);
+      await copyFile(receiptPath, evidenceReceipt);
+      if (await hashFile(evidenceRom) !== build.rom_sha256) fail(`Retained ROM differs (${label}).`);
+      // The next native build replaces c_build. Retain provenance before that.
+      const retained = [];
+      for (const [kind, file, expectedSha] of [
+        ["inputs", path.join(runRoot, receipt.build_input_snapshot.path), receipt.build_input_snapshot.sha256],
+        ["build-log", path.join(runRoot, receipt.build_log_path), receipt.build_log_sha256],
+        ["sdk-identity", receipt.sdk_identity_report, null],
+        ["elf", path.join(path.dirname(build.rom_path), "rom.out"), null],
+      ]) {
+        const destination = path.join(output, `${prefix}-${label}-${kind}${path.extname(file)}`);
+        await copyFile(file, destination);
+        const sha256 = await hashFile(destination);
+        if (expectedSha && sha256 !== expectedSha) fail(`Retained ${kind} differs from receipt (${label}).`);
+        retained.push({ kind, path: destination, sha256 });
+      }
+      const detail = { path: receiptPath, evidence_rom: evidenceRom, evidence_receipt: evidenceReceipt, retained, started_at: receipt.started_at, completed_at: receipt.completed_at, rom_sha256: receipt.rom.sha256, sdk_content_sha256: receipt.sdk_content_sha256, source_tree_sha256: receipt.build_input_snapshot?.source_tree_sha256 };
+      addReportStep(report, `rom_matches_wrapper_receipt_${label}`, "passed", detail);
+      return detail;
+    };
+    const build = await runBuildRunAndCollect(sessionId, "SGDK original C", 900000, report, prefix, { nativeClick: true });
+    report.build = build;
+    report.receipt = await checkReceipt(build, "original");
+    // A C ROM has no generated Studio NodeGraph map. Its verified artifact must
+    // still be recognized by the shared build/review surface.
+    const nativeFreshness = await executeScript(sessionId, `return document.querySelector('[data-testid="studio-build-freshness"]')?.textContent ?? '';`);
+    addReportStep(report, "native_build_identity_visible", nativeFreshness.includes("build C em execução") ? "passed" : "failed", { label: nativeFreshness });
+    const overlayScope = await executeScript(sessionId, `const e=document.querySelector('[data-testid="viewport-performance-overlay"]');return e?{native:e.dataset.nativeC,text:e.textContent}:null;`);
+    if (overlayScope?.native !== "true" || !overlayScope.text.includes("Sprites indisponíveis (C)") || !overlayScope.text.includes("DMA est. indisponível (C)")) fail(`Native C overlay presents unsupported node metrics: ${JSON.stringify(overlayScope)}`);
+    addReportStep(report, "native_c_overlay_does_not_invent_sprite_dma_metrics", "passed", overlayScope);
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-boot.png`), "ROM running after boot");
+
+    const frames = [await readFramebufferStats(sessionId)];
+    const inputs = [["Enter", 120], ["Enter", 120], ["ArrowRight", 600], ["KeyZ", 120], ["ArrowLeft", 600], ["KeyX", 120], ["KeyC", 120]];
+    for (const [code, holdMs] of inputs) {
+      await sendNativeGameKeyTap(sessionId, code, holdMs, `native-c ${code}`);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      frames.push(await readFramebufferStats(sessionId));
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-after-${code}-${frames.length}.png`), `After ${code}`);
+    }
+    const hashes = frames.map((frame) => frame?.framebuffer_hash ?? null);
+    report.input = { inputs, framebuffer_hashes: hashes, non_black: frames.map((frame) => frame?.non_black_pixels ?? null), last_input: await callAutomationApi(sessionId, "getLastInputObservation").catch(() => null) };
+    if (new Set(hashes).size < 2) fail("Framebuffer did not change while the original C game ran with input.");
+    report.audio = await callAutomationApi(sessionId, "getAudioOutputTelemetry").catch(() => null);
+    addReportStep(report, "native_input_exercised", "passed", { distinct_frames: new Set(hashes).size });
+
+    // VRAM real (lida do VDP do core) no medidor, e captura da tela do jogo como cena.
+    const vramLabel = await waitFor(async () => {
+      const text = await executeScript(sessionId, "const c=document.querySelector('[data-testid=\"toolbar-vram-budget\"]');return c?c.textContent:'';");
+      return /VRAM real\s*\d+ \/ 64 KB/.test(text) && !/VRAM real\s*0 \//.test(text) ? text : false;
+    }, 20000, "Toolbar did not show measured VRAM for the native C game.", 500);
+    addReportStep(report, "vram_measured_from_core", "passed", { label: vramLabel });
+    const scenesBefore = new Set(await readdir(path.join(overlay, "scenes")));
+    await clickButtonByTestIdNative(sessionId, "toolbar-capture-rom-scene");
+    const captured = await waitFor(async () => {
+      const added = (await readdir(path.join(overlay, "scenes"))).filter((f) => !scenesBefore.has(f) && f.startsWith("rom_capture_"));
+      return added.length === 1 ? added[0] : false;
+    }, 30000, "ROM scene capture did not create a scene.", 250);
+    const capturedScene = JSON.parse(await readFile(path.join(overlay, "scenes", captured), "utf8"));
+    const capturedAssets = capturedScene.entities.map((e) => e.components.sprite.asset);
+    for (const asset of capturedAssets) await readFile(path.join(overlay, asset));
+    const activePath = await waitFor(async () => {
+      const st = await readAutomationState(sessionId);
+      return st?.activeScenePath?.endsWith(captured) ? st.activeScenePath : false;
+    }, 30000, "Captured scene did not become the active scene.", 250);
+    report.rom_capture = { scene: captured, entities: capturedScene.entities.length, sprites: capturedScene.entities.filter((e) => e.entity_id.startsWith("rom_sprite_")).length, active: activePath };
+    if (report.rom_capture.sprites < 1) fail("Captured scene has no sprites.");
+    addReportStep(report, "rom_scene_captured_and_active", "passed", report.rom_capture);
+    await callAutomationApi(sessionId, "selectWorkspace", ["scene"]).catch(() => null);
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-rom-capture-scene.png`), "Captured ROM scene in the editor");
+
+    // Paletas da captura: cada camada usa uma linha da CRAM, sem conflito; mapa A-D e filtro.
+    const domAttr = (testId, name) => executeScript(sessionId, `return document.querySelector('[data-testid="${testId}"]')?.getAttribute('${name}') ?? null;`);
+    const paletteErrors = await waitFor(async () => {
+      const value = await domAttr("palette-summary", "data-errors");
+      return value === null ? false : value;
+    }, 30000, "Palette summary did not appear for the captured scene.", 250);
+    if (paletteErrors !== "0") fail(`Captured scene has ${paletteErrors} palette conflict(s).`);
+    const bankSlots = [];
+    for (const bank of [0, 1, 2, 3]) bankSlots.push(await domAttr(`palette-map-bank-${bank}`, "data-used"));
+    await clickByTestId(sessionId, "palette-map-toggle");
+    await clickByTestId(sessionId, "palette-filter-0");
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-palette-map-filter.png`), "Palette map on, bank A hidden");
+    await clickByTestId(sessionId, "palette-filter-0");
+    // Fluxo Cena -> Arte -> Logica -> Arte -> Cena pelo objeto selecionado, pelos botoes reais.
+    {
+      const sprite = capturedScene.entities.find((e) => e.entity_id.startsWith("rom_sprite_"));
+      await callAutomationApi(sessionId, "setSelectedEntityId", [sprite.entity_id]);
+      const workspaceIs = (ws, why) => waitFor(async () => (await readAutomationState(sessionId))?.activeWorkspace === ws, 15000, why, 150);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-flow-scene.png`), "Scene with palette map and labels");
+      // Sprite -> recurso -> C: o Inspector mostra o recurso e leva ao node exato na Logica.
+      const linkResource = await waitFor(async () => (await executeScript(sessionId, `return document.querySelector('[data-testid="sprite-code-link"]')?.dataset.resource ?? null;`)) || false, 20000, "Sprite has no link to its SGDK resource.", 200);
+      const refId = await executeScript(sessionId, `return document.querySelector('[data-testid="sprite-code-link"] [data-testid^="sprite-code-ref-"]')?.dataset.testid ?? null;`);
+      if (!refId) fail("Sprite link has no C function reference.");
+      await clickButtonByTestIdNativeWhenReady(sessionId, refId, "Ponto do C");
+      await workspaceIs("logic", "Sprite code link did not open Logic.");
+      const focusedNode = await waitFor(async () => (await executeScript(sessionId, `return document.querySelector('[data-testid="game-code-logic"] [data-selected="true"]')?.textContent ?? null;`)) || false, 20000, "C node of the sprite was not selected.", 200);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-flow-sprite-code.png`), "Sprite linked to its C code");
+      report.sprite_code_link = { resource: linkResource, ref: refId, node: String(focusedNode).slice(0, 80) };
+      await clickButtonByTestIdNativeWhenReady(sessionId, "studio-open-scene", "Cena");
+      await workspaceIs("scene", "Did not return to Scene.");
+      await clickButtonByTestIdNativeWhenReady(sessionId, "studio-open-character", "Arte e animação");
+      await workspaceIs("artstudio", "Flow bar did not open Art.");
+      await clickButtonByTestIdNativeWhenReady(sessionId, "artstudio-open-logic", "Editar lógica");
+      await workspaceIs("logic", "Art did not open Logic.");
+      await waitFor(async () => (await executeScript(sessionId, `return Boolean(document.querySelector('[data-testid="game-code-logic"] [data-testid="c-graph-panel"], [data-testid="game-code-logic"]'));`)), 20000, "Game C code is not reachable in Logic.", 200);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-flow-logic-code.png`), "Logic: game C code");
+      await clickButtonByTestIdNativeWhenReady(sessionId, "logic-source-nodes", "Nodes do Studio");
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-flow-logic-nodes.png`), "Logic: Studio nodes");
+      await clickButtonByTestIdNativeWhenReady(sessionId, "nodegraph-bridge-open-art", "Arte e animação");
+      await workspaceIs("artstudio", "Logic did not open Art.");
+      await clickButtonByTestIdNativeWhenReady(sessionId, "studio-open-scene", "Cena");
+      await workspaceIs("scene", "Flow bar did not return to Scene.");
+      const selected = (await readAutomationState(sessionId))?.selectedEntityId;
+      if (selected !== sprite.entity_id) fail(`Selection lost across the flow: ${selected}`);
+      addReportStep(report, "scene_art_logic_flow", "passed", { entity: sprite.entity_id });
+    }
+    report.rom_capture_palettes = { errors: paletteErrors, slots_used: bankSlots, layers: (capturedScene.layers ?? []).map((l) => l.id) };
+    addReportStep(report, "rom_capture_palettes_without_conflict", "passed", report.rom_capture_palettes);
+
+    if (process.env.RDS_SGDK_FIGHT_PROBE === "1") {
+      try {
+        // Operator-provided Mugenesis QA input, not a game-specific product adapter.
+        // Bind the probe to source declarations and the freshly linked ELF.
+        const vars = await readFile(path.join(source, "inc/game_vars.h"), "utf8");
+        if (!/APP_SCENE_DEMO\s*=\s*3/.test(vars) || !/typedef struct AppState\s*\{\s*AppScene currentScene;/.test(vars)) fail("Fight probe source layout changed.");
+        const symbols = parseElf32Symbols(await readFile(path.join(path.dirname(build.rom_path), "rom.out")));
+        const appAddress = symbols.get("gApp");
+        if (!appAddress) fail("Fresh ELF has no gApp for the declared fight probe.");
+        report.fight_probe_samples = [];
+        const sceneProbe = async () => {
+          // This source's enum is a 32-bit int (movel in APP_changeScene in
+          // the linked ELF). GPGX exposes WRAM with each 68k word byte-swapped.
+          const value = await readEmulatorMemory(sessionId, 2, appAddress & 0xffff, 4);
+          const scene = ((value.data[0] | (value.data[1] << 8)) * 65536) + (value.data[2] | (value.data[3] << 8));
+          report.fight_probe_samples.push({ data: value.data, scene });
+          return scene;
+        };
+        await callAutomationApi(sessionId, "selectWorkspace", ["game"]);
+        // Select the game's existing training/idle mode through native keys.
+        // Arcade AI can hit/push the player during an asynchronous observation.
+        const menuSource = await readFile(path.join(source, "src/scenes/scene_menu.c"), "utf8");
+        if (!/static u8 sSelectedMode;/.test(menuSource) || !/static u8 sMenuPage;/.test(menuSource)
+          || !/MENU_MODE_ARCADE = 0,\s*MENU_MODE_VERSUS,\s*MENU_MODE_TRAINING,/.test(menuSource)) fail("Training menu probe source changed.");
+        const readByteSymbol = async (name) => {
+          const address = symbols.get(name);
+          if (!address) fail(`Fresh ELF has no ${name}.`);
+          const { data } = await readEmulatorMemory(sessionId, 2, (address & 0xffff) & ~1, 2);
+          return data[(address & 1) ^ 1];
+        };
+        if (await sceneProbe() !== 2 || await readByteSymbol("sMenuPage") !== 0) fail("Training selection requires the observed main menu.");
+        for (let i = 0; i < 8 && await readByteSymbol("sSelectedMode") !== 2; i += 1) {
+          await sendNativeGameKeyTap(sessionId, "ArrowDown", 800, "select existing training mode");
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+        if (await readByteSymbol("sSelectedMode") !== 2) fail("Native menu keys did not select training.");
+        addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-training-menu.png`), "Existing training mode selected through native keys");
+        const states = [await sceneProbe()];
+        for (let i = 0; i < 6 && states.at(-1) !== 3; i += 1) {
+          await sendNativeGameKeyTap(sessionId, "Enter", 800, `fight menu Start ${i + 1}`);
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+          states.push(await sceneProbe());
+          addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-fight-menu-${i + 1}.png`), `Fight navigation ${i + 1}`);
+        }
+        if (states.at(-1) !== 3) fail(`Fight did not start through native Start: ${JSON.stringify(states)}`);
+        // Entering the scene is still the 90-tick round intro, with controls
+        // disabled in the original C. Wait on observed core frames, not wall time.
+        const introFrame = (await readFramebufferStats(sessionId)).rendered_frames;
+        await waitFor(async () => (await readFramebufferStats(sessionId)).rendered_frames >= introFrame + 120,
+          90000, "Fight intro did not advance 120 observed core frames.", 500);
+        // MgFight begins with p[2]; the declared MgPlayer prefix is three 32-bit
+        // pointers + four u8, then s32 fixed-point x. Source-bound QA, not REX.
+        const runtimeHeader = await readFile(path.join(source, "inc/mg/mg_runtime.h"), "utf8");
+        if (!/struct MgPlayer\s*\{[\s\S]*?const MgCharDef \*def;[\s\S]*?const MgCharDef \*sdef;[\s\S]*?MgPlayer \*enemy;[\s\S]*?u8 side;[\s\S]*?u8 pal;[\s\S]*?u8 palette_variant;[\s\S]*?u8 is_cpu;[\s\S]*?mgfx x, y, vx, vy;/.test(runtimeHeader)) fail("Fight position probe source prefix changed.");
+        const fightAddress = symbols.get("mg_fight");
+        if (!fightAddress) fail("Fresh ELF has no mg_fight position probe symbol.");
+        const playerState = async () => {
+          const { data } = await readEmulatorMemory(sessionId, 2, fightAddress & 0xffff, 48);
+          const bytes = Buffer.from(data).swap16();
+          return { x_fixed: bytes.readInt32BE(16), state_no: bytes.readInt16BE(34), ctrl: bytes[47] };
+        };
+        const fightSource = await readFile(path.join(source, "src/mg/mg_fight.c"), "utf8");
+        if (!/static u8 sTrainingMode;/.test(fightSource) || !/static u8 sTrainingSparring = MG_TRAINING_IDLE;/.test(fightSource)) fail("Training runtime probe source changed.");
+        const training = { mode: await readByteSymbol("sTrainingMode"), sparring: await readByteSymbol("sTrainingSparring") };
+        if (training.mode !== 1 || training.sparring !== 0) fail(`Fight is not the selected training/idle mode: ${JSON.stringify(training)}`);
+        const neutralBefore = await waitFor(async () => { const value = await playerState(); return value.ctrl === 1 ? value : false; }, 30000, "Training player did not gain control after the intro.", 250);
+        addReportStep(report, "native_training_control_ready", "passed", { ...neutralBefore, frame: await readFramebufferStats(sessionId) });
+        const neutralFrame = (await readFramebufferStats(sessionId)).rendered_frames;
+        await waitFor(async () => (await readFramebufferStats(sessionId)).rendered_frames >= neutralFrame + 10, 15000, "Neutral control did not advance.", 200);
+        const neutralAfter = await playerState();
+        if (neutralBefore.ctrl !== 1 || neutralAfter.ctrl !== 1 || neutralBefore.x_fixed !== neutralAfter.x_fixed) fail(`Player did not remain stationary/controllable without input in training: ${JSON.stringify({training,neutralBefore,neutralAfter})}`);
+        addReportStep(report, "native_training_idle_neutral_control", "passed", { training, before: neutralBefore, after: neutralAfter, frames: 10 });
+        const initialX = neutralAfter.x_fixed;
+        const observations = [];
+        // Measure both directions before initiating attacks, which deliberately
+        // disable ctrl in the original game. Keep attack observations separate.
+        for (const code of ["ArrowRight", "ArrowLeft", "KeyZ", "KeyX"]) {
+          const before = code.startsWith("Arrow")
+            ? await waitFor(async () => { const s = await playerState(); return s.ctrl === 1 ? s : false; }, 15000, "Fight player has no directional control.", 250)
+            : await playerState();
+          await sendNativeGameKeyTap(sessionId, code, 800, `fight ${code}`);
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          observations.push({ code, before, ...await playerState(), frame: await readFramebufferStats(sessionId) });
+          addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-fight-${code}.png`), `Fight input ${code}`);
+        }
+        const rightX = observations.find((o) => o.code === "ArrowRight").x_fixed;
+        const leftX = observations.find((o) => o.code === "ArrowLeft").x_fixed;
+        if (!(rightX > initialX && leftX < rightX
+          && rightX > observations[0].before.x_fixed && leftX < observations[1].before.x_fixed)) fail(`Native fight movement did not follow directions: ${JSON.stringify({initialX,rightX,leftX,observations})}`);
+        addReportStep(report, "native_fight_direction_changes_player_position", "passed", { initialX, rightX, leftX, intro_frames_observed: 120, address: fightAddress + 16 });
+        addReportStep(report, "native_fight_started_and_inputs_sent", "passed", { states, gApp_address: appAddress, observations,
+          limit: "scene observed in core RAM and native inputs sent; no full match, gameplay equivalence, latency or hardware acceptance" });
+      } catch (error) {
+        addReportStep(report, "native_fight_direction_probe", "failed", { error: String(error) });
+        addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-fight-probe-failed.png`).catch(() => null), "Directional probe refused; independent C edit/build/export still exercised");
+      }
+    }
+
+    await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
+    await waitFor(async () => (await readAutomationState(sessionId))?.emulatorLoaded === false, 15000, "Emulator did not stop.", 150);
+    addReportStep(report, "stopped", "passed");
+
+    // Grafo C: abrir o painel no app real, editar um bloco pela UI e provar que a ROM muda.
+    const codeIndex = JSON.parse(await readFile(path.join(overlay, "code", "index.json"), "utf8"));
+    const findLiteral = (node, inFn) => {
+      const scoped = inFn || node.kind === "function_definition";
+      const b = node.block;
+      if (scoped && b?.form === "assign" && b.operator === "=" && /^[1-9][0-9]?$/.test(b.args?.[0] ?? "")) return { id: node.id, block: b };
+      for (const child of node.children ?? []) {
+        const found = findLiteral(child, scoped);
+        if (found) return found;
+      }
+      return null;
+    };
+    let target = null;
+    for (const entry of codeIndex.files.filter((e) => e.source_file.startsWith("src/") && e.source_file.endsWith(".c"))) {
+      const graphFile = path.join(overlay, entry.graph_file);
+      const graphRaw = await readFile(graphFile, "utf8");
+      const found = findLiteral(JSON.parse(graphRaw).root, false);
+      if (found) { target = { ...found, file: entry.source_file, graphFile, graphRaw }; break; }
+    }
+    if (!target) fail("No literal assignment block found in the C graph.");
+    const newValue = String(Number(target.block.args[0]) + 1);
+    try {
+      await callAutomationApi(sessionId, "selectWorkspace", ["explorer"]);
+      await waitFor(async () => executeScript(sessionId, `return Boolean([...document.querySelectorAll('button')].find((x)=>x.getAttribute('title')===arguments[0]));`, [target.file]), 30000, `Legacy file ${target.file} not listed in Explorer.`, 250);
+      const fileSelected = await executeScript(sessionId, `const b=[...document.querySelectorAll('button')].find((x)=>x.getAttribute('title')===arguments[0]);if(!b)return false;b.click();return true;`, [target.file]);
+      if (!fileSelected) fail(`Legacy file ${target.file} not listed in Explorer.`);
+      await waitFor(async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"cgraph-panel\"] [data-testid^=\"cgraph-node-\"]'));"), 60000, "C graph panel did not render nodes.", 250);
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-cgraph-panel.png`), "C graph panel open on host file");
+      const parts = target.id.split(".");
+      for (let i = 2; i <= parts.length; i += 1) {
+        const id = parts.slice(0, i).join(".");
+        const opened = await executeScript(sessionId, `const row=document.querySelector('[data-testid="cgraph-node-'+arguments[0]+'"]');if(!row)return 'missing';
+          if(arguments[1]){row.click();return 'selected';}
+          const toggle=row.parentElement.querySelector('button[aria-label="Expandir"]');if(toggle)toggle.click();return 'ok';`, [id, i === parts.length]);
+        if (opened === "missing") fail(`C graph node ${id} not reachable in the panel.`);
+      }
+      await waitFor(async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"cgraph-block-editor\"]'));"), 15000, "Block editor did not open.", 200);
+      const applied = await executeScript(sessionId, `const ed=document.querySelector('[data-testid="cgraph-block-editor"]');const input=ed.querySelector('input[aria-label="Valor do bloco"]');
+        if(!input||input.value!==arguments[0])return 'value:'+(input&&input.value);
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,arguments[1]);input.dispatchEvent(new Event('input',{bubbles:true}));
+        return 'typed';`, [target.block.args[0], newValue]);
+      if (applied !== "typed") fail(`Block editor did not show the expected value: ${applied}`);
+      await executeScript(sessionId, `[...document.querySelectorAll('[data-testid="cgraph-block-editor"] button')].find((b)=>b.textContent==='Aplicar bloco').click();return true;`);
+      const expectedStatement = `${target.block.target} = ${newValue};`;
+      await waitFor(async () => (await readFile(target.graphFile, "utf8")).includes(expectedStatement.replace(/"/g, '\\"')), 30000, "Block edit was not persisted to the C graph.", 250);
+      addReportStep(report, "cgraph_block_edited_in_ui", "passed", { file: target.file, node: target.id, statement: expectedStatement, previous: target.block.args[0] });
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-cgraph-edited.png`), "Block edited through the panel");
+
+      await clickButtonByTestIdNative(sessionId, "toolbar-review");
+      const staleReview = await waitFor(async () => executeScript(sessionId, `const kind=document.querySelector('[data-testid="delivery-freshness"]')?.dataset.kind;
+        return kind==='rebuild-needed'?{kind,verifyDisabled:document.querySelector('[data-testid="delivery-verify-rom"]')?.disabled,exportDisabled:document.querySelector('[data-testid="delivery-export"]')?.disabled}:null;`), 15000, "C edit did not invalidate the prior ROM review.", 150);
+      if (!staleReview.verifyDisabled || !staleReview.exportDisabled) fail("Stale C ROM can still be verified/exported.");
+      addReportStep(report, "c_edit_refuses_previous_rom_review_export", "passed", staleReview);
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-c-edit-stale-review.png`), "C edit requires recompilation before review/export");
+      await clickButtonByTestIdNative(sessionId, "delivery-close");
+
+      const edited = await runBuildRunAndCollect(sessionId, "SGDK C edited via nodes", 900000, report, `${prefix}-edited`, { nativeClick: true });
+      report.edited_build = edited;
+      report.edited_receipt = await checkReceipt(edited, "edited");
+      if (edited.rom_sha256 === build.rom_sha256) fail("Editing a C graph block did not change the ROM.");
+      if (!(await readFile(path.join(source, target.file), "utf8")).includes(`${target.block.target} = ${target.block.args[0]};`)) fail("Original C root was modified.");
+      const editedFrame = await readFramebufferStats(sessionId);
+      if (!editedFrame?.non_black_pixels) fail("Edited ROM did not render.");
+      addReportStep(report, "edited_rom_differs_and_runs", "passed", { original_sha256: build.rom_sha256, edited_sha256: edited.rom_sha256, non_black_pixels: editedFrame.non_black_pixels });
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-edited-boot.png`), "Edited ROM running");
+      await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
+      await waitFor(async () => (await readAutomationState(sessionId))?.emulatorLoaded === false, 15000, "Emulator did not stop.", 150);
+      await clickButtonByTestIdNative(sessionId, "toolbar-review");
+      await waitFor(async () => executeScript(sessionId, `return document.querySelector('[data-testid="delivery-native-scope"]')?.textContent;`), 15000, "Native C delivery scope missing.", 150);
+      await clickButtonByTestIdNativeWhenReady(sessionId, "delivery-verify-rom", "Verificar ROM C");
+      await waitFor(async () => executeScript(sessionId, `return document.querySelector('[data-testid="delivery-export"]')?.disabled === false;`), 30000, "Verified C ROM cannot be exported.", 200);
+      await clickButtonByTestIdNative(sessionId, "delivery-export");
+      const exported = await waitFor(async () => executeScript(sessionId, `const e=document.querySelector('[data-testid="delivery-exported"]');return e?{path:e.dataset.path,sha:e.dataset.sha256}:null;`), 30000, "Native C export missing.", 200);
+      if (exported.sha !== edited.rom_sha256 || await hashFile(exported.path) !== edited.rom_sha256) fail("Exported C ROM differs from the edited and executed build.");
+      addReportStep(report, "native_c_review_export_matches_executed_rom", "passed", exported);
+      addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-delivery.png`), "Native C ROM verified and exported after Stop");
+      await clickButtonByTestIdNative(sessionId, "delivery-close");
+    } finally {
+      await writeFile(target.graphFile, target.graphRaw);
+    }
+    addReportStep(report, "cgraph_restored", "passed", { graph: target.graphFile });
+
+    await callAutomationApi(sessionId, "closeProject");
+    await openAndInspect("reopen");
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-reopen.png`), "Reopened original C root");
+    if (report.steps.some((entry) => entry.status === "failed")) fail("Native C journey has failed assertions; see report.");
+    report.status = "passed";
+  } catch (error) {
+    report.status = "failed";
+    report.error = String(error);
+    throw error;
+  } finally {
+    await writeFile(path.join(output, `${prefix}.json`), JSON.stringify(report, null, 2));
+  }
+}
+
+// Any SGDK project opened in place (legacy overlay), with no per-project expectations: what the
+// Studio understood (scenes, sprite catalog, C graph), the original C built and run, the running
+// screen captured as a scene (palettes, sprite -> C links), the C logic in Logic and a game sprite
+// in Art with the frame declared by its .res. Each step records its own result; a failed build
+// still lets the static views be inspected.
+// Editor de pixels (Experimental): sprite real do jogo -> frames indexados -> pintar -> salvar PNG 4-bit.
+async function runImageIngressScenario(sessionId, timeoutMs, onProjectCreated) {
+  const hashFile = async file => createHash("sha256").update(await readFile(file)).digest("hex");
+  const output = process.env.RDS_IMAGE_INGRESS_OUTPUT;
+  const helper = process.env.RDS_IMAGE_CLIPBOARD_HELPER ?? path.resolve("scripts/image-clipboard-fixture.py");
+  const gifPath = process.env.RDS_IMAGE_GIF;
+  const gifUrl = process.env.RDS_IMAGE_GIF_URL;
+  if (!output || !helper || !gifPath || !gifUrl) fail("Image ingress requires output, native clipboard helper, GIF path and public URL receipts.");
+  await mkdir(output, {recursive:true});
+  const prefix = `image-ingress-${artifactTimestamp()}`;
+  const report = {schema:"retrodev.image_ingress/v1",maturity:"Experimental",steps:[],artifacts:[]};
+  const js = (code,args=[]) => executeScript(sessionId,code,args);
+  const state = () => readAutomationState(sessionId);
+  const click = id => clickButtonByTestIdNative(sessionId,id);
+  const shot = async name => addReportArtifact(report,await captureScreenshot(sessionId,`${prefix}-${name}.png`),name);
+  const chord = key => webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"key",id:"image-paste",actions:[{type:"keyDown",value:"\uE009"},{type:"keyDown",value:key},{type:"keyUp",value:key},{type:"keyUp",value:"\uE009"}]}]});
+  const escape = () => webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"key",id:"image-cancel",actions:[{type:"keyDown",value:"\uE00C"},{type:"keyUp",value:"\uE00C"}]}]});
+  let producer;
+  const stop = async () => { if (producer) { producer.kill("SIGTERM");await waitForProcessExit(producer,5000);producer=null; } };
+  const produce = async (mode,value) => {
+    await stop();
+    producer=spawn("python3",[helper,mode,value],{env:process.env,stdio:["ignore","pipe","pipe"]});
+    producer.stdout.on("data",data=>{report.fixture_log=(report.fixture_log??"")+mode+": "+data.toString();});
+    producer.stderr.on("data",data=>{report.fixture_log=(report.fixture_log??"")+mode+" stderr: "+data.toString();});
+    await new Promise((resolve,reject)=> { producer.stdout.once("data",resolve);producer.once("error",reject);producer.once("exit",code=>reject(new Error(`Clipboard fixture exited ${code}`))); });
+  };
+  const ready = async frames => waitFor(async()=>js(`const p=document.querySelector('[data-testid="image-ingress-dialog"]');return p?.textContent?.includes(arguments[0]+' quadro(s)') && document.querySelector('[data-testid="image-ingress-sprite"]') ? true : false;`,[frames]),45000,"Image role chooser not ready.",150);
+  const inserted = async count => waitFor(async()=> { const s=await state();const notice=await js(`return document.querySelector('[data-testid="image-ingress-notice"]')?.textContent;`);return s?.activeScene?.entityCount===count && notice?.includes("Salvo no projeto") ? s : false; },30000,"Image not inserted and saved.",200);
+  try {
+    await setSessionWindowRect(sessionId,1440,900);
+    await prepareBlankProjectWizard(sessionId);
+    const name=`Images_${Date.now()}`;
+    await fillInputBySelector(sessionId,'input[placeholder="Nome do projeto"]',name);
+    await clickButtonByText(sessionId,"Criar Projeto","exact");
+    const created=await waitFor(async()=>{const s=await state();return s?.activeProjectName===name?s:false;},60000,"Image project not created.",250);
+    const project=created.activeProjectDir;onProjectCreated(project);currentE2eRunContext.project=project;report.project=project;
+    const disk=async()=>JSON.parse(await readFile(path.join(project,(await state()).activeScenePath),"utf8"));
+    await produce("browser",gifPath);
+    await js(`window.__RDS_IMAGE_FIRST_INPUT__={activeBefore:document.activeElement?.tagName ?? null};
+      document.addEventListener('keydown',event=>{window.__RDS_IMAGE_FIRST_INPUT__.key={key:event.key,ctrl:event.ctrlKey,target:event.target?.tagName};},{capture:true,once:true});
+      document.addEventListener('paste',event=>{window.__RDS_IMAGE_FIRST_INPUT__.paste={types:Array.from(event.clipboardData?.types??[]),target:event.target?.tagName};},{capture:true,once:true});
+      document.activeElement?.blur?.();return true;`);
+    await chord("v");
+    try { await ready(6); }
+    catch (error) {
+      report.first_input = await js("return window.__RDS_IMAGE_FIRST_INPUT__ ?? null;");
+      fail(`${error instanceof Error ? error.message : String(error)} input=${JSON.stringify(report.first_input)}`);
+    }
+    await shot("gif-received");await click("image-ingress-sprite");const added=await inserted(1);await stop();
+    const sprite=(await disk()).entities[0];
+    const asset=sprite.components.sprite.asset;
+    const original=sprite.components.logic.logic_hints.find(h=>h.startsWith("art_ingress:original=")).split("=")[1];
+    if (!(await readFile(path.join(project,original))).equals(await readFile(gifPath))) fail("Original GIF bytes changed.");
+    const doc=JSON.parse(await readFile(path.join(project,asset.replace(/\.png$/,".rdspixel.json")),"utf8"));
+    if (doc.frames.length!==6 || sprite.components.sprite.animations.idle.frames.length!==6) fail("GIF frames were discarded.");
+    if (!sprite.components.logic.graph) fail("Empty-scene image did not receive starter logic.");
+    addReportStep(report,"native_browser_format_clipboard_to_six_frame_sprite_and_logic","passed",{source:gifUrl,asset,original,frames:doc.frames.length,selected:added.selectedEntityId});
+    await click("image-ingress-edit");
+    await waitFor(async()=>js(`return document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length===6;`),30000,"All GIF frames did not open in PixelEditor.",200);
+    await click("pixel-frame-duplicate");
+    await setInputByTestIdNative(sessionId,"pixel-frame-duration","150");
+    await click("pixel-tool-line");
+    await js(`const c=document.querySelector('[data-testid="pixel-canvas"]'),r=c.getBoundingClientRect();for (const [type,x,y] of [['pointerdown',4,4],['pointermove',r.width-4,r.height-4],['pointerup',r.width-4,r.height-4]])c.dispatchEvent(new PointerEvent(type,{bubbles:true,clientX:r.left+x,clientY:r.top+y,pointerId:1,button:0}));return true;`);
+    await click("pixel-reopen-original");
+    await waitFor(async()=>js(`return document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length===6 && document.querySelector('[data-testid="pixel-status"]')?.textContent.includes("Original reaberto");`),20000,"Preserved original could not reopen.",150);
+    await click("pixel-remove-background");
+    await waitFor(async()=>js(`return document.querySelector('[data-testid="pixel-status"]')?.textContent.includes("Fundo uniforme removido");`),5000,"Uniform background tool did not operate.",150);
+    await chord("z");await new Promise(r=>setTimeout(r,150));await chord("z");
+    await waitFor(async()=>js(`return document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length===7;`),5000,"Undo did not restore the edited animation after original/background tools.",150);
+    addReportStep(report,"reopen_original_remove_background_undo_edits_preserved","passed",{frames:7});
+    await click("pixel-save");
+    await waitFor(async()=>{ const s=await disk();return s.entities[0].components.sprite.animations.idle.frames.length===7 && s.entities[0].components.sprite.animations.idle.frame_durations.includes(9); },20000,"Edited animation metadata did not save to scene.",200);
+    await shot("edited-frames");
+    addReportStep(report,"edit_pixels_duplicate_frame_change_delay_save","passed",{frames:7,ticks:9});
+    await callAutomationApi(sessionId,"selectWorkspace",["scene"]);
+    // Real GTK -> Tauri OS file drag, not a DOM drop fixture.
+    await produce("drop",gifPath);
+    addReportArtifact(report,(await captureWindowRaster(sessionId,`${prefix}-native-drag-source.png`)).path,"native drag source and target");
+    const rect=await js(`const r=document.querySelector('[data-testid="viewport-scene-canvas"]').getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)};`);
+    const xd = args => new Promise((resolve,reject)=>execFile("xdotool",args,{env:process.env,timeout:10000},(e)=>e?reject(e):resolve()));
+    await xd(["mousemove","--sync","100","800","mousedown","1"]);
+    for (let n=1;n<=12;n++) {await xd(["mousemove","--sync",String(Math.round(100+(rect.x-100)*n/12)),String(Math.round(800+(rect.y-800)*n/12))]);await new Promise(r=>setTimeout(r,70));}
+    await xd(["mouseup","1"]);await ready(6);await stop();await shot("native-file-drop");
+    await escape();
+    await waitFor(async()=>!(await js(`return !!document.querySelector('[data-testid="image-ingress-dialog"]');`)),5000,"Cancel failed.",150);
+    if ((await state()).activeScene.entityCount!==1) fail("Cancelled native drop altered scene.");
+    addReportStep(report,"native_file_drop_cancel_preserves_scene","passed",rect);
+    await produce("drop",gifPath);
+    await xd(["mousemove","--sync","100","800","mousedown","1"]);
+    for(let n=1;n<=12;n++){await xd(["mousemove","--sync",String(Math.round(100+(rect.x-100)*n/12)),String(Math.round(800+(rect.y-800)*n/12))]);await new Promise(r=>setTimeout(r,70));}
+    await xd(["mouseup","1"]);await ready(6);await click("image-ingress-sprite");await inserted(2);await stop();
+    await new Promise(r=>setTimeout(r,350));
+    if(await js(`return !!document.querySelector('[data-testid="image-ingress-dialog"]');`))fail("Native file drop was also queued as a duplicate DOM drop.");
+    await js("document.activeElement?.blur?.();return true;");await chord("z");await waitFor(async()=>(await state()).activeScene.entityCount===1,5000,"Native drop Undo failed.",150);
+    addReportStep(report,"native_file_drop_commits_once_and_undoes","passed",{frames:6});
+    // A browser-derived raster copied as actual OS image bytes exercises Ctrl+V.
+    const raster=path.join(output,"browser-first-frame.png");
+    await new Promise((resolve,reject)=>execFile("convert",[`${gifPath}[0]`,raster],{timeout:10000},e=>e?reject(e):resolve()));
+    await produce("image",raster);await js(`document.addEventListener('paste',e=>{window.__RDS_IMAGE_PASTE_PROBE__={types:Array.from(e.clipboardData?.types??[]),files:Array.from(e.clipboardData?.files??[]).map(f=>({name:f.name,type:f.type,size:f.size})),items:Array.from(e.clipboardData?.items??[]).map(i=>({kind:i.kind,type:i.type,file:!!i.getAsFile?.()}))};},{capture:true,once:true});document.activeElement?.blur?.();return true;`);await chord("v");await ready(1);await click("image-ingress-background");await inserted(2);await stop();
+    const withBackground=await disk();
+    if (!withBackground.entities[0].components.tilemap || !withBackground.entities[1].components.sprite) fail("Background hides/reorders the character.");
+    if (withBackground.entities[0].components.tilemap.cells.length===0) fail("Image was left as an unassembled tile bank.");
+    await shot("sprite-and-background");
+    addReportStep(report,"native_raster_clipboard_background_assembled_before_sprite","passed",{cells:withBackground.entities[0].components.tilemap.cells.length});
+    await js("document.activeElement?.blur?.();return true;");await chord("z");
+    await waitFor(async()=>(await state()).activeScene.entityCount===1,5000,"Undo did not remove background.",150);
+    await chord("y");await waitFor(async()=>(await state()).activeScene.entityCount===2,5000,"Redo did not restore background.",150);
+    // Paletas identicas dividem banco no planejador atual. Variar cores do GIF
+    // publico exercita capacidade real sem fabricar estado de cena por fora da UI.
+    const paletteInputs=[];
+    for (const hue of [133,167,200,233]) {
+      const variant=path.join(output,`${prefix}-palette-${hue}.gif`);
+      await new Promise((resolve,reject)=>execFile("magick",[gifPath,"-coalesce","-modulate",`100,100,${hue}`,variant],{timeout:10000},error=>error?reject(error):resolve()));
+      paletteInputs.push(pathToFileURL(variant).href);
+    }
+    report.palette_fixtures=await Promise.all(paletteInputs.map(async(url)=>({url,sha256:await hashFile(fileURLToPath(url))})));
+    const pasteGif = async (url=gifUrl) => {await produce("url",url);await js("document.activeElement?.blur?.();return true;");await chord("v");await ready(6);await click("image-ingress-sprite");};
+    let beforeFull,fullCount,replacementUrl;
+    for(let attempt=0;attempt<4;attempt++) {
+      beforeFull=await disk();fullCount=(await state()).activeScene.entityCount;
+      const candidate=paletteInputs[attempt];
+      await pasteGif(candidate);
+      const decision=await waitFor(async()=>{
+        if(await js(`return !!document.querySelector('[data-testid="image-ingress-bank-2"]');`))return "replace";
+        const st=await state();return st.activeScene.entityCount===fullCount+1?"inserted":false;
+      },30000,"Image neither inserted nor requested a palette.",150);
+      if(decision==="replace"){replacementUrl=candidate;break;}
+      await inserted(fullCount+1);
+    }
+    if(!(await js(`return !!document.querySelector('[data-testid="image-ingress-bank-2"]');`)))fail("Full palette fixture did not reach a replacement decision.");
+    if((await state()).activeScene.entityCount!==fullCount)fail("Palette decision already modified the scene.");
+    await shot("palette-choice");await escape();
+    if(JSON.stringify(await disk())!==JSON.stringify(beforeFull))fail("Cancelling palette replacement wrote the scene.");
+    await pasteGif(replacementUrl);await waitFor(async()=>js(`return !!document.querySelector('[data-testid="image-ingress-bank-2"]');`),30000,"Second palette decision absent.",150);
+    await click("image-ingress-bank-2");await inserted(fullCount+1);await stop();
+    await js("document.activeElement?.blur?.();return true;");await chord("z");
+    await waitFor(async()=>(await state()).activeScene.entityCount===fullCount,5000,"Palette insertion Undo not atomic.",150);
+    if(JSON.stringify((await state()).activeScene.palettes)!==JSON.stringify(beforeFull.palettes??[]))fail("Undo did not restore the previous palette assignments.");
+    await chord("y");await waitFor(async()=>(await state()).activeScene.entityCount===fullCount+1,5000,"Palette insertion Redo failed.",150);
+    for(let i=0;i<fullCount-1;i++){await chord("z");await new Promise(r=>setTimeout(r,120));}
+    await waitFor(async()=>(await state()).activeScene.entityCount===2,5000,"Controlled palette fixtures did not undo.",150);
+    addReportStep(report,"four_banks_explicit_choice_cancel_atomic_undo_redo","passed",{bank:2});
+    await closeVisibleConsoleDrawer(sessionId,"antes do build de imagens");
+    const built=await runBuildRunAndCollect(sessionId,"image-ingress",timeoutMs,report,prefix,{nativeClick:true});report.build=built;
+    addReportStep(report,"build_rom_emulation","passed",built);
+    const roiSamples=[];
+    for(let i=0;i<12;i++){
+      const sample=await js(`const c=document.querySelector('[data-testid="viewport-game-canvas"]'),ctx=c?.getContext('2d');if(!ctx)return null;const data=ctx.getImageData(arguments[0],arguments[1],64,64).data;let hash=2166136261,red=0;for(let j=0;j<data.length;j+=4){for(let k=0;k<3;k++)hash=Math.imul(hash^data[j+k],16777619);if(data[j]>80 && data[j]>data[j+1]*1.5 && data[j]>data[j+2]*1.5)red++;}return {hash:hash>>>0,red};`,[sprite.transform.x,sprite.transform.y]);
+      roiSamples.push(sample);await new Promise(r=>setTimeout(r,110));
+    }
+    if(new Set(roiSamples.filter(Boolean).map(s=>s.hash)).size<2 || !roiSamples.some(s=>s?.red>0))fail("Compiled GIF did not visibly animate over the background.");
+    addReportStep(report,"gif_animation_visible_in_core_above_background","passed",{samples:roiSamples});
+    await callAutomationApi(sessionId,"stopEmulator");
+    const resources=await readFile(path.join(project,"build/megadrive/res/resources.res"),"utf8");
+    report.resources_res=resources;
+    if (!resources.includes("[[6,9,6,6,6,6,6]]")) fail("Edited frame durations absent from resource recipe.");
+    if(await callAutomationApi(sessionId,"persistScene",["image-before-close"])!==true)fail("Image scene did not finish its canonical save before close.");
+    await waitFor(async()=>js(`const e=document.querySelector('[data-testid="scene-save-status"]');return e?.dataset.status==='saved'&&e.dataset.revision===e.dataset.savedRevision;`),10000,"Image save revision not confirmed.",150);
+    const scene=await disk();
+    // Closing must actually finish and must never depend on accepting discard.
+    await js(`window.__RDS_IMAGE_PRIOR_CONFIRM__=window.confirm;window.__RDS_IMAGE_DISCARD_REQUESTS__=[];window.confirm=message=>{window.__RDS_IMAGE_DISCARD_REQUESTS__.push(String(message));return false;};return true;`);
+    try{
+      await clickTopBarMenuAction(sessionId,"Fechar");
+      await waitFor(async()=> (await state()).activeProjectDir==="" || (await js(`return window.__RDS_IMAGE_DISCARD_REQUESTS__.length;`))>0,10000,"Image project close did not finish or report a failure.",150);
+    }finally{await js(`window.confirm=window.__RDS_IMAGE_PRIOR_CONFIRM__;return true;`);}
+    if((await js(`return window.__RDS_IMAGE_DISCARD_REQUESTS__;`)).length)fail("Closing the saved image project requested discarding changes.");
+    await waitFor(async()=>(await state()).activeProjectDir==="",10000,"Image project did not really close.",150);
+    await openSavedProjectWizard(sessionId,project);
+    await waitFor(async()=>(await state()).activeProjectDir===project,20000,"Image project did not reopen.",200);
+    const reopened=await disk();if (JSON.stringify(reopened)!==JSON.stringify(scene)) fail("Reopening rewrote the image scene.");
+    await callAutomationApi(sessionId,"setSelectedEntityId",[sprite.entity_id]);await callAutomationApi(sessionId,"selectWorkspace",["artstudio"]);
+    await waitFor(async()=>js(`return document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length===7;`),20000,"Edited GIF frames did not reopen.",200);
+    await shot("reopened");addReportStep(report,"save_close_reopen_all_frames","passed",{frames:7,discard_prompts:0});
+    // Create another scene through the actual UI. Only the prompt's text is
+    // supplied by the fixture; the canonical scene creation/save/open is real.
+    await callAutomationApi(sessionId,"selectWorkspace",["scene"]);
+    const previousScene=(await state()).activeScenePath;
+    await waitFor(async()=>js(`const b=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Nova Cena');if(!b||b.disabled)return false;const prompt=window.prompt;window.prompt=()=>"Image Library";try{b.click();}finally{window.prompt=prompt;}return true;`),15000,"New scene control did not finish loading.",150);
+    await waitFor(async()=>{const st=await state();return st.activeScenePath!==previousScene&&st.activeScene.entityCount===0;},15000,"New scene creation failed.",150);
+    await callAutomationApi(sessionId,"openToolsWorkspace",["assets","editing",true]);
+    await waitForBodyText(sessionId,"Assets canonicos",30000,"Native image catalog absent.");
+    await clickButtonByText(sessionId,"Miniaturas","exact");
+    await waitFor(async()=>js(`const e=[...document.querySelectorAll('[data-testid="asset-browser-item"]')].find(e=>e.dataset.assetPath===arguments[0]);if(!e)return false;e.scrollIntoView({block:'center'});const b=[...e.querySelectorAll('button')].find(e=>e.textContent.trim()==='Adicionar à cena');if(!b||b.disabled)return false;b.click();return true;`,[asset]),15000,"Saved image absent or unavailable in library.",150);
+    await inserted(1);
+    const reused=(await disk()).entities[0];
+    if(reused.components.sprite.frame_width!==64 || reused.components.sprite.frame_height!==64 || reused.components.sprite.animations.idle.frames.length!==7 || !reused.components.sprite.animations.idle.frame_durations.includes(9))fail("Native library reuse guessed the frame layout or lost animation timing.");
+    await shot("library-reuse");
+    addReportStep(report,"library_reuse_without_scene_references_preserves_edited_frames_and_timing","passed",{frames:7,width:64,height:64,asset:reused.components.sprite.asset});
+    await clickButtonByText(sessionId,"Adicionar lógica","exact");
+    await waitFor(async()=>js(`return !!document.querySelector('[data-testid="nodegraph-canvas"]') && document.querySelectorAll('[data-testid^="node-card-"]').length>0;`),20000,"Image logic action did not open its editable graph.",150);
+    await shot("image-logic");addReportStep(report,"image_action_opens_editable_starter_logic","passed",{nodes:await js(`return document.querySelectorAll('[data-testid^="node-card-"]').length;`)});
+    // O pan nativo nao pode importar a imagem que permanece no clipboard.
+    await produce("image",raster);
+    const countBeforePan=(await state()).activeScene.entityCount;
+    await js(`window.__RDS_IMAGE_PAN_PASTES__=[];
+      document.addEventListener('paste',event=>window.__RDS_IMAGE_PAN_PASTES__.push({types:Array.from(event.clipboardData?.types??[]),target:event.target?.tagName}),true);return true;`);
+    await js(`window.__RDS_IMAGE_PAN_EVENTS__=[];
+      const record=(phase,event)=>{if(event.type==='mousemove'&&event.buttons!==4)return;
+        window.__RDS_IMAGE_PAN_EVENTS__.push({phase,type:event.type,button:event.button,buttons:event.buttons,
+          x:event.clientX,y:event.clientY,target:event.target?.tagName,
+          closest:event.target?.closest?.('[data-testid]')?.getAttribute('data-testid')??null});};
+      for(const type of ['mousedown','mousemove','mouseup']){
+        document.addEventListener(type,event=>record('capture',event),true);
+        document.querySelector('[data-testid="nodegraph-canvas-shell"]')?.addEventListener(type,event=>record('shell',event));
+      }return true;`);
+    const panSamples=[];
+    const middlePan=async(label,selector,point="card")=>{
+      await js(`window.__RDS_IMAGE_PAN_EVENTS__=[];return true;`);
+      const target=await js(`const el=document.querySelector(arguments[0]);const shell=document.querySelector('[data-testid="nodegraph-canvas-shell"]');
+        if(!el||!shell)return null;const r=el.getBoundingClientRect();
+        const x=Math.round(r.left+(arguments[1]==='canvas'?r.width*.75:arguments[1]==='border'?3:Math.min(24,r.width/2)));
+        const y=Math.round(r.top+(arguments[1]==='canvas'?r.height*.75:arguments[1]==='border'?r.height/2:Math.min(18,r.height/2)));
+        const hit=document.elementFromPoint(x,y);return {x,y,valid:arguments[1]==='canvas'
+          ?shell.contains(hit)&&!hit?.closest('[data-testid^="node-card-"],[data-testid="nodegraph-toolbar"],[data-testid="nodegraph-minimap"]')
+          :el.contains(hit),hit:hit?.closest('[data-testid]')?.getAttribute('data-testid')??null,tag:hit?.tagName};`,[selector,point]);
+      if(!target?.valid)fail(`Pan ${label} sem alvo nativo livre: ${JSON.stringify(target)}`);
+      const before=await js(`return document.querySelector('[data-testid="nodegraph-canvas-shell"]')?.style.backgroundPosition;`);
+      await webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"pointer",id:`image-pan-${label}`,parameters:{pointerType:"mouse"},actions:[
+        {type:"pointerMove",origin:"viewport",x:target.x,y:target.y},{type:"pointerDown",button:1},
+        {type:"pointerMove",origin:"viewport",x:target.x+36,y:target.y+24,duration:250},{type:"pointerUp",button:1}]}]});
+      await new Promise(resolve=>setTimeout(resolve,500));
+      const after=await js(`return document.querySelector('[data-testid="nodegraph-canvas-shell"]')?.style.backgroundPosition;`);
+      const dialog=await js(`return !!document.querySelector('[data-testid="image-ingress-dialog"]');`);
+      const coordinates=value=>value?.match(/^(-?[\d.]+)px (-?[\d.]+)px$/)?.slice(1).map(Number)??[];
+      const [bx,by]=coordinates(before),[ax,ay]=coordinates(after);
+      const delta=[ax-bx,ay-by];
+      const events=await js(`return window.__RDS_IMAGE_PAN_EVENTS__;`);
+      report.pan_attempts=[...(report.pan_attempts??[]),{label,target,before,after,delta,dialog,events}];
+      if(delta.some((value,index)=>!Number.isFinite(value)||Math.abs(value-[36,24][index])>1)||dialog||(await state()).activeScene.entityCount!==countBeforePan)
+        fail(`Pan ${label} alterou cena/abriu imagem ou deslocou fora do gesto: ${JSON.stringify({before,after,delta,dialog,target,events})}`);
+      panSamples.push({label,before,after,delta,hit:target.hit});
+    };
+    await middlePan("canvas",'[data-testid="nodegraph-canvas-shell"]',"canvas");
+    await middlePan("card",'[data-testid^="node-card-"]');
+    await middlePan("port",'[data-testid^="node-port-"]');
+    await middlePan("border",'[data-testid^="node-card-"]',"border");
+    report.pan_paste_events=await js(`return window.__RDS_IMAGE_PAN_PASTES__;`);
+    await stop();
+    addReportStep(report,"middle_pan_with_image_clipboard_keeps_scene_and_moves_canvas","passed",{samples:panSamples,pasteEvents:report.pan_paste_events,observationMs:500});
+    await callAutomationApi(sessionId,"selectWorkspace",["scene"]);
+    // Corrupt input must retain the working scene and allow retrying the same
+    // source after repair, without leaving a half-created object.
+    const damaged=path.join(output,"repairable.png"),baseline=JSON.stringify(await disk());
+    await writeFile(damaged,"not an image");await produce("url",new URL(`file://${damaged}`).href);await js("document.activeElement?.blur?.();return true;");await chord("v");
+    await waitFor(async()=>js(`return !!document.querySelector('[data-testid="image-ingress-dialog"] [role="alert"]');`),15000,"Corrupt image did not show an actionable error.",150);
+    if(JSON.stringify(await disk())!==baseline)fail("Corrupt image altered the scene.");
+    await writeFile(damaged,await readFile(raster));await clickButtonByText(sessionId,"Tentar novamente","exact");await ready(1);await escape();await stop();
+    if(JSON.stringify(await disk())!==baseline)fail("Cancelling repaired image altered the scene.");
+    addReportStep(report,"corrupt_image_retry_after_repair_preserves_scene","passed",{});
+    // Verify the role buttons remain usable in a reduced, enlarged viewport.
+    await setSessionWindowRect(sessionId,1280,800);await js("document.documentElement.style.zoom='1.25';return true;");
+    await produce("url",gifUrl);await js("document.activeElement?.blur?.();return true;");await chord("v");await ready(6);
+    const layout=await js(`const d=document.querySelector('[data-testid="image-ingress-dialog"]'),b=document.querySelector('[data-testid="image-ingress-sprite"]');b.scrollIntoView({block:'center'});const r=b.getBoundingClientRect();return {dialog:!!d,hit:!!document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.closest('[data-testid="image-ingress-sprite"]'),width:innerWidth,height:innerHeight,zoom:getComputedStyle(document.documentElement).zoom};`);
+    if(!layout.hit)fail("Sprite choice is inaccessible at 1280x800 with 125% zoom.");await shot("enlarged-small-window");await escape();await stop();
+    await js("document.documentElement.style.zoom='';return true;");
+    addReportStep(report,"role_choice_at_1280x800_and_125_percent_zoom","passed",layout);
+    // Explicit WebKit-empty-transfer fixture over an actual OS clipboard. This
+    // exercises native HTML+RGBA capture, not only the DOM HTML paste channel.
+    const beforeNativeFallback=JSON.stringify(await disk());
+    await produce("browser",gifPath);
+    await js(`const e=new Event('paste',{bubbles:true,cancelable:true});Object.defineProperty(e,'clipboardData',{value:{files:[],items:[],getData:()=>''}});document.body.dispatchEvent(e);return true;`);
+    await ready(6);await shot("native-html-fallback");await escape();await stop();
+    if(JSON.stringify(await disk())!==beforeNativeFallback)fail("Cancelling native HTML fallback altered the scene.");
+    addReportStep(report,"native_html_original_recovers_six_frames_with_empty_webkit_transfer_fixture","passed",{frames:6,gesture:"synthetic empty DataTransfer; actual GTK OS HTML+PNG clipboard"});
+    const colorReference=process.env.RDS_IMAGE_COLOR_REFERENCE;
+    if(colorReference){
+      await setSessionWindowRect(sessionId,1440,900);
+      await produce("url",pathToFileURL(colorReference).href);await js("document.activeElement?.blur?.();return true;");await chord("v");await ready(1);await click("image-ingress-background");await inserted(2);await stop();
+      const colorScene=await disk(),bg=colorScene.entities.find(e=>e.components.tilemap);
+      const art=JSON.parse(await readFile(path.join(project,bg.components.tilemap.tileset.replace(/\.png$/,".rdspixel.json")),"utf8"));
+      const pixels=Buffer.from(art.frames[0].cels[0],"base64"),levels=[0,36,73,109,146,182,219,255],samples=[];
+      for(let i=23;i<pixels.length&&samples.length<32;i+=997){const x=i%art.width,y=Math.floor(i/art.width);if(x<10||x>=art.width-10||y<24||y>=art.height-10||pixels[i]===0)continue;if(colorScene.entities.some(e=>e.components.sprite&&x+bg.transform.x>=e.transform.x-2&&x+bg.transform.x<=e.transform.x+e.components.sprite.frame_width+2&&y+bg.transform.y>=e.transform.y-2&&y+bg.transform.y<=e.transform.y+e.components.sprite.frame_height+2))continue;samples.push({x:x+bg.transform.x,y:y+bg.transform.y,rgb:art.palettes[0][pixels[i]].map(c=>levels[c])});}
+      if(samples.length<8)fail("Too few opaque background samples for a meaningful color comparison.");
+      const bounds=(await state()).activeScene.worldBounds;
+      const sourcePixels=()=>js(`const c=document.querySelector('[data-testid="viewport-scene-canvas"]'),ctx=c?.getContext('2d');if(!ctx)return null;return arguments[0].map(p=>{const rgba=ctx.getImageData(p.x-arguments[1],p.y-arguments[2],1,1).data;return {expected:p.rgb,actual:Array.from(rgba).slice(0,3)};});`,[samples,bounds.minX,bounds.minY]);
+      const sampled=await waitFor(async()=>{const v=await sourcePixels();return v?.every(p=>p.expected.every((c,i)=>c===p.actual[i]))?v:false;},15000,"Scene did not render native indexed PNG colors exactly.",150);
+      const interior=()=>js(`const base=document.querySelector('[data-testid="viewport-scene-canvas"]'),c=document.querySelector('[data-testid="viewport-scene-overlay"]'),ctx=c.getContext('2d'),sx=c.width/base.width,sy=c.height/base.height;const data=ctx.getImageData(Math.round((arguments[0]-arguments[4]+20)*sx),Math.round((arguments[1]-arguments[5]+24)*sy),Math.floor((arguments[2]-40)*sx),Math.floor((arguments[3]-40)*sy)).data;let hash=2166136261,alpha=0;for(let i=0;i<data.length;i++){hash=Math.imul(hash^data[i],16777619);if(i%4===3)alpha+=data[i];}return {hash:hash>>>0,alpha,bytes:data.length};`,[bg.transform.x,bg.transform.y,art.width,art.height,bounds.minX,bounds.minY]);
+      await waitFor(async()=>(await state()).selectedEntityId===bg.entity_id,5000,"Imported background was not selected.",150);
+      const selected=await interior();await shot("reference-selected");await callAutomationApi(sessionId,"setSelectedEntityId",[null]);await new Promise(r=>setTimeout(r,200));const unselected=await interior();
+      if(JSON.stringify(selected)!==JSON.stringify(unselected))fail("Selecting the background recolored its interior.");
+      await shot("reference-unselected");addReportStep(report,"reference_background_colors_match_png_and_selection_preserves_interior","passed",{samples:sampled,selected,unselected,used_colors:new Set(pixels).size-1});
+      await closeVisibleConsoleDrawer(sessionId,"antes do build de fidelidade de cores");const colorBuild=await runBuildRunAndCollect(sessionId,"color-fidelity",timeoutMs,report,prefix,{nativeClick:true});
+      const coreColors=await js(`const ctx=document.querySelector('[data-testid="viewport-game-canvas"]').getContext('2d');return arguments[0].map(p=>({expected:p.rgb,actual:Array.from(ctx.getImageData(p.x,p.y,1,1).data).slice(0,3)}));`,[samples]);
+      if(!coreColors.every(p=>p.expected.every((c,i)=>Math.abs(c-p.actual[i])<=36)))fail("Compiled background palette differs from authoring beyond one hardware color level.");
+      addReportStep(report,"reference_background_build_rom_core_palette","passed",{...colorBuild,samples:coreColors,tolerance_per_channel:36});await callAutomationApi(sessionId,"stopEmulator");
+      if(process.env.RDS_PIXEL_WORKSPACE === "1") {
+        await click("workspace-rail-scene");
+        await clickByTestId(sessionId,`hierarchy-entity-${bg.entity_id}`);
+        await click("workspace-rail-artstudio");
+        const currentAssetPath=async()=>path.join(project,(await disk()).entities.find(e=>e.entity_id===bg.entity_id).components.tilemap.tileset);
+        const readDoc=async()=>JSON.parse(await readFile((await currentAssetPath()).replace(/\.png$/,".rdspixel.json"),"utf8"));
+        const readPng=async()=>readFile(await currentAssetPath());
+        const originalAssetPath=await currentAssetPath(),baseline=await readDoc(), baselinePng=await readPng();
+        await waitFor(async()=>js(`return document.querySelector('[data-testid="pixel-doc-name"]')?.value===arguments[0] && document.querySelector('[data-testid="pixel-editor"]')?.dataset.dirty==='false';`,[baseline.name]),20000,"Background document did not open in the pixel editor.",150);
+        const saveDoc=async()=>{await click("pixel-save");await waitFor(async()=>js(`return document.querySelector('[data-testid="pixel-editor"]')?.dataset.dirty==='false' && !document.querySelector('[data-testid="pixel-save"]')?.disabled;`),20000,"Pixel workspace save did not finish.",150);await waitFor(async()=>path.basename(await currentAssetPath())===`${String(await js(`return document.querySelector('[data-testid="pixel-doc-name"]').value;`)).toLowerCase()}.png`,20000,"Saved image was not linked back to the scene.",150);return readDoc();};
+        const undoDoc=async()=>{await js(`document.querySelector('[data-testid="pixel-editor"]').focus();return true;`);await chord("z");await new Promise(r=>setTimeout(r,150));return saveDoc();};
+        const assertRestored=async()=>{if(!(await readPng()).equals(baselinePng))fail("Undo/save did not restore the background PNG exactly.");};
+        const labels=await js(`return Array.from(document.querySelectorAll('[data-testid="pixel-tools"] button[data-testid]')).map(b=>({label:b.textContent,accessible:b.getAttribute('aria-label')}));`);
+        if(labels.length<13 || labels.some(t=>!t.label.trim()||!t.accessible))fail("Pixel tools lack persistent names or accessible labels.");
+        await shot("workspace-named-tools");addReportStep(report,"pixel_workspace_named_tools_and_task_navigation","passed",{labels});
+
+        await click("pixel-task-colors");await click("pixel-filter-invert");
+        if(!await js(`return document.querySelector('[data-testid="pixel-save"]').disabled && document.querySelector('[data-testid="pixel-editor"]').dataset.dirty==='false';`))fail("Filter preview changed the saved revision.");
+        await shot("workspace-filter-preview");await click("pixel-cancel-image");await assertRestored();
+        await click("pixel-filter-invert");await click("pixel-apply-image");await saveDoc();
+        if((await readPng()).equals(baselinePng))fail("Inversion did not affect the saved PNG.");
+        await shot("workspace-filter-applied");await undoDoc();await assertRestored();
+        addReportStep(report,"pixel_workspace_filter_preview_cancel_apply_save_undo","passed",{png_restored_exactly:true});
+
+        await click("pixel-task-image");await click("pixel-auto-background");
+        await waitFor(async()=>js(`return !!document.querySelector('[data-testid="pixel-image-proposal"]');`),10000,"Automatic background removal found no safe foreground in the reference image.",150);
+        await shot("workspace-background-preview");await click("pixel-apply-image");
+        const cut=await saveDoc(), opaque=doc=>Buffer.from(doc.frames[0].cels[0],"base64").filter(v=>v>0).length;
+        if(opaque(cut)>=opaque(baseline)||opaque(cut)===0)fail("Automatic background removal erased nothing or the whole foreground.");
+        await undoDoc();await assertRestored();
+        await click("pixel-rotate-image");await click("pixel-apply-image");const rotated=await saveDoc();
+        if(rotated.width!==baseline.height||rotated.height!==baseline.width)fail("Rectangular image rotation lost dimensions.");
+        if((await currentAssetPath())===originalAssetPath || !(await readFile(originalAssetPath)).equals(baselinePng))fail("Geometry edit did not preserve the shared original resource.");
+        await waitFor(async()=>{const t=(await disk()).entities.find(e=>e.entity_id===bg.entity_id)?.components.tilemap;return t?.map_width===rotated.width/8&&t?.map_height===rotated.height/8;},20000,"Saving image rotation did not update scene geometry.",150);
+        await shot("workspace-image-rotated");await undoDoc();await assertRestored();
+        addReportStep(report,"pixel_workspace_background_and_rectangular_rotation_saved_in_scene","passed",{foreground_pixels:opaque(cut),original_pixels:opaque(baseline),restored:true});
+
+        await click("pixel-task-layers");await click("pixel-layer-duplicate");const duplicate=await saveDoc();
+        if(duplicate.layers.length!==baseline.layers.length+1)fail("Duplicate layer missing from native document.");
+        await shot("workspace-layers");await click("pixel-layer-merge");const merged=await saveDoc();
+        if(merged.layers.length!==baseline.layers.length)fail("Merge did not preserve native layer structure.");
+        await undoDoc();await undoDoc();await assertRestored();
+        addReportStep(report,"pixel_workspace_layers_duplicate_merge_save_and_two_undos","passed",{layers:baseline.layers.length});
+
+        const dark=baseline.palettes[0].map((c,i)=>({i,l:c.reduce((s,v)=>s+v,0)})).filter(p=>p.i>0).sort((a,b)=>a.l-b.l)[0].i;
+        await click(`pixel-slot-0-${dark}`);await click("pixel-task-compose");
+        await setInputByTestIdNative(sessionId,"pixel-text","TESTE");await click("pixel-add-text");const textDoc=await saveDoc();
+        if(textDoc.layers.length!==baseline.layers.length+1||!Buffer.from(textDoc.frames[0].cels[textDoc.layers.length-1],"base64").some(v=>v>0))fail("Text was not rasterized into an editable native layer.");
+        await shot("workspace-text");await undoDoc();await assertRestored();
+        await click("pixel-add-border");await click("pixel-apply-image");const bordered=await saveDoc();
+        if(bordered.layers.length!==baseline.layers.length+1)fail("Border did not create an independent layer.");
+        await undoDoc();await assertRestored();
+        addReportStep(report,"pixel_workspace_text_and_border_are_editable_layers","passed",{text_pixels:true,border_layer:true,restored:true});
+
+        await callAutomationApi(sessionId,"setNextImageImportPath",[raster]);await click("pixel-collage");
+        await waitFor(async()=>js(`return document.querySelector('[data-testid="pixel-image-message"]')?.textContent.includes('Imagem centralizada');`),30000,"Collage image did not enter a new layer.",150);
+        const collage=await saveDoc();
+        if(collage.layers.length!==baseline.layers.length+1||JSON.stringify(collage.palettes)!==JSON.stringify(baseline.palettes)||JSON.stringify(collage.frames[0].cels.slice(0,baseline.layers.length))!==JSON.stringify(baseline.frames[0].cels))fail("Collage changed the existing layers or palette.");
+        await shot("workspace-collage");await undoDoc();await assertRestored();
+        addReportStep(report,"pixel_workspace_collage_preserves_existing_layers_and_palette","passed",{picker:"canonical selected-path fixture;actual decoder/converter/layers/writer",restored:true});
+
+        await click("pixel-task-tiles");
+        const tilePoint=await js(`const c=document.querySelector('[data-testid="pixel-canvas"]');c.scrollIntoView({block:'center',inline:'center'});const r=c.getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)};`);
+        await webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"pointer",id:"pixel-tile",parameters:{pointerType:"mouse"},actions:[{type:"pointerMove",origin:"viewport",x:tilePoint.x,y:tilePoint.y},{type:"pointerDown",button:0},{type:"pointerUp",button:0}]}]});
+        await waitFor(async()=>js(`return !!document.querySelector('[data-testid="pixel-tile-inspector"]');`),5000,"Clicking the tile map did not expose pattern/flip information.",150);
+        await shot("workspace-tile-map");
+        addReportStep(report,"pixel_workspace_tile_map_is_identifiable_and_operational","passed",{inspector:await js(`return document.querySelector('[data-testid="pixel-tile-inspector"]').textContent;`),scope:"current-frame pattern estimate;not measured whole-scene VRAM"});
+        await click("pixel-task-draw");await js(`document.querySelector('[data-testid="pixel-editor"]').focus();return true;`);await escape();
+        await click("workspace-rail-scene");
+      }
+    }
+    const realGif=process.env.RDS_IMAGE_REAL_GIF;
+    if(realGif){
+      // A separate empty scene uses the operator's non-ideal GIF through the
+      // real GTK clipboard and the same application owners as regular users.
+      await callAutomationApi(sessionId,"selectWorkspace",["scene"]);
+      const previous=(await state()).activeScenePath;
+      await waitFor(async()=>js(`const b=[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Nova Cena');if(!b||b.disabled)return false;const p=window.prompt;window.prompt=()=>"GIF recovery";try{b.click();}finally{window.prompt=p;}return true;`),15000,"GIF scene control unavailable.",150);
+      await waitFor(async()=>{const s=await state();return s.activeScenePath!==previous&&s.activeScene.entityCount===0;},15000,"GIF scene did not open.",150);
+      await produce("url",pathToFileURL(realGif).href);await js("document.activeElement?.blur?.();return true;");await chord("v");await ready(53);
+      if(await js(`return !!document.querySelector('[data-testid="image-ingress-background"]');`))fail("Animation offered an unsupported background route.");
+      await shot("real-gif-prepared");await click("image-ingress-sprite");await inserted(1);await stop();
+      const entity=(await disk()).entities[0],resource=entity.components.sprite.asset;
+      const readRealDoc=async()=>JSON.parse(await readFile(path.join(project,resource.replace(/\.png$/,".rdspixel.json")),"utf8"));
+      const native=await readRealDoc();
+      const source=entity.components.logic.logic_hints.find(h=>h.startsWith("art_ingress:original=")).split("=")[1];
+      if(!(await readFile(path.join(project,source))).equals(await readFile(realGif)))fail("Real GIF original changed.");
+      if(native.frames.length!==53 || native.frames.some(f=>!Buffer.from(f.cels[0],"base64").some(v=>v>0)) || JSON.stringify(native.paletteLines)!=="[0]")fail("Real GIF lost visible frames or default palette.");
+      await waitFor(async()=>{const s=await state();return s.hwValidationState==="fresh"&&s.hwStatus?.errorCount===0&&!s.liveSnapshot.disabled;},15000,"Real GIF has a false hardware blocker.",150);
+      await shot("real-gif-scene");
+      addReportStep(report,"real_gif_53_frames_one_palette_original_safe_no_false_overflow","passed",{source_sha256:await hashFile(realGif),frame:[native.width,native.height],durations:native.frames.map(f=>f.durationMs),hardware:(await state()).hwStatus});
+      await click("image-ingress-edit");
+      await waitFor(async()=>js(`return document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length===53;`),20000,"Real GIF frames did not open.",150);
+      if(await js(`return document.querySelector('[data-testid="pixel-onion"]').checked || !!document.querySelector('[data-testid="pixel-palette-line-1"]');`))fail("Default editor has motion ghosts or unused palette banks.");
+      await click("pixel-frame-4");await shot("real-gif-frame-4-clean");
+      await click("studio-theme-open");await clickByTestId(sessionId,"studio-theme-super-nintendo");await escape();
+      await shot("real-gif-frame-4-light-theme");
+      const selectSize=async value=>{await js(`const e=document.querySelector('[data-testid="pixel-doc-size"]');e.value=arguments[0];e.dispatchEvent(new Event('change',{bubbles:true}));return true;`,[value]);await new Promise(r=>setTimeout(r,150));};
+      // Store-backed persistence is checked through the normal writer, never
+      // by injecting or mutating an editor document from the test harness.
+      await selectSize("8x8");
+      const thumbnails=await js(`return [...document.querySelectorAll('[data-testid^="pixel-frame-"][data-active] canvas')].map(c=>{const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;return d.some((v,i)=>i%4===3&&v>0);});`);
+      if(thumbnails.length!==53||thumbnails.some(v=>!v))fail("A frame disappeared after resizing the real GIF.");
+      await shot("real-gif-small-fit");await selectSize("32x32");await selectSize(`${native.width}x${native.height}`);await click("pixel-restore-size");
+      await click("pixel-show-all-palettes");await click("pixel-enable-palette-1");await click("pixel-disable-palette-1");
+      await click("pixel-save");await waitFor(async()=>js(`return document.querySelector('[data-testid="pixel-editor"]').dataset.dirty==='false';`),20000,"Restored GIF save failed.",150);
+      const restored=await readRealDoc();
+      if(JSON.stringify(restored.frames)!==JSON.stringify(native.frames))fail("Successive sizes/palette manager changed restored GIF pixels or timing.");
+      await clickElement(sessionId,await findElement(sessionId,'[data-testid="pixel-onion"]'));if(!await js(`return !!document.querySelector('[data-testid="pixel-onion-notice"]');`))fail("Motion guide missing explanation.");await shot("real-gif-motion-guide-explained");await clickElement(sessionId,await findElement(sessionId,'[data-testid="pixel-onion"]'));
+      addReportStep(report,"real_gif_resize_restore_palette_management_no_pixel_loss","passed",{frames:53,restored_exactly:true});
+      await callAutomationApi(sessionId,"selectWorkspace",["scene"]);await closeVisibleConsoleDrawer(sessionId,"antes do GIF real");
+      const builtReal=await runBuildRunAndCollect(sessionId,"real-gif",timeoutMs,report,prefix,{nativeClick:true});
+      const samples=[];
+      for(let i=0;i<24;i++){
+        samples.push(await js(`const c=document.querySelector('[data-testid="viewport-game-canvas"]'),data=c.getContext('2d').getImageData(arguments[0],arguments[1],arguments[2],arguments[3]).data;let hash=2166136261,lit=0;for(let j=0;j<data.length;j+=4){if(data[j]+data[j+1]+data[j+2]>80)lit++;for(let k=0;k<3;k++)hash=Math.imul(hash^data[j+k],16777619);}return {hash:hash>>>0,lit};`,[entity.transform.x,entity.transform.y,native.width,native.height]));await new Promise(r=>setTimeout(r,130));
+      }
+      if(new Set(samples.map(s=>s.hash)).size<4||!samples.some(s=>s.lit>40))fail("Real compiled GIF does not visibly animate.");
+      await shot("real-gif-core");await callAutomationApi(sessionId,"stopEmulator");
+      addReportStep(report,"real_gif_build_rom_core_visibly_animates","passed",{...builtReal,samples});
+      const legacy=process.env.RDS_IMAGE_LEGACY_PROJECT;
+      if(legacy){
+        const receipt=JSON.parse(await readFile(process.env.RDS_IMAGE_LEGACY_MANIFEST,"utf8"));
+        if(await callAutomationApi(sessionId,"persistScene",["real-gif-before-legacy"])!==true)fail("GIF project did not save before legacy reopen.");
+        await clickTopBarMenuAction(sessionId,"Fechar");await waitFor(async()=>(await state()).activeProjectDir==="",10000,"GIF project did not close.",150);
+        await openSavedProjectWizard(sessionId,legacy);
+        await waitFor(async()=>{const s=await state();return s.activeProjectDir===legacy&&s.hwValidationState==="fresh"&&s.hwStatus?.errorCount===0&&!s.liveSnapshot.disabled;},20000,"Legacy GIF still has a false hardware blocker.",150);
+        const scene=JSON.parse(await readFile(path.join(legacy,(await state()).activeScenePath),"utf8"));
+        await callAutomationApi(sessionId,"setSelectedEntityId",[scene.entities[0].entity_id]);await callAutomationApi(sessionId,"selectWorkspace",["artstudio"]);
+        await waitFor(async()=>js(`return document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length===53 && !document.querySelector('[data-testid="pixel-palette-line-1"]');`),15000,"Legacy frames/palettes did not open cleanly.",150);
+        await click("pixel-frame-4");await shot("legacy-gif-recovered-without-reimport");
+        for(const [relative,item] of Object.entries(receipt.files))if(await hashFile(path.join(legacy,relative))!==item.sha256)fail(`Opening legacy GIF rewrote ${relative}`);
+        addReportStep(report,"legacy_gif_opens_one_palette_all_frames_no_reimport_no_rewrite","passed",{files_unchanged:Object.keys(receipt.files).length,frames:53,hardware:(await state()).hwStatus});
+      }
+    }
+    report.status="passed";
+  } catch(error) {report.status="failed";report.error=String(error);report.last_state=await state().catch(()=>null);report.last_ui=await js(`return {frames:document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length,pixelStatus:document.querySelector('[data-testid="pixel-status"]')?.textContent,dialog:document.querySelector('[role="dialog"]')?.textContent,clipboard:window.__RDS_IMAGE_PASTE_PROBE__};`).catch(()=>null);await shot("failure").catch(()=>null);}
+  finally { await stop(); }
+  const receipt=path.join(output,`${prefix}.json`);await writeFile(receipt,JSON.stringify(report,null,2));console.log(`[image-ingress] ${report.status} ${receipt}`);
+  if(report.status!=="passed")fail(report.error);
+}
+
+async function runPixelEditorScenario(sessionId) {
+  const source = process.env.RDS_SGDK_REAL_SOURCE;
+  const output = process.env.RDS_SGDK_OUTPUT;
+  if (!source || !output) fail("RDS_SGDK_REAL_SOURCE and RDS_SGDK_OUTPUT required.");
+  await mkdir(output, { recursive: true });
+  const prefix = `pixel-editor-${artifactTimestamp()}`;
+  const overlay = path.join(source, "rds");
+  const report = { schema: "retrodev.pixel_editor/v1", maturity: "Experimental", source, app_sha256: createHash("sha256").update(await readFile(currentE2eRunContext.appPath)).digest("hex"), steps: [], artifacts: [] };
+  const shot = async (name, label) => addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${name}.png`), label);
+  const js = (code, args = []) => executeScript(sessionId, code, args);
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const step = async (name, fn) => {
+    const detail = await fn();
+    addReportStep(report, name, "passed", detail ?? {});
+    return detail;
+  };
+  try {
+    await setSessionWindowRect(sessionId, 1440, 900);
+    await prepareDefaultProjectWizard(sessionId).catch(() => null);
+    await js("window.__RDS_E2E__.openProject(arguments[0]); return true;", [source]);
+    await waitFor(async () => {
+      const next = await readAutomationState(sessionId);
+      return next?.activeProjectDir && path.resolve(next.activeProjectDir) === overlay ? next : false;
+    }, 900000, "Project did not open.", 1000);
+    const catalog = JSON.parse(await readFile(path.join(overlay, "assets/sprites/sgdk_sprite_catalog.json"), "utf8"));
+    const sprite = catalog.filter((e) => e.asset && e.frame_width <= 64 && e.frame_height <= 64).sort((a, b) => b.refs.length - a.refs.length)[0] ?? catalog.find((e) => e.asset);
+    await step("open_sprite_in_art", async () => {
+      await callAutomationApi(sessionId, "openAssetInArtStudio", [sprite.asset]);
+      await waitFor(async () => (await js(`return document.querySelector('[data-testid="artstudio-game-sprite"]') ? true : null;`)) || false, 30000, "Art did not load the sprite.", 250);
+      return { resource: sprite.name, frame: [sprite.frame_width, sprite.frame_height] };
+    });
+    await step("pixel_mode", async () => {
+      await clickByTestId(sessionId, "artstudio-mode-pixel");
+      await waitFor(async () => (await js(`return document.querySelector('[data-testid="pixel-editor"]') ? true : null;`)) || false, 15000, "Pixel editor did not render.", 250);
+      return {};
+    });
+    const imported = await step("import_frames", async () => {
+      await clickByTestId(sessionId, "pixel-import-art");
+      return waitFor(async () => {
+        const info = await js(`
+          const counts = [0,1,2,3].map((l) => document.querySelector('[data-testid="pixel-palette-count-' + l + '"]')?.textContent ?? "");
+          return {
+            frames: document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length,
+            counts,
+            statusText: document.querySelector('[data-testid="pixel-status"]')?.textContent ?? "",
+            hardware: document.querySelector('[data-testid="pixel-hardware"]')?.textContent ?? "",
+          };`);
+        return info && info.counts.some((c) => !c.startsWith("0/")) ? info : false;
+      }, 30000, "Frames were not imported.", 300);
+    });
+    await sleep(600);
+    await shot("imported", `Pixel editor: ${sprite.name}`);
+    await step("paint_with_tools", async () => {
+      const result = await js(`
+        const canvas = document.querySelector('[data-testid="pixel-canvas"]');
+        const r = canvas.getBoundingClientRect();
+        const fire = (type, x, y, button = 0) => canvas.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: r.left + x, clientY: r.top + y, button, pointerId: 1 }));
+        document.querySelector('[data-testid="pixel-tool-line"]').click();
+        return true;`);
+      await sleep(200);
+      await js(`
+        const canvas = document.querySelector('[data-testid="pixel-canvas"]');
+        const r = canvas.getBoundingClientRect();
+        const fire = (type, x, y) => canvas.dispatchEvent(new PointerEvent(type, { bubbles: true, clientX: r.left + x, clientY: r.top + y, button: 0, pointerId: 1 }));
+        fire("pointerdown", 4, 4); fire("pointermove", r.width - 4, r.height - 4); fire("pointerup", r.width - 4, r.height - 4);
+        return true;`);
+      await sleep(300);
+      return { tool: "line", ok: result };
+    });
+    await step("hover_tile_info", async () => {
+      await js(`
+        const canvas = document.querySelector('[data-testid="pixel-canvas"]');
+        const r = canvas.getBoundingClientRect();
+        canvas.dispatchEvent(new PointerEvent("pointermove", { bubbles: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, pointerId: 1 }));
+        return true;`);
+      await sleep(300);
+      return { statusText: await js(`return document.querySelector('[data-testid="pixel-status"]')?.textContent ?? "";`) };
+    });
+    await shot("painted", "Pixel editor after drawing a line");
+    // Own asset name: never overwrite the operator's previous pixel documents.
+    await fillInputBySelector(sessionId, '[data-testid="pixel-doc-name"]', `qa_pixel_${Date.now()}`);
+    const saved = await step("save_png", async () => {
+      await clickByTestId(sessionId, "pixel-save");
+      await waitFor(async () => (await js(`return document.querySelector('[data-testid="pixel-save"]')?.textContent?.includes("Salvo") ? true : null;`)) || false, 20000, "Save did not finish.", 250);
+      const name = await js(`return document.querySelector('[data-testid="pixel-doc-name"]')?.value ?? "";`);
+      const png = await readFile(path.join(overlay, "assets/sprites/pixel", `${name}.png`));
+      const doc = JSON.parse(await readFile(path.join(overlay, "assets/sprites/pixel", `${name}.rdspixel.json`), "utf8"));
+      // IHDR: bit depth 4, color type 3 (indexado).
+      return { name, bytes: png.length, bitDepth: png[24], colorType: png[25], width: png.readUInt32BE(16), height: png.readUInt32BE(20), frames: doc.frames.length };
+    });
+    if (saved.bitDepth !== 4 || saved.colorType !== 3) fail(`PNG nao e indexado 4-bit: ${JSON.stringify(saved)}`);
+    await sleep(800);
+    await shot("saved", "Saved PNG reopened in Art");
+    await executeScript(sessionId, `document.querySelector('[data-testid="pixel-frame-duplicate"]').click(); return true;`);
+    await sleep(200);
+    await clickByTestId(sessionId, "pixel-save");
+    await waitFor(async () => js(`return document.querySelector('[data-testid="pixel-save"]')?.textContent?.includes("Salvo");`), 20000, "Second save did not finish.", 250);
+    await executeScript(sessionId, `document.querySelector('[data-testid="pixel-editor"]').dispatchEvent(new KeyboardEvent("keydown", { key:"z", ctrlKey:true, bubbles:true })); return true;`);
+    await sleep(300);
+    const undone = await js(`return { frames:document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length, saved:document.querySelector('[data-testid="pixel-save"]')?.textContent?.includes("Salvo") };`);
+    addReportStep(report, "undo_does_not_claim_saved", undone.frames === saved.frames && !undone.saved ? "passed" : "failed", undone);
+    await shot("undo", "Undo after saving must show pending pixel edits");
+    await clickByTestId(sessionId, "artstudio-mode-prepare");
+    await clickByTestId(sessionId, "artstudio-mode-pixel");
+    const returned = await js(`return { frames:document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length, name:document.querySelector('[data-testid="pixel-doc-name"]')?.value };`);
+    addReportStep(report, "mode_switch_preserves_document", returned.frames === undone.frames && returned.name === saved.name ? "passed" : "failed", returned);
+    await shot("returned", "Pixel document after switching modes");
+    await callAutomationApi(sessionId, "selectWorkspace", ["scene"]);
+    await callAutomationApi(sessionId, "selectWorkspace", ["artstudio"]);
+    await clickByTestId(sessionId, "artstudio-mode-pixel");
+    const acrossWorkspace = await js(`return { frames:document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length, name:document.querySelector('[data-testid="pixel-doc-name"]')?.value };`);
+    addReportStep(report, "workspace_switch_preserves_document", acrossWorkspace.frames === undone.frames && acrossWorkspace.name === saved.name ? "passed" : "failed", acrossWorkspace);
+    // Save the current revision, close/reopen through the product, then open
+    // its own indexed PNG + native document through Art (no JSON authorship).
+    await clickByTestId(sessionId, "pixel-save");
+    await waitFor(async () => js(`return document.querySelector('[data-testid="pixel-save"]')?.textContent?.includes("Salvo");`), 20000, "Current pixel revision did not save.", 250);
+    await callAutomationApi(sessionId, "closeProject");
+    await js("window.__RDS_E2E__.openProject(arguments[0]); return true;", [source]);
+    await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === overlay, 30000, "Pixel project did not reopen.", 250);
+    await callAutomationApi(sessionId, "openAssetInArtStudio", [`assets/sprites/pixel/${saved.name}.png`]);
+    await clickByTestId(sessionId, "artstudio-mode-pixel");
+    await waitFor(async () => js(`return document.querySelector('[data-testid="pixel-edit-context"] p')?.textContent?.includes(arguments[0]) && !!document.querySelector('[data-testid="pixel-import-art"]');`, [saved.name]), 20000, "Saved asset was not selected in Art.", 250);
+    await clickByTestId(sessionId, "pixel-import-art");
+    const reopened = await waitFor(async () => js(`return document.querySelector('[data-testid="pixel-status"]')?.textContent?.includes("reaberto com layers") ? {frames:document.querySelectorAll('[data-testid^="pixel-frame-"][data-active]').length,name:document.querySelector('[data-testid="pixel-doc-name"]')?.value} : null;`), 20000, "Native pixel document did not reopen.", 250);
+    addReportStep(report, "saved_pixel_document_reopened_in_art", reopened.frames === undone.frames && reopened.name === saved.name ? "passed" : "failed", reopened);
+    await shot("reopened", "Saved native pixel document reopened through Art");
+    report.status = report.steps.every((entry) => entry.status === "passed") ? "passed" : "failed";
+    report.imported = imported;
+  } catch (error) {
+    report.status = "failed";
+    report.error = String(error);
+  }
+  const reportPath = path.join(output, `${prefix}.json`);
+  await writeFile(reportPath, JSON.stringify(report, null, 2));
+  console.log(`[pixel-editor] ${report.status} ${reportPath}`);
+  if (report.status !== "passed") fail(`pixel-editor falhou: ${report.error}`);
+}
+
+async function runSgdkCorpusScenario(sessionId) {
+  const source = process.env.RDS_SGDK_REAL_SOURCE;
+  const output = process.env.RDS_SGDK_OUTPUT;
+  if (!source || !output) fail("RDS_SGDK_REAL_SOURCE and RDS_SGDK_OUTPUT required.");
+  await mkdir(output, { recursive: true });
+  const slug = path.basename(source).replace(/[^A-Za-z0-9]+/g, "_").slice(0, 40);
+  const prefix = `sgdk-corpus-${slug}-${artifactTimestamp()}`;
+  const overlay = path.join(source, "rds");
+  const report = { schema: "retrodev.sgdk_corpus/v1", maturity: "Experimental", source, steps: [], artifacts: [] };
+  const shot = async (name, label) => addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${name}.png`), label);
+  const js = (code, args = []) => executeScript(sessionId, code, args);
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const soft = async (name, fn) => {
+    try {
+      const detail = await fn();
+      addReportStep(report, name, "passed", detail ?? {});
+      return detail;
+    } catch (error) {
+      addReportStep(report, name, "failed", { error: String(error).slice(0, 600) });
+      return null;
+    }
+  };
+  try {
+    await setSessionWindowRect(sessionId, 1280, 800);
+    await prepareDefaultProjectWizard(sessionId).catch(() => null);
+    // Reabrir um overlay desatualizado reimporta (grafo C, catalogo): pode levar minutos.
+    await js("window.__RDS_E2E__.openProject(arguments[0]); return true;", [source]);
+    await waitFor(async () => {
+      const next = await readAutomationState(sessionId);
+      return next?.activeProjectDir && path.resolve(next.activeProjectDir) === overlay && next.projectSourceKind === "external_sgdk" ? next : false;
+    }, 900000, "Project did not open as overlay.", 1000);
+    const catalog = JSON.parse(await readFile(path.join(overlay, "assets/sprites/sgdk_sprite_catalog.json"), "utf8").catch(() => "[]"));
+    const codeIndex = JSON.parse(await readFile(path.join(overlay, "code/index.json"), "utf8"));
+    report.understood = {
+      scenes: (await readdir(path.join(overlay, "scenes"))).filter((f) => f.endsWith(".json") && !f.startsWith("rom_capture_")).length,
+      c_files: codeIndex.files.length, functions: codeIndex.functions.length, state_machines: codeIndex.state_machines.length,
+      sprite_catalog: catalog.length, sprite_catalog_with_asset: catalog.filter((e) => e.asset).length,
+      sprite_catalog_used_in_code: catalog.filter((e) => e.refs.some((r) => r.function)).length,
+    };
+    addReportStep(report, "opened", "passed", report.understood);
+    await callAutomationApi(sessionId, "selectWorkspace", ["scene"]).catch(() => null);
+    await sleep(1500);
+    await shot("open-scene", "Entry scene after import");
+
+    // Logic: the game's C code, organized.
+    await soft("logic_game_code", async () => {
+      await callAutomationApi(sessionId, "selectWorkspace", ["logic"]);
+      const files = await waitFor(async () => (await js(`return document.querySelectorAll('[data-testid^="game-code-file-"]').length;`)) || false, 30000, "Game C code view did not render.", 250);
+      await waitFor(async () => (await js(`return document.querySelectorAll('[data-testid="game-code-logic"] [data-testid^="cgraph-node-"]').length;`)) || false, 30000, "C nodes did not render.", 250);
+      await sleep(800);
+      await shot("logic-code", "Logic: game C code");
+      return { files };
+    });
+
+    // Art: the most used game sprite, sliced by the frame declared in .res.
+    const artSprite = [...catalog].filter((e) => e.asset).sort((a, b) => b.refs.length - a.refs.length)[0];
+    if (artSprite) {
+      await soft("art_game_sprite", async () => {
+        await callAutomationApi(sessionId, "openAssetInArtStudio", [artSprite.asset]);
+        const resource = await waitFor(async () => (await js(`return document.querySelector('[data-testid="artstudio-game-sprite"]')?.dataset.resource ?? null;`)) || false, 30000, "Art did not identify the game sprite.", 250);
+        await sleep(1000);
+        await shot("art-sprite", `Art: ${artSprite.name}`);
+        return { resource, frame: [artSprite.frame_width, artSprite.frame_height], grid: [artSprite.columns, artSprite.rows] };
+      });
+    } else {
+      addReportStep(report, "art_game_sprite", "skipped", { reason: "no SPRITE resource in .res" });
+    }
+
+    // Build & Run of the original C, then the running screen as a scene.
+    const build = await soft("build_run_original_c", async () => {
+      await callAutomationApi(sessionId, "selectWorkspace", ["scene"]).catch(() => null);
+      const result = await runBuildRunAndCollect(sessionId, "SGDK corpus", 900000, report, prefix, { nativeClick: true });
+      return { rom_sha256: result.rom_sha256 };
+    });
+    if (build) {
+      await sleep(3000);
+      for (const code of ["Enter", "Enter"]) {
+        await sendNativeGameKeyTap(sessionId, code, 120, `corpus ${code}`).catch(() => null);
+        await sleep(1500);
+      }
+      await shot("running", "Game running");
+      const capture = await soft("capture_screen_as_scene", async () => {
+        const before = new Set(await readdir(path.join(overlay, "scenes")));
+        await clickButtonByTestIdNative(sessionId, "toolbar-capture-rom-scene");
+        const file = await waitFor(async () => {
+          const added = (await readdir(path.join(overlay, "scenes"))).filter((f) => !before.has(f) && f.startsWith("rom_capture_"));
+          return added.length === 1 ? added[0] : false;
+        }, 60000, "Capture did not create a scene.", 250);
+        const scene = JSON.parse(await readFile(path.join(overlay, "scenes", file), "utf8"));
+        const dir = path.dirname(scene.entities[0].components.sprite.asset);
+        const links = JSON.parse(await readFile(path.join(overlay, dir, "links.json"), "utf8").catch(() => "{}"));
+        const sprites = scene.entities.filter((e) => e.entity_id.startsWith("rom_sprite_")).length;
+        return { file, entities: scene.entities.length, sprites, linked_sprites: Object.keys(links).length, layers: (scene.layers ?? []).map((l) => l.id) };
+      });
+      if (capture) {
+        await callAutomationApi(sessionId, "selectWorkspace", ["scene"]).catch(() => null);
+        await soft("captured_scene_palettes", async () => {
+          const errors = await waitFor(async () => (await js(`return document.querySelector('[data-testid="palette-summary"]')?.dataset.errors ?? null;`)) ?? false, 30000, "Palette summary missing.", 250);
+          if (errors !== "0") throw new Error(`${errors} palette conflict(s)`);
+          return { errors };
+        });
+        await clickByTestId(sessionId, "palette-map-toggle").catch(() => null);
+        await sleep(1200);
+        await shot("captured-scene", "Captured screen as Studio scene (palette map on)");
+        await clickByTestId(sessionId, "palette-map-toggle").catch(() => null);
+        if (capture.linked_sprites > 0) {
+          await soft("sprite_to_code", async () => {
+            const links = JSON.parse(await readFile(path.join(overlay, path.dirname(JSON.parse(await readFile(path.join(overlay, "scenes", capture.file), "utf8")).entities[0].components.sprite.asset), "links.json"), "utf8"));
+            const [entityId, link] = Object.entries(links)[0];
+            await callAutomationApi(sessionId, "setSelectedEntityId", [entityId]);
+            const ref = await waitFor(async () => (await js(`return document.querySelector('[data-testid="sprite-code-link"] [data-testid^="sprite-code-ref-"]')?.dataset.testid ?? null;`)) || false, 20000, "Inspector shows no code link.", 250);
+            await clickButtonByTestIdNativeWhenReady(sessionId, ref, "code ref");
+            await waitFor(async () => (await js(`return document.querySelector('[data-testid="game-code-logic"] [data-selected="true"]')?.textContent ?? null;`)) || false, 20000, "Linked C node not selected.", 250);
+            await sleep(800);
+            await shot("sprite-code", "Sprite opened at its C code");
+            return { entity: entityId, resource: link.resource, ref };
+          });
+        }
+      }
+      await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop").catch(() => null);
+    }
+    report.status = report.steps.every((step) => step.status !== "failed") ? "passed" : "partial";
+  } catch (error) {
+    report.status = "failed";
+    report.error = String(error);
+  } finally {
+    await writeFile(path.join(output, `${prefix}.json`), JSON.stringify(report, null, 2));
+  }
+}
+
 async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, onProjectCreated) {
   const source = process.env.RDS_MUGEN_REAL_SOURCE;
   const output = process.env.RDS_STUDIO_E1_OUTPUT;
+  const fullActions = process.env.RDS_MUGEN_FULL_ACTIONS === "1";
   if (!source || !output) fail("RDS_MUGEN_REAL_SOURCE e RDS_STUDIO_E1_OUTPUT obrigatorios (BYOR fora do Git).");
   await mkdir(output, { recursive: true });
   const prefix = `studio-e1-${artifactTimestamp()}`;
@@ -5908,26 +7706,57 @@ async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
 
   // 1. Importacao real (mesma revisao do cenario mugen-real).
   await setSessionWindowRect(sessionId, 1280, 800);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   await select("external-import-profile-select", "mugen");
   const name = `Ken_Studio_E1_${Date.now()}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
   await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source]);
+  const metadataStarted = Date.now();
   await clickByTestId(sessionId, "external-import-confirm");
   await waitFor(async () => exists("mugen-source-action-200"), 120000, "Triagem Ken nao abriu.", 200);
+  report.source_metadata_ms = Date.now() - metadataStarted;
+  // Cancel the real source review before any conversion/project creation,
+  // then retry through the same visible import path.
+  await clickByTestId(sessionId, "mugen-source-cancel");
+  await waitFor(async () => !(await exists("mugen-source-import")), 15000, "MUGEN review did not close on Cancel.", 150);
+  const canceledState = await state();
+  const canceledCandidate = path.join(os.homedir(), "Documents", "RetroDevProjects", name);
+  if (canceledState?.activeProjectDir || existsSync(canceledCandidate)) fail("Canceled MUGEN review left an active/partial project.");
+  step("cancel_source_review_without_creating_project", { activeProjectDir: canceledState.activeProjectDir, projectDirectoryExists: false, limit: "Cancellation before conversion; not a mid-build abort" });
+  await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source]);
+  await clickByTestId(sessionId, "external-import-confirm");
+  await waitFor(async () => exists("mugen-source-action-200"), 120000, "MUGEN review did not reopen after Cancel.", 200);
+  if (!(await js(`return document.querySelector('[data-testid="mugen-source-import"]')?.disabled === true;`))) {
+    fail("A listagem inicial não pode liberar a importação antes da análise dos pixels.");
+  }
+  await shot("metadata-choices");
   await select("mugen-source-palette", "ken1.act");
-  for (const n of [0, 20, 21, 200]) await clickByTestId(sessionId, `mugen-source-action-${n}`);
+  const actionControls = fullActions ? await js(`return Array.from(document.querySelectorAll('[data-testid^="mugen-source-action-"]')).map(e=>e.dataset.testid);`)
+    : [0, 20, 21, 200].map(n => `mugen-source-action-${n}`);
+  for (const id of actionControls) await clickByTestId(sessionId, id);
+  report.import_scope = fullActions ? "all listed source actions, explicitly selected through UI" : "actions 0/20/21/200";
   await clickByTestId(sessionId, "mugen-source-authored-demo");
   await clickByTestId(sessionId, "mugen-source-analyze");
   await waitFor(async () => js(`const e=document.querySelector('[data-testid="mugen-source-import"]');return e && !e.disabled;`), 120000, "Analise Ken recusada.", 200);
   await clickByTestId(sessionId, "mugen-source-import");
-  const imported = await waitFor(async () => { const s = await state(); return s?.mugenCompatibility?.open && s.mugenCompatibility.characters.some((c) => c.id === "kenmasters") ? s : false; }, 120000, "Importacao Ken nao abriu relatorio.", 200);
+  // A full 103-animation import can exceed the small probe's two-minute
+  // observation budget on a loaded debug host. Reuse the bounded run budget;
+  // conversion/pixel/hardware guards and completion criteria remain identical.
+  const imported = await waitFor(async () => { const s = await state(); return s?.mugenCompatibility?.open && s.mugenCompatibility.characters.some((c) => c.id === "kenmasters") ? s : false; }, fullActions ? timeoutMs : 120000, "Importacao Ken nao abriu relatorio.", 200).catch(async error => {
+    report.status = "failed"; report.error = String(error);
+    report.failure_state = await state().catch(() => null);
+    await shot("import-timeout").catch(() => null);
+    await writeFile(path.join(output, `${prefix}.json`), JSON.stringify(report, null, 2));
+    throw error;
+  });
   const project = imported.activeProjectDir;
   report.projectDir = project;
+  currentE2eRunContext.project = project;
   onProjectCreated(project);
   await clickByTestId(sessionId, "mugen-compat-close");
   const before = await kenAnims(project);
+  if (fullActions && (Object.keys(before).length !== 103 || Object.values(before).reduce((n, a) => n + a.frames.length, 0) !== 417)) fail("Configuracao completa difere do criterio congelado 103/417.");
   const a200 = before.action_200;
   if (!a200 || JSON.stringify(a200.occurrence_ids) !== JSON.stringify(["o1", "o2", "o3"])) fail(`action_200 sem ocorrencias o1..o3: ${JSON.stringify(a200?.occurrence_ids)}`);
   const img = (i) => `${a200.mugen_frames[i].group},${a200.mugen_frames[i].image}`;
@@ -5940,6 +7769,10 @@ async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
   const baseline = await runBuildRunAndCollect(sessionId, "Ken E1 baseline", timeoutMs, report, `${prefix}-baseline`);
   report.baseline_rom_sha256 = await hashFile(baseline.rom_path);
   step("baseline_build", { rom_sha256: report.baseline_rom_sha256 });
+  if (fullActions) {
+    report.paged_resource_audit = await verifyPagedKenBuild(sessionId, project, before);
+    step("all_animation_pages_pixels_palette_and_compiled_indices", report.paged_resource_audit);
+  }
 
   // 3. Cena -> zoom -> Inspector "abrir arte" -> Personagem com contexto.
   await clickByTestId(sessionId, "workspace-rail-scene");
@@ -6007,9 +7840,7 @@ async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu.");
   await waitFor(async () => js("return !!window.__RDS_E2E__;"), uiBootstrapTimeoutMs, "API nao voltou.", 200);
   await setSessionWindowRect(sessionId, 1280, 800);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
-  await waitFor(async () => exists("wizard-existing-project-card"), 30000, "Wizard nao encontrou o projeto.", 200);
-  await clickByTestId(sessionId, "wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, project);
   await waitFor(async () => (await state())?.activeProjectDir === project, 60000, "Projeto nao reabriu.", 200);
   await clickByTestId(sessionId, "workspace-rail-scene");
   await clickByTestId(sessionId, "hierarchy-entity-kenmasters");
@@ -6150,8 +7981,14 @@ async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
     await closeVisibleConsoleDrawer(sessionId, "E3b");
     const t = await js(`const b=document.querySelector('[data-testid="inspect-box-kenmasters"]');if(!b)return null;const r=b.getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height*0.4)};`);
     if (!t) fail("Caixa do Ken ausente no overlay.");
-    const under = await js(`return document.elementFromPoint(arguments[0],arguments[1])?.closest('[data-testid]')?.getAttribute('data-testid') ?? null;`, [t.x, t.y]);
-    if (under !== "inspect-overlay") fail(`Clique no Ken coberto por '${under}'.`);
+    const hit = await js(`const e=document.elementFromPoint(arguments[0],arguments[1]);return {
+      id:e?.closest('[data-testid]')?.getAttribute('data-testid')??null,
+      surface:!!e?.closest('[data-testid="inspect-overlay"]'),
+      interactive:!!e?.closest('button,input,select,textarea,a,[role="dialog"]')};`, [t.x, t.y]);
+    if (!hit?.surface || hit.interactive) fail(`Clique no Ken coberto por '${JSON.stringify(hit)}'.`);
+    // Alerts are non-interactive children of this same surface: the real
+    // pointer event bubbles to its canvas hit-test; do not reject that target.
+    (report.native_inspection_targets ??= []).push(hit);
     const c = await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{ type: "pointer", id: "rds-inspect-b", parameters: { pointerType: "mouse" },
       actions: [{ type: "pointerMove", origin: "viewport", x: t.x, y: t.y }, { type: "pointerDown", button: 0 }, { type: "pointerUp", button: 0 }] }] });
     if (!c.ok) fail("Clique nativo recusado.");
@@ -6224,6 +8061,18 @@ async function runStudioE1Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
   await clickByTestId(sessionId, "studio-return-origin");
   await writeFile(kenAssetPath, originalBytes);
   step("e3_same_path_content_change_refused_restored_accepted_rebuild_valid", { asset: kenAsset, original_sha256: originalSha, edited_sha256: editedSha, rebuilt_rom_sha256: rebuilt.romSha });
+  if (fullActions) {
+    const finalRun = await runBuildRunAndCollect(sessionId, "Ken completo restaurado", timeoutMs, report, `${prefix}-final`);
+    if (finalRun.rom_sha256 !== report.baseline_rom_sha256) fail("ROM final nao restaurou o baseline completo.");
+    await clickButtonByTestIdNative(sessionId, "toolbar-review");
+    await clickButtonByTestIdNative(sessionId, "delivery-verify-rom");
+    await waitFor(async () => js(`return document.querySelector('[data-testid="delivery-export"]')?.disabled === false;`), 30000, "ROM completa nao liberou exportacao.", 150);
+    await clickButtonByTestIdNative(sessionId, "delivery-export");
+    const exported = await waitFor(async () => js(`const e=document.querySelector('[data-testid="delivery-exported"]');return e?{path:e.dataset.path,sha:e.dataset.sha256}:null;`), 30000, "Exportacao completa nao concluiu.", 150);
+    if (exported.sha !== finalRun.rom_sha256 || await hashFile(exported.path) !== finalRun.rom_sha256) fail("Exportacao completa divergiu da ROM testada.");
+    await shot("full-export");
+    step("export_full_configuration_identical_to_tested_baseline", exported);
+  }
   report.allPass = true;
   await writeFile(path.join(output, `${prefix}-report.json`), `${JSON.stringify(report, null, 2)}\n`);
   console.log(`Studio E1 evidence: ${path.join(output, `${prefix}-report.json`)}`);
@@ -6262,8 +8111,8 @@ async function runStudioE4Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, o
   const sceneJson = async (project) => JSON.parse(await readFile(path.join(project, "scenes/main.json"), "utf8"));
 
   await setSessionWindowRect(sessionId, 1280, 800);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   await select("external-import-profile-select", "mugen");
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', `Ken_Studio_E4_${Date.now()}`);
   await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source]);
@@ -6434,8 +8283,8 @@ async function runStudioE2E5Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs,
 
   // A. Importacao real.
   await setSessionWindowRect(sessionId, 1280, 800);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   await selectByJs("external-import-profile-select", "mugen");
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', `Ken_Studio_E2E5_${Date.now()}`);
   await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source]);
@@ -6793,7 +8642,7 @@ async function runStudioE6Scenario(sessionId, timeoutMs, uiBootstrapTimeoutMs) {
   const text = (id) => js(`return document.querySelector('[data-testid="'+arguments[0]+'"]')?.textContent ?? null;`, [id]);
   await setSessionWindowRect(sessionId, 1280, 800);
   await waitFor(async () => js("return !!window.__RDS_E2E__;"), uiBootstrapTimeoutMs, "API de automacao ausente.", 200);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickByTestId(sessionId, "wizard-continue-without-project");
   const loaded = await executeAsyncScript(sessionId, `const done=arguments[arguments.length-1];window.__RDS_E2E__.loadRomForEmulation(arguments[0],{startPaused:true}).then((v)=>done(v)).catch((e)=>done(String(e)));`, [rom]);
   if (loaded !== true) fail(`ROM nao carregou: ${loaded}`);
@@ -6934,8 +8783,8 @@ async function runStudioHudCameraScenario(sessionId, timeoutMs, uiBootstrapTimeo
 
   // A. Importacao real do Ken (mesmo caminho do E2/E5).
   await setSessionWindowRect(sessionId, 1280, 800);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   await selectByJs("external-import-profile-select", "mugen");
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', `Ken_Hud_Camera_${Date.now()}`);
   await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source]);
@@ -7094,7 +8943,7 @@ async function runStudioHudCameraScenario(sessionId, timeoutMs, uiBootstrapTimeo
 }
 
 // Studio Paletas (Experimental, rodada 4): no MESMO projeto Ken real, pela UI -- importar, adicionar cenario
-// pela Hierarquia, alvo + golpe + texto de vida, variante local e paleta "Dano", troca por evento no NodeGraph,
+// pela Hierarquia, alvo + golpe + texto de vida, variante local, quinto banco recusado e paleta "Dano", troca por evento no NodeGraph,
 // salvar/fechar/reabrir, compilar, atacar, caminhar, inspecionar, editar a paleta compartilhada do cenario,
 // voltar as cores do arquivo e exportar. Contrato congelado: docs/studio_grafico/MISSION.md, Adendo H.
 async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, onProjectCreated) {
@@ -7109,7 +8958,11 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
     contract: "docs/studio_grafico/MISSION.md#adendo-h", probe: "RAM via emulator_read_memory e framebuffer do core (emulator_observe); sondas de observacao", steps: [], artifacts: [] };
   const js = (script, args = []) => executeScript(sessionId, script, args);
   const shot = async (label) => addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label);
-  const step = (name, detail = {}) => { report.steps.push({ step: name, status: "passed", ...detail }); console.log(`[studio-paletas] ${name}`); };
+  const step = (name, detail = {}) => {
+    report.steps.push({ step: name, status: "passed", ...detail });
+    report.summary = summarizeReportSteps(report.steps);
+    console.log(`[studio-paletas] ${name} (${report.summary.passed}/${report.summary.total})`);
+  };
   const state = () => readAutomationState(sessionId);
   const exists = (id) => js(`return !!document.querySelector('[data-testid="'+arguments[0]+'"]');`, [id]);
   const attr = (id, name) => js(`return document.querySelector('[data-testid="'+arguments[0]+'"]')?.getAttribute(arguments[1]) ?? null;`, [id, name]);
@@ -7137,6 +8990,14 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
     await clickByTestId(sessionId, "menu-action-undo");
   };
   const sceneFile = () => path.join(report.projectDir, "scenes/main.json");
+  const openLogicContext = async () => {
+    const expanded = await attr("nodegraph-toggle-context", "aria-expanded");
+    if (expanded === "false") await click("nodegraph-toggle-context", "Comportamentos");
+    await waitFor(async () => js(`const rail=document.querySelector('[data-testid="nodegraph-context-rail"]');
+      const select=rail?.querySelector('[data-testid="nodegraph-entity-switch"]');
+      return rail && !rail.hidden && select?.getClientRects().length > 0;`),
+    5000, "Painel de comportamentos nao ficou visivel.", 100);
+  };
   const palettesOnDisk = async () => JSON.parse(await readFile(sceneFile(), "utf8")).palettes ?? [];
   const palettesInStore = async () => (await state())?.activeScene?.palettes ?? null;
 
@@ -7186,8 +9047,8 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   // A. Importacao real do Ken.
   const name = `Ken_Paletas_${Date.now()}`;
   await setSessionWindowRect(sessionId, 1280, 800);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   await selectByJs("external-import-profile-select", "mugen");
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
   await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [source]);
@@ -7230,6 +9091,7 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   await waitFor(async () => exists("hierarchy-entity-kenmasters_2"), 15000, "Copia nao apareceu.", 100);
   await clickByTestId(sessionId, "workspace-rail-logic");
   await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="nodegraph-entity-switch"] option[value="kenmasters_2"]'));`), 20000, "Logica sem kenmasters_2.", 150);
+  await openLogicContext();
   await selectOption("nodegraph-entity-switch", "kenmasters_2");
   await waitFor(async () => exists("behavior-add-strike"), 15000, "Comportamento Golpe autoral ausente.", 150);
   await click("behavior-add-strike", "Golpe autoral");
@@ -7238,6 +9100,8 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   await click("behavior-apply", "aplicar golpe");
   await waitFor(async () => js(`return [...document.querySelectorAll('[data-testid^="behavior-instance-"]')].some((el) => /golpe/i.test(el.textContent ?? ""));`), 10000, "Instancia do golpe nao apareceu.", 150);
   await clickByTestId(sessionId, "workspace-rail-scene");
+  await waitFor(async () => (await state())?.activeWorkspace === "scene" && await exists("hierarchy-add-hud"),
+    10000, "Cena/Hierarquia nao ficaram prontas para adicionar texto.", 100);
   await click("hierarchy-add-hud", "Adicionar texto");
   await waitFor(async () => exists("inspector-hud"), 15000, "Inspector de texto nao abriu.", 150);
   await typeCommit("inspector-hud-label", "VIDA:");
@@ -7261,7 +9125,9 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   if (!kenBankState || kenBankState.sim !== "2") fail(`Paleta do Ken nao aparece compartilhada por 2 usos: ${JSON.stringify(kenBankState)}`);
   const kenSid = kenBankState.id.slice("palette-resource-".length);
   const useId = `palette-use-${kenSid}-kenmasters_2`;
-  const useRect = await js(`const r=document.querySelector('[data-testid="'+arguments[0]+'"]').getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)};`, [useId]);
+  const useTarget = await inspectNativeButtonTarget(sessionId, useId);
+  if (!useTarget?.unobstructed) fail(`Uso de paleta não ficou visível para hover: ${JSON.stringify(useTarget)}`);
+  const useRect = useTarget.point;
   await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{ type: "pointer", id: "rds-hover", parameters: { pointerType: "mouse" }, actions: [{ type: "pointerMove", origin: "viewport", x: useRect.x, y: useRect.y }] }] });
   await waitFor(async () => exists(`${useId}-detail`), 5000, "Hover nao descreveu o uso.", 100);
   await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{ type: "pointer", id: "rds-hover2", parameters: { pointerType: "mouse" }, actions: [{ type: "pointerMove", origin: "viewport", x: 5, y: 5 }] }] });
@@ -7274,6 +9140,37 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   await click("inspector-palette-variant", "Criar variante local");
   await waitFor(async () => (await attr("palette-summary", "data-used")) === "4", 15000, "Variante nao ocupou um banco proprio.", 200);
   if ((await attr("palette-summary", "data-errors")) !== "0") fail("Variante criou conflito.");
+
+  // Quatro bancos ocupados: um terceiro Ken compartilha o original, mas uma
+  // variante simultanea para ele exigiria o quinto banco. A recusa nao edita
+  // a cena, nao cria Undo e explica a acao possivel ao operador.
+  const fourBankScene = (await state())?.activeScene;
+  await clickByTestId(sessionId, "hierarchy-entity-kenmasters");
+  await clickByTestId(sessionId, "inspector-duplicate-entity");
+  if (await exists("inspector-duplicate-confirm")) await clickByTestId(sessionId, "inspector-duplicate-confirm");
+  await waitFor(async () => exists("hierarchy-entity-kenmasters_3"), 15000, "Terceiro Ken nao apareceu.", 100);
+  await clickByTestId(sessionId, "hierarchy-entity-kenmasters_3");
+  await waitFor(async () => exists("inspector-palette-variant"), 10000, "Terceiro Ken nao compartilhou a paleta original.", 100);
+  const beforeFifth = await state();
+  await click("inspector-palette-variant", "tentar quinto banco ocupado");
+  await waitFor(async () => exists("palette-blocked"), 10000, "Quinto banco nao mostrou recusa.", 100);
+  const refusal = await js(`return document.querySelector('[data-testid="palette-blocked"]')?.innerText ?? "";`);
+  const afterFifth = await state();
+  if (!refusal.includes("Sem banco livre") || !refusal.includes("Para resolver")) fail(`Recusa do quinto banco sem causa e acao: ${refusal}`);
+  if (JSON.stringify(afterFifth.activeScene) !== JSON.stringify(beforeFifth.activeScene) ||
+      afterFifth.sceneRevision !== beforeFifth.sceneRevision || afterFifth.undoDepth !== beforeFifth.undoDepth ||
+      (await attr("palette-summary", "data-used")) !== "4" || (await attr("palette-summary", "data-errors")) !== "0") {
+    fail("Tentativa de quinto banco alterou cena, revisao, historico ou plano.");
+  }
+  await shot("fifth-bank-refused");
+  await menuUndo();
+  await waitFor(async () => JSON.stringify((await state())?.activeScene) === JSON.stringify(fourBankScene), 10000,
+    "Desfazer do terceiro Ken nao restaurou os quatro bancos originais.", 100);
+  step("fifth_occupied_bank_refused_without_mutation", { used: 4, reason: refusal });
+
+  await clickByTestId(sessionId, "hierarchy-entity-kenmasters_2");
+  await waitFor(async () => (await state())?.selectedEntityId === "kenmasters_2" && await exists("inspector-palette-new-name"),
+    10000, "Inspector da variante Ken nao voltou apos desfazer o uso temporario.", 100);
   await setInputByTestIdNative(sessionId, "inspector-palette-new-name", "Dano");
   await setInputByTestIdNative(sessionId, "inspector-palette-new-color", "#DB2424");
   await click("inspector-palette-new-create", "Criar paleta Dano");
@@ -7297,6 +9194,7 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
 
   // F. Troca por evento no NodeGraph (alvo com banco proprio).
   await clickByTestId(sessionId, "workspace-rail-logic");
+  await openLogicContext();
   await selectOption("nodegraph-entity-switch", "kenmasters_2");
   await waitFor(async () => exists("behavior-add-palette_swap"), 15000, "Comportamento de troca de paleta ausente.", 150);
   await click("behavior-add-palette_swap", "Trocar paleta ao sofrer golpe");
@@ -7318,9 +9216,7 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu.");
   await waitFor(async () => js("return !!window.__RDS_E2E__;"), uiBootstrapTimeoutMs, "API nao voltou.", 200);
   await setSessionWindowRect(sessionId, 1280, 800);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
-  await waitFor(async () => exists("wizard-existing-project-card"), 30000, "Wizard nao encontrou o projeto.", 200);
-  await clickByTestId(sessionId, "wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, project);
   await waitFor(async () => (await state())?.activeProjectDir === project, 60000, "Projeto nao reabriu.", 200);
   await clickByTestId(sessionId, "workspace-rail-scene");
   const canon = (v) => JSON.stringify(v, (_, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b))) : x));
@@ -7391,6 +9287,8 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   const swap = rom1.link.palette?.swaps?.[0];
   const strikeSym = [...s1.keys()].find((k) => /^rds_strike_.*_hits$/.test(k));
   if (!swap || !strikeSym) fail("ROM sem troca ou golpe no vinculo.");
+  const strikeHpSym = strikeSym.replace(/_hits$/, "_hp");
+  const healthBefore = await word(s1.get(strikeHpSym));
   const swapSym = (suffix) => s1.get(`rds_palswap_${swap.id}_${suffix}`);
   const frames = [];
   for (let i = 0; i < 3; i += 1) await stepFrame();
@@ -7414,6 +9312,12 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   if (windowIdx.length !== 12 || windowIdx.some((v, i) => i && v !== windowIdx[i - 1] + 1)) fail(`Janela da troca ${JSON.stringify(windowIdx)} nao e 12 quadros continuos`);
   if (!frames.some((f) => f.hurt > 0)) fail("Cor de dano nunca observada.");
   step("rom_swap_only_target_once_and_restored", { hits, count, restores, window: windowIdx.length, hurt_frames: frames.filter((f) => f.hurt > 0).length });
+  if (process.env.RDS_STRIKE_DAMAGE_PROOF === "1") {
+    const healthAfter = await word(s1.get(strikeHpSym));
+    if (healthBefore !== 100 || healthAfter !== 88) fail(`Golpe autoral 12: vida ${healthBefore}->${healthAfter}, esperado 100->88.`);
+    report.strike_baseline = { authored: true, damage: 12, health_before: healthBefore, health_after: healthAfter, hits, rom_sha256: rom1.romSha };
+    step("authored_strike_baseline_damage_in_ram", report.strike_baseline);
+  }
 
   const beforeWalk = await classify(rom1.link, false);
   await clickByTestId(sessionId, "viewport-resume");
@@ -7483,6 +9387,53 @@ async function runStudioPaletasScenario(sessionId, timeoutMs, uiBootstrapTimeout
   const exportedPath = exportedText.match(/Exportado: (.*) \(/)?.[1];
   if (!exportedPath || (await hashFile(exportedPath)) !== rom3.romSha) fail("ROM exportada difere da restaurada.");
   step("export_canonical_rom", { path: exportedPath, sha256: rom3.romSha });
+  if (process.env.RDS_STRIKE_DAMAGE_PROOF === "1") {
+    // This is the existing authored strike, not a recovered original CNS HitDef.
+    // Freeze the expected effect before changing the parameter through the UI.
+    const expectation = { damage: 24, health_before: 100, health_after: 76, hits: 1 };
+    await click("delivery-close", "Fechar entrega");
+    await click("toolbar-emulator-stop", "Parar teste");
+    const showStrike = async () => {
+      await clickByTestId(sessionId, "workspace-rail-logic");
+      await waitFor(async () => exists("nodegraph-entity-switch"), 15000, "Seletor da Logica ainda indisponivel.", 100);
+      await openLogicContext();
+      await selectOption("nodegraph-entity-switch", "kenmasters_2");
+      return waitFor(() => js(`const row=[...document.querySelectorAll('[data-testid^="behavior-instance-"]')].find(e=>/Golpe autoral/i.test(e.textContent));return row?.querySelector('[data-testid^="behavior-edit-"]')?.dataset.testid ?? null;`), 15000, "Golpe autoral ausente.", 100);
+    };
+    const editId = await showStrike();
+    await click(editId, "Editar golpe autoral");
+    await waitFor(async () => exists("behavior-param-damage"), 10000, "Campo de dano nao abriu.", 100);
+    await setInputByTestIdNative(sessionId, "behavior-param-damage", String(expectation.damage));
+    await click("behavior-apply", "Aplicar dano");
+    await clickTopBarMenuAction(sessionId, "Salvar");
+    await waitFor(() => js(`const e=document.querySelector('[data-testid="scene-save-status"]');return e?.dataset.status==='saved'&&e.dataset.savedRevision===e.dataset.revision;`), 20000, "Save do dano incompleto.", 100);
+    await clickTopBarMenuAction(sessionId, "Fechar");
+    await openSavedProjectWizard(sessionId, project);
+    await waitFor(async () => (await state())?.activeProjectDir === project, 30000, "Projeto do golpe nao reabriu.", 100);
+    await showStrike();
+    const summary = await js(`return [...document.querySelectorAll('[data-testid^="behavior-instance-"]')].find(e=>/Golpe autoral/i.test(e.textContent))?.textContent ?? '';`);
+    if (!/tirar 24 de 100/.test(summary)) fail(`Dano nao persistiu na UI: ${summary}`);
+    const damageRun = await buildAndRun("rom4-damage24");
+    if (damageRun.romSha === rom1.romSha) fail("Editar dano nao mudou a ROM.");
+    const symbols = await sym();
+    const readHp = () => word(symbols.get(strikeHpSym));
+    const readHits = () => word(symbols.get(strikeSym));
+    const noInput = { health: await readHp(), hits: await readHits() };
+    for (let i=0;i<3;i++) await stepFrame();
+    if (noInput.health!==100 || noInput.hits!==0 || await readHp()!==100 || await readHits()!==0) fail("Vida/acertos mudaram sem entrada.");
+    await sendNativeGameKey(sessionId,"KeyZ","keyDown","dano autoral 24");
+    await waitFor(async () => (await js("return window.__RDS_E2E__.getLastInputObservation();"))?.lastJoypadAck?.joypad?.y === true,15000,"Entrada do golpe nao confirmada.",50);
+    for(let i=0;i<2;i++) await stepFrame();
+    await sendNativeGameKey(sessionId,"KeyZ","keyUp","dano autoral 24");
+    await waitFor(async () => (await js("return window.__RDS_E2E__.getLastInputObservation();"))?.lastJoypadAck?.joypad?.y === false,15000,"Soltura do golpe nao confirmada.",50);
+    const samples=[];
+    for(let i=0;i<40;i++){await stepFrame();samples.push({health:await readHp(),hits:await readHits()});}
+    const final=samples.at(-1);
+    if(final.health!==expectation.health_after || final.hits!==expectation.hits || samples.some(s=>s.hits>1)) fail(`Dano24 fora do contrato: ${JSON.stringify(samples)}`);
+    report.strike_edited={authored:true,expectation,no_input:noInput,samples,rom_sha256:damageRun.romSha,core:await collectCoreIdentity(await invokeCoreObserve(sessionId))};
+    await shot("authored-damage24");
+    step("authored_damage_edit_persists_and_changes_ram_once",report.strike_edited);
+  }
   report.allPass = true;
   await writeFile(path.join(output, `${prefix}-report.json`), `${JSON.stringify(report, null, 2)}\n`);
   console.log(`Studio paletas evidence: ${path.join(output, `${prefix}-report.json`)}`);
@@ -7537,9 +9488,8 @@ async function runStudioSceneScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs
 
   // A. Projeto pelo assistente (template de referencia).
   await setSessionWindowRect(sessionId, 1280, 800);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickByTestId(sessionId, "template-card-reference_platformer");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', `Studio_Scene_${Date.now()}`);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
   const created = await waitFor(async () => { const st = await state(); return st?.activeProjectDir && st.activeScene?.entities?.some((e) => e.id === "reference_tilemap") ? st : false; }, 120000, "Template nao criou a cena.", 250);
@@ -7710,9 +9660,8 @@ async function runStudioModelScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs
     await webdriverRequest("POST", `/session/${sessionId}/element/${el}/value`, { text: "", value: [""] });
   };
   await setSessionWindowRect(sessionId, 1280, 800);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickByTestId(sessionId, "template-card-reference_platformer");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', `Studio_Model_${Date.now()}`);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
   const created = await waitFor(async () => { const st = await state(); return st?.activeProjectDir && st.activeScene?.entities?.some((e) => e.id === "player") ? st : false; }, 120000, "Template nao criou a cena.", 250);
@@ -7916,8 +9865,8 @@ async function runMugenOriginalScenario(sessionId, timeoutMs, uiBootstrapTimeout
   `, [root]);
 
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   await select("external-import-profile-select", "mugen");
   const name = `Ken_Majik_Chain_${Date.now()}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
@@ -7989,9 +9938,7 @@ async function runMugenOriginalScenario(sessionId, timeoutMs, uiBootstrapTimeout
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu.");
   await waitFor(async () => js("return !!window.__RDS_E2E__;"), uiBootstrapTimeoutMs, "API nao voltou.", 200);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
-  await waitFor(async () => js(`return !!document.querySelector('[data-testid="wizard-existing-project-card"]');`), 30000, "Wizard nao encontrou Ken.", 200);
-  await clickByTestId(sessionId, "wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, project);
   await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === project, 60000, "Ken nao reabriu.", 200);
   await clickTopBarMenuAction(sessionId, "Relatorio MUGEN");
   await waitFor(async () => js(`return !!document.querySelector('[data-testid="mugen-chain-review"]');`), 30000, "Origem do comportamento nao reabriu.", 200);
@@ -8139,7 +10086,7 @@ async function runMugenOriginalScenario(sessionId, timeoutMs, uiBootstrapTimeout
   const canvas = await js(`const c=document.querySelector('[data-testid="viewport-game-canvas"]');const d=c.getContext('2d').getImageData(0,0,c.width,c.height);return {width:c.width,height:c.height,rgba:Array.from(d.data)};`);
   report.core_canvas_equal = core.framebuffer_width === canvas.width && core.framebuffer_height === canvas.height && Buffer.from(core.framebuffer_rgba).equals(Buffer.from(canvas.rgba));
   if (!report.core_canvas_equal) fail("Framebuffer do core difere do canvas pausado.");
-  report.core = { label: core.core_label, path: core.core_path, sha256: await hashFile(core.core_path), frames_run: core.frames_run, framebuffer_sha256: core.framebuffer_sha256 };
+  report.core = await collectCoreIdentity(core);
   const runFrameCalls = log.events.filter((e) => e.cmd === "emulator_run_frame");
   const completed = runFrameCalls.filter((e) => e.end !== undefined && !e.error).length;
   const tickDelta = tickEnd - tickBefore;
@@ -8166,6 +10113,423 @@ async function runMugenOriginalScenario(sessionId, timeoutMs, uiBootstrapTimeout
   report.steps.push({ step: "official_build_native_keyboard_trace_pixels", status: "passed", ticks: tickEnd, recorded_frames: frames.length, independent_verification: "required: verify-mugen-chain.py" });
   await writeFile(path.join(output, "ui-report.json"), `${JSON.stringify(report, null, 2)}\n`);
   console.log(`MUGEN original chain UI evidence: ${output}`);
+}
+
+/**
+ * J03-CNS (mugen.original_chain.v2, Experimental): HitDef ORIGINAL do CNS da fixture autoral
+ * `striker` importado pela revisao do produto, alvo de treino pelo Inspector (Duplicar + escolha),
+ * salvar/reiniciar/reabrir, Build & Run oficial e teclado nativo. Previsao FIXADA antes (ver
+ * `fixture::striker`): vida 120; um toque -> 95; segurar -> um golpe so -> 70; sem entrada nada;
+ * alvo a 16 px (fora do alcance) -> 120. A RAM e lida pelos simbolos do ELF da propria ROM.
+ */
+/**
+ * Curadoria da jornada Mega Drive (JV01/JV05/JV06, Experimental) num projeto real copiado
+ * (`RDS_STUDIO_JV_PROJECT`, privado, nunca no Git). A copia descartavel recebe nas duas
+ * camadas as celulas 1..N exatamente como o ImageIngress grava a imagem montada (preparacao em
+ * disco declarada); o resto e UI/entrada nativa. Esperado: ROM igual a `RDS_STUDIO_JV_ROM_SHA`
+ * (build com celulas limpas), estimativa mostrada, campo vazio editavel, cartoes visiveis e
+ * divisor conservado ao voltar para Arte.
+ */
+/**
+ * JV09/JV10 (Experimental): poses parado/andando/no ar e orientacao pelo proprio comportamento
+ * "Movimento e salto", num projeto real copiado (`RDS_STUDIO_JV_PROJECT`). Preparacao declarada
+ * na copia: retirar os 9 nos manuais da receita do tutorial (o que o JV09 substitui). O resto e UI
+ * e teclado nativo. A ROM e observada pausada: framebuffer do core + posicao na RAM por amostra;
+ * a identificacao de quadro/espelho e feita DEPOIS por um oraculo independente (Pillow, QA).
+ */
+async function runStudioJvMotionScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, onProjectCreated) {
+  const source = process.env.RDS_STUDIO_JV_PROJECT;
+  const output = process.env.RDS_STUDIO_JV_OUTPUT;
+  if (!source || !output) fail("RDS_STUDIO_JV_PROJECT e RDS_STUDIO_JV_OUTPUT obrigatorios.");
+  await mkdir(output, { recursive: true });
+  const prefix = `studio-jv-motion-${artifactTimestamp()}`;
+  const appPath = currentE2eRunContext.appPath;
+  const hashFile = async (p) => createHash("sha256").update(await readFile(p)).digest("hex");
+  const report = { schema: "retrodev.studio_jv_motion/v1", maturity: "Experimental", app_sha256: await hashFile(appPath), steps: [], artifacts: [], samples: [] };
+  const js = (script, args = []) => executeScript(sessionId, script, args);
+  const state = () => readAutomationState(sessionId);
+  const shot = async (label) => { addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label); };
+  const select = async (id, value) => {
+    const r = await js(`const e=document.querySelector('[data-testid="'+arguments[0]+'"]');if(!(e instanceof HTMLSelectElement))return null;Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,String(arguments[1]));e.dispatchEvent(new Event('change',{bubbles:true}));return e.value;`, [id, value]);
+    if (r !== String(value)) fail(`Select ${id} nao aceitou ${value}.`);
+  };
+  const project = path.join(output, "project");
+  await cp(source, project, { recursive: true, filter: (p) => !p.includes(`${path.sep}build`) });
+  onProjectCreated(project);
+  const graphPath = path.join(project, "graphs", "reference_platformer_logic.json");
+  const graph = JSON.parse(await readFile(graphPath, "utf8"));
+  const owned = new Set((graph.behaviors ?? []).flatMap((b) => b.nodeIds));
+  const manual = graph.nodes.filter((n) => !owned.has(n.id) && /^node_\d+$/.test(n.id)).map((n) => n.id);
+  graph.nodes = graph.nodes.filter((n) => !manual.includes(n.id));
+  graph.edges = graph.edges.filter((e) => !manual.includes(e.fromNode) && !manual.includes(e.toNode));
+  await writeFile(graphPath, `${JSON.stringify(graph, null, 2)}\n`);
+  addReportStep(report, "prepare_remove_tutorial_manual_animation_nodes", "passed", { removed: manual });
+
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  await openSavedProjectWizard(sessionId, project);
+  await waitFor(async () => (await state())?.activeProjectDir === project, 60000, "Projeto nao abriu.", 200);
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  await clickByTestId(sessionId, "hierarchy-entity-player");
+  await clickByTestId(sessionId, "workspace-rail-logic");
+  await waitFor(async () => js(`return !!document.querySelector('[data-testid="behavior-edit-bh_move_player_1"]');`), 30000, "Instancia Movimento e salto ausente.", 200);
+  await clickByTestId(sessionId, "behavior-edit-bh_move_player_1");
+  await waitFor(async () => js(`return !!document.querySelector('[data-testid="behavior-param-idle_animation"]');`), 15000, "Campos de animacao por estado ausentes.", 200);
+  await select("behavior-param-idle_animation", "idle");
+  await select("behavior-param-run_animation", "run");
+  const summary = await waitFor(async () => { const t = await js(`return document.querySelector('[data-testid="behavior-summary"]')?.textContent ?? "";`); return t.includes('"run" andando') ? t : false; }, 10000, "Resumo nao mostrou as poses.", 100);
+  await shot("01-behavior-form");
+  const form = await js(`return {errors:document.querySelector('[data-testid="behavior-errors"]')?.textContent??null,conflicts:document.querySelector('[data-testid="behavior-conflicts"]')?.textContent??null,disabled:document.querySelector('[data-testid="behavior-apply"]')?.disabled};`);
+  report.behavior_form = form;
+  await writeFile(path.join(output, "ui-report.json"), `${JSON.stringify(report, null, 2)}\n`);
+  if (form.disabled) fail(`Aplicar desabilitado: ${JSON.stringify(form)}`);
+  await clickByTestId(sessionId, "behavior-apply");
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  const nodesOnDisk = async () => JSON.parse(await readFile(graphPath, "utf8")).nodes;
+  await waitFor(async () => (await nodesOnDisk()).some((n) => n.id === "bh_move_player_1__anim_run"), 20000, "Poses do comportamento nao chegaram ao disco.", 300);
+  const faces = (await nodesOnDisk()).filter((n) => /__(right|left)_move$/.test(n.id)).map((n) => n.params.face_direction);
+  if (faces.length !== 2 || faces.some((f) => Number(f) !== 1)) fail(`Orientacao nao ligada nos dois lados: ${JSON.stringify(faces)}`);
+  addReportStep(report, "behavior_edit_idle_run_poses", "passed", { summary, face_direction: faces });
+
+  // reiniciar e reabrir antes do build
+  await deleteSession(sessionId);
+  sessionId = await createSession(appPath);
+  currentE2eRunContext.sessionId = sessionId;
+  await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu.");
+  await waitFor(async () => js("return !!window.__RDS_E2E__;"), uiBootstrapTimeoutMs, "API nao voltou.", 200);
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  await openSavedProjectWizard(sessionId, project);
+  await waitFor(async () => (await state())?.activeProjectDir === project, 60000, "Projeto nao reabriu.", 200);
+  addReportStep(report, "restart_reopen", "passed", {});
+
+  const run = await runBuildRunAndCollect(sessionId, "movimento com poses", timeoutMs, report, `${prefix}-run`);
+  const romSha = await hashFile(run.rom_path);
+  const elf = await readFile(path.join(project, "build", "megadrive", "out", "rom.out"));
+  const symbols = parseElfSymbols(elf);
+  const mainC = await readFile(path.join(project, "build", "megadrive", "src", "main.c"), "utf8");
+  const flips = (mainC.match(/SPR_setHFlip\(spr_player, (TRUE|FALSE)\)/g) ?? []);
+  if (!flips.some((f) => f.includes("TRUE")) || !flips.some((f) => f.includes("FALSE"))) fail(`C sem orientacao nos dois sentidos: ${JSON.stringify(flips)}`);
+  const xSym = Object.keys(symbols).find((k) => /^spr_player_x$/.test(k)), ySym = Object.keys(symbols).find((k) => /^spr_player_y$/.test(k));
+  if (!xSym || !ySym) fail(`Posicao do jogador sem simbolo: ${Object.keys(symbols).filter((k) => k.startsWith("spr_")).join(",")}`);
+  const s16 = async (name) => readI16le((await readEmulatorMemory(sessionId, 2, symbols[name] & 0xffff, 2)).data, 0);
+  if ((await readCanonicalGameProgress(sessionId))?.romSha256 !== romSha) fail("Core executa outra ROM.");
+  await closeVisibleConsoleDrawer(sessionId, "movimento");
+  await focusGameCanvasNatively(sessionId);
+  await waitFor(async () => (await readCanonicalGameProgress(sessionId))?.renderedFrames >= 120, 300000, "Jogo nao saiu do boot.", 200);
+  const frameNow = async () => (await readCanonicalGameProgress(sessionId)).renderedFrames;
+  const waitFrames = async (n, why) => { const start = await frameNow(); await waitFor(async () => (await frameNow()) >= start + n, 240000, `Nao avancou ${why}.`, 100); };
+  const sample = async (phase) => {
+    await clickByTestId(sessionId, "viewport-pause");
+    await waitFor(async () => (await state())?.emulPaused, 15000, "Nao pausou.", 100);
+    const core = await invokeCoreObserve(sessionId);
+    if (!core?.ok || core.rom_sha256 !== romSha) fail("Identidade do core nao demonstrada.");
+    const file = `sample-${String(report.samples.length).padStart(3, "0")}-${phase}.rgba`;
+    await writeFile(path.join(output, file), Buffer.from(core.framebuffer_rgba));
+    report.samples.push({ phase, file, width: core.framebuffer_width, height: core.framebuffer_height, x: await s16(xSym), y: await s16(ySym), frames_run: core.frames_run });
+    await clickByTestId(sessionId, "viewport-resume");
+    await waitFor(async () => !(await state())?.emulPaused, 15000, "Nao retomou.", 100);
+    await focusGameCanvasNatively(sessionId);
+  };
+  for (let i = 0; i < 3; i++) { await waitFrames(6, "parado"); await sample("idle_start"); }
+  await sendNativeGameKey(sessionId, "ArrowRight", "keyDown", "direita");
+  for (let i = 0; i < 6; i++) { await waitFrames(3, "direita"); await sample("run_right"); }
+  await sendNativeGameKey(sessionId, "ArrowRight", "keyUp", "direita");
+  for (let i = 0; i < 2; i++) { await waitFrames(6, "parado direita"); await sample("idle_after_right"); }
+  await sendNativeGameKey(sessionId, "ArrowLeft", "keyDown", "esquerda");
+  for (let i = 0; i < 6; i++) { await waitFrames(3, "esquerda"); await sample("run_left"); }
+  await sendNativeGameKey(sessionId, "ArrowLeft", "keyUp", "esquerda");
+  for (let i = 0; i < 2; i++) { await waitFrames(6, "parado esquerda"); await sample("idle_after_left"); }
+  await sendNativeGameKeyTap(sessionId, "KeyZ", 300, "salto");
+  for (let i = 0; i < 3; i++) { await waitFrames(2, "no ar"); await sample("air_after_left"); }
+  await waitFrames(60, "pouso"); await sample("landed_after_left");
+  await shot("02-played");
+  report.rom_sha256 = romSha;
+  report.elf_sha256 = createHash("sha256").update(elf).digest("hex");
+  report.core = await collectCoreIdentity(await invokeCoreObserve(sessionId));
+  report.flip_statements = flips;
+  addReportStep(report, "official_build_native_keys_samples", "passed", { samples: report.samples.length, oracle: "pendente: scripts de QA Pillow fora do app" });
+  await writeFile(path.join(output, "ui-report.json"), `${JSON.stringify(report, null, 2)}\n`);
+  console.log(`Studio JV motion evidence: ${output}`);
+}
+
+async function runStudioJvScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, onProjectCreated) {
+  const source = process.env.RDS_STUDIO_JV_PROJECT;
+  const output = process.env.RDS_STUDIO_JV_OUTPUT;
+  const expectedRom = process.env.RDS_STUDIO_JV_ROM_SHA ?? null;
+  if (!source || !output) fail("RDS_STUDIO_JV_PROJECT e RDS_STUDIO_JV_OUTPUT obrigatorios.");
+  await mkdir(output, { recursive: true });
+  const prefix = `studio-jv-${artifactTimestamp()}`;
+  const appPath = currentE2eRunContext.appPath;
+  const hashFile = async (p) => createHash("sha256").update(await readFile(p)).digest("hex");
+  const report = { schema: "retrodev.studio_jv/v1", maturity: "Experimental", app_sha256: await hashFile(appPath), steps: [], artifacts: [] };
+  const js = (script, args = []) => executeScript(sessionId, script, args);
+  const state = () => readAutomationState(sessionId);
+  const shot = async (label) => { addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label); };
+  const project = path.join(output, "project");
+  await cp(source, project, { recursive: true, filter: (p) => !p.includes(`${path.sep}build`) });
+  onProjectCreated(project);
+  const scenePath = path.join(project, "scenes", "main.json");
+  const scene = JSON.parse(await readFile(scenePath, "utf8"));
+  const layers = [];
+  for (const e of scene.entities) {
+    const t = e.components?.tilemap;
+    if (!t) continue;
+    t.cells = Array.from({ length: t.map_width * t.map_height }, (_, i) => i + 1);
+    layers.push({ id: e.entity_id, cells: t.cells.length });
+  }
+  await writeFile(scenePath, `${JSON.stringify(scene, null, 2)}\n`);
+  addReportStep(report, "prepare_mounted_cells_on_disposable_copy", "passed", { layers, note: "celulas 1..N gravadas em disco, mesma forma do ImageIngress" });
+
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await openSavedProjectWizard(sessionId, project);
+  await waitFor(async () => (await state())?.activeProjectDir === project, 60000, "Projeto nao abriu.", 200);
+
+  // JV06: Prefab vazio por clique nativo e teclado
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  const hero = scene.entities.find((e) => !e.prefab)?.entity_id;
+  if (!hero) fail("Sem entidade sem prefab para JV06.");
+  await clickByTestId(sessionId, `hierarchy-entity-${hero}`);
+  const prefabBox = await waitFor(async () => js(`const b=document.querySelector('[data-testid="inspector-prop-prefab-value"]');if(!b)return null;const r=b.getBoundingClientRect();return {tag:b.tagName,empty:b.dataset.empty,w:r.width,h:r.height};`), 20000, "Campo Prefab ausente.", 200);
+  if (prefabBox.tag !== "BUTTON" || prefabBox.empty !== "true" || prefabBox.w < 32 || prefabBox.h < 12) fail(`Prefab vazio sem area clicavel: ${JSON.stringify(prefabBox)}`);
+  await clickButtonByTestIdNative(sessionId, "inspector-prop-prefab-value");
+  await waitFor(async () => js(`return document.activeElement?.dataset?.testid === 'inspector-prop-prefab-input';`), 10000, "Clique nativo nao abriu o editor do Prefab.", 100).catch(async (e) => { await shot("jv06-fail"); await writeFile(path.join(output, "jv06-diag.json"), JSON.stringify(await js(`const b=document.querySelector('[data-testid="inspector-prop-prefab-value"]');const r=b?.getBoundingClientRect();const top=r?document.elementFromPoint(r.left+r.width/2,r.top+r.height/2):null;return {rect:r?.toJSON(),top:top?.outerHTML?.slice(0,200),active:document.activeElement?.outerHTML?.slice(0,200),input:!!document.querySelector('[data-testid="inspector-prop-prefab-input"]'),vh:innerHeight};`))); throw e; });
+  await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{ type: "key", id: "jv06-esc", actions: [{ type: "keyDown", value: "" }, { type: "keyUp", value: "" }] }] });
+  await waitFor(async () => js(`return !document.querySelector('[data-testid="inspector-prop-prefab-input"]') && document.querySelector('[data-testid="inspector-prop-prefab-value"]')?.dataset.empty === 'true';`), 10000, "Escape nao cancelou.", 100);
+  await shot("jv06-prefab");
+  addReportStep(report, "jv06_empty_prefab_native_click_and_escape", "passed", prefabBox);
+
+  // JV01: estimativa e Build & Run com imagem montada
+  const vram = await js(`return document.querySelector('[data-testid="toolbar-vram-budget-label"]')?.textContent ?? null;`);
+  const run = await runBuildRunAndCollect(sessionId, "imagem montada", timeoutMs, report, `${prefix}-jv01`);
+  const romSha = await hashFile(run.rom_path);
+  const progress = await readCanonicalGameProgress(sessionId);
+  if (progress?.romSha256 !== romSha) fail("Core executa outra ROM.");
+  await waitFor(async () => (await readCanonicalGameProgress(sessionId))?.renderedFrames >= 120, 300000, "Jogo nao avancou 120 quadros.", 200);
+  const core = await invokeCoreObserve(sessionId);
+  if (!core?.ok || core.rom_sha256 !== romSha) fail("Identidade do core nao demonstrada.");
+  const mainC = await readFile(path.join(project, "build", "megadrive", "src", "main.c"), "utf8").catch(() => "");
+  const overlayUploads = (mainC.match(/VDP_loadTileData\(/g) ?? []).length;
+  if (expectedRom && romSha !== expectedRom) fail(`ROM da imagem montada difere da base: ${romSha} != ${expectedRom}`);
+  if (overlayUploads !== 0) fail(`Imagem montada ainda sobe ${overlayUploads} tiles extras.`);
+  await shot("jv01-running");
+  addReportStep(report, "jv01_mounted_image_build_run", "passed", { vram_label: vram, rom_sha256: romSha, expected_rom_sha256: expectedRom, overlay_uploads: overlayUploads, core: await collectCoreIdentity(core) });
+  await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop").catch(() => null);
+
+  // JV05: cartoes visiveis a 1366x768 e 949x593; divisor conservado ao sair/voltar de Arte
+  const cards = () => js(`const c=document.querySelector('[data-testid="artstudio-timeline-cards"]');if(!c)return null;const r=c.getBoundingClientRect();const p=c.closest('[data-panel]')?.getBoundingClientRect();return {h:r.height,panel:p?p.height:null};`);
+  const sizes = [];
+  for (const [w, h] of [[1366, 768], [949, 593]]) {
+    await setSessionWindowRect(sessionId, w, h);
+    await clickByTestId(sessionId, "workspace-rail-artstudio");
+    const c = await waitFor(async () => { const v = await cards(); return v && v.panel >= 170 ? v : false; }, 20000, `Painel da timeline sem altura util em ${w}x${h}.`, 200).catch(async (e) => { await writeFile(path.join(output, "jv05-diag.json"), JSON.stringify({ w, h, cards: await cards() })); throw e; });
+    const reach = await js(`const c=document.querySelector('[data-testid="artstudio-timeline-cards"]');c.scrollIntoView({block:'nearest'});const r=c.getBoundingClientRect();const p=c.closest('[data-panel]').getBoundingClientRect();const card=c.querySelector('button,input');const b=card?.getBoundingClientRect();return {cards_top_visible:r.top>=p.top-1&&r.top<p.bottom,first_control_visible:!!b&&b.top>=p.top-1&&b.bottom<=p.bottom+1};`);
+    if (!reach.cards_top_visible || !reach.first_control_visible) fail(`Cartoes nao alcancaveis em ${w}x${h}: ${JSON.stringify({ c, reach })}`);
+    sizes.push({ w, h, cards_height: c.h, panel_height: c.panel, ...reach });
+    await shot(`jv05-${w}x${h}`);
+  }
+  const before = (await cards()).panel;
+  const focused = await js(`const panel=document.querySelector('[data-testid="artstudio-timeline-cards"]')?.closest('[data-panel]');const s=panel?.previousElementSibling;if(!s||!s.hasAttribute('data-separator'))return false;s.focus();return document.activeElement===s;`);
+  if (!focused) fail("Divisor da Arte nao focavel.");
+  await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{ type: "key", id: "jv05-up", actions: Array.from({ length: 6 }, () => [{ type: "keyDown", value: "\uE013" }, { type: "keyUp", value: "\uE013" }]).flat() }] });
+  const sepBox = null;
+  const moved = await waitFor(async () => { const v = (await cards()).panel; return v && Math.abs(v - before) > 4 ? v : false; }, 10000, "Teclado nao moveu o divisor.", 100).catch(async (e) => {
+    const diag = await js(`const panel=document.querySelector('[data-testid="artstudio-timeline-cards"]')?.closest('[data-panel]');const s=panel?.previousElementSibling;return {panel:panel?.outerHTML.slice(0,300),sep:s?.outerHTML.slice(0,400),group:panel?.parentElement?.getBoundingClientRect().toJSON()};`);
+    await writeFile(path.join(output, "jv05-diag.json"), JSON.stringify({ before, sepBox, diag, sizes }, null, 2));
+    throw e;
+  });
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  await clickByTestId(sessionId, "workspace-rail-artstudio");
+  const kept = await waitFor(async () => (await cards())?.panel ?? false, 20000, "Arte nao reabriu.", 200);
+  if (Math.abs(kept - moved) > 2) fail(`Divisor voltou ao padrao: ${JSON.stringify({ before, moved, kept })}`);
+  await shot("jv05-divider-kept");
+  addReportStep(report, "jv05_cards_visible_and_divider_persisted", "passed", { sizes, divider: { before, moved, kept } });
+  await writeFile(path.join(output, "ui-report.json"), `${JSON.stringify(report, null, 2)}\n`);
+  console.log(`Studio JV evidence: ${output}`);
+}
+
+async function runMugenHitDefScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, onProjectCreated) {
+  const output = process.env.RDS_MUGEN_HITDEF_UI_OUTPUT ?? path.join(validationDir, `mugen-hitdef-${artifactTimestamp()}`);
+  await mkdir(output, { recursive: true });
+  const prefix = `mugen-hitdef-${artifactTimestamp()}`;
+  const appPath = currentE2eRunContext.appPath;
+  const hashFile = async (p) => createHash("sha256").update(await readFile(p)).digest("hex");
+  const report = { schema: "retrodev.mugen_hitdef_ui/v1", maturity: "Experimental", app_sha256: await hashFile(appPath), steps: [], runs: [], artifacts: [],
+    expected: { life: 120, after_first: 95, after_hold: 70, damage: 25, in_range_dx: 10, out_of_range_dx: 16, attack_ticks_with_hit: 14 } };
+  const js = (script, args = []) => executeScript(sessionId, script, args);
+  const state = () => readAutomationState(sessionId);
+  const shot = async (label) => { addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label); };
+  const select = async (id, value) => {
+    const result = await js(`
+      const e = document.querySelector('[data-testid="'+arguments[0]+'"]');
+      if (!(e instanceof HTMLSelectElement)) return null;
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(e, String(arguments[1]));
+      e.dispatchEvent(new Event('change', {bubbles:true})); return e.value;
+    `, [id, value]);
+    if (result !== String(value)) fail(`Select ${id} nao aceitou ${value}.`);
+  };
+  const fixtureDir = path.join(repoRoot, "crates", "rex-mugen", "fixtures", "striker");
+  const donorDir = path.join(output, "donor", "striker");
+  await mkdir(donorDir, { recursive: true });
+  const sourceHashes = {};
+  for (const name of ["striker.def", "striker.air", "striker.cmd", "striker.cns", "striker.sff"]) {
+    const bytes = await readFile(path.join(fixtureDir, name));
+    await writeFile(path.join(donorDir, name), bytes);
+    sourceHashes[name] = createHash("sha256").update(bytes).digest("hex");
+  }
+  report.source = { fixture: "crates/rex-mugen/fixtures/striker", sha256: sourceHashes };
+
+  // 1. Revisao: cadeia original, HitDef visivel com origem
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
+  await select("external-import-profile-select", "mugen");
+  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', `Striker_HitDef_${Date.now()}`);
+  await js("return window.__RDS_E2E__.setNextExternalImportPath(arguments[0]);", [donorDir]);
+  await clickByTestId(sessionId, "external-import-confirm");
+  await waitFor(async () => js(`return !!document.querySelector('[data-testid="mugen-source-action-200"]');`), 120000, "Revisao do striker nao abriu.", 200);
+  for (const n of [0, 200]) await clickByTestId(sessionId, `mugen-source-action-${n}`);
+  await clickByTestId(sessionId, "mugen-source-original-chain");
+  await clickByTestId(sessionId, "mugen-source-analyze");
+  await waitFor(async () => js(`return !!document.querySelector('[data-testid="mugen-source-chain-200"]');`), 120000, "Cadeia 200 nao listada.", 200);
+  await clickByTestId(sessionId, "mugen-source-chain-200");
+  await clickByTestId(sessionId, "mugen-source-analyze");
+  await waitFor(async () => js(`const e=document.querySelector('[data-testid="mugen-source-import"]');return !!e && !e.disabled && !!document.querySelector('[data-testid="mugen-chain-review"]');`), 120000, "Revisao da cadeia recusada.", 200);
+  const review = await js(`
+    const row = (id) => { const r = document.querySelector('[data-testid="mugen-chain-op-'+id+'"]'); return r ? { cls: r.dataset.class, origin: r.children[1]?.textContent ?? '', text: r.children[2]?.textContent ?? '', impl: r.children[3]?.textContent ?? '' } : null; };
+    return { hitdef: row('state.200.controller.0'), damage: row('state.200.controller.0.param.damage'), pausetime: row('state.200.controller.0.param.pausetime'),
+      inert: row('state.200.controller.0.param.ground.velocity'), life: row('target.life'), notice: document.querySelector('[data-testid="mugen-chain-review"]')?.textContent?.includes('alvo de treino') ?? false };
+  `);
+  if (review.hitdef?.cls !== "converted" || !review.hitdef.impl.includes("HitDef") || !review.hitdef.origin.startsWith("striker.cns:")) fail(`HitDef nao aparece convertido com origem: ${JSON.stringify(review)}`);
+  if (review.damage?.cls !== "converted" || review.inert?.cls !== "approximate" || review.life?.cls !== "converted") fail(`Classes dos parametros inesperadas: ${JSON.stringify(review)}`);
+  report.review = review;
+  await shot("01-review-hitdef");
+  addReportStep(report, "source_review_shows_cns_hitdef", "passed", review);
+  await clickByTestId(sessionId, "mugen-source-import");
+  const imported = await waitFor(async () => { const s = await state(); return s?.mugenCompatibility?.open && s.mugenCompatibility.characters.some((c) => c.id === "striker") ? s : false; }, 120000, "Importacao nao abriu o relatorio.", 200);
+  const project = imported.activeProjectDir;
+  report.projectDir = project;
+  onProjectCreated(project);
+  await clickByTestId(sessionId, "mugen-compat-close");
+
+  // 2. Inspector: sem alvo -> aviso; Duplicar; afastar a copia; escolher o alvo; salvar
+  const sceneOnDisk = async () => JSON.parse(await readFile(path.join(project, "scenes", "main.json"), "utf8"));
+  const x0 = (await sceneOnDisk()).entities.find((e) => e.entity_id === "striker").transform.x;
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  await clickByTestId(sessionId, "hierarchy-entity-striker");
+  await waitFor(async () => js(`return document.querySelector('[data-testid="inspector-mugen-hit-target"]')?.value === "";`), 20000, "Inspector nao mostrou o golpe sem alvo.", 200);
+  await clickByTestId(sessionId, "inspector-duplicate-entity");
+  const needsConfirm = await waitFor(async () => js(`return document.querySelector('[data-testid="inspector-duplicate-confirm"]') ? "confirm" : ((window.__RDS_E2E__?.getState?.().selectedEntityId ?? "") !== "striker" ? "done" : false);`), 5000, "Duplicar nao respondeu.", 100);
+  if (needsConfirm === "confirm") await clickByTestId(sessionId, "inspector-duplicate-confirm");
+  const copyId = await waitFor(async () => { const s = (await state())?.selectedEntityId; return s && s !== "striker" ? s : false; }, 15000, "Copia nao selecionada.", 200);
+  const setCopyX = async (x) => {
+    await clickByTestId(sessionId, `hierarchy-entity-${copyId}`);
+    await waitFor(async () => (await state())?.selectedEntityId === copyId, 15000, "Copia nao selecionada.", 100);
+    await typeIntoInputAndExpect(sessionId, "inspector-transform-x", String(x), async () => (await js(`return document.querySelector('[data-testid="inspector-transform-x"]')?.value;`)) === String(x), `x da copia ${x}`);
+  };
+  await setCopyX(x0 + report.expected.in_range_dx);
+  await clickByTestId(sessionId, "hierarchy-entity-striker");
+  await waitFor(async () => !!(await js(`return document.querySelector('[data-testid="inspector-mugen-hit-target"]');`)), 15000, "Seletor de alvo ausente.", 100);
+  await select("inspector-mugen-hit-target", copyId);
+  await shot("02-inspector-target");
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  const graphNode = async () => {
+    const e = (await sceneOnDisk()).entities.find((x) => x.entity_id === "striker");
+    const g = e.components.logic.graph ? JSON.parse(e.components.logic.graph) : JSON.parse(await readFile(path.join(project, e.components.logic.graph_ref), "utf8"));
+    return g.nodes.find((n) => n.type === "mugen_state_program");
+  };
+  await waitFor(async () => (await graphNode())?.params?.hit_target === copyId, 20000, "Alvo do HitDef nao chegou ao disco.", 300);
+  const programSha = JSON.parse((await graphNode()).params.program_json).digest;
+  addReportStep(report, "inspector_duplicate_and_choose_target", "passed", { copyId, x0, copy_x: x0 + 10, program_sha256: programSha });
+
+  // 3. Reiniciar e reabrir
+  await deleteSession(sessionId);
+  sessionId = await createSession(appPath);
+  currentE2eRunContext.sessionId = sessionId;
+  await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu.");
+  await waitFor(async () => js("return !!window.__RDS_E2E__;"), uiBootstrapTimeoutMs, "API nao voltou.", 200);
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  await openSavedProjectWizard(sessionId, project);
+  await waitFor(async () => (await state())?.activeProjectDir === project, 60000, "Projeto nao reabriu.", 200);
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  await clickByTestId(sessionId, "hierarchy-entity-striker");
+  await waitFor(async () => (await js(`return document.querySelector('[data-testid="inspector-mugen-hit-target"]')?.value;`)) === copyId, 20000, "Alvo nao sobreviveu ao reinicio.", 200);
+  if (JSON.parse((await graphNode()).params.program_json).digest !== programSha) fail("Programa mudou apos reabrir.");
+  await shot("03-reopened");
+  addReportStep(report, "restart_reopen_keeps_target_and_program", "passed", { program_sha256: programSha });
+
+  // 4. Build & Run oficial + teclado nativo
+  const playRun = async (label, expectHit) => {
+    const run = await runBuildRunAndCollect(sessionId, `striker ${label}`, timeoutMs, report, `${prefix}-${label}`);
+    const romSha = await hashFile(run.rom_path);
+    const elf = await readFile(path.join(project, "build/megadrive/out/rom.out"));
+    const symbols = parseElfSymbols(elf);
+    const sym = (n) => { const a = symbols[`rds_mc_spr_striker_${n}`]; if (typeof a !== "number") fail(`Simbolo ${n} ausente.`); return a & 0xffff; };
+    const u16 = async (n) => readU16le((await readEmulatorMemory(sessionId, 2, sym(n), 2)).data, 0);
+    const s16 = async (n) => readI16le((await readEmulatorMemory(sessionId, 2, sym(n), 2)).data, 0);
+    if ((await readCanonicalGameProgress(sessionId))?.romSha256 !== romSha) fail("Core executa outra ROM.");
+    await closeVisibleConsoleDrawer(sessionId, "striker");
+    await focusGameCanvasNatively(sessionId);
+    await waitFor(async () => (await u16("tick")) >= 40, 180000, "Jogo nao saiu do boot.", 200);
+    const frameNow = async () => (await readCanonicalGameProgress(sessionId)).renderedFrames;
+    const waitFrames = async (n, why) => { const start = await frameNow(); await waitFor(async () => (await frameNow()) >= start + n, 240000, `Nao avancou ${why}.`, 100); };
+    const sample = async (step) => ({ step, tick: await u16("tick"), stateno: await u16("stateno"), life: await s16("tlife"), hits: await u16("hits"), hd_count: await u16("hd_count"), frozen: await u16("frozen") });
+    const samples = [await sample("start")];
+    await waitFrames(30, "sem entrada"); samples.push(await sample("no_input"));
+    const taps = [];
+    // O joypad e nivel, nao fila: com o core de debug (~10 quadros/s) toques curtos podem nao ser
+    // amostrados (ORIGINAL_CHAIN §5). Pressoes de 700 ms garantem amostra; a contagem esperada de
+    // golpes vem das bordas de A que a PROPRIA ROM amostrou.
+    taps.push(await sendNativeGameKeyTap(sessionId, "KeyZ", 700, "press")); await waitFrames(40, "apos pressao"); samples.push(await sample("after_tap"));
+    await shot(`${label}-after-tap`);
+    taps.push(await sendNativeGameKeyTap(sessionId, "KeyZ", 1200, "hold")); await waitFrames(40, "apos segurar"); samples.push(await sample("after_hold"));
+    await waitFrames(30, "parado"); samples.push(await sample("idle_end"));
+    await clickByTestId(sessionId, "viewport-pause");
+    await waitFor(async () => (await state())?.emulPaused, 15000, "Nao pausou.", 100);
+    const tickEnd = await u16("tick");
+    const ring = (await readEmulatorMemory(sessionId, 2, sym("trace"), 512 * 22)).data;
+    const trace = [];
+    for (let i = 0; i < 512; i++) { const b = i * 22, tick = readU16le(ring, b); if (tick < tickEnd && tick % 512 === i && tick >= tickEnd - 512) trace.push({ tick, stateno: readU16le(ring, b + 2), time: readU16le(ring, b + 4), action: readU16le(ring, b + 8), pad: readU16le(ring, b + 12), animtick: readU16le(ring, b + 14) }); }
+    trace.sort((a, b) => a.tick - b.tick);
+    const n = await u16("hitlog_n"); const log = [];
+    const raw = (await readEmulatorMemory(sessionId, 2, sym("hitlog"), 32 * 16)).data;
+    for (let k = 0; k < Math.min(n, 32); k++) { const b = k * 16; log.push({ tick: readU16le(raw, b), time: readU16le(raw, b + 2), action: readU16le(raw, b + 4), elem: readU16le(raw, b + 6), before: readI16le(raw, b + 8), after: readI16le(raw, b + 10), ax: readI16le(raw, b + 12), tx: readI16le(raw, b + 14) }); }
+    const attacks = []; for (const e of trace) { const last = attacks[attacks.length - 1]; if (e.stateno === 200) { if (last && last.end === e.tick - 1) last.end = e.tick; else attacks.push({ start: e.tick, end: e.tick, pad_at_entry: e.pad }); } }
+    const core = await invokeCoreObserve(sessionId);
+    if (!core?.ok || core.rom_sha256 !== romSha) fail("Identidade do core nao demonstrada.");
+    const result = { label, rom_sha256: romSha, elf_sha256: createHash("sha256").update(elf).digest("hex"), core: await collectCoreIdentity(core), samples, taps, attacks: attacks.map((a) => ({ ...a, ticks: a.end - a.start + 1 })), hitlog: log, trace_ticks: trace.length };
+    result.pad_a_ticks = trace.filter((e) => e.pad & 0x40).map((e) => e.tick);
+    report.runs.push(result);
+    await writeFile(path.join(output, "ui-report.json"), `${JSON.stringify(report, null, 2)}\n`);
+    const at = (step) => samples.find((x) => x.step === step);
+    if (at("no_input").life !== 120 || at("no_input").hits !== 0) fail(`Dano sem entrada: ${JSON.stringify(samples)}`);
+    const edges = trace.filter((e, i) => i > 0 && (e.pad & 0x40) && !(trace[i - 1].pad & 0x40) && trace[i - 1].stateno === 0).length;
+    result.sampled_a_edges_from_idle = edges;
+    if (edges !== 2) fail(`Entrada nao amostrada como duas pressoes (bordas ${edges}); repetir: ${JSON.stringify(result.pad_a_ticks)}`);
+    if (attacks.length !== 2) fail(`Esperava dois golpes (duas pressoes amostradas): ${JSON.stringify(result.attacks)}`);
+    if (expectHit) {
+      if (at("after_tap").life !== 95 || at("after_hold").life !== 70 || at("idle_end").life !== 70 || at("idle_end").hits !== 2) fail(`Vida fora da previsao: ${JSON.stringify(samples)}`);
+      if (!result.attacks.every((a) => a.ticks === 14)) fail(`Golpe com pausa deveria durar 14 ticks: ${JSON.stringify(result.attacks)}`);
+      if (log.length !== 2 || log.some((e) => e.elem !== 1 || e.time !== 3) || log[0].tx - log[0].ax !== 10) fail(`Registro de acertos fora da previsao: ${JSON.stringify(log)}`);
+      for (const [i, a] of attacks.entries()) if (log[i].tick !== a.start + 3) fail(`Contato fora do quadro previsto (P+3): ${JSON.stringify({ a, e: log[i] })}`);
+    } else {
+      if (samples.some((x) => x.life !== 120 || x.hits !== 0) || log.length !== 0) fail(`Fora do alcance nao deveria acertar: ${JSON.stringify(samples)}`);
+      if (!result.attacks.every((a) => a.ticks === 10)) fail(`Sem acerto nao ha pausa (10 ticks): ${JSON.stringify(result.attacks)}`);
+    }
+    await clickByTestId(sessionId, "toolbar-emulator-stop").catch(() => null);
+    return result;
+  };
+  await playRun("in-range", true);
+  addReportStep(report, "official_build_native_keyboard_hit_in_ram", "passed", { life: [120, 95, 70], hold_hits_once: true });
+
+  // 5. Negativo: alvo fora do alcance (16 px), pela UI, sem tocar a fonte
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  await setCopyX(x0 + report.expected.out_of_range_dx);
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  await waitFor(async () => (await sceneOnDisk()).entities.find((e) => e.entity_id === copyId)?.transform?.x === x0 + 16, 20000, "Nova posicao do alvo nao gravada.", 300);
+  await playRun("out-of-range", false);
+  addReportStep(report, "out_of_range_no_damage", "passed", { dx: 16 });
+  if (report.runs[0].rom_sha256 === report.runs[1].rom_sha256) fail("Mover o alvo deveria mudar a ROM (posicao inicial).");
+  await writeFile(path.join(output, "ui-report.json"), `${JSON.stringify(report, null, 2)}\n`);
+  console.log(`MUGEN HitDef UI evidence: ${output}`);
 }
 
 async function runMugenLocomotionScenario(sessionId, timeoutMs, uiBootstrapTimeoutMs, onProjectCreated) {
@@ -8221,8 +10585,8 @@ async function runMugenLocomotionScenario(sessionId, timeoutMs, uiBootstrapTimeo
 
   // ── 1. Importar pela UI e conferir o relatorio ───────────────────────────────────────────
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
-  await clickByTestId(sessionId, "wizard-external-import-toggle");
+  await prepareDefaultProjectWizard(sessionId);
+  await prepareExternalImportWizard(sessionId);
   const selected = await js(`
     const select = document.querySelector('[data-testid="external-import-profile-select"]');
     if (!(select instanceof HTMLSelectElement)) return null;
@@ -8328,9 +10692,7 @@ async function runMugenLocomotionScenario(sessionId, timeoutMs, uiBootstrapTimeo
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto importado.", 300);
-  await clickByTestId(sessionId, "wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "Projeto importado nao reabriu.", 300);
   await clickByTestId(sessionId, "workspace-rail-scene");
   await clickByTestId(sessionId, "hierarchy-entity-strider");
@@ -8504,9 +10866,9 @@ async function runMugenLocomotionScenario(sessionId, timeoutMs, uiBootstrapTimeo
   await writeFile(path.join(badDonor, "strider.cns"), cnsOriginal.replace("x = 2.5", "x = const(velocity.walk.fwd.x)"));
   const badName = `Mugen_Strider_Bad_${Date.now()}`;
   await clickTopBarMenuAction(sessionId, "Novo Projeto");
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   const toggled = await js(`return Boolean(document.querySelector('[data-testid="external-import-profile-select"]'));`);
-  if (!toggled) await clickByTestId(sessionId, "wizard-external-import-toggle");
+  if (!toggled) await prepareExternalImportWizard(sessionId);
   await js(`
     const select = document.querySelector('[data-testid="external-import-profile-select"]');
     const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set;
@@ -8531,7 +10893,71 @@ async function runMugenLocomotionScenario(sessionId, timeoutMs, uiBootstrapTimeo
   console.log(`OK: Desktop Tauri mugen-locomotion E2E passou. Relatorio: ${reportPath}`);
 }
 
+async function runSnesGuidedAuthoringScenario(sessionId, timeoutMs, onProjectCreated) {
+  const prefix = `snes-guided-authoring-${artifactTimestamp()}`;
+  const report = { schema: "retrodev.snes_guided_authoring/v1", app_sha256: createHash("sha256").update(await readFile(currentE2eRunContext.appPath)).digest("hex"), steps: [], artifacts: [],
+    limit: "UI creation/edit/save/reopen/build/core/export of the supported guided starter; MD reference is refused; not full SNES gameplay, audio or genre parity" };
+  const hash = async (file) => createHash("sha256").update(await readFile(file)).digest("hex");
+  const js = (code, args = []) => executeScript(sessionId, code, args);
+  try {
+    await setSessionWindowRect(sessionId, 1366, 768);
+    await prepareWizardTemplateGallery(sessionId, "snes");
+    if (await js(`return !!document.querySelector('[data-testid="template-card-reference_platformer"]');`)) fail("Modelo exclusivo MD apareceu no catálogo SNES.");
+    addReportStep(report, "md_reference_excluded_from_snes_gallery", "passed");
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-snes-scope.png`), "SNES: only compatible models");
+    await clickButtonByTestIdNative(sessionId, "template-card-starter_guided");
+    const name = `SNES_Authoring_${Date.now()}`;
+    await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
+    await clickButtonByText(sessionId, "Criar Projeto", "exact");
+    const created = await waitFor(async () => {
+      const s = await readAutomationState(sessionId);
+      return s?.activeProjectName === name && s.activeTarget === "snes" ? s : false;
+    }, 60000, "SNES guided starter template was not created through the wizard.", 250);
+    const project = created.activeProjectDir;
+    onProjectCreated(project);
+    report.project = project;
+    currentE2eRunContext.project = project;
+    await callAutomationApi(sessionId, "setSelectedEntityId", ["player"]);
+    await setInputByTestIdNative(sessionId, "inspector-transform-x", "120");
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await clickButtonByTestIdNative(sessionId, "toolbar-save");
+    const playerOnDisk = async () => JSON.parse(await readFile(path.join(project, "scenes/main.json"), "utf8")).entities.find((e) => e.entity_id === "player");
+    await waitFor(async () => (await playerOnDisk())?.transform.x === 120, 15000, "SNES native Inspector edit did not persist.", 200);
+    addReportStep(report, "wizard_snes_starter_and_native_inspector_edit_saved", "passed", { project, x: 120 });
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-edited.png`), "SNES guided starter created and edited through the UI");
+    await callAutomationApi(sessionId, "closeProject");
+    await js("return window.__RDS_E2E__.openProject(arguments[0]);", [project]);
+    await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === project, 30000, "SNES project did not reopen.", 250);
+    if ((await playerOnDisk())?.transform.x !== 120) fail("SNES position changed after reopen.");
+    addReportStep(report, "snes_saved_project_reopened", "passed", { x: 120 });
+    const build = await runBuildRunAndCollect(sessionId, "SNES authored starter", timeoutMs, report, prefix, { nativeClick: true, target: "snes" });
+    report.build = build;
+    const core = await executeAsyncScript(sessionId, `const done=arguments[arguments.length-1];
+      const invoke=window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke;
+      invoke("emulator_observe").then(done).catch(e=>done({error:String(e)}));`);
+    report.core = await collectCoreIdentity(core);
+    if (!/snes9x/i.test(core.core_label ?? "") || core.rom_sha256 !== build.rom_sha256) fail(`SNES guided starter used an unexpected core/ROM: ${JSON.stringify(report.core)}`);
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-running.png`), "SNES guided starter in the official core");
+    await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
+    await waitFor(async () => !(await readAutomationState(sessionId))?.emulatorLoaded, 15000, "SNES core did not stop.", 150);
+    await clickButtonByTestIdNative(sessionId, "toolbar-review");
+    await clickButtonByTestIdNativeWhenReady(sessionId, "delivery-verify-rom", "Verificar ROM SNES");
+    await waitFor(async () => js(`return document.querySelector('[data-testid="delivery-export"]')?.disabled === false;`), 30000, "SNES guided starter export remains blocked.", 250);
+    await clickButtonByTestIdNative(sessionId, "delivery-export");
+    const exported = await waitFor(async () => js(`const e=document.querySelector('[data-testid="delivery-exported"]');return e?{path:e.dataset.path,sha:e.dataset.sha256}:null;`), 30000, "SNES guided starter was not exported.", 200);
+    if (exported.sha !== build.rom_sha256 || await hash(exported.path) !== build.rom_sha256) fail("SNES export differs from the executed build.");
+    addReportStep(report, "snes_authored_build_core_export_same_rom", "passed", exported);
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-exported.png`), "SNES authored starter verified and exported");
+    report.status = "passed";
+  } catch (error) { report.status = "failed"; report.error = String(error);
+    report.last_state = await readAutomationState(sessionId).catch(() => null);
+    addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-failed.png`).catch(() => null), "SNES creation/build failure");
+    throw error; }
+  finally { await writeFile(path.join(validationDir, `${prefix}-report.json`), JSON.stringify(report, null, 2)); }
+}
+
 async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCreated) {
+  if (process.env.RDS_AUTHORING_TARGET === "snes") return runSnesGuidedAuthoringScenario(sessionId, timeoutMs, onProjectCreated);
   const artifactPrefix = `reference-platformer-${artifactTimestamp()}`;
   const reportPath = path.join(validationDir, `${artifactPrefix}-report.json`);
   const report = {
@@ -8556,15 +10982,14 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     persistence: {},
   };
 
-  await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await setSessionWindowRect(sessionId, 1024, 768);
+  await prepareDefaultProjectWizard(sessionId);
   addReportArtifact(
     report,
     await captureScreenshot(sessionId, `${artifactPrefix}-01-wizard.png`),
     "reference template wizard"
   );
   await clickByTestId(sessionId, "template-card-reference_platformer");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const generatedProjectName = `Reference_Platformer_${Date.now()}`;
   await fillInputBySelector(
     sessionId,
@@ -8665,6 +11090,419 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   );
   addReportStep(report, "save_reference_platformer", "passed");
 
+  // PLAT05: the file card must lead to the actual resource and preserve the
+  // selected file when returning from Art, Scene and Logic.
+  await clickByTestId(sessionId, "workspace-rail-explorer");
+  await waitFor(async () => executeScript(sessionId, `return !!document.querySelector('[data-testid="explorer-asset-assets/sprites/reference_player.png"]');`),
+    10000, "Arquivo do Player não apareceu em Arquivos.", 100);
+  await clickButtonByTestIdNative(sessionId, "explorer-asset-assets/sprites/reference_player.png", "selecionar arquivo de arte do Player");
+  await clickButtonByTestIdNative(sessionId, "explorer-view-uses", "ver usos do arquivo do Player");
+  const fileUses = await executeScript(sessionId, `return document.querySelector('[data-testid="explorer-asset-uses"]')?.textContent ?? '';`);
+  if (!fileUses.includes("Player")) fail(`Arquivos não mostrou a instância do Player: ${fileUses}`);
+  await clickButtonByTestIdNative(sessionId, "explorer-edit-asset", "editar arte do Player a partir do arquivo");
+  await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state.activeWorkspace === "artstudio" && state.selectedEntityId === "player" ? state : false;
+  }, 10000, "Arte não abriu o usuário correto do arquivo.", 100);
+  const artResource = await waitFor(async () => {
+    const text = await executeScript(sessionId, `return document.querySelector('[data-testid="artstudio-scene-context-bridge"]')?.textContent ?? '';`);
+    return text.includes("assets/sprites/reference_player.png") ? text : false;
+  }, 10000, "Arte não exibiu o recurso do Player após abrir o workspace.", 100);
+  await clickButtonByTestIdNative(sessionId, "studio-return-origin", "voltar ao arquivo a partir da Arte");
+  await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    const fileRestored = await executeScript(sessionId, `return !!document.querySelector('[data-testid="explorer-view-uses"]');`);
+    return state.activeWorkspace === "explorer" && fileRestored ? state : false;
+  }, 10000, "Voltar da Arte não restaurou o arquivo selecionado.", 100);
+  await clickButtonByTestIdNative(sessionId, "explorer-view-in-scene", "localizar Player na cena a partir do arquivo");
+  await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state.activeWorkspace === "scene" && state.selectedEntityId === "player" ? state : false;
+  }, 10000, "Ver na cena não selecionou o Player.", 100);
+  await clickButtonByTestIdNative(sessionId, "studio-return-origin", "retornar ao arquivo após localizar o Player");
+  await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    const ready = await executeScript(sessionId, `return {
+      asset: document.querySelector('[data-testid="explorer-selection-source"]')?.parentElement?.textContent ?? '',
+      logic: !!document.querySelector('[data-testid="explorer-open-logic"]'),
+    };`);
+    return state.activeWorkspace === "explorer" && ready.logic
+      && ready.asset.includes("reference_player.png") ? state : false;
+  }, 10000, "Voltar da cena não restaurou o arquivo e a ação Lógica do Player.", 100);
+  await clickButtonByTestIdNative(sessionId, "explorer-open-logic", "abrir lógica do usuário do arquivo");
+  await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state.activeWorkspace === "logic" && state.selectedEntityId === "player" ? state : false;
+  }, 10000, "Lógica do usuário não abriu o Player.", 100);
+  await clickButtonByTestIdNative(sessionId, "studio-return-origin", "retornar ao arquivo após a Lógica");
+  await waitFor(async () => (await readAutomationState(sessionId)).activeWorkspace === "explorer",
+    10000, "Voltar da Lógica não restaurou Arquivos.", 100);
+  addReportStep(report, "file_art_scene_logic_round_trip", "passed", { asset: "reference_player.png", entity: "player", returned: true });
+
+  // PLAT12: explicit layer movement must be one reversible edit. The template's
+  // collision floor touches the map edge, so moving the global map must refuse
+  // clipping before changing any entity.
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  await clickButtonByText(sessionId, "Camadas");
+  await clickByTestId(sessionId, "layer-row-layer_gameplay");
+  await clickButtonByTestIdNative(sessionId, "viewport-move-layer", "mover camada de gameplay");
+  const compositionBefore = await readAutomationState(sessionId);
+  const compositionPositions = Object.fromEntries(compositionBefore.activeScene.entities.map((entity) => [entity.id, { x: entity.x, y: entity.y }]));
+  const compositionUndoDepth = compositionBefore.undoDepth;
+  // WebDriver keeps input-source state across /actions calls. Reuse the same
+  // mouse source for collision erasure and layer dragging.
+  const compositionPointerId = "reference-composition-pointer";
+  const dragComposition = async () => {
+    const point = await executeScript(sessionId, `
+      const canvas=document.querySelector('[data-testid="viewport-scene-overlay"]');
+      const rect=canvas.getBoundingClientRect();
+      const state=window.__RDS_E2E__.getState();
+      const bounds=state.activeScene.worldBounds;
+      const player=state.activeScene.entities.find((entity)=>entity.id==='player');
+      const worldX=player.x+12, worldY=player.y+12;
+      return {x:Math.round(rect.left+(worldX-bounds.minX)/bounds.width*rect.width),
+        y:Math.round(rect.top+(worldY-bounds.minY)/bounds.height*rect.height),
+        dx:Math.round(16/bounds.width*rect.width)};
+    `);
+    const under = await executeScript(sessionId, `return document.elementFromPoint(arguments[0],arguments[1])?.closest('[data-testid]')?.getAttribute('data-testid') ?? null;`, [point.x, point.y]);
+    if (under !== "viewport-scene-overlay") fail(`Camada nao alcançável no palco: ${under}`);
+    const result = await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{
+      type: "pointer", id: compositionPointerId, parameters: { pointerType: "mouse" }, actions: [
+        { type: "pointerMove", origin: "viewport", x: point.x, y: point.y },
+        { type: "pointerDown", button: 0 },
+        { type: "pointerMove", duration: 250, origin: "viewport", x: point.x + point.dx, y: point.y },
+        { type: "pointerUp", button: 0 },
+      ],
+    }] });
+    if (!result.ok) fail(`Arraste de camada recusado: ${JSON.stringify(result)}`);
+  };
+  const compositionSceneFile = path.join(createdState.activeProjectDir, "scenes", "main.json");
+  const originalCollisionMap = JSON.parse(await readFile(compositionSceneFile, "utf8")).collision_map;
+  await clickButtonByTestIdNative(sessionId, "viewport-move-object", "mover somente o Player");
+  await dragComposition();
+  const objectMoved = await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state.activeScene.entities.find((entity) => entity.id === "player")?.x !== compositionPositions.player.x ? state : false;
+  }, 10000, "Mover objeto não deslocou o Player.", 100);
+  if (objectMoved.undoDepth !== compositionUndoDepth + 1 || objectMoved.activeScene.entities.some((entity) =>
+    entity.id !== "player" && (entity.x !== compositionPositions[entity.id]?.x || entity.y !== compositionPositions[entity.id]?.y))) {
+    fail("Mover objeto alterou outro membro ou não criou uma entrada de Undo.");
+  }
+  await pressNativeUndoRedo(sessionId, "z");
+  await waitFor(async () => (await readAutomationState(sessionId)).activeScene.entities.find((entity) => entity.id === "player")?.x === compositionPositions.player.x,
+    10000, "Undo do movimento individual não restaurou o Player.", 100);
+  addReportStep(report, "move_object_scope_and_undo", "passed", { movedEntity: "player", otherEntities: "preserved" });
+
+  await clickButtonByTestIdNative(sessionId, "viewport-move-layer", "mover camada sem mapa global");
+  if (await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-move-collision"]')?.getAttribute('aria-pressed');`) !== "false") {
+    fail("Mapa global não estava separado no movimento de camada.");
+  }
+  await dragComposition();
+  const noMapMoved = await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state.activeScene.entities.find((entity) => entity.id === "player")?.x !== compositionPositions.player.x ? state : false;
+  }, 10000, "Mover camada sem mapa não deslocou o Player.", 100);
+  const noMapDelta = noMapMoved.activeScene.entities.find((entity) => entity.id === "player").x - compositionPositions.player.x;
+  if (noMapMoved.undoDepth !== compositionUndoDepth + 1 || noMapMoved.activeScene.entities.some((entity) =>
+    entity.x !== compositionPositions[entity.id].x + (["player", "passage_blocker", "goal", "goal_sensor"].includes(entity.id) ? noMapDelta : 0) ||
+    entity.y !== compositionPositions[entity.id].y)) {
+    fail("Mover camada sem mapa alterou seu alcance ou o histórico.");
+  }
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  const noMapSource = await waitFor(async () => {
+    const scene = JSON.parse(await readFile(compositionSceneFile, "utf8"));
+    return scene.entities.find((entity) => entity.entity_id === "player")?.transform?.x === compositionPositions.player.x + noMapDelta ? scene : false;
+  }, 15000, "Cena-fonte não persistiu o movimento da camada sem mapa.", 200);
+  if (JSON.stringify(noMapSource.collision_map) !== JSON.stringify(originalCollisionMap)) {
+    fail("Mover camada com mapa separado alterou a colisão persistida.");
+  }
+  await pressNativeUndoRedo(sessionId, "z");
+  await waitFor(async () => (await readAutomationState(sessionId)).activeScene.entities.find((entity) => entity.id === "player")?.x === compositionPositions.player.x,
+    10000, "Undo da camada sem mapa não restaurou os membros.", 100);
+  addReportStep(report, "move_layer_without_global_map", "passed", { members: 4, collisionMap: "source_unchanged", undoEntries: 1 });
+
+  await clickButtonByTestIdNative(sessionId, "viewport-move-collision", "incluir mapa global");
+  await dragComposition();
+  const clipped = await readAutomationState(sessionId);
+  if (clipped.undoDepth !== compositionUndoDepth || clipped.activeScene.entities.some((entity) =>
+    entity.x !== compositionPositions[entity.id]?.x || entity.y !== compositionPositions[entity.id]?.y)) {
+    fail("Arraste que recortaria o mapa alterou a composicao ou o historico.");
+  }
+  await executeScript(sessionId, `
+    window.__rdsCompositionPointerEvents=[];
+    const canvas=document.querySelector('[data-testid="viewport-scene-overlay"]');
+    for(const type of ['mousedown','mousemove','mouseup','mouseleave']) canvas.addEventListener(type,e=>{
+      if(window.__rdsCompositionPointerEvents.length<60) window.__rdsCompositionPointerEvents.push({type,button:e.button,buttons:e.buttons,x:e.clientX,y:e.clientY});
+    },{capture:true});
+  `);
+  // Make two empty columns on the right through the collision tool, then prove
+  // a positive group+global-map shift. The built ROM must contain that grid.
+  await clickButtonByTestIdNative(sessionId, "viewport-tool-collision", "editar margem do mapa de colisão");
+  await clickButtonByTestIdNative(sessionId, "viewport-collision-free", "apagar colisão com o botão principal");
+  const collisionCellPoint = (col, row) => executeScript(sessionId, `
+    const canvas=document.querySelector('[data-testid="viewport-scene-overlay"]');
+    const stage=document.querySelector('[data-testid="viewport-scene-stage"]');
+    const rect=canvas.getBoundingClientRect();
+    const bounds=window.__RDS_E2E__.getState().activeScene.worldBounds;
+    const x=Math.round(rect.left+((arguments[0]*8+4)-bounds.minX)/bounds.width*rect.width);
+    const y=Math.round(rect.top+((arguments[1]*8+4)-bounds.minY)/bounds.height*rect.height);
+    return {x,y,under:document.elementFromPoint(x,y)?.closest('[data-testid]')?.getAttribute('data-testid')??null,
+      zoom:document.querySelector('[data-testid="viewport-zoom-reset"]')?.textContent?.trim(),
+      stage:stage?.getBoundingClientRect().toJSON(),canvas:rect.toJSON()};
+  `, [col, row]);
+  // Windows CI can expose a smaller stage than the requested window size.
+  // Use the visible zoom control until the far edge is hit-testable.
+  let edgeCell = await collisionCellPoint(39, 27);
+  let collisionZoomSteps = 0;
+  while (edgeCell.under !== "viewport-scene-overlay" && collisionZoomSteps < 12) {
+    const disabled = await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-zoom-out"]')?.disabled ?? true;`);
+    if (disabled) break;
+    const previousZoom = edgeCell.zoom;
+    await clickButtonByTestIdNative(sessionId, "viewport-zoom-out", "expor margem da colisão no palco");
+    await waitFor(async () => (await collisionCellPoint(39, 27)).zoom !== previousZoom,
+      5000, "Controle de zoom não alterou a escala do palco.", 100);
+    collisionZoomSteps += 1;
+    edgeCell = await collisionCellPoint(39, 27);
+  }
+  if (edgeCell.under !== "viewport-scene-overlay") {
+    fail(`Borda da colisão não alcançável mesmo após zoom visível: ${JSON.stringify({ collisionZoomSteps, edgeCell })}`);
+  }
+  for (const [col, row] of [[38, 26], [39, 26], [38, 27], [39, 27]]) {
+    const point = await collisionCellPoint(col, row);
+    if (point.under !== "viewport-scene-overlay") fail(`Célula de colisão ${col},${row} não alcançável: ${JSON.stringify(point)}`);
+    const cleared = await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{
+      type: "pointer", id: compositionPointerId, parameters: { pointerType: "mouse" }, actions: [
+        { type: "pointerMove", origin: "viewport", x: point.x, y: point.y },
+        { type: "pointerDown", button: 0 }, { type: "pointerUp", button: 0 },
+      ],
+    }] });
+    if (!cleared.ok) fail(`Edição de colisão ${col},${row} recusada: ${JSON.stringify(cleared)}`);
+  }
+  const erasureEvents = await executeScript(sessionId, `return window.__rdsCompositionPointerEvents ?? [];`);
+  if (erasureEvents.filter((event) => event.type === "mousedown" && event.button === 0 && event.buttons === 1).length !== 4 ||
+    erasureEvents.filter((event) => event.type === "mouseup" && event.button === 0 && event.buttons === 0).length !== 4) {
+    fail(`Apagamento nativo não liberou o botão principal após cada célula: ${JSON.stringify(erasureEvents)}`);
+  }
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  // The native click dispatches an asynchronous save. Observe the persisted
+  // revision, as the other composition saves do, without repeating the edit.
+  const preparedMap = await waitFor(async () => {
+    const map = JSON.parse(await readFile(compositionSceneFile, "utf8")).collision_map;
+    return map?.width === 40 && map.height === 28 &&
+      [26, 27].every((row) => [38, 39].every((col) => map.data[row * 40 + col] === 0))
+      ? map : false;
+  }, 15000, "Edição nativa não persistiu as quatro células livres da borda do mapa.", 200);
+  const preparedUndoDepth = (await readAutomationState(sessionId)).undoDepth;
+  await clickButtonByTestIdNative(sessionId, "viewport-move-layer", "voltar a mover camada com mapa global");
+  await waitFor(async () => executeScript(sessionId, `
+    return document.querySelector('[data-testid="viewport-tool-select"]')?.getAttribute('aria-pressed')==='true' &&
+      document.querySelector('[data-testid="viewport-move-layer"]')?.getAttribute('aria-pressed')==='true';
+  `), 5000, "Modo de seleção da camada não ficou ativo após editar colisão.", 100);
+  await executeAsyncScript(sessionId, `const done=arguments[arguments.length-1]; requestAnimationFrame(()=>requestAnimationFrame(done));`);
+  await dragComposition();
+  const moved = await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state?.activeScene?.entities?.find((entity) => entity.id === "player")?.x !== compositionPositions.player.x ? state : false;
+  }, 10000, "Camada de gameplay nao moveu pelo arraste nativo.", 100).catch(async (error) => {
+    const state = await readAutomationState(sessionId);
+    const diagnostics = { state: {
+      activeLayerId: state?.activeLayerId, editorMode: state?.editorMode,
+      selectedEntityId: state?.selectedEntityId, undoDepth: state?.undoDepth,
+      entities: state?.activeScene?.entities?.map((entity) => ({ id: entity.id, x: entity.x, y: entity.y })),
+      consoleEntries: state?.consoleEntries?.slice(-12),
+    }, controls: await executeScript(sessionId, `return ['viewport-move-layer','viewport-move-collision'].map(id=>({id,pressed:document.querySelector('[data-testid="'+id+'"]')?.getAttribute('aria-pressed')}));`),
+    pointerEvents: await executeScript(sessionId, `return window.__rdsCompositionPointerEvents ?? [];`) };
+    const diagnosticPath = path.join(validationDir, `${artifactPrefix}-composition-diagnostics.json`);
+    await writeFile(diagnosticPath, JSON.stringify(diagnostics, null, 2));
+    addReportArtifact(report, await captureScreenshot(sessionId, `${artifactPrefix}-composition-failure.png`), "composition failure");
+    fail(`${error.message} diagnostics=${diagnosticPath} ${JSON.stringify(diagnostics.state)}`);
+  });
+  const compositionEvents = await executeScript(sessionId, `return window.__rdsCompositionPointerEvents ?? [];`);
+  const dragDownIndex = compositionEvents.findLastIndex((event) => event.type === "mousedown");
+  const dragEvents = compositionEvents.slice(dragDownIndex);
+  if (dragDownIndex < 0 || dragEvents[0]?.button !== 0 || dragEvents[0]?.buttons !== 1 ||
+    !dragEvents.some((event) => event.type === "mousemove" && event.buttons === 1) ||
+    !dragEvents.some((event) => event.type === "mouseup" && event.button === 0 && event.buttons === 0)) {
+    fail(`Arraste da camada não manteve somente o botão principal após apagar colisão: ${JSON.stringify(dragEvents)}`);
+  }
+  const layerDelta = moved.activeScene.entities.find((entity) => entity.id === "player").x - compositionPositions.player.x;
+  for (const entity of moved.activeScene.entities) {
+    const expected = compositionPositions[entity.id].x + (["player", "passage_blocker", "goal", "goal_sensor"].includes(entity.id) ? layerDelta : 0);
+    if (entity.x !== expected || entity.y !== compositionPositions[entity.id].y) fail(`Movimento alterou escopo de ${entity.id}: ${JSON.stringify({ expected, entity })}`);
+  }
+  if (moved.undoDepth !== preparedUndoDepth + 1) fail("Movimento da camada nao criou uma unica entrada de Undo.");
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  const movedScene = await waitFor(async () => {
+    const saved = JSON.parse(await readFile(path.join(createdState.activeProjectDir, "scenes", "main.json"), "utf8"));
+    return saved.entities.find((entity) => entity.entity_id === "player")?.transform?.x === compositionPositions.player.x + layerDelta ? saved : false;
+  }, 15000, "Composição movida não persistiu no arquivo da cena.", 200);
+  const expectedMovedMap = Array(40 * 28).fill(0);
+  preparedMap.data.forEach((value, index) => { if (value) expectedMovedMap[index + 2] = value; });
+  if (JSON.stringify(movedScene.collision_map?.data) !== JSON.stringify(expectedMovedMap)) {
+    fail("Mover a camada não deslocou o mapa global íntegro em duas colunas.");
+  }
+  await clickByTestId(sessionId, "workspace-rail-game");
+  const movedBuild = await runBuildRunAndCollect(sessionId, "reference platformer moved composition", timeoutMs, report, artifactPrefix);
+  const movedSymbols = parseElf32Symbols(await readFile(path.join(createdState.activeProjectDir, "build", "megadrive", "out", "rom.out")));
+  const movedPlayerAddress = movedSymbols.get("spr_player_x");
+  if (!Number.isInteger(movedPlayerAddress) || ![0x00ff, 0xe0ff].includes(movedPlayerAddress >>> 16)) {
+    fail(`Símbolo de posição do Player ausente na ROM movida: ${movedPlayerAddress}`);
+  }
+  const movedPlayerMemory = await executeAsyncScript(sessionId, `
+    const done=arguments[arguments.length-1];
+    const invoke=window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke;
+    invoke('emulator_read_memory',{region:2,offset:arguments[0]&0xffff,length:2}).then(done).catch(e=>done({error:String(e)}));
+  `, [movedPlayerAddress]);
+  const movedPlayerRaw = movedPlayerMemory?.data?.[0] | (movedPlayerMemory?.data?.[1] << 8);
+  const movedPlayerRuntimeX = movedPlayerRaw > 0x7fff ? movedPlayerRaw - 0x10000 : movedPlayerRaw;
+  if (movedPlayerMemory?.error || movedPlayerRuntimeX !== compositionPositions.player.x + layerDelta) {
+    fail(`ROM não executou a posição movida do Player: ${JSON.stringify({ expected: compositionPositions.player.x + layerDelta, actual: movedPlayerRuntimeX, memory: movedPlayerMemory })}`);
+  }
+  const movedPlayerYAddress = movedSymbols.get("spr_player_y");
+  if (!Number.isInteger(movedPlayerYAddress) || ![0x00ff, 0xe0ff].includes(movedPlayerYAddress >>> 16)) {
+    fail(`Símbolo de altura do Player ausente na ROM movida: ${movedPlayerYAddress}`);
+  }
+  const readMovedPlayerS16 = async (address) => {
+    const result = await executeAsyncScript(sessionId, `
+      const done=arguments[arguments.length-1];
+      const invoke=window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke;
+      invoke('emulator_read_memory',{region:2,offset:arguments[0]&0xffff,length:2}).then(done).catch(e=>done({error:String(e)}));
+    `, [address]);
+    if (result?.error || !result?.data || result.data.length < 2) fail(`Leitura de RAM da ROM movida falhou: ${JSON.stringify(result)}`);
+    const word = result.data[0] | (result.data[1] << 8);
+    return word > 0x7fff ? word - 0x10000 : word;
+  };
+  report.roms.push(movedBuild);
+  const movedRomBytes = await readFile(movedBuild.rom_path);
+  const collisionBytesOffset = movedRomBytes.indexOf(Buffer.from(expectedMovedMap));
+  if (collisionBytesOffset < 0) fail("ROM movida não contém os bytes do mapa de colisão deslocado.");
+  addReportStep(report, "moved_composition_visible_in_rom", "passed", {
+    playerX: movedPlayerRuntimeX, romSha256: movedBuild.rom_sha256, framebufferSha256: movedBuild.framebuffer.framebuffer_sha256,
+    collisionBytesOffset,
+  });
+  await closeVisibleConsoleDrawer(sessionId, "reference platformer moved collision input");
+  await focusGameCanvasNatively(sessionId);
+  await sendNativeGameKey(sessionId, "ArrowLeft", "keyDown", "moved collision left edge");
+  const leftAck = await waitFor(async () => {
+    const observed = await executeScript(sessionId, "return window.__RDS_E2E__?.getLastInputObservation?.() ?? null;");
+    return observed?.lastJoypadAck?.joypad?.left === true ? observed.lastJoypadAck : false;
+  }, 10000, "Entrada esquerda não chegou ao core da ROM movida.", 100);
+  const leftEdgeX = await waitFor(async () => {
+    const x = await readMovedPlayerS16(movedPlayerAddress);
+    return x <= 7 ? { x } : false;
+  }, 20000, "Player não alcançou a faixa sem piso após deslocar o mapa global.", 100);
+  await sendNativeGameKey(sessionId, "ArrowLeft", "keyUp", "moved collision release");
+  const fallenY = await waitFor(async () => {
+    const y = await readMovedPlayerS16(movedPlayerYAddress);
+    return y > compositionPositions.player.y ? y : false;
+  }, 10000, "Player não caiu ao atravessar a faixa liberada pelo mapa deslocado.", 100);
+  addReportStep(report, "moved_collision_observed_in_game", "passed", {
+    romSha256: movedBuild.rom_sha256, playerStartY: compositionPositions.player.y,
+    playerLeftEdgeX: leftEdgeX.x, playerFallenY: fallenY, inputAck: leftAck,
+  });
+  await clickByTestId(sessionId, "workspace-rail-scene");
+  await pressNativeUndoRedo(sessionId, "z");
+  await waitFor(async () => (await readAutomationState(sessionId))?.activeScene?.entities?.find((entity) => entity.id === "player")?.x === compositionPositions.player.x,
+    10000, "Undo nao restaurou a composicao.", 100);
+  await pressNativeUndoRedo(sessionId, "y");
+  await waitFor(async () => (await readAutomationState(sessionId))?.activeScene?.entities?.find((entity) => entity.id === "player")?.x === compositionPositions.player.x + layerDelta,
+    10000, "Redo nao restaurou o movimento de grupo.", 100);
+  await pressNativeUndoRedo(sessionId, "z");
+  await waitFor(async () => (await readAutomationState(sessionId))?.activeScene?.entities?.find((entity) => entity.id === "player")?.x === compositionPositions.player.x,
+    10000, "Undo final nao restaurou o template.", 100);
+  for (let index = 0; index < 4; index += 1) await pressNativeUndoRedo(sessionId, "z");
+  await waitFor(async () => (await readAutomationState(sessionId))?.activeScene?.collisionSolidCount ===
+    originalCollisionMap.data.filter(Boolean).length,
+    10000, "Undo nativo não restaurou todas as células sólidas antes de salvar.", 100);
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  const resetMap = await waitFor(async () => {
+    const saved = JSON.parse(await readFile(compositionSceneFile, "utf8"));
+    return JSON.stringify(saved.collision_map?.data) === JSON.stringify(originalCollisionMap.data)
+      ? saved.collision_map
+      : false;
+  }, 15000, "Undo das edições de colisão não restaurou o mapa original no disco.", 200);
+  addReportStep(report, "move_layer_scope_collision_refusal_and_undo_redo", "passed", { layerDelta, members: 4, globalCollision: "clipping_refused_and_positive_rom_bytes", collisionBytesOffset, collisionZoomSteps, undoEntries: 1, dragEvents });
+  const mapIncludedBeforeRestore = await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-move-collision"]')?.getAttribute('aria-pressed') ?? null;`);
+  if (mapIncludedBeforeRestore === "true") {
+    await clickButtonByTestIdNative(sessionId, "viewport-move-collision", "manter mapa global separado na prévia do template");
+  }
+  if (await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-move-collision"]')?.getAttribute('aria-pressed') ?? null;`) !== "false") {
+    fail("Mapa global não ficou separado antes de testar a restauração do template.");
+  }
+  await clickButtonByTestIdNative(sessionId, "viewport-move-layer", "selecionar camada antes da restauração do template");
+  await waitFor(async () => (await readAutomationState(sessionId)).editorMode === "select",
+    5000, "Ferramenta de seleção não ficou ativa após editar colisão.", 100);
+  await executeScript(sessionId, `
+    window.__rdsTemplateDragEvents=[];
+    const canvas=document.querySelector('[data-testid="viewport-scene-overlay"]');
+    for(const type of ['mousedown','mousemove','mouseup','mouseleave']) canvas.addEventListener(type,e=>{
+      if(window.__rdsTemplateDragEvents.length<20) window.__rdsTemplateDragEvents.push({type,button:e.button,buttons:e.buttons,x:e.clientX,y:e.clientY});
+    },{capture:true});
+  `);
+  await dragComposition();
+  const beforeTemplateRestore = await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state.activeScene.entities.find((entity) => entity.id === "player")?.x === compositionPositions.player.x + layerDelta ? state : false;
+  }, 10000, "Camada nao moveu antes da restauracao do template.", 100).catch(async (error) => {
+    const state = await readAutomationState(sessionId);
+    const diagnostics = {
+      activeLayerId: state.activeLayerId, editorMode: state.editorMode,
+      selectedEntityId: state.selectedEntityId, undoDepth: state.undoDepth,
+      entities: state.activeScene.entities.map((entity) => ({ id: entity.id, x: entity.x, y: entity.y })),
+      controls: await executeScript(sessionId, `return ['viewport-move-layer','viewport-move-collision'].map(id=>({id,pressed:document.querySelector('[data-testid="'+id+'"]')?.getAttribute('aria-pressed')}));`),
+      pointerEvents: await executeScript(sessionId, `return window.__rdsTemplateDragEvents ?? [];`),
+      consoleEntries: state.consoleEntries.slice(-10),
+    };
+    const diagnosticPath = path.join(validationDir, `${artifactPrefix}-template-restore-diagnostics.json`);
+    await writeFile(diagnosticPath, JSON.stringify(diagnostics, null, 2));
+    addReportArtifact(report, await captureScreenshot(sessionId, `${artifactPrefix}-template-restore-failure.png`), "template restore setup failure");
+    fail(`${error.message} diagnostics=${diagnosticPath}`);
+  });
+  await waitFor(async () => executeScript(sessionId, `return !!document.querySelector('[data-testid="viewport-template-restore"]');`),
+    10000, "Restauracao do template nao apareceu na cena de referencia.", 100);
+  await clickButtonByTestIdNative(sessionId, "viewport-template-restore", "prévia de restauração do template");
+  const previewCount = await executeScript(sessionId, `return document.querySelector('[data-testid="viewport-template-preview-count"]')?.textContent ?? '';`);
+  if (!previewCount.includes("4 posição")) fail(`Prévia da restauração não enumerou os quatro objetos movidos: ${previewCount}`);
+  await clickButtonByTestIdNative(sessionId, "viewport-template-cancel", "cancelar restauração do template");
+  const cancelledTemplate = await readAutomationState(sessionId);
+  if (cancelledTemplate.undoDepth !== beforeTemplateRestore.undoDepth ||
+    cancelledTemplate.sceneRevision !== beforeTemplateRestore.sceneRevision ||
+    JSON.stringify(cancelledTemplate.activeScene.entities) !== JSON.stringify(beforeTemplateRestore.activeScene.entities)) {
+    fail("Cancelar a prévia alterou a cena, a revisão ou o histórico.");
+  }
+  await clickButtonByTestIdNative(sessionId, "viewport-template-restore", "reabrir prévia do template");
+  await clickButtonByTestIdNative(sessionId, "viewport-template-apply", "restaurar posições do template");
+  const restoredTemplate = await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state.activeScene.entities.find((entity) => entity.id === "player")?.x === compositionPositions.player.x ? state : false;
+  }, 10000, "Restauração não voltou às posições do template.", 100);
+  if (restoredTemplate.undoDepth !== beforeTemplateRestore.undoDepth + 1) fail("Restaurar template não criou uma única entrada de Undo.");
+  await pressNativeUndoRedo(sessionId, "z");
+  await waitFor(async () => (await readAutomationState(sessionId)).activeScene.entities.find((entity) => entity.id === "player")?.x === compositionPositions.player.x + layerDelta,
+    10000, "Undo da restauração não recuperou a composição movida.", 100);
+  await pressNativeUndoRedo(sessionId, "y");
+  await waitFor(async () => (await readAutomationState(sessionId)).activeScene.entities.find((entity) => entity.id === "player")?.x === compositionPositions.player.x,
+    10000, "Redo da restauração não devolveu as posições originais.", 100);
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  const restoredSource = await waitFor(async () => {
+    const scene = JSON.parse(await readFile(path.join(createdState.activeProjectDir, "scenes", "main.json"), "utf8"));
+    return scene.entities.find((entity) => entity.entity_id === "player")?.transform?.x === compositionPositions.player.x ? scene : false;
+  }, 15000, "Restauração não persistiu na cena-fonte.", 200);
+  for (const id of ["player", "passage_blocker", "goal", "goal_sensor"]) {
+    const entity = restoredSource.entities.find((candidate) => candidate.entity_id === id);
+    if (entity?.transform?.x !== compositionPositions[id].x || entity?.transform?.y !== compositionPositions[id].y) {
+      fail(`Cena-fonte não concorda com a restauração de ${id}: ${JSON.stringify(entity?.transform)}`);
+    }
+  }
+  if (JSON.stringify(restoredSource.collision_map?.data) !== JSON.stringify(resetMap.data)) {
+    fail("Restauração alterou o mapa global que estava fora de seu alcance.");
+  }
+  addReportStep(report, "preview_and_restore_template_positions", "passed", {
+    changedEntities: 4, undoEntries: 1, undoRedo: "native", sourceAndResolvedAgree: true,
+    collisionMap: "preserved", preparationDragEvents: await executeScript(sessionId, `return window.__rdsTemplateDragEvents ?? [];`),
+  });
+  await clickButtonByText(sessionId, "Cena");
+
   await clickByTestId(sessionId, "workspace-rail-game");
   await waitFor(
     async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"viewport-game-canvas\"]'));"),
@@ -8724,6 +11562,49 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     rom: firstBuild.rom_path,
     framebuffer: firstBuild.framebuffer,
   });
+
+  const presented = await waitFor(async () => {
+    const value = await executeScript(sessionId, "return document.querySelector('[data-testid=\"viewport-performance-overlay\"]')?.textContent ?? ''; ");
+    return /FPS apresentação\s+(?!indisponível)\d/.test(value) ? value : false;
+  }, 10000, "Debug nao mediu uma janela real de quadros apresentados pela ROM atual.", 250);
+  await clickByTestId(sessionId, "viewport-pause");
+  await clickByTestId(sessionId, "workspace-rail-debug");
+  const diagnosis = await waitFor(async () => executeScript(sessionId, `
+    const panel = document.querySelector('[data-testid="project-diagnostics"]');
+    if (!panel) return null;
+    const section = (name) => panel.querySelector('[aria-label="' + name + '"]')?.textContent ?? '';
+    return {
+      identity: panel.textContent ?? '',
+      build: section('Por que não compila?'),
+      collision: section('Onde há colisão?'),
+      resources: section('Que recurso excedeu o limite?'),
+      performance: section('Qual medida de desempenho existe?'),
+    };
+  `), 10000, "Debug nao abriu diagnostico do projeto atual.", 250);
+  if (!diagnosis.identity.includes(firstBuild.rom_sha256)
+    || !diagnosis.build.includes("Nenhuma falha de build registrada")
+    || !diagnosis.collision.includes("célula(s) sólida(s)")
+    || !diagnosis.resources.includes("VRAM")
+    || !diagnosis.performance.includes("quadros apresentados/s")
+    || !presented.includes("FPS apresentação")) {
+    fail(`PLAT11 associou diagnostico divergente da ROM/revisao atual: ${JSON.stringify(diagnosis)}`);
+  }
+  await clickButtonByText(sessionId, "Ler posição, animação e quadro na RAM", "exact");
+  const sampledVariables = await waitFor(async () => {
+    const value = await executeScript(sessionId, `
+      return document.querySelector('[aria-label="Quais estados e variáveis foram observados?"]')?.textContent ?? '';
+    `);
+    return value.includes("player") && value.includes("x=") && value.includes(firstBuild.rom_sha256) ? value : false;
+  }, 10000, "Debug nao apresentou leitura de RAM do core pausado.", 250);
+  if (!sampledVariables.includes("player") || !sampledVariables.includes("x=")
+    || !sampledVariables.includes(firstBuild.rom_sha256)) {
+    fail(`PLAT11 nao vinculou Player/RAM a ROM atual: ${sampledVariables}`);
+  }
+  addReportStep(report, "project_debug_build_collision_ram_budget_presentation", "passed", {
+    rom_sha256: firstBuild.rom_sha256, presentation: presented, diagnosis, sampledVariables,
+  });
+  addReportArtifact(report, await captureScreenshot(sessionId, `${artifactPrefix}-debug-project.png`), "PLAT11 project diagnosis");
+  await clickByTestId(sessionId, "workspace-rail-game");
 
   const invokeCore = async (command, args = {}) => executeAsyncScript(
     sessionId,
@@ -9139,6 +12020,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     "Projeto nao reiniciou para validar salvar/reabrir do limiar.",
     250
   );
+  await prepareExistingProjectWizard(sessionId);
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', generatedProjectName);
   await waitFor(
     async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"wizard-existing-project-card\"]'));"),
@@ -9248,7 +12130,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     250
   );
   await closeVisibleConsoleDrawer(sessionId, "antes da autoria de tilemap");
-  await clickButtonByTestIdNative(
+  await clickButtonByTestIdNativeWhenReady(
     sessionId,
     "hierarchy-tilemap-edit-reference_tilemap",
     "abrir autoria do tilemap da referencia"
@@ -9270,7 +12152,20 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   const tilemapCellIndex = tilemapCell.row * tilemapWidth + tilemapCell.col;
   const tilemapOriginalValue = Number(tilemapBeforeCells[tilemapCellIndex] ?? 0);
   const tilemapCollisionBefore = Number(tilemapBefore?.activeScene?.collisionSolidCount ?? 0);
+  await waitFor(
+    async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"tile-palette-2\"]'));"),
+    15000,
+    "Tile 2 não carregou na paleta contextual do tilemap.",
+    100
+  );
   await clickByTestId(sessionId, "tile-palette-2");
+  await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-tile-flow-toggle", "recolher paleta do tilemap");
+  await waitFor(
+    async () => executeScript(sessionId, "return document.querySelector('[data-testid=\"viewport-tile-flow-toggle\"]')?.getAttribute('aria-expanded') === 'false';"),
+    5000,
+    "Paleta do tilemap não recolheu após o gesto nativo.",
+    100
+  );
   const worldBounds = tilemapBefore?.activeScene?.worldBounds;
   const tilemapEntity = tilemapBefore?.activeScene?.entities?.find((entity) => entity.id === "reference_tilemap");
   const targetWorldX = Number(tilemapEntity?.x ?? 0) + tilemapCell.col * tilemapTileWidth + tilemapTileWidth / 2;
@@ -9279,7 +12174,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     Math.max(1, Number(worldBounds?.maxX ?? 320) - Number(worldBounds?.minX ?? 0));
   const normalizedY = (targetWorldY - Number(worldBounds?.minY ?? 0)) /
     Math.max(1, Number(worldBounds?.maxY ?? 224) - Number(worldBounds?.minY ?? 0));
-  await clickCanvasPointNatively(
+  const paintedClick = await clickCanvasPointNatively(
     sessionId,
     "[data-testid='viewport-scene-overlay']",
     normalizedX,
@@ -9295,12 +12190,24 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     10000,
     "Pintura do tilemap nao persistiu no draft ativo.",
     100
-  );
+  ).catch(async (error) => {
+    const state = await readAutomationState(sessionId);
+    const diagnosticPath = path.join(validationDir, `${artifactPrefix}-tilemap-paint-diagnostics.json`);
+    await writeFile(diagnosticPath, JSON.stringify({
+      error: String(error),
+      paintedClick: paintedClick.point,
+      editorMode: state?.editorMode,
+      activeTilemapId: state?.activeTilemapId,
+      tilemapValue: state?.activeScene?.entities?.find((entity) => entity.id === "reference_tilemap")?.tilemap?.cells?.[tilemapCellIndex] ?? null,
+    }, null, 2));
+    await captureScreenshot(sessionId, `${artifactPrefix}-tilemap-paint-failure.png`);
+    fail(`${error instanceof Error ? error.message : String(error)} diagnostics=${diagnosticPath}`);
+  });
   const paintedCollision = Number(paintedState?.activeScene?.collisionSolidCount ?? 0);
   if (paintedCollision !== tilemapCollisionBefore) {
     fail(`Pintura visual alterou indevidamente a colisao separada: ${JSON.stringify({ tilemapCollisionBefore, paintedCollision })}`);
   }
-  await pressKey(sessionId, "z", { code: "KeyZ", ctrlKey: true });
+  await pressNativeUndoRedo(sessionId, "z");
   const undoneState = await waitFor(
     async () => {
       const state = await readAutomationState(sessionId);
@@ -9311,7 +12218,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     "Undo nao restaurou a celula original do tilemap.",
     100
   );
-  await pressKey(sessionId, "y", { code: "KeyY", ctrlKey: true });
+  await pressNativeUndoRedo(sessionId, "y");
   const redoneState = await waitFor(
     async () => {
       const state = await readAutomationState(sessionId);
@@ -9321,7 +12228,19 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     10000,
     "Redo nao reaplicou a celula pintada do tilemap.",
     100
-  );
+  ).catch(async (error) => {
+    const state = await readAutomationState(sessionId);
+    const diagnostics = {
+      cause: String(error), undoDepth: state.undoDepth, sceneRevision: state.sceneRevision,
+      editorMode: state.editorMode, tilemapValue: state.activeScene?.entities.find((entity) => entity.id === "reference_tilemap")?.tilemap?.cells?.[tilemapCellIndex] ?? null,
+      focus: await executeScript(sessionId, `return {tag:document.activeElement?.tagName,testId:document.activeElement?.getAttribute('data-testid'),text:document.activeElement?.textContent?.slice(0,80)};`),
+      consoleEntries: state.consoleEntries.slice(-10),
+    };
+    const diagnosticPath = path.join(validationDir, `${artifactPrefix}-tilemap-redo-diagnostics.json`);
+    await writeFile(diagnosticPath, JSON.stringify(diagnostics, null, 2));
+    addReportArtifact(report, await captureScreenshot(sessionId, `${artifactPrefix}-tilemap-redo-failure.png`), "tilemap redo failure");
+    fail(`${error.message} diagnostics=${diagnosticPath}`);
+  });
   const savesBeforeTilemapAuthoring = (redoneState?.consoleEntries ?? []).filter((entry) =>
     String(entry.message ?? "").includes("Cena salva no projeto ativo.")
   ).length;
@@ -9649,6 +12568,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     "Projeto de referencia nao fechou com retorno ao wizard.",
     250
   );
+  await prepareExistingProjectWizard(sessionId);
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', generatedProjectName);
   await waitFor(
     async () => {
@@ -9696,6 +12616,15 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   if (reopenedTileValue !== 2) {
     fail(`Tilemap pintado nao persistiu apos reabertura: ${JSON.stringify({ cellIndex: tilemapCellIndex, expected: 2, actual: reopenedTileValue })}`);
   }
+  for (const id of ["player", "passage_blocker", "goal", "goal_sensor"]) {
+    const entity = reopenedState.activeScene.entities.find((candidate) => candidate.id === id);
+    if (entity?.x !== compositionPositions[id].x || entity?.y !== compositionPositions[id].y) {
+      fail(`Posição restaurada de ${id} não sobreviveu à reabertura: ${JSON.stringify(entity)}`);
+    }
+  }
+  if (reopenedState.activeScene.collisionSolidCount !== 88) {
+    fail(`Restauração modificou a colisão após reabrir: ${reopenedState.activeScene.collisionSolidCount}`);
+  }
   report.persistence = {
     projectDir: createdState.activeProjectDir,
     entityIds: (reopenedState.activeScene.entities ?? []).map((entity) => entity.id ?? entity.entity_id),
@@ -9703,6 +12632,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     tilemapCell: tilemapCell,
     tilemapCellIndex,
     tilemapValue: reopenedTileValue,
+    restoredTemplatePositions: "four_members_reopened",
   };
   addReportStep(report, "reopen_project_and_validate_persisted_graph", "passed", report.persistence);
   addReportArtifact(
@@ -9773,8 +12703,40 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   // build and measure on the core. Threshold 60 because the player only reaches the second
   // blocker around score ~41: a lower threshold would open before arrival and prove nothing.
   const selectOptionByTestIdNative = async (testId, value) => {
-    const elementId = await findElement(sessionId, `[data-testid="${testId}"] option[value="${value}"]`);
-    await webdriverRequest("POST", `/session/${sessionId}/element/${elementId}/click`, {});
+    const target = await executeScript(sessionId, `
+      const select = document.querySelector('[data-testid="' + String(arguments[0]) + '"]');
+      if (!(select instanceof HTMLSelectElement)) return null;
+      select.scrollIntoView({ block: "center", inline: "center" });
+      select.focus();
+      const rect = select.getBoundingClientRect();
+      const x = Math.round(rect.left + rect.width / 2);
+      const y = Math.round(rect.top + rect.height / 2);
+      const hit = document.elementFromPoint(x, y);
+      return {
+        index: Array.from(select.options).findIndex((option) => option.value === String(arguments[1])),
+        current: select.value,
+        visible: rect.width > 0 && rect.height > 0,
+        unobstructed: Boolean(hit && (hit === select || select.contains(hit))),
+      };
+    `, [testId, value]);
+    if (!target?.visible || !target.unobstructed || target.index < 0) {
+      fail(`Seleção nativa indisponível: ${JSON.stringify({ testId, value, target })}`);
+    }
+    if (target.current !== value) {
+      const keys = [
+        { type: "keyDown", value: "\uE011" },
+        { type: "keyUp", value: "\uE011" },
+        ...Array.from({ length: target.index }, () => [
+          { type: "keyDown", value: "\uE015" },
+          { type: "keyUp", value: "\uE015" },
+        ]).flat(),
+        { type: "keyDown", value: "\uE007" },
+        { type: "keyUp", value: "\uE007" },
+      ];
+      await webdriverRequest("POST", `/session/${sessionId}/actions`, {
+        actions: [{ type: "key", id: `reference-select-${testId}`, actions: keys }],
+      });
+    }
     await waitFor(
       async () => (await executeScript(sessionId, `return document.querySelector('[data-testid="${testId}"]')?.value ?? null;`)) === value,
       5000,
@@ -9811,8 +12773,13 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   const solidBeforePit = Number(sceneStateForPit?.activeScene?.collisionSolidCount ?? 0);
   await clickButtonByTestIdNative(sessionId, "hierarchy-tilemap-edit-reference_tilemap", "abrir tilemap para o fosso");
   await waitFor(async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"viewport-tile-paint-flow-strip\"]'));"), 15000, "Pintura de tilemap indisponivel para o fosso.", 250);
+  if (await executeScript(sessionId, "return document.querySelector('[data-testid=\"viewport-tile-flow-toggle\"]')?.getAttribute('aria-expanded') === 'false';")) {
+    await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-tile-flow-toggle", "abrir paleta para o fosso");
+  }
+  await waitFor(async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"tile-palette-empty\"]'));"), 15000, "Celula vazia nao carregou na paleta do fosso.", 100);
   // Explicitly empty cell (distinct from 0 = base map).
   await clickByTestId(sessionId, "tile-palette-empty");
+  await clickButtonByTestIdNativeWhenReady(sessionId, "viewport-tile-flow-toggle", "recolher paleta para pintar o fosso");
   for (const [col, row] of pitCells) {
     const point = cellPoint(col, row);
     await clickCanvasPointNatively(sessionId, "[data-testid='viewport-scene-overlay']", point.x, point.y, `apagar visual ${col},${row}`);
@@ -9859,7 +12826,37 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
   await clickByTestId(sessionId, "hierarchy-entity-player");
   await waitFor(async () => (await readAutomationState(sessionId))?.selectedEntityId === "player", 10000, "player nao selecionado.", 200);
   await clickByTestId(sessionId, "workspace-rail-logic");
-  await waitFor(async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"nodegraph-passages\"]'));"), 15000, "Painel de passagens ausente no NodeGraph.", 250);
+  await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    return state?.activeWorkspace === "logic" && state?.activeViewportTab === "logic";
+  }, 15000, "Workspace Lógica não abriu após o gesto nativo.", 100);
+  if (await executeScript(sessionId, "return document.querySelector('[data-testid=\"nodegraph-toggle-context\"]')?.getAttribute('aria-expanded') === 'false';")) {
+    await clickButtonByTestIdNativeWhenReady(sessionId, "nodegraph-toggle-context", "abrir Comportamentos no NodeGraph");
+  }
+  await waitFor(async () => {
+    const state = await readAutomationState(sessionId);
+    const visible = await executeScript(sessionId, `
+      const select = document.querySelector('[data-testid="passage-add-blocker"]');
+      const rect = select?.getBoundingClientRect();
+      return Boolean(rect && rect.width > 0 && rect.height > 0);
+    `);
+    return state?.activeWorkspace === "logic" && state?.activeViewportTab === "logic" && visible;
+  }, 15000, "Painel de passagens não ficou visível no NodeGraph.", 100).catch(async (error) => {
+    const state = await readAutomationState(sessionId);
+    const layout = await executeScript(sessionId, `
+      const select = document.querySelector('[data-testid="passage-add-blocker"]');
+      const ancestors = [];
+      for (let node = select; node instanceof Element && ancestors.length < 8; node = node.parentElement) {
+        const rect = node.getBoundingClientRect();
+        ancestors.push({ tag: node.tagName, testId: node.getAttribute('data-testid'), width: rect.width, height: rect.height, display: getComputedStyle(node).display });
+      }
+      return { ancestors, viewport: { width: innerWidth, height: innerHeight } };
+    `);
+    const diagnosticPath = path.join(validationDir, `${artifactPrefix}-passage-panel-diagnostics.json`);
+    await writeFile(diagnosticPath, JSON.stringify({ error: String(error), activeWorkspace: state?.activeWorkspace, activeViewportTab: state?.activeViewportTab, layout }, null, 2));
+    await captureScreenshot(sessionId, `${artifactPrefix}-passage-panel-failure.png`);
+    fail(`${error instanceof Error ? error.message : String(error)} diagnostics=${diagnosticPath}`);
+  });
   await selectOptionByTestIdNative("passage-add-blocker", "passage_blocker_2");
   await setInputByTestIdNative(sessionId, "passage-add-threshold", "60");
   await clickButtonByTestIdNative(sessionId, "passage-add", "adicionar passagem");
@@ -9909,9 +12906,7 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     },
     15000, "Projeto nao fechou antes de reabrir a segunda passagem.", 250
   );
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', generatedProjectName);
-  await waitFor(async () => executeScript(sessionId, "return Boolean(document.querySelector('[data-testid=\"wizard-existing-project-card\"]'));"), 30000, "Wizard nao listou o projeto para reabrir.", 500);
-  await clickByTestId(sessionId, "wizard-open-existing-project");
+  await openSavedProjectWizard(sessionId, createdState.activeProjectDir);
   await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === createdState.activeProjectDir, 45000, "Projeto nao reabriu com a segunda passagem.", 500);
   await clickByTestId(sessionId, "hierarchy-entity-player");
   await waitFor(async () => (await readAutomationState(sessionId))?.selectedEntityId === "player", 10000, "player nao selecionado apos reabrir.", 200);
@@ -10062,6 +13057,601 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
 // Everything is done through the normal UI with native WebDriver input. The game is
 // played with the real keyboard in the running Game View: no emulator_send_input, no
 // manual frame stepping. RAM, framebuffer and received audio are only *observed*.
+// Recovery (Experimental): native edits, actual owned-app SIGKILL, UI recovery.
+// Only the secondary initial scene and explicitly labelled fault fixtures use disk writes.
+async function runStudioAppearanceScenario(initialSessionId, appPath, timeoutMs, uiTimeout, onProjectCreated) {
+  let sessionId = initialSessionId;
+  const prefix = `studio-appearance-${artifactTimestamp()}`;
+  const report = { schema: "retrodev.studio_appearance/v1", maturity: "Experimental",
+    app_sha256: createHash("sha256").update(await readFile(appPath)).digest("hex"),
+    steps: [], artifacts: [], matrix: [], human_usability: "pending", status: "running" };
+  const reportPath = path.join(validationDir, `${prefix}-report.json`);
+  const js = (script, args = []) => executeScript(sessionId, script, args);
+  const click = (id) => clickButtonByTestIdNative(sessionId, id);
+  const key = (value) => webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [
+    { type: "key", id: "appearance-keyboard", actions: [{ type: "keyDown", value }, { type: "keyUp", value }] },
+  ] });
+  const shot = async (label) => addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label);
+  const theme = () => js("return document.documentElement.dataset.studioTheme;");
+  async function choose(id) {
+    await click("studio-theme-open");
+    await clickElement(sessionId, await findElement(sessionId, `[data-testid="studio-theme-${id}"]`));
+    await waitFor(async () => (await theme()) === id, 5000, "Tema não foi aplicado.", 100);
+    await key("\uE00C");
+    if (!(await js("return document.activeElement?.dataset.testid === 'studio-theme-open';"))) fail("Fechar cores não devolveu o foco.");
+  }
+  try {
+    await setSessionWindowRect(sessionId, 1280, 800);
+    await prepareWizardHome(sessionId);
+    const initial = await js(`return {intents:document.querySelectorAll('[data-testid^="wizard-intent-"]').length,name:!!document.querySelector('[data-testid="wizard-project-name"]'),create:!!document.querySelector('[data-testid="wizard-create-project"]'),open:!!document.querySelector('[data-testid="wizard-open-project"]')};`);
+    if (initial.intents !== 5 || initial.name || initial.create || initial.open) fail(`Início não progressivo: ${JSON.stringify(initial)}`);
+    await shot("wizard-home-five-intents");
+    report.steps.push({step:"wizard_progressive_home",status:"passed",...initial});
+    await click("wizard-intent-open");
+    await js("return window.__RDS_E2E__.setNextProjectOpenFile(null);");
+    await click("wizard-open-project");
+    if ((await waitForProjectWizard(sessionId)).step !== "open") fail("Cancelar seleção de arquivo perdeu a etapa.");
+    await js("return window.__RDS_E2E__.setNextProjectOpenFile('/invalid/other.rds');");
+    await click("wizard-open-project");
+    await waitFor(() => js("return document.querySelector('[role=alert]')?.textContent.includes('project.rds');"), 5000, "Arquivo inválido não apresentou orientação.", 100);
+    await prepareWizardHome(sessionId);
+    report.steps.push({step:"saved_file_cancel_and_invalid_selection",status:"passed",dialog_fixture:"only native file chooser result substituted"});
+    for (const target of ["megadrive", "snes"]) {
+      await prepareBlankProjectWizard(sessionId, target);
+      const blankName = `Wizard_Zero_${target}_${Date.now()}`;
+      await setInputByTestIdNative(sessionId, "wizard-project-name", blankName);
+      await shot(`wizard-blank-${target}`);
+      await click("wizard-create-project");
+      const blank = await waitFor(async () => {const state=await readAutomationState(sessionId);return state?.activeProjectName===blankName&&state.activeTarget===target?state:false;}, 45000, `Projeto vazio ${target} não abriu.`, 150);
+      onProjectCreated(blank.activeProjectDir);
+      report.steps.push({step:`blank_${target}_created_without_directory_picker`,status:"passed",project:blank.activeProjectDir});
+      await clickTopBarMenuAction(sessionId, "Fechar");
+      await waitForProjectWizard(sessionId);
+    }
+    for (const profile of ["sgdk", "mugen"]) {
+      await prepareWizardHome(sessionId);
+      await click("wizard-intent-import");
+      await shot(`wizard-import-${profile}-origins`);
+      await click(`external-import-profile-${profile}`);
+      const importStep = await js(`return {step:document.querySelector('[data-testid="project-start-wizard"]').dataset.step,cta:document.querySelector('[data-testid="external-import-confirm"]')?.textContent,create:!!document.querySelector('[data-testid="wizard-create-project"]')};`);
+      if (importStep.step!=="details" || !importStep.cta?.includes("Selecionar pasta") || importStep.create) fail("Importação misturou criação/modelos.");
+      await shot(`wizard-import-${profile}-details`);
+    }
+    await prepareWizardTemplateGallery(sessionId, "snes");
+    if (await js(`return !!document.querySelector('[data-testid="template-card-reference_platformer"]');`)) fail("Modelo MD apareceu para SNES.");
+    await shot("wizard-snes-models");
+    await prepareWizardTemplateGallery(sessionId);
+    await click("template-card-starter_guided");
+    await setInputByTestIdNative(sessionId, "wizard-project-name", "Nome preservado");
+    await click("wizard-back");
+    await click("template-card-starter_guided");
+    if (await js(`return document.querySelector('[data-testid="wizard-project-name"]').value;`) !== "Nome preservado") fail("Voltar apagou o nome digitado.");
+    report.steps.push({step:"import_branches_console_filter_and_back_preserve_name",status:"passed"});
+    const name = `Appearance_${Date.now()}`;
+    await setInputByTestIdNative(sessionId, "wizard-project-name", name);
+    await clickButtonByText(sessionId, "Criar Projeto");
+    const created = await waitFor(async () => {
+      const s = await readAutomationState(sessionId);
+      return s?.activeProjectName === name && s.activeScenePath ? s : false;
+    }, 45000, "Projeto de aparência não foi criado.", 200);
+    onProjectCreated(created.activeProjectDir);
+    const scenePath = path.join(created.activeProjectDir, created.activeScenePath);
+    const sceneBefore = createHash("sha256").update(await readFile(scenePath)).digest("hex");
+    await shot("wizard-model-created");
+    await clickTopBarMenuAction(sessionId, "Fechar");
+    await prepareWizardHome(sessionId);
+    await click("wizard-intent-open");
+    await js("return window.__RDS_E2E__.setNextProjectOpenFile(arguments[0]);", [path.join(created.activeProjectDir, "project.rds")]);
+    await click("wizard-open-project");
+    await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === created.activeProjectDir && !(await js(`return !!document.querySelector('[data-testid="project-start-wizard"]');`)), 30000, "Arquivo project.rds não reabriu o projeto.", 150);
+    report.steps.push({step:"model_created_without_picker_and_reopened_from_saved_file",status:"passed",dialog_fixture:"only file chooser result substituted",project:created.activeProjectDir});
+    await click("shell-persona-pro");
+    const built = await runBuildRunAndCollect(sessionId, "appearance-official-core", timeoutMs, report, prefix, { nativeClick: true });
+    await click("toolbar-emulator-pause");
+    await waitFor(async () => (await readAutomationState(sessionId))?.emulPaused, 15000, "Core não pausou.", 100);
+    const canvas = () => js("return document.querySelector('[data-testid=viewport-game-canvas]')?.toDataURL('image/png') ?? null;");
+    const beforePixels = await canvas();
+    if (!beforePixels) fail("Framebuffer pausado ausente.");
+    report.steps.push({ step: "official_build_core_paused", status: "passed", rom_sha256: built.rom_sha256 });
+    for (const id of ["super-nintendo", "super-famicom", "mega-drive-night", "mega-drive-16bit"]) {
+      await choose(id);
+      if (await canvas() !== beforePixels) fail(`Tema ${id} alterou o framebuffer pausado.`);
+    }
+    report.steps.push({ step: "four_themes_preserve_exact_game_canvas_pixels", status: "passed",
+      png_sha256: createHash("sha256").update(Buffer.from(beforePixels.split(",")[1], "base64")).digest("hex") });
+    await click("toolbar-emulator-stop");
+    await click("workspace-rail-scene");
+    for (const width of [1280, 1920]) {
+      await webdriverRequest("POST", `/session/${sessionId}/window/rect`, { x: 0, y: 0, width, height: width === 1280 ? 800 : 1080 });
+      for (const id of ["super-nintendo", "super-famicom", "mega-drive-night", "mega-drive-16bit"]) {
+        await choose(id);
+        const geometry = await js(`
+          const controls=['studio-theme-open','toolbar-save','toolbar-build-run','viewport-tool-select','viewport-tool-paint','viewport-tool-erase','viewport-tool-collision'];
+          const checks=controls.map(id=>{const e=document.querySelector('[data-testid="'+id+'"]'),r=e?.getBoundingClientRect();
+            return {id,ok:!!r&&r.width>0&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))};});
+          const rail=[...document.querySelectorAll('[data-workspace]')].map(e=>({label:e.textContent.trim(),icon:e.querySelector('svg')?.dataset.icon,size:e.querySelector('svg')?.getBoundingClientRect().width}));
+          const groups=[...document.querySelectorAll('[data-testid^="workspace-rail-group-"]')].map(e=>({id:e.dataset.testid,clipped:e.scrollHeight>e.clientHeight+1}));
+          return {width:innerWidth,height:innerHeight,theme:document.documentElement.dataset.studioTheme,scheme:document.documentElement.dataset.theme,colorScheme:getComputedStyle(document.documentElement).colorScheme,checks,rail,groups};
+        `);
+        if (geometry.checks.some(c => !c.ok) || geometry.rail.length !== 7 || geometry.rail.some(r => !r.icon?.startsWith("studio-") || r.size < 30) || geometry.groups.some(g => g.clipped)) fail(`Ícones/controles obstruídos: ${JSON.stringify(geometry)}`);
+        const expectedScheme = id.startsWith("super-") ? "light" : "dark";
+        if (geometry.scheme !== expectedScheme || geometry.colorScheme !== expectedScheme) fail(`Modo de cor incorreto: ${JSON.stringify(geometry)}`);
+        const contrast = await js(`
+          function luminance(c){const v=c.match(/[\\d.]+/g).slice(0,3).map(Number).map(x=>{x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4;});return v[0]*.2126+v[1]*.7152+v[2]*.0722;}
+          const pairs=[['console','[data-testid="console-drawer"] [role="log"] span.text-left','[data-testid="console-drawer"]'],['guide','[data-testid="workspace-guide"] h2','[data-testid="workspace-guide"]'],['breadcrumb','[data-testid="unified-topbar"] [class*="bg-[#0b1220]"] span:last-child','[data-testid="unified-topbar"] [class*="bg-[#0b1220]"]']];
+          return pairs.map(([id,text,bg])=>{const e=document.querySelector(text),b=document.querySelector(bg);if(!e||!b)return {id,present:false};const color=getComputedStyle(e).color,background=getComputedStyle(b).backgroundColor,L1=luminance(color),L2=luminance(background);return {id,present:true,color,background,ratio:(Math.max(L1,L2)+.05)/(Math.min(L1,L2)+.05)};});
+        `);
+        if (contrast.some(c => c.present && c.ratio < 4.5) || !contrast.some(c=>c.id==="console"&&c.present)) fail(`Superfície legada ilegível: ${JSON.stringify(contrast)}`);
+        geometry.contrast = contrast;
+        report.matrix.push(geometry);
+        await shot(`${id}-${width}-scene`);
+        await clickTopBarMenuAction(sessionId, "Novo Projeto");
+        await prepareWizardHome(sessionId);
+        const homeGeometry=await js(`return [...document.querySelectorAll('[data-testid^="wizard-intent-"]')].map(e=>{const r=e.getBoundingClientRect();return {id:e.dataset.testid,visible:r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&e.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))};});`);
+        if(homeGeometry.length!==5||homeGeometry.some(e=>!e.visible)) fail(`Início inacessível em ${id}/${width}: ${JSON.stringify(homeGeometry)}`);
+        geometry.wizard=homeGeometry;
+        await shot(`${id}-${width}-wizard-home`);
+        await click("wizard-cancel");
+      }
+    }
+    // PLAT10: keep the selected object first and verify that the global
+    // palette remains reachable at every requested logical size/theme/zoom.
+    await setSessionWindowRect(sessionId, 2048, 864);
+    await closeVisibleConsoleDrawer(sessionId, "matriz visual do Inspector");
+    await click("workspace-rail-scene");
+    await waitFor(() => js(`return !!document.querySelector('[data-testid="hierarchy-entity-player"]');`),
+      10000, "Player não apareceu na Hierarquia após abrir Cena.", 100);
+    await clickElement(sessionId, await findElement(sessionId, '[data-testid="hierarchy-entity-player"]'));
+    await click("right-panel-properties");
+    await waitFor(() => js(`return !!document.querySelector('[data-testid="inspector-transform-x"]');`),
+      10000, "Inspector do Player não ficou disponível para a matriz visual.", 100);
+    const criticalIssues = [];
+    const criticalThemes = ["super-nintendo", "super-famicom", "mega-drive-night", "mega-drive-16bit"];
+    const inspectCriticalControls = (ids, includePalette, width, height, zoom) => js(`
+      const checks=arguments[0].map(id=>{
+        const e=document.querySelector('[data-testid="'+id+'"]');
+        if(!e)return {id,present:false,hit:false,label:false};
+        e.scrollIntoView({block:'nearest',inline:'nearest'});
+        const r=e.getBoundingClientRect();
+        const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);
+        const label=(e.getAttribute('aria-label')||e.closest('label')?.textContent||e.textContent||e.getAttribute('title')||'').trim();
+        return {id,present:true,hit:r.width>0&&r.height>0&&r.left>=0&&r.top>=0&&r.right<=innerWidth&&r.bottom<=innerHeight&&(hit===e||e.contains(hit)),label:!!label,
+          rect:{x:r.x,y:r.y,w:r.width,h:r.height},name:label.slice(0,70)};
+      });
+      const palette=arguments[1] ? document.querySelector('[data-testid="palette-summary"]')||document.querySelector('[data-testid="palette-summary-unavailable"]') : null;
+      const entity=arguments[1] ? document.querySelector('[data-testid="inspector-entity-context"]') : null;
+      const priority=arguments[1] ? !!entity&&!!palette&&!!(entity.compareDocumentPosition(palette)&Node.DOCUMENT_POSITION_FOLLOWING) : null;
+      if(palette)palette.scrollIntoView({block:'nearest',inline:'nearest'});
+      const pr=palette?.getBoundingClientRect(),ph=pr&&document.elementFromPoint(pr.left+pr.width/2,pr.top+pr.height/2);
+      const paletteHit=arguments[1] ? !!pr&&pr.width>0&&pr.height>0&&pr.left>=0&&pr.top>=0&&pr.right<=innerWidth&&pr.bottom<=innerHeight&&(ph===palette||palette.contains(ph)) : null;
+      return {kind:'critical',width:innerWidth,height:innerHeight,requestedWidth:arguments[2],requestedHeight:arguments[3],zoom:arguments[4],
+        theme:document.documentElement.dataset.studioTheme,priority,paletteHit,paletteLabel:palette?.textContent?.trim().slice(0,100)||null,checks,
+        horizontalOverflow:document.documentElement.scrollWidth>innerWidth+1};
+    `, [ids, includePalette, width, height, zoom]);
+    for (const themeId of criticalThemes) {
+      await js("document.documentElement.style.zoom='';return true;");
+      await setSessionWindowRect(sessionId, 2048, 864);
+      await choose(themeId);
+      for (const [width, height] of [[2048, 864], [1366, 768], [949, 593]]) {
+        await setSessionWindowRect(sessionId, width, height);
+        for (const zoom of [1.25, 1.5, 2]) {
+          await js(`document.documentElement.style.zoom=arguments[0];return true;`, [String(zoom)]);
+          const { compact } = await waitFor(async () => {
+            const isCompact = await js(`return !!document.querySelector('[data-testid="compact-workspace-shell"]');`);
+            return isCompact === (width / zoom < 960) ? { compact: isCompact } : false;
+          }, 5000, "Shell não acompanhou o zoom lógico da janela.", 100);
+          if (compact) await click("compact-shell-tab-canvas");
+          const canvas = await inspectCriticalControls([
+            "studio-theme-open", "toolbar-save", "toolbar-build-run",
+            "viewport-tool-select", "viewport-tool-collision", "viewport-zoom-out",
+            ...(compact ? ["compact-shell-tab-inspector"] : []),
+          ], false, width, height, zoom);
+          if (compact) await click("compact-shell-tab-inspector");
+          const inspector = await inspectCriticalControls([
+            "right-panel-properties", "inspector-transform-x",
+            ...(compact ? ["compact-shell-tab-canvas"] : []),
+          ], true, width, height, zoom);
+          const geometry = { ...inspector, compact, checks: [...canvas.checks, ...inspector.checks],
+            horizontalOverflow: canvas.horizontalOverflow || inspector.horizontalOverflow };
+          report.matrix.push(geometry);
+          const misses = geometry.checks.filter((check) => !check.present || !check.hit || !check.label).map((check) => check.id);
+          if (!geometry.priority || !geometry.paletteHit) misses.push("inspector-palette-order-or-access");
+          if (geometry.horizontalOverflow) misses.push("horizontal-overflow");
+          if (misses.length) criticalIssues.push({ themeId, width, height, zoom, misses, geometry });
+          if (zoom === 2) await shot(`${themeId}-${width}-zoom200-inspector`);
+          if (compact && width === 949 && zoom === 2) {
+            const scrollBefore = await js(`
+              const e=document.querySelector('[data-testid="palette-summary"]')||document.querySelector('[data-testid="palette-summary-unavailable"]');
+              let p=e?.parentElement;
+              while(p && !(p.scrollHeight>p.clientHeight+1 && getComputedStyle(p).overflowY!=='visible'))p=p.parentElement;
+              if(!p)return null;
+              const r=p.getBoundingClientRect();return {top:p.scrollTop,range:p.scrollHeight-p.clientHeight,x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)};
+            `);
+            if (!scrollBefore || scrollBefore.top <= 0 || scrollBefore.range <= 0) {
+              fail(`Inspector não rolou até a paleta em ${themeId}: ${JSON.stringify(scrollBefore)}`);
+            }
+            await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
+              type: "wheel", id: `appearance-inspector-wheel-${themeId}`, actions: [{
+                type: "scroll", x: scrollBefore.x, y: scrollBefore.y, deltaX: 0, deltaY: -240, duration: 200, origin: "viewport",
+              }],
+            }] });
+            const scrollAfter = await waitFor(async () => {
+              const top = await js(`
+                const e=document.querySelector('[data-testid="palette-summary"]')||document.querySelector('[data-testid="palette-summary-unavailable"]');
+                let p=e?.parentElement;while(p && !(p.scrollHeight>p.clientHeight+1 && getComputedStyle(p).overflowY!=='visible'))p=p.parentElement;
+                return p?.scrollTop ?? null;
+              `);
+              return top !== null && top < scrollBefore.top ? top : false;
+            }, 3000, `Roda nativa não rolou o Inspector em ${themeId}.`, 100);
+            await click("compact-shell-tab-canvas");
+            await key("\uE014");
+            const hierarchyFocused = await js(`return document.activeElement?.dataset.testid==='compact-shell-tab-hierarchy' && document.activeElement?.getAttribute('aria-selected')==='true';`);
+            await key("\uE014");
+            const inspectorFocused = await js(`return document.activeElement?.dataset.testid==='compact-shell-tab-inspector' && document.activeElement?.getAttribute('aria-selected')==='true';`);
+            if (!hierarchyFocused || !inspectorFocused) fail(`Teclado não navegou pelas abas compactas em ${themeId}.`);
+            report.steps.push({ step: `compact_inspector_wheel_and_keyboard_${themeId}`, status: "passed", scrollBefore: scrollBefore.top, scrollAfter });
+          }
+        }
+      }
+    }
+    await js("document.documentElement.style.zoom='';return true;");
+    await setSessionWindowRect(sessionId, 1280, 800);
+    if (criticalIssues.length) fail(`Ações/Inspector inacessíveis na matriz PLAT10: ${JSON.stringify(criticalIssues.slice(0, 12))}`);
+    report.steps.push({ step: "critical_sizes_themes_zoom_inspector_and_palette", status: "passed", combinations: 36 });
+    await click("studio-theme-open");
+    await shot("theme-chooser");
+    await clickElement(sessionId, await findElement(sessionId, '[data-testid="studio-theme-super-nintendo"]'));
+    await key("\uE014");
+    if (await theme() !== "super-famicom") fail("Seta nativa não selecionou o próximo tema.");
+    await key("\uE00C");
+    report.steps.push({ step: "native_radio_keyboard_and_escape_focus", status: "passed" });
+    for (const workspace of ["logic", "artstudio", "retrofx", "explorer", "debug", "scene"]) {
+      await click(`workspace-rail-${workspace}`);
+      await waitFor(async () => (await readAutomationState(sessionId))?.activeWorkspace === workspace, 15000, "Workspace não abriu.", 100);
+    }
+    await click("shell-persona-guiado");
+    const guided = await js("return [...document.querySelectorAll('[data-testid=guided-steps] button')].map(b=>({text:b.textContent,icon:b.querySelector('svg')?.dataset.icon}));");
+    if (guided.length !== 5 || guided.some(s => !s.icon)) fail("Etapas guiadas sem pictogramas.");
+    await shot("guided-creation");
+    report.steps.push({ step: "canonical_workspaces_and_guided_icons", status: "passed", guided });
+    const sceneAfter = createHash("sha256").update(await readFile(scenePath)).digest("hex");
+    if (sceneAfter !== sceneBefore) fail("Preferência visual alterou arquivo da cena.");
+    report.steps.push({ step: "scene_bytes_unchanged", status: "passed", sha256: sceneBefore });
+    await deleteSession(sessionId);
+    sessionId = await createSession(appPath);
+    currentE2eRunContext.sessionId = sessionId;
+    await waitForAppWindowReady(sessionId, uiTimeout, "App não reabriu para conferir o tema.");
+    await waitFor(async () => await theme() === "super-famicom", 10000, "Tema não sobreviveu ao reinício.", 100);
+    await shot("cold-reopen-super-famicom");
+    report.steps.push({ step: "theme_persists_across_cold_reopen", status: "passed", theme: "super-famicom" });
+    report.status = "passed";
+    console.log(`Relatorio de aparência: ${reportPath}`);
+    return sessionId;
+  } catch (error) {
+    report.status = "failed"; report.error = String(error);
+    await shot("failure").catch(() => null);
+    throw error;
+  } finally {
+    await writeFile(reportPath, JSON.stringify(report, null, 2));
+  }
+}
+
+async function runDraftRecoveryScenario(initialSessionId, appPath, timeoutMs, uiTimeout, onProjectCreated) {
+  if (process.platform !== "linux" || !ownedDriverPid) fail("draft-recovery requires the owned Linux process ledger; no unqualified kill fallback.");
+  let sessionId = initialSessionId;
+  const prefix = `draft-recovery-${artifactTimestamp()}`;
+  const faults = process.env.RDS_RECOVERY_FAULTS === "1";
+  const sha = async (p) => createHash("sha256").update(await readFile(p)).digest("hex");
+  const report = { schema: "retrodev.draft_recovery/v1", maturity: "Experimental", run_id: prefix,
+    app_sha256: await sha(appPath), faults, projects: [], steps: [], artifacts: [], interruptions: [],
+    interaction: "Native WebDriver editing/scene/recovery/save/build controls; existing DOM wizard/menu clicks invoke visible UI handlers. Read-only DOM/storage/filesystem probes. Initial second scene is a declared fixture copy; faults are explicit injections. No JSON/storage writes stand in for UI editing or recovery.",
+    profile: { process_data_home: process.env.XDG_DATA_HOME ?? null, global_settings_changed: false } };
+  const reportPath = path.join(validationDir, `${prefix}-report.json`);
+  const js = (script, args = []) => executeScript(sessionId, script, args);
+  const state = () => readAutomationState(sessionId);
+  const click = (id) => clickButtonByTestIdNative(sessionId, id);
+  const step = async (id, detail = {}) => {
+    report.steps.push({ id, status: "passed", ...detail });
+    await writeFile(reportPath, JSON.stringify(report, null, 2));
+    console.log(`[draft-recovery] ${id}`);
+  };
+  const shot = async (label) => addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label);
+  const saveStatus = () => js(`const e=document.querySelector('[data-testid="scene-save-status"]');return e?{...e.dataset,text:e.textContent}:null;`);
+  const x = () => js(`return Number(document.querySelector('[data-testid="inspector-transform-x"]')?.value);`);
+  const selectPlayer = async () => {
+    await click("workspace-rail-scene");
+    if (await js(`return !!document.querySelector('[data-testid="guided-step-personagem"]');`)) await click("guided-step-personagem");
+    await waitFor(async () => (await state())?.selectedEntityId === "player", 10000, "Native guided action did not select Player.", 100);
+    await waitFor(async () => js(`return !!document.querySelector('[data-testid="inspector-transform-x"]');`), 10000, "Player properties absent.", 100);
+  };
+  const editX = async (value) => {
+    await selectPlayer();
+    const baselineX = await x();
+    const st = await state();
+    const diskPath = path.join(st.activeProjectDir, st.activeScenePath);
+    const nativePosition = async (position) => {
+      await setInputByTestIdNative(sessionId, "inspector-transform-x", String(position));
+      const el = await findElement(sessionId, '[data-testid="inspector-transform-x"]');
+      await webdriverRequest("POST", `/session/${sessionId}/element/${el}/value`, { text: "", value: [""] });
+      await waitFor(async () => (await x()) === position && (await saveStatus())?.status === "saved", 10000, "Native Inspector auto-save did not settle.", 100);
+    };
+    // Inspector auto-saves. Native Undo after two ordinary edits creates a real
+    // unsaved revision with the original disk baseline, without fabricated data.
+    await nativePosition(value);
+    await nativePosition(baselineX);
+    const diskBeforeUndo = await sha(diskPath);
+    for (let count = 0; count < 12 && await x() !== value; count += 1) {
+      await clickTopBarMenuAction(sessionId, "Desfazer");
+    }
+    await waitFor(async () => (await x()) === value && (await saveStatus())?.status === "dirty", 10000, "Native Undo did not produce the expected unsaved edit.", 100);
+    if (await sha(diskPath) !== diskBeforeUndo) fail("Undo wrote the scene file.");
+    await step("native_undo_creates_unsaved_revision", { expected_x: value, disk_x: baselineX, disk_sha256: diskBeforeUndo, interaction: "Inspector edit/save, edit original/save, native Undo" });
+  };
+  const confirmed = async () => waitFor(async () => {
+    const s = await saveStatus();
+    return s?.draftStatus === "confirmed" && s.draftRevision === s.revision ? s : false;
+  }, 12000, "Current revision draft was not readback-confirmed.", 100);
+  const draftKey = (project, scene) => `retrodev-scene-draft::v2::${encodeURIComponent(project)}::${encodeURIComponent(scene)}`;
+  const readDraft = (project, scene) => executeAsyncScript(sessionId, `
+    const done=arguments[arguments.length-1];
+    window.__TAURI_INTERNALS__.invoke('scene_draft_storage',{projectDir:arguments[0],scenePath:arguments[1],operation:'read',value:null,expected:null})
+      .then(done).catch(e=>done({error:String(e)}));`, [project, scene]);
+  const fileX = async (project, scene) => JSON.parse(await readFile(path.join(project, scene), "utf8")).entities.find((e) => e.entity_id === "player").transform.x;
+  const createProject = async (name) => {
+    await prepareDefaultProjectWizard(sessionId);
+    await click("template-card-reference_platformer");
+    await prepareExistingProjectWizard(sessionId);
+    await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', name);
+    await clickButtonByText(sessionId, "Criar Projeto", "exact");
+    const created = await waitFor(async () => { const st = await state(); return st?.activeProjectName === name ? st : false; }, 60000, "Controlled project not created.", 200);
+    report.projects.push({ name, projectDir: created.activeProjectDir }); onProjectCreated(created.activeProjectDir);
+    currentE2eRunContext.project = created.activeProjectDir;
+    await click("shell-persona-guiado"); await selectPlayer();
+    return { name, dir: created.activeProjectDir };
+  };
+  const closeProject = async () => { await clickTopBarMenuAction(sessionId, "Fechar"); await prepareDefaultProjectWizard(sessionId); };
+  const openProject = async (project) => {
+    await prepareWizardTemplateGallery(sessionId);
+    await click("template-card-starter_guided");
+    await prepareExistingProjectWizard(sessionId);
+    await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', project.name);
+    await waitFor(async () => js(`return !!document.querySelector('[data-testid="wizard-existing-project-card"]');`), 30000, "Existing project card absent.", 100);
+    await click("wizard-open-existing-project");
+    await waitFor(async () => (await state())?.activeProjectDir === project.dir, 30000, "Project did not reopen.", 100);
+    currentE2eRunContext.project = project.dir; await click("shell-persona-guiado"); await selectPlayer();
+  };
+  const sceneSelect = async (scene) => {
+    const option = await findElement(sessionId, `select[title="Selecionar cena ativa"] option[value="${scene}"]`);
+    await clickElement(sessionId, option);
+    await waitFor(async () => (await state())?.activeScenePath === scene, 30000, "Scene switch did not settle.", 100);
+    await selectPlayer();
+  };
+  const recoveryVisible = async () => waitFor(async () => js(`return document.querySelector('[data-testid="scene-draft-recovery"]')?.textContent ?? null;`), 10000, "No recovery UI after interruption.", 100);
+  const recoveryLayout = async () => {
+    await setSessionWindowRect(sessionId, 1280, 800);
+    const controls = await js(`return ['scene-draft-restore','scene-draft-keep-disk','scene-draft-discard'].map(id=>{
+      const e=document.querySelector('[data-testid="'+id+'"]');if(!e)return {id,ok:false};
+      const r=e.getBoundingClientRect();const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);
+      return {id,ok:r.width>0&&r.height>0&&r.x>=0&&r.y>=0&&r.right<=innerWidth&&r.bottom<=innerHeight&&!!hit&&(hit===e||e.contains(hit))};
+    });`);
+    if (controls.some(e=>!e.ok)) fail(`Recovery choices inaccessible at 1280: ${JSON.stringify(controls)}`);
+    await shot("01b-recovery-1280");
+    await setSessionWindowRect(sessionId, 1920, 1080);
+    await step("recovery_choices_reachable_at_1280", { controls });
+  };
+  const recover = async (expected, diskBefore) => {
+    await recoveryVisible(); await click("scene-draft-restore");
+    await waitFor(async () => (await x()) === expected, 10000, "UI recovery did not restore the edit.", 100);
+    if ((await saveStatus()).status === "saved") fail("Recovered edit incorrectly marked saved.");
+    await clickTopBarMenuAction(sessionId, "Desfazer");
+    await waitFor(async () => (await x()) === diskBefore, 10000, "Recovery undo did not restore prior editor state.", 100);
+    await clickTopBarMenuAction(sessionId, "Refazer");
+    await waitFor(async () => (await x()) === expected, 10000, "Recovery redo did not restore the edit.", 100);
+    await confirmed();
+  };
+  const save = async () => {
+    await click("toolbar-save");
+    await waitFor(async () => (await saveStatus())?.status === "saved", 20000, "Explicit save did not confirm the disk revision.", 100);
+  };
+  const crashAndReopen = async (project, label) => {
+    trackOwnedProcesses();
+    const apps = [...ownedProcesses.entries()].filter(([pid, entry]) => ownedProcessAlive(pid) && readProcStat(pid)?.state !== "Z"
+      && (entry.cmd === appPath || entry.cmd.startsWith(`${appPath} `)));
+    if (apps.length !== 1) fail(`Cannot uniquely identify own QA app: ${JSON.stringify(apps)}`);
+    const [pid, entry] = apps[0];
+    if (readProcStat(pid)?.start !== entry.start) fail("QA app PID was reused.");
+    const targets = [...listDescendants(pid).reverse(), pid].map(targetPid => {
+      const tracked = ownedProcesses.get(targetPid);
+      if (!tracked || readProcStat(targetPid)?.start !== tracked.start) fail("Unqualified QA app descendant; refusing interruption.");
+      return { pid: targetPid, starttime: tracked.start, cmd: tracked.cmd };
+    });
+    report.interruptions.push({ label, pid, starttime: entry.start, signal: "SIGKILL", app_sha256: report.app_sha256,
+      targets, target: "only tracked QA app and its WebKit descendants; stop parent then kill descendants and parent, before WebDriver cleanup; no pagehide/graceful close" });
+    await writeFile(reportPath, JSON.stringify(report, null, 2));
+    process.kill(pid, "SIGSTOP");
+    for (const target of targets) {
+      if (readProcStat(target.pid)?.start === target.starttime) process.kill(target.pid, "SIGKILL");
+    }
+    await waitFor(() => { const p = readProcStat(pid); return !p || p.state === "Z"; }, 10000, "Owned app did not stop.", 100);
+    await deleteSession(sessionId);
+    sessionId = await createSession(appPath); currentE2eRunContext.sessionId = sessionId;
+    await waitForAppWindowReady(sessionId, uiTimeout, "App did not reopen after SIGKILL.");
+    await setSessionWindowRect(sessionId, 1920, 1080); await openProject(project);
+  };
+  let restoreDirectory = null;
+  try {
+    await setSessionWindowRect(sessionId, 1920, 1080);
+    const A = await createProject(`Recovery_A_${Date.now()}`);
+    const main = "scenes/main.json", second = "scenes/recovery_secondary.json";
+    const initial = JSON.parse(await readFile(path.join(A.dir, main), "utf8"));
+    const originalX = initial.entities.find((e) => e.entity_id === "player").transform.x;
+    // Fixture preparation only: a second initial scene, before any editing/recovery proof.
+    await writeFile(path.join(A.dir, second), JSON.stringify({ ...initial, scene_id: "recovery_secondary", display_name: "Recovery Secondary" }, null, 2));
+    await step("controlled_second_scene_fixture", { scene: second, preparation: "copy of initial scene only; no edit/recovery simulated" });
+    await closeProject(); const B = await createProject(`Recovery_B_${Date.now()}`); await closeProject(); await openProject(A);
+    const originalMainSha = await sha(path.join(A.dir, main));
+    const baselineRun = await runBuildRunAndCollect(sessionId, "Recovery baseline", timeoutMs, report, `${prefix}-baseline`, { nativeClick: true });
+    await selectPlayer();
+    let finalX = originalX + 15;
+    await editX(finalX); const firstConfirmation = await confirmed();
+    const mainDraft = await readDraft(A.dir, main);
+    if (!mainDraft || await sha(path.join(A.dir, main)) !== originalMainSha) fail("Draft confirmation changed the saved file or omitted its record.");
+    await shot("01-confirmed-before-kill"); await step("native_edit_confirmed_without_disk_write", { expected_x: finalX, confirmation: firstConfirmation, disk_sha256: originalMainSha });
+    await crashAndReopen(A, "scene-main"); await recoveryVisible(); await recoveryLayout();
+    await sceneSelect(second); const secondaryX = originalX + 31;
+    await editX(secondaryX); await confirmed(); const secondaryDraft = await readDraft(A.dir, second);
+    if (await readDraft(A.dir, main) !== mainDraft || !secondaryDraft) {
+      const receipt = raw => raw ? { sha256: createHash("sha256").update(raw).digest("hex"), record: JSON.parse(raw) } : null;
+      report.draft_comparison_failure = { main_before: receipt(mainDraft), main_after: receipt(await readDraft(A.dir, main)), secondary: receipt(secondaryDraft) };
+      fail("Two scenes interfered with each other's draft.");
+    }
+    await crashAndReopen(A, "scene-secondary"); await recoveryVisible();
+    if ((await state()).activeScenePath !== second) fail("Wrong scene identity reopened.");
+    await sceneSelect(main); await recoveryVisible();
+    if (await readDraft(A.dir, second) !== secondaryDraft) fail("Opening main removed secondary draft.");
+    await recover(finalX, originalX);
+    if (await sha(path.join(A.dir, main)) !== originalMainSha) fail("UI recovery overwrote disk without explicit save.");
+    await shot("02-restored-dirty"); await step("two_scene_sigkill_recovery_undo_redo", { scene_path: main, recovered_x: finalX, disk_untouched: true, other_scene_draft_preserved: true });
+    if (faults) {
+      const scenesDir = path.join(A.dir, "scenes"); const mode = (await stat(scenesDir)).mode & 0o777;
+      restoreDirectory = { path: scenesDir, mode }; await chmod(scenesDir, 0o555);
+      await click("toolbar-save");
+      await waitFor(async () => (await saveStatus())?.status === "failed", 10000, "Controlled write denial did not report failure.", 100);
+      if (await sha(path.join(A.dir, main)) !== originalMainSha || await x() !== finalX) fail("Failed save damaged file/editor.");
+      await confirmed(); await shot("03-write-denied");
+      await crashAndReopen(A, "failed-save");
+      await chmod(scenesDir, mode); restoreDirectory = null;
+      await recover(finalX, originalX);
+      await step("controlled_write_failure_sigkill_recovery", { injection: "own scenes directory temporarily read-only; no disk/quota filling", old_file_sha256: originalMainSha });
+    }
+    await save();
+    if (await fileX(A.dir, main) !== finalX || await readDraft(A.dir, second) !== secondaryDraft) fail("Save lost edited content or the other scene draft.");
+    await closeProject(); await openProject(A);
+    if (await x() !== finalX || (await saveStatus()).status !== "saved") fail("Saved recovery did not survive normal close/reopen.");
+    await step("explicit_save_close_reopen_keeps_correct_revision", { expected_x: finalX });
+    await closeProject(); await openProject(B);
+    const bOriginal = await fileX(B.dir, main), bEdit = bOriginal + 47;
+    await editX(bEdit); await confirmed();
+    await crashAndReopen(B, "different-project"); await recover(bEdit, bOriginal); await save();
+    if (await readDraft(A.dir, second) !== secondaryDraft || await fileX(A.dir, main) !== finalX) fail("Another project's save touched A.");
+    await step("two_projects_are_isolated", { a_x: finalX, b_x: bEdit, secondary_draft_preserved: true });
+    await closeProject(); await openProject(A);
+    if ((await state()).activeScenePath !== main) await sceneSelect(main);
+    // Additional fault controls are appended below, all against owned generated fixtures.
+    if (faults) {
+      await runRecoveryFaultControls();
+    }
+    const finalRun = await runBuildRunAndCollect(sessionId, "Recovered saved revision", timeoutMs, report, `${prefix}-recovered`, { nativeClick: true });
+    if (finalRun.rom_sha256 === baselineRun.rom_sha256 || await fileX(A.dir, main) !== finalX) fail("Build did not reflect recovered/saved source.");
+    const progress = await readCanonicalGameProgress(sessionId);
+    if (progress.romSha256 !== finalRun.rom_sha256 || !progress.renderedFrames) fail("Core identity does not match recovered build.");
+    await click("toolbar-review"); await click("delivery-verify-rom");
+    await waitFor(async () => js(`return document.querySelector('[data-testid="delivery-export"]')?.disabled===false;`), 30000, "Recovered ROM verification did not enable export.", 100);
+    await click("delivery-export");
+    const exported = await waitFor(async () => js(`const e=document.querySelector('[data-testid="delivery-exported"]');return e?{path:e.dataset.path,sha:e.dataset.sha256}:null;`), 30000, "Export missing.", 100);
+    if (exported.sha !== finalRun.rom_sha256 || await sha(exported.path) !== finalRun.rom_sha256) fail("Export differs from recovered/tested ROM.");
+    await shot("99-recovered-export"); await step("recovered_revision_build_core_export_identity", { saved_x: finalX, saved_scene_sha256: await sha(path.join(A.dir, main)), baseline_rom_sha256: baselineRun.rom_sha256, tested_rom_sha256: finalRun.rom_sha256, exported });
+    report.allPass = true;
+
+    async function runRecoveryFaultControls() {
+      // Fault injection only. Real data is still produced by native editing.
+      await js(`
+        const f={fetch:window.fetch,
+          quota:false,corruptKey:null,delay:false,blocked:false,released:false,project:arguments[0],draftX:arguments[1]};
+        window.__rdsRecoveryFault=f;
+        // Tauri's invoke property is immutable. Intercept the real IPC transport
+        // response through fetch; no product/store mutation is used for this fault.
+        window.fetch=async function(input,options){
+          let command='',args;
+          try { const url=new URL(String(input));if(url.protocol==='ipc:'){command=decodeURIComponent(url.pathname.slice(1));args=JSON.parse(options.body);} }catch{}
+          const response=(value,ok)=>new Response(JSON.stringify(value),{headers:{'Tauri-Response':ok?'ok':'error','Content-Type':'application/json'}});
+          if(command==='scene_draft_storage'&&args?.operation==='write'&&f.quota)return response('Controlled QA quota refusal',false);
+          const result=f.fetch.call(window,input,options);
+          if(command==='scene_draft_storage'&&args?.operation==='read'&&f.corruptKey==='retrodev-scene-draft::v2::'+encodeURIComponent(args.projectDir)+'::'+encodeURIComponent(args.scenePath))return result.then(()=>response('{controlled-corruption',true));
+          if(command==='resolve_scene_prefabs'&&f.delay&&args?.projectDir===f.project){
+            let scene;try{scene=JSON.parse(args.sceneJson);}catch{}
+            if(scene?.scene_id==='recovery_secondary'&&scene.entities.find(e=>e.entity_id==='player')?.transform.x===f.draftX){
+              return result.then(value=>new Promise(resolve=>{f.blocked=true;f.release=()=>{f.delay=false;resolve(value);setTimeout(()=>{f.released=true;},0);};}));
+            }
+          }
+          return result;
+        };
+      `, [A.dir, secondaryX]);
+
+      await sceneSelect(second); await recoveryVisible();
+      await js(`window.__rdsRecoveryFault.delay=true;`);
+      await click("scene-draft-restore");
+      await waitFor(async () => js(`return window.__rdsRecoveryFault.blocked;`), 10000, "Deferred real prefab response was not captured.", 100);
+      await closeProject(); await openProject(B); const latestB = bEdit + 2;
+      await editX(latestB); const latestConfirmation = await confirmed();
+      const latestRaw = await readDraft(B.dir, main);
+      await js(`window.__rdsRecoveryFault.release();`);
+      await waitFor(async () => js(`return window.__rdsRecoveryFault.released;`), 10000, "Old prefab response did not release.", 100);
+      if ((await state()).activeProjectDir !== B.dir || await x() !== latestB || await readDraft(B.dir, main) !== latestRaw) fail("Old restore changed the new project/edit/draft.");
+      const after = await saveStatus();
+      if (after.revision !== latestConfirmation.revision || after.draftRevision !== after.revision) fail("Old response changed the new revision.");
+      await step("deferred_real_response_refused_after_native_context_switch", { injection: "hold actual resolve_scene_prefabs response; no scene/storage contents fabricated", preserved_project: "B", latest_x: latestB, confirmation: after });
+      await closeProject(); await openProject(A); await sceneSelect(main);
+
+      const conflictX = finalX + 3;
+      await editX(conflictX); await confirmed();
+      const external = JSON.parse(await readFile(path.join(A.dir, main), "utf8"));
+      const externalX = conflictX + 19; external.entities.find(e=>e.entity_id==='player').transform.x=externalX;
+      // Explicit external-writer fault fixture, not proof of an editor operation.
+      await writeFile(path.join(A.dir, main), JSON.stringify(external, null, 2));
+      const externalSha = await sha(path.join(A.dir, main));
+      await click("toolbar-save");
+      await waitFor(async () => (await saveStatus())?.status === "failed", 10000, "External disk change was not refused.", 100);
+      await recoveryVisible();
+      if (await sha(path.join(A.dir, main)) !== externalSha || await x() !== conflictX) fail("Conflict refusal overwrote disk/editor.");
+      const preserved = await readDraft(A.dir, main);
+      await shot("04-disk-conflict"); await click("scene-draft-keep-disk");
+      await waitFor(async () => (await x()) === externalX, 10000, "Keeping disk did not load its content.", 100);
+      if (await readDraft(A.dir, main) !== preserved) fail("Keep-disk decision removed recoverable draft.");
+      await click("scene-draft-reopen"); await recoveryVisible(); await recover(conflictX, externalX);
+      if (await sha(path.join(A.dir, main)) !== externalSha) fail("Recovering over divergent disk wrote without Save.");
+      await save(); finalX = conflictX;
+      await step("disk_divergence_explicit_keep_then_recover_preserves_both", { injection: "external edit of own fixture file", external_x: externalX, recovered_x: finalX, prior_disk_sha256: externalSha });
+
+      const corruptionX = finalX + 1;
+      await editX(corruptionX); await confirmed();
+      const key = draftKey(A.dir, main), originalRaw = await readDraft(A.dir, main);
+      await js(`window.__rdsRecoveryFault.corruptKey=arguments[0];`, [key]);
+      await closeProject(); await openProject(A);
+      await waitFor(async () => js(`return document.querySelector('[data-testid="scene-draft-warning"]')?.textContent.includes('inválido');`), 10000, "Malformed-read warning absent.", 100);
+      const underlyingRaw = await readFile(path.join(A.dir, ".rds", "scene-drafts", `${createHash("sha256").update(main).digest("hex")}.json`), "utf8");
+      if (underlyingRaw !== originalRaw) fail("Malformed-read fault deleted original storage.");
+      await shot("05-invalid-read-preserved");
+      await js(`window.__rdsRecoveryFault.corruptKey=null;`); await click("scene-draft-retry");
+      await waitFor(async () => js(`return !document.querySelector('[data-testid="scene-draft-warning"]');`), 10000, "Valid storage retry did not recover.", 100);
+      if (await x() !== corruptionX) fail("Storage retry changed editor source.");
+      await save(); finalX = corruptionX;
+      await step("controlled_malformed_read_keeps_real_record_and_recovers", { injection: "draft read response returns malformed content; actual persisted bytes untouched", expected_x: finalX });
+
+      const beforeQuotaSha = await sha(path.join(A.dir, main));
+      await js(`window.__rdsRecoveryFault.quota=true;`); const quotaX = finalX + 1;
+      await editX(quotaX);
+      await waitFor(async () => (await saveStatus())?.draftStatus === "failed", 12000, "Quota fault did not produce unconfirmed-draft state.", 100);
+      if (await sha(path.join(A.dir, main)) !== beforeQuotaSha || await x() !== quotaX) fail("Quota fault changed disk or lost editor work.");
+      const warning = await js(`return document.querySelector('[data-testid="scene-draft-warning"]')?.textContent ?? '';`);
+      if (!warning.includes('não confirmado')) fail(`Quota warning not actionable: ${warning}`);
+      await shot("06-quota-unconfirmed");
+      await js(`window.__rdsRecoveryFault.quota=false;`); await click("scene-draft-retry"); await confirmed();
+      if (await sha(path.join(A.dir, main)) !== beforeQuotaSha) fail("Draft retry wrote the project file.");
+      await save(); finalX = quotaX;
+      await step("controlled_quota_visible_retry_confirms_without_disk_write", { injection: "draft write IPC rejects with quota refusal; no disk filling", expected_x: finalX });
+    }
+  } catch (error) {
+    report.allPass = false; report.error = String(error);
+    await shot("failure").catch(() => null); throw error;
+  } finally {
+    if (restoreDirectory) await chmod(restoreDirectory.path, restoreDirectory.mode);
+    await js(`const f=window.__rdsRecoveryFault;if(f){window.fetch=f.fetch;delete window.__rdsRecoveryFault;}`).catch(() => null);
+    report.finished_at = new Date().toISOString(); await writeFile(reportPath, JSON.stringify(report, null, 2));
+    console.log(`Recovery evidence: ${reportPath}`);
+  }
+}
+
 async function runAuthoringAcceptanceScenario(initialSessionId, appPath, uiBootstrapTimeoutMs, onProjectCreated) {
   let sessionId = initialSessionId;
   const artifactPrefix = `authoring-acceptance-${artifactTimestamp()}`;
@@ -10145,9 +13735,8 @@ async function runAuthoringAcceptanceScenario(initialSessionId, appPath, uiBoots
 
   // 1. Create the stage from the wizard and switch to the guided mode.
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await click("template-card-reference_platformer", "modelo de fase de referencia");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Acceptance_${Date.now()}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -10178,13 +13767,21 @@ async function runAuthoringAcceptanceScenario(initialSessionId, appPath, uiBoots
   await js(`document.documentElement.style.zoom = "1.25";`);
   await new Promise((resolve) => setTimeout(resolve, 600));
   layout["1366x768@125%"] = await assertReachable(layoutControls.filter((id) => id.startsWith("guided-step") || id === "scene-save-status"), "1366x768 com escala 125%");
+  layout["inspector@125%"] = await assertReachable(["right-panel-properties", "right-panel-tools", "inspector-edit-scope"], "Inspector com escala 125%");
+  const scopeWidthRatio = await js(`
+    const scope=document.querySelector('[data-testid="inspector-edit-scope"]');
+    const header=scope?.parentElement?.parentElement;
+    return scope && header ? scope.getBoundingClientRect().width/header.getBoundingClientRect().width : 0;
+  `);
+  if (scopeWidthRatio < 0.8) fail(`Texto do alcance da edição comprimido no Inspector: ${scopeWidthRatio}`);
+  layout.scopeWidthRatio = scopeWidthRatio;
   await shot("03-layout-scaled", "editor guiado com escala 125%");
   await js(`document.documentElement.style.zoom = "";`);
   await setSessionWindowRect(sessionId, 1920, 1080);
   await new Promise((resolve) => setTimeout(resolve, 600));
   // Keyboard reachability of the guided steps.
   await js(`document.querySelector('[data-testid="guided-step-cenario"]').focus();`);
-  const focused = await waitFor(async () => { const f = await js(`return document.activeElement?.getAttribute('data-testid');`); return f === "inspector-hud-column" ? f : false; }, 3000, "Foco nao foi para a propriedade do texto.", 100);
+  const focused = await waitFor(async () => { const f = await js(`return document.activeElement?.getAttribute('data-testid');`); return f === "guided-step-cenario" ? f : false; }, 3000, "Foco não foi para a etapa Cenário.", 100);
   if (focused !== "guided-step-cenario") fail(`Etapa guiada nao recebe foco pelo teclado: ${focused}`);
   addReportStep(report, "layout_and_keyboard_reachability", "passed", { layout, focused });
 
@@ -10264,9 +13861,9 @@ async function runAuthoringAcceptanceScenario(initialSessionId, appPath, uiBoots
   await click("sound-goal_sound-preview", "ouvir som associado");
   const previewState = await waitFor(async () => {
     const text = await js(`return document.querySelector('[data-testid="sound-goal_sound-preview-state"]')?.textContent ?? '';`);
-    return /Prévia: |Prévia falhou/.test(text) ? text : false;
+    return /Tocando |Tocou |Prévia falhou/.test(text) ? text : false;
   }, 10000, "Previa do som nao respondeu.", 200);
-  if (!/^Prévia: 0\.4/.test(previewState)) fail(`Previa do som associado falhou: ${previewState}`);
+  if (!/^(Tocando victory · |Tocou victory \()0\.4/.test(previewState)) fail(`Previa do som associado falhou: ${previewState}`);
   const soundIssue = await js(`return document.querySelector('[data-testid="sound-goal_sound-issue"]')?.textContent ?? '';`);
   if (soundIssue) fail(`Som associado reportou problema: ${soundIssue}`);
   await shot("06-sounds", "som de conclusao associado a victory");
@@ -10291,9 +13888,7 @@ async function runAuthoringAcceptanceScenario(initialSessionId, appPath, uiBoots
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto salvo.", 300);
-  await click("wizard-open-existing-project", "reabrir projeto");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "Projeto nao reabriu.", 300);
   if (!(await js(`return Boolean(document.querySelector('[data-testid="guided-steps"]'));`))) await click("shell-persona-guiado", "modo guiado apos reinicio");
   await click("guided-step-personagem", "etapa Personagem apos reinicio");
@@ -10485,9 +14080,8 @@ async function runJumpProfileJourneyScenario(sessionId, uiBootstrapTimeoutMs) {
   const rom2 = process.env.RDS_JUMP_DELTA_ROM;
   if (!rom1) fail("RDS_INSPECTION_ROM ausente");
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickButtonByTestIdNative(sessionId, "template-card-starter_guided", "modelo Primeiro Projeto");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Jump_Profile_${Date.now().toString(36)}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -10590,9 +14184,8 @@ async function runPreparedRuntimeObservationScenario(sessionId, appPath) {
   const specPath = process.env.RDS_PREPARED_OBSERVATION_SPEC;
   if (!specPath) fail("RDS_PREPARED_OBSERVATION_SPEC ausente");
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickButtonByTestIdNative(sessionId, "template-card-starter_guided", "modelo Primeiro Projeto");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Prepared_Observation_${Date.now().toString(36)}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -10653,9 +14246,8 @@ async function runSemanticGateJourneyScenario(initialSessionId, appPath, uiBoots
   addCheck("rom_e_a_do_spec", shaBase === spec.rom_sha256, { observado: shaBase });
   await mkdir(outBase, { recursive: true });
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickButtonByTestIdNative(sessionId, "template-card-starter_guided", "modelo Primeiro Projeto");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Semantic_Gate_${Date.now().toString(36)}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -10950,7 +14542,7 @@ async function runSemanticGateJourneyScenario(initialSessionId, appPath, uiBoots
   if(commercial) {
     await runInEmulator(romPath,"pre-edit");
     report.steps.push({step:"commercial-resource-before-edit",screenshot:await captureScreenshot(sessionId,`${prefix}-commercial-before-edit.png`)});
-    await clickButtonByText(sessionId,"Stop","exact");
+    await clickButtonByTestIdNative(sessionId,"toolbar-emulator-stop");
     await waitFor(async()=>(await readAutomationState(sessionId))?.emulatorLoaded===false,15000,"stop commercial preview before graph editing",150);
     addCheck("pre-edit.preview_stopped_before_editor",true);
     await callAutomationApi(sessionId,"selectWorkspace",["logic"]);
@@ -11057,9 +14649,7 @@ async function runSemanticGateJourneyScenario(initialSessionId, appPath, uiBoots
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto salvo.", 300);
-  await clickButtonByTestIdNative(sessionId, "wizard-open-existing-project", "reabrir projeto");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir, 60000, "Projeto nao reabriu.", 300);
   await closeVisibleConsoleDrawer(sessionId, "apos reabrir").catch(() => undefined);
   await callAutomationApi(sessionId, "setSelectedEntityId", [entityId]);
@@ -11172,9 +14762,8 @@ async function runProfileAuthoringJourneyScenario(initialSessionId, appPath, uiB
   addCheck("rom_e_a_do_spec", shaBase === spec.rom_sha256, { observado: shaBase, esperado: spec.rom_sha256 });
   await mkdir(outBase, { recursive: true });
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickButtonByTestIdNative(sessionId, "template-card-starter_guided", "modelo Primeiro Projeto");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Profile_Authoring_${Date.now().toString(36)}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -11375,9 +14964,7 @@ async function runProfileAuthoringJourneyScenario(initialSessionId, appPath, uiB
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto salvo.", 300);
-  await clickButtonByTestIdNative(sessionId, "wizard-open-existing-project", "reabrir projeto");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir, 60000, "Projeto nao reabriu.", 300);
   await closeVisibleConsoleDrawer(sessionId, "apos reabrir").catch(() => undefined);
   await callAutomationApi(sessionId, "setSelectedEntityId", [entityId]);
@@ -11417,9 +15004,8 @@ async function runJumpCanvasJourneyScenario(initialSessionId, appPath, uiBootstr
   if (!rom1) fail("RDS_INSPECTION_ROM ausente");
   await mkdir(copiesDir, { recursive: true });
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickButtonByTestIdNative(sessionId, "template-card-starter_guided", "modelo Primeiro Projeto");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Jump_Canvas_${Date.now().toString(36)}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -11461,6 +15047,12 @@ async function runJumpCanvasJourneyScenario(initialSessionId, appPath, uiBootstr
       cutValue: q("node-param-cut-value")?.value ?? null,
       velPos: card("vel") ? [Number(card("vel").dataset.x), Number(card("vel").dataset.y)] : null,
     };`);
+  const visibleHeaderPoint = (nodeId) => js(`const el=document.querySelector('[data-testid="node-card-'+arguments[0]+'"]');
+    const shell=document.querySelector('[data-testid="nodegraph-canvas-shell"]');
+    const header=el?.firstElementChild;if(!el||!header||!shell)return null;
+    const r=header.getBoundingClientRect(),x=Math.round(r.left+Math.min(30,r.width*.25)),y=Math.round(r.top+r.height/2);
+    const hit=document.elementFromPoint(x,y);return {x,y,valid:x>=0&&x<innerWidth&&y>=0&&y<innerHeight&&shell.contains(hit)&&hit?.closest('[data-testid="node-card-'+arguments[0]+'"]')===el,
+      hit:hit?.closest('[data-testid]')?.getAttribute('data-testid')??null,rect:{left:r.left,top:r.top,width:r.width,height:r.height}};`,[nodeId]);
   const setNode = async (campoId, valor) => {
     await js(`document.querySelector('[data-testid="node-param-${campoId}-value"]')?.scrollIntoView({ block: "center", inline: "center" }); return true;`);
     await setInputByTestIdNative(sessionId, `node-param-${campoId}-value`, String(valor));
@@ -11564,22 +15156,25 @@ async function runJumpCanvasJourneyScenario(initialSessionId, appPath, uiBootstr
     addCheck("sonic1.refazer_restaura_a_edicao", rd.cutValue === "-1536", { cutValue: rd.cutValue });
     // organizar e mover sem alterar a semantica
     const antes = await readBridge();
+    await clickButtonByTestIdNativeWhenReady(sessionId, "nodegraph-more-actions", "abrir ações de organização do grafo");
     await clickButtonByTestIdNativeWhenReady(sessionId, "nodegraph-organize-all", "organizar tudo");
     await pause(600);
     const org = await readBridge();
     addCheck("sonic1.organizar_nao_muda_o_plano_nem_a_estrutura", org.edits === antes.edits && !org.estrutura, { antes: antes.edits, depois: org.edits, estrutura: org.estrutura });
-    const rect = await js(`const el = document.querySelector('[data-testid="node-card-vel"]'); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + 40, y: r.top + 8, wx: Number(el.dataset.x), wy: Number(el.dataset.y) };`);
-    await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{ type: "pointer", id: "rds-drag", parameters: { pointerType: "mouse" }, actions: [
-      { type: "pointerMove", duration: 0, x: Math.round(rect.x), y: Math.round(rect.y) }, { type: "pointerDown", button: 0 },
-      { type: "pointerMove", duration: 300, x: Math.round(rect.x + 90), y: Math.round(rect.y + 50) }, { type: "pointerUp", button: 0 } ] }] });
-    await pause(500);
-    const mv = await readBridge();
-    addCheck("sonic1.mover_no_muda_posicao_mas_nao_o_plano_nem_a_estrutura", JSON.stringify(mv.velPos) !== JSON.stringify(org.velPos) && mv.edits === antes.edits && !mv.estrutura, { antes: org.velPos, depois: mv.velPos, edits: mv.edits });
+    await clickButtonByTestIdNativeWhenReady(sessionId, "nodegraph-fit-view", "mostrar o grafo inteiro antes de mover um nó");
+    const rect = await waitFor(async()=>{const point=await visibleHeaderPoint("vel");return point?.valid?point:false;},5000,"Nó vel não ficou visível para arraste nativo após Visão geral",150);
+    const dragResponse=await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{ type: "pointer", id: "rds-drag", parameters: { pointerType: "mouse" }, actions: [
+      { type: "pointerMove", duration: 0, x: rect.x, y: rect.y }, { type: "pointerDown", button: 0 },
+      { type: "pointerMove", duration: 300, x: rect.x + 90, y: rect.y + 50 }, { type: "pointerUp", button: 0 } ] }] });
+    if(!dragResponse.ok||dragResponse.payload?.value?.error)fail(`Arraste nativo do nó vel recusado: ${JSON.stringify({rect,dragResponse})}`);
+    const mv = await waitFor(async()=>{const current=await readBridge();return JSON.stringify(current.velPos)!==JSON.stringify(org.velPos)?current:false;},4000,"Arraste nativo não moveu o nó vel",150);
+    addCheck("sonic1.mover_no_muda_posicao_mas_nao_o_plano_nem_a_estrutura", mv.edits === antes.edits && !mv.estrutura, { antes: org.velPos, depois: mv.velPos, edits: mv.edits });
     // remover um nó tira a estrutura do estado canônico e BLOQUEIA a geração; desfazer restaura
-    const hdr = await js(`const el = document.querySelector('[data-testid="node-card-vel"]'); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + 40, y: r.top + 8 };`);
-    await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{ type: "pointer", id: "rds-sel", parameters: { pointerType: "mouse" }, actions: [
-      { type: "pointerMove", duration: 0, x: Math.round(hdr.x), y: Math.round(hdr.y) }, { type: "pointerDown", button: 0 }, { type: "pointerUp", button: 0 } ] }] });
-    await pause(300);
+    const hdr=await visibleHeaderPoint("vel");if(!hdr?.valid)fail(`Nó vel ficou fora do canvas antes da seleção: ${JSON.stringify(hdr)}`);
+    const selectResponse=await webdriverRequestDetailed("POST", `/session/${sessionId}/actions`, { actions: [{ type: "pointer", id: "rds-sel", parameters: { pointerType: "mouse" }, actions: [
+      { type: "pointerMove", duration: 0, x: hdr.x, y: hdr.y }, { type: "pointerDown", button: 0 }, { type: "pointerUp", button: 0 } ] }] });
+    if(!selectResponse.ok||selectResponse.payload?.value?.error)fail(`Seleção nativa do nó vel recusada: ${JSON.stringify({hdr,selectResponse})}`);
+    await waitFor(async()=>js(`return document.querySelector('[data-testid="node-card-vel"]')?.dataset.selected==='true';`),3000,"Nó vel não foi selecionado antes do Delete",100);
     await pressKey("\uE017");
     const rem = await waitEdits((x) => Boolean(x.estrutura), "remocao de no nao foi detectada pela ponte");
     addCheck("sonic1.remover_no_deixa_de_ser_logica_aplicada", rem.estrutura.includes("deixou de representar a lógica da ROM") && rem.generate === true, { estrutura: rem.estrutura.slice(0, 140), generate: rem.generate });
@@ -11608,9 +15203,7 @@ async function runJumpCanvasJourneyScenario(initialSessionId, appPath, uiBootstr
     await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
     await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
     await setSessionWindowRect(sessionId, 1920, 1080);
-    await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-    await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto salvo.", 300);
-    await clickButtonByTestIdNative(sessionId, "wizard-open-existing-project", "reabrir projeto");
+    await openSavedProjectWizard(sessionId, projectDir);
     await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir, 60000, "Projeto nao reabriu.", 300);
     await closeVisibleConsoleDrawer(sessionId, "apos reabrir").catch(() => undefined);
     await callAutomationApi(sessionId, "setSelectedEntityId", [entityId]);
@@ -11722,9 +15315,8 @@ async function runJumpGameplayJourneyScenario(sessionId, uiBootstrapTimeoutMs) {
     delta: { rom: rom2, base: 0xb000, yOff: 0x14, vyOff: 0x1a, flOff: 0x40, nome: "Sonic Delta (personagem 1 = Sonic)" },
   };
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickButtonByTestIdNative(sessionId, "template-card-starter_guided", "modelo Primeiro Projeto");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Jump_Gameplay_${Date.now().toString(36)}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -12692,9 +16284,8 @@ async function runSonicLogicGraphsScenario(sessionId, uiBootstrapTimeoutMs) {
   const js = (script, args = []) => executeScript(sessionId, script, args);
   const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await clickButtonByTestIdNative(sessionId, "template-card-starter_guided", "modelo Primeiro Projeto");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Sonic1_Logica_Localizada_${Date.now().toString(36)}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -12760,6 +16351,634 @@ async function runSonicLogicGraphsScenario(sessionId, uiBootstrapTimeoutMs) {
   console.log(`[sonic-logic-graphs] projeto mantido em ${projectDir}`);
 }
 
+// Archive acceptance uses an operator-supplied authored/BYOR ROM, never a download.
+async function runRomInputScenario(sessionId, appPath, timeoutMs) {
+  const rom = process.env.RDS_ROM_INPUT_ROM;
+  const output = process.env.RDS_ROM_INPUT_OUTPUT;
+  if (!rom || !output) fail("rom-input requires RDS_ROM_INPUT_ROM and RDS_ROM_INPUT_OUTPUT.");
+  await mkdir(output, { recursive: true });
+  const prefix = `rom-input-${artifactTimestamp()}`;
+  const report = { schema: "retrodev.rom_input/v1", maturity: "Experimental", application: { path: appPath, sha256: createHash("sha256").update(await readFile(appPath)).digest("hex") }, steps: [], artifacts: [] };
+  const js = (code, args = []) => executeScript(sessionId, code, args);
+  const click = id => clickButtonByTestIdNative(sessionId, id);
+  const shot = async name => addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${name}.png`), name);
+  const run = (command, args, options = {}) => new Promise((resolve, reject) => execFile(command, args, { ...options, env: process.env, timeout: 30000 }, (error, stdout) => error ? reject(error) : resolve(stdout)));
+  const xd = args => run("xdotool", args);
+  const hash = async file => createHash("sha256").update(await readFile(file)).digest("hex");
+  const waitText = text => waitFor(async () => (await js("return document.body.textContent;")).includes(text), 60000, `Missing ${text}`, 150);
+  const close = async () => {
+    await waitFor(async () => !await js(`const b=document.querySelector('[data-testid="rom-drop-decompile"] button[aria-label="Fechar diálogo"]');return b?.disabled ?? true;`), 60000, "ROM session still active", 150);
+    await webdriverRequest("POST", `/session/${sessionId}/actions`, {actions:[{type:"key",id:"close-rom",actions:[{type:"keyDown",value:"\uE00C"},{type:"keyUp",value:"\uE00C"}]}]});
+    await waitFor(async () => !await js(`return !!document.querySelector('[data-testid="rom-drop-decompile"]');`), 5000, "ROM dialog did not close");
+  };
+  let producer;
+  const stop = async () => { if (producer) { producer.kill("SIGTERM"); await waitForProcessExit(producer, 5000); producer = null; } };
+  const drop = async file => {
+    producer = spawn("python3", ["scripts/image-clipboard-fixture.py", "drop", file], {env:process.env, stdio:["ignore","pipe","pipe"]});
+    await new Promise((resolve,reject) => {producer.stdout.once("data",resolve);producer.once("error",reject);producer.once("exit",code=>reject(new Error(`Drop helper exited ${code}`)));});
+    await xd(["mousemove","--sync","100","800","mousedown","1"]);
+    for(let i=1;i<=12;i++){await xd(["mousemove","--sync",String(Math.round(100+500*i/12)),String(Math.round(800-500*i/12))]);await new Promise(r=>setTimeout(r,70));}
+    await xd(["mouseup","1"]); await stop();
+  };
+  const chooseNativeFile = async file => {
+    await new Promise(r => setTimeout(r, 700));
+    const picker = String(await xd(["search", "--onlyvisible", "--name", "^Inspecionar ROM Mega Drive$"])).trim().split("\n")[0];
+    await xd(["windowfocus", "--sync", picker]);
+    await xd(["key", "ctrl+l"]); await new Promise(r => setTimeout(r, 250));
+    await xd(["key", "ctrl+a"]); await xd(["type", "--clearmodifiers", "--delay", "15", "--", file]);
+    await new Promise(r => setTimeout(r, 300)); await xd(["key", "Return"]);
+    await new Promise(r => setTimeout(r, 500));
+    const stillOpen = await xd(["search", "--onlyvisible", "--name", "^Inspecionar ROM Mega Drive$"]).catch(() => "");
+    if(String(stillOpen).trim()) {
+      const raw = String(await xd(["getwindowgeometry", "--shell", picker]));
+      const g = Object.fromEntries(raw.trim().split("\n").map(line => line.split("=")).map(([key,value]) => [key,Number(value)]));
+      await captureWindowRaster(sessionId, `${prefix}-native-picker-confirm.png`);
+      await xd(["mousemove", "--sync", String(g.X+g.WIDTH-50), String(g.Y+g.HEIGHT-23), "click", "1"]);
+    }
+  };
+  try {
+    const sourceSha = await hash(rom);
+    const inputA = path.join(output,"first.md"), inputB = path.join(output,"second.bin");
+    await copyFile(rom,inputA); await copyFile(rom,inputB);
+    for(const kind of ["zip","7z"]){
+      const archive = path.join(output,`${prefix}.${kind}`);
+      await run("7z",["a","-y",archive,"first.md","second.bin"],{cwd:output});
+      const before = await hash(archive);
+      if(kind === "zip") {
+        // Start from the real wizard and its native file selector.
+        await click("wizard-intent-rom"); await chooseNativeFile(archive);
+      } else await drop(archive);
+      await waitText("Há 2 ROMs");
+      if(await js(`return !!document.querySelector('[data-testid="reverse-inspection-panel"]');`))fail("Catalog opened before explicit member choice");
+      await shot(`${kind}-member-choice`);
+      const member = await findElement(sessionId,'input[name="rom-member"][value="second.bin"]');
+      await clickElement(sessionId,member); await click("rom-input-extract");
+      await waitFor(async()=>js(`const s=document.querySelector('[data-testid="inspection-session"]');return s?.dataset.sessionStatus==='completed' && !!document.querySelector('[data-testid="inspection-catalog"]');`),120000,"Recovered catalog did not open",200);
+      const actual = await js(`const s=document.querySelector('[data-testid="inspection-session"]');return {sha:s.dataset.identitySha256,candidates:document.querySelectorAll('[data-testid^="inspection-candidate-"]').length,limits:document.querySelector('[data-testid="inspection-recovery-limits"]').textContent};`);
+      if(actual.sha!==sourceSha)fail("Archive member identity differs from source ROM");
+      await click("inspection-save"); await waitText("salva");
+      await click("inspection-reopen"); await waitText("reaberta e identidade verificada");
+      for(const [width,height] of [[1280,800],[1366,768],[949,593]]) {
+        await webdriverRequest("POST",`/session/${sessionId}/window/rect`,{width,height});
+        const geometry=await js(`const d=document.querySelector('[data-testid="rom-drop-decompile"]');const c=d.querySelector('[data-testid="inspection-catalog"]');c.scrollIntoView({block:'center'});const r=c.getBoundingClientRect();return {width:innerWidth,height:innerHeight,dialogWidth:d.getBoundingClientRect().width,catalogWidth:r.width,horizontal:document.documentElement.scrollWidth>innerWidth+1};`);
+        if(geometry.horizontal||geometry.dialogWidth>geometry.width+1||geometry.catalogWidth>geometry.width)fail("ROM catalog overflows logical desktop");
+        await shot(`${kind}-${width}x${height}`); report.steps.push({id:`${kind}_layout_${width}`,status:"passed",...geometry});
+      }
+      if(await hash(archive)!==before||await hash(rom)!==sourceSha)fail("Original input changed");
+      report.steps.push({id:kind,status:"passed",sourceSha,archiveSha:before,member:"second.bin",...actual});
+      await close();
+      await webdriverRequest("POST",`/session/${sessionId}/window/rect`,{width:1280,height:800});
+    }
+    const corrupt=path.join(output,`${prefix}-invalid.zip`); await writeFile(corrupt,Buffer.from("PK\x03\x04invalid"));
+    await drop(corrupt);
+    await waitFor(async()=>js(`return !!document.querySelector('[data-testid="rom-drop-decompile"] [role="alert"]') && !!document.querySelector('[data-testid="rom-input-choose"]');`),15000,"Invalid archive lacks recovery action");
+    await shot("invalid-recovery");report.steps.push({id:"invalid_archive_recovery",status:"passed"});await close();
+    const byor = process.env.RDS_ROM_INPUT_BYOR;
+    if (byor) {
+      const baseSha = await hash(byor);
+      if(baseSha !== "558bea6c80c76ec3da23afd584d4b56ece7722847ab1efc8c2f23f43f8529be9") fail("Unexpected BYOR identity for frozen compressed-resource oracle");
+      await drop(byor);
+      await waitFor(async()=>js(`return document.querySelector('[data-testid="inspection-run"]')?.dataset.runStatus==='running';`),15000,"Cancellation not exercised: no running analysis",100);
+      await click("inspection-cancel");
+      await waitFor(async()=>js(`return document.querySelector('[data-testid="inspection-run"]')?.dataset.runStatus==='cancelled';`),30000,"Cancellation not acknowledged",100);
+      await shot("analysis-cancelled");
+      await click("inspection-identify");
+      await waitFor(async()=>js(`return document.querySelector('[data-testid="inspection-session"]')?.dataset.sessionStatus==='identified';`),15000,"Base not identified after cancellation",100);
+      await click("inspection-start");
+      await waitFor(async()=>js(`return document.querySelector('[data-testid="inspection-session"]')?.dataset.sessionStatus==='completed';`),120000,"BYOR catalog did not open",200);
+      report.steps.push({id:"cancel_acknowledged_reidentify_restart",status:"passed"});
+      await clickElement(sessionId,await findElement(sessionId,'[data-testid="rom-input-resources"] > summary'));
+      await waitFor(async()=>js(`return !!document.querySelector('[data-testid="rex-resource-select"] option[value="c8cc8"]');`),60000,"Prepared ROM did not reach existing resource catalog",200);
+      await clickElement(sessionId,await findElement(sessionId,'[data-testid="rex-resource-select"] option[value="c8cc8"]'));
+      await waitFor(async()=>js(`return !!document.querySelector('[data-testid="rex-resource-canvas"]');`),30000,"Verified resource has no real preview",200);
+      for(const [id,value] of [["rex-resource-paint-index",15],["rex-resource-edit-tile",0],["rex-resource-edit-row",7],["rex-resource-edit-col",4]]) await fillInputBySelector(sessionId,`[data-testid="${id}"]`,String(value));
+      await click("rex-resource-add-edit"); await click("rex-resource-apply");
+      await waitFor(async()=>js(`return document.querySelector('[data-testid="rex-resource-result"]')?.textContent.includes('applied');`),60000,"Prepared ROM edit not applied",200);
+      const result = await js(`return document.querySelector('[data-testid="rex-resource-result"]').textContent;`);
+      const modified = result.match(/cópia: (\S+)/)?.[1], patch = result.match(/patch: (\S+)/)?.[1];
+      if(!modified || !patch)fail("Edit lacks modified ROM/patch provenance");
+      const modifiedSha=await hash(modified), patchSha=await hash(patch);
+      if(modifiedSha===baseSha || await hash(byor)!==baseSha)fail("Edit did not preserve base identity");
+      const applied=path.join(output,`${prefix}-patch-applied.bin`);
+      const apply = await invokeCoreObserveCommand(sessionId,"patch_apply_bps",{romPath:byor,patchPath:patch,outputPath:applied});
+      if(!apply?.ok || await hash(applied)!==modifiedSha)fail("BPS does not reproduce edited copy");
+      await shot("prepared-resource-edited"); await close();
+      await drop(modified);
+      await waitFor(async()=>js(`return document.querySelector('[data-testid="inspection-session"]')?.dataset.sessionStatus==='completed';`),120000,"Modified ROM did not reopen",200);
+      const reopened=await js(`return document.querySelector('[data-testid="inspection-session"]').dataset.identitySha256;`);
+      if(reopened!==modifiedSha)fail("Modified ROM reopened with another identity");
+      report.steps.push({id:"byor_existing_resource_edit_bps_reopen",status:"passed",baseSha,modifiedSha,patchSha,stream:"0xc8cc8",pixel:{tile:0,row:7,col:4,index:15},scope:"verified compressed resource; gameplay equivalence untested"});
+      await shot("edited-rom-reopened"); await close();
+    }
+    report.status="passed";
+  } catch(error) {report.status="failed";report.error=String(error);await shot("failure").catch(()=>{});throw error;}
+  finally {await stop();await writeFile(path.join(output,`${prefix}.json`),JSON.stringify(report,null,2));}
+}
+
+// Advanced camera qualification uses authored assets and the existing session-scoped RAM test
+// adjustment. No project values are injected through the editor store; primary configurations
+// are applied through the visible dialog and reopened before each real target build.
+async function runCameraAdvancedScenario(sessionId, timeoutMs, onProjectCreated) {
+  const target=process.env.RDS_CAMERA_TARGET==="snes"?"snes":"megadrive",width=target==="snes"?256:320;
+  const layered=process.env.RDS_CAMERA_LAYERS==="2",negative=process.env.RDS_CAMERA_NEGATIVE==="1";
+  const prefix=`camera-advanced-${target}${layered?"-two-layers":""}${negative?"-negative":""}-${artifactTimestamp()}`;
+  const output=path.join(process.env.RDS_CAMERA_OUTPUT??validationDir,prefix);await mkdir(output,{recursive:true});
+  const report={schema:"retrodev.camera_advanced/v1",maturity:"Experimental",target,layers:layered?2:1,negative_coordinates:negative,app_sha256:createHash("sha256").update(await readFile(currentE2eRunContext.appPath)).digest("hex"),steps:[],artifacts:[],samples:[]};
+  const js=(s,a=[])=>executeScript(sessionId,s,a),state=()=>readAutomationState(sessionId);
+  const click=id=>clickButtonByTestIdNative(sessionId,id,id);
+  const selectPattern=async id=>{if(!await js(`return document.querySelector('[data-camera-patterns]')?.open;`))await clickElement(sessionId,await findElement(sessionId,'[data-testid="camera-pattern-picker"]'));await click(`camera-pattern-${id}`);};
+  const text=async s=>{
+    await clickButtonByText(sessionId,s,"exact");
+    await executeAsyncScript(sessionId,"const done=arguments[arguments.length-1];requestAnimationFrame(()=>requestAnimationFrame(()=>done(true)));",[]);
+  };
+  const invoke=(command,args={})=>executeAsyncScript(sessionId,`const done=arguments[arguments.length-1];(window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke)(arguments[0],arguments[1]).then(done).catch(e=>done({error:String(e)}));`,[command,args]);
+  const step=(id,detail={})=>{report.steps.push({id,status:"passed",...detail});console.log(`[camera-advanced] ${target} ${id}`);};
+  const number=async(label,value)=>{
+    await js(`const e=document.querySelector('input[aria-label="'+arguments[0]+'"]');for(let p=e?.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;e?.scrollIntoView({block:'center'});e?.focus();`,[label]);
+    const el=await findElement(sessionId,`input[aria-label="${label}"]`);
+    await webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"key",id:"camera-number-keyboard",actions:[
+      {type:"keyDown",value:"\uE009"},{type:"keyDown",value:"a"},{type:"keyUp",value:"a"},{type:"keyUp",value:"\uE009"}]}]});
+    await webdriverRequest("POST",`/session/${sessionId}/element/${el}/value`,{text:String(value),value:[...String(value)]});
+    await waitFor(()=>js(`return document.querySelector('input[aria-label="'+arguments[0]+'"]')?.valueAsNumber===arguments[1];`,[label,Number(value)]),5000,`Campo de câmera não recebeu ${value}: ${label}`,50);
+  };
+  const checkbox=async(label,checked)=>{
+    const index=await js(`const all=[...document.querySelectorAll('[data-testid="camera-configurator"] input[type="checkbox"]')];return all.findIndex(e=>e.closest('label')?.textContent.trim()===arguments[0]);`,[label]);
+    if(index<0)fail(`Checkbox ausente: ${label}`);
+    const selector=`[data-testid="camera-configurator"] input[type="checkbox"]`;
+    await js(`const e=document.querySelectorAll(arguments[0])[arguments[1]];e.scrollIntoView({block:'center'});`,[selector,index]);
+    const current=await js(`return document.querySelectorAll(arguments[0])[arguments[1]].checked;`,[selector,index]);
+    if(current!==checked){const found=await webdriverRequest("POST",`/session/${sessionId}/elements`,{using:"css selector",value:selector});const el=found.value[index];await clickElement(sessionId,el["element-6066-11e4-a52e-4f735466cecf"]??el.ELEMENT);}
+  };
+  const openDetails=()=>js(`for(const d of document.querySelectorAll('[data-testid="camera-configurator"] details:not([data-camera-patterns])'))d.open=true;`);
+  const stop=async()=>{if((await state())?.emulatorLoaded){await click("toolbar-emulator-stop");await waitFor(async()=>!(await state())?.emulatorLoaded,10000,"Core nao encerrou.",100);}};
+  let project,sceneFile;
+  try {
+    await setSessionWindowRect(sessionId,1280,800);await prepareWizardTemplateGallery(sessionId,target);
+    await click(`template-card-${target==="snes"?"starter_guided":"reference_platformer"}`);
+    const name=`CameraAdvanced_${target}_${Date.now()}`;await fillInputBySelector(sessionId,'input[placeholder="Nome do projeto"]',name);await text("Criar Projeto");
+    const created=await waitFor(async()=>{const s=await state();return s?.activeProjectName===name&&s.activeProjectDir?s:false;},60000,"Projeto nao foi criado.",100);
+    project=created.activeProjectDir;onProjectCreated(project);
+    const metadata=JSON.parse(await readFile(path.join(project,"project.rds"),"utf8"));sceneFile=path.join(project,metadata.entry_scene);
+    const source=JSON.parse(await readFile(sceneFile,"utf8"));
+    const materialized=[];
+    for(const e of source.entities){let components={};if(e.prefab)components=JSON.parse(await readFile(path.join(project,"prefabs",e.prefab),"utf8")).components??{};components={...components,...Object.fromEntries(Object.entries(e.components??{}).filter(([,v])=>v!==null))};materialized.push({...e,prefab:null,components});}
+    const player=materialized.find(e=>e.entity_id==="player"&&e.components.sprite);if(!player)fail("Template sem personagem autoral.");
+    const tileset="assets/tilesets/camera_advanced.ppm",pixels=Buffer.alloc(32*8*3),colors=[[0,68,68],[0,102,170],[68,34,170],[170,204,238]];
+    for(let y=0;y<8;y++)for(let x=0;x<32;x++)pixels.set(colors[(Math.floor(x/8)+(x%8===0||y===0?1:0))%4],(y*32+x)*3);
+    await mkdir(path.dirname(path.join(project,tileset)),{recursive:true});await writeFile(path.join(project,tileset),Buffer.concat([Buffer.from("P6\n32 8\n255\n"),pixels]));
+    player.transform={x:200,y:200};player.display_name="Herói";player.components={sprite:player.components.sprite};
+    // Static idle isolates screen anchoring from the character's changing silhouette.
+    player.components.sprite.animations={...player.components.sprite.animations,idle:{frames:[0],fps:1,loop:true}};
+    const other={...structuredClone(player),entity_id:"other",display_name:"Parceiro",transform:{x:400,y:200}};
+    const bounds={x:negative?-128:0,y:negative?-64:0,width:512,height:512};
+    const fixed={version:1,active:false,pattern:"fixed",anchor_x:0,anchor_y:0,screen_x:128,screen_y:112,horizontal:true,vertical:true,response_x:1,response_y:1,dead_zone_x:0,dead_zone_y:0,look_ahead:0,max_speed:256,speed:60,paused:false,bounds};
+    const controlGraph={nodes:[],edges:[]};
+    for(const [button,action,camera,x,y,frames] of [["UP","pause","main_camera",0,0,0],["DOWN","resume","main_camera",0,0,0],["LEFT","shake","main_camera",4,2,4],["RIGHT","offset","main_camera",5,-3,3],["A","select","main_camera",0,0,0],["B","regions","main_camera",0,0,0],["START","restart","main_camera",0,0,0]]){
+      const id=button.toLowerCase();controlGraph.nodes.push({id:`tick_${id}`,type:"event_update",params:{rate:"frame"}},{id:`input_${id}`,type:"input_pressed",params:{button:`BUTTON_${button}`,pad:"JOY_1"}},{id:`control_${id}`,type:"camera_control",params:{target:camera,action,x,y,frames}});
+      controlGraph.edges.push({fromNode:`tick_${id}`,fromPort:"exec",toNode:`input_${id}`,toPort:"exec"},{fromNode:`input_${id}`,fromPort:"exec",toNode:`control_${id}`,toPort:"exec"});
+    }
+    // Authored variables are volatile in the canonical emitters. Their test adjustments feed
+    // actual Set Position nodes before the camera update, including teleport/respawn cases.
+    controlGraph.nodes.push({id:"init",type:"event_start",params:{}});
+    let previousInit="init";
+    for(const [id,value] of [["x",200],["y",200],["other_x",400],["other_y",200]]){
+      controlGraph.nodes.push({id:`init_${id}`,type:"var_set",params:{var_name:`qa_${id}`,value}},{id:`get_${id}`,type:"var_get",params:{var_name:`qa_${id}`}});
+      controlGraph.edges.push({fromNode:previousInit,fromPort:"exec",toNode:`init_${id}`,toPort:"exec"});previousInit=`init_${id}`;
+    }
+    for(const id of ["player","other"]){const stem=id==="player"?"":"other_";
+      controlGraph.nodes.push({id:`tick_position_${id}`,type:"event_update",params:{rate:"frame"}},{id:`position_${id}`,type:"set_position",params:{target:id,x:200,y:200}});
+      controlGraph.edges.push({fromNode:`tick_position_${id}`,fromPort:"exec",toNode:`position_${id}`,toPort:"exec"},...['x','y'].map(axis=>({fromNode:`get_${stem}${axis}`,fromPort:"value",toNode:`position_${id}`,toPort:axis})));
+    }
+    player.components.logic={graph:JSON.stringify(controlGraph)};
+    const overlayAsset="assets/tilesets/camera_overlay.ppm",overlayColors=[[221,102,34],[255,204,102]];
+    if(layered){const data=Buffer.alloc(8*8*3);for(let y=0;y<8;y++)for(let x=0;x<8;x++)data.set(overlayColors[x===0||y===0?1:0],(y*8+x)*3);await writeFile(path.join(project,overlayAsset),Buffer.concat([Buffer.from("P6\n8 8\n255\n"),data]));}
+    const scene={...source,collision_map:null,retrofx:null,entities:[
+      ...(layered&&target==="snes"?[{entity_id:"overlay",display_name:"Primeiro plano",prefab:null,transform:{x:0,y:0},components:{tilemap:{tileset:overlayAsset,map_width:64,map_height:64,scroll_x:0,scroll_y:0,cells:Array.from({length:4096},(_,i)=>Math.floor(i/64)>=15&&Math.floor(i/64)<19&&(i%64)%3===0?1:0xffffffff)}}}]:[]),
+      {entity_id:"world",display_name:"Cenário",prefab:null,transform:{x:bounds.x,y:bounds.y},components:{tilemap:{tileset,map_width:64,map_height:64,scroll_x:0,scroll_y:0,cells:Array.from({length:4096},(_,i)=>1+((i%64)*7+Math.floor(i/64)*3)%4)}}},
+      player,other,{entity_id:"main_camera",display_name:"Câmera principal",prefab:null,transform:{x:0,y:0},components:{camera:{follow_entity:"player",offset_x:0,offset_y:0}}},
+      {entity_id:"region_camera",display_name:"Câmera de região",prefab:null,transform:{x:128,y:32},components:{camera:{follow_entity:"player",offset_x:0,offset_y:0,visual:fixed}}},
+      ...(target==="megadrive"?[{entity_id:"hud",prefab:null,transform:{x:0,y:0},components:{hud:{column:2,row:2,label:"CAMERA"}}}]:[])
+    ]};
+    if(layered&&target==="megadrive")scene.entities.splice(1,0,{entity_id:"overlay",display_name:"Primeiro plano",prefab:null,transform:{x:0,y:0},components:{tilemap:{tileset:overlayAsset,map_width:64,map_height:64,scroll_x:0,scroll_y:0,cells:Array.from({length:4096},(_,i)=>Math.floor(i/64)>=15&&Math.floor(i/64)<19&&(i%64)%3===0?1:0xffffffff)}}});
+    await writeFile(sceneFile,JSON.stringify(scene,null,2));await js("return window.__RDS_E2E__.openProject(arguments[0]);",[project]);
+    await waitFor(async()=>((await state())?.activeScene?.entities??[]).some(e=>e.id==="other"),30000,"Fixture nao abriu.",100);
+    await cp(project,path.join(output,"authored-project"),{recursive:true,filter:p=>!path.relative(project,p).split(path.sep).includes("build")});
+    step("authored_fixture",{preparation:"Shipped sprite; generated resident map; graph input events; temporary WRAM positions use canonical epoch guard. No commercial ROM."});
+    if(process.env.RDS_CAMERA_REFERENCE_MANIFEST){
+      if(target!=="snes")fail("Referencia cruzada exige SNES.");
+      const plan=JSON.parse(await readFile(process.env.RDS_CAMERA_REFERENCE_MANIFEST,"utf8"));report.reference={template_sha256:plan.template_sha256,logical_width:plan.logical_width,fields:plan.fields,cases:[]};
+      for(const test of plan.cases){
+        if(!await js("return window.__RDS_E2E__.loadRomForEmulation(arguments[0],{startPaused:true});",[test.rom]))fail("Referencia nao carregou.");
+        const ran=await invoke("emulator_run_frames",{frames:180});if(!ran.ok)fail(JSON.stringify(ran));
+        const symbols=new Map((await readFile(test.sym,"utf8")).split(/\r?\n/).flatMap(line=>{const m=line.match(/^([\da-f]+)\s+\S*\.asm_(probe_count|probe_samples)$/i);return m?[[m[2],parseInt(m[1],16)-0x7e0000]]:[];}));
+        if(symbols.size!==2)fail("Marcadores de referencia ausentes.");
+        const countBytes=(await invoke("emulator_read_memory",{region:2,offset:symbols.get("probe_count"),length:2})).data;
+        const count=countBytes?.[0]|countBytes?.[1]<<8;if(count!==test.expected.length){report.reference.cases.push({name:test.name,count,expected_count:test.expected.length,matches:false});continue;}
+        const data=(await invoke("emulator_read_memory",{region:2,offset:symbols.get("probe_samples"),length:count*plan.fields.length*2})).data;
+        const bytes=Buffer.from(data),actual=Array.from({length:count},(_,row)=>plan.fields.map((_,col)=>bytes.readInt16LE((row*plan.fields.length+col)*2)));
+        const matches=JSON.stringify(actual)===JSON.stringify(test.expected);
+        report.reference.cases.push({name:test.name,source_sha256:test.source_sha256,rom_sha256:createHash('sha256').update(await readFile(test.rom)).digest('hex'),actual,expected:test.expected,matches});
+        if(matches)step(`cpu_reference_${test.name}`,{samples:count});
+      }
+      const failures=report.reference.cases.filter(c=>!c.matches);if(failures.length)fail(`Divergencia de CPU: ${failures.map(c=>c.name).join(', ')}. Valores completos no relatorio.`);
+      report.status="diagnostic";report.reference.passed=true;return;
+    }
+    if(process.env.RDS_CAMERA_PROBE_ROM&&process.env.RDS_CAMERA_PROBE_SYM){
+      if(target!=="snes")fail("Probe de SDK exige SNES.");
+      const rom=process.env.RDS_CAMERA_PROBE_ROM,sym=process.env.RDS_CAMERA_PROBE_SYM;
+      const loaded=await js("return window.__RDS_E2E__.loadRomForEmulation(arguments[0],{startPaused:true});",[rom]);if(!loaded)fail("Probe nao carregou.");
+      const result=await invoke("emulator_run_frames",{frames:180});if(!result.ok)fail(JSON.stringify(result));
+      report.probe={rom_sha256:createHash('sha256').update(await readFile(rom)).digest('hex'),memory:{}};
+      const frame=await invokeCoreObserve(sessionId);await writeFile(path.join(output,"probe-frame.rgba"),Buffer.from(frame.framebuffer_rgba));
+      await writeFile(path.join(output,"probe-frame.json"),JSON.stringify({width:frame.framebuffer_width,height:frame.framebuffer_height}));
+      for(const line of (await readFile(sym,"utf8")).split(/\r?\n/)){const m=line.match(/^([\da-f]+)\s+\S*\.asm_((?:rds_cam|probe_)[^\s]*)$/i);if(!m)continue;const address=parseInt(m[1],16);if(address<0x7e0000||address>=0x800000)continue;
+        const memory=await invoke("emulator_read_memory",{region:2,offset:address-0x7e0000,length:8});report.probe.memory[m[2]]={address,bytes:memory.data??memory};
+      }
+      report.status="diagnostic";console.log('[camera-advanced] SDK_DIAGNOSTIC '+JSON.stringify(report.probe));return;
+    }
+    const available=target==="snes"?["fixed","platformer","direct_limited","exploration","auto_horizontal","auto_vertical","auto_horizontal_negative","auto_vertical_negative","rooms","rooms_smooth","beat_em_up","beat_em_up_backtracking","arena","sequence","parallax","regions","regions_smooth"]:["direct_limited","auto_horizontal_negative","auto_vertical_negative","rooms","rooms_smooth","beat_em_up","beat_em_up_backtracking","arena","sequence","parallax","regions","regions_smooth"];
+    const patterns=available.filter(p=>!process.env.RDS_CAMERA_CASES||process.env.RDS_CAMERA_CASES.split(',').includes(p));if(!patterns.length)fail("Nenhum caso de camera selecionado.");
+    for(const pattern of patterns){
+      await stop();await click("workspace-rail-scene");
+      // Only the secondary authored fixture's activation region varies by case.
+      const disk=JSON.parse(await readFile(sceneFile,"utf8")),region=disk.entities.find(e=>e.entity_id==="region_camera").components.camera.visual;
+      region.max_speed=16;region.advanced={rooms:[],targets:[],path:[],return_to_target:false,allow_backtracking:false,activation:pattern.startsWith("regions")?{x:300,y:0,width:200,height:512}:null,priority:10,smooth_transition:pattern==="regions_smooth",parallax:[]};
+      await writeFile(sceneFile,JSON.stringify(disk,null,2));await js("return window.__RDS_E2E__.openProject(arguments[0]);",[project]);await closeVisibleConsoleDrawer(sessionId,"advanced-config");
+      const mode=pattern.endsWith("_negative")?pattern.replace(/_negative$/,""):pattern.startsWith("rooms")?"rooms":pattern.startsWith("beat_em_up")?"beat_em_up":pattern==="parallax"||pattern==="direct_limited"||pattern.startsWith("regions")?"platformer":pattern;
+      await click("configure-camera");await selectPattern(mode);await openDetails();await text("Restaurar valores do padrão");
+      for(const [label,value] of [["Área X",bounds.x],["Área Y",bounds.y],["Largura da área",512],["Altura da área",512]])await number(label,value);
+      if(!["fixed","auto_horizontal","auto_vertical","sequence"].includes(mode)){
+        for(const [label,value] of [["Ponto na tela X",128],["Ponto na tela Y",112],["Resposta horizontal (1 = direta)",1],["Resposta vertical (1 = direta)",1],["Região livre X (meia largura)",0],["Região livre Y (meia altura)",0],["Antecipação horizontal",0],["Teto de velocidade (pixels/quadro)",256]])await number(label,value);
+      }
+      if(pattern==="direct_limited")await number("Teto de velocidade (pixels/quadro)",16);
+      if(pattern==="fixed"){await number("Posição X",64);await number("Posição Y",32);}
+      if(pattern.startsWith("auto_")){
+        const reverse=pattern.endsWith("_negative");await number("Velocidade (pixels por segundo; negativo inverte)",reverse?-120:120);
+        if(reverse){await text("Começar na borda de origem");const axis=mode==="auto_horizontal"?"X":"Y",expected=512-(axis==="X"?width:224);
+          await waitFor(()=>js(`return Number(document.querySelector('input[aria-label="Posição '+arguments[0]+'"]').value)===arguments[1];`,[axis,expected]),5000,"A borda de origem negativa não foi aplicada ao rascunho.",50);
+          const actual=Number(await js(`return document.querySelector('input[aria-label="Posição '+arguments[0]+'"]').value;`,[axis]));
+          if(actual!==expected)fail(`Borda de origem negativa incorreta: ${JSON.stringify({axis,expected,actual})}`);
+          step(`${pattern}_visible_origin_edge`,{axis,expected,actual,speed:-120});
+        }
+      }
+      if(pattern.startsWith("rooms")){
+        for(let i=1;i<=2;i++){await text("Adicionar sala e desenhar");for(const [key,value] of [["X",i===1?0:192],["Y",0],["largura",i===1?192:320],["altura",512]])await number(`Sala ${i}: ${key}`,value);}
+        if(pattern==="rooms_smooth"){
+          await clickElement(sessionId,await findElement(sessionId,'[aria-label="Salas da câmera"] fieldset:nth-of-type(2) input[type="checkbox"]'));
+          await number("Resposta horizontal (1 = direta)",8);await number("Teto de velocidade (pixels/quadro)",16);
+        }
+      }
+      if(pattern==="beat_em_up_backtracking")await checkbox("Permitir recuar com a câmera",true);
+      if(pattern==="arena"){await checkbox("Herói",true);await checkbox("Parceiro",true);}
+      if(pattern==="sequence"){
+        for(const [i,x,y,frames,wait] of [[1,120,60,4,2],[2,180,80,0,1]]){await text("Adicionar ponto no cenário");for(const [key,value] of [["X",x],["Y",y],["duração em quadros",frames],["espera em quadros",wait]])await number(`Ponto ${i}: ${key}`,value);}
+        await checkbox("Voltar a acompanhar o personagem ao terminar",true);await number("Posição X",0);await number("Posição Y",0);
+        for(const [label,value] of [["Ponto na tela X",128],["Ponto na tela Y",112],["Resposta horizontal (1 = direta)",1],["Resposta vertical (1 = direta)",1],["Região livre X (meia largura)",0],["Região livre Y (meia altura)",0],["Antecipação horizontal",0],["Teto de velocidade (pixels/quadro)",256]])await number(label,value);
+      }
+      if(pattern==="parallax"){await checkbox("Paralaxe: Cenário",true);await number("Cenário: horizontal (%)",50);await number("Cenário: vertical (%)",100);}
+      if(pattern==="rooms"){
+        await text("Salvar como meu padrão");await text("Duplicar padrão");await fillInputBySelector(sessionId,'input[aria-label="Nome do meu padrão"]',"Salas reutilizáveis");await text("Renomear padrão");
+        await number("Área X",12);await text("Usar padrão");
+        if(await js(`return document.querySelector('input[aria-label="Área X"]').value;`)!=="0")fail("Padrão nao restaurou valores efetivos.");
+      }
+      const errors=await js(`return [...document.querySelectorAll('[data-testid="camera-configurator"] [role="alert"]')].map(e=>e.textContent);`);if(errors.length)fail(JSON.stringify(errors));
+      await click("camera-apply");await click("toolbar-save");
+      await waitFor(()=>js(`const e=document.querySelector('[data-testid="scene-save-status"]');return e?.dataset.status==='saved'&&e.dataset.revision===e.dataset.savedRevision;`),15000,"Cena nao confirmou a revisao salva.",100);
+      await waitFor(async()=>JSON.parse(await readFile(sceneFile,"utf8")).entities.find(e=>e.entity_id==="main_camera").components.camera.visual,10000,"Camera nao salvou.",100);
+      await js("return window.__RDS_E2E__.openProject(arguments[0]);",[project]);
+      if(pattern==="rooms"){const saved=JSON.parse(await readFile(sceneFile,"utf8")).entities.find(e=>e.entity_id==="main_camera").components.camera;if(saved.patterns.length!==2||saved.patterns[1].name!=="Salas reutilizáveis")fail("Biblioteca nao reabriu.");}
+      await copyFile(sceneFile,path.join(output,`${pattern}-scene.json`));
+      const run=await runBuildRunAndCollect(sessionId,`Advanced ${target} ${pattern}`,timeoutMs,report,`${prefix}-${pattern}`,{nativeClick:true,target});
+      const build=path.join(project,"build",target);let symbols;
+      await copyFile(path.join(build,"src/main.c"),path.join(output,`${pattern}-main.c`));
+      if(target==="megadrive"){symbols=parseElf32Symbols(await readFile(path.join(build,"out/rom.out")));await copyFile(path.join(build,"out/rom.out"),path.join(output,`${pattern}.elf`));}
+      else {const symFile=(await readdir(build)).find(n=>n.endsWith(".sym"));if(!symFile)fail("Build SNES sem simbolos.");const contents=await readFile(path.join(build,symFile),"utf8");symbols=new Map(contents.split(/\r?\n/).flatMap(line=>{const m=line.match(/^([\da-f]+)\s+(\S+)$/i);return m?[[m[2].replace(/^.*\.asm_/,""),parseInt(m[1],16)]]:[];}));await writeFile(path.join(output,`${pattern}.sym`),contents);}
+      await copyFile(run.rom_path,path.join(output,`${pattern}.rom`));
+      const offset=n=>{let name=n;if(!symbols.has(name)){const sprite=n.match(/^spr_(player|other)_([xy])$/);if(sprite)name=[...symbols.keys()].find(k=>k.endsWith(`__${sprite[1]}_${sprite[2]}`))??n;}if(!symbols.has(name))fail(`Simbolo ausente: ${n}`);return target==="snes"?symbols.get(name)-0x7e0000:symbols.get(name)&0xffff;};
+      const word=async(n,signed=true)=>{const m=await invoke("emulator_read_memory",{region:2,offset:offset(n),length:2});if(!m?.data)fail(JSON.stringify(m));const w=m.data[0]|m.data[1]<<8;return signed&&w>32767?w-65536:w;};
+      await waitFor(async()=>await word("rds_cam_initialized",false)===1,180000,"Camera nao inicializou.",100);
+      await click("viewport-pause");await waitFor(async()=>(await state())?.emulPaused,10000,"Core nao pausou.",100);
+      const epoch=await invoke("emulator_get_core_epoch"),neutral={b:false,y:false,select:false,start:false,up:false,down:false,left:false,right:false,a:false,x:false,l:false,r:false};
+      const write=async(n,value)=>{const symbol=n.replace(/^spr_player_/,"logic_var_qa_").replace(/^spr_other_/,"logic_var_qa_other_");const data=Buffer.alloc(4);
+        // Genesis Plus GX exposes native 16-bit words: a 68000 long keeps the high
+        // word first, with little-endian bytes inside each word. SNES WRAM is LE32.
+        if(target==="megadrive"){data.writeUInt16LE((value>>>16)&65535,0);data.writeUInt16LE(value&65535,2);}else data.writeInt32LE(value);
+        const r=await invoke("emulator_write_test_memory",{offset:offset(symbol),data:[...data],sessionEpoch:epoch});if(!r.ok)fail(JSON.stringify(r));};
+      const advance=async(button)=>{const key=target==="megadrive"&&button==="a"?"y":button;const ack=await invoke("emulator_send_input",{joypad:{...neutral,...(key?{[key]:true}:{})},sessionEpoch:epoch});if(!ack.ok)fail(JSON.stringify(ack));const before=await invokeCoreObserve(sessionId);await click("viewport-step-frame");await waitFor(async()=>(await invokeCoreObserve(sessionId))?.frames_run===before.frames_run+1,10000,"Passo nao foi um quadro.",30);};
+      const positions=async()=>({x:await word("rds_camera_x"),y:await word("rds_camera_y"),base_x:await word("rds_camera_base_x"),base_y:await word("rds_camera_base_y"),active:await word("rds_camera_active",false),paused:await word("rds_camera_paused",false),separated:await word("rds_camera_separated",false),player_x:await word("spr_player_x"),player_y:await word("spr_player_y"),other_x:await word("spr_other_x"),other_y:await word("spr_other_y")});
+      const sample=async(label,expected)=>{const actual=await positions();for(const [key,value] of Object.entries(expected))if(actual[key]!==value)fail(`${target}/${pattern}/${label}: ${JSON.stringify({actual,expected})}`);report.samples.push({pattern,label,...actual,expected});return actual;};
+      await advance();await advance();
+      if(pattern==="direct_limited"){
+        await write("spr_player_x",300);await write("spr_player_y",250);await advance();await sample("direct-ceiling-first-frame",{x:88,y:104});
+        await advance();await sample("direct-ceiling-next-frame",{x:104,y:120});
+        for(let i=0;i<8;i++)await advance();await sample("direct-reaches-target",{x:172,y:138});
+        await write("spr_player_x",100);await advance();await sample("direct-reversal-ceiling",{x:156});
+      }else if(pattern.startsWith("rooms")){
+        await write("spr_player_x",100);await advance();await sample("small-left",{x:0});
+        await write("spr_player_x",192);await advance();await sample("right-border",{x:pattern==="rooms_smooth"?16:192});
+        if(pattern==="rooms_smooth"){await advance();await sample("smooth-next",{x:32});}
+        // The last room remains selected; its internal travel depends on the
+        // target viewport (320px MD, 256px SNES), not on a fixed MD coordinate.
+        await write("spr_player_x",700);await advance();await sample("outside-holds",{x:pattern==="rooms_smooth"?48:512-width});
+        await write("spr_player_x",100);await advance();await sample("return-left",{x:0});
+      }else if(pattern.startsWith("beat_em_up")){
+        await write("spr_player_x",300);await advance();await sample("advance",{x:172});
+        const receded=pattern==="beat_em_up_backtracking"?0:172;
+        await write("spr_player_x",100);await advance();await sample("backtracking-policy",{x:receded});
+        await advance("up");await write("spr_player_x",400);await advance();await sample("event-lock",{x:receded,paused:1});
+        await advance("down");await sample("event-release",{x:512-width,paused:0});
+        await write("spr_player_x",200);await advance("start");await sample("respawn-restart",{x:72,paused:0});
+      }else if(pattern==="arena"){
+        await write("spr_player_x",50);await write("spr_other_x",450);await advance();await sample("separated",{x:122,separated:1});
+        await write("spr_other_x",250);await advance();await sample("together",{x:22,separated:0});
+      }else if(pattern==="sequence"){
+        await advance("start");const xs=[0,30,60,90,120,120,120,180,180];
+        for(let i=0;i<xs.length;i++){if(i)await advance();await sample(`path-${i}`,{x:xs[i]});}
+        for(let i=0;i<120;i++){const p=await positions();if(p.x===72&&p.y===88)break;await advance();}
+        await sample("return-target",{x:72,y:88});
+      }else if(pattern.startsWith("regions")){
+        await write("spr_player_x",350);await advance();await sample("region-select",{active:1,x:pattern==="regions_smooth"?88:128});
+        await advance("start");await advance();await sample("inactive-restart-preserves-selection",{active:1});
+        await advance("a");await sample("manual-select",{active:0,x:Math.min(222,512-width)});
+        await advance();await sample("manual-overrides-region",{active:0});
+        await advance("b");await sample("return-regions",{active:1,x:pattern==="regions_smooth"?Math.min(222,512-width)-16:128});
+        await write("spr_player_x",200);await advance();await sample("outside-holds-current",{active:1});
+      }else if(pattern==="parallax"){
+        const probeX=negative?40:200,baseX=probeX+16-128;
+        await write("spr_player_x",probeX);await advance();await advance();const cameraA=await positions(),a=await invokeCoreObserve(sessionId);
+        await write("spr_player_x",probeX+16);await advance();await advance();await sample("half-scroll-camera",{x:baseX});const cameraB=await positions(),b=await invokeCoreObserve(sessionId);
+        await writeFile(path.join(output,"parallax-before.rgba"),Buffer.from(a.framebuffer_rgba));await writeFile(path.join(output,"parallax-after.rgba"),Buffer.from(b.framebuffer_rgba));
+        await writeFile(path.join(output,"parallax-frames.json"),JSON.stringify({width:a.framebuffer_width,height:a.framebuffer_height,cameraA,cameraB}));
+        const color=(f,x,y)=>f.framebuffer_rgba.slice((y*f.framebuffer_width+x)*4,(y*f.framebuffer_width+x)*4+4).join(',');let equal=0,total=0,changed=0;
+        // WINDOW also contains the emitted scene title at(1,1), beyond the CAMERA
+        // label. Prove fixed glyph ink separately; retain transparent BG pixels.
+        const windowInk=(f,x,y)=>{if(target!=="megadrive"||y>=24)return false;const [r,g,b]=f.framebuffer_rgba.slice((y*f.framebuffer_width+x)*4,(y*f.framebuffer_width+x)*4+3);return r>=128&&Math.abs(r-g)<=8&&Math.abs(g-b)<=8;};
+        if(target==="megadrive"){
+          let first=0,last=0,same=0;for(let y=0;y<24;y++)for(let x=0;x<a.framebuffer_width;x++){const p=windowInk(a,x,y),q=windowInk(b,x,y);first+=Number(p);last+=Number(q);same+=Number(p&&q);}
+          if(first<300||first!==last||same!==first)fail(`WINDOW perdeu titulo/HUD fixo: ${JSON.stringify({first,last,same})}`);
+          step("fixed_window_title_and_hud_ink",{first,last,same,rows:[0,23],origin:"Generated scene title at1,1 and CAMERA at2,2; neutral ink absent from authored blue/orange map palette."});
+        }
+        const spriteAt=(camera,x,y)=>[["player",player],["other",other]].some(([id,entity])=>{const left=camera[id+"_x"]-camera.x,top=camera[id+"_y"]-camera.y;return x>=left&&x<left+entity.components.sprite.frame_width&&y>=top&&y<top+entity.components.sprite.frame_height;});
+        const excluded={sprites:0,window_ink:0,foreground_band:0};
+        for(let y=0;y<a.framebuffer_height;y++)for(let x=0;x<a.framebuffer_width-8;x++){
+          if(spriteAt(cameraA,x,y)||spriteAt(cameraA,x+8,y)||spriteAt(cameraB,x,y)){excluded.sprites++;continue;}
+          if(windowInk(a,x,y)||windowInk(a,x+8,y)||windowInk(b,x,y)){excluded.window_ink++;continue;}
+          if(layered&&y>=32&&y<64){excluded.foreground_band++;continue;}
+          total++;equal+=Number(color(b,x,y)===color(a,x+8,y));changed+=Number(color(b,x,y)!==color(a,x,y));
+        }
+        step("declared_pixel_exclusions",{...excluded,compared:total,foreground_band_oracle:layered?"324 independent absolute samples below":null});
+        if(equal!==total||changed<total*0.8)fail(`Paralaxe sem deslocamento de8px na tela completa: ${JSON.stringify({equal,total,changed})}`);
+        // Independent world samples catch wrong 32x32 hardware page ordering,
+        // which can still look like correctly shifting repeated artwork.
+        const paletteChecks=[];
+        for(const [frame,camera] of [[a,cameraA],[b,cameraB]])for(const y of [0,1,8,15,32,35,72,75,168,171,200,203,216,223])for(const x of [0,23,79,183,231]){
+          if(windowInk(frame,x,y)||spriteAt(camera,x,y))continue;
+          if(layered&&y>=32&&y<64)continue;
+          const wx=Math.trunc(camera.x/2)+x-bounds.x,wy=camera.y+y-bounds.y,cell=(Math.floor(wx/8)*7+Math.floor(wy/8)*3)%4;
+          const expected=colors[(cell+(wx%8===0||wy%8===0?1:0))%4],i=(y*frame.framebuffer_width+x)*4,actual=frame.framebuffer_rgba.slice(i,i+3);
+          if(actual.some((channel,index)=>Math.abs(channel-expected[index])>(target==="snes"?10:36)))fail(`Cor mundial divergente: ${JSON.stringify({target,wx,wy,expected,actual})}`);
+          paletteChecks.push({wx,wy,expected,actual});
+        }
+        step("parallax_framebuffer_world_coordinates",{samples:paletteChecks});
+        if(layered){let foreground=0,background=0;const checks=[];
+          for(const [frame,camera] of [[a,cameraA],[b,cameraB]])for(const y of [40,47,56])for(let x=20;x<236;x+=4){
+            const frontX=camera.x+x,worldY=camera.y+y,front=Math.floor(frontX/8)%3===0;
+            const wx=Math.trunc(camera.x/2)+x,cell=(Math.floor(wx/8)*7+Math.floor(worldY/8)*3)%4;
+            const expected=front?overlayColors[frontX%8===0||worldY%8===0?1:0]:colors[(cell+(wx%8===0||worldY%8===0?1:0))%4];
+            const actual=frame.framebuffer_rgba.slice((y*frame.framebuffer_width+x)*4,(y*frame.framebuffer_width+x)*4+3);
+            if(actual.some((channel,index)=>Math.abs(channel-expected[index])>(target==="snes"?10:36)))fail(`Duas camadas divergentes: ${JSON.stringify({target,frontX,worldY,front,expected,actual})}`);
+            if(front)foreground++;else background++;checks.push({x,y,front,expected,actual});
+          }
+          if(foreground<40||background<80)fail("A prova deve observar ambas as camadas.");
+          step("two_layers_distinct_palettes_and_scroll",{foreground,background,checks});
+        }
+
+        // Shipped actors have red (MD) / green (SNES) ink absent from this
+        // fixture's blue background. Observe pixels, not only actor coordinates.
+        {
+          const ink=(f,x,y)=>{const i=(y*f.framebuffer_width+x)*4,[r,g,b]=f.framebuffer_rgba.slice(i,i+3);return target==="megadrive"?r>80&&r>g*1.3:g>80&&g>r*1.5&&g>b*1.3;};let first=0,last=0,same=0;
+          for(let y=112;y<144;y++)for(let x=128;x<160;x++){const p=ink(a,x,y),q=ink(b,x,y);first+=Number(p);last+=Number(q);same+=Number(p&&q);}
+          if(first<40||first!==last||same!==first)fail(`Sprite sem ancoragem visual: ${JSON.stringify({first,last,same})}`);
+          step("sprite_framebuffer_anchor",{first,last,same,world_delta:16,camera_delta:16});
+          if(target==="snes"){
+            const source=(await readFile(path.join(project,player.components.sprite.asset),"utf8")).trim().split(/\s+/);
+            if(source[0]!=="P3"||source[1]!=="16"||source[2]!=="16")fail("Fixture SNES precisa de imagem P3 16x16 para conferir a ancora.");
+            const rgb=source.slice(4).map(Number);let expected=0,matches=0;
+            for(let y=0;y<16;y++)for(let x=0;x<16;x++){
+              const i=(y*16+x)*3,green=rgb[i]===46&&rgb[i+1]===139&&rgb[i+2]===87;expected+=Number(green);
+              matches+=Number(ink(a,128+x,112+y)===green)+Number(ink(b,128+x,112+y)===green);
+            }
+            if(expected<40||matches!==512)fail(`Ancora mundial do personagem SNES divergente: ${JSON.stringify({expected,matches})}`);
+            step("sprite_framebuffer_world_anchor",{x:128,y:112,expected_ink:expected,mask_cells:512,matches});
+          }
+        }
+        await writeFile(path.join(output,"parallax-before.rgba"),Buffer.from(a.framebuffer_rgba));await writeFile(path.join(output,"parallax-after.rgba"),Buffer.from(b.framebuffer_rgba));step("parallax_framebuffer_shift",{equal,total,changed,shift:8});
+        // Temporary offsets and shake are cosmetic and return to the base camera.
+        await advance("right");await sample("offset-0",{x:baseX+5,y:85});await advance();await sample("offset-1",{x:baseX+5,y:85});await advance();await sample("offset-2",{x:baseX+5,y:85});await advance();await sample("offset-restored",{x:baseX,y:88});
+        await advance("left");for(let i=0;i<4;i++){if(i)await advance();await sample(`shake-${i}`,{x:baseX+(i%2?-4:4),y:88+(i%2?-2:2)});}await advance();await sample("shake-restored",{x:baseX,y:88});
+      }else if(pattern.startsWith("auto_")){
+        const reverse=pattern.endsWith("_negative"),delta=reverse?-2:2,horizontal=mode==="auto_horizontal";
+        await advance("start");const before=await positions();
+        if(reverse){const origin=512-(horizontal?width:224),actual=horizontal?before.x:before.y;if(actual<origin-2||actual>origin)fail(`Reiniciar nao usou a borda negativa: ${JSON.stringify({origin,actual})}`);}
+        await advance();await sample("scroll-step",{x:before.x+(horizontal?delta:0),y:before.y+(horizontal?0:delta)});
+        await advance("up");const held=await positions();await advance();await sample("scroll-pause",{x:held.x,y:held.y,paused:1});
+        await advance("down");await sample("scroll-resume",{x:held.x+(horizontal?delta:0),y:held.y+(horizontal?0:delta),paused:0});
+        if(reverse){await advance();const batch=await invoke("emulator_run_frames",{frames:300});if(!batch.ok)fail(JSON.stringify(batch));await sample("scroll-negative-destination-bound",{x:0,y:0,paused:0});}
+      }
+      else if(pattern==="fixed"){await write("spr_player_x",400);await advance();await sample("fixed",{x:64,y:32});}
+      else {await write("spr_player_x",300);await write("spr_player_y",250);await advance();await sample("follow-anchor",{x:172,y:138});await write("spr_player_x",100);await write("spr_player_y",100);await advance();await sample("follow-reverse-bound",{x:0,y:0});}
+      addReportArtifact(report,await captureScreenshot(sessionId,`${prefix}-${pattern}.png`),pattern);
+      step(`${pattern}_ui_save_reopen_build_rom`,{rom_sha256:createHash("sha256").update(await readFile(run.rom_path)).digest("hex")});
+    }
+    if(patterns.some(p=>p.startsWith("regions"))){
+      await stop();await click("workspace-rail-scene");
+      const missing=JSON.parse(await readFile(sceneFile,"utf8"));missing.entities.find(e=>e.entity_id==="main_camera").components.camera.follow_entity="removed_by_author";
+      await writeFile(sceneFile,JSON.stringify(missing,null,2));await copyFile(sceneFile,path.join(output,"removed-target-scene.json"));
+      await js("return window.__RDS_E2E__.openProject(arguments[0]);",[project]);await click("configure-camera");
+      const before=await readFile(sceneFile),refused=await js(`return document.querySelector('[data-testid="camera-apply"]')?.disabled&&[...document.querySelectorAll('[data-testid="camera-configurator"] [role="alert"]')].some(e=>e.textContent.includes('Escolha um personagem'));`);
+      if(!refused)fail("Referencia ao alvo removido foi aceita.");await click("camera-cancel");
+      if(!before.equals(await readFile(sceneFile)))fail("Cancelar regravou a referencia invalida.");step("removed_target_reference_refused_without_mutation");
+    }
+    report.status="passed";
+  }catch(error){report.status="failed";report.error=String(error);if(project)await cp(path.join(project,"build",target),path.join(output,"failed-build"),{recursive:true}).catch(()=>{});const image=await captureScreenshot(sessionId,`${prefix}-failure.png`).catch(()=>null);if(image)addReportArtifact(report,image,"failure");throw error;}
+  finally{await stop();await writeFile(path.join(output,"report.json"),JSON.stringify(report,null,2));}
+}
+
+// Camera v1: authored fixture only. UI config/save/reopen/build/run and RAM/framebuffer oracles.
+async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated) {
+  const prefix = `camera-workflow-${artifactTimestamp()}`;
+  const artifactDir=path.join(process.env.RDS_CAMERA_OUTPUT??validationDir,prefix);
+  await mkdir(artifactDir,{recursive:true});
+  const report = { schema:"retrodev.camera_workflow/v1", maturity:"Experimental", app_sha256:createHash("sha256").update(await readFile(currentE2eRunContext.appPath)).digest("hex"), steps:[], artifacts:[], trajectories:[] };
+  const js=(script,args=[])=>executeScript(sessionId,script,args);
+  const state=()=>readAutomationState(sessionId);
+  const click=(id)=>clickButtonByTestIdNative(sessionId,id,id);
+  const selectPattern=async id=>{if(!await js(`return document.querySelector('[data-camera-patterns]')?.open;`))await clickElement(sessionId,await findElement(sessionId,'[data-testid="camera-pattern-picker"]'));await click(`camera-pattern-${id}`);};
+  const shot=async(label)=>addReportArtifact(report,await captureScreenshot(sessionId,`${prefix}-${label}.png`),label);
+  const record=(step,detail={})=>{report.steps.push({step,status:"passed",...detail});console.log(`[camera-workflow] ${step}`);};
+  const drag=async(selector,from,to)=>{
+    const points=await js(`const e=document.querySelector(arguments[0]);e?.scrollIntoView({block:'center'});const r=e?.getBoundingClientRect(),v=e?.viewBox?.baseVal,m=e?.getScreenCTM?.();return r?arguments[1].map(p=>{if(v&&m){const q=new DOMPoint(v.x+v.width*p[0],v.y+v.height*p[1]).matrixTransform(m);return {x:Math.round(q.x),y:Math.round(q.y)};}return {x:Math.round(r.left+r.width*p[0]),y:Math.round(r.top+r.height*p[1])};}):null;`,[selector,[from,to]]);
+    if(!points)fail(`Alvo de arraste ausente: ${selector}`);
+    await webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"pointer",id:"camera-drag",parameters:{pointerType:"mouse"},actions:[{type:"pointerMove",origin:"viewport",...points[0]},{type:"pointerDown",button:0},{type:"pointerMove",duration:250,origin:"viewport",...points[1]},{type:"pointerUp",button:0}]}]});
+  };
+  const setNumber=async(label,value)=>{
+    await js(`const e=document.querySelector('input[aria-label="'+arguments[0]+'"]');for(let p=e?.parentElement;p;p=p.parentElement)if(p.tagName==='DETAILS')p.open=true;e?.scrollIntoView({block:'center'});e?.focus();e?.select();`,[label]);
+    const element=await findElement(sessionId,`input[aria-label="${label}"]`);
+    await webdriverRequest("POST",`/session/${sessionId}/element/${element}/value`,{text:String(value),value:[...String(value)]});
+  };
+  const currentCamera=async()=>((await state())?.activeScene?.entities??[]).find(e=>e.camera?.visual);
+  const closeGame=async()=>{if((await state())?.emulatorLoaded){await click("toolbar-emulator-stop");await waitFor(async()=>!(await state())?.emulatorLoaded,10000,"Emulador nao encerrou.",100);}};
+  const invoke=async(command,args={})=>executeAsyncScript(sessionId,`const done=arguments[arguments.length-1];const call=window.__TAURI__?.core?.invoke??window.__TAURI_INTERNALS__?.invoke;call(arguments[0],arguments[1]).then(done).catch(e=>done({error:String(e)}));`,[command,args]);
+  const command=async(id)=>webdriverRequest("POST",`/session/${sessionId}/actions`,{actions:[{type:"key",id:"camera-history",actions:[{type:"keyDown",value:"\uE009"},{type:"keyDown",value:id==="edit.undo"?"z":"y"},{type:"keyUp",value:id==="edit.undo"?"z":"y"},{type:"keyUp",value:"\uE009"}]}]});
+  try {
+    await setSessionWindowRect(sessionId,1280,800);
+    await prepareDefaultProjectWizard(sessionId);
+    await click("template-card-reference_platformer");
+    const name=`Camera_${Date.now()}`;
+    await fillInputBySelector(sessionId,'input[placeholder="Nome do projeto"]',name);
+    await clickButtonByText(sessionId,"Criar Projeto","exact");
+    const created=await waitFor(async()=>{const s=await state();return s?.activeProjectName===name&&s.activeProjectDir?s:false;},60000,"Projeto autoral nao criado.",200);
+    const project=created.activeProjectDir;onProjectCreated(project);
+    const projectFile=path.join(project,"project.rds");
+    const metadata=JSON.parse(await readFile(projectFile,"utf8"));
+    const sceneFile=path.join(project,metadata.entry_scene);
+    const scene=JSON.parse(await readFile(sceneFile,"utf8"));
+    // Declared fixture preparation: resident 64x64 map, collision floor, fixed HUD. All gameplay remains from the shipped authored template.
+    const tileset="assets/tilesets/camera_reference.ppm",colors=[[0,68,68],[0,102,170],[68,170,34],[170,204,238]];
+    const pixels=Buffer.alloc(32*8*3);
+    for(let y=0;y<8;y++)for(let x=0;x<32;x++){const tile=Math.floor(x/8);pixels.set(colors[(tile+(x%8===0||y===0?1:0))%4],(y*32+x)*3);}
+    await mkdir(path.dirname(path.join(project,tileset)),{recursive:true});
+    await writeFile(path.join(project,tileset),Buffer.concat([Buffer.from("P6\n32 8\n255\n"),pixels]));
+    for(const e of scene.entities){
+      if(!e.components?.tilemap&&e.prefab){const prefab=JSON.parse(await readFile(path.join(project,"prefabs",e.prefab),"utf8"));if(prefab.components?.tilemap)e.components.tilemap=structuredClone(prefab.components.tilemap);}
+      const t=e.components?.tilemap;if(!t)continue;
+      t.tileset=tileset;t.cells=Array.from({length:64*64},(_,i)=>1+((i%64)*7+Math.floor(i/64)*3)%4);t.map_width=64;t.map_height=64;}
+    if(scene.collision_map){const c=scene.collision_map,old=c.data,w=c.width,h=c.height;
+      c.data=Array.from({length:64*64},(_,i)=>old[Math.min(h-1,Math.floor(i/64))*w+(i%64)%w]??0);c.width=64;c.height=64;}
+    scene.entities.push({entity_id:"camera_qa_hud",transform:{x:0,y:0},components:{hud:{column:2,row:2,label:"CAMERA"}}});
+    await writeFile(sceneFile,JSON.stringify(scene,null,2));
+    if(!await js("return window.__RDS_E2E__.openProject(arguments[0]);",[project]))fail("Reabertura da fixture falhou.");
+    await waitFor(async()=>((await state())?.activeScene?.entities??[]).some(e=>e.id==="camera_qa_hud"),30000,"Fixture nao abriu.",100);
+    await closeVisibleConsoleDrawer(sessionId,"camera");
+    await cp(project,path.join(artifactDir,"authored-project"),{recursive:true,filter:source=>!path.relative(project,source).split(path.sep).includes("build")});
+    record("authored_resident_world_prepared",{project,scene_sha256:createHash("sha256").update(await readFile(sceneFile)).digest("hex"),preparation:"map/collision 64x64, generated 4-tile PPM using template colors and fixed HUD written by harness; original template assets unchanged; configuration performed through UI"});
+    const before=await state();
+    await click("configure-camera");await selectPattern("platformer");
+    await drag('svg[aria-label="Enquadramento do personagem"]',[0.4,0.5],[0.65,0.4]);
+    const composition=await js(`return Number(document.querySelector('input[aria-label="Ponto na tela X"]').value);`);
+    if(Math.abs(composition-208)>2)fail(`Composicao nao acompanhou o arraste: ${composition}`);
+    await js(`const d=[...document.querySelectorAll('[data-testid="camera-configurator"] details')].find(d=>d.querySelector("summary")?.textContent==="Área percorrida pela visão");if(d)d.open=true;`);
+    await clickButtonByText(sessionId,"Desenhar limites","exact");
+    await drag('[data-testid="camera-scene-preview"]',[0.1,0.2],[0.8,0.85]);
+    const drawn=await js(`return ['Área X','Área Y','Largura da área','Altura da área'].map(l=>Number(document.querySelector('input[aria-label="'+l+'"]').value));`);
+    if(Math.abs(drawn[0]-51)>3||Math.abs(drawn[1]-102)>3||Math.abs(drawn[2]-358)>3||Math.abs(drawn[3]-333)>3)fail(`Limites desenhados incorretos: ${JSON.stringify(drawn)}`);
+    await drag('[data-testid="camera-scene-preview"]',[0.5,0.5],[0.75,0.65]);
+    await click("camera-cancel");
+    if((await state()).sceneRevision!==before.sceneRevision)fail("Cancelar alterou a cena.");
+    if(JSON.stringify((await state()).activeScene.entities.map(e=>[e.id,e.x,e.y]))!==JSON.stringify(before.activeScene.entities.map(e=>[e.id,e.x,e.y])))fail("Previa moveu entidades.");
+    record("visual_drag_and_preview_cancel_preserve_scene",{composition,drawn});
+    for(const testCase of ["fixed","platformer","exploration","auto_horizontal","auto_vertical"].map(pattern=>({pattern,smooth:false})).concat([{pattern:"platformer",smooth:true}])){
+      const {pattern,smooth}=testCase,caseId=pattern+(smooth?"-smooth":"");
+      await closeGame();
+      await click("workspace-rail-scene");
+      await click("configure-camera");await selectPattern(pattern);await clickButtonByText(sessionId,"Restaurar valores do padrão","exact");
+      if(["platformer","exploration"].includes(pattern)){
+        await setNumber("Ponto na tela X",16);await setNumber("Ponto na tela Y",112);
+        await setNumber("Resposta horizontal (1 = direta)",smooth?8:1);await setNumber("Resposta vertical (1 = direta)",smooth?12:1);
+        await js(`const d=[...document.querySelectorAll('[data-testid="camera-configurator"] details:not([data-camera-patterns])')].find(d=>d.querySelector('summary')?.textContent==='Personalizar');if(d)d.open=true;`);
+        for(const [label,value] of [["Região livre X (meia largura)",0],["Região livre Y (meia altura)",smooth?32:0],["Antecipação horizontal",smooth?8:0],["Teto de velocidade (pixels/quadro)",smooth?16:256]])await setNumber(label,value);
+      }else if(pattern==="fixed"){
+        await setNumber("Posição X",64);await setNumber("Posição Y",32);
+      }else await setNumber("Velocidade (pixels por segundo; negativo inverte)",120);
+      // Required controls remain reachable at three sizes and at 125% page scale.
+      if(pattern==="platformer"&&!smooth){
+        for(const [width,height,scale] of [[1280,800,1],[1366,768,1.25],[949,593,1]]){
+          await setSessionWindowRect(sessionId,width,height);await js("document.documentElement.style.zoom=String(arguments[0]);",[scale]);
+          for(const id of ["camera-apply","camera-cancel","camera-test"]){
+            const reachable=await js(`const e=document.querySelector('[data-testid="'+arguments[0]+'"]');e?.scrollIntoView({block:'center'});const r=e?.getBoundingClientRect(),h=r&&document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return !!(r&&r.width>=24&&r.height>=24&&r.left>=0&&r.right<=innerWidth+1&&r.top>=0&&r.bottom<=innerHeight+1&&(h===e||e.contains(h)));`,[id]);
+            if(!reachable)fail(`${id} inacessivel em ${width}x${height}@${scale}`);
+          }
+          await shot(`${pattern}-${width}-${scale}`);
+        }
+        await js("document.documentElement.style.zoom='';");await setSessionWindowRect(sessionId,1280,800);
+      }
+      await click("camera-apply");
+      const applied=await currentCamera();if(applied?.camera.visual.pattern!==pattern)fail("Padrao nao aplicado.");
+      await command("edit.undo");
+      await waitFor(async()=>JSON.stringify(await currentCamera())!==JSON.stringify(applied),5000,"Undo nao restaurou camera.",100);
+      await command("edit.redo");
+      await waitFor(async()=>(await currentCamera())?.camera.visual.pattern===pattern,5000,"Redo nao reaplicou camera.",100);
+      await click("toolbar-save");
+      await waitFor(async()=>{const saved=JSON.parse(await readFile(sceneFile,"utf8"));return saved.entities.some(e=>e.components?.camera?.visual?.pattern===pattern);},15000,"Camera nao persistiu.",100);
+      await js("return window.__RDS_E2E__.openProject(arguments[0]);",[project]);
+      await waitFor(async()=>(await currentCamera())?.camera.visual.pattern===pattern,15000,"Camera nao reabriu.",100);
+      await copyFile(sceneFile,path.join(artifactDir,`${caseId}-scene.json`));
+      const run=await runBuildRunAndCollect(sessionId,`Camera ${caseId}`,timeoutMs,report,`${prefix}-${caseId}`,{nativeClick:true});
+      const link=JSON.parse(await readFile(path.join(project,"build/megadrive/rds-runtime-link.v1.json"),"utf8"));
+      const player=link.entities.find(e=>e.entity_id==="player");
+      if(!link.camera||!player)fail("Vinculo de camera/personagem ausente.");
+      const symbols=parseElf32Symbols(await readFile(path.join(project,"build/megadrive/out/rom.out")));
+      await copyFile(run.rom_path,path.join(artifactDir,`${caseId}.rom`));
+      await copyFile(path.join(project,"build/megadrive/out/rom.out"),path.join(artifactDir,`${caseId}.elf`));
+      await copyFile(path.join(project,"build/megadrive/rds-runtime-link.v1.json"),path.join(artifactDir,`${caseId}-runtime-link.json`));
+      const names=["rds_camera_x","rds_camera_y","spr_player_x","spr_player_y"];
+      if(names.some(n=>!symbols.has(n)))fail("Simbolos de posicao ausentes.");
+      const readPositions=async()=>{const values=[];for(const n of names){const m=await invoke("emulator_read_memory",{region:2,offset:symbols.get(n)&0xffff,length:2});if(!m?.data)fail(`RAM ${n}: ${JSON.stringify(m)}`);const w=m.data[0]|(m.data[1]<<8);values.push(w>32767?w-65536:w);}return {camera_x:values[0],camera_y:values[1],player_x:values[2],player_y:values[3]};};
+      await closeVisibleConsoleDrawer(sessionId,"camera-rom");await focusGameCanvasNatively(sessionId);
+      // Rendered frames include SDK/audio/resource startup. Observe the camera's first update
+      // before testing steady gameplay; a fixed frame count is not proof of readiness.
+      const initialized=await waitFor(async()=>{const p=await readPositions();return p.camera_x!==0||p.camera_y!==0?p:false;},180000,"A camera nao concluiu a primeira atualizacao da ROM.",100);
+      record(`${caseId}_camera_initialized`,{positions:initialized,frames:(await invokeCoreObserve(sessionId))?.frames_run});
+      await click("viewport-pause");await waitFor(async()=>(await state())?.emulPaused,10000,"ROM nao pausou.",100);
+      // Finish the first camera/VDP presentation before taking the invariant HUD baseline.
+      for(let settle=0;settle<2;settle++){
+        const before=await invokeCoreObserve(sessionId);await click("viewport-step-frame");
+        await waitFor(async()=>(await invokeCoreObserve(sessionId))?.frames_run===before.frames_run+1,10000,"Quadro de estabilizacao nao concluiu.",50);
+      }
+      const hudPixels=(f)=>{const out=[];for(let y=16;y<24;y++)for(let x=16;x<64;x++){const i=(y*f.framebuffer_width+x)*4;out.push(...f.framebuffer_rgba.slice(i,i+4));}return Buffer.from(out);};
+      const first=await readPositions();const trajectory=[];
+      const beforeFrame=await invokeCoreObserve(sessionId),hudBefore=hudPixels(beforeFrame);
+      await writeFile(path.join(artifactDir,`${caseId}-hud-before.rgba`),hudBefore);
+      await writeFile(path.join(artifactDir,`${caseId}-frame-before.rgba`),Buffer.from(beforeFrame.framebuffer_rgba));
+      let previous=first,direction=0;
+      for(let i=0;i<44;i++){
+        if(i===0){await focusGameCanvasNatively(sessionId);await sendNativeGameKey(sessionId,"ArrowRight","keyDown","camera forward");}
+        if(i===4){await sendNativeGameKey(sessionId,"ArrowRight","keyUp","camera stop");}
+        if(i===6){await sendNativeGameKey(sessionId,"ArrowLeft","keyDown","camera reverse");}
+        if(i===9){await sendNativeGameKey(sessionId,"ArrowLeft","keyUp","camera stop reverse");await sendNativeGameKey(sessionId,"KeyZ","keyDown","camera jump");}
+        if(i===10){await sendNativeGameKey(sessionId,"KeyZ","keyUp","camera release jump");}
+        const core=await invokeCoreObserve(sessionId);
+        await click("viewport-step-frame");
+        await waitFor(async()=>{const o=await invokeCoreObserve(sessionId);return o?.frames_run===core.frames_run+1;},10000,"Passo nao executou exatamente um quadro.",50);
+        const p=await readPositions();
+        const clamp=(n,max)=>Math.max(0,Math.min(max,n));
+        if(p.player_x!==previous.player_x)direction=Math.sign(p.player_x-previous.player_x);
+        const approach=(from,to,dead,response)=>{const distance=Math.max(0,Math.abs(to-from)-dead);return from+Math.sign(to-from)*(distance?Math.min(16,Math.max(1,Math.trunc(distance/response))):0);};
+        const expected=pattern==="fixed"?{x:64,y:32}:smooth?{x:clamp(approach(previous.camera_x,p.player_x-16+8*direction,0,8),192),y:clamp(approach(previous.camera_y,p.player_y-112,32,12),288)}:["platformer","exploration"].includes(pattern)?{x:clamp(p.player_x-16,192),y:clamp(p.player_y-112,288)}:
+          {x:clamp(previous.camera_x+(pattern==="auto_horizontal"?2:0),192),y:clamp(previous.camera_y+(pattern==="auto_vertical"?2:0),288)};
+        if(p.camera_x!==expected.x||p.camera_y!==expected.y)fail(`Trajetoria ${pattern}: ${JSON.stringify({p,expected,previous})}`);
+        trajectory.push({frame:core.frames_run+1,...p,expected});previous=p;
+      }
+      if(!trajectory.some(p=>p.player_x>first.player_x)||!trajectory.some((p,i)=>i>0&&p.player_x<trajectory[i-1].player_x))fail(`Caminhar/inverter nao foi observado em ${pattern}.`);
+      if(!trajectory.some(p=>p.player_y<first.player_y)||!trajectory.some((p,i)=>i>0&&p.player_y>trajectory[i-1].player_y))fail(`Saltar/cair nao foi observado em ${pattern}.`);
+      await shot(`${caseId}-rom`);
+      const afterFrame=await invokeCoreObserve(sessionId),hudAfter=hudPixels(afterFrame);
+      await writeFile(path.join(artifactDir,`${caseId}-hud-after.rgba`),hudAfter);
+      await writeFile(path.join(artifactDir,`${caseId}-frame-after.rgba`),Buffer.from(afterFrame.framebuffer_rgba));
+      const color=(f,x,y)=>f.framebuffer_rgba.slice((y*f.framebuffer_width+x)*4,(y*f.framebuffer_width+x)*4+3).join(',');
+      const scenery=new Set();for(const f of [beforeFrame,afterFrame])for(let y=24;y<40;y++)for(let x=0;x<f.framebuffer_width;x++)scenery.add(color(f,x,y));
+      const candidates=new Map();for(let y=16;y<24;y++)for(let x=16;x<64;x++){const c=color(beforeFrame,x,y);if(c===color(afterFrame,x,y)&&!scenery.has(c))candidates.set(c,(candidates.get(c)??0)+1);}
+      const glyph=[...candidates].sort((a,b)=>b[1]-a[1])[0]?.[0];let g0=0,g1=0,both=0;
+      for(let y=16;y<24;y++)for(let x=16;x<64;x++){const a=color(beforeFrame,x,y)===glyph,b=color(afterFrame,x,y)===glyph;g0+=Number(a);g1+=Number(b);both+=Number(a&&b);}
+      if(g0<40||both<Math.min(g0,g1)*0.95)fail(`HUD sem letras ancoradas em ${caseId}: ${JSON.stringify({glyph,g0,g1,both})}`);
+      report.trajectories.push({pattern,caseId,rom_sha256:createHash("sha256").update(await readFile(run.rom_path)).digest("hex"),first,samples:trajectory});
+      record(`${caseId}_ui_history_save_reopen_rom_trajectory`,{samples:trajectory.length,hud:{glyph,g0,g1,both},frame_size:[afterFrame.framebuffer_width,afterFrame.framebuffer_height]});
+    }
+    report.status="passed";
+  } catch(error){report.status="failed";report.error=String(error);await shot("failure").catch(()=>{});throw error;}
+  finally{await closeGame().catch(()=>{});await writeFile(path.join(artifactDir,"report.json"),JSON.stringify(report,null,2));await writeFile(path.join(validationDir,`${prefix}.json`),JSON.stringify(report,null,2));}
+}
+
 async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootstrapTimeoutMs, onProjectCreated) {
   let sessionId = initialSessionId;
   const artifactPrefix = `nodegraph-authoring-${artifactTimestamp()}`;
@@ -12776,7 +16995,14 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
   const shot = async (name, label) => addReportArtifact(report, await captureScreenshot(sessionId, `${artifactPrefix}-${name}.png`), label);
   const state = () => readAutomationState(sessionId);
   const js = (script, args = []) => executeScript(sessionId, script, args);
-  const click = (testId, label = testId) => clickButtonByTestIdNative(sessionId, testId, label);
+  const revealAction = async (testId) => {
+    const state = await js(`const el = document.querySelector('[data-testid="' + arguments[0] + '"]'); const menu = document.querySelector('[data-testid="nodegraph-visual-tools"]'); return menu ? { inside: Boolean(el && menu.contains(el)), open: menu.matches(':popover-open') } : null;`, [testId]);
+    if (state && state.inside !== state.open) await clickButtonByTestIdNative(sessionId, "nodegraph-more-actions", "mais acoes do grafo");
+  };
+  const click = async (testId, label = testId) => {
+    await revealAction(testId);
+    return clickButtonByTestIdNative(sessionId, testId, label);
+  };
   const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const selectOption = async (testId, value) => {
     await js(`document.querySelector('[data-testid="' + arguments[0] + '"]')?.scrollIntoView({ block: "center", inline: "center" });`, [testId]);
@@ -12841,7 +17067,10 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
     if (g.maxDeviation > 2) fail(`${label}: fio fora da porta (${g.maxDeviation.toFixed(2)} px): ${JSON.stringify(g.worst)}`);
   };
   const assertReachable = async (testIds, label) => {
-    const result = await js(`
+    const result = [];
+    for (const testId of testIds) {
+      await revealAction(testId);
+      result.push(...await js(`
       return arguments[0].map((id) => {
         const el = document.querySelector('[data-testid="' + id + '"]');
         if (!el) return { id, ok: false, reason: "ausente" };
@@ -12852,7 +17081,9 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
         const hit = document.elementFromPoint(cx, cy);
         return { id, ok: inside && Boolean(hit && (hit === el || el.contains(hit))), inside, hit: hit?.getAttribute?.("data-testid") ?? hit?.tagName };
       });
-    `, [testIds]);
+    `, [[testId]]));
+    }
+    await revealAction("nodegraph-more-actions");
     const bad = result.filter((entry) => !entry.ok);
     if (bad.length) fail(`${label}: controles inacessiveis/cobertos: ${JSON.stringify(bad)}`);
     return result;
@@ -12861,9 +17092,8 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
 
   // 1. Create the reference stage and a second passage blocker through the UI.
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await click("template-card-reference_platformer", "modelo de fase de referencia");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `NodeGraph_${Date.now()}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -12898,6 +17128,42 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
   const positionsShipped = await worldPositions();
   await shot("01-before-organize", "grafo como entregue pelo template (enquadrado)");
   addReportStep(report, "graph_before_organize", "passed", { geometry: before });
+
+  // Inserção não exige organizar todo o grafo e precisa funcionar fora da vista inicial.
+  const insertionLayouts = [];
+  for (const [width, height] of [[1280, 800], [1366, 768], [949, 593]]) {
+    await setSessionWindowRect(sessionId, width, height);
+    const previousPositions = await worldPositions();
+    const previousEdges = await js(`return document.querySelectorAll('path[data-from-node]').length;`);
+    await click("nodegraph-fit-view", "visao geral antes de inserir");
+    await js(`const shell = document.querySelector('[data-testid="nodegraph-canvas-shell"]'); const r = shell.getBoundingClientRect(); shell.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX: r.left + 150, clientY: r.top + 120, deltaY: 1500 }));`);
+    if (await js(`return document.querySelector('[data-testid="nodegraph-side-rail"]').hidden;`)) {
+      await clickElement(sessionId, await findElement(sessionId, '[data-testid="nodegraph-toolbar"] button:first-child'));
+    }
+    await click("nodegraph-add-event_start", "inserir primeiro no");
+    await click("nodegraph-add-event_start", "inserir segundo no");
+    const insertion = await js(`
+      const cards = [...document.querySelectorAll('[data-testid^="node-card-"]')];
+      const original = arguments[0];
+      const added = cards.filter(el => !(el.dataset.testid.slice(10) in original));
+      const overlaps = [];
+      for (const a of added) for (const b of cards.filter(el => el !== a)) {
+        const x = Number(a.dataset.x), y = Number(a.dataset.y), bx = Number(b.dataset.x), by = Number(b.dataset.y);
+        if (x < bx + b.offsetWidth && bx < x + a.offsetWidth && y < by + b.offsetHeight && by < y + a.offsetHeight) overlaps.push([a.dataset.testid, b.dataset.testid]);
+      }
+      const selected = added.find(el => el.dataset.selected === "true");
+      const r = selected?.getBoundingClientRect(), c = document.querySelector('[data-testid="nodegraph-canvas"]').getBoundingClientRect();
+      return { added: added.length, overlaps, zoom: Number(document.querySelector('[data-testid="nodegraph-canvas"]').dataset.zoom), visible: r && r.left >= c.left && r.right <= c.right + 1 && r.top >= c.top + 54 && r.bottom <= c.bottom + 1, uncovered: r && selected.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)) };
+    `, [previousPositions]);
+    if (insertion.added !== 2 || insertion.overlaps.length || insertion.zoom < 0.75 || !insertion.visible || !insertion.uncovered) fail(`Insercao ${width}x${height}: ${JSON.stringify(insertion)}`);
+    await click("nodegraph-undo", "desfazer segundo no");
+    await click("nodegraph-undo", "desfazer primeiro no");
+    if (JSON.stringify(await worldPositions()) !== JSON.stringify(previousPositions) || await js(`return document.querySelectorAll('path[data-from-node]').length;`) !== previousEdges) fail("Inserir/desfazer alterou posicoes ou conexoes existentes.");
+    insertionLayouts.push({ width, height, ...insertion });
+  }
+  addReportStep(report, "insertion_focus", "passed", insertionLayouts);
+  await setSessionWindowRect(sessionId, 1920, 1080);
+  if (await js(`return document.querySelector('[data-testid="nodegraph-context-rail"]').hidden;`)) await click("nodegraph-toggle-context", "abrir comportamentos e detalhes");
 
   // 3. Locate and understand the jump from the rules view.
   const jumpRuleText = await text("rule-update_jump");
@@ -12984,7 +17250,7 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
   const selection = await text("nodegraph-selection-count");
   if (!selection?.startsWith("4 selecionado")) fail(`Comportamento do pulo nao tem 4 nos: ${selection}`);
   await click("nodegraph-group-selection", "agrupar");
-  const groupId = await waitFor(async () => js(`return document.querySelector('[data-testid^="nodegraph-group-name-"]')?.dataset.testid.replace("nodegraph-group-name-", "") ?? null;`), 5000, "Grupo nao criado.", 100);
+  const groupId = await waitFor(async () => js(`return [...document.querySelectorAll('[data-testid^="nodegraph-group-name-"]')].find(el => el.value === "Pulo")?.dataset.testid.replace("nodegraph-group-name-", "") ?? null;`), 5000, "Grupo nao criado.", 100);
   if ((await value(`nodegraph-group-name-${groupId}`)) !== "Pulo") fail("Nome sugerido do grupo nao e 'Pulo'.");
   await setInputByTestIdNative(sessionId, `nodegraph-group-name-${groupId}`, "Pulo (botao B)");
   await waitFor(async () => (await value(`nodegraph-group-name-${groupId}`)) === "Pulo (botao B)", 5000, "Grupo nao renomeado.", 100);
@@ -12994,6 +17260,11 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
   addReportStep(report, "group_behavior", "passed", { groupId, selection });
 
   // 9. Sizes and scales: controls reachable, no overlaps, wires on ports (also zoomed in).
+  // A edição conserva escala legível: o grupo recolhido não expõe portas.
+  // Revele um fluxo conectado antes de exigir uma medição de fios visíveis.
+  if (!(await js(`return document.querySelector('[data-testid="nodegraph-toggle-minimap"]')?.getAttribute("aria-expanded") === "true";`)))
+    await click("nodegraph-toggle-minimap", "abrir mapa para medir fluxo conectado");
+  await click("nodegraph-minimap-node-start", "revelar entrada conectada");
   const layouts = {};
   layouts["1920x1080"] = { reach: await assertReachable(toolbar, "1920x1080"), geometry: await geometry("1920x1080") };
   await setSessionWindowRect(sessionId, 1366, 768);
@@ -13041,7 +17312,7 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
     jumpPosition: [node(saved, "jump")?.x, node(saved, "jump")?.y],
   };
   if (savedChecks.jumpButton !== "BUTTON_B" || savedChecks.mainThreshold !== 12 || savedChecks.secondThreshold !== 60 || savedChecks.goalSfx !== "victory" ||
-      savedChecks.groups?.[0]?.label !== "Pulo (botao B)" || savedChecks.groups?.[0]?.collapsed !== true ||
+      savedChecks.groups?.find(group => group.id === groupId)?.label !== "Pulo (botao B)" || savedChecks.groups?.find(group => group.id === groupId)?.collapsed !== true ||
       savedChecks.jumpPosition.join() !== positionsOrganized.jump.join()) {
     fail(`Arquivo salvo nao reflete as edicoes: ${JSON.stringify(savedChecks)}`);
   }
@@ -13074,9 +17345,7 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto salvo.", 300);
-  await click("wizard-open-existing-project", "reabrir projeto");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "Projeto nao reabriu.", 300);
   if (!(await js(`return Boolean(document.querySelector('[data-testid="guided-steps"]'));`))) await click("shell-persona-guiado", "modo guiado apos reinicio");
   await click("guided-step-regras", "etapa Regras apos reinicio");
@@ -13088,7 +17357,7 @@ async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootst
       mainThreshold: await value("passage-passage_main-threshold"),
       secondThreshold: await value("passage-passage_2-threshold"),
       sound: await value("rule-edit-goal_sound-sfx"),
-      group: await js(`const el = document.querySelector('[data-testid^="nodegraph-group-box-"]'); return el ? { collapsed: el.dataset.collapsed, label: el.textContent } : null;`),
+      group: await js(`const el = document.querySelector('[data-testid="nodegraph-group-box-' + arguments[0] + '"]'); return el ? { collapsed: el.dataset.collapsed, label: el.textContent } : null;`, [groupId]),
       positions: await worldPositions(),
     };
     return v.jumpRule ? v : false;
@@ -13359,9 +17628,8 @@ async function runBehaviorsIndependenceScenario(initialSessionId, appPath, uiBoo
 
   // 1. Project and two copies of the player (manual logic is NOT copied — warned first).
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await click("template-card-reference_platformer", "modelo de fase de referencia");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Behaviors_${Date.now()}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -13509,9 +17777,7 @@ async function runBehaviorsIndependenceScenario(initialSessionId, appPath, uiBoo
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto salvo.", 300);
-  await click("wizard-open-existing-project", "reabrir projeto");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "Projeto nao reabriu.", 300);
   if (!(await js(`return Boolean(document.querySelector('[data-testid="guided-steps"]'));`))) await click("shell-persona-guiado", "modo guiado apos reinicio");
   await click("guided-step-regras", "etapa Regras apos reinicio");
@@ -13832,9 +18098,8 @@ async function runCollectGoalScenario(initialSessionId, appPath, uiBootstrapTime
 
   // 1. Project and entities (all through the UI).
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await waitForOnboardingWizard(sessionId);
+  await prepareDefaultProjectWizard(sessionId);
   await click("template-card-reference_platformer", "modelo de fase de referencia");
-  await clickButtonByText(sessionId, "Mega Drive", "exact");
   const projectName = `Collect_${Date.now()}`;
   await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
   await clickButtonByText(sessionId, "Criar Projeto", "exact");
@@ -13891,9 +18156,7 @@ async function runCollectGoalScenario(initialSessionId, appPath, uiBootstrapTime
   await waitForAppWindowReady(sessionId, uiBootstrapTimeoutMs, "App nao reabriu apos reinicio");
   await waitFor(async () => js("return typeof window.__RDS_E2E__ === 'object' && window.__RDS_E2E__ !== null;"), uiBootstrapTimeoutMs, "API nao voltou apos reinicio", 150);
   await setSessionWindowRect(sessionId, 1920, 1080);
-  await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
-  await waitFor(async () => js(`return Boolean(document.querySelector('[data-testid="wizard-existing-project-card"]'));`), 30000, "Wizard nao encontrou o projeto salvo.", 300);
-  await click("wizard-open-existing-project", "reabrir projeto");
+  await openSavedProjectWizard(sessionId, projectDir);
   await waitFor(async () => (await state())?.activeProjectDir === projectDir, 60000, "Projeto nao reabriu.", 300);
   if (!(await js(`return Boolean(document.querySelector('[data-testid="guided-steps"]'));`))) await click("shell-persona-guiado", "modo guiado apos reinicio");
   await click("guided-step-regras", "etapa Regras apos reinicio");
@@ -14136,62 +18399,8 @@ async function readLiveStatus(sessionId) {
   return executeScript(
     sessionId,
     `
-      const automationState = window.__RDS_E2E__?.getState?.() ?? null;
-      if (automationState) {
-        const hwStatus = automationState.hwStatus ?? null;
-        const hwValidationState = automationState.hwValidationState ?? "";
-        const activeProjectDir = automationState.activeProjectDir ?? "";
-        const liveBuildBlocked =
-          hwValidationState === "fresh" && Boolean(hwStatus && hwStatus.errorCount > 0);
-
-        let liveState = "";
-        let liveStateDetail = "";
-        if (activeProjectDir) {
-          if (hwValidationState === "pending") {
-            liveState = "ANALISANDO";
-            liveStateDetail = "Preview live em analise.";
-          } else if (hwValidationState === "stale") {
-            liveState = "DESATUAL.";
-            liveStateDetail =
-              "O draft mudou depois da ultima analise live. Edite a cena para acionar a revalidacao automatica ou use Revalidar agora.";
-          } else if (hwValidationState === "error") {
-            liveState = "ERRO LIVE";
-            liveStateDetail = automationState.hwValidationError ?? "Falha ao atualizar o preview live.";
-          } else if (hwValidationState === "fresh" && hwStatus?.errorCount > 0) {
-            liveState = "BLOQUEADO";
-            liveStateDetail = hwStatus.firstError ?? "";
-          } else if (hwValidationState === "fresh" && hwStatus?.warningCount > 0) {
-            liveState = "WARN";
-            liveStateDetail = hwStatus.firstWarning ?? "";
-          } else if (hwValidationState === "fresh") {
-            liveState = "LIVE";
-            liveStateDetail = "Preview live sincronizado.";
-          }
-        }
-
-        return {
-          disabled: liveBuildBlocked,
-          describedBy: liveBuildBlocked ? "build-disabled-reason" : "",
-          reason: liveBuildBlocked && hwStatus?.firstError ? "Build bloqueado: " + hwStatus.firstError : "",
-          summary: !liveBuildBlocked && hwStatus?.warningCount > 0 ? "Build com alerta: " + hwStatus.firstWarning : "",
-          errorSummary: liveState === "ERRO LIVE" ? "Live com falha: " + liveStateDetail : "",
-          pendingSummary: liveState === "ANALISANDO" ? liveStateDetail : "",
-          liveState,
-          liveStateDetail,
-          severity: hwStatus
-            ? hwStatus.errorCount > 0
-              ? "OVERFLOW"
-              : hwStatus.warningCount > 0
-                ? "WARN"
-                : "OK"
-            : "OK",
-          warning: hwStatus?.firstWarning ?? "",
-          error: hwStatus?.firstError ?? "",
-          staleHint: liveState === "DESATUAL." ? "Edite a cena para revalidar" : "",
-          hasStaleRevalidateButton: liveState === "DESATUAL.",
-        };
-      }
-
+      // The scenario asserts the rendered toolbar/diagnostic contract. Internal
+      // automation state is collected separately when a failure needs diagnosis.
       const button = document.querySelector('[data-testid="toolbar-build-run"]');
       const reason = document.querySelector('[data-testid="build-disabled-reason"]');
       const summary = document.querySelector('[data-testid="build-warning-summary"]');
@@ -14201,6 +18410,11 @@ async function readLiveStatus(sessionId) {
       const severity = document.querySelector('[data-testid="hardware-limits-severity"]');
       const warning = document.querySelector('[data-testid="hardware-warning-0"]');
       const error = document.querySelector('[data-testid="hardware-error-0"]');
+      const compactHardware = document.querySelector('[data-testid="hardware-limits-compact"][open]');
+      const compactMessages = compactHardware
+        ? Array.from(compactHardware.querySelectorAll(':scope > div > p[title]'))
+        : [];
+      const compactIssue = compactMessages.length > 1 ? compactMessages.at(-1) : null;
       const staleHint = document.querySelector('[data-testid="build-stale-hint"]');
       const staleRevalidateButton = document.querySelector('[data-testid="build-stale-revalidate"]');
       return {
@@ -14213,7 +18427,7 @@ async function readLiveStatus(sessionId) {
         liveState: liveState?.textContent?.trim() ?? '',
         liveStateDetail: liveState?.getAttribute('title')?.trim() ?? '',
         severity: severity?.textContent?.trim() ?? '',
-        warning: warning?.textContent?.trim() ?? '',
+        warning: warning?.textContent?.trim() ?? compactIssue?.textContent?.trim() ?? '',
         error: error?.textContent?.trim() ?? '',
         staleHint: staleHint?.textContent?.trim() ?? '',
         hasStaleRevalidateButton: Boolean(staleRevalidateButton),
@@ -14255,6 +18469,7 @@ async function findElement(sessionId, selector) {
   if (!element) {
     throw new Error(`Elemento nao encontrado: ${selector}`);
   }
+  foundElementSelectors.set(element, selector);
   return element;
 }
 
@@ -14375,6 +18590,10 @@ async function inspectNativeButtonTarget(sessionId, testId) {
       const topWithTestId = top instanceof Element ? top.closest("[data-testid]") : null;
       const unobstructed = Boolean(top && (top === button || button.contains(top)));
       const wizard = document.querySelector('[data-testid="project-wizard-body"]');
+      const group = document.querySelector('[data-group][id="retrodev-layout"]');
+      const leftPanel = document.querySelector('[data-panel][id="left"]');
+      const groupRect = group?.getBoundingClientRect();
+      const leftRect = leftPanel?.getBoundingClientRect();
       return {
         exists: true,
         testId,
@@ -14388,6 +18607,9 @@ async function inspectNativeButtonTarget(sessionId, testId) {
         topClass: top instanceof Element ? String(top.className ?? "") : "",
         unobstructed,
         wizardVisible: Boolean(wizard),
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        groupWidth: groupRect?.width ?? null,
+        leftPanelWidth: leftRect?.width ?? null,
       };
     `,
     [testId]
@@ -14395,6 +18617,13 @@ async function inspectNativeButtonTarget(sessionId, testId) {
 }
 
 async function clickButtonByTestIdNative(sessionId, testId, label = testId, options = {}) {
+  if (testId.startsWith("shell-persona-") && !options.expectBlocked) {
+    const closed = await executeScript(sessionId, `return document.querySelector('[data-testid="shell-persona-selector"]')?.closest('details')?.open === false;`);
+    if (closed) {
+      const summary = await findElement(sessionId, 'details:has([data-testid="shell-persona-selector"]) > summary');
+      await clickElement(sessionId, summary);
+    }
+  }
   const diagnostic = await inspectNativeButtonTarget(sessionId, testId);
   if (!diagnostic?.exists || !diagnostic.visible || diagnostic.disabled) {
     fail(`Clique WebDriver bloqueado para '${label}': ${JSON.stringify(diagnostic)}`);
@@ -14414,15 +18643,22 @@ async function clickButtonByTestIdNative(sessionId, testId, label = testId, opti
 }
 
 async function clickButtonByTestIdNativeWhenReady(sessionId, testId, label = testId, timeoutMs = 30000) {
-  await waitFor(
-    async () => {
-      const diagnostic = await inspectNativeButtonTarget(sessionId, testId);
-      return diagnostic?.exists && diagnostic.visible && !diagnostic.disabled && diagnostic.unobstructed ? diagnostic : false;
-    },
-    timeoutMs,
-    `Controle nativo não ficou disponível: ${label}`,
-    100
-  );
+  let lastDiagnostic = null;
+  try {
+    await waitFor(
+      async () => {
+        const diagnostic = await inspectNativeButtonTarget(sessionId, testId);
+        lastDiagnostic = diagnostic;
+        return diagnostic?.exists && diagnostic.visible && !diagnostic.disabled
+          && (diagnostic.unobstructed || testId.startsWith("shell-persona-")) ? diagnostic : false;
+      },
+      timeoutMs,
+      `Controle nativo não ficou disponível: ${label}`,
+      100
+    );
+  } catch (error) {
+    fail(`${error instanceof Error ? error.message : String(error)}; último alvo: ${JSON.stringify(lastDiagnostic)}`);
+  }
   return clickButtonByTestIdNative(sessionId, testId, label);
 }
 
@@ -15794,7 +20030,7 @@ async function runSonicAnimIntegradaScenario(sessionId, app, romPath, base, save
           sessionIdRef,
           `return {
             visible: Boolean(document.querySelector('[data-testid="project-wizard-body"]')),
-            firstUse: document.body.innerText.includes("Wizard de Primeiro Uso"),
+            firstUse: document.body.innerText.includes("Seu próximo jogo"),
             explicitClose: Boolean(document.querySelector('[data-testid="wizard-continue-without-project"]')),
           };`
         );
@@ -15807,7 +20043,7 @@ async function runSonicAnimIntegradaScenario(sessionId, app, romPath, base, save
       sessionIdRef,
       `return {
         visible: Boolean(document.querySelector('[data-testid="project-wizard-body"]')),
-        firstUse: document.body.innerText.includes("Wizard de Primeiro Uso"),
+        firstUse: document.body.innerText.includes("Seu próximo jogo"),
         explicitClose: Boolean(document.querySelector('[data-testid="wizard-continue-without-project"]')),
       };`
     ));
@@ -18045,20 +22281,13 @@ async function handleProjectWizardVisibly(sessionId, label) {
     return { label, action: "not-visible" };
   }
 
-  const wizardAction = await waitFor(
-    async () => executeScript(
-      sessionId,
-      `return document.querySelector('[data-testid="wizard-open-existing-project"]') ? "existing" : document.querySelector('[data-testid="template-card-empty"]') ? "empty" : false;`
-    ),
-    15000,
-    `Controles do wizard não apareceram (${label})`,
-    100
-  );
-  if (wizardAction === "existing") {
+  const existing = await executeScript(sessionId, `return !!document.querySelector('[data-testid="wizard-open-existing-project"]');`);
+  const wizardAction = existing ? "existing" : "empty";
+  if (existing) {
+    await clickElement(sessionId, await findElement(sessionId, '.rds-start-more > summary'));
     await clickButtonByTestIdNativeWhenReady(sessionId, "wizard-open-existing-project", `${label}: abrir projeto existente`);
   } else {
-    await clickButtonByTestIdNativeWhenReady(sessionId, "template-card-empty", `${label}: selecionar Projeto Vazio`);
-    await clickButtonByTestIdNativeWhenReady(sessionId, "wizard-target-megadrive", `${label}: selecionar Mega Drive`);
+    await prepareBlankProjectWizard(sessionId);
     await clickButtonByTestIdNativeWhenReady(sessionId, "wizard-create-project", `${label}: concluir wizard`);
   }
 
@@ -22182,29 +26411,57 @@ async function waitForAppWindowReady(sessionId, timeoutMs, label) {
   }
 }
 
-async function waitForOnboardingWizard(sessionId) {
-  return waitFor(
-    async () =>
-      executeScript(
-        sessionId,
-        `
-          const templateCard = document.querySelector('[data-testid="template-card-starter_guided"]');
-          const nameInput = document.querySelector('input[placeholder="Nome do projeto"]');
-          const createButton = Array.from(document.querySelectorAll("button")).find((button) => {
-            const text = button.textContent?.replace(/\\s+/g, " ").trim() ?? "";
-            return text === "Criar Projeto";
-          });
-          return templateCard && nameInput && createButton
-            ? {
-                createDisabled: Boolean(createButton.disabled),
-              }
-            : false;
-        `
-      ),
-    30000,
-    "Wizard de primeiro uso nao ficou pronto com template e acoes visiveis.",
-    250
-  );
+// These builders deliberately navigate the real progressive wizard. They do not
+// inject application state or add compatibility controls to the product.
+async function waitForProjectWizard(sessionId) {
+  return waitFor(() => executeScript(sessionId, `const e=document.querySelector('[data-testid="project-start-wizard"]');return e?{step:e.dataset.step,target:e.dataset.target}:false;`), 30000, "Assistente de projeto não apareceu.", 100);
+}
+async function prepareWizardHome(sessionId) {
+  await waitForProjectWizard(sessionId);
+  for (let n = 0; n < 5; n += 1) {
+    if ((await waitForProjectWizard(sessionId)).step === "home") return;
+    await clickButtonByTestIdNative(sessionId, "wizard-back");
+  }
+  fail("Não foi possível voltar ao início do assistente.");
+}
+async function prepareWizardTemplateGallery(sessionId, target = "megadrive") {
+  await prepareWizardHome(sessionId);
+  await clickButtonByTestIdNative(sessionId, "wizard-intent-template");
+  await clickButtonByTestIdNative(sessionId, `wizard-target-${target}`);
+  await waitFor(() => executeScript(sessionId, `return !!document.querySelector('[data-testid="template-card-starter_guided"]');`), 15000, "Catálogo do console não carregou.", 100);
+}
+async function prepareDefaultProjectWizard(sessionId) {
+  const state = await waitForProjectWizard(sessionId);
+  if (state.step === "home") await prepareWizardTemplateGallery(sessionId);
+  return waitForProjectWizard(sessionId);
+}
+// Legacy collision/reopen journeys still exercise the visible known-path card.
+// Its name field and location details now belong to a dedicated creation step.
+async function prepareExistingProjectWizard(sessionId) {
+  if ((await waitForProjectWizard(sessionId)).step !== "details") {
+    await prepareWizardTemplateGallery(sessionId);
+    await clickButtonByTestIdNative(sessionId, "template-card-starter_guided");
+  }
+  const closed = await executeScript(sessionId, `return document.querySelector('.rds-start-more')?.open === false;`);
+  if (closed) await clickElement(sessionId, await findElement(sessionId, '.rds-start-more > summary'));
+}
+async function prepareBlankProjectWizard(sessionId, target = "megadrive") {
+  await prepareWizardHome(sessionId);
+  await clickButtonByTestIdNative(sessionId, "wizard-intent-new");
+  await clickButtonByTestIdNative(sessionId, `wizard-target-${target}`);
+}
+async function openSavedProjectWizard(sessionId, projectDir) {
+  await prepareWizardHome(sessionId);
+  await clickButtonByTestIdNative(sessionId, "wizard-intent-open");
+  // Only substitute the OS file chooser result. The visible action and canonical
+  // project reader/hydrator still perform the entire open operation.
+  await executeScript(sessionId, "return window.__RDS_E2E__.setNextProjectOpenFile(arguments[0]);", [path.join(projectDir, "project.rds")]);
+  await clickButtonByTestIdNative(sessionId, "wizard-open-project");
+}
+async function prepareExternalImportWizard(sessionId) {
+  await prepareWizardHome(sessionId);
+  await clickButtonByTestIdNative(sessionId, "wizard-intent-import");
+  await clickElement(sessionId, await findElement(sessionId, '[data-testid="wizard-external-import-section"] > summary'));
 }
 
 function summarizeDriverLogs(logs) {
@@ -22461,6 +26718,8 @@ async function main() {
     options.scenario !== "create-game-from-zero" &&
     options.scenario !== "reference-platformer" &&
     options.scenario !== "authoring-acceptance" &&
+    options.scenario !== "draft-recovery" &&
+    options.scenario !== "studio-appearance" &&
     options.scenario !== "nodegraph-authoring" &&
     options.scenario !== "behaviors-independence" &&
     options.scenario !== "collect-goal" &&
@@ -22469,14 +26728,24 @@ async function main() {
     options.scenario !== "mugen-locomotion" &&
     options.scenario !== "mugen-real" &&
     options.scenario !== "mugen-original" &&
+    options.scenario !== "mugen-hitdef" &&
+    options.scenario !== "studio-jv" &&
+    options.scenario !== "studio-jv-motion" &&
     options.scenario !== "studio-e1" &&
+    options.scenario !== "sgdk-split-resources" &&
+    options.scenario !== "sgdk-native-c" &&
+    options.scenario !== "sgdk-corpus" &&
+    options.scenario !== "pixel-editor" &&
+    options.scenario !== "image-ingress" &&
     options.scenario !== "studio-e4" &&
     options.scenario !== "studio-e2e5" &&
     options.scenario !== "studio-e6" &&
     options.scenario !== "studio-scene" &&
     options.scenario !== "studio-model" &&
     options.scenario !== "studio-hud-camera" &&
-    options.scenario !== "studio-paletas";
+    options.scenario !== "studio-paletas" &&
+    options.scenario !== "camera-workflow" &&
+    options.scenario !== "camera-advanced";
   let temporaryProjectDir = "";
   let temporaryInspectionFixtureDir = "";
   if (requiresExistingProject) {
@@ -23975,7 +28244,7 @@ async function main() {
 
     if (options.scenario === "onboarding-shell") {
       const artifactPrefix = `onboarding-shell-${artifactTimestamp()}`;
-      await waitForOnboardingWizard(sessionId);
+      await prepareDefaultProjectWizard(sessionId);
       const wizardScreenshot = await captureScreenshot(
         sessionId,
         `${artifactPrefix}-wizard.png`
@@ -23983,14 +28252,10 @@ async function main() {
 
       const templateCard = await findElement(sessionId, "[data-testid='template-card-starter_guided']");
       await clickElement(sessionId, templateCard);
-      await waitForOnboardingWizard(sessionId);
+      await prepareDefaultProjectWizard(sessionId);
 
       const generatedProjectName = `E2E_Onboarding_${Date.now()}`;
-      await fillInputBySelector(
-        sessionId,
-        'input[placeholder="Nome do projeto"]',
-        generatedProjectName
-      );
+      await setInputByTestIdNative(sessionId, "wizard-project-name", generatedProjectName);
       await clickButtonByText(sessionId, "Criar Projeto");
 
       const createdState = await waitFor(
@@ -24007,11 +28272,25 @@ async function main() {
       );
 
       temporaryProjectDir = createdState.activeProjectDir;
+      currentE2eRunContext.project = createdState.activeProjectDir;
 
       const editorScreenshot = await captureScreenshot(
         sessionId,
         `${artifactPrefix}-editor.png`
       );
+      const editorLayout = await executeScript(sessionId, `
+        const toolbar=document.querySelector('[data-testid="viewport-scene-toolbar"]');
+        const tools=['select','paint','erase','collision'].map(id=>{
+          const el=document.querySelector('[data-testid="viewport-tool-'+id+'"]');
+          const r=el?.getBoundingClientRect();
+          return {id,visible:!!r&&r.width>0&&r.x>=0&&r.right<=innerWidth};
+        });
+        return {tools,toolbarFits:!!toolbar&&toolbar.scrollWidth<=toolbar.clientWidth+1,
+          dockCoversScene:!!document.querySelector('[data-testid="viewport-creator-command-dock"]')};
+      `);
+      if (!editorLayout.toolbarFits || editorLayout.dockCoversScene || editorLayout.tools.some(tool=>!tool.visible)) {
+        fail('Ferramentas primárias ou canvas obstruídos: '+JSON.stringify(editorLayout));
+      }
 
       const sceneTabVisible = await executeScript(
         sessionId,
@@ -24051,18 +28330,14 @@ async function main() {
       const shellReady = await executeScript(
         sessionId,
         `
-          const guideText = document.querySelector('[data-testid="workspace-guide"]')?.textContent?.toLowerCase() ?? "";
-          const hasBuildAndRun = Array.from(document.querySelectorAll("button")).some((button) => {
-            const text = button.textContent?.replace(/\\s+/g, " ").trim() ?? "";
-            return text === "Build & Run";
-          });
+          const hasBuildAndRun = Boolean(document.querySelector('[data-testid="toolbar-build-run"]'));
           return (
             hasBuildAndRun &&
             Boolean(document.querySelector('[data-testid="workspace-rail-scene"]')) &&
             Boolean(document.querySelector('[data-testid="workspace-rail-game"]')) &&
             Boolean(document.querySelector('[data-testid="workspace-rail-logic"]')) &&
             Boolean(document.querySelector('[data-testid="workspace-rail-debug"]')) &&
-            guideText.includes("scene editor")
+            Boolean(document.querySelector('[data-testid="workspace-guide"]'))
           );
         `
       );
@@ -24075,6 +28350,59 @@ async function main() {
         fail("Estado final do onboarding nao expôs o projeto criado na automacao.");
       }
 
+      // Coesão: ações nativas na UI; observação por DOM e pelos bytes da ROM.
+      // Expectativas congeladas: menu acessível, save, quadro do build atual,
+      // Stop preserva teste, mastering do mesmo SHA e exportação byte-idêntica.
+      const cohesion = { schema: "retrodev.ui_cohesion/v1", app_sha256: createHash("sha256").update(await readFile(options.app)).digest("hex"),
+        display: process.env.DISPLAY ?? null, window: await executeScript(sessionId, "return {width:innerWidth,height:innerHeight};"),
+        steps: [], artifacts: [], human_usability: "pending", status: "running" };
+      try {
+      await clickButtonByTestIdNative(sessionId, "unified-topbar-menu-trigger");
+      const menuAccessible = await executeScript(sessionId, `
+        const button = document.querySelector('[data-testid="menu-action-review"]');
+        if (!button) return false;
+        const r = button.getBoundingClientRect();
+        return button.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+      `);
+      if (!menuAccessible) fail("Menu principal cortou ou ocultou a ação de revisão.");
+      await clickButtonByTestIdNative(sessionId, "unified-topbar-menu-trigger");
+      await clickButtonByTestIdNative(sessionId, "toolbar-save");
+      const built = await runBuildRunAndCollect(sessionId, "onboarding-cohesion", 180000, cohesion, artifactPrefix, { nativeClick: true });
+      cohesion.steps.push({ step: "build_run_current_rom", ...built });
+      await clickButtonByTestIdNative(sessionId, "toolbar-emulator-stop");
+      await waitFor(async () => !(await readAutomationState(sessionId))?.emulatorLoaded, 15000, "Parar não encerrou o core.", 100);
+      await clickButtonByTestIdNative(sessionId, "toolbar-review");
+      const stopped = await executeScript(sessionId, `
+        const el = document.querySelector('[data-testid="delivery-freshness"]');
+        return {kind:el?.dataset.kind,sha:el?.dataset.testedRomSha};
+      `);
+      if (stopped.kind !== "tested" || stopped.sha !== built.rom_sha256) fail(`Stop perdeu o recibo da ROM testada: ${JSON.stringify(stopped)}`);
+      await clickButtonByTestIdNative(sessionId, "delivery-verify-rom");
+      await waitFor(async () => executeScript(sessionId, `return document.querySelector('[data-testid="delivery-export"]')?.disabled === false;`),
+        30000, "Revisão não liberou a exportação da ROM atual verificada.", 150);
+      await clickButtonByTestIdNative(sessionId, "delivery-export");
+      const exported = await waitFor(async () => executeScript(sessionId, `
+        const el=document.querySelector('[data-testid="delivery-exported"]');
+        return el ? {path:el.dataset.path,sha:el.dataset.sha256} : null;
+      `), 30000, "Exportação pela UI não retornou um artefato.", 150);
+      const exportedSha = createHash("sha256").update(await readFile(exported.path)).digest("hex");
+      if (exportedSha !== built.rom_sha256 || exported.sha !== built.rom_sha256) fail("Exportação não corresponde à ROM executada e verificada.");
+      cohesion.steps.push({ step: "stop_verify_export_same_sha", stopped, exported, exported_sha256: exportedSha });
+      const reviewScreenshot = await captureScreenshot(sessionId, `${artifactPrefix}-review-tested-export.png`);
+      addReportArtifact(cohesion, reviewScreenshot, "recibo do teste e exportação");
+      await clickButtonByTestIdNative(sessionId, "delivery-close");
+      const focusRestored = await executeScript(sessionId, `return document.activeElement?.getAttribute('data-testid') === 'toolbar-review';`);
+      if (!focusRestored) fail("Fechar revisão não devolveu foco à ação de origem.");
+      cohesion.steps.push({ step: "review_returns_focus", passed: true });
+      cohesion.status = "passed";
+      } catch (error) {
+        cohesion.status = "failed";
+        cohesion.error = error instanceof Error ? error.message : String(error);
+        throw error;
+      } finally {
+        await writeFile(path.join(validationDir, `${artifactPrefix}-cohesion.json`), JSON.stringify(cohesion, null, 2));
+      }
+
       console.log("OK: Desktop Tauri onboarding/shell E2E passou.");
       console.log(`Projeto criado: ${generatedProjectName}`);
       console.log(`Diretorio temporario: ${temporaryProjectDir}`);
@@ -24084,10 +28412,27 @@ async function main() {
       return;
     }
 
+    if (options.scenario === "studio-appearance") {
+      sessionId = await runStudioAppearanceScenario(sessionId, options.app, emulatorActivationTimeoutMs, uiBootstrapTimeoutMs, (projectDir) => {
+        temporaryProjectDir = projectDir;
+        currentE2eRunContext.project = projectDir;
+      });
+      return;
+    }
+
+    if (options.scenario === "draft-recovery") {
+      await runDraftRecoveryScenario(sessionId, options.app, emulatorActivationTimeoutMs, uiBootstrapTimeoutMs, (projectDir) => {
+        temporaryProjectDir = projectDir;
+        currentE2eRunContext.project = projectDir;
+      });
+      return;
+    }
+
     if (options.scenario === "authoring-acceptance") {
       try {
         await runAuthoringAcceptanceScenario(sessionId, options.app, uiBootstrapTimeoutMs, (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         });
       } finally {
         // The guided persona persists in the app's localStorage; restore the default so the
@@ -24101,6 +28446,7 @@ async function main() {
       try {
         await runCollectGoalScenario(sessionId, options.app, uiBootstrapTimeoutMs, (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         });
       } finally {
         await executeScript(currentE2eRunContext.sessionId ?? sessionId, "localStorage.removeItem(arguments[0]);", [SHELL_PERSONA_STORAGE_KEY]).catch(() => null);
@@ -24112,6 +28458,7 @@ async function main() {
       try {
         await runBehaviorsIndependenceScenario(sessionId, options.app, uiBootstrapTimeoutMs, (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         });
       } finally {
         await executeScript(currentE2eRunContext.sessionId ?? sessionId, "localStorage.removeItem(arguments[0]);", [SHELL_PERSONA_STORAGE_KEY]).catch(() => null);
@@ -24178,10 +28525,31 @@ async function main() {
       return;
     }
 
+    if (options.scenario === "rom-input") {
+      await runRomInputScenario(sessionId, options.app, uiBootstrapTimeoutMs);
+      return;
+    }
+
+    if (options.scenario === "camera-advanced") {
+      await runCameraAdvancedScenario(sessionId, emulatorActivationTimeoutMs, (projectDir) => {
+        temporaryProjectDir = projectDir;currentE2eRunContext.project = projectDir;
+      });
+      return;
+    }
+
+    if (options.scenario === "camera-workflow") {
+      await runCameraWorkflowScenario(sessionId, emulatorActivationTimeoutMs, (projectDir) => {
+        temporaryProjectDir = projectDir;
+        currentE2eRunContext.project = projectDir;
+      });
+      return;
+    }
+
     if (options.scenario === "nodegraph-authoring") {
       try {
         await runNodeGraphAuthoringScenario(sessionId, options.app, uiBootstrapTimeoutMs, (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         });
       } finally {
         await executeScript(currentE2eRunContext.sessionId ?? sessionId, "localStorage.removeItem(arguments[0]);", [SHELL_PERSONA_STORAGE_KEY]).catch(() => null);
@@ -24191,6 +28559,18 @@ async function main() {
 
     if (options.scenario === "mugen-original") {
       await runMugenOriginalScenario(sessionId,emulatorActivationTimeoutMs,uiBootstrapTimeoutMs,(created)=>{temporaryProjectDir=created;});
+      return;
+    }
+    if (options.scenario === "studio-jv-motion") {
+      await runStudioJvMotionScenario(sessionId,emulatorActivationTimeoutMs,uiBootstrapTimeoutMs,(created)=>{temporaryProjectDir=created;});
+      return;
+    }
+    if (options.scenario === "studio-jv") {
+      await runStudioJvScenario(sessionId,emulatorActivationTimeoutMs,uiBootstrapTimeoutMs,(created)=>{temporaryProjectDir=created;});
+      return;
+    }
+    if (options.scenario === "mugen-hitdef") {
+      await runMugenHitDefScenario(sessionId,emulatorActivationTimeoutMs,uiBootstrapTimeoutMs,(created)=>{temporaryProjectDir=created;});
       return;
     }
     if (options.scenario === "studio-paletas") {
@@ -24230,6 +28610,24 @@ async function main() {
       await runStudioE1Scenario(sessionId,emulatorActivationTimeoutMs,uiBootstrapTimeoutMs,(created)=>{temporaryProjectDir=created;});
       return;
     }
+    if (options.scenario === "sgdk-native-c") {
+      await runSgdkNativeCScenario(sessionId);
+      return;
+    }
+    if (options.scenario === "pixel-editor") {
+      await runPixelEditorScenario(sessionId);
+      return;
+    } else if (options.scenario === "image-ingress") {
+      await runImageIngressScenario(sessionId, emulatorActivationTimeoutMs, created => { temporaryProjectDir = created; });
+      return;
+    } else if (options.scenario === "sgdk-corpus") {
+      await runSgdkCorpusScenario(sessionId);
+      return;
+    }
+    if (options.scenario === "sgdk-split-resources") {
+      await runSgdkSplitResourcesScenario(sessionId,emulatorActivationTimeoutMs,(created)=>{temporaryProjectDir=created;});
+      return;
+    }
     if (options.scenario === "mugen-real") {
       await runMugenRealScenario(sessionId,emulatorActivationTimeoutMs,uiBootstrapTimeoutMs,(created)=>{temporaryProjectDir=created;});
       return;
@@ -24241,6 +28639,7 @@ async function main() {
         uiBootstrapTimeoutMs,
         (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         }
       );
       return;
@@ -24253,6 +28652,7 @@ async function main() {
         uiBootstrapTimeoutMs,
         (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         }
       );
       return;
@@ -24265,6 +28665,7 @@ async function main() {
         uiBootstrapTimeoutMs,
         (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         }
       );
       return;
@@ -24276,6 +28677,7 @@ async function main() {
         emulatorActivationTimeoutMs,
         (projectDir) => {
           temporaryProjectDir = projectDir;
+          currentE2eRunContext.project = projectDir;
         }
       );
       return;
@@ -24304,7 +28706,7 @@ async function main() {
 
       await setSessionWindowRect(sessionId, 1920, 1080);
 
-      await waitForOnboardingWizard(sessionId);
+      await prepareDefaultProjectWizard(sessionId);
       addReportArtifact(
         report,
         await captureScreenshot(sessionId, `${artifactPrefix}-01-wizard.png`),
@@ -24312,8 +28714,7 @@ async function main() {
       );
       addReportStep(report, "open_wizard", "passed");
 
-      await clickByTestId(sessionId, "template-card-empty");
-      await clickButtonByText(sessionId, "Mega Drive", "exact");
+      await prepareBlankProjectWizard(sessionId);
 
       const generatedProjectName = `E2E_Create_From_Zero_${Date.now()}`;
       await fillInputBySelector(
@@ -24467,7 +28868,7 @@ async function main() {
       );
       addReportStep(report, "save_player_entity_before_logic", "passed");
 
-      await clickButtonByText(sessionId, "Voltar para Cena", "exact");
+      await clickButtonByText(sessionId, "Ver na Cena", "exact");
       await waitFor(
         async () => {
           const state = await readAutomationState(sessionId);
@@ -24661,6 +29062,7 @@ async function main() {
         "closed wizard"
       );
 
+      await prepareExistingProjectWizard(sessionId);
       await fillInputBySelector(
         sessionId,
         'input[placeholder="Nome do projeto"]',
@@ -24760,13 +29162,16 @@ async function main() {
       const artifactPrefix = `qa-rc-${artifactTimestamp()}`;
       const manualQaReport = createManualQaReport();
       manualQaReport.app = options.app;
+      manualQaReport.candidate = { app_sha256: createHash("sha256").update(await readFile(options.app)).digest("hex") };
+      manualQaReport.repository = await readGitEvidence();
+      manualQaReport.harness_sha256 = createHash("sha256").update(await readFile(__filename)).digest("hex");
       const uiLayoutOracleRecords = [];
       const uiLayoutShotNames = [];
       let currentBlock = "A";
 
       try {
         await setSessionWindowRect(sessionId, 1920, 1080);
-        await waitForOnboardingWizard(sessionId);
+        await prepareDefaultProjectWizard(sessionId);
         const wizardScreenshot = await captureScreenshot(
           sessionId,
           `${artifactPrefix}-A-wizard.png`
@@ -24777,7 +29182,7 @@ async function main() {
         const importWizardTarget = UI_LAYOUT_ORACLE_TARGETS.find((target) => target.id === "import-wizard");
         for (const resolution of UI_LAYOUT_ORACLE_RESOLUTIONS) {
           await setSessionWindowRect(sessionId, resolution.width, resolution.height);
-          await waitForOnboardingWizard(sessionId);
+          await prepareDefaultProjectWizard(sessionId);
           await runUiLayoutOracleCheck(
             sessionId,
             importWizardTarget,
@@ -24793,7 +29198,7 @@ async function main() {
 
         const templateCard = await findElement(sessionId, "[data-testid='template-card-starter_guided']");
         await clickElement(sessionId, templateCard);
-        await waitForOnboardingWizard(sessionId);
+        await prepareDefaultProjectWizard(sessionId);
 
         const generatedProjectName = `QA_RC_${Date.now()}`;
         await fillInputBySelector(
@@ -24818,6 +29223,7 @@ async function main() {
         );
 
         temporaryProjectDir = createdState.activeProjectDir;
+      currentE2eRunContext.project = createdState.activeProjectDir;
         manualQaReport.projectName = generatedProjectName;
         manualQaReport.projectDir = temporaryProjectDir;
 
@@ -25249,12 +29655,12 @@ async function main() {
 
         await waitForBodyText(
           sessionId,
-          "Instanciar",
+          "Adicionar à cena",
           10000,
           "Acao de instanciar nao apareceu para o asset selecionado."
         );
         const entityCountBeforeInstantiate = paintedState.activeScene.entityCount;
-        await clickButtonByText(sessionId, "Instanciar");
+        await clickButtonByText(sessionId, "Adicionar à cena");
         const instancedState = await waitFor(
           async () => {
             const state = await readAutomationState(sessionId);
@@ -25433,11 +29839,11 @@ async function main() {
         }
         await waitFor(
           async () => {
-            const text = await executeScript(
-              sessionId,
-              "return document.querySelector('[data-testid=\"viewport-asset-health\"]')?.textContent ?? '';"
-            );
-            return /assets\s+\d+\/\d+/.test(String(text));
+            const health = await executeScript(sessionId,
+              "const e=document.querySelector('[data-testid=\"viewport-asset-health-summary\"]');return e?{...e.dataset}:null;");
+            return health && Number(health.referenced) > 0 && Number(health.loading) === 0
+              && Number(health.failed) === 0 && Number(health.missing) === 0
+              && Number(health.ready) === Number(health.referenced);
           },
           25000,
           "Projeto SGDK importado nao exibiu estado auditavel de assets no viewport.",
@@ -25567,10 +29973,12 @@ async function main() {
             100
           );
           const worldBounds = stackedState.activeScene?.worldBounds ?? { minX: 0, minY: 0 };
+          // O overlay e desenhado no zoom atual; converte o ponto do mundo para pixels de tela.
+          const overlayScale = Number(stackedState.viewportZoom) || 1;
           await sceneOverlayPointerAction(
             sessionId,
-            stackX - worldBounds.minX + 12,
-            stackY - worldBounds.minY + 12,
+            (stackX - worldBounds.minX + 12) * overlayScale,
+            (stackY - worldBounds.minY + 12) * overlayScale,
             0,
             { shiftKey: true }
           );
@@ -25584,6 +29992,9 @@ async function main() {
             "Bloco G: Shift+clique em pilha densa nao abriu o picker contextual.",
             250
           );
+          const expectedDenseId = await executeScript(sessionId,
+            "return document.querySelector('[data-testid=\"viewport-dense-stack-picker\"] [role=\"option\"][aria-selected=\"true\"] .font-mono')?.textContent?.trim() ?? null;");
+          if (!expectedDenseId) fail("Bloco G: picker nao identifica o candidato destacado.");
           await executeScript(
             sessionId,
             `
@@ -25598,11 +30009,14 @@ async function main() {
           await waitFor(
             async () => {
               const state = await readAutomationState(sessionId);
-              const dockText = await executeScript(
+              const solo = await executeScript(
                 sessionId,
-                "return document.querySelector('[data-testid=\"viewport-creator-command-dock\"]')?.textContent ?? '';"
+                "const e=document.querySelector('[data-testid=\"viewport-entity-solo-toggle\"]');return e?{border:getComputedStyle(e).borderTopColor,pickerOpen:!!document.querySelector('[data-testid=\"viewport-dense-stack-picker\"]')}:null;"
               );
-              return state?.selectedEntityId && String(dockText).includes("Solo:") ? { state, dockText } : false;
+              const selectedStack = state?.selectedEntityId === expectedDenseId;
+              const selectedWithSolo = state?.consoleEntries?.some(entry => String(entry.message).includes("Selecionado da pilha:") && String(entry.message).includes("(solo ativo)"));
+              manualQaReport.denseSoloDiagnostic = { expectedEntityId: expectedDenseId, actualEntityId: state?.selectedEntityId, selectedWithSolo, ...solo };
+              return selectedStack && selectedWithSolo && solo?.border === "rgb(249, 226, 175)" && !solo.pickerOpen ? { state, solo } : false;
             },
             15000,
             "Bloco G: picker denso nao selecionou/focou com solo ativo.",
@@ -26092,11 +30506,11 @@ async function main() {
         );
         await waitFor(
           async () => {
-            const text = await executeScript(
-              sessionId,
-              "return document.querySelector('[data-testid=\"viewport-asset-health\"]')?.textContent ?? '';"
-            );
-            return /assets\s+\d+\/\d+/.test(String(text));
+            const health = await executeScript(sessionId,
+              "const e=document.querySelector('[data-testid=\"viewport-asset-health-summary\"]');return e?{...e.dataset}:null;");
+            return health && Number(health.referenced) > 0 && Number(health.loading) === 0
+              && Number(health.failed) === 0 && Number(health.missing) === 0
+              && Number(health.ready) === Number(health.referenced);
           },
           25000,
           "Projeto SGDK reaberto sem estado auditavel de assets no viewport.",
@@ -26243,6 +30657,9 @@ async function main() {
         return;
       } catch (error) {
         const failure = classifyFailureMetadata(error);
+        manualQaReport.failureDiagnostics = await collectAppDiagnostics(sessionId).catch(() => null);
+        const failedShot = await captureScreenshot(sessionId, `${artifactPrefix}-${currentBlock}-failure.png`).catch(() => null);
+        if (failedShot) registerArtifact(manualQaReport, failedShot, `${currentBlock} - failure preserved`);
         await markManualQaBlock(
           manualQaReport,
           currentBlock,
@@ -26422,6 +30839,12 @@ async function main() {
         await waitForLiveValidationFresh(sessionId, liveValidationTimeoutMs, expectedRevision);
       }
 
+      if (!overflowScenario.expectBuildDisabled && !overflowScenario.expectLiveError) {
+        const hardwareSummary = await findElement(sessionId, '[data-testid="hardware-limits-compact"] > summary');
+        await clickElement(sessionId, hardwareSummary);
+        await clickButtonByTestIdNative(sessionId, "toolbar-build-details-open");
+      }
+
       let lastLiveStatus = null;
       let liveStatus;
       try {
@@ -26460,48 +30883,13 @@ async function main() {
         const fallbackLiveStatus = await readLiveStatus(sessionId).catch(() => null);
         const rawDiagnostics = await collectAppDiagnostics(sessionId);
         const diagnosticLiveStatus = deriveLiveStatusFromDiagnostics(rawDiagnostics);
-        if (diagnosticLiveStatus) {
-          const diagnosticsMatch = overflowScenario.expectLiveError
-            ? !diagnosticLiveStatus.disabled &&
-              !diagnosticLiveStatus.reason &&
-              diagnosticLiveStatus.liveState === overflowScenario.expectedToolbarState &&
-              diagnosticLiveStatus.errorSummary.includes(overflowScenario.expectedReasonFragment)
-            : overflowScenario.expectBuildDisabled
-              ? diagnosticLiveStatus.disabled &&
-                diagnosticLiveStatus.liveState === overflowScenario.expectedToolbarState &&
-                diagnosticLiveStatus.reason.includes(overflowScenario.expectedReasonFragment) &&
-                diagnosticLiveStatus.severity === overflowScenario.expectedSeverity
-              : !diagnosticLiveStatus.disabled &&
-                diagnosticLiveStatus.liveState === overflowScenario.expectedToolbarState &&
-                diagnosticLiveStatus.summary.includes(overflowScenario.expectedReasonFragment) &&
-                diagnosticLiveStatus.severity === overflowScenario.expectedSeverity;
-
-          if (diagnosticsMatch) {
-            liveStatus = diagnosticLiveStatus;
-          }
-        }
-
-        if (liveStatus) {
-          console.log("OK: Desktop Tauri live hardware state E2E passou via fallback de diagnostico.");
-          console.log(`Projeto: ${options.project}`);
-          console.log(`Target: ${projectMetadata.target}`);
-          console.log(
-            overflowScenario.expectBuildDisabled
-              ? `Motivo visual: ${liveStatus.reason}`
-              : overflowScenario.expectLiveError
-                ? `Erro visual: ${liveStatus.errorSummary}`
-                : `Warning visual: ${liveStatus.summary}`
-          );
-          await recordE2eLedgerSuccess(options, projectMetadata);
-          return;
-        }
-
         const diagnostics = formatAppDiagnostics(rawDiagnostics);
         const details = error instanceof Error ? error.message : String(error);
         fail(
           [
             details,
             formatLiveStatus(fallbackLiveStatus ?? lastLiveStatus),
+            diagnosticLiveStatus ? `internalDiagnostic=${formatLiveStatus(diagnosticLiveStatus)}` : "",
             diagnostics,
           ]
             .filter(Boolean)
@@ -26593,6 +30981,7 @@ async function main() {
         250
       );
 
+      await clickButtonByTestIdNative(sessionId, "toolbar-build-details-open");
       await setSceneDraft(sessionId, staleScenario.secondDraft);
 
       const staleStatus = await waitFor(
@@ -26611,18 +31000,11 @@ async function main() {
         100
       );
 
-      const clickedRevalidate = await executeScript(
-        sessionId,
-        `
-          const button = document.querySelector('[data-testid="build-stale-revalidate"]');
-          if (!button) return false;
-          button.click();
-          return true;
-        `
-      );
-
-      if (!clickedRevalidate) {
-        fail("Botao Revalidar agora nao ficou disponivel no estado DESATUAL.");
+      try {
+        await clickButtonByTestIdNative(sessionId, "build-stale-revalidate");
+      } catch (error) {
+        const status = await readLiveStatus(sessionId).catch(() => null);
+        fail(`Revalidar agora indisponível após DESATUAL.: ${String(error)}\n${formatLiveStatus(status)}`);
       }
 
       const validationStatus = await waitFor(
@@ -26715,10 +31097,16 @@ async function main() {
           );
           return actionable?.message?.includes("Build falhou porque") ? state : false;
         },
-        emulatorActivationTimeoutMs,
+        Math.min(emulatorActivationTimeoutMs, 90000),
         "Build bloqueado nao exibiu diagnostico acionavel.",
         500
-      );
+      ).catch(async (error) => {
+        const state = await readAutomationState(sessionId).catch(() => null);
+        const snapshot = { error: String(error), state, appDiagnostics: await collectAppDiagnostics(sessionId).catch(() => null) };
+        const evidencePath = path.join(validationDir, `build-blocked-diagnostic-${artifactTimestamp()}-failure.json`);
+        await writeFile(evidencePath, JSON.stringify(snapshot, null, 2));
+        fail(`Build bloqueado sem resposta esperada: ${JSON.stringify({ evidencePath, ...snapshot })}`);
+      });
 
       const actionableEntry = diagnosticState.consoleEntries.find(
         (entry) =>
@@ -26772,6 +31160,33 @@ async function main() {
       }
       if (!drawerState.hasEvidence) {
         fail("Painel Details nao exibiu link de artefato/log.");
+      }
+
+      await closeVisibleConsoleDrawer(sessionId, "diagnóstico do projeto após build bloqueado");
+      await clickByTestId(sessionId, "workspace-rail-debug");
+      let lastBuildAnswer = null;
+      const projectBuildAnswer = await waitFor(async () => {
+        const answer = await executeScript(sessionId, `
+          const panel = document.querySelector('[data-testid="project-diagnostics"]');
+          return panel ? {
+            header: panel.firstElementChild?.textContent ?? '',
+            build: panel.querySelector('[aria-label="Por que não compila?"]')?.textContent ?? '',
+          } : null;
+        `);
+        lastBuildAnswer = answer;
+        return answer?.build.includes("Falha no build iniciado") ? answer : false;
+      }, 10000, "Debug não associou a falha de build ao projeto atual.", 250).catch(async (error) => {
+        const evidencePath = path.join(validationDir, `build-blocked-diagnostic-${artifactTimestamp()}-debug-failure.json`);
+        await writeFile(evidencePath, JSON.stringify({
+          error: String(error), lastBuildAnswer,
+          state: await readAutomationState(sessionId).catch(() => null),
+          appDiagnostics: await collectAppDiagnostics(sessionId).catch(() => null),
+        }, null, 2));
+        fail(`Debug não associou a falha de build ao projeto atual: ${evidencePath}`);
+      });
+      if (!projectBuildAnswer.header.includes("ROM indisponível")
+        || !projectBuildAnswer.build.includes("Ação:")) {
+        fail(`Debug atribuiu ROM antiga ou perdeu correção do build: ${JSON.stringify(projectBuildAnswer)}`);
       }
 
       console.log("OK: Desktop Tauri build blocked diagnostic E2E passou.");

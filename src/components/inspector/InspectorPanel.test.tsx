@@ -8,6 +8,7 @@ import { sha256Text, type BuildSourceMap } from "../../core/nodegraph/buildProve
 import { buildBehaviorSceneContext, planApplyBehavior } from "../../core/nodegraph/behaviorLibrary";
 import { deserializeNodeGraph } from "../../core/nodegraph/nodeDefinitions";
 import { serializeNodeGraph } from "../../core/nodegraph/nodeTypes";
+import { cameraPreset } from "../../core/cameraWorkflow";
 
 const mocks = vi.hoisted(() => ({
   persistActiveScene: vi.fn(),
@@ -181,6 +182,42 @@ describe("InspectorPanel", () => {
     container.remove();
   });
 
+  it("keeps an empty Prefab field clickable and editable by mouse and keyboard (JV06)", async () => {
+    const value = () => container.querySelector<HTMLButtonElement>('[data-testid="inspector-prop-prefab-value"]');
+    const input = () => container.querySelector<HTMLInputElement>('[data-testid="inspector-prop-prefab-input"]');
+    const bare = { ...physicsFixtureEntity(), prefab: null } as unknown as Entity;
+    await act(async () => {
+      useEditorStore.setState({ activeScene: { ...EMPTY_SCENE, entities: [bare] }, activeSceneSource: { ...EMPTY_SCENE, entities: [bare] } });
+      await flush();
+    });
+    expect(value()?.tagName).toBe("BUTTON");
+    expect(value()?.dataset.empty).toBe("true");
+    expect(value()?.textContent).toContain("(vazio)");
+    expect(value()?.className).toContain("min-w-");
+    // teclado: botao focavel; Escape cancela sem gravar
+    await act(async () => { value()!.focus(); value()!.click(); await flush(); });
+    expect(input()).not.toBeNull();
+    await act(async () => {
+      input()!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      await flush();
+    });
+    expect(input()).toBeNull();
+    expect(useEditorStore.getState().activeScene?.entities[0].prefab ?? null).toBeNull();
+    // mouse: entrar, digitar e confirmar com Enter
+    await act(async () => { value()!.click(); await flush(); });
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!;
+    await act(async () => {
+      setter.call(input()!, "reference_player.json");
+      input()!.dispatchEvent(new Event("input", { bubbles: true }));
+      await flush();
+    });
+    await act(async () => {
+      input()!.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      await flush();
+    });
+    expect(useEditorStore.getState().activeScene?.entities[0].prefab).toBe("reference_player.json");
+  });
+
   it("duplicates a prefab entity without inheriting its manual logic or graph_ref, remapping its behaviors", async () => {
     const context = buildBehaviorSceneContext([{ entity_id: "player", components: { sprite: { animations: {} }, physics: {} } }], []);
     const plan = planApplyBehavior(
@@ -236,6 +273,18 @@ describe("InspectorPanel", () => {
     expect(container.textContent).toContain("Graph: 2 nodes, 1 edges");
     expect(container.textContent).toContain("Imported Hints");
     expect(container.textContent).toContain("Hint importado do adapter externo.");
+  });
+
+  it("duplicates an inherited camera as an inactive source override and undoes the copy", async () => {
+    const camera:Entity={entity_id:"camera",prefab:"camera.json",transform:{x:32,y:16},components:{camera:{visual:cameraPreset("fixed",{x:0,y:0,width:640,height:224},"megadrive")}}};
+    const source:Entity={...camera,components:{}};
+    await act(async()=>{useEditorStore.setState({activeScene:{...EMPTY_SCENE,entities:[camera]},activeSceneSource:{...EMPTY_SCENE,entities:[source]},selectedEntityId:"camera"});await flush();});
+    await act(async()=>{(container.querySelector('[data-testid="inspector-duplicate-entity"]') as HTMLButtonElement).click();await flush();});
+    const store=useEditorStore.getState();
+    expect(store.activeScene!.entities.filter(e=>e.components.camera?.visual?.active)).toHaveLength(1);
+    expect(store.activeSceneSource!.entities.find(e=>e.entity_id==="camera_2")?.components.camera?.visual?.active).toBe(false);
+    await act(async()=>{store.undo();await flush();});
+    expect(useEditorStore.getState().activeScene!.entities).toHaveLength(1);
   });
 
   it("renders observed build provenance and explicit unsupported reasons", async () => {
@@ -313,7 +362,7 @@ describe("InspectorPanel", () => {
 
   it("persists physics.gravity edits through the canonical entity update path", async () => {
     const row = findRow(container, "Gravity");
-    const valueTrigger = row.querySelector("td:last-child span");
+    const valueTrigger = row.querySelector("td:last-child button");
 
     await act(async () => {
       valueTrigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -403,7 +452,27 @@ describe("InspectorPanel", () => {
 
     expect(
       container.querySelector("[data-testid='inspector-tilemap-legacy-fallback']")?.textContent ?? ""
-    ).toContain("fallback explícito");
+    ).toContain("Imagem original em uso");
+  });
+
+  it("restores the source image after all cells were erased and supports undo", async () => {
+    const entity = tilemapFixtureEntity(true);
+    entity.components.tilemap!.cells = Array(16).fill(4294967295);
+    const scene = { ...EMPTY_SCENE, entities: [entity] };
+    await act(async () => {
+      useEditorStore.setState({ activeScene: scene, activeSceneSource: scene, selectedEntityId: entity.entity_id, undoStack: [], redoStack: [], sceneRevision: 2 });
+      root.render(<InspectorPanel />);
+      await flush();
+    });
+    const button = container.querySelector('[data-testid="inspector-clear-tilemap-cells"]') as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toContain("Restaurar imagem original");
+    expect(container.textContent).toContain("Montagem editável por peças");
+    await act(async () => { button.click(); await flush(); });
+    expect(useEditorStore.getState().activeScene?.entities[0].components.tilemap?.cells).toBeUndefined();
+    expect(container.textContent).toContain("Imagem original em uso");
+    await act(async () => { useEditorStore.getState().undo(); await flush(); });
+    expect(useEditorStore.getState().activeScene?.entities[0].components.tilemap?.cells).toEqual(Array(16).fill(4294967295));
   });
 
   it("shows target and layer context for the selected entity", async () => {

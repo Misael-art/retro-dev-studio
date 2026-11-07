@@ -63,6 +63,13 @@ export function useAssetBrowserState(
     }
 
     let cancelled = false;
+    // Do not expose the previous project's absolute paths or selection while
+    // the next catalog is loading.
+    setAssets([]);
+    setSelectedTreeAsset(null);
+    setSelectedLegacyFile(null);
+    setLegacyPreview(null);
+    setLegacyPreviewError(null);
 
     async function loadAssets() {
       setBusy(true);

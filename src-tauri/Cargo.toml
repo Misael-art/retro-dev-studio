@@ -17,6 +17,7 @@ base64 = "0.22"
 tauri = { version = "=2.11.5", features = ["protocol-asset"] }
 tauri-plugin-opener = "=2.5.4"
 tauri-plugin-dialog = "=2.7.1"
+arboard = { version = "=3.7.0", features = ["wayland-data-control"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Biblioteca de endereçamento REX (Experimental). Dependencia de caminho: não
@@ -39,3 +40,7 @@ rex-mugen = { path = "../crates/rex-mugen" }
 libloading = "0.8"
 image = { version = "0.25", default-features = false, features = ["bmp", "png", "pnm", "jpeg", "gif", "webp"] }
 sevenz-rust2 = { version = "0.16", features = ["util"] }
+tree-sitter = "0.25"
+tree-sitter-c = "0.24"
+# Browser image drops need bounded HTTPS reads; reuse the version already in the lock.
+reqwest = { version = "=0.13.4", default-features = false, features = ["blocking", "native-tls-no-alpn"] }

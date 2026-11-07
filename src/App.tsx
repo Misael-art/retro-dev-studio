@@ -1,8 +1,16 @@
+import ProjectStartWizard from "./components/common/ProjectStartWizard";
+import ImageIngress from "./components/artstudio/ImageIngress";
+import RomDropDecompile from "./components/tools/RomDropDecompile";
+import Icon, { type IconName } from "./components/common/Icon";
+import StudioAppearancePicker from "./components/common/StudioAppearancePicker";
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { APP_COMMAND_EVENT, requestAppCommand, useSceneAttentionStore } from "./core/sceneAttentionStore";
 import { dispatchGraphHistory } from "./core/nodegraph/graphHistory";
 import { open } from "@tauri-apps/plugin-dialog";
 import { MugenCompatibilityPanel } from "./components/common/MugenCompatibilityPanel";
 import MugenSourceReviewPanel from "./components/common/MugenSourceReviewPanel";
+import Dialog from "./components/common/Dialog";
 import type { MugenReviewOptions } from "./core/mugenReview";
 import {
   loadMugenImportReports,
@@ -13,6 +21,7 @@ import {
   Group,
   Panel,
   type GroupImperativeHandle,
+  type PanelImperativeHandle,
   useDefaultLayout,
 } from "react-resizable-panels";
 import Console from "./components/common/Console";
@@ -35,10 +44,13 @@ import {
   emulatorLoadRom,
   emulatorObserve,
   emulatorStop,
+  emulatorVramUsage,
+  captureRomScene,
   getAudioOutputTelemetry,
   emulatorInputObservation,
   readReceivedAudioSamples,
   type AudioOutputTelemetry,
+  type EmulatorVramUsage,
 } from "./core/ipc/emulatorService";
 import { joinInputConsumption, type InputConsumption } from "./core/inputConsumption";
 import { inspectRomMastering } from "./core/ipc/projectCapabilityService";
@@ -67,6 +79,7 @@ import {
 import { pollProjectAssetChanges } from "./core/ipc/projectWatcherService";
 import {
   getSceneData,
+  switchScene,
   type Entity,
   type Scene,
 } from "./core/ipc/sceneService";
@@ -78,6 +91,7 @@ import {
 } from "./core/store/editorStore";
 import {
   clearSceneDraft,
+  flushPendingEdits,
   hydrateSceneResult,
   loadSceneDraft,
   persistActiveScene,
@@ -85,6 +99,7 @@ import {
   restoreSceneDraft,
   saveActiveSceneDraft,
   sceneDraftDiffersFromActiveSource,
+  SCENE_DRAFT_DELAY_MS,
   type SceneDraftRecord,
 } from "./core/scenePersistence";
 import {
@@ -218,6 +233,7 @@ function ToolbarButton({
   testId,
   title,
   describedBy,
+  icon,
 }: {
   label: string;
   onClick: () => void;
@@ -226,14 +242,15 @@ function ToolbarButton({
   testId?: string;
   title?: string;
   describedBy?: string;
+  icon?: IconName;
 }) {
   const palette =
     accent === "primary"
       ? "bg-[var(--rds-accent)] text-[var(--rds-on-accent)] hover:bg-[var(--rds-accent-hover)]"
       : accent === "success"
-        ? "bg-[var(--rds-status-success)] text-[var(--rds-on-accent)] hover:bg-[var(--rds-status-success-hover)]"
+        ? "bg-[var(--rds-status-success)] text-[var(--rds-status-success-text)] hover:bg-[var(--rds-status-success-hover)]"
         : accent === "danger"
-          ? "bg-[var(--rds-status-error)] text-[var(--rds-on-accent)] hover:bg-[var(--rds-status-error-hover)]"
+          ? "bg-[var(--rds-action-danger)] text-[var(--rds-on-accent)] hover:bg-[var(--rds-status-error-hover)]"
           : "bg-[var(--rds-surface-control)] text-[var(--rds-text-secondary)] hover:bg-[var(--rds-surface-control-hover)]";
 
   return (
@@ -243,8 +260,9 @@ function ToolbarButton({
       data-testid={testId}
       title={title}
       aria-describedby={describedBy}
-      className={`shrink-0 whitespace-nowrap rounded px-2 py-1 text-xs font-semibold leading-none transition-colors ${palette} disabled:cursor-not-allowed disabled:opacity-40`}
+      className={`inline-flex items-center justify-center gap-1.5 shrink-0 whitespace-nowrap rounded px-2 py-1 text-xs font-semibold leading-none transition-colors ${palette} disabled:cursor-not-allowed disabled:opacity-40`}
     >
+      {icon ? <Icon name={icon} size={18} /> : null}
       {label}
     </button>
   );
@@ -339,7 +357,7 @@ const EXECUTABLE_COMMAND_IDS = new Set([
 const WORKSPACE_ITEMS: {
   id: EditorWorkspace;
   label: string;
-  icon: string;
+  icon: IconName;
   description: string;
   group: WorkspaceGroupId;
   badge?: string;
@@ -358,9 +376,9 @@ const WORKSPACE_GROUPS: {
   id: WorkspaceGroupId;
   label: string;
 }[] = [
-  { id: "core", label: "Core" },
+  { id: "core", label: "Projeto" },
   { id: "authoring", label: "Autoria" },
-  { id: "advanced", label: "Debug" },
+  { id: "advanced", label: "Avançado" },
 ];
 
 type FirstSuccessStep = {
@@ -492,44 +510,34 @@ function WorkspaceRailButton({
   active,
   title,
   onClick,
-  accent = "default",
   badge,
   testId,
+  workspace,
 }: {
-  icon: string;
+  icon: IconName;
   label: string;
   active: boolean;
   title: string;
   onClick: () => void;
-  accent?: "default" | "debug";
+  workspace: EditorWorkspace;
   badge?: string;
   testId?: string;
 }) {
-  const activeTone =
-    accent === "debug"
-      ? "border-[#f9e2af]/45 bg-[#f9e2af]/12 text-[#f9e2af]"
-      : "border-[#cba6f7]/45 bg-[#cba6f7]/14 text-[#e9d5ff]";
-
   return (
     <button
       type="button"
       aria-label={`${label}: ${title}`}
+      aria-current={active ? "page" : undefined}
       title={title}
       data-testid={testId}
       onClick={onClick}
-      className={`group flex w-full shrink-0 flex-col items-center gap-1 rounded-2xl border px-2 py-1.5 text-center transition-colors ${
-        active
-          ? activeTone
-          : "border-transparent text-[#7f849c] hover:border-[#313244] hover:bg-[#11111b] hover:text-[#e5e7eb]"
-      }`}
+      data-workspace={workspace}
+      className="rds-workspace-button"
     >
-      <span
-        aria-hidden="true"
-        className="rounded-xl border border-current/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
-      >
-        {icon}
+      <span aria-hidden="true" className="rds-workspace-icon">
+        <Icon name={icon} size={32} />
       </span>
-      <span className="sr-only">{label}</span>
+      <span className="text-[11px] font-medium leading-tight">{label}</span>
       {badge ? (
         <span
           aria-hidden="true"
@@ -596,13 +604,13 @@ function WorkspaceGuideCard({ guide }: { guide: WorkspaceGuide }) {
       data-testid="workspace-guide"
       data-expanded={expanded ? "true" : "false"}
       title={`${guide.title} — ${guide.summary}`}
-      className={`mx-4 mt-2 rounded-xl border border-[#313244] bg-[linear-gradient(135deg,#0b1020,#111827_55%,#0f172a)] px-3 shadow-[0_12px_24px_rgba(0,0,0,0.16)] ${
+      className={`mx-4 mt-2 rounded-xl border border-[#313244] bg-[var(--rds-surface-panel)] px-3 shadow-[0_12px_24px_rgba(0,0,0,0.16)] ${
         expanded ? "py-2.5" : "py-1.5"
       }`}
     >
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className={`flex gap-2 ${expanded ? "flex-col lg:flex-row lg:items-center" : "items-center"} lg:justify-between`}>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#89b4fa]">
+          <p className={`${expanded ? "block" : "hidden"} text-[10px] font-semibold uppercase tracking-[0.22em] text-[#89b4fa]`}>
             {guide.eyebrow}
           </p>
           <h2
@@ -627,7 +635,7 @@ function WorkspaceGuideCard({ guide }: { guide: WorkspaceGuide }) {
               ))}
             </div>
           ) : null}
-          {guide.signal ? (
+          {guide.signal && (expanded || guide.signal.tone === "warn" || guide.signal.tone === "error") ? (
             <div
               data-testid="workspace-guide-signal"
               className={`mt-2 inline-flex max-w-full items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${signalToneClass}`}
@@ -816,6 +824,10 @@ function SgdkCapabilityMatrix({ profile }: { profile: ExternalImportProfileSumma
 }
 
 function SgdkImportSummaryCard({ summary }: { summary: SgdkImportSummary }) {
+  const entities = useEditorStore(state => state.activeScene?.entities);
+  const selectedId = useEditorStore(state => state.selectedEntityId);
+  const selectedEntity = entities?.find(e => e.entity_id === selectedId);
+  const resourceCount = new Set(entities?.flatMap(e => [e.components.sprite?.asset, e.components.tilemap?.tileset]).filter(Boolean)).size;
   const rows = [
     ["estados detectados", summary.states_detected ?? 0],
     ["transicoes detectadas", summary.transitions_detected ?? 0],
@@ -826,8 +838,27 @@ function SgdkImportSummaryCard({ summary }: { summary: SgdkImportSummary }) {
     <section
       data-testid="sgdk-import-summary"
       title={`Resumo SGDK Logic — ${formatSgdkImportSummaryKind(summary)}`}
-      className="mx-3 mt-3 rounded border border-[#89b4fa]/30 bg-[#0b1020] p-3 text-[10px] text-[#94a3b8]"
+      className="mx-3 mt-1 rounded border border-[#313244] bg-transparent px-2 py-0.5 text-[10px] text-[#94a3b8]"
     >
+      <div className="flex flex-wrap items-center justify-between gap-2 py-1 text-xs text-[var(--rds-text-primary)]">
+        <p>{resourceCount} recurso(s) visuais na cena · composição e gameplay ainda não certificados</p>
+        <div className="flex gap-2"><button type="button" data-testid="sgdk-import-view-assets" className="rounded border px-2 py-1" onClick={() => requestAppCommand("tools.assetBrowser")}>Ver recursos</button>
+          {selectedEntity?.components.sprite && <button type="button" className="rounded border px-2 py-1" onClick={() => requestAppCommand("workspace.artstudio")}>Editar imagem selecionada</button>}</div>
+      </div>
+      <details className="max-h-[min(32vh,240px)] overflow-y-auto">
+      <summary
+        className="cursor-pointer text-[10px] text-[#7f849c] hover:text-[#cdd6f4]"
+        title="Experimental: a equivalência com o jogo original não é certificada."
+      >
+        Relatório da importação {summary.blocking_gaps?.length ? `· ${summary.blocking_gaps.length} item(s) não convertido(s) ` : ""}<span className="text-[#585b70]">· Experimental</span>
+      </summary>
+      <dl className="my-2 grid gap-2 text-xs md:grid-cols-2">
+        <div><dt className="font-semibold">Recursos</dt><dd>Imagens e arquivos disponíveis no catálogo; seleção e origem identificadas por objeto.</dd></div>
+        <div><dt className="font-semibold">Composição</dt><dd>A etiqueta de posição do objeto distingue origem e área de organização aproximada.</dd></div>
+        <div><dt className="font-semibold">Código C nativo</dt><dd>Arquivos mapeados preservados. A rota de compilação C é distinta do grafo visual.</dd></div>
+        <div><dt className="font-semibold">Comportamento visual</dt><dd>{(summary.nodes_generated ?? 0) > 0 ? "Grafo parcial; confira hipóteses e lacunas abaixo." : "Nenhum nó convertido. Crie um comportamento autoral ou continue pelo código C."}</dd></div>
+      </dl>
+      <p className="mt-1 text-[#fab387]">Experimental: a equivalência com o jogo original não é certificada.</p>
       <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#89b4fa]">
@@ -864,6 +895,7 @@ function SgdkImportSummaryCard({ summary }: { summary: SgdkImportSummary }) {
           arquivos fonte mapeados: {summary.mapped_source_files.join(", ")}
         </p>
       ) : null}
+      </details>
     </section>
   );
 }
@@ -922,12 +954,29 @@ function ToolbarVramBudget({
   limit,
   hasErrors,
   hasWarnings,
+  nativeC = false,
 }: {
-  used: number;
+  used: number | null;
   limit: number;
   hasErrors: boolean;
   hasWarnings: boolean;
+  /** Projeto C nativo: `used` vem da VRAM real do core; `null` = jogo ainda não rodou. */
+  nativeC?: boolean;
 }) {
+  if (used === null) {
+    return (
+      <div
+        data-testid="toolbar-vram-budget"
+        className="pointer-events-none flex h-7 min-w-[6.5rem] shrink-0 items-center gap-1 rounded border border-[#313244] bg-[#11111b] px-2"
+        title="Projeto C nativo: a VRAM é alocada pelo código C e é medida no emulador enquanto o jogo roda."
+      >
+        <span className="text-[10px] text-[#7f849c]" title="VRAM">Memória de vídeo</span>
+        <span data-testid="toolbar-vram-budget-label" className="font-mono text-[#cdd6f4]">
+          — / {Math.round(limit / 1024)} KB
+        </span>
+      </div>
+    );
+  }
   const percent = Math.min(100, Math.round((used / Math.max(limit, 1)) * 100));
   const toneClass = hasErrors
     ? "bg-[#f38ba8]"
@@ -939,9 +988,11 @@ function ToolbarVramBudget({
     <div
       data-testid="toolbar-vram-budget"
       className="pointer-events-none flex h-7 min-w-[6.5rem] shrink-0 items-center gap-1 rounded border border-[#313244] bg-[#11111b] px-2"
-      title={`VRAM ${Math.round(used / 1024)}KB / ${Math.round(limit / 1024)}KB (${percent}%)`}
+      title={`VRAM ${Math.round(used / 1024)}KB / ${Math.round(limit / 1024)}KB (${percent}%)${
+        nativeC ? " — medida no emulador (tiles com dados na VRAM real)" : ""
+      }`}
     >
-      <span className="text-[10px] text-[#7f849c]">VRAM</span>
+      <span className="text-[10px] text-[#7f849c]">{nativeC ? "VRAM real" : "VRAM"}</span>
         <span data-testid="toolbar-vram-budget-label" className="font-mono text-[#cdd6f4]">
           {Math.round(used / 1024)} / {Math.round(limit / 1024)} KB
         </span>
@@ -974,10 +1025,10 @@ function ToolbarScanlineBudget({
   return (
     <div
       data-testid="toolbar-scanline-budget"
-      className="pointer-events-none hidden h-7 min-w-[5rem] shrink-0 items-center gap-1 rounded border border-[#313244] bg-[#11111b] px-2 2xl:flex"
+      className="pointer-events-none flex h-7 min-w-[5rem] shrink-0 items-center gap-1 rounded border border-[#313244] bg-[#11111b] px-2"
       title={`Sprites por scanline ${peak} / ${limit} (${percent}%)`}
     >
-      <span className="text-[10px] text-[#7f849c]">SL</span>
+      <span className="text-[10px] text-[#7f849c]" title="Sprites por scanline">Sprites por linha</span>
         <span data-testid="toolbar-scanline-budget-label" className="font-mono text-[#cdd6f4]">
           {peak} / {limit}
         </span>
@@ -1010,10 +1061,10 @@ function ToolbarPaletteBudget({
   return (
     <div
       data-testid="toolbar-palette-budget"
-      className="pointer-events-none hidden h-7 min-w-[4.5rem] shrink-0 items-center gap-1 rounded border border-[#313244] bg-[#11111b] px-2 2xl:flex"
+      className="pointer-events-none flex h-7 min-w-[4.5rem] shrink-0 items-center gap-1 rounded border border-[#313244] bg-[#11111b] px-2"
       title={`Bancos de paleta ${used} / ${limit} (${percent}%)`}
     >
-      <span className="text-[10px] text-[#7f849c]">PAL</span>
+      <span className="text-[10px] text-[#7f849c]" title="Bancos de paleta (PAL)">Paletas</span>
         <span data-testid="toolbar-palette-budget-label" className="font-mono text-[#cdd6f4]">
           {used} / {limit}
         </span>
@@ -1046,6 +1097,8 @@ function ToolbarWarningBadge({
       <button
         type="button"
         data-testid="toolbar-warning-badge"
+        aria-haspopup="dialog"
+        aria-expanded={open}
         onClick={() => {
           if (!open) {
             onOpen?.();
@@ -1059,9 +1112,10 @@ function ToolbarWarningBadge({
         <span className="ml-1 font-mono">{issues.length}</span>
       </button>
       {open ? (
+        <Dialog open portal={false} title="Diagnóstico do projeto" onClose={() => setOpen(false)}>
         <div
           data-testid="toolbar-warning-popover"
-          className="absolute right-0 top-[calc(100%+8px)] z-30 w-80 rounded border border-[#313244] bg-[#0b1120] p-3 text-[11px] text-[#cbd5e1] shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
+          className="text-[11px] text-[#cbd5e1]"
         >
           <p className="text-[10px] font-semibold uppercase text-[#fab387]">
             Diagnostico
@@ -1074,8 +1128,31 @@ function ToolbarWarningBadge({
             ))}
           </ul>
         </div>
+        </Dialog>
       ) : null}
     </div>
+  );
+}
+
+type AppBuildIdentity = { version: string; source_sha: string; source_dirty: boolean; debug: boolean; executable: string | null; executable_sha256: string | null };
+
+/** PLAT01: shows which binary is actually open, not the launcher receipt. */
+function BuildIdentityBadge() {
+  const [identity, setIdentity] = useState<AppBuildIdentity | null>(null);
+  useEffect(() => {
+    if (!("__TAURI_INTERNALS__" in window)) return;
+    let alive = true;
+    void Promise.resolve().then(() => invoke<AppBuildIdentity>("app_build_identity")).then(value => { if (alive) setIdentity(value); }, () => undefined);
+    return () => { alive = false; };
+  }, []);
+  if (!identity) return null;
+  const source = identity.source_sha.slice(0, 8) + (identity.source_dirty ? " + alterações locais" : "");
+  const exe = identity.executable_sha256?.slice(0, 8) ?? "indisponível";
+  return (
+    <span data-testid="app-build-identity" className="hidden font-mono text-[#cdd6f4] md:inline"
+      title={`Versão ${identity.version}${identity.debug ? " (debug)" : ""}\nFonte: ${identity.source_sha}${identity.source_dirty ? " (com alterações locais)" : ""}\nExecutável: ${identity.executable ?? "?"}\nSHA-256: ${identity.executable_sha256 ?? "indisponível"}`}>
+      v{identity.version} · fonte {source} · exe {exe}
+    </span>
   );
 }
 
@@ -1102,16 +1179,17 @@ function ProductionStatusBar({
       <span className="min-w-0 flex-1 truncate" title={lastMessage}>
         {lastMessage || "Sem alertas recentes"}
       </span>
-      <span className="hidden font-mono text-[#cdd6f4] sm:inline">Build: {buildStatus}</span>
-      <span className="hidden font-mono text-[#cdd6f4] md:inline">Import: {importStatus}</span>
-      <span className="hidden font-mono text-[#cdd6f4] md:inline">Emulacao: {emulationStatus}</span>
+      <span className="hidden font-mono text-[#cdd6f4] sm:inline">Prévia: {({ building: "Compilando", blocked: "Bloqueada", warn: "Com avisos", stale: "Desatualizada", ready: "Apta", idle: "Sem projeto" } as Record<string, string>)[buildStatus] ?? buildStatus}</span>
+      <span className="hidden font-mono text-[#cdd6f4] md:inline">Origem: {({ builtin: "Autoral", external_sgdk: "SGDK", sgdk: "SGDK", mugen: "MUGEN" } as Record<string, string>)[importStatus] ?? importStatus}</span>
+      <span className="hidden font-mono text-[#cdd6f4] md:inline">Emulação: {({ loaded: "ROM carregada", paused: "Pausada", idle: "Parada" } as Record<string, string>)[emulationStatus] ?? emulationStatus}</span>
       <span className="hidden font-mono text-[#cdd6f4] lg:inline">{hardwareSummary}</span>
+      <BuildIdentityBadge />
       <button
         type="button"
         onClick={onOpenDetails}
         className="rounded border border-[#313244] bg-[#111827] px-2 py-0.5 text-[10px] font-semibold text-[#cdd6f4] transition-colors hover:border-[#89b4fa] hover:text-[#89b4fa]"
       >
-        Details
+        Detalhes
       </button>
     </div>
   );
@@ -1530,6 +1608,8 @@ type AutomationApi = {
     showAdvanced?: boolean
   ) => boolean;
   selectWorkspace: (workspace: EditorWorkspace) => boolean;
+  /** Abre um asset do projeto no ArtStudio, como o botão do Asset Browser. */
+  openAssetInArtStudio: (relativePath: string) => boolean;
   setConsoleVisible: (visible: boolean) => boolean;
   setEntityLogicGraph: (entityId: string, graphJson: string) => boolean;
   setEntityTransform: (entityId: string, x: number, y: number) => boolean;
@@ -1565,6 +1645,8 @@ type AutomationApi = {
   /** Proximo caminho devolvido pelo seletor de pasta da importacao externa, no lugar do
    * dialogo nativo (que a automacao nao dirige). O resto do fluxo continua visivel. E2E / QA. */
   setNextExternalImportPath: (path: string) => boolean;
+  /** Substitui apenas o resultado do seletor de arquivo, preservando o fluxo de abertura. E2E / QA. */
+  setNextProjectOpenFile: (path: string | null) => boolean;
   setNextAudioImportPath: (path: string) => boolean;
   setNextImageImportPath: (path: string) => boolean;
   getState: () => AutomationState;
@@ -1587,8 +1669,12 @@ export default function App() {
     activeProjectName,
     activeScene,
     activeScenePath,
+    projectEntryScenePath,
     activeSceneSource,
     sceneRevision,
+    projectSessionId,
+    sceneDiskBaseline,
+    sceneDraftState,
     setActiveProject,
     activeTarget,
     setActiveTarget,
@@ -1623,6 +1709,39 @@ export default function App() {
     setLastBuildSourceMap,
   } = useEditorStore();
 
+  // Projeto C nativo: a VRAM real vem do core em execução (amostrada 1x/s).
+  const nativeCProject = hwStatus?.analysis_mode === "native_c";
+  useEffect(() => { useSceneAttentionStore.setState({ focus: null, assetReveal: null, paletteRequest: 0 }); }, [projectSessionId, activeScenePath]);
+  useEffect(() => {
+    const closeWizard = () => setShowProjectWizard(false);
+    window.addEventListener("rds:rom-input-open", closeWizard);
+    return () => window.removeEventListener("rds:rom-input-open", closeWizard);
+  }, []);
+
+  const [measuredVram, setMeasuredVram] = useState<EmulatorVramUsage | null>(null);
+  useEffect(() => {
+    if (!nativeCProject || !emulatorLoaded) {
+      setMeasuredVram(null);
+      return;
+    }
+    let cancelled = false;
+    const sample = () => {
+      emulatorVramUsage()
+        .then((usage) => {
+          if (!cancelled) setMeasuredVram(usage);
+        })
+        .catch(() => {
+          if (!cancelled) setMeasuredVram(null);
+        });
+    };
+    sample();
+    const timer = window.setInterval(sample, 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [emulatorLoaded, nativeCProject]);
+
   const [building, setBuilding] = useState(false);
   const [romMasteringStatus, setRomMasteringStatus] = useState<string>("not_inspected");
   const [rightPanelMode, setRightPanelMode] = useState<"inspector" | "tools">("inspector");
@@ -1631,16 +1750,21 @@ export default function App() {
   const [toolPanelShowAdvanced, setToolPanelShowAdvanced] = useState(false);
   const [leftPanelTab, setLeftPanelTab] = useState<"scene" | "layers">("scene");
   const [focusedShell, setFocusedShell] = useState(false);
+  const [compactPanel, setCompactPanel] = useState<"hierarchy" | "canvas" | "inspector">("canvas");
   const [layoutPreset, setLayoutPreset] = useState<LayoutPresetId>("authoring");
   const [shellWidth, setShellWidth] = useState(
-    typeof window !== "undefined" ? window.innerWidth : 1440
+    typeof window !== "undefined"
+      ? window.innerWidth / (Number.parseFloat(getComputedStyle(document.documentElement).zoom) || 1)
+      : 1440
   );
   const [shellPersona, setShellPersona] = useState<ShellPersona>(() => loadShellPersona());
   const [personaSuggestion, setPersonaSuggestion] = useState<ShellPersona | null>(null);
   const [pendingSceneDraft, setPendingSceneDraft] = useState<SceneDraftRecord | null>(null);
-  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const dismissedDraftRef = useRef<{ session: number; raw?: string } | null>(null);
   const shellDensity = getShellDensity(shellWidth);
   const hasActiveSceneSource = Boolean(activeSceneSource);
+  const draftConflict = sceneDraftState.status === "conflict";
+  const lastRecoveryCheckRef = useRef<{ session: number; scenePath: string; baseline: string; conflict: boolean } | null>(null);
 
   // Metricas locais de produto (Experimental): localStorage apenas, sem rede.
   useEffect(() => {
@@ -1648,28 +1772,60 @@ export default function App() {
     setPersonaSuggestion(getPersonaSuggestion(getProductMetricsSnapshot(), loadShellPersona()));
   }, []);
 
-  // Autosave de rascunho local (Experimental): debounce apos mutacao de cena.
+  // A confirmation covers only this exact scene/session/revision. Clean disk
+  // hydration and an unresolved recovery must never overwrite a prior draft.
   useEffect(() => {
-    if (!activeProjectDir || sceneRevision === 0) {
-      return;
-    }
+    const started = useEditorStore.getState();
+    if (!activeProjectDir || !activeScenePath || !hasActiveSceneSource
+        || !sceneDiskBaseline || sceneDiskBaseline.projectDir !== activeProjectDir
+        || sceneDiskBaseline.scenePath !== activeScenePath
+        || (started.sceneSaveState.revision === sceneRevision && started.sceneDraftState.status === "idle")) return;
     const handle = window.setTimeout(() => {
-      if (saveActiveSceneDraft(activeProjectDir)) {
-        setDraftSavedAt(new Date().toISOString());
-      }
-    }, 2000);
+      const current = useEditorStore.getState();
+      if (current.projectSessionId !== projectSessionId || current.activeProjectDir !== activeProjectDir
+          || current.activeScenePath !== activeScenePath || current.sceneRevision !== sceneRevision
+          || ["recovery", "invalid", "conflict"].includes(current.sceneDraftState.status)) return;
+      void saveActiveSceneDraft(activeProjectDir);
+    }, SCENE_DRAFT_DELAY_MS);
     return () => window.clearTimeout(handle);
-  }, [activeProjectDir, sceneRevision]);
+  }, [activeProjectDir, activeScenePath, projectSessionId, sceneRevision, hasActiveSceneSource, sceneDiskBaseline]);
+
+  useEffect(() => {
+    const protect = () => {
+      flushPendingEdits();
+      const state = useEditorStore.getState();
+      if (state.activeProjectDir && state.activeSceneSource && state.sceneRevision !== state.sceneSaveState.revision) {
+        void saveActiveSceneDraft(state.activeProjectDir);
+      }
+    };
+    window.addEventListener("pagehide", protect);
+    return () => window.removeEventListener("pagehide", protect);
+  }, []);
 
   // Detecta rascunho divergente quando a cena hidrata (recuperacao pos-crash).
   useEffect(() => {
-    if (!activeProjectDir || !hasActiveSceneSource) {
+    if (!activeProjectDir || !hasActiveSceneSource || !sceneDiskBaseline
+        || sceneDiskBaseline.projectDir !== activeProjectDir || sceneDiskBaseline.scenePath !== activeScenePath) {
       setPendingSceneDraft(null);
       return;
     }
-    const draft = loadSceneDraft(activeProjectDir);
-    setPendingSceneDraft(draft && sceneDraftDiffersFromActiveSource(draft) ? draft : null);
-  }, [activeProjectDir, hasActiveSceneSource]);
+    const state = useEditorStore.getState();
+    if (state.sceneSaveState.revision !== sceneRevision && state.sceneDraftState.status !== "conflict") return;
+    const checked = lastRecoveryCheckRef.current;
+    if (checked?.session === projectSessionId && checked.scenePath === activeScenePath && checked.baseline === sceneDiskBaseline.sourceSceneJson
+        && checked.conflict === draftConflict) return;
+    lastRecoveryCheckRef.current = { session: projectSessionId, scenePath: activeScenePath, baseline: sceneDiskBaseline.sourceSceneJson, conflict: draftConflict };
+    let cancelled = false;
+    void loadSceneDraft(activeProjectDir).then((draft) => {
+      if (cancelled || useEditorStore.getState().projectSessionId !== projectSessionId) return;
+      const dismissed = dismissedDraftRef.current?.session === projectSessionId
+        && dismissedDraftRef.current?.raw === draft?.storageValue;
+      setPendingSceneDraft(!dismissed && draft && (sceneDraftDiffersFromActiveSource(draft) || state.sceneDraftState.status === "conflict") ? draft : null);
+    });
+    return () => { cancelled = true; };
+    // Only a loaded disk baseline/context or an explicit conflict opens recovery.
+    // Ordinary edits and draft confirmations do not re-open the prompt.
+  }, [activeProjectDir, activeScenePath, projectSessionId, hasActiveSceneSource, sceneDiskBaseline, sceneRevision, draftConflict]);
 
   function trackProductMetric(event: ProductMetricEvent) {
     recordProductMetric(event);
@@ -1685,23 +1841,48 @@ export default function App() {
     }
   }
 
-  async function handleRestoreSceneDraft() {
+  async function handleRestoreSceneDraft(acceptDiskChange = false) {
     if (!pendingSceneDraft || !activeProjectDir) {
       return;
     }
-    const restored = await restoreSceneDraft(activeProjectDir, pendingSceneDraft);
-    if (restored) {
+    const context = useEditorStore.getState();
+    const restored = await restoreSceneDraft(activeProjectDir, pendingSceneDraft, { acceptDiskChange });
+    if (restored && useEditorStore.getState().projectSessionId === context.projectSessionId
+        && useEditorStore.getState().activeScenePath === context.activeScenePath) {
       setPendingSceneDraft(null);
     }
   }
 
-  function handleDiscardSceneDraft() {
+  async function handleKeepSavedScene() {
+    if (!pendingSceneDraft || !activeProjectDir) return;
+    const context = useEditorStore.getState();
+    const record = pendingSceneDraft;
+    if (await reloadSceneFromDisk(activeProjectDir, "Recuperação")) {
+      if (useEditorStore.getState().projectSessionId !== context.projectSessionId) return;
+      dismissedDraftRef.current = { session: context.projectSessionId, raw: record.storageValue };
+      setPendingSceneDraft(null);
+      context.setSceneDraftState({ status: "recovery", revision: record.revision ?? null, savedAt: record.savedAt,
+        message: "Arquivo salvo aberto. Rascunho anterior preservado; recupere-o ou use Salvar para proteger novas mudanças." });
+    }
+  }
+
+  async function handleDiscardSceneDraft() {
     if (!activeProjectDir) {
       return;
     }
-    clearSceneDraft(activeProjectDir);
-    setPendingSceneDraft(null);
-    logMessage("info", "[Autosave] Rascunho local descartado.");
+    const context = useEditorStore.getState();
+    const cleared = await clearSceneDraft(activeProjectDir, undefined, activeScenePath, pendingSceneDraft ? {
+      key: pendingSceneDraft.storageKey, raw: pendingSceneDraft.storageValue,
+    } : undefined);
+    if (useEditorStore.getState().projectSessionId !== context.projectSessionId) return;
+    if (cleared) {
+      setPendingSceneDraft(null);
+      dismissedDraftRef.current = null;
+      useEditorStore.getState().setSceneDraftState({ status: "idle", revision: null, savedAt: null, message: null });
+      const state = useEditorStore.getState();
+      if (state.sceneRevision !== state.sceneSaveState.revision) void saveActiveSceneDraft(activeProjectDir);
+      logMessage("info", "[Recuperação] Rascunho selecionado descartado por sua escolha; arquivo salvo preservado.");
+    } else logMessage("warn", "[Recuperação] Rascunho preservado: não foi possível confirmar o descarte; leia novamente.");
   }
   const [newProjName, setNewProjName] = useState("MeuProjeto");
   const [projectNameSuggestionMode, setProjectNameSuggestionMode] = useState<"auto" | "manual">(
@@ -1731,8 +1912,10 @@ export default function App() {
   mugenStateRef.current = { open: mugenPanelOpen, reports: mugenReports };
   // Automacao E2E: substitui SO o dialogo nativo de pasta (que o WebDriver nao dirige).
   const pendingExternalImportPathRef = useRef<string | null>(null);
+  const pendingProjectOpenFileRef = useRef<{ path: string | null } | null>(null);
   const [showProjectWizard, setShowProjectWizard] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
+  const [projectWizardError, setProjectWizardError] = useState("");
   const [showAbout, setShowAbout] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showDelivery, setShowDelivery] = useState(false);
@@ -1751,9 +1934,10 @@ export default function App() {
   );
   const [copiedEntity, setCopiedEntity] = useState<Entity | null>(null);
   const [explorerBreadcrumb, setExplorerBreadcrumb] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const buildInFlightRef = useRef(false);
   const panelGroupRef = useRef<GroupImperativeHandle | null>(null);
+  const leftPanelRef = useRef<PanelImperativeHandle | null>(null);
+  const rightPanelRef = useRef<PanelImperativeHandle | null>(null);
   const lastNonFocusLayoutRef = useRef<LayoutMap | null>(null);
   const applyingLayoutRef = useRef(false);
   const tauriInternals =
@@ -1773,13 +1957,11 @@ export default function App() {
 
   const selectedTemplate =
     projectTemplates.find((template) => template.id === selectedTemplateId) ?? null;
-  const recommendedProjectTemplates = projectTemplates.filter(
-    (template) => template.source_kind === "builtin" && !template.experimental
-  );
   const importAdvancedProjectTemplates = projectTemplates.filter(
-    (template) => template.source_kind !== "builtin" || template.experimental
+    (template) => template.source_kind !== "builtin"
   );
-  const selectedTemplateMegadriveOnly = selectedTemplate?.source_kind === "external_sgdk";
+  const selectedTemplateMegadriveOnly = selectedTemplate?.mega_drive_only
+    ?? selectedTemplate?.source_kind === "external_sgdk";
   const selectedTemplateAvailability = selectedTemplate
     ? templateAvailability(selectedTemplate)
     : null;
@@ -1825,6 +2007,21 @@ export default function App() {
   const workspaceMeta =
     WORKSPACE_ITEMS.find((workspace) => workspace.id === activeWorkspace) ?? WORKSPACE_ITEMS[0];
   const shellConfig = resolveWorkspaceShellConfig(activeWorkspace, shellWidth);
+  const compactShell = shellWidth < 960;
+  const compactVisiblePanel = focusedShell ||
+    (compactPanel === "hierarchy" && !shellConfig.showLeft) ||
+    (compactPanel === "inspector" && !shellConfig.showRight)
+    ? "canvas"
+    : compactPanel;
+  const compactTabs: ["canvas" | "hierarchy" | "inspector", string][] = [
+    ["canvas", workspaceMeta.label],
+    ...(shellConfig.showLeft && !focusedShell ? [["hierarchy", "Hierarquia"]] as ["hierarchy", string][] : []),
+    ...(shellConfig.showRight && !focusedShell ? [["inspector", "Inspector"]] as ["inspector", string][] : []),
+  ];
+  useEffect(() => {
+    setCompactPanel(activeWorkspace === "debug" && shellConfig.showRight ? "inspector" : "canvas");
+  }, [activeWorkspace, compactShell, shellConfig.showRight]);
+  const defaultRightMode = shellConfig.defaultRightMode;
   const shortcutConflicts = findShortcutConflicts(shortcuts);
   const paletteCommands = getPaletteCommands(shortcuts).filter((command) =>
     EXECUTABLE_COMMAND_IDS.has(command.id)
@@ -1835,12 +2032,16 @@ export default function App() {
 
   useEffect(() => {
     function handleResize() {
-      setShellWidth(window.innerWidth);
+      const zoom = Number.parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+      setShellWidth(window.innerWidth / zoom);
     }
 
     window.addEventListener("resize", handleResize);
+    const zoomObserver = new MutationObserver(handleResize);
+    zoomObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
     return () => {
       window.removeEventListener("resize", handleResize);
+      zoomObserver.disconnect();
     };
   }, []);
 
@@ -1928,6 +2129,18 @@ export default function App() {
     return false;
   }
 
+  // Painéis (ex.: "Próximos passos") pedem comandos canônicos sem acoplar ao shell.
+  const executeAppCommandRef = useRef<(commandId: string) => void>(() => {});
+  executeAppCommandRef.current = executeAppCommand;
+  useEffect(() => {
+    const onCommand = (event: Event) => {
+      const commandId = (event as CustomEvent<{ commandId?: string }>).detail?.commandId;
+      if (commandId) executeAppCommandRef.current(commandId);
+    };
+    window.addEventListener(APP_COMMAND_EVENT, onCommand);
+    return () => window.removeEventListener(APP_COMMAND_EVENT, onCommand);
+  }, []);
+
   function executeAppCommand(commandId: string) {
     if (isCommandDisabled(commandId)) {
       return;
@@ -2003,7 +2216,19 @@ export default function App() {
 
   function applyShellLayout(nextLayout: LayoutMap) {
     applyingLayoutRef.current = true;
+    if (nextLayout.left > 0 && leftPanelRef.current?.isCollapsed()) {
+      leftPanelRef.current.expand();
+    }
+    if (nextLayout.right > 0 && rightPanelRef.current?.isCollapsed()) {
+      rightPanelRef.current.expand();
+    }
     panelGroupRef.current?.setLayout(nextLayout);
+    if (nextLayout.left > 0 && (leftPanelRef.current?.getSize().inPixels ?? 0) < 190) {
+      leftPanelRef.current?.resize("200px");
+    }
+    if (nextLayout.right > 0 && (rightPanelRef.current?.getSize().inPixels ?? 0) < 300) {
+      rightPanelRef.current?.resize("320px");
+    }
     onLayoutChanged(nextLayout);
     window.setTimeout(() => {
       applyingLayoutRef.current = false;
@@ -2085,23 +2310,44 @@ export default function App() {
       return;
     }
 
+    // A biblioteca pode recalcular os limites depois do primeiro frame ao
+    // expandir painéis que estavam recolhidos no workspace Jogo/Lógica.
+    // Confirme a largura real e repita apenas durante esta transição.
     const config = resolveWorkspaceShellConfig(activeWorkspace, shellWidth);
     setLayoutPreset(config.preset);
-    applyShellLayout(config.panels);
-  }, [activeWorkspace, shellWidth, focusedShell]);
+    let followupFrame = 0;
+    const panelNeedsRestore = () => {
+      const left = document.querySelector<HTMLElement>('[data-panel][id="left"]');
+      const right = document.querySelector<HTMLElement>('[data-panel][id="right"]');
+      return (config.showLeft && config.panels.left > 0 && (left?.getBoundingClientRect().width ?? 0) < 190) ||
+        (config.showRight && config.panels.right > 0 && (right?.getBoundingClientRect().width ?? 0) < 300);
+    };
+    const restoreIfCollapsed = () => {
+      if (panelNeedsRestore()) applyShellLayout(config.panels);
+    };
+    const frame = window.requestAnimationFrame(() => {
+      applyShellLayout(config.panels);
+      followupFrame = window.requestAnimationFrame(restoreIfCollapsed);
+    });
+    const timeout = window.setTimeout(restoreIfCollapsed, 180);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.cancelAnimationFrame(followupFrame);
+      window.clearTimeout(timeout);
+    };
+  }, [activeWorkspace, shellWidth, focusedShell, showProjectWizard, activeProjectDir]);
 
   useEffect(() => {
     if (focusedShell) {
       return;
     }
 
-    const config = resolveWorkspaceShellConfig(activeWorkspace, shellWidth);
-    if (config.defaultRightMode === "tools") {
+    if (defaultRightMode === "tools") {
       setRightPanelMode("tools");
-    } else if (config.defaultRightMode === "inspector") {
+    } else if (defaultRightMode === "inspector") {
       setRightPanelMode("inspector");
     }
-  }, [activeWorkspace, focusedShell, shellWidth]);
+  }, [activeWorkspace, focusedShell, defaultRightMode]);
 
   useEffect(() => {
     if (activeWorkspace === "debug" || activeWorkspace === "explorer") {
@@ -2125,12 +2371,6 @@ export default function App() {
     }
   }, [activeWorkspace]);
 
-  useEffect(() => {
-    if (showProjectWizard && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [showProjectWizard]);
 
   useEffect(() => {
     if (!showProjectWizard) {
@@ -2169,6 +2409,7 @@ export default function App() {
         if (!cancelled) {
           setProjectTemplates([]);
           setExternalImportProfiles([]);
+          setProjectWizardError("Não foi possível carregar os modelos e formatos. Feche e abra o assistente para tentar novamente.");
           logMessage("error", `[Projeto] Falha ao carregar templates: ${describeError(error)}`);
         }
       } finally {
@@ -2403,9 +2644,13 @@ export default function App() {
             : "idle";
   const importStatus = projectSourceKind || "builtin";
   const emulationStatus = emulatorLoaded ? (emulPaused ? "paused" : "loaded") : "idle";
-  const hardwareSummary = hwStatus
-    ? `VRAM ${Math.round(hwStatus.vram_used / 1024)}/${Math.round(hwStatus.vram_limit / 1024)}KB sprites ${hwStatus.sprite_count}/${hwStatus.sprite_limit}`
-    : "hardware n/a";
+  const hardwareSummary = !hwStatus
+    ? "hardware n/a"
+    : hwStatus.analysis_mode === "native_c"
+      ? measuredVram?.available
+        ? `VRAM real ${Math.round(measuredVram.used_bytes / 1024)}/${Math.round(hwStatus.vram_limit / 1024)}KB (C nativo)`
+        : `VRAM —/${Math.round(hwStatus.vram_limit / 1024)}KB (C nativo: medida ao rodar)`
+      : `VRAM ${Math.round(hwStatus.vram_used / 1024)}/${Math.round(hwStatus.vram_limit / 1024)}KB sprites ${hwStatus.sprite_count}/${hwStatus.sprite_limit}`;
   const lastConsoleMessage =
     [...consoleEntries].reverse().find((entry) => entry.level === "error" || entry.level === "warn")
       ?.message ?? consoleEntries[consoleEntries.length - 1]?.message ?? "";
@@ -2437,7 +2682,7 @@ export default function App() {
         },
         {
           label: creatingProject ? "Importando..." : "Importar Projeto Externo",
-          onClick: () => void handleImportExternalProject(),
+          onClick: () => { setShowExternalImportSection(true); setShowProjectWizard(true); setProjectWizardError(""); },
           disabled: creatingProject || templatesLoading,
           title: "Importar SGDK, GameMaker, Godot, MUGEN, OpenBOR ou outro projeto externo suportado",
           testId: "menu-action-project-import-external",
@@ -2510,6 +2755,13 @@ export default function App() {
     {
       title: "Ferramentas",
       actions: [
+        {
+          label: "Abrir ROM externa…",
+          onClick: () => void handleEmulatorLoadRom(),
+          disabled: building,
+          title: "Escolher uma ROM do operador para executar; esta ação não compila o projeto aberto",
+          testId: "menu-action-rom-open",
+        },
         {
           label: "Validar",
           onClick: () => void handleValidate(),
@@ -2604,6 +2856,11 @@ export default function App() {
     scope: string,
     preferredScenePath?: string | null
   ) {
+    flushPendingEdits();
+    const previous = useEditorStore.getState();
+    if (previous.activeProjectDir && previous.activeSceneSource && previous.sceneRevision !== previous.sceneSaveState.revision) {
+      await saveActiveSceneDraft(previous.activeProjectDir);
+    }
     await resetEmulatorSession(true);
     const hw = await getHwStatus(projectDir);
     const normalizedPreferredScene = preferredScenePath?.trim() || null;
@@ -2646,7 +2903,7 @@ export default function App() {
     setSelectedEntityId(null);
     setHwStatus(hw);
     setActiveScenePath(sceneData.scene_path);
-    setActiveScene(hydrated.resolvedScene, hydrated.sourceScene);
+    setActiveScene(hydrated.resolvedScene, hydrated.sourceScene, hydrated.graphs);
     setProjectSourceKind(sceneData.source_kind ?? "");
     setProjectLegacyIndex(sceneData.legacy_sgdk_index ?? null);
     if (sceneData.target === "megadrive" || sceneData.target === "snes") {
@@ -2781,6 +3038,25 @@ export default function App() {
       logMessage("info", `[Projeto] ${result.notice}`);
     }
     return true;
+  }
+
+  async function handleWizardOpenFile() {
+    setProjectWizardError("");
+    try {
+      const fixture = pendingProjectOpenFileRef.current;
+      pendingProjectOpenFileRef.current = null;
+      const chosen = fixture ? fixture.path : await open({ title: "Abrir projeto RetroDev", directory: false, multiple: false, filters: [{ name: "Projeto RetroDev (project.rds)", extensions: ["rds"] }] });
+      if (typeof chosen !== "string") return;
+      if (!/(?:^|[\\/])project\.rds$/i.test(chosen)) throw new Error("Selecione o arquivo project.rds do projeto.");
+      let directory = chosen.slice(0, Math.max(chosen.lastIndexOf("/"), chosen.lastIndexOf("\\")));
+      if (/^[A-Za-z]:$/.test(directory)) directory += "\\";
+      if (!directory) directory = "/";
+      setCreatingProject(true);
+      await openProjectAtPath(directory, "Projeto");
+    } catch (error) {
+      const message = describeError(error); setProjectWizardError(message);
+      logMessage("error", "[Projeto] Falha ao abrir: " + message);
+    } finally { setCreatingProject(false); }
   }
 
   async function handleSwitchTarget(target: "megadrive" | "snes") {
@@ -2922,6 +3198,7 @@ export default function App() {
   }
 
   async function confirmNewProject() {
+    setProjectWizardError("");
     if (!newProjName.trim()) {
       logMessage("warn", "[Projeto] Informe um nome para o projeto.");
       return;
@@ -2984,6 +3261,7 @@ export default function App() {
         logMessage("warn", `[Projeto] Projeto criado, mas a cena inicial nao foi hidratada: ${result.name}`);
       }
     } catch (error) {
+      setProjectWizardError("Não foi possível criar o projeto. " + describeError(error));
       if (selectedTemplate.source_kind === "external_sgdk") {
         reportDiagnostic(
           createFallbackDiagnostic({
@@ -3028,6 +3306,7 @@ export default function App() {
   }
 
   async function handleImportExternalProject(review?: MugenReviewOptions, reviewedPath?: string) {
+    setProjectWizardError("");
     if (!newProjName.trim()) {
       logMessage("warn", "[Projeto] Informe um nome para o projeto importado.");
       return;
@@ -3100,6 +3379,7 @@ export default function App() {
         );
       }
     } catch (error) {
+      setProjectWizardError("Não foi possível importar o projeto. " + describeError(error));
       reportDiagnostic(
         createFallbackDiagnostic({
           area: importAreaForProfile(selectedExternalImportProfile.id),
@@ -3321,6 +3601,30 @@ export default function App() {
     // same canonical function used by the visible ROM loader and Build & Run.
   }, [emulatorLaunchRequest, clearEmulatorLaunchRequest]);
 
+  async function handleCaptureRomScene() {
+    if (!activeProjectDir || !emulatorLoaded) return;
+    const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
+    try {
+      const capture = await captureRomScene(activeProjectDir, `quadro ${stamp}`);
+      logMessage(
+        "success",
+        `[Captura ROM] Cena ${capture.scene_path}: planos A/B + ${capture.sprite_count} sprite(s), VRAM em uso ${Math.round(
+          capture.vram_used_bytes / 1024
+        )} KB.`
+      );
+      if (!(await persistActiveScene(activeProjectDir, "Captura ROM"))) return;
+      const result = await switchScene(activeProjectDir, capture.scene_path);
+      if (!result.ok) throw new Error(result.error);
+      const hydrated = await hydrateSceneResult(activeProjectDir, result);
+      if (!hydrated) throw new Error("Falha ao reidratar a cena capturada.");
+      setSelectedEntityId(null);
+      setActiveScenePath(result.scene_path);
+      setActiveScene(hydrated.resolvedScene, hydrated.sourceScene, hydrated.graphs);
+    } catch (error) {
+      logMessage("error", `[Captura ROM] ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   function handleEmulatorPause() {
     if (!emulatorLoaded) {
       return;
@@ -3443,7 +3747,7 @@ export default function App() {
 
   async function handlePlay() {
     if (!emulatorLoaded) {
-      await handleEmulatorLoadRom();
+      await handleBuildAndRun();
       return;
     }
 
@@ -3454,7 +3758,7 @@ export default function App() {
     }
   }
 
-  async function handleBuildAndRun() {
+  async function handleBuildAndRun(options: { testScene?: string } = {}) {
     if (!activeProjectDir) {
       logMessage("warn", "Nenhum projeto aberto. Use Abrir Projeto.");
       return;
@@ -3463,6 +3767,29 @@ export default function App() {
       return;
     }
     buildInFlightRef.current = true;
+    const buildContext = useEditorStore.getState();
+    const isBuildContextCurrent = () => {
+      const current = useEditorStore.getState();
+      return current.projectSessionId === buildContext.projectSessionId
+        && current.activeProjectDir === activeProjectDir && current.activeTarget === activeTarget
+        && current.activeScenePath === buildContext.activeScenePath;
+    };
+    const staleBuildMessage = () => logMessage("warn", "O projeto ou a cena mudou durante o build. Teste novamente para executar a revisão atual.");
+    const recordBuildFailure = (messages: string[], diagnostics: ActionableDiagnostic[] = []) => {
+      if (!isBuildContextCurrent()) return;
+      const current = useEditorStore.getState();
+      if (current.sceneRevision !== buildContext.sceneRevision) return;
+      current.setLastBuildFailure({
+        projectDir: activeProjectDir,
+        projectSessionId: current.projectSessionId,
+        scenePath: current.activeScenePath,
+        sceneRevision: buildContext.sceneRevision,
+        target: activeTarget,
+        recordedAt: Date.now(),
+        messages,
+        diagnostics,
+      });
+    };
 
     try {
       const state = useEditorStore.getState();
@@ -3471,6 +3798,7 @@ export default function App() {
         state.hwStatus &&
         state.hwStatus.errors.length > 0
       ) {
+        recordBuildFailure(state.hwStatus.errors);
         state.hwStatus.errors.forEach((error) =>
           reportDiagnostic(
             createFallbackDiagnostic({
@@ -3494,9 +3822,10 @@ export default function App() {
         [...requiredDependencies],
         `Build & Run para ${activeTarget === "megadrive" ? "Mega Drive" : "SNES"} requer componentes de terceiros.`
       );
-      if (!dependenciesReady) return;
+      if (!dependenciesReady || !isBuildContextCurrent()) return;
 
       setBuilding(true);
+      useEditorStore.getState().setLastBuildFailure(null);
       setRomMasteringStatus("pending");
       setLastBuildSourceMap(null);
       useEditorStore.getState().setLastRuntimeLink(null);
@@ -3505,10 +3834,23 @@ export default function App() {
       if (!(await persistActiveScene(activeProjectDir, "Build"))) {
         return;
       }
+      if (!isBuildContextCurrent()) return;
+      const buildRevision = useEditorStore.getState().sceneSaveState.revision;
+      const nativeCodeRevision = useEditorStore.getState().nativeCodeRevision;
+      if (buildRevision === null || buildRevision !== useEditorStore.getState().sceneRevision) {
+        staleBuildMessage();
+        return;
+      }
 
       const hwStatus = await getHwStatus(activeProjectDir);
+      if (!isBuildContextCurrent()) return;
+      if (buildRevision !== useEditorStore.getState().sceneRevision) {
+        staleBuildMessage();
+        return;
+      }
       setHwStatus(hwStatus);
       if (hwStatus.errors.length > 0) {
+        recordBuildFailure(hwStatus.errors);
         hwStatus.errors.forEach((error) =>
           reportDiagnostic(
             createFallbackDiagnostic({
@@ -3525,10 +3867,10 @@ export default function App() {
       }
       hwStatus.warnings.forEach((warning) => logMessage("warn", `[HW] ${warning}`));
 
-      const buildRevision = useEditorStore.getState().sceneRevision;
       const result = await buildProject(activeProjectDir, (line) => {
-        logMessage(line.level, line.message);
-      });
+        if (isBuildContextCurrent()) logMessage(line.level, line.message);
+      }, options);
+      if (!isBuildContextCurrent()) return;
       setLastBuildSourceMap(result.build_source_map ?? null);
       useEditorStore.getState().setLastRuntimeLink(result.ok ? parseRuntimeLink(result.runtime_link) : null);
       useEditorStore.getState().setLastBuildSceneRevision(result.ok ? buildRevision : null);
@@ -3538,6 +3880,10 @@ export default function App() {
           .filter((line) => line.level === "error")
           .map((line) => line.message.trim())
           .filter((msg) => msg.length > 0);
+        recordBuildFailure(
+          errorLines.length > 0 ? errorLines : ["Build falhou sem detalhe no log. Abra o Console e repita o build."],
+          normalizeBuildDiagnostics(result, activeTarget, activeProjectDir)
+        );
         if (errorLines.some(looksLikeRuntimeDependencyFailure)) {
           openRuntimeSetupForIssue();
         }
@@ -3550,8 +3896,21 @@ export default function App() {
 
       logMessage("success", `Build concluido. ROM: ${result.rom_path}`);
       trackProductMetric({ kind: "build_ok" });
+      if (buildRevision !== useEditorStore.getState().sceneRevision) {
+        staleBuildMessage();
+        return;
+      }
       try {
         const mastering = await inspectRomMastering(result.rom_path);
+        if (!isBuildContextCurrent()) return;
+        useEditorStore.getState().setLastBuildArtifact({
+          path: result.rom_path,
+          sha256: mastering.sha256,
+          projectDir: activeProjectDir,
+          projectSessionId: useEditorStore.getState().projectSessionId,
+          target: activeTarget,
+          nativeCodeRevision: hwStatus.analysis_mode === "native_c" ? nativeCodeRevision : null,
+        });
         const nextStatus =
           mastering.blockers.length > 0
             ? "blocked"
@@ -3559,15 +3918,28 @@ export default function App() {
               ? "partial"
               : mastering.checksum.status;
         setRomMasteringStatus(nextStatus);
-        mastering.blockers.forEach(reportDiagnostic);
+        // No playtest o bloqueio de mastering e aviso: ele so impede exportar/publicar.
+        mastering.blockers.forEach((blocker) =>
+          reportDiagnostic({
+            ...blocker,
+            severity: blocker.severity === "error" ? "warn" : blocker.severity,
+            user_message: `${blocker.user_message} (bloqueia exportar, nao o teste)`,
+          })
+        );
         mastering.warnings.forEach((warning) => logMessage("warn", `[ROM Mastering] ${warning}`));
         logMessage(
           mastering.blockers.length > 0 ? "warn" : "info",
           `[ROM Mastering] ${mastering.platform ?? "unknown"} checksum=${mastering.checksum.status} sram=${mastering.sram.status} region=${mastering.region.status}`
         );
       } catch (error) {
+        if (!isBuildContextCurrent()) return;
         setRomMasteringStatus("inspect_failed");
         logMessage("error", `[ROM Mastering] ${error instanceof Error ? error.message : String(error)}`);
+      }
+      if (!isBuildContextCurrent() || buildRevision !== useEditorStore.getState().sceneRevision
+        || (hwStatus.analysis_mode === "native_c" && nativeCodeRevision !== useEditorStore.getState().nativeCodeRevision)) {
+        staleBuildMessage();
+        return;
       }
       // Same epoch contract as loadRomIntoEmulator: the backend bumps the core epoch on
       // every load and refuses input carrying an older one, so the store must hold the
@@ -3576,8 +3948,11 @@ export default function App() {
       let loadResult: Awaited<ReturnType<typeof emulatorLoadRom>>;
       try {
         loadResult = await emulatorLoadRom(result.rom_path);
+        if (!isBuildContextCurrent()) return;
         if (loadResult.ok) {
-          useEditorStore.getState().setCoreEpoch(await emulatorGetCoreEpoch().catch(() => null));
+          const epoch = await emulatorGetCoreEpoch().catch(() => null);
+          if (!isBuildContextCurrent()) return;
+          useEditorStore.getState().setCoreEpoch(epoch);
         }
       } finally {
         useEditorStore.getState().releaseJoypadSessionHold();
@@ -3603,6 +3978,7 @@ export default function App() {
       setEmulatorLoaded(true);
       // Same identity contract as loadRomIntoEmulator: the Game View shows which ROM runs.
       const builtIdentity = await emulatorObserve().catch(() => null);
+      if (!isBuildContextCurrent()) return;
       if (builtIdentity?.ok) {
         setEmulatorRomIdentity({
           path: builtIdentity.rom_path,
@@ -3619,6 +3995,8 @@ export default function App() {
       setActiveViewportTab("game");
       setActiveWorkspace("game");
     } catch (error) {
+      if (!isBuildContextCurrent()) return;
+      recordBuildFailure([describeError(error)]);
       reportDiagnostic(
         createFallbackDiagnostic({
           area: buildAreaForTarget(activeTarget),
@@ -3641,7 +4019,7 @@ export default function App() {
   }
 
   async function handleCloseProject() {
-    const saved = await persistActiveScene(activeProjectDir, "Fechar", "Projeto salvo antes de fechar.");
+    const saved = await persistActiveScene(activeProjectDir, "Fechar", "Projeto salvo antes de fechar.", { onlyIfChanged: true });
     if (!saved) {
       const discard = window.confirm(
         "Falha ao salvar o projeto. Deseja descartar as alteracoes e fechar mesmo assim?"
@@ -3677,7 +4055,7 @@ export default function App() {
     const config = resolveWorkspaceShellConfig(workspace, shellWidth);
 
     if (workspace === "debug") {
-      openToolsWorkspace("profiler", "debug", true);
+      openToolsWorkspace("projectDiagnostics", "debug", true);
       setActiveViewportTab("scene");
       return;
     }
@@ -3715,8 +4093,9 @@ export default function App() {
             }
           : buildWarningSummary
             ? {
+                // O detalhe já aparece, com ação, em "Próximos passos" no viewport; aqui só apontamos.
                 tone: "warn" as const,
-                label: buildWarningSummary,
+                label: "Pode compilar, mas há pontos de atenção — veja “Próximos passos” na cena.",
               }
             : emulatorLoaded && activeWorkspace === "game"
               ? {
@@ -4057,6 +4436,10 @@ export default function App() {
         pendingExternalImportPathRef.current = path;
         return true;
       },
+      setNextProjectOpenFile: (path: string | null) => {
+        pendingProjectOpenFileRef.current = { path };
+        return true;
+      },
       setNextAudioImportPath: (path: string) => {
         setNextAudioImportPath(path);
         return true;
@@ -4136,8 +4519,14 @@ export default function App() {
           throw new Error("Nenhum projeto aberto para injetar draft.");
         }
 
+        // O draft substitui o conteúdo em memória, não o arquivo no disco.
+        // Preserve o baseline observado na abertura para que o save seguro
+        // compare com o arquivo real, inclusive no teste de build bloqueado.
+        const diskBaseline = state.sceneDiskBaseline;
+        const lastSave = state.sceneSaveState;
         state.setSelectedEntityId(null);
         state.setActiveScene(scene, scene);
+        useEditorStore.setState({ sceneDiskBaseline: diskBaseline, sceneSaveState: lastSave });
         const receipt = { ok: true as const, sceneRevision: useEditorStore.getState().sceneRevision };
         if (!isValidSceneDraftReceipt(receipt)) throw new Error("setSceneDraft nao produziu recibo valido.");
         return receipt;
@@ -4183,6 +4572,14 @@ export default function App() {
         showAdvanced = false
       ) => {
         openToolsWorkspace(activeTool, workspace, showAdvanced);
+        return true;
+      },
+      openAssetInArtStudio: (relativePath: string) => {
+        const store = useEditorStore.getState();
+        store.setArtStudioAssetPath(relativePath);
+        store.setSelectedEntityId(null);
+        store.setActiveWorkspace("artstudio");
+        store.setActiveViewportTab("artstudio");
         return true;
       },
       selectWorkspace: (workspace: EditorWorkspace) => {
@@ -4439,6 +4836,7 @@ export default function App() {
                   x: entity.transform.x,
                   y: entity.transform.y,
                   spriteAsset: entity.components.sprite?.asset ?? null,
+                  camera: entity.components.camera ? structuredClone(entity.components.camera) : null,
                   tilemap: entity.components.tilemap
                     ? {
                         tileset: entity.components.tilemap.tileset,
@@ -4526,485 +4924,126 @@ export default function App() {
     };
   }, [automationEnabled, rightPanelMode]);
 
+  const hierarchyPanelContent = shellConfig.showLeft ? (
+    <>
+      <div className="flex shrink-0 border-b border-[#313244] bg-[#11111b]">
+        <button
+          onClick={() => setLeftPanelTab("scene")}
+          className={`flex-1 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
+            leftPanelTab === "scene" ? "bg-[#313244] text-[#cdd6f4]" : "text-[#45475a] hover:text-[#a6adc8]"
+          }`}
+        >
+          {activeWorkspace === "logic" ? "Contexto" : "Cena"}
+        </button>
+        <button
+          onClick={() => setLeftPanelTab("layers")}
+          className={`flex-1 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
+            leftPanelTab === "layers" ? "bg-[#313244] text-[#cdd6f4]" : "text-[#45475a] hover:text-[#a6adc8]"
+          }`}
+        >
+          Camadas
+        </button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {leftPanelTab === "layers" ? <LayerPanel /> : <HierarchyPanel onOpenProject={() => void handleOpenProject()} />}
+      </div>
+    </>
+  ) : null;
+  const workspacePanelContent = activeWorkspace === "explorer" ? (
+    <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Explorer..." />}>
+      <ExplorerWorkspace
+        onSelectionChange={setExplorerBreadcrumb}
+        onOpenSceneEditor={() => handleWorkspaceSelect("scene")}
+      />
+    </Suspense>
+  ) : (
+    <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Workspace..." />}>
+      <ViewportPanel showWorkspaceTabs={false} />
+    </Suspense>
+  );
+  const inspectorPanelContent = shellConfig.showRight ? (
+    <div className="flex h-full min-h-0 flex-col bg-[#09090b]">
+      <div className={`flex flex-col gap-2 border-b border-[#27272a] bg-[#111827] ${compactShell ? "px-2 py-1" : "px-3 py-2"}`}>
+        <div className="min-w-0">
+          <div className={`${compactShell ? "sr-only" : "text-[10px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]"}`}>
+            {rightPanelMode === "tools" ? "Ferramentas" : "Propriedades da seleção"}
+          </div>
+        </div>
+        {shellConfig.defaultRightMode !== "hidden" ? (
+          <div className="flex shrink-0 flex-wrap items-center justify-center gap-1 rounded border border-[#313244] bg-[#09090b] p-0.5">
+            <button
+              type="button"
+              data-testid="right-panel-properties"
+              onClick={() => setRightPanelMode("inspector")}
+              className={`min-w-[90px] flex-1 rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+                rightPanelMode === "inspector" ? "bg-[#cba6f7] text-[#111827]" : "text-[#94a3b8] hover:bg-[#1f2937] hover:text-[#e5e7eb]"
+              }`}
+              title="Inspector de entidade"
+            >
+              Propriedades
+            </button>
+            <button
+              type="button"
+              data-testid="right-panel-tools"
+              onClick={() => openToolsWorkspace(
+                toolPanelActive === "setup" ? "palette" : toolPanelActive,
+                activeWorkspace === "debug" ? "debug" : "editing",
+                activeWorkspace === "debug" || toolPanelShowAdvanced
+              )}
+              className={`min-w-[90px] flex-1 rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+                rightPanelMode === "tools" ? "bg-[#cba6f7] text-[#111827]" : "text-[#94a3b8] hover:bg-[#1f2937] hover:text-[#e5e7eb]"
+              }`}
+              title="Ferramentas contextuais"
+            >
+              Ferramentas
+            </button>
+          </div>
+        ) : null}
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {rightPanelMode === "tools" ? (
+          <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Tools..." />}>
+            <ToolsPanel
+              onRequestInspector={() => setRightPanelMode("inspector")}
+              initialActive={toolPanelActive}
+              workspace={toolPanelWorkspace}
+              showAdvancedByDefault={toolPanelShowAdvanced}
+            />
+          </Suspense>
+        ) : (
+          <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Inspector..." />}>
+            <InspectorPanel />
+          </Suspense>
+        )}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div
       data-density={shellDensity}
       data-shell-persona={shellPersona}
       className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--rds-surface-panel-strong)] text-[var(--rds-text-primary)]"
     >
-      {showProjectWizard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3">
-          <div className="flex max-h-[calc(100vh-1.5rem)] min-h-0 w-[52rem] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-lg border border-[#313244] bg-[#181825] p-5 shadow-2xl">
-            <div className="space-y-1">
-              <h2 className="text-sm font-bold text-[#cba6f7]">
-                {activeProjectDir ? "Novo Projeto" : "Wizard de Primeiro Uso"}
-              </h2>
-              <p className="text-[10px] leading-tight text-[#7f849c]">
-                Escolha um template, ajuste target/nome/pasta base e crie um projeto editavel
-                sem sair do fluxo canonico do editor.
-              </p>
-            </div>
-
-            <div
-              data-testid="project-wizard-body"
-              className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1"
-            >
-              <div data-testid="wizard-recommended-start" className="grid gap-3 md:grid-cols-2">
-                <p className="col-span-full text-[9px] font-semibold uppercase tracking-[0.14em] text-[#a6e3a1]">
-                  Primeiro Projeto
-                </p>
-              {templatesLoading ? (
-                <div className="col-span-full rounded border border-[#313244] bg-[#11111b] p-4 text-xs text-[#7f849c]">
-                  Carregando galeria de templates...
-                </div>
-              ) : (
-                recommendedProjectTemplates.map((template) => {
-                  const availability = templateAvailability(template);
-                  const isSelected = template.id === selectedTemplateId;
-                  const donorPath =
-                    templateDonorPaths[template.id] || template.default_donor_path || "";
-                  const isExternalSgdk = template.source_kind === "external_sgdk";
-
-                  return (
-                    <div
-                      key={template.id}
-                      className={`overflow-hidden rounded border ${
-                        isSelected
-                          ? "border-[#cba6f7] bg-[#1e1e2e]"
-                          : "border-[#313244] bg-[#11111b]"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        data-testid={`template-card-${template.id}`}
-                        disabled={!availability.available}
-                        onClick={() => {
-                          setSelectedTemplateId(template.id);
-                          if (template.source_kind === "external_sgdk") {
-                            setNewProjTarget("megadrive");
-                          }
-                        }}
-                        className="flex w-full flex-col gap-2 p-3 text-left disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h3 className="text-sm font-semibold text-[#cdd6f4]">{template.name}</h3>
-                            <p className="text-[10px] uppercase tracking-wide text-[#7f849c]">
-                              {template.genre}
-                            </p>
-                          </div>
-                          {template.experimental ? (
-                            <span className="rounded border border-[#fab387] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#fab387]">
-                              Experimental
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="min-h-[3rem] text-[11px] leading-5 text-[#a6adc8]">
-                          {template.description}
-                        </p>
-                        <div className="flex flex-wrap gap-1">
-                          <span className="rounded bg-[#313244] px-1.5 py-0.5 text-[10px] text-[#cdd6f4]">
-                            {template.difficulty}
-                          </span>
-                          <span
-                            className={`rounded px-1.5 py-0.5 text-[10px] ${
-                              availability.tone === "success"
-                                ? "bg-[#a6e3a1]/15 text-[#a6e3a1]"
-                                : availability.tone === "warn"
-                                  ? "bg-[#fab387]/15 text-[#fab387]"
-                                  : "bg-[#f38ba8]/15 text-[#f38ba8]"
-                            }`}
-                          >
-                            {availability.statusLabel}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {template.features.length > 0 ? (
-                            template.features.map((feature) => (
-                              <span
-                                key={feature}
-                                className="rounded bg-[#181825] px-1.5 py-0.5 text-[10px] text-[#7f849c]"
-                              >
-                                {feature}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-[10px] text-[#6c7086]">Sem presets iniciais.</span>
-                          )}
-                        </div>
-                      </button>
-
-                      {isExternalSgdk ? (
-                        <div className="border-t border-[#313244] p-3 text-[10px] text-[#7f849c]">
-                          <div className="mb-2">
-                            <p className="text-[#a6adc8]">Template doador</p>
-                            <p className="truncate font-mono text-[#cdd6f4]">
-                              {donorPath || "(selecione uma pasta doadora)"}
-                            </p>
-                          </div>
-                          {availability.reason ? (
-                            <p className="mb-2 text-[#fab387]">{availability.reason}</p>
-                          ) : (
-                            <p className="mb-2 text-[#7f849c]">
-                              Usa assets limpos do template SGDK externo sem copiar ROM, VGM ou artefatos.
-                            </p>
-                          )}
-                          <ToolbarButton
-                            label="Escolher pasta..."
-                            onClick={() => void chooseTemplateDonorPath(template.id)}
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {!templatesLoading && importAdvancedProjectTemplates.length > 0 ? (
-              <section
-                data-testid="wizard-import-advanced"
-                className="rounded border border-[#313244] bg-[#11111b]/70 p-3"
-              >
-                <div className="mb-3 flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#fab387]">
-                      Importar / Avancado
-                    </p>
-                    <p className="mt-1 text-[10px] leading-5 text-[#94a3b8]">
-                      Templates doadores e experimentais ficam fora do primeiro caminho para manter o fluxo MVP claro.
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded-full border border-[#fab387]/35 bg-[#fab387]/10 px-2 py-1 text-[9px] font-semibold text-[#fab387]">
-                    Experimental
-                  </span>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  {importAdvancedProjectTemplates.map(renderProjectTemplateCard)}
-                </div>
-              </section>
-            ) : null}
-
-            <div className="grid gap-3">
-              <div className="rounded border border-[#313244] bg-[#11111b] p-3 text-[10px] text-[#7f849c]">
-                <p className="mb-1 text-[#cdd6f4]">
-                  Template selecionado: <span className="font-semibold">{selectedTemplate?.name ?? "Nenhum"}</span>
-                </p>
-                <p className="leading-5">
-                  {selectedTemplate?.description ??
-                    "A galeria de templates sera exibida assim que o catalogo for carregado."}
-                </p>
-                {selectedTemplateMegadriveOnly ? (
-                  <p className="mt-2 text-[#fab387]">
-                    Este seed experimental e Mega Drive only nesta wave.
-                  </p>
-                ) : null}
-                {selectedTemplate ? (
-                  <div className="mt-3 rounded border border-[#313244] bg-[#181825] px-3 py-2">
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#94e2d5]">
-                      Validacao do fluxo
-                    </p>
-                    <p
-                      className={`mt-1 leading-5 ${
-                        selectedTemplateAvailability?.readyToCreate
-                          ? "text-[#a6e3a1]"
-                          : selectedTemplateAvailability?.available
-                            ? "text-[#fab387]"
-                            : "text-[#f38ba8]"
-                      }`}
-                    >
-                      {selectedTemplateAvailability?.readyToCreate
-                        ? "Template pronto para criar projeto."
-                        : selectedTemplateAvailability?.reason || "Template ainda indisponivel para este fluxo."}
-                    </p>
-                    {selectedTemplate.source_kind === "external_sgdk" ? (
-                      <p className="mt-1 leading-5 text-[#fab387]">
-                        {selectedTemplateDonorPath
-                          ? `Template doador atual: ${selectedTemplateDonorPath}`
-                          : "Escolha uma pasta doadora SGDK antes de criar este template experimental."}
-                      </p>
-                    ) : (
-                      <p className="mt-1 leading-5 text-[#94a3b8]">
-                        Template interno: nenhuma pasta doadora externa e necessaria.
-                      </p>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-
-              <div
-                data-testid="wizard-external-import-section"
-                className="rounded border border-[#313244] bg-[#11111b] p-3 text-[10px] text-[#7f849c]"
-              >
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#fab387]">
-                      Trilha secundaria
-                    </p>
-                    <p className="mt-1 text-[#cdd6f4]">
-                      Importar projeto existente
-                    </p>
-                    <p className="mt-1 leading-5 text-[#94a3b8]">
-                      Use esta area quando voce ja tiver um projeto externo real e quiser
-                      converter esse projeto para o formato nativo do RetroDev sem misturar isso com o
-                      primeiro sucesso do wizard.
-                    </p>
-                  </div>
-                  <ToolbarButton
-                    label={showExternalImportSection ? "Ocultar importador" : "Abrir importador"}
-                    onClick={() =>
-                      setShowExternalImportSection((current) => !current)
-                    }
-                    testId="wizard-external-import-toggle"
-                  />
-                </div>
-                {showExternalImportSection ? (
-                  <div className="mt-3 rounded border border-[#313244] bg-[#181825] p-3">
-                    <p className="mb-1 text-[#cdd6f4]">
-                      Importador externo:{" "}
-                      <span className="font-semibold">
-                        {selectedExternalImportProfile?.name ?? "Nenhum"}
-                      </span>
-                    </p>
-                    <p className="leading-5">
-                      {selectedExternalImportProfile?.description ??
-                        "Escolha um adaptador externo para importar projetos reais para o formato nativo do RetroDev."}
-                    </p>
-                    <div className="mt-3 flex flex-wrap gap-1">
-                      <span className="rounded bg-[#313244] px-1.5 py-0.5 text-[10px] text-[#cdd6f4]">
-                        {selectedExternalImportProfile?.family ?? "External"}
-                      </span>
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-[10px] ${
-                          selectedExternalImportProfile?.importable
-                            ? "bg-[#a6e3a1]/15 text-[#a6e3a1]"
-                            : "bg-[#fab387]/15 text-[#fab387]"
-                        }`}
-                      >
-                        {selectedExternalImportProfile?.support_status ?? "Nao suportado"}
-                      </span>
-                      {selectedExternalImportProfile?.supported_levels.map((level) => (
-                        <span
-                          key={level}
-                          className="rounded bg-[#11111b] px-1.5 py-0.5 text-[10px] text-[#7f849c]"
-                        >
-                          {level}
-                        </span>
-                      ))}
-                    </div>
-                    <select
-                      data-testid="external-import-profile-select"
-                      value={selectedExternalImportProfileId}
-                      onChange={(event) => setSelectedExternalImportProfileId(event.target.value)}
-                      className="mt-3 w-full rounded border border-[#313244] bg-[#1e1e2e] px-2 py-1.5 text-[11px] text-[#cdd6f4] focus:border-[#cba6f7] focus:outline-none"
-                    >
-                      {externalImportProfiles.map((profile) => (
-                        <option key={profile.id} value={profile.id}>
-                          {profile.name} · {profile.support_status}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-2 leading-5 text-[#94a3b8]">
-                      {selectedExternalImportProfile?.mega_drive_only
-                        ? "Esta wave de importacao externa continua Mega Drive only para manter o caminho canonico enxuto."
-                        : "Perfil externo compativel com o fluxo atual do wizard."}
-                    </p>
-                    {selectedExternalImportProfile?.id === "sgdk" ? (
-                      <SgdkCapabilityMatrix profile={selectedExternalImportProfile} />
-                    ) : null}
-                    <div className="mt-3 flex justify-end">
-                      <ToolbarButton
-                        label={creatingProject ? "Importando..." : "Importar Projeto Externo"}
-                        onClick={() => void handleImportExternalProject()}
-                        disabled={creatingProject || templatesLoading}
-                        testId="external-import-confirm"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-3 rounded border border-[#313244] bg-[#181825] px-3 py-2 text-[10px] leading-5 text-[#94a3b8]">
-                    Perfil atual:{" "}
-                    <span className="font-semibold text-[#cdd6f4]">
-                      {selectedExternalImportProfile?.name ?? "Nenhum"}
-                    </span>
-                    . Abra o importador quando precisar converter um projeto existente em vez
-                    de criar um template novo.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {selectedTemplate ? (
-              <TemplateFirstSuccessCard
-                templateName={selectedTemplate.name}
-                targetLabel={getTargetLabel(newProjTarget)}
-                steps={selectedTemplateFirstSuccessSteps}
-              />
-            ) : (
-              <div className="rounded border border-[#313244] bg-[#11111b] p-3 text-[10px] leading-5 text-[#7f849c]">
-                Escolha um template para o wizard montar um caminho recomendado ate o primeiro
-                playtest no fluxo canonico atual.
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              {(["megadrive", "snes"] as const).map((target) => (
-                <button
-                  key={target}
-                  type="button"
-                  data-testid={`wizard-target-${target}`}
-                  disabled={selectedTemplateMegadriveOnly && target === "snes"}
-                  onClick={() => setNewProjTarget(target)}
-                  className={`flex-1 rounded px-3 py-2 text-xs font-semibold transition-colors ${
-                    newProjTarget === target
-                      ? target === "megadrive"
-                        ? "bg-[#a6e3a1] text-[#1e1e2e]"
-                        : "bg-[#89b4fa] text-[#1e1e2e]"
-                      : "bg-[#313244] text-[#a6adc8] hover:bg-[#45475a]"
-                  } disabled:cursor-not-allowed disabled:opacity-40`}
-                >
-                  {target === "megadrive" ? "Mega Drive" : "SNES"}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-[1fr_1.1fr]">
-              <div className="space-y-2">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={newProjName}
-                  onChange={(event) => handleProjectNameChange(event.target.value)}
-                  onKeyDown={(event) => event.key === "Enter" && void confirmNewProject()}
-                  placeholder="Nome do projeto"
-                  className="w-full rounded border border-[#313244] bg-[#1e1e2e] px-2 py-1.5 text-sm text-[#cdd6f4] focus:border-[#cba6f7] focus:outline-none"
-                />
-
-                {pendingSuggestedProjectName ? (
-                  <div className="rounded border border-[#45475a] bg-[#11111b] p-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-[10px] text-[#7f849c]">Nome sugerido</p>
-                        <p
-                          data-testid="wizard-project-name-suggestion"
-                          className="truncate text-xs font-semibold text-[#a6e3a1]"
-                        >
-                          {pendingSuggestedProjectName}
-                        </p>
-                      </div>
-                      <ToolbarButton label="Usar" onClick={applySuggestedProjectName} />
-                    </div>
-                    <p className="mt-2 text-[10px] leading-5 text-[#7f849c]">
-                      {projectDestinationPreview?.collision_status === "existing_project"
-                        ? "O nome original aponta para um projeto RetroDev ja valido. Use o nome sugerido para criar outro sem sobrescrever o existente."
-                        : "O nome atual ja ocupa a pasta preferida. Use o nome sugerido para o RetroDev criar o projeto em um destino livre ja nesta tentativa."}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="rounded border border-[#313244] bg-[#11111b] p-2">
-                <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] text-[#7f849c]">Pasta base</p>
-                    <p className="truncate font-mono text-[10px] text-[#cdd6f4]">
-                      {newProjBaseDir || automaticBaseDirHint || "(automatico pelo sistema)"}
-                    </p>
-                  </div>
-                  <ToolbarButton label="Escolher" onClick={() => void chooseNewProjectBaseDir()} />
-                </div>
-                <div className="mt-2 border-t border-[#313244] pt-2">
-                  <p className="text-[10px] text-[#7f849c]">Destino estimado</p>
-                  <p
-                    data-testid="wizard-project-destination"
-                    className="truncate font-mono text-[10px] text-[#f9e2af]"
-                  >
-                    {estimatedProjectDestination}
-                  </p>
-                </div>
-                <p className="mt-2 text-[10px] leading-5 text-[#7f849c]">
-                  {detectedExistingProjectPreview
-                    ? `Ja existe um projeto RetroDev valido em '${detectedExistingProjectPreview.preferred_path}'. Se quiser continuar nele, use 'Abrir projeto existente'. Se preferir criar outro, o wizard sugere um nome livre automaticamente.`
-                    : newProjBaseDir
-                    ? `Pasta manual selecionada. Se ela falhar na escrita, o backend fara fallback seguro; se '${estimatedProjectDirName}' ja existir, o RetroDev cria '${estimatedProjectDirName}_2' automaticamente.`
-                    : automaticBaseDirHint
-                      ? `Se voce nao escolher uma pasta, o RetroDev usara '${automaticBaseDirHint}' automaticamente. Se '${estimatedProjectDirName}' ja existir, ele cria '${estimatedProjectDirName}_2' para manter o fluxo.`
-                      : `Se voce nao escolher uma pasta, o backend tentara resolver uma localizacao automatica segura. Se '${estimatedProjectDirName}' ja existir, ele criara '${estimatedProjectDirName}_2' automaticamente.`}
-                </p>
-              </div>
-            </div>
-
-            {detectedExistingProjectPreview?.existing_project_path ? (
-              <div
-                data-testid="wizard-existing-project-card"
-                className="mt-3 rounded border border-[#89b4fa]/40 bg-[#11111b] p-3"
-              >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#89b4fa]">
-                  Projeto RetroDev encontrado
-                </p>
-                <p className="mt-2 text-xs text-[#cdd6f4]">
-                  O nome original ja aponta para{" "}
-                  <span className="font-semibold text-[#a6e3a1]">
-                    {detectedExistingProjectPreview.existing_project_name ?? "um projeto existente"}
-                  </span>
-                  .
-                </p>
-                <p
-                  data-testid="wizard-existing-project-path"
-                  className="mt-2 truncate font-mono text-[10px] text-[#94e2d5]"
-                >
-                  {detectedExistingProjectPreview.existing_project_path}
-                </p>
-                <p className="mt-2 text-[10px] leading-5 text-[#7f849c]">
-                  {pendingSuggestedProjectName
-                    ? `Se a sua intencao era continuar no projeto original, abra-o agora. Se voce queria um projeto novo, o wizard pode trocar o campo para '${pendingSuggestedProjectName}' sem interromper o fluxo.`
-                    : `Se voce queria um projeto novo, o wizard ja ajustou o nome para '${newProjName}' e manteve o projeto original intacto. Se a intencao era continuar no original, voce pode abri-lo daqui.`}
-                </p>
-                <div className="mt-3 flex flex-wrap justify-end gap-2">
-                  {pendingSuggestedProjectName ? (
-                    <ToolbarButton label="Usar nome sugerido" onClick={applySuggestedProjectName} />
-                  ) : null}
-                  <ToolbarButton
-                    label="Abrir projeto existente"
-                    onClick={() => void openDetectedExistingProject()}
-                    accent="success"
-                    testId="wizard-open-existing-project"
-                  />
-                </div>
-              </div>
-            ) : null}
-            </div>
-
-            <div
-              data-testid="project-wizard-actions"
-              className="mt-4 flex flex-wrap justify-end gap-2 border-t border-[#313244] bg-[#181825] pt-3"
-            >
-              <ToolbarButton
-                label={activeProjectDir ? "Cancelar" : "Continuar sem projeto"}
-                onClick={() => setShowProjectWizard(false)}
-                testId={activeProjectDir ? "wizard-cancel" : "wizard-continue-without-project"}
-              />
-              <ToolbarButton
-                label="Abrir Projeto"
-                onClick={() => void handleOpenProject()}
-                testId="wizard-open-project"
-              />
-              <ToolbarButton
-                label={creatingProject ? "Criando..." : "Criar Projeto"}
-                onClick={() => void confirmNewProject()}
-                accent="primary"
-                testId="wizard-create-project"
-                disabled={
-                  creatingProject ||
-                  templatesLoading ||
-                  !selectedTemplate ||
-                  !selectedTemplateAvailability?.readyToCreate
-                }
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {showProjectWizard && <ProjectStartWizard
+        activeProject={Boolean(activeProjectDir)} busy={creatingProject} loading={templatesLoading}
+        name={newProjName} target={newProjTarget} templates={projectTemplates}
+        selectedTemplate={selectedTemplate} canCreateSelected={Boolean(selectedTemplateAvailability?.readyToCreate)} profiles={externalImportProfiles} selectedProfile={selectedExternalImportProfile}
+        destination={estimatedProjectDestination} collision={detectedExistingProjectPreview}
+        suggestedName={pendingSuggestedProjectName} error={projectWizardError}
+        startInImport={showExternalImportSection}
+        firstSuccess={selectedTemplate ? <TemplateFirstSuccessCard templateName={selectedTemplate.name} targetLabel={getTargetLabel(newProjTarget)} steps={selectedTemplateFirstSuccessSteps} /> : null}
+        advancedTemplates={<div className="rds-start-grid">{importAdvancedProjectTemplates.map(renderProjectTemplateCard)}</div>}
+        importDetails={selectedExternalImportProfile?.id === "sgdk" ? <SgdkCapabilityMatrix profile={selectedExternalImportProfile} /> : null}
+        onName={handleProjectNameChange} onTarget={setNewProjTarget} onTemplate={setSelectedTemplateId}
+        onProfile={id => { setSelectedExternalImportProfileId(id); const profile = externalImportProfiles.find(p => p.id === id); if (profile) setNewProjTarget(profile.recommended_target); }}
+        onBegin={intent => { setProjectWizardError(""); setSelectedTemplateId(intent === "new" ? "empty" : ""); if (intent !== "import") setNewProjBaseDir(""); }}
+        onCreate={() => void confirmNewProject()} onImport={() => void handleImportExternalProject()}
+        onImportRom={() => { setShowProjectWizard(false); window.dispatchEvent(new Event("rds:choose-rom")); }}
+        onOpen={() => void handleWizardOpenFile()} onOpenDetected={() => void openDetectedExistingProject()}
+        onSuggestedName={applySuggestedProjectName} onChooseImportDestination={() => void chooseNewProjectBaseDir()}
+        onClose={() => { if (!creatingProject) { setShowProjectWizard(false); setProjectWizardError(""); } }}
+      />}
 
       {showProjectSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3">
@@ -5330,7 +5369,8 @@ export default function App() {
               <option value="snes">SNES</option>
             </select>
             <ToolbarButton
-              label="Build ▶"
+              icon="studio-game"
+              label={building ? "Compilando…" : "Testar projeto"}
               onClick={() => void handleBuildAndRun()}
               disabled={building || !activeProjectDir || liveBuildBlocked}
               accent="success"
@@ -5344,22 +5384,67 @@ export default function App() {
               )}
               describedBy={liveBuildBlocked ? "build-disabled-reason" : undefined}
             />
+            {activeScenePath && projectEntryScenePath && activeScenePath !== projectEntryScenePath ? (
+              <ToolbarButton
+                icon="studio-game"
+                label="Testar esta cena"
+                onClick={() => void handleBuildAndRun({ testScene: activeScenePath })}
+                disabled={building || !activeProjectDir || liveBuildBlocked}
+                testId="toolbar-build-run-scene"
+                title={`Compila e roda começando pela entrada de '${activeScenePath}', só nesta ROM de teste. O jogo continua começando em '${projectEntryScenePath}'.`}
+              />
+            ) : null}
             <ToolbarButton
-              label="Play"
+              label="Continuar teste"
               onClick={() => void handlePlay()}
-              disabled={!activeProjectDir}
+              disabled={!emulatorLoaded || building}
             />
             <ToolbarButton
-              label="Stop"
+              label="Parar" icon="square"
+              testId="toolbar-emulator-stop"
               onClick={() => void handleEmulatorStop()}
               disabled={!emulatorLoaded}
               accent="danger"
             />
             <ToolbarButton
-              label={emulPaused ? "Resume" : "Pause"}
+              icon={emulPaused ? "play" : "pause"}
+              label={emulPaused ? "Retomar" : "Pausar"}
+              testId="toolbar-emulator-pause"
               onClick={handleEmulatorPause}
               disabled={!emulatorLoaded}
             />
+            <ToolbarButton
+              label="Capturar cena"
+              testId="toolbar-capture-rom-scene"
+              onClick={() => void handleCaptureRomScene()}
+              disabled={!emulatorLoaded || !activeProjectDir}
+              title="Grava a tela atual do jogo (planos e sprites lidos do VDP) como cena do projeto"
+            />
+            <ToolbarButton icon="studio-art" label="Imagem" testId="toolbar-add-image"
+              title="Adicionar imagem: cole com Ctrl+V ou solte uma imagem/GIF na cena"
+              disabled={!activeProjectDir} onClick={() => window.dispatchEvent(new Event("rds:choose-image"))} />
+            {activeProjectDir ? (
+            <div data-testid="toolbar-build-status" className="relative shrink-0">
+              <button type="button" popoverTarget="studio-build-details" data-testid="toolbar-build-details-open"
+                className="flex h-7 cursor-pointer list-none items-center gap-1.5 rounded border border-[var(--rds-border-subtle)] px-2 text-[11px] text-[var(--rds-text-secondary)]"
+                title="Status do build: validação ao vivo, avisos e fases até a ROM. Clique para detalhes."
+              >
+                <span
+                  aria-hidden
+                  className={`h-2 w-2 rounded-full ${
+                    liveBuildBlocked
+                      ? "bg-[#f38ba8]"
+                      : buildWarningSummary || toolbarIssues.length > 0 || buildLiveIndicator?.tone === "warn"
+                        ? "bg-[#fab387]"
+                        : buildLiveIndicator?.tone === "info"
+                          ? "bg-[#89b4fa]"
+                          : "bg-[#a6e3a1]"
+                  }`}
+                />
+                {liveBuildBlocked ? "Compilação bloqueada" : buildWarningSummary ? "Prévia com avisos" : "Verificação"}
+              </button>
+              <div id="studio-build-details" popover="auto" className="fixed left-4 top-24 m-0 max-h-[calc(100vh-120px)] w-[min(600px,calc(100vw-32px))] overflow-auto rounded border border-[var(--rds-border-subtle)] bg-[var(--rds-surface-panel-strong)] p-3 text-xs text-[var(--rds-text-primary)] shadow-xl">
+              <div className="flex flex-wrap items-center gap-2">
             {buildLiveIndicator && (
               <span
                 data-testid="build-live-state"
@@ -5427,13 +5512,46 @@ export default function App() {
               warning={Boolean(buildWarningSummary)}
               romMasteringStatus={romMasteringStatus}
             />
+              </div>
+              </div>
+            </div>
+            ) : null}
+            <ToolbarButton icon="export" label="Revisar e exportar" testId="toolbar-review" disabled={!activeProjectDir || building}
+              onClick={() => setShowDelivery(true)} title="Revisar a cena, verificar a ROM e exportar (Experimental)" />
           </>
         }
         rightContent={
           <>
+            {hwStatus ? (
+            <div data-testid="toolbar-hardware-status" className="relative shrink-0">
+              <button type="button" popoverTarget="studio-hardware-details"
+                className="flex h-7 cursor-pointer list-none items-center gap-1.5 rounded border border-[var(--rds-border-subtle)] px-2 text-[11px] text-[var(--rds-text-secondary)]"
+                title="Status do hardware (memória de vídeo, sprites por linha, paletas). Clique para detalhes."
+              >
+                <span
+                  aria-hidden
+                  className={`h-2 w-2 rounded-full ${
+                    hwStatus.errors.length > 0 ||
+                    hwStatus.scanline_sprite_peak > hwStatus.scanline_sprite_limit ||
+                    hwStatus.palette_banks_used > hwStatus.palette_banks_limit
+                      ? "bg-[#f38ba8]"
+                      : hwStatus.warnings.length > 0
+                        ? "bg-[#fab387]"
+                        : "bg-[#a6e3a1]"
+                  }`}
+                />
+                Hardware
+              </button>
+              <div id="studio-hardware-details" popover="auto" className="fixed left-auto right-4 top-12 m-0 max-h-[calc(100vh-80px)] max-w-[calc(100vw-32px)] overflow-auto rounded border border-[var(--rds-border-subtle)] bg-[var(--rds-surface-panel-strong)] p-3 text-xs text-[var(--rds-text-primary)] shadow-xl">
+              <div className="flex flex-col gap-2">
             {hwStatus && hwStatus.vram_limit > 0 && (
               <ToolbarVramBudget
-                used={hwStatus.vram_used}
+                nativeC={hwStatus.analysis_mode === "native_c"}
+                used={
+                  hwStatus.analysis_mode === "native_c"
+                    ? (measuredVram?.available ? measuredVram.used_bytes : null)
+                    : hwStatus.vram_used
+                }
                 limit={hwStatus.vram_limit}
                 hasErrors={hwStatus.errors.length > 0}
                 hasWarnings={hwStatus.warnings.length > 0}
@@ -5451,22 +5569,33 @@ export default function App() {
                 limit={hwStatus.palette_banks_limit}
               />
             )}
+              </div>
+              </div>
+            </div>
+            ) : null}
             {activeProjectDir ? <SceneSaveStatusChip /> : null}
-            {draftSavedAt ? (
+            <ToolbarButton icon="save" label="Salvar" testId="toolbar-save" disabled={!activeProjectDir}
+              onClick={() => void handleSaveScene()} title={getShortcutTitle("scene.save", "Salvar cena ativa", shortcuts)} />
+            {sceneDraftState.status === "confirmed" && sceneDraftState.savedAt && sceneDraftState.revision === sceneRevision ? (
               <span
                 data-testid="scene-draft-saved-at"
                 className="hidden shrink-0 text-[9px] text-[var(--rds-text-muted)] xl:inline"
-                title={`Autosave local (Experimental): rascunho salvo as ${new Date(draftSavedAt).toLocaleTimeString()}. Nada foi gravado em disco; use Salvar para persistir.`}
+                title="Rascunho local confirmado por releitura (Experimental). Arquivo salvo só muda ao usar Salvar. A confirmação não garante sobrevivência a falha do disco ou energia."
               >
-                Rascunho {new Date(draftSavedAt).toLocaleTimeString()}
+                Rascunho {new Date(sceneDraftState.savedAt).toLocaleTimeString()}
               </span>
             ) : null}
+            <StudioAppearancePicker />
+            <details className="relative shrink-0">
+              <summary className="cursor-pointer rounded border border-[var(--rds-border-subtle)] px-2 py-1 text-[11px] text-[var(--rds-text-secondary)]">
+                Exibição: {getShellPersonaLabel(shellPersona)}
+              </summary>
             <div
               data-testid="shell-persona-selector"
               role="radiogroup"
               aria-label="Modo de experiencia do shell (Experimental)"
               title="Modo de experiencia (Experimental): controla quais workspaces o rail revela. Nao altera dados do projeto."
-              className="flex h-7 shrink-0 items-center overflow-hidden rounded-full border border-[var(--rds-border-subtle)] bg-[var(--rds-surface-panel-strong)]"
+              className="absolute right-0 top-full z-50 mt-2 flex min-w-64 flex-col gap-1 rounded border border-[var(--rds-border-subtle)] bg-[var(--rds-surface-panel-strong)] p-2 shadow-xl"
             >
               {SHELL_PERSONAS.map((persona) => (
                 <button
@@ -5475,13 +5604,20 @@ export default function App() {
                   role="radio"
                   aria-checked={shellPersona === persona}
                   data-testid={`shell-persona-${persona}`}
-                  onClick={() => handlePersonaSelect(persona)}
+                  onClick={(event) => {
+                    handlePersonaSelect(persona);
+                    const details = event.currentTarget.closest("details");
+                    if (details) {
+                      details.open = false;
+                      details.querySelector("summary")?.focus();
+                    }
+                  }}
                   title={
                     personaSuggestion === persona
                       ? `Sugestao: seu uso recente indica o modo ${getShellPersonaLabel(persona)}.`
                       : `Modo ${getShellPersonaLabel(persona)}`
                   }
-                  className={`relative h-full shrink-0 px-2 text-[9px] font-semibold uppercase tracking-[0.08em] transition-colors ${
+                  className={`relative w-full rounded px-3 py-2 text-left text-xs font-semibold transition-colors ${
                     shellPersona === persona
                       ? "bg-[var(--rds-accent)] text-[var(--rds-on-accent)]"
                       : "text-[var(--rds-text-muted)] hover:text-[var(--rds-text-primary)]"
@@ -5498,6 +5634,7 @@ export default function App() {
                 </button>
               ))}
             </div>
+            </details>
             <ToolbarButton
               label={focusedShell ? "Sair do foco" : "Focus"}
               onClick={toggleFocusMode}
@@ -5511,6 +5648,9 @@ export default function App() {
           </>
         }
       />
+
+      <ImageIngress onWorkspaceSelect={handleWorkspaceSelect} />
+      <RomDropDecompile />
 
       {!liveBuildBlocked && buildWarningSummary ? (
         <span data-testid="build-warning-summary" className="sr-only">
@@ -5532,22 +5672,50 @@ export default function App() {
             Rascunho local encontrado (Experimental)
           </span>
           <span className="text-[var(--rds-text-secondary)]">
-            Autosave de {new Date(pendingSceneDraft.savedAt).toLocaleString()} difere da cena
-            aberta. Restaurar traz o rascunho para o editor sem gravar em disco.
+            {pendingSceneDraft.scenePath} · revisão {pendingSceneDraft.revision ?? "antiga"} · {new Date(pendingSceneDraft.savedAt).toLocaleString()}.
+            {pendingSceneDraft.diskConflict || sceneDraftState.status === "conflict"
+              ? " O arquivo salvo diverge da base (ou a base antiga é desconhecida). Escolha qual conteúdo abrir; o rascunho será preservado."
+              : " Restaurar abre uma edição pendente, com desfazer/refazer; não grava no arquivo salvo."}
           </span>
           <div className="ml-auto flex shrink-0 gap-2">
             <ToolbarButton
-              label="Restaurar rascunho"
+              label={pendingSceneDraft.diskConflict || sceneDraftState.status === "conflict" ? "Usar rascunho no editor" : "Restaurar rascunho"}
               accent="primary"
               testId="scene-draft-restore"
-              onClick={() => void handleRestoreSceneDraft()}
+              onClick={() => void handleRestoreSceneDraft(Boolean(pendingSceneDraft.diskConflict || sceneDraftState.status === "conflict"))}
             />
+            <ToolbarButton label="Manter arquivo salvo" testId="scene-draft-keep-disk" onClick={() => void handleKeepSavedScene()} />
             <ToolbarButton
-              label="Descartar"
+              label="Descartar este rascunho"
               testId="scene-draft-discard"
               onClick={handleDiscardSceneDraft}
             />
           </div>
+        </div>
+      ) : null}
+
+      {activeProjectDir && ["failed", "invalid", "recovery", "conflict"].includes(sceneDraftState.status) ? (
+        <div data-testid="scene-draft-warning" role="alert" className="mx-4 mt-2 flex flex-wrap items-center gap-2 rounded border border-[var(--rds-status-warning)]/40 px-3 py-2 text-[11px] text-[var(--rds-status-warning)]">
+          <span>{sceneDraftState.message}</span>
+          <ToolbarButton label={sceneDraftState.status === "invalid" ? "Reler rascunho" : "Tentar proteger novamente"}
+            testId="scene-draft-retry" onClick={async () => {
+              const state = useEditorStore.getState();
+              if (state.sceneDraftState.status === "invalid") {
+                const record = await loadSceneDraft(state.activeProjectDir);
+                if (useEditorStore.getState().projectSessionId !== state.projectSessionId) return;
+                if (record && sceneDraftDiffersFromActiveSource(record)) setPendingSceneDraft(record);
+              }
+              else await saveActiveSceneDraft(state.activeProjectDir);
+            }} />
+          {!pendingSceneDraft ? <ToolbarButton label="Ver rascunho preservado" testId="scene-draft-reopen" onClick={async () => {
+            dismissedDraftRef.current = null;
+            const context = useEditorStore.getState();
+            const draft = await loadSceneDraft(context.activeProjectDir);
+            if (useEditorStore.getState().projectSessionId === context.projectSessionId) setPendingSceneDraft(draft);
+          }} /> : null}
+          {sceneDraftState.raw ? <details className="w-full"><summary>Ver conteúdo preservado para copiar</summary>
+            <textarea aria-label="Conteúdo do rascunho preservado" readOnly value={sceneDraftState.raw} className="mt-2 h-28 w-full bg-[var(--rds-surface-panel)] font-mono" />
+          </details> : null}
         </div>
       ) : null}
 
@@ -5566,6 +5734,7 @@ export default function App() {
       ) : null}
       {!showProjectWizard &&
         !focusedShell &&
+        !compactShell &&
         shellPersona !== "guiado" &&
         workspaceGuide &&
         activeWorkspace !== "artstudio" &&
@@ -5573,12 +5742,13 @@ export default function App() {
         <WorkspaceGuideCard key={workspaceMeta.id} guide={workspaceGuide} />
       )}
 
-      {!showProjectWizard ? <StudioContextBar /> : null}
+      {!showProjectWizard ? <StudioContextBar compact={compactShell} /> : null}
       {showDelivery ? <DeliveryPanel onClose={() => setShowDelivery(false)} /> : null}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside
           data-testid="workspace-activity-bar"
-          className="flex w-[56px] shrink-0 flex-col border-r border-[#27272a] bg-[#09090b]"
+          aria-label="Áreas do projeto"
+          className="flex w-[88px] shrink-0 flex-col border-r border-[#27272a] bg-[#09090b]"
         >
           <div className="flex flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto px-1.5 py-3">
             {WORKSPACE_GROUPS.map((group) => {
@@ -5594,7 +5764,7 @@ export default function App() {
                 <div
                   key={group.id}
                   data-testid={`workspace-rail-group-${group.id}`}
-                  className="overflow-hidden rounded-2xl border border-[#18181b] bg-[#0b1120] px-1 py-1.5"
+                  className="shrink-0 overflow-hidden rounded-2xl border border-[#18181b] bg-[#0b1120] px-1 py-1.5"
                 >
                   <p
                     className="truncate px-1 text-center text-[8px] font-semibold uppercase text-[#475569]"
@@ -5610,7 +5780,7 @@ export default function App() {
                         label={workspace.label}
                         active={activeWorkspace === workspace.id}
                         title={workspace.description}
-                        accent={workspace.id === "debug" ? "debug" : "default"}
+                        workspace={workspace.id}
                         badge={workspace.badge}
                         testId={`workspace-rail-${workspace.id}`}
                         onClick={() => handleWorkspaceSelect(workspace.id)}
@@ -5623,6 +5793,52 @@ export default function App() {
           </div>
         </aside>
 
+        {compactShell ? (
+          <div data-testid="compact-workspace-shell" className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <div role="tablist" aria-label="Painéis do workspace" className="flex shrink-0 overflow-x-auto border-b border-[#313244] bg-[#111827]">
+              {compactTabs.map(([panel, label], index) => (
+                <button
+                  key={panel}
+                  id={`compact-shell-tab-${panel}`}
+                  type="button"
+                  role="tab"
+                  data-testid={`compact-shell-tab-${panel}`}
+                  aria-selected={compactVisiblePanel === panel}
+                  aria-controls="compact-shell-panel"
+                  tabIndex={compactVisiblePanel === panel ? 0 : -1}
+                  onClick={() => setCompactPanel(panel)}
+                  onKeyDown={(event) => {
+                    let nextIndex: number;
+                    if (event.key === "ArrowRight") nextIndex = (index + 1) % compactTabs.length;
+                    else if (event.key === "ArrowLeft") nextIndex = (index - 1 + compactTabs.length) % compactTabs.length;
+                    else if (event.key === "Home") nextIndex = 0;
+                    else if (event.key === "End") nextIndex = compactTabs.length - 1;
+                    else return;
+                    event.preventDefault();
+                    const nextPanel = compactTabs[nextIndex][0];
+                    setCompactPanel(nextPanel);
+                    document.getElementById(`compact-shell-tab-${nextPanel}`)?.focus();
+                  }}
+                  className={`shrink-0 px-3 py-1.5 text-[11px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--rds-focus-ring)] ${
+                    compactVisiblePanel === panel ? "border-b-2 border-[var(--rds-action-primary)] text-[var(--rds-text-primary)]" : "text-[var(--rds-text-secondary)]"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div
+              id="compact-shell-panel"
+              role="tabpanel"
+              aria-labelledby={`compact-shell-tab-${compactVisiblePanel}`}
+              className="min-h-0 min-w-0 flex-1 overflow-hidden"
+            >
+              {compactVisiblePanel === "hierarchy" ? (
+                <div className="flex h-full min-h-0 flex-col">{hierarchyPanelContent}</div>
+              ) : compactVisiblePanel === "inspector" ? inspectorPanelContent : workspacePanelContent}
+            </div>
+          </div>
+        ) : (
         <Group
           id="retrodev-layout"
           orientation="horizontal"
@@ -5642,131 +5858,31 @@ export default function App() {
         >
           <Panel
             id="left"
+            panelRef={leftPanelRef}
             defaultSize={shellConfig.panels.left}
-            minSize={shellConfig.showLeft ? 12 : 0}
+            minSize={shellConfig.showLeft && !focusedShell && shellWidth >= 960 ? "200px" : 0}
             collapsible
             className="flex flex-col overflow-hidden border-r border-[#313244]"
           >
-            {shellConfig.showLeft ? (
-              <>
-                <div className="flex shrink-0 border-b border-[#313244] bg-[#11111b]">
-                  <button
-                    onClick={() => setLeftPanelTab("scene")}
-                    className={`flex-1 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
-                      leftPanelTab === "scene"
-                        ? "bg-[#313244] text-[#cdd6f4]"
-                        : "text-[#45475a] hover:text-[#a6adc8]"
-                    }`}
-                  >
-                    {activeWorkspace === "logic" ? "Contexto" : "Cena"}
-                  </button>
-                  <button
-                    onClick={() => setLeftPanelTab("layers")}
-                    className={`flex-1 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${
-                      leftPanelTab === "layers"
-                        ? "bg-[#313244] text-[#cdd6f4]"
-                        : "text-[#45475a] hover:text-[#a6adc8]"
-                    }`}
-                  >
-                    Camadas
-                  </button>
-                </div>
-                <div className="min-h-0 flex-1 overflow-hidden">
-                  {leftPanelTab === "layers" ? (
-                    <LayerPanel />
-                  ) : (
-                    <HierarchyPanel onOpenProject={() => void handleOpenProject()} />
-                  )}
-                </div>
-              </>
-            ) : null}
+            {hierarchyPanelContent}
           </Panel>
           <LayoutSplitter />
-          <Panel id="center" minSize={20} className="overflow-hidden">
-            {activeWorkspace === "explorer" ? (
-              <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Explorer..." />}>
-                <ExplorerWorkspace
-                  onSelectionChange={setExplorerBreadcrumb}
-                  onOpenSceneEditor={() => handleWorkspaceSelect("scene")}
-                />
-              </Suspense>
-            ) : (
-              <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Workspace..." />}>
-                <ViewportPanel showWorkspaceTabs={false} />
-              </Suspense>
-            )}
+          <Panel id="center" minSize={shellWidth < 960 ? 0 : 20} className="overflow-hidden">
+            {workspacePanelContent}
           </Panel>
           <LayoutSplitter />
           <Panel
             id="right"
+            panelRef={rightPanelRef}
             defaultSize={shellConfig.panels.right}
-            minSize={shellConfig.showRight ? 16 : 0}
+            minSize={shellConfig.showRight && !focusedShell ? (shellWidth < 960 ? "260px" : "320px") : 0}
             collapsible
             className="overflow-hidden border-l border-[#313244]"
           >
-            {shellConfig.showRight ? (
-            <div className="flex h-full min-h-0 flex-col bg-[#09090b]">
-              <div className="flex items-center justify-between border-b border-[#27272a] bg-[#111827] px-3 py-1.5">
-                <div className="min-w-0">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]">
-                    {rightPanelMode === "tools" ? shellConfig.rightLabel : shellConfig.rightLabel}
-                  </div>
-                </div>
-                {shellConfig.defaultRightMode !== "hidden" ? (
-                <div className="flex shrink-0 items-center gap-1 rounded-full border border-[#313244] bg-[#09090b] p-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setRightPanelMode("inspector")}
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors ${
-                      rightPanelMode === "inspector"
-                        ? "bg-[#cba6f7] text-[#111827]"
-                        : "text-[#94a3b8] hover:bg-[#1f2937] hover:text-[#e5e7eb]"
-                    }`}
-                    title="Inspector de entidade"
-                  >
-                    Insp
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openToolsWorkspace(
-                        toolPanelActive === "setup" ? "palette" : toolPanelActive,
-                        activeWorkspace === "debug" ? "debug" : "editing",
-                        activeWorkspace === "debug" || toolPanelShowAdvanced
-                      )
-                    }
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors ${
-                      rightPanelMode === "tools"
-                        ? "bg-[#cba6f7] text-[#111827]"
-                        : "text-[#94a3b8] hover:bg-[#1f2937] hover:text-[#e5e7eb]"
-                    }`}
-                    title="Ferramentas contextuais"
-                  >
-                    Tools
-                  </button>
-                </div>
-                ) : null}
-              </div>
-              <div className="min-h-0 flex-1 overflow-hidden">
-                {rightPanelMode === "tools" ? (
-                  <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Tools..." />}>
-                    <ToolsPanel
-                      onRequestInspector={() => setRightPanelMode("inspector")}
-                      initialActive={toolPanelActive}
-                      workspace={toolPanelWorkspace}
-                      showAdvancedByDefault={toolPanelShowAdvanced}
-                    />
-                  </Suspense>
-                ) : (
-                  <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Inspector..." />}>
-                    <InspectorPanel />
-                  </Suspense>
-                )}
-              </div>
-            </div>
-            ) : null}
+            {inspectorPanelContent}
           </Panel>
         </Group>
+        )}
       </div>
 
       <ProductionStatusBar
@@ -5801,6 +5917,7 @@ useEditorStore.subscribe((state, previous) => {
 
 function SceneSaveStatusChip() {
   const saveState = useEditorStore((state) => state.sceneSaveState);
+  const draftState = useEditorStore((state) => state.sceneDraftState);
   const sceneRevision = useEditorStore((state) => state.sceneRevision);
   const status =
     saveState.status === "saving"
@@ -5816,7 +5933,8 @@ function SceneSaveStatusChip() {
     saving: "Salvando…",
     saved: "Salvo",
     failed: "Falha ao salvar",
-    dirty: "Alterações não salvas",
+    dirty: draftState.status === "confirmed" && draftState.revision === sceneRevision
+      ? "Rascunho confirmado" : "Alterações só no editor",
     idle: "Sem alterações",
   }[status];
   const tone = {
@@ -5832,9 +5950,12 @@ function SceneSaveStatusChip() {
       data-status={status}
       data-revision={sceneRevision}
       data-saved-revision={saveState.revision ?? ""}
+      data-draft-status={draftState.status}
+      data-draft-revision={draftState.revision ?? ""}
       role="status"
       aria-live="polite"
-      title={status === "failed" ? `Falha ao salvar: ${saveState.message ?? "erro desconhecido"}. As alterações continuam no editor.` : label}
+      title={status === "failed" ? `Falha ao salvar: ${saveState.message ?? "erro desconhecido"}. As alterações continuam no editor.`
+        : status === "dirty" ? `${label}. O rascunho aguarda até ${SCENE_DRAFT_DELAY_MS / 1000} segundos sem edição e confirmação por releitura. Antes disso pode haver perda; não garante recuperação após falha de energia/disco. Use Salvar para gravar o arquivo.` : label}
       className={`shrink-0 rounded border px-2 py-0.5 text-[10px] font-semibold ${tone}`}
     >
       {label}
@@ -5873,9 +5994,10 @@ function GuidedStepBar({
   const select = (entityId: string | null) => {
     if (entityId) useEditorStore.getState().setSelectedEntityId(entityId);
   };
-  const steps: { id: GuidedStepId; label: string; hint: string; run: () => void }[] = [
+  const steps: { id: GuidedStepId; icon: IconName; label: string; hint: string; run: () => void }[] = [
     {
       id: "cenario",
+      icon: "studio-scene",
       label: "Cenário",
       hint: "Pintar tiles e ajustar a colisão do mapa",
       run: () => {
@@ -5895,6 +6017,7 @@ function GuidedStepBar({
     },
     {
       id: "personagem",
+      icon: "studio-art",
       label: "Personagem",
       hint: "Posição, sprite e animações do jogador",
       run: () => {
@@ -5906,6 +6029,7 @@ function GuidedStepBar({
     },
     {
       id: "regras",
+      icon: "studio-logic",
       label: "Regras",
       hint: "Quando → Se → Fazer, passagens e condições de vitória",
       run: () => {
@@ -5915,6 +6039,7 @@ function GuidedStepBar({
     },
     {
       id: "sons",
+      icon: "music",
       label: "Sons",
       hint: "Associar efeitos sonoros aos eventos",
       run: () => {
@@ -5923,7 +6048,7 @@ function GuidedStepBar({
         window.setTimeout(() => document.querySelector("[data-testid='nodegraph-sounds']")?.scrollIntoView({ block: "center" }), 50);
       },
     },
-    { id: "testar", label: "Testar", hint: "Compilar e jogar pelo teclado (setas; botoes e teclas em Regras)", run: onTest },
+    { id: "testar", icon: "studio-game", label: "Testar", hint: "Compilar e jogar pelo teclado (setas; botoes e teclas em Regras)", run: onTest },
   ];
   const current: GuidedStepId | null =
     lastStep === "sons" && activeWorkspace === "logic"
@@ -5950,13 +6075,13 @@ function GuidedStepBar({
             setLastStep(step.id);
             step.run();
           }}
-          className={`rounded-md border px-3 py-1 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#89b4fa] ${
+          className={`inline-flex items-center gap-2 rounded-md border px-3 py-1 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#89b4fa] ${
             current === step.id
               ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#cdd6f4]"
               : "border-[#313244] text-[#a6adc8] hover:border-[#89b4fa] hover:text-[#cdd6f4]"
           }`}
         >
-          {index + 1}. {step.label}
+          <Icon name={step.icon} size={21} /> {index + 1}. {step.label}
         </button>
       ))}
       <span className="ml-auto text-[11px] text-[#7f849c]">{steps.find((step) => step.id === current)?.hint ?? "Escolha uma etapa"}</span>

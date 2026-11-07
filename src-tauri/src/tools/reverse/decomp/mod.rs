@@ -37,6 +37,9 @@ mod rex_copy_grid;
 #[cfg(test)]
 pub mod rex_jump_ipc;
 pub mod rex_kosinski;
+pub mod rex_libsig;
+pub mod rex_m68k_flow;
+pub mod rex_md_tables;
 pub mod rex_mdgfx;
 pub mod rex_nemesis;
 #[cfg(test)]
@@ -51,6 +54,9 @@ pub mod rex_profile_spec;
 mod rex_profile_testkit;
 pub mod rex_publish;
 pub mod rex_resources;
+pub mod rex_sgdk_project;
+pub mod rex_sgdk_rebuild;
+pub mod rex_sgdk_resources;
 pub mod rex_sigscan;
 pub mod rom_library;
 pub mod sonic_cadence;

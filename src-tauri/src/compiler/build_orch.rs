@@ -5,13 +5,15 @@ use std::process::Command;
 
 use crate::compiler::ast_generator::{
     collect_bgm_tracks, collect_sfx_resources, collect_tilemap_assets, generate_ast,
-    generate_ast_with_prefabs, AstOutput, SpriteAsset,
+    generate_ast_with_prefabs, AstOutput, SpriteAsset, TilemapAsset,
 };
 use crate::compiler::build_provenance::{
     attach_rom_artifact, build_source_map, serialize_source_map, BuildSourceMap,
     SOURCE_MAP_FILE_NAME,
 };
-use crate::compiler::sgdk_emitter::emit_sgdk_with_collision;
+use crate::compiler::sgdk_emitter::{
+    emit_sgdk_with_collision, sprite_resource_pages, SGDK_SPRITE_CANVAS_MAX_PIXELS,
+};
 use crate::compiler::snes_emitter::emit_snes_with_collision;
 use crate::core::diagnostics::{build_diagnostics_from_log, ActionableDiagnostic};
 use crate::core::project_mgr::{
@@ -427,6 +429,81 @@ where
     result
 }
 
+/// R3-09/T6: validates a transient "test this scene" intent. Only a relative scene path
+/// inside the project that loads is accepted; the override never touches `project.rds`.
+pub fn validate_test_scene(project_dir: &Path, scene_path: &str) -> Result<String, String> {
+    let trimmed = scene_path.trim().replace('\\', "/");
+    if trimmed.is_empty() {
+        return Err("cena de teste vazia".to_string());
+    }
+    let candidate = Path::new(&trimmed);
+    if candidate.is_absolute()
+        || candidate
+            .components()
+            .any(|part| !matches!(part, std::path::Component::Normal(_)))
+    {
+        return Err(format!("cena de teste fora do projeto: '{trimmed}'"));
+    }
+    load_scene(project_dir, &trimmed)
+        .map_err(|error| format!("cena de teste '{trimmed}' invalida: {error}"))?;
+    Ok(trimmed)
+}
+
+/// Same pipeline as [`run_build_with_environment`], with an optional transient entry scene.
+pub fn run_build_with_test_scene<F>(
+    project_dir: &Path,
+    test_scene: Option<&str>,
+    environment: &BuildEnvironment,
+    on_log: F,
+) -> BuildResult
+where
+    F: Fn(BuildLogLine),
+{
+    let Some(requested) = test_scene else {
+        return run_build_with_environment(project_dir, environment, on_log);
+    };
+    let mut log = Vec::new();
+    macro_rules! emit {
+        ($level:expr, $message:expr) => {{
+            let entry = BuildLogLine {
+                level: $level.to_string(),
+                message: $message.to_string(),
+            };
+            on_log(entry.clone());
+            log.push(entry);
+        }};
+    }
+    let mut project = match load_project(project_dir) {
+        Ok(project) => project,
+        Err(error) => {
+            emit!("error", format!("Falha ao carregar project.rds: {}", error));
+            return failed_build_result("project", log, Some(project_dir));
+        }
+    };
+    let scene = match validate_test_scene(project_dir, requested) {
+        Ok(scene) => scene,
+        Err(error) => {
+            emit!(
+                "error",
+                format!("Inicio de teste recusado: {error}. Nada foi executado.")
+            );
+            return failed_build_result("project", log, Some(project_dir));
+        }
+    };
+    if scene == project.entry_scene.replace('\\', "/") {
+        emit!("info", format!("Inicio de teste: '{scene}' ja e a entrada do projeto (mesmo resultado do teste normal)."));
+    } else {
+        emit!("info", format!("Inicio de teste: cena '{scene}' pela sua entrada, so nesta ROM de teste (entrada do projeto '{}' inalterada).", project.entry_scene));
+        project.entry_scene = scene;
+    }
+    let mut result =
+        run_build_for_project_with_environment(project_dir, &project, environment, on_log);
+    let mut combined = log;
+    combined.append(&mut result.log);
+    result.log = combined;
+    result
+}
+
 pub fn run_build_multi_target<F>(
     project_dir: &Path,
     targets: &[String],
@@ -610,6 +687,106 @@ where
             return failed_build_result(target.target, log, Some(&host_root));
         }
 
+        let diverged = diverged_overlay_assets(project_dir, &host_root);
+        if !diverged.is_empty() {
+            for (destination, source) in &diverged {
+                emit!(
+                    "error",
+                    format!(
+                        "Asset '{destination}' foi alterado no Studio mas nao e o arquivo consumido pelo C ('{source}'); a edicao seria ignorada."
+                    )
+                );
+            }
+            emit!(
+                "error",
+                "Build recusado: edicoes do Studio desvinculadas da raiz C original."
+            );
+            return failed_build_result(target.target, log, Some(&host_root));
+        }
+
+        let edited_sources =
+            match crate::core::sgdk_c_graph::edited_c_sources(&host_root, project_dir) {
+                Ok(edited) => edited,
+                Err(error) => {
+                    emit!("error", error);
+                    return failed_build_result(target.target, log, Some(&host_root));
+                }
+            };
+        let wrapper_bridge = if find_makefile(&host_root).is_none() {
+            find_sgdkforge_wrapper_bridge(&host_root)
+        } else {
+            None
+        };
+        let staged = !edited_sources.is_empty() || wrapper_bridge.is_some();
+        let host_root = if !staged {
+            emit!(
+                "info",
+                "Escopo C original: o build consome o C da raiz (sem edicoes nos grafos C de code/) e os assets projetados de res/; cenas e entidades do Studio nao entram."
+            );
+            host_root
+        } else {
+            let stamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|elapsed| elapsed.as_millis())
+                .unwrap_or_default();
+            let c_build = project_dir.join(".rds").join("c_build");
+            // So a copia do build atual e mantida (cada copia e regeneravel).
+            if let Ok(entries) = fs::read_dir(&c_build) {
+                for entry in entries.flatten() {
+                    if entry.file_name().to_string_lossy().starts_with("run_") {
+                        let _ = fs::remove_dir_all(entry.path());
+                    }
+                }
+            }
+            let staging = c_build.join(format!("run_{stamp}"));
+            if let Err(error) =
+                crate::core::sgdk_c_graph::stage_c_project(&host_root, &staging, &edited_sources)
+            {
+                emit!(
+                    "error",
+                    format!("Falha ao preparar copia de build C: {error}")
+                );
+                return failed_build_result(target.target, log, Some(&host_root));
+            }
+            for (rel, _) in &edited_sources {
+                emit!("info", format!("Fonte regenerada do grafo C: {rel}"));
+            }
+            emit!(
+                "info",
+                format!(
+                    "Build usa copia da raiz C em '{}' ({} fonte(s) regenerada(s) dos nodes); a raiz original nao e alterada.",
+                    staging.display(),
+                    edited_sources.len()
+                )
+            );
+            staging
+        };
+
+        {
+            if let Some(bridge) = wrapper_bridge {
+                emit!(
+                    "info",
+                    format!(
+                        "Modo C original (SGDKForge wrapper) detectado. Logica, instancias e cenas sao controladas pelo C em '{}'.",
+                        host_root.display()
+                    )
+                );
+                emit!("info", format!("Wrapper oficial: {}", bridge.display()));
+                return match run_sgdkforge_wrapper_build(
+                    &host_root, &bridge, staged, &mut log, &on_log,
+                ) {
+                    Ok(rom_path) => {
+                        emit!("success", format!("ROM gerada: {}", rom_path.display()));
+                        successful_build_result(rom_path, log, None, None, None)
+                    }
+                    Err(error) => {
+                        emit!("error", error);
+                        failed_build_result(target.target, log, Some(&host_root))
+                    }
+                };
+            }
+        }
+
         let Some(makefile_path) = find_makefile(&host_root) else {
             emit!(
                 "error",
@@ -728,6 +905,14 @@ where
         crate::compiler::platform_support::logic_support_issues(target.target, &resolved_scene);
     support_issues
         .extend(crate::compiler::platform_support::behavior_reference_issues(&resolved_scene));
+    support_issues.extend(crate::compiler::platform_support::path_support_issues(
+        target.target,
+        &resolved_scene,
+    ));
+    support_issues.extend(crate::compiler::platform_support::path_trigger_issues(
+        target.target,
+        &resolved_scene,
+    ));
     if !support_issues.is_empty() {
         for issue in &support_issues {
             emit!(
@@ -1270,6 +1455,245 @@ fn legacy_sgdk_host_root(project_dir: &Path, project: &Project) -> Result<Option
     Ok(Some(PathBuf::from(source_path)))
 }
 
+#[derive(serde::Deserialize)]
+struct OverlayImportLedger {
+    #[serde(default)]
+    mappings: Vec<crate::core::project_mgr::SgdkImportMapping>,
+}
+
+/// Assets do overlay cujo conteudo difere do arquivo da raiz C que o build consome
+/// (ex.: hardlink quebrado por um editor que salva via rename).
+fn diverged_overlay_assets(overlay_dir: &Path, host_root: &Path) -> Vec<(String, String)> {
+    let Ok(entries) = fs::read_dir(overlay_dir.join(".rds").join("imports").join("sgdk")) else {
+        return Vec::new();
+    };
+    let mut diverged = Vec::new();
+    for entry in entries.flatten() {
+        let Ok(ledger) = fs::read_to_string(entry.path())
+            .map_err(|_| ())
+            .and_then(|raw| serde_json::from_str::<OverlayImportLedger>(&raw).map_err(|_| ()))
+        else {
+            continue;
+        };
+        for mapping in ledger.mappings {
+            let projected = overlay_dir.join(&mapping.destination);
+            let source = host_root.join(&mapping.source_relative);
+            if let (Ok(projected_bytes), Ok(source_bytes)) =
+                (fs::read(&projected), fs::read(&source))
+            {
+                if projected_bytes != source_bytes {
+                    diverged.push((mapping.destination, mapping.source_relative));
+                }
+            }
+        }
+    }
+    diverged.sort();
+    diverged.dedup();
+    diverged
+}
+
+/// Projetos do SGDKForge nao possuem Makefile: `build.bat`/`build.sh` delegam para
+/// `tools/sgdk_wrapper`. No Linux o wrapper executa `build_sgdk_wine_bridge.sh`.
+fn find_sgdkforge_wrapper_bridge(host_root: &Path) -> Option<PathBuf> {
+    let delegates = fs::read_to_string(host_root.join("build.bat"))
+        .map(|raw| raw.to_ascii_lowercase().contains("sgdk_wrapper"))
+        .unwrap_or(false);
+    if !delegates {
+        return None;
+    }
+    host_root
+        .ancestors()
+        .skip(1)
+        .map(|ancestor| {
+            ancestor
+                .join("tools")
+                .join("sgdk_wrapper")
+                .join("build_sgdk_wine_bridge.sh")
+        })
+        .find(|candidate| candidate.is_file())
+}
+
+#[derive(serde::Deserialize)]
+struct SgdkForgeBuildReport {
+    status: String,
+    exit_code: i64,
+    output_dir: String,
+    started_at: String,
+    rom: SgdkForgeBuildReportRom,
+}
+
+#[derive(serde::Deserialize)]
+struct SgdkForgeBuildReportRom {
+    path: String,
+    sha256: Option<String>,
+}
+
+/// Executa o build oficial em `out/tests/<run>` unico (contrato do wrapper para builds
+/// nao-default) e so aceita a ROM se o recibo deste run e o SHA-256 do arquivo batem.
+/// Nao toca `out/rom.bin` do projeto nem reutiliza artefato anterior.
+fn run_sgdkforge_wrapper_build<F>(
+    host_root: &Path,
+    bridge: &Path,
+    staged: bool,
+    log: &mut Vec<BuildLogLine>,
+    on_log: &F,
+) -> Result<PathBuf, String>
+where
+    F: Fn(BuildLogLine),
+{
+    if !cfg!(target_os = "linux") {
+        return Err(
+            "Build C original via SGDKForge wrapper so esta integrado no Linux (wine bridge); neste host use o build.bat do projeto fora do Studio."
+                .to_string(),
+        );
+    }
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis())
+        .unwrap_or_default();
+    // Copia de build nova: saida padrao `out/` (sem depender de `out/rom_head.bin` de um
+    // build anterior). Na raiz do doador, run unico em `out/tests/` para nao tocar `out/rom.bin`.
+    let (output_rel, report_rel) = if staged {
+        ("out".to_string(), "out/logs".to_string())
+    } else {
+        let run_id = format!("rds_{stamp}");
+        (
+            format!("out/tests/{run_id}"),
+            format!("out/tests/{run_id}_logs"),
+        )
+    };
+    if host_root.join(&output_rel).exists() || host_root.join(&report_rel).exists() {
+        return Err(format!(
+            "Diretorio de run '{output_rel}' ja existe; build recusado."
+        ));
+    }
+
+    let output = Command::new("bash")
+        .arg(bridge)
+        .arg("--project-root")
+        .arg(host_root)
+        .arg("--output-dir")
+        .arg(&output_rel)
+        .arg("--report-dir")
+        .arg(&report_rel)
+        .current_dir(host_root)
+        .output()
+        .map_err(|e| {
+            format!(
+                "Falha ao iniciar wrapper SGDKForge '{}': {}",
+                bridge.display(),
+                e
+            )
+        })?;
+    for (level, stream) in [("info", &output.stdout), ("warn", &output.stderr)] {
+        for line in String::from_utf8_lossy(stream).lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            let level = if line.contains("status=blocked") || line.contains("[ERROR]") {
+                "error"
+            } else {
+                level
+            };
+            let entry = BuildLogLine {
+                level: level.to_string(),
+                message: line.to_string(),
+            };
+            on_log(entry.clone());
+            log.push(entry);
+        }
+    }
+    let report_path = host_root
+        .join(&report_rel)
+        .join("linux_wine_build_report.json");
+    if !output.status.success() {
+        let build_log = fs::read_to_string(host_root.join(&report_rel).join("build_output.log"))
+            .unwrap_or_default();
+        // O log do make traz o motivo concreto; o stdout do bridge so diz `sgdk_make_failed`.
+        let reason = wrapper_refusal_reason(&build_log)
+            .or_else(|| wrapper_refusal_reason(&String::from_utf8_lossy(&output.stdout)))
+            .map(|reason| format!(" Motivo: {reason}."))
+            .unwrap_or_default();
+        return Err(format!(
+            "Build C original recusado pelo wrapper (exit {}).{reason} Nenhuma ROM anterior sera executada. Recibo: {}",
+            output.status.code().unwrap_or(-1),
+            report_path.display()
+        ));
+    }
+    verify_sgdkforge_build_receipt(host_root, &output_rel, &report_path)
+}
+
+/// Motivo da recusa do wrapper: a ultima linha `{"status":"blocked","reason":...}`
+/// ou `wine_bridge_status=blocked reason=...`.
+fn wrapper_refusal_reason(text: &str) -> Option<String> {
+    text.lines().rev().find_map(|line| {
+        let line = line.trim();
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(line) {
+            return value
+                .get("reason")
+                .and_then(|reason| reason.as_str())
+                .map(str::to_string);
+        }
+        let rest = line.strip_prefix("wine_bridge_status=blocked")?;
+        Some(rest.trim().trim_start_matches("reason=").to_string())
+    })
+}
+
+fn verify_sgdkforge_build_receipt(
+    host_root: &Path,
+    output_rel: &str,
+    report_path: &Path,
+) -> Result<PathBuf, String> {
+    let raw = fs::read_to_string(report_path).map_err(|e| {
+        format!(
+            "Wrapper terminou sem recibo de build '{}': {}",
+            report_path.display(),
+            e
+        )
+    })?;
+    let report: SgdkForgeBuildReport = serde_json::from_str(&raw).map_err(|e| {
+        format!(
+            "Recibo de build invalido '{}': {}",
+            report_path.display(),
+            e
+        )
+    })?;
+    if report.status != "buildado" || report.exit_code != 0 {
+        return Err(format!(
+            "Recibo de build indica falha (status '{}', exit {}).",
+            report.status, report.exit_code
+        ));
+    }
+    if report.output_dir != output_rel || report.started_at.trim().is_empty() {
+        return Err(format!(
+            "Recibo de build nao pertence a este run (output_dir '{}', esperado '{}').",
+            report.output_dir, output_rel
+        ));
+    }
+    let expected_rom = host_root.join(output_rel).join("rom.bin");
+    if Path::new(&report.rom.path) != expected_rom {
+        return Err(format!(
+            "Recibo aponta ROM fora do run atual: '{}'.",
+            report.rom.path
+        ));
+    }
+    let bytes = fs::read(&expected_rom).map_err(|e| {
+        format!(
+            "ROM do run atual ausente '{}': {}",
+            expected_rom.display(),
+            e
+        )
+    })?;
+    let actual = crate::core::rom_mastering::sha256_hex(&bytes);
+    if report.rom.sha256.as_deref() != Some(actual.as_str()) {
+        return Err(format!(
+            "SHA-256 da ROM ({actual}) nao confere com o recibo ({}).",
+            report.rom.sha256.as_deref().unwrap_or("ausente")
+        ));
+    }
+    Ok(expected_rom)
+}
+
 fn find_makefile(root: &Path) -> Option<PathBuf> {
     ["Makefile", "makefile"]
         .into_iter()
@@ -1378,6 +1802,18 @@ fn stage_project_assets(
     workspace_root: &Path,
     ast: &AstOutput,
 ) -> Result<(), String> {
+    let mut names: std::collections::HashSet<String> = ast
+        .sprite_assets
+        .iter()
+        .map(|asset| asset.resource_name.clone())
+        .chain(
+            collect_tilemap_assets(ast)
+                .into_iter()
+                .map(|asset| asset.resource_name),
+        )
+        .chain(collect_sfx_resources(ast).into_iter().map(|(name, _)| name))
+        .chain(collect_bgm_tracks(ast).into_iter().map(|(name, _)| name))
+        .collect();
     for asset in &ast.sprite_assets {
         let source_rel = sanitize_relative_asset_path(&asset.asset_path)?;
         let source = project_dir.join(&source_rel);
@@ -1388,6 +1824,39 @@ fn stage_project_assets(
             ));
         }
 
+        let pages = sprite_resource_pages(asset);
+        if pages.len() > 1 {
+            let (source_image, seed) = open_sgdk_sprite_image(&source)?;
+            // A single palette, in logical row/raster order, for every physical
+            // page. Independently indexing each page would recolor animations.
+            let (palette, _, _) = sprite_page_palette(&source_image, &pages, seed)?;
+            for page in &pages {
+                if !names.insert(page.resource_name.clone()) {
+                    return Err(format!(
+                        "Recurso SGDK de pagina duplicado: '{}'. Renomeie o recurso em conflito.",
+                        page.resource_name
+                    ));
+                }
+                let destination =
+                    workspace_root.join(sanitize_relative_asset_path(&page.asset_path)?);
+                if let Some(parent) = destination.parent() {
+                    fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                }
+                let image = arrange_sgdk_animation_rows(&source_image, page)?;
+                let mut fixed_palette = palette.clone();
+                let indexed = index_image_with_palette(
+                    &image,
+                    image.width(),
+                    image.height(),
+                    16,
+                    &mut fixed_palette,
+                    &mut Default::default(),
+                    false,
+                )?;
+                write_indexed_bmp_data(indexed, &destination, image.width(), image.height())?;
+            }
+            continue;
+        }
         let destination_rel = sgdk_bitmap_staging_path(&source_rel);
         let destination = workspace_root.join(&destination_rel);
         if let Some(parent) = destination.parent() {
@@ -1464,7 +1933,7 @@ fn stage_snes_assets(project_dir: &Path, src_dir: &Path, ast: &AstOutput) -> Res
         }
 
         let destination = src_dir.join(format!("{}.bmp", asset.resource_name));
-        stage_bitmap_asset(&source, &destination, "SNES")?;
+        stage_snes_tilemap_asset(&source, &destination, &asset)?;
     }
 
     for (resource_name, asset_path) in collect_sfx_resources(ast) {
@@ -1548,6 +2017,71 @@ fn stage_snes_audio_asset(
     Ok(())
 }
 
+fn stage_snes_tilemap_asset(
+    source: &Path,
+    destination: &Path,
+    asset: &TilemapAsset,
+) -> Result<(), String> {
+    if asset.cells.is_empty() {
+        return stage_bitmap_asset(source, destination, "SNES");
+    }
+    // gfx2snes consumes a composed image. Feeding only the tileset discarded
+    // painted cells and left most of the resident hardware map uninitialized.
+    if !(1..=64).contains(&asset.map_width) || !(1..=64).contains(&asset.map_height) {
+        return Err("SNES: mapa pintado deve caber em até 64×64 tiles residentes.".into());
+    }
+    let tiles = image::open(source)
+        .map_err(|e| format!("Falha ao ler tileset SNES '{}': {e}", source.display()))?
+        .to_rgba8();
+    let columns = tiles.width() / 8;
+    let count = columns * (tiles.height() / 8);
+    let (width, height) = (asset.map_width * 8, asset.map_height * 8);
+    let mut composed = image::RgbaImage::new(width, height);
+    for y in 0..height.min(tiles.height()) {
+        for x in 0..width.min(tiles.width()) {
+            composed.put_pixel(x, y, *tiles.get_pixel(x, y));
+        }
+    }
+    for (index, &cell) in asset
+        .cells
+        .iter()
+        .enumerate()
+        .take((asset.map_width * asset.map_height) as usize)
+    {
+        if cell == 0 {
+            continue;
+        } // Preserve the source picture at this cell.
+        let (x, y) = (
+            index as u32 % asset.map_width * 8,
+            index as u32 / asset.map_width * 8,
+        );
+        let blank = cell == crate::compiler::sgdk_emitter::TILEMAP_CELL_EMPTY;
+        if !blank && cell > count {
+            return Err(format!(
+                "SNES: tile {cell} fora do tileset '{}' ({count} tiles).",
+                asset.resource_name
+            ));
+        }
+        for dy in 0..8 {
+            for dx in 0..8 {
+                let pixel = if blank {
+                    image::Rgba([0, 0, 0, 0])
+                } else {
+                    *tiles.get_pixel((cell - 1) % columns * 8 + dx, (cell - 1) / columns * 8 + dy)
+                };
+                composed.put_pixel(x + dx, y + dy, pixel);
+            }
+        }
+    }
+    write_indexed_bmp_8bit_with_canvas_palette_limit(
+        &image::DynamicImage::ImageRgba8(composed),
+        destination,
+        width,
+        height,
+        16,
+    )
+}
+
 fn stage_bitmap_asset(source: &Path, destination: &Path, target_label: &str) -> Result<(), String> {
     let extension = source
         .extension()
@@ -1593,27 +2127,28 @@ fn stage_sgdk_sprite_asset(
 ) -> Result<(), String> {
     let frame_width = asset.frame_width.max(8);
     let frame_height = asset.frame_height.max(8);
-    let image = image::open(source).map_err(|e| {
+    let (image, mut seed) = open_sgdk_sprite_image(source).map_err(|e| {
         format!(
-            "Falha ao ler asset SGDK sprite '{}' para recurso '{}': {}",
-            source.display(),
-            asset.resource_name,
-            e
+            "Falha ao ler asset SGDK sprite para recurso '{}': {}",
+            asset.resource_name, e
         )
     })?;
-    let image = arrange_sgdk_animation_rows(image, asset)?;
+    let image = arrange_sgdk_animation_rows(&image, asset)?;
     let width = image.width();
     let height = image.height();
     let canvas_width = round_up_to_multiple(width, frame_width).max(frame_width);
     let canvas_height = round_up_to_multiple(height, frame_height).max(frame_height);
 
-    write_indexed_bmp_8bit_with_canvas_palette_limit(
+    index_image_with_palette(
         &image,
-        destination,
         canvas_width,
         canvas_height,
         16,
+        &mut seed,
+        &mut Default::default(),
+        true,
     )
+    .and_then(|indexed| write_indexed_bmp_data(indexed, destination, canvas_width, canvas_height))
     .map_err(|e| {
         format!(
             "Falha ao converter asset SGDK sprite '{}' para '{}' (frame {}x{}, canvas {}x{}): {}",
@@ -1629,11 +2164,11 @@ fn stage_sgdk_sprite_asset(
 }
 
 fn arrange_sgdk_animation_rows(
-    source: image::DynamicImage,
+    source: &image::DynamicImage,
     asset: &SpriteAsset,
 ) -> Result<image::DynamicImage, String> {
     if asset.animations.is_empty() {
-        return Ok(source);
+        return Ok(source.clone());
     }
     let fw = asset.frame_width.max(8);
     let fh = asset.frame_height.max(8);
@@ -1658,7 +2193,7 @@ fn arrange_sgdk_animation_rows(
     let height = fh
         .checked_mul(asset.animations.len() as u32)
         .ok_or("Altura de animacao excedida")?;
-    if u64::from(width) * u64::from(height) > 64 * 1024 * 1024 {
+    if u64::from(width) * u64::from(height) > SGDK_SPRITE_CANVAS_MAX_PIXELS {
         return Err(format!(
             "Sprite '{}': atlas de animacoes excede 64 megapixels; divida o recurso.",
             asset.resource_name
@@ -1772,6 +2307,16 @@ fn write_indexed_bmp_8bit_with_canvas_palette_limit(
     canvas_height: u32,
     max_palette_colors: usize,
 ) -> Result<(), String> {
+    let indexed = index_image(image, canvas_width, canvas_height, max_palette_colors)?;
+    write_indexed_bmp_data(indexed, destination, canvas_width, canvas_height)
+}
+
+fn write_indexed_bmp_data(
+    indexed: IndexedImage,
+    destination: &Path,
+    canvas_width: u32,
+    canvas_height: u32,
+) -> Result<(), String> {
     let width = canvas_width as usize;
     let height = canvas_height as usize;
     let row_stride = (width + 3) & !3;
@@ -1779,7 +2324,6 @@ fn write_indexed_bmp_8bit_with_canvas_palette_limit(
     let palette_size = 256 * 4;
     let pixel_offset = 14 + 40 + palette_size;
     let file_size = pixel_offset + pixel_data_size;
-    let indexed = index_image(image, canvas_width, canvas_height, max_palette_colors)?;
     let (palette, indices) = (indexed.palette_bgr0, indexed.indices);
 
     let mut bytes = Vec::with_capacity(file_size);
@@ -1839,14 +2383,32 @@ pub(crate) fn index_image(
     canvas_height: u32,
     max_palette_colors: usize,
 ) -> Result<IndexedImage, String> {
+    index_image_with_palette(
+        image,
+        canvas_width,
+        canvas_height,
+        max_palette_colors,
+        &mut vec![[0, 0, 0, 0]],
+        &mut Default::default(),
+        true,
+    )
+}
+
+fn index_image_with_palette(
+    image: &image::DynamicImage,
+    canvas_width: u32,
+    canvas_height: u32,
+    max_palette_colors: usize,
+    palette: &mut Vec<[u8; 4]>,
+    distinct: &mut std::collections::HashSet<[u8; 4]>,
+    extend_palette: bool,
+) -> Result<IndexedImage, String> {
     let rgba = image.to_rgba8();
     let width = canvas_width as usize;
     let height = canvas_height as usize;
     let max_palette_colors = max_palette_colors.clamp(1, 256);
-    let mut palette: Vec<[u8; 4]> = vec![[0, 0, 0, 0]];
     let mut indices = vec![0u8; width * height];
     let mut quantized_pixels = 0usize;
-    let mut distinct: std::collections::HashSet<[u8; 4]> = Default::default();
 
     for y in 0..rgba.height() as usize {
         for x in 0..rgba.width() as usize {
@@ -1863,12 +2425,12 @@ pub(crate) fn index_image(
                 .skip(1) // Index zero is transparency, including when RGB is black.
                 .find_map(|(index, entry)| (*entry == color).then_some(index))
                 .or_else(|| {
-                    if palette.len() < max_palette_colors {
+                    if extend_palette && palette.len() < max_palette_colors {
                         palette.push(color);
                         Some(palette.len() - 1)
                     } else if max_palette_colors < 256 {
                         quantized_pixels += 1;
-                        nearest_palette_index(&palette, color)
+                        nearest_palette_index(palette, color)
                     } else {
                         None
                     }
@@ -1884,11 +2446,89 @@ pub(crate) fn index_image(
         }
     }
     Ok(IndexedImage {
-        palette_bgr0: palette,
+        palette_bgr0: palette.clone(),
         indices,
         quantized_pixels,
         source_colors: distinct.len(),
     })
+}
+
+/// Paleta embutida (PLTE) de um PNG indexado com 2..=16 entradas, como o SGDK a usa: o indice 0
+/// e a transparencia e a ordem das cores e preservada. `None` para PNG nao indexado, com mais
+/// de 16 entradas ou com a cor do indice 0 repetida (ambiguidade: cai na indexacao por aparicao).
+pub(crate) fn indexed_png_palette(path: &Path) -> Option<Vec<[u8; 3]>> {
+    let bytes = fs::read(path).ok()?;
+    if bytes.len() < 8 || &bytes[..8] != b"\x89PNG\r\n\x1a\n" {
+        return None;
+    }
+    let mut offset = 8usize;
+    let mut indexed = false;
+    while offset + 8 <= bytes.len() {
+        let length = u32::from_be_bytes(bytes[offset..offset + 4].try_into().ok()?) as usize;
+        let kind = &bytes[offset + 4..offset + 8];
+        let data = bytes.get(offset + 8..offset + 8 + length)?;
+        match kind {
+            b"IHDR" => indexed = data.get(9) == Some(&3),
+            b"PLTE" if indexed => {
+                let colors: Vec<[u8; 3]> =
+                    data.chunks_exact(3).map(|c| [c[0], c[1], c[2]]).collect();
+                let key = *colors.first()?;
+                let ok = (2..=16).contains(&colors.len()) && !colors[1..].contains(&key);
+                return ok.then_some(colors);
+            }
+            b"IDAT" | b"IEND" => return None,
+            _ => {}
+        }
+        offset += 12 + length;
+    }
+    None
+}
+
+/// Abre um asset de sprite. Se for PNG indexado (ver `indexed_png_palette`), os pixels da cor do
+/// indice 0 viram transparentes e a paleta-semente preserva a ordem do arquivo; senao, a paleta
+/// comeca so com a transparencia (ordem de primeira aparicao).
+pub(crate) fn open_sgdk_sprite_image(
+    path: &Path,
+) -> Result<(image::DynamicImage, Vec<[u8; 4]>), String> {
+    let image =
+        image::open(path).map_err(|e| format!("Falha ao ler '{}': {}", path.display(), e))?;
+    let Some(plte) = indexed_png_palette(path) else {
+        return Ok((image, vec![[0, 0, 0, 0]]));
+    };
+    let key = plte[0];
+    let mut rgba = image.to_rgba8();
+    for pixel in rgba.pixels_mut() {
+        if pixel[0] == key[0] && pixel[1] == key[1] && pixel[2] == key[2] {
+            pixel[3] = 0;
+        }
+    }
+    let mut seed = vec![[0, 0, 0, 0]];
+    seed.extend(plte[1..].iter().map(|c| [c[2], c[1], c[0], 0]));
+    Ok((image::DynamicImage::ImageRgba8(rgba), seed))
+}
+
+fn sprite_page_palette(
+    source: &image::DynamicImage,
+    pages: &[SpriteAsset],
+    seed: Vec<[u8; 4]>,
+) -> Result<(Vec<[u8; 4]>, usize, usize), String> {
+    let mut palette = seed;
+    let mut distinct = Default::default();
+    let mut quantized = 0;
+    for page in pages {
+        let image = arrange_sgdk_animation_rows(source, page)?;
+        let indexed = index_image_with_palette(
+            &image,
+            image.width(),
+            image.height(),
+            16,
+            &mut palette,
+            &mut distinct,
+            true,
+        )?;
+        quantized += indexed.quantized_pixels;
+    }
+    Ok((palette, quantized, distinct.len()))
 }
 
 /// Paleta (RGB, indice 0 = transparencia) que o build gera para um asset SGDK: sprite (com o
@@ -1900,11 +2540,26 @@ pub(crate) fn sgdk_asset_palette(
 ) -> Result<(Vec<[u8; 3]>, usize, usize), String> {
     let rel = sanitize_relative_asset_path(asset_path)?;
     let source = project_dir.join(rel);
-    let image =
-        image::open(&source).map_err(|e| format!("Falha ao ler '{}': {}", source.display(), e))?;
+    let (image, mut seed) = match sprite {
+        Some(_) => open_sgdk_sprite_image(&source)?,
+        None => (
+            image::open(&source)
+                .map_err(|e| format!("Falha ao ler '{}': {}", source.display(), e))?,
+            vec![[0, 0, 0, 0]],
+        ),
+    };
     let (image, w, h) = match sprite {
         Some(asset) => {
-            let image = arrange_sgdk_animation_rows(image, asset)?;
+            let pages = sprite_resource_pages(asset);
+            if pages.len() > 1 {
+                let (palette, quantized, colors) = sprite_page_palette(&image, &pages, seed)?;
+                return Ok((
+                    palette.iter().map(|c| [c[2], c[1], c[0]]).collect(),
+                    quantized,
+                    colors,
+                ));
+            }
+            let image = arrange_sgdk_animation_rows(&image, asset)?;
             let fw = asset.frame_width.max(8);
             let fh = asset.frame_height.max(8);
             let w = round_up_to_multiple(image.width(), fw).max(fw);
@@ -1916,7 +2571,8 @@ pub(crate) fn sgdk_asset_palette(
             (image, w, h)
         }
     };
-    let indexed = index_image(&image, w, h, 16)?;
+    let indexed =
+        index_image_with_palette(&image, w, h, 16, &mut seed, &mut Default::default(), true)?;
     Ok((
         indexed
             .palette_bgr0
@@ -2016,7 +2672,7 @@ fn render_pvsneslib_makefile(project_slug: &str, ast: &AstOutput) -> String {
     out.push_str("clean: cleanBuildRes cleanRom cleanGfx\n\n");
 
     let mut bitmap_targets = Vec::new();
-    for asset in &tilemap_assets {
+    for (palette_entry, asset) in tilemap_assets.iter().enumerate() {
         let pic_target = format!("src/{}.pic", asset.resource_name);
         let map_target = format!("src/{}.map", asset.resource_name);
         let pal_target = format!("src/{}.pal", asset.resource_name);
@@ -2029,7 +2685,9 @@ fn render_pvsneslib_makefile(project_slug: &str, ast: &AstOutput) -> String {
             pic_target, map_target, pal_target, bmp_target
         ));
         out.push_str("\t@echo convert bitmap ... $(notdir $<)\n");
-        out.push_str("\t$(GFXCONV) -s 8 -o 16 -u 16 -e 0 -p -m -t bmp -i $<\n\n");
+        out.push_str(&format!(
+            "\t$(GFXCONV) -s 8 -o 16 -u 16 -e {palette_entry} -p -m -y -t bmp -i $<\n\n"
+        ));
     }
 
     for asset in &ast.sprite_assets {
@@ -3161,6 +3819,23 @@ fn repo_root() -> PathBuf {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn wrapper_refusal_reason_reads_json_and_bridge_lines() {
+        let log = "make: ok\n{\"status\": \"blocked\", \"reason\": \"domestic ROM title is still a template placeholder: SAMPLE PROGRAM\"}\n";
+        assert_eq!(
+            super::wrapper_refusal_reason(log).as_deref(),
+            Some("domestic ROM title is still a template placeholder: SAMPLE PROGRAM")
+        );
+        assert_eq!(
+            super::wrapper_refusal_reason(
+                "x\nwine_bridge_status=blocked reason=sgdk_missing path=/x\n"
+            )
+            .as_deref(),
+            Some("sgdk_missing path=/x")
+        );
+        assert_eq!(super::wrapper_refusal_reason("all good\n"), None);
+    }
+
+    #[test]
     fn indexed_bitmap_keeps_opaque_black_distinct_from_transparency() {
         let destination = std::env::temp_dir().join(format!("rds-mask-{}.bmp", std::process::id()));
         let image = image::DynamicImage::ImageRgba8(
@@ -3185,12 +3860,142 @@ mod tests {
         std::fs::remove_file(destination).unwrap();
     }
     use super::*;
+
+    /// PNG indexado de 4x1 (8 bits/pixel), PLTE dado, sem compressao (deflate "stored").
+    fn indexed_png(plte: &[[u8; 3]], pixels: &[u8]) -> Vec<u8> {
+        fn crc32(data: &[u8]) -> u32 {
+            let mut crc = 0xFFFF_FFFFu32;
+            for byte in data {
+                crc ^= u32::from(*byte);
+                for _ in 0..8 {
+                    crc = if crc & 1 != 0 {
+                        (crc >> 1) ^ 0xEDB8_8320
+                    } else {
+                        crc >> 1
+                    };
+                }
+            }
+            !crc
+        }
+        fn chunk(out: &mut Vec<u8>, kind: &[u8], data: &[u8]) {
+            out.extend_from_slice(&(data.len() as u32).to_be_bytes());
+            let mut body = kind.to_vec();
+            body.extend_from_slice(data);
+            out.extend_from_slice(&body);
+            out.extend_from_slice(&crc32(&body).to_be_bytes());
+        }
+        let mut raw = vec![0u8];
+        raw.extend_from_slice(pixels);
+        let (mut a, mut b) = (1u32, 0u32);
+        for byte in &raw {
+            a = (a + u32::from(*byte)) % 65521;
+            b = (b + a) % 65521;
+        }
+        let mut zlib = vec![0x78, 0x01, 0x01];
+        zlib.extend_from_slice(&(raw.len() as u16).to_le_bytes());
+        zlib.extend_from_slice(&(!(raw.len() as u16)).to_le_bytes());
+        zlib.extend_from_slice(&raw);
+        zlib.extend_from_slice(&((b << 16) | a).to_be_bytes());
+        let mut out = b"\x89PNG\r\n\x1a\n".to_vec();
+        let mut ihdr = (pixels.len() as u32).to_be_bytes().to_vec();
+        ihdr.extend_from_slice(&1u32.to_be_bytes());
+        ihdr.extend_from_slice(&[8, 3, 0, 0, 0]);
+        chunk(&mut out, b"IHDR", &ihdr);
+        chunk(&mut out, b"PLTE", &plte.concat());
+        chunk(&mut out, b"IDAT", &zlib);
+        chunk(&mut out, b"IEND", &[]);
+        out
+    }
+
+    #[test]
+    fn indexed_png_keeps_file_palette_order_and_index_zero_is_transparent() {
+        let dir = std::env::temp_dir().join(format!("rds-plte-{}", std::process::id()));
+        fs::create_dir_all(&dir).expect("dir");
+        // Magenta no indice 0 (chave), cores em ordem que difere da ordem de aparicao.
+        let plte = [[255, 0, 255], [10, 20, 30], [40, 50, 60], [70, 80, 90]];
+        let path = dir.join("frame.png");
+        fs::write(&path, indexed_png(&plte, &[3, 0, 1, 3])).expect("png");
+        assert_eq!(indexed_png_palette(&path), Some(plte.to_vec()));
+        let (colors, quantized, distinct) = sgdk_asset_palette(&dir, "frame.png", None)
+            .map(|_| ())
+            .and_then(|_| {
+                let (image, mut seed) = open_sgdk_sprite_image(&path)?;
+                let indexed = index_image_with_palette(
+                    &image,
+                    4,
+                    1,
+                    16,
+                    &mut seed,
+                    &mut Default::default(),
+                    true,
+                )?;
+                assert_eq!(
+                    indexed.indices,
+                    vec![3, 0, 1, 3],
+                    "indices do arquivo; magenta transparente"
+                );
+                Ok((
+                    indexed.palette_bgr0,
+                    indexed.quantized_pixels,
+                    indexed.source_colors,
+                ))
+            })
+            .expect("index");
+        assert_eq!(colors.len(), 4, "magenta nao vira cor visivel");
+        assert_eq!(colors[1], [30, 20, 10, 0]);
+        assert_eq!((quantized, distinct), (0, 2));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
     use crate::core::diagnostics::{ActionableDiagnostic, DiagnosticArea, DiagnosticSeverity};
     use crate::tools::photo2sgdk::import_art_asset_internal;
     use crate::ugdm::entities::{ProjectSettings, SaveRamConfig};
     use image::{ImageBuffer, Rgba};
     use std::sync::{Mutex, OnceLock};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn snes_resident_layers_use_matching_distinct_palette_entries() {
+        use crate::compiler::ast_generator::AstNode;
+        let mut ast = AstOutput {
+            nodes: Vec::new(),
+            sprite_assets: Vec::new(),
+            logic_scripts: Vec::new(),
+        };
+        for name in ["foreground", "background"] {
+            ast.nodes.push(AstNode::LoadTilemap {
+                resource_name: name.into(),
+                asset_path: format!("{name}.png"),
+                map_width: 64,
+                map_height: 64,
+                cells: Vec::new(),
+            });
+            ast.nodes.push(AstNode::DrawTilemap {
+                resource_name: name.into(),
+                x: 0,
+                y: 0,
+                scroll_x: 0,
+                scroll_y: 0,
+            });
+        }
+        ast.nodes.extend([
+            AstNode::GameLoopBegin,
+            AstNode::SpriteUpdate,
+            AstNode::VSync,
+            AstNode::GameLoopEnd,
+        ]);
+        let makefile = render_pvsneslib_makefile("layers", &ast);
+        assert!(makefile.contains("-e 0 -p -m -y"));
+        assert!(makefile.contains("-e 1 -p -m -y"));
+        let output = super::super::snes_emitter::emit_snes(&ast, "Layers");
+        assert!(output
+            .main_c
+            .contains("bgInitTileSet(0, &foreground_til, &foreground_pal, 0,"));
+        assert!(output
+            .main_c
+            .contains("bgInitTileSet(1, &background_til, &background_pal, 1,"));
+        assert!(output.main_c.contains("SC_64x64, 0x1000)"));
+    }
 
     #[test]
     fn pvsneslib_makefile_sets_romname_before_including_snes_rules() {
@@ -3364,6 +4169,42 @@ mod tests {
         dst
     }
 
+    #[test]
+    fn test_scene_override_is_validated_and_never_touches_project_rds() {
+        let project_dir = workspace_copy("megadrive_dummy");
+        let before = fs::read(project_dir.join("project.rds")).expect("read project.rds");
+        assert_eq!(
+            validate_test_scene(&project_dir, "scenes/main.json").as_deref(),
+            Ok("scenes/main.json")
+        );
+        for bad in [
+            "",
+            "../outside.json",
+            "/etc/passwd",
+            "scenes/../../x.json",
+            "scenes/missing.json",
+        ] {
+            assert!(
+                validate_test_scene(&project_dir, bad).is_err(),
+                "accepted {bad:?}"
+            );
+        }
+        let environment = BuildEnvironment::detect();
+        let result =
+            run_build_with_test_scene(&project_dir, Some("../outside.json"), &environment, |_| {});
+        assert!(!result.ok);
+        assert!(result.rom_path.is_empty());
+        assert!(result
+            .log
+            .iter()
+            .any(|line| line.message.contains("Inicio de teste recusado")));
+        assert_eq!(
+            fs::read(project_dir.join("project.rds")).expect("reread"),
+            before
+        );
+        let _ = fs::remove_dir_all(&project_dir);
+    }
+
     fn write_project_fixture(project_dir: &Path, project: &Project) {
         fs::write(
             project_dir.join("project.rds"),
@@ -3523,6 +4364,7 @@ mod tests {
                     frames: vec![0],
                     frame_time: 10,
                     looping: true,
+                    frame_times: None,
                     mugen: None,
                 },
                 SpriteAnimation {
@@ -3530,12 +4372,13 @@ mod tests {
                     frames: vec![3, 1, 2],
                     frame_time: 5,
                     looping: true,
+                    frame_times: None,
                     mugen: None,
                 },
             ],
         };
         let result =
-            arrange_sgdk_animation_rows(image::DynamicImage::ImageRgba8(source.clone()), &asset)
+            arrange_sgdk_animation_rows(&image::DynamicImage::ImageRgba8(source.clone()), &asset)
                 .unwrap()
                 .to_rgba8();
         assert_eq!(result.dimensions(), (24, 16));
@@ -3545,9 +4388,170 @@ mod tests {
         assert_eq!(result.get_pixel(8, 8).0, [2, 0, 0, 255]);
         assert_eq!(result.get_pixel(16, 8).0, [3, 0, 0, 255]);
         asset.animations[1].frames.push(4);
-        let error = arrange_sgdk_animation_rows(image::DynamicImage::ImageRgba8(source), &asset)
+        let error = arrange_sgdk_animation_rows(&image::DynamicImage::ImageRgba8(source), &asset)
             .unwrap_err();
         assert!(error.contains("frame 4 inexistente"));
+    }
+
+    #[test]
+    fn sgdk_paged_animation_atlas_preserves_every_occurrence_pixel_and_palette() {
+        use crate::compiler::ast_generator::SpriteAnimation;
+        let root = workspace_copy("megadrive_dummy");
+        let source = image::RgbaImage::from_fn(480, 168, |x, y| {
+            if y < 2 {
+                return Rgba([0, 0, 0, 0]);
+            }
+            if x % 160 == 3 {
+                return Rgba([0, 0, 0, 255]);
+            }
+            match x / 160 {
+                0 => Rgba([224, 0, 0, 255]),
+                1 => Rgba([0, 0, 224, 255]),
+                _ => Rgba([0, 224, 0, 255]),
+            }
+        });
+        fs::create_dir_all(root.join("assets/sprites")).unwrap();
+        source.save(root.join("assets/sprites/paged.png")).unwrap();
+        let asset = SpriteAsset {
+            resource_name: "hero".into(),
+            asset_path: "assets/sprites/paged.png".into(),
+            frame_width: 160,
+            frame_height: 168,
+            palette_slot: 0,
+            animation_count: 103,
+            default_animation: None,
+            animations: (0..103)
+                .map(|i| SpriteAnimation {
+                    name: format!("action_{i}"),
+                    frame_time: i + 1,
+                    looping: true,
+                    frame_times: None,
+                    mugen: None,
+                    frames: if i == 0 {
+                        (0..64).map(|f| f % 2).collect()
+                    } else {
+                        vec![2; if i <= 47 { 4 } else { 3 }]
+                    },
+                })
+                .collect(),
+        };
+        assert_eq!(
+            asset
+                .animations
+                .iter()
+                .map(|a| a.frames.len())
+                .sum::<usize>(),
+            417
+        );
+        assert!(arrange_sgdk_animation_rows(
+            &image::DynamicImage::ImageRgba8(source.clone()),
+            &asset
+        )
+        .unwrap_err()
+        .contains("64 megapixels"));
+        let ast = AstOutput {
+            nodes: vec![],
+            sprite_assets: vec![asset.clone()],
+            logic_scripts: vec![],
+        };
+        let resources = root.join("page-resources");
+        stage_project_assets(&root, &resources, &ast).unwrap();
+        let (planned, quantized, colors) =
+            sgdk_asset_palette(&root, &asset.asset_path, Some(&asset)).unwrap();
+        assert_eq!((quantized, colors), (0, 4));
+        let mut baseline_palette = None;
+        for (i, page) in sprite_resource_pages(&asset).iter().enumerate() {
+            assert_eq!(page.animations[0], asset.animations[i]);
+            let bmp = fs::read(resources.join(&page.asset_path)).unwrap();
+            let palette = &bmp[54..1078];
+            if let Some(ref expected) = baseline_palette {
+                assert_eq!(palette, expected);
+            } else {
+                baseline_palette = Some(palette.to_vec());
+            }
+            for (index, rgb) in planned.iter().enumerate() {
+                assert_eq!(
+                    &palette[index * 4..index * 4 + 3],
+                    &[rgb[2], rgb[1], rgb[0]]
+                );
+            }
+            let width = u32::from_le_bytes(bmp[18..22].try_into().unwrap()) as usize;
+            let height = u32::from_le_bytes(bmp[22..26].try_into().unwrap()) as usize;
+            let offset = u32::from_le_bytes(bmp[10..14].try_into().unwrap()) as usize;
+            assert_eq!(
+                (width, height),
+                (asset.animations[i].frames.len() * 160, 168)
+            );
+            assert!(width * height <= SGDK_SPRITE_CANVAS_MAX_PIXELS as usize);
+            for (column, frame) in asset.animations[i].frames.iter().enumerate() {
+                for y in 0..168 {
+                    for x in 0..160 {
+                        let pixel = source.get_pixel(frame * 160 + x, y).0;
+                        let index = bmp
+                            [offset + (167 - y as usize) * width + column * 160 + x as usize]
+                            as usize;
+                        if pixel[3] == 0 {
+                            assert_eq!(index, 0);
+                        } else {
+                            assert_ne!(index, 0);
+                            assert_eq!(
+                                &palette[index * 4..index * 4 + 3],
+                                &[pixel[2], pixel[1], pixel[0]]
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        let emitted = emit_sgdk_with_collision(&ast, "Paged", None);
+        assert_eq!(
+            emitted
+                .resources_res
+                .lines()
+                .filter(|l| l.starts_with("SPRITE "))
+                .count(),
+            103
+        );
+        assert!(emitted.resources_res.contains(
+            "SPRITE hero__rds_page_1 \"rds_generated/sprites/hero/animation_1.bmp\" 20 21 NONE 2"
+        ));
+        assert!(emitted.main_c.contains("hero.numAnimation = 103;"));
+        assert!(emitted
+            .main_c
+            .contains("rds_hero_animation_refs[102] = hero__rds_page_102.animations[0];"));
+        assert!(!emitted.main_c.contains("malloc("));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn sgdk_paged_animation_atlas_keeps_the_individual_page_allocation_guard() {
+        use crate::compiler::ast_generator::SpriteAnimation;
+        assert_eq!(SGDK_SPRITE_CANVAS_MAX_PIXELS, 67_108_864);
+        let asset = SpriteAsset {
+            resource_name: "oversized".into(),
+            asset_path: "oversized.png".into(),
+            frame_width: 2048,
+            frame_height: 2048,
+            palette_slot: 0,
+            animation_count: 2,
+            default_animation: None,
+            animations: (0..2)
+                .map(|i| SpriteAnimation {
+                    name: format!("a{i}"),
+                    frame_time: 1,
+                    looping: false,
+                    frame_times: None,
+                    mugen: None,
+                    frames: vec![0; 17],
+                })
+                .collect(),
+        };
+        let pages = sprite_resource_pages(&asset);
+        assert_eq!(pages.len(), 2);
+        let source = image::DynamicImage::new_rgba8(1, 1);
+        assert!(sprite_page_palette(&source, &pages, vec![[0, 0, 0, 0]])
+            .unwrap_err()
+            .contains("64 megapixels"));
     }
 
     #[test]
@@ -5355,7 +6359,7 @@ PY\n"
         assert!(data_asm.contains(".incbin \"src/background_tilemap.map\""));
         let makefile = fs::read_to_string(project_dir.join("build").join("snes").join("Makefile"))
             .expect("read SNES makefile");
-        assert!(makefile.contains("$(GFXCONV) -s 8 -o 16 -u 16 -e 0 -p -m -t bmp -i $<"));
+        assert!(makefile.contains("$(GFXCONV) -s 8 -o 16 -u 16 -e 0 -p -m -y -t bmp -i $<"));
         let bitmaps_line = makefile
             .lines()
             .find(|line| line.starts_with("bitmaps:"))
@@ -5382,6 +6386,48 @@ PY\n"
         assert!(main_c.contains("bgInitMapSet(0, (u8*)&background_tilemap_map"));
 
         let _ = fs::remove_dir_all(project_dir);
+    }
+
+    #[test]
+    fn snes_painted_map_staging_preserves_base_blank_and_tile_identity() {
+        let dir = temp_dir("snes-painted-map");
+        let source = dir.join("tiles.png");
+        let destination = dir.join("map.bmp");
+        image::RgbImage::from_fn(16, 8, |x, _| {
+            image::Rgb(if x < 8 { [240, 32, 32] } else { [32, 32, 240] })
+        })
+        .save(&source)
+        .unwrap();
+        let mut asset = TilemapAsset {
+            resource_name: "painted".into(),
+            asset_path: "tiles.png".into(),
+            map_width: 2,
+            map_height: 2,
+            cells: vec![0, 2, u32::MAX, 1],
+        };
+        stage_snes_tilemap_asset(&source, &destination, &asset).unwrap();
+        let result = image::open(&destination).unwrap().to_rgb8();
+        assert_eq!(result.dimensions(), (16, 16));
+        for (x, y, rgb) in [
+            (3, 3, [240, 32, 32]),
+            (11, 3, [32, 32, 240]),
+            (3, 11, [0, 0, 0]),
+            (11, 11, [240, 32, 32]),
+        ] {
+            assert_eq!(result.get_pixel(x, y).0, rgb);
+        }
+        asset.cells[1] = 3;
+        assert!(stage_snes_tilemap_asset(&source, &destination, &asset)
+            .unwrap_err()
+            .contains("fora do tileset"));
+        asset.map_width = 65;
+        assert!(stage_snes_tilemap_asset(&source, &destination, &asset)
+            .unwrap_err()
+            .contains("64×64"));
+        asset.cells.clear();
+        stage_snes_tilemap_asset(&source, &destination, &asset).unwrap();
+        assert_eq!(image::open(&destination).unwrap().width(), 16);
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
@@ -5616,6 +6662,290 @@ PY\n"
             .any(|line| line.message.contains("Delegando build para host")));
 
         let _ = fs::remove_dir_all(host_dir);
+    }
+
+    /// Layout SGDKForge minimo: `<forge>/tools/sgdk_wrapper/build_sgdk_wine_bridge.sh`
+    /// falso e `<forge>/SGDK_projects/game` com `build.bat` delegando ao wrapper e uma
+    /// ROM antiga em `out/rom.bin`. `mode` controla o comportamento do wrapper falso.
+    #[cfg(target_os = "linux")]
+    fn sgdkforge_wrapper_fixture(label: &str, mode: &str) -> (PathBuf, PathBuf) {
+        let forge = temp_dir(label);
+        let wrapper_dir = forge.join("tools").join("sgdk_wrapper");
+        let host = forge.join("SGDK_projects").join("game");
+        fs::create_dir_all(&wrapper_dir).expect("create wrapper dir");
+        fs::create_dir_all(host.join("src")).expect("create host src");
+        fs::create_dir_all(host.join("out")).expect("create host out");
+        fs::write(
+            host.join("src").join("main.c"),
+            "int main(void){return 0;}\n",
+        )
+        .expect("write main.c");
+        fs::write(
+            host.join("build.bat"),
+            "call \"%~dp0..\\..\\tools\\sgdk_wrapper\\build.bat\" \"%~dp0.\"\r\n",
+        )
+        .expect("write build.bat");
+        fs::write(host.join("out").join("rom.bin"), b"STALE ROM").expect("write stale rom");
+        let script = format!(
+            r#"#!/usr/bin/env bash
+set -eu
+mode="{mode}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --project-root) root="$2"; shift 2 ;;
+    --output-dir) out="$2"; shift 2 ;;
+    --report-dir) rep="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+if [ "$mode" = fail ]; then echo "wine_bridge_status=blocked reason=sgdk_make_failed"; exit 2; fi
+if [ "$mode" = stale ]; then echo "wine_bridge_status=buildado"; exit 0; fi
+mkdir -p "$root/$out" "$root/$rep"
+printf 'SEGA MEGA DRIVE fresh' > "$root/$out/rom.bin"
+if [ "$mode" = embed ]; then cat "$root/src/main.c" >> "$root/$out/rom.bin"; fi
+sha="$(sha256sum "$root/$out/rom.bin" | cut -d ' ' -f 1)"
+if [ "$mode" = tamper ]; then sha=0000; fi
+printf '{{"status":"buildado","exit_code":0,"output_dir":"%s","started_at":"2026-10-27T00:00:00Z","rom":{{"path":"%s","sha256":"%s"}}}}\n' "$out" "$root/$out/rom.bin" "$sha" > "$root/$rep/linux_wine_build_report.json"
+echo "wine_bridge_status=buildado"
+"#
+        );
+        fs::write(wrapper_dir.join("build_sgdk_wine_bridge.sh"), script).expect("write bridge");
+        let overlay =
+            crate::core::project_mgr::import_legacy_sgdk_project(&host, Some("Forge Game"))
+                .expect("wrap sgdkforge host");
+        (forge, overlay)
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn legacy_sgdk_overlay_delegates_to_sgdkforge_wrapper_with_verified_receipt() {
+        let _serial = test_serial_guard();
+        let (forge, overlay) = sgdkforge_wrapper_fixture("sgdkforge-wrapper-ok", "ok");
+        let host = forge.join("SGDK_projects").join("game");
+
+        let result = run_build(&overlay, |_| {});
+
+        assert!(result.ok, "wrapper build log: {:?}", result.log);
+        let rom = PathBuf::from(&result.rom_path);
+        assert!(rom.starts_with(overlay.join(".rds").join("c_build")));
+        assert!(rom.ends_with("out/rom.bin"));
+        assert!(
+            !host.join("out").join("tests").exists(),
+            "host nao recebe saida do build"
+        );
+        assert_eq!(
+            fs::read(&rom).expect("read fresh rom"),
+            b"SEGA MEGA DRIVE fresh"
+        );
+        assert_eq!(
+            fs::read(host.join("out").join("rom.bin")).unwrap(),
+            b"STALE ROM"
+        );
+        assert!(result
+            .log
+            .iter()
+            .any(|line| line.message.contains("Modo C original (SGDKForge wrapper)")));
+
+        let _ = fs::remove_dir_all(forge);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn legacy_sgdk_overlay_builds_c_regenerated_from_edited_c_graph() {
+        let _serial = test_serial_guard();
+        let (forge, overlay) = sgdkforge_wrapper_fixture("sgdkforge-cgraph-edit", "embed");
+        let host = forge.join("SGDK_projects").join("game");
+        let graph_path = crate::core::sgdk_c_graph::graph_path_for(&overlay, "src/main.c");
+        let raw = fs::read_to_string(&graph_path).expect("c graph written on import");
+        let edited = raw.replace("return 0;", "return 7;");
+        assert_ne!(raw, edited, "grafo deve conter o statement original");
+        fs::write(&graph_path, edited).expect("edit graph");
+
+        let result = run_build(&overlay, |_| {});
+
+        assert!(result.ok, "wrapper build log: {:?}", result.log);
+        let rom = fs::read(&result.rom_path).expect("read rom");
+        assert!(String::from_utf8_lossy(&rom).contains("return 7;"));
+        assert!(PathBuf::from(&result.rom_path).starts_with(overlay.join(".rds").join("c_build")));
+        assert_eq!(
+            fs::read_to_string(host.join("src").join("main.c")).unwrap(),
+            "int main(void){return 0;}\n",
+            "raiz C original nao e alterada"
+        );
+        assert!(result.log.iter().any(|line| line
+            .message
+            .contains("Fonte regenerada do grafo C: src/main.c")));
+
+        // Fonte alterada fora do Studio com grafo editado: recusa sem ROM.
+        fs::write(
+            host.join("src").join("main.c"),
+            "int main(void){return 1;}\n",
+        )
+        .unwrap();
+        let refused = run_build(&overlay, |_| {});
+        assert!(!refused.ok);
+
+        let _ = fs::remove_dir_all(forge);
+    }
+
+    /// Prova real: `RDS_SGDK_C_GRAPH_BUILD_ROOT` = raiz SGDKForge original. (1) ROM do C
+    /// original == ROM do C regenerado dos nodes com edicao neutra; (2) edicao semantica por
+    /// bloco (literal inteiro de uma atribuicao em `src/`) compila e muda a ROM.
+    #[cfg(target_os = "linux")]
+    #[test]
+    #[ignore]
+    fn legacy_sgdk_overlay_c_graph_real_rom_equivalence() {
+        use crate::core::sgdk_c_graph as cg;
+        let host = PathBuf::from(std::env::var("RDS_SGDK_C_GRAPH_BUILD_ROOT").expect("root"));
+        let overlay = crate::core::project_mgr::import_legacy_sgdk_project(&host, None).unwrap();
+        let index = cg::load_c_graph_index(&overlay).unwrap();
+        let main_file = index.entry_points[0].split(':').next().unwrap().to_string();
+        let sha = |path: &str| crate::core::rom_mastering::sha256_hex(&fs::read(path).unwrap());
+        let restore: Vec<(PathBuf, String)> = index
+            .files
+            .iter()
+            .map(|e| overlay.join(&e.graph_file))
+            .map(|p| {
+                let raw = fs::read_to_string(&p).unwrap();
+                (p, raw)
+            })
+            .collect();
+        let restore_all = || {
+            for (path, raw) in &restore {
+                fs::write(path, raw).unwrap();
+            }
+            cg::refresh_c_graph_index(&overlay).unwrap();
+        };
+
+        let original = run_build(&overlay, |_| {});
+        assert!(original.ok, "{:?}", original.log);
+        let original_sha = sha(&original.rom_path);
+
+        let graph_path = cg::graph_path_for(&overlay, &main_file);
+        let mut graph = cg::load_c_graph(&graph_path).unwrap();
+        fn first_syntax(node: &mut cg::CGraphNode) -> Option<&mut String> {
+            if node.kind == "syntax" && node.text.as_deref().is_some_and(|t| t.ends_with('\n')) {
+                return node.text.as_mut();
+            }
+            node.children.iter_mut().find_map(first_syntax)
+        }
+        first_syntax(&mut graph.root)
+            .unwrap()
+            .push_str("/* rds c-graph */\n");
+        fs::write(&graph_path, serde_json::to_string(&graph).unwrap()).unwrap();
+        let regenerated = run_build(&overlay, |_| {});
+        restore_all();
+        assert!(regenerated.ok, "{:?}", regenerated.log);
+        let regenerated_sha = sha(&regenerated.rom_path);
+
+        // Bloco de atribuicao com literal inteiro dentro de uma funcao de `src/*.c`.
+        fn find_literal(node: &cg::CGraphNode, in_fn: bool) -> Option<(String, cg::CBlock)> {
+            let in_fn = in_fn || node.kind == "function_definition";
+            if let Some(block) = node.block.as_ref().filter(|b| {
+                in_fn
+                    && b.form == "assign"
+                    && b.operator == "="
+                    && b.args
+                        .first()
+                        .is_some_and(|v| v.parse::<u8>().is_ok_and(|n| n > 0 && n < 100))
+            }) {
+                return Some((node.id.clone(), block.clone()));
+            }
+            node.children.iter().find_map(|c| find_literal(c, in_fn))
+        }
+        let (file, node_id, block) = index
+            .files
+            .iter()
+            .filter(|e| e.source_file.starts_with("src/") && e.source_file.ends_with(".c"))
+            .find_map(|e| {
+                let g = cg::load_c_graph(&overlay.join(&e.graph_file)).ok()?;
+                find_literal(&g.root, false).map(|(id, b)| (e.source_file.clone(), id, b))
+            })
+            .expect("bloco de atribuicao literal");
+        let mut edited = block.clone();
+        let value: u8 = edited.args[0].parse().unwrap();
+        edited.args[0] = (value + 1).to_string();
+        cg::update_c_graph_block(&overlay, &file, &node_id, &edited).unwrap();
+        let semantic = run_build(&overlay, |_| {});
+        restore_all();
+        assert!(semantic.ok, "{:?}", semantic.log);
+        let semantic_sha = sha(&semantic.rom_path);
+        println!(
+            "CGRAPH_ROM original={original_sha} regenerated={regenerated_sha} semantic={semantic_sha} edit={file}:{node_id} {} = {} -> {}",
+            block.target, value, value + 1
+        );
+        assert_eq!(original_sha, regenerated_sha);
+        assert_ne!(
+            original_sha, semantic_sha,
+            "edicao semantica deve chegar a ROM"
+        );
+        assert!(
+            cg::edited_c_sources(&host, &overlay).unwrap().is_empty(),
+            "grafos restaurados"
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn legacy_sgdk_overlay_sgdkforge_wrapper_never_falls_back_to_stale_rom() {
+        let _serial = test_serial_guard();
+        for mode in ["fail", "stale", "tamper"] {
+            let (forge, overlay) =
+                sgdkforge_wrapper_fixture(&format!("sgdkforge-wrapper-{mode}"), mode);
+            let host = forge.join("SGDK_projects").join("game");
+
+            let result = run_build(&overlay, |_| {});
+
+            assert!(!result.ok, "mode {mode} must fail: {:?}", result.log);
+            assert!(
+                result.rom_path.is_empty(),
+                "mode {mode}: {}",
+                result.rom_path
+            );
+            assert_eq!(
+                fs::read(host.join("out").join("rom.bin")).unwrap(),
+                b"STALE ROM"
+            );
+            let _ = fs::remove_dir_all(forge);
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn legacy_sgdk_overlay_refuses_build_when_studio_asset_is_detached_from_c_root() {
+        let _serial = test_serial_guard();
+        let (forge, overlay) = sgdkforge_wrapper_fixture("sgdkforge-wrapper-detached", "ok");
+        let host = forge.join("SGDK_projects").join("game");
+        fs::create_dir_all(host.join("res")).expect("create res");
+        fs::write(host.join("res").join("hero.png"), b"original").expect("write source");
+        fs::create_dir_all(overlay.join("assets").join("sprites")).expect("create assets");
+        fs::write(
+            overlay.join("assets").join("sprites").join("hero.png"),
+            b"edited",
+        )
+        .expect("write detached edit");
+        let ledger_dir = overlay.join(".rds").join("imports").join("sgdk");
+        fs::create_dir_all(&ledger_dir).expect("create ledger dir");
+        fs::write(
+            ledger_dir.join("detached.json"),
+            r#"{"mappings":[{"resource_kind":"SPRITE","resource_name":"hero","source_relative":"res/hero.png","destination":"assets/sprites/hero.png"}]}"#,
+        )
+        .expect("write ledger");
+
+        let result = run_build(&overlay, |_| {});
+
+        assert!(
+            !result.ok,
+            "detached edit must refuse build: {:?}",
+            result.log
+        );
+        assert!(result
+            .log
+            .iter()
+            .any(|line| line.message.contains("a edicao seria ignorada")));
+        assert!(!host.join("out").join("tests").exists());
+
+        let _ = fs::remove_dir_all(forge);
     }
 
     #[test]

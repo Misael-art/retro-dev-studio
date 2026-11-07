@@ -1,0 +1,1990 @@
+{
+  "schema": "retrodev.mugen_atlas_delivery/v1",
+  "status": "passed_local_experimental",
+  "maturity": "Experimental",
+  "date": "2026-10-27",
+  "base_commit": "44c582bb9e524a73db6db8527482788e880880be",
+  "code_commit": "1925716ae4210d87f73e7c092a10a63a70627a56",
+  "previous_ui_evidence": "data/studio_grafico/ui-cohesion-20261027.json",
+  "binary": {
+    "sha256": "35fe9ab21ab0383305de1aeac2ef6b0b48805f83b5b2543bfc3ae06f007fff41",
+    "bytes": 418656160,
+    "frozen_file": "retro-dev-studio-35fe9ab2",
+    "base_commit": "44c582bb9e524a73db6db8527482788e880880be",
+    "source_files_at_build": [
+      {
+        "file": "src-tauri/src/compiler/build_orch.rs",
+        "sha256": "c7c0966fbc478555d19f53d641b7cdefa8e7e136e364c34ad03ba0bdfef67877"
+      },
+      {
+        "file": "src-tauri/src/compiler/sgdk_emitter.rs",
+        "sha256": "bd0cc7c1d4f2d5ac0a8380107ba9bffee046d00078794c99cb9c880a9df48a7b"
+      },
+      {
+        "file": "src-tauri/src/core/mugen_profile.rs",
+        "sha256": "2b7c963dea421939a6ae89e3172055af81fe47e38539c481ff793b8055b68239"
+      },
+      {
+        "file": "scripts/e2e-tauri-build-run.mjs",
+        "sha256": "adaaff1d295de7c9e2bef9629e86eeb402f270a83f4b3c5cc83a771b1ef7f72d"
+      }
+    ],
+    "built_from_dirty_tree": true,
+    "production_sources_match_code_commit": true
+  },
+  "source_snapshot": [
+    {
+      "file": "scripts/e2e-tauri-build-run.mjs",
+      "sha256": "6fdef8df56325bb4fcff83b5a2313af9393dede0792f931586f3d350b5702a88"
+    },
+    {
+      "file": "src-tauri/src/compiler/build_orch.rs",
+      "sha256": "c7c0966fbc478555d19f53d641b7cdefa8e7e136e364c34ad03ba0bdfef67877"
+    },
+    {
+      "file": "src-tauri/src/compiler/sgdk_emitter.rs",
+      "sha256": "bd0cc7c1d4f2d5ac0a8380107ba9bffee046d00078794c99cb9c880a9df48a7b"
+    },
+    {
+      "file": "src-tauri/src/core/mugen_profile.rs",
+      "sha256": "2b7c963dea421939a6ae89e3172055af81fe47e38539c481ff793b8055b68239"
+    },
+    {
+      "file": "src/components/viewport/RuntimeInspectOverlay.test.tsx",
+      "sha256": "f73731fc8e7b60853c3f0d47a7a6483cd871e9b4be4c59d3c35f40898bd7d32a"
+    }
+  ],
+  "frozen_baseline": {
+    "base_commit": "44c582bb9e524a73db6db8527482788e880880be",
+    "baseline_binary_sha256": "73b69d84fd1db9045f86c7336905722a011d21c3a5083c27cd03222f5c0702c4",
+    "expectations": {
+      "historical_configuration": {
+        "animations": 103,
+        "occurrences": 417,
+        "frame_width": 160,
+        "frame_height": 168,
+        "maximum_animation_frames": 64
+      },
+      "before": "Build refuses the 10240x17304 (177192960 pixels) padded animation canvas, with 64*1024*1024 guard unchanged.",
+      "after": "Preserve every named animation and occurrence, pixel indices/palette/geometry/timing; build official ROM, real core frames, edit/undo/redo/save/reopen, inspect exact occurrence and export identical bytes. No guard increase or frame truncation."
+    },
+    "human_acceptance": "pending",
+    "remote_recovery": {
+      "page_read": true,
+      "context_json_sha256": "8bcb48b5263bb01be59da438a158617ee2ea4eafeb7a4165ecb977f8d4946d4b",
+      "git_parts_metadata_present": 20,
+      "binary_download_restore": "not qualified; current connector reads text/images, not generic archives",
+      "large_backup": "23 ZIP files declared not uploaded; no volume references on the current Page; no exhaustive general Library listing available"
+    },
+    "source_files": 35
+  },
+  "host": {
+    "fingerprint": "60249508aff61897cdd43160d4716b2344d69282507a36c5a457c0028143f6e2",
+    "lock_digest": "dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377",
+    "state": "READY",
+    "certification_session": "2026-10-27T09-22-41-547Z-2002991",
+    "gates": [
+      {
+        "label": "check:tree",
+        "ok": true,
+        "exit_code": 0
+      },
+      {
+        "label": "lint",
+        "ok": true,
+        "exit_code": 0
+      },
+      {
+        "label": "typescript",
+        "ok": true,
+        "exit_code": 0
+      },
+      {
+        "label": "frontend-tests",
+        "ok": true,
+        "exit_code": 0
+      },
+      {
+        "label": "rust-clippy",
+        "ok": true,
+        "exit_code": 0
+      },
+      {
+        "label": "rust-tests",
+        "ok": true,
+        "exit_code": 0
+      },
+      {
+        "label": "upstream",
+        "ok": true,
+        "exit_code": 0
+      }
+    ],
+    "frontend": {
+      "passed": 1174,
+      "skipped": 11
+    },
+    "rust": {
+      "passed": 1070,
+      "failed": 0,
+      "ignored": 102
+    },
+    "extra_checks": [
+      {
+        "command": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
+        "session": "2026-10-27T09-32-41-706Z-2054288",
+        "status": "PASS"
+      },
+      {
+        "command": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
+        "session": "2026-10-27T09-32-52-398Z-2055185",
+        "status": "PASS"
+      }
+    ],
+    "certification_artifacts": [
+      {
+        "file": "command.log",
+        "sha256": "0c2c035f7a2f4a64565142923fd10e9e6be8bf34d6a7c816bf125fef4200bde3"
+      },
+      {
+        "file": "receipt.json",
+        "sha256": "230f21d41a776f23b4666c6a97ece0c71604bdad765359e36bc0291ed2be9197"
+      },
+      {
+        "file": "host-readiness.json",
+        "sha256": "11e273fc0a4d639a8098943e0e1f3274ab952c3387a4b7f93aec265204418ebb"
+      },
+      {
+        "file": "upstream-validation-linux.json",
+        "sha256": "5d97f2ace45c10c071a17a93fabbc62264739605469aec96f5349ba2b2792774"
+      }
+    ]
+  },
+  "preserved_failed_runs": [
+    {
+      "session": "2026-10-27T08-15-16-213Z-1701215",
+      "status": "FAIL",
+      "reason": "Frozen fixture permission refusal; preserved draft; writable byte-identical copy prepared.",
+      "receipt_sha256": "540dddde120ffd9cb2bd0eae18ed2cac135348c29643f081156e08379a4627c9",
+      "log_sha256": "6f54b41a3d768594f2e3a9e503de829301e52e82a8ea1d02d3ddb4193aec8705"
+    },
+    {
+      "session": "2026-10-27T08-16-50-319Z-1711045",
+      "status": "FAIL",
+      "reason": "Expected before-defect reproduction: padded 177192960-pixel atlas refused by 67108864 guard.",
+      "receipt_sha256": "5ababffb3a9f60dce609b216ca6f096f773f68a784c75fa95e8b22fef234dd04",
+      "log_sha256": "19b0982e83685a42b6f8df9183345271d984572f70b5bc2331ae23fc81fdc6e2"
+    },
+    {
+      "session": "2026-10-27T08-35-49-089Z-1807546",
+      "status": "FAIL",
+      "reason": "GTK startup failed after own Xvfb exited SIGTERM; shutdown cause not isolated; no product fault inferred.",
+      "receipt_sha256": "9b479c71856dc6aadd77888089598f6da700f6aa179ea8896c10fc27b9d6d809",
+      "log_sha256": "ae57e622f95ee5fae3eb8f6d2e4e9c9b6b79bc78c5ca17cf85bd8707048a522f"
+    },
+    {
+      "session": "2026-10-27T08-38-32-594Z-1822649",
+      "status": "FAIL",
+      "reason": "Full-action import compatibility report did not open within unchanged 120-second limit; local pixel memoization added.",
+      "receipt_sha256": "a37e4838ea2c3edeceb3e518c2e3bf053bb44dbfc2412fd4aa3e1ebb665d3afa",
+      "log_sha256": "eba21c6753855841e224d7ec1d59d18c02eb94cef30cb375ce398c56fe09dd7c"
+    },
+    {
+      "session": "2026-10-27T08-59-46-491Z-1913762",
+      "status": "FAIL",
+      "reason": "Late instrument hit-test precondition rejected a noninteractive alert before native click; original product bubbling confirmed by unit and next full native run. Failure project metadata retained wrong default fixture; erratum corrects actual imported project.",
+      "receipt_sha256": "518d7b234048c8763e245e6495a8f85099442ba30583aee06d136fdd01624646",
+      "log_sha256": "7109ab86038026f0c6ced7e90a615fdf3e31ad0d97c6ed3b9f6b227d27ecf9b5"
+    },
+    {
+      "session": "2026-10-27T09-40-31-469Z-2083929",
+      "status": "FAIL",
+      "reason": "Confirmed PrepareForSleep at 09:41:14Z and resume at 10:19:10Z; analysis budget 120000ms expired after 2311976ms at resume. Later host reboot. No isolated product defect established. Restarted entire final cohort without changing criteria, binary or harness.",
+      "receipt_sha256": "778c8600ba26f98f8192cfdf4269cd5309a4adb9a16ba4cb266cad2304d9a19f",
+      "log_sha256": "fdba2e5fa8eca876797c7deb2d558ee27fc42e925a5743ce47d777b25794a7db"
+    }
+  ],
+  "instrument_erratum": {
+    "recorded_at": "2026-10-27T09:14:40.505304+00:00",
+    "failed_session": "2026-10-27T08-59-46-491Z-1913762",
+    "raw_failure_sha256": "f9ec925facf76c4784026d89d6eab137092a493f81c9d96bc0b3bd4b392dc1be",
+    "failure_metadata_erratum": "raw failure project field retained default fixture; E1 callback context now records imported project",
+    "reason": "Strict hit-test precheck rejected inspect-message, a noninteractive child of inspect-overlay; unchanged production handler accepts bubbling coordinates. Native click was not attempted at the failed step.",
+    "directed_proof": {
+      "session": "2026-10-27T09-10-44-727Z-1956690",
+      "suite": "RuntimeInspectOverlay.test.tsx",
+      "tests_passed": 10,
+      "cases": "same ids edited bytes refused, restored bytes click on alert bubbles and opens exact occurrence"
+    },
+    "criteria_change": "Accept noninteractive descendants of same inspection surface, still reject outside/interactive overlays. Same pointer coordinates/native WebDriver and strict navigation/refusal requirements unchanged.",
+    "harness_sha256": "6fdef8df56325bb4fcff83b5a2313af9393dede0792f931586f3d350b5702a88",
+    "product_changed": false,
+    "previous_import_120s_timeout_preserved": true
+  },
+  "mugen_inputs": [
+    {
+      "file": "ken.air",
+      "bytes": 34325,
+      "sha256": "b1f6c8d093dfd0849091035d7721a5748b59a476084bbc7ebf1ce2e1c6e7ed3a"
+    },
+    {
+      "file": "ken.cmd",
+      "bytes": 25391,
+      "sha256": "728e914f4de8d6de84af7c572af1e811c03ef142e1b168e49057bc0ba0416e16"
+    },
+    {
+      "file": "ken.cns",
+      "bytes": 66613,
+      "sha256": "0b4593b7fec0e555c41b21a032a95ea5efc540b61f201d2504a409cd4d692755"
+    },
+    {
+      "file": "ken.sff",
+      "bytes": 547131,
+      "sha256": "911e21b778af3e7a93cd69fe6132b8e87fb1cacddac757ada5842a8cb1c2172c"
+    },
+    {
+      "file": "ken.snd",
+      "bytes": 943098,
+      "sha256": "4f0cfdc8a9b3dc825bbbfac14853d1d31ffa8cd5f9c64b92e8575fb131980521"
+    },
+    {
+      "file": "ken1.act",
+      "bytes": 768,
+      "sha256": "89942f64862be6cb2bb0c094b2ab0ebb5cb411c06b7f1a6f9d69af64647687f2"
+    },
+    {
+      "file": "ken8.def",
+      "bytes": 944,
+      "sha256": "fdbe2fb2498be72078232ca68f2cc74fd8347aac2c8304c626d5f15dc68f5fc8"
+    }
+  ],
+  "recovery_gap": {
+    "page_read": true,
+    "context_json_sha256": "8bcb48b5263bb01be59da438a158617ee2ea4eafeb7a4165ecb977f8d4946d4b",
+    "git_parts_metadata_present": 20,
+    "binary_download_restore": "not qualified; current connector reads text/images, not generic archives",
+    "large_backup": "23 ZIP files declared not uploaded; no volume references on the current Page; no exhaustive general Library listing available"
+  },
+  "requirements": [
+    {
+      "id": "context",
+      "requirement": "Preservar cena, seleção, ocorrência, quadro e zoom na navegação",
+      "owner": "studioContext; CharacterTimelinePanel; InspectorPanel",
+      "proof": "studio-e1: open_character_editor_with_context, return_to_origin, runtime selection; authoring layout",
+      "result": "UI principal já implementada em d3233714; revalidada no mesmo binário final.",
+      "limit": "Automação Tauri com ações DOM e nativas; não é estudo humano.",
+      "status": "passed_in_declared_scope"
+    },
+    {
+      "id": "transaction",
+      "requirement": "Uma ação coerente de desfazer; recusar duração inválida e recuperar trabalho",
+      "owner": "editorStore; CharacterTimelinePanel",
+      "proof": "studio-e1: edit_single_occurrence_undo_redo; authoring undo_redo_keyboard",
+      "result": "Recusa de zero, edição isolada o3 e undo/redo pela UI.",
+      "limit": "Não generaliza o histórico de todas as 16 jornadas.",
+      "status": "passed_in_declared_scope"
+    },
+    {
+      "id": "persistence",
+      "requirement": "Salvar, fechar, reabrir e isolar respostas antigas",
+      "owner": "scenePersistence; editorStore; palettePlanStore",
+      "proof": "studio-e1: save_destroy_window_reopen; authoring restart_reopen_preserved; Vitest session/race cases",
+      "result": "Persistência nativa e controles unitários de respostas antigas.",
+      "limit": "Respostas atrasadas controladas por unit tests; não atribuídas ao E2E.",
+      "status": "passed_in_declared_scope"
+    },
+    {
+      "id": "revision",
+      "requirement": "Distinguir revisão salva, build desatualizado e ROM executada",
+      "owner": "buildFreshness; ViewportPanel; runtimeLink",
+      "proof": "studio-e1: edited/restored ROM hashes and core frames; onboarding stop/review/export",
+      "result": "Vínculo da ROM atual e restauração byte-idêntica.",
+      "limit": "Core oficial pinado, sem alegação de hardware físico.",
+      "status": "passed_in_declared_scope"
+    },
+    {
+      "id": "inspection",
+      "requirement": "Abrir somente vínculo verificável e retornar ao contexto correto",
+      "owner": "RuntimeInspectOverlay; runtimeLink",
+      "proof": "studio-e1: exact occurrence; changed asset/content refusals; restored acceptance",
+      "result": "Teste negativo e clique nativo inclusive no alerta filho da superfície.",
+      "limit": "Mutação de bytes do PNG no harness é controle negativo técnico, não prova de edição artística pela UI.",
+      "status": "passed_in_declared_scope"
+    },
+    {
+      "id": "delivery",
+      "requirement": "Revisar/verificar/exportar exatamente a ROM testada",
+      "owner": "DeliveryPanel; pipeline canônico",
+      "proof": "studio-e1: export_full_configuration_identical_to_tested_baseline; onboarding-shell",
+      "result": "Cliques nativos de revisar/verificar/exportar e SHA independente do arquivo.",
+      "limit": "Verificação desta versão; não certificação universal de conteúdo.",
+      "status": "passed_in_declared_scope"
+    },
+    {
+      "id": "atlas",
+      "requirement": "Resolver LOT025 sem elevar guarda nem perder arte/quadros",
+      "owner": "compiler/sgdk_emitter.rs; compiler/build_orch.rs",
+      "proof": "before refusal; two directed Rust tests; full E1 BMP + ELF/ROM/RAM audit",
+      "result": "103 animações, 417 ocorrências, 11208960 pixels comparados; maior página 1720320 px.",
+      "limit": "Comparação ao atlas convertido; quantização de importação preexistente explicitada.",
+      "status": "passed_in_declared_scope"
+    },
+    {
+      "id": "import",
+      "requirement": "Importar todas as ações mantendo proveniência e limites de revisão",
+      "owner": "core/mugen_profile.rs",
+      "proof": "unchanged 120s threshold; visual_review_reuses_pixels_without_merging_occurrences_or_transforms; full E1",
+      "result": "Memoização local por célula/offset/flips; todas ocorrências e budgets preservados.",
+      "limit": "Sem cache entre requisições; análise/conversão/digest continuam obrigatórios.",
+      "status": "passed_in_declared_scope"
+    },
+    {
+      "id": "mugen_behavior",
+      "requirement": "Diferenciar origem, comportamento autoral, parcial e não suportado",
+      "owner": "MugenSourceReviewPanel; compatibility report; SGDK emitter",
+      "proof": "full E1 occurrence duration in core; studio-e2e5 command/boxes/event/sound/text/HUD",
+      "result": "Animações importadas; demo autoral explicitamente escolhida; efeito temporal medido na ROM.",
+      "limit": "Não é CNS integral: demo usa estados 0/20/21/200, facing à direita. Todas animações presentes não implica todos golpes originais jogáveis.",
+      "status": "passed_in_declared_scope"
+    },
+    {
+      "id": "scope",
+      "requirement": "Distinguir instância/modelo e número de usos afetados",
+      "owner": "Inspector/EditScopeBadge; editorStore",
+      "proof": "studio-e4: native local/shared edit and core observations",
+      "result": "Regressão modelo/instância PASS no mesmo binário.",
+      "limit": "Domínio declarado de duas instâncias, sem generalizar todos editores.",
+      "status": "passed_in_declared_scope"
+    },
+    {
+      "id": "palettes",
+      "requirement": "Paletas e usos navegáveis, revisão de impacto, swap/undo/persistência",
+      "owner": "PalettePanel; palettePlanStore; planned SGDK palette staging",
+      "proof": "studio-paletas; palette unit tests",
+      "result": "Regressão de banco/compatibilidade/usos/troca/edição compartilhada PASS.",
+      "limit": "Compartilhamento compatível permitido; orçamento do destino continua aplicado.",
+      "status": "passed_in_declared_scope"
+    },
+    {
+      "id": "rex",
+      "requirement": "Preservar ponte REX delimitada e original BYOR",
+      "owner": "REX existente; sem novo motor/perfil",
+      "proof": "studio-e6 independent IPS/original hash/execution/reversal",
+      "result": "Regressão delimitada PASS.",
+      "limit": "E6 não prova causalidade de física comercial; som comercial segue pendência separada.",
+      "status": "passed_in_declared_scope"
+    },
+    {
+      "id": "human",
+      "requirement": "Usabilidade observada por participante",
+      "owner": "docs/handoffs/NOVO_HOST_INICIO.md",
+      "proof": "Roteiro neutro com tarefas, ajuda, erro, recuperação, tempo e identificador anônimo",
+      "result": "Pendente de participante humano.",
+      "limit": "Automação/IA não preenche este aceite.",
+      "status": "pending_human"
+    },
+    {
+      "id": "continuity",
+      "requirement": "Reconciliar GitHub, documentos e disponibilidade real da Page/Biblioteca",
+      "owner": "Memory Bank; handoff; branch de continuidade",
+      "proof": "Current branch/head checks; private Page/context text read and hashes compared; frozen baseline recovery_gap",
+      "result": "Continuidade pública posterior preservada; contexto privado acessível reconciliado; desenvolvimento independente prosseguiu.",
+      "limit": "Sem download binário remoto qualificado nem listagem exaustiva da Biblioteca; 23 ZIPs maiores sem referências nesta Page.",
+      "status": "partial_with_declared_remote_recovery_gap"
+    },
+    {
+      "id": "host",
+      "requirement": "Ambiente oficial organizado e certificado no host exercitado",
+      "owner": "scripts/new-host.sh; host-manager; locks oficiais",
+      "proof": "Seven-gate certification + fmt/default clippy; fresh post-reboot diagnosis and twelve native sessions",
+      "result": "READY no BigLinux x64 existente, mesmos pins/lock/fontes; um job pesado por vez, sem downloads novos.",
+      "limit": "Não é instalação limpa nem requalificação operacional Windows; certificado e diagnóstico têm alcances distintos.",
+      "status": "passed_in_observed_host_scope"
+    }
+  ],
+  "limitations": [
+    "Human usability pending; no Windows operational qualification.",
+    "Imported 22 VDP colors reduced to 15 opaque slots + transparency: 2707 pixels approximated in existing import conversion; paging adds no additional changes.",
+    "Full-action assets preserved; authored demo is not original CNS, general MUGEN conversion or universal decompilation.",
+    "Known build budget estimate warnings remain; no claim of all animation switches/whole gameplay or physical-console performance.",
+    "Historical 16 journeys remain partial; no maturity promotion, merge, release or deploy.",
+    "Remote binary recovery from Page/Library not qualified; larger 23-volume backup absent from current Page references, without exhaustive general Library listing."
+  ],
+  "human_acceptance": "pending",
+  "source_snapshot_matches_code_commit": true,
+  "publication": {
+    "branch": "codex/new-host-cohesion-20261024",
+    "code_commit": "1925716ae4210d87f73e7c092a10a63a70627a56",
+    "remote_sha_confirmed": true,
+    "pull_request": 112,
+    "merge": false,
+    "release": false,
+    "default_branch_notice": "Push reported 6 Dependabot alerts on the repository default branch (1 high, 5 moderate); no dependencies changed or fresh dependency audit claimed in this increment. This notice does not identify the PR head dependency state.",
+    "code_ci": {
+      "sha": "1925716ae4210d87f73e7c092a10a63a70627a56",
+      "checked_at": "2026-10-27T10:56:17Z",
+      "ci": "PASS",
+      "desktop_e2e": "PASS",
+      "code_review_bots": "SKIPPED"
+    }
+  },
+  "post_reboot_diagnose": {
+    "session": "2026-10-27T10-54-29-594Z-66753",
+    "state": "READY",
+    "same_fingerprint_and_lock": true,
+    "same_binary_sha256": true,
+    "temporary_idle_inhibition": true,
+    "global_power_settings_changed": false
+  },
+  "before_after_visuals": {
+    "before": {
+      "file": "193-hacker-build-after-edit-final.png",
+      "source": "LOT025 historical audit, 2026-10-21; original preserved",
+      "sha256": "aecbbb7ccd32cc95ee968d128943f71b98cdf5c86de8553230964744988ea27f",
+      "fresh_reproduction": "New-session launcher log 2026-10-27T08-16-50-319Z-1711045 reproduces same guard; no fresh screenshot captured for that failing build."
+    },
+    "after": {
+      "file": "studio-e1-2026-10-27T11-08-23-372Z-full-export.png",
+      "source": "Third consecutive final full-action Tauri run; image inspected",
+      "sha256": "92e04e1685cf0a6ba937574e8b13c1e69ceb7aa4f53c9e6f94b3772ca97ff913"
+    },
+    "limit": "Before image is historical, not a new screenshot; fresh failure log and source hashes tie the reproduction to the declared input."
+  },
+  "final_mugen_cold_runs": [
+    {
+      "session": "2026-10-27T10-55-52-533Z-70240",
+      "report": "studio-e1-2026-10-27T10-55-55-407Z-report.json",
+      "sha256": "3a3c0bb9f814a57255ae81da047bd2bbb2208aa321d0b0d4958ba3e9294f7dcc",
+      "all_pass": true,
+      "app_sha256": "35fe9ab21ab0383305de1aeac2ef6b0b48805f83b5b2543bfc3ae06f007fff41",
+      "source_metadata_ms": 498,
+      "page_audit": {
+        "animations": 103,
+        "occurrences": 417,
+        "pixels_compared": 11208960,
+        "max_page_pixels": 1720320,
+        "palettes_identical": true,
+        "compiled_indices_verified": true,
+        "max_tiles": 114,
+        "max_sprites": 15
+      },
+      "steps": [
+        {
+          "id": "import_real_ken",
+          "status": "passed"
+        },
+        {
+          "id": "baseline_build",
+          "status": "passed"
+        },
+        {
+          "id": "all_animation_pages_pixels_palette_and_compiled_indices",
+          "status": "passed"
+        },
+        {
+          "id": "open_character_editor_with_context",
+          "status": "passed"
+        },
+        {
+          "id": "edit_single_occurrence_undo_redo",
+          "status": "passed"
+        },
+        {
+          "id": "return_to_origin",
+          "status": "passed"
+        },
+        {
+          "id": "save_destroy_window_reopen",
+          "status": "passed"
+        },
+        {
+          "id": "rom_effect_measured_in_emulated_frames",
+          "status": "passed"
+        },
+        {
+          "id": "restore_rebuild_bytes_equal_baseline",
+          "status": "passed"
+        },
+        {
+          "id": "e3_runtime_selection_opens_exact_occurrence_and_returns",
+          "status": "passed"
+        },
+        {
+          "id": "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+          "status": "passed"
+        },
+        {
+          "id": "e3_same_path_content_change_refused_restored_accepted_rebuild_valid",
+          "status": "passed"
+        },
+        {
+          "id": "export_full_configuration_identical_to_tested_baseline",
+          "status": "passed"
+        }
+      ],
+      "baseline_sha256": "094b8f1481837b2aab3f95df1e2810ec846da1ec8c9707786080ecc25c63cf46",
+      "artifacts": [
+        {
+          "label": "metadata-choices",
+          "file": "studio-e1-2026-10-27T10-55-55-407Z-metadata-choices.png",
+          "sha256": "9d84b387435ccef1204f97b68fd2cd48cb8f661cfbfff812b711509e2209dc00"
+        },
+        {
+          "label": "character-o3",
+          "file": "studio-e1-2026-10-27T10-55-55-407Z-character-o3.png",
+          "sha256": "71655048a288038e4572b23eec9fce8bb8481fc6315c4eddb7c7c02dfa339f26"
+        },
+        {
+          "label": "reopened",
+          "file": "studio-e1-2026-10-27T10-55-55-407Z-reopened.png",
+          "sha256": "b07c583ea6a5cbe188121b5dda6e1827cff5f7ae16a834955d8f2cb5fed2fcdc"
+        },
+        {
+          "label": "inspect-overlay",
+          "file": "studio-e1-2026-10-27T10-55-55-407Z-inspect-overlay.png",
+          "sha256": "1671d80f3a4347829e106438a2dbc78a00bde54711ec1d52c0aad999ee5fbb3d"
+        },
+        {
+          "label": "inspect-opened-character",
+          "file": "studio-e1-2026-10-27T10-55-55-407Z-inspect-opened-character.png",
+          "sha256": "4eb35f2f4196db73951637e7fd6e77807508da9c3391bf3c4ac4a693fc332b12"
+        },
+        {
+          "label": "inspect-refused-stale-asset",
+          "file": "studio-e1-2026-10-27T10-55-55-407Z-inspect-refused-stale-asset.png",
+          "sha256": "cd4b0ccac0a646cb595f0e59bb36fc2604847ab629e5c8e2ca36401706a4d9ea"
+        },
+        {
+          "label": "inspect-refused-same-path-content",
+          "file": "studio-e1-2026-10-27T10-55-55-407Z-inspect-refused-same-path-content.png",
+          "sha256": "5c0b3bd8f2c4de67b3a7de645341adc507bcd40ff599f568929b9ae0b651e9dd"
+        },
+        {
+          "label": "full-export",
+          "file": "studio-e1-2026-10-27T10-55-55-407Z-full-export.png",
+          "sha256": "57f3a36972d9b2eac309c6ac006321a6ae94330128ccf6f021e7d9e02f02890a"
+        }
+      ],
+      "export": {
+        "file": "Ken_Studio_E1_1793098557439-094b8f14.bin",
+        "sha256": "094b8f1481837b2aab3f95df1e2810ec846da1ec8c9707786080ecc25c63cf46",
+        "independent_file_hash_equal": true
+      },
+      "duration_measurement": {
+        "runs": [
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            6
+          ]
+        ],
+        "expected": [
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            6
+          ]
+        ],
+        "rom_sha256": "a28bfd65741048e7817261fc500ce2588aa768875853fbc331b1ca4104604aca"
+      },
+      "native_inspection_targets": [
+        {
+          "interactive": false,
+          "id": "inspect-overlay",
+          "surface": true
+        },
+        {
+          "interactive": false,
+          "id": "inspect-message",
+          "surface": true
+        },
+        {
+          "interactive": false,
+          "id": "inspect-overlay",
+          "surface": true
+        },
+        {
+          "interactive": false,
+          "id": "inspect-message",
+          "surface": true
+        },
+        {
+          "interactive": false,
+          "id": "inspect-overlay",
+          "surface": true
+        }
+      ]
+    },
+    {
+      "session": "2026-10-27T11-02-10-246Z-84276",
+      "report": "studio-e1-2026-10-27T11-02-12-989Z-report.json",
+      "sha256": "ffbf65b0fadf14de93a5a8065a055d49d1f1439e8dce11b7efac67565327f257",
+      "all_pass": true,
+      "app_sha256": "35fe9ab21ab0383305de1aeac2ef6b0b48805f83b5b2543bfc3ae06f007fff41",
+      "source_metadata_ms": 488,
+      "page_audit": {
+        "animations": 103,
+        "occurrences": 417,
+        "pixels_compared": 11208960,
+        "max_page_pixels": 1720320,
+        "palettes_identical": true,
+        "compiled_indices_verified": true,
+        "max_tiles": 114,
+        "max_sprites": 15
+      },
+      "steps": [
+        {
+          "id": "import_real_ken",
+          "status": "passed"
+        },
+        {
+          "id": "baseline_build",
+          "status": "passed"
+        },
+        {
+          "id": "all_animation_pages_pixels_palette_and_compiled_indices",
+          "status": "passed"
+        },
+        {
+          "id": "open_character_editor_with_context",
+          "status": "passed"
+        },
+        {
+          "id": "edit_single_occurrence_undo_redo",
+          "status": "passed"
+        },
+        {
+          "id": "return_to_origin",
+          "status": "passed"
+        },
+        {
+          "id": "save_destroy_window_reopen",
+          "status": "passed"
+        },
+        {
+          "id": "rom_effect_measured_in_emulated_frames",
+          "status": "passed"
+        },
+        {
+          "id": "restore_rebuild_bytes_equal_baseline",
+          "status": "passed"
+        },
+        {
+          "id": "e3_runtime_selection_opens_exact_occurrence_and_returns",
+          "status": "passed"
+        },
+        {
+          "id": "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+          "status": "passed"
+        },
+        {
+          "id": "e3_same_path_content_change_refused_restored_accepted_rebuild_valid",
+          "status": "passed"
+        },
+        {
+          "id": "export_full_configuration_identical_to_tested_baseline",
+          "status": "passed"
+        }
+      ],
+      "baseline_sha256": "532cef397d1c005385a3d8bad5040f65e1388557262edaf17864119b92cc0ae3",
+      "artifacts": [
+        {
+          "label": "metadata-choices",
+          "file": "studio-e1-2026-10-27T11-02-12-989Z-metadata-choices.png",
+          "sha256": "6b70857be349d5504e8db3fad345783e6c69b7ddb7506efc52f2917e0e0feb3d"
+        },
+        {
+          "label": "character-o3",
+          "file": "studio-e1-2026-10-27T11-02-12-989Z-character-o3.png",
+          "sha256": "71ef8285c4d18538b39d91f28c4aba84b82f8ab51eb158b92b0784919f9fbe88"
+        },
+        {
+          "label": "reopened",
+          "file": "studio-e1-2026-10-27T11-02-12-989Z-reopened.png",
+          "sha256": "b5a8a383a4f261d7da49deb88c07a62665c1210c9dd9e0db4c42f9059e2a75ae"
+        },
+        {
+          "label": "inspect-overlay",
+          "file": "studio-e1-2026-10-27T11-02-12-989Z-inspect-overlay.png",
+          "sha256": "46f834004f1db434fff125125170c9c71fc3c57416e8c9038b4b038484655939"
+        },
+        {
+          "label": "inspect-opened-character",
+          "file": "studio-e1-2026-10-27T11-02-12-989Z-inspect-opened-character.png",
+          "sha256": "ce8199f1021e5c80c1ead3242e1963fcc36bd8671d544cc04df457f36d2c5306"
+        },
+        {
+          "label": "inspect-refused-stale-asset",
+          "file": "studio-e1-2026-10-27T11-02-12-989Z-inspect-refused-stale-asset.png",
+          "sha256": "d1c04e3f87ac659bb5245658fdca175725afacea78ed3d701971e5046c2884ac"
+        },
+        {
+          "label": "inspect-refused-same-path-content",
+          "file": "studio-e1-2026-10-27T11-02-12-989Z-inspect-refused-same-path-content.png",
+          "sha256": "0af24a0db22fcc0b744b83301455c273caff7e4fa79d76be6965c7323690d391"
+        },
+        {
+          "label": "full-export",
+          "file": "studio-e1-2026-10-27T11-02-12-989Z-full-export.png",
+          "sha256": "5dcf5208ce793799fdecfa9ba6fa165f25672052f02832358d28547714353032"
+        }
+      ],
+      "export": {
+        "file": "Ken_Studio_E1_1793098934903-532cef39.bin",
+        "sha256": "532cef397d1c005385a3d8bad5040f65e1388557262edaf17864119b92cc0ae3",
+        "independent_file_hash_equal": true
+      },
+      "duration_measurement": {
+        "runs": [
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            6
+          ]
+        ],
+        "expected": [
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            6
+          ]
+        ],
+        "rom_sha256": "8eaf1afa8ff4378482e3a9bf10e368a1f9ecd61b6df2bb064bcf06196079c16b"
+      },
+      "native_inspection_targets": [
+        {
+          "interactive": false,
+          "id": "inspect-overlay",
+          "surface": true
+        },
+        {
+          "interactive": false,
+          "id": "inspect-message",
+          "surface": true
+        },
+        {
+          "interactive": false,
+          "id": "inspect-overlay",
+          "surface": true
+        },
+        {
+          "interactive": false,
+          "id": "inspect-message",
+          "surface": true
+        },
+        {
+          "interactive": false,
+          "id": "inspect-overlay",
+          "surface": true
+        }
+      ]
+    },
+    {
+      "session": "2026-10-27T11-08-20-652Z-97444",
+      "report": "studio-e1-2026-10-27T11-08-23-372Z-report.json",
+      "sha256": "907601cc6140759c2b043d9e12bc8c77a1068d6c5605b0e1870d2b675379089f",
+      "all_pass": true,
+      "app_sha256": "35fe9ab21ab0383305de1aeac2ef6b0b48805f83b5b2543bfc3ae06f007fff41",
+      "source_metadata_ms": 479,
+      "page_audit": {
+        "animations": 103,
+        "occurrences": 417,
+        "pixels_compared": 11208960,
+        "max_page_pixels": 1720320,
+        "palettes_identical": true,
+        "compiled_indices_verified": true,
+        "max_tiles": 114,
+        "max_sprites": 15
+      },
+      "steps": [
+        {
+          "id": "import_real_ken",
+          "status": "passed"
+        },
+        {
+          "id": "baseline_build",
+          "status": "passed"
+        },
+        {
+          "id": "all_animation_pages_pixels_palette_and_compiled_indices",
+          "status": "passed"
+        },
+        {
+          "id": "open_character_editor_with_context",
+          "status": "passed"
+        },
+        {
+          "id": "edit_single_occurrence_undo_redo",
+          "status": "passed"
+        },
+        {
+          "id": "return_to_origin",
+          "status": "passed"
+        },
+        {
+          "id": "save_destroy_window_reopen",
+          "status": "passed"
+        },
+        {
+          "id": "rom_effect_measured_in_emulated_frames",
+          "status": "passed"
+        },
+        {
+          "id": "restore_rebuild_bytes_equal_baseline",
+          "status": "passed"
+        },
+        {
+          "id": "e3_runtime_selection_opens_exact_occurrence_and_returns",
+          "status": "passed"
+        },
+        {
+          "id": "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+          "status": "passed"
+        },
+        {
+          "id": "e3_same_path_content_change_refused_restored_accepted_rebuild_valid",
+          "status": "passed"
+        },
+        {
+          "id": "export_full_configuration_identical_to_tested_baseline",
+          "status": "passed"
+        }
+      ],
+      "baseline_sha256": "db3938f2a125db6794e30173091b6528ee93a56c307049e15acf4a789eba98c0",
+      "artifacts": [
+        {
+          "label": "metadata-choices",
+          "file": "studio-e1-2026-10-27T11-08-23-372Z-metadata-choices.png",
+          "sha256": "6b70857be349d5504e8db3fad345783e6c69b7ddb7506efc52f2917e0e0feb3d"
+        },
+        {
+          "label": "character-o3",
+          "file": "studio-e1-2026-10-27T11-08-23-372Z-character-o3.png",
+          "sha256": "6de262046a2e72f53e78a6d20da8b0e20fd18ab2d3fc6cd321aad9ea62f199d1"
+        },
+        {
+          "label": "reopened",
+          "file": "studio-e1-2026-10-27T11-08-23-372Z-reopened.png",
+          "sha256": "ff541112d85d60ef4a0fa399152f01f9efe34da3e5757cc742152ced3c0f15c2"
+        },
+        {
+          "label": "inspect-overlay",
+          "file": "studio-e1-2026-10-27T11-08-23-372Z-inspect-overlay.png",
+          "sha256": "7e7c80db380a4bdbe745ec7cbf70165745dd83b4a940e8be48f6ac2a2998195c"
+        },
+        {
+          "label": "inspect-opened-character",
+          "file": "studio-e1-2026-10-27T11-08-23-372Z-inspect-opened-character.png",
+          "sha256": "4d43686e09d53dc57a72d7e4f39651b7045f916e1524b0cf0e1c29412c85e69a"
+        },
+        {
+          "label": "inspect-refused-stale-asset",
+          "file": "studio-e1-2026-10-27T11-08-23-372Z-inspect-refused-stale-asset.png",
+          "sha256": "3019404e8005139759824295dda116d426d8885b52d86d6d5501e07a5a3a9396"
+        },
+        {
+          "label": "inspect-refused-same-path-content",
+          "file": "studio-e1-2026-10-27T11-08-23-372Z-inspect-refused-same-path-content.png",
+          "sha256": "829cd88f5d0cd58a9b3474775202bdf7539b27f01068104f81ec9790ea14799e"
+        },
+        {
+          "label": "full-export",
+          "file": "studio-e1-2026-10-27T11-08-23-372Z-full-export.png",
+          "sha256": "92e04e1685cf0a6ba937574e8b13c1e69ceb7aa4f53c9e6f94b3772ca97ff913"
+        }
+      ],
+      "export": {
+        "file": "Ken_Studio_E1_1793099305029-db3938f2.bin",
+        "sha256": "db3938f2a125db6794e30173091b6528ee93a56c307049e15acf4a789eba98c0",
+        "independent_file_hash_equal": true
+      },
+      "duration_measurement": {
+        "runs": [
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            6
+          ]
+        ],
+        "expected": [
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            6
+          ]
+        ],
+        "rom_sha256": "d56241f864fea46641c088730688dd7662a33c6f74d6b33643ce308966baca4e"
+      },
+      "native_inspection_targets": [
+        {
+          "interactive": false,
+          "id": "inspect-overlay",
+          "surface": true
+        },
+        {
+          "interactive": false,
+          "id": "inspect-message",
+          "surface": true
+        },
+        {
+          "interactive": false,
+          "id": "inspect-overlay",
+          "surface": true
+        },
+        {
+          "interactive": false,
+          "id": "inspect-message",
+          "surface": true
+        },
+        {
+          "interactive": false,
+          "id": "inspect-overlay",
+          "surface": true
+        }
+      ]
+    }
+  ],
+  "acceptance": {
+    "mugen_three_consecutive_final_cold_runs": true,
+    "authoring_three_final_cold_runs": true,
+    "affected_regressions": true,
+    "human": "pending"
+  },
+  "final_native_sessions": [
+    {
+      "id": "mugen-full-1-after-reboot",
+      "scenario": "studio-e1",
+      "session": "2026-10-27T10-55-52-533Z-70240",
+      "status": "PASS",
+      "receipt_sha256": "f84f935d3a219aa4957bcb60523396949ea8fc697fe09f8bee03c95189369fd4",
+      "log_sha256": "70def702ce9f552497ec8103aab70439f582eb96e32b61c44132dab86c1da443",
+      "reports": [
+        {
+          "file": "studio-e1-2026-10-27T10-55-55-407Z-report.json",
+          "sha256": "3a3c0bb9f814a57255ae81da047bd2bbb2208aa321d0b0d4958ba3e9294f7dcc",
+          "bytes": 10234,
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "mugen-full-2-after-reboot",
+      "scenario": "studio-e1",
+      "session": "2026-10-27T11-02-10-246Z-84276",
+      "status": "PASS",
+      "receipt_sha256": "0b6c0ca467d00d5fd984855ce6499218f60055b13c411e0912d0cca85bb69a23",
+      "log_sha256": "86fa58addf3d255dae1da0ccd2656b8e23bed6637f95344be22da20d68515ca5",
+      "reports": [
+        {
+          "file": "studio-e1-2026-10-27T11-02-12-989Z-report.json",
+          "sha256": "ffbf65b0fadf14de93a5a8065a055d49d1f1439e8dce11b7efac67565327f257",
+          "bytes": 10234,
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "mugen-full-3-after-reboot",
+      "scenario": "studio-e1",
+      "session": "2026-10-27T11-08-20-652Z-97444",
+      "status": "PASS",
+      "receipt_sha256": "59f5ab6bd67bfaa6a91cbc70fe7b7e89c3b3952131b3ac4abbbb60a3be485af3",
+      "log_sha256": "d90258d86b80fbb9a0360db7fce0401536588189b1f8d41883fa52dc91542bfe",
+      "reports": [
+        {
+          "file": "studio-e1-2026-10-27T11-08-23-372Z-report.json",
+          "sha256": "907601cc6140759c2b043d9e12bc8c77a1068d6c5605b0e1870d2b675379089f",
+          "bytes": 10234,
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "authoring-1",
+      "scenario": "authoring-acceptance",
+      "session": "2026-10-27T11-14-36-016Z-111010",
+      "status": "PASS",
+      "receipt_sha256": "bf8522cbe4b8517c050c9d901a686f6a0f9391532be931b0e753636e1c8aaa0f",
+      "log_sha256": "e5fc7ec9863041daa4386330ca933505c09fef46dcbcce91d4b04a1ec21760cd",
+      "reports": [
+        {
+          "file": "authoring-acceptance-2026-10-27T11-14-38-675Z-report.json",
+          "sha256": "688047985ab3f786e86ed536abf0b15a32b4ad82f0dd0fb9548e7ffd19a49be5",
+          "bytes": 13091,
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "authoring-2",
+      "scenario": "authoring-acceptance",
+      "session": "2026-10-27T11-15-24-685Z-113122",
+      "status": "PASS",
+      "receipt_sha256": "69fe5cbee9eab641ffe4a10456bef27672ac1be9eca19038d1b0d2b3249aa3fe",
+      "log_sha256": "407fdfeb0529ad14d76b20b22990f5128991f501023c29d54d5024cc74ed5a7e",
+      "reports": [
+        {
+          "file": "authoring-acceptance-2026-10-27T11-15-27-386Z-report.json",
+          "sha256": "2116ade6847a7d9571dabe0006e166ad4e4d7cc6ca45cfc5c3b5cb17b5dc807d",
+          "bytes": 13091,
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "authoring-3",
+      "scenario": "authoring-acceptance",
+      "session": "2026-10-27T11-16-12-800Z-115262",
+      "status": "PASS",
+      "receipt_sha256": "d55f82405ab213375c357ab94e28ca182ee6de5ec0fe3ba138a3a3b4ee1cec43",
+      "log_sha256": "6a8ac72304c7b90d0372c480e813d2e220d3693b57a7ff88893d3cce9f569534",
+      "reports": [
+        {
+          "file": "authoring-acceptance-2026-10-27T11-16-15-450Z-report.json",
+          "sha256": "549d438b06fddd5458c1990286a464a8ab8d2dce36a53a512bbbdc612ba9cbce",
+          "bytes": 13091,
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "studio-e4",
+      "scenario": "studio-e4",
+      "session": "2026-10-27T11-17-00-746Z-117305",
+      "status": "PASS",
+      "receipt_sha256": "8e17cacccceca09e8c3d1764a14f2eacbc63c4cc3cbe5445eb5fdadd2081f44d",
+      "log_sha256": "60288cae6b592cd212ed7e58377964697fc7097466ef36a6e3a1c8199643d092",
+      "reports": [
+        {
+          "file": "studio-e4-2026-10-27T11-17-03-435Z-report.json",
+          "sha256": "9c7f65ebbe15764ce6ea1a38c9630e050dc544fd47d33170207e2021aeb952d0",
+          "bytes": 12151,
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "studio-e2e5",
+      "scenario": "studio-e2e5",
+      "session": "2026-10-27T11-17-53-004Z-119625",
+      "status": "PASS",
+      "receipt_sha256": "106f8cfa4fce5d3fdec4333628c7d6969a762ad15a36f60ac77da19ff104f937",
+      "log_sha256": "e0fa52e65830ba00fdf10a0820b5629edbff3420856a87dcc87147f2832438b6",
+      "reports": [
+        {
+          "file": "studio-e2e5-2026-10-27T11-17-55-680Z-report.json",
+          "sha256": "f4199a3138970976b0171c493546c631193e0554185c9e497809aa534730e015",
+          "bytes": 24999,
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "studio-paletas",
+      "scenario": "studio-paletas",
+      "session": "2026-10-27T11-19-58-174Z-124556",
+      "status": "PASS",
+      "receipt_sha256": "c789f1050058df2f1f3752ab023c70b5c92a73b4658b241b36e438725beb17f8",
+      "log_sha256": "efe970d43024bc6d51cc6016148515088d403d0a06b76684862ef1c4af4ffb3f",
+      "reports": [
+        {
+          "file": "studio-paletas-2026-10-27T11-20-00-848Z-report.json",
+          "sha256": "bf1266a9d08118a9667c7cf9bfcdd6b2aab8a326115d1e521186cad8dad99ead",
+          "bytes": 10266,
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "studio-e6",
+      "scenario": "studio-e6",
+      "session": "2026-10-27T11-21-36-431Z-128500",
+      "status": "PASS",
+      "receipt_sha256": "ed9cb0d1d679da528d73377bb70a79a6ad4636834dfe557abf3b8bfba7cdd20a",
+      "log_sha256": "38d57e92644056903439f7904d66bf4ffdc721c7951905e22167efbac99e24ef",
+      "reports": [
+        {
+          "file": "studio-e6-2026-10-27T11-21-39-110Z-report.json",
+          "sha256": "4cb5bba0dbdc16b796b7aa60d4e3552acf16d28f07d3754c12c8963d44ad29df",
+          "bytes": 2926,
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "onboarding-shell",
+      "scenario": "onboarding-shell",
+      "session": "2026-10-27T11-21-52-653Z-129531",
+      "status": "PASS",
+      "receipt_sha256": "ab0e02d52ca348a083eada05c591caeb7e14921d5a5bb1d88646efc5e575f6bd",
+      "log_sha256": "5890788da1313bf43a4ee4b45bb4a94b4b429043fbe0ed4b2df2a6bedcf57c3d",
+      "reports": [
+        {
+          "file": "onboarding-shell-2026-10-27T11-21-55-458Z-cohesion.json",
+          "sha256": "8cb5ff2175ef586858540ba1c68c6d1a7e402e48e39e33497d52c9d0cedf6421",
+          "bytes": 1858,
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "snes",
+      "scenario": "build-run",
+      "session": "2026-10-27T11-22-06-111Z-130411",
+      "status": "PASS",
+      "receipt_sha256": "45abcd6ded3db6c9cc242e3e76439bf6289526dfb0b7231f0f51a8902383342d",
+      "log_sha256": "fc0332289759e1ee80436efd681e090f97243f2ced077fa013496d32e0c84d41",
+      "reports": [
+        {
+          "file": "desktop-e2e-success-build-run-snes.json",
+          "sha256": "394b758dafe5f78e4516889df9dacaaa0b3f619740d641c4df1ce5137725c75a",
+          "bytes": 359,
+          "all_pass": true
+        }
+      ]
+    }
+  ],
+  "final_authoring_cold_runs": [
+    {
+      "id": "authoring-1",
+      "scenario": "authoring-acceptance",
+      "session": "2026-10-27T11-14-36-016Z-111010",
+      "status": "PASS",
+      "receipt_sha256": "bf8522cbe4b8517c050c9d901a686f6a0f9391532be931b0e753636e1c8aaa0f",
+      "log_sha256": "e5fc7ec9863041daa4386330ca933505c09fef46dcbcce91d4b04a1ec21760cd",
+      "reports": [
+        {
+          "file": "authoring-acceptance-2026-10-27T11-14-38-675Z-report.json",
+          "sha256": "688047985ab3f786e86ed536abf0b15a32b4ad82f0dd0fb9548e7ffd19a49be5",
+          "bytes": 13091,
+          "steps": [
+            {
+              "id": "create_and_see_resources",
+              "status": "passed"
+            },
+            {
+              "id": "layout_and_keyboard_reachability",
+              "status": "passed"
+            },
+            {
+              "id": "undo_redo_keyboard",
+              "status": "passed"
+            },
+            {
+              "id": "scene_edit",
+              "status": "passed"
+            },
+            {
+              "id": "blocker_and_animation",
+              "status": "passed"
+            },
+            {
+              "id": "passages",
+              "status": "passed"
+            },
+            {
+              "id": "sound_binding",
+              "status": "passed"
+            },
+            {
+              "id": "saved",
+              "status": "passed"
+            },
+            {
+              "id": "restart_reopen_preserved",
+              "status": "passed"
+            },
+            {
+              "id": "keyboard_play_to_victory",
+              "status": "passed"
+            }
+          ],
+          "artifacts": [
+            {
+              "label": "editor guiado com recursos carregados",
+              "file": "authoring-acceptance-2026-10-27T11-14-38-675Z-01-guided-editor-loaded.png",
+              "sha256": "7f0a2a3c1bcd8555f7a9bee9f32dfda06f639df6821d1dec228a23c2f5d2a2d9",
+              "bytes": 256320
+            },
+            {
+              "label": "editor guiado em 1366x768",
+              "file": "authoring-acceptance-2026-10-27T11-14-38-675Z-02-layout-1366x768.png",
+              "sha256": "9aacf8fad5312a674d2f1e5e891ba1c25fa4f4b7a8dc1aaa55dab0e6cbe42a0b",
+              "bytes": 207424
+            },
+            {
+              "label": "editor guiado com escala 125%",
+              "file": "authoring-acceptance-2026-10-27T11-14-38-675Z-03-layout-scaled.png",
+              "sha256": "8337d25be6ed2a4f05566a3699cabdf8a0d46a9d97a0f076d247ce3d995ab88e",
+              "bytes": 212754
+            },
+            {
+              "label": "cenario editado: tijolo e celula vazia sem colisao",
+              "file": "authoring-acceptance-2026-10-27T11-14-38-675Z-04-scene-edited.png",
+              "sha256": "516460adee18648edb37e94dcd529f71d7d3ac4d59989cde62ad7fc41c697827",
+              "bytes": 248561
+            },
+            {
+              "label": "regras Quando/Se/Fazer e passagens",
+              "file": "authoring-acceptance-2026-10-27T11-14-38-675Z-05-rules.png",
+              "sha256": "6f1e90ebd3fc5fb0e704fcd009c8ae99ed1bda3cebdeaa0710e1f6eb3fde88d5",
+              "bytes": 471712
+            },
+            {
+              "label": "som de conclusao associado a victory",
+              "file": "authoring-acceptance-2026-10-27T11-14-38-675Z-06-sounds.png",
+              "sha256": "7f62a0e878d676af5eee073ae8b3646e2c062fb9137c312e2c58372abc2cdde9",
+              "bytes": 474521
+            },
+            {
+              "label": "projeto reaberto com recursos e edicoes",
+              "file": "authoring-acceptance-2026-10-27T11-14-38-675Z-07-reopened.png",
+              "sha256": "58d37313258e582acf02a5ba88fdda6d750d27d8b4d8bc2320d12a0d43a063a2",
+              "bytes": 489549
+            },
+            {
+              "label": "linha do tempo do jogo por teclado",
+              "file": "authoring-acceptance-2026-10-27T11-14-38-675Z-play-timeline.json",
+              "sha256": "6679abfc31b503d748e5e9c7893bc9b5b2ee943a303e085234dccd1e951be24e",
+              "bytes": 16101
+            },
+            {
+              "label": "jogo apos vencer pelo teclado",
+              "file": "authoring-acceptance-2026-10-27T11-14-38-675Z-08-victory.png",
+              "sha256": "ed90f954ca542c38107a391b79b5e917f554f2ef02a494c36bb73da841fdc750",
+              "bytes": 149470
+            }
+          ],
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "authoring-2",
+      "scenario": "authoring-acceptance",
+      "session": "2026-10-27T11-15-24-685Z-113122",
+      "status": "PASS",
+      "receipt_sha256": "69fe5cbee9eab641ffe4a10456bef27672ac1be9eca19038d1b0d2b3249aa3fe",
+      "log_sha256": "407fdfeb0529ad14d76b20b22990f5128991f501023c29d54d5024cc74ed5a7e",
+      "reports": [
+        {
+          "file": "authoring-acceptance-2026-10-27T11-15-27-386Z-report.json",
+          "sha256": "2116ade6847a7d9571dabe0006e166ad4e4d7cc6ca45cfc5c3b5cb17b5dc807d",
+          "bytes": 13091,
+          "steps": [
+            {
+              "id": "create_and_see_resources",
+              "status": "passed"
+            },
+            {
+              "id": "layout_and_keyboard_reachability",
+              "status": "passed"
+            },
+            {
+              "id": "undo_redo_keyboard",
+              "status": "passed"
+            },
+            {
+              "id": "scene_edit",
+              "status": "passed"
+            },
+            {
+              "id": "blocker_and_animation",
+              "status": "passed"
+            },
+            {
+              "id": "passages",
+              "status": "passed"
+            },
+            {
+              "id": "sound_binding",
+              "status": "passed"
+            },
+            {
+              "id": "saved",
+              "status": "passed"
+            },
+            {
+              "id": "restart_reopen_preserved",
+              "status": "passed"
+            },
+            {
+              "id": "keyboard_play_to_victory",
+              "status": "passed"
+            }
+          ],
+          "artifacts": [
+            {
+              "label": "editor guiado com recursos carregados",
+              "file": "authoring-acceptance-2026-10-27T11-15-27-386Z-01-guided-editor-loaded.png",
+              "sha256": "79c073c2780cebfa7150edadac7c9d118d40e254a3011314d1c17f66796fd24b",
+              "bytes": 256177
+            },
+            {
+              "label": "editor guiado em 1366x768",
+              "file": "authoring-acceptance-2026-10-27T11-15-27-386Z-02-layout-1366x768.png",
+              "sha256": "637afaa4389667fd50ba5abf1279737dcedbb64acd9c137259cbf959e29b285b",
+              "bytes": 207318
+            },
+            {
+              "label": "editor guiado com escala 125%",
+              "file": "authoring-acceptance-2026-10-27T11-15-27-386Z-03-layout-scaled.png",
+              "sha256": "cb3e516908b23587b6980c19a86b0fb81b2e417225c080b71450b9e0fe3a3967",
+              "bytes": 212819
+            },
+            {
+              "label": "cenario editado: tijolo e celula vazia sem colisao",
+              "file": "authoring-acceptance-2026-10-27T11-15-27-386Z-04-scene-edited.png",
+              "sha256": "2d6b1d65633e34fdbfae182a4fdc64dcb486f1cfba7c78da1d9916c7b5f0f277",
+              "bytes": 248464
+            },
+            {
+              "label": "regras Quando/Se/Fazer e passagens",
+              "file": "authoring-acceptance-2026-10-27T11-15-27-386Z-05-rules.png",
+              "sha256": "6fd6835bb3198759a6f148f808e247699596d4deb68e0646a8d46e577e83468a",
+              "bytes": 471135
+            },
+            {
+              "label": "som de conclusao associado a victory",
+              "file": "authoring-acceptance-2026-10-27T11-15-27-386Z-06-sounds.png",
+              "sha256": "292545b8df7acdd325d57d302c092f57b1cd85b2084209e65658a4b3993a1815",
+              "bytes": 474405
+            },
+            {
+              "label": "projeto reaberto com recursos e edicoes",
+              "file": "authoring-acceptance-2026-10-27T11-15-27-386Z-07-reopened.png",
+              "sha256": "b737c4e47e673a0a5602e0bc085c6ac391a850a67ff81011fd3af1b91899da87",
+              "bytes": 489359
+            },
+            {
+              "label": "linha do tempo do jogo por teclado",
+              "file": "authoring-acceptance-2026-10-27T11-15-27-386Z-play-timeline.json",
+              "sha256": "55febf6c8d13938536b9d97f58435aaea1aec80d1fdbb0364c54c581d93df154",
+              "bytes": 16258
+            },
+            {
+              "label": "jogo apos vencer pelo teclado",
+              "file": "authoring-acceptance-2026-10-27T11-15-27-386Z-08-victory.png",
+              "sha256": "bf0760e59024f5418bc6f3721bf6bae1dd71ba6ad0b60ca24c593af433a3e5d5",
+              "bytes": 149396
+            }
+          ],
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "authoring-3",
+      "scenario": "authoring-acceptance",
+      "session": "2026-10-27T11-16-12-800Z-115262",
+      "status": "PASS",
+      "receipt_sha256": "d55f82405ab213375c357ab94e28ca182ee6de5ec0fe3ba138a3a3b4ee1cec43",
+      "log_sha256": "6a8ac72304c7b90d0372c480e813d2e220d3693b57a7ff88893d3cce9f569534",
+      "reports": [
+        {
+          "file": "authoring-acceptance-2026-10-27T11-16-15-450Z-report.json",
+          "sha256": "549d438b06fddd5458c1990286a464a8ab8d2dce36a53a512bbbdc612ba9cbce",
+          "bytes": 13091,
+          "steps": [
+            {
+              "id": "create_and_see_resources",
+              "status": "passed"
+            },
+            {
+              "id": "layout_and_keyboard_reachability",
+              "status": "passed"
+            },
+            {
+              "id": "undo_redo_keyboard",
+              "status": "passed"
+            },
+            {
+              "id": "scene_edit",
+              "status": "passed"
+            },
+            {
+              "id": "blocker_and_animation",
+              "status": "passed"
+            },
+            {
+              "id": "passages",
+              "status": "passed"
+            },
+            {
+              "id": "sound_binding",
+              "status": "passed"
+            },
+            {
+              "id": "saved",
+              "status": "passed"
+            },
+            {
+              "id": "restart_reopen_preserved",
+              "status": "passed"
+            },
+            {
+              "id": "keyboard_play_to_victory",
+              "status": "passed"
+            }
+          ],
+          "artifacts": [
+            {
+              "label": "editor guiado com recursos carregados",
+              "file": "authoring-acceptance-2026-10-27T11-16-15-450Z-01-guided-editor-loaded.png",
+              "sha256": "56fbf141ab56ee79ffee0c0cff28b283fbb4e593d87d2d8bb00b5ec0645ee011",
+              "bytes": 256004
+            },
+            {
+              "label": "editor guiado em 1366x768",
+              "file": "authoring-acceptance-2026-10-27T11-16-15-450Z-02-layout-1366x768.png",
+              "sha256": "1b8836e7abfcea66d065e1bbf354e2eac3078ec6846200ff30423fbebc8f1fe7",
+              "bytes": 207199
+            },
+            {
+              "label": "editor guiado com escala 125%",
+              "file": "authoring-acceptance-2026-10-27T11-16-15-450Z-03-layout-scaled.png",
+              "sha256": "bedbbdad5ddbb0cae096bdaceabfedc4cbc841bf10347f66c9fb9c7719e137c9",
+              "bytes": 212890
+            },
+            {
+              "label": "cenario editado: tijolo e celula vazia sem colisao",
+              "file": "authoring-acceptance-2026-10-27T11-16-15-450Z-04-scene-edited.png",
+              "sha256": "82e333066118c3c4a600408859199227a43009d5d07d5d101e51cd523ce7f29c",
+              "bytes": 248320
+            },
+            {
+              "label": "regras Quando/Se/Fazer e passagens",
+              "file": "authoring-acceptance-2026-10-27T11-16-15-450Z-05-rules.png",
+              "sha256": "e4f2a477d229a829e116d2a3651bb7b89597676405f15dbb55d55882de6b5c6c",
+              "bytes": 471439
+            },
+            {
+              "label": "som de conclusao associado a victory",
+              "file": "authoring-acceptance-2026-10-27T11-16-15-450Z-06-sounds.png",
+              "sha256": "26c95bf4f216f2a98e1a589271b44caf14afc0745ad640945a613816d3a1ad12",
+              "bytes": 474268
+            },
+            {
+              "label": "projeto reaberto com recursos e edicoes",
+              "file": "authoring-acceptance-2026-10-27T11-16-15-450Z-07-reopened.png",
+              "sha256": "f71b6df9a13b526430213162404d9dc9ff4d4f1e5824084b6185e77778772ceb",
+              "bytes": 488327
+            },
+            {
+              "label": "linha do tempo do jogo por teclado",
+              "file": "authoring-acceptance-2026-10-27T11-16-15-450Z-play-timeline.json",
+              "sha256": "868ef32ee40ca5755c68f78a10937b450bf81a1c6a72315d685a4206391476e5",
+              "bytes": 16101
+            },
+            {
+              "label": "jogo apos vencer pelo teclado",
+              "file": "authoring-acceptance-2026-10-27T11-16-15-450Z-08-victory.png",
+              "sha256": "cf67b3157a78f78d7f9f805caff1c8fb2a80ef7bf735bd749d8d37cabfb35ee4",
+              "bytes": 149394
+            }
+          ],
+          "all_pass": true
+        }
+      ]
+    }
+  ],
+  "regressions": [
+    {
+      "id": "studio-e4",
+      "scenario": "studio-e4",
+      "session": "2026-10-27T11-17-00-746Z-117305",
+      "status": "PASS",
+      "receipt_sha256": "8e17cacccceca09e8c3d1764a14f2eacbc63c4cc3cbe5445eb5fdadd2081f44d",
+      "log_sha256": "60288cae6b592cd212ed7e58377964697fc7097466ef36a6e3a1c8199643d092",
+      "reports": [
+        {
+          "file": "studio-e4-2026-10-27T11-17-03-435Z-report.json",
+          "sha256": "9c7f65ebbe15764ce6ea1a38c9630e050dc544fd47d33170207e2021aeb952d0",
+          "bytes": 12151,
+          "steps": [
+            {
+              "id": "import_real_ken",
+              "status": "passed"
+            },
+            {
+              "id": "duplicate_and_local_change",
+              "status": "passed"
+            },
+            {
+              "id": "model_edit_one_undo_step_and_save",
+              "status": "passed"
+            },
+            {
+              "id": "rom_local_vs_shared",
+              "status": "passed"
+            }
+          ],
+          "artifacts": [
+            {
+              "label": "rom-two-instances",
+              "file": "studio-e4-2026-10-27T11-17-03-435Z-rom-two-instances.png",
+              "sha256": "4594dfbb06054dbabd5cadd80d54cfb37755e1cbda2c4efd7221241297156cf2",
+              "bytes": 156363
+            }
+          ],
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "studio-e2e5",
+      "scenario": "studio-e2e5",
+      "session": "2026-10-27T11-17-53-004Z-119625",
+      "status": "PASS",
+      "receipt_sha256": "106f8cfa4fce5d3fdec4333628c7d6969a762ad15a36f60ac77da19ff104f937",
+      "log_sha256": "e0fa52e65830ba00fdf10a0820b5629edbff3420856a87dcc87147f2832438b6",
+      "reports": [
+        {
+          "file": "studio-e2e5-2026-10-27T11-17-55-680Z-report.json",
+          "sha256": "f4199a3138970976b0171c493546c631193e0554185c9e497809aa534730e015",
+          "bytes": 24999,
+          "steps": [
+            {
+              "id": "import_real_ken",
+              "status": "passed"
+            },
+            {
+              "id": "training_target_duplicate",
+              "status": "passed"
+            },
+            {
+              "id": "authored_sound_on_attack_occurrence",
+              "status": "passed"
+            },
+            {
+              "id": "authored_strike_behavior_applied",
+              "status": "passed"
+            },
+            {
+              "id": "hud_bound_error_navigates_to_property",
+              "status": "passed"
+            },
+            {
+              "id": "rom_strike_sound_hud",
+              "status": "passed"
+            },
+            {
+              "id": "inspection_layers_collisions_audio",
+              "status": "passed"
+            },
+            {
+              "id": "temporary_adjust_no_hit_apply_undo",
+              "status": "passed"
+            },
+            {
+              "id": "export_canonical_rom",
+              "status": "passed"
+            },
+            {
+              "id": "graphic_box_edit_rom_effect_and_undo",
+              "status": "passed"
+            }
+          ],
+          "artifacts": [
+            {
+              "label": "sound-event",
+              "file": "studio-e2e5-2026-10-27T11-17-55-680Z-sound-event.png",
+              "sha256": "a38ff82384ae0a2759dda528e829f0855f596add85a43452c525e8b04b679278",
+              "bytes": 139597
+            },
+            {
+              "label": "review-error",
+              "file": "studio-e2e5-2026-10-27T11-17-55-680Z-review-error.png",
+              "sha256": "4e0fea8932c08382de67f74be916fbfa1925be6e8c61baec0dd279daec954b5e",
+              "bytes": 190707
+            },
+            {
+              "label": "layers-collisions-audio",
+              "file": "studio-e2e5-2026-10-27T11-17-55-680Z-layers-collisions-audio.png",
+              "sha256": "76c104ec82f46247f8e05540b01e9e4fb82a36d73081e809c38c608333e18008",
+              "bytes": 173677
+            }
+          ],
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "studio-paletas",
+      "scenario": "studio-paletas",
+      "session": "2026-10-27T11-19-58-174Z-124556",
+      "status": "PASS",
+      "receipt_sha256": "c789f1050058df2f1f3752ab023c70b5c92a73b4658b241b36e438725beb17f8",
+      "log_sha256": "efe970d43024bc6d51cc6016148515088d403d0a06b76684862ef1c4af4ffb3f",
+      "reports": [
+        {
+          "file": "studio-paletas-2026-10-27T11-20-00-848Z-report.json",
+          "sha256": "bf1266a9d08118a9667c7cf9bfcdd6b2aab8a326115d1e521186cad8dad99ead",
+          "bytes": 10266,
+          "steps": [
+            {
+              "id": "import_real_ken",
+              "status": "passed"
+            },
+            {
+              "id": "scenery_added_from_hierarchy",
+              "status": "passed"
+            },
+            {
+              "id": "target_strike_life_text_and_hud_band",
+              "status": "passed"
+            },
+            {
+              "id": "palette_summary_and_navigable_uses",
+              "status": "passed"
+            },
+            {
+              "id": "local_variant_and_library_palette",
+              "status": "passed"
+            },
+            {
+              "id": "shared_edit_impact_and_single_undo",
+              "status": "passed"
+            },
+            {
+              "id": "palette_swap_behavior_applied",
+              "status": "passed"
+            },
+            {
+              "id": "save_close_reopen_preserves_palettes",
+              "status": "passed"
+            },
+            {
+              "id": "rom_composition_matches_references",
+              "status": "passed"
+            },
+            {
+              "id": "rom_swap_only_target_once_and_restored",
+              "status": "passed"
+            },
+            {
+              "id": "rom_walk_camera_scenery_exact_hud_anchored",
+              "status": "passed"
+            },
+            {
+              "id": "inspection_shows_planned_banks_and_opens_target",
+              "status": "passed"
+            },
+            {
+              "id": "rom_shared_edit_changes_only_its_users",
+              "status": "passed"
+            },
+            {
+              "id": "restore_from_file_rom_byte_identical",
+              "status": "passed"
+            },
+            {
+              "id": "export_canonical_rom",
+              "status": "passed"
+            }
+          ],
+          "artifacts": [
+            {
+              "label": "hud-band",
+              "file": "studio-paletas-2026-10-27T11-20-00-848Z-hud-band.png",
+              "sha256": "7d367f34b0b6dd194b5139db34d217ebc916f0ed05d19d9afc62e7101affc838",
+              "bytes": 212014
+            },
+            {
+              "label": "rom1-start",
+              "file": "studio-paletas-2026-10-27T11-20-00-848Z-rom1-start.png",
+              "sha256": "cc27f0fd300eca8c9478e01a3e869b6dc15ae8dc81f8099a4530cc74e2da6d65",
+              "bytes": 157921
+            },
+            {
+              "label": "rom1-walked",
+              "file": "studio-paletas-2026-10-27T11-20-00-848Z-rom1-walked.png",
+              "sha256": "1d4d1f574c9cc091c402c73e90e6ba2b955d576bce8f424ae9ecec6bfda6bbac",
+              "bytes": 157929
+            }
+          ],
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "studio-e6",
+      "scenario": "studio-e6",
+      "session": "2026-10-27T11-21-36-431Z-128500",
+      "status": "PASS",
+      "receipt_sha256": "ed9cb0d1d679da528d73377bb70a79a6ad4636834dfe557abf3b8bfba7cdd20a",
+      "log_sha256": "38d57e92644056903439f7904d66bf4ffdc721c7951905e22167efbac99e24ef",
+      "reports": [
+        {
+          "file": "studio-e6-2026-10-27T11-21-39-110Z-report.json",
+          "sha256": "4cb5bba0dbdc16b796b7aa60d4e3552acf16d28f07d3754c12c8963d44ad29df",
+          "bytes": 2926,
+          "steps": [
+            {
+              "id": "prepared_commercial_rom_paused",
+              "status": "passed"
+            },
+            {
+              "id": "unknown_point_no_semantic_editor",
+              "status": "passed"
+            },
+            {
+              "id": "proven_profile_opens_profile_editor",
+              "status": "passed"
+            },
+            {
+              "id": "profile_edit_copy_ips_run_verify_revert",
+              "status": "passed"
+            }
+          ],
+          "artifacts": [
+            {
+              "label": "unknown-click",
+              "file": "studio-e6-2026-10-27T11-21-39-110Z-unknown-click.png",
+              "sha256": "00e176c733fec7d8b6e8dc63a0816364e96a7a6c943b5bfa6f633485036627bd",
+              "bytes": 112311
+            },
+            {
+              "label": "rex-items",
+              "file": "studio-e6-2026-10-27T11-21-39-110Z-rex-items.png",
+              "sha256": "fd34ed7668ed396f22a4ab0d992283dce34f07ab9ab2e6c57725f24f85e33c01",
+              "bytes": 110708
+            },
+            {
+              "label": "rex-editor-focused",
+              "file": "studio-e6-2026-10-27T11-21-39-110Z-rex-editor-focused.png",
+              "sha256": "e79959b74cb41655f9b3941d8de57dfd0889b7f40144633bc4af2f5d247126dc",
+              "bytes": 200154
+            }
+          ],
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "onboarding-shell",
+      "scenario": "onboarding-shell",
+      "session": "2026-10-27T11-21-52-653Z-129531",
+      "status": "PASS",
+      "receipt_sha256": "ab0e02d52ca348a083eada05c591caeb7e14921d5a5bb1d88646efc5e575f6bd",
+      "log_sha256": "5890788da1313bf43a4ee4b45bb4a94b4b429043fbe0ed4b2df2a6bedcf57c3d",
+      "reports": [
+        {
+          "file": "onboarding-shell-2026-10-27T11-21-55-458Z-cohesion.json",
+          "sha256": "8cb5ff2175ef586858540ba1c68c6d1a7e402e48e39e33497d52c9d0cedf6421",
+          "bytes": 1858,
+          "steps": [
+            {
+              "id": "build_run_current_rom",
+              "status": "passed"
+            },
+            {
+              "id": "stop_verify_export_same_sha",
+              "status": "passed"
+            },
+            {
+              "id": "review_returns_focus",
+              "status": "passed"
+            }
+          ],
+          "artifacts": [
+            {
+              "label": "recibo do teste e exportação",
+              "file": "onboarding-shell-2026-10-27T11-21-55-458Z-review-tested-export.png",
+              "sha256": "e5a73dbdddc629c5badd747da61823832d48288196334d4d79f1c267d3316163",
+              "bytes": 163968
+            }
+          ],
+          "all_pass": true
+        }
+      ]
+    },
+    {
+      "id": "snes",
+      "scenario": "build-run",
+      "session": "2026-10-27T11-22-06-111Z-130411",
+      "status": "PASS",
+      "receipt_sha256": "45abcd6ded3db6c9cc242e3e76439bf6289526dfb0b7231f0f51a8902383342d",
+      "log_sha256": "fc0332289759e1ee80436efd681e090f97243f2ced077fa013496d32e0c84d41",
+      "reports": [
+        {
+          "file": "desktop-e2e-success-build-run-snes.json",
+          "sha256": "394b758dafe5f78e4516889df9dacaaa0b3f619740d641c4df1ce5137725c75a",
+          "bytes": 359,
+          "steps": [],
+          "artifacts": [],
+          "all_pass": true
+        }
+      ]
+    }
+  ],
+  "display": {
+    "backend": "Tauri + WebKitWebDriver + own Xvfb",
+    "human_session": false,
+    "interaction": "Existing harness mixes DOM selection/click events and native WebDriver input/pointer/keyboard; filesystem/RAM reads are independent technical probes; folder selector prepared by existing helper."
+  },
+  "temporary_services": {
+    "native_processes_remaining": 0,
+    "own_xvfb_stopped": true,
+    "own_idle_inhibitor_released": true
+  },
+  "completion_scope": "Main UI cohesion and declared authoring/full-action MUGEN configuration plus affected regressions; not all 16 audited journeys, original CNS, human usability, Windows or universal REX.",
+  "final_original_integrity": {
+    "checked_at": "2026-10-27T11:25:01.306259+00:00",
+    "ken_files": 7,
+    "lot025_snapshot_files": 35,
+    "all_sha256_match": true,
+    "sonic_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+    "hamoopig_sha256": "558bea6c80c76ec3da23afd584d4b56ece7722847ab1efc8c2f23f43f8529be9",
+    "three_final_exports_still_equal_own_tested_baselines": true
+  },
+  "private_protection": {
+    "schema": "retrodev.private-ui-evidence-backup-receipt/v1",
+    "archive": "ui-mugen-evidence-1925716a.tar.zst",
+    "bytes": 291807298,
+    "sha256": "a22c1490e9b39f4bba966ad0289629a242964deb546f6fe5a2b1c74b114f7f97",
+    "content_manifest_sha256": "478f5f8fc8afd15822111d067a134f324b1600ace77db81299fe29e3fa8be56c",
+    "files_verified": 1287,
+    "all_streamed_bytes_verified": true,
+    "same_filesystem": true,
+    "off_host_copy_qualified": false,
+    "owner": "operator",
+    "retention": "Preserve through human acceptance and independent private backup verification; no automatic deletion.",
+    "created_at": "2026-10-27T11:26:25.289276+00:00",
+    "public_repository_contains_archive": false,
+    "recovery_limit": "Verified local archive on same filesystem; no independent/off-host copy qualified. Does not restore the earlier missing remote 23-volume set."
+  },
+  "documentation_tree_check": {
+    "session": "2026-10-27T11-28-53-242Z-147367",
+    "status": "PASS"
+  },
+  "draft_recovery_regression": {
+    "index": "data/studio_grafico/ui-cohesion-20261027.json",
+    "section": "draft_recovery_hardening",
+    "app_sha256": "826e2553cfc6d20351acd6e7d3561b18dba043ecb7c4679d4ca7013dd9b56814",
+    "code_commit": "796086266831d8de5e129016562f3376f9e3424f",
+    "session": "2026-10-27T15-31-59-588Z-898499",
+    "status": "PASS",
+    "reports": [
+      {
+        "file": "studio-e1-2026-10-27T15-32-03-417Z-report.json",
+        "bytes": 10234,
+        "sha256": "b834bb3af724d4c3f5f2967b62298fc633ae45b2d4721b5021f1b01e2984aed8",
+        "schema": "retrodev.studio_e1/v1",
+        "scenario": "retrodev.studio_e1/v1",
+        "report_status": "passed",
+        "steps": [
+          {
+            "id": "import_real_ken",
+            "status": "passed"
+          },
+          {
+            "id": "baseline_build",
+            "status": "passed"
+          },
+          {
+            "id": "all_animation_pages_pixels_palette_and_compiled_indices",
+            "status": "passed"
+          },
+          {
+            "id": "open_character_editor_with_context",
+            "status": "passed"
+          },
+          {
+            "id": "edit_single_occurrence_undo_redo",
+            "status": "passed"
+          },
+          {
+            "id": "return_to_origin",
+            "status": "passed"
+          },
+          {
+            "id": "save_destroy_window_reopen",
+            "status": "passed"
+          },
+          {
+            "id": "rom_effect_measured_in_emulated_frames",
+            "status": "passed"
+          },
+          {
+            "id": "restore_rebuild_bytes_equal_baseline",
+            "status": "passed"
+          },
+          {
+            "id": "e3_runtime_selection_opens_exact_occurrence_and_returns",
+            "status": "passed"
+          },
+          {
+            "id": "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+            "status": "passed"
+          },
+          {
+            "id": "e3_same_path_content_change_refused_restored_accepted_rebuild_valid",
+            "status": "passed"
+          },
+          {
+            "id": "export_full_configuration_identical_to_tested_baseline",
+            "status": "passed"
+          }
+        ],
+        "tested_application": null,
+        "paged_resource_audit": {
+          "animations": 103,
+          "occurrences": 417,
+          "pixels_compared": 11208960,
+          "max_page_pixels": 1720320,
+          "palettes_identical": true,
+          "compiled_indices_verified": true,
+          "max_tiles": 114,
+          "max_sprites": 15
+        },
+        "export_sha256": "afb55545eec4021eedc904665248d1efc6dea7f958e6a57249be5131b3b62110"
+      }
+    ],
+    "original_inputs_unchanged": true,
+    "human_acceptance": "pending",
+    "maturity": "Experimental"
+  }
+}

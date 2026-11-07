@@ -17,6 +17,75 @@ pub struct EmitOutput {
     pub resources_res: String,
 }
 
+/// Build-host allocation guard, not a VDP budget. Large sparse animation grids
+/// are staged as one row per resource; the logical animation indices stay intact.
+pub(crate) const SGDK_SPRITE_CANVAS_MAX_PIXELS: u64 = 64 * 1024 * 1024;
+
+pub(crate) fn sprite_resource_pages(asset: &SpriteAsset) -> Vec<SpriteAsset> {
+    let longest = asset
+        .animations
+        .iter()
+        .map(|a| a.frames.len())
+        .max()
+        .unwrap_or(0);
+    let pixels = u64::from(asset.frame_width.max(8))
+        .saturating_mul(u64::from(asset.frame_height.max(8)))
+        .saturating_mul(longest as u64)
+        .saturating_mul(asset.animations.len() as u64);
+    if asset.animations.len() < 2
+        || asset.animations.len() > 255
+        || longest > 255
+        || pixels <= SGDK_SPRITE_CANVAS_MAX_PIXELS
+    {
+        return vec![asset.clone()];
+    }
+    asset
+        .animations
+        .iter()
+        .enumerate()
+        .map(|(i, animation)| {
+            let mut page = asset.clone();
+            page.resource_name = format!("{}__rds_page_{i}", asset.resource_name);
+            page.asset_path = format!(
+                "rds_generated/sprites/{}/animation_{i}.bmp",
+                asset.resource_name
+            );
+            page.animations = vec![animation.clone()];
+            page.default_animation = Some(animation.clone());
+            page.animation_count = 1;
+            page
+        })
+        .collect()
+}
+
+fn render_sprite_page_definitions(out: &mut String, ast: &AstOutput) -> bool {
+    let mut init = String::new();
+    for asset in &ast.sprite_assets {
+        let pages = sprite_resource_pages(asset);
+        if pages.len() <= 1 {
+            continue;
+        }
+        let name = &asset.resource_name;
+        out.push_str(&format!(
+            "static SpriteDefinition {name};\nstatic Animation* rds_{name}_animation_refs[{}];\n",
+            pages.len()
+        ));
+        init.push_str(&format!("    {name} = {};\n    {name}.numAnimation = {};\n    {name}.animations = rds_{name}_animation_refs;\n", pages[0].resource_name, pages.len()));
+        for (i, page) in pages.iter().enumerate() {
+            let resource = &page.resource_name;
+            init.push_str(&format!("    rds_{name}_animation_refs[{i}] = {resource}.animations[0];\n    if ({resource}.maxNumTile > {name}.maxNumTile) {name}.maxNumTile = {resource}.maxNumTile;\n    if ({resource}.maxNumSprite > {name}.maxNumSprite) {name}.maxNumSprite = {resource}.maxNumSprite;\n"));
+        }
+    }
+    if init.is_empty() {
+        return false;
+    }
+    // Static bounded tables; no allocator or additional work in the frame loop.
+    out.push_str(&format!(
+        "static void rds_init_sprite_pages(void) {{\n{init}}}\n\n"
+    ));
+    true
+}
+
 #[derive(Debug, Clone)]
 struct InputCommandSpec {
     id: String,
@@ -50,8 +119,22 @@ pub fn emit_sgdk_with_collision(
     project_name: &str,
     collision_map_data: Option<&[u8]>,
 ) -> EmitOutput {
+    let mut main_c = build_main_c_with_collision(ast, project_name, collision_map_data);
+    if ast
+        .sprite_assets
+        .iter()
+        .flat_map(|asset| &asset.animations)
+        .any(|animation| {
+            animation.frame_times.as_ref().is_some_and(|times| {
+                times.len() != animation.frames.len()
+                    || times.iter().any(|time| !(1..=255).contains(time))
+            })
+        })
+    {
+        main_c.insert_str(0, "#error Duracoes por quadro invalidas: use uma duracao de 1 a 255 ticks por ocorrencia.\n");
+    }
     EmitOutput {
-        main_c: build_main_c_with_collision(ast, project_name, collision_map_data),
+        main_c,
         resources_res: build_resources_res(ast),
     }
 }
@@ -151,8 +234,13 @@ fn build_main_c_inner(
         out.push_str("#include \"resources.h\"\n");
     }
     out.push('\n');
+    let has_sprite_pages = render_sprite_page_definitions(&mut out, ast);
     render_sound_id_macros(&mut out, ast);
-    let camera_follow = ast_has_camera_follow(ast);
+    let visual_camera = super::camera_runtime::find(ast).filter(|c| c.errors.is_empty());
+    if visual_camera.is_some() {
+        out.push_str("static s16 rds_camera_ratio_x[2] = {100,100}, rds_camera_ratio_y[2] = {100,100};\nstatic void rds_visual_camera_control(s16 index,s16 action,u16 frames,s16 x,s16 y);\n");
+    }
+    let camera_follow = visual_camera.is_some() || ast_has_camera_follow(ast);
     if camera_follow {
         // Camera do mundo (Experimental): sprites e planos usam coordenadas de mundo; a tela mostra
         // mundo - camera. Limites = maior tilemap da cena (sem tilemap: so o limite inferior 0).
@@ -167,9 +255,27 @@ fn build_main_c_inner(
             planes
         };
         out.push_str("static void rds_camera_apply_scroll(void) {");
-        for plane in &planes {
+        for (layer, plane) in planes.iter().enumerate() {
+            if visual_camera.is_none() {
+                out.push_str(&format!(" VDP_setHorizontalScroll({plane}, -rds_camera_x); VDP_setVerticalScroll({plane}, rds_camera_y);"));
+                continue;
+            }
+            let origin = if visual_camera.is_some() {
+                ast.nodes
+                    .iter()
+                    .filter_map(|n| match n {
+                        AstNode::DrawTilemap { x, y, .. } => Some((*x, *y)),
+                        _ => None,
+                    })
+                    .enumerate()
+                    .find(|(i, _)| tilemap_plane(*i) == *plane)
+                    .map(|(_, p)| p)
+                    .unwrap_or((0, 0))
+            } else {
+                (0, 0)
+            };
             out.push_str(&format!(
-                " VDP_setHorizontalScroll({plane}, -rds_camera_x); VDP_setVerticalScroll({plane}, rds_camera_y);"
+                " VDP_setHorizontalScroll({plane}, {x} - ((s32)rds_camera_x * rds_camera_ratio_x[{layer}]) / 100); VDP_setVerticalScroll({plane}, ((s32)rds_camera_y * rds_camera_ratio_y[{layer}]) / 100 - {y});", x=origin.0,y=origin.1
             ));
         }
         out.push_str(" }\n#define RDS_CAMERA_SCREEN_X rds_camera_x\n#define RDS_CAMERA_SCREEN_Y rds_camera_y\n");
@@ -283,6 +389,7 @@ fn build_main_c_inner(
         ast,
         &collect_logic_var_names(ast),
     ));
+    out.push_str(&super::path_runtime::render_decls(ast));
     if has_rom_addq_word {
         out.push_str(
             "static volatile u32 *const rds_logic_recovery_oracle_value = (volatile u32 *)0xE0FFFF00;\n",
@@ -373,7 +480,13 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
         }
     }
 
+    if let Some(camera) = visual_camera {
+        out.push_str(&super::camera_runtime::render_definitions(camera));
+    }
     out.push_str("int main() {\n");
+    if has_sprite_pages {
+        out.push_str("    rds_init_sprite_pages();\n");
+    }
     if runtime_probe_enabled {
         out.push_str("    rds_probe_last_tick = getTick();\n");
         out.push_str("    rds_probe_emulation_status = 1;\n");
@@ -403,6 +516,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
     }
     for node in &ast.nodes {
         match node {
+            AstNode::ConfigureCamera(_) => {},
             AstNode::SpriteSystemInit => {
                 if managed_sprites {
                     let background_tiles = tilemap_assets
@@ -511,8 +625,8 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     resource_name,
                     tile_palette,
                     base_tile,
-                    (*x).max(0) / 8,
-                    (*y).max(0) / 8,
+                    if visual_camera.is_some() { 0 } else { (*x).max(0) / 8 },
+                    if visual_camera.is_some() { 0 } else { (*y).max(0) / 8 },
                     load_palette
                 ));
                 if let Some(asset) = tilemap_assets
@@ -533,8 +647,8 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                             offset = (value - 1) * 8,
                         ));
                     }
-                    let origin_x = (*x).max(0) / 8;
-                    let origin_y = (*y).max(0) / 8;
+                    let origin_x = if visual_camera.is_some() { 0 } else { (*x).max(0) / 8 };
+                    let origin_y = if visual_camera.is_some() { 0 } else { (*y).max(0) / 8 };
                     let total =
                         (asset.map_width as usize).saturating_mul(asset.map_height as usize);
                     for (index, value) in asset.cells.iter().copied().enumerate().take(total) {
@@ -683,6 +797,8 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 let camera_planes = collect_camera_scroll_planes(ast);
                 render_move_camera(&mut out, target, *x, *y, &camera_planes);
             }
+            // Trajeto: declaracoes e atualizacao por quadro vem de `path_runtime`.
+            AstNode::ObjectPath { .. } => {}
             AstNode::HudText { .. } => {
                 if let Some(hud) = super::hud_runtime::collect_huds(ast)
                     .into_iter()
@@ -744,6 +860,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 out.push_str("    }\n");
                 out.push_str("    SYS_doVBlankProcess();\n");
                 out.push_str("#endif\n");
+                if visual_camera.is_some() { out.push_str("    rds_visual_camera_init();\n"); }
                 out.push_str("\n    while (TRUE) {\n");
             }
             AstNode::SpriteUpdate => {
@@ -785,8 +902,17 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     &collect_logic_var_names(ast),
                     8,
                 ));
+                out.push_str(&super::path_runtime::render_updates(ast, 8));
+                if visual_camera.is_some() {
+                    out.push_str("        rds_visual_camera_tick();\n        rds_camera_apply_scroll();\n");
+                }
                 if managed_sprites {
                     out.push_str("        rds_sync_sprite_residency();\n");
+                }
+                if visual_camera.is_some() {
+                    for (var, _, _) in collect_sprite_position_vars(ast) {
+                        out.push_str(&format!("        SPR_setPosition({var}, {var}_x, {var}_y);\n"));
+                    }
                 }
                 out.push_str("        SPR_update();\n");
             }
@@ -985,14 +1111,14 @@ fn build_resources_res(ast: &AstOutput) -> String {
         }
     }
 
-    for asset in &ast.sprite_assets {
+    for asset in ast.sprite_assets.iter().flat_map(sprite_resource_pages) {
         out.push_str(&format!(
             "SPRITE {} \"{}\" {} {} NONE {}\n",
             asset.resource_name,
             sprite_resource_path(&asset.asset_path),
             asset.frame_width / 8,
             asset.frame_height / 8,
-            resource_animation_time(asset),
+            resource_animation_time(&asset),
         ));
     }
     for (resource_name, asset_path) in collect_sfx_resources(ast) {
@@ -1170,14 +1296,21 @@ fn render_runtime_evidence_probe_tick(out: &mut String) {
 }
 
 fn resource_animation_time(asset: &SpriteAsset) -> String {
-    if asset.animations.len() > 1 {
+    if asset.animations.len() > 1 || asset.animations.iter().any(|a| a.frame_times.is_some()) {
         let rows = asset
             .animations
             .iter()
             .map(|animation| {
                 format!(
                     "[{}]",
-                    vec![animation.frame_time.to_string(); animation.frames.len()].join(",")
+                    animation
+                        .frame_times
+                        .clone()
+                        .unwrap_or_else(|| vec![animation.frame_time; animation.frames.len()])
+                        .iter()
+                        .map(u32::to_string)
+                        .collect::<Vec<_>>()
+                        .join(",")
                 )
             })
             .collect::<String>();
@@ -1680,7 +1813,19 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     indent = indent_str
                 ));
             }
-            LogicOp::MoveSprite { target_var, dx, dy } => {
+            LogicOp::MoveSprite {
+                target_var,
+                dx,
+                dy,
+                face,
+            } => {
+                if *face && *dx != 0 {
+                    // JV10: orientacao pelo flip H de hardware; caixas/colisao nao mudam.
+                    out.push_str(&format!(
+                        "{indent_str}if ({target_var}) SPR_setHFlip({target_var}, {});\n",
+                        if *dx < 0 { "TRUE" } else { "FALSE" }
+                    ));
+                }
                 let wall_body = WALL_BODIES.with(|bodies| bodies.borrow().get(target_var).copied());
                 match wall_body {
                     Some((width, height)) if *dx != 0 => out.push_str(&format!(
@@ -1812,6 +1957,19 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     y = render_math_expr(y)
                 ));
             }
+            LogicOp::CameraControl {
+                target_index,
+                action,
+                frames,
+                x,
+                y,
+                error,
+                ..
+            } => {
+                if error.is_none() {
+                    out.push_str(&format!("{indent_str}rds_visual_camera_control({target_index}, {action}, {frames}, {x}, {y});\n"));
+                }
+            }
             LogicOp::CameraFollow {
                 target_var,
                 offset_x,
@@ -1843,6 +2001,12 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     "{indent}SPR_setVisibility({target}, VISIBLE);\n",
                     indent = indent_str,
                     target = target_var
+                ));
+            }
+            LogicOp::PathControl { path_id, on } => {
+                out.push_str(&format!(
+                    "{indent_str}rds_path_{path_id}_on = {};\n",
+                    u8::from(*on)
                 ));
             }
             LogicOp::HideSprite { target_var } => {
@@ -2134,8 +2298,10 @@ fn collect_logic_velocity_targets_from_ops(
             | LogicOp::SetAnimationState { .. }
             | LogicOp::SetTile { .. }
             | LogicOp::CameraFollow { .. }
+            | LogicOp::CameraControl { .. }
             | LogicOp::ShowSprite { .. }
             | LogicOp::HideSprite { .. }
+            | LogicOp::PathControl { .. }
             | LogicOp::SetVar { .. }
             | LogicOp::RomAddQWord { .. }
             | LogicOp::RomBranchCompareWord { .. }
@@ -2566,7 +2732,9 @@ fn extract_vars_from_op(op: &LogicOp, vars: &mut std::collections::BTreeSet<Stri
         }
         LogicOp::SetAnimationState { .. }
         | LogicOp::CameraFollow { .. }
-        | LogicOp::HideSprite { .. } => {}
+        | LogicOp::CameraControl { .. }
+        | LogicOp::HideSprite { .. }
+        | LogicOp::PathControl { .. } => {}
         LogicOp::SetVar { var_name, value } => {
             vars.insert(var_name.clone());
             extract_vars_from_math(value, vars);
@@ -2753,6 +2921,21 @@ fn op_uses_overlap(op: &LogicOp) -> bool {
             if_ok.iter().any(op_uses_overlap) || if_warn.iter().any(op_uses_overlap)
         }
         LogicOp::HardwareEvent { ops, .. } => ops.iter().any(op_uses_overlap),
+        // Rastreabilidade e laços também contêm condições: sem descer neles o C
+        // chama `retro_aabb_intersects` sem o helper (falha de link).
+        LogicOp::SourceMapped { op, .. } => op_uses_overlap(op),
+        LogicOp::WhileLoop {
+            condition,
+            body,
+            done,
+        } => {
+            bool_expr_uses_overlap(condition)
+                || body.iter().any(op_uses_overlap)
+                || done.iter().any(op_uses_overlap)
+        }
+        LogicOp::ForLoop { body, done, .. } => {
+            body.iter().any(op_uses_overlap) || done.iter().any(op_uses_overlap)
+        }
         _ => false,
     }
 }
@@ -3221,6 +3404,90 @@ fn palette_const(slot: u8) -> String {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn move_sprite_faces_its_direction_only_when_requested() {
+        // JV10: o comportamento Movimento e salto pede orientacao; outros sprite_move nao.
+        let mut out = String::new();
+        render_logic_ops(
+            &mut out,
+            &[
+                LogicOp::MoveSprite {
+                    target_var: "spr_player".into(),
+                    dx: -2,
+                    dy: 0,
+                    face: true,
+                },
+                LogicOp::MoveSprite {
+                    target_var: "spr_player".into(),
+                    dx: 2,
+                    dy: 0,
+                    face: true,
+                },
+                LogicOp::MoveSprite {
+                    target_var: "spr_enemy".into(),
+                    dx: -1,
+                    dy: 0,
+                    face: false,
+                },
+                LogicOp::MoveSprite {
+                    target_var: "spr_player".into(),
+                    dx: 0,
+                    dy: 1,
+                    face: true,
+                },
+            ],
+            4,
+        );
+        assert!(
+            out.contains("if (spr_player) SPR_setHFlip(spr_player, TRUE);"),
+            "{out}"
+        );
+        assert!(
+            out.contains("if (spr_player) SPR_setHFlip(spr_player, FALSE);"),
+            "{out}"
+        );
+        assert!(!out.contains("SPR_setHFlip(spr_enemy"), "{out}");
+        assert_eq!(
+            out.matches("SPR_setHFlip").count(),
+            2,
+            "dx 0 nao muda a orientacao: {out}"
+        );
+    }
+
+    #[test]
+    fn overlap_inside_source_mapped_or_loops_requires_the_aabb_helper() {
+        let target = |id: &str| LogicCollisionTarget {
+            entity_id: id.to_string(),
+            position: LogicPositionSource::SpriteVar {
+                var_name: format!("spr_{id}"),
+            },
+            offset_x: 0,
+            offset_y: 0,
+            width: 16,
+            height: 16,
+        };
+        let overlap = LogicOp::ConditionOverlap {
+            left: target("player"),
+            right: target("goal"),
+            if_true: Vec::new(),
+            if_false: Vec::new(),
+        };
+        let mapped = LogicOp::SourceMapped {
+            graph_sha256: "g".to_string(),
+            node_id: "n".to_string(),
+            semantic_stage: "s".to_string(),
+            op: Box::new(overlap.clone()),
+        };
+        assert!(op_uses_overlap(&mapped));
+        let looped = LogicOp::ForLoop {
+            loop_var: "i".to_string(),
+            count: LogicMathExpr::Literal(1),
+            body: vec![mapped],
+            done: Vec::new(),
+        };
+        assert!(op_uses_overlap(&looped));
+    }
     use super::*;
     use crate::compiler::ast_generator::{
         LogicBoolExpr, LogicCollisionTarget, LogicMathExpr, LogicOp, LogicPositionSource,
@@ -3251,6 +3518,7 @@ mod tests {
             frames: vec![0, 1, 2, 3],
             frame_time,
             looping,
+            frame_times: None,
             mugen: None,
         };
         SpriteAsset {
@@ -3272,6 +3540,7 @@ mod tests {
                     target_var: "spr_player".to_string(),
                     dx: 2,
                     dy: -1,
+                    face: false,
                 },
                 LogicOp::ConditionOverlap {
                     left: LogicCollisionTarget {
@@ -3385,9 +3654,27 @@ mod tests {
             frames: vec![1, 2, 3],
             frame_time: 5,
             looping: true,
+            frame_times: None,
             mugen: None,
         });
         assert_eq!(resource_animation_time(&asset), "[[10][5,5,5]]");
+    }
+
+    #[test]
+    fn resources_res_preserves_authoring_frame_delays_and_rejects_wrapping() {
+        let mut asset = sprite_asset_with_animation(10, true);
+        asset.animations[0].frame_times = Some(vec![2, 6, 9, 255]);
+        assert_eq!(resource_animation_time(&asset), "[[2,6,9,255]]");
+        let mut ast = AstOutput {
+            nodes: vec![],
+            sprite_assets: vec![asset],
+            logic_scripts: vec![],
+        };
+        assert!(!emit_sgdk(&ast, "Animation").main_c.starts_with("#error"));
+        ast.sprite_assets[0].animations[0].frame_times = Some(vec![2, 6, 9, 256]);
+        assert!(emit_sgdk(&ast, "Animation")
+            .main_c
+            .starts_with("#error Duracoes"));
     }
 
     #[test]
@@ -4239,6 +4526,7 @@ mod tests {
                                 target_var: "spr_player".to_string(),
                                 dx: 2,
                                 dy: 0,
+                                face: false,
                             }],
                             transitions: Vec::new(),
                         },
@@ -4281,6 +4569,7 @@ mod tests {
                         target_var: "spr_player".to_string(),
                         dx: 1,
                         dy: 0,
+                        face: false,
                     }],
                     done: vec![LogicOp::ForLoop {
                         loop_var: "idx".to_string(),
@@ -4325,6 +4614,7 @@ mod tests {
                                 target_var: "spr_player".to_string(),
                                 dx: 2,
                                 dy: 0,
+                                face: false,
                             }],
                         },
                         crate::compiler::ast_generator::LogicTimelineSlot {
@@ -4372,6 +4662,7 @@ mod tests {
                             target_var: "spr_player".to_string(),
                             dx: 1,
                             dy: 0,
+                            face: false,
                         }],
                     }],
                 },

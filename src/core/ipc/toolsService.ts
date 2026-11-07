@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import type { ActionableDiagnostic } from "../diagnostics";
+import type { SpriteComponent } from "./sceneService";
 
 // ── Types (mirror do Rust) ────────────────────────────────────────────────────
 
@@ -39,6 +40,18 @@ export interface ProjectAssetEntry {
   relative_path: string;
   absolute_path: string;
   kind: "image" | "audio" | "other";
+  image_width?: number | null;
+  image_height?: number | null;
+  sgdk_resource?: ImportedAssetResource | null;
+}
+
+export interface ImportedAssetResource {
+  resource_name: string;
+  resource_kind: string;
+  sprite: SpriteComponent | null;
+  /** Existing catalog wire field also carries native pixel authoring metadata. */
+  pixel_document?: string;
+  variants?: ImportedAssetResource[];
 }
 
 export interface LegacyProjectFilePreview {
@@ -849,6 +862,33 @@ export interface InspectionSpriteFrame {
     pixel_art_tiles: (number | null)[];
     frames: { id: string; label: string; mapping_index: number }[];
   } | null;
+}
+
+/** Projeto SGDK gerado ao soltar uma ROM no app (REX, Experimental). */
+export interface SgdkDecompileReport {
+  out_dir: string;
+  header_title: string;
+  normalized_sha256: string;
+  images: number;
+  sprites: number;
+  sprite_frames: number;
+  music: number;
+  nemesis_streams: number;
+  nemesis_with_palette: number;
+  enigma_maps: number;
+  kosinski_blocks: number;
+  level_layouts: number;
+  code_functions: number;
+  coverage_ratio: number;
+  byte_exact: boolean;
+}
+
+export function decompileRomToSgdk(romPath: string): Promise<SgdkDecompileReport> {
+  return invoke<SgdkDecompileReport>("rex_decompile_rom", { romPath });
+}
+
+export function revealExtractionDir(dir: string): Promise<void> {
+  return invoke<void>("rex_reveal_extraction_dir", { dir });
 }
 
 export const INSPECTION_PROGRESS_EVENT = "rex://inspection-progress";
@@ -1838,3 +1878,23 @@ export function rexProfileEdit(request: {
 }): Promise<RexProfileEditResponse> {
   return invoke<RexProfileEditResponse>("rex_profile_edit", { request });
 }
+
+
+export interface RomInputProbe {
+  input_id: string;
+  source_path: string;
+  source_sha256: string;
+  kind: "rom" | "zip" | "7z";
+  members: { name: string; size: number }[];
+}
+export interface RomInputResolved {
+  input: RomInputProbe;
+  member: string;
+  member_sha256: string;
+  normalized_sha256: string;
+  rom_path: string;
+  receipt_path: string;
+}
+export const probeRomInput = (requestId: string, path: string) => invoke<RomInputProbe>("rex_input_probe", { requestId, path });
+export const resolveRomInput = (requestId: string, inputId: string, member: string) => invoke<RomInputResolved>("rex_input_resolve", { requestId, inputId, member });
+export const cancelRomInput = (requestId: string) => invoke<void>("rex_input_cancel", { requestId });

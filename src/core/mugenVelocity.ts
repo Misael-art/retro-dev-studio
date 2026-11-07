@@ -112,3 +112,75 @@ export function withMugenVelocity(entity: Entity, stateNo: number, vx: string): 
   });
   return touched > 0 ? JSON.stringify({ ...graph.raw, nodes }) : null;
 }
+
+/** HitDef convertido do CNS (perfil `mugen.original_chain.v2`) num `mugen_state_program`. */
+export interface MugenHitDefSummary {
+  controller: string;
+  state: number;
+  damage: number;
+  hitflag: string;
+  hitsStanding: boolean;
+  pause: [number, number];
+  source: string;
+  triggers: string[];
+}
+
+export interface MugenHitTarget {
+  profile: string;
+  target: string;
+  hitdefs: MugenHitDefSummary[];
+  life: number | null;
+  lifeOrigin: string | null;
+}
+
+/** Le o no `mugen_state_program` e os HitDefs do programa; `null` sem programa v2 com HitDef. */
+export function readMugenHitTarget(entity: Entity): MugenHitTarget | null {
+  const graph = parseGraph(entity.components.logic?.graph);
+  const node = graph?.nodes.find((n) => n.type === "mugen_state_program");
+  if (!node) return null;
+  let program: { profile?: string; states?: Array<{ no: number; controllers?: Array<Record<string, unknown> & { id?: string; src?: { file?: string; line?: number }; all?: unknown[]; groups?: unknown[][] }> }>; target_life?: { value: number; origin: string } | null };
+  try {
+    program = JSON.parse(String(node.params?.program_json ?? "")) as typeof program;
+  } catch {
+    return null;
+  }
+  const hitdefs: MugenHitDefSummary[] = [];
+  for (const st of program.states ?? []) {
+    for (const c of st.controllers ?? []) {
+      const h = c.hitdef as Record<string, unknown> | undefined;
+      if (!h) continue;
+      const triggers = [...(c.all ?? []), ...((c.groups ?? []) as unknown[][]).flat()] as Array<{ src?: { text?: string } }>;
+      hitdefs.push({
+        controller: String(c.id),
+        state: st.no,
+        damage: Number(h.damage),
+        hitflag: String(h.hitflag),
+        hitsStanding: Boolean(h.hits_standing),
+        pause: [Number(h.pause_p1), Number(h.pause_p2)],
+        source: `${c.src?.file ?? "?"}:${c.src?.line ?? 0}`,
+        triggers: triggers.map((t) => String(t.src?.text ?? "")),
+      });
+    }
+  }
+  if (!hitdefs.length) return null;
+  return {
+    profile: String(program.profile ?? ""),
+    target: String(node.params?.hit_target ?? ""),
+    hitdefs,
+    life: program.target_life?.value ?? null,
+    lifeOrigin: program.target_life?.origin ?? null,
+  };
+}
+
+/** Novo `components.logic.graph` com o alvo de treino do HitDef trocado (o programa nao muda). */
+export function withMugenHitTarget(entity: Entity, target: string): string | null {
+  const graph = parseGraph(entity.components.logic?.graph);
+  if (!graph) return null;
+  let touched = 0;
+  const nodes = graph.nodes.map((node) => {
+    if (node.type !== "mugen_state_program") return node;
+    touched += 1;
+    return { ...node, params: { ...node.params, hit_target: target } };
+  });
+  return touched === 1 ? JSON.stringify({ ...graph.raw, nodes }) : null;
+}

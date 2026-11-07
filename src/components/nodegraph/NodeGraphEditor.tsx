@@ -4,6 +4,8 @@ import { persistActiveScene, registerPendingEditFlusher } from "../../core/scene
 import { openProjectSourcePath } from "../../core/ipc/projectService";
 import { parseSceneJson, resolveScenePrefabs } from "../../core/ipc/sceneService";
 import { useEditorStore, type HwStatus } from "../../core/store/editorStore";
+import { collectDeclaredTransitions, describeGraphScope, resolveGraphScope, searchTransitions } from "../../core/sceneComposition";
+import { listScenes } from "../../core/ipc/sceneService";
 import { getEntityDisplayName } from "../../core/entityDisplay";
 import { resolveEntitySourceRefs } from "../../core/entityAuthoring";
 import type { SgdkPatternTemplate } from "../../core/projectCapability";
@@ -74,6 +76,8 @@ import {
 import {
   NODE_CARD_LAYOUT_WIDTH,
   estimateNodeCardSize,
+  findFreeNodePosition,
+  getNodeEditingView,
   findNodeOverlaps,
   graphSemanticSignature,
   layoutNodeGraph,
@@ -95,7 +99,7 @@ import BehaviorPanel from "./BehaviorPanel";
 import { valueParam } from "../../core/nodegraph/profileGraphBridge";
 import ProfileGraphBridgePanel from "./ProfileGraphBridgePanel";
 import RomValueInput from "./RomValueInput";
-import { buildBehaviorSceneContext } from "../../core/nodegraph/behaviorLibrary";
+import { behaviorOwnerOfNode, buildBehaviorSceneContext, needsManualConversion, nodeSignature } from "../../core/nodegraph/behaviorLibrary";
 import AssetPreview from "../common/AssetPreview";
 
 // Modelo de dados canonico e serializacao v1 vivem em src/core/nodegraph/
@@ -156,6 +160,8 @@ type QuickActionContext = {
   selectedEntityId: string | null;
   selectedEntityLabel: string | null;
   otherEntityId: string | null;
+  visualCameraId?: string;
+  target?: "megadrive" | "snes";
 };
 
 type QuickActionTemplate = GuidedFlowCommentary & {
@@ -180,6 +186,15 @@ const FOCUS_PADDING = 24;
 const MINIMAP_WIDTH = 176;
 const MINIMAP_HEIGHT = 112;
 const MINIMAP_PADDING = 10;
+const MINIMAP_AUTO_NODES = 12;
+const MINIMAP_AUTO_MIN_WIDTH = 900;
+const MINIMAP_PREFERENCE_KEY = "rds.nodegraph.minimap";
+function readMinimapPreference(): boolean | null {
+  try {
+    const value = window.localStorage.getItem(MINIMAP_PREFERENCE_KEY);
+    return value === "open" ? true : value === "closed" ? false : null;
+  } catch { return null; }
+}
 const NODEGRAPH_GRID_SIZE = 24;
 const NODEGRAPH_MIN_ZOOM = 0.35;
 const NODEGRAPH_MAX_ZOOM = 2.4;
@@ -229,9 +244,12 @@ export const REQUIRED_NOCODE_NODE_TYPES: NodeType[] = [
   "set_position",
   "spawn_entity",
   "destroy_entity",
+  "path_start",
+  "path_stop",
   "sprite_anim",
   "set_animation_state",
   "camera_follow",
+  "camera_control",
   "authored_strike",
   "palette_swap",
   "camera_bounds",
@@ -1003,7 +1021,22 @@ function buildProjectileMotionQuickActionGraph(context: QuickActionContext): Nod
   };
 }
 
-function buildCameraRigQuickActionGraph(context: QuickActionContext): NodeGraph {
+export function buildCameraRigQuickActionGraph(context: QuickActionContext): NodeGraph {
+  if (context.visualCameraId) {
+    const tick = makeNode("event_update", 20, 20);
+    const nodes: GraphNode[] = [tick], edges: NodeEdge[] = [];
+    // Independent button events, wired through the existing execution ports.
+    for (const [index, [button, action]] of [["BUTTON_A", "pause"], ["BUTTON_B", "resume"], [context.target === "snes" ? "BUTTON_X" : "BUTTON_C", "shake"], ["BUTTON_START", "regions"]].entries()) {
+      const event = makeNode("input_pressed", 120, 120 + index * 220);
+      event.params = { ...event.params, button };
+      const control = makeNode("camera_control", 420, 120 + index * 220);
+      control.params = { ...control.params, target: context.visualCameraId, action, frames: 12, x: 4, y: 4 };
+      const update = index === 0 ? tick : makeNode("event_update", 20, 120 + index * 220);
+      if(index !== 0) nodes.push(update);
+      nodes.push(event, control); edges.push(makeEdge(update, "exec", event, "exec"), makeEdge(event, "exec", control, "exec"));
+    }
+    return { nodes, edges };
+  }
   void context;
   const start = makeNode("event_start", 120, 150);
   const cam = makeNode("move_camera", 360, 146);
@@ -1172,13 +1205,13 @@ const QUICK_ACTION_TEMPLATES: QuickActionTemplate[] = [
   },
   {
     id: "camera_rig",
-    actionLabel: "Camera + parallax basico",
-    title: "Camera e parallax",
-    summary: "Encadeia Move Camera com Parallax para um rig inicial de cena larga.",
+    actionLabel: "Câmera: travar, retomar e tremer",
+    title: "Eventos da câmera",
+    summary: "Com câmera visual: A trava, B retoma, C (Mega Drive) ou X (SNES) treme; Start devolve o controle às regiões.",
     comments: [
-      "Ao Iniciar aciona Move Camera com offsets neutros, prontos para amarrar a um alvo depois.",
-      "Parallax Scroll vem logo apos para reforcar leitura de profundidade sem exigir eventos extra.",
-      "Parametros de layer e velocidade sao conservadores para Mega Drive / SNES.",
+      "Escolha uma câmera visual na cena antes de inserir. O alvo é preenchido pelo nome selecionado.",
+      "Altere os botões e a ação nos cartões. Para deslocar temporariamente, escolha Deslocamento e a duração.",
+      "Sem câmera visual, conserva o rig legado de Move Camera e Parallax; converter exige reconciliar esses nós.",
     ],
     hardwareNote:
       "Scroll e camera respeitam o modelo atual de comentarios e chamadas no compilador de nos.",
@@ -1319,7 +1352,16 @@ const CARD_ENTITY_HEIGHT = 24;
 const CARD_PORT_ROW = 20;
 
 /** Parametros que o cartao edita diretamente (o compilador le exatamente esses campos). */
-function cardEditableParam(node: GraphNode, key: string): "number" | "button" | null {
+function cardEditableParam(node: GraphNode, key: string): "number" | "button" | "camera_action" | "camera_target" | "path_target" | "sound" | null {
+  // R5: «Iniciar/Parar trajeto» só podem apontar para objetos que têm trajeto nesta cena.
+  if ((node.type === "path_start" || node.type === "path_stop") && key === "target") return "path_target";
+  // Seletor de som no cartão (NodeSoundRow): mesma fonte da verdade do painel Sons.
+  if (node.type === "action_sound" && key === "sfx") return "sound";
+  if(node.type==="camera_control"){
+    if(key==="target")return "camera_target";
+    if(key==="action")return "camera_action";
+    if(["shake","offset"].includes(String(node.params.action))&&["frames","x","y"].includes(key))return "number";
+  }
   if ((node.type === "input_pressed" || node.type === "input_held") && key === "button") return "button";
   if (node.type === "set_velocity" && (key === "vx" || key === "vy")) return "number";
   if (node.type === "sprite_move" && (key === "dx" || key === "dy")) return "number";
@@ -1363,6 +1405,10 @@ export function getPortAnchor(
 }
 
 interface NodeCardProps {
+  /** R3-03: owning behavior and whether this node diverged from its generated signature. */
+  behaviorOrigin?: { label: string; edited: boolean };
+  /** Efeitos sonoros da cena (nome → asset) para o seletor no ponto de uso. */
+  sfx?: Record<string, string>;
   node: GraphNode;
   screenX: number;
   screenY: number;
@@ -1432,12 +1478,14 @@ function NodeCard({
   onParamChange,
   onToggleDetails,
   onMeasure,
+  sfx,
+  behaviorOrigin,
 }: NodeCardProps) {
   const catalog = getNodeCatalogEntry(node.type);
   const category = getNodeCategory(node.type);
   const importBadges = getGraphNodeImportBadges(node);
   const editable = canEditGraphNode(node);
-  const essential = (catalog?.essentialParams ?? []).filter((key) => key in node.params);
+  const essential = (node.type==="camera_control"?["target","action",...(["shake","offset"].includes(String(node.params.action))?["frames","x","y"]:[])]:catalog?.essentialParams ?? []).filter((key) => key in node.params);
   const technical = Object.entries(node.params).filter(([key]) => !essential.includes(key));
   const cardRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef(onMeasure);
@@ -1472,7 +1520,7 @@ function NodeCard({
     const label = getPortDisplayLabel(port);
     return (
       <div key={key} className={`flex h-5 items-center gap-1.5 ${output ? "justify-end" : ""}`}>
-        {output && label ? <span className="text-[10px]" style={{ color: kind === "exec" ? "#a6adc8" : PORT_VISUAL_COLORS[kind] }}>{label}</span> : null}
+        {output && label ? <span className="text-[10px]" style={{ color: "var(--rds-text-secondary)" }}>{label}</span> : null}
         <div
           data-testid={`node-port-${node.id}-${key.replace(":", "-")}`}
           data-port-key={key}
@@ -1487,13 +1535,29 @@ function NodeCard({
           onMouseDown={(e) => onPortMouseDown(e, port.id, output)}
           onMouseUp={(e) => onPortMouseUp(e, port.id, output)}
         />
-        {!output && label ? <span className="text-[10px]" style={{ color: kind === "exec" ? "#a6adc8" : PORT_VISUAL_COLORS[kind] }}>{label}</span> : null}
+        {!output && label ? <span className="text-[10px]" style={{ color: "var(--rds-text-secondary)" }}>{label}</span> : null}
       </div>
     );
   };
 
   const renderParamValue = (key: string, value: string | number) => {
     const mode = editable ? cardEditableParam(node, key) : null;
+    if(mode==="camera_action"||mode==="camera_target"){
+      const actions=[{id:"select",label:"Selecionar câmera"},{id:"regions",label:"Devolver às regiões"},{id:"pause",label:"Travar / pausar"},{id:"resume",label:"Liberar / continuar"},{id:"shake",label:"Tremor temporário"},{id:"offset",label:"Deslocamento temporário"},{id:"restart",label:"Reiniciar câmera ativa"}];
+      const options=mode==="camera_action"?actions:(useEditorStore.getState().activeScene?.entities??[]).filter(e=>e.components.camera?.visual).map(e=>({id:e.entity_id,label:getEntityDisplayName(e)}));
+      return <select aria-label={mode==="camera_action"?"Ação da câmera":"Câmera controlada"} data-testid={`node-param-${node.id}-${key}`} value={String(value)} onMouseDown={e=>e.stopPropagation()} onChange={e=>onParamChange(node.id,key,e.target.value)} className="max-w-[145px] rounded border bg-[var(--rds-surface-input)] px-1 text-xs">
+        {!options.some(o=>o.id===String(value))&&<option value={String(value)} disabled>Escolha uma câmera visual / ação válida</option>}{options.map(o=><option key={o.id} value={o.id}>{o.label}</option>)}
+      </select>;
+    }
+    if (mode === "path_target") {
+      const options = (useEditorStore.getState().activeScene?.entities ?? []).filter((e) => e.components.path).map((e) => ({ id: e.entity_id, label: getEntityDisplayName(e) }));
+      return (
+        <select aria-label="Objeto com trajeto" data-testid={`node-param-${node.id}-${key}`} value={String(value)} onMouseDown={(e) => e.stopPropagation()} onChange={(e) => onParamChange(node.id, key, e.target.value)} className="max-w-[145px] rounded border bg-[var(--rds-surface-input)] px-1 text-xs">
+          {!options.some((o) => o.id === String(value)) && <option value={String(value)} disabled>{options.length ? "Escolha um objeto com trajeto" : "Nenhum objeto com trajeto nesta cena"}</option>}
+          {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+        </select>
+      );
+    }
     if (mode === "button") {
       const current = describeInputButton(String(value));
       return (
@@ -1533,8 +1597,8 @@ function NodeCard({
         <input
           data-testid={`node-param-${node.id}-${key}`}
           type="number"
-          min={node.type === "set_velocity" || node.type === "sprite_move" ? -32768 : 0}
-          max={32767}
+          min={node.type==="camera_control"&&key!=="frames"?-1024:node.type === "set_velocity" || node.type === "sprite_move" ? -32768 : 0}
+          max={node.type==="camera_control"?(key==="frames"?36000:1024):32767}
           value={String(value)}
           onMouseDown={(event) => event.stopPropagation()}
           onChange={(event) => onParamChange(node.id, key, Number.parseInt(event.target.value, 10) || 0)}
@@ -1562,7 +1626,7 @@ function NodeCard({
       data-x={node.x}
       data-y={node.y}
       data-execution-reachable={executionReachable ? "true" : undefined}
-      className={`absolute select-none rounded-xl border bg-slate-900/95 shadow-lg ${
+      className={`absolute select-none rounded-xl border bg-[var(--rds-surface-panel)] shadow-lg ${
         selected ? "z-[3] ring-2 ring-blue-500 shadow-2xl" : "z-[2]"
       } ${executionReachable ? "ring-2 ring-[#a6e3a1] shadow-[0_0_24px_rgba(166,227,161,0.22)]" : ""} ${editable ? "" : "opacity-80"}`}
       style={{
@@ -1576,7 +1640,7 @@ function NodeCard({
       onMouseDown={onMouseDown}
     >
       <div
-        className="flex items-center gap-1.5 rounded-t-xl px-2 text-[11px] font-semibold text-white/95 cursor-grab"
+        className="flex items-center gap-1.5 rounded-t-xl px-2 text-[11px] font-semibold text-[var(--rds-text-primary)] cursor-grab"
         style={{ height: CARD_HEADER_HEIGHT, backgroundColor: `${category.color}33`, borderBottom: `1px solid ${category.color}55` }}
         title={`${category.label} · ${catalog?.description ?? ""}`}
       >
@@ -1610,6 +1674,15 @@ function NodeCard({
         )}
       </div>
 
+      {behaviorOrigin ? (
+        <p
+          data-testid={`node-behavior-origin-${node.id}`}
+          className={`truncate px-2 pb-0.5 text-[9px] ${behaviorOrigin.edited ? "text-[#fab387]" : "text-[#7f849c]"}`}
+          title={behaviorOrigin.edited ? "Este nó foi alterado diretamente; o formulário pedirá decisão antes de regenerar." : "Gerado pelo formulário do comportamento; edite pelo formulário para regenerar com segurança."}
+        >
+          {behaviorOrigin.edited ? "Personalizado nos nós · " : "Gerado por "}{behaviorOrigin.label}
+        </p>
+      ) : null}
       {node.params.authoring_origin ? (
         <p data-testid={`node-origin-${node.id}`} className="truncate px-2 pb-0.5 font-mono text-[9px] text-[#7f849c]" title="Origem autoral (rastreabilidade)">
           origem: {String(node.params.authoring_origin)}
@@ -1633,6 +1706,12 @@ function NodeCard({
         <div className="flex flex-col items-end">{node.outputs.map((port) => renderPort(port, true))}</div>
       </div>
 
+      {node.type === "action_sound" && sfx ? <NodeSoundRow node={node} sfx={sfx} projectDir={projectDir} editable={editable} onParamChange={onParamChange} /> : null}
+      {node.type === "action_music" ? (
+        <p data-testid={`node-music-preview-${node.id}`} className="border-t border-slate-700/50 px-2 py-1 text-[10px] text-[#f9e2af]">
+          Música VGM/XGM: prévia no editor indisponível (Experimental). Ouça pela ROM em Jogar.
+        </p>
+      ) : null}
       {essential.length > 0 && (
         <div className="flex flex-col border-t border-slate-700/50 px-2 py-1">
           {essential.map((key) => (
@@ -1811,6 +1890,84 @@ function PassagePanel({
  * entity declares (name -> WAV), a real preview of that WAV and validation of missing or
  * incompatible resources. Changing the picker edits the node's `sfx` param only.
  */
+function soundIssue(sfx: Record<string, string>, name: string): string | null {
+  const asset = sfx[name];
+  if (!asset) return `Som '${name}' não existe nos efeitos da cena.`;
+  if (!/\.wav$/i.test(asset)) return `Som '${name}' usa '${asset}', mas o Mega Drive (XGM) só aceita WAV.`;
+  return null;
+}
+
+/** WAV preview shared by the sounds panel and the node card (PLAT08). Toggle = Ouvir/Parar. */
+function useSoundPreview(sfx: Record<string, string>, projectDir: string | null) {
+  const [previewState, setPreviewState] = useState<Record<string, { label: string; playing: boolean }>>({});
+  const playing = useRef<Record<string, { context: AudioContext; source: AudioBufferSourceNode }>>({});
+  useEffect(() => () => { for (const p of Object.values(playing.current)) void p.context.close(); playing.current = {}; }, []);
+  const preview = useCallback(async (key: string, name: string) => {
+    const active = playing.current[key];
+    if (active) {
+      delete playing.current[key];
+      active.source.onended = null;
+      void active.context.close();
+      setPreviewState((current) => ({ ...current, [key]: { label: "Parado", playing: false } }));
+      return;
+    }
+    const asset = sfx[name];
+    if (!asset || !projectDir) return;
+    setPreviewState((current) => ({ ...current, [key]: { label: "Carregando…", playing: true } }));
+    try {
+      const bytes = await readProjectAssetBytes(projectDir, asset);
+      const AudioContextCtor = window.AudioContext
+        ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextCtor) throw new Error("Áudio indisponível neste ambiente");
+      const context = new AudioContextCtor();
+      const buffer = await context.decodeAudioData(Uint8Array.from(bytes).buffer);
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.connect(context.destination);
+      playing.current[key] = { context, source };
+      source.onended = () => {
+        if (playing.current[key]?.source !== source) return;
+        delete playing.current[key];
+        void context.close();
+        setPreviewState((current) => ({ ...current, [key]: { label: `Tocou ${name} (${buffer.duration.toFixed(2)} s)`, playing: false } }));
+      };
+      source.start();
+      setPreviewState((current) => ({ ...current, [key]: { label: `Tocando ${name} · ${buffer.duration.toFixed(2)} s`, playing: true } }));
+    } catch (error) {
+      delete playing.current[key];
+      setPreviewState((current) => ({ ...current, [key]: { label: `Prévia falhou: ${error instanceof Error ? error.message : String(error)}`, playing: false } }));
+    }
+  }, [projectDir, sfx]);
+  return { previewState, preview };
+}
+
+function NodeSoundRow({ node, sfx, projectDir, editable, onParamChange }: {
+  node: GraphNode; sfx: Record<string, string>; projectDir: string | null; editable: boolean;
+  onParamChange: (nodeId: string, key: string, value: string | number) => void;
+}) {
+  const { previewState, preview } = useSoundPreview(sfx, projectDir);
+  const names = Object.keys(sfx).sort();
+  const current = String(node.params.sfx ?? "");
+  const issue = soundIssue(sfx, current);
+  const state = previewState[node.id];
+  return (
+    <div data-testid={`node-sound-${node.id}`} className="flex flex-wrap items-center gap-1 border-t border-slate-700/50 px-2 py-1 text-[10px]" onMouseDown={(event) => event.stopPropagation()}>
+      <select data-testid={`node-sound-${node.id}-select`} aria-label="Som tocado por este nó" value={current} disabled={!editable}
+        onChange={(event) => onParamChange(node.id, "sfx", event.target.value)}
+        className="min-w-0 flex-1 rounded border border-[#f9e2af]/50 bg-[#11111b] px-1 py-0.5 font-mono text-[10px] text-[#cdd6f4]">
+        {!names.includes(current) && <option value={current}>{current || "(nenhum)"} (ausente)</option>}
+        {names.map((name) => <option key={name} value={name}>{name}</option>)}
+      </select>
+      <button type="button" data-testid={`node-sound-${node.id}-preview`} disabled={Boolean(issue) || !projectDir} aria-pressed={Boolean(state?.playing)}
+        onClick={() => void preview(node.id, current)}
+        className="rounded border border-[#f9e2af]/50 px-2 py-0.5 font-semibold text-[#f9e2af] disabled:opacity-40">
+        {state?.playing ? "Parar" : "Ouvir"}
+      </button>
+      {(issue || state) && <span data-testid={`node-sound-${node.id}-state`} role="status" className={`w-full truncate ${issue ? "text-[#f38ba8]" : "text-[#a6adc8]"}`} title={issue ?? state?.label}>{issue ?? state?.label}</span>}
+    </div>
+  );
+}
+
 function SoundPanel({
   graph,
   sfx,
@@ -1823,36 +1980,10 @@ function SoundPanel({
   onGraphChange: (graph: NodeGraph) => void;
 }) {
   const soundNodes = graph.nodes.filter((node) => node.type === "action_sound");
-  const [previewState, setPreviewState] = useState<Record<string, string>>({});
+  const { previewState, preview } = useSoundPreview(sfx, projectDir);
   if (soundNodes.length === 0) return null;
   const names = Object.keys(sfx).sort();
-  const issueFor = (name: string): string | null => {
-    const asset = sfx[name];
-    if (!asset) return `Som '${name}' não existe nos efeitos da cena.`;
-    if (!/\.wav$/i.test(asset)) return `Som '${name}' usa '${asset}', mas o Mega Drive (XGM) só aceita WAV.`;
-    return null;
-  };
-  async function preview(nodeId: string, name: string) {
-    const asset = sfx[name];
-    if (!asset || !projectDir) return;
-    setPreviewState((current) => ({ ...current, [nodeId]: "Tocando…" }));
-    try {
-      const bytes = await readProjectAssetBytes(projectDir, asset);
-      const AudioContextCtor = window.AudioContext
-        ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AudioContextCtor) throw new Error("Áudio indisponível neste ambiente");
-      const context = new AudioContextCtor();
-      const buffer = await context.decodeAudioData(Uint8Array.from(bytes).buffer);
-      const source = context.createBufferSource();
-      source.buffer = buffer;
-      source.connect(context.destination);
-      source.onended = () => void context.close();
-      source.start();
-      setPreviewState((current) => ({ ...current, [nodeId]: `Prévia: ${buffer.duration.toFixed(2)} s` }));
-    } catch (error) {
-      setPreviewState((current) => ({ ...current, [nodeId]: `Prévia falhou: ${error instanceof Error ? error.message : String(error)}` }));
-    }
-  }
+  const issueFor = (name: string) => soundIssue(sfx, name);
   return (
     <div data-testid="nodegraph-sounds" className="rounded border border-[#f9e2af]/35 bg-[#f9e2af]/5 px-2 py-1.5 text-[10px] text-[#cdd6f4]">
       <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#f9e2af]">Sons</p>
@@ -1886,9 +2017,9 @@ function SoundPanel({
               onClick={() => void preview(node.id, current)}
               className="rounded border border-[#f9e2af]/50 px-2 py-0.5 text-[#f9e2af] disabled:opacity-40"
             >
-              Ouvir
+              {previewState[node.id]?.playing ? "Parar" : "Ouvir"}
             </button>
-            {previewState[node.id] && <span data-testid={`sound-${node.id}-preview-state`} className="w-full text-[#a6adc8]">{previewState[node.id]}</span>}
+            {previewState[node.id] && <span data-testid={`sound-${node.id}-preview-state`} className="w-full text-[#a6adc8]">{previewState[node.id].label}</span>}
             {issue && <span data-testid={`sound-${node.id}-issue`} className="w-full text-[#f38ba8]">{issue}</span>}
           </div>
         );
@@ -2073,9 +2204,10 @@ function EmptyStateOverlay({
   return (
     <div
       data-testid="nodegraph-empty-overlay"
-      className="absolute inset-0 z-10 flex items-center justify-center bg-[#11111b]/60 px-6 py-8"
+      className="absolute bottom-0 left-0 top-0 z-10 flex justify-center overflow-y-auto bg-[#11111b]/60 px-6 pb-8 pt-14"
+      style={{ right: 288 }}
     >
-      <div className="w-full max-w-6xl rounded-2xl border border-dashed border-[#45475a] bg-[#181825]/95 p-6 shadow-2xl backdrop-blur-sm">
+      <div className="h-fit w-full max-w-6xl rounded-2xl border border-dashed border-[#45475a] bg-[#181825]/95 p-6 shadow-2xl backdrop-blur-sm">
         <div className="mb-5 flex flex-col gap-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#89b4fa]">
             Guided Empty State
@@ -2211,6 +2343,20 @@ export default function NodeGraphEditor() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [view, setView] = useState<NodeGraphView>({ x: 0, y: 0, zoom: 1 });
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [paletteOpen, setPaletteOpen] = useState(() => window.innerWidth >= 1100);
+  const [contextOpen, setContextOpen] = useState(() => window.innerWidth >= 1440);
+  // PLAT07: explicit choice is remembered; without one, large graphs show the map.
+  const [minimapPreference, setMinimapPreferenceState] = useState<boolean | null>(readMinimapPreference);
+  // Auto-open only when the canvas has room; an explicit (remembered) choice always wins.
+  const minimapOpen = minimapPreference ?? (graph.nodes.length >= MINIMAP_AUTO_NODES && canvasSize.width >= MINIMAP_AUTO_MIN_WIDTH);
+  const setMinimapOpen = useCallback((next: boolean | ((open: boolean) => boolean)) => {
+    setMinimapPreferenceState((current) => {
+      const value = typeof next === "function" ? next(current ?? graph.nodes.length >= MINIMAP_AUTO_NODES) : next;
+      try { window.localStorage.setItem(MINIMAP_PREFERENCE_KEY, value ? "open" : "closed"); } catch { /* storage optional */ }
+      return value;
+    });
+  }, [graph.nodes.length]);
+  const initialFocusPendingRef = useRef(false);
   const [guidedCommentary, setGuidedCommentary] = useState<GuidedFlowCommentary | null>(null);
   const [gapFilter, setGapFilter] = useState("");
   const [executionInspectorEnabled, setExecutionInspectorEnabled] = useState(false);
@@ -2267,17 +2413,21 @@ export default function NodeGraphEditor() {
         // Compara na forma canonica (deserializada): o eco do salvamento passa pelo
         // deserializador e nao deve virar um passo falso de historico.
         const current = serializeNodeGraph(deserializeNodeGraph(serializeNodeGraph(currentGraphRef.current)));
-        if (serializeNodeGraph(deserializeNodeGraph(serialized)) !== current) {
+        const canonical = serializeNodeGraph(deserializeNodeGraph(serialized));
+        if (canonical !== current) {
           historyRef.current = recordGraphHistory(historyRef.current, currentGraphRef.current, "Atualizado por outro painel");
           setHistory(historyRef.current);
           hydratingGraphRef.current = true;
           currentGraphRef.current = nextGraph;
           setGraphState(nextGraph);
         }
-        lastPersistedGraphRef.current = serialized;
+        // Canonical form, like the autosave compares: storing the raw scene text
+        // (other key order) made every echo look unsaved and re-commit forever.
+        lastPersistedGraphRef.current = canonical === current ? serializeNodeGraph(currentGraphRef.current) : canonical;
         return;
       }
       hydratedEntityIdRef.current = entityId;
+      initialFocusPendingRef.current = true;
       hydratingGraphRef.current = true;
       currentGraphRef.current = nextGraph;
       setGraphState(nextGraph);
@@ -2337,17 +2487,35 @@ export default function NodeGraphEditor() {
   }, [activeProjectDir, activeSceneSource, selectedEntity]);
 
   useEffect(() => {
+    let previous = { width: 0, height: 0 };
     function measureCanvas() {
       const rect = canvasRef.current?.getBoundingClientRect();
-      setCanvasSize({
-        width: rect?.width ?? 0,
-        height: rect?.height ?? 0,
-      });
+      const next = { width: rect?.width ?? 0, height: rect?.height ?? 0 };
+      if (previous.width === next.width && previous.height === next.height) return;
+      if (previous.width > 0 && previous.height > 0) {
+        const dx = (next.width - previous.width) / 2;
+        const dy = (next.height - previous.height) / 2;
+        setView((current) => ({ ...current, x: current.x + dx, y: current.y + dy }));
+      }
+      previous = next;
+      setCanvasSize(next);
     }
 
     measureCanvas();
-    window.addEventListener("resize", measureCanvas);
-    return () => window.removeEventListener("resize", measureCanvas);
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(measureCanvas) : null;
+    if (canvasRef.current) observer?.observe(canvasRef.current);
+    // Auto-collapse only when the window crosses a breakpoint downward; a rail the
+    // user opened at this width must not close on unrelated resize events (R3-04/JV05).
+    let lastWidth = window.innerWidth;
+    const onResize = () => {
+      const width = window.innerWidth;
+      if (lastWidth >= 1100 && width < 1100) setPaletteOpen(false);
+      if (lastWidth >= 1440 && width < 1440) setContextOpen(false);
+      lastWidth = width;
+      measureCanvas();
+    };
+    window.addEventListener("resize", onResize);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", onResize); };
   }, []);
 
   useEffect(() => {
@@ -2463,6 +2631,14 @@ export default function NodeGraphEditor() {
     [cardMetrics]
   );
 
+  useEffect(() => {
+    if (!initialFocusPendingRef.current || !graph.nodes.length || !canvasSize.width || !canvasSize.height) return;
+    const first = graph.nodes.find((node) => EVENT_NODE_TYPES.includes(node.type)) ?? graph.nodes[0];
+    initialFocusPendingRef.current = false;
+    setSelectedId(first.id);
+    setView(getNodeEditingView({ ...nodeSizeOf(first), x: first.x, y: first.y }, canvasSize));
+  }, [canvasSize, graph.nodes, nodeSizeOf]);
+
   const onCardMeasure = useCallback((nodeId: string, metrics: NodeCardMetrics) => {
     setCardMetrics((current) => {
       const previous = current[nodeId];
@@ -2485,10 +2661,10 @@ export default function NodeGraphEditor() {
     if (spacePressed && e.button === 0) {
       return;
     }
-    e.stopPropagation();
     if (e.button !== 0) {
       return;
     }
+    e.stopPropagation();
     const target = e.target as HTMLElement;
     if (target.classList.contains("cursor-crosshair") || target.closest("input, select, button, textarea")) return;
     let nextSelection: Set<string>;
@@ -2641,6 +2817,7 @@ export default function NodeGraphEditor() {
 
   // ── Connect ports ──────────────────────────────────────────────────────────
   const onPortMouseDown = useCallback((e: React.MouseEvent, nodeId: string, portId: string, isOutput: boolean) => {
+    if (e.button !== 0) return;
     e.stopPropagation();
     if (isOutput) {
       setPendingEdge({ fromNode: nodeId, fromPort: portId, x: e.clientX, y: e.clientY });
@@ -2649,8 +2826,8 @@ export default function NodeGraphEditor() {
   }, []);
 
   const onPortMouseUp = useCallback((e: React.MouseEvent, nodeId: string, portId: string, isOutput: boolean) => {
+    if (e.button !== 0 || !pendingEdge || isOutput) return;
     e.stopPropagation();
-    if (!pendingEdge || isOutput) return;
     connectPorts(pendingEdge.fromNode, pendingEdge.fromPort, nodeId, portId);
     setPendingEdge(null);
     setSnapTarget(null);
@@ -2697,8 +2874,11 @@ export default function NodeGraphEditor() {
       selectedEntityLabel: selectedEntity ? getEntityDisplayName(selectedEntity) : null,
       otherEntityId:
         activeScene?.entities.find((entity) => entity.entity_id !== selectedEntityIdValue)?.entity_id ?? null,
+      visualCameraId: selectedEntity?.components.camera?.visual ? selectedEntity.entity_id
+        : activeScene?.entities.find(e => e.components.camera?.visual?.active)?.entity_id,
+      target: activeTarget,
     };
-  }, [activeScene, selectedEntity]);
+  }, [activeScene, selectedEntity, activeTarget]);
   const graphOriginLabel = selectedEntity?.components.logic?.graph_origin;
   const importedSemantics = selectedEntity?.components.logic?.imported_semantics;
   const importedSemanticsKind = formatImportedSemanticsKind(importedSemantics);
@@ -2802,10 +2982,17 @@ export default function NodeGraphEditor() {
 
   // ── Add node from palette ──────────────────────────────────────────────────
   const addNode = useCallback((type: NodeType) => {
-    const node = makeNode(type, 200, 200);
-    setGraph((g) => ({ ...g, nodes: [...g.nodes, node] }));
+    const current = currentGraphRef.current;
+    const node = makeNode(type, 0, 0);
+    const size = nodeSizeOf(node);
+    const anchor = { x: (canvasSize.width / 2 - view.x) / view.zoom - size.width / 2, y: (canvasSize.height / 2 - view.y) / view.zoom - size.height / 2 };
+    Object.assign(node, findFreeNodePosition(current, size, anchor, { sizeOf: nodeSizeOf, collapsed: collapsedOccupantsRef.current }));
+    setGraph({ ...current, nodes: [...current.nodes, node] }, "Adicionar nó");
+    setSelectedId(node.id);
+    setSelectedIds(new Set([node.id]));
+    setView(getNodeEditingView({ ...size, x: node.x, y: node.y }, canvasSize));
     logMessage("info", `No adicionado: ${getNodeDisplayName(type)}`);
-  }, [logMessage]);
+  }, [canvasSize, logMessage, nodeSizeOf, setGraph, view]);
 
   const applyQuickActionTemplate = useCallback((template: QuickActionTemplate) => {
     const nextGraph = template.buildGraph(quickActionContext);
@@ -3114,7 +3301,7 @@ export default function NodeGraphEditor() {
 
   const organizeGraph = useCallback((scope: "all" | "selection") => {
     const current = currentGraphRef.current;
-    const selection = [...selectedIds];
+    const selection = selectedIds.size ? [...selectedIds] : selectedId ? [selectedId] : [];
     if (scope === "selection" && selection.length === 0) {
       logMessage("warn", "[NodeGraph] Selecione nos (Shift+clique ou 'Selecionar comportamento') para organizar a selecao.");
       return;
@@ -3136,12 +3323,13 @@ export default function NodeGraphEditor() {
     if (result.movedNodeIds.length > 0) {
       setGraph(result.graph, scope === "all" ? "Organizar tudo" : "Organizar selecao");
     }
-    if (scope === "all") fitViewTo(result.graph.nodes);
+    const focus = result.graph.nodes.find((node) => node.id === selectedId) ?? result.graph.nodes[0];
+    if (focus && canvasSize.width && canvasSize.height) setView(getNodeEditingView({ ...nodeSizeOf(focus), x: focus.x, y: focus.y }, canvasSize));
     logMessage(
       result.conflicts.length ? "warn" : "info",
       `[NodeGraph] Organizar ${scope === "all" ? "tudo" : "selecao"}: ${result.movedNodeIds.length} no(s) movido(s) em ${ms} ms, ${overlaps} sobreposicao(oes), ${result.conflicts.length} conflito(s). Conexoes e parametros intactos.`
     );
-  }, [fitViewTo, logMessage, nodeSizeOf, selectedIds, setGraph]);
+  }, [canvasSize, logMessage, nodeSizeOf, selectedId, selectedIds, setGraph]);
 
   const selectionIds = useMemo(
     () => (selectedIds.size > 0 ? [...selectedIds] : selectedId ? [selectedId] : []),
@@ -3301,6 +3489,23 @@ export default function NodeGraphEditor() {
     setSelectedId(nodeIds[0] ?? null);
     fitViewTo(current.nodes.filter((node) => nodeIds.includes(node.id) && !hiddenNodeIdsRef.current.has(node.id)));
   }, [fitViewTo]);
+  // R3-06: "Ver origem" may target another object's graph; focus once that graph is loaded.
+  const pendingFocusRef = useRef<{ entityId: string; nodeId: string } | null>(null);
+  const goToTransitionOrigin = useCallback((entityId: string, nodeId: string) => {
+    if (selectedEntity?.entity_id === entityId) {
+      showNodes([nodeId]);
+      return;
+    }
+    pendingFocusRef.current = { entityId, nodeId };
+    setSelectedEntityId(entityId);
+  }, [selectedEntity?.entity_id, setSelectedEntityId, showNodes]);
+  useEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (!pending || selectedEntity?.entity_id !== pending.entityId) return;
+    if (!graph.nodes.some((node) => node.id === pending.nodeId)) return;
+    pendingFocusRef.current = null;
+    showNodes([pending.nodeId]);
+  }, [graph.nodes, selectedEntity?.entity_id, showNodes]);
 
   // ── Navegacao por entidade ──────────────────────────────────────────────────
   const sceneEntityIds = useMemo(() => (activeScene?.entities ?? []).map((entity) => entity.entity_id), [activeScene?.entities]);
@@ -3390,7 +3595,7 @@ export default function NodeGraphEditor() {
   ]);
 
   const focusNode = useCallback((nodeId: string) => {
-    const targetNode = graph.nodes.find((node) => node.id === nodeId);
+    const targetNode = currentGraphRef.current.nodes.find((node) => node.id === nodeId);
     if (!targetNode) {
       return;
     }
@@ -3399,16 +3604,11 @@ export default function NodeGraphEditor() {
     const width = rect?.width ?? canvasSize.width;
     const height = rect?.height ?? canvasSize.height;
 
-    const desiredX = Math.max(FOCUS_PADDING, width / 2 - NODE_CARD_WIDTH / 2);
-    const desiredY = Math.max(FOCUS_PADDING, height / 2 - NODE_CARD_HEIGHT / 2);
-
-    setView((current) => ({
-      ...current,
-      x: desiredX - targetNode.x * current.zoom,
-      y: desiredY - targetNode.y * current.zoom,
-    }));
+    const group = graph.groups?.find((item) => item.collapsed && item.nodeIds.includes(nodeId));
+    if (group) setGraph((current) => ({ ...current, groups: current.groups?.map((item) => item.id === group.id ? { ...item, collapsed: false } : item) }), "Revelar grupo");
+    setView(getNodeEditingView({ ...nodeSizeOf(targetNode), x: targetNode.x, y: targetNode.y }, { width, height }));
     setSelectedId(nodeId);
-  }, [canvasSize.height, canvasSize.width, graph.nodes]);
+  }, [canvasSize.height, canvasSize.width, graph.groups, nodeSizeOf, setGraph]);
 
   const focusEntryNode = useCallback(() => {
     const firstEntryNode = graphSummary.entryNodeIds[0];
@@ -3418,7 +3618,9 @@ export default function NodeGraphEditor() {
     focusNode(firstEntryNode);
   }, [focusNode, graphSummary.entryNodeIds]);
 
-  const onParamChange = useCallback((nodeId: string, key: string, value: string | number) => {
+  const [manualAck, setManualAck] = useState<Set<string>>(() => new Set());
+  const [pendingManualEdit, setPendingManualEdit] = useState<{ nodeId: string; key: string; value: string | number; instanceId: string; label: string } | null>(null);
+  const applyParamChange = useCallback((nodeId: string, key: string, value: string | number) => {
     setGraph(
       (currentGraph) => {
         const target = currentGraph.nodes.find((node) => node.id === nodeId);
@@ -3436,6 +3638,14 @@ export default function NodeGraphEditor() {
       `param:${nodeId}:${key}`
     );
   }, [setGraph]);
+  const onParamChange = useCallback((nodeId: string, key: string, value: string | number) => {
+    const owner = needsManualConversion(graph, nodeId, manualAck);
+    if (owner) {
+      setPendingManualEdit({ nodeId, key, value, instanceId: owner.id, label: owner.label });
+      return;
+    }
+    applyParamChange(nodeId, key, value);
+  }, [applyParamChange, graph, manualAck]);
 
   const focusFirstDisconnectedNode = useCallback(() => {
     const firstDisconnectedNode = graphSummary.disconnectedNodeIds[0];
@@ -3494,7 +3704,8 @@ export default function NodeGraphEditor() {
       {/* ── Palette sidebar ── */}
       <div
         data-testid="nodegraph-side-rail"
-        className="flex w-40 shrink-0 flex-col overflow-x-hidden border-r border-[#313244] bg-[#181825]"
+        hidden={!paletteOpen}
+        className={`${paletteOpen ? "flex" : "hidden"} w-40 shrink-0 flex-col overflow-x-hidden border-r border-[#313244] bg-[#181825]`}
       >
         <div className="shrink-0 border-b border-[#313244] p-2">
           <div className="relative">
@@ -3530,8 +3741,9 @@ export default function NodeGraphEditor() {
                     <button
                       key={type}
                       className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[11px] text-[#a6adc8] transition-colors hover:bg-[#313244] hover:text-[#cdd6f4] disabled:cursor-not-allowed disabled:opacity-40"
-                      onMouseDown={() => addNode(type)}
-                      disabled={!selectedEntity}
+                      onClick={() => addNode(type)}
+                      data-testid={`nodegraph-add-${type}`}
+                      disabled={!selectedEntity || type === "camera_bounds"}
                       title={`${getNodeCategory(type).label}: ${getNodeCatalogEntry(type).description}`}
                     >
                       <span className="opacity-80" style={{ color: getNodeCategory(type).color }}>
@@ -3589,17 +3801,20 @@ export default function NodeGraphEditor() {
           data-zoom={view.zoom.toFixed(3)}
           aria-hidden="true"
           className="pointer-events-none absolute inset-y-0 left-0 z-0"
-          style={{ right: selectedEntity ? 288 : 0 }}
+          style={{ right: selectedEntity && contextOpen ? 288 : 0 }}
         />
         {selectedEntity && (
           <div
             data-testid="nodegraph-toolbar"
             role="toolbar"
             aria-label="Organizacao do grafo"
-            className="absolute left-2 top-2 z-30 flex flex-wrap items-center gap-1 rounded-lg border border-[#313244] bg-[#181825]/95 p-1 text-[11px] shadow-lg"
-            style={{ maxWidth: `calc(100% - ${selectedEntity ? 304 : 16}px)` }}
+            className="absolute left-2 top-2 z-30 flex flex-nowrap items-center gap-1 overflow-x-auto whitespace-nowrap rounded-lg border border-[#313244] bg-[#181825]/95 p-1 text-xs shadow-lg [&>button]:min-h-8 [&>button]:shrink-0"
+            style={{ maxWidth: `calc(100% - ${selectedEntity && contextOpen ? 304 : 16}px)` }}
             onMouseDown={(event) => event.stopPropagation()}
           >
+            <GraphScopeChip entityId={selectedEntity.entity_id} hydrated={graph.nodes.length > 0 || !selectedEntity.components.logic?.graph_ref} />
+            <button type="button" aria-expanded={paletteOpen} onClick={() => { setPaletteOpen((open) => !open); if (window.innerWidth < 1100) setContextOpen(false); }} className="rounded px-2 py-1 text-[#cdd6f4]">Nós</button>
+            <button type="button" aria-expanded={contextOpen} data-testid="nodegraph-toggle-context" onClick={() => { setContextOpen((open) => !open); if (window.innerWidth < 1100) setPaletteOpen(false); }} className="rounded px-2 py-1 text-[#cdd6f4]">Comportamentos</button>
             <button type="button" data-testid="nodegraph-undo" onClick={undoGraph} disabled={history.past.length === 0}
               title={history.past.length ? `Desfazer: ${history.past[history.past.length - 1].label} (Ctrl+Z)` : "Nada para desfazer"}
               className="flex items-center gap-1 rounded px-2 py-1 text-[#cdd6f4] hover:bg-[#313244] disabled:opacity-40">
@@ -3610,7 +3825,18 @@ export default function NodeGraphEditor() {
               className="flex items-center gap-1 rounded px-2 py-1 text-[#cdd6f4] hover:bg-[#313244] disabled:opacity-40">
               <Icon name="redo" size={14} /> Refazer
             </button>
-            <span className="mx-1 h-4 w-px bg-[#313244]" aria-hidden="true" />
+            <button type="button" data-testid="nodegraph-fit-view" onClick={() => fitViewTo(graph.nodes.filter((node) => !hiddenNodeIds.has(node.id)))} disabled={graph.nodes.length === 0}
+              title="Mostra o grafo inteiro. Escolha um nó para voltar à escala de edição."
+              className="rounded px-2 py-1 text-[#cdd6f4] hover:bg-[#313244] disabled:opacity-40">Visão geral</button>
+            <button type="button" aria-expanded={minimapOpen} aria-pressed={minimapOpen} data-testid="nodegraph-toggle-minimap" onClick={() => setMinimapOpen((open) => !open)}
+              title={minimapOpen ? "Recolher o minimapa (preferência lembrada)" : "Mostrar o minimapa do grafo (preferência lembrada)"}
+              className={`rounded px-2 py-1 hover:bg-[#313244] ${minimapOpen ? "bg-[#313244] text-[#89b4fa]" : "text-[#cdd6f4]"}`}>Minimapa</button>
+            <button type="button" data-testid="nodegraph-more-actions" popoverTarget="nodegraph-visual-tools" className="rounded border border-[#45475a] px-2 py-1 text-[#cdd6f4]">Mais ações</button>
+            <div id="nodegraph-visual-tools" data-testid="nodegraph-visual-tools" popover="auto"
+              className="fixed left-4 top-24 m-0 max-h-[calc(100vh-120px)] w-[min(480px,calc(100vw-32px))] overflow-y-auto rounded-lg border border-[#313244] bg-[var(--rds-surface-panel)] p-3 text-xs text-[var(--rds-text-primary)] shadow-xl"
+              onClick={(event) => { if ((event.target as Element).closest("button")) event.currentTarget.hidePopover?.(); }}
+              onWheel={(event) => event.stopPropagation()}>
+            <div className="flex flex-wrap items-center gap-2 [&>button]:min-h-8">
             <button type="button" data-testid="nodegraph-organize-all" onClick={() => organizeGraph("all")} disabled={graph.nodes.length === 0}
               title="Organizar visualmente: so muda posicoes, segue as conexoes e nunca cria ou remove ligacoes. Nos fixados ficam parados."
               className="flex items-center gap-1 rounded border border-[#89b4fa]/40 bg-[#89b4fa]/10 px-2 py-1 font-semibold text-[#89b4fa] hover:bg-[#89b4fa]/20 disabled:opacity-40">
@@ -3620,11 +3846,6 @@ export default function NodeGraphEditor() {
               title="Organiza so os nos selecionados; o resto nao se move."
               className="rounded border border-[#89b4fa]/40 px-2 py-1 text-[#89b4fa] hover:bg-[#89b4fa]/20 disabled:opacity-40">
               Organizar selecao
-            </button>
-            <button type="button" data-testid="nodegraph-fit-view" onClick={() => fitViewTo(graph.nodes.filter((node) => !hiddenNodeIds.has(node.id)))} disabled={graph.nodes.length === 0}
-              title="Enquadrar: mostra o grafo inteiro (so a vista; nada muda no grafo)."
-              className="rounded px-2 py-1 text-[#cdd6f4] hover:bg-[#313244] disabled:opacity-40">
-              Enquadrar
             </button>
             <button type="button" data-testid="nodegraph-select-behavior" onClick={() => selectBehavior()} disabled={!selectedId}
               title="Seleciona todos os nos ligados ao no atual (um comportamento)."
@@ -3645,20 +3866,45 @@ export default function NodeGraphEditor() {
             <span data-testid="nodegraph-selection-count" className="px-1 text-[10px] text-[#6c7086]">
               {selectionIds.length > 0 ? `${selectionIds.length} selecionado(s)` : "Shift+clique seleciona varios"} · {Math.round(view.zoom * 100)}%
             </span>
+            </div>
+            </div>
           </div>
         )}
         {!selectedEntity && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#11111b]/80">
-            <p className="max-w-xs text-center text-xs text-[#6c7086]">
-              Selecione uma entidade na hierarquia para carregar ou criar o `LogicComponent.graph`.
-            </p>
+          <div className="absolute inset-0 z-10 flex items-center justify-center overflow-y-auto bg-[#11111b]/90 p-4">
+            <section data-testid="nodegraph-object-list" aria-labelledby="nodegraph-object-list-title" className="w-full max-w-md rounded-lg border border-[#313244] bg-[#181825] p-3 text-xs text-[#cdd6f4]">
+              <h3 id="nodegraph-object-list-title" className="text-sm font-semibold">Comportamentos da cena</h3>
+              <p className="mt-1 text-[11px] text-[#a6adc8]">Escolha um objeto para abrir a lógica dele.</p>
+              <ul className="mt-2 space-y-1">
+                {(activeScene?.entities ?? []).map((entity) => {
+                  const embedded = deserializeNodeGraph(entity.components.logic?.graph).nodes.length;
+                  const resolved = resolvedSceneGraphs[entity.entity_id]?.nodes.length ?? 0;
+                  const ref = entity.components.logic?.graph_ref;
+                  const count = embedded || resolved;
+                  const state = count ? `${count} nós` : ref ? `lógica em arquivo (${ref})` : entity.components.camera ? "câmera por configuração, sem nós" : "sem comportamento";
+                  const kind = count || ref ? "open" : entity.components.camera ? "camera" : "create";
+                  return (
+                    <li key={entity.entity_id}>
+                      <button type="button" data-testid={`nodegraph-object-${entity.entity_id}`} data-state={kind}
+                        onClick={() => setSelectedEntityId(entity.entity_id)}
+                        className="flex w-full items-center justify-between gap-2 rounded border border-[#313244] px-2 py-1.5 text-left hover:border-[#89b4fa]">
+                        <span className="min-w-0 truncate font-semibold">{getEntityDisplayName(entity)}</span>
+                        <span className={`shrink-0 text-[10px] ${kind === "create" ? "text-[#6c7086]" : "text-[#94e2d5]"}`}>{state}{kind === "create" ? " · criar" : ""}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {!activeScene?.entities.length ? <p className="mt-2 text-[#6c7086]">A cena ainda não tem objetos.</p> : null}
+            </section>
           </div>
         )}
 
         {selectedEntity && (
           <aside
             data-testid="nodegraph-context-rail"
-            className="absolute inset-y-0 right-0 z-20 flex w-72 flex-col overflow-hidden border-l border-[#313244] bg-[#181825]/95 shadow-[-18px_0_40px_rgba(0,0,0,0.24)] backdrop-blur-sm"
+            hidden={!contextOpen}
+            className={`absolute inset-y-0 right-0 z-20 ${contextOpen ? "flex" : "hidden"} w-72 flex-col overflow-hidden border-l border-[#313244] bg-[#181825]/95 shadow-[-18px_0_40px_rgba(0,0,0,0.24)] backdrop-blur-sm`}
             onMouseDown={(event) => event.stopPropagation()}
             onWheel={(event) => event.stopPropagation()}
           >
@@ -3669,7 +3915,7 @@ export default function NodeGraphEditor() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.16em] text-[#89b4fa]">
-                  Logic Context
+                  Comportamentos do objeto
                 </p>
                 <label className="block">
                   <span className="sr-only">Editar logica de</span>
@@ -3733,14 +3979,28 @@ export default function NodeGraphEditor() {
                       : "Sem fonte rastreavel: navegue pelo Inspector se houver contexto externo."}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  data-testid="nodegraph-bridge-back-scene"
-                  onClick={handleFocusSelectedEntityInScene}
-                  className="shrink-0 rounded border border-[#94e2d5]/40 bg-[#94e2d5]/10 px-2 py-1 text-[9px] font-semibold text-[#94e2d5] transition-colors hover:bg-[#94e2d5]/20"
-                >
-                  Focar objeto
-                </button>
+                <div className="flex shrink-0 flex-col gap-1">
+                  <button
+                    type="button"
+                    data-testid="nodegraph-bridge-back-scene"
+                    onClick={handleFocusSelectedEntityInScene}
+                    className="rounded border border-[#94e2d5]/40 bg-[#94e2d5]/10 px-2 py-1 text-[9px] font-semibold text-[#94e2d5] transition-colors hover:bg-[#94e2d5]/20"
+                  >
+                    Ver na Cena
+                  </button>
+                  {selectedEntity.components?.sprite ? (
+                    <button
+                      type="button"
+                      data-testid="nodegraph-bridge-open-art"
+                      onClick={() =>
+                        useEditorStore.getState().openStudioEditor({ focus: { task: "character", entityId: selectedEntity.entity_id } })
+                      }
+                      className="rounded border border-[#f9e2af]/40 bg-[#f9e2af]/10 px-2 py-1 text-[9px] font-semibold text-[#f9e2af] transition-colors hover:bg-[#f9e2af]/20"
+                    >
+                      Arte e animação
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -3885,6 +4145,7 @@ export default function NodeGraphEditor() {
               }}
               onShowInstance={showNodes}
             />
+            <TransitionsPanel projectDir={activeProjectDir} onShowOrigin={goToTransitionOrigin} />
             {collapsedCoverage.length > 0 && (
               <div data-testid="nodegraph-collapsed-overlap" className="rounded border border-[#fab387]/50 bg-[#fab387]/10 px-2 py-1.5 text-[10px] text-[#fab387]">
                 {collapsedCoverage.slice(0, 4).map((item) => (
@@ -4352,7 +4613,7 @@ export default function NodeGraphEditor() {
                 width: box.width * view.zoom,
                 height: box.height * view.zoom,
                 borderColor: `${box.color}66`,
-                backgroundColor: box.collapsed ? "#181825f2" : `${box.color}10`,
+                backgroundColor: box.collapsed ? "var(--rds-surface-panel)" : `${box.color}10`,
                 // Recolhido fica abaixo dos cartoes: nunca encobre controles de outros nos.
                 zIndex: box.collapsed ? 1 : 0,
                 pointerEvents: "none",
@@ -4464,7 +4725,7 @@ export default function NodeGraphEditor() {
                       fontSize={Math.max(8, 10 * view.zoom)}
                       fontWeight={700}
                     >
-                      {kind === "true" ? "Sim" : "Nao"}
+                      {kind === "true" ? "Sim" : "Não"}
                     </text>
                   ) : null}
                 </g>
@@ -4495,6 +4756,44 @@ export default function NodeGraphEditor() {
           })()}
         </svg>
 
+        {pendingManualEdit && (
+          <div
+            role="alertdialog"
+            aria-labelledby="nodegraph-manual-convert-title"
+            data-testid="nodegraph-manual-convert"
+            onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setPendingManualEdit(null); } }}
+            className="absolute left-1/2 top-24 z-40 w-[min(30rem,calc(100%-2rem))] -translate-x-1/2 rounded border border-[#fab387]/60 bg-[#181825] px-3 py-2 text-[11px] text-[#cdd6f4] shadow-xl"
+          >
+            <p id="nodegraph-manual-convert-title" className="font-semibold text-[#fab387]">Personalizar nos nós?</p>
+            <p className="mt-1 text-[#a6adc8]">
+              Este nó foi gerado por «{pendingManualEdit.label}». Editá-lo aqui marca o comportamento como personalizado; depois, editar pelo formulário pedirá decisão sobre esta mudança. Desfazer reverte.
+            </p>
+            <div className="mt-2 flex justify-end gap-2">
+              <button
+                type="button"
+                data-testid="nodegraph-manual-convert-cancel"
+                autoFocus
+                onClick={() => setPendingManualEdit(null)}
+                className="rounded px-2 py-1 text-[#a6adc8] hover:bg-[#313244]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                data-testid="nodegraph-manual-convert-confirm"
+                onClick={() => {
+                  const pending = pendingManualEdit;
+                  setManualAck((current) => new Set(current).add(pending.instanceId));
+                  setPendingManualEdit(null);
+                  applyParamChange(pending.nodeId, pending.key, pending.value);
+                }}
+                className="rounded border border-[#fab387]/60 px-2 py-1 font-semibold text-[#fab387] hover:bg-[#fab387]/10"
+              >
+                Personalizar
+              </button>
+            </div>
+          </div>
+        )}
         {pendingEdge && (
           <div
             data-testid="nodegraph-connect-hint"
@@ -4512,6 +4811,10 @@ export default function NodeGraphEditor() {
             <NodeCard
               key={node.id}
               node={node}
+              behaviorOrigin={(() => {
+                const owner = behaviorOwnerOfNode(graph, node.id);
+                return owner ? { label: owner.label, edited: owner.generated[node.id] !== undefined && owner.generated[node.id] !== nodeSignature(node) } : undefined;
+              })()}
               screenX={node.x * view.zoom + view.x}
               screenY={node.y * view.zoom + view.y}
               zoom={view.zoom}
@@ -4519,6 +4822,7 @@ export default function NodeGraphEditor() {
               executionReachable={reachableExecutionNodeIds.has(node.id)}
               entity={nodeCardEntity(node)}
               projectDir={activeProjectDir}
+              sfx={sceneSfx}
               detailsOpen={openDetails.has(node.id)}
               snapPortKey={snapTarget?.nodeId === node.id ? `in:${snapTarget.portId}` : null}
               compatiblePortIds={
@@ -4539,11 +4843,15 @@ export default function NodeGraphEditor() {
         {selectedEntity && graph.nodes.length > 0 && (
           <div
             data-testid="nodegraph-minimap"
-            className="absolute bottom-3 right-3 z-10 rounded-xl border border-[#313244] bg-[#181825]/95 p-2 shadow-lg backdrop-blur-sm"
+            hidden={!minimapOpen}
+            style={{ right: selectedEntity && contextOpen ? 300 : 12 }}
+            className={`${minimapOpen ? "block" : "hidden"} absolute bottom-3 right-3 z-10 rounded-xl border border-[#313244] bg-[#181825]/95 p-2 shadow-lg backdrop-blur-sm`}
           >
             <div className="mb-2 flex items-center justify-between gap-3 text-[9px] uppercase tracking-[0.16em] text-[#6c7086]">
-              <span>MiniMapa</span>
-              <span>{graph.nodes.length} nos</span>
+              <span>Minimapa</span>
+              <span>{graph.nodes.length} nós</span>
+              <button type="button" data-testid="nodegraph-minimap-close" aria-label="Recolher minimapa" onClick={() => setMinimapOpen(false)}
+                className="rounded px-1 text-[11px] normal-case tracking-normal text-[#cdd6f4] hover:bg-[#313244]">Recolher</button>
             </div>
             <div
               className="relative overflow-hidden rounded border border-[#313244] bg-[#0b1020]"
@@ -4628,6 +4936,82 @@ export default function NodeGraphEditor() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** R3-04: graph source/scope chip; same resolution the Inspector reads from the scene. */
+function GraphScopeChip({ entityId, hydrated }: { entityId: string; hydrated: boolean }) {
+  const source = useEditorStore((state) => state.activeSceneSource);
+  const resolved = useEditorStore((state) => state.activeScene);
+  const scope = resolveGraphScope(source, resolved, entityId, hydrated);
+  const text = describeGraphScope(scope);
+  const shared = scope.kind === "shared_file" || scope.kind === "inherited";
+  const warn = scope.kind === "unavailable" || (shared && scope.usersInScene.length > 1);
+  return (
+    <span
+      data-testid="nodegraph-scope"
+      data-scope={scope.kind}
+      title={shared ? `${text}. Editar aqui altera todos os usos deste arquivo (nesta cena: ${scope.usersInScene.join(", ")}); outras cenas não são verificadas aqui.` : text}
+      className={`mr-1 max-w-[16rem] shrink-0 truncate rounded border px-1.5 py-0.5 text-[10px] ${warn ? "border-[#fab387]/60 text-[#fab387]" : "border-[#45475a] text-[#a6adc8]"}`}
+    >
+      {text}
+    </span>
+  );
+}
+
+/** R3-06: declared scene transitions (read-only projection; T5: not executed in the ROM). */
+function TransitionsPanel({ projectDir, onShowOrigin }: { projectDir: string | null; onShowOrigin: (entityId: string, nodeId: string) => void }) {
+  const scene = useEditorStore((state) => state.activeScene);
+  const [known, setKnown] = useState<string[] | null>(null);
+  const [query, setQuery] = useState("");
+  const hasTransitions = collectDeclaredTransitions(scene, []).length > 0;
+  useEffect(() => {
+    let alive = true;
+    // Only ask the backend for the scene catalog when there is something to resolve.
+    if (!projectDir || !hasTransitions) { setKnown(null); return; }
+    listScenes(projectDir)
+      .then((scenes) => { if (alive) setKnown(scenes.flatMap((info) => [info.path, info.scene_id, info.display_name])); })
+      .catch(() => { if (alive) setKnown(null); });
+    return () => { alive = false; };
+  }, [projectDir, hasTransitions]);
+  const all = collectDeclaredTransitions(scene, known ?? []);
+  if (all.length === 0) return null;
+  const shown = searchTransitions(all, query);
+  const status = (t: (typeof all)[number]) =>
+    t.targetStatus === "unknown" ? "destino não definido" : known === null ? `→ ${t.target}` : t.targetStatus === "missing" ? `→ ${t.target} (cena não encontrada)` : `→ ${t.target}`;
+  return (
+    <div data-testid="nodegraph-transitions" className="rounded border border-[#313244] bg-[#11111b] px-2 py-1.5 text-[10px] text-[#cdd6f4]">
+      <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[#a6adc8]">Transições declaradas ({all.length})</p>
+      <p className="mt-0.5 text-[9px] text-[#fab387]">Ainda sem execução na ROM: a partida fica na cena de entrada.</p>
+      <input
+        type="search"
+        data-testid="nodegraph-transitions-search"
+        aria-label="Buscar transição por objeto, nó ou cena"
+        placeholder="Buscar objeto, nó ou cena"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        className="mt-1 w-full rounded border border-[#313244] bg-[#1e1e2e] px-1.5 py-0.5 text-[10px] text-[#cdd6f4]"
+      />
+      <ul className="mt-1 space-y-0.5">
+        {shown.map((t) => (
+          <li key={t.ref} data-testid={`nodegraph-transition-${t.ref}`} className="flex items-center gap-1">
+            <span className="min-w-0 flex-1 truncate" title={`${t.ownerLabel} · nó ${t.nodeId} · ${status(t)}`}>
+              <span className="font-semibold">{t.ownerLabel}</span> <span className="font-mono text-[#7f849c]">{t.nodeId}</span> {status(t)}
+            </span>
+            <button
+              type="button"
+              data-testid={`nodegraph-transition-origin-${t.ref}`}
+              onClick={() => onShowOrigin(t.ownerEntityId, t.nodeId)}
+              aria-label={`Ver origem: nó ${t.nodeId} de ${t.ownerLabel}`}
+              className="shrink-0 rounded px-1 text-[#89b4fa] hover:bg-[#313244] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#89b4fa]"
+            >
+              Ver origem
+            </button>
+          </li>
+        ))}
+        {shown.length === 0 ? <li className="text-[#7f849c]">Nenhuma transição corresponde à busca.</li> : null}
+      </ul>
     </div>
   );
 }

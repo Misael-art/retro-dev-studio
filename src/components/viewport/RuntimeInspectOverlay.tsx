@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getEntityDisplayName } from "../../core/entityDisplay";
-import { emulatorReadMemory } from "../../core/ipc/emulatorService";
+import { readRuntimeWord, sampleRuntimeEntities } from "../../core/runtimeSample";
 import {
   audioEventRow,
   checkRuntimeNavigation,
@@ -14,8 +14,6 @@ import {
   type InspectLayer,
   type PausedFrameIdentity,
   type RuntimeCandidate,
-  type RuntimeEntitySample,
-  type RuntimeLink,
 } from "../../core/runtimeLink";
 import { useEditorStore } from "../../core/store/editorStore";
 import { readProjectAssetBytes, rexProfileLocate } from "../../core/ipc/toolsService";
@@ -31,30 +29,6 @@ const LAYER_LABEL: Record<InspectLayer, string> = {
   collisions: "Colisões",
   audio: "Áudio",
 };
-
-/** Lê uma palavra de 16 bits da System RAM (sonda de observação; não altera o jogo). */
-async function readWord(address: number, signed: boolean): Promise<number> {
-  const result = await emulatorReadMemory(2, address & 0xffff, 2);
-  if (!result.ok || !result.data || result.data.length < 2) {
-    throw new Error(`Leitura de RAM falhou em ${address.toString(16)}`);
-  }
-  const word = result.data[0] | (result.data[1] << 8);
-  return signed && word > 0x7fff ? word - 0x10000 : word;
-}
-
-async function sampleEntities(link: RuntimeLink): Promise<RuntimeEntitySample[]> {
-  const out: RuntimeEntitySample[] = [];
-  for (const entity of link.entities) {
-    out.push({
-      entity_id: entity.entity_id,
-      x: await readWord(entity.symbols.x, true),
-      y: await readWord(entity.symbols.y, true),
-      anim: entity.symbols.anim !== null ? await readWord(entity.symbols.anim, false) : null,
-      frame: entity.symbols.frame !== null ? await readWord(entity.symbols.frame, false) : null,
-    });
-  }
-  return out;
-}
 
 /**
  * Modo Inspecionar (Experimental): no teste pausado, destaca o que o build vinculou (cenário azul,
@@ -115,9 +89,9 @@ export default function RuntimeInspectOverlay({
     let cancelled = false;
     const at: PausedFrameIdentity = { romSha256, coreEpoch, renderedFrames };
     void (async () => {
-      const samples = await sampleEntities(link);
+      const samples = await sampleRuntimeEntities(link);
       const camera = link.camera
-        ? { x: await readWord(link.camera.x, true), y: await readWord(link.camera.y, true) }
+        ? { x: await readRuntimeWord(link.camera.x, true), y: await readRuntimeWord(link.camera.y, true) }
         : { x: 0, y: 0 };
       const audio: AudioEventRow[] = [];
       for (const entity of link.entities) {
@@ -125,9 +99,9 @@ export default function RuntimeInspectOverlay({
         audio.push(
           audioEventRow(
             entity,
-            await readWord(entity.event_symbols.last_anim, false),
-            await readWord(entity.event_symbols.fired, false),
-            await readWord(entity.event_symbols.last, false)
+            await readRuntimeWord(entity.event_symbols.last_anim, false),
+            await readRuntimeWord(entity.event_symbols.fired, false),
+            await readRuntimeWord(entity.event_symbols.last, false)
           )
         );
       }

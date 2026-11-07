@@ -190,15 +190,25 @@ export function resolveSceneWorkspaceContext(options: {
   }
 
   if (isImportedProject) {
+    const isCodeOnly = spriteCount === 0 && tilemapCount === 0 && Boolean(scene?.entities.some(entity => entity.components.logic?.imported_semantics?.audit_flags?.includes("code_only_donor")));
+    const isTilesetBank = Boolean(
+      focusEntity?.components.logic?.logic_hints?.includes("sgdk_import:tileset_bank")
+    );
     return {
-      eyebrow: "Cena importada",
-      title: hasAuthoringContent
+      eyebrow: isTilesetBank ? "Recursos importados" : "Cena importada",
+      title: isCodeOnly ? "Projeto sem imagens externas" : isTilesetBank
+        ? "Banco de peças gráficas"
+        : hasAuthoringContent
         ? "Cena importada pronta para autoria"
         : "Cena importada aberta sem entidade visual pronta",
-      summary: hasAuthoringContent
+      summary: isCodeOnly ? "Este projeto gera seu visual no código. Não existem arquivos de imagem declarados para montar nesta cena." : isTilesetBank
+        ? "Este recurso contém as peças usadas para construir imagens. A faixa de tiles é a organização do arquivo de origem."
+        : hasAuthoringContent
         ? `Voce ja esta na cena '${activeSceneLabel}'. Hierarchy, Inspector, viewport e Asset Browser estao alinhados para continuar a edicao sem descoberta por tentativa.`
         : `A cena '${activeSceneLabel}' foi aberta e o shell ja ficou na superficie certa, mas ainda falta um alvo visual claro para continuar a autoria.`,
-      detail: hasAuthoringContent
+      detail: isCodeOnly ? "Consulte a origem em Arquivos e a referência em Lógica. A lógica importada continua como ponte Experimental; o visual do jogo original não foi reconstruído." : isTilesetBank
+        ? "No seletor Cena, escolha uma imagem montada para editar. Use este banco para pintar com as peças; posições e combinações definidas no código do jogo ainda precisam de montagem."
+        : hasAuthoringContent
         ? `Ponto de partida: ${focusCheckpoint.toLowerCase()}. Use o Asset Browser para ampliar a cena com o mesmo contrato de sprite/tilemap visto no Inspector e no viewport.`
         : "Use Asset Browser para instanciar sprite ou tilemap, ou crie um Sprite Inicial pela Hierarchy para sair do estado vazio com contexto.",
       checkpoints: [
@@ -207,8 +217,8 @@ export function resolveSceneWorkspaceContext(options: {
         `Tilemaps: ${tilemapCount}`,
         focusCheckpoint,
       ],
-      tone: hasAuthoringContent ? "success" : "info",
-      sourceBadgeLabel: "Cena importada",
+      tone: isCodeOnly ? "warn" : hasAuthoringContent && !isTilesetBank ? "success" : "info",
+      sourceBadgeLabel: isTilesetBank ? "Banco de peças" : "Cena importada",
       activeSceneLabel,
       activeScenePath,
       focusEntityId: focusEntity?.entity_id ?? null,

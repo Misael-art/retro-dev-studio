@@ -1,5 +1,7 @@
 # Continuity after host reinstall
 
+**2026-10-24 addendum:** start with [NOVO_HOST_INICIO.md](NOVO_HOST_INICIO.md), the managed launcher and the [updated assessment](REAVALIACAO_PRODUTO_2026-10-24.md). Later audit lots include successful build/run/export (LOT028), although the 16 journeys remain partial and human usability has not been tested. Read the migration snapshot below as historical; its initial audit summary is superseded by this addendum. The new launcher PR is based on recovery checkpoint `95d5ef23`; it does not merge research branches or certify the reinstalled OS.
+
 This recovery branch is a source snapshot of `a8550af0e0bdd74c44478f94d301576b988747a1` on the existing public recovery base `a2f87d86f5591724464250bcebe13266c743e210`. It does not merge, release or promote the product. Runtime source trees (src, src-tauri, crates and scripts) are byte-identical to the local Studio checkpoint. The original worktree and its branch were not rewritten.
 
 The full local Git history, uncommitted overlays, project data, audit gallery and agent context are preserved separately in the operator's private preformat bundle. New binary captures/dumps/patch evidence is deliberately not published here; see PREFORMAT-PRIVATE-ARTIFACTS-2026-10-21.json for exact paths and hashes. Authored test ROM fixtures remain project fixtures; personal ROM collections are operator-managed and were neither copied nor deleted by this task.

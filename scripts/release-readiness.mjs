@@ -10,21 +10,20 @@
  *   node scripts/release-readiness.mjs
  *   node scripts/release-readiness.mjs --run-baseline
  *   node scripts/release-readiness.mjs --run-build portable --run-upstream
- *   node scripts/release-readiness.mjs --run-desktop-e2e --manual-qa-json path.json
+ *   node scripts/release-readiness.mjs --automated-qa-json auto.json --human-qa-json human.json --candidate-app path
  *   node scripts/release-readiness.mjs --strict
  */
 
-import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 import {
   access,
   mkdir,
   readFile,
   readdir,
-  rm,
   stat,
   writeFile,
 } from "node:fs/promises";
@@ -39,8 +38,9 @@ const BUILD_REPORT_PATH = path.join(VALIDATION_DIR, "build-report.json");
 const UPSTREAM_REPORT_PATH = path.join(VALIDATION_DIR, "upstream-validation.json");
 const READINESS_JSON_PATH = path.join(VALIDATION_DIR, "release-readiness.json");
 const READINESS_MD_PATH = path.join(VALIDATION_DIR, "release-readiness.md");
-const DEBUG_EXE_PATH = path.join(CANONICAL_TARGET_DIR, "debug", "retro-dev-studio.exe");
-const RELEASE_EXE_PATH = path.join(CANONICAL_TARGET_DIR, "release", "retro-dev-studio.exe");
+const APP_NAME = process.platform === "win32" ? "retro-dev-studio.exe" : "retro-dev-studio";
+const DEBUG_EXE_PATH = path.join(CANONICAL_TARGET_DIR, "debug", APP_NAME);
+const RELEASE_EXE_PATH = path.join(CANONICAL_TARGET_DIR, "release", APP_NAME);
 const MSI_DIR = path.join(CANONICAL_TARGET_DIR, "release", "bundle", "msi");
 const WEBDRIVER_PATH = path.join(
   repoRoot,
@@ -49,14 +49,6 @@ const WEBDRIVER_PATH = path.join(
   "msedgedriver.exe"
 );
 const QA_DOC_PATH = path.join(repoRoot, "docs", "10_QA_ROTEIRO_RC.md");
-const DEFAULT_CARGO_TARGET_DIR =
-  process.platform === "win32"
-    ? path.join(
-        process.env.LOCALAPPDATA ?? os.tmpdir(),
-        "RetroDevStudio",
-        "cargo-target-shadow"
-      )
-    : path.join(os.tmpdir(), "retrodevstudio-cargo-target");
 
 function cargoBaselineGate(id, label, unixArgs, windowsArgs) {
   if (process.platform === "win32") {
@@ -107,13 +99,15 @@ const BASELINE_GATES = [
   ),
 ];
 
-const MANUAL_QA_BLOCKS = [
+const QA_BLOCKS = [
   { id: "A", name: "Primeiro uso e onboarding" },
   { id: "B", name: "Edicao de cena e camadas" },
   { id: "C", name: "Colisao e pintura" },
   { id: "D", name: "Build e emulacao Mega Drive" },
   { id: "E", name: "Ferramentas e paineis" },
   { id: "F", name: "Persistencia e fechamento" },
+  { id: "G", name: "Importacao SGDK e logica" },
+  { id: "H", name: "Layout e navegacao" },
 ];
 
 const EXPERIMENTAL_SURFACES = [
@@ -133,21 +127,6 @@ const LOCAL_ONLY_STATUS_PATHS = new Set([
   "docs/ESTUDO_FRONTEND_GUI_NAO_CANONICO.md",
 ]);
 
-function shouldResetShadowTargetBeforeBaseline(options) {
-  if (!options.runBaseline || process.platform !== "win32") {
-    return false;
-  }
-
-  if (process.env.CARGO_TARGET_DIR || process.env.RDS_DISABLE_SHADOW_TARGET_RESET === "1") {
-    return false;
-  }
-
-  return (
-    path.basename(DEFAULT_CARGO_TARGET_DIR).toLowerCase() === "cargo-target-shadow" &&
-    BASELINE_GATES.some((gate) => gate.useCargoTargetDir)
-  );
-}
-
 function npmCommand() {
   return process.platform === "win32" ? "npm.cmd" : "npm";
 }
@@ -160,14 +139,16 @@ function powershellCommand() {
   return process.platform === "win32" ? "powershell.exe" : "pwsh";
 }
 
-function parseArgs(argv) {
+export function parseArgs(argv) {
   const options = {
     runBaseline: false,
     runUpstream: false,
     runDesktopE2E: false,
     runBuildMode: null,
     strict: false,
-    manualQaJson: null,
+    automatedQaJson: null,
+    humanQaJson: null,
+    candidateApp: DEBUG_EXE_PATH,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -185,11 +166,21 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg.startsWith("--run-build=")) {
       options.runBuildMode = arg.slice("--run-build=".length);
-    } else if (arg === "--manual-qa-json") {
-      options.manualQaJson = argv[index + 1] ?? null;
+    } else if (["--automated-qa-json", "--manual-qa-json"].includes(arg)) {
+      // Legacy spelling was used for the automated qa-rc output. It must
+      // never become human approval merely because its filename says manual.
+      options.automatedQaJson = argv[index + 1] ?? null;
       index += 1;
-    } else if (arg.startsWith("--manual-qa-json=")) {
-      options.manualQaJson = arg.slice("--manual-qa-json=".length);
+    } else if (arg.startsWith("--manual-qa-json=") || arg.startsWith("--automated-qa-json=")) {
+      options.automatedQaJson = arg.slice(arg.indexOf("=") + 1);
+    } else if (arg === "--human-qa-json") {
+      options.humanQaJson = argv[++index] ?? null;
+    } else if (arg.startsWith("--human-qa-json=")) {
+      options.humanQaJson = arg.slice("--human-qa-json=".length);
+    } else if (arg === "--candidate-app") {
+      options.candidateApp = argv[++index] ?? null;
+    } else if (arg.startsWith("--candidate-app=")) {
+      options.candidateApp = arg.slice("--candidate-app=".length);
     } else {
       throw new Error(`Argumento desconhecido: ${arg}`);
     }
@@ -230,31 +221,6 @@ async function pathExists(candidatePath) {
   } catch {
     return false;
   }
-}
-
-async function resetShadowTargetCacheIfNeeded(options) {
-  if (!shouldResetShadowTargetBeforeBaseline(options)) {
-    return null;
-  }
-
-  const expectedPath = path.resolve(
-    process.env.LOCALAPPDATA ?? os.tmpdir(),
-    "RetroDevStudio",
-    "cargo-target-shadow"
-  );
-  const resolvedPath = path.resolve(DEFAULT_CARGO_TARGET_DIR);
-  if (resolvedPath !== expectedPath) {
-    throw new Error(
-      `Shadow target inesperado para reset seguro: ${resolvedPath} (esperado: ${expectedPath})`
-    );
-  }
-
-  if (await pathExists(resolvedPath)) {
-    await rm(resolvedPath, { recursive: true, force: true });
-  }
-  await mkdir(resolvedPath, { recursive: true });
-  console.log(`[Release Readiness] Shadow target resetado antes da baseline: ${resolvedPath}`);
-  return resolvedPath;
 }
 
 async function readJsonIfExists(filePath) {
@@ -370,9 +336,8 @@ function spawnAndWait(command, args, options = {}) {
 async function runGate(gate) {
   const startedAt = new Date();
   const env = { ...process.env };
-  if (gate.useCargoTargetDir && !env.CARGO_TARGET_DIR) {
-    env.CARGO_TARGET_DIR = DEFAULT_CARGO_TARGET_DIR;
-  }
+  // Keep the target selected by the host launcher. No private shadow cache
+  // and no implicit deletion of a shared target during a readiness check.
 
   const result = await spawnAndWait(gate.command, gate.args, {
     cwd: gate.cwd ?? repoRoot,
@@ -486,55 +451,65 @@ async function collectGitState() {
   };
 }
 
-function parseAheadBehindCounts(raw) {
-  const [aheadRaw = "0", behindRaw = "0"] = String(raw ?? "")
-    .trim()
-    .split(/\s+/);
-  const ahead = Number.parseInt(aheadRaw, 10);
-  const behind = Number.parseInt(behindRaw, 10);
-
-  return {
-    ahead: Number.isFinite(ahead) ? ahead : 0,
-    behind: Number.isFinite(behind) ? behind : 0,
-  };
+export function parseAheadBehindCounts(raw) {
+  const match = /^(\d+)\s+(\d+)$/.exec(String(raw ?? "").trim());
+  if (!match) return null;
+  const [ahead, behind] = match.slice(1).map(Number);
+  return Number.isSafeInteger(ahead) && Number.isSafeInteger(behind) ? { ahead, behind } : null;
 }
 
-async function loadManualQaStatus(manualQaJsonPath) {
-  const blocks = MANUAL_QA_BLOCKS.map((block) => ({
-    ...block,
-    status: "pending",
-    note: null,
-  }));
+const SHA256 = /^[a-f0-9]{64}$/;
+const COMMIT = /^[a-f0-9]{40}$/;
 
-  if (!manualQaJsonPath) {
-    return { source: null, blocks };
+async function sameProductSource(repository, commit) {
+  if (!repository || repository.dirty !== false || !COMMIT.test(repository.commit ?? "") || !COMMIT.test(commit ?? "")) return false;
+  if (repository.commit === commit) return true;
+  try {
+    // Documentation-only follow-ups can identify the same product and harness.
+    const changed = await gitOutput(["diff", "--name-only", repository.commit, commit, "--"]);
+    return changed.split(/\r?\n/).filter(Boolean).every((file) =>
+      file.startsWith("docs/") || ["README.md", "AGENTS.md", "CLAUDE.md"].includes(file));
+  } catch { return false; }
+}
+
+export function validateQaPayload(payload, { kind, appSha256, sourceVerified = false, harnessSha256 } = {}) {
+  const blocks = QA_BLOCKS.map((block) => ({ ...block, status: "pending", note: null }));
+  const errors = [];
+  const schema = kind === "human" ? "rds-qa-human/v1" : "rds-qa-automation/v1";
+  if (!payload || payload.schema !== schema || payload.kind !== kind) errors.push("Schema/origem de QA ausente, desconhecido ou incompatível.");
+  if (!SHA256.test(appSha256 ?? "") || payload?.candidate?.app_sha256 !== appSha256) errors.push("QA não identifica o candidato solicitado.");
+  if (!sourceVerified) errors.push("Fonte da rodada ausente, modificada ou diferente do candidato atual.");
+  if (parseIsoDate(payload?.generatedAt) === null || Date.parse(payload.generatedAt) > Date.now() + 60000) errors.push("Data da evidência inválida.");
+  if (kind === "automated" && (payload?.scenario !== "qa-rc" || !SHA256.test(harnessSha256 ?? "") || payload.harness_sha256 !== harnessSha256)) {
+    errors.push("Roteiro automatizado ausente ou diferente do roteiro atual.");
   }
-
-  const resolved = path.resolve(repoRoot, manualQaJsonPath);
-  const payload = await readJsonIfExists(resolved);
-  if (!payload || typeof payload !== "object") {
-    return {
-      source: resolved,
-      blocks,
-      error: "Arquivo de QA manual ausente ou invalido.",
-    };
+  if (kind === "human" && (payload?.observer?.independent !== true || typeof payload?.observer?.id !== "string" || !payload.observer.id.trim()
+      || payload?.observer?.method !== "interactive-session")) {
+    errors.push("Aceite exige observador independente identificado e sessão interativa; automação não o substitui.");
   }
-
-  const statuses = payload.blocks && typeof payload.blocks === "object" ? payload.blocks : {};
-  for (const block of blocks) {
-    const raw = statuses[block.id];
-    if (typeof raw === "string") {
-      block.status = raw;
-    } else if (raw && typeof raw === "object") {
-      block.status = typeof raw.status === "string" ? raw.status : "pending";
-      block.note = typeof raw.note === "string" ? raw.note : null;
+  if (errors.length === 0) {
+    for (const block of blocks) {
+      const observed = payload.blocks?.[block.id];
+      if (observed && ["passed", "failed", "pending"].includes(observed.status)) {
+        block.note = typeof observed.note === "string" ? observed.note : null;
+        // Human acceptance needs an observation, not just a copied green flag.
+        block.status = kind === "human" && !block.note?.trim() ? "pending" : observed.status;
+      }
     }
   }
-
-  return { source: resolved, blocks };
+  return { kind, blocks, error: errors.length ? errors.join(" ") : null,
+    candidate: payload?.candidate ?? null, repository: payload?.repository ?? null,
+    observer: kind === "human" ? payload?.observer ?? null : undefined };
 }
 
-function classifyReadiness({
+export async function loadQaStatus(file, context) {
+  const source = file ? path.resolve(repoRoot, file) : null;
+  const payload = source ? await readJsonIfExists(source) : null;
+  const sourceVerified = await sameProductSource(payload?.repository, context.commit);
+  return { source, ...validateQaPayload(payload, { ...context, sourceVerified }) };
+}
+
+export function classifyReadiness({
   gitState,
   gateResults,
   auxiliary,
@@ -542,6 +517,7 @@ function classifyReadiness({
   buildReport,
   upstreamReport,
   manualQa,
+  automatedQa,
 }) {
   const blockers = [];
   const warnings = [];
@@ -568,6 +544,7 @@ function classifyReadiness({
         .join(", ")}`
     );
   }
+  if (gitState.changedDuringRun) blockers.push("Fonte mudou durante a rodada; reexecute a validação no candidato estável.");
   if (gitState.dirtyEntries.some((entry) => entry.localOnly)) {
     warnings.push(
       `Arquivos locais fora do Git canonico detectados: ${gitState.dirtyEntries
@@ -577,6 +554,9 @@ function classifyReadiness({
     );
   }
 
+  if (!gitState.trackingRef || !gitState.trackingDivergence) {
+    blockers.push("Upstream de acompanhamento ausente ou não verificável.");
+  }
   if (gitState.trackingRef && gitState.trackingDivergence) {
     if (gitState.trackingDivergence.ahead > 0) {
       blockers.push(
@@ -584,12 +564,15 @@ function classifyReadiness({
       );
     }
     if (gitState.trackingDivergence.behind > 0) {
-      warnings.push(
+      blockers.push(
         `Branch local esta ${gitState.trackingDivergence.behind} commit(s) atras de ${gitState.trackingRef}.`
       );
     }
   }
 
+  if (!gitState.originMainDivergence) {
+    blockers.push("Base pública origin/main indisponível; divergência desconhecida. Confira a referência remota antes da promoção.");
+  }
   if (gitState.originMainDivergence) {
     if (gitState.branch !== "main" && gitState.originMainDivergence.ahead > 0) {
       blockers.push(
@@ -597,7 +580,7 @@ function classifyReadiness({
       );
     }
     if (gitState.originMainDivergence.behind > 0) {
-      warnings.push(
+      blockers.push(
         `${gitState.branch} esta ${gitState.originMainDivergence.behind} commit(s) atras de origin/main.`
       );
     }
@@ -683,11 +666,10 @@ function classifyReadiness({
     warnings.push("Desktop E2E nao foi reexecutado nesta rodada pelo agregador.");
   }
 
-  const pendingManualQa = manualQa.blocks.filter((block) => block.status !== "passed");
-  if (pendingManualQa.length > 0) {
-    blockers.push(
-      `QA manual ainda pendente: ${pendingManualQa.map((block) => block.id).join(", ")}`
-    );
+  for (const [label, evidence] of [["automatizado", automatedQa], ["humano", manualQa]]) {
+    if (evidence?.error) blockers.push(`QA ${label}: ${evidence.error}`);
+    const pending = QA_BLOCKS.filter(({ id }) => !evidence?.blocks?.some((block) => block.id === id && block.status === "passed"));
+    if (pending.length) blockers.push(`QA ${label} ainda pendente: ${pending.map((block) => block.id).join(", ")}`);
   }
 
   if (EXPERIMENTAL_SURFACES.length > 0) {
@@ -703,7 +685,7 @@ function classifyReadiness({
   };
 }
 
-function toMarkdown(report) {
+export function toMarkdown(report) {
   const gateLines = report.gates.map(
     (gate) =>
       `- ${gate.label}: ${gate.status}${gate.durationMs ? ` (${gate.durationMs} ms)` : ""}`
@@ -720,6 +702,7 @@ function toMarkdown(report) {
     `- Upstream report: ${report.artifacts.upstreamReport.exists ? "OK" : "ausente"}`,
     `- WebDriver local: ${report.artifacts.webdriver.exists ? "OK" : "ausente"}`,
   ];
+  const automatedQaLines = report.automatedQa.blocks.map((block) => `- ${block.id} - ${block.name}: ${block.status}`);
   const manualQaLines = report.manualQa.blocks.map(
     (block) =>
       `- ${block.id} - ${block.name}: ${block.status}${block.note ? ` (${block.note})` : ""}`
@@ -740,8 +723,8 @@ function toMarkdown(report) {
     `- Branch: ${report.git.branch}`,
     `- Commit: ${report.git.commit}`,
     `- Upstream track: ${report.git.trackingRef ?? "(sem upstream configurado)"}`,
-    `- Divergencia vs upstream: +${report.git.trackingDivergence?.ahead ?? 0} / -${report.git.trackingDivergence?.behind ?? 0}`,
-    `- Divergencia vs origin/main: +${report.git.originMainDivergence?.ahead ?? 0} / -${report.git.originMainDivergence?.behind ?? 0}`,
+    `- Divergencia vs upstream: ${formatDivergence(report.git.trackingDivergence)}`,
+    `- Divergencia vs origin/main: ${formatDivergence(report.git.originMainDivergence)}`,
     `- Pronto para promocao: ${report.summary.readyForPromotion ? "SIM" : "NAO"}`,
     "",
     "## Gates baseline",
@@ -753,7 +736,10 @@ function toMarkdown(report) {
     "## Artefatos canonicos",
     ...artifactLines,
     "",
-    "## QA manual",
+    "## QA automatizado",
+    ...automatedQaLines,
+    "",
+    "## QA humano",
     `- Documento base: ${path.relative(repoRoot, QA_DOC_PATH).replaceAll("\\", "/")}`,
     ...manualQaLines,
     "",
@@ -766,12 +752,17 @@ function toMarkdown(report) {
   ].join("\n");
 }
 
+export function formatDivergence(value) {
+  return value ? `+${value.ahead} / -${value.behind}` : "desconhecida (não verificada)";
+}
+
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   await mkdir(VALIDATION_DIR, { recursive: true });
-  await resetShadowTargetCacheIfNeeded(options);
+  if (options.runBaseline && !process.env.CARGO_TARGET_DIR) throw new Error("Execute pelo launcher do host para reutilizar o Cargo target oficial.");
 
-  const gitState = await collectGitState();
+  let gitState = await collectGitState();
+  const initialGitState = gitState;
   const gateResults = BASELINE_GATES.map((gate) => createEmptyGateResult(gate));
   const auxiliary = {};
   const effectiveBuildMode = options.runBuildMode ?? (shouldAutoRunBuildDebug(options) ? "debug" : null);
@@ -846,11 +837,19 @@ async function main() {
     auxiliary.desktopE2E.autoTriggered = shouldAutoRunDesktopE2E(options);
   }
 
-  const [buildReport, upstreamReport, manualQa, debugExe, releaseExe, latestMsi, webdriver] =
+  gitState = await collectGitState();
+  gitState.changedDuringRun = initialGitState.commit !== gitState.commit
+    || JSON.stringify(initialGitState.dirtyEntries) !== JSON.stringify(gitState.dirtyEntries);
+  const candidatePath = options.candidateApp ? path.resolve(repoRoot, options.candidateApp) : null;
+  const candidate = { path: candidatePath, app_sha256: candidatePath ? await readFile(candidatePath).then((bytes) => createHash("sha256").update(bytes).digest("hex")).catch(() => null) : null };
+  const harnessSha256 = createHash("sha256").update(await readFile(path.join(repoRoot, "scripts/e2e-tauri-build-run.mjs"))).digest("hex");
+  const qaContext = { appSha256: candidate.app_sha256, commit: gitState.commit, harnessSha256 };
+  const [buildReport, upstreamReport, automatedQa, manualQa, debugExe, releaseExe, latestMsi, webdriver] =
     await Promise.all([
       readJsonIfExists(BUILD_REPORT_PATH),
       readJsonIfExists(UPSTREAM_REPORT_PATH),
-      loadManualQaStatus(options.manualQaJson),
+      loadQaStatus(options.automatedQaJson, { ...qaContext, kind: "automated" }),
+      loadQaStatus(options.humanQaJson, { ...qaContext, kind: "human" }),
       inspectFile(DEBUG_EXE_PATH),
       inspectFile(RELEASE_EXE_PATH),
       findLatestMsi(),
@@ -874,10 +873,12 @@ async function main() {
     buildReport,
     upstreamReport,
     manualQa,
+    automatedQa,
   });
 
   const report = {
     generatedAt: new Date().toISOString(),
+    candidate,
     git: {
       branch: gitState.branch,
       commit: gitState.commit,
@@ -887,6 +888,7 @@ async function main() {
       originMainDivergence: gitState.originMainDivergence,
       dirtyEntries: gitState.dirtyEntries,
       dirtyTrackedEntries: gitState.dirtyTrackedEntries,
+      changedDuringRun: gitState.changedDuringRun,
     },
     gates: gateResults,
     auxiliary,
@@ -897,7 +899,9 @@ async function main() {
       upstreamReportPath: UPSTREAM_REPORT_PATH,
       upstreamReport,
     },
+    automatedQa,
     manualQa: {
+      ...manualQa,
       source: manualQa.source,
       document: path.relative(repoRoot, QA_DOC_PATH).replaceAll("\\", "/"),
       blocks: manualQa.blocks,
@@ -928,7 +932,7 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) main().catch((error) => {
   console.error("[release-readiness] erro fatal:", error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

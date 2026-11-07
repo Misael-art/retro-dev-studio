@@ -174,8 +174,13 @@ describe("RuntimeInspectOverlay", () => {
     expect(assetBytes).toHaveBeenCalledWith(expect.anything(), "a.png");
     expect(useEditorStore.getState().activeWorkspace).toBe("game");
     assetBytes.mockResolvedValue([]);
-    await clickAt(2 * 60, 2 * 80);
+    // The non-interactive alert belongs to the inspection surface. A native
+    // click on its text bubbles with the same canvas coordinates after Undo.
+    await act(async () => q("inspect-message")!.dispatchEvent(new MouseEvent("click", {
+      bubbles: true, clientX: 2 * 60, clientY: 2 * 80,
+    })));
     await vi.waitFor(() => expect(useEditorStore.getState().activeWorkspace).toBe("artstudio"));
+    expect(useEditorStore.getState().studio.focus).toMatchObject({ entityId: "ken", animation: "action_200", occurrenceId: "o3" });
   });
 
   it("same ids but other sprite content is refused with a recompile message", async () => {

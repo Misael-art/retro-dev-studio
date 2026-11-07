@@ -14,6 +14,7 @@ const FOCUSABLE_SELECTOR = [
   "input:not([disabled]):not([type='hidden'])",
   "select:not([disabled])",
   "textarea:not([disabled])",
+  "summary",
   "iframe",
   "object",
   "embed",
@@ -30,10 +31,16 @@ function generatedId(prefix: string, reactId: string) {
 
 function getFocusableElements(container: HTMLElement) {
   return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-    (element) =>
-      !element.hidden &&
-      element.getAttribute("aria-hidden") !== "true" &&
-      !element.closest("[hidden],[inert]")
+    (element) => {
+      if (element.hidden || element.matches(":disabled") || element.getAttribute("aria-hidden") === "true" || element.closest("[hidden],[inert]")) return false;
+      for (let parent = element.parentElement; parent && parent !== container; parent = parent.parentElement) {
+        if (parent.tagName === "DETAILS" && !parent.hasAttribute("open")) {
+          const summary = parent.querySelector(":scope > summary");
+          if (!summary?.contains(element)) return false;
+        }
+      }
+      return true;
+    }
   );
 }
 
@@ -49,14 +56,18 @@ export interface DialogProps {
   title: ReactNode;
   description?: ReactNode;
   children: ReactNode;
+  footer?: ReactNode;
   onClose: () => void;
   closeOnEscape?: boolean;
+  closeDisabled?: boolean;
   closeLabel?: string;
   initialFocusRef?: RefObject<HTMLElement | null>;
   portal?: boolean;
   portalContainer?: Element | DocumentFragment | null;
   className?: string;
   overlayClassName?: string;
+  testId?: string;
+  closeTestId?: string;
 }
 
 export default function Dialog({
@@ -64,14 +75,18 @@ export default function Dialog({
   title,
   description,
   children,
+  footer,
   onClose,
   closeOnEscape = true,
+  closeDisabled = false,
   closeLabel = "Fechar diálogo",
   initialFocusRef,
   portal = true,
   portalContainer,
   className = "",
   overlayClassName = "",
+  testId,
+  closeTestId,
 }: DialogProps) {
   const reactId = useId();
   const titleId = generatedId("rds-dialog-title", reactId);
@@ -113,7 +128,7 @@ export default function Dialog({
       }
 
       if (event.key === "Escape") {
-        if (closeOnEscape) {
+        if (closeOnEscape && !closeDisabled) {
           event.preventDefault();
           event.stopPropagation();
           onCloseRef.current();
@@ -157,7 +172,7 @@ export default function Dialog({
         invoker.focus();
       }
     };
-  }, [closeOnEscape, initialFocusRef, open]);
+  }, [closeOnEscape, closeDisabled, initialFocusRef, open]);
 
   if (!open) {
     return null;
@@ -171,6 +186,7 @@ export default function Dialog({
       <div
         ref={dialogRef}
         role="dialog"
+        data-testid={testId}
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
@@ -190,6 +206,8 @@ export default function Dialog({
           </div>
           <button
             type="button"
+            data-testid={closeTestId}
+            disabled={closeDisabled}
             aria-label={closeLabel}
             title={closeLabel}
             onClick={onClose}
@@ -201,6 +219,7 @@ export default function Dialog({
         <div data-rds-dialog-body="" className="min-h-0 flex-1 overflow-auto p-4">
           {children}
         </div>
+        {footer && <div data-rds-dialog-footer="" className="rds-surface-panel rds-border-subtle shrink-0 border-t px-4">{footer}</div>}
       </div>
     </div>
   );

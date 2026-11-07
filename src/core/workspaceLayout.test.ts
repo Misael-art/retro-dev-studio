@@ -76,8 +76,9 @@ describe("shell density (fatia 1 v2 do estudo de UI)", () => {
   });
 
   it("treats Deck-class widths (1280/1366) as compact in preset layouts", () => {
-    expect(getPresetLayout("authoring", 1280)).toEqual({ left: 16, center: 64, right: 20 });
-    expect(getPresetLayout("authoring", 1366)).toEqual({ left: 16, center: 64, right: 20 });
+    // Widened after 1366x768 captures showed clipped hierarchy rows at 16%.
+    expect(getPresetLayout("authoring", 1280)).toEqual({ left: 19, center: 61, right: 20 });
+    expect(getPresetLayout("authoring", 1366)).toEqual({ left: 19, center: 61, right: 20 });
     expect(getPresetLayout("authoring", 1920)).toEqual({ left: 18, center: 60, right: 22 });
   });
 });

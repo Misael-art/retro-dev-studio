@@ -107,7 +107,8 @@ export function getPresetLayout(preset: LayoutPresetId, width: number): LayoutMa
     return { left: 0, center: 72, right: 28 };
   }
   if (compact) {
-    return { left: 16, center: 64, right: 20 };
+    // 1280–1366: 16% left clipped hierarchy rows (name/badges/type) in real 1366x768 captures.
+    return { left: 19, center: 61, right: 20 };
   }
   return { left: 18, center: 60, right: 22 };
 }

@@ -95,6 +95,7 @@ fn estimate_max_scanline_sprites(scene: &Scene) -> u32 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MdVramAnalysisMode {
     NativeStatic,
+    NativeFrameUpload,
     SgdkManaged,
 }
 
@@ -102,6 +103,7 @@ impl MdVramAnalysisMode {
     fn as_str(self) -> &'static str {
         match self {
             Self::NativeStatic => "native_static",
+            Self::NativeFrameUpload => "native_frame_upload",
             Self::SgdkManaged => "sgdk_managed",
         }
     }
@@ -215,16 +217,28 @@ fn tilemap_entity_resident_bytes(entity: &Entity) -> u32 {
         .saturating_mul(2);
     let map_bytes_capped = map_bytes.min(32 * 1024);
 
+    // JV01: segue a alocacao do emissor SGDK. Imagem montada (celulas 1..N) = imagem base, com
+    // ate um tile por celula. Celulas pintadas por cima = tiles da imagem base (limite superior:
+    // um por celula do mapa) MAIS os tiles distintos da sobreposicao, carregados depois deles.
+    let total_cells = tilemap.map_width.saturating_mul(tilemap.map_height);
     let tileset_bytes = if tilemap.cells.is_empty() {
         0
+    } else if crate::compiler::ast_generator::is_mounted_image_cells(
+        tilemap.map_width,
+        tilemap.map_height,
+        &tilemap.cells,
+    ) {
+        total_cells.saturating_mul(MD_TILE_BYTES)
     } else {
-        let mut unique_nonzero = std::collections::HashSet::new();
+        let mut unique_overlay = std::collections::HashSet::new();
         for &cell in &tilemap.cells {
-            if cell > 0 {
-                unique_nonzero.insert(cell);
+            if cell > 0 && cell != u32::MAX {
+                unique_overlay.insert(cell);
             }
         }
-        (unique_nonzero.len() as u32).saturating_mul(MD_TILE_BYTES)
+        total_cells
+            .saturating_add(unique_overlay.len() as u32)
+            .saturating_mul(MD_TILE_BYTES)
     };
 
     map_bytes_capped.saturating_add(tileset_bytes)
@@ -260,6 +274,11 @@ fn analyze_md_vram(scene: &Scene, source_kind: Option<&str>) -> MdVramAnalysis {
 
     let mode = if is_sgdk_managed_source(source_kind) {
         MdVramAnalysisMode::SgdkManaged
+    } else if source_kind == Some("builtin") {
+        // The canonical authored SGDK emitter uses SPR_addSprite. The pinned
+        // engine allocates maxNumTile and uploads the current frame, not the
+        // whole animation atlas. Unknown/standalone contexts stay conservative.
+        MdVramAnalysisMode::NativeFrameUpload
     } else {
         MdVramAnalysisMode::NativeStatic
     };
@@ -297,6 +316,22 @@ fn analyze_md_vram(scene: &Scene, source_kind: Option<&str>) -> MdVramAnalysis {
                 if hud_hint {
                     hud_sprite_resident_bytes =
                         hud_sprite_resident_bytes.saturating_add(sprite_project);
+                }
+            }
+            MdVramAnalysisMode::NativeFrameUpload => {
+                // Account for EVERY authored instance; do not borrow the
+                // imported-project heuristic that omits nonresident banks.
+                // Two frame buffers conservatively bound SGDK's one-frame
+                // allocation plus a queued update. No frame is discarded.
+                let reserved = frame_bytes.saturating_mul(if total_frames > 1 { 2 } else { 1 });
+                resident_sprite_bytes = resident_sprite_bytes.saturating_add(reserved);
+                streamable_sprite_bytes =
+                    streamable_sprite_bytes.saturating_add(sprite_project.saturating_sub(reserved));
+                if total_frames > 1 {
+                    animated_swap_bytes = animated_swap_bytes.saturating_add(frame_bytes);
+                }
+                if hud_hint {
+                    hud_sprite_resident_bytes = hud_sprite_resident_bytes.saturating_add(reserved);
                 }
             }
             MdVramAnalysisMode::SgdkManaged => {
@@ -376,6 +411,9 @@ fn analyze_md_vram(scene: &Scene, source_kind: Option<&str>) -> MdVramAnalysis {
     let streamable_vram_bytes = streamable_sprite_bytes;
     let dma_frame_bytes = match mode {
         MdVramAnalysisMode::NativeStatic => resident_vram_bytes,
+        MdVramAnalysisMode::NativeFrameUpload => {
+            animated_swap_bytes.saturating_add(tilemap_resident_bytes.min(1024))
+        }
         MdVramAnalysisMode::SgdkManaged => {
             let stream_step = streamable_vram_bytes / 4;
             let tilemap_step = tilemap_resident_bytes.min(1024);
@@ -842,6 +880,8 @@ mod tests {
             transform: Transform { x: 0, y: 0 },
             components: Components {
                 camera: Some(crate::ugdm::components::CameraComponent {
+                    patterns: Vec::new(),
+                    visual: None,
                     follow_entity: None,
                     offset_x: 0,
                     offset_y: 0,
@@ -954,11 +994,11 @@ mod tests {
     #[test]
     fn live_vram_warning_draft_matches_desktop_e2e_fixture() {
         let mut scene = empty_scene();
-        scene
-            .entities
-            .push(animated_sprite_entity("warning_vram_entity", 32, 32, 112));
+        scene.entities = (0..7)
+            .map(|i| animated_meta_sprite_entity(&format!("warning_vram_entity_{i}"), 64, 128, 2))
+            .collect();
 
-        let errors = validate_scene(&scene);
+        let errors = validate_scene_with_source_kind(&scene, Some("builtin"));
         let warnings: Vec<&str> = errors
             .iter()
             .filter(|error| !error.is_fatal)
@@ -969,7 +1009,7 @@ mod tests {
             warnings
                 .iter()
                 .any(|message| message.contains("VRAM Warning (resident)")),
-            "expected resident VRAM warning for 112-frame stress draft: {warnings:?}"
+            "expected resident VRAM warning for simultaneous frame buffers: {warnings:?}"
         );
         assert!(!errors.iter().any(|error| error.is_fatal));
     }
@@ -1032,6 +1072,36 @@ mod tests {
         assert_eq!(status.palette_banks_limit, MD_PALETTE_SLOTS as u32);
         assert_eq!(status.bg_layers_limit, 3);
         assert!(status.errors.is_empty());
+    }
+
+    #[test]
+    fn builtin_gif_uses_current_frame_residency_without_ignoring_real_overflow() {
+        let mut scene = empty_scene();
+        scene
+            .entities
+            .push(animated_meta_sprite_entity("gif", 64, 56, 53));
+        let status = hw_status_with_source_kind(&scene, Some("builtin"));
+        assert_eq!(status.analysis_mode, "native_frame_upload");
+        assert_eq!(status.project_asset_bytes, 94_976);
+        assert_eq!(status.resident_vram_bytes, 3_584);
+        assert_eq!(status.dma_frame_bytes, 1_792);
+        assert!(status.errors.is_empty());
+        assert!(validate_scene_with_source_kind(&scene, None)
+            .iter()
+            .any(|e| e.is_fatal && e.message.contains("VRAM Overflow")));
+        // Every simultaneous instance still consumes memory; do not borrow the
+        // imported-scene policy which can omit nonresident sprite banks.
+        scene.entities = (0..20)
+            .map(|i| animated_meta_sprite_entity(&format!("gif_{i}"), 64, 56, 53))
+            .collect();
+        assert!(validate_scene_with_source_kind(&scene, Some("builtin"))
+            .iter()
+            .any(|e| e.is_fatal && e.message.contains("VRAM Overflow")));
+        scene.entities = vec![animated_sprite_entity("small", 16, 16, 53)];
+        assert_eq!(
+            hw_status_with_source_kind(&scene, Some("builtin")).resident_vram_bytes,
+            256
+        );
     }
 
     #[test]
@@ -1240,6 +1310,50 @@ mod tests {
             status.hud_resident_bytes > 0,
             "token canônico do importador SGDK deve marcar HUD mesmo sem nome/prioridade heurística textual"
         );
+    }
+
+    #[test]
+    fn painted_tilemap_estimate_counts_base_image_plus_overlay_tiles() {
+        // JV01: o emissor carrega os tiles da imagem E depois os da sobreposicao; a estimativa
+        // contava so a sobreposicao. A imagem montada (1..N) e a imagem base: N tiles no maximo.
+        let layer = |cells: Vec<u32>| Entity {
+            entity_id: "ceu".to_string(),
+            display_name: None,
+            prefab: None,
+            transform: Transform { x: 0, y: 0 },
+            components: Components {
+                tilemap: Some(crate::ugdm::components::TilemapComponent {
+                    tileset: "assets/tilesets/ceu.png".to_string(),
+                    map_width: 40,
+                    map_height: 28,
+                    scroll_x: 0,
+                    scroll_y: 0,
+                    cells,
+                }),
+                ..Default::default()
+            },
+        };
+        let map = 40 * 28 * 2;
+        let mounted: Vec<u32> = (1..=1120).collect();
+        assert_eq!(
+            tilemap_entity_resident_bytes(&layer(mounted.clone())),
+            map + 1120 * MD_TILE_BYTES
+        );
+        let mut painted = vec![0u32; 1120];
+        painted[0] = 3;
+        painted[1] = 3;
+        painted[2] = u32::MAX; // celula vazia explicita nao carrega tile
+        assert_eq!(
+            tilemap_entity_resident_bytes(&layer(painted)),
+            map + (1120 + 1) * MD_TILE_BYTES
+        );
+        // duas camadas montadas de tela inteira passam do orcamento e sao sinalizadas
+        let mut scene = empty_scene();
+        scene.entities.push(layer(mounted.clone()));
+        let mut second = layer(mounted);
+        second.entity_id = "chao".into();
+        scene.entities.push(second);
+        assert!(hw_status(&scene).tilemap_resident_bytes > 64 * 1024);
     }
 
     #[test]

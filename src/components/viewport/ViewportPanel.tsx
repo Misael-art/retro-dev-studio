@@ -1,7 +1,13 @@
+import { loadSceneArtworkAsset, drawRepeatedAsset, drawTilemapArtwork, type ViewportAssetCacheEntry } from "./sceneArtworkRenderer";
+import Icon, { type IconName } from "../common/Icon";
+import Dialog from "../common/Dialog";
+import Button from "../common/Button";
+import CameraConfigurator from "../inspector/CameraConfigurator";
 import { hudBand } from "../../core/hudText";
-import { isPpmPath, loadProjectPpmImageData } from "../../core/ppmImage";
 import { loadShellPersona } from "../../core/surfaceRegistry";
-import { cellsOnLine, isExplicitEmptyCell, tilesetAtlasIndex } from "../../core/tilemapCells";
+import { cellsOnLine } from "../../core/tilemapCells";
+import { dropOffset, hitPathHandleOrControl, pathWorldPoints, sampleSegment, withPoint } from "../../core/objectPath";
+import { describeEntityEditLock, entityEditLock, escapeExitsIsolation, layerCompositionEntities, restoreTemplateEntityPositions, translateCollisionMap, type TemplatePositionChange } from "../../core/sceneComposition";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tabs from "../common/Tabs";
 import { useEditorStore } from "../../core/store/editorStore";
@@ -28,7 +34,7 @@ import {
   type JoypadState,
 } from "../../core/ipc/emulatorService";
 import { listenToProjectAssetChanges } from "../../core/ipc/projectWatcherService";
-import type { Entity } from "../../core/ipc/sceneService";
+import { getReferenceTemplateComposition, type CollisionMap, type Entity, type Scene } from "../../core/ipc/sceneService";
 import { persistActiveScene } from "../../core/scenePersistence";
 import { constrainSpriteFrameSize, ONBOARDING_SPRITE_SIZE } from "../../core/sceneConstraints";
 import {
@@ -51,22 +57,28 @@ import {
   buildCreatorWorkflowContext,
   resolveEntityFocusTreatment,
 } from "../../core/creatorWorkflow";
-import { applyKeyColorTransparency } from "../../core/keyColorTransparency";
 import { openProjectSourcePath } from "../../core/ipc/projectService";
-import { readProjectAssetBytes } from "../../core/ipc/toolsService";
 import {
   clampViewportPan,
   getSceneEntityBounds,
   getViewportPanForWorldPoint,
   resolveSceneWorldMetrics,
+  sceneArtworkEntities,
 } from "../../core/sceneWorldModel";
 import SceneAssetHealthBadge from "./SceneAssetHealthBadge";
+import SceneAttentionPanel from "./SceneAttentionPanel";
+import { useSceneAttentionStore } from "../../core/sceneAttentionStore";
 import { TilePalette } from "../tools/ContextualPalette";
 import { getGameViewportScale } from "./gameViewportScale";
 import { paintGameFrame } from "./gameFramePresentation";
 import RuntimeInspectOverlay from "./RuntimeInspectOverlay";
 import { gameMayTakeKeyDown } from "../../core/keyboardFocus";
 import TestAdjustPanel from "./TestAdjustPanel";
+const GameCodeLogic = lazy(() => import("../nodegraph/GameCodeLogic").then((m) => ({ default: m.GameCodeLogic })));
+import { bankLetter, entityPaletteMarks } from "../../core/palettePlan";
+import { layoutTags } from "./viewportTagLayout";
+import { useCodeFocusStore } from "../../core/codeFocusStore";
+import { usePalettePlanStore } from "../../core/palettePlanStore";
 
 const VIEWPORT_TABS = [
   { id: "scene", label: "Cena", icon: "SC" },
@@ -112,13 +124,6 @@ type QueuedAudioChunk = {
   offset: number;
 };
 
-type ViewportAssetCacheEntry = {
-  status: "loading" | "loaded" | "missing" | "error";
-  source?: CanvasImageSource;
-  width?: number;
-  height?: number;
-  errorMessage?: string;
-};
 
 type SceneGuide = {
   id: string;
@@ -290,104 +295,6 @@ function buildSceneDensityStatus(scene: { entities: Entity[] } | null) {
   };
 }
 
-function drawRepeatedAsset(
-  context: CanvasRenderingContext2D,
-  asset: ViewportAssetCacheEntry,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  offsetX = 0,
-  offsetY = 0
-) {
-  if (!asset.source || !asset.width || !asset.height) {
-    return;
-  }
-
-  const tileWidth = Math.max(1, asset.width);
-  const tileHeight = Math.max(1, asset.height);
-  const normalizedOffsetX = ((offsetX % tileWidth) + tileWidth) % tileWidth;
-  const normalizedOffsetY = ((offsetY % tileHeight) + tileHeight) % tileHeight;
-  const startX = x - normalizedOffsetX;
-  const startY = y - normalizedOffsetY;
-
-  for (let drawY = startY; drawY < y + height; drawY += tileHeight) {
-    for (let drawX = startX; drawX < x + width; drawX += tileWidth) {
-      context.drawImage(asset.source, drawX, drawY, tileWidth, tileHeight);
-    }
-  }
-}
-
-// ── Tilemap cells render ─────────────────────────────────────────────────────
-// Calcula quantas colunas de tiles o tileset real expõe. Um tileset com
-// dimensões não-múltiplas do tile (p.ex. palette PNG geradas por ferramentas
-// externas) são tratadas com `Math.floor` — slices fora do atlas são ignoradas.
-function computeTilesetColumns(
-  asset: ViewportAssetCacheEntry,
-  tileSize: number
-): number {
-  if (!asset.width || tileSize <= 0) return 0;
-  return Math.max(0, Math.floor(asset.width / tileSize));
-}
-
-/**
- * Renderiza a malha pintada (`cells[]`) de um tilemap usando slices reais
- * do tileset. Desenha célula-a-célula com `drawImage(source, sx, sy, ...)`
- * garantindo WYSIWYG entre paleta/ghost/viewport.
- *
- * - Células vazias (índice 0) são puladas.
- * - Índices fora do atlas são desenhados como retângulo de aviso (não silencia).
- * - Scroll inteiro desloca a composição (positivo = puxa para esquerda/topo).
- */
-function drawTilemapCells(
-  context: CanvasRenderingContext2D,
-  asset: ViewportAssetCacheEntry,
-  originX: number,
-  originY: number,
-  mapWidth: number,
-  mapHeight: number,
-  cells: number[],
-  tileSize: number,
-  scrollX: number,
-  scrollY: number
-): void {
-  if (!asset.source || tileSize <= 0) return;
-  const cols = computeTilesetColumns(asset, tileSize);
-  if (cols <= 0) return;
-  const totalCells = mapWidth * mapHeight;
-  context.save();
-  for (let i = 0; i < Math.min(cells.length, totalCells); i++) {
-    const value = cells[i];
-    const col = i % mapWidth;
-    const row = (i - col) / mapWidth;
-    const dx = originX + col * tileSize - scrollX;
-    const dy = originY + row * tileSize - scrollY;
-    if (isExplicitEmptyCell(value)) {
-      // Explicit empty cell: punch the base map out, like the ROM's blank tile.
-      context.clearRect(dx, dy, tileSize, tileSize);
-      continue;
-    }
-    const atlasIdx = tilesetAtlasIndex(value);
-    if (atlasIdx === null) continue;
-    const ax = (atlasIdx % cols) * tileSize;
-    const ay = Math.floor(atlasIdx / cols) * tileSize;
-    if (asset.width && ax + tileSize > asset.width) continue;
-    if (asset.height && ay + tileSize > asset.height) continue;
-    context.clearRect(dx, dy, tileSize, tileSize);
-    context.drawImage(
-      asset.source,
-      ax,
-      ay,
-      tileSize,
-      tileSize,
-      dx,
-      dy,
-      tileSize,
-      tileSize
-    );
-  }
-  context.restore();
-}
 
 function getEntityBounds(
   entity: Entity,
@@ -440,10 +347,12 @@ export default function ViewportPanel({
     activeScene,
     activeScenePath,
     activeProjectDir,
+    projectSessionId,
     hwStatus,
     emulatorLoaded,
     setEmulatorLoaded,
     emulatorRomIdentity,
+    lastBuildArtifact,
     lastJoypadRequest,
     lastJoypadAck,
     selectedEntityId,
@@ -465,6 +374,7 @@ export default function ViewportPanel({
     removeEntity,
     setActiveBrush,
     updateCollisionMap,
+    setCollisionMap,
     activeLayerId,
     assignEntityToLayer,
     tilePaintTool,
@@ -490,6 +400,9 @@ export default function ViewportPanel({
   const sceneOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
   /** Ciclo Alt+clique em sprites sobrepostos (cena densa). */
   const densePickRef = useRef<{ mx: number; my: number; ids: string[]; idx: number } | null>(null);
+  const lastLockedHitRef = useRef<Entity | null>(null);
+  // R5: dragging a path handle edits components.path (one undo per drag).
+  const pathDragRef = useRef<{ entityId: string; index: number; kind: "point" | "control"; moved: boolean } | null>(null);
   const sceneRulerTopRef = useRef<HTMLCanvasElement>(null);
   const sceneRulerLeftRef = useRef<HTMLCanvasElement>(null);
   const [sceneStageSize, setSceneStageSize] = useState({ width: 0, height: 0 });
@@ -520,6 +433,12 @@ export default function ViewportPanel({
   // poluir o console com uma linha por asset em cenas importadas densas.
   const dragRef = useRef<{
     mode: "move" | "resize";
+    scope?: "entity" | "layer";
+    layerId?: string;
+    layerMembers?: { id: string; x: number; y: number }[];
+    originalCollisionMap?: CollisionMap;
+    projectDir?: string | null;
+    scenePath?: string;
     entityId: string;
     handle?: ResizeHandle;
     startMx: number;
@@ -563,11 +482,59 @@ export default function ViewportPanel({
   const [emulatorActive, setEmulatorActive] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [gridSnap, setGridSnap] = useState(true);
-  const [showGrid, setShowGrid] = useState(true);
-  const [showSubGrid, setShowSubGrid] = useState(true);
+  const [moveScope, setMoveScope] = useState<"entity" | "layer">("entity");
+  const [moveGlobalCollisionMap, setMoveGlobalCollisionMap] = useState(false);
+  const [collisionPaintValue, setCollisionPaintValue] = useState<0 | 1>(1);
+  const [tilePaletteCollapsed, setTilePaletteCollapsed] = useState(false);
+  const [templateCompositionBaseline, setTemplateCompositionBaseline] = useState<Scene | null>(null);
+  const [templateCompositionPreview, setTemplateCompositionPreview] = useState<{
+    projectDir: string;
+    projectSessionId: number;
+    scenePath: string;
+    revision: number;
+    changes: TemplatePositionChange[];
+    missing: string[];
+  } | null>(null);
+  useEffect(() => {
+    let current = true;
+    setTemplateCompositionBaseline(null);
+    setTemplateCompositionPreview(null);
+    if (activeProjectDir && activeScenePath) {
+      void getReferenceTemplateComposition(activeProjectDir, activeScenePath)
+        .then((baseline) => { if (current) setTemplateCompositionBaseline(baseline); })
+        .catch(() => { /* Other project templates have no reference composition. */ });
+    }
+    return () => { current = false; };
+  }, [activeProjectDir, activeScenePath]);
+  useEffect(() => {
+    setMoveScope("entity");
+    setMoveGlobalCollisionMap(false);
+    setCollisionPaintValue(1);
+  }, [activeProjectDir, activeScenePath]);
+  useEffect(() => setMoveGlobalCollisionMap(false), [activeLayerId]);
+  const [showGrid, setShowGrid] = useState(false);
+  const [showSubGrid, setShowSubGrid] = useState(false);
   const [showBackground, setShowBackground] = useState(true);
   const [showTilemaps, setShowTilemaps] = useState(true);
   const [showSprites, setShowSprites] = useState(true);
+  const nativeCProject = hwStatus?.analysis_mode === "native_c";
+  const logicSource = useCodeFocusStore((s) => s.logicSource);
+  const setLogicSource = useCodeFocusStore((s) => s.setLogicSource);
+  const paletteMapEnabled = usePalettePlanStore((s) => s.mapEnabled);
+  const paletteBankFilter = usePalettePlanStore((s) => s.bankFilter);
+  const palettePlan = usePalettePlanStore((s) => s.plan);
+  const paletteMarks = useMemo(() => (palettePlan ? entityPaletteMarks(palettePlan) : null), [palettePlan]);
+  /** Objetos fora dos bancos escolhidos no filtro A–D do painel de paletas. */
+  const paletteFilteredOut = useCallback(
+    (entityId: string) => {
+      if (!paletteMarks || paletteBankFilter.length === 4) return false;
+      const bank = paletteMarks.get(entityId)?.bank;
+      return bank !== undefined && !paletteBankFilter.includes(bank);
+    },
+    [paletteMarks, paletteBankFilter]
+  );
+  const attentionFocus = useSceneAttentionStore((s) => s.focus);
+  const setAttentionFocus = useSceneAttentionStore((s) => s.setFocus);
   const [showCollisionOverlay, setShowCollisionOverlay] = useState(false);
   const [showCameraOverlay, setShowCameraOverlay] = useState(true);
   const [showEntityBounds, setShowEntityBounds] = useState(true);
@@ -575,8 +542,8 @@ export default function ViewportPanel({
   const [showStagingOverlay, setShowStagingOverlay] = useState(false);
   const [showViewportWarnings, setShowViewportWarnings] = useState(false);
   const [showSceneNavigator, setShowSceneNavigator] = useState(false);
-  // The floating composition card covers the scene; the guided mode starts with it closed.
-  const [showCommandDock, setShowCommandDock] = useState(() => loadShellPersona() !== "guiado");
+  // Composition tools remain available from the toolbar without covering the canvas on entry.
+  const [showCommandDock, setShowCommandDock] = useState(false);
   const [showKeyColor, setShowKeyColor] = useState(false);
   const [guideSnap, setGuideSnap] = useState(true);
   const [gameViewLight, setGameViewLight] = useState(false);
@@ -644,6 +611,45 @@ export default function ViewportPanel({
     selectedEntityId && !selectedEntityId.startsWith("layer::")
       ? activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId) ?? null
       : null;
+  const compositionLayer = activeScene?.layers?.find((layer) => layer.id === activeLayerId) ?? null;
+  const compositionMembers = compositionLayer && activeScene
+    ? layerCompositionEntities(compositionLayer, activeScene.entities)
+    : null;
+  function previewTemplateComposition() {
+    if (!templateCompositionBaseline || !activeScene || !activeProjectDir || !activeScenePath) return;
+    const preview = restoreTemplateEntityPositions(activeScene, templateCompositionBaseline);
+    if (!preview) return;
+    setTemplateCompositionPreview({
+      projectDir: activeProjectDir,
+      projectSessionId,
+      scenePath: activeScenePath,
+      revision: useEditorStore.getState().sceneRevision,
+      changes: preview.changes,
+      missing: preview.missing,
+    });
+  }
+
+  function applyTemplateComposition() {
+    const preview = templateCompositionPreview;
+    const baseline = templateCompositionBaseline;
+    const state = useEditorStore.getState();
+    if (!preview || !baseline || !state.activeScene || !state.activeSceneSource ||
+      state.activeProjectDir !== preview.projectDir || state.activeScenePath !== preview.scenePath ||
+      state.projectSessionId !== preview.projectSessionId ||
+      state.sceneRevision !== preview.revision) {
+      setTemplateCompositionPreview(null);
+      logMessage("warn", "[Viewport] A cena mudou; abra uma nova prévia antes de restaurar.");
+      return;
+    }
+    const resolved = restoreTemplateEntityPositions(state.activeScene, baseline);
+    const source = restoreTemplateEntityPositions(state.activeSceneSource, baseline);
+    if (!resolved || !source) return;
+    setTemplateCompositionPreview(null);
+    if (resolved.changes.length === 0 && source.changes.length === 0) return;
+    state.replaceScenesWithHistory(resolved.scene, source.scene);
+    void persistActiveScene(preview.projectDir, "Viewport", "Posições do template restauradas.")
+      .catch((error) => logMessage("error", `[Viewport] Falha ao salvar a composição restaurada: ${String(error)}`));
+  }
   const sceneWorld = resolveSceneWorldMetrics(activeScene, activeTarget);
   const hudBandInfo = useMemo(() => (activeTarget === "megadrive" ? hudBand(activeScene) : null), [activeScene, activeTarget]);
   const selectedImportedContext = selectedEntity
@@ -668,10 +674,8 @@ export default function ViewportPanel({
   const [denseStackPreviewEntityId, setDenseStackPreviewEntityId] = useState<string | null>(null);
   const [soloEntityId, setSoloEntityId] = useState<string | null>(null);
   const lastOverlayHwStatusRef = useRef(hwStatus);
-  const frameTimingRef = useRef<{ lastFrameAt: number; fps: number }>({
-    lastFrameAt: 0,
-    fps: 0,
-  });
+  const frameTimingRef = useRef<{ windowStartAt: number; frames: number }>({ windowStartAt: 0, frames: 0 });
+  const presentationObservation = useEditorStore((state) => state.presentationObservation);
   const sceneWidth = sceneWorld.worldWidth;
   const sceneHeight = sceneWorld.worldHeight;
   const sceneFrameWidth = sceneWorld.frame.width;
@@ -781,6 +785,21 @@ export default function ViewportPanel({
       setSoloEntityId(null);
     }
   }, [activeScene?.entities, soloEntityId]);
+  // R3-02: isolation is a derived editor view; switching scene exits it without touching authoring.
+  useEffect(() => {
+    setSoloEntityId(null);
+  }, [activeScenePath]);
+  useEffect(() => {
+    if (!soloEntityId) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (!escapeExitsIsolation(event)) return;
+      event.preventDefault();
+      setSoloEntityId(null);
+      logMessage("info", "[Viewport] Isolamento encerrado (Esc). Visibilidade escolhida preservada.");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [logMessage, soloEntityId]);
   useEffect(() => {
     if (!denseStackPicker) {
       return;
@@ -1069,11 +1088,13 @@ export default function ViewportPanel({
     focusWorldPoint(sceneWorld.centerX, sceneWorld.centerY);
   }, [focusWorldPoint, sceneWorld.centerX, sceneWorld.centerY]);
   const resetSceneView = useCallback(() => {
-    resetViewportZoom();
-    window.setTimeout(() => {
-      focusWorldPoint(sceneWorld.centerX, sceneWorld.centerY, 1);
-    }, 0);
-  }, [focusWorldPoint, resetViewportZoom, sceneWorld.centerX, sceneWorld.centerY]);
+    const stage = sceneStageRef.current?.getBoundingClientRect();
+    if (!stage?.width || !stage.height) return null;
+    const zoom = Math.max(0.25, Math.min(1.75, (stage.width - 48) / sceneWidth, (stage.height - 48) / sceneHeight));
+    setViewportZoom(zoom);
+    focusWorldPoint(sceneWorld.bounds.minX + sceneWidth / 2, sceneWorld.bounds.minY + sceneHeight / 2, zoom);
+    return zoom;
+  }, [focusWorldPoint, sceneHeight, sceneWidth, sceneWorld.bounds.minX, sceneWorld.bounds.minY, setViewportZoom]);
   const focusCollisionMapCenter = useCallback(() => {
     const sz = sceneWorld.collisionWorldSize;
     if (sz) {
@@ -1198,15 +1219,26 @@ export default function ViewportPanel({
     });
   }, [clampPanToStage]);
 
+  const initialSceneFocusRef = useRef<string | null>(null);
+  const autoFitRef = useRef<{ zoom: number; width: number; height: number; touched: boolean } | null>(null);
+  const viewportZoomRef = useRef(viewportZoom);
+  viewportZoomRef.current = viewportZoom;
   useEffect(() => {
-    if (activeViewportTab !== "scene" || !activeScene?.scene_id) {
+    if (activeViewportTab !== "scene" || !activeScene?.scene_id || !sceneStageSize.width || !sceneStageSize.height) {
       return;
     }
-    const rafId = window.requestAnimationFrame(() => {
-      centerViewportOnCamera();
-    });
-    return () => window.cancelAnimationFrame(rafId);
-  }, [activeScene?.scene_id, activeScenePath, activeViewportTab, centerViewportOnCamera]);
+    const key = `${activeProjectDir}:${activeScenePath}:${activeScene.scene_id}`;
+    // O painel pode mudar de tamanho depois do primeiro enquadramento (layout reaplicado ao
+    // abrir o projeto); reenquadra so ate a primeira interacao na cena, para nao mover o que o usuario mira.
+    const fit = autoFitRef.current;
+    if (initialSceneFocusRef.current === key) {
+      if (!fit || fit.touched || fit.zoom !== viewportZoomRef.current) return;
+      if (Math.abs(fit.width - sceneStageSize.width) < 2 && Math.abs(fit.height - sceneStageSize.height) < 2) return;
+    }
+    initialSceneFocusRef.current = key;
+    const zoom = resetSceneView();
+    autoFitRef.current = zoom === null ? null : { zoom, width: sceneStageSize.width, height: sceneStageSize.height, touched: false };
+  }, [activeProjectDir, activeScene?.scene_id, activeScenePath, activeViewportTab, resetSceneView, sceneStageSize]);
 
   useEffect(() => {
     setSceneGuides(loadSceneGuides(sceneGuideStorageKey));
@@ -1282,96 +1314,11 @@ export default function ViewportPanel({
         assetCacheRef.current.set(absolutePath, { status, errorMessage: fullMessage });
         setAssetCacheVersion((current) => current + 1);
       };
-      const loadImageElement = (imageSrc: string, options?: { revokeOnLoad?: boolean }) => {
-        const image = new Image();
-        image.onload = () => {
-          if (options?.revokeOnLoad && typeof URL.revokeObjectURL === "function") {
-            URL.revokeObjectURL(imageSrc);
-          }
-          markLoaded(image, image.naturalWidth || image.width, image.naturalHeight || image.height);
-        };
-        image.onerror = () => {
-          if (options?.revokeOnLoad && typeof URL.revokeObjectURL === "function") {
-            URL.revokeObjectURL(imageSrc);
-          }
-          markFailure("error", "Decode/draw Image falhou no WebView.");
-        };
-        image.src = imageSrc;
-      };
-
-      if (isPpmPath(relativePath)) {
-        // Canonical path: project bytes over IPC + shared P6/P3 decoder (WebKit cannot
-        // decode PPM through asset://).
-        void loadProjectPpmImageData(activeProjectDir, relativePath)
-          .then((imageData) => {
-            const processed = applyKeyColorTransparency(imageData, { showKeyColor }).imageData;
-            const canvas = document.createElement("canvas");
-            canvas.width = processed.width;
-            canvas.height = processed.height;
-            const context = canvas.getContext("2d");
-            if (!context) {
-              throw new Error("Canvas indisponivel");
-            }
-            context.putImageData(processed, 0, 0);
-            markLoaded(canvas, canvas.width, canvas.height);
-          })
-          .catch((err) => {
-            const detail = describeError(err);
-            const status = /not found|nao encontrad|No such file|os error 2/i.test(detail) ? "missing" : "error";
-            markFailure(status, `PPM falhou: ${detail}`);
-          });
-
-        return cacheEntry;
-      }
-
-      // Use the same project-byte IPC boundary as PPM. An Image loaded through
-      // asset:// can paint successfully but taint the scene canvas in WebKit.
-      void readProjectAssetBytes(activeProjectDir, relativePath)
-        .then((bytes) => new Blob([Uint8Array.from(bytes)]))
-        .then((blob) => {
-          const loadBlobImage = () => {
-            if (typeof URL.createObjectURL === "function") {
-              loadImageElement(URL.createObjectURL(blob), {
-                revokeOnLoad: true,
-              });
-              return;
-            }
-            markFailure("error", "WebView nao oferece createImageBitmap nem URL.createObjectURL.");
-          };
-          if (typeof createImageBitmap === "function") {
-            return createImageBitmap(blob).then((bitmap) => {
-              const canvas = document.createElement("canvas");
-              canvas.width = bitmap.width;
-              canvas.height = bitmap.height;
-              const context = canvas.getContext("2d");
-              if (!context) {
-                markLoaded(bitmap, bitmap.width, bitmap.height);
-                return;
-              }
-              context.drawImage(bitmap, 0, 0);
-              const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-              const processed = applyKeyColorTransparency(imageData, { showKeyColor });
-              if (!processed.detected) {
-                markLoaded(bitmap, bitmap.width, bitmap.height);
-                return;
-              }
-              context.putImageData(processed.imageData, 0, 0);
-              bitmap.close?.();
-              markLoaded(canvas, canvas.width, canvas.height);
-            }).catch(() => {
-              // WebKit may reject otherwise valid PNG variants in createImageBitmap.
-              // Retain the IPC bytes; asset:// Image() would taint
-              // the viewport canvas and make its pixels unreadable to the editor.
-              loadBlobImage();
-            });
-          }
-
-          loadBlobImage();
-        })
-        .catch((err) => {
+      void loadSceneArtworkAsset(activeProjectDir, relativePath, showKeyColor)
+        .then(asset => markLoaded(asset.source!, asset.width!, asset.height!))
+        .catch(err => {
           const detail = describeError(err);
-          const status = /not found|nao encontrad|No such file|os error 2/i.test(detail) ? "missing" : "error";
-          markFailure(status, `IPC de asset falhou: ${detail}`);
+          markFailure(/not found|nao encontrad|No such file|os error 2/i.test(detail) ? "missing" : "error", detail);
         });
       return cacheEntry;
     },
@@ -1554,6 +1501,7 @@ export default function ViewportPanel({
     if (!canvas) return;
 
     if (!paintGameFrame(canvas, payload)) return;
+    current.recordBuildTestFrame(payload.core_epoch!, payload.rom_sha256!, payload.frame_index ?? 0);
     setGameFrameSize((current) => current.width === payload.width && current.height === payload.height
       ? current : { width: payload.width, height: payload.height });
     lastPresentedFrameRef.current = { epoch: payload.core_epoch!, sequence: payload.frame_sequence! };
@@ -1564,14 +1512,21 @@ export default function ViewportPanel({
     }
 
     const now = performance.now();
-    if (frameTimingRef.current.lastFrameAt > 0) {
-      const deltaMs = now - frameTimingRef.current.lastFrameAt;
-      const nextFps = deltaMs > 0 ? 1000 / deltaMs : 0;
-      frameTimingRef.current.fps = frameTimingRef.current.fps === 0
-        ? nextFps
-        : (frameTimingRef.current.fps * 0.8) + (nextFps * 0.2);
+    const timing = frameTimingRef.current;
+    if (timing.windowStartAt === 0) timing.windowStartAt = now;
+    timing.frames += 1;
+    const durationMs = now - timing.windowStartAt;
+    if (durationMs >= 1000 && timing.frames >= 2) {
+      useEditorStore.getState().setPresentationObservation({
+        romSha256: payload.rom_sha256!,
+        coreEpoch: payload.core_epoch!,
+        frames: timing.frames - 1,
+        durationMs,
+        measuredAt: Date.now(),
+      });
+      timing.windowStartAt = now;
+      timing.frames = 1;
     }
-    frameTimingRef.current.lastFrameAt = now;
   }, []);
 
   useEffect(() => {
@@ -1594,7 +1549,13 @@ export default function ViewportPanel({
   useEffect(() => {
     renderedFrameCounterRef.current = 0;
     setRenderedFrameCount(0);
+    frameTimingRef.current = { windowStartAt: 0, frames: 0 };
   }, [emulatorRomIdentity?.sha256]);
+
+  useEffect(() => {
+    // Pausa não compõe a janela de apresentação da próxima execução.
+    frameTimingRef.current = { windowStartAt: 0, frames: 0 };
+  }, [emulPaused]);
 
   const clearAudioQueue = useCallback(() => {
     audioQueueRef.current = [];
@@ -2283,6 +2244,10 @@ export default function ViewportPanel({
           return;
         }
         if (key === "escape") {
+          // Only consume Esc when there is a tool/brush to cancel; otherwise let it
+          // cascade to the derived isolation exit (R3-02).
+          const tool = useEditorStore.getState();
+          if (tool.editorMode === "select" && !tool.activeBrush) return;
           event.preventDefault();
           setActiveBrush(null);
           setEditorMode("select");
@@ -2472,18 +2437,19 @@ export default function ViewportPanel({
       }
     }
 
+    const artworkRank = new Map(sceneArtworkEntities(activeScene, activeTarget).map((e,i)=>[e.entity_id,i]));
     const compositionEntities = activeScene.entities
       .map((entity, index) => ({
         entity,
         index,
         depth: compositionLayerDepthByEntityId.get(entity.entity_id) ?? 0,
       }))
-      .filter(({ entity }) => !compositionHiddenByLayer.has(entity.entity_id))
+      .filter(({ entity }) => !compositionHiddenByLayer.has(entity.entity_id) && !paletteFilteredOut(entity.entity_id))
       .sort((left, right) => {
         if (left.depth !== right.depth) {
           return left.depth - right.depth;
         }
-        return left.index - right.index;
+        return (artworkRank.get(left.entity.entity_id) ?? left.index) - (artworkRank.get(right.entity.entity_id) ?? right.index);
       });
 
     if (showBackground) {
@@ -2526,49 +2492,8 @@ export default function ViewportPanel({
           }
 
           const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
-          const cellsArr = tilemap.cells;
-          const expectedCells = tilemap.map_width * tilemap.map_height;
-          const hasCells =
-            Array.isArray(cellsArr) &&
-            cellsArr.length === expectedCells &&
-            cellsArr.some((v) => v > 0);
-          if (hasCells) {
-            // Same as the ROM: the base map, then the edited cells on top.
-            drawRepeatedAsset(
-              context,
-              tilemapAsset,
-              bounds.x,
-              bounds.y,
-              bounds.width,
-              bounds.height,
-              tilemap.scroll_x ?? 0,
-              tilemap.scroll_y ?? 0
-            );
-            drawTilemapCells(
-              context,
-              tilemapAsset,
-              bounds.x,
-              bounds.y,
-              tilemap.map_width,
-              tilemap.map_height,
-              cellsArr as number[],
-              8,
-              tilemap.scroll_x ?? 0,
-              tilemap.scroll_y ?? 0
-            );
-          } else {
-            // Fallback legado (projetos importados sem `cells[]`): desenho esticado.
-            drawRepeatedAsset(
-              context,
-              tilemapAsset,
-              bounds.x,
-              bounds.y,
-              bounds.width,
-              bounds.height,
-              tilemap.scroll_x ?? 0,
-              tilemap.scroll_y ?? 0
-            );
-          }
+          drawTilemapArtwork(context, tilemapAsset, tilemap, bounds.x, bounds.y);
+
         });
     }
 
@@ -2870,6 +2795,7 @@ export default function ViewportPanel({
     showBackground,
     showSprites,
     showTilemaps,
+    paletteFilteredOut,
   ]);
 
   useEffect(() => {
@@ -2943,7 +2869,7 @@ export default function ViewportPanel({
         index,
         depth: layerDepthByEntityId.get(entity.entity_id) ?? 0,
       }))
-      .filter(({ entity }) => !hiddenByLayer.has(entity.entity_id))
+      .filter(({ entity }) => !hiddenByLayer.has(entity.entity_id) && !paletteFilteredOut(entity.entity_id))
       .sort((left, right) => {
         if (left.depth !== right.depth) {
           return left.depth - right.depth;
@@ -3006,6 +2932,15 @@ export default function ViewportPanel({
       }
     }
 
+    const tags: {
+      entityId: string;
+      x: number;
+      y: number;
+      text: string;
+      color: string;
+      priority: number;
+      pill: "donor" | "staging" | "inferred" | string | null;
+    }[] = [];
     orderedEntities.forEach(({ entity, index }) => {
       const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
       const x = worldToSceneCanvasX(bounds.x);
@@ -3067,10 +3002,8 @@ export default function ViewportPanel({
           context.font = "10px monospace";
           context.fillText(`TM ${entityDisplayLabel(entity)}`.slice(0, 22), x + 6, y + 14);
         }
-        if (isSelected || isDensePreview || isSoloFocus) {
-          context.fillStyle = "rgba(148,226,213,0.16)";
-          context.fillRect(x, y, width, height);
-        }
+        // Selection/focus is drawn by the outline. A fill changes the perceived
+        // colors of imported artwork and makes palette conversion look broken.
         return;
       }
 
@@ -3081,39 +3014,16 @@ export default function ViewportPanel({
         if (showEntityBounds || isSelected || isDensePreview || isSoloFocus) {
           context.strokeRect(x + 0.5, y + 0.5, width, height);
         }
-        if (showEntityLabels) {
-          context.fillStyle = isSelected || isSoloFocus ? "#ffffff" : isDensePreview ? "#f9e2af" : color;
-          context.font = "10px monospace";
-          context.fillText(entityDisplayLabel(entity).slice(0, 22), x + 6, y + 14);
-        }
         const posCtx = resolveImportedEntityContext(entity);
-        if (showEntityLabels && posCtx.positionMode) {
-          const tag =
-            posCtx.positionMode === "donor"
-              ? "DOADOR"
-              : posCtx.positionMode === "staging"
-                ? "STAGING"
-                : "INFERIDA";
-          const pillBg =
-            posCtx.positionMode === "donor"
-              ? "rgba(166,227,161,0.92)"
-              : posCtx.positionMode === "staging"
-                ? "rgba(250,179,135,0.95)"
-                : "rgba(137,180,250,0.92)";
-          context.font = "bold 8px monospace";
-          const tw = context.measureText(tag).width;
-          const px = x + 6;
-          const py = y + 18;
-          context.fillStyle = pillBg;
-          context.fillRect(px, py, tw + 8, 12);
-          context.strokeStyle = "rgba(17,17,27,0.55)";
-          context.lineWidth = 1;
-          context.strokeRect(px + 0.5, py + 0.5, tw + 8, 12);
-          context.fillStyle = "#11111b";
-          context.textAlign = "left";
-          context.fillText(tag, px + 4, py + 9);
-          context.textAlign = "left";
-        }
+        tags.push({
+          entityId: entity.entity_id,
+          x,
+          y,
+          text: showEntityLabels ? entityDisplayLabel(entity) : "",
+          color: isSelected || isSoloFocus ? "#ffffff" : isDensePreview ? "#f9e2af" : color,
+          priority: isSelected ? 2 : isSoloFocus || isDensePreview ? 1 : 0,
+          pill: showEntityLabels && posCtx.positionMode ? posCtx.positionMode : null,
+        });
         if (isSelected) {
           context.save();
           context.strokeStyle = "#f9e2af";
@@ -3136,12 +3046,73 @@ export default function ViewportPanel({
         context.strokeStyle = "rgba(205,214,244,0.55)";
         context.strokeRect(x + 0.5, y + 0.5, width, height);
       }
-      if (showEntityLabels) {
-        context.fillStyle = "#cdd6f4";
-        context.font = "10px monospace";
-        context.fillText(entityDisplayLabel(entity).slice(0, 22), x + 6, y + 14);
-      }
+      tags.push({
+        entityId: entity.entity_id,
+        x,
+        y,
+        text: showEntityLabels ? entityDisplayLabel(entity) : "",
+        color: "#cdd6f4",
+        priority: isSelected ? 2 : 0,
+        pill: null,
+      });
     });
+
+    // Etiquetas: uma por objeto (selo de paleta + nome + modo de posição), sem sobreposição.
+    {
+      context.save();
+      const chips = tags
+        .map((tag) => {
+          const mark = paletteMapEnabled ? paletteMarks?.get(tag.entityId) : undefined;
+          const name = tag.text.length > 18 ? `${tag.text.slice(0, 17)}…` : tag.text;
+          const pill = !showStagingOverlay ? "" : tag.pill === "donor" ? "DOADOR" : tag.pill === "staging" ? "STAGING" : tag.pill ? "INFERIDA" : "";
+          context.font = "10px monospace";
+          const nameWidth = name ? context.measureText(name).width + 8 : 0;
+          context.font = "bold 8px monospace";
+          const pillWidth = pill ? context.measureText(pill).width + 10 : 0;
+          const width = (mark ? 26 : 0) + nameWidth + pillWidth;
+          return { tag, mark, name, pill, nameWidth, width };
+        })
+        .filter((chip) => chip.width > 0);
+      const placed = new Map(
+        layoutTags(
+          chips.map((chip) => ({ id: chip.tag.entityId, x: chip.tag.x + 2, y: chip.tag.y + 2, width: chip.width, height: 14, priority: chip.tag.priority }))
+        ).map((spot) => [spot.id, spot])
+      );
+      for (const chip of chips) {
+        const spot = placed.get(chip.tag.entityId);
+        if (!spot) continue;
+        let cx = spot.x;
+        const cy = spot.y;
+        context.fillStyle = "rgba(17,17,27,0.82)";
+        context.fillRect(cx, cy, chip.width, 14);
+        if (chip.mark) {
+          const swatch = chip.mark.bank !== undefined ? palettePlan?.banks[chip.mark.bank]?.colors.find((c, i) => i > 0 && c) : undefined;
+          context.fillStyle = swatch ?? "#585b70";
+          context.fillRect(cx + 1, cy + 1, 4, 12);
+          context.font = "bold 10px monospace";
+          context.fillStyle = "#cdd6f4";
+          context.fillText(chip.mark.bank !== undefined ? bankLetter(chip.mark.bank) : "?", cx + 7, cy + 11);
+          context.fillStyle = chip.mark.ok ? "#a6e3a1" : "#f38ba8";
+          context.fillText(chip.mark.ok ? "✓" : "!", cx + 16, cy + 11);
+          cx += 26;
+        }
+        if (chip.name) {
+          context.font = "10px monospace";
+          context.fillStyle = chip.tag.color;
+          context.fillText(chip.name, cx + 4, cy + 11);
+          cx += chip.nameWidth;
+        }
+        if (chip.pill) {
+          context.fillStyle =
+            chip.tag.pill === "donor" ? "rgba(166,227,161,0.92)" : chip.tag.pill === "staging" ? "rgba(250,179,135,0.95)" : "rgba(137,180,250,0.92)";
+          context.fillRect(cx + 1, cy + 1, chip.width - (cx - spot.x) - 2, 12);
+          context.font = "bold 8px monospace";
+          context.fillStyle = "#11111b";
+          context.fillText(chip.pill, cx + 5, cy + 10);
+        }
+      }
+      context.restore();
+    }
 
     const spotlightEntityId = soloEntityId ?? (denseStackSpotlight ? denseStackPreviewEntityId : null);
     if (spotlightEntityId) {
@@ -3168,6 +3139,32 @@ export default function ViewportPanel({
           context.fillStyle = "#f9e2af";
           context.fillText("SOLO", sx + 4, Math.max(12, sy - 8));
         }
+        context.restore();
+      }
+    }
+
+    // Pontos de atenção: "mostrar só esses" escurece o resto e contorna os objetos envolvidos.
+    if (attentionFocus && !spotlightEntityId) {
+      const focused = activeScene.entities.filter((entity) => attentionFocus.entityIds.includes(entity.entity_id));
+      if (focused.length > 0) {
+        const rects = focused.map((entity) => {
+          const fb = getEntityBounds(entity, activeTarget, activeScene.entities);
+          return {
+            x: worldToSceneCanvasX(fb.x),
+            y: worldToSceneCanvasY(fb.y),
+            w: scaleSceneDimension(fb.width),
+            h: scaleSceneDimension(fb.height),
+          };
+        });
+        context.save();
+        context.fillStyle = "rgba(0,0,0,0.55)";
+        context.fillRect(0, 0, sceneScaleWidth, sceneScaleHeight);
+        context.globalCompositeOperation = "destination-out";
+        rects.forEach((r) => context.fillRect(Math.max(0, r.x - 4), Math.max(0, r.y - 4), Math.max(1, r.w + 8), Math.max(1, r.h + 8)));
+        context.globalCompositeOperation = "source-over";
+        context.strokeStyle = "#fab387";
+        context.lineWidth = 2;
+        rects.forEach((r) => context.strokeRect(r.x - 2.5, r.y - 2.5, r.w + 4, r.h + 4));
         context.restore();
       }
     }
@@ -3348,6 +3345,79 @@ export default function ViewportPanel({
         context.fillText(`${guide.position}px`, 6, worldToSceneCanvasY(guide.position) - 4);
       }
     });
+
+    // R5: path of the selected object, with draggable handles (point 0 = the object itself).
+    const pathOwner = activeScene?.entities.find((candidate) => candidate.entity_id === selectedEntityId);
+    if (pathOwner?.components.path && pathOwner.components.sprite && editorMode === "select") {
+      const path = pathOwner.components.path;
+      const pts = pathWorldPoints(pathOwner.transform, path).map((p) => ({ x: worldToSceneCanvasX(p.x), y: worldToSceneCanvasY(p.y) }));
+      context.save();
+      context.setLineDash([6, 4]);
+      context.lineWidth = 2;
+      context.strokeStyle = "#f9e2af";
+      // Same integer formula as the ROM (sampleSegment), so the preview is the executed path.
+      const spawn = pathOwner.transform;
+      const toCanvas = (p: { x: number; y: number }) => ({ x: worldToSceneCanvasX(spawn.x + p.x), y: worldToSceneCanvasY(spawn.y + p.y) });
+      const segments: Array<[number, number]> = path.points.slice(1).map((_, i) => [i, i + 1]);
+      if (path.mode === "loop") segments.push([path.points.length - 1, 0]);
+      context.beginPath();
+      const start = toCanvas(path.points[0]!);
+      context.moveTo(start.x, start.y);
+      for (const [from, to] of segments) {
+        const a = path.points[from]!;
+        const b = path.points[to]!;
+        const head = toCanvas(a);
+        context.moveTo(head.x, head.y);
+        for (const sample of sampleSegment(a, b, b.frames)) {
+          const c = toCanvas(sample);
+          context.lineTo(c.x, c.y);
+        }
+      }
+      context.stroke();
+      context.setLineDash([]);
+      // Curve controls: thin guides + diamond handles.
+      path.points.forEach((p, i) => {
+        if (!p.curve) return;
+        const prev = i === 0 ? path.points[path.points.length - 1]! : path.points[i - 1]!;
+        const c = toCanvas(p.curve);
+        const a = toCanvas(prev);
+        const b = toCanvas(p);
+        context.lineWidth = 1;
+        context.strokeStyle = "rgba(249,226,175,0.6)";
+        context.beginPath();
+        context.moveTo(a.x, a.y);
+        context.lineTo(c.x, c.y);
+        context.lineTo(b.x, b.y);
+        context.stroke();
+        context.beginPath();
+        context.moveTo(c.x, c.y - 6);
+        context.lineTo(c.x + 6, c.y);
+        context.lineTo(c.x, c.y + 6);
+        context.lineTo(c.x - 6, c.y);
+        context.closePath();
+        context.fillStyle = "#cba6f7";
+        context.fill();
+        context.lineWidth = 2;
+        context.strokeStyle = "#1e1e2e";
+        context.stroke();
+      });
+      context.font = "bold 10px monospace";
+      pts.forEach((p, i) => {
+        context.beginPath();
+        context.arc(p.x, p.y, i === 0 ? 4 : 6, 0, Math.PI * 2);
+        context.fillStyle = i === 0 ? "#1e1e2e" : "#f9e2af";
+        context.fill();
+        context.lineWidth = 2;
+        context.strokeStyle = i === 0 ? "#f9e2af" : "#1e1e2e";
+        context.stroke();
+        if (i > 0) {
+          // Point 0 is the object itself (not draggable); only path handles get a number.
+          context.fillStyle = "#f9e2af";
+          context.fillText(String(i), p.x + 8, p.y - 8);
+        }
+      });
+      context.restore();
+    }
   }, [
     activeBrush,
     activeScene,
@@ -3370,6 +3440,7 @@ export default function ViewportPanel({
     denseStackSpotlight,
     denseStackPreviewEntityId,
     soloEntityId,
+    attentionFocus,
     showCollisionOverlay,
     showCameraOverlay,
     showEntityBounds,
@@ -3388,6 +3459,10 @@ export default function ViewportPanel({
     activeTilemapId,
     worldToSceneCanvasX,
     worldToSceneCanvasY,
+    paletteFilteredOut,
+    paletteMapEnabled,
+    paletteMarks,
+    palettePlan,
   ]);
 
   useEffect(() => {
@@ -3533,9 +3608,16 @@ export default function ViewportPanel({
     }
 
     const stack: Entity[] = [];
+    const lockedIds = useEditorStore.getState().lockedEntityIdsByScene[activeScenePath] ?? [];
+    let lockedHit: Entity | null = null;
     for (let index = activeScene.entities.length - 1; index >= 0; index -= 1) {
       const entity = activeScene.entities[index];
       if (hiddenByLayer.has(entity.entity_id)) {
+        continue;
+      }
+      if (entityEditLock(entity.entity_id, activeScene.layers, lockedIds).locked) {
+        const b = getEntityBounds(entity, activeTarget, activeScene.entities);
+        if (!lockedHit && mx >= b.x && mx <= b.x + b.width && my >= b.y && my <= b.y + b.height) lockedHit = entity;
         continue;
       }
       if (entity.components?.tilemap && !showTilemaps) {
@@ -3555,7 +3637,15 @@ export default function ViewportPanel({
       }
     }
 
+    lastLockedHitRef.current = stack.length === 0 ? lockedHit : null;
     return stack;
+  }
+
+  function explainLockedHit() {
+    const locked = lastLockedHitRef.current;
+    if (!locked || !activeScene) return;
+    const lock = entityEditLock(locked.entity_id, activeScene.layers, useEditorStore.getState().lockedEntityIdsByScene[activeScenePath] ?? []);
+    logMessage("info", `[Viewport] ${getEntityDisplayName(locked)}: ${describeEntityEditLock(lock)}. Selecione ou desbloqueie pela árvore.`);
   }
 
   function hitTest(mx: number, my: number) {
@@ -3572,6 +3662,9 @@ export default function ViewportPanel({
       return null;
     }
 
+    if (entityEditLock(entity.entity_id, activeScene.layers, useEditorStore.getState().lockedEntityIdsByScene[activeScenePath] ?? []).locked) {
+      return null;
+    }
     const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
     if (!bounds.resizable) {
       return null;
@@ -3792,6 +3885,7 @@ export default function ViewportPanel({
     }
 
     if (editorMode === "collision") {
+      if (event.button !== 0 && event.button !== 2) return;
       const cmap = activeScene.collision_map;
       const tw = cmap?.tile_width ?? GRID_SNAP_SIZE;
       const th = cmap?.tile_height ?? GRID_SNAP_SIZE;
@@ -3799,13 +3893,16 @@ export default function ViewportPanel({
       const tileX = Math.floor(mx / tw);
       const tileY = Math.floor(my / th);
       const tileIndex = tileY * mapW + tileX;
-      // left button = solid (1); right button = free (0)
-      const tileValue: 0 | 1 = event.button === 2 ? 0 : 1;
+      // Right click remains a shortcut; the toolbar also makes erasure
+      // available with the primary pointer and keyboard navigation.
+      const tileValue: 0 | 1 = event.button === 2 ? 0 : collisionPaintValue;
       beginHistoryCapture();
       updateCollisionMap(tileIndex, tileValue);
       collisionDragRef.current = { lastPaintTile: tileIndex, paintedInDrag: true, value: tileValue };
       return;
     }
+
+    if (event.button !== 0 || event.buttons !== 1) return;
 
     if (editorMode === "select" && event.shiftKey && event.button === 0) {
       const pickStack = collectEntitiesUnderPoint(mx, my);
@@ -3824,12 +3921,27 @@ export default function ViewportPanel({
       }
     }
 
-    const resizeTarget = hitTestResizeHandle(mx, my);
+    // R5: path handles of the selected object come before resize/move.
+    const pathOwner = activeScene.entities.find((candidate) => candidate.entity_id === selectedEntityId);
+    if (pathOwner?.components.path && pathOwner.components.sprite && moveScope === "entity" &&
+      !entityEditLock(pathOwner.entity_id, activeScene.layers, useEditorStore.getState().lockedEntityIdsByScene[activeScenePath] ?? []).locked) {
+      const worldRadius = 7 * (sceneWidth / Math.max(sceneScaleWidth, 1));
+      const handle = hitPathHandleOrControl(pathOwner.transform, pathOwner.components.path, mx, my, worldRadius);
+      if (handle !== null) {
+        pathDragRef.current = { entityId: pathOwner.entity_id, index: handle.index, kind: handle.kind, moved: false };
+        beginHistoryCapture();
+        return;
+      }
+    }
+
+    const resizeTarget = moveScope === "entity" ? hitTestResizeHandle(mx, my) : null;
     if (resizeTarget) {
       const bounds = getEntityBounds(resizeTarget.entity, activeTarget, activeScene.entities);
       setSelectedEntityId(resizeTarget.entity.entity_id);
       dragRef.current = {
         mode: "resize",
+        projectDir: activeProjectDir,
+        scenePath: activeScenePath,
         entityId: resizeTarget.entity.entity_id,
         handle: resizeTarget.handle,
         startMx: mx,
@@ -3853,11 +3965,12 @@ export default function ViewportPanel({
     if (stack.length === 0) {
       densePickRef.current = null;
       setSelectedEntityId(null);
+      explainLockedHit();
       return;
     }
 
     let entity: Entity;
-    if (event.altKey && stack.length > 1) {
+    if (moveScope === "entity" && event.altKey && stack.length > 1) {
       const prev = densePickRef.current;
       const nearby =
         prev &&
@@ -3877,12 +3990,38 @@ export default function ViewportPanel({
     }
 
     densePickRef.current = null;
-    entity = stack[0]!;
+    entity = moveScope === "layer"
+      ? stack.find((candidate) => compositionMembers?.some((member) => member.entity_id === candidate.entity_id)) ?? stack[0]!
+      : stack.find((candidate) => candidate.entity_id === selectedEntityId)
+        ?? stack.find((candidate) => !candidate.components?.camera)
+        ?? stack[0]!;
+
+    if (moveScope === "layer") {
+      if (!compositionLayer || !compositionMembers ||
+        !compositionMembers.some((member) => member.entity_id === entity.entity_id)) {
+        logMessage("warn", "[Viewport] Escolha uma camada editável e arraste um objeto dela para mover a composição.");
+        return;
+      }
+      if (moveGlobalCollisionMap && !activeScene.collision_map) {
+        logMessage("warn", "[Viewport] Esta cena não tem mapa de colisão para mover.");
+        return;
+      }
+    }
 
     const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
     setSelectedEntityId(entity.entity_id);
     dragRef.current = {
       mode: "move",
+      scope: moveScope,
+      layerId: moveScope === "layer" ? compositionLayer!.id : undefined,
+      layerMembers: moveScope === "layer"
+        ? compositionMembers!.map((member) => ({ id: member.entity_id, x: member.transform.x, y: member.transform.y }))
+        : undefined,
+      originalCollisionMap: moveScope === "layer" && moveGlobalCollisionMap && activeScene.collision_map
+        ? structuredClone(activeScene.collision_map)
+        : undefined,
+      projectDir: activeProjectDir,
+      scenePath: activeScenePath,
       entityId: entity.entity_id,
       startMx: mx,
       startMy: my,
@@ -4011,6 +4150,28 @@ export default function ViewportPanel({
       return;
     }
 
+    const pathDrag = pathDragRef.current;
+    if (pathDrag && event.buttons === 1) {
+      const owner = activeScene?.entities.find((candidate) => candidate.entity_id === pathDrag.entityId);
+      const path = owner?.components.path;
+      if (!owner || !path) return;
+      const snapped = gridSnap ? { x: Math.round(mx / GRID_SNAP_SIZE) * GRID_SNAP_SIZE, y: Math.round(my / GRID_SNAP_SIZE) * GRID_SNAP_SIZE } : { x: mx, y: my };
+      const offset = dropOffset(owner.transform, snapped.x, snapped.y);
+      const current = path.points[pathDrag.index];
+      if (!current) return;
+      const target = pathDrag.kind === "control" ? current.curve : current;
+      if (!target || (target.x === offset.x && target.y === offset.y)) return;
+      if (!pathDrag.moved) {
+        commitHistoryCapture();
+        pathDrag.moved = true;
+      }
+      const nextPath = pathDrag.kind === "control"
+        ? withPoint(path, pathDrag.index, { curve: offset })
+        : withPoint(path, pathDrag.index, offset);
+      updateEntity(owner.entity_id, { components: { ...owner.components, path: nextPath } }, { recordHistory: false });
+      return;
+    }
+
     // Select mode drag (existing behavior)
     const drag = dragRef.current;
     if (!drag || event.buttons !== 1) return;
@@ -4096,13 +4257,34 @@ export default function ViewportPanel({
       return;
     }
 
+    if (drag.projectDir !== activeProjectDir || drag.scenePath !== activeScenePath) return;
     const dx = Math.round(mx - drag.startMx);
     const dy = Math.round(my - drag.startMy);
-    let nextX = gridSnap ? snapToGrid(drag.origX + dx, GRID_SNAP_SIZE) : drag.origX + dx;
-    let nextY = gridSnap ? snapToGrid(drag.origY + dy, GRID_SNAP_SIZE) : drag.origY + dy;
-    nextX = snapPositionToGuides(nextX, "vertical");
-    nextY = snapPositionToGuides(nextY, "horizontal");
+    const map = drag.originalCollisionMap;
+    let nextX = map ? drag.origX + Math.round(dx / map.tile_width) * map.tile_width
+      : gridSnap ? snapToGrid(drag.origX + dx, GRID_SNAP_SIZE) : drag.origX + dx;
+    let nextY = map ? drag.origY + Math.round(dy / map.tile_height) * map.tile_height
+      : gridSnap ? snapToGrid(drag.origY + dy, GRID_SNAP_SIZE) : drag.origY + dy;
+    if (!map) {
+      nextX = snapPositionToGuides(nextX, "vertical");
+      nextY = snapPositionToGuides(nextY, "horizontal");
+    }
     if (nextX === drag.lastX && nextY === drag.lastY) {
+      return;
+    }
+
+    const deltaX = nextX - drag.origX;
+    const deltaY = nextY - drag.origY;
+    const nextMap = map ? translateCollisionMap(map, deltaX, deltaY) : null;
+    if (map && !nextMap) {
+      logMessage("warn", "[Viewport] Movimento recusado: a colisão sairia do mapa ou a grade é inválida.");
+      return;
+    }
+    const latest = useEditorStore.getState().activeScene;
+    if (drag.scope === "layer" && (activeLayerId !== drag.layerId ||
+      !latest?.layers?.some((layer) => layer.id === drag.layerId) ||
+      drag.layerMembers?.some((member) => !latest.entities.some((candidate) => candidate.entity_id === member.id)))) {
+      logMessage("warn", "[Viewport] A camada mudou durante o gesto; movimento cancelado.");
       return;
     }
 
@@ -4113,12 +4295,38 @@ export default function ViewportPanel({
 
     drag.lastX = nextX;
     drag.lastY = nextY;
-    updateEntity(drag.entityId, {
-      transform: { x: nextX, y: nextY },
-    }, { recordHistory: false });
+    if (drag.scope === "layer" && drag.layerMembers) {
+      for (const member of drag.layerMembers) {
+        updateEntity(member.id, {
+          transform: { x: member.x + deltaX, y: member.y + deltaY },
+        }, { recordHistory: false });
+      }
+      if (nextMap) setCollisionMap(nextMap);
+    } else {
+      updateEntity(drag.entityId, {
+        transform: { x: nextX, y: nextY },
+      }, { recordHistory: false });
+    }
   }
 
   async function handleMouseUp() {
+    const pathDrag = pathDragRef.current;
+    if (pathDrag) {
+      pathDragRef.current = null;
+      if (!pathDrag.moved) {
+        cancelHistoryCapture();
+        return;
+      }
+      const { activeProjectDir: projectDir } = useEditorStore.getState();
+      if (projectDir) {
+        try {
+          await persistActiveScene(projectDir, "Viewport", pathDrag.kind === "control" ? `Curva do ponto ${pathDrag.index} ajustada.` : `Ponto ${pathDrag.index} do trajeto movido.`);
+        } catch (error: unknown) {
+          logMessage("error", `[Viewport] Falha ao salvar o trajeto: ${describeError(error)}`);
+        }
+      }
+      return;
+    }
     // Collision drag commit — single undo entry + persist
     const collisionDrag = collisionDragRef.current;
     if (collisionDrag) {
@@ -4222,6 +4430,10 @@ export default function ViewportPanel({
 
     dragRef.current = null;
     setIsDragging(false);
+    if (drag.projectDir !== activeProjectDir || drag.scenePath !== activeScenePath) {
+      cancelHistoryCapture();
+      return;
+    }
     if (!drag.historyCommitted) {
       cancelHistoryCapture();
       return;
@@ -4336,8 +4548,13 @@ export default function ViewportPanel({
     100,
     Math.round((dmaUsageBytes / Math.max(dmaBudgetBytes, 1)) * 100)
   );
-  const overlayFps = frameTimingRef.current.fps > 0 ? frameTimingRef.current.fps.toFixed(1) : "0.0";
-  const overlaySpriteCount = overlayHwStatus?.sprite_count ?? activeScene?.entities.length ?? 0;
+  const overlayFps = presentationObservation && presentationObservation.romSha256 === emulatorRomIdentity?.sha256
+    && presentationObservation.coreEpoch === useEditorStore.getState().coreEpoch
+    ? (presentationObservation.frames * 1000 / presentationObservation.durationMs).toFixed(1)
+    : null;
+  const overlaySpriteCount = overlayHwStatus?.sprite_count ?? activeScene?.entities.filter((entity) => entity.components.sprite).length ?? 0;
+  const nativeCOverlay = lastBuildArtifact?.nativeCodeRevision != null
+    && lastBuildArtifact.sha256 === emulatorRomIdentity?.sha256;
   const sceneAssetHealth = (() => {
     if (!activeScene || !activeProjectDir) {
       return summarizeSceneAssetHealth([]);
@@ -4391,6 +4608,29 @@ export default function ViewportPanel({
 
   return (
     <div className="flex h-full flex-col bg-[#1e1e2e]">
+      {templateCompositionPreview && activeViewportTab === "scene" ? (
+        <Dialog
+          open
+          title="Restaurar posições do template"
+          description="A prévia altera somente a posição das entidades originais que ainda existem. Arte, lógica, propriedades, entidades criadas, camadas e mapa de colisão permanecem como estão. Uma entrada de Desfazer reverte a ação."
+          onClose={() => setTemplateCompositionPreview(null)}
+          testId="viewport-template-preview"
+          overlayClassName="!z-[130]"
+          className="max-w-lg"
+        >
+          <p data-testid="viewport-template-preview-count" className="text-xs font-semibold">{templateCompositionPreview.changes.length} posição(ões) a restaurar · {templateCompositionPreview.missing.length} entidade(s) original(is) ausente(s)</p>
+          <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto text-xs">
+            {templateCompositionPreview.changes.map((change) => (
+              <li key={change.id}>{change.id}: ({change.from.x}, {change.from.y}) → ({change.to.x}, {change.to.y})</li>
+            ))}
+          </ul>
+          {templateCompositionPreview.missing.length > 0 ? <p className="mt-2 text-xs">Entidades removidas não serão recriadas: {templateCompositionPreview.missing.join(", ")}.</p> : null}
+          <div className="mt-4 flex justify-end gap-2">
+            <Button size="sm" data-testid="viewport-template-cancel" onClick={() => setTemplateCompositionPreview(null)}>Cancelar</Button>
+            <Button size="sm" variant="primary" data-testid="viewport-template-apply" disabled={templateCompositionPreview.changes.length === 0} onClick={applyTemplateComposition}>Restaurar posições</Button>
+          </div>
+        </Dialog>
+      ) : null}
       {denseStackPicker && activeViewportTab === "scene" ? (
         <div
           data-testid="viewport-dense-stack-picker"
@@ -4563,167 +4803,79 @@ export default function ViewportPanel({
             {/* Toolbar horizontal dedicada (V, B, E, C, G, Zoom) */}
             <div
               data-testid="viewport-scene-toolbar"
-              className="flex min-w-0 shrink-0 items-center gap-1 overflow-x-auto overflow-y-hidden border-b border-[#313244] bg-[#181825] px-2 py-1.5 [scrollbar-width:thin] [&>button]:shrink-0 [&>div]:shrink-0 [&>span]:shrink-0"
+              className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 border-b border-[#313244] bg-[#181825] px-2 py-1.5 [&>button]:shrink-0 [&>div]:shrink-0 [&>span]:shrink-0"
             >
               {([
-                { id: "select" as const, icon: "🖱️", label: "Selecionar (V)", activeColor: "bg-[#89b4fa]" },
-                { id: "paint" as const, icon: "✏️", label: "Pintar (B)", activeColor: "bg-[#89b4fa]" },
-                { id: "erase" as const, icon: "🧹", label: "Apagar (E)", activeColor: "bg-[#89b4fa]" },
-                { id: "collision" as const, icon: "🛡️", label: "Colis\u00e3o (C)", activeColor: "bg-[#f38ba8]" },
+                { id: "select" as const, icon: "cursor" as IconName, label: "Selecionar (V)", activeColor: "bg-[#89b4fa]" },
+                { id: "paint" as const, icon: "brush" as IconName, label: "Pintar (B)", activeColor: "bg-[#89b4fa]" },
+                { id: "erase" as const, icon: "eraser" as IconName, label: "Apagar (E)", activeColor: "bg-[#89b4fa]" },
+                { id: "collision" as const, icon: "collision" as IconName, label: "Colis\u00e3o (C)", activeColor: "bg-[#f38ba8]" },
               ]).map((tool) => (
                 <button
                   key={tool.id}
                   type="button"
                   data-testid={`viewport-tool-${tool.id}`}
+                  aria-label={tool.label}
+                  aria-pressed={editorMode === tool.id}
                   onClick={() => setEditorMode(tool.id)}
-                  className={`rounded px-2 py-1 text-[10px] font-semibold transition-all ${
+                  className={`inline-flex items-center gap-1.5 rounded px-2 py-1 text-[10px] font-semibold transition-all ${
                     editorMode === tool.id
                       ? `${tool.activeColor} text-[#11111b]`
                       : "text-[#7f849c] hover:bg-[#313244] hover:text-[#cdd6f4]"
                   }`}
                   title={tool.label}
                 >
-                  {tool.icon}
+                  <Icon name={tool.icon} size={19} /> {tool.label.split(" (")[0]}
                 </button>
               ))}
+              {editorMode === "collision" && (
+                <div role="group" aria-label="Valor da colisão" className="flex items-center gap-1">
+                  <button type="button" data-testid="viewport-collision-solid" aria-pressed={collisionPaintValue === 1} onClick={() => setCollisionPaintValue(1)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${collisionPaintValue === 1 ? "border-[#f38ba8] text-[#f38ba8]" : "border-[#313244] text-[#a6adc8]"}`}>Sólido</button>
+                  <button type="button" data-testid="viewport-collision-free" aria-pressed={collisionPaintValue === 0} onClick={() => setCollisionPaintValue(0)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${collisionPaintValue === 0 ? "border-[#a6e3a1] text-[#a6e3a1]" : "border-[#313244] text-[#a6adc8]"}`}>Livre</button>
+                </div>
+              )}
               <div className="mx-1 w-px bg-[#313244] self-stretch" />
               <button
                 type="button"
-                onClick={() => setGridSnap((current) => !current)}
-                className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  gridSnap
-                    ? "border border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
-                    : "border border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Snap ao grid 8px (G)"
+                data-testid="viewport-move-object"
+                aria-pressed={moveScope === "entity"}
+                onClick={() => { setMoveScope("entity"); setMoveGlobalCollisionMap(false); setEditorMode("select"); }}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold ${moveScope === "entity" ? "border-[#89b4fa] text-[#89b4fa]" : "border-[#313244] text-[#a6adc8]"}`}
+                title="Selecionar: arrastar move somente o objeto; espaço+arraste ou botão central move a vista"
               >
-                G
+                Mover objeto
               </button>
               <button
                 type="button"
-                onClick={() => setShowGrid((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showGrid
-                    ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#89b4fa]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Mostrar grid principal"
+                data-testid="viewport-move-layer"
+                aria-pressed={moveScope === "layer"}
+                disabled={!compositionMembers}
+                onClick={() => { setMoveScope("layer"); setEditorMode("select"); }}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${moveScope === "layer" ? "border-[#fab387] text-[#fab387]" : "border-[#313244] text-[#a6adc8]"}`}
+                title={compositionMembers
+                  ? `Arrastar um objeto da camada ${compositionLayer?.name} move os ${compositionMembers.length} objetos dessa camada`
+                  : "Selecione uma camada visível, desbloqueada e com objetos no painel Camadas"}
               >
-                Grid
+                Mover camada{compositionMembers ? ` (${compositionMembers.length})` : ""}
               </button>
-              <button
-                type="button"
-                onClick={() => setShowSubGrid((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showSubGrid
-                    ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#89b4fa]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Mostrar sub-grid"
-              >
-                Sub
-              </button>
-              <button
-                type="button"
-                onClick={() => setGuideSnap((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  guideSnap
-                    ? "border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Snap para guias e grid"
-              >
-                Guide
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowBackground((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showBackground
-                    ? "border-[#a6e3a1] bg-[#a6e3a1]/15 text-[#a6e3a1]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Mostrar background"
-              >
-                BG
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowTilemaps((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showTilemaps
-                    ? "border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Mostrar tilemaps"
-              >
-                TM
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowSprites((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showSprites
-                    ? "border-[#cba6f7] bg-[#cba6f7]/15 text-[#cba6f7]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Mostrar sprites"
-              >
-                SP
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCollisionOverlay((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  showCollisionOverlay
-                    ? "border-[#f38ba8] bg-[#f38ba8]/15 text-[#f38ba8]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title={
-                  activeScene?.collision_map
-                    ? `Overlay de colisão (${activeScene.collision_map.width}×${activeScene.collision_map.height} tiles importados/cena)`
-                    : "Mostrar overlay de colisao (sem collision_map na cena)"
-                }
-              >
-                Col
-              </button>
-              {([
-                ["Cam", showCameraOverlay, setShowCameraOverlay, "Mostrar camera e janela MD"],
-                ["Bnd", showEntityBounds, setShowEntityBounds, "Mostrar bounds das entidades"],
-                ["Lbl", showEntityLabels, setShowEntityLabels, "Mostrar labels das entidades"],
-                ["Stg", showStagingOverlay, setShowStagingOverlay, "Mostrar staging importado"],
-                ["Warn", showViewportWarnings, setShowViewportWarnings, "Mostrar avisos de autoria no viewport"],
-                ["Nav", showSceneNavigator, setShowSceneNavigator, "Mostrar navegador do mundo"],
-                ["Key", showKeyColor, setShowKeyColor, "Mostrar cor-chave magenta para debug"],
-                ["Dock", showCommandDock, setShowCommandDock, "Mostrar dock do objeto selecionado"],
-              ] as const).map(([label, active, setter, title]) => (
+              {moveScope === "layer" && (
                 <button
-                  key={label}
                   type="button"
-                  data-testid={`viewport-toggle-${label.toLowerCase()}`}
-                  onClick={() => setter((current) => !current)}
-                  className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                    active
-                      ? "border-[#89dceb] bg-[#89dceb]/15 text-[#89dceb]"
-                      : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                  }`}
-                  title={title}
+                  data-testid="viewport-move-collision"
+                  aria-pressed={moveGlobalCollisionMap}
+                  disabled={!activeScene?.collision_map}
+                  onClick={() => setMoveGlobalCollisionMap((current) => !current)}
+                  className={`rounded border px-2 py-1 text-[10px] font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${moveGlobalCollisionMap ? "border-[#f38ba8] text-[#f38ba8]" : "border-[#313244] text-[#a6adc8]"}`}
+                  title="Opcional: mover TODO o mapa de colisão global junto da camada. Grade alinhada; movimento recusado se cortar células sólidas."
                 >
-                  {label}
+                  Mapa global {moveGlobalCollisionMap ? "incluído" : "separado"}
                 </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setGameViewLight((current) => !current)}
-                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
-                  gameViewLight
-                    ? "border-[#f9e2af] bg-[#f9e2af]/15 text-[#f9e2af]"
-                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
-                }`}
-                title="Game View Light"
-              >
-                GV
-              </button>
+              )}
+              {templateCompositionBaseline ? (
+                <button type="button" data-testid="viewport-template-restore" onClick={previewTemplateComposition} className="rounded border border-[#a6e3a1]/50 px-2 py-1 text-[10px] font-semibold text-[#a6e3a1]" title="Prévia das posições originais do Reference Platformer sem sobrescrever suas edições">
+                  Restaurar template…
+                </button>
+              ) : null}
               <div className="mx-1 w-px bg-[#313244] self-stretch" />
               <button
                 type="button"
@@ -4737,6 +4889,7 @@ export default function ViewportPanel({
               <button
                 type="button"
                 data-testid="viewport-entity-solo-toggle"
+                aria-pressed={Boolean(selectedEntity && soloEntityId === selectedEntity.entity_id)}
                 onClick={toggleSelectedEntitySolo}
                 disabled={!selectedEntity}
                 className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
@@ -4748,25 +4901,46 @@ export default function ViewportPanel({
               >
                 Solo
               </button>
+              {soloEntityId ? (
+                <span
+                  data-testid="viewport-isolation-chip"
+                  role="status"
+                  className="inline-flex items-center gap-1 rounded border border-[#f9e2af]/60 px-2 py-0.5 text-[10px] font-semibold text-[#f9e2af]"
+                >
+                  Atenuado · isolamento: {(() => { const e = activeScene?.entities.find((c) => c.entity_id === soloEntityId); return e ? getEntityDisplayName(e) : soloEntityId; })()}
+                  <button
+                    type="button"
+                    data-testid="viewport-isolation-exit"
+                    onClick={() => setSoloEntityId(null)}
+                    aria-label="Sair do isolamento (Esc)"
+                    title="Sair do isolamento (Esc) — não altera a cena"
+                    className="rounded px-1 hover:bg-[#313244] focus:outline-none focus-visible:ring-1 focus-visible:ring-[#89b4fa]"
+                  >
+                    ×
+                  </button>
+                </span>
+              ) : null}
               <button
                 type="button"
                 onClick={centerViewportOnCamera}
                 className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#f9e2af] transition-colors hover:border-[#f9e2af]"
-                title="Centralizar camera/janela MD visivel"
+                title="Enquadrar a janela do jogador no editor"
               >
-                Camera
+                Enquadrar câmera
               </button>
+              <CameraConfigurator entityId={sceneWorld.camera?.entityId} />
               <button
                 type="button"
                 onClick={resetSceneView}
                 className="rounded border border-[#313244] bg-[#11111b] px-2 py-1 text-[10px] font-semibold text-[#a6adc8] transition-colors hover:text-[#cdd6f4]"
                 title="Resetar vista (zoom + pan)"
               >
-                Reset View
+                Enquadrar cena
               </button>
               <button
                 type="button"
                 onClick={() => setClampViewportToWorld((current) => !current)}
+                aria-pressed={clampViewportToWorld}
                 className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
                   clampViewportToWorld
                     ? "border-[#a6e3a1]/40 bg-[#a6e3a1]/10 text-[#a6e3a1]"
@@ -4827,10 +5001,167 @@ export default function ViewportPanel({
               </button>
             </div>
 
+            <details data-testid="viewport-view-options" className="shrink-0 border-b border-[#313244] bg-[#181825] text-[11px]">
+              <summary className="cursor-pointer px-3 py-1.5 font-semibold text-[#a6adc8]">Visualização · grade, camadas e guias</summary>
+              <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
+              <button
+                type="button"
+                onClick={() => setGridSnap((current) => !current)}
+                aria-pressed={gridSnap}
+                className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  gridSnap
+                    ? "border border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
+                    : "border border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Snap ao grid 8px (G)"
+              >
+                Ajustar à grade (G)
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowGrid((current) => !current)}
+                aria-pressed={showGrid}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showGrid
+                    ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#89b4fa]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Mostrar grid principal"
+              >
+                Grade
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSubGrid((current) => !current)}
+                aria-pressed={showSubGrid}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showSubGrid
+                    ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#89b4fa]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Mostrar sub-grid"
+              >
+                Subgrade
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuideSnap((current) => !current)}
+                aria-pressed={guideSnap}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  guideSnap
+                    ? "border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Snap para guias e grid"
+              >
+                Guias magnéticas
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBackground((current) => !current)}
+                aria-pressed={showBackground}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showBackground
+                    ? "border-[#a6e3a1] bg-[#a6e3a1]/15 text-[#a6e3a1]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Mostrar background"
+              >
+                Fundo
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowTilemaps((current) => !current)}
+                aria-pressed={showTilemaps}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showTilemaps
+                    ? "border-[#94e2d5] bg-[#94e2d5]/15 text-[#94e2d5]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Mostrar tilemaps"
+              >
+                Tilemaps
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSprites((current) => !current)}
+                aria-pressed={showSprites}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showSprites
+                    ? "border-[#cba6f7] bg-[#cba6f7]/15 text-[#cba6f7]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Mostrar sprites"
+              >
+                Sprites
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCollisionOverlay((current) => !current)}
+                aria-pressed={showCollisionOverlay}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  showCollisionOverlay
+                    ? "border-[#f38ba8] bg-[#f38ba8]/15 text-[#f38ba8]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title={
+                  activeScene?.collision_map
+                    ? `Overlay de colisão (${activeScene.collision_map.width}×${activeScene.collision_map.height} tiles importados/cena)`
+                    : "Mostrar overlay de colisao (sem collision_map na cena)"
+                }
+              >
+                Colisões
+              </button>
+              {([
+                ["Cam", showCameraOverlay, setShowCameraOverlay, "Mostrar camera e janela MD"],
+                ["Bnd", showEntityBounds, setShowEntityBounds, "Mostrar bounds das entidades"],
+                ["Lbl", showEntityLabels, setShowEntityLabels, "Mostrar labels das entidades"],
+                ["Stg", showStagingOverlay, setShowStagingOverlay, "Mostrar staging importado"],
+                ["Warn", showViewportWarnings, setShowViewportWarnings, "Mostrar avisos de autoria no viewport"],
+                ["Nav", showSceneNavigator, setShowSceneNavigator, "Mostrar navegador do mundo"],
+                ["Key", showKeyColor, setShowKeyColor, "Mostrar cor-chave magenta para debug"],
+                ["Dock", showCommandDock, setShowCommandDock, "Mostrar dock do objeto selecionado"],
+              ] as const).map(([label, active, setter, title]) => (
+                <button
+                  key={label}
+                  type="button"
+                  data-testid={`viewport-toggle-${label.toLowerCase()}`}
+                  onClick={() => setter((current) => !current)}
+                  aria-pressed={active}
+                  className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                    active
+                      ? "border-[#89dceb] bg-[#89dceb]/15 text-[#89dceb]"
+                      : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                  }`}
+                  title={title}
+                >
+                  {title.replace(/^Mostrar /, "")}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setGameViewLight((current) => !current)}
+                aria-pressed={gameViewLight}
+                className={`rounded border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                  gameViewLight
+                    ? "border-[#f9e2af] bg-[#f9e2af]/15 text-[#f9e2af]"
+                    : "border-[#313244] bg-[#11111b] text-[#6c7086] hover:text-[#a6adc8]"
+                }`}
+                title="Game View Light"
+              >
+                Prévia sem guias
+              </button>
+              </div>
+            </details>
+
+            {activeScene && !gameViewLight ? (
+              <SceneAttentionPanel assets={{ missing: sceneAssetHealth.missing, failed: sceneAssetHealth.failed }} />
+            ) : null}
             {/* Área de canvas com overflow para mais espaço */}
             <div
               ref={sceneStageRef}
               className="relative flex-1 overflow-hidden min-h-0"
+              onPointerDownCapture={() => { if (autoFitRef.current) autoFitRef.current.touched = true; }}
               onWheel={handleSceneStageWheel}
               data-testid="viewport-scene-stage"
             >
@@ -4914,6 +5245,9 @@ export default function ViewportPanel({
                 height={sceneHeight}
                 className="absolute border border-[#45475a]"
                 style={{
+                  // Transparent source tiles must keep a neutral stage surface
+                  // even when the surrounding application uses a light theme.
+                  backgroundColor: "#060816",
                   imageRendering: "pixelated",
                   left: sceneChromeOffset,
                   top: sceneChromeOffset,
@@ -4935,6 +5269,21 @@ export default function ViewportPanel({
                 >
                   <div className="flex flex-wrap items-center gap-2 border-b border-[#313244] px-2 py-1 text-[10px] text-[#cdd6f4]">
                     <span className="font-semibold uppercase tracking-wide text-[#89b4fa]">Fluxo tilemap</span>
+                    <button
+                      type="button"
+                      data-testid="viewport-tile-flow-toggle"
+                      aria-expanded={!tilePaletteCollapsed}
+                      onClick={() => setTilePaletteCollapsed((value) => !value)}
+                      className="rounded border border-[#89b4fa]/40 bg-[#89b4fa]/10 px-2 py-1 text-[9px] font-semibold text-[#cdd6f4] hover:bg-[#89b4fa]/20 focus-visible:ring-2 focus-visible:ring-[var(--rds-focus-ring)]"
+                    >
+                      {tilePaletteCollapsed ? "Abrir paleta" : "Recolher paleta"}
+                    </button>
+                    {tilePaletteCollapsed ? (
+                      <span className="truncate text-[#cba6f7]" title={creatorWorkflow.tileBrushLabel}>
+                        {creatorWorkflow.tileBrushLabel}
+                      </span>
+                    ) : (
+                      <>
                     <span className="text-[#a6adc8]">
                       Alvo:{" "}
                       <span className="font-mono text-[#f9e2af]">
@@ -4970,8 +5319,10 @@ export default function ViewportPanel({
                         Voltar select
                       </button>
                     </div>
+                      </>
+                    )}
                   </div>
-                  {activeProjectDir && activeTilemapEntityForPalette?.components.tilemap ? (
+                  {!tilePaletteCollapsed && activeProjectDir && activeTilemapEntityForPalette?.components.tilemap ? (
                     <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#0b0f19]">
                       <TilePalette
                         projectDir={activeProjectDir}
@@ -4984,17 +5335,21 @@ export default function ViewportPanel({
                         tilemapEntityId={activeTilemapEntityForPalette.entity_id}
                       />
                     </div>
-                  ) : (
+                  ) : !tilePaletteCollapsed ? (
                     <p className="pointer-events-none px-2 py-2 text-[9px] text-[#6c7086]">
                       Selecione um tilemap na cena ou abra um projeto para carregar a paleta embutida (fluxo central
                       sem depender só de Tools).
                     </p>
-                  )}
+                  ) : null}
                 </div>
               ) : null}
               <canvas
                 ref={sceneOverlayCanvasRef}
                 data-testid="viewport-scene-overlay"
+                data-world-min-x={sceneWorldMinX}
+                data-world-min-y={sceneWorldMinY}
+                data-world-width={sceneWidth}
+                data-world-height={sceneHeight}
                 width={sceneScaleWidth}
                 height={sceneScaleHeight}
                 onMouseDown={handleMouseDown}
@@ -5351,6 +5706,16 @@ export default function ViewportPanel({
                 {sceneAssetHealth.compactSummary}
               </span>
             )}
+            {attentionFocus ? (
+              <button
+                type="button"
+                data-testid="viewport-attention-clear"
+                onClick={() => setAttentionFocus(null)}
+                className="absolute bottom-8 left-1/2 z-20 -translate-x-1/2 rounded-full border border-[#fab387]/60 bg-[#11111b]/95 px-3 py-1 text-[10px] text-[#fab387]"
+              >
+                Mostrando só {attentionFocus.entityIds.length} objeto(s) com problema — mostrar tudo
+              </button>
+            ) : null}
             {/* Shown only when something needs attention, so it never covers a healthy scene. */}
             {activeScene &&
               sceneAssetHealth.referenced > 0 &&
@@ -5368,7 +5733,7 @@ export default function ViewportPanel({
                       : editorMode === "erase"
                         ? " | 🧹 Apagar — clique/arraste para remover"
                         : editorMode === "collision"
-                          ? " | 🛡️ Colis\u00e3o — Esq: s\u00f3lido \u00b7 Dir: livre \u00b7 Esc: sair"
+                          ? ` | 🛡️ Colisão — clique: ${collisionPaintValue === 1 ? "sólido" : "livre"} · botão direito: livre · Esc: sair`
                           : ` | arraste para mover${selectedEntityId && !selectedEntityId.startsWith("layer::") ? " / handles para resize" : ""}`
                   }`
                 : "Abra um projeto para visualizar a cena"}
@@ -5421,11 +5786,12 @@ export default function ViewportPanel({
                 {showPerformanceOverlay && (
                   <div
                     data-testid="viewport-performance-overlay"
+                    data-native-c={nativeCOverlay}
                     className="pointer-events-none absolute left-2 top-2 flex flex-col gap-1 rounded border border-[#313244] bg-[#11111b]/80 px-2 py-1 font-mono text-[10px] text-[#cdd6f4]"
                   >
-                    <span>FPS {overlayFps}</span>
-                    <span>Sprites {overlaySpriteCount}</span>
-                    <span>DMA est. {Math.round(dmaUsageBytes / 1024)}KB / {Math.round(dmaBudgetBytes / 1024)}KB ({dmaUsagePercent}%)</span>
+                    <span>FPS apresentação {overlayFps ?? "indisponível"} (janela ≥1 s)</span>
+                    <span>Sprites {nativeCOverlay ? "indisponíveis (C)" : overlaySpriteCount}</span>
+                    <span>DMA est. {nativeCOverlay ? "indisponível (C)" : `${Math.round(dmaUsageBytes / 1024)}KB / ${Math.round(dmaBudgetBytes / 1024)}KB (${dmaUsagePercent}%)`}</span>
                   </div>
                 )}
                 <div className="pointer-events-none absolute bottom-2 right-2 rounded border border-[#313244] bg-[#11111b]/80 px-2 py-1 text-[10px] font-mono text-[#7f849c]">
@@ -5578,10 +5944,41 @@ export default function ViewportPanel({
         )}
 
         {activeViewportTab === "logic" && (
-          <div className="h-full w-full">
-            <Suspense fallback={<WorkspaceViewportFallback label="Carregando Logic..." />}>
-              <NodeGraphEditor />
-            </Suspense>
+          <div className="flex h-full w-full flex-col">
+            {nativeCProject && activeProjectDir ? (
+              <div role="tablist" aria-label="Origem da lógica" className="flex shrink-0 items-center gap-1 border-b border-[#313244] bg-[#11111b] px-2 py-1 text-[11px]">
+                {(
+                  [
+                    ["code", "Código do jogo (C)", "O comportamento real deste jogo, organizado por arquivo e máquina de estado"],
+                    ["nodes", "Nodes do Studio", "Lógica visual das entidades da cena do Studio"],
+                  ] as const
+                ).map(([mode, label, hint]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="tab"
+                    data-testid={`logic-source-${mode}`}
+                    aria-selected={logicSource === mode}
+                    title={hint}
+                    onClick={() => setLogicSource(mode)}
+                    className={`rounded px-2 py-0.5 ${logicSource === mode ? "bg-[#1e3a5f] font-semibold text-white" : "text-[#93c5fd] hover:bg-[#1e293b]"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div className="relative min-h-0 flex-1">
+              {nativeCProject && activeProjectDir && logicSource === "code" ? (
+                <Suspense fallback={<WorkspaceViewportFallback label="Carregando código..." />}>
+                  <GameCodeLogic projectDir={activeProjectDir} />
+                </Suspense>
+              ) : (
+                <Suspense fallback={<WorkspaceViewportFallback label="Carregando Logic..." />}>
+                  <NodeGraphEditor />
+                </Suspense>
+              )}
+            </div>
           </div>
         )}
 
@@ -5600,7 +5997,7 @@ export default function ViewportPanel({
               Array.isArray(animation.mugen_frames)
             ) ? (
               <Suspense fallback={<WorkspaceViewportFallback label="Carregando Personagem..." />}>
-                <CharacterTimelinePanel entity={selectedEntity} />
+                <CharacterTimelinePanel key={selectedEntity.entity_id} entity={selectedEntity} />
               </Suspense>
             ) : (
               <Suspense fallback={<WorkspaceViewportFallback label="Carregando ArtStudio..." />}>
@@ -5615,8 +6012,8 @@ export default function ViewportPanel({
       <div className="flex h-6 shrink-0 items-center gap-4 border-t border-[#313244] bg-[#181825] px-3">
         <span className="select-none text-[10px] text-[#45475a]">{targetLabel}</span>
         <span className="select-none text-[10px] text-[#45475a]">{resolution} / 60fps</span>
-        <span className="select-none text-[10px] text-[#45475a]">
-          Sprites: {activeScene?.entities.length ?? 0} / {spriteLimit}
+        <span data-testid="viewport-scene-sprites" title="Instâncias com componente sprite nesta cena. Metasprites e o jogo C original exigem seu próprio orçamento/captura." className="select-none text-[10px] text-[#45475a]">
+          Sprites: {activeScene?.entities.filter((entity) => entity.components.sprite).length ?? 0} / {spriteLimit}
         </span>
         <span className="select-none text-[10px] text-[#45475a]">
           BG Layers: {activeScene?.background_layers.length ?? 0} / {bgLayerLimit}

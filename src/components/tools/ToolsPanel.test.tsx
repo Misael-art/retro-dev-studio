@@ -491,7 +491,7 @@ describe("ToolsPanel Asset Browser", () => {
     });
 
     await act(async () => {
-      findButton(container, "Instanciar").click();
+      findButton(container, "Adicionar à cena").click();
       await flush();
       await flush();
     });
@@ -539,15 +539,15 @@ describe("ToolsPanel Asset Browser", () => {
 
     expect(
       container.querySelector("[data-testid='asset-browser-reference-summary']")?.textContent
-    ).toContain("Asset orfao");
+    ).toContain("Disponível na biblioteca");
     expect(
       container.querySelector("[data-testid='asset-browser-instantiation-notice']")?.textContent
-    ).toContain("Instanciar como sprite");
+    ).toContain("Adicionar personagem ou objeto");
     expect(
       container.querySelector("[data-testid='asset-browser-instantiation-notice']")?.textContent
     ).toContain("padrao-sprite-sem-sinais-de-tilemap");
     expect(container.querySelector("[data-testid='asset-browser-budget-summary']")?.textContent).toContain(
-      "Orfao"
+      "Fora desta cena"
     );
   });
 
@@ -581,7 +581,8 @@ describe("ToolsPanel Asset Browser", () => {
 
     await act(async () => {
       changeInputValue(search, "");
-      findButton(container, "source art").click();
+      (container.querySelector('[data-testid="asset-browser-filters"] > summary') as HTMLElement).click();
+      findButton(container, "Arte de origem").click();
       await flush();
     });
 
@@ -670,6 +671,57 @@ describe("ToolsPanel Asset Browser", () => {
     expect(state.artStudioAssetPath).toBe("assets/sprites/onboarding_player.ppm");
     expect(state.activeScene?.entities).toHaveLength(0);
     expect(mocks.persistActiveScene).not.toHaveBeenCalled();
+  });
+
+  it("requires a specific user when a sprite asset is shared by two scene entities", async () => {
+    await act(async () => {
+      useEditorStore.setState({
+        selectedEntityId: null,
+        activeScene: {
+          scene_id: "main", background_layers: [],
+          entities: ["hero", "enemy"].map((id) => ({
+            entity_id: id, transform: { x: 0, y: 0 },
+            components: { sprite: { asset: "assets/sprites/onboarding_player.ppm", frame_width: 16, frame_height: 16 } },
+          })),
+        },
+      });
+      await flush();
+    });
+    for (const label of ["Avancado OFF", /Experimental/, /Asset Browser/]) {
+      await act(async () => { findButton(container, label).click(); await flush(); await flush(); });
+    }
+    await act(async () => {
+      const fileBtn = Array.from(container.querySelectorAll("button")).find((element) => element.textContent?.includes("onboarding_player.ppm"));
+      fileBtn?.click();
+      await flush();
+    });
+    expect(container.querySelector<HTMLButtonElement>("[data-testid='asset-browser-open-artstudio']")?.disabled).toBe(true);
+    await act(async () => {
+      const select = container.querySelector<HTMLSelectElement>("[data-testid='asset-browser-use-choice']")!;
+      select.value = "1";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      await flush();
+      container.querySelector<HTMLButtonElement>("[data-testid='asset-browser-open-artstudio']")!.click();
+      await flush();
+    });
+    expect(useEditorStore.getState().activeWorkspace).toBe("artstudio");
+    expect(useEditorStore.getState().selectedEntityId).toBe("enemy");
+  });
+
+  it("highlights only an exact resource reference, preserving path and case identity", async () => {
+    const setAsset = async (asset: string) => act(async () => {
+      useEditorStore.setState({ selectedEntityId: "hero", activeScene: { scene_id: "main", background_layers: [], entities: [{ entity_id: "hero", prefab: null, transform: { x: 0, y: 0 }, components: { sprite: { asset, frame_width: 16, frame_height: 16 } } }] } });
+      await flush();
+    });
+    await setAsset("onboarding_player.ppm");
+    for (const label of ["Avancado OFF", /Experimental/, /Asset Browser/]) {
+      await act(async () => { findButton(container, label).click(); await flush(); await flush(); });
+    }
+    expect(container.querySelectorAll("button[data-linked='true']")).toHaveLength(0);
+    await setAsset("assets/sprites/onboarding_player.ppm");
+    expect(container.querySelectorAll("button[data-linked='true']")).toHaveLength(1);
+    await setAsset("assets/sprites/ONBOARDING_PLAYER.ppm");
+    expect(container.querySelectorAll("button[data-linked='true']")).toHaveLength(0);
   });
 
   it("shows the current scene references for the selected asset", async () => {

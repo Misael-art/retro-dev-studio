@@ -7,6 +7,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useEditorStore } from "./editorStore";
 import type { Scene, Entity, BackgroundLayer, SceneLayer } from "../ipc/sceneService";
+import { translateCollisionMap } from "../sceneComposition";
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -46,7 +47,56 @@ beforeEach(() => {
   });
 });
 
+describe("composition history", () => {
+  it("undoes and redoes a layer move with its global collision map as one entry", () => {
+    const scene: Scene = {
+      ...EMPTY_SCENE,
+      entities: [makeEntity("player", 8, 8), makeEntity("goal", 24, 8), makeEntity("other", 40, 8)],
+      collision_map: { width: 4, height: 2, tile_width: 8, tile_height: 8,
+        data: [0, 1, 0, 0, 0, 0, 0, 0] },
+    };
+    useEditorStore.setState({ activeScene: scene, activeSceneSource: structuredClone(scene) });
+    const store = useEditorStore.getState();
+    store.beginHistoryCapture();
+    store.commitHistoryCapture();
+    store.updateEntity("player", { transform: { x: 16, y: 8 } }, { recordHistory: false });
+    store.updateEntity("goal", { transform: { x: 32, y: 8 } }, { recordHistory: false });
+    store.setCollisionMap(translateCollisionMap(scene.collision_map!, 8, 0)!);
+    expect(useEditorStore.getState().undoStack).toHaveLength(1);
+    expect(useEditorStore.getState().activeScene?.entities.map((entity) => entity.transform.x)).toEqual([16, 32, 40]);
+    expect(useEditorStore.getState().activeSceneSource?.collision_map?.data[2]).toBe(1);
+    useEditorStore.getState().undo();
+    expect(useEditorStore.getState().activeScene?.entities.map((entity) => entity.transform.x)).toEqual([8, 24, 40]);
+    expect(useEditorStore.getState().activeSceneSource?.collision_map?.data[1]).toBe(1);
+    useEditorStore.getState().redo();
+    expect(useEditorStore.getState().activeScene?.entities.map((entity) => entity.transform.x)).toEqual([16, 32, 40]);
+    expect(useEditorStore.getState().activeScene?.collision_map?.data[2]).toBe(1);
+  });
+});
+
 // ── addEntity ─────────────────────────────────────────────────────────────────
+
+describe("build test receipt", () => {
+  it("records an executed frame only for the built ROM and current epoch, and preserves it on Stop", () => {
+    const store = useEditorStore.getState();
+    store.setActiveProject("/project", "Project");
+    useEditorStore.setState({ lastBuildSceneRevision: 5, lastBuildSourceMap: { artifact: { sha256: "built" } } as never });
+    store.setEmulatorLoaded(true);
+    store.setCoreEpoch(7);
+    store.setEmulatorRomIdentity({ sha256: "built" } as never);
+    store.recordBuildTestFrame(6, "built", 1);
+    store.recordBuildTestFrame(7, "other", 1);
+    store.recordBuildTestFrame(7, "built", 0);
+    expect(useEditorStore.getState().lastBuildTest).toBeNull();
+    store.recordBuildTestFrame(7, "built", 1);
+    const receipt = useEditorStore.getState().lastBuildTest;
+    expect(receipt).toMatchObject({ projectDir: "/project", romSha256: "built", sceneRevision: 5, coreEpoch: 7 });
+    store.setEmulatorLoaded(false);
+    expect(useEditorStore.getState().lastBuildTest).toBe(receipt);
+    store.setActiveProject("/other", "Other");
+    expect(useEditorStore.getState().lastBuildTest).toBeNull();
+  });
+});
 
 describe("addEntity", () => {
   it("não faz nada se não há cena ativa", () => {
@@ -84,6 +134,23 @@ describe("addEntity", () => {
 // ── removeEntity ──────────────────────────────────────────────────────────────
 
 describe("removeEntity", () => {
+  it("protects the last pattern owner and transfers its library atomically when another camera exists", () => {
+    const config={version:1,active:false,pattern:"fixed"} as import("../ipc/sceneService").VisualCameraConfig;
+    const owner=makeEntity("owner");owner.components.camera={visual:config,patterns:[{id:"own",name:"Minha sala",config,offset_x:0,offset_y:0,x:0,y:0}]};
+    const scene:Scene={...EMPTY_SCENE,entities:[owner]};
+    useEditorStore.setState({activeScene:scene,activeSceneSource:structuredClone(scene),undoStack:[],redoStack:[]});
+    useEditorStore.getState().removeEntity("owner");
+    expect(useEditorStore.getState().activeScene?.entities).toHaveLength(1);
+    expect(useEditorStore.getState().undoStack).toHaveLength(0);
+    const receiver=makeEntity("receiver");receiver.components.camera={visual:config};
+    useEditorStore.getState().addEntity(receiver);
+    useEditorStore.getState().removeEntity("owner");
+    expect(useEditorStore.getState().activeScene?.entities[0].components.camera?.patterns?.[0].name).toBe("Minha sala");
+    expect(useEditorStore.getState().activeSceneSource?.entities[0].components.camera?.patterns).toEqual(useEditorStore.getState().activeScene?.entities[0].components.camera?.patterns);
+    useEditorStore.getState().undo();
+    expect(useEditorStore.getState().activeScene?.entities).toHaveLength(2);
+    expect(useEditorStore.getState().activeScene?.entities.find(e=>e.entity_id==="receiver")?.components.camera?.patterns).toBeUndefined();
+  });
   it("remove entidade pelo id", () => {
     const scene: Scene = { ...EMPTY_SCENE, entities: [makeEntity("a"), makeEntity("b")] };
     useEditorStore.setState({ activeScene: scene });
@@ -237,6 +304,24 @@ describe("updateBackgroundLayer", () => {
 });
 
 describe("setActiveScene", () => {
+  it("descarta a validação do alvo e da cena anteriores", () => {
+    const hardware = {
+      vram_used: 0, vram_limit: 65536, sprite_count: 0, sprite_limit: 80,
+      scanline_sprite_peak: 0, scanline_sprite_limit: 20, dma_used: 0, dma_limit: 7372,
+      palette_banks_used: 0, palette_banks_limit: 4, bg_layers: 0, bg_layers_limit: 4,
+      errors: [], warnings: [],
+    };
+    useEditorStore.setState({ hwStatus: hardware, hwValidationState: "fresh", hwValidatedRevision: 4 });
+    useEditorStore.getState().setActiveTarget("snes");
+    expect(useEditorStore.getState().hwStatus).toBeNull();
+    expect(useEditorStore.getState().hwValidationState).toBe("idle");
+
+    useEditorStore.setState({ hwStatus: hardware, hwValidationState: "fresh", hwValidatedRevision: 4 });
+    useEditorStore.getState().setActiveScenePath("scenes/other.json");
+    expect(useEditorStore.getState().hwStatus).toBeNull();
+    expect(useEditorStore.getState().hwValidationState).toBe("idle");
+  });
+
   it("incrementa sceneRevision ao carregar cena", () => {
     useEditorStore.setState({ sceneRevision: 7 });
     useEditorStore.getState().setActiveScene({ ...EMPTY_SCENE });

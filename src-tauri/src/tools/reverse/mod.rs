@@ -9,6 +9,7 @@ pub mod manifest;
 pub mod matching;
 pub mod platform;
 pub mod projection;
+pub mod rom_input;
 pub mod text;
 pub mod trace;
 

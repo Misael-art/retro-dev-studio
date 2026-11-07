@@ -33,7 +33,9 @@ export const LAYOUT_COMPONENT_GAP = 64;
  */
 export function estimateNodeCardSize(node: GraphNode, essentialParamCount = 2, hasEntity = true): NodeSize {
   const portRows = Math.max(node.inputs.length, node.outputs.length, 1);
-  const height = 30 + 36 + (hasEntity ? 24 : 0) + portRows * 20 + 8 + essentialParamCount * 20 + 22;
+  // Point-of-use rows rendered by NodeCard: sound selector/preview, music limitation.
+  const pointOfUse = node.type === "action_sound" ? 44 : node.type === "action_music" ? 28 : 0;
+  const height = 30 + 36 + (hasEntity ? 24 : 0) + portRows * 20 + 8 + essentialParamCount * 20 + 22 + pointOfUse;
   return { width: NODE_CARD_LAYOUT_WIDTH, height };
 }
 
@@ -75,6 +77,40 @@ export function rectsOverlap(a: NodeRect, b: NodeRect, gap = 0): boolean {
     a.y < b.y + b.height + gap &&
     b.y < a.y + a.height + gap
   );
+}
+
+/** Insere perto do foco sem deslocar decisões visuais já tomadas pelo autor. */
+export function findFreeNodePosition(
+  graph: NodeGraph,
+  size: NodeSize,
+  anchor: { x: number; y: number },
+  options: LayoutOptions = {}
+): { x: number; y: number } {
+  const sizeOf = options.sizeOf ?? defaultSize;
+  const hidden = new Set(options.collapsed?.flatMap((group) => group.nodeIds) ?? []);
+  const obstacles = [
+    ...graph.nodes.filter((node) => !hidden.has(node.id)).map((node) => ({ ...sizeOf(node), x: node.x, y: node.y })),
+    ...(options.collapsed ?? []).map((group) => group.rect),
+  ];
+  const x = Math.round(anchor.x);
+  let y = Math.round(anchor.y);
+  // Cada colisão avança além de pelo menos um obstáculo: termina em no máximo n+1 passos.
+  for (let step = 0; step <= obstacles.length; step += 1) {
+    const hits = obstacles.filter((rect) => rectsOverlap({ x, y, ...size }, rect, LAYOUT_ROW_GAP));
+    if (hits.length === 0) return { x, y };
+    y = Math.ceil(Math.max(...hits.map((rect) => rect.y + rect.height)) + LAYOUT_ROW_GAP);
+  }
+  return { x, y };
+}
+
+/** Vista de edição legível; o panorama completo continua sendo uma ação explícita. */
+export function getNodeEditingView(rect: NodeRect, viewport: NodeSize) {
+  const zoom = Math.max(0.75, Math.min(1, (viewport.width - 48) / rect.width, (viewport.height - 96) / rect.height));
+  return {
+    zoom,
+    x: Math.max(24, (viewport.width - rect.width * zoom) / 2) - rect.x * zoom,
+    y: Math.max(64, (viewport.height - rect.height * zoom) / 2) - rect.y * zoom,
+  };
 }
 
 function portOrder(port: string): number {

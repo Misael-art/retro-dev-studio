@@ -18,7 +18,8 @@ Set-StrictMode -Version Latest
 
 $ScriptDir = $PSScriptRoot
 $ProjectRoot = (Resolve-Path (Join-Path $ScriptDir "..")).Path
-$BootstrapCache = Join-Path $env:LOCALAPPDATA "RetroDevStudio\cache\bootstrap"
+$HostCacheBase = if ($env:RDS_HOST_CACHE) { $env:RDS_HOST_CACHE } else { Join-Path $env:LOCALAPPDATA "RetroDevStudio\cache" }
+$BootstrapCache = Join-Path $HostCacheBase "bootstrap"
 $LogFile = Join-Path $BootstrapCache "bootstrap.log"
 $PortableCache = Join-Path $ProjectRoot "toolchains\.cache\artifacts"
 $PinnedNodeVersion = "24.18.0"

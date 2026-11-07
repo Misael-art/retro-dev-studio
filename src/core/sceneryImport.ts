@@ -22,9 +22,14 @@ export function setNextImageImportPath(path: string): void {
 }
 
 export async function chooseAndImportImage(projectDir: string): Promise<ImportedImage | null> {
-  const automation = nextAutomationPath;
-  nextAutomationPath = null;
-  const source = automation ?? (await invoke<string | null>("pick_image_file_dialog"));
+  const source = await chooseImagePath();
   if (!source) return null;
   return invoke<ImportedImage>("import_project_image", { projectDir, sourcePath: source });
+}
+
+/** Shared native picker; automation substitutes only the selected path. */
+export async function chooseImagePath(extended = false): Promise<string | null> {
+  const automation = nextAutomationPath;
+  nextAutomationPath = null;
+  return automation ?? (extended ? await invoke<string | null>("pick_image_file_dialog", { extended: true }) : await invoke<string | null>("pick_image_file_dialog"));
 }

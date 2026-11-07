@@ -7,7 +7,7 @@
 pub mod edit;
 pub mod encode;
 
-pub use encode::{encode, EncError, KosEncoded};
+pub use encode::{encode, encode_optimal, EncError, KosEncoded};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum KosError {

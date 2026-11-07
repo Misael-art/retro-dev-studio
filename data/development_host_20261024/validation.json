@@ -1,0 +1,296 @@
+{
+  "schema": "rds-new-host-validation/v1",
+  "date_utc": "2026-10-24",
+  "base_commit": "95d5ef237e9cbef321b13162f8b7f6823d094203",
+  "source_worktree_dirty_during_checks": true,
+  "branch": "codex/new-host-cohesion-20261024",
+  "host": {
+    "platform": "linux",
+    "arch": "x64",
+    "os_id": "biglinux",
+    "os_version": "6.18.49-1-MANJARO",
+    "abi": "2.44"
+  },
+  "pins": {
+    "node": "24.18.0",
+    "npm": "11.16.0",
+    "rust": "1.97.0"
+  },
+  "source_sha256": {
+    "scripts/new-host.sh": "e023d25dd983b44b00c9f33c6aa57ab4d8a315f2f354b32e0dab4aebcf814e55",
+    "scripts/new-host.ps1": "420fbc915979f381f43c42233f2d57a87e445b8271799e4ac486e2f0ebce6321",
+    "scripts/new-host.mjs": "260eb3b27bb37391deac35e73362fc6d685e3c1b3971081284bd2772e3e9b095",
+    "scripts/new-host.test.mjs": "a9c2feda6390406cb808af9ac2cc5de2fb9408a97ddc9c168599423999444e86",
+    "scripts/bootstrap.sh": "e50471a6bb9bffe8aae0d5a0aacc1a0a4b33f5aaf88ae651cd342030dc943c84",
+    "scripts/bootstrap.ps1": "037400a6e9b9ca65e6933999b8f8db90be58a1f7af8feec42ba32d2dc71ce551",
+    "scripts/host-manager.mjs": "7fa701088d43620561c60ad71c22469051216f5bf3a2547f3cdfe8a8e1059cbf",
+    "package.json": "797aaf143836104d41990be7923ce55cbd4d32423ea507291c966dd60bb34655",
+    "package-lock.json": "62d4b915201c6f788af5e16c874fdb33d9980a432334856e943df12be63cc468",
+    "rust-toolchain.toml": "174a086284d57e79557b62bc627e96257893375dfd37239e3c3e830ce2629b95",
+    ".node-version": "55075b5ec4e8b31936cbbc282b8829116d1fd48f2f2f1856dee592a6650700ce",
+    "toolchains/host-requirements.lock.json": "ee9605b6600bc412e8891ae5f2e4f01fc6372a74005b17b9326becb989b45a31"
+  },
+  "application_sources_unchanged": [
+    "src/",
+    "src-tauri/",
+    "crates/"
+  ],
+  "host_certification": {
+    "state": "READY",
+    "lock_digest": "dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377",
+    "gates": [
+      {
+        "label": "check:tree",
+        "ok": true,
+        "exit_code": 0
+      },
+      {
+        "label": "lint",
+        "ok": true,
+        "exit_code": 0
+      },
+      {
+        "label": "typescript",
+        "ok": true,
+        "exit_code": 0
+      },
+      {
+        "label": "frontend-tests",
+        "ok": true,
+        "exit_code": 0
+      },
+      {
+        "label": "rust-clippy",
+        "ok": true,
+        "exit_code": 0
+      },
+      {
+        "label": "rust-tests",
+        "ok": true,
+        "exit_code": 0
+      },
+      {
+        "label": "upstream",
+        "ok": true,
+        "exit_code": 0
+      }
+    ],
+    "source_relation": "same application/dependencies; final launcher guards/maintenance contract checked by directed suite and final full frontend suite"
+  },
+  "results": {
+    "frontend": {
+      "passed": 1164,
+      "failed": 0,
+      "skipped": 3,
+      "final_full_run": "sessions/2026-10-24T12-31-46-299Z-273071/command.log",
+      "first_host_certify_frontend_passed": 1163
+    },
+    "rust": {
+      "passed": 1066,
+      "failed": 0,
+      "ignored": 102
+    },
+    "directed_host_tests_final": {
+      "passed": 58,
+      "failed": 0,
+      "new_launcher_cases": 19
+    },
+    "crate_gates": {
+      "rc": 0,
+      "registered_packages": 5
+    },
+    "npm_audit": {
+      "rc": 0,
+      "vulnerabilities": 0
+    },
+    "cargo_audit": {
+      "rc": 0,
+      "allowed_warnings": 12,
+      "new_exceptions_added": false
+    },
+    "frontend_bundle": {
+      "rc": 0,
+      "vite": "6.4.5",
+      "large_chunk_warning_retained": true
+    },
+    "bootstrap_reentry_offline": {
+      "rc": 0,
+      "existing_managed_host": true,
+      "clean_os_install": false
+    },
+    "powershell_parse": {
+      "rc": 0,
+      "executed_on": "linux"
+    },
+    "powershell_node_free_plan": {
+      "rc": 0,
+      "created_directories": false,
+      "executed_on": "linux"
+    },
+    "lock_refusal": {
+      "rc": 10,
+      "control_holder_lock_preserved": true
+    },
+    "checksum_control": [
+      {
+        "version": "before",
+        "rc": 12,
+        "invalid_archive_promoted": true,
+        "log_sha256": "adcc8dda20bf0e1533645ea0c50ded9c9bd750aa38b6f5be20633ee07da77a7d"
+      },
+      {
+        "version": "after",
+        "rc": 12,
+        "invalid_archive_promoted": false,
+        "log_sha256": "47e7e3d6c3c1d4d462d79ab117eae333d99e11e59411b1070640aa33baf615ee"
+      }
+    ],
+    "lockfile_maintenance_contract": {
+      "strict_for": [
+        "--install",
+        "--certify",
+        "--build",
+        "--check"
+      ],
+      "development_run_records_delta": true,
+      "test_passed": true
+    }
+  },
+  "historical_audit_text_sha256": {
+    "ACHADOS.md": "0e8774931bb76401ab72302b061b47771e2a4bd07623c077e81c66dc39efcd7b",
+    "PARECER_DO_AUDITOR.md": "58630eae3095466557934f09a6bb7e5732ed8641bf151045d213e7e652c9a3b4",
+    "REVISOES_INDEPENDENTES.md": "3d7a7b465b98385cc4a59978db4809378bb319b2ff1eac60428226116197f329",
+    "ERRATA_CADEIA_LOT006.md": "c203e104998afec71d910121b7eae1c1859e4bcfc87a59f2d33c14e622c099fc",
+    "coverage.csv": "85fa412b2b53f06dba152854a7eef0f36e4a3f5e9cf290478ce533580d569b50",
+    "achados.jsonl": "8e7b679f1bf2d00ab8f43a3b220c14aa87e2bece9abe23265426dd03abcc4287",
+    "SESSION.md": "06f0896544dbed6cc058fca8e915060c12384a12bfd86d5dba91f6ddba8b027b"
+  },
+  "private_logs": [
+    {
+      "path": "sessions/2026-10-24T12-00-49-037Z-159314/crate-gates.log",
+      "sha256": "22bd16c49740e90bcba0f90325baff967b61eda1bd3f711fa5c1b3c3e9b21619",
+      "bytes": 28925
+    },
+    {
+      "path": "sessions/2026-10-24T12-00-49-037Z-159314/host-before.json",
+      "sha256": "e923a29e6b11c4e4cf7fde01412ae45b2ffff8c4eaa06e221efc8a994200d82a",
+      "bytes": 9111
+    },
+    {
+      "path": "sessions/2026-10-24T12-00-49-037Z-159314/host-certified.json",
+      "sha256": "b83830751f77cb057ce482feac105e230c4281dc9d2971256cdfde3b0a16c20c",
+      "bytes": 11474
+    },
+    {
+      "path": "sessions/2026-10-24T12-00-49-037Z-159314/host-certify.log",
+      "sha256": "c90a9459abfdbaf19baf6520a8fae00f36c352815008e79412ce99f7ee487651",
+      "bytes": 158247
+    },
+    {
+      "path": "sessions/2026-10-24T12-00-49-037Z-159314/npm-audit.log",
+      "sha256": "3a7e99e3819ecf1f30da156f47df0e0d47562a09448bf5f6156a7b90c028e59a",
+      "bytes": 96
+    },
+    {
+      "path": "sessions/2026-10-24T12-00-49-037Z-159314/receipt.json",
+      "sha256": "ae8088aaa870510bae6c7ad621fa1192d017abbbd3e46c56e9bd76cbccdd4292",
+      "bytes": 3696
+    },
+    {
+      "path": "sessions/2026-10-24T12-00-49-037Z-159314/rust-audit-tool.log",
+      "sha256": "07bb126f22c33ed16b02adaadf3693df9dce99fdd469cab9124337363b1fbeea",
+      "bytes": 146
+    },
+    {
+      "path": "sessions/2026-10-24T12-00-49-037Z-159314/rust-audit.log",
+      "sha256": "29c1136fca83e620cd82ae073b697cad96ed0db3eb89eff1ac93021d1ac4bd51",
+      "bytes": 3064
+    },
+    {
+      "path": "sessions/2026-10-24T12-00-49-037Z-159314/rust-format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "sessions/2026-10-24T12-21-33-603Z-249462/host-before.json",
+      "sha256": "67f38a7031b0c7d2d7afe92d629201032e4a82561ef20acb1f4b46d28b96b952",
+      "bytes": 9111
+    },
+    {
+      "path": "sessions/2026-10-24T12-21-33-603Z-249462/npm-ci.log",
+      "sha256": "d65d924eb7c19da69bf9f90d7a6f074a7ae31cd13637fd46ce5edfa0ed74c1ec",
+      "bytes": 269
+    },
+    {
+      "path": "sessions/2026-10-24T12-21-33-603Z-249462/receipt.json",
+      "sha256": "a36cfbc7fc2ec7b10a34c0ec58a23446eff234dd0d4ae735b6b9685e53603311",
+      "bytes": 2335
+    },
+    {
+      "path": "sessions/2026-10-24T12-21-33-603Z-249462/tree.log",
+      "sha256": "495ab8e4df3329e4fffcba69baa99d11b115fdd7382ea9f7fe37aaeadbd76f64",
+      "bytes": 128
+    },
+    {
+      "path": "sessions/2026-10-24T12-22-39-424Z-252503/command.log",
+      "sha256": "c7b4b6b41431aac193338bcbdf9caaedd74247a2cfd88071b95f840cfb6e926f",
+      "bytes": 2629
+    },
+    {
+      "path": "sessions/2026-10-24T12-22-39-424Z-252503/host-before.json",
+      "sha256": "5c814547503eccadde1891cf357a205c528d88719865aeab46a9257df64aaab0",
+      "bytes": 9111
+    },
+    {
+      "path": "sessions/2026-10-24T12-22-39-424Z-252503/receipt.json",
+      "sha256": "0bc7450b86ebca5206720eac95df8837355300104a8e8b8a1e4956539d502d26",
+      "bytes": 2013
+    },
+    {
+      "path": "sessions/2026-10-24T12-28-24-300Z-265625/command.log",
+      "sha256": "3e3e7dab60cdebe1016474b6a84614dad18f2c6171098f4d396b29cac3e962e9",
+      "bytes": 2629
+    },
+    {
+      "path": "sessions/2026-10-24T12-28-24-300Z-265625/host-before.json",
+      "sha256": "27315accc9465fd125be3b6e291dad4482d2dad1772901791261e7a327c05aff",
+      "bytes": 9111
+    },
+    {
+      "path": "sessions/2026-10-24T12-28-24-300Z-265625/receipt.json",
+      "sha256": "19c3ec6f53b8d3cf3e7a8c874e780b8f1753b74cc1d8d602d133ed0e16c0bdda",
+      "bytes": 2370
+    },
+    {
+      "path": "sessions/2026-10-24T12-31-46-299Z-273071/command.log",
+      "sha256": "8988931db90ee00437561609676a7d3747dcd66f96996c5f14670d4b42e9138f",
+      "bytes": 2296
+    },
+    {
+      "path": "sessions/2026-10-24T12-31-46-299Z-273071/host-before.json",
+      "sha256": "88e94e71e033bd9eadf8b1216eaec2d172d630952dc933f27eae0315791369ea",
+      "bytes": 9111
+    },
+    {
+      "path": "sessions/2026-10-24T12-31-46-299Z-273071/receipt.json",
+      "sha256": "06460224f8d7599f7f4abe9e0e3f644bc1e8f4a127ec3667040383097915ee2d",
+      "bytes": 2370
+    }
+  ],
+  "not_executed": [
+    "fresh_OS_install",
+    "Windows_operational_install",
+    "new_desktop_journey",
+    "human_usability",
+    "new_portable_application_binary"
+  ],
+  "limits": [
+    "certification applies to this provisioned Linux host only",
+    "post-suite launcher path/status guards were checked by the final directed suite and CLI probes",
+    "new host must qualify its own OS, binary and journeys",
+    "no ROM or MUGEN pack provisioned",
+    "private backup survival not confirmed",
+    "CI checked separately by published SHA"
+  ],
+  "source_hash_encoding": "SHA-256 of Git index blob bytes (canonical EOL); verify with git show <delivery-commit>:<path>, not platform-converted working-tree bytes"
+}

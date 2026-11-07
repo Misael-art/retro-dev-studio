@@ -533,6 +533,9 @@ function emitLinearNodeC(node: GraphNode, graph: NodeGraph, target: "megadrive" 
       }
       return `    VDP_setHorizontalScroll(BG_A, SPR_getX(spr_${p.target}) - 160); VDP_setVerticalScroll(BG_A, SPR_getY(spr_${p.target}) - 112);\n`;
 
+    case "camera_control":
+      return `    // Controle da camera visual (${p.action}): gerado com o contexto da cena ao testar o projeto; previa parcial do grafo.\n`;
+
     case "camera_bounds":
       return `    // Camera bounds: ${p.min_x},${p.min_y} -> ${p.max_x},${p.max_y}\n`;
 

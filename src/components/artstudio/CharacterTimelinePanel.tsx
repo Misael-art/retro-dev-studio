@@ -241,6 +241,11 @@ export default function CharacterTimelinePanel({ entity }: { entity: Entity }) {
   function selectOccurrence(occ: TimelineOccurrence) {
     setPlaying(false);
     setDurationDraft(null);
+    setMessage(null);
+    setSelectedBox(null);
+    setBoxDraft({});
+    setDrag(null);
+    setEventTick("0");
     refineStudioFocus({ entityId: entity.entity_id, animation: animationName, occurrenceId: occ.id });
   }
 

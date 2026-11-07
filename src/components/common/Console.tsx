@@ -127,6 +127,7 @@ export default function Console({ variant = "drawer" }: ConsoleProps) {
           )}
         </button>
         {consoleVisible && (
+          <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => {
@@ -136,8 +137,10 @@ export default function Console({ variant = "drawer" }: ConsoleProps) {
             className="text-xs text-[#6c7086] transition-colors hover:text-[#f38ba8] select-none"
             title="Limpar console"
           >
-            ✕ Limpar
+            Limpar registros
           </button>
+          {variant === "drawer" ? <button type="button" data-testid="console-close" onClick={toggleConsole} title="Fechar o Console e voltar ao trabalho; os registros serão preservados" className="rounded border border-[#45475a] px-2 py-0.5 text-xs text-[#cdd6f4]">Fechar</button> : null}
+          </div>
         )}
       </div>
 

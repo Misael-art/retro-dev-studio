@@ -15,6 +15,10 @@ import type { SVGProps } from "react";
  */
 
 export type IconName =
+  | "studio-scene" | "studio-game" | "studio-files" | "studio-logic"
+  | "studio-art" | "studio-fx" | "studio-debug"
+  | "cursor" | "brush" | "eraser" | "collision" | "save" | "pause" | "export"
+  | "fill-color" | "color-picker" | "circle" | "crop" | "minus"
   | "flash"
   | "keyboard"
   | "fork"
@@ -68,6 +72,66 @@ export interface IconProps extends Omit<SVGProps<SVGSVGElement>, "children"> {
 
 function IconPaths({ name }: { name: IconName }) {
   switch (name) {
+    // Iconoir v7.11.1 regular icons, MIT (same notice above).
+    case "fill-color": return <><path d="M2.63596 10.2927 9.70703 3.22168 18.1923 11.707 11.1212 18.778c-.781.781-2.047.781-2.8284 0l-5.6568-5.6568a2 2 0 0 1 0-2.8285ZM8.293 1.8076l1.4142 1.4142"/><path d="M20 15s3 2.9934 3 4.8865a3 3 0 0 1-6 0C17 17.9924 20 15 20 15Z"/></>;
+    case "color-picker": return <><path d="m7 13.161 5.4644-5.4644a1 1 0 0 1 1.4142 0L16 9.818a1 1 0 0 1 0 1.414l-7.637 7.637-2.823 1.245a1.5 1.5 0 0 1-1.958-1.958l1.245-2.823L7 13.161h7.071M13.878 3.454 20.242 9.818M16 5.575l1.414-1.414a1 1 0 0 1 1.414 0l.707.707a1 1 0 0 1 0 1.414L18.12 7.697"/></>;
+    case "circle": return <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/>;
+    case "crop": return <path d="M21 18H6V3M3 6h15v15"/>;
+    case "minus": return <path d="M6 12h12"/>;
+    // Original editor pictograms: solid silhouettes, colored parts and useful
+    // details stay legible at rail/tool sizes. No console logo is reproduced.
+    case "studio-scene":
+      return <><rect x="2" y="3" width="20" height="17" rx="2.5" fill="var(--rds-workspace-scene)" fillOpacity=".16"/>
+        <circle cx="16.5" cy="7.5" r="2" fill="var(--rds-workspace-explorer)" stroke="none"/>
+        <path d="m3 16 6-7 5 6 3-3 4 5v3H3Z" fill="var(--rds-workspace-scene)" strokeWidth="1"/>
+        <path d="M2 20h20M7 20v2m10-2v2"/><path d="M5 17h4m3 0h3" stroke="var(--rds-surface-base)"/></>;
+    case "studio-game":
+      return <><path d="M7 6h10c2 0 3 1 3.5 3l1.5 8c.5 3-2 4-4 2l-2-2H8l-2 2c-2 2-4.5 1-4-2L3.5 9C4 7 5 6 7 6Z" fill="var(--rds-workspace-game)" fillOpacity=".22"/>
+        <path d="M6 10v5m-2.5-2.5h5"/><circle cx="17" cy="10" r="1.3" fill="var(--rds-workspace-artstudio)" stroke="none"/>
+        <circle cx="19" cy="13" r="1.3" fill="var(--rds-workspace-explorer)" stroke="none"/>
+        <path d="m11 9 4 3-4 3Z" fill="var(--rds-workspace-game)" stroke="none"/></>;
+    case "studio-files":
+      return <><path d="M2 7V4h7l3 3h10v13H2Z" fill="var(--rds-workspace-explorer)" fillOpacity=".25"/>
+        <path d="M2 10h20l-2 10H4Z" fill="var(--rds-workspace-explorer)" strokeWidth="1.3"/>
+        <path d="M10 12h7v5h-7Z" fill="var(--rds-surface-base)" stroke="none"/><path d="m11 15 2-2 3 3" stroke="var(--rds-workspace-explorer)" strokeWidth="1"/></>;
+    case "studio-logic":
+      return <><path d="M12 7v4m0 0H5v5m7-5h7v5" stroke="var(--rds-workspace-logic)" strokeWidth="2"/>
+        <path d="m12 2 5 4-5 4-5-4Z" fill="var(--rds-workspace-logic)" strokeWidth="1.2"/>
+        <rect x="1" y="16" width="8" height="6" rx="1.4" fill="var(--rds-workspace-game)" fillOpacity=".65" strokeWidth="1.2"/>
+        <rect x="15" y="16" width="8" height="6" rx="1.4" fill="var(--rds-workspace-scene)" fillOpacity=".65" strokeWidth="1.2"/>
+        <path d="m3 19 1 1 3-2m10 1h4" stroke="var(--rds-surface-base)" strokeWidth="1.4"/></>;
+    case "studio-art":
+      return <><rect x="2" y="3" width="16" height="18" rx="2" fill="var(--rds-workspace-artstudio)" fillOpacity=".18"/>
+        <path d="M5 7h3v3H5Zm6 0h3v3h-3ZM5 13h3v3H5Z" fill="var(--rds-workspace-artstudio)" stroke="none"/>
+        <path d="m12 17 6-11 4 2-6 11-4 2Z" fill="var(--rds-workspace-explorer)" strokeWidth="1.4"/>
+        <path d="m12 17 4 2-4 2Z" fill="var(--rds-surface-base)" stroke="none"/></>;
+    case "studio-fx":
+      return <><path d="m2 9 10 5 10-5-10-5Z" fill="var(--rds-workspace-retrofx)" fillOpacity=".4"/>
+        <path d="m2 13 10 5 10-5m-20 4 10 5 10-5" stroke="var(--rds-workspace-retrofx)" strokeWidth="2"/>
+        <path d="m18 1 1.2 3.8L23 6l-3.8 1.2L18 11l-1.2-3.8L13 6l3.8-1.2Z" fill="var(--rds-workspace-explorer)" strokeWidth="1"/></>;
+    case "studio-debug":
+      return <><path d="M7 2v4m5-4v4M2 7h4m-4 5h4m1 6v4m5-4v4M18 7h4" stroke="var(--rds-workspace-debug)"/>
+        <rect x="5" y="5" width="13" height="13" rx="2" fill="var(--rds-workspace-debug)" fillOpacity=".25"/>
+        <circle cx="15" cy="15" r="5" fill="var(--rds-surface-panel)" stroke="var(--rds-workspace-explorer)"/><path d="m19 19 3 3M13 15h4m-2-2v4" stroke="var(--rds-workspace-explorer)"/></>;
+    case "cursor":
+      return <path d="m5 2 14 12-7 1-3 7Z" fill="var(--rds-workspace-scene)"/>;
+    case "brush":
+      return <><path d="m10 14 8-12 4 3-9 11Z" fill="var(--rds-workspace-explorer)"/>
+        <path d="M12 15c-8-6-5 8-10 6 9 4 13-1 10-6Z" fill="var(--rds-workspace-artstudio)"/></>;
+    case "eraser":
+      return <><path d="m3 14 10-11 8 7-10 11H7Z" fill="var(--rds-workspace-artstudio)" fillOpacity=".8"/>
+        <path d="m3 14 5-5 8 7-5 5H7Z" fill="var(--rds-text-primary)"/><path d="M11 21h11"/></>;
+    case "collision":
+      return <><path d="m12 2 9 4v6c0 5-5 8-9 10-4-2-9-5-9-10V6Z" fill="var(--rds-workspace-debug)" fillOpacity=".45"/>
+        <path d="M7 9h10v7H7Z" strokeDasharray="2 2"/><path d="M12 6v13M5 12h14" strokeWidth="1"/></>;
+    case "save":
+      return <><path d="M3 2h15l3 3v17H3Z" fill="var(--rds-workspace-scene)" fillOpacity=".35"/>
+        <path d="M7 2h9v7H7Zm0 12h10v8H7Z" fill="var(--rds-surface-base)"/><path d="M13 4v3m-3 10h4"/></>;
+    case "pause":
+      return <><rect x="5" y="3" width="5" height="18" rx="1" fill="currentColor"/><rect x="14" y="3" width="5" height="18" rx="1" fill="currentColor"/></>;
+    case "export":
+      return <><path d="M3 13v8h18v-8" fill="var(--rds-workspace-explorer)" fillOpacity=".22"/>
+        <path d="M12 16V2m-5 5 5-5 5 5" stroke="var(--rds-workspace-explorer)" strokeWidth="2.5"/></>;
     // Icones abaixo (ate "group") desenhados localmente no mesmo estilo de traco; nao sao Iconoir.
     case "flash":
       return <path d="M13 3L5 13.5H11.5L10.5 21L19 10H12.5L13 3Z"/>;
@@ -167,6 +231,7 @@ export default function Icon({ name, size = 18, className = "", ...props }: Icon
     <svg
       aria-hidden={props["aria-label"] ? undefined : true}
       className={`shrink-0 ${className}`}
+      data-icon={name}
       fill="none"
       height={size}
       viewBox="0 0 24 24"

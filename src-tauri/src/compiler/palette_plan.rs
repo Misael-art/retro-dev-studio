@@ -683,7 +683,21 @@ pub fn plan(
             assigned_bank.insert(r, bank);
             continue;
         }
-        match (0..capacity.banks).find(|b| bank_members[*b].is_empty() && !bank_conflict[*b]) {
+        // So paletas derivadas do arquivo e sem troca programada: variantes, trocas, fonte e
+        // recursos explicitos mantem banco proprio (regras de capacidade real).
+        let shareable = |x: &Res| x.origin == "asset" && x.swap_refs == 0 && x.id != FONT_RESOURCE;
+        // Reaproveita um banco ocupado cujas cores batem em todos os indices usados (ex.: quadros
+        // de um personagem com a mesma paleta); so entao ocupa um banco vazio. Nenhuma cor muda.
+        let shared = (0..capacity.banks).find(|b| {
+            !bank_members[*b].is_empty()
+                && !bank_conflict[*b]
+                && shareable(&resources[r])
+                && bank_members[*b].iter().all(|m| shareable(&resources[*m]))
+                && compatible(&bank_members[*b], r, &resources).is_none()
+        });
+        match shared.or_else(|| {
+            (0..capacity.banks).find(|b| bank_members[*b].is_empty() && !bank_conflict[*b])
+        }) {
             Some(bank) => {
                 bank_members[bank].push(r);
                 assigned_bank.insert(r, bank);
@@ -1091,6 +1105,40 @@ mod tests {
     }
     fn codes(p: &PalettePlan) -> Vec<String> {
         p.diagnostics.iter().map(|d| d.code.clone()).collect()
+    }
+
+    #[test]
+    fn identical_file_palettes_share_one_bank_instead_of_exhausting_banks() {
+        // Seis quadros de um personagem, todos com a mesma paleta de arquivo: um banco so.
+        let entities: Vec<serde_json::Value> = (0..6)
+            .map(|i| sprite(&format!("f{i}"), &format!("frame{i}.png")))
+            .collect();
+        let s = scene(
+            serde_json::json!({ "scene_id": "main", "display_name": null, "entities": entities }),
+        );
+        let same = |_: &str,
+                    _: Option<&crate::compiler::ast_generator::SpriteAsset>|
+         -> Result<AssetColors, String> {
+            Ok(((0..16).map(|i| [i as u8 * 8, 0, 0]).collect(), 0, 15))
+        };
+        let p = plan(&s, &empty_ast(), MEGADRIVE, "megadrive", &same);
+        assert!(!p.has_errors(), "{:?}", p.diagnostics);
+        let banks: std::collections::BTreeSet<_> =
+            (0..6).map(|i| p.entity_banks[&format!("f{i}")]).collect();
+        assert_eq!(banks.len(), 1, "{:?}", p.entity_banks);
+        // Paletas diferentes no mesmo indice continuam em bancos separados (nenhuma cor muda).
+        let differ = |path: &str,
+                      _: Option<&crate::compiler::ast_generator::SpriteAsset>|
+         -> Result<AssetColors, String> {
+            let g = if path == "frame1.png" { 0 } else { 224 };
+            Ok(((0..16).map(|i| [i as u8 * 16, g, 0]).collect(), 0, 15))
+        };
+        let s = scene(
+            serde_json::json!({ "scene_id": "main", "display_name": null,
+            "entities": [sprite("a", "frame1.png"), sprite("b", "frame2.png")] }),
+        );
+        let p = plan(&s, &empty_ast(), MEGADRIVE, "megadrive", &differ);
+        assert_ne!(p.entity_banks["a"], p.entity_banks["b"]);
     }
 
     #[test]

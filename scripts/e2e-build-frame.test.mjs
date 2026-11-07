@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import os from "node:os";
+import { createHash } from "node:crypto";
 
 // Execute the real Node harness. Vite's browser transform cannot load its
 // shebang or Node-only modules; no copy of the gate is used by this probe.
@@ -27,6 +30,38 @@ const ready = {
   input_session_id: "joypad-session-2",
   input_hold: false,
 };
+
+function probeReport(method, value) {
+  const source = `const harness = await import(${JSON.stringify(pathToFileURL(path.resolve("scripts/e2e-tauri-build-run.mjs")).href)});
+    try { console.log(JSON.stringify({value:await harness[${JSON.stringify(method)}](${JSON.stringify(value)})})); }
+    catch(error) { console.log(JSON.stringify({error:String(error)})); }`;
+  return JSON.parse(execFileSync(process.execPath, ["--input-type=module", "-e", source], { encoding: "utf8" }));
+}
+
+describe("native evidence identities", () => {
+  it("hashes the observed library independently of the loaded ROM", () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "rds-core-identity-"));
+    try {
+      const file = path.join(dir, "controlled-core.so");
+      const bytes = Buffer.from("controlled library bytes; not an emulator");
+      writeFileSync(file, bytes);
+      const observed = {core_label: "controlled", core_path:file, rom_sha256:"a".repeat(64), frames_run:20};
+      const report = probeReport("collectCoreIdentity", observed).value;
+      expect(report.sha256).toBe(createHash("sha256").update(bytes).digest("hex"));
+      expect(report.rom_sha256).toBe(observed.rom_sha256);
+      expect(report.sha256).not.toBe(report.rom_sha256);
+      expect(report.path).toBe(file);
+      expect(report.frames_run).toBe(20);
+      expect(probeReport("collectCoreIdentity", {...observed,core_path:path.join(dir,"missing.so")}).error).toContain("ENOENT");
+    } finally { rmSync(dir, {recursive:true, force:true}); }
+  });
+
+  it("refuses unobserved library identity and counts unknown steps as pending", () => {
+    expect(probeReport("collectCoreIdentity", {core_label:"Snes9x",rom_sha256:"a".repeat(64)}).error).toContain("unconfirmed");
+    expect(probeReport("summarizeReportSteps", [{status:"passed"},{status:"failed"},{status:"unobserved"},{}]).value)
+      .toEqual({total:4,passed:1,failed:1,pending:2});
+  });
+});
 
 describe("Build & Run framebuffer identity", () => {
   it("rejects the previous non-black ROM even after the build completion log", () => {

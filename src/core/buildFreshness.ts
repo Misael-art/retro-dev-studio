@@ -6,6 +6,7 @@ export type BuildFreshness =
   | { kind: "rebuild-needed"; label: string }
   | { kind: "running-previous"; label: string }
   | { kind: "built-not-running"; label: string }
+  | { kind: "tested"; label: string }
   | { kind: "confirmed"; label: string };
 
 export function describeBuildFreshness(input: {
@@ -13,8 +14,19 @@ export function describeBuildFreshness(input: {
   lastBuildSceneRevision: number | null;
   builtRomSha256: string | null;
   runningRomSha256: string | null;
+  testedBuild?: { romSha256: string; sceneRevision: number } | null;
+  nativeCode?: { revision: number; builtRevision: number } | null;
 }): BuildFreshness {
   const { sceneRevision, lastBuildSceneRevision, builtRomSha256, runningRomSha256 } = input;
+  if (input.nativeCode && builtRomSha256) {
+    if (input.nativeCode.revision !== input.nativeCode.builtRevision) {
+      return { kind: "rebuild-needed", label: "Código C alterado · recompile antes de revisar/exportar" };
+    }
+    if (runningRomSha256 === builtRomSha256) return { kind: "confirmed", label: "Último build C em execução · cena de referência" };
+    if (runningRomSha256) return { kind: "running-previous", label: "Executando outra ROM · último build C preservado" };
+    if (input.testedBuild?.romSha256 === builtRomSha256) return { kind: "tested", label: "Último build C testado · cena de referência" };
+    return { kind: "built-not-running", label: "Último build C pronto · ainda não executado" };
+  }
   if (lastBuildSceneRevision === null || !builtRomSha256) {
     return { kind: "no-build", label: "Prévia atualizada · ainda sem build nesta sessão" };
   }
@@ -23,7 +35,12 @@ export function describeBuildFreshness(input: {
       ? { kind: "running-previous", label: "Recompilação necessária · executando build anterior" }
       : { kind: "rebuild-needed", label: "Prévia atualizada · recompilação necessária" };
   }
-  if (!runningRomSha256) return { kind: "built-not-running", label: "Build atual pronto · ainda não executado" };
+  if (!runningRomSha256) {
+    if (input.testedBuild?.romSha256 === builtRomSha256 && input.testedBuild.sceneRevision === lastBuildSceneRevision) {
+      return { kind: "tested", label: "Build atual testado · execução encerrada" };
+    }
+    return { kind: "built-not-running", label: "Build atual pronto · ainda não executado" };
+  }
   if (runningRomSha256 !== builtRomSha256) {
     return { kind: "running-previous", label: "Executando build anterior" };
   }

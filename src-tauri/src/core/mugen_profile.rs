@@ -48,6 +48,7 @@ pub(crate) fn chain_input<'a>(
     chain_state: i32,
     actions: &'a BTreeMap<i32, u32>,
     entity: &str,
+    shapes: BTreeMap<i32, crate::core::mugen_chain::ActionShape>,
 ) -> Result<crate::core::mugen_chain::ChainInput<'a>, LoadError> {
     use crate::core::mugen_chain::{ChainInput, CommonDependency, SourceFile};
     use rex_mugen::source::{parse_def, resolve, Resolution};
@@ -94,7 +95,31 @@ pub(crate) fn chain_input<'a>(
         chain_states: vec![chain_state],
         actions,
         entity: entity.to_string(),
+        shapes,
     })
+}
+
+/// Forma por acao AIR (duracoes, Loopstart, flips, Clsn1) para `AnimElem`/`HitDef` (v2).
+/// Respeita a selecao (vazia = todas).
+pub(crate) fn action_shapes(
+    ad: &air::Air,
+    selected: &[i32],
+) -> BTreeMap<i32, crate::core::mugen_chain::ActionShape> {
+    ad.actions
+        .values()
+        .filter(|a| selected.is_empty() || selected.contains(&a.number))
+        .map(|a| {
+            (
+                a.number,
+                crate::core::mugen_chain::ActionShape {
+                    durations: a.frames.iter().map(|f| f.time).collect(),
+                    loopstart: a.loopstart,
+                    flipped: a.frames.iter().map(|f| f.hflip || f.vflip).collect(),
+                    clsn1: a.frames.iter().map(|f| f.clsn1.len()).collect(),
+                },
+            )
+        })
+        .collect()
 }
 
 /// Duracao total (ticks) por acao AIR; 0 = sem fim. Respeita a selecao (vazia = todas).
@@ -179,6 +204,7 @@ pub(crate) fn package_digest(root: &Path) -> Result<String, LoadError> {
 pub(crate) fn analyze_source(
     root: &Path,
     requested: Option<ReviewOptions>,
+    metadata_only: bool,
 ) -> Result<serde_json::Value, LoadError> {
     use rex_mugen::source::{parse_def, resolve, Resolution};
     let files = package_files(root)?;
@@ -319,6 +345,11 @@ pub(crate) fn analyze_source(
     options.def_file = def_file.clone();
     options.source_sha256 = Some(digest);
     out["options"] = serde_json::to_value(&options).map_err(|e| LoadError(e.to_string()))?;
+    // Opening the review lists choices without rasterizing every action. A full
+    // reviewed conversion is still required at analysis and import boundaries.
+    if metadata_only {
+        return Ok(out);
+    }
     if options.authored_demo
         && [0, 20, 21, 200].iter().any(|n| {
             !ad.actions.contains_key(n)
@@ -332,7 +363,7 @@ pub(crate) fn analyze_source(
         let def_text = String::from_utf8_lossy(&bytes).into_owned();
         let totals = action_totals(&ad, &options.actions);
         let entity = options_entity(&d.name);
-        match chain_input(char_root, &def_text, &def_file, options.chain_state.unwrap_or(-9999), &totals, &entity) {
+        match chain_input(char_root, &def_text, &def_file, options.chain_state.unwrap_or(-9999), &totals, &entity, action_shapes(&ad, &options.actions)) {
             Ok(input) => {
                 out["original_chain_candidates"] = crate::core::mugen_chain::candidates(&input);
                 match options.chain_state {
@@ -696,6 +727,9 @@ fn visual_review(p: &plan::CharacterPlan, sff: &sff::Sff) -> Result<serde_json::
     let (w, h) = (p.cell_w + 2 * pad, p.cell_h + 2 * pad);
     let mut frames = Vec::new();
     let mut budget = 0usize;
+    // Occurrences remain separate (time, boxes, source line). Only identical
+    // composed pixels share the expensive PNG encoding within this conversion.
+    let mut renders = BTreeMap::<_, (String, String, String, String)>::new();
     for a in p.actions.values() {
         for (element, f) in a.frames.iter().enumerate() {
             if frames.len() >= 1024 {
@@ -706,56 +740,69 @@ fn visual_review(p: &plan::CharacterPlan, sff: &sff::Sff) -> Result<serde_json::
             let cell = f.cell.unwrap();
             let c = &p.cells[cell];
             let s = &sff.sprites[&c.sprite];
-            let mut original = RgbaImage::new(w as u32, h as u32);
-            let mut converted = RgbaImage::new(w as u32, h as u32);
-            let rendered = p.render_cell(sff, cell);
-            for y in 0..p.cell_h {
-                for x in 0..p.cell_w {
-                    let ox = if f.hflip { p.cell_w - 1 - x } else { x };
-                    let oy = if f.vflip { p.cell_h - 1 - y } else { y };
-                    let dx = pad as i32
-                        + ox as i32
-                        + f.x
-                        + if f.hflip {
-                            2 * p.anchor_x as i32 - p.cell_w as i32
-                        } else {
-                            0
-                        };
-                    let dy = pad as i32
-                        + oy as i32
-                        + f.y
-                        + if f.vflip {
-                            2 * p.anchor_y as i32 - p.cell_h as i32
-                        } else {
-                            0
-                        };
-                    if dx < 0 || dy < 0 || dx >= w as i32 || dy >= h as i32 {
-                        return Err(LoadError(
-                            "offset AIR fora do palco de revisao; selecione menos acoes".into(),
-                        ));
-                    }
-                    if x >= c.dx && y >= c.dy && x - c.dx < s.width && y - c.dy < s.height {
-                        let i = s.pixels[(y - c.dy) * s.width + x - c.dx] as usize;
-                        if i != 0 {
-                            let rgb = s.palette[i];
-                            original.put_pixel(
+            let key = (cell, f.x, f.y, f.hflip, f.vflip);
+            let (op, cp, original_sha, converted_sha) = if let Some(render) = renders.get(&key) {
+                render.clone()
+            } else {
+                let mut original = RgbaImage::new(w as u32, h as u32);
+                let mut converted = RgbaImage::new(w as u32, h as u32);
+                let rendered = p.render_cell(sff, cell);
+                for y in 0..p.cell_h {
+                    for x in 0..p.cell_w {
+                        let ox = if f.hflip { p.cell_w - 1 - x } else { x };
+                        let oy = if f.vflip { p.cell_h - 1 - y } else { y };
+                        let dx = pad as i32
+                            + ox as i32
+                            + f.x
+                            + if f.hflip {
+                                2 * p.anchor_x as i32 - p.cell_w as i32
+                            } else {
+                                0
+                            };
+                        let dy = pad as i32
+                            + oy as i32
+                            + f.y
+                            + if f.vflip {
+                                2 * p.anchor_y as i32 - p.cell_h as i32
+                            } else {
+                                0
+                            };
+                        if dx < 0 || dy < 0 || dx >= w as i32 || dy >= h as i32 {
+                            return Err(LoadError(
+                                "offset AIR fora do palco de revisao; selecione menos acoes".into(),
+                            ));
+                        }
+                        if x >= c.dx && y >= c.dy && x - c.dx < s.width && y - c.dy < s.height {
+                            let i = s.pixels[(y - c.dy) * s.width + x - c.dx] as usize;
+                            if i != 0 {
+                                let rgb = s.palette[i];
+                                original.put_pixel(
+                                    dx as u32,
+                                    dy as u32,
+                                    Rgba([rgb[0], rgb[1], rgb[2], 255]),
+                                );
+                            }
+                        }
+                        if let Some(rgb) = rendered[y * p.cell_w + x] {
+                            converted.put_pixel(
                                 dx as u32,
                                 dy as u32,
                                 Rgba([rgb[0], rgb[1], rgb[2], 255]),
                             );
                         }
                     }
-                    if let Some(rgb) = rendered[y * p.cell_w + x] {
-                        converted.put_pixel(
-                            dx as u32,
-                            dy as u32,
-                            Rgba([rgb[0], rgb[1], rgb[2], 255]),
-                        );
-                    }
                 }
-            }
-            let op = png_data(&original)?;
-            let cp = png_data(&converted)?;
+                let op = png_data(&original)?;
+                let cp = png_data(&converted)?;
+                let render = (
+                    op,
+                    cp,
+                    sha256_hex(original.as_raw()),
+                    sha256_hex(converted.as_raw()),
+                );
+                renders.insert(key, render.clone());
+                render
+            };
             budget += op.len() + cp.len();
             if budget > 16 * 1024 * 1024 {
                 return Err(LoadError(
@@ -770,7 +817,7 @@ fn visual_review(p: &plan::CharacterPlan, sff: &sff::Sff) -> Result<serde_json::
                 "duration":if f.timer==0 {-1} else {f.timer as i32},
                 "indices_sha256":sha256_hex(&s.pixels),
                 "palette_sha256":sha256_hex(&s.palette.iter().flatten().copied().collect::<Vec<_>>()),
-                "original_sha256":sha256_hex(original.as_raw()),"converted_sha256":sha256_hex(converted.as_raw()),
+                "original_sha256":original_sha,"converted_sha256":converted_sha,
                 "original_png":op,"converted_png":cp
             }));
         }
@@ -2937,6 +2984,8 @@ mod tests {
             camera.entity_id = "camera".into();
             camera.components = Default::default();
             camera.components.camera = Some(crate::ugdm::components::CameraComponent {
+                patterns: Vec::new(),
+                visual: None,
                 follow_entity: Some("sentinel".into()),
                 offset_x: -152,
                 offset_y: -112,
@@ -4102,6 +4151,8 @@ mod tests {
         camera.entity_id = "camera".into();
         camera.components = Default::default();
         camera.components.camera = Some(crate::ugdm::components::CameraComponent {
+            patterns: Vec::new(),
+            visual: None,
             follow_entity: Some("sentinel".into()),
             offset_x: -152,
             offset_y: -112,
@@ -4523,6 +4574,67 @@ mod tests {
     }
 
     #[test]
+    fn visual_review_reuses_pixels_without_merging_occurrences_or_transforms() {
+        let air = super::air::parse(
+            "[Begin Action 0]\n0,0,0,0,2\n0,0,0,0,6\n0,0,5,0,2\n0,0,5,0,2,H\n",
+            "review.air",
+        );
+        let sff = super::sff::parse(
+            &fs::read(probe_dir().join("probe.sff")).unwrap(),
+            "probe.sff",
+        )
+        .unwrap();
+        let plan = super::plan::plan(&super::plan::Inputs {
+            air: &air,
+            air_sha256: "air",
+            sff: &sff,
+            sff_sha256: "sff",
+            actions: &[],
+        })
+        .unwrap();
+        let review = super::visual_review(&plan, &sff).unwrap();
+        let frames = review["frames"].as_array().unwrap();
+        assert_eq!(frames.len(), 4);
+        assert_eq!(frames[0]["original_png"], frames[1]["original_png"]);
+        assert_eq!(frames[0]["converted_sha256"], frames[1]["converted_sha256"]);
+        assert_eq!(frames[0]["duration"], 2);
+        assert_eq!(frames[1]["duration"], 6);
+        assert_eq!(frames[1]["element"], 1);
+        assert_ne!(frames[0]["original_sha256"], frames[2]["original_sha256"]);
+        assert_ne!(frames[2]["converted_sha256"], frames[3]["converted_sha256"]);
+        assert_eq!(frames[3]["hflip"], true);
+    }
+
+    #[test]
+    fn source_metadata_lists_choices_but_import_still_requires_full_conversion() {
+        let root = temp("review-metadata");
+        let donor = root.join("donor");
+        copy_dir(&probe_dir(), &donor);
+        let metadata = super::analyze_source(&donor, None, true).unwrap();
+        assert!(metadata["report"].is_null());
+        assert!(!metadata["actions"].as_array().unwrap().is_empty());
+        assert!(!metadata["sprites"].as_array().unwrap().is_empty());
+        let mut options: super::ReviewOptions =
+            serde_json::from_value(metadata["options"].clone()).unwrap();
+        let reviewed = super::analyze_source(&donor, Some(options.clone()), false).unwrap();
+        assert!(!reviewed["report"].is_null());
+
+        // Even with a current digest, metadata cannot certify invalid pixels.
+        fs::write(donor.join("probe.sff"), b"invalid SFF").unwrap();
+        options.source_sha256 = Some(super::package_digest(&donor).unwrap());
+        let project = root.join("project");
+        create_project_skeleton(&project, "Probe", "megadrive").unwrap();
+        assert!(crate::core::project_mgr::import_mugen_project_with_review(
+            &project,
+            &donor,
+            "mugen",
+            Some(&options),
+        )
+        .is_err());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn review_palette_selection_changes_real_pixels_and_survives_reopen() {
         let root = temp("review-act");
         let donor = root.join("donor");
@@ -4534,14 +4646,14 @@ mod tests {
         fs::write(donor.join("choice.act"), &act).unwrap();
         let def = fs::read_to_string(donor.join("probe.def")).unwrap();
         fs::write(donor.join("probe.def"), format!("{def}\npal1=choice.act\n")).unwrap();
-        let initial = super::analyze_source(&donor, None).unwrap();
+        let initial = super::analyze_source(&donor, None, false).unwrap();
         let options = super::ReviewOptions {
             def_file: "probe.def".into(),
             palette_file: Some("choice.act".into()),
             source_sha256: Some(initial["source_sha256"].as_str().unwrap().into()),
             ..Default::default()
         };
-        let chosen = super::analyze_source(&donor, Some(options.clone())).unwrap();
+        let chosen = super::analyze_source(&donor, Some(options.clone()), false).unwrap();
         assert!(!chosen["report"].is_null(), "{chosen}");
         let selected = super::convert_character_v1_with_review(
             &donor,
@@ -4611,7 +4723,7 @@ mod tests {
         let root = temp("review-def");
         copy_dir(&probe_dir(), &root);
         fs::copy(root.join("probe.def"), root.join("alternative.def")).unwrap();
-        let a = super::analyze_source(&root, None).unwrap();
+        let a = super::analyze_source(&root, None, false).unwrap();
         assert_eq!(a["defs"].as_array().unwrap().len(), 2);
         assert!(a["selected_def"].is_null());
         assert!(import_mugen_project(&root.join("project"), &root)
@@ -4630,6 +4742,7 @@ mod tests {
                 def_file: "probe.def".into(),
                 ..Default::default()
             }),
+            false,
         )
         .unwrap();
         assert!(a["diagnostics"]
@@ -4651,7 +4764,7 @@ mod tests {
             .replace("probe.sff", "PROBE.SFF")
             .replace("probe.cmd", "PROBE.CMD");
         fs::write(donor.join("probe.def"), text).unwrap();
-        let a = super::analyze_source(&donor, None).unwrap();
+        let a = super::analyze_source(&donor, None, false).unwrap();
         let options: super::ReviewOptions = serde_json::from_value(a["options"].clone()).unwrap();
         assert!(!a["report"].is_null(), "{a}");
         let project = root.join("project");
@@ -4678,7 +4791,7 @@ mod tests {
             "[Info]\nname=Stage\n[StageInfo]\nzoffset=180\n[BGdef]\n",
         )
         .unwrap();
-        let a = super::analyze_source(&root, None).unwrap();
+        let a = super::analyze_source(&root, None, false).unwrap();
         assert_eq!(a["legacy_kind"], "stage");
         assert!(a["report"].is_null());
         assert_eq!(a["diagnostics"][0]["severity"], "warning");
@@ -4703,7 +4816,7 @@ mod tests {
             source_sha256: Some(super::package_digest(&source).unwrap()),
             ..Default::default()
         };
-        let analysis = super::analyze_source(&source, Some(options.clone())).unwrap();
+        let analysis = super::analyze_source(&source, Some(options.clone()), false).unwrap();
         assert!(!analysis["report"].is_null(), "{analysis}");
         fs::write(
             output.join("analysis.json"),
@@ -5035,7 +5148,8 @@ mod tests {
         .unwrap_err();
         assert!(e.0.contains("source.chain.selection"), "{e}");
         assert_untouched(&project);
-        let analysis = super::analyze_source(&donor, Some(walker_chain_options(&donor))).unwrap();
+        let analysis =
+            super::analyze_source(&donor, Some(walker_chain_options(&donor)), false).unwrap();
         assert_eq!(analysis["original_chain"]["status"], "converted");
         assert_eq!(
             analysis["original_chain_candidates"]["available"][0]["state"],
@@ -5100,6 +5214,483 @@ mod tests {
             );
             assert!(!c.contains("rds_mc_spr_walker_step();") || c.contains("#error"));
             let _ = fs::remove_dir_all(root);
+        }
+    }
+
+    // ------------------------------------------------- cadeia original v2: HitDef (striker)
+
+    /// Importa a fixture autoral `striker` (HitDef original do CNS) pela rota canonica e,
+    /// opcionalmente, cria o alvo de treino (copia parada) e o liga ao `hit_target` do no.
+    fn import_striker(
+        name: &str,
+        edit_cns: impl FnOnce(String) -> String,
+        target_dx: Option<i32>,
+    ) -> (PathBuf, PathBuf) {
+        let root = temp(name);
+        let donor = root.join("donor");
+        copy_dir(
+            &PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../crates/rex-mugen/fixtures/striker"),
+            &donor,
+        );
+        let cns = fs::read_to_string(donor.join("striker.cns")).unwrap();
+        fs::write(donor.join("striker.cns"), edit_cns(cns)).unwrap();
+        let project = root.join("project");
+        create_project_skeleton(&project, "Striker", "megadrive").unwrap();
+        let options = super::ReviewOptions {
+            def_file: "striker.def".into(),
+            actions: vec![0, 200],
+            original_chain: true,
+            chain_state: Some(200),
+            source_sha256: Some(super::package_digest(&donor).unwrap()),
+            ..Default::default()
+        };
+        crate::core::project_mgr::import_mugen_project_with_review(
+            &project,
+            &donor,
+            "mugen",
+            Some(&options),
+        )
+        .unwrap();
+        if let Some(dx) = target_dx {
+            let mut scene = load_scene(&project, DEFAULT_ENTRY_SCENE).unwrap();
+            let mut target = scene
+                .entities
+                .iter()
+                .find(|e| e.entity_id == "striker")
+                .unwrap()
+                .clone();
+            target.entity_id = "striker_target".into();
+            target.transform.x += dx;
+            target.components.logic = None;
+            scene.entities.push(target);
+            for e in scene
+                .entities
+                .iter_mut()
+                .filter(|e| e.entity_id == "striker")
+            {
+                if let Some(logic) = e.components.logic.as_mut() {
+                    logic.graph = logic.graph.as_ref().map(|g| {
+                        g.replace("\"hit_target\":\"\"", "\"hit_target\":\"striker_target\"")
+                    });
+                }
+            }
+            save_scene(&project, DEFAULT_ENTRY_SCENE, &scene).unwrap();
+            let gp = project.join("graphs/mugen_striker.json");
+            let g = fs::read_to_string(&gp).unwrap();
+            assert!(g.contains("\"hit_target\":\"\""), "no sem hit_target vazio");
+            fs::write(
+                &gp,
+                g.replace("\"hit_target\":\"\"", "\"hit_target\":\"striker_target\""),
+            )
+            .unwrap();
+        }
+        (root, project)
+    }
+
+    fn striker_c(project: &Path) -> String {
+        let proj = crate::core::project_mgr::load_project(project).unwrap();
+        let scene = load_scene(project, DEFAULT_ENTRY_SCENE).unwrap();
+        let ast = crate::compiler::ast_generator::generate_ast(&proj, &scene);
+        crate::compiler::sgdk_emitter::emit_sgdk(&ast, "Striker").main_c
+    }
+
+    fn no_errors(c: &str) {
+        let errs: Vec<&str> = c.lines().filter(|l| l.contains("#error")).collect();
+        assert!(errs.is_empty(), "{}", errs.join("\n"));
+    }
+
+    #[test]
+    fn hitdef_import_from_cns_generates_contact_damage_and_hitpause() {
+        let (root, project) = import_striker("hitdef-wire", |c| c, Some(10));
+        let report: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(project.join("assets/mugen/striker_import_report.json")).unwrap(),
+        )
+        .unwrap();
+        let chain = &report["original_chain"];
+        assert_eq!(chain["profile"], crate::core::mugen_chain::PROFILE_V2);
+        assert_eq!(chain["hitdefs"][0]["damage"], 25);
+        assert_eq!(chain["hitdefs"][0]["source"]["file"], "striker.cns");
+        assert_eq!(chain["target_life"]["value"], 120);
+        let c = striker_c(&project);
+        no_errors(&c);
+        for needle in [
+            "static volatile s16 rds_mc_spr_striker_tlife = 120;",
+            "rds_mc_spr_striker_hit();",
+            "static volatile u16 rds_mugen_spr_striker_freeze = 0;",
+            "if (rds_mugen_spr_striker_freeze) return;",
+            // AnimElem = 2: relogio da animacao mod 10 == 3 (elemento 1 dura 3 ticks)
+            "((u16)(rds_mc_spr_striker_animtick % 10u) == 3u)",
+            "case 0: dmg = 25; kill = 1; p1 = 4; p2 = 6; ok = 1; break;",
+            "rds_mc_spr_striker_movetype = 'A';",
+        ] {
+            assert!(c.contains(needle), "falta {needle}");
+        }
+        // o contato roda depois do tick de animacao dos dois sprites
+        let ticks = c
+            .find("rds_mugen_spr_striker__striker_target_tick();")
+            .expect("tick do alvo");
+        assert!(c[ticks..].contains("rds_mc_spr_striker_hit();"));
+        // o alvo de treino nao tem programa: so o atacante congela
+        assert!(!c.contains("rds_mugen_spr_striker__striker_target_freeze"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn hitdef_without_target_activates_but_never_hits_and_v1_projects_are_unchanged() {
+        let (root, project) = import_striker("hitdef-notarget", |c| c, None);
+        let c = striker_c(&project);
+        no_errors(&c);
+        assert!(c.contains("rds_mc_spr_striker_hd_active = 1;"));
+        assert!(
+            !c.contains("rds_mc_spr_striker_hit();"),
+            "sem alvo, sem contato"
+        );
+        let _ = fs::remove_dir_all(root);
+        // cadeia sem HitDef convertivel (walker: acao 200 sem Clsn1) continua v1 e identica
+        let (root, project, r) = import_chain("hitdef-v1-walker", |c| c, |c| c);
+        r.unwrap();
+        let c = chain_c(&project);
+        assert!(c.contains("mugen.original_chain.v1"));
+        assert!(!c.contains("_freeze") && !c.contains("_tlife"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn hitdef_out_of_contract_parameter_keeps_the_controller_out_with_reason() {
+        let (root, project) = import_striker(
+            "hitdef-refused",
+            |c| c.replace("pausetime = 4, 6", "pausetime = 4, 6\np1stateno = 900"),
+            None,
+        );
+        let report: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(project.join("assets/mugen/striker_import_report.json")).unwrap(),
+        )
+        .unwrap();
+        let chain = &report["original_chain"];
+        assert_eq!(chain["profile"], crate::core::mugen_chain::PROFILE);
+        assert!(chain["unconverted_controllers"]
+            .to_string()
+            .contains("p1stateno"));
+        let c = striker_c(&project);
+        assert!(!c.contains("rds_mc_spr_striker_hd_active"));
+        let _ = fs::remove_dir_all(root);
+    }
+
+    /// Por quadro emulado: pad aplicado e observaveis do atacante/alvo lidos da RAM pelos
+    /// simbolos do ELF (estado, vida do alvo, acertos, golpe ativo, pausa). Mais o registro
+    /// de acertos da ROM e as identidades separadas de ROM/ELF/core.
+    fn capture_hits(project: &Path, steps: &[ChainStep]) -> serde_json::Value {
+        let (rom, rom_sha, sym) = build(project);
+        let at = |n: &str| {
+            *sym.get(&format!("rds_mc_spr_striker_{n}"))
+                .unwrap_or_else(|| panic!("simbolo {n}"))
+        };
+        let mut emu = EmulatorCore::new(None);
+        emu.load_rom(&rom).expect("load");
+        emu.set_joypad(JoypadState::default()).unwrap();
+        for _ in 0..60 {
+            emu.run_frame().unwrap();
+        }
+        let mut rows = Vec::new();
+        for step in steps {
+            emu.set_joypad(step.joypad.clone()).unwrap();
+            for _ in 0..step.frames {
+                emu.run_frame().unwrap();
+                rows.push(serde_json::json!({
+                    "step": step.label, "a": step.joypad.y,
+                    "tick": read_u16(&emu, at("tick")), "stateno": read_u16(&emu, at("stateno")),
+                    "pad": read_u16(&emu, at("pad")), "action": read_u16(&emu, at("action")),
+                    "life": read_u16(&emu, at("tlife")) as i16, "hits": read_u16(&emu, at("hits")),
+                    "active": read_u16(&emu, at("hd_active")), "pause": read_u16(&emu, at("pause")),
+                    "frozen": read_u16(&emu, at("frozen")),
+                }));
+            }
+        }
+        let n = read_u16(&emu, at("hitlog_n")) as usize;
+        let raw = read_bytes(
+            &emu,
+            at("hitlog"),
+            crate::core::mugen_chain::HIT_LOG_ENTRIES * 16,
+        );
+        let w = |i: usize| u16::from_le_bytes([raw[i], raw[i + 1]]);
+        let log: Vec<serde_json::Value> = (0..n.min(crate::core::mugen_chain::HIT_LOG_ENTRIES)).map(|k| {
+            let b = k * 16;
+            serde_json::json!({"tick": w(b), "time": w(b + 2), "action": w(b + 4), "elem": w(b + 6),
+                "before": w(b + 8) as i16, "after": w(b + 10) as i16, "ax": w(b + 12) as i16, "tx": w(b + 14) as i16})
+        }).collect();
+        serde_json::json!({"rom_sha256": rom_sha,
+            "elf_sha256": sha(&fs::read(project.join("build/megadrive/out/rom.out")).unwrap()),
+            "core": {"label": emu.loaded_core_label(), "file": emu.loaded_core_file().map(|f| f.display().to_string()),
+                "sha256": emu.loaded_core_file().and_then(|f| fs::read(f).ok()).map(|b| sha(&b))},
+            "rows": rows, "hitlog": log})
+    }
+
+    /// Ataques (inicio, duracao em ticks) pelo estado lido por quadro.
+    fn attack_runs(rows: &[serde_json::Value]) -> Vec<(usize, usize)> {
+        let mut out: Vec<(usize, usize)> = Vec::new();
+        for (i, r) in rows.iter().enumerate() {
+            if r["stateno"] == 200 {
+                match out.last_mut() {
+                    Some((s, l)) if *s + *l == i => *l += 1,
+                    _ => out.push((i, 1)),
+                }
+            }
+        }
+        out
+    }
+
+    /// Prova na ROM oficial (SGDK + Genesis Plus GX): HitDef ORIGINAL do CNS da fixture
+    /// `striker` importado pela rota canonica. Previsao fixada em `fixture::striker` antes da
+    /// execucao. `RDS_MUGEN_HITDEF_OUTPUT` (opcional) guarda o recibo fora do repo.
+    #[test]
+    #[ignore]
+    fn mugen_hitdef_real_build_run() {
+        let tap = |label| ChainStep {
+            label,
+            frames: 1,
+            joypad: pad(true, false),
+        };
+        let idle = |label, frames| ChainStep {
+            label,
+            frames,
+            joypad: pad(false, false),
+        };
+        let script = [
+            idle("no_input", 40),
+            tap("tap1"),
+            idle("after_tap1", 30),
+            ChainStep {
+                label: "hold",
+                frames: 40,
+                joypad: pad(true, false),
+            },
+            idle("release", 30),
+        ];
+        let mut receipt = serde_json::Map::new();
+        let mut run = |name: &str, dx: Option<i32>, edit: &dyn Fn(String) -> String| {
+            let (root, project) = import_striker(&format!("hitdef-real-{name}"), edit, dx);
+            let cap = capture_hits(&project, &script);
+            receipt.insert(name.into(), cap.clone());
+            let _ = fs::remove_dir_all(root);
+            cap
+        };
+        let id = |c: String| c;
+        // 1. no alcance (d = 10): um acerto por golpe, 120 -> 95 -> 70, pausa de 4 ticks
+        let hit = run("in_range_d10", Some(10), &id);
+        let rows = hit["rows"].as_array().unwrap();
+        let attacks = attack_runs(rows);
+        eprintln!("d10 ataques {attacks:?} log {}", hit["hitlog"]);
+        assert_eq!(attacks.len(), 2, "toque e segurar: dois golpes");
+        assert!(
+            attacks.iter().all(|(_, l)| *l == 14),
+            "10 ticks do AIR + 4 de pausa: {attacks:?}"
+        );
+        assert!(
+            rows[..attacks[0].0]
+                .iter()
+                .all(|r| r["life"] == 120 && r["hits"] == 0),
+            "sem entrada: sem dano"
+        );
+        let (s0, _) = attacks[0];
+        assert_eq!(
+            rows[s0 + 2]["life"],
+            120,
+            "elemento 1 (sem Clsn1): sem dano"
+        );
+        assert_eq!(
+            rows[s0 + 3]["life"],
+            95,
+            "contato no 1o tick do elemento 2 (P+3)"
+        );
+        assert_eq!(rows[s0 + 3]["pause"], 4);
+        assert!(
+            (s0 + 4..s0 + 8).all(
+                |i| rows[i]["frozen"].as_u64() == rows[i - 1]["frozen"].as_u64().map(|f| f + 1)
+            ),
+            "P+4..P+7 congelados"
+        );
+        assert!(
+            (s0 + 3..s0 + 14).all(|i| rows[i]["life"] == 95),
+            "contato sustentado: UM acerto"
+        );
+        let (s1, _) = attacks[1];
+        assert_eq!(
+            rows[s1 + 3]["life"],
+            70,
+            "novo golpe rearma e acerta de novo"
+        );
+        assert_eq!(rows.last().unwrap()["hits"], 2);
+        let log = hit["hitlog"].as_array().unwrap();
+        assert_eq!(log.len(), 2);
+        assert_eq!(
+            (
+                log[0]["before"].as_i64(),
+                log[0]["after"].as_i64(),
+                log[0]["elem"].as_u64(),
+                log[0]["time"].as_u64()
+            ),
+            (Some(120), Some(95), Some(1), Some(3))
+        );
+        assert_eq!(
+            log[0]["tx"].as_i64().unwrap() - log[0]["ax"].as_i64().unwrap(),
+            10
+        );
+        // 2. borda inclusiva (d = 15) acerta; fora do alcance (d = 16) nao
+        let edge = run("edge_d15", Some(15), &id);
+        assert_eq!(
+            edge["rows"].as_array().unwrap().last().unwrap()["hits"],
+            2,
+            "d=15 toca a borda"
+        );
+        let far = run("out_of_range_d16", Some(16), &id);
+        let frows = far["rows"].as_array().unwrap();
+        assert!(
+            frows.iter().all(|r| r["life"] == 120 && r["hits"] == 0),
+            "d=16: sem dano"
+        );
+        assert!(
+            attack_runs(frows).iter().all(|(_, l)| *l == 10),
+            "sem acerto nao ha pausa"
+        );
+        // 3. hitflag que nao alcanca alvo em pe: golpe ativa, sem dano
+        let air = run("hitflag_air_only", Some(10), &|c: String| {
+            c.replace("hitflag = MAF", "hitflag = A")
+        });
+        let arows = air["rows"].as_array().unwrap();
+        assert!(arows.iter().any(|r| r["active"] == 1), "o golpe ativa");
+        assert!(arows.iter().all(|r| r["life"] == 120));
+        // 4. contraprova causal: so o dano muda na copia descartavel (25 -> 40)
+        let causal = run("causal_damage_40", Some(10), &|c: String| {
+            c.replace("damage = 25", "damage = 40")
+        });
+        let crows = causal["rows"].as_array().unwrap();
+        assert_eq!(crows.last().unwrap()["life"], 40, "120 - 2 x 40");
+        assert_ne!(causal["rom_sha256"], hit["rom_sha256"]);
+        assert_eq!(attack_runs(crows), attacks, "mesma janela e duracao");
+        if let Ok(dir) = std::env::var("RDS_MUGEN_HITDEF_OUTPUT") {
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(
+                PathBuf::from(dir).join("hitdef-core-receipt.json"),
+                serde_json::to_vec_pretty(&serde_json::Value::Object(receipt)).unwrap(),
+            )
+            .unwrap();
+        }
+    }
+
+    /// BYOR (Ken real, fora do Git): analise v2 pela leitura canonica do pacote. Imprime o
+    /// HitDef convertido ou o motivo exato da recusa. `RDS_MUGEN_REAL_SOURCE` = pasta do ken8.
+    #[test]
+    #[ignore]
+    fn mugen_hitdef_ken_analysis() {
+        let root =
+            PathBuf::from(std::env::var("RDS_MUGEN_REAL_SOURCE").expect("RDS_MUGEN_REAL_SOURCE"));
+        let def = fs::read_to_string(root.join("ken8.def")).unwrap();
+        let ad = rex_mugen::air::parse(
+            &fs::read_to_string(root.join("ken.air")).unwrap(),
+            "ken.air",
+        );
+        let actions = vec![0, 200];
+        let totals = super::action_totals(&ad, &actions);
+        let input = super::chain_input(
+            &root,
+            &def,
+            "ken8.def",
+            200,
+            &totals,
+            "kenmasters",
+            super::action_shapes(&ad, &actions),
+        )
+        .unwrap();
+        let a = crate::core::mugen_chain::analyze(&input);
+        let p = a.program.expect("cadeia");
+        eprintln!(
+            "profile {} hitdefs {} target_life {}",
+            p.profile, a.report["hitdefs"], a.report["target_life"]
+        );
+        let un: Vec<&serde_json::Value> = a.report["unconverted_controllers"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|u| u["id"].as_str().is_some_and(|i| i.starts_with("state.200")))
+            .collect();
+        eprintln!("estado 200 nao convertidos: {}", serde_json::json!(un));
+    }
+
+    /// JV01 (curadoria Mega Drive): copia descartavel de um projeto real (`RDS_JV01_PROJECT`).
+    /// Variante A: celulas limpas (imagem base). Variante B: imagem montada (celulas 1..N,
+    /// como o ImageIngress grava). Exige a mesma ROM e o mesmo framebuffer no core oficial.
+    #[test]
+    #[ignore]
+    fn jv01_mounted_image_real_build_matches_base_image() {
+        let src = PathBuf::from(std::env::var("RDS_JV01_PROJECT").expect("RDS_JV01_PROJECT"));
+        let out = std::env::var("RDS_JV01_OUTPUT").ok().map(PathBuf::from);
+        let mut results = Vec::new();
+        for mounted in [false, true] {
+            let root = temp(if mounted { "jv01-mounted" } else { "jv01-base" });
+            let project = root.join("project");
+            fn copy_tree(from: &Path, to: &Path) {
+                fs::create_dir_all(to).unwrap();
+                for entry in fs::read_dir(from).unwrap() {
+                    let entry = entry.unwrap();
+                    let name = entry.file_name();
+                    if entry.file_type().unwrap().is_dir() {
+                        if name != "build" {
+                            copy_tree(&entry.path(), &to.join(&name));
+                        }
+                    } else {
+                        fs::copy(entry.path(), to.join(&name)).unwrap();
+                    }
+                }
+            }
+            copy_tree(&src, &project);
+            let mut scene = load_scene(&project, DEFAULT_ENTRY_SCENE).unwrap();
+            for e in scene.entities.iter_mut() {
+                if let Some(t) = e.components.tilemap.as_mut() {
+                    t.cells = if mounted {
+                        (1..=t.map_width * t.map_height).collect()
+                    } else {
+                        Vec::new()
+                    };
+                }
+            }
+            save_scene(&project, DEFAULT_ENTRY_SCENE, &scene).unwrap();
+            let (rom, rom_sha, _) = build(&project);
+            let mut emu = EmulatorCore::new(None);
+            emu.load_rom(&rom).expect("load");
+            emu.set_joypad(JoypadState::default()).unwrap();
+            let mut frames = Vec::new();
+            for f in 0..600 {
+                emu.run_frame().unwrap();
+                if f % 100 == 99 {
+                    let (raw, size, format) = emu.get_framebuffer().unwrap();
+                    let fb = framebuffer_to_rgba(&raw, size, format);
+                    if let Some(dir) = &out {
+                        fs::create_dir_all(dir).unwrap();
+                        image::save_buffer(
+                            dir.join(format!(
+                                "{}-{f}.png",
+                                if mounted { "mounted" } else { "base" }
+                            )),
+                            &fb.rgba,
+                            fb.width,
+                            fb.height,
+                            image::ColorType::Rgba8,
+                        )
+                        .unwrap();
+                    }
+                    frames.push(sha(&fb.rgba));
+                }
+            }
+            eprintln!("mounted={mounted} rom={rom_sha} frames={frames:?}");
+            results.push((rom_sha, frames));
+            let _ = fs::remove_dir_all(root);
+        }
+        assert_eq!(results[0].0, results[1].0, "mesma ROM");
+        assert_eq!(results[0].1, results[1].1, "mesmos quadros no core");
+        if let Some(dir) = out {
+            fs::write(dir.join("jv01-receipt.json"), serde_json::to_vec_pretty(&serde_json::json!({
+                "source_project": src, "rom_sha256": results[0].0, "frame_rgba_sha256_every_100": results[0].1,
+                "variants": ["cells cleared (base image)", "mounted cells 1..N"]})).unwrap()).unwrap();
         }
     }
 
@@ -5502,7 +6093,7 @@ mod tests {
             source_sha256: Some(super::package_digest(&source).unwrap()),
             ..Default::default()
         };
-        let analysis = super::analyze_source(&source, Some(options.clone())).unwrap();
+        let analysis = super::analyze_source(&source, Some(options.clone()), false).unwrap();
         assert!(!analysis["report"].is_null(), "{analysis}");
         fs::write(
             output.join("analysis.json"),

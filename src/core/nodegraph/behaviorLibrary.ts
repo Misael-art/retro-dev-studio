@@ -213,9 +213,11 @@ const movement: BehaviorDefinition = {
     { key: "right_button", label: "Andar para a direita", kind: "button", optional: false, default: "BUTTON_RIGHT" },
     { key: "left_button", label: "Andar para a esquerda", kind: "button", optional: true, default: "BUTTON_LEFT" },
     { key: "jump_button", label: "Saltar", kind: "button", optional: true, default: "BUTTON_A" },
-    { key: "jump_strength", label: "Forca do salto", kind: "int", min: 8, max: 128, default: 64, help: "Impulso para cima (quanto maior, mais alto)." },
+    { key: "jump_strength", label: "Forca do salto", kind: "int", min: 8, max: 128, default: 64, unit: "1/16 px por quadro", help: "Impulso inicial para cima em subpixels (escala 16): 64 = 4 px/quadro antes da gravidade; não é a altura do salto." },
     { key: "jump_animation", label: "Animacao ao saltar", kind: "animation", ofEntityParam: "target" },
     { key: "jump_sound", label: "Som do salto", kind: "sound" },
+    { key: "idle_animation", label: "Animacao parado", kind: "animation", ofEntityParam: "target", help: "Mostrada no chao sem andar. Com corrida, o comportamento escolhe a pose a cada quadro (no ar usa a do salto)." },
+    { key: "run_animation", label: "Animacao andando", kind: "animation", ofEntityParam: "target", help: "Mostrada no chao enquanto anda para qualquer lado." },
   ],
   summarize: (p, context) => {
     const who = entityLabel(context, p.target);
@@ -224,10 +226,16 @@ const movement: BehaviorDefinition = {
     if (p.jump_button) {
       parts.push(`salta (so do chao) com forca ${p.jump_strength} ao apertar ${buttonText(p.jump_button)}${p.jump_animation ? ` (animacao "${p.jump_animation}")` : ""}${p.jump_sound ? ` tocando "${p.jump_sound}"` : ""}`);
     }
+    if (p.idle_animation || p.run_animation) {
+      parts.push(`mostra ${p.idle_animation ? `"${p.idle_animation}" parado` : "a pose atual parado"}${p.run_animation ? ` e "${p.run_animation}" andando` : ""} no chao${p.jump_animation ? ` e "${p.jump_animation}" no ar` : ""}`);
+    }
     return `${parts.join(", ")}.`;
   },
   validate: (p, context, graph) => {
     const errors = commonValidation(movement, p, context, graph);
+    if ((p.idle_animation || p.run_animation) && !(p.idle_animation && p.run_animation)) {
+      errors.push("Animacoes por estado: escolha a animacao parado E a animacao andando (uma so deixaria a pose presa).");
+    }
     const target = context.entities.find((entity) => entity.id === String(p.target ?? ""));
     if (p.jump_button && context.platform === "snes") {
       errors.push('Saltar: no SNES o salto "so do chao" nao e suportado (o estado de apoio existe apenas na fisica do Mega Drive); deixe "Saltar" vazio.');
@@ -237,13 +245,15 @@ const movement: BehaviorDefinition = {
     }
     return errors;
   },
-  build: (p) => {
+  build: (p, instanceId) => {
     const target = String(p.target);
     const speed = Number(p.speed);
+    const states = Boolean(p.idle_animation && p.run_animation);
+    const movingVar = `${instanceId}_moving`;
     const nodes: BuiltNode[] = [
       { role: "right_tick", type: "event_update", label: "A cada quadro (direita)", params: {} },
       { role: "right_input", type: "input_held", label: "Segurar direita", params: { pad: "JOY_1", button: String(p.right_button) } },
-      { role: "right_move", type: "sprite_move", label: "Andar para a direita", params: { target, dx: speed, dy: 0 } },
+      { role: "right_move", type: "sprite_move", label: "Andar para a direita", params: { target, dx: speed, dy: 0, face_direction: 1 } },
     ];
     const edges: BuiltEdge[] = [
       { from: "right_tick", fromPort: "exec", to: "right_input", toPort: "exec" },
@@ -253,12 +263,22 @@ const movement: BehaviorDefinition = {
       nodes.push(
         { role: "left_tick", type: "event_update", label: "A cada quadro (esquerda)", params: {} },
         { role: "left_input", type: "input_held", label: "Segurar esquerda", params: { pad: "JOY_1", button: String(p.left_button) } },
-        { role: "left_move", type: "sprite_move", label: "Andar para a esquerda", params: { target, dx: -speed, dy: 0 } }
+        { role: "left_move", type: "sprite_move", label: "Andar para a esquerda", params: { target, dx: -speed, dy: 0, face_direction: 1 } }
       );
       edges.push(
         { from: "left_tick", fromPort: "exec", to: "left_input", toPort: "exec" },
         { from: "left_input", fromPort: "exec", to: "left_move", toPort: "exec" }
       );
+    }
+    if (states) {
+      // JV09: andar marca a variavel da instancia; um passo por quadro (depois do movimento)
+      // escolhe repouso/corrida no chao ou o salto no ar e limpa a marca. Mesmos nos e compilador.
+      nodes.push({ role: "mark_right", type: "var_set", label: "Marcar andando (direita)", params: { var_name: movingVar, value: 1 } });
+      edges.push({ from: "right_move", fromPort: "exec", to: "mark_right", toPort: "exec" });
+      if (p.left_button) {
+        nodes.push({ role: "mark_left", type: "var_set", label: "Marcar andando (esquerda)", params: { var_name: movingVar, value: 1 } });
+        edges.push({ from: "left_move", fromPort: "exec", to: "mark_left", toPort: "exec" });
+      }
     }
     if (p.jump_button) {
       nodes.push(
@@ -283,6 +303,35 @@ const movement: BehaviorDefinition = {
       if (p.jump_sound) {
         nodes.push({ role: "jump_sound", type: "action_sound", label: "Som do salto", params: { sfx: String(p.jump_sound) } });
         edges.push({ from: last, fromPort: "exec", to: "jump_sound", toPort: "exec" });
+      }
+    }
+    if (states) {
+      nodes.push(
+        { role: "anim_tick", type: "event_update", label: "A cada quadro (animacao)", params: {} },
+        { role: "anim_ground", type: "condition_on_ground", label: "No chao? (animacao)", params: { target } },
+        { role: "anim_read", type: "var_get", label: "Ler andando", params: { var_name: movingVar } },
+        { role: "anim_still", type: "condition_compare", label: "Parado?", params: { operator: "==", b: 0 } },
+        { role: "anim_idle", type: "set_animation_state", label: "Pose parado", params: { target, state: String(p.idle_animation) } },
+        { role: "anim_run", type: "set_animation_state", label: "Pose andando", params: { target, state: String(p.run_animation) } },
+        { role: "anim_clear", type: "var_set", label: "Limpar andando", params: { var_name: movingVar, value: 0 } }
+      );
+      edges.push(
+        { from: "anim_tick", fromPort: "exec", to: "anim_ground", toPort: "exec" },
+        { from: "anim_ground", fromPort: "true", to: "anim_still", toPort: "exec" },
+        { from: "anim_read", fromPort: "value", to: "anim_still", toPort: "a" },
+        { from: "anim_still", fromPort: "true", to: "anim_idle", toPort: "exec" },
+        { from: "anim_still", fromPort: "false", to: "anim_run", toPort: "exec" },
+        { from: "anim_idle", fromPort: "exec", to: "anim_clear", toPort: "exec" },
+        { from: "anim_run", fromPort: "exec", to: "anim_clear", toPort: "exec" }
+      );
+      if (p.jump_animation) {
+        nodes.push({ role: "anim_air", type: "set_animation_state", label: "Pose no ar", params: { target, state: String(p.jump_animation) } });
+        edges.push(
+          { from: "anim_ground", fromPort: "false", to: "anim_air", toPort: "exec" },
+          { from: "anim_air", fromPort: "exec", to: "anim_clear", toPort: "exec" }
+        );
+      } else {
+        edges.push({ from: "anim_ground", fromPort: "false", to: "anim_clear", toPort: "exec" });
       }
     }
     return { nodes, edges };
@@ -798,7 +847,7 @@ export type BehaviorPlan = {
   instanceId: string | null;
 };
 
-function nodeSignature(node: Pick<GraphNode, "type" | "params">): string {
+export function nodeSignature(node: Pick<GraphNode, "type" | "params">): string {
   return JSON.stringify({ type: node.type, params: Object.keys(node.params).sort().map((key) => [key, node.params[key]]) });
 }
 
@@ -1167,4 +1216,133 @@ export function duplicateBehaviorLogic(graph: NodeGraph, sourceId: string, newId
     preservedExternal: [...preserved].sort(),
     droppedManualNodes: graph.nodes.length - nodes.length,
   };
+}
+
+// ── Movimento e salto (PLAT09) ───────────────────────────────────────────────
+// Leitura única dos valores que a ROM realmente usa. Unidades do emissor SGDK
+// (render_apply_physics): velocidades em 1/16 px por quadro; gravidade e atrito
+// somam/subtraem 1/16 px por quadro a cada quadro. `sprite_move` desloca px na
+// hora, sem velocidade. Nenhuma fórmula nova: só conversão para leitura.
+
+export const MOVEMENT_SUBPIXELS = 16;
+
+export type MovementTuningKind = "run_speed" | "vertical_speed" | "jump_impulse" | "displace" | "gravity" | "braking" | "max_speed_x" | "max_speed_y";
+export type MovementTuningSource =
+  | { kind: "node"; nodeId: string; param: "vx" | "vy" | "dx" | "dy" }
+  | { kind: "physics"; field: "gravity_strength" | "friction" | "max_velocity.x" | "max_velocity.y" };
+export type MovementTuningRow = {
+  id: string;
+  kind: MovementTuningKind;
+  label: string;
+  /** Valor gravado (unidade do backend), ou null quando é uma expressão. */
+  raw: number | null;
+  expression?: string;
+  /** Leitura em px/quadro e px/s (ou px por execução para deslocamento). */
+  reading: string;
+  source: MovementTuningSource;
+  nodeLabel?: string;
+};
+
+const MOVEMENT_KIND_LABEL: Record<MovementTuningKind, string> = {
+  run_speed: "Velocidade mantida",
+  vertical_speed: "Velocidade vertical mantida",
+  jump_impulse: "Impulso do pulo",
+  displace: "Deslocamento imediato",
+  gravity: "Gravidade",
+  braking: "Frenagem (atrito)",
+  max_speed_x: "Velocidade máxima horizontal",
+  max_speed_y: "Velocidade máxima de queda",
+};
+
+function speedReading(raw: number, fps: number): string {
+  const perFrame = raw / MOVEMENT_SUBPIXELS;
+  return `${perFrame.toFixed(2)} px/quadro · ${Math.round(perFrame * fps)} px/s`;
+}
+
+function accelReading(raw: number, fps: number): string {
+  const perFrame = raw / MOVEMENT_SUBPIXELS;
+  return `${perFrame.toFixed(3)} px/quadro a cada quadro · ${Math.round(perFrame * fps * fps)} px/s²`;
+}
+
+export function describeMovementTuning(
+  graph: NodeGraph | null,
+  physics: { gravity?: boolean; gravity_strength?: number; friction?: number; max_velocity?: { x: number; y: number } } | undefined,
+  target: string,
+  fps = 60,
+): MovementTuningRow[] {
+  const rows: MovementTuningRow[] = [];
+  const numeric = (value: unknown) => (typeof value === "number" ? value : typeof value === "string" && /^-?\d+$/.test(value.trim()) ? Number(value) : null);
+  for (const node of graph?.nodes ?? []) {
+    const nodeTarget = String(node.params.target ?? "");
+    if (nodeTarget && nodeTarget !== target) continue;
+    if (node.type === "set_velocity") {
+      for (const param of ["vx", "vy"] as const) {
+        const value = node.params[param];
+        const raw = numeric(value);
+        if (raw === 0 || value === undefined) continue;
+        const kind: MovementTuningKind = param === "vx" ? "run_speed" : (raw ?? 0) < 0 ? "jump_impulse" : "vertical_speed";
+        rows.push({ id: `${node.id}:${param}`, kind, label: MOVEMENT_KIND_LABEL[kind], raw, expression: raw === null ? String(value) : undefined,
+          reading: raw === null ? "expressão: valor calculado na ROM" : speedReading(Math.abs(raw), fps),
+          source: { kind: "node", nodeId: node.id, param }, nodeLabel: node.label });
+      }
+    } else if (node.type === "sprite_move") {
+      for (const param of ["dx", "dy"] as const) {
+        const value = node.params[param];
+        const raw = numeric(value);
+        if (raw === 0 || value === undefined) continue;
+        rows.push({ id: `${node.id}:${param}`, kind: "displace", label: MOVEMENT_KIND_LABEL.displace, raw, expression: raw === null ? String(value) : undefined,
+          reading: raw === null ? "expressão: valor calculado na ROM" : `${Math.abs(raw)} px por execução do nó (sem velocidade)`,
+          source: { kind: "node", nodeId: node.id, param }, nodeLabel: node.label });
+      }
+    }
+  }
+  if (physics) {
+    if (physics.gravity !== false) {
+      const raw = physics.gravity_strength ?? 6;
+      rows.push({ id: "physics:gravity", kind: "gravity", label: MOVEMENT_KIND_LABEL.gravity, raw, reading: accelReading(raw, fps), source: { kind: "physics", field: "gravity_strength" } });
+    }
+    const friction = physics.friction ?? 0;
+    rows.push({ id: "physics:friction", kind: "braking", label: MOVEMENT_KIND_LABEL.braking, raw: friction,
+      reading: friction > 0 ? accelReading(friction, fps) : "sem frenagem: a velocidade horizontal se mantém", source: { kind: "physics", field: "friction" } });
+    if (physics.max_velocity) {
+      rows.push({ id: "physics:max_x", kind: "max_speed_x", label: MOVEMENT_KIND_LABEL.max_speed_x, raw: physics.max_velocity.x, reading: speedReading(physics.max_velocity.x, fps), source: { kind: "physics", field: "max_velocity.x" } });
+      rows.push({ id: "physics:max_y", kind: "max_speed_y", label: MOVEMENT_KIND_LABEL.max_speed_y, raw: physics.max_velocity.y, reading: speedReading(physics.max_velocity.y, fps), source: { kind: "physics", field: "max_velocity.y" } });
+    }
+  }
+  return rows;
+}
+
+/** Altera somente o parâmetro do nó indicado; preserva sinal (direção) do valor original. */
+export function applyMovementNodeTuning(graph: NodeGraph, nodeId: string, param: string, magnitude: number): NodeGraph {
+  return {
+    ...graph,
+    nodes: graph.nodes.map((node) => {
+      if (node.id !== nodeId) return node;
+      const current = Number(node.params[param] ?? 0);
+      const value = Math.trunc(Math.abs(magnitude)) * (current < 0 ? -1 : 1);
+      return { ...node, params: { ...node.params, [param]: value } };
+    }),
+  };
+}
+
+/** R3-03: provenance of a behavior instance, derived only from stored signatures. */
+export function behaviorProvenance(graph: NodeGraph, instance: BehaviorInstance): { state: "generated" | "customized"; nodeCount: number; editedNodeIds: string[] } {
+  const edited = manuallyEditedNodes(graph, instance).map((node) => node.id);
+  return { state: edited.length ? "customized" : "generated", nodeCount: instance.nodeIds.length, editedNodeIds: edited };
+}
+
+/** R3-03: which behavior instance generated a node (layout never changes this). */
+export function behaviorOwnerOfNode(graph: NodeGraph, nodeId: string): BehaviorInstance | undefined {
+  return (graph.behaviors ?? []).find((instance) => instance.nodeIds.includes(nodeId));
+}
+
+/**
+ * R3-03: the first direct semantic edit of a node still owned by an untouched generated
+ * behavior needs an explicit conversion to manual. Already-customized behaviors (or ones
+ * acknowledged in this session) and free nodes edit directly.
+ */
+export function needsManualConversion(graph: NodeGraph, nodeId: string, acknowledged: ReadonlySet<string>): BehaviorInstance | null {
+  const owner = behaviorOwnerOfNode(graph, nodeId);
+  if (!owner || acknowledged.has(owner.id)) return null;
+  return behaviorProvenance(graph, owner).state === "generated" ? owner : null;
 }

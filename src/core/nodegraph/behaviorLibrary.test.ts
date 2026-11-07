@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyMovementNodeTuning,
+  describeMovementTuning,
   buildBehaviorSceneContext,
   defaultBehaviorParams,
   duplicateBehaviorLogic,
   getBehaviorDefinition,
   manuallyEditedNodes,
+  nodeSignature,
   passageOpenVariable,
   planApplyBehavior,
   planEditBehavior,
@@ -17,7 +20,7 @@ import { deserializeNodeGraph } from "./nodeDefinitions";
 import { findNodeOverlaps, graphSemanticSignature } from "./nodeLayout";
 import { serializeNodeGraph, type NodeGraph } from "./nodeTypes";
 
-const sprite = (animations: string[] = ["idle", "jump"]) => ({ animations: Object.fromEntries(animations.map((name) => [name, {}])) });
+const sprite = (animations: string[] = ["idle", "jump", "run"]) => ({ animations: Object.fromEntries(animations.map((name) => [name, {}])) });
 const context: BehaviorSceneContext = buildBehaviorSceneContext(
   [
     { entity_id: "fox", display_name: "Raposa", components: { sprite: sprite(), physics: {}, collision: {}, audio: { sfx: { jump: "a.wav" } } } },
@@ -62,6 +65,54 @@ describe("behavior library", () => {
     const reopened = deserializeNodeGraph(serializeNodeGraph(graph));
     expect(reopened.behaviors).toEqual(graph.behaviors);
     expect(validateBehaviorInstances(reopened, context)).toEqual([]);
+  });
+
+  it("chooses idle/run on the ground and jump in the air in the same behavior, and faces the walk direction (JV09/JV10)", () => {
+    const { graph, id, plan } = apply(EMPTY, "platform_movement", moveParams("fox", { idle_animation: "idle", run_animation: "run", jump_animation: "jump" }));
+    expect(plan.summary).toContain('"run" andando');
+    const node = (role: string) => graph.nodes.find((n) => n.id === `${id}__${role}`)!;
+    expect(node("right_move").params.face_direction).toBe(1);
+    expect(node("left_move").params.face_direction).toBe(1);
+    const moving = `${id}_moving`;
+    expect(node("mark_right").params).toMatchObject({ var_name: moving, value: 1 });
+    expect(node("anim_read").params.var_name).toBe(moving);
+    expect(node("anim_idle").params.state).toBe("idle");
+    expect(node("anim_run").params.state).toBe("run");
+    expect(node("anim_air").params.state).toBe("jump");
+    const edge = (from: string, port: string, to: string) =>
+      expect(graph.edges).toEqual(expect.arrayContaining([expect.objectContaining({ fromNode: `${id}__${from}`, fromPort: port, toNode: `${id}__${to}` })]));
+    edge("right_move", "exec", "mark_right");
+    edge("anim_ground", "true", "anim_still");
+    edge("anim_read", "value", "anim_still");
+    edge("anim_still", "true", "anim_idle");
+    edge("anim_still", "false", "anim_run");
+    edge("anim_ground", "false", "anim_air");
+    for (const role of ["anim_idle", "anim_run", "anim_air"]) edge(role, "exec", "anim_clear");
+    // a passagem do quadro de animacao vem depois dos de movimento (ordem dos nos)
+    const order = graph.nodes.map((n) => n.id);
+    expect(order.indexOf(`${id}__anim_tick`)).toBeGreaterThan(order.indexOf(`${id}__left_tick`));
+    expect(findNodeOverlaps(graph)).toEqual([]);
+    // so uma das duas poses de chao e recusada (pose ficaria presa)
+    expect(planApplyBehavior(EMPTY, "platform_movement", moveParams("fox", { idle_animation: "idle" }), context).errors.join(" ")).toContain("parado E");
+    // sem animacoes por estado: nenhum no extra (projetos existentes inalterados)
+    const plain = apply(EMPTY, "platform_movement", moveParams("fox", {}));
+    expect(plain.graph.nodes.some((n) => n.id.includes("anim_"))).toBe(false);
+  });
+
+  it("does not flag behaviors created before JV10 as manually edited after reopening", () => {
+    // Projetos antigos: nos de movimento sem face_direction. Reabrir nao pode inventar edicao manual.
+    const { graph, id } = apply(EMPTY, "platform_movement", moveParams("fox", {}));
+    const legacy: NodeGraph = { ...graph, nodes: graph.nodes.map((n) => {
+      if (n.type !== "sprite_move") return n;
+      const params = { ...(n.params as Record<string, unknown>) };
+      delete params.face_direction;
+      return { ...n, params } as typeof n;
+    }) };
+    const instance = { ...legacy.behaviors![0] };
+    instance.generated = Object.fromEntries(legacy.nodes.filter((n) => instance.nodeIds.includes(n.id)).map((n) => [n.id, nodeSignature(n)]));
+    const reopened = deserializeNodeGraph(serializeNodeGraph({ ...legacy, behaviors: [instance] }));
+    expect(manuallyEditedNodes(reopened, reopened.behaviors![0]).map((n) => n.id)).toEqual([]);
+    expect(id).toBeTruthy();
   });
 
   it("keeps two instances on two entities independent (negative control for shared state / wrong target)", () => {
@@ -246,5 +297,85 @@ describe("behavior library", () => {
     const moved = apply(EMPTY, "platform_movement", moveParams("fox_2"));
     const without = buildBehaviorSceneContext([{ entity_id: "fox", components: { sprite: sprite() } }], []);
     expect(validateBehaviorInstances(moved.graph, without)).toEqual([expect.objectContaining({ message: expect.stringContaining('"fox_2" nao existe mais') })]);
+  });
+});
+
+describe("movement tuning (PLAT09)", () => {
+  const graph = {
+    nodes: [
+      { id: "run_right", type: "set_velocity", label: "Correr", x: 0, y: 0, params: { target: "player", vx: 32, vy: 0 }, inputs: [], outputs: [] },
+      { id: "jump", type: "set_velocity", label: "Pulo", x: 0, y: 0, params: { target: "player", vx: 0, vy: -64 }, inputs: [], outputs: [] },
+      { id: "nudge", type: "sprite_move", label: "Empurrar", x: 0, y: 0, params: { target: "player", dx: 2, dy: 0 }, inputs: [], outputs: [] },
+      { id: "enemy", type: "set_velocity", label: "Inimigo", x: 0, y: 0, params: { target: "enemy", vx: 8, vy: 0 }, inputs: [], outputs: [] },
+    ],
+    edges: [],
+  } as unknown as NodeGraph;
+
+  it("reads the same nodes and physics the ROM uses, in backend units", () => {
+    const rows = describeMovementTuning(graph, { gravity: true, gravity_strength: 6, friction: 2, max_velocity: { x: 48, y: 96 } }, "player", 60);
+    expect(rows.map((r) => r.kind)).toEqual(["run_speed", "jump_impulse", "displace", "gravity", "braking", "max_speed_x", "max_speed_y"]);
+    expect(rows[0]).toMatchObject({ raw: 32, reading: "2.00 px/quadro · 120 px/s", source: { kind: "node", nodeId: "run_right", param: "vx" } });
+    expect(rows[1].reading).toBe("4.00 px/quadro · 240 px/s");
+    expect(rows[2].reading).toContain("px por execução");
+    expect(rows.some((r) => r.id.startsWith("enemy"))).toBe(false);
+  });
+
+  it("edits only the chosen node parameter and keeps its direction", () => {
+    const next = applyMovementNodeTuning(graph, "jump", "vy", 80);
+    expect(next.nodes.find((n) => n.id === "jump")?.params.vy).toBe(-80);
+    expect(next.nodes.find((n) => n.id === "run_right")).toBe(graph.nodes[0]);
+    expect(next.edges).toBe(graph.edges);
+  });
+});
+
+describe("R3-05 parameter metadata", () => {
+  it("keeps canonical speed/jump ranges and declares jump impulse unit in 1/16 px", async () => {
+    const lib = await import("./behaviorLibrary");
+    const all = (lib as unknown as { BEHAVIOR_LIBRARY?: Array<{ params: Array<Record<string, unknown>> }> }).BEHAVIOR_LIBRARY;
+    expect(all).toBeDefined();
+    const specs = all!.flatMap((d) => d.params);
+    const speed = specs.find((s) => s.key === "speed");
+    const jump = specs.find((s) => s.key === "jump_strength");
+    expect(speed).toMatchObject({ min: 1, max: 8, default: 2, unit: "px por quadro" });
+    expect(jump).toMatchObject({ min: 8, max: 128, default: 64, unit: "1/16 px por quadro" });
+    expect(64 / lib.MOVEMENT_SUBPIXELS).toBe(4);
+  });
+});
+
+describe("R3-03 provenance", () => {
+  it("layout keeps 'generated'; a direct semantic edit flags only that node; save/reopen preserves it", async () => {
+    const lib = await import("./behaviorLibrary");
+    const { graph, id } = apply(EMPTY, "platform_movement", moveParams("fox"));
+    const instance = graph.behaviors!.find((b) => b.id === id)!;
+    expect(lib.behaviorProvenance(graph, instance)).toMatchObject({ state: "generated", editedNodeIds: [] });
+
+    const moved: NodeGraph = { ...graph, nodes: graph.nodes.map((n) => ({ ...n, x: n.x + 120, y: n.y - 40 })) };
+    expect(lib.behaviorProvenance(moved, instance).state).toBe("generated");
+
+    const target = graph.nodes.find((n) => instance.nodeIds.includes(n.id) && Object.keys(n.params).length > 0)!;
+    const key = Object.keys(target.params)[0]!;
+    const edited: NodeGraph = { ...graph, nodes: graph.nodes.map((n) => (n.id === target.id ? { ...n, params: { ...n.params, [key]: `${String(n.params[key])}_x` } } : n)) };
+    const reopened = deserializeNodeGraph(serializeNodeGraph(edited));
+    const after = lib.behaviorProvenance(reopened, reopened.behaviors!.find((b) => b.id === id)!);
+    expect(after.state).toBe("customized");
+    expect(after.editedNodeIds).toEqual([target.id]);
+    expect(lib.behaviorOwnerOfNode(reopened, target.id)?.id).toBe(id);
+    expect(lib.behaviorOwnerOfNode(reopened, "not-a-node")).toBeUndefined();
+  });
+});
+
+describe("R3-03 manual conversion gate", () => {
+  it("asks once per untouched generated behavior; free nodes, acknowledged and customized behaviors edit directly", async () => {
+    const lib = await import("./behaviorLibrary");
+    const { graph, id } = apply(EMPTY, "platform_movement", moveParams("fox"));
+    const instance = graph.behaviors!.find((b) => b.id === id)!;
+    const owned = instance.nodeIds[0]!;
+    expect(lib.needsManualConversion(graph, owned, new Set())?.id).toBe(id);
+    expect(lib.needsManualConversion(graph, owned, new Set([id]))).toBeNull();
+    expect(lib.needsManualConversion(graph, "free-node", new Set())).toBeNull();
+    const target = graph.nodes.find((n) => instance.nodeIds.includes(n.id) && Object.keys(n.params).length > 0)!;
+    const key = Object.keys(target.params)[0]!;
+    const customized: NodeGraph = { ...graph, nodes: graph.nodes.map((n) => (n.id === target.id ? { ...n, params: { ...n.params, [key]: "changed" } } : n)) };
+    expect(lib.needsManualConversion(customized, owned, new Set())).toBeNull();
   });
 });

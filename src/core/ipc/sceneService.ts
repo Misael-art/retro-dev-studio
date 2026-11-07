@@ -11,7 +11,7 @@ export interface AnimationDef {
   frames: number[];
   fps: number;
   loop: boolean;
-  /** Ticks de 1/60 s por quadro (-1 = parado). Fonte da ROM nas animacoes MUGEN. */
+  /** Ticks de 1/60 s por ocorrência na ROM Mega Drive; -1 = parado no perfil MUGEN. */
   frame_durations?: number[];
   loop_start?: number;
   /** Presente so nas animacoes importadas de MUGEN; `duration` espelha `frame_durations`. */
@@ -218,6 +218,58 @@ export interface CameraComponent {
   follow_entity?: string;
   offset_x?: number;
   offset_y?: number;
+  /** Absent = legacy behavior. Conversion is an explicit editor transaction. */
+  visual?: VisualCameraConfig | null;
+  patterns?: SavedCameraPattern[];
+}
+
+export type CameraPattern = "fixed" | "platformer" | "exploration" | "auto_horizontal" | "auto_vertical" | "rooms" | "beat_em_up" | "arena" | "sequence";
+export interface CameraArea { x: number; y: number; width: number; height: number }
+export interface CameraRoom { id: string; name: string; area: CameraArea; priority: number; smooth: boolean }
+export interface CameraWaypoint { x: number; y: number; frames: number; wait: number }
+export interface CameraParallax { entity_id: string; ratio_x: number; ratio_y: number }
+export interface CameraAdvancedConfig {
+  rooms: CameraRoom[];
+  targets: string[];
+  path: CameraWaypoint[];
+  return_to_target: boolean;
+  allow_backtracking: boolean;
+  activation: CameraArea | null;
+  priority: number;
+  smooth_transition: boolean;
+  parallax: CameraParallax[];
+}
+export interface SavedCameraPattern {
+  id: string;
+  name: string;
+  config: VisualCameraConfig;
+  offset_x: number;
+  offset_y: number;
+  x: number;
+  y: number;
+}
+export interface VisualCameraConfig {
+  version: 1;
+  active: boolean;
+  pattern: CameraPattern;
+  anchor_x: number;
+  anchor_y: number;
+  screen_x: number;
+  screen_y: number;
+  horizontal: boolean;
+  vertical: boolean;
+  /** Integer response divisor: 1 = immediate. Frame rate follows the project. */
+  response_x: number;
+  response_y: number;
+  dead_zone_x: number;
+  dead_zone_y: number;
+  look_ahead: number;
+  max_speed: number;
+  /** Signed pixels per second; runtime retains subpixel remainder. */
+  speed: number;
+  paused: boolean;
+  bounds: CameraArea;
+  advanced?: CameraAdvancedConfig;
 }
 
 export interface TilemapComponent {
@@ -241,9 +293,29 @@ export interface Components {
   camera?: CameraComponent;
   tilemap?: TilemapComponent;
   hud?: HudTextComponent | null;
+  /** Trajeto autoral (Experimental, R5): retas entre pontos relativos ao início do objeto. */
+  path?: PathComponent | null;
 }
 
 /** Texto de interface autoral (Experimental): grade de texto do destino, tiles de 8 px. */
+export interface PathPoint {
+  x: number;
+  y: number;
+  /** Quadros para CHEGAR a este ponto (no ponto 0, só o retorno do modo loop). */
+  frames: number;
+  /** Pausa ao chegar, em quadros. */
+  wait: number;
+  /** Controle da curva quadrática do segmento que chega a este ponto; ausente = reta. */
+  curve?: { x: number; y: number } | null;
+}
+
+export interface PathComponent {
+  mode: "once" | "loop" | "pingpong";
+  points: PathPoint[];
+  /** true (padrão): anda desde o início; false: espera o nó «Iniciar trajeto». */
+  autostart?: boolean;
+}
+
 export interface HudTextComponent {
   column: number;
   row: number;
@@ -356,6 +428,8 @@ export interface SceneInfo {
   path: string;
   scene_id: string;
   display_name: string;
+  /** True for the project's entry scene (where "Testar projeto" starts). */
+  is_entry?: boolean;
 }
 
 export interface LegacySgdkIndex {
@@ -382,6 +456,7 @@ export interface ResolveSceneResult {
   ok: boolean;
   error: string;
   scene_json: string;
+  graphs?: Record<string, string>;
 }
 
 // ── IPC wrappers ──────────────────────────────────────────────────────────────
@@ -390,17 +465,32 @@ export function getSceneData(projectDir: string, scenePath?: string): Promise<Sc
   return invoke("get_scene_data", { projectDir, scenePath });
 }
 
+export function getReferenceTemplateComposition(projectDir: string, scenePath: string): Promise<Scene> {
+  return invoke("get_reference_template_composition", { projectDir, scenePath });
+}
+
+export function sceneDraftStorage(projectDir: string, scenePath: string, operation: "read" | "write" | "remove", value: string | null = null, expected: string | null = null): Promise<string | null> {
+  return invoke("scene_draft_storage", { projectDir, scenePath, operation, value, expected });
+}
+
 export function saveSceneData(
   projectDir: string,
   sceneJson: string,
   scenePath?: string,
-  resolvedSceneJson?: string
-): Promise<{ ok: boolean; message: string }> {
-  return invoke("save_scene_data", { projectDir, sceneJson, scenePath, resolvedSceneJson });
+  resolvedSceneJson?: string,
+  expectedSceneJson?: string,
+  expectedGraphs?: Record<string, string>
+): Promise<{ ok: boolean; message: string; scene_json?: string | null; conflict?: boolean; graphs?: Record<string, string> }> {
+  return invoke("save_scene_data", { projectDir, sceneJson, scenePath, resolvedSceneJson, expectedSceneJson, expectedGraphs });
 }
 
 export function listScenes(projectDir: string): Promise<SceneInfo[]> {
   return invoke("list_scenes", { projectDir });
+}
+
+/** Explicitly sets where the game starts. Opening a scene never changes it. */
+export function setProjectEntryScene(projectDir: string, scenePath: string): Promise<string> {
+  return invoke<string>("set_project_entry_scene", { projectDir, scenePath });
 }
 
 export function switchScene(projectDir: string, scenePath: string): Promise<SceneDataResult> {

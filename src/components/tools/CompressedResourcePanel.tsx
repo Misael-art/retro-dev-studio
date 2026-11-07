@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   rexResourceApplyEdit,
   rexResourceList,
@@ -81,11 +81,14 @@ function paintIndexRejectReason(text: string): string | null {
 type LogLevel = "info" | "warn" | "error" | "success";
 
 export function CompressedResourcePanel({
-  logMessage,
+  logMessage, initialRomPath, onActivityChange,
 }: {
+  initialRomPath?: string;
+  onActivityChange?: (active: boolean) => void;
   logMessage?: (level: LogLevel, message: string) => void;
 }) {
-  const [romPath, setRomPath] = useState("");
+  const preparedOpened = useRef(false);
+  const [romPath, setRomPath] = useState(initialRomPath ?? "");
   const [romSha, setRomSha] = useState("");
   const [resources, setResources] = useState<RexResourceSummary[]>([]);
   const [analyzedScope, setAnalyzedScope] = useState("");
@@ -168,6 +171,9 @@ export function CompressedResourcePanel({
       setBusy(false);
     }
   }, [romPath, logMessage]);
+
+  useEffect(() => { if (initialRomPath && !preparedOpened.current) { preparedOpened.current = true; void verify(); } }, [initialRomPath, verify]);
+  useEffect(() => { onActivityChange?.(busy); }, [busy, onActivityChange]);
 
   const selectResource = useCallback(
     async (streamOffset: number) => {
@@ -280,6 +286,7 @@ export function CompressedResourcePanel({
       <div className="flex flex-wrap items-center gap-2">
         <input
           type="text"
+          readOnly={Boolean(initialRomPath)}
           value={romPath}
           onChange={(event) => setRomPath(event.target.value)}
           placeholder="/caminho/da/rom.bin"

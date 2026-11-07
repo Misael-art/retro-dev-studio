@@ -9,11 +9,23 @@ use crate::ugdm::entities::Scene;
 
 /// Nos sem traducao por plataforma. `condition_on_ground` depende do estado de apoio
 /// da fisica do emissor Mega Drive, que o emissor SNES nao tem.
-const UNSUPPORTED: &[(&str, &str, &str)] = &[(
-    "snes",
-    "condition_on_ground",
-    "o estado de apoio no chao so existe na fisica do Mega Drive",
-)];
+const UNSUPPORTED: &[(&str, &str, &str)] = &[
+    (
+        "snes",
+        "condition_on_ground",
+        "o estado de apoio no chao so existe na fisica do Mega Drive",
+    ),
+    (
+        "megadrive",
+        "camera_bounds",
+        "o no legado nao tem runtime; remova-o e desenhe limites em Configurar camera",
+    ),
+    (
+        "snes",
+        "camera_bounds",
+        "o no legado nao tem runtime; remova-o e desenhe limites em Configurar camera",
+    ),
+];
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct LogicSupportIssue {
@@ -22,6 +34,82 @@ pub struct LogicSupportIssue {
     pub node_id: String,
     pub node_type: String,
     pub reason: String,
+}
+
+/// R5: object paths are refused before codegen when invalid, unsupported on the target, or
+/// competing with physics/input for the same object's position.
+pub fn path_support_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSupportIssue> {
+    let mut issues = Vec::new();
+    for entity in &resolved_scene.entities {
+        let Some(path) = entity.components.path.as_ref() else {
+            continue;
+        };
+        let reason = if let Some(why) = crate::ugdm::components::path_issue(path) {
+            Some(why)
+        } else if target != "megadrive" {
+            Some("trajeto ainda sem runtime nesta plataforma".to_string())
+        } else if entity.components.sprite.is_none() {
+            Some("trajeto exige um sprite no objeto".to_string())
+        } else if entity.components.physics.is_some() || entity.components.input.is_some() {
+            Some("fisica/entrada tambem movem este objeto; remova-as ou o trajeto".to_string())
+        } else {
+            None
+        };
+        if let Some(reason) = reason {
+            issues.push(LogicSupportIssue {
+                platform: target.to_string(),
+                entity_id: entity.entity_id.clone(),
+                node_id: "path".to_string(),
+                node_type: "path".to_string(),
+                reason,
+            });
+        }
+    }
+    issues
+}
+
+/// R5: «Iniciar/Parar trajeto» must target an object that has a path in this scene.
+pub fn path_trigger_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSupportIssue> {
+    let with_path: std::collections::HashSet<&str> = resolved_scene
+        .entities
+        .iter()
+        .filter(|entity| entity.components.path.is_some())
+        .map(|entity| entity.entity_id.as_str())
+        .collect();
+    let mut issues = Vec::new();
+    for entity in &resolved_scene.entities {
+        let Some(graph) = entity
+            .components
+            .logic
+            .as_ref()
+            .and_then(|logic| logic.graph.as_deref())
+        else {
+            continue;
+        };
+        let Ok(parsed) = serde_json::from_str::<GraphNodes>(graph) else {
+            continue;
+        };
+        for node in parsed.nodes {
+            if node.node_type != "path_start" && node.node_type != "path_stop" {
+                continue;
+            }
+            let goal = node
+                .params
+                .get("target")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if !with_path.contains(goal) {
+                issues.push(LogicSupportIssue {
+                    platform: target.to_string(),
+                    entity_id: entity.entity_id.clone(),
+                    node_id: node.id,
+                    node_type: node.node_type,
+                    reason: format!("o objeto '{goal}' nao tem trajeto nesta cena"),
+                });
+            }
+        }
+    }
+    issues
 }
 
 #[derive(serde::Deserialize)]
@@ -35,6 +123,8 @@ struct GraphNode {
     id: String,
     #[serde(rename = "type")]
     node_type: String,
+    #[serde(default)]
+    params: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Varre os grafos de logica ja resolvidos (prefab e graph_ref aplicados).
@@ -192,7 +282,12 @@ pub fn issue_diagnostic(issue: &LogicSupportIssue) -> ActionableDiagnostic {
     };
     ActionableDiagnostic::blocking_error(
         area,
-        if issue.platform == "any" {
+        if issue.node_type == "path" {
+            format!(
+                "O trajeto da entidade '{}' foi recusado em {}: {}.",
+                issue.entity_id, issue.platform, issue.reason
+            )
+        } else if issue.platform == "any" {
             format!(
                 "A logica da entidade '{}' tem uma referencia quebrada em '{}': {}.",
                 issue.entity_id, issue.node_id, issue.reason
@@ -207,7 +302,11 @@ pub fn issue_diagnostic(issue: &LogicSupportIssue) -> ActionableDiagnostic {
             "platform={} entity={} node={} type={}",
             issue.platform, issue.entity_id, issue.node_id, issue.node_type
         ),
-        "Remova o no (ou o comportamento que o gerou) dessa entidade, ou compile para Mega Drive.",
+        if issue.node_type == "path" {
+            "Ajuste os pontos/tempos do trajeto no Inspector, remova fisica/entrada do objeto ou compile para Mega Drive."
+        } else {
+            "Remova o no (ou o comportamento que o gerou) dessa entidade, ou compile para Mega Drive."
+        },
     )
 }
 
@@ -217,6 +316,79 @@ mod tests {
     use crate::ugdm::components::{Components, LogicComponent};
     use crate::ugdm::entities::{Entity, Transform};
     use std::collections::HashMap;
+
+    #[test]
+    fn path_trigger_must_target_an_object_with_a_path() {
+        let mut scene = scene_with(
+            r#"{"nodes":[{"id":"go","type":"path_start","params":{"target":"plat"}},{"id":"halt","type":"path_stop","params":{"target":"ghost"}}],"edges":[]}"#,
+        );
+        let mut plat = scene.entities[0].clone();
+        plat.entity_id = "plat".to_string();
+        plat.components = serde_json::from_str(
+            r#"{"sprite":{"asset":"a.png","frame_width":16,"frame_height":16,"pivot":null},"path":{"mode":"loop","points":[{"x":0,"y":0,"frames":10},{"x":32,"y":0,"frames":10}]}}"#,
+        )
+        .expect("plat");
+        scene.entities.push(plat);
+        let issues = path_trigger_issues("megadrive", &scene);
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].node_id, "halt");
+        assert!(issues[0].reason.contains("ghost"));
+        assert!(issue_diagnostic(&issues[0]).blocking);
+    }
+
+    fn scene_with_path(components_json: &str) -> Scene {
+        let mut scene = scene_with(r#"{"nodes":[],"edges":[]}"#);
+        scene.entities[0].components =
+            serde_json::from_str(components_json).expect("components json");
+        scene
+    }
+
+    #[test]
+    fn path_is_refused_when_invalid_off_target_or_competing_for_position() {
+        let sprite =
+            r#""sprite":{"asset":"a.png","frame_width":16,"frame_height":16,"pivot":null}"#;
+        let good = format!(
+            r#"{{{sprite},"path":{{"mode":"pingpong","points":[{{"x":0,"y":0}},{{"x":64,"y":0,"frames":32,"wait":10}}]}}}}"#
+        );
+        assert!(path_support_issues("megadrive", &scene_with_path(&good)).is_empty());
+        let snes = path_support_issues("snes", &scene_with_path(&good));
+        assert_eq!(snes.len(), 1);
+        assert!(issue_diagnostic(&snes[0]).blocking);
+
+        let jump = format!(
+            r#"{{{sprite},"path":{{"mode":"once","points":[{{"x":8,"y":0}},{{"x":64,"y":0,"frames":32}}]}}}}"#
+        );
+        assert!(path_support_issues("megadrive", &scene_with_path(&jump))[0]
+            .reason
+            .contains("primeiro ponto"));
+        let zero = format!(
+            r#"{{{sprite},"path":{{"mode":"once","points":[{{"x":0,"y":0}},{{"x":64,"y":0,"frames":0}}]}}}}"#
+        );
+        assert_eq!(
+            path_support_issues("megadrive", &scene_with_path(&zero)).len(),
+            1
+        );
+        let loop_needs_return = format!(
+            r#"{{{sprite},"path":{{"mode":"loop","points":[{{"x":0,"y":0,"frames":0}},{{"x":64,"y":0,"frames":20}}]}}}}"#
+        );
+        assert_eq!(
+            path_support_issues("megadrive", &scene_with_path(&loop_needs_return)).len(),
+            1
+        );
+        let physics = format!(
+            r#"{{{sprite},"physics":{{"gravity":true}},"path":{{"mode":"once","points":[{{"x":0,"y":0}},{{"x":64,"y":0,"frames":32}}]}}}}"#
+        );
+        let competing = path_support_issues("megadrive", &scene_with_path(&physics));
+        assert_eq!(competing.len(), 1);
+        assert!(competing[0].reason.contains("fisica"));
+        let no_sprite =
+            r#"{"path":{"mode":"once","points":[{"x":0,"y":0},{"x":64,"y":0,"frames":32}]}}"#;
+        assert!(
+            path_support_issues("megadrive", &scene_with_path(no_sprite))[0]
+                .reason
+                .contains("sprite")
+        );
+    }
 
     fn scene_with(graph: &str) -> Scene {
         Scene {

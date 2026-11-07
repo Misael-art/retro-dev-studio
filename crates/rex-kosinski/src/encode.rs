@@ -199,6 +199,118 @@ pub fn encode(plain: &[u8], max_stream: usize, work_limit: usize) -> Result<KosE
     })
 }
 
+/// Codificação com parse ótimo por custo em bits (literal 9; inline 12 para len 2..=5 e
+/// dist <= 256; separada 18 para len 3..=9, 26 acima). Mesmo emissor de tokens e mesmo
+/// terminador de `encode`; só a escolha de tokens muda (estratégia, não formato). Para cada
+/// posição bastam o maior match com dist <= 256 e o maior no geral: o custo só depende da
+/// classe do comprimento e qualquer prefixo de um match também é match.
+pub fn encode_optimal(
+    plain: &[u8],
+    max_stream: usize,
+    work_limit: usize,
+) -> Result<KosEncoded, EncError> {
+    const CHAIN: usize = 512;
+    let n = plain.len();
+    let mut w = Writer {
+        out: Vec::new(),
+        max_stream,
+        work: 0,
+        work_limit,
+        slot_off: 0,
+        slot_bit: 16,
+    };
+    // (len_inline, dist_inline, len_any, dist_any) por posição.
+    let mut best = vec![(0usize, 0usize, 0usize, 0usize); n];
+    let mut head: HashMap<[u8; 2], u32> = HashMap::new();
+    let mut nxt: Vec<u32> = vec![u32::MAX; n];
+    for pos in 0..n {
+        if n - pos >= 2 {
+            let key = [plain[pos], plain[pos + 1]];
+            let mut cand = head.get(&key).copied();
+            let mut examined = 0;
+            let cap = FORMAT_MAX_LEN.min(n - pos);
+            while let Some(c) = cand {
+                let c = c as usize;
+                let dist = pos - c;
+                if dist > FORMAT_MAX_DIST || examined >= CHAIN {
+                    break;
+                }
+                w.charge(1)?;
+                examined += 1;
+                let mut l = 0usize;
+                while l < cap && plain[c + (l % dist)] == plain[pos + l] {
+                    l += 1;
+                }
+                let b = &mut best[pos];
+                if dist <= FORMAT_INLINE_MAX_DIST && l > b.0 {
+                    b.0 = l;
+                    b.1 = dist;
+                }
+                if l > b.2 {
+                    b.2 = l;
+                    b.3 = dist;
+                }
+                if l == cap {
+                    break;
+                }
+                cand = (nxt[c] != u32::MAX).then(|| nxt[c]);
+            }
+            if let Some(&h) = head.get(&key) {
+                nxt[pos] = h;
+            }
+            head.insert(key, pos as u32);
+        }
+    }
+    // cost[pos] = bits mínimos para codificar plain[pos..]; choice = (len, dist), len 0 = literal.
+    let mut cost = vec![0u64; n + 1];
+    let mut choice = vec![(0usize, 0usize); n];
+    for pos in (0..n).rev() {
+        let mut c = 9 + cost[pos + 1];
+        let mut ch = (0, 0);
+        let (li, di, la, da) = best[pos];
+        for len in 2..=li.min(5) {
+            let v = 12 + cost[pos + len];
+            if v < c {
+                c = v;
+                ch = (len, di);
+            }
+        }
+        for len in 3..=la {
+            let v = if len <= 9 { 18 } else { 26 } + cost[pos + len];
+            if v < c {
+                c = v;
+                ch = (len, da);
+            }
+        }
+        cost[pos] = c;
+        choice[pos] = ch;
+    }
+    let mut pos = 0;
+    while pos < n {
+        match choice[pos] {
+            (0, _) => {
+                w.emit_bit(true, true)?;
+                w.put(plain[pos])?;
+                w.charge(1)?;
+                pos += 1;
+            }
+            (len, dist) => {
+                emit_ref(&mut w, len, dist)?;
+                pos += len;
+            }
+        }
+    }
+    w.emit_bit(false, true)?;
+    w.emit_bit(true, true)?;
+    w.put(0x00)?;
+    w.put(0xF0)?;
+    w.put(0x00)?;
+    Ok(KosEncoded {
+        stream: w.out,
+        plain_len: n,
+    })
+}
+
 fn insert(head: &mut HashMap<[u8; 3], u32>, nxt: &mut [u32], plain: &[u8], p: usize) {
     if p + 3 > plain.len() {
         return;

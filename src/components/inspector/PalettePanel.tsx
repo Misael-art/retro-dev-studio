@@ -1,12 +1,15 @@
 // Paletas da cena (Experimental): resumo de ocupação e conflitos, painel completo e a seção do
 // objeto selecionado. O plano exibido é o do build (IPC `scene_palette_plan`); cada ação calcula
 // o plano proposto antes e só aplica sem erro novo, numa transação de desfazer.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   affectedBy,
+  describePaletteScope,
   assignResource,
   BANK_STATE_LABEL,
+  bankLetter,
+  bankSlotsUsed,
   createAuthoredPalette,
   createLocalVariant,
   editSharedColor,
@@ -21,23 +24,24 @@ import {
   type PlanResource,
   type PlanUse,
 } from "../../core/palettePlan";
-import { applyPalettes, usePalettePlanStore } from "../../core/palettePlanStore";
+import { applyPalettes, palettePlanContextKey, usePalettePlanStore } from "../../core/palettePlanStore";
 import { useEditorStore } from "../../core/store/editorStore";
+import { useSceneAttentionStore } from "../../core/sceneAttentionStore";
 
 export function safeId(id: string): string {
   return id.replace(/[^A-Za-z0-9_-]/g, "_");
 }
 
 function usePlan(): PalettePlan | null {
-  const revision = useEditorStore((s) => s.sceneRevision);
-  const projectDir = useEditorStore((s) => s.activeProjectDir);
+  const contextKey = useEditorStore(palettePlanContextKey);
+  const planKey = usePalettePlanStore((s) => s.contextKey);
   const plan = usePalettePlanStore((s) => s.plan);
   const refresh = usePalettePlanStore((s) => s.refresh);
   useEffect(() => {
     const t = setTimeout(() => void refresh(), 150);
     return () => clearTimeout(t);
-  }, [revision, projectDir, refresh]);
-  return plan;
+  }, [contextKey, refresh]);
+  return planKey === contextKey ? plan : null;
 }
 
 function currentPalettes() {
@@ -232,11 +236,65 @@ function ResourceRow({ plan, resource }: { plan: PalettePlan; resource: PlanReso
   );
 }
 
+/** Mapa de paletas: selos A–D no viewport, filtro por banco e slots usados/restantes. */
+function PaletteMap({ plan }: { plan: PalettePlan }) {
+  const mapEnabled = usePalettePlanStore((s) => s.mapEnabled);
+  const setMapEnabled = usePalettePlanStore((s) => s.setMapEnabled);
+  const filter = usePalettePlanStore((s) => s.bankFilter);
+  const toggle = usePalettePlanStore((s) => s.toggleBankFilter);
+  const slots = plan.capacity.colors_per_bank - 1;
+  return (
+    <div data-testid="palette-map" className="mt-1 space-y-0.5 text-[9px] text-[#cdd6f4]">
+      <label className="flex items-center gap-1 text-[#a6adc8]">
+        <input type="checkbox" data-testid="palette-map-toggle" checked={mapEnabled} onChange={(e) => setMapEnabled(e.target.checked)} />
+        Mapa de paletas no viewport (selo A–D com validação em cada objeto)
+      </label>
+      {plan.banks.map((b) => {
+        const used = bankSlotsUsed(b, plan.capacity.colors_per_bank);
+        const conflict = b.state === "conflito";
+        const names = b.resources.map((r) => plan.resources.find((x) => x.id === r)?.name ?? r).join(" + ");
+        return (
+          <div key={b.bank} data-testid={`palette-map-bank-${b.bank}`} data-used={used} data-state={b.state} className="rounded border border-[#313244] px-1 py-0.5">
+            <div className="flex items-center gap-1">
+              <label className="flex items-center gap-1" title="Exibir no viewport só os objetos deste banco">
+                <input type="checkbox" data-testid={`palette-filter-${b.bank}`} checked={filter.includes(b.bank)} onChange={() => toggle(b.bank)} />
+                <span className="font-semibold">{bankLetter(b.bank)}</span>
+                <span className="text-[#7f849c]">PAL{b.bank}</span>
+              </label>
+              <span data-testid={`palette-map-check-${b.bank}`} aria-label={conflict ? "em conflito" : "sem conflito"} className={conflict ? "text-[#f38ba8]" : "text-[#a6e3a1]"}>
+                {conflict ? "!" : "✓"}
+              </span>
+              <span data-testid={`palette-map-count-${b.bank}`} className={`ml-auto shrink-0 ${used >= slots ? "text-[#f9e2af]" : "text-[#a6adc8]"}`}>
+                {used}/{slots} usados · restam {Math.max(0, slots - used)}
+              </span>
+            </div>
+            <div className="mt-0.5 flex flex-nowrap gap-px overflow-hidden">
+              <Swatches colors={b.colors} testid={`palette-map-colors-${b.bank}`} />
+            </div>
+            <p className="truncate text-[#7f849c]" title={names}>
+              {BANK_STATE_LABEL[b.state]}
+              {names ? ` · ${names}` : ""}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Resumo compacto “Paletas — ocupação e conflitos”, que expande para o painel completo. */
 export function PaletteSummary() {
   const plan = usePlan();
   const [open, setOpen] = useState(false);
   const error = usePalettePlanStore((s) => s.error);
+  // "Resolver paletas" em Próximos passos abre este painel e o traz à vista.
+  const paletteRequest = useSceneAttentionStore((s) => s.paletteRequest);
+  const summaryRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (paletteRequest === 0) return;
+    setOpen(true);
+    summaryRef.current?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+  }, [paletteRequest]);
   if (error) {
     return (
       <p data-testid="palette-summary-unavailable" className="px-3 py-1 text-[9px] text-[#7f849c]">
@@ -248,7 +306,7 @@ export function PaletteSummary() {
   const used = plan.banks.filter((b) => b.resources.length > 0).length;
   const errors = errorCount(plan);
   return (
-    <div className="border-b border-[#313244] px-3 py-1">
+    <div ref={summaryRef} className="border-b border-[#313244] px-3 py-1">
       <button
         type="button"
         data-testid="palette-summary"
@@ -260,7 +318,7 @@ export function PaletteSummary() {
       >
         Paletas — {used}/{plan.capacity.banks} bancos ocupados · {errors} conflito(s)
       </button>
-      {open ? <PalettePanelBody plan={plan} /> : null}
+      {open ? <><PaletteMap plan={plan} /><PalettePanelBody plan={plan} /></> : null}
     </div>
   );
 }
@@ -273,16 +331,6 @@ function PalettePanelBody({ plan }: { plan: PalettePlan }) {
   return (
     <div data-testid="palette-panel" className="mt-1 space-y-1">
       <p className="text-[9px] text-[#7f849c]">{plan.evidence.execucao}. Ocultar no editor não libera banco da ROM.</p>
-      <ul className="space-y-0.5">
-        {plan.banks.map((b) => (
-          <li key={b.bank} data-testid={`palette-bank-${b.bank}`} data-state={b.state} className="flex items-center gap-1 text-[9px] text-[#cdd6f4]">
-            <span className="w-14">Banco {b.bank}</span>
-            <span className="w-24 text-[#a6adc8]">{BANK_STATE_LABEL[b.state]}</span>
-            <Swatches colors={b.colors} testid={`palette-bank-colors-${b.bank}`} />
-            <span className="truncate text-[#7f849c]">{b.resources.map((r) => plan.resources.find((x) => x.id === r)?.name ?? r).join(" + ") || "—"}</span>
-          </li>
-        ))}
-      </ul>
       {plan.diagnostics.length ? (
         <ul data-testid="palette-diagnostics" className="space-y-0.5">
           {plan.diagnostics.map((d, i) => (
@@ -338,13 +386,21 @@ export function EntityPaletteSection({ entityId }: { entityId: string }) {
       <p className="text-[10px] font-semibold uppercase tracking-wide text-[#89b4fa]">Paleta</p>
       <p>
         <span data-testid="inspector-palette-name">{resource.name}</span>
-        <span className="text-[#7f849c]"> · {resource.bank !== undefined ? `banco ${resource.bank}` : RESOURCE_STATE_LABEL[resource.state]}</span>
+        {resource.bank === undefined ? <span className="text-[#7f849c]"> · {RESOURCE_STATE_LABEL[resource.state]}</span> : null}
       </p>
       <p data-testid="inspector-palette-scope" data-others={others.length} className="text-[9px] text-[#a6adc8]">
         {others.length
           ? `Compartilhada com ${others.map((u) => u.entity_id).join(", ")}: editar as cores muda os ${others.length + 1} usos.`
           : "Só este objeto usa esta paleta."}
       </p>
+      {(() => {
+        const scope = describePaletteScope(resource, entityId);
+        return (
+          <p data-testid="inspector-palette-reach" className="text-[9px] text-[#a6adc8]">
+            {scope.allocation} · {scope.ownIndices.length} índice(s) usados por este objeto · origem: {scope.origin}
+          </p>
+        );
+      })()}
       <Swatches colors={resource.colors} used={resource.used_indices} testid="inspector-palette-colors" />
       <div className="mt-1 flex flex-wrap items-center gap-1">
         <label className="text-[9px] text-[#a6adc8]">

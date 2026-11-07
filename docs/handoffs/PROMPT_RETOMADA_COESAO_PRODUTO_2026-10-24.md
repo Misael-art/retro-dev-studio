@@ -1,113 +1,256 @@
-# Missão — transformar o RetroDevStudio em um ambiente integrado de criação
+# Missão — experiência integrada de criação, importação, edição e teste
 
-Você assume como agente principal de produto e implementação. Trabalhe sequencialmente. Sua missão é tornar as capacidades existentes utilizáveis em jornadas completas, simples, seguras e fluidas, mantendo o poder técnico e as possibilidades avançadas. Entregue implementação e provas reais, não apenas inventário, recomendações ou uma nova camada visual.
+**Prompt de implementação R2 + R3, 2026-11-05 (preparação documental):** [instrução integral](PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md) pronta para o próximo agente. Inclui base R2, dez ajustes reavaliados, owners, regressões e retenções T1–T6; decisões na seção R3 da jornada. Corrige a classificação fixa de escopo, separa layout de edição manual, usa unidades/input reais e coloca intenção de teste no pipeline de build. Não implementa o produto nesta fatia. Entrada local `b9a6e151`, fonte pesquisada `d51c56da`; próximo é revalidar host/HEAD e executar lote 0. Evidência/recebido R3 em `sessions/tutorial-megadrive-20261105/mockups-contextuais/revisao-critica/`; autenticação ausente ainda limita push, sem alegação de sincronização.
 
-## Contexto de partida
+**Revisão crítica R2 2026-11-05 (proposta vigente, sem implementação):** após avaliação externa do operador, [síntese na jornada](../studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md), seção «Reavaliação crítica R2». Unifica navegação/árvore, separa comportamento/animação/nós e mostra mapa de cenas sob demanda com origem. Mantém rascunho protegido distinto de salvar e arco estimado distinto do teste oficial; referências N01… com cena à parte. Dois mockups, avaliação e prompts em `sessions/tutorial-megadrive-20261105/mockups-contextuais/revisao-critica/`. R1 preservada como histórico. Fonte de produto inspecionada `d51c56da`; entrada documental `5268c968`, sem produto alterado. Próximo: ajustar R2 com o operador, sem iniciar reescrita. Autenticação GitHub ainda ausente; confirmar publicação apenas pelo recibo/SHA remoto, não por estes conceitos.
 
-Repositório: https://github.com/Misael-art/retro-dev-studio
+**Proposta contextual 2026-11-05 (somente mockup):** o operador pediu imagens para ajustar menus do objeto, painéis recolhíveis/fixáveis, isolamento, cenas/nós identificáveis e filtros de camadas/cores. [Especificação junto à jornada](../studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md), seção «Proposta contextual de workspace»; dois PNGs e prompts em `sessions/tutorial-megadrive-20261105/mockups-contextuais/`. Base de fonte `d51c56da`, sem código de produto alterado. Próximo é revisão dos mockups com o operador; não confundir esta proposta com as correções JV já implementadas/exercitadas na seção posterior da jornada. Integração futura deve reutilizar os owners de contexto, Focus/Solo, camadas, paletas e grafo existentes.
 
-Branch de recuperação: `recovery/studio-preformat-20261021`.
-Checkpoint publicado: `87b6b7fd5e3dacdd93eb30d5e25a9570d00ce769`.
-Fonte runtime original: `a8550af0e0bdd74c44478f94d301576b988747a1`.
+**Publicação da proposta:** incremento local `e645644c`, na branch `codex/new-host-cohesion-20261024`; push recusado por autenticação ausente (sem credential helper, `gh auth status` sem login). Remoto conferido em `d51c56da`. Imagens/documentação entregues localmente, sem alegação de sincronização. Árvore/check de diff PASS, diagnóstico READY; `AGENTS.md` do operador preservado. Próximo comando para publicar, após autenticação pelo fluxo oficial `gh auth login`: `git push origin codex/new-host-cohesion-20261024`. Recibo de fechamento junto ao manifesto privado dos mockups.
 
-Se houver avanço posterior, compare e registre antes de escolher a base. Não volte automaticamente a um checkpoint antigo. A pasta antiga `/mnt/sdcard/Projects/RetroDevStudio` não era o worktree Git completo.
+**Curadoria autoral de 2026-11-05:** o pedido de tutorial visual produziu o projeto privado **Correio das Nuvens**, PDF de 40 páginas e [receita/provas/backlog JV01–14](../studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md). Candidato congelado `4a139615…66839`, ROM final/reaberta `a8798730…b5ad`; idle/corrida/salto e paralaxe céu16/chão32 conferidos no core oficial. Variante usada32×32; fonte64 preservada, orientação à esquerda pendente. Nenhum código de produto foi alterado. Priorizar reprodução mínima de **JV01** (imagem montada/células/alocação divergindo da prévia), depois troca de arte e animação por estado nos owners existentes. As propostas não são correções implementadas nem aceite humano; não promover maturidade. Entrega/evidências em `RDS_WORK_ROOT/sessions/tutorial-megadrive-20261105/`, incluindo a interrupção143 do coordenador e o encerramento/arquivo apenas da lease própria; trava do operador preservada. O checkpoint no Memory Bank contém os limites e gates desta fatia documental.
 
-O backup privado estava em `/mnt/sdcard/Backups/RetroDevStudio-preformat-20261021T181629Z`. Localize seu destino atual; leia LEIA-ME-ANTES-DE-FORMATAR.md, HANDOFF-NOVO-AGENTE.md, inventários, hashes e mapa de branches. O bundle conserva história e pesquisas; o overlay conserva trabalho local; o backup de dados conserva projetos, insumos e evidências. Não sobrescreva o .git novo ou siga links antigos cegamente. ROMs são insumos externos sob responsabilidade do usuário, não dependências provisionáveis.
+**Retomada 2026-11-04 (quinto banco Ken recusado no Tauri, Experimental):** fonte local/remota `e0466a5a0305c86f67ffd1bb1587aa115f494dce`, PR #112 atualizado no mesmo SHA; seis checks obrigatórios desse SHA ainda `in_progress` na consulta, dois opcionais `skipped`. Binário congelado `36f34289…e1f1`. `studio-paletas` passou **16/16 etapas** com Ken real no mesmo Tauri: quarto banco ocupado, tentativa de variante simultânea para `kenmasters_3` recusada com causa/ações, sem mudar cena/revisão/Undo/plano, Undo da duplicação temporária, seguida de salvar/reabrir, SGDK/core e exportação. ROM inicial/restaurada/exportada SHA `97b78bc5…67143f`; relatório privado `RDS_WORK_ROOT/sessions/palettes-fifth-20261104/studio-paletas-2026-11-04T23-54-55-405Z-report.json`, recibo `23-54-14-944Z-169435`. Duas tentativas FAIL anteriores preservadas: caminho Ken histórico vazio e Inspector ainda não remontado após Undo. Gates independentes passaram: árvore, lint, TypeScript, 1383 frontend, Clippy, 1169 Rust e fmt. Duas certificações adicionais foram interrompidas durante Rust pela perda de sessão, com leases próprios arquivados e host novamente READY; a última certificação completa READY/7 pertence ao mesmo binário antes deste diff apenas E2E/documental. Próximo comando: consultar os checks do SHA publicado após a execução; investigar paletas de outros importadores apenas pelo subset disponível, sem inferir adaptador SNES. Físico e aceite humano pendentes.
 
-Leia as instruções canônicas do checkout: AGENTS, Memory Bank, roadmap, árvore, diretivas, modo de agentes, stack e compliance. Leia a arquitetura REX quando tocar essa frente. Diagnostique/provisione o host antes de mudar produção. Pins do checkpoint: Node 24.18.0 e Rust 1.97.0, sujeitos à conferência dos arquivos atuais. Não reutilize READY antigo nem introduza dependências sem aprovação.
+**Retomada 2026-11-04 (REX J11/J12 fechado no subset assistido, Experimental):** base Git local/remota `f55b9346`, PR #112; incremento E2E/documental ainda dirty. Binário Tauri congelado SHA `36f34289…e1f1`, core oficial Genesis Plus GX SHA `07c10476…8310b1`. `jump-canvas-journey` 87/87 PASS e `jump-gameplay-journey` 19/19 PASS, G1–G6, no mesmo executável. Sonic 1/Delta originais e noop deram ápices 47/94 px; cópias `imp` 52/182, `cut` 93/94, `both` 98/182; em Delta, patches nas instâncias `b/c` não mudaram o personagem observado da instância `a`. Relatórios `jump-canvas-2026-11-04T15-11-34-115Z-report.json` e `jump-gameplay-2026-11-04T15-14-02-826Z-report.json`, recibos e SHA completos no topo do Memory Bank. Uma série `delta/original2/toque` ficou inválida após retentativa; G6 passou com as duas válidas exigidas, falha bruta preservada. `host:certify` READY/7, 1383 frontend/1169 Rust, SGDK/PVSnesLib oficiais; a primeira tentativa Rust sem referência BYOR falhou e foi preservada. CI de `f55b9346` verde, não do próximo SHA. Próximo: revisar diff/segredos/tamanho, commit/push normal, atualizar PR #112, conferir checks do novo SHA; depois negativos restantes. REX universal, L3 de consumo por PC, físico e humano pendentes.
 
-## Estado honesto e evidência obrigatória
+**Histórico durante a execução REX:** base local/remota `f55b9346`, PR #112; binário congelado `36f34289…e1f1`. ROMs Sonic 1/Delta do corpus privado existente conferidas por SHA, sem download. Duas primeiras tentativas `jump-canvas-journey` falharam no roteiro nativo por botão “Organizar tudo” oculto em “Mais ações” e nó fora do canvas; capturas e recibos preservados. O owner E2E abre o menu, enquadra o grafo e exige hit test/seleção nativos. Terceira corrida **87/87 PASS**, oito pares cópia+IPS com hashes e reabertura (`jump-canvas-2026-11-04T15-11-34-115Z-report.json`, recibo `15-10-54-680Z-1097355`). A prova causal `jump-gameplay-journey` estava em execução neste checkpoint; o relatório terminal e o veredito estão na retomada acima. Limites completos no topo do Memory Bank.
 
-O produto tem subsistemas e jornadas técnicas comprovados; continua Experimental. Não há decompilador universal completo nem aceite humano de usabilidade.
+**Checkpoint durante a prova:** o SHA remoto `f55b9346` fechou cinco checks obrigatórios `success` e duas revisões opcionais `skipped` (consulta preservada no Memory Bank). Isso não cobre o roteiro dirty. O runner REX passou por controles, `imp` e `cut` de Sonic 1 e entrou em `both`, ainda sem relatório final; o launcher recusou gate paralelo pelo lease próprio. Repetir gates quando liberar e não classificar capturas isoladas.
 
-Leia os textos em docs/studio_grafico/auditoria_20261020 e o pacote privado studio-audit-20261020-01. Use principalmente HANDOFF_PROXIMO_AGENTE.md (checkpoint 16), coverage.csv, ACHADOS.md, pareceres e erratas LOT025/031. Não se baseie apenas no resumo inicial ou na galeria inicial de 61 cartões.
+**Marco posterior:** Sonic 1 completou as séries de controles/cópias, com `both/toque` repetição 2 em duas tentativas preservadas; Delta começou (`delta-noop.bin` privado criado). Ainda **sem relatório terminal ou veredito REX**. O Memory Bank traz recibo, SHA e próximo comando.
 
-Corrija por adendo a leitura antiga de que a auditoria nunca compilou/executou ROM: LOT028 fechou editar → salvar/reabrir → Build & Run → verificar/exportar, com build e export idênticos; LOT031 acrescentou execução e Stop. A cobertura das 16 jornadas ainda é parcial, e a causalidade do input permanece limitada.
+**Marco Delta:** controles `original`, `original2` e `noop` concluídos; quatro retentativas preservadas (identidades no Memory Bank). Cinco variantes de cópia ainda por medir, sem relatório terminal. Continuar o mesmo processo/lease; depois verificar G1–G6 e gates, sem usar capturas parciais como PASS.
 
-Prioridades observadas:
-- Review dizia “ainda não executado” depois da emulação.
-- LOT025 importou/editou/salvou/reabriu Ken, mas dois builds falharam em atlas de 177192960 px, acima de 67108864. Investigue o caso real; não aumente a guarda para aprovar nem retire frames silenciosamente.
-- LOT029/030 encontraram guards MUGEN, alguns anteriores à edição testada. Não atribua ao último clique sem provar a causa.
-- Mensagem stale de duração, opções “Dano” ambíguas e navegação sem transição são casos a reproduzir. Não confunda UI dirty após Undo, antes de salvar, com corrupção de dados.
-- REX LOT024 produziu cópia/BPS sem alterar a base, mas não observou efeito visual nos frames coletados. Não apresentar isso como efeito comprovado nem como refutação das provas históricas de outros episódios.
-- Os revisores A/B/C analisaram lotes compartilhados; isso não equivale a execuções independentes ou participantes humanos.
+**Marco das cópias Delta:** `a-imp`, `a-cut` e `a-both` concluíram as séries no mesmo binário; falta `b-imp` e `c-imp`. `a-cut/toque r3` teve retentativa preservada. Ainda não há relatório terminal nem PASS de G2–G5; verificar o resultado bruto antes de publicar o próximo SHA.
 
-## Princípios de implementação
+**Retomada 2026-11-04 (atalho KDE efetivo, Experimental):** fonte/documentação local e remota `45043409e5978848dcf394ca72a564c5a34b63df`, PR #112 aberto. O `.desktop` ainda apontava para `0601dce3`; backup byte a byte já conferido SHA `43c9a0f2…b38a8ff`, sem app ou lease ativo. Só a rota do executável foi alterada para o binário congelado `36f34289…e1f1`; `desktop-file-validate` passou e `kioclient exec` abriu PID 1042200, cujo `/proc/1042200/exe` tinha o SHA completo esperado. Essa instância própria foi encerrada por SIGTERM para liberar o lease; o recibo do launcher `14-55-40-571Z-1042073` marca FAIL por **encerramento intencional**, não uma falha de abertura, e o lock foi liberado. Atalho original, SHA novo e recibo em `RDS_WORK_ROOT/sessions/cohesion-final-20261104/`; nenhum projeto/ROM privado foi publicado. Próximo: atualizar a matriz J00–J15 com a identidade por binário e continuar os negativos/REX delimitados; CI do SHA final e aceite humano seguem separados.
 
-Reutilize o caminho canônico. Já existem editorStore, studioContext, histórico, runtimeLink, plano de paletas, validação de revisão e serviços de build/patch. Inventarie quem usa cada mecanismo e onde há bypass antes de alterar contratos. Não crie store, orquestrador, gerador, editor, DSL ou harness duplicado.
+**Retomada 2026-11-04 (pan nativo comprovado em duas sessões frias, Experimental):** código local/remoto `ee23027ae39a944762a75e3aa4738eac948568ff`, PR #112 aberto; este checkpoint registra a prova local desse código. O bug estava no `mouseup` da porta do grafo: WebDriver entregou soltura do botão do meio como `button=0/buttons=4`, e o handler a consumia sem conexão pendente, deixando o pan do canvas ativo. O owner `NodeGraphEditor` agora repassa esse evento e inicia pan de cartão/porta pelo botão do meio. Executável oficial congelado SHA-256 `36f342894039f03361d9f9770b2c0706f483e213579bc46ac6bcf13a26e8e1f1`; `image-ingress` 16/16 em duas sessões Xvfb/X11 independentes, quatro alvos com delta +36/+24, imagem no clipboard sem importação/paste/cena alterada, ROMs oficiais executadas no core e reabertura. `nodegraph-authoring` 14/14, `reference-platformer` 24/24 e QA RC A–H/32 layout passaram no mesmo executável. `host:certify` READY/7 (1383 frontend/1169 Rust, toolchains oficiais), Clippy `-D warnings` e fmt PASS. Recibos, relatórios, falhas anteriores e execução intermediária SIGTERM/143 preservados no checkpoint mais novo do Memory Bank. Checks de `1eaea05b` terminaram SUCCESS; checks de `ee23027` devem ser lidos no próprio SHA. Próximo: revisar/publicar diff documental, atualizar PR #112 e consultar checks do SHA publicado. PRIMARY_SELECTION, Wayland, físico e aceite humano seguem pendentes.
 
-Defina, por domínio, a fonte autoritativa de projeto/cena, entidade, modelo/instância, asset, animação/ocorrência, revisão, build, ROM e sessão do core. Edição, salvar, compilar, executar, inspecionar e exportar devem se referir ao mesmo conteúdo identificável. Separe estado persistido, rascunho, overrides de teste e resultados de execução.
+**Retomada 2026-11-04 (imagem/clipboard/pan em revisão, Experimental):** base publicada `1eaea05b`, PR #112; NodeGraph e roteiro E2E locais ainda não publicados. Xvfb/X11 no binário `af8e8655` passou `image-ingress` 15/15 com GIF público e quatro variações de cor pela UI; cópias de paleta idêntica compartilham banco e a tentativa antiga que esperava esgotá-lo ficou FAIL. O pan nativo sobre cartão falhou sem deslocamento, enquanto canvas moveu +36/+24. Owner `NodeGraphEditor`: botão do meio agora propaga de cartão/porta; novo binário oficial `9fda98ed…67f8fe` preservado. Uma corrida preliminar 16/16 nele mostrou delta incorreto na borda; o oráculo foi endurecido e a repetição foi interrompida por SIGTERM antes de relatório. Lease próprio arquivado após verificação; host voltou READY. Recibos/ROMs/limites no checkpoint mais novo do Memory Bank. Próximo: repetir frio com delta exato em display próprio quando o pytest alheio terminar; só depois gates, commit/push/CI. Não promover pan, físico ou aceite humano.
 
-Uma edição precisa ter alcance claro e ser recuperável. Uma intenção de usuário deve corresponder a uma transação de desfazer; operações em arquivo precisam de recuperação explícita. Nenhum save, importação ou erro deve destruir trabalho alheio.
+**Retomada 2026-11-04 (paletas/recurso compartilhado, Experimental):** base publicada `3a9db782`, PR #112 atualizado; checks desse SHA ainda em andamento na consulta. No executável `af8e8655…2a082`, `studio-paletas` passou 15/15 com Ken real: quatro bancos ocupados sem erro, impacto da edição compartilhada anunciado, Undo, variante local, troca no alvo após golpe observada no core, cenário/câmera/HUD, restauração gerando ROM igual à inicial e exportação SHA `d234fd72…4fb73c`. Relatório privado `RDS_WORK_ROOT/sessions/palettes-cold-2026-11-04-af8e/studio-paletas-2026-11-04T12-53-51-210Z-report.json`, recibo `12-53-14-924Z-604218`; duas tentativas anteriores FAIL preservadas. O roteiro em revisão abre Comportamentos nativamente e espera Cena/Hierarquia após a troca de workspace. Primeira certificação BLOCKED por referência BYOR ausente; referência existente conferida por SHA, repetição READY/7, Clippy e fmt PASS, com recibos no Memory Bank. Negativo de quinto banco ocupado, semântica geral de CNS, físico e aceite humano ainda pendentes. Próximo: revisar diff, commit/push do roteiro e documentos, checks do SHA novo, negativos restantes e atalho efetivo.
 
-Mantenha capacidades avançadas acessíveis por aprofundamento contextual. Reduza redundância visual, não capacidade. Evite novas versões GUIADO/CRIADOR/PRO/HACKER do mesmo fluxo. Considere os modos preferências de apresentação sobre os mesmos comandos e dados; preserve compatibilidade até haver migração segura.
+**Retomada 2026-11-04 (mesmo binário após Debug):** fonte local/remota `786290c9`, binário `af8e8655…2a082`. QA RC A–H/32, aparência17/44, PLAT12 24/24, autoral Mega Drive 3×10/10 frias, Ken real 3×14/14 frias, SNES guiado4/4 e recuperação de rascunho19 passos com ROM/core/export passaram neste executável. O primeiro autoral foi lançado com variável SNES inócua nesse cenário e seu relatório confirma Mega Drive; o SNES foi repetido pela entrada correta. Relatórios, ROMs, recibos e limites no checkpoint novo do Memory Bank. CI do código `786290c9`: desktop Windows 2×, Linux 2× e validate 2× SUCCESS no mesmo SHA; isto não é aceite humano. Próximo: preservar este checkpoint no PR #112, negativos restantes e atalho efetivo; sem merge/release/deploy.
 
-## Plano de execução — concluir uma etapa por vez
+**Retomada 2026-11-04 (QA RC/Debug, novo binário):** base publicada `762efb24`; o Debug em 1366×768 tinha scroll horizontal por hashes longos no Inspector. Duas corridas QA RC falharam em H, preservadas. O owner `ProjectDiagnostics.tsx` agora quebra cabeçalho e cartões sem alargar a coluna. Binário Tauri SHA-256 `af8e8655212dfcbb165238a7f79bd5a0496a2a274ec3dc8cb387d9c43e72a082`: QA RC A–H e 32/32 layout PASS; aparência 17/44 PASS; referência PLAT12 24/24 PASS com ROM/RAM no mesmo executável. `host:certify` READY/7, Clippy completo e fmt explícitos PASS. Recibos/limites no checkpoint mais novo do Memory Bank. Autoral/MUGEN frios e SNES guiado pertencem ao binário anterior, sem transferência implícita de prova. Commit/CI deste ajuste ainda pendentes; próximo: revisão do diff e publicação na branch/PR #112. Experimental e aceite humano pendente.
 
-### E0 — Reconciliar e reproduzir, sem reiniciar toda a auditoria
+**Retomada 2026-11-04 (oráculo live desktop):** base publicada `5c0f8baf`; o roteiro desktop `scripts/e2e-tauri-build-run.mjs` exige DOM observado para os estados live, sem sucesso por diagnóstico interno. No binário `43f0b85b…dfd9d6`, excesso MD, stale com clique nativo, erro live MD e warnings MD/SNES passaram; as tentativas sem painel aberto/sem aviso do Inspector permanecem FAIL. `host:certify` READY/7 (1383 frontend PASS/11 skip; 1169 Rust PASS/127 ignored; SGDK/PVSnesLib oficiais), Clippy/fmt explícitos PASS; recibos e limite dos drafts injetados no checkpoint mais novo do Memory Bank. Commit/push/CI deste incremento ainda pendentes; próximo comando: `rtk proxy git diff --check`, revisão e stage explícito. A matriz J00–J15 conserva seus limites.
 
-Fixe checkout/host/binário/inputs. Reutilize lotes e projetos preservados. Faça mapa curto tarefa → tela → estado → serviço → persistência/build/runtime → evidência. Reproduza as lacunas prioritárias e diferencie defeito de produto, limite declarado, ambiente e instrumento. Registre causa ainda desconhecida como tal.
+**Retomada 2026-11-04 (SHA publicado e verticais finais):** fonte de produto local/remota `69ffaecbb744b08068c0693ee0f26596dd993926`, PR #112 aberto; dois `desktop-smoke` Windows, dois `linux-validate` e dois `validate` **SUCCESS no mesmo SHA**. Executável Tauri SHA-256 `43f0b85bebbca5d89027ffea9bc13ec4bbb5e47edbac1124a8da8af223dfd9d6`. MD `reference-platformer` 24/24, autoral três corridas frias 10/10, MUGEN Ken real três frias 14/14 e SNES guiado 4/4 (PVSnesLib, Snes9x, ROM/export SHA `8a503477…ea7eff0`) passaram nesse binário. Relatórios e recibos exatos no checkpoint mais novo do Memory Bank. `host:certify` READY/7 e Clippy/fmt PASS; publicação privada, merge, release e deploy não realizados. A matriz abaixo distingue prova do subset e pendências: nenhum PASS local equivale a aceite humano ou compatibilidade geral.
 
-Escolha uma cópia autoral e uma cópia do MUGEN real para conduzir as próximas entregas. Não encerre a rodada apenas com o mapa.
+**Adendo de prova do binário final:** `studio-appearance-2026-11-04T04-31-36-308Z-report.json` PASS em 17 etapas/44 medições (36 combinações críticas tamanho/tema/zoom, foco, teclado, scroll, contraste, Inspector e paleta); `build-blocked-diagnostic` PASS pelo recibo `RDS_WORK_ROOT/sessions/2026-11-04T04-33-34-672Z-699059/receipt.json`, sem relatório JSON de sucesso. O primeiro teste registra `human_usability: pending`; o segundo indica asset faltante e correção pertinente, sem promover ROM antiga. Detalhes/limites no Memory Bank. Próximo: gate documental, commit/push e checks do SHA novo; depois negativos restantes.
 
-### E1 — Fechar contexto e ciclo de vida
+#### Matriz J00–J15 — evidência por binário identificado
 
-Corrija as inconsistências entre seleção, navegação, dirty/saved, save pendente, build, execução e Review. Testar deve usar a revisão atual prometida pela UI; impedir build silencioso de uma cena/grafo antigo. Resultado atrasado de outro projeto/revisão não pode sobrescrever o atual.
+`Tauri/ROM` significa etapa nativa e efeito/artefato observados no subset indicado, não conclusão de toda a intenção; `Tauri` significa UI/persistência sem efeito de jogo completo; `Integrada` tem ligação de código sem prova semântica completa. J01–J04, J07–J08, J13 e parte de J14 usam binário `af8e8655…2a082`, fonte `786290c9`, reports `authoring-acceptance-2026-11-04T12-{01-13-716,04-59-270,12-22-421}Z`, `studio-e1-2026-11-04T{12-17-04-131,12-25-04-686,12-32-56-263}Z` (runtime privado), `snes-guided-authoring-2026-11-04T12-03-48-223Z` e `draft-recovery-2026-11-04T11-55-51-273Z`, conforme o recorte. J00, J05, J09–J10 e negativos de J14 têm revalidação no binário `36f34289…e1f1`, código `ee23027`, com relatórios no checkpoint mais recente do Memory Bank. Nenhum projeto/ROM/captura privada vai ao Git.
 
-Parar a execução não deve apagar o fato de que aquele artefato foi testado. Editar depois deve indicar que o teste anterior está desatualizado. Exportar deve identificar exatamente a ROM e revisão verificadas.
+| Jornada | Estado verificado | Prova do recorte e limite para a intenção completa |
+| --- | --- | --- |
+| J00 abrir e orientar | Tauri | Wizard, recursos, layout/teclado nas três autorais (`af8e8655`); atalho KDE abriu o binário `36f34289` com `/proc/<pid>/exe` conferido. Onboarding leigo sem aceite humano. |
+| J01 criar jogo | Tauri/ROM | Três autorais 10/10: editar, salvar/reabrir e vencer pelo teclado; exploração humana pendente. |
+| J02 importar MUGEN | Tauri/ROM | Ken 3×14/14: sete entradas por SHA, 103 animações/417 ocorrências, ROM/frames/export; dialetos gerais não cobertos. |
+| J03 adaptar golpe | Integrada | Ocorrência MUGEN editada e efeito de pixels; sem demonstração semântica de ataque/HitDef jogável. |
+| J04 animar/desenhar | Tauri | Edição de ocorrência MUGEN e animação autoral persistem; pintura de pixels do personagem real não repetida nessa série. |
+| J05 cenário/colisão | Tauri/ROM | Referência 24/24 repetida em `36f34289`: objeto/camada/mapa, corte recusado, Undo/Redo e efeito Player/colisão na ROM; outros cenários não provados. |
+| J06 paletas/troca | Tauri/ROM | Ken real em `af8e8655`: quatro bancos planejados, variante local, impacto compartilhado e Undo; no core, um golpe trocou só a paleta do alvo por 12 quadros e a restaurou. Em `36f34289`, Ken 16/16 etapas: quinto banco simultâneo recusado sem mutação, Undo da duplicação, ROM/core/exportação após reabrir. Imagem pública no mesmo binário: quinto ingresso exigiu decisão de substituição com cancelamento sem efeito. Paletas de outros importadores pendentes. |
+| J07 UI/texto/áudio | Tauri/ROM | Regra/passagem e vínculo de som autorais salvos; na vitória, amostras do core chegaram ao app e a energia em 1320 Hz subiu de 0,475 para 140,857 nas três corridas. O subset Ken ancorou texto de vida na ROM com câmera móvel; HUD geral e saída acústica física pendentes. |
+| J08 adaptar projeto | Tauri/ROM | Referência e Ken salvos/reabertos, reconstruídos e executados; cobertura de projetos arbitrários pendente. |
+| J09 NodeGraph | Tauri/ROM | Comportamento de objetivo autoral e referência chega à ROM; `nodegraph-authoring` 14/14 em `36f34289` incluiu grafo grande, Undo/Redo e reabertura. Generalização de lógica permanece parcial. |
+| J10 testar/retornar | Tauri/ROM | Build→core→volta→edição/rebuild na referência repetido em `36f34289`; outras revisões/cores exigem seus próprios testes. |
+| J11 explorar ROM BYOR | Tauri/ROM no subset assistido | Sonic 1/Delta: perfil/região/instância declarados, grafo recuperado, edição e revisão 87/87 no binário `36f34289`; não é extração geral nem prova L3 por PC. |
+| J12 recuperar/testar cópia | Tauri/ROM no subset assistido | Oito cópias/IPS por SHA, reabertura e gameplay 19/19 G1–G6 no mesmo binário/core: RAM mediu efeitos `imp/cut/both` e isolamento do personagem observado nas instâncias `b/c`; uma amostra inválida preservada, geral pendente. |
+| J13 revisar/exportar | Tauri/ROM | Ken e SNES exportaram ROM de hash igual ao build executado; revisão humana/licença não certificadas. |
+| J14 recuperar erros | Tauri/ROM | Corte/cancelamento/Undo/Redo e `draft-recovery` em `af8e8655` confirmaram isolamento de projeto/revisão e ROM/core/export recuperada. Em `36f34289`, `image-ingress` provou arquivo cancelado/inválido com retentativa, substituição de paleta cancelada e pan sem importar imagem; QA RC/PLAT12 também passaram. Asset ausente e demais limites conservam seus recibos próprios. |
+| J15 outras superfícies | Pendente | RetroFX visto historicamente, sem edição/runtime no binário atual. |
 
-Defina o fluxo de erro/cancelamento/retentativa. Um build recusado deve explicar o problema, indicar o elemento e abrir sua correção. Play não deve virar um seletor de ROM sem explicar a mudança de tarefa. Runtime Setup deve usar o serviço oficial e o mesmo contexto de host; contagem de ferramentas instaladas não equivale a prontidão.
+**Próximo incremento:** consultar checks do SHA publicado `e0466a5a` e corrigir falhas do mesmo SHA se houver; para J06, qualificar outros importadores apenas onde o adaptador Mega Drive existente tem cena resolvida e projeto de entrada fornecido, preservando o limite explícito do SNES. Arquitetura: `architecture:metrics` mediu concentração crescente em `project_mgr.rs`, `lib.rs`, `App.tsx` e `ViewportPanel.tsx`; extrair só ao haver contrato testável e regressão concreta. Windows CI verde não substitui teclado/áudio/GPU físicos, console, zoom por atalho WebKit nem aceite humano; manter `Experimental`.
 
-### E2 — Entregar uma vertical autoral simples e produtiva
+**Dívida delimitada de arquitetura:** `App.tsx` (6079 linhas, owner shell) concentra transições de layout; extrair a aplicação do preset quando um teste isolado puder reproduzir o colapso/resize sem montar o app inteiro. `ViewportPanel.tsx` (5849, owner viewport) concentra arbitragem de ponteiro; extrair o controlador do gesto quando uma nova regressão exigir o mesmo estado em outro workspace, mantendo o `sceneComposition` atual. `project_mgr.rs` (29760, owner persistência/importação) só deve separar restauração/importação quando houver contrato de fonte resolvida versus persistida reproduzível na nova unidade. `lib.rs` (12268, owner IPC) só deve separar registro/dispatch quando um erro de roteamento puder ser isolado sem mudar nomes dos comandos. `e2e-tauri-build-run.mjs` (30696, owner E2E) já isola cenários em funções; mover driver/sessão para módulo requer prova de mesmo binário, WebDriver e recibo nos cenários MD/SNES/MUGEN. Nenhuma dessas extrações foi feita apenas para reduzir contagem de linhas; o ciclo nativo está verde e a mudança de fronteira agora acrescentaria risco sem regressão alvo.
 
-Pela UI: criar ou derivar projeto → montar cena → editar personagem/animação → criar comportamento → testar → inspecionar/voltar ao editor → corrigir → salvar/reabrir → revisar/exportar.
+**Retomada 2026-11-04 (shell compacto validado localmente; publicação pendente):** HEAD local/remoto `320562fa2069f2704ea4c62b5c1f84013429a289`, PR #112. CI validate/Linux PASS, dois desktop-smoke Windows FAIL no botão de tilemap após Jogo/Debug. Reprodução Linux em 1024×768 confirmou Hierarquia com 0 px e botão sob splitter; depois, paleta flutuante cobria uma célula inferior. Correções locais nos owners `App.tsx` e `ViewportPanel.tsx` e sincronização nativa do E2E deram `reference-platformer-2026-11-04T03-44-07-344Z-report.json` **24/24 PASS** no binário final SHA `43f0b85b…dfd9d6`, SGDK/core oficiais e ROM reaberta igual à revisão salva. `host:certify` READY/7 gates (1383 frontend/1169 Rust, smokes oficiais), Clippy completo/fmt PASS. A primeira certificação falhou por referência BYOR ausente no ambiente e foi preservada; a referência existente passou por SHA e a repetição completa passou. Três corridas autorais frias 10/10 e uma MUGEN 14/14 pertencem ao binário anterior `4bbbb74c…61cf7`; manter limites separados. Próximo: diff/commit/push/CI do SHA novo, depois repetir verticais/dois alvos/matriz. Falhas e recibos preservados no Memory Bank; Windows, humano e hardware físico não aprovados.
 
-O usuário deve saber onde está, o que está selecionado, o alcance da edição e a próxima ação. Retorno preserva seleção, ocorrência e câmera. Testes temporários não gravam estado no projeto; aplicar mudanças passa por revisão e é reversível.
+**Retomada 2026-11-04 (PLAT11 pronto localmente, GitHub pendente):** fonte/roteiro no commit local `406ca3c4b78baabf33d9343a6e69b2a02702c4ac`, remoto ainda `71741089` nesta nota. Binário oficial `4bbbb74c…61cf7`; negativo de asset ausente PASS e `reference-platformer-2026-11-04T01-03-24-020Z-report.json` **24/24 PASS** no mesmo Tauri/Linux com SGDK/core oficiais, ROM inicial `32165d36…dcf72d`, RAM Player x32/y176, colisão, orçamento e apresentação medida. `host:certify` READY/7 gates após reboot (1383 frontend/1169 Rust; smokes oficiais), Clippy completo/fmt PASS. A trava vazia de outro boot foi arquivada com recibo; falhas antigas permanecem. Duas execuções Windows no SHA `71741089` falharam no tilemap obstruído pelo splitter; roteiro agora espera alvo nativo desobstruído, e o CI do novo SHA deve provar Windows. Próximo: diff documental/commit explícito, push normal, confirmar remoto/PR #112/checks; então J00–J15/dois alvos, arquitetura e roadmap. Provas privadas não vão ao Git; humano, GPU/áudio físicos, console e Windows ainda pendentes. Detalhes, SHAs e comandos no checkpoint novo do Memory Bank.
 
-Simplifique o shell enquanto entrega essa vertical: organização à esquerda, trabalho central, propriedades à direita e timeline quando necessária. Reduza rails concorrentes, siglas, banners e controles repetidos; dê espaço ao conteúdo. Não dependa só de cor/hover. Verifique teclado, foco, tooltips, zoom e layout mínimo suportado de 1280×800.
+**Retomada 2026-11-03 (PLAT11 qualificado localmente):** PLAT10 publicado como `71741089198f23cc4f7a0f43c9c87de4635590e9`, PR #112 aberto; PLAT11 ainda sem commit nesta nota. Debug contextual, escopos de projeto/revisão/ROM/core, colisão, RAM pausada, limites e FPS de apresentação passaram no Tauri final `68aa261d…41361`: `reference-platformer-2026-11-03T22-36-36-158Z-report.json` 24/24 PASS, build negativo de asset ausente PASS no mesmo binário. `host:certify` READY (1382 frontend/1169 Rust, smokes oficiais), mas anterior ao último ajuste do baseline da automação; App.test e desktop positivo/negativo posteriores passaram. Falhas intermediárias preservadas. Próximo comando e limites no checkpoint mais novo do Memory Bank. Não confundir medidas de interface com clock da simulação nem promover `Experimental`.
 
-### E3 — Entregar a vertical MUGEN real
+**Retomada 2026-11-03 (PLAT10 qualificado localmente):** PLAT05 publicado como `091ba3a940194ae33c48966865468a92e6c2e233`, PR #112 aberto. Linux PASS; Windows desktop-smoke falhou ao ler a ponte de Arte antes da montagem, e o E2E agora espera o recurso exato. Binário oficial final desta árvore `4a48f5cf…19bbe9`, `studio-appearance-2026-11-03T21-29-55-331Z-report.json` PASS: 36 combinações de três tamanhos, quatro temas e zoom CSS 125/150/200%, sem transbordamento, Inspector/paleta alcançáveis, foco/setas e roda nativa nas quatro paletas, Build→ROM→core no Tauri. `host:certify` READY (1380 frontend/1169 Rust PASS e smokes oficiais); Clippy/fmt PASS. A última linha do oráculo E2E entrou durante certify e foi provada no Tauri final; ver limite no Memory Bank. Falhas intermediárias preservadas. **Próximo:** revisão, commit explícito, se viável prova no SHA limpo, push/PR/checks; depois PLAT11 e 16 jornadas. Zoom por atalho do WebKit, usabilidade humana, Windows, GPU/áudio físicos e console pendentes; `Experimental` mantido.
 
-Com os insumos privados pinados: analisar → normalizar → planejar recursos → revisar perdas/limites → importar → editar animação/golpe → salvar/reabrir → compilar → jogar → exportar.
+**Retomada 2026-11-03 (PLAT05 em validação):** PLAT12 publicado no local/remoto como `6053dd1091da30fec1033c040957bffb85d92505`, PR #112 aberto. O incremento atual de Arquivos/Arte/usuários de recurso compartilhado ainda não foi commitado. Binário oficial `0dc45f4c…27d24`, `reference-platformer-2026-11-03T19-17-13-499Z-report.json` e `reference-platformer-2026-11-03T19-46-37-195Z-report.json` **23/23 PASS** no Tauri com SGDK/core; a navegação Arquivos→Arte/Cena/Lógica→Arquivos e a ROM PLAT12 foram observadas. Falha anterior de leitura prematura do arquivo após salvar preservada; `host:certify` READY após repetir com a referência BYOR já documentada (1380 frontend/1169 Rust PASS), Clippy completo/fmt PASS. CI do SHA anterior: Linux PASS, Windows desktop-smoke FAIL porque a borda da colisão estava fora do palco. O roteiro agora usa zoom visível quando necessário, com prova Linux repetida; Windows depende do próximo SHA. **Próximo:** revisão/commit/push/checks do PLAT05; depois PLAT10/11 e jornadas. Limites no Memory Bank.
 
-Compare escolhas do lote que falha com as provas anteriores, sem assumir mesma configuração. Isole dimensões, eixos, frames repetidos, seleção de animações e empacotamento. Use divisão/paginação/deduplicação/streaming quando adequados e suportados; prove índices e conteúdo preservados. Separe limite do atlas no host de limites medidos do destino. Não substitua sprites reais por formas, não trunque conteúdo em silêncio e não chame comportamento autoral de CNS convertido.
+**Retomada 2026-11-03 (PLAT12 qualificado localmente):** a autorização atual permite commits, push normal e PR #112, sem merge/release/deploy nem publicação privada; notas antigas de não publicar descrevem somente aquelas sessões. Base `86831164` com alterações ainda não commitadas. Binário oficial SHA `719756933855b6493d8854274a0fbc9f9e3d45f8d3899b0b4e4e6e5a70056e9d`, duas corridas frias Tauri Linux/Xvfb **22/22 PASS** (`reference-platformer-2026-11-03T18-07-44-362Z-report.json`, `reference-platformer-2026-11-03T18-14-36-303Z-report.json`). Objeto, camada sem mapa, recusa de corte, mapa deslocado, restauração/cancelamento/Undo/Redo/reabertura e efeito em RAM da ROM `933d231e…6135f8` foram separados no roteiro oficial. `host:certify` READY: 1376 frontend/1169 Rust PASS, smokes SGDK/PVSnesLib PASS; Clippy completo/fmt PASS. Falhas anteriores de WebDriver e tilemap preservadas; ver checkpoint mais novo do Memory Bank. **Próximo:** revisar e publicar incremento PLAT12; então PLAT05/10/11 e matriz de jornadas. Windows e aceite humano seguem pendentes, `Experimental` mantido.
 
-Faça incompatibilidades aparecerem cedo, com ação concreta e preservação do trabalho. Não declare sucesso de importação como sucesso de jogo compilável. A configuração suportada escolhida para esta missão precisa completar a vertical; uma recusa explicada não substitui esse aceite.
+**Retomada local 2026-11-03 (PLAT12 parcial):** commits locais `6fa4330` (movimento explícito de camada/mapa global) e `6439e3b` (largura de painéis na transição), sobre o checkpoint documental alheio `3656021c`; sem push. Binário `8b04a7bc…ffe0380a`: `reference-platformer` 18/18 PASS no Tauri Linux/Xvfb, com grupo +16 px, Undo/Redo, ROM `a4a2ee64…f53bc` e Player x32→48 na RAM, tilemap após reabrir; SNES smoke PASS. `host:certify` READY após corrigir só o `TMPDIR` da sessão, 1375 frontend/1168 Rust PASS, upstream PASS; Clippy completo/fmt PASS. Primeira certificação BLOCKED por seis testes `new-host` com `TMPDIR` oculto, recibo preservado. Recibo global posterior de diagnose não contém gates; ver Memory Bank. **Próximo:** fechar PLAT12 com restauração explícita do template e prova positiva de mapa deslocado em UI/ROM; depois PLAT11. Windows/aceite humano, atalho e matriz total seguem pendentes. Restrição sem publicação permanece.
 
-### E4 — Tornar os editores uma mesma experiência
+**Retomada anterior 2026-11-03:** o checkpoint daquela etapa do Memory Bank registra o commit local `981cdb7d` (layout do shell após reabrir projeto), binário `85545be3…`, sete cenários desktop + QA RC A–H PASS no Linux, e `host:certify` PASS/READY após repetir com a referência BYOR já documentada. A primeira certificação falhou sem essa variável e permanece evidência de falha. O PR #112 remoto ainda está em `aca5f1b1` com dois `desktop-smoke` Windows vermelhos; o operador vedou publicação nesta retomada. Não atribuir os PASS locais ao CI remoto, não repontar o atalho em uso e não promover as jornadas humanas. O próximo incremento então era PLAT12; ver o checkpoint acima para o estado atual.
 
-Conecte Cena, Personagem, Ações/nodes, Interface, Teste e Entrega sem perder identidade/contexto. Use o NodeGraph existente; representações amigáveis Quando → Se → Fazer devem editar a mesma lógica, sem motor paralelo.
+**Prompt vigente: 2026-11-02.** Handoff executável da frente de coesão. A versão anterior permanece no Git e no Memory Bank como histórico; caminhos, PIDs e SHAs antigos não autorizam retroceder fontes ou encerrar processos. O pedido atual autoriza implementar e validar **PLAT01–12**, preservando as premissas do projeto.
 
-Unifique alcance “esta ocorrência”, “esta instância” e “modelo compartilhado — N usos”. Mostre dependentes antes de mudanças coletivas; não altere instâncias independentes por acidente.
+## Prompt para o agente executor
 
-Paletas: plano por cena, bancos disponíveis/compatíveis/reservados/em conflito, referências de uso acessíveis e navegação até cada consumidor. Permita compartilhar quando válido, reatribuir/liberar um uso e trocar paletas por estado/evento. Preveja o impacto coletivo; uma mudança não pode recolorir outros elementos sem indicação. Reuse o planejador existente e mantenha os limites por destino nos adaptadores.
+Você assume a implementação da experiência de uso do RetroDev Studio. Entregue um ambiente em que um usuário leigo consiga **criar ou importar um projeto, encontrar seus elementos organizados, editar arte/animação/lógica/áudio/câmera, jogar, voltar ao ponto de edição e continuar após salvar/reabrir**. Preserve capacidade técnica, fidelidade e compatibilidade. A interface deve ser legível, esteticamente coesa e funcional em cada etapa.
 
-Integre animação, caixas, eventos, sons, textos e cenário conforme as capacidades reais. Um som é um evento temporal; não invente uma região de imagem para selecioná-lo. Diagnósticos devem navegar à propriedade exata. Preserve o hash de conteúdo e as guardas de stale ao clicar na execução.
+O pedido é de execução: reproduza, corrija, integre, teste jogando e repita até fechar a jornada. Não encerre em outro diagnóstico, plano, protótipo visual ou build que apenas abre. Use a análise existente como backlog e vá à primeira reprodução verificável.
 
-### E5 — Preservar o fluxo avançado REX
+### 1. Contexto, autorização e continuidade
 
-Percorra um perfil comercial já suportado: abrir entrada → conhecer escopo/proveniência → visualizar recurso/lógica → editar cópia → gerar patch → executar episódio → medir efeito esperado → salvar/reabrir/reverter.
+Leia `AGENTS.md`, a política de Projects, Memory Bank, roadmap, árvore, diretivas, modo de agentes, stack/compliance e `docs/handoffs/NOVO_HOST_INICIO.md`. Consulte a arquitetura REX quando tocar a ponte ROM/canvas ou seus perfis.
 
-Use insumos fornecidos pelo usuário. Mantenha original imutável, identidade por hash, limites e recusas. Elemento desconhecido não abre um editor adivinhado. Não apresentar codec como identificação gráfica, vínculo estático como consumo ou alteração de bytes como efeito de gameplay. Não expandir para novos jogos/codecs nesta missão.
+Leia `docs/handoffs/REAVALIACAO_PRODUTO_2026-10-24.md`, especialmente o adendo de 02/11 e a matriz **PLAT01–12**. Dez capturas e relatório privado: `RDS_WORK_ROOT/sessions/platformer-journey-audit-20261102/`. Se esse runtime faltar, use o registro canônico e declare a evidência indisponível.
 
-### E6 — Certificar e preparar observação humana
+Responda `[Contexto Carregado]`. Confira HEAD, branch, remoto, PR112/checks, alterações locais e owners. Base documental: `d295fbcf6b7b5b9727c37de83835e6cc31677447`; avance sobre a ponta válida, preservando trabalho posterior.
 
-Gates aplicáveis do projeto e jornadas afetadas devem passar no mesmo binário final. Execute ao menos três partidas frias consecutivas das verticais autoral e MUGEN, com expectativa congelada antes e sem mudar critério entre corridas. Isso é um critério de repetição, não certificação estatística de confiabilidade. Preserve falhas e investigue as intermitências.
+Use somente `/home/misael/Projects/RetroDevStudio`. Prefixe comandos com RTK. Reutilize launcher/host-manager, diagnóstico e ambiente oficiais; `RDS_WORK_ROOT=/home/misael/Shared/ProjectRuntime/RetroDevStudio`, inicialmente `RDS_BUILD_JOBS=1`. Confira disco/RAM/carga; uma operação pesada por vez.
 
-As ações da jornada devem ocorrer na UI real; sondas internas são observação, não substituição de cliques. Não edite project.rds/JSON por fora para completar uma tarefa ausente na interface. Fixtures de preparação são identificadas separadamente.
+Preserve app, dados e leases do operador. Não mate processos alheios nem remova locks legítimos. Se uma etapa exigir sessão exclusiva, solicite uma única ação indispensável pelo fluxo oficial e avance nas partes independentes; não apresente esse impedimento como missão concluída.
 
-Teste conteúdo persistido, efeito na ROM/core, igualdade da exportação com o artefato verificado, Undo/Redo, cancelar, respostas antigas, renomear asset, alteração no mesmo caminho e reabertura. Não use apenas snapshots visuais ou testes que repitam a implementação.
+Não crie outro checkout, store, motor, DSL, editor ou harness concorrente. Preserve decisões arquiteturais consolidadas. Dependência nova indispensável exige justificativa, compatibilidade/lock/stack e gates. Esta missão integra capacidades atuais; não inicia novas plataformas/importadores nem substitui a missão separada de decompilação universal.
 
-Prepare um pacote neutro de antes/depois, passos e limites para revisão externa. Faça sessão humana quando houver participante; registre conclusão, ajuda, erros e recuperação. Sem participante, mantenha usabilidade pendente e entregue separadamente o aceite técnico.
+Preserve Tauri + React/TypeScript + Rust, UGDM, SGDK/PVSnesLib e Libretro. Sem Electron, Redux ou Python no runtime do aplicativo. Os limites reais de hardware e as guardas de segurança não podem ser elevados, ignorados ou mascarados para fazer a jornada passar.
 
-## Organização, plataforma e entrega
+### 2. Identifique a versão realmente entregue — PLAT01
 
-Não amplie plataformas/importadores nem crie uma nova arquitetura universal agora. Separe conceitos de criação dos adaptadores de hardware e preserve regressões existentes, inclusive SNES. Técnicas avançadas precisam de custo/limite medido; não atribua restrições de um conversor ao console inteiro.
+Na análise, atalho e processo ativo usavam o app **263205d8 de 30/10**, enquanto a qualificação recente de câmeras pertence ao candidato **29b9b21f** e ao código **c359eab9**. O HEAD do recibo do launcher não identifica sozinho o binário aberto.
 
-Use diretórios aprovados e uma única área de evidência da rodada, com manifest, hashes e índice requisito → implementação → teste → resultado → limite. Mantenha estado no Memory Bank/roadmap e evidências detalhadas no local apropriado, sem diários canônicos paralelos. Não apagar lotes congelados, corpus ou scratch alheio.
+Reconfira fonte incorporada, SHA do executável, launcher e atalho. Prepare o candidato correto e valide sua abertura normal após transição segura, preservando projeto/sessão em uso. Não atribua defeitos do app antigo ao novo nem declare resolvido porque existe um botão na fonte. A entrega final deve abrir pelo atalho usado pelo operador e identificar sua versão efetiva.
 
-A cada marco, registre código/binário, comandos, provas novas/herdadas, falhas, limites e próximo passo exato. Preserve progresso em commits coerentes e publique apenas material próprio/curado conforme as regras do projeto. Sem force-push, merge, release ou promoção automática. Não deixe processos de teste ou observadores próprios abandonados.
+### 3. Módulos e scripts que devem trabalhar juntos
 
-Entrega mínima: verticais autoral e MUGEN completas, causas prioritárias resolvidas, navegação/contexto coerentes, UI menos densa com funcionalidade preservada, regressões e evidências no binário final, atalho testado e pendências com dono/critério. Uma coleção de componentes novos ou um relatório extenso não substitui essa entrega.
+Inspecione chamadores e testes destes owners, conferindo possíveis renomes. Estenda o caminho oficial; não crie um script isolado por tela.
 
-Comece pela reconciliação e pela primeira reprodução; siga até fechar as etapas autorizadas, sem solicitar GO a cada subetapa. Falta real de insumo/autorização deve ser descrita com precisão, enquanto você continua tarefas independentes.
+| Responsabilidade | Fontes existentes |
+|---|---|
+| Shell, início e navegação | `src/App.tsx`; `src/components/common/ProjectStartWizard.tsx`; `src/core/workspaceLayout.ts`; `src/components/common/StudioContextBar.tsx`; `src/components/common/LayoutSplitter.tsx` |
+| Identidade, contexto, histórico e persistência | `src/core/store/editorStore.ts`; `src/core/studioContext.ts`; `src/core/scenePersistence.ts`; `src/core/runtimeLink.ts` |
+| Template, importação e dados nativos | `data/template_registry.json`; `src-tauri/src/core/project_mgr.rs`; `src/core/ipc/projectService.ts`; `src/core/ipc/sceneService.ts` |
+| Cena, coordenadas e câmera | `src/components/viewport/ViewportPanel.tsx`; `src/core/sceneWorldModel.ts`; `src/core/cameraWorkflow.ts`; `src/components/inspector/CameraConfigurator.tsx`; `src/components/inspector/CameraAdvancedControls.tsx`; `src/components/inspector/InspectorPanel.tsx` |
+| Arquivos, arte e entrada de imagens | `src/components/explorer/ExplorerWorkspace.tsx`; `src/components/artstudio/ArtStudioPanel.tsx`; `src/components/artstudio/PixelEditor.tsx`; `src/components/artstudio/ImageIngress.tsx`; `src/core/imageIngress.ts` |
+| Lógica, organização e comportamento | `src/components/nodegraph/NodeGraphEditor.tsx`; `src/core/nodegraph/nodeLayout.ts`; `src/core/nodegraph/nodeCatalog.ts`; `src/core/nodegraph/nodeDefinitions.ts`; `src/core/nodegraph/behaviorLibrary.ts`; `src/core/nodegraph/graphHistory.ts` |
+| Paletas e apresentação | `src/core/palettePlan.ts`; `src/core/palettePlanStore.ts`; `src/components/inspector/PalettePanel.tsx`; `src/components/common/Icon.tsx`; `src/styles/index.css` |
+| Áudio e diagnóstico | `SoundPanel` no `NodeGraphEditor.tsx`; `src/components/tools/ToolsPanel.tsx`; recursos/serviços de áudio existentes; `runtimeLink` |
+| Compilação e apresentação | `src-tauri/src/compiler/build_orch.rs`; `src-tauri/src/compiler/ast_generator.rs`; `src-tauri/src/compiler/camera_runtime.rs`; `src-tauri/src/compiler/sgdk_emitter.rs`; `src-tauri/src/compiler/snes_emitter.rs` |
+| Host, build e testes desktop | `scripts/new-host.sh`; `scripts/new-host.ps1`; `scripts/new-host.mjs`; `scripts/host-manager.mjs`; `scripts/build.mjs`; `scripts/e2e-tauri-build-run.mjs`; `package.json` |
+
+### 4. Composição inicial e gestos — PLAT02–03/12
+
+O template deve abrir pronto: arte montada, personagem no chão, objetivo/sensores coerentes, colisões alinhadas e câmera inicial válida. Enquadrar a visualização não altera posições do projeto.
+
+Reproduza a divergência legada: renderer usa `centro do sprite + offset − meia tela`; emissor usa `posição do alvo + offset`, limitada ao mundo. No template, o editor resulta em moldura `(−264,−32)`. Corrija contrato/compatibilidade; não compense deslocando background nem migre projetos existentes silenciosamente na abertura.
+
+Separe coordenadas do mundo, câmera do jogo, pan/zoom e origem do canvas. Arrastar Player não pode realimentar a origem do gesto e escapar do ponteiro. Mostre quem a câmera segue e distinga edição do mundo de prévia da câmera.
+
+Diferencie mover objeto, mover composição vinculada e pan. Arte, colisão, spawn e sensores só se movem juntos quando escolhido e suportado, numa transação reversível. Restaurar composição do template deve ser ação explícita com prévia e preservação de edições.
+
+Investigue a importação aberta após pan central. Registre ordem/origem dos eventos mouse/pointer/auxclick/paste, clipboard e seleção primária. O conflito de colagem é hipótese, não captura de tela comprovada. Corrija a causa sem debounce arbitrário e sem desabilitar Ctrl+V, soltar imagem ou importação explícita. Teste pans sobre canvas, cartões, portas e bordas com imagem/texto na transferência.
+
+### 5. Continuidade entre ferramentas — PLAT04–06
+
+- Lógica geral apresenta comportamentos existentes; entrada por objeto conserva esse objeto. O grafo pronto pertence ao Player; Main Camera pode funcionar por componente sem nós. Diferencie carregamento, erro, ausência legítima e criação de novo fluxo.
+- Ofereça **Ver na cena, Editar arte/animações, Editar comportamento, Configurar câmera e Ver usos**, conforme o tipo. Não encaminhe uma câmera para um editor vazio de sprites como única saída.
+- Arquivo e instância são identidades distintas. Mostre alcance e dependentes; se houver vários usuários de um asset, apresente a escolha. Destino único inequívoco não exige pergunta adicional.
+- Arte deve carregar imagem, quadros e animações existentes; não exigir reimportação. Sem sprite selecionado, ofereça os assets/personagens da cena. Tilemap abre a ferramenta apropriada à sua edição.
+- Torne Configurar câmera visível junto da moldura/Inspector. Reutilize padrões, alvo, composição, limites, suavidade, salas, regiões e eventos implementados. Distinga editar câmera, enquadrar vista e ver o resultado do jogador.
+- Voltar conserva cena, entidade, asset, animação/ocorrência e vista. Cancelar/Undo/Redo/salvar têm alcance previsível. Respostas de outro projeto/revisão nunca sobrescrevem o atual.
+
+### 6. Lógica visual legível e operacional — PLAT07–09
+
+Abra grafos existentes por comportamento: movimento, salto, animação, áudio, objetivo e câmera, conforme conteúdo real. Não substitua lógica por wizard nem invente conexões para preencher a tela.
+
+Use dimensões reais dos cartões para layout sem sobreposição. Preserve parâmetros, conexões, grupos, fixações e posições manuais; ofereça organização inicial segura e Organizar/Enquadrar/Centralizar com Undo. Não reorganize silenciosamente a cada visita. Minimap deve ser encontrável em grafos grandes, recolhível e com preferência lembrada. Fios, portas e ramos precisam ser legíveis; navegar não inicia outra tarefa.
+
+No ponto de uso do som: recurso identificado, seletor, **Ouvir/Parar**, estado e diagnóstico. Reutilize a prévia WAV existente. Música VGM/XGM exige prévia compatível real; limitação permanece explícita enquanto faltar implementação. Botão sem áudio não recebe PASS. A associação deve persistir e tocar no evento correto na ROM.
+
+Nó que afeta um personagem oferece acesso direto à sua arte/animação e recursos vinculados. Não obrigue localizar novamente o mesmo Hero.
+
+Apresente **deslocamento imediato, velocidade mantida, aceleração, gravidade, frenagem e impulso** de forma coerente. Um painel Movimento e salto edita os mesmos nós/componentes, com unidades reais do backend. Não acrescente parâmetro sem consumidor nem outra fórmula/store para simular simplicidade. Prove o efeito de cada ajuste na ROM, além da prévia do editor.
+
+### 7. Criação e importação entregam projetos utilizáveis
+
+Congele uma matriz de aceite, com insumos existentes/autorizados, revisão/hash, perfil, expectativas e limites:
+
+1. Template de plataforma Mega Drive novo, sem ajustes iniciais manuais.
+2. Projeto autoral do zero com cena, personagem, comportamento, objetivo e áudio.
+3. Projeto SGDK suportado, com recursos e lógica reconhecidos apresentados corretamente.
+4. Projeto/personagem MUGEN do subset suportado, com animação, comportamento/bridge e limites explícitos.
+5. Projeto nativo editado e reaberto; regressão SNES das capacidades compartilhadas.
+
+Use cópias de trabalho identificadas sem duplicar fontes do aplicativo. Preserve originais. Corpus ausente exige indicação precisa, não download de ROM ou conteúdo inventado.
+
+A importação organiza cenas, objetos, assets e comportamentos identificáveis com vínculos rastreáveis e pronta continuidade onde houver suporte. Folha de tiles não se apresenta como cenário montado. Conserve metassprites, aliases, paletas, transparência e duração dos quadros. Preserve o fluxo existente de imagem/GIF sem impor preparação externa desnecessária.
+
+Use o plano canônico de paletas para mostrar bancos livres, compartilhados, reservados e em conflito, com consumidores identificáveis. Reatribuir/liberar um uso deve ter alcance e impacto claros. Não recolora outros objetos, descarte frames, substitua assets por formas ou reduza qualidade silenciosamente para caber num orçamento. Otimização necessária precisa conservar o conteúdo ou apresentar uma decisão compreensível e reversível.
+
+O que não for recuperável deve indicar item, causa, alcance e ação disponível. Bridge/código preservado continua identificado; não vira lógica visual completa por rótulo. Uma recusa correta cobre o negativo, mas não substitui o projeto positivo que precisa fechar o percurso suportado. Não transforme o aceite SGDK/MUGEN numa promessa de conversão geral de C/CNS ou de qualquer ROM.
+
+### 8. Qualidade estética, acessibilidade e diagnóstico — PLAT10–11
+
+Use os tokens e a linguagem visual existentes: hierarquia clara, nomes consistentes em português, ícones reconhecíveis com rótulos nas ações importantes, espaçamento coerente e espaço de trabalho em destaque. Reduza banners/instruções redundantes; conserve detalhes avançados por aprofundamento contextual.
+
+O Inspector prioriza o objeto editado. Paletas globais/contratos não empurram suas propriedades para fora da tela. Assets têm prévias identificáveis; seleção e alcance são evidentes.
+
+Valide pelo menos 2048×864, 1366×768 e 949×593 pixels lógicos; os quatro temas no teste visual; claro/escuro e zoom 125%, 150% e 200% nos percursos críticos. Timeline, prévias, campos e ações continuam alcançáveis por scroll/teclado. Verifique contraste, foco visível, rótulos e alternativas ao botão central/arraste. Não dependa só de cor, hover ou tooltip para uma tarefa essencial.
+
+Depurar parte do projeto/ROM atuais: por que não compila, onde há colisão, qual estado mudou, qual recurso excedeu o limite e o que está sendo medido. Diferencie estimativa estática, observação do core e apresentação do frontend. Indisponível não é zero; FPS de apresentação não é clock do jogo. Informe origem, janela, versão/artefato e caminho de correção. Não invente telemetria para preencher cartões.
+
+### 9. Refazer a jornada jogando e retornando à edição
+
+Percorra pelos controles reais, nos projetos positivos de aceite:
+
+**Atalho/launcher → criar/importar → reconhecer organização → compor cena → mover herói/objetivo e desfazer/refazer → configurar câmera → abrir lógica existente → organizar/navegar → editar arte/animação → escolher/ouvir som → ajustar movimento/regra → salvar → Build→ROM→jogar → pausar/inspecionar → voltar ao elemento → corrigir → reconstruir/jogar → fechar/reabrir → revisar/exportar.**
+
+Escolha mudanças observáveis: posição, quadro/duração, velocidade/impulso, condição do objetivo e som de evento. Congele expectativas antes do teste; confira efeito, persistência e hash do artefato executado, não só clique ou mensagem verde.
+
+Quando falhar: preserve evidência, determine causa, corrija no owner, acrescente regressão pertinente e repita o trecho e o ciclo afetado. Não troque fixture difícil, elimine cenário ou afrouxe critério para concluir.
+
+Negativos obrigatórios: build falho sem executar ROM antiga como nova; asset ausente/incompatível; projeto trocado durante tarefa; cancelar/repetir; recurso compartilhado; paletas ocupadas; limites de hardware; pan com imagem na transferência; resize/zoom; Undo/Redo; retorno de Teste; salvar/reabrir. Recuse resultados/frames de outro core/revisão pelo mecanismo existente.
+
+Repita as verticais autoral e MUGEN três vezes a frio, sem reparos externos entre corridas. Para SGDK e SNES, execute o percurso suportado e declare alcance. Repetição local não é certificação estatística de qualquer entrada.
+
+Não edite JSON/project.rds por fora para completar uma função ausente na UI. Separe preparação de fixture da prova. Sondas internas observam; não substituem ações reais. Use Tauri e SDK/core oficiais; Vite e testes unitários não aprovam desktop ou gameplay.
+
+### 10. Scripts e gates oficiais
+
+Use o ambiente/target do launcher, conferindo cobertura dos cenários antes de acrescentar testes. Amplie o runner existente onde necessário, sem harness paralelo. Execute builds/suites pesadas sequencialmente:
+
+```text
+rtk proxy npm run host:diagnose
+rtk proxy npm run check:tree
+rtk proxy npm run lint
+rtk proxy npx tsc --noEmit
+rtk proxy npm test
+rtk proxy cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+rtk proxy cargo test --manifest-path src-tauri/Cargo.toml --lib -- --nocapture --test-threads=1
+rtk proxy cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+rtk proxy npm run build:debug
+rtk proxy npm run test:e2e:desktop:reference-platformer
+rtk proxy npm run test:e2e:desktop:create-game-from-zero
+rtk proxy npm run test:e2e:desktop:nodegraph-authoring
+rtk proxy npm run test:e2e:desktop:authoring-acceptance
+rtk proxy npm run test:e2e:desktop:behaviors-independence
+rtk proxy npm run test:e2e:desktop:qa-rc
+rtk proxy npm run test:e2e:desktop:md
+rtk proxy npm run test:e2e:desktop:snes
+rtk proxy npm run host:certify
+```
+
+Esses comandos existem; isso não afirma cobertura integral. Forneça parâmetros/fixtures pelo mecanismo oficial e registre-os. Execute auditorias npm/Cargo/licenças se dependências/segurança mudarem e gates de crates quando afetados. Não ignore precondições BYOR nem herde resultados de outro SHA/binário.
+
+### 11. Ordem de execução e fechamento
+
+- **Lote A:** PLAT01–03/12 — versão efetiva, composição/coordenadas e arbitragem de gestos.
+- **Lote B:** PLAT04–07/10 — contexto, acesso à câmera, assets, organização dos nós e legibilidade/reflow.
+- **Lote C:** PLAT08–09/11 — áudio no ponto de uso, movimento compreensível e diagnóstico útil.
+- **Lote D:** criação/importação completas, partidas/retorno, reabertura/exportação e regressões no mesmo binário final.
+
+Feche cada PLAT01–12 com causa, implementação, regressão pertinente, prova UI/runtime e limite. Mantenha matriz requisito→fonte/script→projeto→resultado→artefato/hash→pendência. Diferencie proposto, implementado, validado tecnicamente e aceito pelo usuário.
+
+Aceite técnico: matriz positiva completa no binário final identificado, sem bloqueios conhecidos no percurso prometido; interface organizada/legível, dados preservados, importação útil, edição integrada, efeito no gameplay, retorno previsível, persistência e exportação verificadas. Nenhum botão essencial decorativo. Superfícies parciais continuam Experimental e com caminho de trabalho explícito.
+
+Prepare projeto autoral limpo e roteiro neutro para usuário leigo testar sem condução do agente. Registre conclusão, ajuda, erros e recuperação. Sem participante, entregue o técnico e mantenha aceite humano pendente; não o simule.
+
+Atualize Memory Bank, adendo de reavaliação e este handoff. Preserve falhas, receitas e evidências nos destinos oficiais com hashes/retenção. Não publique screenshots privadas, ROMs, corpus, credenciais ou assets de terceiros no Git. Faça commits curados/push no branch existente, reuse o PR e confirme SHA remoto. Sem merge/release/deploy implícitos.
+
+Prossiga autonomamente nas correções reversíveis autorizadas. Não peça GO a cada arquivo/subetapa. Limite de contexto exige checkpoint retomável com causa, SHA, estado e próximo comando, não conclusão fictícia. Impedimento externo exige pedido único e preciso e avanço no trabalho independente.
+
+**Entrega ao operador:** app pelo atalho correto, projetos de teste organizados, resumo das melhorias de experiência, matriz PLAT01–12, provas criar/importar→editar→jogar→retornar→reabrir, gates/identidade do binário e limites honestos. O resultado deve permitir continuar construindo o jogo sem precisar descobrir a estrutura interna do programa.

@@ -675,3 +675,93 @@ pub fn strider() -> Files {
         sff,
     }
 }
+
+/// Fixture autoral "Striker": golpe com `HitDef` ORIGINAL do CNS (perfil
+/// `mugen.original_chain.v2`, Experimental). Conteudo 100% RetroDev, redistribuivel.
+///
+/// Previsao registrada ANTES da primeira execucao (calculada a mao a partir da fonte):
+/// * sprites 16x32, eixo (8,32): eixo no mundo = x da entidade + 8;
+/// * Clsn2Default do idle (0) e do golpe (200): `-8,-31,-1,0` (corpo, colunas 0..7 da celula);
+/// * golpe (200): elemento 1 = 3 ticks sem Clsn1; elemento 2 = 4 ticks e elemento 3 = 3 ticks,
+///   ambos com `Clsn1 = 0,-24,7,-21` (punho, colunas 8..15). Total 10 ticks, sem Loopstart;
+/// * alcance (facing fixo a direita, bordas inclusivas): acerta sse `d = x_alvo - x_atacante`
+///   esta em `1..=15`; `d = 15` toca na borda (inclusiva) e `d = 16` nao toca;
+/// * `[Data] life = 120`; `HitDef` em `AnimElem = 2`: `damage = 25`, `hitflag = MAF`,
+///   `pausetime = 4,6`; demais parametros lidos e declarados sem efeito no alvo de treino;
+/// * borda de `x` no tick P: estado 200 em P; `AnimElem = 2` (relogio 3) em P+3; com o alvo no
+///   alcance o contato e em P+3: vida 120 -> 95, o atacante congela P+4..P+7 (4 ticks) e volta ao
+///   estado 0 em P+14 (sem acerto: P+10). Contato sustentado em elementos 2-3: UM acerto. Novo
+///   golpe (nova borda depois de voltar ao 0) acerta de novo: 95 -> 70. Sem entrada: 120.
+pub fn striker() -> Files {
+    let mut pal = vec![[0u8, 0, 0]; 256];
+    pal[1] = [255, 0, 0];
+    pal[4] = [255, 255, 255];
+    pal[5] = [255, 255, 0];
+    pal[6] = [0, 255, 255];
+    let (w, h) = (16usize, 32usize);
+    let fig = |c: u8, fist: Option<(usize, usize, usize)>| {
+        let mut px = vec![0u8; w * h];
+        for y in 0..h - 1 {
+            for x in 0..8 {
+                px[y * w + x] = c;
+            }
+        }
+        for x in 0..w {
+            px[(h - 1) * w + x] = 4;
+        }
+        if let Some((y0, y1, x1)) = fist {
+            for y in y0..y1 {
+                for x in 8..x1 {
+                    px[y * w + x] = 4;
+                }
+            }
+        }
+        px
+    };
+    let sprites: [(u16, u16, Vec<u8>); 4] = [
+        (0, 0, fig(1, None)),
+        (200, 0, fig(5, Some((8, 12, 10)))),
+        (200, 1, fig(5, Some((8, 12, 16)))),
+        (200, 2, fig(6, Some((8, 12, 16)))),
+    ];
+    let images: Vec<Image> = sprites
+        .iter()
+        .enumerate()
+        .map(|(i, (group, image, pixels))| Image {
+            group: *group,
+            image: *image,
+            axis_x: 8,
+            axis_y: 32,
+            width: 16,
+            height: 32,
+            pixels,
+            palette: Some(&pal),
+            same_palette: i > 0,
+            link: None,
+        })
+        .collect();
+    let sff = sff_v1(&images);
+    let def = "[Info]\nname = \"Striker\"\nauthor = \"RetroDev Studio (autoral)\"\n\n[Files]\ncmd = striker.cmd\ncns = striker.cns\nsprite = striker.sff\nanim = striker.air\n".to_string();
+    let air = "[Begin Action 0]\nClsn2Default: 1\n Clsn2[0] = -8,-31,-1,0\n0,0, 0,0, -1\n\n\
+[Begin Action 200]\nClsn2Default: 1\n Clsn2[0] = -8,-31,-1,0\n200,0, 0,0, 3\n\
+Clsn1: 1\n Clsn1[0] = 0,-24,7,-21\n200,1, 0,0, 4\n\
+Clsn1: 1\n Clsn1[0] = 0,-24,7,-21\n200,2, 0,0, 3\n"
+        .to_string();
+    let cmd = "[Command]\nname = \"x\"\ncommand = x\ntime = 1\n\n\
+[Statedef -1]\n\n\
+[State -1, Punch]\ntype = ChangeState\nvalue = 200\ntriggerall = command = \"x\"\ntrigger1 = stateno = 0\n"
+        .to_string();
+    let cns = "[Data]\nlife = 120\n\n\
+[Statedef 0]\ntype = S\nmovetype = I\nctrl = 1\nanim = 0\n\n\
+[Statedef 200]\ntype = S\nmovetype = A\nctrl = 0\nanim = 200\n\n\
+[State 200, Hit]\ntype = HitDef\ntrigger1 = AnimElem = 2\nattr = S, NA\ndamage = 25\nhitflag = MAF\nguardflag = MA\npausetime = 4, 6\nsparkno = 0\nhitsound = 5, 0\nground.velocity = -4\n\n\
+[State 200, End]\ntype = ChangeState\nvalue = 0\nctrl = 1\ntrigger1 = AnimTime = 0\n"
+        .to_string();
+    Files {
+        def,
+        air,
+        cmd,
+        cns,
+        sff,
+    }
+}

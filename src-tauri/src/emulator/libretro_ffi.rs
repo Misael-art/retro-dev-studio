@@ -902,6 +902,13 @@ impl EmulatorCore {
         Ok(size)
     }
 
+    /// Snapshot do VDP (VRAM/CRAM/VSRAM/registradores) lido do savestate do core.
+    pub fn vdp_snapshot(&self) -> Result<crate::emulator::vdp_snapshot::VdpSnapshot, String> {
+        let state = self.serialize_runtime_state()?;
+        let (wram, _) = self.read_memory(RETRO_MEMORY_SYSTEM_RAM, 0, usize::MAX)?;
+        crate::emulator::vdp_snapshot::parse_gpgx_state(&state, &wram)
+    }
+
     pub fn capture_runtime_state_bytes(&self) -> Result<Vec<u8>, String> {
         self.serialize_runtime_state()
     }
@@ -2664,5 +2671,49 @@ mod tests {
 
         emulator.stop().expect("stop emulator");
         let _ = fs::remove_dir_all(dir);
+    }
+}
+
+#[cfg(test)]
+mod vdp_region_probe {
+    use super::*;
+
+    /// Sonda: quais regioes de memoria o core real expoe (`RDS_PROBE_CORE`, `RDS_PROBE_ROM`).
+    #[test]
+    #[ignore]
+    fn probe_real_core_memory_regions() {
+        let core = std::env::var("RDS_PROBE_CORE").expect("core");
+        let rom = std::env::var("RDS_PROBE_ROM").expect("rom");
+        let _guard = test_serial_guard();
+        let mut emu = EmulatorCore::new(Some(Path::new(&core)));
+        emu.load_rom(Path::new(&rom)).expect("load");
+        for _ in 0..600 {
+            emu.run_frame().expect("frame");
+        }
+        for region in 0..16u32 {
+            match emu.read_memory(region, 0, usize::MAX) {
+                Ok((bytes, total)) => println!(
+                    "REGION {region} total={total} nonzero={}",
+                    bytes.iter().filter(|b| **b != 0).count()
+                ),
+                Err(error) => println!("REGION {region} err={error}"),
+            }
+        }
+        let state = emu.capture_runtime_state_bytes().expect("state");
+        let (wram, _) = emu.read_memory(2, 0, usize::MAX).unwrap();
+        let out = std::env::var("RDS_PROBE_OUT").expect("out");
+        fs::write(format!("{out}/state.bin"), &state).unwrap();
+        fs::write(format!("{out}/wram.bin"), &wram).unwrap();
+        println!(
+            "STATE {} {:?}",
+            state.len(),
+            String::from_utf8_lossy(&state[..16])
+        );
+        let (raw, size, format) = emu.get_framebuffer().expect("fb");
+        let payload = crate::emulator::frame_buffer::framebuffer_to_rgba(&raw, size, format);
+        image::RgbaImage::from_raw(payload.width, payload.height, payload.rgba)
+            .expect("rgba")
+            .save(format!("{out}/framebuffer.png"))
+            .unwrap();
     }
 }

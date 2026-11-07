@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import AssetPreview from "../common/AssetPreview";
+import { CGraphPanel } from "./CGraphPanel";
 import {
   listScenes,
   switchScene,
@@ -15,6 +16,8 @@ import {
 import { listenToProjectAssetChanges } from "../../core/ipc/projectWatcherService";
 import { hydrateSceneResult, persistActiveScene } from "../../core/scenePersistence";
 import { useEditorStore } from "../../core/store/editorStore";
+import { buildTilemapAuthoringBrush } from "../../core/entityAuthoring";
+import { collectAssetReferences } from "../tools/assetBrowserModel";
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -178,6 +181,7 @@ function AssetTreeBranch({
   return (
     <button
       type="button"
+      data-testid={`explorer-asset-${asset.relative_path}`}
       onClick={() => onSelect(asset)}
       title={asset.relative_path}
       className={`flex w-full items-center gap-2 rounded-lg py-1 text-left text-[11px] transition-colors ${
@@ -202,11 +206,19 @@ export default function ExplorerWorkspace({
   const {
     activeProjectDir,
     activeScenePath,
+    activeScene,
     projectSourceKind,
     projectLegacyIndex,
     setActiveScene,
     setActiveScenePath,
     setSelectedEntityId,
+    openStudioEditor,
+    setArtStudioAssetPath,
+    explorerAssetPath,
+    setExplorerAssetPath,
+    setEditorMode,
+    setActiveTilemapId,
+    setActiveBrush,
     logMessage,
   } = useEditorStore();
 
@@ -215,6 +227,8 @@ export default function ExplorerWorkspace({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selection, setSelection] = useState<ExplorerSelection>(null);
+  const [selectedUseIndex, setSelectedUseIndex] = useState(-1);
+  const [showUses, setShowUses] = useState(false);
   const [legacyPreview, setLegacyPreview] = useState<LegacyProjectFilePreview | null>(null);
   const [legacyBusy, setLegacyBusy] = useState(false);
   const [legacyError, setLegacyError] = useState<string | null>(null);
@@ -222,7 +236,16 @@ export default function ExplorerWorkspace({
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
 
   const assetTree = useMemo(() => buildAssetTree(assets), [assets]);
+  const assetReferences = useMemo(() => collectAssetReferences(activeScene, activeScenePath), [activeScene, activeScenePath]);
+  const selectedAssetUses = selection?.kind === "asset" ? assetReferences.get(selection.asset.relative_path) ?? [] : [];
+  const selectableUses = selectedAssetUses.filter((use) => activeScene?.entities.some((entity) => entity.entity_id === use.entityId));
+  const chosenUse = selectableUses.length === 1 ? selectableUses[0] : selectableUses[selectedUseIndex] ?? null;
   const isLegacyOverlayProject = projectSourceKind === "external_sgdk" && Boolean(projectLegacyIndex);
+  useEffect(() => {
+    if (!explorerAssetPath) return;
+    const asset = assets.find((candidate) => candidate.relative_path === explorerAssetPath);
+    if (asset) setSelection((current) => current?.kind === "asset" && current.asset.relative_path === asset.relative_path ? current : { kind: "asset", asset });
+  }, [assets, explorerAssetPath]);
   const legacyIndexedFileCount = useMemo(
     () => countLegacyIndexedFiles(projectLegacyIndex),
     [projectLegacyIndex]
@@ -254,6 +277,16 @@ export default function ExplorerWorkspace({
 
     onSelectionChange(selection.path);
   }, [onSelectionChange, selection]);
+
+  useEffect(() => {
+    setSelection(null);
+    setSelectedUseIndex(-1);
+    setShowUses(false);
+  }, [activeProjectDir]);
+
+  useEffect(() => {
+    setSelectedUseIndex(-1);
+  }, [activeScenePath]);
 
   useEffect(() => {
     if (!activeProjectDir) {
@@ -405,7 +438,7 @@ export default function ExplorerWorkspace({
 
       setSelectedEntityId(null);
       setActiveScenePath(result.scene_path);
-      setActiveScene(hydrated.resolvedScene, hydrated.sourceScene);
+      setActiveScene(hydrated.resolvedScene, hydrated.sourceScene, hydrated.graphs);
       setSelection({
         kind: "scene",
         scene: {
@@ -414,6 +447,7 @@ export default function ExplorerWorkspace({
           scene_id: hydrated.resolvedScene.scene_id,
         },
       });
+      setExplorerAssetPath(null);
       logMessage(
         "success",
         `[Explorer] Cena ativa: ${hydrated.resolvedScene.display_name ?? hydrated.resolvedScene.scene_id}`
@@ -455,6 +489,30 @@ export default function ExplorerWorkspace({
       }
       return next;
     });
+  }
+
+  function openSelectedAssetInArt() {
+    if (selection?.kind !== "asset" || selection.asset.kind !== "image") return;
+    if (selectableUses.length > 1 && !chosenUse) return;
+    const entity = activeScene?.entities.find((candidate) => candidate.entity_id === chosenUse?.entityId);
+    if (entity?.components.tilemap) {
+      openStudioEditor({ focus: { task: "scene", entityId: entity.entity_id } });
+      setEditorMode("paint");
+      setActiveTilemapId(entity.entity_id);
+      const brush = buildTilemapAuthoringBrush(entity);
+      if (brush) setActiveBrush(brush);
+      return;
+    }
+    setArtStudioAssetPath(selection.asset.relative_path);
+    openStudioEditor({ focus: { task: "character", entityId: entity?.components.sprite ? entity.entity_id : null } });
+  }
+
+  function openSelectedAssetUse(task: "scene" | "actions") {
+    if (!chosenUse) return;
+    const entity = activeScene?.entities.find((candidate) => candidate.entity_id === chosenUse.entityId);
+    if (!entity || (task === "actions" && !entity.components.logic)) return;
+    openStudioEditor({ focus: { task, entityId: entity.entity_id } });
+    if (task === "scene") setEditorMode("select");
   }
 
   const sceneCount = scenes.length;
@@ -525,13 +583,32 @@ export default function ExplorerWorkspace({
                     {legacyIndexedFileCount} arquivo(s) indexado(s)
                   </span>
                   <span className="rounded-full border border-[#313244] bg-[#0b1120] px-2 py-0.5">
-                    Build &amp; Run delega ao Makefile do host
+                    Build &amp; Run delega ao build C do host (Makefile ou wrapper SGDKForge)
+                  </span>
+                  <span className="rounded-full border border-[#f9e2af]/30 bg-[#f9e2af]/10 px-2 py-0.5 text-[#f9e2af]">
+                    Experimental
                   </span>
                 </div>
-                <p className="mt-3 text-[11px] leading-5 text-[#94a3b8]">
-                  Cenas e assets abaixo continuam editáveis no overlay <span className="font-mono text-[#e4e4e7]">rds/</span>.
-                  Arquivos do host SGDK seguem somente leitura nesta workspace.
-                </p>
+                <ul data-testid="legacy-host-edit-scope" className="mt-3 space-y-1 text-[11px] leading-5 text-[#94a3b8]">
+                  <li>
+                    <span className="font-semibold text-[#a6e3a1]">Consumido pelo build C:</span> assets projetados de{" "}
+                    <span className="font-mono text-[#e4e4e7]">res/</span> editados no mesmo arquivo (hardlink). Edições desvinculadas recusam o build.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-[#f9e2af]">Só organização no Studio:</span> cenas, entidades e grafos do overlay{" "}
+                    <span className="font-mono text-[#e4e4e7]">rds/</span>. Recursos de animação ficam no catálogo, sem instância em cena; instâncias, estados e transições são do C.
+                  </li>
+                  <li>
+                    <span className="font-semibold text-[#a6e3a1]">Consumido pelo build C:</span> lógica C de{" "}
+                    <span className="font-mono text-[#e4e4e7]">src/</span> e{" "}
+                    <span className="font-mono text-[#e4e4e7]">inc/</span> editada pelos nodes (grafo em{" "}
+                    <span className="font-mono text-[#e4e4e7]">rds/code/</span>; build em cópia).
+                  </li>
+                  <li>
+                    <span className="font-semibold text-[#f38ba8]">Requer integração adicional:</span> manifests{" "}
+                    <span className="font-mono text-[#e4e4e7]">.res</span> (somente leitura nesta workspace).
+                  </li>
+                </ul>
               </section>
             ) : null}
 
@@ -548,7 +625,7 @@ export default function ExplorerWorkspace({
                       <button
                         key={scene.path}
                         type="button"
-                        onClick={() => setSelection({ kind: "scene", scene })}
+                        onClick={() => { setExplorerAssetPath(null); setSelection({ kind: "scene", scene }); }}
                         className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-[12px] transition-colors ${
                           selected
                             ? "bg-[#7dd3fc]/12 text-[#e0f2fe]"
@@ -586,7 +663,12 @@ export default function ExplorerWorkspace({
                     collapsed={collapsedFolders}
                     selectedPath={selectedAssetPath}
                     onToggle={toggleFolder}
-                    onSelect={(asset) => setSelection({ kind: "asset", asset })}
+                    onSelect={(asset) => {
+                      setSelection({ kind: "asset", asset });
+                      setExplorerAssetPath(asset.relative_path);
+                      setSelectedUseIndex(-1);
+                      setShowUses(false);
+                    }}
                     depth={0}
                   />
                 ) : (
@@ -618,7 +700,7 @@ export default function ExplorerWorkspace({
                             <button
                               key={file}
                               type="button"
-                              onClick={() => setSelection({ kind: "legacy", path: file })}
+                              onClick={() => { setExplorerAssetPath(null); setSelection({ kind: "legacy", path: file }); }}
                               className={`w-full rounded-lg px-2 py-1 text-left font-mono text-[10px] transition-colors ${
                                 selected
                                   ? "bg-[#f9e2af]/10 text-[#f9e2af]"
@@ -754,6 +836,37 @@ export default function ExplorerWorkspace({
                         <dt className="text-[#64748b]">Origem</dt>
                         <dd className="break-all font-mono text-[#94a3b8]">{selection.asset.absolute_path}</dd>
                       </dl>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {selection.asset.kind === "image" ? (
+                          <button type="button" data-testid="explorer-edit-asset" onClick={openSelectedAssetInArt} disabled={selectableUses.length > 1 && !chosenUse} className="rounded border border-[#cba6f7]/50 px-3 py-2 text-xs font-semibold disabled:opacity-40">
+                            {chosenUse && activeScene?.entities.some((entity) => entity.entity_id === chosenUse.entityId && entity.components.tilemap) ? "Editar tilemap" : chosenUse ? "Editar arte/animações" : "Editar imagem"}
+                          </button>
+                        ) : null}
+                        <button type="button" data-testid="explorer-view-uses" onClick={() => setShowUses((value) => !value)} className="rounded border border-[#313244] px-3 py-2 text-xs font-semibold">Ver usos ({selectedAssetUses.length})</button>
+                        {selectableUses.length > 0 ? (
+                          <button type="button" data-testid="explorer-view-in-scene" onClick={() => openSelectedAssetUse("scene")} disabled={!chosenUse} className="rounded border border-[#313244] px-3 py-2 text-xs font-semibold disabled:opacity-40">Ver na cena</button>
+                        ) : null}
+                        {chosenUse && activeScene?.entities.some((entity) => entity.entity_id === chosenUse.entityId && entity.components.logic) ? (
+                          <button type="button" data-testid="explorer-open-logic" onClick={() => openSelectedAssetUse("actions")} className="rounded border border-[#313244] px-3 py-2 text-xs font-semibold">Lógica do usuário</button>
+                        ) : null}
+                      </div>
+                      {selectableUses.length > 1 ? (
+                        <label className="mt-3 block text-xs" htmlFor="explorer-asset-use">Escolha a instância para editar ou localizar
+                          <select id="explorer-asset-use" data-testid="explorer-asset-use" value={selectedUseIndex} onChange={(event) => setSelectedUseIndex(Number(event.target.value))} className="mt-1 block w-full rounded border border-[#313244] bg-[#111827] p-2">
+                            <option value={-1}>Escolha uma instância</option>
+                            {selectableUses.map((use, index) => <option key={`${use.entityId}-${index}`} value={index}>{use.label}</option>)}
+                          </select>
+                        </label>
+                      ) : null}
+                      {showUses ? (
+                        <div data-testid="explorer-asset-uses" className="mt-3 rounded border border-[#313244] p-3 text-xs">
+                          {selectedAssetUses.length === 0 ? <p>Sem uso na cena ativa. O arquivo continua disponível para edição.</p> : (
+                            <ul className="space-y-1">
+                              {selectedAssetUses.map((use, index) => <li key={`${use.entityId}-${index}`}>{use.label}{use.positionLabel ? ` · ${use.positionLabel}` : ""}{use.entityId.startsWith("layer::") ? " · camada sem objeto selecionável" : ""}</li>)}
+                            </ul>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -762,6 +875,9 @@ export default function ExplorerWorkspace({
 
             {selection?.kind === "legacy" ? (
               <div className="space-y-4">
+                {activeProjectDir && /^(src|inc)\/.*\.(c|h)$/i.test(selection.path) ? (
+                  <CGraphPanel projectDir={activeProjectDir} sourceFile={selection.path} />
+                ) : null}
                 <div className="rounded-3xl border border-[#1f2937] bg-[#0b1120]/70 p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -773,7 +889,7 @@ export default function ExplorerWorkspace({
                       </h2>
                     </div>
                     <span className="rounded-full border border-[#313244] bg-[#111827] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#f9e2af]">
-                      Read-only
+                      {/^(src|inc)\/.*\.(c|h)$/i.test(selection.path) ? "Original · edite pelos nodes" : "Read-only"}
                     </span>
                   </div>
 

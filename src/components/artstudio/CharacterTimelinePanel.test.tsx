@@ -133,6 +133,16 @@ describe("CharacterTimelinePanel", () => {
     expect(useEditorStore.getState().undoStack).toHaveLength(0);
   });
 
+  it("clears an invalid duration message when selecting a different occurrence", async () => {
+    await typeDuration("0");
+    expect(q("character-message-error").textContent).toMatch(/0 nao e aceito/);
+    await act(async () => q("character-occurrence-o2").click());
+    await render();
+    expect(container.querySelector('[data-testid="character-message-error"]')).toBeNull();
+    expect((q("character-duration") as HTMLInputElement).value).toBe("2");
+    expect(anim("ken").frame_durations).toEqual([2, 2, 2]);
+  });
+
   it("adds a sound event on an occurrence, refuses shortening, and retimes only on explicit action", async () => {
     await act(async () => q("character-occurrence-o2").click());
     await render();

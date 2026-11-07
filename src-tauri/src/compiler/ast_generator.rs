@@ -14,6 +14,7 @@ use crate::ugdm::entities::{Project, Scene};
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum AstNode {
+    ConfigureCamera(Box<super::camera_runtime::CompiledCameraProgram>),
     SpriteSystemInit,
     LoadTilemap {
         resource_name: String,
@@ -107,6 +108,19 @@ pub enum AstNode {
         text: String,
         palette_slot: u8,
     },
+    /// Trajeto autoral de objeto (Experimental, R5); ver `compiler/path_runtime.rs`.
+    /// `points` = (x, y, quadros para chegar, espera) relativos a (`start_x`, `start_y`).
+    ObjectPath {
+        entity_id: String,
+        var_name: String,
+        start_x: i32,
+        start_y: i32,
+        mode: String,
+        points: Vec<(i32, i32, u32, u32)>,
+        /// Controle opcional da curva que chega a cada ponto (mesmo indice de `points`).
+        curves: Vec<Option<(i32, i32)>>,
+        autostart: bool,
+    },
     /// Texto de interface autoral (Experimental); ver `compiler/hud_runtime.rs`.
     HudText {
         entity_id: String,
@@ -147,6 +161,8 @@ pub struct SpriteAnimation {
     pub name: String,
     pub frames: Vec<u32>,
     pub frame_time: u32,
+    /// Optional per-occurrence authoring times, in target frame ticks.
+    pub frame_times: Option<Vec<u32>>,
     pub looping: bool,
     /// Tabela de runtime MUGEN (perfil `mugen.character.v1`), quando a animacao veio de
     /// um AIR. `Err` = dados do modelo fora do que o runtime representa: bloqueia o build.
@@ -187,6 +203,21 @@ pub struct MugenFrameRuntime {
     /// Caixas relativas ao eixo: `[x1, y1, x2, y2]`.
     pub clsn1: Vec<[i32; 4]>,
     pub clsn2: Vec<[i32; 4]>,
+}
+
+/// Celulas que mudam algo sobre a imagem base. A imagem montada (`1..=N` em ordem, todas as
+/// celulas do mapa) desenha exatamente a imagem base, entao vira "sem sobreposicao".
+pub(crate) fn effective_tilemap_cells(map_width: u32, map_height: u32, cells: &[u32]) -> Vec<u32> {
+    if is_mounted_image_cells(map_width, map_height, cells) {
+        Vec::new()
+    } else {
+        cells.to_vec()
+    }
+}
+
+pub(crate) fn is_mounted_image_cells(map_width: u32, map_height: u32, cells: &[u32]) -> bool {
+    let total = (map_width as usize).saturating_mul(map_height as usize);
+    total > 0 && cells.len() == total && cells.iter().enumerate().all(|(i, c)| *c as usize == i + 1)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -294,6 +325,8 @@ pub enum LogicOp {
         target_var: String,
         dx: i32,
         dy: i32,
+        /// JV10: vira o sprite (flip H de hardware) para o lado do deslocamento x.
+        face: bool,
     },
     SetSpritePosition {
         target_var: String,
@@ -346,6 +379,9 @@ pub enum LogicOp {
     MugenProgramStep {
         target_var: String,
         program: Box<crate::core::mugen_chain::Program>,
+        /// v2: sprite do alvo de treino do HitDef (parametro `hit_target` do no). `None` =
+        /// golpe ativa sem alvo (nenhum contato possivel; o Inspector avisa).
+        hit_target_var: Option<String>,
     },
     SetTile {
         layer: String,
@@ -358,6 +394,15 @@ pub enum LogicOp {
         offset_x: i32,
         offset_y: i32,
     },
+    CameraControl {
+        target_index: i32,
+        action: i32,
+        frames: i32,
+        x: i32,
+        y: i32,
+        node_id: String,
+        error: Option<String>,
+    },
     ShowSprite {
         target_var: String,
         x: LogicMathExpr,
@@ -365,6 +410,11 @@ pub enum LogicOp {
     },
     HideSprite {
         target_var: String,
+    },
+    /// Liga/desliga o trajeto autoral de um objeto (R5); `path_id` = id saneado do objeto.
+    PathControl {
+        path_id: String,
+        on: bool,
     },
     ConditionOverlap {
         left: LogicCollisionTarget,
@@ -577,6 +627,7 @@ struct LogicRuntimeSprite {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct LogicRuntimeCamera {
+    visual_index: Option<usize>,
     follow_sprite_var: Option<String>,
     offset_x: i32,
     offset_y: i32,
@@ -708,12 +759,17 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
                 .iter()
                 .any(|asset| asset.asset_path == tilemap.tileset)
             {
+                // JV01: a imagem montada (celulas exatamente 1..N, convencao do ImageIngress e
+                // de applyImageEdits) e a propria imagem base; repintar cada celula com o mesmo
+                // tile duplicaria todos os tiles na VRAM. Gera como imagem base.
+                let cells =
+                    effective_tilemap_cells(tilemap.map_width, tilemap.map_height, &tilemap.cells);
                 tilemap_assets.push(TilemapAsset {
                     resource_name: resource_name.clone(),
                     asset_path: tilemap.tileset.clone(),
                     map_width: tilemap.map_width,
                     map_height: tilemap.map_height,
-                    cells: tilemap.cells.clone(),
+                    cells: cells.clone(),
                 });
                 tilemap_resource_names.insert(tilemap.tileset.clone(), resource_name.clone());
 
@@ -722,7 +778,7 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
                     asset_path: tilemap.tileset.clone(),
                     map_width: tilemap.map_width,
                     map_height: tilemap.map_height,
-                    cells: tilemap.cells.clone(),
+                    cells,
                 });
             }
 
@@ -817,6 +873,29 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
             y: entity.transform.y,
             priority_high: sprite.priority == "foreground",
         });
+
+        if let Some(path) = &entity.components.path {
+            if crate::ugdm::components::path_issue(path).is_none() {
+                nodes.push(AstNode::ObjectPath {
+                    entity_id: entity.entity_id.clone(),
+                    var_name: var_name.clone(),
+                    start_x: entity.transform.x,
+                    start_y: entity.transform.y,
+                    mode: path.mode.clone(),
+                    points: path
+                        .points
+                        .iter()
+                        .map(|point| (point.x, point.y, point.frames, point.wait))
+                        .collect(),
+                    curves: path
+                        .points
+                        .iter()
+                        .map(|point| point.curve.map(|curve| (curve.x, curve.y)))
+                        .collect(),
+                    autostart: path.autostart,
+                });
+            }
+        }
 
         if let Some(animation) = default_animation {
             nodes.push(AstNode::SetAnimation {
@@ -929,9 +1008,25 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
     let mut logic_scripts = logic_output.scripts;
     // Componente Camera com `follow_entity` passa a valer por si (antes era ignorado sem um no
     // `camera_follow` no grafo). Um no explicito continua tendo precedencia: nada e duplicado.
-    if !logic_scripts
-        .iter()
-        .any(|script| ops_follow_camera(&script.ops))
+    let visual_camera = super::camera_runtime::compile(
+        scene,
+        &sprite_var_names,
+        if project.target == "snes" { 256 } else { 320 },
+        project.fps,
+    );
+    let uses_visual = scene.entities.iter().any(|e| {
+        e.components
+            .camera
+            .as_ref()
+            .is_some_and(|c| c.visual.is_some())
+    });
+    if let Some(camera) = visual_camera {
+        nodes.insert(0, AstNode::ConfigureCamera(Box::new(camera)));
+    }
+    if !uses_visual
+        && !logic_scripts
+            .iter()
+            .any(|script| ops_follow_camera(&script.ops))
     {
         if let Some((target_var, offset_x, offset_y)) = scene.entities.iter().find_map(|entity| {
             let camera = entity.components.camera.as_ref()?;
@@ -966,6 +1061,36 @@ fn ops_follow_camera(ops: &[LogicOp]) -> bool {
         | LogicOp::ConditionBool {
             if_true, if_false, ..
         } => ops_follow_camera(if_true) || ops_follow_camera(if_false),
+        _ => false,
+    })
+}
+
+pub fn ops_control_camera(ops: &[LogicOp]) -> bool {
+    ops.iter().any(|op| match op {
+        LogicOp::CameraControl { .. } => true,
+        LogicOp::SourceMapped { op, .. } => ops_control_camera(std::slice::from_ref(op.as_ref())),
+        LogicOp::ConditionOverlap {
+            if_true, if_false, ..
+        }
+        | LogicOp::ConditionBool {
+            if_true, if_false, ..
+        } => ops_control_camera(if_true) || ops_control_camera(if_false),
+        LogicOp::WhileLoop { body, done, .. } | LogicOp::ForLoop { body, done, .. } => {
+            ops_control_camera(body) || ops_control_camera(done)
+        }
+        LogicOp::TimelineSequence { slots, .. } => {
+            slots.iter().any(|s| ops_control_camera(&s.actions))
+        }
+        LogicOp::HardwareBudgetCheck { if_ok, if_warn, .. } => {
+            ops_control_camera(if_ok) || ops_control_camera(if_warn)
+        }
+        LogicOp::HardwareEvent { ops, .. } => ops_control_camera(ops),
+        LogicOp::StateMachine { states, .. } => states.iter().any(|s| {
+            ops_control_camera(&s.body)
+                || s.transitions.iter().any(|t| {
+                    ops_control_camera(&t.if_matched) || ops_control_camera(&t.if_unmatched)
+                })
+        }),
         _ => false,
     })
 }
@@ -1014,6 +1139,16 @@ fn sprite_animations(project_fps: u32, sprite: &SpriteComponent) -> Vec<SpriteAn
             name: name.clone(),
             frames: normalized_frames(animation),
             frame_time: animation_frame_time(project_fps, animation.fps),
+            frame_times: if animation.mugen_frames.is_none() {
+                animation.frame_durations.as_ref().map(|times| {
+                    times
+                        .iter()
+                        .map(|time| u32::try_from(*time).unwrap_or(u32::MAX))
+                        .collect()
+                })
+            } else {
+                None
+            },
             looping: animation.looping,
             mugen: mugen_anim_table(sprite, animation),
         })
@@ -1476,6 +1611,7 @@ fn collect_logic_runtime_entities(
     sprite_resource_names: &HashMap<String, String>,
     project_fps: u32,
 ) -> HashMap<String, LogicRuntimeEntity> {
+    let camera_ids = super::camera_runtime::camera_ids(scene);
     scene
         .entities
         .iter()
@@ -1486,6 +1622,7 @@ fn collect_logic_runtime_entities(
                 sprite_var_names.get(&entity.entity_id),
                 sprite_resource_names.get(&entity.entity_id),
                 project_fps,
+                camera_ids.iter().position(|id| id == &entity.entity_id),
             )
             .map(|runtime| (entity.entity_id.clone(), runtime))
         })
@@ -1498,6 +1635,7 @@ fn logic_runtime_entity(
     sprite_var_name: Option<&String>,
     sprite_resource_name: Option<&String>,
     project_fps: u32,
+    camera_index: Option<usize>,
 ) -> Option<LogicRuntimeEntity> {
     let (width, height, offset_x, offset_y) =
         match (&entity.components.collision, &entity.components.sprite) {
@@ -1544,6 +1682,7 @@ fn logic_runtime_entity(
         .camera
         .as_ref()
         .map(|camera| LogicRuntimeCamera {
+            visual_index: camera_index,
             follow_sprite_var: camera
                 .follow_entity
                 .as_ref()
@@ -2001,6 +2140,7 @@ fn compile_logic_node(
                 target_var: var_name.clone(),
                 dx: param_i32(node, "dx", 0),
                 dy: param_i32(node, "dy", 0),
+                face: param_bool(node, "face_direction", false),
             }))
         }
         "rom_addq_word" => {
@@ -2218,6 +2358,57 @@ fn compile_logic_node(
             y: resolve_math_expr_from_input(graph, &node.id, "y")
                 .unwrap_or_else(|| LogicMathExpr::Literal(param_i32(node, "y", 0))),
         })),
+        "camera_control" => {
+            let target = param_string(node, "target").unwrap_or_default();
+            let index = runtime_entities
+                .get(&target)
+                .and_then(|e| e.camera.as_ref())
+                .and_then(|c| c.visual_index);
+            let action_name = param_string(node, "action").unwrap_or_else(|| "pause".into());
+            let action = [
+                "select", "regions", "pause", "resume", "shake", "offset", "restart",
+            ]
+            .iter()
+            .position(|s| *s == action_name);
+            let integer = |key: &str, default: i32| match node.params.get(key) {
+                None => Some(default),
+                Some(Value::Number(n)) => n
+                    .as_f64()
+                    .filter(|v| v.fract() == 0.0 && *v >= i32::MIN as f64 && *v <= i32::MAX as f64)
+                    .map(|v| v as i32),
+                Some(Value::String(s)) => s.trim().parse::<i32>().ok(),
+                _ => None,
+            };
+            let values = [integer("frames", 12), integer("x", 4), integer("y", 4)];
+            let frames = values[0].unwrap_or(0);
+            let x = values[1].unwrap_or(0);
+            let y = values[2].unwrap_or(0);
+            let error = if index.is_none() {
+                Some("Escolha uma camera convertida para o fluxo visual.".into())
+            } else if action.is_none() {
+                Some("Acao de camera nao reconhecida.".into())
+            } else if values.iter().any(Option::is_none)
+                || !(0..=36000).contains(&frames)
+                || !(-1024..=1024).contains(&x)
+                || !(-1024..=1024).contains(&y)
+            {
+                Some(
+                    "Camera: duracao de0 a36000 quadros e deslocamentos de-1024 a1024 pixels."
+                        .into(),
+                )
+            } else {
+                None
+            };
+            Some(CompiledLogicNode::Linear(LogicOp::CameraControl {
+                target_index: index.map_or(-1, |i| i as i32),
+                action: action.map_or(-1, |i| i as i32),
+                frames,
+                x,
+                y,
+                node_id: node.id.clone(),
+                error,
+            }))
+        }
         "camera_follow" => {
             let target = param_string(node, "target").unwrap_or_else(|| "camera".to_string());
             let runtime = runtime_entities.get(&target)?;
@@ -2244,6 +2435,13 @@ fn compile_logic_node(
                     .unwrap_or_else(|| LogicMathExpr::Literal(param_i32(node, "x", 0))),
                 y: resolve_math_expr_from_input(graph, &node.id, "y")
                     .unwrap_or_else(|| LogicMathExpr::Literal(param_i32(node, "y", 0))),
+            }))
+        }
+        "path_start" | "path_stop" => {
+            let target = param_string(node, "target")?;
+            Some(CompiledLogicNode::Linear(LogicOp::PathControl {
+                path_id: crate::compiler::path_runtime::path_id(&target),
+                on: node.node_type == "path_start",
             }))
         }
         "destroy_entity" => {
@@ -2939,6 +3137,7 @@ pub struct UnsupportedSemantic {
 /// ordenada e deduplicada para manter o C gerado deterministico.
 pub fn collect_unsupported_semantics(ast: &AstOutput) -> Vec<UnsupportedSemantic> {
     let mut found = std::collections::BTreeSet::new();
+    found.extend(super::camera_runtime::errors(ast));
     for script in &ast.logic_scripts {
         collect_unsupported_from_ops(&script.ops, &mut found);
     }
@@ -3002,6 +3201,17 @@ fn collect_unsupported_from_ops(
 ) {
     for op in ops {
         match op {
+            LogicOp::CameraControl {
+                node_id,
+                error: Some(reason),
+                ..
+            } => {
+                found.insert(UnsupportedSemantic {
+                    node_id: node_id.clone(),
+                    reason: reason.clone(),
+                });
+            }
+            LogicOp::CameraControl { error: None, .. } => {}
             LogicOp::SourceMapped { op, .. } => {
                 collect_unsupported_from_ops(std::slice::from_ref(op.as_ref()), found);
             }
@@ -3063,7 +3273,12 @@ fn collect_unsupported_from_ops(
                 collect_unsupported_from_ops(if_ok, found);
                 collect_unsupported_from_ops(if_warn, found);
             }
-            LogicOp::HardwareEvent { ops, .. } => collect_unsupported_from_ops(ops, found),
+            LogicOp::HardwareEvent { ops, .. } => {
+                if ops_control_camera(ops) {
+                    found.insert(UnsupportedSemantic { node_id: "camera_control.hardware_event".into(), reason: "Controle visual de camera exige evento de gameplay; interrupcoes de video nao podem alterar seu estado durante a avaliacao do quadro.".into() });
+                }
+                collect_unsupported_from_ops(ops, found);
+            }
             LogicOp::StateMachine { states, .. } => {
                 for state in states {
                     collect_unsupported_from_ops(&state.body, found);
@@ -3080,6 +3295,7 @@ fn collect_unsupported_from_ops(
             | LogicOp::SetAnimationState { .. }
             | LogicOp::CameraFollow { .. }
             | LogicOp::HideSprite { .. }
+            | LogicOp::PathControl { .. }
             | LogicOp::PlaySound { .. }
             | LogicOp::PlayMusic { .. }
             | LogicOp::SourceBridgeError { .. } => {}
@@ -3236,9 +3452,30 @@ fn compile_mugen_program(
     if let Err(why) = program.validate() {
         return bridge(why);
     }
+    let raw_hit = param_string(node, "hit_target").unwrap_or_default();
+    let hit_target_var = if program.hitdefs().is_empty() {
+        if !raw_hit.is_empty() {
+            return bridge("alvo de HitDef em programa sem HitDef".into());
+        }
+        None
+    } else if raw_hit.is_empty() {
+        None
+    } else {
+        if raw_hit == raw_target {
+            return bridge("o alvo do HitDef nao pode ser o proprio atacante".into());
+        }
+        match runtime_entities
+            .get(&raw_hit)
+            .and_then(|runtime| runtime.sprite.as_ref())
+        {
+            Some(t) => Some(t.var_name.clone()),
+            None => return bridge(format!("alvo de HitDef '{raw_hit}' sem sprite na cena")),
+        }
+    };
     LogicOp::MugenProgramStep {
         target_var: sprite.var_name.clone(),
         program: Box::new(program),
+        hit_target_var,
     }
 }
 
@@ -3495,8 +3732,10 @@ fn collect_logic_sound_names_from_ops(
             | LogicOp::SetAnimationState { .. }
             | LogicOp::SetTile { .. }
             | LogicOp::CameraFollow { .. }
+            | LogicOp::CameraControl { .. }
             | LogicOp::ShowSprite { .. }
-            | LogicOp::HideSprite { .. } => {}
+            | LogicOp::HideSprite { .. }
+            | LogicOp::PathControl { .. } => {}
             LogicOp::ConditionOverlap {
                 if_true, if_false, ..
             } => {
@@ -4048,6 +4287,78 @@ mod tests {
                 && *scroll_x == 4
                 && *scroll_y == 8
         )));
+    }
+
+    #[test]
+    fn mounted_image_cells_compile_as_the_base_image_without_duplicate_tiles() {
+        // JV01: ImageIngress grava a imagem montada como celulas 1..N. Antes, cada celula virava
+        // um tile extra carregado DEPOIS dos tiles da imagem (2x a imagem na VRAM).
+        let project: Project = serde_json::from_value(serde_json::json!({
+            "rds_version": "1.0", "schema_version": crate::ugdm::entities::CURRENT_SCHEMA_VERSION,
+            "name": "Mounted", "target": "megadrive", "resolution": {"width": 320, "height": 224},
+            "fps": 60, "palette_mode": "4x16", "entry_scene": "main"
+        }))
+        .unwrap();
+        let layer = |id: &str, cells: Vec<u32>| Entity {
+            entity_id: id.to_string(),
+            display_name: None,
+            prefab: None,
+            transform: Transform { x: 0, y: 0 },
+            components: Components {
+                tilemap: Some(crate::ugdm::components::TilemapComponent {
+                    tileset: format!("assets/tilesets/pixel/{id}.png"),
+                    map_width: 40,
+                    map_height: 28,
+                    scroll_x: 0,
+                    scroll_y: 0,
+                    cells,
+                }),
+                ..Components::default()
+            },
+        };
+        let mounted: Vec<u32> = (1..=1120).collect();
+        let mut painted = mounted.clone();
+        painted[0] = 7; // uma celula realmente repintada
+        let scene = |entities: Vec<Entity>| Scene {
+            scene_id: "main".to_string(),
+            schema_version: Some(crate::ugdm::entities::CURRENT_SCHEMA_VERSION.to_string()),
+            display_name: None,
+            background_layers: Vec::new(),
+            entities,
+            palettes: Vec::new(),
+            retrofx: None,
+            collision_map: None,
+            layers: None,
+        };
+        let emit = |entities| {
+            crate::compiler::sgdk_emitter::emit_sgdk(&generate_ast(&project, &scene(entities)), "M")
+        };
+        let mounted_out = emit(vec![
+            layer("ceu", mounted.clone()),
+            layer("chao", mounted.clone()),
+        ]);
+        let plain_out = emit(vec![layer("ceu", Vec::new()), layer("chao", Vec::new())]);
+        assert_eq!(
+            mounted_out.main_c, plain_out.main_c,
+            "imagem montada = imagem base"
+        );
+        assert_eq!(mounted_out.resources_res, plain_out.resources_res);
+        assert!(!mounted_out.main_c.contains("VDP_loadTileData"));
+        assert!(!mounted_out.resources_res.contains("_cells"));
+        // controle: uma unica celula diferente mantem a sobreposicao pintada inteira
+        let painted_out = emit(vec![layer("ceu", painted)]);
+        assert!(painted_out
+            .resources_res
+            .contains("TILESET ceu_tilemap_cells"));
+        assert!(painted_out.main_c.contains("VDP_loadTileData"));
+        // padrao parcial ou fora de ordem nao e "montado"
+        assert!(!is_mounted_image_cells(40, 28, &mounted[..1119]));
+        assert!(!is_mounted_image_cells(
+            40,
+            28,
+            &[vec![2, 1], (3..=1120).collect()].concat()
+        ));
+        assert!(!is_mounted_image_cells(0, 0, &[]));
     }
 
     #[test]
@@ -5064,6 +5375,8 @@ mod tests {
                     transform: Transform { x: 0, y: 0 },
                     components: Components {
                         camera: Some(crate::ugdm::components::CameraComponent {
+                            patterns: Vec::new(),
+                            visual: None,
                             follow_entity: Some("hero".to_string()),
                             offset_x: 12,
                             offset_y: 8,
@@ -5796,6 +6109,7 @@ mod tests {
                 target_var: "spr_player".to_string(),
                 dx: 2,
                 dy: -1,
+                face: false,
             }
         );
 
@@ -6431,7 +6745,7 @@ mod tests {
         assert_eq!(state_machine.1[1].body.len(), 1);
         assert!(matches!(
             semantic_op(&state_machine.1[1].body[0]),
-            LogicOp::MoveSprite { target_var, dx: 2, dy: 0 } if target_var == "spr_player"
+            LogicOp::MoveSprite { target_var, dx: 2, dy: 0, .. } if target_var == "spr_player"
         ));
     }
 
@@ -6887,6 +7201,7 @@ mod tests {
                 transform: Transform { x: 16, y: 24 },
                 components: Components {
                     hud: None,
+                    path: None,
                     sprite: Some(SpriteComponent {
                         asset: "assets/sprites/hero.png".to_string(),
                         frame_width: 16,

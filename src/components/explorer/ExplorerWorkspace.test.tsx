@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ExplorerWorkspace from "./ExplorerWorkspace";
 import { useEditorStore } from "../../core/store/editorStore";
-import type { LegacySgdkIndex } from "../../core/ipc/sceneService";
+import type { LegacySgdkIndex, Scene } from "../../core/ipc/sceneService";
 
 const mocks = vi.hoisted(() => ({
   listScenes: vi.fn(),
@@ -147,11 +147,16 @@ describe("ExplorerWorkspace", () => {
       "Overlay rds/"
     );
     expect(container.querySelector("[data-testid='legacy-host-summary']")?.textContent).toContain(
-      "Build & Run delega ao Makefile do host"
+      "Build & Run delega ao build C do host (Makefile ou wrapper SGDKForge)"
     );
     expect(container.querySelector("[data-testid='legacy-host-summary']")?.textContent).toContain(
       "5 arquivo(s) indexado(s)"
     );
+    const editScope = container.querySelector("[data-testid='legacy-host-edit-scope']")?.textContent;
+    expect(editScope).toContain("Consumido pelo build C:");
+    expect(editScope).toContain("Só organização no Studio:");
+    expect(editScope).toContain("Requer integração adicional:");
+    expect(editScope).toContain("rds/code/");
     expect(container.querySelector("[data-testid='legacy-host-summary']")?.textContent).toContain(
       LEGACY_INDEX.host_root
     );
@@ -181,5 +186,64 @@ describe("ExplorerWorkspace", () => {
     expect(container.querySelector("[data-testid='explorer-selection-source']")?.textContent).toContain(
       "Origem: assets canônicos do overlay"
     );
+  });
+
+  it("requires a choice for shared art and restores the file selection after returning", async () => {
+    const scene: Scene = {
+      scene_id: "main", background_layers: [], collision_map: null,
+      entities: ["player", "enemy"].map((id) => ({
+        entity_id: id, transform: { x: 0, y: 0 },
+        components: { sprite: { asset: "assets/sprites/hero.png", frame_width: 16, frame_height: 16 }, logic: { graph_ref: `${id}.json` } },
+      })),
+    };
+    await act(async () => {
+      useEditorStore.setState({ activeScene: scene, activeSceneSource: scene, activeWorkspace: "explorer" });
+      findButton(container, "hero.png").click();
+      await flush();
+    });
+    expect(container.querySelector("[data-testid='explorer-edit-asset']")?.hasAttribute("disabled")).toBe(true);
+    await act(async () => { findButton(container, "Ver usos (2)").click(); await flush(); });
+    expect(container.querySelector("[data-testid='explorer-asset-uses']")?.textContent).toContain("player");
+    expect(container.querySelector("[data-testid='explorer-asset-uses']")?.textContent).toContain("enemy");
+    await act(async () => {
+      const select = container.querySelector<HTMLSelectElement>("[data-testid='explorer-asset-use']")!;
+      select.value = "1";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      await flush();
+      container.querySelector<HTMLButtonElement>("[data-testid='explorer-edit-asset']")!.click();
+      await flush();
+    });
+    expect(useEditorStore.getState().activeWorkspace).toBe("artstudio");
+    expect(useEditorStore.getState().selectedEntityId).toBe("enemy");
+    expect(useEditorStore.getState().artStudioAssetPath).toBe("assets/sprites/hero.png");
+    await act(async () => {
+      useEditorStore.getState().returnToStudioOrigin();
+      root.unmount();
+      root = createRoot(container);
+      root.render(<ExplorerWorkspace />);
+      await flush();
+      await flush();
+    });
+    expect(useEditorStore.getState().activeWorkspace).toBe("explorer");
+    expect(container.querySelector("[data-testid='explorer-selection-source']")?.textContent).toContain("assets canônicos");
+  });
+
+  it("opens an unused image as a file while keeping the previous scene selection for return", async () => {
+    const scene: Scene = {
+      scene_id: "main", background_layers: [], collision_map: null,
+      entities: [{ entity_id: "player", transform: { x: 0, y: 0 }, components: {} }],
+    };
+    await act(async () => {
+      useEditorStore.setState({ activeScene: scene, activeSceneSource: scene, selectedEntityId: "player", activeWorkspace: "explorer" });
+      findButton(container, "hero.png").click();
+      await flush();
+      container.querySelector<HTMLButtonElement>("[data-testid='explorer-edit-asset']")!.click();
+      await flush();
+    });
+    expect(useEditorStore.getState().activeWorkspace).toBe("artstudio");
+    expect(useEditorStore.getState().selectedEntityId).toBeNull();
+    expect(useEditorStore.getState().artStudioAssetPath).toBe("assets/sprites/hero.png");
+    await act(async () => { useEditorStore.getState().returnToStudioOrigin(); await flush(); });
+    expect(useEditorStore.getState().selectedEntityId).toBe("player");
   });
 });

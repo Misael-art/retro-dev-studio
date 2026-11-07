@@ -99,23 +99,26 @@ function entry(
 
 export const NODE_CATALOG: Record<NodeType, NodeCatalogEntry> = {
   event_start: entry("event_start", "trigger_input", "Eventos", "Ao Iniciar", "flash", "Roda uma vez quando a fase comeca."),
-  event_update: entry("event_update", "trigger_input", "Eventos", "A Cada Frame", "flash", "Roda 60 vezes por segundo, a cada quadro do jogo."),
-  input_pressed: entry("input_pressed", "trigger_input", "Eventos", "Input Pressionado", "keyboard", "Continua somente no quadro em que o botao foi apertado (uma vez por toque).", ["button"]),
-  input_held: entry("input_held", "trigger_input", "Eventos", "Input Segurado", "keyboard", "Continua em todo quadro enquanto o botao estiver mantido pressionado.", ["button"]),
+  event_update: entry("event_update", "trigger_input", "Eventos", "A cada quadro", "flash", "Roda 60 vezes por segundo, a cada quadro do jogo."),
+  input_pressed: entry("input_pressed", "trigger_input", "Eventos", "Botão pressionado", "keyboard", "Continua somente no quadro em que o botao foi apertado (uma vez por toque).", ["button"]),
+  input_held: entry("input_held", "trigger_input", "Eventos", "Botão mantido", "keyboard", "Continua em todo quadro enquanto o botao estiver mantido pressionado.", ["button"]),
   input_command: entry("input_command", "trigger_input", "Eventos", "Comando de Input", "keyboard", "Reconhece uma sequencia de botoes (ex.: golpe especial) dentro de uma janela de quadros.", ["notation", "max_frames", "target"]),
   sprite_move: entry("sprite_move", "sprite", "Movimento", "Mover Sprite", "arrows", "Desloca a entidade alguns pixels neste quadro.", ["target", "dx", "dy"]),
   set_velocity: entry("set_velocity", "sprite", "Movimento", "Definir Velocidade", "jump", "Da um impulso na entidade; vy negativo empurra para cima (pulo).", ["target", "vx", "vy"]),
   set_position: entry("set_position", "sprite", "Movimento", "Definir Posicao", "arrows", "Coloca a entidade numa posicao exata da tela.", ["target", "x", "y"]),
   spawn_entity: entry("spawn_entity", "sprite", "Movimento", "Criar Entidade", "spawn", "Cria uma copia de um prefab na posicao indicada.", ["prefab", "x", "y"]),
+  path_start: entry("path_start", "sprite", "Movimento", "Iniciar trajeto", "arrows", "Liga o trajeto do objeto (Experimental · Mega Drive); continua de onde parou.", ["target"]),
+  path_stop: entry("path_stop", "sprite", "Movimento", "Parar trajeto", "arrows", "Pausa o trajeto do objeto onde ele está (Experimental · Mega Drive).", ["target"]),
   destroy_entity: entry("destroy_entity", "sprite", "Movimento", "Destruir Entidade", "eye-off", "Esconde/remove a entidade da fase.", ["target"]),
   sprite_anim: entry("sprite_anim", "animation", "Movimento", "Animar Sprite", "film", "Troca a animacao exibida pela entidade.", ["target", "anim"]),
   set_animation_state: entry("set_animation_state", "animation", "Movimento", "Estado de Animacao", "film", "Muda o estado de animacao da entidade.", ["target", "state"]),
   condition_on_ground: entry("condition_on_ground", "collision", "Condicoes", "Esta no chao?", "fork", "Pergunta se a entidade (com fisica) esta apoiada no chao neste quadro e segue por Sim ou Nao.", ["target"]),
-  condition_overlap: entry("condition_overlap", "collision", "Condicoes", "Colisao (Overlap)", "fork", "Pergunta se duas entidades se encostam (ou encostariam ao se mover) e segue por Sim ou Nao.", ["a", "b", "probe_dx"]),
-  camera_follow: entry("camera_follow", "camera", "Camera", "Camera Segue", "camera", "Faz a camera acompanhar a entidade.", ["target"]),
+  condition_overlap: entry("condition_overlap", "collision", "Condicoes", "Objetos se encostam?", "fork", "Pergunta se duas entidades se encostam (ou encostariam ao se mover) e segue por Sim ou Nao.", ["a", "b", "probe_dx"]),
+  camera_follow: entry("camera_follow", "camera", "Camera", "Câmera segue (legado)", "camera", "Seguimento imediato legado. Damping não é executado por este nó; para suavidade e limites, remova o nó e converta em Configurar câmera.", ["target"]),
+  camera_control: entry("camera_control", "camera", "Camera", "Controlar câmera", "camera", "Câmera visual: selecionar, devolver às regiões, travar/liberar, tremor, deslocamento temporário ou reiniciar. Uma atualização após o movimento.", ["target", "action", "frames", "x", "y"]),
   authored_strike: entry("authored_strike", "collision", "Combate", "Golpe autoral", "fork", "Autoral (nao vem do CNS): quando a caixa de ataque do quadro atual do atacante encosta na caixa de corpo do alvo, tira dano uma vez por golpe.", ["attacker", "target", "damage", "health"]),
   palette_swap: entry("palette_swap", "action", "Combate", "Trocar paleta ao sofrer golpe", "film", "A cada acerto do golpe indicado, as cores do alvo viram as da paleta escolhida por alguns quadros e depois voltam. O alcance (so o alvo ou o grupo do banco) e conferido pelo plano de paletas.", ["strike", "target", "palette", "frames", "scope"]),
-  camera_bounds: entry("camera_bounds", "camera", "Camera", "Limites da Camera", "camera", "Impede a camera de sair da area indicada.", ["min_x", "max_x"]),
+  camera_bounds: entry("camera_bounds", "error_unsupported", "Camera", "Limites legados (indisponível)", "camera", "Este nó não tem execução. Remova-o e desenhe a área em Configurar câmera. Projetos com o nó recebem diagnóstico de compilação.", ["min_x", "max_x"]),
   timer: entry("timer", "timer", "Fluxo", "Timer", "clock", "Conta quadros e avisa a cada passo e ao terminar.", ["frames", "repeat"]),
   set_tile: entry("set_tile", "tilemap", "Tilemap", "Definir Tile", "grid", "Troca um bloco do cenario.", ["layer", "tile", "x", "y"]),
   effect_parallax: entry("effect_parallax", "action", "Efeitos", "Parallax", "layers", "Rola uma camada de fundo em velocidade propria.", ["layer", "speed_x"]),
@@ -124,7 +127,7 @@ export const NODE_CATALOG: Record<NodeType, NodeCatalogEntry> = {
   action_sound: entry("action_sound", "audio", "Som", "Tocar Som", "sound", "Toca um efeito sonoro da cena.", ["sfx"]),
   action_music: entry("action_music", "audio", "Som", "Tocar Musica", "music", "Toca ou para uma musica.", ["action", "track"]),
   scroll_tilemap: entry("scroll_tilemap", "tilemap", "Movimento", "Rolar Cenario", "grid", "Rola uma camada do cenario.", ["layer", "dx", "dy"]),
-  load_scene: entry("load_scene", "tilemap", "Tilemap", "Carregar Cena", "grid", "Troca para outra cena.", ["scene"]),
+  load_scene: entry("load_scene", "tilemap", "Tilemap", "Carregar Cena (sem execução na ROM)", "grid", "Declara a transição para outra cena. O compilador atual ainda não a executa: a ROM fica na cena de entrada. Use para planejar; não prova troca de cena.", ["scene"]),
   move_camera: entry("move_camera", "camera", "Movimento", "Mover Camera", "camera", "Move a camera para uma posicao.", ["x", "y"]),
   var_set: entry("var_set", "action", "Variaveis", "Definir Variavel", "variable", "Guarda um valor numa variavel do jogo.", ["var_name", "value"]),
   var_get: entry("var_get", "action", "Variaveis", "Ler Variavel", "variable", "Le o valor atual de uma variavel e o entrega por fio de dados.", ["var_name"]),
@@ -132,7 +135,7 @@ export const NODE_CATALOG: Record<NodeType, NodeCatalogEntry> = {
   condition_compare: entry("condition_compare", "collision", "Condicoes", "Comparar", "fork", "Compara dois numeros e segue por Sim ou Nao.", ["operator", "b"]),
   fsm_state: entry("fsm_state", "state", "Estados", "Estado (FSM)", "chip", "Um estado da maquina de estados.", ["state_name"]),
   fsm_transition: entry("fsm_transition", "transition", "Estados", "Transicao (FSM)", "fork", "Passa para outro estado quando a condicao vale.", ["target_state"]),
-  flow_if: entry("flow_if", "action", "Fluxo", "Se (If)", "fork", "Segue por Sim ou Nao conforme a condicao."),
+  flow_if: entry("flow_if", "action", "Fluxo", "Se a condição for verdadeira", "fork", "Segue por Sim ou Nao conforme a condicao."),
   flow_while: entry("flow_while", "action", "Fluxo", "Enquanto (While)", "fork", "Repete enquanto a condicao valer."),
   flow_for: entry("flow_for", "action", "Fluxo", "Repetir (For)", "fork", "Repete um numero fixo de vezes.", ["count"]),
   timeline_sequence: entry("timeline_sequence", "animation", "Estados", "Sequencia (Timeline)", "clock", "Dispara passos em quadros definidos.", ["timeline_name"]),
@@ -291,6 +294,10 @@ export function describeNodeAction(node: GraphNode): string {
       return `Colocar ${num(p.target)} em (${num(p.x)}, ${num(p.y)})`;
     case "spawn_entity":
       return `Criar ${num(p.prefab)} em (${num(p.x)}, ${num(p.y)})`;
+    case "path_start":
+      return `Iniciar trajeto de ${num(p.target)}`;
+    case "path_stop":
+      return `Parar trajeto de ${num(p.target)}`;
     case "destroy_entity":
       return `Esconder ${num(p.target)}`;
     case "sprite_anim":
@@ -319,6 +326,10 @@ export function describeNodeAction(node: GraphNode): string {
       return `Calcular A ${num(p.operator)} ${p.b ?? "B"}`;
     case "camera_follow":
       return `Camera segue ${num(p.target)}`;
+    case "camera_control": {
+      const labels:Record<string,string>={select:"Selecionar",regions:"Devolver às regiões",pause:"Travar",resume:"Liberar",shake:"Tremer",offset:"Deslocar temporariamente",restart:"Reiniciar"};
+      return `${labels[String(p.action)]??"Ação inválida"}: ${num(p.target)}`;
+    }
     case "authored_strike":
       return `Se o ataque de ${num(p.attacker)} acertar ${num(p.target)}: tirar ${num(p.damage)} de vida (uma vez por golpe)`;
     case "palette_swap":
@@ -338,7 +349,7 @@ export function getPortDisplayLabel(port: NodePort): string {
     case "true":
       return "Sim";
     case "false":
-      return "Nao";
+      return "Não";
     case "value":
       return "valor";
     case "tick":

@@ -1,3 +1,4 @@
+import type { IconName } from "../components/common/Icon";
 import type { EditorWorkspace } from "./store/editorStore";
 
 /**
@@ -21,7 +22,7 @@ export type SurfaceMaturity = "hardening" | "experimental";
 export type WorkspaceSurface = {
   id: EditorWorkspace;
   label: string;
-  icon: string;
+  icon: IconName;
   description: string;
   domain: SurfaceDomain;
   minPersona: ShellPersona;
@@ -49,8 +50,8 @@ const PERSONA_STORAGE_KEY = "retrodev-shell-persona";
 
 const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> = {
   scene: {
-    label: "Scene",
-    icon: "SC",
+    label: "Cena",
+    icon: "studio-scene",
     description: "Composicao e edicao da cena",
     domain: "core",
     minPersona: "guiado",
@@ -59,8 +60,8 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
     roadmapRef: "Scene workspace",
   },
   game: {
-    label: "Game",
-    icon: "GM",
+    label: "Teste",
+    icon: "studio-game",
     description: "Playtest e runtime",
     domain: "core",
     minPersona: "guiado",
@@ -69,8 +70,8 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
     roadmapRef: "Game workspace",
   },
   explorer: {
-    label: "Explorer",
-    icon: "EX",
+    label: "Arquivos",
+    icon: "studio-files",
     description: "Arquivos, assets e cenas",
     domain: "core",
     minPersona: "guiado",
@@ -79,8 +80,8 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
     roadmapRef: "Explorer workspace",
   },
   logic: {
-    label: "Logic",
-    icon: "LG",
+    label: "Lógica",
+    icon: "studio-logic",
     description: "Fluxo visual e scripting",
     domain: "authoring",
     minPersona: "criador",
@@ -89,8 +90,8 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
     roadmapRef: "Logic workspace / NodeGraph canonico",
   },
   artstudio: {
-    label: "Art",
-    icon: "AT",
+    label: "Arte",
+    icon: "studio-art",
     description: "Sprites, slicing e preview",
     domain: "authoring",
     minPersona: "criador",
@@ -99,8 +100,8 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
     roadmapRef: "ArtStudio workspace",
   },
   retrofx: {
-    label: "FX",
-    icon: "FX",
+    label: "Efeitos",
+    icon: "studio-fx",
     description: "Profundidade e parallax",
     domain: "authoring",
     minPersona: "pro",
@@ -109,8 +110,8 @@ const WORKSPACE_SURFACES: Record<EditorWorkspace, Omit<WorkspaceSurface, "id">> 
     roadmapRef: "RetroFX workspace",
   },
   debug: {
-    label: "Debug",
-    icon: "DB",
+    label: "Depurar",
+    icon: "studio-debug",
     description: "Analise e ferramentas avancadas",
     domain: "advanced",
     minPersona: "pro",

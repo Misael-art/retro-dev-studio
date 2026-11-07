@@ -77,6 +77,16 @@ describe("Console actionable diagnostics", () => {
     vi.restoreAllMocks();
   });
 
+  it("closes the drawer without discarding the diagnostic history", () => {
+    useEditorStore.getState().logDiagnostic(buildDiagnostic);
+    root = renderConsole(container);
+    const entries = useEditorStore.getState().consoleEntries;
+    click(container, "console-close");
+    expect(useEditorStore.getState().consoleVisible).toBe(false);
+    expect(useEditorStore.getState().consoleEntries).toEqual(entries);
+    expect(container.querySelector('[data-testid="console-drawer"]')).toBeNull();
+  });
+
   it("filters diagnostics by severity and area, expands details, and copies the full error", async () => {
     act(() => {
       useEditorStore.getState().logDiagnostic(buildDiagnostic);
