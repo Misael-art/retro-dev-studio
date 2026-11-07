@@ -120,6 +120,9 @@ pub enum AstNode {
         /// Controle opcional da curva que chega a cada ponto (mesmo indice de `points`).
         curves: Vec<Option<(i32, i32)>>,
         autostart: bool,
+        /// Plataforma (R5): caixa solida do objeto (offset x, offset y, largura) quando
+        /// `collision.solid`; corpos com gravidade pousam e sao carregados.
+        platform: Option<(i32, i32, u32)>,
     },
     /// Texto de interface autoral (Experimental); ver `compiler/hud_runtime.rs`.
     HudText {
@@ -893,6 +896,15 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
                         .map(|point| point.curve.map(|curve| (curve.x, curve.y)))
                         .collect(),
                     autostart: path.autostart,
+                    platform: entity
+                        .components
+                        .collision
+                        .as_ref()
+                        .filter(|c| c.solid)
+                        .map(|c| {
+                            let (ox, oy) = c.offset.as_ref().map(|o| (o.x, o.y)).unwrap_or((0, 0));
+                            (ox, oy, c.width)
+                        }),
                 });
             }
         }

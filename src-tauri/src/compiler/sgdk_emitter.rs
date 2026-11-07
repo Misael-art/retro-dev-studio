@@ -160,8 +160,10 @@ fn build_main_c_with_collision(
         Default::default()
     };
     WALL_BODIES.with(|cell| *cell.borrow_mut() = bodies);
+    PATH_PLATFORMS.with(|cell| *cell.borrow_mut() = super::path_runtime::collect_platforms(ast));
     let main_c = build_main_c_inner(ast, project_name, collision_map_data);
     WALL_BODIES.with(|cell| cell.borrow_mut().clear());
+    PATH_PLATFORMS.with(|cell| cell.borrow_mut().clear());
     main_c
 }
 
@@ -1054,6 +1056,9 @@ thread_local! {
     /// for the duration of one emission.
     static WALL_BODIES: std::cell::RefCell<std::collections::HashMap<String, (u32, u32)>> =
         std::cell::RefCell::new(std::collections::HashMap::new());
+    /// R5 moving platforms for the current emission (path id, sprite var, offset x/y, width).
+    static PATH_PLATFORMS: std::cell::RefCell<Vec<super::path_runtime::PlatformSpec>> =
+        const { std::cell::RefCell::new(Vec::new()) };
 }
 
 const RUNTIME_STATE_DECL_MARKER: &str = "/*RDS_RUNTIME_STATE_DECL*/\n";
@@ -1433,6 +1438,24 @@ fn render_apply_physics(out: &mut String, physics: &PhysicsApplication) {
             floor_y = floor_y,
             var_name = physics.var_name
         ));
+    }
+
+    // R5: one-way landing on moving path platforms, carried by the platform's last step.
+    // Rising platforms up to 4 px/frame are caught; nothing is emitted without platforms.
+    if let Some(ground) = physics.ground.as_ref().filter(|_| physics.gravity) {
+        let var_name = &physics.var_name;
+        let half_w = ground.body_width / 2;
+        let body_h = ground.body_height;
+        PATH_PLATFORMS.with(|platforms| {
+            for (id, pvar, ox, oy, w) in platforms.borrow().iter() {
+                if pvar == var_name {
+                    continue;
+                }
+                out.push_str(&format!(
+                    "        if ({var_name}_vel_y >= 0) {{ s16 rds_pl = {pvar}_x + ({ox}); s16 rds_pt = {pvar}_y + ({oy}); s16 rds_cx = {next_x_var} + {half_w}; if (rds_cx >= rds_pl && rds_cx < rds_pl + {w} && {next_y_var} + {body_h} >= rds_pt && {var_name}_y + {body_h} <= rds_pt + 4) {{ {next_y_var} = rds_pt - {body_h}; {var_name}_vel_y = 0; {var_name}_on_ground = 1; {next_x_var} += rds_path_{id}_dx; }} }}\n"
+                ));
+            }
+        });
     }
 
     if physics.bounce > 0 {

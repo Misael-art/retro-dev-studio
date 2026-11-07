@@ -22,6 +22,7 @@ pub struct PathSpec {
     pub points: Vec<(i32, i32, u32, u32)>,
     pub curves: Vec<Option<(i32, i32)>>,
     pub autostart: bool,
+    pub platform: Option<(i32, i32, u32)>,
 }
 
 /// C identifier fragment for an object's path (shared with `LogicOp::PathControl`).
@@ -54,6 +55,7 @@ pub fn collect_paths(ast: &AstOutput) -> Vec<PathSpec> {
                 points,
                 curves,
                 autostart,
+                platform,
             } => Some(PathSpec {
                 id: sanitize(entity_id),
                 var_name: var_name.clone(),
@@ -63,6 +65,7 @@ pub fn collect_paths(ast: &AstOutput) -> Vec<PathSpec> {
                 points: points.clone(),
                 curves: curves.clone(),
                 autostart: *autostart,
+                platform: *platform,
             }),
             _ => None,
         })
@@ -120,7 +123,8 @@ pub fn render_decls(ast: &AstOutput) -> String {
         out.push_str(&format!(
             "static u8 rds_path_{id}_seg = 0; static s8 rds_path_{id}_dir = 1; static u8 rds_path_{id}_done = 0;\n\
              static u16 rds_path_{id}_t = 0; static u16 rds_path_{id}_hold = 0;\n\
-             static u8 rds_path_{id}_on = {on};\n",
+             static u8 rds_path_{id}_on = {on};\n\
+             static s16 rds_path_{id}_dx = 0; static s16 rds_path_{id}_dy = 0;\n",
             on = u8::from(path.autostart)
         ));
     }
@@ -176,6 +180,7 @@ pub fn render_updates(ast: &AstOutput, indent: usize) -> String {
              {pad}            if (t >= f) {{ rds_path_{id}_t = 0; rds_path_{id}_seg = b; rds_path_{id}_hold = rds_path_{id}_wait[b]; {on_arrive}}}\n\
              {pad}        }}\n\
              {pad}    }}\n\
+             {pad}    rds_path_{id}_dx = ({sx} + px) - {var}_x; rds_path_{id}_dy = ({sy} + py) - {var}_y;\n\
              {pad}    {var}_x = {sx} + px; {var}_y = {sy} + py;\n\
              {pad}    SPR_setPosition({var}, {var}_x, {var}_y);\n\
              {pad}}}\n",
@@ -201,6 +206,7 @@ mod tests {
                 mode: mode.to_string(),
                 curves: vec![None; points.len()],
                 autostart: mode != "once",
+                platform: None,
                 points,
             }],
             sprite_assets: Vec::new(),
@@ -276,4 +282,29 @@ mod tests {
         assert!(render_decls(&waiting).contains("static u8 rds_path_plat_1_on = 0;"));
         assert_eq!(path_id("plat-1"), "plat_1");
     }
+
+    #[test]
+    fn records_frame_delta_and_lists_only_solid_paths_as_platforms() {
+        let mut ast = ast_with("pingpong", vec![(0, 0, 0, 0), (64, 0, 32, 0)]);
+        assert!(collect_platforms(&ast).is_empty());
+        assert!(render_updates(&ast, 0).contains("rds_path_plat_1_dx = (100 + px) - spr_plat_x;"));
+        assert!(render_decls(&ast).contains("static s16 rds_path_plat_1_dx = 0;"));
+        if let AstNode::ObjectPath { platform, .. } = &mut ast.nodes[0] {
+            *platform = Some((0, 2, 32));
+        }
+        assert_eq!(
+            collect_platforms(&ast),
+            vec![("plat_1".to_string(), "spr_plat".to_string(), 0, 2, 32)]
+        );
+    }
+}
+
+/// Moving platform: (path id, sprite var, box offset x, offset y, width).
+pub type PlatformSpec = (String, String, i32, i32, u32);
+
+pub fn collect_platforms(ast: &AstOutput) -> Vec<PlatformSpec> {
+    collect_paths(ast)
+        .into_iter()
+        .filter_map(|p| p.platform.map(|(ox, oy, w)| (p.id, p.var_name, ox, oy, w)))
+        .collect()
 }
