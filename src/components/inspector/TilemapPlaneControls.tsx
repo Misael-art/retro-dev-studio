@@ -41,7 +41,7 @@ export function TilemapPlaneControls({
           onChange={(event) => onChange({ priority: event.target.checked })}
         />
         Na frente dos sprites
-        <span className="text-[9px] text-[#7f849c]">(prioridade alta: cobre sprites de prioridade baixa, ex.: pilastra sobre o personagem)</span>
+        <span className="text-[9px] text-[#7f849c]">(prioridade alta: só cobre sprites com Priority = background na seção Sprite; sprites «foreground», o padrão, continuam na frente)</span>
       </label>
       <p className="mt-0.5 text-[9px] text-[#7f849c]">Cobre o plano inteiro; recorte de regiões fica para a ferramenta de oclusão.</p>
     </div>
