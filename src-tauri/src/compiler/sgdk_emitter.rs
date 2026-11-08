@@ -3367,20 +3367,14 @@ fn resolved_tilemap_planes(ast: &AstOutput) -> Vec<&'static str> {
             _ => None,
         })
         .enumerate()
-        .map(|(index, plane)| match plane {
-            Some("BG_A") => "BG_A",
-            Some("BG_B") => "BG_B",
-            _ => tilemap_plane(index),
+        .map(|(index, plane)| {
+            match super::platform_support::effective_tilemap_plane(index, plane) {
+                "BG_A" => "BG_A",
+                "BG_B" => "BG_B",
+                _ => "WINDOW",
+            }
         })
         .collect()
-}
-
-fn tilemap_plane(index: usize) -> &'static str {
-    match index {
-        0 => "BG_B",
-        1 => "BG_A",
-        _ => "WINDOW",
-    }
 }
 
 fn sgdk_scroll_plane(layer: &str) -> &'static str {

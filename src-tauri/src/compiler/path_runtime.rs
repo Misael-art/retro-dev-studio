@@ -1,13 +1,15 @@
 //! Trajetos autorais de objeto (Experimental, R5) para Mega Drive/SGDK.
 //!
-//! Cada trajeto e uma lista de pontos relativos a posicao inicial do sprite, percorridos em retas.
+//! Cada trajeto e uma lista de pontos relativos a posicao inicial, em retas/Bezier quadraticas.
 //! `frames` e o tempo para CHEGAR ao ponto e `wait` a pausa ao chegar. Modos:
 //! - `once`: para no ultimo ponto;
 //! - `loop`: do ultimo ponto volta ao ponto 0 usando `frames` do ponto 0 (sem salto escondido);
 //! - `pingpong`: inverte a direcao nas pontas.
 //!
-//! Custo: tabelas `const` em ROM (4 x N valores) e 7 bytes de estado em RAM por trajeto; por quadro,
-//! uma interpolacao linear com uma divisao inteira. O trajeto escreve `<sprite>_x/_y` depois da
+//! Custo logico: 13 x N bytes em tabelas `const` na ROM e 12 bytes em RAM por trajeto
+//! (sem contar alinhamento). Por quadro ativo: duas divisoes s32, lineares ou quadraticas.
+//! Pausar conserva posicao/fase/espera e zera dx/dy; iniciar retoma, e once concluido fica no fim.
+//! O trajeto escreve `<sprite>_x/_y` depois da
 //! logica do quadro, entao ele e o dono da posicao (a build recusa fisica/entrada no mesmo objeto).
 
 use super::ast_generator::{AstNode, AstOutput};
@@ -122,10 +124,11 @@ pub fn render_decls(ast: &AstOutput) -> String {
         ));
         out.push_str(&format!(
             "static u8 rds_path_{id}_seg = 0; static s8 rds_path_{id}_dir = 1; static u8 rds_path_{id}_done = 0;\n\
-             static u16 rds_path_{id}_t = 0; static u16 rds_path_{id}_hold = 0;\n\
+             static u16 rds_path_{id}_t = 0; static u16 rds_path_{id}_hold = {initial_wait};\n\
              static u8 rds_path_{id}_on = {on};\n\
              static s16 rds_path_{id}_dx = 0; static s16 rds_path_{id}_dy = 0;\n",
-            on = u8::from(path.autostart)
+            on = u8::from(path.autostart),
+            initial_wait = path.points[0].3,
         ));
     }
     out
@@ -158,15 +161,21 @@ pub fn render_updates(ast: &AstOutput, indent: usize) -> String {
             "pingpong" => format!(
                 "if (rds_path_{id}_seg == {last}) rds_path_{id}_dir = -1; else if (rds_path_{id}_seg == 0) rds_path_{id}_dir = 1; "
             ),
-            _ => format!("if (rds_path_{id}_seg == {last}) rds_path_{id}_done = 1; "),
+            _ => format!("if (rds_path_{id}_seg == {last} && rds_path_{id}_hold == 0) rds_path_{id}_done = 1; "),
+        };
+        let after_hold = if path.mode == "once" {
+            format!("if (rds_path_{id}_seg == {last} && rds_path_{id}_hold == 0) rds_path_{id}_done = 1;")
+        } else {
+            String::new()
         };
         out.push_str(&format!(
             "{pad}{{ /* trajeto {id} ({mode}) */\n\
              {pad}    u16 a = rds_path_{id}_seg; u16 b = {next};\n\
-             {pad}    s32 px = rds_path_{id}_px[a]; s32 py = rds_path_{id}_py[a];\n\
+             {pad}    s32 px = {var}_x - ({sx}); s32 py = {var}_y - ({sy});\n\
              {pad}    if (!rds_path_{id}_done && rds_path_{id}_on) {{\n\
-             {pad}        if (rds_path_{id}_hold > 0) {{ rds_path_{id}_hold--; }}\n\
+             {pad}        if (rds_path_{id}_hold > 0) {{ rds_path_{id}_hold--; {after_hold} }}\n\
              {pad}        else {{\n\
+             {pad}            px = rds_path_{id}_px[a]; py = rds_path_{id}_py[a];\n\
              {pad}            u16 ci = {seg_index}; s32 f = rds_path_{id}_frames[ci];\n\
              {pad}            s32 t = ++rds_path_{id}_t; s32 u = f - t;\n\
              {pad}            if (rds_path_{id}_hc[ci]) {{ /* Bezier quadratica: pesos somam f*f (cabe em s32) */\n\
@@ -249,7 +258,9 @@ mod tests {
         assert!(looped.contains("b = (rds_path_plat_1_seg + 1) % 2"));
         assert!(!looped.contains("_done = 1"));
         let once = render_updates(&ast_with("once", vec![(0, 0, 0, 0), (32, 0, 20, 5)]), 0);
-        assert!(once.contains("if (rds_path_plat_1_seg == 1) rds_path_plat_1_done = 1;"));
+        assert!(once.contains(
+            "if (rds_path_plat_1_seg == 1 && rds_path_plat_1_hold == 0) rds_path_plat_1_done = 1;"
+        ));
     }
 
     #[test]
@@ -306,5 +317,109 @@ mod tests {
             collect_platforms(&ast),
             vec![("plat_1".to_string(), "spr_plat".to_string(), 0, 2, 32)]
         );
+    }
+
+    /// Execute the actual emitted C, not a second interpolation implementation.
+    #[cfg(unix)]
+    #[test]
+    fn generated_c_preserves_phase_position_and_waits_across_pause() {
+        use crate::core::rom_mastering::sha256_hex;
+        use std::{fs, process::Command};
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir =
+            std::env::temp_dir().join(format!("rds-path-reference-{}-{stamp}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        for mode in ["once", "loop", "pingpong"] {
+            for curved in [false, true] {
+                let mut ast = ast_with(mode, vec![(0, 0, 32, 7), (64, 0, 32, 11)]);
+                if let AstNode::ObjectPath {
+                    autostart, curves, ..
+                } = &mut ast.nodes[0]
+                {
+                    *autostart = true;
+                    if curved {
+                        curves[1] = Some((32, -48));
+                    }
+                }
+                let name = format!("{mode}-{}", if curved { "curve" } else { "line" });
+                let source = format!(
+                    r#"
+#include <assert.h>
+#include <stdint.h>
+typedef int8_t s8; typedef uint8_t u8; typedef int16_t s16; typedef uint16_t u16; typedef int32_t s32;
+static s16 spr_plat_x = 100, spr_plat_y = 50;
+#define SPR_setPosition(s,x,y) ((void)(x), (void)(y))
+{decls}
+static void tick(void) {{ {update} }}
+int main(void) {{
+  s16 expected_x[180], expected_y[180];
+  u16 i;
+  for(i=0;i<180;i++) {{ tick(); expected_x[i]=spr_plat_x; expected_y[i]=spr_plat_y; }}
+  /* Independent checkpoints: initial wait, first segment midpoint, endpoint. */
+  assert(expected_x[6]==100 && expected_y[6]==50);
+  assert(expected_x[22]==132 && expected_y[22]=={mid_y});
+  assert(expected_x[38]==164 && expected_y[38]==50);
+  rds_path_plat_1_seg=0; rds_path_plat_1_dir=1; rds_path_plat_1_done=0;
+  rds_path_plat_1_t=0; rds_path_plat_1_hold=7; rds_path_plat_1_on=1;
+  spr_plat_x=100; spr_plat_y=50;
+  for(i=0;i<180;i++) {{
+    tick(); assert(spr_plat_x==expected_x[i] && spr_plat_y==expected_y[i]);
+    if(i==0 || i==22 || i==38 || i==43 || i==75 || i==123) {{
+      s16 x=spr_plat_x,y=spr_plat_y; u16 t=rds_path_plat_1_t, hold=rds_path_plat_1_hold;
+      u8 seg=rds_path_plat_1_seg,done=rds_path_plat_1_done; s8 dir=rds_path_plat_1_dir;
+      u16 j; rds_path_plat_1_on=0;
+      for(j=0;j<13;j++) {{
+        tick(); assert(spr_plat_x==x && spr_plat_y==y);
+        assert(rds_path_plat_1_dx==0 && rds_path_plat_1_dy==0);
+        assert(rds_path_plat_1_t==t && rds_path_plat_1_hold==hold);
+        assert(rds_path_plat_1_seg==seg && rds_path_plat_1_done==done && rds_path_plat_1_dir==dir);
+      }}
+      rds_path_plat_1_on=1;
+    }}
+  }}
+  {finished}
+  return 0;
+}}
+"#,
+                    decls = render_decls(&ast),
+                    update = render_updates(&ast, 2),
+                    mid_y = if curved { 26 } else { 50 },
+                    finished = if mode == "once" {
+                        "assert(rds_path_plat_1_done==1 && rds_path_plat_1_hold==0 && spr_plat_x==164);"
+                    } else {
+                        "assert(rds_path_plat_1_done==0);"
+                    },
+                );
+                let c = dir.join(format!("{name}.c"));
+                let exe = dir.join(&name);
+                fs::write(&c, &source).unwrap();
+                let compile = Command::new("cc")
+                    .args(["-std=c99", "-Wall", "-Wextra", "-Werror"])
+                    .arg(&c)
+                    .arg("-o")
+                    .arg(&exe)
+                    .output()
+                    .expect("C compiler required by host certificate");
+                assert!(
+                    compile.status.success(),
+                    "{name}: {}",
+                    String::from_utf8_lossy(&compile.stderr)
+                );
+                let run = Command::new(&exe).output().unwrap();
+                assert!(
+                    run.status.success(),
+                    "{name}: {}",
+                    String::from_utf8_lossy(&run.stderr)
+                );
+                fs::write(dir.join(format!("{name}.json")), serde_json::to_vec_pretty(&serde_json::json!({
+                    "tier":"host_c_reference", "case":name, "status":"passed", "source_sha256":sha256_hex(source.as_bytes()),
+                    "coverage":"pause at initial wait, segment midpoint, arrival, endpoint wait, reverse and completion; no-pause control"
+                })).unwrap()).unwrap();
+            }
+        }
+        println!("PATH_C_REFERENCE {}", dir.display());
     }
 }

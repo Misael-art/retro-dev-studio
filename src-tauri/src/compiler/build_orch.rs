@@ -917,6 +917,10 @@ where
         target.target,
         &resolved_scene,
     ));
+    support_issues.extend(crate::compiler::platform_support::sprite_priority_issues(
+        target.target,
+        &resolved_scene,
+    ));
     if !support_issues.is_empty() {
         for issue in &support_issues {
             emit!(

@@ -68,24 +68,39 @@ pub fn path_support_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSup
     issues
 }
 
-/// R5: explicit tilemap planes must be valid and unique (two tilemaps on one plane would
-/// overwrite each other). Tilemaps without a choice keep the previous implicit order.
+/// Effective plane in draw order. Shared with the emitter; no automatic reassignment of legacy
+/// scenes. Mixed explicit/automatic collisions are errors, never silent overwrites.
+pub fn effective_tilemap_plane(index: usize, plane: Option<&str>) -> &str {
+    plane.unwrap_or(match index {
+        0 => "BG_B",
+        1 => "BG_A",
+        _ => "WINDOW",
+    })
+}
+
+/// R5: validate all effective planes, including mixed explicit/automatic allocation.
 pub fn tilemap_plane_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSupportIssue> {
     let mut issues = Vec::new();
     let mut seen: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
-    for entity in &resolved_scene.entities {
-        let Some(plane) = entity
-            .components
-            .tilemap
-            .as_ref()
-            .and_then(|tilemap| tilemap.plane.as_deref())
-        else {
-            continue;
-        };
-        let reason = if plane != "BG_A" && plane != "BG_B" {
+    for (index, (entity, tilemap)) in resolved_scene
+        .entities
+        .iter()
+        .filter_map(|entity| {
+            entity
+                .components
+                .tilemap
+                .as_ref()
+                .map(|tilemap| (entity, tilemap))
+        })
+        .enumerate()
+    {
+        let plane = effective_tilemap_plane(index, tilemap.plane.as_deref());
+        let reason = if tilemap.plane.is_some() && plane != "BG_A" && plane != "BG_B" {
             Some(format!("plano '{plane}' invalido (use BG_A ou BG_B)"))
+        } else if target != "megadrive" && (tilemap.plane.is_some() || tilemap.priority) {
+            Some("plano/prioridade explicitos ainda sem runtime nesta plataforma".to_string())
         } else if target != "megadrive" {
-            Some("plano explicito ainda sem runtime nesta plataforma".to_string())
+            None
         } else {
             seen.insert(plane, entity.entity_id.as_str())
                 .map(|other| format!("o plano {plane} ja e usado por '{other}'"))
@@ -101,6 +116,30 @@ pub fn tilemap_plane_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSu
         }
     }
     issues
+}
+
+/// Do not silently turn an unknown priority string into a low-priority sprite.
+pub fn sprite_priority_issues(target: &str, scene: &Scene) -> Vec<LogicSupportIssue> {
+    scene
+        .entities
+        .iter()
+        .filter_map(|entity| {
+            let sprite = entity.components.sprite.as_ref()?;
+            if matches!(sprite.priority.as_str(), "foreground" | "background") {
+                return None;
+            }
+            Some(LogicSupportIssue {
+                platform: target.to_string(),
+                entity_id: entity.entity_id.clone(),
+                node_id: "priority".to_string(),
+                node_type: "priority".to_string(),
+                reason: format!(
+                    "prioridade '{}' invalida (use foreground ou background)",
+                    sprite.priority
+                ),
+            })
+        })
+        .collect()
 }
 
 /// R5: «Iniciar/Parar trajeto» must target an object that has a path in this scene.
@@ -132,7 +171,8 @@ pub fn path_trigger_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSup
                 .params
                 .get("target")
                 .and_then(|v| v.as_str())
-                .unwrap_or("");
+                .filter(|value| !value.is_empty() && *value != "self")
+                .unwrap_or(&entity.entity_id);
             if !with_path.contains(goal) {
                 issues.push(LogicSupportIssue {
                     platform: target.to_string(),
@@ -327,6 +367,11 @@ pub fn issue_diagnostic(issue: &LogicSupportIssue) -> ActionableDiagnostic {
                 "O plano do cenario '{}' foi recusado em {}: {}.",
                 issue.entity_id, issue.platform, issue.reason
             )
+        } else if issue.node_type == "priority" {
+            format!(
+                "A prioridade do sprite '{}' foi recusada: {}.",
+                issue.entity_id, issue.reason
+            )
         } else if issue.platform == "any" {
             format!(
                 "A logica da entidade '{}' tem uma referencia quebrada em '{}': {}.",
@@ -345,7 +390,9 @@ pub fn issue_diagnostic(issue: &LogicSupportIssue) -> ActionableDiagnostic {
         if issue.node_type == "path" {
             "Ajuste os pontos/tempos do trajeto no Inspector, remova fisica/entrada do objeto ou compile para Mega Drive."
         } else if issue.node_type == "plane" {
-            "Escolha planos diferentes (BG_A e BG_B) para cada cenario no Inspector, ou deixe automatico."
+            "Escolha planos efetivos diferentes (BG_A e BG_B) em Composicao no Canvas ou no Inspector; automaticos tambem ocupam planos."
+        } else if issue.node_type == "priority" {
+            "Escolha prioridade alta ou baixa em Composicao no Canvas ou no Inspector."
         } else {
             "Remova o no (ou o comportamento que o gerou) dessa entidade, ou compile para Mega Drive."
         },
@@ -379,6 +426,20 @@ mod tests {
     }
 
     #[test]
+    fn path_trigger_self_resolves_to_the_graph_owner() {
+        let mut scene = scene_with(
+            r#"{"nodes":[{"id":"go","type":"path_start","params":{"target":"self"}}],"edges":[]}"#,
+        );
+        scene.entities[0].components.path = Some(
+            serde_json::from_str(
+                r#"{"mode":"once","points":[{"x":0,"y":0},{"x":32,"y":0,"frames":10}]}"#,
+            )
+            .unwrap(),
+        );
+        assert!(path_trigger_issues("megadrive", &scene).is_empty());
+    }
+
+    #[test]
     fn explicit_tilemap_planes_must_be_valid_and_unique() {
         let mut scene = scene_with(r#"{"nodes":[],"edges":[]}"#);
         let tile = |id: &str, plane: &str| {
@@ -405,6 +466,54 @@ mod tests {
             .contains("invalido"));
         scene.entities = vec![tile("sky", "BG_B")];
         assert_eq!(tilemap_plane_issues("snes", &scene).len(), 1);
+    }
+
+    #[test]
+    fn mixed_automatic_explicit_planes_are_checked_in_effective_draw_order() {
+        let mut scene = scene_with(r#"{"nodes":[],"edges":[]}"#);
+        let mut tile = scene.entities[0].clone();
+        tile.components =
+            serde_json::from_str(r#"{"tilemap":{"tileset":"t.png","map_width":4,"map_height":4}}"#)
+                .unwrap();
+        let mut other = tile.clone();
+        tile.entity_id = "sky".into();
+        other.entity_id = "ground".into();
+        scene.entities = vec![tile, other];
+        assert!(tilemap_plane_issues("megadrive", &scene).is_empty());
+        scene.entities[1].components.tilemap.as_mut().unwrap().plane = Some("BG_B".into());
+        let mixed = tilemap_plane_issues("megadrive", &scene);
+        assert_eq!(mixed.len(), 1);
+        assert!(mixed[0].reason.contains("sky"));
+        scene.entities[1].components.tilemap.as_mut().unwrap().plane = None;
+        scene.entities[0].components.tilemap.as_mut().unwrap().plane = Some("BG_A".into());
+        assert_eq!(tilemap_plane_issues("megadrive", &scene).len(), 1);
+        // Explicit priority has no SNES tilemap adapter; legacy defaults remain valid there.
+        scene.entities[0].components.tilemap.as_mut().unwrap().plane = None;
+        assert!(tilemap_plane_issues("snes", &scene).is_empty());
+        scene.entities[0]
+            .components
+            .tilemap
+            .as_mut()
+            .unwrap()
+            .priority = true;
+        assert_eq!(tilemap_plane_issues("snes", &scene).len(), 1);
+    }
+
+    #[test]
+    fn invalid_sprite_priority_is_not_silently_downgraded() {
+        let mut scene = scene_with(r#"{"nodes":[],"edges":[]}"#);
+        scene.entities[0].components.sprite = Some(
+            serde_json::from_str(r#"{"asset":"hero.png","frame_width":16,"frame_height":16}"#)
+                .unwrap(),
+        );
+        assert!(sprite_priority_issues("megadrive", &scene).is_empty());
+        scene.entities[0]
+            .components
+            .sprite
+            .as_mut()
+            .unwrap()
+            .priority = "banana".into();
+        assert_eq!(sprite_priority_issues("megadrive", &scene).len(), 1);
     }
 
     fn scene_with_path(components_json: &str) -> Scene {
