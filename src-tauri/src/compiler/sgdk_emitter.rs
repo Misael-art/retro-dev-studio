@@ -873,6 +873,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 out.push_str("#endif\n");
                 if visual_camera.is_some() { out.push_str("    rds_visual_camera_init();\n"); }
                 out.push_str("\n    while (TRUE) {\n");
+                out.push_str(&super::path_runtime::render_platform_snapshots(ast, 8));
             }
             AstNode::SpriteUpdate => {
                 if runtime_probe_enabled {
@@ -914,6 +915,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     8,
                 ));
                 out.push_str(&super::path_runtime::render_updates(ast, 8));
+                out.push_str(&super::path_runtime::render_platform_transport(ast, 8));
                 if visual_camera.is_some() {
                     out.push_str("        rds_visual_camera_tick();\n        rds_camera_apply_scroll();\n");
                 }
@@ -1451,19 +1453,19 @@ fn render_apply_physics(out: &mut String, physics: &PhysicsApplication) {
         ));
     }
 
-    // R5: one-way landing on moving path platforms, carried by the platform's last step.
-    // Rising platforms up to 4 px/frame are caught; nothing is emitted without platforms.
+    // Preserve support for jump conditions before logic. Transport/relative swept landing is
+    // resolved after this frame's path update, using the current dx AND dy (never last frame's).
     if let Some(ground) = physics.ground.as_ref().filter(|_| physics.gravity) {
         let var_name = &physics.var_name;
         let half_w = ground.body_width / 2;
         let body_h = ground.body_height;
         PATH_PLATFORMS.with(|platforms| {
-            for (id, pvar, ox, oy, w) in platforms.borrow().iter() {
+            for (index, (_, pvar, ox, oy, w)) in platforms.borrow().iter().enumerate() {
                 if pvar == var_name {
                     continue;
                 }
                 out.push_str(&format!(
-                    "        if ({var_name}_vel_y >= 0) {{ s16 rds_pl = {pvar}_x + ({ox}); s16 rds_pt = {pvar}_y + ({oy}); s16 rds_cx = {next_x_var} + {half_w}; if (rds_cx >= rds_pl && rds_cx < rds_pl + {w} && {next_y_var} + {body_h} >= rds_pt && {var_name}_y + {body_h} <= rds_pt + 4) {{ {next_y_var} = rds_pt - {body_h}; {var_name}_vel_y = 0; {var_name}_on_ground = 1; {next_x_var} += rds_path_{id}_dx; }} }}\n"
+                    "        if (rds_path_support_{var_name} == {index} && {var_name}_vel_y >= 0) {{ s32 rds_pl = (s32){pvar}_x + ({ox}); s32 rds_pt = (s32){pvar}_y + ({oy}); s32 rds_cx = (s32){next_x_var} + {half_w}; if (rds_cx >= rds_pl && rds_cx < rds_pl + {w} && (s32){var_name}_y + {body_h} == rds_pt) {{ {next_y_var} = rds_pt - {body_h}; {var_name}_vel_y = 0; {var_name}_on_ground = 1; }} }}\n"
                 ));
             }
         });

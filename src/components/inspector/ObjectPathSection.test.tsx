@@ -3,6 +3,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ObjectPathSection } from "./ObjectPathSection";
 import { defaultPath, pathIssue } from "../../core/objectPath";
+import { useEditorStore } from "../../core/store/editorStore";
+import type { Scene } from "../../core/ipc/sceneService";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 let host: HTMLDivElement;
@@ -20,6 +22,40 @@ beforeEach(() => { host = document.createElement("div"); document.body.appendChi
 afterEach(() => { act(() => root.unmount()); host.remove(); });
 
 describe("RC03/08 numeric path authoring", () => {
+  it("uses one real scene history entry and preserves the authored path through Undo/Redo and serialization", async () => {
+    const scene: Scene = { scene_id: "main", background_layers: [], palettes: [], entities: [
+      { entity_id: "prop", transform: { x: 80, y: 32 }, components: {
+        sprite: { asset: "prop.png", frame_width: 16, frame_height: 16, palette_slot: 0, animations: {} },
+        path: { ...defaultPath(), autostart: false },
+      } },
+    ] };
+    const state = useEditorStore.getState();
+    state.setActiveProject("/qa/path-history", "Path history");
+    state.setActiveScene(scene);
+    function Harness() {
+      const path = useEditorStore((s) => s.activeScene?.entities[0]?.components.path);
+      return <ObjectPathSection contextKey="/qa/path-history/main/prop" path={path} fps={60} blockedReason={null}
+        onChange={(next) => useEditorStore.getState().updateEntity("prop", { components: { path: next } })} />;
+    }
+    await render(<Harness />);
+    const before = useEditorStore.getState().undoStack.length;
+    await type(q("inspector-path-x-1"), "-");
+    await type(q("inspector-path-x-1"), "-1");
+    await type(q("inspector-path-x-1"), "-120");
+    expect(useEditorStore.getState().undoStack).toHaveLength(before);
+    await blur(q("inspector-path-x-1"));
+    expect(useEditorStore.getState().undoStack).toHaveLength(before + 1);
+    const serialized = JSON.stringify(useEditorStore.getState().activeSceneSource);
+    await act(async () => useEditorStore.getState().undo());
+    expect(q("inspector-path-x-1").value).toBe("64");
+    await act(async () => useEditorStore.getState().redo());
+    expect(q("inspector-path-x-1").value).toBe("-120");
+    await act(async () => useEditorStore.getState().setActiveScene(JSON.parse(serialized) as Scene));
+    expect(q("inspector-path-x-1").value).toBe("-120");
+    expect(useEditorStore.getState().activeScene?.entities[0]?.components.path?.autostart).toBe(false);
+    // This is scene serialization; native file save/reopen has its own required journey.
+  });
+
   it("commits typing once on blur and cancels Escape without a change", async () => {
     const onChange = vi.fn();
     await render(<ObjectPathSection contextKey="one/main/goal" path={defaultPath()} fps={60} blockedReason={null} onChange={onChange} />);
