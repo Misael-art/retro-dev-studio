@@ -45,9 +45,10 @@ describe("RC03/08 path transitions and asymmetric waits", () => {
       expect(proposal.path.autostart).toBe(false);
       expect(proposal.path.points).toHaveLength(9);
       expect(proposal.path.points[0]!.curve).toBeNull();
-      const closure = proposal.path.points.at(-1)!;
+      const closure = proposal.path.points[proposal.path.points.length - 1]!;
       expect(closure).toEqual(original.points[0]);
-      expect(sampleSegment(original.points.at(-1)!, closure, closure.frames)).toEqual(sampleSegment(original.points.at(-1)!, original.points[0]!, original.points[0]!.frames));
+      const last = original.points[original.points.length - 1]!;
+      expect(sampleSegment(last, closure, closure.frames)).toEqual(sampleSegment(last, original.points[0]!, original.points[0]!.frames));
       expect(planPathModeChange(proposal.path, "loop")).toMatchObject({ path: original });
     }
   });
