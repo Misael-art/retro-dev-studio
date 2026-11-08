@@ -92,6 +92,44 @@ Cores e miniaturas são apoios; a relação textual e os participantes sustentam
 
 Painéis contextuais mantêm cabeçalho/ícone e acesso visíveis quando recolhidos, com abrir, fixar e restaurar disposição. A seleção determina o conteúdo, sem fechar um campo em edição ou depender apenas de hover; teclado e movimento reduzido têm caminhos equivalentes. Uma miniatura da cena ajuda a orientação; marca d'água atrás do grafo é opcional, com opacidade controlável e desativada quando prejudicar contraste. Referências de exibição como A1/A2 podem acompanhar cena/regra por vínculo estável, sem substituir IDs ou mudar de significado ao reorganizar os nós.
 
+### 4.1 Tela de nós como autoria completa e integrada
+
+**Correção explícita do operador em 2026-11-08:** conservar a tela espacial de nós da captura, robustecida e integrada às vistas pedagógicas. Trabalhar individualmente pelas jornadas deve resultar em organização automática nessa tela; editar nela deve atualizar as outras representações. A preocupação central é reduzir sobrecarga cognitiva preservando criatividade, capacidade e precisão.
+
+O grafo continua uma superfície de trabalho livre: criar/conectar/remover nós e portas conforme o modelo, ajustar parâmetros, combinar regras, percorrer branches/ciclos e manipular grupos no espaço. Não o substituir por uma sequência vertical de cartões ou por diagramas fechados. Mapa do jogo, jornadas/formulários, composição e grafo são perspectivas complementares; não são cópias do projeto nem níveis de permissão “iniciante/profissional”. O usuário pode começar pelos nós.
+
+Ao criar por uma jornada, a mesma ação canônica estabelece referências e, quando a semântica permitir, associação/grupo e posição inicial dos novos nós. A organização existe durante a construção, sem exigir uma campanha posterior de arrumação. Criar diretamente no grafo aciona a mesma análise incremental: reconhecer o que for sustentado pelo modelo, preservar o desconhecido e não mover o trabalho manual para fazê-lo caber numa categoria. Uma jornada pode envolver vários grupos; um grupo pode reunir participantes distintos e depender de outra regra sem duplicar execução.
+
+### 4.2 Contrato de edição em ambos os sentidos
+
+“Sincronizar” significa ler e comandar a mesma autoria pelos owners existentes, não converter repetidamente dois documentos independentes. Identificar por campo o owner, ID/ocorrência, escopo, unidade, revisão, comando de escrita e correspondência verificável. `ruleSummary` já carrega `nodeId` para editar parâmetros na origem; `behaviorLibrary` também guarda parâmetros de receita e assinaturas geradas. Esse segundo caso exige reconciliação explícita, pois o código atual de `planEditBehavior` pode regenerar nós e apresentar conflitos com edições manuais. Esses mecanismos são base a integrar, não prova de round-trip integral já implementado.
+
+| Alteração de autoria | Reflexo obrigatório nas demais perspectivas | Proteção necessária |
+|---|---|---|
+| Alterar um parâmetro na jornada/formulário | O nó vinculado e o resumo mostram o novo valor/unidade, mantendo identidade e caminhos. | Comando no owner e atualização do trecho necessário; não regenerar todo o grafo ou sobrescrever conexões personalizadas para mudar um campo. |
+| Alterar o mesmo parâmetro no nó | A jornada/Inspector correspondente lê o valor atual. | Não exibir o valor antigo da receita como se fosse vigente. Se a correspondência não for reversível, identificar o campo como personalizado/com origem no grafo, sem inventar outro valor. |
+| Criar/reconectar lógica no grafo | Resumos, dependências, participantes e mapa de cenas são reavaliados no alcance pertinente. | Identificar trecho parcialmente representável e permitir abri-lo no grafo. Preservar o trecho e os controles ainda válidos; não forçar a regra a voltar à receita inicial. |
+| Alterar um destino de cena | A ligação no mapa e o nó de origem refletem a mesma referência. | Destino dinâmico/parcial explícito; mover o cartão da cena no mapa não altera a transição. |
+| Editar arte/animação/paleta ou propriedade no Canvas | Recursos e valores vinculados são reapresentados nas vistas que os usam. | Mesmo recurso/ocorrência e alcance compartilhado; posição inicial, destino de ação e estado observado continuam distintos. |
+| Mover/recolher/filtrar grupos, dar zoom ou navegar | Atualizar somente preferências de apresentação pertinentes. | Não mudar lógica, posição dos objetos na cena, execução ou estado dos painéis de outra perspectiva sem intenção explícita. |
+| Desfazer/refazer, salvar/reabrir ou recuperar | Todas as perspectivas mostram a revisão autoral resultante. | Usar os históricos/transações e persistência dos owners; uma ação semântica não gera várias ações independentes que exigem desfazer vista por vista. |
+
+Uma topologia arbitrária não precisa caber integralmente num formulário simples. O contrato exige **fidelidade e acesso**, com representação parcial explícita, e não uma equivalência falsa entre qualquer grafo e qualquer receita. Para uma receita personalizada, uma escrita incompatível não pode regenerar/destruir os nós silenciosamente; deve permitir continuar no grafo e resolver somente o conflito real. A marcação de alteração manual precisa distinguir edição externa de uma atualização legítima feita pelo próprio comando vinculado, cobrindo a regressão JV09 já identificada.
+
+As mudanças confirmadas de autoria invalidam as projeções por revisão; rascunhos, cancelamento e erro não publicam um estado parcialmente aplicado. Resultados atrasados não substituem outra revisão/projeto. Atualizar as vistas de edição não equivale a atualizar a ROM em execução: mantém-se o contrato de teste da seção 5.3. Não introduzir um novo motor de sincronização, store global, grafo paralelo ou interpretador universal.
+
+### 4.3 Redução de sobrecarga cognitiva sem restringir autoria
+
+- **Uma tarefa em primeiro plano:** grafo ocupa a área central na perspectiva Nós; Inspector acompanha a seleção. Mapa de cenas, prévia e biblioteca abrem quando pedidos, com alternativa de fixação, sem mostrar todos os espaços simultaneamente por padrão.
+- **Orientação persistente e compacta:** projeto/cena/regra e acesso global permanecem visíveis. Título, participantes e origem explicam os grupos; não exigir decifrar cor ou miniatura para descobrir uma função.
+- **Detalhe por intenção:** iniciar com enquadramento útil; buscar/enquadrar seleção ou grupo; revelar campos e conexões pertinentes sem remover acesso ao restante. Foco visual atenua o entorno, mostra relações externas e permite restauração imediata; não desliga lógica nem esconde defeitos para validar.
+- **Estabilidade espacial:** organização incremental resolve conteúdo novo. Nós fixados, nomes, arranjo manual, pan/zoom e retorno sobrevivem; reorganizar o existente é ação deliberada e reversível. Não saltar a vista após cada edição.
+- **Sinais com prioridade:** seleção e erro pertinente têm destaque, malha e relações não selecionadas ficam discretas; distinguir execução e dados também por forma/legenda. Diagnóstico detalhado fica acessível, com indicação persistente de pendências relevantes, sem empilhar todas as mensagens sobre o grafo.
+- **Edição direta e descoberta:** ações comuns próximas do alvo, atalhos/menu contextual com alternativas visíveis, nós/código e catálogo completo ao alcance. Nenhuma lista de mecânicas reconhecidas define o que o autor pode criar dentro das capacidades reais.
+- **Densidade ajustável:** painéis redimensionáveis/recolhíveis/fixáveis, nomes acessíveis, teclado, contraste e movimento reduzido. Em janela pequena, usar o painel contextual existente e uma superfície ativa por vez, preservando acesso e valor; não tentar miniaturizar tudo.
+
+O mockup espacial é a vista de referência para autoria por nós; as outras imagens mostram perspectivas complementares. Não é necessário mantê-las abertas juntas para obter a sincronização.
+
 ## 5. Navegação entre regra, cena e dados
 
 - Clicar na regra enquadra seu conjunto de nós; abrir detalhe preserva a identidade selecionada.
@@ -161,6 +199,8 @@ S00/S01 alimentam todas as fases. S02 cria o acesso integral ao jogo; S03–S05 
 
 As ações intercambiáveis e a acessibilidade devem nascer em cada fase, mesmo antes de S08/S10. Essas fases verificam a integração completa, não autorizam deixar as anteriores isoladas ou inacessíveis. Uma ferramenta nova já nasce com entrada clara no Canvas/contexto, precisão numérica e retorno. O teste básico acompanha os lotes que o exigem; S09 fecha a experiência contínua de execução e suas diferentes intenções.
 
+O contrato da seção 4.2 começa em S01, é aplicado por S03–S05 e verificado com organização incremental em S06 e intercâmbio em S08. Os critérios da seção 4.3 acompanham todas as fases. Não é aceitável concluir apenas jornada→grafo e deixar grafo→jornada para um lote sem compromisso de fechamento, nem exigir que a autoria aconteça primeiro no formulário.
+
 ### 6.2 Conferência de cobertura das propostas anteriores
 
 | Família já solicitada | Onde entra na série |
@@ -174,6 +214,7 @@ As ações intercambiáveis e a acessibilidade devem nascer em cada fase, mesmo 
 | VIS04 ondas/distorção; VIS05 Fantasma; VIS06 mesmos dados Canvas/nós/código | S07; S07; S01/S05/S08. Técnica e suporte do efeito são explícitos por alvo. |
 | VIS07 seleção/transformação; carimbos/terrenos; colisão/regiões; timeline; câmera; atmosfera/paleta; custos/otimização | S03; S03/S04; S03–S05; S05/S07; S03/S05/S07; S07; S07/S10. As sete famílias permanecem no escopo declarado. |
 | VIS08 integração, composição e prova entre capacidades | S08–S10, preservando toda a matriz de acesso, precisão e reversibilidade. |
+| Grafo espacial preservado, autoria em ambos os sentidos e carga cognitiva (correção do operador) | S01 fecha vínculo/comando; S03–S05 aplicam; S06 organiza durante a construção; S08 verifica a ida/volta; S10 mede uso repetido e compreensão, inclusive começando pelos nós. |
 
 Cada requisito deve ter status por owner e alvo na matriz canônica, sem um “concluído” global que esconda uma variante não comprovada. Recursos fora dos alvos/fases atuais permanecem identificados conforme o roadmap; desenhá-los não antecipa sua implementação. Se uma transição de cena ou técnica visual necessária não tiver suporte real, a dependência deve ser resolvida ou retida explicitamente antes de anunciar a experiência correspondente como completa.
 
@@ -230,6 +271,8 @@ O template atual entra como **um** caso. O aceite exige também:
 6. Casos vazio, carregando, removido, origem externa e imagem ausente, com navegação por teclado e estado compreensível.
 7. Jogo de exemplo com menus, bifurcação, retorno/ciclo e destino dinâmico: acessar o mapa completo, abrir a origem de uma transição e voltar sem perder contexto. Cobertura parcial deve continuar visível e impedir declaração de fluxo integral concluído.
 8. Partir de um nó que afeta um recurso diferente do dono do grafo → abrir o gráfico/animação exatos → editar → posicionar a propriedade pertinente no Canvas → testar a revisão atual → voltar ao mesmo nó. Conferir escopo compartilhado, Undo/Redo, reabertura e ausência de alvo trocado. Para alterações ao vivo, aplicar o contrato e contraprovas pertinentes; para reconstrução, provar preparação/retorno sem execução obsoleta.
+9. Criar uma regra pela jornada e conferir grupo/nós/participantes automaticamente; alterar um parâmetro pela jornada e depois pelo nó, conferir a mesma referência/unidade/valor nas duas direções. Acrescentar branch/conexão manual, retornar ao formulário e alterar outro campo: nenhum caminho manual pode ser substituído silenciosamente; parâmetros não representáveis ficam explícitos, sem valor antigo apresentado como atual. Undo/Redo, cancelamento e reabertura conservam o conjunto; cobrir JV09 e as assinaturas dos nós gerados.
+10. Começar diretamente pelos nós sem usar uma jornada; compor regra personalizada, localizar participantes/origem e percorrer relações entre grupos. Comparar com a tela atual a tarefa de identificar, alterar e retornar: medir erros, ações e perda de orientação, além de contagens de controles. Conferir que foco/painéis e organização incremental reduzem ruído sem retirar caminhos, capacidades ou configuração manual.
 
 Casos sintéticos de unidades verificam a projeção; projetos autorais compatíveis e a jornada Tauri verificam uso real. Isso não autoriza anunciar suporte a um jogo/gênero/alvo inteiro.
 
@@ -243,13 +286,14 @@ Avaliação humana proposta: localizar qual regra move um objeto, qual altera ou
 
 ## 8. Retenções antes da implementação
 
-- Validar o roadmap em série e as quatro vistas complementares: mapa de regras, grafo editável, fluxo do jogo e ambiente consolidado. A distinção entre resumo e edição completa deve permanecer clara.
+- Validar o roadmap em série e as cinco vistas complementares: mapa de regras, grafo editável, fluxo do jogo, ambiente consolidado e grafo espacial integrado. A quinta corrige o risco de ler as anteriores como substituição do espaço livre de nós; resumo e edição completa continuam distintos.
 - Fechar escopo por origem/participantes, tratamento de nós compartilhados e coexistência de grupos manuais/derivados. Agrupamento visual atual tem uma participação exclusiva por nó; a projeção de regras pode referenciar o mesmo nó sem alterar esse contrato ou duplicá-lo.
 - Confirmar quais novos metadados são derivados, quais são preferências de editor e quais precisam de serialização compatível; preservar projetos antigos sem reescrita automática.
 - Definir comportamento em ambiguidade, branches/ciclos e código importado. Semântica não conhecida não pode ser inventada por nomes, cores ou proximidade.
 - Não usar o mockup para atribuir execução a um nó ou tipo de objeto sem suporte no alvo. Telemetria de execução real, se futuramente exibida, precisa de prova separada.
 - Resolver carregamento/indexação e proveniência de transições para o fluxo completo, inclusive rotas desconhecidas; não fechar o item entregando apenas o grafo selecionado ou um conjunto fixo de mecânicas.
 - Fechar o vínculo exato nó/recurso/propriedade e a política de edição/teste ao vivo versus reconstrução, mantendo uma origem e a identificação da revisão. A posição autoral, o destino de uma ação e o estado de runtime não são campos intercambiáveis sem intenção explícita.
+- Provar escrita nos dois sentidos por vínculo de campo e reconciliar parâmetros de receita/nós gerados. O gerador atual com conflito manual não equivale à edição integrada proposta; não fechar o requisito com espelhamento unidirecional ou sobrescrita de customizações. Validar também a jornada iniciada diretamente nos nós e a redução de sobrecarga com usuários, sem promover a proposta por uma imagem legível.
 - Resolver medições e limites no host antes de validar desempenho. Respeitar o protocolo de recursos, locks, bootstrap e a revisão atual do Memory Bank; nenhum build/teste pesado é necessário para aprovar esta proposta visual.
 
 ## 9. Mockups e limites desta entrega
@@ -260,20 +304,23 @@ Artefatos privados em `/home/misael/Shared/ProjectRuntime/RetroDevStudio/session
 - `02-grafo-completo-engine.png`: detalhe com nós, campos, portas, condições e relações; preserva a navegação global e as áreas relacionadas.
 - `03-fluxo-jogo-esteiras.png`: fluxo integral de um jogo ilustrativo com bifurcação, retorno e destino dinâmico, mais ações diretas sobre o recurso específico para Arte, Canvas, nó de origem e teste. Não representa transições já compiladas ou sessão rodando.
 - `04-logica-completa-ambiente.png`: síntese visual do ambiente proposto, com acesso ao fluxo do jogo, índice contextual aberto, grafo editável, trajetos e ações sobre o recurso exato. Os grupos recolhidos conservam o acesso; o desenho é um recorte ilustrativo e não um inventário de todos os nós ou capacidades implementadas.
+- `05-nos-espaciais-integrados.png`: revisão que conserva o grafo espacial como área principal, com vários grupos/nós/portas e conexões visíveis, criação livre, origem/participantes, minimapa e Inspector contextual. O mesmo parâmetro aparece na referência da jornada sem abrir outro formulário ativo. Azul representa execução e roxo tracejado representa dependência de dados; a curva é prévia de trajeto, não um nó executor. Essa é a vista de referência atual para trabalho no grafo, complementar às demais.
 - `entrada-tela-real.png`, `prompts.json` e `manifesto.json`: referência fornecida, prompts imagegen e identidades dos arquivos.
 
 As imagens são composições ilustrativas; conteúdos, contagens e valores são exemplos, não exportação reagrupada do projeto do operador. Os auxiliares Sem ação representam portas sem ligação, não operações novas. A intenção da vista detalhada é mostrar capacidade preservada, não certificar que todas as regras/parametrizações daquele exemplo foram compiladas. A miniatura do personagem é apenas um recurso visual ilustrativo e não uma condição do algoritmo. No ambiente consolidado, X/Y são a posição inicial da Porta; o destino de transição é a Cena C, em um campo distinto. O índice de grupos não simula um minimapa geométrico. Campos e ações não garantem suporte no runtime sem o gate pertinente.
 
 Geração por imagegen embutido. As imagens selecionadas usam a arte original do mensageiro como ilustração e indicam proposta sem execução, sem selo de validação de runtime. Os originais da geração e prompts permanecem preservados. Nenhuma imagem sintética é evidência de Tauri, acessibilidade ou runtime. Cópias no mesmo filesystem, sem backup independente qualificado.
 
-Diagnóstico fresco pelo launcher global: READY no recibo `sessions/2026-11-08T03-35-40-117Z-481326`. Não executados nesta etapa: build, suítes de produto, Tauri interativo ou provas de jogo, pois o pedido é avaliar e planejar antes de implementar. RAM disponível observada cerca de 3,5 GiB, sem atividade de swap na amostra final e PSI de I/O imediato zerado; nenhuma carga pesada foi adicionada. Orçamento de artefatos locais até 20 MiB, sem SDK/ROM/download grande.
+Diagnóstico de abertura pelo launcher global: READY no recibo `sessions/2026-11-08T03-35-40-117Z-481326`; é evidência daquela execução, não certificação contínua do host. Não executados nesta etapa: build, suítes de produto, Tauri interativo ou provas de jogo, pois o pedido é avaliar e planejar antes de implementar. Na amostra inicial havia cerca de 3,5 GiB disponíveis; na revisão do grafo espacial, cerca de 3,9 GiB, com PSI de I/O presente. Nenhuma carga pesada foi adicionada. Orçamento de artefatos locais até 20 MiB, sem SDK/ROM/download grande.
 
 ## 10. Proposta de checkpoint para o Memory Bank
 
 Os documentos compartilhados de estado já têm alterações de outra frente. Para preservá-las, esta tarefa propõe a integração posterior do seguinte checkpoint, sem modificar/stagear esses arquivos:
 
-> 2026-11-08 — Auto-organização da lógica na engine/editor: operador pediu avaliação/plano e mockup antes da implementação. Plano em `studio_grafico/PLANO_AUTO_ORGANIZACAO_LOGICA_ENGINE_2026-11-08.md`, com associação genérica por semântica/origem/participantes, layout incremental e zoom legível, preservando o grafo completo e a navegação global. Roadmap serial S00–S10 e matriz de cobertura R3/R5/R6/R7; quatro mockups privados e prompts em `sessions/plano-auto-organizacao-logica-20261108/`. Proposta aguardando validação; nenhum produto/projeto de jogo alterado por esta tarefa. Revalidar estado/owners e os contratos de grupos/escopo/persistência antes de implementar, dentro da frente sequencial vigente. Não anunciar reconhecimento universal nem capacidade de runtime por imagem.
+> 2026-11-08 — Auto-organização da lógica na engine/editor: operador pediu avaliação/plano e mockup antes da implementação. Plano em `studio_grafico/PLANO_AUTO_ORGANIZACAO_LOGICA_ENGINE_2026-11-08.md`, com associação genérica por semântica/origem/participantes, layout incremental e zoom legível, preservando o grafo completo e a navegação global. Roadmap serial S00–S10 e matriz de cobertura R3/R5/R6/R7; cinco mockups privados e prompts em `sessions/plano-auto-organizacao-logica-20261108/`. Proposta aguardando validação; nenhum produto/projeto de jogo alterado por esta tarefa. Revalidar estado/owners e os contratos de grupos/escopo/persistência antes de implementar, dentro da frente sequencial vigente. Não anunciar reconhecimento universal nem capacidade de runtime por imagem.
 
 > Complemento do operador: cobertura aberta a diversas situações, acesso integral às transições de cenas e esteiras intercambiáveis. Partir da lógica para editar o gráfico específico, posicionar a propriedade correta no Canvas, testar no contexto/revisão atual e retornar. Atualização ao vivo e reconstrução têm contratos por recurso/alvo, sem confundir prévia e execução. Esses são requisitos de fechamento da proposta, não acessórios do zoom.
 
-Próximo passo desta tarefa: receber a validação/ajustes do operador sobre o roadmap em série e as quatro vistas complementares. A implementação permanece pendente dessa validação explícita, conforme o pedido. Os esclarecimentos sobre abrangência, fluxo de cenas, intercâmbio das esteiras e sequência de produção foram incorporados ao plano; não equivalem a uma autorização para iniciar código nesta rodada.
+> Correção posterior: conservar o grafo espacial como autoria completa. Jornadas e nós editam a mesma autoria em ambos os sentidos, por campo e owner; organização nasce durante a construção. Não substituir o grafo por cartões nem regenerar customizações silenciosamente. Topologia complexa pode exigir resumo parcial, mantendo o acesso e os controles ainda válidos. Critérios de foco/densidade/estabilidade e aceites de ida/volta, JV09 e início diretamente nos nós estão nas seções 4.1–4.3 e 7. A quinta vista representa essa correção, sem prova de implementação.
+
+Próximo passo desta tarefa: receber a validação/ajustes do operador sobre o roadmap em série e as cinco vistas complementares, com o grafo espacial integrado como referência para trabalho por nós. A implementação permanece pendente dessa validação explícita, conforme o pedido. Os esclarecimentos sobre abrangência, fluxo de cenas, intercâmbio das esteiras, sequência de produção e autoria bidirecional foram incorporados ao plano; não equivalem a uma autorização para iniciar código nesta rodada.
