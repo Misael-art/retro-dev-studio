@@ -1,6 +1,6 @@
-# Plano — auto-organização da lógica na engine/editor
+# Plano — autoria integrada, potencial criativo e auto-organização da engine
 
-**Status: proposta para validação do operador, antes da implementação.** Pedido de 2026-11-08. Esta entrega contém avaliação, plano e mockups. Nenhuma capacidade abaixo foi implementada por esta tarefa, nenhum projeto de jogo foi reorganizado e nenhuma validação de runtime é inferida das imagens.
+**Status: diretriz de produto registrada; proposta técnica/visual para validação do operador, antes da implementação.** Pedidos de 2026-11-08. Foco atual de implementação: Mega Drive. Esta entrega contém avaliação, plano e mockups. Nenhuma capacidade abaixo foi implementada por esta tarefa, nenhum projeto de jogo foi reorganizado e nenhuma validação de runtime é inferida das imagens.
 
 ## 1. Objetivo e alcance
 
@@ -13,6 +13,60 @@ Preservar a navegação global à esquerda, a navegação horizontal de contexto
 **Esclarecimento do operador em 2026-11-08:** a melhoria deve organizar o processo de produção em situações diversas e continuar aberta à composição. Zoom é somente uma forma de leitura. O alcance obrigatório inclui o fluxo completo de cenas do jogo e ações intercambiáveis entre lógica, gráfico específico, Canvas e teste em tempo real, preservando contexto e dados. Os exemplos reconhecidos não formam uma lista fechada de mecânicas permitidas; associação parcial limita o resumo, não o acesso à lógica e às ferramentas já suportadas.
 
 Esta proposta complementa R2/R3 e a direção R5/R7 da [jornada de autoria](JORNADA_MEGA_DRIVE_2026-11-05.md). Sua execução futura deve entrar na frente sequencial vigente, respeitar a [retomada](../handoffs/PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md) e o [prompt integral existente](../handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md), após validação deste plano. Não iniciar esta implementação nesta rodada.
+
+### 1.1 Diretriz de produto registrada pelo operador
+
+**Pedido de registro detalhado, 2026-11-08:** levar o RetroDev Studio a uma engine com excelente potencial criativo, capaz de aproveitar amplamente os consoles retrô, com **Mega Drive como foco atual de implementação**. As ferramentas devem unir flexibilidade e robustez a uma organização moderna, ajustável e interligada, voltada à produtividade e à coesão do projeto. A experiência deve ser concebida prioritariamente para pessoas leigas, permitindo aprender e produzir enquanto aprofundam o domínio técnico, conservando acesso à autoria avançada.
+
+O resultado pretendido é um ambiente em que o autor consiga imaginar, compor, programar visualmente, testar, compreender o resultado, refinar e entregar jogos elaborados. A engine assume o trabalho repetitivo de associação, rastreamento e organização; o autor conserva decisões de arte, mecânicas, composição e técnicas. Qualidade visual, qualidade de execução e qualidade da experiência de produção são exigências simultâneas.
+
+Esta diretriz é o objetivo do plano e o critério para avaliar os incrementos. Seu registro não declara essas capacidades prontas, não substitui o roadmap operacional e não autoriza começar implementação nesta tarefa documental. A situação dos cinco mockups permanece de proposta a validar.
+
+### 1.2 Foco atual e significado de aproveitar o console
+
+O fechamento desta direção será perseguido primeiro no **Mega Drive**, pelo pipeline e pelos owners oficiais existentes. Recursos já suportados de outros alvos devem conservar suas regressões; sua existência não transfere comprovação para MD nem autoriza ampliar frentes em paralelo. A arquitetura preserva a separação entre autoria e capacidades específicas do alvo, para evolução posterior conforme o roadmap, sem impor limites artificiais de um console aos demais.
+
+“Uso maximizado do potencial” significa ampliar a variedade e a qualidade dos resultados que o autor consegue produzir dentro das capacidades reais, com custo conhecido e desempenho adequado ao jogo. Não significa ocupar toda a memória, consumir toda a janela de transferência, empilhar efeitos ou perseguir um percentual fictício de aproveitamento. Reservas, estabilidade e técnicas alternativas fazem parte da qualidade. Um recurso isolado funcionar não prova que a combinação de recursos ou a cena de maior carga funciona.
+
+O inventário deve relacionar, conforme suporte efetivo, composição de planos e sprites, tiles e mapas, prioridades, paletas e suas mudanças, câmera/rolagem/paralaxe, animação, colisão, mecânicas, efeitos e áudio aos respectivos custos e restrições. Considerar CPU, memória, recursos do VDP, transferências por quadro e cadência do conteúdo, com os [limites de hardware canônicos](../04_HARDWARE_SPECS.md) e medições identificadas. Valores e técnicas não comprovados ficam como pendência por alvo. Não introduzir promessas de transparência, streaming ilimitado, hot reload universal ou equivalência de técnicas entre consoles.
+
+### 1.3 Objetivos verificáveis e vínculo com a série
+
+| ID | Objetivo | Direção para ferramentas e experiência | Evidência para considerar atendido | Série principal |
+|---|---|---|---|---|
+| **OBJ01 — Liberdade criativa** | Permitir composição autoral diversa e mecânicas elaboradas. | Nós livres, regras combináveis, parâmetros precisos, estados/variáveis, cenas e recursos reutilizáveis; receitas servem de ponto de partida. | Produzir e reabrir casos distintos, inclusive começando pelos nós, sem depender de nomes/templates ou perder customizações ao voltar à jornada. | S01, S03–S06, S08 |
+| **OBJ02 — Potencial do Mega Drive** | Tornar técnicas e custos reais utilizáveis na produção. | Ferramentas visuais para composição, planos/prioridade, paletas, câmera/paralaxe, trajetos, efeitos e recursos de áudio dentro do suporte; orçamento acessível perto da tarefa. | Combinações representativas e situações de maior carga no Build→ROM→core oficial, com identidade, cadência e custos medidos; limites restantes registrados por técnica. | S00, S03–S05, S07, S09–S10 |
+| **OBJ03 — Gráficos e apresentação de qualidade** | Preservar a intenção artística até o console. | Pixel art, montagem e conversão adequadas, animações, paletas/usos/variantes e prévia pertinente; conservar originais e permitir revisão do resultado. | Comparar fonte, conversão, composição e resultado na ROM; verificar transparência/índices/bancos/quadros conforme o alvo, sem substituir qualidade por placeholders ou por uma imagem sintética bonita. | S04, S07, S09–S10 |
+| **OBJ04 — Ferramentas robustas** | Tornar edição precisa, reversível e recuperável. | Gesto e número na mesma propriedade, escopo explícito, Undo/Redo, cancelamento sem efeito, persistência/recuperação e tratamento de conflitos. | Repetir editar→desfazer/refazer→salvar→fechar/reabrir e negativos pertinentes; provar ausência de perda e de alteração silenciosa em recursos compartilhados. | S00–S01, S03–S05, S08, S10 |
+| **OBJ05 — Coesão e interligação** | Fazer o projeto se comportar como um conjunto coerente. | Jornadas, regras, grafo espacial, mapa de cenas, Arte e Canvas usam os mesmos vínculos; ações diretas abrem o recurso/propriedade certos e oferecem retorno. | Edição em ambos os sentidos, revisão consistente, transições com origem rastreável e ausência de cópias divergentes, campos antigos ou dados em outro alvo. | S01–S02, S05–S06, S08–S10 |
+| **OBJ06 — Amigável para leigos** | Permitir produzir e compreender sem dominar previamente termos de hardware/programação. | Linguagem de tarefa, exemplos úteis, ações descobríveis, ajuda contextual, erros com correção e detalhe técnico progressivo; acesso avançado permanece disponível. | Pessoas do público pretendido conseguem localizar, editar, testar, corrigir e retomar tarefas, com observação de hesitações/erros e sem condução contínua do avaliador. | Todas; fechamento humano em S10 |
+| **OBJ07 — Organização moderna e adaptável** | Reduzir esforço de orientação e arrumação conforme o projeto cresce. | Associação automática por semântica, layout incremental estável, foco/busca, painéis ajustáveis, navegação global e níveis de leitura com acesso integral. | Comparação com a tela atual em grafos representativos, preservando conexões, autoria, títulos/fixações e acesso; validar janela pequena, teclado, contraste e movimento reduzido. | S02, S06, S08, S10 |
+| **OBJ08 — Produtividade sustentável** | Encurtar o ciclo criativo sem comprometer a confiança. | Automatizar conversões/associações repetitivas suportadas, mostrar impacto, oferecer prévia/cancelamento quando cabíveis e integrar editar→testar→refinar→entregar. | Medir tempo até resultado verificável, ações repetidas, correções, retorno e reabertura; reproduzir o artefato da revisão correta em uso prolongado. | S04–S06, S08–S10 |
+
+Nenhum objetivo recebe aceite global apenas por existir um botão ou uma demonstração curta. A matriz canônica deve indicar owner, alvo, suporte, evidência e dependências; a matriz acima descreve a intenção e o aceite do plano, sem criar outro registro de maturidade.
+
+### 1.4 Contrato de qualidade para cada ferramenta/lote
+
+Antes de implementar cada lote, registrar na entrada correspondente do plano/handoff existente:
+
+1. **Intenção e descoberta:** o que a pessoa quer realizar, como encontra a ação e que resultado reconhecível espera; evitar exigir uma sequência de termos internos para começar.
+2. **Autoria e alcance:** tipo de objeto/recurso compatível, identidade/ocorrência, owner, propriedade, unidade, escopo local/compartilhado e quem será afetado.
+3. **Manipulação completa:** operação visual e numérica quando pertinentes, seleção inclusive de conteúdo encoberto, ajuste fino, composição e caminho para detalhes avançados.
+4. **Integração:** como a mudança aparece em jornada, regra, nós, Arte/Canvas e mapa de cenas quando aplicável, com leitura atualizada e escrita vinculada nos dois sentidos.
+5. **Segurança de edição:** momento de confirmação, cancelamento, Undo/Redo, erro/conflito, salvamento, reabertura e recuperação pelos mecanismos existentes.
+6. **Custo e execução:** suporte real no Mega Drive, custo previsto e medido, limites/alternativas e política de prévia, atualização ao vivo ou reconstrução. Limitação importante deve aparecer antes de perder trabalho.
+7. **Carga cognitiva e acesso:** informações essenciais na tarefa, detalhes sob demanda, contexto/retorno conservados, painel ajustável, teclado/contraste e comportamento em janela pequena. Não usar recolhimento automático para esconder um campo em edição ou avisos relevantes.
+8. **Prova e continuidade:** cenário positivo, negativo/regressão pertinente, recursos do host, jornada no Tauri quando houver mudança de comportamento, ROM/core quando alcançar execução, resultados/limites e próximo incremento.
+
+Automação deve ter intenção clara e resultado inspecionável, usando os comandos canônicos e respeitando personalizações. Não alterar arte, paleta, colisão, prioridade ou lógica silenciosamente em nome de desempenho/organização. Oferecer alternativas explicadas e aplicar apenas a mudança escolhida ou já autorizada, com reversão compatível.
+
+### 1.5 Experiência pedagógica e avaliação de produtividade
+
+A pessoa leiga deve poder seguir uma jornada curta com ações em linguagem de produção: montar cena, escolher participante, definir ação, editar gráfico, testar resultado. Cada passo revela o trecho correspondente no grafo e ensina a relação entre intenção e funcionamento. Ela pode interromper essa jornada, navegar livremente, aprofundar nos nós e voltar; não fica presa a um assistente linear ou a um modo com menos capacidade.
+
+Ajuda e exemplos devem acompanhar a seleção e explicar efeito, alcance e como corrigir problemas. Unidades e termos técnicos necessários recebem explicação contextual. Estados vazio, carregando, parcial, removido e erro têm próximo passo claro, conservando dados. A primeira tarefa deve oferecer um resultado verificável; o mesmo ambiente deve suportar projeto maior, refinamento de qualidade e manutenção repetida.
+
+Para avaliar, levantar linha de base e repetir tarefas comparáveis: tempo até primeiro teste válido, quantidade de ações, mudanças de contexto, busca por ferramentas, erros de alvo/escopo, recuperação após erro e perda de orientação. Medir separadamente latência da interface, tempo de build, cadência da execução e compreensão humana. Definir metas após a linha de base, sem inventar percentuais de ganho ou declarar usabilidade aprovada por testes automatizados. A aprovação final exige evidência técnica e avaliação com o público pretendido.
 
 ## 2. Avaliação da tela real e da base disponível
 
@@ -201,6 +255,8 @@ As ações intercambiáveis e a acessibilidade devem nascer em cada fase, mesmo 
 
 O contrato da seção 4.2 começa em S01, é aplicado por S03–S05 e verificado com organização incremental em S06 e intercâmbio em S08. Os critérios da seção 4.3 acompanham todas as fases. Não é aceitável concluir apenas jornada→grafo e deixar grafo→jornada para um lote sem compromisso de fechamento, nem exigir que a autoria aconteça primeiro no formulário.
 
+Cada lote da série deve indicar quais objetivos OBJ01–OBJ08 atende e aplicar o contrato de qualidade da seção 1.4. Uma melhoria visual que reduza capacidade/precisão, uma técnica avançada que não seja utilizável pelo público pretendido ou uma automação que quebre a coesão retém o aceite correspondente. S00 continua prioritário: esta direção não permite saltar hardening, suporte do alvo ou dependências do roadmap para entregar uma aparência de completude.
+
 ### 6.2 Conferência de cobertura das propostas anteriores
 
 | Família já solicitada | Onde entra na série |
@@ -260,6 +316,8 @@ Navegação global e contexto continuam disponíveis em toda a estrutura. Resumo
 A aprovação visual orienta a implementação dentro da frente sequencial, respeitando fechos em andamento. Não aprova contrato ainda não testado, não muda decisões arquiteturais consolidadas e não concede merge/release/deploy.
 
 ## 7. Validação que distingue melhoria da engine de ajuste de template
+
+Os objetivos OBJ01–OBJ08 precisam de evidência complementar: liberdade e alcance entre situações distintas; combinação de técnicas com orçamento e execução no MD; fidelidade visual após conversão; precisão/recuperação; consistência entre perspectivas; compreensão por leigos; organização em diferentes densidades; e produtividade em ciclos repetidos. Registrar resultado e retenções por objetivo/lote/alvo nos owners e documentos canônicos, conservando separados teste de unidade, jornada Tauri, ROM/core e aceite humano.
 
 O template atual entra como **um** caso. O aceite exige também:
 
@@ -322,5 +380,7 @@ Os documentos compartilhados de estado já têm alterações de outra frente. Pa
 > Complemento do operador: cobertura aberta a diversas situações, acesso integral às transições de cenas e esteiras intercambiáveis. Partir da lógica para editar o gráfico específico, posicionar a propriedade correta no Canvas, testar no contexto/revisão atual e retornar. Atualização ao vivo e reconstrução têm contratos por recurso/alvo, sem confundir prévia e execução. Esses são requisitos de fechamento da proposta, não acessórios do zoom.
 
 > Correção posterior: conservar o grafo espacial como autoria completa. Jornadas e nós editam a mesma autoria em ambos os sentidos, por campo e owner; organização nasce durante a construção. Não substituir o grafo por cartões nem regenerar customizações silenciosamente. Topologia complexa pode exigir resumo parcial, mantendo o acesso e os controles ainda válidos. Critérios de foco/densidade/estabilidade e aceites de ida/volta, JV09 e início diretamente nos nós estão nas seções 4.1–4.3 e 7. A quinta vista representa essa correção, sem prova de implementação.
+
+> Registro detalhado solicitado pelo operador: excelente potencial criativo e aproveitamento amplo dos consoles retrô, com Mega Drive como foco atual. Seções 1.1–1.5 fixam visão, alcance, oito objetivos verificáveis (OBJ01–OBJ08), contrato por ferramenta/lote e avaliação pedagógica/produtiva. As exigências são simultâneas: liberdade, qualidade artística, desempenho/custo real, ferramentas precisas/reversíveis, organização adaptável, autoria interligada e experiência prioritariamente amigável para leigos. Aproveitar o console não é saturar recursos; cumprir a visão exige prova de combinações e uso repetido, sem ampliar frentes ou promover maturidade por mockup. Registro documental concluído; implementação permanece pendente conforme o pedido anterior.
 
 Próximo passo desta tarefa: receber a validação/ajustes do operador sobre o roadmap em série e as cinco vistas complementares, com o grafo espacial integrado como referência para trabalho por nós. A implementação permanece pendente dessa validação explícita, conforme o pedido. Os esclarecimentos sobre abrangência, fluxo de cenas, intercâmbio das esteiras, sequência de produção e autoria bidirecional foram incorporados ao plano; não equivalem a uma autorização para iniciar código nesta rodada.
