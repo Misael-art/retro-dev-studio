@@ -302,7 +302,7 @@ export function PaletteSummary() {
       </p>
     );
   }
-  if (!plan) return null;
+  if (!plan) return <p role="status" className="px-3 py-1 text-[11px] text-[#a6adc8]">Carregando o plano de paletas desta revisão…</p>;
   const used = plan.banks.filter((b) => b.resources.length > 0).length;
   const errors = errorCount(plan);
   return (
@@ -321,6 +321,27 @@ export function PaletteSummary() {
       {open ? <><PaletteMap plan={plan} /><PalettePanelBody plan={plan} /></> : null}
     </div>
   );
+}
+
+/** Read-only bank navigation. Consulting a bank never reassigns an object or rewrites CRAM. */
+export function PaletteQuickBanks({ entityId }: { entityId: string | null }) {
+  const plan = usePlan();
+  const [choice, setChoice] = useState<number | null>(null);
+  if (!plan) return null;
+  const own = entityId ? resourceOf(plan, entityId)?.bank : undefined;
+  const selected = choice ?? own ?? null;
+  const bank = plan.banks.find((item) => item.bank === selected);
+  const resources = bank ? plan.resources.filter((item) => bank.resources.includes(item.id)) : [];
+  return <section className="space-y-1 px-3 py-2 text-[11px] text-[#cdd6f4]" aria-label="Consultar bancos de paleta">
+    <div role="group" aria-label="Bancos nesta cena" className="flex flex-wrap gap-1">
+      {plan.banks.map((item) => <button key={item.bank} type="button" data-testid={`canvas-palette-bank-${item.bank}`} aria-pressed={selected === item.bank}
+        onClick={() => setChoice(item.bank)} className="rounded border border-[#45475a] px-2 py-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#89b4fa] aria-pressed:border-[#89b4fa] aria-pressed:bg-[#89b4fa]/15">
+        PAL{item.bank}{item.resources.length ? ` · ${item.resources.length} recurso(s)` : " · livre"}{own === item.bank ? " · seleção" : ""}
+      </button>)}
+    </div>
+    <p className="text-[#a6adc8]">Consulta sem alterar atribuição. {selected === null ? "Escolha um banco; a seleção atual não tem banco resolvido." : `PAL${selected}: ${resources.length} recurso(s).`}</p>
+    {resources.map((resource) => <div key={resource.id}><span>{resource.name} · {resource.uses.length} uso(s)</span><Swatches colors={resource.colors} testid={`canvas-palette-colors-${safeId(resource.id)}`} /></div>)}
+  </section>;
 }
 
 function PalettePanelBody({ plan }: { plan: PalettePlan }) {

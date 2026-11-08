@@ -275,6 +275,13 @@ export const DEFAULT_SHORTCUTS: ShortcutCommand[] = [
     scope: "viewport",
   },
   {
+    id: "viewport.path",
+    group: "Viewport",
+    label: "Editar trajeto no Canvas",
+    keys: ["P"],
+    scope: "viewport",
+  },
+  {
     id: "viewport.resetZoom",
     group: "Viewport",
     label: "Resetar zoom",

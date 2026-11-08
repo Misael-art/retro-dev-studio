@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SceneLayer } from "./ipc/sceneService";
-import { describeEntityEditLock, entityEditLock } from "./sceneComposition";
+import { describeEntityEditLock, entityEditLock, entityLockScopeKey } from "./sceneComposition";
 import { useEditorStore } from "./store/editorStore";
 
 const layer = (id: string, locked: boolean, entity_ids: string[]): SceneLayer => ({ id, name: id === "bg" ? "Céu" : id, kind: "sprite", visible: true, locked, depth: 0, entity_ids });
@@ -18,15 +18,36 @@ describe("R3-08 entity edit lock", () => {
   it("locking an object does not lock siblings, create layers or touch the authored scene", () => {
     const scene = { layers: [layer("fg", false, ["nalu", "coin"])] };
     const before = JSON.stringify(scene);
+    useEditorStore.getState().setActiveProject("/qa/one", "One");
     const { toggleEntityLock } = useEditorStore.getState();
     toggleEntityLock("scenes/a.json", "nalu");
-    const ids = useEditorStore.getState().lockedEntityIdsByScene["scenes/a.json"];
+    const scope = entityLockScopeKey("/qa/one", "scenes/a.json");
+    const ids = useEditorStore.getState().lockedEntityIdsByScene[scope];
     expect(entityEditLock("nalu", scene.layers, ids)).toMatchObject({ locked: true });
     expect(entityEditLock("coin", scene.layers, ids)).toEqual({ locked: false });
     expect(JSON.stringify(scene)).toBe(before);
-    expect(useEditorStore.getState().lockedEntityIdsByScene["scenes/b.json"]).toBeUndefined();
+    expect(useEditorStore.getState().lockedEntityIdsByScene[entityLockScopeKey("/qa/one", "scenes/b.json")]).toBeUndefined();
+    useEditorStore.getState().setActiveProject("/qa/two", "Two");
+    expect(useEditorStore.getState().lockedEntityIdsByScene[entityLockScopeKey("/qa/two", "scenes/a.json")]).toBeUndefined();
+    toggleEntityLock("scenes/a.json", "coin");
+    expect(useEditorStore.getState().lockedEntityIdsByScene[scope]).toEqual(["nalu"]);
+    expect(JSON.parse(localStorage.getItem("rds.editor.entityLocks.v2")!)[entityLockScopeKey("/qa/two", "scenes/a.json")]).toEqual(["coin"]);
+    useEditorStore.getState().setActiveProject("/qa/one", "One");
     toggleEntityLock("scenes/a.json", "nalu");
-    expect(useEditorStore.getState().lockedEntityIdsByScene["scenes/a.json"]).toEqual([]);
+    expect(useEditorStore.getState().lockedEntityIdsByScene[scope]).toEqual([]);
+  });
+});
+
+describe("RC05 effective tilemap allocation", () => {
+  it("detects mixed explicit/automatic conflicts without changing the legacy allocation", async () => {
+    const { resolvedTilemapPlanes, tilemapPlaneIssue } = await import("./sceneComposition");
+    const maps = [{ entity_id: "sky", components: { tilemap: {} } }, { entity_id: "ground", components: { tilemap: {} } }] as never;
+    expect(resolvedTilemapPlanes(maps).map((item) => item.plane)).toEqual(["BG_B", "BG_A"]);
+    expect(tilemapPlaneIssue(maps)).toBeNull();
+    const mixed = [{ entity_id: "sky", components: { tilemap: {} } }, { entity_id: "ground", components: { tilemap: { plane: "BG_B" } } }] as never;
+    expect(tilemapPlaneIssue(mixed)).toContain("sky");
+    const reversed = [{ entity_id: "sky", components: { tilemap: { plane: "BG_A" } } }, { entity_id: "ground", components: { tilemap: {} } }] as never;
+    expect(tilemapPlaneIssue(reversed)).toContain("ground");
   });
 });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { clampViewportPan, getSceneEntityBounds, resolveSceneWorldMetrics } from "./sceneWorldModel";
+import { clampViewportPan, getSceneEntityBounds, resolveSceneWorldMetrics, sceneArtworkEntities } from "./sceneWorldModel";
 import type { Entity, Scene } from "./ipc/sceneService";
 
 function buildSpriteEntity(
@@ -28,6 +28,17 @@ function buildSpriteEntity(
 }
 
 describe("sceneWorldModel", () => {
+  it("previews effective A/B planes and sprite priority in VDP composition order", () => {
+    const low = buildSpriteEntity("low", 0, 0, 16, 16);
+    low.components.sprite!.priority = "background";
+    const high = buildSpriteEntity("high", 0, 0, 16, 16);
+    const a = { entity_id: "a", transform: { x: 0, y: 0 }, components: { tilemap: { tileset: "a.png", map_width: 1, map_height: 1, plane: "BG_A", priority: true } } } as Entity;
+    const b = { entity_id: "b", transform: { x: 0, y: 0 }, components: { tilemap: { tileset: "b.png", map_width: 1, map_height: 1, plane: "BG_B" } } } as Entity;
+    const scene = { entities: [a, high, b, low] } as Scene;
+    expect(sceneArtworkEntities(scene, "megadrive").map((e) => e.entity_id)).toEqual(["b", "low", "a", "high"]);
+    a.components.tilemap!.priority = false;
+    expect(sceneArtworkEntities(scene, "megadrive").map((e) => e.entity_id)).toEqual(["b", "a", "low", "high"]);
+  });
   it("expands the world to imported tilemaps, collision maps and camera frames", () => {
     const hero = buildSpriteEntity("hero", 48, 96, 32, 32);
     const scene: Scene = {

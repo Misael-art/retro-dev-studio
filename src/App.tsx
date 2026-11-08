@@ -1599,7 +1599,7 @@ type AutomationApi = {
   ) => import("./core/validation/liveValidationController").LiveValidationStateMatchOutcome;
   setSelectedEntityId: (entityId: string | null) => boolean;
   setActiveLayerId: (layerId: string | null) => boolean;
-  setEditorMode: (mode: "select" | "paint" | "erase" | "collision") => boolean;
+  setEditorMode: (mode: "select" | "paint" | "erase" | "collision" | "path") => boolean;
   setActiveBrush: (relativeAssetPath: string | null) => boolean;
   setRightPanelMode: (mode: "inspector" | "tools") => boolean;
   openToolsWorkspace: (
@@ -4542,7 +4542,7 @@ export default function App() {
         useEditorStore.getState().setActiveLayerId(layerId);
         return true;
       },
-      setEditorMode: (mode: "select" | "paint" | "erase" | "collision") => {
+      setEditorMode: (mode: "select" | "paint" | "erase" | "collision" | "path") => {
         useEditorStore.getState().setEditorMode(mode);
         return true;
       },

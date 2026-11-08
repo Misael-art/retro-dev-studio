@@ -43,11 +43,11 @@ export function resolvePrimaryAuthoringSurface(
   if (entity?.components.tilemap) {
     return "tilemap";
   }
-  if (entityHasLogicWorkspace(entity)) {
-    return "logic";
-  }
   if (entity?.components.sprite) {
     return "artstudio";
+  }
+  if (entityHasLogicWorkspace(entity)) {
+    return "logic";
   }
   return null;
 }

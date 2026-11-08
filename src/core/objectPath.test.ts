@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addPoint, defaultPath, pathCycleFrames, pathIssue, removePoint, withPoint } from "./objectPath";
+import { addPoint, defaultPath, ellipsePath, pathCycleFrames, pathIssue, planPathModeChange, removePoint, sampleSegment, withPoint } from "./objectPath";
 
 describe("R5 object path model", () => {
   it("default path is valid and point 0 cannot move (no hidden jump)", () => {
@@ -29,8 +29,54 @@ describe("R5 object path model", () => {
 
   it("estimates cycle length per mode", () => {
     const path = defaultPath();
-    expect(pathCycleFrames(path)).toBe((60 + 30) * 2);
+    expect(pathCycleFrames(path)).toBe(60 * 2 + 30);
     expect(pathCycleFrames({ ...path, mode: "once" })).toBe(90);
+  });
+});
+
+describe("RC03/08 path transitions and asymmetric waits", () => {
+  it("keeps every directed segment when opening/closing an ellipse, with manual start", () => {
+    const original = { ...ellipsePath(48, 24), autostart: false };
+    for (const mode of ["once", "pingpong"] as const) {
+      const proposal = planPathModeChange(original, mode);
+      expect("issue" in proposal).toBe(false);
+      if (!("path" in proposal)) throw new Error("mode rejected");
+      expect(pathIssue(proposal.path)).toBeNull();
+      expect(proposal.path.autostart).toBe(false);
+      expect(proposal.path.points).toHaveLength(9);
+      expect(proposal.path.points[0]!.curve).toBeNull();
+      const closure = proposal.path.points.at(-1)!;
+      expect(closure).toEqual(original.points[0]);
+      expect(sampleSegment(original.points.at(-1)!, closure, closure.frames)).toEqual(sampleSegment(original.points.at(-1)!, original.points[0]!, original.points[0]!.frames));
+      expect(planPathModeChange(proposal.path, "loop")).toMatchObject({ path: original });
+    }
+  });
+
+  it("all six mode transitions are valid and do not mutate the input", () => {
+    for (const from of ["once", "loop", "pingpong"] as const) {
+      const path = from === "loop" ? ellipsePath(20, 10) : { ...defaultPath(), mode: from };
+      const before = JSON.stringify(path);
+      for (const to of ["once", "loop", "pingpong"] as const) {
+        const result = planPathModeChange(path, to);
+        if (!("path" in result)) throw new Error(result.issue);
+        expect(pathIssue(result.path)).toBeNull();
+      }
+      expect(JSON.stringify(path)).toBe(before);
+    }
+  });
+
+  it("refuses opening a full closed path rather than discarding its closing curve", () => {
+    const path = ellipsePath(48, 24, 16);
+    expect(planPathModeChange(path, "pingpong")).toHaveProperty("issue");
+    expect(path.points).toHaveLength(16);
+  });
+
+  it("counts internal waits twice and endpoint waits once per pingpong cycle", () => {
+    const path = { mode: "pingpong" as const, points: [
+      { x: 0, y: 0, frames: 0, wait: 7 }, { x: 30, y: 0, frames: 10, wait: 3 }, { x: 60, y: 0, frames: 20, wait: 11 },
+    ] };
+    expect(pathCycleFrames(path)).toBe(60 + 6 + 11 + 7);
+    expect(pathCycleFrames({ ...path, mode: "once" })).toBe(7 + 30 + 3 + 11);
   });
 });
 

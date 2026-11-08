@@ -1,3 +1,6 @@
+import { pathBlockedReason } from "../../core/objectPath";
+import { describeEntityEditLock, entityEditLock, entityLockScopeKey, resolvedTilemapPlanes } from "../../core/sceneComposition";
+import { SpritePriorityControls } from "./SpritePriorityControls";
 import { ObjectPathSection } from "./ObjectPathSection";
 import { TilemapPlaneControls } from "./TilemapPlaneControls";
 import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
@@ -432,7 +435,6 @@ function entityPropSections(entity: Entity): PropSection[] {
         { key: "Frame W", path: ["components", "sprite", "frame_width"], type: "int" },
         { key: "Frame H", path: ["components", "sprite", "frame_height"], type: "int" },
         { key: "Palette Slot", path: ["components", "sprite", "palette_slot"], type: "int" },
-        { key: "Priority", path: ["components", "sprite", "priority"], type: "string" },
       ],
     });
   }
@@ -1465,14 +1467,16 @@ export default function InspectorPanel() {
             <EntityPaletteSection entityId={entity.entity_id} />
             {entity.components.sprite ? (
               <ObjectPathSection
+                contextKey={JSON.stringify([activeProjectDir, activeScenePath, entity.entity_id])}
                 path={entity.components.path}
                 fps={60}
-                blockedReason={
-                  entity.components.physics || entity.components.input
-                    ? "Este objeto tem física/entrada, que também movem a posição; a build recusa trajeto junto delas."
-                    : null
-                }
+                blockedReason={(() => {
+                  const lock = entityEditLock(entity.entity_id, activeScene?.layers, useEditorStore.getState().lockedEntityIdsByScene[entityLockScopeKey(activeProjectDir, activeScenePath)] ?? []);
+                  return lock.locked ? describeEntityEditLock(lock) : pathBlockedReason(activeTarget, entity);
+                })()}
                 onChange={(next) => {
+                  const state = useEditorStore.getState();
+                  if (entityEditLock(entity.entity_id, state.activeScene?.layers, state.lockedEntityIdsByScene[entityLockScopeKey(state.activeProjectDir, state.activeScenePath)] ?? []).locked) return;
                   updateEntity(entity.entity_id, buildEntityPatch(entity, ["components", "path"], next));
                   scheduleAutoSave();
                 }}
@@ -1891,6 +1895,12 @@ export default function InspectorPanel() {
                     ))}
                   </tbody>
                 </table>
+                {section.id === "sprite" && entity.components.sprite ? <SpritePriorityControls
+                  value={entity.components.sprite.priority ?? "foreground"} target={activeTarget}
+                  onChange={(priority) => {
+                    updateEntity(entity.entity_id, buildEntityPatch(entity, ["components", "sprite", "priority"], priority));
+                    scheduleAutoSave();
+                  }} /> : null}
                 {section.id === "physics" ? <MovementTuningPanel entity={entity} /> : null}
                 {section.id === "audio" && entity.components.audio ? (
                   <RecordListEditor
@@ -1984,11 +1994,10 @@ export default function InspectorPanel() {
                   return (
                     <div className="mt-3 border-t border-[#313244] pt-3">
                       <TilemapPlaneControls
-                        tilemap={tm}
-                        implicitPlane={(() => {
-                          const index = (activeScene?.entities ?? []).filter((e) => e.components.tilemap).findIndex((e) => e.entity_id === entity.entity_id);
-                          return index === 0 ? "BG_B" : index === 1 ? "BG_A" : "WINDOW";
-                        })()}
+                        key={JSON.stringify([activeProjectDir, activeScenePath, entity.entity_id])}
+                        tilemap={tm} entities={activeScene?.entities ?? []} entityId={entity.entity_id}
+                        blockedReason={activeTarget !== "megadrive" ? "Planos/prioridade de tilemap disponíveis somente no Mega Drive (Experimental)." : null}
+                        implicitPlane={resolvedTilemapPlanes((activeScene?.entities ?? []).map((item) => item.entity_id === entity.entity_id ? { ...item, components: { ...item.components, tilemap: { ...tm, plane: null } } } : item)).find((item) => item.entityId === entity.entity_id)?.plane ?? "desconhecido"}
                         onChange={(patch) => {
                           updateEntity(entity.entity_id, buildEntityPatch(entity, ["components", "tilemap"], { ...tm, ...patch }));
                           scheduleAutoSave();

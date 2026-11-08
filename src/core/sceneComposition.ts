@@ -66,6 +66,32 @@ export function translateCollisionMap(map: CollisionMap, dx: number, dy: number)
 
 export type EntityEditLock = { locked: false } | { locked: true; reason: "object" } | { locked: true; reason: "layer"; layerName: string };
 
+/** Unambiguous editor preference identity; legacy relative scene keys have no recoverable owner. */
+export function entityLockScopeKey(projectDir: string, scenePath: string): string {
+  return JSON.stringify([projectDir, scenePath]);
+}
+
+/** Mirrors platform_support::effective_tilemap_plane, preserving legacy draw order. */
+export function resolvedTilemapPlanes(entities: readonly Entity[]): Array<{ entityId: string; plane: string; automatic: boolean }> {
+  return entities.filter((e) => e.components.tilemap).map((entity, index) => ({
+    entityId: entity.entity_id,
+    plane: entity.components.tilemap!.plane ?? (index === 0 ? "BG_B" : index === 1 ? "BG_A" : "WINDOW"),
+    automatic: entity.components.tilemap!.plane == null,
+  }));
+}
+
+/** Validate the entire proposed allocation before the authoring command mutates anything. */
+export function tilemapPlaneIssue(entities: readonly Entity[]): string | null {
+  const owners = new Map<string, string>();
+  for (const item of resolvedTilemapPlanes(entities)) {
+    if (!item.automatic && item.plane !== "BG_A" && item.plane !== "BG_B") return `Plano ${item.plane} inválido para ${item.entityId}.`;
+    const previous = owners.get(item.plane);
+    if (previous) return `${item.plane} já é usado por «${previous}»; «${item.entityId}» sobrescreveria esse plano. Escolha planos distintos.`;
+    owners.set(item.plane, item.entityId);
+  }
+  return null;
+}
+
 /**
  * R3-08: effective edit lock for the Canvas. Object locks are editor-only view state
  * (never written to the scene); layer locks come from the authored `SceneLayer.locked`.

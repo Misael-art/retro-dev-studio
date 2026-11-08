@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { PixelDoc } from "../pixelEditor";
+import { entityLockScopeKey } from "../sceneComposition";
 
 import {
   diagnosticConsoleMessage,
@@ -162,7 +163,7 @@ export interface PixelEditorSession {
   savedSource: string | null;
 }
 
-export type EditorMode = "select" | "paint" | "erase" | "collision";
+export type EditorMode = "select" | "paint" | "erase" | "collision" | "path";
 export type TilePaintTool = "pencil" | "eraser" | "picker" | "rect" | "fill" | "stamp";
 
 export interface TileStampPattern {
@@ -416,8 +417,10 @@ export interface StoreActions {
   moveLayerDown: (layerId: string) => void;
   /** Atribui uma entidade a uma camada (remove-a de outras camadas primeiro). */
   assignEntityToLayer: (entityId: string, layerId: string | null) => void;
-  /** R3-08: editor-only object locks per scene path (never persisted into the scene). */
+  /** R3-08: editor-only locks keyed by entityLockScopeKey(project, scene), never in the scene. */
   lockedEntityIdsByScene: Record<string, string[]>;
+  /** v1 entries lack project identity. Retained for inspection, never guessed into a project. */
+  legacyEntityLocksRetained: boolean;
   toggleEntityLock: (scenePath: string, entityId: string) => void;
   /** Project entry scene as last reported by the backend scene catalog (null = unknown). */
   projectEntryScenePath: string | null;
@@ -746,7 +749,8 @@ function saveStateAfterHistory(state: EditorState, source: Scene | null, revisio
   return state.sceneSaveState;
 }
 
-const ENTITY_LOCKS_KEY = "rds.editor.entityLocks.v1";
+// v1 is retained untouched: without a project identity its owner cannot be inferred safely.
+const ENTITY_LOCKS_KEY = "rds.editor.entityLocks.v2";
 function readEntityLocks(): Record<string, string[]> {
   try {
     const raw = globalThis.localStorage?.getItem(ENTITY_LOCKS_KEY);
@@ -851,13 +855,19 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   selectedEntityId: null,
   lockedEntityIdsByScene: readEntityLocks(),
+  legacyEntityLocksRetained: (() => {
+    try { return Object.keys(JSON.parse(globalThis.localStorage?.getItem("rds.editor.entityLocks.v1") ?? "{}") as object).length > 0; }
+    catch { return false; }
+  })(),
   projectEntryScenePath: null,
   setProjectEntryScenePath: (path) => set({ projectEntryScenePath: path }),
   toggleEntityLock: (scenePath, entityId) =>
     set((state) => {
-      const current = state.lockedEntityIdsByScene[scenePath] ?? [];
+      if (!state.activeProjectDir || !scenePath) return {};
+      const scope = entityLockScopeKey(state.activeProjectDir, scenePath);
+      const current = state.lockedEntityIdsByScene[scope] ?? [];
       const next = current.includes(entityId) ? current.filter((id) => id !== entityId) : [...current, entityId];
-      const lockedEntityIdsByScene = { ...state.lockedEntityIdsByScene, [scenePath]: next };
+      const lockedEntityIdsByScene = { ...state.lockedEntityIdsByScene, [scope]: next };
       writeEntityLocks(lockedEntityIdsByScene);
       return { lockedEntityIdsByScene };
     }),

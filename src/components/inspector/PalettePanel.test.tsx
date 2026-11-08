@@ -2,7 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { EntityPaletteSection, PaletteSummary } from "./PalettePanel";
+import { EntityPaletteSection, PaletteSummary, PaletteQuickBanks } from "./PalettePanel";
 import type { PaletteEntry, Scene } from "../../core/ipc/sceneService";
 import type { PalettePlan, PlanResource } from "../../core/palettePlan";
 import { entityPaletteMarks } from "../../core/palettePlan";
@@ -111,6 +111,17 @@ afterEach(() => {
 });
 
 describe("PaletteSummary", () => {
+  it("consults another bank without changing assignment, revision or Undo", async () => {
+    await render(<PaletteQuickBanks entityId="ken" />);
+    expect(q("canvas-palette-bank-1")!.getAttribute("aria-pressed")).toBe("true");
+    const state = useEditorStore.getState();
+    const before = JSON.stringify({ scene: state.activeScene, source: state.activeSceneSource, revision: state.sceneRevision, undo: state.undoStack });
+    await act(async () => q("canvas-palette-bank-3")!.click());
+    expect(q("canvas-palette-bank-3")!.getAttribute("aria-pressed")).toBe("true");
+    const after = useEditorStore.getState();
+    expect(JSON.stringify({ scene: after.activeScene, source: after.activeSceneSource, revision: after.sceneRevision, undo: after.undoStack })).toBe(before);
+  });
+
   it("summarizes occupancy and expands to banks with textual states, not only colors", async () => {
     await render(<PaletteSummary />);
     const summary = q("palette-summary")!;

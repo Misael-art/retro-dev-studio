@@ -545,6 +545,7 @@ export default function ContextualPalette() {
   }
 
   const modeLabel: Record<EditorMode, string> = {
+    path: "Trajeto",
     select: "Sele\u00e7\u00e3o",
     paint: "Pintura",
     erase: "Borracha",

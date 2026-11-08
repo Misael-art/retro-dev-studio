@@ -1,9 +1,44 @@
-import type { PathComponent, PathPoint } from "./ipc/sceneService";
+import type { Entity, PathComponent, PathPoint } from "./ipc/sceneService";
 
 /** R5 limits — must match `path_issue` in src-tauri/src/ugdm/components.rs. */
 export const PATH_MAX_POINTS = 16;
 export const PATH_MAX_FRAMES = 600;
 export const PATH_MAX_OFFSET = 2048;
+
+/** Availability mirrors platform_support::path_support_issues, before any authored mutation. */
+export function pathBlockedReason(target: string, entity: Entity | null | undefined): string | null {
+  if (target !== "megadrive") return "Trajetos ainda não têm execução nesta plataforma. Disponíveis no Mega Drive (Experimental).";
+  if (!entity?.components.sprite) return "Selecione um objeto com sprite para desenhar seu trajeto.";
+  if (entity.components.physics || entity.components.input) return "Este objeto tem física/entrada, que também movem a posição; remova esse conflito antes de editar o trajeto.";
+  return null;
+}
+
+/** Preserve the closing leg when opening a loop; never drop its curve or insert a teleport. */
+export function planPathModeChange(path: PathComponent, mode: PathComponent["mode"]): { path: PathComponent; notice: string | null } | { issue: string } {
+  const issue = pathIssue(path);
+  if (issue) return { issue };
+  if (path.mode === mode) return { path, notice: null };
+  let points = path.points.map((p) => ({ ...p, curve: p.curve ? { ...p.curve } : p.curve }));
+  let notice: string | null = null;
+  if (path.mode === "loop" && mode !== "loop") {
+    if (points.length >= PATH_MAX_POINTS) return { issue: "Para conservar o retorno curvo, é preciso um ponto livre (máximo 16). Remova um ponto antes de abrir este trajeto." };
+    const first = points[0]!;
+    points = [{ ...first, curve: null }, ...points.slice(1), { ...first }];
+    notice = "O retorno foi conservado como último ponto, incluindo curva, duração e espera.";
+  } else if (mode === "loop") {
+    const last = points[points.length - 1]!;
+    if (points.length > 2 && last.x === 0 && last.y === 0) {
+      points = [{ ...last }, ...points.slice(1, -1)];
+      notice = "O último trecho passa a ser o retorno ao ponto 0, com a mesma curva, duração e espera.";
+    } else {
+      points[0] = { ...points[0]!, frames: points[0]!.frames > 0 ? points[0]!.frames : last.frames };
+      notice = "Retorno explícito ao ponto 0: confira a duração e a curva do retorno.";
+    }
+  }
+  const next = { ...path, mode, points };
+  const nextIssue = pathIssue(next);
+  return nextIssue ? { issue: nextIssue } : { path: next, notice };
+}
 
 /** Same refusal rules the build applies; null = valid. */
 export function pathIssue(path: PathComponent): string | null {
@@ -54,12 +89,14 @@ export function removePoint(path: PathComponent, index: number): PathComponent {
   return { ...path, points: path.points.filter((_, i) => i !== index) };
 }
 
-/** Total frames of one pass (useful for the editor estimate; the ROM is the authority). */
+/** Steady-state cycle, including each arrival's wait. Initial wait is separate for once. */
 export function pathCycleFrames(path: PathComponent): number {
-  const legs = path.points.slice(1).reduce((sum, p) => sum + p.frames + p.wait, 0);
-  if (path.mode === "loop") return legs + path.points[0]!.frames + path.points[0]!.wait;
-  if (path.mode === "pingpong") return legs * 2;
-  return legs;
+  const first = path.points[0]!;
+  const legs = path.points.slice(1).reduce((sum, p) => sum + p.frames, 0);
+  const waits = path.points.slice(1).reduce((sum, p) => sum + p.wait, 0);
+  if (path.mode === "loop") return legs + first.frames + waits + first.wait;
+  if (path.mode === "pingpong") return 2 * legs + 2 * waits - path.points[path.points.length - 1]!.wait + first.wait;
+  return first.wait + legs + waits;
 }
 
 /** World positions of the path points (spawn + relative offsets). */

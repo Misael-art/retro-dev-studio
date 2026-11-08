@@ -1,3 +1,4 @@
+import { entityLockScopeKey } from "../../core/sceneComposition";
 import { describeEntityEditLock, entityEditLock } from "../../core/sceneComposition";
 import { loadShellPersona } from "../../core/surfaceRegistry";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -664,6 +665,7 @@ export default function HierarchyPanel({
         }
       >
         <div className="border-b border-[#313244] px-3 py-2">
+          {useEditorStore.getState().legacyEntityLocksRetained ? <p role="status" className="mb-1 text-[11px] text-[#a6adc8]">Bloqueios antigos sem identidade de projeto foram conservados nas preferências. Confira e bloqueie novamente os objetos deste projeto.</p> : null}
           <div className="flex items-center gap-2">
             <select
               value={activeSceneSelectValue}
@@ -1079,7 +1081,7 @@ export default function HierarchyPanel({
 function EntityLockToggle({ entityId }: { entityId: string }) {
   const scenePath = useEditorStore((state) => state.activeScenePath);
   const layers = useEditorStore((state) => state.activeScene?.layers);
-  const ownLocks = useEditorStore((state) => state.lockedEntityIdsByScene[state.activeScenePath]);
+  const ownLocks = useEditorStore((state) => state.lockedEntityIdsByScene[entityLockScopeKey(state.activeProjectDir, state.activeScenePath)]);
   const toggleEntityLock = useEditorStore((state) => state.toggleEntityLock);
   const lock = entityEditLock(entityId, layers, ownLocks ?? []);
   const objectLocked = lock.locked && lock.reason === "object";

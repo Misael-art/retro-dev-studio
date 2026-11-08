@@ -1,6 +1,7 @@
 import type { Entity, Scene } from "./ipc/sceneService";
 import { getEntityDisplayName } from "./entityDisplay";
 import { initialVisualCamera, sampleCamera } from "./cameraWorkflow";
+import { resolvedTilemapPlanes } from "./sceneComposition";
 
 export type SceneViewportFrame = {
   width: number;
@@ -50,7 +51,17 @@ export type ViewportPan = {
 /** Resident planes: SNES BG0 is in front of BG1; MD draws BG_B then BG_A. */
 export function sceneArtworkEntities(scene: Scene, target: "megadrive" | "snes"): Entity[] {
   const maps = scene.entities.filter(e => e.components.tilemap);
-  return [...(target === "snes" ? maps.reverse() : maps), ...scene.entities.filter(e => !e.components.tilemap)];
+  if (target === "snes") return [...maps.reverse(), ...scene.entities.filter(e => !e.components.tilemap)];
+  const planes = new Map(resolvedTilemapPlanes(scene.entities).map((item) => [item.entityId, item.plane]));
+  const rank = (entity: Entity) => {
+    if (entity.components.tilemap) return (entity.components.tilemap.priority ? 3 : 0) + (planes.get(entity.entity_id) === "BG_B" ? 0 : 1);
+    if (entity.components.sprite) return entity.components.sprite.priority === "background" ? 2 : 5;
+    return 6;
+  };
+  // SGDK allocates sprites in scene order: earlier sprites win ties in the SAT.
+  return scene.entities.map((entity, index) => ({ entity, index }))
+    .sort((a, b) => rank(a.entity) - rank(b.entity) || (a.entity.components.sprite && b.entity.components.sprite ? b.index - a.index : a.index - b.index))
+    .map(({ entity }) => entity);
 }
 
 export type ViewportPanClampOptions = {

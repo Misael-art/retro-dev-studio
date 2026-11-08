@@ -1,3 +1,5 @@
+import { CanvasAuthoringBar, type CanvasPathTool } from "./CanvasAuthoringBar";
+import { entityLockScopeKey } from "../../core/sceneComposition";
 import { loadSceneArtworkAsset, drawRepeatedAsset, drawTilemapArtwork, type ViewportAssetCacheEntry } from "./sceneArtworkRenderer";
 import Icon, { type IconName } from "../common/Icon";
 import Dialog from "../common/Dialog";
@@ -6,7 +8,7 @@ import CameraConfigurator from "../inspector/CameraConfigurator";
 import { hudBand } from "../../core/hudText";
 import { loadShellPersona } from "../../core/surfaceRegistry";
 import { cellsOnLine } from "../../core/tilemapCells";
-import { dropOffset, hitPathHandleOrControl, pathWorldPoints, sampleSegment, withPoint } from "../../core/objectPath";
+import { defaultPath, dropOffset, ellipsePath, hitPathHandleOrControl, pathBlockedReason, pathIssue, pathWorldPoints, removePoint, sampleSegment, withPoint } from "../../core/objectPath";
 import { describeEntityEditLock, entityEditLock, escapeExitsIsolation, layerCompositionEntities, restoreTemplateEntityPositions, translateCollisionMap, type TemplatePositionChange } from "../../core/sceneComposition";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tabs from "../common/Tabs";
@@ -34,7 +36,7 @@ import {
   type JoypadState,
 } from "../../core/ipc/emulatorService";
 import { listenToProjectAssetChanges } from "../../core/ipc/projectWatcherService";
-import { getReferenceTemplateComposition, type CollisionMap, type Entity, type Scene } from "../../core/ipc/sceneService";
+import { getReferenceTemplateComposition, type CollisionMap, type Entity, type PathComponent, type Scene } from "../../core/ipc/sceneService";
 import { persistActiveScene } from "../../core/scenePersistence";
 import { constrainSpriteFrameSize, ONBOARDING_SPRITE_SIZE } from "../../core/sceneConstraints";
 import {
@@ -51,6 +53,7 @@ import { resolveSceneWorkspaceContext } from "../../core/sceneWorkspaceContext";
 import {
   buildTilemapAuthoringBrush,
   entityHasLogicWorkspace,
+  resolvePrimaryAuthoringSurface,
   resolveEntitySourceRefs,
 } from "../../core/entityAuthoring";
 import {
@@ -401,8 +404,15 @@ export default function ViewportPanel({
   /** Ciclo Alt+clique em sprites sobrepostos (cena densa). */
   const densePickRef = useRef<{ mx: number; my: number; ids: string[]; idx: number } | null>(null);
   const lastLockedHitRef = useRef<Entity | null>(null);
-  // R5: dragging a path handle edits components.path (one undo per drag).
-  const pathDragRef = useRef<{ entityId: string; index: number; kind: "point" | "control"; moved: boolean } | null>(null);
+  // A path gesture previews locally, then commits exactly once; cancellation never uses Undo.
+  const [pathTool, setPathTool] = useState<CanvasPathTool>("edit");
+  const [pathPreview, setPathPreview] = useState<PathComponent | null>(null);
+  const [activePathHandle, setActivePathHandle] = useState<{ index: number; kind: "point" | "control" } | null>(null);
+  const pathDragRef = useRef<{
+    projectDir: string; scenePath: string; revision: number; entityId: string;
+    index: number; kind: "point" | "control" | "line" | "curve" | "ellipse";
+    base: PathComponent; draft: PathComponent; moved: boolean;
+  } | null>(null);
   const sceneRulerTopRef = useRef<HTMLCanvasElement>(null);
   const sceneRulerLeftRef = useRef<HTMLCanvasElement>(null);
   const [sceneStageSize, setSceneStageSize] = useState({ width: 0, height: 0 });
@@ -2219,6 +2229,14 @@ export default function ViewportPanel({
           showHint("G", gridSnap ? "Snap Livre" : "Snap 8px");
           return;
         }
+        if (key === "p") {
+          event.preventDefault();
+          const owner = useEditorStore.getState().activeScene?.entities.find((entity) => entity.entity_id === useEditorStore.getState().selectedEntityId);
+          setPathTool(owner?.components.path ? "edit" : "line");
+          setEditorMode("path");
+          showHint("P", "Trajeto no Canvas");
+          return;
+        }
         if (key === "v") {
           event.preventDefault();
           setEditorMode("select");
@@ -2446,7 +2464,7 @@ export default function ViewportPanel({
       }))
       .filter(({ entity }) => !compositionHiddenByLayer.has(entity.entity_id) && !paletteFilteredOut(entity.entity_id))
       .sort((left, right) => {
-        if (left.depth !== right.depth) {
+        if (activeTarget !== "megadrive" && left.depth !== right.depth) {
           return left.depth - right.depth;
         }
         return (artworkRank.get(left.entity.entity_id) ?? left.index) - (artworkRank.get(right.entity.entity_id) ?? right.index);
@@ -3348,8 +3366,9 @@ export default function ViewportPanel({
 
     // R5: path of the selected object, with draggable handles (point 0 = the object itself).
     const pathOwner = activeScene?.entities.find((candidate) => candidate.entity_id === selectedEntityId);
-    if (pathOwner?.components.path && pathOwner.components.sprite && editorMode === "select") {
-      const path = pathOwner.components.path;
+    const displayedPath = pathPreview ?? pathOwner?.components.path;
+    if (displayedPath && pathOwner?.components.sprite && editorMode === "path") {
+      const path = displayedPath;
       const pts = pathWorldPoints(pathOwner.transform, path).map((p) => ({ x: worldToSceneCanvasX(p.x), y: worldToSceneCanvasY(p.y) }));
       context.save();
       context.setLineDash([6, 4]);
@@ -3395,7 +3414,7 @@ export default function ViewportPanel({
         context.lineTo(c.x, c.y + 6);
         context.lineTo(c.x - 6, c.y);
         context.closePath();
-        context.fillStyle = "#cba6f7";
+        context.fillStyle = activePathHandle?.kind === "control" && activePathHandle.index === i ? "#89b4fa" : "#cba6f7";
         context.fill();
         context.lineWidth = 2;
         context.strokeStyle = "#1e1e2e";
@@ -3405,7 +3424,7 @@ export default function ViewportPanel({
       pts.forEach((p, i) => {
         context.beginPath();
         context.arc(p.x, p.y, i === 0 ? 4 : 6, 0, Math.PI * 2);
-        context.fillStyle = i === 0 ? "#1e1e2e" : "#f9e2af";
+        context.fillStyle = i === 0 ? "#1e1e2e" : activePathHandle?.kind === "point" && activePathHandle.index === i ? "#89b4fa" : "#f9e2af";
         context.fill();
         context.lineWidth = 2;
         context.strokeStyle = i === 0 ? "#f9e2af" : "#1e1e2e";
@@ -3463,6 +3482,8 @@ export default function ViewportPanel({
     paletteMapEnabled,
     paletteMarks,
     palettePlan,
+    pathPreview,
+    activePathHandle,
   ]);
 
   useEffect(() => {
@@ -3583,8 +3604,8 @@ export default function ViewportPanel({
     void context.resume().catch(() => {});
   }, [activeViewportTab, clearAudioQueue, emulPaused]);
 
-  function canvasCoords(event: React.MouseEvent<HTMLCanvasElement>) {
-    const rect = event.currentTarget.getBoundingClientRect();
+  function canvasCoords(event: Pick<MouseEvent, "clientX" | "clientY">) {
+    const rect = sceneOverlayCanvasRef.current?.getBoundingClientRect() ?? { left: 0, top: 0, width: 1, height: 1 };
     const scaleX = sceneWidth / Math.max(rect.width, 1);
     const scaleY = sceneHeight / Math.max(rect.height, 1);
     return {
@@ -3608,7 +3629,7 @@ export default function ViewportPanel({
     }
 
     const stack: Entity[] = [];
-    const lockedIds = useEditorStore.getState().lockedEntityIdsByScene[activeScenePath] ?? [];
+    const lockedIds = useEditorStore.getState().lockedEntityIdsByScene[entityLockScopeKey(activeProjectDir, activeScenePath)] ?? [];
     let lockedHit: Entity | null = null;
     for (let index = activeScene.entities.length - 1; index >= 0; index -= 1) {
       const entity = activeScene.entities[index];
@@ -3644,7 +3665,7 @@ export default function ViewportPanel({
   function explainLockedHit() {
     const locked = lastLockedHitRef.current;
     if (!locked || !activeScene) return;
-    const lock = entityEditLock(locked.entity_id, activeScene.layers, useEditorStore.getState().lockedEntityIdsByScene[activeScenePath] ?? []);
+    const lock = entityEditLock(locked.entity_id, activeScene.layers, useEditorStore.getState().lockedEntityIdsByScene[entityLockScopeKey(activeProjectDir, activeScenePath)] ?? []);
     logMessage("info", `[Viewport] ${getEntityDisplayName(locked)}: ${describeEntityEditLock(lock)}. Selecione ou desbloqueie pela árvore.`);
   }
 
@@ -3662,7 +3683,7 @@ export default function ViewportPanel({
       return null;
     }
 
-    if (entityEditLock(entity.entity_id, activeScene.layers, useEditorStore.getState().lockedEntityIdsByScene[activeScenePath] ?? []).locked) {
+    if (entityEditLock(entity.entity_id, activeScene.layers, useEditorStore.getState().lockedEntityIdsByScene[entityLockScopeKey(activeProjectDir, activeScenePath)] ?? []).locked) {
       return null;
     }
     const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
@@ -3921,17 +3942,32 @@ export default function ViewportPanel({
       }
     }
 
-    // R5: path handles of the selected object come before resize/move.
-    const pathOwner = activeScene.entities.find((candidate) => candidate.entity_id === selectedEntityId);
-    if (pathOwner?.components.path && pathOwner.components.sprite && moveScope === "entity" &&
-      !entityEditLock(pathOwner.entity_id, activeScene.layers, useEditorStore.getState().lockedEntityIdsByScene[activeScenePath] ?? []).locked) {
+    // Path intent never moves/resizes the object. All geometry writes use components.path.
+    if (editorMode === "path") {
+      const owner = activeScene.entities.find((candidate) => candidate.entity_id === selectedEntityId);
+      if (!owner || pathBlockedReason(activeTarget, owner) || entityEditLock(owner.entity_id, activeScene.layers,
+        useEditorStore.getState().lockedEntityIdsByScene[entityLockScopeKey(activeProjectDir, activeScenePath)] ?? []).locked) return;
+      const base = owner.components.path ?? defaultPath();
       const worldRadius = 7 * (sceneWidth / Math.max(sceneScaleWidth, 1));
-      const handle = hitPathHandleOrControl(pathOwner.transform, pathOwner.components.path, mx, my, worldRadius);
-      if (handle !== null) {
-        pathDragRef.current = { entityId: pathOwner.entity_id, index: handle.index, kind: handle.kind, moved: false };
-        beginHistoryCapture();
+      const handle = pathTool === "edit" ? hitPathHandleOrControl(owner.transform, base, mx, my, worldRadius) : null;
+      if (handle) setActivePathHandle(handle);
+      if (pathTool === "append") {
+        if (base.points.length >= 16) { logMessage("warn", "[Trajeto] Máximo de 16 pontos; remova um antes de inserir."); return; }
+        const point = dropOffset(owner.transform, gridSnap ? Math.round(mx / 8) * 8 : mx, gridSnap ? Math.round(my / 8) * 8 : my);
+        const next = { ...base, points: owner.components.path ? [...base.points, { ...point, frames: 30, wait: 0 }] : [base.points[0]!, { ...point, frames: 60, wait: 0 }] };
+        if (pathIssue(next)) return;
+        updateEntity(owner.entity_id, { components: { path: next } });
+        void persistActiveScene(activeProjectDir, "Viewport", "Ponto inserido no trajeto.").catch((error) => logMessage("error", String(error)));
         return;
       }
+      if (pathTool === "edit" && (!handle || !owner.components.path)) return;
+      pathDragRef.current = {
+        projectDir: activeProjectDir, scenePath: activeScenePath, revision: useEditorStore.getState().sceneRevision,
+        entityId: owner.entity_id, index: handle?.index ?? 1,
+        kind: handle?.kind ?? (pathTool === "edit" ? "point" : pathTool), base, draft: base, moved: false,
+      };
+      sceneOverlayCanvasRef.current?.focus();
+      return;
     }
 
     const resizeTarget = moveScope === "entity" ? hitTestResizeHandle(mx, my) : null;
@@ -4039,7 +4075,7 @@ export default function ViewportPanel({
     setIsDragging(true);
   }
 
-  function handleMouseMove(event: React.MouseEvent<HTMLCanvasElement>) {
+  function handleMouseMove(event: Pick<MouseEvent, "clientX" | "clientY" | "buttons">) {
     const { mx, my } = canvasCoords(event);
 
     if (gameViewLight || guideDrag) {
@@ -4152,23 +4188,29 @@ export default function ViewportPanel({
 
     const pathDrag = pathDragRef.current;
     if (pathDrag && event.buttons === 1) {
-      const owner = activeScene?.entities.find((candidate) => candidate.entity_id === pathDrag.entityId);
-      const path = owner?.components.path;
-      if (!owner || !path) return;
+      const state = useEditorStore.getState();
+      const owner = state.activeScene?.entities.find((candidate) => candidate.entity_id === pathDrag.entityId);
+      if (!owner || state.activeProjectDir !== pathDrag.projectDir || state.activeScenePath !== pathDrag.scenePath || state.sceneRevision !== pathDrag.revision) {
+        pathDragRef.current = null; setPathPreview(null); return;
+      }
       const snapped = gridSnap ? { x: Math.round(mx / GRID_SNAP_SIZE) * GRID_SNAP_SIZE, y: Math.round(my / GRID_SNAP_SIZE) * GRID_SNAP_SIZE } : { x: mx, y: my };
       const offset = dropOffset(owner.transform, snapped.x, snapped.y);
-      const current = path.points[pathDrag.index];
-      if (!current) return;
-      const target = pathDrag.kind === "control" ? current.curve : current;
-      if (!target || (target.x === offset.x && target.y === offset.y)) return;
-      if (!pathDrag.moved) {
-        commitHistoryCapture();
-        pathDrag.moved = true;
+      let next: PathComponent;
+      if (pathDrag.kind === "ellipse") {
+        const rx = Math.min(1024, Math.max(1, Math.round(Math.abs(offset.x) / 2)));
+        const ry = Math.min(1024, Math.max(1, Math.abs(offset.y)));
+        next = { ...pathDrag.base, ...ellipsePath(rx, ry) };
+      } else if (pathDrag.kind === "line" || pathDrag.kind === "curve") {
+        const end = { ...offset, frames: pathDrag.base.points[1]!.frames, wait: pathDrag.base.points[1]!.wait,
+          curve: pathDrag.kind === "curve" ? { x: Math.round(offset.x / 2 - offset.y / 4), y: Math.round(offset.y / 2 + offset.x / 4) } : null };
+        next = { ...pathDrag.base, points: [{ ...pathDrag.base.points[0]!, curve: null }, end] };
+      } else {
+        next = pathDrag.kind === "control" ? withPoint(pathDrag.base, pathDrag.index, { curve: offset }) : withPoint(pathDrag.base, pathDrag.index, offset);
       }
-      const nextPath = pathDrag.kind === "control"
-        ? withPoint(path, pathDrag.index, { curve: offset })
-        : withPoint(path, pathDrag.index, offset);
-      updateEntity(owner.entity_id, { components: { ...owner.components, path: nextPath } }, { recordHistory: false });
+      if (pathIssue(next)) return;
+      pathDrag.draft = next;
+      pathDrag.moved = JSON.stringify(next) !== JSON.stringify(pathDrag.base);
+      setPathPreview(next);
       return;
     }
 
@@ -4313,18 +4355,15 @@ export default function ViewportPanel({
     const pathDrag = pathDragRef.current;
     if (pathDrag) {
       pathDragRef.current = null;
-      if (!pathDrag.moved) {
-        cancelHistoryCapture();
-        return;
-      }
-      const { activeProjectDir: projectDir } = useEditorStore.getState();
-      if (projectDir) {
-        try {
-          await persistActiveScene(projectDir, "Viewport", pathDrag.kind === "control" ? `Curva do ponto ${pathDrag.index} ajustada.` : `Ponto ${pathDrag.index} do trajeto movido.`);
-        } catch (error: unknown) {
-          logMessage("error", `[Viewport] Falha ao salvar o trajeto: ${describeError(error)}`);
-        }
-      }
+      setPathPreview(null);
+      const state = useEditorStore.getState();
+      const owner = state.activeScene?.entities.find((candidate) => candidate.entity_id === pathDrag.entityId);
+      if (!pathDrag.moved || state.activeProjectDir !== pathDrag.projectDir || state.activeScenePath !== pathDrag.scenePath ||
+        state.sceneRevision !== pathDrag.revision || !owner || pathBlockedReason(state.activeTarget, owner) ||
+        entityEditLock(owner.entity_id, state.activeScene?.layers, state.lockedEntityIdsByScene[entityLockScopeKey(state.activeProjectDir, state.activeScenePath)] ?? []).locked) return;
+      updateEntity(owner.entity_id, { components: { path: pathDrag.draft } });
+      try { await persistActiveScene(pathDrag.projectDir, "Viewport", "Trajeto ajustado no Canvas."); }
+      catch (error) { logMessage("error", `[Viewport] Falha ao salvar o trajeto: ${describeError(error)}`); }
       return;
     }
     // Collision drag commit — single undo entry + persist
@@ -4449,8 +4488,72 @@ export default function ViewportPanel({
     }
   }
 
+  // Finish a path outside the Canvas as well; blur/Esc/context/Undo discard only the preview.
+  // No dependency array: listeners use this render's coordinate transforms and handlers.
+  useEffect(() => {
+    const cancel = () => { pathDragRef.current = null; setPathPreview(null); };
+    const onMove = (event: MouseEvent) => {
+      if (pathDragRef.current && event.target !== sceneOverlayCanvasRef.current) handleMouseMove(event);
+    };
+    const onUp = () => { if (pathDragRef.current) void handleMouseUp(); };
+    const onKey = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) return;
+      if (pathDragRef.current && (event.key === "Escape" || ((event.ctrlKey || event.metaKey) && ["z", "y"].includes(event.key.toLowerCase())))) {
+        cancel();
+        if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); }
+        return;
+      }
+      const state = useEditorStore.getState();
+      if (state.activeViewportTab !== "scene" || state.editorMode !== "path" || pathTool !== "edit" || event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.target !== sceneOverlayCanvasRef.current) return;
+      const owner = state.activeScene?.entities.find((entity) => entity.entity_id === state.selectedEntityId);
+      const path = owner?.components.path;
+      if (!owner || !path || pathBlockedReason(state.activeTarget, owner) || entityEditLock(owner.entity_id, state.activeScene?.layers,
+        state.lockedEntityIdsByScene[entityLockScopeKey(state.activeProjectDir, state.activeScenePath)] ?? []).locked) return;
+      const selected = activePathHandle ?? { index: 1, kind: "point" as const };
+      if (event.key === "[" || event.key === "]") {
+        event.preventDefault(); event.stopPropagation();
+        setActivePathHandle({ index: Math.max(1, Math.min(path.points.length - 1, selected.index + (event.key === "[" ? -1 : 1))), kind: "point" });
+        return;
+      }
+      const point = path.points[selected.index];
+      if (!point) return;
+      const value = selected.kind === "control" ? point.curve : point;
+      if (!value) return;
+      const step = event.shiftKey ? 8 : 1;
+      const delta = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }[event.key];
+      let next: PathComponent;
+      if (delta) {
+        const offset = dropOffset({ x: 0, y: 0 }, value.x + delta[0]!, value.y + delta[1]!);
+        next = withPoint(path, selected.index, selected.kind === "control" ? { curve: offset } : offset);
+      } else if (event.key === "Delete" || event.key === "Backspace") {
+        next = selected.kind === "control" ? withPoint(path, selected.index, { curve: null }) : removePoint(path, selected.index);
+      } else return;
+      event.preventDefault(); event.stopPropagation();
+      if (pathIssue(next) || JSON.stringify(next) === JSON.stringify(path)) return;
+      state.updateEntity(owner.entity_id, { components: { path: next } });
+      void persistActiveScene(state.activeProjectDir, "Viewport", "Alça do trajeto ajustada pelo teclado.").catch((error) => state.logMessage("error", String(error)));
+    };
+    const unsubscribe = useEditorStore.subscribe((state, previous) => {
+      if (state.activeProjectDir !== previous.activeProjectDir || state.activeScenePath !== previous.activeScenePath ||
+        state.sceneRevision !== previous.sceneRevision || state.selectedEntityId !== previous.selectedEntityId || state.editorMode !== previous.editorMode) cancel();
+      if (state.activeProjectDir !== previous.activeProjectDir || state.activeScenePath !== previous.activeScenePath || state.selectedEntityId !== previous.selectedEntityId) setActivePathHandle(null);
+    });
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("blur", cancel);
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      unsubscribe();
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("blur", cancel);
+      window.removeEventListener("keydown", onKey, true);
+    };
+  });
+
   function handleMouseLeave() {
-    void handleMouseUp();
+    if (!pathDragRef.current) void handleMouseUp();
     setSceneMousePos(null);
   }
 
@@ -4467,7 +4570,8 @@ export default function ViewportPanel({
     }
 
     const picked = hitTest(mx, my);
-    if (picked?.components?.tilemap) {
+    const surface = resolvePrimaryAuthoringSurface(picked);
+    if (picked && surface === "tilemap") {
       setActiveWorkspace("scene");
       setActiveViewportTab("scene");
       setSelectedEntityId(picked.entity_id);
@@ -4484,24 +4588,12 @@ export default function ViewportPanel({
       return;
     }
 
-    const logic = picked?.components?.logic;
-    const graphInline = logic?.graph?.trim() ?? "";
-    const hasInlineGraph = graphInline.length > 2;
-    if (picked && (logic?.graph_ref || hasInlineGraph)) {
-      openStudioEditor({ focus: { task: "actions", entityId: picked.entity_id } });
-      logMessage(
-        "info",
-        `[Viewport] Duplo-clique: abrindo Logic Workspace para '${getEntityDisplayName(picked)}' (graph_ref ou grafo embutido).`
-      );
+    if (picked && surface === "artstudio") {
+      openStudioEditor({ focus: { task: "character", entityId: picked.entity_id } });
       return;
     }
-
-    if (picked?.components?.sprite) {
-      openStudioEditor({ focus: { task: "character", entityId: picked.entity_id } });
-      logMessage(
-        "info",
-        `[Viewport] Duplo-clique: abrindo Art Workspace para '${getEntityDisplayName(picked)}'.`
-      );
+    if (picked && surface === "logic") {
+      openStudioEditor({ focus: { task: "actions", entityId: picked.entity_id } });
     }
   }
 
@@ -5001,6 +5093,8 @@ export default function ViewportPanel({
               </button>
             </div>
 
+            <CanvasAuthoringBar pathTool={pathTool} onPathToolChange={(tool) => { pathDragRef.current = null; setPathPreview(null); setPathTool(tool); }} />
+            {editorMode === "path" ? <p role="status" aria-live="polite" className="shrink-0 px-3 text-[11px] text-[#a6adc8]">{activePathHandle ? `${activePathHandle.kind === "control" ? "Controle da curva" : "Ponto"} ${activePathHandle.index}` : "Alça inicial: ponto 1"} · colchetes escolhem ponto · setas movem · Shift: 8 px</p> : null}
             <details data-testid="viewport-view-options" className="shrink-0 border-b border-[#313244] bg-[#181825] text-[11px]">
               <summary className="cursor-pointer px-3 py-1.5 font-semibold text-[#a6adc8]">Visualização · grade, camadas e guias</summary>
               <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
@@ -5345,6 +5439,8 @@ export default function ViewportPanel({
               ) : null}
               <canvas
                 ref={sceneOverlayCanvasRef}
+                tabIndex={0}
+                aria-label="Canvas de autoria. Em Trajeto, setas ajustam a alça; colchetes escolhem ponto; Shift usa 8 pixels; Esc cancela."
                 data-testid="viewport-scene-overlay"
                 data-world-min-x={sceneWorldMinX}
                 data-world-min-y={sceneWorldMinY}
