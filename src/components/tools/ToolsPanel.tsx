@@ -1265,8 +1265,10 @@ function AssetBrowser({ onRequestInspector }: AssetBrowserProps) {
                   setViewMode("tree");
                   return;
                 }
-                if (matches[0]?.authoringSurface) {
-                  handleOpenReferenceAuthoringTarget(matches[0]);
+                // Double-click is the primary gesture: R2 art-first, unlike the card's secondary action.
+                const primary = matches[0]?.primaryAuthoringSurface ?? matches[0]?.authoringSurface;
+                if (matches[0] && primary) {
+                  handleOpenReferenceAuthoringTarget({ ...matches[0], authoringSurface: primary });
                   return;
                 }
                 if (matches[0]) handleFocusReferencedAsset(matches[0]);

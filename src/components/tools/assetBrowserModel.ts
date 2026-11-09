@@ -2,6 +2,7 @@ import { getEntityDisplayName } from "../../core/entityDisplay";
 import {
   resolveEntitySourceRefs,
   resolvePrimaryAuthoringSurface,
+  resolveReferenceAuthoringSurface,
 } from "../../core/entityAuthoring";
 import { resolveImportedEntityContext } from "../../core/importedEntityContext";
 import type { LegacySgdkIndex, Scene } from "../../core/ipc/sceneService";
@@ -50,7 +51,10 @@ export interface AssetReference {
   confidenceLabel: string | null;
   reason: string | null;
   isSceneFocus: boolean;
+  /** Secondary action of the reference card (complements its "Abrir no ArtStudio" button). */
   authoringSurface: "tilemap" | "logic" | "artstudio" | null;
+  /** Primary gesture (double-click) on the asset: R2 art-first. Absent = same as authoringSurface. */
+  primaryAuthoringSurface?: "tilemap" | "logic" | "artstudio" | null;
   sourcePaths: string[];
   positionLabel: string | null;
   scenePath: string | null;
@@ -330,7 +334,8 @@ export function collectAssetReferences(
     authoringSurface: AssetReference["authoringSurface"] = null,
     sourcePaths: string[] = [],
     positionLabel: string | null = null,
-    graphRef: string | null = null
+    graphRef: string | null = null,
+    primaryAuthoringSurface: AssetReference["authoringSurface"] = authoringSurface
   ) => {
     const normalized = String(assetPath ?? "").trim();
     if (!normalized) {
@@ -345,6 +350,7 @@ export function collectAssetReferences(
       reason,
       isSceneFocus,
       authoringSurface,
+      primaryAuthoringSurface,
       sourcePaths,
       positionLabel,
       scenePath,
@@ -360,7 +366,7 @@ export function collectAssetReferences(
     const confidenceLabel = importedContext.confidenceLabel;
     const reason = importedContext.reason;
     const isSceneFocus = focusEntityId === entity.entity_id;
-    const authoringSurface = resolvePrimaryAuthoringSurface(entity);
+    const authoringSurface = resolveReferenceAuthoringSurface(entity);
     const sourcePaths = resolveEntitySourceRefs(entity);
     const positionLabel = importedContext.positionLabel;
     const graphRef = entity.components.logic?.graph_ref ?? entity.components.logic?.graph ?? null;
@@ -375,7 +381,8 @@ export function collectAssetReferences(
       authoringSurface,
       sourcePaths,
       positionLabel,
-      graphRef
+      graphRef,
+      resolvePrimaryAuthoringSurface(entity)
     );
     pushReference(
       entity.components.tilemap?.tileset,
@@ -388,7 +395,8 @@ export function collectAssetReferences(
       authoringSurface,
       sourcePaths,
       positionLabel,
-      graphRef
+      graphRef,
+      resolvePrimaryAuthoringSurface(entity)
     );
 
     const audio = entity.components.audio;
@@ -404,7 +412,8 @@ export function collectAssetReferences(
         authoringSurface,
         sourcePaths,
         positionLabel,
-        graphRef
+        graphRef,
+        resolvePrimaryAuthoringSurface(entity)
       );
     }
     for (const [action, assetPath] of Object.entries(audio?.sfx ?? {})) {
@@ -419,7 +428,8 @@ export function collectAssetReferences(
         authoringSurface,
         sourcePaths,
         positionLabel,
-        graphRef
+        graphRef,
+        resolvePrimaryAuthoringSurface(entity)
       );
     }
   }
