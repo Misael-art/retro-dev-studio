@@ -1460,12 +1460,12 @@ fn render_apply_physics(out: &mut String, physics: &PhysicsApplication) {
         let half_w = ground.body_width / 2;
         let body_h = ground.body_height;
         PATH_PLATFORMS.with(|platforms| {
-            for (index, (_, pvar, ox, oy, w)) in platforms.borrow().iter().enumerate() {
+            for (_, pvar, ox, oy, w) in platforms.borrow().iter() {
                 if pvar == var_name {
                     continue;
                 }
                 out.push_str(&format!(
-                    "        if (rds_path_support_{var_name} == {index} && {var_name}_vel_y >= 0) {{ s32 rds_pl = (s32){pvar}_x + ({ox}); s32 rds_pt = (s32){pvar}_y + ({oy}); s32 rds_cx = (s32){next_x_var} + {half_w}; if (rds_cx >= rds_pl && rds_cx < rds_pl + {w} && (s32){var_name}_y + {body_h} == rds_pt) {{ {next_y_var} = rds_pt - {body_h}; {var_name}_vel_y = 0; {var_name}_on_ground = 1; }} }}\n"
+                    "        if ({var_name}_vel_y >= 0) {{ s32 rds_pl = (s32){pvar}_x + ({ox}); s32 rds_pt = (s32){pvar}_y + ({oy}); s32 rds_cx = (s32){next_x_var} + {half_w}; if (rds_cx >= rds_pl && rds_cx < rds_pl + {w} && (s32){var_name}_y + {body_h} == rds_pt) {{ {next_y_var} = rds_pt - {body_h}; {var_name}_vel_y = 0; {var_name}_on_ground = 1; }} }}\n"
                 ));
             }
         });

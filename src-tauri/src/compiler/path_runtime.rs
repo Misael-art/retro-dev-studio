@@ -511,6 +511,9 @@ int main(void) {
     /* Attached descending/rising surfaces retain exact feet, without a 4px tolerance. */
     assert(rds_path_top_contact(44,84,44,84,8,16,0,40,100,40,104,32,1,&c));
     assert(c.x==44 && c.y==88);
+    /* A body initially resting on a descending platform is supported before any saved contact. */
+    assert(rds_path_top_contact(44,84,44,84,8,16,0,40,100,40,104,32,0,&c));
+    assert(c.x==44 && c.y==88);
     assert(rds_path_top_contact(44,84,44,84,8,16,0,40,100,40,92,32,1,&c));
     assert(c.x==44 && c.y==76);
     /* Fast horizontal motion, reversal and pause use this frame's displacement. */

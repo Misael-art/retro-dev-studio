@@ -19,8 +19,9 @@ static u8 rds_path_top_contact(s16 x0, s16 y0, s16 x1, s16 y1, u16 bw, u16 bh,
     s32 n, d, result_x, result_y;
     RdsPathWide center, left;
     if (vy < 0 || gap < 0 || width == 0 || bw == 0 || bh == 0) return 0;
-    if (supported && gap == 0 && (s32)x1 + bw / 2 >= left0 &&
-        (s32)x1 + bw / 2 < (s32)left0 + width) {
+    if (gap == 0 && (s32)x1 + bw / 2 >= left0 &&
+        (s32)x1 + bw / 2 < (s32)left0 + width &&
+        (supported || ((s32)x0 + bw / 2 >= left0 && (s32)x0 + bw / 2 < (s32)left0 + width))) {
         n = 0; d = 1; /* retain attachment even when a descending surface outruns gravity */
         result_x = x1 + dx; /* ordinary carrying needs no wide multiply/divide */
     } else {
