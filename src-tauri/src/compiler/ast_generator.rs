@@ -552,6 +552,10 @@ pub enum LogicBoolExpr {
     Grounded {
         var_name: String,
     },
+    /// RC09: o corpo foi esmagado contra o teto por uma plataforma neste quadro.
+    Crushed {
+        var_name: String,
+    },
     /// A animacao atual do sprite terminou a primeira passagem (MUGEN `AnimTime = 0`).
     SpriteAnimDone {
         var_name: String,
@@ -2651,6 +2655,50 @@ fn compile_logic_node(
                 value: value_expr,
             }))
         }
+        "condition_crushed" => {
+            let target = param_string(node, "target")?;
+            let condition = match runtime_entities
+                .get(&target)
+                .and_then(|runtime| runtime.sprite.as_ref())
+            {
+                Some(sprite) => LogicBoolExpr::Crushed {
+                    var_name: sprite.var_name.clone(),
+                },
+                None => LogicBoolExpr::Unsupported {
+                    node_id: node.id.clone(),
+                    reason: format!("condition_crushed: '{target}' nao tem sprite com fisica"),
+                },
+            };
+            let mut true_visited = visited.clone();
+            let mut false_visited = visited.clone();
+            let if_true = compile_logic_chain(
+                graph,
+                &node.id,
+                "true",
+                runtime_entities,
+                &mut true_visited,
+                setup_nodes,
+                runtime_nodes,
+                parallax_layers,
+                raster_lines,
+            );
+            let if_false = compile_logic_chain(
+                graph,
+                &node.id,
+                "false",
+                runtime_entities,
+                &mut false_visited,
+                setup_nodes,
+                runtime_nodes,
+                parallax_layers,
+                raster_lines,
+            );
+            Some(CompiledLogicNode::Terminal(LogicOp::ConditionBool {
+                condition,
+                if_true,
+                if_false,
+            }))
+        }
         "condition_on_ground" => {
             let target = param_string(node, "target")?;
             let condition = match runtime_entities
@@ -3206,6 +3254,7 @@ fn collect_unsupported_from_bool(
         }
         LogicBoolExpr::Literal(_)
         | LogicBoolExpr::Grounded { .. }
+        | LogicBoolExpr::Crushed { .. }
         | LogicBoolExpr::SpriteAnimDone { .. }
         | LogicBoolExpr::Input { .. }
         | LogicBoolExpr::InputCommand { .. }

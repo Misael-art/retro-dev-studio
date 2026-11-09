@@ -143,6 +143,16 @@ export const NODE_DEFS: Record<NodeType, Omit<GraphNode, "id" | "x" | "y">> = {
     ],
     params: { target: "player" },
   },
+  condition_crushed: {
+    type: "condition_crushed",
+    label: "Crushed",
+    inputs: [{ id: "exec", label: ">", kind: "exec" }],
+    outputs: [
+      { id: "true", label: "True ▶", kind: "exec" },
+      { id: "false", label: "False ▶", kind: "exec" },
+    ],
+    params: { target: "player" },
+  },
   condition_overlap: {
     type: "condition_overlap",
     label: "On Overlap",

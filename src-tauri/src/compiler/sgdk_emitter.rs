@@ -2494,6 +2494,7 @@ fn render_bool_expr(out: &mut String, expr: &LogicBoolExpr, indent: usize) -> St
             }
         }
         LogicBoolExpr::Grounded { var_name } => format!("({var_name}_on_ground)"),
+        LogicBoolExpr::Crushed { var_name } => format!("(rds_path_crushed_{var_name})"),
         LogicBoolExpr::SpriteAnimDone { var_name } => format!("rds_anim_done_{var_name}()"),
         LogicBoolExpr::Overlap { left, right } => format!(
             "retro_aabb_intersects({left_x}, {left_y}, {left_w}, {left_h}, {right_x}, {right_y}, {right_w}, {right_h})",
@@ -3029,6 +3030,7 @@ fn bool_expr_uses_overlap(expr: &LogicBoolExpr) -> bool {
     match expr {
         LogicBoolExpr::Literal(_)
         | LogicBoolExpr::Grounded { .. }
+        | LogicBoolExpr::Crushed { .. }
         | LogicBoolExpr::SpriteAnimDone { .. } => false,
         LogicBoolExpr::Input { .. } | LogicBoolExpr::InputCommand { .. } => false,
         LogicBoolExpr::Overlap { .. } => true,

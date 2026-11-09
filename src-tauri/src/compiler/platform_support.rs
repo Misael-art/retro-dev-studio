@@ -16,6 +16,16 @@ const UNSUPPORTED: &[(&str, &str, &str)] = &[
         "o estado de apoio no chao so existe na fisica do Mega Drive",
     ),
     (
+        "snes",
+        "condition_crushed",
+        "o sinal de esmagamento por plataforma so existe na fisica do Mega Drive",
+    ),
+    (
+        "snes",
+        "condition_crushed",
+        "o sinal de esmagamento por plataforma so existe na fisica do Mega Drive",
+    ),
+    (
         "megadrive",
         "camera_bounds",
         "o no legado nao tem runtime; remova-o e desenhe limites em Configurar camera",
@@ -140,6 +150,73 @@ pub fn sprite_priority_issues(target: &str, scene: &Scene) -> Vec<LogicSupportIs
             })
         })
         .collect()
+}
+
+/// RC09: «Esmagado?» only exists for a gravity body with a collision map in a scene that has a
+/// solid path platform; anywhere else the signal is never produced, so refuse instead of guessing.
+pub fn crushed_condition_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSupportIssue> {
+    let has_platform = resolved_scene.entities.iter().any(|entity| {
+        entity.components.path.is_some()
+            && entity
+                .components
+                .collision
+                .as_ref()
+                .is_some_and(|c| c.solid)
+    });
+    let has_map = resolved_scene.collision_map.is_some();
+    let mut issues = Vec::new();
+    for entity in &resolved_scene.entities {
+        let Some(graph) = entity
+            .components
+            .logic
+            .as_ref()
+            .and_then(|l| l.graph.as_deref())
+        else {
+            continue;
+        };
+        let Ok(parsed) = serde_json::from_str::<GraphNodes>(graph) else {
+            continue;
+        };
+        for node in parsed
+            .nodes
+            .into_iter()
+            .filter(|n| n.node_type == "condition_crushed")
+        {
+            let goal = node
+                .params
+                .get("target")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let goal = if goal == "self" {
+                entity.entity_id.as_str()
+            } else {
+                goal
+            };
+            let body = resolved_scene.entities.iter().find(|e| e.entity_id == goal);
+            let gravity = body
+                .and_then(|e| e.components.physics.as_ref())
+                .is_some_and(|p| p.gravity);
+            let reason = if !has_platform {
+                Some("a cena nao tem plataforma com trajeto e colisao solida".to_string())
+            } else if !has_map {
+                Some("o esmagamento usa o mapa de colisao da cena, que nao existe".to_string())
+            } else if !gravity {
+                Some(format!("'{goal}' nao tem fisica com gravidade"))
+            } else {
+                None
+            };
+            if let Some(reason) = reason {
+                issues.push(LogicSupportIssue {
+                    platform: target.to_string(),
+                    entity_id: entity.entity_id.clone(),
+                    node_id: node.id,
+                    node_type: node.node_type,
+                    reason,
+                });
+            }
+        }
+    }
+    issues
 }
 
 /// R5: «Iniciar/Parar trajeto» must target an object that has a path in this scene.
@@ -423,6 +500,40 @@ mod tests {
         assert_eq!(issues[0].node_id, "halt");
         assert!(issues[0].reason.contains("ghost"));
         assert!(issue_diagnostic(&issues[0]).blocking);
+    }
+
+    #[test]
+    fn crushed_condition_requires_platform_map_and_gravity_body() {
+        let graph = r#"{"nodes":[{"id":"crush","type":"condition_crushed","params":{"target":"self"}}],"edges":[]}"#;
+        let mut scene = scene_with(graph);
+        let issues = crushed_condition_issues("megadrive", &scene);
+        assert_eq!(issues.len(), 1);
+        assert!(issues[0].reason.contains("plataforma"));
+        let mut plat = scene.entities[0].clone();
+        plat.entity_id = "lift".to_string();
+        plat.components = serde_json::from_str(
+            r#"{"sprite":{"asset":"a.png","frame_width":16,"frame_height":16,"pivot":null},"collision":{"shape":"aabb","width":24,"height":8,"offset":null,"solid":true,"layer":null},"path":{"mode":"loop","points":[{"x":0,"y":0,"frames":10},{"x":0,"y":-32,"frames":10}]}}"#,
+        )
+        .expect("lift");
+        scene.entities.push(plat);
+        assert!(crushed_condition_issues("megadrive", &scene)[0]
+            .reason
+            .contains("mapa"));
+        scene.collision_map = Some(
+            serde_json::from_str(
+                r#"{"tile_width":8,"tile_height":8,"width":4,"height":4,"data":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}"#,
+            )
+            .expect("collision map"),
+        );
+        assert!(crushed_condition_issues("megadrive", &scene)[0]
+            .reason
+            .contains("gravidade"));
+        scene.entities[0].components.physics =
+            Some(serde_json::from_str(r#"{"gravity":true}"#).expect("physics"));
+        assert!(crushed_condition_issues("megadrive", &scene).is_empty());
+        assert!(logic_support_issues("snes", &scene)
+            .iter()
+            .any(|i| i.node_type == "condition_crushed"));
     }
 
     #[test]

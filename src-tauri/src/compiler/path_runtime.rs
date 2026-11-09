@@ -135,6 +135,8 @@ pub fn render_decls(ast: &AstOutput) -> String {
         out.push_str(include_str!("path_contact_template.c"));
         for (var, _, _) in platform_actors(ast) {
             out.push_str(&format!("static s16 rds_path_support_{var} = -1;\n"));
+            // RC09 terrain rule: one-frame signal when a ceiling stops the body following a platform.
+            out.push_str(&format!("static u8 rds_path_crushed_{var} = 0;\n"));
         }
     }
     out
@@ -192,10 +194,22 @@ pub fn render_platform_transport(ast: &AstOutput, indent: usize) -> String {
                  {pad}  }}\n"
             ));
         }
+        // RC09 terrain rule (approved 2026-11-09): carrying never pushes a body into the map.
+        // Wall: the body stays against it while the platform slides on (edge exit follows).
+        // Ceiling while rising: crushed signal, support released, position not applied.
+        // Floor while descending: the body stays on the terrain and the platform goes on.
+        let head = "rds_ny";
         out.push_str(&format!(
-            "{pad}  if (rds_support >= 0) {{ {var}_x = rds_best.x; {var}_y = rds_best.y; {var}_vel_y = 0; {var}_on_ground = 1; SPR_setPosition({var}, {var}_x, {var}_y); }}\n\
+            "{pad}  rds_path_crushed_{var} = 0;\n\
+             {pad}  if (rds_support >= 0) {{ s16 rds_nx = rds_best.x, rds_ny = rds_best.y;\n\
+             {pad}    if (rds_nx != {var}_x && rds_hits_wall(rds_nx, {var}_y, {bw}, {bh}, rds_nx - {var}_x)) rds_nx = {var}_x;\n\
+             {pad}    if (rds_ny < {var}_y && (rds_solid_at(rds_nx + 1, {head}) || rds_solid_at(rds_nx + {bw} - 2, {head}))) {{ rds_path_crushed_{var} = 1; rds_support = -1; {var}_on_ground = 0; }}\n\
+             {pad}    else if (rds_ny > {var}_y && rds_solid_at(rds_nx + {half}, rds_ny + {bh} - 1)) {{ rds_support = -1; }}\n\
+             {pad}    else {{ {var}_x = rds_nx; {var}_y = rds_ny; {var}_vel_y = 0; {var}_on_ground = 1; SPR_setPosition({var}, {var}_x, {var}_y); }}\n\
+             {pad}  }}\n\
              {pad}  else if (rds_path_support_{var} >= 0 && {var}_vel_y < 0) {{ {var}_on_ground = 0; }}\n\
-             {pad}  rds_path_support_{var} = rds_support;\n{pad}}}\n"
+             {pad}  rds_path_support_{var} = rds_support;\n{pad}}}\n",
+            half = bw / 2
         ));
     }
     out
@@ -622,6 +636,13 @@ int main(void) {
         assert!(snapshot < physics && physics < path && path < transport && transport < present);
         assert!(c.contains("rds_path_support_spr_actor"));
         assert!(!c.contains("rds_pt + 4"));
+        // RC09 terrain rule: carrying consults the map before moving the body.
+        assert!(c.contains("static u8 rds_path_crushed_spr_actor = 0;"));
+        assert!(c.contains("rds_hits_wall(rds_nx, spr_actor_y"));
+        assert!(c.contains("rds_path_crushed_spr_actor = 1; rds_support = -1;"));
+        assert!(c.contains("else if (rds_ny > spr_actor_y && rds_solid_at("));
+        let crush = c.find("rds_path_crushed_spr_actor = 1;").expect("crush");
+        assert!(transport < crush && crush < present);
         // Unrelated scenes do not gain contact state, snapshots, code or another frame clock.
         scene.entities.pop();
         let without = generate_ast(&project, &scene);

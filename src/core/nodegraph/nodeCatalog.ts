@@ -113,6 +113,7 @@ export const NODE_CATALOG: Record<NodeType, NodeCatalogEntry> = {
   sprite_anim: entry("sprite_anim", "animation", "Movimento", "Animar Sprite", "film", "Troca a animacao exibida pela entidade.", ["target", "anim"]),
   set_animation_state: entry("set_animation_state", "animation", "Movimento", "Estado de Animacao", "film", "Muda o estado de animacao da entidade.", ["target", "state"]),
   condition_on_ground: entry("condition_on_ground", "collision", "Condicoes", "Esta no chao?", "fork", "Pergunta se a entidade (com fisica) esta apoiada no chao neste quadro e segue por Sim ou Nao.", ["target"]),
+  condition_crushed: entry("condition_crushed", "collision", "Condicoes", "Esmagado?", "fork", "Pergunta se uma plataforma com trajeto empurrou a entidade contra o teto neste quadro (Experimental · Mega Drive). Ligue o Sim ao efeito que quiser: dano, reinicio, som.", ["target"]),
   condition_overlap: entry("condition_overlap", "collision", "Condicoes", "Objetos se encostam?", "fork", "Pergunta se duas entidades se encostam (ou encostariam ao se mover) e segue por Sim ou Nao.", ["a", "b", "probe_dx"]),
   camera_follow: entry("camera_follow", "camera", "Camera", "Câmera segue (legado)", "camera", "Seguimento imediato legado. Damping não é executado por este nó; para suavidade e limites, remova o nó e converta em Configurar câmera.", ["target"]),
   camera_control: entry("camera_control", "camera", "Camera", "Controlar câmera", "camera", "Câmera visual: selecionar, devolver às regiões, travar/liberar, tremor, deslocamento temporário ou reiniciar. Uma atualização após o movimento.", ["target", "action", "frames", "x", "y"]),
@@ -314,6 +315,8 @@ export function describeNodeAction(node: GraphNode): string {
       return `Se A ${num(p.operator)} ${p.b ?? "B"}`;
     case "condition_on_ground":
       return `Se ${num(p.target)} esta apoiado no chao`;
+    case "condition_crushed":
+      return `Se ${num(p.target)} foi esmagado por uma plataforma`;
     case "action_sound":
       return `Tocar som "${num(p.sfx)}"`;
     case "action_music":

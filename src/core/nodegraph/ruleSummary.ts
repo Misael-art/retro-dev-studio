@@ -77,6 +77,8 @@ function describeCondition(graph: NodeGraph, node: GraphNode): string | null {
     }
     case "condition_on_ground":
       return `${node.params.target} no chão`;
+    case "condition_crushed":
+      return `${node.params.target} esmagado`;
     case "condition_compare": {
       const left = dataSource(graph, node.id, "a") ?? String(node.params.a ?? "?");
       const right = dataSource(graph, node.id, "b") ?? String(node.params.b ?? "?");

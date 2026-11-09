@@ -1621,7 +1621,9 @@ fn render_bool_expr(out: &mut String, expr: &LogicBoolExpr, indent: usize) -> St
         }
         // Estado de apoio so existe na fisica do emissor Mega Drive.
         // Placeholder: o `#error` de `render_unsupported_semantics` ja bloqueou o build.
-        LogicBoolExpr::Grounded { .. } | LogicBoolExpr::SpriteAnimDone { .. } => "0".to_string(),
+        LogicBoolExpr::Grounded { .. }
+        | LogicBoolExpr::Crushed { .. }
+        | LogicBoolExpr::SpriteAnimDone { .. } => "0".to_string(),
         LogicBoolExpr::Overlap { left, right } => format!(
             "retro_aabb_intersects({left_x}, {left_y}, {left_w}, {left_h}, {right_x}, {right_y}, {right_w}, {right_h})",
             left_x = logic_x_expr(left),
@@ -2106,6 +2108,7 @@ fn bool_expr_uses_overlap(expr: &LogicBoolExpr) -> bool {
     match expr {
         LogicBoolExpr::Literal(_)
         | LogicBoolExpr::Grounded { .. }
+        | LogicBoolExpr::Crushed { .. }
         | LogicBoolExpr::SpriteAnimDone { .. } => false,
         LogicBoolExpr::Input { .. } | LogicBoolExpr::InputCommand { .. } => false,
         LogicBoolExpr::Overlap { .. } => true,
