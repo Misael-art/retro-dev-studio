@@ -1778,6 +1778,9 @@ fn compile_logic_graph(
     runtime_entities: &HashMap<String, LogicRuntimeEntity>,
 ) -> CompiledLogicOutput {
     let mut output = CompiledLogicOutput::default();
+    // `self` is the authoring alias for the entity that owns this graph.
+    let resolved = resolve_self_targets(graph, entity_id);
+    let graph = &resolved;
 
     output.scripts.extend(
         graph
@@ -3664,6 +3667,21 @@ fn mugen_set_velocity_op(
     }
 }
 
+/// Rewrites entity-reference params set to `self` into the owning entity id.
+fn resolve_self_targets(graph: &StoredNodeGraph, entity_id: &str) -> StoredNodeGraph {
+    let mut graph = graph.clone();
+    for node in &mut graph.nodes {
+        for key in ["target", "a", "b"] {
+            if let Some(value) = node.params.get_mut(key) {
+                if value.as_str() == Some("self") {
+                    *value = Value::String(entity_id.to_string());
+                }
+            }
+        }
+    }
+    graph
+}
+
 fn param_string(node: &StoredNodeGraphNode, key: &str) -> Option<String> {
     node.params.get(key).and_then(|value| match value {
         Value::String(text) => Some(text.clone()),
@@ -3935,6 +3953,26 @@ pub fn collect_input_actions(ast: &AstOutput) -> Vec<InputActionBinding> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn self_targets_resolve_to_the_graph_owner() {
+        let graph: StoredNodeGraph = serde_json::from_str(
+            r#"{"nodes":[{"id":"kill","type":"destroy_entity","params":{"target":"self"}},{"id":"cmp","type":"condition_compare","params":{"b":1}}],"edges":[]}"#,
+        )
+        .unwrap();
+        let resolved = resolve_self_targets(&graph, "player");
+        assert_eq!(
+            resolved.nodes[0]
+                .params
+                .get("target")
+                .and_then(Value::as_str),
+            Some("player")
+        );
+        assert_eq!(
+            resolved.nodes[1].params.get("b").and_then(Value::as_i64),
+            Some(1)
+        );
+    }
 
     /// Mesmo `generate_ast`, com os scripts de "Ao iniciar" desembrulhados da guarda de
     /// execucao unica (validada em `start_ops`), para os testes inspecionarem as ops.
