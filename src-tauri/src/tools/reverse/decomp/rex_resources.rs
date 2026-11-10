@@ -3422,9 +3422,25 @@ mod tests {
     }
 
     /// Diagnóstico: preview_resource sobre o artefato modificado real.
+    ///
+    /// Depende de corpus BYOR local (artefato modificado e referência original),
+    /// por isso segue a convenção dos demais aceites BYOR: fica fora da suíte
+    /// padrão e roda com `--ignored`, onde a ausência da referência FALHA.
+    /// O artefato vem de `RDS_HAMOOPIG_MODIFIED_ROM` ou do diretório de trabalho
+    /// do usuário atual, sem caminho fixo de um host.
     #[test]
+    #[ignore = "diagnóstico BYOR: requer artefato modificado e referência local; rodar com --ignored"]
     fn byor_preview_of_modified_artifact() {
-        let rom_path = "/home/misael/.retrodev/decomp_work/extract/558bea6c80c76ec3da23afd584d4b56ece7722847ab1efc8c2f23f43f8529be9/edits/rex-lz4w-modified-261618d9f19f8176c45dc66f3f398d6998d1d68772c2205b55ef8ce70fb76192.bin";
+        let rom_path = std::env::var("RDS_HAMOOPIG_MODIFIED_ROM")
+            .ok()
+            .filter(|path| !path.trim().is_empty())
+            .unwrap_or_else(|| {
+                format!(
+                    "{}/.retrodev/decomp_work/extract/558bea6c80c76ec3da23afd584d4b56ece7722847ab1efc8c2f23f43f8529be9/edits/rex-lz4w-modified-261618d9f19f8176c45dc66f3f398d6998d1d68772c2205b55ef8ce70fb76192.bin",
+                    std::env::var("HOME").unwrap_or_default()
+                )
+            });
+        let rom_path = rom_path.as_str();
         if !std::path::Path::new(rom_path).exists() {
             eprintln!("artefato ausente; rode o aceite BYOR antes");
             return;
