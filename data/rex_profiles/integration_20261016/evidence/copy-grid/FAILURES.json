@@ -1,0 +1,41 @@
+[
+  {
+    "artifact": "/home/misael/rds-scratch/rex-copy-grid-20261016/initial-rust.log",
+    "cause": "Comparison graph metadata wording drift; restored original wording without changing canonical fixture",
+    "resolution": "profile-tests-002.log 69 passed/2 ignored",
+    "sha256": "70226be35415a9e59d06c7d68bdd7725587150d75ed1baa4af5a0fef5c07577c"
+  },
+  {
+    "artifact": "/home/misael/rds-scratch/rex-copy-grid-20261016/copy-tests-003.log",
+    "cause": "Own optional artifact emission refused already existing scratch directory",
+    "resolution": "new products-002 directory; copy-tests-004.log 4 pass/1 ignored; no output removed",
+    "sha256": "be94a9c2d096796bd5fcfbc65197b3804b302050a09cd3d08b1f1f573b2d5c8b"
+  },
+  {
+    "artifact": "/home/misael/rds-scratch/rex-copy-grid-author-runtime-001/report.json",
+    "cause": "objdump -d omitted non-executable .image section; no runtime measurement reached",
+    "resolution": "use -D to disassemble declared section; do not change boundary expectations",
+    "sha256": "a2f02c98f1386f87283b09d207d80a9f934d114b4fdf257be197668afca98be8"
+  },
+  {
+    "artifact": "/home/misael/rds-scratch/rex-copy-grid-author-runtime-002/report.json",
+    "cause": "Independent core stdout has Product ID log before JSON; JSON parser failed after execution",
+    "resolution": "persist probe stdout and parse explicitly identified JSON line; expectations unchanged",
+    "sha256": "4372ccd42c6dca034b65af845fb475fb729b29ed69bedd203378d46e136b50b1"
+  },
+  {
+    "artifact": "gui-001-failure.json",
+    "cause": "QA read previous no-match panel before async locate completed",
+    "resolution": "wait for locate button idle and declared instance tab; no backend/expectation changes"
+  },
+  {
+    "artifact": "gui-002-failure.json",
+    "cause": "QA report used comparison-only probe.cases.length for memory-layout result",
+    "resolution": "report 65536 memory samples for copy layout; no measured expectation changed"
+  },
+  {
+    "artifact": "LOG-PROVENANCE.json",
+    "cause": "First staged diff-check refused trailing whitespace/empty EOF in verbatim evidence log copies",
+    "resolution": "Normalize only versioned copies; keep raw logs unchanged with both SHA-256 values; staged diff-check then passed"
+  }
+]

@@ -1,0 +1,67 @@
+{
+ "schema_version": "rex-parallel-b/avaliacao-d/1",
+ "gerado_por": "scripts/rex_profiles/parallel_recovery_20261004/b/exportar-camadas-b2.py",
+ "proposito": "export para avaliacao da frente D; ferramenta de pesquisa; NAO candidata a produto; nenhum campo espera-consumo do produto; codecs artificiais do benchmark NAO sao adaptados aqui",
+ "tempo_utc": "2026-10-05T19:04:43.386143+00:00",
+ "codec": {
+  "nome": "Enigma (variante plain, Sonic 1)",
+  "decompressor_rom": "jsr $171E (unico sitio, 0x1B6D2)",
+  "value_offset": 0,
+  "value_offset_evidencia": "move.w #$0,D0 imediatamente antes da chamada (0x1B6CE)"
+ },
+ "pins": {
+  "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "decoder_sha256": "a9ed92f96fbdd7e0828e7612e83eff24c65aee52fd5a82efee53581dc1a7f8b2",
+  "s1disasm": "064e3c68eb19cc85b8801b087f9d95f9b3e82cea"
+ },
+ "streams": [
+  {
+   "offset": "0x65432",
+   "bytes_consumidos": 634,
+   "output_size": 4096,
+   "output_sha256": "322a14830b8f3be05d59507ccf41c7a57ff8e835cd2727573943cd61d4c944d0"
+  },
+  {
+   "offset": "0x656ac",
+   "bytes_consumidos": 1042,
+   "output_size": 4096,
+   "output_sha256": "4b5ac5ea3391a5146e935474137df1ae74bb3926354bb63a321e03020f12733d"
+  },
+  {
+   "offset": "0x65abe",
+   "bytes_consumidos": 860,
+   "output_size": 4096,
+   "output_sha256": "3643e681d5260a6d51a3e0cd4558ded3b189663d62258dbee189f2167d6c3954"
+  },
+  {
+   "offset": "0x65e1a",
+   "bytes_consumidos": 1242,
+   "output_size": 4096,
+   "output_sha256": "04b5a97a675e9f84790932fc94c801aafd0c34a05ad450437da3a01feac5e9c7"
+  },
+  {
+   "offset": "0x662f4",
+   "bytes_consumidos": 1233,
+   "output_size": 4096,
+   "output_sha256": "5841c3fbaf8a648593914121ea0af13f2339c29754b59167a4b21178dfceacd8"
+  },
+  {
+   "offset": "0x667c6",
+   "bytes_consumidos": 784,
+   "output_size": 4096,
+   "output_sha256": "78a2093e623f11fc227fe10390cd9f3d4afc234a838ba70bd2641b5637128c94"
+  }
+ ],
+ "geometria_saida": {
+  "bytes": 4096,
+  "grade": "64x64 de IDs 1 byte",
+  "projecao": {
+   "base": "0xFF1020",
+   "stride": 128
+  }
+ },
+ "limites": [
+  "sem execucao: decode paridade com PIN, nao com consumo do jogo",
+  "sem afirmacao acustica/visual derivada daqui"
+ ]
+}

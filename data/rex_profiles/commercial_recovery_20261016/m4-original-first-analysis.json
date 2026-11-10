@@ -1,0 +1,14 @@
+{
+  "status": "ORIGINAL_VALUES_MATCH_BUT_ROLE_MODEL_WRONG",
+  "private_analysis": "/home/misael/rds-scratch/commercial_recovery_20261016/m4-original-state-001.json",
+  "sha256": "b02b854d0257a8bbfdc2abdfb624a6ab1b37f5a813029d7a587711641625a400",
+  "interpretation": {
+    "generated_at": "2026-10-18T02:13:51.910659+00:00",
+    "old_freeze_sha256": "005e50629638983fad9cac9d30ac1393670b4fc5a4ce11ec1bfda0ae0ab16f85",
+    "old_analysis_sha256": "b02b854d0257a8bbfdc2abdfb624a6ab1b37f5a813029d7a587711641625a400",
+    "cause": "Initial state model incorrectly assigned D0/D1 as counters. Native persisted typed IR actually shows D1/D2; D0 preserved. All three happened to endFFFF, masking wrong role assignment in original observational value check.",
+    "correction": "Derive counter roles from frozen native IR. For observed D0/D1/D2, counters end0000FFFF, others preserve entry; add distinct-sentinel role controls before edited trace.",
+    "no_edited_m4_trace_yet": true,
+    "m3_effect": "No change; M3 compared memory/pixels/actual graph and did not use this erroneous state model."
+  }
+}

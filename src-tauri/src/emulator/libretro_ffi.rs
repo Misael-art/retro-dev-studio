@@ -106,6 +106,56 @@ pub struct EmulatorState {
     pub last_audio_frames: usize,
     pub joypad: JoypadState,
     pub rom_path: String,
+    /// Transições de joypad aplicadas nesta carga e o que o core fez com elas (anel limitado).
+    pub input_log: std::collections::VecDeque<InputTransition>,
+    /// Geração da última transição aplicada nesta carga.
+    pub input_generation: u64,
+    /// Quadros emulados concluídos nesta carga.
+    pub frames_run: u64,
+    /// Número do quadro que o core está rodando AGORA (só durante `retro_run`).
+    pub frame_in_progress: Option<u64>,
+}
+
+impl EmulatorState {
+    /// Nova carga: a observação de input recomeça do zero (outra época).
+    pub fn reset_input_observation(&mut self) {
+        self.input_log.clear();
+        self.input_generation = 0;
+        self.frames_run = 0;
+        self.frame_in_progress = None;
+    }
+
+    /// Aplica uma transição de joypad e a registra. A anterior, se nenhum quadro a leu, fica marcada
+    /// como nunca vista pelo core.
+    pub fn apply_joypad(&mut self, joypad: JoypadState) -> (u64, u64) {
+        if let Some(prev) = self.input_log.back_mut() {
+            if prev.first_polled_frame.is_none() {
+                prev.superseded_unpolled = true;
+            }
+        }
+        self.input_generation += 1;
+        if self.input_log.len() == INPUT_LOG_CAPACITY {
+            self.input_log.pop_front();
+        }
+        self.input_log.push_back(InputTransition {
+            generation: self.input_generation,
+            joypad: joypad.clone(),
+            applied_at_frame: self.frames_run,
+            first_polled_frame: None,
+            last_polled_frame: None,
+            superseded_unpolled: false,
+        });
+        self.joypad = joypad;
+        (self.input_generation, self.frames_run)
+    }
+
+    /// O core leu o joypad: a transição vigente foi consultada no quadro em curso.
+    fn note_input_polled(&mut self) {
+        if let (Some(frame), Some(current)) = (self.frame_in_progress, self.input_log.back_mut()) {
+            current.first_polled_frame.get_or_insert(frame);
+            current.last_polled_frame = Some(frame);
+        }
+    }
 }
 
 impl Default for EmulatorState {
@@ -124,9 +174,44 @@ impl Default for EmulatorState {
             last_audio_frames: 0,
             joypad: JoypadState::default(),
             rom_path: String::new(),
+            input_log: std::collections::VecDeque::new(),
+            input_generation: 0,
+            frames_run: 0,
+            frame_in_progress: None,
         }
     }
 }
+
+/// Uma transição de joypad APLICADA ao estado do emulador, e o que o core fez com ela.
+/// "Aplicada" (aceita pelo backend) não é "lida pelo core": o core só lê o joypad ao rodar um quadro.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct InputTransition {
+    /// Ordem de aplicação nesta carga (1, 2, 3…). Volta a zero a cada carga de ROM.
+    pub generation: u64,
+    pub joypad: JoypadState,
+    /// Quadros emulados já concluídos quando a transição foi aplicada.
+    pub applied_at_frame: u64,
+    /// Primeiro quadro emulado em que o core LEU o joypad com esta transição vigente (`None`: ainda não).
+    pub first_polled_frame: Option<u64>,
+    /// Último quadro em que o core a leu.
+    pub last_polled_frame: Option<u64>,
+    /// `true`: outra transição a substituiu antes de qualquer quadro lê-la — o core NUNCA a viu.
+    pub superseded_unpolled: bool,
+}
+
+/// Observação limitada do caminho backend → core, por carga (época), geração e quadro.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct InputObservation {
+    /// Quadros emulados concluídos nesta carga.
+    pub frames_run: u64,
+    /// Geração da última transição aplicada (0: nenhuma).
+    pub generation: u64,
+    /// As transições mais recentes (anel limitado), da mais antiga para a mais nova.
+    pub transitions: Vec<InputTransition>,
+}
+
+/// Quantas transições o anel guarda.
+pub const INPUT_LOG_CAPACITY: usize = 64;
 
 pub type EmulatorHandle = Arc<Mutex<EmulatorState>>;
 
@@ -356,6 +441,8 @@ fn default_trace_base_pc(target: CoreTarget, rom_data: &[u8]) -> u32 {
 struct LoadedGame {
     rom_path: CString,
     rom_data: Vec<u8>,
+    rom_sha256: String,
+    rom_len: usize,
 }
 
 struct LoadedCore {
@@ -479,9 +566,15 @@ impl LoadedCore {
             .map_err(|_| format!("Caminho da ROM contem byte nulo: {}", rom_path.display()))?;
         let rom_data = fs::read(rom_path)
             .map_err(|e| format!("Nao foi possivel ler ROM '{}': {}", rom_path.display(), e))?;
+        let (rom_sha256, rom_len) = (
+            crate::core::rom_mastering::sha256_hex(&rom_data),
+            rom_data.len(),
+        );
         let game = LoadedGame {
             rom_path: rom_path_cstr,
             rom_data,
+            rom_sha256,
+            rom_len,
         };
 
         let game_info = if system_info.need_fullpath {
@@ -715,6 +808,7 @@ impl EmulatorCore {
         {
             let mut state = self.handle.lock().map_err(|e| e.to_string())?;
             state.running = true;
+            state.reset_input_observation();
             state.rom_path = rom_path.to_string_lossy().to_string();
             state.frame_size = runtime.frame_size;
             state.sample_rate = runtime.sample_rate;
@@ -741,10 +835,11 @@ impl EmulatorCore {
         }
 
         let joypad = {
-            let state = self.handle.lock().map_err(|e| e.to_string())?;
+            let mut state = self.handle.lock().map_err(|e| e.to_string())?;
             if !state.running {
                 return Err("Emulador nao inicializado. Carregue uma ROM primeiro.".into());
             }
+            state.frame_in_progress = Some(state.frames_run + 1);
             state.joypad.clone()
         };
 
@@ -757,6 +852,11 @@ impl EmulatorCore {
             unsafe {
                 (runtime.api.run)();
             }
+        }
+        {
+            let mut state = self.handle.lock().map_err(|e| e.to_string())?;
+            state.frames_run += 1;
+            state.frame_in_progress = None;
         }
 
         self.capture_execution_trace_sample()?;
@@ -800,6 +900,13 @@ impl EmulatorCore {
 
         self.saved_state = Some(buffer);
         Ok(size)
+    }
+
+    /// Snapshot do VDP (VRAM/CRAM/VSRAM/registradores) lido do savestate do core.
+    pub fn vdp_snapshot(&self) -> Result<crate::emulator::vdp_snapshot::VdpSnapshot, String> {
+        let state = self.serialize_runtime_state()?;
+        let (wram, _) = self.read_memory(RETRO_MEMORY_SYSTEM_RAM, 0, usize::MAX)?;
+        crate::emulator::vdp_snapshot::parse_gpgx_state(&state, &wram)
     }
 
     pub fn capture_runtime_state_bytes(&self) -> Result<Vec<u8>, String> {
@@ -1014,6 +1121,28 @@ impl EmulatorCore {
         Ok((source[offset..end].to_vec(), total_size))
     }
 
+    /// Escreve bytes na System RAM do core carregado (ajuste TEMPORARIO de teste, Experimental).
+    /// So WRAM e so dentro dos limites; nao toca ROM, VRAM nem SRAM e nao altera o projeto.
+    pub fn write_system_ram(&mut self, offset: usize, bytes: &[u8]) -> Result<(), String> {
+        let runtime = self.runtime.as_ref().ok_or_else(|| {
+            "Nenhum core Libretro carregado. Carregue uma ROM primeiro.".to_string()
+        })?;
+        let total_size = unsafe { (runtime.api.get_memory_size)(RETRO_MEMORY_SYSTEM_RAM) };
+        if bytes.is_empty() || offset.saturating_add(bytes.len()) > total_size {
+            return Err(format!(
+                "Escrita fora da WRAM ({} bytes em {offset:#x}; tamanho {total_size}).",
+                bytes.len()
+            ));
+        }
+        let memory_ptr = unsafe { (runtime.api.get_memory_data)(RETRO_MEMORY_SYSTEM_RAM) };
+        if memory_ptr.is_null() {
+            return Err("WRAM indisponivel no core Libretro atual.".to_string());
+        }
+        let target = unsafe { std::slice::from_raw_parts_mut(memory_ptr.cast::<u8>(), total_size) };
+        target[offset..offset + bytes.len()].copy_from_slice(bytes);
+        Ok(())
+    }
+
     /// Captures normalized memory-region observations (WRAM / VRAM / SRAM) that
     /// the loaded core actually exposes. Each region carries its size and a
     /// full SHA-256; a region the core does not expose is `available = false`
@@ -1049,9 +1178,35 @@ impl EmulatorCore {
     }
 
     pub fn set_joypad(&self, joypad: JoypadState) -> Result<(), String> {
+        self.apply_joypad(joypad).map(|_| ())
+    }
+
+    /// Aplica a transição e devolve `(geração, quadros concluídos no momento da aplicação)`.
+    pub fn apply_joypad(&self, joypad: JoypadState) -> Result<(u64, u64), String> {
         let mut state = self.handle.lock().map_err(|e| e.to_string())?;
-        state.joypad = joypad;
-        Ok(())
+        Ok(state.apply_joypad(joypad))
+    }
+
+    /// O que o core fez com as transições de joypad aplicadas nesta carga.
+    pub fn input_observation(&self) -> InputObservation {
+        self.handle
+            .lock()
+            .map(|state| InputObservation {
+                frames_run: state.frames_run,
+                generation: state.input_generation,
+                transitions: state.input_log.iter().cloned().collect(),
+            })
+            .unwrap_or_default()
+    }
+
+    /// Estado corrente do joypad (leitura; usado por testes de regressão da
+    /// corrida de época e por observabilidade).
+    #[allow(dead_code)]
+    pub fn current_joypad(&self) -> JoypadState {
+        self.handle
+            .lock()
+            .map(|state| state.joypad.clone())
+            .unwrap_or_default()
     }
 
     pub fn stop(&mut self) -> Result<(), String> {
@@ -1107,6 +1262,20 @@ impl EmulatorCore {
             .ok()
             .filter(|state| !state.rom_path.is_empty())
             .map(|state| PathBuf::from(&state.rom_path))
+    }
+
+    /// Identidade dos bytes de ROM efetivamente lidos na carga do core
+    /// (SHA-256 + tamanho). Diferencia "ROM carregada" de "arquivo atual
+    /// neste caminho": amostras de execução ancoram nesta identidade, não
+    /// em releituras posteriores do disco.
+    pub fn loaded_rom_identity(&self) -> Option<(String, usize)> {
+        self.runtime
+            .as_ref()
+            .map(|runtime| (runtime._game.rom_sha256.clone(), runtime._game.rom_len))
+    }
+
+    pub fn frame_index(&self) -> u64 {
+        self.rewind.frame_index
     }
 
     pub fn execution_trace_capture(&self) -> RuntimeExecutionTraceCapture {
@@ -1474,7 +1643,12 @@ fn detect_rom_target(rom_path: &Path) -> Option<CoreTarget> {
 
 fn sniff_rom_target(rom_path: &Path) -> Option<CoreTarget> {
     let header = fs::read(rom_path).ok()?;
-    if header.len() >= 0x110 && &header[0x100..0x10F] == b"SEGA MEGA DRIVE" {
+    // O console name do cabeçalho (0x100) é "SEGA MEGA DRIVE" ou "SEGA GENESIS" (jogos de região US/BR).
+    if header.len() >= 0x110
+        && (&header[0x100..0x10F] == b"SEGA MEGA DRIVE"
+            || &header[0x100..0x10C] == b"SEGA GENESIS"
+            || &header[0x100..0x110] == b"SEGA            ")
+    {
         return Some(CoreTarget::MegaDrive);
     }
     None
@@ -1586,7 +1760,15 @@ unsafe extern "C" fn retro_input_state_callback(
         return 0;
     }
 
-    with_active_emulator(|state| if state.joypad.button(id as u8) { 1 } else { 0 }).unwrap_or(0)
+    with_active_emulator(|state| {
+        state.note_input_polled();
+        if state.joypad.button(id as u8) {
+            1
+        } else {
+            0
+        }
+    })
+    .unwrap_or(0)
 }
 
 #[allow(dead_code)]
@@ -1956,6 +2138,21 @@ mod tests {
     };
 
     #[test]
+    fn bin_com_cabecalho_sega_genesis_tambem_e_megadrive_e_sem_cabecalho_sega_nao() {
+        let _serial = test_serial_guard();
+        let dir = temp_dir("detect_genesis");
+        let mut rom = vec![0u8; 0x200];
+        rom[0x100..0x10F].copy_from_slice(b"SEGA GENESIS   ");
+        let genesis = dir.join("genesis.bin");
+        fs::write(&genesis, &rom).unwrap();
+        assert_eq!(detect_rom_target(&genesis), Some(CoreTarget::MegaDrive));
+        rom[0x100..0x104].copy_from_slice(b"XXXX");
+        let alheio = dir.join("alheio.bin");
+        fs::write(&alheio, &rom).unwrap();
+        assert_eq!(detect_rom_target(&alheio), None);
+    }
+
+    #[test]
     fn detects_megadrive_rom_from_extension_and_header() {
         let _serial = test_serial_guard();
         let dir = temp_dir("detect");
@@ -1969,6 +2166,24 @@ mod tests {
         assert_eq!(detect_rom_target(&snes_rom), Some(CoreTarget::Snes));
 
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn detects_legacy_space_padded_console_name_in_bin_without_title_dispatch() {
+        let _serial = test_serial_guard();
+        let dir = temp_dir("detect_legacy_console");
+        let path = dir.join("arbitrary.bin");
+        let mut bytes = vec![0u8; 0x200];
+        bytes[0x100..0x110].copy_from_slice(b"SEGA            ");
+        fs::write(&path, &bytes).unwrap();
+        assert_eq!(detect_rom_target(&path), Some(CoreTarget::MegaDrive));
+        bytes[0x10f] = b'X';
+        fs::write(&path, &bytes).unwrap();
+        assert_eq!(detect_rom_target(&path), None);
+        bytes[0x10f] = b' ';
+        fs::write(&path, &bytes[..0x10f]).unwrap();
+        assert_eq!(detect_rom_target(&path), None);
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
@@ -2156,6 +2371,158 @@ mod tests {
         let _ = fs::remove_dir_all(dir);
     }
 
+    #[cfg(test)]
+    fn pressed_a() -> JoypadState {
+        JoypadState {
+            a: true,
+            ..JoypadState::default()
+        }
+    }
+
+    /// O core de teste pinta o canal azul com 0xFF no quadro em que LEU o botão A apertado.
+    #[cfg(test)]
+    fn core_saw_a(emulator: &EmulatorCore) -> bool {
+        let (fb, _, _) = emulator.get_framebuffer().expect("framebuffer");
+        fb[0] == 0xFF
+    }
+
+    /// H3 — perda REAL de input: aperto e soltura aplicados sem nenhum quadro entre eles. O backend aceitou
+    /// os dois; o core nunca leu o aperto; o jogo não vê o toque. Aceitação não é consumo.
+    #[test]
+    fn tap_applied_between_two_frames_is_accepted_but_never_polled_by_the_core() {
+        let _serial = test_serial_guard();
+        let dir = temp_dir("input-lost");
+        let core_path = compile_mock_core(&dir);
+        let rom_path = write_test_rom(&dir, "input_lost", "gen");
+        let mut emulator = EmulatorCore::new(Some(&core_path));
+        emulator.load_rom(&rom_path).expect("load");
+        emulator.run_frame().expect("frame 1");
+        emulator.set_joypad(pressed_a()).expect("aperto aceito");
+        emulator
+            .set_joypad(JoypadState::default())
+            .expect("soltura aceita");
+        emulator.run_frame().expect("frame 2");
+        emulator.run_frame().expect("frame 3");
+        // efeito: o core nunca viu o botão
+        assert!(!core_saw_a(&emulator));
+        // observação: as duas transições foram aplicadas; a do aperto nunca foi lida
+        let obs = emulator.input_observation();
+        assert_eq!(obs.frames_run, 3);
+        assert_eq!(obs.generation, 2);
+        let t: Vec<_> = obs
+            .transitions
+            .iter()
+            .map(|t| {
+                (
+                    t.generation,
+                    t.joypad.a,
+                    t.applied_at_frame,
+                    t.first_polled_frame,
+                    t.superseded_unpolled,
+                )
+            })
+            .collect();
+        assert_eq!(t, [(1, true, 1, None, true), (2, false, 1, Some(2), false)]);
+        emulator.stop().expect("stop");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// Controle de H3: com UM quadro entre o aperto e a soltura, o core lê o aperto nesse quadro (e só nele).
+    #[test]
+    fn tap_held_across_one_frame_is_polled_by_the_core_on_that_frame() {
+        let _serial = test_serial_guard();
+        let dir = temp_dir("input-seen");
+        let core_path = compile_mock_core(&dir);
+        let rom_path = write_test_rom(&dir, "input_seen", "gen");
+        let mut emulator = EmulatorCore::new(Some(&core_path));
+        emulator.load_rom(&rom_path).expect("load");
+        emulator.run_frame().expect("frame 1");
+        emulator.set_joypad(pressed_a()).expect("aperto");
+        emulator.run_frame().expect("frame 2");
+        assert!(core_saw_a(&emulator), "o core leu o aperto no quadro 2");
+        emulator
+            .set_joypad(JoypadState::default())
+            .expect("soltura");
+        emulator.run_frame().expect("frame 3");
+        assert!(!core_saw_a(&emulator));
+        let obs = emulator.input_observation();
+        let t: Vec<_> = obs
+            .transitions
+            .iter()
+            .map(|t| {
+                (
+                    t.generation,
+                    t.joypad.a,
+                    t.applied_at_frame,
+                    t.first_polled_frame,
+                    t.last_polled_frame,
+                    t.superseded_unpolled,
+                )
+            })
+            .collect();
+        assert_eq!(
+            t,
+            [
+                (1, true, 1, Some(2), Some(2), false),
+                (2, false, 2, Some(3), Some(3), false)
+            ]
+        );
+        // segurar por mais quadros estende o último quadro lido, não o primeiro
+        emulator.set_joypad(pressed_a()).expect("aperto longo");
+        for _ in 0..3 {
+            emulator.run_frame().expect("frame");
+        }
+        let last = emulator
+            .input_observation()
+            .transitions
+            .last()
+            .cloned()
+            .unwrap();
+        assert_eq!(
+            (
+                last.generation,
+                last.first_polled_frame,
+                last.last_polled_frame
+            ),
+            (3, Some(4), Some(6))
+        );
+        emulator.stop().expect("stop");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// Época: uma nova carga zera a observação; e o anel é limitado.
+    #[test]
+    fn input_observation_is_bounded_and_reset_by_a_new_load() {
+        let _serial = test_serial_guard();
+        let dir = temp_dir("input-bounded");
+        let core_path = compile_mock_core(&dir);
+        let rom_path = write_test_rom(&dir, "input_bounded", "gen");
+        let mut emulator = EmulatorCore::new(Some(&core_path));
+        emulator.load_rom(&rom_path).expect("load");
+        for i in 0..(INPUT_LOG_CAPACITY as u64 + 10) {
+            emulator
+                .set_joypad(if i % 2 == 0 {
+                    pressed_a()
+                } else {
+                    JoypadState::default()
+                })
+                .expect("set");
+            emulator.run_frame().expect("frame");
+        }
+        let obs = emulator.input_observation();
+        assert_eq!(obs.generation, INPUT_LOG_CAPACITY as u64 + 10);
+        assert_eq!(obs.transitions.len(), INPUT_LOG_CAPACITY);
+        assert_eq!(obs.transitions.last().unwrap().generation, obs.generation);
+        assert!(obs
+            .transitions
+            .iter()
+            .all(|t| t.first_polled_frame.is_some() && !t.superseded_unpolled));
+        emulator.load_rom(&rom_path).expect("reload");
+        assert_eq!(emulator.input_observation(), InputObservation::default());
+        emulator.stop().expect("stop");
+        let _ = fs::remove_dir_all(dir);
+    }
+
     #[test]
     fn replay_recording_and_playback_restore_the_same_final_framebuffer() {
         let _serial = test_serial_guard();
@@ -2304,5 +2671,49 @@ mod tests {
 
         emulator.stop().expect("stop emulator");
         let _ = fs::remove_dir_all(dir);
+    }
+}
+
+#[cfg(test)]
+mod vdp_region_probe {
+    use super::*;
+
+    /// Sonda: quais regioes de memoria o core real expoe (`RDS_PROBE_CORE`, `RDS_PROBE_ROM`).
+    #[test]
+    #[ignore]
+    fn probe_real_core_memory_regions() {
+        let core = std::env::var("RDS_PROBE_CORE").expect("core");
+        let rom = std::env::var("RDS_PROBE_ROM").expect("rom");
+        let _guard = test_serial_guard();
+        let mut emu = EmulatorCore::new(Some(Path::new(&core)));
+        emu.load_rom(Path::new(&rom)).expect("load");
+        for _ in 0..600 {
+            emu.run_frame().expect("frame");
+        }
+        for region in 0..16u32 {
+            match emu.read_memory(region, 0, usize::MAX) {
+                Ok((bytes, total)) => println!(
+                    "REGION {region} total={total} nonzero={}",
+                    bytes.iter().filter(|b| **b != 0).count()
+                ),
+                Err(error) => println!("REGION {region} err={error}"),
+            }
+        }
+        let state = emu.capture_runtime_state_bytes().expect("state");
+        let (wram, _) = emu.read_memory(2, 0, usize::MAX).unwrap();
+        let out = std::env::var("RDS_PROBE_OUT").expect("out");
+        fs::write(format!("{out}/state.bin"), &state).unwrap();
+        fs::write(format!("{out}/wram.bin"), &wram).unwrap();
+        println!(
+            "STATE {} {:?}",
+            state.len(),
+            String::from_utf8_lossy(&state[..16])
+        );
+        let (raw, size, format) = emu.get_framebuffer().expect("fb");
+        let payload = crate::emulator::frame_buffer::framebuffer_to_rgba(&raw, size, format);
+        image::RgbaImage::from_raw(payload.width, payload.height, payload.rgba)
+            .expect("rgba")
+            .save(format!("{out}/framebuffer.png"))
+            .unwrap();
     }
 }

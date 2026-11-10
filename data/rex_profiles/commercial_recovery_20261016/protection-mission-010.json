@@ -1,0 +1,9 @@
+{
+  "ref": "refs/checkpoints/rex-commercial-20261016/m5-native-frozen",
+  "commit": "78c94b0fb8d3b00fbdc7f1ffbf1b7ad90df4594a",
+  "bundle": "/home/misael/rds-scratch/commercial_recovery_20261016/mission-checkpoint-010.bundle",
+  "sha256": "60d02b647a07ddea4d7c8130f4257606777ee9d68fc688c411ad6b3820a4eac0",
+  "bytes": 405575,
+  "verify": "exit0",
+  "requires": "03ddc59de38cc3d9c448b893da72a3efd575030a"
+}

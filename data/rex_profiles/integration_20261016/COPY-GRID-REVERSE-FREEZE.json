@@ -1,0 +1,17 @@
+{
+  "schema": "rex-copy-grid-reverse-control-freeze/v1",
+  "frozen_before_measurement": true,
+  "date": "2026-10-16",
+  "purpose": "Exercise reverse lowering of same allowed width field; original contract 1↔2 unchanged. Does not replace forward acceptance.",
+  "input_sha256": "3726adec97308332d58cd1adfeef1308fb4a6441189ee099434210221ea3947f",
+  "expected_output_sha256": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+  "expected_diff": [
+    1040
+  ],
+  "width": {
+    "from": 2,
+    "to": 1
+  },
+  "expected_ram": "Original matches previously independent word reference; output matches byte reference. Entire relevant WRAM, sentinel 434F5059, stack exclusions unchanged.",
+  "other_edits_allowed": false
+}

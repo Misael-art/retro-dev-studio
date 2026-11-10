@@ -1,0 +1,136 @@
+{
+  "schema": "rex-final-certification/v1",
+  "generated_at": "2026-10-19T01:33:45.456515+00:00",
+  "state": "READY",
+  "exit_code": 0,
+  "host_fingerprint": "60249508aff61897cdd43160d4716b2344d69282507a36c5a457c0028143f6e2",
+  "lock_digest": "dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377",
+  "source_checkpoint": "7a03e81ce28939f3406d5457fe12421048ee2fe2",
+  "app_sha256": "66cb3d71ea4f5df2efd37b031fe0c4c76b822b11d55d55ca240024638c7c12e5",
+  "gates": [
+    {
+      "label": "check:tree",
+      "program": "npm",
+      "args": [
+        "run",
+        "check:tree"
+      ],
+      "started_at": "2026-10-19T01:26:31.200Z",
+      "finished_at": "2026-10-19T01:26:31.448Z",
+      "exit_code": 0,
+      "ok": true,
+      "error": null,
+      "log": null
+    },
+    {
+      "label": "lint",
+      "program": "npm",
+      "args": [
+        "run",
+        "lint"
+      ],
+      "started_at": "2026-10-19T01:26:31.448Z",
+      "finished_at": "2026-10-19T01:26:42.242Z",
+      "exit_code": 0,
+      "ok": true,
+      "error": null,
+      "log": null
+    },
+    {
+      "label": "typescript",
+      "program": "npx",
+      "args": [
+        "tsc",
+        "--noEmit"
+      ],
+      "started_at": "2026-10-19T01:26:42.242Z",
+      "finished_at": "2026-10-19T01:27:04.074Z",
+      "exit_code": 0,
+      "ok": true,
+      "error": null,
+      "log": null
+    },
+    {
+      "label": "frontend-tests",
+      "program": "npm",
+      "args": [
+        "test"
+      ],
+      "started_at": "2026-10-19T01:27:04.074Z",
+      "finished_at": "2026-10-19T01:30:18.527Z",
+      "exit_code": 0,
+      "ok": true,
+      "error": null,
+      "log": null
+    },
+    {
+      "label": "rust-clippy",
+      "program": "cargo",
+      "args": [
+        "clippy",
+        "--manifest-path",
+        "src-tauri/Cargo.toml",
+        "--lib",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "started_at": "2026-10-19T01:30:18.527Z",
+      "finished_at": "2026-10-19T01:30:19.553Z",
+      "exit_code": 0,
+      "ok": true,
+      "error": null,
+      "log": null
+    },
+    {
+      "label": "rust-tests",
+      "program": "cargo",
+      "args": [
+        "test",
+        "--manifest-path",
+        "src-tauri/Cargo.toml",
+        "--lib",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "started_at": "2026-10-19T01:30:19.553Z",
+      "finished_at": "2026-10-19T01:32:49.436Z",
+      "exit_code": 0,
+      "ok": true,
+      "error": null,
+      "log": null
+    },
+    {
+      "label": "upstream",
+      "program": "bash",
+      "args": [
+        "scripts/validate-upstream-linux.sh",
+        "--require-decomp-tools"
+      ],
+      "started_at": "2026-10-19T01:32:49.436Z",
+      "finished_at": "2026-10-19T01:33:18.203Z",
+      "exit_code": 0,
+      "ok": true,
+      "error": null,
+      "log": null
+    }
+  ],
+  "frontend": {
+    "passed": 1049,
+    "failed": 0,
+    "skipped": 3
+  },
+  "rust": {
+    "passed": 1038,
+    "failed": 0,
+    "ignored": 94
+  },
+  "files": {
+    "/home/misael/rds-scratch/commercial_recovery_20261016/certify-20261019T012630Z/preflight.json": "f3f607ccd6783dbb58bb59fd7c61fde673ca2fc751abf62e78527424d9f237b9",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/certify-20261019T012630Z/raw.log": "db3c64f670617566536ea09e11aa09fdb31eeea2291b6e9ec0373d04f1c74ffb",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/certify-20261019T012630Z/host-readiness.json": "700a357a9c876e4d0901901df4d3c0a717e17d38743290aa8264412042e273af",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/certify-20261019T012630Z/result.json": "1fa1da2c8d267c10f1036b5a6ea865af422c23f2f766a5adca72ddd252d72005"
+  },
+  "limits": "Linux local certificate; ignored/skipped are not PASS. Does not close preexisting sound or universal/whole-game equivalence. External BYOR-specific ignored tests were explicitly run earlier and remain separately recorded, not counted as new final runs."
+}

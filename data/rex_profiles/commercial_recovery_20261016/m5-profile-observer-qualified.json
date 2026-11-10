@@ -1,0 +1,84 @@
+{
+  "schema": "rex-profile-observer-qualification/v1",
+  "id": "qualify-m5-profile-001",
+  "passed": true,
+  "observer_sha256": "dd9298cb3ee60a24c1e64cade175fb43cc4b86576e035c56c2f96b6fc80f6c01",
+  "protocol_sha256": "73c18d6d3d8edae9fa22615ec29c458f6d652d3fa2d4cf53b22785a7ccac4803",
+  "baseline_cases_result": "/home/misael/rds-scratch/commercial_recovery_20261016/qualify-m5-profile-001-base/summary.json",
+  "profile_cases": [
+    {
+      "variant": "positive",
+      "launch": {
+        "id": "qualify-m5-profile-001-positive",
+        "exit_code": 0,
+        "pid": 2057211,
+        "owned_process_alive": false,
+        "elapsed_seconds": 1.0680817110041971,
+        "manifest_sha256": "d61e808cb09f051b467793a5f83305fb7bec0195ea0422cee248514ab8e86907",
+        "log_sha256": "2e55bbc2a4a86b0886103bbc864052ae7e6f2b2abfff9d86d3692773453bd1b7",
+        "events_sha256": "5d9105ca2e67b69fe0b4098da352c0942fb295403311a0ad0c1511820c7df87d",
+        "events_bytes": 8722
+      },
+      "passed": true,
+      "full_registers": true,
+      "raw_signed_pointer32_and_bus24": true,
+      "long_native16_order": true,
+      "guarded_snapshot": true,
+      "wrong_identity_refused": true
+    },
+    {
+      "variant": "no-call",
+      "launch": {
+        "id": "qualify-m5-profile-001-no-call",
+        "exit_code": 0,
+        "pid": 2057286,
+        "owned_process_alive": false,
+        "elapsed_seconds": 0.9664007130049868,
+        "manifest_sha256": "6156ffa1e94e9b140513b40828779f0882c971e1565c1e809b2d3d09955082c0",
+        "log_sha256": "2e55bbc2a4a86b0886103bbc864052ae7e6f2b2abfff9d86d3692773453bd1b7",
+        "events_sha256": "4d42042986a3728c4fb0a274c1480f9dfff16404dcced26adaa2d458ab1ebde4",
+        "events_bytes": 3139
+      },
+      "passed": true,
+      "no_call_and_unpaired_exit_distinguished": true
+    },
+    {
+      "variant": "other-args",
+      "launch": {
+        "id": "qualify-m5-profile-001-other-args",
+        "exit_code": 0,
+        "pid": 2057357,
+        "owned_process_alive": false,
+        "elapsed_seconds": 1.0162737380014732,
+        "manifest_sha256": "7a5266faed4fa0158908edf2aaa22932ec4c70a18c77b3bd5612a9a691a7b204",
+        "log_sha256": "2e55bbc2a4a86b0886103bbc864052ae7e6f2b2abfff9d86d3692773453bd1b7",
+        "events_sha256": "576a9da9abb8cbe5a60c6255f6138dc91da290b66e33005e542b013ee4668b94",
+        "events_bytes": 8752
+      },
+      "passed": true,
+      "full_registers": true,
+      "raw_signed_pointer32_and_bus24": true,
+      "long_native16_order": true,
+      "guarded_snapshot": true,
+      "wrong_identity_refused": true
+    },
+    {
+      "variant": "incomplete",
+      "launch": {
+        "id": "qualify-m5-profile-001-incomplete",
+        "exit_code": 0,
+        "pid": 2057413,
+        "owned_process_alive": false,
+        "elapsed_seconds": 0.9669624720045249,
+        "manifest_sha256": "a5e7a15afc5be48a5b69a4a463ccdf4f6480ab031cfdf1e6a9ba01abadbe4131",
+        "log_sha256": "2e55bbc2a4a86b0886103bbc864052ae7e6f2b2abfff9d86d3692773453bd1b7",
+        "events_sha256": "0b718ee9ffab3997eed6bafa7eed18c6df1b500d8232748f83124b5fdfde9a80",
+        "events_bytes": 1439
+      },
+      "passed": true,
+      "incomplete_refused": true
+    }
+  ],
+  "scope": "Original four author observer controls plus four profile-mode controls; complete32bit registers, .L decomposed into two native16 accesses, short pointer sign extension, real JSR/RTS, absence/incomplete/identity. No commercial run yet; no new VDP/frame phase claim.",
+  "private_summary_sha256": "0bdffb0cf4a871a4819219101296654c267044ae9f619641556857f6b76ac821"
+}

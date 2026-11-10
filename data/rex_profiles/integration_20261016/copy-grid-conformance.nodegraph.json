@@ -1,0 +1,136 @@
+{
+  "edges": [
+    {
+      "fromNode": "entry",
+      "fromPort": "exec",
+      "id": "e0",
+      "toNode": "copy_grid",
+      "toPort": "exec"
+    },
+    {
+      "fromNode": "copy_grid",
+      "fromPort": "exec",
+      "id": "e1",
+      "toNode": "exit",
+      "toPort": "exec"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "entry",
+      "inputs": [],
+      "label": "Entrada declarada",
+      "outputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "params": {
+        "address": "0x000400",
+        "assinatura_estrutural": "530779cb80aecb80",
+        "entry": 1024,
+        "instancia_param": "entry",
+        "perfil": "m68k.copy_grid.v1",
+        "perfil_revisao": 1,
+        "perfil_sha256": "582fe0c419cb5b2234179bb4f0cf8d63790c6b0f5352218f22058d941e47e944",
+        "ponte_edicao": 1,
+        "rom_sha256": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+        "saidas": "0x00041E",
+        "selecao": "declared_region",
+        "semantic_origin": "recovered_from_rom",
+        "source_mappings": "[]"
+      },
+      "type": "rom_region_entry",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "id": "copy_grid",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "label": "Cópia de grade (Experimental)",
+      "outputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "params": {
+        "address_space": "CPU24 WRAM [FF0000,1000000); origem binária = offset de arquivo",
+        "bytes_per_cell": 1,
+        "campo": "bytes_per_cell",
+        "campo_param": "bytes_per_cell",
+        "column_counter": "D2=7 → DBRA low16 → FFFF",
+        "columns": 8,
+        "copied_bytes": 32,
+        "destination_address": "0xFF7000",
+        "destination_increment_bytes": 1,
+        "destination_register": "A2",
+        "editavel": 1,
+        "faixa": "1..2",
+        "lowering": "Somente bytes_per_cell 1↔2; parâmetros derivados descrevem a ROM base. Revalidar mapa/alinhamento/sobreposição na publicação; topologia não compilável.",
+        "output_span_bytes": 80,
+        "rom_offsets": "0x000410",
+        "row_counter": "D1=3 → DBRA low16 → FFFF",
+        "row_gap_bytes": 16,
+        "row_stride_bytes": 24,
+        "rows": 4,
+        "semantic_origin": "recovered_from_rom",
+        "source_address": "0xFF5000",
+        "source_increment_bytes": 1,
+        "source_mappings": "[{\"rom_end\":\"0x000406\",\"rom_start\":\"0x000400\"},{\"rom_end\":\"0x00040C\",\"rom_start\":\"0x000406\"},{\"rom_end\":\"0x00040E\",\"rom_start\":\"0x00040C\"},{\"rom_end\":\"0x000410\",\"rom_start\":\"0x00040E\"},{\"rom_end\":\"0x000412\",\"rom_start\":\"0x000410\"},{\"rom_end\":\"0x000416\",\"rom_start\":\"0x000412\"},{\"rom_end\":\"0x00041A\",\"rom_start\":\"0x000416\"},{\"rom_end\":\"0x00041E\",\"rom_start\":\"0x00041A\"}]",
+        "source_register": "A3",
+        "source_row_stride_bytes": 8,
+        "unknown": "caller/estado inicial não recuperados; recurso/consumidor gráfico desconhecidos; flags/registradores/stack não comparados",
+        "valor_original": 1
+      },
+      "type": "rom_copy_grid",
+      "x": 300,
+      "y": 0
+    },
+    {
+      "id": "exit",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "label": "Saída declarada",
+      "outputs": [],
+      "params": {
+        "address": "0x00041E",
+        "semantic_origin": "recovered_from_rom",
+        "source_mappings": "[]"
+      },
+      "type": "rom_region_exit",
+      "x": 700,
+      "y": 0
+    }
+  ],
+  "rex_logic_recovery": {
+    "analyzer": "copy_grid",
+    "aviso": "Grafo descritivo derivado dos bytes. Somente bytes_per_cell editável; topologia e outros parâmetros não são compilados.",
+    "campos_editaveis": [
+      "bytes_per_cell"
+    ],
+    "class": "semantic_region",
+    "descritivo": true,
+    "entry": "0x000400",
+    "profile_id": "m68k.copy_grid.v1",
+    "profile_revision": 1,
+    "profile_sha256": "582fe0c419cb5b2234179bb4f0cf8d63790c6b0f5352218f22058d941e47e944",
+    "rom_sha256": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+    "selection": "declared_region"
+  },
+  "version": 1
+}

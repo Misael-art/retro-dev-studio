@@ -1,0 +1,92 @@
+{
+  "schema": "rex-m5-loop-body-survey/v1",
+  "status": "STATIC_BODY_SURVEY_ONLY",
+  "elapsed_seconds": 0.3949902709973685,
+  "targets": [
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Alien Soldier (Europe) (Translated PtBr).zip",
+      "member": "Alien Soldier (Europe).md",
+      "rom_sha256": "dd8659e12a97f60f27ef170080887ef135e311b1c16af5355c25b104f2fae96b",
+      "bodies": []
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Contra - Hard Corps (USA, Korea) (Translated PtBr).zip",
+      "member": "Contra - Hard Corps (USA, Korea).bin",
+      "rom_sha256": "8e178b439e1326e766177450a02c43e2ebcfc976c076d65c3bd786f2881144be",
+      "bodies": []
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Rocket Knight Adventures (USA) (Translated PtBr).zip",
+      "member": "Rocket Knight Adventures (USA).md",
+      "rom_sha256": "a30de82de4a8871820a9f295e7275fc3ed9d8a753f021bc794121d9b92eafe34",
+      "bodies": []
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Aladdin (USA) (Translated PtBr).zip",
+      "member": "Aladdin (USA).bin",
+      "rom_sha256": "bd7a0a821827ffc86aa9395f5542de2dba79333c50511c5b4c1750dfb6ed414d",
+      "bodies": []
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Golden Axe (World) (Translated PtBr).zip",
+      "member": "Golden Axe (World).gen",
+      "rom_sha256": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b",
+      "bodies": []
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Streets of Rage 2 (USA) (Translated PtBr).zip",
+      "member": "Streets of Rage 2 (USA).bin",
+      "rom_sha256": "a6faf732f7038c5ff3951001bc22628015d1028a33c452c22ad39f61b8afcf4a",
+      "bodies": []
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Story of Thor, The (Europe) (Translated PtBr).zip",
+      "member": "Story of Thor, The (Europe).gen",
+      "rom_sha256": "86e79eeaa90fbd7cebbc121a6dada007a4ee406b8f9946495950b9b8b06a265b",
+      "bodies": []
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Monster World IV (Japan) (Translated En) (Translated PtBr).zip",
+      "member": "Monster World IV (Japan) (Translated En).gen",
+      "rom_sha256": "f503821a378b96e78fbc318e8c003be5c8857d69a48c7a9d7cd9c2113c12332e",
+      "bodies": []
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Wonder Boy in Monster World (USA, Europe) (Translated PtBr).zip",
+      "member": "Wonder Boy in Monster World (USA, Europe).gen",
+      "rom_sha256": "bea673043b8a227a44a01f6d130c330011f3478b6db64ceb2383376e316e77fe",
+      "bodies": []
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Vectorman (USA, Europe) (Translated PtBr).zip",
+      "member": "Vectorman (USA, Europe).bin",
+      "rom_sha256": "ff854c6f554153d86c86c6f30d85c357aff94539b203c4a7049763a044ea87af",
+      "bodies": []
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Adventures of Batman & Robin, The (USA) (Translated PtBr).zip",
+      "member": "Adventures of Batman & Robin, The (USA).bin",
+      "rom_sha256": "a87e79fae59a8545c2529b6c0ce7045884be707a69cf5912e1d0545ff8b9211f",
+      "bodies": []
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Pulseman (Japan) (Translated En) (Translated PtBr).zip",
+      "member": "Pulseman (Japan) (Translated En).gen",
+      "rom_sha256": "0745e1a248548bcec0fcd50343c0df1f2b9cfd0303c07010ca6ef933e5b4ec43",
+      "bodies": []
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/MUSHA - Metallic Uniframe Super Hybrid Armor (USA) (Translated PtBr).zip",
+      "member": "MUSHA - Metallic Uniframe Super Hybrid Armor (USA).gen",
+      "rom_sha256": "938c97a04f4da7bdfa993111adb8f37235cdceb987e71cbfd35debf656eca896",
+      "bodies": []
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Toy Story (USA) (Translated PtBr).zip",
+      "member": "Toy Story (USA).md",
+      "rom_sha256": "df86b688eaef6178ff43288561838a9389e0e02d30fcce584616d898da0a78b2",
+      "bodies": []
+    }
+  ],
+  "limits": "Exploratory after complete-initializer search found none. No recovered caller bindings, runtime effect, production adaptation, or transfer claim. Other reserved payloads remain uninspected."
+}

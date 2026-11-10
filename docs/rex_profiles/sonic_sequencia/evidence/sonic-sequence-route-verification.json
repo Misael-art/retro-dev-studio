@@ -1,0 +1,105 @@
+{
+  "schema": "rex-sonic-sequence-route-verification/v2",
+  "allPass": true,
+  "checks": [
+    {
+      "name": "manifesto: schema v2",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "manifesto: base e a ROM pinada",
+      "pass": true,
+      "detail": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+    },
+    {
+      "name": "manifesto: copia difere da base (nao e a serie antiga)",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "proposta: multiconjunto preservado (so a ordem muda)",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "proposta: troca entradas DISTINTAS (recusa troca identica)",
+      "pass": true,
+      "detail": "proposta == ordem original: reordenacao nao discriminate"
+    },
+    {
+      "name": "serie base: source == base do manifesto",
+      "pass": true,
+      "detail": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+    },
+    {
+      "name": "serie reorder: source == copia do manifesto",
+      "pass": true,
+      "detail": "0306a5abf7b8c2db890ef8d4773e239a50207a45ef3244d20ca694c9d192a0d9"
+    },
+    {
+      "name": "serie reorder: source NAO e a base (recusa serie antiga)",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "epoch comum entre base e reorder (mesma corrida)",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "base: >= 40 segmentos",
+      "pass": true,
+      "detail": "seg=95"
+    },
+    {
+      "name": "reorder: >= 40 segmentos",
+      "pass": true,
+      "detail": "seg=95"
+    },
+    {
+      "name": "base: percurso[0..18] == ordem original",
+      "pass": true,
+      "detail": "[1,1,1,1,1,1,1,1,1,1,1,1,3,2,2,2,3,4]"
+    },
+    {
+      "name": "reorder: percurso[0..18] == proposta (sequencia errada e recusada)",
+      "pass": true,
+      "detail": "[4,1,1,1,1,1,1,1,1,1,1,1,3,2,2,2,3,1]"
+    },
+    {
+      "name": "cabeca discriminante: base 1 != reorder 4",
+      "pass": true,
+      "detail": "base=1 copy=4"
+    },
+    {
+      "name": "base: laço FE 02 alterna {orig16,orig17} = {3,4}",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "reorder: laço FE 02 alterna {prop16,prop17} = {3,1}",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "copia no disco: SHA bate",
+      "pass": true,
+      "detail": "0306a5abf7b8c2db890ef8d4773e239a50207a45ef3244d20ca694c9d192a0d9"
+    },
+    {
+      "name": "copia no disco: janela de 18 entradas == proposta",
+      "pass": true,
+      "detail": "[4,1,1,1,1,1,1,1,1,1,1,1,3,2,2,2,3,1]"
+    },
+    {
+      "name": "copia no disco: terminador FE 02 integro",
+      "pass": true,
+      "detail": null
+    }
+  ],
+  "route_len": {
+    "base": 95,
+    "reorder": 95
+  }
+}

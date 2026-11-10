@@ -1,0 +1,10 @@
+{
+  "command": [
+    "rtk",
+    "npm",
+    "run",
+    "host:certify"
+  ],
+  "exit_code": 0,
+  "scope": "certification only; does not close missing app/graphics evidence"
+}

@@ -1,0 +1,18 @@
+{
+  "schema": "rex-native-transfer-qualification/v1",
+  "status": "PASS_FORWARD_140",
+  "report": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-18-54-518Z-report.json",
+  "report_sha256": "3c77822579848a702b1fb102425faed7f87d3499a2ceae0f296397e0a31e701f",
+  "run": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-native-m5-golden-axe-003/run.json",
+  "run_sha256": "beb3026f4b9aba081e7d944f403bfbfbf4769d5f703d77008bc48869b549d28d",
+  "app_sha256": "66cb3d71ea4f5df2efd37b031fe0c4c76b822b11d55d55ca240024638c7c12e5",
+  "checks": 140,
+  "failed": 0,
+  "copy": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-18-54-518Z-copias/reaberto/original.copy-grid-2a98-5725630a.bin",
+  "copy_sha256": "5725630a53c0eb72210e1ef5ead773b5e3a3f76dbdd1a134474f61816db09f18",
+  "ips_sha256": "ec10c284835f8ec931f480ba3619411fdfc5710bc1876fc5d8d119611e076bf5",
+  "changed_rom_bytes": 1,
+  "changed_destination_bytes": 162,
+  "reverse_pending": true,
+  "limits": "Contiguous-copy memory effect in prepared same-core episode; external MAME call/register proof separate. Framebuffer unchanged; no independent edited visual or whole-game equivalence claim."
+}

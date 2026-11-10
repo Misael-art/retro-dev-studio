@@ -1,0 +1,43 @@
+{
+  "schema": "rex-final-complementary-gates/v1",
+  "status": "PASS",
+  "gates": [
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "clippy",
+        "--manifest-path",
+        "src-tauri/Cargo.toml",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0,
+      "log": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-final-complementary-gates/0.log"
+    },
+    {
+      "command": [
+        "rtk",
+        "proxy",
+        "cargo",
+        "fmt",
+        "--manifest-path",
+        "src-tauri/Cargo.toml",
+        "--",
+        "--check"
+      ],
+      "exit_code": 0,
+      "log": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-final-complementary-gates/1.log"
+    }
+  ],
+  "files": {
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-final-complementary-gates/preflight.json": "d070eea87e9a6dace7c6770f3047bf0ef005cd35301370bb38660a2b96da84d7",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-final-complementary-gates/0.log": "dd621e9ff7c9eac161c730aa8a79332dd68698435a7a84d044d9ad39dfa1f5d2",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-final-complementary-gates/result.json": "37c02a3b8077969a8434c46dcccebb55a3233a89bfc8f5f86ae998825c9295bc",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-final-complementary-gates/1.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "fmt_first_run": "exit0 also before native final journeys",
+  "dependency_security_gates": "not newly applicable: no dependency or security change"
+}

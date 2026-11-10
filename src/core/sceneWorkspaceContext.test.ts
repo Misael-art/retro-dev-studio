@@ -10,6 +10,18 @@ import {
 } from "./sceneWorkspaceContext";
 
 describe("sceneWorkspaceContext", () => {
+  it("does not claim visual authoring is ready when the source has only code", () => {
+    const context = resolveSceneWorkspaceContext({
+      projectSourceKind: "imported_sgdk",
+      scene: { scene_id: "main", background_layers: [], palettes: [], entities: [{
+        entity_id: "code_only_logic", transform: { x: 0, y: 0 },
+        components: { logic: { imported_semantics: { source: "sgdk", audit_flags: ["code_only_donor"] } } },
+      }] },
+    });
+    expect(context.title).toBe("Projeto sem imagens externas");
+    expect(context.tone).toBe("warn");
+    expect(context.detail).toContain("não foi reconstruído");
+  });
   it("finds the first visual entity as the preferred scene focus", () => {
     const preferred = getPreferredSceneEntity({
       scene_id: "phase_b",
@@ -131,6 +143,27 @@ describe("sceneWorkspaceContext", () => {
     expect(context.isLegacyOverlayProject).toBe(true);
     expect(context.tone).toBe("info");
     expect(context.summary).toContain("overlay");
+  });
+
+  it("explains a raw tileset bank instead of claiming a mounted scene", () => {
+    const context = resolveSceneWorkspaceContext({
+      scene: {
+        scene_id: "hud_tiles", display_name: "HUD", background_layers: [], palettes: [],
+        entities: [{
+          entity_id: "hud_tiles_tilemap", transform: { x: 0, y: 0 },
+          components: {
+            tilemap: { tileset: "assets/tilesets/hud.png", map_width: 142, map_height: 1, scroll_x: 0, scroll_y: 0, cells: [1] },
+            logic: { logic_hints: ["sgdk_import:tileset_bank"] },
+          },
+        }],
+      },
+      projectSourceKind: "imported_sgdk",
+    });
+    expect(context.title).toBe("Banco de peças gráficas");
+    expect(context.sourceBadgeLabel).toBe("Banco de peças");
+    expect(context.tone).toBe("info");
+    expect(context.detail).toContain("seletor Cena");
+    expect(context.detail).toContain("imagem montada");
   });
 
   it("keeps the native empty-scene guidance action oriented", () => {

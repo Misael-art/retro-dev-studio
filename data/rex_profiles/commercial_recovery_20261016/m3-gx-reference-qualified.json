@@ -1,0 +1,21 @@
+{
+  "schema": "rex-m3-gx-original-reference/v1",
+  "id": "m3-gx-reference-001",
+  "status": "PASS_ORIGINAL_BOUNDARY_SURVEY",
+  "first_copy_frame": 137,
+  "elapsed_seconds": 3.8660942650021752,
+  "original180_framebuffer_sha256": "7d69786f726cd411f45be60cd671be384d389ef73cf048c001cef9e3c7ef1d37",
+  "tail_sha256": "bcb49f128840c1fcc62a23f90825577670129cbe6f9d6550cfafbb3ba3592064",
+  "tail_all_frame_boundaries_equal_prestate": true,
+  "outputs": {
+    "runtime.log": "9d829843157cf24b30abac77424480916d5ff0def3678a87b26eca5161d84773",
+    "before-tail.bin": "bcb49f128840c1fcc62a23f90825577670129cbe6f9d6550cfafbb3ba3592064",
+    "before-destination.bin": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+    "first-copy-destination.bin": "b19961ed0bd9636971ebc0824407fc6a5ca1d87be73441042b74e21596e37614",
+    "first-copy-tail.bin": "bcb49f128840c1fcc62a23f90825577670129cbe6f9d6550cfafbb3ba3592064",
+    "first-copy-frame.rgb565": "756b4aae3161edc9b69b683410eb1837163e84d7fdcb3bf62ba3cdf341a15cbf",
+    "original-prefix.rds-replay": "72731141615587ad33f2a1109c36f4fb9fc8afa74bf5a437f61025a2de87c56d"
+  },
+  "private_result_sha256": "e34a117ab17d3040d919080514eef47321f09057373e6fceb0ba60beae746ca3",
+  "limits": "Frame-end observation does not prove calls or pre-copy tail stability within a frame; no modified execution, independent visual or counterfactual oracle yet."
+}

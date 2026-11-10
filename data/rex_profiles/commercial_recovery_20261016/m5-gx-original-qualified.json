@@ -1,0 +1,57 @@
+{
+  "schema": "rex-m5-original-gx-reference/v1",
+  "status": "PASS_ORIGINAL_CONDITIONAL_MEMORY_BOUNDARY",
+  "first_frame": 6,
+  "records": [
+    {
+      "frame": 1,
+      "before_sha256": "1fe2373734955e60c172999142934b52e69ba7ab9039b3c18ea54082ba32afcd",
+      "after_sha256": "1fe2373734955e60c172999142934b52e69ba7ab9039b3c18ea54082ba32afcd",
+      "conditional_match": false
+    },
+    {
+      "frame": 2,
+      "before_sha256": "1fe2373734955e60c172999142934b52e69ba7ab9039b3c18ea54082ba32afcd",
+      "after_sha256": "1fe2373734955e60c172999142934b52e69ba7ab9039b3c18ea54082ba32afcd",
+      "conditional_match": false
+    },
+    {
+      "frame": 3,
+      "before_sha256": "1fe2373734955e60c172999142934b52e69ba7ab9039b3c18ea54082ba32afcd",
+      "after_sha256": "1fe2373734955e60c172999142934b52e69ba7ab9039b3c18ea54082ba32afcd",
+      "conditional_match": false
+    },
+    {
+      "frame": 4,
+      "before_sha256": "1fe2373734955e60c172999142934b52e69ba7ab9039b3c18ea54082ba32afcd",
+      "after_sha256": "1fe2373734955e60c172999142934b52e69ba7ab9039b3c18ea54082ba32afcd",
+      "conditional_match": false
+    },
+    {
+      "frame": 5,
+      "before_sha256": "1fe2373734955e60c172999142934b52e69ba7ab9039b3c18ea54082ba32afcd",
+      "after_sha256": "1fe2373734955e60c172999142934b52e69ba7ab9039b3c18ea54082ba32afcd",
+      "conditional_match": false
+    },
+    {
+      "frame": 6,
+      "before_sha256": "1fe2373734955e60c172999142934b52e69ba7ab9039b3c18ea54082ba32afcd",
+      "after_sha256": "5163dca0ade2885de3d29ebfd9daf8e9b80a1e8247277989ccb69fb8e487dada",
+      "conditional_match": true
+    }
+  ],
+  "protocol_sha256": "d9d98c9dba4038e8450580f1bc993f2bf322043aeea3f4d2f2a95d4dd282fe1f",
+  "outputs": {
+    "runtime.log": "670ed365725c6812d580c134cb3520dc85af12266f0e3595a5fc041590d479b8",
+    "original.rds-replay": "31e9cda9dcb0e6b6537c5eb7499a37ae6c2c109d0a7d2fb36667f984b2ffe142",
+    "before-destination.bin": "1fe2373734955e60c172999142934b52e69ba7ab9039b3c18ea54082ba32afcd",
+    "source.bin": "5163dca0ade2885de3d29ebfd9daf8e9b80a1e8247277989ccb69fb8e487dada",
+    "expected-width1.bin": "8ea4b1760c96904f20cd6cd8254e153c22764954e2c4c33dcc93a2ca25cebd59",
+    "expected-width2.bin": "d7a2a74829d3ed461867961bf616cc0d5236e4180aaacff94e9af26b959d7991",
+    "expected-width4.bin": "5163dca0ade2885de3d29ebfd9daf8e9b80a1e8247277989ccb69fb8e487dada",
+    "original-frame.rgb565": "3a3ed164e42500a1c5b2d0093f0a813d27dc50d038f330cc100a7e70ece2e6e4"
+  },
+  "limits": "Original GX frame-end conditional memory only; does not prove call in GX. Prepared original state permits same episode in app. Expected edited bytes are original ROM source plus original before-destination, never edited output/capture. Video baseline is same-core correspondence only, not independent visual/game oracle.",
+  "private_result_sha256": "31a261e1e0076aa5435792e9de3c547ecb3c30e5d0f5a6f7fd1e3ada1815ff90",
+  "protocol_compliant": true
+}

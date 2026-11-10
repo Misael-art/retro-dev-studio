@@ -1,0 +1,15 @@
+{
+  "experiment": "M2-VERIFY-001",
+  "result": "FAIL_NEW_STRICT_TIME_CHECK",
+  "reason": "machine-attotime regresses 36 ns from frame callback preparation to next CPU read",
+  "events": [
+    10,
+    11
+  ],
+  "raw_times": [
+    "0018.523,851,495",
+    "0018.523,851,459"
+  ],
+  "interpretation": "global frame callback time and device-local bus callback time must not be assumed to form a monotonic clock; raw evidence unchanged",
+  "next": "verify CPU-event timestamps independently, keep all clock regressions visible; no presentation/app claim"
+}

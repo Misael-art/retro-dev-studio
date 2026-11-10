@@ -1,0 +1,174 @@
+{
+  "schema": "rex-sampled-sprite-verification/v1",
+  "id": "sprite-analysis-002",
+  "status": "PASS_BOUNDED_DESCRIPTOR_TO_SAT",
+  "events_sha256": "75ad10d30bdbbbad81c65147938d5f41b19b707079c047529ccb4f2cf5638b13",
+  "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "author_controls": {
+    "literal_case": true,
+    "incorrect_operator_or_branch_mutants_rejected": 4
+  },
+  "negative_controls": {
+    "wrong-destination": {
+      "rejected": true,
+      "reason": "SAT address/value/order"
+    },
+    "wrong-value": {
+      "rejected": true,
+      "reason": "SAT address/value/order"
+    },
+    "missing-write": {
+      "rejected": true,
+      "reason": "SAT address/value/order"
+    },
+    "wrong-descriptor": {
+      "rejected": true,
+      "reason": "descriptor reads"
+    }
+  },
+  "samples": [
+    {
+      "seq": 110352,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775176,
+      "record_sha256": "1d22a10372fed50487dec33619bfdd859885c026098c37597b05bce4f456df10"
+    },
+    {
+      "seq": 110371,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775184,
+      "record_sha256": "58468ad9adad47441f7c41a91586ae29440e381f064567f3a05dd4c3186e6247"
+    },
+    {
+      "seq": 110390,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775192,
+      "record_sha256": "254dbc7b2805d48365154980db8268ea9d5599bde0678d107e385117fae07de0"
+    },
+    {
+      "seq": 110409,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775200,
+      "record_sha256": "c0b19c7eb8f3cc2eb97d35e018cb7cd0901b7a8cfacaf64ca3ae703bb97e340c"
+    },
+    {
+      "seq": 110428,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775208,
+      "record_sha256": "8fe84745158361ded58042c3550cc79625808620d15c4900ead07ea891fad6d0"
+    },
+    {
+      "seq": 110447,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775216,
+      "record_sha256": "8879acbf44a2b9b83ed002e74c38c571c1fbe7cc6f07a2d8c2673cf25e6f7b9b"
+    },
+    {
+      "seq": 110476,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775224,
+      "record_sha256": "ae4bc491d7540a9f9e29bae14847453859606375c1a77c78ca04ac3cd407a284"
+    },
+    {
+      "seq": 110499,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775232,
+      "record_sha256": "34715816e3eb3eb7da7435ec3e64f1d4de98ed215a8b26344e99c880ffac5f52"
+    },
+    {
+      "seq": 110528,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775240,
+      "record_sha256": "1b9adca22503d1823e5c3c5bcd49eaee38270285331348f3ad00527b40ecdd98"
+    },
+    {
+      "seq": 110551,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775248,
+      "record_sha256": "aec13862b96d4211af813fe7ba00ae384df498a367542a38283a96cc6f20e9c1"
+    },
+    {
+      "seq": 110580,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775256,
+      "record_sha256": "9b6f9ceafb595ac3a499320b74c6a0e1844bb28f9c90dd94e513e88687eceaf5"
+    },
+    {
+      "seq": 110603,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775264,
+      "record_sha256": "a295180c049034b26ba92cdf6578c5b08e3d791a61f5e15cfa4f09d76bcf600c"
+    },
+    {
+      "seq": 110632,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775272,
+      "record_sha256": "5b684d22b02d795aebe866dc66a02623b1951d92f6164b4860d4d599c888f8af"
+    },
+    {
+      "seq": 110655,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775280,
+      "record_sha256": "98c844ba6b6a335568393fdd4ea77c08c569a056c588ab79a56fd66b9a12644f"
+    },
+    {
+      "seq": 110684,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775288,
+      "record_sha256": "d24cf1d1a28eebe6b015a2f525cc5b633f6cac44d7cc132b51bf6f90726c0d22"
+    },
+    {
+      "seq": 110707,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775296,
+      "record_sha256": "4573f082506ca7a736301923473f2c68542c052a777359ce6c7d81ea3eb49f8c"
+    },
+    {
+      "seq": 110737,
+      "frame": 1253,
+      "descriptor_address": 181637,
+      "sat_address": 16775304,
+      "record_sha256": "4055524be2d2521d23f7ecceda555fad6efbec3f39b456ef91daf4ba787fc0cd"
+    }
+  ],
+  "excluded_samples": [
+    {
+      "seq": 110754,
+      "descriptor_address": 40873,
+      "reason": "outside frozen wall descriptor domain; no descriptor read proof"
+    },
+    {
+      "seq": 110766,
+      "descriptor_address": 40873,
+      "reason": "outside frozen wall descriptor domain; no descriptor read proof"
+    },
+    {
+      "seq": 110778,
+      "descriptor_address": 40873,
+      "reason": "outside frozen wall descriptor domain; no descriptor read proof"
+    }
+  ],
+  "sampled_record_bytes": 136,
+  "limits": [
+    "post-observation static model, not blind expectations",
+    "twenty loop heads sampled, seventeen covered records; not complete calls",
+    "no internal DMA/VRAM or independent visual oracle",
+    "normal body only; flips, limit branch and full scene not qualified"
+  ]
+}

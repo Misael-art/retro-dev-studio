@@ -1,0 +1,64 @@
+{
+  "base": "89189485",
+  "rust_ts_changes_including_tests": [
+    {
+      "file": "src-tauri/src/tools/reverse/decomp/mod.rs",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "file": "src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs",
+      "added": 363,
+      "removed": 0
+    },
+    {
+      "file": "src-tauri/src/tools/reverse/decomp/rex_profile_ipc.rs",
+      "added": 228,
+      "removed": 3
+    },
+    {
+      "file": "src-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs",
+      "added": 118,
+      "removed": 18
+    },
+    {
+      "file": "src/components/nodegraph/ProfileGraphBridgePanel.test.tsx",
+      "added": 17,
+      "removed": 0
+    },
+    {
+      "file": "src/components/nodegraph/ProfileGraphBridgePanel.tsx",
+      "added": 5,
+      "removed": 1
+    },
+    {
+      "file": "src/core/nodegraph/nodeCatalog.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "file": "src/core/nodegraph/nodeDefinitions.ts",
+      "added": 6,
+      "removed": 0
+    },
+    {
+      "file": "src/core/nodegraph/nodeTypes.ts",
+      "added": 2,
+      "removed": 0
+    },
+    {
+      "file": "src/core/nodegraph/profileGraphBridge.test.ts",
+      "added": 21,
+      "removed": 0
+    }
+  ],
+  "rust_added": 710,
+  "rust_removed": 21,
+  "ts_added": 52,
+  "ts_removed": 1,
+  "profile_lines": 55,
+  "new_runtime_game_name_mentions": 0,
+  "new_external_dependencies": 0,
+  "registry_or_cargo_changes": false,
+  "interpretation": "New operation class; counts include tests and generic value naming. No new engine lines for the second register/address fixture or pinned BYOR."
+}

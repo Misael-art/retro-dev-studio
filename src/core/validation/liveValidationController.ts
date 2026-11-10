@@ -180,6 +180,7 @@ function describeError(error: unknown): string {
 export function useLiveValidationController() {
   const {
     activeProjectDir,
+    projectSessionId,
     activeTarget,
     activeScene,
     sceneRevision,
@@ -191,6 +192,7 @@ export function useLiveValidationController() {
   } = useEditorStore(
     useShallow((state) => ({
       activeProjectDir: state.activeProjectDir,
+      projectSessionId: state.projectSessionId,
       activeTarget: state.activeTarget,
       activeScene: state.activeScene,
       sceneRevision: state.sceneRevision,
@@ -227,6 +229,7 @@ export function useLiveValidationController() {
         if (
           requestId !== requestIdRef.current ||
           state.activeProjectDir !== activeProjectDir ||
+          state.projectSessionId !== projectSessionId ||
           state.activeTarget !== activeTarget ||
           state.sceneRevision !== currentRevision
         ) {
@@ -244,6 +247,7 @@ export function useLiveValidationController() {
         if (
           requestId !== requestIdRef.current ||
           state.activeProjectDir !== activeProjectDir ||
+          state.projectSessionId !== projectSessionId ||
           state.activeTarget !== activeTarget ||
           state.sceneRevision !== currentRevision
         ) {
@@ -259,6 +263,7 @@ export function useLiveValidationController() {
     };
   }, [
     activeProjectDir,
+    projectSessionId,
     activeScene,
     activeTarget,
     hwValidationRefreshTick,

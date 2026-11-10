@@ -1,0 +1,45 @@
+{
+  "schema": "rex-observer-protocol-addendum/v1",
+  "id": "M2-DMA-SAVE-ITEM-STORAGE-002",
+  "before_any_v3_runtime_measurement": true,
+  "hypothesis": "MAME address-space reads invoked by VDP DMA appear in installed RAM read taps; read-only save items expose resulting VRAM/CRAM without touching emulated ports",
+  "new_source_sha256": "3bd84c378b13dc0dec67f9cf9426a003b31548d406728bda7d05cb801ab81e40",
+  "prior_observer_v2_preserved": true,
+  "new_ranges": [
+    "read FFF800..FFFA7F",
+    "read FFFB00..FFFB7F",
+    "read VDP data ports C00000..C00003"
+  ],
+  "read_only_snapshots": [
+    "VDP m_vram 32768 u16 normalized BE",
+    "VDP m_cram64 u16 normalized BE",
+    "VDP m_regs32 u16 normalized BE (64bytes)",
+    "pre-copy FF4000 source8192",
+    "pre-copy FF1020 destination12224"
+  ],
+  "qualification_before_commercial": [
+    "original four author controls unchanged",
+    "VDP literal direct-write VRAM1234 and CRAM000E",
+    "DMA four distinct words, source reads and readback exact",
+    "DMA disabled control",
+    "different source/destination",
+    "incomplete capture and wrong identity refuse"
+  ],
+  "temporal_limit": "PC is CPU context, not an assumption that a DMA source read is a CPU load; actual ordering and reentrancy qualified before using it",
+  "sources": [
+    "https://raw.githubusercontent.com/mamedev/mame/mame0289/src/frontend/mame/luaengine.cpp",
+    "https://raw.githubusercontent.com/mamedev/mame/mame0289/src/devices/video/315_5313.cpp"
+  ],
+  "budget": {
+    "seconds_per_author_case": 90,
+    "max_events": 250000,
+    "commercial_frames": 1290,
+    "commercial_wall_seconds": 240,
+    "heavy_jobs": 1
+  },
+  "scope": "new qualified runtime instrument, no production dependency/core change; unknown until qualified",
+  "supersedes_unexecuted_draft_sha256": "95c4deca9342cb488436b70b8474db26ac693647b46dd4c316d83fa70ac6dab1",
+  "static_source_correction": "Pinned MAME315_5313.cpp allocates/saves m_regs as32 u16 entries, although values are logical register bytes; no v3 runtime had executed",
+  "qualification_source_sha256": "574e88dc85b7eb2133acbc0b2c03e49d0d39589effea6cd9ce6b2209af0bc2a0",
+  "repeated_surface_qualification": "three original author PNG/native-target exact comparisons and single-pixel negative, prior frozen v2 method"
+}

@@ -1,0 +1,585 @@
+{
+ "schema": "rex-platformer-jump-profile/v1",
+ "perfil": "m68k.platformer_jump.v1",
+ "roms": {
+  "sonic1": {
+   "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+  },
+  "delta": {
+   "sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6"
+  }
+ },
+ "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+ "instancias": {
+  "delta": [
+   {
+    "cap_offset": 92646,
+    "fields": [
+     {
+      "label": "Impulso do pulo",
+      "max": 32767,
+      "min": 1,
+      "name": "imp",
+      "rom_offsets": [
+       92428
+      ],
+      "value": 1664
+     },
+     {
+      "label": "Impulso do pulo na forma super",
+      "max": 32767,
+      "min": 1,
+      "name": "imps",
+      "rom_offsets": [
+       92438
+      ],
+      "value": 2048
+     },
+     {
+      "label": "Impulso do pulo submerso",
+      "max": 32767,
+      "min": 1,
+      "name": "impw",
+      "rom_offsets": [
+       92450
+      ],
+      "value": 896
+     },
+     {
+      "label": "Corte da altura ao soltar o botão",
+      "max": -1,
+      "min": -32767,
+      "name": "cut",
+      "rom_offsets": [
+       92602
+      ],
+      "value": -1024
+     },
+     {
+      "label": "Corte da altura submerso",
+      "max": -1,
+      "min": -32767,
+      "name": "cutw",
+      "rom_offsets": [
+       92614
+      ],
+      "value": -512
+     },
+     {
+      "label": "Teto de velocidade ascendente",
+      "max": -1,
+      "min": -32767,
+      "name": "cap",
+      "rom_offsets": [
+       92648,
+       92656
+      ],
+      "value": -4032
+     }
+    ],
+    "height_offset": 92594,
+    "held_ram": 62978,
+    "jump_flag_off": 64,
+    "jump_offset": 92436,
+    "notes": [
+     "impulso em 0x1690a (com variante de forma super)",
+     "altura em 0x169b2 (pareamento mútuo, campos consistentes)",
+     "teto de subida em 0x169e6"
+    ],
+    "profile_id": "m68k.platformer_jump.v1",
+    "status_off": 42,
+    "vel_x_off": 24,
+    "vel_y_off": 26
+   },
+   {
+    "cap_offset": null,
+    "fields": [
+     {
+      "label": "Impulso do pulo",
+      "max": 32767,
+      "min": 1,
+      "name": "imp",
+      "rom_offsets": [
+       95020
+      ],
+      "value": 1920
+     },
+     {
+      "label": "Impulso do pulo submerso",
+      "max": 32767,
+      "min": 1,
+      "name": "impw",
+      "rom_offsets": [
+       95032
+      ],
+      "value": 1024
+     }
+    ],
+    "height_offset": null,
+    "held_ram": 0,
+    "jump_flag_off": 0,
+    "jump_offset": 95018,
+    "notes": [
+     "impulso em 0x1732a",
+     "altura não pareada de forma inequívoca: campos de corte e teto NÃO são oferecidos"
+    ],
+    "profile_id": "m68k.platformer_jump.v1",
+    "status_off": 42,
+    "vel_x_off": 24,
+    "vel_y_off": 26
+   },
+   {
+    "cap_offset": 107072,
+    "fields": [
+     {
+      "label": "Impulso do pulo",
+      "max": 32767,
+      "min": 1,
+      "name": "imp",
+      "rom_offsets": [
+       106866
+      ],
+      "value": 1664
+     },
+     {
+      "label": "Impulso do pulo submerso",
+      "max": 32767,
+      "min": 1,
+      "name": "impw",
+      "rom_offsets": [
+       106878
+      ],
+      "value": 896
+     },
+     {
+      "label": "Corte da altura ao soltar o botão",
+      "max": -1,
+      "min": -32767,
+      "name": "cut",
+      "rom_offsets": [
+       107030
+      ],
+      "value": -1024
+     },
+     {
+      "label": "Corte da altura submerso",
+      "max": -1,
+      "min": -32767,
+      "name": "cutw",
+      "rom_offsets": [
+       107042
+      ],
+      "value": -512
+     },
+     {
+      "label": "Teto de velocidade ascendente",
+      "max": -1,
+      "min": -32767,
+      "name": "cap",
+      "rom_offsets": [
+       107074,
+       107082
+      ],
+      "value": -4032
+     }
+    ],
+    "height_offset": 107022,
+    "held_ram": 63082,
+    "jump_flag_off": 64,
+    "jump_offset": 106864,
+    "notes": [
+     "impulso em 0x1a170",
+     "altura em 0x1a20e (pareamento mútuo, campos consistentes)",
+     "teto de subida em 0x1a240"
+    ],
+    "profile_id": "m68k.platformer_jump.v1",
+    "status_off": 42,
+    "vel_x_off": 24,
+    "vel_y_off": 26
+   }
+  ],
+  "sonic1": [
+   {
+    "cap_offset": 79044,
+    "fields": [
+     {
+      "label": "Impulso do pulo",
+      "max": 32767,
+      "min": 1,
+      "name": "imp",
+      "rom_offsets": [
+       78862
+      ],
+      "value": 1664
+     },
+     {
+      "label": "Impulso do pulo submerso",
+      "max": 32767,
+      "min": 1,
+      "name": "impw",
+      "rom_offsets": [
+       78874
+      ],
+      "value": 896
+     },
+     {
+      "label": "Corte da altura ao soltar o botão",
+      "max": -1,
+      "min": -32767,
+      "name": "cut",
+      "rom_offsets": [
+       79008
+      ],
+      "value": -1024
+     },
+     {
+      "label": "Corte da altura submerso",
+      "max": -1,
+      "min": -32767,
+      "name": "cutw",
+      "rom_offsets": [
+       79020
+      ],
+      "value": -512
+     },
+     {
+      "label": "Teto de velocidade ascendente",
+      "max": -1,
+      "min": -32767,
+      "name": "cap",
+      "rom_offsets": [
+       79046,
+       79054
+      ],
+      "value": -4032
+     }
+    ],
+    "height_offset": 79000,
+    "held_ram": 62978,
+    "jump_flag_off": 60,
+    "jump_offset": 78860,
+    "notes": [
+     "impulso em 0x1340c",
+     "altura em 0x13498 (pareamento mútuo, campos consistentes)",
+     "teto de subida em 0x134c4"
+    ],
+    "profile_id": "m68k.platformer_jump.v1",
+    "status_off": 34,
+    "vel_x_off": 16,
+    "vel_y_off": 18
+   }
+  ]
+ },
+ "edicoes": [
+  {
+   "jump_offset": 78860,
+   "nome": "s1-imp-0900",
+   "patches": [
+    {
+     "new": [
+      9,
+      0
+     ],
+     "offset": 78862,
+     "old": [
+      6,
+      128
+     ]
+    }
+   ]
+  },
+  {
+   "jump_offset": 78860,
+   "nome": "s1-cut-0600",
+   "patches": [
+    {
+     "new": [
+      250,
+      0
+     ],
+     "offset": 79008,
+     "old": [
+      252,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "jump_offset": 78860,
+   "nome": "s1-cap-0800",
+   "patches": [
+    {
+     "new": [
+      248,
+      0
+     ],
+     "offset": 79046,
+     "old": [
+      240,
+      64
+     ]
+    },
+    {
+     "new": [
+      248,
+      0
+     ],
+     "offset": 79054,
+     "old": [
+      240,
+      64
+     ]
+    }
+   ]
+  },
+  {
+   "jump_offset": 92436,
+   "nome": "delta-a-imp-0900",
+   "patches": [
+    {
+     "new": [
+      9,
+      0
+     ],
+     "offset": 92428,
+     "old": [
+      6,
+      128
+     ]
+    }
+   ]
+  },
+  {
+   "jump_offset": 95018,
+   "nome": "delta-b-imp-0900",
+   "patches": [
+    {
+     "new": [
+      9,
+      0
+     ],
+     "offset": 95020,
+     "old": [
+      7,
+      128
+     ]
+    }
+   ]
+  },
+  {
+   "jump_offset": 106864,
+   "nome": "delta-c-imp-0900",
+   "patches": [
+    {
+     "new": [
+      9,
+      0
+     ],
+     "offset": 106866,
+     "old": [
+      6,
+      128
+     ]
+    }
+   ]
+  },
+  {
+   "jump_offset": 92436,
+   "nome": "delta-a-cut-0600",
+   "patches": [
+    {
+     "new": [
+      250,
+      0
+     ],
+     "offset": 92602,
+     "old": [
+      252,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "jump_offset": 106864,
+   "nome": "delta-c-cut-0600",
+   "patches": [
+    {
+     "new": [
+      250,
+      0
+     ],
+     "offset": 107030,
+     "old": [
+      252,
+      0
+     ]
+    }
+   ]
+  }
+ ],
+ "medidas_no_core": [
+  {
+   "jogo": "sonic1",
+   "rom": "original",
+   "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+   "toque": {
+    "vy_quadro_2": -968,
+    "apice_px": 34,
+    "flag": 1
+   },
+   "segura": {
+    "vy_quadro_2": -1595,
+    "apice_px": 94,
+    "flag": 1
+   }
+  },
+  {
+   "jogo": "sonic1",
+   "rom": "s1-cap-0800",
+   "rom_sha256": "40694cb784c0c689a66f2721e0093fffacff564596fe67a3ed094784418721f5",
+   "toque": {
+    "vy_quadro_2": -968,
+    "apice_px": 34,
+    "flag": 1
+   },
+   "segura": {
+    "vy_quadro_2": -1595,
+    "apice_px": 94,
+    "flag": 1
+   }
+  },
+  {
+   "jogo": "sonic1",
+   "rom": "s1-cut-0600",
+   "rom_sha256": "9dcc643c4fbf543e7a22598c9b38eacecaf6f1b3fa5a8ee9fdd3c2e8adc6f02c",
+   "toque": {
+    "vy_quadro_2": -1480,
+    "apice_px": 81,
+    "flag": 1
+   },
+   "segura": {
+    "vy_quadro_2": -1595,
+    "apice_px": 94,
+    "flag": 1
+   }
+  },
+  {
+   "jogo": "sonic1",
+   "rom": "s1-imp-0900",
+   "rom_sha256": "58ec3d1651e54b82fad2ccdccc1fde333931efaab26026e6053efcdb6c27c744",
+   "toque": {
+    "vy_quadro_2": -968,
+    "apice_px": 34,
+    "flag": 1
+   },
+   "segura": {
+    "vy_quadro_2": -2230,
+    "apice_px": 182,
+    "flag": 1
+   }
+  },
+  {
+   "jogo": "delta",
+   "rom": "original",
+   "rom_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+   "toque": {
+    "vy_quadro_2": -968,
+    "apice_px": 34,
+    "flag": 1
+   },
+   "segura": {
+    "vy_quadro_2": -1595,
+    "apice_px": 94,
+    "flag": 1
+   }
+  },
+  {
+   "jogo": "delta",
+   "rom": "delta-a-cut-0600",
+   "rom_sha256": "d5a451fac0f17bc33b11acf6e18570bdfffb35d810ea3170ef47ad06066cdda9",
+   "toque": {
+    "vy_quadro_2": -1480,
+    "apice_px": 81,
+    "flag": 1
+   },
+   "segura": {
+    "vy_quadro_2": -1595,
+    "apice_px": 94,
+    "flag": 1
+   }
+  },
+  {
+   "jogo": "delta",
+   "rom": "delta-a-imp-0900",
+   "rom_sha256": "81a8867c6e14825f3d224d37811bec5d19c8bf4bf7dde079655104026367d059",
+   "toque": {
+    "vy_quadro_2": -968,
+    "apice_px": 34,
+    "flag": 1
+   },
+   "segura": {
+    "vy_quadro_2": -2230,
+    "apice_px": 182,
+    "flag": 1
+   }
+  },
+  {
+   "jogo": "delta",
+   "rom": "delta-b-imp-0900",
+   "rom_sha256": "e6e0e1f5ce4534e30caf6cb6562e18d0a5f33acacad0fc621092a843207b1ee8",
+   "toque": {
+    "vy_quadro_2": -968,
+    "apice_px": 34,
+    "flag": 1
+   },
+   "segura": {
+    "vy_quadro_2": -1595,
+    "apice_px": 94,
+    "flag": 1
+   }
+  },
+  {
+   "jogo": "delta",
+   "rom": "delta-c-cut-0600",
+   "rom_sha256": "e4687e89f5dea1800fcb6f1616cd2ec2cf7b4821eaa797410313d51c596c1b49",
+   "toque": {
+    "vy_quadro_2": -968,
+    "apice_px": 34,
+    "flag": 1
+   },
+   "segura": {
+    "vy_quadro_2": -1595,
+    "apice_px": 94,
+    "flag": 1
+   }
+  },
+  {
+   "jogo": "delta",
+   "rom": "delta-c-imp-0900",
+   "rom_sha256": "fc3f103e5fb235d605e1e845009b6dd0343152a2e4e9015ce0638f4bde1ad7a0",
+   "toque": {
+    "vy_quadro_2": -968,
+    "apice_px": 34,
+    "flag": 1
+   },
+   "segura": {
+    "vy_quadro_2": -1595,
+    "apice_px": 94,
+    "flag": 1
+   }
+  }
+ ],
+ "leitura": {
+  "sonic1": "imp 0x680->0x900: apice segurando 94->182 px; cut -0x400->-0x600: apice no toque 34->81; cap -0x800: sem efeito nestes pulos (nao verificado dinamicamente)",
+  "delta": "a instancia 0x16914 e a do Sonic: imp 0x900 -> 94->182; cut -0x600 -> 34->81 (numeros iguais ao Sonic 1). Instancias 0x1732A e 0x1A170: editar imp/cut nao muda o Sonic (outros personagens; nao identificados)"
+ },
+ "limites": [
+  "forma confirmada + consistencia de campos; nao prova chamada em gameplay",
+  "pareamento altura<->pulo so se mutuo; 0x1732A ficou sem altura (conservador)",
+  "cap (teto) e imps (super) nao verificados dinamicamente",
+  "padroes escritos a partir do Sonic 1; o Delta exigiu 2 variantes (desvio de palavra na altura; prefixo de forma super)",
+  "ROM do Delta e do corpus local (hash registrado), nao ROM pinada do projeto"
+ ]
+}

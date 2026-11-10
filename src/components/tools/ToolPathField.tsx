@@ -25,6 +25,8 @@ interface PathFieldProps {
   directory?: boolean;
   extensions?: string[];
   accentColor?: string;
+  /** `data-testid` do campo de texto e do botão (`<testId>-browse`). */
+  testId?: string;
 }
 
 export default function ToolPathField({
@@ -35,6 +37,7 @@ export default function ToolPathField({
   directory = false,
   extensions,
   accentColor = "cba6f7",
+  testId,
 }: PathFieldProps) {
   return (
     <div className="flex flex-col gap-1">
@@ -42,6 +45,7 @@ export default function ToolPathField({
       <div className="flex gap-1">
         <input
           type="text"
+          data-testid={testId}
           value={value}
           placeholder={placeholder}
           className={`flex-1 rounded border border-[#313244] bg-[#1e1e2e] px-2 py-1 text-xs font-mono text-[#cdd6f4] focus:outline-none focus:border-[#${accentColor}]`}
@@ -49,6 +53,7 @@ export default function ToolPathField({
         />
         <button
           type="button"
+          data-testid={testId ? `${testId}-browse` : undefined}
           onClick={() =>
             void browseFile(set, {
               directory,

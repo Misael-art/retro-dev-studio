@@ -1,0 +1,31 @@
+{
+  "schema": "rex-sprite-pixel-phase-addendum/v1",
+  "id": "M2-SPRITE-PIXEL-WITNESS-002",
+  "before_second_commercial_pixel_analysis": true,
+  "prior_fail": "FAIL6912/8217, native1290 assumed same presentation phase",
+  "author_calibration_sha256": "dd647d9a5d3723fc25a022acac2b27e8088dd61cf1a48956b27cf93958b1480b",
+  "author_phase": "one IRQ/DMA update behind native state; constant on4training+13reserved author frames, asymmetric1024pixel sprite exact",
+  "commercial_selection": "fixed SAT DMA command frame1288 for presented frame1290; native1290 contains DMAframe1289. No commercial best-match search.",
+  "selected_sat_transfer": {
+    "source": 16775168,
+    "destination": 63488,
+    "count": 320,
+    "space": "md.vdp.vram",
+    "trigger_pc": 3584,
+    "command_seq": 183706,
+    "frame": 1288,
+    "last_read_seq": 184026,
+    "sha256": "6da66a4a7cd73388d1694f9de50c5f6b1501f6d3eeb1e3bff96bffc82f7f01e2"
+  },
+  "palette_invariance": "frames1288 and1289 have identical full128byte palette SHA c342a7ac...59a7b",
+  "static_art": "249tiles atVRAM142 matches ROM-decoded pin; used for selected resource only",
+  "scope_change": "conservatively exclude complete nonresource sprite rectangles from priorSAT before inspecting image, since prior dynamic patterns are unobserved. No pixel-based selection or tolerance change.",
+  "reference_limit": "observational original-game witness using measured state and author-qualified projection; not reserved counterfactual visual expectations",
+  "verifier_sha256": "99bc45497a70a8510bd10db545400c2089823c2708d9aed1a2ac5e8898520c23",
+  "dma_verification_sha256": "a489f22f07c1b5c014c5d4b9f87b485d6a4213b2b41e604bcd8bb655fccb0fbb",
+  "expectations": [
+    "all projected resource pixels outside excluded rectangles exact RGB",
+    "wrong current-state phase still refused",
+    "single-pixel expected-color negative refused"
+  ]
+}

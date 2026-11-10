@@ -55,10 +55,25 @@ pub struct BackgroundLayer {
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+/// Paleta da cena. Sem `id`: paleta de referencia do editor (formato anterior, `slot` unico).
+/// Com `id`: recurso logico do plano de paletas (`compiler/palette_plan.rs`): cores por indice
+/// (`""` = indice nao usado), banco fixado opcional (`bank`) e entidades que o usam (`uses`).
+/// `slot` fica 0 nos recursos; o banco fisico vem do plano, nunca do `slot`.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PaletteEntry {
     pub slot: u8,
     pub colors: Vec<String>, // Hex strings "#RRGGBB"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bank: Option<u8>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub uses: Vec<String>,
+    /// Origem declarada: `asset` (cores do arquivo, editadas), `variant` (copia local), `authored`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

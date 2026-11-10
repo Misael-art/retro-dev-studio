@@ -1,0 +1,56 @@
+{
+  "schema": "rex-semantic-profile/v1",
+  "id": "m68k.copy_grid.v1",
+  "revision": 2,
+  "status": "experimental",
+  "title": "Cópia de grade",
+  "summary": "Transferência delimitada: grade WRAM com loops DBRA aninhados ou cópia contígua ROM/WRAM com DBRA único. Larguras recuperadas e domínio de edição explícito. Experimental.",
+  "artifact_tag": "copy-grid",
+  "arch": {
+    "cpu": "m68k",
+    "endianness": "big",
+    "instruction_alignment": 2,
+    "bus_address_bits": 24
+  },
+  "provenance": {
+    "author": "RetroDev Studio - integrador REX",
+    "created": "2026-10-16",
+    "derived_from": [
+      "docs/rex_profiles/integration_20261016/COPY-GRID-CONTRACT.md"
+    ],
+    "notes": "Relações de operandos auditadas a partir do laboratório ee8c581f; mapa, aliases, alinhamento e spans validados no produto."
+  },
+  "rom_binding": {
+    "mode": "signature"
+  },
+  "work_limits": {
+    "max_rom_bytes": 33554432,
+    "max_candidates": 32
+  },
+  "analyzer": {
+    "kind": "copy_grid"
+  },
+  "selection": {
+    "structural_scan": false,
+    "declared_region": true
+  },
+  "edit": {
+    "field": "bytes_per_cell",
+    "label": "Largura da transferência (bytes)"
+  },
+  "evidence": {
+    "claims": [],
+    "unknown": [
+      "se o jogo executa este trecho e quem o chama",
+      "estado inicial, recurso e consumidor gráfico não recuperados",
+      "flags, registradores e stack na saída não comparados"
+    ]
+  },
+  "limits": [
+    "Região declarada completa: grade de30bytes ou cópia contígua de16..22bytes; não descobre funções.",
+    "Grade preserva contrato anterior byte/word, dois contadores MOVEQ e gap LEA; cópia contígua aceita LEA absolute-short/long/PC-relative e MOVEQ/MOVE.W imediato.",
+    "Ponteiros A0..A6 distintos; fonte ROM linear até4MiB ou WRAM canônica CPU24, destino WRAM, sem sobreposição. Registradores32 e endereços bus24 são distintos.",
+    "Larguras contíguas1,2,4 quando mapa/alinhamento/spans permitem; demais operações/fluxos recusados; não recompila topologia.",
+    "Cópia em harness não prova chamada no jogo, resultado gráfico ou áudio."
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "schema": "rex-gui-protocol-addendum/v1",
+  "before_second_run": true,
+  "first_run_report": "semantic-gate-2026-10-16T16-43-14-688Z-report.json",
+  "first_run_passed_checks": 61,
+  "first_run_limit": "existing harness saved via persistScene automation API",
+  "second_run_change": "use native visible menu > Salvar, assert saved status and source mappings/profile hash preserved on reopen",
+  "rom_and_core_unchanged": true,
+  "reason": "close explicit GUI save requirement; not a retry of an intermittent failure",
+  "first_run_preserved": true,
+  "second_run_exit_code": 1,
+  "second_run_failure": "Salvar text matcher expected exact full text, but button includes shortcut kbd",
+  "third_run_change": "native pointer selects exact label span, independent of shortcut; existing Organizar tudo avoids inherited source-coordinate overlap"
+}

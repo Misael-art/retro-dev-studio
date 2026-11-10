@@ -1,0 +1,504 @@
+{
+  "schema": "rex-semantic-gate-journey/v1",
+  "prefix": "copy-grid-2026-10-16T17-39-00-991Z",
+  "spec": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/data/rex_profiles/integration_20261016/copy-grid-journey.json",
+  "profile_id": "m68k.copy_grid.v1",
+  "sonda": "RAM via emulator_read_memory (sonda tecnica)",
+  "comparado": "WRAM inteira, exceto stack reservado [FFEE00,FFFF00); sentinel conferido; referência independente de índices de bytes",
+  "nao_comparado": "registradores/CCR, stack reservado, vídeo/áudio, chamadas pelo jogo",
+  "checks": [
+    {
+      "name": "rom_e_a_do_spec",
+      "pass": true,
+      "observado": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31"
+    },
+    {
+      "name": "perfil_semantico_no_mesmo_catalogo",
+      "pass": true,
+      "lista": "Pulo de plataforma · m68k.platformer_jump.v1 · revisão 2 · SHA-256 293321058e7e… · embutido · 0 instância(s)Cópia de grade · m68k.copy_grid.v1 · revisão 1 · SHA-256 582fe0c419cb… · embutido · 0 instância(s)Contador com limiar · m68k.counter_threshold_state_gate.v1 · revisão 1 · SHA-256 8e8648022d99… · embutido · 0 instância(s)",
+      "erro": ""
+    },
+    {
+      "name": "varredura.nada_e_proposto_sem_declarar_a_regiao",
+      "pass": true,
+      "tabs": [],
+      "nenhuma": "Nenhuma lógica reconhecida nesta ROM pelos 3 perfil(is) carregado(s). Isto não significa que a ROM não tenha essa lógica: só que ela não tem a forma que os perf"
+    },
+    {
+      "name": "declarada.regiao_incompleta_bloqueia_a_localizacao",
+      "pass": true,
+      "localizar": true
+    },
+    {
+      "name": "declarada.selecao_rotulada_como_declarada",
+      "pass": true,
+      "selecao": "declared_region",
+      "declarado": "Declarado (não derivado da ROM): rótulo do campo editável, título, limites e afirmações vêm do perfil (dado); entrada 0x000400 e saída(s) 0x00041E informadas pelo usuário."
+    },
+    {
+      "name": "declarada.uma_instancia_por_regiao",
+      "pass": true,
+      "tabs": [
+        "Cópia de grade em 0x000400"
+      ]
+    },
+    {
+      "name": "operacoes.sao_ditas_derivadas_dos_bytes",
+      "pass": true,
+      "operacoes": "Operações recuperadas dos bytes da ROM (pelo analisador, não pelo perfil):rom_region_entry — address=0x000400rom_copy_grid — address_space=CPU24 WRAM [FF0000,10",
+      "estatico": "Observado pelo aplicativo nesta sessão (sem rodar o jogo): forma e consistência entre as partes — Largura da transferência (bytes). As operações acima foram derivadas dos bytes nesta sessão. "
+    },
+    {
+      "name": "operacoes.parametro_permitido_e_o_unico_editavel",
+      "pass": true,
+      "editaveis": [
+        "copy_grid"
+      ]
+    },
+    {
+      "name": "operacoes.partes_opacas_sao_ditas",
+      "pass": true,
+      "opacas": [],
+      "esperado": 0
+    },
+    {
+      "name": "operacoes.dois_resultados",
+      "pass": true,
+      "ops": [
+        "entry",
+        "exit",
+        "copy_grid"
+      ]
+    },
+    {
+      "name": "evidencia.origens_separadas",
+      "pass": true,
+      "curado": "Evidência histórica curada (registro do repositório; o aplicativo não mediu isto): nenhuma para esta ROM e instância.",
+      "declarado": "Declarado pelo autor do perfil (não verificado): nada além do que está acima."
+    },
+    {
+      "name": "edicao.so_o_valor_e_suportado",
+      "pass": true,
+      "suportado": "Suportado: trocar o valor dos números abaixo, que a ROM já tem (a ROM não cresce). Não suportado: acrescentar, remover ou reordenar lógica, nem trocar operador, endereço ou conexão — isso não é compilado. Gerar cópia NÃO compila um projeto nem recompila o grafo: grava uma cópia da ROM com esses valores e um patch IPS. Domínio aceito pelo perfil não é o mesmo que \"bom no jogo\"."
+    },
+    {
+      "name": "regra.copy_grid_contrato_congelado",
+      "pass": true,
+      "texto": "rom_copy_grid — address_space=CPU24 WRAM [FF0000,1000000); origem binária = offset de arquivo · bytes_per_cell=1 · column_counter=D2=7 → DBRA low16 → FFFF · columns=8 · copied_bytes=32 · destination_address=0xFF7000 · destination_increment_bytes=1 · destination_register=A2 · output_span_bytes=80 · row_counter=D1=3 → DBRA low16 → FFFF · row_gap_bytes=16 · row_stride_bytes=24 · rows=4 · source_address=0xFF5000 · source_increment_bytes=1 · source_register=A3 · source_row_stride_bytes=8 · unknown=caller/estado inicial não recuperados; recurso/consumidor gráfico desconhecidos; flags/registradores/stack não comparados · bytes 0x000400..0x000406, 0x000406..0x00040C, 0x00040C..0x00040E, 0x00040E..0x000410, 0x000410..0x000412, 0x000412..0x000416, 0x000416..0x00041A, 0x00041A..0x00041E · editável (só o valor)",
+      "reference": {
+        "source": 16732160,
+        "destination": 16740352,
+        "rows": 4,
+        "columns": 8,
+        "gap": 16,
+        "width": 1
+      }
+    },
+    {
+      "name": "canvas.comparacao_assinada_rotulada",
+      "pass": true,
+      "semantica": "Os 3 nós deste grafo são operações derivadas dos bytes da ROM por um analisador. A região foi declarada pelo usuário (entrada e saídas informadas); nenhuma das duas é descoberta automática de rotina. Cópia de memória 0xFF5000 → 0xFF7000 · 4 linhas × 8 colunas · largura base 1 bytes · incremento base 1 · stride base 24 · gap 16. Só a largura 1↔2 é editável; mapa, alinhamento e sobreposição são revalidados. Topologia não é compilada. Estado inicial, caller e consumidor gráfico não recuperados. Proposta: largura/incremento 1 bytes, stride 24, span 80 bytes."
+    },
+    {
+      "name": "canvas.ponte_identifica_rom_perfil_e_regiao",
+      "pass": true,
+      "identity": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+      "instance": "1024",
+      "profile": "m68k.copy_grid.v1",
+      "selecao": "declared_region"
+    },
+    {
+      "name": "canvas.diz_o_que_e_derivado_opaco_e_editavel",
+      "pass": true,
+      "semantica": "Os 3 nós deste grafo são operações derivadas dos bytes da ROM por um analisador. A região foi declarada pelo usuário (entrada e saídas informadas); nenhuma das duas é descoberta automática de rotina. Cópia de memória 0xFF5000 → 0xFF7000 · 4 linhas × 8 colunas · largura base 1 bytes · incremento base 1 · stride base 24 · gap 16. Só a largura 1↔2 é editável; mapa, alinhamento e sobreposição são revalidados. Topologia não é compilada. Estado inicial, caller e consumidor gráfico não recuperados. Proposta: largura/incremento 1 bytes, stride 24, span 80 bytes."
+    },
+    {
+      "name": "canvas.nos_da_regra_no_canvas",
+      "pass": true,
+      "cards": [
+        "entry",
+        "copy_grid",
+        "exit"
+      ]
+    },
+    {
+      "name": "canvas.valor_original_no_no",
+      "pass": true,
+      "valor": "1"
+    },
+    {
+      "name": "canvas.organizacao_visual_preserva_a_estrutura",
+      "pass": true
+    },
+    {
+      "name": "canvas.diferenca_proposta_e_mostrada_e_a_estrutura_segue_canonica",
+      "pass": true,
+      "edits": "Cópia de grade (Experimental): 1 → 2",
+      "estrutura": ""
+    },
+    {
+      "name": "canvas.alterar_a_topologia_nao_e_apresentado_como_compilavel",
+      "pass": true,
+      "estrutura": "Este grafo deixou de representar a lógica da ROM: a estrutura do grafo (nós, conexões, origem ou campos) difere da gerada a partir da ROM. Os valores NÃO serão aplicados. Posição e organização visual continuam livres; para voltar a editar valores, abra o grafo de novo a partir da ROM.",
+      "generate": true
+    },
+    {
+      "name": "canvas.desfazer_restaura_a_estrutura_e_o_plano",
+      "pass": true,
+      "estrutura": ""
+    },
+    {
+      "name": "canvas.geracao_sem_erro",
+      "pass": true,
+      "erro": "",
+      "relacao": "atual"
+    },
+    {
+      "name": "canvas.ponte_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · relido da cópia: bytes_per_cell=2"
+    },
+    {
+      "name": "canvas.somente_copia_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "copy.copy-grid-400-3726adec.bin",
+        "copy.copy-grid-400-3726adec.ips"
+      ]
+    },
+    {
+      "name": "canvas.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "canvas.tamanho_preservado",
+      "pass": true
+    },
+    {
+      "name": "canvas.diff_exato_congelado",
+      "pass": true,
+      "mudados": [
+        1040
+      ],
+      "congelado": [
+        1040
+      ]
+    },
+    {
+      "name": "canvas.so_o_parametro_e_o_checksum_mudaram",
+      "pass": true,
+      "mudados": [
+        1040
+      ],
+      "imediato": 1040
+    },
+    {
+      "name": "canvas.aviso_de_checksum_quando_ele_muda",
+      "pass": true,
+      "resultado": "Cópia (corresponde aos valores atuais): /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T17-39-00-991Z-copias/canvas/copy.copy-grid-400-3726adec.binIPS: /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2"
+    },
+    {
+      "name": "canvas.ips_reaplicado_por_aplicador_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 14
+    },
+    {
+      "name": "persistido_no_disco_com_parametro_e_vinculo",
+      "pass": true,
+      "campo": "bytes_per_cell",
+      "valor": 2,
+      "perfil": "m68k.copy_grid.v1",
+      "entry": 1024
+    },
+    {
+      "name": "reaberto.procedencia_e_hash_de_perfil_preservados",
+      "pass": true
+    },
+    {
+      "name": "reaberto.preserva_parametro_editado",
+      "pass": true,
+      "valor": "2"
+    },
+    {
+      "name": "reaberto.preserva_rom_perfil_regiao",
+      "pass": true,
+      "identity": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+      "instance": "1024",
+      "profile": "m68k.copy_grid.v1"
+    },
+    {
+      "name": "reaberto.preserva_o_plano_e_a_estrutura",
+      "pass": true,
+      "edits": "Cópia de grade (Experimental): 1 → 2",
+      "estrutura": ""
+    },
+    {
+      "name": "reaberto.nao_finge_resultado_da_sessao_anterior",
+      "pass": true,
+      "relacao": null
+    },
+    {
+      "name": "reaberto.geracao_sem_erro",
+      "pass": true,
+      "erro": "",
+      "relacao": "atual"
+    },
+    {
+      "name": "reaberto.ponte_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · relido da cópia: bytes_per_cell=2"
+    },
+    {
+      "name": "reaberto.somente_copia_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "copy.copy-grid-400-3726adec.bin",
+        "copy.copy-grid-400-3726adec.ips"
+      ]
+    },
+    {
+      "name": "reaberto.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "reaberto.tamanho_preservado",
+      "pass": true
+    },
+    {
+      "name": "reaberto.diff_exato_congelado",
+      "pass": true,
+      "mudados": [
+        1040
+      ],
+      "congelado": [
+        1040
+      ]
+    },
+    {
+      "name": "reaberto.so_o_parametro_e_o_checksum_mudaram",
+      "pass": true,
+      "mudados": [
+        1040
+      ],
+      "imediato": 1040
+    },
+    {
+      "name": "reaberto.aviso_de_checksum_quando_ele_muda",
+      "pass": true,
+      "resultado": "Cópia (corresponde aos valores atuais): /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T17-39-00-991Z-copias/reaberto/copy.copy-grid-400-3726adec.binIPS: /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid"
+    },
+    {
+      "name": "reaberto.ips_reaplicado_por_aplicador_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 14
+    },
+    {
+      "name": "reaberto.gera_a_mesma_copia_e_o_mesmo_ips",
+      "pass": true,
+      "antes": "3726adec97308332d58cd1adfeef1308fb4a6441189ee099434210221ea3947f",
+      "depois": "3726adec97308332d58cd1adfeef1308fb4a6441189ee099434210221ea3947f"
+    },
+    {
+      "name": "original.rom_carregada_e_autoexercicio_terminou",
+      "pass": true
+    },
+    {
+      "name": "original.identidade_dos_bytes_realmente_carregados",
+      "pass": true,
+      "identity": {
+        "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+        "disk_matches_loaded": true,
+        "rom_sha256": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+        "rom_size": 1536,
+        "ok": true,
+        "core_label": "Genesis Plus GX v1.7.4 46a5521",
+        "frames_run": 7
+      },
+      "expectedHash": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31"
+    },
+    {
+      "name": "original.mesmo_core_do_produto_pinado",
+      "pass": true,
+      "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+      "label": "Genesis Plus GX v1.7.4 46a5521"
+    },
+    {
+      "name": "original.wram_lida",
+      "pass": true
+    },
+    {
+      "name": "original.core_mede_o_que_a_regra_recuperada_preve_em_todos_os_casos",
+      "pass": true,
+      "amostras": 65536,
+      "divergencias": []
+    },
+    {
+      "name": "original.janela_e_exterior_iguais_a_referencia",
+      "pass": true,
+      "first": [],
+      "sha256": "e53c683ee8648e8828ae1eb12955fd559a233f6bdffd1be5fa21e21f51835766"
+    },
+    {
+      "name": "copia.rom_carregada_e_autoexercicio_terminou",
+      "pass": true
+    },
+    {
+      "name": "copia.identidade_dos_bytes_realmente_carregados",
+      "pass": true,
+      "identity": {
+        "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+        "disk_matches_loaded": true,
+        "rom_sha256": "3726adec97308332d58cd1adfeef1308fb4a6441189ee099434210221ea3947f",
+        "rom_size": 1536,
+        "ok": true,
+        "core_label": "Genesis Plus GX v1.7.4 46a5521",
+        "frames_run": 8
+      },
+      "expectedHash": "3726adec97308332d58cd1adfeef1308fb4a6441189ee099434210221ea3947f"
+    },
+    {
+      "name": "copia.mesmo_core_do_produto_pinado",
+      "pass": true,
+      "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+      "label": "Genesis Plus GX v1.7.4 46a5521"
+    },
+    {
+      "name": "copia.wram_lida",
+      "pass": true
+    },
+    {
+      "name": "copia.core_mede_o_previsto_para_a_edicao_no_dominio_declarado",
+      "pass": true,
+      "amostras": 65536,
+      "divergencias": []
+    },
+    {
+      "name": "copia.diff_causal_exato_e_exterior_preservado",
+      "pass": true,
+      "count": 72,
+      "first": 28680,
+      "expected_first": 28680
+    },
+    {
+      "name": "copia.recusa_previsao_da_largura_antiga",
+      "pass": true
+    }
+  ],
+  "steps": [
+    {
+      "step": "varredura",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T17-39-00-991Z-varredura.png"
+    },
+    {
+      "step": "declarada",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T17-39-00-991Z-declarada.png"
+    },
+    {
+      "step": "nodes-organizados",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T17-39-00-991Z-nodes-organizados.png"
+    },
+    {
+      "step": "topologia-alterada",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T17-39-00-991Z-topologia-alterada.png"
+    },
+    {
+      "step": "canvas",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T17-39-00-991Z-canvas.png"
+    },
+    {
+      "step": "reaberto",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T17-39-00-991Z-reaberto.png"
+    },
+    {
+      "step": "execucao",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T17-39-00-991Z-execucao.png"
+    }
+  ],
+  "copias": [
+    {
+      "etapa": "canvas",
+      "regiao": "0x000400",
+      "campo": "bytes_per_cell",
+      "bytes_per_cell": 2,
+      "rom_base_sha256": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+      "copia": "copy.copy-grid-400-3726adec.bin",
+      "copia_sha256": "3726adec97308332d58cd1adfeef1308fb4a6441189ee099434210221ea3947f",
+      "ips_sha256": "c0a6342c030118f7cabca863f1dd26c8705841edcb2e3800c26ef671bff994fb",
+      "bytes_diferentes": 1,
+      "offsets_diferentes": [
+        1040
+      ]
+    },
+    {
+      "etapa": "reaberto",
+      "regiao": "0x000400",
+      "campo": "bytes_per_cell",
+      "bytes_per_cell": 2,
+      "rom_base_sha256": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+      "copia": "copy.copy-grid-400-3726adec.bin",
+      "copia_sha256": "3726adec97308332d58cd1adfeef1308fb4a6441189ee099434210221ea3947f",
+      "ips_sha256": "c0a6342c030118f7cabca863f1dd26c8705841edcb2e3800c26ef671bff994fb",
+      "bytes_diferentes": 1,
+      "offsets_diferentes": [
+        1040
+      ]
+    }
+  ],
+  "allPass": true,
+  "ausentes": [],
+  "app_sha256": "51b338ced43399545e7df6388d270a632991050083d32659db8369e8c77acc02",
+  "profiles_dir": null,
+  "rom_sha256": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+  "initial_state": "WRAM=0; seed FF4000+8192 bytes=(i*37+11)%256; SP=FFFF00 SR=2700; no recovered caller.",
+  "save_interaction": "native pointer menu > Salvar; no persistScene automation call",
+  "persisted_identity": {
+    "profile_sha256": "582fe0c419cb5b2234179bb4f0cf8d63790c6b0f5352218f22058d941e47e944",
+    "rom_sha256": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+    "entry": 1024,
+    "exits": "0x00041E",
+    "source_mappings_sha256": "64498dbdf5ac539f5ba59725a7fde3c4dafb03f85fee5fe67df779e6649052d7"
+  },
+  "runtime_identities": [
+    {
+      "etapa": "original",
+      "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "disk_matches_loaded": true,
+      "rom_sha256": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+      "rom_size": 1536,
+      "ok": true,
+      "core_label": "Genesis Plus GX v1.7.4 46a5521",
+      "frames_run": 7
+    },
+    {
+      "etapa": "copia",
+      "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "disk_matches_loaded": true,
+      "rom_sha256": "3726adec97308332d58cd1adfeef1308fb4a6441189ee099434210221ea3947f",
+      "rom_size": 1536,
+      "ok": true,
+      "core_label": "Genesis Plus GX v1.7.4 46a5521",
+      "frames_run": 8
+    }
+  ],
+  "runtime_memory": [
+    {
+      "etapa": "original",
+      "sha256": "e53c683ee8648e8828ae1eb12955fd559a233f6bdffd1be5fa21e21f51835766",
+      "capture": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T17-39-00-991Z-original-wram.bin"
+    },
+    {
+      "etapa": "copia",
+      "sha256": "984f96ddd442f07d0302ffaf0d2cf4498d36dc414d512844024d034b5d68e3b2",
+      "capture": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T17-39-00-991Z-copia-wram.bin"
+    }
+  ],
+  "observado_original": {
+    "sha256": "e53c683ee8648e8828ae1eb12955fd559a233f6bdffd1be5fa21e21f51835766"
+  },
+  "bytes_que_mudaram": 72,
+  "observado_copia": {
+    "sha256": "984f96ddd442f07d0302ffaf0d2cf4498d36dc414d512844024d034b5d68e3b2"
+  }
+}

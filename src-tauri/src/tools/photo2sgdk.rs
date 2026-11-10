@@ -11,6 +11,9 @@ use std::fs::{self, File};
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
+#[path = "photo2sgdk_ingress.rs"]
+pub mod ingress;
+
 /// Niveis RGB do Mega Drive (3 bits por canal = 8 niveis).
 const MD_LEVELS: [u8; 8] = [0, 36, 73, 109, 146, 182, 219, 255];
 
@@ -517,152 +520,141 @@ fn detect_transparency(image: &RgbaImage) -> TransparencyAnalysis {
     }
 }
 
-fn median_cut_quantize(colors: &[RgbColor], max_colors: usize) -> Vec<RgbColor> {
-    if colors.is_empty() || max_colors == 0 {
-        return Vec::new();
-    }
-
-    if colors.len() <= max_colors {
-        let mut unique = Vec::new();
-        for color in colors {
-            if !unique.contains(color) {
-                unique.push(*color);
-            }
-        }
-        return unique.into_iter().take(max_colors).collect();
-    }
-
-    #[derive(Clone)]
-    struct ColorBox {
-        colors: Vec<RgbColor>,
-    }
-
-    let mut boxes = vec![ColorBox {
-        colors: colors.to_vec(),
-    }];
-
-    while boxes.len() < max_colors {
-        let split_index = boxes
-            .iter()
-            .enumerate()
-            .filter(|(_, bucket)| bucket.colors.len() > 1)
-            .max_by_key(|(_, bucket)| {
-                let (min_r, max_r, min_g, max_g, min_b, max_b) = bucket.colors.iter().fold(
-                    (u8::MAX, 0, u8::MAX, 0, u8::MAX, 0),
-                    |(min_r, max_r, min_g, max_g, min_b, max_b), color| {
-                        (
-                            min_r.min(color.r),
-                            max_r.max(color.r),
-                            min_g.min(color.g),
-                            max_g.max(color.g),
-                            min_b.min(color.b),
-                            max_b.max(color.b),
-                        )
-                    },
-                );
-                (max_r - min_r).max(max_g - min_g).max(max_b - min_b)
-            })
-            .map(|(index, _)| index);
-
-        let Some(index) = split_index else {
-            break;
-        };
-
-        let mut bucket = boxes.swap_remove(index);
-        let (min_r, max_r, min_g, max_g, min_b, max_b) = bucket.colors.iter().fold(
-            (u8::MAX, 0, u8::MAX, 0, u8::MAX, 0),
-            |(min_r, max_r, min_g, max_g, min_b, max_b), color| {
-                (
-                    min_r.min(color.r),
-                    max_r.max(color.r),
-                    min_g.min(color.g),
-                    max_g.max(color.g),
-                    min_b.min(color.b),
-                    max_b.max(color.b),
-                )
-            },
-        );
-
-        let axis = if (max_r - min_r) >= (max_g - min_g) && (max_r - min_r) >= (max_b - min_b) {
-            0
-        } else if (max_g - min_g) >= (max_b - min_b) {
-            1
-        } else {
-            2
-        };
-
-        bucket.colors.sort_by_key(|color| match axis {
-            0 => color.r,
-            1 => color.g,
-            _ => color.b,
-        });
-
-        let mid = bucket.colors.len() / 2;
-        let right = bucket.colors.split_off(mid);
-        boxes.push(ColorBox {
-            colors: bucket.colors,
-        });
-        boxes.push(ColorBox { colors: right });
-    }
-
-    boxes
-        .into_iter()
-        .filter(|bucket| !bucket.colors.is_empty())
-        .map(|bucket| {
-            let len = bucket.colors.len() as u32;
-            let (sum_r, sum_g, sum_b) =
-                bucket
-                    .colors
-                    .iter()
-                    .fold((0u32, 0u32, 0u32), |(sum_r, sum_g, sum_b), color| {
-                        (
-                            sum_r + color.r as u32,
-                            sum_g + color.g as u32,
-                            sum_b + color.b as u32,
-                        )
-                    });
-            RgbColor {
-                r: (sum_r / len) as u8,
-                g: (sum_g / len) as u8,
-                b: (sum_b / len) as u8,
-            }
-            .snapped()
-        })
-        .fold(Vec::new(), |mut acc, color| {
-            if !acc.contains(&color) && acc.len() < max_colors {
-                acc.push(color);
-            }
-            acc
-        })
+/// Quantize on the actual 512-color MD grid. Frequency-weighted refinement
+/// avoids splitting repeated whites/blacks into duplicate palette entries.
+fn build_palette(image: &RgbaImage, transparency: &TransparencyAnalysis) -> Vec<RgbColor> {
+    build_palette_with_method(image, transparency, false)
 }
 
-fn build_palette(image: &RgbaImage, transparency: &TransparencyAnalysis) -> Vec<RgbColor> {
-    let mut opaque_colors = Vec::new();
+fn build_palette_with_method(
+    image: &RgbaImage,
+    transparency: &TransparencyAnalysis,
+    dominant: bool,
+) -> Vec<RgbColor> {
+    let mut histogram = [[0u64; 4]; 512];
     for (index, pixel) in image.pixels().enumerate() {
         if transparency.mask[index] {
             continue;
         }
-        opaque_colors.push(RgbColor::from_rgba(*pixel));
+        let color = RgbColor::from_rgba(*pixel).snapped();
+        let level = |c: u8| (usize::from(c) * 7 + 127) / 255;
+        let bin = level(color.r) * 64 + level(color.g) * 8 + level(color.b);
+        let entry = &mut histogram[bin];
+        entry[0] += 1;
+        entry[1] += u64::from(pixel[0]);
+        entry[2] += u64::from(pixel[1]);
+        entry[3] += u64::from(pixel[2]);
     }
-
-    if opaque_colors.is_empty() {
+    // Keep source means inside each hardware bin for the error objective.
+    let mut points: Vec<(RgbColor, u64)> = histogram
+        .iter()
+        .filter(|h| h[0] > 0)
+        .map(|h| {
+            (
+                RgbColor {
+                    r: ((h[1] + h[0] / 2) / h[0]) as u8,
+                    g: ((h[2] + h[0] / 2) / h[0]) as u8,
+                    b: ((h[3] + h[0] / 2) / h[0]) as u8,
+                },
+                h[0],
+            )
+        })
+        .collect();
+    points.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
+    let limit = MAX_PALETTE_COLORS.min(points.len());
+    if limit == 0 {
         return Vec::new();
     }
-
-    let mut quantized = median_cut_quantize(&opaque_colors, MAX_PALETTE_COLORS);
-    if quantized.is_empty() {
-        quantized = opaque_colors.into_iter().map(|color| color.snapped()).fold(
-            Vec::new(),
-            |mut acc, color| {
-                if !acc.contains(&color) && acc.len() < MAX_PALETTE_COLORS {
-                    acc.push(color);
-                }
-                acc
-            },
-        );
+    if points.len() <= limit {
+        return points.iter().map(|(c, _)| c.snapped()).collect();
     }
-
-    quantized
+    if dominant {
+        return points
+            .iter()
+            .take(limit)
+            .map(|(c, _)| c.snapped())
+            .collect();
+    }
+    let grow = |palette: &mut Vec<RgbColor>| {
+        while palette.len() < limit {
+            let next = points
+                .iter()
+                .filter(|(c, _)| !palette.contains(&c.snapped()))
+                .max_by_key(|(c, count)| {
+                    count
+                        * u64::from(
+                            palette
+                                .iter()
+                                .map(|p| c.distance_sq(p))
+                                .min()
+                                .unwrap_or(195_075),
+                        )
+                })
+                .map(|(c, _)| c.snapped());
+            match next {
+                Some(color) => palette.push(color),
+                None => break,
+            }
+        }
+    };
+    let error = |palette: &[RgbColor]| -> u64 {
+        points
+            .iter()
+            .map(|(c, count)| {
+                count
+                    * u64::from(
+                        palette
+                            .iter()
+                            .map(|p| c.distance_sq(p))
+                            .min()
+                            .unwrap_or(195_075),
+                    )
+            })
+            .sum()
+    };
+    let mut palette = vec![points[0].0.snapped()];
+    grow(&mut palette);
+    let mut best = palette.clone();
+    let mut best_error = error(&best);
+    // Bounded work: at most 512 bins * 15 colors * 16 passes.
+    for _ in 0..16 {
+        let mut sums = vec![[0u64; 4]; palette.len()];
+        for (color, count) in &points {
+            let index = palette
+                .iter()
+                .enumerate()
+                .min_by_key(|(_, p)| color.distance_sq(p))
+                .map(|(i, _)| i)
+                .unwrap_or(0);
+            sums[index][0] += count;
+            sums[index][1] += u64::from(color.r) * count;
+            sums[index][2] += u64::from(color.g) * count;
+            sums[index][3] += u64::from(color.b) * count;
+        }
+        let mut next = Vec::with_capacity(limit);
+        for h in sums.iter().filter(|h| h[0] > 0) {
+            let color = RgbColor {
+                r: ((h[1] + h[0] / 2) / h[0]) as u8,
+                g: ((h[2] + h[0] / 2) / h[0]) as u8,
+                b: ((h[3] + h[0] / 2) / h[0]) as u8,
+            }
+            .snapped();
+            if !next.contains(&color) {
+                next.push(color);
+            }
+        }
+        grow(&mut next);
+        if next == palette {
+            break;
+        }
+        let next_error = error(&next);
+        if next_error < best_error {
+            best = next.clone();
+            best_error = next_error;
+        }
+        palette = next;
+    }
+    best
 }
 
 fn render_quantized_preview(
@@ -688,6 +680,84 @@ fn render_quantized_preview(
         *pixel = Rgba([nearest.r, nearest.g, nearest.b, 255]);
     }
 
+    preview
+}
+
+/// Floyd–Steinberg adapted from SMSForge's workflow to MD RGB333. Each frame
+/// starts with fresh error buffers; transparent pixels neither receive nor emit error.
+fn render_floyd_preview(
+    image: &RgbaImage,
+    transparency: &TransparencyAnalysis,
+    palette: &[RgbColor],
+    frame_width: u32,
+) -> RgbaImage {
+    let mut preview = RgbaImage::new(image.width(), image.height());
+    let width = frame_width.max(1) as usize;
+    for offset in (0..image.width()).step_by(width) {
+        let mut current = vec![[0f32; 3]; width];
+        let mut next = current.clone();
+        for y in 0..image.height() {
+            for x in 0..width {
+                let gx = offset + x as u32;
+                if gx >= image.width() {
+                    break;
+                }
+                let index = (y * image.width() + gx) as usize;
+                if transparency.mask[index] {
+                    continue;
+                }
+                let p = image.get_pixel(gx, y);
+                let channels = std::array::from_fn::<_, 3, _>(|c| {
+                    (f32::from(p[c]) + current[x][c]).clamp(0.0, 255.0)
+                });
+                let color = RgbColor {
+                    r: channels[0].round() as u8,
+                    g: channels[1].round() as u8,
+                    b: channels[2].round() as u8,
+                };
+                let chosen = palette
+                    .iter()
+                    .min_by_key(|p| color.distance_sq(p))
+                    .copied()
+                    .unwrap_or_else(|| color.snapped());
+                preview.put_pixel(gx, y, Rgba([chosen.r, chosen.g, chosen.b, 255]));
+                let error = [
+                    channels[0] - f32::from(chosen.r),
+                    channels[1] - f32::from(chosen.g),
+                    channels[2] - f32::from(chosen.b),
+                ];
+                for (dx, dy, weight) in [
+                    (1i32, 0, 7.0 / 16.0),
+                    (-1, 1, 3.0 / 16.0),
+                    (0, 1, 5.0 / 16.0),
+                    (1, 1, 1.0 / 16.0),
+                ] {
+                    let nx = x as i32 + dx;
+                    let ny = y + dy;
+                    if nx < 0
+                        || nx as usize >= width
+                        || offset + nx as u32 >= image.width()
+                        || ny >= image.height()
+                    {
+                        continue;
+                    }
+                    if transparency.mask[(ny * image.width() + offset + nx as u32) as usize] {
+                        continue;
+                    }
+                    let dest = if dy == 0 {
+                        &mut current[nx as usize]
+                    } else {
+                        &mut next[nx as usize]
+                    };
+                    for (target, delta) in dest.iter_mut().zip(error) {
+                        *target += delta * weight;
+                    }
+                }
+            }
+            std::mem::swap(&mut current, &mut next);
+            next.fill([0.0; 3]);
+        }
+    }
     preview
 }
 
@@ -1502,6 +1572,99 @@ mod tests {
         assert!(result
             .expect_err("missing file should fail")
             .contains("Arquivo nao encontrado"));
+    }
+
+    #[test]
+    fn palette_preserves_all_hardware_colors_despite_unequal_frequencies() {
+        let colors = [
+            RgbColor {
+                r: 255,
+                g: 255,
+                b: 255,
+            },
+            RgbColor { r: 0, g: 0, b: 0 },
+            RgbColor { r: 255, g: 0, b: 0 },
+            RgbColor {
+                r: 0,
+                g: 182,
+                b: 219,
+            },
+            RgbColor {
+                r: 219,
+                g: 182,
+                b: 36,
+            },
+            RgbColor {
+                r: 36,
+                g: 73,
+                b: 109,
+            },
+            RgbColor {
+                r: 255,
+                g: 182,
+                b: 109,
+            },
+        ];
+        let mut image = RgbaImage::from_pixel(256, 16, Rgba([255, 255, 255, 255]));
+        for (i, c) in colors.iter().enumerate() {
+            image.put_pixel(i as u32, 0, Rgba([c.r, c.g, c.b, 255]));
+        }
+        let transparency = detect_transparency(&image);
+        // Test opaque-background conversion: the large white field is artwork.
+        let opaque = TransparencyAnalysis {
+            mask: vec![false; 4096],
+            mode: BackgroundMode::None,
+            transparent_pixels: 0,
+        };
+        let palette = build_palette(&image, &opaque);
+        assert_eq!(palette.len(), colors.len());
+        for c in colors {
+            assert!(palette.contains(&c), "lost {c:?}");
+        }
+        assert_eq!(build_palette(&image, &opaque), palette);
+        assert!(transparency.transparent_pixels > 0);
+    }
+
+    #[test]
+    fn palette_uses_unique_hardware_slots_and_retains_dominant_chromatic_colors() {
+        let mut image = RgbaImage::new(128, 64);
+        for (x, y, p) in image.enumerate_pixels_mut() {
+            *p = if y < 32 {
+                Rgba([0, 182, 219, 255])
+            } else if y < 48 {
+                Rgba([219, 0, 36, 255])
+            } else {
+                Rgba([(x * 2) as u8, (y * 3) as u8, ((x + y) % 256) as u8, 255])
+            };
+        }
+        let opaque = TransparencyAnalysis {
+            mask: vec![false; 8192],
+            mode: BackgroundMode::None,
+            transparent_pixels: 0,
+        };
+        let palette = build_palette(&image, &opaque);
+        assert_eq!(palette.len(), 15);
+        assert_eq!(
+            palette
+                .iter()
+                .copied()
+                .collect::<std::collections::HashSet<_>>()
+                .len(),
+            15
+        );
+        assert!(palette.iter().all(|c| MD_LEVELS.contains(&c.r)
+            && MD_LEVELS.contains(&c.g)
+            && MD_LEVELS.contains(&c.b)));
+        assert!(palette.iter().any(|c| c.distance_sq(&RgbColor {
+            r: 0,
+            g: 182,
+            b: 219
+        }) <= 36 * 36));
+        assert!(palette.iter().any(|c| c.distance_sq(&RgbColor {
+            r: 219,
+            g: 0,
+            b: 36
+        }) <= 36 * 36));
     }
 
     #[test]

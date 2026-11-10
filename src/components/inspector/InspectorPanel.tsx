@@ -1,5 +1,17 @@
+import { pathBlockedReason } from "../../core/objectPath";
+import { describeEntityEditLock, entityEditLock, entityLockScopeKey, resolvedTilemapPlanes } from "../../core/sceneComposition";
+import { SpritePriorityControls } from "./SpritePriorityControls";
+import { ObjectPathSection } from "./ObjectPathSection";
+import { TilemapPlaneControls } from "./TilemapPlaneControls";
 import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import AssetPreview from "../common/AssetPreview";
+import EditScopeBadge from "./EditScopeBadge";
+import { EntityPaletteSection, PaletteSummary } from "./PalettePanel";
+import { EntitySpriteCodeLink } from "./SpriteCodeLink";
+import HudTextInspector from "./HudTextInspector";
+import CameraConfigurator from "./CameraConfigurator";
+import MovementTuningPanel from "./MovementTuningPanel";
+import AssetRenameControl from "./AssetRenameControl";
 import {
   DEFAULT_TILEMAP_LEGACY_FALLBACK_DETAIL,
   hasCanonicalTilemapCells,
@@ -12,6 +24,21 @@ import HardwareLimitsPanel from "./HardwareLimitsPanel";
 import RuntimeContractsPanel from "./RuntimeContractsPanel";
 import { useEditorStore } from "../../core/store/editorStore";
 import type { BackgroundLayer, Entity } from "../../core/ipc/sceneService";
+import {
+  describeTicks,
+  durationConflicts,
+  effectiveDurations,
+  isMugenAnimation,
+  parseTicks,
+  withFrameDuration,
+} from "../../core/mugenAnimationTiming";
+import {
+  parseVelocity,
+  readMugenHitTarget,
+  readMugenVelocities,
+  withMugenHitTarget,
+  withMugenVelocity,
+} from "../../core/mugenVelocity";
 import { persistActiveScene } from "../../core/scenePersistence";
 import {
   constrainSpriteFrameSize,
@@ -30,6 +57,9 @@ import {
   type BuildSourceMap,
 } from "../../core/nodegraph/buildProvenance";
 import knowledgeBase from "./knowledgeBase.json";
+import EntityAttentionSection from "./EntityAttentionSection";
+import { duplicateBehaviorLogic } from "../../core/nodegraph/behaviorLibrary";
+import type { NodeGraph } from "../../core/nodegraph/nodeTypes";
 
 type KnowledgeSectionId =
   | "transform"
@@ -65,6 +95,7 @@ interface PropRowProps {
 function PropRow({ label, value, type, sourceState = null, onChange }: PropRowProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value));
+  const cancelled = useRef(false);
   const testIdBase = `inspector-prop-${label
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -139,19 +170,31 @@ function PropRow({ label, value, type, sourceState = null, onChange }: PropRowPr
               data-testid={`${testIdBase}-input`}
               className="w-full rounded border border-[#cba6f7] bg-[#1e1e2e] px-1 py-0.5 font-mono text-xs text-[#cdd6f4] focus:outline-none"
               onChange={(event) => setDraft(event.target.value)}
-              onBlur={commit}
-              onKeyDown={(event) => event.key === "Enter" && commit()}
+              onBlur={() => (cancelled.current ? (cancelled.current = false) : commit())}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") commit();
+                if (event.key === "Escape") {
+                  cancelled.current = true;
+                  setDraft(String(value));
+                  setEditing(false);
+                }
+              }}
             />
           )
         ) : (
-          <span
+          // Botao com area minima: um valor vazio (p.ex. Prefab) continua clicavel e alcancavel
+          // pelo teclado (JV06).
+          <button
+            type="button"
             data-testid={`${testIdBase}-value`}
-            className="cursor-pointer font-mono text-[#cdd6f4] transition-colors hover:text-[#cba6f7]"
+            data-empty={String(value) === "" ? "true" : "false"}
+            className="block min-h-[18px] w-full min-w-[4rem] cursor-pointer rounded px-0.5 text-left font-mono text-[#cdd6f4] transition-colors hover:text-[#cba6f7] focus:outline-none focus:ring-1 focus:ring-[#cba6f7]"
             onClick={() => setEditing(true)}
-            title={`Clique para editar: ${String(value)}`}
+            aria-label={`Editar ${label}${String(value) === "" ? " (vazio)" : `: ${String(value)}`}`}
+            title={`Clique para editar: ${String(value) === "" ? "(vazio)" : String(value)}`}
           >
-            {String(value)}
-          </span>
+            {String(value) === "" ? <span className="italic text-[#6c7086]">(vazio)</span> : String(value)}
+          </button>
         )}
       </td>
     </tr>
@@ -392,7 +435,6 @@ function entityPropSections(entity: Entity): PropSection[] {
         { key: "Frame W", path: ["components", "sprite", "frame_width"], type: "int" },
         { key: "Frame H", path: ["components", "sprite", "frame_height"], type: "int" },
         { key: "Palette Slot", path: ["components", "sprite", "palette_slot"], type: "int" },
-        { key: "Priority", path: ["components", "sprite", "priority"], type: "string" },
       ],
     });
   }
@@ -413,7 +455,7 @@ function entityPropSections(entity: Entity): PropSection[] {
   if (entity.components?.physics) {
     sections.push({
       id: "physics",
-      title: "Physics",
+      title: "Física",
       defs: [
         { key: "Gravity", path: ["components", "physics", "gravity"], type: "bool" },
         {
@@ -445,7 +487,7 @@ function entityPropSections(entity: Entity): PropSection[] {
     });
   }
 
-  if (entity.components?.camera) {
+  if (entity.components?.camera && !entity.components.camera.visual) {
     sections.push({
       id: "camera",
       title: "Camera",
@@ -549,6 +591,10 @@ function buildNestedRecordPatch(
     ...(current ?? {}),
     [head]: buildNestedRecordPatch(isRecord(child) ? child : undefined, tail, value),
   };
+}
+
+function omitKey(record: Record<string, string>, key: string): Record<string, string> {
+  return Object.fromEntries(Object.entries(record).filter(([name]) => name !== key));
 }
 
 function buildEntityPatch(entity: Entity, path: string[], value: unknown): Partial<Entity> {
@@ -747,6 +793,7 @@ export default function InspectorPanel() {
     setSelectedEntityId,
     updateBackgroundLayer,
     updateEntity,
+    addEntity,
     clearTilemapCells,
     activeBrush,
     setActiveWorkspace,
@@ -755,6 +802,7 @@ export default function InspectorPanel() {
     setEditorMode,
     setActiveBrush,
     lastBuildSourceMap,
+    openStudioEditor,
   } = useEditorStore();
 
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "error">("idle");
@@ -846,9 +894,7 @@ export default function InspectorPanel() {
     if (!entity) {
       return;
     }
-    setActiveWorkspace("logic");
-    setActiveViewportTab("logic");
-    setSelectedEntityId(entity.entity_id);
+    openStudioEditor({ focus: { task: "actions", entityId: entity.entity_id } });
     logMessage("info", `[Inspector] Navegando para Logic Workspace: ${getEntityDisplayName(entity)}.`);
   }
 
@@ -857,9 +903,7 @@ export default function InspectorPanel() {
       logMessage("warn", "[Inspector] A entidade selecionada nao possui sprite para abrir no Art Workspace.");
       return;
     }
-    setActiveWorkspace("artstudio");
-    setActiveViewportTab("artstudio");
-    setSelectedEntityId(entity.entity_id);
+    openStudioEditor({ focus: { task: "character", entityId: entity.entity_id } });
     logMessage("info", `[Inspector] Navegando para Art Workspace: ${getEntityDisplayName(entity)}.`);
   }
 
@@ -897,6 +941,201 @@ export default function InspectorPanel() {
         setSaveStatus("idle");
       }
     }
+  }
+
+  function handleTransformChange(axis: "x" | "y", raw: string) {
+    if (!entity || !selectedEntityId) return;
+    const value = Number.parseInt(raw, 10);
+    if (!Number.isFinite(value)) return;
+    updateEntity(selectedEntityId, { transform: { ...entity.transform, [axis]: value } });
+    scheduleAutoSave();
+  }
+
+  function handleAnimationFpsChange(animationName: string, raw: string) {
+    if (!entity || !selectedEntityId || !entity.components.sprite) return;
+    const fps = Number.parseInt(raw, 10);
+    if (!Number.isInteger(fps) || fps < 1 || fps > 60) return;
+    updateEntity(
+      selectedEntityId,
+      buildEntityPatch(entity, ["components", "sprite", "animations", animationName, "fps"], fps)
+    );
+    scheduleAutoSave();
+  }
+
+  function handleMugenFrameTicksChange(animationName: string, index: number, raw: string) {
+    const key = `${animationName}:${index}`;
+    setMugenTickDrafts((current) => ({ ...current, [key]: raw }));
+    const parsed = parseTicks(raw);
+    if (!parsed.ok) {
+      setMugenTickErrors((current) => ({ ...current, [key]: parsed.message }));
+      return;
+    }
+    setMugenTickErrors((current) => omitKey(current, key));
+    const def = entity?.components.sprite?.animations?.[animationName];
+    if (!entity || !selectedEntityId || !def) return;
+    updateEntity(
+      selectedEntityId,
+      buildEntityPatch(
+        entity,
+        ["components", "sprite", "animations", animationName],
+        withFrameDuration(def, index, parsed.value)
+      )
+    );
+    scheduleAutoSave();
+  }
+
+  function handleMugenFrameTicksBlur(animationName: string, index: number) {
+    const key = `${animationName}:${index}`;
+    setMugenTickDrafts((current) => omitKey(current, key));
+    setMugenTickErrors((current) => omitKey(current, key));
+  }
+
+  function handleMugenVelocityChange(stateNo: number, raw: string) {
+    const key = String(stateNo);
+    setMugenVelocityDrafts((current) => ({ ...current, [key]: raw }));
+    const parsed = parseVelocity(raw);
+    if (!parsed.ok) {
+      setMugenVelocityErrors((current) => ({ ...current, [key]: parsed.message }));
+      return;
+    }
+    setMugenVelocityErrors((current) => omitKey(current, key));
+    if (!entity || !selectedEntityId || !entity.components.logic) return;
+    // O que se grava e o literal digitado; o aviso de arredondamento e mostrado abaixo do campo.
+    const graph = withMugenVelocity(entity, stateNo, raw.trim());
+    if (graph === null) return;
+    updateEntity(
+      selectedEntityId,
+      buildEntityPatch(entity, ["components", "logic"], {
+        ...entity.components.logic,
+        graph,
+        graph_origin: "user_edited_ref",
+      })
+    );
+    scheduleAutoSave();
+  }
+
+  function handleMugenHitTarget(target: string) {
+    if (!entity || !selectedEntityId || !entity.components.logic) return;
+    const graph = withMugenHitTarget(entity, target);
+    if (graph === null) return;
+    updateEntity(
+      selectedEntityId,
+      buildEntityPatch(entity, ["components", "logic"], {
+        ...entity.components.logic,
+        graph,
+        graph_origin: "user_edited_ref",
+      })
+    );
+    scheduleAutoSave();
+  }
+
+  function handleMugenVelocityBlur(stateNo: number) {
+    const key = String(stateNo);
+    setMugenVelocityDrafts((current) => omitKey(current, key));
+    setMugenVelocityErrors((current) => omitKey(current, key));
+  }
+
+  /**
+   * Duplicates the selected entity under a fresh id, offset to the right. The resolved
+   * copy (with inherited prefab components) goes to the active scene so it renders and
+   * compiles like the original; the source copy keeps only the prefab reference and
+   * local overrides, so inheritance is not flattened into local data.
+   */
+  /** Logica manual (fora de comportamentos) que a duplicata NAO herda. */
+  const [pendingDuplicate, setPendingDuplicate] = useState<{ manualNodes: number | null } | null>(null);
+  const [mugenTickDrafts, setMugenTickDrafts] = useState<Record<string, string>>({});
+  const [mugenTickErrors, setMugenTickErrors] = useState<Record<string, string>>({});
+  const [mugenVelocityDrafts, setMugenVelocityDrafts] = useState<Record<string, string>>({});
+  const [mugenVelocityErrors, setMugenVelocityErrors] = useState<Record<string, string>>({});
+  function manualLogicOf(candidate: Entity | null | undefined): { manualNodes: number | null; graph: NodeGraph } {
+    const logic = candidate?.components.logic;
+    const graph = deserializeNodeGraph(logic?.graph);
+    if (!logic) return { manualNodes: 0, graph };
+    if (!graph.nodes.length && logic.graph_ref) return { manualNodes: null, graph }; // grafo so no arquivo: ha logica manual
+    const owned = new Set((graph.behaviors ?? []).flatMap((instance) => instance.nodeIds));
+    return { manualNodes: graph.nodes.filter((node) => !owned.has(node.id)).length, graph };
+  }
+
+  /** A logica efetiva vem da entidade resolvida (prefab incluso), nao so da cena de origem. */
+  function effectiveLogic() {
+    const resolved = manualLogicOf(entity);
+    const source = manualLogicOf(sourceEntity);
+    const hasLogic = Boolean(entity?.components.logic || sourceEntity?.components.logic);
+    const manualNodes = resolved.manualNodes === null || source.manualNodes === null ? null : Math.max(resolved.manualNodes, source.manualNodes);
+    return { hasLogic, manualNodes, graph: resolved.graph.nodes.length ? resolved.graph : source.graph };
+  }
+
+  function requestDuplicateEntity() {
+    if(entity?.components.camera?.visual && (activeScene?.entities.filter(e=>e.components.camera?.visual).length??0)>=8){
+      logMessage("warn","A cena já tem oito câmeras visuais. Reutilize uma configuração existente.");return;
+    }
+    const { manualNodes } = effectiveLogic();
+    if (manualNodes === 0) {
+      handleDuplicateEntity();
+      return;
+    }
+    setPendingDuplicate({ manualNodes });
+  }
+
+  function handleDuplicateEntity() {
+    setPendingDuplicate(null);
+    const state = useEditorStore.getState();
+    const scene = state.activeScene;
+    const resolvedOriginal = entity;
+    if (!resolvedOriginal || !scene) return;
+    const sourceOriginal = sourceEntity ?? resolvedOriginal;
+    const existing = new Set(scene.entities.map((candidate) => candidate.entity_id));
+    let suffix = 2;
+    while (existing.has(`${resolvedOriginal.entity_id}_${suffix}`)) suffix += 1;
+    const entityId = `${resolvedOriginal.entity_id}_${suffix}`;
+    const displayName = `${resolvedOriginal.display_name ?? resolvedOriginal.entity_id} ${suffix}`;
+    const transform = { ...resolvedOriginal.transform, x: resolvedOriginal.transform.x + 24 };
+    // Logica: so comportamentos, com ids/alvos/estado remapeados; nunca o mesmo graph_ref
+    // (o salvamento escreveria as duas entidades no mesmo arquivo).
+    const sceneInstanceIds = scene.entities.flatMap(
+      (candidate) => deserializeNodeGraph(candidate.components.logic?.graph).behaviors?.map((instance) => instance.id) ?? []
+    );
+    const logic = effectiveLogic();
+    const copy = duplicateBehaviorLogic(logic.graph, resolvedOriginal.entity_id, entityId, sceneInstanceIds);
+    const withLogic = (candidate: Entity): Entity => {
+      const components = { ...structuredClone(candidate.components) };
+      // O merge de prefab e profundo e ignora null: a copia sobrescreve explicitamente a
+      // logica herdada (grafo inline so com comportamentos, graph_ref vazio = sem arquivo).
+      if (logic.hasLogic) components.logic = { graph: serializeNodeGraph(copy.graph), graph_ref: "" };
+      else delete components.logic;
+      if(resolvedOriginal.components.camera?.visual){
+        const camera=structuredClone(resolvedOriginal.components.camera);
+        components.camera={...camera,visual:{...camera.visual!,active:false}};
+      }
+      return { ...candidate, components, entity_id: entityId, display_name: displayName, transform };
+    };
+    const resolvedDuplicate: Entity = withLogic(resolvedOriginal);
+    const sourceDuplicate: Entity = withLogic(sourceOriginal);
+    addEntity(resolvedDuplicate);
+    useEditorStore.setState((current) =>
+      current.activeSceneSource
+        ? {
+            activeSceneSource: {
+              ...current.activeSceneSource,
+              entities: current.activeSceneSource.entities.map((candidate) =>
+                candidate.entity_id === entityId ? sourceDuplicate : candidate
+              ),
+            },
+          }
+        : {}
+    );
+    setSelectedEntityId(entityId);
+    logMessage("info", `[Inspector] Entidade '${resolvedOriginal.entity_id}' duplicada como '${entityId}'.`);
+    if (copy.remappedInstances.length || copy.droppedManualNodes) {
+      logMessage(
+        "info",
+        `[Inspector] Logica da copia: ${copy.remappedInstances.length} comportamento(s) com ids e alvo remapeados para '${entityId}'` +
+          (copy.preservedExternal.length ? `; referencias externas mantidas: ${copy.preservedExternal.join(", ")}` : "") +
+          (copy.droppedManualNodes ? `; ${copy.droppedManualNodes} no(s) de logica manual nao copiados` : "") +
+          "."
+      );
+    }
+    scheduleAutoSave();
   }
 
   function scheduleAutoSave() {
@@ -1055,11 +1294,13 @@ export default function InspectorPanel() {
   }
 
   return (
-    <Panel title="Inspector" className="flex h-full flex-col">
+    <Panel title="Propriedades" className="flex h-full flex-col">
       <div className="flex-1 overflow-x-hidden overflow-y-auto">
+        {/* PLAT10: the edited object comes first; the global palette plan follows it. */}
+        {!selectedEntityId ? <PaletteSummary /> : null}
         {!selectedEntityId ? (
           <div className="px-3 py-4 text-xs text-[#45475a]">
-            <p className="italic">Selecione uma entidade na Hierarchy.</p>
+            <p className="italic">Selecione um objeto na lista da cena.</p>
             {activeScene?.collision_map ? (
               <div className="mt-3 rounded border border-[#313244] bg-[#11111b]/40 p-2 text-[#cdd6f4]">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-[#89b4fa]">
@@ -1083,7 +1324,7 @@ export default function InspectorPanel() {
         ) : entity ? (
           <>
             {/* Entity header badge */}
-            <div className="flex items-center gap-2 border-b border-[#313244] bg-[#181825] px-3 py-2">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 border-b border-[#313244] bg-[#181825] px-3 py-2">
               <span
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-[#cba6f7]/40 bg-[#cba6f7]/10 text-[9px] font-bold text-[#cba6f7]"
                 aria-hidden
@@ -1096,7 +1337,7 @@ export default function InspectorPanel() {
                       ? "SP"
                       : "OBJ"}
               </span>
-              <div className="min-w-0 flex-1">
+              <div className="col-span-2 row-start-2 min-w-0">
                 <p className="truncate font-mono text-[11px] font-semibold text-[#cdd6f4]" title={getEntityDisplayName(entity)}>
                   {getEntityDisplayName(entity)}
                 </p>
@@ -1108,6 +1349,33 @@ export default function InspectorPanel() {
                     prefab: {entity.prefab.replace(/\.json$/i, "")}
                   </p>
                 )}
+                <EditScopeBadge entityId={entity.entity_id} />
+                {entity.components.sprite ? (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    <button
+                      type="button"
+                      data-testid="inspector-open-character"
+                      onClick={() => openStudioEditor({ focus: { task: "character", entityId: entity.entity_id } })}
+                      className="rounded border border-[#89b4fa]/50 px-2 py-0.5 text-[9px] text-[#89b4fa] hover:bg-[#89b4fa]/10"
+                      title="Editar o sprite e as animações deste objeto na Arte"
+                    >
+                      Abrir na Arte
+                    </button>
+                    <AssetRenameControl asset={entity.components.sprite.asset} />
+                    <button
+                      type="button"
+                      data-testid="inspector-open-actions"
+                      onClick={() => openStudioEditor({ focus: { task: "actions", entityId: entity.entity_id } })}
+                      className="rounded border border-[#a6e3a1]/50 px-2 py-0.5 text-[9px] text-[#a6e3a1] hover:bg-[#a6e3a1]/10"
+                      title="Editar o comportamento deste objeto em nodes"
+                    >
+                      Editar lógica (nodes)
+                    </button>
+                  </div>
+                ) : null}
+                {entity.components.sprite ? (
+                  <EntitySpriteCodeLink entityId={entity.entity_id} asset={entity.components.sprite.asset} />
+                ) : null}
                 <div
                   data-testid="inspector-entity-context"
                   className="mt-1 flex flex-wrap gap-1 text-[9px] text-[#7f849c]"
@@ -1158,11 +1426,261 @@ export default function InspectorPanel() {
                   ) : null}
                 </div>
               </div>
-              <div className="flex shrink-0 flex-col items-end gap-0.5 text-[8px] text-[#45475a]">
+              <div className="col-start-2 row-start-1 flex flex-wrap justify-end gap-2 text-[8px] text-[#7f849c]">
                 <span>{Object.values(entity.components).filter(Boolean).length} comp.</span>
                 <span>({entity.transform.x}, {entity.transform.y})</span>
               </div>
             </div>
+            <EntityAttentionSection entityId={entity.entity_id} />
+            <div className="flex flex-wrap items-center gap-2 border-b border-[#313244] px-3 py-1.5 text-[10px] text-[#a6adc8]">
+              <label className="flex items-center gap-1">
+                X
+                <input
+                  data-testid="inspector-transform-x"
+                  type="number"
+                  value={entity.transform.x}
+                  onChange={(event) => handleTransformChange("x", event.target.value)}
+                  className="w-14 rounded border border-[#45475a] bg-[#11111b] px-1 py-0.5 font-mono text-[#cdd6f4]"
+                />
+              </label>
+              <label className="flex items-center gap-1">
+                Y
+                <input
+                  data-testid="inspector-transform-y"
+                  type="number"
+                  value={entity.transform.y}
+                  onChange={(event) => handleTransformChange("y", event.target.value)}
+                  className="w-14 rounded border border-[#45475a] bg-[#11111b] px-1 py-0.5 font-mono text-[#cdd6f4]"
+                />
+              </label>
+              <button
+                type="button"
+                data-testid="inspector-duplicate-entity"
+                onClick={requestDuplicateEntity}
+                disabled={Boolean(entity.components.camera?.visual&&(activeScene?.entities.filter(e=>e.components.camera?.visual).length??0)>=8)}
+                title={entity.components.camera?.visual?"Duplicar configuração de câmera (a cópia começa inativa; até oito por cena)":undefined}
+                className="ml-auto rounded border border-[#45475a] px-2 py-0.5 hover:bg-[#313244]"
+              >
+                Duplicar
+              </button>
+            </div>
+            <EntityPaletteSection entityId={entity.entity_id} />
+            {entity.components.sprite ? (
+              <ObjectPathSection
+                contextKey={JSON.stringify([activeProjectDir, activeScenePath, entity.entity_id])}
+                path={entity.components.path}
+                fps={60}
+                blockedReason={(() => {
+                  const lock = entityEditLock(entity.entity_id, activeScene?.layers, useEditorStore.getState().lockedEntityIdsByScene[entityLockScopeKey(activeProjectDir, activeScenePath)] ?? []);
+                  return lock.locked ? describeEntityEditLock(lock) : pathBlockedReason(activeTarget, entity);
+                })()}
+                onChange={(next) => {
+                  const state = useEditorStore.getState();
+                  if (entityEditLock(entity.entity_id, state.activeScene?.layers, state.lockedEntityIdsByScene[entityLockScopeKey(state.activeProjectDir, state.activeScenePath)] ?? []).locked) return;
+                  updateEntity(entity.entity_id, buildEntityPatch(entity, ["components", "path"], next));
+                  scheduleAutoSave();
+                }}
+              />
+            ) : null}
+            {pendingDuplicate ? (
+              <div data-testid="inspector-duplicate-warning" className="border-b border-[#313244] bg-[#fab387]/10 px-3 py-1.5 text-[10px] text-[#fab387]">
+                <p>
+                  A copia recebe os comportamentos desta entidade (remapeados para a copia), mas nao a logica manual
+                  {pendingDuplicate.manualNodes ? ` (${pendingDuplicate.manualNodes} no(s))` : " (grafo do projeto)"}: ela continuaria controlando a entidade original.
+                </p>
+                <div className="mt-1 flex gap-1">
+                  <button type="button" data-testid="inspector-duplicate-confirm" onClick={handleDuplicateEntity} className="rounded border border-[#fab387]/60 px-2 py-0.5 font-semibold">Duplicar assim</button>
+                  <button type="button" data-testid="inspector-duplicate-cancel" onClick={() => setPendingDuplicate(null)} className="rounded px-2 py-0.5 text-[#a6adc8]">Cancelar</button>
+                </div>
+              </div>
+            ) : null}
+            {(() => {
+              const hit = readMugenHitTarget(entity);
+              if (!hit) return null;
+              const candidates = (activeScene?.entities ?? []).filter(
+                (other) => other.entity_id !== entity.entity_id && other.components.sprite
+              );
+              const missing = hit.target !== "" && !candidates.some((c) => c.entity_id === hit.target);
+              return (
+                <div data-testid="inspector-mugen-hitdef" data-target={hit.target} className="space-y-1.5 border-b border-[#313244] px-3 py-1.5 text-[10px] text-[#a6adc8]">
+                  <span className="text-[9px] uppercase tracking-[0.14em]">Golpe do CNS original · HitDef (MUGEN v2, Experimental)</span>
+                  {hit.hitdefs.map((h) => (
+                    <p key={h.controller} data-testid={`inspector-mugen-hitdef-${h.controller}`} className="leading-relaxed">
+                      Estado {h.state}: dano <b className="text-[#cdd6f4]">{h.damage}</b> quando {h.triggers.filter(Boolean).join(" e ") || "o gatilho vale"}; congela o atacante {h.pause[0]} ticks no acerto.
+                      Origem <span className="font-mono">{h.source}</span>.
+                      {h.hitsStanding ? "" : ` hitflag ${h.hitflag} nao alcanca um alvo em pe: o golpe ativa e nao acerta.`}
+                    </p>
+                  ))}
+                  <label className="flex flex-wrap items-center gap-2">
+                    <span>Alvo de treino</span>
+                    <select
+                      data-testid="inspector-mugen-hit-target"
+                      value={missing ? "" : hit.target}
+                      onChange={(event) => handleMugenHitTarget(event.target.value)}
+                      className="rounded border border-[#45475a] bg-[#11111b] px-1 py-0.5 text-[#cdd6f4]"
+                    >
+                      <option value="">(sem alvo: o golpe ativa e nao acerta)</option>
+                      {candidates.map((c) => (
+                        <option key={c.entity_id} value={c.entity_id}>{c.display_name || c.entity_id}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {missing ? <p role="alert" className="text-[#f38ba8]">O alvo &quot;{hit.target}&quot; nao existe mais na cena; escolha outro ou deixe sem alvo.</p> : null}
+                  {candidates.length === 0 ? <p className="text-[#f9e2af]">Use Duplicar para criar uma copia parada do personagem e escolha-a aqui.</p> : null}
+                  <p className="text-[#7f849c]">
+                    O alvo fica parado, em pe, sem defesa e com vida {hit.life ?? "?"} ({hit.lifeOrigin === "source" ? "[Data] life do CNS" : "padrao MUGEN"}).
+                    O acerto usa as caixas Clsn1/Clsn2 do quadro exibido; um acerto por ativacao. Nao e combate MUGEN completo.
+                  </p>
+                </div>
+              );
+            })()}
+            {readMugenVelocities(entity).length > 0 ? (
+              <div
+                data-testid="inspector-mugen-velocity"
+                className="space-y-2 border-b border-[#313244] px-3 py-1.5 text-[10px] text-[#a6adc8]"
+              >
+                <span className="text-[9px] uppercase tracking-[0.14em]">Velocidade dos estados (MUGEN, Experimental)</span>
+                <p data-testid="inspector-mugen-velocity-help" className="leading-relaxed text-[#7f849c]">
+                  Quantos pixels o personagem anda a cada tick (1 tick = 1/60 s) enquanto esta naquele estado.
+                  Positivo = direita, negativo = esquerda, 0 = parado; o personagem sempre olha para a direita.
+                  Vai de -127,99 a 127,99 em passos de 1/256 px. So muda a horizontal e nao cria colisao nem limite de tela.
+                </p>
+                <div className="flex flex-wrap items-start gap-2">
+                  {readMugenVelocities(entity).map((state) => {
+                    const key = String(state.stateNo);
+                    const shown = mugenVelocityDrafts[key] ?? state.vx;
+                    const parsed = parseVelocity(shown);
+                    const error = mugenVelocityErrors[key];
+                    return (
+                      <label key={key} className="flex flex-col gap-0.5">
+                        <span>Estado {state.stateNo} (px/tick)</span>
+                        <input
+                          data-testid={`inspector-mugen-velocity-state-${state.stateNo}`}
+                          type="text"
+                          inputMode="decimal"
+                          aria-invalid={error ? true : undefined}
+                          value={shown}
+                          onChange={(event) => handleMugenVelocityChange(state.stateNo, event.target.value)}
+                          onBlur={() => handleMugenVelocityBlur(state.stateNo)}
+                          className={`w-20 rounded border bg-[#11111b] px-1 py-0.5 font-mono text-[#cdd6f4] ${
+                            error ? "border-[#f38ba8]" : "border-[#45475a]"
+                          }`}
+                        />
+                        {parsed.ok ? (
+                          <span
+                            data-testid={`inspector-mugen-velocity-state-${state.stateNo}-note`}
+                            className="max-w-40 text-[9px] text-[#7f849c]"
+                          >
+                            {parsed.exact
+                              ? `${parsed.q8}/256 px/tick`
+                              : `Arredondado para ${parsed.effective} (${parsed.q8}/256).`}
+                          </span>
+                        ) : null}
+                        {error ? (
+                          <span
+                            data-testid={`inspector-mugen-velocity-state-${state.stateNo}-error`}
+                            className="max-w-40 text-[9px] text-[#f38ba8]"
+                          >
+                            {error} Mantido: {state.vx}.
+                          </span>
+                        ) : null}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+            {entity.components.hud ? <HudTextInspector entity={entity} /> : null}
+            {entity.components.camera ? <div className="p-3"><CameraConfigurator entityId={entity.entity_id} /></div> : null}
+            {entity.components.sprite &&
+            Object.values(entity.components.sprite.animations ?? {}).some((def) => isMugenAnimation(def)) ? (
+              <div
+                data-testid="inspector-mugen-animations"
+                className="space-y-2 border-b border-[#313244] px-3 py-1.5 text-[10px] text-[#a6adc8]"
+              >
+                <span className="text-[9px] uppercase tracking-[0.14em]">Tempo dos quadros (MUGEN, Experimental)</span>
+                <p data-testid="inspector-mugen-timing-help" className="leading-relaxed text-[#7f849c]">
+                  Cada numero e quanto tempo aquele quadro fica na tela, em ticks (1 tick = 1/60 s; 60 ticks = 1 s).
+                  Cada quadro tem o seu proprio tempo e so o quadro editado muda. Use -1 para o quadro ficar parado.
+                  Valores validos: 1 a 255 ou -1.
+                </p>
+                {Object.entries(entity.components.sprite.animations ?? {})
+                  .filter(([, def]) => isMugenAnimation(def))
+                  .sort(([left], [right]) => left.localeCompare(right))
+                  .map(([name, def]) => (
+                    <div key={name} data-testid={`inspector-mugen-anim-${name}`}>
+                      <div className="mb-1 font-mono text-[#89b4fa]">{name}</div>
+                      {durationConflicts(def).length > 0 ? (
+                        <div
+                          data-testid={`inspector-mugen-anim-${name}-conflict`}
+                          className="rounded border border-[#f38ba8]/60 bg-[#f38ba8]/10 p-1.5 text-[#f38ba8]"
+                        >
+                          Tempos inconsistentes no projeto; o build sera bloqueado ate corrigir. Nenhum valor foi
+                          escolhido nem alterado: {durationConflicts(def).join("; ")}.
+                        </div>
+                      ) : null}
+                      <div className="flex flex-wrap items-start gap-2">
+                        {(durationConflicts(def).length > 0 ? [] : effectiveDurations(def)).map((ticks, index) => {
+                          const key = `${name}:${index}`;
+                          const error = mugenTickErrors[key];
+                          return (
+                            <label key={key} className="flex flex-col gap-0.5" title={describeTicks(ticks)}>
+                              <span>Quadro {index + 1} (ticks)</span>
+                              <input
+                                data-testid={`inspector-mugen-anim-${name}-frame-${index}`}
+                                type="text"
+                                inputMode="numeric"
+                                aria-invalid={error ? true : undefined}
+                                value={mugenTickDrafts[key] ?? String(ticks)}
+                                onChange={(event) => handleMugenFrameTicksChange(name, index, event.target.value)}
+                                onBlur={() => handleMugenFrameTicksBlur(name, index)}
+                                className={`w-16 rounded border bg-[#11111b] px-1 py-0.5 font-mono text-[#cdd6f4] ${
+                                  error ? "border-[#f38ba8]" : "border-[#45475a]"
+                                }`}
+                              />
+                              <span className="text-[9px] text-[#7f849c]">{describeTicks(ticks)}</span>
+                              {error ? (
+                                <span
+                                  data-testid={`inspector-mugen-anim-${name}-frame-${index}-error`}
+                                  className="max-w-40 text-[9px] text-[#f38ba8]"
+                                >
+                                  {error} Mantido: {ticks}.
+                                </span>
+                              ) : null}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            ) : null}
+            {entity.components.sprite &&
+            Object.values(entity.components.sprite.animations ?? {}).some((def) => !isMugenAnimation(def)) ? (
+              <div
+                data-testid="inspector-animations"
+                className="flex flex-wrap items-center gap-2 border-b border-[#313244] px-3 py-1.5 text-[10px] text-[#a6adc8]"
+              >
+                <span className="text-[9px] uppercase tracking-[0.14em]">Animacoes (FPS)</span>
+                {Object.entries(entity.components.sprite.animations ?? {})
+                  .filter(([, animation]) => !isMugenAnimation(animation))
+                  .sort(([left], [right]) => left.localeCompare(right))
+                  .map(([name, animation]) => (
+                    <label key={name} className="flex items-center gap-1" title={`frames ${animation.frames.join(",")}`}>
+                      {name}
+                      <input
+                        data-testid={`inspector-anim-${name}-fps`}
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={animation.fps}
+                        onChange={(event) => handleAnimationFpsChange(name, event.target.value)}
+                        className="w-12 rounded border border-[#45475a] bg-[#11111b] px-1 py-0.5 font-mono text-[#cdd6f4]"
+                      />
+                    </label>
+                  ))}
+              </div>
+            ) : null}
             <div className="border-b border-[#313244] bg-[#11111b]/40 px-3 py-2">
               <RuntimeContractsPanel compact />
             </div>
@@ -1377,6 +1895,13 @@ export default function InspectorPanel() {
                     ))}
                   </tbody>
                 </table>
+                {section.id === "sprite" && entity.components.sprite ? <SpritePriorityControls
+                  value={entity.components.sprite.priority ?? "foreground"} target={activeTarget}
+                  onChange={(priority) => {
+                    updateEntity(entity.entity_id, buildEntityPatch(entity, ["components", "sprite", "priority"], priority));
+                    scheduleAutoSave();
+                  }} /> : null}
+                {section.id === "physics" ? <MovementTuningPanel entity={entity} /> : null}
                 {section.id === "audio" && entity.components.audio ? (
                   <RecordListEditor
                     label="Audio SFX"
@@ -1413,7 +1938,10 @@ export default function InspectorPanel() {
                           <span className="text-[#89b4fa]">{name}</span>
                           <span className="text-[#45475a]"> — </span>
                           <span>
-                            {def.frames?.length ?? 0} quadros @ {def.fps ?? "?"} fps
+                            {def.frames?.length ?? 0} quadros{" "}
+                            {isMugenAnimation(def)
+                              ? `(${(def.frame_durations ?? []).join(", ")} ticks de 1/60 s)`
+                              : `@ ${def.fps ?? "?"} fps`}
                             {def.loop ? " (loop)" : ""}
                           </span>
                         </li>
@@ -1452,6 +1980,7 @@ export default function InspectorPanel() {
                     0
                   );
                   const percent = total > 0 ? Math.round((filled / total) * 100) : 0;
+                  const canRestoreOriginal = cells.some(value => value !== 0);
                   const hasCanonicalPaintedCells = hasCanonicalTilemapCells(tm);
                   const tilemapVisualState =
                     assetPreviewStates[tm.tileset]
@@ -1464,6 +1993,16 @@ export default function InspectorPanel() {
                     activeBrush?.kind === "tile" ? activeBrush.tileIndex ?? 0 : null;
                   return (
                     <div className="mt-3 border-t border-[#313244] pt-3">
+                      <TilemapPlaneControls
+                        key={JSON.stringify([activeProjectDir, activeScenePath, entity.entity_id])}
+                        tilemap={tm} entities={activeScene?.entities ?? []} entityId={entity.entity_id}
+                        blockedReason={activeTarget !== "megadrive" ? "Planos/prioridade de tilemap disponíveis somente no Mega Drive (Experimental)." : null}
+                        implicitPlane={resolvedTilemapPlanes((activeScene?.entities ?? []).map((item) => item.entity_id === entity.entity_id ? { ...item, components: { ...item.components, tilemap: { ...tm, plane: null } } } : item)).find((item) => item.entityId === entity.entity_id)?.plane ?? "desconhecido"}
+                        onChange={(patch) => {
+                          updateEntity(entity.entity_id, buildEntityPatch(entity, ["components", "tilemap"], { ...tm, ...patch }));
+                          scheduleAutoSave();
+                        }}
+                      />
                       {activeProjectDir && tm.tileset ? (
                         <div className="mb-3 overflow-hidden rounded border border-[#313244] bg-[#11111b] p-2">
                           <AssetPreview
@@ -1527,12 +2066,12 @@ export default function InspectorPanel() {
                         }
                       >
                         {hasCanonicalPaintedCells
-                          ? "Tilemap com cells[] canônico: render célula-a-célula no viewport."
-                          : "Tilemap em fallback explícito: tileset existe, mas cells[] ainda nao foram materializados."}
+                          ? "Montagem editável por peças no viewport."
+                          : "Imagem original em uso, sem alterações por peças."}
                       </p>
                       {!hasCanonicalPaintedCells ? (
                         <p className="mb-2 text-[10px] leading-relaxed text-[#f9e2af]">
-                          Pinte/importe a malha cells[] para sair do fallback legado e ver o tilemap canônico no viewport.
+                          Use Pintar para alterar as peças desta instância. O arquivo de imagem original será preservado.
                         </p>
                       ) : null}
                       <div className="mb-2 flex flex-wrap gap-1.5">
@@ -1547,20 +2086,21 @@ export default function InspectorPanel() {
                       <div className="flex flex-col gap-2">
                         <button
                           type="button"
-                          disabled={filled === 0}
+                          disabled={!canRestoreOriginal}
                           data-testid="inspector-clear-tilemap-cells"
                           onClick={() => {
                             clearTilemapCells(entity.entity_id);
                             logMessage("info", `[Inspector] Limpeza de células aplicada a '${entity.entity_id}'.`);
                           }}
                           className={`rounded border px-2 py-1.5 text-[10px] font-mono transition-colors ${
-                            filled === 0
+                            !canRestoreOriginal
                               ? "cursor-not-allowed border-[#45475a] bg-slate-800/50 text-[#6c7086] opacity-60"
                               : "border-[#f38ba8]/40 bg-[#f38ba8]/10 text-[#f38ba8] hover:border-[#f38ba8] hover:bg-[#f38ba8]/20"
                           }`}
                         >
-                          🧹 Limpar Células Pintadas
+                          Restaurar imagem original
                         </button>
+                        <p className="text-[10px] text-[#7f849c]">Remove a pintura desta instância e volta à imagem do arquivo. Ctrl+Z desfaz; o arquivo original não é alterado.</p>
                       </div>
                       <p className="mt-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#45475a]">
                         Ferramentas Avancadas (Experimental)
@@ -1999,6 +2539,7 @@ export default function InspectorPanel() {
             </div>
           </>
         ) : null}
+        {selectedEntityId ? <PaletteSummary /> : null}
       </div>
 
       <div className="shrink-0 border-t border-[#313244]">

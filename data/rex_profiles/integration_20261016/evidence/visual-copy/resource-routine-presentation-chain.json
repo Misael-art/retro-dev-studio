@@ -1,0 +1,88 @@
+{
+  "schema": "rex-visual-chain/v1",
+  "rom_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+  "resource": {
+    "file_offset": 96648,
+    "length": 64,
+    "sha256": "5b13535d16c6836d6c4541a1ed99a11c5ccc83ec32e1fc9e4aeda8c760ae34e7",
+    "encoding": "uncompressed descriptor byte: bits0..2 tile, bit3 palette"
+  },
+  "scope_cpu24": [
+    16711752,
+    16712236
+  ],
+  "scope_layout": {
+    "guard0": [
+      16711752,
+      16711768
+    ],
+    "source": [
+      16711768,
+      16711832
+    ],
+    "guard1": [
+      16711832,
+      16711848
+    ],
+    "destination": [
+      16711848,
+      16711976
+    ],
+    "guard2": [
+      16711976,
+      16711992
+    ],
+    "VDP_words": [
+      16711992,
+      16712216
+    ],
+    "guard3": [
+      16712216,
+      16712232
+    ],
+    "done": [
+      16712232,
+      16712236
+    ]
+  },
+  "routine": {
+    "file_interval": [
+      8708,
+      8738
+    ],
+    "decoded_from": "30 original ROM bytes by existing m68k.copy_grid.v1 in declared region",
+    "operation": "4 rows,8 columns, gap16; only width1->2 edit"
+  },
+  "presentation": {
+    "authored": true,
+    "consumer": "fixed112 descriptor bytes -> 112 big-endian TILE_ATTR_FULL words, index16+(v&7), palette(v>>3); SGDK VDP_setTileMapDataRect BG_A(5,5),16x7",
+    "background": "SGDK BG_B40x28 checkerboard",
+    "tiles_file_interval": [
+      96232,
+      96552
+    ],
+    "palette_file_offsets": [
+      96616,
+      96584,
+      96552
+    ],
+    "roi": [
+      40,
+      40,
+      168,
+      96
+    ],
+    "screen": [
+      320,
+      224
+    ]
+  },
+  "unknown": [
+    "commercial downstream consumer",
+    "live commercial selected index",
+    "exact commercial PC/caller arguments",
+    "human usability",
+    "whole WRAM preservation outside declared Scope",
+    "audio"
+  ]
+}

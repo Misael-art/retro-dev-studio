@@ -26,10 +26,13 @@ Se houver conflito entre documentos, siga esta ordem:
 3. `docs/08_TREE_ARCHITECTURE.md`
 4. `docs/00_AI_DIRECTIVES.md`
 5. `docs/09_AGENT_DEV_MODE.md` quando a tarefa tocar processo, CI, documentacao de estado, multi-agente ou conflito entre documentos
+6. `docs/14_REX_ARQUITETURA_UNIVERSAL.md` quando a tarefa tocar REX, perfis, `tools/reverse/decomp/`, a ponte canvas/ROM ou provas de gameplay
 
 Responda com `[Contexto Carregado]` antes de propor qualquer acao relevante.
 
 ## Regras Criticas
+Em retomada de host vazio, comece por `docs/handoffs/NOVO_HOST_INICIO.md`, use o launcher `scripts/new-host.sh` ou `scripts/new-host.ps1` e siga a missao de coesao `docs/handoffs/PROMPT_RETOMADA_COESAO_PRODUTO_2026-10-24.md`. Nao assumir que `main` contem a ponta recuperada; nao certificar o novo OS com resultados antigos. Um job pesado por vez; corpus e evidencias preservados. O estado real permanece no Memory Bank/roadmap.
+
 - Nao antecipe fases futuras do roadmap.
 - Nao declare feature parcial como pronta.
 - Mantenha superficies parciais claramente marcadas como `Experimental`.

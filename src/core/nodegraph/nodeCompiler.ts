@@ -533,8 +533,19 @@ function emitLinearNodeC(node: GraphNode, graph: NodeGraph, target: "megadrive" 
       }
       return `    VDP_setHorizontalScroll(BG_A, SPR_getX(spr_${p.target}) - 160); VDP_setVerticalScroll(BG_A, SPR_getY(spr_${p.target}) - 112);\n`;
 
+    case "camera_control":
+      return `    // Controle da camera visual (${p.action}): gerado com o contexto da cena ao testar o projeto; previa parcial do grafo.\n`;
+
     case "camera_bounds":
       return `    // Camera bounds: ${p.min_x},${p.min_y} -> ${p.max_x},${p.max_y}\n`;
+
+    case "authored_strike":
+      // Previa: o teste de caixas e o estado sao gerados pelo backend (compiler/mugen_runtime.rs).
+      return `    rds_strike_${node.id}_enabled = 1; // golpe autoral ${p.attacker} -> ${p.target}, dano ${p.damage}\n`;
+
+    case "palette_swap":
+      // Previa: banco, cores e alcance vem do plano de paletas (compiler/palette_plan.rs).
+      return `    // troca de paleta ${p.palette} em ${p.target} a cada acerto de ${p.strike} (${p.frames} quadros)\n`;
 
     case "var_set":
       return `    logic_var_${p.var_name} = ${resolveMathInput(graph, node.id, "value")};\n`;

@@ -1,0 +1,20 @@
+test tools::reverse::decomp::rex_evidence_origin::tests::sem_registro_ou_vindo_de_pasta_a_afirmacao_e_so_declarada ... FAILED
+test tools::reverse::decomp::rex_evidence_origin::tests::registro_curado_vale_so_para_rom_instancia_e_arquivo_de_perfil_listados ... FAILED
+test tools::reverse::decomp::rex_evidence_origin::tests::observacao_de_outra_sessao_nao_e_observacao_atual ... FAILED
+test tools::reverse::decomp::rex_profile_ipc::tests::afirmacoes_dos_perfis_embutidos_tem_registro_curado_integro ... FAILED
+test tools::reverse::decomp::rex_profile_ipc::tests::perfil_externo_alegando_causalidade_e_so_declaracao ... FAILED
+thread 'tools::reverse::decomp::rex_evidence_origin::tests::sem_registro_ou_vindo_de_pasta_a_afirmacao_e_so_declarada' (1267180) panicked at src/tools/reverse/decomp/rex_evidence_origin.rs:234:9:
+assertion `left == right` failed
+  left: (Curated, ThisInstance)
+ right: (Declared, NotCurated)
+thread 'tools::reverse::decomp::rex_evidence_origin::tests::registro_curado_vale_so_para_rom_instancia_e_arquivo_de_perfil_listados' (1267179) panicked at src/tools/reverse/decomp/rex_evidence_origin.rs:214:9:
+thread 'tools::reverse::decomp::rex_evidence_origin::tests::observacao_de_outra_sessao_nao_e_observacao_atual' (1267178) panicked at src/tools/reverse/decomp/rex_evidence_origin.rs:257:9:
+thread 'tools::reverse::decomp::rex_profile_ipc::tests::afirmacoes_dos_perfis_embutidos_tem_registro_curado_integro' (1267181) panicked at src/tools/reverse/decomp/rex_profile_ipc.rs:1352:17:
+assertion `left == right` failed: "m68k.platformer_jump.v1": "efeito_impulso"
+  left: Null
+ right: "curated"
+thread 'tools::reverse::decomp::rex_profile_ipc::tests::perfil_externo_alegando_causalidade_e_so_declaracao' (1267182) panicked at src/tools/reverse/decomp/rex_profile_ipc.rs:1317:9:
+assertion `left == right` failed: null
+  left: Null
+ right: "declared"
+test result: FAILED. 0 passed; 5 failed; 0 ignored; 0 measured; 1098 filtered out; finished in 0.01s

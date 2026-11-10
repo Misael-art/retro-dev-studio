@@ -8,7 +8,10 @@ mod ugdm;
 pub use tools::reverse::matching::BinaryDiffScorer;
 pub use tools::reverse::trace::{CpuState, ExecutionTraceLog};
 
-use std::collections::{HashMap, HashSet};
+#[cfg(test)]
+use core::project_mgr::save_scene;
+
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
@@ -42,23 +45,24 @@ use core::project_capability::{
     inspect_project_capability as inspect_project_capability_impl, ProjectCapabilityReport,
 };
 use core::project_mgr::{
-    append_patch_audit_entry, create_project_skeleton, create_scene as create_project_scene,
-    discover_project_rds, import_external_project as import_external_scene,
+    append_patch_audit_entry, collect_external_graph_refs, create_project_skeleton,
+    create_scene as create_project_scene, discover_project_rds,
+    import_external_project as import_external_scene,
     import_legacy_sgdk_project as wrap_legacy_sgdk_project,
     import_mugen_project as import_mugen_scene, import_sgdk_project as import_sgdk_scene,
     list_external_import_profiles as list_registered_external_import_profiles,
     list_project_templates as list_registered_project_templates,
     list_scenes as list_project_scenes, load_legacy_sgdk_index, load_project,
-    load_project_settings as load_project_settings_impl, load_scene, resolve_prefabs, save_scene,
+    load_project_settings as load_project_settings_impl, load_scene, resolve_prefabs,
     seed_onboarding_template, seed_project_template, set_entry_scene,
     stamp_imported_external_profile_metadata, stamp_imported_mugen_metadata,
-    stamp_imported_sgdk_metadata, stamp_project_template_metadata, sync_external_graph_refs,
+    stamp_imported_sgdk_metadata, stamp_project_template_metadata,
     update_project_settings as update_project_settings_impl, update_project_target,
     ExternalImportProfileSummary, LegacySgdkIndex, ProjectSettingsPayload, ProjectSettingsSnapshot,
     ProjectTemplateSummary, SceneInfo, DEFAULT_ENTRY_SCENE,
 };
 use core::rom_mastering::{
-    inspect_rom_mastering as inspect_rom_mastering_impl, RomMasteringReport,
+    inspect_rom_mastering as inspect_rom_mastering_impl, sha256_hex, RomMasteringReport,
 };
 use core::runtime_contracts::{
     inspect_runtime_contracts as inspect_runtime_contracts_impl, RuntimeContractsReport,
@@ -126,10 +130,138 @@ pub struct GenerateResult {
     pub build_source_map: Option<BuildSourceMap>,
 }
 
+/// Época do core: incrementa a cada `emulator_load_rom`. Um `send_input`
+/// emitido numa época anterior é RECUSADO pelo backend (não é aplicado ao
+/// core novo) — fecha a corrida de um input em voo atravessar uma recarga.
+static CORE_EPOCH: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+// Presentation order is independent of the emulated frame index, which can rewind.
+static FRAME_EVENT_SEQUENCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Test-only: canais de sincronização para o gate de época em
+/// `send_input_if_current`. O sender sinaliza "atingiu o gate" via TX e
+/// aguarda a liberação via RX — sem sleep nem timing.
+#[cfg(test)]
+static EPOCH_TEST_GATE_TX: std::sync::Mutex<Option<std::sync::mpsc::Sender<()>>> =
+    std::sync::Mutex::new(None);
+#[cfg(test)]
+static EPOCH_TEST_GATE_RX: std::sync::Mutex<Option<std::sync::mpsc::Receiver<()>>> =
+    std::sync::Mutex::new(None);
+
+impl EmulatorCoreState {
+    /// Aplica o joypad somente se a época do core ainda for `session_epoch`.
+    /// A conferência e a aplicação ocorrem na MESMA seção crítica do mutex do
+    /// core — o mesmo lock usado pela recarga, que incrementa a época. Assim,
+    /// um input antigo que chegue depois de uma recarga é recusado sob o
+    /// lock; a ordem "valida fora do lock" não é expressável neste caminho.
+    fn send_input_if_current(
+        &self,
+        session_epoch: Option<u64>,
+        joypad: JoypadState,
+    ) -> EmulatorInputResult {
+        // Test-only gate: quando ativado, sinaliza "atingiu o ponto pré-lock"
+        // via canal e aguarda a liberação pelo teste em outro canal — sem
+        // depender de sleep nem de timing. Os canais são instalados pelo
+        // teste antes de spawnar o sender.
+        #[cfg(test)]
+        {
+            let arrived = EPOCH_TEST_GATE_TX.lock().unwrap().take();
+            if let Some(tx) = arrived {
+                let _ = tx.send(());
+                if let Some(rx) = EPOCH_TEST_GATE_RX.lock().unwrap().take() {
+                    let _ = rx.recv().unwrap(); // bloqueia até o teste liberar
+                }
+            }
+        }
+
+        let refused = |message: String| EmulatorInputResult {
+            ok: false,
+            message,
+            epoch: CORE_EPOCH.load(std::sync::atomic::Ordering::SeqCst),
+            generation: None,
+            applied_at_frame: None,
+        };
+        let core = match self.0.lock() {
+            Ok(c) => c,
+            Err(e) => return refused(e.to_string()),
+        };
+
+        let current = CORE_EPOCH.load(std::sync::atomic::Ordering::SeqCst);
+        if let Some(epoch) = session_epoch {
+            if epoch != current {
+                return refused(format!(
+                    "sessão de input obsoleta: emitida na época {epoch}, corrente é {current}"
+                ));
+            }
+        }
+
+        // ACEITA pelo backend: aplicada ao estado de joypad. Isto NÃO diz que o core a leu — o core só
+        // lê o joypad ao rodar um quadro; a leitura aparece em `emulator_input_observation`.
+        match core.apply_joypad(joypad) {
+            Ok((generation, applied_at_frame)) => EmulatorInputResult {
+                ok: true,
+                message: String::new(),
+                epoch: current,
+                generation: Some(generation),
+                applied_at_frame: Some(applied_at_frame),
+            },
+            Err(e) => refused(e),
+        }
+    }
+
+    /// Observação limitada do caminho backend → core na carga corrente.
+    fn input_observation(&self) -> Result<EmulatorInputObservation, String> {
+        let core = self.0.lock().map_err(|e| e.to_string())?;
+        Ok(EmulatorInputObservation {
+            epoch: CORE_EPOCH.load(std::sync::atomic::Ordering::SeqCst),
+            observation: core.input_observation(),
+        })
+    }
+}
+
+/// Resposta de `emulator_send_input`: aceitação (ou recusa) pelo backend, com a época, a geração e o
+/// quadro em que a transição foi aplicada. Aceitação não é consumo pelo core.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct EmulatorInputResult {
+    pub ok: bool,
+    pub message: String,
+    pub epoch: u64,
+    pub generation: Option<u64>,
+    pub applied_at_frame: Option<u64>,
+}
+
+/// O que o core fez com as transições aplicadas na carga corrente (época).
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct EmulatorInputObservation {
+    pub epoch: u64,
+    #[serde(flatten)]
+    pub observation: crate::emulator::libretro_ffi::InputObservation,
+}
+
 #[derive(serde::Serialize)]
 pub struct EmulatorCommandResult {
     pub ok: bool,
     pub message: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct EmulatorObservationResult {
+    pub ok: bool,
+    pub message: String,
+    pub rom_path: String,
+    pub rom_size: usize,
+    /// SHA-256 dos bytes carregados no core nesta sessão (identidade da
+    /// execução observada), não do arquivo atual em disco.
+    pub rom_sha256: String,
+    pub disk_file_sha256: Option<String>,
+    pub disk_matches_loaded: bool,
+    pub core_label: String,
+    pub core_path: String,
+    pub frames_run: u64,
+    pub framebuffer_width: u32,
+    pub framebuffer_height: u32,
+    pub framebuffer_sha256: String,
+    pub non_black_pixels: usize,
+    pub framebuffer_rgba: Vec<u8>,
 }
 
 #[derive(serde::Serialize)]
@@ -153,6 +285,9 @@ pub struct ProjectAssetEntry {
     pub relative_path: String,
     pub absolute_path: String,
     pub kind: String,
+    pub image_width: Option<u32>,
+    pub image_height: Option<u32>,
+    pub sgdk_resource: Option<core::project_mgr::SgdkAssetAuthoring>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
@@ -191,6 +326,24 @@ pub struct ProjectAssetsChangedEvent {
 }
 
 // ── Build commands ────────────────────────────────────────────────────────────
+
+/// PLAT01: identidade efetiva do binário aberto (fonte embutida + hash do executável).
+#[tauri::command]
+fn app_build_identity() -> serde_json::Value {
+    let exe = std::env::current_exe().ok();
+    let exe_sha256 = exe
+        .as_ref()
+        .and_then(|p| std::fs::read(p).ok())
+        .map(|bytes| sha256_hex(&bytes));
+    serde_json::json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "source_sha": env!("RDS_SOURCE_SHA"),
+        "source_dirty": env!("RDS_SOURCE_DIRTY") == "true",
+        "debug": cfg!(debug_assertions),
+        "executable": exe.map(|p| p.display().to_string()),
+        "executable_sha256": exe_sha256,
+    })
+}
 
 #[tauri::command]
 fn validate_project(project_dir: String) -> ValidationResult {
@@ -348,6 +501,19 @@ where
         .await
 }
 
+async fn run_heavy_inspection_command<T, F>(
+    command_name: &'static str,
+    task: F,
+) -> Result<T, tools::reverse::decomp::inspection::InspectionError>
+where
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+    T: Send + 'static,
+{
+    run_heavy_result_command(command_name, task)
+        .await
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
 fn interrupted_build_result() -> BuildResult {
     BuildResult {
         ok: false,
@@ -361,17 +527,35 @@ fn interrupted_build_result() -> BuildResult {
         // proveniencia observavel: os dois campos ficam None de proposito.
         source_map_path: None,
         build_source_map: None,
+        runtime_link: None,
     }
 }
 
 #[tauri::command]
-async fn build_project(app: AppHandle, project_dir: String) -> BuildResult {
+async fn build_project(
+    app: AppHandle,
+    project_dir: String,
+    test_scene: Option<String>,
+) -> BuildResult {
     let dir = PathBuf::from(&project_dir);
     run_heavy_command_off_main_thread(
         move || {
-            run_build(&dir, move |line: BuildLogLine| {
+            let emit = move |line: BuildLogLine| {
                 let _ = app.emit("build://log", &line);
-            })
+            };
+            match test_scene.as_deref() {
+                // Normal build keeps the previous path unchanged (T6).
+                None => run_build(&dir, emit),
+                Some(scene) => {
+                    let environment = crate::compiler::build_orch::BuildEnvironment::detect();
+                    crate::compiler::build_orch::run_build_with_test_scene(
+                        &dir,
+                        Some(scene),
+                        &environment,
+                        emit,
+                    )
+                }
+            }
         },
         interrupted_build_result,
     )
@@ -428,15 +612,25 @@ fn emulator_load_rom(rom_path: String, emu: State<EmulatorCoreState>) -> Emulato
     };
 
     match core.load_rom(Path::new(&rom_path)) {
-        Ok(()) => EmulatorCommandResult {
-            ok: true,
-            message: match core.loaded_core_label() {
-                Some(label) if !label.is_empty() => {
-                    format!("ROM carregada: {} ({})", rom_path, label)
-                }
-                _ => format!("ROM carregada: {}", rom_path),
-            },
-        },
+        Ok(()) => {
+            // Nova época: inputs emitidos antes da recarga passam a ser
+            // recusados pelo send_input (ver CORE_EPOCH).
+            CORE_EPOCH.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            // Política de carga: controles voltam ao neutro. Um `send_input`
+            // que tenha atravessado a recarga (mutex serializa com o load)
+            // é neutralizado aqui — o core novo nunca herda joypad da
+            // sessão anterior.
+            let _ = core.set_joypad(crate::emulator::libretro_ffi::JoypadState::default());
+            EmulatorCommandResult {
+                ok: true,
+                message: match core.loaded_core_label() {
+                    Some(label) if !label.is_empty() => {
+                        format!("ROM carregada: {} ({})", rom_path, label)
+                    }
+                    _ => format!("ROM carregada: {}", rom_path),
+                },
+            }
+        }
         Err(e) => EmulatorCommandResult {
             ok: false,
             message: e,
@@ -478,6 +672,377 @@ fn emulator_run_frame(app: AppHandle, emu: State<EmulatorCoreState>) -> Emulator
     }
 }
 
+/// Executa vários frames sem atravessar o IPC uma vez por frame. O frontend
+/// ainda observa o framebuffer somente depois do lote terminar; inputs
+/// discretos continuam passando por `emulator_send_input` entre lotes.
+#[tauri::command]
+fn emulator_run_frames(frames: u32, emu: State<EmulatorCoreState>) -> EmulatorCommandResult {
+    let mut core = match emu.0.lock() {
+        Ok(c) => c,
+        Err(e) => {
+            return EmulatorCommandResult {
+                ok: false,
+                message: e.to_string(),
+            }
+        }
+    };
+
+    let frame_count = frames.min(10_000);
+    if frame_count == 0 {
+        return EmulatorCommandResult {
+            ok: true,
+            message: "Nenhum frame solicitado.".to_string(),
+        };
+    }
+
+    for _ in 0..frame_count {
+        if let Err(error) = core.run_frame() {
+            return EmulatorCommandResult {
+                ok: false,
+                message: error,
+            };
+        }
+    }
+
+    EmulatorCommandResult {
+        ok: true,
+        message: format!("{frame_count} frame(s) executado(s) no core ativo."),
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SampledMemoryRow {
+    pub frame: u64,
+    pub bytes_hex: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct EmulatorSampledRunResult {
+    pub ok: bool,
+    pub message: String,
+    pub rom_path: String,
+    /// SHA-256 dos bytes efetivamente carregados no core nesta sessão de
+    /// carga — identidade autoritativa da execução amostrada.
+    pub rom_sha256: String,
+    /// SHA-256 do arquivo atualmente presente em `rom_path` (diagnóstico;
+    /// `None` se o caminho não pôde ser lido).
+    pub disk_file_sha256: Option<String>,
+    /// `false` quando o arquivo em disco difere dos bytes carregados:
+    /// "ROM carregada" != "arquivo atual nesse caminho".
+    pub disk_matches_loaded: bool,
+    pub core_label: String,
+    pub frames_before: u64,
+    pub frames_after: u64,
+    pub frames_requested: u32,
+    pub frames_run: u32,
+    pub rows: Vec<SampledMemoryRow>,
+}
+
+const SAMPLED_RUN_MAX_FRAMES: u32 = 10_000;
+const SAMPLED_RUN_MAX_WINDOW: usize = 512;
+
+/// Lote determinístico com o mutex do core tomado do início ao fim: executa
+/// `frames` via `run_frame` 1:1 e, a partir de `record_from` (índice absoluto
+/// `frame_index()`, zerado na carga da ROM), grava a janela de memória pedida
+/// uma vez por frame. O contador nunca é reconstruído por estimativa do
+/// lado da página — cada linha carrega o índice que o próprio core atribuiu
+/// ao frame recém-executado.
+fn run_frames_sampled_core(
+    core: &mut EmulatorCore,
+    frames: u32,
+    region: u32,
+    offset: usize,
+    length: usize,
+    record_from: u64,
+) -> Result<(u64, u64, Vec<SampledMemoryRow>), String> {
+    let (probe, total_size) = core.read_memory(region, offset, length)?;
+    if probe.len() < length {
+        return Err(format!(
+            "Janela de memoria [{offset}, +{length}) nao exposta pela regiao {region} do core ({} de {total_size} bytes leitaveis).",
+            probe.len()
+        ));
+    }
+    let frames_before = core.frame_index();
+    let mut rows = Vec::new();
+    for _ in 0..frames {
+        core.run_frame()?;
+        let index = core.frame_index();
+        if index >= record_from {
+            let (data, _) = core.read_memory(region, offset, length)?;
+            if data.len() != length {
+                return Err(format!(
+                    "Janela de memoria encolheu no frame {index} ({} de {length} bytes).",
+                    data.len()
+                ));
+            }
+            rows.push(SampledMemoryRow {
+                frame: index,
+                bytes_hex: data
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect::<String>(),
+            });
+        }
+    }
+    Ok((frames_before, core.frame_index(), rows))
+}
+
+/// Executa um lote de frames amostrando a memória frame a frame dentro do
+/// próprio core (mesma família dos lotes usados pela barra "Observar").
+/// Superfície Experimental de observação: nenhuma inferência de sucesso — a
+/// identidade da ROM CARREGADA (bytes lidos na carga do core) e os índices
+/// absolutos voltam na resposta para conferência independente. O arquivo
+/// presente no caminho é diagnóstico separado: "ROM carregada" != "arquivo
+/// atual nesse caminho".
+fn sampled_run_on_core(
+    core: &mut EmulatorCore,
+    frames: u32,
+    region: u32,
+    offset: usize,
+    length: usize,
+    record_from: u64,
+) -> EmulatorSampledRunResult {
+    let rejection = |message: String| EmulatorSampledRunResult {
+        ok: false,
+        message,
+        rom_path: String::new(),
+        rom_sha256: String::new(),
+        disk_file_sha256: None,
+        disk_matches_loaded: false,
+        core_label: String::new(),
+        frames_before: 0,
+        frames_after: 0,
+        frames_requested: frames,
+        frames_run: 0,
+        rows: Vec::new(),
+    };
+    if length == 0 || length > SAMPLED_RUN_MAX_WINDOW {
+        return rejection(format!(
+            "Janela de amostragem fora do limite (1..={SAMPLED_RUN_MAX_WINDOW} bytes)."
+        ));
+    }
+    let Some(rom_path) = core.loaded_rom_path() else {
+        return rejection("Nenhuma ROM carregada para execução amostrada.".to_string());
+    };
+    let Some((loaded_sha, _loaded_len)) = core.loaded_rom_identity() else {
+        return rejection("Nenhuma ROM carregada para execução amostrada.".to_string());
+    };
+    let disk_file_sha256 = fs::read(&rom_path).ok().map(|bytes| sha256_hex(&bytes));
+    let disk_matches_loaded = disk_file_sha256.as_deref() == Some(loaded_sha.as_str());
+    let frames_run = frames.min(SAMPLED_RUN_MAX_FRAMES);
+    let outcome = run_frames_sampled_core(core, frames_run, region, offset, length, record_from);
+    match outcome {
+        Ok((frames_before, frames_after, rows)) => {
+            let mut message = format!(
+                "{frames_run} frame(s) executado(s); {} amostra(s) a partir do frame {record_from}.",
+                rows.len()
+            );
+            if !disk_matches_loaded {
+                message.push_str(
+                    " AVISO: o arquivo atual no caminho difere dos bytes carregados no core; \
+                     as amostras refletem a ROM carregada, nao o disco.",
+                );
+            }
+            EmulatorSampledRunResult {
+                ok: true,
+                message,
+                rom_path: rom_path.display().to_string(),
+                rom_sha256: loaded_sha,
+                disk_file_sha256,
+                disk_matches_loaded,
+                core_label: core.loaded_core_label().unwrap_or_default().to_string(),
+                frames_before,
+                frames_after,
+                frames_requested: frames,
+                frames_run,
+                rows,
+            }
+        }
+        Err(error) => EmulatorSampledRunResult {
+            ok: false,
+            message: error,
+            rom_path: rom_path.display().to_string(),
+            rom_sha256: loaded_sha,
+            disk_file_sha256,
+            disk_matches_loaded,
+            core_label: core.loaded_core_label().unwrap_or_default().to_string(),
+            frames_before: core.frame_index(),
+            frames_after: core.frame_index(),
+            frames_requested: frames,
+            frames_run,
+            rows: Vec::new(),
+        },
+    }
+}
+
+#[tauri::command]
+fn emulator_run_frames_sampled(
+    emu: State<EmulatorCoreState>,
+    frames: u32,
+    region: u32,
+    offset: usize,
+    length: usize,
+    record_from: u64,
+) -> EmulatorSampledRunResult {
+    let mut core = match emu.0.lock() {
+        Ok(core) => core,
+        Err(error) => {
+            return EmulatorSampledRunResult {
+                ok: false,
+                message: error.to_string(),
+                rom_path: String::new(),
+                rom_sha256: String::new(),
+                disk_file_sha256: None,
+                disk_matches_loaded: false,
+                core_label: String::new(),
+                frames_before: 0,
+                frames_after: 0,
+                frames_requested: frames,
+                frames_run: 0,
+                rows: Vec::new(),
+            };
+        }
+    };
+    sampled_run_on_core(&mut core, frames, region, offset, length, record_from)
+}
+
+/// Observa o estado real após a execução: identidade da ROM CARREGADA (bytes
+/// da sessão do core) e do core, avanço de frames e o framebuffer RGBA
+/// produzido pelo core. O arquivo em disco é reportado como diagnóstico
+/// separado (`disk_file_sha256`/`disk_matches_loaded`); a observação não é
+/// interrompida por divergência ou ausência do arquivo. Esta chamada não
+/// infere sucesso a partir da mensagem de `emulator_run_frame`.
+fn observe_on_core(core: &mut EmulatorCore) -> EmulatorObservationResult {
+    let blank = || EmulatorObservationResult {
+        ok: false,
+        message: String::new(),
+        rom_path: String::new(),
+        rom_size: 0,
+        rom_sha256: String::new(),
+        disk_file_sha256: None,
+        disk_matches_loaded: false,
+        core_label: String::new(),
+        core_path: String::new(),
+        frames_run: 0,
+        framebuffer_width: 0,
+        framebuffer_height: 0,
+        framebuffer_sha256: String::new(),
+        non_black_pixels: 0,
+        framebuffer_rgba: Vec::new(),
+    };
+    let Some(rom_path) = core.loaded_rom_path() else {
+        let mut result = blank();
+        result.message = "Nenhuma ROM carregada para observação.".to_string();
+        result.frames_run = core.frame_index();
+        return result;
+    };
+    let Some((loaded_sha, loaded_len)) = core.loaded_rom_identity() else {
+        let mut result = blank();
+        result.message = "Nenhuma ROM carregada para observação.".to_string();
+        result.frames_run = core.frame_index();
+        return result;
+    };
+    let disk_file_sha256 = fs::read(&rom_path).ok().map(|bytes| sha256_hex(&bytes));
+    let disk_matches_loaded = disk_file_sha256.as_deref() == Some(loaded_sha.as_str());
+
+    let (framebuffer, size, pixel_format) = match core.get_framebuffer() {
+        Ok(value) => value,
+        Err(error) => {
+            let mut result = blank();
+            result.message = format!("Falha ao observar framebuffer: {error}");
+            result.rom_path = rom_path.display().to_string();
+            result.rom_size = loaded_len;
+            result.rom_sha256 = loaded_sha;
+            result.disk_file_sha256 = disk_file_sha256;
+            result.disk_matches_loaded = disk_matches_loaded;
+            result.core_label = core.loaded_core_label().unwrap_or_default().to_string();
+            result.core_path = core
+                .loaded_core_file()
+                .map(|path| path.display().to_string())
+                .unwrap_or_default();
+            result.frames_run = core.frame_index();
+            return result;
+        }
+    };
+    let frame = framebuffer_to_rgba(&framebuffer, size, pixel_format);
+    let non_black_pixels = frame
+        .rgba
+        .chunks_exact(4)
+        .filter(|pixel| pixel[0] != 0 || pixel[1] != 0 || pixel[2] != 0)
+        .count();
+    let framebuffer_sha256 = sha256_hex(&frame.rgba);
+    let core_label = core.loaded_core_label().unwrap_or_default().to_string();
+    let core_path = core
+        .loaded_core_file()
+        .map(|path| path.display().to_string())
+        .unwrap_or_default();
+    let frames_run = core.frame_index();
+
+    let mut message = format!(
+        "ROM {} carregada no core {}; {} frame(s), framebuffer {}x{}, {} pixel(s) não pretos, RGBA SHA-256 {}. Bytes carregados SHA-256 {}.",
+        rom_path.display(),
+        core_label,
+        frames_run,
+        frame.width,
+        frame.height,
+        non_black_pixels,
+        framebuffer_sha256,
+        loaded_sha
+    );
+    if !disk_matches_loaded {
+        message.push_str(
+            " AVISO: o arquivo atual no caminho difere dos bytes carregados; a observacao \
+             reflete a ROM carregada, nao o disco.",
+        );
+    }
+    EmulatorObservationResult {
+        ok: true,
+        message,
+        rom_path: rom_path.display().to_string(),
+        rom_size: loaded_len,
+        rom_sha256: loaded_sha,
+        disk_file_sha256,
+        disk_matches_loaded,
+        core_label,
+        core_path,
+        frames_run,
+        framebuffer_width: frame.width,
+        framebuffer_height: frame.height,
+        framebuffer_sha256,
+        non_black_pixels,
+        framebuffer_rgba: frame.rgba,
+    }
+}
+
+#[tauri::command]
+fn emulator_observe(emu: State<EmulatorCoreState>) -> EmulatorObservationResult {
+    let mut core = match emu.0.lock() {
+        Ok(c) => c,
+        Err(error) => {
+            let mut result = EmulatorObservationResult {
+                ok: false,
+                message: String::new(),
+                rom_path: String::new(),
+                rom_size: 0,
+                rom_sha256: String::new(),
+                disk_file_sha256: None,
+                disk_matches_loaded: false,
+                core_label: String::new(),
+                core_path: String::new(),
+                frames_run: 0,
+                framebuffer_width: 0,
+                framebuffer_height: 0,
+                framebuffer_sha256: String::new(),
+                non_black_pixels: 0,
+                framebuffer_rgba: Vec::new(),
+            };
+            result.message = error.to_string();
+            return result;
+        }
+    };
+    observe_on_core(&mut core)
+}
+
 trait EmulatorEventSink {
     fn emit_frame(&self, payload: &emulator::frame_buffer::FramePayload) -> Result<(), String>;
     fn emit_audio(&self, payload: &AudioPayload) -> Result<(), String>;
@@ -501,7 +1066,13 @@ fn emit_emulator_frame_events<S: EmulatorEventSink>(
 ) -> Result<(), String> {
     let (fb, size, pixel_format) = core.get_framebuffer()?;
 
-    let payload = framebuffer_to_rgba(&fb, size, pixel_format);
+    let mut payload = framebuffer_to_rgba(&fb, size, pixel_format);
+    // Callers hold the emulator mutex: identity and pixels belong to the same load.
+    payload.core_epoch = Some(CORE_EPOCH.load(std::sync::atomic::Ordering::SeqCst));
+    payload.rom_sha256 = core.loaded_rom_identity().map(|(sha, _)| sha);
+    payload.frame_sequence =
+        Some(FRAME_EVENT_SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1);
+    payload.frame_index = Some(core.frame_index());
     sink.emit_frame(&payload)?;
 
     let (sample_rate, samples) = core.take_audio_samples()?;
@@ -1531,6 +2102,264 @@ fn collect_rom_files(dir: &Path, out: &mut Vec<PathBuf>) {
     }
 }
 
+#[derive(serde::Serialize)]
+struct EmulatorVramUsage {
+    available: bool,
+    used_bytes: u32,
+    total_bytes: u32,
+}
+
+/// Ocupacao real da VRAM no core em execucao: blocos de 32 bytes (1 tile) com algum byte
+/// diferente de zero. Inclui tiles, tilemaps e tabelas (SAT/scroll) — o que o jogo de fato
+/// carregou, e nao uma estimativa da cena do Studio.
+fn vram_usage_from_bytes(bytes: &[u8]) -> EmulatorVramUsage {
+    let used = bytes
+        .chunks(32)
+        .filter(|tile| tile.iter().any(|byte| *byte != 0))
+        .map(|tile| tile.len() as u32)
+        .sum();
+    EmulatorVramUsage {
+        available: !bytes.is_empty(),
+        used_bytes: used,
+        total_bytes: bytes.len() as u32,
+    }
+}
+
+#[tauri::command]
+fn emulator_vram_usage(emu: State<EmulatorCoreState>) -> Result<EmulatorVramUsage, String> {
+    let core = emu.0.lock().map_err(|e| e.to_string())?;
+    // A maioria dos cores nao expoe VRAM pela API de memoria; o savestate do GPGX sim.
+    if let Ok((bytes, _)) = core.read_memory(3, 0, usize::MAX) {
+        if !bytes.is_empty() {
+            return Ok(vram_usage_from_bytes(&bytes));
+        }
+    }
+    match core.vdp_snapshot() {
+        Ok(snapshot) => Ok(vram_usage_from_bytes(&snapshot.vram)),
+        Err(_) => Ok(vram_usage_from_bytes(&[])),
+    }
+}
+
+/// Grava a tela atual do jogo (planos e sprites lidos do VDP) como cena do projeto.
+#[tauri::command]
+fn capture_rom_scene(
+    project_dir: String,
+    name: String,
+    emu: State<EmulatorCoreState>,
+) -> Result<crate::core::rom_scene_capture::RomSceneCapture, String> {
+    let dir = PathBuf::from(project_dir.trim());
+    if !dir.join("project.rds").is_file() {
+        return Err("Abra um projeto antes de capturar a cena da ROM.".to_string());
+    }
+    let snapshot = {
+        let core = emu.0.lock().map_err(|e| e.to_string())?;
+        core.vdp_snapshot()?
+    };
+    // Overlay de projeto SGDK legado: liga cada sprite ao recurso e ao C de origem.
+    let host_root = crate::core::project_mgr::load_legacy_sgdk_index(&dir)
+        .ok()
+        .flatten()
+        .map(|index| PathBuf::from(index.host_root));
+    let source = host_root
+        .as_ref()
+        .map(|root| crate::core::rom_scene_capture::CaptureSource {
+            host_root: root,
+            sheets: crate::core::rom_sprite_link::load_sheets(
+                &crate::core::project_mgr::sgdk_sprite_resource_images(root),
+            ),
+        });
+    crate::core::rom_scene_capture::write_rom_capture_scene(&dir, &name, &snapshot, source.as_ref())
+}
+
+#[derive(serde::Serialize)]
+pub struct SavedPixelArt {
+    pub png_relative: String,
+    pub doc_relative: String,
+    pub png_absolute: String,
+}
+
+/// Grava o PNG indexado e o documento editavel do Editor de pixels em `assets/sprites/pixel/`.
+#[tauri::command]
+fn save_pixel_art_asset(
+    project_dir: String,
+    name: String,
+    png: Vec<u8>,
+    doc_json: String,
+) -> Result<SavedPixelArt, String> {
+    write_pixel_art_asset(Path::new(&project_dir), &name, &png, &doc_json)
+}
+
+fn write_pixel_art_asset(
+    project_dir: &Path,
+    name: &str,
+    png: &[u8],
+    doc_json: &str,
+) -> Result<SavedPixelArt, String> {
+    // Two-file saves are serialized; failed publication restores the previous pair.
+    // Each file uses the project manager's synced atomic writer. This is not a
+    // filesystem transaction across an OS/power interruption.
+    static SAVE_LOCK: Mutex<()> = Mutex::new(());
+    let _save = SAVE_LOCK.lock().map_err(|e| e.to_string())?;
+    if !project_dir.join("project.rds").is_file() {
+        return Err("Projeto invalido: project.rds ausente.".to_string());
+    }
+    if !png.starts_with(&[137, 80, 78, 71, 13, 10, 26, 10]) {
+        return Err("O conteudo enviado nao e um PNG.".to_string());
+    }
+    let document: serde_json::Value =
+        serde_json::from_str(doc_json).map_err(|e| format!("Documento de pixels invalido: {e}"))?;
+    let stem: String = name
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_string();
+    let stem = if stem.is_empty() {
+        "sprite".to_string()
+    } else {
+        stem
+    };
+    let category = if document["target"] == "plane" {
+        "tilesets"
+    } else {
+        "sprites"
+    };
+    let root = project_dir.canonicalize().map_err(|e| e.to_string())?;
+    let mut dir = root.clone();
+    for component in ["assets", category, "pixel"] {
+        dir.push(component);
+        if dir.exists()
+            && !dir
+                .canonicalize()
+                .map_err(|e| e.to_string())?
+                .starts_with(&root)
+        {
+            return Err("A pasta da imagem aponta para fora do projeto.".into());
+        }
+        fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    }
+    fs::create_dir_all(&dir).map_err(|e| format!("Falha ao criar '{}': {e}", dir.display()))?;
+    let png_path = dir.join(format!("{stem}.png"));
+    let doc_path = dir.join(format!("{stem}.rdspixel.json"));
+    if png_path.is_symlink() || doc_path.is_symlink() {
+        return Err(
+            "O destino da imagem é um link. Preserve o arquivo e escolha outro nome.".into(),
+        );
+    }
+    let read_previous = |file: &Path| match fs::read(file) {
+        Ok(bytes) => Ok(Some(bytes)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(format!(
+            "Nao foi possivel preservar '{}': {e}",
+            file.display()
+        )),
+    };
+    let previous_png = read_previous(&png_path)?;
+    let previous_doc = read_previous(&doc_path)?;
+    let publish = || -> Result<(), String> {
+        crate::core::project_mgr::write_bytes_atomically_with_retry(&png_path, png)
+            .map_err(|e| format!("Falha ao gravar PNG: {e}"))?;
+        crate::core::project_mgr::write_text_atomically_with_retry(&doc_path, doc_json)
+            .map_err(|e| format!("Falha ao gravar documento: {e}"))
+    };
+    if let Err(error) = publish() {
+        let mut recovery_errors = Vec::new();
+        for (file, previous) in [(&png_path, previous_png), (&doc_path, previous_doc)] {
+            let recovery = match previous {
+                Some(bytes) => {
+                    crate::core::project_mgr::write_bytes_atomically_with_retry(file, &bytes)
+                        .map_err(|e| e.to_string())
+                }
+                None => match fs::remove_file(file) {
+                    Ok(()) => Ok(()),
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+                    Err(e) => Err(e.to_string()),
+                },
+            };
+            if let Err(e) = recovery {
+                recovery_errors.push(format!("{}: {e}", file.display()));
+            }
+        }
+        return Err(if recovery_errors.is_empty() {
+            error
+        } else {
+            format!(
+                "{error}. Recuperacao incompleta, preserve os arquivos: {}",
+                recovery_errors.join("; ")
+            )
+        });
+    }
+    Ok(SavedPixelArt {
+        png_relative: format!("assets/{category}/pixel/{stem}.png"),
+        doc_relative: format!("assets/{category}/pixel/{stem}.rdspixel.json"),
+        png_absolute: png_path.to_string_lossy().to_string(),
+    })
+}
+
+#[tauri::command]
+fn load_pixel_art_doc(project_dir: String, doc_relative: String) -> Result<String, String> {
+    if !(doc_relative.starts_with("assets/sprites/pixel/")
+        || doc_relative.starts_with("assets/tilesets/pixel/"))
+        || doc_relative.contains("..")
+        || !doc_relative.ends_with(".rdspixel.json")
+    {
+        return Err("Caminho de documento de pixel art invalido.".to_string());
+    }
+    let root = Path::new(&project_dir)
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    let file = root
+        .join(&doc_relative)
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    if !file.starts_with(&root) {
+        return Err("O documento aponta para fora do projeto.".into());
+    }
+    if file.metadata().map_err(|e| e.to_string())?.len() > 20 * 1024 * 1024 {
+        return Err(
+            "O documento de pixels excede 20 MB. Preserve os arquivos e reabra o original.".into(),
+        );
+    }
+    fs::read_to_string(file).map_err(|e| e.to_string())
+}
+
+/// Catalogo dos sprites do jogo SGDK (quadro declarado no `.res` e pontos do C que os usam).
+#[tauri::command]
+fn sgdk_sprite_catalog(
+    project_dir: String,
+) -> Result<Vec<crate::core::project_mgr::SgdkSpriteCatalogEntry>, String> {
+    let path = Path::new(project_dir.trim()).join(crate::core::project_mgr::SGDK_SPRITE_CATALOG);
+    match std::fs::read_to_string(&path) {
+        Ok(raw) => {
+            serde_json::from_str(&raw).map_err(|e| format!("Catalogo de sprites invalido: {e}"))
+        }
+        Err(_) => Ok(Vec::new()),
+    }
+}
+
+/// Ligacoes sprite -> recurso -> C gravadas por uma captura (`assets/rom_capture/<nome>/links.json`).
+#[tauri::command]
+fn rom_capture_links(
+    project_dir: String,
+    capture_dir: String,
+) -> Result<serde_json::Value, String> {
+    let rel = capture_dir.trim().trim_end_matches('/');
+    if !rel.starts_with("assets/rom_capture/") || rel.contains("..") || rel.contains('\\') {
+        return Err("Pasta de captura invalida.".to_string());
+    }
+    let path = Path::new(project_dir.trim()).join(rel).join("links.json");
+    match std::fs::read_to_string(&path) {
+        Ok(raw) => serde_json::from_str(&raw).map_err(|e| format!("links.json invalido: {e}")),
+        Err(_) => Ok(serde_json::json!({})),
+    }
+}
+
 /// Le uma faixa da memoria exposta pelo core Libretro ativo.
 #[tauri::command]
 fn emulator_read_memory(
@@ -1548,6 +2377,31 @@ fn emulator_read_memory(
     })
 }
 
+/// Ajuste temporario de teste (Experimental, REQ-20): escreve na WRAM da sessao atual. Recusa se a
+/// epoca informada nao for a do core (outra carga) — um ajuste nunca atravessa recargas.
+#[tauri::command]
+fn emulator_write_test_memory(
+    offset: usize,
+    data: Vec<u8>,
+    session_epoch: u64,
+    emu: State<EmulatorCoreState>,
+) -> Result<EmulatorMemoryResult, String> {
+    if session_epoch != CORE_EPOCH.load(std::sync::atomic::Ordering::SeqCst) {
+        return Err("Ajuste recusado: a sessao do emulador mudou (epoca diferente).".to_string());
+    }
+    if data.len() > 64 {
+        return Err("Ajuste recusado: no maximo 64 bytes por escrita.".to_string());
+    }
+    let mut core = emu.0.lock().map_err(|e| e.to_string())?;
+    core.write_system_ram(offset, &data)?;
+    let (read_back, total_size) = core.read_memory(2, offset, data.len())?;
+    Ok(EmulatorMemoryResult {
+        ok: read_back == data,
+        data: read_back,
+        total_size,
+    })
+}
+
 #[tauri::command]
 fn emulator_get_execution_trace(
     emu: State<EmulatorCoreState>,
@@ -1560,28 +2414,40 @@ fn emulator_get_execution_trace(
 #[tauri::command]
 fn emulator_send_input(
     joypad: JoypadState,
+    session_epoch: Option<u64>,
     emu: State<EmulatorCoreState>,
-) -> EmulatorCommandResult {
-    let core = match emu.0.lock() {
-        Ok(c) => c,
-        Err(e) => {
-            return EmulatorCommandResult {
-                ok: false,
-                message: e.to_string(),
-            }
-        }
-    };
+) -> EmulatorInputResult {
+    emulator_send_input_command(&emu, joypad, session_epoch)
+}
 
-    match core.set_joypad(joypad) {
-        Ok(()) => EmulatorCommandResult {
-            ok: true,
-            message: String::new(),
-        },
-        Err(e) => EmulatorCommandResult {
-            ok: false,
-            message: e,
-        },
-    }
+/// Transições de joypad aplicadas na carga corrente e o que o core fez com cada uma (lida em que quadro,
+/// ou nunca lida). Só leitura.
+#[tauri::command]
+fn emulator_input_observation(
+    emu: State<EmulatorCoreState>,
+) -> Result<EmulatorInputObservation, String> {
+    emu.input_observation()
+}
+
+fn emulator_send_input_command(
+    emu: &EmulatorCoreState,
+    joypad: JoypadState,
+    session_epoch: Option<u64>,
+) -> EmulatorInputResult {
+    // A conferência de época e a aplicação acontecem DENTRO da mesma seção
+    // crítica do mutex do core (a mesma usada pela recarga, que incrementa a
+    // época). Validar antes do lock permitia: input antigo valida → recarga
+    // troca o core e incrementa a época → input aplica controles antigos ao
+    // core novo (corrida P1 da revisão 1a1fc65). A ordem "valida fora do
+    // lock" deixa de ser expressável: o único caminho de aplicação é este
+    // método, que recebe o guard por dentro.
+    emu.send_input_if_current(session_epoch, joypad)
+}
+
+/// Época corrente do core (incrementa a cada carga de ROM).
+#[tauri::command]
+fn emulator_get_core_epoch() -> u64 {
+    CORE_EPOCH.load(std::sync::atomic::Ordering::SeqCst)
 }
 
 /// Para o emulador e limpa o framebuffer.
@@ -1621,6 +2487,7 @@ use tools::patch_studio::{
     apply_bps_file, apply_ips_file, create_bps_file_compliance, create_ips_file_compliance,
     PatchResult,
 };
+use tools::reverse::decomp::logic_recovery::{LogicPatchResult, LogicRecoveryResult};
 use tools::reverse::{
     AudioCandidate, CallGraphEdge, CodeXref, DisassemblyResult, GraphicsCandidate,
     ReverseAnnotation, RomAnalysisManifest, TextCandidate,
@@ -1868,6 +2735,34 @@ async fn rom_disassemble(
 }
 
 #[tauri::command]
+async fn rom_recover_logic(rom_path: String, offset: usize) -> Result<LogicRecoveryResult, String> {
+    run_heavy_result_command("rom_recover_logic", move || {
+        tools::reverse::decomp::logic_recovery::recover_logic(&rom_path, offset)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn rom_patch_recovered_logic(
+    rom_path: String,
+    output_path: String,
+    expected_sha256: String,
+    offset: usize,
+    immediate: u8,
+) -> Result<LogicPatchResult, String> {
+    run_heavy_result_command("rom_patch_recovered_logic", move || {
+        tools::reverse::decomp::logic_recovery::patch_logic(
+            &rom_path,
+            &output_path,
+            &expected_sha256,
+            offset,
+            immediate,
+        )
+    })
+    .await
+}
+
+#[tauri::command]
 async fn rom_get_xrefs(rom_path: String) -> Result<Vec<CodeXref>, String> {
     run_heavy_result_command("rom_get_xrefs", move || {
         tools::reverse::get_xrefs(&rom_path)
@@ -1912,11 +2807,726 @@ async fn rom_extract_audio(rom_path: String) -> Result<Vec<AudioCandidate>, Stri
 }
 
 #[tauri::command]
+async fn rex_input_probe(
+    request_id: String,
+    path: String,
+) -> Result<tools::reverse::rom_input::RomInputProbe, String> {
+    let job = tools::reverse::rom_input::InputJob::begin(request_id)?;
+    run_heavy_result_command("rex_input_probe", move || {
+        tools::reverse::rom_input::probe(&tools::reverse::rom_input::work_dir(), &path, &job)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn rex_input_resolve(
+    request_id: String,
+    input_id: String,
+    member: String,
+) -> Result<tools::reverse::rom_input::RomInputResolved, String> {
+    let job = tools::reverse::rom_input::InputJob::begin(request_id)?;
+    run_heavy_result_command("rex_input_resolve", move || {
+        tools::reverse::rom_input::resolve(
+            &tools::reverse::rom_input::work_dir(),
+            &input_id,
+            &member,
+            &job,
+        )
+    })
+    .await
+}
+
+#[tauri::command]
+fn rex_input_cancel(request_id: String) -> Result<(), String> {
+    tools::reverse::rom_input::cancel(&request_id)
+}
+
+#[tauri::command]
+async fn rex_inspection_open(
+    rom_path: String,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionSession,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_inspection_command("rex_inspection_open", move || {
+        tools::reverse::decomp::inspection::open(&rom_path)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn rex_decompile_rom(
+    rom_path: String,
+) -> Result<
+    tools::reverse::decomp::inspection::SgdkDecompileReport,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_inspection_command("rex_decompile_rom", move || {
+        tools::reverse::decomp::inspection::decompile_to_sgdk(&rom_path)
+    })
+    .await
+}
+
+#[tauri::command]
+fn rex_reveal_extraction_dir(
+    app: AppHandle,
+    dir: String,
+) -> Result<(), tools::reverse::decomp::inspection::InspectionError> {
+    use tauri_plugin_opener::OpenerExt;
+    let target = tools::reverse::decomp::inspection::extraction_dir_under_work(&dir)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)?;
+    app.opener()
+        .open_path(target.to_string_lossy(), None::<&str>)
+        .map_err(|e| {
+            tools::reverse::decomp::inspection::InspectionError::new(
+                "open_dir",
+                e.to_string(),
+                true,
+            )
+        })
+}
+
+#[tauri::command]
+async fn rex_inspection_reopen(
+    rom_path: String,
+    session_id: String,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionSession,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_inspection_command("rex_inspection_reopen", move || {
+        tools::reverse::decomp::inspection::reopen(&rom_path, &session_id)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn rex_inspection_start(
+    app: AppHandle,
+    session_id: String,
+    generation: u64,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionRun,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::start(app, &session_id, generation)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
+fn rex_inspection_cancel(
+    session_id: String,
+    run_id: String,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionRun,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::cancel(&session_id, &run_id)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
+fn rex_inspection_status(
+    session_id: String,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionStatus,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::status(&session_id)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
+fn rex_inspection_list_sessions() -> Result<
+    Vec<tools::reverse::decomp::inspection::InspectionSession>,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::list_sessions()
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
+async fn rex_inspection_catalog_page(
+    session_id: String,
+    offset: usize,
+    limit: usize,
+    query: String,
+    kind: String,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionCatalogPage,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_inspection_command("rex_inspection_catalog_page", move || {
+        tools::reverse::decomp::inspection::catalog_page(&session_id, offset, limit, &query, &kind)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn rex_inspection_preview(
+    session_id: String,
+    candidate_id: String,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionPreview,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_inspection_command("rex_inspection_preview", move || {
+        tools::reverse::decomp::inspection::preview(&session_id, &candidate_id)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn rex_inspection_sprite_frame(
+    session_id: String,
+    resource_id: String,
+    frame_id: String,
+    flip_x: bool,
+    flip_y: bool,
+    from_base: Option<bool>,
+) -> Result<
+    tools::reverse::decomp::sprite_composition::InspectionSpriteFrame,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_inspection_command("rex_inspection_sprite_frame", move || {
+        tools::reverse::decomp::inspection::sprite_frame(
+            &session_id,
+            &resource_id,
+            &frame_id,
+            flip_x,
+            flip_y,
+            from_base.unwrap_or(false),
+        )
+    })
+    .await
+}
+
+#[tauri::command]
+fn rex_inspection_save_palette_choice(
+    session_id: String,
+    tile_candidate_id: String,
+    palette_candidate_id: String,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionUserChoice,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::save_palette_choice(
+        &session_id,
+        &tile_candidate_id,
+        &palette_candidate_id,
+    )
+    .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
+fn rex_inspection_save(
+    session_id: String,
+    sprite_frame_id: Option<String>,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionSession,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::save(&session_id, sprite_frame_id.as_deref())
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
+fn rex_inspection_edit_sonic_palette(
+    session_id: String,
+    resource_id: String,
+    frame_id: String,
+    palette_index: u8,
+    red: u8,
+    green: u8,
+    blue: u8,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionEdit,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::edit_sonic_palette(
+        &session_id,
+        &resource_id,
+        &frame_id,
+        palette_index,
+        red,
+        green,
+        blue,
+    )
+    .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
+fn rex_inspection_edit_sonic_tiles(
+    session_id: String,
+    resource_id: String,
+    frame_id: String,
+    pixels: Vec<tools::reverse::decomp::inspection::InspectionPixelEdit>,
+    allow_shared_tiles: bool,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionEdit,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::edit_sonic_tiles(
+        &session_id,
+        &resource_id,
+        &frame_id,
+        &pixels,
+        allow_shared_tiles,
+    )
+    .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
+fn rex_inspection_sonic_cadence(
+    session_id: String,
+) -> Result<
+    tools::reverse::decomp::sonic_cadence::CadenceInfo,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::sonic_cadence_info(&session_id)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
+fn rex_inspection_edit_sonic_duration(
+    session_id: String,
+    resource_id: String,
+    value: u8,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionEdit,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::edit_sonic_duration(&session_id, &resource_id, value)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
+fn rex_inspection_sonic_sequence(
+    session_id: String,
+) -> Result<
+    tools::reverse::decomp::sonic_sequence::SequenceInfo,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::sonic_sequence_info(&session_id)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
+fn rex_inspection_sonic_consumers(
+    session_id: String,
+) -> Result<
+    tools::reverse::decomp::sonic_consumers::ConsumersInfo,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::sonic_consumers_info(&session_id)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
+async fn rex_inspection_sonic_layouts(
+    session_id: String,
+    expected_rom_sha256: Option<String>,
+    request_id: Option<String>,
+) -> Result<
+    tools::reverse::decomp::sonic_layouts::LayoutsInfo,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_command_off_main_thread(
+        move || {
+            tools::reverse::decomp::inspection::sonic_layouts_info(
+                &session_id,
+                expected_rom_sha256.as_deref(),
+                request_id.as_deref(),
+            )
+            .map_err(tools::reverse::decomp::inspection::layouts_error)
+        },
+        || {
+            Err(tools::reverse::decomp::inspection::layouts_error(
+                interrupted_command_message("rex_inspection_sonic_layouts"),
+            ))
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+async fn rex_inspection_sonic_layout_grid(
+    session_id: String,
+    expected_rom_sha256: String,
+    layout_index: usize,
+    request_id: Option<String>,
+) -> Result<
+    tools::reverse::decomp::sonic_layouts::LayoutGrade,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_command_off_main_thread(
+        move || {
+            tools::reverse::decomp::inspection::sonic_layout_grid(
+                &session_id,
+                &expected_rom_sha256,
+                layout_index,
+                request_id.as_deref(),
+            )
+            .map_err(tools::reverse::decomp::inspection::layouts_error)
+        },
+        || {
+            Err(tools::reverse::decomp::inspection::layouts_error(
+                interrupted_command_message("rex_inspection_sonic_layout_grid"),
+            ))
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+async fn rex_inspection_sonic_layout_cell(
+    session_id: String,
+    expected_rom_sha256: String,
+    layout_index: usize,
+    row: usize,
+    col: usize,
+    request_id: Option<String>,
+) -> Result<
+    tools::reverse::decomp::sonic_layouts::LayoutCelula,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_command_off_main_thread(
+        move || {
+            tools::reverse::decomp::inspection::sonic_layout_cell(
+                &session_id,
+                &expected_rom_sha256,
+                layout_index,
+                row,
+                col,
+                request_id.as_deref(),
+            )
+            .map_err(tools::reverse::decomp::inspection::layouts_error)
+        },
+        || {
+            Err(tools::reverse::decomp::inspection::layouts_error(
+                interrupted_command_message("rex_inspection_sonic_layout_cell"),
+            ))
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+async fn rex_inspection_sonic_ss_walls(
+    session_id: String,
+    expected_rom_sha256: Option<String>,
+    request_id: Option<String>,
+) -> Result<
+    tools::reverse::decomp::sonic_ss_walls::SsWallsInfo,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_command_off_main_thread(
+        move || {
+            tools::reverse::decomp::inspection::sonic_ss_walls_info(
+                &session_id,
+                expected_rom_sha256.as_deref(),
+                request_id.as_deref(),
+            )
+            .map_err(tools::reverse::decomp::inspection::layouts_error)
+        },
+        || {
+            Err(tools::reverse::decomp::inspection::layouts_error(
+                interrupted_command_message("rex_inspection_sonic_ss_walls"),
+            ))
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+async fn rex_inspection_sonic_ss_wall_compose(
+    session_id: String,
+    expected_rom_sha256: String,
+    id: u8,
+    frame: usize,
+    request_id: Option<String>,
+) -> Result<
+    tools::reverse::decomp::sonic_ss_walls::SsWallsComposicao,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_command_off_main_thread(
+        move || {
+            tools::reverse::decomp::inspection::sonic_ss_walls_compose(
+                &session_id,
+                &expected_rom_sha256,
+                id,
+                frame,
+                request_id.as_deref(),
+            )
+            .map_err(tools::reverse::decomp::inspection::layouts_error)
+        },
+        || {
+            Err(tools::reverse::decomp::inspection::layouts_error(
+                interrupted_command_message("rex_inspection_sonic_ss_wall_compose"),
+            ))
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+fn rex_inspection_set_layouts_selection(
+    session_id: String,
+    selection: Option<tools::reverse::decomp::sonic_layouts::SelecaoLayouts>,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionSession,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::set_layouts_selection(&session_id, selection)
+        .map_err(tools::reverse::decomp::inspection::layouts_error)
+}
+
+#[tauri::command]
+fn rex_inspection_sonic_layouts_cancel(
+    request_id: String,
+) -> Result<bool, tools::reverse::decomp::inspection::InspectionError> {
+    tools::reverse::decomp::sonic_layouts::cancelar(&request_id)
+        .map_err(tools::reverse::decomp::inspection::layouts_error)
+}
+
+#[tauri::command]
+fn rex_inspection_edit_sonic_sequence(
+    session_id: String,
+    resource_id: String,
+    proposal: Vec<u8>,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionEdit,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::edit_sonic_sequence(&session_id, &resource_id, proposal)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
+fn rex_inspection_restore_sonic_sequence(
+    session_id: String,
+    resource_id: String,
+) -> Result<
+    tools::reverse::decomp::inspection::InspectionEdit,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    tools::reverse::decomp::inspection::restore_sonic_sequence(&session_id, &resource_id)
+        .map_err(tools::reverse::decomp::inspection::InspectionError::from_wire)
+}
+
+#[tauri::command]
 fn rom_save_annotations(
     rom_path: String,
     annotations: Vec<ReverseAnnotation>,
 ) -> Result<usize, String> {
     tools::reverse::save_rom_annotations(&rom_path, &annotations)
+}
+
+#[tauri::command]
+async fn rex_resource_list(
+    rom_path: String,
+) -> Result<
+    (
+        String,
+        Vec<tools::reverse::decomp::rex_resources::ResourceSummary>,
+    ),
+    String,
+> {
+    run_heavy_result_command("rex_resource_list", move || {
+        tools::reverse::decomp::rex_resources::list_resources(&rom_path)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn rex_resource_preview(
+    rom_path: String,
+    stream_offset: u64,
+) -> Result<tools::reverse::decomp::rex_resources::ResourceEditResult, String> {
+    run_heavy_result_command("rex_resource_preview", move || {
+        tools::reverse::decomp::rex_resources::preview_resource(&rom_path, stream_offset)
+    })
+    .await
+}
+
+/// Contexto somente leitura de uma ROM: vínculos `Image` → paleta/TileSet/
+/// TileMap verificados por ponteiro seguido, com identidade (SHA-256 do decode),
+/// dimensões, prévia da camada composta e ocorrências de cada tile **deste
+/// mapa**. Nada aqui escreve: a edição continua sendo `rex_resource_apply_edit`,
+/// que revalida a identidade da ROM antes de tocar em qualquer byte.
+#[tauri::command]
+async fn rex_resource_context(
+    rom_path: String,
+) -> Result<tools::reverse::decomp::rex_context::ContextoRom, String> {
+    run_heavy_result_command("rex_resource_context", move || {
+        tools::reverse::decomp::rex_context::contexto_da_rom_path(&rom_path)
+    })
+    .await
+}
+
+/// Clique na camada composta, resolvido pelo núcleo: célula, flips, banco, pixel
+/// da fonte (tile/linha/coluna/índice) e as células irmãs do mesmo tile.
+#[tauri::command]
+async fn rex_resource_context_hit(
+    rom_path: String,
+    struct_offset: u64,
+    x: u64,
+    y: u64,
+) -> Result<tools::reverse::decomp::rex_context::ResolucaoClique, String> {
+    run_heavy_result_command("rex_resource_context_hit", move || {
+        tools::reverse::decomp::rex_context::contexto_clique_path(&rom_path, struct_offset, x, y)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn rex_resource_apply_edit(
+    rom_path: String,
+    stream_offset: u64,
+    edits: Vec<tools::reverse::decomp::rex_resources::PixelEdit>,
+    expected_rom_sha256: String,
+) -> Result<tools::reverse::decomp::rex_resources::ResourceEditResult, String> {
+    run_heavy_result_command("rex_resource_apply_edit", move || {
+        tools::reverse::decomp::rex_resources::apply_resource_edit(
+            &rom_path,
+            stream_offset,
+            &edits,
+            &expected_rom_sha256,
+        )
+    })
+    .await
+}
+
+#[tauri::command]
+async fn rex_addressing_read_snapshot(
+    request: tools::reverse::decomp::rex_addressing::SnapshotReadRequest,
+) -> Result<
+    tools::reverse::decomp::rex_addressing::SnapshotReadResult,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    // Leitura de bytes co estado do mapper FIXO, servida pola biblioteca
+    // `crates/rex-addressing`. Serialización, tradución de erros e confereção da
+    // identidade viven no adaptador; a biblioteca segue sen Tauri. As
+    // transicións de banco (`read_sequence`) son outra operación e aínda non se
+    // exponen por aquí. Perfil e estado son explícitos: nada se autodetecta.
+    run_heavy_command_off_main_thread(
+        move || tools::reverse::decomp::rex_addressing::read_fixed_snapshot(&request),
+        || {
+            Err(tools::reverse::decomp::inspection::InspectionError {
+                code: "command_interrupted".to_string(),
+                message: interrupted_command_message("rex_addressing_read_snapshot"),
+                retryable: true,
+            })
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+async fn rex_kosinski_decode(
+    request: tools::reverse::decomp::rex_kosinski::KosinskiDecodeRequest,
+) -> Result<
+    tools::reverse::decomp::rex_kosinski::KosinskiDecodeResponse,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    // Decodificación Kosinski servida pola biblioteca `crates/rex-kosinski`.
+    // Serialización e tradución de erros viven no adaptador; os limites son
+    // explícitos (sen eles, os defectos do contrato). A reinserción
+    // (`edit::reinsert`) NON se expón: segue polas transacións canónicas.
+    run_heavy_command_off_main_thread(
+        move || tools::reverse::decomp::rex_kosinski::ipc_decode(&request),
+        || {
+            Err(tools::reverse::decomp::inspection::InspectionError {
+                code: "command_interrupted".to_string(),
+                message: interrupted_command_message("rex_kosinski_decode"),
+                retryable: true,
+            })
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+async fn rex_kosinski_encode(
+    request: tools::reverse::decomp::rex_kosinski::KosinskiEncodeRequest,
+) -> Result<
+    tools::reverse::decomp::rex_kosinski::KosinskiEncodeResponse,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    // Codificación Kosinski: operación separada da decodificación, só
+    // transforma streams. Non escribe en ningunh sitio nin toca ningunha ROM.
+    run_heavy_command_off_main_thread(
+        move || tools::reverse::decomp::rex_kosinski::ipc_encode(&request),
+        || {
+            Err(tools::reverse::decomp::inspection::InspectionError {
+                code: "command_interrupted".to_string(),
+                message: interrupted_command_message("rex_kosinski_encode"),
+                retryable: true,
+            })
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+async fn rex_profile_catalog(
+    request: tools::reverse::decomp::rex_profile_ipc::ProfileCatalogRequest,
+) -> Result<
+    tools::reverse::decomp::rex_profile_ipc::ProfileCatalogResponse,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_command_off_main_thread(
+        move || tools::reverse::decomp::rex_profile_ipc::ipc_catalog(&request),
+        || {
+            Err(tools::reverse::decomp::inspection::InspectionError {
+                code: "command_interrupted".to_string(),
+                message: interrupted_command_message("rex_profile_catalog"),
+                retryable: true,
+            })
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+async fn rex_profile_locate(
+    request: tools::reverse::decomp::rex_profile_ipc::ProfileLocateRequest,
+) -> Result<
+    tools::reverse::decomp::rex_profile_ipc::ProfileLocateResponse,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    run_heavy_command_off_main_thread(
+        move || tools::reverse::decomp::rex_profile_ipc::ipc_locate(&request),
+        || {
+            Err(tools::reverse::decomp::inspection::InspectionError {
+                code: "command_interrupted".to_string(),
+                message: interrupted_command_message("rex_profile_locate"),
+                retryable: true,
+            })
+        },
+    )
+    .await
+}
+
+#[tauri::command]
+async fn rex_profile_edit(
+    request: tools::reverse::decomp::rex_profile_ipc::ProfileEditRequest,
+) -> Result<
+    tools::reverse::decomp::rex_profile_ipc::ProfileEditResponse,
+    tools::reverse::decomp::inspection::InspectionError,
+> {
+    // Grava uma COPIA nova e um IPS em output_dir (nunca sobrescreve, nunca toca a ROM de entrada).
+    run_heavy_command_off_main_thread(
+        move || tools::reverse::decomp::rex_profile_ipc::ipc_edit(&request),
+        || {
+            Err(tools::reverse::decomp::inspection::InspectionError {
+                code: "command_interrupted".to_string(),
+                message: interrupted_command_message("rex_profile_edit"),
+                retryable: true,
+            })
+        },
+    )
+    .await
 }
 
 #[tauri::command]
@@ -1933,8 +3543,77 @@ fn list_project_assets(project_dir: String) -> Result<Vec<ProjectAssetEntry>, St
 
     let mut entries = Vec::new();
     collect_project_assets(&assets_dir, &assets_dir, &mut entries)?;
+    let catalog = core::project_mgr::sgdk_asset_authoring(Path::new(trimmed));
+    for entry in &mut entries {
+        entry.sgdk_resource = catalog.get(&entry.relative_path).cloned().or_else(|| {
+            tools::photo2sgdk::ingress::pixel_asset_authoring(
+                Path::new(trimmed),
+                &entry.relative_path,
+                entry.image_width,
+                entry.image_height,
+            )
+        });
+    }
     entries.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
     Ok(entries)
+}
+
+fn normalize_project_asset_path(relative_path: &str) -> Result<PathBuf, String> {
+    let trimmed = relative_path.trim();
+    if trimmed.is_empty() {
+        return Err("Caminho de asset vazio.".to_string());
+    }
+
+    let mut normalized = PathBuf::new();
+    for component in Path::new(trimmed).components() {
+        match component {
+            Component::Normal(value) => normalized.push(value),
+            Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
+                return Err(format!(
+                    "Caminho de asset '{}' saiu da raiz autorizada.",
+                    relative_path
+                ));
+            }
+        }
+    }
+
+    let normalized_text = normalized.to_string_lossy().replace('\\', "/");
+    if normalized_text != "assets" && !normalized_text.starts_with("assets/") {
+        return Err(format!(
+            "Asset '{}' deve permanecer dentro de assets/.",
+            relative_path
+        ));
+    }
+    Ok(normalized)
+}
+
+#[tauri::command]
+fn read_project_asset_bytes(project_dir: String, relative_path: String) -> Result<Vec<u8>, String> {
+    let project_root = core::project_asset_scope::resolve_project_asset_root(project_dir.trim())?;
+    let relative_path = normalize_project_asset_path(&relative_path)?;
+    let assets_root = project_root.join("assets");
+    let asset_path = project_root.join(&relative_path);
+    let canonical_asset = fs::canonicalize(&asset_path).map_err(|error| {
+        format!(
+            "Asset '{}' nao encontrado: {}",
+            relative_path.display(),
+            error
+        )
+    })?;
+    if !canonical_asset.starts_with(&assets_root) || !canonical_asset.is_file() {
+        return Err(format!(
+            "Asset '{}' nao pertence ao escopo autorizado.",
+            relative_path.display()
+        ));
+    }
+    fs::read(&canonical_asset).map_err(|error| {
+        format!(
+            "Falha ao ler asset '{}': {}",
+            relative_path.display(),
+            error
+        )
+    })
 }
 
 const LEGACY_TEXT_PREVIEW_LIMIT: usize = 128 * 1024;
@@ -2099,6 +3778,51 @@ fn open_path_with_system_default(path: &Path) -> Result<(), String> {
         }
         Err("O host recusou abrir a fonte real pelo editor associado.".to_string())
     }
+}
+
+#[tauri::command]
+fn sgdk_c_graph_index(
+    project_dir: String,
+) -> Result<crate::core::sgdk_c_graph::CGraphIndex, String> {
+    crate::core::sgdk_c_graph::load_c_graph_index(Path::new(project_dir.trim()))
+}
+
+#[tauri::command]
+fn sgdk_c_graph_file(
+    project_dir: String,
+    source_file: String,
+) -> Result<crate::core::sgdk_c_graph::CGraphFile, String> {
+    crate::core::sgdk_c_graph::load_indexed_c_graph(Path::new(project_dir.trim()), &source_file)
+}
+
+#[tauri::command]
+fn sgdk_c_graph_update_node(
+    project_dir: String,
+    source_file: String,
+    node_id: String,
+    text: String,
+) -> Result<crate::core::sgdk_c_graph::CGraphFile, String> {
+    crate::core::sgdk_c_graph::update_c_graph_node(
+        Path::new(project_dir.trim()),
+        &source_file,
+        &node_id,
+        &text,
+    )
+}
+
+#[tauri::command]
+fn sgdk_c_graph_update_block(
+    project_dir: String,
+    source_file: String,
+    node_id: String,
+    block: crate::core::sgdk_c_graph::CBlock,
+) -> Result<crate::core::sgdk_c_graph::CGraphFile, String> {
+    crate::core::sgdk_c_graph::update_c_graph_block(
+        Path::new(project_dir.trim()),
+        &source_file,
+        &node_id,
+        &block,
+    )
 }
 
 #[tauri::command]
@@ -2314,10 +4038,17 @@ fn collect_project_assets(
             .to_string_lossy()
             .replace('\\', "/");
 
+        let kind = project_asset_kind(&path);
+        let dimensions = (kind == "image")
+            .then(|| image::image_dimensions(&path).ok())
+            .flatten();
         entries.push(ProjectAssetEntry {
             relative_path: relative,
             absolute_path: path.to_string_lossy().to_string(),
-            kind: project_asset_kind(&path),
+            kind,
+            image_width: dimensions.map(|(w, _)| w),
+            image_height: dimensions.map(|(_, h)| h),
+            sgdk_resource: None,
         });
     }
 
@@ -2550,22 +4281,77 @@ pub struct ResolveSceneResult {
     pub ok: bool,
     pub error: String,
     pub scene_json: String,
+    pub graphs: BTreeMap<String, String>,
 }
 
 /// Retorna o JSON completo da cena de entrada do projeto (entry_scene).
 #[tauri::command]
-fn get_scene_data(project_dir: String, scene_path: Option<String>) -> SceneDataResult {
-    load_scene_result(Path::new(&project_dir), scene_path.as_deref())
+async fn get_scene_data(
+    project_dir: String,
+    scene_path: Option<String>,
+) -> Result<SceneDataResult, String> {
+    run_heavy_result_command("get_scene_data", move || {
+        Ok(load_scene_result(
+            Path::new(&project_dir),
+            scene_path.as_deref(),
+        ))
+    })
+    .await
 }
 
 #[tauri::command]
-fn resolve_scene_prefabs(project_dir: String, scene_json: String) -> ResolveSceneResult {
-    resolve_scene_prefabs_result(Path::new(&project_dir), &scene_json)
+fn get_reference_template_composition(
+    project_dir: String,
+    scene_path: String,
+) -> Result<Scene, String> {
+    crate::core::project_mgr::reference_platformer_composition_baseline(
+        Path::new(&project_dir),
+        &scene_path,
+    )
+    .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-fn switch_scene(project_dir: String, scene_path: String) -> SceneDataResult {
-    if let Err(error) = set_entry_scene(Path::new(&project_dir), &scene_path) {
+async fn resolve_scene_prefabs(
+    project_dir: String,
+    scene_json: String,
+) -> Result<ResolveSceneResult, String> {
+    run_heavy_result_command("resolve_scene_prefabs", move || {
+        Ok(resolve_scene_prefabs_result(
+            Path::new(&project_dir),
+            &scene_json,
+        ))
+    })
+    .await
+}
+
+#[tauri::command]
+async fn set_project_entry_scene(
+    project_dir: String,
+    scene_path: String,
+) -> Result<String, String> {
+    run_heavy_result_command("set_project_entry_scene", move || {
+        set_entry_scene(Path::new(&project_dir), &scene_path)
+            .map(|project| project.entry_scene)
+            .map_err(|error| error.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
+async fn switch_scene(project_dir: String, scene_path: String) -> Result<SceneDataResult, String> {
+    run_heavy_result_command("switch_scene", move || {
+        Ok(switch_scene_impl(project_dir, scene_path))
+    })
+    .await
+}
+
+/// Opens a scene for editing. It no longer rewrites `project.entry_scene`: choosing
+/// where the game starts is the explicit `set_project_entry_scene` action.
+fn switch_scene_impl(project_dir: String, scene_path: String) -> SceneDataResult {
+    if let Err(error) = crate::core::project_mgr::validate_scene_path(&scene_path)
+        .and_then(|_| load_scene(Path::new(&project_dir), &scene_path).map(|_| ()))
+    {
         return SceneDataResult {
             ok: false,
             error: error.to_string(),
@@ -2667,6 +4453,7 @@ fn resolve_scene_prefabs_result(project_dir: &Path, scene_json: &str) -> Resolve
             ok: false,
             error: "Nenhum projeto aberto.".into(),
             scene_json: String::new(),
+            graphs: BTreeMap::new(),
         };
     }
 
@@ -2677,117 +4464,249 @@ fn resolve_scene_prefabs_result(project_dir: &Path, scene_json: &str) -> Resolve
                 ok: false,
                 error: format!("JSON de cena invalido: {}", error),
                 scene_json: String::new(),
+                graphs: BTreeMap::new(),
             }
         }
     };
 
-    match resolve_prefabs(project_dir, &scene) {
-        Ok(resolved_scene) => ResolveSceneResult {
+    let result = core::project_mgr::resolve_prefabs_with_graph_baseline(project_dir, &scene);
+    match result {
+        Ok((resolved_scene, graphs)) => ResolveSceneResult {
             ok: true,
             error: String::new(),
             scene_json: serde_json::to_string_pretty(&resolved_scene).unwrap_or_default(),
+            graphs,
         },
         Err(error) => ResolveSceneResult {
             ok: false,
             error: error.to_string(),
             scene_json: String::new(),
+            graphs: BTreeMap::new(),
         },
     }
 }
 
 #[tauri::command]
-fn list_scenes(project_dir: String) -> Result<Vec<SceneInfo>, String> {
+async fn list_scenes(project_dir: String) -> Result<Vec<SceneInfo>, String> {
     if project_dir.is_empty() {
         return Ok(Vec::new());
     }
-    list_project_scenes(Path::new(&project_dir)).map_err(|error| error.to_string())
+    run_heavy_result_command("list_scenes", move || {
+        list_project_scenes(Path::new(&project_dir)).map_err(|error| error.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
-fn create_scene(project_dir: String, display_name: Option<String>) -> Result<SceneInfo, String> {
+async fn create_scene(
+    project_dir: String,
+    display_name: Option<String>,
+) -> Result<SceneInfo, String> {
     if project_dir.trim().is_empty() {
         return Err("Nenhum projeto aberto.".into());
     }
-    create_project_scene(Path::new(&project_dir), display_name.as_deref())
-        .map_err(|error| error.to_string())
+    run_heavy_result_command("create_scene", move || {
+        create_project_scene(Path::new(&project_dir), display_name.as_deref())
+            .map_err(|error| error.to_string())
+    })
+    .await
 }
 
-/// Salva o JSON de cena de volta para o arquivo entry_scene do projeto.
+#[derive(serde::Serialize)]
+struct SceneSaveResult {
+    ok: bool,
+    message: String,
+    scene_json: Option<String>,
+    conflict: bool,
+    graphs: BTreeMap<String, String>,
+}
+
+static SCENE_DRAFT_IO_LOCK: Mutex<()> = Mutex::new(());
+
+/// Durable backing for scenePersistence's existing draft record. localStorage
+/// remains a legacy migration source; the editable scene is never written here.
 #[tauri::command]
-fn save_scene_data(
+fn scene_draft_storage(
+    project_dir: String,
+    scene_path: String,
+    operation: String,
+    value: Option<String>,
+    expected: Option<String>,
+) -> Result<Option<String>, String> {
+    let _guard = SCENE_DRAFT_IO_LOCK.lock().map_err(|e| e.to_string())?;
+    let root = Path::new(&project_dir)
+        .canonicalize()
+        .map_err(|e| e.to_string())?;
+    load_project(&root).map_err(|e| e.to_string())?;
+    if scene_path.is_empty()
+        || Path::new(&scene_path)
+            .components()
+            .any(|c| !matches!(c, Component::Normal(_)))
+    {
+        return Err("Identidade de cena invalida para rascunho.".into());
+    }
+    let folder = root.join(".rds").join("scene-drafts");
+    for directory in [root.join(".rds"), folder.clone()] {
+        if fs::symlink_metadata(&directory).is_ok_and(|m| m.file_type().is_symlink()) {
+            return Err("Diretorio de rascunho nao pode ser um link simbolico.".into());
+        }
+    }
+    let file = folder.join(format!("{}.json", sha256_hex(scene_path.as_bytes())));
+    if fs::symlink_metadata(&file).is_ok_and(|m| m.file_type().is_symlink()) {
+        return Err("Arquivo de rascunho nao pode ser um link simbolico.".into());
+    }
+    let read = || match fs::read_to_string(&file) {
+        Ok(raw) => Ok(Some(raw)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    };
+    let current = read()?;
+    if operation == "read" {
+        return Ok(current);
+    }
+    if current != expected {
+        return Err("O rascunho mudou durante a operacao. A copia existente foi preservada; leia novamente.".into());
+    }
+    match operation.as_str() {
+        "write" => {
+            let raw = value.ok_or("Rascunho ausente.")?;
+            let record: serde_json::Value =
+                serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+            if record["schemaVersion"] != 2
+                || record["projectDir"] != project_dir
+                || record["scenePath"] != scene_path
+                || record["revision"].as_u64().is_none()
+            {
+                return Err("Identidade ou revisao invalida no rascunho.".into());
+            }
+            let _: Scene = serde_json::from_str(
+                record["sourceSceneJson"]
+                    .as_str()
+                    .ok_or("Cena ausente no rascunho.")?,
+            )
+            .map_err(|e| e.to_string())?;
+            fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+            core::project_mgr::write_text_atomically_with_retry(&file, &raw)
+                .map_err(|e| e.to_string())?;
+            let persisted = read()?;
+            if persisted.as_deref() != Some(raw.as_str()) {
+                return Err("Rascunho nao confirmado apos gravacao.".into());
+            }
+            Ok(persisted)
+        }
+        "remove" => {
+            if current.is_some() {
+                fs::remove_file(&file).map_err(|e| e.to_string())?;
+                core::project_mgr::sync_parent_dir(&file).map_err(|e| e.to_string())?;
+            }
+            Ok(None)
+        }
+        _ => Err("Operacao de rascunho desconhecida.".into()),
+    }
+}
+
+/// Saves through the existing atomic writer. An optional loaded baseline detects
+/// external edits before graph/file writes; older callers keep their contract.
+#[tauri::command]
+async fn save_scene_data(
     project_dir: String,
     scene_json: String,
     scene_path: Option<String>,
     resolved_scene_json: Option<String>,
-) -> EmulatorCommandResult {
-    if project_dir.is_empty() {
-        return EmulatorCommandResult {
-            ok: false,
-            message: "Nenhum projeto aberto.".into(),
-        };
-    }
-    let dir = PathBuf::from(&project_dir);
-    let project = match load_project(&dir) {
-        Ok(p) => p,
-        Err(e) => {
-            return EmulatorCommandResult {
-                ok: false,
-                message: e.to_string(),
-            }
-        }
-    };
-    // Valida que é JSON válido antes de salvar
-    if serde_json::from_str::<serde_json::Value>(&scene_json).is_err() {
-        return EmulatorCommandResult {
-            ok: false,
-            message: "JSON de cena inválido.".into(),
-        };
-    }
-    let mut scene = match serde_json::from_str::<ugdm::entities::Scene>(&scene_json) {
-        Ok(scene) => scene,
-        Err(e) => {
-            return EmulatorCommandResult {
-                ok: false,
-                message: format!("JSON de cena invalido: {}", e),
-            }
-        }
-    };
-    if let Some(resolved_scene_json) = resolved_scene_json
-        .as_deref()
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-    {
-        let resolved_scene =
-            match serde_json::from_str::<ugdm::entities::Scene>(resolved_scene_json) {
-                Ok(scene) => scene,
-                Err(error) => {
-                    return EmulatorCommandResult {
-                        ok: false,
-                        message: format!("JSON de cena resolvida invalido: {}", error),
-                    }
-                }
-            };
+    expected_scene_json: Option<String>,
+    expected_graphs: Option<BTreeMap<String, String>>,
+) -> Result<SceneSaveResult, String> {
+    run_heavy_result_command("save_scene_data", move || {
+        Ok(save_scene_data_impl(
+            project_dir,
+            scene_json,
+            scene_path,
+            resolved_scene_json,
+            expected_scene_json,
+            expected_graphs,
+        ))
+    })
+    .await
+}
 
-        if let Err(error) = sync_external_graph_refs(&dir, &mut scene, &resolved_scene) {
-            return EmulatorCommandResult {
-                ok: false,
-                message: error.to_string(),
-            };
+fn save_scene_data_impl(
+    project_dir: String,
+    scene_json: String,
+    scene_path: Option<String>,
+    resolved_scene_json: Option<String>,
+    expected_scene_json: Option<String>,
+    expected_graphs: Option<BTreeMap<String, String>>,
+) -> SceneSaveResult {
+    let mut conflict_json = None;
+    let mut graphs = BTreeMap::new();
+    let result = (|| -> Result<String, String> {
+        if project_dir.is_empty() {
+            return Err("Nenhum projeto aberto.".into());
         }
-    }
-    let target_scene_path = scene_path
-        .as_deref()
-        .map(str::trim)
-        .filter(|path| !path.is_empty())
-        .unwrap_or(project.entry_scene.as_str());
-    match save_scene(&dir, target_scene_path, &scene) {
-        Ok(()) => EmulatorCommandResult {
+        let dir = PathBuf::from(&project_dir);
+        let project = load_project(&dir).map_err(|e| e.to_string())?;
+        let guard = core::scene_save::begin(&dir).map_err(|e| e.to_string())?;
+        let target = scene_path
+            .as_deref()
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+            .unwrap_or(project.entry_scene.as_str());
+        if let Some(expected) = expected_scene_json.as_deref() {
+            let expected: ugdm::entities::Scene = serde_json::from_str(expected)
+                .map_err(|e| format!("Base de salvamento invalida: {e}"))?;
+            let current = load_scene(&dir, target).map_err(|e| e.to_string())?;
+            if serde_json::to_value(&expected).map_err(|e| e.to_string())?
+                != serde_json::to_value(&current).map_err(|e| e.to_string())?
+            {
+                conflict_json = Some(serde_json::to_string(&current).map_err(|e| e.to_string())?);
+                return Err("O arquivo salvo mudou desde a abertura. Rascunho preservado; revise a divergencia antes de salvar.".into());
+            }
+            if let Some(expected_graphs) = expected_graphs.as_ref() {
+                let current_graphs = core::project_mgr::external_graph_baseline(&dir, &current)
+                    .map_err(|e| e.to_string())?;
+                if &current_graphs != expected_graphs {
+                    conflict_json =
+                        Some(serde_json::to_string(&current).map_err(|e| e.to_string())?);
+                    return Err("Um grafo externo mudou desde a abertura. Rascunho preservado; recarregue ou revise o conflito antes de salvar.".into());
+                }
+            }
+        }
+        let mut scene: ugdm::entities::Scene =
+            serde_json::from_str(&scene_json).map_err(|e| format!("JSON de cena invalido: {e}"))?;
+        scene = core::project_mgr::migrate_scene(scene);
+        core::project_mgr::validate_scene(&scene).map_err(|e| e.to_string())?;
+        let mut writes = BTreeMap::new();
+        if let Some(json) = resolved_scene_json
+            .as_deref()
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+        {
+            let resolved: ugdm::entities::Scene = serde_json::from_str(json)
+                .map_err(|e| format!("JSON de cena resolvida invalido: {e}"))?;
+            writes = collect_external_graph_refs(&dir, &mut scene, &resolved)
+                .map_err(|e| e.to_string())?;
+        }
+        core::scene_save::commit(&dir, target, &scene, &writes, &guard)
+            .map_err(|e| e.to_string())?;
+        let persisted = load_scene(&dir, target).map_err(|e| e.to_string())?;
+        graphs = core::project_mgr::external_graph_baseline(&dir, &persisted)
+            .map_err(|e| e.to_string())?;
+        serde_json::to_string(&persisted).map_err(|e| e.to_string())
+    })();
+    match result {
+        Ok(json) => SceneSaveResult {
             ok: true,
             message: "Cena salva.".into(),
+            scene_json: Some(json),
+            conflict: false,
+            graphs,
         },
-        Err(e) => EmulatorCommandResult {
+        Err(message) => SceneSaveResult {
             ok: false,
-            message: e.to_string(),
+            message,
+            conflict: conflict_json.is_some(),
+            scene_json: conflict_json,
+            graphs,
         },
     }
 }
@@ -3573,6 +5492,8 @@ fn create_project_from_template_at_base_dir(
     template_id: &str,
     donor_path: Option<&Path>,
 ) -> Result<OpenProjectResult, String> {
+    crate::core::project_mgr::validate_project_template_target(template_id, target)
+        .map_err(|error| error.to_string())?;
     let (project_dir, notice) = reserve_project_dir(base_dir, project_name)?;
 
     let project = create_project_skeleton(&project_dir, project_name, target)
@@ -3732,11 +5653,23 @@ fn import_mugen_project_at_base_dir(
     mugen_path: &Path,
 ) -> Result<OpenProjectResult, String> {
     let (project_dir, dir_notice) = reserve_project_dir(base_dir, project_name)?;
-
-    let project = create_project_skeleton(&project_dir, project_name, "megadrive")
-        .map_err(|error| error.to_string())?;
-    let report = import_mugen_scene(&project_dir, mugen_path).map_err(|error| error.to_string())?;
-    stamp_imported_mugen_metadata(&project_dir, mugen_path).map_err(|error| error.to_string())?;
+    let origin = reserved_dir_origin(&project_dir);
+    let imported = (|| {
+        let project = create_project_skeleton(&project_dir, project_name, "megadrive")
+            .map_err(|error| error.to_string())?;
+        let report =
+            import_mugen_scene(&project_dir, mugen_path).map_err(|error| error.to_string())?;
+        stamp_imported_mugen_metadata(&project_dir, mugen_path)
+            .map_err(|error| error.to_string())?;
+        Ok::<_, String>((project, report))
+    })();
+    let (project, report) = match imported {
+        Ok(value) => value,
+        Err(error) => {
+            discard_failed_import(&project_dir, origin);
+            return Err(error);
+        }
+    };
     let primary_scene_label = report
         .primary_scene
         .display_name
@@ -3763,7 +5696,13 @@ fn import_mugen_project_at_base_dir(
         path: project_dir.to_string_lossy().to_string(),
         name: project.name,
         base_dir: Some(base_dir.to_string_lossy().to_string()),
-        notice: merge_project_notices(dir_notice, notice),
+        notice: merge_project_notices(
+            dir_notice,
+            merge_project_notices(
+                notice,
+                crate::core::mugen_profile::summary_line(&project_dir),
+            ),
+        ),
         preferred_scene_path: Some(DEFAULT_ENTRY_SCENE.to_string()),
         imported_scene_paths: vec![DEFAULT_ENTRY_SCENE.to_string()],
         import_summary: None,
@@ -3796,20 +5735,106 @@ fn external_import_notice(
     }
 }
 
+/// Estado da pasta reservada antes da importacao, para desfazer so o que a importacao criou.
+enum ReservedDirOrigin {
+    Created,
+    ExistingEmpty,
+    ExistingNonEmpty,
+}
+
+fn reserved_dir_origin(project_dir: &Path) -> ReservedDirOrigin {
+    match fs::read_dir(project_dir) {
+        Err(_) => ReservedDirOrigin::Created,
+        Ok(mut entries) => {
+            if entries.next().is_none() {
+                ReservedDirOrigin::ExistingEmpty
+            } else {
+                ReservedDirOrigin::ExistingNonEmpty
+            }
+        }
+    }
+}
+
+/// Uma importacao que falhou nao pode deixar um projeto que parece valido: remove o que
+/// esta importacao criou na pasta reservada (nunca conteudo preexistente).
+fn discard_failed_import(project_dir: &Path, origin: ReservedDirOrigin) {
+    match origin {
+        ReservedDirOrigin::Created => {
+            let _ = fs::remove_dir_all(project_dir);
+        }
+        ReservedDirOrigin::ExistingEmpty => {
+            if let Ok(entries) = fs::read_dir(project_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    let _ = if path.is_dir() {
+                        fs::remove_dir_all(&path)
+                    } else {
+                        fs::remove_file(&path)
+                    };
+                }
+            }
+        }
+        ReservedDirOrigin::ExistingNonEmpty => {}
+    }
+}
+
 fn import_external_project_at_base_dir(
     base_dir: &Path,
     project_name: &str,
     profile_id: &str,
     project_path: &Path,
 ) -> Result<OpenProjectResult, String> {
-    let (project_dir, dir_notice) = reserve_project_dir(base_dir, project_name)?;
+    import_external_project_at_base_dir_with_review(
+        base_dir,
+        project_name,
+        profile_id,
+        project_path,
+        None,
+    )
+}
 
-    let project = create_project_skeleton(&project_dir, project_name, "megadrive")
+fn import_external_project_at_base_dir_with_review(
+    base_dir: &Path,
+    project_name: &str,
+    profile_id: &str,
+    project_path: &Path,
+    review: Option<&core::mugen_profile::ReviewOptions>,
+) -> Result<OpenProjectResult, String> {
+    let (project_dir, dir_notice) = reserve_project_dir(base_dir, project_name)?;
+    let origin = reserved_dir_origin(&project_dir);
+    let imported = (|| {
+        let project = create_project_skeleton(&project_dir, project_name, "megadrive")
+            .map_err(|error| error.to_string())?;
+        let report = if let Some(review) = review {
+            if !matches!(profile_id, "mugen" | "ikemen_go") {
+                return Err("Revisao MUGEN exige perfil MUGEN/Ikemen.".into());
+            }
+            core::project_mgr::import_mugen_project_with_review(
+                &project_dir,
+                project_path,
+                profile_id,
+                Some(review),
+            )
+            .map(|r| core::project_mgr::ExternalImportReport {
+                primary_scene: r.primary_scene,
+                imported_scenes: r.imported_scenes,
+                skipped_sources: r.skipped_sources,
+            })
+        } else {
+            import_external_scene(&project_dir, profile_id, project_path)
+        }
         .map_err(|error| error.to_string())?;
-    let report = import_external_scene(&project_dir, profile_id, project_path)
-        .map_err(|error| error.to_string())?;
-    stamp_imported_external_profile_metadata(&project_dir, profile_id, project_path)
-        .map_err(|error| error.to_string())?;
+        stamp_imported_external_profile_metadata(&project_dir, profile_id, project_path)
+            .map_err(|error| error.to_string())?;
+        Ok::<_, String>((project, report))
+    })();
+    let (project, report) = match imported {
+        Ok(value) => value,
+        Err(error) => {
+            discard_failed_import(&project_dir, origin);
+            return Err(error);
+        }
+    };
 
     let profile = list_registered_external_import_profiles()
         .into_iter()
@@ -3830,7 +5855,13 @@ fn import_external_project_at_base_dir(
         path: project_dir.to_string_lossy().to_string(),
         name: project.name,
         base_dir: Some(base_dir.to_string_lossy().to_string()),
-        notice: merge_project_notices(dir_notice, external_import_notice(&profile, &report)),
+        notice: merge_project_notices(
+            dir_notice,
+            merge_project_notices(
+                external_import_notice(&profile, &report),
+                crate::core::mugen_profile::summary_line(&project_dir),
+            ),
+        ),
         preferred_scene_path: Some(DEFAULT_ENTRY_SCENE.to_string()),
         imported_scene_paths: vec![DEFAULT_ENTRY_SCENE.to_string()],
         import_summary,
@@ -3846,7 +5877,16 @@ fn resolve_or_wrap_project_dir(
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "Projeto".to_string());
 
-    if let Ok(project_dir) = discover_project_rds(selected_dir) {
+    let host_needs_reimport = crate::core::project_mgr::legacy_overlay_needs_reimport(selected_dir);
+    if let Ok(project_dir) = discover_project_rds(selected_dir).and_then(|dir| {
+        if host_needs_reimport {
+            Err(crate::core::project_mgr::LoadError(
+                "overlay SGDK desatualizado".to_string(),
+            ))
+        } else {
+            Ok(dir)
+        }
+    }) {
         let (project_name, preferred_scene_path) = load_project(&project_dir)
             .map(|p| (p.name, p.entry_scene))
             .unwrap_or((fallback_name, DEFAULT_ENTRY_SCENE.to_string()));
@@ -3900,6 +5940,130 @@ async fn pick_folder_off_main_thread(app: &AppHandle) -> Option<tauri_plugin_dia
         .await
         .ok()
         .flatten()
+}
+
+fn project_root_checked(project_dir: &str) -> Result<PathBuf, String> {
+    let root = PathBuf::from(project_dir.trim());
+    if !root.join("project.rds").is_file() {
+        return Err("Projeto invalido: project.rds ausente.".to_string());
+    }
+    Ok(root)
+}
+
+/// Referencias `assets/...` de cenas, prefabs e grafos (Experimental).
+#[tauri::command]
+fn project_audit_paths(
+    project_dir: String,
+) -> Result<Vec<core::project_refs::PathReference>, String> {
+    core::project_refs::audit_path_references(&project_root_checked(&project_dir)?)
+}
+
+/// Renomeia/move um asset atualizando as referencias, com copia de seguranca (Experimental).
+#[tauri::command]
+fn project_rename_asset(
+    project_dir: String,
+    from: String,
+    to: String,
+) -> Result<core::project_refs::RenameReport, String> {
+    core::project_refs::rename_project_asset(&project_root_checked(&project_dir)?, &from, &to)
+}
+
+/// Aplica a excecao local de uma instancia ao modelo (prefab), com copia de seguranca (Experimental).
+#[tauri::command]
+fn project_apply_override_to_model(
+    project_dir: String,
+    scene_path: String,
+    entity_id: String,
+    component: String,
+) -> Result<core::project_refs::ApplyToModelReport, String> {
+    core::project_refs::apply_override_to_model(
+        &project_root_checked(&project_dir)?,
+        &scene_path,
+        &entity_id,
+        &component,
+    )
+}
+
+/// Restaura os bytes guardados por uma copia de seguranca (Experimental).
+#[tauri::command]
+fn project_restore_backup(
+    project_dir: String,
+    backup_id: String,
+) -> Result<core::project_refs::ProjectBackup, String> {
+    core::project_refs::restore_backup(&project_root_checked(&project_dir)?, &backup_id)
+}
+
+/// Escolher uma imagem de cenario (Experimental; Hierarquia → "Adicionar cenario").
+#[tauri::command]
+async fn pick_image_file_dialog(app: AppHandle, extended: Option<bool>) -> Option<String> {
+    let extensions: &[&str] = if extended.unwrap_or(false) {
+        &["png", "bmp", "jpg", "jpeg", "gif", "webp", "ppm"]
+    } else {
+        &["png", "bmp"]
+    };
+    let dialog = app.dialog().file().add_filter("Imagem", extensions);
+    tauri::async_runtime::spawn_blocking(move || dialog.blocking_pick_file())
+        .await
+        .ok()
+        .flatten()
+        .map(|path| path.to_string())
+}
+
+/// Traz uma imagem escolhida pelo usuario para `assets/tilesets/` (bytes inalterados).
+#[tauri::command]
+fn import_project_image(
+    project_dir: String,
+    source_path: String,
+) -> Result<crate::core::image_import::ImportedImage, String> {
+    crate::core::image_import::import_project_image(
+        &project_root_checked(&project_dir)?,
+        Path::new(source_path.trim()),
+    )
+}
+
+/// Plano de paletas da cena em edicao (mesmo planejador do build).
+#[tauri::command]
+fn scene_palette_plan(
+    project_dir: String,
+    scene: crate::ugdm::entities::Scene,
+) -> Result<crate::compiler::palette_plan::PalettePlan, String> {
+    let root = project_root_checked(&project_dir)?;
+    let project = crate::core::project_mgr::load_project(&root).map_err(|e| e.to_string())?;
+    if project.target != "megadrive" {
+        return Err(format!(
+            "Plano de paletas: sem adaptador para '{}' nesta versao (so Mega Drive).",
+            project.target
+        ));
+    }
+    let resolved =
+        crate::core::project_mgr::resolve_prefabs(&root, &scene).map_err(|e| e.to_string())?;
+    let ast = crate::compiler::ast_generator::generate_ast(&project, &resolved);
+    Ok(crate::compiler::palette_plan::plan_megadrive(
+        &root, &resolved, &ast,
+    ))
+}
+
+/// Escolher um WAV no disco (Experimental; Personagem → "Adicionar som").
+#[tauri::command]
+async fn pick_audio_file_dialog(app: AppHandle) -> Option<String> {
+    let dialog = app.dialog().file().add_filter("Som WAV", &["wav"]);
+    tauri::async_runtime::spawn_blocking(move || dialog.blocking_pick_file())
+        .await
+        .ok()
+        .flatten()
+        .map(|path| path.to_string())
+}
+
+/// Traz um WAV escolhido pelo usuario para `assets/audio/` do projeto (validado).
+#[tauri::command]
+fn import_project_audio(
+    project_dir: String,
+    source_path: String,
+) -> Result<crate::core::audio_pipeline::ImportedAudio, String> {
+    crate::core::audio_pipeline::import_project_audio(
+        Path::new(project_dir.trim()),
+        Path::new(source_path.trim()),
+    )
 }
 
 /// Abre o diálogo nativo "Selecionar pasta do projeto" e retorna o caminho.
@@ -3998,9 +6162,17 @@ async fn import_external_project(
     base_dir: String,
     profile_id: String,
     project_path: String,
+    mugen_review: Option<core::mugen_profile::ReviewOptions>,
 ) -> Result<OpenProjectResult, String> {
-    run_heavy_result_command("import_external_project", move || {
-        import_external_project_impl(project_name, base_dir, profile_id, project_path)
+    run_heavy_result_command("import_external_project", move || match mugen_review {
+        Some(review) => import_external_project_impl_with_review(
+            project_name,
+            base_dir,
+            profile_id,
+            project_path,
+            Some(review),
+        ),
+        None => import_external_project_impl(project_name, base_dir, profile_id, project_path),
     })
     .await
 }
@@ -4010,6 +6182,16 @@ fn import_external_project_impl(
     base_dir: String,
     profile_id: String,
     project_path: String,
+) -> Result<OpenProjectResult, String> {
+    import_external_project_impl_with_review(project_name, base_dir, profile_id, project_path, None)
+}
+
+fn import_external_project_impl_with_review(
+    project_name: String,
+    base_dir: String,
+    profile_id: String,
+    project_path: String,
+    mugen_review: Option<core::mugen_profile::ReviewOptions>,
 ) -> Result<OpenProjectResult, String> {
     let trimmed_name = project_name.trim();
     let trimmed_base_dir = base_dir.trim();
@@ -4025,13 +6207,40 @@ fn import_external_project_impl(
     let resolved_base_dir = resolve_project_base_dir(
         (!trimmed_base_dir.is_empty()).then(|| Path::new(trimmed_base_dir)),
     )?;
-    let result = import_external_project_at_base_dir(
-        &resolved_base_dir.path,
-        trimmed_name,
-        trimmed_profile_id,
-        Path::new(trimmed_project_path),
-    )?;
+    let result = if let Some(review) = mugen_review.as_ref() {
+        import_external_project_at_base_dir_with_review(
+            &resolved_base_dir.path,
+            trimmed_name,
+            trimmed_profile_id,
+            Path::new(trimmed_project_path),
+            Some(review),
+        )
+    } else {
+        import_external_project_at_base_dir(
+            &resolved_base_dir.path,
+            trimmed_name,
+            trimmed_profile_id,
+            Path::new(trimmed_project_path),
+        )
+    }?;
     Ok(attach_base_dir_notice(result, resolved_base_dir))
+}
+
+#[tauri::command]
+async fn analyze_mugen_source(
+    project_path: String,
+    options: Option<core::mugen_profile::ReviewOptions>,
+    metadata_only: Option<bool>,
+) -> Result<serde_json::Value, String> {
+    run_heavy_result_command("analyze_mugen_source", move || {
+        core::mugen_profile::analyze_source(
+            Path::new(project_path.trim()),
+            options,
+            metadata_only.unwrap_or(false),
+        )
+        .map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
@@ -4205,6 +6414,75 @@ fn inspect_rom_mastering(rom_path: String) -> Result<RomMasteringReport, String>
         return Err("O que quebrou: rom_path vazio. Por que importa: ROM Mastering so inspeciona artefato real. Onde corrigir: chamada IPC inspect_rom_mastering. Proxima acao: selecione a ROM gerada pelo build.".to_string());
     }
     inspect_rom_mastering_impl(Path::new(trimmed))
+}
+
+#[derive(Debug, serde::Serialize)]
+struct GameExportResult {
+    path: String,
+    sha256: String,
+    report: RomMasteringReport,
+}
+
+/// Entrega (Experimental): copia a ROM do build para `<projeto>/export/` so se o arquivo ainda for
+/// exatamente o build revisado (`expected_sha256`) e o mastering nao tiver bloqueios. Nao gera
+/// outro build nem outro exportador.
+#[tauri::command]
+fn export_game_rom(
+    project_dir: String,
+    rom_path: String,
+    expected_sha256: String,
+) -> Result<GameExportResult, String> {
+    let project = Path::new(project_dir.trim());
+    if !project.join("project.rds").is_file() {
+        return Err("Projeto invalido: project.rds ausente.".to_string());
+    }
+    let report = inspect_rom_mastering_impl(Path::new(rom_path.trim()))?;
+    if report.sha256 != expected_sha256.trim() {
+        return Err(format!(
+            "A ROM mudou desde a revisao (esperado {}, encontrado {}). Rode o build e revise de novo.",
+            expected_sha256.trim(),
+            report.sha256
+        ));
+    }
+    if !report.blockers.is_empty() {
+        return Err(format!(
+            "ROM com {} bloqueio(s) de mastering: {}",
+            report.blockers.len(),
+            report.blockers[0].user_message
+        ));
+    }
+    let export_dir = project.join("export");
+    std::fs::create_dir_all(&export_dir).map_err(|e| e.to_string())?;
+    let name = project
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("jogo")
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    let target = export_dir.join(format!(
+        "{name}-{}.{}",
+        &report.sha256[..8],
+        report.extension
+    ));
+    std::fs::copy(rom_path.trim(), &target).map_err(|e| e.to_string())?;
+    let written =
+        crate::core::rom_mastering::sha256_hex(&std::fs::read(&target).map_err(|e| e.to_string())?);
+    if written != report.sha256 {
+        let _ = std::fs::remove_file(&target);
+        return Err("Copia exportada difere da ROM revisada; nada foi exportado.".to_string());
+    }
+    Ok(GameExportResult {
+        path: target.to_string_lossy().to_string(),
+        sha256: written,
+        report,
+    })
 }
 
 #[tauri::command]
@@ -4393,13 +6671,49 @@ fn parse_input_command_file(path: String) -> Result<Vec<InputCommandDefinition>,
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // WebKitGTK nao repinta bitmaps de <img> em janela destruida/recriada sob
+    // compositor acelerado (CAUSA-MAGENTA.md, A/B 89a35a2b); render por software.
+    #[cfg(target_os = "linux")]
+    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+
     tauri::Builder::default()
+        .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                if let Some(monitor) = window
+                    .current_monitor()
+                    .ok()
+                    .flatten()
+                    .or_else(|| app.primary_monitor().ok().flatten())
+                {
+                    let area = monitor
+                        .work_area()
+                        .size
+                        .to_logical::<f64>(monitor.scale_factor());
+                    // Leave room for native decorations on small/scaled desktops.
+                    if area.width < 1280.0 || area.height < 864.0 {
+                        if let Err(error) = window.set_size(tauri::LogicalSize::new(
+                            1280.0f64.min((area.width - 16.0).max(1.0)),
+                            800.0f64.min((area.height - 64.0).max(1.0)),
+                        )) {
+                            eprintln!(
+                                "[Janela] Não foi possível ajustar o tamanho inicial: {error}"
+                            );
+                        }
+                        if let Err(error) = window.center() {
+                            eprintln!("[Janela] Posicionamento inicial indisponível: {error}");
+                        }
+                    }
+                }
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(EmulatorCoreState(Mutex::new(EmulatorCore::new(None))))
         .manage(ProjectAssetWatchState::default())
         .manage(ProjectAssetScopeState::default())
         .invoke_handler(tauri::generate_handler![
+            app_build_identity,
             // Build pipeline
             validate_project,
             generate_c_code,
@@ -4412,6 +6726,9 @@ pub fn run() {
             // Emulator
             emulator_load_rom,
             emulator_run_frame,
+            emulator_run_frames,
+            emulator_run_frames_sampled,
+            emulator_observe,
             emulator_save_state,
             emulator_load_state,
             emulator_rewind_step,
@@ -4423,16 +6740,21 @@ pub fn run() {
             parity_run_reference_candidate,
             parity_run_cycle_report,
             emulator_read_memory,
+            emulator_get_core_epoch,
             emulator_get_execution_trace,
             emulator_send_input,
+            emulator_input_observation,
             emulator_stop,
             // Cena
             get_scene_data,
+            get_reference_template_composition,
             resolve_scene_prefabs,
             switch_scene,
+            set_project_entry_scene,
             list_scenes,
             create_scene,
             save_scene_data,
+            scene_draft_storage,
             set_project_target,
             get_project_settings,
             update_project_settings,
@@ -4447,6 +6769,7 @@ pub fn run() {
             list_external_import_profiles,
             create_project_from_template,
             import_external_project,
+            analyze_mugen_source,
             import_sgdk_project,
             inspect_sgdk_project_inventory,
             inspect_sgdk_corpus_inventory,
@@ -4458,6 +6781,17 @@ pub fn run() {
             generate_sgdk_semantic_reports,
             inspect_project_capability,
             inspect_rom_mastering,
+            export_game_rom,
+            pick_audio_file_dialog,
+            pick_image_file_dialog,
+            import_project_image,
+            scene_palette_plan,
+            import_project_audio,
+            project_audit_paths,
+            project_rename_asset,
+            project_apply_override_to_model,
+            project_restore_backup,
+            emulator_write_test_memory,
             inspect_runtime_contracts,
             inspect_audio_pipeline,
             list_sgdk_pattern_templates,
@@ -4478,15 +6812,70 @@ pub fn run() {
             rom_analyze,
             rom_analyze_with_emulator_trace,
             rom_disassemble,
+            rom_recover_logic,
+            rom_patch_recovered_logic,
             rom_get_xrefs,
             rom_get_call_graph,
             rom_extract_graphics,
             rom_extract_text,
             rom_extract_audio,
             rom_save_annotations,
+            rex_inspection_open,
+            rex_input_probe,
+            rex_input_resolve,
+            rex_input_cancel,
+            rex_decompile_rom,
+            rex_reveal_extraction_dir,
+            rex_inspection_reopen,
+            rex_inspection_start,
+            rex_inspection_cancel,
+            rex_inspection_status,
+            rex_inspection_list_sessions,
+            rex_inspection_catalog_page,
+            rex_inspection_preview,
+            rex_inspection_sprite_frame,
+            rex_inspection_save_palette_choice,
+            rex_inspection_save,
+            rex_inspection_edit_sonic_palette,
+            rex_inspection_edit_sonic_tiles,
+            rex_inspection_sonic_cadence,
+            rex_inspection_edit_sonic_duration,
+            rex_inspection_sonic_sequence,
+            rex_inspection_sonic_consumers,
+            rex_inspection_sonic_layouts,
+            rex_inspection_sonic_layout_grid,
+            rex_inspection_sonic_layout_cell,
+            rex_inspection_sonic_layouts_cancel,
+            rex_inspection_sonic_ss_walls,
+            rex_inspection_sonic_ss_wall_compose,
+            rex_profile_catalog,
+            rex_profile_locate,
+            rex_profile_edit,
+            rex_inspection_set_layouts_selection,
+            rex_inspection_edit_sonic_sequence,
+            rex_inspection_restore_sonic_sequence,
+            rex_resource_list,
+            rex_resource_preview,
+            rex_resource_context,
+            rex_resource_context_hit,
+            rex_resource_apply_edit,
+            rex_addressing_read_snapshot,
+            rex_kosinski_decode,
+            rex_kosinski_encode,
             list_project_assets,
+            read_project_asset_bytes,
             open_project_source_path,
             read_legacy_project_file,
+            sgdk_c_graph_index,
+            emulator_vram_usage,
+            capture_rom_scene,
+            rom_capture_links,
+            sgdk_sprite_catalog,
+            save_pixel_art_asset,
+            load_pixel_art_doc,
+            sgdk_c_graph_file,
+            sgdk_c_graph_update_node,
+            sgdk_c_graph_update_block,
             third_party_get_status,
             third_party_install,
             third_party_detect_rom_dependency,
@@ -4494,6 +6883,8 @@ pub fn run() {
             // Photo2SGDK
             tools::photo2sgdk::art_process_palette,
             tools::photo2sgdk::import_art_asset,
+            tools::photo2sgdk::ingress::art_ingest_input,
+            tools::photo2sgdk::ingress::art_ingest_clipboard,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -4509,6 +6900,18 @@ mod tests {
     use std::hash::{Hash, Hasher};
     use std::time::{SystemTime, UNIX_EPOCH};
     use tools::dependency_manager::{dependency_status_report, install_dependency};
+
+    #[test]
+    fn vram_usage_counts_only_tiles_with_data() {
+        let mut vram = vec![0u8; 64 * 1024];
+        vram[0] = 1;
+        vram[32 * 10 + 31] = 7;
+        let usage = vram_usage_from_bytes(&vram);
+        assert!(usage.available);
+        assert_eq!(usage.used_bytes, 64);
+        assert_eq!(usage.total_bytes, 65536);
+        assert!(!vram_usage_from_bytes(&[]).available);
+    }
 
     fn temp_dir(prefix: &str) -> PathBuf {
         let nonce = SystemTime::now()
@@ -6189,7 +8592,13 @@ pub extern "C" fn retro_run() {
         }
 
         let sink = MockEventSink::default();
+        let loaded_sha = emulator
+            .loaded_rom_identity()
+            .expect("loaded ROM identity")
+            .0;
+        fs::write(&rom_path, b"changed on disk after loading").expect("alter disk ROM");
         emit_emulator_frame_events(&sink, &mut emulator).expect("emit emulator events");
+        emit_emulator_frame_events(&sink, &mut emulator).expect("publish without advancing core");
 
         let payload = sink
             .audios
@@ -6205,12 +8614,140 @@ pub extern "C" fn retro_run() {
                 samples: vec![0, 0, 1, -1],
             }
         );
-        assert_eq!(sink.frames.lock().expect("lock frame events").len(), 1);
+        {
+            let frames = sink.frames.lock().expect("lock frame events");
+            assert_eq!(frames.len(), 2);
+            assert_eq!(frames[0].rom_sha256.as_deref(), Some(loaded_sha.as_str()));
+            assert_eq!(frames[1].rom_sha256, frames[0].rom_sha256);
+            assert!(frames[0].core_epoch.is_some());
+            assert!(frames[1].frame_sequence.unwrap() > frames[0].frame_sequence.unwrap());
+            assert_eq!(frames[0].frame_index, Some(1));
+            assert_eq!(frames[1].frame_index, frames[0].frame_index);
+            assert_eq!(frames[1].rgba, frames[0].rgba);
+        }
         assert!(emulator
             .take_audio_samples()
             .expect("audio buffer should be drained")
             .1
             .is_empty());
+
+        emulator.stop().expect("stop emulator");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn run_frames_sampled_records_absolute_index_per_frame() {
+        let _serial = test_serial_guard();
+        let dir = temp_dir("sampled-run");
+        let core_path = compile_mock_core(&dir);
+        let rom_path = write_test_rom(&dir, "sampled_run", "gen");
+
+        let mut emulator = EmulatorCore::new(Some(&core_path));
+        emulator
+            .load_rom(&rom_path)
+            .expect("load rom into mock core");
+        assert_eq!(emulator.frame_index(), 0, "a carga ancora o contador");
+
+        let (before, after, rows) =
+            run_frames_sampled_core(&mut emulator, 5, 2, 0, 8, 3).expect("lote amostrado");
+        assert_eq!((before, after), (0, 5));
+        assert_eq!(
+            rows.iter().map(|row| row.frame).collect::<Vec<_>>(),
+            vec![3, 4, 5],
+            "indices absolutos pos-execucao, um por frame"
+        );
+        assert!(rows.iter().all(|row| row.bytes_hex.len() == 16));
+
+        // Lotes subsequentes continuam no contador do core, sem reancoragem.
+        let (before, after, rows) =
+            run_frames_sampled_core(&mut emulator, 2, 2, 0, 8, 6).expect("segundo lote");
+        assert_eq!((before, after), (5, 7));
+        assert_eq!(
+            rows.iter().map(|row| row.frame).collect::<Vec<_>>(),
+            vec![6, 7]
+        );
+
+        // Janela que o core nao expoe e recusada antes de executar qualquer frame.
+        let before_index = emulator.frame_index();
+        let error = run_frames_sampled_core(&mut emulator, 3, 2, 60, 8, 0)
+            .expect_err("janela fora da regiao deve recusar");
+        assert!(error.contains("nao exposta"), "{error}");
+        assert_eq!(
+            emulator.frame_index(),
+            before_index,
+            "recusa nao executa frames"
+        );
+
+        emulator.stop().expect("stop emulator");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// Etapa 2 da jornada integrada: a identidade reportada pela execucao
+    /// amostrada e a dos bytes CARREGADOS no core. Alterar o arquivo no
+    /// caminho depois da carga nao muda a identidade da execucao; a
+    /// divergencia aparece explicitamente em `disk_file_sha256` /
+    /// `disk_matches_loaded` (a amostragem continua, refletindo o core).
+    #[test]
+    fn load_identity_reports_loaded_bytes_not_disk_file() {
+        let _serial = test_serial_guard();
+        let dir = temp_dir("load-identity");
+        let core_path = compile_mock_core(&dir);
+        let rom_path = write_test_rom(&dir, "identity_swap", "gen");
+
+        let disk_before = fs::read(&rom_path).expect("rom de teste");
+        let sha_before = sha256_hex(&disk_before);
+        let mut emulator = EmulatorCore::new(Some(&core_path));
+        emulator
+            .load_rom(&rom_path)
+            .expect("load rom into mock core");
+        let (loaded, loaded_len) = emulator
+            .loaded_rom_identity()
+            .expect("identidade capturada na carga");
+        assert_eq!(loaded, sha_before, "carga ancora o SHA dos bytes lidos");
+        assert_eq!(loaded_len, disk_before.len());
+
+        let first = sampled_run_on_core(&mut emulator, 2, 2, 0, 8, 0);
+        assert!(first.ok, "{:?}", first.message);
+        assert_eq!(first.rom_sha256, sha_before);
+        assert_eq!(first.disk_file_sha256.as_deref(), Some(sha_before.as_str()));
+        assert!(first.disk_matches_loaded, "caminho ainda igual à carga");
+
+        // Troca o ARQUIVO no caminho apos a carga (scratch isolado; corpus
+        // original nunca é alvo deste teste).
+        let mut swapped = disk_before.clone();
+        swapped[0] ^= 0xff;
+        let sha_swapped = sha256_hex(&swapped);
+        fs::write(&rom_path, &swapped).expect("escrever copia trocada");
+
+        let second = sampled_run_on_core(&mut emulator, 1, 2, 0, 8, 3);
+        assert!(second.ok, "{:?}", second.message);
+        assert_eq!(
+            second.rom_sha256, sha_before,
+            "rom_sha256 autoritativo = bytes carregados, nao disco"
+        );
+        assert_eq!(
+            second.disk_file_sha256.as_deref(),
+            Some(sha_swapped.as_str())
+        );
+        assert!(
+            !second.disk_matches_loaded,
+            "arquivo alterado apos a carga deve declarar divergencia"
+        );
+        assert!(second.message.contains("AVISO"), "{:?}", second.message);
+
+        let observed = observe_on_core(&mut emulator);
+        assert!(observed.ok);
+        assert_eq!(observed.rom_sha256, sha_before);
+        assert!(!observed.disk_matches_loaded);
+        assert!(observed.message.contains("AVISO"));
+
+        // Recarga no mesmo caminho re-ancora a identidade para os bytes novos.
+        emulator.load_rom(&rom_path).expect("recarregar apos troca");
+        let (reloaded, _) = emulator.loaded_rom_identity().expect("identidade nova");
+        assert_eq!(reloaded, sha_swapped);
+        let after_reload = observe_on_core(&mut emulator);
+        assert!(after_reload.disk_matches_loaded);
+        assert_eq!(after_reload.rom_sha256, sha_swapped);
 
         emulator.stop().expect("stop emulator");
         let _ = fs::remove_dir_all(dir);
@@ -6989,6 +9526,46 @@ pub extern "C" fn retro_run() {
     }
 
     #[test]
+    fn switching_scene_no_longer_rewrites_entry_scene_until_explicitly_set() {
+        let project_dir = temp_dir("switch-scene-keeps-entry");
+        create_project_skeleton(&project_dir, "Switch Keeps Entry", "megadrive")
+            .expect("create project skeleton");
+        let other = "scenes/phase_b.json";
+        let mut scene =
+            load_scene(&project_dir, DEFAULT_ENTRY_SCENE).expect("load default entry scene");
+        scene.scene_id = "phase_b".to_string();
+        save_scene(&project_dir, other, &scene).expect("save other scene");
+        let before = std::fs::read(project_dir.join("project.rds")).expect("read project.rds");
+
+        let opened =
+            switch_scene_impl(project_dir.to_string_lossy().to_string(), other.to_string());
+        assert!(opened.ok, "{}", opened.error);
+        assert_eq!(opened.scene_path, other);
+        assert_eq!(
+            std::fs::read(project_dir.join("project.rds")).expect("reread"),
+            before,
+            "opening a scene must not touch project.rds"
+        );
+        let refused = switch_scene_impl(
+            project_dir.to_string_lossy().to_string(),
+            "../x.json".to_string(),
+        );
+        assert!(!refused.ok);
+
+        let entries = |dir: &std::path::Path| {
+            crate::core::project_mgr::list_scenes(dir)
+                .expect("list scenes")
+                .into_iter()
+                .filter(|info| info.is_entry)
+                .map(|info| info.path)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(entries(&project_dir), vec![DEFAULT_ENTRY_SCENE.to_string()]);
+        set_entry_scene(&project_dir, other).expect("explicit entry change");
+        assert_eq!(entries(&project_dir), vec![other.to_string()]);
+    }
+
+    #[test]
     fn open_project_path_preserves_project_entry_scene_as_preferred_scene() {
         let project_dir = temp_dir("open-project-preserves-entry-scene");
         create_project_skeleton(&project_dir, "Entry Scene Test", "megadrive")
@@ -7077,6 +9654,113 @@ pub extern "C" fn retro_run() {
     }
 
     #[test]
+    fn write_pixel_art_asset_sanitizes_name_and_rejects_non_png() {
+        let dir = temp_dir("pixel-art-save");
+        fs::write(dir.join("project.rds"), "{}").unwrap();
+        let png = [137u8, 80, 78, 71, 13, 10, 26, 10, 0];
+        let saved = write_pixel_art_asset(&dir, "../Ken Soco!", &png, "{}").expect("save");
+        assert_eq!(saved.png_relative, "assets/sprites/pixel/ken_soco.png");
+        assert!(dir.join(&saved.doc_relative).is_file());
+        assert!(write_pixel_art_asset(&dir, "x", b"GIF89a", "{}").is_err());
+        assert!(load_pixel_art_doc(
+            dir.to_string_lossy().to_string(),
+            "assets/sprites/pixel/../../x.rdspixel.json".into()
+        )
+        .is_err());
+        assert_eq!(
+            load_pixel_art_doc(dir.to_string_lossy().to_string(), saved.doc_relative).unwrap(),
+            "{}"
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn pixel_plane_document_uses_the_tileset_folder_and_reopens() {
+        let dir = temp_dir("pixel-plane-save");
+        fs::write(dir.join("project.rds"), "{}").unwrap();
+        let png = [137u8, 80, 78, 71, 13, 10, 26, 10, 0];
+        let saved =
+            write_pixel_art_asset(&dir, "landscape", &png, r#"{"target":"plane"}"#).unwrap();
+        assert_eq!(saved.png_relative, "assets/tilesets/pixel/landscape.png");
+        assert_eq!(
+            load_pixel_art_doc(dir.to_string_lossy().into(), saved.doc_relative).unwrap(),
+            r#"{"target":"plane"}"#
+        );
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn pixel_document_symlink_cannot_read_or_replace_an_outside_file() {
+        let (dir, outside) = (temp_dir("pixel-symlink"), temp_dir("pixel-outside"));
+        fs::write(dir.join("project.rds"), "{}").unwrap();
+        fs::write(outside.join("document.json"), "preserve").unwrap();
+        fs::create_dir_all(dir.join("assets/tilesets/pixel")).unwrap();
+        std::os::unix::fs::symlink(
+            outside.join("document.json"),
+            dir.join("assets/tilesets/pixel/bg.rdspixel.json"),
+        )
+        .unwrap();
+        assert!(load_pixel_art_doc(
+            dir.to_string_lossy().into(),
+            "assets/tilesets/pixel/bg.rdspixel.json".into()
+        )
+        .is_err());
+        let png = [137u8, 80, 78, 71, 13, 10, 26, 10, 0];
+        assert!(write_pixel_art_asset(&dir, "bg", &png, r#"{"target":"plane"}"#).is_err());
+        assert_eq!(
+            fs::read_to_string(outside.join("document.json")).unwrap(),
+            "preserve"
+        );
+        fs::remove_dir_all(dir).unwrap();
+        fs::remove_dir_all(outside).unwrap();
+    }
+
+    #[test]
+    fn pixel_save_refuses_invalid_or_unwritable_document_without_replacing_previous_png() {
+        let dir = temp_dir("pixel-save-preserve");
+        fs::write(dir.join("project.rds"), "{}").unwrap();
+        let png = [137u8, 80, 78, 71, 13, 10, 26, 10, 1];
+        let saved = write_pixel_art_asset(&dir, "sprite", &png, "{}").unwrap();
+        let new_png = [137u8, 80, 78, 71, 13, 10, 26, 10, 2];
+        assert!(write_pixel_art_asset(&dir, "sprite", &new_png, "invalid json").is_err());
+        assert_eq!(fs::read(dir.join(&saved.png_relative)).unwrap(), png);
+        fs::remove_file(dir.join(&saved.doc_relative)).unwrap();
+        fs::create_dir(dir.join(&saved.doc_relative)).unwrap();
+        let error = write_pixel_art_asset(&dir, "sprite", &new_png, "{}")
+            .err()
+            .unwrap();
+        assert!(error.contains("preservar"));
+        assert_eq!(fs::read(dir.join(&saved.png_relative)).unwrap(), png);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn open_project_path_refreshes_existing_legacy_overlay_missing_sprite_catalog() {
+        let legacy_dir = temp_dir("open-legacy-sgdk-refresh");
+        write_generic_sgdk_donor_fixture(&legacy_dir);
+        assert!(open_project_path(legacy_dir.to_string_lossy().to_string()).selected);
+        let catalog = legacy_dir
+            .join("rds")
+            .join(crate::core::project_mgr::SGDK_SPRITE_CATALOG);
+        fs::remove_file(&catalog).expect("catalog from first import");
+
+        let reopened = open_project_path(legacy_dir.to_string_lossy().to_string());
+
+        assert!(reopened.selected);
+        assert_eq!(reopened.path, legacy_dir.join("rds").to_string_lossy());
+        assert!(
+            catalog.is_file(),
+            "reopen should rebuild the sprite catalog"
+        );
+        assert!(!crate::core::project_mgr::legacy_overlay_needs_reimport(
+            &legacy_dir
+        ));
+
+        let _ = fs::remove_dir_all(legacy_dir);
+    }
+
+    #[test]
     fn get_scene_data_exposes_legacy_sgdk_index_for_overlay_projects() {
         let legacy_dir = temp_dir("scene-data-legacy-index");
         write_generic_sgdk_donor_fixture(&legacy_dir);
@@ -7084,7 +9768,7 @@ pub extern "C" fn retro_run() {
         let opened = open_project_path(legacy_dir.to_string_lossy().to_string());
         assert!(opened.selected);
 
-        let scene_data = get_scene_data(opened.path.clone(), None);
+        let scene_data = load_scene_result(Path::new(&opened.path), None);
         assert!(scene_data.ok, "scene data error: {}", scene_data.error);
         assert_eq!(scene_data.source_kind, "external_sgdk");
 
@@ -7456,15 +10140,16 @@ pub extern "C" fn retro_run() {
     fn list_project_templates_returns_registry_entries() {
         let templates = list_project_templates().expect("list project templates");
 
-        assert_eq!(templates.len(), 8);
+        assert_eq!(templates.len(), 9);
         assert_eq!(templates[0].id, "empty");
         assert_eq!(templates[1].id, "starter_guided");
-        assert_eq!(templates[2].id, "platformer_seed");
-        assert_eq!(templates[3].id, "rpg_seed");
-        assert_eq!(templates[4].id, "fighter_seed");
-        assert_eq!(templates[5].id, "racing_seed");
-        assert_eq!(templates[6].id, "action_seed");
-        assert_eq!(templates[7].id, "platformer_gm");
+        assert_eq!(templates[2].id, "reference_platformer");
+        assert_eq!(templates[3].id, "platformer_seed");
+        assert_eq!(templates[4].id, "rpg_seed");
+        assert_eq!(templates[5].id, "fighter_seed");
+        assert_eq!(templates[6].id, "racing_seed");
+        assert_eq!(templates[7].id, "action_seed");
+        assert_eq!(templates[8].id, "platformer_gm");
     }
 
     #[test]
@@ -7501,6 +10186,42 @@ pub extern "C" fn retro_run() {
                 && profile.importable
                 && profile.support_status == "Experimental"
         }));
+    }
+
+    #[test]
+    fn template_target_refusal_happens_before_project_directory_reservation() {
+        let base = temp_dir("template-target-preflight");
+        let result = create_project_from_template_at_base_dir(
+            &base,
+            "NoPartialProject",
+            "snes",
+            "reference_platformer",
+            None,
+        );
+        assert!(result.err().unwrap().contains("exclusivo de Mega Drive"));
+        assert!(!base.join("NoPartialProject").exists());
+        assert_eq!(fs::read_dir(&base).unwrap().count(), 0);
+        let catalog = list_registered_project_templates().unwrap();
+        assert!(
+            catalog
+                .iter()
+                .find(|t| t.id == "reference_platformer")
+                .unwrap()
+                .mega_drive_only
+        );
+        assert!(
+            !catalog
+                .iter()
+                .find(|t| t.id == "starter_guided")
+                .unwrap()
+                .mega_drive_only
+        );
+        assert!(crate::core::project_mgr::validate_project_template_target(
+            "starter_guided",
+            "snes"
+        )
+        .is_ok());
+        fs::remove_dir_all(base).unwrap();
     }
 
     #[test]
@@ -7676,6 +10397,154 @@ pub extern "C" fn retro_run() {
     }
 
     #[test]
+    fn scene_draft_storage_preserves_scenes_and_refuses_stale_replacement_or_removal() {
+        let dir = temp_dir("scene-draft-storage");
+        create_project_skeleton(&dir, "Draft Storage", "megadrive").unwrap();
+        let project = dir.to_string_lossy().to_string();
+        let raw = |scene_path: &str, revision| {
+            serde_json::json!({
+            "schemaVersion": 2, "projectDir": project, "scenePath": scene_path,
+            "revision": revision, "sourceSceneJson": "{\"scene_id\":\"main\",\"entities\":[],\"background_layers\":[],\"palettes\":[]}"
+        }).to_string()
+        };
+        let operate = |scene: &str, operation: &str, value, expected| {
+            scene_draft_storage(
+                project.clone(),
+                scene.into(),
+                operation.into(),
+                value,
+                expected,
+            )
+        };
+        let a = raw("scenes/main.json", 1);
+        let b = raw("scenes/second.json", 2);
+        assert_eq!(
+            operate("scenes/main.json", "write", Some(a.clone()), None).unwrap(),
+            Some(a.clone())
+        );
+        assert_eq!(
+            operate("scenes/second.json", "write", Some(b.clone()), None).unwrap(),
+            Some(b.clone())
+        );
+        let newer = raw("scenes/main.json", 3);
+        assert!(operate("scenes/main.json", "write", Some(newer.clone()), None).is_err());
+        assert!(operate("scenes/main.json", "remove", None, Some(newer.clone())).is_err());
+        assert_eq!(
+            operate("scenes/main.json", "read", None, None).unwrap(),
+            Some(a.clone())
+        );
+        assert_eq!(
+            operate("scenes/main.json", "write", Some(newer.clone()), Some(a)).unwrap(),
+            Some(newer.clone())
+        );
+        assert!(operate("../escape.json", "write", Some(newer.clone()), None).is_err());
+        assert!(operate(
+            "scenes/main.json",
+            "write",
+            Some(b.clone()),
+            Some(newer.clone())
+        )
+        .is_err());
+        assert_eq!(
+            operate("scenes/main.json", "remove", None, Some(newer)).unwrap(),
+            None
+        );
+        assert_eq!(
+            operate("scenes/second.json", "read", None, None).unwrap(),
+            Some(b)
+        );
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn save_scene_data_refuses_an_external_change_to_a_graph_inherited_from_a_prefab() {
+        let root = temp_dir("save-scene-inherited-graph");
+        create_project_skeleton(&root, "Inherited graph", "megadrive").unwrap();
+        let graph_path = root.join("graphs/player.json");
+        fs::write(&graph_path, r#"{"nodes":[],"edges":[]}"#).unwrap();
+        let prefab = serde_json::json!({
+            "entity_id":"base","transform":{"x":0,"y":0},
+            "components":{"logic":{"graph_ref":"graphs/player.json","variables":{}}}
+        });
+        fs::write(root.join("prefabs/player.json"), prefab.to_string()).unwrap();
+        let source = serde_json::json!({
+            "scene_id":"main","background_layers":[],"palettes":[],
+            "entities":[{"entity_id":"player","prefab":"player","transform":{"x":0,"y":0},"components":{}}]
+        });
+        let scene: Scene = serde_json::from_value(source).unwrap();
+        save_scene(&root, "scenes/main.json", &scene).unwrap();
+        let loaded = load_scene(&root, "scenes/main.json").unwrap();
+        let source_json = serde_json::to_string(&loaded).unwrap();
+        let hydration = resolve_scene_prefabs_result(&root, &source_json);
+        assert!(hydration.ok, "{}", hydration.error);
+        assert_eq!(
+            hydration.graphs["graphs/player.json"],
+            r#"{"nodes":[],"edges":[]}"#
+        );
+        let changed = r#"{"nodes":[{"id":"external"}],"edges":[]}"#;
+        fs::write(&graph_path, changed).unwrap();
+        let mut edited_source: serde_json::Value = serde_json::from_str(&source_json).unwrap();
+        edited_source["entities"][0]["components"]["logic"] = serde_json::json!({
+            "graph_ref":"graphs/player.json", "graph":"{\"nodes\":[],\"edges\":[]}", "variables":{}
+        });
+        let result = save_scene_data_impl(
+            root.to_string_lossy().into(),
+            edited_source.to_string(),
+            Some("scenes/main.json".into()),
+            Some(hydration.scene_json),
+            Some(source_json),
+            Some(hydration.graphs),
+        );
+        assert!(!result.ok && result.conflict, "{}", result.message);
+        assert_eq!(fs::read_to_string(graph_path).unwrap(), changed);
+        assert!(load_scene(&root, "scenes/main.json").unwrap().entities[0]
+            .components
+            .logic
+            .is_none());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn save_scene_data_preserves_inline_logic_with_an_empty_external_reference() {
+        let root = temp_dir("save-inline-empty-ref");
+        create_project_skeleton(&root, "Inline logic", "megadrive").unwrap();
+        let graph = r#"{"version":1,"nodes":[{"id":"start","type":"event_start"}],"edges":[]}"#;
+        let source = serde_json::json!({
+            "scene_id":"main", "background_layers":[], "palettes":[],
+            "entities":[
+                {"entity_id":"authored","transform":{"x":0,"y":0},
+                 "components":{"logic":{"graph_ref":"", "graph":graph, "variables":{}}}},
+                {"entity_id":"empty","transform":{"x":0,"y":0},
+                 "components":{"logic":{"graph_ref":"  ", "variables":{}}}}
+            ]
+        });
+        let result = save_scene_data_impl(
+            root.to_string_lossy().into(),
+            source.to_string(),
+            Some("scenes/main.json".into()),
+            Some(source.to_string()),
+            None,
+            None,
+        );
+        assert!(result.ok, "{}", result.message);
+        assert!(result.graphs.is_empty());
+        let reopened = load_scene(&root, "scenes/main.json").unwrap();
+        let resolved = resolve_prefabs(&root, &reopened).unwrap();
+        assert_eq!(
+            resolved.entities[0]
+                .components
+                .logic
+                .as_ref()
+                .unwrap()
+                .graph
+                .as_deref(),
+            Some(graph)
+        );
+        assert!(!root.join(".rds/scene-save/pending.json").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn save_scene_data_keeps_graph_ref_externalized_when_resolved_scene_is_supplied() {
         let project_dir = temp_dir("save-scene-graph-ref");
         create_project_skeleton(&project_dir, "Graph Save", "megadrive")
@@ -7729,11 +10598,34 @@ pub extern "C" fn retro_run() {
             "palettes": []
         });
 
-        let result = save_scene_data(
+        let scene_file = project_dir.join("scenes/main.json");
+        let graph_file = project_dir.join("graphs/player_logic.json");
+        let scene_before = fs::read(&scene_file).unwrap();
+        let graph_before = fs::read(&graph_file).unwrap();
+        let mut invalid_scene = source_scene.clone();
+        invalid_scene["scene_id"] = serde_json::json!("");
+        let invalid = save_scene_data_impl(
+            project_dir.to_string_lossy().to_string(),
+            invalid_scene.to_string(),
+            Some("scenes/main.json".into()),
+            Some(resolved_scene.to_string()),
+            None,
+            None,
+        );
+        assert!(!invalid.ok);
+        assert_eq!(fs::read(&scene_file).unwrap(), scene_before);
+        assert_eq!(
+            fs::read(&graph_file).unwrap(),
+            graph_before,
+            "failed save changed external graph"
+        );
+        let result = save_scene_data_impl(
             project_dir.to_string_lossy().to_string(),
             serde_json::to_string_pretty(&source_scene).expect("serialize source scene"),
             Some("scenes/main.json".to_string()),
             Some(serde_json::to_string_pretty(&resolved_scene).expect("serialize resolved scene")),
+            None,
+            None,
         );
 
         assert!(result.ok, "{}", result.message);
@@ -7746,6 +10638,53 @@ pub extern "C" fn retro_run() {
         let saved_graph = fs::read_to_string(project_dir.join("graphs").join("player_logic.json"))
             .expect("read saved graph");
         assert!(saved_graph.contains("\"event_start\""));
+
+        let stale_graphs = result.graphs.clone();
+        let concurrent = r#"{"nodes":[{"id":"external"}]}"#;
+        fs::write(&graph_file, concurrent).unwrap();
+        let conflict = save_scene_data_impl(
+            project_dir.to_string_lossy().to_string(),
+            source_scene.to_string(),
+            Some("scenes/main.json".into()),
+            Some(resolved_scene.to_string()),
+            result.scene_json.clone(),
+            Some(stale_graphs),
+        );
+        assert!(!conflict.ok && conflict.conflict);
+        assert_eq!(fs::read_to_string(&graph_file).unwrap(), concurrent);
+        fs::write(&graph_file, &saved_graph).unwrap();
+
+        // A stale editor must not touch either the scene or its external graph.
+        let baseline = result.scene_json.expect("canonical saved-source receipt");
+        let mut external: serde_json::Value = serde_json::from_str(&baseline).unwrap();
+        external["entities"][0]["transform"]["x"] = serde_json::json!(91);
+        let scene_path = project_dir.join("scenes/main.json");
+        fs::write(
+            &scene_path,
+            serde_json::to_string_pretty(&external).unwrap(),
+        )
+        .unwrap();
+        let disk_before = fs::read(&scene_path).unwrap();
+        let mut changed_graph = resolved_scene.clone();
+        changed_graph["entities"][0]["components"]["logic"]["graph"] =
+            serde_json::json!("{\"version\":1,\"nodes\":[],\"edges\":[]}");
+        let refused = save_scene_data_impl(
+            project_dir.to_string_lossy().to_string(),
+            serde_json::to_string(&source_scene).unwrap(),
+            Some("scenes/main.json".into()),
+            Some(serde_json::to_string(&changed_graph).unwrap()),
+            Some(baseline),
+            None,
+        );
+        assert!(!refused.ok && refused.conflict);
+        assert_eq!(fs::read(&scene_path).unwrap(), disk_before);
+        assert_eq!(
+            fs::read_to_string(project_dir.join("graphs/player_logic.json")).unwrap(),
+            saved_graph
+        );
+        let current: serde_json::Value =
+            serde_json::from_str(&refused.scene_json.unwrap()).unwrap();
+        assert_eq!(current["entities"][0]["transform"]["x"], 91);
 
         let _ = fs::remove_dir_all(project_dir);
     }
@@ -8168,6 +11107,1229 @@ pub extern "C" fn retro_run() {
         let _ = fs::remove_dir_all(donor_dir);
     }
 
+    /// Prova manual do caminho canônico com o template builtin completo e o
+    /// toolchain SGDK detectado no host. Mantemos `ignored` porque a suíte
+    /// normal não pode depender da instalação local de SGDK.
+    ///
+    /// `cargo test --manifest-path src-tauri/Cargo.toml reference_platformer_real_toolchain_build --lib -- --ignored --nocapture --test-threads=1`
+    #[ignore]
+    #[test]
+    fn reference_platformer_real_toolchain_build() {
+        let project_base_dir = temp_dir("reference-platformer-real-build");
+        let create_result = create_project_from_template(
+            "Reference Platformer".to_string(),
+            "megadrive".to_string(),
+            project_base_dir.to_string_lossy().to_string(),
+            "reference_platformer".to_string(),
+            None,
+        )
+        .expect("create reference platformer project");
+        let project_dir = PathBuf::from(&create_result.path);
+        let environment = BuildEnvironment::detect();
+        assert!(
+            environment
+                .sgdk_root
+                .as_ref()
+                .is_some_and(|root| root.join("makefile.gen").is_file())
+                && environment.sgdk_make_program.is_some(),
+            "official SGDK real nao detectado; esta prova nao aceita fake toolchain"
+        );
+
+        let build_result = run_build_with_environment(&project_dir, &environment, |_| {});
+        assert!(
+            build_result.ok,
+            "reference build failed: {:?}",
+            build_result.log
+        );
+        let rom_path = PathBuf::from(&build_result.rom_path);
+        let rom_path = if rom_path.is_absolute() {
+            rom_path
+        } else {
+            project_dir.join(rom_path)
+        };
+        let rom_bytes = fs::read(&rom_path).expect("read reference ROM");
+        assert!(
+            rom_bytes.windows(4).any(|window| window == b"SEGA"),
+            "reference ROM deve conter assinatura SEGA: {}",
+            rom_path.display()
+        );
+
+        let mut emulator = EmulatorCore::new(None);
+        emulator
+            .load_rom(&rom_path)
+            .expect("load reference ROM in the official Libretro core");
+        emulator.run_frame().expect("run reference idle frame");
+        let (before_input, _, _) = emulator
+            .get_framebuffer()
+            .expect("capture reference idle framebuffer");
+        emulator
+            .set_joypad(JoypadState {
+                right: true,
+                ..JoypadState::default()
+            })
+            .expect("set reference right input");
+        for _ in 0..45 {
+            emulator.run_frame().expect("run reference gameplay frame");
+        }
+        let (after_input, size, pixel_format) = emulator
+            .get_framebuffer()
+            .expect("capture reference gameplay framebuffer");
+        let (audio_sample_rate, audio_samples) = emulator
+            .take_audio_samples()
+            .expect("capture reference audio stream");
+        assert!(
+            audio_sample_rate > 0 && !audio_samples.is_empty(),
+            "reference game should deliver a non-empty audio stream from the authored theme"
+        );
+        let audio_non_zero_samples = audio_samples.iter().filter(|sample| **sample != 0).count();
+        assert!(
+            audio_non_zero_samples > 0,
+            "reference game audio stream must not be silent"
+        );
+        assert_ne!(
+            before_input, after_input,
+            "the reference game framebuffer should respond to right input"
+        );
+        let frame = framebuffer_to_rgba(&after_input, size, pixel_format);
+        assert!(
+            frame
+                .rgba
+                .chunks_exact(4)
+                .any(|pixel| { pixel[0] != 0 || pixel[1] != 0 || pixel[2] != 0 }),
+            "reference game framebuffer must not be empty"
+        );
+        emulator.stop().expect("stop reference emulator");
+
+        let _ = fs::remove_dir_all(project_base_dir);
+    }
+
+    /// Minimal ELF32 symbol reader for the SGDK-linked `out/rom.out` (mirrors the E2E harness).
+    fn reference_elf32_symbols(elf: &[u8]) -> HashMap<String, u32> {
+        assert!(
+            elf.len() >= 52 && &elf[0..4] == b"\x7fELF" && elf[4] == 1,
+            "ELF32 esperado"
+        );
+        let le = elf[5] == 1;
+        let r16 = |o: usize| {
+            let b = [elf[o], elf[o + 1]];
+            if le {
+                u16::from_le_bytes(b)
+            } else {
+                u16::from_be_bytes(b)
+            }
+        };
+        let r32 = |o: usize| {
+            let b = [elf[o], elf[o + 1], elf[o + 2], elf[o + 3]];
+            if le {
+                u32::from_le_bytes(b)
+            } else {
+                u32::from_be_bytes(b)
+            }
+        };
+        let sh_off = r32(32) as usize;
+        let sh_size = r16(46) as usize;
+        let sh_count = r16(48) as usize;
+        let mut symbols = HashMap::new();
+        for index in 0..sh_count {
+            let section = sh_off + index * sh_size;
+            let kind = r32(section + 4);
+            if kind != 2 && kind != 11 {
+                continue;
+            }
+            let table = r32(section + 16) as usize;
+            let table_size = r32(section + 20) as usize;
+            let strtab = sh_off + r32(section + 24) as usize * sh_size;
+            let entry = r32(section + 36) as usize;
+            let strings = r32(strtab + 16) as usize;
+            let mut cursor = table;
+            while entry >= 16 && cursor + 16 <= table + table_size {
+                let name_offset = r32(cursor) as usize;
+                if name_offset > 0 {
+                    let start = strings + name_offset;
+                    if let Some(len) = elf[start..].iter().position(|b| *b == 0) {
+                        let name = String::from_utf8_lossy(&elf[start..start + len]).to_string();
+                        symbols.insert(name, r32(cursor + 4));
+                    }
+                }
+                cursor += entry;
+            }
+        }
+        symbols
+    }
+
+    /// Reads a big-endian 68K value of `width` bytes from System RAM (region 2). The core
+    /// exposes WRAM as native-endian 16-bit words, so each word is byte-swapped back.
+    fn reference_read_ram(
+        emulator: &EmulatorCore,
+        symbols: &HashMap<String, u32>,
+        name: &str,
+        width: usize,
+    ) -> i64 {
+        let address = *symbols
+            .get(name)
+            .unwrap_or_else(|| panic!("simbolo {name} ausente no ELF"));
+        assert!(
+            matches!(address >> 16, 0x00ff | 0xe0ff),
+            "{name} fora da System RAM: {address:#x}"
+        );
+        let (data, _) = emulator
+            .read_memory(2, (address & 0xffff) as usize, width)
+            .expect("read System RAM");
+        assert_eq!(data.len(), width, "leitura curta de {name}");
+        let mut value: u32 = 0;
+        for word in data.chunks_exact(2) {
+            value = (value << 16) | u32::from(u16::from_le_bytes([word[0], word[1]]));
+        }
+        match width {
+            2 => i64::from(value as u16 as i16),
+            _ => i64::from(value as i32),
+        }
+    }
+
+    /// Real SGDK + official Libretro core contract for the reference template:
+    /// (1) jump: one A press at the real joypad produces rise, apex, fall and return to the
+    /// ground, read from the player's position symbol in RAM; holding A must not keep lifting
+    /// (edge-triggered `input_pressed`). (2) goal SFX: the core's sample stream diverges from a
+    /// no-event control only at/after the frame the sensor event fires, while the BGM alone
+    /// is deterministic (control vs. control identical, and non-silent).
+    ///
+    /// `cargo test --manifest-path src-tauri/Cargo.toml reference_platformer_real_jump_and_goal_audio_contract --lib -- --ignored --nocapture --test-threads=1`
+    #[ignore]
+    #[test]
+    fn reference_platformer_real_jump_and_goal_audio_contract() {
+        let project_base_dir = temp_dir("reference-platformer-jump-audio");
+        let create_result = create_project_from_template(
+            "Reference Platformer".to_string(),
+            "megadrive".to_string(),
+            project_base_dir.to_string_lossy().to_string(),
+            "reference_platformer".to_string(),
+            None,
+        )
+        .expect("create reference platformer project");
+        let project_dir = PathBuf::from(&create_result.path);
+        let environment = BuildEnvironment::detect();
+        assert!(
+            environment
+                .sgdk_root
+                .as_ref()
+                .is_some_and(|root| root.join("makefile.gen").is_file())
+                && environment.sgdk_make_program.is_some(),
+            "official SGDK real nao detectado; esta prova nao aceita fake toolchain"
+        );
+        let build_result = run_build_with_environment(&project_dir, &environment, |_| {});
+        assert!(
+            build_result.ok,
+            "reference build failed: {:?}",
+            build_result.log
+        );
+        let rom_path = PathBuf::from(&build_result.rom_path);
+        let rom_path = if rom_path.is_absolute() {
+            rom_path
+        } else {
+            project_dir.join(rom_path)
+        };
+        let elf = fs::read(project_dir.join("build/megadrive/out/rom.out")).expect("read ELF");
+        let symbols = reference_elf32_symbols(&elf);
+        let neutral = JoypadState::default();
+
+        let boot = |emulator: &mut EmulatorCore| {
+            emulator.load_rom(&rom_path).expect("load reference ROM");
+            emulator.set_joypad(neutral.clone()).expect("neutral input");
+            for _ in 0..120 {
+                emulator.run_frame().expect("warmup frame");
+            }
+            let _ = emulator.take_audio_samples();
+        };
+
+        // ── (1) Jump contract ────────────────────────────────────────────────
+        let mut emulator = EmulatorCore::new(None);
+
+        boot(&mut emulator);
+        let ground_y = reference_read_ram(&emulator, &symbols, "spr_player_y", 2);
+        let ground_vy = reference_read_ram(&emulator, &symbols, "spr_player_vel_y", 4);
+        let start_x = reference_read_ram(&emulator, &symbols, "spr_player_x", 2);
+        // Gravity accumulates sub-pixel velocity (/16) until the floor clamp resets it, so
+        // "resting" means |vel_y| < 16 (less than one pixel per frame) on the floor.
+        assert!(
+            ground_vy.abs() < 16,
+            "player deve estar em repouso no chao antes do salto: vy={ground_vy}"
+        );
+        let mut trajectory = Vec::new();
+        for frame in 0..90 {
+            // Genesis Plus GX binds RetroPad Y to Mega Drive A (B->B, A->C).
+            let md_a = frame < 3; // short press, then release
+            emulator
+                .set_joypad(JoypadState {
+                    y: md_a,
+                    ..JoypadState::default()
+                })
+                .expect("jump input");
+            emulator.run_frame().expect("jump frame");
+            trajectory.push((
+                reference_read_ram(&emulator, &symbols, "spr_player_y", 2),
+                reference_read_ram(&emulator, &symbols, "spr_player_vel_y", 4),
+            ));
+        }
+        println!("jump ground_y={ground_y} start_x={start_x} trajectory={trajectory:?}");
+        let apex_index = (0..trajectory.len())
+            .min_by_key(|i| trajectory[*i].0)
+            .unwrap();
+        let apex_y = trajectory[apex_index].0;
+        assert!(
+            ground_y - apex_y >= 4,
+            "salto deve subir pelo menos 4px: ground={ground_y} apex={apex_y}"
+        );
+        assert!(
+            trajectory[..apex_index]
+                .windows(2)
+                .all(|w| w[1].0 <= w[0].0),
+            "subida deve ser monotonica ate o apice"
+        );
+        assert!(
+            trajectory[apex_index..].windows(2).any(|w| w[1].0 > w[0].0),
+            "depois do apice deve haver queda"
+        );
+        let landed = trajectory.last().copied().unwrap();
+        assert!(
+            landed.0 == ground_y && landed.1.abs() < 16,
+            "player deve retornar ao chao e parar: {landed:?}"
+        );
+        assert_eq!(
+            reference_read_ram(&emulator, &symbols, "spr_player_x", 2),
+            start_x,
+            "salto vertical nao deve deslocar x"
+        );
+
+        // Negative: holding A continuously must not keep the player airborne.
+        boot(&mut emulator);
+        emulator
+            .set_joypad(JoypadState {
+                y: true,
+                ..JoypadState::default()
+            })
+            .expect("hold A");
+        let mut held = Vec::new();
+        for _ in 0..90 {
+            emulator.run_frame().expect("held frame");
+            held.push(reference_read_ram(&emulator, &symbols, "spr_player_y", 2));
+        }
+        println!("jump held-A trajectory={held:?}");
+        assert_eq!(
+            *held.last().unwrap(),
+            ground_y,
+            "segurar A nao pode manter o personagem voando (input_pressed com borda)"
+        );
+
+        // ── (2) Goal SFX observed in the core sample stream ─────────────────
+        // Control = same project/code/input, with only the goal SFX payload silenced (same
+        // length). Moving sprites perturb Z80/XGM timing, so a different-input control would
+        // diverge for reasons unrelated to the event; this control isolates the sample data.
+        fn copy_tree(from: &Path, to: &Path) {
+            fs::create_dir_all(to).expect("mkdir control copy");
+            for entry in fs::read_dir(from).expect("read project dir") {
+                let entry = entry.expect("dir entry");
+                let target = to.join(entry.file_name());
+                if entry.file_type().expect("file type").is_dir() {
+                    if entry.file_name() != "build" {
+                        copy_tree(&entry.path(), &target);
+                    }
+                } else {
+                    fs::copy(entry.path(), &target).expect("copy project file");
+                }
+            }
+        }
+        let control_dir = project_base_dir.join("control-silenced-goal-sfx");
+        copy_tree(&project_dir, &control_dir);
+        let control_wav =
+            control_dir.join(crate::core::project_mgr::REFERENCE_PLATFORMER_GOAL_SOUND_ASSET);
+        let mut wav = fs::read(&control_wav).expect("read goal wav");
+        assert!(
+            wav.len() > 44 && wav[44..].iter().any(|b| *b != 0),
+            "goal wav deve ter payload audivel"
+        );
+        for byte in &mut wav[44..] {
+            *byte = 0;
+        }
+        fs::write(&control_wav, &wav).expect("write silenced goal wav");
+        let control_build = run_build_with_environment(&control_dir, &environment, |_| {});
+        assert!(
+            control_build.ok,
+            "control build failed: {:?}",
+            control_build.log
+        );
+        let control_rom = PathBuf::from(&control_build.rom_path);
+        let control_rom = if control_rom.is_absolute() {
+            control_rom
+        } else {
+            control_dir.join(control_rom)
+        };
+        let control_elf =
+            fs::read(control_dir.join("build/megadrive/out/rom.out")).expect("control ELF");
+        assert_eq!(
+            reference_elf32_symbols(&control_elf).get("main"),
+            symbols.get("main"),
+            "controle deve ter o mesmo layout de codigo"
+        );
+
+        let run_audio = |emulator: &mut EmulatorCore, rom: &Path, frames: usize| {
+            emulator.load_rom(rom).expect("load audio ROM");
+            emulator.set_joypad(neutral.clone()).expect("neutral input");
+            for _ in 0..120 {
+                emulator.run_frame().expect("warmup frame");
+            }
+            let _ = emulator.take_audio_samples();
+            emulator
+                .set_joypad(JoypadState {
+                    right: true,
+                    ..JoypadState::default()
+                })
+                .expect("right input");
+            let mut samples: Vec<i16> = Vec::new();
+            let mut frame_offsets = Vec::new();
+            let mut goal_frame = None;
+            let mut rate = 0;
+            for frame in 0..frames {
+                frame_offsets.push(samples.len());
+                emulator.run_frame().expect("audio frame");
+                let (r, chunk) = emulator.take_audio_samples().expect("audio samples");
+                rate = r;
+                samples.extend(chunk);
+                if goal_frame.is_none()
+                    && reference_read_ram(emulator, &symbols, "logic_var_goal_reached", 4) == 1
+                {
+                    goal_frame = Some(frame);
+                }
+            }
+            (rate, samples, frame_offsets, goal_frame)
+        };
+        let frames = 160;
+        let (rate, event_samples, event_offsets, goal_frame) =
+            run_audio(&mut emulator, &rom_path, frames);
+        let (_, event_repeat, _, _) = run_audio(&mut emulator, &rom_path, frames);
+        let (_, control_samples, _, control_goal) = run_audio(&mut emulator, &control_rom, frames);
+        let goal_frame = goal_frame.expect("sensor de objetivo deve disparar com Right");
+        assert_eq!(
+            control_goal,
+            Some(goal_frame),
+            "controle deve disparar o mesmo evento no mesmo frame"
+        );
+        assert!(rate > 0, "core deve reportar sample rate");
+        assert_eq!(
+            event_samples, event_repeat,
+            "stream deve ser deterministico para a mesma ROM/input"
+        );
+        assert!(
+            control_samples.iter().any(|s| *s != 0),
+            "BGM do controle deve produzir amostras nao silenciosas"
+        );
+        let common = event_samples.len().min(control_samples.len());
+        let first_divergence = (0..common).find(|i| event_samples[*i] != control_samples[*i]);
+        let event_offset = event_offsets[goal_frame];
+        let frame_energy = |f: usize| -> i64 {
+            let a = event_offsets[f];
+            let b = event_offsets
+                .get(f + 1)
+                .copied()
+                .unwrap_or(common)
+                .min(common);
+            (a..b)
+                .map(|i| (i64::from(event_samples[i]) - i64::from(control_samples[i])).abs())
+                .sum()
+        };
+        let profile: Vec<i64> = (0..event_offsets.len()).map(frame_energy).collect();
+        println!(
+            "goal audio rate={rate} goal_frame={goal_frame} event_offset={event_offset} first_divergence={first_divergence:?} samples={common} diff_profile={profile:?}"
+        );
+        let first_divergence =
+            first_divergence.expect("SFX de objetivo deve alterar o stream do core");
+        assert!(
+            first_divergence >= event_offset,
+            "stream divergiu antes do evento: divergence={first_divergence} event_offset={event_offset}"
+        );
+        let divergence_frame = event_offsets
+            .iter()
+            .rposition(|o| *o <= first_divergence)
+            .unwrap();
+        assert!(
+            // XGM queues the PCM command for the Z80; a few frames of driver latency are expected.
+            divergence_frame <= goal_frame + 6,
+            "SFX deve surgir logo apos o evento: frame {divergence_frame} vs evento {goal_frame}"
+        );
+        let window: i64 = profile[goal_frame..(goal_frame + 30).min(frames)]
+            .iter()
+            .sum();
+        assert!(
+            window > 100_000,
+            "janela do evento sem energia do SFX: {window}"
+        );
+        // The one-shot effect ends: the tail of the run is identical to the control again.
+        assert!(
+            profile[frames - 20..].iter().all(|e| *e == 0),
+            "SFX nao deveria persistir/repetir depois da janela do evento"
+        );
+
+        emulator.stop().expect("stop reference emulator");
+        let _ = fs::remove_dir_all(project_base_dir);
+    }
+
+    /// Creates the builtin reference project under `base_dir/name`, lets `mutate` edit the
+    /// saved project (as the editor would), builds it with the official SGDK and returns the
+    /// ROM path plus the ELF symbols of that exact build.
+    fn build_reference_variant(
+        base_dir: &Path,
+        name: &str,
+        mutate: impl FnOnce(&Path),
+    ) -> (PathBuf, HashMap<String, u32>) {
+        let create_result = create_project_from_template(
+            name.to_string(),
+            "megadrive".to_string(),
+            base_dir.to_string_lossy().to_string(),
+            "reference_platformer".to_string(),
+            None,
+        )
+        .expect("create reference platformer project");
+        let project_dir = PathBuf::from(&create_result.path);
+        mutate(&project_dir);
+        let environment = BuildEnvironment::detect();
+        assert!(
+            environment
+                .sgdk_root
+                .as_ref()
+                .is_some_and(|root| root.join("makefile.gen").is_file())
+                && environment.sgdk_make_program.is_some(),
+            "official SGDK real nao detectado; esta prova nao aceita fake toolchain"
+        );
+        let build = run_build_with_environment(&project_dir, &environment, |_| {});
+        assert!(build.ok, "{name} build failed: {:?}", build.log);
+        let rom = PathBuf::from(&build.rom_path);
+        let rom = if rom.is_absolute() {
+            rom
+        } else {
+            project_dir.join(rom)
+        };
+        let elf = fs::read(project_dir.join("build/megadrive/out/rom.out")).expect("read ELF");
+        (rom, reference_elf32_symbols(&elf))
+    }
+
+    fn set_reference_entity_x(project_dir: &Path, entity_id: &str, x: i32) {
+        let mut scene = crate::core::project_mgr::load_scene(
+            project_dir,
+            crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+        )
+        .expect("load scene");
+        scene
+            .entities
+            .iter_mut()
+            .find(|entity| entity.entity_id == entity_id)
+            .unwrap_or_else(|| panic!("entidade {entity_id} ausente"))
+            .transform
+            .x = x;
+        crate::core::project_mgr::save_scene(
+            project_dir,
+            crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+            &scene,
+        )
+        .expect("save scene");
+    }
+
+    /// Runs `frames` frames holding `joypad` from a fresh boot and returns the player x per
+    /// frame and the final `goal_open`.
+    fn run_reference_input(
+        emulator: &mut EmulatorCore,
+        rom: &Path,
+        symbols: &HashMap<String, u32>,
+        joypad: JoypadState,
+        frames: usize,
+    ) -> (Vec<i64>, i64) {
+        emulator.load_rom(rom).expect("load ROM");
+        emulator
+            .set_joypad(JoypadState::default())
+            .expect("neutral");
+        for _ in 0..120 {
+            emulator.run_frame().expect("warmup");
+        }
+        emulator.set_joypad(joypad).expect("input");
+        let mut xs = Vec::new();
+        for _ in 0..frames {
+            emulator.run_frame().expect("frame");
+            xs.push(reference_read_ram(emulator, symbols, "spr_player_x", 2));
+        }
+        let open = reference_read_ram(emulator, symbols, "logic_var_goal_open", 4);
+        (xs, open)
+    }
+
+    /// Passage gating from both sides and from an overlapping start, on real SGDK ROMs.
+    /// Blocker AABB is x=50..66, player AABB is 14 px wide, moves 2 px/frame.
+    ///
+    /// `cargo test --manifest-path src-tauri/Cargo.toml reference_platformer_real_passage_gating_contract --lib -- --ignored --nocapture --test-threads=1`
+    #[ignore]
+    #[test]
+    fn reference_platformer_real_passage_gating_contract() {
+        let base = temp_dir("reference-platformer-passage-gating");
+        let mut emulator = EmulatorCore::new(None);
+        let right = JoypadState {
+            right: true,
+            ..JoypadState::default()
+        };
+        let left = JoypadState {
+            left: true,
+            ..JoypadState::default()
+        };
+
+        // (a) Approach from the left while closed: stops before entering (x=36), opens at
+        // score 6 and then crosses.
+        let (rom, symbols) = build_reference_variant(&base, "gate-left-side", |_| {});
+        let (xs, open) = run_reference_input(&mut emulator, &rom, &symbols, right.clone(), 5);
+        println!("right-approach closed xs={xs:?} open={open}");
+        assert_eq!(
+            (*xs.last().unwrap(), open),
+            (36, 0),
+            "fechada deve parar antes de entrar"
+        );
+        assert!(
+            xs.iter().all(|x| x + 14 <= 50),
+            "player nunca entra na AABB fechada"
+        );
+        let (xs, open) = run_reference_input(&mut emulator, &rom, &symbols, right.clone(), 30);
+        println!("right-approach open xs={xs:?} open={open}");
+        assert_eq!(open, 1);
+        assert!(
+            *xs.last().unwrap() > 66,
+            "aberta deve permitir atravessar: {xs:?}"
+        );
+
+        // (b) Approach from the right while closed (Left never scores): stops at x=66.
+        let (rom, symbols) = build_reference_variant(&base, "gate-right-side", |dir| {
+            set_reference_entity_x(dir, "player", 80)
+        });
+        let (xs, open) = run_reference_input(&mut emulator, &rom, &symbols, left.clone(), 30);
+        println!("left-approach closed xs={xs:?} open={open}");
+        assert_eq!(open, 0);
+        assert_eq!(
+            *xs.last().unwrap(),
+            66,
+            "pela direita, fechada deve parar na borda x=66"
+        );
+        assert!(
+            xs.iter().all(|x| *x >= 66),
+            "player nunca entra pela direita"
+        );
+
+        // (c) Starting inside the closed blocker: free to walk out (no soft-lock).
+        let (rom, symbols) = build_reference_variant(&base, "gate-overlapping", |dir| {
+            set_reference_entity_x(dir, "player", 44)
+        });
+        let (xs, open) = run_reference_input(&mut emulator, &rom, &symbols, left, 12);
+        println!("overlap exit xs={xs:?} open={open}");
+        assert_eq!(open, 0);
+        assert_eq!(
+            *xs.last().unwrap(),
+            44 - 24,
+            "sobreposto deve conseguir sair"
+        );
+
+        // (d) A duplicated blocker entity (what the Inspector "Duplicar" produces) builds
+        // as its own runtime sprite/position, independent from the original.
+        let (_, symbols) = build_reference_variant(&base, "gate-duplicated-blocker", |dir| {
+            let mut scene = crate::core::project_mgr::load_scene(
+                dir,
+                crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+            )
+            .expect("load scene");
+            let mut second = scene
+                .entities
+                .iter()
+                .find(|entity| entity.entity_id == "passage_blocker")
+                .cloned()
+                .expect("blocker");
+            second.entity_id = "passage_blocker_2".to_string();
+            second.transform.x = 120;
+            scene.entities.push(second);
+            crate::core::project_mgr::save_scene(
+                dir,
+                crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+                &scene,
+            )
+            .expect("save scene");
+        });
+        // (f) Side walls: solid cells at column 12 (x=96..103), rows 22..25, stop the
+        // player walking right at x=80 (right edge 95); without them it walks past.
+        let (rom, wall_symbols) = build_reference_variant(&base, "side-wall", |dir| {
+            let mut scene = crate::core::project_mgr::load_scene(
+                dir,
+                crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+            )
+            .expect("load scene");
+            let map = scene.collision_map.as_mut().expect("collision map");
+            for row in 22..26usize {
+                map.data[row * map.width as usize + 12] = 1;
+            }
+            crate::core::project_mgr::save_scene(
+                dir,
+                crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+                &scene,
+            )
+            .expect("save scene");
+        });
+        let (xs, _) = run_reference_input(&mut emulator, &rom, &wall_symbols, right.clone(), 70);
+        println!("side wall xs={xs:?}");
+        assert_eq!(
+            *xs.last().unwrap(),
+            80,
+            "parede lateral deve parar o personagem"
+        );
+        assert!(
+            xs.iter().all(|x| *x <= 80),
+            "personagem nunca entra na parede"
+        );
+
+        // (g) One erased floor cell (col 10, row 26): the player drops into it (y=200),
+        // the hole's walls hold it, and a jump while holding right gets it out.
+        let (rom, hole_symbols) = build_reference_variant(&base, "one-cell-hole", |dir| {
+            let mut scene = crate::core::project_mgr::load_scene(
+                dir,
+                crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+            )
+            .expect("load scene");
+            let map = scene.collision_map.as_mut().expect("collision map");
+            map.data[26 * map.width as usize + 10] = 0;
+            crate::core::project_mgr::save_scene(
+                dir,
+                crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+                &scene,
+            )
+            .expect("save scene");
+        });
+        let read_xy = |emulator: &EmulatorCore| {
+            (
+                reference_read_ram(emulator, &hole_symbols, "spr_player_x", 2),
+                reference_read_ram(emulator, &hole_symbols, "spr_player_y", 2),
+            )
+        };
+        let (_, _) = run_reference_input(&mut emulator, &rom, &hole_symbols, right.clone(), 60);
+        let trapped = read_xy(&emulator);
+        println!("hole trapped={trapped:?}");
+        assert_eq!(trapped.1, 200, "personagem cai no buraco de uma celula");
+        for frame in 0..40 {
+            emulator
+                .set_joypad(JoypadState {
+                    right: true,
+                    y: frame < 2,
+                    ..JoypadState::default()
+                })
+                .unwrap();
+            emulator.run_frame().unwrap();
+        }
+        let escaped = read_xy(&emulator);
+        println!("hole escaped={escaped:?}");
+        assert!(
+            escaped.0 > trapped.0 + 16 && escaped.1 == 192,
+            "salto deve tirar o personagem do buraco"
+        );
+
+        let mut blocker_symbols: Vec<_> = symbols
+            .keys()
+            .filter(|name| name.contains("passage_blocker"))
+            .cloned()
+            .collect();
+        blocker_symbols.sort();
+        // (e) Collision painting reaches ROM physics: erasing the floor cells at x=80..95
+        // (columns 10..11, rows 26..27) makes a pit; walking right the player falls to the map
+        // bottom (y=208) there, while the unedited floor still holds it at y=192.
+        let (rom, pit_symbols) = build_reference_variant(&base, "ground-pit", |dir| {
+            let mut scene = crate::core::project_mgr::load_scene(
+                dir,
+                crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+            )
+            .expect("load scene");
+            let map = scene.collision_map.as_mut().expect("collision map");
+            for row in 26..28usize {
+                for col in 10..12usize {
+                    map.data[row * map.width as usize + col] = 0;
+                }
+            }
+            crate::core::project_mgr::save_scene(
+                dir,
+                crate::core::project_mgr::DEFAULT_ENTRY_SCENE,
+                &scene,
+            )
+            .expect("save scene");
+        });
+        emulator.load_rom(&rom).expect("load pit ROM");
+        emulator
+            .set_joypad(JoypadState::default())
+            .expect("neutral");
+        for _ in 0..120 {
+            emulator.run_frame().expect("warmup");
+        }
+        emulator.set_joypad(right.clone()).expect("right");
+        let mut path = Vec::new();
+        for _ in 0..40 {
+            emulator.run_frame().expect("frame");
+            path.push((
+                reference_read_ram(&emulator, &pit_symbols, "spr_player_x", 2),
+                reference_read_ram(&emulator, &pit_symbols, "spr_player_y", 2),
+            ));
+        }
+        println!("pit path={path:?}");
+        assert!(
+            path.iter()
+                .filter(|(x, _)| *x + 8 < 80)
+                .all(|(_, y)| *y == 192),
+            "piso nao editado deve continuar sustentando o player"
+        );
+        assert!(
+            path.iter().any(|(x, y)| (72..88).contains(x) && *y > 192),
+            "celulas apagadas devem virar fosso fisico"
+        );
+        // Without horizontal tile walls, walking on steps back up out of a 2-row pit (known
+        // limit). Stopping over it, the player falls to the map bottom.
+        emulator.load_rom(&rom).expect("reload pit ROM");
+        emulator
+            .set_joypad(JoypadState::default())
+            .expect("neutral");
+        for _ in 0..120 {
+            emulator.run_frame().expect("warmup");
+        }
+        emulator.set_joypad(right.clone()).expect("right");
+        let mut guard = 0;
+        while reference_read_ram(&emulator, &pit_symbols, "spr_player_x", 2) < 80 {
+            emulator.run_frame().expect("frame");
+            guard += 1;
+            assert!(guard < 300, "player nao chegou ao fosso");
+        }
+        emulator
+            .set_joypad(JoypadState::default())
+            .expect("stop over pit");
+        for _ in 0..40 {
+            emulator.run_frame().expect("frame");
+        }
+        let settled = (
+            reference_read_ram(&emulator, &pit_symbols, "spr_player_x", 2),
+            reference_read_ram(&emulator, &pit_symbols, "spr_player_y", 2),
+        );
+        println!("pit settled={settled:?}");
+        assert_eq!(
+            settled.1, 208,
+            "parado sobre o fosso, cai ate o fundo do mapa"
+        );
+
+        println!("duplicated blocker symbols: {blocker_symbols:?}");
+        for name in [
+            "spr_passage_blocker",
+            "spr_passage_blocker_x",
+            // Its position static is dropped by GCC until some logic reads it.
+            "spr_passage_blocker__passage_blocker_2",
+        ] {
+            assert!(
+                symbols.contains_key(name),
+                "instancia runtime ausente: {name}"
+            );
+        }
+
+        emulator.stop().expect("stop emulator");
+        let _ = fs::remove_dir_all(base);
+    }
+
+    /// Frame-to-frame changes of the idle player's screen region over `frames` frames.
+    fn reference_idle_player_changes(
+        emulator: &mut EmulatorCore,
+        rom: &Path,
+        frames: usize,
+    ) -> Vec<usize> {
+        emulator.load_rom(rom).expect("load ROM");
+        emulator
+            .set_joypad(JoypadState::default())
+            .expect("neutral");
+        for _ in 0..120 {
+            emulator.run_frame().expect("warmup");
+        }
+        let mut previous: Option<Vec<u8>> = None;
+        let mut changes = Vec::new();
+        for frame in 0..frames {
+            emulator.run_frame().expect("frame");
+            let (raw, size, format) = emulator.get_framebuffer().expect("framebuffer");
+            let rgba = framebuffer_to_rgba(&raw, size, format);
+            let width = rgba.width as usize;
+            let mut region = Vec::new();
+            for y in 192..208usize {
+                let start = (y * width + 32) * 4;
+                region.extend_from_slice(&rgba.rgba[start..start + 16 * 4]);
+            }
+            if previous.as_ref().is_some_and(|last| *last != region) {
+                changes.push(frame);
+            }
+            previous = Some(region);
+        }
+        changes
+    }
+
+    /// Animation duration edited in the player prefab reaches the ROM: the idle cycle
+    /// (frames 0,1) swaps every 15 frames at 4 fps and every 5 frames at 12 fps.
+    ///
+    /// `cargo test --manifest-path src-tauri/Cargo.toml reference_platformer_real_animation_timing_contract --lib -- --ignored --nocapture --test-threads=1`
+    #[ignore]
+    #[test]
+    fn reference_platformer_real_animation_timing_contract() {
+        let base = temp_dir("reference-platformer-animation");
+        let mut emulator = EmulatorCore::new(None);
+        let (original, _) = build_reference_variant(&base, "anim-original", |_| {});
+        let (edited, _) = build_reference_variant(&base, "anim-edited", |dir| {
+            let prefab = dir.join("prefabs").join("reference_player.json");
+            let mut json: serde_json::Value =
+                serde_json::from_str(&fs::read_to_string(&prefab).unwrap()).unwrap();
+            let idle = &mut json["components"]["sprite"]["animations"]["idle"];
+            assert_eq!(idle["fps"], 4, "template idle esperado a 4 fps");
+            idle["fps"] = serde_json::json!(12);
+            fs::write(&prefab, serde_json::to_string_pretty(&json).unwrap()).unwrap();
+        });
+        let before = reference_idle_player_changes(&mut emulator, &original, 60);
+        let after = reference_idle_player_changes(&mut emulator, &edited, 60);
+        println!("idle changes 4fps={before:?} 12fps={after:?}");
+        let gaps = |changes: &[usize]| changes.windows(2).map(|w| w[1] - w[0]).collect::<Vec<_>>();
+        assert!(
+            !before.is_empty() && gaps(&before).iter().all(|gap| *gap == 15),
+            "4 fps troca a cada 15 frames"
+        );
+        assert!(
+            after.len() >= 10 && gaps(&after).iter().all(|gap| *gap == 5),
+            "12 fps troca a cada 5 frames"
+        );
+        emulator.stop().expect("stop");
+        let _ = fs::remove_dir_all(base);
+    }
+
+    /// ROM graphic reinsertion (Experimental): recolor the exclusive torso tiles of the
+    /// Sonic 1 stand frame in its raw 4bpp art, size-preserving, on a copy; the base stays
+    /// intact, DPLC sharing is known (tiles 11..16 shared with frame 5) and, after the same
+    /// boot+START sequence, the framebuffer differs from the base only inside a small
+    /// sprite-sized box. Needs the local BYOR ROM (`RDS_SONIC_ROM` or the canonical corpus).
+    ///
+    /// `cargo test --manifest-path src-tauri/Cargo.toml sonic1_stand_tile_reinsertion_observed_in_game --lib -- --ignored --nocapture`
+    #[ignore]
+    #[test]
+    fn sonic1_stand_tile_reinsertion_observed_in_game() {
+        use crate::tools::reverse::decomp::sprite_composition as comp;
+        let base_path = std::env::var("RDS_SONIC_ROM").map(PathBuf::from).unwrap_or_else(|_| {
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../data/canonical-local-2026-09-21/corpus/byor/Sonic the Hedgehog (USA, Europe).bin")
+        });
+        let base = fs::read(&base_path).expect("ROM BYOR Sonic local");
+        let base_sha = sha256_hex(&base);
+        assert_eq!(
+            base_sha,
+            comp::SONIC1_REFERENCE_SHA256,
+            "perfil exige a ROM BYOR comprovada"
+        );
+
+        let dplc = comp::sonic_dplc_art_tiles(&base).expect("DPLC verificada");
+        assert_eq!(
+            dplc[comp::SONIC1_STAND_DPLC_FRAME],
+            (0..17).collect::<Vec<_>>()
+        );
+        let sharing: Vec<usize> = (0..dplc.len())
+            .filter(|frame| *frame != 1 && dplc[*frame].iter().any(|tile| *tile < 17))
+            .collect();
+        assert_eq!(
+            sharing,
+            vec![5],
+            "tiles do stand compartilhados so com o frame 5"
+        );
+        assert!(
+            dplc[5].iter().all(|tile| !(0..11).contains(tile)),
+            "tiles 0..10 exclusivos do stand"
+        );
+
+        let mut edited = base.clone();
+        let mut touched_tiles = std::collections::BTreeSet::new();
+        for y in 0..40 {
+            for x in 0..32 {
+                let Some(location) = comp::sonic_stand_pixel_location(x, y).unwrap() else {
+                    continue;
+                };
+                if !(3..11).contains(&location.art_tile) {
+                    continue;
+                }
+                let byte = edited[location.byte_offset];
+                let current = if location.high_nibble {
+                    byte >> 4
+                } else {
+                    byte & 0x0f
+                };
+                if current == 0 {
+                    continue; // keep transparency
+                }
+                edited[location.byte_offset] = if location.high_nibble {
+                    (byte & 0x0f) | 0xe0
+                } else {
+                    (byte & 0xf0) | 0x0e
+                };
+                touched_tiles.insert(location.art_tile);
+            }
+        }
+        assert_eq!(edited.len(), base.len(), "tamanho preservado");
+        let changed: Vec<usize> = (0..base.len()).filter(|i| base[*i] != edited[*i]).collect();
+        assert!(!changed.is_empty());
+        assert!(
+            changed
+                .iter()
+                .all(|i| (comp::SONIC1_ART_OFFSET..comp::SONIC1_ART_OFFSET + 11 * 32).contains(i)),
+            "so tiles exclusivos alterados"
+        );
+        println!(
+            "reinsertion tiles={touched_tiles:?} bytes={} first=0x{:x} last=0x{:x}",
+            changed.len(),
+            changed[0],
+            changed.last().unwrap()
+        );
+
+        let dir = temp_dir("sonic-tile-reinsertion");
+        let edited_path = dir.join("sonic-stand-tiles.bin");
+        fs::write(&edited_path, &edited).unwrap();
+        assert_eq!(
+            sha256_hex(&fs::read(&base_path).unwrap()),
+            base_sha,
+            "base intacta"
+        );
+
+        let observe = |rom: &Path| -> (Vec<u8>, u32) {
+            let mut emulator = EmulatorCore::new(None);
+            emulator.load_rom(rom).expect("load Sonic ROM");
+            // The stand mapping is Sonic's object frame 1, on screen from ~1108 to ~1422
+            // with this boot+START sequence (then frames 3 and 2 of the wait animation).
+            for frame in 0..1300u32 {
+                emulator
+                    .set_joypad(JoypadState {
+                        start: frame == 900,
+                        ..JoypadState::default()
+                    })
+                    .unwrap();
+                emulator.run_frame().unwrap();
+            }
+            let (word, _) = emulator.read_memory(2, 0xd01a, 2).unwrap();
+            assert_eq!(
+                word[1], 1,
+                "Sonic precisa exibir o frame stand (obFrame=1) na observacao"
+            );
+            let (raw, size, format) = emulator.get_framebuffer().unwrap();
+            let rgba = framebuffer_to_rgba(&raw, size, format);
+            emulator.stop().unwrap();
+            (rgba.rgba, rgba.width)
+        };
+        let (base_frame, width) = observe(&base_path);
+        let (base_repeat, _) = observe(&base_path);
+        assert_eq!(
+            base_frame, base_repeat,
+            "base deterministica sob a mesma sequencia"
+        );
+        let (edited_frame, _) = observe(&edited_path);
+        let diffs: Vec<(usize, usize)> = (0..base_frame.len() / 4)
+            .filter(|p| base_frame[p * 4..p * 4 + 3] != edited_frame[p * 4..p * 4 + 3])
+            .map(|p| (p % width as usize, p / width as usize))
+            .collect();
+        assert!(
+            diffs.len() >= 20,
+            "tiles reinseridos devem aparecer no jogo: {} pixels",
+            diffs.len()
+        );
+        let (x0, x1) = (
+            diffs.iter().map(|d| d.0).min().unwrap(),
+            diffs.iter().map(|d| d.0).max().unwrap(),
+        );
+        let (y0, y1) = (
+            diffs.iter().map(|d| d.1).min().unwrap(),
+            diffs.iter().map(|d| d.1).max().unwrap(),
+        );
+        println!(
+            "in-game diff pixels={} bbox=({x0},{y0})-({x1},{y1})",
+            diffs.len()
+        );
+        assert!(
+            x1 - x0 < 32 && y1 - y0 < 40,
+            "diferenca deve ficar restrita ao sprite do Sonic"
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// Tile cell semantics reach the ROM: value N renders image tile N-1 (the same 8x8
+    /// block the base map shows at that atlas position), the explicit-empty value renders a
+    /// blank cell, and value 0 leaves the base map untouched.
+    ///
+    /// `cargo test --manifest-path src-tauri/Cargo.toml reference_platformer_real_tile_cells_contract --lib -- --ignored --nocapture`
+    #[ignore]
+    #[test]
+    fn reference_platformer_real_tile_cells_contract() {
+        let base_dir = temp_dir("reference-platformer-tile-cells");
+        let block = |rgba: &[u8], width: usize, col: usize, row: usize| -> Vec<u8> {
+            let mut out = Vec::new();
+            for y in row * 8..row * 8 + 8 {
+                let start = (y * width + col * 8) * 4;
+                out.extend_from_slice(&rgba[start..start + 32]);
+            }
+            out
+        };
+        let frame = |rom: &Path| -> (Vec<u8>, usize) {
+            let mut emulator = EmulatorCore::new(None);
+            emulator.load_rom(rom).expect("load ROM");
+            for _ in 0..180 {
+                emulator.run_frame().expect("frame");
+            }
+            let (raw, size, format) = emulator.get_framebuffer().expect("framebuffer");
+            let rgba = framebuffer_to_rgba(&raw, size, format);
+            emulator.stop().expect("stop");
+            (rgba.rgba, rgba.width as usize)
+        };
+        let (base_rom, _) = build_reference_variant(&base_dir, "cells-base", |_| {});
+        // The template picture is 320x224 (40x28 tiles); image tile (2,0) is the brick sample.
+        let painted_value = 2u32 + 1;
+        let (painted_rom, _) = build_reference_variant(&base_dir, "cells-painted", |dir| {
+            let prefab = dir.join("prefabs").join("reference_tilemap.json");
+            let mut json: serde_json::Value =
+                serde_json::from_str(&fs::read_to_string(&prefab).unwrap()).unwrap();
+            let tilemap = &mut json["components"]["tilemap"];
+            let width = tilemap["map_width"].as_u64().unwrap() as usize;
+            let height = tilemap["map_height"].as_u64().unwrap() as usize;
+            let mut cells = vec![0u32; width * height];
+            cells[20 * width + 5] = painted_value;
+            cells[26 * width + 10] = u32::MAX;
+            cells[26 * width + 11] = u32::MAX;
+            tilemap["cells"] = serde_json::json!(cells);
+            fs::write(&prefab, serde_json::to_string_pretty(&json).unwrap()).unwrap();
+        });
+        let (base, width) = frame(&base_rom);
+        let (painted, _) = frame(&painted_rom);
+        assert_ne!(
+            block(&base, width, 5, 20),
+            block(&base, width, 2, 0),
+            "controle: celulas distintas no mapa-base"
+        );
+        assert_eq!(
+            block(&painted, width, 5, 20),
+            block(&base, width, 2, 0),
+            "valor N deve renderizar o tile N-1 da imagem"
+        );
+        for col in [10usize, 11] {
+            let empty = block(&painted, width, col, 26);
+            assert_ne!(
+                empty,
+                block(&base, width, col, 26),
+                "celula vazia deve apagar o mapa-base"
+            );
+            assert!(
+                empty.chunks_exact(4).all(|px| px == &empty[0..4]),
+                "celula vazia deve ser uniforme (tile em branco)"
+            );
+        }
+        assert_eq!(
+            block(&painted, width, 20, 26),
+            block(&base, width, 20, 26),
+            "valor 0 preserva o mapa-base"
+        );
+        let _ = fs::remove_dir_all(base_dir);
+    }
+
+    /// Goertzel power of `frequency` over interleaved stereo i16 samples (left channel).
+    fn reference_tone_power(samples: &[i16], rate: u32, frequency: f64) -> f64 {
+        let omega = 2.0 * std::f64::consts::PI * frequency / f64::from(rate);
+        let coeff = 2.0 * omega.cos();
+        let (mut s1, mut s2) = (0.0f64, 0.0f64);
+        let mut n: f64 = 0.0;
+        for frame in samples.chunks_exact(2) {
+            let s0 = f64::from(frame[0]) + coeff * s1 - s2;
+            s2 = s1;
+            s1 = s0;
+            n += 1.0;
+        }
+        (s1 * s1 + s2 * s2 - coeff * s1 * s2) / f64::max(n * n, 1.0)
+    }
+
+    /// The completion sound associated in the graph is the one the core produces at the
+    /// goal event: default `goal_sound` (880 Hz) vs. `victory` (1320 Hz). Neither tone is
+    /// present before the event, so background music cannot make this pass.
+    ///
+    /// `cargo test --manifest-path src-tauri/Cargo.toml reference_platformer_real_goal_sound_association_contract --lib -- --ignored --nocapture`
+    #[ignore]
+    #[test]
+    fn reference_platformer_real_goal_sound_association_contract() {
+        let base = temp_dir("reference-platformer-sound-association");
+        let mut emulator = EmulatorCore::new(None);
+        let measure = |emulator: &mut EmulatorCore, rom: &Path, symbols: &HashMap<String, u32>| {
+            emulator.load_rom(rom).expect("load");
+            for _ in 0..120 {
+                emulator.run_frame().unwrap();
+            }
+            let _ = emulator.take_audio_samples();
+            emulator
+                .set_joypad(JoypadState {
+                    right: true,
+                    ..JoypadState::default()
+                })
+                .unwrap();
+            let mut samples = Vec::new();
+            let mut offsets = Vec::new();
+            let mut goal = None;
+            let mut rate = 0;
+            for frame in 0..160 {
+                offsets.push(samples.len());
+                emulator.run_frame().unwrap();
+                let (r, chunk) = emulator.take_audio_samples().unwrap();
+                rate = r;
+                samples.extend(chunk);
+                if goal.is_none()
+                    && reference_read_ram(emulator, symbols, "logic_var_goal_reached", 4) == 1
+                {
+                    goal = Some(frame);
+                }
+            }
+            let goal = goal.expect("objetivo alcancado");
+            let window = (rate as usize / 4) * 2; // 0.25 s stereo
+            let after_start = offsets[goal + 4];
+            let after = &samples[after_start..(after_start + window).min(samples.len())];
+            let before_end = offsets[goal];
+            let before = &samples[before_end.saturating_sub(window)..before_end];
+            let p = |s: &[i16], f: f64| reference_tone_power(s, rate, f);
+            (
+                p(before, 880.0),
+                p(before, 1320.0),
+                p(after, 880.0),
+                p(after, 1320.0),
+            )
+        };
+        let (default_rom, default_symbols) =
+            build_reference_variant(&base, "sound-default", |_| {});
+        let (victory_rom, victory_symbols) =
+            build_reference_variant(&base, "sound-victory", |dir| {
+                let path = dir.join("graphs/reference_platformer_logic.json");
+                let mut graph: serde_json::Value =
+                    serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+                for node in graph["nodes"].as_array_mut().unwrap() {
+                    if node["id"] == "goal_sound" {
+                        node["params"]["sfx"] = serde_json::json!("victory");
+                    }
+                }
+                fs::write(
+                    &path,
+                    crate::core::project_mgr::render_line_mapped_graph(graph),
+                )
+                .unwrap();
+            });
+        let d = measure(&mut emulator, &default_rom, &default_symbols);
+        let v = measure(&mut emulator, &victory_rom, &victory_symbols);
+        println!(
+            "tone power (before880, before1320, after880, after1320): default={d:?} victory={v:?}"
+        );
+        assert!(
+            d.2 > 20.0 * d.0.max(1.0) && d.2 > 20.0 * d.3.max(1.0),
+            "padrao: 880 Hz so depois do evento"
+        );
+        assert!(
+            v.3 > 20.0 * v.1.max(1.0) && v.3 > 20.0 * v.2.max(1.0),
+            "victory: 1320 Hz so depois do evento"
+        );
+        emulator.stop().unwrap();
+        let _ = fs::remove_dir_all(base);
+    }
+
     #[test]
     fn diff_asset_fingerprints_detects_added_changed_and_removed_assets() {
         let previous = HashMap::from([
@@ -8223,5 +12385,172 @@ pub extern "C" fn retro_run() {
 
         assert!(snapshot.is_empty());
         let _ = fs::remove_dir_all(dir);
+    }
+
+    // ── Corrida de época no send_input (re-revisão 1a1fc65, P1) ──────────────
+
+    use crate::emulator::libretro_ffi::{EmulatorCore, JoypadState};
+    use std::sync::atomic::Ordering;
+
+    /// Serializa os testes que tocam CORE_EPOCH (estático de processo): sem
+    /// este guard, o harness paralelo deixa os testes invalidarem a época uns
+    /// dos outros (revisão de e39f2b5: "um teste pode invalidar a época do
+    /// outro").
+    static CORE_EPOCH_TEST_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Força as interleavings da corrida de época (revisor 1a1fc65): a época
+    /// muda ENTRE a captura do frontend e a execução sob o lock. Teste único
+    /// porque CORE_EPOCH é estático de processo — os cenários executam em
+    /// sequência fixa.
+    #[test]
+    fn send_input_epoch_race_is_refused_under_lock_without_applying() {
+        let _guard = CORE_EPOCH_TEST_GUARD.lock().unwrap();
+        let state = EmulatorCoreState(std::sync::Mutex::new(EmulatorCore::new(None)));
+
+        // Cenário 1: frontend capturou a época 4; a recarga levou o core para
+        // 5 entre a captura e a execução. Conferência sob o lock deve recusar
+        // sem aplicar o input ao core novo.
+        CORE_EPOCH.store(5, Ordering::SeqCst);
+        let stale = state.send_input_if_current(
+            Some(4),
+            JoypadState {
+                right: true,
+                ..JoypadState::default()
+            },
+        );
+        assert!(!stale.ok, "época obsoleta deve ser recusada");
+        assert!(stale.message.contains("obsoleta"), "{}", stale.message);
+        assert!(
+            !state.0.lock().unwrap().current_joypad().right,
+            "input obsoleto não pode ser aplicado ao core novo"
+        );
+
+        // Cenário 2 (controle): época corrente é aplicada normalmente.
+        let applied = state.send_input_if_current(
+            Some(5),
+            JoypadState {
+                right: true,
+                ..JoypadState::default()
+            },
+        );
+        assert!(applied.ok);
+        assert!(state.0.lock().unwrap().current_joypad().right);
+
+        // Cenário 3: a conferência acontece DENTRO da seção crítica — um load
+        // que incrementa a época depois do lock do send invalida o send que
+        // ainda vai aplicar.
+        CORE_EPOCH.store(9, Ordering::SeqCst);
+        let captured_current = Some(9u64);
+        CORE_EPOCH.store(10, Ordering::SeqCst);
+        let invalidated = state.send_input_if_current(captured_current, JoypadState::default());
+        assert!(
+            !invalidated.ok,
+            "época capturada antes da recarga deve ser recusada"
+        );
+        assert!(
+            invalidated.message.contains('9') && invalidated.message.contains("10"),
+            "recusa cita as duas épocas: {}",
+            invalidated.message
+        );
+    }
+
+    /// Regressão da ORDEM DEFETUOSA com o comando REAL e sincronização
+    /// determinística via gate de canais instalado antes do spawn: o sender
+    /// pausa no hook pré-lock dentro de `send_input_if_current` (imediatamente
+    /// antes de adquirir o mutex do core), o teste confirma a chegada,
+    /// incrementa a época — SEM segurar o mutex do core: a ordem é controlada
+    /// pelo hook, não pelo lock — e libera o gate. O sender então adquire o
+    /// mutex, valida sob o lock vendo a época já incrementada e recusa. No
+    /// código com validação antes do lock (regressão), a validação roda ANTES
+    /// do hook, com a época ainda 1, e o input é aplicado quando o lock é
+    /// adquirido — o teste FALHA.
+    #[test]
+    fn send_input_command_refuses_epoch_bumped_after_prelock_hook() {
+        use std::sync::mpsc;
+
+        let _epoch_guard = CORE_EPOCH_TEST_GUARD.lock().unwrap();
+        let state = std::sync::Arc::new(EmulatorCoreState(std::sync::Mutex::new(
+            EmulatorCore::new(None),
+        )));
+        CORE_EPOCH.store(1, Ordering::SeqCst);
+        let captured_before_reload = Some(1u64);
+
+        // Instala AMBAS as metades do gate ANTES de spawnar o sender:
+        // - chegada: TX vai no gate (o sender sinaliza), RX fica com o teste;
+        // - liberação: RX vai no gate (o sender aguarda), TX fica com o teste.
+        // Se a metade de liberação fosse instalada depois, o sender passaria
+        // direto pelo gate (RX ausente) e o teste não pausaria nada.
+        let (gate_tx, gate_rx) = mpsc::channel::<()>();
+        let (release_tx, release_rx) = mpsc::channel::<()>();
+        *EPOCH_TEST_GATE_TX.lock().unwrap() = Some(gate_tx);
+        *EPOCH_TEST_GATE_RX.lock().unwrap() = Some(release_rx);
+
+        // Sender: chama o comando REAL. No código corrigido, pausa no gate,
+        // adquire o mutex após a liberação, valida 1 vs 2 → recusa.
+        let state_sender = std::sync::Arc::clone(&state);
+        let sender = std::thread::spawn(move || {
+            emulator_send_input_command(
+                &state_sender,
+                JoypadState {
+                    right: true,
+                    ..JoypadState::default()
+                },
+                captured_before_reload,
+            )
+        });
+
+        // Aguarda confirmação EXPLÍCITA de que o sender atingiu o gate.
+        gate_rx
+            .recv()
+            .expect("sender não sinalizou chegada ao gate");
+
+        // Incrementa a época com o sender pausado no gate (antes do mutex).
+        CORE_EPOCH.store(2, Ordering::SeqCst);
+
+        // Libera o gate: o sender adquire o mutex e valida contra a época 2.
+        release_tx.send(()).expect("gate já encerrado");
+
+        let result = sender.join().unwrap();
+
+        assert!(
+            !result.ok,
+            "VAZAMENTO: send validou com a época antiga (1) e aplicou input depois de o core ter sido incrementado para 2: {}",
+            result.message
+        );
+        assert!(result.message.contains("obsoleta"), "{}", result.message);
+        let joypad = state.0.lock().unwrap().current_joypad();
+        assert!(
+            !joypad.right,
+            "input obsoleto não pode ser aplicado ao core novo"
+        );
+    }
+    /// Sequencial: época capturada antes do incremento → recusa sem aplicar.
+    /// Cobertura do contrato de época.
+    #[test]
+    fn send_input_refuses_epoch_captured_before_increment() {
+        let _guard = CORE_EPOCH_TEST_GUARD.lock().unwrap();
+        let state = EmulatorCoreState(std::sync::Mutex::new(EmulatorCore::new(None)));
+
+        CORE_EPOCH.store(1, Ordering::SeqCst);
+        let captured = CORE_EPOCH.load(Ordering::SeqCst);
+        CORE_EPOCH.store(2, Ordering::SeqCst);
+
+        let result = state.send_input_if_current(
+            Some(captured),
+            JoypadState {
+                right: true,
+                ..JoypadState::default()
+            },
+        );
+        assert!(
+            !result.ok,
+            "época capturada antes do incremento deve ser recusada: {}",
+            result.message
+        );
+        assert!(result.message.contains("obsoleta"), "{}", result.message);
+        assert!(
+            !state.0.lock().unwrap().current_joypad().right,
+            "input obsoleto não pode ser aplicado ao core novo"
+        );
     }
 }

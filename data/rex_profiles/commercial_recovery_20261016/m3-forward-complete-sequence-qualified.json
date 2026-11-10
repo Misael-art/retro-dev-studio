@@ -1,0 +1,206 @@
+{
+  "schema": "rex-commercial-ui-complete-sequence/v1",
+  "direction": "1\u21922",
+  "status": "PASS_CANONICAL_PREVIEW_EDIT_PERSIST_PUBLISH_EXECUTE_COMPARE",
+  "checks": 128,
+  "private_report": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-18T02-06-20-092Z-report.json",
+  "private_report_sha256": "608967c274fb55fc35e8f90be547f7dc5f71717a1cc75fba669fd7d6a19082ca",
+  "app_sha256": "22dc259a3275e1ac8687a4072b241fba81c934e36cde5b474a027f7527c25347",
+  "copies": [
+    {
+      "etapa": "canvas",
+      "regiao": "0x01B6E8",
+      "campo": "bytes_per_cell",
+      "bytes_per_cell": 2,
+      "rom_base_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "copia": "Sonic_the_Hedgehog__USA__Europe_.copy-grid-1b6e8-cb471c95.bin",
+      "copia_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+      "ips_sha256": "b48421f3247d3669b1f12cf14917f48f17f72455ab43141f1f525aa8035969f9",
+      "bytes_diferentes": 1,
+      "offsets_diferentes": [
+        112376
+      ]
+    },
+    {
+      "etapa": "reaberto",
+      "regiao": "0x01B6E8",
+      "campo": "bytes_per_cell",
+      "bytes_per_cell": 2,
+      "rom_base_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "copia": "Sonic_the_Hedgehog__USA__Europe_.copy-grid-1b6e8-cb471c95.bin",
+      "copia_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+      "ips_sha256": "b48421f3247d3669b1f12cf14917f48f17f72455ab43141f1f525aa8035969f9",
+      "bytes_diferentes": 1,
+      "offsets_diferentes": [
+        112376
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "etapa": "pre-edit",
+      "width": 1,
+      "directory": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-ui-forward-004/pre-edit",
+      "expectation_sha256": "087809be681ca57a817179dc5c3df90acdd61512f791430560ed61389662b051",
+      "framebuffer_sha256": "13723a0e4cf8566d11b9c6298d478e09836b0944e5a421a1618fbe35782ae5f1",
+      "resource_pixels": 10534,
+      "conditional_causal_pixels": 0,
+      "epoch": 1,
+      "limits": "Expected world from frozen decoded source+original nonzero tail and independent strided copy; expected descriptor/tile content from original ROM/immutable pointer/base bits. Camera/coordinates/animation/palette selector are observed controls. No modified framebuffer input. Conditional asset effect only; no prediction of full trajectory or background."
+    },
+    {
+      "etapa": "original",
+      "width": 1,
+      "directory": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-ui-forward-004/original",
+      "expectation_sha256": "087809be681ca57a817179dc5c3df90acdd61512f791430560ed61389662b051",
+      "framebuffer_sha256": "13723a0e4cf8566d11b9c6298d478e09836b0944e5a421a1618fbe35782ae5f1",
+      "resource_pixels": 10534,
+      "conditional_causal_pixels": 0,
+      "epoch": 1,
+      "limits": "Expected world from frozen decoded source+original nonzero tail and independent strided copy; expected descriptor/tile content from original ROM/immutable pointer/base bits. Camera/coordinates/animation/palette selector are observed controls. No modified framebuffer input. Conditional asset effect only; no prediction of full trajectory or background."
+    },
+    {
+      "etapa": "original-repeat",
+      "width": 1,
+      "directory": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-ui-forward-004/original-repeat",
+      "expectation_sha256": "087809be681ca57a817179dc5c3df90acdd61512f791430560ed61389662b051",
+      "framebuffer_sha256": "13723a0e4cf8566d11b9c6298d478e09836b0944e5a421a1618fbe35782ae5f1",
+      "resource_pixels": 10534,
+      "conditional_causal_pixels": 0,
+      "epoch": 2,
+      "limits": "Expected world from frozen decoded source+original nonzero tail and independent strided copy; expected descriptor/tile content from original ROM/immutable pointer/base bits. Camera/coordinates/animation/palette selector are observed controls. No modified framebuffer input. Conditional asset effect only; no prediction of full trajectory or background."
+    },
+    {
+      "etapa": "copia",
+      "width": 2,
+      "directory": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-ui-forward-004/copia",
+      "expectation_sha256": "e3244b1ea551a50f8a6c0071b9458c10d581e57ca1336b48b92a59bfdc387ad1",
+      "framebuffer_sha256": "af6ab527f87beae9f8f476faf137210af492675e6bc24bd50883e3df22885de4",
+      "resource_pixels": 8067,
+      "conditional_causal_pixels": 2008,
+      "epoch": 3,
+      "limits": "Expected world from frozen decoded source+original nonzero tail and independent strided copy; expected descriptor/tile content from original ROM/immutable pointer/base bits. Camera/coordinates/animation/palette selector are observed controls. No modified framebuffer input. Conditional asset effect only; no prediction of full trajectory or background."
+    }
+  ],
+  "controls": [
+    {
+      "name": "pre-edit.wrong_visual_expectation_refused",
+      "pass": true
+    },
+    {
+      "name": "pre-edit.preview_stopped_before_editor",
+      "pass": true
+    },
+    {
+      "name": "control.native_selection_hits_intended_card",
+      "pass": true,
+      "hit": "node-card-copy_grid"
+    },
+    {
+      "name": "canvas.control_divergent_patch_refused",
+      "pass": true
+    },
+    {
+      "name": "control.wrong_rom.native_publisher_refused",
+      "pass": true,
+      "answer": {
+        "refusal": {
+          "retryable": false,
+          "code": "identity_mismatch",
+          "message": "a ROM em disco (c7da53a10c31\u2026) n\u00e3o \u00e9 a da localiza\u00e7\u00e3o/grafo (000000000000\u2026); localize de novo a partir desta ROM"
+        },
+        "accepted": false
+      }
+    },
+    {
+      "name": "control.tampered_resource.native_publisher_refused",
+      "pass": true,
+      "answer": {
+        "refusal": {
+          "retryable": false,
+          "code": "identity_mismatch",
+          "message": "a ROM em disco (e1db912fedd2\u2026) n\u00e3o \u00e9 a da localiza\u00e7\u00e3o/grafo (c7da53a10c31\u2026); localize de novo a partir desta ROM"
+        },
+        "accepted": false
+      }
+    },
+    {
+      "name": "control.tampered_region.native_publisher_refused",
+      "pass": true,
+      "answer": {
+        "refusal": {
+          "retryable": false,
+          "code": "region-refused",
+          "message": "o analisador recusou a regi\u00e3o: expected MOVE.B/W (An)+,(An)+; nada foi gravado"
+        },
+        "accepted": false
+      }
+    },
+    {
+      "name": "control.out_of_domain.native_publisher_refused",
+      "pass": true,
+      "answer": {
+        "refusal": {
+          "retryable": false,
+          "code": "out-of-range",
+          "message": "valor fora da faixa segura do campo"
+        },
+        "accepted": false
+      }
+    },
+    {
+      "name": "control.no_op.native_publisher_refused",
+      "pass": true,
+      "answer": {
+        "refusal": {
+          "retryable": false,
+          "code": "no-change",
+          "message": "nenhum valor muda: nada a gerar"
+        },
+        "accepted": false
+      }
+    },
+    {
+      "name": "control.refusals_leave_no_publication",
+      "pass": true
+    },
+    {
+      "name": "control.old_result_not_claimed_current",
+      "pass": true
+    },
+    {
+      "name": "reaberto.control_divergent_patch_refused",
+      "pass": true
+    },
+    {
+      "name": "original.wrong_visual_expectation_refused",
+      "pass": true
+    },
+    {
+      "name": "original-repeat.wrong_visual_expectation_refused",
+      "pass": true
+    },
+    {
+      "name": "control.original_original_buffer_identical",
+      "pass": true
+    },
+    {
+      "name": "control.original_original_core_identical",
+      "pass": true
+    },
+    {
+      "name": "copia.wrong_visual_expectation_refused",
+      "pass": true
+    },
+    {
+      "name": "copia.old_width_conditional_visual_refused",
+      "pass": true,
+      "discriminating_pixels": 2008
+    }
+  ],
+  "acceptance_scope": "Commercial assisted episode; bounded byte-index copy and independent conditional asset prediction, measured camera/coordinates/palette/animation inputs; no full trajectory equivalence claim",
+  "preserved_failures": [
+    "m3-forward-first-failure.json",
+    "m3-forward-sequence-first-failure.json"
+  ]
+}

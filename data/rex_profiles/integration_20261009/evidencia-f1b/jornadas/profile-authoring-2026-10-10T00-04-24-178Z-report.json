@@ -1,0 +1,597 @@
+{
+  "schema": "rex-profile-authoring-journey/v1",
+  "prefix": "profile-authoring-2026-10-10T00-04-24-178Z",
+  "spec": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/data/rex_profiles/authoring/timer_gate/journey.json",
+  "profile_id": "m68k.authored_timer_gate.v1",
+  "checks": [
+    {
+      "name": "rom_e_a_do_spec",
+      "pass": true,
+      "observado": "4f750ea6cbace93cbbdd644659b3a5a94903d9e20f2405daa55efb946beb7802",
+      "esperado": "4f750ea6cbace93cbbdd644659b3a5a94903d9e20f2405daa55efb946beb7802"
+    },
+    {
+      "name": "sem_a_pasta_nada_e_reconhecido",
+      "pass": true,
+      "nenhuma": "Nenhuma lógica reconhecida nesta ROM pelos 2 perfil(is) carregado(s). Isto não significa que a ROM não tenha essa lógica",
+      "tabs": [],
+      "lista": "Pulo de plataforma · m68k.platformer_jump.v1 · revisão 2 · SHA-256 293321058e7e… · embutido · 0 instância(s)Contador com limiar · m68k.counter_threshold_state_gate.v1 · revisão 1 · SHA-256 8e8648022d9"
+    },
+    {
+      "name": "com_a_pasta_o_perfil_e_carregado_e_reconhece",
+      "pass": true,
+      "lista": "Pulo de plataforma · m68k.platformer_jump.v1 · revisão 2 · SHA-256 293321058e7e… · embutido · 0 instância(s)Temporizador autoral (sintético) · m68k.authored_timer_gate.v1 · revisão 1 · SHA-256 f031368b9d8d… · da pasta · 3 instância(s) · 3 ocorrência(s) descartada(s) por restriçãoContador com limiar · m68k.counter_threshold_state_gate.v1 · revisão 1 · SHA-256 8e8648022d99… · embutido · 0 instância(",
+      "erro": ""
+    },
+    {
+      "name": "numero_de_instancias",
+      "pass": true,
+      "observado": [
+        "Temporizador autoral (sintético) em 0x000400",
+        "Temporizador autoral (sintético) em 0x000808",
+        "Temporizador autoral (sintético) em 0x000C00"
+      ],
+      "esperado": 3
+    },
+    {
+      "name": "ocorrencias_descartadas_por_restricao_sao_ditas",
+      "pass": true,
+      "lista": "Pulo de plataforma · m68k.platformer_jump.v1 · revisão 2 · SHA-256 293321058e7e… · embutido · 0 instância(s)Temporizador autoral (sintético) · m68k.authored_timer_gate.v1 · revisão 1 · SHA-256 f031368b9d8d… · da pasta · 3 instância(s) · 3 ocorrência(s) descartada(s) por restriçãoContador com limiar · m68k.counter_threshold_state_gate.v1 · revisão 1 · SHA-256 8e8648022d99… · embutido · 0 instância("
+    },
+    {
+      "name": "inst_0x000400.reconhecida_pelo_perfil_certo",
+      "pass": true,
+      "perfil": "m68k.authored_timer_gate.v1",
+      "reconhecido": "Reconhecido pelo perfil Temporizador autoral (sintético) (m68k.authored_timer_gate.v1, revisão 1, da pasta de perfis)."
+    },
+    {
+      "name": "inst_0x000400.valores_originais",
+      "pass": true,
+      "observado": {
+        "dur": "30",
+        "lim": "600",
+        "step": "-250",
+        "score": "5000"
+      },
+      "esperado": {
+        "dur": 30,
+        "score": 5000,
+        "lim": 600,
+        "step": -250
+      }
+    },
+    {
+      "name": "inst_0x000400.campos_ausentes_nao_sao_oferecidos",
+      "pass": true,
+      "ausentes": [
+        "bonus"
+      ],
+      "observado": [
+        "dur",
+        "lim",
+        "step",
+        "score"
+      ]
+    },
+    {
+      "name": "inst_0x000400.verificacao_estatica_explicada",
+      "pass": true,
+      "estatico": "Observado pelo aplicativo nesta sessão (sem rodar o jogo): forma e consistência entre as partes — Duração do temporizador, Valor somado ao acumulador, Limite do contador no tique, Passo do reinício. "
+    },
+    {
+      "name": "inst_0x000400.nenhum_efeito_e_apresentado_como_medido",
+      "pass": true,
+      "curado": "Evidência histórica curada (registro do repositório; o aplicativo não mediu isto): nenhuma para esta ROM e instância.",
+      "declarado": "Declarado pelo autor do perfil (não verificado): nada além do que está acima."
+    },
+    {
+      "name": "inst_0x000400.consumo_em_execucao_dito_como_desconhecido",
+      "pass": true,
+      "desconhecido": "Continua desconhecido: se o jogo executa este trecho e quem o chama (o reconhecimento é pela forma dos bytes, não por execução); nenhum efeito foi medido em execução: é um perfil sintético; nenhuma RO"
+    },
+    {
+      "name": "inst_0x000400.edicoes_suportadas_e_limite_explicados",
+      "pass": true,
+      "suportado": "Suportado: trocar o valor dos números abaixo, que a ROM já tem (a ROM não cresce). Não suportado: acrescentar, remover ou reordenar lógica, nem trocar operador, endereço ou conexão — isso não é compilado. Gerar cópia NÃO compila um projeto nem recompila o grafo: grava uma cópia da ROM com esses valores e um patch IPS. Domínio aceito pelo perfil não é o mesmo que \"bom no jogo\"."
+    },
+    {
+      "name": "inst_0x000400.offset_de_arquivo_e_endereco_de_barramento_distintos",
+      "pass": true,
+      "tecnico": "Detalhes técnicos (perfil, endereços e medições)Perfil m68k.authored_timer_gate.v1 · revisão 1 · SHA-256 f031368b9d8df17f08bf888c3fb95044d5889eceb4b9c1bd7f05b58496af9c9c · m68k · big-endian · barramento de 24 bits · arquivo m68k.authored_timer_gate.v1.json · autor RetroDev Studio - integrador REX (perfil autoral de teste) (2026-10-09).Instância: offset de arquivo 0x000400 · endereço de barramento "
+    },
+    {
+      "name": "inst_0x000808.reconhecida_pelo_perfil_certo",
+      "pass": true,
+      "perfil": "m68k.authored_timer_gate.v1",
+      "reconhecido": "Reconhecido pelo perfil Temporizador autoral (sintético) (m68k.authored_timer_gate.v1, revisão 1, da pasta de perfis)."
+    },
+    {
+      "name": "inst_0x000808.valores_originais",
+      "pass": true,
+      "observado": {
+        "dur": "12",
+        "lim": "59999",
+        "bonus": "40000",
+        "score": "123456"
+      },
+      "esperado": {
+        "dur": 12,
+        "score": 123456,
+        "bonus": 40000,
+        "lim": 59999
+      }
+    },
+    {
+      "name": "inst_0x000808.campos_ausentes_nao_sao_oferecidos",
+      "pass": true,
+      "ausentes": [
+        "step"
+      ],
+      "observado": [
+        "dur",
+        "lim",
+        "bonus",
+        "score"
+      ]
+    },
+    {
+      "name": "inst_0x000808.verificacao_estatica_explicada",
+      "pass": true,
+      "estatico": "Observado pelo aplicativo nesta sessão (sem rodar o jogo): forma e consistência entre as partes — Duração do temporizador, Valor somado ao acumulador, Bônus da forma com portão, Limite do contador no tique. "
+    },
+    {
+      "name": "inst_0x000808.nenhum_efeito_e_apresentado_como_medido",
+      "pass": true,
+      "curado": "Evidência histórica curada (registro do repositório; o aplicativo não mediu isto): nenhuma para esta ROM e instância.",
+      "declarado": "Declarado pelo autor do perfil (não verificado): nada além do que está acima."
+    },
+    {
+      "name": "inst_0x000808.consumo_em_execucao_dito_como_desconhecido",
+      "pass": true,
+      "desconhecido": "Continua desconhecido: se o jogo executa este trecho e quem o chama (o reconhecimento é pela forma dos bytes, não por execução); nenhum efeito foi medido em execução: é um perfil sintético; nenhuma RO"
+    },
+    {
+      "name": "inst_0x000808.edicoes_suportadas_e_limite_explicados",
+      "pass": true,
+      "suportado": "Suportado: trocar o valor dos números abaixo, que a ROM já tem (a ROM não cresce). Não suportado: acrescentar, remover ou reordenar lógica, nem trocar operador, endereço ou conexão — isso não é compilado. Gerar cópia NÃO compila um projeto nem recompila o grafo: grava uma cópia da ROM com esses valores e um patch IPS. Domínio aceito pelo perfil não é o mesmo que \"bom no jogo\"."
+    },
+    {
+      "name": "inst_0x000808.offset_de_arquivo_e_endereco_de_barramento_distintos",
+      "pass": true,
+      "tecnico": "Detalhes técnicos (perfil, endereços e medições)Perfil m68k.authored_timer_gate.v1 · revisão 1 · SHA-256 f031368b9d8df17f08bf888c3fb95044d5889eceb4b9c1bd7f05b58496af9c9c · m68k · big-endian · barramento de 24 bits · arquivo m68k.authored_timer_gate.v1.json · autor RetroDev Studio - integrador REX (perfil autoral de teste) (2026-10-09).Instância: offset de arquivo 0x000808 · endereço de barramento "
+    },
+    {
+      "name": "inst_0x000C00.reconhecida_pelo_perfil_certo",
+      "pass": true,
+      "perfil": "m68k.authored_timer_gate.v1",
+      "reconhecido": "Reconhecido pelo perfil Temporizador autoral (sintético) (m68k.authored_timer_gate.v1, revisão 1, da pasta de perfis)."
+    },
+    {
+      "name": "inst_0x000C00.valores_originais",
+      "pass": true,
+      "observado": {
+        "dur": "200",
+        "score": "1"
+      },
+      "esperado": {
+        "dur": 200,
+        "score": 1
+      }
+    },
+    {
+      "name": "inst_0x000C00.campos_ausentes_nao_sao_oferecidos",
+      "pass": true,
+      "ausentes": [
+        "bonus",
+        "lim",
+        "step"
+      ],
+      "observado": [
+        "dur",
+        "score"
+      ]
+    },
+    {
+      "name": "inst_0x000C00.verificacao_estatica_explicada",
+      "pass": true,
+      "estatico": "Observado pelo aplicativo nesta sessão (sem rodar o jogo): só a forma, sem a consistência que o pareamento daria — Duração do temporizador, Valor somado ao acumulador. Ambiguidade: p_tick: 2 candidatos à mesma distância; nenhum foi ligado. "
+    },
+    {
+      "name": "inst_0x000C00.ambiguidade_e_dita_e_nao_resolvida",
+      "pass": true,
+      "estatico": "Observado pelo aplicativo nesta sessão (sem rodar o jogo): só a forma, sem a consistência que o pareamento daria — Duração do temporizador, Valor somado ao acumulador. Ambiguidade: p_tick: 2 candidatos à mesma distância; nenhum foi ligado. "
+    },
+    {
+      "name": "inst_0x000C00.nenhum_efeito_e_apresentado_como_medido",
+      "pass": true,
+      "curado": "Evidência histórica curada (registro do repositório; o aplicativo não mediu isto): nenhuma para esta ROM e instância.",
+      "declarado": "Declarado pelo autor do perfil (não verificado): nada além do que está acima."
+    },
+    {
+      "name": "inst_0x000C00.consumo_em_execucao_dito_como_desconhecido",
+      "pass": true,
+      "desconhecido": "Continua desconhecido: se o jogo executa este trecho e quem o chama (o reconhecimento é pela forma dos bytes, não por execução); nenhum efeito foi medido em execução: é um perfil sintético; nenhuma RO"
+    },
+    {
+      "name": "inst_0x000C00.edicoes_suportadas_e_limite_explicados",
+      "pass": true,
+      "suportado": "Suportado: trocar o valor dos números abaixo, que a ROM já tem (a ROM não cresce). Não suportado: acrescentar, remover ou reordenar lógica, nem trocar operador, endereço ou conexão — isso não é compilado. Gerar cópia NÃO compila um projeto nem recompila o grafo: grava uma cópia da ROM com esses valores e um patch IPS. Domínio aceito pelo perfil não é o mesmo que \"bom no jogo\"."
+    },
+    {
+      "name": "inst_0x000C00.offset_de_arquivo_e_endereco_de_barramento_distintos",
+      "pass": true,
+      "tecnico": "Detalhes técnicos (perfil, endereços e medições)Perfil m68k.authored_timer_gate.v1 · revisão 1 · SHA-256 f031368b9d8df17f08bf888c3fb95044d5889eceb4b9c1bd7f05b58496af9c9c · m68k · big-endian · barramento de 24 bits · arquivo m68k.authored_timer_gate.v1.json · autor RetroDev Studio - integrador REX (perfil autoral de teste) (2026-10-09).Instância: offset de arquivo 0x000C00 · endereço de barramento "
+    },
+    {
+      "name": "formulario.valor_fora_do_dominio_bloqueia",
+      "pass": true,
+      "gerar": true
+    },
+    {
+      "name": "formulario.geracao_sem_erro",
+      "pass": true,
+      "erro": ""
+    },
+    {
+      "name": "formulario.painel_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · bytes alterados: 9"
+    },
+    {
+      "name": "formulario.somente_copia_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "rom-sintetica.timer-400-b6398fe5.bin",
+        "rom-sintetica.timer-400-b6398fe5.ips"
+      ]
+    },
+    {
+      "name": "formulario.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "formulario.tamanho_preservado",
+      "pass": true,
+      "antes": 4096,
+      "depois": 4096
+    },
+    {
+      "name": "formulario.so_os_bytes_dos_campos_pedidos_mudaram",
+      "pass": true,
+      "mudados": [
+        1027,
+        1127,
+        1128,
+        1129,
+        1133,
+        1134,
+        1135
+      ],
+      "permitido": [
+        1027,
+        1126,
+        1127,
+        1128,
+        1129,
+        1132,
+        1133,
+        1134,
+        1135
+      ]
+    },
+    {
+      "name": "formulario.bytes_novos_corretos",
+      "pass": true,
+      "observado": [
+        "2d",
+        "fffe7960",
+        "fffe7960"
+      ],
+      "esperado": [
+        "2d",
+        "fffe7960",
+        "fffe7960"
+      ]
+    },
+    {
+      "name": "formulario.ips_reaplicado_por_aplicador_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 32
+    },
+    {
+      "name": "formulario.nao_sobrescreve",
+      "pass": true,
+      "erro": "output_exists_or_unwritable: /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/profile-authoring-2026-10-10T00-04-24-178Z-copias/formulario/rom-sintetica.timer-400-b6398fe5.bin já existe (nunca sobrescrevo); nada foi gravado"
+    },
+    {
+      "name": "canvas.ponte_identifica_rom_perfil_e_instancia",
+      "pass": true,
+      "identity": "4f750ea6cbace93cbbdd644659b3a5a94903d9e20f2405daa55efb946beb7802",
+      "instance": "2056",
+      "profile": "m68k.authored_timer_gate.v1"
+    },
+    {
+      "name": "canvas.projecao_tem_os_nos_do_perfil_para_esta_instancia",
+      "pass": true,
+      "cards": [
+        "inicio",
+        "portao",
+        "n_dur",
+        "n_score",
+        "n_bonus",
+        "tique",
+        "n_lim"
+      ],
+      "esperado": [
+        "inicio",
+        "portao",
+        "n_dur",
+        "n_score",
+        "n_bonus",
+        "tique",
+        "n_lim"
+      ],
+      "ausentes": [
+        "n_step"
+      ]
+    },
+    {
+      "name": "canvas.valores_originais_nos_nos",
+      "pass": true,
+      "valores": {
+        "n_dur": "12",
+        "n_score": "123456",
+        "n_lim": "59999",
+        "n_bonus": "40000"
+      }
+    },
+    {
+      "name": "canvas.ponte_reflete_o_plano_e_a_estrutura_segue_canonica",
+      "pass": true,
+      "edits": "Bônus da forma com portão: 40000 → 65535Limite do contador no tique: 59999 → 1234",
+      "estrutura": ""
+    },
+    {
+      "name": "canvas.geracao_sem_erro",
+      "pass": true,
+      "erro": "",
+      "relacao": "atual"
+    },
+    {
+      "name": "canvas.ponte_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · relido da cópia: dur=12 · score=123456 · bonus=65535 · lim=1234"
+    },
+    {
+      "name": "canvas.somente_copia_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "rom-sintetica.timer-808-6c27967f.bin",
+        "rom-sintetica.timer-808-6c27967f.ips"
+      ]
+    },
+    {
+      "name": "canvas.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "canvas.tamanho_preservado",
+      "pass": true,
+      "antes": 4096,
+      "depois": 4096
+    },
+    {
+      "name": "canvas.so_os_bytes_dos_campos_pedidos_mudaram",
+      "pass": true,
+      "mudados": [
+        2072,
+        2073,
+        2122,
+        2123
+      ],
+      "permitido": [
+        2072,
+        2073,
+        2122,
+        2123
+      ]
+    },
+    {
+      "name": "canvas.bytes_novos_corretos",
+      "pass": true,
+      "observado": [
+        "ffff",
+        "04d2"
+      ],
+      "esperado": [
+        "ffff",
+        "04d2"
+      ]
+    },
+    {
+      "name": "canvas.ips_reaplicado_por_aplicador_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 22
+    },
+    {
+      "name": "persistido_no_disco_com_valores_e_vinculo",
+      "pass": true,
+      "perfil": "m68k.authored_timer_gate.v1",
+      "perfil_sha256": "f031368b9d8df17f08bf888c3fb95044d5889eceb4b9c1bd7f05b58496af9c9c",
+      "instancia_param": "timer_offset",
+      "perfil_dir": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/data/rex_profiles/authoring/timer_gate/profiles"
+    },
+    {
+      "name": "reaberto.preserva_valores_editados",
+      "pass": true,
+      "valores": {
+        "n_dur": "12",
+        "n_score": "123456",
+        "n_lim": "1234",
+        "n_bonus": "65535"
+      }
+    },
+    {
+      "name": "reaberto.preserva_rom_perfil_e_instancia",
+      "pass": true,
+      "identity": "4f750ea6cbace93cbbdd644659b3a5a94903d9e20f2405daa55efb946beb7802",
+      "instance": "2056",
+      "profile": "m68k.authored_timer_gate.v1"
+    },
+    {
+      "name": "reaberto.preserva_o_plano_e_a_estrutura",
+      "pass": true,
+      "edits": "Bônus da forma com portão: 40000 → 65535Limite do contador no tique: 59999 → 1234",
+      "estrutura": ""
+    },
+    {
+      "name": "reaberto.nao_finge_resultado_da_sessao_anterior",
+      "pass": true,
+      "relacao": null
+    },
+    {
+      "name": "reaberto.geracao_sem_erro",
+      "pass": true,
+      "erro": "",
+      "relacao": "atual"
+    },
+    {
+      "name": "reaberto.ponte_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · relido da cópia: dur=12 · score=123456 · bonus=65535 · lim=1234"
+    },
+    {
+      "name": "reaberto.somente_copia_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "rom-sintetica.timer-808-6c27967f.bin",
+        "rom-sintetica.timer-808-6c27967f.ips"
+      ]
+    },
+    {
+      "name": "reaberto.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "reaberto.tamanho_preservado",
+      "pass": true,
+      "antes": 4096,
+      "depois": 4096
+    },
+    {
+      "name": "reaberto.so_os_bytes_dos_campos_pedidos_mudaram",
+      "pass": true,
+      "mudados": [
+        2072,
+        2073,
+        2122,
+        2123
+      ],
+      "permitido": [
+        2072,
+        2073,
+        2122,
+        2123
+      ]
+    },
+    {
+      "name": "reaberto.bytes_novos_corretos",
+      "pass": true,
+      "observado": [
+        "ffff",
+        "04d2"
+      ],
+      "esperado": [
+        "ffff",
+        "04d2"
+      ]
+    },
+    {
+      "name": "reaberto.ips_reaplicado_por_aplicador_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 22
+    },
+    {
+      "name": "reaberto.gera_a_mesma_copia_e_o_mesmo_ips",
+      "pass": true,
+      "antes": "6c27967ffd14aa69c782e5fecb0f7f6b13f493fc45c97b9270157f5d724dc8e9",
+      "depois": "6c27967ffd14aa69c782e5fecb0f7f6b13f493fc45c97b9270157f5d724dc8e9"
+    }
+  ],
+  "steps": [
+    {
+      "step": "sem-pasta",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/profile-authoring-2026-10-10T00-04-24-178Z-sem-pasta.png"
+    },
+    {
+      "step": "inst_0x000400",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/profile-authoring-2026-10-10T00-04-24-178Z-inst_0x000400.png"
+    },
+    {
+      "step": "inst_0x000808",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/profile-authoring-2026-10-10T00-04-24-178Z-inst_0x000808.png"
+    },
+    {
+      "step": "inst_0x000C00",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/profile-authoring-2026-10-10T00-04-24-178Z-inst_0x000C00.png"
+    },
+    {
+      "step": "formulario",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/profile-authoring-2026-10-10T00-04-24-178Z-formulario.png"
+    },
+    {
+      "step": "canvas",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/profile-authoring-2026-10-10T00-04-24-178Z-canvas.png"
+    },
+    {
+      "step": "reaberto",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/profile-authoring-2026-10-10T00-04-24-178Z-reaberto.png"
+    }
+  ],
+  "copias": [
+    {
+      "etapa": "formulario",
+      "instancia": "0x000400",
+      "valores": {
+        "dur": 45,
+        "step": -100000
+      },
+      "rom_base_sha256": "4f750ea6cbace93cbbdd644659b3a5a94903d9e20f2405daa55efb946beb7802",
+      "copia": "rom-sintetica.timer-400-b6398fe5.bin",
+      "copia_sha256": "b6398fe5eb9dd512bb28c192c911ce858edc99a9bb2f9d6837601375dff52dc2",
+      "ips": "rom-sintetica.timer-400-b6398fe5.ips",
+      "ips_sha256": "c86e044ee20bca93b3a9ee60808a03a840e2414045bdc4de0a6ccb0b9fef67b0",
+      "bytes_diferentes": 7
+    },
+    {
+      "etapa": "canvas",
+      "instancia": "0x000808",
+      "rom_base_sha256": "4f750ea6cbace93cbbdd644659b3a5a94903d9e20f2405daa55efb946beb7802",
+      "copia": "rom-sintetica.timer-808-6c27967f.bin",
+      "copia_sha256": "6c27967ffd14aa69c782e5fecb0f7f6b13f493fc45c97b9270157f5d724dc8e9",
+      "ips": "rom-sintetica.timer-808-6c27967f.ips",
+      "ips_sha256": "a4c3764c71532faf7395227c4869e290092586c49a3734f565e7d367e8453a4c",
+      "bytes_diferentes": 4
+    },
+    {
+      "etapa": "reaberto",
+      "instancia": "0x000808",
+      "rom_base_sha256": "4f750ea6cbace93cbbdd644659b3a5a94903d9e20f2405daa55efb946beb7802",
+      "copia": "rom-sintetica.timer-808-6c27967f.bin",
+      "copia_sha256": "6c27967ffd14aa69c782e5fecb0f7f6b13f493fc45c97b9270157f5d724dc8e9",
+      "ips": "rom-sintetica.timer-808-6c27967f.ips",
+      "ips_sha256": "a4c3764c71532faf7395227c4869e290092586c49a3734f565e7d367e8453a4c",
+      "bytes_diferentes": 4
+    }
+  ],
+  "allPass": true,
+  "ausentes": [],
+  "app_sha256": "acc492251d2f8c048ff87b381420082aab966cbf6f86db5126ab357951d2fa40",
+  "rom_sha256": "4f750ea6cbace93cbbdd644659b3a5a94903d9e20f2405daa55efb946beb7802",
+  "profile_files": [
+    {
+      "file": "m68k.authored_timer_gate.v1.json",
+      "sha256": "f031368b9d8df17f08bf888c3fb95044d5889eceb4b9c1bd7f05b58496af9c9c"
+    }
+  ]
+}

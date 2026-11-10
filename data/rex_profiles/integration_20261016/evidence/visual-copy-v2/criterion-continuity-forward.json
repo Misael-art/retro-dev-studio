@@ -1,0 +1,37 @@
+{
+  "baseline": "v1 final FAIL86/89, unchanged",
+  "unchanged_check_names": 88,
+  "reused_not_rerun": [
+    "byor.declared_episode_attempted_with_loaded_identity"
+  ],
+  "new_check_names": [],
+  "outcomes_changed_only_for_corrected_component": [
+    "original.core_equals_independent_image",
+    "original-repeat.core_equals_independent_image",
+    "copia.core_equals_independent_image"
+  ],
+  "absolute_rgb_tolerance": {
+    "v1": 7,
+    "v2": 0
+  },
+  "memory_causal_diff_bytes": 162,
+  "causal_pixels": {
+    "pass": true,
+    "observed_pixels": 3309,
+    "expected_pixels": 3309,
+    "first": [
+      12905,
+      12906,
+      12908,
+      12909,
+      12910,
+      12911,
+      12913,
+      12914,
+      12915,
+      12916,
+      12917,
+      12919
+    ]
+  }
+}

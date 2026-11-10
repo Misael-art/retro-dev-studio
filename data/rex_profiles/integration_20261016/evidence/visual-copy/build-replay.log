@@ -1,0 +1,50 @@
+mkdir -p src/boot/
+cp /home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/src/boot/sega.s src/boot/sega.s
+mkdir -p src/boot/
+cp /home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/src/boot/rom_head.c src/boot/rom_head.c
+mkdir -p out/
+m68k-elf-gcc  -DSGDK_GCC -m68000 -fdiagnostics-color=always -Wall -Wextra -Wno-shift-negative-value -Wno-main -Wno-unused-parameter -fno-builtin -ffunction-sections -fdata-sections -fms-extensions -I. -Iinc -Isrc -Ires -I/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/inc -I/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/res -B/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/bin -c src/boot/rom_head.c -o out/rom_head.o
+m68k-elf-objcopy -O binary out/rom_head.o out/rom_head.bin
+m68k-elf-gcc -x assembler-with-cpp -Wa,--register-prefix-optional,--bitwise-or  -DSGDK_GCC -m68000 -fdiagnostics-color=always -Wall -Wextra -Wno-shift-negative-value -Wno-main -Wno-unused-parameter -fno-builtin -ffunction-sections -fdata-sections -fms-extensions -I. -Iinc -Isrc -Ires -I/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/inc -I/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/res -B/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/bin -O3 -fuse-linker-plugin -fno-web -fno-gcse -fomit-frame-pointer -flto -flto=auto -ffat-lto-objects -c src/boot/sega.s -o out/sega.o
+mkdir -p out/src/
+m68k-elf-gcc -x assembler-with-cpp -Wa,--register-prefix-optional,--bitwise-or  -DSGDK_GCC -m68000 -fdiagnostics-color=always -Wall -Wextra -Wno-shift-negative-value -Wno-main -Wno-unused-parameter -fno-builtin -ffunction-sections -fdata-sections -fms-extensions -I. -Iinc -Isrc -Ires -I/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/inc -I/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/res -B/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/bin -O3 -fuse-linker-plugin -fno-web -fno-gcse -fomit-frame-pointer -flto -flto=auto -ffat-lto-objects -MMD -c src/copy.s -o out/src/copy.o
+mkdir -p out/src/
+m68k-elf-gcc  -DSGDK_GCC -m68000 -fdiagnostics-color=always -Wall -Wextra -Wno-shift-negative-value -Wno-main -Wno-unused-parameter -fno-builtin -ffunction-sections -fdata-sections -fms-extensions -I. -Iinc -Isrc -Ires -I/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/inc -I/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/res -B/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/bin -O3 -fuse-linker-plugin -fno-web -fno-gcse -fomit-frame-pointer -flto -flto=auto -ffat-lto-objects -MMD -c src/assets.c -o out/src/assets.o
+mkdir -p out/src/
+m68k-elf-gcc  -DSGDK_GCC -m68000 -fdiagnostics-color=always -Wall -Wextra -Wno-shift-negative-value -Wno-main -Wno-unused-parameter -fno-builtin -ffunction-sections -fdata-sections -fms-extensions -I. -Iinc -Isrc -Ires -I/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/inc -I/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/res -B/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/bin -O3 -fuse-linker-plugin -fno-web -fno-gcse -fomit-frame-pointer -flto -flto=auto -ffat-lto-objects -MMD -c src/main.c -o out/src/main.o
+mkdir -p out/
+echo "out/src/copy.o out/src/assets.o out/src/main.o" > out/cmd_
+mkdir -p out/
+m68k-elf-gcc -m68000 -B/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/bin -n -T /home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/md.ld -nostdlib out/sega.o @out/cmd_ /home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/lib/libmd.a -lgcc -o out/rom.out -Wl,--gc-sections -flto -flto=auto -ffat-lto-objects
+rm out/cmd_
+m68k-elf-nm  -n -l out/rom.out > out/symbol.txt
+m68k-elf-objcopy -O binary out/rom.out out/rom.bin
+java -jar /home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk/bin/sizebnd.jar out/rom.bin -sizealign 131072 -checksum
+{
+  "schema": "rex-visual-build/v1",
+  "rom": "/home/misael/rds-scratch/rex-visual-copy-001/build-replay/project/out/rom.bin",
+  "rom_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+  "rom_size": 393216,
+  "symbols": {
+    "visual_copy_entry": 8708,
+    "visual_copy_end": 8738,
+    "visual_scope": 3774808136,
+    "visual_resource": 96648,
+    "visual_tiles": 96232,
+    "visual_palette0": 96616,
+    "visual_palette1": 96584,
+    "visual_palette2": 96552
+  },
+  "recovered_bytes_hex": "45f900ff00a847f900ff00587203740714db51cafffc45ea001051c9fff2",
+  "source_resource_sha256": "5b13535d16c6836d6c4541a1ed99a11c5ccc83ec32e1fc9e4aeda8c760ae34e7",
+  "toolchain": {
+    "sdk": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk",
+    "gcc_sha256": "f8fe247ae0740335f7b561b39972d022cc390500282da51db7c7e248db6f8bda"
+  },
+  "source_files": {
+    "src/assets.c": "3f2f590e809579f6cd647b6089fb259bf42b891dbc15d3c938f7c987856748d7",
+    "src/assets.h": "c8da8831ac4a91c93c5290bd12b8b71e4ddab44936b325e4a681a44c13d835e2",
+    "src/copy.s": "d0e9b30b6c057a79bfe7d0b69c615f4f84c6463020bd312fa60283b64f0a5d2d",
+    "src/main.c": "293e3fab4727e618a249970b9d6491d1aae1221765e58e357f4e0a7f194cc9b7"
+  }
+}

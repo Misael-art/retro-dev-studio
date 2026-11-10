@@ -1,0 +1,212 @@
+{
+ "schema": "rex-curated-evidence/v1",
+ "records": [
+  {
+   "id": "efeito_impulso.sonic1.pre_migracao",
+   "profile_id": "m68k.platformer_jump.v1",
+   "claim_id": "efeito_impulso",
+   "measured_under": {
+    "profile_form": "code",
+    "profile_sha256": null,
+    "commit": "67b720daed1e330e196412eecdc84a9af9af9212",
+    "binary_sha256": "ad06bfa8c047af7a801998622efd36e790cc641c0909c7fd41038e6279cca989"
+   },
+   "applies_to_profile_sha256": [
+    "293321058e7e900d3e3614034462bc75fd592a3d25db73bfb59801500c1743e9"
+   ],
+   "carried_by": "Medido quando o perfil ainda era codigo. Transportado para este arquivo de perfil por equivalencia: localizacao e grafo do motor iguais aos do codigo antigo nas duas ROMs, e as 8 copias e 8 IPS com SHA-256 identico (docs/rex_profiles/integration_20261007/FECHO-MOTOR-DE-PERFIS-DECLARATIVOS-2026-10-09.md).",
+   "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+   "instance_offsets": [
+    78860
+   ],
+   "report": {
+    "path": "data/rex_profiles/integration_20261007/evidencia-pulo-canvas-gameplay/jump-gameplay-2026-10-09T06-14-58-506Z-report.json",
+    "sha256": "36667f3b9b0cfd19231214e9b307b2ba88f26bcff206f8d78ad902a24959e56f"
+   }
+  },
+  {
+   "id": "efeito_impulso.delta.pre_migracao",
+   "profile_id": "m68k.platformer_jump.v1",
+   "claim_id": "efeito_impulso",
+   "measured_under": {
+    "profile_form": "code",
+    "profile_sha256": null,
+    "commit": "67b720daed1e330e196412eecdc84a9af9af9212",
+    "binary_sha256": "ad06bfa8c047af7a801998622efd36e790cc641c0909c7fd41038e6279cca989"
+   },
+   "applies_to_profile_sha256": [
+    "293321058e7e900d3e3614034462bc75fd592a3d25db73bfb59801500c1743e9"
+   ],
+   "carried_by": "Medido quando o perfil ainda era codigo. Transportado para este arquivo de perfil por equivalencia: localizacao e grafo do motor iguais aos do codigo antigo nas duas ROMs, e as 8 copias e 8 IPS com SHA-256 identico (docs/rex_profiles/integration_20261007/FECHO-MOTOR-DE-PERFIS-DECLARATIVOS-2026-10-09.md).",
+   "rom_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+   "instance_offsets": [
+    92436
+   ],
+   "report": {
+    "path": "data/rex_profiles/integration_20261007/evidencia-pulo-canvas-gameplay/jump-gameplay-2026-10-09T06-14-58-506Z-report.json",
+    "sha256": "36667f3b9b0cfd19231214e9b307b2ba88f26bcff206f8d78ad902a24959e56f"
+   }
+  },
+  {
+   "id": "efeito_corte.sonic1.pre_migracao",
+   "profile_id": "m68k.platformer_jump.v1",
+   "claim_id": "efeito_corte",
+   "measured_under": {
+    "profile_form": "code",
+    "profile_sha256": null,
+    "commit": "67b720daed1e330e196412eecdc84a9af9af9212",
+    "binary_sha256": "ad06bfa8c047af7a801998622efd36e790cc641c0909c7fd41038e6279cca989"
+   },
+   "applies_to_profile_sha256": [
+    "293321058e7e900d3e3614034462bc75fd592a3d25db73bfb59801500c1743e9"
+   ],
+   "carried_by": "Medido quando o perfil ainda era codigo. Transportado para este arquivo de perfil por equivalencia: localizacao e grafo do motor iguais aos do codigo antigo nas duas ROMs, e as 8 copias e 8 IPS com SHA-256 identico (docs/rex_profiles/integration_20261007/FECHO-MOTOR-DE-PERFIS-DECLARATIVOS-2026-10-09.md).",
+   "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+   "instance_offsets": [
+    78860
+   ],
+   "report": {
+    "path": "data/rex_profiles/integration_20261007/evidencia-pulo-canvas-gameplay/jump-gameplay-2026-10-09T06-14-58-506Z-report.json",
+    "sha256": "36667f3b9b0cfd19231214e9b307b2ba88f26bcff206f8d78ad902a24959e56f"
+   }
+  },
+  {
+   "id": "efeito_corte.delta.pre_migracao",
+   "profile_id": "m68k.platformer_jump.v1",
+   "claim_id": "efeito_corte",
+   "measured_under": {
+    "profile_form": "code",
+    "profile_sha256": null,
+    "commit": "67b720daed1e330e196412eecdc84a9af9af9212",
+    "binary_sha256": "ad06bfa8c047af7a801998622efd36e790cc641c0909c7fd41038e6279cca989"
+   },
+   "applies_to_profile_sha256": [
+    "293321058e7e900d3e3614034462bc75fd592a3d25db73bfb59801500c1743e9"
+   ],
+   "carried_by": "Medido quando o perfil ainda era codigo. Transportado para este arquivo de perfil por equivalencia: localizacao e grafo do motor iguais aos do codigo antigo nas duas ROMs, e as 8 copias e 8 IPS com SHA-256 identico (docs/rex_profiles/integration_20261007/FECHO-MOTOR-DE-PERFIS-DECLARATIVOS-2026-10-09.md).",
+   "rom_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+   "instance_offsets": [
+    92436
+   ],
+   "report": {
+    "path": "data/rex_profiles/integration_20261007/evidencia-pulo-canvas-gameplay/jump-gameplay-2026-10-09T06-14-58-506Z-report.json",
+    "sha256": "36667f3b9b0cfd19231214e9b307b2ba88f26bcff206f8d78ad902a24959e56f"
+   }
+  },
+  {
+   "id": "efeito_impulso.sonic1.motor_de_perfis",
+   "profile_id": "m68k.platformer_jump.v1",
+   "claim_id": "efeito_impulso",
+   "measured_under": {
+    "profile_form": "data",
+    "profile_sha256": "293321058e7e900d3e3614034462bc75fd592a3d25db73bfb59801500c1743e9",
+    "commit": "ece9823ba5b0bef9bb0ece48edc894e2d858750e",
+    "binary_sha256": "083392045958f4c7a285b655a76696e3d18879c4da97e07986d9e8e526093247"
+   },
+   "applies_to_profile_sha256": [
+    "293321058e7e900d3e3614034462bc75fd592a3d25db73bfb59801500c1743e9"
+   ],
+   "carried_by": "",
+   "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+   "instance_offsets": [
+    78860
+   ],
+   "report": {
+    "path": "data/rex_profiles/integration_20261009/evidencia-motor-de-perfis/jornadas/jump-gameplay-2026-10-09T21-26-10-620Z-report.json",
+    "sha256": "085bbc49f4de7ed555186a6f95e11a1a967d13c80503c13b982b85981260e210"
+   }
+  },
+  {
+   "id": "efeito_impulso.delta.motor_de_perfis",
+   "profile_id": "m68k.platformer_jump.v1",
+   "claim_id": "efeito_impulso",
+   "measured_under": {
+    "profile_form": "data",
+    "profile_sha256": "293321058e7e900d3e3614034462bc75fd592a3d25db73bfb59801500c1743e9",
+    "commit": "ece9823ba5b0bef9bb0ece48edc894e2d858750e",
+    "binary_sha256": "083392045958f4c7a285b655a76696e3d18879c4da97e07986d9e8e526093247"
+   },
+   "applies_to_profile_sha256": [
+    "293321058e7e900d3e3614034462bc75fd592a3d25db73bfb59801500c1743e9"
+   ],
+   "carried_by": "",
+   "rom_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+   "instance_offsets": [
+    92436
+   ],
+   "report": {
+    "path": "data/rex_profiles/integration_20261009/evidencia-motor-de-perfis/jornadas/jump-gameplay-2026-10-09T21-26-10-620Z-report.json",
+    "sha256": "085bbc49f4de7ed555186a6f95e11a1a967d13c80503c13b982b85981260e210"
+   }
+  },
+  {
+   "id": "efeito_corte.sonic1.motor_de_perfis",
+   "profile_id": "m68k.platformer_jump.v1",
+   "claim_id": "efeito_corte",
+   "measured_under": {
+    "profile_form": "data",
+    "profile_sha256": "293321058e7e900d3e3614034462bc75fd592a3d25db73bfb59801500c1743e9",
+    "commit": "ece9823ba5b0bef9bb0ece48edc894e2d858750e",
+    "binary_sha256": "083392045958f4c7a285b655a76696e3d18879c4da97e07986d9e8e526093247"
+   },
+   "applies_to_profile_sha256": [
+    "293321058e7e900d3e3614034462bc75fd592a3d25db73bfb59801500c1743e9"
+   ],
+   "carried_by": "",
+   "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+   "instance_offsets": [
+    78860
+   ],
+   "report": {
+    "path": "data/rex_profiles/integration_20261009/evidencia-motor-de-perfis/jornadas/jump-gameplay-2026-10-09T21-26-10-620Z-report.json",
+    "sha256": "085bbc49f4de7ed555186a6f95e11a1a967d13c80503c13b982b85981260e210"
+   }
+  },
+  {
+   "id": "efeito_corte.delta.motor_de_perfis",
+   "profile_id": "m68k.platformer_jump.v1",
+   "claim_id": "efeito_corte",
+   "measured_under": {
+    "profile_form": "data",
+    "profile_sha256": "293321058e7e900d3e3614034462bc75fd592a3d25db73bfb59801500c1743e9",
+    "commit": "ece9823ba5b0bef9bb0ece48edc894e2d858750e",
+    "binary_sha256": "083392045958f4c7a285b655a76696e3d18879c4da97e07986d9e8e526093247"
+   },
+   "applies_to_profile_sha256": [
+    "293321058e7e900d3e3614034462bc75fd592a3d25db73bfb59801500c1743e9"
+   ],
+   "carried_by": "",
+   "rom_sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+   "instance_offsets": [
+    92436
+   ],
+   "report": {
+    "path": "data/rex_profiles/integration_20261009/evidencia-motor-de-perfis/jornadas/jump-gameplay-2026-10-09T21-26-10-620Z-report.json",
+    "sha256": "085bbc49f4de7ed555186a6f95e11a1a967d13c80503c13b982b85981260e210"
+   }
+  },
+  {
+   "id": "efeito_limiar.reference_platformer.prova_real_20260928",
+   "profile_id": "m68k.counter_threshold_state_gate.v1",
+   "claim_id": "efeito_limiar",
+   "measured_under": {
+    "profile_form": "code",
+    "profile_sha256": null,
+    "commit": "a08c2c680c6dd76eaf8d3ad6b5502a1db6532ccc",
+    "binary_sha256": "teste em processo (cargo test --ignored), sem binario de aplicativo"
+   },
+   "applies_to_profile_sha256": [
+    "8e8648022d99f1730d1c3fc4a0f6268449bbefe99013a3f07fcebc72889168bd"
+   ],
+   "carried_by": "Medido quando a classe ainda era so codigo. Transportado para este arquivo de perfil porque o analisador e o mesmo crate (rex-gameplay), reutilizado sem alteracao; o perfil em dado so o configura.",
+   "rom_sha256": "86c4e90ded38b9c74fdf209254639716a874f2e8ebd8787b3789cc36dbdb4f7e",
+   "instance_offsets": [
+    2374
+   ],
+   "report": {
+    "path": "data/rex_profiles/gameplay_recovery/evidence/2026-09-28-prova-real/report.json",
+    "sha256": "0b49976d65d6e301cf409dfc1093203b468f98b6272ddbfbfe60ae1ed2f7ba1b"
+   }
+  }
+ ]
+}

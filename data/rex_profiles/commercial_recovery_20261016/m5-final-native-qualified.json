@@ -1,0 +1,333 @@
+{
+  "schema": "rex-final-native-qualified/v1",
+  "generated_at": "2026-10-19T01:26:21.315758+00:00",
+  "status": "PASS_SIX_FINAL_BINARY_JOURNEYS",
+  "app_sha256": "66cb3d71ea4f5df2efd37b031fe0c4c76b822b11d55d55ca240024638c7c12e5",
+  "journeys": [
+    {
+      "id": "m3-native-m5-golden-axe-003",
+      "spec": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-ui-golden-axe-journey-v3.json",
+      "checks": 140,
+      "failed": 0,
+      "all_pass": true,
+      "report": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-18-54-518Z-report.json",
+      "report_sha256": "3c77822579848a702b1fb102425faed7f87d3499a2ceae0f296397e0a31e701f",
+      "run": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-native-m5-golden-axe-003/run.json",
+      "run_sha256": "beb3026f4b9aba081e7d944f403bfbfbf4769d5f703d77008bc48869b549d28d",
+      "copies": [
+        {
+          "etapa": "canvas",
+          "regiao": "0x002A98",
+          "campo": "bytes_per_cell",
+          "bytes_per_cell": 2,
+          "rom_base_sha256": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b",
+          "copia": "original.copy-grid-2a98-5725630a.bin",
+          "copia_sha256": "5725630a53c0eb72210e1ef5ead773b5e3a3f76dbdd1a134474f61816db09f18",
+          "ips_sha256": "ec10c284835f8ec931f480ba3619411fdfc5710bc1876fc5d8d119611e076bf5",
+          "bytes_diferentes": 1,
+          "offsets_diferentes": [
+            10914
+          ],
+          "copy_path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-18-54-518Z-copias/canvas/original.copy-grid-2a98-5725630a.bin"
+        },
+        {
+          "etapa": "reaberto",
+          "regiao": "0x002A98",
+          "campo": "bytes_per_cell",
+          "bytes_per_cell": 2,
+          "rom_base_sha256": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b",
+          "copia": "original.copy-grid-2a98-5725630a.bin",
+          "copia_sha256": "5725630a53c0eb72210e1ef5ead773b5e3a3f76dbdd1a134474f61816db09f18",
+          "ips_sha256": "ec10c284835f8ec931f480ba3619411fdfc5710bc1876fc5d8d119611e076bf5",
+          "bytes_diferentes": 1,
+          "offsets_diferentes": [
+            10914
+          ],
+          "copy_path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-18-54-518Z-copias/reaberto/original.copy-grid-2a98-5725630a.bin"
+        }
+      ],
+      "observed_bytes_changed": 162,
+      "causal_pixels": null,
+      "owned_processes_remaining": 0,
+      "origin": "new final-binary execution using reused frozen references"
+    },
+    {
+      "id": "m3-native-m5-golden-axe-reverse-001",
+      "spec": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-ui-golden-axe-reverse-journey.json",
+      "checks": 138,
+      "failed": 0,
+      "all_pass": true,
+      "report": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-20-14-119Z-report.json",
+      "report_sha256": "2eab66387726847e3cd191110edc035fb2ff593448956878eea31a0233ea0b47",
+      "run": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-native-m5-golden-axe-reverse-001/run.json",
+      "run_sha256": "80f0fa7dfe111dc8a58dd9f65f218d6adc3f2b58018fc0a0c32911cc581354f3",
+      "copies": [
+        {
+          "etapa": "canvas",
+          "regiao": "0x002A98",
+          "campo": "bytes_per_cell",
+          "bytes_per_cell": 4,
+          "rom_base_sha256": "5725630a53c0eb72210e1ef5ead773b5e3a3f76dbdd1a134474f61816db09f18",
+          "copia": "original_copy-grid-2a98-5725630a.copy-grid-2a98-75613dde.bin",
+          "copia_sha256": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b",
+          "ips_sha256": "e1bd0509d676ff16ceb2edc7459701600c2c54c47ad8b3c37f1f810ca5c42d1e",
+          "bytes_diferentes": 1,
+          "offsets_diferentes": [
+            10914
+          ],
+          "copy_path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-20-14-119Z-copias/canvas/original_copy-grid-2a98-5725630a.copy-grid-2a98-75613dde.bin"
+        },
+        {
+          "etapa": "reaberto",
+          "regiao": "0x002A98",
+          "campo": "bytes_per_cell",
+          "bytes_per_cell": 4,
+          "rom_base_sha256": "5725630a53c0eb72210e1ef5ead773b5e3a3f76dbdd1a134474f61816db09f18",
+          "copia": "original_copy-grid-2a98-5725630a.copy-grid-2a98-75613dde.bin",
+          "copia_sha256": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b",
+          "ips_sha256": "e1bd0509d676ff16ceb2edc7459701600c2c54c47ad8b3c37f1f810ca5c42d1e",
+          "bytes_diferentes": 1,
+          "offsets_diferentes": [
+            10914
+          ],
+          "copy_path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-20-14-119Z-copias/reaberto/original_copy-grid-2a98-5725630a.copy-grid-2a98-75613dde.bin"
+        }
+      ],
+      "observed_bytes_changed": 162,
+      "causal_pixels": null,
+      "owned_processes_remaining": 0,
+      "origin": "new final-binary execution using reused frozen references"
+    },
+    {
+      "id": "m3-native-final-commercial-forward-003",
+      "spec": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-final-commercial-forward-journey-v3.json",
+      "checks": 135,
+      "failed": 0,
+      "all_pass": true,
+      "report": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-20-49-362Z-report.json",
+      "report_sha256": "af7de9126d3a5249d2697dd3276248306a6bb8b863a2c8200a3d30894ebac216",
+      "run": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-native-final-commercial-forward-003/run.json",
+      "run_sha256": "06f33619fc23f1c8e0a7335b73d425af986f0394029d1ee2a5ae3a43a5bdae82",
+      "copies": [
+        {
+          "etapa": "canvas",
+          "regiao": "0x01B6E8",
+          "campo": "bytes_per_cell",
+          "bytes_per_cell": 2,
+          "rom_base_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+          "copia": "Sonic_the_Hedgehog__USA__Europe_.copy-grid-1b6e8-cb471c95.bin",
+          "copia_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+          "ips_sha256": "b48421f3247d3669b1f12cf14917f48f17f72455ab43141f1f525aa8035969f9",
+          "bytes_diferentes": 1,
+          "offsets_diferentes": [
+            112376
+          ],
+          "copy_path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-20-49-362Z-copias/canvas/Sonic_the_Hedgehog__USA__Europe_.copy-grid-1b6e8-cb471c95.bin"
+        },
+        {
+          "etapa": "reaberto",
+          "regiao": "0x01B6E8",
+          "campo": "bytes_per_cell",
+          "bytes_per_cell": 2,
+          "rom_base_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+          "copia": "Sonic_the_Hedgehog__USA__Europe_.copy-grid-1b6e8-cb471c95.bin",
+          "copia_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+          "ips_sha256": "b48421f3247d3669b1f12cf14917f48f17f72455ab43141f1f525aa8035969f9",
+          "bytes_diferentes": 1,
+          "offsets_diferentes": [
+            112376
+          ],
+          "copy_path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-20-49-362Z-copias/reaberto/Sonic_the_Hedgehog__USA__Europe_.copy-grid-1b6e8-cb471c95.bin"
+        }
+      ],
+      "observed_bytes_changed": 2600,
+      "causal_pixels": null,
+      "owned_processes_remaining": 0,
+      "origin": "new final-binary execution using reused frozen references"
+    },
+    {
+      "id": "m3-native-final-commercial-reverse-003",
+      "spec": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-final-commercial-reverse-journey-v3.json",
+      "checks": 128,
+      "failed": 0,
+      "all_pass": true,
+      "report": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-21-29-875Z-report.json",
+      "report_sha256": "07a8940654792f2eaa210ddf53bd3dc998b175e59111eebea2ba55953397dba7",
+      "run": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-native-final-commercial-reverse-003/run.json",
+      "run_sha256": "58adedc6b8ba325bafe229d23ada3f15d6454168244b347e023a15c3160d6344",
+      "copies": [
+        {
+          "etapa": "canvas",
+          "regiao": "0x01B6E8",
+          "campo": "bytes_per_cell",
+          "bytes_per_cell": 1,
+          "rom_base_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+          "copia": "Sonic_the_Hedgehog__USA__Europe__copy-grid-1b6e8-cb471c95.copy-grid-1b6e8-c7da53a1.bin",
+          "copia_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+          "ips_sha256": "7f7afc91bc10aabc203722a9ed06eb6bc28d025f9aec776dada3824c17571141",
+          "bytes_diferentes": 1,
+          "offsets_diferentes": [
+            112376
+          ],
+          "copy_path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-21-29-875Z-copias/canvas/Sonic_the_Hedgehog__USA__Europe__copy-grid-1b6e8-cb471c95.copy-grid-1b6e8-c7da53a1.bin"
+        },
+        {
+          "etapa": "reaberto",
+          "regiao": "0x01B6E8",
+          "campo": "bytes_per_cell",
+          "bytes_per_cell": 1,
+          "rom_base_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+          "copia": "Sonic_the_Hedgehog__USA__Europe__copy-grid-1b6e8-cb471c95.copy-grid-1b6e8-c7da53a1.bin",
+          "copia_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+          "ips_sha256": "7f7afc91bc10aabc203722a9ed06eb6bc28d025f9aec776dada3824c17571141",
+          "bytes_diferentes": 1,
+          "offsets_diferentes": [
+            112376
+          ],
+          "copy_path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-21-29-875Z-copias/reaberto/Sonic_the_Hedgehog__USA__Europe__copy-grid-1b6e8-cb471c95.copy-grid-1b6e8-c7da53a1.bin"
+        }
+      ],
+      "observed_bytes_changed": 2600,
+      "causal_pixels": null,
+      "owned_processes_remaining": 0,
+      "origin": "new final-binary execution using reused frozen references"
+    },
+    {
+      "id": "m3-native-final-author-forward-003",
+      "spec": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-final-author-forward-journey-v3.json",
+      "checks": 88,
+      "failed": 0,
+      "all_pass": true,
+      "report": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-22-10-367Z-report.json",
+      "report_sha256": "a75cbbb9d6ca2127de318e7f4dd7d6c1a2c20d00f13ca3992a92020e1b1bbd0b",
+      "run": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-native-final-author-forward-003/run.json",
+      "run_sha256": "1830673f3c8493832ae79a7de1c0508f1865afb727f8a246e65183a099eac17d",
+      "copies": [
+        {
+          "etapa": "canvas",
+          "regiao": "0x002204",
+          "campo": "bytes_per_cell",
+          "bytes_per_cell": 2,
+          "rom_base_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+          "copia": "rom.copy-grid-2204-7a33ddfa.bin",
+          "copia_sha256": "7a33ddfa058c9d3e2e0e399450bb6ae8a1a4b03a6fbd79b504f0ba70b324d0b4",
+          "ips_sha256": "54f249c6a574c37702f889e92e6f6df939104713bd474bdbd4c7c7e7bd6ef6ae",
+          "bytes_diferentes": 1,
+          "offsets_diferentes": [
+            8724
+          ],
+          "copy_path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-22-10-367Z-copias/canvas/rom.copy-grid-2204-7a33ddfa.bin"
+        },
+        {
+          "etapa": "reaberto",
+          "regiao": "0x002204",
+          "campo": "bytes_per_cell",
+          "bytes_per_cell": 2,
+          "rom_base_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+          "copia": "rom.copy-grid-2204-7a33ddfa.bin",
+          "copia_sha256": "7a33ddfa058c9d3e2e0e399450bb6ae8a1a4b03a6fbd79b504f0ba70b324d0b4",
+          "ips_sha256": "54f249c6a574c37702f889e92e6f6df939104713bd474bdbd4c7c7e7bd6ef6ae",
+          "bytes_diferentes": 1,
+          "offsets_diferentes": [
+            8724
+          ],
+          "copy_path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-22-10-367Z-copias/reaberto/rom.copy-grid-2204-7a33ddfa.bin"
+        }
+      ],
+      "observed_bytes_changed": 162,
+      "causal_pixels": {
+        "pass": true,
+        "observed_pixels": 3309,
+        "expected_pixels": 3309,
+        "first": [
+          12905,
+          12906,
+          12908,
+          12909,
+          12910,
+          12911,
+          12913,
+          12914,
+          12915,
+          12916,
+          12917,
+          12919
+        ]
+      },
+      "owned_processes_remaining": 0,
+      "origin": "new final-binary execution using reused frozen references"
+    },
+    {
+      "id": "m3-native-final-author-reverse-003",
+      "spec": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-final-author-reverse-journey-v3.json",
+      "checks": 88,
+      "failed": 0,
+      "all_pass": true,
+      "report": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-23-29-958Z-report.json",
+      "report_sha256": "bd53a22b6fb7fdce3e0aadd342e0572ef21cece4584f286f90a3cd120563705c",
+      "run": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-native-final-author-reverse-003/run.json",
+      "run_sha256": "d692198d3ca313b6395d7137ecc9525fa08db6b94d9e3b1071ad51b2f6abe6de",
+      "copies": [
+        {
+          "etapa": "canvas",
+          "regiao": "0x002204",
+          "campo": "bytes_per_cell",
+          "bytes_per_cell": 1,
+          "rom_base_sha256": "7a33ddfa058c9d3e2e0e399450bb6ae8a1a4b03a6fbd79b504f0ba70b324d0b4",
+          "copia": "rom_copy-grid-2204-7a33ddfa.copy-grid-2204-fbc72b25.bin",
+          "copia_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+          "ips_sha256": "49268066fb3aa583a1860a4737c7f73da575f162d1f1971e15361d0fcb54f63f",
+          "bytes_diferentes": 1,
+          "offsets_diferentes": [
+            8724
+          ],
+          "copy_path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-23-29-958Z-copias/canvas/rom_copy-grid-2204-7a33ddfa.copy-grid-2204-fbc72b25.bin"
+        },
+        {
+          "etapa": "reaberto",
+          "regiao": "0x002204",
+          "campo": "bytes_per_cell",
+          "bytes_per_cell": 1,
+          "rom_base_sha256": "7a33ddfa058c9d3e2e0e399450bb6ae8a1a4b03a6fbd79b504f0ba70b324d0b4",
+          "copia": "rom_copy-grid-2204-7a33ddfa.copy-grid-2204-fbc72b25.bin",
+          "copia_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+          "ips_sha256": "49268066fb3aa583a1860a4737c7f73da575f162d1f1971e15361d0fcb54f63f",
+          "bytes_diferentes": 1,
+          "offsets_diferentes": [
+            8724
+          ],
+          "copy_path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-23-29-958Z-copias/reaberto/rom_copy-grid-2204-7a33ddfa.copy-grid-2204-fbc72b25.bin"
+        }
+      ],
+      "observed_bytes_changed": 162,
+      "causal_pixels": {
+        "pass": true,
+        "observed_pixels": 3309,
+        "expected_pixels": 3309,
+        "first": [
+          12905,
+          12906,
+          12908,
+          12909,
+          12910,
+          12911,
+          12913,
+          12914,
+          12915,
+          12916,
+          12917,
+          12919
+        ]
+      },
+      "owned_processes_remaining": 0,
+      "origin": "new final-binary execution using reused frozen references"
+    }
+  ],
+  "interpretation": "Per-journey checks repeat shared controls; not a sum of independent coverage. Author fixtures and commercial targets remain separate.",
+  "host_certification": "pending",
+  "untouched_preexisting_untracked": {
+    "m5-adaptation-cost.json": "b94f8331b6a7236c008833ec16b0b9bcff1de25728f64f4f792fcde0c2d6e24b",
+    "protection-mission-011.json": "1ec941cffc9ee6d00974072a324218ed0efc97b4f7afe2d52638dcf67f630a08"
+  },
+  "prepared_reproduction_not_executed": "/home/misael/rds-scratch/commercial_recovery_20261016/reproduce-m3-native-reproduction-prepared-001"
+}

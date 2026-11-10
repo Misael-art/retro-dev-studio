@@ -1,0 +1,7 @@
+{
+  "artifact": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T17-34-30-557Z-report.json",
+  "sha256": "56828334ce11145b6588b2bcc136f4dd97d79a1277f63cd9495173bcc9295847",
+  "checks": 60,
+  "allPass": true,
+  "note": "GUI 003 passed; GUI 004 reports field/bytes with explicit names. Both raw runs preserved."
+}

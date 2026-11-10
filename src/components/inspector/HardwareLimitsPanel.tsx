@@ -169,8 +169,17 @@ export default function HardwareLimitsPanel({ compact = false }: { compact?: boo
           <p className="px-3 py-1 text-[9px] text-[#6c7086]" title={liveMessage}>
             {liveMessage}
           </p>
-          <GaugeRow label="VRAM" used={status.vram_used} limit={status.vram_limit} unit="KB" />
-          <GaugeRow label="Sprites" used={status.sprite_count} limit={status.sprite_limit} />
+          {status.analysis_mode === "native_c" ? (
+            <p data-testid="hardware-limits-native-c" className="px-3 pb-2 text-[9px] text-[#a6adc8]">
+              Projeto C nativo: limites do Mega Drive (VRAM {Math.round(status.vram_limit / 1024)} KB, {status.sprite_limit}{" "}
+              sprites). O uso é decidido pelo C em runtime; a barra superior mostra a VRAM real medida no emulador.
+            </p>
+          ) : (
+            <>
+              <GaugeRow label="VRAM" used={status.vram_used} limit={status.vram_limit} unit="KB" />
+              <GaugeRow label="Sprites" used={status.sprite_count} limit={status.sprite_limit} />
+            </>
+          )}
           {(status.errors[0] || status.warnings[0]) && (
             <p
               className="px-3 pb-2 text-[9px] text-[#fab387]"
@@ -252,16 +261,16 @@ export default function HardwareLimitsPanel({ compact = false }: { compact?: boo
       />
       <div className="border-b border-[#313244] px-3 py-1 text-[10px] text-[#7f849c]">
         <span className="font-semibold text-[#bac2de]">
-          Mode: {status.analysis_mode ?? "native_static"}
+          {status.analysis_mode === "native_frame_upload" ? "Animações: quadros carregados quando usados" : `Modo: ${status.analysis_mode ?? "native_static"}`}
         </span>
         <span className="ml-2">
-          total {Math.floor((status.project_asset_bytes ?? status.vram_used) / 1024)}KB
+          Recursos no cartucho: {((status.project_asset_bytes ?? status.vram_used) / 1024).toFixed(1)} KB
         </span>
         <span className="ml-2">
-          resident {Math.floor((status.resident_vram_bytes ?? status.vram_used) / 1024)}KB
+          Reserva na VRAM: {((status.resident_vram_bytes ?? status.vram_used) / 1024).toFixed(1)} KB
         </span>
         <span className="ml-2">
-          streamable {Math.floor((status.streamable_vram_bytes ?? 0) / 1024)}KB
+          Fora da reserva simultânea: {((status.streamable_vram_bytes ?? 0) / 1024).toFixed(1)} KB
         </span>
       </div>
       {activeTarget === "megadrive" && (

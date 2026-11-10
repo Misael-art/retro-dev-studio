@@ -1,0 +1,1 @@
+{'commit': '08100d314b013a1ef7280a5afd7be272cb2480f6', 'arquivos': 516, 'sha256_do_manifesto': 'e541f5e97446e62c6199217489eea91550b7530917283f629e0d59e8ea4ecfb8', 'conferido': 'sha256sum -c na arvore desse commit, 516 OK', 'antes_de': 'segundo perfil rex-semantic-profile/v1'}

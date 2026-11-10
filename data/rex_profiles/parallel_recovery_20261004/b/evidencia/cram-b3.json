@@ -1,0 +1,771 @@
+{
+  "e18r": {
+    "H_A_mismatches": {
+      "_palindex_line1": [
+        "0xFB00",
+        "0xF540"
+      ],
+      "_palindex_line2": [
+        "0xFB20",
+        "0xF560"
+      ],
+      "ani0_frame": [
+        "0xFEC1",
+        "0xF901"
+      ],
+      "ani0_time": [
+        "0xFEC0",
+        "0xF900"
+      ],
+      "espelho_line3_1A": [
+        "0xFB5A",
+        "0xF59A"
+      ],
+      "espelho_line3_E": [
+        "0xFB4E",
+        "0xF58E"
+      ],
+      "espelho_line4_1A": [
+        "0xFB7A",
+        "0xF5BA"
+      ],
+      "espelho_line4_E": [
+        "0xFB6E",
+        "0xF5AE"
+      ],
+      "f_pause": [
+        "0xF63A",
+        "0xF07A"
+      ],
+      "palss_index": [
+        "0xF79E",
+        "0xF1DE"
+      ],
+      "palss_num": [
+        "0xF79A",
+        "0xF1DA"
+      ],
+      "palss_time": [
+        "0xF79C",
+        "0xF1DC"
+      ],
+      "scrposy_vdp": [
+        "0xF616",
+        "0xF056"
+      ],
+      "ssbganim": [
+        "0xF7A0",
+        "0xF1E0"
+      ]
+    },
+    "H_B_mismatches": {},
+    "hipotese_escolhida": "H_B",
+    "invariantes": {
+      "espelhos_delta_E_1A": true,
+      "frame_eq_time_menos_1": true,
+      "palss_time_num_2_index_4": true
+    }
+  },
+  "gerado_em": "2026-10-05T02:32:38+00:00",
+  "limites": "estatico somente; consumo observado (CRAM escrito em execucao) NAO PROVADO (E22)",
+  "pins": {
+    "e19_blink": {
+      "campos_w": {
+        "ani0_frame": "0xFEC1",
+        "ani0_time": "0xFEC0"
+      },
+      "desmontado": [
+        {
+          "endereco": "0x1b33a",
+          "mnemonico": "subqb #1,0xfffffec0"
+        },
+        {
+          "endereco": "0x1b33e",
+          "mnemonico": "bpls 0x1b350"
+        },
+        {
+          "endereco": "0x1b340",
+          "mnemonico": "moveb #7,0xfffffec0"
+        },
+        {
+          "endereco": "0x1b346",
+          "mnemonico": "subqb #1,0xfffffec1"
+        },
+        {
+          "endereco": "0x1b34a",
+          "mnemonico": "andib #7,0xfffffec1"
+        },
+        {
+          "endereco": "0x1b350",
+          "mnemonico": "lea 0xff4016,%a1"
+        },
+        {
+          "endereco": "0x1b356",
+          "mnemonico": "lea 0x1b43a,%a0"
+        },
+        {
+          "endereco": "0x1b35c",
+          "mnemonico": "moveq #0,%d0"
+        },
+        {
+          "endereco": "0x1b35e",
+          "mnemonico": "moveb 0xfffffec1,%d0"
+        },
+        {
+          "endereco": "0x1b362",
+          "mnemonico": "addw %d0,%d0"
+        },
+        {
+          "endereco": "0x1b364",
+          "mnemonico": "lea %a0@(0,%d0:w),%a0"
+        },
+        {
+          "endereco": "0x1b368",
+          "mnemonico": "movew %a0@,%a1@"
+        },
+        {
+          "endereco": "0x1b36a",
+          "mnemonico": "movew %a0@(2),%a1@(8)"
+        },
+        {
+          "endereco": "0x1b370",
+          "mnemonico": "movew %a0@(4),%a1@(16)"
+        },
+        {
+          "endereco": "0x1b376",
+          "mnemonico": "movew %a0@(6),%a1@(24)"
+        },
+        {
+          "endereco": "0x1b37c",
+          "mnemonico": "movew %a0@(8),%a1@(32)"
+        },
+        {
+          "endereco": "0x1b382",
+          "mnemonico": "movew %a0@(10),%a1@(40)"
+        },
+        {
+          "endereco": "0x1b388",
+          "mnemonico": "movew %a0@(12),%a1@(48)"
+        },
+        {
+          "endereco": "0x1b38e",
+          "mnemonico": "movew %a0@(14),%a1@(56)"
+        },
+        {
+          "endereco": "0x1b394",
+          "mnemonico": "addaw #32,%a0"
+        },
+        {
+          "endereco": "0x1b398",
+          "mnemonico": "addaw #72,%a1"
+        },
+        {
+          "endereco": "0x1b39c",
+          "mnemonico": "movew %a0@,%a1@"
+        },
+        {
+          "endereco": "0x1b39e",
+          "mnemonico": "movew %a0@(2),%a1@(8)"
+        },
+        {
+          "endereco": "0x1b3a4",
+          "mnemonico": "movew %a0@(4),%a1@(16)"
+        },
+        {
+          "endereco": "0x1b3aa",
+          "mnemonico": "movew %a0@(6),%a1@(24)"
+        },
+        {
+          "endereco": "0x1b3b0",
+          "mnemonico": "movew %a0@(8),%a1@(32)"
+        },
+        {
+          "endereco": "0x1b3b6",
+          "mnemonico": "movew %a0@(10),%a1@(40)"
+        },
+        {
+          "endereco": "0x1b3bc",
+          "mnemonico": "movew %a0@(12),%a1@(48)"
+        },
+        {
+          "endereco": "0x1b3c2",
+          "mnemonico": "movew %a0@(14),%a1@(56)"
+        },
+        {
+          "endereco": "0x1b3c8",
+          "mnemonico": "addaw #32,%a0"
+        },
+        {
+          "endereco": "0x1b3cc",
+          "mnemonico": "addaw #72,%a1"
+        },
+        {
+          "endereco": "0x1b3d0",
+          "mnemonico": "movew %a0@,%a1@"
+        },
+        {
+          "endereco": "0x1b3d2",
+          "mnemonico": "movew %a0@(2),%a1@(8)"
+        },
+        {
+          "endereco": "0x1b3d8",
+          "mnemonico": "movew %a0@(4),%a1@(16)"
+        },
+        {
+          "endereco": "0x1b3de",
+          "mnemonico": "movew %a0@(6),%a1@(24)"
+        },
+        {
+          "endereco": "0x1b3e4",
+          "mnemonico": "movew %a0@(8),%a1@(32)"
+        },
+        {
+          "endereco": "0x1b3ea",
+          "mnemonico": "movew %a0@(10),%a1@(40)"
+        },
+        {
+          "endereco": "0x1b3f0",
+          "mnemonico": "movew %a0@(12),%a1@(48)"
+        },
+        {
+          "endereco": "0x1b3f6",
+          "mnemonico": "movew %a0@(14),%a1@(56)"
+        },
+        {
+          "endereco": "0x1b3fc",
+          "mnemonico": "addaw #32,%a0"
+        },
+        {
+          "endereco": "0x1b400",
+          "mnemonico": "addaw #72,%a1"
+        },
+        {
+          "endereco": "0x1b404",
+          "mnemonico": "movew %a0@,%a1@"
+        },
+        {
+          "endereco": "0x1b406",
+          "mnemonico": "movew %a0@(2),%a1@(8)"
+        },
+        {
+          "endereco": "0x1b40c",
+          "mnemonico": "movew %a0@(4),%a1@(16)"
+        },
+        {
+          "endereco": "0x1b412",
+          "mnemonico": "movew %a0@(6),%a1@(24)"
+        },
+        {
+          "endereco": "0x1b418",
+          "mnemonico": "movew %a0@(8),%a1@(32)"
+        },
+        {
+          "endereco": "0x1b41e",
+          "mnemonico": "movew %a0@(10),%a1@(40)"
+        },
+        {
+          "endereco": "0x1b424",
+          "mnemonico": "movew %a0@(12),%a1@(48)"
+        },
+        {
+          "endereco": "0x1b42a",
+          "mnemonico": "movew %a0@(14),%a1@(56)"
+        },
+        {
+          "endereco": "0x1b430",
+          "mnemonico": "addaw #32,%a0"
+        },
+        {
+          "endereco": "0x1b434",
+          "mnemonico": "addaw #72,%a1"
+        }
+      ],
+      "endereco": "0x1b33a",
+      "predicao_sha256": "985518fbf56415c918a510b91cc756b26ed2f695458bfc2f11a12e5ad0495539",
+      "ss_wall_palettes_vram": "0x1b43a",
+      "tabela_128b_igual_predicao_sswallpal": true,
+      "tabela_sha256": "985518fbf56415c918a510b91cc756b26ed2f695458bfc2f11a12e5ad0495539",
+      "tamanho_padrao": 254
+    },
+    "e20_palcycle_ss": {
+      "alvos_l": {
+        "Pal_SSCyc1": "0x4aca",
+        "Pal_SSCyc2": "0x4b12",
+        "SS_BG_Modes": "0x4abc",
+        "SS_Timing_Values": "0x4a3c"
+      },
+      "campos_w": {
+        "espelho_line3_1A": "0xFB5A",
+        "espelho_line3_E": "0xFB4E",
+        "espelho_line4_1A": "0xFB7A",
+        "espelho_line4_E": "0xFB6E",
+        "f_pause": "0xF63A",
+        "palss_index": "0xF79E",
+        "palss_num": "0xF79A",
+        "palss_time": "0xF79C",
+        "scrposy_vdp": "0xF616",
+        "ssbganim": "0xF7A0"
+      },
+      "cyc1_bate_bin_pinado": true,
+      "cyc1_sha256": "ec2391eb813ae8cbd1e6e81e9e52c8b58f419cfc368154e5de6f3ebf561068a9",
+      "cyc2_bate_bin_pinado": true,
+      "cyc2_sha256": "65e5c9430f84c7a4680bbda060f29e7f50f2e22d87fa9c8368b04cb5826bd74c",
+      "desmontado": [
+        {
+          "endereco": "0x4962",
+          "mnemonico": "tstw 0xfffff63a"
+        },
+        {
+          "endereco": "0x4966",
+          "mnemonico": "bnes 0x49e6"
+        },
+        {
+          "endereco": "0x4968",
+          "mnemonico": "subqw #1,0xfffff79c"
+        },
+        {
+          "endereco": "0x496c",
+          "mnemonico": "bpls 0x49e6"
+        },
+        {
+          "endereco": "0x496e",
+          "mnemonico": "lea 0xc00004,%fp"
+        },
+        {
+          "endereco": "0x4974",
+          "mnemonico": "movew 0xfffff79a,%d0"
+        },
+        {
+          "endereco": "0x4978",
+          "mnemonico": "addqw #1,0xfffff79a"
+        },
+        {
+          "endereco": "0x497c",
+          "mnemonico": "andiw #31,%d0"
+        },
+        {
+          "endereco": "0x4980",
+          "mnemonico": "lslw #2,%d0"
+        },
+        {
+          "endereco": "0x4982",
+          "mnemonico": "lea 0x4a3c,%a0"
+        },
+        {
+          "endereco": "0x4988",
+          "mnemonico": "addaw %d0,%a0"
+        },
+        {
+          "endereco": "0x498a",
+          "mnemonico": "moveb %a0@+,%d0"
+        },
+        {
+          "endereco": "0x498c",
+          "mnemonico": "bpls 0x4992"
+        },
+        {
+          "endereco": "0x498e",
+          "mnemonico": "movew #511,%d0"
+        },
+        {
+          "endereco": "0x4992",
+          "mnemonico": "movew %d0,0xfffff79c"
+        },
+        {
+          "endereco": "0x4996",
+          "mnemonico": "moveq #0,%d0"
+        },
+        {
+          "endereco": "0x4998",
+          "mnemonico": "moveb %a0@+,%d0"
+        },
+        {
+          "endereco": "0x499a",
+          "mnemonico": "movew %d0,0xfffff7a0"
+        },
+        {
+          "endereco": "0x499e",
+          "mnemonico": "lea 0x4abc,%a1"
+        },
+        {
+          "endereco": "0x49a4",
+          "mnemonico": "lea %a1@(0,%d0:w),%a1"
+        },
+        {
+          "endereco": "0x49a8",
+          "mnemonico": "movew #-32256,%d0"
+        },
+        {
+          "endereco": "0x49ac",
+          "mnemonico": "moveb %a1@+,%d0"
+        },
+        {
+          "endereco": "0x49ae",
+          "mnemonico": "movew %d0,%fp@"
+        },
+        {
+          "endereco": "0x49b0",
+          "mnemonico": "moveb %a1@,0xfffff616"
+        },
+        {
+          "endereco": "0x49b4",
+          "mnemonico": "movew #-31744,%d0"
+        },
+        {
+          "endereco": "0x49b8",
+          "mnemonico": "moveb %a0@+,%d0"
+        },
+        {
+          "endereco": "0x49ba",
+          "mnemonico": "movew %d0,%fp@"
+        },
+        {
+          "endereco": "0x49bc",
+          "mnemonico": "movel #1073741840,0xc00004"
+        },
+        {
+          "endereco": "0x49c2",
+          "mnemonico": ""
+        },
+        {
+          "endereco": "0x49c6",
+          "mnemonico": "movel 0xfffff616,0xc00000"
+        },
+        {
+          "endereco": "0x49cc",
+          "mnemonico": ""
+        },
+        {
+          "endereco": "0x49ce",
+          "mnemonico": "moveq #0,%d0"
+        },
+        {
+          "endereco": "0x49d0",
+          "mnemonico": "moveb %a0@+,%d0"
+        },
+        {
+          "endereco": "0x49d2",
+          "mnemonico": "bmis 0x49e8"
+        },
+        {
+          "endereco": "0x49d4",
+          "mnemonico": "lea 0x4aca,%a1"
+        },
+        {
+          "endereco": "0x49da",
+          "mnemonico": "addaw %d0,%a1"
+        },
+        {
+          "endereco": "0x49dc",
+          "mnemonico": "lea 0xfffffb4e,%a2"
+        },
+        {
+          "endereco": "0x49e0",
+          "mnemonico": "movel %a1@+,%a2@+"
+        },
+        {
+          "endereco": "0x49e2",
+          "mnemonico": "movel %a1@+,%a2@+"
+        },
+        {
+          "endereco": "0x49e4",
+          "mnemonico": "movel %a1@+,%a2@+"
+        },
+        {
+          "endereco": "0x49e6",
+          "mnemonico": "rts"
+        },
+        {
+          "endereco": "0x49e8",
+          "mnemonico": "movew 0xfffff79e,%d1"
+        },
+        {
+          "endereco": "0x49ec",
+          "mnemonico": "cmpiw #138,%d0"
+        },
+        {
+          "endereco": "0x49f0",
+          "mnemonico": "bcss 0x49f4"
+        },
+        {
+          "endereco": "0x49f2",
+          "mnemonico": "addqw #1,%d1"
+        },
+        {
+          "endereco": "0x49f4",
+          "mnemonico": "muluw #42,%d1"
+        },
+        {
+          "endereco": "0x49f8",
+          "mnemonico": "lea 0x4b12,%a1"
+        },
+        {
+          "endereco": "0x49fe",
+          "mnemonico": "addaw %d1,%a1"
+        },
+        {
+          "endereco": "0x4a00",
+          "mnemonico": "andiw #127,%d0"
+        },
+        {
+          "endereco": "0x4a04",
+          "mnemonico": "bclr #0,%d0"
+        },
+        {
+          "endereco": "0x4a08",
+          "mnemonico": "beqs 0x4a18"
+        },
+        {
+          "endereco": "0x4a0a",
+          "mnemonico": "lea 0xfffffb6e,%a2"
+        },
+        {
+          "endereco": "0x4a0e",
+          "mnemonico": "movel %a1@,%a2@+"
+        },
+        {
+          "endereco": "0x4a10",
+          "mnemonico": "movel %a1@(4),%a2@+"
+        },
+        {
+          "endereco": "0x4a14",
+          "mnemonico": "movel %a1@(8),%a2@+"
+        },
+        {
+          "endereco": "0x4a18",
+          "mnemonico": "addaw #12,%a1"
+        },
+        {
+          "endereco": "0x4a1c",
+          "mnemonico": "lea 0xfffffb5a,%a2"
+        },
+        {
+          "endereco": "0x4a20",
+          "mnemonico": "cmpiw #10,%d0"
+        },
+        {
+          "endereco": "0x4a24",
+          "mnemonico": "bcss 0x4a2e"
+        },
+        {
+          "endereco": "0x4a26",
+          "mnemonico": "subiw #10,%d0"
+        },
+        {
+          "endereco": "0x4a2a",
+          "mnemonico": "lea 0xfffffb7a,%a2"
+        },
+        {
+          "endereco": "0x4a2e",
+          "mnemonico": "movew %d0,%d1"
+        },
+        {
+          "endereco": "0x4a30",
+          "mnemonico": "addw %d0,%d0"
+        },
+        {
+          "endereco": "0x4a32",
+          "mnemonico": "addw %d1,%d0"
+        },
+        {
+          "endereco": "0x4a34",
+          "mnemonico": "addaw %d0,%a1"
+        },
+        {
+          "endereco": "0x4a36",
+          "mnemonico": "movel %a1@+,%a2@+"
+        },
+        {
+          "endereco": "0x4a38",
+          "mnemonico": "movew %a1@+,%a2@+"
+        },
+        {
+          "endereco": "0x4a3a",
+          "mnemonico": "rts"
+        }
+      ],
+      "endereco": "0x4962",
+      "tamanho_padrao": 218
+    },
+    "e21": {
+      "callsites_moveq10_bsrw": [
+        {
+          "alvo_bsr": "0x20fc",
+          "eh_palload_fade_pinado": true,
+          "endereco": "0x469a"
+        }
+      ],
+      "checks": {
+        "entrada10_contagem_1f": true,
+        "entradas_0a3_mesma_line1": true,
+        "entradas_4a9_mesma_line2": true,
+        "line2_menos_line1_eq_20": true,
+        "pal_special_128b_sha": "2f9072d8714ac735dba537f2cbb00aeac349b411fc86d1ef76fb9c81b7c3432d",
+        "pal_special_iguala_bin_pinado": true
+      },
+      "entradas_20": [
+        {
+          "contagem": "0x001f",
+          "id": 0,
+          "ponteiro": "0x2208",
+          "ramaddr": "0xfb00"
+        },
+        {
+          "contagem": "0x001f",
+          "id": 1,
+          "ponteiro": "0x2288",
+          "ramaddr": "0xfb00"
+        },
+        {
+          "contagem": "0x001f",
+          "id": 2,
+          "ponteiro": "0x2308",
+          "ramaddr": "0xfb00"
+        },
+        {
+          "contagem": "0x0007",
+          "id": 3,
+          "ponteiro": "0x2388",
+          "ramaddr": "0xfb00"
+        },
+        {
+          "contagem": "0x0017",
+          "id": 4,
+          "ponteiro": "0x23a8",
+          "ramaddr": "0xfb20"
+        },
+        {
+          "contagem": "0x0017",
+          "id": 5,
+          "ponteiro": "0x2408",
+          "ramaddr": "0xfb20"
+        },
+        {
+          "contagem": "0x0017",
+          "id": 6,
+          "ponteiro": "0x24e8",
+          "ramaddr": "0xfb20"
+        },
+        {
+          "contagem": "0x0017",
+          "id": 7,
+          "ponteiro": "0x2548",
+          "ramaddr": "0xfb20"
+        },
+        {
+          "contagem": "0x0017",
+          "id": 8,
+          "ponteiro": "0x25a8",
+          "ramaddr": "0xfb20"
+        },
+        {
+          "contagem": "0x0017",
+          "id": 9,
+          "ponteiro": "0x2608",
+          "ramaddr": "0xfb20"
+        },
+        {
+          "contagem": "0x001f",
+          "id": 10,
+          "ponteiro": "0x26c8",
+          "ramaddr": "0xfb00"
+        },
+        {
+          "contagem": "0x001f",
+          "id": 11,
+          "ponteiro": "0x2468",
+          "ramaddr": "0xfb00"
+        },
+        {
+          "contagem": "0x0017",
+          "id": 12,
+          "ponteiro": "0x2748",
+          "ramaddr": "0xfb20"
+        },
+        {
+          "contagem": "0x001f",
+          "id": 13,
+          "ponteiro": "0x27a8",
+          "ramaddr": "0xfb00"
+        },
+        {
+          "contagem": "0x0017",
+          "id": 14,
+          "ponteiro": "0x2668",
+          "ramaddr": "0xfb20"
+        },
+        {
+          "contagem": "0x0007",
+          "id": 15,
+          "ponteiro": "0x2828",
+          "ramaddr": "0xfb00"
+        },
+        {
+          "contagem": "0x0007",
+          "id": 16,
+          "ponteiro": "0x2848",
+          "ramaddr": "0xfb00"
+        },
+        {
+          "contagem": "0x001f",
+          "id": 17,
+          "ponteiro": "0x2868",
+          "ramaddr": "0xfb00"
+        },
+        {
+          "contagem": "0x000f",
+          "id": 18,
+          "ponteiro": "0x28e8",
+          "ramaddr": "0xfb00"
+        },
+        {
+          "contagem": "0x001f",
+          "id": 19,
+          "ponteiro": "0x2928",
+          "ramaddr": "0xfb00"
+        }
+      ],
+      "pal_index_endereco": "0x2168",
+      "palload_endereco": "0x2118",
+      "palload_fade_endereco": "0x20fc",
+      "writecram_por_hipotese": {
+        "H_A": {
+          "v_palette": {
+            "bytes_sha256": "3864152424eaebc271d1a417de191d9784ee11371d2cef5105b3026eba01344c",
+            "ocorrencias": []
+          },
+          "v_palette_water": {
+            "bytes_sha256": "0c2fd1dd30bd9c134896c8c9e7b19cdacd8be5644bb304b01eb690978e843aba",
+            "ocorrencias": []
+          }
+        },
+        "H_B": {
+          "v_palette": {
+            "bytes_sha256": "11489e964f0e496a7ed97b53c7203d8e036ada54dd3f434625916bdd428cd2a1",
+            "ocorrencias": [
+              "0xbd8",
+              "0xc8a",
+              "0xdbc",
+              "0xe8e",
+              "0xfbc",
+              "0x108a"
+            ]
+          },
+          "v_palette_water": {
+            "bytes_sha256": "41341d53206379ec9cf31d0df3567fff6a754d9e6d126838392d2f42f3868738",
+            "ocorrencias": [
+              "0xbfe",
+              "0xcb0",
+              "0xeb4",
+              "0x10b0"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "rom_bytes": 531577,
+  "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "schema": "rex-parallel-b/cram/1",
+  "veredito": "E18R/E19/E20/E21-OK: referencia do CRAM PINADA por sitio (hipotese H_B; estatico — consumo observado NAO PROVADO)"
+}

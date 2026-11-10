@@ -1,0 +1,588 @@
+{
+ "schema": "rex-audit-roles-input/v1",
+ "definicoes": {
+  "motor": "mecanismo genérico; não cita jogo, rotina nem campo de perfil.",
+  "perfil": "descreve a forma de UMA rotina/dado (padrões, campos, grafo, textos) sem citar jogo no nome.",
+  "caso": "o nome do arquivo/símbolo cita jogo ou personagem.",
+  "instrumento": "mede, compara ou rotula (oráculos de teste, Ghidra, diff, corpus, escada de evidência); não é caminho de edição do produto.",
+  "adaptador": "traduz entre um mecanismo e uma superfície (IPC, DTO, UI, API de compatibilidade).",
+  "misto": "arquivo com símbolos de mais de um papel; os símbolos são citados por papel."
+ },
+ "arquivos": {
+  "crates/rex-addressing/src/error.rs": {
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/lib.rs": {
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/md_common.rs": {
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/md_linear.rs": {
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/md_ssf2.rs": {
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/region.rs": {
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/resource.rs": {
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/snes_common.rs": {
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/snes_exhirom.rs": {
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/snes_hirom.rs": {
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/snes_lorom.rs": {
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/state.rs": {
+   "papel": "motor",
+   "porque": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-enigma/src/lib.rs": {
+   "papel": "motor",
+   "porque": "Codec Enigma puro; 'sonic'/'delta' só em comentários (variante do console; 'delta' = corrida delta do codec)."
+  },
+  "crates/rex-gameplay/src/graph.rs": {
+   "papel": "perfil",
+   "porque": "Constrói NodeGraph v1 do perfil m68k.counter_threshold_state_gate.v1 (build_graph, edit_threshold): forma do grafo é do perfil."
+  },
+  "crates/rex-gameplay/src/json.rs": {
+   "papel": "motor",
+   "porque": "JSON mínimo próprio; mecanismo genérico (redundante com serde_json — candidato a remoção na F1).",
+   "reuso": "Duplicata de JSON (não reutilizada; o motor usa serde_json)."
+  },
+  "crates/rex-gameplay/src/lib.rs": {
+   "papel": "perfil",
+   "porque": "Entrada do perfil counter_threshold_state_gate.v1 (Experimental).",
+   "simbolos": {
+    "perfil": [
+     "fn recover",
+     "fn scan_guarded_candidates"
+    ],
+    "instrumento": [
+     "fn execute_region"
+    ]
+   }
+  },
+  "crates/rex-gameplay/src/lift.rs": {
+   "papel": "perfil",
+   "porque": "Eleva região à regra semântica do perfil (Guard, CounterAdd, Compare).",
+   "reuso": "Específico do perfil counter_threshold_state_gate.v1; fora da classe subsumes/pair/follow.",
+   "simbolos": {
+    "perfil": [
+     "struct GateRule",
+     "fn lift",
+     "fn evaluate"
+    ]
+   }
+  },
+  "crates/rex-gameplay/src/m68k.rs": {
+   "papel": "misto",
+   "porque": "Subconjunto M68000 fechado de 12 variantes de Insn, com decode/encode/step e flags: o mecanismo é reaproveitável, o conjunto de instruções é o do perfil.",
+   "reuso": "Reutilizável: decode/encode/step com flags para subconjunto FECHADO de 12 instruções (recusa o resto). Base da opção A do doc 14 §3.3; não é emulador e não foi ampliado nesta missão.",
+   "simbolos": {
+    "motor": [
+     "fn decode",
+     "fn encode",
+     "struct Machine",
+     "struct Ccr",
+     "enum Cond"
+    ],
+    "perfil": [
+     "enum Insn",
+     "fn mnemonic"
+    ]
+   }
+  },
+  "crates/rex-gameplay/src/patch.rs": {
+   "papel": "misto",
+   "porque": "md_checksum é do formato Mega Drive; patch_threshold e regenerate_from_graph são do perfil.",
+   "simbolos": {
+    "motor": [
+     "fn md_checksum"
+    ],
+    "perfil": [
+     "fn patch_threshold",
+     "fn regenerate_from_graph"
+    ]
+   },
+   "reuso": "Pipeline de patch PRÓPRIO do perfil counter_threshold (duplica rex_edit): NÃO reutilizado e NÃO ampliado; consolidação fica para F1b."
+  },
+  "crates/rex-gameplay/src/region.rs": {
+   "papel": "motor",
+   "porque": "Delimita região por fluxo de controle com saídas declaradas pelo chamador; depende do tipo Insn (acoplamento a verificar na F1).",
+   "reuso": "Reutilizável: ÚNICO mecanismo de CFG encontrado (delimit: percorre os dois lados de cada desvio a partir de entrada e saídas declaradas). Acoplado a Insn (subconjunto). Não há grafo de fluxo de ROM inteira.",
+   "simbolos": {
+    "motor": [
+     "struct Region",
+     "fn delimit"
+    ]
+   }
+  },
+  "crates/rex-gameplay/src/sha256.rs": {
+   "papel": "motor",
+   "porque": "SHA-256 próprio (duplicata; ver duplicações).",
+   "reuso": "Duplicata de SHA-256 (não reutilizada; o produto usa rom_library::sha256_hex)."
+  },
+  "crates/rex-kosinski/src/edit.rs": {
+   "papel": "motor",
+   "porque": "Codec/edição Kosinski (variante base); sem termo de jogo. edit.rs tem SHA-256 próprio (duplicata)."
+  },
+  "crates/rex-kosinski/src/encode.rs": {
+   "papel": "motor",
+   "porque": "Codec/edição Kosinski (variante base); sem termo de jogo. edit.rs tem SHA-256 próprio (duplicata)."
+  },
+  "crates/rex-kosinski/src/lib.rs": {
+   "papel": "motor",
+   "porque": "Codec/edição Kosinski (variante base); sem termo de jogo. edit.rs tem SHA-256 próprio (duplicata)."
+  },
+  "crates/rex-mugen/src/air.rs": {
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "crates/rex-mugen/src/diag.rs": {
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "crates/rex-mugen/src/fixture.rs": {
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "crates/rex-mugen/src/lib.rs": {
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "crates/rex-mugen/src/palette.rs": {
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "crates/rex-mugen/src/plan.rs": {
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "crates/rex-mugen/src/sff.rs": {
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "crates/rex-mugen/src/sha256.rs": {
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN). SHA-256 próprio (duplicata)."
+  },
+  "crates/rex-mugen/src/source.rs": {
+   "papel": "motor",
+   "porque": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "src-tauri/src/tools/reverse/decomp/decomp_orch.rs": {
+   "papel": "instrumento",
+   "porque": "Orquestra triagem+Ghidra+diff para medir pares (fonte, ROM): mede, não recupera."
+  },
+  "src-tauri/src/tools/reverse/decomp/extract.rs": {
+   "papel": "motor",
+   "porque": "Catálogo de extração com proveniência; 'hamoopig'/'taiketsu' só em comentário e teste ignorado."
+  },
+  "src-tauri/src/tools/reverse/decomp/fingerprint.rs": {
+   "papel": "instrumento",
+   "porque": "Índice hash→identidade de funções do ground truth: instrumento de comparação."
+  },
+  "src-tauri/src/tools/reverse/decomp/ghidra_bridge.rs": {
+   "papel": "instrumento",
+   "porque": "Executa analyzeHeadless e calcula precisão/recall de fronteiras: instrumento externo.",
+   "reuso": "Reutilizável na investigação de core/CFG: exporta fronteiras de função (precision/recall contra symbol table). Não usado pelo motor de perfis; exige Ghidra autorizado no host.",
+   "simbolos": {
+    "instrumento": [
+     "struct BoundaryMetrics",
+     "const GHIDRA_PROCESSOR"
+    ]
+   }
+  },
+  "src-tauri/src/tools/reverse/decomp/graphics_discovery.rs": {
+   "papel": "motor",
+   "porque": "Descoberta de tiles/paletas por heurística; 'delta' = diferença."
+  },
+  "src-tauri/src/tools/reverse/decomp/holdout.rs": {
+   "papel": "instrumento",
+   "porque": "Corpus de validação independente dos scanners gráficos."
+  },
+  "src-tauri/src/tools/reverse/decomp/inspection.rs": {
+   "papel": "misto",
+   "porque": "Serviço de inspeção (sessões, catálogo, preview, salvar) misturado com 138 ocorrências de 'sonic' em edições/consultas específicas do Sonic 1.",
+   "simbolos": {
+    "motor": [
+     "struct InspectionError",
+     "struct InspectionSession",
+     "fn open",
+     "fn reopen",
+     "fn catalog_page",
+     "fn save"
+    ],
+    "caso": [
+     "fn edit_sonic_palette",
+     "fn edit_sonic_tiles",
+     "fn sonic_cadence_info",
+     "fn sonic_layouts_info",
+     "fn sonic_consumers_info",
+     "fn edit_sonic_sequence"
+    ]
+   },
+   "reuso": "InspectionError REUSADO como tipo de erro IPC; o lado de caso (sonic_*) permanece intocado nesta missão."
+  },
+  "src-tauri/src/tools/reverse/decomp/logic_recovery.rs": {
+   "papel": "perfil",
+   "porque": "Recuperação de rotina M68K exata de perfil (PROFILE_ID/BRANCH_PROFILE_ID; ADDQ.W #1,D0; RTS) — forma específica, sem nome de jogo."
+  },
+  "src-tauri/src/tools/reverse/decomp/mod.rs": {
+   "papel": "adaptador",
+   "porque": "Registro de módulos."
+  },
+  "src-tauri/src/tools/reverse/decomp/object_diff.rs": {
+   "papel": "instrumento",
+   "porque": "Comparação por símbolo via objdump: instrumento de medição.",
+   "reuso": "Reutilizável para L6 (fora de escopo)."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_addressing.rs": {
+   "papel": "adaptador",
+   "porque": "Superfície de produto sobre crates/rex-addressing (DTOs/erros)."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_aplib.rs": {
+   "papel": "motor",
+   "porque": "Codec aPLib (variante SGDK)."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_codecs.rs": {
+   "papel": "motor",
+   "porque": "Codecs REX v1 (LZ4W etc.)."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_context.rs": {
+   "papel": "motor",
+   "porque": "Contexto de recurso gráfico somente leitura (TileSet+TileMap+paleta); 0 termos de jogo."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_edit.rs": {
+   "papel": "motor",
+   "porque": "Núcleo de edição extraído na F1: Patch, apply, IPS estrito (gerador e aplicador independentes) e planejamento genérico de campos de 16 bits; opera sobre offsets e domínios, sem termo de jogo.",
+   "reuso": "REUSADO: único aplicador/gerador de patches (Patch, apply, ips, ips_apply_strict).",
+   "simbolos": {
+    "motor": [
+     "struct Patch",
+     "struct FieldEnc",
+     "fn plan_field_edits",
+     "fn apply",
+     "fn ips",
+     "fn ips_apply_strict"
+    ]
+   }
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_evidence.rs": {
+   "papel": "instrumento",
+   "porque": "Tipo da escada de evidência: instrumento de rotulagem das afirmações, sem I/O.",
+   "simbolos": {
+    "instrumento": [
+     "enum EvidenceLevel",
+     "enum EvidenceAxis",
+     "struct Claim",
+     "fn weakest"
+    ]
+   }
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_gameplay.rs": {
+   "papel": "adaptador",
+   "porque": "Superfície IPC do perfil counter_threshold_state_gate.v1 sobre crates/rex-gameplay."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs": {
+   "papel": "adaptador",
+   "porque": "Só compila em teste. Delega a rex_profile_ipc e conserva os testes anteriores.",
+   "reuso": "Fora do binário do produto.",
+   "simbolos": {
+    "adaptador": [
+     "struct JumpEditRequest",
+     "struct JumpEditResponse",
+     "fn ipc_edit_with",
+     "fn ipc_locate"
+    ]
+   }
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_kosinski.rs": {
+   "papel": "adaptador",
+   "porque": "Superfície de produto sobre crates/rex-kosinski."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_mdgfx.rs": {
+   "papel": "motor",
+   "porque": "Primitivas gráficas MD 'SEM conhecimento de jogo' (cabeçalho); 'sonic' só em comentário sobre o formato de mappings."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_nemesis.rs": {
+   "papel": "motor",
+   "porque": "Decoder Nemesis 'genérico: não conhece nenhum jogo' (cabeçalho)."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs": {
+   "papel": "misto",
+   "porque": "Só compila em teste. Adaptador da API tipada anterior sobre o motor + oráculos (código antigo).",
+   "reuso": "Fora do binário do produto.",
+   "simbolos": {
+    "adaptador": [
+     "struct JumpInstance",
+     "struct JumpParams",
+     "enum JumpError",
+     "fn locate",
+     "fn graph_json",
+     "fn review_graph",
+     "fn plan_edit",
+     "fn to_jump"
+    ],
+    "instrumento": [
+     "fn locate_reference",
+     "fn graph_json_reference",
+     "fn fixture_rom"
+    ],
+    "perfil": [
+     "const PROFILE_ID",
+     "const REL_HEIGHT",
+     "const REL_CAP"
+    ]
+   }
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_profile_engine.rs": {
+   "papel": "motor",
+   "porque": "Motor de localização dirigido por perfil em dado (subsumes/pair/follow), promovido na F1; recusa formas fora da classe suportada; sem termo de jogo.",
+   "reuso": "REUSADO e ampliado nesta missão.",
+   "simbolos": {
+    "motor": [
+     "struct Engine",
+     "struct EngineInstance",
+     "struct EngineField",
+     "enum EngineError",
+     "enum ProfileError",
+     "struct Located",
+     "struct CaptureFact",
+     "fn nearest"
+    ]
+   }
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_profile_spec.rs": {
+   "papel": "motor",
+   "porque": "Esquema e validação do perfil como dado; a lógica de produção não cita jogo (1 ocorrência de 'pulo' em comentário de cabeçalho; o perfil do pulo aparece nos testes e no JSON de rascunho). O avaliador que interpreta o dado é #[cfg(test)]. Contrato da F0, não usado em produção.",
+   "reuso": "REUSADO e ampliado (contrato v2).",
+   "simbolos": {
+    "motor": [
+     "struct ProfileSpec",
+     "enum RelationSpec",
+     "struct FieldSpec",
+     "enum SpecError",
+     "struct CaptureSpec",
+     "enum CaptureRole",
+     "struct ProjectionSpec",
+     "enum TextPart",
+     "enum Condition",
+     "struct ClaimSpec",
+     "enum TieRule",
+     "fn node_ports"
+    ]
+   }
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_publish.rs": {
+   "papel": "motor",
+   "porque": "Publicação conjunta e segura de dois artefatos (cópia + IPS) extraída na F1: Fs/RealFs/WriteFail/publish_pair; sem termo de jogo.",
+   "reuso": "REUSADO: único publicador (publish_pair).",
+   "simbolos": {
+    "motor": [
+     "trait Fs",
+     "struct RealFs",
+     "fn publish_pair"
+    ]
+   }
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_resources.rs": {
+   "papel": "motor",
+   "porque": "Cadeia de recurso comprimido; 'sonic' 1x em comentário."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_sigscan.rs": {
+   "papel": "motor",
+   "porque": "Localizador por assinatura genérico e puro (cabeçalho).",
+   "reuso": "REUSADO pelo motor de perfis (padrões/capturas).",
+   "simbolos": {
+    "motor": [
+     "struct Pattern",
+     "struct Match",
+     "struct Captured"
+    ]
+   }
+  },
+  "src-tauri/src/tools/reverse/decomp/rom_library.rs": {
+   "papel": "instrumento",
+   "porque": "Biblioteca BYOR + ledger de execuções das medições.",
+   "reuso": "sha256_hex reusado pela identidade da ROM."
+  },
+  "src-tauri/src/tools/reverse/decomp/sonic_cadence.rs": {
+   "papel": "caso",
+   "porque": "Cadência da sequência id_Wait do Sonic 1 Rev00 (offsets e tabelas do jogo). Evidência válida; migrar gradualmente, nunca apagar."
+  },
+  "src-tauri/src/tools/reverse/decomp/sonic_consumers.rs": {
+   "papel": "caso",
+   "porque": "Cadeia de consumidores do Sonic 1 (ROM_PIN, offsets de tabela). Evidência válida; migrar gradualmente, nunca apagar."
+  },
+  "src-tauri/src/tools/reverse/decomp/sonic_layouts.rs": {
+   "papel": "caso",
+   "porque": "Layouts das fases especiais do Sonic 1 (formato e tabela do jogo). Evidência válida; migrar gradualmente, nunca apagar."
+  },
+  "src-tauri/src/tools/reverse/decomp/sonic_sequence.rs": {
+   "papel": "caso",
+   "porque": "Reordenação in-place de frames do id_Wait do Sonic 1 Rev00. Evidência válida; migrar gradualmente, nunca apagar."
+  },
+  "src-tauri/src/tools/reverse/decomp/sonic_sprite.rs": {
+   "papel": "caso",
+   "porque": "Geometria do perfil BYOR Sonic 1 Rev00 (ART_OFFSET, MAP_TABLE, DPLC). Evidência válida; migrar gradualmente, nunca apagar."
+  },
+  "src-tauri/src/tools/reverse/decomp/sonic_ss_walls.rs": {
+   "papel": "caso",
+   "porque": "Paredes da fase especial do Sonic 1 (SS_MapIndex, Map_SSWalls). Evidência válida; migrar gradualmente, nunca apagar."
+  },
+  "src-tauri/src/tools/reverse/decomp/sprite_composition.rs": {
+   "papel": "misto",
+   "porque": "Composição de frame com pins HAMOOPIG/TAIKETSU/SONIC1 e 97 ocorrências de 'sonic'.",
+   "simbolos": {
+    "motor": [
+     "struct SpriteFramePart",
+     "struct InspectionSpriteFrame"
+    ],
+    "caso": [
+     "fn read_sonic_session_rom",
+     "fn sonic_stand_pixel_location",
+     "fn sonic_dplc_art_tiles"
+    ]
+   }
+  },
+  "src-tauri/src/tools/reverse/decomp/symbols.rs": {
+   "papel": "instrumento",
+   "porque": "Parser de symbol table (ground truth das medições)."
+  },
+  "src-tauri/src/tools/reverse/decomp/triage.rs": {
+   "papel": "instrumento",
+   "porque": "Triagem estática de header/tier."
+  },
+  "src/components/tools/RexGameplayRulePanel.tsx": {
+   "papel": "adaptador",
+   "porque": "UI de uma superfície REX existente (fora do caminho do perfil de pulo)."
+  },
+  "src/components/tools/RexImageContextPanel.tsx": {
+   "papel": "adaptador",
+   "porque": "UI de uma superfície REX existente (fora do caminho do perfil de pulo)."
+  },
+  "src/core/nodegraph/rexGameplayGraph.ts": {
+   "papel": "perfil",
+   "porque": "Projeção do grafo do perfil counter_threshold_state_gate.v1 (REX_GAMEPLAY_PROFILE_ID)."
+  },
+  "src/core/nodegraph/rexGameplayScene.ts": {
+   "papel": "perfil",
+   "porque": "Cena derivada do perfil counter_threshold_state_gate.v1."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_profile_graph.rs": {
+   "papel": "motor",
+   "porque": "Projeção e revisão do grafo a partir do dado do perfil.",
+   "reuso": "NOVO nesta missão (substitui graph_json/review_graph do pulo).",
+   "simbolos": {
+    "motor": [
+     "fn graph_json",
+     "fn review_graph",
+     "fn canonical_string",
+     "fn canonical_signature",
+     "struct GraphReview",
+     "const BINDING_PARAMS"
+    ]
+   }
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_profile_ipc.rs": {
+   "papel": "adaptador",
+   "porque": "Superfície IPC genérica: DTOs e fluxo (identidade, leitura limitada, publicação, releitura) sem conhecer perfil.",
+   "reuso": "NOVO; reutiliza rex_edit e rex_publish (um só aplicador, um só publicador).",
+   "simbolos": {
+    "adaptador": [
+     "fn ipc_catalog",
+     "fn ipc_locate",
+     "fn ipc_edit",
+     "fn ipc_edit_with",
+     "struct ProfileEditRequest",
+     "struct ProfileEditResponse",
+     "struct InstanceView"
+    ]
+   }
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_profile_registry.rs": {
+   "papel": "motor",
+   "porque": "Carga e seleção de perfis sem condicional por nome ou id.",
+   "reuso": "NOVO.",
+   "simbolos": {
+    "motor": [
+     "struct Registry",
+     "struct LoadedProfile",
+     "struct Rejected",
+     "const MAX_PROFILE_FILES"
+    ]
+   }
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_profile_testkit.rs": {
+   "papel": "instrumento",
+   "porque": "Perfil mínimo autoral e ROM sintética, só em teste.",
+   "simbolos": {
+    "instrumento": [
+     "fn mini",
+     "fn mini_rom",
+     "fn engine_of"
+    ]
+   }
+  },
+  "src/core/nodegraph/profileGraphBridge.ts": {
+   "papel": "misto",
+   "porque": "Ponte genérica; um resíduo de compatibilidade (chave da instância de grafos antigos).",
+   "simbolos": {
+    "motor": [
+     "bridgeInfo",
+     "editsFromGraph",
+     "graphStructure",
+     "canonicalString",
+     "canonicalSignature",
+     "relateResult",
+     "contextIdentity",
+     "valuesKey",
+     "withRomPath"
+    ],
+    "adaptador": [
+     "LEGACY_INSTANCE_PARAM"
+    ]
+   }
+  },
+  "src/components/tools/RexProfileLogicPanel.tsx": {
+   "papel": "adaptador",
+   "porque": "UI genérica: título, campos, notas, evidência e limites vêm da resposta do núcleo. Os data-testid conservam o prefixo histórico `jump-` (compatibilidade com as jornadas).",
+   "simbolos": {
+    "adaptador": [
+     "RexProfileLogicPanel"
+    ]
+   }
+  },
+  "src/components/nodegraph/ProfileGraphBridgePanel.tsx": {
+   "papel": "adaptador",
+   "porque": "UI genérica da ponte no canvas: perfil, instância e campos vêm do grafo.",
+   "simbolos": {
+    "adaptador": [
+     "ProfileGraphBridgePanel"
+    ]
+   }
+  }
+ }
+}

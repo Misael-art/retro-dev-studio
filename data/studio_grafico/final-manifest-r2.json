@@ -1,0 +1,530 @@
+{
+  "schema": "retrodev.studio_grafico_manifest/v2",
+  "maturity": "Experimental",
+  "generated_at": "2026-10-19T21:05:28.257Z",
+  "source": {
+    "repo": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19",
+    "head": "0904408068702619f7f4b623a5dda3b11a22a181",
+    "branch": "codex/rex-studio-grafico-20261019",
+    "dirty": true
+  },
+  "binary": {
+    "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/bin/retro-dev-studio-013",
+    "sha256": "cf928038adc58f1cf9be3ab05b35f92a177b136983759c68d08822be341bb6c9",
+    "bytes": 437390752
+  },
+  "frontend_bundle": {
+    "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/dist/index.html",
+    "sha256": "ff636821eb44b492c8a2298cf7f7e933e6f424159519524cfcb8937371f24f87",
+    "bytes": 400
+  },
+  "qa_display": {
+    "path": "/home/misael/.cache/retrodevstudio/qa-xvfb/21.1.24-1/Xvfb",
+    "sha256": "5bfd315a8c7bc626d0b183d176e130c34f910a4a1279d9d53ea45769f62a3351",
+    "bytes": 1973792
+  },
+  "inputs_byor": {
+    "ken8": [
+      {
+        "path": "/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8/ken8.def",
+        "sha256": "fdbe2fb2498be72078232ca68f2cc74fd8347aac2c8304c626d5f15dc68f5fc8",
+        "bytes": 944
+      },
+      {
+        "path": "/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8/ken.sff",
+        "sha256": "911e21b778af3e7a93cd69fe6132b8e87fb1cacddac757ada5842a8cb1c2172c",
+        "bytes": 547131
+      },
+      {
+        "path": "/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8/ken.air",
+        "sha256": "b1f6c8d093dfd0849091035d7721a5748b59a476084bbc7ebf1ce2e1c6e7ed3a",
+        "bytes": 34325
+      },
+      {
+        "path": "/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8/ken1.act",
+        "sha256": "89942f64862be6cb2bb0c094b2ab0ebb5cb411c06b7f1a6f9d69af64647687f2",
+        "bytes": 768
+      },
+      {
+        "path": "/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8/ken.cmd",
+        "sha256": "728e914f4de8d6de84af7c572af1e811c03ef142e1b168e49057bc0ba0416e16",
+        "bytes": 25391
+      },
+      {
+        "path": "/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8/ken.cns",
+        "sha256": "0b4593b7fec0e555c41b21a032a95ea5efc540b61f201d2504a409cd4d692755",
+        "bytes": 66613
+      },
+      {
+        "path": "/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8/ken.snd",
+        "sha256": "4f0cfdc8a9b3dc825bbbfac14853d1d31ffa8cd5f9c64b92e8575fb131980521",
+        "bytes": 943098
+      }
+    ],
+    "sonic1": {
+      "path": "/home/misael/.retrodev/rex_corpus_c/members/Sonic the Hedgehog (USA, Europe).bin",
+      "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "bytes": 531577
+    }
+  },
+  "runs": {
+    "cert2-e1e3": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e1e3",
+      "exit_code": 0,
+      "app_sha256": "cf928038adc58f1cf9be3ab05b35f92a177b136983759c68d08822be341bb6c9",
+      "window": "1280x800",
+      "all_pass": true,
+      "steps": [
+        "import_real_ken",
+        "baseline_build",
+        "open_character_editor_with_context",
+        "edit_single_occurrence_undo_redo",
+        "return_to_origin",
+        "save_destroy_window_reopen",
+        "rom_effect_measured_in_emulated_frames",
+        "restore_rebuild_bytes_equal_baseline",
+        "e3_runtime_selection_opens_exact_occurrence_and_returns",
+        "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo"
+      ],
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e1e3/run.json",
+          "sha256": "5a909063c260963c2851ae4a441db5cef4c17ea9a3fa108cf0373a0a4cb01329",
+          "bytes": 346
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e1e3/run.log",
+          "sha256": "74be5e00d2f58c233f00e461e9245d301f5f9c104455499b4752a21cf2785613",
+          "bytes": 6858
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e1e3/stdout.txt",
+          "missing": true
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e1e3/evidence/studio-e1-2026-10-19T20-10-56-688Z-report.json",
+          "sha256": "cebd12f3b1345d58ad0fc452a5074eb555e21079c096d0ca86872576b05c8d08",
+          "bytes": 7603
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e1-2026-10-19T20-10-56-688Z-character-o3.png",
+          "sha256": "894e37ddb472663e6cca100d39e5cf7ebcc759a0852a25d1ffb164057bfaea21",
+          "bytes": 112377
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e1-2026-10-19T20-10-56-688Z-reopened.png",
+          "sha256": "73f5320c3ea1fb96a6d54d38a836374104c842fa04b6f63e3b8766ac87d86221",
+          "bytes": 109969
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e1-2026-10-19T20-10-56-688Z-inspect-overlay.png",
+          "sha256": "a16256d5321e8fd30acc55eb4dc92b8f475d32bbcec69642d7c0e445fb992e82",
+          "bytes": 149899
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e1-2026-10-19T20-10-56-688Z-inspect-opened-character.png",
+          "sha256": "c8bc16196860658cbb463d2196c7d6a5e2d9022bce16d5a109147afcd9ec345e",
+          "bytes": 116703
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e1-2026-10-19T20-10-56-688Z-inspect-refused-stale-asset.png",
+          "sha256": "035c57811471925fb6f8fd6c380bb571de70cdca5800322da574a34d5871b95c",
+          "bytes": 153363
+        }
+      ]
+    },
+    "cert2-e2e5": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e2e5",
+      "exit_code": 0,
+      "app_sha256": "cf928038adc58f1cf9be3ab05b35f92a177b136983759c68d08822be341bb6c9",
+      "window": "1280x800",
+      "all_pass": true,
+      "steps": [
+        "import_real_ken",
+        "training_target_duplicate",
+        "authored_sound_on_attack_occurrence",
+        "authored_strike_behavior_applied",
+        "hud_bound_error_navigates_to_property",
+        "rom_strike_sound_hud",
+        "inspection_layers_collisions_audio",
+        "temporary_adjust_no_hit_apply_undo",
+        "export_canonical_rom",
+        "graphic_box_edit_rom_effect_and_undo"
+      ],
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e2e5/run.json",
+          "sha256": "431d5861bff2f5a03fe061702c931ce77c5f97126fe7729a4e7011c65330eb85",
+          "bytes": 348
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e2e5/run.log",
+          "sha256": "c213168c5abc9af689a7dfb4407fc4eb4d9d1579171057311f2f97d52bfe5b7d",
+          "bytes": 3054
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e2e5/stdout.txt",
+          "missing": true
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e2e5/evidence/studio-e2e5-2026-10-19T20-13-46-953Z-report.json",
+          "sha256": "a9527d1e5d8f71ccdb39d123b10e98e98d6abf0d5dd9ce0950c482d74f5480c5",
+          "bytes": 24955
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e2e5-2026-10-19T20-13-46-953Z-sound-event.png",
+          "sha256": "a5724bbb9c2ed1930cab7fdae9be91e56db3b3437fc92704a4e0ca2f4913b15b",
+          "bytes": 124516
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e2e5-2026-10-19T20-13-46-953Z-review-error.png",
+          "sha256": "d9c8f1ee081d72fd8992a3136661fa862757b5d20e87792712545919f69855bd",
+          "bytes": 177181
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e2e5-2026-10-19T20-13-46-953Z-layers-collisions-audio.png",
+          "sha256": "c7d4610193997cb93e52a3b6dbbcfd79fb767b423d74194bde51aa39fc2ca6f5",
+          "bytes": 161334
+        }
+      ]
+    },
+    "cert2-e4": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e4",
+      "exit_code": 0,
+      "app_sha256": "cf928038adc58f1cf9be3ab05b35f92a177b136983759c68d08822be341bb6c9",
+      "window": "1280x800",
+      "all_pass": true,
+      "steps": [
+        "import_real_ken",
+        "duplicate_and_local_change",
+        "model_edit_one_undo_step_and_save",
+        "rom_local_vs_shared"
+      ],
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e4/run.json",
+          "sha256": "49b3693592a992844131ac1195802616314b7a2c5d89966a36e1e071c8a1702b",
+          "bytes": 346
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e4/run.log",
+          "sha256": "c81064adc7236fe3e93b6d368e3c952a03417d126203587d4cddfcc1c52ec89b",
+          "bytes": 2830
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e4/stdout.txt",
+          "missing": true
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e4/evidence/studio-e4-2026-10-19T20-17-39-873Z-report.json",
+          "sha256": "25a02dfdefc212f4c40662aa5ad638af5cd05be17cf03483cf93d160a0b3a4d9",
+          "bytes": 12087
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e4-2026-10-19T20-17-39-873Z-rom-two-instances.png",
+          "sha256": "1d80ae7b748d5bf0c126f26b48ce0f8fa1def549a74770bd6c7ae929dd439454",
+          "bytes": 145229
+        }
+      ]
+    },
+    "cert2-e6": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e6",
+      "exit_code": 0,
+      "app_sha256": "cf928038adc58f1cf9be3ab05b35f92a177b136983759c68d08822be341bb6c9",
+      "window": "1280x800",
+      "all_pass": true,
+      "steps": [
+        "prepared_commercial_rom_paused",
+        "unknown_point_no_semantic_editor",
+        "proven_profile_opens_profile_editor",
+        "profile_edit_copy_ips_run_verify_revert"
+      ],
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e6/run.json",
+          "sha256": "3250a73aa62c7a8f3dd774b0e345b901e5a624e45b982b0e25321f527e99f4e1",
+          "bytes": 408
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e6/run.log",
+          "sha256": "d1034a8c51c5ff2b42eb8d2980c38feed9e29bb478d005a13b39b36e66455205",
+          "bytes": 2858
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e6/stdout.txt",
+          "missing": true
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-e6/evidence/studio-e6-2026-10-19T20-21-37-715Z-report.json",
+          "sha256": "b937c38a5ce7f036bebfa2ec4beb6909e8d3bb4b98fa411190d96ac4af83cf61",
+          "bytes": 2952
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e6-2026-10-19T20-21-37-715Z-unknown-click.png",
+          "sha256": "97ca8d8d28283f38faa5c3f10da29afb0452d4742db842d6dd7aa7aac3fa553f",
+          "bytes": 104498
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e6-2026-10-19T20-21-37-715Z-rex-items.png",
+          "sha256": "e52fdd9625f4d94f5346089c43efd811a52714bb1f0b9611bfed4bdfc95b4d86",
+          "bytes": 102656
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e6-2026-10-19T20-21-37-715Z-rex-editor-focused.png",
+          "sha256": "b393feea6f23666db505f8eec89cbf02225d07950ed4356e357f7ffb7f64441d",
+          "bytes": 209750
+        }
+      ]
+    },
+    "cert2-model": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-model",
+      "exit_code": 0,
+      "app_sha256": "cf928038adc58f1cf9be3ab05b35f92a177b136983759c68d08822be341bb6c9",
+      "window": "1280x800",
+      "all_pass": true,
+      "steps": [
+        "rename_asset_refs_rom_identical_and_revert",
+        "apply_override_to_model_two_uses_and_revert",
+        "history_limit_visible",
+        "missing_file_reported_with_users"
+      ],
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-model/run.json",
+          "sha256": "cde1788527940e227831a0299ef8bb7a7af1e2e7de10362cf660b5522d694ae8",
+          "bytes": 349
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-model/run.log",
+          "sha256": "cc9292600bd4c0b0ee45e7bc7580285932e8557b5598a7cabc8877c225f7044f",
+          "bytes": 2822
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-model/stdout.txt",
+          "missing": true
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-model/evidence/studio-model-2026-10-19T20-21-00-045Z-report.json",
+          "sha256": "15541feae708ae5813b14020281c30e4c3d4d71c86bc9e581353abcd07f1b720",
+          "bytes": 1133
+        }
+      ]
+    },
+    "cert2-mugen-import": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-mugen-import",
+      "exit_code": 0,
+      "app_sha256": "cf928038adc58f1cf9be3ab05b35f92a177b136983759c68d08822be341bb6c9",
+      "window": "1920x1080",
+      "all_pass": null,
+      "steps": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-mugen-import/run.json",
+          "sha256": "ae8100008783549da52b95a9db3840152ba0be7f6789ca1810a797e6271b30f2",
+          "bytes": 350
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-mugen-import/run.log",
+          "sha256": "0001b8d9d8789d61fd50098e03148a2b9b1be912e0a58bc60c0e7a1b478dab7b",
+          "bytes": 3351
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-mugen-import/stdout.txt",
+          "missing": true
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/mugen-import-2026-10-19T20-24-47-583Z-report.json",
+          "sha256": "a89c8eff2c5e6f67e9cd7033c39f168ac1a7ea4365189361d498e56021a6e331",
+          "bytes": 12164
+        }
+      ]
+    },
+    "cert2-mugen-real": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-mugen-real",
+      "exit_code": 0,
+      "app_sha256": "cf928038adc58f1cf9be3ab05b35f92a177b136983759c68d08822be341bb6c9",
+      "window": "1920x1080",
+      "all_pass": null,
+      "steps": null,
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-mugen-real/run.json",
+          "sha256": "896f197aa023fffd7b5f31802844311c1584d190f679e6049ad5d05052aa9a6e",
+          "bytes": 348
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-mugen-real/run.log",
+          "sha256": "2933cc4daf7ffab9abf09cdd028a61748441ec3571d68eeca098c02d497997fa",
+          "bytes": 3062
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-mugen-real/stdout.txt",
+          "missing": true
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-mugen-real/ui/ui-report.json",
+          "sha256": "6b91c829cf3df81d497fc826d3739dd0f815f79dfa8470b0f52e0c61013ed9d3",
+          "bytes": 543423
+        }
+      ]
+    },
+    "cert2-mugen-real-oracle": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-mugen-real-oracle",
+      "exit_code": 0,
+      "app_sha256": "cf928038adc58f1cf9be3ab05b35f92a177b136983759c68d08822be341bb6c9",
+      "window": "1920x1080",
+      "all_pass": null,
+      "steps": null,
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-mugen-real-oracle/run.json",
+          "sha256": "896f197aa023fffd7b5f31802844311c1584d190f679e6049ad5d05052aa9a6e",
+          "bytes": 348
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-mugen-real-oracle/run.log",
+          "sha256": "3d8afe1590cd5cb56f7af0da71ccb390dacace4ce47d8f3a9344fc316ed9a276",
+          "bytes": 3220
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-mugen-real-oracle/stdout.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-mugen-real-oracle/ui/ui-report.json",
+          "sha256": "7863b8c79ac64ceb604a28428c52ba4787520f2c50a9ef178315bbb045138d84",
+          "bytes": 543423
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-mugen-real-oracle/oracle/independent-report.json",
+          "sha256": "1957e7ab5bda39d287456da4c05bf3e3b4285ee7712b5f9419e2ee950892b68c",
+          "bytes": 212109
+        }
+      ]
+    },
+    "cert2-nodegraph": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-nodegraph",
+      "exit_code": 0,
+      "app_sha256": "cf928038adc58f1cf9be3ab05b35f92a177b136983759c68d08822be341bb6c9",
+      "window": "1920x1080",
+      "all_pass": null,
+      "steps": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-nodegraph/run.json",
+          "sha256": "42617fa26f870ccbd2a21bc15d2ad7c927d22d049a2f582a87de5ece311ed0b0",
+          "bytes": 419
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-nodegraph/run.log",
+          "sha256": "9bc9a607411e1a4a23f0a21b462cb4c64f569886f21344bf807effbb820c1ae6",
+          "bytes": 3227
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-nodegraph/stdout.txt",
+          "missing": true
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/nodegraph-authoring-2026-10-19T20-27-09-246Z-report.json",
+          "sha256": "d126387bb8f26f44a17cc4d333047ad10ae9172c778532f5aca3f940202eb236",
+          "bytes": 27571
+        }
+      ]
+    },
+    "cert2-scene": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-scene",
+      "exit_code": 0,
+      "app_sha256": "cf928038adc58f1cf9be3ab05b35f92a177b136983759c68d08822be341bb6c9",
+      "window": "1280x800",
+      "all_pass": true,
+      "steps": [
+        "create_reference_template",
+        "map_width_80_in_inspector",
+        "paint_and_erase_tiles_visual_only",
+        "collision_wall_one_transaction",
+        "rom_wall_camera_erased_tile"
+      ],
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-scene/run.json",
+          "sha256": "140c2215d2f5f9b56e2ce0dfec8146e43822934d3c4cf41c608e561a5c34ed23",
+          "bytes": 349
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-scene/run.log",
+          "sha256": "8697d3710954f665fc1f6e9fd1cb898a31067ad4c6aa92d3d399ac101b391918",
+          "bytes": 2840
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-scene/stdout.txt",
+          "missing": true
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert2-scene/evidence/studio-scene-2026-10-19T20-20-12-679Z-report.json",
+          "sha256": "1bd7375e7294e6eef679501bf4558fa81073815e82263c324d0b9eb8c195d087",
+          "bytes": 1639
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-scene-2026-10-19T20-20-12-679Z-scene-edited.png",
+          "sha256": "3f6b4699576b238cf1c0a5d987ddc8f930e9023ec390f4e7047e80fac1fdd28b",
+          "bytes": 198324
+        }
+      ]
+    }
+  },
+  "certification": [
+    {
+      "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/host-readiness.json",
+      "sha256": "bb65c845bd27e490843398b3837aee5604f5d1a5f2cff050e74023b7de54ec37",
+      "bytes": 11382
+    },
+    {
+      "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/upstream-validation-linux.json",
+      "sha256": "e6298c221c6b980812a36530e89b3fb149c5d371bcbcbb975b6b48ced4d3394b",
+      "bytes": 4017
+    },
+    {
+      "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/host-certify-attempt1.json",
+      "sha256": "536dc0c1fcd62ad2031e86757f0a80145ef2bc7df232b0c9b39e5176384e3970",
+      "bytes": 10240
+    },
+    {
+      "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/host-certify-attempt2.log",
+      "sha256": "cae33ad0dae49c225f217f3d370bdd485206133b7d5d575b4530fd71e0b3081d",
+      "bytes": 136344
+    }
+  ],
+  "reproduction": [
+    "Xvfb pinado: python3 -I scripts/qa/run-sonic-desktop-isolated.py --xvfb <Xvfb> --xvfb-sha256 <qa_display.sha256> --app <binary.path> --work <runs/cert2-ID> --log <runs/cert2-ID>/run.log --window <run.window> --scenario <studio-e1|studio-e2e5|studio-e4|studio-scene|studio-model|studio-e6|mugen-real|mugen-import|nodegraph-authoring> [--rom <sonic1>]",
+    "env: RDS_MUGEN_REAL_SOURCE=<ken8> RDS_MUGEN_REAL_UI_OUTPUT=<run>/ui RDS_STUDIO_E1_OUTPUT=<run>/evidence; oráculo: RDS_E2E_KEEP_PROJECT=1",
+    "backend Ken: (src-tauri) RDS_MUGEN_REAL_SOURCE=<ken8> RDS_MUGEN_REAL_OUTPUT=<run>/backend cargo test --lib mugen_real_pilot_build_and_capture -- --ignored",
+    "oráculo: python3 -I scripts/verify-mugen-real.py --source <ken8> --backend <run>/backend --ui <run>/ui --output <run>/oracle",
+    "host: TMPDIR=<fora de ~/.cache> npm run host:certify",
+    "conferência: node scripts/qa/studio-grafico-manifest.mjs verify data/studio_grafico/final-manifest-r2.json"
+  ],
+  "note": "ROMs, cópias, capturas e projetos de teste ficam fora do Git (scratch/~/Documents); só metadados aqui."
+}

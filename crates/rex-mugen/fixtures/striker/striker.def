@@ -1,0 +1,9 @@
+[Info]
+name = "Striker"
+author = "RetroDev Studio (autoral)"
+
+[Files]
+cmd = striker.cmd
+cns = striker.cns
+sprite = striker.sff
+anim = striker.air

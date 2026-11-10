@@ -1,0 +1,25 @@
+{
+  "schema": "rex-m5-canvas-dimensions-addendum/v1",
+  "generated_at": "2026-10-19T01:16:14.695903+00:00",
+  "source_commit": "df688146d9ef276742a76a309e1575a09dd000b5",
+  "failure": {
+    "path": "/home/misael/rds-scratch/commercial_recovery_20261016/m3-native-m5-golden-axe-002/run.json",
+    "sha256": "599045e41e25cb2b2675bb541401c56f9e3a8593df19df64d37d07636d511ef6",
+    "status": "FAIL_NATIVE_RUNNER",
+    "check": "pre-edit.current_canvas_equals_core",
+    "log_sha256": "a3f49fb0f817b857a28137ae045aa565b1d4b9869a6e7c0eab8cd7de0f3743d5"
+  },
+  "diagnosis": {
+    "original_replay_final_frame_size": {
+      "width": 256,
+      "height": 192,
+      "pitch": 512
+    },
+    "canvas_code": "ViewportPanel canvas intrinsic320x224, never resizes to payload; putImageData paints top-left only",
+    "prior_app_sha256": "ec17f9f51de018416b68dc4b46a7f7c59e169e066e3bed8f7906f002150dc1de"
+  },
+  "change_before_measurement": "Resize intrinsic canvas to accepted actual runtime dimensions before putImageData; stage, CSS and dimension label follow accepted frame. Keep ROM/epoch/order guards and same core. Add authored mode-transition test before final build. Preserve failed002 and all original independent memory/patch expectations. New binary pinned before fresh native003 and final regressions.",
+  "unchanged": "No frame advance, pixels from core only, zero tolerance full actual canvas equality; no edited visual oracle claim for transfer.",
+  "budget_seconds": 600,
+  "new_dependency": false
+}

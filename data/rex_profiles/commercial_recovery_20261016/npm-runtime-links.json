@@ -1,0 +1,5 @@
+{
+  "source": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/node_modules",
+  "lock_sha256": "404f9ba0dd130612fe2569a217cd162e1c138c97ed25532505cd1376e8f4e4c8",
+  "strategy": "per-entry dependency links; mutable .vite/.cache kept in own ignored directory; no package installation/copy"
+}

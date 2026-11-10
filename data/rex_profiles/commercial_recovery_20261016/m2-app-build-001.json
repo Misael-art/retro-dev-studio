@@ -1,0 +1,13 @@
+{
+  "schema": "rex-app-build-evidence/v1",
+  "command": "rtk proxy env CARGO_TARGET_DIR=/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/cargo-target CARGO_BUILD_JOBS=1 npm run build:debug",
+  "exit_code": 0,
+  "app": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/debug/retro-dev-studio",
+  "app_sha256": "22dc259a3275e1ac8687a4072b241fba81c934e36cde5b474a027f7527c25347",
+  "log": "/home/misael/rds-scratch/commercial_recovery_20261016/build-paused-frame-001.log",
+  "log_sha256": "e5de9bec370f07a18c81580ce1d9ce637459761aaa2c539bdbbfef0dfa5ae61b",
+  "source_fix": "4ff5623a",
+  "frontend_tsc_build": "PASS",
+  "native_build": "PASS",
+  "prior_integration_binary_untouched": true
+}

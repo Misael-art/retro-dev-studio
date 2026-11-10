@@ -1,0 +1,73 @@
+{
+  "schema": "rex-m5-reserved-publication-expectations/v1",
+  "generated_at": "2026-10-18T08:49:02.779407+00:00",
+  "config": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-private-publication-reserved-001.json",
+  "config_sha256": "2e2050c1cc8a4949997873e81db9958d8c3107262e90070803ff176a2c3c4530",
+  "cases": [
+    {
+      "id": "gargoyles",
+      "rom_path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/gargoyles/original.bin",
+      "rom_sha256": "de4ef5bb385bf58d2d12a5f386473e40f3ec1355db6f57dff2ddcff3c1780fcb",
+      "entry": 24088,
+      "exit": 24108,
+      "edited_width": 2,
+      "expected_copy": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/gargoyles/expected-copy.bin",
+      "expected_copy_sha256": "126b3fcf877787bd8ebf7e38bc3f77b6e392955f8e512af4c87af8e369a410f2",
+      "allowed_diff_offsets": [
+        398,
+        24102
+      ],
+      "original_checksum_valid": true,
+      "output": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-production-rebuild-gargoyles-001"
+    },
+    {
+      "id": "shinobi3",
+      "rom_path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/shinobi3/original.bin",
+      "rom_sha256": "28572709d7cd442dd681109b14641157c2943498943fa7791f524eaf530710ef",
+      "entry": 81798,
+      "exit": 81816,
+      "edited_width": 2,
+      "expected_copy": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/shinobi3/expected-copy.bin",
+      "expected_copy_sha256": "e9536d0e4c05f46d855e93d28839e300f8733e1e23e2587e3cfa227ec9501825",
+      "allowed_diff_offsets": [
+        81810
+      ],
+      "original_checksum_valid": false,
+      "output": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-production-rebuild-shinobi3-001"
+    },
+    {
+      "id": "castle-illusion",
+      "rom_path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/castle-illusion/original.bin",
+      "rom_sha256": "dbc7b2cb0f66f2a5ac4af1b810549802e9c2d7fa380ae9bd791b952d1cfdf603",
+      "entry": 64510,
+      "exit": 64532,
+      "edited_width": 2,
+      "expected_copy": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/castle-illusion/expected-copy.bin",
+      "expected_copy_sha256": "dc7289d2832d202afb8ed670e4e65a7969d9d4a82bd97269046809285def459f",
+      "allowed_diff_offsets": [
+        398,
+        64526
+      ],
+      "original_checksum_valid": true,
+      "output": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-production-rebuild-castle-illusion-001"
+    },
+    {
+      "id": "strider",
+      "rom_path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/strider/original.bin",
+      "rom_sha256": "99bbe15a80cc7a47d9a666ec5e9aa6ce51290007090f58dc1371490604a3ec5d",
+      "entry": 99230,
+      "exit": 99248,
+      "edited_width": 1,
+      "expected_copy": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/strider/expected-copy.bin",
+      "expected_copy_sha256": "7d93b8da058edf4ca27885b59691464b00acf81b4ac858ff67ed56e1c4534301",
+      "allowed_diff_offsets": [
+        398,
+        99242
+      ],
+      "original_checksum_valid": true,
+      "output": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-production-rebuild-strider-001"
+    }
+  ],
+  "production_freeze_sha256": "7ccade2b7d5be05940453877be8bad7b438135e99b62e287fd69cc0f004f0b70",
+  "expectations": "Independent opcode field/checksum policy from original ROM; freeze before backend measurement. Production unchanged. Each payload untouched before generic freeze, now inspected for declared-region profile. Runtime observation is separate, unobserved episodes never counted as game-consumption PASS."
+}

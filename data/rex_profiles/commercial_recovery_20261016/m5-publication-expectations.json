@@ -1,0 +1,79 @@
+{
+  "schema": "rex-m5-publication-expectations/v1",
+  "generated_at": "2026-10-18T08:44:26.350451+00:00",
+  "origin": "Independent Python opcode field and existing checksum policy, original ROM only; before production testcase execution. General width-domain expectations frozen earlier before adaptation.",
+  "cases": [
+    {
+      "id": "batman",
+      "rom_path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/batman/original.bin",
+      "rom_sha256": "a87e79fae59a8545c2529b6c0ce7045884be707a69cf5912e1d0545ff8b9211f",
+      "entry": 45356,
+      "exit": 45376,
+      "edited_width": 1,
+      "expected_copy": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/batman/expected-copy.bin",
+      "expected_copy_sha256": "708d363887044bf9bee4181c28f2844b6a02d00b685495648699a0bcc236d629",
+      "allowed_diff_offsets": [
+        45370
+      ],
+      "original_checksum_valid": false,
+      "output": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-production-rebuild-batman-001"
+    },
+    {
+      "id": "golden-axe",
+      "rom_path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/golden-axe/original.bin",
+      "rom_sha256": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b",
+      "entry": 10904,
+      "exit": 10920,
+      "edited_width": 2,
+      "expected_copy": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/golden-axe/expected-copy.bin",
+      "expected_copy_sha256": "5725630a53c0eb72210e1ef5ead773b5e3a3f76dbdd1a134474f61816db09f18",
+      "allowed_diff_offsets": [
+        10914
+      ],
+      "original_checksum_valid": false,
+      "output": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-production-rebuild-golden-axe-001"
+    },
+    {
+      "id": "musha",
+      "rom_path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/musha/original.bin",
+      "rom_sha256": "938c97a04f4da7bdfa993111adb8f37235cdceb987e71cbfd35debf656eca896",
+      "entry": 44048,
+      "exit": 44068,
+      "edited_width": 2,
+      "expected_copy": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/musha/expected-copy.bin",
+      "expected_copy_sha256": "0a5c6b36c18ba064322fccb50645c00559bf19adc182adf24870665e561a6dd2",
+      "allowed_diff_offsets": [
+        398,
+        44062
+      ],
+      "original_checksum_valid": true,
+      "output": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-production-rebuild-musha-001"
+    },
+    {
+      "id": "toy-story",
+      "rom_path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/toy-story/original.bin",
+      "rom_sha256": "df86b688eaef6178ff43288561838a9389e0e02d30fcce584616d898da0a78b2",
+      "entry": 44220,
+      "exit": 44240,
+      "edited_width": 2,
+      "expected_copy": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/toy-story/expected-copy.bin",
+      "expected_copy_sha256": "9488c248bda92a7188a4cb49fac3c3e33c383a930ea7132a1add28eda8727c80",
+      "allowed_diff_offsets": [
+        398,
+        44234
+      ],
+      "original_checksum_valid": true,
+      "output": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-production-rebuild-toy-story-001"
+    }
+  ],
+  "config": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-private-publication-cases-001.json",
+  "config_sha256": "cda976ab44aa38d36ead67f5f6d061810922b7b03e75743835b3e2614d270b9d",
+  "prior_test_result": {
+    "command": "cargo test --lib copy_grid_",
+    "passed": 3,
+    "failed": 2,
+    "ignored": 1,
+    "cause": "ENOSPC creating test temp dirs under /run/user/1000/codex-desktop/tmp, tmpfs1.5GiB full; underlying /home57GiB free. Does not qualify publication.",
+    "mitigation": "Set TMPDIR to mission-owned disk scratch m5-test-tmp; no other task files deleted."
+  }
+}

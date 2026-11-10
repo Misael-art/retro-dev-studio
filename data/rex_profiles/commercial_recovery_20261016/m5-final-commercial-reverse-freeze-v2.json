@@ -1,0 +1,97 @@
+{
+  "schema": "rex-m3-canonical-commercial-freeze/v1",
+  "generated_at": "2026-10-18T02:06:11.500862+00:00",
+  "app_sha256": "ec17f9f51de018416b68dc4b46a7f7c59e169e066e3bed8f7906f002150dc1de",
+  "inputs": {
+    "/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/construct-m3-expected.py": "13a445b5b37a55fcf92afecf5d5dd7f1d56f096810436a0037ca1435c6386364",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/m3-conditional-sprite-model-v2.py": "20ed52ba8777f5b270fbe3c1604b8cb8af4046068c60b3301287dee3a2e63620",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/verify-presented-sprites.py": "a0c9ff8f21e9974bfc4c59a200794f07aa020bfbe2485a653254d1f216f97899",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/integration_20261016/visual_copy/color_v2.py": "6abb5167bb384494d50e5b43fc6ec4cf996ccb34ef9aa065b723b44b374abd6b",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m3-conditional-reference-inputs/immutable-lookup.json": "d92189e7d403eb53e8cc980cfcf9f5c32d6e43724c3816bbfea8b02fc0884168",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m3-conditional-reference-inputs/wall-art.bin": "5c36a38a784b3d40f506cffdd248aa20bda8464b7923093b4be5d0f8e7202860",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m3-conditional-reference-inputs/expected-world-width1.bin": "ab987af676ff4720495e50092e65fba50d7da981daf52dfa23a196705872e910",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m3-conditional-reference-inputs/expected-world-width2.bin": "991bc6cd28334b9f7f2e6a903ed979370858f911d9f9fedce61e60bbf96feeec",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m3-conditional-reference-inputs/expected-destination-width1.bin": "b19961ed0bd9636971ebc0824407fc6a5ca1d87be73441042b74e21596e37614",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m3-conditional-reference-inputs/expected-destination-width2.bin": "4a51997c86ab22e4027161a432c75b2e17410d4a5bdecc205c3efb6ee926e8e4",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m3-conditional-reference-inputs/commercial-expectation-spec.json": "d01c199201a3dc11befaeb9e5d00e6322282dae4a61fe200cc3284b0b4f1a561",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/commercial-prepared-journey.mjs": "f93d3357b8f7dd0a64725654fda24b76c77f2243cf84934c9641a85b2cad0f11",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/e2e-tauri-build-run.mjs": "9e2a425efef9ee34aad83e1f313dc52323fb9e3b19beb23fc0d6d632bc3cfe47",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/prepared-replay-v2-001/original.rds-replay": "d2129df01b23fe69db5ffdb689e158715c72bb48967303443f01ea16b5c40b81",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m3-original-model-inputs-001/frame-179.rgb565": "f1c962c390889a298e1b1b84576431ca68d546fc3b1db059f2b10c56326b0738",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/run-native-journey.py": "37c9cebe5431c3e965e475b9c9f17f6adcd99a5a671f406e1285dac928a9a1f8",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-18T02-06-20-092Z-copias/reaberto/Sonic_the_Hedgehog__USA__Europe_.copy-grid-1b6e8-cb471c95.bin": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-final-commercial-reverse-journey.json": "3edf00d455ceaf8196a008db4a3a6d1071bed6787dc76c658867a0970007d03f",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/specs/m68k.copy_grid.v1.json": "36a5273f1ce8e61986f80235ba401f3792aa866b3191404333f3a4b435154a4b"
+  },
+  "predicted_copy_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "original_checksum_valid": false,
+  "allowed_diff_offsets": [
+    112376
+  ],
+  "criteria": [
+    "canonical graph width1\u21922 edit/save/close/reopen/publication",
+    "original intact and independentIPS exact",
+    "negative wrongROM/tamperedregion/outofdomain/noop refuse publisher; divergentIPS differs; old result labeled previous values",
+    "original/original exact",
+    "predicted full12224 destination +producer SAT exact",
+    "expected asset pixels constructed before full180 capture, RGB0; wrongcolor and oldwidth conditionalpixels refuse",
+    "core/canvas exact; real commercial asset only",
+    "restoration requires separate reverse UI journey on fresh forward copy"
+  ],
+  "budget": {
+    "seconds": 600,
+    "heavy_jobs": 1
+  },
+  "limits": "Expected world from frozen decoded source+original nonzero tail and independent strided copy; expected descriptor/tile content from original ROM/immutable pointer/base bits. Camera/coordinates/animation/palette selector are observed controls. No modified framebuffer input. Conditional asset effect only; no prediction of full trajectory or background.",
+  "reverse_not_yet_executed": true,
+  "pre_measurement_amendment": {
+    "generated_at": "2026-10-18T01:58:26.224488+00:00",
+    "old_runner_sha256": "737854d3d044c8e878320c50b8b0211f5a9f63ad178de8e13385d1aefbc3fb54",
+    "change": "Assert already frozen predicted copy hash in canonical publication check. No execution or expectation changed."
+  },
+  "native_command": "rtk proxy python3 scripts/rex_profiles/commercial_recovery_20261016/run-native-journey.py data/rex_profiles/commercial_recovery_20261016/m3-reverse-journey-v3.json data/rex_profiles/commercial_recovery_20261016/m3-reverse-freeze-v3.json m3-native-reverse-003",
+  "addendum": {
+    "first_run_sha256": "a2e203c312654701a975bb45682e053b0eaaf3055b63c5477bd82dc84aea2c33",
+    "old_source_commit": "33fdbdd2",
+    "cause": "Canonical async-script helper treats top-level error as transport failure even when native rejection is expected. Rename captured expected rejection to refusal; no publisher or acceptance changes. Add explicit empty publication directory check.",
+    "unchanged": "All identities, expected copy/diff, control rejection criteria, memory and visual references; only fresh output IDs and negative transport envelope."
+  },
+  "direction": "2\u21921 restoration; same original pre-copy prepared state/inputs and original content references",
+  "forward_result_sha256": "870ea565405ceee4f39fd0ef3d7fdfe7098a0fc149c191ab60af5b0defca76de",
+  "sequence_addendum": {
+    "before_measurement": true,
+    "previous_pass": "110/110 preserved in m3-reverse-qualified.json",
+    "change": "Run prepared commercial preview before editing in same canonical UI session; native control mutates Enigma stream65432 and must refuse old ROM identity.",
+    "unchanged": "ROM/copy bytes, independent memory and conditional asset references, RGB0, constructor ignores images, publication/persistence/restoration criteria.",
+    "evidence_origin": "Previously reserved pre-edit reference now regression reused; sequence is new measurement, not a fresh blind asset holdout."
+  },
+  "return_to_editor_addendum": {
+    "before_measurement": true,
+    "preserved_failure": "m3-forward-sequence-first-failure.json",
+    "source_commit_failure": "ce2e19b10d1336b0f65e9bdf78b27dc7934260d5",
+    "change": "Native visible Stop and wait unloaded, then logic workspace Enquadrar, verify actual hit target before Delete. All original structural guard/undo checks retained.",
+    "unchanged": "No semantic graph, memory, image expectation, core, app, ROM, patch or acceptance tolerance changes."
+  },
+  "fresh_copy_path_amendment": {
+    "generated_at": "2026-10-18T02:07:21.364410+00:00",
+    "old_path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-18T02-00-34-737Z-copias/reaberto/Sonic_the_Hedgehog__USA__Europe_.copy-grid-1b6e8-cb471c95.bin",
+    "new_path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-18T02-06-20-092Z-copias/reaberto/Sonic_the_Hedgehog__USA__Europe_.copy-grid-1b6e8-cb471c95.bin",
+    "old_spec_sha256": "d213b3019394dd319ceaf0f35c54b458d6c2e857adf7bedf5322b7e895e3e74d",
+    "same_rom_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+    "criteria_unchanged": true,
+    "before_first_reverse_v3_run": true
+  },
+  "final_app_addendum": {
+    "generated_at": "2026-10-18T08:55:18.148917+00:00",
+    "before_measurement": true,
+    "previous_freeze_sha256": "a3d914aa12f5e66a64198bdbddf8ff3be79c1bac1cf9e1cfbd8e7b93210229e2",
+    "change": "Final M5 app277a14f3; generic profile revision2; new QA linear-copy branch, unchanged nested memory/visual expectations/tolerances. Fresh output paths. Existing expectation now regression reused.",
+    "original_and_edited_resource_criteria": "Unchanged original-ROM/static-art conditional visual model, RGB0; no edited capture input"
+  },
+  "platform_addendum": {
+    "previous_unexecuted_freeze_sha256": "917c10bdbbb96ea52669fbc74256863d607a04a373fc3bbc0a00d8e10d6e64e1",
+    "before_measurement": true,
+    "change": "New app after generic padded console target sniff; expectations/core/references unchanged, prior277a freeze not executed."
+  }
+}

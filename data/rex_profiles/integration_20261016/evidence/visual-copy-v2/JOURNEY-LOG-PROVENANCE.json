@@ -1,0 +1,19 @@
+{
+  "normalization": "trim trailing whitespace and normalize final LF; raw files unchanged",
+  "runs": [
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-v2-001/gui-forward/run.log",
+      "raw_sha256": "da58397b770e1d70b402300a67bf81ce69099f0a1c580994614095eee4d4498c",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/gui-forward.log",
+      "review_sha256": "da58397b770e1d70b402300a67bf81ce69099f0a1c580994614095eee4d4498c",
+      "result": "PASS88/88; exact RGBA"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-v2-001/gui-reverse/run.log",
+      "raw_sha256": "9b596afc1c397b70627bc4231f110552a89d35827ccdf5fa59a9ef70a04be5d7",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/gui-reverse.log",
+      "review_sha256": "9b596afc1c397b70627bc4231f110552a89d35827ccdf5fa59a9ef70a04be5d7",
+      "result": "PASS88/88; exact RGBA"
+    }
+  ]
+}

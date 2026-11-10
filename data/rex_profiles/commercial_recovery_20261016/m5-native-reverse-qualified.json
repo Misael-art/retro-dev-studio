@@ -1,0 +1,12 @@
+{
+  "schema": "rex-native-transfer-reverse/v1",
+  "status": "PASS_EXACT_ORIGINAL_RESTORATION",
+  "report": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-20-14-119Z-report.json",
+  "report_sha256": "2eab66387726847e3cd191110edc035fb2ff593448956878eea31a0233ea0b47",
+  "app_sha256": "66cb3d71ea4f5df2efd37b031fe0c4c76b822b11d55d55ca240024638c7c12e5",
+  "checks": 138,
+  "original_sha256": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b",
+  "ips_sha256": "e1bd0509d676ff16ceb2edc7459701600c2c54c47ad8b3c37f1f810ca5c42d1e",
+  "limits": "Same declared432byte memory domain, no independent edited visual claim; MAME trace is a separate runtime.",
+  "remaining": "Final primary commercial/author regressions and host certification"
+}

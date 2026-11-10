@@ -1,0 +1,54 @@
+{
+  "schema": "rex-m5-native-transfer-freeze/v1",
+  "generated_at": "2026-10-18T09:00:27.580000+00:00",
+  "app_sha256": "66cb3d71ea4f5df2efd37b031fe0c4c76b822b11d55d55ca240024638c7c12e5",
+  "inputs": {
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/original.rds-replay": "31e9cda9dcb0e6b6537c5eb7499a37ae6c2c109d0a7d2fb36667f984b2ffe142",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/before-destination.bin": "1fe2373734955e60c172999142934b52e69ba7ab9039b3c18ea54082ba32afcd",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/source.bin": "5163dca0ade2885de3d29ebfd9daf8e9b80a1e8247277989ccb69fb8e487dada",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/expected-width1.bin": "8ea4b1760c96904f20cd6cd8254e153c22764954e2c4c33dcc93a2ca25cebd59",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/expected-width2.bin": "d7a2a74829d3ed461867961bf616cc0d5236e4180aaacff94e9af26b959d7991",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/expected-width4.bin": "5163dca0ade2885de3d29ebfd9daf8e9b80a1e8247277989ccb69fb8e487dada",
+    "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/golden-axe/original.bin": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/e2e-tauri-build-run.mjs": "9e2a425efef9ee34aad83e1f313dc52323fb9e3b19beb23fc0d6d632bc3cfe47",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/commercial-prepared-journey.mjs": "f93d3357b8f7dd0a64725654fda24b76c77f2243cf84934c9641a85b2cad0f11",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/run-native-journey.py": "37c9cebe5431c3e965e475b9c9f17f6adcd99a5a671f406e1285dac928a9a1f8",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/specs/m68k.copy_grid.v1.json": "36a5273f1ce8e61986f80235ba401f3792aa866b3191404333f3a4b435154a4b",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src/components/viewport/ViewportPanel.tsx": "b5956558fd9849c314cad89bb23c3779ba062f11ec829a8b66873f52b5991e8c",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src/components/viewport/gameFramePresentation.ts": "4d0df5eb3f2a780b8af72c5b88a79467c8d3b55583b2d765647612d173a0cec2",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/commercial_recovery_20261016/m5-ui-golden-axe-reverse-journey.json": "8b512a74c8ff581ea41a015af70c38e2cabca32fd5ac67d477dc24a9d67c8f1e",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-19T01-18-54-518Z-copias/reaberto/original.copy-grid-2a98-5725630a.bin": "5725630a53c0eb72210e1ef5ead773b5e3a3f76dbdd1a134474f61816db09f18"
+  },
+  "criteria": [
+    "same canonical declared-region graph/editor/save/close/reopen/publisher",
+    "original intact, frozen onebyte diff2AA2, independently appliedIPS and copy prediction5725630a...09f18",
+    "original pre-edit preview and repeat, same-core video baseline, actual currentcanvas equalscore",
+    "predicted source-derived432byte destination span: original108long and edited108word+216unchanged guards",
+    "technicalnodes typedinitializers/DBRA/conditions/state/raw32vsbus24/origin/unknown",
+    "negative wrongROM/tamperedresource/malformedoperator/width3/noop/IPSdivergence/stale result/topology",
+    "reverse is separate native journey after forward"
+  ],
+  "budget_seconds": 600,
+  "expectation_origin": "Frozen original-ROM and originalGXbefore state; edited memory expectation produced before any edited GX run; no independent edited visual or game-usability claim",
+  "production_freeze_sha256": "7ccade2b7d5be05940453877be8bad7b438135e99b62e287fd69cc0f004f0b70",
+  "platform_addendum": {
+    "previous_freeze_sha256": "46f0f4b5a9627c97e4f7e2c4718b30fab8a220f70c289855028182f89a8901b8",
+    "preserved_failure_sha256": "67b9f8d4ef9bab8501d3964b4b9e75527a8e88cdc07c479baeea203a5396d2e1",
+    "before_measurement": true,
+    "change": "Generic classic SEGA padded console header recognition only; same original/copy/patch/memory/core and UI criteria. Fresh output002.",
+    "source_sha256": "d1237531fd272b8200693c6e95513899efad2f28952acd67c9b2860904310391"
+  },
+  "native_resolution_addendum": {
+    "generated_at": "2026-10-19T01:18:40.928112+00:00",
+    "before_measurement": true,
+    "preserved_freeze_sha256": "ccfb82a782595eed079f11fd554ee9a84a7619a0f2e19485e1e3e546aed7ea57",
+    "addendum_sha256": "d88bc1f9ae92e3b9727fcb74d33cf7c4a1beb7837aa181c19c0bff46efac861b",
+    "change": "New app66cb3d71 with generic accepted-frame native canvas dimensions. Same core/ROM/independent memory, asset pixels, copy/IPS and full actualcanvas criteria; fresh003 paths. No earlier failure reclassified."
+  },
+  "reverse_before_measurement": {
+    "generated_at": "2026-10-19T01:19:52.984506+00:00",
+    "forward_report_sha256": "3c77822579848a702b1fb102425faed7f87d3499a2ceae0f296397e0a31e701f",
+    "criteria": "Native width2\u21924 with same independent destination refs and exact original ROM restoration; same code/core and full canvas equality; forward PASS140 kept separate."
+  }
+}

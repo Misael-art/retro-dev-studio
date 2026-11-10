@@ -1,0 +1,174 @@
+{
+  "id": "m5-profile-golden-axe-001",
+  "exit_code": 0,
+  "pid": 2062083,
+  "owned_process_alive": false,
+  "elapsed_seconds": 4.436973864001629,
+  "manifest_sha256": "0d85404838a2146e85393af2988042df0e076ba03442434d1c0d894c0cf5441c",
+  "log_sha256": "4bb8efe2b9af8978647d37bfd07a19ed7e1bd8430935da76e915635cc051e861",
+  "events_sha256": "da91dbd9027e48ec3feec40659f740aa2ab5efa5da7c294b61424f4b95ee7121",
+  "events_bytes": 222189,
+  "status": "OBSERVED_DECLARED_REGION",
+  "target": "golden-axe",
+  "protocol_sha256": "73c18d6d3d8edae9fa22615ec29c458f6d652d3fa2d4cf53b22785a7ccac4803",
+  "entries": 1,
+  "completed_regions": 1,
+  "entry_frames": [
+    4
+  ],
+  "sampled_later_invocations": false,
+  "private_directory": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-profile-golden-axe-001",
+  "state-result.json": {
+    "schema": "rex-m5-linear-state-result/v1",
+    "status": "FAIL",
+    "target": "golden-axe",
+    "trace_sha256": "da91dbd9027e48ec3feec40659f740aa2ab5efa5da7c294b61424f4b95ee7121",
+    "literal_vectors": [
+      {
+        "width": 1,
+        "mode": "moveq",
+        "sr": 10004,
+        "counter": 65535
+      },
+      {
+        "width": 1,
+        "mode": "move_word_immediate",
+        "sr": 10004,
+        "counter": 305463295
+      },
+      {
+        "width": 2,
+        "mode": "moveq",
+        "sr": 10008,
+        "counter": 65535
+      },
+      {
+        "width": 2,
+        "mode": "move_word_immediate",
+        "sr": 10008,
+        "counter": 305463295
+      },
+      {
+        "width": 4,
+        "mode": "moveq",
+        "sr": 10000,
+        "counter": 65535
+      },
+      {
+        "width": 4,
+        "mode": "move_word_immediate",
+        "sr": 10000,
+        "counter": 305463295
+      }
+    ],
+    "error": "interleaved access outside model"
+  },
+  "state-result-v2.json": {
+    "schema": "rex-m5-linear-state-result/v1",
+    "status": "PASS_OBSERVED_LINEAR_STATE",
+    "target": "golden-axe",
+    "trace_sha256": "da91dbd9027e48ec3feec40659f740aa2ab5efa5da7c294b61424f4b95ee7121",
+    "literal_vectors": [
+      {
+        "width": 1,
+        "mode": "moveq",
+        "sr": 10004,
+        "counter": 65535
+      },
+      {
+        "width": 1,
+        "mode": "move_word_immediate",
+        "sr": 10004,
+        "counter": 305463295
+      },
+      {
+        "width": 2,
+        "mode": "moveq",
+        "sr": 10008,
+        "counter": 65535
+      },
+      {
+        "width": 2,
+        "mode": "move_word_immediate",
+        "sr": 10008,
+        "counter": 305463295
+      },
+      {
+        "width": 4,
+        "mode": "moveq",
+        "sr": 10000,
+        "counter": 65535
+      },
+      {
+        "width": 4,
+        "mode": "move_word_immediate",
+        "sr": 10000,
+        "counter": 305463295
+      }
+    ],
+    "calls": [
+      {
+        "frame": 4,
+        "invocation": 1,
+        "copied_bytes": 432,
+        "memory_sha256": "5163dca0ade2885de3d29ebfd9daf8e9b80a1e8247277989ccb69fb8e487dada",
+        "boundary": {
+          "a0": 11354,
+          "a1": 4294964656,
+          "a2": 0,
+          "a3": 0,
+          "a4": 0,
+          "a5": 0,
+          "a6": 0,
+          "a7": 16776444,
+          "d0": 65535,
+          "d1": 0,
+          "d2": 0,
+          "d3": 0,
+          "d4": 0,
+          "d5": 0,
+          "d6": 0,
+          "d7": 0,
+          "sr": 9984,
+          "stack_top_long": 2924,
+          "pc": 10920
+        },
+        "nontransfer_reads": [
+          {
+            "instruction_pc": 10916,
+            "address": 10922,
+            "data": 19449,
+            "mask": 65535
+          }
+        ]
+      }
+    ],
+    "negative_controls": {
+      "identity": {
+        "refused": true,
+        "reason": "ROM/instrument identity"
+      },
+      "operator": {
+        "refused": true,
+        "reason": "operator/control bytes"
+      },
+      "flow": {
+        "refused": true,
+        "reason": "nontransfer read timing/count"
+      },
+      "destination": {
+        "refused": true,
+        "reason": "transfer count/address/value"
+      },
+      "state": {
+        "refused": true,
+        "reason": "register/CCR/stack boundary"
+      },
+      "flags": {
+        "refused": true,
+        "reason": "register/CCR/stack boundary"
+      }
+    },
+    "limits": "Conditional bounded region, full D/A/SR and stack top only; no stack interior, IRQ internals, timing, game meaning, visual/audio equivalence or application-runtime correspondence claim."
+  }
+}

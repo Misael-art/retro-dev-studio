@@ -1,0 +1,393 @@
+{
+ "arquivos": {
+  "crates/rex-addressing/src/error.rs": {
+   "classe": "motor",
+   "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/lib.rs": {
+   "classe": "motor",
+   "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/md_common.rs": {
+   "classe": "motor",
+   "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/md_linear.rs": {
+   "classe": "motor",
+   "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/md_ssf2.rs": {
+   "classe": "motor",
+   "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/region.rs": {
+   "classe": "motor",
+   "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/resource.rs": {
+   "classe": "motor",
+   "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/snes_common.rs": {
+   "classe": "motor",
+   "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/snes_exhirom.rs": {
+   "classe": "motor",
+   "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/snes_hirom.rs": {
+   "classe": "motor",
+   "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/snes_lorom.rs": {
+   "classe": "motor",
+   "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-addressing/src/state.rs": {
+   "classe": "motor",
+   "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+  },
+  "crates/rex-enigma/src/lib.rs": {
+   "classe": "motor",
+   "justificativa": "Codec Enigma puro; 'sonic'/'delta' só em comentários (variante do console; 'delta' = corrida delta do codec)."
+  },
+  "crates/rex-gameplay/src/graph.rs": {
+   "classe": "perfil",
+   "justificativa": "Constrói NodeGraph v1 do perfil m68k.counter_threshold_state_gate.v1 (build_graph, edit_threshold): forma do grafo é do perfil."
+  },
+  "crates/rex-gameplay/src/json.rs": {
+   "classe": "motor",
+   "justificativa": "JSON mínimo próprio; mecanismo genérico (redundante com serde_json — candidato a remoção na F1)."
+  },
+  "crates/rex-gameplay/src/lib.rs": {
+   "classe": "perfil",
+   "justificativa": "Entrada do perfil counter_threshold_state_gate.v1 (Experimental)."
+  },
+  "crates/rex-gameplay/src/lift.rs": {
+   "classe": "perfil",
+   "justificativa": "Eleva região à regra semântica do perfil (Guard, CounterAdd, Compare)."
+  },
+  "crates/rex-gameplay/src/m68k.rs": {
+   "classe": "misto",
+   "justificativa": "Subconjunto M68000 fechado de 12 variantes de Insn, com decode/encode/step e flags: o mecanismo é reaproveitável, o conjunto de instruções é o do perfil.",
+   "lado_motor": [
+    "fn decode",
+    "fn encode",
+    "fn step",
+    "enum Cond",
+    "enum BranchSize",
+    "struct Decoded"
+   ],
+   "lado_perfil": [
+    "enum Insn (subconjunto fechado: MoveLAbsToD, AddqLD, Moveq, CmpLDD, BtstImmD, Bcc, Bra, PeaAbsW, JsrAbsL, AddqLSp…)",
+    "fn mnemonic"
+   ]
+  },
+  "crates/rex-gameplay/src/patch.rs": {
+   "classe": "misto",
+   "justificativa": "md_checksum é do formato Mega Drive; patch_threshold e regenerate_from_graph são do perfil.",
+   "lado_motor": [
+    "const MD_CHECKSUM_AT",
+    "fn md_checksum",
+    "struct Rebuilt"
+   ],
+   "lado_perfil": [
+    "fn patch_threshold",
+    "fn regenerate_from_graph"
+   ]
+  },
+  "crates/rex-gameplay/src/region.rs": {
+   "classe": "motor",
+   "justificativa": "Delimita região por fluxo de controle com saídas declaradas pelo chamador; depende do tipo Insn (acoplamento a verificar na F1)."
+  },
+  "crates/rex-gameplay/src/sha256.rs": {
+   "classe": "motor",
+   "justificativa": "SHA-256 próprio (duplicata; ver duplicações)."
+  },
+  "crates/rex-kosinski/src/edit.rs": {
+   "classe": "motor",
+   "justificativa": "Codec/edição Kosinski (variante base); sem termo de jogo. edit.rs tem SHA-256 próprio (duplicata)."
+  },
+  "crates/rex-kosinski/src/encode.rs": {
+   "classe": "motor",
+   "justificativa": "Codec/edição Kosinski (variante base); sem termo de jogo. edit.rs tem SHA-256 próprio (duplicata)."
+  },
+  "crates/rex-kosinski/src/lib.rs": {
+   "classe": "motor",
+   "justificativa": "Codec/edição Kosinski (variante base); sem termo de jogo. edit.rs tem SHA-256 próprio (duplicata)."
+  },
+  "crates/rex-mugen/src/air.rs": {
+   "classe": "motor",
+   "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "crates/rex-mugen/src/diag.rs": {
+   "classe": "motor",
+   "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "crates/rex-mugen/src/fixture.rs": {
+   "classe": "motor",
+   "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "crates/rex-mugen/src/lib.rs": {
+   "classe": "motor",
+   "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "crates/rex-mugen/src/palette.rs": {
+   "classe": "motor",
+   "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "crates/rex-mugen/src/plan.rs": {
+   "classe": "motor",
+   "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "crates/rex-mugen/src/sff.rs": {
+   "classe": "motor",
+   "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "crates/rex-mugen/src/sha256.rs": {
+   "classe": "motor",
+   "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN). SHA-256 próprio (duplicata)."
+  },
+  "crates/rex-mugen/src/source.rs": {
+   "classe": "motor",
+   "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+  },
+  "src-tauri/src/tools/reverse/decomp/decomp_orch.rs": {
+   "classe": "motor",
+   "justificativa": "Orquestrador do currículo pareado (Tier 0): pares (fonte, ROM), Ghidra, determinismo; sem jogo."
+  },
+  "src-tauri/src/tools/reverse/decomp/extract.rs": {
+   "classe": "motor",
+   "justificativa": "Catálogo de extração com proveniência; 'hamoopig'/'taiketsu' só em comentário e teste ignorado."
+  },
+  "src-tauri/src/tools/reverse/decomp/fingerprint.rs": {
+   "classe": "motor",
+   "justificativa": "Fingerprint de funções por SHA-256 (tem SHA-256 próprio)."
+  },
+  "src-tauri/src/tools/reverse/decomp/ghidra_bridge.rs": {
+   "classe": "motor",
+   "justificativa": "Ponte Ghidra headless."
+  },
+  "src-tauri/src/tools/reverse/decomp/graphics_discovery.rs": {
+   "classe": "motor",
+   "justificativa": "Descoberta de tiles/paletas por heurística; 'delta' = diferença."
+  },
+  "src-tauri/src/tools/reverse/decomp/holdout.rs": {
+   "classe": "motor",
+   "justificativa": "Holdout sintético; 'delta' = variação numérica."
+  },
+  "src-tauri/src/tools/reverse/decomp/inspection.rs": {
+   "classe": "misto",
+   "justificativa": "Serviço de inspeção (sessões, catálogo, preview, salvar) misturado com 138 ocorrências de 'sonic' em edições/consultas específicas do Sonic 1.",
+   "lado_caso": [
+    "SonicAppliedEdit",
+    "fn edit_sonic_palette",
+    "fn edit_sonic_tiles",
+    "fn sonic_cadence_info",
+    "fn edit_sonic_duration",
+    "fn sonic_sequence_info",
+    "fn sonic_consumers_info",
+    "fn sonic_layouts_info",
+    "fn sonic_layout_grid",
+    "fn set_layouts_selection",
+    "fn sonic_ss_walls_info",
+    "fn sonic_ss_walls_compose",
+    "fn sonic_layout_cell",
+    "fn edit_sonic_sequence",
+    "fn restore_sonic_sequence",
+    "fn layouts_error"
+   ],
+   "lado_motor": [
+    "InspectionError",
+    "InspectionRomIdentity",
+    "InspectionSession",
+    "InspectionEdit",
+    "InspectionProgress",
+    "InspectionRun",
+    "InspectionStatus",
+    "InspectionCandidate",
+    "InspectionCatalogPage",
+    "InspectionPreview",
+    "fn list_sessions",
+    "fn open",
+    "fn reopen",
+    "fn start",
+    "fn cancel",
+    "fn status",
+    "fn catalog_page",
+    "fn preview",
+    "fn save_palette_choice",
+    "fn save"
+   ]
+  },
+  "src-tauri/src/tools/reverse/decomp/logic_recovery.rs": {
+   "classe": "perfil",
+   "justificativa": "Recuperação de rotina M68K exata de perfil (PROFILE_ID/BRANCH_PROFILE_ID; ADDQ.W #1,D0; RTS) — forma específica, sem nome de jogo."
+  },
+  "src-tauri/src/tools/reverse/decomp/mod.rs": {
+   "classe": "motor",
+   "justificativa": "Registro de módulos; 'sonic'/'jump' só nos nomes dos módulos registrados."
+  },
+  "src-tauri/src/tools/reverse/decomp/object_diff.rs": {
+   "classe": "motor",
+   "justificativa": "Comparação por símbolo de objetos M68K via objdump."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_addressing.rs": {
+   "classe": "motor",
+   "justificativa": "Adaptador de endereçamento do produto."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_aplib.rs": {
+   "classe": "motor",
+   "justificativa": "Codec aPLib (variante SGDK)."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_codecs.rs": {
+   "classe": "motor",
+   "justificativa": "Codecs REX v1 (LZ4W etc.)."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_context.rs": {
+   "classe": "motor",
+   "justificativa": "Contexto de recurso gráfico somente leitura (TileSet+TileMap+paleta); 0 termos de jogo."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_edit.rs": {
+   "classe": "motor",
+   "justificativa": "Núcleo de edição extraído na F1: Patch, apply, IPS estrito (gerador e aplicador independentes) e planejamento genérico de campos de 16 bits; opera sobre offsets e domínios, sem termo de jogo."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_evidence.rs": {
+   "classe": "motor",
+   "justificativa": "Escada de evidência L0–L6 e Claim com base obrigatória de L3 em diante; sem termo de jogo. Contrato da F0, ainda não usado por nenhum caminho de produção."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_gameplay.rs": {
+   "classe": "perfil",
+   "justificativa": "Adaptador IPC do perfil counter_threshold_state_gate.v1."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs": {
+   "classe": "perfil",
+   "justificativa": "ADAPTADOR DE COMPATIBILIDADE compilado só em teste: delega a rex_profile_ipc; conserva os testes anteriores como regressão."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_kosinski.rs": {
+   "classe": "motor",
+   "justificativa": "Adaptador do codec Kosinski."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_mdgfx.rs": {
+   "classe": "motor",
+   "justificativa": "Primitivas gráficas MD 'SEM conhecimento de jogo' (cabeçalho); 'sonic' só em comentário sobre o formato de mappings."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_nemesis.rs": {
+   "classe": "motor",
+   "justificativa": "Decoder Nemesis 'genérico: não conhece nenhum jogo' (cabeçalho)."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs": {
+   "classe": "perfil",
+   "justificativa": "ADAPTADOR DE COMPATIBILIDADE compilado só em teste (#[cfg(test)] em mod.rs): API tipada anterior sobre o motor + código antigo como oráculo (locate_reference, graph_json_reference)."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_profile_engine.rs": {
+   "classe": "motor",
+   "justificativa": "Motor de localização dirigido por perfil em dado (subsumes/pair/follow), promovido na F1; recusa formas fora da classe suportada; sem termo de jogo."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_profile_spec.rs": {
+   "classe": "motor",
+   "justificativa": "Esquema e validação do perfil como dado; a lógica de produção não cita jogo (1 ocorrência de 'pulo' em comentário de cabeçalho; o perfil do pulo aparece nos testes e no JSON de rascunho). O avaliador que interpreta o dado é #[cfg(test)]. Contrato da F0, não usado em produção."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_publish.rs": {
+   "classe": "motor",
+   "justificativa": "Publicação conjunta e segura de dois artefatos (cópia + IPS) extraída na F1: Fs/RealFs/WriteFail/publish_pair; sem termo de jogo."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_resources.rs": {
+   "classe": "motor",
+   "justificativa": "Cadeia de recurso comprimido; 'sonic' 1x em comentário."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_sigscan.rs": {
+   "classe": "motor",
+   "justificativa": "Localizador por assinatura genérico e puro (cabeçalho)."
+  },
+  "src-tauri/src/tools/reverse/decomp/rom_library.rs": {
+   "classe": "motor",
+   "justificativa": "Biblioteca BYOR e ledger de execuções (tem SHA-256 próprio)."
+  },
+  "src-tauri/src/tools/reverse/decomp/sonic_cadence.rs": {
+   "classe": "caso",
+   "justificativa": "Cadência da sequência id_Wait do Sonic 1 Rev00 (offsets e tabelas do jogo). Evidência válida; migrar gradualmente, nunca apagar."
+  },
+  "src-tauri/src/tools/reverse/decomp/sonic_consumers.rs": {
+   "classe": "caso",
+   "justificativa": "Cadeia de consumidores do Sonic 1 (ROM_PIN, offsets de tabela). Evidência válida; migrar gradualmente, nunca apagar."
+  },
+  "src-tauri/src/tools/reverse/decomp/sonic_layouts.rs": {
+   "classe": "caso",
+   "justificativa": "Layouts das fases especiais do Sonic 1 (formato e tabela do jogo). Evidência válida; migrar gradualmente, nunca apagar."
+  },
+  "src-tauri/src/tools/reverse/decomp/sonic_sequence.rs": {
+   "classe": "caso",
+   "justificativa": "Reordenação in-place de frames do id_Wait do Sonic 1 Rev00. Evidência válida; migrar gradualmente, nunca apagar."
+  },
+  "src-tauri/src/tools/reverse/decomp/sonic_sprite.rs": {
+   "classe": "caso",
+   "justificativa": "Geometria do perfil BYOR Sonic 1 Rev00 (ART_OFFSET, MAP_TABLE, DPLC). Evidência válida; migrar gradualmente, nunca apagar."
+  },
+  "src-tauri/src/tools/reverse/decomp/sonic_ss_walls.rs": {
+   "classe": "caso",
+   "justificativa": "Paredes da fase especial do Sonic 1 (SS_MapIndex, Map_SSWalls). Evidência válida; migrar gradualmente, nunca apagar."
+  },
+  "src-tauri/src/tools/reverse/decomp/sprite_composition.rs": {
+   "classe": "misto",
+   "justificativa": "Composição de frame com pins HAMOOPIG/TAIKETSU/SONIC1 e 97 ocorrências de 'sonic'.",
+   "lado_caso": [
+    "SONIC1_*",
+    "SonicTileUse",
+    "SonicFrameContext",
+    "fn read_sonic_session_rom",
+    "SonicPixelLocation",
+    "fn sonic_stand_pixel_location",
+    "fn sonic_dplc_art_tiles",
+    "HAMOOPIG_REFERENCE_SHA256",
+    "TAIKETSU_REFERENCE_SHA256"
+   ],
+   "lado_indeterminado": [
+    "fn compose_for_session (a classificar na F1)"
+   ],
+   "lado_motor": [
+    "struct SpriteFramePart",
+    "struct InspectionSpriteFrame"
+   ]
+  },
+  "src-tauri/src/tools/reverse/decomp/symbols.rs": {
+   "classe": "motor",
+   "justificativa": "Parser de symbol tables estilo nm."
+  },
+  "src-tauri/src/tools/reverse/decomp/triage.rs": {
+   "classe": "motor",
+   "justificativa": "Triagem estática de ROM Mega Drive (header SEGA, tiers)."
+  },
+  "src/core/nodegraph/rexGameplayGraph.ts": {
+   "classe": "perfil",
+   "justificativa": "Projeção do grafo do perfil counter_threshold_state_gate.v1 (REX_GAMEPLAY_PROFILE_ID)."
+  },
+  "src/core/nodegraph/rexGameplayScene.ts": {
+   "classe": "perfil",
+   "justificativa": "Cena derivada do perfil counter_threshold_state_gate.v1."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_profile_graph.rs": {
+   "classe": "motor",
+   "justificativa": "Projeção de instância para NodeGraph v1 e revisão do grafo contra o canônico da ROM, dirigidas pelo dado do perfil; 0 termos de jogo."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_profile_ipc.rs": {
+   "classe": "motor",
+   "justificativa": "Superfície IPC genérica (catálogo, localizar, editar): recebe o id do perfil como dado; 0 termos de jogo."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_profile_registry.rs": {
+   "classe": "motor",
+   "justificativa": "Carga de perfis (embutidos enumerados na compilação + pasta em execução) e rejeição com motivo; 0 termos de jogo."
+  },
+  "src-tauri/src/tools/reverse/decomp/rex_profile_testkit.rs": {
+   "classe": "motor",
+   "justificativa": "Apoio de teste (#[cfg(test)]): perfil mínimo autoral e ROM sintética; não descreve jogo."
+  },
+  "src/core/nodegraph/profileGraphBridge.ts": {
+   "classe": "motor",
+   "justificativa": "Ponte canvas↔ROM genérica: perfil, campos e chave da instância vêm do grafo. Único resíduo: constante LEGACY_INSTANCE_PARAM para grafos antigos."
+  }
+ },
+ "criterios": "docs/rex_profiles/integration_20261007/EXPECTATIONS-F0-AUDITORIA-CONTRATO-2026-10-09.md",
+ "schema": "rex-audit-classes/v1"
+}

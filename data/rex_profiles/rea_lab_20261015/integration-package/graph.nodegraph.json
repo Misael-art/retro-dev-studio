@@ -1,0 +1,209 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "entry",
+      "type": "rom_region_entry",
+      "label": "Recovered region entry",
+      "x": 40,
+      "y": 120,
+      "inputs": [],
+      "outputs": [
+        {
+          "id": "exec",
+          "label": "exec",
+          "kind": "exec"
+        }
+      ],
+      "params": {
+        "semantic_origin": "recovered_from_rom",
+        "source_mappings": "[]",
+        "address": "0x000240",
+        "perfil": "m68k.counter_threshold_state_gate.v1",
+        "rom_sha256": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218",
+        "entry": 576,
+        "saidas": "0x00025E",
+        "selecao": "declared_region",
+        "ponte_edicao": 1,
+        "perfil_sha256": "8e8648022d99f1730d1c3fc4a0f6268449bbefe99013a3f07fcebc72889168bd",
+        "perfil_revisao": 1,
+        "instancia_param": "entry",
+        "assinatura_estrutural": "94f895bfa15ebce4"
+      }
+    },
+    {
+      "id": "compare",
+      "type": "rom_counter_compare",
+      "label": "Counter threshold",
+      "x": 40,
+      "y": 230,
+      "inputs": [
+        {
+          "id": "exec",
+          "label": "exec",
+          "kind": "exec"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "true",
+          "label": "true",
+          "kind": "exec"
+        },
+        {
+          "id": "false",
+          "label": "false",
+          "kind": "exec"
+        }
+      ],
+      "params": {
+        "semantic_origin": "recovered_from_rom",
+        "source_mappings": "[{\"bytes\":\"263900FF0200\",\"insn\":{\"abs\":\"0xFF0200\",\"d\":3,\"op\":\"move.l abs,dn\"},\"mnemonic\":\"MOVE.L $00FF0200.L,D3\",\"rom_end\":\"0x000246\",\"rom_start\":\"0x000240\"},{\"bytes\":\"7A05\",\"insn\":{\"d\":5,\"imm\":5,\"op\":\"moveq\"},\"mnemonic\":\"MOVEQ #5,D5\",\"rom_end\":\"0x000248\",\"rom_start\":\"0x000246\"},{\"bytes\":\"BA83\",\"insn\":{\"dst\":5,\"op\":\"cmp.l dn,dn\",\"src\":3},\"mnemonic\":\"CMP.L D3,D5\",\"rom_end\":\"0x00024A\",\"rom_start\":\"0x000248\"},{\"bytes\":\"6F0A\",\"insn\":{\"cond\":\"le\",\"op\":\"bcc\",\"size\":\"s\",\"target\":\"0x000256\"},\"mnemonic\":\"BLE.S $000256\",\"rom_end\":\"0x00024C\",\"rom_start\":\"0x00024A\"}]",
+        "address": "0xFF0200",
+        "operator": ">=",
+        "threshold": 5,
+        "recovered_threshold": 5,
+        "threshold_min": -128,
+        "threshold_max": 127,
+        "width_bits": 32,
+        "lowering": "MOVEQ #(threshold-0) ; CMP.L ; BLE (taken = set branch)",
+        "signed": "true",
+        "editable": "threshold",
+        "editavel": 1,
+        "campo": "threshold",
+        "campo_param": "threshold",
+        "valor_original": 5,
+        "faixa": "-128..127",
+        "rom_offsets": "0x000247"
+      }
+    },
+    {
+      "id": "set_write",
+      "type": "rom_state_write",
+      "label": "Write state when rule holds",
+      "x": 40,
+      "y": 340,
+      "inputs": [
+        {
+          "id": "exec",
+          "label": "exec",
+          "kind": "exec"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "exec",
+          "label": "exec",
+          "kind": "exec"
+        }
+      ],
+      "params": {
+        "semantic_origin": "recovered_from_rom",
+        "source_mappings": "[{\"bytes\":\"7C01\",\"insn\":{\"d\":6,\"imm\":1,\"op\":\"moveq\"},\"mnemonic\":\"MOVEQ #1,D6\",\"rom_end\":\"0x000258\",\"rom_start\":\"0x000256\"},{\"bytes\":\"23C600FF0204\",\"insn\":{\"abs\":\"0xFF0204\",\"d\":6,\"op\":\"move.l dn,abs\"},\"mnemonic\":\"MOVE.L D6,$00FF0204.L\",\"rom_end\":\"0x00025E\",\"rom_start\":\"0x000258\"}]",
+        "address": "0xFF0204",
+        "value": 1,
+        "width_bits": 32
+      }
+    },
+    {
+      "id": "other_write",
+      "type": "rom_state_write",
+      "label": "Write state when rule fails",
+      "x": 40,
+      "y": 450,
+      "inputs": [
+        {
+          "id": "exec",
+          "label": "exec",
+          "kind": "exec"
+        }
+      ],
+      "outputs": [
+        {
+          "id": "exec",
+          "label": "exec",
+          "kind": "exec"
+        }
+      ],
+      "params": {
+        "semantic_origin": "recovered_from_rom",
+        "source_mappings": "[{\"bytes\":\"7C00\",\"insn\":{\"d\":6,\"imm\":0,\"op\":\"moveq\"},\"mnemonic\":\"MOVEQ #0,D6\",\"rom_end\":\"0x00024E\",\"rom_start\":\"0x00024C\"},{\"bytes\":\"23C600FF0204\",\"insn\":{\"abs\":\"0xFF0204\",\"d\":6,\"op\":\"move.l dn,abs\"},\"mnemonic\":\"MOVE.L D6,$00FF0204.L\",\"rom_end\":\"0x000254\",\"rom_start\":\"0x00024E\"},{\"bytes\":\"6008\",\"insn\":{\"op\":\"bra\",\"size\":\"s\",\"target\":\"0x00025E\"},\"mnemonic\":\"BRA.S $00025E\",\"rom_end\":\"0x000256\",\"rom_start\":\"0x000254\"}]",
+        "address": "0xFF0204",
+        "value": 0,
+        "width_bits": 32
+      }
+    },
+    {
+      "id": "exit_00025E",
+      "type": "rom_region_exit",
+      "label": "Region exit",
+      "x": 300,
+      "y": 120,
+      "inputs": [
+        {
+          "id": "exec",
+          "label": "exec",
+          "kind": "exec"
+        }
+      ],
+      "outputs": [],
+      "params": {
+        "semantic_origin": "recovered_from_rom",
+        "source_mappings": "[]",
+        "address": "0x00025E"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "entry_exec_compare",
+      "fromNode": "entry",
+      "fromPort": "exec",
+      "toNode": "compare",
+      "toPort": "exec"
+    },
+    {
+      "id": "compare_true_set_write",
+      "fromNode": "compare",
+      "fromPort": "true",
+      "toNode": "set_write",
+      "toPort": "exec"
+    },
+    {
+      "id": "compare_false_other_write",
+      "fromNode": "compare",
+      "fromPort": "false",
+      "toNode": "other_write",
+      "toPort": "exec"
+    },
+    {
+      "id": "set_write_exec_exit_00025E",
+      "fromNode": "set_write",
+      "fromPort": "exec",
+      "toNode": "exit_00025E",
+      "toPort": "exec"
+    },
+    {
+      "id": "other_write_exec_exit_00025E",
+      "fromNode": "other_write",
+      "fromPort": "exec",
+      "toNode": "exit_00025E",
+      "toPort": "exec"
+    }
+  ],
+  "rex_logic_recovery": {
+    "profile_id": "m68k.counter_threshold_state_gate.v1",
+    "profile_sha256": "8e8648022d99f1730d1c3fc4a0f6268449bbefe99013a3f07fcebc72889168bd",
+    "profile_revision": 1,
+    "class": "semantic_region",
+    "analyzer": "counter_compare_gate",
+    "rom_sha256": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218",
+    "entry": "0x000240",
+    "selection": "declared_region",
+    "descritivo": true,
+    "aviso": "Grafo descritivo, derivado dos bytes pelo analisador. So o limiar e editavel; mudar topologia, operador ou enderecos aqui nao e compilado.",
+    "campos_editaveis": [
+      "threshold"
+    ]
+  }
+}

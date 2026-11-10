@@ -1,12 +1,15 @@
 pub mod annotations;
 pub mod audio;
 pub mod code;
+pub mod decomp;
+pub mod equivalence;
 pub mod graphics;
 pub mod loader;
 pub mod manifest;
 pub mod matching;
 pub mod platform;
 pub mod projection;
+pub mod rom_input;
 pub mod text;
 pub mod trace;
 

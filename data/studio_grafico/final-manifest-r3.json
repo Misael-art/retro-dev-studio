@@ -1,0 +1,512 @@
+{
+  "schema": "retrodev.studio_grafico_manifest/v2",
+  "maturity": "Experimental",
+  "generated_at": "2026-10-19T22:44:45.465Z",
+  "source": {
+    "repo": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19",
+    "head": "690a8402376812548978f3a577ca64d04ebe5751",
+    "branch": "codex/rex-studio-grafico-20261019",
+    "dirty": true
+  },
+  "binary": {
+    "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/bin/retro-dev-studio-014",
+    "sha256": "5f4c815a3238933d123e13822d89fffd627c914bd5b3e7f3fb55a76a50374cef",
+    "bytes": 437787528
+  },
+  "frontend_bundle": {
+    "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/dist/index.html",
+    "sha256": "1cef5a5061fc0bc0f79b60134c4a8c5ea114ad839712c1a99fc05cbee0d97f47",
+    "bytes": 400
+  },
+  "qa_display": {
+    "path": "/home/misael/.cache/retrodevstudio/qa-xvfb/21.1.24-1/Xvfb",
+    "sha256": "5bfd315a8c7bc626d0b183d176e130c34f910a4a1279d9d53ea45769f62a3351",
+    "bytes": 1973792
+  },
+  "inputs_byor": {
+    "ken8": [
+      {
+        "path": "/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8/ken8.def",
+        "sha256": "fdbe2fb2498be72078232ca68f2cc74fd8347aac2c8304c626d5f15dc68f5fc8",
+        "bytes": 944
+      },
+      {
+        "path": "/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8/ken.sff",
+        "sha256": "911e21b778af3e7a93cd69fe6132b8e87fb1cacddac757ada5842a8cb1c2172c",
+        "bytes": 547131
+      },
+      {
+        "path": "/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8/ken.air",
+        "sha256": "b1f6c8d093dfd0849091035d7721a5748b59a476084bbc7ebf1ce2e1c6e7ed3a",
+        "bytes": 34325
+      },
+      {
+        "path": "/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8/ken1.act",
+        "sha256": "89942f64862be6cb2bb0c094b2ab0ebb5cb411c06b7f1a6f9d69af64647687f2",
+        "bytes": 768
+      },
+      {
+        "path": "/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8/ken.cmd",
+        "sha256": "728e914f4de8d6de84af7c572af1e811c03ef142e1b168e49057bc0ba0416e16",
+        "bytes": 25391
+      },
+      {
+        "path": "/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8/ken.cns",
+        "sha256": "0b4593b7fec0e555c41b21a032a95ea5efc540b61f201d2504a409cd4d692755",
+        "bytes": 66613
+      },
+      {
+        "path": "/home/misael/.retrodev/mugen-real-2026-09-30/source/ken8/ken.snd",
+        "sha256": "4f0cfdc8a9b3dc825bbbfac14853d1d31ffa8cd5f9c64b92e8575fb131980521",
+        "bytes": 943098
+      }
+    ],
+    "sonic1": {
+      "path": "/home/misael/.retrodev/rex_corpus_c/members/Sonic the Hedgehog (USA, Europe).bin",
+      "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "bytes": 531577
+    }
+  },
+  "runs": {
+    "cert3-e1e3": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-e1e3",
+      "exit_code": 0,
+      "app_sha256": "5f4c815a3238933d123e13822d89fffd627c914bd5b3e7f3fb55a76a50374cef",
+      "window": "1280x800",
+      "all_pass": true,
+      "steps": [
+        "import_real_ken",
+        "baseline_build",
+        "open_character_editor_with_context",
+        "edit_single_occurrence_undo_redo",
+        "return_to_origin",
+        "save_destroy_window_reopen",
+        "rom_effect_measured_in_emulated_frames",
+        "restore_rebuild_bytes_equal_baseline",
+        "e3_runtime_selection_opens_exact_occurrence_and_returns",
+        "e3_stale_candidate_refused_after_asset_change_and_accepted_after_undo",
+        "e3_same_path_content_change_refused_restored_accepted_rebuild_valid"
+      ],
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-e1e3/run.json",
+          "sha256": "58e0e1d105d7f171624a8aa6a5b0b824502aa09a1f1d947318e48c3d46cba55c",
+          "bytes": 346
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-e1e3/run.log",
+          "sha256": "c0f17d3cfe3599a0c736290dba51bd35c4892fab14314370c7934e11b7e38dc8",
+          "bytes": 6938
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-e1e3/stdout.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-e1e3/evidence/studio-e1-2026-10-19T22-06-13-290Z-report.json",
+          "sha256": "d0b8852722cab5c2d991826c224f980d3b963e12b74b4ce0a98b1e380e92f97a",
+          "bytes": 8305
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e1-2026-10-19T22-06-13-290Z-character-o3.png",
+          "sha256": "e4dadde530d24492adb1133b21087277cb754008209bdb6969fba3564a4fd1b0",
+          "bytes": 112264
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e1-2026-10-19T22-06-13-290Z-reopened.png",
+          "sha256": "9b06178eba883dfed74f5006957eb39cf4fafcec04530e3a4dfc62e6dee8e96f",
+          "bytes": 109836
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e1-2026-10-19T22-06-13-290Z-inspect-overlay.png",
+          "sha256": "71e75270865c1c32bf88b3c9f2c981ff1d7fd655bc2877878e6539933c420f17",
+          "bytes": 149804
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e1-2026-10-19T22-06-13-290Z-inspect-opened-character.png",
+          "sha256": "aa6b80e69e74452a890cfb9008d27b86f57696b74b26d16f0da2c44aca38a3fb",
+          "bytes": 116602
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e1-2026-10-19T22-06-13-290Z-inspect-refused-stale-asset.png",
+          "sha256": "38bb328bae43e6be19c8e7ace66987f9b8ec606b9cc18821885acf14f4a1e0c1",
+          "bytes": 153258
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e1-2026-10-19T22-06-13-290Z-inspect-refused-same-path-content.png",
+          "sha256": "bb1cc1db159e99a83ec832aef9c694cc8343bd657d9e1538645f28d62e299a0a",
+          "bytes": 155587
+        }
+      ]
+    },
+    "cert3-e2e5": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-e2e5",
+      "exit_code": 0,
+      "app_sha256": "5f4c815a3238933d123e13822d89fffd627c914bd5b3e7f3fb55a76a50374cef",
+      "window": "1280x800",
+      "all_pass": true,
+      "steps": [
+        "import_real_ken",
+        "training_target_duplicate",
+        "authored_sound_on_attack_occurrence",
+        "authored_strike_behavior_applied",
+        "hud_bound_error_navigates_to_property",
+        "rom_strike_sound_hud",
+        "inspection_layers_collisions_audio",
+        "temporary_adjust_no_hit_apply_undo",
+        "export_canonical_rom",
+        "graphic_box_edit_rom_effect_and_undo"
+      ],
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-e2e5/run.json",
+          "sha256": "c0db1a4ceffd11e934e95f9be08f0bc71962b3dd9a81701bcd5ea553dedac439",
+          "bytes": 348
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-e2e5/run.log",
+          "sha256": "446b25f5b496a265fdae68986c2003e589161b2e3861a973fccbdd8471b879c5",
+          "bytes": 3054
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-e2e5/stdout.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-e2e5/evidence/studio-e2e5-2026-10-19T22-09-24-391Z-report.json",
+          "sha256": "103e5493fa7c8d132db9ad5cebc2fda239fd4cb9c212edcc6a2fe7371d74cfd0",
+          "bytes": 24955
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e2e5-2026-10-19T22-09-24-391Z-sound-event.png",
+          "sha256": "eea67ecf43b778602512625b03bd6d445d8b7c9631fb53cec790ab0684cc68fd",
+          "bytes": 123291
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e2e5-2026-10-19T22-09-24-391Z-review-error.png",
+          "sha256": "442b2fbdbdf76486eab386bd0b771428dea0e0c72ebdcb12d38030780aac3548",
+          "bytes": 177149
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-e2e5-2026-10-19T22-09-24-391Z-layers-collisions-audio.png",
+          "sha256": "b507525ebc732daebaaeb5953a6540867ad4c5071ab0b80c1d644d0777b18302",
+          "bytes": 160494
+        }
+      ]
+    },
+    "cert3-hud-camera": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera",
+      "exit_code": 1,
+      "app_sha256": "5f4c815a3238933d123e13822d89fffd627c914bd5b3e7f3fb55a76a50374cef",
+      "window": "1280x800",
+      "all_pass": null,
+      "steps": null,
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera/run.json",
+          "sha256": "adb7deaf2bca7594ce550141e462b28e0917c89f766c6bef895c02947df8231b",
+          "bytes": 354
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera/run.log",
+          "sha256": "f2eebd81ca549b0c2ecc32e2a203c29a15a64d333154a12e043dc4c663fb76c7",
+          "bytes": 2491
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera/stdout.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      ]
+    },
+    "cert3-hud-camera-negative-013": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-negative-013",
+      "exit_code": 1,
+      "app_sha256": "cf928038adc58f1cf9be3ab05b35f92a177b136983759c68d08822be341bb6c9",
+      "window": "1280x800",
+      "all_pass": null,
+      "steps": null,
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-negative-013/run.json",
+          "sha256": "cd335e25418025baadb1b60a21861bdfbd7b6b00168686d0c797df4455f97ae8",
+          "bytes": 354
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-negative-013/run.log",
+          "sha256": "9816af6020d7a5316c0246fedf6ac9b4309901a49631318ef9122b131691f451",
+          "bytes": 2994
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-negative-013/stdout.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      ]
+    },
+    "cert3-hud-camera-negative-013-r2": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-negative-013-r2",
+      "exit_code": 1,
+      "app_sha256": "cf928038adc58f1cf9be3ab05b35f92a177b136983759c68d08822be341bb6c9",
+      "window": "1280x800",
+      "all_pass": null,
+      "steps": null,
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-negative-013-r2/run.json",
+          "sha256": "cd335e25418025baadb1b60a21861bdfbd7b6b00168686d0c797df4455f97ae8",
+          "bytes": 354
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-negative-013-r2/run.log",
+          "sha256": "cd28ad0fd66bcea4119f82e9d2ca1702b331b2209f684bfdfcb8a9c89cc4daa8",
+          "bytes": 2994
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-negative-013-r2/stdout.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      ]
+    },
+    "cert3-hud-camera-r2": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r2",
+      "exit_code": 1,
+      "app_sha256": "5f4c815a3238933d123e13822d89fffd627c914bd5b3e7f3fb55a76a50374cef",
+      "window": "1280x800",
+      "all_pass": null,
+      "steps": null,
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r2/run.json",
+          "sha256": "adb7deaf2bca7594ce550141e462b28e0917c89f766c6bef895c02947df8231b",
+          "bytes": 354
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r2/run.log",
+          "sha256": "9967bc89b9f3479c3d163dabd924e6c65a33b6cca78e6f4abe9627a75be53e08",
+          "bytes": 2783
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r2/stdout.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      ]
+    },
+    "cert3-hud-camera-r3": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r3",
+      "exit_code": 1,
+      "app_sha256": "5f4c815a3238933d123e13822d89fffd627c914bd5b3e7f3fb55a76a50374cef",
+      "window": "1280x800",
+      "all_pass": null,
+      "steps": null,
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r3/run.json",
+          "sha256": "adb7deaf2bca7594ce550141e462b28e0917c89f766c6bef895c02947df8231b",
+          "bytes": 354
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r3/run.log",
+          "sha256": "bb56aa7bc715a58a500b0a789992617988fae4394557f40c4e6b7f12bc01ddba",
+          "bytes": 2905
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r3/stdout.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      ]
+    },
+    "cert3-hud-camera-r4": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r4",
+      "exit_code": 1,
+      "app_sha256": "5f4c815a3238933d123e13822d89fffd627c914bd5b3e7f3fb55a76a50374cef",
+      "window": "1280x800",
+      "all_pass": null,
+      "steps": null,
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r4/run.json",
+          "sha256": "adb7deaf2bca7594ce550141e462b28e0917c89f766c6bef895c02947df8231b",
+          "bytes": 354
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r4/run.log",
+          "sha256": "c71d8f62a5c9b75df91a9d862c0b2c0e09bde7f53eefdce6796d1e69ebf0dcfb",
+          "bytes": 3003
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r4/stdout.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      ]
+    },
+    "cert3-hud-camera-r5": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r5",
+      "exit_code": 1,
+      "app_sha256": "5f4c815a3238933d123e13822d89fffd627c914bd5b3e7f3fb55a76a50374cef",
+      "window": "1280x800",
+      "all_pass": null,
+      "steps": null,
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r5/run.json",
+          "sha256": "adb7deaf2bca7594ce550141e462b28e0917c89f766c6bef895c02947df8231b",
+          "bytes": 354
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r5/run.log",
+          "sha256": "576f11bf4d27854e0a09256eeb5f6bafb84b97a0abf982c14795e8d12e5c7900",
+          "bytes": 2994
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r5/stdout.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      ]
+    },
+    "cert3-hud-camera-r6": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r6",
+      "exit_code": 1,
+      "app_sha256": "5f4c815a3238933d123e13822d89fffd627c914bd5b3e7f3fb55a76a50374cef",
+      "window": "1280x800",
+      "all_pass": null,
+      "steps": null,
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r6/run.json",
+          "sha256": "adb7deaf2bca7594ce550141e462b28e0917c89f766c6bef895c02947df8231b",
+          "bytes": 354
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r6/run.log",
+          "sha256": "96ae268492912f8f11365384b3c6487379f55acfee70c6f322f62daf1158f64c",
+          "bytes": 2994
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r6/stdout.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      ]
+    },
+    "cert3-hud-camera-r7": {
+      "dir": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r7",
+      "exit_code": 0,
+      "app_sha256": "5f4c815a3238933d123e13822d89fffd627c914bd5b3e7f3fb55a76a50374cef",
+      "window": "1280x800",
+      "all_pass": true,
+      "steps": [
+        "import_real_ken",
+        "life_text_bound_to_strike_in_ui",
+        "wide_map_prepared_and_project_reopened",
+        "rom_camera_moves_scenery_scrolls_hud_anchored",
+        "inspection_finds_hud_in_screen_space_with_camera_moved"
+      ],
+      "files": [
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r7/run.json",
+          "sha256": "9e252d9141c2a5cfa1cf314d1067a536bfd03b597f5824beabd8249aa379b8e3",
+          "bytes": 354
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r7/run.log",
+          "sha256": "8158d2172cee83032dfd7e697300d6eebd2eb79695bfea39ba643c96a8befad2",
+          "bytes": 2981
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r7/stdout.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r7/evidence/studio-hud-camera-2026-10-19T22-30-41-862Z-report.json",
+          "sha256": "894421dae619b6ec78abc765ae114a1755608728c8ece60a29468d9bfc5e7231",
+          "bytes": 3826
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-hud-camera-2026-10-19T22-30-41-862Z-camera-start.png",
+          "sha256": "5b1587b202ae3ce9e3cf2c60c274749e3bc03b6ec2b6226f3883177f8ff57b61",
+          "bytes": 134525
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-hud-camera-2026-10-19T22-30-41-862Z-camera-moved.png",
+          "sha256": "dc25494cd7a431d009105bbc79de5566ac680a1ced635b232f12ddf6e80a1f52",
+          "bytes": 135112
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r7/evidence/studio-hud-camera-2026-10-19T22-30-41-862Z-core-camera-start-320x224.rgba",
+          "sha256": "644c8f6a404b178478bd6d46d97ef1b222fadba285b40566e7f8537a3f28bc98",
+          "bytes": 286720
+        },
+        {
+          "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/cert3-hud-camera-r7/evidence/studio-hud-camera-2026-10-19T22-30-41-862Z-core-camera-moved-320x224.rgba",
+          "sha256": "eda0af891bde57ed1408aef9431f820e26bea755a9bf032ac8382edf98e23ea2",
+          "bytes": 286720
+        },
+        {
+          "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/studio-hud-camera-2026-10-19T22-30-41-862Z-inspect-hud-opened.png",
+          "sha256": "5c65998adf0140bfd479f80074225171fdd59b1dd8d8d98a0b6df057f88462fb",
+          "bytes": 219132
+        }
+      ]
+    }
+  },
+  "certification": [
+    {
+      "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/host-readiness.json",
+      "sha256": "e3c98df0c2a944497d13f394ccc3d65af9ea47827059dc72bfd79bb0f9b5559c",
+      "bytes": 11383
+    },
+    {
+      "path": "/home/misael/Projects/REX-STUDIO-GRAFICO-2026-10-19/src-tauri/target-test/validation/upstream-validation-linux.json",
+      "sha256": "36ee2711408971546cd4953fb5db1880f4c0265d5931b168447dc51ee579c40e",
+      "bytes": 4018
+    },
+    {
+      "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/build-014.log",
+      "sha256": "8cb60f19f5a08be2774b7465f3e56275a1aa32105ac10d46f5c5ea699ed08253",
+      "bytes": 4659
+    },
+    {
+      "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/host-certify-attempt1.json",
+      "sha256": "536dc0c1fcd62ad2031e86757f0a80145ef2bc7df232b0c9b39e5176384e3970",
+      "bytes": 10240
+    },
+    {
+      "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/host-certify-attempt2.log",
+      "sha256": "cae33ad0dae49c225f217f3d370bdd485206133b7d5d575b4530fd71e0b3081d",
+      "bytes": 136344
+    },
+    {
+      "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/host-certify-r3-attempt1.json",
+      "sha256": "e3c98df0c2a944497d13f394ccc3d65af9ea47827059dc72bfd79bb0f9b5559c",
+      "bytes": 11383
+    },
+    {
+      "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/host-certify-r3-attempt1.log",
+      "sha256": "5993902c8e0ba13ec7e1d749f59cade8d384a1b9765d9a3e2c7ee56775fff021",
+      "bytes": 136589
+    },
+    {
+      "path": "/home/misael/rds-scratch/studio-grafico-integrado-20261019/runs/r3-rust-real-mugen.log",
+      "sha256": "8f9d74e74c268198d448f252b1b80f1a6f8329e6083e78e9ac8d290339153b3f",
+      "bytes": 2076
+    }
+  ],
+  "reproduction": [
+    "Xvfb pinado: python3 -I scripts/qa/run-sonic-desktop-isolated.py --xvfb <Xvfb> --xvfb-sha256 <qa_display.sha256> --app <binary.path> --work <runs/cert2-ID> --log <runs/cert2-ID>/run.log --window <run.window> --scenario <studio-e1|studio-e2e5|studio-e4|studio-scene|studio-model|studio-e6|mugen-real|mugen-import|nodegraph-authoring> [--rom <sonic1>]",
+    "env: RDS_MUGEN_REAL_SOURCE=<ken8> RDS_MUGEN_REAL_UI_OUTPUT=<run>/ui RDS_STUDIO_E1_OUTPUT=<run>/evidence; oráculo: RDS_E2E_KEEP_PROJECT=1",
+    "backend Ken: (src-tauri) RDS_MUGEN_REAL_SOURCE=<ken8> RDS_MUGEN_REAL_OUTPUT=<run>/backend cargo test --lib mugen_real_pilot_build_and_capture -- --ignored",
+    "oráculo: python3 -I scripts/verify-mugen-real.py --source <ken8> --backend <run>/backend --ui <run>/ui --output <run>/oracle",
+    "host: TMPDIR=<fora de ~/.cache> npm run host:certify",
+    "conferência: node scripts/qa/studio-grafico-manifest.mjs verify data/studio_grafico/final-manifest-r3.json"
+  ],
+  "note": "ROMs, cópias, capturas e projetos de teste ficam fora do Git (scratch/~/Documents); só metadados aqui."
+}

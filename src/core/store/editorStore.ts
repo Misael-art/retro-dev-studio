@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import type { PixelDoc } from "../pixelEditor";
+import { entityLockScopeKey } from "../sceneComposition";
 
 import {
   diagnosticConsoleMessage,
@@ -9,17 +11,89 @@ import type {
   CollisionMap,
   Entity,
   LegacySgdkIndex,
+  PaletteEntry,
   Scene,
   SceneLayer,
 } from "../ipc/sceneService";
 import type { BuildSourceMap } from "../nodegraph/buildProvenance";
+import type { RuntimeLink } from "../runtimeLink";
+import type { TestAdjustment } from "../testAdjustments";
+import type { RexBridgeRequest } from "../rexBridge";
 import type {
   CrossCoreReport,
   CycleReport,
   ParityReport,
 } from "../projectCapability";
+import {
+  STUDIO_TASK_WORKSPACE,
+  initialStudioContext,
+  loadStudioContext,
+  navigateStudio,
+  refineStudioFocus as refineStudioFocusState,
+  rememberWorkspaceCamera as rememberWorkspaceCameraState,
+  returnStudioOrigin,
+  saveStudioContext,
+  type StudioContextState,
+  type StudioFocus,
+  type StudioNavigation,
+  type StudioReturnResult,
+  type WorkspaceCamera,
+  workspaceToStudioTask,
+} from "../studioContext";
 
-const UNDO_STACK_LIMIT = 50;
+export const UNDO_STACK_LIMIT = 50;
+
+/** Semantic source equality for disk baselines and draft recovery; array order is significant. */
+export function sceneSourcesEqual(left: string, right: string): boolean {
+  const ordered = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(ordered);
+    if (value && typeof value === "object") return Object.fromEntries(
+      Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([key, item]) => [key, ordered(item)])
+    );
+    return value;
+  };
+  try { return JSON.stringify(ordered(JSON.parse(left))) === JSON.stringify(ordered(JSON.parse(right))); }
+  catch { return false; }
+}
+
+export type SceneSaveState = {
+  status: "idle" | "saving" | "saved" | "failed";
+  message: string | null;
+  at: number | null;
+  /** sceneRevision that the last successful save persisted. */
+  revision: number | null;
+};
+
+export type SceneDraftState = {
+  status: "idle" | "pending" | "confirmed" | "failed" | "invalid" | "recovery" | "conflict";
+  revision: number | null;
+  savedAt: string | null;
+  message: string | null;
+  /** Raw storage is retained for inspection when decoding fails. */
+  raw?: string;
+  diskSourceJson?: string;
+};
+
+const EMPTY_SCENE_DRAFT_STATE: SceneDraftState = {
+  status: "idle", revision: null, savedAt: null, message: null,
+};
+
+export type SceneDiskBaseline = {
+  projectDir: string;
+  scenePath: string;
+  sourceSceneJson: string;
+  graphs?: Record<string, string>;
+};
+
+export function sceneGraphBaseline(source: Scene, resolved: Scene): Record<string, string> {
+  const snapshots: Record<string, string> = {};
+  for (const entity of source.entities) {
+    const reference = entity.components.logic?.graph_ref;
+    const graph = resolved.entities.find((candidate) => candidate.entity_id === entity.entity_id)?.components.logic?.graph;
+    if (reference && graph !== undefined) snapshots[reference] = graph;
+  }
+  return snapshots;
+}
 
 export interface HwStatus {
   vram_used: number;
@@ -74,9 +148,22 @@ export interface UndoEntry {
   activeSceneSource: Scene | null;
   selectedEntityId: string | null;
   editorMode: EditorMode;
+  /** Foco rico do Studio no momento da entrada (animação/ocorrência/caixa/evento). */
+  studioFocus?: StudioFocus;
 }
 
-export type EditorMode = "select" | "paint" | "erase" | "collision";
+/** Pixel work survives workspace unmounts, isolated by project. Session memory, not autosave. */
+export interface PixelEditorSession {
+  doc: PixelDoc;
+  past: PixelDoc[];
+  future: PixelDoc[];
+  frameIndex: number;
+  layerIndex: number;
+  savedPath: string | null;
+  savedSource: string | null;
+}
+
+export type EditorMode = "select" | "paint" | "erase" | "collision" | "path";
 export type TilePaintTool = "pencil" | "eraser" | "picker" | "rect" | "fill" | "stamp";
 
 export interface TileStampPattern {
@@ -101,22 +188,173 @@ export interface ActiveBrush {
   tileIndex?: number;
 }
 
+/** Observação de joypad correlacionada por sessão de emulação + sequência
+ * monotônica, para que uma confirmação atrasada — da mesma carga ou de uma
+ * carga anterior — não seja confundida com a da transição corrente.
+ *
+ * A sessão é gerada no frontend, não pelo backend, e isso é suficiente: o par
+ * (sessão, seq) é capturado no fechamento do envio e reconferido na resolução,
+ * de modo que um ack que atravesse um stop/recarga carrega a sessão antiga e é
+ * descartado. Um eco do backend não acrescentaria garantia — quem define a
+ * época da carga é o próprio frontend. */
+export interface JoypadObservation {
+  sessionId: string;
+  seq: number;
+  joypad: Record<string, boolean>;
+}
+
+/**
+ * Uma transição de joypad solicitada pelo caminho de teclado do produto, com o desfecho no backend.
+ * `accepted` = o backend a aplicou (com geração e quadro); NÃO diz que o core a leu.
+ */
+export interface JoypadTransition extends JoypadObservation {
+  outcome: "requested" | "accepted" | "refused";
+  /** Época do core que aceitou. */
+  epoch: number | null;
+  /** Geração no backend (ordem de aplicação na carga). */
+  generation: number | null;
+  /** Quadros emulados concluídos quando foi aplicada. */
+  appliedAtFrame: number | null;
+  message: string | null;
+}
+
+/** Quantas transições o registro guarda. */
+export const JOYPAD_LOG_CAPACITY = 64;
+
+export interface EmulatorRomIdentity {
+  path: string;
+  size: number;
+  sha256: string;
+  coreLabel: string;
+  corePath: string;
+  sourceLabel: string;
+}
+
+export interface EmulatorLaunchRequest {
+  requestId: number;
+  romPath: string;
+  sourceLabel: string;
+}
+
+/** Um quadro real da ROM do build foi apresentado. Stop preserva o recibo;
+ * trocar de projeto o descarta. Não equivale a aceite de gameplay ou usabilidade. */
+export interface BuildTestReceipt {
+  projectDir: string;
+  sceneRevision: number;
+  romSha256: string;
+  coreEpoch: number;
+  sessionId: string;
+  testedAt: number;
+}
+
+export interface BuildArtifactIdentity {
+  path: string;
+  sha256: string;
+  /** Escopo explícito dos diagnósticos; builds antigos sem ele não são atribuídos. */
+  projectDir?: string;
+  projectSessionId?: number;
+  target?: "megadrive" | "snes";
+  /** null: scene build; number: C overlay revision, independent of reference scenes. */
+  nativeCodeRevision: number | null;
+}
+
+/** Resultado de build ligado à sessão e à revisão que o solicitou. */
+export interface BuildFailureReceipt {
+  projectDir: string;
+  projectSessionId: number;
+  scenePath: string;
+  sceneRevision: number;
+  target: "megadrive" | "snes";
+  recordedAt: number;
+  messages: string[];
+  diagnostics: ActionableDiagnostic[];
+}
+
+/** Quadros entregues à interface, não ciclos nem FPS da simulação. */
+export interface PresentationObservation {
+  romSha256: string;
+  coreEpoch: number;
+  frames: number;
+  durationMs: number;
+  measuredAt: number;
+}
+
+let joypadSessionCounter = 0;
+let emulatorLaunchRequestCounter = 0;
+
 export interface StoreState {
   activeProjectDir: string;
+  /** Invalida respostas assíncronas inclusive ao reabrir o mesmo caminho. */
+  projectSessionId: number;
   activeProjectName: string;
   activeTarget: "megadrive" | "snes";
   activeScenePath: string;
   emulatorLoaded: boolean;
+  /** Identidade observada da ROM realmente carregada no core canônico. */
+  emulatorRomIdentity: EmulatorRomIdentity | null;
+  /** Solicitação de carga originada por outra superfície do produto. O App
+   * consome-a usando o mesmo loadRomIntoEmulator do fluxo existente. */
+  emulatorLaunchRequest: EmulatorLaunchRequest | null;
+  /** Última INTENÇÃO de joypad formada pelo caminho de teclado do produto,
+   * registrada antes do IPC. Prova que o handler rodou — NÃO prova entrega.
+   * null = nada solicitado desde a abertura. */
+  lastJoypadRequest: JoypadObservation | null;
+  /** true durante carga/stop do emulador: a época está invalidada e envios de
+   * input são bloqueados (contados) até a nova sessão existir. */
+  joypadSessionHold: boolean;
+  joypadBlockedCount: number;
+  /** Época do core no backend: inputs são enviados com este valor e o
+   * backend recusa época obsoleta (recarga aconteceu no meio do voo). */
+  coreEpoch: number | null;
+  /** Truthful save status of the active scene: set by persistActiveScene only. */
+  sceneSaveState: SceneSaveState;
+  sceneDraftState: SceneDraftState;
+  sceneDiskBaseline: SceneDiskBaseline | null;
+  /** Última intenção CONFIRMADA pelo backend (`ok: true`). Este é o único
+   * campo que demonstra entrega aceita pelo emulador. Acks cuja sequência não
+   * corresponde à solicitação corrente são descartados (ack atrasado). */
+  lastJoypadAck: JoypadObservation | null;
+  /** Registro LIMITADO das transições da sessão corrente, por sequência. Ao contrário de
+   * `lastJoypadAck` (que só guarda a confirmação da solicitação corrente), cada transição mantém o seu
+   * próprio desfecho mesmo quando a seguinte já foi solicitada. Zera a cada troca de sessão. */
+  joypadLog: JoypadTransition[];
+  /** Falha da última solicitação: `ok: false` (resolve normal da IPC) ou
+   * exceção. Correlacionado por sequência. */
+  lastJoypadSendError: { sessionId: string; seq: number; message: string } | null;
+  /** Época da carga corrente do emulador. Muda a cada carga e vira null ao
+   * parar; solicitações e confirmações de sessões anteriores são descartadas. */
+  joypadSessionId: string | null;
   selectedEntityId: string | null;
+  /** Contexto de navegação compartilhado entre tarefas do Studio (Experimental). */
+  studio: StudioContextState;
   /** ID da camada ativa no LayerPanel. null = sem camada selecionada. */
   activeLayerId: string | null;
   activeWorkspace: EditorWorkspace;
   activeViewportTab: string;
   artStudioAssetPath: string | null;
+  explorerAssetPath: string | null;
+  pixelEditorSessions: Record<string, PixelEditorSession>;
   consoleEntries: ConsoleEntry[];
   consoleVisible: boolean;
   lastParityReport: ParityReport | null;
   lastBuildSourceMap: BuildSourceMap | null;
+  lastBuildArtifact: BuildArtifactIdentity | null;
+  lastBuildFailure: BuildFailureReceipt | null;
+  presentationObservation: PresentationObservation | null;
+  nativeCodeRevision: number;
+  /** Vínculo execução → projeto do último build bem-sucedido (Experimental). */
+  lastRuntimeLink: RuntimeLink | null;
+  /** `sceneRevision` no início do último build bem-sucedido; null = nenhum build nesta sessão. */
+  lastBuildSceneRevision: number | null;
+  lastBuildTest: BuildTestReceipt | null;
+  /** Ajustes temporários da sessão de teste (não são do projeto até "Aplicar ao projeto"). */
+  testAdjustments: TestAdjustment[];
+  /** Pedido para abrir o editor de perfil REX numa instância comprovada (Experimental). */
+  rexBridgeRequest: RexBridgeRequest | null;
+  /** Última operação de arquivo com cópia de segurança (renomear asset, aplicar ao modelo). */
+  lastFileBackup: { id: string; reason: string } | null;
+  /** Cópia editada de uma ROM comercial em execução e a ROM original intocada (reverter pelo mesmo carregador). */
+  rexCopyRun: { copyPath: string; originalPath: string } | null;
   lastCrossCoreReport: CrossCoreReport | null;
   lastCycleReport: CycleReport | null;
   hwStatus: HwStatus | null;
@@ -154,7 +392,17 @@ export interface StoreActions {
   setActiveTarget: (target: "megadrive" | "snes") => void;
   setActiveScenePath: (path: string) => void;
   setEmulatorLoaded: (loaded: boolean) => void;
+  setEmulatorRomIdentity: (identity: EmulatorRomIdentity | null) => void;
+  requestEmulatorLaunch: (romPath: string, sourceLabel: string) => void;
+  clearEmulatorLaunchRequest: () => void;
   setSelectedEntityId: (id: string | null) => void;
+  /** Abre o editor da tarefa de destino empilhando a origem (seleção + câmera) para retorno. */
+  openStudioEditor: (nav: StudioNavigation) => void;
+  /** Volta à origem empilhada, restaurando workspace, seleção e câmera. */
+  returnToStudioOrigin: () => StudioReturnResult;
+  /** Refina o foco dentro da tarefa atual (ex.: outra ocorrência) sem empilhar retorno. */
+  refineStudioFocus: (patch: Partial<StudioFocus>) => void;
+  rememberWorkspaceCamera: (workspace: EditorWorkspace, camera: WorkspaceCamera) => void;
   setActiveLayerId: (id: string | null) => void;
   setActiveWorkspace: (workspace: EditorWorkspace) => void;
   /** Cria uma nova camada na cena ativa. */
@@ -169,14 +417,35 @@ export interface StoreActions {
   moveLayerDown: (layerId: string) => void;
   /** Atribui uma entidade a uma camada (remove-a de outras camadas primeiro). */
   assignEntityToLayer: (entityId: string, layerId: string | null) => void;
+  /** R3-08: editor-only locks keyed by entityLockScopeKey(project, scene), never in the scene. */
+  lockedEntityIdsByScene: Record<string, string[]>;
+  /** v1 entries lack project identity. Retained for inspection, never guessed into a project. */
+  legacyEntityLocksRetained: boolean;
+  toggleEntityLock: (scenePath: string, entityId: string) => void;
+  /** Project entry scene as last reported by the backend scene catalog (null = unknown). */
+  projectEntryScenePath: string | null;
+  setProjectEntryScenePath: (path: string | null) => void;
   setActiveViewportTab: (id: string) => void;
   setArtStudioAssetPath: (path: string | null) => void;
+  setExplorerAssetPath: (path: string | null) => void;
+  setPixelEditorSession: (projectKey: string, session: PixelEditorSession) => void;
   logMessage: (level: ConsoleEntry["level"], message: string) => void;
   logDiagnostic: (diagnostic: ActionableDiagnostic) => void;
   clearConsole: () => void;
   toggleConsole: () => void;
   setLastParityReport: (report: ParityReport | null) => void;
   setLastBuildSourceMap: (sourceMap: BuildSourceMap | null) => void;
+  setLastBuildArtifact: (artifact: BuildArtifactIdentity | null) => void;
+  setLastBuildFailure: (failure: BuildFailureReceipt | null) => void;
+  setPresentationObservation: (observation: PresentationObservation | null) => void;
+  recordNativeCodeEdit: () => void;
+  setLastRuntimeLink: (link: RuntimeLink | null) => void;
+  setLastBuildSceneRevision: (revision: number | null) => void;
+  recordBuildTestFrame: (coreEpoch: number, romSha256: string, frameIndex: number) => void;
+  setTestAdjustments: (adjustments: TestAdjustment[]) => void;
+  setRexBridgeRequest: (request: RexBridgeRequest | null) => void;
+  setLastFileBackup: (backup: { id: string; reason: string } | null) => void;
+  setRexCopyRun: (run: { copyPath: string; originalPath: string } | null) => void;
   setLastCrossCoreReport: (report: CrossCoreReport | null) => void;
   setLastCycleReport: (report: CycleReport | null) => void;
   setHwStatus: (status: HwStatus | null) => void;
@@ -185,7 +454,12 @@ export interface StoreActions {
   setHwValidationError: (revision: number, error: string) => void;
   requestHwValidationRefresh: () => void;
   resetHwValidation: () => void;
-  setActiveScene: (scene: Scene | null, sourceScene?: Scene | null) => void;
+  setActiveScene: (scene: Scene | null, sourceScene?: Scene | null, graphs?: Record<string, string>) => void;
+  /**
+   * Substitui cena resolvida e cena-fonte numa ÚNICA entrada de desfazer (ex.: remover exceção local
+   * de uma instância e re-resolver o modelo). Preserva seleção e histórico.
+   */
+  replaceScenesWithHistory: (resolved: Scene, source: Scene) => void;
   beginHistoryCapture: () => void;
   commitHistoryCapture: () => void;
   cancelHistoryCapture: () => void;
@@ -194,7 +468,9 @@ export interface StoreActions {
     patch: Partial<Entity>,
     options?: { recordHistory?: boolean }
   ) => void;
-  addEntity: (entity: Entity) => void;
+  /** Recursos de paleta da cena (plano de paletas): uma transação de desfazer. */
+  setScenePalettes: (palettes: PaletteEntry[]) => void;
+  addEntity: (entity: Entity, options?: { recordHistory?: boolean }) => void;
   removeEntity: (entityId: string) => void;
   updateBackgroundLayer: (layerId: string, patch: Partial<BackgroundLayer>) => void;
   /**
@@ -205,9 +481,27 @@ export interface StoreActions {
    * ao redor do drag para criar uma entrada única de undo.
    */
   updateCollisionMap: (tileIndex: number, value: 0 | 1) => void;
+  /** Substitui o mapa inteiro dentro de uma captura de histórico externa. */
+  setCollisionMap: (map: CollisionMap) => void;
   undo: () => void;
   redo: () => void;
   setEmulPaused: (paused: boolean) => void;
+  recordJoypadRequest: (sessionId: string, seq: number, joypad: Record<string, boolean>) => void;
+  recordJoypadAck: (
+    sessionId: string,
+    seq: number,
+    joypad: Record<string, boolean>,
+    accepted?: { epoch?: number | null; generation?: number | null; appliedAtFrame?: number | null },
+  ) => void;
+  recordJoypadSendError: (sessionId: string, seq: number, message: string) => void;
+  /** Invalida a época ANTES de qualquer await da carga/stop: durante o hold,
+   * envios são bloqueados e contados — nada antigo é aceito na janela. */
+  beginJoypadSessionHold: () => void;
+  releaseJoypadSessionHold: () => void;
+  recordJoypadBlocked: () => void;
+  setCoreEpoch: (epoch: number | null) => void;
+  setSceneSaveState: (state: SceneSaveState) => void;
+  setSceneDraftState: (state: SceneDraftState) => void;
   setViewportZoom: (zoom: number) => void;
   resetViewportZoom: () => void;
   setProjectSourceKind: (kind: string) => void;
@@ -302,6 +596,34 @@ function prunePatchAgainstBase(patch: unknown, base: unknown): unknown | undefin
   return Object.keys(pruned).length > 0 ? pruned : undefined;
 }
 
+/**
+ * On a prefab instance, a component present in the source replaces the prefab's whole
+ * component (the backend requires complete components, e.g. SpriteComponent.asset).
+ * A pruned partial patch of an inherited component would therefore be invalid, so the
+ * touched component becomes a complete local override (resolved value + patch). Only
+ * touched components are materialized; every other component stays inherited.
+ */
+function completeInheritedComponentOverrides(
+  sourcePatch: unknown,
+  sourceEntity: Entity,
+  resolvedEntity: Entity
+): unknown | undefined {
+  if (!isRecord(sourcePatch) || !isRecord(sourcePatch.components) || !sourceEntity.prefab) {
+    return sourcePatch;
+  }
+  const sourceComponents = (sourceEntity.components ?? {}) as Record<string, unknown>;
+  const resolvedComponents = (resolvedEntity.components ?? {}) as Record<string, unknown>;
+  const components: Record<string, unknown> = { ...sourcePatch.components };
+  for (const [key, value] of Object.entries(components)) {
+    const inherited = sourceComponents[key] === undefined || sourceComponents[key] === null;
+    const resolved = resolvedComponents[key];
+    if (inherited && isRecord(resolved) && isRecord(value) && key !== "logic") {
+      components[key] = mergePatchedValue(structuredClone(resolved), value);
+    }
+  }
+  return { ...sourcePatch, components };
+}
+
 function preserveInheritedGraphRef(
   sourcePatch: unknown,
   patch: unknown,
@@ -346,17 +668,20 @@ function cloneUndoEntry(entry: UndoEntry): UndoEntry {
     activeSceneSource: cloneSceneSnapshot(entry.activeSceneSource),
     selectedEntityId: entry.selectedEntityId,
     editorMode: entry.editorMode,
+    ...(entry.studioFocus ? { studioFocus: { ...entry.studioFocus } } : {}),
   };
 }
 
 function createUndoEntry(
-  state: Pick<StoreState, "activeScene" | "activeSceneSource" | "selectedEntityId" | "editorMode">
+  state: Pick<StoreState, "activeScene" | "activeSceneSource" | "selectedEntityId" | "editorMode"> &
+    Partial<Pick<StoreState, "studio">>
 ): UndoEntry {
   return {
     activeScene: cloneSceneSnapshot(state.activeScene),
     activeSceneSource: cloneSceneSnapshot(state.activeSceneSource),
     selectedEntityId: state.selectedEntityId,
     editorMode: state.editorMode,
+    ...(state.studio ? { studioFocus: { ...state.studio.focus } } : {}),
   };
 }
 
@@ -404,20 +729,216 @@ function resolveSceneSelection(scene: Scene | null, previousSelection: string | 
   return null;
 }
 
-export const useEditorStore = create<EditorState>((set) => ({
+function viewportTabForWorkspace(workspace: EditorWorkspace, current: string): string {
+  return workspace === "scene" || workspace === "logic" || workspace === "artstudio" || workspace === "game"
+    ? workspace
+    : current;
+}
+
+function restoreFocusFromUndo(state: StoreState, entry: UndoEntry): StudioContextState {
+  return entry.studioFocus ? { ...state.studio, focus: { ...entry.studioFocus } } : state.studio;
+}
+
+function saveStateAfterHistory(state: EditorState, source: Scene | null, revision: number): SceneSaveState {
+  if (state.sceneSaveState.status === "saving") return state.sceneSaveState;
+  const baseline = state.sceneDiskBaseline;
+  if (source && baseline?.projectDir === state.activeProjectDir && baseline.scenePath === state.activeScenePath
+      && state.sceneDraftState.status !== "conflict" && sceneSourcesEqual(JSON.stringify(source), baseline.sourceSceneJson)) {
+    return { status: "saved", revision, at: state.sceneSaveState.at, message: null };
+  }
+  return state.sceneSaveState;
+}
+
+// v1 is retained untouched: without a project identity its owner cannot be inferred safely.
+const ENTITY_LOCKS_KEY = "rds.editor.entityLocks.v2";
+function readEntityLocks(): Record<string, string[]> {
+  try {
+    const raw = globalThis.localStorage?.getItem(ENTITY_LOCKS_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : {};
+    if (!parsed || typeof parsed !== "object") return {};
+    return Object.fromEntries(Object.entries(parsed as Record<string, unknown>)
+      .filter(([, ids]) => Array.isArray(ids))
+      .map(([scene, ids]) => [scene, (ids as unknown[]).filter((id): id is string => typeof id === "string")]));
+  } catch {
+    return {};
+  }
+}
+function writeEntityLocks(value: Record<string, string[]>) {
+  try { globalThis.localStorage?.setItem(ENTITY_LOCKS_KEY, JSON.stringify(value)); } catch { /* editor preference only */ }
+}
+
+export const useEditorStore = create<EditorState>((set, get) => ({
   activeProjectDir: "",
+  projectSessionId: 0,
   activeProjectName: "",
   activeTarget: "megadrive",
   setActiveProject: (dir, name) =>
-    set({ activeProjectDir: dir, activeProjectName: name, lastBuildSourceMap: null }),
-  setActiveTarget: (target) => set({ activeTarget: target }),
+    set((state) => ({
+      activeProjectDir: dir,
+      projectSessionId: state.projectSessionId + 1,
+      activeProjectName: name,
+      hwStatus: null,
+      ...INITIAL_VALIDATION_STATE,
+      sceneDiskBaseline: null,
+      sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
+      lastBuildSourceMap: null,
+      lastBuildArtifact: null,
+      lastBuildFailure: null,
+      presentationObservation: null,
+      nativeCodeRevision: 0,
+      lastRuntimeLink: null,
+      lastBuildSceneRevision: null,
+      lastBuildTest: null,
+      studio: loadStudioContext(dir),
+      artStudioAssetPath: null,
+      explorerAssetPath: null,
+    })),
+  setActiveTarget: (target) => set((state) => state.activeTarget === target ? state : ({
+    activeTarget: target,
+    projectSessionId: state.projectSessionId + 1,
+    hwStatus: null,
+    ...INITIAL_VALIDATION_STATE,
+    lastBuildSourceMap: null,
+    lastBuildArtifact: null,
+    lastBuildFailure: null,
+    presentationObservation: null,
+    lastRuntimeLink: null,
+    lastBuildSceneRevision: null,
+    lastBuildTest: null,
+  })),
   activeScenePath: "",
-  setActiveScenePath: (path) => set({ activeScenePath: path }),
+  setActiveScenePath: (path) => set((state) => state.activeScenePath === path ? state : ({
+    activeScenePath: path,
+    hwStatus: null,
+    ...INITIAL_VALIDATION_STATE,
+    sceneDiskBaseline: null,
+    sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
+    projectSessionId: state.projectSessionId + 1,
+    // Captured scenes do not change a native C build or its ROM identity.
+    lastBuildSourceMap: null,
+    lastBuildArtifact: state.lastBuildArtifact?.nativeCodeRevision != null ? state.lastBuildArtifact : null,
+    lastBuildFailure: null,
+    presentationObservation: null,
+    lastRuntimeLink: null,
+    lastBuildSceneRevision: null,
+  })),
   emulatorLoaded: false,
-  setEmulatorLoaded: (loaded) => set({ emulatorLoaded: loaded }),
+  emulatorRomIdentity: null,
+  emulatorLaunchRequest: null,
+  setEmulatorLoaded: (loaded) =>
+    set(() => ({
+      emulatorLoaded: loaded,
+      emulatorRomIdentity: null,
+      presentationObservation: null,
+      // Toda transição de carga abre uma época nova (ou nenhuma, ao parar):
+      // solicitações e confirmações da carga anterior deixam de ser aceitáveis.
+      // Ancorar aqui — e não em cada call site — torna a invalidação por
+      // stop/recarga impossível de esquecer.
+      joypadSessionId: loaded ? `joypad-session-${(joypadSessionCounter += 1)}` : null,
+      lastJoypadRequest: null,
+      lastJoypadAck: null,
+      joypadLog: [],
+      lastJoypadSendError: null,
+      // Toda carga/parada encerra a sessão de teste: ajustes temporários não sobrevivem.
+      testAdjustments: [],
+    })),
+  setEmulatorRomIdentity: (identity) => set({ emulatorRomIdentity: identity, presentationObservation: null }),
+  requestEmulatorLaunch: (romPath, sourceLabel) =>
+    set({
+      emulatorLaunchRequest: {
+        requestId: (emulatorLaunchRequestCounter += 1),
+        romPath,
+        sourceLabel,
+      },
+    }),
+  clearEmulatorLaunchRequest: () => set({ emulatorLaunchRequest: null }),
 
   selectedEntityId: null,
-  setSelectedEntityId: (id) => set({ selectedEntityId: id }),
+  lockedEntityIdsByScene: readEntityLocks(),
+  legacyEntityLocksRetained: (() => {
+    try { return Object.keys(JSON.parse(globalThis.localStorage?.getItem("rds.editor.entityLocks.v1") ?? "{}") as object).length > 0; }
+    catch { return false; }
+  })(),
+  projectEntryScenePath: null,
+  setProjectEntryScenePath: (path) => set({ projectEntryScenePath: path }),
+  toggleEntityLock: (scenePath, entityId) =>
+    set((state) => {
+      if (!state.activeProjectDir || !scenePath) return {};
+      const scope = entityLockScopeKey(state.activeProjectDir, scenePath);
+      const current = state.lockedEntityIdsByScene[scope] ?? [];
+      const next = current.includes(entityId) ? current.filter((id) => id !== entityId) : [...current, entityId];
+      const lockedEntityIdsByScene = { ...state.lockedEntityIdsByScene, [scope]: next };
+      writeEntityLocks(lockedEntityIdsByScene);
+      return { lockedEntityIdsByScene };
+    }),
+  setSelectedEntityId: (id) => set((state) => ({
+    selectedEntityId: id,
+    studio: refineStudioFocusState(state.studio, { entityId: id }),
+  })),
+  studio: initialStudioContext(),
+  openStudioEditor: (nav) => {
+    set((state) => {
+      const currentCamera: WorkspaceCamera = {
+        ...(state.studio.cameras[state.activeWorkspace] ?? { panX: 0, panY: 0 }),
+        zoom: state.viewportZoom,
+      };
+      // A origem guarda a seleção real do editor, mesmo que ela tenha sido feita fora do Studio
+      // (hierarquia, viewport): o retorno precisa reencontrá-la.
+      const origin =
+        state.studio.focus.entityId === state.selectedEntityId
+          ? state.studio
+          : refineStudioFocusState(state.studio, {
+              entityId: state.selectedEntityId,
+              task: workspaceToStudioTask(state.activeWorkspace),
+            });
+      const studio = navigateStudio(
+        origin,
+        { workspace: state.activeWorkspace, camera: currentCamera },
+        nav
+      );
+      const workspace = STUDIO_TASK_WORKSPACE[nav.focus.task];
+      const targetCamera = studio.cameras[workspace];
+      return {
+        studio,
+        activeWorkspace: workspace,
+        activeViewportTab: viewportTabForWorkspace(workspace, state.activeViewportTab),
+        selectedEntityId: nav.focus.entityId === null ? null : studio.focus.entityId ?? state.selectedEntityId,
+        ...(targetCamera ? { viewportZoom: targetCamera.zoom } : {}),
+      };
+    });
+    const { activeProjectDir, studio } = get();
+    saveStudioContext(activeProjectDir, studio);
+  },
+  returnToStudioOrigin: () => {
+    const state = get();
+    const result = returnStudioOrigin(state.studio, state.activeScene);
+    if (!result.ok) {
+      return result;
+    }
+    const camera = result.entry.camera;
+    set({
+      studio: result.state,
+      activeWorkspace: result.entry.workspace,
+      activeViewportTab: viewportTabForWorkspace(result.entry.workspace, state.activeViewportTab),
+      selectedEntityId: result.state.focus.entityId,
+      ...(camera ? { viewportZoom: camera.zoom } : {}),
+    });
+    saveStudioContext(state.activeProjectDir, result.state);
+    return result;
+  },
+  refineStudioFocus: (patch) => {
+    set((state) => {
+      const studio = refineStudioFocusState(state.studio, patch);
+      return {
+        studio,
+        ...(patch.entityId !== undefined ? { selectedEntityId: patch.entityId } : {}),
+      };
+    });
+    const { activeProjectDir, studio } = get();
+    saveStudioContext(activeProjectDir, studio);
+  },
+  rememberWorkspaceCamera: (workspace, camera) =>
+    set((state) => ({ studio: rememberWorkspaceCameraState(state.studio, workspace, camera) })),
 
   activeWorkspace: "scene",
   setActiveWorkspace: (workspace) => set({ activeWorkspace: workspace }),
@@ -425,6 +946,12 @@ export const useEditorStore = create<EditorState>((set) => ({
   setActiveViewportTab: (id) => set({ activeViewportTab: id }),
   artStudioAssetPath: null,
   setArtStudioAssetPath: (path) => set({ artStudioAssetPath: path }),
+  explorerAssetPath: null,
+  setExplorerAssetPath: (path) => set({ explorerAssetPath: path }),
+  pixelEditorSessions: {},
+  setPixelEditorSession: (projectKey, session) => set((state) => ({
+    pixelEditorSessions: { ...state.pixelEditorSessions, [projectKey]: session },
+  })),
 
   consoleEntries: [
     {
@@ -477,7 +1004,45 @@ export const useEditorStore = create<EditorState>((set) => ({
   lastParityReport: null,
   setLastParityReport: (report) => set({ lastParityReport: report }),
   lastBuildSourceMap: null,
-  setLastBuildSourceMap: (sourceMap) => set({ lastBuildSourceMap: sourceMap }),
+  lastBuildArtifact: null,
+  lastBuildFailure: null,
+  presentationObservation: null,
+  nativeCodeRevision: 0,
+  setLastBuildArtifact: (artifact) => set({ lastBuildArtifact: artifact }),
+  setLastBuildFailure: (failure) => set({ lastBuildFailure: failure }),
+  setPresentationObservation: (observation) => set({ presentationObservation: observation }),
+  recordNativeCodeEdit: () => set((state) => ({ nativeCodeRevision: state.nativeCodeRevision + 1 })),
+  setLastBuildSourceMap: (sourceMap) => set({ lastBuildSourceMap: sourceMap, lastBuildArtifact: null }),
+  lastRuntimeLink: null,
+  setLastRuntimeLink: (link) => set({ lastRuntimeLink: link }),
+  lastBuildSceneRevision: null,
+  setLastBuildSceneRevision: (revision) => set({ lastBuildSceneRevision: revision }),
+  lastBuildTest: null,
+  recordBuildTestFrame: (coreEpoch, romSha256, frameIndex) => {
+    const state = get();
+    if (!Number.isSafeInteger(frameIndex) || frameIndex <= 0 || !state.emulatorLoaded || state.joypadSessionHold
+      || state.coreEpoch !== coreEpoch || !state.joypadSessionId
+      || state.emulatorRomIdentity?.sha256 !== romSha256
+      || (state.lastBuildArtifact?.sha256 ?? state.lastBuildSourceMap?.artifact.sha256) !== romSha256
+      || (state.lastBuildSceneRevision === null && state.lastBuildArtifact?.nativeCodeRevision == null)
+      || state.lastBuildTest?.sessionId === state.joypadSessionId) return;
+    set({ lastBuildTest: {
+      projectDir: state.activeProjectDir,
+      sceneRevision: state.lastBuildSceneRevision ?? state.sceneRevision,
+      romSha256,
+      coreEpoch,
+      sessionId: state.joypadSessionId,
+      testedAt: Date.now(),
+    } });
+  },
+  testAdjustments: [],
+  setTestAdjustments: (adjustments) => set({ testAdjustments: adjustments }),
+  rexBridgeRequest: null,
+  setRexBridgeRequest: (request) => set({ rexBridgeRequest: request }),
+  lastFileBackup: null,
+  setLastFileBackup: (backup) => set({ lastFileBackup: backup }),
+  rexCopyRun: null,
+  setRexCopyRun: (run) => set({ rexCopyRun: run }),
   lastCrossCoreReport: null,
   setLastCrossCoreReport: (report) => set({ lastCrossCoreReport: report }),
   lastCycleReport: null,
@@ -523,7 +1088,17 @@ export const useEditorStore = create<EditorState>((set) => ({
 
   activeScene: null,
   activeSceneSource: null,
-  setActiveScene: (scene, sourceScene = scene) =>
+  replaceScenesWithHistory: (resolved, source) =>
+    set((state) => ({
+      undoStack: pushHistoryEntry(state.undoStack, createUndoEntry(state)),
+      redoStack: [],
+      pendingHistorySnapshot: null,
+      activeScene: cloneSceneSnapshot(resolved),
+      activeSceneSource: cloneSceneSnapshot(source),
+      selectedEntityId: resolveSceneSelection(resolved, state.selectedEntityId),
+      sceneRevision: state.sceneRevision + 1,
+    })),
+  setActiveScene: (scene, sourceScene = scene, graphs) =>
     set((state) => {
       const nextRevision = scene ? state.sceneRevision + 1 : 0;
       const nextValidationState =
@@ -542,8 +1117,19 @@ export const useEditorStore = create<EditorState>((set) => ({
       return {
         activeScene: scene,
         activeSceneSource: sourceScene,
+        sceneDiskBaseline: sourceScene ? {
+          projectDir: state.activeProjectDir,
+          scenePath: state.activeScenePath,
+          sourceSceneJson: JSON.stringify(sourceScene),
+          graphs: graphs ?? (scene ? sceneGraphBaseline(sourceScene, scene) : {}),
+        } : null,
+        sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
         selectedEntityId: resolveSceneSelection(scene, state.selectedEntityId),
         sceneRevision: nextRevision,
+        // A scene set from outside (disk load/hydration) is the saved baseline.
+        sceneSaveState: scene
+          ? { status: "saved" as const, message: null, at: Date.now(), revision: nextRevision }
+          : { status: "idle" as const, message: null, at: null, revision: null },
         undoStack: [],
         redoStack: [],
         pendingHistorySnapshot: null,
@@ -588,9 +1174,13 @@ export const useEditorStore = create<EditorState>((set) => ({
       const sourceEntity =
         sourceScene.entities.find((entity) => entity.entity_id === entityId) ?? resolvedEntity;
 
-      const sourcePatch = preserveInheritedGraphRef(
-        prunePatchAgainstBase(patch, resolvedEntity),
-        patch,
+      const sourcePatch = completeInheritedComponentOverrides(
+        preserveInheritedGraphRef(
+          prunePatchAgainstBase(patch, resolvedEntity),
+          patch,
+          sourceEntity,
+          resolvedEntity
+        ),
         sourceEntity,
         resolvedEntity
       );
@@ -619,7 +1209,21 @@ export const useEditorStore = create<EditorState>((set) => ({
         sceneRevision: state.sceneRevision + 1,
       };
     }),
-  addEntity: (entity) =>
+  setScenePalettes: (palettes) =>
+    set((state) => {
+      if (!state.activeScene) return {};
+      const sourceScene =
+        state.activeSceneSource?.scene_id === state.activeScene.scene_id ? state.activeSceneSource : state.activeScene;
+      return {
+        undoStack: pushHistoryEntry(state.undoStack, createUndoEntry(state)),
+        redoStack: [],
+        pendingHistorySnapshot: null,
+        activeScene: { ...state.activeScene, palettes: structuredClone(palettes) },
+        activeSceneSource: { ...sourceScene, palettes: structuredClone(palettes) },
+        sceneRevision: state.sceneRevision + 1,
+      };
+    }),
+  addEntity: (entity, options) =>
     set((state) => {
       if (!state.activeScene) return {};
       const sourceScene =
@@ -627,9 +1231,11 @@ export const useEditorStore = create<EditorState>((set) => ({
           ? state.activeSceneSource
           : state.activeScene;
       return {
-        undoStack: pushHistoryEntry(state.undoStack, createUndoEntry(state)),
-        redoStack: [],
-        pendingHistorySnapshot: null,
+        ...(options?.recordHistory === false ? {} : {
+          undoStack: pushHistoryEntry(state.undoStack, createUndoEntry(state)),
+          redoStack: [],
+          pendingHistorySnapshot: null,
+        }),
         activeScene: {
           ...state.activeScene,
           entities: [...state.activeScene.entities, entity],
@@ -648,17 +1254,33 @@ export const useEditorStore = create<EditorState>((set) => ({
       const sourceScene = preferredSourceScene.entities.some((entity) => entity.entity_id === entityId)
         ? preferredSourceScene
         : state.activeScene;
+      const patterns = state.activeScene.entities.find(e => e.entity_id === entityId)?.components.camera?.patterns ?? [];
+      const receiver = patterns.length ? state.activeScene.entities.find(e => e.entity_id !== entityId && e.components.camera &&
+        (e.components.camera.patterns?.length ?? 0) + patterns.length <= 32) : undefined;
+      if (patterns.length && !receiver) return {
+        consoleVisible: true,
+        consoleEntries: [...state.consoleEntries, { id: ++_entryCounter, level: "error" as const,
+          message: "Esta câmera guarda padrões próprios. Crie outra câmera com espaço na biblioteca antes de removê-la; os padrões serão transferidos na mesma ação de Desfazer.",
+          timestamp: new Date().toLocaleTimeString() }],
+      };
+      const transferredPatterns = structuredClone(patterns).map(p => receiver?.components.camera?.patterns?.some(v => v.id === p.id) ? { ...p, id: crypto.randomUUID() } : p);
+      const remaining = (scene: Scene) => scene.entities.filter(e => e.entity_id !== entityId).map(e => {
+        if (e.entity_id !== receiver?.entity_id) return e;
+        const camera = { ...receiver.components.camera!, ...e.components.camera, patterns: receiver.components.camera!.patterns };
+        const own = camera.patterns ?? [];
+        return { ...e, components: { ...e.components, camera: { ...camera, patterns: [...own, ...transferredPatterns] } } };
+      });
       return {
         undoStack: pushHistoryEntry(state.undoStack, createUndoEntry(state)),
         redoStack: [],
         pendingHistorySnapshot: null,
         activeScene: {
           ...state.activeScene,
-          entities: state.activeScene.entities.filter((entity) => entity.entity_id !== entityId),
+          entities: remaining(state.activeScene),
         },
         activeSceneSource: {
           ...sourceScene,
-          entities: sourceScene.entities.filter((entity) => entity.entity_id !== entityId),
+          entities: remaining(sourceScene),
         },
         selectedEntityId: state.selectedEntityId === entityId ? null : state.selectedEntityId,
         sceneRevision: state.sceneRevision + 1,
@@ -697,6 +1319,18 @@ export const useEditorStore = create<EditorState>((set) => ({
         },
         activeSceneSource: state.activeSceneSource
           ? { ...state.activeSceneSource, collision_map: updatedCollisionMap }
+          : state.activeSceneSource,
+        sceneRevision: state.sceneRevision + 1,
+      };
+    }),
+  setCollisionMap: (map) =>
+    set((state) => {
+      if (!state.activeScene || !state.activeScene.collision_map) return {};
+      const nextMap = structuredClone(map);
+      return {
+        activeScene: { ...state.activeScene, collision_map: nextMap },
+        activeSceneSource: state.activeSceneSource
+          ? { ...state.activeSceneSource, collision_map: structuredClone(map) }
           : state.activeSceneSource,
         sceneRevision: state.sceneRevision + 1,
       };
@@ -743,10 +1377,12 @@ export const useEditorStore = create<EditorState>((set) => ({
         activeSceneSource: cloneSceneSnapshot(previous.activeSceneSource),
         selectedEntityId: previous.selectedEntityId,
         editorMode: previous.editorMode,
+        studio: restoreFocusFromUndo(state, previous),
         undoStack: state.undoStack.slice(0, -1),
         redoStack: pushHistoryEntry(state.redoStack, createUndoEntry(state)),
         pendingHistorySnapshot: null,
         sceneRevision: state.sceneRevision + 1,
+        sceneSaveState: saveStateAfterHistory(state, previous.activeSceneSource, state.sceneRevision + 1),
       };
     }),
   redo: () =>
@@ -763,15 +1399,90 @@ export const useEditorStore = create<EditorState>((set) => ({
         activeSceneSource: cloneSceneSnapshot(next.activeSceneSource),
         selectedEntityId: next.selectedEntityId,
         editorMode: next.editorMode,
+        studio: restoreFocusFromUndo(state, next),
         undoStack: pushHistoryEntry(state.undoStack, createUndoEntry(state)),
         redoStack: state.redoStack.slice(0, -1),
         pendingHistorySnapshot: null,
         sceneRevision: state.sceneRevision + 1,
+        sceneSaveState: saveStateAfterHistory(state, next.activeSceneSource, state.sceneRevision + 1),
       };
     }),
 
   emulPaused: false,
+  lastJoypadRequest: null,
+  lastJoypadAck: null,
+  joypadLog: [],
+  lastJoypadSendError: null,
+  joypadSessionId: null,
+  joypadSessionHold: false,
+  joypadBlockedCount: 0,
+  coreEpoch: null,
+  sceneSaveState: { status: "idle", message: null, at: null, revision: null },
+  sceneDraftState: { ...EMPTY_SCENE_DRAFT_STATE },
+  sceneDiskBaseline: null,
   setEmulPaused: (paused) => set({ emulPaused: paused }),
+  beginJoypadSessionHold: () =>
+    set({
+      joypadSessionHold: true,
+      // Invalidação ANTES de qualquer await da operação: a época corrente
+      // deixa de existir aqui, não quando a resposta chegar.
+      joypadSessionId: null,
+      lastJoypadRequest: null,
+      lastJoypadAck: null,
+      lastJoypadSendError: null,
+      joypadLog: [],
+    }),
+  releaseJoypadSessionHold: () => set({ joypadSessionHold: false }),
+  recordJoypadBlocked: () =>
+    set((state) => ({ joypadBlockedCount: state.joypadBlockedCount + 1 })),
+  setCoreEpoch: (epoch) => set({ coreEpoch: epoch }),
+  setSceneSaveState: (sceneSaveState) => set({ sceneSaveState }),
+  setSceneDraftState: (sceneDraftState) => set({ sceneDraftState }),
+  recordJoypadRequest: (sessionId, seq, joypad) =>
+    set((state) =>
+      !state.joypadSessionHold && state.joypadSessionId === sessionId
+        ? {
+            lastJoypadRequest: { sessionId, seq, joypad },
+            lastJoypadSendError: null,
+            joypadLog: [
+              ...state.joypadLog,
+              { sessionId, seq, joypad, outcome: "requested" as const, epoch: null, generation: null, appliedAtFrame: null, message: null },
+            ].slice(-JOYPAD_LOG_CAPACITY),
+          }
+        : {},
+    ),
+  recordJoypadAck: (sessionId, seq, joypad, accepted) =>
+    set((state) => {
+      // Sessão errada (ack que atravessou stop/recarga): descartado por inteiro.
+      if (state.joypadSessionId !== sessionId) return {};
+      // O desfecho DESTA sequência é registrado mesmo que outra já tenha sido solicitada: o backend
+      // aceitou aquela transição, e isso continua verdadeiro.
+      const joypadLog = state.joypadLog.map((t) =>
+        t.sessionId === sessionId && t.seq === seq
+          ? {
+              ...t,
+              outcome: "accepted" as const,
+              epoch: accepted?.epoch ?? null,
+              generation: accepted?.generation ?? null,
+              appliedAtFrame: accepted?.appliedAtFrame ?? null,
+            }
+          : t,
+      );
+      // O estado ATUAL só muda com o ack da solicitação corrente: uma confirmação antiga nunca o substitui.
+      return state.lastJoypadRequest?.sessionId === sessionId && state.lastJoypadRequest?.seq === seq
+        ? { joypadLog, lastJoypadAck: { sessionId, seq, joypad } }
+        : { joypadLog };
+    }),
+  recordJoypadSendError: (sessionId, seq, message) =>
+    set((state) => {
+      if (state.joypadSessionId !== sessionId) return {};
+      const joypadLog = state.joypadLog.map((t) =>
+        t.sessionId === sessionId && t.seq === seq ? { ...t, outcome: "refused" as const, message } : t,
+      );
+      return state.lastJoypadRequest?.sessionId === sessionId && state.lastJoypadRequest?.seq === seq
+        ? { joypadLog, lastJoypadSendError: { sessionId, seq, message } }
+        : { joypadLog };
+    }),
 
   viewportZoom: 1.75,
   setViewportZoom: (zoom) =>

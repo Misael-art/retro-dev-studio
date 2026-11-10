@@ -1,0 +1,14 @@
+{
+  "schema": "rex-preserved-qualification-failure/v1",
+  "run": "qualify-v2-002",
+  "overall": "FAIL_SCREEN_PLUMBING",
+  "basic_controls": "four passed, distinct from failed screen check",
+  "reason": "assumed direct RGB32; documented pixels may be palette indices",
+  "instrument_sha256": "1789e3c0f60f63e119329649756edaea68c6151b3beebdce2d49825827ced479",
+  "verified_failed_source": "/home/misael/rds-scratch/commercial_recovery_20261016/qualify-v2-002-preserved-input/observe.lua",
+  "source_recovery": "exact byte reconstruction after correction, verified against original measured SHA; not claimed as untouched source file",
+  "raw_results": "/home/misael/rds-scratch/commercial_recovery_20261016/qualify-v2-002",
+  "next_protocol": "m2-followup-pixel-indexed-addendum.json",
+  "new_protocol_not_measured_yet": true,
+  "protocol_preservation": "initial version restored from bc590f4; correction separated into new immutable addendum; overwritten draft history explicitly retained as failure metadata"
+}

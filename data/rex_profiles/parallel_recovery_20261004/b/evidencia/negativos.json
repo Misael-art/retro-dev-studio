@@ -1,0 +1,55 @@
+{
+ "schema_version": "rex-parallel-b/cadeia-sonic/2",
+ "componente": "negativos",
+ "tempo_utc": "2026-10-05T02:37:42.956377+00:00",
+ "pins": {
+  "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "decoder_sha256": "a9ed92f96fbdd7e0828e7612e83eff24c65aee52fd5a82efee53581dc1a7f8b2"
+ },
+ "resultados": [
+  {
+   "negativo": "rom-errada",
+   "recusado": true,
+   "codigo": "rom-errada",
+   "motivo": "[rom-errada] SHA-256 diverge do pin (c2c6d750e203 != c7da53a10c31); recusado antes de promover qualquer saida"
+  },
+  {
+   "negativo": "sitio-alterado",
+   "recusado": true,
+   "codigo": "sitio-alterado",
+   "motivo": "[sitio-alterado] byte 0x1B6D2 mutado: sitios divergem"
+  },
+  {
+   "negativo": "destino-alterado",
+   "recusado": true,
+   "codigo": "destino-alterado",
+   "motivo": "[destino-alterado] destino $C00004 (porta VDP) diverge do pin WRAM $FF4000"
+  },
+  {
+   "negativo": "stream-fora-da-tabela",
+   "recusado": true,
+   "codigo": "stream-fora-da-tabela",
+   "motivo": "[stream-fora-da-tabela] offset 0x99999 nao pertence a tabela 0x1b64c (entradas validas: ['0x65432', '0x656ac', '0x65abe', '0x65e1a', '0x662f4', '0x667c6'])"
+  },
+  {
+   "negativo": "geometria-errada-64x32",
+   "recusado": true,
+   "codigo": "geometria-errada",
+   "motivo": "[geometria-errada] consumidor prova grade 64x64 de 1 byte (move.b em 0x1B6F8 + salto de padding em 0x1B6FE); grade pedida 32x64 e recusada"
+  },
+  {
+   "negativo": "geometria-errada-stride64",
+   "recusado": true,
+   "codigo": "geometria-errada",
+   "motivo": "[geometria-errada] consumidor prova 64 linhas x 64 colunas com stride 128 (bytes 0x1B6F4-0x1B702); geometria pedida 64x64 stride 64 recusada"
+  },
+  {
+   "negativo": "consumidor-ausente",
+   "recusado": true,
+   "codigo": "consumidor-ausente",
+   "motivo": "[consumidor-ausente] 37 sitios ausentes/zerados — cadeia nao provada"
+  }
+ ],
+ "nota_identidade": "decode duplo mede DETERMINISMO, nunca identidade com o consumo do jogo (sem execucao nesta frente)",
+ "veredito": "7/7 recusas observadas"
+}

@@ -1,0 +1,44 @@
+{
+  "schema": "rex-copy-grid-certification/v1",
+  "command": "TMPDIR=<owned scratch>/tmp CARGO_BUILD_JOBS=1 npm run host:certify",
+  "exit_code": 0,
+  "state": "READY",
+  "authoritative_evidence": "host-certify.log (full gate output and final READY; CLI exit 0 recorded)",
+  "log_sha256": "ee370b64d5214e34fa32dbac9cfb3acb9c25a7fbcbfce1b9b8c8a1fef8427cdd",
+  "host_fingerprint": "60249508aff61897cdd43160d4716b2344d69282507a36c5a457c0028143f6e2",
+  "lock_digest": "dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377",
+  "frontend": {
+    "passed": 1043,
+    "skipped": 3
+  },
+  "rust": {
+    "passed": 1036,
+    "ignored": 93
+  },
+  "gates_passed": [
+    "check:tree",
+    "lint",
+    "tsc --noEmit",
+    "npm test",
+    "cargo clippy --lib -- -D warnings",
+    "cargo test --lib -- --nocapture --test-threads=1",
+    "official SGDK/PVSnesLib upstream with decomp tools"
+  ],
+  "additional_checks_passed": [
+    "cargo clippy (default targets) -- -D warnings",
+    "cargo fmt --check",
+    "git diff --check",
+    "canonical debug build"
+  ],
+  "later_readiness_snapshot": {
+    "mode": "diagnose",
+    "generated_at": "2026-10-16T17:50:54.031Z",
+    "state": "READY",
+    "gates": [],
+    "note": "Reverse GUI preflight reran diagnose AFTER successful certify and overwrote canonical host-readiness.json; this later diagnose is not the certify gate report."
+  },
+  "app_sha256": "51b338ced43399545e7df6388d270a632991050083d32659db8369e8c77acc02",
+  "open_issue": "preexisting nodegraph-authoring sound variability remains open",
+  "raw_log_sha256": "ec587fae13290ae16a2bf9a85f178faf099f877ce9ea5598c105399e13cfc828",
+  "log_normalization": "Versioned copy trims trailing whitespace/empty EOF only; raw log unchanged and pinned in LOG-PROVENANCE.json."
+}

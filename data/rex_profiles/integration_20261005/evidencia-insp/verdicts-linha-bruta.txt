@@ -1,0 +1,6 @@
+RUN-1 2026-10-05T11:20 (harness com bug de comparacao, NAO promovivel):
+ERRO: sonda.tabela_relida_da_rom: {"observado":[{"offset_stream":"0x65432","ok":true,"hex_entrada":"00065432","lido_hex":"0b0f00020000"},{"offset_stream":"0x656ac","ok":true,"hex_entrada":"000656ac","lido_hex":"0b0f00000000"},{"offset_stream":"0x65abe","ok":true,"hex_entrada":"00065abe","lido_hex":"0b0700020000"},{"offset_stream":"0x65e1a","ok":true,"hex_entrada":"00065e1a","lido_hex":"0b0f00020000"},{"offset_stream":"0x662f4","ok":true,"hex_entrada":"000662f4","lido_hex":"0b0f00020000"},{"offset_stream":"0x667c6","ok":true,"hex_entrada":"000667c6","lido_hex":"0b0f00020000"}]}
+RUN-2 2026-10-05T11:27 (assertao corrigida em d614fd2):
+OK: Sonic consumers inspection E2E; allPass=true; report=/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-05T11-27-58-455Z-consumers-inspection/report.json
+REGRESSAO sequencia 2026-10-05T11:15:
+OK: Sonic sequencia journey E2E; allPass=true; report=/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/inspection-2026-10-05T11-15-13-552Z-sequencia-journey/report.json

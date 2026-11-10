@@ -1,0 +1,25 @@
+{
+  "schema": "rex-cross-runtime-correspondence-addendum/v1",
+  "id": "M2-APP-CORRESPONDENCE-002",
+  "before_app_measurement": true,
+  "prior_failure": "m2-cross-runtime-final-failure.json",
+  "reference_phase": "decoded resource copy output before subsequent game writes",
+  "expected_layout_sha256": "b691f2626e5eb4fd4ff5a03f18f14b32d5f888b61de796b596bfc1dc8801ba46",
+  "reference_independence": "derived from pinned4096 byte plain, stride128 and pre-copy zeroed holes; independently verified in commercial001 before GX sample",
+  "reference_not_from_modified_capture": true,
+  "source_replay_sha256": "d2129df01b23fe69db5ffdb689e158715c72bb48967303443f01ea16b5c40b81",
+  "new_spec_sha256": "1de482d169a405e256209389fc1c7846c6334978be2e7eb5c15f0bf2d7229540",
+  "spec_path": "/home/misael/rds-scratch/commercial_recovery_20261016/prepared-replay-v2-001/app-spec-correspondence-v2.json",
+  "unchanged_controls": "wrong ROM/state/framebuffer, fresh loads, original/original, exact native framebuffer and RAM versus separately prepared GX reference, canvas/core equality",
+  "limits": [
+    "does not claim MAME/GX final-state equality",
+    "does not assign a measured MAME call to the app session",
+    "same GX core replay reference is session correspondence, not independent visual/game oracle"
+  ],
+  "expected_guards": [
+    "same ROM/core/app SHA",
+    "invariant8128 byte layout matches prior initial-copy reference",
+    "separate runtime and execution identities"
+  ],
+  "status": "FROZEN_BEFORE_APP_RUN"
+}

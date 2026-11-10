@@ -1,0 +1,11 @@
+check:tree rc=0 :: OK: Estrutura da raiz conforme docs/08_TREE_ARCHITECTURE.md. 
+lint rc=0 :: 
+tsc rc=0 :: 
+vitest rc=0 ::  Test Files  106 passed | 1 skipped (107)       Tests  1026 passed | 6 skipped (1032) 
+fmt rc=0 :: 
+clippy rc=0 ::     Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.65s 
+cargo-test rc=0 :: test tools::reverse::loader::tests::rex02_out_of_profile_is_rejected_with_actionable_error ... ok test tools::reverse::loader::tests::rex02_short_inputs_return_structured_error_without_panic ... ok test result: ok. 1026 passed; 0 failed; 92 ignored; 0 measured; 0 filtered out; finished in 53.35s 
+core-oracle rc=0 ::     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.29s test tools::reverse::decomp::rex_gameplay::tests::rex_gate_variante_autoral_no_core_original_e_copia_editada ... original: 60 casos, 0 divergências; cópia (T=100): 0 divergências; 5 casos mudaram com a edição test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1117 filtered out; finished in 0.09s 
+byor-equivalencia rc=0 ::     Finished `test` profile [unoptimized + debuginfo] target(s) in 0.28s test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 1116 filtered out; finished in 1.27s 
+byor-registros-curados rc=0 :: RDS_JUMP_DELTA_ROM 0x1732a: "other_target" RDS_JUMP_DELTA_ROM 0x1a170: "other_target" test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1117 filtered out; finished in 1.03s 
+crate-rex-gameplay :: test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s 

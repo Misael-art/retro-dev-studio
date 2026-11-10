@@ -17,6 +17,75 @@ pub struct EmitOutput {
     pub resources_res: String,
 }
 
+/// Build-host allocation guard, not a VDP budget. Large sparse animation grids
+/// are staged as one row per resource; the logical animation indices stay intact.
+pub(crate) const SGDK_SPRITE_CANVAS_MAX_PIXELS: u64 = 64 * 1024 * 1024;
+
+pub(crate) fn sprite_resource_pages(asset: &SpriteAsset) -> Vec<SpriteAsset> {
+    let longest = asset
+        .animations
+        .iter()
+        .map(|a| a.frames.len())
+        .max()
+        .unwrap_or(0);
+    let pixels = u64::from(asset.frame_width.max(8))
+        .saturating_mul(u64::from(asset.frame_height.max(8)))
+        .saturating_mul(longest as u64)
+        .saturating_mul(asset.animations.len() as u64);
+    if asset.animations.len() < 2
+        || asset.animations.len() > 255
+        || longest > 255
+        || pixels <= SGDK_SPRITE_CANVAS_MAX_PIXELS
+    {
+        return vec![asset.clone()];
+    }
+    asset
+        .animations
+        .iter()
+        .enumerate()
+        .map(|(i, animation)| {
+            let mut page = asset.clone();
+            page.resource_name = format!("{}__rds_page_{i}", asset.resource_name);
+            page.asset_path = format!(
+                "rds_generated/sprites/{}/animation_{i}.bmp",
+                asset.resource_name
+            );
+            page.animations = vec![animation.clone()];
+            page.default_animation = Some(animation.clone());
+            page.animation_count = 1;
+            page
+        })
+        .collect()
+}
+
+fn render_sprite_page_definitions(out: &mut String, ast: &AstOutput) -> bool {
+    let mut init = String::new();
+    for asset in &ast.sprite_assets {
+        let pages = sprite_resource_pages(asset);
+        if pages.len() <= 1 {
+            continue;
+        }
+        let name = &asset.resource_name;
+        out.push_str(&format!(
+            "static SpriteDefinition {name};\nstatic Animation* rds_{name}_animation_refs[{}];\n",
+            pages.len()
+        ));
+        init.push_str(&format!("    {name} = {};\n    {name}.numAnimation = {};\n    {name}.animations = rds_{name}_animation_refs;\n", pages[0].resource_name, pages.len()));
+        for (i, page) in pages.iter().enumerate() {
+            let resource = &page.resource_name;
+            init.push_str(&format!("    rds_{name}_animation_refs[{i}] = {resource}.animations[0];\n    if ({resource}.maxNumTile > {name}.maxNumTile) {name}.maxNumTile = {resource}.maxNumTile;\n    if ({resource}.maxNumSprite > {name}.maxNumSprite) {name}.maxNumSprite = {resource}.maxNumSprite;\n"));
+        }
+    }
+    if init.is_empty() {
+        return false;
+    }
+    // Static bounded tables; no allocator or additional work in the frame loop.
+    out.push_str(&format!(
+        "static void rds_init_sprite_pages(void) {{\n{init}}}\n\n"
+    ));
+    true
+}
+
 #[derive(Debug, Clone)]
 struct InputCommandSpec {
     id: String,
@@ -32,18 +101,75 @@ pub fn emit_sgdk(ast: &AstOutput, project_name: &str) -> EmitOutput {
 
 /// Gera código C (SGDK) a partir do AST + dados opcionais do collision map.
 /// Emite `rds_collision_map[]` como array estático se `collision_map_data` for Some.
+/// Como `emit_sgdk_with_collision`, cumprindo o plano de paletas (bancos, texto e trocas).
+pub fn emit_sgdk_with_palette_plan(
+    ast: &AstOutput,
+    project_name: &str,
+    collision_map_data: Option<&[u8]>,
+    palette: EmitPalette,
+) -> EmitOutput {
+    PALETTE.with(|p| *p.borrow_mut() = Some(palette));
+    let output = emit_sgdk_with_collision(ast, project_name, collision_map_data);
+    PALETTE.with(|p| *p.borrow_mut() = None);
+    output
+}
+
 pub fn emit_sgdk_with_collision(
     ast: &AstOutput,
     project_name: &str,
     collision_map_data: Option<&[u8]>,
 ) -> EmitOutput {
+    let mut main_c = build_main_c_with_collision(ast, project_name, collision_map_data);
+    if ast
+        .sprite_assets
+        .iter()
+        .flat_map(|asset| &asset.animations)
+        .any(|animation| {
+            animation.frame_times.as_ref().is_some_and(|times| {
+                times.len() != animation.frames.len()
+                    || times.iter().any(|time| !(1..=255).contains(time))
+            })
+        })
+    {
+        main_c.insert_str(0, "#error Duracoes por quadro invalidas: use uma duracao de 1 a 255 ticks por ocorrencia.\n");
+    }
     EmitOutput {
-        main_c: build_main_c_with_collision(ast, project_name, collision_map_data),
+        main_c,
         resources_res: build_resources_res(ast),
     }
 }
 
 fn build_main_c_with_collision(
+    ast: &AstOutput,
+    project_name: &str,
+    collision_map_data: Option<&[u8]>,
+) -> String {
+    // Tile ground/walls need rds_solid_at, which exists only with collision map data.
+    let tile_helpers = collision_map_data.is_some_and(|data| !data.is_empty());
+    let bodies: std::collections::HashMap<String, (u32, u32)> = if tile_helpers {
+        collect_physics_applications(ast)
+            .into_iter()
+            .filter(|physics| physics.gravity)
+            .filter_map(|physics| {
+                physics
+                    .ground
+                    .map(|g| (physics.var_name, (g.body_width, g.body_height)))
+            })
+            .collect()
+    } else {
+        Default::default()
+    };
+    WALL_BODIES.with(|cell| *cell.borrow_mut() = bodies);
+    PATH_PLATFORMS.with(|cell| *cell.borrow_mut() = super::path_runtime::collect_platforms(ast));
+    TILEMAP_PLANES.with(|cell| *cell.borrow_mut() = resolved_tilemap_planes(ast));
+    let main_c = build_main_c_inner(ast, project_name, collision_map_data);
+    WALL_BODIES.with(|cell| cell.borrow_mut().clear());
+    PATH_PLATFORMS.with(|cell| cell.borrow_mut().clear());
+    TILEMAP_PLANES.with(|cell| cell.borrow_mut().clear());
+    main_c
+}
+
+fn build_main_c_inner(
     ast: &AstOutput,
     project_name: &str,
     collision_map_data: Option<&[u8]>,
@@ -56,13 +182,39 @@ fn build_main_c_with_collision(
     let raster_lines = collect_raster_lines(ast);
     let scroll_tilemap_layers = collect_scroll_tilemap_layers(ast);
     let logic_vars = collect_logic_var_names(ast);
+    let has_rom_addq_word = ast
+        .logic_scripts
+        .iter()
+        .any(|script| ops_contain_rom_addq_word(&script.ops));
+    let has_rom_branch_compare_word = ast
+        .logic_scripts
+        .iter()
+        .any(|script| ops_contain_rom_branch_compare_word(&script.ops));
     let has_logic_overlap = ast.logic_scripts.iter().any(script_uses_overlap);
     let input_commands = collect_input_commands(ast);
     let unsupported_semantics = crate::compiler::ast_generator::collect_unsupported_semantics(ast);
     let hardware_event_scripts = collect_hardware_event_scripts(ast);
+    let logic_velocity_targets = collect_logic_velocity_targets(ast);
     let sfx_resources = collect_sfx_resources(ast);
     let bgm_tracks = collect_bgm_tracks(ast);
     let runtime_probe_enabled = runtime_evidence_probe_enabled();
+    let managed_sprites = ast
+        .nodes
+        .iter()
+        .filter_map(|node| {
+            if let AstNode::SpawnSprite { resource_name, .. } = node {
+                ast.sprite_assets
+                    .iter()
+                    .find(|a| a.resource_name == *resource_name)
+                    .map(|a| {
+                        u64::from(a.frame_width.div_ceil(8)) * u64::from(a.frame_height.div_ceil(8))
+                    })
+            } else {
+                None
+            }
+        })
+        .sum::<u64>()
+        > 420;
     let runtime_probe_scene_id = stable_runtime_probe_id(project_name);
     let runtime_probe_framebuffer_useful = (!ast.sprite_assets.is_empty()
         || !tilemap_assets.is_empty()
@@ -86,10 +238,83 @@ fn build_main_c_with_collision(
         out.push_str("#include \"resources.h\"\n");
     }
     out.push('\n');
+    let has_sprite_pages = render_sprite_page_definitions(&mut out, ast);
     render_sound_id_macros(&mut out, ast);
+    let visual_camera = super::camera_runtime::find(ast).filter(|c| c.errors.is_empty());
+    if visual_camera.is_some() {
+        out.push_str("static s16 rds_camera_ratio_x[2] = {100,100}, rds_camera_ratio_y[2] = {100,100};\nstatic void rds_visual_camera_control(s16 index,s16 action,u16 frames,s16 x,s16 y);\n");
+    }
+    let camera_follow = visual_camera.is_some() || ast_has_camera_follow(ast);
+    if camera_follow {
+        // Camera do mundo (Experimental): sprites e planos usam coordenadas de mundo; a tela mostra
+        // mundo - camera. Limites = maior tilemap da cena (sem tilemap: so o limite inferior 0).
+        let (max_x, max_y) = camera_world_limits(ast, &tilemap_assets);
+        out.push_str(&format!(
+            "static volatile s16 rds_camera_x = 0;\nstatic volatile s16 rds_camera_y = 0;\n#define RDS_CAMERA_MAX_X {max_x}\n#define RDS_CAMERA_MAX_Y {max_y}\n"
+        ));
+        let planes = collect_camera_scroll_planes(ast);
+        let planes = if planes.is_empty() {
+            vec!["BG_A"]
+        } else {
+            planes
+        };
+        out.push_str("static void rds_camera_apply_scroll(void) {");
+        for (layer, plane) in planes.iter().enumerate() {
+            if visual_camera.is_none() {
+                out.push_str(&format!(" VDP_setHorizontalScroll({plane}, -rds_camera_x); VDP_setVerticalScroll({plane}, rds_camera_y);"));
+                continue;
+            }
+            let origin = if visual_camera.is_some() {
+                ast.nodes
+                    .iter()
+                    .filter_map(|n| match n {
+                        AstNode::DrawTilemap { x, y, .. } => Some((*x, *y)),
+                        _ => None,
+                    })
+                    .enumerate()
+                    .find(|(i, _)| resolved_tilemap_planes(ast).get(*i).copied() == Some(*plane))
+                    .map(|(_, p)| p)
+                    .unwrap_or((0, 0))
+            } else {
+                (0, 0)
+            };
+            out.push_str(&format!(
+                " VDP_setHorizontalScroll({plane}, {x} - ((s32)rds_camera_x * rds_camera_ratio_x[{layer}]) / 100); VDP_setVerticalScroll({plane}, ((s32)rds_camera_y * rds_camera_ratio_y[{layer}]) / 100 - {y});", x=origin.0,y=origin.1
+            ));
+        }
+        out.push_str(" }\n#define RDS_CAMERA_SCREEN_X rds_camera_x\n#define RDS_CAMERA_SCREEN_Y rds_camera_y\n");
+        if !managed_sprites {
+            out.push_str(
+                "static inline void rds_camera_sprite_position(Sprite *s, s16 x, s16 y) { SPR_setPosition(s, x - rds_camera_x, y - rds_camera_y); }\n#define SPR_setPosition(s, x, y) rds_camera_sprite_position((s), (x), (y))\n",
+            );
+        }
+        out.push('\n');
+    } else {
+        out.push_str("#define RDS_CAMERA_SCREEN_X 0\n#define RDS_CAMERA_SCREEN_Y 0\n");
+    }
+    if managed_sprites {
+        let count = ast
+            .nodes
+            .iter()
+            .filter(|n| matches!(n, AstNode::SpawnSprite { .. }))
+            .count();
+        render_sprite_residency_runtime(&mut out, count);
+    }
 
-    for asset in &ast.sprite_assets {
-        out.push_str(&format!("static Sprite* spr_{};\n", asset.resource_name));
+    let mut sprite_handles: Vec<String> = ast
+        .sprite_assets
+        .iter()
+        .map(|asset| format!("spr_{}", asset.resource_name))
+        .collect();
+    for node in &ast.nodes {
+        if let AstNode::SpawnSprite { var_name, .. } = node {
+            if !sprite_handles.contains(var_name) {
+                sprite_handles.push(var_name.clone());
+            }
+        }
+    }
+    for handle in &sprite_handles {
+        out.push_str(&format!("static Sprite* {handle};\n"));
     }
     if !ast.sprite_assets.is_empty() {
         out.push('\n');
@@ -97,6 +322,28 @@ fn build_main_c_with_collision(
     for physics in &physics_applications {
         out.push_str(&format!("static s32 {}_vel_x = 0;\n", physics.var_name));
         out.push_str(&format!("static s32 {}_vel_y = 0;\n", physics.var_name));
+        // 1 quando o corpo pousou (chao do mapa, fundo do mapa ou piso) neste quadro.
+        out.push_str(&format!("static u8 {}_on_ground = 0;\n", physics.var_name));
+    }
+    for var_name in collect_grounded_vars(ast) {
+        if physics_applications
+            .iter()
+            .any(|physics| physics.var_name == var_name)
+        {
+            continue;
+        }
+        // Sem fisica nunca ha apoio: a condicao compila e fica sempre falsa.
+        out.push_str(&format!("static u8 {}_on_ground = 0;\n", var_name));
+    }
+    for runtime_var in logic_velocity_targets {
+        if physics_applications
+            .iter()
+            .any(|physics| physics.var_name == runtime_var)
+        {
+            continue;
+        }
+        out.push_str(&format!("static s32 {}_vel_x = 0;\n", runtime_var));
+        out.push_str(&format!("static s32 {}_vel_y = 0;\n", runtime_var));
     }
     if !physics_applications.is_empty() {
         out.push('\n');
@@ -110,10 +357,62 @@ fn build_main_c_with_collision(
         out.push('\n');
     }
     for var_name in &logic_vars {
-        out.push_str(&format!("static s32 logic_var_{} = 0;\n", var_name));
+        let initial_value = if has_rom_addq_word && var_name == "rom_d0" {
+            "0x12340058"
+        } else if has_rom_branch_compare_word && var_name == "branch_input" {
+            "3"
+        } else {
+            "0"
+        };
+        out.push_str(&format!(
+            // volatile: o estado logico fica sempre na RAM (observavel e depuravel); sem isso
+            // o GCC pode manter variaveis so de `main` em registradores e eliminar o simbolo.
+            "static volatile s32 logic_var_{} = {};\n",
+            var_name, initial_value
+        ));
     }
     if !logic_vars.is_empty() {
         out.push('\n');
+    }
+    // Sprite positions live at file scope so the runtime state is addressable by ELF symbol
+    // (observable in System RAM) instead of being register/stack-only locals of main().
+    let sprite_positions = collect_sprite_position_vars(ast);
+    for (var_name, x, y) in &sprite_positions {
+        out.push_str(&format!("static s16 {var_name}_x = {x};\n"));
+        out.push_str(&format!("static s16 {var_name}_y = {y};\n"));
+    }
+    if !sprite_positions.is_empty() {
+        out.push('\n');
+    }
+    // Resolved after the body is rendered: only declared when edge input / music guards are used.
+    out.push_str(RUNTIME_STATE_DECL_MARKER);
+    // Perfil MUGEN (Experimental): tabelas e tick de animacao gerados a partir do modelo.
+    out.push_str(&super::mugen_runtime::render_decls(ast));
+    out.push_str(&render_palette_decls());
+    out.push_str(&super::hud_runtime::render_decls(
+        ast,
+        &collect_logic_var_names(ast),
+    ));
+    out.push_str(&super::path_runtime::render_decls(ast));
+    if has_rom_addq_word {
+        out.push_str(
+            "static volatile u32 *const rds_logic_recovery_oracle_value = (volatile u32 *)0xE0FFFF00;\n",
+        );
+        out.push_str(
+            "static volatile u16 *const rds_logic_recovery_oracle_flags = (volatile u16 *)0xE0FFFF04;\n\n",
+        );
+    }
+    if has_rom_branch_compare_word {
+        out.push_str(
+            "static volatile u16 *const rds_branch_recovery_result = (volatile u16 *)0xE0FFFF00;\n",
+        );
+        out.push_str(
+            "static volatile u16 *const rds_branch_recovery_input = (volatile u16 *)0xE0FFFF02;\n",
+        );
+        out.push_str(
+            "static const u16 rds_branch_recovery_inputs[6] = {3, 4, 5, 0, 0xFFFF, 0x1234};\n",
+        );
+        out.push_str("static u16 rds_branch_recovery_index = 0;\n\n");
     }
     if !parallax_layers.is_empty() || !raster_lines.is_empty() {
         out.push_str("static s16 retro_hscroll_table[224];\n");
@@ -166,29 +465,38 @@ fn build_main_c_with_collision(
             let entries: Vec<String> = data.iter().map(|b| b.to_string()).collect();
             out.push_str(&entries.join(", "));
             out.push_str("\n};\n\n");
+            if let Some(ground) = collect_physics_applications(ast)
+                .into_iter()
+                .find_map(|physics| physics.ground)
+            {
+                out.push_str(&format!(
+                    "static u8 rds_solid_at(s16 x, s16 y)\n{{\n    if (x < 0 || y < 0) return 0;\n    u16 tx = (u16)x / {tw};\n    u16 ty = (u16)y / {th};\n    if (tx >= {mw} || ty >= {mh}) return 0;\n    return rds_collision_map[ty * {mw} + tx] != 0;\n}}\n\n\
+// Side walls: moving by dx, the body's leading edge (right if dx>0, left if dx<0) must not\n\
+// enter a solid tile, sampled just below its top and just above its feet (the floor under\n\
+// the feet and the trailing edge never block).\n\
+static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = dx > 0 ? x + (s16)w - 1 : x;\n    return rds_solid_at(edge, y + 1) || rds_solid_at(edge, y + (s16)h - 2);\n}}\n\n",
+                    tw = ground.tile_width,
+                    th = ground.tile_height,
+                    mw = ground.map_width,
+                    mh = ground.map_height,
+                ));
+            }
         }
     }
 
+    if let Some(camera) = visual_camera {
+        out.push_str(&super::camera_runtime::render_definitions(camera));
+    }
     out.push_str("int main() {\n");
+    if has_sprite_pages {
+        out.push_str("    rds_init_sprite_pages();\n");
+    }
     if runtime_probe_enabled {
         out.push_str("    rds_probe_last_tick = getTick();\n");
         out.push_str("    rds_probe_emulation_status = 1;\n");
     }
-    let sprite_positions = collect_sprite_position_vars(ast);
-    for (var_name, x, y) in &sprite_positions {
-        out.push_str(&format!(
-            "    s16 {var_name}_x = {x};\n",
-            var_name = var_name,
-            x = x
-        ));
-        out.push_str(&format!(
-            "    s16 {var_name}_y = {y};\n",
-            var_name = var_name,
-            y = y
-        ));
-    }
-    if !sprite_positions.is_empty() {
-        out.push('\n');
+    if let Some(error) = plane_size_error(&tilemap_assets) {
+        out.push_str(&error);
     }
     if let Some((plane_width, plane_height)) = plane_size_for_tilemaps(&tilemap_assets) {
         out.push_str(&format!(
@@ -197,15 +505,40 @@ fn build_main_c_with_collision(
         ));
     }
 
+    if camera_follow {
+        out.push_str(&super::hud_runtime::render_window_setup(
+            ast,
+            &collect_logic_var_names(ast),
+        ));
+    }
+    out.push_str(&render_palette_init());
     let mut tilemap_draw_index = 0usize;
+    let mut sprite_spawn_index = 0usize;
     let mut retrofx_initialized = false;
     for (event, _) in &hardware_event_scripts {
         out.push_str(&sgdk_event_registration(*event));
     }
     for node in &ast.nodes {
         match node {
+            AstNode::ConfigureCamera(_) => {},
             AstNode::SpriteSystemInit => {
-                out.push_str("    SPR_init();\n");
+                if managed_sprites {
+                    let background_tiles = tilemap_assets
+                        .iter()
+                        .map(|a| format!("{}.tileset->numTile", a.resource_name))
+                        .collect::<Vec<_>>()
+                        .join(" + ");
+                    let background_tiles = if background_tiles.is_empty() {
+                        "0"
+                    } else {
+                        &background_tiles
+                    };
+                    out.push_str(&format!(
+                        "    rds_init_sprite_residency({background_tiles});\n"
+                    ));
+                } else {
+                    out.push_str("    SPR_init();\n");
+                }
             }
             AstNode::LoadTilemap {
                 resource_name,
@@ -229,6 +562,16 @@ fn build_main_c_with_collision(
                     "    // Load spritesheet: {} ({}x{} px, palette {})\n",
                     resource_name, frame_width, frame_height, palette_slot
                 ));
+                let palette_conflicts_with_tilemap =
+                    *palette_slot == 0 && !tilemap_assets.is_empty();
+                // Com plano de paletas o banco ja foi carregado com as cores planejadas.
+                if !palette_conflicts_with_tilemap && !palette_plan_active() {
+                    out.push_str(&format!(
+                        "    PAL_setPalette({}, {}.palette->data, CPU);\n",
+                        palette_const(*palette_slot),
+                        resource_name
+                    ));
+                }
             }
             AstNode::SpawnSprite {
                 var_name,
@@ -237,12 +580,16 @@ fn build_main_c_with_collision(
                 y,
                 priority_high,
             } => {
-                let palette = ast
-                    .sprite_assets
-                    .iter()
-                    .find(|asset| asset.resource_name == *resource_name)
-                    .map(|asset| palette_const(asset.palette_slot))
-                    .unwrap_or_else(|| "PAL0".to_string());
+                let palette = match planned_bank_for("sprite", sprite_spawn_index) {
+                    Some(bank) => palette_const(bank as u8),
+                    None => ast
+                        .sprite_assets
+                        .iter()
+                        .find(|asset| asset.resource_name == *resource_name)
+                        .map(|asset| palette_const(asset.palette_slot))
+                        .unwrap_or_else(|| "PAL0".to_string()),
+                };
+                sprite_spawn_index += 1;
                 let priority = if *priority_high { "TRUE" } else { "FALSE" };
 
                 out.push_str(&format!(
@@ -251,10 +598,15 @@ fn build_main_c_with_collision(
                     x = x,
                     y = y
                 ));
-                out.push_str(&format!(
-                    "    {} = SPR_addSprite(&{}, {}_x, {}_y, TILE_ATTR({}, 1, FALSE, {}));\n",
-                    var_name, resource_name, var_name, var_name, palette, priority
-                ));
+                if managed_sprites {
+                    out.push_str(&format!("    rds_register_sprite(&{var_name}, &{resource_name}, &{var_name}_x, &{var_name}_y, TILE_ATTR({palette}, {priority}, FALSE, FALSE));\n"));
+                } else {
+                    out.push_str(&format!(
+                        "    {} = SPR_addSprite(&{}, {}_x, {}_y, TILE_ATTR({}, {}, FALSE, FALSE));\n",
+                        var_name, resource_name, var_name, var_name, palette, priority
+                    ));
+                }
+                out.push_str(&format!("    SPR_setVisibility({}, VISIBLE);\n", var_name));
             }
             AstNode::DrawTilemap {
                 resource_name,
@@ -262,17 +614,72 @@ fn build_main_c_with_collision(
                 y,
                 scroll_x,
                 scroll_y,
+                priority_high,
+                ..
             } => {
-                let plane = tilemap_plane(tilemap_draw_index);
+                let tile_priority = if *priority_high { "TRUE" } else { "FALSE" };
+                let plane = resolved_tilemap_planes(ast)
+                    .get(tilemap_draw_index)
+                    .copied()
+                    .unwrap_or("WINDOW");
                 let base_tile = tilemap_base_expression(resource_name, &tilemap_assets);
+                // Com plano: banco planejado e sem carregar a paleta da imagem (loadpal FALSE),
+                // que sobrescreveria o banco 0 de outros usos.
+                let (tile_palette, load_palette) = match planned_bank_for("tilemap", tilemap_draw_index) {
+                    Some(bank) => (palette_const(bank as u8), "FALSE"),
+                    None => ("PAL0".to_string(), "TRUE"),
+                };
                 out.push_str(&format!(
-                    "    VDP_drawImageEx({}, &{}, TILE_ATTR_FULL(PAL0, FALSE, FALSE, FALSE, {}), {}, {}, TRUE, TRUE);\n",
+                    "    VDP_drawImageEx({}, &{}, TILE_ATTR_FULL({}, {}, FALSE, FALSE, {}), {}, {}, {}, TRUE);\n",
                     plane,
                     resource_name,
+                    tile_palette,
+                    tile_priority,
                     base_tile,
-                    (*x).max(0) / 8,
-                    (*y).max(0) / 8
+                    if visual_camera.is_some() { 0 } else { (*x).max(0) / 8 },
+                    if visual_camera.is_some() { 0 } else { (*y).max(0) / 8 },
+                    load_palette
                 ));
+                if let Some(asset) = tilemap_assets
+                    .iter()
+                    .find(|asset| asset.resource_name == *resource_name && !asset.cells.is_empty())
+                {
+                    // Painted cells override the base picture. Tile N>0 is tile N-1 of the
+                    // tileset image in row-major order (TILESET ... NONE NONE, no dedup), so
+                    // the ROM shows exactly what the editor palette shows; only the tiles used
+                    // are uploaded after the image tiles. TILEMAP_CELL_EMPTY is a blank tile.
+                    let used = tilemap_overlay_tiles(asset);
+                    let slot_base = format!("{} + {}.tileset->numTile", base_tile, resource_name);
+                    for (slot, value) in used.iter().enumerate() {
+                        out.push_str(&format!(
+                            "    if ({index} < {res}_cells.numTile) VDP_loadTileData({res}_cells.tiles + {offset}, {slot_base} + {slot}, 1, DMA);\n",
+                            index = value - 1,
+                            res = resource_name,
+                            offset = (value - 1) * 8,
+                        ));
+                    }
+                    let origin_x = if visual_camera.is_some() { 0 } else { (*x).max(0) / 8 };
+                    let origin_y = if visual_camera.is_some() { 0 } else { (*y).max(0) / 8 };
+                    let total =
+                        (asset.map_width as usize).saturating_mul(asset.map_height as usize);
+                    for (index, value) in asset.cells.iter().copied().enumerate().take(total) {
+                        if value == TILEMAP_CELL_BASE {
+                            continue;
+                        }
+                        let cell_x = origin_x as usize + index % asset.map_width as usize;
+                        let cell_y = origin_y as usize + index / asset.map_width as usize;
+                        let tile = if value == TILEMAP_CELL_EMPTY {
+                            "0".to_string()
+                        } else {
+                            let slot = used.iter().position(|used| *used == value).unwrap_or(0);
+                            format!("{slot_base} + {slot}")
+                        };
+                        out.push_str(&format!(
+                            "    VDP_setTileMapXY({}, TILE_ATTR_FULL({}, {}, FALSE, FALSE, {}), {}, {});\n",
+                            plane, tile_palette, tile_priority, tile, cell_x, cell_y
+                        ));
+                    }
+                }
                 if *scroll_x != 0 {
                     out.push_str(&format!(
                         "    VDP_setHorizontalScroll({}, {});\n",
@@ -367,6 +774,8 @@ fn build_main_c_with_collision(
                 max_velocity_y,
                 friction,
                 bounce,
+                floor_y,
+                ground,
             } => render_apply_physics(
                 &mut out,
                 &PhysicsApplication {
@@ -377,6 +786,8 @@ fn build_main_c_with_collision(
                     max_velocity_y: *max_velocity_y,
                     friction: *friction,
                     bounce: *bounce,
+                    floor_y: *floor_y,
+                    ground: ground.clone(),
                 },
             ),
             AstNode::SetAnimation {
@@ -397,6 +808,18 @@ fn build_main_c_with_collision(
                 let camera_planes = collect_camera_scroll_planes(ast);
                 render_move_camera(&mut out, target, *x, *y, &camera_planes);
             }
+            // Trajeto: declaracoes e atualizacao por quadro vem de `path_runtime`.
+            AstNode::ObjectPath { .. } => {}
+            AstNode::HudText { .. } => {
+                if let Some(hud) = super::hud_runtime::collect_huds(ast)
+                    .into_iter()
+                    .find(|h| matches!(node, AstNode::HudText { entity_id, .. } if *entity_id == h.entity_id))
+                {
+                    if super::hud_runtime::validate(&hud, &collect_logic_var_names(ast), ast).is_ok() {
+                        out.push_str(&super::hud_runtime::render_init(&hud));
+                    }
+                }
+            }
             AstNode::DrawText {
                 x,
                 y,
@@ -408,11 +831,18 @@ fn build_main_c_with_collision(
                     "    VDP_drawText(\"{}\", {}, {});\n",
                     escaped, x, y
                 ));
-                if *palette_slot > 0 {
+                if *palette_slot > 0 && planned_text_bank().is_none() {
                     out.push_str(&format!("    VDP_setTextPalette({});\n", palette_slot));
                 }
             }
             AstNode::GameLoopBegin => {
+                if managed_sprites {
+                    out.push_str("    rds_sync_sprite_residency();\n");
+                }
+                if has_rom_addq_word {
+                    out.push_str("    *rds_logic_recovery_oracle_value = (u32)logic_var_rom_d0;\n");
+                    out.push_str("    *rds_logic_recovery_oracle_flags = 0;\n");
+                }
                 out.push_str("    {\n");
                 out.push_str("        u16 rds_boot_frame;\n");
                 out.push_str(
@@ -422,6 +852,16 @@ fn build_main_c_with_collision(
                 out.push_str("            SYS_doVBlankProcess();\n");
                 out.push_str("        }\n");
                 out.push_str("    }\n");
+                if has_rom_addq_word {
+                    out.push_str("    {\n");
+                    out.push_str("        u16 rds_logic_recovery_prelude_frame;\n");
+                    out.push_str(
+                        "        for (rds_logic_recovery_prelude_frame = 0; rds_logic_recovery_prelude_frame < 83; rds_logic_recovery_prelude_frame++) {\n",
+                    );
+                    out.push_str("            SYS_doVBlankProcess();\n");
+                    out.push_str("        }\n");
+                    out.push_str("    }\n");
+                }
                 out.push_str("#ifdef RDS_CORPUS_VISIBLE_SMOKE\n");
                 out.push_str("    {\n");
                 out.push_str("        u16 rds_smoke_palette = 0x0EEE;\n");
@@ -431,7 +871,9 @@ fn build_main_c_with_collision(
                 out.push_str("    }\n");
                 out.push_str("    SYS_doVBlankProcess();\n");
                 out.push_str("#endif\n");
+                if visual_camera.is_some() { out.push_str("    rds_visual_camera_init();\n"); }
                 out.push_str("\n    while (TRUE) {\n");
+                out.push_str(&super::path_runtime::render_platform_snapshots(ast, 8));
             }
             AstNode::SpriteUpdate => {
                 if runtime_probe_enabled {
@@ -449,10 +891,46 @@ fn build_main_c_with_collision(
                     ));
                 }
                 render_logic_scripts(&mut out, &ast.logic_scripts, 8);
+                if has_rom_branch_compare_word {
+                    out.push_str(
+                        "        *rds_branch_recovery_input = (u16)logic_var_branch_input;\n",
+                    );
+                    out.push_str("        rds_branch_recovery_index++;\n");
+                    out.push_str("        logic_var_branch_input = rds_branch_recovery_inputs[rds_branch_recovery_index % 6];\n");
+                }
+                if has_rom_addq_word {
+                    out.push_str(
+                        "        *rds_logic_recovery_oracle_value = (u32)logic_var_rom_d0;\n",
+                    );
+                    out.push_str(
+                        "        *rds_logic_recovery_oracle_flags = (logic_var_rom_d0_n ? 1 : 0) | (logic_var_rom_d0_z ? 2 : 0) | (logic_var_rom_d0_v ? 4 : 0) | (logic_var_rom_d0_c ? 8 : 0) | (logic_var_rom_d0_x ? 16 : 0);\n",
+                    );
+                }
                 render_retrofx_frame(&mut out, &parallax_layers, &raster_lines, 8);
+                out.push_str(&super::mugen_runtime::render_ticks(ast, 8));
+                out.push_str(&render_palette_updates(8));
+                out.push_str(&super::hud_runtime::render_updates(
+                    ast,
+                    &collect_logic_var_names(ast),
+                    8,
+                ));
+                out.push_str(&super::path_runtime::render_updates(ast, 8));
+                out.push_str(&super::path_runtime::render_platform_transport(ast, 8));
+                if visual_camera.is_some() {
+                    out.push_str("        rds_visual_camera_tick();\n        rds_camera_apply_scroll();\n");
+                }
+                if managed_sprites {
+                    out.push_str("        rds_sync_sprite_residency();\n");
+                }
+                if visual_camera.is_some() {
+                    for (var, _, _) in collect_sprite_position_vars(ast) {
+                        out.push_str(&format!("        SPR_setPosition({var}, {var}_x, {var}_y);\n"));
+                    }
+                }
                 out.push_str("        SPR_update();\n");
             }
             AstNode::VSync => {
+                out.push_str(JOY_PREV_UPDATE_MARKER);
                 out.push_str("        SYS_doVBlankProcess();\n");
             }
             AstNode::GameLoopEnd => {
@@ -462,7 +940,173 @@ fn build_main_c_with_collision(
     }
 
     out.push_str("\n    return 0;\n}\n");
-    out
+    resolve_runtime_state_markers(out)
+}
+
+/// Plano de paletas aplicado a uma emissao (`compiler/palette_plan.rs`): entidades com sprite e
+/// com tilemap na mesma ordem dos nos `SpawnSprite` / `DrawTilemap` (ordem da cena resolvida).
+#[derive(Debug, Clone)]
+pub struct EmitPalette {
+    pub plan: super::palette_plan::PalettePlan,
+    pub sprite_entities: Vec<String>,
+    pub tilemap_entities: Vec<String>,
+}
+
+thread_local! {
+    static PALETTE: std::cell::RefCell<Option<EmitPalette>> = const { std::cell::RefCell::new(None) };
+}
+
+fn palette_plan_active() -> bool {
+    PALETTE.with(|p| p.borrow().is_some())
+}
+
+fn planned_bank_for(kind: &str, index: usize) -> Option<usize> {
+    PALETTE.with(|p| {
+        let p = p.borrow();
+        let p = p.as_ref()?;
+        let list = if kind == "sprite" {
+            &p.sprite_entities
+        } else {
+            &p.tilemap_entities
+        };
+        list.get(index)
+            .and_then(|e| p.plan.entity_banks.get(e).copied())
+    })
+}
+
+fn planned_text_bank() -> Option<usize> {
+    PALETTE.with(|p| p.borrow().as_ref().and_then(|p| p.plan.text_bank))
+}
+
+/// Bancos e trocas do plano: arrays com os valores do destino, carregados no inicio do `main`.
+fn render_palette_decls() -> String {
+    PALETTE.with(|p| {
+        let p = p.borrow();
+        let Some(p) = p.as_ref() else { return String::new() };
+        let mut out = String::from("// Plano de paletas (retrodev.palette_plan/v1): um array por banco ocupado.\n");
+        let values = |v: &[u16]| v.iter().map(|x| format!("0x{x:03X}")).collect::<Vec<_>>().join(",");
+        for bank in p.plan.banks.iter().filter(|b| !b.resources.is_empty()) {
+            out.push_str(&format!(
+                "static const u16 rds_pal_bank_{}[16] = {{{}}}; /* {} */\n",
+                bank.bank,
+                values(&bank.target_values),
+                bank.resources.join(" + ").replace("*/", "")
+            ));
+        }
+        for swap in p.plan.swaps.iter().filter(|s| s.ok) {
+            let (Some(bank), Some(strike)) = (swap.bank, swap.trigger.strip_prefix("golpe:")) else { continue };
+            let id = &swap.id;
+            out.push_str(&format!(
+                "static const u16 rds_palswap_{id}_on[16] = {{{on}}};\n\
+                 static const u16 rds_palswap_{id}_off[16] = {{{off}}};\n\
+                 static volatile u16 rds_palswap_{id}_count = 0;\n\
+                 static volatile u16 rds_palswap_{id}_restores = 0;\n\
+                 static volatile u16 rds_palswap_{id}_left = 0;\n\
+                 static u16 rds_palswap_{id}_seen = 0;\n\
+                 /* Troca '{id}': banco {bank}, indices {idx:?}, {frames} quadros; fila DMA aplicada no proximo VBlank. */\n\
+                 static void rds_palswap_{id}_update(void) {{\n\
+                 \x20   if (rds_strike_{strike}_hits != rds_palswap_{id}_seen) {{\n\
+                 \x20       rds_palswap_{id}_seen = rds_strike_{strike}_hits;\n\
+                 \x20       rds_palswap_{id}_count++;\n\
+                 \x20       rds_palswap_{id}_left = {frames};\n\
+                 \x20       PAL_setColors({base}, rds_palswap_{id}_on, 16, DMA);\n\
+                 \x20   }} else if (rds_palswap_{id}_left) {{\n\
+                 \x20       rds_palswap_{id}_left--;\n\
+                 \x20       if (!rds_palswap_{id}_left) {{ PAL_setColors({base}, rds_palswap_{id}_off, 16, DMA); rds_palswap_{id}_restores++; }}\n\
+                 \x20   }}\n\
+                 }}\n",
+                on = values(&swap.on_values),
+                off = values(&swap.off_values),
+                idx = swap.written_indices,
+                frames = swap.frames,
+                base = bank * 16,
+            ));
+        }
+        out
+    })
+}
+
+fn render_palette_init() -> String {
+    PALETTE.with(|p| {
+        let p = p.borrow();
+        let Some(p) = p.as_ref() else {
+            return String::new();
+        };
+        let mut out = String::new();
+        for bank in p.plan.banks.iter().filter(|b| !b.resources.is_empty()) {
+            out.push_str(&format!(
+                "    PAL_setPalette(PAL{0}, rds_pal_bank_{0}, CPU);\n",
+                bank.bank
+            ));
+        }
+        if let Some(text) = p.plan.text_bank {
+            out.push_str(&format!("    VDP_setTextPalette(PAL{text});\n"));
+        }
+        out
+    })
+}
+
+fn render_palette_updates(indent: usize) -> String {
+    PALETTE.with(|p| {
+        let p = p.borrow();
+        let Some(p) = p.as_ref() else {
+            return String::new();
+        };
+        let pad = " ".repeat(indent);
+        p.plan
+            .swaps
+            .iter()
+            .filter(|s| s.ok && s.bank.is_some())
+            .map(|s| format!("{pad}rds_palswap_{}_update();\n", s.id))
+            .collect()
+    })
+}
+
+thread_local! {
+    /// Sprite vars whose moves are blocked by solid collision-map tiles (body w/h), set
+    /// for the duration of one emission.
+    static WALL_BODIES: std::cell::RefCell<std::collections::HashMap<String, (u32, u32)>> =
+        std::cell::RefCell::new(std::collections::HashMap::new());
+    /// R5 moving platforms for the current emission (path id, sprite var, offset x/y, width).
+    /// Resolved plane of each tilemap (draw order) for the current emission.
+    static TILEMAP_PLANES: std::cell::RefCell<Vec<&'static str>> = const { std::cell::RefCell::new(Vec::new()) };
+    static PATH_PLATFORMS: std::cell::RefCell<Vec<super::path_runtime::PlatformSpec>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+const RUNTIME_STATE_DECL_MARKER: &str = "/*RDS_RUNTIME_STATE_DECL*/\n";
+const JOY_PREV_UPDATE_MARKER: &str = "/*RDS_JOY_PREV_UPDATE*/\n";
+const SGDK_JOY_PORTS: [&str; 4] = ["JOY_1", "JOY_2", "JOY_3", "JOY_4"];
+
+fn pad_suffix(port: &str) -> &str {
+    port.strip_prefix("JOY_").unwrap_or("1")
+}
+
+/// Declares `rds_joy_prev_N` (edge detection for `input_pressed`) and `rds_music_current`
+/// (idempotent `play_music`) only when the rendered body references them.
+fn resolve_runtime_state_markers(out: String) -> String {
+    let used_ports: Vec<&str> = SGDK_JOY_PORTS
+        .iter()
+        .copied()
+        .filter(|port| out.contains(&format!("!(rds_joy_prev_{} &", pad_suffix(port))))
+        .collect();
+    let mut decls = String::new();
+    let mut updates = String::new();
+    for port in &used_ports {
+        let suffix = pad_suffix(port);
+        decls.push_str(&format!("static u16 rds_joy_prev_{suffix} = 0;\n"));
+        updates.push_str(&format!(
+            "        rds_joy_prev_{suffix} = JOY_readJoypad({port});\n"
+        ));
+    }
+    if out.contains("rds_music_current != ") {
+        decls.push_str("static const u8* rds_music_current = NULL;\n");
+    }
+    if !decls.is_empty() {
+        decls.push('\n');
+    }
+    out.replacen(RUNTIME_STATE_DECL_MARKER, &decls, 1)
+        .replace(JOY_PREV_UPDATE_MARKER, &updates)
 }
 
 fn build_resources_res(ast: &AstOutput) -> String {
@@ -475,16 +1119,24 @@ fn build_resources_res(ast: &AstOutput) -> String {
             asset.resource_name,
             tilemap_resource_path(&asset.asset_path),
         ));
+        if !tilemap_overlay_tiles(&asset).is_empty() {
+            // Unoptimized, image-ordered tiles for painted cells (see DrawTilemap).
+            out.push_str(&format!(
+                "TILESET {}_cells \"{}\" NONE NONE\n",
+                asset.resource_name,
+                tilemap_resource_path(&asset.asset_path),
+            ));
+        }
     }
 
-    for asset in &ast.sprite_assets {
+    for asset in ast.sprite_assets.iter().flat_map(sprite_resource_pages) {
         out.push_str(&format!(
             "SPRITE {} \"{}\" {} {} NONE {}\n",
             asset.resource_name,
             sprite_resource_path(&asset.asset_path),
             asset.frame_width / 8,
             asset.frame_height / 8,
-            resource_animation_time(asset),
+            resource_animation_time(&asset),
         ));
     }
     for (resource_name, asset_path) in collect_sfx_resources(ast) {
@@ -503,6 +1155,107 @@ fn build_resources_res(ast: &AstOutput) -> String {
     }
 
     out
+}
+
+fn render_sprite_residency_runtime(out: &mut String, count: usize) {
+    out.push_str(&format!("#define RDS_SPRITE_SLOTS {count}\n"));
+    out.push_str(r#"
+/* Keep logical state offscreen; only viewport residents consume sprite VRAM.
+ * Macros below adapt the generated operations, not SGDK library internals. */
+typedef struct {
+    Sprite **instance;
+    const SpriteDefinition *definition;
+    s16 *x, *y;
+    u16 attributes;
+    s16 animation, visibility;
+    bool looping;
+} RdsSpriteSlot;
+static RdsSpriteSlot rds_sprite_slots[RDS_SPRITE_SLOTS];
+static u16 rds_sprite_slot_count;
+static volatile u16 rds_residency_error;
+static volatile u16 rds_residency_ticks;
+static bool rds_residency_ready;
+
+static RdsSpriteSlot *rds_sprite_slot(Sprite **instance) {
+    u16 i;
+    for (i = 0; i < rds_sprite_slot_count; i++)
+        if (rds_sprite_slots[i].instance == instance) return &rds_sprite_slots[i];
+    return NULL;
+}
+static void rds_init_sprite_residency(u32 backgroundTiles) {
+    u32 available = TILE_FONT_INDEX - TILE_USER_INDEX;
+    if (backgroundTiles >= available) { rds_residency_error = 1; return; }
+    SPR_initEx((u16)(available - backgroundTiles));
+    rds_residency_ready = TRUE;
+}
+static void rds_register_sprite(Sprite **instance, const SpriteDefinition *definition,
+                               s16 *x, s16 *y, u16 attributes) {
+    RdsSpriteSlot *slot = &rds_sprite_slots[rds_sprite_slot_count++];
+    slot->instance = instance; slot->definition = definition;
+    slot->x = x; slot->y = y; slot->attributes = attributes;
+    slot->animation = 0; slot->visibility = VISIBLE; slot->looping = TRUE;
+    *instance = NULL;
+}
+static bool rds_sprite_in_view(const RdsSpriteSlot *slot) {
+    const s32 sx = (s32)*slot->x - RDS_CAMERA_SCREEN_X, sy = (s32)*slot->y - RDS_CAMERA_SCREEN_Y;
+    return slot->visibility != HIDDEN && sx < VDP_getScreenWidth()
+        && sy < VDP_getScreenHeight()
+        && sx + slot->definition->w > 0
+        && sy + slot->definition->h > 0;
+}
+static void rds_sync_sprite_residency(void) {
+    u16 i;
+    if (!rds_residency_ready) return;
+    /* Release first, so entrants can use VRAM freed by departures. */
+    for (i = 0; i < rds_sprite_slot_count; i++) {
+        RdsSpriteSlot *slot = &rds_sprite_slots[i];
+        if (*slot->instance && !rds_sprite_in_view(slot)) {
+            SPR_releaseSprite(*slot->instance); *slot->instance = NULL;
+        }
+    }
+    rds_residency_ticks++;
+    for (i = 0; i < rds_sprite_slot_count; i++) {
+        RdsSpriteSlot *slot = &rds_sprite_slots[i];
+        if (!*slot->instance && rds_sprite_in_view(slot)) {
+            Sprite *sprite = SPR_addSprite(slot->definition, *slot->x, *slot->y, slot->attributes);
+            *slot->instance = sprite;
+            if (!sprite) { rds_residency_error = 1; continue; }
+            SPR_setAnim(sprite, slot->animation);
+            SPR_setAnimationLoop(sprite, slot->looping);
+            SPR_setVisibility(sprite, slot->visibility);
+        }
+    }
+    if (rds_residency_error) VDP_drawText("Sprite capacity or animation error", 1, 1);
+}
+static void rds_sprite_position(Sprite **instance, s16 x, s16 y) {
+    RdsSpriteSlot *slot = rds_sprite_slot(instance);
+    if (slot) { *slot->x = x; *slot->y = y; }
+    if (*instance) SPR_setPosition(*instance, x - RDS_CAMERA_SCREEN_X, y - RDS_CAMERA_SCREEN_Y);
+}
+static void rds_sprite_animation(Sprite **instance, s16 animation) {
+    RdsSpriteSlot *slot = rds_sprite_slot(instance);
+    if (slot) {
+        if (animation < 0 || animation >= slot->definition->numAnimation) { rds_residency_error = 2; return; }
+        slot->animation = animation;
+    }
+    if (*instance) SPR_setAnim(*instance, animation);
+}
+static void rds_sprite_loop(Sprite **instance, bool looping) {
+    RdsSpriteSlot *slot = rds_sprite_slot(instance);
+    if (slot) slot->looping = looping;
+    if (*instance) SPR_setAnimationLoop(*instance, looping);
+}
+static void rds_sprite_visibility(Sprite **instance, s16 visibility) {
+    RdsSpriteSlot *slot = rds_sprite_slot(instance);
+    if (slot) slot->visibility = visibility;
+    if (*instance) SPR_setVisibility(*instance, visibility);
+}
+#define SPR_setPosition(sprite, x, y) rds_sprite_position(&(sprite), (x), (y))
+#define SPR_setAnim(sprite, animation) rds_sprite_animation(&(sprite), (animation))
+#define SPR_setAnimationLoop(sprite, looping) rds_sprite_loop(&(sprite), (looping))
+#define SPR_setVisibility(sprite, visibility) rds_sprite_visibility(&(sprite), (visibility))
+
+"#);
 }
 
 fn runtime_evidence_probe_enabled() -> bool {
@@ -561,14 +1314,21 @@ fn render_runtime_evidence_probe_tick(out: &mut String) {
 }
 
 fn resource_animation_time(asset: &SpriteAsset) -> String {
-    if asset.animations.len() > 1 {
+    if asset.animations.len() > 1 || asset.animations.iter().any(|a| a.frame_times.is_some()) {
         let rows = asset
             .animations
             .iter()
             .map(|animation| {
                 format!(
                     "[{}]",
-                    vec![animation.frame_time.to_string(); animation.frames.len()].join(",")
+                    animation
+                        .frame_times
+                        .clone()
+                        .unwrap_or_else(|| vec![animation.frame_time; animation.frames.len()])
+                        .iter()
+                        .map(u32::to_string)
+                        .collect::<Vec<_>>()
+                        .join(",")
                 )
             })
             .collect::<String>();
@@ -595,6 +1355,7 @@ fn render_aabb_helper() -> &'static str {
 fn render_apply_physics(out: &mut String, physics: &PhysicsApplication) {
     let next_x_var = format!("{}_next_x", physics.var_name);
     let next_y_var = format!("{}_next_y", physics.var_name);
+    out.push_str(&format!("        {}_on_ground = 0;\n", physics.var_name));
 
     if physics.gravity {
         out.push_str(&format!(
@@ -647,6 +1408,68 @@ fn render_apply_physics(out: &mut String, physics: &PhysicsApplication) {
         next_y_var = next_y_var,
         var_name = physics.var_name
     ));
+
+    let tile_helpers = WALL_BODIES.with(|bodies| bodies.borrow().contains_key(&physics.var_name));
+    if let Some(ground) = physics
+        .ground
+        .as_ref()
+        .filter(|_| physics.gravity && tile_helpers)
+    {
+        // Land on the top of the solid collision cell under the body's centre, only while
+        // falling (one-way). Erased cells are pits; the map bottom is the last safety floor.
+        let var_name = &physics.var_name;
+        let body_w = ground.body_width;
+        let body_h = ground.body_height;
+        let tile_h = ground.tile_height;
+        let bottom = (ground.map_height * tile_h) as i64 - i64::from(body_h);
+        out.push_str(&format!(
+            "        if ({var_name}_vel_y >= 0) {{ s16 rds_foot = {next_y_var} + {body_h} - 1; if (rds_solid_at({next_x_var} + {half_w}, rds_foot)) {{ {next_y_var} = (rds_foot / {tile_h}) * {tile_h} - {body_h}; {var_name}_vel_y = 0; {var_name}_on_ground = 1; }} }}\n",
+            half_w = body_w / 2,
+        ));
+        out.push_str(&format!(
+            "        if ({next_y_var} > {bottom}) {{ {next_y_var} = {bottom}; {var_name}_vel_y = 0; {var_name}_on_ground = 1; }}\n"
+        ));
+        // Apoio real: parado sobre um solido (ou no fundo do mapa) conta como apoiado em todo
+        // quadro, nao so nos quadros em que a gravidade acumulada provoca o encaixe.
+        out.push_str(&format!(
+            "        if ({var_name}_vel_y >= 0 && ({next_y_var} >= {bottom} || rds_solid_at({next_x_var} + {half_w}, {next_y_var} + {body_h}))) {var_name}_on_ground = 1;\n",
+            half_w = body_w / 2,
+        ));
+        out.push_str(&format!(
+            "        if ({next_x_var} != {var_name}_x && rds_hits_wall({next_x_var}, {var_name}_y, {body_w}, {body_h}, {next_x_var} - {var_name}_x)) {{ {next_x_var} = {var_name}_x; {var_name}_vel_x = 0; }}\n"
+        ));
+    } else if let Some(floor_y) = physics.floor_y {
+        out.push_str(&format!(
+            "        if ({next_y_var} > {floor_y}) {{ {next_y_var} = {floor_y}; {var_name}_vel_y = 0; {var_name}_on_ground = 1; }}\n",
+            next_y_var = next_y_var,
+            floor_y = floor_y,
+            var_name = physics.var_name
+        ));
+        out.push_str(&format!(
+            "        if ({var_name}_vel_y >= 0 && {next_y_var} >= {floor_y}) {var_name}_on_ground = 1;\n",
+            next_y_var = next_y_var,
+            floor_y = floor_y,
+            var_name = physics.var_name
+        ));
+    }
+
+    // Preserve support for jump conditions before logic. Transport/relative swept landing is
+    // resolved after this frame's path update, using the current dx AND dy (never last frame's).
+    if let Some(ground) = physics.ground.as_ref().filter(|_| physics.gravity) {
+        let var_name = &physics.var_name;
+        let half_w = ground.body_width / 2;
+        let body_h = ground.body_height;
+        PATH_PLATFORMS.with(|platforms| {
+            for (_, pvar, ox, oy, w) in platforms.borrow().iter() {
+                if pvar == var_name {
+                    continue;
+                }
+                out.push_str(&format!(
+                    "        if ({var_name}_vel_y >= 0) {{ s32 rds_pl = (s32){pvar}_x + ({ox}); s32 rds_pt = (s32){pvar}_y + ({oy}); s32 rds_cx = (s32){next_x_var} + {half_w}; if (rds_cx >= rds_pl && rds_cx < rds_pl + {w} && (s32){var_name}_y + {body_h} == rds_pt) {{ {next_y_var} = rds_pt - {body_h}; {var_name}_vel_y = 0; {var_name}_on_ground = 1; }} }}\n"
+                ));
+            }
+        });
+    }
 
     if physics.bounce > 0 {
         out.push_str(&format!(
@@ -1026,14 +1849,34 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     indent = indent_str
                 ));
             }
-            LogicOp::MoveSprite { target_var, dx, dy } => {
-                out.push_str(&format!(
-                    "{indent}{target}_x += {dx}; {target}_y += {dy};\n",
-                    indent = indent_str,
-                    target = target_var,
-                    dx = dx,
-                    dy = dy
-                ));
+            LogicOp::MoveSprite {
+                target_var,
+                dx,
+                dy,
+                face,
+            } => {
+                if *face && *dx != 0 {
+                    // JV10: orientacao pelo flip H de hardware; caixas/colisao nao mudam.
+                    out.push_str(&format!(
+                        "{indent_str}if ({target_var}) SPR_setHFlip({target_var}, {});\n",
+                        if *dx < 0 { "TRUE" } else { "FALSE" }
+                    ));
+                }
+                let wall_body = WALL_BODIES.with(|bodies| bodies.borrow().get(target_var).copied());
+                match wall_body {
+                    Some((width, height)) if *dx != 0 => out.push_str(&format!(
+                        "{indent}if (!rds_hits_wall({target}_x + {dx}, {target}_y, {width}, {height}, {dx})) {{ {target}_x += {dx}; }}\n{indent}{target}_y += {dy};\n",
+                        indent = indent_str,
+                        target = target_var,
+                    )),
+                    _ => out.push_str(&format!(
+                        "{indent}{target}_x += {dx}; {target}_y += {dy};\n",
+                        indent = indent_str,
+                        target = target_var,
+                        dx = dx,
+                        dy = dy
+                    )),
+                }
                 out.push_str(&format!(
                     "{indent}SPR_setPosition({target}, {target}_x, {target}_y);\n",
                     indent = indent_str,
@@ -1061,11 +1904,49 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     target = target_var
                 ));
             }
+            LogicOp::MugenProgramStep { target_var, .. } => {
+                out.push_str(&format!(
+                    "{indent}rds_mc_{target_var}_step();\n",
+                    indent = indent_str
+                ));
+            }
+            LogicOp::MugenSetVelocityX { target_var, vx_q8 } => {
+                out.push_str(&format!(
+                    "{indent}rds_mugen_{target_var}_vx = {vx_q8};\n",
+                    indent = indent_str
+                ));
+            }
+            LogicOp::AuthoredStrike { strike_id, .. } => {
+                // Arma a verificacao deste quadro; o teste de caixas roda depois dos ticks MUGEN.
+                out.push_str(&format!(
+                    "{indent}rds_strike_{strike_id}_enabled = 1;\n",
+                    indent = indent_str
+                ));
+            }
+            LogicOp::PaletteSwapOnHit { .. } => {
+                // A troca e atualizada uma vez por quadro depois dos golpes (rds_palswap_*_update).
+            }
             LogicOp::SetVelocity {
                 target_name,
                 vx,
                 vy,
+                runtime_var,
             } => {
+                let runtime_var = runtime_var
+                    .clone()
+                    .unwrap_or_else(|| sprite_runtime_var(target_name));
+                out.push_str(&format!(
+                    "{indent}{runtime_var}_vel_x = {vx};\n",
+                    indent = indent_str,
+                    runtime_var = runtime_var,
+                    vx = render_math_expr(vx)
+                ));
+                out.push_str(&format!(
+                    "{indent}{runtime_var}_vel_y = {vy};\n",
+                    indent = indent_str,
+                    runtime_var = runtime_var,
+                    vy = render_math_expr(vy)
+                ));
                 out.push_str(&format!(
                     "{indent}logic_var_{target}_vx = {vx};\n",
                     indent = indent_str,
@@ -1091,28 +1972,59 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                 ));
             }
             LogicOp::SetTile { layer, tile, x, y } => {
+                let plane = sgdk_scroll_plane(layer);
+                // Banco do tilemap desenhado nesse plano (plano de paletas); sem plano, PAL0.
+                let bank = PALETTE.with(|p| {
+                    let p = p.borrow();
+                    let p = p.as_ref()?;
+                    p.tilemap_entities
+                        .iter()
+                        .enumerate()
+                        .find(|(i, _)| {
+                            TILEMAP_PLANES
+                                .with(|planes| planes.borrow().get(*i).copied() == Some(plane))
+                        })
+                        .and_then(|(_, e)| p.plan.entity_banks.get(e).copied())
+                });
                 out.push_str(&format!(
-                    "{indent}VDP_setTileMapXY({layer}, TILE_ATTR_FULL(PAL0, FALSE, FALSE, FALSE, {tile}), {x}, {y});\n",
+                    "{indent}VDP_setTileMapXY({layer}, TILE_ATTR_FULL({pal}, FALSE, FALSE, FALSE, {tile}), {x}, {y});\n",
                     indent = indent_str,
-                    layer = sgdk_scroll_plane(layer),
+                    pal = bank.map(|b| palette_const(b as u8)).unwrap_or_else(|| "PAL0".to_string()),
+                    layer = plane,
                     tile = render_math_expr(tile),
                     x = render_math_expr(x),
                     y = render_math_expr(y)
                 ));
+            }
+            LogicOp::CameraControl {
+                target_index,
+                action,
+                frames,
+                x,
+                y,
+                error,
+                ..
+            } => {
+                if error.is_none() {
+                    out.push_str(&format!("{indent_str}rds_visual_camera_control({target_index}, {action}, {frames}, {x}, {y});\n"));
+                }
             }
             LogicOp::CameraFollow {
                 target_var,
                 offset_x,
                 offset_y,
             } => {
+                // Canto superior esquerdo da camera = alvo + deslocamento autoral (mesma intencao dos
+                // grafos existentes, ex. -160 para centralizar), limitado ao mundo; os planos rolam
+                // -camera e os sprites sao desenhados em mundo - camera.
                 out.push_str(&format!(
-                    "{indent}VDP_setHorizontalScroll(BG_A, {});\n",
+                    "{indent}{{ s32 cx = (s32)({}); s32 cy = (s32)({}); if (cx > RDS_CAMERA_MAX_X) cx = RDS_CAMERA_MAX_X; if (cy > RDS_CAMERA_MAX_Y) cy = RDS_CAMERA_MAX_Y; if (cx < 0) cx = 0; if (cy < 0) cy = 0; rds_camera_x = (s16)cx; rds_camera_y = (s16)cy; }}\n",
                     camera_axis_expr(target_var, "x", *offset_x),
+                    camera_axis_expr(target_var, "y", *offset_y),
                     indent = indent_str
                 ));
                 out.push_str(&format!(
-                    "{indent}VDP_setVerticalScroll(BG_A, {});\n",
-                    camera_axis_expr(target_var, "y", *offset_y),
+                    "{indent}rds_camera_apply_scroll();\n",
                     indent = indent_str
                 ));
             }
@@ -1128,6 +2040,12 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     "{indent}SPR_setVisibility({target}, VISIBLE);\n",
                     indent = indent_str,
                     target = target_var
+                ));
+            }
+            LogicOp::PathControl { path_id, on } => {
+                out.push_str(&format!(
+                    "{indent_str}rds_path_{path_id}_on = {};\n",
+                    u8::from(*on)
                 ));
             }
             LogicOp::HideSprite { target_var } => {
@@ -1186,7 +2104,9 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
             }
             LogicOp::PlaySound { sfx } => {
                 out.push_str(&format!(
-                    "{indent}XGM_startPlayPCM(SFX_{sfx}, 1, SOUND_PCM_CH_AUTO);\n",
+                    // XGM (v1) only accepts SOUND_PCM_CH1..CH4; CH_AUTO is an XGM2/DPCM2 value and
+                    // makes the call a silent no-op. CH1 is left to the music.
+                    "{indent}XGM_startPlayPCM(SFX_{sfx}, 1, SOUND_PCM_CH2);\n",
                     indent = indent_str,
                     sfx = sfx.to_uppercase()
                 ));
@@ -1204,12 +2124,13 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     ));
                 }
                 _ => {
+                    // Idempotent: a play node reached every frame must not restart the track.
                     out.push_str(&format!(
-                            "{indent}XGM_startPlay({track}); /* fade_ms: {fade_ms} - suporte futuro */\n",
-                            indent = indent_str,
-                            track = track,
-                            fade_ms = fade_ms,
-                        ));
+                        "{indent}if (rds_music_current != {track} || !XGM_isPlaying()) {{ XGM_startPlay({track}); rds_music_current = {track}; }} /* fade_ms: {fade_ms} - suporte futuro */\n",
+                        indent = indent_str,
+                        track = track,
+                        fade_ms = fade_ms,
+                    ));
                 }
             },
             LogicOp::SetVar { var_name, value } => {
@@ -1219,6 +2140,32 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     indent = indent_str,
                     var_name = var_name,
                     value_expr = value_expr
+                ));
+            }
+            LogicOp::RomAddQWord {
+                var_name,
+                immediate,
+            } => {
+                out.push_str(&format!(
+                    "{indent}{{ u16 rds_rom_word_before = (u16)logic_var_{var_name}; u16 rds_rom_word_result = (u16)(rds_rom_word_before + {immediate}); logic_var_{var_name} = (logic_var_{var_name} & ~0xFFFF) | rds_rom_word_result; logic_var_{var_name}_n = (rds_rom_word_result & 0x8000) != 0; logic_var_{var_name}_z = rds_rom_word_result == 0; logic_var_{var_name}_v = (rds_rom_word_before == 0x7FFF); logic_var_{var_name}_c = (rds_rom_word_before > (u16)(0xFFFF - {immediate})); logic_var_{var_name}_x = logic_var_{var_name}_c; }}\n",
+                    indent = indent_str,
+                    var_name = var_name,
+                    immediate = immediate
+                ));
+            }
+            LogicOp::RomBranchCompareWord {
+                input_var,
+                bias,
+                threshold,
+                result_var,
+            } => {
+                out.push_str(&format!(
+                    "{indent}{{ u16 rds_branch_arithmetic = (u16)((u16)logic_var_{input_var} + {bias}); logic_var_{result_var} = ((s16)rds_branch_arithmetic >= (s16){threshold}) ? 1 : 0; *rds_branch_recovery_result = (u16)logic_var_{result_var}; }}\n",
+                    indent = indent_str,
+                    input_var = input_var,
+                    bias = bias,
+                    threshold = threshold,
+                    result_var = result_var,
                 ));
             }
             LogicOp::WhileLoop {
@@ -1297,6 +2244,109 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                     "#error \"Source Bridge blocks codegen: {gap} at {source_file}:{source_line}. Enable bridge compatibility mode or replace with native nodes.\"\n",
                 ));
             }
+        }
+    }
+}
+
+fn sprite_runtime_var(target_name: &str) -> String {
+    let target = target_name
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || character == '_' {
+                character.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    if target.starts_with("spr_") {
+        target
+    } else {
+        format!("spr_{target}")
+    }
+}
+
+fn collect_logic_velocity_targets(ast: &AstOutput) -> std::collections::BTreeSet<String> {
+    let mut targets = std::collections::BTreeSet::new();
+    for script in &ast.logic_scripts {
+        collect_logic_velocity_targets_from_ops(&script.ops, &mut targets);
+    }
+    targets
+}
+
+fn collect_logic_velocity_targets_from_ops(
+    ops: &[LogicOp],
+    targets: &mut std::collections::BTreeSet<String>,
+) {
+    for op in ops {
+        match op {
+            LogicOp::SourceMapped { op, .. } => {
+                collect_logic_velocity_targets_from_ops(std::slice::from_ref(op.as_ref()), targets);
+            }
+            LogicOp::MugenSetVelocityX { .. }
+            | LogicOp::MugenProgramStep { .. }
+            | LogicOp::AuthoredStrike { .. }
+            | LogicOp::PaletteSwapOnHit { .. } => {}
+            LogicOp::SetVelocity {
+                target_name,
+                runtime_var,
+                ..
+            } => {
+                targets.insert(
+                    runtime_var
+                        .clone()
+                        .unwrap_or_else(|| sprite_runtime_var(target_name)),
+                );
+            }
+            LogicOp::ConditionOverlap {
+                if_true, if_false, ..
+            }
+            | LogicOp::ConditionBool {
+                if_true, if_false, ..
+            } => {
+                collect_logic_velocity_targets_from_ops(if_true, targets);
+                collect_logic_velocity_targets_from_ops(if_false, targets);
+            }
+            LogicOp::WhileLoop { body, done, .. } | LogicOp::ForLoop { body, done, .. } => {
+                collect_logic_velocity_targets_from_ops(body, targets);
+                collect_logic_velocity_targets_from_ops(done, targets);
+            }
+            LogicOp::TimelineSequence { slots, .. } => {
+                for slot in slots {
+                    collect_logic_velocity_targets_from_ops(&slot.actions, targets);
+                }
+            }
+            LogicOp::HardwareBudgetCheck { if_ok, if_warn, .. } => {
+                collect_logic_velocity_targets_from_ops(if_ok, targets);
+                collect_logic_velocity_targets_from_ops(if_warn, targets);
+            }
+            LogicOp::HardwareEvent { ops, .. } => {
+                collect_logic_velocity_targets_from_ops(ops, targets);
+            }
+            LogicOp::StateMachine { states, .. } => {
+                for state in states {
+                    collect_logic_velocity_targets_from_ops(&state.body, targets);
+                    for transition in &state.transitions {
+                        collect_logic_velocity_targets_from_ops(&transition.if_matched, targets);
+                        collect_logic_velocity_targets_from_ops(&transition.if_unmatched, targets);
+                    }
+                }
+            }
+            LogicOp::SetSpritePosition { .. }
+            | LogicOp::MoveSprite { .. }
+            | LogicOp::SetAnimationState { .. }
+            | LogicOp::SetTile { .. }
+            | LogicOp::CameraFollow { .. }
+            | LogicOp::CameraControl { .. }
+            | LogicOp::ShowSprite { .. }
+            | LogicOp::HideSprite { .. }
+            | LogicOp::PathControl { .. }
+            | LogicOp::SetVar { .. }
+            | LogicOp::RomAddQWord { .. }
+            | LogicOp::RomBranchCompareWord { .. }
+            | LogicOp::PlaySound { .. }
+            | LogicOp::PlayMusic { .. }
+            | LogicOp::SourceBridgeError { .. } => {}
         }
     }
 }
@@ -1396,9 +2446,22 @@ fn render_bool_expr(out: &mut String, expr: &LogicBoolExpr, indent: usize) -> St
         LogicBoolExpr::Literal(value) => {
             if *value { "TRUE".to_string() } else { "FALSE".to_string() }
         }
-        LogicBoolExpr::Input { pad, button, .. } => {
+        LogicBoolExpr::Input {
+            pad,
+            button,
+            pressed,
+        } => {
             let button_mask = sgdk_button_mask(button).unwrap_or("BUTTON_A");
-            format!("(JOY_readJoypad({}) & {})", sgdk_joypad_port(pad), button_mask)
+            let port = sgdk_joypad_port(pad);
+            if *pressed {
+                // Rising edge: held now, released on the previous frame.
+                format!(
+                    "((JOY_readJoypad({port}) & {button_mask}) && !(rds_joy_prev_{suffix} & {button_mask}))",
+                    suffix = pad_suffix(port)
+                )
+            } else {
+                format!("(JOY_readJoypad({}) & {})", port, button_mask)
+            }
         }
         LogicBoolExpr::InputCommand {
             command_id,
@@ -1430,6 +2493,9 @@ fn render_bool_expr(out: &mut String, expr: &LogicBoolExpr, indent: usize) -> St
                 )
             }
         }
+        LogicBoolExpr::Grounded { var_name } => format!("({var_name}_on_ground)"),
+        LogicBoolExpr::Crushed { var_name } => format!("(rds_path_crushed_{var_name})"),
+        LogicBoolExpr::SpriteAnimDone { var_name } => format!("rds_anim_done_{var_name}()"),
         LogicBoolExpr::Overlap { left, right } => format!(
             "retro_aabb_intersects({left_x}, {left_y}, {left_w}, {left_h}, {right_x}, {right_y}, {right_w}, {right_h})",
             left_x = logic_x_expr(left),
@@ -1607,6 +2673,80 @@ fn collect_logic_var_names(ast: &AstOutput) -> std::collections::BTreeSet<String
     vars
 }
 
+fn ops_contain_rom_addq_word(ops: &[LogicOp]) -> bool {
+    ops.iter().any(op_contains_rom_addq_word)
+}
+
+fn ops_contain_rom_branch_compare_word(ops: &[LogicOp]) -> bool {
+    ops.iter().any(op_contains_rom_branch_compare_word)
+}
+
+fn op_contains_rom_branch_compare_word(op: &LogicOp) -> bool {
+    match op {
+        LogicOp::RomBranchCompareWord { .. } => true,
+        LogicOp::SourceMapped { op, .. } => op_contains_rom_branch_compare_word(op),
+        LogicOp::ConditionOverlap {
+            if_true, if_false, ..
+        }
+        | LogicOp::ConditionBool {
+            if_true, if_false, ..
+        } => {
+            ops_contain_rom_branch_compare_word(if_true)
+                || ops_contain_rom_branch_compare_word(if_false)
+        }
+        LogicOp::WhileLoop { body, done, .. } | LogicOp::ForLoop { body, done, .. } => {
+            ops_contain_rom_branch_compare_word(body) || ops_contain_rom_branch_compare_word(done)
+        }
+        LogicOp::TimelineSequence { slots, .. } => slots
+            .iter()
+            .any(|slot| ops_contain_rom_branch_compare_word(&slot.actions)),
+        LogicOp::HardwareBudgetCheck { if_ok, if_warn, .. } => {
+            ops_contain_rom_branch_compare_word(if_ok)
+                || ops_contain_rom_branch_compare_word(if_warn)
+        }
+        LogicOp::HardwareEvent { ops, .. } => ops_contain_rom_branch_compare_word(ops),
+        LogicOp::StateMachine { states, .. } => states.iter().any(|state| {
+            ops_contain_rom_branch_compare_word(&state.body)
+                || state.transitions.iter().any(|transition| {
+                    ops_contain_rom_branch_compare_word(&transition.if_matched)
+                        || ops_contain_rom_branch_compare_word(&transition.if_unmatched)
+                })
+        }),
+        _ => false,
+    }
+}
+
+fn op_contains_rom_addq_word(op: &LogicOp) -> bool {
+    match op {
+        LogicOp::RomAddQWord { .. } => true,
+        LogicOp::SourceMapped { op, .. } => op_contains_rom_addq_word(op),
+        LogicOp::ConditionOverlap {
+            if_true, if_false, ..
+        }
+        | LogicOp::ConditionBool {
+            if_true, if_false, ..
+        } => ops_contain_rom_addq_word(if_true) || ops_contain_rom_addq_word(if_false),
+        LogicOp::WhileLoop { body, done, .. } | LogicOp::ForLoop { body, done, .. } => {
+            ops_contain_rom_addq_word(body) || ops_contain_rom_addq_word(done)
+        }
+        LogicOp::TimelineSequence { slots, .. } => slots
+            .iter()
+            .any(|slot| ops_contain_rom_addq_word(&slot.actions)),
+        LogicOp::HardwareBudgetCheck { if_ok, if_warn, .. } => {
+            ops_contain_rom_addq_word(if_ok) || ops_contain_rom_addq_word(if_warn)
+        }
+        LogicOp::HardwareEvent { ops, .. } => ops_contain_rom_addq_word(ops),
+        LogicOp::StateMachine { states, .. } => states.iter().any(|state| {
+            ops_contain_rom_addq_word(&state.body)
+                || state.transitions.iter().any(|transition| {
+                    ops_contain_rom_addq_word(&transition.if_matched)
+                        || ops_contain_rom_addq_word(&transition.if_unmatched)
+                })
+        }),
+        _ => false,
+    }
+}
+
 fn extract_vars_from_op(op: &LogicOp, vars: &mut std::collections::BTreeSet<String>) {
     match op {
         LogicOp::SourceMapped { op, .. } => extract_vars_from_op(op, vars),
@@ -1618,6 +2758,7 @@ fn extract_vars_from_op(op: &LogicOp, vars: &mut std::collections::BTreeSet<Stri
             target_name,
             vx,
             vy,
+            ..
         } => {
             vars.insert(format!("{}_vx", target_name));
             vars.insert(format!("{}_vy", target_name));
@@ -1631,10 +2772,28 @@ fn extract_vars_from_op(op: &LogicOp, vars: &mut std::collections::BTreeSet<Stri
         }
         LogicOp::SetAnimationState { .. }
         | LogicOp::CameraFollow { .. }
-        | LogicOp::HideSprite { .. } => {}
+        | LogicOp::CameraControl { .. }
+        | LogicOp::HideSprite { .. }
+        | LogicOp::PathControl { .. } => {}
         LogicOp::SetVar { var_name, value } => {
             vars.insert(var_name.clone());
             extract_vars_from_math(value, vars);
+        }
+        LogicOp::RomAddQWord { var_name, .. } => {
+            vars.insert(var_name.clone());
+            vars.insert(format!("{var_name}_n"));
+            vars.insert(format!("{var_name}_z"));
+            vars.insert(format!("{var_name}_v"));
+            vars.insert(format!("{var_name}_c"));
+            vars.insert(format!("{var_name}_x"));
+        }
+        LogicOp::RomBranchCompareWord {
+            input_var,
+            result_var,
+            ..
+        } => {
+            vars.insert(input_var.clone());
+            vars.insert(result_var.clone());
         }
         LogicOp::ConditionOverlap {
             if_true, if_false, ..
@@ -1802,13 +2961,77 @@ fn op_uses_overlap(op: &LogicOp) -> bool {
             if_ok.iter().any(op_uses_overlap) || if_warn.iter().any(op_uses_overlap)
         }
         LogicOp::HardwareEvent { ops, .. } => ops.iter().any(op_uses_overlap),
+        // Rastreabilidade e laços também contêm condições: sem descer neles o C
+        // chama `retro_aabb_intersects` sem o helper (falha de link).
+        LogicOp::SourceMapped { op, .. } => op_uses_overlap(op),
+        LogicOp::WhileLoop {
+            condition,
+            body,
+            done,
+        } => {
+            bool_expr_uses_overlap(condition)
+                || body.iter().any(op_uses_overlap)
+                || done.iter().any(op_uses_overlap)
+        }
+        LogicOp::ForLoop { body, done, .. } => {
+            body.iter().any(op_uses_overlap) || done.iter().any(op_uses_overlap)
+        }
         _ => false,
     }
 }
 
+pub(crate) fn collect_grounded_vars(ast: &AstOutput) -> std::collections::BTreeSet<String> {
+    fn from_bool(expr: &LogicBoolExpr, out: &mut std::collections::BTreeSet<String>) {
+        match expr {
+            LogicBoolExpr::Grounded { var_name } => {
+                out.insert(var_name.clone());
+            }
+            LogicBoolExpr::Not(inner) => from_bool(inner, out),
+            LogicBoolExpr::And { left, right, .. } => {
+                from_bool(left, out);
+                from_bool(right, out);
+            }
+            _ => {}
+        }
+    }
+    fn from_ops(ops: &[LogicOp], out: &mut std::collections::BTreeSet<String>) {
+        for op in ops {
+            match op {
+                LogicOp::SourceMapped { op, .. } => {
+                    from_ops(std::slice::from_ref(op.as_ref()), out)
+                }
+                LogicOp::ConditionBool {
+                    condition,
+                    if_true,
+                    if_false,
+                } => {
+                    from_bool(condition, out);
+                    from_ops(if_true, out);
+                    from_ops(if_false, out);
+                }
+                LogicOp::ConditionOverlap {
+                    if_true, if_false, ..
+                } => {
+                    from_ops(if_true, out);
+                    from_ops(if_false, out);
+                }
+                _ => {}
+            }
+        }
+    }
+    let mut out = std::collections::BTreeSet::new();
+    for script in &ast.logic_scripts {
+        from_ops(&script.ops, &mut out);
+    }
+    out
+}
+
 fn bool_expr_uses_overlap(expr: &LogicBoolExpr) -> bool {
     match expr {
-        LogicBoolExpr::Literal(_) => false,
+        LogicBoolExpr::Literal(_)
+        | LogicBoolExpr::Grounded { .. }
+        | LogicBoolExpr::Crushed { .. }
+        | LogicBoolExpr::SpriteAnimDone { .. } => false,
         LogicBoolExpr::Input { .. } | LogicBoolExpr::InputCommand { .. } => false,
         LogicBoolExpr::Overlap { .. } => true,
         LogicBoolExpr::Compare { .. } => false,
@@ -1889,7 +3112,7 @@ fn sgdk_button_mask(button: &str) -> Option<&'static str> {
         "_X" | "X" | "BUTTON_X" => Some("BUTTON_X"),
         "_Y" | "Y" | "BUTTON_Y" => Some("BUTTON_Y"),
         "_Z" | "Z" | "BUTTON_Z" => Some("BUTTON_Z"),
-        "START" => Some("BUTTON_START"),
+        "START" | "BUTTON_START" => Some("BUTTON_START"),
         _ => None,
     }
 }
@@ -1898,19 +3121,44 @@ fn plane_size_for_tilemaps(tilemap_assets: &[TilemapAsset]) -> Option<(u16, u16)
     if tilemap_assets.is_empty() {
         return None;
     }
-
+    // Planos do VDP: 32, 64 ou 128 celulas por eixo, com no maximo 4096 celulas (64x64,
+    // 128x32, 32x128). Mapa mais largo que o plano dava a volta e sobrescrevia as primeiras
+    // colunas (80 tiles num plano de 64).
+    let size = |cells: u32| -> u16 {
+        if cells > 64 {
+            128
+        } else if cells > 32 {
+            64
+        } else {
+            32
+        }
+    };
     let max_width = tilemap_assets
         .iter()
-        .map(|asset| if asset.map_width > 32 { 64 } else { 32 })
+        .map(|a| size(a.map_width))
         .max()
-        .unwrap_or(32) as u16;
+        .unwrap_or(32);
     let max_height = tilemap_assets
         .iter()
-        .map(|asset| if asset.map_height > 32 { 64 } else { 32 })
+        .map(|a| size(a.map_height))
         .max()
-        .unwrap_or(32) as u16;
-
+        .unwrap_or(32);
     Some((max_width, max_height))
+}
+
+/// Mapa que nao cabe num plano do VDP: erro explicito em vez de dar a volta.
+fn plane_size_error(tilemap_assets: &[TilemapAsset]) -> Option<String> {
+    let (w, h) = plane_size_for_tilemaps(tilemap_assets)?;
+    let too_big = tilemap_assets
+        .iter()
+        .any(|a| a.map_width > 128 || a.map_height > 128);
+    (too_big || u32::from(w) * u32::from(h) > 4096).then(|| {
+        format!(
+            "#error \"RetroDev: mapa de {}x{} tiles nao cabe num plano do Mega Drive (64x64, 128x32 ou 32x128)\"\n",
+            tilemap_assets.iter().map(|a| a.map_width).max().unwrap_or(0),
+            tilemap_assets.iter().map(|a| a.map_height).max().unwrap_or(0)
+        )
+    })
 }
 
 /// Sprites that need position tracking (SGDK 2.x: no SPR_getX/SPR_getY).
@@ -2022,13 +3270,66 @@ fn collect_scroll_tilemap_layers(ast: &AstOutput) -> Vec<String> {
     layers
 }
 
+fn ast_has_camera_follow(ast: &AstOutput) -> bool {
+    fn walk(ops: &[LogicOp]) -> bool {
+        ops.iter().any(|op| match op {
+            LogicOp::CameraFollow { .. } => true,
+            LogicOp::SourceMapped { op, .. } => walk(std::slice::from_ref(op.as_ref())),
+            LogicOp::ConditionOverlap {
+                if_true, if_false, ..
+            }
+            | LogicOp::ConditionBool {
+                if_true, if_false, ..
+            } => walk(if_true) || walk(if_false),
+            LogicOp::WhileLoop { body, done, .. } | LogicOp::ForLoop { body, done, .. } => {
+                walk(body) || walk(done)
+            }
+            LogicOp::HardwareBudgetCheck { if_ok, if_warn, .. } => walk(if_ok) || walk(if_warn),
+            LogicOp::HardwareEvent { ops, .. } => walk(ops),
+            LogicOp::StateMachine { states, .. } => states.iter().any(|state| {
+                walk(&state.body)
+                    || state
+                        .transitions
+                        .iter()
+                        .any(|t| walk(&t.if_matched) || walk(&t.if_unmatched))
+            }),
+            _ => false,
+        })
+    }
+    ast.logic_scripts.iter().any(|script| walk(&script.ops))
+}
+
+/// Maior deslocamento de camera: mundo (maior tilemap) menos a tela 320x224 do Mega Drive.
+fn camera_world_limits(ast: &AstOutput, tilemaps: &[TilemapAsset]) -> (i32, i32) {
+    let mut width = 0i32;
+    let mut height = 0i32;
+    for node in &ast.nodes {
+        if let AstNode::DrawTilemap {
+            resource_name,
+            x,
+            y,
+            ..
+        } = node
+        {
+            if let Some(asset) = tilemaps.iter().find(|a| &a.resource_name == resource_name) {
+                width = width.max(x.max(&0) / 8 * 8 + asset.map_width as i32 * 8);
+                height = height.max(y.max(&0) / 8 * 8 + asset.map_height as i32 * 8);
+            }
+        }
+    }
+    ((width - 320).max(0), (height - 224).max(0))
+}
+
 fn collect_camera_scroll_planes(ast: &AstOutput) -> Vec<&'static str> {
     let mut planes = Vec::new();
     let mut tilemap_index = 0usize;
 
     for node in &ast.nodes {
         if matches!(node, AstNode::DrawTilemap { .. }) {
-            let plane = tilemap_plane(tilemap_index);
+            let plane = resolved_tilemap_planes(ast)
+                .get(tilemap_index)
+                .copied()
+                .unwrap_or("WINDOW");
             tilemap_index += 1;
             if plane != "WINDOW" && !planes.contains(&plane) {
                 planes.push(plane);
@@ -2060,12 +3361,24 @@ fn collect_camera_scroll_planes(ast: &AstOutput) -> Vec<&'static str> {
     }
 }
 
-fn tilemap_plane(index: usize) -> &'static str {
-    match index {
-        0 => "BG_B",
-        1 => "BG_A",
-        _ => "WINDOW",
-    }
+/// Plane of each tilemap in draw order: the author's explicit choice, otherwise the previous
+/// implicit order (so scenes without a choice emit exactly what they did before).
+fn resolved_tilemap_planes(ast: &AstOutput) -> Vec<&'static str> {
+    ast.nodes
+        .iter()
+        .filter_map(|node| match node {
+            AstNode::DrawTilemap { plane, .. } => Some(plane.as_deref()),
+            _ => None,
+        })
+        .enumerate()
+        .map(|(index, plane)| {
+            match super::platform_support::effective_tilemap_plane(index, plane) {
+                "BG_A" => "BG_A",
+                "BG_B" => "BG_B",
+                _ => "WINDOW",
+            }
+        })
+        .collect()
 }
 
 fn sgdk_scroll_plane(layer: &str) -> &'static str {
@@ -2096,8 +3409,29 @@ fn tilemap_base_expression(resource_name: &str, tilemap_assets: &[TilemapAsset])
             break;
         }
         terms.push(format!("{}.tileset->numTile", asset.resource_name));
+        let overlay = tilemap_overlay_tiles(asset).len();
+        if overlay > 0 {
+            terms.push(overlay.to_string());
+        }
     }
     terms.join(" + ")
+}
+
+/// Cell value meaning "no change over the base map".
+const TILEMAP_CELL_BASE: u32 = 0;
+/// Cell value meaning "explicitly empty" (blank tile), distinct from the base map.
+pub(crate) const TILEMAP_CELL_EMPTY: u32 = u32::MAX;
+
+/// Distinct painted tileset tiles (value N = image tile N-1), in first-use order.
+fn tilemap_overlay_tiles(asset: &TilemapAsset) -> Vec<u32> {
+    let total = (asset.map_width as usize).saturating_mul(asset.map_height as usize);
+    let mut used = Vec::new();
+    for value in asset.cells.iter().copied().take(total) {
+        if value != TILEMAP_CELL_BASE && value != TILEMAP_CELL_EMPTY && !used.contains(&value) {
+            used.push(value);
+        }
+    }
+    used
 }
 
 fn tilemap_resource_path(asset_path: &str) -> String {
@@ -2126,11 +3460,113 @@ fn palette_const(slot: u8) -> String {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn move_sprite_faces_its_direction_only_when_requested() {
+        // JV10: o comportamento Movimento e salto pede orientacao; outros sprite_move nao.
+        let mut out = String::new();
+        render_logic_ops(
+            &mut out,
+            &[
+                LogicOp::MoveSprite {
+                    target_var: "spr_player".into(),
+                    dx: -2,
+                    dy: 0,
+                    face: true,
+                },
+                LogicOp::MoveSprite {
+                    target_var: "spr_player".into(),
+                    dx: 2,
+                    dy: 0,
+                    face: true,
+                },
+                LogicOp::MoveSprite {
+                    target_var: "spr_enemy".into(),
+                    dx: -1,
+                    dy: 0,
+                    face: false,
+                },
+                LogicOp::MoveSprite {
+                    target_var: "spr_player".into(),
+                    dx: 0,
+                    dy: 1,
+                    face: true,
+                },
+            ],
+            4,
+        );
+        assert!(
+            out.contains("if (spr_player) SPR_setHFlip(spr_player, TRUE);"),
+            "{out}"
+        );
+        assert!(
+            out.contains("if (spr_player) SPR_setHFlip(spr_player, FALSE);"),
+            "{out}"
+        );
+        assert!(!out.contains("SPR_setHFlip(spr_enemy"), "{out}");
+        assert_eq!(
+            out.matches("SPR_setHFlip").count(),
+            2,
+            "dx 0 nao muda a orientacao: {out}"
+        );
+    }
+
+    #[test]
+    fn overlap_inside_source_mapped_or_loops_requires_the_aabb_helper() {
+        let target = |id: &str| LogicCollisionTarget {
+            entity_id: id.to_string(),
+            position: LogicPositionSource::SpriteVar {
+                var_name: format!("spr_{id}"),
+            },
+            offset_x: 0,
+            offset_y: 0,
+            width: 16,
+            height: 16,
+        };
+        let overlap = LogicOp::ConditionOverlap {
+            left: target("player"),
+            right: target("goal"),
+            if_true: Vec::new(),
+            if_false: Vec::new(),
+        };
+        let mapped = LogicOp::SourceMapped {
+            graph_sha256: "g".to_string(),
+            node_id: "n".to_string(),
+            semantic_stage: "s".to_string(),
+            op: Box::new(overlap.clone()),
+        };
+        assert!(op_uses_overlap(&mapped));
+        let looped = LogicOp::ForLoop {
+            loop_var: "i".to_string(),
+            count: LogicMathExpr::Literal(1),
+            body: vec![mapped],
+            done: Vec::new(),
+        };
+        assert!(op_uses_overlap(&looped));
+    }
     use super::*;
     use crate::compiler::ast_generator::{
         LogicBoolExpr, LogicCollisionTarget, LogicMathExpr, LogicOp, LogicPositionSource,
         LogicScript, SpriteAnimation,
     };
+
+    #[test]
+    fn button_mask_accepts_every_button_offered_by_the_node_editor() {
+        // O NodeGraph grava `BUTTON_*`; nenhum deles pode cair no fallback BUTTON_A.
+        for (stored, mask) in [
+            ("BUTTON_A", "BUTTON_A"),
+            ("BUTTON_B", "BUTTON_B"),
+            ("BUTTON_C", "BUTTON_C"),
+            ("BUTTON_START", "BUTTON_START"),
+            ("BUTTON_UP", "BUTTON_UP"),
+            ("BUTTON_DOWN", "BUTTON_DOWN"),
+            ("BUTTON_LEFT", "BUTTON_LEFT"),
+            ("BUTTON_RIGHT", "BUTTON_RIGHT"),
+        ] {
+            assert_eq!(sgdk_button_mask(stored), Some(mask), "{stored}");
+        }
+        assert_eq!(sgdk_button_mask("BUTTON_NOPE"), None);
+    }
 
     fn sprite_asset_with_animation(frame_time: u32, looping: bool) -> SpriteAsset {
         let animation = SpriteAnimation {
@@ -2138,6 +3574,8 @@ mod tests {
             frames: vec![0, 1, 2, 3],
             frame_time,
             looping,
+            frame_times: None,
+            mugen: None,
         };
         SpriteAsset {
             resource_name: "hero".to_string(),
@@ -2158,6 +3596,7 @@ mod tests {
                     target_var: "spr_player".to_string(),
                     dx: 2,
                     dy: -1,
+                    face: false,
                 },
                 LogicOp::ConditionOverlap {
                     left: LogicCollisionTarget {
@@ -2190,6 +3629,79 @@ mod tests {
     }
 
     #[test]
+    fn sprite_priority_controls_priority_bit_without_horizontal_flip() {
+        // SGDK TILE_ATTR(palette, priority, flipV, flipH): foreground and
+        // background selection must not mirror artwork in either allocator.
+        for managed in [false, true] {
+            for high in [false, true] {
+                let mut asset = sprite_asset_with_animation(6, true);
+                if managed {
+                    asset.frame_width = 192;
+                    asset.frame_height = 160;
+                }
+                let ast = AstOutput {
+                    nodes: vec![
+                        AstNode::SpriteSystemInit,
+                        AstNode::LoadSpritesheet {
+                            resource_name: "hero".into(),
+                            asset_path: "assets/sprites/hero.png".into(),
+                            frame_width: 16,
+                            frame_height: 16,
+                            palette_slot: 1,
+                        },
+                        AstNode::SpawnSprite {
+                            var_name: "spr_hero".into(),
+                            resource_name: "hero".into(),
+                            x: 0,
+                            y: 0,
+                            priority_high: high,
+                        },
+                    ],
+                    sprite_assets: vec![asset],
+                    logic_scripts: Vec::new(),
+                };
+                let output = emit_sgdk(&ast, "Priority").main_c;
+                let priority = if high { "TRUE" } else { "FALSE" };
+                assert!(
+                    output.contains(&format!("TILE_ATTR(PAL1, {priority}, FALSE, FALSE)")),
+                    "priority mapping failed: managed={managed}, high={high}"
+                );
+                assert!(output.contains("PAL_setPalette(PAL1, hero.palette->data, CPU);"));
+                assert!(output.contains("SPR_setVisibility(spr_hero, VISIBLE);"));
+            }
+        }
+    }
+
+    #[test]
+    fn large_scene_uses_viewport_residency_before_sprite_update() {
+        let mut asset = sprite_asset_with_animation(6, true);
+        asset.frame_width = 192;
+        asset.frame_height = 160; // 480 tiles, beyond SGDK's default 420.
+        let ast = AstOutput {
+            nodes: vec![
+                AstNode::SpriteSystemInit,
+                AstNode::SpawnSprite {
+                    var_name: "spr_hero".into(),
+                    resource_name: "hero".into(),
+                    x: 400,
+                    y: 0,
+                    priority_high: true,
+                },
+                AstNode::SpriteUpdate,
+            ],
+            sprite_assets: vec![asset],
+            logic_scripts: Vec::new(),
+        };
+        let output = emit_sgdk(&ast, "Large scene").main_c;
+        assert!(output.contains("rds_register_sprite(&spr_hero"));
+        assert!(!output.contains("spr_hero = SPR_addSprite"));
+        assert!(output.contains("rds_init_sprite_residency(0)"));
+        let sync = output.rfind("rds_sync_sprite_residency();").unwrap();
+        let update = output.rfind("SPR_update();").unwrap();
+        assert!(sync < update);
+    }
+
+    #[test]
     fn resources_res_preserves_distinct_animation_row_timings() {
         let mut asset = sprite_asset_with_animation(10, true);
         asset.animations[0].frames = vec![0];
@@ -2198,8 +3710,27 @@ mod tests {
             frames: vec![1, 2, 3],
             frame_time: 5,
             looping: true,
+            frame_times: None,
+            mugen: None,
         });
         assert_eq!(resource_animation_time(&asset), "[[10][5,5,5]]");
+    }
+
+    #[test]
+    fn resources_res_preserves_authoring_frame_delays_and_rejects_wrapping() {
+        let mut asset = sprite_asset_with_animation(10, true);
+        asset.animations[0].frame_times = Some(vec![2, 6, 9, 255]);
+        assert_eq!(resource_animation_time(&asset), "[[2,6,9,255]]");
+        let mut ast = AstOutput {
+            nodes: vec![],
+            sprite_assets: vec![asset],
+            logic_scripts: vec![],
+        };
+        assert!(!emit_sgdk(&ast, "Animation").main_c.starts_with("#error"));
+        ast.sprite_assets[0].animations[0].frame_times = Some(vec![2, 6, 9, 256]);
+        assert!(emit_sgdk(&ast, "Animation")
+            .main_c
+            .starts_with("#error Duracoes"));
     }
 
     #[test]
@@ -2262,6 +3793,7 @@ mod tests {
                 asset_path: "assets/tilesets/level.ppm".to_string(),
                 map_width: 32,
                 map_height: 32,
+                cells: vec![],
             }],
             sprite_assets: Vec::new(),
             logic_scripts: Vec::new(),
@@ -2340,7 +3872,10 @@ mod tests {
 
         assert!(output
             .main_c
-            .contains("XGM_startPlay(stage_theme); /* fade_ms: 500 - suporte futuro */"));
+            .contains("if (rds_music_current != stage_theme || !XGM_isPlaying()) { XGM_startPlay(stage_theme); rds_music_current = stage_theme; } /* fade_ms: 500 - suporte futuro */"));
+        assert!(output
+            .main_c
+            .contains("static const u8* rds_music_current = NULL;"));
         assert!(output
             .main_c
             .contains("XGM_stopPlay(); /* fade_ms: 0 - suporte futuro */"));
@@ -2480,6 +4015,7 @@ mod tests {
                     asset_path: "assets/tilesets/level.ppm".to_string(),
                     map_width: 64,
                     map_height: 32,
+                    cells: vec![],
                 },
                 AstNode::DrawTilemap {
                     resource_name: "background_tilemap".to_string(),
@@ -2487,6 +4023,8 @@ mod tests {
                     y: 24,
                     scroll_x: 8,
                     scroll_y: 4,
+                    plane: None,
+                    priority_high: false,
                 },
                 AstNode::GameLoopBegin,
                 AstNode::SpriteUpdate,
@@ -2505,6 +4043,62 @@ mod tests {
         ));
         assert!(output.main_c.contains("VDP_setHorizontalScroll(BG_B, 8);"));
         assert!(output.main_c.contains("VDP_setVerticalScroll(BG_B, 4);"));
+    }
+
+    #[test]
+    fn main_c_applies_painted_tilemap_cells_as_sparse_overlay() {
+        let ast = AstOutput {
+            nodes: vec![
+                AstNode::LoadTilemap {
+                    resource_name: "background_tilemap".to_string(),
+                    asset_path: "assets/tilesets/level.ppm".to_string(),
+                    map_width: 2,
+                    map_height: 2,
+                    cells: vec![0, 2, u32::MAX, 1],
+                },
+                AstNode::DrawTilemap {
+                    resource_name: "background_tilemap".to_string(),
+                    x: 0,
+                    y: 0,
+                    scroll_x: 0,
+                    scroll_y: 0,
+                    plane: None,
+                    priority_high: false,
+                },
+            ],
+            sprite_assets: Vec::new(),
+            logic_scripts: Vec::new(),
+        };
+
+        let output = emit_sgdk(&ast, "Tilemap Overlay Demo");
+
+        // Value N is image tile N-1 from the unoptimized TILESET, uploaded after the image
+        // tiles in first-use order (2 -> slot 0, 1 -> slot 1); 0 keeps the base map and
+        // u32::MAX writes the blank tile.
+        let base = "TILE_USER_INDEX + background_tilemap.tileset->numTile";
+        assert!(output.main_c.contains(&format!(
+            "if (1 < background_tilemap_cells.numTile) VDP_loadTileData(background_tilemap_cells.tiles + 8, {base} + 0, 1, DMA);"
+        )));
+        assert!(output.main_c.contains(&format!(
+            "if (0 < background_tilemap_cells.numTile) VDP_loadTileData(background_tilemap_cells.tiles + 0, {base} + 1, 1, DMA);"
+        )));
+        assert!(output.main_c.contains(&format!(
+            "VDP_setTileMapXY(BG_B, TILE_ATTR_FULL(PAL0, FALSE, FALSE, FALSE, {base} + 0), 1, 0);"
+        )));
+        assert!(output.main_c.contains(
+            "VDP_setTileMapXY(BG_B, TILE_ATTR_FULL(PAL0, FALSE, FALSE, FALSE, 0), 0, 1);"
+        ));
+        assert!(output.main_c.contains(&format!(
+            "VDP_setTileMapXY(BG_B, TILE_ATTR_FULL(PAL0, FALSE, FALSE, FALSE, {base} + 1), 1, 1);"
+        )));
+        assert!(
+            !output.main_c.contains(", 0, 0);\n"),
+            "value 0 keeps the base map"
+        );
+        assert!(output
+            .resources_res
+            .contains("TILESET background_tilemap_cells \"assets/tilesets/level.bmp\" NONE NONE"));
+        assert!(!output.main_c.contains("VDP_setTileMapDataRectEx"));
     }
 
     #[test]
@@ -2612,6 +4206,8 @@ mod tests {
                     max_velocity_y: 96,
                     friction: 2,
                     bounce: 35,
+                    floor_y: None,
+                    ground: None,
                 },
                 AstNode::SpriteUpdate,
                 AstNode::VSync,
@@ -2649,6 +4245,7 @@ mod tests {
                     asset_path: "assets/tilesets/level.png".to_string(),
                     map_width: 32,
                     map_height: 32,
+                    cells: vec![],
                 },
                 AstNode::DrawTilemap {
                     resource_name: "level_bg".to_string(),
@@ -2656,6 +4253,8 @@ mod tests {
                     y: 0,
                     scroll_x: 0,
                     scroll_y: 0,
+                    plane: None,
+                    priority_high: false,
                 },
                 AstNode::GameLoopBegin,
                 AstNode::ScrollTilemap {
@@ -2733,6 +4332,7 @@ mod tests {
                     asset_path: "assets/tilesets/level.png".to_string(),
                     map_width: 32,
                     map_height: 32,
+                    cells: vec![],
                 },
                 AstNode::DrawTilemap {
                     resource_name: "level_bg".to_string(),
@@ -2740,12 +4340,15 @@ mod tests {
                     y: 0,
                     scroll_x: 0,
                     scroll_y: 0,
+                    plane: None,
+                    priority_high: false,
                 },
                 AstNode::LoadTilemap {
                     resource_name: "foreground".to_string(),
                     asset_path: "assets/tilesets/foreground.png".to_string(),
                     map_width: 32,
                     map_height: 32,
+                    cells: vec![],
                 },
                 AstNode::DrawTilemap {
                     resource_name: "foreground".to_string(),
@@ -2753,6 +4356,8 @@ mod tests {
                     y: 0,
                     scroll_x: 0,
                     scroll_y: 0,
+                    plane: None,
+                    priority_high: false,
                 },
                 AstNode::GameLoopBegin,
                 AstNode::MoveCamera {
@@ -2808,7 +4413,7 @@ mod tests {
         ));
         assert!(output
             .main_c
-            .contains("XGM_startPlayPCM(SFX_JUMP, 1, SOUND_PCM_CH_AUTO);"));
+            .contains("XGM_startPlayPCM(SFX_JUMP, 1, SOUND_PCM_CH2);"));
     }
 
     #[test]
@@ -2858,18 +4463,20 @@ mod tests {
 
         let output = emit_sgdk(&ast, "Logic Vars Demo");
 
-        assert!(output.main_c.contains("static s32 logic_var_score = 0;"));
+        assert!(output
+            .main_c
+            .contains("static volatile s32 logic_var_score = 0;"));
         assert!(output
             .main_c
             .contains("logic_var_score = (((logic_var_score + 2) * (6 - 1)) / 5);"));
         assert!(output.main_c.contains("if ((logic_var_score >= 10)) {"));
         assert!(output
             .main_c
-            .contains("XGM_startPlayPCM(SFX_WIN, 1, SOUND_PCM_CH_AUTO);"));
+            .contains("XGM_startPlayPCM(SFX_WIN, 1, SOUND_PCM_CH2);"));
         assert!(output.main_c.contains("} else {"));
         assert!(output
             .main_c
-            .contains("XGM_startPlayPCM(SFX_LOSE, 1, SOUND_PCM_CH_AUTO);"));
+            .contains("XGM_startPlayPCM(SFX_LOSE, 1, SOUND_PCM_CH2);"));
     }
 
     #[test]
@@ -2891,6 +4498,7 @@ mod tests {
                         target_name: "player".to_string(),
                         vx: LogicMathExpr::Literal(2),
                         vy: LogicMathExpr::Literal(0),
+                        runtime_var: None,
                     }),
                 }],
             }],
@@ -2900,11 +4508,51 @@ mod tests {
 
         assert!(output
             .main_c
-            .contains("static s32 logic_var_player_vx = 0;"));
+            .contains("static volatile s32 logic_var_player_vx = 0;"));
         assert!(output
             .main_c
-            .contains("static s32 logic_var_player_vy = 0;"));
+            .contains("static volatile s32 logic_var_player_vy = 0;"));
+        assert!(output.main_c.contains("static s32 spr_player_vel_y = 0;"));
         assert!(output.main_c.contains("logic_var_player_vx = 2;"));
+        assert!(output.main_c.contains("spr_player_vel_y = 0;"));
+    }
+
+    #[test]
+    fn main_c_emits_exact_recovered_addq_word_semantics() {
+        let ast = AstOutput {
+            nodes: vec![
+                AstNode::GameLoopBegin,
+                AstNode::SpriteUpdate,
+                AstNode::VSync,
+                AstNode::GameLoopEnd,
+            ],
+            sprite_assets: Vec::new(),
+            logic_scripts: vec![LogicScript {
+                ops: vec![LogicOp::RomAddQWord {
+                    var_name: "rom_d0".to_string(),
+                    immediate: 1,
+                }],
+            }],
+        };
+
+        let output = emit_sgdk(&ast, "Recovered ROM Logic");
+
+        assert!(output
+            .main_c
+            .contains("static volatile s32 logic_var_rom_d0 = 0x12340058;"));
+        assert!(output.main_c.contains("rds_logic_recovery_oracle_value"));
+        assert!(output
+            .main_c
+            .contains("rds_logic_recovery_prelude_frame < 83"));
+        assert!(output
+            .main_c
+            .contains("rds_rom_word_result = (u16)(rds_rom_word_before + 1)"));
+        assert!(output
+            .main_c
+            .contains("logic_var_rom_d0_n = (rds_rom_word_result & 0x8000) != 0"));
+        assert!(output
+            .main_c
+            .contains("logic_var_rom_d0_c = (rds_rom_word_before > (u16)(0xFFFF - 1))"));
     }
 
     #[test]
@@ -2944,6 +4592,7 @@ mod tests {
                                 target_var: "spr_player".to_string(),
                                 dx: 2,
                                 dy: 0,
+                                face: false,
                             }],
                             transitions: Vec::new(),
                         },
@@ -2956,7 +4605,7 @@ mod tests {
 
         assert!(output
             .main_c
-            .contains("static s32 logic_var_fsm_state = 0;"));
+            .contains("static volatile s32 logic_var_fsm_state = 0;"));
         assert!(output.main_c.contains("if (logic_var_fsm_state == 0) {"));
         assert!(output.main_c.contains("logic_var_fsm_state = 1;"));
         assert!(output
@@ -2986,6 +4635,7 @@ mod tests {
                         target_var: "spr_player".to_string(),
                         dx: 1,
                         dy: 0,
+                        face: false,
                     }],
                     done: vec![LogicOp::ForLoop {
                         loop_var: "idx".to_string(),
@@ -3007,7 +4657,7 @@ mod tests {
             .contains("for (s16 idx = 0; idx < 3; idx++) {"));
         assert!(output
             .main_c
-            .contains("XGM_startPlayPCM(SFX_JUMP, 1, SOUND_PCM_CH_AUTO);"));
+            .contains("XGM_startPlayPCM(SFX_JUMP, 1, SOUND_PCM_CH2);"));
     }
 
     #[test]
@@ -3030,6 +4680,7 @@ mod tests {
                                 target_var: "spr_player".to_string(),
                                 dx: 2,
                                 dy: 0,
+                                face: false,
                             }],
                         },
                         crate::compiler::ast_generator::LogicTimelineSlot {
@@ -3047,7 +4698,7 @@ mod tests {
 
         assert!(output
             .main_c
-            .contains("static s32 logic_var_timeline_intro = 0;"));
+            .contains("static volatile s32 logic_var_timeline_intro = 0;"));
         assert!(output.main_c.contains("logic_var_timeline_intro++;"));
         assert!(output
             .main_c
@@ -3056,7 +4707,7 @@ mod tests {
         assert!(output.main_c.contains("case 30:"));
         assert!(output
             .main_c
-            .contains("XGM_startPlayPCM(SFX_JUMP, 1, SOUND_PCM_CH_AUTO);"));
+            .contains("XGM_startPlayPCM(SFX_JUMP, 1, SOUND_PCM_CH2);"));
     }
 
     #[test]
@@ -3077,6 +4728,7 @@ mod tests {
                             target_var: "spr_player".to_string(),
                             dx: 1,
                             dy: 0,
+                            face: false,
                         }],
                     }],
                 },
@@ -3107,6 +4759,43 @@ mod tests {
             .contains("SYS_setHIntCallback(retro_on_hblank);"));
         assert!(output
             .main_c
-            .contains("XGM_startPlayPCM(SFX_JUMP, 1, SOUND_PCM_CH_AUTO);"));
+            .contains("XGM_startPlayPCM(SFX_JUMP, 1, SOUND_PCM_CH2);"));
+    }
+}
+
+#[cfg(test)]
+mod tilemap_plane_tests {
+    use super::*;
+
+    fn tm(plane: Option<&str>) -> AstNode {
+        AstNode::DrawTilemap {
+            resource_name: "t".to_string(),
+            x: 0,
+            y: 0,
+            scroll_x: 0,
+            scroll_y: 0,
+            plane: plane.map(str::to_string),
+            priority_high: false,
+        }
+    }
+
+    fn ast(nodes: Vec<AstNode>) -> AstOutput {
+        AstOutput {
+            nodes,
+            sprite_assets: Vec::new(),
+            logic_scripts: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn implicit_order_is_unchanged_and_explicit_choice_wins() {
+        assert_eq!(
+            resolved_tilemap_planes(&ast(vec![tm(None), tm(None), tm(None)])),
+            vec!["BG_B", "BG_A", "WINDOW"]
+        );
+        assert_eq!(
+            resolved_tilemap_planes(&ast(vec![tm(Some("BG_A")), tm(Some("BG_B"))])),
+            vec!["BG_A", "BG_B"]
+        );
     }
 }

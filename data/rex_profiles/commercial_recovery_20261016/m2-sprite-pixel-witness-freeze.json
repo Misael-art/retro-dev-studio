@@ -1,0 +1,18 @@
+{
+  "schema": "rex-observational-pixel-witness-freeze/v1",
+  "id": "M2-SPRITE-PIXEL-WITNESS-001",
+  "before_analysis": true,
+  "reserved_or_blind": false,
+  "verifier_sha256": "a0c9ff8f21e9974bfc4c59a200794f07aa020bfbe2485a653254d1f216f97899",
+  "original_png_sha256": "8a4a386bc1defe06462cde85545c331dc9f2728ec7d9d49a40161c671680abe0",
+  "model": "normal progressive sprites, linked SAT order, column-major4bpp tiles, full-sprite flips, color from native CRAM projected through official normal MAME0289 levels; all opaque pixels from pinned249tile resource in viewport after earlier sprite occlusion",
+  "reference_origins": "separate pixel model, same-runtime observed memory; not independent game state, no visual expectation from edited capture",
+  "expectation": "zero RGB tolerance; every projected resource pixel matches original presented image; nonempty resource; single-pixel wrong expected color refused",
+  "temporal_hypothesis": "native VDP state at1290 aligns with published screenshot1290; if false preserve failure, do not select a best matching frame",
+  "literal_controls": "four2x2 tile-order/flip vectors, five color words, two nibble/transparency values",
+  "unsupported": "BG high-priority occlusion, shadow/highlight, interlace and hardware timing; reject active unsupported mode",
+  "sources": [
+    "https://raw.githubusercontent.com/mamedev/mame/mame0289/src/devices/video/315_5124.cpp",
+    "https://raw.githubusercontent.com/mamedev/mame/mame0289/src/devices/video/315_5313.cpp"
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "schema": "rex-m5-production-reconstruction-result/v1",
+  "generated_at": "2026-10-18T08:45:56.925023+00:00",
+  "tests": {
+    "passed": 7,
+    "failed": 0,
+    "ignored": 0,
+    "raw_log": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-production-tests-002/raw.log",
+    "raw_log_sha256": "b388075fe503fd69b287ae6902294ea46fa61309a25e89586a3a45d88d552d93"
+  },
+  "cases": [
+    {
+      "id": "batman",
+      "independent_ips_exact": true,
+      "original_intact": true,
+      "original_region_reconstructed": true,
+      "edited_region_reconstructed": true,
+      "outputs": {
+        "original-rebuilt-region.bin": "d0a65a04a319918bb785fb9b6008698b555f9c54e3928ce4a2c36d28b3fbdca1",
+        "modified-rebuilt-region.bin": "60eb9f258d293e5aca9ec66cdb5e52ee9db8c489eec06efacc63f448273738a7",
+        "published-copy.bin": "708d363887044bf9bee4181c28f2844b6a02d00b685495648699a0bcc236d629",
+        "published.ips": "8a08cae0fb23e998c9dba7e72b95f9434da59116dacd154a5ab53c67a7e17937",
+        "graph.nodegraph.json": "bb0018405e2fd148980047700729cfbfc7bc02b89e8775391c11d08d09f85c0a"
+      }
+    },
+    {
+      "id": "golden-axe",
+      "independent_ips_exact": true,
+      "original_intact": true,
+      "original_region_reconstructed": true,
+      "edited_region_reconstructed": true,
+      "outputs": {
+        "original-rebuilt-region.bin": "037a639f2523e4b3c038a64e10ab92871882036ea7a5f1d79ce721ef446aa8a6",
+        "modified-rebuilt-region.bin": "a34c0c6baec6a8439e72cb94770d3c8ce5828e0ee8995f858b4c1a889052df12",
+        "published-copy.bin": "5725630a53c0eb72210e1ef5ead773b5e3a3f76dbdd1a134474f61816db09f18",
+        "published.ips": "ec10c284835f8ec931f480ba3619411fdfc5710bc1876fc5d8d119611e076bf5",
+        "graph.nodegraph.json": "3ef744ffbd5aa869fc6d3c1f04d48e08d6bda4f74a96313e2ad7da7980bcf793"
+      }
+    },
+    {
+      "id": "musha",
+      "independent_ips_exact": true,
+      "original_intact": true,
+      "original_region_reconstructed": true,
+      "edited_region_reconstructed": true,
+      "outputs": {
+        "original-rebuilt-region.bin": "aa205adcc408ee834d3436117c7de41c87c5dcfe6c7ac59727924ea3c2ed66f0",
+        "modified-rebuilt-region.bin": "9961af8efe79042ae7cd259db5d9154cc24c54d9ec31fd41f1d10055095afafb",
+        "published-copy.bin": "0a5c6b36c18ba064322fccb50645c00559bf19adc182adf24870665e561a6dd2",
+        "published.ips": "0fcf0445ca23d7ae720e13401a18d0f804878be402f8fd0bec8bc820e3d2126e",
+        "graph.nodegraph.json": "36bcb6e77ad973a5e0bb6e50d1cb15067b1c50325790fb8ef59e4326f4cafc57"
+      }
+    },
+    {
+      "id": "toy-story",
+      "independent_ips_exact": true,
+      "original_intact": true,
+      "original_region_reconstructed": true,
+      "edited_region_reconstructed": true,
+      "outputs": {
+        "original-rebuilt-region.bin": "391daaa48ba572f700e32413966d7b9e846f2a1988168f8614837094b71c6e67",
+        "modified-rebuilt-region.bin": "fb22159141d0b0e3301db6a3eb951506c0282f63f1e34ca81d9047aa894a8a23",
+        "published-copy.bin": "9488c248bda92a7188a4cb49fac3c3e33c383a930ea7132a1add28eda8727c80",
+        "published.ips": "6a112341a26e5a31ebf246ed56e1212c7eb9caecd3d64ae99198e7e551b4cdca",
+        "graph.nodegraph.json": "ecd0c391e01cd99321da96d83654223068982c7354972c31717fbfd965619baa"
+      }
+    }
+  ],
+  "limits": "Backend publication/reconstruction only. Four exploratory commercial regions; real invocation independently observed only GoldenAxe/ToyStory so far, state accepted only GoldenAxe. No native UI or GX transfer proof yet."
+}

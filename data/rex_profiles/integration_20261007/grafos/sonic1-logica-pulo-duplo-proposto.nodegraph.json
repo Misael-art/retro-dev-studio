@@ -1,0 +1,539 @@
+{
+ "version": 1,
+ "nodes": [
+  {
+   "id": "orig",
+   "type": "event_update",
+   "label": "Sonic_JumpHeight @0x13498 passa a chamar o gancho",
+   "x": 40,
+   "y": 40,
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "rate": "frame",
+    "origem": "PROPOSTO (patch sonic1-pulo-duplo.ips; nao e logica original)",
+    "rom_addr": "0x013498",
+    "rom_bytes": "4eb900081c80",
+    "rom_asm": "jsr 0x81c80",
+    "rom_buffer": "ROM com patch sonic1-pulo-duplo",
+    "nota": "No lugar de \"tst.b $3C(a0); beq.s\" (6 bytes) entra \"jsr gancho\"."
+   }
+  },
+  {
+   "id": "zero",
+   "type": "condition_compare",
+   "label": "Flag de pulo ($3C) == 0 (nao pulou)?",
+   "x": 40,
+   "y": 190,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "a",
+     "label": "a",
+     "kind": "data",
+     "dataType": "int"
+    },
+    {
+     "id": "b",
+     "label": "b",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "true",
+     "label": "true",
+     "kind": "exec"
+    },
+    {
+     "id": "false",
+     "label": "false",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "operator": "==",
+    "a": "sonic_pulando",
+    "b": 0,
+    "origem": "PROPOSTO (patch sonic1-pulo-duplo.ips; nao e logica original)",
+    "rom_addr": "0x081C80",
+    "rom_bytes": "4a28003c67000038",
+    "rom_asm": "tstb %a0@(60) ; beqw 0x81cbe",
+    "rom_buffer": "ROM com patch sonic1-pulo-duplo"
+   }
+  },
+  {
+   "id": "pul",
+   "type": "condition_compare",
+   "label": "Flag de pulo ($3C) == 1 (primeiro pulo ativo)?",
+   "x": 370,
+   "y": 190,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "a",
+     "label": "a",
+     "kind": "data",
+     "dataType": "int"
+    },
+    {
+     "id": "b",
+     "label": "b",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "true",
+     "label": "true",
+     "kind": "exec"
+    },
+    {
+     "id": "false",
+     "label": "false",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "operator": "==",
+    "a": "sonic_pulando",
+    "b": 1,
+    "origem": "PROPOSTO (patch sonic1-pulo-duplo.ips; nao e logica original)",
+    "rom_addr": "0x081C88",
+    "rom_bytes": "0c280001003c662c",
+    "rom_asm": "cmpib #1,%a0@(60) ; bnes 0x81cbc",
+    "rom_buffer": "ROM com patch sonic1-pulo-duplo",
+    "nota": "$3C: 0 chao, 1 primeiro pulo, 2 pulo duplo usado; Sonic_ResetOnFloor zera ao pousar."
+   }
+  },
+  {
+   "id": "btn",
+   "type": "input_pressed",
+   "label": "A, B ou C pressionado agora (borda)",
+   "x": 370,
+   "y": 340,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "pad": "JOY_1",
+    "button": "BUTTON_A|B|C",
+    "mascara": "0x70",
+    "ram": "v_jpadpress1 $FFF603",
+    "origem": "PROPOSTO (patch sonic1-pulo-duplo.ips; nao e logica original)",
+    "rom_addr": "0x081C90",
+    "rom_bytes": "1038f603020000706722",
+    "rom_asm": "moveb 0xfffff603,%d0 ; andib #112,%d0 ; beqs 0x81cbc",
+    "rom_buffer": "ROM com patch sonic1-pulo-duplo"
+   }
+  },
+  {
+   "id": "agua",
+   "type": "var_get",
+   "label": "status bit 6: submerso",
+   "x": 370,
+   "y": 190,
+   "inputs": [],
+   "outputs": [
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "params": {
+    "var_name": "sonic_submerso",
+    "descricao": "sonic.submerso (obStatus bit6 @$22)",
+    "origem": "PROPOSTO (patch sonic1-pulo-duplo.ips; nao e logica original)",
+    "rom_addr": "0x081C9E",
+    "rom_bytes": "082800060022",
+    "rom_asm": "btst #6,%a0@(34)",
+    "rom_buffer": "ROM com patch sonic1-pulo-duplo"
+   }
+  },
+  {
+   "id": "sub",
+   "type": "condition_compare",
+   "label": "Submerso?",
+   "x": 370,
+   "y": 340,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "a",
+     "label": "a",
+     "kind": "data",
+     "dataType": "int"
+    },
+    {
+     "id": "b",
+     "label": "b",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "true",
+     "label": "true",
+     "kind": "exec"
+    },
+    {
+     "id": "false",
+     "label": "false",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "operator": "==",
+    "a": "sonic_submerso",
+    "b": 1,
+    "origem": "PROPOSTO (patch sonic1-pulo-duplo.ips; nao e logica original)",
+    "rom_addr": "0x081C9A",
+    "rom_bytes": "303cf9800828000600226704303cfc80",
+    "rom_asm": "movew #-1664,%d0 ; btst #6,%a0@(34) ; beqs 0x81caa ; movew #-896,%d0",
+    "rom_buffer": "ROM com patch sonic1-pulo-duplo"
+   }
+  },
+  {
+   "id": "va",
+   "type": "var_set",
+   "label": "vy = -0x680 (-1664)",
+   "x": 370,
+   "y": 490,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "var_name": "sonic_vy",
+    "value": -1664,
+    "descricao": "sonic_vy (obVelY @$12)",
+    "origem": "PROPOSTO (patch sonic1-pulo-duplo.ips; nao e logica original)",
+    "rom_addr": "0x081C9A",
+    "rom_bytes": "303cf980",
+    "rom_asm": "movew #-1664,%d0",
+    "rom_buffer": "ROM com patch sonic1-pulo-duplo"
+   }
+  },
+  {
+   "id": "vb",
+   "type": "var_set",
+   "label": "vy = -0x380 (-896) submerso",
+   "x": 700,
+   "y": 490,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "var_name": "sonic_vy",
+    "value": -896,
+    "descricao": "sonic_vy (obVelY @$12)",
+    "origem": "PROPOSTO (patch sonic1-pulo-duplo.ips; nao e logica original)",
+    "rom_addr": "0x081CA6",
+    "rom_bytes": "303cfc80",
+    "rom_asm": "movew #-896,%d0",
+    "rom_buffer": "ROM com patch sonic1-pulo-duplo"
+   }
+  },
+  {
+   "id": "f2",
+   "type": "var_set",
+   "label": "flag de pulo ($3C) = 2 (nao ha triplo)",
+   "x": 370,
+   "y": 640,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "var_name": "sonic_pulando",
+    "value": 2,
+    "descricao": "sonic.pulando (obj+$3C)",
+    "origem": "PROPOSTO (patch sonic1-pulo-duplo.ips; nao e logica original)",
+    "rom_addr": "0x081CAA",
+    "rom_bytes": "31400012117c0002003c",
+    "rom_asm": "movew %d0,%a0@(18) ; moveb #2,%a0@(60)",
+    "rom_buffer": "ROM com patch sonic1-pulo-duplo"
+   }
+  },
+  {
+   "id": "snd",
+   "type": "var_set",
+   "label": "Toca o som do pulo: PlaySound_Special(0xA0)",
+   "x": 370,
+   "y": 790,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    },
+    {
+     "id": "value",
+     "label": "value",
+     "kind": "data",
+     "dataType": "int"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "var_name": "tocar_sfx",
+    "value": 160,
+    "descricao": "tocar_sfx (id do som da ROM)",
+    "origem": "PROPOSTO (patch sonic1-pulo-duplo.ips; nao e logica original)",
+    "rom_addr": "0x081CB4",
+    "rom_bytes": "303c00a04eb8139c",
+    "rom_asm": "movew #160,%d0 ; jsr 0x139c",
+    "rom_buffer": "ROM com patch sonic1-pulo-duplo"
+   }
+  },
+  {
+   "id": "seg",
+   "type": "rom_external_call",
+   "label": "Segue para o corpo original de JumpHeight (rts do gancho -> 0x1349E)",
+   "x": 40,
+   "y": 940,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x01349E",
+    "understood": "true",
+    "origem": "PROPOSTO (patch sonic1-pulo-duplo.ips; nao e logica original)",
+    "rom_addr": "0x081CBC",
+    "rom_bytes": "4e75",
+    "rom_asm": "rts",
+    "rom_buffer": "ROM com patch sonic1-pulo-duplo"
+   }
+  },
+  {
+   "id": "npu",
+   "type": "rom_external_call",
+   "label": "Flag == 0: gancho descarta o retorno e salta p/ 0x134C4 (ramo original \"nao pulou\")",
+   "x": 700,
+   "y": 940,
+   "inputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "outputs": [
+    {
+     "id": "exec",
+     "label": "exec",
+     "kind": "exec"
+    }
+   ],
+   "params": {
+    "target": "0x0134C4",
+    "understood": "true",
+    "origem": "PROPOSTO (patch sonic1-pulo-duplo.ips; nao e logica original)",
+    "rom_addr": "0x081CBE",
+    "rom_bytes": "588f4ef9000134c4",
+    "rom_asm": "addql #4,%sp ; jmp 0x134c4",
+    "rom_buffer": "ROM com patch sonic1-pulo-duplo"
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "e1",
+   "fromNode": "orig",
+   "fromPort": "exec",
+   "toNode": "zero",
+   "toPort": "exec"
+  },
+  {
+   "id": "e2",
+   "fromNode": "zero",
+   "fromPort": "true",
+   "toNode": "npu",
+   "toPort": "exec"
+  },
+  {
+   "id": "e3",
+   "fromNode": "zero",
+   "fromPort": "false",
+   "toNode": "pul",
+   "toPort": "exec"
+  },
+  {
+   "id": "e4",
+   "fromNode": "pul",
+   "fromPort": "true",
+   "toNode": "btn",
+   "toPort": "exec"
+  },
+  {
+   "id": "e5",
+   "fromNode": "pul",
+   "fromPort": "false",
+   "toNode": "seg",
+   "toPort": "exec"
+  },
+  {
+   "id": "e6",
+   "fromNode": "btn",
+   "fromPort": "exec",
+   "toNode": "sub",
+   "toPort": "exec"
+  },
+  {
+   "id": "e7",
+   "fromNode": "agua",
+   "fromPort": "value",
+   "toNode": "sub",
+   "toPort": "a"
+  },
+  {
+   "id": "e8",
+   "fromNode": "sub",
+   "fromPort": "false",
+   "toNode": "va",
+   "toPort": "exec"
+  },
+  {
+   "id": "e9",
+   "fromNode": "sub",
+   "fromPort": "true",
+   "toNode": "vb",
+   "toPort": "exec"
+  },
+  {
+   "id": "e10",
+   "fromNode": "va",
+   "fromPort": "exec",
+   "toNode": "f2",
+   "toPort": "exec"
+  },
+  {
+   "id": "e11",
+   "fromNode": "vb",
+   "fromPort": "exec",
+   "toNode": "f2",
+   "toPort": "exec"
+  },
+  {
+   "id": "e12",
+   "fromNode": "f2",
+   "fromPort": "exec",
+   "toNode": "snd",
+   "toPort": "exec"
+  },
+  {
+   "id": "e13",
+   "fromNode": "snd",
+   "fromPort": "exec",
+   "toNode": "seg",
+   "toPort": "exec"
+  }
+ ],
+ "rex_logic_recovery": {
+  "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "descritivo": true,
+  "aviso": "Grafo DESCRITIVO da logica localizada; nao e codigo a compilar. Rotulos de funcoes sao do disassembly publico (dicas), nao derivados dos bytes.",
+  "titulo": "Sonic 1 - pulo duplo PROPOSTO (patch)",
+  "nota": "Nos PROPOSTOS referem-se a ROM com patch; os recuperados, a ROM original."
+ }
+}

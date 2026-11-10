@@ -1,0 +1,9 @@
+{
+  "ref": "refs/checkpoints/rex-commercial-20261016/m3-frozen",
+  "commit": "33fdbdd2b285de1940cdcc54c8aefdef795fb484",
+  "bundle": "/home/misael/rds-scratch/commercial_recovery_20261016/mission-checkpoint-005.bundle",
+  "sha256": "a5a833bbafb79f21eba6c9da3e9f7dd0f77bea6f136c83b9a8f00c13bf202d1b",
+  "bytes": 242934,
+  "verify": "exit0",
+  "requires": "03ddc59de38cc3d9c448b893da72a3efd575030a"
+}

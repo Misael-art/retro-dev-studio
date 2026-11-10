@@ -1,0 +1,15 @@
+[Begin Action 0]
+Clsn2Default: 1
+ Clsn2[0] = -8,-31,-1,0
+0,0, 0,0, -1
+
+[Begin Action 200]
+Clsn2Default: 1
+ Clsn2[0] = -8,-31,-1,0
+200,0, 0,0, 3
+Clsn1: 1
+ Clsn1[0] = 0,-24,7,-21
+200,1, 0,0, 4
+Clsn1: 1
+ Clsn1[0] = 0,-24,7,-21
+200,2, 0,0, 3

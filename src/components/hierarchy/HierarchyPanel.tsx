@@ -1,4 +1,9 @@
+import { entityLockScopeKey } from "../../core/sceneComposition";
+import { describeEntityEditLock, entityEditLock } from "../../core/sceneComposition";
+import { loadShellPersona } from "../../core/surfaceRegistry";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { chooseAndImportImage } from "../../core/sceneryImport";
+import { createTilemapEntityFromAsset } from "../../core/editorEntityFactory";
 import EmptyState from "../common/EmptyState";
 import Panel from "../common/Panel";
 import SceneWorkspaceNotice from "../common/SceneWorkspaceNotice";
@@ -7,6 +12,7 @@ import {
   createScene,
   getSceneData,
   listScenes,
+  setProjectEntryScene,
   switchScene,
   type SceneInfo,
 } from "../../core/ipc/sceneService";
@@ -115,6 +121,9 @@ function importedEntityKindChip(entityType: string, roleLabel: string | null): s
   return null;
 }
 
+/** Project whose scene this panel last loaded from disk (survives remounts). */
+let lastHydratedProjectDir: string | null = null;
+
 export default function HierarchyPanel({
   onOpenProject,
 }: {
@@ -147,6 +156,12 @@ export default function HierarchyPanel({
   const [isCreatingScene, setIsCreatingScene] = useState(false);
   const [sceneItems, setSceneItems] = useState<SceneInfo[]>([]);
   const [filterText, setFilterText] = useState("");
+  const [settingEntry, setSettingEntry] = useState(false);
+  const entryScenePath = sceneItems.find((item) => item.is_entry)?.path ?? null;
+  // Publish the backend-reported entry scene so the toolbar can tell "this scene" from "the project".
+  useEffect(() => {
+    useEditorStore.getState().setProjectEntryScenePath(entryScenePath);
+  }, [entryScenePath]);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const hydrationGenerationRef = useRef(0);
 
@@ -160,7 +175,7 @@ export default function HierarchyPanel({
     if (!activeProjectDir || !scenePath || isSwitchingScene) {
       return false;
     }
-    if (!options?.skipPersist && !(await persistActiveScene(activeProjectDir, "Hierarchy"))) {
+    if (!options?.skipPersist && !(await persistActiveScene(activeProjectDir, "Hierarchy", undefined, { onlyIfChanged: true }))) {
       return false;
     }
 
@@ -180,7 +195,7 @@ export default function HierarchyPanel({
 
       setSelectedEntityId(null);
       setActiveScenePath(result.scene_path);
-      setActiveScene(hydrated.resolvedScene, hydrated.sourceScene);
+      setActiveScene(hydrated.resolvedScene, hydrated.sourceScene, hydrated.graphs);
       logMessage(
         "success",
         `[Hierarchy] Cena ativa: ${hydrated.resolvedScene.display_name ?? hydrated.resolvedScene.scene_id}`
@@ -217,10 +232,19 @@ export default function HierarchyPanel({
     };
 
     setIsLoadingScenes(true);
+    // The panel remounts on every workspace switch. When the editor already holds this
+    // project's scene, only refresh the scene catalog: re-reading the scene from disk
+    // here would silently discard edits that are not saved yet.
+    const sceneAlreadyLoaded =
+      Boolean(useEditorStore.getState().activeScene) && lastHydratedProjectDir === projectDirAtStart;
     void (async () => {
       try {
         const scenes = await listScenes(projectDirAtStart);
         if (!isCurrent()) return;
+        if (sceneAlreadyLoaded) {
+          setSceneItems(scenes);
+          return;
+        }
         const result = await getSceneData(projectDirAtStart);
         if (!isCurrent()) return;
 
@@ -235,8 +259,10 @@ export default function HierarchyPanel({
         setActiveScenePath(result.scene_path);
         setActiveScene(
           hydrated?.resolvedScene ?? null,
-          hydrated?.sourceScene ?? null
+          hydrated?.sourceScene ?? null,
+          hydrated?.graphs
         );
+        lastHydratedProjectDir = hydrated ? projectDirAtStart : null;
         if (!result.ok) {
           logMessage("warn", `[Hierarchy] ${result.error}`);
         } else if (!hydrated) {
@@ -408,6 +434,57 @@ export default function HierarchyPanel({
     }
   }
 
+  async function handleAddHudText() {
+    if (!activeProjectDir || !activeScene || isAdding) return;
+    setIsAdding(true);
+    try {
+      const existing = new Set(activeScene.entities.map((candidate) => candidate.entity_id));
+      let n = 1;
+      while (existing.has(`texto_${n}`)) n += 1;
+      const id = `texto_${n}`;
+      addEntity({
+        entity_id: id,
+        display_name: `Texto ${n}`,
+        prefab: null,
+        transform: { x: 0, y: 0 },
+        components: { hud: { column: 1, row: 25, label: "TEXTO", digits: 3 } },
+      });
+      setSelectedEntityId(id);
+      await persistActiveScene(activeProjectDir, "Hierarchy", `Texto de interface '${id}' adicionado.`);
+    } catch (error: unknown) {
+      logMessage("error", `[Hierarchy] Falha ao criar texto: ${describeError(error)}`);
+    } finally {
+      setIsAdding(false);
+    }
+  }
+
+  async function handleAddScenery() {
+    if (!activeProjectDir || !activeScene || isAdding) return;
+    setIsAdding(true);
+    try {
+      const image = await chooseAndImportImage(activeProjectDir);
+      if (!image) return;
+      for (const warning of image.warnings) logMessage("warn", `[Hierarchy] Cenário: ${warning}`);
+      const entity = createTilemapEntityFromAsset({
+        assetPath: image.relative_path,
+        existingEntityIds: activeScene.entities.map((candidate) => candidate.entity_id),
+        mapWidth: image.tiles_wide,
+        mapHeight: image.tiles_high,
+      });
+      addEntity(entity);
+      setSelectedEntityId(entity.entity_id);
+      await persistActiveScene(
+        activeProjectDir,
+        "Hierarchy",
+        `Cenário '${entity.entity_id}' (${image.tiles_wide}x${image.tiles_high} tiles) adicionado de '${image.relative_path}'.`
+      );
+    } catch (error: unknown) {
+      logMessage("error", `[Hierarchy] Falha ao adicionar cenário: ${describeError(error)}`);
+    } finally {
+      setIsAdding(false);
+    }
+  }
+
   async function handleAddEntity() {
     const displayName = newName.trim();
     if (!activeProjectDir || !activeScene || !displayName || isAdding) return;
@@ -457,6 +534,7 @@ export default function HierarchyPanel({
       const targetEntity = activeScene.entities.find((entity) => entity.entity_id === entityId);
       const name = targetEntity ? getEntityDisplayName(targetEntity) : entityId;
       removeEntity(entityId);
+      if (useEditorStore.getState().activeScene?.entities.some(e => e.entity_id === entityId)) return;
 
       const saved = await persistActiveScene(activeProjectDir, "Hierarchy", `Entidade '${name}' removida.`);
 
@@ -484,7 +562,7 @@ export default function HierarchyPanel({
       return;
     }
 
-    if (!(await persistActiveScene(activeProjectDir, "Hierarchy"))) {
+    if (!(await persistActiveScene(activeProjectDir, "Hierarchy", undefined, { onlyIfChanged: true }))) {
       return;
     }
 
@@ -554,6 +632,28 @@ export default function HierarchyPanel({
               +
             </button>
             <button
+              type="button"
+              data-testid="hierarchy-add-scenery"
+              onClick={() => void handleAddScenery()}
+              disabled={!activeProjectDir || isAdding || isDeleting}
+              className="text-xs text-[#6c7086] hover:text-[#a6e3a1] transition-colors px-1 disabled:opacity-30"
+              title="Adicionar cenário a partir de uma imagem (tilemap; Experimental)"
+              aria-label="Adicionar cenário"
+            >
+              ▦
+            </button>
+            <button
+              type="button"
+              data-testid="hierarchy-add-hud"
+              onClick={() => void handleAddHudText()}
+              disabled={!activeProjectDir || isAdding || isDeleting}
+              className="text-xs text-[#6c7086] hover:text-[#f5c2e7] transition-colors px-1 disabled:opacity-30"
+              title="Adicionar texto de interface (Experimental)"
+              aria-label="Adicionar texto de interface"
+            >
+              T
+            </button>
+            <button
               onClick={() => void handleDeleteEntity()}
               disabled={!selectedEntityId || !!selectedEntityId?.startsWith("layer::") || isAdding || isDeleting}
               className="text-xs text-[#6c7086] hover:text-[#f38ba8] transition-colors px-1 disabled:opacity-30"
@@ -565,6 +665,7 @@ export default function HierarchyPanel({
         }
       >
         <div className="border-b border-[#313244] px-3 py-2">
+          {useEditorStore.getState().legacyEntityLocksRetained ? <p role="status" className="mb-1 text-[11px] text-[#a6adc8]">Bloqueios antigos sem identidade de projeto foram conservados nas preferências. Confira e bloqueie novamente os objetos deste projeto.</p> : null}
           <div className="flex items-center gap-2">
             <select
               value={activeSceneSelectValue}
@@ -573,14 +674,15 @@ export default function HierarchyPanel({
               }}
               disabled={!activeProjectDir || sceneBusy || sceneItems.length === 0}
               className="min-w-0 flex-1 rounded border border-[#313244] bg-[#1e1e2e] px-2 py-1 text-xs text-[#cdd6f4] focus:border-[#89b4fa] focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
-              title="Selecionar cena ativa"
+              title={activeSceneSelectValue ? `Cena ativa: ${activeSceneSelectValue}` : "Selecionar cena ativa"}
+              aria-label={activeSceneSelectValue ? `Cena ativa (${activeSceneSelectValue})` : "Selecionar cena ativa"}
             >
               {sceneItems.length === 0 ? (
                 <option value="">Sem cenas</option>
               ) : (
                 sceneItems.map((scene) => (
                   <option key={scene.path} value={scene.path}>
-                    {scene.display_name}
+                    {scene.display_name}{scene.is_entry ? " · entrada do jogo" : ""}
                   </option>
                 ))
               )}
@@ -594,12 +696,36 @@ export default function HierarchyPanel({
               {isCreatingScene ? "Criando..." : "Nova Cena"}
             </button>
           </div>
-          <p className="mt-1 truncate text-[10px] text-[#45475a]">
-            {activeSceneSelectValue || "Nenhuma cena ativa"}
-          </p>
-          {activeProjectDir ? (
+          {activeProjectDir && activeSceneSelectValue && entryScenePath && activeSceneSelectValue !== entryScenePath ? (
+            <div data-testid="hierarchy-entry-scene" className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-[#7f849c]">
+              <span>O jogo começa em {sceneItems.find((item) => item.is_entry)?.display_name ?? entryScenePath}.</span>
+              <button
+                type="button"
+                data-testid="hierarchy-set-entry-scene"
+                disabled={settingEntry || sceneBusy}
+                onClick={() => {
+                  setSettingEntry(true);
+                  void setProjectEntryScene(activeProjectDir, activeSceneSelectValue)
+                    .then(async () => {
+                      await refreshSceneCatalog(activeProjectDir);
+                      useEditorStore.getState().logMessage("info", `[Cena] Entrada do jogo definida: '${activeSceneSelectValue}'.`);
+                    })
+                    .catch((error) => useEditorStore.getState().logMessage("error", `[Cena] Não foi possível definir a entrada: ${String(error)}`))
+                    .finally(() => setSettingEntry(false));
+                }}
+                className="rounded border border-[#313244] px-1.5 py-0.5 font-semibold text-[#cdd6f4] hover:border-[#89b4fa] disabled:opacity-40"
+              >
+                Definir esta como entrada
+              </button>
+            </div>
+          ) : null}
+          {!activeSceneSelectValue ? (
+            <p className="mt-1 truncate text-[10px] text-[#7f849c]">Nenhuma cena ativa</p>
+          ) : null}
+          {activeProjectDir && loadShellPersona() !== "guiado" ? (
             <div className="mt-2">
               <SceneWorkspaceNotice
+                compact
                 context={sceneContext}
                 testId="hierarchy-scene-notice"
                 actions={
@@ -618,7 +744,7 @@ export default function HierarchyPanel({
           ) : null}
           <div
             data-testid="hierarchy-scene-summary"
-            className="mt-2 flex flex-wrap gap-1.5 text-[9px] text-[#7f849c]"
+            className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-[#7f849c]"
           >
             {[
               { label: "Cenas", value: sceneItems.length },
@@ -626,10 +752,7 @@ export default function HierarchyPanel({
               { label: "Entidades", value: entities.length },
               { label: "Fundos", value: bgLayers.length },
             ].map((item) => (
-              <span
-                key={item.label}
-                className="rounded-full border border-[#313244] bg-[#181825] px-2 py-0.5"
-              >
+              <span key={item.label}>
                 {item.label}: <span className="font-semibold text-[#cdd6f4]">{item.value}</span>
               </span>
             ))}
@@ -684,6 +807,24 @@ export default function HierarchyPanel({
           {/* Entities (grouped by type) */}
           {entityGroups.map((group) => {
             const isCollapsed = collapsedGroups.has(group.type);
+            // Selos iguais em todo o grupo viram um resumo único no cabeçalho, em vez de 60 repetições.
+            const uniform = (values: (string | null | undefined)[]) =>
+              group.entities.length > 1 && values.every((v) => v && v === values[0]) ? (values[0] as string) : null;
+            const contexts = group.entities.map((e) => resolveImportedEntityContext(e));
+            const sharedRole = uniform(contexts.map((c) => c.roleLabel));
+            const sharedConfidence = uniform(contexts.map((c) => c.confidenceLabel));
+            const sharedPosition = uniform(contexts.map((c) => c.positionMode));
+            const sharedLogic = uniform(group.entities.map((e) => {
+              const signal = getEntityLogicImportSignal(e);
+              return signal.status === "none" ? null : signal.label;
+            }));
+            const sharedSummary = [
+              sharedRole ? "importados" : null,
+              sharedConfidence?.toLowerCase(),
+              sharedLogic ? sharedLogic.toLowerCase() : null,
+              sharedPosition === "staging" ? "na prateleira de importação" : sharedPosition === "donor" ? "na posição original" : null,
+            ].filter(Boolean).join(" · ");
+            const hiddenPill = "sr-only";
             return (
               <li key={`group::${group.type}`}>
                 <button
@@ -696,6 +837,11 @@ export default function HierarchyPanel({
                   <span>{GROUP_LABELS[group.type] ?? group.type}</span>
                   <span className="ml-auto font-mono text-[#45475a]">{group.entities.length}</span>
                 </button>
+                {!isCollapsed && sharedSummary ? (
+                  <p data-testid={`hierarchy-group-summary-${group.type}`} className="px-6 pb-1 text-[9px] normal-case text-[#7f849c]">
+                    Todos: {sharedSummary}
+                  </p>
+                ) : null}
                 {!isCollapsed && (
                   <ul>
                     {group.entities.map((entity) => {
@@ -712,7 +858,7 @@ export default function HierarchyPanel({
                           onClick={() => setSelectedEntityId(entity.entity_id)}
                           onDoubleClick={() => openEntityAuthoringSurface(entity as Entity)}
                           className={[
-                            "flex items-center gap-2 pl-6 pr-3 py-1 cursor-pointer select-none text-xs transition-colors",
+                            "group flex items-center gap-2 pl-6 pr-3 py-1 cursor-pointer select-none text-xs transition-colors",
                             isSelected
                               ? "bg-[#313244] text-[#cdd6f4]"
                               : isFocusEntity
@@ -720,14 +866,18 @@ export default function HierarchyPanel({
                                 : "text-[#a6adc8] hover:bg-[#24243a] hover:text-[#cdd6f4]",
                           ].join(" ")}
                         >
+                          <EntityLockToggle entityId={entity.entity_id} />
                           <span className="text-[#7f849c]">{TYPE_ICON[type] ?? "○"}</span>
-                          <span title={entity.prefab ? `Prefab: ${entity.prefab}` : entity.entity_id}>
+                          <span
+                            className="min-w-[4.5rem] shrink truncate"
+                            title={`${getEntityDisplayName(entity)} · ${entity.prefab ? `Prefab: ${entity.prefab}` : entity.entity_id}`}
+                          >
                             {getEntityDisplayName(entity)}
                           </span>
                           {importedContext.roleLabel ? (
                             <span
                               data-testid={`hierarchy-imported-role-${entity.entity_id}`}
-                              className={`rounded-full border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] ${importedRoleBadgeClass(importedContext.roleLabel)}`}
+                              className={sharedRole ? hiddenPill : `min-w-0 max-w-[6.5rem] truncate rounded-full border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] ${importedRoleBadgeClass(importedContext.roleLabel)}`}
                               title={[
                                 importedContext.roleLabel,
                                 importedContext.detail ?? importedContext.summary,
@@ -740,7 +890,7 @@ export default function HierarchyPanel({
                           ) : null}
                           {importedContext.confidenceLabel ? (
                             <span
-                              className="rounded-full border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-[#94a3b8]"
+                              className={sharedConfidence ? hiddenPill : "rounded-full border border-[#313244] bg-[#11111b] px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-[#94a3b8]"}
                               title={importedContext.reason ?? undefined}
                             >
                               {importedContext.confidenceLabel}
@@ -754,8 +904,8 @@ export default function HierarchyPanel({
                           {logicImportSignal.status !== "none" ? (
                             <span
                               data-testid={`hierarchy-logic-signal-${entity.entity_id}`}
-                              className={[
-                                "rounded-full border px-1.5 py-0.5 text-[8px] font-semibold",
+                              className={sharedLogic ? hiddenPill : [
+                                "min-w-0 max-w-[6.5rem] truncate rounded-full border px-1.5 py-0.5 text-[8px] font-semibold",
                                 logicImportSignal.status === "functional"
                                   ? "border-[#a6e3a1]/35 bg-[#a6e3a1]/10 text-[#a6e3a1]"
                                   : logicImportSignal.status === "bridge_only"
@@ -769,7 +919,7 @@ export default function HierarchyPanel({
                           ) : null}
                           {importedContext.positionLabel ? (
                             <span
-                              className={`rounded-full border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] ${
+                              className={sharedPosition ? hiddenPill : `min-w-0 max-w-[6.5rem] truncate rounded-full border px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.12em] ${
                                 importedContext.positionMode === "donor"
                                   ? "border-[#a6e3a1]/35 bg-[#a6e3a1]/10 text-[#a6e3a1]"
                                   : importedContext.positionMode === "staging"
@@ -786,7 +936,7 @@ export default function HierarchyPanel({
                             </span>
                           ) : null}
                           {isFocusEntity ? (
-                            <span className="rounded-full border border-[#89b4fa]/35 bg-[#89b4fa]/10 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.14em] text-[#89b4fa]">
+                            <span title="Entrada da cena" className="min-w-0 max-w-[4.5rem] truncate rounded-full border border-[#89b4fa]/35 bg-[#89b4fa]/10 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.14em] text-[#89b4fa]">
                               Entrada
                             </span>
                           ) : null}
@@ -823,6 +973,7 @@ export default function HierarchyPanel({
                                 </span>
                                 <button
                                   type="button"
+                                  data-testid={`hierarchy-tilemap-edit-${entity.entity_id}`}
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     setSelectedEntityId(entity.entity_id);
@@ -850,7 +1001,7 @@ export default function HierarchyPanel({
                               </div>
                             );
                           })()}
-                          {type !== "tilemap" && <span className="ml-auto text-[#45475a]">{type}</span>}
+                          {type !== "tilemap" && <span className="ml-auto shrink-0 text-[#45475a]">{type}</span>}
                         </li>
                       );
                     })}
@@ -923,5 +1074,37 @@ export default function HierarchyPanel({
         </ul>
       </Panel>
     </>
+  );
+}
+
+/** R3-08: per-object lock (editor-only). Visible on hover/focus; persistent indicator while locked. */
+function EntityLockToggle({ entityId }: { entityId: string }) {
+  const scenePath = useEditorStore((state) => state.activeScenePath);
+  const layers = useEditorStore((state) => state.activeScene?.layers);
+  const ownLocks = useEditorStore((state) => state.lockedEntityIdsByScene[entityLockScopeKey(state.activeProjectDir, state.activeScenePath)]);
+  const toggleEntityLock = useEditorStore((state) => state.toggleEntityLock);
+  const lock = entityEditLock(entityId, layers, ownLocks ?? []);
+  const objectLocked = lock.locked && lock.reason === "object";
+  const label = objectLocked
+    ? "Desbloquear objeto no Canvas"
+    : lock.locked
+      ? `${describeEntityEditLock(lock)} — bloquear também o objeto`
+      : "Bloquear objeto no Canvas";
+  return (
+    <button
+      type="button"
+      data-testid={`hierarchy-lock-${entityId}`}
+      aria-pressed={objectLocked}
+      aria-label={label}
+      title={label}
+      onClick={(event) => { event.stopPropagation(); toggleEntityLock(scenePath, entityId); }}
+      onDoubleClick={(event) => event.stopPropagation()}
+      className={[
+        "-ml-5 w-4 shrink-0 rounded text-[10px] leading-none focus:outline-none focus-visible:ring-1 focus-visible:ring-[#89b4fa]",
+        lock.locked ? "opacity-100 text-[#f9e2af]" : "opacity-0 text-[#7f849c] group-hover:opacity-100 focus-visible:opacity-100",
+      ].join(" ")}
+    >
+      {lock.locked ? "🔒" : "🔓"}
+    </button>
   );
 }

@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "base_sha256": "3726adec97308332d58cd1adfeef1308fb4a6441189ee099434210221ea3947f",
+  "copy_sha256": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+  "ips_sha256": "5d06740453772894ed7fcd4c2c562717672f05126c40a6b20b4aa913bc49e1a0",
+  "bytes": 1536,
+  "changed_offsets": [
+    1040
+  ],
+  "records": [
+    {
+      "offset": 1040,
+      "length": 1
+    }
+  ],
+  "original_unchanged": true
+}

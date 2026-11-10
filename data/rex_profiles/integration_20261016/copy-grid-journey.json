@@ -1,0 +1,50 @@
+{
+  "schema": "rex-semantic-journey/v1",
+  "rom": "/home/misael/rds-scratch/rex-copy-grid-fixture-001/copy.bin",
+  "rom_sha256": "7930303a67df243f9452eb906b8931aa83d60c02ed090016dd1be1bea37e2f31",
+  "profile_id": "m68k.copy_grid.v1",
+  "declared_region": {
+    "entry": 1024,
+    "exits": [
+      1054
+    ]
+  },
+  "expect_scan_candidate": false,
+  "expect_opaque": 0,
+  "expect_nodes": [
+    "entry",
+    "copy_grid",
+    "exit"
+  ],
+  "absent_nodes": [
+    "compare",
+    "guard",
+    "set_call"
+  ],
+  "expect_curated_other_target": false,
+  "edit": {
+    "bytes_per_cell": 2
+  },
+  "allowed_diff_offsets": [
+    1040
+  ],
+  "core": {
+    "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+    "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+    "selection": "existing application managed default Genesis Plus GX; no BlastEm substitution"
+  },
+  "probe": {
+    "layout": "copy_grid_wram",
+    "done_addr": 16728032,
+    "done_magic": 1129271385,
+    "initial_state": "WRAM=0; seed FF4000+8192 bytes=(i*37+11)%256; SP=FFFF00 SR=2700; no recovered caller.",
+    "reference": {
+      "source": 16732160,
+      "destination": 16740352,
+      "rows": 4,
+      "columns": 8,
+      "gap": 16,
+      "width": 1
+    }
+  }
+}

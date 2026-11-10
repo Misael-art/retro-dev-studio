@@ -1,0 +1,80 @@
+{
+  "schema": "rex-commercial-chain-verification/v1",
+  "run_id": "commercial-001",
+  "events": 126239,
+  "clock_regressions": [
+    {
+      "seq": 11,
+      "kind": "read",
+      "delta_ns": -36
+    }
+  ],
+  "temporal_limit": "frame notifier and CPU callbacks have a 36 ns boundary regression; sequence preserves callback order, raw clock retained; no corrected global timestamp invented",
+  "decoded_sha256": "322a14830b8f3be05d59507ccf41c7a57ff8e835cd2727573943cd61d4c944d0",
+  "source_read_bytes": 4096,
+  "destination_written_bytes": 4096,
+  "copy_span_bytes": 8128,
+  "predicted_copy_sha256": "b691f2626e5eb4fd4ff5a03f18f14b32d5f888b61de796b596bfc1dc8801ba46",
+  "observed_copy_sha256": "b691f2626e5eb4fd4ff5a03f18f14b32d5f888b61de796b596bfc1dc8801ba46",
+  "zeroed_holes_observed": true,
+  "downstream_read_pcs": {
+    "0x1b212": 6672,
+    "0x1bd18": 114,
+    "0x1bd1c": 114,
+    "0x1bd24": 114,
+    "0x1bd28": 114,
+    "0x1bd7c": 38
+  },
+  "later_vdp_port_writes": 1639,
+  "consumption_runtime": "MAME 0.289, prepared special-stage state",
+  "status": "PASS_BOUNDED_RESOURCE_DECODE_COPY",
+  "limits": [
+    "No app correspondence",
+    "VDP ports later in time do not establish the full graphical dataflow",
+    "No framebuffer or edited-ROM claim",
+    "copy_entry is before setup LEAs; memory access trace, not entry A0/A1, proves effective copy buffers"
+  ],
+  "negative_controls": {
+    "wrong-run": {
+      "rejected": true,
+      "reason": "identity"
+    },
+    "time-reversal": {
+      "rejected": true,
+      "reason": "CPU event time reversal"
+    },
+    "gap": {
+      "rejected": true,
+      "reason": "sequence gap"
+    },
+    "wrong-caller": {
+      "rejected": true,
+      "reason": "unpaired return"
+    },
+    "wrong-source": {
+      "rejected": true,
+      "reason": "source address/data"
+    },
+    "wrong-destination": {
+      "rejected": true,
+      "reason": "destination address/data"
+    },
+    "wrong-value": {
+      "rejected": true,
+      "reason": "destination address/data"
+    },
+    "wrong-width": {
+      "rejected": true,
+      "reason": "copy width"
+    },
+    "missing-terminal": {
+      "rejected": true,
+      "reason": "incomplete episode"
+    },
+    "loss": {
+      "rejected": true,
+      "reason": "loss"
+    }
+  },
+  "input_event_sha256": "035d4db022a2de533f86632a07cc20b75593143ebea9f9c0a932ba0d9e6fc4b7"
+}

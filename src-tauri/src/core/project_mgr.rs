@@ -19,7 +19,7 @@ use crate::ugdm::entities::RetroFXRasterLine;
 use crate::ugdm::entities::{
     BackgroundLayer, BuildConfig, CollisionMap, Entity, PaletteEntry, PatchAuditEntry, Project,
     ProjectSettings, Resolution, RetroFXConfig, RetroFXParallaxLayer, SaveRamConfig, Scene,
-    SceneLayer, ScrollSpeed, TemplateMetadata, CURRENT_SCHEMA_VERSION,
+    SceneLayer, ScrollSpeed, TemplateMetadata, Transform, CURRENT_SCHEMA_VERSION,
 };
 
 pub const UGDM_VERSION: &str = "1.0.0";
@@ -31,6 +31,15 @@ pub const ONBOARDING_SPRITE_SIZE: u32 = 16;
 pub const PLATFORMER_PLAYER_ASSET: &str = "assets/sprites/platformer_player.png";
 pub const PLATFORMER_TILESET_ASSET: &str = "assets/tilesets/platformer_level.png";
 pub const PLATFORMER_JUMP_ASSET: &str = "assets/audio/jump.wav";
+pub const REFERENCE_PLATFORMER_PLAYER_ASSET: &str = "assets/sprites/reference_player.png";
+pub const REFERENCE_PLATFORMER_GOAL_ASSET: &str = "assets/sprites/reference_goal.png";
+pub const REFERENCE_PLATFORMER_PASSAGE_ASSET: &str = "assets/sprites/reference_passage.png";
+pub const REFERENCE_PLATFORMER_GOAL_SOUND_ASSET: &str = "assets/audio/reference_goal.wav";
+/// Alternative completion sound offered by the template (declared, unused by default).
+pub const REFERENCE_PLATFORMER_VICTORY_SOUND_ASSET: &str = "assets/audio/reference_victory.wav";
+pub const REFERENCE_PLATFORMER_TILESET_ASSET: &str = "assets/tilesets/reference_level.ppm";
+pub const REFERENCE_PLATFORMER_JUMP_ASSET: &str = "assets/audio/reference_jump.wav";
+pub const REFERENCE_PLATFORMER_THEME_ASSET: &str = "assets/audio/reference_theme.vgm";
 const TEMPLATE_REGISTRY_JSON: &str = include_str!("../../../data/template_registry.json");
 const MANUAL_SGDK_DONOR_REQUIRED_MESSAGE: &str =
     "Requer uma pasta doadora SGDK escolhida manualmente neste host.";
@@ -45,6 +54,8 @@ pub struct SceneInfo {
     pub path: String,
     pub scene_id: String,
     pub display_name: String,
+    /// True for the project's `entry_scene` (where "Testar projeto" starts).
+    pub is_entry: bool,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
@@ -118,6 +129,7 @@ pub struct ProjectSettingsPayload {
 
 #[derive(Debug, Clone, serde::Serialize, PartialEq, Eq)]
 pub struct ProjectSettingsSnapshot {
+    pub fps: u32,
     pub target: String,
     pub region: String,
     pub video_standard: String,
@@ -146,6 +158,23 @@ pub struct SgdkImportMapping {
     pub resource_name: String,
     pub source_relative: String,
     pub destination: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub params: Vec<String>,
+}
+
+/// Catalog projection of the import ledger. No second asset registry or donor
+/// access: frame layout remains usable after moving the imported project.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SgdkAssetAuthoring {
+    pub resource_name: String,
+    pub resource_kind: String,
+    pub sprite: Option<SpriteComponent>,
+    /// Native pixel document when this shared catalog projection comes from
+    /// authoring rather than a donor manifest. No second metadata file is written.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pixel_document: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub variants: Vec<SgdkAssetAuthoring>,
 }
 
 /// Sumario das origens do doador SGDK consumidas nesta importacao.
@@ -292,6 +321,8 @@ struct SgdkImportLedgerPhaseDEntityTrace {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 struct SgdkImportLedger {
     schema_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    tilemap_cell_encoding: Option<String>,
     scene_id: String,
     donor_root: String,
     #[serde(default)]
@@ -715,6 +746,17 @@ enum SgdkAssetMaterialization {
     LinkOrCopy,
 }
 
+/// Politica para recursos SPRITE do doador. Um recurso de animacao e catalogo,
+/// nao prova de instancia ativa: so vira entidade de cena quando o import puder
+/// representar a cena; caso contrario permanece apenas como asset referenciado.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SgdkSpriteInstancing {
+    /// Cada SPRITE vira entidade da cena primaria (doadores pequenos, conversao no-code).
+    SceneEntities,
+    /// Logica C original controla as instancias; recursos ficam so no catalogo.
+    NativeCatalogOnly,
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct LegacySgdkIndex {
     pub host_root: String,
@@ -736,6 +778,7 @@ pub struct ProjectTemplateSummary {
     pub source_kind: String,
     pub recommended_target: String,
     pub experimental: bool,
+    pub mega_drive_only: bool,
     pub available: bool,
     pub availability_reason: Option<String>,
     pub default_donor_path: Option<String>,
@@ -1083,9 +1126,11 @@ pub fn seed_project_template(
     target: &str,
     donor_path: Option<&Path>,
 ) -> Result<Scene, LoadError> {
+    validate_project_template_target(template_id, target)?;
     match template_id {
         "empty" => return load_scene(project_dir, DEFAULT_ENTRY_SCENE),
         "starter_guided" => return seed_onboarding_template(project_dir, target),
+        "reference_platformer" => return seed_reference_platformer_template(project_dir, target),
         _ => {}
     }
 
@@ -1102,6 +1147,29 @@ pub fn seed_project_template(
         "platformer_gm" => seed_platformer_gm_template(project_dir, &donor),
         _ => import_sgdk_project(project_dir, &donor).map(|report| report.primary_scene),
     }
+}
+
+/// Shared by the catalog/UI and creation preflight, before reserving any project directory.
+pub fn validate_project_template_target(template_id: &str, target: &str) -> Result<(), LoadError> {
+    if !matches!(target, "megadrive" | "snes") {
+        return Err(LoadError(format!(
+            "Console de projeto nao suportado: '{target}'."
+        )));
+    }
+    let registry = template_registry()?;
+    let entry = registry
+        .templates
+        .iter()
+        .find(|entry| entry.id == template_id)
+        .ok_or_else(|| LoadError(format!("Template desconhecido: '{template_id}'.")))?;
+    if template_megadrive_only(entry) && target != "megadrive" {
+        return Err(LoadError(format!("O modelo '{}' e exclusivo de Mega Drive nesta wave. Para SNES, escolha Projeto Vazio ou Primeiro Projeto.", entry.name)));
+    }
+    Ok(())
+}
+
+fn template_megadrive_only(entry: &TemplateRegistryEntry) -> bool {
+    entry.source_kind == "external_sgdk" || entry.id == "reference_platformer"
 }
 
 struct DonorDimensions {
@@ -1186,7 +1254,8 @@ fn tilemap_dims_from_source(source_path: &Path) -> (u32, u32) {
 /// Reconstroi `cells[]` canonico via deduplicacao 8x8:
 /// - cada tile 8x8 vira uma entrada do dicionario
 /// - tiles totalmente transparentes viram `0` (vazio) em `cells[]`
-/// - demais tiles recebem indice 1-based dentro do dicionario
+/// - demais tiles apontam para a primeira ocorrencia no PNG original (1-based)
+///   sem reordenar, alterar ou gerar outro atlas
 ///
 /// Esse caminho cobre o caso mais comum em SGDK: o "map" e uma PNG monolitica onde a
 /// colocacao ja esta embutida (um grande "background bake"). Para projetos com .tmx
@@ -1196,10 +1265,35 @@ struct ExtractedSgdkTilemap {
     map_height: u32,
     cells: Vec<u32>,
     unique_tiles: u32,
+    // Recognize untouched maps emitted before source-atlas indexing was fixed.
+    legacy_cells: Vec<u32>,
+}
+
+fn read_sgdk_image(source_path: &Path) -> Result<image::DynamicImage, LoadError> {
+    let (width, height) = image::image_dimensions(source_path).map_err(|error| {
+        LoadError(format!(
+            "Imagem SGDK '{}' ilegível: {}. Verifique o arquivo de origem e importe novamente.",
+            source_path.display(),
+            error
+        ))
+    })?;
+    // Bound allocations before decoding; keep the same 64 MP ceiling as the
+    // existing imported-art pipeline. This is an editor memory limit, not VRAM.
+    if u64::from(width) * u64::from(height) > 64 * 1024 * 1024 {
+        return Err(LoadError(format!(
+            "Imagem SGDK '{}' excede 64 MP. Reduza ou divida a imagem antes de importar.",
+            source_path.display()
+        )));
+    }
+    image::ImageReader::open(source_path)
+        .and_then(|reader| reader.with_guessed_format())
+        .map_err(|error| LoadError(format!("Não foi possível abrir a imagem SGDK '{}': {}", source_path.display(), error)))?
+        .decode()
+        .map_err(|error| LoadError(format!("Imagem SGDK '{}' corrompida ou incompatível: {}. Substitua o arquivo de origem e tente novamente.", source_path.display(), error)))
 }
 
 fn extract_sgdk_tilemap_cells(source_path: &Path) -> Option<ExtractedSgdkTilemap> {
-    let img = image::open(source_path).ok()?;
+    let img = read_sgdk_image(source_path).ok()?;
     let rgba = img.to_rgba8();
     let w = rgba.width();
     let h = rgba.height();
@@ -1215,9 +1309,9 @@ fn extract_sgdk_tilemap_cells(source_path: &Path) -> Option<ExtractedSgdkTilemap
 
     let row_stride = (w as usize) * 4;
     let pixels = rgba.as_raw();
-    let mut dict: HashMap<[u8; 256], u32> = HashMap::new();
+    let mut dict: HashMap<[u8; 256], (u32, u32)> = HashMap::new();
     let mut cells: Vec<u32> = Vec::with_capacity((tiles_x * tiles_y) as usize);
-    let mut next_index: u32 = 1;
+    let mut legacy_cells = Vec::with_capacity(cells.capacity());
 
     for ty in 0..tiles_y {
         for tx in 0..tiles_x {
@@ -1233,14 +1327,18 @@ fn extract_sgdk_tilemap_cells(source_path: &Path) -> Option<ExtractedSgdkTilemap
             let fully_transparent = tile_bytes.chunks_exact(4).all(|px| px[3] == 0);
             if fully_transparent {
                 cells.push(0);
+                legacy_cells.push(0);
                 continue;
             }
-            let idx = *dict.entry(tile_bytes).or_insert_with(|| {
-                let current = next_index;
-                next_index = next_index.saturating_add(1);
-                current
-            });
-            cells.push(idx);
+            let dense_index = dict.len() as u32 + 1;
+            let source_index = ty * tiles_x + tx + 1;
+            let (atlas_index, legacy_index) = *dict
+                .entry(tile_bytes)
+                .or_insert((source_index, dense_index));
+            // The asset remains byte-for-byte original. Both viewport and ROM use
+            // N-1 in that source atlas, not an atlas packed by this dictionary.
+            cells.push(atlas_index);
+            legacy_cells.push(legacy_index);
         }
     }
 
@@ -1254,6 +1352,7 @@ fn extract_sgdk_tilemap_cells(source_path: &Path) -> Option<ExtractedSgdkTilemap
         map_height: tiles_y,
         cells,
         unique_tiles: dict.len() as u32,
+        legacy_cells,
     })
 }
 
@@ -2514,6 +2613,8 @@ fn derive_sgdk_sprite_sheet_from_rescomp_png(
         animations.insert(
             anim_name,
             AnimationDef {
+                occurrence_ids: None,
+                frame_events: Vec::new(),
                 frames: frame_indices,
                 fps,
                 looping,
@@ -2898,25 +2999,6 @@ fn needs_sgdk_authoring_staging_layout(sprite_entities: &[Entity]) -> bool {
     dense_count >= 10 && area <= (320 * 224 / 3)
 }
 
-fn sgdk_role_lane_base_y(entity: &Entity) -> i32 {
-    let role = entity
-        .components
-        .logic
-        .as_ref()
-        .and_then(|logic| logic.imported_semantics.as_ref())
-        .map(|semantics| semantics.entity_role.as_str())
-        .unwrap_or("");
-    match role {
-        "player_avatar" => 88,
-        "fighter_actor" => 120,
-        "enemy_actor" => 152,
-        "hud_actor" => 200,
-        "support_actor" => 48,
-        "projectile_actor" => 32,
-        _ => 176,
-    }
-}
-
 fn apply_sgdk_authoring_staging_layout(sprite_entities: &mut [Entity]) -> usize {
     if !needs_sgdk_authoring_staging_layout(sprite_entities) {
         for entity in sprite_entities.iter_mut() {
@@ -2945,17 +3027,42 @@ fn apply_sgdk_authoring_staging_layout(sprite_entities: &mut [Entity]) -> usize 
             })
     });
 
+    // Prateleira que respeita o tamanho de cada sprite: linhas de ate SHELF_WIDTH px, cada linha
+    // com a altura do maior sprite dela, e uma linha nova quando o papel (jogador, inimigo...)
+    // muda. Assim nenhum sprite cobre outro e a prateleira nao inventa sobrecarga de scanline.
+    const SHELF_X: i32 = 16;
+    const SHELF_Y: i32 = 32;
+    const SHELF_WIDTH: i32 = 640;
+    const GAP: i32 = 16;
     let mut staged = 0usize;
-    let slots_per_page = 4usize;
-    let lanes_per_page = 2usize;
-    let lane_gap = 28i32;
-    for (index, entity) in sprite_entities.iter_mut().enumerate() {
-        let page = index / (slots_per_page * lanes_per_page);
-        let page_slot = index % (slots_per_page * lanes_per_page);
-        let column = page_slot % slots_per_page;
-        let lane = page_slot / slots_per_page;
-        entity.transform.x = 48 + (column as i32 * 64) + (page as i32 * 320);
-        entity.transform.y = sgdk_role_lane_base_y(entity) + (lane as i32 * lane_gap);
+    let mut cursor_x = SHELF_X;
+    let mut row_y = SHELF_Y;
+    let mut row_height = 0i32;
+    let mut row_role: Option<i32> = None;
+    for entity in sprite_entities.iter_mut() {
+        let (width, height) = entity
+            .components
+            .sprite
+            .as_ref()
+            .map(|sprite| {
+                (
+                    sprite.frame_width.max(8) as i32,
+                    sprite.frame_height.max(8) as i32,
+                )
+            })
+            .unwrap_or((16, 16));
+        let role = sprite_role_priority(entity);
+        let role_changed = row_role.is_some_and(|current| current != role);
+        if row_height > 0 && (role_changed || cursor_x + width > SHELF_X + SHELF_WIDTH) {
+            row_y += row_height + GAP;
+            cursor_x = SHELF_X;
+            row_height = 0;
+        }
+        row_role = Some(role);
+        entity.transform.x = cursor_x;
+        entity.transform.y = row_y;
+        cursor_x += width + GAP;
+        row_height = row_height.max(height);
         append_position_audit(
             entity,
             "position:staging_layout",
@@ -3403,6 +3510,9 @@ pub fn import_sgdk_project(
     sgdk_path: &Path,
 ) -> Result<SgdkImportReport, LoadError> {
     let resolved_root = resolve_sgdk_import_root(sgdk_path)?;
+    if sgdk_project_is_code_only(&resolved_root.effective_root) {
+        return import_sgdk_code_only_project(project_dir, sgdk_path, &resolved_root);
+    }
     validate_sgdk_project_path(&resolved_root.effective_root)?;
     let resources = load_sgdk_resources(&resolved_root.effective_root)?;
     import_sgdk_resources_into_scene(
@@ -3411,8 +3521,241 @@ pub fn import_sgdk_project(
         &resolved_root,
         &resources,
         SgdkAssetMaterialization::Copy,
+        SgdkSpriteInstancing::SceneEntities,
         "Imported SGDK Project",
     )
+}
+
+/// Doador code-only: manifests `.res` presentes e fontes C, mas nenhum recurso
+/// importavel (ex.: FORGE_REFERENCE usa apenas a fonte built-in do SGDK). Em vez de
+/// rejeitar, o import cria projeto nativo com cena contendo uma entidade de logica
+/// ponte (`bridge_unconverted_source` nao bloqueante) rastreavel ao `src/` do doador.
+fn sgdk_project_is_code_only(sgdk_path: &Path) -> bool {
+    let Ok(manifests) = find_sgdk_manifest_paths(sgdk_path) else {
+        return false;
+    };
+    if manifests.is_empty() || !sgdk_has_c_sources(sgdk_path) {
+        return false;
+    }
+    // Unsupported or unreadable manifests must retain their normal diagnostic;
+    // only genuinely empty resource declarations qualify as code-only.
+    matches!(load_sgdk_resources(sgdk_path), Ok(resources) if resources.is_empty())
+}
+
+fn sgdk_has_c_sources(sgdk_path: &Path) -> bool {
+    let src = sgdk_path.join("src");
+    let root = if src.is_dir() {
+        src.as_path()
+    } else {
+        sgdk_path
+    };
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(current) = stack.pop() {
+        let Ok(entries) = fs::read_dir(&current) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(kind) = entry.file_type() else {
+                continue;
+            };
+            if kind.is_dir() {
+                stack.push(path);
+            } else if kind.is_file()
+                && path.extension().and_then(|value| value.to_str()) == Some("c")
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+const SGDK_CODE_ONLY_ENTITY_ID: &str = "code_only_logic";
+const SGDK_CODE_ONLY_GRAPH_REF: &str = "graphs/sgdk_import_code_only.json";
+
+fn sgdk_code_only_bridge_graph_json(source_file: &str) -> String {
+    serde_json::json!({
+        "version": 1,
+        "nodes": [
+            {
+                "id": "code_only_tick",
+                "type": "event_update",
+                "label": "A Cada Frame (ponte code-only)",
+                "x": 120,
+                "y": 120,
+                "inputs": [],
+                "outputs": [{ "id": "exec", "label": ">", "kind": "exec" }],
+                "params": {}
+            },
+            {
+                "id": "code_only_bridge",
+                "type": "bridge_unconverted_source",
+                "label": "Fonte nao convertida (code-only)",
+                "x": 420,
+                "y": 120,
+                "inputs": [{ "id": "exec", "label": ">", "kind": "exec" }],
+                "outputs": [],
+                "params": {
+                    "blocking": false,
+                    "gap": "code_only_donor_sem_assets",
+                    "source_file": source_file
+                }
+            }
+        ],
+        "edges": [
+            {
+                "id": "edge_code_only_bridge",
+                "fromNode": "code_only_tick",
+                "fromPort": "exec",
+                "toNode": "code_only_bridge",
+                "toPort": "exec"
+            }
+        ]
+    })
+    .to_string()
+}
+
+fn import_sgdk_code_only_project(
+    project_dir: &Path,
+    requested_sgdk_path: &Path,
+    resolved_root: &SgdkResolvedImportRoot,
+) -> Result<SgdkImportReport, LoadError> {
+    use crate::core::sgdk_corpus_inventory::inspect_sgdk_project_for_nocode_inventory;
+
+    let sgdk_path = resolved_root.effective_root.as_path();
+    let inventory = inspect_sgdk_project_for_nocode_inventory(sgdk_path)
+        .map_err(|error| LoadError(format!("inventario do doador code-only falhou: {error}")))?;
+    let source_file = inventory
+        .source_files
+        .iter()
+        .find(|path| path.ends_with("main.c"))
+        .cloned()
+        .or_else(|| inventory.source_files.first().cloned())
+        .unwrap_or_else(|| "src/main.c".to_string());
+
+    let graph_ref = SGDK_CODE_ONLY_GRAPH_REF.to_string();
+    let graph_path = graph_write_path(project_dir, &graph_ref)?;
+    if let Some(parent) = graph_path.parent() {
+        fs::create_dir_all(parent).map_err(|error| {
+            LoadError(format!(
+                "code-only: nao foi possivel criar diretorio para graph_ref '{}': {}",
+                graph_ref, error
+            ))
+        })?;
+    }
+    fs::write(&graph_path, sgdk_code_only_bridge_graph_json(&source_file)).map_err(|error| {
+        LoadError(format!(
+            "code-only: falha ao gravar NodeGraph ponte em '{}': {}",
+            graph_path.display(),
+            error
+        ))
+    })?;
+
+    let logic = LogicComponent {
+        graph_ref: Some(graph_ref),
+        graph_origin: Some("imported_ref".to_string()),
+        external_source_refs: vec![source_file.clone()],
+        imported_semantics: Some(ImportedLogicSemantics {
+            source: "sgdk".to_string(),
+            extraction_kind: "bridge".to_string(),
+            confidence: "low".to_string(),
+            role_reason: "doador code-only: logica rastreada como ponte; cena nativa buildavel"
+                .to_string(),
+            source_paths: vec![source_file.clone()],
+            audit_flags: vec!["code_only_donor".to_string()],
+            bridge_count: 1,
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+
+    let mut scene = canonical_scene(
+        DEFAULT_SCENE_ID,
+        Some("Imported SGDK Project (code-only)".to_string()),
+    );
+    scene.entities.push(Entity {
+        entity_id: SGDK_CODE_ONLY_ENTITY_ID.to_string(),
+        display_name: Some("Fonte SGDK (code-only)".to_string()),
+        prefab: None,
+        transform: Transform::default(),
+        components: Components {
+            logic: Some(logic),
+            ..Default::default()
+        },
+    });
+    save_scene(project_dir, DEFAULT_ENTRY_SCENE, &scene)?;
+
+    let manifest_paths = find_sgdk_manifest_paths(sgdk_path).unwrap_or_default();
+    let manifests_relative: Vec<String> = manifest_paths
+        .iter()
+        .map(|path| {
+            path.strip_prefix(sgdk_path)
+                .ok()
+                .map(normalize_relative_path)
+                .unwrap_or_else(|| path.display().to_string())
+        })
+        .collect();
+    let fingerprint = compute_sgdk_donor_fingerprint(sgdk_path, &manifest_paths);
+    let mut warnings = resolved_root.warnings.clone();
+    warnings.push(
+        "Doador code-only: nenhum recurso importavel nos manifestos; cena nativa criada com entidade de logica ponte rastreavel a 'src/'."
+            .to_string(),
+    );
+
+    let source_summary = SgdkSourceSummary {
+        donor_root: requested_sgdk_path.to_string_lossy().to_string(),
+        effective_root: sgdk_path.to_string_lossy().to_string(),
+        resolution_kind: resolved_root.resolution_kind.clone(),
+        resolution_warnings: resolved_root.warnings.clone(),
+        resolution_suggestions: resolved_root.suggestions.clone(),
+        manifests: manifests_relative.clone(),
+        resources_total: 0,
+        resources_accepted: 0,
+        resources_skipped: 0,
+        fingerprint: fingerprint.clone(),
+    };
+
+    let ledger_scenes = vec![SgdkImportLedgerScene {
+        scene_id: scene.scene_id.clone(),
+        display_name: scene
+            .display_name
+            .clone()
+            .unwrap_or_else(|| "Imported SGDK Project (code-only)".to_string()),
+        scene_path: DEFAULT_ENTRY_SCENE.to_string(),
+        role: "primary".to_string(),
+        entity_count: scene.entities.len(),
+        tilemap_cells: 0,
+        tilemap_unique_tiles: 0,
+    }];
+    let manifest_path = write_sgdk_import_ledger(
+        project_dir,
+        requested_sgdk_path,
+        sgdk_path,
+        &resolved_root.resolution_kind,
+        &scene.scene_id,
+        &fingerprint,
+        &manifests_relative,
+        &[],
+        &[],
+        &warnings,
+        &[],
+        &ledger_scenes,
+        &SgdkImportLedgerPhaseC::default(),
+        &SgdkImportLedgerPhaseD::default(),
+    )?;
+
+    Ok(SgdkImportReport {
+        primary_scene: scene,
+        imported_scenes: 1,
+        skipped_sources: Vec::new(),
+        warnings,
+        fallbacks: Vec::new(),
+        source_summary,
+        manifest_path: Some(manifest_path),
+        primary_scene_path: DEFAULT_ENTRY_SCENE.to_string(),
+        additional_scenes: Vec::new(),
+    })
 }
 
 pub fn import_legacy_sgdk_project(
@@ -3421,8 +3764,28 @@ pub fn import_legacy_sgdk_project(
 ) -> Result<PathBuf, LoadError> {
     let index = scan_legacy_sgdk_project(sgdk_root)?;
     let overlay_dir = sgdk_root.join("rds");
+    if overlay_dir.join("project.rds").is_file() && legacy_overlay_opens(&overlay_dir).is_err() {
+        // Cena de entrada apagada: aponta para outra cena valida e preserva o restante.
+        repair_legacy_overlay_entry_scene(&overlay_dir);
+    }
+    if overlay_dir.join("project.rds").is_file() {
+        if let Err(why) = legacy_overlay_opens(&overlay_dir) {
+            // Overlay que nao abre (config antiga/corrompida): guarda uma copia e recria.
+            let backup = backup_broken_legacy_overlay(&overlay_dir)?;
+            let _ = fs::write(
+                backup.join("motivo.txt"),
+                format!(
+                    "Overlay nao abria e foi recriado pelo importador:\n{}\n",
+                    why.0
+                ),
+            );
+        }
+    }
     if overlay_dir.join("project.rds").is_file() {
         write_legacy_sgdk_index(&overlay_dir, &index)?;
+        crate::core::sgdk_c_graph::write_c_graph_project(sgdk_root, &overlay_dir)
+            .map_err(LoadError)?;
+        write_sgdk_sprite_catalog(sgdk_root, &overlay_dir)?;
         return Ok(overlay_dir);
     }
 
@@ -3458,6 +3821,7 @@ pub fn import_legacy_sgdk_project(
             &legacy_resolved_root,
             &resources,
             SgdkAssetMaterialization::LinkOrCopy,
+            SgdkSpriteInstancing::NativeCatalogOnly,
             "Legacy SGDK Overlay",
         )?;
     }
@@ -3472,10 +3836,188 @@ pub fn import_legacy_sgdk_project(
         Some("legacy_sgdk_overlay_v1".to_string()),
     )?;
     write_legacy_sgdk_index(&overlay_dir, &index)?;
+    crate::core::sgdk_c_graph::write_c_graph_project(sgdk_root, &overlay_dir).map_err(LoadError)?;
+    write_sgdk_sprite_catalog(sgdk_root, &overlay_dir)?;
     Ok(overlay_dir)
 }
 
+pub const SGDK_SPRITE_CATALOG: &str = "assets/sprites/sgdk_sprite_catalog.json";
+
+/// Sprite do jogo como o `.res` o declara: folha, tamanho do quadro e onde o C o usa.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct SgdkSpriteCatalogEntry {
+    pub name: String,
+    /// PNG no projeto de origem (relativo a raiz SGDK).
+    pub source: String,
+    /// Mesma imagem dentro do overlay, quando materializada.
+    pub asset: Option<String>,
+    pub frame_width: u32,
+    pub frame_height: u32,
+    pub columns: u32,
+    pub rows: u32,
+    pub refs: Vec<crate::core::rom_sprite_link::SpriteCodeRef>,
+}
+
+/// `rds/assets/sprites/sgdk_sprite_catalog.json`: cada SPRITE do `.res` com o quadro declarado
+/// (largura/altura em tiles x 8; cada linha da folha e uma animacao no SGDK) e os pontos do C.
+fn write_sgdk_sprite_catalog(sgdk_root: &Path, overlay_dir: &Path) -> Result<(), LoadError> {
+    let resources = load_sgdk_resources_if_present(sgdk_root)?;
+    // Imagens do overlay por tamanho, para achar a copia/link de cada PNG de origem.
+    let mut overlay_sprites: Vec<(u64, PathBuf)> = Vec::new();
+    let mut stack = vec![overlay_dir.join("assets").join("sprites")];
+    while let Some(dir) = stack.pop() {
+        for entry in fs::read_dir(&dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                stack.push(path);
+            } else if path
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("png"))
+            {
+                overlay_sprites.push((entry.metadata().map(|m| m.len()).unwrap_or(0), path));
+            }
+        }
+    }
+    let images = sgdk_sprite_resource_images(sgdk_root);
+    let mut entries = Vec::new();
+    for resource in resources.iter().filter(|r| r.kind == "SPRITE") {
+        let Some((_, png)) = images.iter().find(|(name, _)| *name == resource.name) else {
+            continue;
+        };
+        let tiles = |i: usize| {
+            resource
+                .params
+                .get(i)
+                .and_then(|v| v.parse::<u32>().ok())
+                .filter(|v| *v > 0)
+        };
+        let (Some(tw), Some(th)) = (tiles(0), tiles(1)) else {
+            continue;
+        };
+        let (frame_width, frame_height) = (tw * 8, th * 8);
+        let Ok((width, height)) = image::image_dimensions(png) else {
+            continue;
+        };
+        let bytes = fs::read(png).unwrap_or_default();
+        let asset = overlay_sprites
+            .iter()
+            .filter(|(len, _)| *len == bytes.len() as u64)
+            .find(|(_, path)| fs::read(path).map(|b| b == bytes).unwrap_or(false))
+            .and_then(|(_, path)| path.strip_prefix(overlay_dir).ok())
+            .map(|p| p.to_string_lossy().replace('\\', "/"));
+        let mut refs =
+            crate::core::rom_sprite_link::code_refs(overlay_dir, sgdk_root, &resource.name);
+        refs.truncate(8);
+        entries.push(SgdkSpriteCatalogEntry {
+            name: resource.name.clone(),
+            source: png
+                .strip_prefix(sgdk_root)
+                .unwrap_or(png)
+                .to_string_lossy()
+                .replace('\\', "/"),
+            asset,
+            frame_width,
+            frame_height,
+            columns: (width / frame_width).max(1),
+            rows: (height / frame_height).max(1),
+            refs,
+        });
+    }
+    let path = overlay_dir.join(SGDK_SPRITE_CATALOG);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| LoadError(e.to_string()))?;
+    }
+    fs::write(
+        &path,
+        serde_json::to_string_pretty(&entries).map_err(|e| LoadError(e.to_string()))?,
+    )
+    .map_err(|e| LoadError(format!("Falha ao gravar '{}': {e}", path.display())))
+}
+
+/// O overlay abre como no app: projeto e cena de entrada carregam.
+/// Overlay `rds/` ja existente de um host SGDK que precisa passar de novo pelo
+/// importador: nao abre, ou foi criado por versao anterior sem indice/grafo C/catalogo.
+pub fn legacy_overlay_needs_reimport(sgdk_root: &Path) -> bool {
+    let overlay_dir = sgdk_root.join("rds");
+    if !overlay_dir.join("project.rds").is_file() || !looks_like_sgdk_host(sgdk_root) {
+        return false;
+    }
+    legacy_overlay_opens(&overlay_dir).is_err()
+        || !overlay_dir.join("legacy_sgdk_index.json").is_file()
+        || !overlay_dir.join("code/index.json").is_file()
+        || !overlay_dir.join(SGDK_SPRITE_CATALOG).is_file()
+}
+
+fn looks_like_sgdk_host(sgdk_root: &Path) -> bool {
+    sgdk_root.join("src").is_dir() || sgdk_root.join("res").is_dir()
+}
+
+fn repair_legacy_overlay_entry_scene(overlay_dir: &Path) {
+    let Ok(project) = load_project(overlay_dir) else {
+        return;
+    };
+    if overlay_dir.join(&project.entry_scene).is_file() {
+        return;
+    }
+    let mut candidates: Vec<String> = fs::read_dir(overlay_dir.join("scenes"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| entry.file_name().to_str().map(str::to_string))
+        .filter(|name| name.ends_with(".json"))
+        .map(|name| format!("scenes/{name}"))
+        .collect();
+    candidates.sort_by_key(|path| (path != "scenes/main.json", path.clone()));
+    for candidate in candidates {
+        if set_entry_scene(overlay_dir, &candidate).is_ok() {
+            return;
+        }
+    }
+}
+
+fn legacy_overlay_opens(overlay_dir: &Path) -> Result<(), LoadError> {
+    let project = load_project(overlay_dir)?;
+    load_scene(overlay_dir, &project.entry_scene)?;
+    Ok(())
+}
+
+/// Move a configuracao do overlay (projeto, cenas, prefabs, grafos, indice) para
+/// `rds/.backup/<instante>/`. Assets e o grafo C ficam (sao regerados ou reaproveitados).
+fn backup_broken_legacy_overlay(overlay_dir: &Path) -> Result<PathBuf, LoadError> {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let backup = overlay_dir.join(".backup").join(format!("overlay_{stamp}"));
+    fs::create_dir_all(&backup).map_err(|e| {
+        LoadError(format!(
+            "Nao foi possivel criar '{}': {e}",
+            backup.display()
+        ))
+    })?;
+    for name in [
+        "project.rds",
+        "scenes",
+        "prefabs",
+        "graphs",
+        "legacy_sgdk_index.json",
+    ] {
+        let from = overlay_dir.join(name);
+        if from.exists() {
+            fs::rename(&from, backup.join(name)).map_err(|e| {
+                LoadError(format!(
+                    "Nao foi possivel guardar '{}': {e}",
+                    from.display()
+                ))
+            })?;
+        }
+    }
+    Ok(backup)
+}
+
 struct SgdkTilemapMaterialization {
+    is_tileset_bank: bool,
+    is_declared_map: bool,
     entity: Entity,
     entity_id: String,
     display_name: String,
@@ -3533,15 +4075,28 @@ fn build_sgdk_tilemap_entity(
                 scroll_x: 0,
                 scroll_y: 0,
                 cells,
+                plane: None,
+                priority: false,
             }),
-            logic: if hud_overlay_hint {
+            logic: if hud_overlay_hint || resource.kind == "TILESET" || had_cells {
+                let mut hints = Vec::new();
+                if hud_overlay_hint {
+                    hints.push("sgdk_import:hud_overlay".to_string());
+                }
+                if resource.kind == "TILESET" {
+                    hints.push("sgdk_import:tileset_bank".to_string());
+                }
+                if had_cells {
+                    hints.push("sgdk_import:source_atlas_cells_v1".to_string());
+                }
                 Some(LogicComponent {
                     graph: None,
                     graph_ref: None,
                     graph_origin: None,
-                    logic_hints: vec!["sgdk_import:hud_overlay".to_string()],
+                    logic_hints: hints,
                     external_source_refs: Vec::new(),
                     imported_semantics: None,
+                    recovered_rule: None,
                     variables: HashMap::new(),
                 })
             } else {
@@ -3552,6 +4107,8 @@ fn build_sgdk_tilemap_entity(
     };
 
     SgdkTilemapMaterialization {
+        is_tileset_bank: resource.kind == "TILESET",
+        is_declared_map: matches!(resource.kind.as_str(), "MAP" | "TILEMAP"),
         entity,
         entity_id,
         display_name,
@@ -3584,9 +4141,18 @@ fn import_sgdk_resources_into_scene(
     resolved_root: &SgdkResolvedImportRoot,
     resources: &[SgdkResourceEntry],
     materialization: SgdkAssetMaterialization,
+    requested_instancing: SgdkSpriteInstancing,
     scene_name: &str,
 ) -> Result<SgdkImportReport, LoadError> {
     let sgdk_path = resolved_root.effective_root.as_path();
+    let sprite_resource_count = resources
+        .iter()
+        .filter(|resource| resource.kind == "SPRITE")
+        .count();
+    // Mais recursos SPRITE do que o hardware exibe de uma vez prova que o catalogo
+    // nao e uma cena simultanea; sem evidencia de instancias, nada e instanciado.
+    let catalog_only = requested_instancing == SgdkSpriteInstancing::NativeCatalogOnly
+        || sprite_resource_count > crate::hardware::md_profile::MD_SPRITES_PER_SCREEN as usize;
     let mut imported_tilemaps: HashSet<String> = HashSet::new();
     let mut audio_sfx: HashMap<String, String> = HashMap::new();
     let mut audio_bgm: Option<String> = None;
@@ -3599,8 +4165,21 @@ fn import_sgdk_resources_into_scene(
     let mut fallbacks: Vec<String> = Vec::new();
     let mut mappings: Vec<SgdkImportMapping> = Vec::new();
 
+    // Different source directories can contain the same filename (e.g. both
+    // fighters have idle.png). Resolve the whole set before copying anything.
+    let mut destination_sources: HashMap<String, HashSet<PathBuf>> = HashMap::new();
     for resource in resources {
-        let Some(destination) = sgdk_asset_destination(&resource.kind, &resource.asset_path) else {
+        if let Some(destination) = sgdk_asset_destination(&resource.kind, &resource.asset_path) {
+            destination_sources
+                .entry(destination)
+                .or_default()
+                .insert(sgdk_resource_source_path(sgdk_path, &resource.asset_path));
+        }
+    }
+
+    for resource in resources {
+        let Some(mut destination) = sgdk_asset_destination(&resource.kind, &resource.asset_path)
+        else {
             let reason = match resource.kind.as_str() {
                 "VGM" => "ForbiddenFormat",
                 _ => "UnsupportedKind",
@@ -3617,6 +4196,30 @@ fn import_sgdk_resources_into_scene(
         };
 
         let source_path = sgdk_resource_source_path(sgdk_path, &resource.asset_path);
+        if destination_sources[&destination].len() > 1 {
+            let relative = source_path.strip_prefix(sgdk_path).map_err(|_| {
+                LoadError(format!(
+                    "Asset SGDK fora da raiz doadora: {}",
+                    source_path.display()
+                ))
+            })?;
+            if relative
+                .components()
+                .any(|component| !matches!(component, Component::Normal(_)))
+            {
+                return Err(LoadError(format!(
+                    "Caminho SGDK ambiguo: {}",
+                    relative.display()
+                )));
+            }
+            destination = normalize_relative_path(
+                &Path::new(&destination)
+                    .parent()
+                    .expect("asset category")
+                    .join("sgdk-source")
+                    .join(relative),
+            );
+        }
         if !source_path.is_file() {
             if resource.kind == "VGM" {
                 skipped_sources.push(SgdkSkippedSource {
@@ -3636,6 +4239,14 @@ fn import_sgdk_resources_into_scene(
             )));
         }
 
+        if matches!(
+            resource.kind.as_str(),
+            "SPRITE" | "IMAGE" | "TILESET" | "MAP" | "TILEMAP" | "PALETTE"
+        ) && image::ImageFormat::from_path(&source_path).is_ok()
+        {
+            read_sgdk_image(&source_path)?;
+        }
+
         materialize_sgdk_asset(
             &source_path,
             &project_dir.join(&destination),
@@ -3653,6 +4264,7 @@ fn import_sgdk_resources_into_scene(
             resource_name: resource.name.clone(),
             source_relative,
             destination: destination.clone(),
+            params: resource.params.clone(),
         });
 
         match resource.kind.as_str() {
@@ -3712,6 +4324,7 @@ fn import_sgdk_resources_into_scene(
                             },
                             external_source_refs: Vec::new(),
                             imported_semantics: None,
+                            recovered_rule: None,
                             variables: HashMap::new(),
                         }),
                         ..Components::default()
@@ -3756,6 +4369,19 @@ fn import_sgdk_resources_into_scene(
         }
     }
 
+    if catalog_only && !sprite_entities.is_empty() {
+        warnings.push(format!(
+            "sprite_catalog_only: {} recurso(s) SPRITE preservados no catalogo de assets sem instancia em cena; a correspondencia com instancias do jogo {}.",
+            sprite_entities.len(),
+            if requested_instancing == SgdkSpriteInstancing::NativeCatalogOnly {
+                "e controlada pela logica C original"
+            } else {
+                "nao e conhecida (catalogo excede o limite de sprites simultaneos)"
+            }
+        ));
+        sprite_entities.clear();
+        first_sprite_id = None;
+    }
     let donor_logic_scan = scan_sgdk_donor_logic_scan(sgdk_path);
     let mut phase_d_ledger = SgdkImportLedgerPhaseD {
         detected_main_c_token_groups: donor_logic_scan.ledger_token_groups(),
@@ -3841,6 +4467,10 @@ fn import_sgdk_resources_into_scene(
     let mut primary_camera_ids: Vec<String> = Vec::new();
     let mut primary_audio_ids: Vec<String> = Vec::new();
 
+    // A TILESET is a bank of pieces, not a reconstructed game screen. Prefer a
+    // renderable IMAGE/MAP while retaining every bank and the stable scene IDs.
+    tilemap_slots
+        .sort_by_key(|slot| (!slot.had_cells, slot.is_tileset_bank, !slot.is_declared_map));
     let mut tilemap_iter = tilemap_slots.into_iter();
     let primary_tilemap = tilemap_iter.next();
     let extra_tilemaps: Vec<SgdkTilemapMaterialization> = tilemap_iter.collect();
@@ -3850,6 +4480,17 @@ fn import_sgdk_resources_into_scene(
         .map(|slot| (slot.cells_count, slot.unique_tiles, slot.had_cells));
 
     if let Some(slot) = primary_tilemap {
+        if requested_instancing == SgdkSpriteInstancing::SceneEntities {
+            primary_scene.display_name = Some(format!(
+                "{} · {}",
+                if slot.is_tileset_bank {
+                    "Banco de peças"
+                } else {
+                    "Imagem montada"
+                },
+                slot.display_name
+            ));
+        }
         primary_tilemap_ids.push(slot.entity_id.clone());
         primary_scene.entities.push(slot.entity);
     }
@@ -3887,6 +4528,8 @@ fn import_sgdk_resources_into_scene(
             transform: crate::ugdm::entities::Transform { x: 0, y: 0 },
             components: Components {
                 camera: Some(CameraComponent {
+                    patterns: Vec::new(),
+                    visual: None,
                     follow_entity: Some(follow_entity),
                     offset_x: 0,
                     offset_y: 0,
@@ -3965,8 +4608,12 @@ fn import_sgdk_resources_into_scene(
             disambiguator += 1;
         }
         let scene_path = format!("scenes/{}.json", scene_id);
-        let mut extra_scene =
-            canonical_scene(&scene_id, Some(format!("{} (SGDK)", slot.display_name)));
+        let title = if slot.is_tileset_bank {
+            format!("Banco de peças · {}", slot.display_name)
+        } else {
+            format!("Imagem montada · {}", slot.display_name)
+        };
+        let mut extra_scene = canonical_scene(&scene_id, Some(title));
         let tilemap_ids = vec![slot.entity_id.clone()];
         let extra_collision = slot.entity.components.tilemap.as_ref().and_then(|tm| {
             if tm.cells.is_empty() {
@@ -4217,6 +4864,7 @@ fn write_sgdk_import_ledger(
 
     let ledger = SgdkImportLedger {
         schema_version: SGDK_IMPORT_LEDGER_SCHEMA.to_string(),
+        tilemap_cell_encoding: Some("source_atlas_v1".to_string()),
         scene_id: scene_id.to_string(),
         donor_root: donor_path.to_string_lossy().to_string(),
         effective_root: effective_root.to_string_lossy().to_string(),
@@ -4316,6 +4964,7 @@ fn project_template_summary(entry: &TemplateRegistryEntry) -> ProjectTemplateSum
         source_kind: entry.source_kind.clone(),
         recommended_target: entry.recommended_target.clone(),
         experimental: entry.experimental,
+        mega_drive_only: template_megadrive_only(entry),
         available,
         availability_reason,
         default_donor_path: entry.default_donor_path.clone(),
@@ -4693,7 +5342,13 @@ fn parse_sgdk_manifest(manifest: &str) -> Vec<SgdkResourceEntry> {
         .lines()
         .filter_map(|line| {
             let trimmed = line.trim();
-            if trimmed.is_empty() || trimmed.starts_with('#') {
+            // rescomp aceita `;` como comentario oficial; projetos reais (ex.: HAMOOPIG)
+            // tambem usam `//`, que sem este guarda vira recurso falso `UnsupportedKind`.
+            if trimmed.is_empty()
+                || trimmed.starts_with('#')
+                || trimmed.starts_with(';')
+                || trimmed.starts_with("//")
+            {
                 return None;
             }
 
@@ -4837,7 +5492,10 @@ fn load_mddev_project_meta(root: &Path) -> Result<Option<MddevProjectMeta>, Load
             error
         ))
     })?;
-    let parsed = serde_json::from_str::<MddevProjectMeta>(&content).map_err(|error| {
+    // Projetos reais (ex.: corpus SGDKForge) sao escritos por ferramentas Windows que
+    // gravam BOM UTF-8; serde_json recusa `\u{feff}` antes do primeiro token.
+    let content = content.strip_prefix('\u{feff}').unwrap_or(&content);
+    let parsed = serde_json::from_str::<MddevProjectMeta>(content).map_err(|error| {
         LoadError(format!(
             "Metadata .mddev invalida em '{}': {}",
             mddev_path.display(),
@@ -4987,19 +5645,15 @@ fn resolve_sgdk_import_root(requested_root: &Path) -> Result<SgdkResolvedImportR
 }
 
 fn find_sgdk_manifest_paths(sgdk_path: &Path) -> Result<Vec<PathBuf>, LoadError> {
+    let mut manifests = Vec::new();
     let direct = sgdk_path.join("resources.res");
     if direct.is_file() {
-        return Ok(vec![direct]);
-    }
-
-    let canonical = sgdk_path.join("res").join("resources.res");
-    if canonical.is_file() {
-        return Ok(vec![canonical]);
+        manifests.push(direct);
     }
 
     let res_dir = sgdk_path.join("res");
     if res_dir.is_dir() {
-        let mut manifests = Vec::new();
+        let mut split_manifests = Vec::new();
         for entry in fs::read_dir(&res_dir).map_err(|error| {
             LoadError(format!(
                 "Nao foi possivel listar manifests SGDK em '{}': {}",
@@ -5015,17 +5669,28 @@ fn find_sgdk_manifest_paths(sgdk_path: &Path) -> Result<Vec<PathBuf>, LoadError>
                 ))
             })?;
             let path = entry.path();
-            if path
-                .extension()
-                .is_some_and(|extension| extension.eq_ignore_ascii_case("res"))
+            if path.is_file()
+                && path
+                    .extension()
+                    .is_some_and(|extension| extension.eq_ignore_ascii_case("res"))
             {
-                manifests.push(path);
+                split_manifests.push(path);
             }
         }
-        manifests.sort();
-        if !manifests.is_empty() {
-            return Ok(manifests);
-        }
+        // Enumerate once even on case-insensitive filesystems, keeping the
+        // conventional manifest first without inserting it a second time.
+        split_manifests.sort_by_key(|path| {
+            (
+                !path
+                    .file_name()
+                    .is_some_and(|name| name.eq_ignore_ascii_case("resources.res")),
+                path.clone(),
+            )
+        });
+        manifests.extend(split_manifests);
+    }
+    if !manifests.is_empty() {
+        return Ok(manifests);
     }
 
     Err(LoadError(format!(
@@ -5069,6 +5734,35 @@ fn validate_sgdk_project_path(sgdk_path: &Path) -> Result<(), LoadError> {
     Ok(())
 }
 
+/// Recursos `SPRITE` dos manifestos do projeto, com o PNG resolvido (relativo ao manifesto ou a `res/`).
+pub fn sgdk_sprite_resource_images(sgdk_path: &Path) -> Vec<(String, PathBuf)> {
+    let Ok(manifests) = find_sgdk_manifest_paths(sgdk_path) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for manifest in manifests {
+        let Ok(text) = fs::read_to_string(&manifest) else {
+            continue;
+        };
+        let dir = manifest.parent().unwrap_or(sgdk_path);
+        for entry in parse_sgdk_manifest(&text) {
+            if entry.kind != "SPRITE" {
+                continue;
+            }
+            let local = dir.join(&entry.asset_path);
+            let path = if local.is_file() {
+                local
+            } else {
+                sgdk_resource_source_path(sgdk_path, &entry.asset_path)
+            };
+            if path.is_file() {
+                out.push((entry.name, path));
+            }
+        }
+    }
+    out
+}
+
 fn load_sgdk_resources(sgdk_path: &Path) -> Result<Vec<SgdkResourceEntry>, LoadError> {
     let manifest_paths = find_sgdk_manifest_paths(sgdk_path)?;
     let mut resources = Vec::new();
@@ -5092,9 +5786,9 @@ fn sgdk_resource_source_path(sgdk_path: &Path, asset_path: &str) -> PathBuf {
     let relative = PathBuf::from(&normalized);
     let under_res = sgdk_path.join("res").join(&relative);
     if under_res.exists() {
-        under_res
+        canonicalize_existing_path(&under_res)
     } else {
-        sgdk_path.join(relative)
+        canonicalize_existing_path(&sgdk_path.join(relative))
     }
 }
 
@@ -5115,7 +5809,7 @@ fn sgdk_asset_destination(kind: &str, asset_path: &str) -> Option<String> {
     }
 }
 
-fn sgdk_entity_id(name: &str) -> String {
+pub(crate) fn sgdk_entity_id(name: &str) -> String {
     let mut id = String::new();
     for character in name.chars() {
         if character.is_ascii_alphanumeric() {
@@ -5274,6 +5968,7 @@ fn platformer_player_prefab_with_dims(
                 logic_hints: Vec::new(),
                 external_source_refs: Vec::new(),
                 imported_semantics: None,
+                recovered_rule: None,
                 variables: HashMap::new(),
             }),
             ..Components::default()
@@ -5289,9 +5984,13 @@ fn platformer_camera_prefab() -> Entity {
         transform: crate::ugdm::entities::Transform { x: 0, y: 0 },
         components: Components {
             camera: Some(CameraComponent {
+                patterns: Vec::new(),
+                visual: None,
                 follow_entity: Some("player".to_string()),
-                offset_x: 0,
-                offset_y: 0,
+                // Same offset the template graph's `camera_follow` node emits
+                // (-160/-112), so the editor frame and the ROM frame agree.
+                offset_x: -160,
+                offset_y: -112,
             }),
             ..Components::default()
         },
@@ -5312,6 +6011,8 @@ fn platformer_tilemap_prefab_with_dims(map_width: u32, map_height: u32) -> Entit
                 scroll_x: 0,
                 scroll_y: 0,
                 cells: Vec::new(),
+                plane: None,
+                priority: false,
             }),
             ..Components::default()
         },
@@ -5328,6 +6029,7 @@ fn platformer_seed_scene() -> Scene {
             "#22C55E".to_string(),
             "#F8FAFC".to_string(),
         ],
+        ..Default::default()
     }];
     scene.entities = vec![
         Entity {
@@ -5365,6 +6067,7 @@ fn platformer_gm_seed_scene() -> Scene {
             "#15803D".to_string(), // Green
             "#F1F5F9".to_string(), // White
         ],
+        ..Default::default()
     }];
 
     // Configure 5 layers: BACKGROUND, MIDGROUND, FOREGROUND, INSTANCES, COLLISIONS
@@ -5605,6 +6308,15 @@ fn import_mugen_project_with_engine(
     mugen_path: &Path,
     source_engine: &str,
 ) -> Result<MugenImportReport, LoadError> {
+    import_mugen_project_with_review(project_dir, mugen_path, source_engine, None)
+}
+
+pub(crate) fn import_mugen_project_with_review(
+    project_dir: &Path,
+    mugen_path: &Path,
+    source_engine: &str,
+    review: Option<&crate::core::mugen_profile::ReviewOptions>,
+) -> Result<MugenImportReport, LoadError> {
     if !mugen_path.exists() {
         return Err(LoadError(format!(
             "Projeto MUGEN indisponivel: '{}' nao existe.",
@@ -5612,7 +6324,41 @@ fn import_mugen_project_with_engine(
         )));
     }
 
-    let candidates = scan_mugen_candidates(mugen_path)?;
+    let mut verified_analysis = None;
+    let candidates = if let Some(review) = review {
+        let mut analysis =
+            crate::core::mugen_profile::analyze_source(mugen_path, Some(review.clone()), false)?;
+        if review.source_sha256.as_deref() != analysis["source_sha256"].as_str() {
+            return Err(LoadError(
+                "Pacote mudou desde a revisao; analise novamente antes de importar.".into(),
+            ));
+        }
+        if analysis["report"].is_null()
+            || analysis["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|d| d["severity"] == "error")
+        {
+            return Err(LoadError(format!(
+                "Analise MUGEN bloqueada: {}",
+                analysis["diagnostics"]
+            )));
+        }
+        analysis.as_object_mut().unwrap().remove("report");
+        verified_analysis = Some(analysis);
+        let def_path = crate::core::mugen_profile::resolve_inside(mugen_path, &review.def_file)?;
+        let display_name =
+            mugen_info_name(&read_text_lossy(&def_path)?).unwrap_or_else(|| "Personagem".into());
+        vec![MugenCandidate {
+            kind: MugenCandidateKind::Character,
+            root_dir: def_path.parent().unwrap().to_path_buf(),
+            def_path,
+            display_name,
+        }]
+    } else {
+        scan_mugen_candidates(mugen_path)?
+    };
     if candidates.is_empty() {
         return Err(LoadError(format!(
             "Nenhum modelo MUGEN suportado foi encontrado em '{}'. Use uma pasta de personagem, stage ou screenpack.",
@@ -5624,7 +6370,13 @@ fn import_mugen_project_with_engine(
     let mut skipped = Vec::new();
 
     for candidate in candidates {
-        match import_mugen_candidate(project_dir, &candidate, source_engine) {
+        let result = if candidate.kind == MugenCandidateKind::Character && review.is_some() {
+            import_mugen_character_with_review(project_dir, &candidate, source_engine, review)
+                .map(|s| vec![s])
+        } else {
+            import_mugen_candidate(project_dir, &candidate, source_engine)
+        };
+        match result {
             Ok(mut scenes) => imported.append(&mut scenes),
             Err(error) => skipped.push(format!("{}: {}", candidate.display_name, error)),
         }
@@ -5639,6 +6391,27 @@ fn import_mugen_project_with_engine(
     }
 
     let primary_scene = imported.remove(0);
+    if let Some(analysis) = verified_analysis {
+        let rel = format!(
+            "assets/mugen/{}_import_report.json",
+            sgdk_entity_id(
+                primary_scene
+                    .display_name
+                    .as_deref()
+                    .unwrap_or(&primary_scene.scene_id)
+            )
+        );
+        let path = project_dir.join(rel);
+        let mut persisted: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).map_err(|e| LoadError(e.to_string()))?)
+                .map_err(|e| LoadError(e.to_string()))?;
+        persisted["source_analysis"] = analysis;
+        fs::write(
+            path,
+            serde_json::to_vec_pretty(&persisted).map_err(|e| LoadError(e.to_string()))?,
+        )
+        .map_err(|e| LoadError(e.to_string()))?;
+    }
     save_scene(project_dir, DEFAULT_ENTRY_SCENE, &primary_scene)?;
     for scene in imported.iter() {
         let scene_id = next_scene_id(project_dir, &scene.scene_id);
@@ -5788,7 +6561,16 @@ fn detect_mugen_candidates_in_root(root: &Path) -> Result<Vec<MugenCandidate>, L
         return Ok(Vec::new());
     }
 
-    character_candidates.sort_by_key(|candidate| std::cmp::Reverse(candidate.0));
+    if character_candidates.len() > 1 {
+        return Err(LoadError(format!(
+            "Mais de um DEF de personagem: {}. Selecione explicitamente um DEF na revisao MUGEN.",
+            character_candidates
+                .iter()
+                .map(|(_, c)| c.def_path.display().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )));
+    }
     Ok(vec![character_candidates.remove(0).1])
 }
 
@@ -6101,7 +6883,13 @@ fn collect_mugen_character_logic_hints(
             continue;
         }
 
-        let content = read_text_lossy(&path)?;
+        // Dados do pacote: contidos na raiz e limitados em tamanho (perfil mugen.character.v1).
+        crate::core::mugen_profile::resolve_inside(root_dir, relative)?;
+        let content = String::from_utf8_lossy(&crate::core::mugen_profile::read_limited(
+            &path,
+            crate::core::mugen_profile::MAX_TEXT_BYTES,
+        )?)
+        .to_string();
         let relative_label = path
             .strip_prefix(root_dir)
             .ok()
@@ -6185,7 +6973,13 @@ fn collect_mugen_character_fighting_model(
             continue;
         }
 
-        let content = read_text_lossy(&path)?;
+        // Dados do pacote: contidos na raiz e limitados em tamanho (perfil mugen.character.v1).
+        crate::core::mugen_profile::resolve_inside(root_dir, relative)?;
+        let content = String::from_utf8_lossy(&crate::core::mugen_profile::read_limited(
+            &path,
+            crate::core::mugen_profile::MAX_TEXT_BYTES,
+        )?)
+        .to_string();
         let relative_label = path
             .strip_prefix(root_dir)
             .ok()
@@ -6212,6 +7006,32 @@ fn collect_mugen_character_fighting_model(
     model.states.sort_by_key(|state| state.state_no);
     model.states.dedup_by_key(|state| state.state_no);
     Ok(model)
+}
+
+/// Read-only inventory before import; original controllers are retained as
+/// references. A controller name alone never certifies executable semantics.
+pub(crate) fn inspect_mugen_logic(
+    root: &Path,
+    references: &BTreeMap<String, String>,
+) -> Result<serde_json::Value, LoadError> {
+    let files = MugenIniSection {
+        name: "files".into(),
+        entries: references
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect(),
+    };
+    let model = collect_mugen_character_fighting_model(root, &files)?;
+    Ok(serde_json::json!({
+        "states":model.states.iter().map(|s|serde_json::json!({"number":s.state_no,"source":s.source_ref})).collect::<Vec<_>>(),
+        "commands":model.commands.len(),
+        "controllers":model.controllers.iter().map(|c|serde_json::json!({
+            "state":c.state_no,"name":c.name,"kind":c.controller_type,"source":c.source_ref,
+            "profile_candidate":matches!(c.controller_type.to_ascii_lowercase().as_str(),"changestate"|"velset"),
+            "raw_lines":c.raw_lines,
+        })).collect::<Vec<_>>(),
+        "notice":"Inventario da logica original; candidatos ainda dependem de gatilhos e parametros suportados. Demonstracao autoral substitui a execucao e preserva os controllers como referencia."
+    }))
 }
 
 fn mugen_logic_file_priority(lowered_key: &str) -> Option<u8> {
@@ -6468,10 +7288,14 @@ fn parse_mugen_pair_numbers(value: Option<&str>) -> Option<(i32, i32)> {
             })
         })
         .collect::<Vec<_>>();
-    (numbers.len() >= 2).then_some((numbers[0], numbers[1]))
+    (numbers.len() >= 2).then(|| (numbers[0], numbers[1]))
 }
 
-fn imported_mugen_fighting_logic_graph(entity_id: &str, model: &MugenFightingModel) -> String {
+fn imported_mugen_fighting_logic_graph(
+    entity_id: &str,
+    model: &MugenFightingModel,
+    animations: &BTreeMap<String, AnimationDef>,
+) -> (String, Vec<serde_json::Value>) {
     let mut nodes = Vec::<serde_json::Value>::new();
     let mut edges = Vec::<serde_json::Value>::new();
     nodes.push(mugen_node(
@@ -6517,22 +7341,44 @@ fn imported_mugen_fighting_logic_graph(entity_id: &str, model: &MugenFightingMod
         ));
     }
 
-    for (index, state) in model.states.iter().enumerate() {
-        nodes.push(mugen_node(
-            &format!("fsm_state_{}", state.state_no),
-            "fsm_state",
-            &format!("State {}", state.state_no),
-            420,
-            80 + index as i32 * 92,
-            serde_json::json!({
-                "state_name": format!("state_{}", state.state_no),
-                "state_no": state.state_no,
-                "anim": state.params.get("anim").cloned().unwrap_or_default(),
-                "source": state.source_ref.clone(),
-                "initial": if state.state_no == 0 { 1 } else { 0 }
-            }),
-        ));
+    // Perfil mugen.character.v1: estados e ChangeState ligados de verdade ao NodeGraph.
+    let mut command_nodes = BTreeMap::new();
+    for command in &model.commands {
+        command_nodes.insert(command.display_name.clone(), format!("cmd_{}", command.id));
+        command_nodes.insert(command.id.clone(), format!("cmd_{}", command.id));
     }
+    let wired = crate::core::mugen_profile::wire_behavior_v1(
+        entity_id,
+        &model
+            .states
+            .iter()
+            .map(|state| crate::core::mugen_profile::StateView {
+                state_no: state.state_no,
+                anim: state.params.get("anim").cloned(),
+                source: state.source_ref.clone(),
+            })
+            .collect::<Vec<_>>(),
+        &model
+            .controllers
+            .iter()
+            .enumerate()
+            .map(
+                |(index, controller)| crate::core::mugen_profile::ControllerView {
+                    index,
+                    state_no: controller.state_no,
+                    kind: controller.controller_type.clone(),
+                    name: controller.name.clone(),
+                    raw_lines: controller.raw_lines.clone(),
+                    source: controller.source_ref.clone(),
+                },
+            )
+            .collect::<Vec<_>>(),
+        &command_nodes,
+        animations,
+    );
+    nodes.extend(wired.nodes);
+    edges.extend(wired.edges);
+    let mut behavior = wired.report;
 
     for (index, controller) in model.controllers.iter().enumerate() {
         let x = 760 + (index as i32 % 2) * 220;
@@ -6544,20 +7390,24 @@ fn imported_mugen_fighting_logic_graph(entity_id: &str, model: &MugenFightingMod
         );
         match controller.controller_type.to_ascii_lowercase().as_str() {
             "changestate" => {
-                let target_state = mugen_controller_i32(controller, "value").unwrap_or(0);
-                nodes.push(mugen_node(
-                    &id,
-                    "fsm_transition",
-                    &format!("ChangeState {}", target_state),
-                    x,
-                    y,
-                    serde_json::json!({
-                        "target_state": format!("state_{}", target_state),
-                        "source_state": controller.state_no.map(|value| format!("state_{value}")).unwrap_or_default(),
-                        "trigger": mugen_controller_trigger_summary(controller),
-                        "source": controller.source_ref.clone()
-                    }),
-                ));
+                // Ligado por wire_behavior_v1 ou recusado la (relatorio); sem no decorativo.
+                if !wired.handled.contains(&index) {
+                    nodes.push(mugen_node(
+                        &id,
+                        "bridge_unconverted_source",
+                        "ChangeState fora do perfil v1",
+                        x,
+                        y,
+                        serde_json::json!({
+                            "gap": "mugen_changestate_unsupported_trigger",
+                            "source": controller.raw_lines.join("\\n"),
+                            "state": controller.state_no.map(|value| format!("state_{value}")).unwrap_or_default()
+                        }),
+                    ));
+                }
+            }
+            "velset" if wired.handled.contains(&index) => {
+                // Ligado por wire_behavior_v1 (a recusa mantem o no de referencia abaixo).
             }
             "velset" | "veladd" => {
                 nodes.push(mugen_node(
@@ -6571,6 +7421,7 @@ fn imported_mugen_fighting_logic_graph(entity_id: &str, model: &MugenFightingMod
                         "vx": mugen_controller_i32(controller, "x").unwrap_or(0),
                         "vy": mugen_controller_i32(controller, "y").unwrap_or(0),
                         "mode": if controller.controller_type.eq_ignore_ascii_case("VelAdd") { "add" } else { "set" },
+                        "wired": false,
                         "source_state": controller.state_no.map(|value| format!("state_{value}")).unwrap_or_default(),
                         "source": controller.source_ref.clone()
                     }),
@@ -6588,6 +7439,7 @@ fn imported_mugen_fighting_logic_graph(entity_id: &str, model: &MugenFightingMod
                         "x": mugen_controller_i32(controller, "x").unwrap_or(0),
                         "y": mugen_controller_i32(controller, "y").unwrap_or(0),
                         "mode": if controller.controller_type.eq_ignore_ascii_case("PosAdd") { "add" } else { "set" },
+                        "wired": false,
                         "source_state": controller.state_no.map(|value| format!("state_{value}")).unwrap_or_default(),
                         "source": controller.source_ref.clone()
                     }),
@@ -6608,6 +7460,7 @@ fn imported_mugen_fighting_logic_graph(entity_id: &str, model: &MugenFightingMod
                     y,
                     serde_json::json!({
                         "sfx": sfx,
+                        "wired": false,
                         "source_state": controller.state_no.map(|value| format!("state_{value}")).unwrap_or_default(),
                         "source": controller.source_ref.clone()
                     }),
@@ -6649,13 +7502,131 @@ fn imported_mugen_fighting_logic_graph(entity_id: &str, model: &MugenFightingMod
         }
     }
 
-    serde_json::json!({
-        "version": 1,
-        "nodes": nodes,
-        "edges": edges,
-        "gaps": mugen_graph_gaps(model)
-    })
-    .to_string()
+    for controller in &model.controllers {
+        if controller
+            .controller_type
+            .eq_ignore_ascii_case("changestate")
+        {
+            continue;
+        }
+        if controller.controller_type.eq_ignore_ascii_case("velset")
+            && model
+                .controllers
+                .iter()
+                .position(|c| std::ptr::eq(c, controller))
+                .is_some_and(|i| wired.handled.contains(&i) || wired.refused.contains(&i))
+        {
+            continue;
+        }
+        behavior.push(serde_json::json!({
+            "item": format!("controller:{}#{}", controller.state_no.map(|s| s.to_string()).unwrap_or_else(|| "?".to_string()), controller.name),
+            "source": controller.source_ref,
+            "fidelity": "unsupported",
+            "target": serde_json::Value::Null,
+            "reason": format!("{} nao e ligado a execucao no perfil v1 (no presente so como referencia editavel)", controller.controller_type),
+            "consequence": "o efeito do controller nao acontece no jogo convertido",
+        }));
+    }
+    (
+        serde_json::json!({
+            "version": 1,
+            "nodes": nodes,
+            "edges": edges,
+            "gaps": mugen_graph_gaps(model)
+        })
+        .to_string(),
+        behavior,
+    )
+}
+
+/// Grafo de uma cadeia original: um no `mugen_state_program` com o programa e seu mapeamento
+/// de fonte (somente leitura; adulterar o programa bloqueia o build).
+fn original_chain_graph(
+    entity_id: &str,
+    program: &crate::core::mugen_chain::Program,
+    report: &serde_json::Value,
+) -> (String, Vec<serde_json::Value>) {
+    let node = mugen_node(
+        "mugen_state_program",
+        "mugen_state_program",
+        "Programa de estados (cadeia original)",
+        40,
+        80,
+        serde_json::json!({
+            "target": entity_id,
+            "profile": program.profile,
+            "program_sha256": program.digest,
+            // v2: alvo de treino do HitDef (outra entidade MUGEN), escolhido no Inspector.
+            "hit_target": "",
+            // string: o editor de grafos so conhece parametros string/numero
+            "program_json": serde_json::to_string(program).unwrap_or_default(),
+        }),
+    );
+    let mut behavior = Vec::new();
+    let map_class = |c: &str| match c {
+        "converted" => "direct",
+        "approximate" => "approximate",
+        "authored" => "manual",
+        _ => "unsupported",
+    };
+    for (i, op) in report["operations"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .enumerate()
+    {
+        let id = op["id"].as_str().unwrap_or("?");
+        let item = match op["kind"].as_str().unwrap_or("") {
+            "command" | "input_binding" => format!("command:{id}"),
+            "controller" | "trigger" => format!("controller:{id}"),
+            _ => format!("statedef:{id}#{i}"),
+        };
+        let src = &op["source"];
+        let source = src["file"]
+            .as_str()
+            .map(|f| format!("{f}:{}", src["line"].as_u64().unwrap_or(0)));
+        behavior.push(serde_json::json!({
+            "item": item, "source": source.unwrap_or_default(),
+            "fidelity": map_class(op["class"].as_str().unwrap_or("")),
+            "target": serde_json::Value::Null,
+            "reason": op["implementation"], "consequence": op["limit"],
+            "chain_class": op["class"],
+        }));
+    }
+    let mut groups: BTreeMap<String, (usize, String)> = BTreeMap::new();
+    for u in report["unconverted_controllers"]
+        .as_array()
+        .into_iter()
+        .flatten()
+    {
+        let id = u["id"].as_str().unwrap_or("");
+        if id.starts_with("state.") {
+            continue; // ja listado individualmente em `operations`
+        }
+        let reason = u["reason"].as_str().unwrap_or("").to_string();
+        let scope = id.rsplit_once(".controller.").map(|(a, _)| a).unwrap_or(id);
+        let entry = groups
+            .entry(format!("{scope}|{reason}"))
+            .or_insert((0, reason));
+        entry.0 += 1;
+    }
+    for (key, (count, reason)) in groups {
+        let scope = key.split('|').next().unwrap_or("");
+        behavior.push(serde_json::json!({
+            "item": format!("controller:{scope}#nao-convertidos"), "source": "",
+            "fidelity": "unsupported", "target": serde_json::Value::Null,
+            "reason": format!("{count} controlador(es): {reason}"),
+            "consequence": "o efeito original destes controladores nao acontece no jogo convertido",
+            "chain_class": "unconverted",
+        }));
+    }
+    (
+        serde_json::json!({
+            "version": 1, "nodes": [node], "edges": [], "gaps": []
+        })
+        .to_string(),
+        behavior,
+    )
 }
 
 fn mugen_node(
@@ -6723,17 +7694,6 @@ fn mugen_edge(
     })
 }
 
-fn mugen_controller_trigger_summary(controller: &MugenStateController) -> String {
-    let mut triggers = controller
-        .params
-        .iter()
-        .filter(|(key, _)| key.starts_with("trigger"))
-        .map(|(key, value)| format!("{key}={value}"))
-        .collect::<Vec<_>>();
-    triggers.sort();
-    triggers.join("; ")
-}
-
 fn mugen_graph_gaps(model: &MugenFightingModel) -> Vec<serde_json::Value> {
     model
         .controllers
@@ -6794,8 +7754,32 @@ fn import_mugen_character_candidate(
     candidate: &MugenCandidate,
     source_engine: &str,
 ) -> Result<Scene, LoadError> {
+    import_mugen_character_with_review(project_dir, candidate, source_engine, None)
+}
+
+fn import_mugen_character_with_review(
+    project_dir: &Path,
+    candidate: &MugenCandidate,
+    source_engine: &str,
+    review: Option<&crate::core::mugen_profile::ReviewOptions>,
+) -> Result<Scene, LoadError> {
     let def_content = read_text_lossy(&candidate.def_path)?;
-    let sections = parse_mugen_ini(&def_content);
+    let mut sections = parse_mugen_ini(&def_content);
+    if review.is_some() {
+        let inventory = crate::core::mugen_profile::package_files(&candidate.root_dir)?;
+        if let Some(files) = sections
+            .iter_mut()
+            .find(|s| s.name.eq_ignore_ascii_case("files"))
+        {
+            for relative in files.entries.values_mut() {
+                if let rex_mugen::source::Resolution::Resolved(path) =
+                    rex_mugen::source::resolve(&inventory, "", relative)
+                {
+                    *relative = path;
+                }
+            }
+        }
+    }
     let files = find_section(&sections, "files").ok_or_else(|| {
         LoadError(format!(
             "Character '{}' nao possui secao [Files] valida.",
@@ -6817,6 +7801,67 @@ fn import_mugen_character_candidate(
     })?;
     let anim_path = candidate.root_dir.join(anim_rel);
     let sprite_path = candidate.root_dir.join(sprite_rel);
+    // Tudo que le/valida o pacote vem antes de qualquer gravacao no projeto:
+    // uma falha aqui nao deixa arquivo parcial.
+    let original_model = collect_mugen_character_fighting_model(&candidate.root_dir, files)?;
+    let chain = match review {
+        Some(r) if r.original_chain => {
+            if r.authored_demo {
+                return Err(LoadError(
+                    "Escolha comportamento autoral OU cadeia original, nao os dois.".into(),
+                ));
+            }
+            let state = r.chain_state.ok_or_else(|| {
+                LoadError("Cadeia original sem estado escolhido na revisao.".into())
+            })?;
+            let ad = rex_mugen::air::parse(&read_text_lossy(&anim_path)?, anim_rel);
+            let totals = crate::core::mugen_profile::action_totals(&ad, &r.actions);
+            let def_name = candidate
+                .def_path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let input = crate::core::mugen_profile::chain_input(
+                &candidate.root_dir,
+                &def_content,
+                &def_name,
+                state,
+                &totals,
+                &sgdk_entity_id(&candidate.display_name),
+                crate::core::mugen_profile::action_shapes(&ad, &r.actions),
+            )?;
+            let analysis = crate::core::mugen_chain::analyze(&input);
+            match analysis.program {
+                Ok(program) => Some((program, analysis.report)),
+                Err(why) => {
+                    return Err(LoadError(format!("Cadeia original recusada: {why}")));
+                }
+            }
+        }
+        _ => None,
+    };
+    let fighting_model = if review.is_some_and(|r| r.authored_demo) {
+        authored_mugen_visual_demo()?
+    } else {
+        original_model.clone()
+    };
+    let logic_hints = collect_mugen_character_logic_hints(&candidate.root_dir, files)?;
+    // Perfil mugen.character.v1 (Experimental): AIR/SFF v1 pela crate rex-mugen, com
+    // tempos, flips, offsets e caixas por frame. Sem SFF v1 legivel, cai no caminho
+    // legado (PNGs extraidos em work/*_sff), classificado a parte no relatorio.
+    let profile = match review {
+        Some(r) => crate::core::mugen_profile::convert_character_v1_with_review(
+            &candidate.root_dir,
+            anim_rel,
+            sprite_rel,
+            Some(r),
+        ),
+        None => crate::core::mugen_profile::convert_character_v1(
+            &candidate.root_dir,
+            anim_rel,
+            sprite_rel,
+        ),
+    }?;
     let actions = parse_mugen_air(&read_text_lossy(&anim_path)?);
     if actions.is_empty() {
         return Err(LoadError(format!(
@@ -6825,35 +7870,133 @@ fn import_mugen_character_candidate(
         )));
     }
 
-    let requested_refs = collect_mugen_action_refs(&actions);
-    let extracted_sprites = load_mugen_sprite_assets(&sprite_path, &requested_refs)?;
-    if extracted_sprites.is_empty() {
-        return Err(LoadError(format!(
-            "Nenhum sprite referenciado pelo AIR foi encontrado em '{}' nem em work/*_sff.",
-            sprite_path.display()
-        )));
-    }
-
-    let atlas = compose_mugen_character_atlas(&extracted_sprites)?;
     let character_slug = sgdk_entity_id(&candidate.display_name);
     let entity_id = sgdk_entity_id(&candidate.display_name);
     let atlas_asset = format!("assets/sprites/mugen_{}_atlas.png", character_slug);
+    let (atlas, mut animations, mut import_report) = match profile {
+        Some(converted) => (
+            MugenCharacterAtlas {
+                image: converted.atlas,
+                frame_indices: HashMap::new(),
+                cell_width: converted.cell_w,
+                cell_height: converted.cell_h,
+                pivot: converted.pivot,
+            },
+            converted.animations,
+            converted.report,
+        ),
+        None => {
+            let requested_refs = collect_mugen_action_refs(&actions);
+            let extracted_sprites = load_mugen_sprite_assets(&sprite_path, &requested_refs)?;
+            if extracted_sprites.is_empty() {
+                return Err(LoadError(format!(
+                    "Nenhum sprite referenciado pelo AIR foi encontrado em '{}' nem em work/*_sff.",
+                    sprite_path.display()
+                )));
+            }
+            let atlas = compose_mugen_character_atlas(&extracted_sprites)?;
+            let animations = mugen_actions_to_animation_defs(&actions, &atlas.frame_indices);
+            let report = serde_json::json!({
+                "schema": crate::core::mugen_profile::REPORT_SCHEMA,
+                "profile": "legacy_png_extraction",
+                "maturity": "Experimental",
+                "resources": [{
+                    "item": "sprites", "source": sprite_rel, "fidelity": "approximate",
+                    "target": "sprite.asset (atlas)",
+                    "reason": "SFF v1 nao legivel pelo perfil; usados PNGs pre-extraidos (paleta e tempos nao verificados pelo perfil)",
+                    "consequence": "cores, tempos por frame, flips e caixas sem garantia do perfil v1",
+                }],
+                "diagnostics": [], "metrics": [],
+            });
+            (atlas, animations, report)
+        }
+    };
     save_rgba_image(&project_dir.join(&atlas_asset), &atlas.image)?;
-
-    let mut animations = mugen_actions_to_animation_defs(&actions, &atlas.frame_indices);
     if let Some(idle) = animations.get("action_0").cloned() {
         animations.insert("idle".to_string(), idle);
     }
-    let fighting_model = collect_mugen_character_fighting_model(&candidate.root_dir, files)?;
     let has_fighting_logic = !fighting_model.commands.is_empty()
         || !fighting_model.states.is_empty()
         || !fighting_model.controllers.is_empty();
-    let command_bindings = mugen_command_bindings(&fighting_model, &animations);
-    let graph = if has_fighting_logic {
-        imported_mugen_fighting_logic_graph(&entity_id, &fighting_model)
+    let command_bindings = if chain.is_some() {
+        Vec::new()
     } else {
-        imported_mugen_idle_logic_graph(&entity_id)
+        mugen_command_bindings(&fighting_model, &animations)
     };
+    let (graph, behavior) = if let Some((program, report)) = &chain {
+        original_chain_graph(&entity_id, program, report)
+    } else if has_fighting_logic {
+        imported_mugen_fighting_logic_graph(&entity_id, &fighting_model, &animations)
+    } else {
+        (imported_mugen_idle_logic_graph(&entity_id), Vec::new())
+    };
+    import_report["behavior"] = serde_json::Value::Array(behavior);
+    if let Some(review) = review {
+        import_report["behavior_mode"] = serde_json::json!(if review.authored_demo {
+            "authored_visual_demo"
+        } else if chain.is_some() {
+            "original_chain"
+        } else {
+            "original_subset"
+        });
+        if let Some((_, chain_report)) = &chain {
+            import_report["original_chain"] = chain_report.clone();
+        }
+        import_report["behavior_notice"] = serde_json::json!(if chain.is_some() {
+            "Cadeia original delimitada convertida do CMD/CNS do pacote (comando, condicao, estado, animacao, retorno). O estado 0 vem de common1.cns, ausente: stand-in autoral declarado. Nao e conversao integral do personagem; sem colisao, dano ou combate."
+        } else if review.authored_demo {
+            "Comportamento autoral RetroDev: direcao segurada e botao A demonstram as imagens importadas. Nao e conversao do CNS original. Facing fixo a direita; sem acerto, dano ou fisica."
+        } else {
+            "Apenas o subconjunto declarado do CNS original e convertido; dependencias externas e controllers desconhecidos nao executam."
+        });
+        if review.authored_demo {
+            let (reference, source_behavior) =
+                imported_mugen_fighting_logic_graph(&entity_id, &original_model, &animations);
+            let rel = format!("graphs/mugen_{entity_id}_original_reference.json");
+            save_graph_asset(project_dir, &rel, &reference)?;
+            import_report["original_behavior"] = serde_json::json!(source_behavior);
+            import_report["original_graph_reference"] = serde_json::json!(rel);
+            import_report["behavior"].as_array_mut().unwrap().push(serde_json::json!({"item":"original_logic","source":candidate.def_path.file_name().unwrap().to_string_lossy(),"fidelity":"unsupported",
+                "reason":"demonstracao autoral escolhida explicitamente; logica original preservada como referencia","consequence":"esta demonstracao nao executa os controllers do CNS original"}));
+        }
+    }
+    crate::core::mugen_profile::append_character_items(
+        &mut import_report,
+        &fighting_model
+            .commands
+            .iter()
+            .map(|command| {
+                (
+                    command.display_name.clone(),
+                    command.source.clone(),
+                    command.unsupported_tokens.clone(),
+                )
+            })
+            .collect::<Vec<_>>(),
+        files.entries.get("sound").map(String::as_str),
+    );
+    let report_rel = format!("assets/mugen/{character_slug}_import_report.json");
+    let report_path = project_dir.join(&report_rel);
+    if let Some(parent) = report_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| {
+            LoadError(format!(
+                "Nao foi possivel criar '{}': {}",
+                parent.display(),
+                e
+            ))
+        })?;
+    }
+    fs::write(
+        &report_path,
+        serde_json::to_string_pretty(&import_report).unwrap_or_default(),
+    )
+    .map_err(|e| {
+        LoadError(format!(
+            "Nao foi possivel gravar '{}': {}",
+            report_path.display(),
+            e
+        ))
+    })?;
     let graph_ref = mugen_graph_ref(&entity_id);
     save_graph_asset(project_dir, &graph_ref, &graph)?;
 
@@ -6861,7 +8004,6 @@ fn import_mugen_character_candidate(
         &sgdk_entity_id(&candidate.display_name),
         Some(candidate.display_name.clone()),
     );
-    let logic_hints = collect_mugen_character_logic_hints(&candidate.root_dir, files)?;
     let mut logic = imported_logic_component(Some(graph), logic_hints);
     logic.graph_ref = Some(graph_ref);
     logic.graph_origin = Some(
@@ -6938,6 +8080,8 @@ fn import_mugen_character_candidate(
         transform: crate::ugdm::entities::Transform { x: 0, y: 0 },
         components: Components {
             camera: Some(CameraComponent {
+                patterns: Vec::new(),
+                visual: None,
                 follow_entity: Some(entity_id),
                 offset_x: 0,
                 offset_y: 0,
@@ -6947,6 +8091,38 @@ fn import_mugen_character_candidate(
     });
 
     Ok(scene)
+}
+
+/// Comportamento de demonstração explícito. Reusa os parsers e gerador do produto,
+/// sem fingir que os common states externos ou o CNS foram convertidos.
+fn authored_mugen_visual_demo() -> Result<MugenFightingModel, LoadError> {
+    let source = "retrodev.authored_visual_demo/v1";
+    let cmd="[Command]\nname = fwd\ncommand = F\ntime = 1\n[Command]\nname = back\ncommand = B\ntime = 1\n[Command]\nname = neutral\ncommand = 5\ntime = 1\n[Command]\nname = attack\ncommand = a\ntime = 1\n";
+    let mut cns = String::new();
+    for (state, anim, vx) in [
+        (0, 0, "0"),
+        (20, 20, "2.5"),
+        (21, 21, "-1.75"),
+        (200, 200, "0"),
+    ] {
+        cns.push_str(&format!("[Statedef {state}]\nanim = {anim}\n[State {state}, velocity]\ntype = VelSet\ntrigger1 = 1\nx = {vx}\n"));
+    }
+    cns.push_str("[State 200, return]\ntype = ChangeState\ntrigger1 = AnimTime = 0\nvalue = 0\n[Statedef -1]\n");
+    for (from, command, to) in [
+        (0, "attack", 200),
+        (0, "fwd", 20),
+        (0, "back", 21),
+        (20, "neutral", 0),
+        (21, "neutral", 0),
+        (20, "back", 21),
+        (21, "fwd", 20),
+    ] {
+        cns.push_str(&format!("[State -1, {from}_{command}]\ntype = ChangeState\ntriggerall = stateno = {from}\ntrigger1 = command = \"{command}\"\nvalue = {to}\n"));
+    }
+    let mut model = parse_mugen_state_logic_file(&cns, source);
+    model.commands = crate::core::input_commands::parse_command_dat(cmd, source);
+    model.source_refs = vec![source.into()];
+    Ok(model)
 }
 
 fn import_mugen_stage_candidate(
@@ -7312,6 +8488,8 @@ fn static_mugen_sprite_entity(
                 scroll_x: 0,
                 scroll_y: 0,
                 cells: Vec::new(),
+                plane: None,
+                priority: false,
             }),
             ..Components::default()
         },
@@ -7376,6 +8554,7 @@ fn mugen_actions_to_animation_defs(
             .frames
             .iter()
             .map(|frame| MugenAnimationFrame {
+                clsn_edited: false,
                 group: frame.group,
                 image: frame.image,
                 axis: Some(Pivot {
@@ -7391,6 +8570,8 @@ fn mugen_actions_to_animation_defs(
         animations.insert(
             format!("action_{}", action.action_no),
             AnimationDef {
+                occurrence_ids: None,
+                frame_events: Vec::new(),
                 frames,
                 fps,
                 looping: action.loop_start.is_some(),
@@ -7639,7 +8820,7 @@ fn parse_pair_i32(value: Option<&str>) -> Option<(i32, i32)> {
         .split(',')
         .filter_map(|entry| entry.trim().parse::<i32>().ok())
         .collect::<Vec<_>>();
-    (numbers.len() >= 2).then_some((numbers[0], numbers[1]))
+    (numbers.len() >= 2).then(|| (numbers[0], numbers[1]))
 }
 
 fn save_mugen_sounds(
@@ -8525,6 +9706,7 @@ pub fn import_gamemaker_project(
                         },
                         ..ImportedLogicSemantics::default()
                     }),
+                    recovered_rule: None,
                     variables: HashMap::from([
                         (
                             "vertical_speed".to_string(),
@@ -9470,6 +10652,8 @@ fn gamemaker_player_animations(frame_count: u32) -> BTreeMap<String, AnimationDe
     animations.insert(
         "idle".to_string(),
         AnimationDef {
+            occurrence_ids: None,
+            frame_events: Vec::new(),
             frames: vec![0],
             fps: 6,
             looping: true,
@@ -9485,6 +10669,8 @@ fn gamemaker_player_animations(frame_count: u32) -> BTreeMap<String, AnimationDe
         animations.insert(
             "walk".to_string(),
             AnimationDef {
+                occurrence_ids: None,
+                frame_events: Vec::new(),
                 frames: walk_frames,
                 fps: 10,
                 looping: true,
@@ -9626,6 +10812,8 @@ fn import_gamemaker_tile_layer_entities(
                     scroll_x: 0,
                     scroll_y: 0,
                     cells,
+                    plane: None,
+                    priority: false,
                 }),
                 ..Components::default()
             },
@@ -11012,6 +12200,8 @@ fn godot_animation_defs<'a>(
         animations.insert(
             trimmed.to_string(),
             AnimationDef {
+                occurrence_ids: None,
+                frame_events: Vec::new(),
                 frames: vec![0],
                 fps: 8,
                 looping: true,
@@ -11533,6 +12723,7 @@ fn godot_logic_component(
                 .collect(),
             ..ImportedLogicSemantics::default()
         }),
+        recovered_rule: None,
         variables: HashMap::new(),
     }))
 }
@@ -12647,6 +13838,7 @@ fn openbor_animation_to_def(block: &OpenBorAnimationBlock) -> AnimationDef {
         );
         (0..frame_count)
             .map(|index| MugenAnimationFrame {
+                clsn_edited: false,
                 group: 0,
                 image: index as i32,
                 axis: block.offset.clone(),
@@ -12668,6 +13860,8 @@ fn openbor_animation_to_def(block: &OpenBorAnimationBlock) -> AnimationDef {
     });
 
     AnimationDef {
+        occurrence_ids: None,
+        frame_events: Vec::new(),
         frames,
         fps,
         looping: block.looping,
@@ -13691,6 +14885,7 @@ fn openbor_stage_controller_entity(
                     "medium",
                     "OpenBOR level commands converted into spawn timeline, camera scroll and script bridges.",
                 )),
+                recovered_rule: None,
                 variables: HashMap::new(),
             }),
             ..Components::default()
@@ -14252,6 +15447,7 @@ fn imported_logic_component(graph: Option<String>, logic_hints: Vec<String>) -> 
         logic_hints,
         external_source_refs: Vec::new(),
         imported_semantics: None,
+        recovered_rule: None,
         variables: HashMap::new(),
     }
 }
@@ -14340,6 +15536,8 @@ fn imported_tilemap_entity(
                 scroll_x: 0,
                 scroll_y: 0,
                 cells: Vec::new(),
+                plane: None,
+                priority: false,
             }),
             ..Components::default()
         },
@@ -14358,6 +15556,8 @@ fn imported_camera_entity(
         transform: crate::ugdm::entities::Transform { x: 0, y: 0 },
         components: Components {
             camera: Some(CameraComponent {
+                patterns: Vec::new(),
+                visual: None,
                 follow_entity,
                 offset_x: 0,
                 offset_y: 0,
@@ -14439,6 +15639,12 @@ pub fn list_scenes(project_dir: &Path) -> Result<Vec<SceneInfo>, LoadError> {
         scenes.push(scene_info(&relative_path, &scene));
     }
 
+    if let Ok(project) = load_project(project_dir) {
+        let entry = project.entry_scene.replace('\\', "/");
+        for info in &mut scenes {
+            info.is_entry = info.path == entry;
+        }
+    }
     scenes.sort_by(|left, right| left.path.cmp(&right.path));
     Ok(scenes)
 }
@@ -14473,7 +15679,8 @@ pub fn save_scene(project_dir: &Path, scene_path: &str, scene: &Scene) -> Result
     validate_scene_path(scene_path)?;
     let scene = migrate_scene(scene.clone());
     validate_scene(&scene)?;
-    write_json(project_dir.join(scene_path), &scene)
+    let guard = super::scene_save::begin(project_dir)?;
+    super::scene_save::commit(project_dir, scene_path, &scene, &BTreeMap::new(), &guard)
 }
 
 pub fn update_project_target(project_dir: &Path, target: &str) -> Result<Project, LoadError> {
@@ -14490,6 +15697,7 @@ pub fn update_project_target(project_dir: &Path, target: &str) -> Result<Project
 
 pub fn project_settings_snapshot(project: &Project) -> ProjectSettingsSnapshot {
     ProjectSettingsSnapshot {
+        fps: project.fps,
         target: project.target.clone(),
         region: project.settings.region.clone(),
         video_standard: project.settings.video_standard.clone(),
@@ -14573,6 +15781,911 @@ pub fn seed_onboarding_template(project_dir: &Path, target: &str) -> Result<Scen
 
     save_scene(project_dir, DEFAULT_ENTRY_SCENE, &scene)?;
     Ok(scene)
+}
+
+/// Cria o projeto de referência do primeiro jogo completo sem depender de
+/// doador externo, ROM, corpus ou artefato de build. Os recursos são pequenos
+/// e gerados aqui para que o fluxo do wizard seja reproduzível em qualquer host
+/// que possua o toolchain oficial do target.
+pub fn seed_reference_platformer_template(
+    project_dir: &Path,
+    target: &str,
+) -> Result<Scene, LoadError> {
+    if target != "megadrive" {
+        return Err(LoadError(
+            "O jogo de referencia desta wave esta delimitado ao perfil Mega Drive.".to_string(),
+        ));
+    }
+
+    write_reference_asset(
+        project_dir,
+        REFERENCE_PLATFORMER_PLAYER_ASSET,
+        reference_player_png(),
+    )?;
+    write_reference_asset(
+        project_dir,
+        REFERENCE_PLATFORMER_GOAL_ASSET,
+        reference_goal_png(),
+    )?;
+    write_reference_asset(
+        project_dir,
+        REFERENCE_PLATFORMER_PASSAGE_ASSET,
+        reference_passage_png(),
+    )?;
+    write_reference_asset(
+        project_dir,
+        REFERENCE_PLATFORMER_TILESET_ASSET,
+        reference_tileset_ppm(),
+    )?;
+    write_reference_asset(
+        project_dir,
+        REFERENCE_PLATFORMER_JUMP_ASSET,
+        reference_tone_wav(440, 140),
+    )?;
+    write_reference_asset(
+        project_dir,
+        REFERENCE_PLATFORMER_GOAL_SOUND_ASSET,
+        reference_tone_wav(880, 240),
+    )?;
+    write_reference_asset(
+        project_dir,
+        REFERENCE_PLATFORMER_VICTORY_SOUND_ASSET,
+        reference_tone_wav(1320, 400),
+    )?;
+    write_reference_asset(
+        project_dir,
+        REFERENCE_PLATFORMER_THEME_ASSET,
+        reference_theme_vgm(),
+    )?;
+
+    save_prefab_entity(
+        project_dir,
+        "reference_player.json",
+        &reference_player_prefab(),
+    )?;
+    save_prefab_entity(project_dir, "reference_goal.json", &reference_goal_prefab())?;
+    save_prefab_entity(
+        project_dir,
+        "reference_passage.json",
+        &reference_passage_prefab(),
+    )?;
+    save_prefab_entity(
+        project_dir,
+        "reference_goal_sensor.json",
+        &reference_goal_sensor_prefab(),
+    )?;
+    save_prefab_entity(
+        project_dir,
+        "reference_camera.json",
+        &reference_camera_prefab(),
+    )?;
+    save_prefab_entity(
+        project_dir,
+        "reference_tilemap.json",
+        &reference_tilemap_prefab(),
+    )?;
+    save_graph_asset(
+        project_dir,
+        "graphs/reference_platformer_logic.json",
+        &reference_platformer_logic_graph(),
+    )?;
+
+    let scene = reference_platformer_scene();
+    save_scene(project_dir, DEFAULT_ENTRY_SCENE, &scene)?;
+    Ok(scene)
+}
+
+/// Read-only composition baseline for the built-in reference project. Never
+/// re-seed an existing project: that would overwrite authored assets and logic.
+pub fn reference_platformer_composition_baseline(
+    project_dir: &Path,
+    scene_path: &str,
+) -> Result<Scene, LoadError> {
+    let project = load_project(project_dir)?;
+    let is_reference = project.template_metadata.as_ref().is_some_and(|meta| {
+        meta.template_id == "reference_platformer" && meta.source_path == "builtin"
+    });
+    if !is_reference
+        || project.target != "megadrive"
+        || project.entry_scene != DEFAULT_ENTRY_SCENE
+        || scene_path != DEFAULT_ENTRY_SCENE
+    {
+        return Err(LoadError(
+            "Restauração disponível apenas na cena principal do template Reference Platformer."
+                .to_string(),
+        ));
+    }
+    Ok(reference_platformer_scene())
+}
+
+fn write_reference_asset(
+    project_dir: &Path,
+    relative_path: &str,
+    bytes: Vec<u8>,
+) -> Result<(), LoadError> {
+    let path = project_dir.join(relative_path);
+    let parent = path.parent().ok_or_else(|| {
+        LoadError(format!(
+            "Asset de referencia '{}' nao possui diretorio pai.",
+            path.display()
+        ))
+    })?;
+    fs::create_dir_all(parent).map_err(|error| {
+        LoadError(format!(
+            "Nao foi possivel criar o diretorio do asset de referencia '{}': {}",
+            parent.display(),
+            error
+        ))
+    })?;
+    fs::write(&path, bytes).map_err(|error| {
+        LoadError(format!(
+            "Nao foi possivel escrever o asset de referencia '{}': {}",
+            path.display(),
+            error
+        ))
+    })
+}
+
+fn reference_ppm(width: u32, height: u32, mut pixel: impl FnMut(u32, u32) -> [u8; 3]) -> Vec<u8> {
+    let mut bytes = format!("P6\n{} {}\n255\n", width, height).into_bytes();
+    for y in 0..height {
+        for x in 0..width {
+            bytes.extend_from_slice(&pixel(x, y));
+        }
+    }
+    bytes
+}
+
+fn reference_player_png() -> Vec<u8> {
+    // SGDK Forge indexed technical candidate, derived from the five-pose fox
+    // concept. The visual approval gate is still pending; keep its provenance
+    // beside the source PNG instead of inventing sprite pixels in Rust.
+    include_bytes!("../../../data/reference_platformer_art/fox-five-frame-32-runtime.png").to_vec()
+}
+
+fn reference_goal_png() -> Vec<u8> {
+    // SGDK Forge technical candidate: star-topped finish flag, 16x32 RGBA.
+    include_bytes!("../../../data/reference_platformer_art/goal-flag-16x32-runtime.png").to_vec()
+}
+
+fn reference_passage_png() -> Vec<u8> {
+    // SGDK Forge technical candidate: single wooden fox gate, 24x32 RGBA.
+    include_bytes!("../../../data/reference_platformer_art/gate-24x32-runtime.png").to_vec()
+}
+
+/// Full 320x224 stage picture: the Forge-converted backdrop is visual-only, while
+/// foreground tiles remain aligned to the collision map (floor rows 26..27 and
+/// floating platform row 21, columns 20..27). The first row keeps sample tiles
+/// for the editor palette (grass, brick, cloud, dirt).
+fn reference_tileset_ppm() -> Vec<u8> {
+    let backdrop = image::load_from_memory(include_bytes!(
+        "../../../data/reference_platformer_art/stage-backdrop-320x224-10-candidate.png"
+    ))
+    .expect("built-in backdrop PNG must decode")
+    .to_rgb8();
+    assert_eq!(backdrop.dimensions(), (320, 224));
+    let grass = |x: u32, y: u32| match y % 8 {
+        0 => [183, 221, 93],
+        1 | 2 if (x % 8).is_multiple_of(3) => [183, 221, 93],
+        1..=3 => [90, 171, 70],
+        _ if (x + y).is_multiple_of(5) => [68, 120, 62],
+        _ => [90, 171, 70],
+    };
+    let brick = |x: u32, y: u32| {
+        let offset = if (y / 4).is_multiple_of(2) { 0 } else { 4 };
+        if y % 4 == 3 || (x + offset) % 8 == 7 {
+            [75, 56, 55]
+        } else if y.is_multiple_of(4) {
+            [186, 126, 82]
+        } else {
+            [142, 88, 62]
+        }
+    };
+    let dirt = |x: u32, y: u32| {
+        if y.is_multiple_of(8) {
+            [90, 171, 70]
+        } else if (x * 7 + y * 3).is_multiple_of(5) {
+            [186, 126, 82]
+        } else if (x + y).is_multiple_of(3) {
+            [75, 56, 55]
+        } else {
+            [142, 88, 62]
+        }
+    };
+    reference_ppm(320, 224, move |x, y| {
+        let (tile_x, tile_y) = (x / 8, y / 8);
+        match (tile_x, tile_y) {
+            (1, 0) => grass(x, y),
+            (2, 0) => brick(x, y),
+            (3, 0) => backdrop.get_pixel(x + 16, y + 55).0,
+            (4, 0) => dirt(x, y),
+            (_, 26) => grass(x, y),
+            (_, 27) => dirt(x, y),
+            (20..=27, 21) => grass(x, y),
+            _ => backdrop.get_pixel(x, y).0,
+        }
+    })
+}
+
+fn reference_wav_header(sample_rate: u32, data_len: u32) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(44 + data_len as usize);
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&(36 + data_len).to_le_bytes());
+    bytes.extend_from_slice(b"WAVEfmt ");
+    bytes.extend_from_slice(&16u32.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&sample_rate.to_le_bytes());
+    bytes.extend_from_slice(&(sample_rate * 2).to_le_bytes());
+    bytes.extend_from_slice(&2u16.to_le_bytes());
+    bytes.extend_from_slice(&16u16.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&data_len.to_le_bytes());
+    bytes
+}
+
+fn reference_tone_wav(frequency_hz: u32, duration_ms: u32) -> Vec<u8> {
+    let sample_rate = 22_050u32;
+    let sample_count = sample_rate.saturating_mul(duration_ms) / 1_000;
+    let data_len = sample_count.saturating_mul(2);
+    let mut bytes = reference_wav_header(sample_rate, data_len);
+    for sample in 0..sample_count {
+        let phase =
+            (sample as f32 * frequency_hz as f32 * std::f32::consts::TAU) / sample_rate as f32;
+        let amplitude = (phase.sin() * 7_000.0) as i16;
+        bytes.extend_from_slice(&amplitude.to_le_bytes());
+    }
+    bytes
+}
+
+fn reference_theme_vgm() -> Vec<u8> {
+    // VGM is the supported source format for SGDK's XGM resource. This tiny
+    // generated track writes one PSG tone, waits half a second and ends; it is
+    // intentionally plain data owned by the template, not a copied song.
+    let mut bytes = vec![0u8; 0x100];
+    bytes[0..4].copy_from_slice(b"Vgm ");
+    bytes[8..12].copy_from_slice(&0x0000_0170u32.to_le_bytes());
+    bytes[0x18..0x1c].copy_from_slice(&22_050u32.to_le_bytes());
+    bytes[0x34..0x38].copy_from_slice(&0x0000_00CCu32.to_le_bytes());
+    bytes.extend_from_slice(&[0x50, 0x90, 0x61, 0x20, 0x03, 0x66]);
+    let eof_offset = (bytes.len() as u32).saturating_sub(4);
+    bytes[0x04..0x08].copy_from_slice(&eof_offset.to_le_bytes());
+    bytes
+}
+
+fn reference_player_prefab() -> Entity {
+    let mut animations = BTreeMap::new();
+    animations.insert(
+        "idle".to_string(),
+        AnimationDef {
+            occurrence_ids: None,
+            frame_events: Vec::new(),
+            frames: vec![0, 1],
+            fps: 4,
+            looping: true,
+            frame_durations: None,
+            loop_start: None,
+            mugen_frames: None,
+            onion_skin: None,
+            hitboxes: Vec::new(),
+        },
+    );
+    animations.insert(
+        "run".to_string(),
+        AnimationDef {
+            occurrence_ids: None,
+            frame_events: Vec::new(),
+            frames: vec![2, 3],
+            fps: 8,
+            looping: true,
+            frame_durations: None,
+            loop_start: None,
+            mugen_frames: None,
+            onion_skin: None,
+            hitboxes: Vec::new(),
+        },
+    );
+    animations.insert(
+        "jump".to_string(),
+        AnimationDef {
+            occurrence_ids: None,
+            frame_events: Vec::new(),
+            frames: vec![4],
+            fps: 1,
+            looping: false,
+            frame_durations: None,
+            loop_start: None,
+            mugen_frames: None,
+            onion_skin: None,
+            hitboxes: Vec::new(),
+        },
+    );
+
+    Entity {
+        entity_id: "reference_player_prefab".to_string(),
+        display_name: Some("Reference Player".to_string()),
+        prefab: None,
+        transform: Transform { x: 32, y: 176 },
+        components: Components {
+            sprite: Some(SpriteComponent {
+                asset: REFERENCE_PLATFORMER_PLAYER_ASSET.to_string(),
+                frame_width: 32,
+                frame_height: 32,
+                pivot: None,
+                palette_slot: 1,
+                animations,
+                priority: "foreground".to_string(),
+                meta_sprite: false,
+                commands: Vec::new(),
+            }),
+            collision: Some(CollisionComponent {
+                shape: "aabb".to_string(),
+                width: 14,
+                height: 32,
+                offset: None,
+                solid: true,
+                layer: Some("player".to_string()),
+                collides_with: vec![
+                    "ground".to_string(),
+                    "passage".to_string(),
+                    "goal_sensor".to_string(),
+                ],
+            }),
+            input: Some(InputComponent {
+                device: "joypad1".to_string(),
+                mapping: BTreeMap::from([
+                    ("jump".to_string(), "BUTTON_A".to_string()),
+                    ("move_left".to_string(), "DPAD_LEFT".to_string()),
+                    ("move_right".to_string(), "DPAD_RIGHT".to_string()),
+                ]),
+            }),
+            physics: Some(PhysicsComponent {
+                gravity: true,
+                gravity_strength: 6,
+                max_velocity: Some(Velocity { x: 32, y: 96 }),
+                friction: 1,
+                bounce: 0,
+            }),
+            audio: Some(AudioComponent {
+                sfx: HashMap::from([
+                    (
+                        "jump".to_string(),
+                        REFERENCE_PLATFORMER_JUMP_ASSET.to_string(),
+                    ),
+                    (
+                        "goal_sound".to_string(),
+                        REFERENCE_PLATFORMER_GOAL_SOUND_ASSET.to_string(),
+                    ),
+                    (
+                        "victory".to_string(),
+                        REFERENCE_PLATFORMER_VICTORY_SOUND_ASSET.to_string(),
+                    ),
+                ]),
+                bgm: Some(REFERENCE_PLATFORMER_THEME_ASSET.to_string()),
+            }),
+            logic: Some(crate::ugdm::components::LogicComponent {
+                graph: None,
+                graph_ref: Some("graphs/reference_platformer_logic.json".to_string()),
+                graph_origin: Some("builtin_reference_platformer".to_string()),
+                logic_hints: vec![
+                    "right/left input moves the player".to_string(),
+                    "A triggers jump velocity and jump sound".to_string(),
+                    "overlap with the separate goal sensor sets goal_reached and plays goal sound".to_string(),
+                    "the closed passage blocker prevents movement until the authored score threshold is reached".to_string(),
+                ],
+                external_source_refs: Vec::new(),
+                imported_semantics: None,
+                recovered_rule: None,
+                variables: HashMap::from([
+                    (
+                        "goal_reached".to_string(),
+                        crate::ugdm::components::LogicVariable {
+                            var_type: "int".to_string(),
+                            default: serde_json::json!(0),
+                            min: Some(0),
+                            max: Some(1),
+                        },
+                    ),
+                    (
+                        "reference_score".to_string(),
+                        crate::ugdm::components::LogicVariable {
+                            var_type: "int".to_string(),
+                            default: serde_json::json!(0),
+                            min: Some(0),
+                            max: Some(65535),
+                        },
+                    ),
+                    (
+                        "goal_open".to_string(),
+                        crate::ugdm::components::LogicVariable {
+                            var_type: "int".to_string(),
+                            default: serde_json::json!(0),
+                            min: Some(0),
+                            max: Some(1),
+                        },
+                    ),
+                ]),
+            }),
+            ..Components::default()
+        },
+    }
+}
+
+fn reference_goal_prefab() -> Entity {
+    Entity {
+        entity_id: "reference_goal_prefab".to_string(),
+        display_name: Some("Goal Flag".to_string()),
+        prefab: None,
+        transform: Transform { x: 144, y: 176 },
+        components: Components {
+            sprite: Some(SpriteComponent {
+                asset: REFERENCE_PLATFORMER_GOAL_ASSET.to_string(),
+                frame_width: 16,
+                frame_height: 32,
+                pivot: None,
+                palette_slot: 2,
+                animations: BTreeMap::from([(
+                    "idle".to_string(),
+                    AnimationDef {
+                        occurrence_ids: None,
+                        frame_events: Vec::new(),
+                        frames: vec![0],
+                        fps: 1,
+                        looping: true,
+                        frame_durations: None,
+                        loop_start: None,
+                        mugen_frames: None,
+                        onion_skin: None,
+                        hitboxes: Vec::new(),
+                    },
+                )]),
+                priority: "foreground".to_string(),
+                meta_sprite: false,
+                commands: Vec::new(),
+            }),
+            ..Components::default()
+        },
+    }
+}
+
+fn reference_passage_prefab() -> Entity {
+    Entity {
+        entity_id: "reference_passage_prefab".to_string(),
+        display_name: Some("Passage Blocker".to_string()),
+        prefab: None,
+        transform: Transform { x: 50, y: 168 },
+        components: Components {
+            sprite: Some(SpriteComponent {
+                asset: REFERENCE_PLATFORMER_PASSAGE_ASSET.to_string(),
+                frame_width: 24,
+                frame_height: 32,
+                pivot: None,
+                palette_slot: 3,
+                animations: BTreeMap::from([(
+                    "closed".to_string(),
+                    AnimationDef {
+                        occurrence_ids: None,
+                        frame_events: Vec::new(),
+                        frames: vec![0],
+                        fps: 1,
+                        looping: true,
+                        frame_durations: None,
+                        loop_start: None,
+                        mugen_frames: None,
+                        onion_skin: None,
+                        hitboxes: Vec::new(),
+                    },
+                )]),
+                priority: "foreground".to_string(),
+                meta_sprite: false,
+                commands: Vec::new(),
+            }),
+            collision: Some(CollisionComponent {
+                shape: "aabb".to_string(),
+                width: 24,
+                height: 32,
+                offset: None,
+                solid: true,
+                layer: Some("passage".to_string()),
+                collides_with: vec!["player".to_string()],
+            }),
+            ..Components::default()
+        },
+    }
+}
+
+fn reference_goal_sensor_prefab() -> Entity {
+    Entity {
+        entity_id: "reference_goal_sensor_prefab".to_string(),
+        display_name: Some("Goal Completion Sensor".to_string()),
+        prefab: None,
+        transform: Transform { x: 144, y: 184 },
+        components: Components {
+            collision: Some(CollisionComponent {
+                shape: "aabb".to_string(),
+                width: 16,
+                height: 16,
+                offset: None,
+                solid: false,
+                layer: Some("goal_sensor".to_string()),
+                collides_with: vec!["player".to_string()],
+            }),
+            ..Components::default()
+        },
+    }
+}
+
+fn reference_camera_prefab() -> Entity {
+    Entity {
+        entity_id: "reference_camera_prefab".to_string(),
+        display_name: Some("Main Camera".to_string()),
+        prefab: None,
+        transform: Transform { x: 0, y: 0 },
+        components: Components {
+            camera: Some(CameraComponent {
+                patterns: Vec::new(),
+                visual: None,
+                follow_entity: Some("player".to_string()),
+                // Canto da camera = jogador - meia tela: o jogador fica perto do centro.
+                offset_x: -152,
+                offset_y: -112,
+            }),
+            ..Components::default()
+        },
+    }
+}
+
+fn reference_tilemap_prefab() -> Entity {
+    Entity {
+        entity_id: "reference_tilemap_prefab".to_string(),
+        display_name: Some("Reference Tilemap".to_string()),
+        prefab: None,
+        transform: Transform { x: 0, y: 0 },
+        components: Components {
+            tilemap: Some(TilemapComponent {
+                tileset: REFERENCE_PLATFORMER_TILESET_ASSET.to_string(),
+                map_width: 40,
+                map_height: 28,
+                scroll_x: 0,
+                scroll_y: 0,
+                cells: Vec::new(),
+                plane: None,
+                priority: false,
+            }),
+            ..Components::default()
+        },
+    }
+}
+
+fn reference_platformer_scene() -> Scene {
+    let mut scene = canonical_scene(
+        DEFAULT_SCENE_ID,
+        Some("Reference Platformer — Goal Run".to_string()),
+    );
+    scene.palettes = vec![
+        PaletteEntry {
+            slot: 0,
+            colors: vec![
+                "#002244".to_string(),
+                "#004444".to_string(),
+                "#004466".to_string(),
+                "#006644".to_string(),
+                "#0066AA".to_string(),
+                "#2288CC".to_string(),
+                "#22AAEE".to_string(),
+                "#44AA22".to_string(),
+                "#AACCEE".to_string(),
+                "#EEEEEE".to_string(),
+                "#B7DD5D".to_string(),
+                "#5AAB46".to_string(),
+                "#44783E".to_string(),
+                "#4B3837".to_string(),
+                "#BA7E52".to_string(),
+                "#8E583E".to_string(),
+            ],
+            ..Default::default()
+        },
+        PaletteEntry {
+            slot: 1,
+            colors: vec![
+                "#000000".to_string(),
+                "#220000".to_string(),
+                "#440000".to_string(),
+                "#442200".to_string(),
+                "#880000".to_string(),
+                "#882200".to_string(),
+                "#AA0000".to_string(),
+                "#AA2200".to_string(),
+                "#AA4400".to_string(),
+                "#CC4400".to_string(),
+                "#CC8844".to_string(),
+                "#EE6600".to_string(),
+                "#EECC88".to_string(),
+                "#EEEEAA".to_string(),
+                "#EEEECC".to_string(),
+            ],
+            ..Default::default()
+        },
+        PaletteEntry {
+            slot: 2,
+            colors: vec![
+                "#000000".to_string(),
+                "#000022".to_string(),
+                "#002222".to_string(),
+                "#220000".to_string(),
+                "#222222".to_string(),
+                "#228800".to_string(),
+                "#440000".to_string(),
+                "#884422".to_string(),
+                "#AA0022".to_string(),
+                "#CC0000".to_string(),
+                "#CC6622".to_string(),
+                "#EE0000".to_string(),
+                "#EE2222".to_string(),
+                "#EECC00".to_string(),
+                "#EEEEAA".to_string(),
+            ],
+            ..Default::default()
+        },
+        PaletteEntry {
+            slot: 3,
+            colors: vec![
+                "#000000".to_string(),
+                "#004422".to_string(),
+                "#442200".to_string(),
+                "#44AA00".to_string(),
+                "#662200".to_string(),
+                "#880000".to_string(),
+                "#880022".to_string(),
+                "#884422".to_string(),
+                "#AA0000".to_string(),
+                "#AA4422".to_string(),
+                "#AA6622".to_string(),
+                "#CC0000".to_string(),
+                "#CC6622".to_string(),
+                "#EE0000".to_string(),
+                "#EEAA88".to_string(),
+            ],
+            ..Default::default()
+        },
+    ];
+    scene.layers = Some(vec![
+        SceneLayer {
+            id: "layer_background".to_string(),
+            name: "Background".to_string(),
+            kind: "background".to_string(),
+            visible: true,
+            locked: false,
+            depth: 0,
+            entity_ids: vec!["reference_tilemap".to_string()],
+        },
+        SceneLayer {
+            id: "layer_gameplay".to_string(),
+            name: "Gameplay".to_string(),
+            kind: "sprite".to_string(),
+            visible: true,
+            locked: false,
+            depth: 1,
+            entity_ids: vec![
+                "player".to_string(),
+                "passage_blocker".to_string(),
+                "goal".to_string(),
+                "goal_sensor".to_string(),
+            ],
+        },
+        SceneLayer {
+            id: "layer_camera".to_string(),
+            name: "Camera".to_string(),
+            kind: "object".to_string(),
+            visible: true,
+            locked: false,
+            depth: 2,
+            entity_ids: vec!["main_camera".to_string()],
+        },
+    ]);
+    scene.entities = vec![
+        Entity {
+            entity_id: "reference_tilemap".to_string(),
+            display_name: Some("Ground and Tilemap".to_string()),
+            prefab: Some("reference_tilemap.json".to_string()),
+            transform: Transform { x: 0, y: 0 },
+            components: Components::default(),
+        },
+        Entity {
+            entity_id: "player".to_string(),
+            display_name: Some("Player".to_string()),
+            prefab: Some("reference_player.json".to_string()),
+            transform: Transform { x: 32, y: 176 },
+            components: Components::default(),
+        },
+        Entity {
+            entity_id: "passage_blocker".to_string(),
+            display_name: Some("Closed Passage Blocker".to_string()),
+            prefab: Some("reference_passage.json".to_string()),
+            transform: Transform { x: 50, y: 168 },
+            components: Components::default(),
+        },
+        Entity {
+            entity_id: "goal".to_string(),
+            display_name: Some("Goal Marker".to_string()),
+            prefab: Some("reference_goal.json".to_string()),
+            transform: Transform { x: 144, y: 176 },
+            components: Components::default(),
+        },
+        Entity {
+            entity_id: "goal_sensor".to_string(),
+            display_name: Some("Goal Completion Sensor".to_string()),
+            prefab: Some("reference_goal_sensor.json".to_string()),
+            transform: Transform { x: 144, y: 184 },
+            components: Components::default(),
+        },
+        Entity {
+            entity_id: "main_camera".to_string(),
+            display_name: Some("Main Camera".to_string()),
+            prefab: Some("reference_camera.json".to_string()),
+            transform: Transform { x: 0, y: 0 },
+            components: Components::default(),
+        },
+    ];
+    let width = 40;
+    let height = 28;
+    let mut data = vec![0; (width * height) as usize];
+    for x in 0..width {
+        data[(26 * width + x) as usize] = 1;
+        data[(27 * width + x) as usize] = 1;
+    }
+    for x in 20..28 {
+        data[(21 * width + x) as usize] = 1;
+    }
+    scene.collision_map = Some(CollisionMap {
+        tile_width: 8,
+        tile_height: 8,
+        width,
+        height,
+        data,
+    });
+    scene
+}
+
+fn reference_platformer_logic_graph() -> String {
+    let graph = serde_json::json!({
+        "version": 1,
+        "nodes": [
+            { "id": "start", "type": "event_start", "label": "Start", "x": 0, "y": 0, "params": {} },
+            { "id": "music", "type": "action_music", "label": "Play Theme", "x": 320, "y": 0, "params": { "action": "play", "track": "reference_theme", "fade_ms": 0 } },
+            { "id": "update_right", "type": "event_update", "label": "Update Right", "x": 0, "y": 304, "params": {} },
+            { "id": "right", "type": "input_held", "label": "Hold Right", "x": 320, "y": 304, "params": { "pad": "JOY_1", "button": "BUTTON_RIGHT" } },
+            { "id": "passage_collision", "type": "condition_overlap", "label": "Would Enter Passage (Right)", "x": 640, "y": 304, "params": { "passage_id": "passage_main", "passage_role": "gate", "a": "player", "b": "passage_blocker", "probe_dx": 2, "probe_dy": 0, "semantic": "moving right would enter the passage blocker AABB; an already-overlapping player may move out" } },
+            { "id": "passage_open_value", "type": "var_get", "label": "Read Passage State", "x": 640, "y": 572, "params": { "passage_id": "passage_main", "passage_role": "open_get", "var_name": "goal_open" } },
+            { "id": "passage_open", "type": "condition_compare", "label": "Passage Is Open", "x": 960, "y": 438, "params": { "passage_id": "passage_main", "passage_role": "open_check", "operator": "==", "b": 1 } },
+            { "id": "move_right", "type": "sprite_move", "label": "Move Right", "x": 1280, "y": 371, "params": { "target": "player", "dx": 2, "dy": 0 } },
+            { "id": "update_left", "type": "event_update", "label": "Update Left", "x": 0, "y": 876, "params": {} },
+            { "id": "left", "type": "input_held", "label": "Hold Left", "x": 320, "y": 876, "params": { "pad": "JOY_1", "button": "BUTTON_LEFT" } },
+            { "id": "passage_collision_left", "type": "condition_overlap", "label": "Would Enter Passage (Left)", "x": 640, "y": 876, "params": { "passage_id": "passage_main", "passage_role": "gate", "a": "player", "b": "passage_blocker", "probe_dx": -2, "probe_dy": 0, "semantic": "moving left would enter the passage blocker AABB" } },
+            { "id": "passage_open_left_value", "type": "var_get", "label": "Read Passage State (Left)", "x": 640, "y": 1144, "params": { "passage_id": "passage_main", "passage_role": "open_get", "var_name": "goal_open" } },
+            { "id": "passage_open_left", "type": "condition_compare", "label": "Passage Is Open (Left)", "x": 960, "y": 1010, "params": { "passage_id": "passage_main", "passage_role": "open_check", "operator": "==", "b": 1 } },
+            { "id": "move_left", "type": "sprite_move", "label": "Move Left", "x": 1280, "y": 943, "params": { "target": "player", "dx": -2, "dy": 0 } },
+            { "id": "update_jump", "type": "event_update", "label": "Update Jump", "x": 0, "y": 1448, "params": {} },
+            { "id": "jump", "type": "input_pressed", "label": "Press A", "x": 320, "y": 1448, "params": { "pad": "JOY_1", "button": "BUTTON_A" } },
+            { "id": "jump_velocity", "type": "set_velocity", "label": "Jump", "x": 640, "y": 1448, "params": { "target": "player", "vx": 0, "vy": -64 } },
+            { "id": "jump_sound", "type": "action_sound", "label": "Jump Sound", "x": 960, "y": 1448, "params": { "sfx": "jump" } },
+            { "id": "update_score", "type": "event_update", "label": "Update Score", "x": 0, "y": 1752, "params": {} },
+            { "id": "score_input", "type": "input_held", "label": "Score Right Input", "x": 320, "y": 1752, "params": { "pad": "JOY_1", "button": "BUTTON_RIGHT" } },
+            { "id": "score_get", "type": "var_get", "label": "Read Reference Score", "x": 0, "y": 2020, "params": { "var_name": "reference_score", "semantic": "current score accumulated from real right input" } },
+            { "id": "score_add", "type": "logic_math", "label": "Add One Point", "x": 320, "y": 2020, "params": { "operator": "+", "b": 1, "semantic": "one point per consumed right-input frame" } },
+            { "id": "score_set", "type": "var_set", "label": "Write Reference Score", "x": 640, "y": 1886, "params": { "var_name": "reference_score", "value": 0 } },
+            { "id": "score_threshold_get", "type": "var_get", "label": "Read Updated Score", "x": 640, "y": 2154, "params": { "passage_id": "passage_main", "passage_role": "rule_score_get", "var_name": "reference_score", "semantic": "read the stored post-increment value; do not add again" } },
+            { "id": "score_threshold", "type": "condition_compare", "label": "Score Opens Passage", "x": 960, "y": 2020, "params": { "passage_id": "passage_main", "passage_role": "rule", "operator": ">=", "b": 6, "authoring_origin": "authored_builtin_reference_platformer", "semantic": "reference_score >= threshold opens the goal passage", "source_path": "graphs/reference_platformer_logic.json", "source_line": 24 } },
+            { "id": "open_goal", "type": "var_set", "label": "Mark Passage Open", "x": 1280, "y": 2020, "params": { "passage_id": "passage_main", "passage_role": "open_set", "var_name": "goal_open", "value": 1, "semantic": "the threshold opens the passage blocker and enables movement through its AABB" } },
+            { "id": "hide_goal", "type": "destroy_entity", "label": "Hide Passage Blocker", "x": 1600, "y": 2020, "params": { "passage_id": "passage_main", "passage_role": "hide", "target": "passage_blocker", "semantic": "hide only the passage blocker after collision gating allows traversal" } },
+            { "id": "close_goal", "type": "var_set", "label": "Keep Passage Closed", "x": 1280, "y": 2288, "params": { "passage_id": "passage_main", "passage_role": "close_set", "var_name": "goal_open", "value": 0, "semantic": "the false branch preserves the visible passage blocker" } },
+            { "id": "update_goal", "type": "event_update", "label": "Update Goal", "x": 0, "y": 2592, "params": {} },
+            { "id": "goal_overlap", "type": "condition_overlap", "label": "Reach Goal Sensor", "x": 320, "y": 2592, "params": { "a": "player", "b": "goal_sensor" } },
+            { "id": "goal_state_get", "type": "var_get", "label": "Read Win State", "x": 320, "y": 2860, "params": { "var_name": "goal_reached" } },
+            { "id": "goal_not_reached", "type": "condition_compare", "label": "First Goal Contact", "x": 640, "y": 2726, "params": { "operator": "==", "b": 0, "semantic": "play the goal event only before the win state is recorded" } },
+            { "id": "goal_sound", "type": "action_sound", "label": "Goal Sound", "x": 960, "y": 2726, "params": { "sfx": "goal_sound" } },
+            { "id": "mark_goal", "type": "var_set", "label": "Record Objective Complete", "x": 1280, "y": 2726, "params": { "var_name": "goal_reached", "value": 1, "semantic": "persistent win condition set by the separate objective sensor" } }
+        ],
+        "groups": [{"id":"reference_music","label":"Música","nodeIds":["start","music"],"collapsed":false},{"id":"reference_right","label":"Mover à direita","nodeIds":["update_right","right","passage_collision","passage_open_value","passage_open","move_right"],"collapsed":false},{"id":"reference_left","label":"Mover à esquerda","nodeIds":["update_left","left","passage_collision_left","passage_open_left_value","passage_open_left","move_left"],"collapsed":false},{"id":"reference_jump","label":"Salto","nodeIds":["update_jump","jump","jump_velocity","jump_sound"],"collapsed":false},{"id":"reference_score","label":"Pontos e passagem","nodeIds":["update_score","score_input","score_get","score_add","score_set","score_threshold_get","score_threshold","open_goal","hide_goal","close_goal"],"collapsed":false},{"id":"reference_goal","label":"Objetivo","nodeIds":["update_goal","goal_overlap","goal_state_get","goal_not_reached","goal_sound","mark_goal"],"collapsed":false}],
+        "edges": [
+            { "id": "start_music", "fromNode": "start", "fromPort": "exec", "toNode": "music", "toPort": "exec" },
+            { "id": "right_input", "fromNode": "update_right", "fromPort": "exec", "toNode": "right", "toPort": "exec" },
+            { "id": "right_contact", "fromNode": "right", "fromPort": "exec", "toNode": "passage_collision", "toPort": "exec" },
+            { "id": "right_clear", "fromNode": "passage_collision", "fromPort": "false", "toNode": "move_right", "toPort": "exec" },
+            { "id": "right_blocked", "fromNode": "passage_collision", "fromPort": "true", "toNode": "passage_open", "toPort": "exec" },
+            { "id": "passage_open_state", "fromNode": "passage_open_value", "fromPort": "value", "toNode": "passage_open", "toPort": "a" },
+            { "id": "right_open", "fromNode": "passage_open", "fromPort": "true", "toNode": "move_right", "toPort": "exec" },
+            { "id": "left_input", "fromNode": "update_left", "fromPort": "exec", "toNode": "left", "toPort": "exec" },
+            { "id": "left_contact", "fromNode": "left", "fromPort": "exec", "toNode": "passage_collision_left", "toPort": "exec" },
+            { "id": "left_clear", "fromNode": "passage_collision_left", "fromPort": "false", "toNode": "move_left", "toPort": "exec" },
+            { "id": "left_blocked", "fromNode": "passage_collision_left", "fromPort": "true", "toNode": "passage_open_left", "toPort": "exec" },
+            { "id": "passage_open_left_state", "fromNode": "passage_open_left_value", "fromPort": "value", "toNode": "passage_open_left", "toPort": "a" },
+            { "id": "left_open", "fromNode": "passage_open_left", "fromPort": "true", "toNode": "move_left", "toPort": "exec" },
+            { "id": "jump_input", "fromNode": "update_jump", "fromPort": "exec", "toNode": "jump", "toPort": "exec" },
+            { "id": "jump_velocity", "fromNode": "jump", "fromPort": "exec", "toNode": "jump_velocity", "toPort": "exec" },
+            { "id": "jump_sound", "fromNode": "jump_velocity", "fromPort": "exec", "toNode": "jump_sound", "toPort": "exec" },
+            { "id": "score_input", "fromNode": "update_score", "fromPort": "exec", "toNode": "score_input", "toPort": "exec" },
+            { "id": "score_write", "fromNode": "score_input", "fromPort": "exec", "toNode": "score_set", "toPort": "exec" },
+            { "id": "score_read", "fromNode": "score_get", "fromPort": "value", "toNode": "score_add", "toPort": "a" },
+            { "id": "score_increment", "fromNode": "score_add", "fromPort": "value", "toNode": "score_set", "toPort": "value" },
+            { "id": "score_compare_value", "fromNode": "score_threshold_get", "fromPort": "value", "toNode": "score_threshold", "toPort": "a" },
+            { "id": "score_branch", "fromNode": "score_set", "fromPort": "exec", "toNode": "score_threshold", "toPort": "exec" },
+            { "id": "score_open", "fromNode": "score_threshold", "fromPort": "true", "toNode": "open_goal", "toPort": "exec" },
+            { "id": "goal_hide", "fromNode": "open_goal", "fromPort": "exec", "toNode": "hide_goal", "toPort": "exec" },
+            { "id": "score_closed", "fromNode": "score_threshold", "fromPort": "false", "toNode": "close_goal", "toPort": "exec" },
+            { "id": "goal_input", "fromNode": "update_goal", "fromPort": "exec", "toNode": "goal_overlap", "toPort": "exec" },
+            { "id": "goal_once", "fromNode": "goal_overlap", "fromPort": "true", "toNode": "goal_not_reached", "toPort": "exec" },
+            { "id": "goal_state", "fromNode": "goal_state_get", "fromPort": "value", "toNode": "goal_not_reached", "toPort": "a" },
+            { "id": "goal_sound", "fromNode": "goal_not_reached", "fromPort": "true", "toNode": "goal_sound", "toPort": "exec" },
+            { "id": "goal_mark", "fromNode": "goal_sound", "fromPort": "exec", "toNode": "mark_goal", "toPort": "exec" }
+        ]
+    });
+    render_line_mapped_graph(graph)
+}
+
+/// Serializes a graph with one node/edge per line so `source_path:source_line`
+/// params point at the real line of the node in the saved file. Nodes that carry
+/// a `source_line` param get it recomputed from their position; other top-level
+/// keys are preserved. Non-object input is returned unchanged.
+pub(crate) fn render_line_mapped_graph(mut graph: serde_json::Value) -> String {
+    let Some(object) = graph.as_object_mut() else {
+        return graph.to_string();
+    };
+    // Emit "version", "nodes", "edges" first (serde_json sorts keys); everything
+    // before "nodes" is then a single-line scalar, so node lines are exact.
+    let mut keys: Vec<String> = ["version", "nodes", "edges"]
+        .iter()
+        .filter(|key| object.contains_key(**key))
+        .map(|key| key.to_string())
+        .collect();
+    keys.extend(
+        object
+            .keys()
+            .filter(|key| !["version", "nodes", "edges"].contains(&key.as_str()))
+            .cloned(),
+    );
+    // Line 1 is "{"; every key before "nodes" takes one line, then "nodes": [.
+    let nodes_key_line = 2 + keys
+        .iter()
+        .take_while(|key| key.as_str() != "nodes")
+        .count();
+    if let Some(nodes) = object
+        .get_mut("nodes")
+        .and_then(|nodes| nodes.as_array_mut())
+    {
+        for (index, node) in nodes.iter_mut().enumerate() {
+            if let Some(params) = node.get_mut("params").and_then(|p| p.as_object_mut()) {
+                if params.contains_key("source_line") {
+                    params.insert(
+                        "source_line".to_string(),
+                        serde_json::json!(nodes_key_line + 1 + index),
+                    );
+                }
+            }
+        }
+    }
+    let mut lines = vec!["{".to_string()];
+    let last = keys.len().saturating_sub(1);
+    for (position, key) in keys.iter().enumerate() {
+        let comma = if position == last { "" } else { "," };
+        let value = &object[key];
+        match value.as_array() {
+            Some(items) if key == "nodes" || key == "edges" => {
+                lines.push(format!("  {}: [", serde_json::Value::String(key.clone())));
+                for (index, item) in items.iter().enumerate() {
+                    let item_comma = if index + 1 == items.len() { "" } else { "," };
+                    lines.push(format!("    {item}{item_comma}"));
+                }
+                lines.push(format!("  ]{comma}"));
+            }
+            _ => lines.push(format!(
+                "  {}: {value}{comma}",
+                serde_json::Value::String(key.clone())
+            )),
+        }
+    }
+    lines.push("}".to_string());
+    lines.join("\n") + "\n"
 }
 
 pub fn set_entry_scene(project_dir: &Path, scene_path: &str) -> Result<Project, LoadError> {
@@ -14773,9 +16886,198 @@ pub fn load_project(project_dir: &Path) -> Result<Project, LoadError> {
     Ok(project)
 }
 
+// Compatibility for the old importer only: it wrote dictionary indices while
+// keeping the original (unpacked) image. Normalize the same way as schema
+// migration, in memory; saving still belongs exclusively to save_scene.
+fn normalize_legacy_sgdk_tilemap_cells(project_dir: &Path, scene_path: &str, scene: &mut Scene) {
+    let Ok(root) = project_dir.canonicalize() else {
+        return;
+    };
+    let Some(ledger_dir) = sgdk_project_file(&root, SGDK_IMPORT_LEDGER_DIR) else {
+        return;
+    };
+    let Ok(entries) = fs::read_dir(ledger_dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let Ok(path) = entry.path().canonicalize() else {
+            continue;
+        };
+        if !path.starts_with(&root) || path.extension().and_then(|ext| ext.to_str()) != Some("json")
+        {
+            continue;
+        }
+        let Some(ledger) = fs::read_to_string(path)
+            .ok()
+            .and_then(|raw| serde_json::from_str::<SgdkImportLedger>(&raw).ok())
+        else {
+            continue;
+        };
+        if ledger.schema_version != SGDK_IMPORT_LEDGER_SCHEMA
+            || ledger.tilemap_cell_encoding.is_some()
+            || !ledger
+                .scenes
+                .iter()
+                .any(|entry| entry.scene_path == scene_path)
+        {
+            continue;
+        }
+        for entity in &mut scene.entities {
+            let Some(tilemap) = entity.components.tilemap.as_mut() else {
+                continue;
+            };
+            let Some(mapping) = ledger.mappings.iter().find(|mapping| {
+                let id = format!("{}_tilemap", sgdk_entity_id(&mapping.resource_name));
+                matches!(
+                    mapping.resource_kind.as_str(),
+                    "IMAGE" | "MAP" | "TILESET" | "TILEMAP"
+                ) && mapping.destination == tilemap.tileset
+                    && (entity.entity_id == id || entity.entity_id == format!("hud_{}", id))
+            }) else {
+                continue;
+            };
+            let bank_hint = "sgdk_import:tileset_bank";
+            if mapping.resource_kind == "TILESET" {
+                let logic = entity
+                    .components
+                    .logic
+                    .get_or_insert_with(LogicComponent::default);
+                if !logic.logic_hints.iter().any(|h| h == bank_hint) {
+                    logic.logic_hints.push(bank_hint.to_string());
+                }
+            }
+            let encoding_hint = "sgdk_import:source_atlas_cells_v1";
+            if entity
+                .components
+                .logic
+                .as_ref()
+                .is_some_and(|logic| logic.logic_hints.iter().any(|h| h == encoding_hint))
+            {
+                continue;
+            }
+            let Some(asset) = sgdk_project_file(&root, &mapping.destination) else {
+                continue;
+            };
+            let Some(extracted) = extract_sgdk_tilemap_cells(&asset) else {
+                continue;
+            };
+            // A single edited cell means this is authored data. Never replace it
+            // by a guessed reconstruction, even when some indices look legacy.
+            if tilemap.map_width == extracted.map_width
+                && tilemap.map_height == extracted.map_height
+                && tilemap.cells == extracted.legacy_cells
+            {
+                tilemap.cells = extracted.cells;
+                entity
+                    .components
+                    .logic
+                    .get_or_insert_with(LogicComponent::default)
+                    .logic_hints
+                    .push(encoding_hint.to_string());
+            }
+        }
+    }
+}
+
+fn sgdk_project_file(root: &Path, relative: &str) -> Option<PathBuf> {
+    let path = Path::new(relative);
+    if path.is_absolute()
+        || path
+            .components()
+            .any(|part| !matches!(part, std::path::Component::Normal(_)))
+    {
+        return None;
+    }
+    let canonical = root.join(path).canonicalize().ok()?;
+    canonical.starts_with(root).then_some(canonical)
+}
+
+pub fn sgdk_asset_authoring(project_dir: &Path) -> HashMap<String, SgdkAssetAuthoring> {
+    let mut catalog: HashMap<String, SgdkAssetAuthoring> = HashMap::new();
+    let Ok(root) = project_dir.canonicalize() else {
+        return catalog;
+    };
+    let Some(dir) = sgdk_project_file(&root, SGDK_IMPORT_LEDGER_DIR) else {
+        return catalog;
+    };
+    let Ok(entries) = fs::read_dir(dir) else {
+        return catalog;
+    };
+    let mut paths: Vec<_> = entries.flatten().map(|e| e.path()).collect();
+    paths.sort();
+    for path in paths {
+        let Ok(path) = path.canonicalize() else {
+            continue;
+        };
+        if !path.starts_with(&root) || path.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let Some(ledger) = fs::read_to_string(path)
+            .ok()
+            .and_then(|raw| serde_json::from_str::<SgdkImportLedger>(&raw).ok())
+        else {
+            continue;
+        };
+        for mapping in ledger.mappings {
+            let sprite = if mapping.resource_kind == "SPRITE" && mapping.params.len() >= 2 {
+                sgdk_project_file(&root, &mapping.destination).and_then(|path| {
+                    let derived = derive_sgdk_sprite_sheet_from_rescomp_png(
+                        &path,
+                        &mapping.resource_name,
+                        &mapping.params,
+                    );
+                    if derived.animations.is_empty() {
+                        return None;
+                    }
+                    Some(SpriteComponent {
+                        asset: mapping.destination.clone(),
+                        frame_width: derived.frame_width,
+                        frame_height: derived.frame_height,
+                        palette_slot: 0,
+                        meta_sprite: derived.frame_width > 32 || derived.frame_height > 32,
+                        animations: derived.animations,
+                        priority: "foreground".to_string(),
+                        pivot: None,
+                        commands: Vec::new(),
+                    })
+                })
+            } else {
+                None
+            };
+            let resource = SgdkAssetAuthoring {
+                resource_name: mapping.resource_name,
+                resource_kind: mapping.resource_kind,
+                sprite,
+                pixel_document: None,
+                variants: Vec::new(),
+            };
+            if let Some(existing) = catalog.get_mut(&mapping.destination) {
+                existing.variants.push(resource);
+            } else {
+                catalog.insert(mapping.destination, resource);
+            }
+        }
+    }
+    for resource in catalog.values_mut() {
+        let mut all = std::mem::take(&mut resource.variants);
+        all.insert(0, resource.clone());
+        all.sort_by_key(|r| match r.resource_kind.as_str() {
+            "MAP" | "TILEMAP" | "IMAGE" => 0,
+            "TILESET" | "SPRITE" => 1,
+            "PALETTE" => 2,
+            _ => 3,
+        });
+        let mut preferred = all.remove(0);
+        preferred.variants = all;
+        *resource = preferred;
+    }
+    catalog
+}
+
 /// Le e desserializa um arquivo de cena (ex: `scenes/level_01.json`).
 pub fn load_scene(project_dir: &Path, scene_path: &str) -> Result<Scene, LoadError> {
     validate_scene_path(scene_path)?;
+    super::scene_save::recover(project_dir)?;
 
     let full_path = project_dir.join(scene_path);
 
@@ -14800,27 +17102,40 @@ pub fn load_scene(project_dir: &Path, scene_path: &str) -> Result<Scene, LoadErr
             scene_path, e
         ))
     })?;
-    let scene = migrate_scene(scene);
+    let mut scene = migrate_scene(scene);
+    normalize_legacy_sgdk_tilemap_cells(project_dir, scene_path, &mut scene);
 
     validate_scene(&scene)?;
     Ok(scene)
 }
 
 pub fn resolve_prefabs(project_dir: &Path, scene: &Scene) -> Result<Scene, LoadError> {
+    resolve_prefabs_with_graph_baseline(project_dir, scene).map(|(resolved, _)| resolved)
+}
+
+pub(crate) fn resolve_prefabs_with_graph_baseline(
+    project_dir: &Path,
+    scene: &Scene,
+) -> Result<(Scene, BTreeMap<String, String>), LoadError> {
+    super::scene_save::recover(project_dir)?;
+    let mut graphs = BTreeMap::new();
     let entities = scene
         .entities
         .iter()
         .map(|entity| {
             let mut stack = Vec::new();
             let resolved_entity = resolve_entity_prefab(project_dir, entity, &mut stack)?;
-            resolve_entity_logic_graph(project_dir, &resolved_entity)
+            resolve_entity_logic_graph(project_dir, &resolved_entity, &mut graphs)
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(Scene {
-        entities,
-        ..scene.clone()
-    })
+    Ok((
+        Scene {
+            entities,
+            ..scene.clone()
+        },
+        graphs,
+    ))
 }
 
 pub fn load_legacy_sgdk_index(project_dir: &Path) -> Result<Option<LegacySgdkIndex>, LoadError> {
@@ -14848,16 +17163,18 @@ pub fn load_legacy_sgdk_index(project_dir: &Path) -> Result<Option<LegacySgdkInd
     Ok(Some(index))
 }
 
-pub fn sync_external_graph_refs(
+pub fn collect_external_graph_refs(
     project_dir: &Path,
     source_scene: &mut Scene,
     resolved_scene: &Scene,
-) -> Result<(), LoadError> {
+) -> Result<BTreeMap<PathBuf, String>, LoadError> {
+    validate_scene(source_scene)?;
+    validate_scene(resolved_scene)?;
+    let mut writes = BTreeMap::new();
     for source_entity in &mut source_scene.entities {
         let Some(source_logic) = source_entity.components.logic.as_mut() else {
             continue;
         };
-
         let Some(graph_ref) = source_logic
             .graph_ref
             .as_deref()
@@ -14866,13 +17183,11 @@ pub fn sync_external_graph_refs(
         else {
             continue;
         };
-
         let resolved_logic = resolved_scene
             .entities
             .iter()
             .find(|entity| entity.entity_id == source_entity.entity_id)
             .and_then(|entity| entity.components.logic.as_ref());
-
         let Some(graph_json) = resolved_logic
             .and_then(|logic| logic.graph.as_deref())
             .map(str::trim)
@@ -14880,27 +17195,28 @@ pub fn sync_external_graph_refs(
         else {
             continue;
         };
-
         let full_path = graph_write_path(project_dir, graph_ref)?;
-        if let Some(parent) = full_path.parent() {
-            fs::create_dir_all(parent).map_err(|error| {
-                LoadError(format!(
-                    "Nao foi possivel criar diretorio para graph_ref '{}': {}",
-                    graph_ref, error
-                ))
-            })?;
+        let value = serde_json::from_str::<serde_json::Value>(graph_json)
+            .map_err(|e| LoadError(format!("Graph '{graph_ref}' invalido: {e}")))?;
+        let graph_json = render_line_mapped_graph(value);
+        if let Some(previous) = writes.insert(full_path, graph_json.clone()) {
+            if previous != graph_json {
+                return Err(LoadError(format!(
+                    "Graph compartilhado '{graph_ref}' tem edicoes divergentes."
+                )));
+            }
         }
-        fs::write(&full_path, graph_json).map_err(|error| {
-            LoadError(format!(
-                "Nao foi possivel escrever graph_ref '{}' para entidade '{}': {}",
-                graph_ref, source_entity.entity_id, error
-            ))
-        })?;
         source_logic.graph = None;
         source_logic.graph_origin = Some("user_edited_ref".to_string());
     }
+    Ok(writes)
+}
 
-    Ok(())
+pub(crate) fn external_graph_baseline(
+    project_dir: &Path,
+    scene: &Scene,
+) -> Result<BTreeMap<String, String>, LoadError> {
+    resolve_prefabs_with_graph_baseline(project_dir, scene).map(|(_, graphs)| graphs)
 }
 
 pub fn migrate_project(mut project: Project) -> Project {
@@ -15081,6 +17397,7 @@ fn starter_scene(scene_id: &str, display_name: String, _target: &str) -> Scene {
             "#F9E2AF".to_string(),
             "#FFFFFF".to_string(),
         ],
+        ..Default::default()
     }];
     scene.entities = vec![Entity {
         entity_id: "player".to_string(),
@@ -15106,6 +17423,7 @@ fn starter_scene(scene_id: &str, display_name: String, _target: &str) -> Scene {
                 logic_hints: Vec::new(),
                 external_source_refs: Vec::new(),
                 imported_semantics: None,
+                recovered_rule: None,
                 variables: HashMap::new(),
             }),
             ..Components::default()
@@ -15571,6 +17889,7 @@ fn scene_info(scene_path: &str, scene: &Scene) -> SceneInfo {
             .clone()
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| scene.scene_id.clone()),
+        is_entry: false,
     }
 }
 
@@ -15786,7 +18105,8 @@ pub fn validate_scene(scene: &Scene) -> Result<(), LoadError> {
     )?;
 
     let mut seen_palette_slots = HashSet::new();
-    for PaletteEntry { slot, .. } in &scene.palettes {
+    // Recursos do plano de paletas (com `id`) nao usam `slot`; so as paletas de referencia sim.
+    for PaletteEntry { slot, .. } in scene.palettes.iter().filter(|p| p.id.is_none()) {
         if !seen_palette_slots.insert(*slot) {
             return Err(LoadError(format!(
                 "scene '{}': slot de paleta duplicado: {}.",
@@ -15820,7 +18140,7 @@ fn validate_build_config(build: &BuildConfig) -> Result<(), LoadError> {
     }
 }
 
-fn validate_scene_path(scene_path: &str) -> Result<(), LoadError> {
+pub(crate) fn validate_scene_path(scene_path: &str) -> Result<(), LoadError> {
     let trimmed = scene_path.trim();
     if trimmed.is_empty() {
         return Err(LoadError(
@@ -15970,7 +18290,11 @@ fn normalize_prefab_ref(prefab_ref: &str) -> Result<PathBuf, LoadError> {
     Ok(relative)
 }
 
-fn resolve_entity_logic_graph(project_dir: &Path, entity: &Entity) -> Result<Entity, LoadError> {
+fn resolve_entity_logic_graph(
+    project_dir: &Path,
+    entity: &Entity,
+    graphs: &mut BTreeMap<String, String>,
+) -> Result<Entity, LoadError> {
     let Some(logic) = entity.components.logic.as_ref() else {
         return Ok(entity.clone());
     };
@@ -15989,6 +18313,11 @@ fn resolve_entity_logic_graph(project_dir: &Path, entity: &Entity) -> Result<Ent
         .as_deref()
         .is_some_and(|graph| !graph.trim().is_empty())
     {
+        match fs::read_to_string(graph_write_path(project_dir, graph_ref)?) {
+            Ok(contents) => record_graph_baseline(graphs, graph_ref, &contents)?,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {}
+            Err(e) => return Err(LoadError(format!("Graph '{graph_ref}' ilegivel: {e}"))),
+        }
         return Ok(entity.clone());
     }
 
@@ -16001,6 +18330,7 @@ fn resolve_entity_logic_graph(project_dir: &Path, entity: &Entity) -> Result<Ent
     })?;
 
     let mut resolved_entity = entity.clone();
+    record_graph_baseline(graphs, graph_ref, &content)?;
     if let Some(resolved_logic) = resolved_entity.components.logic.as_mut() {
         resolved_logic.graph = Some(content);
         if resolved_logic.graph_origin.is_none() {
@@ -16009,6 +18339,20 @@ fn resolve_entity_logic_graph(project_dir: &Path, entity: &Entity) -> Result<Ent
     }
 
     Ok(resolved_entity)
+}
+
+fn record_graph_baseline(
+    graphs: &mut BTreeMap<String, String>,
+    reference: &str,
+    contents: &str,
+) -> Result<(), LoadError> {
+    if graphs
+        .insert(reference.to_string(), contents.to_string())
+        .is_some_and(|before| before != contents)
+    {
+        return Err(LoadError(format!("Graph '{reference}' mudou durante a leitura. Reabra a cena para obter uma base consistente.")));
+    }
+    Ok(())
 }
 
 fn graph_path(project_dir: &Path, graph_ref: &str) -> Result<PathBuf, LoadError> {
@@ -16026,7 +18370,7 @@ fn graph_path(project_dir: &Path, graph_ref: &str) -> Result<PathBuf, LoadError>
     Ok(full_path)
 }
 
-fn graph_write_path(project_dir: &Path, graph_ref: &str) -> Result<PathBuf, LoadError> {
+pub(super) fn graph_write_path(project_dir: &Path, graph_ref: &str) -> Result<PathBuf, LoadError> {
     let relative = normalize_graph_ref(graph_ref)?;
     Ok(project_dir.join("graphs").join(relative))
 }
@@ -16168,10 +18512,20 @@ fn write_json<T: serde::Serialize>(path: impl AsRef<Path>, value: &T) -> Result<
     write_text_atomically_with_retry(path, &json)
 }
 
-fn write_text_atomically_with_retry(path: &Path, contents: &str) -> Result<(), LoadError> {
+pub(crate) fn write_text_atomically_with_retry(
+    path: &Path,
+    contents: &str,
+) -> Result<(), LoadError> {
+    write_bytes_atomically_with_retry(path, contents.as_bytes())
+}
+
+pub(crate) fn write_bytes_atomically_with_retry(
+    path: &Path,
+    contents: &[u8],
+) -> Result<(), LoadError> {
     let mut last_error = None;
     for attempt in 1..=FILE_IO_RETRY_ATTEMPTS {
-        match write_text_atomically_once(path, contents) {
+        match write_bytes_atomically_once(path, contents) {
             Ok(()) => return Ok(()),
             Err(e) => {
                 let is_retriable = is_retriable_atomic_write_error(&e);
@@ -16202,7 +18556,7 @@ fn is_retriable_atomic_write_error(error: &LoadError) -> bool {
         || error.0.contains("Sharing")
 }
 
-fn write_text_atomically_once(path: &Path, contents: &str) -> Result<(), LoadError> {
+fn write_bytes_atomically_once(path: &Path, contents: &[u8]) -> Result<(), LoadError> {
     let temp_path = temp_path_for(path);
     let mut file = File::create(&temp_path).map_err(|e| {
         LoadError(format!(
@@ -16212,10 +18566,7 @@ fn write_text_atomically_once(path: &Path, contents: &str) -> Result<(), LoadErr
         ))
     })?;
 
-    if let Err(error) = file
-        .write_all(contents.as_bytes())
-        .and_then(|_| file.sync_all())
-    {
+    if let Err(error) = file.write_all(contents).and_then(|_| file.sync_all()) {
         let _ = fs::remove_file(&temp_path);
         return Err(LoadError(format!(
             "Nao foi possivel gravar '{}': {}",
@@ -16366,7 +18717,7 @@ fn replace_file_atomically_windows(temp_path: &Path, destination: &Path) -> Resu
 }
 
 #[cfg(unix)]
-fn sync_parent_dir(path: &Path) -> io::Result<()> {
+pub(crate) fn sync_parent_dir(path: &Path) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         File::open(parent)?.sync_all()?;
     }
@@ -16374,12 +18725,20 @@ fn sync_parent_dir(path: &Path) -> io::Result<()> {
 }
 
 #[cfg(not(unix))]
-fn sync_parent_dir(_path: &Path) -> io::Result<()> {
+pub(crate) fn sync_parent_dir(_path: &Path) -> io::Result<()> {
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn numeric_pair_accepts_pairs_and_rejects_scalar_without_panicking() {
+        assert_eq!(super::parse_pair_i32(None), None);
+        assert_eq!(super::parse_pair_i32(Some("")), None);
+        assert_eq!(super::parse_pair_i32(Some("4")), None);
+        assert_eq!(super::parse_pair_i32(Some("invalid,4")), None);
+        assert_eq!(super::parse_pair_i32(Some(" -3, 7 ")), Some((-3, 7)));
+    }
     use super::*;
     use crate::compiler::ast_generator::generate_ast_with_prefabs;
     use crate::compiler::build_orch::{run_build_with_environment, BuildEnvironment};
@@ -17491,6 +19850,7 @@ void tick_player(void) {\n\
             vec![
                 "empty",
                 "starter_guided",
+                "reference_platformer",
                 "platformer_seed",
                 "rpg_seed",
                 "fighter_seed",
@@ -17513,6 +19873,13 @@ void tick_player(void) {\n\
                 .expect("starter template")
                 .available
         );
+        let reference = templates
+            .iter()
+            .find(|template| template.id == "reference_platformer")
+            .expect("reference platformer template");
+        assert!(reference.available);
+        assert_eq!(reference.source_kind, "builtin");
+        assert!(reference.features.iter().any(|feature| feature == "goal"));
         let platformer = templates
             .iter()
             .find(|template| template.id == "platformer_seed")
@@ -17523,6 +19890,214 @@ void tick_player(void) {\n\
             platformer.availability_reason.as_deref(),
             Some(MANUAL_SGDK_DONOR_REQUIRED_MESSAGE)
         );
+    }
+
+    #[test]
+    fn reference_composition_baseline_is_read_only_and_scoped_to_its_template() {
+        let project_dir = temp_dir("reference-composition-baseline");
+        create_project_skeleton(&project_dir, "Reference", "megadrive").expect("skeleton");
+        seed_reference_platformer_template(&project_dir, "megadrive").expect("seed");
+        assert!(
+            reference_platformer_composition_baseline(&project_dir, DEFAULT_ENTRY_SCENE).is_err()
+        );
+        stamp_project_template_metadata(&project_dir, "reference_platformer", None).expect("stamp");
+        assert!(
+            reference_platformer_composition_baseline(&project_dir, "scenes/other.json").is_err()
+        );
+
+        let mut authored = load_scene(&project_dir, DEFAULT_ENTRY_SCENE).expect("load");
+        authored.entities[0].transform.x += 16;
+        save_scene(&project_dir, DEFAULT_ENTRY_SCENE, &authored).expect("save authored");
+        let baseline = reference_platformer_composition_baseline(&project_dir, DEFAULT_ENTRY_SCENE)
+            .expect("baseline");
+        assert_ne!(
+            baseline.entities[0].transform.x,
+            authored.entities[0].transform.x
+        );
+        assert_eq!(
+            load_scene(&project_dir, DEFAULT_ENTRY_SCENE).expect("reopen"),
+            authored
+        );
+    }
+
+    #[test]
+    fn reference_platformer_template_is_self_contained_and_exercises_the_canonical_components() {
+        let project_dir = temp_dir("reference-platformer-template");
+        create_project_skeleton(&project_dir, "Reference Platformer", "megadrive")
+            .expect("create reference project skeleton");
+
+        let scene = seed_reference_platformer_template(&project_dir, "megadrive")
+            .expect("seed reference platformer");
+        let loaded = load_scene(&project_dir, DEFAULT_ENTRY_SCENE).expect("load reference scene");
+        let graph = fs::read_to_string(
+            project_dir
+                .join("graphs")
+                .join("reference_platformer_logic.json"),
+        )
+        .expect("read reference graph");
+
+        assert_eq!(scene.entities.len(), 6);
+        assert_eq!(
+            loaded.collision_map.as_ref().map(|map| map.data.len()),
+            Some(40 * 28)
+        );
+        assert!(project_dir
+            .join(REFERENCE_PLATFORMER_PLAYER_ASSET)
+            .is_file());
+        assert!(project_dir
+            .join(REFERENCE_PLATFORMER_TILESET_ASSET)
+            .is_file());
+        assert!(project_dir
+            .join(REFERENCE_PLATFORMER_PASSAGE_ASSET)
+            .is_file());
+        assert!(project_dir.join(REFERENCE_PLATFORMER_JUMP_ASSET).is_file());
+        assert!(project_dir.join(REFERENCE_PLATFORMER_THEME_ASSET).is_file());
+        assert!(graph.contains("input_pressed"));
+        assert!(graph.contains("condition_overlap"));
+        assert!(graph.contains("passage_blocker"));
+        assert!(graph.contains("goal_sensor"));
+        assert!(graph.contains("passage_open_value"));
+        assert!(graph.contains("reference_score >= threshold"));
+        assert!(graph.contains("one point per consumed right-input frame"));
+        assert!(graph.contains("\"fromNode\":\"score_input\",\"fromPort\":\"exec\""));
+        assert!(graph.contains("action_music"));
+        assert!(graph.contains("goal_reached"));
+
+        // One node per line: the threshold's declared source_line is its real line.
+        let threshold_line = graph
+            .lines()
+            .position(|line| line.contains("\"id\":\"score_threshold\""))
+            .expect("threshold node line")
+            + 1;
+        let threshold_node: serde_json::Value = serde_json::from_str(
+            graph
+                .lines()
+                .nth(threshold_line - 1)
+                .unwrap()
+                .trim()
+                .trim_end_matches(','),
+        )
+        .expect("threshold node json");
+        assert_eq!(threshold_node["params"]["source_line"], threshold_line);
+        assert!(graph.contains("\"probe_dx\":2") && graph.contains("\"probe_dx\":-2"));
+        // Saving through the editor path (compact JSON) keeps the mapping exact.
+        let compact = serde_json::from_str::<serde_json::Value>(&graph)
+            .unwrap()
+            .to_string();
+        let resaved = render_line_mapped_graph(serde_json::from_str(&compact).unwrap());
+        assert_eq!(resaved, graph);
+
+        let player = load_prefab_entity(&project_dir.join("prefabs").join("reference_player.json"))
+            .expect("load reference player prefab");
+        let sprite = player
+            .components
+            .sprite
+            .as_ref()
+            .expect("reference player sprite");
+        assert!(sprite.animations.contains_key("idle"));
+        assert!(sprite.animations.contains_key("run"));
+        assert!(sprite.animations.contains_key("jump"));
+
+        let passage =
+            load_prefab_entity(&project_dir.join("prefabs").join("reference_passage.json"))
+                .expect("load passage blocker prefab");
+        let passage_collision = passage.components.collision.expect("passage AABB");
+        assert!(passage_collision.solid);
+        assert_eq!(passage_collision.layer.as_deref(), Some("passage"));
+        let goal_sensor = load_prefab_entity(
+            &project_dir
+                .join("prefabs")
+                .join("reference_goal_sensor.json"),
+        )
+        .expect("load goal sensor prefab");
+        assert!(
+            !goal_sensor
+                .components
+                .collision
+                .expect("goal sensor AABB")
+                .solid
+        );
+        assert!(player.components.physics.is_some());
+        assert!(player
+            .components
+            .audio
+            .as_ref()
+            .and_then(|audio| audio.bgm.as_ref())
+            .is_some());
+
+        let _ = fs::remove_dir_all(project_dir);
+    }
+
+    #[test]
+    fn reference_platformer_art_fits_native_sizes_and_md_palette_slots() {
+        let scene = reference_platformer_scene();
+        let check = |bytes: Vec<u8>, width: usize, height: usize, slot: u8, needs_alpha: bool| {
+            let rgba = image::load_from_memory(&bytes)
+                .expect("generated image decodes")
+                .to_rgba8();
+            assert_eq!(rgba.dimensions(), (width as u32, height as u32));
+            let pixels = rgba.as_raw();
+            let transparent = pixels.chunks_exact(4).filter(|pixel| pixel[3] == 0).count();
+            if needs_alpha {
+                assert!(
+                    transparent > width,
+                    "sprite must contain transparent pixels"
+                );
+                assert_eq!(
+                    pixels[3], 0,
+                    "upper-left pixel must map to SGDK palette index 0"
+                );
+            } else {
+                assert_eq!(transparent, 0, "tilemap must remain opaque");
+            }
+            let colors = pixels
+                .chunks_exact(4)
+                .filter(|pixel| pixel[3] != 0)
+                .map(|pixel| format!("#{:02X}{:02X}{:02X}", pixel[0], pixel[1], pixel[2]))
+                .collect::<std::collections::HashSet<_>>();
+            let palette = &scene
+                .palettes
+                .iter()
+                .find(|entry| entry.slot == slot)
+                .expect("assigned scene palette")
+                .colors;
+            assert!(colors.len() <= 16, "slot {slot}: too many distinct colors");
+            assert!(
+                colors.iter().all(|color| palette.contains(color)),
+                "slot {slot}: image colors missing from scene palette: {colors:?}"
+            );
+            rgba.into_raw()
+        };
+        let fox = check(reference_player_png(), 160, 32, 1, true);
+        check(reference_goal_png(), 16, 32, 2, true);
+        check(reference_passage_png(), 24, 32, 3, true);
+        check(reference_tileset_ppm(), 320, 224, 0, false);
+
+        let count_color = |frame: usize, color: [u8; 3]| {
+            (0..32)
+                .flat_map(|y| (0..32).map(move |x| (y, x)))
+                .filter(|&(y, x)| {
+                    let offset = (y * 160 + frame * 32 + x) * 4;
+                    fox[offset..offset + 3] == color && fox[offset + 3] == 255
+                })
+                .count()
+        };
+        for frame in 0..5 {
+            assert!(
+                count_color(frame, [238, 102, 0]) >= 15,
+                "frame {frame}: fox fur"
+            );
+            assert!(count_color(frame, [170, 0, 0]) >= 4, "frame {frame}: scarf");
+            assert!(
+                count_color(frame, [204, 136, 68]) >= 3,
+                "frame {frame}: sword"
+            );
+        }
+        assert!((0..32).any(|y| {
+            let first = y * 160 * 4;
+            let last = (y * 160 + 4 * 32) * 4;
+            fox[first..first + 32 * 4] != fox[last..last + 32 * 4]
+        }));
     }
 
     #[test]
@@ -17686,6 +20261,7 @@ void tick_player(void) {\n\
                         logic_hints: Vec::new(),
                         external_source_refs: Vec::new(),
                         imported_semantics: None,
+                        recovered_rule: None,
                         variables: HashMap::new(),
                     }),
                     ..Components::default()
@@ -17733,6 +20309,7 @@ void tick_player(void) {\n\
                         logic_hints: Vec::new(),
                         external_source_refs: Vec::new(),
                         imported_semantics: None,
+                        recovered_rule: None,
                         variables: HashMap::new(),
                     }),
                     ..Components::default()
@@ -17757,6 +20334,7 @@ void tick_player(void) {\n\
                         logic_hints: Vec::new(),
                         external_source_refs: Vec::new(),
                         imported_semantics: None,
+                        recovered_rule: None,
                         variables: HashMap::new(),
                     }),
                     ..Components::default()
@@ -17765,8 +20343,18 @@ void tick_player(void) {\n\
             ..source_scene.clone()
         };
 
-        sync_external_graph_refs(&project_dir, &mut source_scene, &resolved_scene)
-            .expect("sync external graphs");
+        let writes = collect_external_graph_refs(&project_dir, &mut source_scene, &resolved_scene)
+            .expect("prepare external graphs");
+        let guard = super::super::scene_save::begin(&project_dir).unwrap();
+        super::super::scene_save::commit(
+            &project_dir,
+            "scenes/main.json",
+            &source_scene,
+            &writes,
+            &guard,
+        )
+        .unwrap();
+        drop(guard);
 
         let saved_graph = fs::read_to_string(project_dir.join("graphs").join("player_logic.json"))
             .expect("read saved graph");
@@ -17811,6 +20399,148 @@ void tick_player(void) {\n\
         assert_eq!(resources[1].kind, "IMAGE");
         assert_eq!(resources[2].kind, "WAV");
         assert_eq!(resources[3].kind, "VGM");
+    }
+
+    /// Regressao (2026-09-09, linha 8 do corpus — TaiketsuUltraHeroGenesis): `sprite.res` do
+    /// doador usa comentarios `//` (estilo HAMOOPIG). Sem o guarda, cada comentario virava um
+    /// recurso falso `UnsupportedKind` (ex.: kind `//305`, name `=`) que aparecia como
+    /// "gap bloqueante" no Resumo SGDK Logic da IDE.
+    #[test]
+    fn parse_sgdk_manifest_ignores_slash_and_semicolon_comment_lines() {
+        let manifest = r#"
+            //tipo / nome / localizacao_arquivo / quantidade_tiles / compactacao
+            //ryo
+            //305 = 304
+            ; comentario oficial do rescomp
+            SPRITE hero "images/hero.png" 4 4
+        "#;
+
+        let resources = parse_sgdk_manifest(manifest);
+
+        assert_eq!(
+            resources.len(),
+            1,
+            "comentarios // e ; nao podem virar recursos falsos: {:?}",
+            resources
+        );
+        assert_eq!(resources[0].kind, "SPRITE");
+        assert_eq!(resources[0].name, "hero");
+        assert_eq!(resources[0].asset_path, "images/hero.png");
+    }
+
+    /// Regressao (2026-09-09, corpus SGDKForge — BLUE_CIRCUIT / Celestial Chase benchmark):
+    /// `.mddev/project.json` escrito por ferramentas Windows com BOM UTF-8 (`\u{feff}`)
+    /// derrubava o import inteiro com "expected value at line 1 column 1".
+    #[test]
+    fn load_mddev_project_meta_accepts_utf8_bom() {
+        let root = temp_dir("mddev-bom-regression");
+        let mddev_dir = root.join(".mddev");
+        fs::create_dir_all(&mddev_dir).expect("create .mddev dir");
+        fs::write(
+            mddev_dir.join("project.json"),
+            format!(
+                "\u{feff}{}",
+                r#"{"schema_version":1,"name":"BOM donor","sgdk_root":null}"#
+            ),
+        )
+        .expect("write BOM metadata");
+
+        let meta = load_mddev_project_meta(&root).expect("BOM nao pode derrubar o parse");
+
+        assert!(meta.is_some(), "metadata com BOM deve ser aceita");
+        assert_eq!(meta.unwrap().build_policy, None);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// Regressao (2026-09-09, corpus SGDKForge — FORGE_REFERENCE): doador code-only
+    /// (manifests `.res` so com comentarios, fonte usa recursos built-in do SGDK) era
+    /// rejeitado no import; agora gera projeto nativo com cena de logica ponte e
+    /// segue buildavel pelo pipeline canonico.
+    #[test]
+    fn code_only_detection_preserves_unsupported_and_unreadable_manifest_errors() {
+        let donor = temp_dir("code-only-errors");
+        fs::create_dir_all(donor.join("src")).unwrap();
+        fs::create_dir_all(donor.join("res")).unwrap();
+        fs::write(donor.join("src/main.c"), "int main(void) { return 0; }").unwrap();
+        let manifest = donor.join("res/resources.res");
+        fs::write(&manifest, "UNKNOWN unsupported \"asset.bin\"\n").unwrap();
+        assert!(!sgdk_project_is_code_only(&donor));
+        fs::write(&manifest, [0xff, 0xfe]).unwrap();
+        assert!(!sgdk_project_is_code_only(&donor));
+        fs::write(&manifest, "// genuinely empty resources\n").unwrap();
+        assert!(sgdk_project_is_code_only(&donor));
+        fs::remove_dir_all(donor).unwrap();
+    }
+
+    #[test]
+    fn import_sgdk_project_supports_code_only_donor_with_bridge_scene() {
+        let donor_dir = temp_dir("sgdk-code-only-donor");
+        fs::create_dir_all(donor_dir.join("src/boot")).expect("create donor src");
+        fs::create_dir_all(donor_dir.join("res")).expect("create donor res");
+        fs::write(
+            donor_dir.join("src/main.c"),
+            "#include <genesis.h>\nint main(bool hard) { while (TRUE) { SYS_doVBlankProcess(); } return 0; }\n",
+        )
+        .expect("write main.c");
+        fs::write(donor_dir.join("src/boot/rom_head.c"), "/* head */\n").expect("write head");
+        fs::write(
+            donor_dir.join("res/resources.res"),
+            "// No external runtime assets. The fixture uses SGDK built-in font geometry.\n",
+        )
+        .expect("write empty res");
+
+        let project_dir = temp_dir("sgdk-code-only-project");
+        create_project_skeleton(&project_dir, "Code Only Import", "megadrive").expect("skel");
+
+        let report = import_sgdk_project(&project_dir, &donor_dir).expect("code-only import");
+        assert_eq!(report.primary_scene_path, DEFAULT_ENTRY_SCENE);
+        assert!(
+            report
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("code-only")),
+            "import code-only deve registrar warning auditavel: {:?}",
+            report.warnings
+        );
+
+        let logic_entity = report
+            .primary_scene
+            .entities
+            .iter()
+            .find(|entity| entity.entity_id == SGDK_CODE_ONLY_ENTITY_ID)
+            .expect("cena code-only deve conter a entidade de logica ponte");
+        let logic = logic_entity.components.logic.as_ref().expect("logic comp");
+        assert_eq!(logic.graph_ref.as_deref(), Some(SGDK_CODE_ONLY_GRAPH_REF));
+        assert_eq!(logic.graph_origin.as_deref(), Some("imported_ref"));
+        let semantics = logic.imported_semantics.as_ref().expect("semantics");
+        assert!(semantics
+            .audit_flags
+            .contains(&"code_only_donor".to_string()));
+        assert_eq!(semantics.bridge_count, 1);
+
+        let graph_json =
+            fs::read_to_string(project_dir.join(SGDK_CODE_ONLY_GRAPH_REF)).expect("graph file");
+        assert!(graph_json.contains("bridge_unconverted_source"));
+        assert!(
+            graph_json.contains("\"blocking\":false"),
+            "bridge nao pode bloquear o build: {graph_json}"
+        );
+        assert!(
+            graph_json.contains("main.c"),
+            "source mapping deve apontar ao main.c do doador: {graph_json}"
+        );
+
+        let manifest_rel = report.manifest_path.as_deref().expect("ledger path");
+        assert!(
+            project_dir.join(manifest_rel).is_file(),
+            "ledger code-only persistido"
+        );
+
+        stamp_imported_sgdk_metadata(&project_dir, &donor_dir).expect("stamp code-only");
+
+        let _ = fs::remove_dir_all(&donor_dir);
+        let _ = fs::remove_dir_all(&project_dir);
     }
 
     #[test]
@@ -17920,6 +20650,60 @@ void tick_player(void) {\n\
     }
 
     #[test]
+    fn import_sgdk_project_keeps_sprite_catalog_beyond_hardware_budget_out_of_scene() {
+        let donor_dir = temp_dir("sgdk-sprite-catalog-donor");
+        let project_dir = temp_dir("sgdk-sprite-catalog-project");
+        create_project_skeleton(&project_dir, "Sprite Catalog", "megadrive")
+            .expect("create project skeleton");
+        fs::create_dir_all(donor_dir.join("res").join("sprites")).expect("create donor res");
+        fs::create_dir_all(donor_dir.join("src")).expect("create donor src");
+        fs::write(
+            donor_dir.join("src").join("main.c"),
+            "int main(void){return 0;}\n",
+        )
+        .expect("write main.c");
+        let count = crate::hardware::md_profile::MD_SPRITES_PER_SCREEN as usize + 1;
+        let mut manifest = String::new();
+        for index in 0..count {
+            write_test_png(
+                &donor_dir
+                    .join("res")
+                    .join("sprites")
+                    .join(format!("anim_{index}.png")),
+                16,
+                16,
+                [index as u8, 80, 160, 255],
+            );
+            manifest.push_str(&format!(
+                "SPRITE anim_{index} \"sprites/anim_{index}.png\" 2 2 NONE 0\n"
+            ));
+        }
+        fs::write(donor_dir.join("res").join("resources.res"), manifest).expect("write manifest");
+
+        let report = import_sgdk_project(&project_dir, &donor_dir).expect("import catalog donor");
+
+        assert!(report
+            .primary_scene
+            .entities
+            .iter()
+            .all(|entity| entity.components.sprite.is_none()));
+        for index in 0..count {
+            assert!(project_dir
+                .join("assets")
+                .join("sprites")
+                .join(format!("anim_{index}.png"))
+                .is_file());
+        }
+        assert!(report
+            .warnings
+            .iter()
+            .any(|warning| warning.starts_with("sprite_catalog_only:")));
+
+        let _ = fs::remove_dir_all(donor_dir);
+        let _ = fs::remove_dir_all(project_dir);
+    }
+
+    #[test]
     fn import_sgdk_project_combines_split_manifests_and_keeps_visual_entities_in_front_of_audio() {
         let donor_dir = temp_dir("sgdk-split-import-donor");
         let project_dir = temp_dir("sgdk-split-import-project");
@@ -17997,6 +20781,84 @@ void tick_player(void) {\n\
 
         let _ = fs::remove_dir_all(donor_dir);
         let _ = fs::remove_dir_all(project_dir);
+    }
+
+    #[test]
+    fn sgdk_import_canonical_manifest_does_not_hide_split_resources_or_overwrite_namesakes() {
+        let donor = temp_dir("sgdk-canonical-split-donor");
+        let project = temp_dir("sgdk-canonical-split-project");
+        create_project_skeleton(&project, "Split Resources", "megadrive").unwrap();
+        for (name, color) in [
+            ("fighter_a", [255, 0, 0, 255]),
+            ("fighter_b", [0, 255, 0, 255]),
+        ] {
+            let folder = donor.join("res").join(name);
+            fs::create_dir_all(&folder).unwrap();
+            write_test_png(&folder.join("idle.png"), 16, 16, color);
+            fs::write(
+                donor.join("res").join(format!("{name}.res")),
+                format!("SPRITE {name} \"{name}/idle.png\" 2 2 NONE 0\n"),
+            )
+            .unwrap();
+        }
+        fs::write(
+            donor.join("res/resources.res"),
+            "XGM2 music \"theme.vgm\"\n",
+        )
+        .unwrap();
+        fs::write(donor.join("res/theme.vgm"), b"Vgm ").unwrap();
+        let report = import_sgdk_project(&project, &donor).unwrap();
+        assert_eq!(report.source_summary.manifests.len(), 3);
+        assert_eq!(report.source_summary.resources_accepted, 3);
+        let sprites: Vec<_> = report
+            .primary_scene
+            .entities
+            .iter()
+            .filter_map(|e| e.components.sprite.as_ref())
+            .collect();
+        assert_eq!(
+            sprites.len(),
+            2,
+            "canonical music manifest must not hide either fighter"
+        );
+        assert_ne!(sprites[0].asset, sprites[1].asset);
+        for (name, color) in [
+            ("fighter_a", [255, 0, 0, 255]),
+            ("fighter_b", [0, 255, 0, 255]),
+        ] {
+            let sprite = report
+                .primary_scene
+                .entities
+                .iter()
+                .find(|e| e.entity_id == name)
+                .unwrap()
+                .components
+                .sprite
+                .as_ref()
+                .unwrap();
+            assert_eq!(
+                image::open(project.join(&sprite.asset))
+                    .unwrap()
+                    .to_rgba8()
+                    .get_pixel(0, 0)
+                    .0,
+                color
+            );
+        }
+        let again = import_sgdk_project(&project, &donor).unwrap();
+        assert_eq!(again.primary_scene, report.primary_scene);
+        let canonical = donor.join("res/resources.res");
+        let mixed_case = donor.join("res/Resources.RES");
+        // Rename through another name so the case change also applies on
+        // case-insensitive hosts; the manifest must still be included once.
+        let rename_staging = donor.join("res/rename-staging.res");
+        fs::rename(&canonical, &rename_staging).unwrap();
+        fs::rename(&rename_staging, &mixed_case).unwrap();
+        let mixed_case_report = import_sgdk_project(&project, &donor).unwrap();
+        assert_eq!(mixed_case_report.source_summary.manifests.len(), 3);
+        assert_eq!(mixed_case_report.primary_scene, report.primary_scene);
+        let _ = fs::remove_dir_all(donor);
+        let _ = fs::remove_dir_all(project);
     }
 
     #[test]
@@ -18446,6 +21308,44 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
         );
         let _ = fs::remove_dir_all(&donor_dir);
         let _ = fs::remove_dir_all(&project_dir);
+    }
+
+    #[test]
+    fn sgdk_staging_shelf_never_overlaps_sprites_of_different_sizes() {
+        let mut entities: Vec<Entity> = (0..12)
+            .map(|index| {
+                let mut entity: Entity = serde_json::from_value(serde_json::json!({
+                    "entity_id": format!("spr_{index}"),
+                    "transform": { "x": 32, "y": 32 },
+                    "components": { "sprite": {
+                        "asset": format!("assets/sprites/{index}.png"),
+                        "frame_width": if index % 3 == 0 { 64 } else { 24 },
+                        "frame_height": if index % 3 == 0 { 104 } else { 24 }
+                    } }
+                }))
+                .expect("entity");
+                entity.display_name = None;
+                entity
+            })
+            .collect();
+        assert_eq!(apply_sgdk_authoring_staging_layout(&mut entities), 12);
+        let rect = |e: &Entity| {
+            let s = e.components.sprite.as_ref().expect("sprite");
+            (
+                e.transform.x,
+                e.transform.y,
+                s.frame_width as i32,
+                s.frame_height as i32,
+            )
+        };
+        for (i, a) in entities.iter().enumerate() {
+            for b in entities.iter().skip(i + 1) {
+                let (ax, ay, aw, ah) = rect(a);
+                let (bx, by, bw, bh) = rect(b);
+                let overlap = ax < bx + bw && bx < ax + aw && ay < by + bh && by < ay + ah;
+                assert!(!overlap, "{} cobre {}", a.entity_id, b.entity_id);
+            }
+        }
     }
 
     #[test]
@@ -19915,6 +22815,234 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
         }
     }
 
+    /// Importa todos os projetos SGDK de `RDS_SGDK_CORPUS_ROOT` e grava um relatorio do que o
+    /// importador compreendeu (`RDS_SGDK_CORPUS_REPORT`). Projetos sem `src/*.c` sao listados como
+    /// "sem codigo"; um overlay que nao abre e guardado e recriado pelo proprio importador.
+    #[test]
+    #[ignore]
+    fn legacy_sgdk_corpus_import_report() {
+        let root = PathBuf::from(std::env::var("RDS_SGDK_CORPUS_ROOT").expect("corpus root"));
+        let mut report = Vec::new();
+        let mut dirs: Vec<_> = fs::read_dir(&root)
+            .unwrap()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.is_dir())
+            .collect();
+        dirs.sort();
+        for dir in dirs {
+            let name = dir.file_name().unwrap().to_string_lossy().to_string();
+            let has_c = crate::core::sgdk_c_graph::collect_c_sources(&dir)
+                .iter()
+                .any(|p| p.extension().is_some_and(|e| e == "c"));
+            if !has_c {
+                report.push(serde_json::json!({ "project": name, "status": "sem_codigo" }));
+                continue;
+            }
+            let had_overlay = dir.join("rds/project.rds").is_file();
+            let backups_before = fs::read_dir(dir.join("rds/.backup"))
+                .map(|d| d.count())
+                .unwrap_or(0);
+            let started = std::time::Instant::now();
+            let overlay = match import_legacy_sgdk_project(&dir, None) {
+                Ok(o) => o,
+                Err(e) => {
+                    report.push(serde_json::json!({ "project": name, "status": "import_falhou", "erro": e.0 }));
+                    continue;
+                }
+            };
+            let import_ms = started.elapsed().as_millis();
+            let backups_after = fs::read_dir(overlay.join(".backup"))
+                .map(|d| d.count())
+                .unwrap_or(0);
+            let opens = legacy_overlay_opens(&overlay).map_err(|e| e.0);
+            let graph = crate::core::sgdk_c_graph::load_c_graph_index(&overlay).ok();
+            let (files, exact, parse_errors, functions, machines, transitions, origins) =
+                match &graph {
+                    Some(g) => {
+                        let mut origins = std::collections::BTreeMap::<String, usize>::new();
+                        let mut transitions = 0;
+                        for m in &g.state_machines {
+                            for t in &m.transitions {
+                                transitions += 1;
+                                *origins.entry(t.origin.clone()).or_default() += 1;
+                            }
+                        }
+                        (
+                            g.files.len(),
+                            g.files.iter().filter(|f| f.roundtrip_exact).count(),
+                            g.files.iter().map(|f| f.parse_error_nodes).sum::<usize>(),
+                            g.functions.len(),
+                            g.state_machines.len(),
+                            transitions,
+                            origins,
+                        )
+                    }
+                    None => (0, 0, 0, 0, 0, 0, Default::default()),
+                };
+            let resources = load_sgdk_resources_if_present(&dir).unwrap_or_default();
+            let mut kinds = std::collections::BTreeMap::<String, usize>::new();
+            for r in &resources {
+                *kinds.entry(r.kind.clone()).or_default() += 1;
+            }
+            let sprite_images = sgdk_sprite_resource_images(&dir);
+            let sprites_decodable = sprite_images
+                .iter()
+                .filter(|(_, p)| image::open(p).is_ok())
+                .count();
+            let sprite_declared = kinds.get("SPRITE").copied().unwrap_or(0);
+            let mut scenes = Vec::new();
+            for info in list_scenes(&overlay).unwrap_or_default() {
+                let loaded = load_scene(&overlay, &info.path);
+                let (entities, sprite_entities, missing_assets, palette_errors) = match &loaded {
+                    Ok(scene) => {
+                        let sprites: Vec<_> = scene
+                            .entities
+                            .iter()
+                            .filter_map(|e| e.components.sprite.as_ref())
+                            .collect();
+                        let missing = sprites
+                            .iter()
+                            .filter(|s| !overlay.join(&s.asset).is_file())
+                            .count();
+                        let ast = crate::compiler::ast_generator::AstOutput {
+                            nodes: vec![],
+                            sprite_assets: vec![],
+                            logic_scripts: vec![],
+                        };
+                        let plan =
+                            crate::compiler::palette_plan::plan_megadrive(&overlay, scene, &ast);
+                        let errors: Vec<String> = plan
+                            .diagnostics
+                            .iter()
+                            .filter(|d| d.severity == "error")
+                            .map(|d| d.code.clone())
+                            .collect();
+                        (scene.entities.len(), sprites.len(), missing, errors)
+                    }
+                    Err(_) => (0, 0, 0, vec![]),
+                };
+                scenes.push(serde_json::json!({
+                    "path": info.path, "opens": loaded.is_ok(), "error": loaded.err().map(|e| e.0),
+                    "entities": entities, "sprites": sprite_entities, "missing_assets": missing_assets,
+                    "palette_errors": palette_errors,
+                }));
+            }
+            report.push(serde_json::json!({
+                "project": name, "status": "importado", "had_overlay": had_overlay,
+                "overlay_recreated": backups_after > backups_before, "opens": opens.is_ok(),
+                "open_error": opens.err(), "import_ms": import_ms,
+                "c": { "files": files, "roundtrip_exact": exact, "parse_error_nodes": parse_errors,
+                       "functions": functions, "state_machines": machines, "transitions": transitions,
+                       "origins": origins, "entry_points": graph.as_ref().map(|g| g.entry_points.clone()) },
+                "resources": { "by_kind": kinds, "sprite_declared": sprite_declared,
+                               "sprite_png_found": sprite_images.len(), "sprite_png_decodable": sprites_decodable },
+                "scenes": scenes,
+            }));
+            println!("[corpus] {name}: {}ms", import_ms);
+        }
+        let out =
+            std::env::var("RDS_SGDK_CORPUS_REPORT").unwrap_or_else(|_| "corpus_report.json".into());
+        fs::write(&out, serde_json::to_string_pretty(&report).unwrap()).unwrap();
+        println!("[corpus] report={out}");
+    }
+
+    #[test]
+    fn import_legacy_sgdk_project_writes_sprite_catalog_with_res_frames_and_code_refs() {
+        let legacy_dir = temp_dir("legacy-sprite-catalog");
+        fs::create_dir_all(legacy_dir.join("src")).expect("src");
+        fs::create_dir_all(legacy_dir.join("res/sprite")).expect("res");
+        image::RgbaImage::from_pixel(96, 64, image::Rgba([200, 0, 0, 255]))
+            .save(legacy_dir.join("res/sprite/hero.png"))
+            .expect("png");
+        fs::write(
+            legacy_dir.join("res/resources.res"),
+            "SPRITE spr_hero \"sprite/hero.png\" 4 4 FAST 5\n",
+        )
+        .expect("res");
+        fs::write(
+            legacy_dir.join("src/main.c"),
+            "#include \"resources.h\"\nint main(void){ SPR_addSprite(&spr_hero, 0, 0, 0); return 0; }\n",
+        )
+        .expect("main");
+        let overlay = import_legacy_sgdk_project(&legacy_dir, None).expect("import");
+        let catalog: Vec<SgdkSpriteCatalogEntry> =
+            serde_json::from_str(&fs::read_to_string(overlay.join(SGDK_SPRITE_CATALOG)).unwrap())
+                .unwrap();
+        assert_eq!(catalog.len(), 1);
+        let hero = &catalog[0];
+        assert_eq!(
+            (hero.frame_width, hero.frame_height, hero.columns, hero.rows),
+            (32, 32, 3, 2)
+        );
+        assert_eq!(hero.source, "res/sprite/hero.png");
+        let asset = hero.asset.as_ref().expect("asset no overlay");
+        assert!(overlay.join(asset).is_file());
+        assert_eq!(hero.refs[0].function.as_deref(), Some("main"));
+    }
+
+    #[test]
+    fn import_legacy_sgdk_project_repoints_missing_entry_scene_without_backup() {
+        let legacy_dir = temp_dir("legacy-sgdk-missing-entry");
+        write_generic_sgdk_donor_fixture(&legacy_dir);
+        let overlay = import_legacy_sgdk_project(&legacy_dir, None).expect("first import");
+        let mut project = load_project(&overlay).expect("project");
+        project.entry_scene = "scenes/rom_capture_apagada.json".to_string();
+        fs::write(
+            overlay.join("project.rds"),
+            serde_json::to_string_pretty(&project).unwrap(),
+        )
+        .unwrap();
+        assert!(legacy_overlay_needs_reimport(&legacy_dir));
+
+        import_legacy_sgdk_project(&legacy_dir, None).expect("reimport");
+
+        assert!(legacy_overlay_opens(&overlay).is_ok());
+        assert!(
+            !overlay.join(".backup").exists(),
+            "only the entry scene is repaired"
+        );
+        assert_ne!(
+            load_project(&overlay).unwrap().entry_scene,
+            "scenes/rom_capture_apagada.json"
+        );
+        let _ = fs::remove_dir_all(legacy_dir);
+    }
+
+    #[test]
+    fn import_legacy_sgdk_project_backs_up_and_recreates_overlay_that_does_not_open() {
+        let legacy_dir = temp_dir("legacy-overlay-broken");
+        fs::create_dir_all(legacy_dir.join("src")).expect("src");
+        fs::write(
+            legacy_dir.join("src").join("main.c"),
+            b"int main(void){return 0;}",
+        )
+        .expect("main");
+        let overlay_dir =
+            import_legacy_sgdk_project(&legacy_dir, Some("Quebrado")).expect("first import");
+        fs::write(overlay_dir.join("project.rds"), b"{ nao e json").expect("corrupt");
+
+        let reopened = import_legacy_sgdk_project(&legacy_dir, None).expect("reimport repairs");
+        load_project(&reopened).expect("overlay opens again");
+        load_scene(&reopened, DEFAULT_ENTRY_SCENE).expect("entry scene opens");
+        let backups: Vec<_> = fs::read_dir(reopened.join(".backup"))
+            .expect("backup dir")
+            .flatten()
+            .map(|e| e.path())
+            .collect();
+        assert_eq!(backups.len(), 1);
+        assert_eq!(
+            fs::read(backups[0].join("project.rds")).expect("backup kept"),
+            b"{ nao e json"
+        );
+        assert!(fs::read_to_string(backups[0].join("motivo.txt"))
+            .unwrap()
+            .contains("recriado"));
+        // Overlay valido nao e tocado de novo.
+        import_legacy_sgdk_project(&legacy_dir, None).expect("third import");
+        assert_eq!(fs::read_dir(reopened.join(".backup")).unwrap().count(), 1);
+    }
+
     #[test]
     fn import_legacy_sgdk_project_creates_overlay_for_main_c_only_workspace() {
         let legacy_dir = temp_dir("legacy-overlay-main-c");
@@ -19988,11 +23116,12 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
             .join("audio")
             .join("jump.wav")
             .is_file());
+        // Modo C original: o SPRITE fica no catalogo de assets, sem instancia em cena.
         assert!(scene
             .entities
             .iter()
-            .any(|entity| entity.entity_id == "hero"));
-        assert!(scene
+            .all(|entity| entity.components.sprite.is_none()));
+        assert!(!scene
             .entities
             .iter()
             .any(|entity| entity.entity_id == "main_camera"));
@@ -20471,6 +23600,7 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
                     logic_hints: Vec::new(),
                     external_source_refs: Vec::new(),
                     imported_semantics: None,
+                    recovered_rule: None,
                     variables: HashMap::new(),
                 }),
                 ..Components::default()
@@ -20674,6 +23804,8 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
                         (
                             "idle".to_string(),
                             AnimationDef {
+                                occurrence_ids: None,
+                                frame_events: Vec::new(),
                                 frames: vec![0],
                                 fps: 6,
                                 looping: true,
@@ -20687,6 +23819,8 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
                         (
                             "run".to_string(),
                             AnimationDef {
+                                occurrence_ids: None,
+                                frame_events: Vec::new(),
                                 frames: vec![1, 2, 3],
                                 fps: 12,
                                 looping: true,
@@ -20740,6 +23874,8 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
         assert_eq!(
             sprite.animations.get("idle"),
             Some(&AnimationDef {
+                occurrence_ids: None,
+                frame_events: Vec::new(),
                 frames: vec![0],
                 fps: 6,
                 looping: true,
@@ -20753,6 +23889,8 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
         assert_eq!(
             sprite.animations.get("run"),
             Some(&AnimationDef {
+                occurrence_ids: None,
+                frame_events: Vec::new(),
                 frames: vec![1, 2, 3],
                 fps: 12,
                 looping: true,
@@ -22408,6 +25546,332 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
     // Fase B - SGDK Real-World Import: multi-scene, cells[] real, SceneLayer
     // ────────────────────────────────────────────────────────────────────────
 
+    // Repeated and transparent tiles before later unique tiles expose the old
+    // dense-dictionary/source-atlas mismatch. Includes a second atlas row.
+    fn write_source_atlas_regression_png(path: &Path) {
+        let colors = [
+            [0, 0, 0, 0],
+            [240, 32, 16, 255],
+            [240, 32, 16, 255],
+            [32, 48, 240, 255],
+            [16, 224, 64, 255],
+            [32, 48, 240, 255],
+        ];
+        let image = image::RgbaImage::from_fn(24, 16, |x, y| {
+            image::Rgba(colors[((y / 8) * 3 + x / 8) as usize])
+        });
+        image
+            .save(path)
+            .expect("write source atlas regression image");
+    }
+
+    fn assert_source_atlas_pixels(path: &Path, cells: &[u32]) {
+        let source = image::open(path).expect("source PNG").to_rgba8();
+        let columns = source.width() / 8;
+        // Independent consumer: index N addresses tile N-1 in the original PNG;
+        // zero preserves the base picture, exactly as viewport and ROM do.
+        let rendered = image::RgbaImage::from_fn(source.width(), source.height(), |x, y| {
+            let index = ((y / 8) * columns + x / 8) as usize;
+            match cells[index] {
+                0 => *source.get_pixel(x, y),
+                n => *source.get_pixel(
+                    ((n - 1) % columns) * 8 + x % 8,
+                    ((n - 1) / columns) * 8 + y % 8,
+                ),
+            }
+        });
+        assert_eq!(
+            rendered.as_raw(),
+            source.as_raw(),
+            "every assembled pixel must equal the original image"
+        );
+    }
+
+    #[test]
+    fn sgdk_source_atlas_indices_reassemble_original_pixels_after_dedup() {
+        let dir = temp_dir("sgdk-source-atlas");
+        let path = dir.join("atlas.png");
+        write_source_atlas_regression_png(&path);
+        let extracted = extract_sgdk_tilemap_cells(&path).expect("extract cells");
+        assert_eq!(extracted.unique_tiles, 3);
+        assert_eq!(extracted.cells, vec![0, 2, 2, 4, 5, 4]);
+        assert_eq!(extracted.legacy_cells, vec![0, 1, 1, 2, 3, 2]);
+        assert_source_atlas_pixels(&path, &extracted.cells);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn sgdk_source_atlas_catalog_retains_sprite_layout_without_accessing_donor() {
+        let donor = temp_dir("sgdk-source-atlas-catalog-donor");
+        let project = temp_dir("sgdk-source-atlas-catalog-project");
+        create_project_skeleton(&project, "Catalog", "megadrive").unwrap();
+        write_generic_sgdk_donor_fixture(&donor);
+        import_sgdk_project(&project, &donor).unwrap();
+        let offline = donor.with_extension("offline");
+        fs::rename(&donor, &offline).unwrap();
+        let catalog = sgdk_asset_authoring(&project);
+        let hero = &catalog["assets/sprites/hero.png"];
+        assert_eq!(hero.resource_name, "hero");
+        let sprite = hero
+            .sprite
+            .as_ref()
+            .expect("layout stored through ledger params");
+        assert_eq!((sprite.frame_width, sprite.frame_height), (16, 16));
+        assert_eq!(sprite.animations["default"].frames, vec![0, 1, 2, 3]);
+        let _ = fs::remove_dir_all(offline);
+        let _ = fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn sgdk_source_atlas_catalog_preserves_all_resource_uses_of_shared_images() {
+        let donor = temp_dir("sgdk-source-atlas-variants-donor");
+        let project = temp_dir("sgdk-source-atlas-variants-project");
+        create_project_skeleton(&project, "Shared images", "megadrive").unwrap();
+        write_generic_sgdk_donor_fixture(&donor);
+        fs::write(donor.join("res/resources.res"), "PALETTE colors maps/stage.png\nIMAGE stage maps/stage.png NONE ALL\nSPRITE hero images/hero.png 2 2 FAST 5\nSPRITE wide images/hero.png 4 2 FAST 10\n").unwrap();
+        import_sgdk_project(&project, &donor).unwrap();
+        let catalog = sgdk_asset_authoring(&project);
+        let stage = &catalog["assets/tilesets/stage.png"];
+        assert_eq!(
+            stage.resource_kind, "IMAGE",
+            "a palette alias must not hide the image's editable use"
+        );
+        assert_eq!(stage.variants[0].resource_name, "colors");
+        let hero = &catalog["assets/sprites/hero.png"];
+        assert_eq!(hero.sprite.as_ref().unwrap().frame_width, 16);
+        assert_eq!(hero.variants[0].resource_name, "wide");
+        let wide = hero.variants[0].sprite.as_ref().unwrap();
+        assert_eq!(wide.frame_width, 32);
+        assert_eq!(wide.animations["default"].frames, vec![0, 1]);
+        assert_eq!(wide.animations["default"].fps, 6);
+        let _ = fs::remove_dir_all(donor);
+        let _ = fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn sgdk_source_atlas_ledger_resolves_parent_segments_without_losing_provenance() {
+        let donor = temp_dir("sgdk-source-atlas-relative-donor");
+        let project = temp_dir("sgdk-source-atlas-relative-project");
+        create_project_skeleton(&project, "Relative assets", "megadrive").unwrap();
+        fs::create_dir_all(donor.join("res")).unwrap();
+        fs::create_dir_all(donor.join("data")).unwrap();
+        write_source_atlas_regression_png(&donor.join("data/scene.png"));
+        fs::write(
+            donor.join("res/resources.res"),
+            "IMAGE scene ../data/scene.png NONE ALL\n",
+        )
+        .unwrap();
+        let report = import_sgdk_project(&project, &donor).unwrap();
+        let ledger: SgdkImportLedger = serde_json::from_str(
+            &fs::read_to_string(project.join(report.manifest_path.unwrap())).unwrap(),
+        )
+        .unwrap();
+        let mapping = &ledger.mappings[0];
+        assert_eq!(mapping.source_relative, "data/scene.png");
+        assert_eq!(
+            fs::read(donor.join(&mapping.source_relative)).unwrap(),
+            fs::read(project.join(&mapping.destination)).unwrap()
+        );
+        let _ = fs::remove_dir_all(donor);
+        let _ = fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn sgdk_source_atlas_import_refuses_corrupt_artwork_instead_of_success_with_blank_preview() {
+        let donor = temp_dir("sgdk-source-atlas-corrupt-donor");
+        let project = temp_dir("sgdk-source-atlas-corrupt-project");
+        create_project_skeleton(&project, "Corrupt", "megadrive").unwrap();
+        write_generic_sgdk_donor_fixture(&donor);
+        let path = donor.join("res/maps/stage.png");
+        let bytes = fs::read(&path).unwrap();
+        fs::write(&path, &bytes[..33]).unwrap();
+        let error = import_sgdk_project(&project, &donor).unwrap_err();
+        assert!(error.0.contains("stage.png"), "{}", error.0);
+        assert!(error.0.contains("Imagem SGDK"), "{}", error.0);
+        assert_eq!(
+            fs::read(&path).unwrap(),
+            &bytes[..33],
+            "refusal must not rewrite source"
+        );
+        let _ = fs::remove_dir_all(donor);
+        let _ = fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn sgdk_source_atlas_import_opens_declared_map_before_auxiliary_images() {
+        let donor = temp_dir("sgdk-source-atlas-map-donor");
+        let project = temp_dir("sgdk-source-atlas-map-project");
+        create_project_skeleton(&project, "Declared map", "megadrive").unwrap();
+        write_generic_sgdk_donor_fixture(&donor);
+        fs::copy(
+            donor.join("res/maps/stage.png"),
+            donor.join("res/maps/collision.png"),
+        )
+        .unwrap();
+        fs::write(
+            donor.join("res/resources.res"),
+            "IMAGE collision maps/collision.png NONE ALL\nMAP level maps/stage.png NONE\n",
+        )
+        .unwrap();
+        let report = import_sgdk_project(&project, &donor).unwrap();
+        let map = report
+            .primary_scene
+            .entities
+            .iter()
+            .find_map(|e| e.components.tilemap.as_ref())
+            .unwrap();
+        assert_eq!(map.tileset, "assets/tilesets/stage.png");
+        assert!(report
+            .additional_scenes
+            .iter()
+            .any(|s| s.scene_id == "collision"));
+        let _ = fs::remove_dir_all(donor);
+        let _ = fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn sgdk_source_atlas_import_prefers_mounted_image_and_retains_raw_bank() {
+        let donor = temp_dir("sgdk-source-atlas-primary-donor");
+        let project = temp_dir("sgdk-source-atlas-primary-project");
+        create_project_skeleton(&project, "Mounted image", "megadrive").expect("project");
+        write_generic_sgdk_donor_fixture(&donor);
+        let source = donor.join("res/maps/stage.png");
+        write_source_atlas_regression_png(&source);
+        image::RgbaImage::from_pixel(64, 8, image::Rgba([224, 32, 48, 255]))
+            .save(donor.join("res/maps/bank.png"))
+            .expect("bank");
+        fs::write(
+            donor.join("res/resources.res"),
+            "TILESET pieces maps/bank.png NONE NONE\nIMAGE stage maps/stage.png NONE ALL\n",
+        )
+        .expect("manifest");
+        let original = fs::read(&source).expect("original bytes");
+        let report = import_sgdk_project(&project, &donor).expect("import");
+        let tilemap = report
+            .primary_scene
+            .entities
+            .iter()
+            .find_map(|e| e.components.tilemap.as_ref())
+            .expect("primary image");
+        assert_eq!(tilemap.tileset, "assets/tilesets/stage.png");
+        assert_source_atlas_pixels(&project.join(&tilemap.tileset), &tilemap.cells);
+        assert_eq!(fs::read(&source).unwrap(), original);
+        assert_eq!(fs::read(project.join(&tilemap.tileset)).unwrap(), original);
+        let bank = report
+            .additional_scenes
+            .iter()
+            .find(|s| s.scene_id == "pieces")
+            .expect("bank retained with stable ID");
+        let bank_scene = load_scene(&project, &bank.scene_path).expect("bank scene");
+        assert!(bank_scene
+            .display_name
+            .as_deref()
+            .unwrap()
+            .starts_with("Banco de peças"));
+        assert!(bank_scene.entities[0]
+            .components
+            .logic
+            .as_ref()
+            .unwrap()
+            .logic_hints
+            .contains(&"sgdk_import:tileset_bank".to_string()));
+        let ledger: SgdkImportLedger = serde_json::from_str(
+            &fs::read_to_string(project.join(report.manifest_path.as_ref().unwrap())).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            ledger.tilemap_cell_encoding.as_deref(),
+            Some("source_atlas_v1")
+        );
+        let _ = fs::remove_dir_all(donor);
+        let _ = fs::remove_dir_all(project);
+    }
+
+    #[test]
+    fn sgdk_source_atlas_legacy_load_repairs_only_untouched_generated_cells_without_writing() {
+        let donor = temp_dir("sgdk-source-atlas-legacy-donor");
+        let project = temp_dir("sgdk-source-atlas-legacy-project");
+        create_project_skeleton(&project, "Legacy image", "megadrive").expect("project");
+        write_generic_sgdk_donor_fixture(&donor);
+        write_source_atlas_regression_png(&donor.join("res/maps/stage.png"));
+        let report = import_sgdk_project(&project, &donor).expect("import");
+        let ledger_path = project.join(report.manifest_path.as_ref().unwrap());
+        let mut ledger: SgdkImportLedger =
+            serde_json::from_str(&fs::read_to_string(&ledger_path).unwrap()).unwrap();
+        ledger.tilemap_cell_encoding = None;
+        fs::write(&ledger_path, serde_json::to_vec(&ledger).unwrap()).unwrap();
+        let mut legacy = report.primary_scene;
+        let entity = legacy
+            .entities
+            .iter_mut()
+            .find(|e| e.components.tilemap.is_some())
+            .unwrap();
+        entity.components.tilemap.as_mut().unwrap().cells = vec![0, 1, 1, 2, 3, 2];
+        entity.components.logic = None;
+        save_scene(&project, "scenes/main.json", &legacy).expect("save old generated fixture");
+        let disk_before = fs::read(project.join("scenes/main.json")).unwrap();
+        let ledger_before = fs::read(&ledger_path).unwrap();
+        let png_path = project.join("assets/tilesets/stage.png");
+        let png_before = fs::read(&png_path).unwrap();
+        let repaired = load_scene(&project, "scenes/main.json").expect("load legacy");
+        let tilemap = repaired
+            .entities
+            .iter()
+            .find_map(|e| e.components.tilemap.as_ref())
+            .unwrap();
+        assert_eq!(tilemap.cells, vec![0, 2, 2, 4, 5, 4]);
+        assert_source_atlas_pixels(&png_path, &tilemap.cells);
+        assert_eq!(
+            fs::read(project.join("scenes/main.json")).unwrap(),
+            disk_before
+        );
+        assert_eq!(fs::read(&ledger_path).unwrap(), ledger_before);
+        assert_eq!(fs::read(&png_path).unwrap(), png_before);
+        save_scene(&project, "scenes/main.json", &repaired).expect("normal save");
+        assert_eq!(
+            load_scene(&project, "scenes/main.json").unwrap(),
+            repaired,
+            "save/reopen is stable"
+        );
+
+        // Edited legacy content, resized maps, and unrelated scenes are preserved.
+        let mut edited = legacy.clone();
+        edited
+            .entities
+            .iter_mut()
+            .find_map(|e| e.components.tilemap.as_mut())
+            .unwrap()
+            .cells[2] = u32::MAX;
+        save_scene(&project, "scenes/main.json", &edited).unwrap();
+        assert_eq!(load_scene(&project, "scenes/main.json").unwrap(), edited);
+        let mut resized = legacy.clone();
+        let tilemap = resized
+            .entities
+            .iter_mut()
+            .find_map(|e| e.components.tilemap.as_mut())
+            .unwrap();
+        tilemap.map_width = 2;
+        tilemap.map_height = 3;
+        save_scene(&project, "scenes/main.json", &resized).unwrap();
+        assert_eq!(load_scene(&project, "scenes/main.json").unwrap(), resized);
+        save_scene(&project, "scenes/main.json", &legacy).unwrap();
+        ledger.tilemap_cell_encoding = Some("source_atlas_v1".into());
+        fs::write(&ledger_path, serde_json::to_vec(&ledger).unwrap()).unwrap();
+        assert_eq!(
+            load_scene(&project, "scenes/main.json").unwrap(),
+            legacy,
+            "modern ledger does not reinterpret painted data"
+        );
+        fs::remove_file(&ledger_path).unwrap();
+        assert_eq!(
+            load_scene(&project, "scenes/main.json").unwrap(),
+            legacy,
+            "no provenance means no repair"
+        );
+        let _ = fs::remove_dir_all(donor);
+        let _ = fs::remove_dir_all(project);
+    }
+
     /// Pinta um PNG 128x128 com 4 quadrantes de 64x64 de cores distintas.
     /// Garante reconstrucao de `cells[]` com tiles duplicados (um por quadrante) e
     /// um dicionario nao-trivial (8 blocos unicos por quadrante repetidos).
@@ -23206,22 +26670,37 @@ void player_tick(void) {\n    u16 joy = JOY_readJoypad(JOY_1);\n    (void)joy;\n
     }
 
     /// Raiz canonica da matriz de corpus SGDK real no host de referencia (`docs/SGDK_REAL_CORPUS_VALIDATION_MATRIX.md`).
+    /// Override por `RDS_SGDK_MATRIX_CORPUS_ROOT` permite montar/rodar a matriz em outros hosts,
+    /// mesmo contrato do `RDS_SGDK_CORPUS_ROOT` usado por `sgdk_corpus_inventory.rs`.
     const SGDK_MATRIX_CORPUS_ROOT: &str = r"F:\Projects\MegaDrive_DEV\SGDK_Engines";
 
     fn sgdk_matrix_corpus_donor_path(subdir: &str) -> PathBuf {
-        Path::new(SGDK_MATRIX_CORPUS_ROOT).join(subdir)
+        let root = std::env::var("RDS_SGDK_MATRIX_CORPUS_ROOT")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from(SGDK_MATRIX_CORPUS_ROOT));
+        root.join(subdir)
     }
 
     /// Com `--ignored`, retorna `true` para sair do teste apenas se `RDS_SGDK_MATRIX_CORPUS_SKIP=1`.
     /// Caso contrario, **panic** se o doador nao existir (evita sucesso silencioso).
     fn sgdk_matrix_corpus_skip_if_missing_donor(test_fn_name: &str, donor: &Path) -> bool {
+        let skip_allowed = std::env::var("RDS_SGDK_MATRIX_CORPUS_SKIP")
+            .map(|v| v == "1")
+            .unwrap_or(false);
+        sgdk_matrix_corpus_skip_decision(test_fn_name, donor, skip_allowed)
+    }
+
+    /// Pure decision (the env flag is an argument) so the unit tests do not mutate the
+    /// process environment, which raced between tests running in parallel.
+    fn sgdk_matrix_corpus_skip_decision(
+        test_fn_name: &str,
+        donor: &Path,
+        skip_allowed: bool,
+    ) -> bool {
         if donor.is_dir() {
             return false;
         }
-        if std::env::var("RDS_SGDK_MATRIX_CORPUS_SKIP")
-            .map(|v| v == "1")
-            .unwrap_or(false)
-        {
+        if skip_allowed {
             eprintln!(
                 "SKIP (RDS_SGDK_MATRIX_CORPUS_SKIP=1): donor ausente para {test_fn_name} em {}",
                 donor.display()
@@ -23240,14 +26719,11 @@ void player_tick(void) {\n    u16 joy = JOY_readJoypad(JOY_1);\n    (void)joy;\n
     fn sgdk_matrix_corpus_skip_requires_explicit_env_flag_when_donor_missing() {
         let donor = temp_dir("sgdk-matrix-missing-donor-no-skip");
         let _ = fs::remove_dir_all(&donor);
-        unsafe {
-            std::env::remove_var("RDS_SGDK_MATRIX_CORPUS_SKIP");
-        }
-
         let panic_result = std::panic::catch_unwind(|| {
-            sgdk_matrix_corpus_skip_if_missing_donor(
+            sgdk_matrix_corpus_skip_decision(
                 "sgdk_matrix_corpus_skip_requires_explicit_env_flag_when_donor_missing",
                 &donor,
+                false,
             )
         });
         assert!(
@@ -23260,16 +26736,11 @@ void player_tick(void) {\n    u16 joy = JOY_readJoypad(JOY_1);\n    (void)joy;\n
     fn sgdk_matrix_corpus_skip_honors_explicit_env_flag_when_donor_missing() {
         let donor = temp_dir("sgdk-matrix-missing-donor-with-skip");
         let _ = fs::remove_dir_all(&donor);
-        unsafe {
-            std::env::set_var("RDS_SGDK_MATRIX_CORPUS_SKIP", "1");
-        }
-        let skipped = sgdk_matrix_corpus_skip_if_missing_donor(
+        let skipped = sgdk_matrix_corpus_skip_decision(
             "sgdk_matrix_corpus_skip_honors_explicit_env_flag_when_donor_missing",
             &donor,
+            true,
         );
-        unsafe {
-            std::env::remove_var("RDS_SGDK_MATRIX_CORPUS_SKIP");
-        }
         assert!(
             skipped,
             "com env explicito, helper deve diferenciar skip autorizado de sucesso de execucao"
@@ -23278,17 +26749,19 @@ void player_tick(void) {\n    u16 joy = JOY_readJoypad(JOY_1);\n    (void)joy;\n
 
     /// Fluxo parcial repetivel: import -> ledger/cenas -> sinais de superficie -> save/reload opcional -> build SGDK real -> ROM `SEGA`.
     /// `matrix_log_tag` identifica a linha no stdout (ex.: `MATRIX_P2`, `MATRIX_NEXZR`).
+    /// Retorna `Some(copia da ROM em tmp)` para a linha chamadora rodar smoke de emulacao opcional;
+    /// `None` somente quando o doador esta ausente e o skip explicito foi autorizado por env.
     fn run_sgdk_matrix_corpus_partial_flow_documents_build_blocker(
         test_fn_name: &'static str,
         donor: &Path,
         temp_slug: &'static str,
         skeleton_label: &str,
         matrix_log_tag: &'static str,
-    ) {
+    ) -> Option<PathBuf> {
         use crate::compiler::build_orch::{run_build_with_environment, BuildEnvironment};
 
         if sgdk_matrix_corpus_skip_if_missing_donor(test_fn_name, donor) {
-            return;
+            return None;
         }
 
         let project = temp_dir(temp_slug);
@@ -23357,6 +26830,19 @@ void player_tick(void) {\n    u16 joy = JOY_readJoypad(JOY_1);\n    (void)joy;\n
                 .map(|g| !g.trim().is_empty())
                 .unwrap_or(false)
         });
+        let mut converted_nodes_total: u32 = 0;
+        let mut bridge_nodes_total: u32 = 0;
+        for entity in &report.primary_scene.entities {
+            if let Some(semantics) = entity
+                .components
+                .logic
+                .as_ref()
+                .and_then(|logic| logic.imported_semantics.as_ref())
+            {
+                converted_nodes_total += semantics.converted_nodes_count;
+                bridge_nodes_total += semantics.bridge_count;
+            }
+        }
         let md_hw = crate::hardware::md_profile::hw_status_with_source_kind(
             &report.primary_scene,
             Some("imported_sgdk"),
@@ -23389,6 +26875,10 @@ void player_tick(void) {\n    u16 joy = JOY_readJoypad(JOY_1);\n    (void)joy;\n
             crate::hardware::md_profile::MD_MANAGED_SPRITE_CELL_BUDGET,
             md_hw.errors.len(),
             md_hw.warnings.len()
+        );
+        eprintln!(
+            "{matrix_log_tag} logic: converted_nodes={} bridge_nodes={}",
+            converted_nodes_total, bridge_nodes_total
         );
 
         let mut scene = load_scene(&project, DEFAULT_ENTRY_SCENE).expect("load pos-import");
@@ -23448,7 +26938,21 @@ void player_tick(void) {\n    u16 joy = JOY_readJoypad(JOY_1);\n    (void)joy;\n
             "{matrix_log_tag}: esperado ROM com marca SEGA apos build SGDK real"
         );
 
-        let _ = fs::remove_dir_all(&project);
+        let rom_artifact =
+            std::env::temp_dir().join(format!("retro-dev-studio-{temp_slug}-rom.bin"));
+        fs::copy(&rom_full, &rom_artifact)
+            .expect("copy current matrix ROM; never reuse a stale artifact");
+        if matrix_log_tag == "MATRIX_TUH" {
+            fs::copy(
+                project.join("build/megadrive/out/symbol.txt"),
+                rom_artifact.with_extension("symbols.txt"),
+            )
+            .expect("preserve symbols for runtime execution proof");
+            eprintln!("MATRIX_TUH preserved_project={}", project.display());
+        } else {
+            let _ = fs::remove_dir_all(&project);
+        }
+        Some(rom_artifact)
     }
 
     /// Matriz SGDK corpus real — linha 1 (plataforma / estudo). Ver `docs/SGDK_REAL_CORPUS_VALIDATION_MATRIX.md`.
@@ -23782,6 +27286,1708 @@ void player_tick(void) {\n    u16 joy = JOY_readJoypad(JOY_1);\n    (void)joy;\n
         .expect("write BLAZE Markdown report");
     }
 
+    /// Linha 8 (2026-09-08) — jogo de luta 1v1 monolitico (`src/main.c` unico, SGDK moderno,
+    /// boot SEGA custom em `src/boot`, FSM numerica de combate). Corpus real fora do host de
+    /// referencia Windows; a raiz SGDK efetiva e o subdiretorio `src/` do repositorio do jogo
+    /// (onde ficam `src/` e `res/*.res`). Alem do fluxo padrao da matriz, roda smoke de
+    /// emulacao visivel da ROM importada via `corpus_libretro_visible_smoke` e persiste
+    /// relatorio em `target-test/validation/sgdk-taiketsu-real/`.
+    #[ignore]
+    #[test]
+    fn sgdk_matrix_corpus_taiketsu_ultra_hero_genesis_partial_flow_documents_build_blocker() {
+        let donor = sgdk_matrix_corpus_donor_path("TaiketsuUltraHeroGenesis/src");
+        let rom_artifact = run_sgdk_matrix_corpus_partial_flow_documents_build_blocker(
+            "sgdk_matrix_corpus_taiketsu_ultra_hero_genesis_partial_flow_documents_build_blocker",
+            &donor,
+            "sgdk-matrix-tuh",
+            "Matrix TaiketsuUltraHeroGenesis Corpus",
+            "MATRIX_TUH",
+        );
+        let Some(rom_artifact) = rom_artifact else {
+            return; // skip autorizado (doador ausente + RDS_SGDK_MATRIX_CORPUS_SKIP=1)
+        };
+
+        let artifact_root = validation_artifact_dir("sgdk-taiketsu-real");
+        let _ = fs::remove_dir_all(&artifact_root);
+        fs::create_dir_all(&artifact_root).expect("create Taiketsu validation artifact dir");
+
+        let (non_black_pixels, core_label, frames_run, width, height, rgba) =
+            corpus_libretro_residency_smoke(&rom_artifact, &artifact_root)
+                .expect("MATRIX_TUH: execution and sprite residency proof failed");
+        assert!(
+            non_black_pixels > 0,
+            "MATRIX_TUH: framebuffer da emulacao nao pode ser totalmente preto"
+        );
+        let frame_path = artifact_root.join("taiketsu-frame.ppm");
+        write_rgba_ppm(&frame_path, width, height, &rgba);
+        eprintln!(
+            "MATRIX_TUH emu: core={core_label} frames={frames_run} framebuffer={width}x{height} non_black_pixels={non_black_pixels}"
+        );
+
+        // Export da estrutura logica em nodes (IR semantico -> NodeGraph JSON) + cobertura,
+        // persistidos junto ao smoke para auditoria do que o extrator entrega como grafo.
+        let graph_report = crate::core::sgdk_semantic_reports::write_sgdk_node_graph_report(
+            &donor,
+            &artifact_root,
+        )
+        .expect("MATRIX_TUH: export do grafo semantico em nodes");
+        eprintln!(
+            "MATRIX_TUH graph: nodes={} edges={} bridge_nodes={} types={:?}",
+            graph_report.node_count,
+            graph_report.edge_count,
+            graph_report.bridge_node_count,
+            graph_report.node_type_counts
+        );
+        crate::core::sgdk_semantic_reports::write_sgdk_node_coverage_report(&donor, &artifact_root)
+            .expect("MATRIX_TUH: report de cobertura de nodes");
+
+        let report_json = serde_json::json!({
+            "donor": donor.to_string_lossy(),
+            "rom_artifact": rom_artifact.to_string_lossy(),
+            "framebuffer_ppm": frame_path.to_string_lossy(),
+            "libretro_core": core_label,
+            "frames_run": frames_run,
+            "framebuffer_width": width,
+            "framebuffer_height": height,
+            "non_black_pixels": non_black_pixels,
+            "semantic_node_graph": {
+                "node_count": graph_report.node_count,
+                "edge_count": graph_report.edge_count,
+                "bridge_node_count": graph_report.bridge_node_count,
+                "node_type_counts": graph_report.node_type_counts,
+                "graph_json_report": "sgdk-nodegraph-report.json"
+            },
+            "fake_toolchain_used": false,
+        });
+        fs::write(
+            artifact_root.join("taiketsu-real-report.json"),
+            format!(
+                "{}\n",
+                serde_json::to_string_pretty(&report_json).expect("serialize Taiketsu report")
+            ),
+        )
+        .expect("write Taiketsu JSON report");
+        fs::write(
+            artifact_root.join("taiketsu-real-report.md"),
+            format!(
+                "# TaiketsuUltraHeroGenesis Import Matrix\n\n- Donor: `{}`\n- ROM artifact: `{}`\n- Core: `{}`\n- Frames run: `{}`\n- Non-black pixels: `{}`\n- Fake toolchain used: `false`\n",
+                donor.display(),
+                rom_artifact.display(),
+                core_label,
+                frames_run,
+                non_black_pixels
+            ),
+        )
+        .expect("write Taiketsu Markdown report");
+    }
+
+    /// Input script determinístico compartilhado pelas provas REX-00: 180
+    /// frames — 60 ociosos, Start por 10, Direita por 60, ocioso final.
+    fn rex_input_script_180f(label: &'static str) -> crate::core::parity_harness::InputScript {
+        use crate::emulator::libretro_ffi::JoypadState;
+        let mut frames = Vec::with_capacity(180);
+        for _ in 0..60 {
+            frames.push(JoypadState::default());
+        }
+        for _ in 0..10 {
+            frames.push(JoypadState {
+                start: true,
+                ..JoypadState::default()
+            });
+        }
+        for _ in 0..60 {
+            frames.push(JoypadState {
+                right: true,
+                ..JoypadState::default()
+            });
+        }
+        while frames.len() < 180 {
+            frames.push(JoypadState::default());
+        }
+        crate::core::parity_harness::InputScript {
+            schema: crate::core::parity_harness::INPUT_SCRIPT_SCHEMA.to_string(),
+            name: Some(label.to_string()),
+            target: Some("megadrive".to_string()),
+            description: Some(
+                "REX-00: 60 idle, Start 10 frames, Right 60 frames, idle final; \
+                 definido antes da execucao e registrado por hash no ledger."
+                    .to_string(),
+            ),
+            frames,
+        }
+    }
+
+    /// Resolve a ROM de referência BYOR: override por env; default é o snapshot
+    /// imutável da investigação (hash verificado), nunca o doador original.
+    /// Retorna `None` apenas para skip explícito (sem arquivo configurado).
+    fn rex_reference_rom(
+        env_key: &str,
+        default_path: &str,
+        expected_sha256: &str,
+        test_name: &str,
+    ) -> Option<(PathBuf, String)> {
+        let configured = std::env::var(env_key).ok();
+        let path = match &configured {
+            Some(value) => PathBuf::from(value),
+            None => PathBuf::from(default_path),
+        };
+        if !path.is_file() {
+            if configured.is_some() {
+                panic!(
+                    "{test_name}: {env_key} aponta para arquivo inexistente em {}",
+                    path.display()
+                );
+            }
+            eprintln!(
+                "SKIP {test_name}: ROM de referencia ausente em {} (configure {env_key}); \
+                 skip explicito, nunca sucesso silencioso",
+                path.display()
+            );
+            return None;
+        }
+        let bytes = fs::read(&path).unwrap_or_else(|error| {
+            panic!("{test_name}: falha ao ler '{}': {error}", path.display())
+        });
+        let sha256 = crate::tools::reverse::decomp::rom_library::sha256_hex(&bytes);
+        assert_eq!(
+            sha256, expected_sha256,
+            "{test_name}: ROM de referencia mudou de revisao; preservar a proveniencia \
+             anterior e registrar revisao nova, nao reusar a captura antiga"
+        );
+        Some((path, sha256))
+    }
+
+    fn rex_register_reference_corpus(
+        sha256: &str,
+        size_bytes: u64,
+        label: &str,
+        source_path: &Path,
+        notes: &str,
+    ) {
+        use crate::tools::reverse::decomp::rom_library::{
+            corpus_identity, decomp_work_dir, register_corpus_entry, CorpusEntry,
+            CORPUS_ROLE_REFERENCE,
+        };
+        let work_dir = decomp_work_dir();
+        let _ = register_corpus_entry(
+            &work_dir,
+            CorpusEntry {
+                id: corpus_identity(sha256),
+                sha256: sha256.to_string(),
+                size_bytes,
+                role: CORPUS_ROLE_REFERENCE.to_string(),
+                label: label.to_string(),
+                source_path: Some(source_path.to_string_lossy().to_string()),
+                provenance: "sgdkforge-homebrew (snapshot imutavel fora do repo)".to_string(),
+                registered_at_unix: crate::tools::reverse::decomp::rom_library::now_unix(),
+                notes: Some(notes.to_string()),
+            },
+        )
+        .unwrap_or_else(|error| panic!("rex: registrar corpus no ledger: {error}"));
+        let inserted = crate::tools::reverse::decomp::rom_library::ensure_capability_records(
+            &work_dir,
+            crate::tools::reverse::equivalence::default_md_capability_records(
+                crate::tools::reverse::decomp::rom_library::now_unix(),
+            ),
+        )
+        .unwrap_or_else(|error| panic!("rex: registrar capacidades default: {error}"));
+        eprintln!("REX capabilities: {inserted} registros default inseridos");
+    }
+
+    fn rex_write_json(path: &Path, value: &serde_json::Value) {
+        fs::write(
+            path,
+            format!(
+                "{}\n",
+                serde_json::to_string_pretty(value).expect("serialize json")
+            ),
+        )
+        .unwrap_or_else(|error| panic!("gravar '{}': {error}", path.display()));
+    }
+
+    /// REX-00: prova mesma-ROM no caminho canônico (parity harness + core real
+    /// Genesis Plus GX) com input definido, dupla execução para determinismo,
+    /// run ocioso para discriminação de input, checkpoints de framebuffer e
+    /// registro completo no ledger v2.
+    #[ignore]
+    #[test]
+    fn rex00_hamoopig_same_rom_equivalence_with_defined_inputs() {
+        use crate::core::parity_harness::{compare_runs, run_parity_capture};
+        use crate::emulator::frame_buffer::framebuffer_to_rgba;
+        use crate::emulator::libretro_ffi::{EmulatorCore, JoypadState};
+        use crate::tools::reverse::decomp::rom_library::{
+            corpus_identity, decomp_work_dir, now_unix, record_scenario_run, ScenarioRunRecord,
+            SCENARIO_VERDICT_PASSED,
+        };
+        use crate::tools::reverse::equivalence::{
+            evaluate_identical_equivalence, scenario_input_discrimination,
+        };
+
+        let test_name = "rex00_hamoopig_same_rom_equivalence_with_defined_inputs";
+        let Some((rom_path, rom_sha)) = rex_reference_rom(
+            "RDS_REX_HAMOOPIG_ROM",
+            "/home/misael/RetroDevStudio/investigation-sgdk-equivalence-2026-09-10/hamoopig/reference.bin",
+            "558bea6c80c76ec3da23afd584d4b56ece7722847ab1efc8c2f23f43f8529be9",
+            test_name,
+        ) else {
+            return;
+        };
+
+        let artifact_root = validation_artifact_dir("rex-hamoopig-same-rom");
+        let _ = fs::remove_dir_all(&artifact_root);
+        fs::create_dir_all(&artifact_root).expect("create rex artifact dir");
+
+        let script = rex_input_script_180f("rex00-hamoopig-180f");
+        let script_path = artifact_root.join("input-script.rds-input.json");
+        rex_write_json(
+            &script_path,
+            &serde_json::to_value(&script).expect("serialize input script"),
+        );
+
+        // Cada captura parte de um core fresco (power-on + load), pois a
+        // restauração de savestate NÃO se mostrou fiel ao power-on neste
+        // core/título: duas execuções restauradas do mesmo snapshot divergem
+        // de forma constante (achado registrado no run do ledger). Reset
+        // fresco é a definição de determinismo do gate REX 5.
+        let run_fresh_capture = |label: &'static str,
+                                 frames: &[crate::emulator::libretro_ffi::JoypadState]|
+         -> (
+            crate::core::parity_harness::ParityReport,
+            String,
+            Option<String>,
+        ) {
+            let mut core = EmulatorCore::new(None);
+            core.load_rom(&rom_path)
+                .unwrap_or_else(|error| panic!("{test_name}: carregar ROM ({label}): {error}"));
+            let initial_state = core
+                .capture_runtime_state_bytes()
+                .unwrap_or_else(|error| panic!("{test_name}: estado inicial ({label}): {error}"));
+            let core_label = core.loaded_core_label().unwrap_or("unknown").to_string();
+            let core_sha = core
+                .loaded_core_file()
+                .and_then(|path| fs::read(path).ok())
+                .map(|bytes| crate::tools::reverse::decomp::rom_library::sha256_hex(&bytes));
+            let report = run_parity_capture(&mut core, &rom_path, &rom_sha, &initial_state, frames)
+                .unwrap_or_else(|error| panic!("{test_name}: captura {label}: {error}"));
+            core.stop()
+                .unwrap_or_else(|error| panic!("{test_name}: parar core ({label}): {error}"));
+            (report, core_label, core_sha)
+        };
+
+        // Capturas A e B: power-on fresco, mesma ROM, mesmo script — determinismo.
+        let (report_a, core_label, core_sha) = run_fresh_capture("A", &script.frames);
+        let (report_b, _, _) = run_fresh_capture("B", &script.frames);
+        let determinism = compare_runs(&report_a, &report_b);
+        assert!(
+            determinism.is_empty(),
+            "{test_name}: mesma ROM em power-on fresco deve ser deterministica: {determinism:?}"
+        );
+
+        // Run ocioso (zero input) para medir discriminação do input definido.
+        let idle_frames = vec![JoypadState::default(); 180];
+        let (report_idle, _, _) = run_fresh_capture("idle", &idle_frames);
+
+        let discrimination = scenario_input_discrimination(&report_a, &report_idle);
+        eprintln!(
+            "REX HAMOOPIG input_discrimination: {} — {}",
+            discrimination.status, discrimination.detail
+        );
+
+        // Identidade mesma-ROM: oráculos sobre A (referência) vs B (reexecução).
+        let equivalence = evaluate_identical_equivalence(&report_a, &report_b);
+        assert_ne!(
+            equivalence.verdict,
+            crate::tools::reverse::equivalence::VERDICT_REJECTED,
+            "{test_name}: mesma ROM não pode ser rejeitada: {:?}",
+            equivalence.oracles
+        );
+        eprintln!(
+            "REX HAMOOPIG equivalence: verdict={} core={core_label} frames={}",
+            equivalence.verdict, report_a.frames_run
+        );
+
+        // Janela dedicada (mesmo script) com hash RGBA de TODOS os frames —
+        // cruzamento completo com a prova de UI desktop, cujo canvas entrega
+        // os mesmos bytes convertidos por framebuffer_to_rgba — e PPM nos
+        // checkpoints.
+        let checkpoint_frames: [u32; 4] = [59, 69, 129, 179];
+        let mut checkpoint_artifacts = Vec::new();
+        let mut checkpoint_rgba_hashes = serde_json::Map::new();
+        let mut all_frames_rgba_hashes = serde_json::Map::new();
+        {
+            let mut core_cp = EmulatorCore::new(None);
+            core_cp.load_rom(&rom_path).unwrap_or_else(|error| {
+                panic!("{test_name}: recarregar ROM p/ checkpoints: {error}")
+            });
+            for (index, joypad) in script.frames.iter().enumerate() {
+                let index = index as u32;
+                core_cp
+                    .set_joypad(joypad.clone())
+                    .unwrap_or_else(|error| panic!("{test_name}: set_joypad: {error}"));
+                core_cp
+                    .run_frame()
+                    .unwrap_or_else(|error| panic!("{test_name}: frame {index}: {error}"));
+                let (buffer, size, format) = core_cp.get_framebuffer().expect("framebuffer");
+                let frame = framebuffer_to_rgba(&buffer, size, format);
+                let rgba_sha = crate::tools::reverse::decomp::rom_library::sha256_hex(&frame.rgba);
+                all_frames_rgba_hashes.insert(
+                    index.to_string(),
+                    serde_json::Value::String(rgba_sha.clone()),
+                );
+                if checkpoint_frames.contains(&index) {
+                    let path = artifact_root.join(format!("checkpoint-{index:03}.ppm"));
+                    write_rgba_ppm(&path, frame.width, frame.height, &frame.rgba);
+                    checkpoint_artifacts.push(path);
+                    checkpoint_rgba_hashes
+                        .insert(index.to_string(), serde_json::Value::String(rgba_sha));
+                }
+            }
+            core_cp.stop().expect("parar core de checkpoints");
+        }
+        let rgba_hashes_path = artifact_root.join("checkpoint-rgba-hashes.json");
+        rex_write_json(
+            &rgba_hashes_path,
+            &serde_json::Value::Object(checkpoint_rgba_hashes),
+        );
+        let all_rgba_path = artifact_root.join("all-frames-rgba-hashes.json");
+        rex_write_json(
+            &all_rgba_path,
+            &serde_json::Value::Object(all_frames_rgba_hashes),
+        );
+
+        // Timeline backend OCIOSA (zero input, power-on fresco): permite ao
+        // harness de UI provar entrega de input — frames em que ocioso diverge
+        // do run com input só podem casar com o run com input se as teclas
+        // chegaram ao core pelo caminho do produto.
+        let idle_path = artifact_root.join("idle-all-frames-rgba-hashes.json");
+        let idle_wram_path = artifact_root.join("idle-final-wram-sha.json");
+        {
+            let idle_frames = vec![JoypadState::default(); 180];
+            let mut core_idle = EmulatorCore::new(None);
+            core_idle.load_rom(&rom_path).unwrap_or_else(|error| {
+                panic!("{test_name}: carregar ROM p/ timeline ociosa: {error}")
+            });
+            let mut idle_hashes = serde_json::Map::new();
+            for (index, joypad) in idle_frames.iter().enumerate() {
+                let index = index as u32;
+                core_idle
+                    .set_joypad(joypad.clone())
+                    .unwrap_or_else(|error| panic!("{test_name}: set_joypad ocioso: {error}"));
+                core_idle
+                    .run_frame()
+                    .unwrap_or_else(|error| panic!("{test_name}: frame ocioso {index}: {error}"));
+                let (buffer, size, format) = core_idle.get_framebuffer().expect("framebuffer");
+                let frame = framebuffer_to_rgba(&buffer, size, format);
+                idle_hashes.insert(
+                    index.to_string(),
+                    serde_json::Value::String(
+                        crate::tools::reverse::decomp::rom_library::sha256_hex(&frame.rgba),
+                    ),
+                );
+            }
+            // Hash final da WRAM ociosa (região 2, 0x10000 bytes): no título
+            // do HAMOOPIG o efeito do input é observável em ESTADO (WRAM),
+            // não no framebuffer — o canvas ocioso e com input são idênticos.
+            let (idle_wram, idle_wram_size) = core_idle
+                .read_memory(2, 0, 0x10000)
+                .expect("ler WRAM ociosa final");
+            core_idle.stop().expect("parar core ocioso");
+            rex_write_json(&idle_path, &serde_json::Value::Object(idle_hashes));
+            rex_write_json(
+                &idle_wram_path,
+                &serde_json::json!({
+                    "final_wram_sha256": crate::tools::reverse::decomp::rom_library::sha256_hex(&idle_wram),
+                    "final_wram_size": idle_wram_size,
+                    "note": "WRAM (região 2, 0x10000 bytes) ao final dos 180 frames ociosos"
+                }),
+            );
+        }
+
+        let report_a_path = artifact_root.join("capture-a.json");
+        rex_write_json(
+            &report_a_path,
+            &serde_json::to_value(&report_a).expect("report a"),
+        );
+        let equivalence_path = artifact_root.join("equivalence-report.json");
+        rex_write_json(
+            &equivalence_path,
+            &serde_json::to_value(&equivalence).expect("serialize equivalence"),
+        );
+
+        rex_register_reference_corpus(
+            &rom_sha,
+            rom_path.metadata().expect("rom metadata").len(),
+            "HAMOOPIG [VER.001] [SGDK 211] referencia padrao",
+            &rom_path,
+            "Referencia padrao escolhida pelo operador (GUARD-SGDK-EQUIVALENCE-01)",
+        );
+
+        let mut artifacts = vec![
+            crate::tools::reverse::equivalence::artifact_ref("input-script", &script_path)
+                .expect("artifact input script"),
+            crate::tools::reverse::equivalence::artifact_ref("capture-a", &report_a_path)
+                .expect("artifact capture a"),
+            crate::tools::reverse::equivalence::artifact_ref(
+                "equivalence-report",
+                &equivalence_path,
+            )
+            .expect("artifact equivalence"),
+            crate::tools::reverse::equivalence::artifact_ref(
+                "checkpoint-rgba-hashes",
+                &rgba_hashes_path,
+            )
+            .expect("artifact rgba hashes"),
+            crate::tools::reverse::equivalence::artifact_ref(
+                "all-frames-rgba-hashes",
+                &all_rgba_path,
+            )
+            .expect("artifact all frames rgba hashes"),
+            crate::tools::reverse::equivalence::artifact_ref(
+                "idle-all-frames-rgba-hashes",
+                &idle_path,
+            )
+            .expect("artifact idle frames rgba hashes"),
+            crate::tools::reverse::equivalence::artifact_ref(
+                "idle-final-wram-sha",
+                &idle_wram_path,
+            )
+            .expect("artifact idle wram sha"),
+        ];
+        for checkpoint in &checkpoint_artifacts {
+            artifacts.push(
+                crate::tools::reverse::equivalence::artifact_ref(
+                    &checkpoint
+                        .file_stem()
+                        .and_then(|stem| stem.to_str())
+                        .unwrap_or("checkpoint-frame"),
+                    checkpoint,
+                )
+                .expect("artifact checkpoint"),
+            );
+        }
+
+        let mut gaps = equivalence.gaps.clone();
+        if discrimination.status != "pass" {
+            gaps.push(format!(
+                "input_discrimination={}: {}",
+                discrimination.status, discrimination.detail
+            ));
+        }
+        let run_id = format!("rex00-hamoopig-{}", now_unix());
+        record_scenario_run(
+            &decomp_work_dir(),
+            ScenarioRunRecord {
+                run_id: run_id.clone(),
+                scenario_id: "rex00-hamoopig-same-rom-180f-input-v1".to_string(),
+                kind: "equivalence".to_string(),
+                reference_sha256: rom_sha.clone(),
+                candidate_sha256: Some(rom_sha.clone()),
+                input_script_sha256: Some(crate::tools::reverse::decomp::rom_library::sha256_hex(
+                    &fs::read(&script_path).expect("read script"),
+                )),
+                core_label: core_label.clone(),
+                core_sha256: core_sha.clone(),
+                frames: report_a.frames_run,
+                verdict: if equivalence.verdict == "passed" {
+                    SCENARIO_VERDICT_PASSED.to_string()
+                } else {
+                    equivalence.verdict.clone()
+                },
+                oracle_results: serde_json::to_value(&equivalence).expect("oracles"),
+                gaps,
+                artifacts,
+                executed_at_unix: now_unix(),
+                previous_run_id: None,
+                notes: "Prova mesma-ROM com input definido no caminho canonico; determinismo \
+                     exigido entre power-ons frescos (mesma ROM/core/script). ACHADO MEDIDO: \
+                     re-execucoes restauradas do mesmo savestate divergem de forma constante \
+                     neste core/titulo, entao restore de savestate NAO e gate de equivalencia. \
+                     NAO prova UI, gameplay completo, 60 FPS sustentados, decompilacao ou \
+                     reconstrucao por nos."
+                    .to_string(),
+            },
+        )
+        .unwrap_or_else(|error| panic!("{test_name}: registrar run no ledger: {error}"));
+        eprintln!(
+            "REX HAMOOPIG ledger run: {run_id} (corpus {})",
+            corpus_identity(&rom_sha)
+        );
+    }
+
+    /// REX-05 (passo 5, perna 3) — o oráculo decisivo do aceite BYOR: quem executa
+    /// o stream que o produto escreveu é o **desempacotador do próprio jogo**.
+    ///
+    /// A cópia modificada não é montada à mão: sai de `apply_resource_edit`, o
+    /// mesmo comando Tauri que a barra chama, com a edição de pixel pinada no
+    /// passo 4 (tile 53, pixel do tile (4,0), índice 5→0, custo 937 B no slot de
+    /// 938 B). As duas ROMs então rodam sob o core real com o MESMO script de 180
+    /// frames, cada uma a partir de power-on fresco — no título HAMOOPIG a
+    /// restauração de savestate não é fiel ao power-on (achado registrado em
+    /// REX-00), então frescor é a definição de determinismo daqui.
+    ///
+    /// Cinco asserções, cada uma com um motivo próprio:
+    /// 0. a corrida da ROM íntegra tem que reproduzir byte a byte os quatro
+    ///    checkpoints (59/69/129/179) registrados em
+    ///    `rex-evidence-2026-09-10/backend-hamoopig/checkpoint-rgba-hashes.json` —
+    ///    evidência anterior a esta frente, não saída desta corrida; senão o aceite
+    ///    estaria comparando uma janela do jogo que ninguém atribuiu a recurso;
+    /// 1. original × original (duas corridas frescas) não pode diferir em NENHUM
+    ///    pixel — sem esse controle um diff não significaria nada;
+    /// 2. original × modificada tem que diferir em pelo menos um pixel, senão o
+    ///    recurso editado nunca aparece na tela nesta janela e o aceite não existe;
+    /// 3. os pixels alterados, agregados por coordenada, têm que ser exatamente os
+    ///    que o passo 4 previu antes de executar — um por colocação do tile, nos
+    ///    dois retângulos das células. Qualquer outra coordenada (dentro ou fora
+    ///    deles) significa que o re-encode alcançou algo além do recurso ou que o
+    ///    scroll da tela não é o que foi modelado; e
+    /// 4. no frame 129, que é o da atribuição residual do passo 4, a mesma
+    ///    igualdade é coberta de novo quadro a quadro.
+    ///
+    /// **Medido com mutante, registrando o limite da medição.** Invertendo a
+    /// convenção do nibble em `md_pixel_location` (coluna par ↔ ímpar) ou
+    /// invertendo a linha do tile, este aceite morre na fronteira do produto:
+    /// `excessive_output: 3200 bytes de plain precisam de 942/941 bytes de stream,
+    /// orçamento de 938`. Com 1 B de folga no slot, nenhuma mudança de geometria
+    /// chega viva até a asserção de coordenada — **não se exibiu aqui um mutante
+    /// que passe pela perna 1 e caia só na coordenada**, e isto registra a
+    /// ausência em vez de alegar o contrário. O que a perna 3 acrescenta não é um
+    /// mutante exclusivo e sim o oráculo: a perna 1 confere o stream escrito com o
+    /// desempacotador do próprio produto (oráculo autorreferente), enquanto aqui
+    /// quem lê os mesmos bytes é o unpacker do jogo sob o core, e a projeção
+    /// geométrica sai do TileMap real, não do renderer da prévia.
+    ///
+    /// Rodar: `cargo test --lib rex05_hamoopig_aplib -- --ignored --nocapture`
+    #[ignore]
+    #[test]
+    fn rex05_hamoopig_aplib_edit_pelo_produto_executa_no_core() {
+        use crate::emulator::frame_buffer::framebuffer_to_rgba;
+        use crate::emulator::libretro_ffi::EmulatorCore;
+        use crate::tools::reverse::decomp::rex_resources::{apply_resource_edit, PixelEdit};
+        use crate::tools::reverse::decomp::rom_library::{
+            corpus_identity, decomp_work_dir, now_unix, record_scenario_run, sha256_hex,
+            ScenarioRunRecord, SCENARIO_VERDICT_PASSED,
+        };
+        use crate::tools::reverse::equivalence::artifact_ref;
+
+        const STREAM: u64 = 0x2e12a;
+        const SLOT: u32 = 938;
+        const CUSTO: u32 = 937;
+        const TILE: u32 = 53;
+        const LINHA_PIXEL: u32 = 0;
+        const COLUNA_PIXEL: u32 = 4;
+        // Células que o TileMap da cadeia (TiledImage 0x21b38) dá ao tile 53,
+        // medidas no passo 4 com hflip/vflip/banco todos zero — logo o pixel
+        // editado do tile cai em (284,128) e (212,200) na tela.
+        const CELULAS: [(u32, u32); 2] = [(35, 16), (26, 25)];
+
+        let test_name = "rex05_hamoopig_aplib_edit_pelo_produto_executa_no_core";
+        let Some((rom_path, rom_sha)) = rex_reference_rom(
+            "RDS_REX_HAMOOPIG_ROM",
+            "/home/misael/Projects/RetroDevStudio-CANONICAL-2026-09-21/data/canonical-local-2026-09-21/corpus/references/hamoopig-reference.bin",
+            "558bea6c80c76ec3da23afd584d4b56ece7722847ab1efc8c2f23f43f8529be9",
+            test_name,
+        ) else {
+            return;
+        };
+
+        let artifact_root = validation_artifact_dir("rex-hamoopig-aplib-edit");
+        let _ = fs::remove_dir_all(&artifact_root);
+        fs::create_dir_all(&artifact_root).expect("create rex05 artifact dir");
+
+        // ---- a escrita vem do produto, não deste teste.
+        let edicao = apply_resource_edit(
+            rom_path.to_str().expect("caminho utf8 da ROM"),
+            STREAM,
+            &[PixelEdit {
+                tile: TILE,
+                row: LINHA_PIXEL,
+                col: COLUNA_PIXEL,
+                index: 0,
+            }],
+            &rom_sha,
+        )
+        .expect("o produto recusou a edição pinada no passo 4");
+        assert_eq!(edicao.outcome, "applied", "{edicao:?}");
+        assert_eq!(edicao.codec, "aplib");
+        assert_eq!(edicao.stream_written, Some(CUSTO), "custo do passo 4");
+        assert_eq!(edicao.original_stream_len, SLOT, "slot do passo 4");
+        let modificada_path =
+            PathBuf::from(edicao.modified_rom_path.as_ref().expect("cópia do produto"));
+        let modificada_sha = edicao.modified_rom_sha256.clone().expect("sha da cópia");
+        assert_eq!(
+            modificada_sha,
+            sha256_hex(&fs::read(&modificada_path).expect("ler cópia do produto")),
+            "o hash que o produto anunciou não é o dos bytes que ele escreveu"
+        );
+
+        let script = rex_input_script_180f("rex05-hamoopig-aplib-180f");
+        let script_path = artifact_root.join("input-script.rds-input.json");
+        rex_write_json(
+            &script_path,
+            &serde_json::to_value(&script).expect("serialize input script"),
+        );
+
+        // ---- corrida fresca: power-on, load, script de input, RGBA de cada frame.
+        let run_fresh =
+            |label: &str, rom: &Path| -> (u32, u32, Vec<Vec<u8>>, String, Option<String>) {
+                let mut core = EmulatorCore::new(None);
+                core.load_rom(rom)
+                    .unwrap_or_else(|error| panic!("{test_name}: carregar ROM ({label}): {error}"));
+                let core_label = core.loaded_core_label().unwrap_or("unknown").to_string();
+                let core_sha = core
+                    .loaded_core_file()
+                    .and_then(|path| fs::read(path).ok())
+                    .map(|bytes| sha256_hex(&bytes));
+                let mut dimensao = (0u32, 0u32);
+                let mut quadros = Vec::with_capacity(script.frames.len());
+                for (index, joypad) in script.frames.iter().enumerate() {
+                    core.set_joypad(joypad.clone()).unwrap_or_else(|error| {
+                        panic!("{test_name}: set_joypad ({label}) no frame {index}: {error}")
+                    });
+                    core.run_frame().unwrap_or_else(|error| {
+                        panic!("{test_name}: frame {index} ({label}): {error}")
+                    });
+                    let (buffer, size, format) = core.get_framebuffer().expect("framebuffer");
+                    let quadro = framebuffer_to_rgba(&buffer, size, format);
+                    dimensao = (quadro.width, quadro.height);
+                    quadros.push(quadro.rgba);
+                }
+                core.stop()
+                    .unwrap_or_else(|error| panic!("{test_name}: parar core ({label}): {error}"));
+                (dimensao.0, dimensao.1, quadros, core_label, core_sha)
+            };
+
+        fn pixels_diferentes(a: &[Vec<u8>], b: &[Vec<u8>], largura: u32) -> Vec<(u32, u32, u32)> {
+            let mut achados = Vec::new();
+            for (indice, (fa, fb)) in a.iter().zip(b.iter()).enumerate() {
+                assert_eq!(
+                    fa.len(),
+                    fb.len(),
+                    "framebuffers de tamanhos diferentes no frame {indice}"
+                );
+                for pixel in 0..fa.len() / 4 {
+                    let o = pixel * 4;
+                    if fa[o..o + 3] != fb[o..o + 3] {
+                        achados.push((
+                            (pixel as u32) % largura,
+                            (pixel as u32) / largura,
+                            indice as u32,
+                        ));
+                    }
+                }
+            }
+            achados
+        }
+
+        let (largura, altura, base_a, core_label, core_sha) = run_fresh("base-a", &rom_path);
+        let (largura_b, altura_b, base_b, _, _) = run_fresh("base-b", &rom_path);
+        let (largura_m, altura_m, modificada, _, _) = run_fresh("modificada", &modificada_path);
+        assert_eq!(
+            (largura, altura),
+            (largura_b, altura_b),
+            "o core entregou framebuffers de tamanhos diferentes"
+        );
+        assert_eq!((largura, altura), (largura_m, altura_m));
+
+        // ---- 0. triangulação com evidência PRÉ-EXISTENTE a esta rodada: a corrida
+        // original tem que reproduzir byte a byte os quatro checkpoints
+        // (59/69/129/179) registrados em
+        // `/home/misael/RetroDevStudio/rex-evidence-2026-09-10/backend-hamoopig/checkpoint-rgba-hashes.json`
+        // (arquivo de 2026-09-12, SHA-256
+        // e7527a83eda147f1d3383311808b1bfd5be711d257d0b385ddc479cad5dfa8d4,
+        // anterior portanto a qualquer código desta frente). São os mesmos frames
+        // sobre os quais o residual de 2 938 pixels do passo 4 foi medido; sem esta
+        // igualdade a projeção abaixo estaria comparando uma janela do jogo que
+        // ninguém atribuiu a recurso nenhum.
+        const CHECKPOINTS_A: [(u32, &str); 4] = [
+            (
+                59,
+                "61b8731607d1bdb9a8a555696ee764f2f2159c3b5539541462ae423e9bb4f637",
+            ),
+            (
+                69,
+                "56d1423c5231a0ebbbfa49e6a686320e7e9e32092b1c00453e8a0e305ca82f83",
+            ),
+            (
+                129,
+                "3df75345502f8165fa5aae93009bac07260bd60bd6a47d148114165e2963cf63",
+            ),
+            (
+                179,
+                "3df75345502f8165fa5aae93009bac07260bd60bd6a47d148114165e2963cf63",
+            ),
+        ];
+        for (frame, sha_esperado) in CHECKPOINTS_A {
+            assert_eq!(
+                sha256_hex(&base_a[frame as usize]),
+                sha_esperado,
+                "o frame {frame} desta corrida não é o frame {frame} da evidência \
+                 registrada em 2026-09-10: a janela observada mudou"
+            );
+        }
+
+        // ---- 1. controle de determinismo: mesma ROM, duas corridas frescas.
+        let ruido = pixels_diferentes(&base_a, &base_b, largura);
+        assert!(
+            ruido.is_empty(),
+            "power-on fresco da MESMA ROM divergiu em {} pixels (primeiros {:?}): sem \
+             determinismo o diff abaixo não significaria nada",
+            ruido.len(),
+            &ruido[..ruido.len().min(4)]
+        );
+
+        // ---- 2. o desempacotador do jogo executa o stream do produto.
+        let alterados = pixels_diferentes(&base_a, &modificada, largura);
+        assert!(
+            !alterados.is_empty(),
+            "nenhum pixel de tela mudou com a edição: o tile {TILE} editado nunca aparece \
+             nos {} frames desta janela, então o aceite BYOR não existe aqui",
+            script.frames.len()
+        );
+
+        // ---- 3. exatamente os pixels que o passo 4 previu, nada além.
+        let dentro_das_celulas = |x: u32, y: u32| {
+            CELULAS.iter().any(|(cx, cy)| {
+                (cx * 8..cx * 8 + 8).contains(&x) && (cy * 8..cy * 8 + 8).contains(&y)
+            })
+        };
+        let fora: Vec<(u32, u32, u32)> = alterados
+            .iter()
+            .copied()
+            .filter(|(x, y, _)| !dentro_das_celulas(*x, *y))
+            .collect();
+        let coordenadas: Vec<[u32; 2]> = alterados
+            .iter()
+            .map(|(x, y, _)| [*x, *y])
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let mut esperado: Vec<[u32; 2]> = CELULAS
+            .iter()
+            .map(|(cx, cy)| [cx * 8 + COLUNA_PIXEL, cy * 8 + LINHA_PIXEL])
+            .collect();
+        esperado.sort();
+        let frames_divergentes: std::collections::BTreeSet<u32> =
+            alterados.iter().map(|(_, _, frame)| *frame).collect();
+        assert_eq!(
+            coordenadas,
+            esperado,
+            "{} pixels alterados em {} frames, mas as coordenadas agregadas não são as duas \
+             colocações do tile {TILE} previstas ANTES de executar ({esperado:?}); {} dos pixels \
+             caem fora dos retângulos das células {CELULAS:?}",
+            alterados.len(),
+            frames_divergentes.len(),
+            fora.len(),
+        );
+
+        // ---- 4. no frame que a atribuição do passo 4 usa (129), a mudança é
+        // exatamente a mesma: duas coordenadas, as previstas. Um frame da janela
+        // registrada vale mais que um agregado, porque é nele que os retângulos
+        // das células foram conferidos contra os 2 938 pixels residuais.
+        let mut no_cp129: Vec<[u32; 2]> = alterados
+            .iter()
+            .filter(|(_, _, frame)| *frame == 129)
+            .map(|(x, y, _)| [*x, *y])
+            .collect();
+        no_cp129.sort();
+        assert_eq!(
+            no_cp129, esperado,
+            "no checkpoint 129 a edição mudou {no_cp129:?}, não as duas colocações previstas"
+        );
+
+        // ---- artefatos: PPM do primeiro frame divergente e do 129, nas duas ROMs.
+        let primeiro_frame = alterados
+            .iter()
+            .map(|(_, _, frame)| *frame)
+            .min()
+            .expect("frame divergente");
+        let escreve_ppm = |nome: String, quadro: &Vec<u8>| {
+            write_rgba_ppm(&artifact_root.join(nome), largura, altura, quadro)
+        };
+        for frame in [primeiro_frame, 129] {
+            escreve_ppm(
+                format!("aplib-edit-{frame:03}-original.ppm"),
+                &base_a[frame as usize],
+            );
+            escreve_ppm(
+                format!("aplib-edit-{frame:03}-modificada.ppm"),
+                &modificada[frame as usize],
+            );
+        }
+        let mut por_frame: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+        for (_, _, frame) in &alterados {
+            let chave = frame.to_string();
+            let atual = por_frame
+                .get(&chave)
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0);
+            por_frame.insert(chave, serde_json::Value::from(atual + 1));
+        }
+        let hashes = |quadros: &[Vec<u8>]| -> serde_json::Map<String, serde_json::Value> {
+            quadros
+                .iter()
+                .enumerate()
+                .map(|(i, rgba)| (i.to_string(), serde_json::Value::String(sha256_hex(rgba))))
+                .collect()
+        };
+        let report_path = artifact_root.join("aplib-edit-report.json");
+        rex_write_json(
+            &report_path,
+            &serde_json::json!({
+                "rom_original": { "path": rom_path, "sha256": rom_sha },
+                "rom_modificada": { "path": modificada_path, "sha256": modificada_sha,
+                                    "origem": "apply_resource_edit do produto" },
+                "patch_bps_sha256": edicao.patch_bps_sha256,
+                "recurso": { "stream_offset": format!("{STREAM:#x}"), "codec": "aplib",
+                             "slot_bytes": SLOT, "escritos_bytes": CUSTO, "tile": TILE,
+                             "pixel_do_tile": [4, 0], "indice_novo": 0 },
+                "core": { "label": core_label, "sha256": core_sha },
+                "input_script_sha256": sha256_hex(&fs::read(&script_path).expect("ler script")),
+                "frames": script.frames.len(),
+                "framebuffer": { "largura": largura, "altura": altura },
+                "determinismo_base_a_vs_base_b": ruido.len(),
+                "pixels_alterados_total": alterados.len(),
+                "pixels_no_checkpoint_129": no_cp129,
+                "checkpoints_da_evidencia_2026_09_10": CHECKPOINTS_A
+                    .iter()
+                    .map(|(frame, sha)| {
+                        [
+                            serde_json::Value::from(*frame),
+                            serde_json::Value::String(sha.to_string()),
+                        ]
+                    })
+                    .collect::<Vec<_>>(),
+                "coordenadas_distintas": coordenadas,
+                "esperado_pelos_pinos_do_passo_4": esperado,
+                "frames_divergentes": por_frame,
+                "primeiro_frame_divergente": primeiro_frame,
+                "hashes_rgba_original": hashes(&base_a),
+                "hashes_rgba_modificada": hashes(&modificada),
+                "limites": "Prova o efeito em tela de UMA edição de recurso real, executada \
+                            pelo desempacotador do próprio jogo sob o core. Não prova a barra \
+                            (perna WebDriver), nem o resto do jogo, nem hardware real."
+            }),
+        );
+
+        let run_id = format!("rex05-hamoopig-aplib-edit-{}", now_unix());
+        record_scenario_run(
+            &decomp_work_dir(),
+            ScenarioRunRecord {
+                run_id: run_id.clone(),
+                scenario_id: "rex05-hamoopig-aplib-edit-180f-v1".to_string(),
+                kind: "equivalence".to_string(),
+                reference_sha256: rom_sha.clone(),
+                candidate_sha256: Some(modificada_sha.clone()),
+                input_script_sha256: Some(sha256_hex(&fs::read(&script_path).expect("ler script"))),
+                core_label,
+                core_sha256: core_sha,
+                frames: script.frames.len() as u32,
+                verdict: SCENARIO_VERDICT_PASSED.to_string(),
+                oracle_results: serde_json::json!({
+                    "pixels_alterados": alterados.len(),
+                    "coordenadas_distintas": coordenadas,
+                    "frames_divergentes": por_frame,
+                    "determinismo_original_vs_original": ruido.len(),
+                    "fora_das_celulas": fora.len(),
+                }),
+                gaps: vec![
+                    "perna WebDriver (a barra chamando estes mesmos comandos) não provada aqui"
+                        .to_string(),
+                ],
+                artifacts: vec![
+                    artifact_ref("input-script", &script_path).expect("artifact script"),
+                    artifact_ref("aplib-edit-report", &report_path).expect("artifact report"),
+                    artifact_ref("modified-rom", &modificada_path).expect("artifact copia"),
+                ],
+                executed_at_unix: now_unix(),
+                previous_run_id: None,
+                notes: "Passo 5 perna 3: o stream aPLib escrito pela transacao do produto e \
+                     desempacotado pelo proprio jogo sob o core, e a unica mudanca de tela que \
+                     produz cai nos retangulos das celulas do tile editado. Duas corridas frescas \
+                     da ROM integra servem de controle de determinismo."
+                    .to_string(),
+            },
+        )
+        .unwrap_or_else(|error| panic!("{test_name}: registrar run no ledger: {error}"));
+        eprintln!(
+            "REX HAMOOPIG aPLib edit: {} pixels alterados em {} frames, primeiro frame \
+             {primeiro_frame}, coordenadas {coordenadas:?} | original {rom_sha} -> modificada \
+             {modificada_sha} | run {run_id} (corpus {})",
+            alterados.len(),
+            por_frame.len(),
+            corpus_identity(&rom_sha),
+        );
+    }
+
+    /// REX-06 (passo 5, perna 4) — o artefato que a BARRA escreveu, executado pelo
+    /// desempacotador do próprio jogo.
+    ///
+    /// A perna 2 (cenário WebDriver `rex-aplib-byor-effect`) mediu que a interface
+    /// sabe enviar exatamente esta edição do recurso aPLib real — tile 53, pixel
+    /// (linha 7, coluna 5) do tile, índice 5→4 — e que a transação do produto
+    /// escreveu a cópia de SHA-256
+    /// 80249128d1e6ec871aad993e7cc3fdbbeed7e8c5b191f8b72a159db6fa2c7dce com o
+    /// patch BPS reaplicando esse mesmo hash. A perna 3 (`rex05_...` acima) rodou
+    /// no core uma edição DIFERENTE, 5→0 — a única que cabe naquele pixel e, à
+    /// época deste teste, a que a barra não sabia expressar (o campo de índice
+    /// reescrevia 0 para 1; corrigido depois, e hoje a sonda 5b do cenário
+    /// `rex-aplib-byor-effect` produz ela mesma a cópia 69389ec2… dessa edição).
+    /// Este
+    /// teste fecha a cadeia: a cópia sai de `apply_resource_edit` com os mesmos
+    /// quatro campos que o painel mandou, tem seu hash conferido contra o que a
+    /// barra anunciou ANTES de qualquer frame rodar, e é essa cópia que entra no
+    /// core.
+    ///
+    /// Predições fixadas antes de executar (nenhuma é leitura do resultado):
+    /// 1. `stream_written == 938` — a varredura de capacidade do encoder
+    ///    (`byor_aplib_varre_edicoes_de_um_pixel_que_a_barra_sabe_expressar`) mediu
+    ///    (53,7,5)→4 como um dos dois únicos pares que cabem no tile observado 53,
+    ///    no teto exato do slot;
+    /// 2. a cópia tem o hash anunciado pela barra — sem isso o core executaria um
+    ///    artefato irmão, não o que a interface escreveu;
+    /// 3. os pixels alterados são exatamente (285,135) e (213,207): as duas
+    ///    colocações do tile 53 no TileMap — células (35,16) e (26,25), medidas no
+    ///    passo 4 com hflip/vflip/banco todos zero — mais o offset do pixel editado
+    ///    dentro da célula de 8×8;
+    /// 4. no frame 129, o mesmo par.
+    ///
+    /// Controles herdados da perna 3: os quatro checkpoints da evidência
+    /// pré-existente (rex-evidence-2026-09-10), que amarram a janela observada a
+    /// uma medição anterior a esta frente, e duas corridas frescas da ROM íntegra,
+    /// que não podem divergir em pixel nenhum.
+    ///
+    /// Rodar: `cargo test --lib rex06_hamoopig_aplib -- --ignored --nocapture`
+    #[ignore]
+    #[test]
+    fn rex06_hamoopig_aplib_edicao_da_barra_executa_no_core() {
+        use crate::emulator::frame_buffer::framebuffer_to_rgba;
+        use crate::emulator::libretro_ffi::EmulatorCore;
+        use crate::tools::reverse::decomp::rex_resources::{apply_resource_edit, PixelEdit};
+        use crate::tools::reverse::decomp::rom_library::{
+            corpus_identity, decomp_work_dir, now_unix, record_scenario_run, sha256_hex,
+            ScenarioRunRecord, SCENARIO_VERDICT_PASSED,
+        };
+        use crate::tools::reverse::equivalence::artifact_ref;
+
+        const STREAM: u64 = 0x2e12a;
+        const SLOT: u32 = 938;
+        const TILE: u32 = 53;
+        const LINHA_PIXEL: u32 = 7;
+        const COLUNA_PIXEL: u32 = 5;
+        const INDICE: u8 = 4;
+        // Anunciados pela barra nas duas rodadas verdes do cenário
+        // `rex-aplib-byor-effect` (2026-09-27T07:00:50Z e 07:03:22Z, byte a byte
+        // idênticas entre si).
+        const SHA_COPIA_DA_BARRA: &str =
+            "80249128d1e6ec871aad993e7cc3fdbbeed7e8c5b191f8b72a159db6fa2c7dce";
+        const PRESERVADOS_DA_BARRA: usize = 163;
+        const CELULAS: [(u32, u32); 2] = [(35, 16), (26, 25)];
+
+        let test_name = "rex06_hamoopig_aplib_edicao_da_barra_executa_no_core";
+        let Some((rom_path, rom_sha)) = rex_reference_rom(
+            "RDS_REX_HAMOOPIG_ROM",
+            "/home/misael/Projects/RetroDevStudio-CANONICAL-2026-09-21/data/canonical-local-2026-09-21/corpus/references/hamoopig-reference.bin",
+            "558bea6c80c76ec3da23afd584d4b56ece7722847ab1efc8c2f23f43f8529be9",
+            test_name,
+        ) else {
+            return;
+        };
+
+        let artifact_root = validation_artifact_dir("rex-hamoopig-aplib-edit-barra");
+        let _ = fs::remove_dir_all(&artifact_root);
+        fs::create_dir_all(&artifact_root).expect("create rex06 artifact dir");
+
+        // ---- os mesmos quatro campos que o painel enviou.
+        let edicao = apply_resource_edit(
+            rom_path.to_str().expect("caminho utf8 da ROM"),
+            STREAM,
+            &[PixelEdit {
+                tile: TILE,
+                row: LINHA_PIXEL,
+                col: COLUNA_PIXEL,
+                index: INDICE,
+            }],
+            &rom_sha,
+        )
+        .expect("o produto recusou a edição que a barra aplicou");
+        assert_eq!(edicao.outcome, "applied", "{edicao:?}");
+        assert_eq!(edicao.codec, "aplib");
+        assert_eq!(edicao.original_stream_len, SLOT, "slot do recurso");
+        assert_eq!(
+            edicao.stream_written,
+            Some(SLOT),
+            "predição 1 quebrada: a varredura do encoder previa custo exatamente {SLOT} B para \
+             ({TILE},{LINHA_PIXEL},{COLUNA_PIXEL})→{INDICE}; mudou o encoder, o plano do \
+             recurso ou a geometria do nibble"
+        );
+        assert_eq!(
+            edicao.verified_preserved,
+            Some(PRESERVADOS_DA_BARRA),
+            "a barra anunciou {PRESERVADOS_DA_BARRA} preservados nesta ROM"
+        );
+        let modificada_path =
+            PathBuf::from(edicao.modified_rom_path.as_ref().expect("cópia do produto"));
+        let modificada_sha = edicao.modified_rom_sha256.clone().expect("sha da cópia");
+        assert_eq!(
+            modificada_sha,
+            sha256_hex(&fs::read(&modificada_path).expect("ler cópia do produto")),
+            "o hash que o produto anunciou não é o dos bytes que ele escreveu"
+        );
+        assert_eq!(
+            modificada_sha, SHA_COPIA_DA_BARRA,
+            "predição 2 quebrada: a transação chamada por este teste escreveu uma cópia \
+             diferente da que a barra escreveu — o core abaixo executaria outro artefato"
+        );
+
+        let script = rex_input_script_180f("rex06-hamoopig-aplib-barra-180f");
+        let script_path = artifact_root.join("input-script.rds-input.json");
+        rex_write_json(
+            &script_path,
+            &serde_json::to_value(&script).expect("serialize input script"),
+        );
+
+        let run_fresh =
+            |label: &str, rom: &Path| -> (u32, u32, Vec<Vec<u8>>, String, Option<String>) {
+                let mut core = EmulatorCore::new(None);
+                core.load_rom(rom)
+                    .unwrap_or_else(|error| panic!("{test_name}: carregar ROM ({label}): {error}"));
+                let core_label = core.loaded_core_label().unwrap_or("unknown").to_string();
+                let core_sha = core
+                    .loaded_core_file()
+                    .and_then(|path| fs::read(path).ok())
+                    .map(|bytes| sha256_hex(&bytes));
+                let mut dimensao = (0u32, 0u32);
+                let mut quadros = Vec::with_capacity(script.frames.len());
+                for (index, joypad) in script.frames.iter().enumerate() {
+                    core.set_joypad(joypad.clone()).unwrap_or_else(|error| {
+                        panic!("{test_name}: set_joypad ({label}) no frame {index}: {error}")
+                    });
+                    core.run_frame().unwrap_or_else(|error| {
+                        panic!("{test_name}: frame {index} ({label}): {error}")
+                    });
+                    let (buffer, size, format) = core.get_framebuffer().expect("framebuffer");
+                    let quadro = framebuffer_to_rgba(&buffer, size, format);
+                    dimensao = (quadro.width, quadro.height);
+                    quadros.push(quadro.rgba);
+                }
+                core.stop()
+                    .unwrap_or_else(|error| panic!("{test_name}: parar core ({label}): {error}"));
+                (dimensao.0, dimensao.1, quadros, core_label, core_sha)
+            };
+
+        fn pixels_diferentes(a: &[Vec<u8>], b: &[Vec<u8>], largura: u32) -> Vec<(u32, u32, u32)> {
+            let mut achados = Vec::new();
+            for (indice, (fa, fb)) in a.iter().zip(b.iter()).enumerate() {
+                assert_eq!(
+                    fa.len(),
+                    fb.len(),
+                    "framebuffers de tamanhos diferentes no frame {indice}"
+                );
+                for pixel in 0..fa.len() / 4 {
+                    let o = pixel * 4;
+                    if fa[o..o + 3] != fb[o..o + 3] {
+                        achados.push((
+                            (pixel as u32) % largura,
+                            (pixel as u32) / largura,
+                            indice as u32,
+                        ));
+                    }
+                }
+            }
+            achados
+        }
+
+        let (largura, altura, base_a, core_label, core_sha) = run_fresh("base-a", &rom_path);
+        let (largura_b, altura_b, base_b, _, _) = run_fresh("base-b", &rom_path);
+        let (largura_m, altura_m, modificada, _, _) = run_fresh("modificada", &modificada_path);
+        assert_eq!((largura, altura), (largura_b, altura_b));
+        assert_eq!((largura, altura), (largura_m, altura_m));
+
+        // ---- 0. a janela observada é a da evidência anterior a esta frente.
+        const CHECKPOINTS_A: [(u32, &str); 4] = [
+            (
+                59,
+                "61b8731607d1bdb9a8a555696ee764f2f2159c3b5539541462ae423e9bb4f637",
+            ),
+            (
+                69,
+                "56d1423c5231a0ebbbfa49e6a686320e7e9e32092b1c00453e8a0e305ca82f83",
+            ),
+            (
+                129,
+                "3df75345502f8165fa5aae93009bac07260bd60bd6a47d148114165e2963cf63",
+            ),
+            (
+                179,
+                "3df75345502f8165fa5aae93009bac07260bd60bd6a47d148114165e2963cf63",
+            ),
+        ];
+        for (frame, sha_esperado) in CHECKPOINTS_A {
+            assert_eq!(
+                sha256_hex(&base_a[frame as usize]),
+                sha_esperado,
+                "o frame {frame} desta corrida não é o frame {frame} da evidência de \
+                 2026-09-10: a janela observada mudou"
+            );
+        }
+
+        // ---- 1. controle de determinismo: mesma ROM, duas corridas frescas.
+        let ruido = pixels_diferentes(&base_a, &base_b, largura);
+        assert!(
+            ruido.is_empty(),
+            "power-on fresco da MESMA ROM divergiu em {} pixels (primeiros {:?}): sem \
+             determinismo o diff abaixo não significaria nada",
+            ruido.len(),
+            &ruido[..ruido.len().min(4)]
+        );
+
+        // ---- 2. o desempacotador do jogo executa o stream que a barra escreveu.
+        let alterados = pixels_diferentes(&base_a, &modificada, largura);
+        assert!(
+            !alterados.is_empty(),
+            "nenhum pixel de tela mudou com a edição da barra: o tile {TILE} nunca aparece \
+             nos {} frames desta janela",
+            script.frames.len()
+        );
+
+        // ---- 3/4. exatamente o pixel editado, nas duas colocações do tile.
+        let dentro_das_celulas = |x: u32, y: u32| {
+            CELULAS.iter().any(|(cx, cy)| {
+                (cx * 8..cx * 8 + 8).contains(&x) && (cy * 8..cy * 8 + 8).contains(&y)
+            })
+        };
+        let fora: Vec<(u32, u32, u32)> = alterados
+            .iter()
+            .copied()
+            .filter(|(x, y, _)| !dentro_das_celulas(*x, *y))
+            .collect();
+        let coordenadas: Vec<[u32; 2]> = alterados
+            .iter()
+            .map(|(x, y, _)| [*x, *y])
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        let mut esperado: Vec<[u32; 2]> = CELULAS
+            .iter()
+            .map(|(cx, cy)| [cx * 8 + COLUNA_PIXEL, cy * 8 + LINHA_PIXEL])
+            .collect();
+        esperado.sort();
+        let frames_divergentes: std::collections::BTreeSet<u32> =
+            alterados.iter().map(|(_, _, frame)| *frame).collect();
+        assert_eq!(
+            coordenadas,
+            esperado,
+            "{} pixels alterados em {} frames, mas as coordenadas agregadas não são as duas \
+             colocações do pixel ({LINHA_PIXEL},{COLUNA_PIXEL}) do tile {TILE} previstas ANTES \
+             de executar ({esperado:?}); {} dos pixels caem fora dos retângulos das células \
+             {CELULAS:?}",
+            alterados.len(),
+            frames_divergentes.len(),
+            fora.len(),
+        );
+        let mut no_cp129: Vec<[u32; 2]> = alterados
+            .iter()
+            .filter(|(_, _, frame)| *frame == 129)
+            .map(|(x, y, _)| [*x, *y])
+            .collect();
+        no_cp129.sort();
+        assert_eq!(
+            no_cp129, esperado,
+            "no checkpoint 129 a edição da barra mudou {no_cp129:?}, não as duas colocações \
+             previstas"
+        );
+
+        // ---- artefatos.
+        let primeiro_frame = alterados
+            .iter()
+            .map(|(_, _, frame)| *frame)
+            .min()
+            .expect("frame divergente");
+        let escreve_ppm = |nome: String, quadro: &Vec<u8>| {
+            write_rgba_ppm(&artifact_root.join(nome), largura, altura, quadro)
+        };
+        for frame in [primeiro_frame, 129] {
+            escreve_ppm(
+                format!("aplib-barra-edit-{frame:03}-original.ppm"),
+                &base_a[frame as usize],
+            );
+            escreve_ppm(
+                format!("aplib-barra-edit-{frame:03}-modificada.ppm"),
+                &modificada[frame as usize],
+            );
+        }
+        let mut por_frame: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
+        for (_, _, frame) in &alterados {
+            let chave = frame.to_string();
+            let atual = por_frame
+                .get(&chave)
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(0);
+            por_frame.insert(chave, serde_json::Value::from(atual + 1));
+        }
+        let report_path = artifact_root.join("aplib-barra-edit-report.json");
+        rex_write_json(
+            &report_path,
+            &serde_json::json!({
+                "rom_original": { "path": rom_path, "sha256": rom_sha },
+                "rom_modificada": { "path": modificada_path, "sha256": modificada_sha,
+                                    "origem": "apply_resource_edit com os campos que a barra enviou" },
+                "patch_bps_sha256": edicao.patch_bps_sha256,
+                "recurso": { "stream_offset": format!("{STREAM:#x}"), "codec": "aplib",
+                             "slot_bytes": SLOT, "escritos_bytes": edicao.stream_written,
+                             "tile": TILE, "pixel_do_tile": [LINHA_PIXEL, COLUNA_PIXEL],
+                             "indice_novo": INDICE },
+                "core": { "label": core_label, "sha256": core_sha },
+                "input_script_sha256": sha256_hex(&fs::read(&script_path).expect("ler script")),
+                "frames": script.frames.len(),
+                "framebuffer": { "largura": largura, "altura": altura },
+                "determinismo_base_a_vs_base_b": ruido.len(),
+                "pixels_alterados_total": alterados.len(),
+                "pixels_no_checkpoint_129": no_cp129,
+                "coordenadas_distintas": coordenadas,
+                "esperado_pelas_predicoes_acima": esperado,
+                "frames_divergentes": por_frame,
+                "primeiro_frame_divergente": primeiro_frame,
+                "anunciado_pela_barra": { "copia_sha256": SHA_COPIA_DA_BARRA,
+                                          "preservados": PRESERVADOS_DA_BARRA,
+                                          "custo_medido_pela_varredura": SLOT },
+                "limites": "Prova o efeito em tela do artefato que a BARRA escreveu, executado \
+                            pelo desempacotador do próprio jogo sob o core do harness da lib. Não \
+                            prova o app distribuído, nem o resto dos recursos aPLib, nem hardware \
+                            real. O índice 0 das pernas 1 e 3, que a interface não sabia \
+                            expressar quando este teste foi escrito, passou a ser expressável \
+                            (regressão na sonda 5b do cenário `rex-aplib-byor-effect`): a barra \
+                            escreve lá, de um dígito, a cópia 69389ec2… que a perna 3 já tinha \
+                            executado no core — o efeito em tela daquele artefato está provado \
+                            por identidade de bytes, não por uma corrida nova desta edição pela \
+                            barra."
+            }),
+        );
+
+        let run_id = format!("rex06-hamoopig-aplib-barra-edit-{}", now_unix());
+        record_scenario_run(
+            &decomp_work_dir(),
+            ScenarioRunRecord {
+                run_id: run_id.clone(),
+                scenario_id: "rex06-hamoopig-aplib-barra-edit-180f-v1".to_string(),
+                kind: "equivalence".to_string(),
+                reference_sha256: rom_sha.clone(),
+                candidate_sha256: Some(modificada_sha.clone()),
+                input_script_sha256: Some(sha256_hex(&fs::read(&script_path).expect("ler script"))),
+                core_label,
+                core_sha256: core_sha,
+                frames: script.frames.len() as u32,
+                verdict: SCENARIO_VERDICT_PASSED.to_string(),
+                oracle_results: serde_json::json!({
+                    "pixels_alterados": alterados.len(),
+                    "coordenadas_distintas": coordenadas,
+                    "frames_divergentes": por_frame,
+                    "determinismo_original_vs_original": ruido.len(),
+                    "fora_das_celulas": fora.len(),
+                    "copia_identica_a_da_barra": modificada_sha == SHA_COPIA_DA_BARRA,
+                }),
+                gaps: vec!["o core aqui é o do harness da lib, não o app distribuído".to_string()],
+                artifacts: vec![
+                    artifact_ref("input-script", &script_path).expect("artifact script"),
+                    artifact_ref("aplib-barra-edit-report", &report_path).expect("artifact report"),
+                    artifact_ref("modified-rom", &modificada_path).expect("artifact copia"),
+                ],
+                executed_at_unix: now_unix(),
+                previous_run_id: None,
+                notes: "Passo 5 perna 4: a copia que a barra escreveu (hash conferido antes de \
+                     rodar) e desempacotada pelo proprio jogo sob o core, e a unica mudanca de \
+                     tela que produz e o pixel editado nas duas colocacoes do tile."
+                    .to_string(),
+            },
+        )
+        .unwrap_or_else(|error| panic!("{test_name}: registrar run no ledger: {error}"));
+        eprintln!(
+            "REX HAMOOPIG aPLib edit da barra: {} pixels alterados em {} frames, primeiro frame \
+             {primeiro_frame}, coordenadas {coordenadas:?} | original {rom_sha} -> modificada \
+             {modificada_sha} | run {run_id} (corpus {})",
+            alterados.len(),
+            por_frame.len(),
+            corpus_identity(&rom_sha),
+        );
+    }
+
+    /// REX-00 negativo: a prévia regenerada do Taiketsu (import + build real,
+    /// cópia em tmp — o doador nunca é compilado no lugar) tem imagem não preta
+    /// e heartbeat, e AINDA ASSIM deve ser REJEITADA pelos oráculos contra a
+    /// referência. É a reprodução da perda aceita em GUARD-SGDK-EQUIVALENCE-01.
+    #[ignore]
+    #[test]
+    fn rex00_taiketsu_preview_rejected_by_equivalence_oracles() {
+        use crate::core::parity_harness::run_parity_capture;
+        use crate::emulator::libretro_ffi::EmulatorCore;
+        use crate::tools::reverse::decomp::rom_library::{
+            corpus_identity, decomp_work_dir, now_unix, record_scenario_run, ScenarioRunRecord,
+            SCENARIO_VERDICT_REJECTED,
+        };
+        use crate::tools::reverse::equivalence::{
+            artifact_ref, evaluate_identical_equivalence, VERDICT_REJECTED,
+        };
+
+        let test_name = "rex00_taiketsu_preview_rejected_by_equivalence_oracles";
+        let Some((reference_path, reference_sha)) = rex_reference_rom(
+            "RDS_REX_TAIKETSU_ROM",
+            "/home/misael/RetroDevStudio/investigation-sgdk-equivalence-2026-09-10/taiketsu/reference.bin",
+            "3967996af4efe197284dd80e48a3b457aa381f8e0ba098851b5dbb59fc42bc7c",
+            test_name,
+        ) else {
+            return;
+        };
+
+        // Regenera a prévia pelo fluxo existente da matriz (import + build SGDK
+        // real em projeto temporário; doador apenas lido).
+        let donor = sgdk_matrix_corpus_donor_path("TaiketsuUltraHeroGenesis/src");
+        let Some(preview_rom) = run_sgdk_matrix_corpus_partial_flow_documents_build_blocker(
+            "rex00_taiketsu_preview_rejected_by_equivalence_oracles",
+            &donor,
+            "rex-taiketsu-preview",
+            "REX Taiketsu Preview",
+            "REX_TUH",
+        ) else {
+            return; // skip autorizado (doador ausente + RDS_SGDK_MATRIX_CORPUS_SKIP=1)
+        };
+        let preview_bytes = fs::read(&preview_rom).expect("read preview rom");
+        let preview_sha = crate::tools::reverse::decomp::rom_library::sha256_hex(&preview_bytes);
+        assert_ne!(
+            preview_sha, reference_sha,
+            "prévia regenerada não pode ser idêntica à referência para este negativo"
+        );
+
+        let artifact_root = validation_artifact_dir("rex-taiketsu-negative");
+        let _ = fs::remove_dir_all(&artifact_root);
+        fs::create_dir_all(&artifact_root).expect("create rex negative artifact dir");
+
+        let script = rex_input_script_180f("rex00-taiketsu-negative-180f");
+        let script_path = artifact_root.join("input-script.rds-input.json");
+        rex_write_json(
+            &script_path,
+            &serde_json::to_value(&script).expect("serialize input script"),
+        );
+
+        let mut core = EmulatorCore::new(None);
+        core.load_rom(&reference_path)
+            .unwrap_or_else(|error| panic!("{test_name}: carregar referência: {error}"));
+        let initial_reference = core
+            .capture_runtime_state_bytes()
+            .expect("estado inicial ref");
+        let core_label = core.loaded_core_label().unwrap_or("unknown").to_string();
+        let core_sha = core
+            .loaded_core_file()
+            .and_then(|path| fs::read(path).ok())
+            .map(|bytes| crate::tools::reverse::decomp::rom_library::sha256_hex(&bytes));
+        let report_reference = run_parity_capture(
+            &mut core,
+            &reference_path,
+            &reference_sha,
+            &initial_reference,
+            &script.frames,
+        )
+        .unwrap_or_else(|error| panic!("{test_name}: captura referência: {error}"));
+        core.stop().expect("parar core da referência");
+
+        let mut core_candidate = EmulatorCore::new(None);
+        core_candidate
+            .load_rom(&preview_rom)
+            .unwrap_or_else(|error| panic!("{test_name}: carregar prévia: {error}"));
+        let initial_candidate = core_candidate
+            .capture_runtime_state_bytes()
+            .expect("estado inicial prévia");
+        let report_candidate = run_parity_capture(
+            &mut core_candidate,
+            &preview_rom,
+            &preview_sha,
+            &initial_candidate,
+            &script.frames,
+        )
+        .unwrap_or_else(|error| panic!("{test_name}: captura prévia: {error}"));
+        core_candidate.stop().expect("parar core da prévia");
+
+        let equivalence = evaluate_identical_equivalence(&report_reference, &report_candidate);
+        assert_eq!(
+            equivalence.verdict, VERDICT_REJECTED,
+            "prévia regenerada DEVE ser rejeitada pelos oráculos: {:?}",
+            equivalence.oracles
+        );
+        let behavior = equivalence
+            .oracles
+            .iter()
+            .find(|oracle| oracle.name == "behavior_frames")
+            .expect("behavior oracle");
+        assert_eq!(
+            behavior.status,
+            crate::tools::reverse::equivalence::ORACLE_STATUS_FAIL,
+            "comportamento deve divergir frame a frame"
+        );
+        // A superfície "viva" é o ponto do negativo: não-preto + heartbeat
+        // presentes e ainda assim rejeitada.
+        assert!(
+            equivalence.surface_evidence.candidate_max_non_black_pixels > 0,
+            "prévia precisa de framebuffer não preto para o negativo ter valor"
+        );
+        assert!(
+            equivalence.surface_evidence.candidate_distinct_framebuffers > 1,
+            "prévia precisa de heartbeat (frames evoluindo) para o negativo ter valor"
+        );
+        eprintln!(
+            "REX TAIKETSU negative: verdict={} behavior='{}' surface(non_black={}, distinct_frames={})",
+            equivalence.verdict,
+            behavior.detail,
+            equivalence.surface_evidence.candidate_max_non_black_pixels,
+            equivalence.surface_evidence.candidate_distinct_framebuffers
+        );
+
+        let report_reference_path = artifact_root.join("capture-reference.json");
+        rex_write_json(
+            &report_reference_path,
+            &serde_json::to_value(&report_reference).expect("serialize ref"),
+        );
+        let report_candidate_path = artifact_root.join("capture-preview.json");
+        rex_write_json(
+            &report_candidate_path,
+            &serde_json::to_value(&report_candidate).expect("serialize cand"),
+        );
+        let equivalence_path = artifact_root.join("equivalence-report.json");
+        rex_write_json(
+            &equivalence_path,
+            &serde_json::to_value(&equivalence).expect("serialize equivalence"),
+        );
+
+        rex_register_reference_corpus(
+            &reference_sha,
+            reference_path.metadata().expect("ref metadata").len(),
+            "TAIKETSU ULTRA HERO GENESIS [VER.001] [SGDK 211] referencia complementar",
+            &reference_path,
+            "Referencia complementar escolhida pelo operador (GUARD-SGDK-EQUIVALENCE-01)",
+        );
+
+        let run_id = format!("rex00-taiketsu-negative-{}", now_unix());
+        record_scenario_run(
+            &decomp_work_dir(),
+            ScenarioRunRecord {
+                run_id: run_id.clone(),
+                scenario_id: "rex00-taiketsu-preview-negative-180f-input-v1".to_string(),
+                kind: "negative".to_string(),
+                reference_sha256: reference_sha.clone(),
+                candidate_sha256: Some(preview_sha.clone()),
+                input_script_sha256: Some(crate::tools::reverse::decomp::rom_library::sha256_hex(
+                    &fs::read(&script_path).expect("read script"),
+                )),
+                core_label,
+                core_sha256: core_sha,
+                frames: report_reference.frames_run,
+                verdict: SCENARIO_VERDICT_REJECTED.to_string(),
+                oracle_results: serde_json::to_value(&equivalence).expect("oracles"),
+                gaps: equivalence.gaps.clone(),
+                artifacts: vec![
+                    artifact_ref("input-script", &script_path).expect("artifact script"),
+                    artifact_ref("capture-reference", &report_reference_path)
+                        .expect("artifact ref"),
+                    artifact_ref("capture-preview", &report_candidate_path).expect("artifact cand"),
+                    artifact_ref("equivalence-report", &equivalence_path)
+                        .expect("artifact equivalence"),
+                ],
+                executed_at_unix: now_unix(),
+                previous_run_id: None,
+                notes: format!(
+                    "Reproducao da perda da previa importada (GUARD-SGDK-EQUIVALENCE-01): \
+                     previa com non_black={} e heartbeat={} rejeitada pelos oraculos \
+                     independentes; previa sha256 {preview_sha}; corrida anterior: \
+                     target-test/validation/sgdk-taiketsu-real (heartbeat insuficiente).",
+                    equivalence.surface_evidence.candidate_max_non_black_pixels,
+                    equivalence.surface_evidence.candidate_distinct_framebuffers
+                ),
+            },
+        )
+        .unwrap_or_else(|error| panic!("{test_name}: registrar run no ledger: {error}"));
+        eprintln!(
+            "REX TAIKETSU ledger run: {run_id} (ref {}, previa {})",
+            corpus_identity(&reference_sha),
+            corpus_identity(&preview_sha)
+        );
+    }
+
+    /// REX-02: identificação Mega Drive por conteúdo nas referências reais,
+    /// independência de extensão e round-trip SMD reversível sobre bytes
+    /// reais. Os arquivos originais nunca são modificados (cópias em tmp).
+    #[ignore]
+    #[test]
+    fn rex02_md_references_identified_by_content_with_reversible_normalization() {
+        use crate::tools::reverse::decomp::rom_library::{
+            now_unix, record_scenario_run, ScenarioRunRecord, SCENARIO_VERDICT_PASSED,
+        };
+        use crate::tools::reverse::loader::{rex_identify_bytes, rex_identify_rom};
+
+        let test_name = "rex02_md_references_identified_by_content_with_reversible_normalization";
+        let artifact_root = validation_artifact_dir("rex-md-identification");
+        let _ = fs::remove_dir_all(&artifact_root);
+        fs::create_dir_all(&artifact_root).expect("create rex02 artifact dir");
+
+        let references = [
+            (
+                "hamoopig",
+                "RDS_REX_HAMOOPIG_ROM",
+                "/home/misael/RetroDevStudio/investigation-sgdk-equivalence-2026-09-10/hamoopig/reference.bin",
+                "558bea6c80c76ec3da23afd584d4b56ece7722847ab1efc8c2f23f43f8529be9",
+            ),
+            (
+                "taiketsu",
+                "RDS_REX_TAIKETSU_ROM",
+                "/home/misael/RetroDevStudio/investigation-sgdk-equivalence-2026-09-10/taiketsu/reference.bin",
+                "3967996af4efe197284dd80e48a3b457aa381f8e0ba098851b5dbb59fc42bc7c",
+            ),
+        ];
+
+        let mut summary = serde_json::Map::new();
+        for (label, env_key, default_path, expected_sha) in references {
+            let Some((rom_path, rom_sha)) =
+                rex_reference_rom(env_key, default_path, expected_sha, test_name)
+            else {
+                return; // skip explicitamente registrado por rex_reference_rom
+            };
+            rex_register_reference_corpus(
+                &rom_sha,
+                rom_path.metadata().expect("rom metadata").len(),
+                &format!("{label} referencia padrao/complementar"),
+                &rom_path,
+                "Identificacao por conteudo (REX-02); origem preservada",
+            );
+
+            // 1) identificação por conteúdo do arquivo real.
+            let identity = rex_identify_rom(&rom_path)
+                .unwrap_or_else(|error| panic!("{test_name}: identificar {label}: {error}"));
+            assert_eq!(identity.variant, "raw", "{label}: dump esperado raw");
+            assert!(identity.normalization.is_empty());
+            assert_eq!(identity.normalized_sha256, rom_sha);
+            assert!(identity.header_console.contains("SEGA"));
+            eprintln!(
+                "REX02 {label}: console='{}' title='{}' region={:?} version={:?} bytes={}",
+                identity.header_console,
+                identity.header_title,
+                identity.region,
+                identity.version,
+                identity.normalized_size
+            );
+
+            // 2) independência de extensão: cópias com extensões erradas em tmp
+            //    identificam idêntico por conteúdo.
+            let rom_bytes = fs::read(&rom_path).expect("read rom");
+            for wrong_ext in ["smd", "gen", "tmp"] {
+                let wrong = std::env::temp_dir().join(format!(
+                    "rex02-{label}-{}.{}",
+                    now_unix(),
+                    wrong_ext
+                ));
+                fs::write(&wrong, &rom_bytes).expect("write ext probe");
+                let probe = rex_identify_rom(&wrong)
+                    .unwrap_or_else(|error| panic!("{test_name}: extensão .{wrong_ext}: {error}"));
+                fs::remove_file(&wrong).ok();
+                assert_eq!(probe.variant, "raw");
+                assert_eq!(probe.normalized_sha256, rom_sha);
+                assert_eq!(probe.original_sha256, rom_sha);
+            }
+
+            // 3) round-trip SMD sobre bytes reais com construção
+            //    INDEPENDENTE do formato padrão 16 KiB (não usa o encoder do
+            //    produto): primeira metade do frame = bytes ímpares, segunda
+            //    = pares, com header de 512 bytes (REX-REV-01).
+            let mut interleaved = vec![0u8; 512];
+            for block in rom_bytes.chunks_exact(0x4000) {
+                interleaved.extend(block.iter().skip(1).step_by(2));
+                interleaved.extend(block.iter().step_by(2));
+            }
+            let encoded_path = artifact_root.join(format!("{label}-interleaved.smd"));
+            fs::write(&encoded_path, &interleaved).expect("write interleaved probe");
+            let smd_identity = rex_identify_bytes(&interleaved)
+                .unwrap_or_else(|error| panic!("{test_name}: smd probe {label}: {error}"));
+            assert_eq!(smd_identity.variant, "smd_interleaved_512");
+            assert_eq!(
+                smd_identity.normalized_sha256, rom_sha,
+                "normalização do .smd sintético devolve a ROM de referência"
+            );
+            let restored =
+                crate::tools::reverse::loader::rex_undo_normalization(&smd_identity, &rom_bytes)
+                    .unwrap_or_else(|error| panic!("{test_name}: undo {label}: {error}"));
+            assert_eq!(restored, interleaved, "undo byte-exato sobre bytes reais");
+            fs::remove_file(&encoded_path).ok();
+
+            rex_write_json(
+                &artifact_root.join(format!("{label}-identity.json")),
+                &serde_json::json!({
+                    "original_sha256": identity.original_sha256,
+                    "variant": identity.variant,
+                    "normalized_sha256": identity.normalized_sha256,
+                    "normalization_steps": identity.normalization,
+                    "header_console": identity.header_console,
+                    "header_title": identity.header_title,
+                    "region": identity.region,
+                    "version": identity.version,
+                    "smd_round_trip": {
+                        "encoded_variant": smd_identity.variant,
+                        "normalized_matches_reference": true,
+                        "undo_byte_exact": true
+                    }
+                }),
+            );
+            summary.insert(
+                label.to_string(),
+                serde_json::json!({
+                    "variant": identity.variant,
+                    "normalized_sha256": identity.normalized_sha256
+                }),
+            );
+        }
+
+        rex_write_json(
+            &artifact_root.join("rex02-identification-summary.json"),
+            &serde_json::Value::Object(summary),
+        );
+
+        record_scenario_run(
+            &crate::tools::reverse::decomp::rom_library::decomp_work_dir(),
+            ScenarioRunRecord {
+                run_id: format!("rex02-identification-{}", now_unix()),
+                scenario_id: "rex02-md-identification-v1".to_string(),
+                kind: "identification".to_string(),
+                reference_sha256:
+                    "558bea6c80c76ec3da23afd584d4b56ece7722847ab1efc8c2f23f43f8529be9".to_string(),
+                candidate_sha256: Some(
+                    "3967996af4efe197284dd80e48a3b457aa381f8e0ba098851b5dbb59fc42bc7c".to_string(),
+                ),
+                input_script_sha256: None,
+                core_label: String::new(),
+                core_sha256: None,
+                frames: 0,
+                verdict: SCENARIO_VERDICT_PASSED.to_string(),
+                oracle_results: serde_json::json!({
+                    "content_identification": "pass",
+                    "extension_independence": "pass",
+                    "smd_round_trip_on_real_bytes": "pass",
+                    "containers_zip_7z": "unsupported nesta fatia (erro explicito)"
+                }),
+                gaps: vec![
+                    "contêineres zip/7z/gzip não suportados sem dependência aprovada".to_string(),
+                    "regiões SRAM/EEPROM e variantes de mapeamento não inventariadas".to_string(),
+                ],
+                artifacts: vec![crate::tools::reverse::equivalence::artifact_ref(
+                    "identification-summary",
+                    &artifact_root.join("rex02-identification-summary.json"),
+                )
+                .expect("artifact summary")],
+                executed_at_unix: now_unix(),
+                previous_run_id: None,
+                notes: "REX-02: identificacao por conteudo nas duas referencias + round-trip \
+                        SMD reversivel em bytes reais. Nao cobre extracao, edicao, patch nem \
+                        hardware real."
+                    .to_string(),
+            },
+        )
+        .unwrap_or_else(|error| panic!("{test_name}: registrar run no ledger: {error}"));
+    }
+
     #[derive(Debug, serde::Serialize, Clone)]
     struct SgdkCorpusRealBuildEntry {
         project_name: String,
@@ -23813,6 +29019,108 @@ void player_tick(void) {\n    u16 joy = JOY_readJoypad(JOY_1);\n    (void)joy;\n
         rgba.chunks_exact(4)
             .filter(|px| px[0] != 0 || px[1] != 0 || px[2] != 0)
             .count()
+    }
+
+    /// A visible exception screen is not execution evidence. Read generated counters
+    /// from actual emulated RAM and require forward progress without residency errors.
+    fn corpus_libretro_residency_smoke(
+        rom_path: &Path,
+        artifact_root: &Path,
+    ) -> Result<(usize, String, u32, u32, u32, Vec<u8>), String> {
+        use crate::emulator::frame_buffer::framebuffer_to_rgba;
+        use crate::emulator::libretro_ffi::{EmulatorCore, JoypadState};
+        let symbols = fs::read_to_string(rom_path.with_extension("symbols.txt"))
+            .map_err(|e| e.to_string())?;
+        let offset = |name: &str| -> Result<usize, String> {
+            for line in symbols.lines() {
+                let fields: Vec<_> = line.split_whitespace().collect();
+                if fields.last() == Some(&name) {
+                    let address =
+                        usize::from_str_radix(fields[0], 16).map_err(|e| e.to_string())?;
+                    if address & 0xff0000 != 0xff0000 {
+                        return Err(format!("{name} is not in Genesis work RAM"));
+                    }
+                    return Ok(address & 0xffff);
+                }
+            }
+            Err(format!("missing runtime symbol {name}"))
+        };
+        let heartbeat = offset("rds_residency_ticks")?;
+        let error = offset("rds_residency_error")?;
+        let mut emulator = EmulatorCore::new(None);
+        emulator.load_rom(rom_path)?;
+        for _ in 0..90 {
+            emulator.run_frame()?;
+        }
+        let before = emulator.read_memory(2, heartbeat, 2)?.0;
+        emulator.set_joypad(JoypadState {
+            right: true,
+            ..JoypadState::default()
+        })?;
+        for _ in 0..60 {
+            emulator.run_frame()?;
+        }
+        let after = emulator.read_memory(2, heartbeat, 2)?.0;
+        let residency_error = emulator.read_memory(2, error, 2)?.0;
+        let (buffer, size, format) = emulator.get_framebuffer()?;
+        let frame = framebuffer_to_rgba(&buffer, size, format);
+        write_rgba_ppm(
+            &artifact_root.join("taiketsu-frame.ppm"),
+            frame.width,
+            frame.height,
+            &frame.rgba,
+        );
+        fs::write(
+            artifact_root.join("runtime-execution.json"),
+            serde_json::to_vec_pretty(&serde_json::json!({
+                "frames": 150, "heartbeat_before": before, "heartbeat_after": after,
+                "residency_error": residency_error, "right_input_frames": 60,
+                "scope": "generated imported resource preview, not original game equivalence"
+            }))
+            .map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        let core = emulator
+            .loaded_core_label()
+            .unwrap_or("unknown")
+            .to_string();
+        emulator.stop()?;
+        validate_residency_progress(&before, &after, &residency_error)?;
+        Ok((
+            count_non_black_rgba_pixels(&frame.rgba),
+            core,
+            150,
+            frame.width,
+            frame.height,
+            frame.rgba,
+        ))
+    }
+
+    fn validate_residency_progress(
+        before: &[u8],
+        after: &[u8],
+        error: &[u8],
+    ) -> Result<(), String> {
+        if before.len() != 2 || after.len() != 2 || before == [0, 0] || before == after {
+            return Err(format!(
+                "game loop did not advance: {before:?} -> {after:?}"
+            ));
+        }
+        if error != [0, 0] {
+            return Err(format!("sprite residency failed: {error:?}"));
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn runtime_evidence_rejects_frozen_exception_and_allocation_failure() {
+        // A visible exception screen can leave either a zero or an old nonzero
+        // heartbeat. Neither establishes progress, regardless of pixel count.
+        assert!(validate_residency_progress(&[0, 0], &[0, 0], &[0, 0]).is_err());
+        assert!(validate_residency_progress(&[52, 0], &[52, 0], &[0, 0]).is_err());
+        assert!(validate_residency_progress(&[52, 0], &[112, 0], &[1, 0]).is_err());
+        assert!(validate_residency_progress(&[], &[112, 0], &[0, 0]).is_err());
+        assert!(validate_residency_progress(&[52, 0], &[112, 0], &[0, 0]).is_ok());
     }
 
     fn corpus_libretro_visible_smoke(
@@ -24400,5 +29708,122 @@ void player_tick(void) {\n    u16 joy = JOY_readJoypad(JOY_1);\n    (void)joy;\n
         std::env::set_var("RDS_SGDK_REAL_CORPUS_FILTER", "procedural animation");
         std::env::set_var("RDS_SGDK_REAL_CORPUS_RESUME", "1");
         execute_sgdk_corpus_real_build_rom_emulation_report();
+    }
+
+    #[test]
+    fn save_scene_e_reabertura_preservam_a_regra_recuperada_sem_descartar_nada() {
+        let project_dir = temp_dir("scene-recovered-rule");
+        create_project_skeleton(&project_dir, "Regra Recuperada", "megadrive")
+            .expect("create project skeleton");
+
+        let graph_json = r#"{"version":1,"rex_gameplay":{"profile_id":"m68k.counter_threshold_state_gate.v1","rom_sha256":"4149f7b2eb0c5975f97f59be6b44766decc286930d57bba673414205b753589e","entry":"0x000946","exits":["0x000970"],"blocks":[{"rom_start":"0x000946","rom_end":"0x000970"}]},"nodes":[{"id":"entry","type":"rom_region_entry"},{"id":"compare","type":"rom_counter_compare","params":{"operator":">=","threshold":4,"recovered_threshold":6,"threshold_min":-127,"threshold_max":128,"source_mappings":[{"rom_start":"0x00095A","rom_end":"0x000960","bytes":"2039E0FF0054","mnemonic":"MOVE.L $E0FF0054.L,D0"}]}},{"id":"exit_000970","type":"rom_region_exit"}],"edges":[{"id":"e1","fromNode":"entry","fromPort":"exec","toNode":"compare","toPort":"exec"},{"id":"e2","fromNode":"compare","fromPort":"true","toNode":"exit_000970","toPort":"exec"}]}"#;
+
+        let scene_json = serde_json::json!({
+            "scene_id": DEFAULT_SCENE_ID,
+            "schema_version": CURRENT_SCHEMA_VERSION,
+            "display_name": "Main Scene",
+            "background_layers": [],
+            "palettes": [],
+            "entities": [{
+                "entity_id": "player",
+                "transform": { "x": 0, "y": 0 },
+                "components": {
+                    "logic": {
+                        "recovered_rule": {
+                            "version": 1,
+                            "profile_id": "m68k.counter_threshold_state_gate.v1",
+                            "rom_path": "/roms/goal_original_t6.bin",
+                            "rom_sha256": "4149f7b2eb0c5975f97f59be6b44766decc286930d57bba673414205b753589e",
+                            "entry": 2374u32,
+                            "exits": [2416u32],
+                            "blocks": [[2374u32, 2416u32], [3246u32, 3276u32]],
+                            "operator": ">=",
+                            "threshold_recovered": 6i64,
+                            "threshold_current": 4i64,
+                            "threshold_min": -127i64,
+                            "threshold_max": 128i64,
+                            "graph_json": graph_json,
+                            "limitations": [
+                                "a regiao e delimitada a partir de entrada/saidas declaradas pelo chamador"
+                            ]
+                        }
+                    }
+                }
+            }]
+        });
+        let scene_path = project_dir.join(DEFAULT_ENTRY_SCENE);
+        fs::write(&scene_path, scene_json.to_string()).expect("write scene");
+
+        let loaded = load_scene(&project_dir, DEFAULT_ENTRY_SCENE).expect("load scene");
+        let rule = loaded
+            .entities
+            .iter()
+            .find(|entity| entity.entity_id == "player")
+            .and_then(|entity| entity.components.logic.as_ref())
+            .and_then(|logic| logic.recovered_rule.clone())
+            .expect("a escena debe conservar components.logic.recovered_rule");
+
+        assert_eq!(rule.version, 1);
+        assert_eq!(rule.rom_path, "/roms/goal_original_t6.bin");
+        assert_eq!(rule.rom_sha256.len(), 64);
+        assert_eq!(rule.entry, 0x946);
+        assert_eq!(rule.exits, vec![0x970u32]);
+        assert_eq!(
+            rule.blocks,
+            vec![(0x946u32, 0x970u32), (0xCAEu32, 0xCCCu32)]
+        );
+        assert_eq!(rule.operator, ">=");
+        assert_eq!(rule.threshold_recovered, 6);
+        assert_eq!(rule.threshold_current, 4);
+        assert_eq!((rule.threshold_min, rule.threshold_max), (-127, 128));
+        // O grafo volve tal cal: ningún, ningunha aresta e ningún mapeamento
+        // (cos bytes) se perde no gardar/reabrir.
+        assert_eq!(rule.graph_json, graph_json);
+        assert_eq!(rule.limitations.len(), 1);
+
+        save_scene(&project_dir, DEFAULT_ENTRY_SCENE, &loaded).expect("save scene");
+        let en_disco = fs::read_to_string(&scene_path).expect("read scene do disco");
+        assert!(
+            en_disco.contains("\"recovered_rule\""),
+            "o gardado escribiu a escena sen recovered_rule"
+        );
+        // A comparación é sobre o JSON do disco, non sobre o objeto en memoria:
+        // así se ve que nós, arestas e bytes de orixe se escriben tal cal.
+        let valor: serde_json::Value =
+            serde_json::from_str(&en_disco).expect("scene do disco como JSON");
+        let gardada = &valor["entities"][0]["components"]["logic"]["recovered_rule"];
+        assert_eq!(gardada["graph_json"].as_str(), Some(graph_json));
+        assert_eq!(gardada["threshold_current"].as_i64(), Some(4));
+        assert_eq!(gardada["threshold_recovered"].as_i64(), Some(6));
+        assert_eq!(gardada["blocks"].as_array().map(Vec::len), Some(2));
+
+        let reopened = load_scene(&project_dir, DEFAULT_ENTRY_SCENE).expect("reopen scene");
+        assert_eq!(reopened, loaded);
+
+        // Compatibilidade: unha escena sen o bloque segue válida e non o inventa.
+        let sen_regra = serde_json::json!({
+            "scene_id": DEFAULT_SCENE_ID,
+            "schema_version": CURRENT_SCHEMA_VERSION,
+            "display_name": "Main Scene",
+            "background_layers": [],
+            "palettes": [],
+            "entities": [{
+                "entity_id": "player",
+                "transform": { "x": 0, "y": 0 },
+                "components": { "logic": { "graph": "{\"version\":1,\"nodes\":[],\"edges\":[]}" } }
+            }]
+        });
+        fs::write(&scene_path, sen_regra.to_string()).expect("write scene sen regra");
+        let cargada = load_scene(&project_dir, DEFAULT_ENTRY_SCENE).expect("load scene sen regra");
+        let logic = cargada
+            .entities
+            .iter()
+            .find(|entity| entity.entity_id == "player")
+            .and_then(|entity| entity.components.logic.as_ref())
+            .expect("logic component");
+        assert!(logic.graph.is_some());
+        assert!(logic.recovered_rule.is_none());
+
+        let _ = fs::remove_dir_all(project_dir);
     }
 }

@@ -1,0 +1,521 @@
+{
+ "schema_version": "rex-parallel-b/isa-forms/1",
+ "gerado_por": "scripts/rex_profiles/parallel_recovery_20261004/b/montar-isa.py",
+ "proposito": "fixa contra o toolchain m68k-elf cada codificacao pinada em contrato_sonic.SITIOS; nao le a ROM (os bytes ROM-vs-pin sao conferidos pelo CLI verificar-cadeia.py em modo verificado)",
+ "toolchain": {
+  "diretorio": "/home/misael/.cache/retrodevstudio/6b5d81135a1161447e4cbb49401f1137dd7d93974eee82d3153f5e87e7afd779/toolchains/m68k-elf/bin",
+  "as_sha256": "20342db5ac551cbb7a17a86f78ee5d58bb90ab2e3fc6f0231298f0f1ebc5af0d",
+  "as_versao": "GNU assembler (GNU Binutils) 2.41",
+  "objdump_sha256": "f7d636421bffcf2254cf2024794fbaefd25c9e36086f18ec250fa72cab6e8113",
+  "objdump_versao": "GNU objdump (GNU Binutils) 2.41",
+  "cpu": "m68000"
+ },
+ "notas": [
+  "dbf: alvo fixado por LABEL em bloco contiguo (o gas nao aceita endereco absoluto como alvo de dbf); a base do deslocamento na 68000 e a palavra de extensao (opcode+2) — os alvos remontados coincidem com os medidos.",
+  "movea.l (-122,PC,D0.w): o pinISA usa disp literal; o vinculo com a tabela e aritmetico: 0x1b6c6 - 122 = 0x1b64c == TABELA 0x1b64c.",
+  "0x1B71A: a instrucao move.b -4(a0),-1(a1) tem 6 bytes (1368 fffc ffff); o pino cobre ate 0x1B720 (proxima instrucao).",
+  "mnemonico_objdump e saida do DESMONTADOR do toolchain sobre os proprios bytes pinados — leitura independente da anotation humana."
+ ],
+ "sitios": [
+  {
+   "offset": "0x1b646",
+   "bytes_pinados": "4b4c4d4e",
+   "tipo": "dados",
+   "linhas_gas": [
+    ".ascii \"KLMN\""
+   ],
+   "mnemonico_objdump": "dado (nao e instrucao)",
+   "reassemblado": "4b4c4d4e",
+   "confere": true,
+   "bloco": "dados-1b646"
+  },
+  {
+   "offset": "0x1b64c",
+   "bytes_pinados": "00065432",
+   "tipo": "dados",
+   "linhas_gas": [
+    ".long 0x65432"
+   ],
+   "mnemonico_objdump": "dado (nao e instrucao)",
+   "reassemblado": "00065432",
+   "confere": true,
+   "bloco": "dados-1b64c"
+  },
+  {
+   "offset": "0x1b650",
+   "bytes_pinados": "000656ac",
+   "tipo": "dados",
+   "linhas_gas": [
+    ".long 0x656ac"
+   ],
+   "mnemonico_objdump": "dado (nao e instrucao)",
+   "reassemblado": "000656ac",
+   "confere": true,
+   "bloco": "dados-1b650"
+  },
+  {
+   "offset": "0x1b654",
+   "bytes_pinados": "00065abe",
+   "tipo": "dados",
+   "linhas_gas": [
+    ".long 0x65abe"
+   ],
+   "mnemonico_objdump": "dado (nao e instrucao)",
+   "reassemblado": "00065abe",
+   "confere": true,
+   "bloco": "dados-1b654"
+  },
+  {
+   "offset": "0x1b658",
+   "bytes_pinados": "00065e1a",
+   "tipo": "dados",
+   "linhas_gas": [
+    ".long 0x65e1a"
+   ],
+   "mnemonico_objdump": "dado (nao e instrucao)",
+   "reassemblado": "00065e1a",
+   "confere": true,
+   "bloco": "dados-1b658"
+  },
+  {
+   "offset": "0x1b65c",
+   "bytes_pinados": "000662f4",
+   "tipo": "dados",
+   "linhas_gas": [
+    ".long 0x662f4"
+   ],
+   "mnemonico_objdump": "dado (nao e instrucao)",
+   "reassemblado": "000662f4",
+   "confere": true,
+   "bloco": "dados-1b65c"
+  },
+  {
+   "offset": "0x1b660",
+   "bytes_pinados": "000667c6",
+   "tipo": "dados",
+   "linhas_gas": [
+    ".long 0x667c6"
+   ],
+   "mnemonico_objdump": "dado (nao e instrucao)",
+   "reassemblado": "000667c6",
+   "confere": true,
+   "bloco": "dados-1b660"
+  },
+  {
+   "offset": "0x1b6b6",
+   "bytes_pinados": "e548",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "lsl.w #2,%d0"
+   ],
+   "mnemonico_objdump": "lslw #2,%d0",
+   "reassemblado": "e548",
+   "confere": true,
+   "bloco": "lsl"
+  },
+  {
+   "offset": "0x1b6c4",
+   "bytes_pinados": "207b0086",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "movea.l (-122,%pc,%d0.w),%a0"
+   ],
+   "mnemonico_objdump": "moveal %pc@(0x1b64c,%d0:w),%a0",
+   "reassemblado": "207b0086",
+   "confere": true,
+   "bloco": "pc-indexado"
+  },
+  {
+   "offset": "0x1b6c8",
+   "bytes_pinados": "43f900ff4000",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "lea (0xff4000).l,%a1"
+   ],
+   "mnemonico_objdump": "lea 0xff4000,%a1",
+   "reassemblado": "43f900ff4000",
+   "confere": true,
+   "bloco": "lea-ff4000"
+  },
+  {
+   "offset": "0x1b6ce",
+   "bytes_pinados": "303c0000",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "move.w #0,%d0"
+   ],
+   "mnemonico_objdump": "movew #0,%d0",
+   "reassemblado": "303c0000",
+   "confere": true,
+   "bloco": "movew-0"
+  },
+  {
+   "offset": "0x1b6d2",
+   "bytes_pinados": "4eb90000171e",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "jsr (0x171e).l"
+   ],
+   "mnemonico_objdump": "jsr 0x171e",
+   "reassemblado": "4eb90000171e",
+   "confere": true,
+   "bloco": "jsr-enidec"
+  },
+  {
+   "offset": "0x1b6d8",
+   "bytes_pinados": "43f900ff0000",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "lea (0xff0000).l,%a1"
+   ],
+   "mnemonico_objdump": "lea 0xff0000,%a1",
+   "reassemblado": "43f900ff0000",
+   "confere": true,
+   "bloco": "lea-ff0000"
+  },
+  {
+   "offset": "0x1b6de",
+   "bytes_pinados": "303c0fff",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "move.w #0xfff,%d0"
+   ],
+   "mnemonico_objdump": "movew #4095,%d0",
+   "reassemblado": "303c0fff",
+   "confere": true,
+   "bloco": "movew-0fff"
+  },
+  {
+   "offset": "0x1b6e2",
+   "bytes_pinados": "4299",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "clr.l (%a1)+",
+    "dbf %d0,LB1"
+   ],
+   "mnemonico_objdump": "clrl %a1@+",
+   "reassemblado": "4299",
+   "confere": true,
+   "bloco": "bloco-limpar"
+  },
+  {
+   "offset": "0x1b6e4",
+   "bytes_pinados": "51c8fffc",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "clr.l (%a1)+",
+    "dbf %d0,LB1"
+   ],
+   "mnemonico_objdump": "dbf %d0,0x1b6e2",
+   "reassemblado": "51c8fffc",
+   "confere": true,
+   "bloco": "bloco-limpar"
+  },
+  {
+   "offset": "0x1b6e8",
+   "bytes_pinados": "43f900ff1020",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "lea (0xff1020).l,%a1"
+   ],
+   "mnemonico_objdump": "lea 0xff1020,%a1",
+   "reassemblado": "43f900ff1020",
+   "confere": true,
+   "bloco": "lea-ff1020"
+  },
+  {
+   "offset": "0x1b6ee",
+   "bytes_pinados": "41f900ff4000",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "lea (0xff4000).l,%a0"
+   ],
+   "mnemonico_objdump": "lea 0xff4000,%a0",
+   "reassemblado": "41f900ff4000",
+   "confere": true,
+   "bloco": "lea-ff4000-a0"
+  },
+  {
+   "offset": "0x1b6f4",
+   "bytes_pinados": "723f",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "moveq #63,%d1",
+    "moveq #63,%d2",
+    "move.b (%a0)+,(%a1)+",
+    "dbf %d2,LB",
+    "lea 64(%a1),%a1",
+    "dbf %d1,LA"
+   ],
+   "mnemonico_objdump": "moveq #63,%d1",
+   "reassemblado": "723f",
+   "confere": true,
+   "bloco": "bloco-copia-linhas"
+  },
+  {
+   "offset": "0x1b6f6",
+   "bytes_pinados": "743f",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "moveq #63,%d1",
+    "moveq #63,%d2",
+    "move.b (%a0)+,(%a1)+",
+    "dbf %d2,LB",
+    "lea 64(%a1),%a1",
+    "dbf %d1,LA"
+   ],
+   "mnemonico_objdump": "moveq #63,%d2",
+   "reassemblado": "743f",
+   "confere": true,
+   "bloco": "bloco-copia-linhas"
+  },
+  {
+   "offset": "0x1b6f8",
+   "bytes_pinados": "12d8",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "moveq #63,%d1",
+    "moveq #63,%d2",
+    "move.b (%a0)+,(%a1)+",
+    "dbf %d2,LB",
+    "lea 64(%a1),%a1",
+    "dbf %d1,LA"
+   ],
+   "mnemonico_objdump": "moveb %a0@+,%a1@+",
+   "reassemblado": "12d8",
+   "confere": true,
+   "bloco": "bloco-copia-linhas"
+  },
+  {
+   "offset": "0x1b6fa",
+   "bytes_pinados": "51cafffc",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "moveq #63,%d1",
+    "moveq #63,%d2",
+    "move.b (%a0)+,(%a1)+",
+    "dbf %d2,LB",
+    "lea 64(%a1),%a1",
+    "dbf %d1,LA"
+   ],
+   "mnemonico_objdump": "dbf %d2,0x1b6f8",
+   "reassemblado": "51cafffc",
+   "confere": true,
+   "bloco": "bloco-copia-linhas"
+  },
+  {
+   "offset": "0x1b6fe",
+   "bytes_pinados": "43e90040",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "moveq #63,%d1",
+    "moveq #63,%d2",
+    "move.b (%a0)+,(%a1)+",
+    "dbf %d2,LB",
+    "lea 64(%a1),%a1",
+    "dbf %d1,LA"
+   ],
+   "mnemonico_objdump": "lea %a1@(64),%a1",
+   "reassemblado": "43e90040",
+   "confere": true,
+   "bloco": "bloco-copia-linhas"
+  },
+  {
+   "offset": "0x1b702",
+   "bytes_pinados": "51c9fff2",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "moveq #63,%d1",
+    "moveq #63,%d2",
+    "move.b (%a0)+,(%a1)+",
+    "dbf %d2,LB",
+    "lea 64(%a1),%a1",
+    "dbf %d1,LA"
+   ],
+   "mnemonico_objdump": "dbf %d1,0x1b6f6",
+   "reassemblado": "51c9fff2",
+   "confere": true,
+   "bloco": "bloco-copia-linhas"
+  },
+  {
+   "offset": "0x1b706",
+   "bytes_pinados": "43f900ff4008",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "lea (0xff4008).l,%a1"
+   ],
+   "mnemonico_objdump": "lea 0xff4008,%a1",
+   "reassemblado": "43f900ff4008",
+   "confere": true,
+   "bloco": "lea-ff4008"
+  },
+  {
+   "offset": "0x1b70c",
+   "bytes_pinados": "41f90001b738",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "lea (0x1b738).l,%a0"
+   ],
+   "mnemonico_objdump": "lea 0x1b738,%a0",
+   "reassemblado": "41f90001b738",
+   "confere": true,
+   "bloco": "lea-ssmapindex"
+  },
+  {
+   "offset": "0x1b712",
+   "bytes_pinados": "724d",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "moveq #77,%d1"
+   ],
+   "mnemonico_objdump": "moveq #77,%d1",
+   "reassemblado": "724d",
+   "confere": true,
+   "bloco": "moveq-78"
+  },
+  {
+   "offset": "0x1b714",
+   "bytes_pinados": "22d8",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "move.l (%a0)+,(%a1)+",
+    "move.w #0,(%a1)+",
+    "move.b -4(%a0),-1(%a1)",
+    "move.w (%a0)+,(%a1)+",
+    "dbf %d1,LC"
+   ],
+   "mnemonico_objdump": "movel %a0@+,%a1@+",
+   "reassemblado": "22d8",
+   "confere": true,
+   "bloco": "bloco-expandir"
+  },
+  {
+   "offset": "0x1b716",
+   "bytes_pinados": "32fc0000",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "move.l (%a0)+,(%a1)+",
+    "move.w #0,(%a1)+",
+    "move.b -4(%a0),-1(%a1)",
+    "move.w (%a0)+,(%a1)+",
+    "dbf %d1,LC"
+   ],
+   "mnemonico_objdump": "movew #0,%a1@+",
+   "reassemblado": "32fc0000",
+   "confere": true,
+   "bloco": "bloco-expandir"
+  },
+  {
+   "offset": "0x1b71a",
+   "bytes_pinados": "1368fffcffff",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "move.l (%a0)+,(%a1)+",
+    "move.w #0,(%a1)+",
+    "move.b -4(%a0),-1(%a1)",
+    "move.w (%a0)+,(%a1)+",
+    "dbf %d1,LC"
+   ],
+   "mnemonico_objdump": "moveb %a0@(-4),%a1@(-1)",
+   "reassemblado": "1368fffcffff",
+   "confere": true,
+   "bloco": "bloco-expandir"
+  },
+  {
+   "offset": "0x1b720",
+   "bytes_pinados": "32d8",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "move.l (%a0)+,(%a1)+",
+    "move.w #0,(%a1)+",
+    "move.b -4(%a0),-1(%a1)",
+    "move.w (%a0)+,(%a1)+",
+    "dbf %d1,LC"
+   ],
+   "mnemonico_objdump": "movew %a0@+,%a1@+",
+   "reassemblado": "32d8",
+   "confere": true,
+   "bloco": "bloco-expandir"
+  },
+  {
+   "offset": "0x1b722",
+   "bytes_pinados": "51c9fff0",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "move.l (%a0)+,(%a1)+",
+    "move.w #0,(%a1)+",
+    "move.b -4(%a0),-1(%a1)",
+    "move.w (%a0)+,(%a1)+",
+    "dbf %d1,LC"
+   ],
+   "mnemonico_objdump": "dbf %d1,0x1b714",
+   "reassemblado": "51c9fff0",
+   "confere": true,
+   "bloco": "bloco-expandir"
+  },
+  {
+   "offset": "0x1b726",
+   "bytes_pinados": "43f900ff4400",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "lea (0xff4400).l,%a1"
+   ],
+   "mnemonico_objdump": "lea 0xff4400,%a1",
+   "reassemblado": "43f900ff4400",
+   "confere": true,
+   "bloco": "lea-ff4400"
+  },
+  {
+   "offset": "0x1b72c",
+   "bytes_pinados": "323c003f",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "move.w #63,%d1"
+   ],
+   "mnemonico_objdump": "movew #63,%d1",
+   "reassemblado": "323c003f",
+   "confere": true,
+   "bloco": "movew-3f"
+  },
+  {
+   "offset": "0x1b730",
+   "bytes_pinados": "4299",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "clr.l (%a1)+",
+    "dbf %d1,LD"
+   ],
+   "mnemonico_objdump": "clrl %a1@+",
+   "reassemblado": "4299",
+   "confere": true,
+   "bloco": "bloco-fila"
+  },
+  {
+   "offset": "0x1b732",
+   "bytes_pinados": "51c9fffc",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "clr.l (%a1)+",
+    "dbf %d1,LD"
+   ],
+   "mnemonico_objdump": "dbf %d1,0x1b730",
+   "reassemblado": "51c9fffc",
+   "confere": true,
+   "bloco": "bloco-fila"
+  },
+  {
+   "offset": "0x1b736",
+   "bytes_pinados": "4e75",
+   "tipo": "instrucao",
+   "linhas_gas": [
+    "rts"
+   ],
+   "mnemonico_objdump": "rts",
+   "reassemblado": "4e75",
+   "confere": true,
+   "bloco": "rts"
+  }
+ ],
+ "total": 37,
+ "veredito": "ISA-PIN-COMPLETO"
+}

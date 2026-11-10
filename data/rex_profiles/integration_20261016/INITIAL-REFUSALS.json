@@ -1,0 +1,16 @@
+{
+  "frontend_red": {
+    "command": "rtk proxy npx vitest run src/components/nodegraph/ProfileGraphBridgePanel.test.tsx -t 'compara\u00e7\u00e3o curada'",
+    "exit_code": 1,
+    "observed": "response request_id=outra-sessao appeared as current result with matching ROM/profile/region",
+    "corrected_layer": "ProfileGraphBridgePanel checks echoed request_id and profile hash",
+    "focused_green": "35/35 bridge/panel, exit 0"
+  },
+  "backend_initial": {
+    "exit_code": 101,
+    "positive": "backend canonical signature matches curated adapter; publication changes exactly 0x247",
+    "negative_failure": "graph threshold=128 correctly refused as graph-diverges, not out-of-range as initial test expected",
+    "correction": "test now asserts graph-diverges and message fora da faixa; no backend signature/domain relaxation"
+  },
+  "preexisting_warning": "duplicate #[test] attribute at src-tauri/src/compiler/ast_generator.rs:3479; not introduced by this work"
+}

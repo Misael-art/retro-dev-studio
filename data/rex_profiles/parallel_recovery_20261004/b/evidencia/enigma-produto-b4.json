@@ -1,0 +1,316 @@
+{
+ "schema": "rex-parallel-b/produto-enigma-b4/1",
+ "proposito": "evidencia de produto: CLI rex-enigma vs congelamento E23-E26",
+ "cli": "scripts/rex_profiles/parallel_recovery_20261004/b/enigma-rs/target/debug/rex-enigma",
+ "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+ "gerado_por": "medir-produto-enigma-b4.py",
+ "e23": [
+  {
+   "offset": "0x65432",
+   "esperado": {
+    "bytes_lidos": 634,
+    "padding_console": 0,
+    "bytes_armazenados": 634,
+    "output_sha256": "322a14830b8f3be05d59507ccf41c7a57ff8e835cd2727573943cd61d4c944d0",
+    "output_size": 4096
+   },
+   "obtido": {
+    "bytes_lidos": 634,
+    "padding_console": 0,
+    "bytes_armazenados": 634,
+    "output_sha256": "322a14830b8f3be05d59507ccf41c7a57ff8e835cd2727573943cd61d4c944d0",
+    "output_size": 4096,
+    "terminador": true,
+    "determinismo_decode_duplo": true
+   },
+   "rc": 0,
+   "ok": true
+  },
+  {
+   "offset": "0x656ac",
+   "esperado": {
+    "bytes_lidos": 1042,
+    "padding_console": 0,
+    "bytes_armazenados": 1042,
+    "output_sha256": "4b5ac5ea3391a5146e935474137df1ae74bb3926354bb63a321e03020f12733d",
+    "output_size": 4096
+   },
+   "obtido": {
+    "bytes_lidos": 1042,
+    "padding_console": 0,
+    "bytes_armazenados": 1042,
+    "output_sha256": "4b5ac5ea3391a5146e935474137df1ae74bb3926354bb63a321e03020f12733d",
+    "output_size": 4096,
+    "terminador": true,
+    "determinismo_decode_duplo": true
+   },
+   "rc": 0,
+   "ok": true
+  },
+  {
+   "offset": "0x65abe",
+   "esperado": {
+    "bytes_lidos": 860,
+    "padding_console": 0,
+    "bytes_armazenados": 860,
+    "output_sha256": "3643e681d5260a6d51a3e0cd4558ded3b189663d62258dbee189f2167d6c3954",
+    "output_size": 4096
+   },
+   "obtido": {
+    "bytes_lidos": 860,
+    "padding_console": 0,
+    "bytes_armazenados": 860,
+    "output_sha256": "3643e681d5260a6d51a3e0cd4558ded3b189663d62258dbee189f2167d6c3954",
+    "output_size": 4096,
+    "terminador": true,
+    "determinismo_decode_duplo": true
+   },
+   "rc": 0,
+   "ok": true
+  },
+  {
+   "offset": "0x65e1a",
+   "esperado": {
+    "bytes_lidos": 1242,
+    "padding_console": 0,
+    "bytes_armazenados": 1242,
+    "output_sha256": "04b5a97a675e9f84790932fc94c801aafd0c34a05ad450437da3a01feac5e9c7",
+    "output_size": 4096
+   },
+   "obtido": {
+    "bytes_lidos": 1242,
+    "padding_console": 0,
+    "bytes_armazenados": 1242,
+    "output_sha256": "04b5a97a675e9f84790932fc94c801aafd0c34a05ad450437da3a01feac5e9c7",
+    "output_size": 4096,
+    "terminador": true,
+    "determinismo_decode_duplo": true
+   },
+   "rc": 0,
+   "ok": true
+  },
+  {
+   "offset": "0x662f4",
+   "esperado": {
+    "bytes_lidos": 1233,
+    "padding_console": 1,
+    "bytes_armazenados": 1234,
+    "output_sha256": "5841c3fbaf8a648593914121ea0af13f2339c29754b59167a4b21178dfceacd8",
+    "output_size": 4096
+   },
+   "obtido": {
+    "bytes_lidos": 1233,
+    "padding_console": 1,
+    "bytes_armazenados": 1234,
+    "output_sha256": "5841c3fbaf8a648593914121ea0af13f2339c29754b59167a4b21178dfceacd8",
+    "output_size": 4096,
+    "terminador": true,
+    "determinismo_decode_duplo": true
+   },
+   "rc": 0,
+   "ok": true
+  },
+  {
+   "offset": "0x667c6",
+   "esperado": {
+    "bytes_lidos": 784,
+    "padding_console": 0,
+    "bytes_armazenados": 784,
+    "output_sha256": "78a2093e623f11fc227fe10390cd9f3d4afc234a838ba70bd2641b5637128c94",
+    "output_size": 4096
+   },
+   "obtido": {
+    "bytes_lidos": 784,
+    "padding_console": 0,
+    "bytes_armazenados": 784,
+    "output_sha256": "78a2093e623f11fc227fe10390cd9f3d4afc234a838ba70bd2641b5637128c94",
+    "output_size": 4096,
+    "terminador": true,
+    "determinismo_decode_duplo": true
+   },
+   "rc": 0,
+   "ok": true
+  }
+ ],
+ "e24": [
+  {
+   "par": "alternating_runs",
+   "bytes_lidos": 84,
+   "output_size": 1200,
+   "output_sha256": "5c09e3d725db5fe88af1107307e04cdf5b59bf9b3b80af7acfb78c98dc5debeb",
+   "ok": true
+  },
+  {
+   "par": "big_deltas",
+   "bytes_lidos": 91,
+   "output_size": 96,
+   "output_sha256": "1423a6c33549d2d46179aeafefe00c40cf1baa22553bce6156e0a5c23fee6e8a",
+   "ok": true
+  },
+  {
+   "par": "const_500",
+   "bytes_lidos": 18,
+   "output_size": 400,
+   "output_sha256": "4e1371f5996ecb79516590e2296d12638144c35acae7fe4de1c37e10cf7f9923",
+   "ok": true
+  },
+  {
+   "par": "empty",
+   "bytes_lidos": 7,
+   "output_size": 0,
+   "output_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "ok": true
+  },
+  {
+   "par": "noise_1k",
+   "bytes_lidos": 1058,
+   "output_size": 1024,
+   "output_sha256": "4d844a923dbdf00ccda713d6b5d51e517832f781b228721b5c974f47c0c0135c",
+   "ok": true
+  },
+  {
+   "par": "planes_4k",
+   "bytes_lidos": 4222,
+   "output_size": 4096,
+   "output_sha256": "f2dce5732f5ce79f4b18b413eacb9d11bbc126053442ddbd7428e0f7853f98e3",
+   "ok": true
+  },
+  {
+   "par": "ramp_signed",
+   "bytes_lidos": 17,
+   "output_size": 400,
+   "output_sha256": "59af57fd68c8155035760078555c928c73c241e5df59154c10feac3652f8e17e",
+   "ok": true
+  },
+  {
+   "par": "single_word",
+   "bytes_lidos": 8,
+   "output_size": 2,
+   "output_sha256": "3a103a4e5729ad68c02a678ae39accfbc0ae208096437401b7ceab63cca0622f",
+   "ok": true
+  },
+  {
+   "par": "threshold_edge",
+   "bytes_lidos": 10,
+   "output_size": 64,
+   "output_sha256": "58e8f2a1f78f0a591feb75aebecaaa81076e4290894b1c445cc32953604db089",
+   "ok": true
+  },
+  {
+   "par": "zeros_64",
+   "bytes_lidos": 11,
+   "output_size": 128,
+   "output_sha256": "38723a2e5e8a17aa7950dc008209944e898f69a7bd10a23c839d341e935fd5ca",
+   "ok": true
+  }
+ ],
+ "e25": [
+  {
+   "arquivo": "e01_odd_bytes_tail.bin",
+   "max_out": null,
+   "esperado": "truncated",
+   "obtido": "truncated",
+   "ok": true
+  },
+  {
+   "arquivo": "e02_truncated_last_byte.eni",
+   "max_out": null,
+   "esperado": "truncated",
+   "obtido": "truncated",
+   "ok": true
+  },
+  {
+   "arquivo": "e03_len_inflated.eni",
+   "max_out": null,
+   "esperado": "OK-planes4k",
+   "obtido": "OK",
+   "ok": true
+  },
+  {
+   "arquivo": "e04_mode_02.eni",
+   "max_out": null,
+   "esperado": "OK-const500",
+   "obtido": "OK",
+   "ok": true
+  },
+  {
+   "arquivo": "e05_empty_stream.eni",
+   "max_out": null,
+   "esperado": "truncated",
+   "obtido": "truncated",
+   "ok": true
+  },
+  {
+   "arquivo": "e06_garbage_ff_255b.eni",
+   "max_out": null,
+   "esperado": "malformed-header",
+   "obtido": "malformed-header",
+   "ok": true
+  },
+  {
+   "arquivo": "e07_planes_4k.eni",
+   "max_out": 1024,
+   "esperado": "excessive-output",
+   "obtido": "excessive-output",
+   "ok": true
+  }
+ ],
+ "e26": [
+  {
+   "caso": "pl=0",
+   "esperado": "malformed-header",
+   "obtido": "malformed-header",
+   "ok": true
+  },
+  {
+   "caso": "pl=12",
+   "esperado": "malformed-header",
+   "obtido": "malformed-header",
+   "ok": true
+  },
+  {
+   "caso": "pl=128",
+   "esperado": "malformed-header",
+   "obtido": "malformed-header",
+   "ok": true
+  },
+  {
+   "caso": "pl=255",
+   "esperado": "malformed-header",
+   "obtido": "malformed-header",
+   "ok": true
+  },
+  {
+   "caso": "mask=0x20",
+   "esperado": "malformed-header",
+   "obtido": "malformed-header",
+   "ok": true
+  },
+  {
+   "caso": "mask=0xff",
+   "esperado": "malformed-header",
+   "obtido": "malformed-header",
+   "ok": true
+  },
+  {
+   "caso": "work_limit=8",
+   "esperado": "work-limit",
+   "obtido": "work-limit",
+   "ok": true
+  },
+  {
+   "caso": "header=5B",
+   "esperado": "truncated",
+   "obtido": "truncated",
+   "ok": true
+  },
+  {
+   "caso": "cancel=sempre",
+   "esperado": "cancelled",
+   "obtido": "so-API (cargo test e26_hardening_entradas_reservadas)",
+   "ok": true
+  }
+ ],
+ "falhas": [],
+ "veredito": "PRODUTO-ENIGMA-B4-OK: paridade 6 streams reais + 10 pares plain + negativos e01-e07 + hardening E26 (estatico; consumo observado NAO PROVADO)"
+}

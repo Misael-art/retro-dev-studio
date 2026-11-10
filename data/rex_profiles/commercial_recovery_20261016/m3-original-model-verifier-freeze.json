@@ -1,0 +1,10 @@
+{
+  "schema": "rex-measurement-wrapper-freeze/v1",
+  "generated_at": "2026-10-18T01:54:11.244842+00:00",
+  "wrapper": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/verify-m3-original-model.py",
+  "sha256": "71acb23f433ed7cad014b8261ba4b4eacbed2019dada4e236f79d0230304a7b9",
+  "criteria_freeze_sha256": "92b297f34463715b69c2c1d3c763ede4a8cb2a35218ae14c56efc29035e6b002",
+  "command": "rtk proxy python3 scripts/rex_profiles/commercial_recovery_20261016/verify-m3-original-model.py /home/misael/rds-scratch/commercial_recovery_20261016/m3-original-model-verification-001.json",
+  "budget_seconds": 90,
+  "note": "No expectation changes; image comparison begins only after this wrapper freeze."
+}

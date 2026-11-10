@@ -1,0 +1,51 @@
+{
+  "schema": "rex-observation-addendum/v1",
+  "id": "M2-FOLLOWUP-001",
+  "before_measurement": true,
+  "replaces_no_prior_result": true,
+  "prior_trace_sha256": "035d4db022a2de533f86632a07cc20b75593143ebea9f9c0a932ba0d9e6fc4b7",
+  "reason": "commercial001 consumption bounded PASS; graphics capture absent and frame/CPU clock boundary regression retained",
+  "hypotheses": [
+    "enumerating screen devices resolves missing capture without guessing tag",
+    "CPU memory tap timestamps and frame notifier timestamps are explicitly separate clock contexts",
+    "sprite builder d762 receives layout-selected mapping and writes eight-byte SAT records to FFF800 buffer",
+    "VDP DMA control words bind SAT WRAM FFF800 to VRAM F800; CPU port writes alone are not internal transfer proof"
+  ],
+  "instrument_sha256": "c4d724bd1b7b5135b490704a76ac0d259e8dcc8e043a01bb29350d4c88d44a67",
+  "qualifier_adapter_sha256": "93ab9f78830904166378dc4f9673b0495ec6f638662389ba9b4b04b23f26a0b8",
+  "frozen_qualifier_reused": "814d5f8cc598b305292a3b533f591dbc706cea97742e1d89459d1cc6e704803c",
+  "author_qualification_required_before_commercial": true,
+  "new_surfaces": {
+    "sprite_args": "first20 hits from caller return1B268 only, enabled at preparation; later hits explicitly sampled out",
+    "sat_write_tap": "FFF800..FFFA7F",
+    "mapping_read_taps": [
+      "2C564..2C5E3",
+      "1B90C..1B987"
+    ],
+    "screen": "all enumerated devices, no assumed :screen tag",
+    "clock_contexts": [
+      "cpu-program-memory-tap",
+      "cpu-debugger-stop",
+      "machine-frame-notifier",
+      "ui-debugger-coroutine"
+    ]
+  },
+  "expected_controls": [
+    "all original author controls unchanged",
+    "missing screen cannot pass",
+    "at least one nonempty screen image and pixels matching dimensions",
+    "sample cap explicit, not overflow",
+    "SAT values compared with independent descriptor formula before commercial edit",
+    "app/GX correspondence remains distinct and not inferred"
+  ],
+  "budget": {
+    "per_run_wall_seconds": 240,
+    "max_events": 250000,
+    "max_private_bytes": 268435456,
+    "one_heavy_job": true,
+    "host_minimum_available_gib": 3
+  },
+  "freeze_status": "CANDIDATE_BEFORE_QUALIFICATION; no commercial run with v2 instrument yet",
+  "draft_revision_before_any_v2_run": 2,
+  "conditional_breakpoint_qualification": "author entry uses d@sp==literal-return from fixture, the same expression form as commercial caller filter"
+}

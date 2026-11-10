@@ -1,0 +1,85 @@
+   Compiling retro-dev-studio v0.1.0 (/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri)
+warning: duplicated attribute
+    --> src/compiler/ast_generator.rs:3479:5
+     |
+3479 |     #[test]
+     |     ^^^^^^^
+     |
+     = note: `#[warn(duplicate_macro_attributes)]` on by default
+
+warning: `retro-dev-studio` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 25.89s
+     Running unittests src/lib.rs (/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/cargo-target/debug/deps/app_lib-3c2b06dc04233a3c)
+
+running 68 tests
+test tools::reverse::decomp::rex_profile_engine::tests::candidatos_ambiguos_nao_sao_ligados_e_o_motivo_fica_registrado ... ok
+test tools::reverse::decomp::rex_profile_engine::tests::capturas_separam_offset_de_arquivo_barramento_e_deslocamento ... ok
+test tools::reverse::decomp::rex_profile_engine::tests::edicao_escreve_na_largura_e_ordem_certas_e_preserva_o_resto ... ok
+test tools::reverse::decomp::rex_profile_engine::tests::fixtures_de_perfil_passam_pelo_mesmo_corpo_de_teste ... 11 fixtures executados pelo mesmo corpo de teste
+ok
+test tools::reverse::decomp::rex_profile_engine::tests::limites_de_trabalho_recusam_em_vez_de_cortar_em_silencio ... ok
+test tools::reverse::decomp::rex_profile_engine::tests::localiza_valores_tipados_em_larguras_sinal_e_ordem_de_bytes_diferentes ... ok
+test tools::reverse::decomp::rex_profile_engine::tests::pareamento_incompativel_nao_liga_e_nao_inventa_campo ... ok
+test tools::reverse::decomp::rex_profile_engine::tests::perfil_vinculado_por_sha_nao_tenta_outra_rom ... ok
+test tools::reverse::decomp::rex_profile_engine::tests::repeticao_divergente_tira_o_campo_em_vez_de_editar_pela_metade ... ok
+test tools::reverse::decomp::rex_profile_engine::tests::restricoes_entre_capturas_descartam_ocorrencias_e_contam ... ok
+test tools::reverse::decomp::rex_profile_engine::tests::rom_vazia_ou_menor_que_o_padrao_nao_gera_instancia ... ok
+test tools::reverse::decomp::rex_profile_engine::tests::texto_com_cara_de_codigo_sai_literal ... ok
+test tools::reverse::decomp::rex_profile_graph::tests::grafo_adulterado_nao_e_aceito ... ok
+test tools::reverse::decomp::rex_profile_graph::tests::grafo_de_conformidade_com_a_ponte_ts ... ok
+test tools::reverse::decomp::rex_profile_graph::tests::grafo_de_outra_instancia_ou_de_rom_que_mudou_e_recusado ... ok
+test tools::reverse::decomp::rex_profile_graph::tests::grafo_sem_hash_do_perfil_e_aceito_pela_estrutura_e_avisado ... ok
+test tools::reverse::decomp::rex_profile_graph::tests::perfil_de_outro_hash_ou_revisao_e_recusado_na_reabertura ... ok
+test tools::reverse::decomp::rex_profile_graph::tests::posicao_rotulo_e_vinculo_de_sessao_nao_sao_estrutura ... ok
+test tools::reverse::decomp::rex_profile_graph::tests::projecao_usa_so_o_que_a_instancia_tem ... ok
+test tools::reverse::decomp::rex_profile_graph::tests::valores_vem_da_rom_e_saem_na_ordem_do_perfil ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::afirmacoes_dos_perfis_embutidos_tem_registro_curado_integro ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::catalogo_diz_de_onde_veio_cada_perfil_e_o_que_ele_nao_prova ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::classe_semantica_aparece_no_mesmo_catalogo_e_na_mesma_localizacao ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::classe_semantica_escopo_declarado_exige_rom_e_instancia ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::editar_o_limiar_usa_a_mesma_publicacao_e_as_mesmas_conferencias ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::editar_pelo_formulario_publica_copia_e_ips_e_preserva_o_resto ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::editar_pelo_grafo_salvo_e_reaberto_e_recusar_topologia_alterada ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::escopo_declarado_de_outra_instancia_nao_e_apresentado_como_desta ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::falha_de_publicacao_nao_altera_a_original_nem_deixa_metade ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::lab_comparison_backend_rederives_and_reviews_curated_package ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::lab_comparison_discriminating_refusals_leave_no_publication ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::localizar_tenta_todos_os_perfis_e_nunca_afirma_consumo ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::perfil_alterado_entre_localizar_e_gerar_e_recusado ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::perfil_externo_alegando_causalidade_e_so_declaracao ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::perfil_recusado_na_pasta_aparece_como_rejeitado_e_nao_trava_os_outros ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::recusas_da_classe_semantica_tem_codigo_e_nao_deixam_arquivo ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::recusas_nao_deixam_arquivo_e_cada_uma_tem_o_seu_codigo ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::regiao_declarada_e_rotulada_como_declarada_e_recusa_tem_motivo ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::registro_curado_de_outra_rom_nao_vale_para_a_rom_que_so_tem_a_forma ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::registros_curados_nas_roms_reais_valem_so_para_a_instancia_medida ... ignored, BYOR: exige RDS_INSPECTION_ROM e/ou RDS_JUMP_DELTA_ROM
+test tools::reverse::decomp::rex_profile_ipc::tests::rom_trocada_entre_localizar_e_gerar_e_recusada ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::salvar_reabrir_e_editar_pelo_grafo ... ok
+test tools::reverse::decomp::rex_profile_registry::tests::embutidos_vem_do_diretorio_de_dados_e_sao_validos ... ok
+test tools::reverse::decomp::rex_profile_registry::tests::o_hash_do_perfil_e_o_do_arquivo ... ok
+test tools::reverse::decomp::rex_profile_registry::tests::pasta_de_perfis_carrega_os_validos_e_rejeita_os_demais_com_o_motivo ... ok
+test tools::reverse::decomp::rex_profile_registry::tests::pasta_inexistente_e_dita_e_os_embutidos_continuam ... ok
+test tools::reverse::decomp::rex_profile_semantic::tests::caso_existente_e_recuperado_dos_bytes_pelos_dois_modos_de_selecao ... ok
+test tools::reverse::decomp::rex_profile_semantic::tests::grafo_semantico_de_conformidade_com_o_editor ... ok
+test tools::reverse::decomp::rex_profile_semantic::tests::perfil_semantico_embutido_carrega_pelo_esquema_e_o_contrato_recusa_o_resto ... ok
+test tools::reverse::decomp::rex_profile_semantic::tests::plano_de_edicao_vem_do_analisador_e_vira_patch_do_nucleo_compartilhado ... ok
+test tools::reverse::decomp::rex_profile_semantic::tests::projecao_compartilhada_tem_vinculo_e_a_revisao_rederiva_da_rom ... ok
+test tools::reverse::decomp::rex_profile_semantic::tests::regiao_fora_do_subconjunto_e_recusada_com_motivo_e_nada_e_inventado ... ok
+test tools::reverse::decomp::rex_profile_semantic::tests::variante_autoral_difere_do_caso_existente_em_registradores_enderecos_e_orientacao ... ok
+test tools::reverse::decomp::rex_profile_spec::tests::afirmacoes_de_evidencia_exigem_referencia_escopo_e_eixo_de_execucao ... ok
+test tools::reverse::decomp::rex_profile_spec::tests::arquitetura_tipos_de_node_e_parametros_reservados ... ok
+test tools::reverse::decomp::rex_profile_spec::tests::as_tres_nocoes_de_endereco_sao_distintas ... ok
+test tools::reverse::decomp::rex_profile_spec::tests::duplicidades_sao_recusadas_uma_a_uma ... ok
+test tools::reverse::decomp::rex_profile_spec::tests::estruturas_acima_dos_limites_sao_recusadas ... ok
+test tools::reverse::decomp::rex_profile_spec::tests::limites_numericos_e_overflow_sao_recusados ... ok
+test tools::reverse::decomp::rex_profile_spec::tests::o_dado_do_primeiro_perfil_declara_escopo_e_desconhecidos ... ok
+test tools::reverse::decomp::rex_profile_spec::tests::offset_extra_e_captura_de_ancora_so_valem_onde_tem_um_unico_sentido ... ok
+test tools::reverse::decomp::rex_profile_spec::tests::pareamento_incompativel_e_forma_fora_da_classe_sao_recusados ... ok
+test tools::reverse::decomp::rex_profile_spec::tests::perfil_malformado_chave_desconhecida_e_chave_repetida_sao_recusados ... ok
+test tools::reverse::decomp::rex_profile_spec::tests::perfis_validos_fazem_ida_e_volta ... ok
+test tools::reverse::decomp::rex_profile_spec::tests::referencia_a_ligacao_ou_campo_opcional_exige_condicao ... ok
+test tools::reverse::decomp::rex_profile_spec::tests::referencias_invalidas_sao_recusadas ... ok
+test tools::reverse::decomp::rex_profile_spec::tests::texto_e_lista_de_partes_tipadas_nunca_expressao ... ok
+test tools::reverse::decomp::rex_profile_spec::tests::versao_desconhecida_e_recusada_como_versao_inclusive_a_v1 ... ok
+
+test result: ok. 67 passed; 0 failed; 1 ignored; 0 measured; 1056 filtered out; finished in 5.82s

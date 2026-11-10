@@ -1,0 +1,40 @@
+{
+  "schema": "rex-m3-bounded-acceptance/v1",
+  "generated_at": "2026-10-18T02:17:38.137164+00:00",
+  "status": "M3_CONSOLIDATED_CANONICAL_COMMERCIAL_CONDITIONAL_SCOPE",
+  "app_sha256": "22dc259a3275e1ac8687a4072b241fba81c934e36cde5b474a027f7527c25347",
+  "journeys": {
+    "forward": "PASS128/128 m3-native-forward-004",
+    "reverse": "PASS128/128 m3-native-reverse-003",
+    "historical_in_mission": "110/110 each, then124/126sequenceFAIL retained"
+  },
+  "requirements": {
+    "canonical_order": "same-session original preview before graph edit; Stop, return logic, edit/save/close/reopen/publish/execute/compare; reverse repeats on fresh UI copy",
+    "original_patch_scope": "only1B6F8 changed; original intact; exact independentIPS; original checksum invalid and existing policy preserved it; reverse fullROM c7da53a1\u202681ebb",
+    "consumption_effect": "full12224copy span and independent producer SAT from predicted layout, static ROM descriptors;10534original/8067edited asset pixels RGB0;2008conditional differing positions reject old width",
+    "dependents": "Every ROM byte outside112376 intact, source resource unchanged; mapping pointer/tile/flip/priority pinned, palette/animation measured; full audio/physics not compared",
+    "original_original": "native two fresh loads exact memory/core/canvas",
+    "no_op": "native publisher refuses and graph shows empty plan/disabled publication",
+    "wrong_rom": "native expected-ROM identity refusal",
+    "tampered_resource": "Enigma stream byte65432 changed, old identity refused; separate malformed code region refused even with its new identity",
+    "out_of_domain": "native width3 refused with empty output directory",
+    "stale_response": "frontend component delayed request identity test executed in1047PASS suite; native old-result label values-anteriores checked separately, no claim of delayed native IPC transport test",
+    "divergent_patch": "independent IPS mutated payload produces different bytes, refused by exact comparison",
+    "wrong_visual": "wrong channel and oldwidth conditional expectations refuse; reference created without modified capture input"
+  },
+  "limits": [
+    "assisted serialized pre-copy episode; no natural gameplay proof",
+    "reference conditional on measured camera/coordinate/frame/palette inputs, not predicted full trajectory",
+    "resource sprite pixels only; nonresource rectangles conservatively excluded before image comparison",
+    "MAME external trace and native GX session remain separate",
+    "no human usability validation or general CFG compiler"
+  ],
+  "gates": "certify-20261018T020824Z READY all7exit0;1047frontend/3skip1036Rust/93ignore; existing fmt/defaultclippy separate PASS; Python AST/JS syntax/diff check PASS",
+  "files": {
+    "data/rex_profiles/commercial_recovery_20261016/m3-forward-complete-sequence-qualified.json": "a53a61b9639e566473c4ede4fe02bc35badf865bd9ea45f6baa247bb09d801f7",
+    "data/rex_profiles/commercial_recovery_20261016/m3-reverse-complete-sequence-qualified.json": "80bf6eed2e3775b5a3b26dcb6946fca373f87c1f3db5fd1d5d9649997cb918d4",
+    "data/rex_profiles/commercial_recovery_20261016/host-certify-after-m3-readiness.json": "0c39fa730dbedcbcc63cc901efae1bef114ae8ec8d5c0c8ddc79866bd24c7857",
+    "src/components/nodegraph/ProfileGraphBridgePanel.test.tsx": "ae489a18c0378062f93a885d1c92756bcabaabbdb32d1187a48cb69032b38adb"
+  },
+  "experimental": true
+}

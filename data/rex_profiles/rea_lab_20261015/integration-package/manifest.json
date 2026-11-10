@@ -1,0 +1,55 @@
+{
+  "schema": "rea-curated-integration-package/v1",
+  "status": "experimental proposed adapter; product review and GUI journey pending",
+  "profile_id": "m68k.counter_threshold_state_gate.v1",
+  "profile_sha256": "8e8648022d99f1730d1c3fc4a0f6268449bbefe99013a3f07fcebc72889168bd",
+  "image_sha256": "8246bb88cbb3f11a45e976347e63c0a7a22bfd17bfccfc0e9bb1f7deb7f6f218",
+  "entry": "0x000240",
+  "exits": [
+    "0x00025E"
+  ],
+  "editable": {
+    "field": "threshold",
+    "min": -128,
+    "max": 127,
+    "immediate_offset": 583
+  },
+  "adapter_contract": "SemanticEngine::graph_json, research adapter only; full source mappings serialized as sorted compact JSON; real TypeScript bridge signature",
+  "backend_rederivation_required": true,
+  "gui_proven": false,
+  "commercial_rom_bytes": false,
+  "expected_domain_signed": [
+    -2147483648,
+    -1,
+    0,
+    4,
+    5,
+    6,
+    2147483647
+  ],
+  "expected_output_threshold_5": [
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1
+  ],
+  "expected_output_threshold_6": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1
+  ],
+  "threshold_6_status": "prediction for this holdout; integrator must compare generated copy",
+  "author_fixture_sources": [
+    "data/rex_profiles/rea_lab_20261015/semantic_gate_reversed_cmp_holdout.S",
+    "data/rex_profiles/rea_lab_20261015/semantic_gate_reversed_cmp_holdout.ld"
+  ],
+  "rebuild_fixture_command": "rtk proxy node /home/misael/Projects/REX-REA-LAB-2026-10-15/scripts/rex_profiles/rea_lab_20261015/build-semantic-gate-holdout.mjs --output-dir /home/misael/rds-scratch/rea_lab_20261015/runs/INTEGRATOR-UNIQUE-ID/fixture",
+  "integration_acceptance": "pending backend re-derivation/review and canonical GUI; TypeScript bridge tested directly"
+}

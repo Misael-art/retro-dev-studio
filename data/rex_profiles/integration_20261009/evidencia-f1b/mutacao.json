@@ -1,0 +1,320 @@
+{
+ "schema": "rex-mutation-check/v1",
+ "comando": "cargo test --lib rex_",
+ "base": {
+  "compilou": true,
+  "resultado": "ok",
+  "falhas": 0,
+  "testes_que_reprovaram": []
+ },
+ "mutantes": [
+  {
+   "mutante": "hash do perfil nao conferido no IPC",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_ipc.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 3,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_profile_ipc::tests::perfil_alterado_entre_localizar_e_gerar_e_recusado",
+    "tools::reverse::decomp::rex_profile_ipc::tests::recusas_da_classe_semantica_tem_codigo_e_nao_deixam_arquivo",
+    "tools::reverse::decomp::rex_profile_ipc::tests::recusas_nao_deixam_arquivo_e_cada_uma_tem_o_seu_codigo"
+   ]
+  },
+  {
+   "mutante": "hash do perfil nao conferido na reabertura do grafo",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_graph.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 2,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_profile_graph::tests::perfil_de_outro_hash_ou_revisao_e_recusado_na_reabertura",
+    "tools::reverse::decomp::rex_profile_ipc::tests::perfil_alterado_entre_localizar_e_gerar_e_recusado"
+   ]
+  },
+  {
+   "mutante": "identidade da ROM nao conferida",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_ipc.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 4,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_jump_ipc::tests::identidade_obrigatoria_rom_trocada_entre_localizar_e_gerar_nao_deixa_arquivos",
+    "tools::reverse::decomp::rex_profile_ipc::tests::rom_trocada_entre_localizar_e_gerar_e_recusada",
+    "tools::reverse::decomp::rex_profile_ipc::tests::recusas_da_classe_semantica_tem_codigo_e_nao_deixam_arquivo",
+    "tools::reverse::decomp::rex_profile_ipc::tests::recusas_nao_deixam_arquivo_e_cada_uma_tem_o_seu_codigo"
+   ]
+  },
+  {
+   "mutante": "empate nunca recusado",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_engine.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 2,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_profile_engine::tests::candidatos_ambiguos_nao_sao_ligados_e_o_motivo_fica_registrado",
+    "tools::reverse::decomp::rex_profile_engine::tests::fixtures_de_perfil_passam_pelo_mesmo_corpo_de_teste"
+   ]
+  },
+  {
+   "mutante": "restricoes entre capturas ignoradas",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_engine.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 2,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_profile_engine::tests::fixtures_de_perfil_passam_pelo_mesmo_corpo_de_teste",
+    "tools::reverse::decomp::rex_profile_engine::tests::restricoes_entre_capturas_descartam_ocorrencias_e_contam"
+   ]
+  },
+  {
+   "mutante": "overflow truncado na codificacao",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_edit.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 2,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_edit::tests::codificacao_respeita_largura_sinal_e_ordem_dos_bytes_e_nunca_trunca",
+    "tools::reverse::decomp::rex_edit::tests::plano_recusa_valor_que_nao_cabe_na_largura_mesmo_dentro_do_dominio_declarado"
+   ]
+  },
+  {
+   "mutante": "dominio do campo maior que a largura aceito",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_spec.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 2,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_profile_registry::tests::pasta_de_perfis_carrega_os_validos_e_rejeita_os_demais_com_o_motivo",
+    "tools::reverse::decomp::rex_profile_spec::tests::limites_numericos_e_overflow_sao_recusados"
+   ]
+  },
+  {
+   "mutante": "diferencas estruturais do grafo ignoradas",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_graph.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 11,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_jump_ipc::tests::duplicidade_de_campo_entre_nos_canonicos_vira_problema_de_valor",
+    "tools::reverse::decomp::rex_jump_ipc::tests::grafo_com_campos_duplicados_e_recusado_sem_escolher_um_dos_dois",
+    "tools::reverse::decomp::rex_jump_ipc::tests::mudancas_de_topologia_origem_ou_campo_nao_sao_aplicadas",
+    "tools::reverse::decomp::rex_jump_ipc::tests::grafo_canonico_com_valor_editado_gera_e_deriva_os_valores_da_rom_nao_do_cliente",
+    "tools::reverse::decomp::rex_profile_graph::tests::grafo_adulterado_nao_e_aceito",
+    "tools::reverse::decomp::rex_profile_graph::tests::grafo_de_outra_instancia_ou_de_rom_que_mudou_e_recusado",
+    "tools::reverse::decomp::rex_profile_graph::tests::grafo_sem_hash_do_perfil_e_aceito_pela_estrutura_e_avisado",
+    "tools::reverse::decomp::rex_profile_graph::tests::valores_vem_da_rom_e_saem_na_ordem_do_perfil",
+    "tools::reverse::decomp::rex_profile_ipc::tests::editar_pelo_grafo_salvo_e_reaberto_e_recusar_topologia_alterada",
+    "tools::reverse::decomp::rex_profile_ipc::tests::salvar_reabrir_e_editar_pelo_grafo",
+    "tools::reverse::decomp::rex_profile_semantic::tests::projecao_compartilhada_tem_vinculo_e_a_revisao_rederiva_da_rom"
+   ]
+  },
+  {
+   "mutante": "campo duplicado no grafo aceito",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_graph.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 2,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_jump_ipc::tests::duplicidade_de_campo_entre_nos_canonicos_vira_problema_de_valor",
+    "tools::reverse::decomp::rex_profile_graph::tests::grafo_adulterado_nao_e_aceito"
+   ]
+  },
+  {
+   "mutante": "escopo declarado de outra instancia apresentado como desta",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_ipc.rs",
+   "aplicado": true,
+   "morto": false,
+   "compilou": true,
+   "resultado": "ok",
+   "falhas": 0,
+   "testes_que_reprovaram": []
+  },
+  {
+   "mutante": "perfil de pasta herda evidencia curada",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_evidence_origin.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 1,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_evidence_origin::tests::sem_registro_ou_vindo_de_pasta_a_afirmacao_e_so_declarada"
+   ]
+  },
+  {
+   "mutante": "registro curado de outra instancia vale para esta",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_evidence_origin.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 1,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_evidence_origin::tests::registro_curado_vale_so_para_rom_instancia_e_arquivo_de_perfil_listados"
+   ]
+  },
+  {
+   "mutante": "registro curado de outra revisao do perfil vale para esta",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_evidence_origin.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 1,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_evidence_origin::tests::registro_curado_vale_so_para_rom_instancia_e_arquivo_de_perfil_listados"
+   ]
+  },
+  {
+   "mutante": "observacao de sessao anterior tratada como atual",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_evidence_origin.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 1,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_evidence_origin::tests::observacao_de_outra_sessao_nao_e_observacao_atual"
+   ]
+  },
+  {
+   "mutante": "classe semantica: limiar fora da faixa aceito",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 2,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_profile_ipc::tests::recusas_da_classe_semantica_tem_codigo_e_nao_deixam_arquivo",
+    "tools::reverse::decomp::rex_profile_semantic::tests::plano_de_edicao_vem_do_analisador_e_vira_patch_do_nucleo_compartilhado"
+   ]
+  },
+  {
+   "mutante": "classe semantica: vinculo do perfil com a ROM ignorado",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 1,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_profile_semantic::tests::regiao_fora_do_subconjunto_e_recusada_com_motivo_e_nada_e_inventado"
+   ]
+  },
+  {
+   "mutante": "classe semantica: regiao declarada rotulada como candidato",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 4,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_profile_semantic::tests::grafo_semantico_de_conformidade_com_o_editor",
+    "tools::reverse::decomp::rex_profile_semantic::tests::projecao_compartilhada_tem_vinculo_e_a_revisao_rederiva_da_rom",
+    "tools::reverse::decomp::rex_profile_semantic::tests::caso_existente_e_recuperado_dos_bytes_pelos_dois_modos_de_selecao",
+    "tools::reverse::decomp::rex_profile_ipc::tests::regiao_declarada_e_rotulada_como_declarada_e_recusa_tem_motivo"
+   ]
+  },
+  {
+   "mutante": "classe semantica: chamada opaca apresentada como compreendida",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 3,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_profile_ipc::tests::classe_semantica_aparece_no_mesmo_catalogo_e_na_mesma_localizacao",
+    "tools::reverse::decomp::rex_profile_semantic::tests::caso_existente_e_recuperado_dos_bytes_pelos_dois_modos_de_selecao",
+    "tools::reverse::decomp::rex_profile_semantic::tests::variante_autoral_difere_do_caso_existente_em_registradores_enderecos_e_orientacao"
+   ]
+  },
+  {
+   "mutante": "limite de instancias nao aplicado",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_engine.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 2,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_profile_engine::tests::limites_de_trabalho_recusam_em_vez_de_cortar_em_silencio",
+    "tools::reverse::decomp::rex_profile_ipc::tests::perfil_recusado_na_pasta_aparece_como_rejeitado_e_nao_trava_os_outros"
+   ]
+  },
+  {
+   "mutante": "duplicidade de campo no perfil aceita",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_spec.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 2,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_profile_registry::tests::pasta_de_perfis_carrega_os_validos_e_rejeita_os_demais_com_o_motivo",
+    "tools::reverse::decomp::rex_profile_spec::tests::duplicidades_sao_recusadas_uma_a_uma"
+   ]
+  },
+  {
+   "mutante": "id de perfil repetido aceito (sombra do embutido)",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_registry.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 1,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_profile_registry::tests::pasta_de_perfis_carrega_os_validos_e_rejeita_os_demais_com_o_motivo"
+   ]
+  },
+  {
+   "mutante": "versao de esquema desconhecida aceita",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_spec.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 1,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_profile_spec::tests::versao_desconhecida_e_recusada_como_versao_inclusive_a_v1"
+   ]
+  },
+  {
+   "mutante": "vinculo do perfil com a ROM por SHA ignorado",
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_engine.rs",
+   "aplicado": true,
+   "morto": true,
+   "compilou": true,
+   "resultado": "FAILED",
+   "falhas": 1,
+   "testes_que_reprovaram": [
+    "tools::reverse::decomp::rex_profile_engine::tests::perfil_vinculado_por_sha_nao_tenta_outra_rom"
+   ]
+  }
+ ],
+ "mortos": 22,
+ "total": 23,
+ "sobreviventes": [
+  "escopo declarado de outra instancia apresentado como desta"
+ ]
+}

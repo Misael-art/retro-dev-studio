@@ -1,0 +1,10 @@
+{
+  "schema": "rex-checkpoint-protection/v1",
+  "ref": "refs/checkpoints/rex-commercial-20261016/m2-closed",
+  "commit": "d9d0dc5476bc4850cc3328d397fb6b1ac7326af7",
+  "bundle": "/home/misael/rds-scratch/commercial_recovery_20261016/mission-checkpoint-004.bundle",
+  "sha256": "b95091b541227c573268c29df5dd0956c3e56b8e96a9841d861e5aace8a07146",
+  "bytes": 195399,
+  "verify": "git bundle verify exit0",
+  "requires": "03ddc59de38cc3d9c448b893da72a3efd575030a"
+}

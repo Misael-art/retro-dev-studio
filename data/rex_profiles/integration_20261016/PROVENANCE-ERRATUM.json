@@ -1,0 +1,9 @@
+{
+  "schema": "rex-provenance-erratum/v1",
+  "original_freeze_unchanged": true,
+  "field": "research_source",
+  "freeze_value": "ee8c581f07464c22100c688f09f02db0caacd56b",
+  "correct_observed_head": "ee8c581f07494c22100c688f09f02db0caacd56b",
+  "reason": "manual SHA transcription typo; imported file checksums were taken from observed clean worktree and remain unchanged",
+  "verification": "git -C /home/misael/Projects/REX-REA-LAB-2026-10-15 rev-parse HEAD"
+}

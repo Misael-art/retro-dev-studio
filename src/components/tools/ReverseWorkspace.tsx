@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { persistActiveScene } from "../../core/scenePersistence";
 import { useEditorStore } from "../../core/store/editorStore";
+import { deserializeNodeGraph } from "../../core/nodegraph/nodeDefinitions";
 import {
+  romPatchRecoveredLogic,
+  romRecoverLogic,
   type ReverseAnnotation,
+  type LogicPatchResult,
+  type LogicRecoveryResult,
   type ReverseExplorerResult,
   type RomAnalysisManifest,
   reverseExplorerRead,
@@ -11,16 +17,24 @@ import {
   romSaveAnnotations,
 } from "../../core/ipc/toolsService";
 import { ExperimentalNotice } from "./ToolNotices";
+import { lerRegraRecuperada } from "../../core/nodegraph/rexGameplayScene";
+import { RexProfileLogicPanel, type LegacyRule } from "./RexProfileLogicPanel";
+import { bridgeInfo, withRomPath } from "../../core/nodegraph/profileGraphBridge";
+import InspectionPanel from "./InspectionPanel";
+import { CompressedResourcePanel } from "./CompressedResourcePanel";
 import ToolPathField from "./ToolPathField";
 
 type ReverseView =
+  | "logics"
   | "map"
   | "hex"
   | "graphics"
   | "text"
   | "audio"
   | "code"
-  | "projection";
+  | "projection"
+  | "inspection"
+  | "resources";
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -42,9 +56,25 @@ function formatHex(value: number, width = 2): string {
 }
 
 export default function ReverseWorkspace() {
-  const { activeTarget, logMessage } = useEditorStore();
+  const {
+    activeTarget,
+    activeProjectDir,
+    activeScene,
+    selectedEntityId,
+    logMessage,
+    setActiveViewportTab,
+    setActiveWorkspace,
+    updateEntity,
+  } = useEditorStore();
   const [romPath, setRomPath] = useState("");
   const [activeView, setActiveView] = useState<ReverseView>("map");
+  // Ponte Studio → REX: abrir na ROM em execução e focar a instância comprovada pedida.
+  const rexBridgeRequest = useEditorStore((state) => state.rexBridgeRequest);
+  useEffect(() => {
+    if (!rexBridgeRequest) return;
+    setRomPath(rexBridgeRequest.romPath);
+    setActiveView("logics");
+  }, [rexBridgeRequest]);
   const [busy, setBusy] = useState(false);
   const [manifest, setManifest] = useState<RomAnalysisManifest | null>(null);
   const [hexResult, setHexResult] = useState<ReverseExplorerResult | null>(null);
@@ -57,6 +87,64 @@ export default function ReverseWorkspace() {
   const [annotationLabel, setAnnotationLabel] = useState("");
   const [annotationComment, setAnnotationComment] = useState("");
   const [annotationBusy, setAnnotationBusy] = useState(false);
+  const [logicRecovery, setLogicRecovery] = useState<LogicRecoveryResult | null>(null);
+  const [logicRecoveryBusy, setLogicRecoveryBusy] = useState(false);
+  const [logicPatchBusy, setLogicPatchBusy] = useState(false);
+  const [logicPatchImmediate, setLogicPatchImmediate] = useState("2");
+
+  const rexEntidade = useMemo(
+    () =>
+      activeScene && selectedEntityId
+        ? activeScene.entities.find((item) => item.entity_id === selectedEntityId) ?? null
+        : null,
+    [activeScene, selectedEntityId]
+  );
+
+  /**
+   * Regra da classe semântica gravada na entidade no FORMATO ANTERIOR (`components.logic.recovered_rule`).
+   * O bloco é lido e validado com o leitor de sempre (`lerRegraRecuperada`) e nunca é apagado nem
+   * reescrito aqui: o painel de lógicas o mostra e oferece re-recuperar pela mesma região.
+   */
+  const legacyRule = useMemo<LegacyRule | null>(() => {
+    const bloque = rexEntidade?.components.logic?.recovered_rule ?? null;
+    if (!bloque) return null;
+    const lectura = lerRegraRecuperada(bloque);
+    if (!lectura.ok) return null;
+    return {
+      profileId: lectura.regra.profile_id,
+      romSha256: lectura.regra.rom_sha256,
+      entry: lectura.regra.entry,
+      exits: lectura.regra.exits,
+      threshold: lectura.regra.threshold_current,
+    };
+  }, [rexEntidade]);
+
+  /**
+   * Anexa o grafo gerado do pulo à lógica da entidade selecionada e abre o canvas. Nunca sobrescreve
+   * lógica própria: só substitui um grafo que já seja desta mesma ponte (reabrir a partir da ROM).
+   */
+  async function openProfileAsNodes(graphJson: string, rom: string, profilesDir = ""): Promise<{ ok: boolean; message: string }> {
+    if (!rexEntidade) return { ok: false, message: "Selecione uma entidade na cena: o grafo é anexado à lógica dela." };
+    const atual = deserializeNodeGraph(rexEntidade.components.logic?.graph);
+    if (atual.nodes.length > 0 && !bridgeInfo(atual)) {
+      return { ok: false, message: `A entidade ${rexEntidade.entity_id} já tem lógica própria; escolha outra para não sobrescrever.` };
+    }
+    updateEntity(rexEntidade.entity_id, {
+      components: {
+        ...rexEntidade.components,
+        logic: { ...(rexEntidade.components.logic ?? {}), graph: withRomPath(graphJson, rom, profilesDir), graph_origin: "rom_recovered" },
+      },
+    });
+    const persisted = activeProjectDir ? await persistActiveScene(activeProjectDir, "Reverse perfil") : false;
+    setActiveWorkspace("scene");
+    setActiveViewportTab("logic");
+    return {
+      ok: true,
+      message: persisted
+        ? `Grafo recuperado da ROM aplicado em ${rexEntidade.entity_id} e salvo na cena.`
+        : `Grafo recuperado da ROM aplicado em ${rexEntidade.entity_id} (só em memória: não há projeto salvo).`,
+    };
+  }
 
   useEffect(() => {
     if (!manifest) {
@@ -174,6 +262,106 @@ export default function ReverseWorkspace() {
     }
   }
 
+  async function recoverLogic() {
+    if (!romPath || !manifest) {
+      logMessage("warn", "[Reverse] Analise uma ROM Mega Drive antes de recuperar uma rotina.");
+      return;
+    }
+    const offset = parseHexInput(offsetHex);
+    if (offset === null) {
+      logMessage("warn", "[Reverse] O offset da rotina deve estar em hexadecimal.");
+      return;
+    }
+    setLogicRecoveryBusy(true);
+    try {
+      const result = await romRecoverLogic(romPath, offset);
+      setLogicRecovery(result);
+      logMessage(
+        "success",
+        `[Reverse] Rotina ${result.profile_id} recuperada em ${formatHex(result.rom_offset, 6)}; ${result.independent_test_states.length} estados independentes registrados.`
+      );
+    } catch (error) {
+      setLogicRecovery(null);
+      logMessage("error", `[Reverse] Recuperacao recusada: ${describeError(error)}`);
+    } finally {
+      setLogicRecoveryBusy(false);
+    }
+  }
+
+  async function applyRecoveredGraph() {
+    if (!logicRecovery || !activeProjectDir || !activeScene || !selectedEntityId) {
+      logMessage("warn", "[Reverse] Selecione uma entidade e abra um projeto antes de aplicar o grafo.");
+      return;
+    }
+    const entity = activeScene.entities.find((item) => item.entity_id === selectedEntityId);
+    if (!entity) {
+      logMessage("warn", "[Reverse] A entidade selecionada nao existe na cena ativa.");
+      return;
+    }
+    if (deserializeNodeGraph(entity.components.logic?.graph).nodes.length > 0) {
+      logMessage("warn", "[Reverse] Aplicacao recusada: a entidade ja possui um grafo. Preserve-o ou escolha outra entidade.");
+      return;
+    }
+    const recoveredGraph = deserializeNodeGraph(logicRecovery.graph_json);
+    if (
+      recoveredGraph.nodes.length !== 2 ||
+      recoveredGraph.edges.length !== 1 ||
+      !recoveredGraph.nodes.some((node) => node.type === "rom_addq_word" || node.type === "rom_branch_compare_word")
+    ) {
+      logMessage("error", "[Reverse] O grafo recuperado nao passou a validacao estrutural minima.");
+      return;
+    }
+    updateEntity(entity.entity_id, {
+      components: {
+        ...entity.components,
+        logic: {
+          ...(entity.components.logic ?? {}),
+          graph: logicRecovery.graph_json,
+          graph_origin: "rom_recovered",
+        },
+      },
+    });
+    const persisted = await persistActiveScene(activeProjectDir, "Reverse logic");
+    setActiveWorkspace("scene");
+    setActiveViewportTab("logic");
+    logMessage(
+      persisted ? "success" : "warn",
+      persisted
+        ? `[Reverse] Grafo ${logicRecovery.profile_id} aplicado e persistido em ${entity.entity_id}.`
+        : "[Reverse] Grafo aplicado em memoria, mas a persistencia da cena falhou; revise o projeto."
+    );
+  }
+
+  async function patchRecoveredLogic() {
+    if (!logicRecovery || !romPath) {
+      return;
+    }
+    const immediate = Number.parseInt(logicPatchImmediate, 10);
+    if (!Number.isInteger(immediate) || immediate < 1 || immediate > 8) {
+      logMessage("warn", "[Reverse] O imediato do patch deve estar entre 1 e 8.");
+      return;
+    }
+    const outputPath = `${romPath}.addq${immediate}.patched.bin`;
+    setLogicPatchBusy(true);
+    try {
+      const result: LogicPatchResult = await romPatchRecoveredLogic(
+        romPath,
+        outputPath,
+        logicRecovery.rom_sha256,
+        logicRecovery.rom_offset,
+        immediate
+      );
+      logMessage(
+        "success",
+        `[Reverse] Patch controlado gerado: ${result.output_path} (${result.input_sha256.slice(0, 12)} -> ${result.output_sha256.slice(0, 12)}).`
+      );
+    } catch (error) {
+      logMessage("error", `[Reverse] Patch recusado: ${describeError(error)}`);
+    } finally {
+      setLogicPatchBusy(false);
+    }
+  }
+
   const summaryChips = manifest?.special_chips.length
     ? manifest.special_chips.join(", ")
     : "nenhum";
@@ -278,6 +466,9 @@ export default function ReverseWorkspace() {
           ? "Projection continua informativa nesta wave; use anotacoes como saida persistida."
           : "Projection suportada para esta ROM; revise hints antes de gerar qualquer saida.";
   const viewTabs: { id: ReverseView; label: string }[] = [
+    { id: "inspection", label: "Inspeção visual" },
+    { id: "resources", label: "Recursos comprimidos" },
+    { id: "logics", label: "Lógicas (pulo)" },
     { id: "map", label: "ROM Map" },
     { id: "hex", label: "Hex" },
     { id: "graphics", label: "Graphics" },
@@ -286,6 +477,60 @@ export default function ReverseWorkspace() {
     { id: "code", label: "Code" },
     { id: "projection", label: "Projection" },
   ];
+
+  if (activeView === "resources") {
+    return (
+      <div className="flex flex-col gap-3 p-3">
+        <CompressedResourcePanel logMessage={logMessage} />
+        <div className="flex flex-wrap gap-2">
+          {viewTabs.filter((tab) => tab.id !== "resources").map((tab) => (
+            <button key={tab.id} type="button" data-testid={`reverse-tab-${tab.id}`} onClick={() => setActiveView(tab.id)} className="rounded-full border border-[#313244] bg-[#11111b] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#94a3b8]">Voltar para {tab.label}</button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (activeView === "logics") {
+    return (
+      <div className="flex flex-col gap-3 p-3">
+        <ToolPathField
+          label="ROM alvo"
+          value={romPath}
+          set={setRomPath}
+          placeholder="/roms/game.md"
+          extensions={["md", "bin", "gen", "smc", "sfc", "fig"]}
+          accentColor="f9e2af"
+        />
+        <RexProfileLogicPanel
+          romPath={romPath}
+          logMessage={logMessage}
+          onOpenAsNodes={openProfileAsNodes}
+          legacyRule={legacyRule}
+          focusRequest={rexBridgeRequest && rexBridgeRequest.romPath === romPath ? rexBridgeRequest : null}
+        />
+        <div className="flex flex-wrap gap-2">
+          {viewTabs.filter((tab) => tab.id !== "logics").map((tab) => (
+            <button key={tab.id} type="button" data-testid={`reverse-tab-${tab.id}`} onClick={() => setActiveView(tab.id)} className="rounded-full border border-[#313244] bg-[#11111b] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#94a3b8] hover:text-[#e5e7eb]">{tab.label}</button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (activeView === "inspection") {
+    return (
+      <div className="flex flex-col gap-3 p-3">
+        <ExperimentalNotice summary="Inspeção visual Experimental: BYOR, catálogo unknown, candidatos heurísticos, prévias e proveniência. Nenhum byte da ROM é editado." />
+        <InspectionPanel logMessage={logMessage} />
+        <div className="flex flex-wrap gap-2">
+          {viewTabs.filter((tab) => tab.id !== "inspection").map((tab) => (
+            <button key={tab.id} type="button" data-testid={`reverse-tab-${tab.id}`} onClick={() => setActiveView(tab.id)} className="rounded-full border border-[#313244] bg-[#11111b] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#94a3b8]">Voltar para {tab.label}</button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-3 p-3">
@@ -299,6 +544,51 @@ export default function ReverseWorkspace() {
         extensions={["md", "bin", "gen", "smc", "sfc", "fig"]}
         accentColor="f9e2af"
       />
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          data-testid="reverse-tab-inspection"
+          onClick={() => setActiveView("inspection")}
+          className="rounded-full border border-[#313244] bg-[#11111b] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#94a3b8] hover:text-[#e5e7eb]"
+        >
+          Inspeção visual
+        </button>
+        <button
+          type="button"
+          data-testid="reverse-tab-resources"
+          onClick={() => setActiveView("resources")}
+          className="rounded-full border border-[#313244] bg-[#11111b] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#94a3b8] hover:text-[#e5e7eb]"
+        >
+          Recursos comprimidos
+        </button>
+        <button
+          type="button"
+          data-testid="reverse-tab-logics"
+          onClick={() => setActiveView("logics")}
+          className="rounded-full border border-[#a6e3a1]/50 bg-[#11111b] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#a6e3a1] hover:text-[#e5e7eb]"
+        >
+          Lógicas (pulo)
+        </button>
+        {manifest &&
+          viewTabs
+            .filter((tab) => tab.id !== "inspection" && tab.id !== "logics")
+            .map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                data-testid={`reverse-tab-${tab.id}`}
+                onClick={() => setActiveView(tab.id)}
+                className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors ${
+                  activeView === tab.id
+                    ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#89b4fa]"
+                    : "border-[#313244] bg-[#11111b] text-[#94a3b8] hover:text-[#e5e7eb]"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+      </div>
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
@@ -456,23 +746,6 @@ export default function ReverseWorkspace() {
               <dt className="text-[#64748b]">Proximo passo</dt>
               <dd className="text-[#cdd6f4]">{reverseReadinessLabel}</dd>
             </dl>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {viewTabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveView(tab.id)}
-                className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors ${
-                  activeView === tab.id
-                    ? "border-[#89b4fa] bg-[#89b4fa]/15 text-[#89b4fa]"
-                    : "border-[#313244] bg-[#11111b] text-[#94a3b8] hover:text-[#e5e7eb]"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
           </div>
 
           {activeView === "map" && (
@@ -651,7 +924,83 @@ export default function ReverseWorkspace() {
           )}
 
           {activeView === "code" && (
-            <div className="grid gap-3 xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
+            <>
+              <div
+                data-testid="reverse-logic-recovery-card"
+                className="mb-3 rounded border border-[#cba6f7]/40 bg-[#1e1a2e] p-3"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.16em] text-[#cba6f7]">
+                      Lógica ROM → Nodes (Experimental)
+                    </div>
+                    <div className="mt-2 text-sm font-semibold text-[#e5e7eb]">
+                      Perfil exato: {logicRecovery?.profile_id === "m68k.add_compare_branch_word_d0_wram.v1" ? "ADDI.W #1,D0; CMPI.W; BGE.S; MOVE.W; RTS" : "ADDQ.W #1,D0; RTS"}
+                    </div>
+                    <div className="mt-1 max-w-3xl text-[10px] text-[#b7b0cf]">
+                      Só aceita o corpo contíguo do perfil ativo, preserva a semântica delimitada e recusa
+                      qualquer aproximação. O patch sempre grava uma cópia nova condicionada ao SHA-256.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    data-testid="reverse-recover-logic"
+                    onClick={() => void recoverLogic()}
+                    disabled={logicRecoveryBusy || !manifest || manifest.target !== "megadrive"}
+                    className="rounded bg-[#cba6f7] px-3 py-1.5 text-[10px] font-semibold text-[#1e1e2e] disabled:cursor-not-allowed disabled:bg-[#45475a] disabled:text-[#6c7086]"
+                  >
+                    {logicRecoveryBusy ? "Recuperando..." : "Recuperar rotina exata"}
+                  </button>
+                </div>
+                {logicRecovery && (
+                  <div className="mt-3 grid gap-2 text-[10px] text-[#cdd6f4] md:grid-cols-2">
+                    <div className="rounded bg-[#11111b] p-2">
+                      <div className="font-semibold text-[#a6e3a1]">Equivalência inicial registrada</div>
+                      <div className="mt-1 font-mono">{formatHex(logicRecovery.rom_offset, 6)}–{formatHex(logicRecovery.rom_end, 6)}</div>
+                      <div className="mt-1 font-mono text-[#89b4fa]">perfil: {logicRecovery.profile_id}</div>
+                      <div className="mt-1">bytes: {logicRecovery.bytes.map((byte) => formatHex(byte)).join(" ")} · chamadas internas: {logicRecovery.call_sites.length}</div>
+                      <div className="mt-1">memória: {logicRecovery.memory_effects.join(", ")} · estados: {logicRecovery.independent_test_states.length}</div>
+                      <div className="mt-1 text-[#f9e2af]">limites: {logicRecovery.limitations.join(" · ")}</div>
+                    </div>
+                    <div className="rounded bg-[#11111b] p-2">
+                      <div className="font-semibold text-[#f9e2af]">Ações controladas</div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void applyRecoveredGraph()}
+                          disabled={!selectedEntityId || !activeProjectDir}
+                          className="rounded border border-[#89b4fa]/50 px-2 py-1 text-[#89b4fa] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Aplicar ao NodeGraph selecionado
+                        </button>
+                        <label className="flex items-center gap-1 text-[#94a3b8]">
+                          parametro
+                          <input
+                            data-testid="reverse-logic-immediate"
+                            value={logicPatchImmediate}
+                            onChange={(event) => setLogicPatchImmediate(event.target.value)}
+                            inputMode="numeric"
+                            className="w-10 rounded border border-[#313244] bg-[#0f172a] px-1 py-1 text-center font-mono text-[#cdd6f4]"
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          data-testid="reverse-patch-recovered-logic"
+                          onClick={() => void patchRecoveredLogic()}
+                          disabled={logicPatchBusy}
+                          className="rounded border border-[#f9e2af]/50 px-2 py-1 text-[#f9e2af] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {logicPatchBusy ? "Gerando..." : "Gerar cópia patchada"}
+                        </button>
+                      </div>
+                      <div className="mt-2 text-[#7f849c]">
+                        Grafo não sobrescreve entidade com lógica existente. ROM: {logicRecovery.rom_sha256}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="grid gap-3 xl:grid-cols-[minmax(280px,360px)_minmax(0,1fr)]">
               <div className="space-y-2 rounded border border-[#313244] bg-[#11111b] p-3">
                 <div className="text-[10px] uppercase tracking-[0.16em] text-[#7f849c]">
                   Funcoes
@@ -920,7 +1269,8 @@ export default function ReverseWorkspace() {
                   </div>
                 )}
               </div>
-            </div>
+              </div>
+            </>
           )}
 
           {activeView === "projection" && (

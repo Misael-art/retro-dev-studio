@@ -1,0 +1,93 @@
+{
+  "schema": "rex-observer-qualification/v1",
+  "id": "qualify-v2-004",
+  "mame_sha256": "fcb54790e1837ed653020dc25a4e51d9ba7288d789cf556299d5d4d2cf2f3bc1",
+  "instrument_sha256": "56c966f3c93a4466136e1ec693c455d1a2ad0e5c14efe57729eb67a5b46f1a94",
+  "passed": true,
+  "cases": [
+    {
+      "id": "qualify-v2-004-positive",
+      "exit_code": 0,
+      "elapsed_seconds": 1.9359146150018205,
+      "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+      "events_exist": true,
+      "qualified": true,
+      "interpretation": "author trace and discriminating controls passed",
+      "counts": {
+        "presented_snapshot": 1,
+        "return": 1,
+        "other_stop": 1,
+        "write": 11,
+        "read": 4,
+        "destination_snapshot": 1,
+        "entry": 1,
+        "screen_count": 1,
+        "collection_start": 1,
+        "collection_end": 1,
+        "screen_capture": 1
+      }
+    },
+    {
+      "id": "qualify-v2-004-no-call",
+      "exit_code": 0,
+      "elapsed_seconds": 1.439131945000554,
+      "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+      "events_exist": true,
+      "qualified": true,
+      "interpretation": "author trace and discriminating controls passed",
+      "counts": {
+        "presented_snapshot": 1,
+        "return": 1,
+        "other_stop": 1,
+        "write": 7,
+        "destination_snapshot": 1,
+        "screen_count": 1,
+        "collection_start": 1,
+        "collection_end": 1,
+        "screen_capture": 1
+      }
+    },
+    {
+      "id": "qualify-v2-004-other-args",
+      "exit_code": 0,
+      "elapsed_seconds": 1.4315636890023598,
+      "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+      "events_exist": true,
+      "qualified": true,
+      "interpretation": "author trace and discriminating controls passed",
+      "counts": {
+        "presented_snapshot": 1,
+        "return": 1,
+        "other_stop": 1,
+        "write": 11,
+        "read": 4,
+        "destination_snapshot": 1,
+        "entry": 1,
+        "screen_count": 1,
+        "collection_start": 1,
+        "collection_end": 1,
+        "screen_capture": 1
+      }
+    },
+    {
+      "id": "qualify-v2-004-incomplete",
+      "exit_code": 0,
+      "elapsed_seconds": 1.378141109002172,
+      "log_sha256": "d93ecadbadb20683557a24095cba897d0e13c34ae354145c1f49888f32f1bb71",
+      "events_exist": true,
+      "qualified": true,
+      "interpretation": "incomplete capture correctly refused",
+      "counts": {
+        "other_stop": 1,
+        "collection_start": 1,
+        "collection_end": 1
+      }
+    }
+  ],
+  "limits": [
+    "external MAME runtime only",
+    "selected breakpoints and ranges only",
+    "PC context at memory taps needs qualification, not caller inference",
+    "no commercial observation attempted"
+  ]
+}

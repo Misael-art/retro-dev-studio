@@ -1,0 +1,48 @@
+npm notice run retrodev-studio@0.1.0 npx
+npm notice run 'vitest' run src/core/nodegraph/profileGraphBridge.test.ts src/components/nodegraph/NodeGraphEditor.test.tsx src/components/nodegraph/ProfileGraphBridgePanel.test.tsx
+(node:341112) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+ RUN  v4.1.11 /home/misael/Projects/REX-INTEGRATION-2026-10-05
+
+(node:341157) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:341442) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:341501) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ❯ src/core/nodegraph/profileGraphBridge.test.ts (21 tests | 2 failed) 102ms
+     × distinguishes a bound recovered region from author or mixed graphs 12ms
+     × retains edge/structure validation and refuses missing identity 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/core/nodegraph/profileGraphBridge.test.ts > recovered region diagnostic context > distinguishes a bound recovered region from author or mixed graphs
+TypeError: Cannot read properties of undefined (reading 'some')
+ ❯ src/core/nodegraph/profileGraphBridge.test.ts:288:33
+    286|     const g = graph();
+    287|     expect(isRecoveredRegionGraph(g)).toBe(true);
+    288|     expect(validateNodeGraph(g).issues.some(i => i.code === "missing_e…
+       |                                 ^
+    289|     // Descriptive entry is never promoted to a simulated author event.
+    290|     const run=runNodeGraphLocally(g);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/core/nodegraph/profileGraphBridge.test.ts > recovered region diagnostic context > retains edge/structure validation and refuses missing identity
+TypeError: Cannot read properties of undefined (reading 'some')
+ ❯ src/core/nodegraph/profileGraphBridge.test.ts:300:33
+    298|     const { validateNodeGraph } = await import("./nodeEngine");
+    299|     const g=graph(); g.edges[0].toPort="nonexistent";
+    300|     expect(validateNodeGraph(g).issues.some(i => i.code === "broken_po…
+       |                                 ^
+    301|     expect(graphStructure(g).canonical).toBe(false);
+    302|     g.nodes[0].params.rom_sha256="invalid";
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  2 failed | 73 passed (75)
+   Start at  18:33:38
+   Duration  8.37s (transform 827ms, setup 71ms, import 1.19s, tests 4.28s, environment 2.27s)

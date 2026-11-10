@@ -1,0 +1,85 @@
+{
+  "schema": "rex-semantic-journey/v1",
+  "rom": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/golden-axe/original.bin",
+  "rom_sha256": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b",
+  "profile_id": "m68k.copy_grid.v1",
+  "declared_region": {
+    "entry": 10904,
+    "exits": [
+      10920
+    ]
+  },
+  "expect_scan_candidate": false,
+  "expect_opaque": 0,
+  "expect_nodes": [
+    "entry",
+    "copy_grid",
+    "exit"
+  ],
+  "absent_nodes": [
+    "compare",
+    "guard",
+    "set_call"
+  ],
+  "expect_curated_other_target": false,
+  "edit": {
+    "bytes_per_cell": 2
+  },
+  "core": {
+    "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+    "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+    "selection": "existing application managed default Genesis Plus GX; no BlastEm substitution"
+  },
+  "probe": {
+    "layout": "copy_grid_wram",
+    "initial_state": "Original GX serialized at cold-boot frame5; neutral replay one frame. Separate MAME invocation at external frame4, memory correspondence432bytes; no merged clock/call proof in GX.",
+    "reference": {
+      "source": 10922,
+      "destination": 16774144,
+      "rows": 1,
+      "columns": 108,
+      "gap": 0,
+      "width": 4
+    }
+  },
+  "allowed_diff_offsets": [
+    10914
+  ],
+  "commercial_prepared": {
+    "kind": "linear",
+    "output": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-ui-golden-axe-002",
+    "core": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+    "replay": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/original.rds-replay",
+    "reference_inputs": {
+      "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/original.rds-replay": "31e9cda9dcb0e6b6537c5eb7499a37ae6c2c109d0a7d2fb36667f984b2ffe142",
+      "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/before-destination.bin": "1fe2373734955e60c172999142934b52e69ba7ab9039b3c18ea54082ba32afcd",
+      "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/source.bin": "5163dca0ade2885de3d29ebfd9daf8e9b80a1e8247277989ccb69fb8e487dada",
+      "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/expected-width1.bin": "8ea4b1760c96904f20cd6cd8254e153c22764954e2c4c33dcc93a2ca25cebd59",
+      "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/expected-width2.bin": "d7a2a74829d3ed461867961bf616cc0d5236e4180aaacff94e9af26b959d7991",
+      "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/expected-width4.bin": "5163dca0ade2885de3d29ebfd9daf8e9b80a1e8247277989ccb69fb8e487dada",
+      "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1"
+    },
+    "destination_references": {
+      "1": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/expected-width1.bin",
+      "2": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/expected-width2.bin",
+      "4": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-002/expected-width4.bin"
+    },
+    "destination": 16774144,
+    "span": 432,
+    "original_width": 4,
+    "transfer_offset": 10,
+    "resource_offset": 10922,
+    "predicted_copy_sha256": "5725630a53c0eb72210e1ef5ead773b5e3a3f76dbdd1a134474f61816db09f18"
+  },
+  "semantic_details": {
+    "column_counter": "D0=107 → DBRA low16 → FFFF; MOVEQ zera high16",
+    "row_counter": "sem loop externo",
+    "source_register": "A0",
+    "destination_register": "A1",
+    "destination_register_initial32": "0xFFFFF400",
+    "condition": "repete MOVE até FFFF",
+    "state": "preserva X",
+    "unknown": "saída é fallthrough",
+    "lowering": "topologia não compilável"
+  }
+}

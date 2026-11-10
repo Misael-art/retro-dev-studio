@@ -1,0 +1,16 @@
+{
+  "schema": "rex-m5-platform-identification-test/v1",
+  "generated_at": "2026-10-18T08:58:00.066442+00:00",
+  "source_sha256": "d1237531fd272b8200693c6e95513899efad2f28952acd67c9b2860904310391",
+  "command": "rtk proxy env TMPDIR=/home/misael/rds-scratch/commercial_recovery_20261016/m5-test-tmp CARGO_TARGET_DIR=/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/cargo-target CARGO_BUILD_JOBS=1 cargo test --manifest-path src-tauri/Cargo.toml --lib detects_legacy_space_padded_console_name_in_bin_without_title_dispatch -- --nocapture",
+  "exit_code": 0,
+  "passed": 1,
+  "failed": 0,
+  "ignored": 0,
+  "controls": [
+    "SEGA+12spaces generic BIN target accepted",
+    "SEGA+unknown trailingX refused",
+    "truncated16byte console header refused"
+  ],
+  "limits": "Authored detector test only; full native loading/publication pending new app build. Preexisting duplicate test attribute warning in compiler/ast_generator.rs remains unchanged."
+}

@@ -2,6 +2,7 @@ import { getEntityDisplayName } from "../../core/entityDisplay";
 import {
   resolveEntitySourceRefs,
   resolvePrimaryAuthoringSurface,
+  resolveReferenceAuthoringSurface,
 } from "../../core/entityAuthoring";
 import { resolveImportedEntityContext } from "../../core/importedEntityContext";
 import type { LegacySgdkIndex, Scene } from "../../core/ipc/sceneService";
@@ -50,7 +51,10 @@ export interface AssetReference {
   confidenceLabel: string | null;
   reason: string | null;
   isSceneFocus: boolean;
+  /** Secondary action of the reference card (complements its "Abrir no ArtStudio" button). */
   authoringSurface: "tilemap" | "logic" | "artstudio" | null;
+  /** Primary gesture (double-click) on the asset: R2 art-first. Absent = same as authoringSurface. */
+  primaryAuthoringSurface?: "tilemap" | "logic" | "artstudio" | null;
   sourcePaths: string[];
   positionLabel: string | null;
   scenePath: string | null;
@@ -116,6 +120,7 @@ function hasAnySegment(value: string, patterns: string[]): boolean {
 
 export function classifyAssetBrowserAsset(asset: ProjectAssetEntry): AssetBrowserClassification {
   const path = normalizeAssetPath(asset.relative_path);
+  if (path.endsWith(".rdspixel.json")) return {typeId:"source_art",typeLabel:"Documento de pixels",generated:false};
   const generated = hasAnySegment(path, [
     "/generated/",
     "/gen/",
@@ -124,6 +129,12 @@ export function classifyAssetBrowserAsset(asset: ProjectAssetEntry): AssetBrowse
     "/build/generated",
     "/cache_",
   ]);
+
+  const resourceKind = asset.sgdk_resource?.resource_kind;
+  if (resourceKind === "PALETTE") return { typeId: "palette", typeLabel: "Paleta", generated };
+  if (resourceKind === "SPRITE") return { typeId: "sprite", typeLabel: "Personagem / objeto", generated };
+  if (resourceKind === "TILESET") return { typeId: "tilemap", typeLabel: "Banco de peças", generated };
+  if (["IMAGE", "MAP", "TILEMAP"].includes(resourceKind ?? "")) return { typeId: "tilemap", typeLabel: "Imagem montada", generated };
 
   if (
     asset.kind === "audio" ||
@@ -270,6 +281,8 @@ export function filterAssetBrowserAssets({
       asset.kind,
       classification.typeId.replace("_", " "),
       classification.typeLabel,
+      normalizeAssetPath(asset.sgdk_resource?.resource_name ?? "").replace(/[_-]+/g, " "),
+      ...(asset.sgdk_resource?.variants ?? []).map(resource => normalizeAssetPath(resource.resource_name).replace(/[_-]+/g, " ")),
       classification.generated ? "generated gerado artstudio" : "",
       matches.length === 0 ? "unused orfao" : "used usado referenciado",
       budget.status === "over" ? "over budget over-budget acima orcamento" : "",
@@ -321,7 +334,8 @@ export function collectAssetReferences(
     authoringSurface: AssetReference["authoringSurface"] = null,
     sourcePaths: string[] = [],
     positionLabel: string | null = null,
-    graphRef: string | null = null
+    graphRef: string | null = null,
+    primaryAuthoringSurface: AssetReference["authoringSurface"] = authoringSurface
   ) => {
     const normalized = String(assetPath ?? "").trim();
     if (!normalized) {
@@ -336,6 +350,7 @@ export function collectAssetReferences(
       reason,
       isSceneFocus,
       authoringSurface,
+      primaryAuthoringSurface,
       sourcePaths,
       positionLabel,
       scenePath,
@@ -351,7 +366,7 @@ export function collectAssetReferences(
     const confidenceLabel = importedContext.confidenceLabel;
     const reason = importedContext.reason;
     const isSceneFocus = focusEntityId === entity.entity_id;
-    const authoringSurface = resolvePrimaryAuthoringSurface(entity);
+    const authoringSurface = resolveReferenceAuthoringSurface(entity);
     const sourcePaths = resolveEntitySourceRefs(entity);
     const positionLabel = importedContext.positionLabel;
     const graphRef = entity.components.logic?.graph_ref ?? entity.components.logic?.graph ?? null;
@@ -366,7 +381,8 @@ export function collectAssetReferences(
       authoringSurface,
       sourcePaths,
       positionLabel,
-      graphRef
+      graphRef,
+      resolvePrimaryAuthoringSurface(entity)
     );
     pushReference(
       entity.components.tilemap?.tileset,
@@ -379,7 +395,8 @@ export function collectAssetReferences(
       authoringSurface,
       sourcePaths,
       positionLabel,
-      graphRef
+      graphRef,
+      resolvePrimaryAuthoringSurface(entity)
     );
 
     const audio = entity.components.audio;
@@ -395,7 +412,8 @@ export function collectAssetReferences(
         authoringSurface,
         sourcePaths,
         positionLabel,
-        graphRef
+        graphRef,
+        resolvePrimaryAuthoringSurface(entity)
       );
     }
     for (const [action, assetPath] of Object.entries(audio?.sfx ?? {})) {
@@ -410,7 +428,8 @@ export function collectAssetReferences(
         authoringSurface,
         sourcePaths,
         positionLabel,
-        graphRef
+        graphRef,
+        resolvePrimaryAuthoringSurface(entity)
       );
     }
   }

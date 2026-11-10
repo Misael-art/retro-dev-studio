@@ -1,0 +1,9 @@
+{
+  "ref": "refs/checkpoints/rex-commercial-20261016/m5-generic-frozen",
+  "commit": "5e7516eab177c6afc5a73c907ef9fbf209d2bacd",
+  "bundle": "/home/misael/rds-scratch/commercial_recovery_20261016/mission-checkpoint-009.bundle",
+  "sha256": "52ee0eae3a9b566136133d93aacb3613cbfdc54fcb5fa4e700da44be407f0058",
+  "bytes": 371683,
+  "verify": "exit0",
+  "requires": "03ddc59de38cc3d9c448b893da72a3efd575030a"
+}

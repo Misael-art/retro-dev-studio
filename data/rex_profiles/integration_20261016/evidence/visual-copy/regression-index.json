@@ -1,0 +1,23 @@
+[
+  {
+    "spec": "data/rex_profiles/integration_20261016/copy-grid-journey.json",
+    "report": "data/rex_profiles/integration_20261016/evidence/visual-copy/integration_20261016-copy-grid-journey-regression-report.json",
+    "pass": true,
+    "checks": 60,
+    "source": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-43-45-880Z-report.json"
+  },
+  {
+    "spec": "data/rex_profiles/integration_20261016/semantic-journey.json",
+    "report": "data/rex_profiles/integration_20261016/evidence/visual-copy/integration_20261016-semantic-journey-regression-report.json",
+    "pass": true,
+    "checks": 63,
+    "source": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/semantic-gate-2026-10-16T21-44-07-937Z-report.json"
+  },
+  {
+    "spec": "data/rex_profiles/authoring/counter_gate/journey.json",
+    "report": "data/rex_profiles/integration_20261016/evidence/visual-copy/counter_gate-journey-regression-report.json",
+    "pass": true,
+    "checks": 55,
+    "source": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/semantic-gate-2026-10-16T21-44-33-181Z-report.json"
+  }
+]

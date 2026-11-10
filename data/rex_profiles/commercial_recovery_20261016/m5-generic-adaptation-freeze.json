@@ -1,0 +1,76 @@
+{
+  "schema": "rex-m5-generic-adaptation-freeze/v1",
+  "generated_at": "2026-10-18T08:46:10.294929+00:00",
+  "production": {
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs": "e2d351ee960470bcfbd341441c685264d9c620905605757bb5061bfa692b2acc",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs": "a22bb7fd57dbe4d5e365c99402460ea019fe51660dba5323060262da92fc2d92",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src/components/nodegraph/ProfileGraphBridgePanel.tsx": "2df3baec28d63e2f0ed15043c4fc728a156032fb2b0e008461c28ecc31313ec3",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src/core/nodegraph/profileGraphBridge.ts": "2e66b028426bd94ff5fbe0ce44fbc468f088e35461660dfa92537ad091267840"
+  },
+  "profile_configuration": {
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/specs/m68k.copy_grid.v1.json": "36a5273f1ce8e61986f80235ba401f3792aa866b3191404333f3a4b435154a4b"
+  },
+  "reserved_targets": [
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Gargoyles (USA) (Translated PtBr).zip",
+      "archive_sha256": "b222361c7280211dec12b8b2fff7fa44d1fc72e032575eaf88f5ab9d225c03b8",
+      "member": "Gargoyles (USA).md",
+      "rom_bytes": 3145728,
+      "rom_sha256": "de4ef5bb385bf58d2d12a5f386473e40f3ec1355db6f57dff2ddcff3c1780fcb",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Shinobi III - Return of the Ninja Master (USA) (Translated PtBr).zip",
+      "archive_sha256": "bbe8cd5a4489fb06a0a3e5c41e149172127d1ad18de0d3b5712a960b53136ae7",
+      "member": "Shinobi III - Return of the Ninja Master (USA).bin",
+      "rom_bytes": 1048576,
+      "rom_sha256": "28572709d7cd442dd681109b14641157c2943498943fa7791f524eaf530710ef",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Castle of Illusion Starring Mickey Mouse (USA, Europe) (Translated PtBr).zip",
+      "archive_sha256": "c5a16f13acf074a551cee0f020afedddb344956b068d08bac79f14e9fb6b13a5",
+      "member": "Castle of Illusion Starring Mickey Mouse (USA, Europe).md",
+      "rom_bytes": 524288,
+      "rom_sha256": "dbc7b2cb0f66f2a5ac4af1b810549802e9c2d7fa380ae9bd791b952d1cfdf603",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    },
+    {
+      "archive": "/home/misael/emulation/roms/genesis/Strider (USA, Europe) (Translated PtBr).zip",
+      "archive_sha256": "a24242ee1128e21773b466e98716aad43ba7c52803224d470fec4708965e99e9",
+      "member": "Strider (USA, Europe).gen",
+      "rom_bytes": 1048576,
+      "rom_sha256": "99bbe15a80cc7a47d9a666ec5e9aa6ce51290007090f58dc1371490604a3ec5d",
+      "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN"
+    }
+  ],
+  "expectations_protocol_sha256": "73c18d6d3d8edae9fa22615ec29c458f6d652d3fa2d4cf53b22785a7ccac4803",
+  "tests_result_sha256": "d3825446054559a9fe2518b9d71e06908b18d926dbda92744ab5542a71cc9ae7",
+  "cost_attribution": "Generic single-loop/LEA/count/.L/ROM-source extension attributed to first exploratory GoldenAxe target, never counted as zero-code transfer. No per-game name/hash dispatch. Further regions must retain exact production hashes to count zero.",
+  "baseline": "14e66e53f49e59d136ed170edf1028611b1d2f96",
+  "cost_numstat": "417\t0\tsrc-tauri/src/tools/reverse/decomp/rex_copy_grid.rs\n20\t7\tsrc-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs\n2\t1\tsrc/components/nodegraph/ProfileGraphBridgePanel.tsx\n4\t0\tsrc/core/nodegraph/profileGraphBridge.ts\n",
+  "limits": "Candidate engine, tested reconstruction/publication7PASS; full host certification and native app transfer remain pending. Four reserved ROM payloads identity-hashed only until this freeze.",
+  "production_cost_excluding_tests": {
+    "src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs": {
+      "added": 339,
+      "removed": 0,
+      "includes_test_code": false
+    },
+    "src-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs": {
+      "added": 20,
+      "removed": 7,
+      "includes_test_code": false
+    },
+    "src/components/nodegraph/ProfileGraphBridgePanel.tsx": {
+      "added": 2,
+      "removed": 1,
+      "includes_test_code": false
+    },
+    "src/core/nodegraph/profileGraphBridge.ts": {
+      "added": 4,
+      "removed": 0,
+      "includes_test_code": false
+    }
+  },
+  "cost_numstat_scope": "Raw file diff includes tests; production-only counts separately exclude #[cfg(test)] sections. IPC private-profile test and TS test file are test cost, not production cost."
+}

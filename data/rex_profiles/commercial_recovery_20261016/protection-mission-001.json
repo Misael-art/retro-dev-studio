@@ -1,0 +1,11 @@
+{
+  "schema": "rex-mission-protection/v1",
+  "bundle": "/home/misael/rds-scratch/commercial_recovery_20261016/mission-checkpoint-001.bundle",
+  "sha256": "86fcb0cc7fb537b1dcc150ae49e35e38e25f9f7a96ff2021b70f141bfa4ad2e8",
+  "bytes": 115867,
+  "checkpoint_ref": "refs/checkpoints/rex-commercial-20261016/mission-paused-fix",
+  "head": "3847a41b",
+  "prerequisite": "03ddc59de38cc3d9c448b893da72a3efd575030a",
+  "verified": true,
+  "scope": "mission commits through paused fix and DMA candidate, no build or corpus"
+}

@@ -17,6 +17,8 @@ export interface BuildResult {
   diagnostics?: ActionableDiagnostic[];
   source_map_path?: string | null;
   build_source_map?: BuildSourceMap | null;
+  /** Vínculo execução → projeto da ROM gerada (`retrodev.runtime_link/v1`, Experimental). */
+  runtime_link?: unknown;
 }
 
 export interface MultiTargetBuildEntry {
@@ -79,7 +81,9 @@ export function generateCCode(projectDir: string): Promise<GenerateResult> {
  */
 export async function buildProject(
   projectDir: string,
-  onLog: (line: BuildLogLine) => void
+  onLog: (line: BuildLogLine) => void,
+  /** R3-09/T6: optional transient entry scene for this test build only (never saved). */
+  options: { testScene?: string } = {}
 ): Promise<BuildResult> {
   // Escuta eventos de streaming antes de invocar o comando
   const unlisten: UnlistenFn = await listen<BuildLogLine>("build://log", (event) => {
@@ -87,7 +91,7 @@ export async function buildProject(
   });
 
   try {
-    const result = await invoke<BuildResult>("build_project", { projectDir });
+    const result = await invoke<BuildResult>("build_project", { projectDir, testScene: options.testScene ?? null });
     return result;
   } finally {
     unlisten();

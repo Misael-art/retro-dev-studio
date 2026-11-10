@@ -1,0 +1,21 @@
+{
+  "schema": "rex-visual-v2-reused-evidence/v1",
+  "product_app_sha256": "74033134f47510c1ef37d8e6025a8bc6986436d4060ae3e96b1ba9bcc3d1670e",
+  "reason": "only external QA color oracle/comparison selection changed; runtime sources, binary and ROMs unchanged",
+  "files": {
+    "data/rex_profiles/integration_20261016/evidence/visual-copy/regression-index.json": "351a6d842b0096a130243b60198c7a7fa9a98923eb5aef076e109ce96c8c3a70",
+    "data/rex_profiles/integration_20261016/evidence/visual-copy/integration_20261016-copy-grid-journey-regression-report.json": "8f87e9202204fd4c1cf1f48316d6509c8ee495e2d9ce57b8264b3981715ed7eb",
+    "data/rex_profiles/integration_20261016/evidence/visual-copy/integration_20261016-semantic-journey-regression-report.json": "3ee4463d8c9062f6aacf45e80eec870e88f4393d17c28c1b51ab8c77880681b1",
+    "data/rex_profiles/integration_20261016/evidence/visual-copy/counter_gate-journey-regression-report.json": "6e697c3b5314186f83869d2d5ac7b63d12b9a8e31c4b4411bcb811afee31cfc0",
+    "data/rex_profiles/integration_20261016/evidence/visual-copy/byor-static-result.json": "90df5fbcb1c1b4ef4099362055762d2a9d5aa80edbc65b4d1a59c6e3742043d6",
+    "data/rex_profiles/integration_20261016/evidence/visual-copy/byor-episode-result.json": "df0fc5be87861efe74f89b12c1a8b52b71ac609ea811226efa14bd9422a7ee07",
+    "data/rex_profiles/integration_20261016/evidence/visual-copy/byor-episode2-result.json": "48a2113bd8b41727b5651047ff9d389f11bce1470879f389fa296ed6eb8ddc9b",
+    "data/rex_profiles/integration_20261016/evidence/visual-copy/forward-final-v1-report.json": "e21e75dd55d0d33524c424ca633163b2c105e68a86a96a2cb320c9927bbee0b4"
+  },
+  "limits": {
+    "v1_final": "FAIL86/89, not relabeled",
+    "regressions": "60/60,63/63,55/55, prior executions on same app",
+    "BYOR": "BLOCKED_RESOURCE_TO_PRESENTATION_PROOF; no new execution or linkage claim",
+    "preexisting_sound": "OPEN"
+  }
+}

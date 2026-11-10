@@ -75,6 +75,30 @@ function isVisible(item) {
   return Boolean(item?.visible ?? true) && Boolean(rect) && rect.width > 2 && rect.height > 2;
 }
 
+/** Visible geometry after viewport and ancestor clipping; usable in the WebView. */
+export function visibleUiRect(element) {
+  const view = element?.ownerDocument?.defaultView;
+  if (!view) return null;
+  const bounds = element.getBoundingClientRect();
+  let left = Math.max(0, bounds.left), top = Math.max(0, bounds.top);
+  let right = Math.min(view.innerWidth, bounds.right), bottom = Math.min(view.innerHeight, bounds.bottom);
+  for (let node = element; node; node = node.parentElement) {
+    const style = view.getComputedStyle(node);
+    if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity || 1) <= 0.05) return null;
+    if (node !== element) {
+      const clip = node.getBoundingClientRect();
+      if (/^(hidden|clip|auto|scroll|overlay)$/.test(style.overflowX || style.overflow)) {
+        left = Math.max(left, clip.left); right = Math.min(right, clip.right);
+      }
+      if (/^(hidden|clip|auto|scroll|overlay)$/.test(style.overflowY || style.overflow)) {
+        top = Math.max(top, clip.top); bottom = Math.min(bottom, clip.bottom);
+      }
+    }
+    if (right <= left || bottom <= top) return null;
+  }
+  return { left, top, right, bottom, width: right - left, height: bottom - top };
+}
+
 function rectsOverlap(a, b, threshold = 2) {
   const left = Math.max(a.left, b.left);
   const right = Math.min(a.right, b.right);
@@ -191,19 +215,17 @@ export function evaluateUiLayoutOracleSnapshot(snapshot) {
   }
 
   const topbarColumns = [elements.topbarLeft, elements.topbarCenter, elements.topbarRight].filter(isVisible);
-  if (topbarColumns.length === 3) {
-    const [leftColumn, centerColumn, rightColumn] = topbarColumns.map((item) => normalizeRect(item.rect));
-    if (centerColumn.left < leftColumn.right - 2) {
-      pushIssue(issues, "topbar-column-overlap", "topbar central invade a coluna esquerda", {
-        centerLeft: roundMetric(centerColumn.left),
-        leftRight: roundMetric(leftColumn.right),
-      });
-    }
-    if (centerColumn.right > rightColumn.left + 2) {
-      pushIssue(issues, "topbar-column-overlap", "topbar central invade a coluna direita", {
-        centerRight: roundMetric(centerColumn.right),
-        rightLeft: roundMetric(rightColumn.left),
-      });
+  for (let first = 0; first < topbarColumns.length; first += 1) {
+    for (let second = first + 1; second < topbarColumns.length; second += 1) {
+      const a = normalizeRect(topbarColumns[first].rect);
+      const b = normalizeRect(topbarColumns[second].rect);
+      // The canonical topbar wraps across two grid rows. Horizontal projection
+      // alone is not an overlap; test actual intersections, including left/right.
+      if (rectsOverlap(a, b, 2)) {
+        pushIssue(issues, "topbar-column-overlap", "regioes da topbar sobrepostas", {
+          first, second, firstRect: a, secondRect: b,
+        });
+      }
     }
   }
 

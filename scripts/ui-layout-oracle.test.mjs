@@ -5,6 +5,7 @@ import {
   UI_LAYOUT_ORACLE_TARGETS,
   buildUiLayoutOracleReport,
   evaluateUiLayoutOracleSnapshot,
+  visibleUiRect,
 } from "./ui-layout-oracle.mjs";
 
 function rect(left, top, width, height) {
@@ -19,6 +20,45 @@ function rect(left, top, width, height) {
 }
 
 describe("ui layout oracle", () => {
+  it("clips offscreen text to its scroll container while keeping real visible intersections", () => {
+    const parent = document.createElement("div"), child = document.createElement("span");
+    parent.style.overflow = "hidden"; parent.append(child); document.body.append(parent);
+    parent.getBoundingClientRect = () => rect(0, 0, 200, 100);
+    child.getBoundingClientRect = () => rect(20, 120, 80, 20);
+    expect(visibleUiRect(child)).toBeNull();
+    child.getBoundingClientRect = () => rect(20, 90, 80, 30);
+    expect(visibleUiRect(child)).toEqual(rect(20, 90, 80, 10));
+    const clippedScene = evaluateUiLayoutOracleSnapshot({ targetId: "scene", viewport: { width: 1366, height: 768 },
+      mainVisuals: [{ kind: "scene", key: "world", visible: true, rect: visibleUiRect(child), containerRect: rect(0, 0, 200, 100) }] });
+    expect(clippedScene.issues.map(issue => issue.code)).toContain("main-canvas-too-small");
+    const sibling = document.createElement("span"); parent.append(sibling);
+    child.getBoundingClientRect = () => rect(20, 40, 80, 30);
+    sibling.getBoundingClientRect = () => rect(30, 45, 80, 30);
+    const result = evaluateUiLayoutOracleSnapshot({ targetId: "import-wizard", viewport: { width: 1366, height: 768 },
+      clickables: [child, sibling].map((e, i) => ({ key: String(i), visible: true, rect: visibleUiRect(e) })) });
+    expect(result.issues.map(issue => issue.code)).toContain("clickable-overlap");
+    parent.remove();
+  });
+
+  it("accepts separate topbar rows and still rejects real intersections between any regions", () => {
+    const snapshot = {
+      targetId: "import-wizard", viewport: { width: 1366, height: 768 },
+      elements: {
+        topbar: { rect: rect(0, 0, 1366, 90), visible: true },
+        topbarLeft: { rect: rect(12, 8, 1000, 32), visible: true },
+        topbarCenter: { rect: rect(12, 48, 1342, 32), visible: true },
+        topbarRight: { rect: rect(1024, 8, 330, 32), visible: true },
+      },
+    };
+    const overlaps = () => evaluateUiLayoutOracleSnapshot(snapshot).issues.filter(issue => issue.code === "topbar-column-overlap");
+    expect(overlaps()).toEqual([]);
+    snapshot.elements.topbarCenter.rect = rect(900, 8, 200, 32);
+    expect(overlaps()).toHaveLength(2);
+    snapshot.elements.topbarCenter.rect = rect(12, 48, 1342, 32);
+    snapshot.elements.topbarRight.rect = rect(900, 8, 454, 32);
+    expect(overlaps()).toHaveLength(1);
+  });
+
   it("covers the required QA resolutions and reusable visual targets", () => {
     expect(UI_LAYOUT_ORACLE_RESOLUTIONS.map((item) => item.tag)).toEqual([
       "1366x768",

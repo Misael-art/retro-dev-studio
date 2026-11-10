@@ -1,0 +1,83 @@
+{
+  "schema": "rex-observational-sprite-pixel-witness/v1",
+  "status": "FAIL",
+  "reference_origin": "native same-runtime VDP state plus separate bit/geometry/color implementation from pinned MAME0289 source; post-observation, not blind or reserved game-state expectations",
+  "limits": [
+    "normal sprites only; no background high-priority occlusion/shadow/interlace model",
+    "not a modified-ROM visual expectation",
+    "native frame1290 state and presented frame1290 target assumed aligned in this first hypothesis; failure is preserved"
+  ],
+  "projected_resource_pixels": 8217,
+  "selected_sprite_indices": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    15,
+    20,
+    22,
+    23,
+    24,
+    25
+  ],
+  "mismatched_pixels": 6912,
+  "first_mismatches": [
+    [
+      227,
+      0
+    ],
+    [
+      228,
+      0
+    ],
+    [
+      229,
+      0
+    ],
+    [
+      230,
+      0
+    ],
+    [
+      231,
+      0
+    ],
+    [
+      232,
+      0
+    ],
+    [
+      233,
+      0
+    ],
+    [
+      234,
+      0
+    ],
+    [
+      235,
+      0
+    ],
+    [
+      236,
+      0
+    ],
+    [
+      237,
+      0
+    ],
+    [
+      238,
+      0
+    ]
+  ],
+  "tolerance": 0,
+  "png_sha256": "8a4a386bc1defe06462cde85545c331dc9f2728ec7d9d49a40161c671680abe0",
+  "error": "native-state sprite projection differs from presented image"
+}

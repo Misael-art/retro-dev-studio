@@ -90,7 +90,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-BOOTSTRAP_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/retrodevstudio/bootstrap"
+BOOTSTRAP_CACHE="${RDS_HOST_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/retrodevstudio}/bootstrap"
 LOG_FILE="$BOOTSTRAP_CACHE/bootstrap.log"
 PORTABLE_CACHE="$PROJECT_ROOT/toolchains/.cache/artifacts"
 PINNED_NODE_VERSION="24.18.0"
@@ -167,8 +167,11 @@ ensure_pinned_node() {
       fi
       local staged="$portable_archive.part"
       step "NODE" "INFO" "Downloading pinned official Node $PINNED_NODE_VERSION."
-      curl --fail --location --connect-timeout 20 --max-time 1800 --retry 3 --retry-all-errors --continue-at - --output "$staged" "$PINNED_NODE_URL"
-      printf '%s  %s\n' "$PINNED_NODE_SHA256" "$staged" | sha256sum --check --status
+      curl --fail --location --connect-timeout 20 --max-time 1800 --retry 3 --retry-all-errors --continue-at - --output "$staged" "$PINNED_NODE_URL" || return $?
+      printf '%s  %s\n' "$PINNED_NODE_SHA256" "$staged" | sha256sum --check --status || {
+        step "NODE" "FAIL" "Downloaded Node checksum mismatch; archive was not promoted."
+        return 12
+      }
       mv "$staged" "$portable_archive"
     fi
     printf '%s  %s\n' "$PINNED_NODE_SHA256" "$portable_archive" | sha256sum --check --status || {
@@ -177,7 +180,7 @@ ensure_pinned_node() {
     }
     rm -rf "$node_root.tmp"
     mkdir -p "$node_root.tmp"
-    tar -xJf "$portable_archive" --strip-components=1 -C "$node_root.tmp"
+    tar -xJf "$portable_archive" --strip-components=1 -C "$node_root.tmp" || return $?
     rm -rf "$node_root"
     mv "$node_root.tmp" "$node_root"
   fi
@@ -198,7 +201,7 @@ ensure_pinned_rust() {
     return 10
   fi
   if [[ "$OFFLINE" != "1" ]]; then
-    rustup toolchain install 1.97.0 --profile minimal --component clippy --component rustfmt
+    rustup toolchain install 1.97.0 --profile minimal --component clippy --component rustfmt || return $?
   fi
   rustup run 1.97.0 rustc --version >/dev/null 2>&1 || {
     step "RUST" "FAIL" "Pinned Rust 1.97.0 is unavailable."

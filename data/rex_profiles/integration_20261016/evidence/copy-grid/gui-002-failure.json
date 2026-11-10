@@ -1,0 +1,13 @@
+{
+  "generatedAt": "2026-10-16T17:34:01.089Z",
+  "scenario": "semantic-gate-journey",
+  "project": "/home/misael/rds-scratch/rex-copy-grid-20261016/tmp/rds-desktop-e2e-project-cIRhnE/megadrive_dummy",
+  "projectName": "Canonical Mega Drive Dummy",
+  "projectTarget": "megadrive",
+  "app": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/debug/retro-dev-studio",
+  "externalDriver": false,
+  "sessionId": "225886b8-caff-43c0-a2da-fe2fac44739f",
+  "driverServerUrl": "http://127.0.0.1:4444",
+  "error": "Cannot read properties of undefined (reading 'length')",
+  "stack": "Error: Cannot read properties of undefined (reading 'length')\n    at main (file:///home/misael/Projects/REX-INTEGRATION-2026-10-05/scripts/e2e-tauri-build-run.mjs:24731:11)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)"
+}

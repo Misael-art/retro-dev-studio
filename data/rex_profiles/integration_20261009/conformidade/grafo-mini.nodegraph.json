@@ -1,0 +1,240 @@
+{
+  "edges": [
+    {
+      "fromNode": "ev",
+      "fromPort": "exec",
+      "id": "e1",
+      "toNode": "cmp",
+      "toPort": "exec"
+    },
+    {
+      "fromNode": "cmp",
+      "fromPort": "true",
+      "id": "e2",
+      "toNode": "n_lim",
+      "toPort": "exec"
+    },
+    {
+      "fromNode": "n_lim",
+      "fromPort": "exec",
+      "id": "e3",
+      "toNode": "n_low",
+      "toPort": "exec"
+    },
+    {
+      "fromNode": "n_low",
+      "fromPort": "exec",
+      "id": "e4",
+      "toNode": "n_top",
+      "toPort": "exec"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "ev",
+      "inputs": [],
+      "label": "Entrada",
+      "outputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "params": {
+        "assinatura_estrutural": "fec878cf64f2b508",
+        "gate_offset": 64,
+        "instancia_param": "gate_offset",
+        "origem": "recuperado do ROM (perfil m68k.mini_gate.v1)",
+        "perfil": "m68k.mini_gate.v1",
+        "perfil_revisao": 1,
+        "perfil_sha256": "15ef4cb0d29821abfb14dd5565deeb3b436dd38c1fbfd390345661032ffc904d",
+        "ponte_edicao": 1,
+        "rate": "frame",
+        "rom_addr": "0x000040",
+        "rom_bytes": "303c012c",
+        "rom_sha256": "5dd8a8e64ed406fa0989d4574306079b4152f1f42ead769ac68e132703a1a6ef"
+      },
+      "type": "event_update",
+      "x": 40,
+      "y": 40
+    },
+    {
+      "id": "cmp",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        },
+        {
+          "dataType": "int",
+          "id": "a",
+          "kind": "data",
+          "label": "a"
+        },
+        {
+          "dataType": "int",
+          "id": "b",
+          "kind": "data",
+          "label": "b"
+        }
+      ],
+      "label": "Objeto presente?",
+      "outputs": [
+        {
+          "id": "true",
+          "kind": "exec",
+          "label": "true"
+        },
+        {
+          "id": "false",
+          "kind": "exec",
+          "label": "false"
+        }
+      ],
+      "params": {
+        "b": 0,
+        "descricao": "campo +0x10",
+        "operator": "!=",
+        "origem": "recuperado do ROM (perfil m68k.mini_gate.v1)"
+      },
+      "type": "condition_compare",
+      "x": 40,
+      "y": 230
+    },
+    {
+      "id": "n_lim",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        },
+        {
+          "dataType": "int",
+          "id": "value",
+          "kind": "data",
+          "label": "value"
+        }
+      ],
+      "label": "Limite",
+      "outputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "params": {
+        "campo": "lim",
+        "descricao": "move.w #lim,d0",
+        "editavel": 1,
+        "faixa": "1..1000",
+        "origem": "recuperado do ROM (perfil m68k.mini_gate.v1)",
+        "rom_addr": "0x000040",
+        "rom_bytes": "303c012c",
+        "rom_offsets": "0x000042",
+        "valor_original": 300,
+        "value": 300,
+        "var_name": "limite"
+      },
+      "type": "var_set",
+      "x": 370,
+      "y": 230
+    },
+    {
+      "id": "n_low",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        },
+        {
+          "dataType": "int",
+          "id": "value",
+          "kind": "data",
+          "label": "value"
+        }
+      ],
+      "label": "Piso",
+      "outputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "params": {
+        "campo": "low",
+        "descricao": "move.b #low,d1",
+        "editavel": 1,
+        "faixa": "0..200",
+        "origem": "recuperado do ROM (perfil m68k.mini_gate.v1)",
+        "rom_offsets": "0x000063",
+        "valor_original": 80,
+        "value": 80,
+        "var_name": "piso"
+      },
+      "type": "var_set",
+      "x": 700,
+      "y": 230
+    },
+    {
+      "id": "n_top",
+      "inputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        },
+        {
+          "dataType": "int",
+          "id": "value",
+          "kind": "data",
+          "label": "value"
+        }
+      ],
+      "label": "Teto",
+      "outputs": [
+        {
+          "id": "exec",
+          "kind": "exec",
+          "label": "exec"
+        }
+      ],
+      "params": {
+        "campo": "top",
+        "descricao": "move.l #top,(obj,a6)",
+        "editavel": 1,
+        "faixa": "0..100000",
+        "origem": "recuperado do ROM (perfil m68k.mini_gate.v1)",
+        "rom_addr": "0x000070",
+        "rom_bytes": "2d7ca08601000010",
+        "rom_offsets": "0x000072",
+        "valor_original": 100000,
+        "value": 100000,
+        "var_name": "teto"
+      },
+      "type": "var_set",
+      "x": 1030,
+      "y": 230
+    }
+  ],
+  "rex_logic_recovery": {
+    "aviso": "Grafo descritivo. Alterar valores aqui nao altera a ROM; a ROM so muda pelo plano de edicao (patch sem crescimento).",
+    "campos_editaveis": [
+      "lim",
+      "low",
+      "top"
+    ],
+    "descritivo": true,
+    "gate_offset": "0x000040",
+    "profile_id": "m68k.mini_gate.v1",
+    "profile_revision": 1,
+    "profile_sha256": "15ef4cb0d29821abfb14dd5565deeb3b436dd38c1fbfd390345661032ffc904d",
+    "rom_sha256": "5dd8a8e64ed406fa0989d4574306079b4152f1f42ead769ac68e132703a1a6ef"
+  },
+  "version": 1
+}

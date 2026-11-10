@@ -1,0 +1,26 @@
+{
+  "normalization": "trim trailing whitespace and normalize final LF; raw files unchanged",
+  "runs": [
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-v2-001/host-certify.log",
+      "raw_sha256": "5d3bb95a8507b536e3955f91a2ea51e70bafe9e1b96671644f03a19bf2596222",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/host-certify.log",
+      "review_sha256": "a52e2c436a6b797c6d88defa9eae7cef5f188671ef71eef3f43b5c43c529264c",
+      "status": "PASS"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-v2-001/clippy-default.log",
+      "raw_sha256": "7a7c5f339ce35cb7811e73ee64d146487d7e72eb2090f8175330980b4fb58593",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/clippy-default.log",
+      "review_sha256": "7a7c5f339ce35cb7811e73ee64d146487d7e72eb2090f8175330980b4fb58593",
+      "status": "PASS"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-v2-001/fmt.log",
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/fmt.log",
+      "review_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "status": "PASS"
+    }
+  ]
+}

@@ -65,14 +65,8 @@ fn record_extraction_error(result: &mut ExtractionResult, message: impl Into<Str
 }
 
 fn md_color_to_rgb(word: u16) -> RgbColor {
-    let r = ((word & 0x000E) >> 1) as u8;
-    let g = ((word & 0x00E0) >> 5) as u8;
-    let b = ((word & 0x0E00) >> 9) as u8;
-    RgbColor {
-        r: r * 36,
-        g: g * 36,
-        b: b * 36,
-    }
+    let [r, g, b] = reverse::decomp::rex_resources::md_color_word_to_rgb(word);
+    RgbColor { r, g, b }
 }
 
 fn decode_tile(data: &[u8]) -> Vec<u8> {
@@ -267,6 +261,31 @@ fn write_raw_png(path: &Path, rgba: &[u8], width: u32, height: u32) -> std::io::
     write_chunk(&mut out, b"IEND", &[]);
 
     fs::write(path, &out)
+}
+
+/// PNG indexado 8-bit (tipo 3) com PLTE e índice 0 transparente: formato que o rescomp
+/// do SGDK lê (índice = linha_de_paleta*16 + cor).
+pub fn encode_indexed_png(pixels: &[u8], width: u32, height: u32, palette: &[[u8; 3]]) -> Vec<u8> {
+    let mut out = vec![137, 80, 78, 71, 13, 10, 26, 10];
+    let mut ihdr = Vec::new();
+    ihdr.extend_from_slice(&width.to_be_bytes());
+    ihdr.extend_from_slice(&height.to_be_bytes());
+    ihdr.extend_from_slice(&[8, 3, 0, 0, 0]);
+    write_chunk(&mut out, b"IHDR", &ihdr);
+    let entries = palette.len().clamp(1, 256);
+    let plte: Vec<u8> = (0..entries)
+        .flat_map(|i| palette.get(i).copied().unwrap_or([0; 3]))
+        .collect();
+    write_chunk(&mut out, b"PLTE", &plte);
+    write_chunk(&mut out, b"tRNS", &[0]);
+    let mut raw = Vec::with_capacity((width as usize + 1) * height as usize);
+    for row in pixels.chunks(width as usize).take(height as usize) {
+        raw.push(0);
+        raw.extend_from_slice(row);
+    }
+    write_chunk(&mut out, b"IDAT", &deflate_store(&raw));
+    write_chunk(&mut out, b"IEND", &[]);
+    out
 }
 
 fn write_chunk(out: &mut Vec<u8>, chunk_type: &[u8; 4], data: &[u8]) {

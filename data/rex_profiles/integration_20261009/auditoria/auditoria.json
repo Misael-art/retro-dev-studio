@@ -1,0 +1,2620 @@
+{
+ "arquivos": [
+  {
+   "arquivo": "crates/rex-addressing/src/error.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+   },
+   "linhas": 55,
+   "linhas_producao": 55,
+   "sha256": "e31f93fd16de2e1e4f5ab70107a269170056fbadf9bcb727a001d23e51f2c76c",
+   "simbolos_publicos": [
+    "enum ErrorCode",
+    "fn as_str",
+    "struct AddressingError",
+    "fn new"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/lib.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+   },
+   "linhas": 165,
+   "linhas_producao": 165,
+   "sha256": "dfd8c9be6907d25ac842e234adbb4cef839c852ce50ba3fda27ec5bdd8adb519",
+   "simbolos_publicos": [
+    "mod error",
+    "mod md_linear",
+    "mod md_ssf2",
+    "mod region",
+    "mod resource",
+    "mod snes_exhirom",
+    "mod snes_hirom",
+    "mod snes_lorom",
+    "mod state",
+    "enum Translate",
+    "fn invalid",
+    "enum Segment"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/md_common.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+   },
+   "linhas": 78,
+   "linhas_producao": 78,
+   "sha256": "08af999ef46a10c52cf19de31f2d7f7fec7f214ccaeecdb2cc07c430537f272e",
+   "simbolos_publicos": [
+    "const BUS_LIMIT",
+    "const CART_WINDOW_END",
+    "const Z80_START",
+    "const Z80_END",
+    "const IO_START",
+    "const IO_END",
+    "const REG_PAGE_START",
+    "const REG_PAGE_END",
+    "const VDP_START",
+    "const WORK_RAM_START",
+    "fn device_or_invalid"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "error::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/md_linear.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+   },
+   "linhas": 209,
+   "linhas_producao": 209,
+   "sha256": "4dd975c3b279d596bd9202e2a211fce4bea291132f1d0de127405e03c20dbaeb",
+   "simbolos_publicos": [
+    "const PROFILE_ID",
+    "const BUS_LIMIT",
+    "const CART_WINDOW_END",
+    "const MIN_ROM_SIZE",
+    "const MAX_ROM_SIZE",
+    "fn validate_state",
+    "fn translate",
+    "fn invert",
+    "fn read"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "error::",
+    "md_common"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/md_ssf2.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+   },
+   "linhas": 342,
+   "linhas_producao": 342,
+   "sha256": "7744dcc47a7024e195a33e9f40dfac23944776344149b5ccf9ba7ae96e6aa5d5",
+   "simbolos_publicos": [
+    "const PROFILE_ID",
+    "const BUS_LIMIT",
+    "const CART_WINDOW_END",
+    "const WINDOW_SIZE",
+    "const MIN_ROM_SIZE",
+    "const MAX_ROM_SIZE",
+    "const REGISTER_PAGE_START",
+    "const REGISTER_PAGE_END",
+    "const FIRST_REMAPMABLE_WINDOW",
+    "const LAST_REMAPMABLE_WINDOW",
+    "fn validate_state",
+    "fn translate",
+    "fn invert",
+    "fn write_mapper_register",
+    "fn read"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "error::",
+    "md_common"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/region.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+   },
+   "linhas": 57,
+   "linhas_producao": 57,
+   "sha256": "8fe8d76bb1e699d3b760b0ac9ffbe92e01e0a40da1f6dcda0553a7ac8301988c",
+   "simbolos_publicos": [
+    "enum Region",
+    "fn as_str",
+    "fn no_backing"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "error::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/resource.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+   },
+   "linhas": 658,
+   "linhas_producao": 658,
+   "sha256": "3b793dd9fe16fe3439f472c63d9648116aa83214d5718957dc9af76d943fd54b",
+   "simbolos_publicos": [
+    "const CONTRACT_VERSION",
+    "const BUS_LIMIT",
+    "enum Profile",
+    "fn id",
+    "fn all",
+    "fn has_mapper_registers",
+    "struct ImageIdentity",
+    "struct Limits",
+    "const DEFAULT",
+    "struct PhysicalSegment",
+    "struct ResourceRead",
+    "enum ResourceErrorCode",
+    "fn as_str",
+    "struct ResourceError",
+    "enum Step",
+    "struct ResourceRequest",
+    "struct SequenceRead",
+    "struct SequenceRequest",
+    "fn read_resource",
+    "fn read_sequence"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "error::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/snes_common.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+   },
+   "linhas": 138,
+   "linhas_producao": 138,
+   "sha256": "4c9f8835e86ee3cfa2d3d05a21ff0809254e759de60a7136fccaa55efc5cd043",
+   "simbolos_publicos": [
+    "const BUS_LIMIT",
+    "const HIGH_HALF",
+    "const WRAM_BANK_START",
+    "const WRAM_BANK_END",
+    "const SYSTEM_BANK_LOW_END",
+    "const SYSTEM_BANK_HIGH_START",
+    "const SYSTEM_BANK_HIGH_END",
+    "const WRAM_MIRROR_END",
+    "const IO_END",
+    "fn err",
+    "fn bank_of",
+    "fn low_of",
+    "fn is_wram_bank",
+    "fn is_system_bank",
+    "fn only_rom_size",
+    "fn require_pow2_in",
+    "fn bus_error",
+    "fn reserved_error",
+    "fn system_region"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "error::",
+    "state::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/snes_exhirom.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+   },
+   "linhas": 296,
+   "linhas_producao": 296,
+   "sha256": "88211d680e0e99f9255c6bbd767bdc37c8233fd25170fe3582e89057d601ee99",
+   "simbolos_publicos": [
+    "const PROFILE_ID",
+    "const AREA2_BASE",
+    "const MIN_ROM_SIZE",
+    "const MAX_ROM_SIZE",
+    "const MIN_AREA2_SIZE",
+    "fn validate_state",
+    "fn translate",
+    "fn invert",
+    "fn read"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "error::",
+    "region::",
+    "snes_common::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/snes_hirom.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+   },
+   "linhas": 226,
+   "linhas_producao": 226,
+   "sha256": "4642155f78ca39d648a2233554f9f0bdf11938eb6c173e4e15b52e57d0369050",
+   "simbolos_publicos": [
+    "const PROFILE_ID",
+    "const MIN_ROM_SIZE",
+    "const MAX_ROM_SIZE",
+    "fn validate_state",
+    "fn translate",
+    "fn invert",
+    "fn read"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "error::",
+    "region::",
+    "snes_common::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/snes_lorom.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+   },
+   "linhas": 215,
+   "linhas_producao": 215,
+   "sha256": "575713d92a55b75f2abc38f1c8a77474af7042b3a81ef4d861596433bed5a438",
+   "simbolos_publicos": [
+    "const PROFILE_ID",
+    "const PAGE_SIZE",
+    "const MIN_ROM_SIZE",
+    "const MAX_ROM_SIZE",
+    "fn validate_state",
+    "fn translate",
+    "fn invert",
+    "fn read"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "error::",
+    "region::",
+    "snes_common::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-addressing/src/state.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Endereçamento de região/mapper (Mega Drive linear/SSF2, SNES LoROM/HiROM/ExHiROM); 0 termos de jogo."
+   },
+   "linhas": 123,
+   "linhas_producao": 123,
+   "sha256": "b47d2f8d7ac6cc8ef5b543e958ab5b53b718c1bcdd8e9dea41e8956d28d50a0f",
+   "simbolos_publicos": [
+    "enum Value",
+    "fn as_uint",
+    "struct MapperState",
+    "fn empty",
+    "fn from_entries",
+    "fn rom_size",
+    "fn ssf2",
+    "fn get",
+    "fn keys",
+    "fn has",
+    "fn object",
+    "fn checked_rom_size"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "error::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-enigma/src/lib.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Codec Enigma puro; 'sonic'/'delta' só em comentários (variante do console; 'delta' = corrida delta do codec)."
+   },
+   "linhas": 486,
+   "linhas_producao": 298,
+   "sha256": "7b1eeaf04c742b1161e4070f6ca5a16008c115b4d231c62cc97af4dc7d9db67b",
+   "simbolos_publicos": [
+    "const HEADER_LEN",
+    "const PACKET_LENGTH_MIN",
+    "const PACKET_LENGTH_MAX",
+    "const MASK_BYTE_MAX",
+    "struct Limits",
+    "struct DecodeOptions",
+    "enum EnigmaError",
+    "fn code",
+    "struct Stats",
+    "struct EnigmaDecoded",
+    "fn bytes_be",
+    "fn decode"
+   ],
+   "termos_producao": {
+    "delta": 2,
+    "sonic": 1
+   },
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/graph.rs",
+   "classe": {
+    "classe": "perfil",
+    "justificativa": "Constrói NodeGraph v1 do perfil m68k.counter_threshold_state_gate.v1 (build_graph, edit_threshold): forma do grafo é do perfil."
+   },
+   "linhas": 628,
+   "linhas_producao": 628,
+   "sha256": "75197f7597727ea98e3f5c8b0400ce1d8e4440e1578437d9dac5246f67ec307b",
+   "simbolos_publicos": [
+    "struct Hints",
+    "fn insn_to_json",
+    "fn insn_from_json",
+    "struct GraphInput",
+    "fn build_graph",
+    "struct OpenedGraph",
+    "fn edit_threshold",
+    "fn open_graph",
+    "fn operator_of"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "json::",
+    "lift::",
+    "m68k::",
+    "region::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/json.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "JSON mínimo próprio; mecanismo genérico (redundante com serde_json — candidato a remoção na F1)."
+   },
+   "linhas": 348,
+   "linhas_producao": 329,
+   "sha256": "c16820fdbe15ad15ed59c6fe72f8909daff7455761b42ef7ceaac3bb45609a36",
+   "simbolos_publicos": [
+    "enum Json",
+    "fn obj",
+    "fn str",
+    "fn get",
+    "fn field",
+    "fn as_i64",
+    "fn as_str",
+    "fn as_bool",
+    "fn as_arr",
+    "fn i64_at",
+    "fn str_at",
+    "fn pretty",
+    "fn parse"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/lib.rs",
+   "classe": {
+    "classe": "perfil",
+    "justificativa": "Entrada do perfil counter_threshold_state_gate.v1 (Experimental)."
+   },
+   "linhas": 125,
+   "linhas_producao": 125,
+   "sha256": "35843c9ed594608abd15384521ec3ab8fb42dcc3e27b72575143d6ce0c9f3e3b",
+   "simbolos_publicos": [
+    "mod graph",
+    "mod json",
+    "mod lift",
+    "mod m68k",
+    "mod patch",
+    "mod region",
+    "mod sha256",
+    "const PROFILE_ID",
+    "const LIMITATIONS",
+    "struct Recovery",
+    "fn recover",
+    "fn execute_region",
+    "struct Candidate",
+    "fn scan_guarded_candidates"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/lift.rs",
+   "classe": {
+    "classe": "perfil",
+    "justificativa": "Eleva região à regra semântica do perfil (Guard, CounterAdd, Compare)."
+   },
+   "linhas": 453,
+   "linhas_producao": 453,
+   "sha256": "5dc2463d346e28cadfe393596ee5fd6258de6a97fee0cb1c7d3884165a0ff108",
+   "simbolos_publicos": [
+    "struct Guard",
+    "struct CounterAdd",
+    "enum Operator",
+    "fn symbol",
+    "fn from_symbol",
+    "fn holds",
+    "struct Compare",
+    "fn editable_range",
+    "struct ExternalCall",
+    "struct Outcome",
+    "struct GateRule",
+    "fn lift",
+    "struct RuleEffect",
+    "fn evaluate"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "m68k::",
+    "region::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/m68k.rs",
+   "classe": {
+    "classe": "misto",
+    "justificativa": "Subconjunto M68000 fechado de 12 variantes de Insn, com decode/encode/step e flags: o mecanismo é reaproveitável, o conjunto de instruções é o do perfil.",
+    "lado_motor": [
+     "fn decode",
+     "fn encode",
+     "fn step",
+     "enum Cond",
+     "enum BranchSize",
+     "struct Decoded"
+    ],
+    "lado_perfil": [
+     "enum Insn (subconjunto fechado: MoveLAbsToD, AddqLD, Moveq, CmpLDD, BtstImmD, Bcc, Bra, PeaAbsW, JsrAbsL, AddqLSp…)",
+     "fn mnemonic"
+    ]
+   },
+   "linhas": 667,
+   "linhas_producao": 526,
+   "sha256": "198822b52fb8c15f3f979a88684fec76e123e10a018ee7707c1447b5dc7fae00",
+   "simbolos_publicos": [
+    "enum Cond",
+    "fn name",
+    "fn from_name",
+    "enum BranchSize",
+    "enum Insn",
+    "struct Decoded",
+    "fn decode",
+    "fn encode",
+    "fn mnemonic",
+    "type Val",
+    "struct Ccr",
+    "enum Event",
+    "struct Machine",
+    "fn new",
+    "fn step"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/patch.rs",
+   "classe": {
+    "classe": "misto",
+    "justificativa": "md_checksum é do formato Mega Drive; patch_threshold e regenerate_from_graph são do perfil.",
+    "lado_motor": [
+     "const MD_CHECKSUM_AT",
+     "fn md_checksum",
+     "struct Rebuilt"
+    ],
+    "lado_perfil": [
+     "fn patch_threshold",
+     "fn regenerate_from_graph"
+    ]
+   },
+   "linhas": 173,
+   "linhas_producao": 173,
+   "sha256": "024de438011f70064e41f217336a1f3b5816dc5c5655e184638acba0d90423ae",
+   "simbolos_publicos": [
+    "const MD_CHECKSUM_AT",
+    "struct Rebuilt",
+    "fn md_checksum",
+    "fn patch_threshold",
+    "fn regenerate_from_graph"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "graph::",
+    "m68k::",
+    "sha256::sha256_hex"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/region.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Delimita região por fluxo de controle com saídas declaradas pelo chamador; depende do tipo Insn (acoplamento a verificar na F1)."
+   },
+   "linhas": 148,
+   "linhas_producao": 148,
+   "sha256": "dea038177a128b32d6fe56e13ea70f3dd8ac8f6b59cfd7ce9a3d8e932783343b",
+   "simbolos_publicos": [
+    "const MAX_REGION_INSNS",
+    "struct Region",
+    "fn at",
+    "fn contains_byte",
+    "fn delimit"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "m68k::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-gameplay/src/sha256.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "SHA-256 próprio (duplicata; ver duplicações)."
+   },
+   "linhas": 87,
+   "linhas_producao": 68,
+   "sha256": "f4b98500bfc02128128b5db8f0a0d6b58c1da0eec4e8d1ad5418852a4ff677eb",
+   "simbolos_publicos": [
+    "fn sha256_hex"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "sha256_hex"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-kosinski/src/edit.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Codec/edição Kosinski (variante base); sem termo de jogo. edit.rs tem SHA-256 próprio (duplicata)."
+   },
+   "linhas": 230,
+   "linhas_producao": 230,
+   "sha256": "6583b32f7871d281eba93f35f582a4d9d8d4e32d93a4aa4db6ad3a8933f3e4b0",
+   "simbolos_publicos": [
+    "const SENTINEL_A",
+    "const SENTINEL_B",
+    "const HEADER_LEN",
+    "enum EditError",
+    "struct SlotInfo",
+    "fn build",
+    "fn open",
+    "fn reinsert",
+    "fn sha256_bytes",
+    "fn sha256_hex"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "crates/rex-kosinski/src/encode.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Codec/edição Kosinski (variante base); sem termo de jogo. edit.rs tem SHA-256 próprio (duplicata)."
+   },
+   "linhas": 243,
+   "linhas_producao": 243,
+   "sha256": "a18fa9fec70f6aa91d42f59b2c38e491ea0c41ccb2d489d9a82dabfdc8634360",
+   "simbolos_publicos": [
+    "enum EncError",
+    "struct KosEncoded",
+    "fn encode"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "crates/rex-kosinski/src/lib.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Codec/edição Kosinski (variante base); sem termo de jogo. edit.rs tem SHA-256 próprio (duplicata)."
+   },
+   "linhas": 185,
+   "linhas_producao": 185,
+   "sha256": "0f6e09458d0225363b9fa069d695f937de0be1da550ee611614e5b876776820e",
+   "simbolos_publicos": [
+    "mod edit",
+    "mod encode",
+    "enum KosError",
+    "struct KosDecoded",
+    "fn decode"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/air.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+   },
+   "linhas": 482,
+   "linhas_producao": 412,
+   "sha256": "56e5351ab418744dad6c7a9422751dd73656a01b78c0be20074685caebc825a6",
+   "simbolos_publicos": [
+    "struct Box",
+    "fn new",
+    "fn hflip",
+    "struct Frame",
+    "struct Action",
+    "struct Air",
+    "fn parse"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "diag::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/diag.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+   },
+   "linhas": 189,
+   "linhas_producao": 189,
+   "sha256": "13e06155fd4a671511f8b2df72dea196b093b8caf10b8e008df905cb498fa4fc",
+   "simbolos_publicos": [
+    "const SCHEMA",
+    "enum Severity",
+    "fn as_str",
+    "enum Fidelity",
+    "fn as_str",
+    "struct SourceLoc",
+    "fn line",
+    "fn offset",
+    "fn file",
+    "fn render",
+    "struct Diagnostic",
+    "fn new",
+    "enum MetricOrigin",
+    "fn as_str",
+    "struct Metric",
+    "fn is_available",
+    "fn over_budget",
+    "struct Provenance"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/fixture.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+   },
+   "linhas": 678,
+   "linhas_producao": 678,
+   "sha256": "d89625209e97d86eb9bd5ee7acbec271f1ff7287a306c724b3f3a77f0c6a50f1",
+   "simbolos_publicos": [
+    "fn palette",
+    "struct Files",
+    "fn probe",
+    "fn sentinel",
+    "fn warden",
+    "fn walker",
+    "fn strider"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "sff::",
+    "sff::write::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/lib.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+   },
+   "linhas": 14,
+   "linhas_producao": 14,
+   "sha256": "80dd845a651be22c5955c0b02a8ef09dd1b7c6c2fcb6ae02a893da54a3693e8a",
+   "simbolos_publicos": [
+    "mod air",
+    "mod diag",
+    "mod fixture",
+    "mod palette",
+    "mod plan",
+    "mod sff",
+    "mod sha256",
+    "mod source"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/palette.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+   },
+   "linhas": 159,
+   "linhas_producao": 119,
+   "sha256": "4e17b8fb1b84c2bc734737115e88319b92ec46d2a25fcf70ceabfcce329561c9",
+   "simbolos_publicos": [
+    "fn vdp_level",
+    "fn level_rgb",
+    "fn to_vdp",
+    "fn cram_word",
+    "struct HardwarePalette",
+    "fn build"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "sff::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/plan.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+   },
+   "linhas": 532,
+   "linhas_producao": 532,
+   "sha256": "cd1b6c2c1e9b6656f879d5bc4533afbe8775fec362c5fb2ca2bd1e75144edafb",
+   "simbolos_publicos": [
+    "const PROFILE_ID",
+    "const MAX_CELL_PX",
+    "const MAX_FRAMES",
+    "struct PlannedFrame",
+    "struct PlannedAction",
+    "fn rescomp_times",
+    "struct RuntimeNeeds",
+    "struct Cell",
+    "struct CharacterPlan",
+    "struct Inputs",
+    "fn plan",
+    "fn render_cell"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "air::",
+    "diag::",
+    "palette::",
+    "sff::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/sff.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+   },
+   "linhas": 580,
+   "linhas_producao": 439,
+   "sha256": "9dd80ad6e85ede18da04f450b78a500b6efdb884c6e0fb95259b68fdd5310007",
+   "simbolos_publicos": [
+    "const MAX_FILE_BYTES",
+    "const MAX_IMAGES",
+    "const MAX_DIM",
+    "const MAX_DECODED_BYTES",
+    "type Rgb",
+    "fn read_act",
+    "struct Sprite",
+    "struct Sff",
+    "fn parse",
+    "mod write",
+    "struct Image",
+    "fn sff_v1"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "diag::",
+    "write::"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/sha256.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN). SHA-256 próprio (duplicata)."
+   },
+   "linhas": 87,
+   "linhas_producao": 68,
+   "sha256": "f4b98500bfc02128128b5db8f0a0d6b58c1da0eec4e8d1ad5418852a4ff677eb",
+   "simbolos_publicos": [
+    "fn sha256_hex"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "sha256_hex"
+   ]
+  },
+  {
+   "arquivo": "crates/rex-mugen/src/source.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Formatos MUGEN genéricos (SFF/AIR/paleta); fora do eixo de recuperação de lógica de ROM (frente de importação MUGEN)."
+   },
+   "linhas": 123,
+   "linhas_producao": 93,
+   "sha256": "b9f7d50578a609376bf20f215ce7fcc78679658ab5cfe41e8fc71829af92e53c",
+   "simbolos_publicos": [
+    "struct Reference",
+    "struct Definition",
+    "fn file",
+    "fn is_character",
+    "fn parse_def",
+    "enum Resolution",
+    "fn resolve"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/decomp_orch.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Orquestrador do currículo pareado (Tier 0): pares (fonte, ROM), Ghidra, determinismo; sem jogo."
+   },
+   "linhas": 637,
+   "linhas_producao": 457,
+   "sha256": "248027652fea9665a4c1d8b99212e97680b6810f69f0023ed5320c399c165a19",
+   "simbolos_publicos": [
+    "struct EtapaAPairSpec",
+    "struct DeterminismResult",
+    "struct EtapaAPairResult",
+    "struct EtapaAOptions",
+    "fn run_etapa_a"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "fingerprint::build_fingerprint_index",
+    "ghidra_bridge::",
+    "object_diff::",
+    "rom_library::",
+    "symbols::",
+    "tools::reverse::decomp::rom_library::decomp_work_dir",
+    "triage::"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/extract.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Catálogo de extração com proveniência; 'hamoopig'/'taiketsu' só em comentário e teste ignorado."
+   },
+   "linhas": 1140,
+   "linhas_producao": 557,
+   "sha256": "a4b0127a0eba3ef6cc194e85749a6c84a1f214b3c705665147bd5837f43fc858",
+   "simbolos_publicos": [
+    "const EXTRACTION_CATALOG_SCHEMA_V1",
+    "const EXTRACTION_SCENARIO_ID",
+    "const STATUS_IDENTIFIED",
+    "const STATUS_UNKNOWN",
+    "struct ExtractionRegion",
+    "struct ExtractionCatalog",
+    "struct MdHeaderDetail",
+    "fn sha256_path_component",
+    "fn reject_if_symlink",
+    "fn canonical_dir_under",
+    "fn build_md_extraction_catalog",
+    "fn validate_extraction_catalog",
+    "fn write_file_immutable",
+    "fn record_extraction_run"
+   ],
+   "termos_producao": {
+    "hamoopig": 1,
+    "taiketsu": 1
+   },
+   "usa_modulos": [
+    "rom_library::",
+    "tools::reverse::loader::"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/fingerprint.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Fingerprint de funções por SHA-256 (tem SHA-256 próprio)."
+   },
+   "linhas": 140,
+   "linhas_producao": 78,
+   "sha256": "622395bd416d2167dcc3dbee3e06219eca69968a8d272619d9f9b3076736d72b",
+   "simbolos_publicos": [
+    "struct FunctionFingerprint",
+    "struct FingerprintIndex",
+    "fn sha256_hex",
+    "fn build_fingerprint_index"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "symbols::"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/ghidra_bridge.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Ponte Ghidra headless."
+   },
+   "linhas": 245,
+   "linhas_producao": 195,
+   "sha256": "d02f765faefd580bc2ac1bab8e12f9e1f2383e1faeb7d120bafce29a575182f2",
+   "simbolos_publicos": [
+    "const GHIDRA_PROCESSOR",
+    "struct BoundaryMetrics",
+    "fn resolve_ghidra_support_dir",
+    "fn list_functions_postscript",
+    "fn export_function_starts",
+    "fn boundary_metrics"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/graphics_discovery.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Descoberta de tiles/paletas por heurística; 'delta' = diferença."
+   },
+   "linhas": 2657,
+   "linhas_producao": 1652,
+   "sha256": "4b70eb1212f6f43e538910ef7249bd7918e55d347b4b839082822d32ff09bce6",
+   "simbolos_publicos": [
+    "const GRAPHIC_DISCOVERY_SCHEMA_V1",
+    "const GRAPHIC_DISCOVERY_SCENARIO_ID",
+    "const STATUS_CANDIDATE",
+    "const KIND_TILE_BLOCK",
+    "const KIND_PALETTE16",
+    "const KIND_PALETTE64",
+    "const TILE_BYTES",
+    "struct GraphicCandidate",
+    "struct GraphicDiscovery",
+    "fn graphic_score_tile",
+    "fn discover_graphic_candidates",
+    "fn validate_graphic_discovery",
+    "fn export_candidate_previews",
+    "fn record_discovery_run"
+   ],
+   "termos_producao": {
+    "delta": 2
+   },
+   "usa_modulos": [
+    "extract::",
+    "rom_library::",
+    "tools::reverse::loader::rex_identify_bytes"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/holdout.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Holdout sintético; 'delta' = variação numérica."
+   },
+   "linhas": 773,
+   "linhas_producao": 503,
+   "sha256": "1601b5717850a766c7c605425f56f9f92d6806504a1a1bf0a4d1bf522158d749",
+   "simbolos_publicos": [
+    "const HOLDOUT_SCHEMA_V1",
+    "const HOLDOUT_SCENARIO_ID",
+    "const HISTORICAL_DENSE_BASELINE_COVERAGE",
+    "const HOLDOUT_SEED",
+    "const OFFSET_SPARSE",
+    "const OFFSET_DENSE",
+    "const OFFSET_DITHER",
+    "const OFFSET_PALETTE",
+    "const OFFSET_CODE",
+    "const OFFSET_AUDIO",
+    "const OFFSET_COMPRESSED",
+    "struct HoldoutRegion",
+    "struct CategoryMeasurement",
+    "fn palette_words",
+    "fn build_holdout_rom",
+    "fn covered_fraction",
+    "fn measure_holdout",
+    "fn discover_holdout_candidates"
+   ],
+   "termos_producao": {
+    "delta": 6
+   },
+   "usa_modulos": [
+    "graphics_discovery::",
+    "rom_library::sha256_hex",
+    "tools::reverse::loader::",
+    "tools::reverse::loader::rex_identify_bytes"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/inspection.rs",
+   "classe": {
+    "classe": "misto",
+    "justificativa": "Serviço de inspeção (sessões, catálogo, preview, salvar) misturado com 138 ocorrências de 'sonic' em edições/consultas específicas do Sonic 1.",
+    "lado_caso": [
+     "SonicAppliedEdit",
+     "fn edit_sonic_palette",
+     "fn edit_sonic_tiles",
+     "fn sonic_cadence_info",
+     "fn edit_sonic_duration",
+     "fn sonic_sequence_info",
+     "fn sonic_consumers_info",
+     "fn sonic_layouts_info",
+     "fn sonic_layout_grid",
+     "fn set_layouts_selection",
+     "fn sonic_ss_walls_info",
+     "fn sonic_ss_walls_compose",
+     "fn sonic_layout_cell",
+     "fn edit_sonic_sequence",
+     "fn restore_sonic_sequence",
+     "fn layouts_error"
+    ],
+    "lado_motor": [
+     "InspectionError",
+     "InspectionRomIdentity",
+     "InspectionSession",
+     "InspectionEdit",
+     "InspectionProgress",
+     "InspectionRun",
+     "InspectionStatus",
+     "InspectionCandidate",
+     "InspectionCatalogPage",
+     "InspectionPreview",
+     "fn list_sessions",
+     "fn open",
+     "fn reopen",
+     "fn start",
+     "fn cancel",
+     "fn status",
+     "fn catalog_page",
+     "fn preview",
+     "fn save_palette_choice",
+     "fn save"
+    ]
+   },
+   "linhas": 4295,
+   "linhas_producao": 1971,
+   "sha256": "0b4990d44e843ef42672e9b75d44794b91daf20507d71a82aa60e51b4c1fa570",
+   "simbolos_publicos": [
+    "const INSPECTION_SCHEMA_V1",
+    "const INSPECTION_PROGRESS_EVENT",
+    "const INSPECTION_MAX_ROM_BYTES",
+    "const INSPECTION_MAX_CANDIDATES",
+    "const INSPECTION_MAX_PAGE_SIZE",
+    "const INSPECTION_MAX_QUERY_LENGTH",
+    "struct InspectionError",
+    "fn from_wire",
+    "struct InspectionRomIdentity",
+    "struct InspectionSession",
+    "struct InspectionEdit",
+    "struct SonicAppliedEdit",
+    "struct InspectionPixelEdit",
+    "struct InspectionProgress",
+    "struct InspectionRun",
+    "struct InspectionStatus",
+    "struct InspectionCandidate",
+    "struct InspectionUnknownRegion",
+    "struct InspectionUserChoice",
+    "struct InspectionCatalogPage",
+    "struct InspectionPreview",
+    "fn list_sessions",
+    "fn open",
+    "fn reopen",
+    "fn start",
+    "fn cancel",
+    "fn status",
+    "fn catalog_page",
+    "fn preview",
+    "fn sprite_frame",
+    "fn save_palette_choice",
+    "fn save",
+    "fn edit_sonic_palette",
+    "fn edit_sonic_tiles",
+    "fn sonic_cadence_info",
+    "fn edit_sonic_duration",
+    "fn sonic_sequence_info",
+    "fn sonic_consumers_info",
+    "fn layouts_error",
+    "fn sonic_layouts_info",
+    "fn sonic_layout_grid",
+    "fn set_layouts_selection",
+    "fn sonic_ss_walls_info",
+    "fn sonic_ss_walls_compose",
+    "fn sonic_layout_cell",
+    "fn edit_sonic_sequence",
+    "fn restore_sonic_sequence"
+   ],
+   "termos_producao": {
+    "sonic": 138
+   },
+   "usa_modulos": [
+    "core::rom_mastering::sha256_hex",
+    "emulator::frame_buffer::framebuffer_to_rgba",
+    "emulator::libretro_ffi::",
+    "extract::",
+    "graphics_discovery::",
+    "rom_library::",
+    "sonic_sprite",
+    "super::",
+    "super::sonic_cadence",
+    "tools::patch_studio",
+    "tools::reverse::loader::"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/logic_recovery.rs",
+   "classe": {
+    "classe": "perfil",
+    "justificativa": "Recuperação de rotina M68K exata de perfil (PROFILE_ID/BRANCH_PROFILE_ID; ADDQ.W #1,D0; RTS) — forma específica, sem nome de jogo."
+   },
+   "linhas": 656,
+   "linhas_producao": 548,
+   "sha256": "2101893375100b09604ecb8fc4df48f2bd4702bb42c5b181af24475239901316",
+   "simbolos_publicos": [
+    "const PROFILE_ID",
+    "const BRANCH_PROFILE_ID",
+    "struct LogicRecoveryResult",
+    "struct RecoveredOperation",
+    "struct SourceMapping",
+    "struct IndependentTestState",
+    "struct LogicPatchResult",
+    "fn recover_logic",
+    "fn patch_logic"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "core::rom_mastering::sha256_hex",
+    "super::loader::load_rom",
+    "super::platform::"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/mod.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Registro de módulos; 'sonic'/'jump' só nos nomes dos módulos registrados."
+   },
+   "linhas": 59,
+   "linhas_producao": 56,
+   "sha256": "f7d0b13919a4baf2ea987081e75c582a480554e3583859cfe6313d5260b85745",
+   "simbolos_publicos": [
+    "mod decomp_orch",
+    "mod extract",
+    "mod fingerprint",
+    "mod ghidra_bridge",
+    "mod graphics_discovery",
+    "mod holdout",
+    "mod inspection",
+    "mod logic_recovery",
+    "mod object_diff",
+    "mod rex_addressing",
+    "mod rex_aplib",
+    "mod rex_codecs",
+    "mod rex_context",
+    "mod rex_edit",
+    "mod rex_evidence",
+    "mod rex_gameplay",
+    "mod rex_jump_ipc",
+    "mod rex_kosinski",
+    "mod rex_mdgfx",
+    "mod rex_nemesis",
+    "mod rex_platformer_jump",
+    "mod rex_profile_engine",
+    "mod rex_profile_graph",
+    "mod rex_profile_ipc",
+    "mod rex_profile_registry",
+    "mod rex_profile_spec",
+    "mod rex_publish",
+    "mod rex_resources",
+    "mod rex_sigscan",
+    "mod rom_library",
+    "mod sonic_cadence",
+    "mod sonic_consumers",
+    "mod sonic_layouts",
+    "mod sonic_sequence",
+    "mod sonic_sprite",
+    "mod sonic_ss_walls",
+    "mod sprite_composition",
+    "mod symbols",
+    "mod triage"
+   ],
+   "termos_producao": {
+    "sonic": 6
+   },
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/object_diff.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Comparação por símbolo de objetos M68K via objdump."
+   },
+   "linhas": 306,
+   "linhas_producao": 226,
+   "sha256": "cf4b3a323ad656d37aa9b8128b93ce1ed79ed7ac721635856fb70ad8fd49188c",
+   "simbolos_publicos": [
+    "const CLASS_EXACT",
+    "const CLASS_DIVERGENT",
+    "const CLASS_ONLY_ORIGINAL",
+    "const CLASS_ONLY_REBUILD",
+    "struct SymbolDiff",
+    "struct ObjectDiffReport",
+    "fn m68k_bin_dir",
+    "fn parse_objdump_blocks",
+    "fn diff_objects"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "rom_library::sha256_hex"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_addressing.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Adaptador de endereçamento do produto."
+   },
+   "linhas": 773,
+   "linhas_producao": 317,
+   "sha256": "7bd75ea96a598623c77787410a826aa891333d117745cf9f1e84daea3eb2ef76",
+   "simbolos_publicos": [
+    "struct SnapshotReadRequest",
+    "struct SnapshotReadResult",
+    "struct SegmentRead",
+    "fn read_fixed_snapshot"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "core::rom_mastering::sha256_hex",
+    "inspection::",
+    "tools::reverse::loader::rex_read_rom"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_aplib.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Codec aPLib (variante SGDK)."
+   },
+   "linhas": 1545,
+   "linhas_producao": 753,
+   "sha256": "42a555d24c0a15ec753c256337212bcac855d77a68ec7062165c25ae49501d36",
+   "simbolos_publicos": [
+    "struct AplibLimits",
+    "struct AplibDecoded",
+    "fn aplib_decode",
+    "struct AplibEncodeLimits",
+    "fn aplib_encode"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "core::rom_mastering::sha256_hex",
+    "rex_codecs::"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_codecs.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Codecs REX v1 (LZ4W etc.)."
+   },
+   "linhas": 1984,
+   "linhas_producao": 926,
+   "sha256": "6044135b30f51bc746f8b15e6baf6b94cabbbd52c067ce969ea0cb231fa83e18",
+   "simbolos_publicos": [
+    "struct CodecError",
+    "fn new",
+    "struct Lz4wLimits",
+    "struct Lz4wDecoded",
+    "fn lz4w_decode",
+    "fn lz4w_decode_with_dictionary",
+    "fn lz4w_encode",
+    "fn lz4w_encode_with_dictionary",
+    "struct Lz4wDictionaryIndex",
+    "fn build",
+    "fn word_count",
+    "fn lz4w_encode_with_dictionary_index",
+    "fn lz4w_encode_with_dictionary_index_explained",
+    "fn lz4w_encode_with_dictionary_index_fitting",
+    "enum Lz4wEncodeStrategy"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_context.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Contexto de recurso gráfico somente leitura (TileSet+TileMap+paleta); 0 termos de jogo."
+   },
+   "linhas": 3413,
+   "linhas_producao": 1279,
+   "sha256": "88c55458601a08ca358c6b2ba1903916dbd718b14f4db02496f416b857143935",
+   "simbolos_publicos": [
+    "struct TilemapCandidate",
+    "fn scan_tilemap_headers",
+    "struct VerifiedTilemap",
+    "fn verificar_tilemap",
+    "struct PaletteCandidate",
+    "fn scan_palette_headers",
+    "struct VerifiedPalette",
+    "fn verificar_palette",
+    "struct CadeiaImagem",
+    "fn localizar_cadeias_imagem",
+    "struct Celula",
+    "const TILE_PX",
+    "struct PontoDaCamada",
+    "struct PixelDaFonte",
+    "fn celulas_do_mapa",
+    "fn ocorrencias_do_tile",
+    "fn celula_em",
+    "fn decodificar_celula",
+    "fn projetar_pixel_da_fonte",
+    "fn fonte_do_ponto",
+    "struct CamadaComposta",
+    "fn compor_camada",
+    "enum Proveniencia",
+    "struct LimiteTrabalho",
+    "struct IdentidadeRecurso",
+    "struct CelulaPublicada",
+    "struct OcorrenciasTile",
+    "struct MapaPublicado",
+    "struct CamadaPublicada",
+    "struct ContextoImagem",
+    "struct RecursoSemVinculo",
+    "struct VinculoRecusado",
+    "struct ContextoRom",
+    "struct PixelDaFontePublicado",
+    "struct ResolucaoClique",
+    "fn contexto_da_rom",
+    "fn contexto_clique",
+    "fn contexto_da_rom_path",
+    "fn contexto_clique_path"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "rex_aplib::",
+    "rex_codecs::",
+    "rex_resources::",
+    "rom_library::sha256_hex",
+    "super::rex_aplib::",
+    "super::rex_resources::"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_edit.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Núcleo de edição extraído na F1: Patch, apply, IPS estrito (gerador e aplicador independentes) e planejamento genérico de campos de 16 bits; opera sobre offsets e domínios, sem termo de jogo."
+   },
+   "linhas": 431,
+   "linhas_producao": 234,
+   "sha256": "b62b107c1772d4fa61bce16fa80f49e550dac70f2cf1b79f44ada8e72c4f9ee2",
+   "simbolos_publicos": [
+    "struct Patch",
+    "enum EditError",
+    "enum PlanError",
+    "struct FieldEnc",
+    "const IMM16_BE",
+    "fn range",
+    "fn decode",
+    "fn encode",
+    "struct FieldView",
+    "fn plan_field_edits",
+    "fn apply",
+    "const IPS_MAX_OFFSET",
+    "const IPS_EOF_OFFSET",
+    "const IPS_MAX_RECORD",
+    "fn ips",
+    "fn ips_apply_strict"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_evidence.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Escada de evidência L0–L6 e Claim com base obrigatória de L3 em diante; sem termo de jogo. Contrato da F0, ainda não usado por nenhum caminho de produção."
+   },
+   "linhas": 264,
+   "linhas_producao": 174,
+   "sha256": "8744ce6b2b00eed36b5fdb5b582d3f6c2e2146710de985d1bccead727098e095",
+   "simbolos_publicos": [
+    "enum EvidenceLevel",
+    "enum EvidenceError",
+    "const ALL",
+    "fn code",
+    "fn from_code",
+    "fn label_pt",
+    "fn requires_basis",
+    "enum EvidenceAxis",
+    "fn axis",
+    "struct Claim",
+    "fn new",
+    "fn present_at",
+    "fn weakest"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_gameplay.rs",
+   "classe": {
+    "classe": "perfil",
+    "justificativa": "Adaptador IPC do perfil counter_threshold_state_gate.v1."
+   },
+   "linhas": 1580,
+   "linhas_producao": 482,
+   "sha256": "0b562d3a419bc0cba724d8a6ef7e327b768b9e5f551b1204e6377a0836c3ab79",
+   "simbolos_publicos": [
+    "struct GameplayRecoveryDto",
+    "struct GameplayRebuildDto",
+    "fn recover_gameplay_gate",
+    "fn edit_gameplay_threshold",
+    "fn rebuild_gameplay_rom",
+    "const MAX_ROM_BYTES",
+    "const MAX_GRAPH_BYTES",
+    "const MAX_EXITS",
+    "const MAX_ADDRESS_LABELS",
+    "struct GameplayAddressLabel",
+    "struct GameplayScanRequest",
+    "struct GameplayScanCandidate",
+    "struct GameplayScanResponse",
+    "struct GameplayRecoverRequest",
+    "struct GameplayRecoverResponse",
+    "struct GameplayEditRequest",
+    "struct GameplayEditResponse",
+    "struct GameplayRebuildRequest",
+    "struct GameplayRebuildResponse",
+    "fn ipc_scan",
+    "fn ipc_recover",
+    "fn ipc_edit",
+    "fn ipc_rebuild"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "compiler::build_orch::",
+    "core::rom_mastering::sha256_hex",
+    "create_project_from_template",
+    "emulator::frame_buffer::framebuffer_to_rgba",
+    "emulator::libretro_ffi::",
+    "inspection::"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_jump_ipc.rs",
+   "classe": {
+    "classe": "perfil",
+    "justificativa": "ADAPTADOR DE COMPATIBILIDADE compilado só em teste: delega a rex_profile_ipc; conserva os testes anteriores como regressão."
+   },
+   "linhas": 950,
+   "linhas_producao": 187,
+   "sha256": "a2d64db37a236d53e75eb144c49de4611038a85cd8f2aab14a84476a694d2d28",
+   "simbolos_publicos": [
+    "struct JumpLocateRequest",
+    "struct JumpInstanceView",
+    "struct JumpLocateResponse",
+    "fn ipc_locate",
+    "struct JumpEditRequest",
+    "struct JumpEditResponse",
+    "type VerifyPair",
+    "fn publish_pair",
+    "fn ipc_edit",
+    "fn ipc_edit_with"
+   ],
+   "termos_producao": {
+    "jump": 30,
+    "pulo": 1
+   },
+   "usa_modulos": [
+    "inspection::",
+    "rex_platformer_jump::",
+    "rex_profile_ipc::",
+    "rex_publish::",
+    "rom_library::sha256_hex",
+    "super::rex_platformer_jump::"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_kosinski.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Adaptador do codec Kosinski."
+   },
+   "linhas": 497,
+   "linhas_producao": 261,
+   "sha256": "3b4115ab6f95d7f28740f9dd6c0f86f8db6efe2b59eeb7a988d76701d45eb4e2",
+   "simbolos_publicos": [
+    "struct KosinskiDecodeLimits",
+    "struct KosinskiEncodeLimits",
+    "struct KosinskiDecoded",
+    "fn kosinski_decode",
+    "fn kosinski_encode",
+    "struct KosinskiDecodeRequest",
+    "struct KosinskiDecodeResponse",
+    "struct KosinskiEncodeRequest",
+    "struct KosinskiEncodeResponse",
+    "fn ipc_decode",
+    "fn ipc_encode"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "core::rom_mastering::sha256_hex",
+    "inspection::",
+    "rex_codecs::",
+    "tools::reverse::decomp::rex_codecs::"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_mdgfx.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Primitivas gráficas MD 'SEM conhecimento de jogo' (cabeçalho); 'sonic' só em comentário sobre o formato de mappings."
+   },
+   "linhas": 637,
+   "linhas_producao": 392,
+   "sha256": "7a10f67dd6e0bce90d78636e3419f3539d469d427c541dadef8e8b73ba6a460e",
+   "simbolos_publicos": [
+    "const TILE_BYTES",
+    "const PALETTE_LINES",
+    "const COLORS_PER_LINE",
+    "const PIECE_BYTES",
+    "const MAX_PIECES",
+    "enum GfxError",
+    "fn code",
+    "struct Piece",
+    "fn tile_count",
+    "fn parse_piece",
+    "fn parse_frame",
+    "fn with_base",
+    "const MAX_FRAMES_TABLE",
+    "fn frame_offsets",
+    "fn parse_frame_at",
+    "struct PlcCue",
+    "fn first_tile",
+    "const MAX_PLC_CUES",
+    "fn parse_plc",
+    "fn tile_indices",
+    "fn tile_is_empty",
+    "struct Indexed",
+    "fn compose",
+    "fn cram_levels",
+    "fn cram_to_rgb8",
+    "fn palette_words",
+    "fn to_rgba"
+   ],
+   "termos_producao": {
+    "sonic": 3
+   },
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_nemesis.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Decoder Nemesis 'genérico: não conhece nenhum jogo' (cabeçalho)."
+   },
+   "linhas": 490,
+   "linhas_producao": 267,
+   "sha256": "6dab973c5c9a8ccec492115def8c0683c9441ba69b435d08c4161fa765d1d4b5",
+   "simbolos_publicos": [
+    "const HEADER_LEN",
+    "const INLINE_PREFIX_LEN",
+    "const INLINE_PREFIX",
+    "const MAX_CODE_LEN",
+    "const TILE_BYTES",
+    "const TILE_PIXELS",
+    "const MAX_TILES",
+    "struct Limits",
+    "struct DecodeOptions",
+    "enum NemesisError",
+    "fn code",
+    "struct Stats",
+    "struct NemesisDecoded",
+    "fn decode",
+    "mod testkit",
+    "struct BitW",
+    "fn new",
+    "fn put",
+    "fn encode_inline"
+   ],
+   "termos_producao": {
+    "sonic": 1
+   },
+   "usa_modulos": [
+    "testkit::"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_platformer_jump.rs",
+   "classe": {
+    "classe": "perfil",
+    "justificativa": "ADAPTADOR DE COMPATIBILIDADE compilado só em teste (#[cfg(test)] em mod.rs): API tipada anterior sobre o motor + código antigo como oráculo (locate_reference, graph_json_reference)."
+   },
+   "linhas": 1748,
+   "linhas_producao": 363,
+   "sha256": "626b2efbfbf9f5f67476983044b70ebab607412a46af8de145a94b6db05a3435",
+   "simbolos_publicos": [
+    "const PROFILE_ID",
+    "const PAIR_WINDOW",
+    "const CAP_WINDOW",
+    "enum JumpError",
+    "fn code",
+    "struct JumpField",
+    "struct JumpInstance",
+    "struct JumpParams",
+    "fn locate",
+    "fn locate_reference",
+    "fn graph_json",
+    "fn graph_json_reference",
+    "struct GraphReview",
+    "fn accepted",
+    "fn pairs",
+    "fn review_graph",
+    "fn plan_edit",
+    "fn apply",
+    "fn ips",
+    "fn ips_apply_strict",
+    "fn fixture_rom",
+    "fn base"
+   ],
+   "termos_producao": {
+    "jump": 65,
+    "pulo": 2,
+    "sonic": 1
+   },
+   "usa_modulos": [
+    "rex_edit::",
+    "rex_profile_engine::",
+    "rex_profile_graph",
+    "rex_profile_graph::",
+    "rex_profile_registry::",
+    "rex_sigscan::",
+    "super::rex_profile_spec::",
+    "super::rom_library::sha256_hex"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_engine.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Motor de localização dirigido por perfil em dado (subsumes/pair/follow), promovido na F1; recusa formas fora da classe suportada; sem termo de jogo."
+   },
+   "linhas": 1327,
+   "linhas_producao": 788,
+   "sha256": "600374988e493f38e94953299f98f19768d540fe24a14ddee4ec2db98f0b6141",
+   "simbolos_publicos": [
+    "enum EngineError",
+    "enum ProfileError",
+    "fn code",
+    "struct CapView",
+    "struct MatchView",
+    "fn cap",
+    "struct EngineField",
+    "struct EngineInstance",
+    "struct Located",
+    "struct Engine",
+    "fn new",
+    "fn spec",
+    "fn profile_sha256",
+    "fn typed",
+    "fn locate",
+    "fn locate_any",
+    "fn instance_at",
+    "fn plan_edit",
+    "fn holds",
+    "fn render",
+    "fn notes",
+    "fn details",
+    "fn captures",
+    "struct CaptureFact"
+   ],
+   "termos_producao": {
+    "tails": 2
+   },
+   "usa_modulos": [
+    "rex_edit::",
+    "rex_evidence::",
+    "rex_profile_spec::",
+    "rex_sigscan::",
+    "super::rex_edit::",
+    "super::rex_profile_graph::",
+    "super::rex_profile_testkit::",
+    "super::rom_library::sha256_hex"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_graph.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Projeção de instância para NodeGraph v1 e revisão do grafo contra o canônico da ROM, dirigidas pelo dado do perfil; 0 termos de jogo."
+   },
+   "linhas": 771,
+   "linhas_producao": 445,
+   "sha256": "85f370b65c0a33d9ca0525a5cf45239819a965932f62a70241d894bd7bb200e0",
+   "simbolos_publicos": [
+    "const BRIDGE_PARAM",
+    "const BINDING_PARAMS",
+    "fn graph_json",
+    "fn canonical_string",
+    "fn canonical_signature",
+    "struct GraphReview",
+    "fn accepted",
+    "fn declared_profile_sha256",
+    "fn review_graph"
+   ],
+   "termos_producao": {
+    "delta": 8
+   },
+   "usa_modulos": [
+    "rex_profile_engine::",
+    "rex_profile_spec::",
+    "super::rex_profile_testkit::",
+    "super::rom_library::sha256_hex"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_ipc.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Superfície IPC genérica (catálogo, localizar, editar): recebe o id do perfil como dado; 0 termos de jogo."
+   },
+   "linhas": 1294,
+   "linhas_producao": 764,
+   "sha256": "4043bad666c16397dc5f4c16d510e0f24e67b79ec36cc732e2a41d99c336b39a",
+   "simbolos_publicos": [
+    "const MAX_ROM_BYTES",
+    "fn fail",
+    "fn from_profile",
+    "fn request_ok",
+    "fn read_rom",
+    "struct ClaimView",
+    "struct ProfileInfo",
+    "struct ProfileCatalogRequest",
+    "struct ProfileCatalogResponse",
+    "fn ipc_catalog",
+    "struct MeasuredView",
+    "struct FieldView",
+    "struct CaptureView",
+    "struct LinkView",
+    "struct InstanceView",
+    "struct ProfileMatch",
+    "struct ProfileLocateRequest",
+    "struct ProfileLocateResponse",
+    "fn instance_view",
+    "fn ipc_locate",
+    "struct ProfileEditRequest",
+    "struct ProfileEditResponse",
+    "fn ipc_edit",
+    "fn ipc_edit_with"
+   ],
+   "termos_producao": {
+    "tails": 3
+   },
+   "usa_modulos": [
+    "inspection::",
+    "rex_edit::",
+    "rex_evidence::",
+    "rex_profile_engine::",
+    "rex_profile_graph::",
+    "rex_profile_registry::",
+    "rex_profile_spec::",
+    "rex_publish::",
+    "rom_library::sha256_hex",
+    "super::rex_profile_testkit::",
+    "super::rex_publish::"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_registry.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Carga de perfis (embutidos enumerados na compilação + pasta em execução) e rejeição com motivo; 0 termos de jogo."
+   },
+   "linhas": 297,
+   "linhas_producao": 150,
+   "sha256": "24b50c69631051e3287106ac52230480d9074b62601ff68591188ce941903bb0",
+   "simbolos_publicos": [
+    "const MAX_PROFILE_FILES",
+    "enum Origin",
+    "struct LoadedProfile",
+    "struct Rejected",
+    "struct Registry",
+    "fn builtin",
+    "fn load",
+    "fn find"
+   ],
+   "termos_producao": {},
+   "usa_modulos": [
+    "rex_profile_engine::",
+    "rex_profile_spec::",
+    "rom_library::sha256_hex",
+    "super::rex_profile_testkit::"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_spec.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Esquema e validação do perfil como dado; a lógica de produção não cita jogo (1 ocorrência de 'pulo' em comentário de cabeçalho; o perfil do pulo aparece nos testes e no JSON de rascunho). O avaliador que interpreta o dado é #[cfg(test)]. Contrato da F0, não usado em produção."
+   },
+   "linhas": 2032,
+   "linhas_producao": 1460,
+   "sha256": "519338f6b6a37eaebc2e6ad92c5aaf552398a2006014c884ec3eb304348502c3",
+   "simbolos_publicos": [
+    "const SPEC_SCHEMA",
+    "const MAX_SPEC_BYTES",
+    "const MAX_PATTERNS",
+    "const MAX_SOURCES",
+    "const MAX_CAPTURES",
+    "const MAX_CONSTRAINTS",
+    "const MAX_RELATIONS",
+    "const MAX_FIELDS",
+    "const MAX_NODES",
+    "const MAX_EDGES",
+    "const MAX_TEXT_PARTS",
+    "const MAX_TEXT_LEN",
+    "const MAX_LIST",
+    "const HARD_MAX_ROM_BYTES",
+    "const HARD_MAX_MATCHES",
+    "const HARD_MAX_INSTANCES",
+    "enum SpecStatus",
+    "enum Endianness",
+    "struct ArchSpec",
+    "enum MappingKind",
+    "struct RomMapping",
+    "struct Provenance",
+    "enum RomBinding",
+    "struct WorkLimits",
+    "enum CaptureRole",
+    "struct CaptureSpec",
+    "fn enc",
+    "fn decode",
+    "fn range",
+    "struct PatternSpec",
+    "enum ConstraintSpec",
+    "fn id",
+    "fn pattern",
+    "enum TieRule",
+    "enum RelationSpec",
+    "fn id",
+    "struct FieldSpec",
+    "enum Condition",
+    "enum NumFmt",
+    "enum TextPart",
+    "enum Scalar",
+    "struct ParamSpec",
+    "struct NodeFieldSpec",
+    "enum RomSpan",
+    "struct NodeSpec",
+    "struct EdgeSpec",
+    "struct ProjectionSpec",
+    "struct NoteSpec",
+    "struct DetailSpec",
+    "struct ScopeValues",
+    "struct ScopeRom",
+    "struct ClaimScope",
+    "struct ClaimSpec",
+    "struct EvidenceSpec",
+    "struct ProfileSpec",
+    "enum SpecError",
+    "fn rule",
+    "type Port",
+    "fn node_ports",
+    "const RESERVED_PARAMS",
+    "fn capture_sizes",
+    "fn capture_names",
+    "fn is_sha256_hex",
+    "fn from_json",
+    "fn field",
+    "fn capture",
+    "fn field_type",
+    "fn file_to_bus",
+    "fn bus_to_file",
+    "fn bus_address_of",
+    "fn validate"
+   ],
+   "termos_producao": {
+    "delta": 4,
+    "tails": 7
+   },
+   "usa_modulos": [
+    "rex_edit::",
+    "rex_evidence::",
+    "rex_sigscan::",
+    "super::rex_profile_testkit::"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_profile_testkit.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Apoio de teste (#[cfg(test)]): perfil mínimo autoral e ROM sintética; não descreve jogo."
+   },
+   "linhas": 137,
+   "linhas_producao": 137,
+   "sha256": "6bb7c236b710be93a8212db2f6f272aac72448339fdb0705b9abcef31270f040",
+   "simbolos_publicos": [
+    "const MINI_ID",
+    "fn mini",
+    "fn mini_with",
+    "fn text",
+    "fn engine_of",
+    "fn put",
+    "const A1",
+    "const B1",
+    "const C1",
+    "const A2",
+    "fn pat_a",
+    "fn pat_b",
+    "fn pat_c",
+    "fn mini_rom"
+   ],
+   "termos_producao": {
+    "delta": 3,
+    "tails": 1
+   },
+   "usa_modulos": [
+    "rex_profile_engine::",
+    "rex_profile_spec::",
+    "rom_library::sha256_hex"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_publish.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Publicação conjunta e segura de dois artefatos (cópia + IPS) extraída na F1: Fs/RealFs/WriteFail/publish_pair; sem termo de jogo."
+   },
+   "linhas": 210,
+   "linhas_producao": 210,
+   "sha256": "682fe9af4321b265d7420974d0da59854a1ed4174c5980345f08417d98ba325c",
+   "simbolos_publicos": [
+    "struct PublishError",
+    "fn new",
+    "enum WriteFail",
+    "trait Fs",
+    "struct RealFs",
+    "type VerifyPair",
+    "fn publish_pair"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_resources.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Cadeia de recurso comprimido; 'sonic' 1x em comentário."
+   },
+   "linhas": 4860,
+   "linhas_producao": 1130,
+   "sha256": "465b56feac5837e8850a2cafb285db8dad54e9f15f6002a66f9b80a083276d16",
+   "simbolos_publicos": [
+    "enum HeaderCompression",
+    "fn from_field",
+    "fn as_str",
+    "struct TilesetCandidate",
+    "fn scan_tileset_headers",
+    "struct VerifiedLz4wResource",
+    "fn verify_lz4w_resource",
+    "struct VerifiedAplibResource",
+    "fn verify_aplib_resource",
+    "struct VerifiedResourceSet",
+    "fn verify_lz4w_resource_set",
+    "struct TransactionLimits",
+    "enum RecursoVerificado",
+    "fn candidate",
+    "fn decoded",
+    "fn bytes_consumed",
+    "struct ConjuntoVerificado",
+    "fn verify_resource_set",
+    "struct ReinsertRequest",
+    "struct ReinsertApplied",
+    "enum ReinsertOutcome",
+    "fn reinsert_transaction",
+    "struct ReinsertRequestAplib",
+    "fn reinsert_transaction_aplib",
+    "fn md_pixel_location",
+    "fn md_color_word_to_rgb",
+    "fn md_read_pixel_index",
+    "fn md_write_pixel_index",
+    "fn md_tiles_to_rgba",
+    "struct ResourceSummary",
+    "fn render_resource_png",
+    "fn list_resources",
+    "struct PixelEdit",
+    "struct ResourceEditResult",
+    "fn preview_resource",
+    "fn apply_resource_edit"
+   ],
+   "termos_producao": {
+    "sonic": 1
+   },
+   "usa_modulos": [
+    "extract::",
+    "rex_aplib::",
+    "rex_codecs::",
+    "super::rex_codecs::lz4w_encode_with_dictionary"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rex_sigscan.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Localizador por assinatura genérico e puro (cabeçalho)."
+   },
+   "linhas": 278,
+   "linhas_producao": 194,
+   "sha256": "c2529147940cdb1c5d679eb3c19f15417f46ac2f21387b47a83dfa262810c087",
+   "simbolos_publicos": [
+    "const MAX_PATTERN_BYTES",
+    "const MAX_MATCHES",
+    "enum SigError",
+    "struct Pattern",
+    "struct Captured",
+    "struct Match",
+    "fn parse",
+    "fn len",
+    "fn is_empty",
+    "fn scan"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/rom_library.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Biblioteca BYOR e ledger de execuções (tem SHA-256 próprio)."
+   },
+   "linhas": 753,
+   "linhas_producao": 433,
+   "sha256": "cef5ea1604d373b28eb7effaab33670266883b788f1734b51e3d45bca9c34a5d",
+   "simbolos_publicos": [
+    "const DECOMP_LEDGER_SCHEMA",
+    "const DECOMP_LEDGER_SCHEMA_V2",
+    "const CORPUS_ROLE_REFERENCE",
+    "const CORPUS_ROLE_CANDIDATE",
+    "const CORPUS_ROLE_PREVIEW",
+    "const CORPUS_ROLE_CALIBRATION",
+    "const CORPUS_ROLE_HOLDOUT",
+    "const CORPUS_ROLE_BYOR_COMMERCIAL",
+    "const CAP_STATUS_UNSUPPORTED",
+    "const CAP_STATUS_EXPERIMENTAL",
+    "const CAP_STATUS_VERIFIED",
+    "const SCENARIO_VERDICT_PASSED",
+    "const SCENARIO_VERDICT_REJECTED",
+    "const SCENARIO_VERDICT_INDETERMINATE",
+    "const SCENARIO_VERDICT_BLOCKED",
+    "const SCENARIO_VERDICT_SKIPPED",
+    "struct DecompPairEntry",
+    "struct DecompRunRecord",
+    "struct DecompLedger",
+    "struct ArtifactRef",
+    "struct CorpusEntry",
+    "struct CapabilityRecord",
+    "struct ScenarioRunRecord",
+    "fn sha256_hex",
+    "fn decomp_work_dir",
+    "fn ledger_path",
+    "fn load_ledger",
+    "fn slug_from_rom_path",
+    "fn register_pair",
+    "fn record_run",
+    "fn corpus_identity",
+    "fn register_corpus_entry",
+    "fn ensure_capability_records",
+    "fn record_capability",
+    "fn record_scenario_run",
+    "fn now_unix"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/sonic_cadence.rs",
+   "classe": {
+    "classe": "caso",
+    "justificativa": "Cadência da sequência id_Wait do Sonic 1 Rev00 (offsets e tabelas do jogo). Evidência válida; migrar gradualmente, nunca apagar."
+   },
+   "linhas": 544,
+   "linhas_producao": 313,
+   "sha256": "010bf313b2a998c5061b4af92512695111aff90e07ecb91b67a88886a1deff2a",
+   "simbolos_publicos": [
+    "const EDIT_FORMAT",
+    "const ANI_TABLE",
+    "const ANI_COUNT",
+    "const SCRIPTS_BASE",
+    "const SONIC_ANIMATE_PROLOGUE",
+    "const TABLE_ABSOLUTE_REF",
+    "const WAIT_ANIM",
+    "const WAIT_ADDR",
+    "const WAIT_ORIGINAL_INTERVAL",
+    "const WAIT_FRAMES",
+    "const WAIT_TERMINATOR",
+    "const EDITABLE_MIN",
+    "const EDITABLE_MAX",
+    "fn frame_is_reference",
+    "fn original_frame_multiset",
+    "enum CopyViolation",
+    "fn is_valid_permutation",
+    "fn validate_copy",
+    "fn validate_base",
+    "fn read_interval",
+    "fn set_interval",
+    "struct CadenceInfo",
+    "fn describe"
+   ],
+   "termos_producao": {
+    "sonic": 14
+   },
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/sonic_consumers.rs",
+   "classe": {
+    "classe": "caso",
+    "justificativa": "Cadeia de consumidores do Sonic 1 (ROM_PIN, offsets de tabela). Evidência válida; migrar gradualmente, nunca apagar."
+   },
+   "linhas": 812,
+   "linhas_producao": 612,
+   "sha256": "0d5647348651e073267bd222f71546cf187bb9455c814d27e459a49e62f83b31",
+   "simbolos_publicos": [
+    "const PERFIL_ID",
+    "const PERFIL_ROTULO",
+    "const IDIOMA",
+    "const ROM_PIN_SHA256",
+    "const ROM_PIN_TAMANHO",
+    "const TABELA_ADDR",
+    "const STREAM_OFFSETS",
+    "const STREAM_CONSUMIDOS",
+    "const SPAN_PINS",
+    "const PLAIN_REF_SHA",
+    "const LINHAS",
+    "const COLUNAS",
+    "const STRIDE",
+    "const CELULA_BYTES",
+    "const OUTPUT_SIZE",
+    "const BASE_LAYOUT",
+    "const BASE_DECOMPRESSAO",
+    "const WRAM_INICIO",
+    "const WRAM_FIM",
+    "const VDP_PORTA_DADOS",
+    "const VDP_PORTA_CONTROLE",
+    "const MAPINDEX_ADDR",
+    "const MAPINDEX_ENTRADAS",
+    "const MAPINDEX_ENTRADA_BYTES",
+    "const MAPINDEX_ID01_ESPERADO",
+    "const MAPINDEX_PTR_ID01",
+    "const PROVA_CADEIA_SHA256",
+    "const DECODER_EXTERNO_SHA256",
+    "const ORIGEM_MEDICAO",
+    "struct SitioDef",
+    "const SITIOS",
+    "const MOTIVOS_FALSO_LIDER",
+    "const MODELO_FALSO_LIDER",
+    "const DESCONHECIDOS",
+    "struct IdentidadeRom",
+    "struct SitioVisto",
+    "struct EntradaTabela",
+    "struct Cadeia",
+    "struct Recurso",
+    "struct Interpretacao",
+    "struct MapIndex",
+    "struct RecusaFalsoLider",
+    "struct LimitesFonte",
+    "struct ConsumersInfo",
+    "fn validar_geometria",
+    "fn describe"
+   ],
+   "termos_producao": {
+    "sonic": 5
+   },
+   "usa_modulos": [
+    "rom_library::sha256_hex"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/sonic_layouts.rs",
+   "classe": {
+    "classe": "caso",
+    "justificativa": "Layouts das fases especiais do Sonic 1 (formato e tabela do jogo). Evidência válida; migrar gradualmente, nunca apagar."
+   },
+   "linhas": 1336,
+   "linhas_producao": 746,
+   "sha256": "77d66f71de18ae89a529109148a6bc2eb9ec336c8af5eaf5ef5fd5c147405296",
+   "simbolos_publicos": [
+    "const FORMATO_RESUMO",
+    "const FORMATO_GRADE",
+    "const FORMATO_CELULA",
+    "const ROTULO_REPRESENTACAO",
+    "const LAYOUTS",
+    "const MAX_SAIDA_BYTES",
+    "const MAX_TOKENS",
+    "const JANELA_STREAM_MAX",
+    "const REQUEST_ID_MAX",
+    "const SLOT_BASE",
+    "struct PinLayout",
+    "fn pins_reais",
+    "struct ReferenciaHistorica",
+    "struct ContaBytes",
+    "struct LayoutResumo",
+    "struct Geometria",
+    "struct CamadaExplicada",
+    "struct LayoutsInfo",
+    "struct LimitesDecode",
+    "struct LayoutGrade",
+    "struct OrigemCelula",
+    "struct DefinicaoEstrutural",
+    "struct LayoutCelula",
+    "struct SelecaoLayouts",
+    "const ZOOM_MIN",
+    "const ZOOM_MAX",
+    "fn validar_selecao",
+    "fn pin_para_cancel",
+    "fn validar_request_id",
+    "struct TokenCancel",
+    "fn novo",
+    "fn cancelado",
+    "fn cancelar",
+    "struct LayoutDecodificado",
+    "fn decodificar",
+    "fn resumo_com_pins",
+    "fn resumo",
+    "fn grade_com_pins",
+    "fn grade",
+    "fn celula_com_pins",
+    "fn celula"
+   ],
+   "termos_producao": {
+    "sonic": 5
+   },
+   "usa_modulos": [
+    "rom_library::sha256_hex",
+    "sonic_consumers"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/sonic_sequence.rs",
+   "classe": {
+    "classe": "caso",
+    "justificativa": "Reordenação in-place de frames do id_Wait do Sonic 1 Rev00. Evidência válida; migrar gradualmente, nunca apagar."
+   },
+   "linhas": 388,
+   "linhas_producao": 201,
+   "sha256": "4860a7c6776a81e94b04e62b51e92fb8dabfcaa0b154f0ff1cf0929bd0d5c7a3",
+   "simbolos_publicos": [
+    "const EDIT_FORMAT",
+    "const FRAMES_ADDR",
+    "const FRAMES_LEN",
+    "const FRAMES_END",
+    "const TERMINATOR_ADDR",
+    "fn read_frames",
+    "fn permute",
+    "fn restore",
+    "struct PermuteOutcome",
+    "struct SequenceInfo",
+    "fn describe"
+   ],
+   "termos_producao": {
+    "sonic": 10
+   },
+   "usa_modulos": [
+    "sonic_cadence::",
+    "super::sonic_cadence::"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/sonic_sprite.rs",
+   "classe": {
+    "classe": "caso",
+    "justificativa": "Geometria do perfil BYOR Sonic 1 Rev00 (ART_OFFSET, MAP_TABLE, DPLC). Evidência válida; migrar gradualmente, nunca apagar."
+   },
+   "linhas": 385,
+   "linhas_producao": 256,
+   "sha256": "7fddec7d1a119368d4a509a8c40e40339cdce80d42f03faa35525843f5e5ff48",
+   "simbolos_publicos": [
+    "const ART_OFFSET",
+    "const ART_SIZE",
+    "const MAP_TABLE",
+    "const DPLC_TABLE",
+    "const FRAME_COUNT",
+    "const PALETTE_OFFSET",
+    "struct FrameChoice",
+    "fn choices",
+    "fn frame_index",
+    "fn resolve_index",
+    "struct Piece",
+    "struct Frame",
+    "struct PixelLocation",
+    "fn dplc_tiles",
+    "fn read_frame",
+    "fn source_pixel"
+   ],
+   "termos_producao": {
+    "sonic": 16
+   },
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/sonic_ss_walls.rs",
+   "classe": {
+    "classe": "caso",
+    "justificativa": "Paredes da fase especial do Sonic 1 (SS_MapIndex, Map_SSWalls). Evidência válida; migrar gradualmente, nunca apagar."
+   },
+   "linhas": 887,
+   "linhas_producao": 772,
+   "sha256": "0d36a8dbd5c4fb8a05216998bc8e565a8a735ed38ae19d2f4fcc3670656d79fe",
+   "simbolos_publicos": [
+    "const FORMATO_INFO",
+    "const FORMATO_COMPOSICAO",
+    "const ART_OFFSET",
+    "const ART_TILES",
+    "const ART_BYTES_LIDOS",
+    "const ART_SHA256",
+    "const ART_TILE_BASE",
+    "const MAP_TABLE",
+    "const MAP_BYTES",
+    "const MAP_FRAMES",
+    "const MAP_SHA256",
+    "const PALLOAD_TABLE",
+    "const PALLOAD_ID",
+    "const PAL_PTR",
+    "const PAL_SHA256",
+    "const PAL_ROTULO",
+    "const PLC_OFFSET",
+    "const PLC_CUES",
+    "const CONFIRMADOS",
+    "const NIVEL_PAREDES",
+    "const NIVEL_CONFIRMADO",
+    "const JANELA_ART",
+    "const MAX_TOKENS",
+    "struct Elo",
+    "struct ArteInfo",
+    "struct PaletaInfo",
+    "struct SsWallsInfo",
+    "struct IdCoberto",
+    "struct ArteVinculada",
+    "struct SsWallsComposicao",
+    "fn info",
+    "fn compor"
+   ],
+   "termos_producao": {
+    "sonic": 2
+   },
+   "usa_modulos": [
+    "rex_mdgfx",
+    "rex_nemesis",
+    "rom_library::sha256_hex",
+    "sonic_consumers"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/sprite_composition.rs",
+   "classe": {
+    "classe": "misto",
+    "justificativa": "Composição de frame com pins HAMOOPIG/TAIKETSU/SONIC1 e 97 ocorrências de 'sonic'.",
+    "lado_caso": [
+     "SONIC1_*",
+     "SonicTileUse",
+     "SonicFrameContext",
+     "fn read_sonic_session_rom",
+     "SonicPixelLocation",
+     "fn sonic_stand_pixel_location",
+     "fn sonic_dplc_art_tiles",
+     "HAMOOPIG_REFERENCE_SHA256",
+     "TAIKETSU_REFERENCE_SHA256"
+    ],
+    "lado_indeterminado": [
+     "fn compose_for_session (a classificar na F1)"
+    ],
+    "lado_motor": [
+     "struct SpriteFramePart",
+     "struct InspectionSpriteFrame"
+    ]
+   },
+   "linhas": 1232,
+   "linhas_producao": 891,
+   "sha256": "34adf7aa540c557b921c6057f5b035933b7de86926d39bdb944d8f810a4f156f",
+   "simbolos_publicos": [
+    "const HAMOOPIG_REFERENCE_SHA256",
+    "const TAIKETSU_REFERENCE_SHA256",
+    "const SONIC1_REFERENCE_SHA256",
+    "const SONIC1_STAND_PIXELS_SHA256",
+    "struct SpriteFramePart",
+    "struct InspectionSpriteFrame",
+    "struct SonicTileUse",
+    "struct SonicFrameContext",
+    "fn read_sonic_session_rom",
+    "fn compose_for_session",
+    "const SONIC1_ART_OFFSET",
+    "const SONIC1_ART_SIZE",
+    "const SONIC1_DPLC_TABLE_OFFSET",
+    "const SONIC1_DPLC_FRAME_COUNT",
+    "const SONIC1_STAND_DPLC_FRAME",
+    "struct SonicPixelLocation",
+    "fn sonic_stand_pixel_location",
+    "fn sonic_dplc_art_tiles"
+   ],
+   "termos_producao": {
+    "hamoopig": 14,
+    "sonic": 116,
+    "taiketsu": 4
+   },
+   "usa_modulos": [
+    "extract::",
+    "inspection::",
+    "rom_library::",
+    "sonic_sequence",
+    "sonic_sprite",
+    "tools::reverse::loader::rex_read_rom"
+   ]
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/symbols.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Parser de symbol tables estilo nm."
+   },
+   "linhas": 175,
+   "linhas_producao": 110,
+   "sha256": "c70be0c63ff8c74ac73b45b9907c7dd0b8373acbfdd13231a1d5b2c53aced1b6",
+   "simbolos_publicos": [
+    "struct SymbolEntry",
+    "struct FunctionRange",
+    "fn parse_nm_symbols",
+    "fn function_ranges",
+    "fn function_starts"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src-tauri/src/tools/reverse/decomp/triage.rs",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Triagem estática de ROM Mega Drive (header SEGA, tiers)."
+   },
+   "linhas": 205,
+   "linhas_producao": 145,
+   "sha256": "6c87f0bb9c912a0ec80f6db3a38cfff3023309e81a2263150e062ec965dd7a23",
+   "simbolos_publicos": [
+    "const TIER_T0_PAIR",
+    "const TIER_T1_HOMEBREW",
+    "const TIER_T2_COMMERCIAL",
+    "struct RomTriageReport",
+    "fn triage_rom_bytes",
+    "fn triage_rom"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src/core/nodegraph/profileGraphBridge.ts",
+   "classe": {
+    "classe": "motor",
+    "justificativa": "Ponte canvas↔ROM genérica: perfil, campos e chave da instância vêm do grafo. Único resíduo: constante LEGACY_INSTANCE_PARAM para grafos antigos."
+   },
+   "linhas": 233,
+   "linhas_producao": 233,
+   "sha256": "208378afafee8c596527d58bd6f192bbe3b078b276444213479e38287fd3565d",
+   "simbolos_publicos": [
+    "interface BridgeInfo",
+    "interface GraphEdit",
+    "interface GraphProblem",
+    "interface GraphEdits",
+    "function bridgeInfo",
+    "function editsFromGraph",
+    "function canonicalString",
+    "function canonicalSignature",
+    "interface GraphStructure",
+    "function graphStructure",
+    "interface ResultKey",
+    "function contextIdentity",
+    "function valuesKey",
+    "type ResultRelation",
+    "function relateResult",
+    "function withRomPath"
+   ],
+   "termos_producao": {
+    "jump": 1
+   },
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src/core/nodegraph/rexGameplayGraph.ts",
+   "classe": {
+    "classe": "perfil",
+    "justificativa": "Projeção do grafo do perfil counter_threshold_state_gate.v1 (REX_GAMEPLAY_PROFILE_ID)."
+   },
+   "linhas": 498,
+   "linhas_producao": 498,
+   "sha256": "39fb76db2a9ed530c075d042ae85ce1c9f1414386197825e1f5884585f7e7aeb",
+   "simbolos_publicos": [
+    "const REX_GAMEPLAY_PROFILE_ID",
+    "const MAX_EXITS_DECLARADAS",
+    "function parseHexOffsets",
+    "type RecoverFormResult",
+    "function validateGameplayRecoverForm",
+    "type ThresholdCheck",
+    "function validateGameplayThreshold",
+    "type GameplayMapping",
+    "type GameplayNo",
+    "type GameplayRegra",
+    "type GameplayProjection",
+    "function projectGameplayGraph"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  },
+  {
+   "arquivo": "src/core/nodegraph/rexGameplayScene.ts",
+   "classe": {
+    "classe": "perfil",
+    "justificativa": "Cena derivada do perfil counter_threshold_state_gate.v1."
+   },
+   "linhas": 324,
+   "linhas_producao": 324,
+   "sha256": "519c5799f4064d2f26c15de892981ab8085df193c1b1cbd721aa8c15930d29b8",
+   "simbolos_publicos": [
+    "const REGRA_RECUPERADA_VERSION",
+    "type RegraRecuperada",
+    "type ResultadoConstruir",
+    "type ResultadoLeitura",
+    "type ResultadoPrepararXeracion",
+    "function construirRegraRecuperada",
+    "function lerRegraRecuperada",
+    "function revalidarIdentidade",
+    "function regraEditadaNoGrafo",
+    "function prepararXeracion"
+   ],
+   "termos_producao": {},
+   "usa_modulos": []
+  }
+ ],
+ "cobertura": {
+  "classificados": 77,
+  "medidos": 77
+ },
+ "resumo": {
+  "caso": {
+   "arquivos": 6,
+   "linhas_producao": 2900
+  },
+  "misto": {
+   "arquivos": 4,
+   "linhas_producao": 3561
+  },
+  "motor": {
+   "arquivos": 58,
+   "linhas_producao": 21133
+  },
+  "perfil": {
+   "arquivos": 9,
+   "linhas_producao": 3608
+  }
+ },
+ "schema": "rex-audit-decomp/v1",
+ "termos": [
+  "sonic",
+  "jump",
+  "pulo",
+  "ghz",
+  "tails",
+  "hamoopig",
+  "taiketsu",
+  "streets",
+  "delta"
+ ]
+}

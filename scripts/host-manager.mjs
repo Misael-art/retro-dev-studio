@@ -952,7 +952,15 @@ function installArtifactFiles(requirement, context, options) {
   return { id: requirement.id, ok: true, artifact: artifact.id, version: artifact.version, target };
 }
 
+export function sourceBuildJobs(env = process.env) {
+  if (env.RDS_BUILD_JOBS !== undefined && !/^[1-8]$/.test(env.RDS_BUILD_JOBS)) {
+    throw new Error("RDS_BUILD_JOBS must be an integer from 1 to 8");
+  }
+  return env.RDS_BUILD_JOBS ?? String(Math.max(1, Math.min(os.cpus().length, 8)));
+}
+
 export function installSourceBuild(requirement, context, options) {
+  const jobs = sourceBuildJobs(context.env ?? process.env);
   const install = requirementInstall(requirement, context.host.platform);
   const artifactsById = new Map(context.manifest.artifacts.map((artifact) => [artifact.id, artifact]));
   const primary = artifactsById.get(install.artifacts?.[0]);
@@ -1020,8 +1028,8 @@ export function installSourceBuild(requirement, context, options) {
     });
   }
 
-  const buildContext = { ...context, source, jobs: String(Math.max(1, Math.min(os.cpus().length, 8))) };
-  const env = { ...process.env, PATH: context.pathEnv };
+  const buildContext = { ...context, source, jobs };
+  const env = { ...(context.env ?? process.env), PATH: context.pathEnv };
   const logsDirectory = path.join(staging, "logs");
   for (const [name, value] of Object.entries(install.env ?? {})) env[name] = expandTokens(value, buildContext);
   const prependedPath = (install.path_prepend ?? []).map((value) => expandTokens(value, buildContext));

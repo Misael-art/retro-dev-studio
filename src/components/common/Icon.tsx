@@ -15,6 +15,32 @@ import type { SVGProps } from "react";
  */
 
 export type IconName =
+  | "studio-scene" | "studio-game" | "studio-files" | "studio-logic"
+  | "studio-art" | "studio-fx" | "studio-debug"
+  | "cursor" | "brush" | "eraser" | "collision" | "save" | "pause" | "export"
+  | "fill-color" | "color-picker" | "circle" | "crop" | "minus"
+  | "flash"
+  | "keyboard"
+  | "fork"
+  | "arrows"
+  | "jump"
+  | "sound"
+  | "music"
+  | "variable"
+  | "calculator"
+  | "eye-off"
+  | "spawn"
+  | "film"
+  | "camera"
+  | "grid"
+  | "clock"
+  | "layers"
+  | "chip"
+  | "undo"
+  | "redo"
+  | "organize"
+  | "link"
+  | "group"
   | "bug"
   | "check-circle"
   | "drag"
@@ -46,6 +72,111 @@ export interface IconProps extends Omit<SVGProps<SVGSVGElement>, "children"> {
 
 function IconPaths({ name }: { name: IconName }) {
   switch (name) {
+    // Iconoir v7.11.1 regular icons, MIT (same notice above).
+    case "fill-color": return <><path d="M2.63596 10.2927 9.70703 3.22168 18.1923 11.707 11.1212 18.778c-.781.781-2.047.781-2.8284 0l-5.6568-5.6568a2 2 0 0 1 0-2.8285ZM8.293 1.8076l1.4142 1.4142"/><path d="M20 15s3 2.9934 3 4.8865a3 3 0 0 1-6 0C17 17.9924 20 15 20 15Z"/></>;
+    case "color-picker": return <><path d="m7 13.161 5.4644-5.4644a1 1 0 0 1 1.4142 0L16 9.818a1 1 0 0 1 0 1.414l-7.637 7.637-2.823 1.245a1.5 1.5 0 0 1-1.958-1.958l1.245-2.823L7 13.161h7.071M13.878 3.454 20.242 9.818M16 5.575l1.414-1.414a1 1 0 0 1 1.414 0l.707.707a1 1 0 0 1 0 1.414L18.12 7.697"/></>;
+    case "circle": return <path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/>;
+    case "crop": return <path d="M21 18H6V3M3 6h15v15"/>;
+    case "minus": return <path d="M6 12h12"/>;
+    // Original editor pictograms: solid silhouettes, colored parts and useful
+    // details stay legible at rail/tool sizes. No console logo is reproduced.
+    case "studio-scene":
+      return <><rect x="2" y="3" width="20" height="17" rx="2.5" fill="var(--rds-workspace-scene)" fillOpacity=".16"/>
+        <circle cx="16.5" cy="7.5" r="2" fill="var(--rds-workspace-explorer)" stroke="none"/>
+        <path d="m3 16 6-7 5 6 3-3 4 5v3H3Z" fill="var(--rds-workspace-scene)" strokeWidth="1"/>
+        <path d="M2 20h20M7 20v2m10-2v2"/><path d="M5 17h4m3 0h3" stroke="var(--rds-surface-base)"/></>;
+    case "studio-game":
+      return <><path d="M7 6h10c2 0 3 1 3.5 3l1.5 8c.5 3-2 4-4 2l-2-2H8l-2 2c-2 2-4.5 1-4-2L3.5 9C4 7 5 6 7 6Z" fill="var(--rds-workspace-game)" fillOpacity=".22"/>
+        <path d="M6 10v5m-2.5-2.5h5"/><circle cx="17" cy="10" r="1.3" fill="var(--rds-workspace-artstudio)" stroke="none"/>
+        <circle cx="19" cy="13" r="1.3" fill="var(--rds-workspace-explorer)" stroke="none"/>
+        <path d="m11 9 4 3-4 3Z" fill="var(--rds-workspace-game)" stroke="none"/></>;
+    case "studio-files":
+      return <><path d="M2 7V4h7l3 3h10v13H2Z" fill="var(--rds-workspace-explorer)" fillOpacity=".25"/>
+        <path d="M2 10h20l-2 10H4Z" fill="var(--rds-workspace-explorer)" strokeWidth="1.3"/>
+        <path d="M10 12h7v5h-7Z" fill="var(--rds-surface-base)" stroke="none"/><path d="m11 15 2-2 3 3" stroke="var(--rds-workspace-explorer)" strokeWidth="1"/></>;
+    case "studio-logic":
+      return <><path d="M12 7v4m0 0H5v5m7-5h7v5" stroke="var(--rds-workspace-logic)" strokeWidth="2"/>
+        <path d="m12 2 5 4-5 4-5-4Z" fill="var(--rds-workspace-logic)" strokeWidth="1.2"/>
+        <rect x="1" y="16" width="8" height="6" rx="1.4" fill="var(--rds-workspace-game)" fillOpacity=".65" strokeWidth="1.2"/>
+        <rect x="15" y="16" width="8" height="6" rx="1.4" fill="var(--rds-workspace-scene)" fillOpacity=".65" strokeWidth="1.2"/>
+        <path d="m3 19 1 1 3-2m10 1h4" stroke="var(--rds-surface-base)" strokeWidth="1.4"/></>;
+    case "studio-art":
+      return <><rect x="2" y="3" width="16" height="18" rx="2" fill="var(--rds-workspace-artstudio)" fillOpacity=".18"/>
+        <path d="M5 7h3v3H5Zm6 0h3v3h-3ZM5 13h3v3H5Z" fill="var(--rds-workspace-artstudio)" stroke="none"/>
+        <path d="m12 17 6-11 4 2-6 11-4 2Z" fill="var(--rds-workspace-explorer)" strokeWidth="1.4"/>
+        <path d="m12 17 4 2-4 2Z" fill="var(--rds-surface-base)" stroke="none"/></>;
+    case "studio-fx":
+      return <><path d="m2 9 10 5 10-5-10-5Z" fill="var(--rds-workspace-retrofx)" fillOpacity=".4"/>
+        <path d="m2 13 10 5 10-5m-20 4 10 5 10-5" stroke="var(--rds-workspace-retrofx)" strokeWidth="2"/>
+        <path d="m18 1 1.2 3.8L23 6l-3.8 1.2L18 11l-1.2-3.8L13 6l3.8-1.2Z" fill="var(--rds-workspace-explorer)" strokeWidth="1"/></>;
+    case "studio-debug":
+      return <><path d="M7 2v4m5-4v4M2 7h4m-4 5h4m1 6v4m5-4v4M18 7h4" stroke="var(--rds-workspace-debug)"/>
+        <rect x="5" y="5" width="13" height="13" rx="2" fill="var(--rds-workspace-debug)" fillOpacity=".25"/>
+        <circle cx="15" cy="15" r="5" fill="var(--rds-surface-panel)" stroke="var(--rds-workspace-explorer)"/><path d="m19 19 3 3M13 15h4m-2-2v4" stroke="var(--rds-workspace-explorer)"/></>;
+    case "cursor":
+      return <path d="m5 2 14 12-7 1-3 7Z" fill="var(--rds-workspace-scene)"/>;
+    case "brush":
+      return <><path d="m10 14 8-12 4 3-9 11Z" fill="var(--rds-workspace-explorer)"/>
+        <path d="M12 15c-8-6-5 8-10 6 9 4 13-1 10-6Z" fill="var(--rds-workspace-artstudio)"/></>;
+    case "eraser":
+      return <><path d="m3 14 10-11 8 7-10 11H7Z" fill="var(--rds-workspace-artstudio)" fillOpacity=".8"/>
+        <path d="m3 14 5-5 8 7-5 5H7Z" fill="var(--rds-text-primary)"/><path d="M11 21h11"/></>;
+    case "collision":
+      return <><path d="m12 2 9 4v6c0 5-5 8-9 10-4-2-9-5-9-10V6Z" fill="var(--rds-workspace-debug)" fillOpacity=".45"/>
+        <path d="M7 9h10v7H7Z" strokeDasharray="2 2"/><path d="M12 6v13M5 12h14" strokeWidth="1"/></>;
+    case "save":
+      return <><path d="M3 2h15l3 3v17H3Z" fill="var(--rds-workspace-scene)" fillOpacity=".35"/>
+        <path d="M7 2h9v7H7Zm0 12h10v8H7Z" fill="var(--rds-surface-base)"/><path d="M13 4v3m-3 10h4"/></>;
+    case "pause":
+      return <><rect x="5" y="3" width="5" height="18" rx="1" fill="currentColor"/><rect x="14" y="3" width="5" height="18" rx="1" fill="currentColor"/></>;
+    case "export":
+      return <><path d="M3 13v8h18v-8" fill="var(--rds-workspace-explorer)" fillOpacity=".22"/>
+        <path d="M12 16V2m-5 5 5-5 5 5" stroke="var(--rds-workspace-explorer)" strokeWidth="2.5"/></>;
+    // Icones abaixo (ate "group") desenhados localmente no mesmo estilo de traco; nao sao Iconoir.
+    case "flash":
+      return <path d="M13 3L5 13.5H11.5L10.5 21L19 10H12.5L13 3Z"/>;
+    case "keyboard":
+      return <><path d="M3 6.6C3 6.26863 3.26863 6 3.6 6H20.4C20.7314 6 21 6.26863 21 6.6V17.4C21 17.7314 20.7314 18 20.4 18H3.6C3.26863 18 3 17.7314 3 17.4V6.6Z"/><path d="M7 10H7.01M11 10H11.01M15 10H15.01M17 10H17.01M8 14H16"/></>;
+    case "fork":
+      return <><path d="M12 3V9"/><path d="M12 9L6 15V21"/><path d="M12 9L18 15V21"/></>;
+    case "arrows":
+      return <><path d="M3 12H21"/><path d="M17 8L21 12L17 16"/><path d="M7 8L3 12L7 16"/></>;
+    case "jump":
+      return <><path d="M12 21V5"/><path d="M6 11L12 5L18 11"/><path d="M5 21H19"/></>;
+    case "sound":
+      return <><path d="M4 9.6V14.4C4 14.7314 4.26863 15 4.6 15H8L13 19V5L8 9H4.6C4.26863 9 4 9.26863 4 9.6Z"/><path d="M16.5 8.5C17.5 9.5 18 10.7 18 12C18 13.3 17.5 14.5 16.5 15.5"/></>;
+    case "music":
+      return <><path d="M9 18V5L20 3V16"/><path d="M6.5 20.5C7.88071 20.5 9 19.3807 9 18C9 16.6193 7.88071 15.5 6.5 15.5C5.11929 15.5 4 16.6193 4 18C4 19.3807 5.11929 20.5 6.5 20.5Z"/><path d="M17.5 18.5C18.8807 18.5 20 17.3807 20 16C20 14.6193 18.8807 13.5 17.5 13.5C16.1193 13.5 15 14.6193 15 16C15 17.3807 16.1193 18.5 17.5 18.5Z"/></>;
+    case "variable":
+      return <><path d="M8 4C6 4 6 6 6 8V10C6 11 5 12 4 12C5 12 6 13 6 14V16C6 18 6 20 8 20"/><path d="M16 4C18 4 18 6 18 8V10C18 11 19 12 20 12C19 12 18 13 18 14V16C18 18 18 20 16 20"/><path d="M10 9L14 15M14 9L10 15"/></>;
+    case "calculator":
+      return <><path d="M5 3.6C5 3.26863 5.26863 3 5.6 3H18.4C18.7314 3 19 3.26863 19 3.6V20.4C19 20.7314 18.7314 21 18.4 21H5.6C5.26863 21 5 20.7314 5 20.4V3.6Z"/><path d="M8 7H16M8 12H8.01M12 12H12.01M16 12H16.01M8 16H8.01M12 16H12.01M16 16H16.01"/></>;
+    case "eye-off":
+      return <><path d="M3 3L21 21"/><path d="M10.5 6.2C11 6.1 11.5 6 12 6C16.5 6 20 12 20 12C19.4 13 18.7 13.9 17.9 14.7M14.1 14.1C13.6 14.6 12.8 15 12 15C10.3 15 9 13.7 9 12C9 11.2 9.3 10.4 9.9 9.9M6.3 7.8C4.9 9 4 10.6 4 12C4 12 7.5 18 12 18C13.4 18 14.7 17.5 15.8 16.8"/></>;
+    case "spawn":
+      return <><path d="M12 5V19M5 12H19"/><path d="M3.6 3H20.4C20.7314 3 21 3.26863 21 3.6V20.4C21 20.7314 20.7314 21 20.4 21H3.6C3.26863 21 3 20.7314 3 20.4V3.6C3 3.26863 3.26863 3 3.6 3Z"/></>;
+    case "film":
+      return <><path d="M3 4.6C3 4.26863 3.26863 4 3.6 4H20.4C20.7314 4 21 4.26863 21 4.6V19.4C21 19.7314 20.7314 20 20.4 20H3.6C3.26863 20 3 19.7314 3 19.4V4.6Z"/><path d="M7 4V20M17 4V20M3 8H7M3 12H7M3 16H7M17 8H21M17 12H21M17 16H21"/></>;
+    case "camera":
+      return <><path d="M2 8.6C2 8.26863 2.26863 8 2.6 8H6L8 5H16L18 8H21.4C21.7314 8 22 8.26863 22 8.6V19.4C22 19.7314 21.7314 20 21.4 20H2.6C2.26863 20 2 19.7314 2 19.4V8.6Z"/><path d="M12 17C14.2091 17 16 15.2091 16 13C16 10.7909 14.2091 9 12 9C9.79086 9 8 10.7909 8 13C8 15.2091 9.79086 17 12 17Z"/></>;
+    case "grid":
+      return <><path d="M3 3H21V21H3V3Z"/><path d="M3 9H21M3 15H21M9 3V21M15 3V21"/></>;
+    case "clock":
+      return <><path d="M12 6V12H18"/><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z"/></>;
+    case "layers":
+      return <><path d="M12 3L21 8L12 13L3 8L12 3Z"/><path d="M3 12L12 17L21 12"/><path d="M3 16L12 21L21 16"/></>;
+    case "chip":
+      return <><path d="M7 7H17V17H7V7Z"/><path d="M10 3V7M14 3V7M10 17V21M14 17V21M3 10H7M3 14H7M17 10H21M17 14H21"/></>;
+    case "undo":
+      return <><path d="M4.5 8H15C17.7614 8 20 10.2386 20 13C20 15.7614 17.7614 18 15 18H8"/><path d="M8.5 4L4.5 8L8.5 12"/></>;
+    case "redo":
+      return <><path d="M19.5 8H9C6.23858 8 4 10.2386 4 13C4 15.7614 6.23858 18 9 18H16"/><path d="M15.5 4L19.5 8L15.5 12"/></>;
+    case "organize":
+      return <><path d="M3 4H9V9H3V4Z"/><path d="M15 4H21V9H15V4Z"/><path d="M15 15H21V20H15V15Z"/><path d="M9 6.5H15M18 9V15"/></>;
+    case "link":
+      return <><path d="M14 11.9976C14 9.5059 11.683 7 8.85714 7C8.52241 7 7.41904 7.00001 7.14286 7.00001C4.30254 7.00001 2 9.23752 2 11.9976C2 14.376 3.70973 16.3664 6 16.8714C6.36756 16.9525 6.75006 16.9952 7.14286 16.9952"/><path d="M10 11.9976C10 14.4893 12.317 16.9952 15.1429 16.9952C15.4776 16.9952 16.581 16.9952 16.8571 16.9952C19.6975 16.9952 22 14.7577 22 11.9976C22 9.6192 20.2903 7.62884 18 7.12383C17.6324 7.04278 17.2499 6.99999 16.8571 6.99999"/></>;
+    case "group":
+      return <><path d="M3 5.6C3 5.26863 3.26863 5 3.6 5H20.4C20.7314 5 21 5.26863 21 5.6V18.4C21 18.7314 20.7314 19 20.4 19H3.6C3.26863 19 3 18.7314 3 18.4V5.6Z" strokeDasharray="3 2"/><path d="M7 9H11V13H7V9Z"/><path d="M13 11H17V15H13V11Z"/></>;
     case "menu":
       return <><path d="M3 5H21"/><path d="M3 12H21"/><path d="M3 19H21"/></>;
     case "play":
@@ -100,6 +231,7 @@ export default function Icon({ name, size = 18, className = "", ...props }: Icon
     <svg
       aria-hidden={props["aria-label"] ? undefined : true}
       className={`shrink-0 ${className}`}
+      data-icon={name}
       fill="none"
       height={size}
       viewBox="0 0 24 24"

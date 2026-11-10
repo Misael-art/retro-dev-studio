@@ -1,0 +1,85 @@
+{
+  "schema": "rds-linux-upstream-validation/v1",
+  "success": true,
+  "host_platform": "linux",
+  "repo_root": "/home/misael/Projects/REX-INTEGRATION-2026-10-05",
+  "validation_dir": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation",
+  "active_host_pointer": "/home/misael/.cache/retrodevstudio/active-host.json",
+  "active_host_cache": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377",
+  "lock_digest": "dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377",
+  "host_fingerprint": "60249508aff61897cdd43160d4716b2344d69282507a36c5a457c0028143f6e2",
+  "repository": {
+    "commit": "d8be191e552eb43015d74f61e35271b9e8cb3fcd",
+    "branch": "codex/rex-integrator-sonic-103104",
+    "dirty": true
+  },
+  "blocking_status_codes": [],
+  "warnings": [],
+  "phases": [
+    {
+      "name": "host_detection",
+      "status": "completed"
+    },
+    {
+      "name": "ghidra_headless_probe",
+      "status": "passed"
+    },
+    {
+      "name": "official_sgdk_smoke",
+      "status": "passed"
+    },
+    {
+      "name": "official_snes_smoke",
+      "status": "passed"
+    }
+  ],
+  "checks": {
+    "baseline_tools": {
+      "node": "/home/misael/.cache/retrodevstudio/bootstrap/node-v24.18.0-linux-x64/bin/node",
+      "npm": "/home/misael/.cache/retrodevstudio/bootstrap/node-v24.18.0-linux-x64/bin/npm",
+      "cargo": "/home/misael/.cargo/bin/cargo",
+      "rustc": "/home/misael/.cargo/bin/rustc"
+    },
+    "sgdk": {
+      "root": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk",
+      "makefile_gen": true,
+      "native_compiler": true,
+      "native_compiler_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-gcc",
+      "make": true,
+      "make_path": "/usr/sbin/make",
+      "java": true,
+      "java_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/jdk/bin/java"
+    },
+    "pvsneslib": {
+      "root": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/pvsneslib",
+      "ready": true
+    },
+    "desktop_e2e": {
+      "tauri_driver": "/home/misael/.cargo/bin/tauri-driver",
+      "native_webdriver": "/usr/sbin/WebKitWebDriver"
+    },
+    "libretro": {
+      "native_core": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "md_core": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "snes_core": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/bsnes_libretro.so"
+    },
+    "decompilation_optional": {
+      "ghidra_headless": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/ghidra/support/analyzeHeadless",
+      "ghidra_ok": true,
+      "java_major": 21,
+      "jdk21_ok": true,
+      "required": true,
+      "operational_probe": "passed",
+      "operational_probe_log": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/ghidra-headless-probe.log"
+    },
+    "rust_smoke": {
+      "skipped_by_flag": false,
+      "status": "passed",
+      "log": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/linux-upstream-sgdk-smoke.log",
+      "sgdk_status": "passed",
+      "sgdk_log": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/linux-upstream-sgdk-smoke.log",
+      "snes_status": "passed",
+      "snes_log": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/linux-upstream-snes-smoke.log"
+    }
+  }
+}

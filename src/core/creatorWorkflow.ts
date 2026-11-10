@@ -4,6 +4,7 @@ import {
   resolveEntitySourceRefs,
 } from "./entityAuthoring";
 import type { Entity, Scene } from "./ipc/sceneService";
+import type { EditorMode } from "./store/editorStore";
 import {
   getSceneEntityBounds,
   resolveSceneWorldMetrics,
@@ -16,7 +17,7 @@ export interface CreatorWorkflowContextInput {
   target: "megadrive" | "snes";
   selectedEntityId: string | null | undefined;
   activeTilemapId: string | null | undefined;
-  editorMode: "select" | "paint" | "erase" | "collision";
+  editorMode: EditorMode;
   activeBrushTileIndex: number | null | undefined;
   tilePaintTool: string | null | undefined;
   soloEntityId?: string | null;

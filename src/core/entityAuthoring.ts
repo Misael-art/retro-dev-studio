@@ -37,7 +37,12 @@ export function buildTilemapAuthoringBrush(entity: Entity | null | undefined): A
   };
 }
 
-export function resolvePrimaryAuthoringSurface(
+/**
+ * Secondary "open authoring" action of an asset reference card. The card already has its own
+ * "Abrir no ArtStudio" button, so this action complements it: tilemap, then logic, then art.
+ * The primary gesture (double-click) keeps art-first via `resolvePrimaryAuthoringSurface`.
+ */
+export function resolveReferenceAuthoringSurface(
   entity: Entity | null | undefined
 ): "tilemap" | "logic" | "artstudio" | null {
   if (entity?.components.tilemap) {
@@ -48,6 +53,21 @@ export function resolvePrimaryAuthoringSurface(
   }
   if (entity?.components.sprite) {
     return "artstudio";
+  }
+  return null;
+}
+
+export function resolvePrimaryAuthoringSurface(
+  entity: Entity | null | undefined
+): "tilemap" | "logic" | "artstudio" | null {
+  if (entity?.components.tilemap) {
+    return "tilemap";
+  }
+  if (entity?.components.sprite) {
+    return "artstudio";
+  }
+  if (entityHasLogicWorkspace(entity)) {
+    return "logic";
   }
   return null;
 }

@@ -1,0 +1,57 @@
+{
+  "schema": "rex-copy-grid-completion/v1",
+  "base": "89189485",
+  "freeze": "2eed076d",
+  "canonical_checkpoint": "commit containing this artifact",
+  "app_sha256": "51b338ced43399545e7df6388d270a632991050083d32659db8369e8c77acc02",
+  "gui_forward": {
+    "passed": 60,
+    "failed": 0
+  },
+  "gui_reverse": {
+    "passed": 60,
+    "failed": 0
+  },
+  "comparison_regression": {
+    "passed": 63,
+    "failed": 0,
+    "inputs": 7
+  },
+  "opaque_regression": {
+    "passed": 55,
+    "failed": 0,
+    "inputs": 60
+  },
+  "independent_runtime": {
+    "author": {
+      "checks": 21,
+      "runs": 4
+    },
+    "corpus": {
+      "checks": 21,
+      "runs": 4
+    },
+    "memory": "full relevant WRAM plus completion sentinel; reserved stack excluded from reference",
+    "cross_core_author_wram": "all 65536 bytes equal in both directions"
+  },
+  "certification": "READY exit 0",
+  "frontend": {
+    "passed": 1043,
+    "skipped": 3
+  },
+  "rust": {
+    "passed": 1036,
+    "ignored": 93
+  },
+  "new_dependencies": 0,
+  "registry_changed": false,
+  "research_untouched": true,
+  "original_images_untouched": true,
+  "publication": "local checkpoint only; no push/merge/release/promotion",
+  "limits": [
+    "caller-declared 30-byte M68000 WRAM copy only",
+    "only width 1↔2 editable",
+    "no original-game reachability or graphics/audio claim",
+    "preexisting nodegraph-authoring sound issue remains open"
+  ]
+}

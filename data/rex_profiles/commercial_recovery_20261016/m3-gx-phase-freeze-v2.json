@@ -1,0 +1,68 @@
+{
+  "schema": "rex-gx-author-phase-freeze/v1",
+  "generated_at": "2026-10-18T01:52:15.841036+00:00",
+  "inputs": {
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/vdp-phase-author.s": "b232dfd9c854ca251a2fe655977f7a390944aef7e777f74d855b89c3a5bd993e",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/vdp-phase-author-postdma.s": "cf167d4ec489ae0a947c8a086d0fd89b47f13ab16825c4e177aaf137666b0e43",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/qualify-gx-phase.py": "ad7875fdb4d8ce0189d3bfacefadefb34c74bb23e3f83f7da576cd859dbd2221",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/integration_20261007/lr.py": "7bda06f7eca534e91fc0876d95e95f136d0227672995c032c375cf461023e876",
+    "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-as": "7ede28b6ffc7c2df35780522cc8c99a3c4c5ac30361b92d5a472453b699da81b",
+    "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-ld": "3344a5bcb4a9139cf3c32839a08ec9ffeb31a8f8901ecb53f37e8e4ee465f218",
+    "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/qualify-gx-phase-v2.py": "eb05b298671c60e4bf01a5a1839b3f6f0af6144234bfdf0c0013f8bc4c293c8e",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/integration_20261016/visual_copy/color_v2.py": "6abb5167bb384494d50e5b43fc6ec4cf996ccb34ef9aa065b723b44b374abd6b",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/integration_20261016/visual-copy-v2/literal-vectors.json": "486ec96574eb092e43562141d664dc3aab66450844dfd3f4f1a31edd29e94d8f"
+  },
+  "assembler": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-as",
+  "linker": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-ld",
+  "core": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+  "sources": {
+    "write-before-dma": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/vdp-phase-author.s",
+    "write-after-dma": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/vdp-phase-author-postdma.s"
+  },
+  "private_root": "/home/misael/rds-scratch/commercial_recovery_20261016",
+  "hypothesis": "GX RAM-to-presented phase differs by producer ordering around DMA; qualify each author cadence without inferring MAME timing.",
+  "training_frames": [
+    4,
+    5,
+    6,
+    7
+  ],
+  "reserved_frames": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
+  ],
+  "allowed_lag_updates": [
+    0,
+    1,
+    2
+  ],
+  "expected_pixels": 1024,
+  "tolerance_rgb565": 0,
+  "budget_seconds": 90,
+  "command": "rtk proxy python3 scripts/rex_profiles/commercial_recovery_20261016/qualify-gx-phase-v2.py gx-phase-qualify-002",
+  "criteria": [
+    "authored asymmetric32x32 exact",
+    "training phase constant before reserved frame reads",
+    "all thirteen reserved frames exact",
+    "wrong phase refuses"
+  ],
+  "limitations": "Only phase qualification; conditional commercial projection must prove SAT producer ordering and compare predicted asset from pre-edit source. It must not manufacture expected pixels from an edited capture.",
+  "addendum": {
+    "cause": "Original qualifier incorrectly expected full255 RGB565 primaries; pinned GX normal conversion yields239. Existing source-grounded model reused, not fit to capture.",
+    "original_freeze_sha256": "4f7dcb6a5f9dd9f3f50a15b4eac61db9cbfdad89519ffdb63194b5cc54e18b7a",
+    "first_failure_sha256": "b009aaaa9207db5d1db633e06d9bf6d6d5a1b9015c8c3e9942f35aade751c8bd",
+    "unchanged": "Asymmetric geometry1024 pixels, cadence, phase training/reserved split, zero tolerance, budgets; original qualifier and failure retained."
+  }
+}

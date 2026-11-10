@@ -1,0 +1,12 @@
+{
+  "schema": "rex-m5-state-protocol-addendum/v3",
+  "generated_at": "2026-10-18T08:42:35.951770+00:00",
+  "previous_protocol_sha256": "23fb5919de685723d7164bd77db16154052a08a208ab71fcdeff1ac6644f544e",
+  "previous_failure": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-profile-toy-story-001/state-result-v2.json",
+  "previous_failure_sha256": "652a133c20055461a29a1cd27486ee4ae4b9ad48e29cde13a8814e9f51a8d539",
+  "verifier": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/verify-linear-state-v3.py",
+  "verifier_sha256": "81b47633f03337a35302304c6d3410452163b41b558478fa64980f3ea0c667f5",
+  "change": "ToyStory maximum source window overlaps code. Separate fullword pinned ROM reads within declared code+4 and recognized instruction starts from .B data partial masks. Bound excluded count to2*iterations+16 and record count/digest. Word/long source reads overlapping code remain ambiguous and refused. No unmodeled writes accepted.",
+  "expectations": "Original conditional memory/register/CCR expectations unchanged; post-observation instrumentation-domain correction, not blind validation.",
+  "production_changes_in_this_addendum": 0
+}

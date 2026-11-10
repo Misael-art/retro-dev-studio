@@ -1,0 +1,735 @@
+{
+  "schema": "rex-sonic-sequencia-journey/v1",
+  "artifact_prefix": "inspection-2026-10-04T07-25-04-064Z",
+  "expectations": "docs/rex_profiles/sonic_sequencia/EXPECTATIONS-SEQUENCIA.md §8.3 (jornada desktop integrada) + CONTRACT-SEQUENCIA.md (proposta B, janela 0x13BAF..0x13BC0)",
+  "binary_sha256": "e243d1ad9a57dfd1d9b85a7a083975880c4f2e4c3201061f83ec25a42942668b",
+  "base_rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "webkit_disable_compositing_mode": null,
+  "proposal_b": [
+    4,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    3,
+    2,
+    2,
+    2,
+    3,
+    1
+  ],
+  "expected_seq_copy_sha256": "0306a5abf7b8c2db890ef8d4773e239a50207a45ef3244d20ca694c9d192a0d9",
+  "expected_journey_sha256": "dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170",
+  "attribution": "Todos os cliques sao WebDriver nativos na janela real; o passo de execução usa teclado nativo (Enter→START) pelo caminho do produto. Chamadas IPC diretas aparecem rotuladas como sonda técnica.",
+  "pilot_dir": "/home/misael/Projects/REX-SONIC-SEQUENCIA-2026-10-03/src-tauri/target-test/validation/inspection-2026-10-04T07-25-04-064Z-sequencia-journey",
+  "steps": [
+    {
+      "step": 1,
+      "name": "abrir_byor_identidade_visivel",
+      "session_id": "inspection-1791098706-00000000",
+      "identity_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+    },
+    {
+      "step": 2,
+      "name": "mover_entrada_distinta_aplicar",
+      "proposal": [
+        4,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        3,
+        2,
+        2,
+        2,
+        3,
+        1
+      ],
+      "copy_sha256": "0306a5abf7b8c2db890ef8d4773e239a50207a45ef3244d20ca694c9d192a0d9",
+      "diff": [
+        80815,
+        80832
+      ]
+    },
+    {
+      "step": 3,
+      "name": "editar_duracao_na_copia_reordenada",
+      "painel": {
+        "current": "Aplicado na cópia: 40 ticks (0x28)",
+        "prediction": "Previsão medida no core (oracle, veredito H_N+1): byte 40 ⇒ cada quadro fica 41 frames de tela em NTSC ≈ 0.68 s; PAL permanece não medido."
+      }
+    },
+    {
+      "step": 4,
+      "name": "conferir_copia_crua",
+      "diff": [
+        80814,
+        80815,
+        80832
+      ],
+      "copy_sha256": "dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170"
+    },
+    {
+      "step": 5,
+      "name": "bps_export_apply",
+      "patch_path": "/home/misael/Projects/REX-SONIC-SEQUENCIA-2026-10-03/src-tauri/target-test/validation/inspection-2026-10-04T07-25-04-064Z-sequencia-journey/sequencia-journey.bps",
+      "applied_path": "/home/misael/Projects/REX-SONIC-SEQUENCIA-2026-10-03/src-tauri/target-test/validation/inspection-2026-10-04T07-25-04-064Z-sequencia-journey/sequencia-journey-aplicada.bin",
+      "patch_sha256": "4b338921b1a33f2d65a7d92d70ebb812ddac4b0dcf6ce0fd3d27f480e5f4c11e"
+    },
+    {
+      "step": 6,
+      "name": "salvar_destroir_reiniciar_reabrir",
+      "session": "inspection-1791098706-00000000",
+      "identity_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "provenvenience": "ROM modificada dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170 · offsets 0x013BAE, 0x013BAF, 0x013BC0 · 3 byte(s)"
+    },
+    {
+      "step": 7,
+      "name": "executar_no_core_sprite_apresentado",
+      "core": "Genesis Plus GX v1.7.4 46a5521",
+      "tentativas_visuais": 1
+    },
+    {
+      "step": 8,
+      "name": "restaurar_seletivamente",
+      "restaurar_ordem": {
+        "diff_restante": [
+          "0x13bae"
+        ],
+        "duracao": 40
+      },
+      "restaurar_duracao": {
+        "diff_final": []
+      },
+      "ledger_depois": 4
+    },
+    {
+      "step": 9,
+      "name": "roundtrip_cadencia_entao_sequencia",
+      "copy_sha256_intermedia": "28ea1bd505293b9ede5eb8307e4490c5e3d54d1fa085eed5d7cb0685612390fd",
+      "final": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+    },
+    {
+      "step": 10,
+      "name": "negativos_e_ack_atrasado",
+      "second_session": "inspection-1791098792-00000000",
+      "acks_descartados": 0,
+      "probe_final": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        3,
+        2,
+        2,
+        2,
+        3,
+        4
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "name": "passo1.byor_pinado",
+      "pass": true,
+      "session_id": "inspection-1791098706-00000000",
+      "base_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+    },
+    {
+      "name": "passo1.identidade_sha256_visivel",
+      "pass": true,
+      "observed": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "required": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+    },
+    {
+      "name": "passo2.entradas_18_originais",
+      "pass": true,
+      "count": 18,
+      "thumbnails_present": 18
+    },
+    {
+      "name": "passo2.proveniencia_contrato",
+      "pass": true,
+      "error": "",
+      "none_pending": true
+    },
+    {
+      "name": "passo2.negativo_contorno_pos0",
+      "pass": true,
+      "move_before_disabled": true
+    },
+    {
+      "name": "passo2.negativo_contorno_pos17",
+      "pass": true,
+      "move_after_disabled": true
+    },
+    {
+      "name": "passo2.negativo_mover_entrada_identica",
+      "pass": true,
+      "message": "Proposta igual à ordem já gravada: mover duas entradas idênticas não altera a sequência.",
+      "pending": null
+    },
+    {
+      "name": "passo2.negativo_aplicar_sem_diferenca_sem_escrita",
+      "pass": true,
+      "message": "Nada a aplicar: a proposta é idêntica à ordem já gravada na cópia (trocar entradas repetidas não muda a sequência).",
+      "copy_antes": null,
+      "copy_depois": null
+    },
+    {
+      "name": "passo2.primeiro_swap_adjacente",
+      "pass": true,
+      "bytes": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        3,
+        2,
+        2,
+        2,
+        4,
+        3
+      ],
+      "selected": 16
+    },
+    {
+      "name": "passo2.bolha_04_ate_pos0",
+      "pass": true,
+      "bytes": [
+        4,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        3,
+        2,
+        2,
+        2,
+        3
+      ],
+      "selected": 0
+    },
+    {
+      "name": "passo2.proposta_b_montada_pela_ui",
+      "pass": true,
+      "pending": "Pendente: 2 posição(ões) diferem da ordem aplicada; nada muda no jogo até você clicar em “Aplicar ordem”.",
+      "diff_line": "2 posição(ões) diferem do original · 4 desenhos únicos (bytes distintos)."
+    },
+    {
+      "name": "passo2.mensagem_com_sha_da_copia",
+      "pass": true,
+      "observed": "[Inspeção] Ordem id_Wait aplicada: janela 0x13BAF..0x13BC0 reordenada na cópia 0306a5abf7b8c2db890ef8d4773e239a50207a45ef3244d20ca694c9d192a0d9."
+    },
+    {
+      "name": "passo2.entradas_refletem_proposta_b",
+      "pass": true,
+      "bytes": [
+        4,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        3,
+        2,
+        2,
+        2,
+        3,
+        1
+      ]
+    },
+    {
+      "name": "passo2.copia_so_janela_de_frames",
+      "pass": true,
+      "copy_sha": "0306a5abf7b8c2db890ef8d4773e239a50207a45ef3244d20ca694c9d192a0d9",
+      "edit_sha": "0306a5abf7b8c2db890ef8d4773e239a50207a45ef3244d20ca694c9d192a0d9",
+      "required": "0306a5abf7b8c2db890ef8d4773e239a50207a45ef3244d20ca694c9d192a0d9"
+    },
+    {
+      "name": "passo2.diff_exatamente_pos0_e_pos17",
+      "pass": true,
+      "observed": [
+        "0x13baf",
+        "0x13bc0"
+      ],
+      "required": [
+        "0x13baf",
+        "0x13bc0"
+      ]
+    },
+    {
+      "name": "passo2.intervalo_terminador_intactos",
+      "pass": true,
+      "interval": 23
+    },
+    {
+      "name": "passo3.cadencia_aceita_apos_reordenacao",
+      "pass": true,
+      "observed": "[Inspeção] Cadência id_Wait aplicada: byte em 0x13BAE agora 40 ticks na cópia dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170."
+    },
+    {
+      "name": "passo3.sequencia_preservada_pela_escrita_de_duracao",
+      "pass": true,
+      "bytes": [
+        4,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        3,
+        2,
+        2,
+        2,
+        3,
+        1
+      ]
+    },
+    {
+      "name": "passo4.copia_identica_mutacao_independente",
+      "pass": true,
+      "copy_sha": "dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170",
+      "required": "dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170"
+    },
+    {
+      "name": "passo4.diff_exatamente_tres_bytes",
+      "pass": true,
+      "observed": [
+        "0x13bae",
+        "0x13baf",
+        "0x13bc0"
+      ]
+    },
+    {
+      "name": "passo4.ledger_nomeia_os_dominios",
+      "pass": true,
+      "ledger": [
+        {
+          "seq": 1,
+          "format": "sonic1_wait_frame_order",
+          "offsets": [
+            80815,
+            80832
+          ],
+          "new_bytes": [
+            4,
+            1
+          ]
+        },
+        {
+          "seq": 2,
+          "format": "sonic1_wait_interval_byte",
+          "offsets": [
+            80814
+          ],
+          "new_bytes": [
+            40
+          ]
+        }
+      ]
+    },
+    {
+      "name": "passo5.bps_reproduz_copia",
+      "pass": true,
+      "applied_sha": "dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170",
+      "patch_sha": "4b338921b1a33f2d65a7d92d70ebb812ddac4b0dcf6ce0fd3d27f480e5f4c11e",
+      "required": "dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170"
+    },
+    {
+      "name": "passo6.reabertura_sem_imagem_antiga",
+      "pass": true,
+      "thumbs_seq": 18,
+      "thumbs_cad": 18,
+      "none_pending": true
+    },
+    {
+      "name": "modificada-sequencia.identidade_rom",
+      "pass": true,
+      "observed": {
+        "sha": "dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170",
+        "size": 531577
+      },
+      "required": "dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170"
+    },
+    {
+      "name": "modificada-sequencia.reancoragem_do_contador",
+      "pass": true,
+      "observed": 10,
+      "required": "<=1200 apos carga"
+    },
+    {
+      "name": "modificada-sequencia.ack_de_start",
+      "pass": true,
+      "observed": {
+        "joypad": {
+          "left": false,
+          "l": false,
+          "start": false,
+          "select": false,
+          "y": false,
+          "x": false,
+          "b": false,
+          "right": false,
+          "r": false,
+          "up": false,
+          "a": false,
+          "down": false
+        },
+        "sessionId": "joypad-session-1",
+        "seq": 2
+      },
+      "required": "sequencia ACK avancou"
+    },
+    {
+      "name": "modificada-sequencia.frames_avancados_tras_primeira_observacao",
+      "pass": true,
+      "observed": 10,
+      "required": ">=10 frames de tela ao vivo apos o ACK"
+    },
+    {
+      "name": "modificada-sequencia.negativo_tecla_nao_mapeada",
+      "pass": true,
+      "observed": {
+        "joypad": {
+          "left": false,
+          "l": false,
+          "start": false,
+          "select": false,
+          "y": false,
+          "x": false,
+          "b": false,
+          "right": false,
+          "r": false,
+          "up": false,
+          "a": false,
+          "down": false
+        },
+        "sessionId": "joypad-session-1",
+        "seq": 2
+      },
+      "required": "ACK inalterado por KeyQ"
+    },
+    {
+      "name": "modificada-sequencia.framebuffer_nao_reutilizado",
+      "pass": true,
+      "observed": "075672e0f8a3354341de85b47a10e957bcf4cb4a4e21e7c18fff467b682c98b8",
+      "required": "diversos do frame anterior"
+    },
+    {
+      "name": "passo7.sprite_apresentado_sem_imagem_antiga",
+      "pass": true,
+      "attempts": [
+        {
+          "attempt": 1,
+          "canvas_matches": true,
+          "crop_matches": true,
+          "mismatches": 0,
+          "magenta_fraction": 0.5375,
+          "proof_error": null
+        }
+      ],
+      "rom_sha_do_composto": "dd064e0d9d12f5dc8fee66e9944ff07739ec96cc165084b05710aa3dededc170",
+      "pixels_verificados": {
+        "width": 32,
+        "height": 40,
+        "pixelsSha256": "7354bcfb6af04b6dc5d95c56adbaca232f9658a5edb0cb4dbd98a98582c462e7"
+      },
+      "source": "x11-root-pixmap"
+    },
+    {
+      "name": "passo8.restaurar_ordem_preserva_duracao",
+      "pass": true,
+      "message": "[Inspeção] Sequência id_Wait restaurada à ordem original (somente a janela 0x13BAF..0x13BC0); duração, pixels e paleta permanecem.",
+      "copy_diff": [
+        "0x13bae"
+      ],
+      "current": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        3,
+        2,
+        2,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "name": "passo8.restaurar_duracao_preserva_ordem",
+      "pass": true,
+      "cadence": "Aplicado na cópia: 23 ticks (0x17)",
+      "current": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        3,
+        2,
+        2,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "name": "passo8.ledger_registra_as_restauracoes",
+      "pass": true,
+      "antes": 2,
+      "depois": 4
+    },
+    {
+      "name": "passo9.proposta_1_clique",
+      "pass": true,
+      "pending": "Pendente: 2 posição(ões) diferem da ordem aplicada; nada muda no jogo até você clicar em “Aplicar ordem”."
+    },
+    {
+      "name": "passo9.cadencia_preservada_pela_escrita_de_ordem",
+      "pass": true,
+      "diff": [
+        "0x13bae",
+        "0x13bba",
+        "0x13bbb"
+      ]
+    },
+    {
+      "name": "passo9.roundtrip_inverso_fecha_na_base",
+      "pass": true,
+      "copy_sha": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb"
+    },
+    {
+      "name": "passo10.sessao_divergente_recusada_sonda",
+      "pass": true,
+      "edit_error": "Reabra a sessão com a ROM para autorizar seu conteúdo",
+      "restore_error": "Reabra a sessão com a ROM para autorizar seu conteúdo",
+      "info_error": "Reabra a sessão com a ROM para autorizar seu conteúdo",
+      "copy_inalterada": true,
+      "attribution": "sonda tecnica via IPC do produto"
+    },
+    {
+      "name": "passo10.negativos_de_proposta_recusados_sonda",
+      "pass": true,
+      "resource_error": "Recurso não comprovado",
+      "token_error": "entrada 0x07 nao e uma referencia de moldura",
+      "length_error": "proposta tem 17 entradas; o script exige exatamente 18",
+      "attribution": "sonda tecnica via IPC do produto"
+    },
+    {
+      "name": "passo10.segunda_sessao_ordem_original",
+      "pass": true,
+      "count": 18
+    },
+    {
+      "name": "passo10.voo_atrasado_confirmado",
+      "pass": true,
+      "apply_disabled_na_janela_voo": true,
+      "armed_probe_ms": 2677,
+      "flight_timeline": [
+        {
+          "t_ms": 0,
+          "disabled": true,
+          "label": "Aplicando…",
+          "msg": "",
+          "err": ""
+        },
+        {
+          "t_ms": 143,
+          "disabled": true,
+          "label": "Aplicando…",
+          "msg": "",
+          "err": ""
+        },
+        {
+          "t_ms": 248,
+          "disabled": true,
+          "label": "Aplicando…",
+          "msg": "",
+          "err": ""
+        },
+        {
+          "t_ms": 351,
+          "disabled": true,
+          "label": "Aplicando…",
+          "msg": "",
+          "err": ""
+        },
+        {
+          "t_ms": 462,
+          "disabled": true,
+          "label": "Aplicando…",
+          "msg": "",
+          "err": ""
+        },
+        {
+          "t_ms": 573,
+          "disabled": true,
+          "label": "Aplicando…",
+          "msg": "",
+          "err": ""
+        },
+        {
+          "t_ms": 685,
+          "disabled": true,
+          "label": "Aplicando…",
+          "msg": "",
+          "err": ""
+        },
+        {
+          "t_ms": 796,
+          "disabled": true,
+          "label": "Aplicando…",
+          "msg": "",
+          "err": ""
+        },
+        {
+          "t_ms": 911,
+          "disabled": true,
+          "label": "Aplicando…",
+          "msg": "",
+          "err": ""
+        },
+        {
+          "t_ms": 1022,
+          "disabled": true,
+          "label": "Aplicando…",
+          "msg": "",
+          "err": ""
+        },
+        {
+          "t_ms": 1154,
+          "disabled": true,
+          "label": "Aplicando…",
+          "msg": "",
+          "err": ""
+        },
+        {
+          "t_ms": 1258,
+          "disabled": true,
+          "label": "Aplicando…",
+          "msg": "",
+          "err": ""
+        },
+        {
+          "t_ms": 1363,
+          "disabled": true,
+          "label": "Aplicando…",
+          "msg": "",
+          "err": ""
+        },
+        {
+          "t_ms": 1468,
+          "disabled": true,
+          "label": "Aplicando…",
+          "msg": "",
+          "err": ""
+        }
+      ],
+      "console_delta_na_janela": true,
+      "note": "sem o atraso real o teste de epoca seria vacuo; a pagina registrou 2600ms de espera no IPC"
+    },
+    {
+      "name": "passo10.ack_de_epoca_anterior_descartado_pela_ui",
+      "pass": true,
+      "acks_novos": [],
+      "sessao_exibida": "inspection-1791098706-00000000",
+      "painel_atual": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        3,
+        2,
+        2,
+        2,
+        3,
+        4
+      ],
+      "copia_da_segunda_sessao_no_disco": "permutacao aplicada pelo backend sem pintar a UI",
+      "required": "UI da jornada intacta (ordem original) + escrita da segunda sessao confirmada no proprio arquivo"
+    },
+    {
+      "name": "final.base_preservada",
+      "pass": true,
+      "rom_path": "/home/misael/RDS-REX-CORPUS-E/.staging/Sonic the Hedgehog (USA, Europe).bin"
+    }
+  ],
+  "runtime_effect": "ordem e duracao acumuladas na mesma copia pela UI real, restauracoes seletivas provadas byte a byte, ack de epoca anterior descartado com duas sessoes reais",
+  "allPass": true,
+  "finished_at": "2026-10-04T07:26:51.173Z"
+}

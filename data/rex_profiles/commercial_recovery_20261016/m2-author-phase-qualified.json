@@ -1,0 +1,118 @@
+{
+  "schema": "rex-author-vdp-phase-qualification/v1",
+  "id": "phase-qualify-001",
+  "exit_code": 0,
+  "elapsed_seconds": 1.0169105759996455,
+  "status": "PASS_AUTHOR_IRQ6_DMA_PHASE_AND_PIXEL_LAYOUT",
+  "limits": [
+    "author IRQ6 fixture only; phase must be frozen before applying to commercial trace",
+    "not commercial asset proof or hardware timing validation",
+    "training frames4..7, validation frames8..20; validation PNGs not opened before phase freeze"
+  ],
+  "phase": {
+    "native_to_presented_irq_updates": 1,
+    "training_frames": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "frozen_before_validation_png_reads": true
+  },
+  "validation": [
+    {
+      "frame": 8,
+      "counter": 8,
+      "native_x": 64,
+      "presented_x": 56,
+      "passed": true
+    },
+    {
+      "frame": 9,
+      "counter": 9,
+      "native_x": 72,
+      "presented_x": 64,
+      "passed": true
+    },
+    {
+      "frame": 10,
+      "counter": 10,
+      "native_x": 80,
+      "presented_x": 72,
+      "passed": true
+    },
+    {
+      "frame": 11,
+      "counter": 11,
+      "native_x": 88,
+      "presented_x": 80,
+      "passed": true
+    },
+    {
+      "frame": 12,
+      "counter": 12,
+      "native_x": 96,
+      "presented_x": 88,
+      "passed": true
+    },
+    {
+      "frame": 13,
+      "counter": 13,
+      "native_x": 104,
+      "presented_x": 96,
+      "passed": true
+    },
+    {
+      "frame": 14,
+      "counter": 14,
+      "native_x": 112,
+      "presented_x": 104,
+      "passed": true
+    },
+    {
+      "frame": 15,
+      "counter": 15,
+      "native_x": 120,
+      "presented_x": 112,
+      "passed": true
+    },
+    {
+      "frame": 16,
+      "counter": 16,
+      "native_x": 128,
+      "presented_x": 120,
+      "passed": true
+    },
+    {
+      "frame": 17,
+      "counter": 17,
+      "native_x": 136,
+      "presented_x": 128,
+      "passed": true
+    },
+    {
+      "frame": 18,
+      "counter": 18,
+      "native_x": 144,
+      "presented_x": 136,
+      "passed": true
+    },
+    {
+      "frame": 19,
+      "counter": 19,
+      "native_x": 152,
+      "presented_x": 144,
+      "passed": true
+    },
+    {
+      "frame": 20,
+      "counter": 20,
+      "native_x": 160,
+      "presented_x": 152,
+      "passed": true
+    }
+  ],
+  "wrong_identity_negative_rejected": true,
+  "wrong_phase_negative_rejected": true,
+  "events_sha256": "13cf682f987850bcd2155d8a906f21fdfac91000277777056fac0178c04991fa"
+}

@@ -1,0 +1,185 @@
+{
+  "schema": "rex-jump-profile-journey/v1",
+  "prefix": "jump-profile-2026-10-08T01-36-22-559Z",
+  "checks": [
+    {
+      "name": "sonic1.instancias_localizadas",
+      "pass": true,
+      "observado": {
+        "tabs": 1,
+        "erro": ""
+      },
+      "esperado": 1
+    },
+    {
+      "name": "sonic1.valores_das_constantes",
+      "pass": true,
+      "observado": {
+        "impw": "896",
+        "cutw": "-512",
+        "cap": "-4032",
+        "cut": "-1024",
+        "imp": "1664"
+      }
+    },
+    {
+      "name": "sonic1.limites_visiveis",
+      "pass": true,
+      "observado": "Localização por assinatura de bytes: prova a forma da rotina e a consistência dos campos de objeto, não que ela seja chamada em gameplay.Só constantes de 16 bit"
+    },
+    {
+      "name": "sonic1.geracao_sem_erro",
+      "pass": true,
+      "erro": ""
+    },
+    {
+      "name": "sonic1.painel_afirma_original_intacta_e_tamanho",
+      "pass": true,
+      "observado": "ROM original intacta: sim · tamanho preservado: sim · bytes alterados: 4"
+    },
+    {
+      "name": "sonic1.copia_e_ips_gravados",
+      "pass": true,
+      "arquivos": [
+        "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-bec61f9f.bin",
+        "Sonic_the_Hedgehog__USA__Europe_.jump-1340c-bec61f9f.ips"
+      ]
+    },
+    {
+      "name": "sonic1.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "sonic1.tamanho_preservado",
+      "pass": true,
+      "antes": 531577,
+      "depois": 531577
+    },
+    {
+      "name": "sonic1.so_os_imediatos_esperados_mudaram",
+      "pass": true,
+      "diff": 3,
+      "fora": 0,
+      "offs": {
+        "imp": 78862,
+        "cut": 79008
+      }
+    },
+    {
+      "name": "sonic1.valores_novos_corretos",
+      "pass": true,
+      "imp": 2304,
+      "cut": -1536
+    },
+    {
+      "name": "sonic1.ips_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 22
+    },
+    {
+      "name": "sonic1.nao_sobrescreve",
+      "pass": true,
+      "erro": "output_exists_or_unwritable: não foi possível criar /tmp/rds-jump-out-zUCJ4S/sonic1/Sonic_the_Hedgehog__USA__Europe_.jump-1340c-bec61f9f.bin: Arquivo existe (os error 17) (nunca sobrescrevo)"
+    },
+    {
+      "name": "delta.instancias_localizadas",
+      "pass": true,
+      "observado": {
+        "tabs": 3,
+        "erro": ""
+      },
+      "esperado": 3
+    },
+    {
+      "name": "delta.valores_das_constantes",
+      "pass": true,
+      "observado": {
+        "impw": "896",
+        "imp": "1664",
+        "imps": "2048",
+        "cutw": "-512",
+        "cap": "-4032",
+        "cut": "-1024"
+      }
+    },
+    {
+      "name": "delta.limites_visiveis",
+      "pass": true,
+      "observado": "Localização por assinatura de bytes: prova a forma da rotina e a consistência dos campos de objeto, não que ela seja chamada em gameplay.Só constantes de 16 bit"
+    },
+    {
+      "name": "delta.geracao_sem_erro",
+      "pass": true,
+      "erro": ""
+    },
+    {
+      "name": "delta.painel_afirma_original_intacta_e_tamanho",
+      "pass": true,
+      "observado": "ROM original intacta: sim · tamanho preservado: sim · bytes alterados: 4"
+    },
+    {
+      "name": "delta.copia_e_ips_gravados",
+      "pass": true,
+      "arquivos": [
+        "Sonic_Delta_Reloaded__Brazil___Unl_.jump-16914-f3b0aa50.bin",
+        "Sonic_Delta_Reloaded__Brazil___Unl_.jump-16914-f3b0aa50.ips"
+      ]
+    },
+    {
+      "name": "delta.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "delta.tamanho_preservado",
+      "pass": true,
+      "antes": 5242880,
+      "depois": 5242880
+    },
+    {
+      "name": "delta.so_os_imediatos_esperados_mudaram",
+      "pass": true,
+      "diff": 3,
+      "fora": 0,
+      "offs": {
+        "imp": 92428,
+        "cut": 92602
+      }
+    },
+    {
+      "name": "delta.valores_novos_corretos",
+      "pass": true,
+      "imp": 2304,
+      "cut": -1536
+    },
+    {
+      "name": "delta.ips_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 22
+    },
+    {
+      "name": "delta.nao_sobrescreve",
+      "pass": true,
+      "erro": "output_exists_or_unwritable: não foi possível criar /tmp/rds-jump-out-zUCJ4S/delta/Sonic_Delta_Reloaded__Brazil___Unl_.jump-16914-f3b0aa50.bin: Arquivo existe (os error 17) (nunca sobrescrevo)"
+    }
+  ],
+  "steps": [
+    {
+      "step": "sonic1-localizado",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-profile-2026-10-08T01-36-22-559Z-sonic1-localizado.png"
+    },
+    {
+      "step": "sonic1-gerado",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-profile-2026-10-08T01-36-22-559Z-sonic1-gerado.png"
+    },
+    {
+      "step": "delta-localizado",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-profile-2026-10-08T01-36-22-559Z-delta-localizado.png"
+    },
+    {
+      "step": "delta-gerado",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/jump-profile-2026-10-08T01-36-22-559Z-delta-gerado.png"
+    }
+  ],
+  "allPass": true,
+  "ausentes": []
+}

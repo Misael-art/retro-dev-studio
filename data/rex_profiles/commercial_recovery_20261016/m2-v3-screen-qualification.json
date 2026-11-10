@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "captures": [
+    {
+      "variant": "positive",
+      "png_sha256": "60bb3d4ad55327eff944ecb54dd8ab4eaa44ad92c9146a39e1971853b9ba27f5",
+      "passed": true
+    },
+    {
+      "variant": "no-call",
+      "png_sha256": "60bb3d4ad55327eff944ecb54dd8ab4eaa44ad92c9146a39e1971853b9ba27f5",
+      "passed": true
+    },
+    {
+      "variant": "other-args",
+      "png_sha256": "60bb3d4ad55327eff944ecb54dd8ab4eaa44ad92c9146a39e1971853b9ba27f5",
+      "passed": true
+    }
+  ],
+  "limits": "same presented target only; no independent game visual oracle"
+}

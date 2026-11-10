@@ -1,0 +1,56 @@
+{
+ "schema": "rex-semantic-profile/v1",
+ "id": "m68k.counter_equality_state_gate.v1",
+ "revision": 1,
+ "status": "experimental",
+ "title": "Contador com igualdade",
+ "summary": "Segunda configuracao da mesma classe: sem guarda, soma de 2 no contador, comparacao de igualdade com um limiar e dois resultados de estado, um deles com chamada externa opaca. A regra sai dos bytes; o perfil so configura. Sem afirmacao curada. Experimental.",
+ "artifact_tag": "gate-eq",
+ "arch": {
+  "cpu": "m68k",
+  "endianness": "big",
+  "instruction_alignment": 2,
+  "bus_address_bits": 24
+ },
+ "provenance": {
+  "author": "RetroDev Studio - integrador REX",
+  "created": "2026-10-10",
+  "derived_from": [
+   "crates/rex-gameplay/CONTRACT.md"
+  ],
+  "notes": "Mesmo analyzer.kind counter_compare_gate. Nao herda curadoria de outro arquivo. Registradores, enderecos, guarda e orientacao da comparacao diferem das duas ROMs ja medidas."
+ },
+ "rom_binding": {
+  "mode": "signature"
+ },
+ "work_limits": {
+  "max_rom_bytes": 33554432,
+  "max_candidates": 32
+ },
+ "analyzer": {
+  "kind": "counter_compare_gate"
+ },
+ "selection": {
+  "structural_scan": true,
+  "declared_region": true
+ },
+ "edit": {
+  "field": "threshold",
+  "label": "Limiar do contador"
+ },
+ "evidence": {
+  "claims": [],
+  "unknown": [
+   "se algum jogo executa este trecho e quem o chama",
+   "o que a chamada externa faz: alvo e argumentos ficam registrados, o corpo nao e recuperado",
+   "registradores e flags depois da saida",
+   "outros escritores do contador ou do estado fora da regiao"
+  ]
+ },
+ "limits": [
+  "A regiao e declarada. A varredura so encontra a forma com guarda; esta rotina nao tem guarda.",
+  "Subconjunto fechado de formas M68000; qualquer outro opcode recusa a recuperacao.",
+  "Unica edicao: o limiar, na faixa que cabe na instrucao original. Operador, passo, enderecos e topologia nao sao editaveis.",
+  "A comparacao mede contador e estado nesta amostra autoral. Nao e descoberta de rotina nem descompilacao universal."
+ ]
+}

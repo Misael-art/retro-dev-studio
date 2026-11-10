@@ -1,0 +1,137 @@
+{
+ "schema": "rex-profile-journey/v1",
+ "rom": "data/rex_profiles/authoring/timer_gate/rom-sintetica.bin",
+ "rom_sha256": "4f750ea6cbace93cbbdd644659b3a5a94903d9e20f2405daa55efb946beb7802",
+ "profiles_dir": "data/rex_profiles/authoring/timer_gate/profiles",
+ "profile_id": "m68k.authored_timer_gate.v1",
+ "profile_title": "Temporizador autoral (sintético)",
+ "profile_sha256": "f031368b9d8df17f08bf888c3fb95044d5889eceb4b9c1bd7f05b58496af9c9c",
+ "expect": {
+  "rejected_by_constraint": 3,
+  "instances": [
+   {
+    "offset": 1024,
+    "bus_address": 512,
+    "fields": {
+     "dur": 30,
+     "score": 5000,
+     "lim": 600,
+     "step": -250
+    },
+    "absent_fields": [
+     "bonus"
+    ]
+   },
+   {
+    "offset": 2056,
+    "bus_address": 1544,
+    "fields": {
+     "dur": 12,
+     "score": 123456,
+     "bonus": 40000,
+     "lim": 59999
+    },
+    "absent_fields": [
+     "step"
+    ]
+   },
+   {
+    "offset": 3072,
+    "bus_address": 2560,
+    "fields": {
+     "dur": 200,
+     "score": 1
+    },
+    "absent_fields": [
+     "bonus",
+     "lim",
+     "step"
+    ],
+    "static_only_form": true,
+    "ambiguous": true
+   }
+  ]
+ },
+ "negative": {
+  "out_of_range": {
+   "field": "dur",
+   "value": 256,
+   "restore": 30
+  }
+ },
+ "form_edit": {
+  "instance": 1024,
+  "set": {
+   "dur": 45,
+   "step": -100000
+  },
+  "changed_offsets": [
+   1027,
+   1126,
+   1127,
+   1128,
+   1129,
+   1132,
+   1133,
+   1134,
+   1135
+  ],
+  "expect_bytes": [
+   {
+    "offset": 1027,
+    "hex": "2d"
+   },
+   {
+    "offset": 1126,
+    "hex": "fffe7960"
+   },
+   {
+    "offset": 1132,
+    "hex": "fffe7960"
+   }
+  ]
+ },
+ "canvas_edit": {
+  "instance": 2056,
+  "expect_nodes": [
+   "inicio",
+   "portao",
+   "n_dur",
+   "n_score",
+   "n_bonus",
+   "tique",
+   "n_lim"
+  ],
+  "absent_nodes": [
+   "n_step"
+  ],
+  "set_nodes": [
+   {
+    "node": "n_bonus",
+    "value": 65535,
+    "original": 40000
+   },
+   {
+    "node": "n_lim",
+    "value": 1234,
+    "original": 59999
+   }
+  ],
+  "changed_offsets": [
+   2072,
+   2073,
+   2122,
+   2123
+  ],
+  "expect_bytes": [
+   {
+    "offset": 2072,
+    "hex": "ffff"
+   },
+   {
+    "offset": 2122,
+    "hex": "04d2"
+   }
+  ]
+ }
+}

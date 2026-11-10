@@ -1,0 +1,93 @@
+{
+  "schema": "rex-artifact-reconciliation/v1",
+  "raw_audit": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-retake-artifact-audit.json",
+  "raw_sha256": "c7d79dd8ac7d6726cf59c01e0ece93cf39d233a37a7e8f70cd6b2c84fe444c61",
+  "counts": {
+    "MATCH": 123,
+    "MISMATCH": 8,
+    "ABSENT": 0,
+    "NOT_FILE": 0,
+    "PRESENT": 4,
+    "DOCUMENT_ADVANCED": 2
+  },
+  "advanced_source_files": [
+    {
+      "path": "scripts/e2e-tauri-build-run.mjs",
+      "historical_source_hash_matches_base": true,
+      "current_sha256": "9e2a425efef9ee34aad83e1f313dc52323fb9e3b19beb23fc0d6d632bc3cfe47",
+      "delta_commits": [
+        "78c94b0f test(rex): freeze native transfer journey and qualify reserved profile publication",
+        "1722aef0 rex: consolidate commercial UI chain and freeze semantic state qualification",
+        "8278d9f0 rex: validate complete commercial preview-edit-restore UI sequence",
+        "ce2e19b1 rex: preserve commercial pre-edit preview and native selection failure",
+        "33fdbdd2 rex: freeze canonical commercial graph journey and causal reference",
+        "338d06a8 test(rex): freeze qualified snapshot target and canonical prepared-replay observation"
+      ]
+    },
+    {
+      "path": "src/components/viewport/ViewportPanel.tsx",
+      "historical_source_hash_matches_base": true,
+      "current_sha256": "b5956558fd9849c314cad89bb23c3779ba062f11ec829a8b66873f52b5991e8c",
+      "delta_commits": [
+        "18f9ab59 fix(viewport): present accepted runtime frames at native resolution",
+        "4ff5623a fix(emulator): present paused replay frames with session and order guards"
+      ]
+    },
+    {
+      "path": "src-tauri/src/emulator/frame_buffer.rs",
+      "historical_source_hash_matches_base": true,
+      "current_sha256": "9b5498703a4cbdd69e302624559422d252500883783a90f9b71995cb1eeac19f",
+      "delta_commits": [
+        "4ff5623a fix(emulator): present paused replay frames with session and order guards"
+      ]
+    },
+    {
+      "path": "src-tauri/src/emulator/libretro_ffi.rs",
+      "historical_source_hash_matches_base": true,
+      "current_sha256": "d1237531fd272b8200693c6e95513899efad2f28952acd67c9b2860904310391",
+      "delta_commits": [
+        "d5c8006a fix(emulator): identify legacy padded console headers in published BIN copies"
+      ]
+    },
+    {
+      "path": "scripts/e2e-tauri-build-run.mjs",
+      "historical_source_hash_matches_base": true,
+      "current_sha256": "9e2a425efef9ee34aad83e1f313dc52323fb9e3b19beb23fc0d6d632bc3cfe47",
+      "delta_commits": [
+        "78c94b0f test(rex): freeze native transfer journey and qualify reserved profile publication",
+        "1722aef0 rex: consolidate commercial UI chain and freeze semantic state qualification",
+        "8278d9f0 rex: validate complete commercial preview-edit-restore UI sequence",
+        "ce2e19b1 rex: preserve commercial pre-edit preview and native selection failure",
+        "33fdbdd2 rex: freeze canonical commercial graph journey and causal reference",
+        "338d06a8 test(rex): freeze qualified snapshot target and canonical prepared-replay observation"
+      ]
+    },
+    {
+      "path": "src/components/viewport/ViewportPanel.tsx",
+      "historical_source_hash_matches_base": true,
+      "current_sha256": "b5956558fd9849c314cad89bb23c3779ba062f11ec829a8b66873f52b5991e8c",
+      "delta_commits": [
+        "18f9ab59 fix(viewport): present accepted runtime frames at native resolution",
+        "4ff5623a fix(emulator): present paused replay frames with session and order guards"
+      ]
+    },
+    {
+      "path": "src-tauri/src/emulator/frame_buffer.rs",
+      "historical_source_hash_matches_base": true,
+      "current_sha256": "9b5498703a4cbdd69e302624559422d252500883783a90f9b71995cb1eeac19f",
+      "delta_commits": [
+        "4ff5623a fix(emulator): present paused replay frames with session and order guards"
+      ]
+    },
+    {
+      "path": "src-tauri/src/emulator/libretro_ffi.rs",
+      "historical_source_hash_matches_base": true,
+      "current_sha256": "d1237531fd272b8200693c6e95513899efad2f28952acd67c9b2860904310391",
+      "delta_commits": [
+        "d5c8006a fix(emulator): identify legacy padded console headers in published BIN copies"
+      ]
+    }
+  ],
+  "interpretation": "Historical source pins are preserved and match integration base; eight raw mismatches are four intentionally advanced source paths cited twice. Evidence data/ROM/captures remained hash-identical. Raw audit exit1 preserved; this is integrity reconciliation, not functional PASS.",
+  "missing_artifacts": 0
+}

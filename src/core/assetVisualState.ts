@@ -38,7 +38,8 @@ export function hasCanonicalTilemapCells(
 
   const total = tilemap.map_width * tilemap.map_height;
   const cells = tilemap.cells ?? [];
-  return Array.isArray(cells) && cells.length === total && cells.some((value) => (value | 0) > 0);
+  // 0xffffffff is an intentional empty tile, not missing/legacy map data.
+  return Array.isArray(cells) && cells.length === total && cells.some((value) => value > 0);
 }
 
 export function resolveProjectAssetVisualState(

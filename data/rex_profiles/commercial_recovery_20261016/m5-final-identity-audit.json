@@ -1,0 +1,32 @@
+{
+  "schema": "rex-final-identity-audit/v1",
+  "generated_at": "2026-10-19T01:28:04.725753+00:00",
+  "rex_production_frozen_sources": [
+    {
+      "path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs",
+      "sha256": "e2d351ee960470bcfbd341441c685264d9c620905605757bb5061bfa692b2acc",
+      "unchanged": true
+    },
+    {
+      "path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs",
+      "sha256": "a22bb7fd57dbe4d5e365c99402460ea019fe51660dba5323060262da92fc2d92",
+      "unchanged": true
+    },
+    {
+      "path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src/components/nodegraph/ProfileGraphBridgePanel.tsx",
+      "sha256": "2df3baec28d63e2f0ed15043c4fc728a156032fb2b0e008461c28ecc31313ec3",
+      "unchanged": true
+    },
+    {
+      "path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src/core/nodegraph/profileGraphBridge.ts",
+      "sha256": "2e66b028426bd94ff5fbe0ce44fbc468f088e35461660dfa92537ad091267840",
+      "unchanged": true
+    }
+  ],
+  "milestone_linked_evidence": "M2 seven, M3 four, M4 five referenced evidence hashes rechecked unchanged; none absent",
+  "historical_audit_reconciliation": "m5-retake-artifact-reconciliation.json preserves raw exit1 and explains intentionally advanced source, historical evidence unchanged",
+  "app_sha256": "66cb3d71ea4f5df2efd37b031fe0c4c76b822b11d55d55ca240024638c7c12e5",
+  "preserved_failures": "V1FAIL86/89, firstBYOR1/2, native001header/native002canvas, other original traces/protocol failures all retained; pending audioOPEN separate",
+  "core_changed": false,
+  "scope": "Integrity only; execution/certification results are separate axes."
+}

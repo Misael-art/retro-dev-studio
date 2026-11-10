@@ -1,0 +1,20 @@
+warning: duplicated attribute
+    --> src/compiler/ast_generator.rs:3479:5
+     |
+3479 |     #[test]
+     |     ^^^^^^^
+     |
+     = note: `#[warn(duplicate_macro_attributes)]` on by default
+
+warning: `retro-dev-studio` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.85s
+     Running unittests src/lib.rs (/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/cargo-target/debug/deps/app_lib-3c2b06dc04233a3c)
+
+running 5 tests
+test tools::reverse::decomp::rex_copy_grid::tests::copy_grid_discriminating_decoder_refusals ... ok
+test tools::reverse::decomp::rex_copy_grid::tests::copy_grid_typed_reconstruction_and_transfer_domain ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::copy_grid_backend_publication_and_discriminating_refusals ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::copy_grid_malformed_rom_never_publishes ... ok
+test tools::reverse::decomp::rex_profile_ipc::tests::copy_grid_pinned_byor_uses_same_backend_and_publication ... ignored, requires pinned local authorized BYOR; writes private harness inputs only
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 1124 filtered out; finished in 0.52s

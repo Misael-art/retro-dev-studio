@@ -1,0 +1,41 @@
+{
+  "schema": "rex-certification-run/v1",
+  "command": "rtk proxy env TMPDIR=/home/misael/rds-scratch/rex-integration-20261016/tmp CARGO_TARGET_DIR=/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/cargo-target CARGO_BUILD_JOBS=1 npm run host:certify",
+  "exit_code": 0,
+  "state": "READY",
+  "log_sha256": "c3e18400ca07bc920db1f7aeba3cf5eb02c4abbd0b8fd4132ccc4ec189cdb5bc",
+  "log": "/home/misael/rds-scratch/rex-integration-20261016/host-certify-001.log",
+  "frontend": {
+    "passed": 1041,
+    "skipped": 3,
+    "failed": 0
+  },
+  "rust": {
+    "passed": 1032,
+    "ignored": 92,
+    "failed": 0
+  },
+  "baseline_gates": [
+    "check:tree",
+    "lint",
+    "tsc --noEmit",
+    "frontend tests",
+    "cargo clippy --lib -- -D warnings",
+    "cargo test --lib -- --nocapture --test-threads=1",
+    "upstream --require-decomp-tools"
+  ],
+  "additional_gates": {
+    "cargo_fmt_check": 0,
+    "git_diff_check": 0,
+    "cargo_clippy_default_D_warnings": 0
+  },
+  "preexisting_warning": "duplicate #[test] attribute ast_generator.rs:3479; not changed",
+  "preexisting_audio": "nodegraph-authoring victory audio instability remains open; not diagnosed or cleared",
+  "product_source_commit": "628a422e03f872df029dc6f023fe3baee77c91d1",
+  "external_harness_checkpoint": "8b6c70af",
+  "registry_promotion": false,
+  "report_lifecycle": "host-readiness.json is replaced by each diagnose; the subsequent GUI regression replaced the certification snapshot. Exact original certification stdout is preserved at log path and identified by SHA; upstream report copied before reuse.",
+  "durable_log": "data/rex_profiles/integration_20261016/evidence/host-certify.log",
+  "durable_log_normalization": "trailing whitespace/extra EOF blank removed from versioned log only; original scratch log unchanged, log_sha256 identifies that original",
+  "durable_log_sha256": "3b3ce563ea41d81b4f66e345f766acbf5ea777016e4a828073a95534148141d5"
+}

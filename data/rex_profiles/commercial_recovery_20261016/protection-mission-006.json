@@ -1,0 +1,9 @@
+{
+  "ref": "refs/checkpoints/rex-commercial-20261016/m3-first-validated",
+  "commit": "cca3bbc2",
+  "bundle": "/home/misael/rds-scratch/commercial_recovery_20261016/mission-checkpoint-006.bundle",
+  "sha256": "f67f440642aa2d759550b185fabb6f6ffb4096e0a8403aa6b2d31eefb2ab12f6",
+  "bytes": 252202,
+  "verify": "exit0",
+  "requires": "03ddc59de38cc3d9c448b893da72a3efd575030a"
+}

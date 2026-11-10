@@ -1,0 +1,27 @@
+{
+  "schema": "rex-observation-addendum/v1",
+  "id": "M2-SNAPSHOT-TARGET-001",
+  "before_measurement": true,
+  "prior_failures": [
+    "qualify-v2-002",
+    "qualify-v2-003"
+  ],
+  "prior_failed_source_sha256": "bc65dceb3c532e9e53bd4e807f09dd9aa702d049a5095f5ceb126ed816325ce8",
+  "prior_failed_input_preserved": "/home/misael/rds-scratch/commercial_recovery_20261016/qualify-v2-003-preserved-input",
+  "primary_sources": [
+    "https://raw.githubusercontent.com/mamedev/mame/mame0289/src/emu/screen.cpp",
+    "https://raw.githubusercontent.com/mamedev/mame/mame0289/src/frontend/mame/luaengine.cpp"
+  ],
+  "source_findings": "screen.pixels reads current writable bitmap; update_quads publishes current texture and changes writable bitmap; snapshot uses video target. This explains observed mismatch, not a binary reproduction proof.",
+  "new_surface": "video.snapshot_pixels compared with PNG from same snapshot target; active screen bitmap and LUT preserved separately, never asserted to be the same presented frame",
+  "expectations": [
+    "byte equality of PNG RGB and same-target RGB32 in three author controls",
+    "nonempty correct-size snapshot; one-pixel mutant rejected",
+    "all call/buffer/identity/loss controls unchanged",
+    "no rescale/crop/tolerance/gamma calibration",
+    "current bitmap versus presented target mismatch retained as separate surface limitation"
+  ],
+  "instrument_sha256": "56c966f3c93a4466136e1ec693c455d1a2ad0e5c14efe57729eb67a5b46f1a94",
+  "qualifier_adapter_sha256": "125652fd9922246e9b52df3b4879429178f27edf5d85aac5ca79a8b7d6b234ef",
+  "status": "FROZEN_BEFORE_NEW_AUTHOR_MEASUREMENT; commercial v2 remains unexecuted"
+}

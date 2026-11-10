@@ -1,0 +1,14 @@
+{
+  "schema": "rex-checkpoint-protection/v1",
+  "generated_at": "2026-10-17T00:28:20.317895+00:00",
+  "refs": {
+    "refs/checkpoints/rex-commercial-20261016/integration": "03ddc59de38cc3d9c448b893da72a3efd575030a",
+    "refs/checkpoints/rex-commercial-20261016/research": "ee8c581f07494c22100c688f09f02db0caacd56b"
+  },
+  "bundle": "/home/misael/rds-scratch/commercial_recovery_20261016/input-checkpoints.bundle",
+  "sha256": "5969d72c115c1bb55c97edfd85b010b9192b846877ca1aad13dd7f31f10c41f4",
+  "bytes": 5421191,
+  "prerequisite_commit": "3aee11283d2edc4a9163ea4993ee64625538530b",
+  "verification": "/home/misael/rds-scratch/commercial_recovery_20261016/input-checkpoints.bundle is okay\nThe bundle contains these 2 refs:\n03ddc59de38cc3d9c448b893da72a3efd575030a refs/checkpoints/rex-commercial-20261016/integration\nee8c581f07494c22100c688f09f02db0caacd56b refs/checkpoints/rex-commercial-20261016/research\nThe bundle requires this ref:\n3aee11283d2edc4a9163ea4993ee64625538530b \nThe bundle uses this hash algorithm: sha1",
+  "scope": "Incremental Git history of both checkpoint tips; requires prerequisite in restored repository. No corpus/build directories copied."
+}

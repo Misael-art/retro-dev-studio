@@ -1,0 +1,62 @@
+{
+  "schema": "rex-m5-original-gx-reference-freeze/v1",
+  "generated_at": "2026-10-18T08:48:26.644065+00:00",
+  "inputs": {
+    "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/golden-axe/original.bin": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/integration_20261007/lr.py": "7bda06f7eca534e91fc0876d95e95f136d0227672995c032c375cf461023e876",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/prepare-linear-gx.py": "68af418c3b9158020bf3888846d7b98066358f052247e98aa34272c194e0030c"
+  },
+  "target": {
+    "archive": "/home/misael/emulation/roms/genesis/Golden Axe (World) (Translated PtBr).zip",
+    "archive_sha256": "123440e91aa8b03deae86c256009eab36ca5525eedbd9d7f1a73219931a42a13",
+    "member": "Golden Axe (World).gen",
+    "rom_bytes": 524288,
+    "rom_sha256": "75613dde5ae0cc9d16ed5110c3e353bf73f1fabc5656af6165deecd93585df4b",
+    "identity_only": "Decompressed payload hashed before interpreting any header/code; no ROM extracted or copied.",
+    "id": "golden-axe",
+    "rom_path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/golden-axe/original.bin",
+    "shape": {
+      "entry": 10904,
+      "transfer": 10914,
+      "exit": 10920,
+      "length": 16,
+      "source_register": 0,
+      "destination_register": 1,
+      "counter_register": 0,
+      "count": 108,
+      "counter_initialization": "moveq",
+      "width": 4,
+      "source_bus24": 10922,
+      "destination_bus24": 16774144,
+      "source_initial_register32": 10922,
+      "destination_initial_register32": 4294964224,
+      "source_addressing": "pc_relative_word",
+      "destination_addressing": "absolute_word",
+      "initialization_order": [
+        "source",
+        "destination",
+        "count"
+      ],
+      "source_space": "linear_rom",
+      "allowed_widths_in_memory_domain": [
+        1,
+        2,
+        4
+      ],
+      "base_in_domain": true,
+      "distinct_implementation": "single DBRA, no outer loop/row gap, statically initialized pointers/count; not primary nested byte-copy implementation",
+      "region_sha256": "037a639f2523e4b3c038a64e10ab92871882036ea7a5f1d79ce721ef446aa8a6",
+      "production_recognition": "NOT_MEASURED",
+      "real_invocation": "NOT_OBSERVED"
+    },
+    "maximum_source_sha256": "5163dca0ade2885de3d29ebfd9daf8e9b80a1e8247277989ccb69fb8e487dada",
+    "classification": "exploratory inspected; not unseen; local translated commercial derivative"
+  },
+  "core": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+  "hypothesis": "Original ROM-only GX60frame cold-boot survey finds a frame whose destination equals original-source count*width plus preceding-frame guards; serialize preceding frame for same-core UI correspondence. All edited width expectations generated from original inputs before modified GX execution.",
+  "budget_seconds": 90,
+  "expected_original_copied_bytes": 432,
+  "expected_edited_copied_bytes": 216,
+  "limits": "No modified run; frame sampling not CPU-call proof. If guards have unrelated writes, reject frame rather than silently masking."
+}

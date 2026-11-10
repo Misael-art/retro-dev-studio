@@ -1,0 +1,411 @@
+{
+  "schema": "rds-host-readiness/v1",
+  "generated_at": "2026-10-10T01:45:47.136Z",
+  "mode": "certify",
+  "profile": "full",
+  "state": "READY",
+  "host": {
+    "platform": "linux",
+    "arch": "x64",
+    "os_id": "biglinux",
+    "os_version": "6.18.49-1-MANJARO",
+    "abi": "2.44"
+  },
+  "host_fingerprint": "60249508aff61897cdd43160d4716b2344d69282507a36c5a457c0028143f6e2",
+  "lock_digest": "dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377",
+  "repository": {
+    "commit": "f018c7627e01e77d7a1547d379b31ca1babf528d",
+    "branch": "codex/rex-integrator-sonic-103104",
+    "dirty": true
+  },
+  "paths": {
+    "repo": "/home/misael/Projects/REX-INTEGRATION-2026-10-05",
+    "native_cache": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377",
+    "active_pointer": "/home/misael/.cache/retrodevstudio/active-host.json",
+    "portable_cache": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/toolchains/.cache/artifacts",
+    "report": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/host-readiness.json"
+  },
+  "browser": {
+    "path": "webkit2gtk-4.1",
+    "version": "WebKitGTK 2.52.6",
+    "route": "webkit"
+  },
+  "checks": [
+    {
+      "id": "node",
+      "label": "Node.js 24.18.0",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/home/misael/.cache/retrodevstudio/bootstrap/node-v24.18.0-linux-x64/bin/node",
+      "version": "v24.18.0",
+      "sha256": null,
+      "install_supported": false
+    },
+    {
+      "id": "npm",
+      "label": "npm 11",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/home/misael/.cache/retrodevstudio/bootstrap/node-v24.18.0-linux-x64/bin/npm",
+      "version": "11.16.0",
+      "sha256": null,
+      "install_supported": true
+    },
+    {
+      "id": "git",
+      "label": "Git",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/usr/sbin/git",
+      "version": "git version 2.55.0",
+      "sha256": null,
+      "install_supported": false
+    },
+    {
+      "id": "rustc",
+      "label": "Rust 1.97.0",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/home/misael/.cargo/bin/rustc",
+      "version": "rustc 1.97.0 (2d8144b78 2026-07-07)",
+      "sha256": null,
+      "install_supported": false
+    },
+    {
+      "id": "cargo",
+      "label": "Cargo",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/home/misael/.cargo/bin/cargo",
+      "version": "cargo 1.97.0 (c980f4866 2026-06-30)",
+      "sha256": null,
+      "install_supported": false
+    },
+    {
+      "id": "make",
+      "label": "GNU Make",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/usr/sbin/make",
+      "version": "GNU Make 4.4.1",
+      "sha256": null,
+      "install_supported": true
+    },
+    {
+      "id": "host_cc",
+      "label": "Compilador C/C++ do host",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/usr/sbin/gcc",
+      "version": "gcc (GCC) 16.2.1 20260810",
+      "sha256": null,
+      "install_supported": true
+    },
+    {
+      "id": "cmake",
+      "label": "CMake",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/usr/sbin/cmake",
+      "version": "cmake version 4.4.3",
+      "sha256": null,
+      "install_supported": true
+    },
+    {
+      "id": "source_build_tools",
+      "label": "Ferramentas oficiais para builds de fonte",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/usr/sbin/bison:/usr/sbin/flex:/home/misael/.local/bin/makeinfo:/usr/sbin/7z",
+      "version": "bison,flex,makeinfo,7z",
+      "sha256": null,
+      "install_supported": true
+    },
+    {
+      "id": "source_build_libraries",
+      "label": "Bibliotecas oficiais para GCC cross",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/usr/sbin/pkg-config",
+      "version": "6.3.0,4.2.2,1.4.1,0.28",
+      "sha256": null,
+      "install_supported": true
+    },
+    {
+      "id": "jdk21",
+      "label": "Temurin JDK 21.0.11+10",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/jdk/bin/java",
+      "version": "openjdk version \"21.0.11\" 2026-04-21 LTS",
+      "sha256": null,
+      "install_supported": true
+    },
+    {
+      "id": "ghidra",
+      "label": "Ghidra 12.1 headless",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/ghidra/support/analyzeHeadless",
+      "version": null,
+      "sha256": null,
+      "install_supported": true
+    },
+    {
+      "id": "m68k_gcc",
+      "label": "m68k-elf-gcc 13.2.0",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin/m68k-elf-gcc",
+      "version": "m68k-elf-gcc (GCC) 13.2.0",
+      "sha256": null,
+      "install_supported": true
+    },
+    {
+      "id": "sgdk",
+      "label": "SGDK 2.11",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/sgdk",
+      "version": null,
+      "sha256": null,
+      "install_supported": true
+    },
+    {
+      "id": "pvsneslib",
+      "label": "PVSnesLib 4.5.0",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/pvsneslib",
+      "version": null,
+      "sha256": null,
+      "install_supported": true
+    },
+    {
+      "id": "sevenzip",
+      "label": "7-Zip",
+      "applicable": false,
+      "status": "not_applicable"
+    },
+    {
+      "id": "libretro_md",
+      "label": "Libretro Mega Drive core",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "version": null,
+      "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+      "install_supported": true
+    },
+    {
+      "id": "libretro_snes",
+      "label": "Libretro SNES core",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/snes9x_libretro.so",
+      "version": null,
+      "sha256": "f7eb400380a18e94b996acfae5a22fa4261c8ff90fa24c213336548925036442",
+      "install_supported": true
+    },
+    {
+      "id": "tauri_driver",
+      "label": "tauri-driver 2.0.6",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/home/misael/.cargo/bin/tauri-driver",
+      "version": "2.0.6",
+      "sha256": null,
+      "install_supported": true
+    },
+    {
+      "id": "webdriver",
+      "label": "WebDriver nativo",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/usr/sbin/WebKitWebDriver",
+      "version": "Usage: /usr/sbin/WebKitWebDriver options",
+      "sha256": null,
+      "install_supported": false
+    },
+    {
+      "id": "webkitgtk",
+      "label": "WebKitGTK 4.1",
+      "applicable": true,
+      "status": "ready",
+      "installed": true,
+      "compatible": true,
+      "path": "/usr/sbin/pkg-config",
+      "version": null,
+      "sha256": null,
+      "install_supported": true
+    },
+    {
+      "id": "msvc",
+      "label": "MSVC Build Tools",
+      "applicable": false,
+      "status": "not_applicable"
+    },
+    {
+      "id": "git_bash",
+      "label": "Git Bash",
+      "applicable": false,
+      "status": "not_applicable"
+    },
+    {
+      "id": "webview2",
+      "label": "WebView2 Runtime",
+      "applicable": false,
+      "status": "not_applicable"
+    }
+  ],
+  "actions": [],
+  "gates": [
+    {
+      "label": "check:tree",
+      "program": "npm",
+      "args": [
+        "run",
+        "check:tree"
+      ],
+      "started_at": "2026-10-10T01:36:50.549Z",
+      "finished_at": "2026-10-10T01:36:50.761Z",
+      "exit_code": 0,
+      "ok": true,
+      "error": null,
+      "log": null
+    },
+    {
+      "label": "lint",
+      "program": "npm",
+      "args": [
+        "run",
+        "lint"
+      ],
+      "started_at": "2026-10-10T01:36:50.761Z",
+      "finished_at": "2026-10-10T01:37:04.026Z",
+      "exit_code": 0,
+      "ok": true,
+      "error": null,
+      "log": null
+    },
+    {
+      "label": "typescript",
+      "program": "npx",
+      "args": [
+        "tsc",
+        "--noEmit"
+      ],
+      "started_at": "2026-10-10T01:37:04.026Z",
+      "finished_at": "2026-10-10T01:37:27.011Z",
+      "exit_code": 0,
+      "ok": true,
+      "error": null,
+      "log": null
+    },
+    {
+      "label": "frontend-tests",
+      "program": "npm",
+      "args": [
+        "test"
+      ],
+      "started_at": "2026-10-10T01:37:27.011Z",
+      "finished_at": "2026-10-10T01:40:33.252Z",
+      "exit_code": 0,
+      "ok": true,
+      "error": null,
+      "log": null
+    },
+    {
+      "label": "rust-clippy",
+      "program": "cargo",
+      "args": [
+        "clippy",
+        "--manifest-path",
+        "src-tauri/Cargo.toml",
+        "--lib",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "started_at": "2026-10-10T01:40:33.252Z",
+      "finished_at": "2026-10-10T01:41:12.376Z",
+      "exit_code": 0,
+      "ok": true,
+      "error": null,
+      "log": null
+    },
+    {
+      "label": "rust-tests",
+      "program": "cargo",
+      "args": [
+        "test",
+        "--manifest-path",
+        "src-tauri/Cargo.toml",
+        "--lib",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "started_at": "2026-10-10T01:41:12.376Z",
+      "finished_at": "2026-10-10T01:45:17.018Z",
+      "exit_code": 0,
+      "ok": true,
+      "error": null,
+      "log": null
+    },
+    {
+      "label": "upstream",
+      "program": "bash",
+      "args": [
+        "scripts/validate-upstream-linux.sh",
+        "--require-decomp-tools"
+      ],
+      "started_at": "2026-10-10T01:45:17.018Z",
+      "finished_at": "2026-10-10T01:45:46.686Z",
+      "exit_code": 0,
+      "ok": true,
+      "error": null,
+      "log": null
+    }
+  ],
+  "blockers": [],
+  "restart_required": false
+}

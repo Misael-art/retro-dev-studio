@@ -1,0 +1,58 @@
+{
+  "schema": "rex-final-process-checkout-audit/v1",
+  "generated_at": "2026-10-19T01:36:15.589656+00:00",
+  "native_cleanups": [
+    {
+      "id": "m3-native-m5-golden-axe-003",
+      "run_sha256": "beb3026f4b9aba081e7d944f403bfbfbf4769d5f703d77008bc48869b549d28d",
+      "log_sha256": "29279a0cbbdacfce09e3d2d1dd3cebd2aca0379b8ec4678e2ff99f21e5730d07",
+      "cleanup_reported_alive": 0
+    },
+    {
+      "id": "m3-native-m5-golden-axe-reverse-001",
+      "run_sha256": "80f0fa7dfe111dc8a58dd9f65f218d6adc3f2b58018fc0a0c32911cc581354f3",
+      "log_sha256": "cae8833c1ee177aa7172560c9ebb11ecf690a7f4b55d4419722142bfc80c2696",
+      "cleanup_reported_alive": 0
+    },
+    {
+      "id": "m3-native-final-commercial-forward-003",
+      "run_sha256": "06f33619fc23f1c8e0a7335b73d425af986f0394029d1ee2a5ae3a43a5bdae82",
+      "log_sha256": "2ce832e8d08f6c8b07afd14f496abc9e3332666b7d44c9c49e861321c5a67a08",
+      "cleanup_reported_alive": 0
+    },
+    {
+      "id": "m3-native-final-commercial-reverse-003",
+      "run_sha256": "58adedc6b8ba325bafe229d23ada3f15d6454168244b347e023a15c3160d6344",
+      "log_sha256": "5e6abe837cabe3b2877c0ee8be5ce2110be8310827dbb33fca8df7599e5831a5",
+      "cleanup_reported_alive": 0
+    },
+    {
+      "id": "m3-native-final-author-forward-003",
+      "run_sha256": "1830673f3c8493832ae79a7de1c0508f1865afb727f8a246e65183a099eac17d",
+      "log_sha256": "d18666bcdb7866b56038d6cea6618298b323d174d1fa34e52db2bd01698d227d",
+      "cleanup_reported_alive": 0
+    },
+    {
+      "id": "m3-native-final-author-reverse-003",
+      "run_sha256": "d692198d3ca313b6395d7137ecc9525fa08db6b94d9e3b1071ad51b2f6abe6de",
+      "log_sha256": "97c82d87e3750ef9b37ecad6ff5a66c3a762cd7ff6a2fc7ab74f6d0f9ae515e3",
+      "cleanup_reported_alive": 0
+    }
+  ],
+  "active_owned_heavy_processes": [],
+  "other_checkouts": [
+    {
+      "path": "/home/misael/Projects/REX-INTEGRATION-2026-10-05",
+      "head": "03ddc59de38cc3d9c448b893da72a3efd575030a",
+      "status": "CLEAN"
+    },
+    {
+      "path": "/home/misael/Projects/REX-REA-LAB-2026-10-15",
+      "head": "ee8c581f07494c22100c688f09f02db0caacd56b",
+      "status": "CLEAN"
+    }
+  ],
+  "preexisting_draft_backup": "/home/misael/rds-scratch/commercial_recovery_20261016/preexisting-drafts-backup-20261019",
+  "cleanup_performed": false,
+  "scope": "Only owned mission processes inspected; unrelated tasks and services preserved."
+}

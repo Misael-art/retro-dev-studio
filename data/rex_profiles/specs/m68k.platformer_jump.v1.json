@@ -1,0 +1,1127 @@
+{
+ "schema": "rex-profile-spec/v2",
+ "id": "m68k.platformer_jump.v1",
+ "revision": 2,
+ "status": "experimental",
+ "title": "Pulo de plataforma",
+ "summary": "Lógica de pulo de plataformas M68000 localizada por assinatura: impulso rotacionado pelo ângulo, corte de altura ao soltar o botão e teto de velocidade ascendente. Experimental.",
+ "artifact_tag": "jump",
+ "arch": {
+  "cpu": "m68k",
+  "endianness": "big",
+  "instruction_alignment": 2,
+  "bus_address_bits": 24
+ },
+ "rom_mapping": {
+  "kind": "linear",
+  "file_header_bytes": 0,
+  "bus_base": 0
+ },
+ "provenance": {
+  "author": "RetroDev Studio - integrador REX",
+  "created": "2026-10-08",
+  "derived_from": [
+   "docs/rex_profiles/integration_20261007/PERFIL-PULO-ASSINATURA-2026-10-08.md",
+   "docs/rex_profiles/integration_20261007/FECHO-PULO-CANVAS-GAMEPLAY-2026-10-09.md",
+   "docs/rex_profiles/integration_20261007/FECHO-F1-NUCLEO-DE-EDICAO-E-MOTOR-2026-10-09.md"
+  ],
+  "notes": "Revisao 2: migrado do contrato v1 para o v2 (capturas tipadas, projecao, notas, evidencia com escopo). Padroes, relacoes e dominios inalterados."
+ },
+ "rom_binding": {
+  "mode": "signature"
+ },
+ "work_limits": {
+  "max_rom_bytes": 33554432,
+  "max_matches_per_pattern": 512,
+  "max_instances": 64
+ },
+ "captures": [
+  {
+   "name": "imp",
+   "width": 2,
+   "signed": true,
+   "endianness": "big",
+   "role": "immediate"
+  },
+  {
+   "name": "imps",
+   "width": 2,
+   "signed": true,
+   "endianness": "big",
+   "role": "immediate"
+  },
+  {
+   "name": "impw",
+   "width": 2,
+   "signed": true,
+   "endianness": "big",
+   "role": "immediate"
+  },
+  {
+   "name": "cut",
+   "width": 2,
+   "signed": true,
+   "endianness": "big",
+   "role": "immediate"
+  },
+  {
+   "name": "cutw",
+   "width": 2,
+   "signed": true,
+   "endianness": "big",
+   "role": "immediate"
+  },
+  {
+   "name": "cap",
+   "width": 2,
+   "signed": true,
+   "endianness": "big",
+   "role": "immediate"
+  },
+  {
+   "name": "st",
+   "width": 2,
+   "signed": true,
+   "endianness": "big",
+   "role": "ea_displacement"
+  },
+  {
+   "name": "ang",
+   "width": 2,
+   "signed": true,
+   "endianness": "big",
+   "role": "ea_displacement"
+  },
+  {
+   "name": "vx",
+   "width": 2,
+   "signed": true,
+   "endianness": "big",
+   "role": "ea_displacement"
+  },
+  {
+   "name": "vy",
+   "width": 2,
+   "signed": true,
+   "endianness": "big",
+   "role": "ea_displacement"
+  },
+  {
+   "name": "flag",
+   "width": 2,
+   "signed": true,
+   "endianness": "big",
+   "role": "ea_displacement"
+  },
+  {
+   "name": "sin",
+   "width": 4,
+   "signed": false,
+   "endianness": "big",
+   "role": "bus_address"
+  },
+  {
+   "name": "sup",
+   "width": 2,
+   "signed": false,
+   "endianness": "big",
+   "role": "bus_address"
+  },
+  {
+   "name": "held",
+   "width": 2,
+   "signed": false,
+   "endianness": "big",
+   "role": "bus_address"
+  }
+ ],
+ "patterns": [
+  {
+   "id": "jump",
+   "sources": [
+    "34 3C {imp:2} 08 28 00 06 {st:2} 67 04 34 3C {impw:2} 70 00 10 28 {ang:2} 04 00 00 40 4E B9 {sin:4} C3 C2 E0 81 D3 68 {vx:2} C1 C2 E0 80 D1 68 {vy:2}"
+   ]
+  },
+  {
+   "id": "jump_super",
+   "sources": [
+    "34 3C {imp:2} 4A 38 {sup:2} 67 04 34 3C {imps:2} 08 28 00 06 {st:2} 67 04 34 3C {impw:2} 70 00 10 28 {ang:2} 04 00 00 40 4E B9 {sin:4} C3 C2 E0 81 D3 68 {vx:2} C1 C2 E0 80 D1 68 {vy:2}"
+   ]
+  },
+  {
+   "id": "height",
+   "sources": [
+    "4A 28 {flag:2} 67 {_:1} 32 3C {cut:2} 08 28 00 06 {st:2} 67 04 32 3C {cutw:2} B2 68 {vy:2} 6F {_:1} 10 38 {held:2} 02 00 00 70 66 04 31 41 {vy:2}",
+    "4A 28 {flag:2} 67 {_:1} 32 3C {cut:2} 08 28 00 06 {st:2} 67 04 32 3C {cutw:2} B2 68 {vy:2} 6F 00 {_:2} 10 38 {held:2} 02 00 00 70 66 04 31 41 {vy:2}"
+   ]
+  },
+  {
+   "id": "cap",
+   "sources": [
+    "0C 68 {cap:2} {vy:2} 6C 06 31 7C {cap:2} {vy:2}"
+   ]
+  }
+ ],
+ "constraints": [],
+ "relations": [
+  {
+   "kind": "subsumes",
+   "id": "super_contem_simples",
+   "outer": "jump_super",
+   "inner": "jump",
+   "prefix_len": 10
+  },
+  {
+   "kind": "pair",
+   "id": "pair_height",
+   "from": [
+    "jump",
+    "jump_super"
+   ],
+   "to": "height",
+   "consistent_on": [
+    "st",
+    "vy"
+   ],
+   "max_distance": 16384,
+   "mutual": true,
+   "tie": "first"
+  },
+  {
+   "kind": "follow",
+   "id": "follow_cap",
+   "from": "height",
+   "to": "cap",
+   "consistent_on": [
+    "vy"
+   ],
+   "max_distance": 256,
+   "tie": "first"
+  }
+ ],
+ "fields": [
+  {
+   "name": "imp",
+   "label": "Impulso do pulo",
+   "patterns": [
+    "jump_super",
+    "jump"
+   ],
+   "capture": "imp",
+   "extra_offsets": [],
+   "min": 1,
+   "max": 32767,
+   "requires": null
+  },
+  {
+   "name": "imps",
+   "label": "Impulso do pulo na forma super",
+   "patterns": [
+    "jump_super"
+   ],
+   "capture": "imps",
+   "extra_offsets": [],
+   "min": 1,
+   "max": 32767,
+   "requires": null
+  },
+  {
+   "name": "impw",
+   "label": "Impulso do pulo submerso",
+   "patterns": [
+    "jump_super",
+    "jump"
+   ],
+   "capture": "impw",
+   "extra_offsets": [],
+   "min": 1,
+   "max": 32767,
+   "requires": null
+  },
+  {
+   "name": "cut",
+   "label": "Corte da altura ao soltar o botão",
+   "patterns": [
+    "height"
+   ],
+   "capture": "cut",
+   "extra_offsets": [],
+   "min": -32767,
+   "max": -1,
+   "requires": "pair_height"
+  },
+  {
+   "name": "cutw",
+   "label": "Corte da altura submerso",
+   "patterns": [
+    "height"
+   ],
+   "capture": "cutw",
+   "extra_offsets": [],
+   "min": -32767,
+   "max": -1,
+   "requires": "pair_height"
+  },
+  {
+   "name": "cap",
+   "label": "Teto de velocidade ascendente",
+   "patterns": [
+    "cap"
+   ],
+   "capture": "cap",
+   "extra_offsets": [
+    10
+   ],
+   "min": -32767,
+   "max": -1,
+   "requires": "follow_cap"
+  }
+ ],
+ "projection": {
+  "entry_node": "ev",
+  "instance_param": "jump_offset",
+  "nodes": [
+   {
+    "id": "ev",
+    "type": "event_update",
+    "label": "Pulo: chamado pelo modo no chão",
+    "col": 0,
+    "row": 0,
+    "params": [
+     {
+      "key": "rate",
+      "value": "frame"
+     }
+    ],
+    "rom_span": {
+     "base": "instance",
+     "delta": 0,
+     "len": 4
+    }
+   },
+   {
+    "id": "btn",
+    "type": "input_pressed",
+    "label": "A, B ou C pressionado",
+    "col": 0,
+    "row": 1,
+    "params": [
+     {
+      "key": "pad",
+      "value": "JOY_1"
+     },
+     {
+      "key": "button",
+      "value": "BUTTON_A|B|C"
+     }
+    ]
+   },
+   {
+    "id": "sub",
+    "type": "condition_compare",
+    "label": "Submerso? (bit 6 do status)",
+    "col": 0,
+    "row": 2,
+    "params": [
+     {
+      "key": "operator",
+      "value": "=="
+     },
+     {
+      "key": "a",
+      "value": "sonic_submerso"
+     },
+     {
+      "key": "b",
+      "value": 1
+     },
+     {
+      "key": "descricao",
+      "text": [
+       {
+        "p": "lit",
+        "t": "byte de status +"
+       },
+       {
+        "p": "capture",
+        "name": "st",
+        "of": "anchor",
+        "fmt": "hex"
+       },
+       {
+        "p": "lit",
+        "t": ", bit 6"
+       }
+      ]
+     }
+    ],
+    "rom_span": {
+     "base": "instance",
+     "delta": 4,
+     "len": 6
+    }
+   },
+   {
+    "id": "imp",
+    "type": "var_set",
+    "label": "Impulso do pulo",
+    "col": 1,
+    "row": 3,
+    "field": {
+     "name": "imp",
+     "var_name": "impulso_pulo",
+     "description": "move.w #imp,d2"
+    },
+    "rom_span": {
+     "base": "field",
+     "field": "imp",
+     "delta": -2,
+     "len": 4
+    }
+   },
+   {
+    "id": "imps",
+    "type": "var_set",
+    "label": "Impulso do pulo (forma super)",
+    "col": 2,
+    "row": 3,
+    "field": {
+     "name": "imps",
+     "var_name": "impulso_pulo_super",
+     "description": "variante com teste de forma super"
+    },
+    "rom_span": {
+     "base": "field",
+     "field": "imps",
+     "delta": -2,
+     "len": 4
+    },
+    "when": [
+     {
+      "if": "field",
+      "name": "imps"
+     }
+    ]
+   },
+   {
+    "id": "impw",
+    "type": "var_set",
+    "label": "Impulso do pulo submerso",
+    "col": 1,
+    "row": 4,
+    "field": {
+     "name": "impw",
+     "var_name": "impulso_pulo_submerso",
+     "description": "move.w #impw,d2 quando submerso"
+    },
+    "rom_span": {
+     "base": "field",
+     "field": "impw",
+     "delta": -2,
+     "len": 4
+    }
+   },
+   {
+    "id": "vel",
+    "type": "var_set",
+    "label": "Velocidade += impulso rotacionado pelo ângulo",
+    "col": 0,
+    "row": 5,
+    "params": [
+     {
+      "key": "var_name",
+      "value": "vel_y"
+     },
+     {
+      "key": "value",
+      "value": 0
+     },
+     {
+      "key": "descricao",
+      "text": [
+       {
+        "p": "lit",
+        "t": "vx(+"
+       },
+       {
+        "p": "capture",
+        "name": "vx",
+        "of": "anchor",
+        "fmt": "hex"
+       },
+       {
+        "p": "lit",
+        "t": ") += cos*d2>>8; vy(+"
+       },
+       {
+        "p": "capture",
+        "name": "vy",
+        "of": "anchor",
+        "fmt": "hex"
+       },
+       {
+        "p": "lit",
+        "t": ") += sin*d2>>8"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "aev",
+    "type": "event_update",
+    "label": "Altura variável: chamada pelo modo no ar",
+    "col": 4,
+    "row": 0,
+    "when": [
+     {
+      "if": "link",
+      "id": "pair_height"
+     }
+    ],
+    "params": [
+     {
+      "key": "rate",
+      "value": "frame"
+     }
+    ],
+    "rom_span": {
+     "base": "link",
+     "link": "pair_height",
+     "delta": 0,
+     "len": 6
+    }
+   },
+   {
+    "id": "jf",
+    "type": "condition_compare",
+    "label": "Flag de pulo != 0?",
+    "col": 4,
+    "row": 1,
+    "when": [
+     {
+      "if": "link",
+      "id": "pair_height"
+     }
+    ],
+    "params": [
+     {
+      "key": "operator",
+      "value": "!="
+     },
+     {
+      "key": "a",
+      "value": "pulando"
+     },
+     {
+      "key": "b",
+      "value": 0
+     },
+     {
+      "key": "descricao",
+      "text": [
+       {
+        "p": "lit",
+        "t": "byte do objeto +"
+       },
+       {
+        "p": "capture",
+        "name": "flag",
+        "of": "pair_height",
+        "fmt": "hex"
+       }
+      ]
+     }
+    ],
+    "rom_span": {
+     "base": "link",
+     "link": "pair_height",
+     "delta": 0,
+     "len": 6
+    }
+   },
+   {
+    "id": "sub2",
+    "type": "condition_compare",
+    "label": "Submerso?",
+    "col": 4,
+    "row": 2,
+    "when": [
+     {
+      "if": "link",
+      "id": "pair_height"
+     }
+    ],
+    "params": [
+     {
+      "key": "operator",
+      "value": "=="
+     },
+     {
+      "key": "a",
+      "value": "sonic_submerso"
+     },
+     {
+      "key": "b",
+      "value": 1
+     }
+    ]
+   },
+   {
+    "id": "cut",
+    "type": "var_set",
+    "label": "Corte da altura ao soltar o botão",
+    "col": 4,
+    "row": 3,
+    "field": {
+     "name": "cut",
+     "var_name": "corte_altura",
+     "description": "vy := corte se vy < corte e o botão foi solto"
+    },
+    "rom_span": {
+     "base": "field",
+     "field": "cut",
+     "delta": -2,
+     "len": 4
+    },
+    "when": [
+     {
+      "if": "link",
+      "id": "pair_height"
+     },
+     {
+      "if": "field",
+      "name": "cut"
+     }
+    ]
+   },
+   {
+    "id": "cutw",
+    "type": "var_set",
+    "label": "Corte da altura submerso",
+    "col": 5,
+    "row": 3,
+    "field": {
+     "name": "cutw",
+     "var_name": "corte_altura_submerso",
+     "description": "idem, submerso"
+    },
+    "rom_span": {
+     "base": "field",
+     "field": "cutw",
+     "delta": -2,
+     "len": 4
+    },
+    "when": [
+     {
+      "if": "link",
+      "id": "pair_height"
+     },
+     {
+      "if": "field",
+      "name": "cutw"
+     }
+    ]
+   },
+   {
+    "id": "cap",
+    "type": "var_set",
+    "label": "Teto de velocidade ascendente (flag == 0)",
+    "col": 6,
+    "row": 2,
+    "field": {
+     "name": "cap",
+     "var_name": "teto_subida",
+     "description": "vy := teto se vy < teto e não pulou"
+    },
+    "rom_span": {
+     "base": "link",
+     "link": "follow_cap",
+     "delta": 0,
+     "len": 6
+    },
+    "when": [
+     {
+      "if": "link",
+      "id": "pair_height"
+     },
+     {
+      "if": "link",
+      "id": "follow_cap"
+     },
+     {
+      "if": "field",
+      "name": "cap"
+     }
+    ]
+   }
+  ],
+  "edges": [
+   {
+    "from": [
+     "ev",
+     "exec"
+    ],
+    "to": [
+     "btn",
+     "exec"
+    ]
+   },
+   {
+    "from": [
+     "btn",
+     "exec"
+    ],
+    "to": [
+     "sub",
+     "exec"
+    ]
+   },
+   {
+    "from": [
+     "sub",
+     "false"
+    ],
+    "to": [
+     "imp",
+     "exec"
+    ]
+   },
+   {
+    "from": [
+     "sub",
+     "true"
+    ],
+    "to": [
+     "impw",
+     "exec"
+    ]
+   },
+   {
+    "from": [
+     "imp",
+     "exec"
+    ],
+    "to": [
+     "imps",
+     "exec"
+    ],
+    "when": [
+     {
+      "if": "field",
+      "name": "imps"
+     }
+    ]
+   },
+   {
+    "from": [
+     "imps",
+     "exec"
+    ],
+    "to": [
+     "vel",
+     "exec"
+    ],
+    "when": [
+     {
+      "if": "field",
+      "name": "imps"
+     }
+    ]
+   },
+   {
+    "from": [
+     "imp",
+     "exec"
+    ],
+    "to": [
+     "vel",
+     "exec"
+    ],
+    "when": [
+     {
+      "if": "no_field",
+      "name": "imps"
+     }
+    ]
+   },
+   {
+    "from": [
+     "impw",
+     "exec"
+    ],
+    "to": [
+     "vel",
+     "exec"
+    ]
+   },
+   {
+    "from": [
+     "aev",
+     "exec"
+    ],
+    "to": [
+     "jf",
+     "exec"
+    ],
+    "when": [
+     {
+      "if": "link",
+      "id": "pair_height"
+     }
+    ]
+   },
+   {
+    "from": [
+     "jf",
+     "true"
+    ],
+    "to": [
+     "sub2",
+     "exec"
+    ],
+    "when": [
+     {
+      "if": "link",
+      "id": "pair_height"
+     }
+    ]
+   },
+   {
+    "from": [
+     "sub2",
+     "false"
+    ],
+    "to": [
+     "cut",
+     "exec"
+    ],
+    "when": [
+     {
+      "if": "link",
+      "id": "pair_height"
+     }
+    ]
+   },
+   {
+    "from": [
+     "sub2",
+     "true"
+    ],
+    "to": [
+     "cutw",
+     "exec"
+    ],
+    "when": [
+     {
+      "if": "link",
+      "id": "pair_height"
+     }
+    ]
+   },
+   {
+    "from": [
+     "jf",
+     "false"
+    ],
+    "to": [
+     "cap",
+     "exec"
+    ],
+    "when": [
+     {
+      "if": "link",
+      "id": "pair_height"
+     },
+     {
+      "if": "link",
+      "id": "follow_cap"
+     },
+     {
+      "if": "field",
+      "name": "cap"
+     }
+    ]
+   }
+  ]
+ },
+ "notes": [
+  {
+   "text": [
+    {
+     "p": "lit",
+     "t": "impulso em "
+    },
+    {
+     "p": "offset",
+     "of": "anchor_match",
+     "fmt": "hex"
+    },
+    {
+     "p": "lit",
+     "t": " (com variante de forma super)",
+     "when": [
+      {
+       "if": "anchor_pattern",
+       "id": "jump_super"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "when": [
+    {
+     "if": "link",
+     "id": "pair_height"
+    }
+   ],
+   "text": [
+    {
+     "p": "lit",
+     "t": "altura em "
+    },
+    {
+     "p": "offset",
+     "of": "pair_height",
+     "fmt": "hex"
+    },
+    {
+     "p": "lit",
+     "t": " (pareamento mútuo, campos consistentes)"
+    }
+   ]
+  },
+  {
+   "when": [
+    {
+     "if": "link",
+     "id": "pair_height"
+    },
+    {
+     "if": "link",
+     "id": "follow_cap"
+    }
+   ],
+   "text": [
+    {
+     "p": "lit",
+     "t": "teto de subida em "
+    },
+    {
+     "p": "offset",
+     "of": "follow_cap",
+     "fmt": "hex"
+    }
+   ]
+  },
+  {
+   "when": [
+    {
+     "if": "link",
+     "id": "pair_height"
+    },
+    {
+     "if": "no_link",
+     "id": "follow_cap"
+    }
+   ],
+   "text": [
+    {
+     "p": "lit",
+     "t": "teto de subida não localizado: campo 'cap' indisponível"
+    }
+   ]
+  },
+  {
+   "when": [
+    {
+     "if": "no_link",
+     "id": "pair_height"
+    }
+   ],
+   "text": [
+    {
+     "p": "lit",
+     "t": "altura não pareada de forma inequívoca: campos de corte e teto NÃO são oferecidos"
+    }
+   ]
+  }
+ ],
+ "details": [
+  {
+   "label": "status",
+   "text": [
+    {
+     "p": "lit",
+     "t": "+"
+    },
+    {
+     "p": "capture",
+     "name": "st",
+     "of": "anchor",
+     "fmt": "hex_bare"
+    }
+   ]
+  },
+  {
+   "label": "velocidade horizontal",
+   "text": [
+    {
+     "p": "lit",
+     "t": "+"
+    },
+    {
+     "p": "capture",
+     "name": "vx",
+     "of": "anchor",
+     "fmt": "hex_bare"
+    }
+   ]
+  },
+  {
+   "label": "velocidade vertical",
+   "text": [
+    {
+     "p": "lit",
+     "t": "+"
+    },
+    {
+     "p": "capture",
+     "name": "vy",
+     "of": "anchor",
+     "fmt": "hex_bare"
+    }
+   ]
+  },
+  {
+   "label": "flag de pulo",
+   "when": [
+    {
+     "if": "link",
+     "id": "pair_height"
+    }
+   ],
+   "text": [
+    {
+     "p": "lit",
+     "t": "+"
+    },
+    {
+     "p": "capture",
+     "name": "flag",
+     "of": "pair_height",
+     "fmt": "hex_bare"
+    }
+   ]
+  },
+  {
+   "label": "botões segurados (RAM)",
+   "when": [
+    {
+     "if": "link",
+     "id": "pair_height"
+    }
+   ],
+   "text": [
+    {
+     "p": "capture",
+     "name": "held",
+     "of": "pair_height",
+     "fmt": "hex"
+    }
+   ]
+  }
+ ],
+ "evidence": {
+  "claims": [
+   {
+    "id": "efeito_impulso",
+    "level": "L5",
+    "fields": [
+     "imp"
+    ],
+    "statement": "Trocar o impulso de 1664 para 2304 eleva o ápice do pulo com o botão segurado de 94 para 182 px (+88), sem mudar o toque curto.",
+    "scope": {
+     "roms": [
+      {
+       "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+       "instance_offsets": [
+        78860
+       ]
+      },
+      {
+       "sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+       "instance_offsets": [
+        92436
+       ]
+      }
+     ],
+     "values": [
+      {
+       "field": "imp",
+       "values": [
+        1664,
+        2304
+       ]
+      }
+     ],
+     "conditions": "GHZ, inicio de fase, um personagem por jogo; RAM lida por emulator_read_memory (sonda tecnica rotulada); core genesis_plus_gx sob Xvfb; apice mediano de 3 repeticoes"
+    },
+    "refs": [
+     "docs/rex_profiles/integration_20261007/FECHO-PULO-CANVAS-GAMEPLAY-2026-10-09.md",
+     "data/rex_profiles/integration_20261007/evidencia-pulo-canvas-gameplay/jump-gameplay-2026-10-09T06-14-58-506Z-report.json"
+    ]
+   },
+   {
+    "id": "efeito_corte",
+    "level": "L5",
+    "fields": [
+     "cut"
+    ],
+    "statement": "Trocar o corte de -1024 para -1536 eleva o ápice do toque curto de 34 para 81 px (+47), sem mudar o pulo com o botão segurado.",
+    "scope": {
+     "roms": [
+      {
+       "sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+       "instance_offsets": [
+        78860
+       ]
+      },
+      {
+       "sha256": "8fd8890206cfe856c8079531982ef00fea099f4cd4c3e120efc93d25faf1ffd6",
+       "instance_offsets": [
+        92436
+       ]
+      }
+     ],
+     "values": [
+      {
+       "field": "cut",
+       "values": [
+        -1024,
+        -1536
+       ]
+      }
+     ],
+     "conditions": "GHZ, inicio de fase, um personagem por jogo; RAM lida por emulator_read_memory (sonda tecnica rotulada); core genesis_plus_gx sob Xvfb; apice mediano de 3 repeticoes"
+    },
+    "refs": [
+     "docs/rex_profiles/integration_20261007/FECHO-PULO-CANVAS-GAMEPLAY-2026-10-09.md",
+     "data/rex_profiles/integration_20261007/evidencia-pulo-canvas-gameplay/jump-gameplay-2026-10-09T06-14-58-506Z-report.json"
+    ]
+   }
+  ],
+  "unknown": [
+   "cap, imps, impw e cutw não foram verificados em execução",
+   "consumo em execução (chamador e argumentos por PC) não foi observado em nenhuma ROM",
+   "a quem pertencem as instâncias 0x1732A e 0x1A170 do Sonic Delta: editá-las não mudou o personagem observado",
+   "qualquer valor fora dos medidos: o domínio aceito não é segurança em gameplay"
+  ]
+ },
+ "limits": [
+  "Forma e consistência não provam uso: só o impulso e o corte têm efeito medido em execução, e só nas ROMs e instâncias do escopo.",
+  "Altura e teto só aparecem quando o pareamento com o pulo é inequívoco.",
+  "O perfil não identifica o personagem pelo nome; onde há mais de uma instância, a associação ao personagem só vale quando comprovada."
+ ]
+}

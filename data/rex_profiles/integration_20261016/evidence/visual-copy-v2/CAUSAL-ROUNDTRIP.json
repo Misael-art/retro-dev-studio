@@ -1,0 +1,68 @@
+{
+  "schema": "rex-copy-visual-roundtrip/v2",
+  "oracle_frozen_commit": "d8be191e552eb43015d74f61e35271b9e8cb3fcd",
+  "product_source_baseline": "d394296c",
+  "methodology": "source-grounded authorized correction after v1 failure; not blind validation",
+  "identities": {
+    "app_sha256": "74033134f47510c1ef37d8e6025a8bc6986436d4060ae3e96b1ba9bcc3d1670e",
+    "forward_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+    "copy_sha256": "7a33ddfa058c9d3e2e0e399450bb6ae8a1a4b03a6fbd79b504f0ba70b324d0b4",
+    "copy_ips_sha256": "54f249c6a574c37702f889e92e6f6df939104713bd474bdbd4c7c7e7bd6ef6ae",
+    "reverse_result_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+    "reverse_ips_sha256": "49268066fb3aa583a1860a4737c7f73da575f162d1f1971e15361d0fcb54f63f",
+    "forward_report": "copy-grid-2026-10-16T23-09-39-034Z",
+    "reverse_report": "copy-grid-2026-10-16T23-10-37-471Z"
+  },
+  "forward": {
+    "allPass": true,
+    "checks": 88,
+    "memory_diff_bytes": 162,
+    "pixel_diff": {
+      "pass": true,
+      "observed_pixels": 3309,
+      "expected_pixels": 3309,
+      "first": [
+        12905,
+        12906,
+        12908,
+        12909,
+        12910,
+        12911,
+        12913,
+        12914,
+        12915,
+        12916,
+        12917,
+        12919
+      ]
+    }
+  },
+  "reverse": {
+    "allPass": true,
+    "checks": 88,
+    "memory_diff_bytes": 162,
+    "pixel_diff": {
+      "pass": true,
+      "observed_pixels": 3309,
+      "expected_pixels": 3309,
+      "first": [
+        12905,
+        12906,
+        12908,
+        12909,
+        12910,
+        12911,
+        12913,
+        12914,
+        12915,
+        12916,
+        12917,
+        12919
+      ]
+    }
+  },
+  "captures_all_exact_rgba": true,
+  "v1_final_status": "FAIL86/89, unchanged",
+  "byor_status": "BLOCKED_RESOURCE_TO_PRESENTATION_PROOF, v1 evidence reused",
+  "scope": "authored scene on pinned app/core/configuration only"
+}

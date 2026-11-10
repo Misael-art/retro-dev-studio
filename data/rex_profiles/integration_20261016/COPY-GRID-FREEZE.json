@@ -1,0 +1,29 @@
+{
+  "schema": "rex-copy-grid-freeze/v1",
+  "product_base": "89189485",
+  "research_base": "ee8c581f",
+  "contract_sha256": "5c5cd402329cfa79f7d52d792397ca010bcdad19277e377e99d5b8655ee631ec",
+  "source_files": {
+    "scripts/rex_profiles/rea_lab_20261015/semantic-corpus-copy-loop.mjs": "08bb5b001b062159e6085d066bb1775928cb4fcb92159d4b04c711087324ce10",
+    "scripts/rex_profiles/rea_lab_20261015/semantic-corpus-copy-loop.test.mjs": "102eb8db6b48beab52c93f265bbaa2bc28fd8522172a9a7e7c598886d7e4de27",
+    "docs/rex_profiles/rea_lab_20261015/INTEGRATOR-PACKAGE.md": "ef0c3172a6247918888a46ee7cdff7f254e11389aa08400ab5e3e4e6288a14f3",
+    "docs/rex_profiles/rea_lab_20261015/ADDENDUM-037-REAL-CORPUS-COPY-LOOP-FREEZE.md": "90b015f1eb196c57b37dfc29334e2528d416db4720b389022837476488b1b1d8",
+    "docs/rex_profiles/rea_lab_20261015/ADDENDUM-038-COPY-LOOP-BOUNDARY-RETIFICATION.md": "437259df6cc1cf62555c2a7e90d30f1d3c951d611bb6280f9caeda546f66db44",
+    "docs/rex_profiles/rea_lab_20261015/ADDENDUM-039-REAL-CORPUS-COPY-LOOP-DIFFERENTIAL.md": "483f1de3df8a608dadd66011cb9e967ffc1ed9c63eec86240572b148e6838217",
+    "docs/rex_profiles/rea_lab_20261015/ADDENDUM-043-TRANSFER-AND-RESOURCE-CHAIN.md": "2006fe3ee633602d140243b9f110e1055ebe0cb51d54f1cab7aa886eb50b23ec"
+  },
+  "ownership": "current integrator task; query REX returned only current active task; no other worktree written",
+  "initial_worktrees": "both clean",
+  "host": "READY",
+  "edits": [
+    "bytes_per_cell: 1↔2"
+  ],
+  "claims_excluded": [
+    "original game caller reached",
+    "graphics/audio equivalent",
+    "general graph compilation"
+  ],
+  "failures_preserved": [
+    "initial-rust.log: comparison graph metadata wording drift; restored original wording; no frozen expectations changed"
+  ]
+}

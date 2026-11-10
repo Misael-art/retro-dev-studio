@@ -1,0 +1,131 @@
+{
+  "normalization": "UTF-8 text copy; strip trailing line whitespace and extra EOF blank lines only; raw bytes retained in scratch with independent hashes; all failures preserved",
+  "runs": [
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/build.log",
+      "raw_sha256": "33cd1235a2d452b930831d5e8642b1a138cab19a8f5382322ec9ff84da1907d7",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/build.log",
+      "review_sha256": "33cd1235a2d452b930831d5e8642b1a138cab19a8f5382322ec9ff84da1907d7",
+      "status": "FAIL: SGDK E0FF alias rejected by author builder CPU24 assertion; retained before fixture addressing fix"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/build2.log",
+      "raw_sha256": "70f7eac8ca5013c9b22c0f5ca79d30256ea908e8f59dad427e550f7fa4ccc825",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/build2.log",
+      "review_sha256": "70f7eac8ca5013c9b22c0f5ca79d30256ea908e8f59dad427e550f7fa4ccc825",
+      "status": "PASS: canonical CPU24 fixture operands, no analyzer contract change"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/focused.log",
+      "raw_sha256": "f5aee2b40407fec0acad43f20730d261bcbf253014c495800b480574cb54f2d4",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/focused.log",
+      "review_sha256": "5d068dd259cc71563c8ecfc1ba9a6c0ab1e44c45be06d4b4b5d3b6dbd246c260",
+      "status": "FAIL: two new tests read nonexistent validation.issues; assertions corrected to warnings/errors; 54 existing UI tests passed"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/focused2.log",
+      "raw_sha256": "2d08e8037e7605237b906fe03051440c2b899543c1322deebbf2e08477ffa142",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/focused2.log",
+      "review_sha256": "3695e089c3c0cecb6dccbe93aca2ccb15572caba15de0fbdea016391dee23b0b",
+      "status": "PASS:21 bridge tests"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/tsc.log",
+      "raw_sha256": "40194098c9e1378e1e6309a476ec448f9491e98fa0614b887595c1ff8f84cb05",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/tsc.log",
+      "review_sha256": "40194098c9e1378e1e6309a476ec448f9491e98fa0614b887595c1ff8f84cb05",
+      "status": "PASS"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/app-build.log",
+      "raw_sha256": "e707bebac9bf6f26f7a929c28c332a6c70aaed91951f072769e374e51d42d868",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/app-build.log",
+      "review_sha256": "e707bebac9bf6f26f7a929c28c332a6c70aaed91951f072769e374e51d42d868",
+      "status": "PASS: final app SHA74033134\u20261670e"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/gui1/run.log",
+      "raw_sha256": "92007845b4e7d7c632d079b8cd59e19aac5d06700e6a63c96a2e4e5791c26c20",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/gui1-run.log",
+      "review_sha256": "92007845b4e7d7c632d079b8cd59e19aac5d06700e6a63c96a2e4e5791c26c20",
+      "status": "FAIL: QA restore proposal awaited publish enabled before an output folder was supplied; fixed runner preparation only"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/gui2/run.log",
+      "raw_sha256": "f94d73efecad3cdfaf4b0c32aeef4054a03248ee3fd87a5f4209deaeb6aa9dcd",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/gui2-run.log",
+      "review_sha256": "f94d73efecad3cdfaf4b0c32aeef4054a03248ee3fd87a5f4209deaeb6aa9dcd",
+      "status": "FAIL: three absolute color checks; RAM/causal/control checks pass; oracle unchanged"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/reverse1/run.log",
+      "raw_sha256": "5ea9cf627af889030b536a4268109c1792bb68d58064998489169efe529c88ca",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/reverse1-run.log",
+      "review_sha256": "5ea9cf627af889030b536a4268109c1792bb68d58064998489169efe529c88ca",
+      "status": "FAIL: three absolute color checks; reverse bytes restore base; oracle unchanged"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/byor-static.log",
+      "raw_sha256": "a56ed8d5ca00d685ef467d93a042f5a152ea93c487ec6554e49204876b53811d",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/byor-static.log",
+      "review_sha256": "a56ed8d5ca00d685ef467d93a042f5a152ea93c487ec6554e49204876b53811d",
+      "status": "PASS: static chain only; dynamic commercial proof remains blocked"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/regressions/run0/run.log",
+      "raw_sha256": "f52e54cd71115e7cf2dbde93ff75db92b1f1ea445aeab8ad7f00c3aab437d5b0",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/regressions-run0-run.log",
+      "review_sha256": "f52e54cd71115e7cf2dbde93ff75db92b1f1ea445aeab8ad7f00c3aab437d5b0",
+      "status": "PASS:60/60"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/regressions/run1/run.log",
+      "raw_sha256": "dc798423b1c0ac9ade5d1428dfa804afaa2839af081a576f74c77ea3026a895e",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/regressions-run1-run.log",
+      "review_sha256": "dc798423b1c0ac9ade5d1428dfa804afaa2839af081a576f74c77ea3026a895e",
+      "status": "PASS:63/63"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/regressions/run2/run.log",
+      "raw_sha256": "30ee166bc24006f36cdcf27e965d7e1d2446586ecb7fc7b3b73a62146f8c30f7",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/regressions-run2-run.log",
+      "review_sha256": "30ee166bc24006f36cdcf27e965d7e1d2446586ecb7fc7b3b73a62146f8c30f7",
+      "status": "PASS:55/55"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/host-certify.log",
+      "raw_sha256": "6ac2d2db84416fa964b9f4b95f20b742703ab4d76b2a986125a79a461d7b9459",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/host-certify.log",
+      "review_sha256": "900075ae0057e0533c19675ab560a44612e38abaadcea7181293dd369ab790fe",
+      "status": "PASS:READY;1045 frontend passed/3 skipped;1036 Rust passed/93 ignored;official SGDK/PVSnesLib smoke"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/gui-final-v1/run.log",
+      "raw_sha256": "01b08508dbf6a05690f6e2398aadb0bd7e5fffd7cf5392834a531002f8a092ef",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/gui-final-v1-run.log",
+      "review_sha256": "01b08508dbf6a05690f6e2398aadb0bd7e5fffd7cf5392834a531002f8a092ef",
+      "status": "FAIL:absolute color v1 only;86/89 pass; second commercial episode blocked"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/clippy-default.log",
+      "raw_sha256": "a16685927daa0790a2b357e2b56df170e7bad259186d3c802d6d441422dfd0cf",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/clippy-default.log",
+      "review_sha256": "a16685927daa0790a2b357e2b56df170e7bad259186d3c802d6d441422dfd0cf",
+      "status": "PASS: default targets, -D warnings"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/fmt.log",
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/fmt.log",
+      "review_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "status": "PASS"
+    },
+    {
+      "raw_path": "/home/misael/rds-scratch/rex-visual-copy-001/build-replay.log",
+      "raw_sha256": "66728907b03eebe0164fc195bd3fdbc0e25df0805c57ebda100f526021b739a7",
+      "review_copy": "data/rex_profiles/integration_20261016/evidence/visual-copy/build-replay.log",
+      "review_sha256": "66728907b03eebe0164fc195bd3fdbc0e25df0805c57ebda100f526021b739a7",
+      "status": "PASS: deterministic rebuild equals first CPU24 fixture SHA fbc72b25\u20260435"
+    }
+  ]
+}

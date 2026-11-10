@@ -1,0 +1,9 @@
+{
+  "ref": "refs/checkpoints/rex-commercial-20261016/m5-native-final",
+  "commit": "7a03e81ce28939f3406d5457fe12421048ee2fe2",
+  "bundle": "/home/misael/rds-scratch/commercial_recovery_20261016/mission-checkpoint-012.bundle",
+  "sha256": "e4db5b13594b9d678b1adb29141dbf5d151af6b759b14f67c3b71b8b8b27baf9",
+  "bytes": 444886,
+  "verify": "exit0",
+  "requires": "03ddc59de38cc3d9c448b893da72a3efd575030a"
+}

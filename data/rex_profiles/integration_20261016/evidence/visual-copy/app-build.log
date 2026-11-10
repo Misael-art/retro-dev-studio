@@ -1,0 +1,61 @@
+npm notice run retrodev-studio@0.1.0 build:debug
+npm notice run node scripts/build.mjs debug
+RetroDev Studio - Script Unificado de Compilacao
+Modo: debug
+Target dir canonico: /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test
+Target dir dev bruto: /home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/cargo-target
+Target dir validation: /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation
+
+[Prep] Mantendo artefatos anteriores e validando atualizacao por timestamp.
+
+
+[Build] Compilando Tauri (modo: debug)...
+
+[Build] Cargo target efetivo: /home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/cargo-target
+npm notice run retrodev-studio@0.1.0 tauri
+npm notice run tauri build --debug --no-bundle
+        Info Looking up installed tauri packages to check mismatched versions...
+     Running beforeBuildCommand `npm run build`
+npm notice run retrodev-studio@0.1.0 build
+npm notice run tsc -b && vite build
+vite v6.4.3 building for production...
+(node:342833) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+transforming...
+✓ 149 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                 0.40 kB │ gzip:   0.27 kB
+dist/assets/index-CIYv3Wsd.css                110.81 kB │ gzip:  16.92 kB
+dist/assets/projectCapability-Bg1a-pW9.js       0.99 kB │ gzip:   0.48 kB │ map:    12.17 kB
+dist/assets/ToolPathField-Btc0PTn1.js           1.93 kB │ gzip:   0.85 kB │ map:     3.21 kB
+dist/assets/ppmImage-BEYXVkY_.js                5.66 kB │ gzip:   1.58 kB │ map:    10.99 kB
+dist/assets/profileGraphBridge-Cr7jufqU.js      6.41 kB │ gzip:   2.31 kB │ map:    15.80 kB
+dist/assets/AssetPreview-BMGX9qIn.js            6.65 kB │ gzip:   1.73 kB │ map:    11.60 kB
+dist/assets/nodeDefinitions-D8R0UCSq.js        22.99 kB │ gzip:   4.35 kB │ map:    49.23 kB
+dist/assets/ContextualPalette-C7QCK87Q.js      26.40 kB │ gzip:   6.46 kB │ map:    42.67 kB
+dist/assets/ExplorerWorkspace-DQEiG5DJ.js      31.49 kB │ gzip:   5.97 kB │ map:    46.65 kB
+dist/assets/RetroFXDesigner-DXaYnjYG.js        49.47 kB │ gzip:   9.06 kB │ map:    68.56 kB
+dist/assets/behaviorLibrary-ztO77Hyk.js        66.16 kB │ gzip:  15.97 kB │ map:   133.26 kB
+dist/assets/InspectorPanel-Bwzb6NqN.js        135.34 kB │ gzip:  25.45 kB │ map:   203.65 kB
+dist/assets/ArtStudioPanel-C6CS8Zz8.js        182.33 kB │ gzip:  33.87 kB │ map:   271.52 kB
+dist/assets/ToolsPanel-DPC82kPY.js            193.37 kB │ gzip:  33.80 kB │ map:   271.32 kB
+dist/assets/ViewportPanel-CByO2sGs.js         226.67 kB │ gzip:  42.46 kB │ map:   344.24 kB
+dist/assets/NodeGraphEditor-CrLiMONk.js       332.54 kB │ gzip:  72.30 kB │ map:   513.12 kB
+dist/assets/ReverseWorkspace-DF_Izog3.js      347.93 kB │ gzip:  65.55 kB │ map:   507.39 kB
+dist/assets/index-C62kL0FC.js               1,131.26 kB │ gzip: 218.57 kB │ map: 1,889.93 kB
+✓ built in 5.61s
+   Compiling retro-dev-studio v0.1.0 (/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 30.50s
+       Built application at: /home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/cargo-target/debug/retro-dev-studio
+
+============================================================
+  Artefatos gerados:
+============================================================
+  EXE Debug: /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/debug/retro-dev-studio [OK]
+  Dev work target: /home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/cargo-target
+  Validation dir: /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation
+  Build report: /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/build-report.json
+============================================================
+
+[Hint] Use --open-dir para abrir a pasta do binario ao final do build.

@@ -1,0 +1,82 @@
+{
+  "schema": "rex-preservation-reconciliation/v1",
+  "raw_audit_sha256": "72e53d9e36d410cead968fd44cb9864a7f8de2459b5a39aff7707309876031c5",
+  "raw_audit_exit_code": 1,
+  "entries": [
+    {
+      "source": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/FROZEN-INPUTS-SHA256.json",
+      "path": "scripts/e2e-tauri-build-run.mjs",
+      "expected_sha256": "5df01978cafabf534ea2fa48999fc19b89214136c0fae76b17299cc968dea036",
+      "actual_sha256": "987aecd4657de5afc04b0b849641ea0fa69afca6cd74b63e1100e24ed6d10c19",
+      "bytes": 1436724,
+      "status": "MISMATCH",
+      "baseline_commit": "03ddc59de38cc3d9c448b893da72a3efd575030a",
+      "baseline_sha256": "5df01978cafabf534ea2fa48999fc19b89214136c0fae76b17299cc968dea036",
+      "classification": "INTENTIONAL_SOURCE_ADVANCED_BASELINE_PRESERVED",
+      "reason": "new prepared-replay scenario on canonical runner; old manifest retained"
+    },
+    {
+      "source": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/FROZEN-INPUTS-SHA256.json",
+      "path": "src/components/viewport/ViewportPanel.tsx",
+      "expected_sha256": "9b48e58b46e2f9bcbf92281e01ae0d4a8380eade09d4447722ee77d8a62f1441",
+      "actual_sha256": "a3e70a985a8f3a530846c872f49bd032ae449c7bdfe86d9220a6764d8f339df3",
+      "bytes": 214579,
+      "status": "MISMATCH",
+      "baseline_commit": "03ddc59de38cc3d9c448b893da72a3efd575030a",
+      "baseline_sha256": "9b48e58b46e2f9bcbf92281e01ae0d4a8380eade09d4447722ee77d8a62f1441",
+      "classification": "INTENTIONAL_SOURCE_ADVANCED_BASELINE_PRESERVED",
+      "reason": "paused canonical frame subscription and identity/order guard, product fix4ff5623a"
+    },
+    {
+      "source": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/FROZEN-INPUTS-SHA256.json",
+      "path": "src-tauri/src/emulator/frame_buffer.rs",
+      "expected_sha256": "de4bdf1455bbdcfa5ff5ed8232bfd1ef8e87983ee8d4c09a993038d90d6b1bbb",
+      "actual_sha256": "9b5498703a4cbdd69e302624559422d252500883783a90f9b71995cb1eeac19f",
+      "bytes": 4426,
+      "status": "MISMATCH",
+      "baseline_commit": "03ddc59de38cc3d9c448b893da72a3efd575030a",
+      "baseline_sha256": "de4bdf1455bbdcfa5ff5ed8232bfd1ef8e87983ee8d4c09a993038d90d6b1bbb",
+      "classification": "INTENTIONAL_SOURCE_ADVANCED_BASELINE_PRESERVED",
+      "reason": "optional identity metadata fields; pixel expansion unchanged, product fix4ff5623a"
+    },
+    {
+      "source": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/FINAL-SHA256.json",
+      "path": "scripts/e2e-tauri-build-run.mjs",
+      "expected_sha256": "5df01978cafabf534ea2fa48999fc19b89214136c0fae76b17299cc968dea036",
+      "actual_sha256": "987aecd4657de5afc04b0b849641ea0fa69afca6cd74b63e1100e24ed6d10c19",
+      "bytes": 1436724,
+      "status": "MISMATCH",
+      "baseline_commit": "03ddc59de38cc3d9c448b893da72a3efd575030a",
+      "baseline_sha256": "5df01978cafabf534ea2fa48999fc19b89214136c0fae76b17299cc968dea036",
+      "classification": "INTENTIONAL_SOURCE_ADVANCED_BASELINE_PRESERVED",
+      "reason": "new prepared-replay scenario on canonical runner; old manifest retained"
+    },
+    {
+      "source": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/FINAL-SHA256.json",
+      "path": "src/components/viewport/ViewportPanel.tsx",
+      "expected_sha256": "9b48e58b46e2f9bcbf92281e01ae0d4a8380eade09d4447722ee77d8a62f1441",
+      "actual_sha256": "a3e70a985a8f3a530846c872f49bd032ae449c7bdfe86d9220a6764d8f339df3",
+      "bytes": 214579,
+      "status": "MISMATCH",
+      "baseline_commit": "03ddc59de38cc3d9c448b893da72a3efd575030a",
+      "baseline_sha256": "9b48e58b46e2f9bcbf92281e01ae0d4a8380eade09d4447722ee77d8a62f1441",
+      "classification": "INTENTIONAL_SOURCE_ADVANCED_BASELINE_PRESERVED",
+      "reason": "paused canonical frame subscription and identity/order guard, product fix4ff5623a"
+    },
+    {
+      "source": "data/rex_profiles/integration_20261016/evidence/visual-copy-v2/FINAL-SHA256.json",
+      "path": "src-tauri/src/emulator/frame_buffer.rs",
+      "expected_sha256": "de4bdf1455bbdcfa5ff5ed8232bfd1ef8e87983ee8d4c09a993038d90d6b1bbb",
+      "actual_sha256": "9b5498703a4cbdd69e302624559422d252500883783a90f9b71995cb1eeac19f",
+      "bytes": 4426,
+      "status": "MISMATCH",
+      "baseline_commit": "03ddc59de38cc3d9c448b893da72a3efd575030a",
+      "baseline_sha256": "de4bdf1455bbdcfa5ff5ed8232bfd1ef8e87983ee8d4c09a993038d90d6b1bbb",
+      "classification": "INTENTIONAL_SOURCE_ADVANCED_BASELINE_PRESERVED",
+      "reason": "optional identity metadata fields; pixel expansion unchanged, product fix4ff5623a"
+    }
+  ],
+  "unexplained_mismatches": 0,
+  "color_conversion_source_unchanged": true,
+  "limits": "historical manifests unchanged; this does not approve final binary or reclassify old tests"
+}

@@ -1,0 +1,2620 @@
+{
+  "schema": "rex-semantic-gate-journey/v1",
+  "prefix": "copy-grid-2026-10-16T21-52-09-943Z",
+  "spec": "/home/misael/rds-scratch/rex-visual-copy-001/forward-final-v1.json",
+  "profile_id": "m68k.copy_grid.v1",
+  "sonda": "RAM via emulator_read_memory (sonda tecnica)",
+  "comparado": "Entire 484-byte authored scope: source, destination, converted VDP words, four guards, done; full320x224 core and canvas vs independent oracle",
+  "nao_comparado": "SGDK timers/heap/stack outside Scope; registers/CCR; commercial routine reachability; audio",
+  "checks": [
+    {
+      "name": "rom_e_a_do_spec",
+      "pass": true,
+      "observado": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435"
+    },
+    {
+      "name": "perfil_semantico_no_mesmo_catalogo",
+      "pass": true,
+      "lista": "Pulo de plataforma · m68k.platformer_jump.v1 · revisão 2 · SHA-256 293321058e7e… · embutido · 0 instância(s)Cópia de grade · m68k.copy_grid.v1 · revisão 1 · SHA-256 582fe0c419cb… · embutido · 0 instância(s)Contador com limiar · m68k.counter_threshold_state_gate.v1 · revisão 1 · SHA-256 8e8648022d99… · embutido · 0 instância(s)",
+      "erro": ""
+    },
+    {
+      "name": "varredura.nada_e_proposto_sem_declarar_a_regiao",
+      "pass": true,
+      "tabs": [],
+      "nenhuma": "Nenhuma lógica reconhecida nesta ROM pelos 3 perfil(is) carregado(s). Isto não significa que a ROM não tenha essa lógica: só que ela não tem a forma que os perf"
+    },
+    {
+      "name": "declarada.regiao_incompleta_bloqueia_a_localizacao",
+      "pass": true,
+      "localizar": true
+    },
+    {
+      "name": "declarada.selecao_rotulada_como_declarada",
+      "pass": true,
+      "selecao": "declared_region",
+      "declarado": "Declarado (não derivado da ROM): rótulo do campo editável, título, limites e afirmações vêm do perfil (dado); entrada 0x002204 e saída(s) 0x002222 informadas pelo usuário."
+    },
+    {
+      "name": "declarada.uma_instancia_por_regiao",
+      "pass": true,
+      "tabs": [
+        "Cópia de grade em 0x002204"
+      ]
+    },
+    {
+      "name": "operacoes.sao_ditas_derivadas_dos_bytes",
+      "pass": true,
+      "operacoes": "Operações recuperadas dos bytes da ROM (pelo analisador, não pelo perfil):rom_region_entry — address=0x002204rom_copy_grid — address_space=CPU24 WRAM [FF0000,10",
+      "estatico": "Observado pelo aplicativo nesta sessão (sem rodar o jogo): forma e consistência entre as partes — Largura da transferência (bytes). As operações acima foram derivadas dos bytes nesta sessão. "
+    },
+    {
+      "name": "operacoes.parametro_permitido_e_o_unico_editavel",
+      "pass": true,
+      "editaveis": [
+        "copy_grid"
+      ]
+    },
+    {
+      "name": "operacoes.partes_opacas_sao_ditas",
+      "pass": true,
+      "opacas": [],
+      "esperado": 0
+    },
+    {
+      "name": "operacoes.dois_resultados",
+      "pass": true,
+      "ops": [
+        "entry",
+        "exit",
+        "copy_grid"
+      ]
+    },
+    {
+      "name": "evidencia.origens_separadas",
+      "pass": true,
+      "curado": "Evidência histórica curada (registro do repositório; o aplicativo não mediu isto): nenhuma para esta ROM e instância.",
+      "declarado": "Declarado pelo autor do perfil (não verificado): nada além do que está acima."
+    },
+    {
+      "name": "edicao.so_o_valor_e_suportado",
+      "pass": true,
+      "suportado": "Suportado: trocar o valor dos números abaixo, que a ROM já tem (a ROM não cresce). Não suportado: acrescentar, remover ou reordenar lógica, nem trocar operador, endereço ou conexão — isso não é compilado. Gerar cópia NÃO compila um projeto nem recompila o grafo: grava uma cópia da ROM com esses valores e um patch IPS. Domínio aceito pelo perfil não é o mesmo que \"bom no jogo\"."
+    },
+    {
+      "name": "regra.copy_grid_contrato_congelado",
+      "pass": true,
+      "texto": "rom_copy_grid — address_space=CPU24 WRAM [FF0000,1000000); origem binária = offset de arquivo · bytes_per_cell=1 · column_counter=D2=7 → DBRA low16 → FFFF · columns=8 · copied_bytes=32 · destination_address=0xFF00A8 · destination_increment_bytes=1 · destination_register=A2 · output_span_bytes=80 · row_counter=D1=3 → DBRA low16 → FFFF · row_gap_bytes=16 · row_stride_bytes=24 · rows=4 · source_address=0xFF0058 · source_increment_bytes=1 · source_register=A3 · source_row_stride_bytes=8 · unknown=caller/estado inicial não recuperados; recurso/consumidor gráfico desconhecidos; flags/registradores/stack não comparados · bytes 0x002204..0x00220A, 0x00220A..0x002210, 0x002210..0x002212, 0x002212..0x002214, 0x002214..0x002216, 0x002216..0x00221A, 0x00221A..0x00221E, 0x00221E..0x002222 · editável (só o valor)",
+      "reference": {
+        "source": 16711768,
+        "destination": 16711848,
+        "rows": 4,
+        "columns": 8,
+        "gap": 16,
+        "width": 1
+      }
+    },
+    {
+      "name": "negative.guard_mutation_rejected_by_runtime_comparator",
+      "pass": true
+    },
+    {
+      "name": "resource.loaded_bytes_equal_pinned_resource",
+      "pass": true
+    },
+    {
+      "name": "canvas.recovered_diagnostic_does_not_suggest_author_event",
+      "pass": true
+    },
+    {
+      "name": "canvas.comparacao_assinada_rotulada",
+      "pass": true,
+      "semantica": "Os 3 nós deste grafo são operações derivadas dos bytes da ROM por um analisador. A região foi declarada pelo usuário (entrada e saídas informadas); nenhuma das duas é descoberta automática de rotina. Cópia de memória 0xFF0058 → 0xFF00A8 · 4 linhas × 8 colunas · largura base 1 bytes · incremento base 1 · stride base 24 · gap 16. Só a largura 1↔2 é editável; mapa, alinhamento e sobreposição são revalidados. Topologia não é compilada. Estado inicial, caller e consumidor gráfico não recuperados. Proposta: largura/incremento 1 bytes, stride 24, span 80 bytes."
+    },
+    {
+      "name": "canvas.ponte_identifica_rom_perfil_e_regiao",
+      "pass": true,
+      "identity": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+      "instance": "8708",
+      "profile": "m68k.copy_grid.v1",
+      "selecao": "declared_region"
+    },
+    {
+      "name": "canvas.diz_o_que_e_derivado_opaco_e_editavel",
+      "pass": true,
+      "semantica": "Os 3 nós deste grafo são operações derivadas dos bytes da ROM por um analisador. A região foi declarada pelo usuário (entrada e saídas informadas); nenhuma das duas é descoberta automática de rotina. Cópia de memória 0xFF0058 → 0xFF00A8 · 4 linhas × 8 colunas · largura base 1 bytes · incremento base 1 · stride base 24 · gap 16. Só a largura 1↔2 é editável; mapa, alinhamento e sobreposição são revalidados. Topologia não é compilada. Estado inicial, caller e consumidor gráfico não recuperados. Proposta: largura/incremento 1 bytes, stride 24, span 80 bytes."
+    },
+    {
+      "name": "canvas.nos_da_regra_no_canvas",
+      "pass": true,
+      "cards": [
+        "entry",
+        "copy_grid",
+        "exit"
+      ]
+    },
+    {
+      "name": "canvas.valor_original_no_no",
+      "pass": true,
+      "valor": "1"
+    },
+    {
+      "name": "canvas.organizacao_visual_preserva_a_estrutura",
+      "pass": true
+    },
+    {
+      "name": "canvas.diferenca_proposta_e_mostrada_e_a_estrutura_segue_canonica",
+      "pass": true,
+      "edits": "Cópia de grade (Experimental): 1 → 2",
+      "estrutura": ""
+    },
+    {
+      "name": "canvas.alterar_a_topologia_nao_e_apresentado_como_compilavel",
+      "pass": true,
+      "estrutura": "Este grafo deixou de representar a lógica da ROM: a estrutura do grafo (nós, conexões, origem ou campos) difere da gerada a partir da ROM. Os valores NÃO serão aplicados. Posição e organização visual continuam livres; para voltar a editar valores, abra o grafo de novo a partir da ROM.",
+      "generate": true
+    },
+    {
+      "name": "canvas.desfazer_restaura_a_estrutura_e_o_plano",
+      "pass": true,
+      "estrutura": ""
+    },
+    {
+      "name": "canvas.no_op_has_empty_plan_and_no_publication",
+      "pass": true
+    },
+    {
+      "name": "canvas.geracao_sem_erro",
+      "pass": true,
+      "erro": "",
+      "relacao": "atual"
+    },
+    {
+      "name": "canvas.ponte_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · relido da cópia: bytes_per_cell=2"
+    },
+    {
+      "name": "canvas.somente_copia_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "rom.copy-grid-2204-7a33ddfa.bin",
+        "rom.copy-grid-2204-7a33ddfa.ips"
+      ]
+    },
+    {
+      "name": "canvas.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "canvas.tamanho_preservado",
+      "pass": true
+    },
+    {
+      "name": "canvas.so_o_parametro_e_o_checksum_mudaram",
+      "pass": true,
+      "mudados": [
+        8724
+      ],
+      "imediato": 8724
+    },
+    {
+      "name": "canvas.aviso_de_checksum_quando_ele_muda",
+      "pass": true,
+      "resultado": "Cópia (corresponde aos valores atuais): /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-copias/canvas/rom.copy-grid-2204-7a33ddfa.binIPS: /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2"
+    },
+    {
+      "name": "canvas.ips_reaplicado_por_aplicador_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 14
+    },
+    {
+      "name": "persistido_no_disco_com_parametro_e_vinculo",
+      "pass": true,
+      "campo": "bytes_per_cell",
+      "valor": 2,
+      "perfil": "m68k.copy_grid.v1",
+      "entry": 8708
+    },
+    {
+      "name": "reaberto.procedencia_e_hash_de_perfil_preservados",
+      "pass": true
+    },
+    {
+      "name": "reaberto.preserva_parametro_editado",
+      "pass": true,
+      "valor": "2"
+    },
+    {
+      "name": "reaberto.preserva_rom_perfil_regiao",
+      "pass": true,
+      "identity": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+      "instance": "8708",
+      "profile": "m68k.copy_grid.v1"
+    },
+    {
+      "name": "reaberto.preserva_o_plano_e_a_estrutura",
+      "pass": true,
+      "edits": "Cópia de grade (Experimental): 1 → 2",
+      "estrutura": ""
+    },
+    {
+      "name": "reaberto.nao_finge_resultado_da_sessao_anterior",
+      "pass": true,
+      "relacao": null
+    },
+    {
+      "name": "reaberto.geracao_sem_erro",
+      "pass": true,
+      "erro": "",
+      "relacao": "atual"
+    },
+    {
+      "name": "reaberto.ponte_afirma_garantias",
+      "pass": true,
+      "flags": "ROM original intacta: sim · tamanho preservado: sim · IPS reproduz a cópia: sim · relido da cópia: bytes_per_cell=2"
+    },
+    {
+      "name": "reaberto.somente_copia_e_ips_no_destino",
+      "pass": true,
+      "arquivos": [
+        "rom.copy-grid-2204-7a33ddfa.bin",
+        "rom.copy-grid-2204-7a33ddfa.ips"
+      ]
+    },
+    {
+      "name": "reaberto.original_intacta_no_disco",
+      "pass": true
+    },
+    {
+      "name": "reaberto.tamanho_preservado",
+      "pass": true
+    },
+    {
+      "name": "reaberto.so_o_parametro_e_o_checksum_mudaram",
+      "pass": true,
+      "mudados": [
+        8724
+      ],
+      "imediato": 8724
+    },
+    {
+      "name": "reaberto.aviso_de_checksum_quando_ele_muda",
+      "pass": true,
+      "resultado": "Cópia (corresponde aos valores atuais): /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-copias/reaberto/rom.copy-grid-2204-7a33ddfa.binIPS: /home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid"
+    },
+    {
+      "name": "reaberto.ips_reaplicado_por_aplicador_independente_reproduz_a_copia",
+      "pass": true,
+      "ips_bytes": 14
+    },
+    {
+      "name": "reaberto.gera_a_mesma_copia_e_o_mesmo_ips",
+      "pass": true,
+      "antes": "7a33ddfa058c9d3e2e0e399450bb6ae8a1a4b03a6fbd79b504f0ba70b324d0b4",
+      "depois": "7a33ddfa058c9d3e2e0e399450bb6ae8a1a4b03a6fbd79b504f0ba70b324d0b4"
+    },
+    {
+      "name": "original.explicit_neutral_input_accepted",
+      "pass": true,
+      "ack": {
+        "ok": true,
+        "epoch": 1,
+        "applied_at_frame": 1,
+        "generation": 2,
+        "message": ""
+      }
+    },
+    {
+      "name": "original.rom_carregada_e_autoexercicio_terminou",
+      "pass": true
+    },
+    {
+      "name": "original.identidade_dos_bytes_realmente_carregados",
+      "pass": true,
+      "identity": {
+        "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+        "disk_matches_loaded": true,
+        "rom_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+        "rom_size": 393216,
+        "ok": true,
+        "core_label": "Genesis Plus GX v1.7.4 46a5521",
+        "frames_run": 39
+      },
+      "expectedHash": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435"
+    },
+    {
+      "name": "original.mesmo_core_do_produto_pinado",
+      "pass": true,
+      "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+      "label": "Genesis Plus GX v1.7.4 46a5521"
+    },
+    {
+      "name": "original.core_dimensions",
+      "pass": true,
+      "width": 320,
+      "height": 224
+    },
+    {
+      "name": "original.core_equals_independent_image",
+      "pass": false,
+      "mismatched_pixels": 36560,
+      "first": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        24,
+        25,
+        26,
+        27
+      ],
+      "expected_sha256": "81bf540cc608bd7f07da692966c5cf71a38400254bfba04fbe80c6cfb1e5a76c",
+      "observed_sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6"
+    },
+    {
+      "name": "original.canvas_equals_current_core",
+      "pass": true,
+      "core_sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6",
+      "canvas_sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6"
+    },
+    {
+      "name": "original.rejects_stale_other_width_image",
+      "pass": true
+    },
+    {
+      "name": "original.framebuffer_identity_matches_loaded_ROM",
+      "pass": true
+    },
+    {
+      "name": "original.wram_lida",
+      "pass": true
+    },
+    {
+      "name": "original.core_mede_o_que_a_regra_recuperada_preve_em_todos_os_casos",
+      "pass": true,
+      "amostras": 484,
+      "divergencias": []
+    },
+    {
+      "name": "original.janela_e_exterior_iguais_a_referencia",
+      "pass": true,
+      "first": [],
+      "sha256": "d3903c62d0996b0925ae4b88338a3e6a4fbec7cf23db618ed575d6029391513e"
+    },
+    {
+      "name": "original-repeat.explicit_neutral_input_accepted",
+      "pass": true,
+      "ack": {
+        "ok": true,
+        "epoch": 2,
+        "applied_at_frame": 1,
+        "generation": 2,
+        "message": ""
+      }
+    },
+    {
+      "name": "original-repeat.rom_carregada_e_autoexercicio_terminou",
+      "pass": true
+    },
+    {
+      "name": "original-repeat.identidade_dos_bytes_realmente_carregados",
+      "pass": true,
+      "identity": {
+        "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+        "disk_matches_loaded": true,
+        "rom_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+        "rom_size": 393216,
+        "ok": true,
+        "core_label": "Genesis Plus GX v1.7.4 46a5521",
+        "frames_run": 39
+      },
+      "expectedHash": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435"
+    },
+    {
+      "name": "original-repeat.mesmo_core_do_produto_pinado",
+      "pass": true,
+      "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+      "label": "Genesis Plus GX v1.7.4 46a5521"
+    },
+    {
+      "name": "original-repeat.core_dimensions",
+      "pass": true,
+      "width": 320,
+      "height": 224
+    },
+    {
+      "name": "original-repeat.core_equals_independent_image",
+      "pass": false,
+      "mismatched_pixels": 36560,
+      "first": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        24,
+        25,
+        26,
+        27
+      ],
+      "expected_sha256": "81bf540cc608bd7f07da692966c5cf71a38400254bfba04fbe80c6cfb1e5a76c",
+      "observed_sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6"
+    },
+    {
+      "name": "original-repeat.canvas_equals_current_core",
+      "pass": true,
+      "core_sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6",
+      "canvas_sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6"
+    },
+    {
+      "name": "original-repeat.rejects_stale_other_width_image",
+      "pass": true
+    },
+    {
+      "name": "original-repeat.framebuffer_identity_matches_loaded_ROM",
+      "pass": true
+    },
+    {
+      "name": "original-repeat.wram_lida",
+      "pass": true
+    },
+    {
+      "name": "control.original_original_buffer_identical",
+      "pass": true
+    },
+    {
+      "name": "control.original_original_core_identical",
+      "pass": true
+    },
+    {
+      "name": "copia.explicit_neutral_input_accepted",
+      "pass": true,
+      "ack": {
+        "ok": true,
+        "epoch": 3,
+        "applied_at_frame": 1,
+        "generation": 2,
+        "message": ""
+      }
+    },
+    {
+      "name": "copia.rom_carregada_e_autoexercicio_terminou",
+      "pass": true
+    },
+    {
+      "name": "copia.identidade_dos_bytes_realmente_carregados",
+      "pass": true,
+      "identity": {
+        "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+        "disk_matches_loaded": true,
+        "rom_sha256": "7a33ddfa058c9d3e2e0e399450bb6ae8a1a4b03a6fbd79b504f0ba70b324d0b4",
+        "rom_size": 393216,
+        "ok": true,
+        "core_label": "Genesis Plus GX v1.7.4 46a5521",
+        "frames_run": 39
+      },
+      "expectedHash": "7a33ddfa058c9d3e2e0e399450bb6ae8a1a4b03a6fbd79b504f0ba70b324d0b4"
+    },
+    {
+      "name": "copia.mesmo_core_do_produto_pinado",
+      "pass": true,
+      "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+      "label": "Genesis Plus GX v1.7.4 46a5521"
+    },
+    {
+      "name": "copia.core_dimensions",
+      "pass": true,
+      "width": 320,
+      "height": 224
+    },
+    {
+      "name": "copia.core_equals_independent_image",
+      "pass": false,
+      "mismatched_pixels": 37280,
+      "first": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        24,
+        25,
+        26,
+        27
+      ],
+      "expected_sha256": "272b5d76955d962853433e8cb05b6b642d1ea6ac356737e98c2cc415d04fa5f6",
+      "observed_sha256": "f98f7a01bd6c73e724f15d5d4fd4a3d25a70c4fcd74e6fde3895af8b96741864"
+    },
+    {
+      "name": "copia.canvas_equals_current_core",
+      "pass": true,
+      "core_sha256": "f98f7a01bd6c73e724f15d5d4fd4a3d25a70c4fcd74e6fde3895af8b96741864",
+      "canvas_sha256": "f98f7a01bd6c73e724f15d5d4fd4a3d25a70c4fcd74e6fde3895af8b96741864"
+    },
+    {
+      "name": "copia.rejects_stale_other_width_image",
+      "pass": true
+    },
+    {
+      "name": "copia.framebuffer_identity_matches_loaded_ROM",
+      "pass": true
+    },
+    {
+      "name": "copia.wram_lida",
+      "pass": true
+    },
+    {
+      "name": "copia.core_mede_o_previsto_para_a_edicao_no_dominio_declarado",
+      "pass": true,
+      "amostras": 484,
+      "divergencias": []
+    },
+    {
+      "name": "copia.diff_causal_exato_e_exterior_preservado",
+      "pass": true,
+      "count": 162,
+      "first": 104,
+      "expected_first": 104
+    },
+    {
+      "name": "copia.recusa_previsao_da_largura_antiga",
+      "pass": true
+    },
+    {
+      "name": "visual.exact_predicted_causal_pixel_set",
+      "pass": true,
+      "observed_pixels": 3309,
+      "expected_pixels": 3309,
+      "first": [
+        12905,
+        12906,
+        12908,
+        12909,
+        12910,
+        12911,
+        12913,
+        12914,
+        12915,
+        12916,
+        12917,
+        12919
+      ]
+    },
+    {
+      "name": "identity.comparator_rejects_other_rom",
+      "pass": true
+    },
+    {
+      "name": "byor.declared_episode_attempted_with_loaded_identity",
+      "pass": true
+    }
+  ],
+  "steps": [
+    {
+      "step": "varredura",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-varredura.png"
+    },
+    {
+      "step": "declarada",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-declarada.png"
+    },
+    {
+      "step": "nodes-organizados",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-nodes-organizados.png"
+    },
+    {
+      "step": "topologia-alterada",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-topologia-alterada.png"
+    },
+    {
+      "step": "canvas",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-canvas.png"
+    },
+    {
+      "step": "reaberto",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-reaberto.png"
+    },
+    {
+      "step": "execucao",
+      "screenshot": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-execucao.png"
+    }
+  ],
+  "copias": [
+    {
+      "etapa": "canvas",
+      "regiao": "0x002204",
+      "campo": "bytes_per_cell",
+      "bytes_per_cell": 2,
+      "rom_base_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+      "copia": "rom.copy-grid-2204-7a33ddfa.bin",
+      "copia_sha256": "7a33ddfa058c9d3e2e0e399450bb6ae8a1a4b03a6fbd79b504f0ba70b324d0b4",
+      "ips_sha256": "54f249c6a574c37702f889e92e6f6df939104713bd474bdbd4c7c7e7bd6ef6ae",
+      "bytes_diferentes": 1,
+      "offsets_diferentes": [
+        8724
+      ]
+    },
+    {
+      "etapa": "reaberto",
+      "regiao": "0x002204",
+      "campo": "bytes_per_cell",
+      "bytes_per_cell": 2,
+      "rom_base_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+      "copia": "rom.copy-grid-2204-7a33ddfa.bin",
+      "copia_sha256": "7a33ddfa058c9d3e2e0e399450bb6ae8a1a4b03a6fbd79b504f0ba70b324d0b4",
+      "ips_sha256": "54f249c6a574c37702f889e92e6f6df939104713bd474bdbd4c7c7e7bd6ef6ae",
+      "bytes_diferentes": 1,
+      "offsets_diferentes": [
+        8724
+      ]
+    }
+  ],
+  "allPass": false,
+  "ausentes": [],
+  "app_sha256": "74033134f47510c1ef37d8e6025a8bc6986436d4060ae3e96b1ba9bcc3d1670e",
+  "profiles_dir": null,
+  "rom_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+  "initial_state": "SGDK boot plus explicitly initialized authored Scope; no recovered game caller",
+  "save_interaction": "native pointer menu > Salvar; no persistScene automation call",
+  "persisted_identity": {
+    "profile_sha256": "582fe0c419cb5b2234179bb4f0cf8d63790c6b0f5352218f22058d941e47e944",
+    "rom_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+    "entry": 8708,
+    "exits": "0x002222",
+    "source_mappings_sha256": "aecafa7000c96031e013cb9ff080f101afb5524708a66e3a29a8dc0f469998c9"
+  },
+  "runtime_identities": [
+    {
+      "etapa": "original",
+      "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "disk_matches_loaded": true,
+      "rom_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+      "rom_size": 393216,
+      "ok": true,
+      "core_label": "Genesis Plus GX v1.7.4 46a5521",
+      "frames_run": 39
+    },
+    {
+      "etapa": "original-repeat",
+      "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "disk_matches_loaded": true,
+      "rom_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+      "rom_size": 393216,
+      "ok": true,
+      "core_label": "Genesis Plus GX v1.7.4 46a5521",
+      "frames_run": 39
+    },
+    {
+      "etapa": "copia",
+      "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+      "disk_matches_loaded": true,
+      "rom_sha256": "7a33ddfa058c9d3e2e0e399450bb6ae8a1a4b03a6fbd79b504f0ba70b324d0b4",
+      "rom_size": 393216,
+      "ok": true,
+      "core_label": "Genesis Plus GX v1.7.4 46a5521",
+      "frames_run": 39
+    }
+  ],
+  "visual_captures": [
+    {
+      "etapa": "original",
+      "width": 1,
+      "core_sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6",
+      "canvas_sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6",
+      "expected_sha256": "81bf540cc608bd7f07da692966c5cf71a38400254bfba04fbe80c6cfb1e5a76c",
+      "core_rom_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+      "frames_run": 101,
+      "core_capture": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-original-core.rgba",
+      "canvas_capture": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-original-canvas.png",
+      "mismatched_pixels": 36560
+    },
+    {
+      "etapa": "original-repeat",
+      "width": 1,
+      "core_sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6",
+      "canvas_sha256": "8f518c7468b89fe1e6bf91b9142e2a2446df13978e7f331910e7bd6ffacd6cb6",
+      "expected_sha256": "81bf540cc608bd7f07da692966c5cf71a38400254bfba04fbe80c6cfb1e5a76c",
+      "core_rom_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+      "frames_run": 101,
+      "core_capture": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-original-repeat-core.rgba",
+      "canvas_capture": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-original-repeat-canvas.png",
+      "mismatched_pixels": 36560
+    },
+    {
+      "etapa": "copia",
+      "width": 2,
+      "core_sha256": "f98f7a01bd6c73e724f15d5d4fd4a3d25a70c4fcd74e6fde3895af8b96741864",
+      "canvas_sha256": "f98f7a01bd6c73e724f15d5d4fd4a3d25a70c4fcd74e6fde3895af8b96741864",
+      "expected_sha256": "272b5d76955d962853433e8cb05b6b642d1ea6ac356737e98c2cc415d04fa5f6",
+      "core_rom_sha256": "7a33ddfa058c9d3e2e0e399450bb6ae8a1a4b03a6fbd79b504f0ba70b324d0b4",
+      "frames_run": 101,
+      "core_capture": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-copia-core.rgba",
+      "canvas_capture": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-copia-canvas.png",
+      "mismatched_pixels": 37280
+    }
+  ],
+  "runtime_memory": [
+    {
+      "etapa": "original",
+      "sha256": "d3903c62d0996b0925ae4b88338a3e6a4fbec7cf23db618ed575d6029391513e",
+      "capture": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-original-wram.bin"
+    },
+    {
+      "etapa": "original-repeat",
+      "sha256": "d3903c62d0996b0925ae4b88338a3e6a4fbec7cf23db618ed575d6029391513e",
+      "capture": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-original-repeat-wram.bin"
+    },
+    {
+      "etapa": "copia",
+      "sha256": "2e682f3d26fab1b3a0c8d5d2d0fd010b0a09a4bf69df3ecb35d3e8cb5dc7a88f",
+      "capture": "/home/misael/Projects/REX-INTEGRATION-2026-10-05/src-tauri/target-test/validation/copy-grid-2026-10-16T21-52-09-943Z-copia-wram.bin"
+    }
+  ],
+  "observado_original": {
+    "sha256": "d3903c62d0996b0925ae4b88338a3e6a4fbec7cf23db618ed575d6029391513e"
+  },
+  "causal_pixels": {
+    "pass": true,
+    "observed_pixels": 3309,
+    "expected_pixels": 3309,
+    "first": [
+      12905,
+      12906,
+      12908,
+      12909,
+      12910,
+      12911,
+      12913,
+      12914,
+      12915,
+      12916,
+      12917,
+      12919
+    ]
+  },
+  "bytes_que_mudaram": 162,
+  "observado_copia": {
+    "sha256": "2e682f3d26fab1b3a0c8d5d2d0fd010b0a09a4bf69df3ecb35d3e8cb5dc7a88f"
+  },
+  "acceptance_scope": "Authored scene and declared negative controls only; BYOR resource-to-presentation status is separate and must never be inferred from allPass",
+  "byor": {
+    "schema": "rex-byor-visual-episode/v1",
+    "status": "BLOCKED_RESOURCE_TO_PRESENTATION_PROOF",
+    "original_original_reproducible": true,
+    "changed_framebuffer_phases": [],
+    "static_resource_matched_at_sample": false,
+    "exact_pc_observed": false,
+    "episodes": [
+      {
+        "variant": "original",
+        "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+        "samples": [
+          {
+            "step": {
+              "name": "neutral600",
+              "frames": 600
+            },
+            "ack": {
+              "ok": true,
+              "epoch": 4,
+              "applied_at_frame": 0,
+              "generation": 2,
+              "message": ""
+            },
+            "input": {
+              "epoch": 4,
+              "frames_run": 600,
+              "generation": 2,
+              "transitions": [
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 1,
+                  "last_polled_frame": null,
+                  "first_polled_frame": null,
+                  "superseded_unpolled": true
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 2,
+                  "last_polled_frame": 600,
+                  "first_polled_frame": 1,
+                  "superseded_unpolled": false
+                }
+              ]
+            },
+            "frames_run": 600,
+            "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+            "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+            "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+            "framebuffer_width": 320,
+            "framebuffer_height": 224,
+            "framebuffer_sha256": "48e48b367816704237251e2091870441c9c06a0025e2796314a9c9e9c1ffcb77",
+            "source_sha256": "d1ce72141aeb496b7e7075eccfa15d38c6afe3f7482931aac3be30c1feb2ff63",
+            "destination_sha256": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+            "source_equals_static_resource": false,
+            "captures": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2/original-neutral600"
+          },
+          {
+            "step": {
+              "name": "start10",
+              "frames": 10,
+              "key": "start"
+            },
+            "ack": {
+              "ok": true,
+              "epoch": 4,
+              "applied_at_frame": 600,
+              "generation": 3,
+              "message": ""
+            },
+            "input": {
+              "epoch": 4,
+              "frames_run": 610,
+              "generation": 3,
+              "transitions": [
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 1,
+                  "last_polled_frame": null,
+                  "first_polled_frame": null,
+                  "superseded_unpolled": true
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 2,
+                  "last_polled_frame": 600,
+                  "first_polled_frame": 1,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": true,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 600,
+                  "generation": 3,
+                  "last_polled_frame": 610,
+                  "first_polled_frame": 601,
+                  "superseded_unpolled": false
+                }
+              ]
+            },
+            "frames_run": 610,
+            "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+            "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+            "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+            "framebuffer_width": 320,
+            "framebuffer_height": 224,
+            "framebuffer_sha256": "80129eded708b134b0e9b9f94bfa7b15d6b5ade605974135b424c7fc7c345671",
+            "source_sha256": "d1ce72141aeb496b7e7075eccfa15d38c6afe3f7482931aac3be30c1feb2ff63",
+            "destination_sha256": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+            "source_equals_static_resource": false,
+            "captures": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2/original-start10"
+          },
+          {
+            "step": {
+              "name": "neutral240",
+              "frames": 240
+            },
+            "ack": {
+              "ok": true,
+              "epoch": 4,
+              "applied_at_frame": 610,
+              "generation": 4,
+              "message": ""
+            },
+            "input": {
+              "epoch": 4,
+              "frames_run": 850,
+              "generation": 4,
+              "transitions": [
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 1,
+                  "last_polled_frame": null,
+                  "first_polled_frame": null,
+                  "superseded_unpolled": true
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 2,
+                  "last_polled_frame": 600,
+                  "first_polled_frame": 1,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": true,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 600,
+                  "generation": 3,
+                  "last_polled_frame": 610,
+                  "first_polled_frame": 601,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 610,
+                  "generation": 4,
+                  "last_polled_frame": 850,
+                  "first_polled_frame": 611,
+                  "superseded_unpolled": false
+                }
+              ]
+            },
+            "frames_run": 850,
+            "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+            "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+            "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+            "framebuffer_width": 320,
+            "framebuffer_height": 224,
+            "framebuffer_sha256": "ede557687aaa46a57e140cfd9110bfb2de62172540b7d54fce13dc709d480b71",
+            "source_sha256": "d1ce72141aeb496b7e7075eccfa15d38c6afe3f7482931aac3be30c1feb2ff63",
+            "destination_sha256": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+            "source_equals_static_resource": false,
+            "captures": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2/original-neutral240"
+          },
+          {
+            "step": {
+              "name": "right1200",
+              "frames": 1200,
+              "key": "right"
+            },
+            "ack": {
+              "ok": true,
+              "epoch": 4,
+              "applied_at_frame": 850,
+              "generation": 5,
+              "message": ""
+            },
+            "input": {
+              "epoch": 4,
+              "frames_run": 2050,
+              "generation": 5,
+              "transitions": [
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 1,
+                  "last_polled_frame": null,
+                  "first_polled_frame": null,
+                  "superseded_unpolled": true
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 2,
+                  "last_polled_frame": 600,
+                  "first_polled_frame": 1,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": true,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 600,
+                  "generation": 3,
+                  "last_polled_frame": 610,
+                  "first_polled_frame": 601,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 610,
+                  "generation": 4,
+                  "last_polled_frame": 850,
+                  "first_polled_frame": 611,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": true,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 850,
+                  "generation": 5,
+                  "last_polled_frame": 2050,
+                  "first_polled_frame": 851,
+                  "superseded_unpolled": false
+                }
+              ]
+            },
+            "frames_run": 2050,
+            "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+            "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+            "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+            "framebuffer_width": 320,
+            "framebuffer_height": 224,
+            "framebuffer_sha256": "35b29c1d0c47ebca72ecf7007e22d1a71637610372cf1af1cc55da6952aa3f56",
+            "source_sha256": "d1ce72141aeb496b7e7075eccfa15d38c6afe3f7482931aac3be30c1feb2ff63",
+            "destination_sha256": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+            "source_equals_static_resource": false,
+            "captures": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2/original-right1200"
+          },
+          {
+            "step": {
+              "name": "neutral60",
+              "frames": 60
+            },
+            "ack": {
+              "ok": true,
+              "epoch": 4,
+              "applied_at_frame": 2050,
+              "generation": 6,
+              "message": ""
+            },
+            "input": {
+              "epoch": 4,
+              "frames_run": 2110,
+              "generation": 6,
+              "transitions": [
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 1,
+                  "last_polled_frame": null,
+                  "first_polled_frame": null,
+                  "superseded_unpolled": true
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 2,
+                  "last_polled_frame": 600,
+                  "first_polled_frame": 1,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": true,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 600,
+                  "generation": 3,
+                  "last_polled_frame": 610,
+                  "first_polled_frame": 601,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 610,
+                  "generation": 4,
+                  "last_polled_frame": 850,
+                  "first_polled_frame": 611,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": true,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 850,
+                  "generation": 5,
+                  "last_polled_frame": 2050,
+                  "first_polled_frame": 851,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 2050,
+                  "generation": 6,
+                  "last_polled_frame": 2110,
+                  "first_polled_frame": 2051,
+                  "superseded_unpolled": false
+                }
+              ]
+            },
+            "frames_run": 2110,
+            "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+            "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+            "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+            "framebuffer_width": 320,
+            "framebuffer_height": 224,
+            "framebuffer_sha256": "29cd59f00ff89dbcd189e48129da7be2402f7294708cd5f51a7ec6737923b571",
+            "source_sha256": "d1ce72141aeb496b7e7075eccfa15d38c6afe3f7482931aac3be30c1feb2ff63",
+            "destination_sha256": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+            "source_equals_static_resource": false,
+            "captures": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2/original-neutral60"
+          }
+        ],
+        "input_protocol": "backend emulator_send_input with ACK + emulator_input_observation; paused UI loop; exact manual frame batches",
+        "trace": {
+          "rom_path": "/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin",
+          "save": {
+            "status": "observed",
+            "observed_size_bytes": 65536,
+            "address_end": null,
+            "note": "Libretro expos SRAM com 65536 bytes no core 'Genesis Plus GX v1.7.4 46a5521'; trate como evidencia runtime experimental ate validar persistencia em disco.",
+            "missing": false,
+            "address_start": null,
+            "declared": false,
+            "observed": true,
+            "size_bytes": null
+          },
+          "note": "Core 'Genesis Plus GX v1.7.4 46a5521' nao expoe PC por API Libretro padrao; a coleta real de ExecutionTraceLog continua dependente de adapter especifico por runtime e permanece experimental nesta wave.",
+          "available": false,
+          "core_label": "Genesis Plus GX v1.7.4 46a5521",
+          "trace": {
+            "executed_pcs": [],
+            "cpu_states": {}
+          }
+        }
+      },
+      {
+        "variant": "original-repeat",
+        "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+        "samples": [
+          {
+            "step": {
+              "name": "neutral600",
+              "frames": 600
+            },
+            "ack": {
+              "ok": true,
+              "epoch": 5,
+              "applied_at_frame": 0,
+              "generation": 2,
+              "message": ""
+            },
+            "input": {
+              "epoch": 5,
+              "frames_run": 600,
+              "generation": 2,
+              "transitions": [
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 1,
+                  "last_polled_frame": null,
+                  "first_polled_frame": null,
+                  "superseded_unpolled": true
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 2,
+                  "last_polled_frame": 600,
+                  "first_polled_frame": 1,
+                  "superseded_unpolled": false
+                }
+              ]
+            },
+            "frames_run": 600,
+            "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+            "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+            "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+            "framebuffer_width": 320,
+            "framebuffer_height": 224,
+            "framebuffer_sha256": "48e48b367816704237251e2091870441c9c06a0025e2796314a9c9e9c1ffcb77",
+            "source_sha256": "d1ce72141aeb496b7e7075eccfa15d38c6afe3f7482931aac3be30c1feb2ff63",
+            "destination_sha256": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+            "source_equals_static_resource": false,
+            "captures": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2/original-repeat-neutral600"
+          },
+          {
+            "step": {
+              "name": "start10",
+              "frames": 10,
+              "key": "start"
+            },
+            "ack": {
+              "ok": true,
+              "epoch": 5,
+              "applied_at_frame": 600,
+              "generation": 3,
+              "message": ""
+            },
+            "input": {
+              "epoch": 5,
+              "frames_run": 610,
+              "generation": 3,
+              "transitions": [
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 1,
+                  "last_polled_frame": null,
+                  "first_polled_frame": null,
+                  "superseded_unpolled": true
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 2,
+                  "last_polled_frame": 600,
+                  "first_polled_frame": 1,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": true,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 600,
+                  "generation": 3,
+                  "last_polled_frame": 610,
+                  "first_polled_frame": 601,
+                  "superseded_unpolled": false
+                }
+              ]
+            },
+            "frames_run": 610,
+            "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+            "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+            "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+            "framebuffer_width": 320,
+            "framebuffer_height": 224,
+            "framebuffer_sha256": "80129eded708b134b0e9b9f94bfa7b15d6b5ade605974135b424c7fc7c345671",
+            "source_sha256": "d1ce72141aeb496b7e7075eccfa15d38c6afe3f7482931aac3be30c1feb2ff63",
+            "destination_sha256": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+            "source_equals_static_resource": false,
+            "captures": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2/original-repeat-start10"
+          },
+          {
+            "step": {
+              "name": "neutral240",
+              "frames": 240
+            },
+            "ack": {
+              "ok": true,
+              "epoch": 5,
+              "applied_at_frame": 610,
+              "generation": 4,
+              "message": ""
+            },
+            "input": {
+              "epoch": 5,
+              "frames_run": 850,
+              "generation": 4,
+              "transitions": [
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 1,
+                  "last_polled_frame": null,
+                  "first_polled_frame": null,
+                  "superseded_unpolled": true
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 2,
+                  "last_polled_frame": 600,
+                  "first_polled_frame": 1,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": true,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 600,
+                  "generation": 3,
+                  "last_polled_frame": 610,
+                  "first_polled_frame": 601,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 610,
+                  "generation": 4,
+                  "last_polled_frame": 850,
+                  "first_polled_frame": 611,
+                  "superseded_unpolled": false
+                }
+              ]
+            },
+            "frames_run": 850,
+            "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+            "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+            "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+            "framebuffer_width": 320,
+            "framebuffer_height": 224,
+            "framebuffer_sha256": "ede557687aaa46a57e140cfd9110bfb2de62172540b7d54fce13dc709d480b71",
+            "source_sha256": "d1ce72141aeb496b7e7075eccfa15d38c6afe3f7482931aac3be30c1feb2ff63",
+            "destination_sha256": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+            "source_equals_static_resource": false,
+            "captures": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2/original-repeat-neutral240"
+          },
+          {
+            "step": {
+              "name": "right1200",
+              "frames": 1200,
+              "key": "right"
+            },
+            "ack": {
+              "ok": true,
+              "epoch": 5,
+              "applied_at_frame": 850,
+              "generation": 5,
+              "message": ""
+            },
+            "input": {
+              "epoch": 5,
+              "frames_run": 2050,
+              "generation": 5,
+              "transitions": [
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 1,
+                  "last_polled_frame": null,
+                  "first_polled_frame": null,
+                  "superseded_unpolled": true
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 2,
+                  "last_polled_frame": 600,
+                  "first_polled_frame": 1,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": true,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 600,
+                  "generation": 3,
+                  "last_polled_frame": 610,
+                  "first_polled_frame": 601,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 610,
+                  "generation": 4,
+                  "last_polled_frame": 850,
+                  "first_polled_frame": 611,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": true,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 850,
+                  "generation": 5,
+                  "last_polled_frame": 2050,
+                  "first_polled_frame": 851,
+                  "superseded_unpolled": false
+                }
+              ]
+            },
+            "frames_run": 2050,
+            "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+            "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+            "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+            "framebuffer_width": 320,
+            "framebuffer_height": 224,
+            "framebuffer_sha256": "35b29c1d0c47ebca72ecf7007e22d1a71637610372cf1af1cc55da6952aa3f56",
+            "source_sha256": "d1ce72141aeb496b7e7075eccfa15d38c6afe3f7482931aac3be30c1feb2ff63",
+            "destination_sha256": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+            "source_equals_static_resource": false,
+            "captures": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2/original-repeat-right1200"
+          },
+          {
+            "step": {
+              "name": "neutral60",
+              "frames": 60
+            },
+            "ack": {
+              "ok": true,
+              "epoch": 5,
+              "applied_at_frame": 2050,
+              "generation": 6,
+              "message": ""
+            },
+            "input": {
+              "epoch": 5,
+              "frames_run": 2110,
+              "generation": 6,
+              "transitions": [
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 1,
+                  "last_polled_frame": null,
+                  "first_polled_frame": null,
+                  "superseded_unpolled": true
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 2,
+                  "last_polled_frame": 600,
+                  "first_polled_frame": 1,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": true,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 600,
+                  "generation": 3,
+                  "last_polled_frame": 610,
+                  "first_polled_frame": 601,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 610,
+                  "generation": 4,
+                  "last_polled_frame": 850,
+                  "first_polled_frame": 611,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": true,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 850,
+                  "generation": 5,
+                  "last_polled_frame": 2050,
+                  "first_polled_frame": 851,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 2050,
+                  "generation": 6,
+                  "last_polled_frame": 2110,
+                  "first_polled_frame": 2051,
+                  "superseded_unpolled": false
+                }
+              ]
+            },
+            "frames_run": 2110,
+            "rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+            "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+            "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+            "framebuffer_width": 320,
+            "framebuffer_height": 224,
+            "framebuffer_sha256": "29cd59f00ff89dbcd189e48129da7be2402f7294708cd5f51a7ec6737923b571",
+            "source_sha256": "d1ce72141aeb496b7e7075eccfa15d38c6afe3f7482931aac3be30c1feb2ff63",
+            "destination_sha256": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+            "source_equals_static_resource": false,
+            "captures": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2/original-repeat-neutral60"
+          }
+        ],
+        "input_protocol": "backend emulator_send_input with ACK + emulator_input_observation; paused UI loop; exact manual frame batches",
+        "trace": {
+          "rom_path": "/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin",
+          "save": {
+            "status": "observed",
+            "observed_size_bytes": 65536,
+            "address_end": null,
+            "note": "Libretro expos SRAM com 65536 bytes no core 'Genesis Plus GX v1.7.4 46a5521'; trate como evidencia runtime experimental ate validar persistencia em disco.",
+            "missing": false,
+            "address_start": null,
+            "declared": false,
+            "observed": true,
+            "size_bytes": null
+          },
+          "note": "Core 'Genesis Plus GX v1.7.4 46a5521' nao expoe PC por API Libretro padrao; a coleta real de ExecutionTraceLog continua dependente de adapter especifico por runtime e permanece experimental nesta wave.",
+          "available": false,
+          "core_label": "Genesis Plus GX v1.7.4 46a5521",
+          "trace": {
+            "executed_pcs": [],
+            "cpu_states": {}
+          }
+        }
+      },
+      {
+        "variant": "copy",
+        "rom_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+        "samples": [
+          {
+            "step": {
+              "name": "neutral600",
+              "frames": 600
+            },
+            "ack": {
+              "ok": true,
+              "epoch": 6,
+              "applied_at_frame": 0,
+              "generation": 2,
+              "message": ""
+            },
+            "input": {
+              "epoch": 6,
+              "frames_run": 600,
+              "generation": 2,
+              "transitions": [
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 1,
+                  "last_polled_frame": null,
+                  "first_polled_frame": null,
+                  "superseded_unpolled": true
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 2,
+                  "last_polled_frame": 600,
+                  "first_polled_frame": 1,
+                  "superseded_unpolled": false
+                }
+              ]
+            },
+            "frames_run": 600,
+            "rom_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+            "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+            "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+            "framebuffer_width": 320,
+            "framebuffer_height": 224,
+            "framebuffer_sha256": "48e48b367816704237251e2091870441c9c06a0025e2796314a9c9e9c1ffcb77",
+            "source_sha256": "d1ce72141aeb496b7e7075eccfa15d38c6afe3f7482931aac3be30c1feb2ff63",
+            "destination_sha256": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+            "source_equals_static_resource": false,
+            "captures": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2/copy-neutral600"
+          },
+          {
+            "step": {
+              "name": "start10",
+              "frames": 10,
+              "key": "start"
+            },
+            "ack": {
+              "ok": true,
+              "epoch": 6,
+              "applied_at_frame": 600,
+              "generation": 3,
+              "message": ""
+            },
+            "input": {
+              "epoch": 6,
+              "frames_run": 610,
+              "generation": 3,
+              "transitions": [
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 1,
+                  "last_polled_frame": null,
+                  "first_polled_frame": null,
+                  "superseded_unpolled": true
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 2,
+                  "last_polled_frame": 600,
+                  "first_polled_frame": 1,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": true,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 600,
+                  "generation": 3,
+                  "last_polled_frame": 610,
+                  "first_polled_frame": 601,
+                  "superseded_unpolled": false
+                }
+              ]
+            },
+            "frames_run": 610,
+            "rom_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+            "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+            "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+            "framebuffer_width": 320,
+            "framebuffer_height": 224,
+            "framebuffer_sha256": "80129eded708b134b0e9b9f94bfa7b15d6b5ade605974135b424c7fc7c345671",
+            "source_sha256": "d1ce72141aeb496b7e7075eccfa15d38c6afe3f7482931aac3be30c1feb2ff63",
+            "destination_sha256": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+            "source_equals_static_resource": false,
+            "captures": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2/copy-start10"
+          },
+          {
+            "step": {
+              "name": "neutral240",
+              "frames": 240
+            },
+            "ack": {
+              "ok": true,
+              "epoch": 6,
+              "applied_at_frame": 610,
+              "generation": 4,
+              "message": ""
+            },
+            "input": {
+              "epoch": 6,
+              "frames_run": 850,
+              "generation": 4,
+              "transitions": [
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 1,
+                  "last_polled_frame": null,
+                  "first_polled_frame": null,
+                  "superseded_unpolled": true
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 2,
+                  "last_polled_frame": 600,
+                  "first_polled_frame": 1,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": true,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 600,
+                  "generation": 3,
+                  "last_polled_frame": 610,
+                  "first_polled_frame": 601,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 610,
+                  "generation": 4,
+                  "last_polled_frame": 850,
+                  "first_polled_frame": 611,
+                  "superseded_unpolled": false
+                }
+              ]
+            },
+            "frames_run": 850,
+            "rom_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+            "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+            "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+            "framebuffer_width": 320,
+            "framebuffer_height": 224,
+            "framebuffer_sha256": "ede557687aaa46a57e140cfd9110bfb2de62172540b7d54fce13dc709d480b71",
+            "source_sha256": "d1ce72141aeb496b7e7075eccfa15d38c6afe3f7482931aac3be30c1feb2ff63",
+            "destination_sha256": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+            "source_equals_static_resource": false,
+            "captures": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2/copy-neutral240"
+          },
+          {
+            "step": {
+              "name": "right1200",
+              "frames": 1200,
+              "key": "right"
+            },
+            "ack": {
+              "ok": true,
+              "epoch": 6,
+              "applied_at_frame": 850,
+              "generation": 5,
+              "message": ""
+            },
+            "input": {
+              "epoch": 6,
+              "frames_run": 2050,
+              "generation": 5,
+              "transitions": [
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 1,
+                  "last_polled_frame": null,
+                  "first_polled_frame": null,
+                  "superseded_unpolled": true
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 2,
+                  "last_polled_frame": 600,
+                  "first_polled_frame": 1,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": true,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 600,
+                  "generation": 3,
+                  "last_polled_frame": 610,
+                  "first_polled_frame": 601,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 610,
+                  "generation": 4,
+                  "last_polled_frame": 850,
+                  "first_polled_frame": 611,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": true,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 850,
+                  "generation": 5,
+                  "last_polled_frame": 2050,
+                  "first_polled_frame": 851,
+                  "superseded_unpolled": false
+                }
+              ]
+            },
+            "frames_run": 2050,
+            "rom_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+            "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+            "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+            "framebuffer_width": 320,
+            "framebuffer_height": 224,
+            "framebuffer_sha256": "35b29c1d0c47ebca72ecf7007e22d1a71637610372cf1af1cc55da6952aa3f56",
+            "source_sha256": "d1ce72141aeb496b7e7075eccfa15d38c6afe3f7482931aac3be30c1feb2ff63",
+            "destination_sha256": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+            "source_equals_static_resource": false,
+            "captures": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2/copy-right1200"
+          },
+          {
+            "step": {
+              "name": "neutral60",
+              "frames": 60
+            },
+            "ack": {
+              "ok": true,
+              "epoch": 6,
+              "applied_at_frame": 2050,
+              "generation": 6,
+              "message": ""
+            },
+            "input": {
+              "epoch": 6,
+              "frames_run": 2110,
+              "generation": 6,
+              "transitions": [
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 1,
+                  "last_polled_frame": null,
+                  "first_polled_frame": null,
+                  "superseded_unpolled": true
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 0,
+                  "generation": 2,
+                  "last_polled_frame": 600,
+                  "first_polled_frame": 1,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": true,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 600,
+                  "generation": 3,
+                  "last_polled_frame": 610,
+                  "first_polled_frame": 601,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 610,
+                  "generation": 4,
+                  "last_polled_frame": 850,
+                  "first_polled_frame": 611,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": true,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 850,
+                  "generation": 5,
+                  "last_polled_frame": 2050,
+                  "first_polled_frame": 851,
+                  "superseded_unpolled": false
+                },
+                {
+                  "joypad": {
+                    "left": false,
+                    "l": false,
+                    "start": false,
+                    "select": false,
+                    "y": false,
+                    "x": false,
+                    "b": false,
+                    "right": false,
+                    "r": false,
+                    "up": false,
+                    "a": false,
+                    "down": false
+                  },
+                  "applied_at_frame": 2050,
+                  "generation": 6,
+                  "last_polled_frame": 2110,
+                  "first_polled_frame": 2051,
+                  "superseded_unpolled": false
+                }
+              ]
+            },
+            "frames_run": 2110,
+            "rom_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+            "core_path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+            "core_sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+            "framebuffer_width": 320,
+            "framebuffer_height": 224,
+            "framebuffer_sha256": "29cd59f00ff89dbcd189e48129da7be2402f7294708cd5f51a7ec6737923b571",
+            "source_sha256": "d1ce72141aeb496b7e7075eccfa15d38c6afe3f7482931aac3be30c1feb2ff63",
+            "destination_sha256": "f553a218e896335ee3b261e24bb4d0e85a12c5451847e6f7406a92ef89594641",
+            "source_equals_static_resource": false,
+            "captures": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2/copy-neutral60"
+          }
+        ],
+        "input_protocol": "backend emulator_send_input with ACK + emulator_input_observation; paused UI loop; exact manual frame batches",
+        "trace": {
+          "rom_path": "/home/misael/rds-scratch/rex-copy-grid-corpus-products-001/published-copy.bin",
+          "save": {
+            "status": "observed",
+            "observed_size_bytes": 65536,
+            "address_end": null,
+            "note": "Libretro expos SRAM com 65536 bytes no core 'Genesis Plus GX v1.7.4 46a5521'; trate como evidencia runtime experimental ate validar persistencia em disco.",
+            "missing": false,
+            "address_start": null,
+            "declared": false,
+            "observed": true,
+            "size_bytes": null
+          },
+          "note": "Core 'Genesis Plus GX v1.7.4 46a5521' nao expoe PC por API Libretro padrao; a coleta real de ExecutionTraceLog continua dependente de adapter especifico por runtime e permanece experimental nesta wave.",
+          "available": false,
+          "core_label": "Genesis Plus GX v1.7.4 46a5521",
+          "trace": {
+            "executed_pcs": [],
+            "cpu_states": {}
+          }
+        }
+      }
+    ],
+    "limit": "Frame-end samples cannot establish exact routine/caller arguments. Static resource, live selection and downstream VDP consumer are not causally linked by this episode. Commercial part is not complete."
+  }
+}

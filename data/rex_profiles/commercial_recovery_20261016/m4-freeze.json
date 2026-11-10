@@ -1,0 +1,101 @@
+{
+  "schema": "rex-m4-semantic-domain-freeze/v1",
+  "generated_at": "2026-10-18T02:10:44.792925+00:00",
+  "inputs": {
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/run-edited-commercial.py": "5a25d6e9dc67bc8ccc5bee38cc3188e370deacac2b1892b915d26c3ddc444fe6",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/verify-copy-state.py": "e70ec73364fa9d910b38170f8f1817a6806a318a756db005044f5dc6bc48c821",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/observe-v3.lua": "3bd84c378b13dc0dec67f9cf9426a003b31548d406728bda7d05cb801ab81e40",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/run-commercial.py": "5f5c4881aed0b74fe2cc5ff1dfce8a3521b9f792ad3c492a3cb84458d53e023b",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/run-observer.py": "814d5f8cc598b305292a3b533f591dbc706cea97742e1d89459d1cc6e704803c",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs": "a8af27a316582620735e10b24816cd7bef2eec16af782500dc7a6dd13c418ff4",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs": "fd2eb873c3bc3c155c1f589d8a9a3e8ddad26a1b8b0af57a678fe027b890a540",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_profile_ipc.rs": "22c565041377eaa0ae6d8ac547f6a4907d10770fba1094f9ff7b76a4843a8e07",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src/components/nodegraph/NodeGraphEditor.tsx": "c3361945bcbbefbb3b554ee0f3ee8ec40867afe93a8b37cbc1e9819a0d0c42b6",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src/core/nodegraph/nodeCatalog.ts": "f3942233e933614978ea27f7db46a5099d7bcbcf179589e7c6db4dc5f0368e13",
+    "/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-18T02-06-20-092Z-copias/reaberto/Sonic_the_Hedgehog__USA__Europe_.copy-grid-1b6e8-cb471c95.bin": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+    "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/qualify-v3-001/summary.json": "d870dc71bd0016ca25455cde1f1eacbcecea2384c937998bba56ab5c78d59bb0",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/qualify-v3-001/screen-qualification.json": "3f1caa128d14c90dccf550f0ee78a04630cfaa16b064cdf5b826d12c8c96a882",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/qualify-v3-001/dma-summary.json": "3d99fc20e2d590176d1558746aa588d1b015faeafd4be29885cea9f9a27886c7"
+  },
+  "original_rom_path": "/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin",
+  "original_rom_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+  "copy_path": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/target-test/validation/copy-grid-2026-10-18T02-06-20-092Z-copias/reaberto/Sonic_the_Hedgehog__USA__Europe_.copy-grid-1b6e8-cb471c95.bin",
+  "copy_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+  "original_trace": "/home/misael/rds-scratch/commercial_recovery_20261016/commercial-v3-001/events.jsonl",
+  "original_trace_sha256": "7a6ee7353e06804dee2b6199e93f466d3a5b58a5dadd0d4f6e03be0d46d62bc2",
+  "observer_sha256": "3bd84c378b13dc0dec67f9cf9426a003b31548d406728bda7d05cb801ab81e40",
+  "source8192_sha256": "06e94b74b4a5deeb5df0d357587294d8610c0c76a8ce9d8db5b60d77f02d5aa6",
+  "qualifications": {
+    "basic": "/home/misael/rds-scratch/commercial_recovery_20261016/qualify-v3-001/summary.json",
+    "screen": "/home/misael/rds-scratch/commercial_recovery_20261016/qualify-v3-001/screen-qualification.json",
+    "dma": "/home/misael/rds-scratch/commercial_recovery_20261016/qualify-v3-001/dma-summary.json"
+  },
+  "region": {
+    "entry": 112360,
+    "exit": 112390,
+    "bytes": 30
+  },
+  "semantic_ir": "Existing typed CopyGrid (no saved provenance bytes): absolute LEAs, MOVEQ initialization, MOVE.B/W postincrement, nested DBRA low16 condition !=FFFF, row LEA gap, declared fallthrough. encode derives instructions from fields and fixed supported control flow.",
+  "condition": "inner DBRA decrements low16, branches to transfer unless FFFF; outer DBRA branches to column reset unless FFFF. No CCR dependency.",
+  "edit": "Existing graph bytes_per_cell1\u21922 changes MOVE opcode, not immediate; changes read width, pointer increments, stride/span and final N/Z based on last transfer.",
+  "production_changes_planned": 0,
+  "comparison_domain": {
+    "rows": 64,
+    "columns": 64,
+    "widths": [
+      1,
+      2
+    ],
+    "source_cpu24": 16728064,
+    "destination_cpu24": 16715808,
+    "gap": 64,
+    "known_initial_destination": "zero12224bytes",
+    "source_bytes": 8192,
+    "observed_registers": [
+      "A0",
+      "A1",
+      "D0",
+      "D1",
+      "D2",
+      "A7",
+      "SR",
+      "stack_top_long"
+    ],
+    "not_observed_registers": [
+      "D3",
+      "D4",
+      "D5",
+      "D6",
+      "D7",
+      "A2",
+      "A3",
+      "A4",
+      "A5",
+      "A6"
+    ],
+    "CCR": "MOVE N/Z from last transferred byte/word, V/C cleared, X unchanged; DBRA/LEA do not alter CCR",
+    "external_effects": "No explicit call in30byte region; IRQ internals, stack interior, timing and other memory not compared. Native MAME copy snapshot8128bytes; write/read taps cover full expanded span; native GX12224byte proof M3 separately."
+  },
+  "qualifier_reuse": "Same observer unchanged and qualified for16bit taps/DMA; installed range FF1020..FF5FFF already covers word source/destination. No new instrument branch/core.",
+  "expectations_origin": "Original trace already inspected; regression/post-observation state comparison, not blind. Expected edited memory and descriptor pixels frozen before first edit in M3; new edited MAME trace not yet executed.",
+  "semantic_reconstruction_test": {
+    "command": "rtk proxy env CARGO_TARGET_DIR=/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/cargo-target CARGO_BUILD_JOBS=1 RDS_COPY_GRID_BYOR=/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin RDS_COPY_GRID_PRIVATE_OUTPUT=/home/misael/rds-scratch/commercial_recovery_20261016/m4-semantic-rebuild-001 cargo test --manifest-path src-tauri/Cargo.toml copy_grid_ -- --include-ignored --nocapture",
+    "expected_tests": 5,
+    "expected_failures": 0,
+    "expected_ignored": 0,
+    "reconstructed_original_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+    "reconstructed_modified_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+    "no_op_lowering_source": "CopyGrid.encode from recovered fields; original-rebuilt has full original SHA, modified-rebuilt equals canonical UI copy. Decoder tests mutate operator/branches/alias/map; malformed input must never publish."
+  },
+  "edited_observation_command": "rtk proxy python3 scripts/rex_profiles/commercial_recovery_20261016/run-edited-commercial.py commercial-m4-width2-001",
+  "state_comparison_command": "rtk proxy python3 scripts/rex_profiles/commercial_recovery_20261016/verify-copy-state.py /home/misael/rds-scratch/commercial_recovery_20261016/commercial-m4-width2-001/events.jsonl /home/misael/rds-scratch/commercial_recovery_20261016/m4-copy-state-001.json",
+  "budget": {
+    "runtime_seconds": 240,
+    "events": 250000,
+    "private_bytes_max": 268435456,
+    "heavy_jobs": 1
+  },
+  "status": "FROZEN_NOT_MEASURED"
+}

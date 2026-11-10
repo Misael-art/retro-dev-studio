@@ -1,0 +1,10 @@
+{
+  "schema": "rex-m5-resource-protocol-failure/v1",
+  "generated_at": "2026-10-18T08:49:18.268803+00:00",
+  "private_result": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-gx-reference-001/result.json",
+  "private_result_sha256": "2100dfed89e33259f662b23825b421552e7661acfb900fef89e38e41cbdc916d",
+  "accepted": false,
+  "cause": "Orchestration launched original-only6frameGX survey after separate preflight exit75 (persistent swap growth). No concurrent mission heavy job; run completed0.092s, but resource precondition was not met.",
+  "decision": "Preserve first run and reject protocol acceptance. Repeat unchanged original-only protocol with fresh directory only when preflight returns0; dependent tools must be guarded on exit code.",
+  "strider": "Preflight exited75 before launching, no run directory/observations; deferred, not functional failure"
+}

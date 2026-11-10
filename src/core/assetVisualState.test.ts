@@ -15,6 +15,11 @@ describe("assetVisualState", () => {
     });
   });
 
+  it("recognizes an explicitly erased map as authored content", () => {
+    expect(hasCanonicalTilemapCells({ map_width: 2, map_height: 2, cells: Array(4).fill(0xffffffff) })).toBe(true);
+    expect(hasCanonicalTilemapCells({ map_width: 2, map_height: 2, cells: [0, 0, 0, 0] })).toBe(false);
+  });
+
   it("returns loaded when preview was resolved successfully", () => {
     expect(
       resolveProjectAssetVisualState({

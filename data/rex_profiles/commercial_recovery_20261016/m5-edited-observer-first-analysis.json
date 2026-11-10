@@ -1,0 +1,19 @@
+{
+  "id": "m5-profile-golden-axe-edited-001",
+  "exit_code": 0,
+  "pid": 2142907,
+  "owned_process_alive": false,
+  "elapsed_seconds": 5.911707434999698,
+  "manifest_sha256": "60c36b714ef79448c331c5920a5682765acdefc8b93b92161ac4cad037d059a4",
+  "log_sha256": "bf1e38c9b309b1959bb771122d6f7afab5b7fac3d19ac70736cf016643678ae3",
+  "events_sha256": "baffd7a95ccf66b3a53120d27fc57e4bf9d3e6bfadcc860b533a4b6197f69c9f",
+  "events_bytes": 118890,
+  "status": "FAIL",
+  "case_freeze_sha256": "4b7be0ad0218e938b8a951e6c31fe7a541fc3dc1e9069410d53eac9b015f2894",
+  "target": "golden-axe-edited",
+  "production_changes_since_generic_freeze": 0,
+  "entries": 1,
+  "error": "ambiguous code/data read",
+  "private_result_sha256": "173ff1ec553062289acfac4bd28d1e42105eba7c2b763a329be680f85a4bf1b2",
+  "superseded_analysis": "m5-edited-state-qualified.json uses earlier frozen v2 verifier, preserving this v4 filter failure"
+}

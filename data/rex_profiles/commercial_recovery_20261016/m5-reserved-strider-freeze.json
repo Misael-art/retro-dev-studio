@@ -1,0 +1,69 @@
+{
+  "schema": "rex-m5-transfer-case-freeze/v1",
+  "generated_at": "2026-10-18T08:48:01.150445+00:00",
+  "inputs": {
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_copy_grid.rs": "e2d351ee960470bcfbd341441c685264d9c620905605757bb5061bfa692b2acc",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src-tauri/src/tools/reverse/decomp/rex_profile_semantic.rs": "a22bb7fd57dbe4d5e365c99402460ea019fe51660dba5323060262da92fc2d92",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src/components/nodegraph/ProfileGraphBridgePanel.tsx": "2df3baec28d63e2f0ed15043c4fc728a156032fb2b0e008461c28ecc31313ec3",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/src/core/nodegraph/profileGraphBridge.ts": "2e66b028426bd94ff5fbe0ce44fbc468f088e35461660dfa92537ad091267840",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/data/rex_profiles/specs/m68k.copy_grid.v1.json": "36a5273f1ce8e61986f80235ba401f3792aa866b3191404333f3a4b435154a4b",
+    "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/strider/original.bin": "99bbe15a80cc7a47d9a666ec5e9aa6ce51290007090f58dc1371490604a3ec5d",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/observe-v4.lua": "dd9298cb3ee60a24c1e64cade175fb43cc4b86576e035c56c2f96b6fc80f6c01",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/run-profile-observer.py": "6da5374e9ddd6479292d706a843d70b53d6067e6eacbe2724582cbff368a1880",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/run-transfer-case.py": "7551e91aba398e09a1b14a9e191212dfcf3ae16e934e4b0270b0ae02edc5cdf3",
+    "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/verify-linear-state-v4.py": "b6835d20dfb446698c4ca7d7a417c84ba8f1a02171da0c22498bd382731c80f2",
+    "/usr/lib/mame/mame": "fcb54790e1837ed653020dc25a4e51d9ba7288d789cf556299d5d4d2cf2f3bc1"
+  },
+  "target": {
+    "archive": "/home/misael/emulation/roms/genesis/Strider (USA, Europe) (Translated PtBr).zip",
+    "archive_sha256": "a24242ee1128e21773b466e98716aad43ba7c52803224d470fec4708965e99e9",
+    "member": "Strider (USA, Europe).gen",
+    "rom_bytes": 1048576,
+    "rom_sha256": "99bbe15a80cc7a47d9a666ec5e9aa6ce51290007090f58dc1371490604a3ec5d",
+    "status": "IDENTITY_ONLY_DO_NOT_SURVEY_UNTIL_GENERIC_ADAPTATION_FROZEN",
+    "id": "strider",
+    "shape": {
+      "entry": 99230,
+      "transfer": 99242,
+      "exit": 99248,
+      "length": 18,
+      "source_register": 1,
+      "destination_register": 2,
+      "counter_register": 6,
+      "count": 16,
+      "counter_initialization": "move_word_immediate",
+      "width": 2,
+      "source_bus24": 99256,
+      "destination_bus24": 16770864,
+      "source_initial_register32": 99256,
+      "destination_initial_register32": 4294960944,
+      "source_addressing": "pc_relative_word",
+      "destination_addressing": "absolute_word",
+      "initialization_order": [
+        "source",
+        "destination",
+        "count"
+      ],
+      "source_space": "linear_rom",
+      "allowed_widths_in_memory_domain": [
+        1,
+        2,
+        4
+      ],
+      "base_in_domain": true,
+      "distinct_implementation": "single DBRA, no outer loop/row gap, statically initialized pointers/count; not primary nested byte-copy implementation",
+      "region_sha256": "763a1b9eaedcec9be685ade47e4bc116386063134e05fa75cd17e032118e9c7c",
+      "production_recognition": "NOT_MEASURED",
+      "real_invocation": "NOT_OBSERVED"
+    },
+    "rom_path": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-inputs/strider/original.bin",
+    "classification": "Reserved payload, first interpreted after generic production freeze; selected region now inspected",
+    "maximum_source_sha256": "0cfbde668e1a806bf35be7ff39ae087cfe4eae9eecab88610611b21dac94ac3d"
+  },
+  "verifier": "/home/misael/Projects/REX-COMMERCIAL-RECOVERY-2026-10-16/scripts/rex_profiles/commercial_recovery_20261016/verify-linear-state-v4.py",
+  "observer_alias": "/home/misael/rds-scratch/commercial_recovery_20261016/m5-observer-input-qualify-m5-profile-001",
+  "frames": 1200,
+  "expectations": "Frozen generic conditional byte-copy/full-register/CCR model; source WRAM is measured input, ROM immutable. No game-purpose/visual/audio claim.",
+  "budget": "90seconds250000events first16complete regions",
+  "production_changes_since_generic_freeze": 0
+}

@@ -29,6 +29,16 @@ RetroDevStudio/
 |-- eslint.config.mjs
 |-- package.json
 |-- vite.config.ts
+|-- crates/
+|   |-- registry.json      (registro canonico de pacotes; unico fonte de verdade do gate)
+|   |-- README.md
+|   `-- <nome>/            (uma biblioteca Rust standalone por diretorio)
+|       |-- Cargo.toml
+|       |-- Cargo.lock
+|       |-- src/
+|       |-- examples/
+|       `-- tests/
+|
 |-- data/
 |   |-- Blackheart_grande.gif
 |   |-- Earthquake_large.png
@@ -53,6 +63,7 @@ RetroDevStudio/
 |   |-- 09_AGENT_DEV_MODE.md
 |   |-- 10_QA_ROTEIRO_RC.md
 |   |-- 13_PLANO_EXECUCAO_PARALELA.md
+|   |-- 14_REX_ARQUITETURA_UNIVERSAL.md  (direcao/arquitetura REX: motor x perfil x evidencia; Experimental)
 |   |-- AVALIACAO_DESENVOLVIMENTO_2026_09_06.md
 |   |-- PROMPT_AGENTE_INTEGRADOR.md
 |   |-- PROMPT_AGENTE_A.md
@@ -66,23 +77,37 @@ RetroDevStudio/
 |   |-- main.tsx
 |   |-- components/
 |   |   |-- common/
+|   |   |   |-- Icon.tsx               (vetores compartilhados, incluindo pictogramas de criacao)
 |   |   |   |-- LayoutSplitter.tsx
+|   |   |   |-- StudioAppearancePicker.tsx (seletor sobre os tokens existentes)
 |   |   |   `-- UnifiedTopBar.tsx
 |   |   |-- explorer/
 |   |   |   `-- ExplorerWorkspace.tsx
 |   |   |-- hierarchy/
 |   |   |-- inspector/
 |   |   |-- tools/
+|   |   |   `-- RomDropDecompile.tsx (soltar ROM MD => projeto SGDK REX e abrir diretório; Experimental)
 |   |   |-- artstudio/
 |   |   |   |-- ArtStudioPanel.tsx
+|   |   |   |-- ImageIngress.tsx (entrada única de imagens/GIF por colar, soltar e seletor; fluxo Experimental MD)
+|   |   |   |-- PixelEditor.tsx (editor indexado MD: desenho, contexto, histórico/salvar, CRAM, frames/layers)
+|   |   |   |-- PixelImagePanel.tsx (controles por tarefa/prévias de imagem, filtros, composição e diagnóstico de tiles)
 |   |   |   `-- useSpriteAnimator.ts
 |   |   `-- viewport/
 |   |-- core/
+|   |   |-- pixelEditor.ts (modelo indexado: ferramentas, limites VDP/tiles, guardas PNG 4-bit, .rdspixel.json)
+|   |   |-- pixelImageOps.ts (operações puras no mesmo PixelDoc: escopo, filtros, geometria, composição e layers; regressões .test.ts)
+|   |   |-- imageIngress.ts (transporte, publicação pelo writer de pixels e propostas pelo plano canônico de paletas)
 |   |   |-- ipc/
 |   |   |-- nodegraph/
 |   |   |   |-- nodeTypes.ts
 |   |   |   |-- nodeDefinitions.ts
 |   |   |   |-- nodeEngine.ts
+|   |   |   |-- nodeCatalog.ts (registro unico: categoria, nome, icone, descricao, botao x tecla)
+|   |   |   |-- nodeLayout.ts (Organizar visualmente: so posicoes; assinatura semantica)
+|   |   |   |-- graphHistory.ts (desfazer/refazer do grafo e ponte com Ctrl+Z/Ctrl+Y)
+|   |   |   |-- behaviorLibrary.ts (comportamentos parametrizados: planejar/aplicar/editar/remover/duplicar)
+|   |   |   |-- ruleSummary.ts / passageAuthoring.ts / buildProvenance.ts
 |   |   |   `-- nodeCompiler.ts (legado/experimental; guard de isolamento em teste)
 |   |   `-- store/
 |   |-- test/
@@ -112,6 +137,7 @@ RetroDevStudio/
 |       |   `-- snes_emitter.rs
 |       |-- core/
 |       |   |-- project_asset_scope.rs
+|       |   |-- scene_save.rs (intenção durável e recuperação de cena/grafos)
 |       |   `-- project_mgr.rs
 |       |-- emulator/
 |       |   |-- frame_buffer.rs
@@ -125,6 +151,7 @@ RetroDevStudio/
 |       |   |-- dependency_manager.rs
 |       |   |-- patch_studio.rs
 |       |   |-- photo2sgdk.rs
+|       |   |-- photo2sgdk_ingress.rs (adaptador de entrada: originais por SHA, animações completas, limites e HTTPS; reutiliza Photo2SGDK)
 |       |   |-- reverse_explorer.rs
 |       |   `-- reverse/
 |       |       |-- annotations.rs
@@ -156,6 +183,9 @@ RetroDevStudio/
 |   |-- create-icon.mjs
 |   |-- diagnose-desktop-e2e.ps1
 |   |-- e2e-tauri-build-run.mjs
+|   |-- image-clipboard-fixture.py (produtor Linux de clipboard/arraste para QA nativo; não integra o runtime do aplicativo)
+|   |-- verify-mugen-real.py
+|   |-- verify-mugen-chain.py
 |   |-- license-inventory.mjs
 |   |-- release-rehearsal-linux.mjs
 |   |-- release-readiness.mjs
@@ -188,6 +218,10 @@ RetroDevStudio/
 - O reverse core canonico de ROMs deve viver em `src-tauri/src/tools/reverse/`; wrappers legados como `asset_extractor.rs` e `reverse_explorer.rs` continuam como superfícies de compatibilidade.
 - IPC de frontend fica em `src/core/ipc/`.
 - Fixtures backend ficam em `src-tauri/tests/fixtures/`.
+- `crates/<nome>/` e a localizacao oficial de bibliotecas Rust independentes (standalone), cada uma com seu `Cargo.toml` e seus proprios gates. Nao existe `Cargo.toml` de workspace na raiz e nao se cria um apenas para fazer esses pacotes compilarem; o build do aplicativo permanece em `src-tauri/`.
+- Todo pacote em `crates/` deve estar declarado em `crates/registry.json` antes de existir. O gate `npm run check:tree` exige o registro (`crates/` sem `registry.json` reprova), rejeita diretorio nao declarado, rejeita pacote declarado cujo `Cargo.toml` nao existe e so permite arquivos soltos em `crates/` nos nomes declarados (`registry.json`, `README.md`). Quando o pacote declara `manifesto`, o valor deve ser exatamente `crates/<nome>/Cargo.toml` em barras POSIX: a comparacao e literal e nao muda conforme o SO onde a gate roda. A finalidade do gate permanece a mesma: recusar o que nao esta declarado.
+- Binarios de build (`crates/<nome>/target/`), ROMs e corpus BYOR jamais entram em `crates/`; sao dados do usuario ou artefatos descartaveis, nao fonte do projeto.
+- Integrar uma biblioteca ao aplicativo e etapa posterior e separada: acrescenta-se a dependencia por path em `src-tauri/Cargo.toml`, implementa-se o adaptador e comprova-se uma chamada real pelo backend. Compilar e passar nos gates proprios NAO registra integracao ao produto.
 - Toolchains ativos vivem no cache nativo por lock digest; o cartao guarda somente artefatos verificaveis em `toolchains/.cache/artifacts/` e compatibilidade legada validada. Binarios nao devem ser versionados.
 - `toolchains/host-requirements.lock.json` e a excecao rastreada: contem apenas contrato, pins, fontes imutaveis e hashes; binarios continuam ignorados.
 - Artefatos oficiais cacheados por SHA-256 vivem em `toolchains/.cache/artifacts/` e nao devem ser versionados no Git.
@@ -203,15 +237,17 @@ RetroDevStudio/
 - `data/template_registry.json` e o catalogo canonico da galeria de templates do wizard; seeds externos apontam para donor paths locais do usuario e nao devem embutir ROMs, VGMs de terceiros ou artefatos de build no repositorio.
 - ROMs, packs MUGEN/Ikemen, screenpacks e outros corpus locais de validacao devem permanecer fora da arvore versionada do repositorio. Quando necessarios para QA local, devem viver em diretorio externo BYOR e nunca ser tratados como fixture canonica do app.
 - `prefabs/` e `graphs/` sao diretorios de projeto gerados dentro de cada workspace `.rds` do usuario; nao vivem na raiz do repositorio e devem continuar sendo tratados como dados do projeto, nao como modulos do app.
+- `<projeto>/.rds/scene-drafts/` guarda os registros recuperáveis do mecanismo de `scenePersistence`, indexados por SHA-256 do caminho da cena e validados pela identidade interna de projeto/cena. Dados privados do projeto, fora das fontes/build e sem distribuição pública; o escritor atômico do `project_mgr` e a comparação condicional existentes são reutilizados. `localStorage` anterior é migrado com confirmação antes de remover sua cópia.
 - Projetos SGDK externos podem conter um subdiretorio `rds/` (overlay) com `project.rds`, `scenes/`, `graphs/`, `prefabs/` e junctions NTFS para `assets/` e `build/`. O backend faz discovery de `project.rds` em subdiretorios de primeiro nivel quando nao encontra na raiz. Ver `docs/05_ARCHITECTURE_UGDM.md` secao 10.
 - O caminho SNES real usa staging de asset no workspace e gera `hdr.asm`, `data.asm` e regras `gfx4snes`.
 - `scripts/build.mjs` e o script canonico de compilacao: gera MSI, EXE Debug e EXE Portable. Uso: `node scripts/build.mjs <debug|msi|portable|all> [--open-dir]`. Scripts npm: `build:debug`, `build:debug:open`, `build:msi`, `build:msi:open`, `build:portable`, `build:portable:open`, `build:all`. O `build-test.bat` e um wrapper legado que chama `build.mjs debug`.
-- `scripts/release-readiness.mjs` e o agregador canonico de readiness para promocao RC -> beta/producao: consolida baseline, artefatos, dirty worktree, reports de build/upstream e checklist manual em `src-tauri/target-test/validation/release-readiness.{json,md}`. Scripts npm: `release:readiness`, `release:readiness:baseline`.
+- `scripts/release-readiness.mjs` e o agregador canonico de readiness para promocao RC -> beta/producao: consolida baseline, artefatos, dirty worktree, reports de build/upstream e evidências automatizada/humana separadas em `src-tauri/target-test/validation/release-readiness.{json,md}`. Scripts npm: `release:readiness`, `release:readiness:baseline`.
 - `scripts/release-manifest.mjs` e o gerador canonico do manifesto de distribuicao interna em `src-tauri/target-test/validation/release-manifest.json`, com SHA256/tamanho dos EXEs/MSI e limites explicitos de signing/updater/producao publica. Script npm: `release:manifest`.
 - `scripts/run-in-msvc.cmd` e o wrapper canonico para executar comandos Node/npm em ambiente MSVC preparado no Windows institucional; usar junto de `build.mjs` quando o host exigir `vcvars64.bat`.
 - `scripts/run-cargo-msvc.cmd` e o wrapper canonico para comandos `cargo` em ambiente MSVC preparado no Windows institucional.
 - `scripts/e2e-tauri-build-run.mjs` e o runner canonico de regressao desktop/Tauri para `Build -> Load ROM -> Run frames` e grava evidencia de sucesso por commit/cenario/target.
 - `scripts/host-manager.mjs` e a fonte canonica cross-platform para `host:diagnose`, `host:ensure` e `host:certify`; os bootstraps Bash/PowerShell permanecem entrypoints de nivel zero quando Node ainda nao existe.
+- `scripts/new-host.sh` / `scripts/new-host.ps1` sao launchers de retomada em host vazio; delegam instalacao aos bootstraps existentes. `scripts/new-host.mjs` coordena ambiente por processo, disco/jobs, recibos e comandos canonicos (sem novo instalador de SDK). `scripts/new-host.test.mjs` cobre falhas/isolamento. Onboarding em `docs/handoffs/NOVO_HOST_INICIO.md`; gerados vivem fora do checkout, nos caches nativos e na pasta de trabalho do operador, nunca em uma nova raiz versionada.
 - `scripts/license-inventory.mjs`, `scripts/security-contract.test.mjs` e `NOTICE` formam o inventario/politica de seguranca e redistribuicao; nenhum deles autoriza redistribuir cores/toolchains.
 - `scripts/architecture-metrics.mjs` registra a linha de base de acoplamento; `scripts/release-rehearsal-linux.mjs` agrega evidencia Linux sem autorizar release publico.
 - `scripts/validate-upstream-windows.ps1` e o script canonico de validacao upstream real com SGDK, PVSnesLib e cores Libretro oficiais.
@@ -229,3 +265,10 @@ RetroDevStudio/
 - `docs/13_PLANO_EXECUCAO_PARALELA.md` define tickets, ownership e comparação; não substitui a maturidade do roadmap.
 - `docs/AVALIACAO_DESENVOLVIMENTO_2026_09_06.md` preserva snapshot histórico; novas evidências/deltas vivem no Current Wave.
 - `docs/PROMPT_AGENTE_{INTEGRADOR,A,B,C}.md` são entradas de execução por papel. Apenas o integrador atualiza docs canônicos durante rodadas paralelas.
+
+## Programa de reconstrução e edição de ROMs (planejamento 2026-09-10)
+
+- O plano ampliado permanece no documento canônico `docs/12_DECOMPILACAO_PAREADA_PLANO.md`, seção Programa REX; não constitui implementação ou promoção de suporte.
+- `docs/PROMPT_AGENTE_RECONSTRUCAO_ROM.md` contém o handoff executável do Programa REX.
+- `docs/14_REX_ARQUITETURA_UNIVERSAL.md` registra a decisão do operador (2026-10-09) de que o REX caminha para recuperação de lógica **universal no futuro, sem casos customizados**: motor genérico + perfis em dado + escada de evidência, com fases, escopo, métrica de generalidade e protocolo para qualquer agente. É direção, não promessa nem implementação.
+- Relatórios gerados usam os diretórios de validação existentes ou diretório BYOR externo; nenhuma ROM ou asset comercial entra no Git.

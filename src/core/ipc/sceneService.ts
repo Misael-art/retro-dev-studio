@@ -11,10 +11,51 @@ export interface AnimationDef {
   frames: number[];
   fps: number;
   loop: boolean;
+  /** Ticks de 1/60 s por ocorrência na ROM Mega Drive; -1 = parado no perfil MUGEN. */
   frame_durations?: number[];
   loop_start?: number;
+  /** Presente so nas animacoes importadas de MUGEN; `duration` espelha `frame_durations`. */
+  mugen_frames?: MugenAnimationFrame[];
   onion_skin?: SpriteAnimationOnionSkin;
   hitboxes?: SpriteAnimationHitbox[];
+  /** Identidade estável por ocorrência (paralelo a `frames`); ausente em projetos antigos. */
+  occurrence_ids?: string[];
+  /** Eventos autorais ancorados em ocorrência + tick local. */
+  frame_events?: FrameEvent[];
+}
+
+export type FrameEventKind = "sound";
+
+export interface FrameEvent {
+  id: string;
+  occurrence: string;
+  /** Tick local na ocorrência (0 = primeiro tick visível), em 1/60 s. */
+  tick: number;
+  kind: FrameEventKind;
+  /** Ação de SFX do `AudioComponent` da entidade. */
+  sound?: string;
+  /** `authored`: criado no editor, não convertido do CNS. */
+  origin?: string;
+}
+
+export interface MugenAnimationFrame {
+  group: number;
+  image: number;
+  axis?: Pivot | null;
+  duration: number;
+  flags?: string[];
+  clsn1?: MugenCollisionBox[];
+  clsn2?: MugenCollisionBox[];
+  /** Caixas desta ocorrência editadas no Studio (autoral). */
+  clsn_edited?: boolean;
+}
+
+/** Caixa relativa ao eixo do personagem, em pixels (convenção MUGEN: y negativo = acima do pé). */
+export interface MugenCollisionBox {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
 }
 
 export interface SpriteAnimationOnionSkin {
@@ -135,14 +176,41 @@ export interface ImportedLogicSemantics {
   blocking_gaps?: string[];
 }
 
+/**
+ * Mirror de `ugdm::components::RecoveredRule` (Experimental).
+ *
+ * Bloque opaco para o backend: guardase e devolvese tal cal para que a
+ * entidade poida reabrirse sen volver á ROM. Quen o interpreta e revalida a
+ * identidade e a capa de interface (`core/nodegraph/rexGameplayScene.ts`).
+ */
+export interface RecoveredRule {
+  version: number;
+  profile_id: string;
+  rom_path: string;
+  rom_sha256: string;
+  entry: number;
+  exits: number[];
+  blocks: [number, number][];
+  operator: string;
+  threshold_recovered: number;
+  threshold_current: number;
+  threshold_min: number;
+  threshold_max: number;
+  /** `graph_json` do núcleo, verbatim: nós, arestas e mapeamentos con bytes. */
+  graph_json: string;
+  limitations: string[];
+}
+
 export interface LogicComponent {
   graph?: string;
   graph_ref?: string | null;
-  graph_origin?: "imported_ref" | "user_edited_ref" | null;
+  graph_origin?: "imported_ref" | "user_edited_ref" | "rom_recovered" | null;
   logic_hints?: string[];
   /** Caminhos no doador (ex. C) rastreados sem carregar AST no frontend. */
   external_source_refs?: string[];
   imported_semantics?: ImportedLogicSemantics | null;
+  /** Experimental: regra de gameplay recuperada e persistida na escena. */
+  recovered_rule?: RecoveredRule | null;
   variables?: Record<string, LogicVariable>;
 }
 
@@ -150,6 +218,58 @@ export interface CameraComponent {
   follow_entity?: string;
   offset_x?: number;
   offset_y?: number;
+  /** Absent = legacy behavior. Conversion is an explicit editor transaction. */
+  visual?: VisualCameraConfig | null;
+  patterns?: SavedCameraPattern[];
+}
+
+export type CameraPattern = "fixed" | "platformer" | "exploration" | "auto_horizontal" | "auto_vertical" | "rooms" | "beat_em_up" | "arena" | "sequence";
+export interface CameraArea { x: number; y: number; width: number; height: number }
+export interface CameraRoom { id: string; name: string; area: CameraArea; priority: number; smooth: boolean }
+export interface CameraWaypoint { x: number; y: number; frames: number; wait: number }
+export interface CameraParallax { entity_id: string; ratio_x: number; ratio_y: number }
+export interface CameraAdvancedConfig {
+  rooms: CameraRoom[];
+  targets: string[];
+  path: CameraWaypoint[];
+  return_to_target: boolean;
+  allow_backtracking: boolean;
+  activation: CameraArea | null;
+  priority: number;
+  smooth_transition: boolean;
+  parallax: CameraParallax[];
+}
+export interface SavedCameraPattern {
+  id: string;
+  name: string;
+  config: VisualCameraConfig;
+  offset_x: number;
+  offset_y: number;
+  x: number;
+  y: number;
+}
+export interface VisualCameraConfig {
+  version: 1;
+  active: boolean;
+  pattern: CameraPattern;
+  anchor_x: number;
+  anchor_y: number;
+  screen_x: number;
+  screen_y: number;
+  horizontal: boolean;
+  vertical: boolean;
+  /** Integer response divisor: 1 = immediate. Frame rate follows the project. */
+  response_x: number;
+  response_y: number;
+  dead_zone_x: number;
+  dead_zone_y: number;
+  look_ahead: number;
+  max_speed: number;
+  /** Signed pixels per second; runtime retains subpixel remainder. */
+  speed: number;
+  paused: boolean;
+  bounds: CameraArea;
+  advanced?: CameraAdvancedConfig;
 }
 
 export interface TilemapComponent {
@@ -161,6 +281,10 @@ export interface TilemapComponent {
   /** Malha pintada por célula. Row-major, tamanho `map_width * map_height`.
    *  0 = vazio; >0 = índice do tile no tileset. Omisso em projetos importados. */
   cells?: number[];
+  /** Plano do hardware (R5): "BG_A" frente, "BG_B" fundo; ausente = ordem automática. */
+  plane?: "BG_A" | "BG_B" | null;
+  /** Prioridade alta: o plano fica na frente de sprites de prioridade baixa. */
+  priority?: boolean;
 }
 
 export interface Components {
@@ -172,6 +296,36 @@ export interface Components {
   logic?: LogicComponent;
   camera?: CameraComponent;
   tilemap?: TilemapComponent;
+  hud?: HudTextComponent | null;
+  /** Trajeto autoral (Experimental, R5): retas entre pontos relativos ao início do objeto. */
+  path?: PathComponent | null;
+}
+
+/** Texto de interface autoral (Experimental): grade de texto do destino, tiles de 8 px. */
+export interface PathPoint {
+  x: number;
+  y: number;
+  /** Quadros para CHEGAR a este ponto (no ponto 0, só o retorno do modo loop). */
+  frames: number;
+  /** Pausa ao chegar, em quadros. */
+  wait: number;
+  /** Controle da curva quadrática do segmento que chega a este ponto; ausente = reta. */
+  curve?: { x: number; y: number } | null;
+}
+
+export interface PathComponent {
+  mode: "once" | "loop" | "pingpong";
+  points: PathPoint[];
+  /** true (padrão): anda desde o início; false: espera o nó «Iniciar trajeto». */
+  autostart?: boolean;
+}
+
+export interface HudTextComponent {
+  column: number;
+  row: number;
+  label: string;
+  value?: { kind: "strike_hp" | "logic_var"; source: string } | null;
+  digits?: number;
 }
 
 export interface Entity {
@@ -198,6 +352,14 @@ export interface BackgroundLayer {
 export interface PaletteEntry {
   slot: number;
   colors: string[];
+  /** Recurso do plano de paletas (sem id = paleta de referência do editor, formato anterior). */
+  id?: string;
+  name?: string;
+  /** Banco fixado (reserva/compartilhamento explícito). */
+  bank?: number;
+  /** Entidades que usam este recurso em vez da paleta do próprio arquivo. */
+  uses?: string[];
+  origin?: string;
 }
 
 export interface RetroFXParallaxLayer {
@@ -270,6 +432,8 @@ export interface SceneInfo {
   path: string;
   scene_id: string;
   display_name: string;
+  /** True for the project's entry scene (where "Testar projeto" starts). */
+  is_entry?: boolean;
 }
 
 export interface LegacySgdkIndex {
@@ -296,6 +460,7 @@ export interface ResolveSceneResult {
   ok: boolean;
   error: string;
   scene_json: string;
+  graphs?: Record<string, string>;
 }
 
 // ── IPC wrappers ──────────────────────────────────────────────────────────────
@@ -304,17 +469,32 @@ export function getSceneData(projectDir: string, scenePath?: string): Promise<Sc
   return invoke("get_scene_data", { projectDir, scenePath });
 }
 
+export function getReferenceTemplateComposition(projectDir: string, scenePath: string): Promise<Scene> {
+  return invoke("get_reference_template_composition", { projectDir, scenePath });
+}
+
+export function sceneDraftStorage(projectDir: string, scenePath: string, operation: "read" | "write" | "remove", value: string | null = null, expected: string | null = null): Promise<string | null> {
+  return invoke("scene_draft_storage", { projectDir, scenePath, operation, value, expected });
+}
+
 export function saveSceneData(
   projectDir: string,
   sceneJson: string,
   scenePath?: string,
-  resolvedSceneJson?: string
-): Promise<{ ok: boolean; message: string }> {
-  return invoke("save_scene_data", { projectDir, sceneJson, scenePath, resolvedSceneJson });
+  resolvedSceneJson?: string,
+  expectedSceneJson?: string,
+  expectedGraphs?: Record<string, string>
+): Promise<{ ok: boolean; message: string; scene_json?: string | null; conflict?: boolean; graphs?: Record<string, string> }> {
+  return invoke("save_scene_data", { projectDir, sceneJson, scenePath, resolvedSceneJson, expectedSceneJson, expectedGraphs });
 }
 
 export function listScenes(projectDir: string): Promise<SceneInfo[]> {
   return invoke("list_scenes", { projectDir });
+}
+
+/** Explicitly sets where the game starts. Opening a scene never changes it. */
+export function setProjectEntryScene(projectDir: string, scenePath: string): Promise<string> {
+  return invoke<string>("set_project_entry_scene", { projectDir, scenePath });
 }
 
 export function switchScene(projectDir: string, scenePath: string): Promise<SceneDataResult> {

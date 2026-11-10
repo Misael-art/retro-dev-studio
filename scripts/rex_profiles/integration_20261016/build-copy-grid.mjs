@@ -1,0 +1,24 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
+const out = resolve(process.argv[2] ?? "");
+if (!process.argv[2] || !out.startsWith("/home/misael/rds-scratch/")) throw Error("provide new external scratch output directory");
+await mkdir(out); // existing output is an explicit refusal
+const bin = "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/m68k-elf/bin";
+const source = resolve(root,"data/rex_profiles/integration_20261016/copy_grid.S");
+const linker = resolve(root,"data/rex_profiles/rea_lab_20261015/semantic_gate_reversed_cmp_holdout.ld");
+const run = (tool,args) => { const r=spawnSync(`${bin}/m68k-elf-${tool}`,args,{encoding:"utf8"}); if(r.status!==0) throw Error(r.stderr||String(r.error)); return r.stdout; };
+run("as",["-m68000","-o",`${out}/copy.o`,source]);
+run("ld",["-T",linker,"-e","0x200","-o",`${out}/copy.elf`,`${out}/copy.o`]);
+run("objcopy",["-O","binary","--only-section=.image",`${out}/copy.elf`,`${out}/copy.bin`]);
+const disassembly=run("objdump",["-D",`${out}/copy.elf`]);
+await writeFile(`${out}/copy.objdump.txt`,disassembly);
+const bytes=await readFile(`${out}/copy.bin`);
+if(bytes.length!==1536 || bytes.readUInt16BE(0x410)!==0x14DB || bytes.readUInt16BE(0x41E)!==0x4E75) throw Error("fixture diverged");
+const sha=b=>createHash("sha256").update(b).digest("hex");
+const manifest={schema:"rex-copy-grid-fixture/v1",rom:`${out}/copy.bin`,rom_sha256:sha(bytes),source_sha256:sha(await readFile(source)),linker_sha256:sha(await readFile(linker)),bytes:bytes.length,entry:0x400,exit:0x41E,initial_state:"WRAM zeroed; 8192 bytes at FF4000 seeded (i*37+11)%256; SR=2700 SP=FFFF00; others overwritten/unused",sentinel:{address:0xFF3FE0,value:0x434F5059}};
+await writeFile(`${out}/manifest.json`,JSON.stringify(manifest,null,2)+"\n");
+console.log(JSON.stringify(manifest));

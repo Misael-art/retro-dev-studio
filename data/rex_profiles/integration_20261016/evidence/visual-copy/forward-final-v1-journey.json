@@ -1,0 +1,87 @@
+{
+  "schema": "rex-semantic-journey/v1",
+  "rom": "/home/misael/rds-scratch/rex-visual-copy-001/build2/project/out/rom.bin",
+  "rom_sha256": "fbc72b252ec31eb221362c305cd4c2c631fbce15394b729109a699f3c1d10435",
+  "profile_id": "m68k.copy_grid.v1",
+  "declared_region": {
+    "entry": 8708,
+    "exits": [
+      8738
+    ]
+  },
+  "expect_scan_candidate": false,
+  "expect_opaque": 0,
+  "expect_nodes": [
+    "entry",
+    "copy_grid",
+    "exit"
+  ],
+  "absent_nodes": [
+    "compare",
+    "guard",
+    "set_call"
+  ],
+  "expect_curated_other_target": false,
+  "edit": {
+    "bytes_per_cell": 2
+  },
+  "core": {
+    "path": "/home/misael/.cache/retrodevstudio/dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377/toolchains/libretro/cores/genesis_plus_gx_libretro.so",
+    "sha256": "07c104765dcfe1f588d637c0fda1ab3987f86b94835d43b6506b0236948310b1",
+    "selection": "existing application managed default Genesis Plus GX; no BlastEm substitution"
+  },
+  "probe": {
+    "layout": "copy_grid_wram",
+    "done_addr": 16712232,
+    "done_magic": 1447646037,
+    "initial_state": "SGDK boot plus explicitly initialized authored Scope; no recovered game caller",
+    "reference": {
+      "source": 16711768,
+      "destination": 16711848,
+      "rows": 4,
+      "columns": 8,
+      "gap": 16,
+      "width": 1
+    }
+  },
+  "visual": {
+    "oracle_dir": "/home/misael/rds-scratch/rex-visual-copy-001/oracle",
+    "scope_address": 16711752,
+    "scope_length": 484,
+    "minimum_fresh_frames": 60,
+    "rom_resource_offset": 96648,
+    "byor": {
+      "original": "/home/misael/emulation/roms/genesis/Sonic the Hedgehog (USA, Europe).bin",
+      "original_sha256": "c7da53a10c317f882f5bba93af31c3972fc1ded18d8507d4f3d5a06190c81ebb",
+      "copy": "/home/misael/rds-scratch/rex-copy-grid-corpus-products-001/published-copy.bin",
+      "copy_sha256": "cb471c95cd72fd3f82c725b70d2654fadd2b9672ced80fee772528a0cc1ad97a",
+      "decoded_resource": "/home/misael/rds-scratch/rea_lab_20261015/runs/visual-copy-static-001/resource.bin",
+      "output": "/home/misael/rds-scratch/rex-visual-copy-001/byor-episode2",
+      "steps": [
+        {
+          "name": "neutral600",
+          "frames": 600
+        },
+        {
+          "name": "start10",
+          "frames": 10,
+          "key": "start"
+        },
+        {
+          "name": "neutral240",
+          "frames": 240
+        },
+        {
+          "name": "right1200",
+          "frames": 1200,
+          "key": "right"
+        },
+        {
+          "name": "neutral60",
+          "frames": 60
+        }
+      ]
+    },
+    "oracle_manifest_sha256": "f8ee6d192e0489ca24e913b9cb65ca38c26e721a911448a0d90f4a287bc359a0"
+  }
+}
