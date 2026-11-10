@@ -1208,7 +1208,12 @@ where
         }
     };
 
-    let mut source_map = build_source_map(&scene_for_build, target.target, &artifacts.main_c);
+    let mut source_map = build_source_map(
+        &project.name,
+        &scene_for_build,
+        target.target,
+        &artifacts.main_c,
+    );
     let workspace =
         match prepare_workspace(project_dir, project, target, &ast, &artifacts, &source_map) {
             Ok(workspace) => workspace,

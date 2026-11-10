@@ -1833,20 +1833,27 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
         match op {
             LogicOp::SourceMapped {
                 graph_sha256,
+                instance_id,
                 node_id,
                 semantic_stage,
                 op,
             } => {
                 out.push_str(&format!(
                     "{indent}{}\n",
-                    begin_marker(graph_sha256, node_id, semantic_stage),
+                    begin_marker(graph_sha256, instance_id, node_id, semantic_stage),
                     indent = indent_str
                 ));
                 render_logic_ops(out, std::slice::from_ref(op.as_ref()), indent);
                 out.push_str(&format!(
                     "{indent}{}\n",
-                    end_marker(graph_sha256, node_id),
+                    end_marker(graph_sha256, instance_id, node_id),
                     indent = indent_str
+                ));
+            }
+            LogicOp::RawC { code } => {
+                out.push_str(&crate::compiler::code_binding::indent_code_block(
+                    code,
+                    &indent_str,
                 ));
             }
             LogicOp::MoveSprite {
@@ -2346,6 +2353,7 @@ fn collect_logic_velocity_targets_from_ops(
             | LogicOp::RomBranchCompareWord { .. }
             | LogicOp::PlaySound { .. }
             | LogicOp::PlayMusic { .. }
+            | LogicOp::RawC { .. }
             | LogicOp::SourceBridgeError { .. } => {}
         }
     }
@@ -3531,6 +3539,7 @@ mod tests {
         };
         let mapped = LogicOp::SourceMapped {
             graph_sha256: "g".to_string(),
+            instance_id: "e".to_string(),
             node_id: "n".to_string(),
             semantic_stage: "s".to_string(),
             op: Box::new(overlap.clone()),
@@ -4492,6 +4501,7 @@ mod tests {
             logic_scripts: vec![LogicScript {
                 ops: vec![LogicOp::SourceMapped {
                     graph_sha256: "fixture-graph".to_string(),
+                    instance_id: "player".to_string(),
                     node_id: "velocity".to_string(),
                     semantic_stage: "set_velocity".to_string(),
                     op: Box::new(LogicOp::SetVelocity {

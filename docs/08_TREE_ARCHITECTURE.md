@@ -259,6 +259,7 @@ RetroDevStudio/
 - `docs/09_AGENT_DEV_MODE.md` consolida a hierarquia de verdade, os gates e as regras anti-poluicao para agentes.
 - `docs/06_CURRENT_WAVE_AI_BANK.md` e o arquivo de memoria ativa do agente para a wave corrente (Wave S+); `docs/06_AI_MEMORY_BANK.md` continua sendo a entrada canonica e pode redirecionar para a wave ativa; `docs/06_AI_MEMORY_BANK_WAVE_A_R.md` guarda o historico das waves A-R para consulta pontual.
 - `.github/workflows/ci.yml` e o baseline canonico de validacao automatizada do projeto e deve ser mantido verde em mudancas relevantes.
+- Editor de codigo C/SGDK (Experimental, incremento 1 em 2026-11-10): `src-tauri/src/compiler/code_binding.rs` (projecao do documento, transacoes e recibos; comandos IPC `code_document_project`/`code_edit_analyze`), evolucao v2 de `compiler/build_provenance.rs` (vinculos por instancia), `src/core/codeDocument.ts` (contratos `CodeDocument`/`CodeBinding`/`CodeEditTransaction`), `src/core/codeEditApply.ts` (aplicacao pelo `editorStore`), `src/core/ipc/codeDocumentService.ts` e `src/components/nodegraph/InstanceCodeView.tsx` (vista «Codigo» da Logica). Sem store, motor ou pipeline de build paralelos; rascunhos de codigo vivem no grafo (`codeDrafts`).
 
 ## Planejamento paralelo e avaliações históricas
 
