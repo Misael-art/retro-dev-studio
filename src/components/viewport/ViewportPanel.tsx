@@ -78,6 +78,8 @@ import RuntimeInspectOverlay from "./RuntimeInspectOverlay";
 import { gameMayTakeKeyDown } from "../../core/keyboardFocus";
 import TestAdjustPanel from "./TestAdjustPanel";
 const GameCodeLogic = lazy(() => import("../nodegraph/GameCodeLogic").then((m) => ({ default: m.GameCodeLogic })));
+const InstanceCodeView = lazy(() => import("../nodegraph/InstanceCodeView").then((m) => ({ default: m.InstanceCodeView })));
+const LogicViewTabs = lazy(() => import("../nodegraph/InstanceCodeView").then((m) => ({ default: m.LogicViewTabs })));
 import { bankLetter, entityPaletteMarks } from "../../core/palettePlan";
 import { layoutTags } from "./viewportTagLayout";
 import { useCodeFocusStore } from "../../core/codeFocusStore";
@@ -530,6 +532,7 @@ export default function ViewportPanel({
   const nativeCProject = hwStatus?.analysis_mode === "native_c";
   const logicSource = useCodeFocusStore((s) => s.logicSource);
   const setLogicSource = useCodeFocusStore((s) => s.setLogicSource);
+  const logicView = useCodeFocusStore((s) => s.logicView);
   const paletteMapEnabled = usePalettePlanStore((s) => s.mapEnabled);
   const paletteBankFilter = usePalettePlanStore((s) => s.bankFilter);
   const palettePlan = usePalettePlanStore((s) => s.plan);
@@ -6063,11 +6066,17 @@ export default function ViewportPanel({
                   </button>
                 ))}
               </div>
+            ) : activeProjectDir ? (
+              <LogicViewTabs />
             ) : null}
             <div className="relative min-h-0 flex-1">
               {nativeCProject && activeProjectDir && logicSource === "code" ? (
                 <Suspense fallback={<WorkspaceViewportFallback label="Carregando código..." />}>
                   <GameCodeLogic projectDir={activeProjectDir} />
+                </Suspense>
+              ) : !nativeCProject && activeProjectDir && logicView === "code" ? (
+                <Suspense fallback={<WorkspaceViewportFallback label="Carregando código..." />}>
+                  <InstanceCodeView />
                 </Suspense>
               ) : (
                 <Suspense fallback={<WorkspaceViewportFallback label="Carregando Logic..." />}>

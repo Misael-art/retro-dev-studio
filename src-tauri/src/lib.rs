@@ -450,7 +450,7 @@ fn generate_c_code(project_dir: String) -> GenerateResult {
             (o.main_c, o.resources_res)
         }
     };
-    let source_map = build_source_map(&resolved_scene, &project.target, &main_c);
+    let source_map = build_source_map(&project.name, &resolved_scene, &project.target, &main_c);
     GenerateResult {
         ok: true,
         main_c,
@@ -6717,6 +6717,8 @@ pub fn run() {
             // Build pipeline
             validate_project,
             generate_c_code,
+            compiler::code_binding::code_document_project,
+            compiler::code_binding::code_edit_analyze,
             build_project,
             build_multi_target,
             validate_scene_draft,

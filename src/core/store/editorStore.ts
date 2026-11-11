@@ -642,7 +642,9 @@ function preserveInheritedGraphRef(
 
   const resolvedGraphRef = resolvedEntity.components.logic?.graph_ref;
   const sourceGraphRef = sourceEntity.components.logic?.graph_ref;
-  if (!resolvedGraphRef || sourceGraphRef) {
+  // Referencia vazia explicita = edicao de codigo desligou esta instancia da definicao
+  // compartilhada (grafo inline); nao religar ao graph_ref herdado.
+  if (!resolvedGraphRef || sourceGraphRef || patchLogic.graph_ref === "") {
     return sourcePatch;
   }
 

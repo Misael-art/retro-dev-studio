@@ -324,6 +324,8 @@ pub struct LogicScript {
 pub enum LogicOp {
     SourceMapped {
         graph_sha256: String,
+        /// Instancia (entidade) dona do grafo: distingue instancias com grafos identicos.
+        instance_id: String,
         node_id: String,
         semantic_stage: String,
         op: Box<LogicOp>,
@@ -496,6 +498,11 @@ pub enum LogicOp {
         source_file: String,
         source_line: i32,
     },
+    /// No de codigo vinculado (`code_block`, Experimental): C do autor sem equivalente
+    /// visual, emitido uma unica vez no lugar do no. So o alvo SGDK o aceita.
+    RawC {
+        code: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -657,6 +664,8 @@ struct CompiledLogicOutput {
 struct StoredNodeGraph {
     #[serde(skip)]
     graph_sha256: String,
+    #[serde(skip)]
+    instance_id: String,
     #[serde(default)]
     nodes: Vec<StoredNodeGraphNode>,
     #[serde(default)]
@@ -1760,6 +1769,7 @@ fn collect_logic_output(
             continue;
         };
         graph.graph_sha256 = graph_revision_hash(serialized_graph);
+        graph.instance_id = entity.entity_id.clone();
 
         let compiled = compile_logic_graph(&graph, &entity.entity_id, runtime_entities);
         output.setup_nodes.extend(compiled.setup_nodes);
@@ -2135,6 +2145,7 @@ fn source_mapped_logic_op(
 ) -> LogicOp {
     LogicOp::SourceMapped {
         graph_sha256: graph.graph_sha256.clone(),
+        instance_id: graph.instance_id.clone(),
         node_id: node.id.clone(),
         semantic_stage: node.node_type.clone(),
         op: Box::new(op),
@@ -2282,6 +2293,22 @@ fn compile_logic_node(
                 if_true,
                 if_false,
             }))
+        }
+        "code_block" => {
+            let code = param_string(node, "code").unwrap_or_default();
+            if code.trim().is_empty() {
+                Some(CompiledLogicNode::NoOp)
+            } else if let Some(call) =
+                crate::compiler::code_binding::forbidden_dynamic_memory(&code)
+            {
+                Some(CompiledLogicNode::Linear(LogicOp::SourceBridgeError {
+                    gap: format!("code_block usa {call}() (alocacao dinamica proibida)"),
+                    source_file: format!("no de codigo '{}'", node.id),
+                    source_line: 0,
+                }))
+            } else {
+                Some(CompiledLogicNode::Linear(LogicOp::RawC { code }))
+            }
         }
         "bridge_unconverted_source" => {
             if param_bool(node, "blocking", false) && !param_bool(node, "allow_bridge_mode", false)
@@ -3368,6 +3395,7 @@ fn collect_unsupported_from_ops(
             | LogicOp::PathControl { .. }
             | LogicOp::PlaySound { .. }
             | LogicOp::PlayMusic { .. }
+            | LogicOp::RawC { .. }
             | LogicOp::SourceBridgeError { .. } => {}
         }
     }
@@ -3860,6 +3888,7 @@ fn collect_logic_sound_names_from_ops(
             }
             LogicOp::MoveSprite { .. } => {}
             LogicOp::PlayMusic { .. } => {}
+            LogicOp::RawC { .. } => {}
             LogicOp::SourceBridgeError { .. } => {}
         }
     }

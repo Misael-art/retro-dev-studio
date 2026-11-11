@@ -11,6 +11,7 @@ import {
   cloneGraph,
   isNodeEdge,
   isBehaviorInstance,
+  isCodeRegionDraft,
   isNodeGraphGroup,
   isNodePort,
   isNodeType,
@@ -431,6 +432,12 @@ export const NODE_DEFS: Record<NodeType, Omit<GraphNode, "id" | "x" | "y">> = {
     outputs: [],
     params: { target: "", profile: "mugen.original_chain.v1", program_sha256: "", program_json: "" },
   },
+  code_block: {
+    type: "code_block", label: "Código C",
+    inputs: [{ id: "exec", label: "▶", kind: "exec" }],
+    outputs: [{ id: "exec", label: "▶", kind: "exec" }],
+    params: { code: "", summary: "", replaced_type: "" },
+  },
   bridge_unconverted_source: {
     type: "bridge_unconverted_source", label: "Source Bridge",
     inputs: [{ id: "exec", label: ">", kind: "exec" }],
@@ -660,12 +667,16 @@ export function deserializeNodeGraph(serialized?: string | null): NodeGraph {
       .filter((group) => group.nodeIds.length > 0);
 
     const behaviors = (Array.isArray(parsed.behaviors) ? parsed.behaviors : []).filter(isBehaviorInstance);
+    const codeDrafts = (Array.isArray(parsed.codeDrafts) ? parsed.codeDrafts : [])
+      .filter(isCodeRegionDraft)
+      .filter((draft) => nodeById.has(draft.nodeId));
 
     return cloneGraph({
       nodes: hydratedNodes,
       edges: validEdges,
       ...(groups.length > 0 ? { groups } : {}),
       ...(behaviors.length > 0 ? { behaviors } : {}),
+      ...(codeDrafts.length > 0 ? { codeDrafts } : {}),
     });
   } catch {
     return cloneGraph(EMPTY_GRAPH);

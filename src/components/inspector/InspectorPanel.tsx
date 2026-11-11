@@ -715,21 +715,23 @@ function LogicVariableSlider({ varName, variable, onChange }: LogicVariableSlide
 function BuildProvenancePanel({
   sourceMap,
   serializedGraph,
+  instanceId,
 }: {
   sourceMap: BuildSourceMap | null;
   serializedGraph: string | null | undefined;
+  instanceId: string;
 }) {
   const [resolution, setResolution] = useState<BuildProvenanceResolution | null>(null);
 
   useEffect(() => {
     let active = true;
-    void resolveBuildProvenanceForGraph(sourceMap, serializedGraph).then((next) => {
+    void resolveBuildProvenanceForGraph(sourceMap, serializedGraph, instanceId).then((next) => {
       if (active) setResolution(next);
     });
     return () => {
       active = false;
     };
-  }, [serializedGraph, sourceMap]);
+  }, [instanceId, serializedGraph, sourceMap]);
 
   if (!sourceMap && resolution?.status === "missing") return null;
 
@@ -2251,6 +2253,7 @@ export default function InspectorPanel() {
                 <BuildProvenancePanel
                   sourceMap={lastBuildSourceMap}
                   serializedGraph={entity.components.logic.graph}
+                  instanceId={entity.entity_id}
                 />
                 <table className="w-full table-fixed text-xs">
                   <tbody>

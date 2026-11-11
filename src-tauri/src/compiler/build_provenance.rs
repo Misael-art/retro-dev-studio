@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 use crate::core::rom_mastering::sha256_hex;
 use crate::ugdm::entities::Scene;
 
-pub const SOURCE_MAP_SCHEMA_VERSION: u32 = 1;
+/// v2 (2026-11-10): identidade por instancia (`bindings`) alem da visao agregada por
+/// hash de grafo (`graphs`, mantida para leitores v1). Mapas v1 continuam desserializaveis
+/// (campos novos com default); o frontend os converte em vinculos de instancia desconhecida.
+pub const SOURCE_MAP_SCHEMA_VERSION: u32 = 2;
 pub const SOURCE_MAP_FILE_NAME: &str = "rds-node-source-map.v1.json";
 pub const BUILD_PROVENANCE_EVIDENCE_LABEL: &str = "Proveniência de build observada";
 
@@ -18,12 +21,41 @@ pub struct BuildSourceMap {
     pub schema_version: u32,
     pub kind: String,
     pub evidence_label: String,
+    /// Projeto dono do mapa (v2; vazio em mapas v1).
+    #[serde(default)]
+    pub project: String,
+    /// Cena compilada (v2; vazio em mapas v1).
+    #[serde(default)]
+    pub scene_id: String,
+    /// Revisao do C gerado a que os intervalos pertencem (v2; SHA-256 do fonte).
+    #[serde(default)]
+    pub revision: String,
     pub target: String,
     pub generated_file: String,
     pub generated_source_sha256: String,
     pub artifact: BuildArtifactProvenance,
     pub limitations: Vec<String>,
     pub graphs: Vec<GraphBuildProvenance>,
+    /// Vinculos por instancia (v2). Duas instancias com grafos identicos tem entradas
+    /// distintas aqui, ao contrario de `graphs`, que agrupa por hash.
+    #[serde(default)]
+    pub bindings: Vec<CodeBinding>,
+}
+
+/// Vinculo codigo <-> modelo: projeto, cena, instancia, grafo, node e revisao.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CodeBinding {
+    pub project: String,
+    pub scene_id: String,
+    /// Entidade dona do grafo. Vazio = instancia desconhecida (mapa v1 convertido).
+    pub instance_id: String,
+    pub graph_sha256: String,
+    pub node_id: String,
+    pub semantic_stage: String,
+    pub revision: String,
+    pub status: BuildMappingStatus,
+    pub generated_locations: Vec<GeneratedSourceLocation>,
+    pub unsupported_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -82,9 +114,63 @@ struct StoredGraphNode {
 #[derive(Debug)]
 struct ActiveMarker {
     graph_sha256: String,
+    instance_id: Option<String>,
     node_id: String,
-    semantic_stage: String,
     marker_line: usize,
+}
+
+/// Delimitador de proveniencia lido de uma linha do C gerado. `instance_id` e `None`
+/// nos marcadores v1 (sem instancia).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProvenanceMarker {
+    Begin {
+        graph_sha256: String,
+        instance_id: Option<String>,
+        node_id: String,
+        semantic_stage: String,
+    },
+    End {
+        graph_sha256: String,
+        instance_id: Option<String>,
+        node_id: String,
+    },
+}
+
+/// Le um delimitador v1 (sem instancia) ou v2 (com instancia) de uma linha.
+pub fn parse_marker(line: &str) -> Option<ProvenanceMarker> {
+    let trimmed = line.trim();
+    if let Some(payload) = trimmed.strip_prefix(MARKER_BEGIN) {
+        let fields = payload.split_whitespace().collect::<Vec<_>>();
+        if fields.len() != 3 && fields.len() != 4 {
+            return None;
+        }
+        let instance_id = match fields.get(3) {
+            Some(field) => Some(hex_decode(field.strip_prefix('i')?)?),
+            None => None,
+        };
+        return Some(ProvenanceMarker::Begin {
+            graph_sha256: fields[0].to_string(),
+            instance_id,
+            node_id: hex_decode(fields[1])?,
+            semantic_stage: hex_decode(fields[2])?,
+        });
+    }
+    if let Some(payload) = trimmed.strip_prefix(MARKER_END) {
+        let fields = payload.split_whitespace().collect::<Vec<_>>();
+        if fields.len() != 2 && fields.len() != 3 {
+            return None;
+        }
+        let instance_id = match fields.get(2) {
+            Some(field) => Some(hex_decode(field.strip_prefix('i')?)?),
+            None => None,
+        };
+        return Some(ProvenanceMarker::End {
+            graph_sha256: fields[0].to_string(),
+            instance_id,
+            node_id: hex_decode(fields[1])?,
+        });
+    }
+    None
 }
 
 fn default_graph_version() -> u32 {
@@ -95,24 +181,47 @@ pub fn graph_revision_hash(serialized_graph: &str) -> String {
     sha256_hex(serialized_graph.as_bytes())
 }
 
-pub fn begin_marker(graph_sha256: &str, node_id: &str, semantic_stage: &str) -> String {
+pub fn begin_marker(
+    graph_sha256: &str,
+    instance_id: &str,
+    node_id: &str,
+    semantic_stage: &str,
+) -> String {
     format!(
-        "{MARKER_BEGIN} {graph_sha256} {} {}",
+        "{MARKER_BEGIN} {graph_sha256} {} {} i{}",
         hex_encode(node_id.as_bytes()),
-        hex_encode(semantic_stage.as_bytes())
+        hex_encode(semantic_stage.as_bytes()),
+        hex_encode(instance_id.as_bytes())
     )
 }
 
-pub fn end_marker(graph_sha256: &str, node_id: &str) -> String {
+pub fn end_marker(graph_sha256: &str, instance_id: &str, node_id: &str) -> String {
     format!(
-        "{MARKER_END} {graph_sha256} {}",
-        hex_encode(node_id.as_bytes())
+        "{MARKER_END} {graph_sha256} {} i{}",
+        hex_encode(node_id.as_bytes()),
+        hex_encode(instance_id.as_bytes())
     )
 }
 
-pub fn build_source_map(scene: &Scene, target: &str, main_c: &str) -> BuildSourceMap {
-    let locations = collect_generated_locations(main_c);
+const UNSUPPORTED_REASON: &str = "Nenhum trecho C autônomo foi emitido para este nó nesta revisão; ele pode ser uma âncora de fluxo, expressão incorporada, setup agregado ou tipo ainda não mapeável.";
+
+pub fn build_source_map(
+    project: &str,
+    scene: &Scene,
+    target: &str,
+    main_c: &str,
+) -> BuildSourceMap {
+    let regions = collect_generated_regions(main_c);
+    let revision = sha256_hex(main_c.as_bytes());
+    let mut locations = BTreeMap::<(String, String), Vec<GeneratedSourceLocation>>::new();
+    for region in &regions {
+        locations
+            .entry((region.graph_sha256.clone(), region.node_id.clone()))
+            .or_default()
+            .push(region.location.clone());
+    }
     let mut graphs = BTreeMap::<String, GraphBuildProvenance>::new();
+    let mut bindings = Vec::<CodeBinding>::new();
 
     for entity in &scene.entities {
         let Some(serialized_graph) = entity
@@ -129,6 +238,34 @@ pub fn build_source_map(scene: &Scene, target: &str, main_c: &str) -> BuildSourc
 
         let graph_sha256 = graph_revision_hash(serialized_graph);
         graph.nodes.sort_by(|left, right| left.id.cmp(&right.id));
+        for node in &graph.nodes {
+            let generated_locations = regions
+                .iter()
+                .filter(|region| {
+                    region.graph_sha256 == graph_sha256
+                        && region.node_id == node.id
+                        && region.instance_id.as_deref() == Some(entity.entity_id.as_str())
+                })
+                .map(|region| region.location.clone())
+                .collect::<Vec<_>>();
+            let mapped = !generated_locations.is_empty();
+            bindings.push(CodeBinding {
+                project: project.to_string(),
+                scene_id: scene.scene_id.clone(),
+                instance_id: entity.entity_id.clone(),
+                graph_sha256: graph_sha256.clone(),
+                node_id: node.id.clone(),
+                semantic_stage: node.node_type.clone(),
+                revision: revision.clone(),
+                status: if mapped {
+                    BuildMappingStatus::Mapped
+                } else {
+                    BuildMappingStatus::Unsupported
+                },
+                generated_locations,
+                unsupported_reason: (!mapped).then(|| UNSUPPORTED_REASON.to_string()),
+            });
+        }
         let entry = graphs
             .entry(graph_sha256.clone())
             .or_insert_with(|| GraphBuildProvenance {
@@ -157,9 +294,7 @@ pub fn build_source_map(scene: &Scene, target: &str, main_c: &str) -> BuildSourc
                     BuildMappingStatus::Unsupported
                 },
                 generated_locations,
-                unsupported_reason: (!mapped).then(|| {
-                    "Nenhum trecho C autônomo foi emitido para este nó nesta revisão; ele pode ser uma âncora de fluxo, expressão incorporada, setup agregado ou tipo ainda não mapeável.".to_string()
-                }),
+                unsupported_reason: (!mapped).then(|| UNSUPPORTED_REASON.to_string()),
             });
         }
         entry
@@ -171,9 +306,12 @@ pub fn build_source_map(scene: &Scene, target: &str, main_c: &str) -> BuildSourc
         schema_version: SOURCE_MAP_SCHEMA_VERSION,
         kind: "node_build_source_map".to_string(),
         evidence_label: BUILD_PROVENANCE_EVIDENCE_LABEL.to_string(),
+        project: project.to_string(),
+        scene_id: scene.scene_id.clone(),
+        revision: revision.clone(),
         target: target.to_string(),
         generated_file: "src/main.c".to_string(),
-        generated_source_sha256: sha256_hex(main_c.as_bytes()),
+        generated_source_sha256: revision,
         artifact: BuildArtifactProvenance {
             path: None,
             sha256: None,
@@ -183,6 +321,7 @@ pub fn build_source_map(scene: &Scene, target: &str, main_c: &str) -> BuildSourc
             "Nós sem intervalo C verificável permanecem unsupported com motivo explícito.".to_string(),
         ],
         graphs: graphs.into_values().collect(),
+        bindings,
     }
 }
 
@@ -207,71 +346,73 @@ pub fn serialize_source_map(source_map: &BuildSourceMap) -> Result<String, Strin
         .map_err(|error| format!("Falha ao serializar source map de build: {error}"))
 }
 
-fn collect_generated_locations(
-    main_c: &str,
-) -> BTreeMap<(String, String), Vec<GeneratedSourceLocation>> {
+/// Regiao de C emitida para um node, com a instancia quando o marcador e v2.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GeneratedRegion {
+    pub graph_sha256: String,
+    pub instance_id: Option<String>,
+    pub node_id: String,
+    pub location: GeneratedSourceLocation,
+}
+
+pub fn collect_generated_regions(main_c: &str) -> Vec<GeneratedRegion> {
     let lines = main_c.lines().collect::<Vec<_>>();
     let mut active = Vec::<ActiveMarker>::new();
-    let mut locations = BTreeMap::<(String, String), Vec<GeneratedSourceLocation>>::new();
+    let mut regions = Vec::<GeneratedRegion>::new();
 
     for (index, line) in lines.iter().enumerate() {
         let line_number = index + 1;
-        let trimmed = line.trim();
-        if let Some(payload) = trimmed.strip_prefix(MARKER_BEGIN) {
-            let fields = payload.split_whitespace().collect::<Vec<_>>();
-            if fields.len() == 3 {
-                if let (Some(node_id), Some(semantic_stage)) =
-                    (hex_decode(fields[1]), hex_decode(fields[2]))
-                {
-                    active.push(ActiveMarker {
-                        graph_sha256: fields[0].to_string(),
-                        node_id,
-                        semantic_stage,
-                        marker_line: line_number,
+        match parse_marker(line) {
+            Some(ProvenanceMarker::Begin {
+                graph_sha256,
+                instance_id,
+                node_id,
+                ..
+            }) => active.push(ActiveMarker {
+                graph_sha256,
+                instance_id,
+                node_id,
+                marker_line: line_number,
+            }),
+            Some(ProvenanceMarker::End {
+                graph_sha256,
+                instance_id,
+                node_id,
+            }) => {
+                let Some(position) = active.iter().rposition(|marker| {
+                    marker.graph_sha256 == graph_sha256
+                        && marker.node_id == node_id
+                        && marker.instance_id == instance_id
+                }) else {
+                    continue;
+                };
+                let marker = active.remove(position);
+                let start_line = marker.marker_line + 1;
+                let end_line = line_number.saturating_sub(1);
+                if start_line <= end_line {
+                    let end_column = lines
+                        .get(end_line.saturating_sub(1))
+                        .map(|line| line.chars().count() + 1)
+                        .unwrap_or(1);
+                    regions.push(GeneratedRegion {
+                        graph_sha256: marker.graph_sha256,
+                        instance_id: marker.instance_id,
+                        node_id: marker.node_id,
+                        location: GeneratedSourceLocation {
+                            file: "src/main.c".to_string(),
+                            start_line,
+                            start_column: 1,
+                            end_line,
+                            end_column,
+                        },
                     });
                 }
             }
-            continue;
-        }
-
-        if let Some(payload) = trimmed.strip_prefix(MARKER_END) {
-            let fields = payload.split_whitespace().collect::<Vec<_>>();
-            if fields.len() != 2 {
-                continue;
-            }
-            let Some(node_id) = hex_decode(fields[1]) else {
-                continue;
-            };
-            let Some(position) = active
-                .iter()
-                .rposition(|marker| marker.graph_sha256 == fields[0] && marker.node_id == node_id)
-            else {
-                continue;
-            };
-            let marker = active.remove(position);
-            let start_line = marker.marker_line + 1;
-            let end_line = line_number.saturating_sub(1);
-            if start_line <= end_line {
-                let end_column = lines
-                    .get(end_line.saturating_sub(1))
-                    .map(|line| line.chars().count() + 1)
-                    .unwrap_or(1);
-                locations
-                    .entry((marker.graph_sha256, marker.node_id))
-                    .or_default()
-                    .push(GeneratedSourceLocation {
-                        file: "src/main.c".to_string(),
-                        start_line,
-                        start_column: 1,
-                        end_line,
-                        end_column,
-                    });
-            }
-            let _ = marker.semantic_stage;
+            None => {}
         }
     }
 
-    locations
+    regions
 }
 
 fn hex_encode(bytes: &[u8]) -> String {
@@ -344,12 +485,12 @@ mod tests {
         let hash = graph_revision_hash(graph);
         let main_c = format!(
             "void tick(void) {{\n    {}\n    player_x += 1;\n    {}\n}}\n",
-            begin_marker(&hash, "move-1", "sprite_move"),
-            end_marker(&hash, "move-1")
+            begin_marker(&hash, "player", "move-1", "sprite_move"),
+            end_marker(&hash, "player", "move-1")
         );
         let scene = scene_with_graph(graph);
-        let first = build_source_map(&scene, "megadrive", &main_c);
-        let second = build_source_map(&scene, "megadrive", &main_c);
+        let first = build_source_map("proj", &scene, "megadrive", &main_c);
+        let second = build_source_map("proj", &scene, "megadrive", &main_c);
 
         assert_eq!(
             serialize_source_map(&first).unwrap(),
@@ -373,6 +514,73 @@ mod tests {
             .as_deref()
             .unwrap()
             .contains("Nenhum trecho C"));
+    }
+
+    #[test]
+    fn identical_graphs_on_two_instances_keep_distinct_bindings() {
+        let graph = r#"{"version":1,"nodes":[{"id":"move-1","type":"sprite_move"}],"edges":[]}"#;
+        let hash = graph_revision_hash(graph);
+        let mut scene = scene_with_graph(graph);
+        let mut twin = scene.entities[0].clone();
+        twin.entity_id = "player_2".to_string();
+        scene.entities.push(twin);
+        let main_c = format!(
+            "{}\na();\n{}\n{}\nb();\nb2();\n{}\n",
+            begin_marker(&hash, "player", "move-1", "sprite_move"),
+            end_marker(&hash, "player", "move-1"),
+            begin_marker(&hash, "player_2", "move-1", "sprite_move"),
+            end_marker(&hash, "player_2", "move-1"),
+        );
+        let map = build_source_map("proj", &scene, "megadrive", &main_c);
+
+        assert_eq!(map.schema_version, 2);
+        // A visao agregada v1 continua reunindo as duas instancias sob o mesmo hash...
+        assert_eq!(map.graphs.len(), 1);
+        assert_eq!(map.graphs[0].entries[0].generated_locations.len(), 2);
+        // ...mas os vinculos v2 distinguem cada instancia.
+        let of = |instance: &str| {
+            map.bindings
+                .iter()
+                .find(|binding| binding.instance_id == instance)
+                .unwrap()
+        };
+        assert_eq!(of("player").generated_locations.len(), 1);
+        assert_eq!(of("player").generated_locations[0].start_line, 2);
+        assert_eq!(of("player_2").generated_locations[0].start_line, 5);
+        assert_eq!(of("player_2").generated_locations[0].end_line, 6);
+        assert_eq!(of("player").project, "proj");
+        assert_eq!(of("player").scene_id, "source-map");
+        assert_eq!(of("player").revision, map.generated_source_sha256);
+    }
+
+    #[test]
+    fn legacy_v1_map_and_markers_are_still_readable() {
+        let graph = r#"{"version":1,"nodes":[{"id":"move-1","type":"sprite_move"}],"edges":[]}"#;
+        let hash = graph_revision_hash(graph);
+        // Marcadores v1: sem campo de instancia.
+        let legacy_c = format!(
+            "// RDS-BUILD-PROVENANCE-BEGIN {hash} {} {}\nx();\n// RDS-BUILD-PROVENANCE-END {hash} {}\n",
+            hex_encode(b"move-1"),
+            hex_encode(b"sprite_move"),
+            hex_encode(b"move-1"),
+        );
+        let regions = collect_generated_regions(&legacy_c);
+        assert_eq!(regions.len(), 1);
+        assert_eq!(regions[0].instance_id, None);
+        assert_eq!(regions[0].location.start_line, 2);
+
+        // Mapa v1 gravado por builds antigos: sem project/scene/bindings.
+        let legacy_json = format!(
+            r#"{{"schema_version":1,"kind":"node_build_source_map","evidence_label":"x","target":"megadrive","generated_file":"src/main.c","generated_source_sha256":"abc","artifact":{{"path":null,"sha256":null}},"limitations":[],"graphs":[{{"graph_version":1,"graph_sha256":"{hash}","entries":[{{"node_id":"move-1","semantic_stage":"sprite_move","status":"mapped","generated_locations":[{{"file":"src/main.c","start_line":2,"start_column":1,"end_line":2,"end_column":5}}],"unsupported_reason":null}}]}}]}}"#
+        );
+        let legacy: BuildSourceMap = serde_json::from_str(&legacy_json).unwrap();
+        assert_eq!(legacy.schema_version, 1);
+        assert!(legacy.bindings.is_empty());
+        assert_eq!(legacy.project, "");
+        assert_eq!(
+            legacy.graphs[0].entries[0].generated_locations[0].start_line,
+            2
+        );
     }
 
     #[test]
