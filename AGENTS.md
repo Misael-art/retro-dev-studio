@@ -1,5 +1,12 @@
 # AGENTS.md - RetroDev Studio
 
+<!-- BEGIN HOST RESOURCE CHECK -->
+## Capacidade do host antes de operações pesadas
+
+- Antes de builds, testes longos, instalações, extrações, cópias grandes ou VMs, meça carga de CPU, RAM disponível, atividade de swap, pressão de I/O e espaço livre no destino e nos temporários. Confira os processos concorrentes e estime o pico de RAM, o volume de entrada e saída e o paralelismo da sua ação.
+- Prossiga quando houver margem para a carga prevista. Se houver pressão sustentada ou pouca margem, espere e meça de novo ou reduza o lote e os jobs. Em host com histórico de reinícios sob pressão de RAM ou disco, reserve margem maior e reavalie durante a execução. Se a pressão aumentar, pause trabalho próprio quando for seguro e preserve os processos das outras tarefas.
+<!-- END HOST RESOURCE CHECK -->
+
 ## Projeto
 RetroDev Studio: plataforma desktop para desenvolvimento de jogos 16-bit (Mega Drive, SNES), preservacao e engenharia reversa orientada a patches.
 Stack base: Tauri + React + TypeScript + Rust + SGDK/PVSnesLib + Libretro.
@@ -100,7 +107,7 @@ Se algo relevante foi feito, atualize ou proponha atualizacao de `docs/06_AI_MEM
 - Política comum: [../AGENTS.md](../AGENTS.md), especialmente autonomia, testes, GitHub e recursos (§§5–10); raiz/branch em [registro central](../.workspace/projects.json). A orientação atual de raiz única substitui recomendações históricas de criar worktrees/clones por tarefa; os contratos técnicos e gates deste projeto permanecem obrigatórios. Em outro host, preserve este mesmo método em um único checkout registrado, sem recriar caminhos antigos.
 - Antes de implementar, leia `docs/06_AI_MEMORY_BANK.md`, `docs/03_ROADMAP_MVP.md`, `docs/08_TREE_ARCHITECTURE.md` e o handoff de host, identifique causa, owner, dependências e aceite. Procure a solução oficial existente e integre nela; não introduza soluções concorrentes, aliases ambíguos ou refatorações fora do pedido. Neste host, a única raiz é `/home/misael/Projects/RetroDevStudio`.
 - Execute o lote até implementar, testar, revisar e preservar a continuidade. Resolva decisões reversíveis pelo contexto; não pare em planos nem peça confirmação para editar/testar o que já está autorizado. Comunique descobertas, bloqueios e entrega, sem narrar cada comando ou pequeno avanço.
-- Antes de operações pesadas, confira espaço do destino, RAM e carga; estime saídas e retenção. Reutilize ferramentas/ambientes compatíveis, limite jobs e encerre somente processos temporários próprios. Não mate trabalhos alheios, limpe caches compartilhados ou apague evidência para obter um gate verde.
+- Planeje a retenção das saídas. Reutilize ferramentas/ambientes compatíveis, limite jobs e encerre somente processos temporários próprios. Não mate trabalhos alheios, limpe caches compartilhados ou apague evidência para obter um gate verde.
 - Use `scripts/new-host.sh`/host-manager e os locks existentes; gerados, toolchains e caches ficam nos destinos oficiais. Neste host, `RDS_WORK_ROOT=/home/misael/Shared/ProjectRuntime/RetroDevStudio` é runtime, sem fontes/clones paralelos. Uma compilação pesada por vez, `RDS_BUILD_JOBS=1` inicialmente; preserve JDK compartilhado com SMSForge.
 - Faça os checks pertinentes a toda alteração; para documentos, revise diff, referências e coerência. Para código, cubra comportamento/regressão e execute os gates aplicáveis, sem desativá-los. Depois de alterações de comportamento, execute o aplicativo Tauri real pelo launcher e percorra a jornada afetada; Vite sozinho não é o aplicativo. Valide Build → ROM → Emulação quando pertinente, com corpus BYOR fornecido pelo operador. Vitest, host READY e sintaxe não aprovam desktop, usabilidade humana ou equivalência REX; nunca baixar ROMs para completar um gate.
 - Reutilize a autenticação válida e os helpers existentes. Nunca peça senha/token no chat, copie sessões ou grave credenciais em código/log. Se faltar acesso indispensável, solicite uma única ação pelo fluxo oficial, preserve o estado e avance no trabalho independente; não repita permissões já concedidas.

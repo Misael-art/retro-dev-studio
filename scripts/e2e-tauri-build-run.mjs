@@ -502,6 +502,8 @@ function parseArgs(argv) {
           "draft-recovery",
           "studio-appearance",
           "nodegraph-authoring",
+          "code-draft-roundtrip",
+          "code-instance-scope",
           "rom-input",
           "camera-workflow",
           "camera-advanced",
@@ -16979,6 +16981,307 @@ async function runCameraWorkflowScenario(sessionId, timeoutMs, onProjectCreated)
   finally{await closeGame().catch(()=>{});await writeFile(path.join(artifactDir,"report.json"),JSON.stringify(report,null,2));await writeFile(path.join(validationDir,`${prefix}.json`),JSON.stringify(report,null,2));}
 }
 
+// The runner clones the canonical project fixture before this scenario writes to it.
+async function runCodeInstanceScope(sessionId, projectDir, appPath) {
+  const scenario = "code-instance-scope";
+  const reportPath = path.join(validationDir, `${scenario}-${artifactTimestamp()}-report.json`);
+  const report = {
+    scenario, steps: [],
+    testedApplication: { path: appPath, sha256: createHash("sha256").update(await readFile(appPath)).digest("hex") },
+  };
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const read = (id, property) => executeScript(sessionId, `
+    return document.querySelector('[data-testid="' + arguments[0] + '"]')?.[arguments[1]] ?? null;
+  `, [id, property]);
+  const select = async (id, value) => {
+    const option = await findElement(sessionId, `[data-testid="${id}"] option[value="${value}"]`);
+    await clickElement(sessionId, option);
+    await waitFor(async () => (await read(id, "value")) === value, 5000, `Seleção ${id}=${value} não aplicada.`, 150);
+  };
+  const graphRef = "graphs/scope-probe.json";
+  const graphPath = path.join(projectDir, graphRef);
+  const scenePath = path.join(projectDir, "scenes", "main.json");
+  const region = "code-region-set-text";
+  const waitValue = (value) => waitFor(async () => (await read(region, "value"))?.includes(`logic_var_scope_probe = ${value};`),
+    15000, `Projeção esperada ${value} não apareceu.`, 200);
+  const edit = async (before, after) => {
+    await waitValue(before);
+    const text = await read(region, "value");
+    await fillInputBySelector(sessionId, `[data-testid="${region}"]`, text.replace(`= ${before};`, `= ${after};`));
+    await click("code-region-set-apply");
+    await waitFor(async () => (await read("instance-code-status", "textContent"))?.includes("parametros do node atualizados"),
+      15000, `Edição para ${after} não atualizou o modelo.`, 200);
+    await waitValue(after);
+  };
+  const switchInstance = async (entityId) => {
+    await click("logic-view-nodes");
+    await select("nodegraph-entity-switch", entityId);
+    await click("logic-view-code");
+  };
+
+  try {
+    const scene = JSON.parse(await readFile(scenePath, "utf8"));
+    if (scene.entities.some(({ entity_id }) => entity_id.startsWith("scope_"))) fail("Fixture de origem já contém a sonda.");
+    for (const [entityId, x] of [["scope_a", 32], ["scope_b", 96]]) {
+      scene.entities.push({
+        entity_id: entityId, display_name: entityId, transform: { x, y: 48 },
+        components: { logic: { graph_ref: graphRef } },
+      });
+    }
+    await mkdir(path.dirname(graphPath), { recursive: true });
+    await writeFile(graphPath, JSON.stringify({
+      version: 1,
+      nodes: [
+        { id: "start", type: "event_start", x: 0, y: 0, params: {} },
+        { id: "set", type: "var_set", x: 256, y: 0, params: { var_name: "scope_probe", value: 7 } },
+      ],
+      edges: [{ id: "exec", fromNode: "start", fromPort: "exec", toNode: "set", toPort: "exec" }],
+    }));
+    await writeFile(scenePath, JSON.stringify(scene));
+    await setSessionWindowRect(sessionId, 1920, 1080);
+    await openSavedProjectWizard(sessionId, projectDir);
+    await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
+      60000, "O projeto de duas instâncias não abriu.", 300);
+    await click("shell-persona-guiado");
+    await click("guided-step-regras");
+    await closeVisibleConsoleDrawer(sessionId, "antes da vista Código");
+    const selector = await waitFor(async () => {
+      if (await read("nodegraph-object-scope_a", "tagName")) return "list";
+      if (await read("nodegraph-entity-switch", "tagName")) return "switch";
+      return false;
+    }, 20000, "A vista Nós não mostrou a seleção de instâncias.", 200);
+    if (selector === "list") await click("nodegraph-object-scope_a");
+    else await select("nodegraph-entity-switch", "scope_a");
+    await click("logic-view-code");
+
+    await waitValue(7);
+    const initialScope = await read("instance-code-scope", "value");
+    if (initialScope !== "instance") fail(`Alcance inicial inesperado: ${JSON.stringify(initialScope)}.`);
+    await select("instance-code-scope", "shared");
+    await edit(7, 19);
+    await switchInstance("scope_b");
+    await waitValue(19);
+    addReportStep(report, "shared_definition_updates_both", "passed", { value: 19 });
+
+    if (await read("instance-code-scope", "value") !== "instance") fail("O alcance não voltou ao padrão ao trocar de instância.");
+    await edit(19, 31);
+    await switchInstance("scope_a");
+    await waitValue(19);
+    await clickTopBarMenuAction(sessionId, "Salvar");
+    await waitFor(async () => {
+      const savedScene = JSON.parse(await readFile(scenePath, "utf8"));
+      const a = savedScene.entities.find(({ entity_id }) => entity_id === "scope_a")?.components.logic;
+      const b = savedScene.entities.find(({ entity_id }) => entity_id === "scope_b")?.components.logic;
+      const shared = JSON.parse(await readFile(graphPath, "utf8"));
+      return a?.graph_ref === graphRef && !b?.graph_ref && b?.graph
+        && Number(JSON.parse(b.graph).nodes.find(({ id }) => id === "set")?.params.value) === 31
+        && Number(shared.nodes.find(({ id }) => id === "set")?.params.value) === 19;
+    }, 20000, "As duas instâncias não foram persistidas com seus valores independentes.", 250);
+    addReportStep(report, "instance_edit_keeps_other_use", "passed", { shared: 19, detached: 31 });
+    report.status = "passed";
+  } catch (error) {
+    report.status = "failed";
+    report.error = String(error);
+    throw error;
+  } finally {
+    report.generatedAt = new Date().toISOString();
+    await ensureValidationDir();
+    await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  }
+}
+
+async function runCodeDraftRoundtrip(initialSessionId, appPath, timeoutMs, onProjectCreated) {
+  let sessionId = initialSessionId;
+  const scenario = "code-draft-roundtrip";
+  const reportPath = path.join(validationDir, `${scenario}-${artifactTimestamp()}-report.json`);
+  const report = {
+    scenario,
+    testedApplication: { path: appPath, sha256: createHash("sha256").update(await readFile(appPath)).digest("hex") },
+    steps: [],
+  };
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const state = () => readAutomationState(sessionId);
+  const read = (id, property) => executeScript(sessionId, `
+    const element = document.querySelector('[data-testid="' + arguments[0] + '"]');
+    return arguments[1] === "status" ? element?.dataset.status ?? null : element?.[arguments[1]] ?? null;
+  `, [id, property]);
+  const save = async () => {
+    await clickTopBarMenuAction(sessionId, "Salvar");
+    await waitFor(async () => await read("scene-save-status", "status") === "saved",
+      20000, "Save da cena não chegou a Salvo.", 200);
+  };
+  const openCode = async () => {
+    const guided = await executeScript(sessionId, `
+      return Boolean(document.querySelector('[data-testid="guided-steps"]'));
+    `);
+    if (!guided) await click("shell-persona-guiado");
+    await click("guided-step-regras");
+    await closeVisibleConsoleDrawer(sessionId, "antes da vista Código");
+    await click("logic-view-code");
+  };
+
+  try {
+    await setSessionWindowRect(sessionId, 1920, 1080);
+    await prepareDefaultProjectWizard(sessionId);
+    await click("template-card-reference_platformer");
+    const projectName = `CodeDraft_${Date.now()}`;
+    await fillInputBySelector(sessionId, 'input[placeholder="Nome do projeto"]', projectName);
+    await clickButtonByText(sessionId, "Criar Projeto", "exact");
+    const projectDir = await waitFor(async () => {
+      const current = await state();
+      return current?.activeProjectName === projectName && current.activeProjectDir;
+    }, 60000, "Wizard não criou o projeto descartável.", 300);
+    onProjectCreated(projectDir);
+    await openCode();
+    const region = "code-region-jump_velocity";
+    const original = await waitFor(() => read(`${region}-text`, "value"),
+      20000, "Região de velocidade do salto ausente.", 200);
+    const incomplete = `${original}\nif (`;
+    await fillInputBySelector(sessionId, `[data-testid="${region}-text"]`, incomplete);
+    await click(`${region}-apply`);
+    await waitFor(async () => (await read(region, "textContent"))?.includes("Rascunho"),
+      20000, "A região não confirmou o rascunho.", 200);
+    await save();
+    addReportStep(report, "draft_saved", "passed");
+
+    await deleteSession(sessionId);
+    sessionId = await createSession(appPath);
+    currentE2eRunContext.sessionId = sessionId;
+    await waitForAppWindowReady(sessionId, timeoutMs, "Janela não abriu após reiniciar");
+    await setSessionWindowRect(sessionId, 1920, 1080);
+    await openSavedProjectWizard(sessionId, projectDir);
+    await waitFor(async () => (await state())?.activeProjectDir === projectDir,
+      60000, "Projeto não reabriu.", 300);
+    await openCode();
+    await waitFor(async () => (await read(`${region}-text`, "value")) === incomplete,
+      20000, "Rascunho não foi recuperado após reiniciar.", 200);
+    addReportStep(report, "draft_reopened", "passed");
+
+    await clickButtonByText(sessionId, "Restaurar código do modelo", "exact");
+    await click(`${region}-apply`);
+    await waitFor(async () => (await read(`${region}-text`, "value")) === original
+      && !(await read(region, "textContent"))?.includes("Rascunho"),
+    20000, "A região não descartou o rascunho.", 200);
+    await clickTopBarMenuAction(sessionId, "Desfazer");
+    await waitFor(async () => (await read(`${region}-text`, "value")) === incomplete,
+      20000, "Desfazer não restaurou o rascunho.", 200);
+    await clickTopBarMenuAction(sessionId, "Refazer");
+    await waitFor(async () => (await read(`${region}-text`, "value")) === original
+      && !(await read(region, "textContent"))?.includes("Rascunho"),
+    20000, "Refazer não descartou o rascunho novamente.", 200);
+    await save();
+    addReportStep(report, "draft_cleared", "passed", { undoRedo: true });
+
+    const graphPath = path.join(projectDir, "graphs", "reference_platformer_logic.json");
+    const revisedJump = original.replace(/-64\b/g, "-80");
+    if (revisedJump === original) fail("A projeção inicial não contém a velocidade esperada do modelo.");
+    await fillInputBySelector(sessionId, `[data-testid="${region}-text"]`, revisedJump);
+    await click(`${region}-apply`);
+    await waitFor(async () => (await read("instance-code-status", "textContent"))?.includes("parametros do node atualizados"),
+      20000, "A edição numérica não atualizou o nó visual.", 200).catch(async (error) => {
+      fail(`${error.message} Recibo: ${await read("instance-code-status", "textContent")}`);
+    });
+    await save();
+    const graphAfterParameterEdit = JSON.parse(await readFile(graphPath, "utf8"));
+    const jump = graphAfterParameterEdit.nodes.find(({ id }) => id === "jump_velocity");
+    if (jump?.type !== "set_velocity" || Number(jump.params?.vy) !== -80) {
+      fail("A edição numérica não preservou o nó visual com o novo parâmetro.");
+    }
+    addReportStep(report, "code_parameter_saved", "passed", { nodeId: jump.id, vy: jump.params.vy });
+
+    await click("logic-view-nodes");
+    const velocityInput = "node-param-jump_velocity-vy";
+    await waitFor(async () => (await read(velocityInput, "value")) === "-80",
+      20000, "O controle visual não refletiu a edição em C.", 200);
+    await fillInputBySelector(sessionId, `[data-testid="${velocityInput}"]`, "-96");
+    // Salvar força o flush do mesmo histórico visual usado na edição de nós.
+    await save();
+    const graphAfterNodeEdit = JSON.parse(await readFile(graphPath, "utf8"));
+    if (Number(graphAfterNodeEdit.nodes.find(({ id }) => id === "jump_velocity")?.params.vy) !== -96) {
+      fail("A edição pela vista Nós não persistiu o parâmetro.");
+    }
+    await click("logic-view-code");
+    await waitFor(async () => (await read(`${region}-text`, "value"))?.includes("-96"),
+      20000, "A edição pela vista Nós não apareceu na projeção C.", 200);
+    addReportStep(report, "visual_parameter_projected", "passed", { nodeId: jump.id, vy: -96 });
+
+    const music = "code-region-music";
+    const musicCode = await waitFor(() => read(`${music}-text`, "value"),
+      20000, "Região da música de início ausente.", 200);
+    const scoreUpdate = "logic_var_reference_score += 13;";
+    await fillInputBySelector(sessionId, `[data-testid="${music}-text"]`, `${musicCode}\n    ${scoreUpdate}`);
+    await click(`${music}-apply`);
+    await waitFor(async () => (await read("instance-code-status", "textContent"))?.includes("passou a ser um no de codigo"),
+      20000, "A edição livre não se tornou um nó de código.", 200).catch(async (error) => {
+      fail(`${error.message} Recibo: ${await read("instance-code-status", "textContent")}`);
+    });
+    await save();
+
+    const graph = JSON.parse(await readFile(graphPath, "utf8"));
+    const node = graph.nodes.find(({ id }) => id === "music");
+    if (node?.type !== "code_block" || !node.params?.code?.includes(scoreUpdate)) {
+      fail("O grafo salvo não contém o nó de código com a edição.");
+    }
+    if (!graph.edges.some(({ fromNode, toNode }) => fromNode === "start" && toNode === "music")) {
+      fail("O grafo salvo perdeu a conexão do evento de início.");
+    }
+    if (graph.codeDrafts?.some(({ nodeId }) => nodeId === "jump_velocity")) {
+      fail("O grafo salvo ainda contém o rascunho descartado.");
+    }
+    addReportStep(report, "code_node_saved", "passed", { nodeId: node.id, code: node.params.code });
+
+    await click("guided-step-testar");
+    const running = await waitFor(async () => {
+      const frame = await readCanonicalGameFrame(sessionId);
+      return (await state())?.emulatorLoaded && frame?.renderedFrames > 5 && frame.romSha256 ? frame : false;
+    }, 300000, "Build & Run não iniciou a ROM editada.", 500);
+    const buildDir = path.join(projectDir, "build", "megadrive");
+    const generated = await readFile(path.join(buildDir, "src", "main.c"), "utf8");
+    if (generated.split(scoreUpdate).length !== 2) fail("O C emitido precisa conter uma única cópia da edição.");
+    const romSha256 = createHash("sha256").update(await readFile(path.join(buildDir, "out", "rom.bin"))).digest("hex");
+    if (running.romSha256 !== romSha256) fail("A ROM carregada difere da ROM compilada.");
+    const symbols = parseElf32Symbols(await readFile(path.join(buildDir, "out", "rom.out")));
+    const scoreAddress = symbols.get("logic_var_reference_score");
+    if (!Number.isInteger(scoreAddress)) fail("Símbolo de pontuação ausente no ELF.");
+    addReportStep(report, "edited_rom_loaded", "passed", { romSha256, scoreAddress });
+    // SGDK inicializa recursos antes de entrar no loop. Observe frames reais do
+    // core sob o mesmo mutex, sem confundir o contador de renderização do canvas
+    // com a conclusão da inicialização do jogo.
+    const sampled = await invokeCoreObserveCommand(sessionId, "emulator_run_frames_sampled", {
+      frames: 180, region: 2, offset: scoreAddress & 0xffff, length: 4, recordFrom: 0,
+    });
+    if (!sampled?.ok || sampled.rom_sha256 !== romSha256 || sampled.rows?.length !== 180) {
+      fail(`Não foi possível amostrar a ROM editada no core: ${JSON.stringify({
+        ok: sampled?.ok, message: sampled?.message, rom: sampled?.rom_sha256, rows: sampled?.rows?.length,
+      })}`);
+    }
+    const scores = sampled.rows.map(({ frame, bytes_hex }) => {
+      const bytes = Buffer.from(bytes_hex, "hex");
+      return { frame, score: (bytes[1] << 24) | (bytes[0] << 16) | (bytes[3] << 8) | bytes[2] };
+    });
+    const first = scores.findIndex(({ score }) => score === 13);
+    const tail = first < 0 ? [] : scores.slice(first);
+    if (tail.length < 31 || tail.some(({ score }) => score !== 13)) {
+      fail(`A pontuação não se manteve em 13 por 30 quadros: ${JSON.stringify(scores.filter((row, i) =>
+        i === 0 || i === scores.length - 1 || row.score !== scores[i - 1].score))}`);
+    }
+    const screenshot = await captureScreenshot(sessionId, `${scenario}-${artifactTimestamp()}-rom.png`);
+    addReportStep(report, "edited_rom_running", "passed", {
+      romSha256, scoreAddress, initialScore: tail[0].score, laterScore: tail.at(-1).score,
+      frames: [tail[0].frame, tail.at(-1).frame], screenshot,
+    });
+    report.status = "passed";
+  } catch (error) {
+    report.status = "failed";
+    report.error = String(error);
+    throw error;
+  } finally {
+    report.generatedAt = new Date().toISOString();
+    await ensureValidationDir();
+    await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  }
+}
+
 async function runNodeGraphAuthoringScenario(initialSessionId, appPath, uiBootstrapTimeoutMs, onProjectCreated) {
   let sessionId = initialSessionId;
   const artifactPrefix = `nodegraph-authoring-${artifactTimestamp()}`;
@@ -26721,6 +27024,7 @@ async function main() {
     options.scenario !== "draft-recovery" &&
     options.scenario !== "studio-appearance" &&
     options.scenario !== "nodegraph-authoring" &&
+    options.scenario !== "code-draft-roundtrip" &&
     options.scenario !== "behaviors-independence" &&
     options.scenario !== "collect-goal" &&
     options.scenario !== "mugen-import" &&
@@ -28539,6 +28843,19 @@ async function main() {
 
     if (options.scenario === "camera-workflow") {
       await runCameraWorkflowScenario(sessionId, emulatorActivationTimeoutMs, (projectDir) => {
+        temporaryProjectDir = projectDir;
+        currentE2eRunContext.project = projectDir;
+      });
+      return;
+    }
+
+    if (options.scenario === "code-instance-scope") {
+      await runCodeInstanceScope(sessionId, options.project, options.app);
+      return;
+    }
+
+    if (options.scenario === "code-draft-roundtrip") {
+      await runCodeDraftRoundtrip(sessionId, options.app, uiBootstrapTimeoutMs, (projectDir) => {
         temporaryProjectDir = projectDir;
         currentE2eRunContext.project = projectDir;
       });

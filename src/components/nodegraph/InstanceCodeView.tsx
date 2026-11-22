@@ -67,7 +67,7 @@ function RegionEditor({
   useEffect(() => setText(draft ?? projected), [draft, projected]);
 
   const apply = useCallback(async () => {
-    if (busy || text === projected) return;
+    if (busy || (text === projected && draft === null)) return;
     setBusy(true);
     try {
       const outcome = await submitCodeEdit(document, buildCodeEditTransaction(document, binding, text, scope));
@@ -77,7 +77,7 @@ function RegionEditor({
     } finally {
       setBusy(false);
     }
-  }, [binding, busy, document, onResult, projected, scope, text]);
+  }, [binding, busy, document, draft, onResult, projected, scope, text]);
 
   const region = bindingRegion(binding);
   const id = `code-region-${binding.node_id}`;
@@ -107,7 +107,13 @@ function RegionEditor({
       />
       <footer className="flex items-center justify-end gap-2 px-2 py-1 text-[11px]">
         <span className="mr-auto text-[#7f849c]">Ctrl+Enter aplica · Esc descarta</span>
-        <button type="button" data-testid={`${id}-apply`} disabled={busy || text === projected} onClick={() => void apply()}
+        {draft !== null ? (
+          <button type="button" disabled={busy} onClick={() => setText(projected)}
+            className="rounded border border-[#313244] px-2 py-0.5 text-[#cdd6f4] disabled:opacity-40">
+            Restaurar código do modelo
+          </button>
+        ) : null}
+        <button type="button" data-testid={`${id}-apply`} disabled={busy || (text === projected && draft === null)} onClick={() => void apply()}
           className="rounded border border-[#89b4fa] px-2 py-0.5 text-[#89b4fa] disabled:opacity-40">
           {busy ? "Analisando…" : "Aplicar ao modelo"}
         </button>

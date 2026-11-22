@@ -63,6 +63,7 @@
     "fixture:logic-recovery": "node scripts/build-logic-recovery-fixture.mjs",
     "fixture:logic-recovery-branch": "node scripts/build-logic-recovery-branch-fixture.mjs",
     "host:diagnose": "node scripts/host-manager.mjs diagnose --profile full",
+    "host:monitor": "node scripts/host-resource-monitor.mjs",
     "host:ensure": "node scripts/host-manager.mjs ensure --profile full",
     "host:certify": "node scripts/host-manager.mjs certify --profile full",
     "security:licenses": "node scripts/license-inventory.mjs",

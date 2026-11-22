@@ -90,6 +90,7 @@ pub enum CodeEditStatus {
     NodeParams,
     CodeNode,
     Draft,
+    DraftCleared,
     Stale,
     Rejected,
 }
@@ -653,6 +654,22 @@ pub fn analyze_code_edit(
     let original = lex(&region_text(&document, &location));
     let edited = lex(&tx.new_text);
     if same_tokens(&original, &edited) {
+        let has_draft = graph
+            .get("codeDrafts")
+            .and_then(Value::as_array)
+            .is_some_and(|drafts| {
+                drafts.iter().any(|draft| {
+                    draft.get("nodeId").and_then(Value::as_str) == Some(tx.node_id.as_str())
+                })
+            });
+        if has_draft {
+            let mut receipt = analysis.receipt(
+                CodeEditStatus::DraftCleared,
+                "Rascunho descartado. O codigo emitido permanece igual.",
+            );
+            receipt.graph = Some(without_draft(graph, &tx.node_id).to_string());
+            return receipt;
+        }
         return analysis.receipt(CodeEditStatus::NoChange, "Sem alteracao de codigo.");
     }
     if !region_is_complete(&tx.new_text) {
@@ -1330,6 +1347,14 @@ mod tests {
         let drafted =
             scene_with_instance_graph(&scene, "hero_a", receipt.graph.as_deref().unwrap());
         assert_eq!(document(&drafted).text, document(&scene).text);
+        let cleared = analyze(
+            &drafted,
+            &transaction(&drafted, "hero_a", "move", original.clone()),
+        );
+        assert_eq!(cleared.status, CodeEditStatus::DraftCleared);
+        let restored: Value = serde_json::from_str(cleared.graph.as_deref().unwrap()).unwrap();
+        assert_eq!(restored, original_graph);
+
         let done = analyze(
             &drafted,
             &transaction(&drafted, "hero_a", "move", original.replace("37", "5")),

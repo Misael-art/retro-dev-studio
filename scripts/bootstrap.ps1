@@ -172,7 +172,7 @@ function Show-Diagnostics {
 function Install-MissingSystemTools {
     param([hashtable]$Diagnostics)
 
-    if (-not $InstallMissingTools -and -not $Ensure) {
+    if ($Offline -or (-not $InstallMissingTools -and -not $Ensure)) {
         return
     }
 
@@ -225,7 +225,8 @@ function Enable-PinnedNode {
         }
         $staging = "$nodeRoot.tmp"
         Remove-Item -Recurse -Force $staging -ErrorAction SilentlyContinue
-        Expand-Archive -LiteralPath $archive -DestinationPath $staging -Force
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [IO.Compression.ZipFile]::ExtractToDirectory($archive, $staging)
         $extracted = Join-Path $staging "node-v$PinnedNodeVersion-win-x64"
         Remove-Item -Recurse -Force $nodeRoot -ErrorAction SilentlyContinue
         Move-Item $extracted $nodeRoot

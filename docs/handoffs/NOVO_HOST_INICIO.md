@@ -1,3 +1,38 @@
+## Retomada após formatação — 2026-11-22
+
+O checkout oficial é [Misael-art/retro-dev-studio](https://github.com/Misael-art/retro-dev-studio),
+branch `codex/new-host-cohesion-20261024`. Use o SHA do
+[PR #113](https://github.com/Misael-art/retro-dev-studio/pull/113) como referência
+e mantenha uma única raiz. O checkpoint inclui a correção de rascunho do editor
+C/SGDK e as mudanças de provisionamento Windows que ainda estavam locais em
+`f74e5026`. Os patches de 12 e 18 de novembro ficam como evidência histórica.
+Em um checkout sobrevivente com alterações, compare o diff com a branch antes
+de aplicar patches ou incorporar os commits.
+
+1. Em disco novo, instale o Git oficial e faça o clone da seção 1. Leia este
+   roteiro, o [Memory Bank](../06_AI_MEMORY_BANK.md) e as instruções da raiz.
+   Refaça a autenticação no GitHub e no agente pelo fluxo oficial.
+2. Execute o plano somente leitura da seção 2. Use um job e confirme a margem
+   de memória, disco e temperatura antes de instalar, certificar ou compilar.
+   O lock fixa Node 24.18.0, npm 11.16.0, Rust 1.97.0 e as dependências do
+   produto. Os arquivos oficiais já baixados podem ser reutilizados depois de
+   comparar tamanho e SHA-256 com o lock. Transfira manualmente os downloads
+   maiores que 70 MB.
+3. No Windows, confira os pré-requisitos nativos e o pareamento
+   WebView2/Edge WebDriver da seção de 18/11. Ao retomar nesse sistema, obtenha
+   um novo `READY` e compile pelo launcher. Rode `code-draft-roundtrip` e
+   `code-instance-scope` em série no Tauri real, conforme o
+   [roteiro do editor](PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md).
+   Guarde os recibos do executável, da ROM e do core. A prova Linux de 12/11
+   é histórica. A qualificação Windows e os casos em aberto do incremento 1
+   precedem Monaco e clangd.
+4. Restaure projetos e evidências pelo pacote privado de continuidade
+   `RetroDevStudio-Recovery-20261122`. Leia `STATE.txt` e
+   `LEIA-ME-ANTES-DE-FORMATAR.md` e confira `SHA256SUMS` antes de restaurar.
+   Use staging e confira referências para assets externos antes de abrir um
+   projeto migrado. O operador fornece o corpus BYOR e os demais insumos
+   privados requeridos por cada jornada.
+
 ## Trava de sessão — continuidade de 2026-11-05
 
 O launcher publica o registro do dono já gravado e sincronizado, sob seu mutex. Uma interrupção antes desse ponto não deve deixar uma trava de tamanho zero. Na abertura seguinte, registros de outro boot só são arquivados se tiverem formato e dono reconhecidos. O erro `development_lock_unreadable` preserva a evidência. Confira boot, recibo, PID e filhos; se o dono continuar incerto, solicite confirmação do operador antes de mover a trava. O estado e as provas no KDE estão na [fila de correções](REAVALIACAO_PRODUTO_2026-10-24.md#fila-de-execução-de-2026-11-05).
@@ -59,6 +94,92 @@ Próxima observação humana: pedir ao iniciante para encontrar cenário, person
 ---
 
 # Novo host: instalação, diagnóstico e continuidade do produto
+
+## Retomada Windows do editor C/SGDK — 2026-11-18
+
+O diagnóstico lê a versão instalada do WebView2 Evergreen pelo registro. Prepare
+o [Microsoft Edge WebDriver x64](https://developer.microsoft.com/en-us/microsoft-edge/tools/webdriver/)
+para os três primeiros componentes dessa versão. Confira a versão retornada
+por `msedgedriver.exe --version`, a assinatura Authenticode Microsoft e o SHA-256.
+Use o caminho verificado em `RDS_EDGE_DRIVER_PATH` no processo do launcher. A
+abertura de uma sessão WebDriver com o EXE ainda é parte do aceite.
+
+No checkout Windows, o Edge WebDriver x64 157.0.4341.60 já está em
+`toolchains/webdriver/msedgedriver.exe`. O diagnóstico marcou o driver e o
+WebView2 da mesma versão como `ready`. O recibo conserva origem, assinatura
+Microsoft e SHA-256. Ao reinstalar ou após atualização do WebView2, reconfira o
+pareamento para a versão então instalada.
+
+Temurin e Libretro para Windows foram conferidos no cache oficial
+`toolchains/.cache/artifacts/` em 18/11. Para restabelecer o cache em outro host,
+use o SHA-256 sem extensão como nome final. Confira tamanho e hash com
+`Get-Item` e `Get-FileHash -Algorithm SHA256` antes de colocar cada arquivo no
+cache. O [lock](../../toolchains/host-requirements.lock.json) registra as origens
+imutáveis e os hashes completos.
+
+| Pacote Windows x64 | Bytes | SHA-256 e nome no cache |
+| --- | ---: | --- |
+| [Temurin 21.0.11+10](https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.11%2B10/OpenJDK21U-jdk_x64_windows_hotspot_21.0.11_10.zip) | 205073954 | `d3625e7cadf23787ea540229544b6e2ab494b3b54da1801879e583e1dfee0a64` |
+| [Libretro cores 1.22.2](https://buildbot.libretro.com/stable/1.22.2/windows/x86_64/RetroArch_cores.7z) | 229761684 | `86b871e11b9b4772ac644b40a38f2c8e9449da1f355eae7da08aa061148547b0` |
+
+O cache já contém os pacotes Windows Node 24.18.0, SGDK 2.11 e PVSnesLib
+4.5.0, verificados pelo lock, além do arquivo existente do Ghidra 12.1.
+O substrato precisa de Visual Studio
+Build Tools 2022 com `Microsoft.VisualStudio.Workload.VCTools`, MSVC x64 e
+Windows SDK. Use o instalador oficial para as transferências acima do limite
+manual. Confirme a margem de memória, paginação, I/O e temperatura antes de
+instalar ou extrair. O cache nativo, target e temporários do launcher ficam em
+NTFS. O volume Btrfs do checkout também precisa passar pela prova de
+persistência e recuperação.
+
+Com os pré-requisitos preparados e margem medida, a primeira invocação de
+provisionamento fica isolada do build e da certificação.
+
+```powershell
+$env:RDS_BUILD_JOBS = '1'
+$env:RDS_EDGE_DRIVER_PATH = Join-Path $PWD 'toolchains\webdriver\msedgedriver.exe'
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\new-host.ps1 -Mode Install
+```
+
+Após READY, rode os gates em série e gere o debug pelo launcher antes de
+executar `code-draft-roundtrip` e `code-instance-scope`. Registre identidade do
+binário, core, ROM e cena nos recibos. A certificação, instalação MSI/portable
+e execução nessas distribuições permanecem como passos da qualificação.
+
+## Observabilidade e bloqueio de capacidade — 2026-11-18
+
+Foi adicionado `npm run host:monitor` (`scripts/host-resource-monitor.mjs`),
+sonda local/read-only de CPU, memória, paginação/pagefile, I/O, espaço persistente
+e temporário, sensores/trip points e processos por RSS. Comando e argumentos de
+processos são opt-in; a coleta redige padrões comuns de segredo. Cada execução
+aceita até 360 amostras, exige cadência de 15–30 s em coletas múltiplas, escreve
+JSONL fora do checkout e não remove recibos antigos. Sem `RDS_WORK_ROOT` nem
+`--out`, a saída vai somente para stdout. A sonda informa headroom e nunca muda
+nem substitui o verdict de `host:diagnose`.
+
+No host Jupiter, a coleta de confirmação às 21:52:26Z observou CPU 43%, 5.11
+GiB disponíveis, pagefile 5% (pico 7%), 11 páginas de entrada/s, fila 1 e 1.36
+MB/s. A sonda térmica falhou com `thermal_sensors: wmi_access_denied`; sem
+temperatura/trip atuais, estimativa de pico do job e recibo persistido, a
+capacidade fica `INCOMPLETE`. São amostras pontuais, não evidência de pressão
+sustentada. Não iniciar provisionamento/build com base nelas.
+
+`npm run host:diagnose` sem variável de driver também marcou WebDriver ausente,
+embora `toolchains/webdriver/msedgedriver.exe` exista e esteja verificado. Ao
+definir `RDS_EDGE_DRIVER_PATH` para esse caminho somente no processo do launcher,
+WebDriver/WebView2 ficaram `ready`; o diagnóstico continuou `BLOCKED` por
+`rustc`, `cargo`, `jdk21`, `ghidra`, `sgdk`, `pvsneslib`, `libretro_md`,
+`libretro_snes` e `tauri_driver`. Lock digest
+`dd99a22faa05edc480ce06da3fe3651e7a79578a629959dcdbd8cd50ac011377`; a
+qualificação Build → ROM → Emulação continua pendente. A leitura local teve
+`node --check`, `npm run check:tree` e `git diff --check` PASS; nenhuma suíte,
+certificação ou build foi executado. Checkout em `f74e5026d39844a2385cd523cdf4b6565af1f9dd`,
+alterações ainda não commitadas.
+
+Próximo passo: restabelecer leitura térmica e medir o plano real de instalação;
+manter `RDS_EDGE_DRIVER_PATH` no launcher; quando houver margem comprovada,
+usar `scripts/new-host.ps1 -Mode Install`, refazer `host:diagnose`, certificar e
+seguir os gates seriais antes de retomar a jornada desktop.
 
 ## Continuidade 2026-10-29 — ciclo de Nalu e aparência do modelo, Experimental
 
@@ -157,7 +278,7 @@ Entrada operacional da retomada de 2026-10-24. Leia também o Memory Bank, o roa
 
 - Repositório: https://github.com/Misael-art/retro-dev-studio . A ponta `main` não contém automaticamente o Studio recuperado.
 - Base pública de recuperação: `recovery/studio-preformat-20261021`, checkpoint `95d5ef237e9cbef321b13162f8b7f6823d094203`.
-- Esta entrega acrescenta os launchers e a continuidade em `codex/new-host-cohesion-20261024`, com PR contra a base de recuperação. Enquanto não integrada, **clone esta branch**, não apenas `main`. Confira o SHA real no GitHub/PR; não presuma que um nome de branch é imutável.
+- Branch vigente `codex/new-host-cohesion-20261024`, com o [PR #113](https://github.com/Misael-art/retro-dev-studio/pull/113) em rascunho contra `main`. **Clone esta branch** para continuar o editor C/SGDK. Confira o SHA do PR antes de iniciar.
 - Fonte do Studio preservada: `a8550af0`; produção histórica `ae0d66cd`; binário histórico 016 SHA-256 `d37779583a4cf25dbc7a4dc22200c48d7bed900fcd65d1ee79e573aa37b782b8`. Binário e READY antigos não certificam o novo OS.
 - Pesquisas separadas: REA `ee8c581f`, recuperação comercial `40a17169` e integração `03ddc59d` continuam no backup de histórico. Não integrar todas as branches nem substituir esta base por uma pesquisa isolada.
 

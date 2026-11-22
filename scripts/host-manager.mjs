@@ -203,6 +203,11 @@ function resolveVsWhere(host, env) {
   if (host.platform !== "win32") return null;
   const explicit = env.RDS_VSWHERE_PATH;
   if (explicit && existsSync(explicit)) return explicit;
+  const programFiles = env["ProgramFiles(x86)"] || env.ProgramFiles;
+  if (programFiles) {
+    const installer = path.join(programFiles, "Microsoft Visual Studio", "Installer", "vswhere.exe");
+    if (existsSync(installer)) return installer;
+  }
   return resolveCommand(["vswhere.exe"], host, env);
 }
 
@@ -380,12 +385,36 @@ function envProbeCandidates(probe, context) {
   return candidates.map((candidate) => expandTokens(candidate, context));
 }
 
+export function spawnHostCommand(program, args, options = {}) {
+  if (process.platform !== "win32" || !/\.(?:cmd|bat)$/i.test(program)) {
+    return spawnSync(program, args, options);
+  }
+  const command = /[\\/]/.test(program)
+    ? path.resolve(options.cwd ?? process.cwd(), program)
+    : resolveCommand([program], { platform: "win32" }, options.env);
+  if (!command || !existsSync(command) || !statSync(command).isFile()) {
+    return { status: null, error: new Error("windows_command_shim_not_found") };
+  }
+  const parts = [command, ...args];
+  if (parts.some((part) => /[\u0000\r\n"&|<>^%!]/.test(part))) {
+    return { status: null, error: new Error("unsafe_windows_shell_argument") };
+  }
+  // With /s, cmd removes the outer quotes and preserves the quotes around
+  // the script and each argument, including paths with spaces.
+  const commandLine = parts.map((part) => '"' + part + '"').join(" ");
+  const systemRoot = options.env?.SystemRoot ?? process.env.SystemRoot;
+  const cmd = systemRoot ? path.join(systemRoot, "System32", "cmd.exe") : "cmd.exe";
+  return spawnSync(cmd, ["/d", "/s", "/v:off", "/c", '"' + commandLine + '"'], {
+    ...options,
+    windowsVerbatimArguments: true,
+  });
+}
+
 function runVersion(program, args, env) {
-  const result = spawnSync(program, args ?? ["--version"], {
+  const result = spawnHostCommand(program, args ?? ["--version"], {
     encoding: "utf8",
     env,
     windowsHide: true,
-    shell: process.platform === "win32" && /\.(?:cmd|bat)$/i.test(program),
   });
   return {
     ok: result.status === 0,
@@ -507,7 +536,10 @@ function determineState(checks, supported) {
   return "READY";
 }
 
-function browserIdentity(host, env) {
+function browserIdentity(host, env, webview) {
+  if (host.platform === "win32") {
+    return { path: webview?.path ?? null, version: webview?.version ?? null, route: "webview2" };
+  }
   if (host.platform === "linux") {
     const webkitDriver = resolveCommand(["WebKitWebDriver"], host, env);
     if (webkitDriver) {
@@ -522,7 +554,7 @@ function browserIdentity(host, env) {
       };
     }
   }
-  const names = host.platform === "win32" ? ["msedge.exe", "chrome.exe"] : ["microsoft-edge", "microsoft-edge-stable", "google-chrome", "chromium"];
+  const names = ["microsoft-edge", "microsoft-edge-stable", "google-chrome", "chromium"];
   const program = resolveCommand(names, host, env);
   if (!program) return null;
   const result = runVersion(program, ["--version"], env);
@@ -538,6 +570,13 @@ function versionMajor(version) {
 export function browserDriverCompatible(browser, driverCheck) {
   if (!driverCheck?.applicable || driverCheck.status === "missing") return true;
   const driverName = path.basename(driverCheck.path ?? "").toLowerCase();
+  if (browser?.route === "webview2") {
+    if (driverName !== "msedgedriver.exe") return false;
+    if (!browser.version) return true;
+    const buildVersion = (version) => /\b(\d+\.\d+\.\d+)\.\d+\b/.exec(version ?? "")?.[1];
+    const build = buildVersion(browser.version);
+    return build !== undefined && build === buildVersion(driverCheck.version);
+  }
   if (driverName.includes("webkitwebdriver")) return browser?.route === "webkit";
   // Sem versao do navegador nao existe evidencia de INcompatibilidade, apenas
   // ausencia de observacao — e ausencia de observacao nao pode fabricar veredito
@@ -581,7 +620,8 @@ export function diagnose(options = {}) {
   const context = { repo: repoRoot, host, hostCache, pathEnv, env: options.env ?? process.env, manifest };
   const supported = isSupportedHost(manifest, host);
   const checks = supported ? manifest.requirements.map((requirement) => probeRequirement(requirement, context)) : [];
-  const browser = browserIdentity(host, { ...(options.env ?? process.env), PATH: pathEnv });
+  const webview = checks.find((check) => check.id === "webview2");
+  const browser = browserIdentity(host, { ...(options.env ?? process.env), PATH: pathEnv }, webview);
   const webdriver = checks.find((check) => check.id === "webdriver");
   if (supported && webdriver?.applicable && webdriver.status === "ready") {
     if (!browserDriverCompatible(browser, webdriver)) {
@@ -591,7 +631,9 @@ export function diagnose(options = {}) {
       // Compativel por ausencia de contra-evidencia, nao por verificacao. Fica
       // explicito no relatorio para nao virar falso "verificado".
       webdriver.compatible = null;
-      webdriver.compatibility = "unverified_browser_version";
+      webdriver.compatibility = browser?.route === "webview2"
+        ? "unverified_webview2_version"
+        : "unverified_browser_version";
     }
   }
   const fingerprintPayload = {
@@ -651,13 +693,12 @@ function commandResult(label, program, args, options = {}) {
     );
     logDescriptor = openSync(options.logPath, "a");
   }
-  const result = spawnSync(program, args, {
+  const result = spawnHostCommand(program, args, {
     cwd: options.cwd ?? repoRoot,
     env: options.env ?? process.env,
     encoding: "utf8",
     stdio: logDescriptor === null ? (options.inherit ? "inherit" : "pipe") : ["ignore", logDescriptor, logDescriptor],
     windowsHide: true,
-    shell: process.platform === "win32" && /\.(?:cmd|bat)$/i.test(program),
   });
   if (logDescriptor !== null) closeSync(logDescriptor);
   return {
@@ -789,7 +830,7 @@ function extractArtifact(artifact, archivePath, target, context) {
         "-NoProfile",
         "-NonInteractive",
         "-Command",
-        "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath $env:RDS_ARCHIVE -DestinationPath $env:RDS_EXTRACT_ROOT -Force",
+        "$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.IO.Compression.FileSystem; [IO.Compression.ZipFile]::ExtractToDirectory($env:RDS_ARCHIVE, $env:RDS_EXTRACT_ROOT)",
       ],
       { env: { ...process.env, RDS_ARCHIVE: archivePath, RDS_EXTRACT_ROOT: extractRoot } },
     );

@@ -50,6 +50,7 @@
 
 - O contrato canonico e `toolchains/host-requirements.lock.json`; o estado gerado e `src-tauri/target-test/validation/host-readiness.json`.
 - Todo agente deve rodar `npm run host:diagnose` no inicio da sessao. Sem Node ou com estado diferente de `READY`, deve executar o bootstrap `--ensure --profile full` do sistema suportado.
+- `npm run host:monitor` coleta amostras locais de recursos do host; ela informa capacidade, não altera o estado de readiness e não substitui `host:diagnose`/`host:certify`.
 - `UNSUPPORTED` nunca autoriza mutacao do host. `BLOCKED` ou `DRIFTED` impedem mudanca no produto ate reparo ou registro formal do bloqueio.
 - Instaladores podem usar `sudo`/UAC apenas no modo `ensure`, nunca armazenam credenciais e nunca aceitam download sem versao fixa e SHA-256.
 - Em BigLinux com `bigsudo` disponivel, quando `sudo` nao conseguir abrir autenticacao no terminal restrito do agente, usar `bigsudo <comando>` para a transacao privilegiada estritamente necessaria. `bigsudo` deve permanecer uma escalacao explicita via `pkexec`: nunca contornar recusa do operador, desabilitar seguranca, capturar senha ou ampliar o comando alem do plano; registrar comando, pacotes e resultado no Memory Bank.

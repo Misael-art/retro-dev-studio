@@ -48,7 +48,7 @@ export interface CodeEditTransaction {
   scope: CodeEditScope;
 }
 
-export type CodeEditStatus = "no_change" | "node_params" | "code_node" | "draft" | "stale" | "rejected";
+export type CodeEditStatus = "no_change" | "node_params" | "code_node" | "draft" | "draft_cleared" | "stale" | "rejected";
 
 export interface CodeEditReceipt {
   schema: string;
@@ -157,7 +157,7 @@ function logicWithGraph(entity: Entity, graph: string, detach: boolean): LogicCo
  * Devolve `null` quando o recibo não carrega mudança de modelo ou a instância sumiu.
  */
 export function planCodeEdit(receipt: CodeEditReceipt, scene: Scene): CodeEditPlan | null {
-  if (!receipt.graph || !["node_params", "code_node", "draft"].includes(receipt.status)) return null;
+  if (!receipt.graph || !["node_params", "code_node", "draft", "draft_cleared"].includes(receipt.status)) return null;
   const graph = receipt.graph;
   const byId = new Map(scene.entities.map((entity) => [entity.entity_id, entity]));
   const target = byId.get(receipt.instance_id);

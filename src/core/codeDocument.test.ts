@@ -113,6 +113,13 @@ describe("planCodeEdit scope", () => {
     expect(plan.patches.every((patch) => patch.logic.graph_ref === "graphs/hero.json")).toBe(true);
   });
 
+  it("applies draft clearance as a graph update for the selected instance", () => {
+    const plan = planCodeEdit(receipt({ status: "draft_cleared", graph: GRAPH }), scene());
+    expect(plan?.patches.map(({ entityId, logic }) => [entityId, logic.graph])).toEqual([
+      ["hero_a", GRAPH],
+    ]);
+  });
+
   it("stale, rejected and unchanged receipts never produce a plan", () => {
     for (const status of ["stale", "rejected", "no_change"] as const) {
       expect(planCodeEdit(receipt({ status, graph: null }), scene())).toBeNull();
