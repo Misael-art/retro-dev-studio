@@ -35,6 +35,16 @@ com o diretório temporário gerenciado, e ambas as saídas foram preservadas.
 Clippy, suíte Rust completa, certificação e nova prova desktop ficam para o
 host com margem e dependências instaladas.
 
+**Bloqueio da certificação observado no GitHub.** No SHA `46f0be23`,
+o check desktop-smoke passou. A auditoria Rust da matriz Windows/Linux
+falhou para `url` 2.5.8 por `RUSTSEC-2026-0592`, publicado em 20/11.
+O Cargo.lock do checkpoint é idêntico ao de `f74e5026`. Tauri, Wry e
+Reqwest estão entre os consumidores registrados. A versão corrigida 2.5.9
+exige `form_urlencoded` 1.2.3 ou compatível, conforme os índices de publicação.
+Na retomada, atualize as resoluções transitivas no lock e repita os gates
+oficiais antes de certificar ou promover o PR. A preservação deste lote mantém
+o lock original e a auditoria obrigatória. [CI Windows/Linux](https://github.com/Misael-art/retro-dev-studio/actions/runs/45009997530).
+
 ### Telemetria operacional local do host — 2026-11-18 (parcial)
 
 Foi acrescentado scripts/host-resource-monitor.mjs / npm run host:monitor para amostras JSONL locais: CPU, memória disponível, paginação, I/O, discos persistente/temporário, temperatura/trip points e processos por RSS. As estimativas de pico/saída/staging/verificação são explícitas; ausência de sensores/estimativas produz INCOMPLETE. O monitor não altera processos e declara hostReadiness=NOT_EVALUATED_USE_HOST_MANAGER. Persistir fora do checkout com RDS_WORK_ROOT ou --out; como RDS_WORK_ROOT estava ausente nesta sessão, a amostra de inspeção foi stdout, sem recibo durável. --include-command-lines é explícito, com redatores comuns de segredo.

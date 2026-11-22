@@ -18,6 +18,10 @@ de aplicar patches ou incorporar os commits.
    produto. Os arquivos oficiais já baixados podem ser reutilizados depois de
    comparar tamanho e SHA-256 com o lock. Transfira manualmente os downloads
    maiores que 70 MB.
+   A certificação neste checkpoint tem um bloqueio da auditoria Rust
+   documentado no Memory Bank (`RUSTSEC-2026-0592`). Prepare o host pelo modo
+   de instalação. Resolva as dependências e repita os gates antes de
+   certificar.
 3. No Windows, confira os pré-requisitos nativos e o pareamento
    WebView2/Edge WebDriver da seção de 18/11. Ao retomar nesse sistema, obtenha
    um novo `READY` e compile pelo launcher. Rode `code-draft-roundtrip` e
