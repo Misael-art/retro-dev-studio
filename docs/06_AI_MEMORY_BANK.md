@@ -6,6 +6,7 @@ O ponto de partida desta recuperação foi `f74e5026`. O checkpoint inclui as
 alterações locais do descarte de rascunho C/SGDK, os dois cenários do Tauri e
 as mudanças de launcher, diagnóstico Windows e monitoramento de recursos.
 As provas Linux de 12/11 e os bloqueios Windows de 18/11 abaixo são históricos.
+O código preservado é o de `422c5c7370b36f509d85854f36113733aa8194c9`.
 
 O [roteiro para o novo host](handoffs/NOVO_HOST_INICIO.md#retomada-após-formatação--2026-11-22)
 registra o clone, o provisionamento pelo lock e a restauração de projetos.
@@ -24,6 +25,15 @@ no novo sistema permanecem pendentes. Obtenha `READY` próprio, construa o
 debug e repita `code-draft-roundtrip` e `code-instance-scope` no Windows.
 Mantenha o incremento 1 Experimental enquanto os casos de aceite estiverem
 abertos.
+
+Verificações do checkpoint Linux com Node 24.18.0, npm 11.16.0 e Rust 1.97.0:
+estrutura, lint, TypeScript, sintaxe dos launchers, formatação Rust e
+Vitest completo passaram. O Vitest registrou 1453 testes aprovados e 16
+ignorados. A primeira rodada focada encontrou seis falhas do launcher porque
+o `TMPDIR` herdado passava por um diretório oculto. A suíte completa passou
+com o diretório temporário gerenciado, e ambas as saídas foram preservadas.
+Clippy, suíte Rust completa, certificação e nova prova desktop ficam para o
+host com margem e dependências instaladas.
 
 ### Telemetria operacional local do host — 2026-11-18 (parcial)
 

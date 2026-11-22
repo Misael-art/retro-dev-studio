@@ -146,6 +146,17 @@ executar `code-draft-roundtrip` e `code-instance-scope`. Registre identidade do
 binário, core, ROM e cena nos recibos. A certificação, instalação MSI/portable
 e execução nessas distribuições permanecem como passos da qualificação.
 
+```powershell
+& .\scripts\new-host.ps1 -Mode Run -CommandArgs @('npm.cmd', 'run', 'build:debug')
+& .\scripts\new-host.ps1 -Mode Run -CommandArgs @('node', 'scripts/e2e-tauri-build-run.mjs', '--skip-build', '--scenario', 'code-draft-roundtrip')
+& .\scripts\new-host.ps1 -Mode Run -CommandArgs @('node', 'scripts/e2e-tauri-build-run.mjs', '--skip-build', '--scenario', 'code-instance-scope')
+```
+
+Confirme o sucesso de cada etapa antes de passar à próxima. Se o volume
+Windows que guarda o backup ficar abaixo da margem de instalação, mantenha o
+backup no cartão e use disco nativo com espaço para checkout, cache do host
+e pasta de trabalho.
+
 ## Observabilidade e bloqueio de capacidade — 2026-11-18
 
 Foi adicionado `npm run host:monitor` (`scripts/host-resource-monitor.mjs`),
