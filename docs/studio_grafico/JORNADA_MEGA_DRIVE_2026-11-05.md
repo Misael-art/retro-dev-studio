@@ -833,7 +833,7 @@ Na janela de autoria, registrar o acesso anterior no aplicativo, a ação nova, 
 | 20. Jogar | Build & Run, `runtimeLink` e `TestAdjustPanel` | Pausar, aplicar ajuste ao vivo compatível e reconstruir a revisão quando necessário. Conferir SHA carregado, entrada e retorno ao mesmo ator. | A / R | A / R |
 | 21. Arraste de recursos | Navegador e destinos de cena/arte | Aplicar o mesmo recurso pelo arraste e pela ação de teclado. Soltar no destino incompatível conserva arquivos, histórico e seleção. | A / R | A / R |
 | 22. Busca global | Comandos e arquivos em `App` | Buscar pelo nome uma ferramenta avançada e pelo nome ou caminho um arquivo do projeto. Abrir Arquivos, voltar à mesma ocorrência e testar Escape com rascunho de Código. | Busca integrada ao catálogo oficial. Prova Tauri aberta / R | Prova Tauri aberta / R |
-| 23. Histórico | Undo/Redo em `editorStore` e história dos grafos | Intercalar gesto, número e edição em Código. Verificar objeto, valor anterior, alcance, ordem reversa e restauração de o4. | A / R | A / R |
+| 23. Histórico | Histórico da cena no menu e snapshots de `editorStore` | Conferir objeto, ocorrência e valores antes e depois. Intercalar gesto, número e edição em Código. Verificar o alcance e a restauração de o4. | Resumo integrado a Desfazer/Refazer. Prova Tauri aberta / R | Prova Tauri aberta / R |
 | 24. Console e desempenho | `Console`, depurador e validação do alvo | Na sala densa, ir do diagnóstico ao responsável. Anotar orçamento estimado, quadros consecutivos do core, apresentação e áudio com suas fontes. | A / R | A / R |
 
 | Tratamento | Ponto de partida | Área alterada e controle na ROM | Linux | Windows |

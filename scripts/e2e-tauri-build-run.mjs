@@ -17577,6 +17577,19 @@ async function verifyAuthoringDesk(sessionId, report, prefix) {
     10000, "A saída de foco perdeu a proporção da timeline.", 100);
   addReportStep(report, "named_desk_and_keyboard_layout", "passed", { narrow, timeline });
 
+  await menu("menu-action-scene-history");
+  await check(`return document.querySelector('[data-testid="scene-history"][open]')?.textContent.includes('o2 · 3 → 4 ticks');`,
+    "O histórico visual não encontrou o campo alterado por teclado.");
+  await click("scene-history-undo");
+  await check(`return document.querySelector('[data-testid="character-occurrence-o2"]')?.dataset.ticks === '3';`,
+    "Desfazer no histórico não restaurou o valor da timeline.");
+  await click("scene-history-redo");
+  await check(`return document.querySelector('[data-testid="character-occurrence-o2"]')?.dataset.ticks === '4';`,
+    "Refazer no histórico não restaurou a edição da timeline.");
+  await key("\uE00C");
+  await check(`return !document.querySelector('[data-testid="scene-history"]');`, "Escape não fechou o histórico visual.");
+  addReportStep(report, "visual_scene_history_uses_live_pose", "passed");
+
   await click("character-open-duration-code");
   const codeSelector = '[data-testid="code-pose-duration-text"]';
   const codeValue = () => dom("return document.querySelector(arguments[0])?.value;", [codeSelector]);

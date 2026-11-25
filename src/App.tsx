@@ -28,6 +28,7 @@ import Console from "./components/common/Console";
 import LayoutSplitter, { type LayoutResizeIntent } from "./components/common/LayoutSplitter";
 import WorkspaceTabs from "./components/common/WorkspaceTabs";
 import { StudioContextBar } from "./components/common/StudioContextBar";
+import SceneHistoryDialog from "./components/common/SceneHistoryDialog";
 import DeliveryPanel from "./components/tools/DeliveryPanel";
 import UnifiedTopBar, {
   type UnifiedTopBarSection,
@@ -1952,6 +1953,7 @@ export default function App() {
   const [showAbout, setShowAbout] = useState(false);
   const [showProjectSettings, setShowProjectSettings] = useState(false);
   const [showDelivery, setShowDelivery] = useState(false);
+  const [showSceneHistory, setShowSceneHistory] = useState(false);
   const [projectSettings, setProjectSettings] = useState<ProjectSettingsSnapshot | null>(null);
   const [projectSettingsDraft, setProjectSettingsDraft] =
     useState<ProjectSettingsPayload | null>(null);
@@ -2871,6 +2873,12 @@ export default function App() {
           shortcut: getShortcutLabel("edit.redo", shortcuts),
           title: getShortcutTitle("edit.redo", "Refazer a alteracao desfeita", shortcuts),
           testId: "menu-action-redo",
+        },
+        {
+          label: "Histórico da cena",
+          onClick: () => setShowSceneHistory(true),
+          disabled: !activeProjectDir,
+          testId: "menu-action-scene-history",
         },
         {
           label: "Relatorio MUGEN",
@@ -6013,6 +6021,7 @@ export default function App() {
 
       {!showProjectWizard ? <StudioContextBar compact={compactShell} /> : null}
       {showDelivery ? <DeliveryPanel onClose={() => setShowDelivery(false)} /> : null}
+      {showSceneHistory && activeProjectDir ? <SceneHistoryDialog onClose={() => setShowSceneHistory(false)} /> : null}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside
           data-testid="workspace-activity-bar"
