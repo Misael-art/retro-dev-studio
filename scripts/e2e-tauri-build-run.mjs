@@ -19168,7 +19168,7 @@ async function observeAdvancedAuthoringRom(sessionId, projectDir, build) {
     if (!actor) fail("O ELF não registrou a posição do corredor.");
     const start = await ram(actor);
     await input({ right: true });
-    for (let tick = 0; tick < 17; tick += 1) {
+    for (let tick = 0; tick < 36; tick += 1) {
       await advance();
       ground.push({ x: (await ram(actor)) - start, ...(await audio()) });
     }
@@ -19251,7 +19251,7 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   const overlay = '[data-testid="viewport-scene-overlay"]';
   const targets = await executeScript(sessionId, `
     const c = document.querySelector(arguments[0]);
-    return Array.from({ length: 12 }, (_, i) => [((i + 3) * 8 + 4 - Number(c.dataset.worldMinX)) / Number(c.dataset.worldWidth),
+    return Array.from({ length: 8 }, (_, i) => [((i + 6) * 8 + 4 - Number(c.dataset.worldMinX)) / Number(c.dataset.worldWidth),
       (180 - Number(c.dataset.worldMinY)) / Number(c.dataset.worldHeight)]);
   `, [overlay]);
   const moves = [];
@@ -19266,17 +19266,17 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
     actions: [moves[0], { type: "pointerDown", button: 0 }, ...moves.slice(1), { type: "pointerUp", button: 0 }],
   }] });
   const cellsLabel = () => executeScript(sessionId, `return document.querySelector('[data-testid="material-brush-scope"]')?.textContent;`);
-  await waitFor(async () => /12 células/.test(await cellsLabel()) && (await state())?.undoDepth === beforeStroke.undoDepth + 1,
-    8000, "O traço não aplicou as 12 células em uma edição.", 100);
+  await waitFor(async () => /8 células/.test(await cellsLabel()) && (await state())?.undoDepth === beforeStroke.undoDepth + 1,
+    8000, "O traço não aplicou as oito células em uma edição.", 100);
   await clickTopBarMenuAction(sessionId, "Desfazer");
   await waitFor(async () => /0 células/.test(await cellsLabel()), 8000, "Desfazer não removeu a pintura.", 100);
   await clickTopBarMenuAction(sessionId, "Refazer");
-  await waitFor(async () => /12 células/.test(await cellsLabel()), 8000, "Refazer não restaurou a pintura.", 100);
+  await waitFor(async () => /8 células/.test(await cellsLabel()), 8000, "Refazer não restaurou a pintura.", 100);
   await shot("materiais", "Pincel de materiais na malha de colisão");
   await save();
   const painted = await scene();
   const rule = painted.collision_map.materials?.[0];
-  if (rule?.friction !== 16 || rule.step_sound !== "passo" || !isDeepStrictEqual(rule.cells, targets.map((_, i) => 22 * 40 + 3 + i))
+  if (rule?.friction !== 16 || rule.step_sound !== "passo" || !isDeepStrictEqual(rule.cells, targets.map((_, i) => 22 * 40 + 6 + i))
       || !isDeepStrictEqual(painted.collision_map.data, original.collision_map.data)) fail("O pincel alterou a malha base ou salvou outra regra.");
   addReportStep(report, "material_native_stroke_history_solidity", "passed", { rule });
 
@@ -19313,8 +19313,10 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
       || spans[0].sound - spans[0].first !== 2 || spans[1].sound - spans[1].first !== 4
       || spans.some(({ pcm, sound }) => pcm < sound || pcm > sound + 8)) fail("O tempo do grafo ou a emissão do PCM ficou fora da janela: " + JSON.stringify(spans));
   addReportStep(report, "trigger_relative_ticks_and_pcm_in_rom", "passed", { spans });
-  const offsets = [baseline, edited].map(({ ground }) => ground[7].x - ground[3].x);
-  if (offsets[0] <= offsets[1] || offsets[1] <= 0 || baseline.ground.some(({ rms }) => rms > 100)
+  const offsets = [baseline, edited].map(({ ground }) => [ground[3].x - ground[1].x,
+    ground[15].x - ground[9].x, ground[35].x - ground[32].x]);
+  if (offsets[0][0] !== offsets[1][0] || offsets[0][1] <= offsets[1][1] || offsets[1][1] <= 0
+      || offsets[0][2] !== offsets[1][2] || baseline.ground.some(({ rms }) => rms > 100)
       || !edited.ground.some(({ rms }) => rms > 100)) fail("O material não diferenciou a velocidade e o som em relação ao controle: " + JSON.stringify(offsets));
   addReportStep(report, "material_motion_and_footsteps_in_rom", "passed", { offsets });
 }

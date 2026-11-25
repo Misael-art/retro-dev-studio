@@ -362,7 +362,7 @@ async function writeAdvancedAuthoringProject(directory) {
   const actor = scene.entities.find(({ entity_id }) => entity_id === "raposa");
   scene.entities.push(await sprite("Lanterna", [7, 0, 7], 2, 272, 101));
   const runner = await sprite("corredor", [0, 7, 7], 3, 28, 168);
-  runner.components.physics = { gravity: true, gravity_strength: 12, max_velocity: { x: 8, y: 8 }, friction: 0 };
+  runner.components.physics = { gravity: true, gravity_strength: 12, max_velocity: { x: 96, y: 64 }, friction: 0 };
   scene.entities.push(runner);
   scene.collision_map = { tile_width: 8, tile_height: 8, width: 40, height: 28,
     data: Array.from({ length: 40 * 28 }, (_, i) => Number(Math.floor(i / 40) === 22)) };
@@ -376,11 +376,12 @@ async function writeAdvancedAuthoringProject(directory) {
   await mkdir(path.join(directory, "assets/audio"), { recursive: true });
   await writeFile(path.join(directory, "assets/audio/passo.wav"), wav);
   actor.components.audio = { sfx: { passo: "assets/audio/passo.wav" } };
-  const port = (id) => ({ id, label: id, type: "exec" });
+  const port = (id) => ({ id, label: id, kind: "exec" });
   const node = (id, type, label, x, y, params = {}) => ({
     id, type, label, x, y, params,
     inputs: type === "event_update" ? [] : [port("exec")],
-    outputs: type === "timeline_sequence" ? Array.from({ length: 4 }, (_, i) => port("slot_" + i)) : [port("exec")],
+    outputs: type === "timeline_sequence" ? Array.from({ length: 4 }, (_, i) => port("slot_" + i))
+      : type.startsWith("input_") ? [port("true"), port("false")] : [port("exec")],
   });
   const edge = (fromNode, toNode, fromPort = "exec") => ({ id: fromNode + "_" + toNode, fromNode, fromPort, toNode, toPort: "exec" });
   actor.components.logic = { graph: JSON.stringify({
@@ -396,7 +397,7 @@ async function writeAdvancedAuthoringProject(directory) {
       node("som", "action_sound", "Som", 850, 400, { sfx: "passo" }),
       node("marca_som", "var_set", "Marca do som", 1090, 400, { var_name: "marca_som", value: 7 }),
     ],
-    edges: [edge("movimento", "direita"), edge("direita", "acelerar"), edge("evento", "pressionar"), edge("pressionar", "tempo"),
+    edges: [edge("movimento", "direita"), edge("direita", "acelerar", "true"), edge("evento", "pressionar"), edge("pressionar", "tempo", "true"),
       edge("tempo", "marca_inicio", "slot_0"), edge("tempo", "som", "slot_1"), edge("som", "marca_som")],
   }) };
   await writeFile(scenePath, JSON.stringify(scene, null, 2) + "\n");
