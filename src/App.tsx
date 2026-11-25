@@ -2159,6 +2159,7 @@ export default function App() {
       commandId === "scene.save" ||
       commandId === "build.validate" ||
       commandId === "code.generate" ||
+      commandId === "tools.palette" ||
       commandId === "tools.assetBrowser"
     ) {
       return !activeProjectDir;
@@ -2235,6 +2236,9 @@ export default function App() {
         break;
       case "tools.assetBrowser":
         openToolsCommand("assets", "editing", true);
+        break;
+      case "tools.palette":
+        openToolsCommand("palette", "editing");
         break;
       case "console.open":
         if (!consoleVisible) {
@@ -5058,7 +5062,7 @@ export default function App() {
     </Suspense>
   ) : (
     <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Workspace..." />}>
-      <ViewportPanel showWorkspaceTabs={false} />
+      <ViewportPanel showWorkspaceTabs={false} compactTools={splitTimeline && compactShell} />
     </Suspense>
   );
   const animationActor = splitTimeline ? activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId) : undefined;

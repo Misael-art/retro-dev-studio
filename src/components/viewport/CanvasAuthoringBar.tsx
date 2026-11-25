@@ -14,8 +14,11 @@ import Icon from "../common/Icon";
 export type CanvasPathTool = "edit" | "line" | "curve" | "ellipse" | "append";
 
 /** Access to existing authoring commands, never another source of scene data. */
-export function CanvasAuthoringBar({ pathTool, onPathToolChange }: {
+export function CanvasAuthoringBar({ pathTool, onPathToolChange, onInspectPoint, choosingPoint = false, compact = false }: {
   pathTool: CanvasPathTool; onPathToolChange: (tool: CanvasPathTool) => void;
+  onInspectPoint?: () => void;
+  choosingPoint?: boolean;
+  compact?: boolean;
 }) {
   const state = useEditorStore();
   const { activeScene: scene, activeProjectDir: project, activeScenePath: scenePath, selectedEntityId, activeTarget: target, editorMode } = state;
@@ -36,7 +39,7 @@ export function CanvasAuthoringBar({ pathTool, onPathToolChange }: {
   };
   const button = "inline-flex shrink-0 items-center gap-1 rounded border border-[#45475a] px-2 py-1 text-[11px] font-semibold text-[#cdd6f4] hover:bg-[#313244] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#89b4fa] aria-pressed:border-[#89b4fa] aria-pressed:bg-[#89b4fa]/15";
   return <div className="shrink-0 border-b border-[#313244] bg-[#181825]" data-testid="canvas-authoring-tools">
-    <div className="flex flex-wrap items-center gap-1 px-2 py-1" role="group" aria-label="Autoria no Canvas">
+    <div className={`flex items-center gap-1 px-2 py-1 ${compact ? "overflow-x-auto whitespace-nowrap" : "flex-wrap"}`} role="group" aria-label="Autoria no Canvas">
       <button type="button" className={button} aria-pressed={editorMode === "path"} data-testid="viewport-tool-path"
         onClick={() => { setPanel(null); onPathToolChange(entity?.components.path ? "edit" : "line"); state.setEditorMode(editorMode === "path" ? "select" : "path"); }}>
         <Icon name="fork" size={16} /> Trajeto (P)
@@ -47,6 +50,9 @@ export function CanvasAuthoringBar({ pathTool, onPathToolChange }: {
       <button type="button" className={button} aria-pressed={panel === "palette" && editorMode !== "path"} onClick={() => choosePanel("palette")} data-testid="viewport-tool-palette">
         <Icon name="palette" size={16} /> Paletas
       </button>
+      {onInspectPoint ? <button type="button" className={button} aria-pressed={choosingPoint} data-testid="viewport-inspect-point" onClick={onInspectPoint}>
+        <Icon name="color-picker" size={16} /> {choosingPoint ? "Cancelar inspeção" : "Inspecionar ponto"}
+      </button> : null}
       {entity ? <span className="min-w-0 truncate px-1 text-[11px] text-[#a6adc8]" title={getEntityDisplayName(entity)}>{getEntityDisplayName(entity)}{lock.locked ? ` · ${describeEntityEditLock(lock)}` : ""}</span> : <span className="text-[11px] text-[#a6adc8]">Selecione um objeto na cena ou na árvore.</span>}
       {(editorMode === "path" || panel) ? <button type="button" className={button} aria-label="Fechar ferramenta do Canvas" onClick={() => { setPanel(null); state.setEditorMode("select"); }}>Fechar</button> : null}
     </div>

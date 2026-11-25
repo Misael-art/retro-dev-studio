@@ -1,6 +1,6 @@
 import { CanvasAuthoringBar, type CanvasPathTool } from "./CanvasAuthoringBar";
 import { entityLockScopeKey } from "../../core/sceneComposition";
-import { loadSceneArtworkAsset, drawRepeatedAsset, drawTilemapArtwork, type ViewportAssetCacheEntry } from "./sceneArtworkRenderer";
+import { loadSceneArtworkAsset, drawRepeatedAsset, drawTilemapArtwork, sampleSceneArtwork, type SceneArtworkOrigin, type SceneArtworkPass, type ViewportAssetCacheEntry } from "./sceneArtworkRenderer";
 import Icon, { type IconName } from "../common/Icon";
 import Dialog from "../common/Dialog";
 import Button from "../common/Button";
@@ -9,7 +9,7 @@ import { hudBand } from "../../core/hudText";
 import { loadShellPersona } from "../../core/surfaceRegistry";
 import { cellsOnLine } from "../../core/tilemapCells";
 import { defaultPath, dropOffset, ellipsePath, hitPathHandleOrControl, pathBlockedReason, pathIssue, pathWorldPoints, removePoint, sampleSegment, withPoint } from "../../core/objectPath";
-import { describeEntityEditLock, entityEditLock, escapeExitsIsolation, layerCompositionEntities, restoreTemplateEntityPositions, translateCollisionMap, type TemplatePositionChange } from "../../core/sceneComposition";
+import { describeEntityEditLock, entityEditLock, escapeExitsIsolation, layerCompositionEntities, resolvedTilemapPlanes, restoreTemplateEntityPositions, translateCollisionMap, type TemplatePositionChange } from "../../core/sceneComposition";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tabs from "../common/Tabs";
 import { useEditorStore } from "../../core/store/editorStore";
@@ -71,7 +71,7 @@ import {
 } from "../../core/sceneWorldModel";
 import SceneAssetHealthBadge from "./SceneAssetHealthBadge";
 import SceneAttentionPanel from "./SceneAttentionPanel";
-import { useSceneAttentionStore } from "../../core/sceneAttentionStore";
+import { requestAppCommand, useSceneAttentionStore } from "../../core/sceneAttentionStore";
 import { TilePalette } from "../tools/ContextualPalette";
 import { getGameViewportScale } from "./gameViewportScale";
 import { paintGameFrame } from "./gameFramePresentation";
@@ -79,6 +79,7 @@ import RuntimeInspectOverlay from "./RuntimeInspectOverlay";
 import { gameMayTakeKeyDown } from "../../core/keyboardFocus";
 import TestAdjustPanel from "./TestAdjustPanel";
 import PoseDurationField from "../artstudio/PoseDurationField";
+import ScenePointInspector, { type ScenePointProbe, type SceneProbePoint } from "./ScenePointInspector";
 const GameCodeLogic = lazy(() => import("../nodegraph/GameCodeLogic").then((m) => ({ default: m.GameCodeLogic })));
 const LogicAuthoringWorkspace = lazy(() => import("../nodegraph/LogicAuthoringWorkspace"));
 import { bankLetter, entityPaletteMarks } from "../../core/palettePlan";
@@ -342,8 +343,10 @@ function drawResizeHandle(
 
 export default function ViewportPanel({
   showWorkspaceTabs = true,
+  compactTools = false,
 }: {
   showWorkspaceTabs?: boolean;
+  compactTools?: boolean;
 }) {
   const {
     activeViewportTab,
@@ -403,6 +406,9 @@ export default function ViewportPanel({
   const gameViewportStageRef = useRef<HTMLDivElement>(null);
   const sceneStageRef = useRef<HTMLDivElement>(null);
   const sceneCanvasRef = useRef<HTMLCanvasElement>(null);
+  const artworkPasses = useRef<SceneArtworkPass[]>([]);
+  const [sceneProbe, setSceneProbe] = useState<ScenePointProbe | null>(null);
+  const [sceneProbeArmed, setSceneProbeArmed] = useState(false);
   const sceneOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
   /** Ciclo Alt+clique em sprites sobrepostos (cena densa). */
   const densePickRef = useRef<{ mx: number; my: number; ids: string[]; idx: number } | null>(null);
@@ -525,6 +531,10 @@ export default function ViewportPanel({
     setCollisionPaintValue(1);
   }, [activeProjectDir, activeScenePath]);
   useEffect(() => setMoveGlobalCollisionMap(false), [activeLayerId]);
+  useEffect(() => {
+    setSceneProbe(null);
+    setSceneProbeArmed(false);
+  }, [activeProjectDir, activeScenePath, activeViewportTab]);
   const [showGrid, setShowGrid] = useState(false);
   const [showSubGrid, setShowSubGrid] = useState(false);
   const [showBackground, setShowBackground] = useState(true);
@@ -2448,6 +2458,7 @@ export default function ViewportPanel({
 
     const canvas = sceneCanvasRef.current;
     if (!canvas) return;
+    artworkPasses.current = [];
 
     canvas.width = sceneWidth;
     canvas.height = sceneHeight;
@@ -2469,9 +2480,11 @@ export default function ViewportPanel({
 
     const compositionHiddenByLayer = new Set<string>();
     const compositionLayerDepthByEntityId = new Map<string, number>();
+    const compositionLayerIdByEntityId = new Map<string, string>();
     for (const sceneLayer of activeScene.layers ?? []) {
       for (const entityId of sceneLayer.entity_ids) {
         compositionLayerDepthByEntityId.set(entityId, sceneLayer.depth ?? 0);
+        compositionLayerIdByEntityId.set(entityId, sceneLayer.id);
       }
       if (!sceneLayer.visible) {
         for (const entityId of sceneLayer.entity_ids) {
@@ -2495,6 +2508,8 @@ export default function ViewportPanel({
         return (artworkRank.get(left.entity.entity_id) ?? left.index) - (artworkRank.get(right.entity.entity_id) ?? right.index);
       });
 
+    const passes = artworkPasses.current;
+    const planes = new Map(resolvedTilemapPlanes(activeScene.entities).map(({ entityId, plane }) => [entityId, plane]));
     if (showBackground) {
       [...activeScene.background_layers]
         .sort((left, right) => left.depth - right.depth)
@@ -2504,80 +2519,60 @@ export default function ViewportPanel({
             return;
           }
 
-          context.save();
-          context.globalAlpha = 0.92;
-          drawRepeatedAsset(
-            context,
-            backgroundAsset,
-            0,
-            0,
-            sceneWidth,
-            sceneHeight,
-            layer.scroll_speed?.x ?? 0,
-            layer.scroll_speed?.y ?? 0
-          );
-          context.restore();
+          passes.push({
+            id: `background-${layer.layer_id}`, name: layer.layer_id, kind: "background",
+            path: layer.tilemap ?? layer.tileset,
+            bounds: { x: sceneWorldMinX, y: sceneWorldMinY, width: sceneWidth, height: sceneHeight },
+            draw: (surface) => {
+              surface.save();
+              surface.globalAlpha = 0.92;
+              drawRepeatedAsset(surface, backgroundAsset, 0, 0, sceneWidth, sceneHeight, layer.scroll_speed?.x, layer.scroll_speed?.y);
+              surface.restore();
+            },
+          });
         });
     }
 
-    if (showTilemaps) {
-      compositionEntities
-        .filter(({ entity }) => Boolean(entity.components?.tilemap))
-        .forEach(({ entity }) => {
-          const tilemap = entity.components?.tilemap;
-          if (!tilemap) {
-            return;
-          }
+    for (const { entity } of compositionEntities) {
+      const { entity_id: id, components } = entity;
+      const tilemap = showTilemaps ? components.tilemap : null;
+      const sprite = showSprites ? components.sprite : null;
+      if (!tilemap && !sprite) continue;
+      const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
+      const name = getEntityDisplayName(entity);
+      const layerId = compositionLayerIdByEntityId.get(id);
+      const tilemapAsset = tilemap ? getViewportAsset(tilemap.tileset) : null;
+      if (tilemap && tilemapAsset?.status === "loaded" && tilemapAsset.source) {
+        const plane = activeTarget === "megadrive" ? planes.get(id) : undefined;
+        passes.push({ id: `tilemap-${id}`, entityId: id, name, layerId, kind: "tilemap", path: tilemap.tileset, plane, bounds,
+          draw: (surface) => drawTilemapArtwork(surface, tilemapAsset, tilemap, bounds.x, bounds.y) });
+      }
 
-          const tilemapAsset = getViewportAsset(tilemap.tileset);
-          if (tilemapAsset?.status !== "loaded" || !tilemapAsset.source) {
-            return;
-          }
-
-          const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
-          drawTilemapArtwork(context, tilemapAsset, tilemap, bounds.x, bounds.y);
-
-        });
+      const spriteAsset = sprite ? getViewportAsset(sprite.asset) : null;
+      const source = spriteAsset?.source;
+      if (!sprite || !source || spriteAsset?.status !== "loaded") continue;
+      const { frame_width: frameWidth, frame_height: frameHeight } = sprite;
+      const sheetWidth = spriteAsset.width ?? frameWidth;
+      const sheetHeight = spriteAsset.height ?? frameHeight;
+      const definition = showNativePoses && id === studio.focus.entityId && studio.focus.animation
+        ? sprite.animations?.[studio.focus.animation] : null;
+      const occurrence = studio.focus.occurrenceId;
+      const index = definition ? Math.max(0, occurrenceIds(definition).indexOf(occurrence ?? "")) : 0;
+      const columns = Math.max(1, Math.ceil(sheetWidth / frameWidth));
+      const imageIndex = definition?.frames[index] ?? 0;
+      const sourceX = imageIndex % columns * frameWidth;
+      const sourceY = Math.floor(imageIndex / columns) * frameHeight;
+      if (sourceX >= sheetWidth || sourceY >= sheetHeight) continue;
+      const sourceWidth = Math.min(frameWidth, sheetWidth - sourceX);
+      const sourceHeight = Math.min(frameHeight, sheetHeight - sourceY);
+      const offset = occurrence ? definition?.pose_alignment?.[occurrence]?.offset : null;
+      const poseBounds = { ...bounds, x: bounds.x + (offset?.x ?? 0), y: bounds.y + (offset?.y ?? 0) };
+      passes.push({ id: `sprite-${id}`, entityId: id, name, layerId, kind: "sprite", path: sprite.asset, bounds: poseBounds,
+        draw: (surface) => surface.drawImage(source, sourceX, sourceY, sourceWidth, sourceHeight,
+          poseBounds.x, poseBounds.y, poseBounds.width, poseBounds.height) });
     }
 
-    if (showSprites) {
-      compositionEntities
-        .filter(({ entity }) => Boolean(entity.components?.sprite))
-        .forEach(({ entity }) => {
-          const sprite = entity.components?.sprite;
-          const spriteAsset = getViewportAsset(sprite?.asset);
-          if (!sprite || spriteAsset?.status !== "loaded" || !spriteAsset.source) {
-            return;
-          }
-
-          const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
-          const sheetWidth = spriteAsset.width ?? sprite.frame_width;
-          const sheetHeight = spriteAsset.height ?? sprite.frame_height;
-          const definition = showNativePoses && entity.entity_id === studio.focus.entityId && studio.focus.animation
-            ? sprite.animations?.[studio.focus.animation] : null;
-          const index = definition ? Math.max(0, occurrenceIds(definition).indexOf(studio.focus.occurrenceId ?? "")) : 0;
-          const columns = Math.max(1, Math.ceil(sheetWidth / sprite.frame_width));
-          const imageIndex = definition?.frames[index] ?? 0;
-          const sourceX = imageIndex % columns * sprite.frame_width;
-          const sourceY = Math.floor(imageIndex / columns) * sprite.frame_height;
-          if (sourceX >= sheetWidth || sourceY >= sheetHeight) return;
-          const sourceWidth = Math.min(sprite.frame_width, sheetWidth - sourceX);
-          const sourceHeight = Math.min(sprite.frame_height, sheetHeight - sourceY);
-          const offset = studio.focus.occurrenceId ? definition?.pose_alignment?.[studio.focus.occurrenceId]?.offset : null;
-          context.drawImage(
-            spriteAsset.source,
-            sourceX,
-            sourceY,
-            sourceWidth,
-            sourceHeight,
-            bounds.x + (offset?.x ?? 0),
-            bounds.y + (offset?.y ?? 0),
-            bounds.width,
-            bounds.height
-          );
-        });
-    }
-
+    for (const pass of passes) pass.draw(context);
     context.restore();
     return;
 
@@ -3652,6 +3647,54 @@ export default function ViewportPanel({
     };
   }
 
+  function inspectScenePoint(point: SceneProbePoint) {
+    const normalized = { x: Math.floor(point.x), y: Math.floor(point.y) };
+    setSceneProbeArmed(false);
+    if (!Number.isFinite(normalized.x) || !Number.isFinite(normalized.y)
+      || normalized.x < sceneWorldMinX || normalized.x >= sceneWorldMinX + sceneWidth
+      || normalized.y < sceneWorldMinY || normalized.y >= sceneWorldMinY + sceneHeight) {
+      setSceneProbe({ point, samples: [], error: "A coordenada está fora dos limites do mundo." });
+      return;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const surface = canvas.getContext("2d", { willReadFrequently: true });
+    try {
+      if (!surface) throw new Error("canvas indisponível");
+      setSceneProbe({ point: normalized, samples: sampleSceneArtwork(surface, artworkPasses.current, normalized) });
+    } catch {
+      setSceneProbe({ point: normalized, samples: [], error: "O Canvas não conseguiu ler a origem desse pixel." });
+    }
+  }
+
+  function openScenePointOrigin(origin: SceneArtworkOrigin, target: "asset" | "logic" | "layer" | "palette") {
+    if (!sceneProbe) return;
+    const { point } = sceneProbe;
+    const state = useEditorStore.getState();
+    const pan = clampPanToStage(getViewportPanForWorldPoint({
+      pointX: point.x, pointY: point.y, zoom: viewportZoom,
+      worldBounds: sceneWorld.bounds, worldWidth: sceneWidth, worldHeight: sceneHeight, contentOffset: sceneChromeOffset,
+    }));
+    setViewportPan(pan);
+    const camera = { scenePath: activeScenePath, zoom: viewportZoom, panX: pan.x, panY: pan.y };
+    latestSceneCamera.current = camera;
+    rememberWorkspaceCamera("scene", camera);
+    setSceneProbe(null);
+    if (target === "asset") {
+      state.setExplorerAssetPath(origin.path);
+      openStudioEditor({ focus: { task: "files", entityId: origin.entityId } });
+    } else if (target === "logic" && origin.entityId) {
+      openStudioEditor({ focus: { task: "actions", entityId: origin.entityId } });
+    } else if (target === "layer" && origin.layerId) {
+      state.setActiveLayerId(origin.layerId);
+      if (origin.entityId) state.setSelectedEntityId(origin.entityId);
+    } else if (target === "palette" && origin.entityId) {
+      state.setSelectedEntityId(origin.entityId);
+      requestAppCommand("tools.palette");
+    }
+  }
+
   function collectEntitiesUnderPoint(mx: number, my: number): Entity[] {
     if (!activeScene) {
       return [];
@@ -3801,6 +3844,11 @@ export default function ViewportPanel({
       return;
     }
 
+    if (sceneProbeArmed && activeScene && event.button === 0) {
+      const { mx, my } = canvasCoords(event);
+      inspectScenePoint({ x: mx, y: my });
+      return;
+    }
     if (gameViewLight) {
       return;
     }
@@ -4738,6 +4786,12 @@ export default function ViewportPanel({
 
   return (
     <div className="flex h-full flex-col bg-[#1e1e2e]">
+      <ScenePointInspector probe={sceneProbe} onClose={() => setSceneProbe(null)} onRead={inspectScenePoint} onOpen={openScenePointOrigin}
+        onPick={() => {
+          setSceneProbe(null);
+          setSceneProbeArmed(true);
+          window.requestAnimationFrame(() => sceneOverlayCanvasRef.current?.focus());
+        }} />
       {templateCompositionPreview && activeViewportTab === "scene" ? (
         <Dialog
           open
@@ -4933,7 +4987,7 @@ export default function ViewportPanel({
             {/* Toolbar horizontal dedicada (V, B, E, C, G, Zoom) */}
             <div
               data-testid="viewport-scene-toolbar"
-              className="flex min-w-0 shrink-0 flex-wrap items-center gap-1 border-b border-[#313244] bg-[#181825] px-2 py-1.5 [&>button]:shrink-0 [&>div]:shrink-0 [&>span]:shrink-0"
+              className={`flex min-w-0 shrink-0 items-center gap-1 border-b border-[#313244] bg-[#181825] px-2 py-1.5 [&>button]:shrink-0 [&>div]:shrink-0 [&>span]:shrink-0 ${compactTools ? "overflow-x-auto whitespace-nowrap" : "flex-wrap"}`}
             >
               {([
                 { id: "select" as const, icon: "cursor" as IconName, label: "Selecionar (V)", activeColor: "bg-[#89b4fa]" },
@@ -5140,7 +5194,11 @@ export default function ViewportPanel({
               </button>
             </div>
 
-            <CanvasAuthoringBar pathTool={pathTool} onPathToolChange={(tool) => { pathDragRef.current = null; setPathPreview(null); setPathTool(tool); }} />
+            <CanvasAuthoringBar compact={compactTools} pathTool={pathTool} onPathToolChange={(tool) => { pathDragRef.current = null; setPathPreview(null); setPathTool(tool); }}
+              choosingPoint={sceneProbeArmed} onInspectPoint={activeScene ? () => {
+                if (sceneProbeArmed) setSceneProbeArmed(false);
+                else inspectScenePoint(sceneMousePos ?? { x: sceneWorld.centerX, y: sceneWorld.centerY });
+              } : undefined} />
             {editorMode === "path" ? <p role="status" aria-live="polite" className="shrink-0 px-3 text-[11px] text-[#a6adc8]">{activePathHandle ? `${activePathHandle.kind === "control" ? "Controle da curva" : "Ponto"} ${activePathHandle.index}` : "Alça inicial: ponto 1"} · colchetes escolhem ponto · setas movem · Shift: 8 px</p> : null}
             <details data-testid="viewport-view-options" className="shrink-0 border-b border-[#313244] bg-[#181825] text-[11px]">
               <summary className="cursor-pointer px-3 py-1.5 font-semibold text-[#a6adc8]">Visualização · grade, camadas e guias</summary>
@@ -5500,6 +5558,12 @@ export default function ViewportPanel({
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseLeave}
                 onDoubleClick={handleSceneDoubleClick}
+                onKeyDown={(event) => {
+                  if (sceneProbeArmed && event.key === "Escape") {
+                    event.stopPropagation();
+                    setSceneProbeArmed(false);
+                  }
+                }}
                 onContextMenu={(event) => event.preventDefault()}
                 className="absolute"
                 style={{
@@ -5507,7 +5571,7 @@ export default function ViewportPanel({
                   top: sceneChromeOffset,
                   width: sceneScaleWidth,
                   height: sceneScaleHeight,
-                  cursor: isPanning
+                  cursor: sceneProbeArmed ? "crosshair" : isPanning
                     ? "grabbing"
                     : isDragging
                       ? "grabbing"

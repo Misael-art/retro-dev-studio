@@ -67,6 +67,8 @@ export default function RuntimeInspectOverlay({
   } | null>(null);
   const [choices, setChoices] = useState<RuntimeCandidate[] | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [readingPixel, setReadingPixel] = useState(false);
+  const [pixel, setPixel] = useState<{ x: number; y: number; color: string; frame: number; epoch: number | null; rom: string | null } | null>(null);
   const [rexItems, setRexItems] = useState<RexBridgeItem[] | null>(null);
   const [rexBusy, setRexBusy] = useState(false);
   const romPath = useEditorStore((state) => state.emulatorRomIdentity?.path ?? null);
@@ -206,12 +208,12 @@ export default function RuntimeInspectOverlay({
   }
 
   const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!linkMatches) {
+    if (!readingPixel && !linkMatches) {
       // Sem vínculo do projeto para esta ROM: o ponto não tem identidade comprovada.
       setMessage("Desconhecido: este ponto não tem vínculo comprovado (projeto ou perfil REX). Só inspeção; nenhum editor semântico é aberto.");
       return;
     }
-    if (!canvas || !sample) return;
+    if (!canvas || !paused) return;
     const rect = canvas.getBoundingClientRect();
     const point = clientToNative(
       { clientX: event.clientX, clientY: event.clientY },
@@ -228,6 +230,19 @@ export default function RuntimeInspectOverlay({
     );
     if (!point) return;
     const hits = hitTest(visible, point);
+    if (readingPixel) {
+      const bytes = canvas.getContext("2d")?.getImageData(point.x, point.y, 1, 1).data;
+      if (!bytes) {
+        setMessage("O quadro apresentado ainda está indisponível.");
+        return;
+      }
+      const color = `#${Array.from(bytes.slice(0, 3), (value) => value.toString(16).padStart(2, "0")).join("")}`;
+      setPixel({ ...point, color, frame: renderedFrames, epoch: coreEpoch, rom: romSha256 });
+      setMessage(null);
+      setChoices(hits.length ? hits : null);
+      return;
+    }
+    if (!sample) return;
     if (hits.length === 0) {
       setMessage(`Nada vinculado em (${point.x}, ${point.y}).`);
       return;
@@ -242,6 +257,7 @@ export default function RuntimeInspectOverlay({
     const entity = activeScene?.entities.find((e) => e.entity_id === id);
     return entity ? getEntityDisplayName(entity) : id;
   };
+  const currentPixel = readingPixel && paused && pixel?.frame === renderedFrames && pixel.epoch === coreEpoch && pixel.rom === romSha256 ? pixel : null;
 
   return (
     <>
@@ -255,11 +271,18 @@ export default function RuntimeInspectOverlay({
             setActive((value) => !value);
             setChoices(null);
             setMessage(null);
+            setReadingPixel(false);
+            setPixel(null);
           }}
           className={`rounded border px-2 py-0.5 ${active ? "border-[#f97316] text-[#fdba74]" : "border-[#45475a] text-[#a6adc8]"}`}
         >
           ◎ Inspecionar
         </button>
+        {active ? <button type="button" disabled={!paused} aria-pressed={readingPixel} data-testid="inspect-read-pixel"
+          onClick={() => { setReadingPixel((current) => !current); setPixel(null); setChoices(null); setMessage(null); }}
+          className="rounded border border-[#45475a] px-2 py-0.5 text-[#cdd6f4] aria-pressed:border-[#f97316] disabled:opacity-50">
+          Ler pixel
+        </button> : null}
         {active
           ? (Object.keys(LAYER_LABEL) as InspectLayer[]).map((layer) => (
               <label key={layer} className="flex items-center gap-1 text-[#cdd6f4]">
@@ -393,7 +416,13 @@ export default function RuntimeInspectOverlay({
               {message}
             </div>
           ) : null}
-          {choices ? (
+          {currentPixel ? (
+            <div role="status" data-testid="inspect-pixel-result" className="absolute bottom-1 right-1 max-w-[60%] rounded bg-black/85 px-2 py-1 text-[10px] text-[#f8fafc]">
+              ({currentPixel.x}, {currentPixel.y}) · <span className="font-mono">{currentPixel.color}</span> · quadro {currentPixel.frame}.
+              <p>Origem do pixel desconhecida. Os candidatos vêm do vínculo e da posição dos objetos.</p>
+            </div>
+          ) : null}
+          {choices && (!readingPixel || currentPixel) ? (
             <div
               role="dialog"
               aria-label="Escolha o elemento"
@@ -401,7 +430,7 @@ export default function RuntimeInspectOverlay({
               className="absolute left-1 top-1 rounded border border-[#45475a] bg-[#11111b] p-1 text-[10px]"
               onClick={(e) => e.stopPropagation()}
             >
-              <p className="mb-1 text-[#a6adc8]">Vários elementos aqui — escolha:</p>
+              <p className="mb-1 text-[#a6adc8]">{readingPixel ? "Abrir um candidato do vínculo" : "Vários elementos aqui — escolha"}</p>
               {choices.map((candidate) => (
                 <button
                   key={`${candidate.kind}-${candidate.entity_id}`}

@@ -12,6 +12,48 @@ export type ViewportAssetCacheEntry = {
   errorMessage?: string;
 };
 
+export type SceneArtworkOrigin = {
+  id: string;
+  name: string;
+  kind: "sprite" | "tilemap" | "background";
+  path: string;
+  plane?: string;
+  entityId?: string;
+  layerId?: string;
+};
+
+export type SceneArtworkPass = SceneArtworkOrigin & {
+  bounds: { x: number; y: number; width: number; height: number };
+  draw: (context: CanvasRenderingContext2D) => void;
+};
+
+export type SceneArtworkSample = SceneArtworkOrigin & { rgba: [number, number, number, number] };
+
+/** Uses exactly the drawing passes that produced the editor viewport. */
+export function sampleSceneArtwork(
+  context: CanvasRenderingContext2D,
+  passes: readonly SceneArtworkPass[],
+  point: { x: number; y: number },
+): SceneArtworkSample[] {
+  const result: SceneArtworkSample[] = [];
+  for (const { bounds, draw, ...origin } of [...passes].reverse()) {
+    if (point.x < bounds.x || point.x >= bounds.x + bounds.width
+      || point.y < bounds.y || point.y >= bounds.y + bounds.height) continue;
+    context.clearRect(0, 0, 1, 1);
+    context.save();
+    context.imageSmoothingEnabled = false;
+    context.translate(-point.x, -point.y);
+    try {
+      draw(context);
+      const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+      if (a) result.push({ ...origin, rgba: [r, g, b, a] });
+    } finally {
+      context.restore();
+    }
+  }
+  return result;
+}
+
 export const SCENE_ARTWORK_MAX_PIXELS = 16777216;
 const tilemapArtwork = new WeakMap<TilemapComponent, { source: CanvasImageSource; canvas: HTMLCanvasElement }>();
 
