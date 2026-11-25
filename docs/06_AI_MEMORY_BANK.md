@@ -50,6 +50,16 @@ ausente após iniciar. O contexto passou a acompanhar o salvamento transacional
 da cena, com recuperação independente do navegador. As evidências e as provas
 pendentes por alvo ficam na [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
 
+Em `62178c9`, o contexto persistido com a cena recuperou `raposa/passo/o2`
+nas duas salas do Windows e na sala simples do BigLinux. Os ciclos do ator
+editado e do controle foram de 18 e 17 ticks. O Windows passou também em PCM,
+caixas e reprodução na sala simples. Os oito casos SNES do mesmo SHA passaram
+em uma execução dedicada. A fase de referência ainda falhou no hit-test do
+Canvas ao apagar o tile (10,26). No Linux a janela de 949×593 reabriu a pose,
+mas a tentativa de acionar Testar projeto parou na verificação de clique.
+Os recibos são `sessions/win-62178c9-S4jnsyGN/` e
+`sessions/pose-candidate-B1LXMXt2/`. O ensaio humano segue aberto.
+
 ### Continuidade antes da formatação — 2026-11-22
 
 Retomar na branch `codex/new-host-cohesion-20261024`, pelo
