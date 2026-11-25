@@ -100,7 +100,9 @@ export function useFloatingStudioPanels(reportFailure: (reason: string) => void)
     }
     const url = new URL("/src/studio-panel.html", window.location.href);
     url.searchParams.set("panel", name);
-    const popup = window.open(url.href, "rds-" + name, "popup,resizable,width=750,height=524");
+    const useRelatedBlankDocument = navigator.userAgent.includes("Windows");
+    const popup = window.open(useRelatedBlankDocument ? "about:blank" : url.href,
+      "rds-" + name, "popup,resizable,width=750,height=524");
     if (!popup) { reportFailure("A janela auxiliar foi recusada."); return; }
     windows.current[name] = popup;
     let attempts = 0;
@@ -108,12 +110,16 @@ export function useFloatingStudioPanels(reportFailure: (reason: string) => void)
     const mount = () => {
       if (windows.current[name] !== popup) return;
       try {
-        if (!popup.closed && popup.document.body?.hasAttribute("data-studio-panel-ready")) {
+        const page = popup.closed ? null : popup.document;
+        const ready = useRelatedBlankDocument
+          ? popup.opener === window && page?.URL === "about:blank" && page.readyState !== "loading"
+          : page?.body?.hasAttribute("data-studio-panel-ready");
+        if (ready && page?.body) {
           mountPopup(popup, name, hosts[name], () => dockPanel(name));
           setOpen((current) => ({ ...current, [name]: true }));
           return;
         }
-        if (!popup.closed) reason = "O WebView apresentou " + popup.document.URL;
+        if (page) reason = "O WebView apresentou " + page.URL;
       } catch (error) {
         reason = error instanceof Error ? error.message : String(error);
       }

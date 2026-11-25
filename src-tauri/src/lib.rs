@@ -6741,6 +6741,12 @@ pub fn run() {
                     .ok_or("Configuração da janela principal ausente")?;
                 let main = WebviewWindowBuilder::from_config(app, config)?
                     .on_new_window(move |url, features| {
+                        if cfg!(target_os = "windows") && url.as_str() == "about:blank" {
+                            // The related blank document inherits the opener's origin. A
+                            // separately navigated WebView2 popup cannot resolve Tauri's
+                            // virtual asset host through the opener's resource handler.
+                            return NewWindowResponse::Allow;
+                        }
                         if url.path() != "/src/studio-panel.html" {
                             return if matches!(url.scheme(), "http" | "https") {
                                 NewWindowResponse::Allow
@@ -6771,11 +6777,6 @@ pub fn run() {
                             ),
                             _ => return NewWindowResponse::Deny,
                         };
-                        if cfg!(target_os = "windows") {
-                            // WebView2 owns its related popup and supplies the WindowProxy.
-                            // Programmatic creation can leave a detached CoreWebView2 on older runtimes.
-                            return NewWindowResponse::Allow;
-                        }
                         if handle.get_webview_window(label).is_some() {
                             return NewWindowResponse::Deny;
                         }
