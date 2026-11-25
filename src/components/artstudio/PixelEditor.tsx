@@ -69,6 +69,7 @@ export type PixelTool =
   | "select"
   | "move"
   | "background"
+  | "transparent"
   | "picker";
 
 export const PIXEL_TOOLS: { id: PixelTool; key: string; icon: IconName; label: string; hint: string }[] = [
@@ -85,6 +86,7 @@ export const PIXEL_TOOLS: { id: PixelTool; key: string; icon: IconName; label: s
   { id: "move", key: "M", icon: "drag", label: "Mover", hint: "Arraste a seleção ou a camada atual" },
   { id: "picker", key: "I", icon: "color-picker", label: "Conta-gotas", hint: "Pega a cor do canvas" },
   { id: "background", key: "K", icon: "magic-wand", label: "Apagar fundo", hint: "Clique numa região de fundo para apagar cores parecidas; ajuste a tolerância em Imagem e fundo" },
+  { id: "transparent", key: "T", icon: "color-picker", label: "Cor transparente", hint: "Clique numa ilha de cor para ver o recorte transparente antes de aplicar" },
 ];
 
 const SIZE_PRESETS: [number, number][] = [
@@ -218,6 +220,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   const [previewFrame, setPreviewFrame] = useState(0);
   const [status, setStatus] = useState<string | null>(null);
   const [preview, setPreview] = useState<Uint8Array | null>(null);
+  const [transparencyPreview, setTransparencyPreview] = useState<{ base: PixelDoc; next: PixelDoc } | null>(null);
   const [savedPath, setSavedPath] = useState<string | null>(initial?.savedPath ?? null);
   const [savedSource, setSavedSource] = useState<string | null>(initial?.savedSource ?? null);
   const [saving, setSaving] = useState(false);
@@ -301,7 +304,7 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   useEffect(() => { setSizeHistory(null); }, [sourceIdentity]);
   const displayDoc = imagePreview ?? doc;
   const editScope: PixelEditScope = { frame, layer, allFrames: allImageFrames, rect: selection, color: isolation };
-  useEffect(() => { setImagePreview(null); setSelection(null); setIsolation(null); }, [doc.width, doc.height, sourceIdentity]);
+  useEffect(() => { setImagePreview(null); setTransparencyPreview(null); setSelection(null); setIsolation(null); }, [doc.width, doc.height, sourceIdentity]);
 
   // ── Desenho do canvas ──
   const composite = useMemo(() => {
@@ -507,6 +510,15 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
     const other = right ? primary : secondary;
     setStatus(null);
     if (tileMap) { setSelection({ x: Math.floor(at[0] / TILE) * TILE, y: Math.floor(at[1] / TILE) * TILE, w: TILE, h: TILE }); return; }
+    if (tool === "transparent") {
+      const next = erasePixelRegion(doc, editScope, at[0], at[1], 0);
+      if (next === doc) setStatus("Escolha um pixel opaco dentro da área e da camada em edição.");
+      else {
+        setTransparencyPreview({ base: doc, next });
+        setImagePreview(next);
+      }
+      return;
+    }
     if (tool === "background") { const next = erasePixelRegion(doc, editScope, at[0], at[1], backgroundTolerance); commit(next); setStatus(next === doc ? "Nenhum pixel apagado nesta região. Confira a camada, a seleção e a cor isolada." : "Região apagada por cor. Ctrl+Z restaura os pixels."); return; }
     if (tool === "picker") {
       const picked = composite[at[1] * doc.width + at[0]];
@@ -587,6 +599,13 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const target = event.target as HTMLElement;
     const key = event.key.toLowerCase();
+    if (key === "escape" && transparencyPreview) {
+      event.preventDefault();
+      event.stopPropagation();
+      setTransparencyPreview(null);
+      setImagePreview(null);
+      return;
+    }
     if ((event.ctrlKey || event.metaKey) && key === "s") {
       event.preventDefault();
       event.stopPropagation();
@@ -940,6 +959,21 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
               <button type="button" aria-label="Aumentar zoom" onClick={() => setZoom((z) => Math.min(48, z + 1))} className="rounded border border-[#313244] px-1.5">+</button>
             </span>
           </div>
+          {transparencyPreview ? (
+            <div data-testid="pixel-transparent-preview" className="flex shrink-0 flex-wrap items-center gap-2 rounded border border-[var(--rds-border-default)] p-1 text-xs">
+              <span>Prévia da ilha transparente</span>
+              <button type="button" data-testid="pixel-transparent-apply" className="rounded border border-[var(--rds-action-primary)] px-2 py-1" onClick={() => {
+                if (docRef.current === transparencyPreview.base) commit(source?.autoOpen ? copyPixelDoc(transparencyPreview.next) : transparencyPreview.next);
+                else setStatus("A imagem mudou. Selecione novamente a ilha.");
+                setTransparencyPreview(null);
+                setImagePreview(null);
+              }}>Aplicar</button>
+              <button type="button" className="rounded border border-[var(--rds-border-default)] px-2 py-1" onClick={() => {
+                setTransparencyPreview(null);
+                setImagePreview(null);
+              }}>Cancelar</button>
+            </div>
+          ) : null}
           <div ref={stageRef} data-testid="pixel-stage" className="min-h-0 flex-1 overflow-auto rounded-xl border border-[#313244] bg-[#0b0f19] p-3"><div className="flex min-h-full min-w-full w-max items-center justify-center">
             <canvas
               ref={canvasRef}
@@ -985,9 +1019,10 @@ export default function PixelEditor({ projectDir, source, log, onSaved }: PixelE
         </div>
 
         {/* Coluna direita */}
-        <div ref={optionsRef} hidden={!optionsOpen} aria-label="Opções da tarefa de edição" className={`${optionsOpen ? "flex" : "hidden"} min-h-0 flex-col gap-2 overflow-y-auto pr-1 text-xs text-[#cdd6f4]`}>
+        <div ref={optionsRef} hidden={!optionsOpen} inert={Boolean(transparencyPreview)} aria-label="Opções da tarefa de edição" className={`${optionsOpen ? "flex" : "hidden"} min-h-0 flex-col gap-2 overflow-y-auto pr-1 text-xs text-[#cdd6f4]`}>
           <PixelImagePanel task={task} doc={doc} projectDir={projectDir} scope={editScope} primary={primary} assetLine={report.lineUsage[0]?.line ?? pixelLine(primary)} onPrimary={value => { setPrimary(value); setActiveLine(pixelLine(value)); }} originalAvailable={Boolean(originalPath)} onReconvert={method => void reopenOriginal(method)}
-            onCommit={(next, base, separate) => { if (docRef.current !== base) { setStatus("A imagem mudou. Gere uma nova prévia; seu trabalho foi preservado."); return; } commit(separate && source?.autoOpen ? copyPixelDoc(next) : next); if (!enabledPixelPalettes(next).includes(activeLine)) { const line = enabledPixelPalettes(next)[0]; setActiveLine(line); setPrimary(packPixel(line, 1)); setSecondary(packPixel(line, 2)); setEditingSlot(null); } setImagePreview(null); setIsolation(null); }} onPreview={setImagePreview}
+            onCommit={(next, base, separate) => { if (docRef.current !== base) { setStatus("A imagem mudou. Gere uma nova prévia; seu trabalho foi preservado."); return; } commit(separate && source?.autoOpen ? copyPixelDoc(next) : next); if (!enabledPixelPalettes(next).includes(activeLine)) { const line = enabledPixelPalettes(next)[0]; setActiveLine(line); setPrimary(packPixel(line, 1)); setSecondary(packPixel(line, 2)); setEditingSlot(null); } setImagePreview(null); setIsolation(null); }}
+            onPreview={(next) => { if (!transparencyPreview) setImagePreview(next); }}
             onSelectLayer={setLayerIndex} onSelectTool={next => { setTool(next); setTileMap(false); }} onSelection={setSelection} onIsolation={setIsolation}
             tolerance={backgroundTolerance} onTolerance={setBackgroundTolerance} allFrames={allImageFrames} onAllFrames={setAllImageFrames}
             tileMap={tileMap} onTileMap={setTileMap} tileView={tileView} onTileView={setTileView} tiles={tileReuse} selectedTile={selectedTile}

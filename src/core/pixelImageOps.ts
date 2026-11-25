@@ -79,6 +79,65 @@ export function inPixelScope(doc: PixelDoc, scope: PixelEditScope, frame: number
   return scope.color == null || doc.frames[frame].cels[layer][index] === scope.color;
 }
 
+function clearScopedPixels(doc: PixelDoc, scope: PixelEditScope, everyOther: 0 | 1 | null): PixelDoc {
+  let changed = false;
+  const frames = doc.frames.map((frame, fi) => {
+    const cel = frame.cels[scope.layer];
+    if (!cel || (!scope.allFrames && scope.frame !== fi)) return frame;
+    let output: Uint8Array | null = null;
+    for (let index = 0; index < cel.length; index++) {
+      const x = index % doc.width, y = Math.floor(index / doc.width);
+      if ((everyOther !== null && (x + y) % 2 !== everyOther) || !pixelIndex(cel[index])
+          || !inPixelScope(doc, scope, fi, scope.layer, index)) continue;
+      output ??= cel.slice();
+      output[index] = 0;
+    }
+    const edited = output;
+    if (!edited) return frame;
+    changed = true;
+    return { ...frame, cels: frame.cels.map((pixels, index) => index === scope.layer ? edited : pixels) };
+  });
+  return changed ? { ...doc, frames } : doc;
+}
+
+/** Mega Drive uses index zero as transparency. Keep the original opaque palette entries. */
+export function ditherTransparency(doc: PixelDoc, scope: PixelEditScope, phase: 0 | 1): PixelDoc {
+  return clearScopedPixels(doc, scope, phase);
+}
+
+export function makeColorTransparent(doc: PixelDoc, scope: PixelEditScope, value: number): PixelDoc {
+  if (!pixelIndex(value) || (scope.color != null && scope.color !== value)) return doc;
+  return clearScopedPixels(doc, { ...scope, color: value }, null);
+}
+
+export function rotateIndexedSelection(doc: PixelDoc, scope: PixelEditScope, degrees: number, pivot: { x: number; y: number }): PixelDoc {
+  if (![degrees, pivot.x, pivot.y].every(Number.isFinite)) throw new Error("Informe ângulo e pivô numéricos.");
+  const angle = (degrees % 360) * Math.PI / 180;
+  if (angle === 0) return doc;
+  const rect = scope.rect ?? { x: 0, y: 0, w: doc.width, h: doc.height };
+  const cos = Math.cos(angle), sin = Math.sin(angle);
+  const contains = (x: number, y: number) => x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h
+    && x >= 0 && y >= 0 && x < doc.width && y < doc.height;
+  let changed = false;
+  const frames = doc.frames.map((frame, fi) => {
+    const cel = frame.cels[scope.layer];
+    if (!cel || (!scope.allFrames && scope.frame !== fi)) return frame;
+    const next = cel.map((value, index) => {
+      const x = index % doc.width, y = Math.floor(index / doc.width);
+      if (!contains(x, y) || (scope.color != null && value !== 0 && value !== scope.color)) return value;
+      const dx = x - pivot.x, dy = y - pivot.y;
+      const sourceX = Math.round(pivot.x + cos * dx + sin * dy);
+      const sourceY = Math.round(pivot.y - sin * dx + cos * dy);
+      const source = contains(sourceX, sourceY) ? cel[sourceY * doc.width + sourceX] : 0;
+      return scope.color == null || source === scope.color ? source : 0;
+    });
+    if (!next.some((value, index) => value !== cel[index])) return frame;
+    changed = true;
+    return { ...frame, cels: frame.cels.map((pixels, index) => index === scope.layer ? next : pixels) };
+  });
+  return changed ? { ...doc, frames } : doc;
+}
+
 /** Transform in RGB, then allocate only slots unused by pixels OUTSIDE the edit.
  * Hidden layers/other frames count as consumers, so a local filter cannot recolor them. */
 export function applyPixelEffect(doc: PixelDoc, scope: PixelEditScope, effect: PixelEffect, options: { brightness?: number; contrast?: number; block?: number } = {}): { doc: PixelDoc; approximated: number } {
