@@ -13,6 +13,7 @@ on:
           - megadrive
           - snes
           - authoring
+          - hud
       upload_candidate:
         description: "Guardar o executável exato deste ensaio Windows e seu SHA-256"
         type: boolean
@@ -481,7 +482,7 @@ jobs:
 
       - name: Check HUD extremes and fixed screen coordinates in the Mega Drive core
         id: hud_extremes
-        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'authoring' }}
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'authoring' || env.RDS_E2E_TARGET == 'hud') }}
         env:
           RDS_POSE_PROOF: hud
         run: |

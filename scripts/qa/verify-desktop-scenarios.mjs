@@ -8,13 +8,14 @@ const byTarget = {
   megadrive: [...common.map(name => name + "_md"), "reference_goal", "code_draft", "code_scope", "pose_baseline", "pose_journey", "pose_tools", "workspace_layout", "point_occlusion", "linked_atlas"],
   snes: common.map(name => name + "_snes"),
   authoring: ["indexed_effects", "palette_and_atlas", "terrain_and_seam", "motion_trace", "wave_band", "hud_extremes"],
+  hud: ["hud_extremes"],
 };
 
 export function verifyDesktopScenarios(target, steps) {
   if (!["all", ...Object.keys(byTarget)].includes(target)) throw new Error(`Alvo de desktop desconhecido: ${target}`);
   const required = target === "all" ? [...byTarget.megadrive, ...byTarget.snes] : byTarget[target];
   const problems = [];
-  for (const name of Object.values(byTarget).flat()) {
+  for (const name of new Set(Object.values(byTarget).flat())) {
     const outcome = steps[name]?.outcome;
     if (outcome === "success") continue;
     if ((outcome === "skipped" || outcome === undefined) && !required.includes(name)) continue;

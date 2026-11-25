@@ -3052,7 +3052,7 @@ async function sendNativeGameKey(sessionId, code, action, label) {
   return response;
 }
 
-async function selectOptionByTestIdNative(sessionId, testId, value) {
+async function selectOptionByTestIdNative(sessionId, testId, value, { confirm = true } = {}) {
   const inspect = () => executeScript(sessionId, `
     const select = document.querySelector('[data-testid="' + String(arguments[0]) + '"]');
     if (!(select instanceof HTMLSelectElement)) return null;
@@ -3085,8 +3085,7 @@ async function selectOptionByTestIdNative(sessionId, testId, value) {
         { type: "keyDown", value: "\uE015" },
         { type: "keyUp", value: "\uE015" },
       ]).flat(),
-      { type: "keyDown", value: "\uE007" },
-      { type: "keyUp", value: "\uE007" },
+      ...(confirm ? [{ type: "keyDown", value: "\uE007" }, { type: "keyUp", value: "\uE007" }] : []),
     ];
     await webdriverRequest("POST", `/session/${sessionId}/actions`, {
       actions: [{ type: "key", id: `reference-select-${testId}`, actions: keys }],
@@ -18858,19 +18857,18 @@ async function verifyHudExtremes(sessionId, projectDir, report, prefix, timeoutM
     if (view?.text !== "VIDA " + String(value).padStart(3, "0")) fail(`A prévia do HUD divergiu para ${value}.`);
     variants.push(view);
   }
-  await selectOptionByTestIdNative(sessionId, "hud-preview-text", "short");
+  await selectOptionByTestIdNative(sessionId, "hud-preview-text", "short", { confirm: false });
   const lightControl = '[data-testid="hud-preview-light"]';
-  await executeScript(sessionId, `document.querySelector(arguments[0])?.focus();`, [lightControl]);
-  const lightInput = await findElement(sessionId, lightControl);
-  await webdriverRequest("POST", `/session/${sessionId}/element/${lightInput}/value`, { text: "\uE00D", value: ["\uE00D"] });
+  await executeScript(sessionId, `document.querySelector(arguments[0])?.scrollIntoView({ block: "nearest" });`, [lightControl]);
+  await clickCanvasPointNatively(sessionId, lightControl, 0.5, 0.5, "Fundo claro do HUD");
   await waitFor(() => executeScript(sessionId, `return document.querySelector(arguments[0])?.checked;`, [lightControl]),
-    5000, "O teclado não selecionou o fundo claro.", 100);
-  const movedSlider = await findElement(sessionId, '[data-testid="hud-preview-camera-x"]');
-  await webdriverRequest("POST", `/session/${sessionId}/element/${movedSlider}/value`, { text: "\uE010", value: ["\uE010"] });
+    5000, "O gesto não selecionou o fundo claro.", 100);
+  const cameraSlider = '[data-testid="hud-preview-camera-x"]';
+  await clickCanvasPointNatively(sessionId, cameraSlider, 0.95, 0.5, "Deslocar a câmera na prévia do HUD");
   const light = await preview();
   if (light?.text !== "HP 099" || light.position !== variants[0].position || light.color === variants[0].color
       || light.scroll === variants[0].scroll) fail(`A prévia não isolou o texto da câmera e do fundo: ${JSON.stringify(light)}.`);
-  await selectOptionByTestIdNative(sessionId, "hud-preview-text", "long");
+  await selectOptionByTestIdNative(sessionId, "hud-preview-text", "long", { confirm: false });
   await executeScript(sessionId, `document.querySelector('[data-testid="hud-preview-camera-x"]')?.focus();`);
   if (!(await preview())?.text.endsWith(" - 099")) fail("O texto longo não apareceu no ensaio.");
   addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-hud-previa.png`), "Texto longo e fundo claro com a câmera movida");

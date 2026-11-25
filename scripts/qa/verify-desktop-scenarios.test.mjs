@@ -32,5 +32,7 @@ describe("native desktop regression gates", () => {
     expect(verifyDesktopScenarios("authoring", outcomes(authoring))).toBe(6);
     expect(() => verifyDesktopScenarios("authoring", outcomes(authoring.slice(1)))).toThrow("indexed_effects=ausente");
     expect(() => verifyDesktopScenarios("authoring", { ...outcomes(authoring), terrain_and_seam: { outcome: "failure" } })).toThrow("terrain_and_seam=failure");
+    expect(verifyDesktopScenarios("hud", outcomes(["hud_extremes"]))).toBe(1);
+    expect(() => verifyDesktopScenarios("hud", {})).toThrow("hud_extremes=ausente");
   });
 });
