@@ -63,6 +63,18 @@ de hash e assinatura e respondeu a `xdpyinfo` em 1366×768 antes do Tauri.
 As ações, as áreas de controle e os resultados por sistema ficam na
 [conferência dos 38 itens](../studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
 
+**Recebimento do primeiro ensaio Windows do editor C e da sala simples.**
+A revisão `74672bf` obteve Full READY. O aplicativo usado nos dois cenários C
+tem SHA-256 `ee0fd39fd13caecab36123e669f35036d897e8c3bf7868c6b0232703c85a2aa6`.
+O rascunho foi reaberto, descartado com Undo/Redo e editado no código e
+nos Nós. Na ROM `5c531b3704b39b6de88af80a4562fe7a024bbb48086c575c390c4200274f941a`
+o contador ficou em 13 nos quadros 51 e 196. A sonda da sala simples leu
+a ROM `06908ff8f37ac666f56410eb857f7963541479b7bfdecc1a564c71a859ec9af5`
+com o core `15728f5192f36e81dd8cd4908d65deecd3a72309a926cc57bdf5e19d9630566c`.
+Os recibos e capturas desta tentativa ficam em
+`$HOME/RetroDevStudio-work/sessions/win-74672bf-kalhNHI9/`.
+A matriz registra as duas falhas de interação. [Execução Windows](https://github.com/Misael-art/retro-dev-studio/actions/runs/45523347244)
+
 ## Retomada após formatação — 2026-11-22
 
 O checkout oficial é [Misael-art/retro-dev-studio](https://github.com/Misael-art/retro-dev-studio),
