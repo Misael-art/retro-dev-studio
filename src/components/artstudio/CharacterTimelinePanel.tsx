@@ -11,6 +11,7 @@ import {
   describeOccurrences,
   moveOccurrence,
   occurrenceBoxes,
+  occurrenceSocket,
   removeEvent,
   retimeEventsToFit,
   setOccurrenceDuration,
@@ -27,6 +28,7 @@ import { useEditorStore } from "../../core/store/editorStore";
 import { useProjectAssetVisualState } from "../../core/useProjectAssetVisualState";
 import { chooseAndImportAudio, sfxActionFromPath } from "../../core/audioImport";
 import { readProjectAssetBytes } from "../../core/ipc/toolsService";
+import PoseSocketEditor from "./PoseSocketEditor";
 
 /** Entidades que usam o mesmo personagem (mesmo asset): a animação MUGEN é do modelo. */
 export function modelUsers(entities: Entity[], sprite: SpriteComponent): Entity[] {
@@ -52,6 +54,19 @@ function useSheetGeometry(src: string | null): SheetGeometry {
     };
   }, [src]);
   return src ? size : null;
+}
+
+function SocketPreview({ entity, projectDir, x, y, scale }: {
+  entity: Entity; projectDir: string | null; x: number; y: number; scale: number;
+}) {
+  const sprite = entity.components.sprite!;
+  const { src } = useProjectAssetVisualState({ projectDir, relativePath: sprite.asset });
+  const sheet = useSheetGeometry(src);
+  const animations = sprite.animations ?? {};
+  const initial = animations[Object.keys(animations).sort()[0]]?.frames[0] ?? 0;
+  return <div data-testid={"pose-socket-preview-" + entity.entity_id} aria-hidden="true"
+    className="pointer-events-none absolute"
+    style={{ left: x, top: y, ...cellStyle(src, sheet, sprite, initial, scale) }} />;
 }
 
 function cellStyle(
@@ -96,6 +111,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
   const activeProjectDir = useEditorStore((state) => state.activeProjectDir);
   const activeScene = useEditorStore((state) => state.activeScene);
   const projectFps = useEditorStore((state) => state.projectFps);
+  const activeTarget = useEditorStore((state) => state.activeTarget);
   const studio = useEditorStore((state) => state.studio);
   const refineStudioFocus = useEditorStore((state) => state.refineStudioFocus);
   const openStudioEditor = useEditorStore((state) => state.openStudioEditor);
@@ -141,6 +157,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
   const [durationPreview, setDurationPreview] = useState<{ id: string; ticks: number } | null>(null);
   const durationDrag = useRef<{ x: number; ticks: number; id: string; revision: number } | null>(null);
   const [aligning, setAligning] = useState(false);
+  const [socketMarker, setSocketMarker] = useState<Transform | null>(null);
   const [reference, setReference] = useState<{ id: string; anchor: Transform } | null>(null);
   const [anchorDraft, setAnchorDraft] = useState<{ x: string; y: string }>({ x: "", y: "" });
   const [message, setMessage] = useState<{ tone: "error" | "info"; text: string; conflicts?: string[] } | null>(null);
@@ -284,6 +301,7 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
     setMessage(null);
     setSelectedBox(null);
     setBoxDraft({});
+    setSocketMarker(null);
     setDrag(null);
     setEventTick("0");
     const mark = def?.pose_alignment?.[occ.id]?.anchor;
@@ -480,6 +498,17 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                 style={{ ...imageAt(shownFrame, shown), ...cellStyle(src, sheet, sprite, shown.image, scale) }}
               />
             ) : null}
+            {authored && shown && activeScene?.entities.map((accessory) => {
+              const link = accessory.components.pose_attachment;
+              const child = accessory.components.sprite;
+              if (!child || link?.actor !== entity.entity_id) return null;
+              const point = occurrenceSocket(def, shown.id, link.socket);
+              if (!point) return null;
+              const origin = imageAt(shownFrame, shown);
+              return <SocketPreview key={accessory.entity_id} entity={accessory} projectDir={activeProjectDir}
+                x={origin.left + (point.x + link.offset.x - (child.pivot?.x ?? 0)) * scale}
+                y={origin.top + (point.y + link.offset.y - (child.pivot?.y ?? 0)) * scale} scale={scale} />;
+            })}
             {authored && aligning && shown && shown.id === selected?.id && !playing ? (
               <button type="button" className="absolute z-10 cursor-crosshair rounded-sm focus-visible:ring-2 focus-visible:ring-[#89b4fa]"
                 aria-label="Marcar o ponto de apoio na imagem"
@@ -504,6 +533,24 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                 style={{ left: imageAt(shownFrame, shown).left + (savedAnchor.x + 0.5) * scale,
                   top: imageAt(shownFrame, shown).top + (savedAnchor.y + 0.5) * scale }} />
             ) : null}
+            {socketMarker && shown?.id === selected?.id && !playing && !aligning && (
+              <button type="button" data-testid="pose-socket-mark" aria-label="Marcar encaixe na pose"
+                className="absolute z-10 cursor-crosshair focus-visible:ring-2 focus-visible:ring-[#89b4fa]"
+                style={{ ...imageAt(shownFrame, shown), width: sprite.frame_width * scale, height: sprite.frame_height * scale }}
+                onClick={(event) => {
+                  if (event.detail === 0) {
+                    document.getElementById("pose-socket-x")?.focus();
+                    return;
+                  }
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  setSocketMarker({ x: Math.floor((event.clientX - rect.left) / scale), y: Math.floor((event.clientY - rect.top) / scale) });
+                }}>
+                {Number.isInteger(socketMarker.x) && Number.isInteger(socketMarker.y) && (
+                  <span className="pointer-events-none absolute size-2 -translate-x-1/2 -translate-y-1/2 border border-white bg-[#22d3ee]"
+                    style={{ left: (socketMarker.x + 0.5) * scale, top: (socketMarker.y + 0.5) * scale }} />
+                )}
+              </button>
+            )}
             {shown ? (["clsn2", "clsn1"] as BoxKind[]).flatMap((kind) =>
               occurrenceBoxes(def, shown.id, kind).map((raw, i) => {
                 const box = drag && drag.kind === kind && drag.index === i && !playing ? drag.preview : raw;
@@ -669,6 +716,14 @@ export default function CharacterTimelinePanel({ entity, authored = false }: { e
                 ) : null}
               </div>
             ) : null}
+            {authored && activeTarget === "megadrive" && (
+              <PoseSocketEditor key={animationName + "/" + selected.id} actor={entity} animation={def}
+                occurrence={selected.id} entities={activeScene?.entities ?? []} marker={socketMarker}
+                onMarker={setSocketMarker}
+                onPoints={(points) => commit({ ok: true, def: {
+                  ...def, pose_sockets: { ...def.pose_sockets, [selected.id]: points },
+                } }, "Ponto de encaixe atualizado nesta pose.")} />
+            )}
             <div data-testid="character-occurrence-boxes" className="space-y-1">
               <p className="text-[10px] text-[#94a3b8]">
                 Caixas: {selected.bodyBoxes} corpo · {selected.attackBoxes} ataque ({authored ? "desta ocorrência" : def.mugen_frames?.[selected.index]?.clsn_edited ? "editadas no Studio" : "importadas"})

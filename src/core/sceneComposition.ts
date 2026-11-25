@@ -116,7 +116,10 @@ export function translateCollisionMap(map: CollisionMap, dx: number, dy: number)
     if (x < 0 || x >= width || y < 0 || y >= height) return null;
     data[y * width + x] = value;
   }
-  return { ...map, data };
+  const materials = map.materials?.map((material) => ({
+    ...material, cells: material.cells.map((index) => index + rows * width + columns),
+  }));
+  return { ...map, data, ...(materials ? { materials } : {}) };
 }
 
 export type EntityEditLock = { locked: false } | { locked: true; reason: "object" } | { locked: true; reason: "layer"; layerName: string };

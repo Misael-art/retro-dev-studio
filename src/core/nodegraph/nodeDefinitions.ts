@@ -367,18 +367,20 @@ export const NODE_DEFS: Record<NodeType, Omit<GraphNode, "id" | "x" | "y">> = {
     params: { var_name: "i", count: 4 },
   },
   timeline_sequence: {
-    type: "timeline_sequence", label: "Timeline",
+    type: "timeline_sequence", label: "Sequência de eventos",
     inputs: [{ id: "exec", label: "▶", kind: "exec" }],
     outputs: [
       { id: "slot_0", label: "Slot 1 ▶", kind: "exec" },
       { id: "slot_1", label: "Slot 2 ▶", kind: "exec" },
       { id: "slot_2", label: "Slot 3 ▶", kind: "exec" },
+      { id: "slot_3", label: "Slot 4 ▶", kind: "exec" },
     ],
     params: {
       timeline_name: "cutscene",
       slot_0_delay: 30,
       slot_1_delay: 60,
       slot_2_delay: 90,
+      slot_3_delay: -1,
     },
   },
   hardware_budget_check: {

@@ -204,7 +204,7 @@ export function replaceLinkedAtlas(
 }
 
 function isAuthoredIdle(definition: AnimationDef) {
-  return Boolean(definition.occurrence_ids || definition.mugen_frames || definition.pose_alignment
+  return Boolean(definition.occurrence_ids || definition.mugen_frames || definition.pose_alignment || definition.pose_sockets
     || definition.pose_code_drafts || definition.frame_events || definition.hitboxes || definition.onion_skin
     || definition.loop_start != null);
 }

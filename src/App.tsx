@@ -3,8 +3,10 @@ import ImageIngress from "./components/artstudio/ImageIngress";
 import RomDropDecompile from "./components/tools/RomDropDecompile";
 import Icon, { type IconName } from "./components/common/Icon";
 import StudioAppearancePicker from "./components/common/StudioAppearancePicker";
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { invoke, isTauri } from "@tauri-apps/api/core";
+import { useFloatingStudioPanels } from "./components/common/useFloatingStudioPanels";
 import { APP_COMMAND_EVENT, requestAppCommand, useSceneAttentionStore } from "./core/sceneAttentionStore";
 import { dispatchGraphHistory } from "./core/nodegraph/graphHistory";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -2058,6 +2060,9 @@ export default function App() {
   const propertiesLeft = activeWorkspace === "scene" && sceneDesk.propertiesLeft;
   const layoutRevision = `${layoutKey}:${propertiesLeft}:${focusedShell}`;
   const splitTimeline = activeWorkspace === "scene" && activeViewportTab === "scene" && sceneDesk.desk === "animate" && !focusedShell;
+  const floating = useFloatingStudioPanels(useCallback(() => {
+    useEditorStore.getState().logMessage("error", "O painel não abriu em outra janela. A disposição atual foi recuperada.");
+  }, []));
   const leftMinimum = propertiesLeft ? 320 : 200;
   const rightMinimum = propertiesLeft ? 200 : 320;
   const leftAvailable = propertiesLeft ? shellConfig.showRight : shellConfig.showLeft;
@@ -5166,8 +5171,17 @@ export default function App() {
       <ViewportPanel showWorkspaceTabs={false} compactTools={splitTimeline} />
     </Suspense>
   );
-  const animationActor = splitTimeline ? activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId) : undefined;
+  const animationActor = splitTimeline || floating.open.timeline
+    ? activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId) : undefined;
   const canAnimate = nativeAnimationNames(animationActor?.components.sprite, activeTarget, projectSourceKind).length > 0;
+  const timelineContent = animationActor && canAnimate ? (
+    <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando timeline…" />}>
+      <CharacterTimelinePanel key={animationActor.entity_id} entity={animationActor} authored />
+    </Suspense>
+  ) : (
+    <div className="p-3 text-sm text-[var(--rds-text-secondary)]">Selecione no Canvas um ator com animações do projeto.</div>
+  );
+  const liveInspector = shellConfig.showRight && rightPanelMode === "inspector";
   const workspacePanelContent = (
     <Group orientation="vertical" id="workspace-editor" className="h-full min-h-0" data-testid="workspace-editor-stack"
       onLayoutChanged={(layout) => {
@@ -5193,13 +5207,13 @@ export default function App() {
       {splitTimeline ? (
         <Panel id="workspace-timeline" panelRef={timelinePanelRef} defaultSize={`${timelineShareRef.current}%`}
           minSize="110px" maxSize={compactShell ? "44%" : "71%"} className="overflow-hidden">
-          {animationActor && canAnimate ? (
-            <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando timeline…" />}>
-              <CharacterTimelinePanel key={animationActor.entity_id} entity={animationActor} authored />
-            </Suspense>
-          ) : (
-            <div className="p-3 text-sm text-[var(--rds-text-secondary)]">Selecione no Canvas um ator com animações do projeto.</div>
-          )}
+          <div className="flex h-full min-h-0 flex-col">
+            {isTauri() && <div className="flex shrink-0 justify-end border-b border-[#313244] px-2">
+              <button type="button" data-testid="float-timeline" className="rounded px-2 py-0.5 text-[11px]"
+                onClick={() => floating.floatPanel("timeline")}>{floating.open.timeline ? "Mostrar janela da timeline" : "Destacar timeline"}</button>
+            </div>}
+            <div className="min-h-0 flex-1 overflow-hidden" ref={floating.timelineDock} />
+          </div>
         </Panel>
       ) : null}
     </Group>
@@ -5211,6 +5225,10 @@ export default function App() {
           <div className={`${compactShell ? "sr-only" : "text-[10px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]"}`}>
             {rightPanelMode === "tools" ? "Ferramentas" : "Propriedades da seleção"}
           </div>
+          {rightPanelMode === "inspector" && isTauri() && <button type="button" data-testid="float-properties"
+            className="ml-auto rounded px-1 py-0.5 text-[11px]" onClick={() => floating.floatPanel("properties")}>
+            {floating.open.properties ? "Mostrar janela" : "Destacar"}
+          </button>}
           {activeWorkspace === "scene" && !focusedShell && rightPanelMode === "inspector" ? (
             <button type="button" title="Encaixar Propriedades" aria-label="Encaixar Propriedades"
               aria-expanded={propertiesDock !== null} aria-controls="workspace-properties-dock-targets"
@@ -5297,9 +5315,7 @@ export default function App() {
             />
           </Suspense>
         ) : (
-          <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Inspector..." />}>
-            <InspectorPanel />
-          </Suspense>
+          <div className="h-full" ref={floating.propertiesDock} />
         )}
       </div>
     </div>
@@ -5330,8 +5346,17 @@ export default function App() {
       data-testid="studio-workspace-shell"
       data-scene-desk={sceneDesk.desk}
       data-properties-side={propertiesLeft ? "left" : "right"}
+      data-floating-properties={floating.open.properties ? "true" : "false"}
+      data-floating-timeline={floating.open.timeline ? "true" : "false"}
       className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--rds-surface-panel-strong)] text-[var(--rds-text-primary)]"
     >
+      {(splitTimeline || floating.open.timeline) && createPortal(timelineContent, floating.hosts.timeline, "studio-timeline")}
+      {(liveInspector || floating.open.properties) && createPortal(
+        <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando Inspector..." />}>
+          <InspectorPanel />
+        </Suspense>,
+        floating.hosts.properties, "studio-properties",
+      )}
       <Dialog open={layoutNameDraft !== null} title="Salvar disposição" onClose={() => setLayoutNameDraft(null)}
         testId="workspace-layout-name-dialog">
         <form onSubmit={(event) => {

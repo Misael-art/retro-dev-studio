@@ -2,7 +2,9 @@
 //! SGDK still advances the frames, performs visibility checks and uploads tiles.
 use std::fmt::Write;
 
-use super::ast_generator::{collect_sfx_resources, AstNode, AstOutput, AuthoredPoseAnimation};
+use super::ast_generator::{
+    collect_sfx_resources, AstNode, AstOutput, AuthoredPoseAnimation, PoseAttachmentPlan,
+};
 use super::build_provenance::hex_encode;
 
 pub(super) fn duration_marker(entity: &str, animation: &str, occurrence: &str) -> String {
@@ -58,7 +60,67 @@ pub(super) fn actor_has_boxes(ast: &AstOutput, sprite: &str) -> bool {
 }
 
 pub(super) fn needs_screen_position(ast: &AstOutput) -> bool {
-    distinct_actors(ast).any(|(_, _, animations)| aligned(animations))
+    attachments(ast).next().is_some()
+        || distinct_actors(ast).any(|(_, _, animations)| aligned(animations))
+}
+
+fn attachments(ast: &AstOutput) -> impl Iterator<Item = &PoseAttachmentPlan> {
+    ast.nodes.iter().filter_map(|node| match node {
+        AstNode::PoseAttachment(link) => Some(link),
+        _ => None,
+    })
+}
+
+fn emit_attachment(out: &mut String, link: &PoseAttachmentPlan) {
+    let PoseAttachmentPlan {
+        parent,
+        child,
+        cell: (w, h),
+        child_cell: (cw, ch),
+        pivot: (px, py),
+        offset: (ox, oy),
+        points,
+    } = link;
+    for (index, clip) in points
+        .iter()
+        .enumerate()
+        .filter(|(_, clip)| !clip.is_empty())
+    {
+        writeln!(out, "static const s16 rds_socket_{child}_{index}[][2] = {{").unwrap();
+        for point in clip {
+            let (x, y) = point.unwrap_or((-1, 0));
+            writeln!(out, "    {{ {x}, {y} }},").unwrap();
+        }
+        out.push_str("};\n");
+    }
+    writeln!(out,
+        "static void rds_attach_{child}(Sprite *actor, const RdsPoseFrame *frame) {{\n\
+         \x20   if (!{child}) return;\n\
+         \x20   const s16 *point = NULL;\n\
+         \x20   if (actor && frame && SPR_getVisibility(actor) != HIDDEN) switch (actor->animInd) {{"
+    ).unwrap();
+    for (index, clip) in points
+        .iter()
+        .enumerate()
+        .filter(|(_, clip)| !clip.is_empty())
+    {
+        writeln!(out,
+            "        case {index}: if (actor->frameInd < {}) point = rds_socket_{child}_{index}[actor->frameInd]; break;",
+            clip.len()).unwrap();
+    }
+    writeln!(out,
+        "    }}\n\
+         \x20   if (!point || point[0] < 0) {{ SPR_setVisibility({child}, HIDDEN); return; }}\n\
+         \x20   const bool fx = (actor->attribut & TILE_ATTR_HFLIP_MASK) != 0;\n\
+         \x20   const bool fy = (actor->attribut & TILE_ATTR_VFLIP_MASK) != 0;\n\
+         \x20   const s16 dx = point[0] + ({ox});\n\
+         \x20   const s16 dy = point[1] + ({oy});\n\
+         \x20   {child}_x = {parent}_x + (fx ? ({w} - 1) - dx - frame->dx - ({cw} - 1 - ({px})) : dx + frame->dx - ({px}));\n\
+         \x20   {child}_y = {parent}_y + (fy ? ({h} - 1) - dy - frame->dy - ({ch} - 1 - ({py})) : dy + frame->dy - ({py}));\n\
+         \x20   SPR_setHFlip({child}, fx); SPR_setVFlip({child}, fy);\n\
+         \x20   rds_pose_screen_position({child}, {child}_x - RDS_CAMERA_SCREEN_X, {child}_y - RDS_CAMERA_SCREEN_Y);\n\
+         \x20   SPR_setVisibility({child}, AUTO_SLOW);\n}}"
+    ).unwrap();
 }
 
 pub(super) fn emit_declarations(out: &mut String, ast: &AstOutput) {
@@ -92,6 +154,9 @@ pub(super) fn emit_declarations(out: &mut String, ast: &AstOutput) {
         out.push_str(" const RdsPoseBox *attack, *body; u8 attacks, bodies;");
     }
     out.push_str(" } RdsPoseFrame;\ntypedef struct { u16 count; const RdsPoseFrame *frames; bool looping; } RdsPoseAnimation;\n");
+    for link in attachments(ast) {
+        emit_attachment(out, link);
+    }
     let sounds = collect_sfx_resources(ast);
     for (entity, sprite, animations) in distinct_actors(ast) {
         let name = format!("rds_pose_{sprite}");
@@ -217,6 +282,15 @@ pub(super) fn emit_declarations(out: &mut String, ast: &AstOutput) {
         } else {
             String::new()
         };
+        let mut attachment_calls = String::new();
+        for link in attachments(ast).filter(|link| link.parent == sprite) {
+            writeln!(
+                attachment_calls,
+                "    rds_attach_{}(sprite, frame);",
+                link.child
+            )
+            .unwrap();
+        }
         writeln!(
             out,
             "static void {name}_change(Sprite *sprite) {{\n\
@@ -224,7 +298,7 @@ pub(super) fn emit_declarations(out: &mut String, ast: &AstOutput) {
              \x20   if (frame) {{\n\
              \x20       SPR_setAnimationLoop(sprite, {name}_animations[sprite->animInd].looping);\n\
              \x20       if (SPR_getAutoAnimation(sprite)) sprite->timer = *frame->ticks;\n\
-             \x20   }}\n{position_call}{on_event_frame}{on_box_frame}{on_visible_frame}}}"
+             \x20   }}\n{position_call}{on_event_frame}{on_box_frame}{on_visible_frame}{attachment_calls}}}"
         )
         .unwrap();
     }
@@ -310,6 +384,24 @@ pub(super) fn emit_positions(out: &mut String, ast: &AstOutput) {
         writeln!(
             out,
             "        {name}_place({sprite}, {name}_current({sprite}));"
+        )
+        .unwrap();
+    }
+    // SGDK writes the SAT in depth order. The actor callback can move the accessory
+    // on the exact frame change because the accessory is written later in that pass.
+    for link in attachments(ast) {
+        writeln!(out,
+            "        if ({0}) SPR_setDepth({0}, SPR_MAX_DEPTH - 1);\n        rds_attach_{1}({0}, rds_pose_{0}_current({0}));",
+            link.parent, link.child).unwrap();
+    }
+}
+
+pub(super) fn emit_attachment_residency_positions(out: &mut String, ast: &AstOutput) {
+    for link in attachments(ast) {
+        writeln!(
+            out,
+            "        if (!{0}) {{ {1}_x = {0}_x; {1}_y = {0}_y; }}",
+            link.parent, link.child
         )
         .unwrap();
     }

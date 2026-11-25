@@ -105,11 +105,19 @@ pub struct AnimationDef {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub pose_alignment: BTreeMap<String, PoseAlignment>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub pose_sockets: BTreeMap<String, Vec<PoseSocket>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub pose_code_drafts: BTreeMap<String, Option<String>>,
     /// Eventos autorais ancorados em ocorrencia + tick local (0 = primeiro tick do quadro).
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub frame_events: Vec<FrameEvent>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PoseSocket {
+    pub name: String,
+    pub point: Pivot,
 }
 
 /// Evento autoral de quadro (Experimental). `kind = "sound"` toca `sound` (acao do
@@ -226,6 +234,7 @@ mod sprite_command_tests {
         let animation = AnimationDef {
             occurrence_ids: None,
             pose_alignment: Default::default(),
+            pose_sockets: Default::default(),
             pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: vec![0, 1],
@@ -719,6 +728,15 @@ pub struct Components {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub path: Option<PathComponent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pose_attachment: Option<PoseAttachment>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PoseAttachment {
+    pub actor: String,
+    pub socket: String,
+    pub offset: Pivot,
 }
 
 /// Trajeto em retas entre pontos relativos a posicao inicial do objeto (Experimental, R5).

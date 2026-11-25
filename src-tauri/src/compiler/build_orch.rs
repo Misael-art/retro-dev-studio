@@ -909,6 +909,14 @@ where
         target.target,
         &resolved_scene,
     ));
+    support_issues.extend(crate::compiler::platform_support::pose_attachment_issues(
+        target.target,
+        &resolved_scene,
+    ));
+    support_issues.extend(crate::compiler::platform_support::surface_material_issue(
+        target.target,
+        &resolved_scene,
+    ));
     support_issues.extend(crate::compiler::platform_support::path_trigger_issues(
         target.target,
         &resolved_scene,

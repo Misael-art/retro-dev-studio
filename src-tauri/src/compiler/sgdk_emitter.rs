@@ -2,7 +2,7 @@ use crate::compiler::ast_generator::{
     collect_bgm_tracks, collect_collision_checks, collect_logic_sound_names,
     collect_parallax_layers, collect_physics_applications, collect_raster_lines,
     collect_sfx_resources, collect_tilemap_assets, AabbCollisionCheck, AstNode, AstOutput,
-    CompareOp, HardwareEventKind, LogicBoolExpr, LogicCollisionTarget, LogicFsmState,
+    CompareOp, GroundProbe, HardwareEventKind, LogicBoolExpr, LogicCollisionTarget, LogicFsmState,
     LogicFsmTransition, LogicMathExpr, LogicOp, LogicPositionSource, LogicScript,
     LogicTimelineSlot, ParallaxLayerConfig, PhysicsApplication, RasterLineConfig, SpriteAsset,
     TilemapAsset,
@@ -182,6 +182,10 @@ fn build_main_c_inner(
     let raster_lines = collect_raster_lines(ast);
     let wave_band = ast.nodes.iter().find_map(|node| match node {
         AstNode::SetupWaveBand { wave, plane } => Some((wave, *plane)),
+        _ => None,
+    });
+    let surface = ast.nodes.iter().find_map(|node| match node {
+        AstNode::SurfaceMaterials { cells, materials } => Some((cells, materials)),
         _ => None,
     });
     let scroll_tilemap_layers = collect_scroll_tilemap_layers(ast);
@@ -391,6 +395,11 @@ fn build_main_c_inner(
             var_name, initial_value
         ));
     }
+    for name in triggered_timelines(&ast.logic_scripts).keys() {
+        out.push_str(&format!(
+            "static u8 rds_{name}_request, rds_{name}_previous, rds_{name}_running;\n"
+        ));
+    }
     if !logic_vars.is_empty() {
         out.push('\n');
     }
@@ -490,6 +499,9 @@ fn build_main_c_inner(
                 .into_iter()
                 .find_map(|physics| physics.ground)
             {
+                if let Some((cells, materials)) = surface {
+                    render_surface_materials(&mut out, &ground, cells, materials);
+                }
                 out.push_str(&format!(
                     "static u8 rds_solid_at(s16 x, s16 y)\n{{\n    if (x < 0 || y < 0) return 0;\n    u16 tx = (u16)x / {tw};\n    u16 ty = (u16)y / {th};\n    if (tx >= {mw} || ty >= {mh}) return 0;\n    return rds_collision_map[ty * {mw} + tx] != 0;\n}}\n\n\
 // Side walls: moving by dx, the body's leading edge (right if dx>0, left if dx<0) must not\n\
@@ -845,6 +857,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     floor_y: *floor_y,
                     ground: ground.clone(),
                 },
+                surface.is_some(),
             ),
             AstNode::SetAnimation {
                 var_name,
@@ -948,6 +961,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     ));
                 }
                 render_logic_scripts(&mut out, &ast.logic_scripts, 8);
+                render_triggered_timelines(&mut out, &ast.logic_scripts);
                 if has_rom_branch_compare_word {
                     out.push_str(
                         "        *rds_branch_recovery_input = (u16)logic_var_branch_input;\n",
@@ -990,6 +1004,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     }
                     out.push_str(&format!("        rds_wave_phase += ({});\n", wave.speed));
                 }
+                super::pose_runtime::emit_attachment_residency_positions(&mut out, ast);
                 if managed_sprites {
                     out.push_str("        rds_sync_sprite_residency();\n");
                 }
@@ -1010,7 +1025,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
             AstNode::GameLoopEnd => {
                 out.push_str("    }\n");
             }
-            AstNode::AuthoredPosePlayback { .. } => {
+            AstNode::AuthoredPosePlayback { .. } | AstNode::PoseAttachment(_) | AstNode::SurfaceMaterials { .. } => {
                 // Declarations and sprite callbacks consume this metadata.
             }
         }
@@ -1432,7 +1447,48 @@ fn render_aabb_helper() -> &'static str {
 }\n"
 }
 
-fn render_apply_physics(out: &mut String, physics: &PhysicsApplication) {
+fn render_surface_materials(
+    out: &mut String,
+    ground: &GroundProbe,
+    cells: &[u8],
+    materials: &[crate::ugdm::entities::SurfaceMaterial],
+) {
+    use std::fmt::Write as _;
+    out.push_str("static const u8 rds_material_map[] = {\n");
+    for row in cells.chunks(32) {
+        for cell in row {
+            write!(out, "{cell}, ").unwrap();
+        }
+        out.push('\n');
+    }
+    out.push_str("};\nstatic const u8 rds_material_friction[] __attribute__((unused)) = {0");
+    for material in materials {
+        write!(out, ", {}", material.friction).unwrap();
+    }
+    out.push_str("};\nstatic const u8 rds_material_sound[] __attribute__((unused)) = {0");
+    for material in materials {
+        if let Some(sound) = &material.step_sound {
+            write!(out, ", SFX_{}", sound.to_uppercase()).unwrap();
+        } else {
+            out.push_str(", 0");
+        }
+    }
+    writeln!(
+        out,
+        "}};\nstatic u8 __attribute__((unused)) rds_material_at(s16 x, s16 y) {{\n\
+         \x20   if (x < 0 || y < 0) return 0;\n\
+         \x20   const u16 col = (u16)x / {}, row = (u16)y / {};\n\
+         \x20   return col < {} && row < {} ? rds_material_map[row * {} + col] : 0;\n}}",
+        ground.tile_width,
+        ground.tile_height,
+        ground.map_width,
+        ground.map_height,
+        ground.map_width,
+    )
+    .unwrap();
+}
+
+fn render_apply_physics(out: &mut String, physics: &PhysicsApplication, surface: bool) {
     let next_x_var = format!("{}_next_x", physics.var_name);
     let next_y_var = format!("{}_next_y", physics.var_name);
     out.push_str(&format!("        {}_on_ground = 0;\n", physics.var_name));
@@ -1465,7 +1521,22 @@ fn render_apply_physics(out: &mut String, physics: &PhysicsApplication) {
         max_velocity_y = physics.max_velocity_y
     ));
 
-    if physics.friction > 0 {
+    let surface_ground = physics
+        .ground
+        .as_ref()
+        .filter(|_| surface && physics.gravity);
+    if let Some(ground) = surface_ground {
+        let name = &physics.var_name;
+        let half_width = ground.body_width / 2;
+        let height = ground.body_height;
+        out.push_str(&format!(
+            "        const u8 rds_material_{name} = rds_material_at({name}_x + {half_width}, {name}_y + {height});\n\
+             \x20       const s32 rds_friction_{name} = rds_material_{name} ? rds_material_friction[rds_material_{name}] : {};\n\
+             \x20       if ({name}_vel_x > 0) {{ {name}_vel_x -= rds_friction_{name}; if ({name}_vel_x < 0) {name}_vel_x = 0; }}\n\
+             \x20       if ({name}_vel_x < 0) {{ {name}_vel_x += rds_friction_{name}; if ({name}_vel_x > 0) {name}_vel_x = 0; }}\n",
+            physics.friction.max(0),
+        ));
+    } else if physics.friction > 0 {
         out.push_str(&format!(
             "        if ({var_name}_vel_x > 0) {{ {var_name}_vel_x -= {friction}; if ({var_name}_vel_x < 0) {var_name}_vel_x = 0; }}\n",
             var_name = physics.var_name,
@@ -1566,6 +1637,20 @@ fn render_apply_physics(out: &mut String, physics: &PhysicsApplication) {
         ));
     }
 
+    if let Some(ground) = surface_ground {
+        let name = &physics.var_name;
+        let half_width = ground.body_width / 2;
+        let height = ground.body_height;
+        out.push_str(&format!(
+            "        {{ static u8 step_wait, last_surface;\n\
+             \x20           const u8 surface = {name}_on_ground && {next_x_var} != {name}_x ? rds_material_at({next_x_var} + {half_width}, {next_y_var} + {height}) : 0;\n\
+             \x20           if (surface != last_surface) step_wait = 0;\n\
+             \x20           if (surface && rds_material_sound[surface] && !step_wait) {{ XGM_startPlayPCM(rds_material_sound[surface], 1, SOUND_PCM_CH3); step_wait = 12; }}\n\
+             \x20           if (step_wait) --step_wait;\n\
+             \x20           last_surface = surface;\n\
+             \x20       }}\n"
+        ));
+    }
     out.push_str(&format!(
         "        {var_name}_x = {next_x_var}; {var_name}_y = {next_y_var};\n",
         var_name = physics.var_name,
@@ -2287,8 +2372,16 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], indent: usize) {
                 out.push_str(&format!("{indent}}}\n", indent = indent_str));
                 render_logic_ops(out, done, indent);
             }
-            LogicOp::TimelineSequence { counter_var, slots } => {
-                render_timeline_sequence(out, counter_var, slots, indent);
+            LogicOp::TimelineSequence {
+                counter_var,
+                slots,
+                triggered,
+            } => {
+                if *triggered {
+                    out.push_str(&format!("{indent_str}rds_{counter_var}_request = 1;\n"));
+                } else {
+                    render_timeline_sequence(out, counter_var, slots, indent);
+                }
             }
             LogicOp::HardwareBudgetCheck {
                 vram_kb,
@@ -2439,6 +2532,81 @@ fn collect_logic_velocity_targets_from_ops(
     }
 }
 
+fn triggered_timelines(
+    scripts: &[LogicScript],
+) -> std::collections::BTreeMap<&str, &[LogicTimelineSlot]> {
+    fn walk<'a>(
+        ops: &'a [LogicOp],
+        found: &mut std::collections::BTreeMap<&'a str, &'a [LogicTimelineSlot]>,
+    ) {
+        for op in ops {
+            match op {
+                LogicOp::SourceMapped { op, .. } => walk(std::slice::from_ref(op.as_ref()), found),
+                LogicOp::TimelineSequence {
+                    counter_var,
+                    slots,
+                    triggered,
+                } => {
+                    if *triggered {
+                        found.entry(counter_var).or_insert(slots);
+                    }
+                    for slot in slots {
+                        walk(&slot.actions, found);
+                    }
+                }
+                LogicOp::ConditionOverlap {
+                    if_true, if_false, ..
+                }
+                | LogicOp::ConditionBool {
+                    if_true, if_false, ..
+                } => {
+                    walk(if_true, found);
+                    walk(if_false, found);
+                }
+                LogicOp::WhileLoop { body, done, .. } | LogicOp::ForLoop { body, done, .. } => {
+                    walk(body, found);
+                    walk(done, found);
+                }
+                LogicOp::HardwareBudgetCheck { if_ok, if_warn, .. } => {
+                    walk(if_ok, found);
+                    walk(if_warn, found);
+                }
+                LogicOp::HardwareEvent { ops, .. } => walk(ops, found),
+                LogicOp::StateMachine { states, .. } => {
+                    for state in states {
+                        walk(&state.body, found);
+                        for t in &state.transitions {
+                            walk(&t.if_matched, found);
+                            walk(&t.if_unmatched, found);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    let mut found = std::collections::BTreeMap::new();
+    for script in scripts {
+        walk(&script.ops, &mut found);
+    }
+    found
+}
+
+fn render_triggered_timelines(out: &mut String, scripts: &[LogicScript]) {
+    for (name, slots) in triggered_timelines(scripts) {
+        let last = slots.last().map_or(0, |slot| slot.delay_frames);
+        out.push_str(&format!(
+            "        if (rds_{name}_request && !rds_{name}_previous) {{ rds_{name}_running = 1; logic_var_{name} = 0; }}\n\
+             \x20       rds_{name}_previous = rds_{name}_request; rds_{name}_request = 0;\n\
+             \x20       if (rds_{name}_running) {{\n"
+        ));
+        render_timeline_slots(out, name, slots, 12);
+        out.push_str(&format!(
+            "            if (logic_var_{name}++ >= {last}) rds_{name}_running = 0;\n        }}\n"
+        ));
+    }
+}
+
 fn render_timeline_sequence(
     out: &mut String,
     counter_var: &str,
@@ -2451,18 +2619,30 @@ fn render_timeline_sequence(
         indent = indent_str,
         counter = counter_var
     ));
+    render_timeline_slots(out, counter_var, slots, indent);
+}
+
+fn render_timeline_slots(
+    out: &mut String,
+    counter_var: &str,
+    slots: &[LogicTimelineSlot],
+    indent: usize,
+) {
+    let indent_str = " ".repeat(indent);
     out.push_str(&format!(
         "{indent}switch (logic_var_{counter}) {{\n",
         indent = indent_str,
         counter = counter_var
     ));
-    for slot in slots {
+    for group in slots.chunk_by(|left, right| left.delay_frames == right.delay_frames) {
         out.push_str(&format!(
             "{indent}case {delay}:\n",
             indent = " ".repeat(indent + 4),
-            delay = slot.delay_frames
+            delay = group[0].delay_frames
         ));
-        render_logic_ops(out, &slot.actions, indent + 8);
+        for slot in group {
+            render_logic_ops(out, &slot.actions, indent + 8);
+        }
         out.push_str(&format!(
             "{indent}break;\n",
             indent = " ".repeat(indent + 8)
@@ -2980,7 +3160,9 @@ fn extract_vars_from_op(op: &LogicOp, vars: &mut std::collections::BTreeSet<Stri
                 extract_vars_from_op(sub_op, vars);
             }
         }
-        LogicOp::TimelineSequence { counter_var, slots } => {
+        LogicOp::TimelineSequence {
+            counter_var, slots, ..
+        } => {
             vars.insert(counter_var.clone());
             for slot in slots {
                 for sub_op in &slot.actions {
@@ -4895,6 +5077,7 @@ mod tests {
             sprite_assets: Vec::new(),
             logic_scripts: vec![LogicScript {
                 ops: vec![LogicOp::TimelineSequence {
+                    triggered: false,
                     counter_var: "timeline_intro".to_string(),
                     slots: vec![
                         crate::compiler::ast_generator::LogicTimelineSlot {

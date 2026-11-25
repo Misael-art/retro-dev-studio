@@ -837,6 +837,7 @@ mod tests {
                 AnimationDef {
                     occurrence_ids: None,
                     pose_alignment: Default::default(),
+                    pose_sockets: Default::default(),
                     pose_code_drafts: Default::default(),
                     frame_events: Vec::new(),
                     frames: frame_list,
@@ -867,6 +868,7 @@ mod tests {
                 AnimationDef {
                     occurrence_ids: None,
                     pose_alignment: Default::default(),
+                    pose_sockets: Default::default(),
                     pose_code_drafts: Default::default(),
                     frame_events: Vec::new(),
                     frames: frame_list,
@@ -920,6 +922,7 @@ mod tests {
     fn collision_map_wider_than_viewport_is_non_fatal_with_warning() {
         let mut scene = empty_scene();
         scene.collision_map = Some(CollisionMap {
+            materials: Vec::new(),
             tile_width: 8,
             tile_height: 8,
             width: 128,
@@ -950,6 +953,7 @@ mod tests {
     fn collision_map_with_invalid_data_len_keeps_fatal_guardrails() {
         let mut scene = empty_scene();
         scene.collision_map = Some(CollisionMap {
+            materials: Vec::new(),
             tile_width: 8,
             tile_height: 8,
             width: 32,
@@ -1124,6 +1128,7 @@ mod tests {
             crate::ugdm::components::AnimationDef {
                 occurrence_ids: None,
                 pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
                 pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: (0..27).collect(),

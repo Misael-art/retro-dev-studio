@@ -487,7 +487,7 @@ export interface StoreActions {
    * Não empurra o undo stack — use beginHistoryCapture / commitHistoryCapture
    * ao redor do drag para criar uma entrada única de undo.
    */
-  updateCollisionMap: (tileIndex: number, value: 0 | 1) => void;
+  updateCollisionMap: (tileIndex: number, value: 0 | 1, material?: string | null) => void;
   /** Substitui o mapa inteiro dentro de uma captura de histórico externa. */
   setCollisionMap: (map: CollisionMap) => void;
   undo: () => void;
@@ -1304,7 +1304,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         sceneRevision: state.sceneRevision + 1,
       };
     }),
-  updateCollisionMap: (tileIndex, value) =>
+  updateCollisionMap: (tileIndex, value, material) =>
     set((state) => {
       if (!state.activeScene) return {};
 
@@ -1324,11 +1324,20 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
       // Guarda limites: ignora índice fora do array.
       const capacity = collisionMap.width * collisionMap.height;
-      if (tileIndex < 0 || tileIndex >= capacity) return {};
+      if (!Number.isInteger(tileIndex) || tileIndex < 0 || tileIndex >= capacity) return {};
+      if (material !== undefined && collisionMap.data[tileIndex] !== 1) return {};
+      if (typeof material === "string" && !collisionMap.materials?.some((item) => item.name === material)) return {};
 
       const newData = collisionMap.data.slice();
-      newData[tileIndex] = value;
-      const updatedCollisionMap = { ...collisionMap, data: newData };
+      if (material === undefined) newData[tileIndex] = value;
+      const materials = material !== undefined || value === 0
+        ? collisionMap.materials?.map((item) => {
+          const cells = item.cells.filter((cell) => cell !== tileIndex);
+          if (item.name === material) cells.push(tileIndex);
+          return { ...item, cells };
+        })
+        : collisionMap.materials;
+      const updatedCollisionMap = { ...collisionMap, data: newData, ...(materials ? { materials } : {}) };
 
       return {
         activeScene: {

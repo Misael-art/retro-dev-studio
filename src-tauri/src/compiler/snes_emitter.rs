@@ -540,7 +540,9 @@ fn build_main_c_with_collision(
             AstNode::GameLoopEnd => {
                 out.push_str("    }\n");
             }
-            AstNode::AuthoredPosePlayback { .. } => {
+            AstNode::AuthoredPosePlayback { .. }
+            | AstNode::PoseAttachment(_)
+            | AstNode::SurfaceMaterials { .. } => {
                 // The generator produces authored pose metadata only for SGDK.
             }
         }
@@ -1443,7 +1445,9 @@ fn render_logic_ops(out: &mut String, ops: &[LogicOp], context: &SnesContext, in
                 out.push_str(&format!("{indent}}}\n", indent = indent_str));
                 render_logic_ops(out, done, context, indent);
             }
-            LogicOp::TimelineSequence { counter_var, slots } => {
+            LogicOp::TimelineSequence {
+                counter_var, slots, ..
+            } => {
                 render_timeline_sequence(out, context, counter_var, slots, indent);
             }
             LogicOp::HardwareBudgetCheck {
@@ -1953,7 +1957,9 @@ fn extract_vars_from_op(op: &LogicOp, vars: &mut std::collections::BTreeSet<Stri
                 extract_vars_from_op(sub_op, vars);
             }
         }
-        LogicOp::TimelineSequence { counter_var, slots } => {
+        LogicOp::TimelineSequence {
+            counter_var, slots, ..
+        } => {
             vars.insert(counter_var.clone());
             for slot in slots {
                 for sub_op in &slot.actions {
@@ -3309,6 +3315,7 @@ mod tests {
             sprite_assets: Vec::new(),
             logic_scripts: vec![LogicScript {
                 ops: vec![LogicOp::TimelineSequence {
+                    triggered: false,
                     counter_var: "timeline_intro".to_string(),
                     slots: vec![
                         crate::compiler::ast_generator::LogicTimelineSlot {

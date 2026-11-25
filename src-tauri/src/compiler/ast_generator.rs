@@ -42,6 +42,11 @@ pub enum AstNode {
         var_name: String,
         animations: Result<Vec<AuthoredPoseAnimation>, String>,
     },
+    PoseAttachment(PoseAttachmentPlan),
+    SurfaceMaterials {
+        cells: Vec<u8>,
+        materials: Vec<crate::ugdm::entities::SurfaceMaterial>,
+    },
     DrawTilemap {
         resource_name: String,
         x: i32,
@@ -194,6 +199,17 @@ pub struct AuthoredPoseAnimation {
     pub cell: (u32, u32),
     pub frames: Vec<AuthoredPoseFrame>,
     pub events: Vec<MugenEventRuntime>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PoseAttachmentPlan {
+    pub parent: String,
+    pub child: String,
+    pub cell: (u32, u32),
+    pub child_cell: (u32, u32),
+    pub pivot: (i32, i32),
+    pub offset: (i32, i32),
+    pub points: Vec<Vec<Option<(i32, i32)>>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -506,6 +522,7 @@ pub enum LogicOp {
     TimelineSequence {
         counter_var: String,
         slots: Vec<LogicTimelineSlot>,
+        triggered: bool,
     },
     HardwareBudgetCheck {
         vram_kb: i32,
@@ -765,6 +782,7 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
                         animation.mugen_frames.is_none()
                             && (animation.frame_durations.is_some()
                                 || !animation.pose_alignment.is_empty()
+                                || !animation.pose_sockets.is_empty()
                                 || !animation.frame_events.is_empty()
                                 || !animation.hitboxes.is_empty())
                     })
@@ -1079,6 +1097,78 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
             asset_path,
         });
     }
+    if project.target == "megadrive" {
+        if let Some(map) = scene.collision_map.as_ref().filter(|map| {
+            map.materials
+                .iter()
+                .any(|material| !material.cells.is_empty())
+        }) {
+            let mut cells = vec![0; map.data.len()];
+            for (index, material) in map.materials.iter().enumerate() {
+                for &cell in &material.cells {
+                    if let Some(value) = cells.get_mut(cell as usize) {
+                        *value = (index + 1) as u8;
+                    }
+                }
+            }
+            nodes.push(AstNode::SurfaceMaterials {
+                cells,
+                materials: map.materials.clone(),
+            });
+        }
+        for entity in &scene.entities {
+            let Some(link) = &entity.components.pose_attachment else {
+                continue;
+            };
+            let Some(child) = entity.components.sprite.as_ref() else {
+                continue;
+            };
+            let Some(parent) = scene
+                .entities
+                .iter()
+                .find(|candidate| candidate.entity_id == link.actor)
+                .and_then(|actor| actor.components.sprite.as_ref())
+            else {
+                continue;
+            };
+            let (Some(parent_var), Some(child_var)) = (
+                sprite_var_names.get(&link.actor),
+                sprite_var_names.get(&entity.entity_id),
+            ) else {
+                continue;
+            };
+            let points = sprite_animations(project.fps, parent)
+                .iter()
+                .map(|animation| {
+                    let clip = &parent.animations[&animation.name];
+                    animation_occurrence_ids(clip)
+                        .unwrap_or_default()
+                        .iter()
+                        .map(|id| {
+                            clip.pose_sockets
+                                .get(id)
+                                .and_then(|points| {
+                                    points.iter().find(|point| point.name == link.socket)
+                                })
+                                .map(|socket| (socket.point.x, socket.point.y))
+                        })
+                        .collect()
+                })
+                .collect();
+            nodes.push(AstNode::PoseAttachment(PoseAttachmentPlan {
+                parent: parent_var.clone(),
+                child: child_var.clone(),
+                cell: (parent.frame_width, parent.frame_height),
+                child_cell: (child.frame_width, child.frame_height),
+                pivot: child
+                    .pivot
+                    .as_ref()
+                    .map_or((0, 0), |point| (point.x, point.y)),
+                offset: (link.offset.x, link.offset.y),
+                points,
+            }));
+        }
+    }
     nodes.push(AstNode::GameLoopBegin);
     nodes.extend(
         input_reads
@@ -1288,6 +1378,18 @@ fn authored_pose_animations(
         }
         if def.pose_alignment.keys().any(|id| !ids.contains(id)) {
             return Err(format!("animação '{}': ponto associado a uma ocorrência inexistente", projected.name));
+        }
+        for (id, points) in &def.pose_sockets {
+            let mut names = std::collections::HashSet::new();
+            if !ids.contains(id) || points.len() > 16 || points.iter().any(|socket| {
+                let crate::ugdm::components::PoseSocket { name, point } = socket;
+                !names.insert(name) || name.is_empty() || name.len() > 32 || !name.bytes().next().is_some_and(|b| b.is_ascii_alphabetic())
+                    || !name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+                    || point.x < 0 || point.y < 0 || point.x.cast_unsigned() >= sprite.frame_width
+                    || point.y.cast_unsigned() >= sprite.frame_height
+            }) {
+                return Err(format!("animação '{}': encaixe inválido na ocorrência '{id}'", projected.name));
+            }
         }
         if def.hitboxes.iter().any(|hitbox| hitbox.occurrence_id.as_ref().is_some_and(|id| !ids.contains(id))) {
             return Err(format!("animação '{}': caixa associada a uma ocorrência inexistente", projected.name));
@@ -3140,15 +3242,18 @@ fn compile_logic_node(
             }))
         }
         "timeline_sequence" => {
+            let triggered = param_string(node, "run_mode").as_deref() == Some("event");
             let counter_var = format!(
                 "timeline_{}",
-                sanitize_identifier(
-                    &param_string(node, "timeline_name").unwrap_or_else(|| node.id.clone())
-                )
+                sanitize_identifier(&if triggered {
+                    format!("event_{}", node.id)
+                } else {
+                    param_string(node, "timeline_name").unwrap_or_else(|| node.id.clone())
+                })
             );
             let mut slots = Vec::new();
 
-            for index in 0..=2 {
+            for index in 0..=3 {
                 let delay = param_i32(node, &format!("slot_{}_delay", index), -1);
                 if delay < 0 {
                     continue;
@@ -3180,6 +3285,7 @@ fn compile_logic_node(
             Some(CompiledLogicNode::Terminal(LogicOp::TimelineSequence {
                 counter_var,
                 slots,
+                triggered,
             }))
         }
         _ => None,
@@ -4227,6 +4333,7 @@ mod tests {
         let animation = AnimationDef {
             occurrence_ids: None,
             pose_alignment: Default::default(),
+            pose_sockets: Default::default(),
             pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: (0..frames as u32).collect(),
@@ -4408,6 +4515,7 @@ mod tests {
             AnimationDef {
                 occurrence_ids: None,
                 pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
                 pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![1, 2, 3, 4],
@@ -5028,6 +5136,7 @@ mod tests {
                 collides_with: Vec::new(),
             });
         scene.collision_map = Some(crate::ugdm::entities::CollisionMap {
+            materials: Vec::new(),
             tile_width: 8,
             tile_height: 8,
             width: 2,
@@ -5375,6 +5484,7 @@ mod tests {
             AnimationDef {
                 occurrence_ids: None,
                 pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
                 pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![0],
@@ -5392,6 +5502,7 @@ mod tests {
             AnimationDef {
                 occurrence_ids: None,
                 pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
                 pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![1, 2, 3],
@@ -6719,6 +6830,7 @@ mod tests {
             AnimationDef {
                 occurrence_ids: None,
                 pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
                 pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![0],
@@ -6736,6 +6848,7 @@ mod tests {
             AnimationDef {
                 occurrence_ids: None,
                 pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
                 pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![1, 2, 3],
@@ -7326,7 +7439,9 @@ mod tests {
             .iter()
             .flat_map(|script| script.ops.iter())
             .find_map(|op| match semantic_op(op) {
-                LogicOp::TimelineSequence { counter_var, slots } => Some((counter_var, slots)),
+                LogicOp::TimelineSequence {
+                    counter_var, slots, ..
+                } => Some((counter_var, slots)),
                 _ => None,
             })
             .expect("timeline graph should compile into timeline op");
@@ -7454,6 +7569,7 @@ mod tests {
             AnimationDef {
                 occurrence_ids: None,
                 pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
                 pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![0, 1],
@@ -7471,6 +7587,7 @@ mod tests {
             AnimationDef {
                 occurrence_ids: None,
                 pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
                 pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![2, 3],

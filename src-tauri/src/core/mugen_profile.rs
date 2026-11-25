@@ -577,6 +577,7 @@ pub(crate) fn convert_character_v1_with_review(
                 // da mesma imagem sao itens distintos para duracao, caixas e eventos.
                 occurrence_ids: Some((1..=a.frames.len()).map(|i| format!("o{i}")).collect()),
                 pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
                 pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: a

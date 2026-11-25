@@ -144,6 +144,19 @@ pub struct CollisionMap {
     /// Dados do mapa: 0 = livre, 1 = sólido. Tamanho esperado = width * height.
     #[serde(default)]
     pub data: Vec<u8>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub materials: Vec<SurfaceMaterial>,
+}
+
+/// Material compartilhado pelas células sólidas que o usam nesta cena.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SurfaceMaterial {
+    pub name: String,
+    pub friction: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub step_sound: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cells: Vec<u32>,
 }
 
 fn default_tile_size() -> u8 {
@@ -160,6 +173,7 @@ impl CollisionMap {
             width,
             height,
             data: vec![0u8; (width * height) as usize],
+            materials: Vec::new(),
         }
     }
 

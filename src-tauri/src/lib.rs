@@ -6707,6 +6707,66 @@ pub fn run() {
 
     tauri::Builder::default()
         .setup(|app| {
+            #[cfg(desktop)]
+            if app.get_webview_window("main").is_none() {
+                use tauri::{webview::NewWindowResponse, WebviewUrl, WebviewWindowBuilder};
+                let handle = app.handle().clone();
+                let config = app
+                    .config()
+                    .app
+                    .windows
+                    .iter()
+                    .find(|window| window.label == "main")
+                    .ok_or("Configuração da janela principal ausente")?;
+                let main = WebviewWindowBuilder::from_config(app, config)?
+                    .on_new_window(move |url, features| {
+                        let (label, title) = match url.as_str() {
+                            "about:blank#rds-timeline" => {
+                                ("studio-floating-timeline", "Timeline · RetroDev Studio")
+                            }
+                            "about:blank#rds-properties" => (
+                                "studio-floating-properties",
+                                "Propriedades · RetroDev Studio",
+                            ),
+                            _ => return NewWindowResponse::Deny,
+                        };
+                        if handle.get_webview_window(label).is_some() {
+                            return NewWindowResponse::Deny;
+                        }
+                        match WebviewWindowBuilder::new(
+                            &handle,
+                            label,
+                            WebviewUrl::External(url.clone()),
+                        )
+                        .window_features(features)
+                        .title(title)
+                        .inner_size(750.0, 524.0)
+                        .min_inner_size(390.0, 300.0)
+                        .on_navigation(move |next| next.as_str() == "about:blank" || next == &url)
+                        .build()
+                        {
+                            Ok(window) => NewWindowResponse::Create { window },
+                            Err(error) => {
+                                eprintln!("[Janela] Falha ao destacar painel: {error}");
+                                NewWindowResponse::Deny
+                            }
+                        }
+                    })
+                    .build()?;
+                main.on_window_event({
+                    let handle = app.handle().clone();
+                    move |event| {
+                        if matches!(event, tauri::WindowEvent::Destroyed) {
+                            for label in ["studio-floating-properties", "studio-floating-timeline"]
+                            {
+                                if let Some(panel) = handle.get_webview_window(label) {
+                                    let _ = panel.close();
+                                }
+                            }
+                        }
+                    }
+                });
+            }
             if let Some(window) = app.get_webview_window("main") {
                 if let Some(monitor) = window
                     .current_monitor()

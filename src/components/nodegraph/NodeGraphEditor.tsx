@@ -11,6 +11,7 @@ import { getEntityDisplayName } from "../../core/entityDisplay";
 import { resolveEntitySourceRefs } from "../../core/entityAuthoring";
 import type { SgdkPatternTemplate } from "../../core/projectCapability";
 import SgdkPatternTemplateGallery from "./SgdkPatternTemplateGallery";
+import EventSequencePanel from "./EventSequencePanel";
 import {
   collectGraphImportGaps,
   filterGraphImportGaps,
@@ -4276,6 +4277,42 @@ export default function NodeGraphEditor() {
               projectDir={activeProjectDir ?? null}
               onGraphChange={(next) => setGraph(next, "Trocar som")}
             />
+            {activeTarget === "megadrive" && !isRecoveredRegionGraph(graph) && (
+              <EventSequencePanel graph={graph} selected={selectedNode}
+                onSelectNode={(id) => { setSelectedId(id); setSelectedIds(new Set([id])); }}
+                onCreate={(trigger, port) => {
+                  if (!canEditGraphNode(trigger)) return;
+                  const node = makeNode("timeline_sequence", trigger.x + 270, trigger.y);
+                  node.id = "resposta_" + Date.now().toString(36) + "_" + node.id;
+                  node.params = { ...node.params, run_mode: "event", slot_0_delay: 0, slot_1_delay: 2, slot_2_delay: 4, slot_3_delay: 6 };
+                  setGraph((current) => current.edges.some((edge) => edge.fromNode === trigger.id && edge.fromPort === port)
+                    ? current : { ...current, nodes: [...current.nodes, node], edges: [...current.edges, makeEdge(trigger, port, node, "exec")] },
+                  "Criar resposta a eventos");
+                  setSelectedId(node.id);
+                  setSelectedIds(new Set([node.id]));
+                }}
+                onParam={(id, key, value) => setGraph((current) => {
+                  const node = current.nodes.find((item) => item.id === id);
+                  if (!node || !canEditGraphNode(node) || node.params[key] === value) return current;
+                  const outputs = node.outputs.some((port) => port.id === "slot_3")
+                    ? node.outputs : clonePorts(NODE_DEFS.timeline_sequence.outputs);
+                  return { ...current, nodes: current.nodes.map((item) => item.id === id
+                    ? { ...item, outputs, params: { ...item.params, [key]: value } } : item) };
+                }, "Editar tempo da resposta")}
+                onAddAction={(sequence, slot, type) => {
+                  if (!canEditGraphNode(sequence)) return;
+                  const node = makeNode(type, sequence.x + 265, sequence.y + 170 * slot);
+                  const port = "slot_" + slot;
+                  setGraph((current) => {
+                    if (current.edges.some((edge) => edge.fromNode === sequence.id && edge.fromPort === port)) return current;
+                    return { ...current,
+                      nodes: [...current.nodes.map((item) => item.id === sequence.id && !item.outputs.some((output) => output.id === port)
+                        ? { ...item, outputs: clonePorts(NODE_DEFS.timeline_sequence.outputs) } : item), node],
+                      edges: [...current.edges, makeEdge(sequence, port, node, "exec")],
+                    };
+                  }, "Adicionar ação à resposta");
+                }} />
+            )}
             {hardwareFeedback.length > 0 ? (
               <div
                 data-testid="nodegraph-hardware-feedback"

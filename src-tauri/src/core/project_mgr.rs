@@ -2615,6 +2615,7 @@ fn derive_sgdk_sprite_sheet_from_rescomp_png(
             AnimationDef {
                 occurrence_ids: None,
                 pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
                 pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: frame_indices,
@@ -2660,6 +2661,7 @@ fn derive_sgdk_scene_collision_map_from_tile_cells(
     );
     Some((
         CollisionMap {
+            materials: Vec::new(),
             tile_width: 8,
             tile_height: 8,
             width: map_width,
@@ -6170,6 +6172,7 @@ fn platformer_gm_collision_data() -> CollisionMap {
     }
 
     CollisionMap {
+        materials: Vec::new(),
         tile_width: 8,
         tile_height: 8,
         width,
@@ -8577,6 +8580,7 @@ fn mugen_actions_to_animation_defs(
             AnimationDef {
                 occurrence_ids: None,
                 pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
                 pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames,
@@ -10646,6 +10650,7 @@ fn build_gamemaker_collision_map(
     }
 
     CollisionMap {
+        materials: Vec::new(),
         tile_width: 8,
         tile_height: 8,
         width,
@@ -10661,6 +10666,7 @@ fn gamemaker_player_animations(frame_count: u32) -> BTreeMap<String, AnimationDe
         AnimationDef {
             occurrence_ids: None,
             pose_alignment: Default::default(),
+            pose_sockets: Default::default(),
             pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: vec![0],
@@ -10680,6 +10686,7 @@ fn gamemaker_player_animations(frame_count: u32) -> BTreeMap<String, AnimationDe
             AnimationDef {
                 occurrence_ids: None,
                 pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
                 pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: walk_frames,
@@ -12214,6 +12221,7 @@ fn godot_animation_defs<'a>(
             AnimationDef {
                 occurrence_ids: None,
                 pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
                 pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![0],
@@ -13876,6 +13884,7 @@ fn openbor_animation_to_def(block: &OpenBorAnimationBlock) -> AnimationDef {
     AnimationDef {
         occurrence_ids: None,
         pose_alignment: Default::default(),
+        pose_sockets: Default::default(),
         pose_code_drafts: Default::default(),
         frame_events: Vec::new(),
         frames,
@@ -16077,6 +16086,7 @@ fn reference_player_prefab() -> Entity {
         AnimationDef {
             occurrence_ids: None,
             pose_alignment: Default::default(),
+            pose_sockets: Default::default(),
             pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: vec![0, 1],
@@ -16094,6 +16104,7 @@ fn reference_player_prefab() -> Entity {
         AnimationDef {
             occurrence_ids: None,
             pose_alignment: Default::default(),
+            pose_sockets: Default::default(),
             pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: vec![2, 3],
@@ -16111,6 +16122,7 @@ fn reference_player_prefab() -> Entity {
         AnimationDef {
             occurrence_ids: None,
             pose_alignment: Default::default(),
+            pose_sockets: Default::default(),
             pose_code_drafts: Default::default(),
             frame_events: Vec::new(),
             frames: vec![4],
@@ -16252,6 +16264,7 @@ fn reference_goal_prefab() -> Entity {
                     AnimationDef {
                         occurrence_ids: None,
                         pose_alignment: Default::default(),
+                        pose_sockets: Default::default(),
                         pose_code_drafts: Default::default(),
                         frame_events: Vec::new(),
                         frames: vec![0],
@@ -16291,6 +16304,7 @@ fn reference_passage_prefab() -> Entity {
                     AnimationDef {
                         occurrence_ids: None,
                         pose_alignment: Default::default(),
+                        pose_sockets: Default::default(),
                         pose_code_drafts: Default::default(),
                         frame_events: Vec::new(),
                         frames: vec![0],
@@ -16566,6 +16580,7 @@ fn reference_platformer_scene() -> Scene {
         data[(21 * width + x) as usize] = 1;
     }
     scene.collision_map = Some(CollisionMap {
+        materials: Vec::new(),
         tile_width: 8,
         tile_height: 8,
         width,
@@ -23843,6 +23858,7 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
                             AnimationDef {
                                 occurrence_ids: None,
                                 pose_alignment: Default::default(),
+                                pose_sockets: Default::default(),
                                 pose_code_drafts: Default::default(),
                                 frame_events: Vec::new(),
                                 frames: vec![0],
@@ -23860,6 +23876,7 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
                             AnimationDef {
                                 occurrence_ids: None,
                                 pose_alignment: Default::default(),
+                                pose_sockets: Default::default(),
                                 pose_code_drafts: Default::default(),
                                 frame_events: Vec::new(),
                                 frames: vec![1, 2, 3],
@@ -23917,6 +23934,7 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
             Some(&AnimationDef {
                 occurrence_ids: None,
                 pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
                 pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![0],
@@ -23934,6 +23952,7 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
             Some(&AnimationDef {
                 occurrence_ids: None,
                 pose_alignment: Default::default(),
+                pose_sockets: Default::default(),
                 pose_code_drafts: Default::default(),
                 frame_events: Vec::new(),
                 frames: vec![1, 2, 3],

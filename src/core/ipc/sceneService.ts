@@ -29,6 +29,8 @@ export interface AnimationDef {
   occurrence_ids?: string[];
   /** Pontos e deslocamentos por identidade de ocorrência. */
   pose_alignment?: Record<string, PoseAlignment>;
+  /** Coordenada na célula original, por ocorrência e nome do encaixe. */
+  pose_sockets?: Record<string, Array<{ name: string; point: Pivot }>>;
   /** Texto pendente do campo C por ocorrência. O compilador usa os ticks do modelo. */
   pose_code_drafts?: Record<string, string | null>;
   /** Eventos autorais ancorados em ocorrência + tick local. */
@@ -322,6 +324,13 @@ export interface Components {
   hud?: HudTextComponent | null;
   /** Trajeto autoral (Experimental, R5): retas entre pontos relativos ao início do objeto. */
   path?: PathComponent | null;
+  pose_attachment?: PoseAttachment | null;
+}
+
+export interface PoseAttachment {
+  actor: string;
+  socket: string;
+  offset: Pivot;
 }
 
 /** Texto de interface autoral (Experimental): grade de texto do destino, tiles de 8 px. */
@@ -447,6 +456,14 @@ export interface CollisionMap {
   height: number;
   /** Dados: 0 = livre, 1 = sólido. Tamanho = width * height. */
   data: number[];
+  materials?: SurfaceMaterial[];
+}
+
+export interface SurfaceMaterial {
+  name: string;
+  friction: number;
+  step_sound?: string;
+  cells: number[];
 }
 
 export interface Scene {

@@ -413,6 +413,7 @@ function withArtStudioFrameOrder(sequence: SpriteSequence, frames: number[], ord
     } : {}),
     ...(source.frame_events ? { frame_events: source.frame_events.filter((event) => keep.has(event.occurrence)) } : {}),
     ...(source.pose_alignment ? { pose_alignment: Object.fromEntries(Object.entries(source.pose_alignment).filter(([id]) => keep.has(id))) } : {}),
+    ...(source.pose_sockets ? { pose_sockets: Object.fromEntries(Object.entries(source.pose_sockets).filter(([id]) => keep.has(id))) } : {}),
     ...(source.pose_code_drafts ? { pose_code_drafts: Object.fromEntries(Object.entries(source.pose_code_drafts).filter(([id]) => keep.has(id))) } : {}),
     ...(loopStart !== undefined ? { loop_start: loopStart } : {}),
   };
@@ -812,7 +813,7 @@ export interface SpriteSequence {
 
 function hasOccurrenceData(animation: AnimationDef): boolean {
   return !animation.mugen_frames && Boolean(animation.occurrence_ids || animation.frame_events?.length
-    || animation.pose_alignment || animation.pose_code_drafts
+    || animation.pose_alignment || animation.pose_sockets || animation.pose_code_drafts
     || new Set(animation.frames).size < animation.frames.length);
 }
 

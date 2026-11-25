@@ -46,7 +46,7 @@ import {
 } from "../../core/assetVisualState";
 import { createSpriteEntityFromAsset } from "../../core/editorEntityFactory";
 import { getEntityDisplayName } from "../../core/entityDisplay";
-import { nativeAnimationNames, occurrenceIds } from "../../core/characterTimeline";
+import { nativeAnimationNames, occurrenceIds, occurrenceSocket } from "../../core/characterTimeline";
 import { resolveImportedEntityContext } from "../../core/importedEntityContext";
 import { resolveProjectAssetPath } from "../../core/pathUtils";
 import { summarizeSceneAssetHealth } from "../../core/sceneAssetHealth";
@@ -83,6 +83,7 @@ import TestAdjustPanel from "./TestAdjustPanel";
 import PoseDurationField from "../artstudio/PoseDurationField";
 import ScenePointInspector, { type ScenePointProbe, type SceneProbePoint } from "./ScenePointInspector";
 import SceneGuideControls, { type SceneGuide, type SceneGuideOrientation } from "./SceneGuideControls";
+import MaterialBrushPanel from "./MaterialBrushPanel";
 const GameCodeLogic = lazy(() => import("../nodegraph/GameCodeLogic").then((m) => ({ default: m.GameCodeLogic })));
 const LogicAuthoringWorkspace = lazy(() => import("../nodegraph/LogicAuthoringWorkspace"));
 import { bankLetter, entityPaletteMarks } from "../../core/palettePlan";
@@ -479,6 +480,7 @@ export default function ViewportPanel({
     paintedInDrag: boolean;
     /** 1 = paint solid, 0 = erase */
     value: 0 | 1;
+    material?: string | null;
   } | null>(null);
   const tileDragRef = useRef<{
     entityId: string;
@@ -500,6 +502,8 @@ export default function ViewportPanel({
   const [moveScope, setMoveScope] = useState<"entity" | "layer">("entity");
   const [moveGlobalCollisionMap, setMoveGlobalCollisionMap] = useState(false);
   const [collisionPaintValue, setCollisionPaintValue] = useState<0 | 1>(1);
+  const [showMaterialBrush, setShowMaterialBrush] = useState(false);
+  const [materialBrush, setMaterialBrush] = useState<string | null>();
   const [tilePaletteCollapsed, setTilePaletteCollapsed] = useState(false);
   const [templateCompositionBaseline, setTemplateCompositionBaseline] = useState<Scene | null>(null);
   const [templateCompositionPreview, setTemplateCompositionPreview] = useState<{
@@ -525,6 +529,8 @@ export default function ViewportPanel({
     setMoveScope("entity");
     setMoveGlobalCollisionMap(false);
     setCollisionPaintValue(1);
+    setShowMaterialBrush(false);
+    setMaterialBrush(undefined);
   }, [activeProjectDir, activeScenePath]);
   useEffect(() => setMoveGlobalCollisionMap(false), [activeLayerId]);
   useEffect(() => {
@@ -2571,7 +2577,24 @@ export default function ViewportPanel({
       const tilemap = showTilemaps ? components.tilemap : null;
       const sprite = showSprites ? components.sprite : null;
       if (!tilemap && !sprite) continue;
-      const bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
+      let bounds = getEntityBounds(entity, activeTarget, activeScene.entities);
+      if (sprite && activeTarget === "megadrive" && components.pose_attachment) {
+        const link = components.pose_attachment;
+        const parent = compositionEntities.find((item) => item.entity.entity_id === link.actor)?.entity;
+        const clips = parent?.components.sprite?.animations ?? {};
+        const selected = studio.focus.entityId === parent?.entity_id;
+        const clip = clips[(selected ? studio.focus.animation : null) ?? Object.keys(clips).sort()[0]];
+        if (!parent || !clip) continue;
+        const ids = occurrenceIds(clip);
+        const occurrence = selected && ids.includes(studio.focus.occurrenceId ?? "") ? studio.focus.occurrenceId! : ids[0];
+        const point = occurrenceSocket(clip, occurrence, link.socket);
+        if (!point) continue;
+        const alignment = clip.pose_alignment?.[occurrence]?.offset;
+        bounds = { ...bounds,
+          x: parent.transform.x + point.x + (alignment?.x ?? 0) + link.offset.x - (sprite.pivot?.x ?? 0),
+          y: parent.transform.y + point.y + (alignment?.y ?? 0) + link.offset.y - (sprite.pivot?.y ?? 0),
+        };
+      }
       const name = getEntityDisplayName(entity);
       const layerId = compositionLayerIdByEntityId.get(id);
       const tilemapAsset = tilemap ? getViewportAsset(tilemap.tileset) : null;
@@ -3000,6 +3023,19 @@ export default function ViewportPanel({
       }
     }
 
+    if (editorMode === "collision" && showMaterialBrush && activeScene.collision_map) {
+      const map = activeScene.collision_map;
+      context.save();
+      for (const [index, material] of (map.materials ?? []).entries()) {
+        context.fillStyle = "hsla(" + (176 + 47 * index) + ", 85%, 62%, 0.52)";
+        for (const cell of material.cells) {
+          context.fillRect(worldToSceneCanvasX((cell % map.width) * map.tile_width),
+            worldToSceneCanvasY(Math.floor(cell / map.width) * map.tile_height),
+            scaleSceneDimension(map.tile_width), scaleSceneDimension(map.tile_height));
+        }
+      }
+      context.restore();
+    }
     if (showCollisionOverlay && activeScene.collision_map) {
       const collisionMap = activeScene.collision_map;
       const tileWidth = collisionMap.tile_width;
@@ -3539,6 +3575,7 @@ export default function ViewportPanel({
     soloEntityId,
     attentionFocus,
     showCollisionOverlay,
+    showMaterialBrush,
     showCameraOverlay,
     showEntityBounds,
     showEntityLabels,
@@ -4061,13 +4098,19 @@ export default function ViewportPanel({
       const mapW = cmap?.width ?? (activeTarget === "snes" ? 32 : 40);
       const tileX = Math.floor(mx / tw);
       const tileY = Math.floor(my / th);
+      if (tileX < 0 || tileY < 0 || tileX >= mapW || tileY >= (cmap?.height ?? 28)) return;
       const tileIndex = tileY * mapW + tileX;
       // Right click remains a shortcut; the toolbar also makes erasure
       // available with the primary pointer and keyboard navigation.
       const tileValue: 0 | 1 = event.button === 2 ? 0 : collisionPaintValue;
       beginHistoryCapture();
-      updateCollisionMap(tileIndex, tileValue);
-      collisionDragRef.current = { lastPaintTile: tileIndex, paintedInDrag: true, value: tileValue };
+      const material = showMaterialBrush && materialBrush !== undefined
+        ? (event.button === 2 ? null : materialBrush)
+        : undefined;
+      const revision = useEditorStore.getState().sceneRevision;
+      updateCollisionMap(tileIndex, tileValue, material);
+      collisionDragRef.current = { lastPaintTile: tileIndex,
+        paintedInDrag: useEditorStore.getState().sceneRevision !== revision, value: tileValue, material };
       return;
     }
 
@@ -4334,15 +4377,17 @@ export default function ViewportPanel({
       const mapW = latestCmap?.width ?? (activeTarget === "snes" ? 32 : 40);
       const tileX = Math.floor(mx / tw);
       const tileY = Math.floor(my / th);
+      if (tileX < 0 || tileY < 0 || tileX >= mapW || tileY >= (latestCmap?.height ?? 28)) return;
       const tileIndex = tileY * mapW + tileX;
       if (tileIndex !== collisionDragRef.current.lastPaintTile) {
         const last = collisionDragRef.current.lastPaintTile;
+        const revision = useEditorStore.getState().sceneRevision;
         for (const cell of cellsOnLine(last % mapW, Math.floor(last / mapW), tileX, tileY)) {
           const index = cell.row * mapW + cell.col;
-          if (index !== last) updateCollisionMap(index, collisionDragRef.current.value);
+          if (index !== last) updateCollisionMap(index, collisionDragRef.current.value, collisionDragRef.current.material);
         }
         collisionDragRef.current.lastPaintTile = tileIndex;
-        collisionDragRef.current.paintedInDrag = true;
+        collisionDragRef.current.paintedInDrag ||= useEditorStore.getState().sceneRevision !== revision;
       }
       return;
     }
@@ -5106,9 +5151,14 @@ export default function ViewportPanel({
               ))}
               {editorMode === "collision" && (
                 <div role="group" aria-label="Valor da colisão" className="flex items-center gap-1">
-                  <button type="button" data-testid="viewport-collision-solid" aria-pressed={collisionPaintValue === 1} onClick={() => setCollisionPaintValue(1)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${collisionPaintValue === 1 ? "border-[#f38ba8] text-[#f38ba8]" : "border-[#313244] text-[#a6adc8]"}`}>Sólido</button>
-                  <button type="button" data-testid="viewport-collision-free" aria-pressed={collisionPaintValue === 0} onClick={() => setCollisionPaintValue(0)} className={`rounded border px-2 py-1 text-[10px] font-semibold ${collisionPaintValue === 0 ? "border-[#a6e3a1] text-[#a6e3a1]" : "border-[#313244] text-[#a6adc8]"}`}>Livre</button>
+                  <button type="button" data-testid="viewport-collision-solid" aria-pressed={collisionPaintValue === 1 && materialBrush === undefined} onClick={() => { setMaterialBrush(undefined); setCollisionPaintValue(1); }} className={`rounded border px-2 py-1 text-[10px] font-semibold ${collisionPaintValue === 1 ? "border-[#f38ba8] text-[#f38ba8]" : "border-[#313244] text-[#a6adc8]"}`}>Sólido</button>
+                  <button type="button" data-testid="viewport-collision-free" aria-pressed={collisionPaintValue === 0 && materialBrush === undefined} onClick={() => { setMaterialBrush(undefined); setCollisionPaintValue(0); }} className={`rounded border px-2 py-1 text-[10px] font-semibold ${collisionPaintValue === 0 ? "border-[#a6e3a1] text-[#a6e3a1]" : "border-[#313244] text-[#a6adc8]"}`}>Livre</button>
                 </div>
+              )}
+              {editorMode === "collision" && activeTarget === "megadrive" && activeScene?.collision_map && (
+                <button type="button" data-testid="viewport-material-brush" aria-expanded={showMaterialBrush}
+                  className="rounded border border-[#313244] px-2 py-1 text-[10px] font-semibold"
+                  onClick={() => { setShowMaterialBrush(!showMaterialBrush); setMaterialBrush(undefined); }}>Materiais</button>
               )}
               <div className="mx-1 w-px bg-[#313244] self-stretch" />
               <button
@@ -5286,6 +5336,24 @@ export default function ViewportPanel({
               </button>
             </div>
 
+            {editorMode === "collision" && activeTarget === "megadrive" && showMaterialBrush && activeScene?.collision_map && (
+              <MaterialBrushPanel map={activeScene.collision_map} entities={activeScene.entities}
+                brush={materialBrush} onBrush={setMaterialBrush}
+                onSave={(material) => {
+                  const map = useEditorStore.getState().activeScene?.collision_map;
+                  if (!map) return;
+                  const materials = map.materials ?? [];
+                  beginHistoryCapture();
+                  setCollisionMap({ ...map, materials: materials.some((item) => item.name === material.name)
+                    ? materials.map((item) => item.name === material.name ? material : item) : [...materials, material] });
+                  commitHistoryCapture();
+                }}
+                onCell={(index) => {
+                  beginHistoryCapture();
+                  updateCollisionMap(index, 1, materialBrush);
+                  commitHistoryCapture();
+                }} />
+            )}
             <CanvasAuthoringBar compact={compactTools} pathTool={pathTool} onPathToolChange={(tool) => { cancelPriorityDrawing(); pathDragRef.current = null; setPathPreview(null); setPathTool(tool); }}
               onDrawPriorityRegion={(high) => {
                 setSceneProbeArmed(false);

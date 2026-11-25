@@ -165,6 +165,10 @@ export function retimeEventsToFit(def: AnimationDef, occurrence: string, ticks: 
   };
 }
 
+export function occurrenceSocket(def: AnimationDef, occurrence: string, name: string) {
+  return def.pose_sockets?.[occurrence]?.find((socket) => socket.name === name)?.point;
+}
+
 /**
  * Move uma ocorrência para `toIndex`, levando junto imagem, duração, quadro MUGEN (caixas, eixo,
  * flags) e identidade. Eventos e caixas por ocorrência seguem a identidade.
