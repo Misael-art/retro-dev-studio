@@ -17678,7 +17678,11 @@ async function verifyAuthoringDesk(sessionId, report, prefix) {
       ],
     }] });
   }
-  await waitFor(async () => await placement() === nextSide, 10000, "Propriedades não encaixou no lado indicado.", 100);
+  await waitFor(async () => await placement() === nextSide, 10000, "Propriedades não encaixou no lado indicado.", 100).catch(async (error) => {
+    report.dockDiagnostic = { startSide, nextSide, observed: await placement(), target,
+      expanded: await dom(`return document.querySelector('[data-testid="workspace-dock-properties"]')?.getAttribute('aria-expanded');`) };
+    throw error;
+  });
   await activateByTestIdWithEnter(sessionId, dock);
   await check(`return document.activeElement?.id === arguments[0];`, "O destino inicial não ficou alcançável.", [`workspace-properties-dock-${startSide}`]);
   await key("\uE007");

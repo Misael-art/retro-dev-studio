@@ -1783,6 +1783,8 @@ export default function App() {
   );
   const [layoutNameDraft, setLayoutNameDraft] = useState<string | null>(null);
   const [propertiesDock, setPropertiesDock] = useState<"choose" | "drag" | null>(null);
+  const propertiesDrag = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null);
+  const propertiesDropClick = useRef(false);
   const [focusedShell, setFocusedShell] = useState(false);
   const [compactPanel, setCompactPanel] = useState<"hierarchy" | "canvas" | "inspector">("canvas");
   const [hiddenSidePanels, setHiddenSidePanels] = useState({ left: false, right: false });
@@ -5212,21 +5214,43 @@ export default function App() {
           {activeWorkspace === "scene" && !focusedShell && rightPanelMode === "inspector" ? (
             <button type="button" title="Encaixar Propriedades" aria-label="Encaixar Propriedades"
               aria-expanded={propertiesDock !== null} aria-controls="workspace-properties-dock-targets"
-              data-testid="workspace-dock-properties" draggable={!compactShell}
+              data-testid="workspace-dock-properties"
               onClick={() => {
+                if (propertiesDropClick.current) return;
                 if (propertiesDock) closePropertiesDock();
                 else {
                   setPropertiesDock("choose");
                   requestAnimationFrame(() => document.getElementById(`workspace-properties-dock-${propertiesLeft ? "right" : "left"}`)?.focus());
                 }
               }}
-              onDragStart={(event) => {
-                event.dataTransfer.setData("application/x-rds-panel", "properties");
-                event.dataTransfer.effectAllowed = "move";
+              onPointerDown={(event) => {
+                if (compactShell || event.button !== 0) return;
+                propertiesDrag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+                event.currentTarget.setPointerCapture(event.pointerId);
+              }}
+              onPointerMove={(event) => {
+                const drag = propertiesDrag.current;
+                if (!drag || drag.id !== event.pointerId || drag.moved || Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < 8) return;
+                drag.moved = true;
                 setPropertiesDock("drag");
               }}
-              onDragEnd={() => setPropertiesDock(null)}
-              className="ml-auto rounded p-1 hover:bg-[var(--rds-surface-raised)] focus-visible:ring-2 focus-visible:ring-[var(--rds-focus-ring)]">
+              onPointerUp={(event) => {
+                const drag = propertiesDrag.current;
+                if (!drag || drag.id !== event.pointerId) return;
+                propertiesDrag.current = null;
+                if (!drag.moved) return;
+                propertiesDropClick.current = true;
+                window.setTimeout(() => { propertiesDropClick.current = false; }, 0);
+                const target = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-properties-dock-side]");
+                const side = target?.getAttribute("data-properties-dock-side");
+                closePropertiesDock(side === "left" || side === "right" ? side : undefined);
+              }}
+              onLostPointerCapture={(event) => {
+                if (propertiesDrag.current?.id !== event.pointerId) return;
+                if (propertiesDrag.current.moved) closePropertiesDock();
+                propertiesDrag.current = null;
+              }}
+              className="ml-auto touch-none rounded p-1 hover:bg-[var(--rds-surface-raised)] focus-visible:ring-2 focus-visible:ring-[var(--rds-focus-ring)]">
               <Icon name="arrows" className="h-4 w-4" />
             </button>
           ) : null}
@@ -6134,18 +6158,8 @@ export default function App() {
             {(["left", "right"] as const).map((side) => {
               const current = propertiesLeft === (side === "left");
               return <button key={side} type="button" id={`workspace-properties-dock-${side}`}
-                data-current={current} aria-current={current || undefined}
+                data-properties-dock-side={side} data-current={current} aria-current={current || undefined}
                 onClick={() => closePropertiesDock(side)}
-                onDragOver={(event) => {
-                  if (propertiesDock !== "drag") return;
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = "move";
-                }}
-                onDrop={(event) => {
-                  if (event.dataTransfer.getData("application/x-rds-panel") !== "properties") return;
-                  event.preventDefault();
-                  closePropertiesDock(side);
-                }}
                 className="pointer-events-auto rounded-lg border-2 border-dashed border-[var(--rds-focus-ring)] bg-[var(--rds-surface-panel-strong)] px-3 py-2 text-xs font-semibold shadow-xl focus-visible:ring-2 focus-visible:ring-[var(--rds-focus-ring)]">
                 {side === "left" ? "Encaixar à esquerda" : "Encaixar à direita"}{current ? " · atual" : ""}
               </button>;
