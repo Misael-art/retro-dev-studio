@@ -16,6 +16,7 @@ on:
           - hud
           - guides
           - advanced-authoring
+          - linux-candidate
       upload_candidate:
         description: "Guardar o executável exato deste ensaio Windows e seu SHA-256"
         type: boolean
@@ -65,6 +66,7 @@ concurrency:
 
 jobs:
   desktop-smoke:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.target != 'linux-candidate' }}
     # Pinado em windows-2022: a imagem windows-latest (20260714) quebrou o
     # pareamento WebView2/msedgedriver e toda sessao WebDriver falha com
     # 'session not created: DevToolsActivePort file doesn't exist'.
@@ -665,5 +667,60 @@ jobs:
         with:
           name: retrodevstudio-windows-x64-${{ github.sha }}
           path: ${{ env.RDS_WINDOWS_CANDIDATE }}
+          if-no-files-found: error
+          retention-days: 7
+
+  linux-candidate:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'linux-candidate' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: 1
+      RDS_BUILD_JOBS: 1
+      RDS_E2E_QA_RC_MEMORY_SAFE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Tauri Linux build substrate
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+            librsvg2-dev libssl-dev libxdo-dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.18.0
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97.0
+
+      - run: npm ci
+
+      - name: Build debug desktop app (canonical script)
+        run: npm run build:debug
+
+      - name: Record candidate identity
+        run: |
+          report=src-tauri/target-test/validation/build-report.json
+          app=$(jq -er '.modes.debug.canonicalExe' "$report")
+          out="$RUNNER_TEMP/retrodevstudio-linux-candidate"
+          mkdir -p "$out"
+          install -m 755 "$app" "$out/retro-dev-studio"
+          cp "$report" "$out/build-report.json"
+          (
+            cd "$out"
+            sha256sum retro-dev-studio > SHA256SUMS
+            printf 'source: %s\nrun: %s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > candidate.txt
+            tar -czf "$RUNNER_TEMP/retrodevstudio-linux-x64.tar.gz" retro-dev-studio candidate.txt SHA256SUMS build-report.json
+          )
+
+      - name: Upload Linux candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrodevstudio-linux-x64-${{ github.sha }}
+          path: ${{ runner.temp }}/retrodevstudio-linux-x64.tar.gz
           if-no-files-found: error
           retention-days: 7
