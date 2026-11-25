@@ -26,6 +26,7 @@ export default function TileSeamPreview({ project, entityId, map, tileCount, onL
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const canvas = useRef<HTMLCanvasElement>(null);
+  const origin = useRef<HTMLDivElement>(null);
   const offset = useRef({ x: 0, y: 0 });
   const scenePath = useEditorStore((state) => state.activeScenePath);
   const locked = useEditorStore((state) => entityEditLock(entityId, state.activeScene?.layers,
@@ -33,6 +34,10 @@ export default function TileSeamPreview({ project, entityId, map, tileCount, onL
   const width = area.width * 8, height = area.height * 8;
   const shrink = Math.min(1, 320 / (width * 3), 220 / (height * 3));
   const cell = selected ? map.cells?.[selected.row * map.map_width + selected.col] ?? 0 : 0;
+
+  useEffect(() => {
+    if (selected) origin.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [selected]);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,7 +145,7 @@ export default function TileSeamPreview({ project, entityId, map, tileCount, onL
       <label className="flex flex-col">Linha do mapa<input className={inputClass} name="row" type="number" min={0} max={map.map_height - 1} required defaultValue={0} /></label>
       <button type="submit" className={buttonClass}>Abrir célula</button>
     </form>
-    {selected && <div data-testid="tile-seam-source" data-col={selected.col} data-row={selected.row} data-tile={cell} data-edge={selected.edge}>
+    {selected && <div ref={origin} data-testid="tile-seam-source" data-col={selected.col} data-row={selected.row} data-tile={cell} data-edge={selected.edge}>
       <p>Célula ({selected.col}, {selected.row}){selected.edge && ` · borda ${selected.edge}`} · {isExplicitEmptyCell(cell) ? "vazia" : cell ? `tile #${cell}` : "imagem-base"} · {map.tileset}</p>
       {cell > 0 && cell <= tileCount && <button className={buttonClass} type="button" onClick={() => onLocate(cell)}>Localizar tile na paleta</button>}
       <form key={`${selected.col},${selected.row},${cell}`} className="mt-1 flex flex-wrap items-end gap-1" onSubmit={(event) => {
