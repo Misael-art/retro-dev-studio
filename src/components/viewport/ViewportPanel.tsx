@@ -7,7 +7,7 @@ import Button from "../common/Button";
 import CameraConfigurator from "../inspector/CameraConfigurator";
 import { hudBand } from "../../core/hudText";
 import { loadShellPersona } from "../../core/surfaceRegistry";
-import { cellsOnLine } from "../../core/tilemapCells";
+import { cellsOnLine, terrainFromBrush, type TerrainBrush } from "../../core/tilemapCells";
 import { defaultPath, dropOffset, ellipsePath, hitPathHandleOrControl, pathBlockedReason, pathIssue, pathWorldPoints, removePoint, sampleSegment, withPoint } from "../../core/objectPath";
 import { describeEntityEditLock, entityEditLock, escapeExitsIsolation, layerCompositionEntities, resolvedTilemapPlanes, restoreTemplateEntityPositions, translateCollisionMap, tilePriorityBands, priorityRegionBetween, type TemplatePositionChange } from "../../core/sceneComposition";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -499,6 +499,7 @@ export default function ViewportPanel({
     rectOrigin: { col: number; row: number } | null;
     /** Tile a ser aplicado (0 = apaga). */
     tileIndex: number;
+    terrain?: TerrainBrush;
     paintedInDrag: boolean;
   } | null>(null);
 
@@ -3325,7 +3326,7 @@ export default function ViewportPanel({
         const screenX = worldToSceneCanvasX(ghostX);
         const screenY = worldToSceneCanvasY(ghostY);
         const screenSize = scaleSceneDimension(tileSize);
-        const isEraser = tilePaintTool === "eraser";
+        const isEraser = tilePaintTool === "eraser" || tilePaintTool === "terrain-erase";
         context.save();
         context.globalAlpha = isEraser ? 0.18 : 0.3;
         context.fillStyle = isEraser ? "#f38ba8" : "#a6e3a1";
@@ -3916,6 +3917,9 @@ export default function ViewportPanel({
         return;
       }
       const tileIndex = activeBrush.tileIndex ?? 0;
+      const terrainTool = tilePaintTool === "terrain" || tilePaintTool === "terrain-erase";
+      const terrain = terrainTool ? terrainFromBrush(activeBrush, tilePaintTool === "terrain-erase") : null;
+      if (terrainTool && (event.button !== 0 || !terrain || tilePaintSize !== 8)) return;
 
       if (tilePaintTool === "picker") {
         const tm = target.entity.components.tilemap!;
@@ -3966,15 +3970,17 @@ export default function ViewportPanel({
 
       // pencil / eraser (eraser = tileIndex 0)
       const effectiveIndex = tilePaintTool === "eraser" ? 0 : tileIndex;
+      const previousRevision = useEditorStore.getState().sceneRevision;
       beginHistoryCapture();
-      paintTilemapCell(target.entity.entity_id, target.col, target.row, effectiveIndex);
+      paintTilemapCell(target.entity.entity_id, target.col, target.row, effectiveIndex, terrain ?? undefined);
       tileDragRef.current = {
         entityId: target.entity.entity_id,
         tool: tilePaintTool === "eraser" ? "eraser" : "pencil",
         lastCellKey: `${target.col},${target.row}`,
         rectOrigin: null,
         tileIndex: effectiveIndex,
-        paintedInDrag: true,
+        terrain: terrain ?? undefined,
+        paintedInDrag: !terrain || useEditorStore.getState().sceneRevision !== previousRevision,
       };
       setActiveTilemapId(target.entity.entity_id);
       return;
@@ -4247,13 +4253,14 @@ export default function ViewportPanel({
       const cellKey = `${target.col},${target.row}`;
       if (cellKey !== drag.lastCellKey) {
         // Interpola desde a última célula: traço rápido não pula células.
+        const previousRevision = useEditorStore.getState().sceneRevision;
         const [lc, lr] = (drag.lastCellKey ?? cellKey).split(",").map(Number);
         for (const cell of cellsOnLine(lc, lr, target.col, target.row)) {
           if (`${cell.col},${cell.row}` === drag.lastCellKey) continue;
-          paintTilemapCell(drag.entityId, cell.col, cell.row, drag.tileIndex);
+          paintTilemapCell(drag.entityId, cell.col, cell.row, drag.tileIndex, drag.terrain);
         }
         drag.lastCellKey = cellKey;
-        drag.paintedInDrag = true;
+        drag.paintedInDrag ||= !drag.terrain || useEditorStore.getState().sceneRevision !== previousRevision;
       }
       return;
     }

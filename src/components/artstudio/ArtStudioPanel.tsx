@@ -4428,19 +4428,18 @@ export default function ArtStudioPanel() {
               }
               validateImageBinding(current.activeScene, selectedEntityId, doc, previous);
             } : undefined}
-            onSaved={async (pngAbsolute, doc, previous) => {
+            onSaved={async (pngAbsolute, doc, previous, saved) => {
               if (importedPixelPath && doc && selectedEntityId && activeProjectDir) {
                 const s = useEditorStore.getState();
                 if (!s.activeScene || !s.activeSceneSource || s.activeProjectDir !== activeProjectDir || s.projectSessionId !== projectSessionId || s.activeScenePath !== activeScenePath || s.selectedEntityId !== selectedEntityId) {
                   throw new Error("A arte foi gravada. Volte à instância para vinculá-la à cena.");
                 }
-                const prefix = `${normalizeFsPath(activeProjectDir).replace(/\/$/, "")}/`;
-                const output = normalizeFsPath(pngAbsolute);
-                if (!output.startsWith(prefix)) throw new Error("O recurso gravado não pertence ao projeto aberto.");
-                const asset = output.slice(prefix.length);
+                const asset = saved?.png_relative;
+                const document = saved?.doc_relative;
+                if (!asset || !document) throw new Error("O gravador não retornou os caminhos relativos da arte.");
                 s.replaceScenesWithHistory(
-                  applyImageEdits(s.activeScene, selectedEntityId, asset, doc, previous),
-                  applyImageEdits(s.activeSceneSource, selectedEntityId, asset, doc, previous),
+                  applyImageEdits(s.activeScene, selectedEntityId, asset, doc, previous, document),
+                  applyImageEdits(s.activeSceneSource, selectedEntityId, asset, doc, previous, document),
                 );
                 if (!await persistActiveScene(activeProjectDir, "Imagem")) {
                   throw new Error("A arte foi gravada. Salve a cena para confirmar o vínculo.");

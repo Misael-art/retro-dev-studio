@@ -109,6 +109,24 @@ describe("PixelEditor", () => {
     expect(saveMock).not.toHaveBeenCalled();
     expect(onSaved).not.toHaveBeenCalled();
   });
+  it("returns the writer's logical paths even when Windows adds a long-path prefix to the absolute path", async () => {
+    const original = createPixelDoc(16, 16, { name: "bound", frames: 2 });
+    const projectDir = String.raw`D:\Projects\Demo`;
+    const asset = "assets/sprites/pixel/bound.png";
+    const saved = {
+      png_absolute: String.raw`\\?\D:\Projects\Demo\assets\sprites\pixel\bound_copy.png`,
+      png_relative: "assets/sprites/pixel/bound_copy.png",
+      doc_relative: "assets/sprites/pixel/bound_copy.rdspixel.json",
+    };
+    const onSaved = vi.fn();
+    loadMock.mockResolvedValue(serializePixelDoc(original));
+    saveMock.mockResolvedValueOnce(saved);
+    await act(async () => root.render(<PixelEditor projectDir={projectDir}
+      source={{ url: "", sourcePath: `${projectDir}/${asset}`, name: "bound", frameWidth: 16, frameHeight: 16, frames: [0, 1], autoOpen: true }}
+      log={vi.fn()} onSaved={onSaved} />));
+    await act(async () => q("pixel-save-copy").click());
+    expect(onSaved).toHaveBeenCalledWith(saved.png_absolute, expect.objectContaining({ frames: expect.any(Array) }), original, saved);
+  });
   it("starts without motion ghosts, exposes one bank, and restores all frames after successive frame sizes", async () => {
     const gif = createPixelDoc(64, 56, { name: "moving", frames: 53 });
     gif.frames.forEach((f, i) => { f.cels[0][55 * 64 + 63] = 1; f.durationMs = 40 + i * 10; });

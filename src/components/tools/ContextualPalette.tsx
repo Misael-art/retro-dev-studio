@@ -1,5 +1,6 @@
 import { decodePpm } from "../../core/ppmImage";
-import { TILEMAP_CELL_EMPTY } from "../../core/tilemapCells";
+import { terrainFromBrush, TILEMAP_CELL_EMPTY } from "../../core/tilemapCells";
+import { persistActiveScene } from "../../core/scenePersistence";
 import { useEffect, useMemo, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useEditorStore } from "../../core/store/editorStore";
@@ -122,9 +123,11 @@ const TILE_TOOL_META: Record<TilePaintTool, { label: string; icon: string; hint:
   rect: { label: "Retângulo", icon: "\u25a2", hint: "Preencher retângulo (R)" },
   fill: { label: "Balde", icon: "\u25b2", hint: "Flood fill (G)" },
   stamp: { label: "Carimbo", icon: "\ud83d\udcf7", hint: "Stamp (reservado)" },
+  terrain: { label: "Terreno automático", icon: "▦", hint: "Pintar e recalcular as bordas da família nas células vizinhas" },
+  "terrain-erase": { label: "Remover terreno", icon: "⌫", hint: "Restaurar células da família e recalcular suas bordas" },
 };
 
-const TILE_TOOL_ORDER: TilePaintTool[] = ["pencil", "eraser", "picker", "rect", "fill"];
+const TILE_TOOL_ORDER: TilePaintTool[] = ["pencil", "eraser", "picker", "rect", "fill", "terrain", "terrain-erase"];
 
 export function TilePalette({
   projectDir,
@@ -148,6 +151,8 @@ export function TilePalette({
   const setTilePaintTool = useEditorStore((s) => s.setTilePaintTool);
   const setActiveTilemapId = useEditorStore((s) => s.setActiveTilemapId);
   const activeTilemapId = useEditorStore((s) => s.activeTilemapId);
+  const map = useEditorStore((s) => s.activeScene?.entities.find((item) => item.entity_id === tilemapEntityId)?.components.tilemap);
+  const [terrainMessage, setTerrainMessage] = useState("");
 
   const url = useMemo(() => convertFileSrc(tilesetAbsolutePath), [tilesetAbsolutePath]);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
@@ -270,6 +275,7 @@ export function TilePalette({
       id: `tile:${tileIndex}`,
       assetPath: tilesetRelativePath,
       tileIndex,
+      tilesetTileCount: grid ? grid.cols * grid.rows : undefined,
     });
     setEditorMode("paint");
     setActiveTilemapId(tilemapEntityId);
@@ -280,6 +286,9 @@ export function TilePalette({
 
   const lockedToThisTilemap =
     activeTilemapId === tilemapEntityId && activeBrush?.kind === "tile";
+  const terrainMode = tilePaintTool === "terrain" || tilePaintTool === "terrain-erase";
+  const terrain = tileSize === 8 && activeBrush?.assetPath === tilesetRelativePath
+    ? terrainFromBrush(activeBrush, tilePaintTool === "terrain-erase") : null;
 
   return (
     <div className="shrink-0 border-b border-[#313244] px-3 py-2">
@@ -307,6 +316,10 @@ export function TilePalette({
               aria-pressed={isActive && editorMode === "paint"}
               title={meta.hint}
               onClick={() => {
+                if (tool.startsWith("terrain") && (activeBrush?.assetPath !== tilesetRelativePath || !activeBrush.tilesetTileCount)) {
+                  handlePickTile(activeBrush?.assetPath === tilesetRelativePath ? (activeBrush.tileIndex ?? 1) : 1);
+                }
+                setTerrainMessage("");
                 setTilePaintTool(tool);
                 setEditorMode("paint");
                 setActiveTilemapId(tilemapEntityId);
@@ -360,6 +373,35 @@ export function TilePalette({
           </span>
         </span>
       </div>
+
+      {terrainMode && <div className="mt-2 grid gap-1 rounded border border-[var(--rds-border-subtle)] p-2 text-[10px]">
+        {terrain ? <p>Família #{terrain.firstTile} a #{terrain.firstTile + 15}. Use 16 tiles consecutivos em ordem de máscara. Norte vale 1, leste 2, sul 4 e oeste 8. As células vizinhas da mesma família acompanham o traço.</p>
+          : <p>Escolha o primeiro de 16 tiles consecutivos de 8 × 8.</p>}
+        {terrain && map && <form data-testid="tile-terrain-position" className="flex flex-wrap gap-2" onSubmit={async (event) => {
+          event.preventDefault();
+          const values = new FormData(event.currentTarget);
+          const state = useEditorStore.getState();
+          if (state.activeProjectDir !== projectDir || state.pendingHistorySnapshot) return;
+          state.beginHistoryCapture();
+          state.paintTilemapCell(tilemapEntityId, Number(values.get("column")), Number(values.get("row")), terrain.firstTile, terrain);
+          if (useEditorStore.getState().sceneRevision === state.sceneRevision) {
+            state.cancelHistoryCapture();
+            setTerrainMessage("Nenhuma célula mudou.");
+            return;
+          }
+          state.commitHistoryCapture();
+          try {
+            setTerrainMessage(await persistActiveScene(projectDir, "Terreno") ? "Terreno salvo." : "A alteração está na cena. Use Salvar para gravá-la.");
+          } catch {
+            setTerrainMessage("A alteração está na cena. Use Salvar para gravá-la.");
+          }
+        }}>
+          <label>Coluna <input name="column" type="number" required min={0} max={map.map_width - 1} defaultValue={0} className="w-12 rounded bg-[#11111b]" /></label>
+          <label>Linha <input name="row" type="number" required min={0} max={map.map_height - 1} defaultValue={0} className="w-12 rounded bg-[#11111b]" /></label>
+          <button type="submit" className="rounded border border-[var(--rds-action-primary)] px-1">{terrain.remove ? "Remover na célula" : "Pintar na célula"}</button>
+        </form>}
+        {terrainMessage && <p role="status">{terrainMessage}</p>}
+      </div>}
 
       {/* Tile grid */}
       {grid ? (

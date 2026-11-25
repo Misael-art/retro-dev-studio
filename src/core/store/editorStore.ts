@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { PixelDoc } from "../pixelEditor";
-import { entityLockScopeKey } from "../sceneComposition";
+import { entityEditLock, entityLockScopeKey } from "../sceneComposition";
+import { retileTerrain, type TerrainBrush } from "../tilemapCells";
 
 import {
   diagnosticConsoleMessage,
@@ -164,7 +165,7 @@ export interface PixelEditorSession {
 }
 
 export type EditorMode = "select" | "paint" | "erase" | "collision" | "path";
-export type TilePaintTool = "pencil" | "eraser" | "picker" | "rect" | "fill" | "stamp";
+export type TilePaintTool = "pencil" | "eraser" | "picker" | "rect" | "fill" | "stamp" | "terrain" | "terrain-erase";
 
 export interface TileStampPattern {
   width: number;
@@ -186,6 +187,7 @@ export interface ActiveBrush {
   assetPath?: string;
   /** Índice do tile no tileset quando `kind === "tile"`. 0 = vazio. */
   tileIndex?: number;
+  tilesetTileCount?: number;
 }
 
 /** Observação de joypad correlacionada por sessão de emulação + sequência
@@ -523,7 +525,8 @@ export interface StoreActions {
     entityId: string,
     col: number,
     row: number,
-    tileIndex: number
+    tileIndex: number,
+    terrain?: TerrainBrush,
   ) => void;
   /** Preenche o retângulo [c0..c1] × [r0..r1] inclusivo com `tileIndex`.
    *  Coordenadas fora do mapa são recortadas. Cria uma única entrada de undo. */
@@ -1525,13 +1528,18 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   tileStampPattern: null,
   setTileStampPattern: (pattern) => set({ tileStampPattern: pattern }),
 
-  paintTilemapCell: (entityId, col, row, tileIndex) =>
+  paintTilemapCell: (entityId, col, row, tileIndex, terrain) =>
     set((state) => {
       if (!state.activeScene) return {};
       const entity = state.activeScene.entities.find((e) => e.entity_id === entityId);
       const tilemap = entity?.components?.tilemap;
       if (!entity || !tilemap) return {};
       if (col < 0 || row < 0 || col >= tilemap.map_width || row >= tilemap.map_height) return {};
+      if (terrain) {
+        const scope = entityLockScopeKey(state.activeProjectDir ?? "", state.activeScenePath ?? "");
+        if (terrain.tileset !== tilemap.tileset
+          || entityEditLock(entityId, state.activeScene.layers, state.lockedEntityIdsByScene[scope] ?? []).locked) return {};
+      }
       const total = tilemap.map_width * tilemap.map_height;
       const base =
         tilemap.cells && tilemap.cells.length === total
@@ -1539,9 +1547,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
           : new Array<number>(total).fill(0);
       const idx = row * tilemap.map_width + col;
       const clamped = Math.max(0, Math.floor(tileIndex));
-      if (base[idx] === clamped) return {};
-      const cells = base.slice();
-      cells[idx] = clamped;
+      let cells = base;
+      if (terrain) cells = retileTerrain(base, tilemap.map_width, tilemap.map_height, col, row, terrain.firstTile, terrain.remove);
+      else if (base[idx] !== clamped) {
+        cells = base.slice();
+        cells[idx] = clamped;
+      }
+      if (cells === base) return {};
       const patchedEntity: Entity = {
         ...entity,
         components: {

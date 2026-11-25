@@ -203,6 +203,29 @@ describe("PaletteSummary", () => {
 });
 
 describe("EntityPaletteSection", () => {
+  it("previews an RGB333 lighting variant and publishes only the selected use in one edit", async () => {
+    await render(<EntityPaletteSection entityId="ken_2" />);
+    const initial = useEditorStore.getState();
+    await act(async () => { q<HTMLDetailsElement>("inspector-lighting")!.open = true; });
+    await act(async () => q("inspector-lighting-compare")!.click());
+    expect(q("inspector-lighting-preview")!.textContent).toContain("3 → 4 de 4");
+    expect(q("inspector-lighting-after-0")!.dataset.color).toBe("");
+    expect(q("inspector-lighting-after-1")!.dataset.color).toBe("#ffdbb6");
+    expect(useEditorStore.getState().sceneRevision).toBe(initial.sceneRevision);
+    await act(async () => q("inspector-lighting-cancel")!.click());
+    expect(q("inspector-lighting-preview")).toBeNull();
+    expect(useEditorStore.getState().activeScene).toBe(initial.activeScene);
+    await act(async () => q("inspector-lighting-compare")!.click());
+    await act(async () => q("inspector-lighting-apply")!.click());
+    await settle();
+    const edited = useEditorStore.getState();
+    expect(edited.activeScene!.palettes).toEqual([expect.objectContaining({ uses: ["ken_2"], colors: expect.arrayContaining(["#ffdbb6"]) })]);
+    expect(edited.undoStack.length).toBe(initial.undoStack.length + 1);
+    expect(usePalettePlanStore.getState().plan!.resources.find(({ id }) => id === "asset:ken.png")?.colors).toEqual(KEN);
+    act(() => useEditorStore.getState().undo());
+    expect(useEditorStore.getState().activeScene!.palettes).toEqual([]);
+  });
+
   it("shows the shared scope, creates a local variant (own bank) and releases it, each undoable", async () => {
     await render(<EntityPaletteSection entityId="ken_2" />);
     expect(q("inspector-palette-scope")!.textContent).toContain("Compartilhada com ken");

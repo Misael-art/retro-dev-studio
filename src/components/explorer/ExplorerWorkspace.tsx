@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import AssetPreview from "../common/AssetPreview";
 import { CGraphPanel } from "./CGraphPanel";
+import ReplaceLinkedAtlasPanel from "./ReplaceLinkedAtlasPanel";
 import {
   listScenes,
   switchScene,
@@ -207,6 +208,7 @@ export default function ExplorerWorkspace({
     activeProjectDir,
     activeScenePath,
     activeScene,
+    sceneRevision,
     projectSourceKind,
     projectLegacyIndex,
     setActiveScene,
@@ -866,6 +868,13 @@ export default function ExplorerWorkspace({
                             </ul>
                           )}
                         </div>
+                      ) : null}
+                      {activeProjectDir && activeScene && selection.asset.kind === "image" ? (
+                        <ReplaceLinkedAtlasPanel
+                          key={JSON.stringify([activeProjectDir, activeScenePath, sceneRevision, selection.asset.relative_path, chosenUse?.entityId])}
+                          projectDir={activeProjectDir} scene={activeScene} assets={assets}
+                          asset={selection.asset.relative_path} chosen={chosenUse?.entityId}
+                        />
                       ) : null}
                     </div>
                   </div>

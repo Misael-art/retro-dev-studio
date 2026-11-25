@@ -49,7 +49,7 @@ import {
   type PixelTarget,
   type PixelConversion,
 } from "../../core/pixelEditor";
-import { loadPixelArtDoc, savePixelArtAsset } from "../../core/ipc/artStudioService";
+import { loadPixelArtDoc, savePixelArtAsset, type SavedPixelArt } from "../../core/ipc/artStudioService";
 import { useEditorStore } from "../../core/store/editorStore";
 import { prepareImage } from "../../core/imageIngress";
 import { clearUnusedPixelColors, copyPixelDoc, disablePixelPalette, duplicatePixelLayer, enablePixelPalette, erasePixelRegion, fitPixelDoc, mergePixelLayerDown, type PixelEditScope } from "../../core/pixelImageOps";
@@ -123,7 +123,7 @@ interface PixelEditorProps {
   source: PixelEditorSource | null;
   log: (level: "info" | "warn" | "error" | "success", message: string) => void;
   beforeSave?: (doc: PixelDoc, previous?: PixelDoc) => void;
-  onSaved: (pngAbsolute: string, doc?: PixelDoc, previous?: PixelDoc) => void | Promise<void>;
+  onSaved: (pngAbsolute: string, doc?: PixelDoc, previous?: PixelDoc, saved?: SavedPixelArt) => void | Promise<void>;
 }
 
 type Drag = {
@@ -752,7 +752,7 @@ export default function PixelEditor({ projectDir, source, log, beforeSave, onSav
       const saved = await savePixelArtAsset(projectDir, snapshot.name, sheet.png, snapshotSource);
       if (!stillCurrent()) return;
       if (serializePixelDoc(docRef.current) === snapshotSource) {
-        if (previous) await onSaved(saved.png_absolute, snapshot, previous);
+        if (previous) await onSaved(saved.png_absolute, snapshot, previous, saved);
         else await onSaved(saved.png_absolute, snapshot);
         if (!stillCurrent()) return;
         if (source?.autoOpen) boundDocumentRef.current = { source: autoSourceIdentity, doc: snapshot };

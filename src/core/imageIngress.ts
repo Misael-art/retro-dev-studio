@@ -144,21 +144,63 @@ function imageAnimations(entity: Entity, doc: PixelDoc, previous?: PixelDoc) {
       if (next === undefined) throw new Error(`O quadro ${index + 1} é usado em «${name}». Restaure-o ou remapeie essa ocorrência antes de salvar.`);
       return next;
     };
-    const frames = definition.frames.map(remap);
-    const hitboxes = definition.hitboxes?.map((box) => {
-      const frame = remap(box.frame);
-      return frame === box.frame ? box : { ...box, frame };
-    });
-    if (frames.some((index, occurrence) => index !== definition.frames[occurrence])
-        || hitboxes?.some((box, index) => box !== definition.hitboxes?.[index])) {
-      animations[name] = { ...definition, frames, ...(hitboxes ? { hitboxes } : {}) };
-    }
+    animations[name] = remapAnimationImages(definition, remap);
   }
   const previousIdle = animations.idle;
   if (previousIdle ? !isAuthoredIdle(previousIdle) : Object.keys(animations).length === 0) {
     animations.idle = { ...pixelDocAnimation(doc), loop: previousIdle?.loop ?? true };
   }
   return animations;
+}
+
+function remapAnimationImages(definition: AnimationDef, remap: (index: number) => number): AnimationDef {
+  const frames = definition.frames.map(remap);
+  const hitboxes = definition.hitboxes?.map((box) => {
+    const frame = remap(box.frame);
+    return frame === box.frame ? box : { ...box, frame };
+  });
+  if (frames.every((index, occurrence) => index === definition.frames[occurrence])
+      && !hitboxes?.some((box, index) => box !== definition.hitboxes?.[index])) return definition;
+  return { ...definition, frames, ...(hitboxes ? { hitboxes } : {}) };
+}
+
+export function atlasUses(owners: readonly Entity[]): number[] {
+  return [...new Set(owners.flatMap((entity) => Object.values(entity.components.sprite?.animations ?? {}).flatMap(
+    ({ frames, hitboxes }) => [...frames, ...(hitboxes ?? []).map(({ frame }) => frame)],
+  )))].sort((left, right) => left - right);
+}
+
+/** Replace only scene references. Both source files remain available for undo. */
+export function replaceLinkedAtlas(
+  scene: Scene,
+  entityIds: readonly string[],
+  asset: string,
+  mapping: ReadonlyMap<number, number>,
+  pixelDocumentPath?: string,
+  originalSource?: string,
+): Scene {
+  const selected = new Set(entityIds);
+  const remap = (index: number) => {
+    const next = mapping.get(index);
+    if (next === undefined || !Number.isSafeInteger(next) || next < 0) throw new Error(`O quadro ${index + 1} precisa de uma correspondência.`);
+    return next;
+  };
+  return {
+    ...scene,
+    entities: scene.entities.map((entity) => {
+      const sprite = entity.components.sprite;
+      if (!selected.has(entity.entity_id) || !sprite) return entity;
+      const animations = Object.fromEntries(Object.entries(sprite.animations ?? {}).map(([name, definition]) =>
+        [name, remapAnimationImages(definition, remap)]));
+      const logic = entity.components.logic;
+      const hints = (logic?.logic_hints ?? []).filter((hint) =>
+        !hint.startsWith("pixel_art:document=") && !hint.startsWith("art_ingress:original="));
+      if (pixelDocumentPath) hints.push(`pixel_art:document=${pixelDocumentPath}`);
+      if (originalSource && /^\.rds\/art-sources\/[a-f0-9]{64}\.[a-z0-9]+$/.test(originalSource)) hints.push(`art_ingress:original=${originalSource}`);
+      return { ...entity, components: { ...entity.components, sprite: { ...sprite, asset, animations },
+        ...(logic || hints.length ? { logic: { ...logic, logic_hints: hints } } : {}) } };
+    }),
+  };
 }
 
 function isAuthoredIdle(definition: AnimationDef) {
@@ -173,7 +215,7 @@ export function validateImageBinding(scene: Scene, id: string, doc: PixelDoc, pr
   if (entity?.components.sprite) imageAnimations(entity, doc, previous);
 }
 
-export function applyImageEdits(scene: Scene, id: string, asset: string, doc: PixelDoc, previous?: PixelDoc): Scene {
+export function applyImageEdits(scene: Scene, id: string, asset: string, doc: PixelDoc, previous?: PixelDoc, document?: string): Scene {
   const oldEntity = scene.entities.find(e => e.entity_id === id);
   if (!oldEntity) return scene;
   const assetOf = (e: Entity) => e.components.sprite?.asset ?? e.components.tilemap?.tileset;
@@ -191,11 +233,16 @@ export function applyImageEdits(scene: Scene, id: string, asset: string, doc: Pi
     entities: scene.entities.map(entity => {
       if (entity.entity_id !== id) return entity;
       const sprite = entity.components.sprite, tilemap = entity.components.tilemap;
+      const logic = entity.components.logic;
       const mounted = tilemap && tilemap.cells?.every((cell,i) => cell === i + 1);
       return { ...entity, components: { ...entity.components,
         ...(sprite ? { sprite: { ...sprite, asset, frame_width: doc.width, frame_height: doc.height, meta_sprite: doc.width > 32 || doc.height > 32,
           animations: imageAnimations(entity, doc, previous) } } : {}),
         ...(tilemap ? { tilemap: { ...tilemap, tileset: asset, ...(mounted ? { map_width: doc.width / 8, map_height: doc.height / 8, cells: Array.from({length: doc.width * doc.height / 64}, (_,i) => i+1) } : {}) } } : {}),
+        ...(document ? { logic: { ...logic, logic_hints: [
+          ...(logic?.logic_hints ?? []).filter((hint) => !hint.startsWith("pixel_art:document=")),
+          `pixel_art:document=${document}`,
+        ] } } : {}),
       } };
     }),
   };
