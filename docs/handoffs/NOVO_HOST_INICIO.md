@@ -26,7 +26,10 @@ O provisionamento usa o launcher sob o Fôlego. O monitor da operação grava em
 `$HOME/RetroDevStudio-work/sessions/full-provision-20261125T003251Z-303717.jsonl`
 (data do arquivo em UTC). Consulte a última amostra e a sessão ativa antes
 de iniciar outra carga. Houve suspensão da compilação por temperatura durante
-uma auditoria npm concorrente.
+uma auditoria npm concorrente. Em outra pausa, a suíte externa consumiu mais
+de 7 GiB e a memória disponível caiu abaixo de 1 GiB. O supervisor preservou
+o processo do GCC em seu próprio grupo. A retomada verifica também o pico
+restante da tarefa e a reserva de 4 GiB.
 
 O [Windows institucional da revisão inicial](https://github.com/Misael-art/retro-dev-studio/actions/runs/45515665354)
 produziu host `READY`, smoke MD/SNES e a fase de referência com o executável
@@ -50,8 +53,15 @@ quadro. O recibo `pose-cadence-*-report.json` em
 ROM e do core, os 48 quadros consecutivos e os hashes dos recortes do ator,
 do controle e de uma região do fundo. Depois da edição do pé e dos quatro
 ticks, o mesmo comando aceita `RDS_POSE_PROOF=aligned-4` para conferir a
-cadência esperada da revisão salva. O alinhamento em pixels, a interação
-pelas vistas e o retorno ao ator têm provas próprias.
+cadência esperada da revisão salva. A sonda procura o desenho do pé no
+framebuffer e registra a coordenada nas ocorrências 1, 2 e 4 dos dois atores.
+Na linha de base, o percurso Canvas → Arte → cena registra as vistas, a
+disponibilidade de o2, a seleção, a revisão e o histórico. Os tempos desse
+percurso são da automação. O Xvfb 21.1.26-1 do Manjaro passou na verificação
+de hash e assinatura e respondeu a `xdpyinfo` em 1366×768 antes do Tauri.
+
+As ações, as áreas de controle e os resultados por sistema ficam na
+[conferência dos 38 itens](../studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
 
 ## Retomada após formatação — 2026-11-22
 

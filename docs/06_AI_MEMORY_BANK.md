@@ -24,7 +24,12 @@ referenciam a mesma imagem. A sala densa acrescenta 24 objetos, incluindo
 um elevador com trajeto de ida e volta. O
 [roteiro para participantes](studio_grafico/ROTEIRO_VALIDACAO_HUMANA.md#autoria-de-uma-fase-mega-drive)
 fixa a região de controle, o ponto de apoio e os resultados de Undo/Redo.
-O aceite humano permanece aberto.
+A [matriz por sistema e alvo](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase)
+congela os controles para as 24 capacidades, cinco tratamentos e nove
+ferramentas. Em `74672bf`, o cenário de cadência registra o acesso pelo
+Canvas e compara o pé de cada ator com o atlas. A sonda encontrou os oito
+deslocamentos ensaiados com a imagem de referência e recusou a pose trocada
+e o recorte vazio. A leitura da ROM e o aceite humano permanecem abertos.
 
 ### Continuidade antes da formatação — 2026-11-22
 
