@@ -59,17 +59,40 @@ const captures = new Map();
 if (input !== "--referencias") {
   const file = path.resolve(input);
   const run = JSON.parse(await readFile(file, "utf8"));
-  if (!/^[0-9a-f]{40}$/.test(run.commit) || !Array.isArray(run.viewport) || run.viewport.length !== 2 ||
-      !run.viewport.every(n => Number.isSafeInteger(n) && n > 0) || !Number.isFinite(run.scalePercent) || run.scalePercent <= 0) {
+  const baseline = run.purpose === "baseline";
+  const validViewport = Array.isArray(run.viewport) && run.viewport.length === 2 && run.viewport.every(n => Number.isSafeInteger(n) && n > 0);
+  const validScale = Number.isFinite(run.scalePercent) && run.scalePercent > 0;
+  if (!/^[0-9a-f]{40}$/.test(run.commit) || !(validViewport || (baseline && run.viewport === null)) ||
+      !(validScale || (baseline && run.scalePercent === null))) {
     throw new Error("Informe o SHA completo do candidato, viewport [largura, altura] e scalePercent.");
   }
-  const binary = path.resolve(path.dirname(file), required(run.binary, "binary"));
-  report.candidate = { commit: run.commit, system: required(run.system, "system"), viewport: run.viewport,
-    scalePercent: run.scalePercent, binary, binarySha256: await sha256(binary) };
+  report.candidate = { purpose: baseline ? "baseline" : "candidate", commit: run.commit,
+    system: required(run.system, "system"), viewport: run.viewport, scalePercent: run.scalePercent };
+  let artifactPaths;
+  if (run.nativeReport) {
+    const receipt = path.resolve(path.dirname(file), run.nativeReport);
+    const native = JSON.parse(await readFile(receipt, "utf8"));
+    const binarySha256 = native.testedApplication?.sha256 || native.executableSha256;
+    if (!/^[0-9a-f]{64}$/.test(binarySha256)) throw new Error("O recibo do Tauri precisa identificar o executável por SHA-256.");
+    if (native.repository?.commit && native.repository.commit !== run.commit) throw new Error("A revisão diverge do recibo do Tauri.");
+    const recorded = [...(native.artifacts || []).map(entry => entry.path), ...(native.steps || []).map(step => step.screenshot)];
+    artifactPaths = new Set(recorded.filter(name => typeof name === "string").flatMap(name => [
+      path.resolve(path.dirname(receipt), name),
+      path.join(path.dirname(receipt), path.win32.basename(name)),
+    ]));
+    Object.assign(report.candidate, { binarySha256, nativeReport: receipt, nativeReportSha256: await sha256(receipt) });
+  }
+  if (run.binary || !run.nativeReport) {
+    const binary = path.resolve(path.dirname(file), required(run.binary, "binary"));
+    const digest = await sha256(binary);
+    if (artifactPaths && digest !== report.candidate.binarySha256) throw new Error("O executável diverge do recibo do Tauri.");
+    Object.assign(report.candidate, { binary, binarySha256: digest });
+  }
   if (!Array.isArray(run.screens) || !run.screens.length) throw new Error("A rodada precisa de uma captura.");
   for (const row of run.screens) {
     if (!criteria.has(row.name) || captures.has(row.name)) throw new Error(`Tela desconhecida ou repetida: ${row.name}`);
     const capture = path.resolve(path.dirname(file), required(row.capture, "capture"));
+    if (artifactPaths && !artifactPaths.has(capture)) throw new Error(`Captura ausente no recibo do Tauri: ${capture}`);
     const size = await pngSize(capture);
     const digest = await sha256(capture);
     if (images.some(image => image.sha256 === digest)) throw new Error(`A captura é um dos mockups: ${row.name}`);
@@ -102,7 +125,7 @@ h1,h2{line-height:1.2}section{padding:12px 0 24px;border-top:1px solid #435363}.
 figure{margin:0;min-width:0}figcaption,b{color:#91ddcf}img{width:100%;height:auto}a{color:#91ddcf}.pending{align-self:center;text-align:center}
 code{overflow-wrap:anywhere}@media(max-width:700px){.pair{grid-template-columns:1fr}}</style>
 <h1>Conferência do workspace</h1><p>${captures.size} de 12 telas com captura.</p>
-${candidate ? `<p>${escape(candidate.system)} · ${candidate.viewport.join(" × ")} · ${candidate.scalePercent}% · <code>${candidate.commit}</code></p>` : ""}
+${candidate ? `<p>${candidate.purpose === "baseline" ? "Linha de base" : "Candidato"} · ${escape(candidate.system)} · ${candidate.viewport?.join(" × ") || "área lógica sem registro"} · ${candidate.scalePercent ? candidate.scalePercent + "%" : "escala sem registro"} · <code>${candidate.commit}</code></p>` : ""}
 <p><a href="registro.json">Registro de referências, medições e hashes</a></p>${cards.join("\n")}</html>`;
 await writeFile(path.join(out, "registro.json"), JSON.stringify(report, null, 2) + "\n");
 await writeFile(path.join(out, "index.html"), html);

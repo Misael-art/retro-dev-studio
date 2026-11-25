@@ -568,4 +568,6 @@ Para abrir a mesa de conferência, execute `node scripts/qa/review-workspace.mjs
 }
 ```
 
+Para revisar artefatos de outro host, o campo `nativeReport` aceita o relatório JSON do cenário E2E. Ele fornece o hash do executável e identifica as capturas que podem ser usadas. Mantenha os PNGs com o nome gravado no relatório e ao lado dele ao extrair o artefato da CI. Se informar também `binary`, os hashes do executável e do relatório precisam concordar. Em uma linha de base histórica, use `"purpose": "baseline"`. Os campos `viewport` e `scalePercent` aceitam `null` nesse caso quando a medição estiver ausente.
+
 Em 24/11 o operador autorizou a execução do [prompt integral](../handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#prompt-entrega-integral-workspace) e pediu a comparação de cada tela com estes 12 mockups. A execução começa pelo aceite do editor C em Linux e Windows. As cinco vistas complementares do plano de 08/11 seguem como propostas para revisão visual com o operador.
