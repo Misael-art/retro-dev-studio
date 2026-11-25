@@ -830,7 +830,8 @@ export default function HierarchyPanel({
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.type)}
-                  className="flex w-full items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#585b70] transition-colors hover:text-[#a6adc8]"
+                  aria-expanded={!isCollapsed}
+                  className="flex w-full items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--rds-text-secondary)] transition-colors hover:text-[var(--rds-text-primary)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--rds-focus-ring)]"
                 >
                   <span className="text-[8px]">{isCollapsed ? "▸" : "▾"}</span>
                   <span>{TYPE_ICON[group.type] ?? "○"}</span>
@@ -867,13 +868,14 @@ export default function HierarchyPanel({
                           ].join(" ")}
                         >
                           <EntityLockToggle entityId={entity.entity_id} />
-                          <span className="text-[#7f849c]">{TYPE_ICON[type] ?? "○"}</span>
-                          <span
-                            className="min-w-[4.5rem] shrink truncate"
+                          <button type="button" data-testid={`hierarchy-select-${entity.entity_id}`} aria-pressed={isSelected}
+                            aria-label={`Selecionar ${getEntityDisplayName(entity)} · ${entity.entity_id}`}
+                            className="flex min-w-[4.5rem] shrink items-center gap-1 rounded text-left focus-visible:ring-2 focus-visible:ring-[var(--rds-focus-ring)]"
                             title={`${getEntityDisplayName(entity)} · ${entity.prefab ? `Prefab: ${entity.prefab}` : entity.entity_id}`}
                           >
-                            {getEntityDisplayName(entity)}
-                          </span>
+                            <span aria-hidden="true" className="text-[#7f849c]">{TYPE_ICON[type] ?? "○"}</span>
+                            <span className="truncate">{getEntityDisplayName(entity)}</span>
+                          </button>
                           {importedContext.roleLabel ? (
                             <span
                               data-testid={`hierarchy-imported-role-${entity.entity_id}`}

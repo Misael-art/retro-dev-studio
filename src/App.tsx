@@ -5075,7 +5075,7 @@ export default function App() {
         timelineShareRef.current = share;
         localStorage.setItem(`${LAYOUT_STORAGE_KEY}::timeline`, String(share));
       }}>
-      <Panel id="workspace-primary" minSize={splitTimeline ? 29 : 0} className="overflow-hidden">
+      <Panel id="workspace-primary" minSize={splitTimeline ? (compactShell ? "56%" : "29%") : 0} className="overflow-hidden">
         {workspaceEditor}
       </Panel>
       {splitTimeline ? (
@@ -5085,13 +5085,13 @@ export default function App() {
             if (!panel) return;
             if (intent.type === "step") panel.resize(Math.max(110, panel.getSize().inPixels - intent.delta));
             else if (intent.type === "minimum") panel.resize(110);
-            else if (intent.type === "maximum") panel.resize("71%");
-            else panel.resize("42%");
+            else if (intent.type === "maximum") panel.resize(compactShell ? "44%" : "71%");
+            else panel.resize(compactShell ? "34%" : "42%");
           }} />
       ) : null}
       {splitTimeline ? (
         <Panel id="workspace-timeline" panelRef={timelinePanelRef} defaultSize={`${timelineShareRef.current}%`}
-          minSize="110px" maxSize="71%" className="overflow-hidden">
+          minSize="110px" maxSize={compactShell ? "44%" : "71%"} className="overflow-hidden">
           {animationActor && canAnimate ? (
             <Suspense fallback={<WorkspacePanelPlaceholder label="Carregando timeline…" />}>
               <CharacterTimelinePanel key={animationActor.entity_id} entity={animationActor} authored />

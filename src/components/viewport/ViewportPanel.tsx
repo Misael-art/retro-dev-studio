@@ -5200,8 +5200,13 @@ export default function ViewportPanel({
                 else inspectScenePoint(sceneMousePos ?? { x: sceneWorld.centerX, y: sceneWorld.centerY });
               } : undefined} />
             {editorMode === "path" ? <p role="status" aria-live="polite" className="shrink-0 px-3 text-[11px] text-[#a6adc8]">{activePathHandle ? `${activePathHandle.kind === "control" ? "Controle da curva" : "Ponto"} ${activePathHandle.index}` : "Alça inicial: ponto 1"} · colchetes escolhem ponto · setas movem · Shift: 8 px</p> : null}
-            <details data-testid="viewport-view-options" className="shrink-0 border-b border-[#313244] bg-[#181825] text-[11px]">
-              <summary className="cursor-pointer px-3 py-1.5 font-semibold text-[#a6adc8]">Visualização · grade, camadas e guias</summary>
+            <div className={compactTools ? "relative z-30 h-0 shrink-0" : "contents"}>
+            <details data-testid="viewport-view-options" className={`border-[#313244] bg-[#181825] text-[11px] ${compactTools
+              ? "absolute right-1 top-1 max-h-[min(40vh,240px)] max-w-[min(22rem,60%)] overflow-y-auto rounded border open:w-[min(22rem,60%)]"
+              : "shrink-0 border-b"}`}>
+              <summary className="cursor-pointer px-3 py-1.5 font-semibold text-[var(--rds-text-primary)]">
+                {compactTools ? "Visualização e diagnósticos" : "Visualização · grade, camadas e guias"}
+              </summary>
               <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
               <button
                 type="button"
@@ -5351,9 +5356,13 @@ export default function ViewportPanel({
                 Prévia sem guias
               </button>
               </div>
+              {compactTools && activeScene && !gameViewLight ? (
+                <SceneAttentionPanel assets={{ missing: sceneAssetHealth.missing, failed: sceneAssetHealth.failed }} />
+              ) : null}
             </details>
+            </div>
 
-            {activeScene && !gameViewLight ? (
+            {!compactTools && activeScene && !gameViewLight ? (
               <SceneAttentionPanel assets={{ missing: sceneAssetHealth.missing, failed: sceneAssetHealth.failed }} />
             ) : null}
             {/* Área de canvas com overflow para mais espaço */}
@@ -5929,7 +5938,7 @@ export default function ViewportPanel({
               (sceneAssetHealth.failed > 0 || sceneAssetHealth.missing > 0) && (
                 <SceneAssetHealthBadge health={sceneAssetHealth} />
               )}
-            <div className="absolute bottom-0 left-0 right-0 shrink-0 border-t border-[#313244] bg-[#181825]/90 px-2 py-1">
+            <div className={compactTools ? "sr-only" : "absolute bottom-0 left-0 right-0 shrink-0 border-t border-[#313244] bg-[#181825]/90 px-2 py-1"}>
             <span className="select-none text-[10px] text-[#6c7086]">
               {activeScene
                 ? `${activeScene.entities.length} entidade(s) | ${activeScene.background_layers.length} layer(s) | ${sceneGuides.length} guia(s) | ${gridSnap ? "snap 8px" : "snap livre"} | ${showGrid ? "grid on" : "grid off"}${
@@ -6220,7 +6229,7 @@ export default function ViewportPanel({
       </div>
       </div>
 
-      <div className="flex h-6 shrink-0 items-center gap-4 border-t border-[#313244] bg-[#181825] px-3">
+      <div className={compactTools ? "sr-only" : "flex h-6 shrink-0 items-center gap-4 border-t border-[#313244] bg-[#181825] px-3"}>
         <span className="select-none text-[10px] text-[#45475a]">{targetLabel}</span>
         <span className="select-none text-[10px] text-[#45475a]">{resolution} / 60fps</span>
         <span data-testid="viewport-scene-sprites" title="Instâncias com componente sprite nesta cena. Metasprites e o jogo C original exigem seu próprio orçamento/captura." className="select-none text-[10px] text-[#45475a]">
