@@ -2,6 +2,8 @@
 
 Use este documento como instrução integral de execução. Ele reúne o pedido, os ajustes aceitos, os owners a integrar, as retenções técnicas e os critérios de entrega. Sua preparação foi documental; quando encaminhado ao agente implementador, a missão é executar a implementação completa e sua comprovação, não produzir outro plano ou somente documentação.
 
+**Diretriz de interface de 24/11/2026.** No candidato de referência `4840956f0151`, a [revisão do workspace modular](../studio_grafico/PLANO_AUTO_ORGANIZACAO_LOGICA_ENGINE_2026-11-08.md#workspace-modular) detalha a disposição, as 24 propostas e o aceite em uma fase Mega Drive. Após qualificar o incremento C vigente, a primeira jornada proposta é editar a duração de uma pose pelo Canvas, timeline e campo vinculado, salvar, reabrir e observar a ROM. O encaixe livre e as janelas nativas entram em lotes posteriores. Revisão documental com conferência estática e de referências. A captura no Tauri e o ensaio humano do novo fluxo pertencem à execução.
+
 <a id="execucao-integral-windows-mega-drive-2026-11-18"></a>
 ## Mandato de execução integral — Windows e autoria Mega Drive, 2026-11-18
 

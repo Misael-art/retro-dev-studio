@@ -26,6 +26,8 @@ debug e repita `code-draft-roundtrip` e `code-instance-scope` no Windows.
 Mantenha o incremento 1 Experimental enquanto os casos de aceite estiverem
 abertos.
 
+**Plano de interface de 24/11/2026.** A [revisão do workspace modular](studio_grafico/PLANO_AUTO_ORGANIZACAO_LOGICA_ENGINE_2026-11-08.md#workspace-modular) cruza 24 propostas com os componentes de `4840956f0151`. Especifica camadas, animação, efeitos por técnica, edição vinculada ao C e critérios de produtividade. Depois da qualificação acima, o primeiro percurso proposto é ajustar uma pose no contexto da fase e conferi-la na ROM. Análise de código e documentação. O launcher deste checkout informou ausência de Node. Captura atual do Tauri, testes de produto e estudo humano permanecem pendentes.
+
 Verificações do checkpoint Linux com Node 24.18.0, npm 11.16.0 e Rust 1.97.0:
 estrutura, lint, TypeScript, sintaxe dos launchers, formatação Rust e
 Vitest completo passaram. O Vitest registrou 1453 testes aprovados e 16
