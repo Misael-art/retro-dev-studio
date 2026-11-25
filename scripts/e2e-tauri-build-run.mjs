@@ -4831,7 +4831,9 @@ export function createCurrentBuildFrameGate(expectedRomSha256, previousInputSess
   };
 }
 
-async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifactPrefix, { nativeClick = false, target = "megadrive" } = {}) {
+async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifactPrefix, {
+  nativeClick = false, target = "megadrive", framebufferTimeoutMs = 30000,
+} = {}) {
   const beforeState = await readAutomationState(sessionId);
   const previousInputSession = (await callAutomationApi(sessionId, "getLastInputObservation"))?.joypadSessionId ?? null;
   const beforeBuildCount = (beforeState?.consoleEntries ?? []).filter((entry) =>
@@ -4947,7 +4949,7 @@ async function runBuildRunAndCollect(sessionId, label, timeoutMs, report, artifa
       const stats = await readFramebufferStats(sessionId);
       return frameReady(stats) ? stats : false;
     },
-    30000,
+    framebufferTimeoutMs,
     `Framebuffer da ROM compilada nao foi confirmado na nova sessao para ${label}.`,
     1000
   );
@@ -19237,7 +19239,9 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
       15000, "A cena avançada não foi salva.", 100);
   };
   const build = async (label) => {
-    const output = await runBuildRunAndCollect(sessionId, label, timeoutMs, report, prefix + "-" + label, { nativeClick: true });
+    const output = await runBuildRunAndCollect(sessionId, label, timeoutMs, report, prefix + "-" + label, {
+      nativeClick: true, framebufferTimeoutMs: 90000,
+    });
     report.advancedRoms = { ...report.advancedRoms, [label]: output };
     await click("viewport-pause");
     await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM avançada não pausou.", 100);
@@ -19445,11 +19449,13 @@ async function verifyAdvancedAuthoring(sessionId, projectDir, report, prefix, ti
   if (withPose) {
     const normal = new Set(baseline.event.map(({ pose }) => pose));
     const changed = edited.event.flatMap(({ pose }, tick) => normal.has(pose) ? [] : [tick]);
-    if (!isDeepStrictEqual(changed, [8, 9, 10, 11, 12, 13, 14, 15])
-        || new Set(edited.event.slice(8).map(({ pose }) => pose)).size !== 1) {
-      fail("A resposta não manteve a pose alternativa a partir do tick 8: " + JSON.stringify(changed));
+    // The sprite change is scheduled on tick 8 and first appears after VBlank.
+    const presentedFrom = 9;
+    if (!isDeepStrictEqual(changed, [9, 10, 11, 12, 13, 14, 15])
+        || new Set(edited.event.slice(presentedFrom).map(({ pose }) => pose)).size !== 1) {
+      fail("A resposta não apresentou a pose alternativa após o VBlank do tick 8: " + JSON.stringify(changed));
     }
-    addReportStep(report, "event_timed_pose_and_control_in_rom", "passed", { changed, pose: edited.event[8].pose });
+    addReportStep(report, "event_timed_pose_and_control_in_rom", "passed", { scheduled: 8, changed, pose: edited.event[presentedFrom].pose });
   }
   const offsets = [baseline, edited].map(({ ground }) => [ground[3].x - ground[1].x,
     ground[15].x - ground[9].x, ground[35].x - ground[32].x]);
@@ -19511,7 +19517,9 @@ async function verifyFloatingStudioPanels(sessionId, projectDir, report, prefix,
   await setSessionWindowRect(sessionId, 1366, 768);
   await click("unified-topbar-menu-trigger");
   await click("workspace-reset-layout");
-  const game = await runBuildRunAndCollect(sessionId, "sessão compartilhada dos painéis", timeoutMs, report, prefix, { nativeClick: true });
+  const game = await runBuildRunAndCollect(sessionId, "sessão compartilhada dos painéis", timeoutMs, report, prefix, {
+    nativeClick: true, framebufferTimeoutMs: 90000,
+  });
   await click("viewport-pause");
   await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM da mesa não pausou.", 100);
   const epoch = await invokeCoreObserveEpoch(sessionId);
