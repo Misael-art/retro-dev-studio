@@ -12,6 +12,10 @@ on:
           - all
           - megadrive
           - snes
+      upload_candidate:
+        description: "Guardar o executável exato deste ensaio Windows e seu SHA-256"
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       target:
@@ -502,3 +506,30 @@ jobs:
           path: |
             src-tauri/target-test/validation/**
           if-no-files-found: ignore
+
+      - name: Prepare the exact Windows candidate
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && github.event_name == 'workflow_dispatch' && inputs.upload_candidate }}
+        run: |
+          $build = Get-Content -Raw -LiteralPath 'src-tauri/target-test/validation/build-report.json' | ConvertFrom-Json
+          $app = $build.modes.debug.canonicalExe
+          if (!$app -or !(Test-Path -LiteralPath $app -PathType Leaf)) { throw "Debug executable missing from build receipt" }
+          $folder = Join-Path $env:RUNNER_TEMP 'retrodevstudio-windows-candidate'
+          New-Item -ItemType Directory -Force -Path $folder | Out-Null
+          $output = Join-Path $folder 'retro-dev-studio.exe'
+          Copy-Item -LiteralPath $app -Destination $output
+          $hash = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
+          @(
+            "source: $env:GITHUB_SHA",
+            "windows-x64: $hash",
+            "run: $env:GITHUB_RUN_ID"
+          ) | Set-Content -LiteralPath (Join-Path $folder 'candidate.txt')
+          Add-Content -Path $env:GITHUB_ENV -Value "RDS_WINDOWS_CANDIDATE=$folder"
+
+      - name: Upload the exact Windows candidate
+        if: ${{ !cancelled() && env.RDS_WINDOWS_CANDIDATE != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrodevstudio-windows-x64-${{ github.sha }}
+          path: ${{ env.RDS_WINDOWS_CANDIDATE }}
+          if-no-files-found: error
+          retention-days: 7

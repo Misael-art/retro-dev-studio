@@ -150,10 +150,10 @@ function indexedAtlasPng(width, height, palette, frames) {
     chunk("PLTE", colors), chunk("tRNS", Buffer.from([0])), chunk("IDAT", deflateSync(pixels)), chunk("IEND", Buffer.alloc(0))]);
 }
 
-async function writeLinkedAtlasProject(directory) {
-  const projectPath = await writeProject(directory, false);
+async function writeLinkedAtlasProject(directory, { effect = false, moving = false, replacement = false } = {}) {
+  const projectPath = await writeProject(directory, false, false, moving);
   const project = JSON.parse(await readFile(projectPath, "utf8"));
-  project.name = "Ensaio de atlas vinculado";
+  project.name = effect ? "Ensaio de efeitos indexados" : "Ensaio de atlas vinculado";
   const scenePath = path.join(directory, project.entry_scene);
   const scene = JSON.parse(await readFile(scenePath, "utf8"));
   scene.display_name = project.name;
@@ -165,6 +165,10 @@ async function writeLinkedAtlasProject(directory) {
   const frames = Array.from({ length: 3 }, (_, frame) => {
     const pixels = Buffer.alloc(width * height);
     for (let y = 4; y < 12; y++) for (let x = 3; x < 13; x++) pixels[y * width + x] = x < 7 ? 1 : 2;
+    // The seven-tick pose exposes the background under the edited region at the same world coordinates.
+    if (effect && frame === 2) {
+      for (let y = 4; y < 12; y++) pixels.fill(0, y * width + 3, y * width + 11);
+    }
     for (let y = 1; y < 4; y++) for (let x = 4 + frame; x < 7 + frame; x++) pixels[y * width + x] = 3 + frame;
     pixels[13 * width + 5 + frame] = 1;
     return pixels;
@@ -188,6 +192,42 @@ async function writeLinkedAtlasProject(directory) {
   await mkdir(path.dirname(path.join(directory, asset)), { recursive: true });
   await writeFile(path.join(directory, asset), indexedAtlasPng(width, height, palette, frames));
   await writeFile(path.join(directory, document), JSON.stringify(pixelDoc) + "\n");
+  if (replacement) {
+    for (const [name, indices] of [["atlas_reordenado", [1, 0, 2]], ["atlas_incompleto", [0, 2]]]) {
+      const candidate = path.posix.join(path.posix.dirname(asset), name);
+      await writeFile(path.join(directory, `${candidate}.png`), indexedAtlasPng(width, height, palette, indices.map((index) => frames[index])));
+      await writeFile(path.join(directory, `${candidate}.rdspixel.json`), JSON.stringify({ ...pixelDoc, name, frames: indices.map((index) => pixelDoc.frames[index]) }) + "\n");
+    }
+  }
+  await writeFile(scenePath, JSON.stringify(scene, null, 2) + "\n");
+  await writeFile(projectPath, JSON.stringify(project, null, 2) + "\n");
+  return projectPath;
+}
+
+async function writeTerrainProject(directory) {
+  const projectPath = await writeProject(directory, false);
+  const project = JSON.parse(await readFile(projectPath, "utf8"));
+  project.name = "Porto das Lanternas — Terreno automático";
+  const scenePath = path.join(directory, project.entry_scene);
+  const scene = JSON.parse(await readFile(scenePath, "utf8"));
+  scene.display_name = project.name;
+  const tileset = "assets/tilesets/conexoes-terreno.png";
+  const palette = [[0, 0, 0], [0, 4, 1], [7, 2, 0], [7, 7, 0], [0, 6, 7], [7, 0, 5]];
+  while (palette.length < 16) palette.push([0, 0, 0]);
+  const tiles = Array.from({ length: 16 }, (_, mask) => {
+    const tile = Buffer.alloc(64, 1);
+    if (mask & 1) tile[3] = 2;
+    if (mask & 2) tile[3 * 8 + 7] = 3;
+    if (mask & 4) tile[7 * 8 + 3] = 4;
+    if (mask & 8) tile[3 * 8] = 5;
+    return tile;
+  });
+  tiles.push(Buffer.alloc(64, 4));
+  await writeFile(path.join(directory, tileset), indexedAtlasPng(8, 8, palette, tiles));
+  const cells = Array(40 * 28).fill(0);
+  cells[6 * 40 + 13] = 17;
+  scene.entities.push({ entity_id: "terreno", display_name: "Terreno", transform: { x: 0, y: 0 },
+    components: { tilemap: { tileset, map_width: 40, map_height: 28, plane: "BG_A", priority: false, cells } } });
   await writeFile(scenePath, JSON.stringify(scene, null, 2) + "\n");
   await writeFile(projectPath, JSON.stringify(project, null, 2) + "\n");
   return projectPath;
@@ -195,7 +235,16 @@ async function writeLinkedAtlasProject(directory) {
 
 await mkdir(sessions, { recursive: true });
 const root = await mkdtemp(path.join(sessions, "ensaio-poses-"));
-if (process.argv.includes("--linked-atlas")) {
+if (process.argv.includes("--atlas-replacement")) {
+  console.log(await writeLinkedAtlasProject(path.join(root, "substituicao-atlas"), { replacement: true }));
+} else if (process.argv.includes("--terrain")) {
+  console.log(await writeTerrainProject(path.join(root, "terreno")));
+} else if (process.argv.includes("--indexed-effects")) {
+  const moving = process.argv.includes("--moving-camera");
+  for (const effect of ["transparent", "ghost", "rotation"]) {
+    console.log(await writeLinkedAtlasProject(path.join(root, effect), { effect: true, moving }));
+  }
+} else if (process.argv.includes("--linked-atlas")) {
   console.log(await writeLinkedAtlasProject(path.join(root, "atlas-vinculado")));
 } else if (process.argv.includes("--composition-motion")) {
   console.log(await writeProject(path.join(root, "composicao-movimento"), false, true, true));

@@ -12205,6 +12205,10 @@ async function runReferencePlatformerScenario(sessionId, timeoutMs, onProjectCre
     250
   );
   await closeVisibleConsoleDrawer(sessionId, "antes da autoria de tilemap");
+  // The project desk retains its last tab across workspaces. Editing the map starts from Projeto.
+  if (await executeScript(sessionId, `return document.querySelector('[data-testid="workspace-project-tab-scene"]')?.getAttribute('aria-selected');`) === "false") {
+    await activateByTestIdWithEnter(sessionId, "workspace-project-tab-scene");
+  }
   await clickButtonByTestIdNativeWhenReady(
     sessionId,
     "hierarchy-tilemap-edit-reference_tilemap",
@@ -17689,7 +17693,64 @@ async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, ti
   addReportStep(report, "paused_view_reports_observed_pixel", "passed", { pointOnScreen, color });
 }
 
-async function verifyLinkedAtlasEdit(sessionId, projectDir, report, prefix, timeoutMs) {
+async function replaceAtlasFromBrowser(sessionId, projectDir, originalPath, before, disk, report, prefix) {
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const folder = path.posix.dirname(originalPath);
+  const missing = `${folder}/atlas_incompleto.png`;
+  const candidate = `${folder}/atlas_reordenado.png`;
+  const sources = await Promise.all([originalPath, missing, candidate].map((file) => readFile(path.join(projectDir, file))));
+  const assertSources = async () => {
+    const files = await Promise.all([originalPath, missing, candidate].map((file) => readFile(path.join(projectDir, file))));
+    if (files.some((file, index) => !file.equals(sources[index]))) fail("O Explorador alterou um dos arquivos do atlas.");
+  };
+  const chooser = '[data-testid="explorer-replace-atlas"] > summary';
+  const formValue = (id, field) => executeScript(sessionId, `return document.querySelector('[data-testid="' + arguments[0] + '"]')?.[arguments[1]];`, [id, field]);
+  const enter = async () => clickElement(sessionId, await findElement(sessionId, chooser));
+  const chooseAsset = (file) => selectOptionByTestIdNative(sessionId, "explorer-atlas-destination", file);
+  await click("workspace-rail-explorer");
+  await click(`explorer-asset-${originalPath}`);
+  const selection = await executeScript(sessionId, `
+    return [...document.querySelector('[data-testid="explorer-asset-use"]').options].find((option) => option.textContent.includes('editar'))?.value;`);
+  if (!selection) fail("Arquivos não listou as duas instâncias do atlas.");
+  await selectOptionByTestIdNative(sessionId, "explorer-asset-use", selection);
+  await enter();
+  await chooseAsset(missing);
+  await click("explorer-atlas-load");
+  await waitFor(async () => (await formValue("explorer-atlas-map-1", "value")) === "-1"
+    && (await formValue("explorer-atlas-compare", "disabled")) === true, 10000,
+  "Arquivos aceitou o atlas sem a imagem compartilhada por duas ocorrências.", 100);
+  await enter();
+  if (!isDeepStrictEqual(await disk(), before)) fail("Fechar a proposta incompleta alterou a cena.");
+  await assertSources();
+  await enter();
+  await chooseAsset(candidate);
+  await click("explorer-atlas-load");
+  await waitFor(async () => (await formValue("explorer-atlas-map-0", "value")) === "1" && (await formValue("explorer-atlas-map-1", "value")) === "0",
+    10000, "Arquivos não relacionou a ordem nova às identidades dos quadros.", 100);
+  await click("explorer-atlas-compare");
+  await click("explorer-atlas-cancel");
+  if (!isDeepStrictEqual(await disk(), before)) fail("Cancelar a substituição alterou a cena.");
+  await assertSources();
+  await click("explorer-atlas-load");
+  await click("explorer-atlas-compare");
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-comparacao-atlas.png`), "Comparação da substituição por instância em Arquivos");
+  await click("explorer-atlas-apply");
+  const savedAsset = async () => (await disk()).entities.find((item) => item.entity_id === "raposa").components.sprite.asset;
+  await waitFor(async () => await savedAsset() === candidate, 15000, "A substituição de atlas não persistiu.", 100);
+  await clickTopBarMenuAction(sessionId, "Desfazer");
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  await waitFor(async () => await savedAsset() === originalPath, 15000, "Desfazer não recuperou o atlas da raposa.", 100);
+  await clickTopBarMenuAction(sessionId, "Refazer");
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  await waitFor(async () => await savedAsset() === candidate, 15000, "Refazer não recuperou a substituição de atlas.", 100);
+  await assertSources();
+  await click("workspace-rail-scene");
+  await selectPoseActorsOnCanvas(sessionId, [["testemunha", 216], ["raposa", 72]]);
+  await click("viewport-open-animation");
+  await click("character-occurrence-o2");
+}
+
+async function verifyLinkedAtlasEdit(sessionId, projectDir, report, prefix, timeoutMs, browserReplacement) {
   const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
   const state = () => readAutomationState(sessionId);
   const disk = async () => JSON.parse(await readFile(path.join(projectDir, "scenes", "main.json"), "utf8"));
@@ -17743,31 +17804,35 @@ async function verifyLinkedAtlasEdit(sessionId, projectDir, report, prefix, time
   await click("workspace-reset-layout");
   const baseline = await observed("atlas-original");
   const before = await disk();
-  await selectPoseActorsOnCanvas(sessionId, [["testemunha", 216], ["raposa", 72]]);
-  await click("viewport-open-animation");
-  await click("character-occurrence-o2");
-  await click("character-open-pixels");
-  const activeFrame = (index) => executeScript(sessionId,
-    `return document.querySelector('[data-testid="pixel-frame-' + arguments[0] + '"]')?.dataset.active === 'true';`, [index]);
-  await waitFor(() => activeFrame(1), 15000, "Pixels não abriu na imagem da ocorrência 2.", 100);
-  await click("pixel-frame-move-left");
-  await waitFor(() => activeFrame(0), 10000, "A imagem não passou para o primeiro índice.", 100);
-  await click("pixel-frame-remove");
-  await click("pixel-save");
-  await waitFor(async () => executeScript(sessionId,
-    `return document.querySelector('[data-testid="pixel-status"]')?.textContent.includes('é usado em');`),
-  10000, "A ferramenta aceitou apagar uma imagem usada em duas ocorrências.", 100);
-  if (!isDeepStrictEqual(await disk(), before) || !original.equals(await readFile(path.join(projectDir, originalPath)))) {
-    fail("A recusa de remover a imagem alterou a fase ou o PNG original.");
+  if (browserReplacement) {
+    await replaceAtlasFromBrowser(sessionId, projectDir, originalPath, before, disk, report, prefix);
+  } else {
+    await selectPoseActorsOnCanvas(sessionId, [["testemunha", 216], ["raposa", 72]]);
+    await click("viewport-open-animation");
+    await click("character-occurrence-o2");
+    await click("character-open-pixels");
+    const activeFrame = (index) => executeScript(sessionId,
+      `return document.querySelector('[data-testid="pixel-frame-' + arguments[0] + '"]')?.dataset.active === 'true';`, [index]);
+    await waitFor(() => activeFrame(1), 15000, "Pixels não abriu na imagem da ocorrência 2.", 100);
+    await click("pixel-frame-move-left");
+    await waitFor(() => activeFrame(0), 10000, "A imagem não passou para o primeiro índice.", 100);
+    await click("pixel-frame-remove");
+    await click("pixel-save");
+    await waitFor(async () => executeScript(sessionId,
+      `return document.querySelector('[data-testid="pixel-status"]')?.textContent.includes('é usado em');`),
+    10000, "A ferramenta aceitou apagar uma imagem usada em duas ocorrências.", 100);
+    if (!isDeepStrictEqual(await disk(), before) || !original.equals(await readFile(path.join(projectDir, originalPath)))) {
+      fail("A recusa de remover a imagem alterou a fase ou o PNG original.");
+    }
+    await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
+      type: "key", id: "pixel-undo", actions: [
+        { type: "keyDown", value: "\uE009" }, { type: "keyDown", value: "z" }, { type: "keyUp", value: "z" }, { type: "keyUp", value: "\uE009" },
+      ],
+    }] });
+    await waitFor(async () => executeScript(sessionId, `return !!document.querySelector('[data-testid="pixel-frame-2"]');`),
+      10000, "Desfazer não recuperou a imagem do atlas.", 100);
+    await click("pixel-save");
   }
-  await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
-    type: "key", id: "pixel-undo", actions: [
-      { type: "keyDown", value: "\uE009" }, { type: "keyDown", value: "z" }, { type: "keyUp", value: "z" }, { type: "keyUp", value: "\uE009" },
-    ],
-  }] });
-  await waitFor(async () => executeScript(sessionId, `return !!document.querySelector('[data-testid="pixel-frame-2"]');`),
-    10000, "Desfazer não recuperou a imagem do atlas.", 100);
-  await click("pixel-save");
   const after = await waitFor(async () => {
     const saved = await disk();
     return sprite(saved, "raposa").asset !== originalPath ? saved : false;
@@ -17788,7 +17853,7 @@ async function verifyLinkedAtlasEdit(sessionId, projectDir, report, prefix, time
   };
   verifyScene(after);
   if (!original.equals(await readFile(path.join(projectDir, originalPath)))) fail("O atlas compartilhado foi sobrescrito.");
-  await click("studio-return-origin");
+  if (!browserReplacement) await click("studio-return-origin");
   await waitFor(async () => (await state())?.studio.focus.occurrenceId === "o2" && (await state())?.activeWorkspace === "artstudio",
     10000, "O editor de pixels não devolveu a ocorrência original.", 100);
   await clickTopBarMenuAction(sessionId, "Fechar");
@@ -17803,11 +17868,409 @@ async function verifyLinkedAtlasEdit(sessionId, projectDir, report, prefix, time
   addReportStep(report, "atlas_reordered_with_occurrences_and_shared_use_intact", "passed", { baseline, edited });
 }
 
+const indexedEffectModes = ["effect-transparent", "effect-ghost", "effect-rotation"];
+
+async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeoutMs, mode) {
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const state = () => readAutomationState(sessionId);
+  const disk = async () => JSON.parse(await readFile(path.join(projectDir, "scenes", "main.json"), "utf8"));
+  const actor = (scene, id) => scene.entities.find((entity) => entity.entity_id === id);
+  const moving = actor(await disk(), "camera_root")?.components.camera?.visual?.active === true;
+  const rect = { x: 3, y: 4, width: 8, height: 8 };
+  const targetPoint = { x: 4, y: 10 };
+  const isInside = (x, y) => x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height;
+  const indexAt = (x, y) => y * 16 + x;
+  report.effect = { mode, moving, rect, targetPoint, controls: ["pixels fora da máscara", "outras poses", "testemunha"] };
+
+  const observed = async (label) => {
+    const built = await runBuildRunAndCollect(sessionId, label, timeoutMs, report, `${prefix}-${label}`, { nativeClick: true });
+    await click("viewport-pause");
+    await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM do efeito não pausou.", 100);
+    const link = JSON.parse(await readFile(path.join(projectDir, "build", "megadrive", "rds-runtime-link.v1.json"), "utf8"));
+    if (link.rom_sha256 !== built.rom_sha256 || moving && !link.camera) fail("A ROM do efeito perdeu o vínculo de runtime.");
+    const readCamera = async () => {
+      if (!moving) return 0;
+      const result = await invokeCoreObserveCommand(sessionId, "emulator_read_memory",
+        { region: 2, offset: link.camera.x & 0xffff, length: 2 });
+      if (!result?.ok || result.data?.length !== 2) fail("A câmera não retornou o X no core.");
+      return result.data[0] | (result.data[1] << 8);
+    };
+    const initial = await readCamera();
+    const warmed = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: 160 });
+    if (!warmed?.ok) fail("O core não avançou para a sala do efeito.");
+    const camera = await readCamera();
+    if (moving && !(camera > initial && camera < 64)) fail(`Deslocamento da câmera não observado: ${initial} → ${camera}.`);
+    const samples = await executeAsyncScript(sessionId, `
+      const rom = arguments[0], camera = arguments[1], done = arguments[arguments.length - 1];
+      const invoke = window.__TAURI__?.core?.invoke ?? window.__TAURI_INTERNALS__?.invoke;
+      (async () => {
+        const samples = [];
+        const crop = (rgba, left) => {
+          const bytes = [];
+          for (let y = 144; y < 160; y++) {
+            const start = (y * 320 + left - camera) * 4;
+            bytes.push(...rgba.slice(start, start + 64));
+          }
+          return btoa(String.fromCharCode(...bytes));
+        };
+        for (let i = 0; i < 40; i++) {
+          const advance = await invoke('emulator_run_frames', {frames: 1});
+          const frame = await invoke('emulator_observe', {});
+          if (!advance?.ok || !frame?.ok || !frame.disk_matches_loaded || frame.rom_sha256 !== rom
+              || frame.framebuffer_width !== 320 || frame.framebuffer_height !== 224
+              || samples.length && samples.at(-1).frame + 1 !== frame.frames_run) throw Error('Amostra do efeito não consecutiva ou identidade divergente.');
+          samples.push({ frame: frame.frames_run, target: crop(frame.framebuffer_rgba, 64), witness: crop(frame.framebuffer_rgba, 208) });
+        }
+        return samples;
+      })().then(done, (error) => done({error: String(error)}));
+    `, [built.rom_sha256, camera]);
+    if (!Array.isArray(samples) || samples.length !== 40 || await readCamera() !== camera) fail(`Amostra indisponível para o efeito: ${JSON.stringify(samples?.error)}`);
+    const cycle = (name, period) => {
+      const values = samples.map((sample) => sample[name]);
+      if (values.slice(period).some((value, index) => value !== values[index])) fail(`Amostras fora do ciclo de ${period} quadros em ${name}.`);
+      const offset = values.findIndex((value) => value !== values[0]);
+      if (offset < 1 || offset >= period) fail(`Nenhuma transição em ${name}.`);
+      const runs = [...values.slice(offset, offset + period)].reduce((result, value) => {
+        if (result.at(-1)?.value === value) result.at(-1).length += 1;
+        else result.push({ value, length: 1 });
+        return result;
+      }, []);
+      const lengths = runs.map(({ length }) => length).sort((a, b) => a - b);
+      if (new Set(runs.map(({ value }) => value)).size !== 3
+        || !isDeepStrictEqual(lengths, [2, period === 18 ? 4 : 3, 5, 7])) fail(`Ocorrências inesperadas em ${name}: ${lengths}.`);
+      return runs.map(({ value, length }) => [length, Buffer.from(value, "base64")]).sort(([a], [b]) => a - b);
+    };
+    return { rom: built.rom_sha256, core: await collectCoreIdentity(await invokeCoreObserve(sessionId)),
+      camera, initial, target: cycle("target", 18), witness: cycle("witness", 17) };
+  };
+
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await click("unified-topbar-menu-trigger");
+  await click("workspace-reset-layout");
+  const before = await disk();
+  const editedActor = actor(before, "raposa");
+  const originalPath = editedActor.components.sprite.asset;
+  const originalDocPath = editedActor.components.logic.logic_hints[0].split("=")[1];
+  const originalPng = await readFile(path.join(projectDir, originalPath));
+  const originalDoc = await readFile(path.join(projectDir, originalDocPath));
+  const cels = JSON.parse(originalDoc).frames.map((frame) => Buffer.from(frame.cels[0], "base64"));
+  const expected = cels[0].map((value, index) => {
+    const x = index % 16, y = Math.floor(index / 16);
+    if (!isInside(x, y)) return value;
+    if (mode === "effect-transparent") return x <= 6 ? 0 : value;
+    if (mode === "effect-ghost") return (x + y) % 2 === 0 ? 0 : value;
+    return cels[0][indexAt(y - 1, 14 - x)];
+  });
+  const baseline = await observed("efeito-original");
+  await selectPoseActorsOnCanvas(sessionId, [["testemunha", 216], ["raposa", 72]]);
+  await click("viewport-open-animation");
+  await click("character-occurrence-o1");
+  await click("character-open-pixels");
+  await waitFor(() => executeScript(sessionId,
+    `return document.querySelector('[data-testid="pixel-frame-0"]')?.dataset.active === 'true' && !!document.querySelector('[data-testid="pixel-save"]');`),
+  15000, "Pixels não abriu na imagem da primeira ocorrência.", 100);
+  const canvas = '[data-testid="pixel-canvas"]';
+  const showPoints = async () => executeScript(sessionId, `document.querySelector(arguments[0]).scrollIntoView({ block: 'center', inline: 'center' });`, [canvas]);
+  const colorAt = async (x, y) => executeScript(sessionId, `
+    const display = document.querySelector(arguments[0]), size = display.width / 16;
+    if (size < 2 || display.height !== display.width) return null;
+    return [...display.getContext('2d').getImageData(Math.floor((arguments[1] + 0.5) * size),
+      Math.floor((arguments[2] + 0.5) * size), 1, 1).data];
+  `, [canvas, x, y]);
+  const normal = await colorAt(targetPoint.x, targetPoint.y);
+  if (!normal || normal[0] < 180) fail(`Amostra original do editor não é o pixel opaco esperado: ${normal}.`);
+  await click(mode === "effect-rotation" ? "pixel-task-image" : "pixel-task-colors");
+  let apply = "pixel-apply-image";
+  if (mode === "effect-transparent") {
+    apply = "pixel-transparent-apply";
+    await click("pixel-transparent-island");
+    await showPoints();
+    await clickCanvasPointNatively(sessionId, canvas, 4.5 / 16, 6.5 / 16, "Selecionar a ilha laranja");
+  } else {
+    await click("pixel-tool-select");
+    await showPoints();
+    const from = await nativeCanvasPoint(sessionId, canvas, (rect.x + 0.5) / 16, (rect.y + 0.5) / 16);
+    const to = await nativeCanvasPoint(sessionId, canvas, (rect.x + rect.width - 0.5) / 16, (rect.y + rect.height - 0.5) / 16);
+    if (!from?.unobstructed || !to?.unobstructed) fail(`Seleção do efeito obstruída: ${JSON.stringify({ from, to })}.`);
+    await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
+      type: "pointer", id: "indexed-effect-drag", parameters: { pointerType: "mouse" }, actions: [
+        { type: "pointerMove", origin: "viewport", x: from.x, y: from.y }, { type: "pointerDown", button: 0 },
+        { type: "pointerMove", origin: "viewport", x: to.x, y: to.y, duration: 240 }, { type: "pointerUp", button: 0 },
+      ],
+    }] });
+    if (mode === "effect-rotation") {
+      await clickElement(sessionId, await findElement(sessionId, 'details:has([data-testid="pixel-preview-rotation"]) > summary'));
+      const form = '[data-testid="pixel-preview-rotation"]';
+      const fields = await executeScript(sessionId, `return Object.fromEntries(new FormData(document.querySelector(arguments[0]).form));`, [form]);
+      if (!isDeepStrictEqual(fields, { angle: "90", x: "6.5", y: "7.5" })) fail(`Pivô incorreto: ${JSON.stringify(fields)}.`);
+      await fillInputBySelector(sessionId, 'input[name="angle"]', "90");
+      await click("pixel-preview-rotation");
+    } else {
+      await click("pixel-preview-ghost");
+    }
+  }
+  const preview = await waitFor(async () => {
+    const value = await colorAt(targetPoint.x, targetPoint.y);
+    return value && !isDeepStrictEqual(value, normal) ? value : false;
+  }, 10000, "A prévia não alterou o pixel da área escolhida.", 100);
+  if (!isDeepStrictEqual(await disk(), before) || !originalDoc.equals(await readFile(path.join(projectDir, originalDocPath)))) {
+    fail("A prévia foi persistida antes da aplicação.");
+  }
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-previa.png`), "Prévia do efeito e retângulo de controle");
+  await click(apply);
+  const undo = await findElement(sessionId, 'button[title="Desfazer (Ctrl+Z)"]');
+  await clickElement(sessionId, undo);
+  await waitFor(async () => isDeepStrictEqual(await colorAt(targetPoint.x, targetPoint.y), normal),
+    10000, "Desfazer não recuperou o pixel original.", 100);
+  const redo = await findElement(sessionId, 'button[title="Refazer (Ctrl+Y)"]');
+  await clickElement(sessionId, redo);
+  await waitFor(async () => isDeepStrictEqual(await colorAt(targetPoint.x, targetPoint.y), preview),
+    10000, "Refazer não recuperou o efeito.", 100);
+  await click("pixel-save");
+  const verifySaved = async (saved) => {
+    const target = actor(saved, "raposa");
+    const publishedPath = target.components.sprite.asset;
+    if (publishedPath === originalPath) fail("O efeito sobrescreveu a arte compartilhada.");
+    const publishedDocPath = publishedPath.replace(/\.png$/, ".rdspixel.json");
+    const publishedDoc = JSON.parse(await readFile(path.join(projectDir, publishedDocPath), "utf8"));
+    const pixels = publishedDoc.frames.map((frame) => Buffer.from(frame.cels[0], "base64"));
+    const unchanged = structuredClone(saved);
+    const restoredTarget = actor(unchanged, "raposa");
+    restoredTarget.components.sprite.asset = originalPath;
+    if (restoredTarget.components.sprite.meta_sprite === false && editedActor.components.sprite.meta_sprite === undefined) delete restoredTarget.components.sprite.meta_sprite;
+    restoredTarget.components.logic.logic_hints[0] = editedActor.components.logic.logic_hints[0];
+    if (restoredTarget.components.logic.variables && !Object.keys(restoredTarget.components.logic.variables).length
+        && editedActor.components.logic.variables === undefined) delete restoredTarget.components.logic.variables;
+    if (!isDeepStrictEqual(pixels, [expected, ...cels.slice(1)]) || !isDeepStrictEqual(unchanged.entities, before.entities)
+      || !originalPng.equals(await readFile(path.join(projectDir, originalPath)))
+      || !originalDoc.equals(await readFile(path.join(projectDir, originalDocPath)))) {
+      fail("A máscara publicada ou uma referência fora do efeito está incorreta.");
+    }
+  };
+  const saved = await waitFor(async () => {
+    const value = await disk();
+    return actor(value, "raposa").components.sprite.asset !== originalPath ? value : false;
+  }, 20000, "A variante não foi vinculada ao ator.", 100);
+  await verifySaved(saved);
+  await click("studio-return-origin");
+  await waitFor(async () => (await state())?.studio.focus.occurrenceId === "o1" && (await state())?.activeWorkspace === "artstudio",
+    10000, "O editor do efeito não retornou à ocorrência.", 100);
+  await clickTopBarMenuAction(sessionId, "Fechar");
+  await waitFor(async () => !(await state())?.activeProjectDir, 15000, "A fase do efeito não fechou.", 100);
+  await openSavedProjectWizard(sessionId, projectDir);
+  await waitFor(async () => (await state())?.activeProjectDir === projectDir, 30000, "A fase do efeito não reabriu.", 100);
+  await verifySaved(await disk());
+  const edited = await observed("efeito-publicado");
+  const baseTarget = new Map(baseline.target), editedTarget = new Map(edited.target);
+  const original = baseTarget.get(5), result = editedTarget.get(5), background = baseTarget.get(7);
+  const rgba = (buffer, index) => buffer.subarray(index * 4, (index + 1) * 4);
+  const delta = [];
+  for (let i = 0; i < expected.length; i++) {
+    const x = i % 16, y = Math.floor(i / 16);
+    const wanted = expected[i] === cels[0][i] ? rgba(original, i) : expected[i] === 0 ? rgba(background, i)
+      : rgba(original, indexAt(y - 1, 14 - x));
+    const now = rgba(result, i);
+    if (!now.equals(wanted)) fail(`Pixel (${x},${y}) da ROM tem ${now.toString("hex")}, esperado ${wanted.toString("hex")}.`);
+    if (!now.equals(rgba(original, i))) delta.push([x, y]);
+  }
+  if (baseline.rom === edited.rom || baseline.camera !== edited.camera || delta.length !== 32
+    || !isDeepStrictEqual(baseline.witness, edited.witness)
+    || [2, 4, 7].some((key) => !baseTarget.get(key).equals(editedTarget.get(key)))) {
+    fail(`A comparação do efeito alterou o controle, o ciclo ou a câmera (${delta.length} pixels).`);
+  }
+  const describe = (observation) => ({ ...observation, ...Object.fromEntries(["target", "witness"].map((name) =>
+    [name, observation[name].map(([ticks, bytes]) => ({ ticks, sha256: createHash("sha256").update(bytes).digest("hex") }))])) });
+  await click("workspace-rail-scene");
+  await waitFor(async () => (await state())?.selectedEntityId === "raposa" && (await state())?.studio.focus.occurrenceId === "o1",
+    10000, "O retorno do efeito ao Canvas perdeu o ator ou a ocorrência.", 100);
+  addReportStep(report, "indexed_effect_and_control_in_core", "passed", { baseline: describe(baseline), edited: describe(edited), delta });
+}
+
+async function verifyTerrainAuthoring(sessionId, projectDir, report, prefix, timeoutMs) {
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const state = () => readAutomationState(sessionId);
+  const getCells = async () => {
+    const scene = JSON.parse(await readFile(path.join(projectDir, "scenes", "main.json"), "utf8"));
+    return scene.entities.find((item) => item.entity_id === "terreno")?.components.tilemap?.cells;
+  };
+  const samplePoints = [[95, 51], [96, 51], [99, 48], [99, 47]];
+  const controlPoint = [108, 52];
+  const capture = async (name) => {
+    const built = await runBuildRunAndCollect(sessionId, name, timeoutMs, report, `${prefix}-${name}`, { nativeClick: true });
+    await click("viewport-pause");
+    await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM do terreno não pausou.", 100);
+    const advance = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: 120 });
+    const frame = await invokeCoreObserve(sessionId);
+    if (!advance?.ok || !frame?.ok || frame.rom_sha256 !== built.rom_sha256 || !frame.disk_matches_loaded
+        || frame.framebuffer_width !== 320 || frame.framebuffer_height !== 224) fail("O core não está na ROM do terreno.");
+    const pixels = Buffer.from(frame.framebuffer_rgba);
+    const offset = (x, y) => (y * 320 + x) * 4;
+    const rgba = ([x, y]) => [...pixels.subarray(offset(x, y), offset(x + 1, y))];
+    const digest = createHash("sha256");
+    for (let y = 48; y < 56; y++) digest.update(pixels.subarray(offset(104, y), offset(112, y)));
+    return { rom: built.rom_sha256, core: await collectCoreIdentity(frame), markers: samplePoints.map(rgba),
+      control: rgba(controlPoint), controlSha: digest.digest("hex") };
+  };
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await click("unified-topbar-menu-trigger");
+  await click("workspace-reset-layout");
+  const initial = await getCells();
+  const baseline = await capture("terreno-base");
+  await click("workspace-rail-scene");
+  await click("workspace-project-tab-scene");
+  await click("hierarchy-tilemap-edit-terreno");
+  const opened = await executeScript(sessionId,
+    `return document.querySelector('[data-testid="viewport-tile-flow-toggle"]')?.getAttribute('aria-expanded');`);
+  if (opened === "false") await click("viewport-tile-flow-toggle");
+  await click("tile-palette-1");
+  await click("tile-tool-terrain");
+  await click("viewport-tile-flow-toggle");
+  const overlay = '[data-testid="viewport-scene-overlay"]';
+  const projectPoint = (x, y) => executeScript(sessionId, `
+    const canvas = document.querySelector(arguments[0]);
+    return [(arguments[1] - Number(canvas.dataset.worldMinX)) / Number(canvas.dataset.worldWidth),
+      (arguments[2] - Number(canvas.dataset.worldMinY)) / Number(canvas.dataset.worldHeight)];
+  `, [overlay, x, y]);
+  const from = await nativeCanvasPoint(sessionId, overlay, ...await projectPoint(92, 52));
+  const to = await nativeCanvasPoint(sessionId, overlay, ...await projectPoint(100, 52));
+  if (!from?.unobstructed || !to?.unobstructed) fail(`Arraste do terreno obstruído: ${JSON.stringify({ from, to })}.`);
+  const beforeDrag = await state();
+  await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
+    type: "pointer", id: "terrain-drag", parameters: { pointerType: "mouse" }, actions: [
+      { type: "pointerMove", origin: "viewport", x: from.x, y: from.y }, { type: "pointerDown", button: 0 },
+      { type: "pointerMove", origin: "viewport", x: to.x, y: to.y, duration: 240 }, { type: "pointerUp", button: 0 },
+    ],
+  }] });
+  await waitFor(async () => (await state())?.undoDepth === beforeDrag.undoDepth + 1
+    && (await getCells())[6 * 40 + 11] === 3 && (await getCells())[6 * 40 + 12] === 9,
+  15000, "O traço não gravou as duas conexões como uma edição.", 100);
+  await click("viewport-tile-flow-toggle");
+  const coordinates = '[data-testid="tile-terrain-position"]';
+  await fillInputBySelector(sessionId, `${coordinates} [name="column"]`, "12");
+  await fillInputBySelector(sessionId, `${coordinates} [name="row"]`, "5");
+  await clickElement(sessionId, await findElement(sessionId, `${coordinates} [type="submit"]`));
+  const expected = [...initial];
+  expected[6 * 40 + 11] = 3;
+  expected[6 * 40 + 12] = 10;
+  expected[5 * 40 + 12] = 5;
+  await waitFor(async () => isDeepStrictEqual(await getCells(), expected),
+    15000, "A posição numérica não completou o canto ou alterou células vizinhas de controle.", 100);
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-terreno.png`), "Terreno com gesto e coordenada numérica");
+
+  const saveCells = async (cells) => {
+    await clickTopBarMenuAction(sessionId, "Salvar");
+    await waitFor(async () => isDeepStrictEqual(await getCells(), cells), 15000, "As células gravadas divergem da revisão.", 100);
+  };
+  const justDrag = [...expected];
+  justDrag[5 * 40 + 12] = 0;
+  justDrag[6 * 40 + 12] = 9;
+  await clickTopBarMenuAction(sessionId, "Desfazer");
+  await saveCells(justDrag);
+  await clickTopBarMenuAction(sessionId, "Refazer");
+  await saveCells(expected);
+  await clickTopBarMenuAction(sessionId, "Fechar");
+  await waitFor(async () => !(await state())?.activeProjectDir, 15000, "A fase de terreno não fechou.", 100);
+  await openSavedProjectWizard(sessionId, projectDir);
+  await waitFor(async () => (await state())?.activeProjectDir === projectDir, 30000, "A fase de terreno não reabriu.", 100);
+  if (!isDeepStrictEqual(await getCells(), expected)) fail("A reabertura perdeu as conexões.");
+  const edited = await capture("terreno-publicado");
+  const [east, west, north, south] = edited.markers;
+  if (baseline.rom === edited.rom || baseline.controlSha !== edited.controlSha
+      || edited.markers.some((pixel, index) => isDeepStrictEqual(pixel, baseline.markers[index]))
+      || !(east[0] > 200 && east[1] > 200 && east[2] < 30)
+      || !(west[0] > 200 && west[1] < 30 && west[2] > 140)
+      || !(north[0] > 200 && north[1] > 40 && north[1] < 90 && north[2] < 30)
+      || !isDeepStrictEqual(south, baseline.control)) {
+    fail(`As marcas de direção na ROM não correspondem à família: ${JSON.stringify({ baseline, edited })}`);
+  }
+  addReportStep(report, "terrain_edges_and_control_in_core", "passed", { samplePoints, controlPoint, baseline, edited });
+}
+
+async function verifyLightingVariant(sessionId, projectDir, report, prefix, timeoutMs) {
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const state = () => readAutomationState(sessionId);
+  const disk = async () => JSON.parse(await readFile(path.join(projectDir, "scenes", "main.json"), "utf8"));
+  const capture = async (name) => {
+    const built = await runBuildRunAndCollect(sessionId, name, timeoutMs, report, `${prefix}-${name}`, { nativeClick: true });
+    await click("viewport-pause");
+    await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM da variante não pausou.", 100);
+    const advance = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: 120 });
+    const frame = await invokeCoreObserve(sessionId);
+    if (!advance?.ok || !frame?.ok || frame.rom_sha256 !== built.rom_sha256 || !frame.disk_matches_loaded
+        || frame.framebuffer_width !== 320 || frame.framebuffer_height !== 224) fail("O core não está na ROM da variante.");
+    const bytes = Buffer.from(frame.framebuffer_rgba);
+    const rgb = (x, y) => [...bytes.subarray((y * 320 + x) * 4, (y * 320 + x) * 4 + 3)];
+    const opaque = (x) => [rgb(x + 4, 154), rgb(x + 9, 154)];
+    return { rom: built.rom_sha256, core: await collectCoreIdentity(frame), target: opaque(64), witness: opaque(208),
+      apertures: [rgb(65, 154), rgb(209, 154)] };
+  };
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await click("unified-topbar-menu-trigger");
+  await click("workspace-reset-layout");
+  const baseline = await capture("iluminacao-base");
+  const before = await disk();
+  await selectPoseActorsOnCanvas(sessionId, [["testemunha", 216], ["raposa", 72]]);
+  const lighting = '[data-testid="workspace-properties-panel"] [data-testid="inspector-lighting"]';
+  await waitFor(async () => executeScript(sessionId, `return !!document.querySelector(arguments[0]);`, [lighting]),
+    15000, "A ação Iluminar não apareceu para a raposa.", 100);
+  await clickElement(sessionId, await findElement(sessionId, `${lighting} > summary`));
+  const beforePreview = await state();
+  await click("inspector-lighting-compare");
+  const preview = await waitFor(async () => executeScript(sessionId,
+    `return document.querySelector('[data-testid="inspector-lighting-preview"]')?.textContent;`),
+  15000, "O planejador não comparou os bancos da variante.", 100);
+  const swatches = await executeScript(sessionId, `
+    const chips = (prefix) => [...document.querySelectorAll('[data-testid^="' + prefix + '-"]')].map((item) => item.dataset.color);
+    return {before: chips('inspector-lighting-before'), after: chips('inspector-lighting-after')};
+  `);
+  if ((await state()).undoDepth !== beforePreview.undoDepth || !isDeepStrictEqual(await disk(), before)
+      || swatches.before[0] !== swatches.after[0] || isDeepStrictEqual(swatches.before, swatches.after)) fail("A prévia modificou a cena ou a transparência.");
+  await click("inspector-lighting-cancel");
+  if (!isDeepStrictEqual(await disk(), before)) fail("Cancelar a variante modificou a cena.");
+  await click("inspector-lighting-compare");
+  await click("inspector-lighting-apply");
+  const activeResource = () => executeScript(sessionId,
+    `return document.querySelector('[data-testid="workspace-properties-panel"] [data-testid="inspector-palette"]')?.dataset.resource;`);
+  await waitFor(async () => (await activeResource())?.startsWith("variante:raposa")
+    && (await state()).undoDepth === beforePreview.undoDepth + 1,
+  15000, "A variante não entrou como uma edição da raposa.", 100);
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-variante.png`), "Paleta local após aplicar Iluminar");
+  await clickTopBarMenuAction(sessionId, "Desfazer");
+  await waitFor(async () => (await activeResource())?.startsWith("asset:"),
+    15000, "Desfazer não restaurou a paleta da imagem.", 100);
+  await clickTopBarMenuAction(sessionId, "Refazer");
+  await waitFor(async () => (await activeResource())?.startsWith("variante:raposa"),
+    15000, "Refazer não restaurou a variante.", 100);
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  const verifyScene = async () => {
+    const scene = await disk();
+    const entry = scene.palettes?.find((item) => item.id?.startsWith("variante:raposa"));
+    return entry && isDeepStrictEqual(entry.uses, ["raposa"]) && entry.colors[0] === swatches.after[0]
+      && isDeepStrictEqual(scene.entities.map((item) => item.components.sprite?.asset), before.entities.map((item) => item.components.sprite?.asset))
+      && entry;
+  };
+  await waitFor(verifyScene, 15000, "A variante salva alterou o vínculo de algum recurso ou consumidor.", 100);
+  await clickTopBarMenuAction(sessionId, "Fechar");
+  await waitFor(async () => !(await state())?.activeProjectDir, 15000, "A fase da variante não fechou.", 100);
+  await openSavedProjectWizard(sessionId, projectDir);
+  await waitFor(async () => (await state())?.activeProjectDir === projectDir && await verifyScene(), 30000, "A variante não foi recuperada.", 100);
+  const edited = await capture("iluminacao-publicada");
+  if (baseline.rom === edited.rom || !isDeepStrictEqual(edited.witness, baseline.witness)
+      || !isDeepStrictEqual(edited.apertures, baseline.apertures)
+      || edited.target[0][1] <= baseline.target[0][1] || edited.target[0][2] <= baseline.target[0][2]
+      || edited.target[1][1] <= baseline.target[1][1] || edited.target[1][2] <= baseline.target[1][2]) {
+    fail(`A variação da ROM saiu do alcance de Iluminar: ${JSON.stringify({ baseline, edited })}.`);
+  }
+  await click("workspace-rail-scene");
+  await waitFor(async () => (await state())?.selectedEntityId === "raposa", 10000, "A volta à cena perdeu a raposa.", 100);
+  addReportStep(report, "lighting_preview_and_local_palette_in_core", "passed", { preview, swatches, baseline, edited });
+}
+
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
   const occlusionModes = ["occlusion", "occlusion-region", "occlusion-motion"];
-  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", ...occlusionModes].includes(revision)) {
-    fail("RDS_POSE_PROOF deve ser baseline, aligned-4, journey, events, boxes, playback, workspace, linked-atlas, occlusion, occlusion-region ou occlusion-motion.");
+  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", "asset-replace", "terrain", "lighting", ...occlusionModes, ...indexedEffectModes].includes(revision)) {
+    fail(`RDS_POSE_PROOF desconhecido: ${revision}.`);
   }
   const prefix = `pose-cadence-${artifactTimestamp()}`;
   const report = { scenario: "pose-cadence", fixture: path.basename(projectDir), revision, status: "failed", samples: [], steps: [], artifacts: [] };
@@ -17824,11 +18287,35 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     if (report.atlasSha256 !== "8f104172610518705021450603f04bfd4d2fc0ed997e7c71de21cdb54874c735") fail("O atlas da prova mudou.");
     const atlas = decodeWindowPng(atlasBytes);
     report.executableSha256 = createHash("sha256").update(await readFile(app)).digest("hex");
-    if (revision === "linked-atlas") {
+    if (revision === "lighting") {
+      await openSavedProjectWizard(sessionId, projectDir);
+      await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
+        60000, "A sala da variante de luz não abriu.", 200);
+      await verifyLightingVariant(sessionId, projectDir, report, prefix, timeoutMs);
+      report.status = "passed";
+      return;
+    }
+    if (revision === "terrain") {
+      await openSavedProjectWizard(sessionId, projectDir);
+      await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
+        60000, "A sala de terreno não abriu.", 200);
+      await verifyTerrainAuthoring(sessionId, projectDir, report, prefix, timeoutMs);
+      report.status = "passed";
+      return;
+    }
+    if (indexedEffectModes.includes(revision)) {
+      await openSavedProjectWizard(sessionId, projectDir);
+      await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
+        60000, "A sala do efeito não abriu.", 200);
+      await verifyIndexedEffect(sessionId, projectDir, report, prefix, timeoutMs, revision);
+      report.status = "passed";
+      return;
+    }
+    if (revision === "linked-atlas" || revision === "asset-replace") {
       await openSavedProjectWizard(sessionId, projectDir);
       await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
         60000, "A sala do atlas não abriu.", 200);
-      await verifyLinkedAtlasEdit(sessionId, projectDir, report, prefix, timeoutMs);
+      await verifyLinkedAtlasEdit(sessionId, projectDir, report, prefix, timeoutMs, revision === "asset-replace");
       report.status = "passed";
       return;
     }
