@@ -500,6 +500,7 @@ export default function ViewportPanel({
     /** Tile a ser aplicado (0 = apaga). */
     tileIndex: number;
     terrain?: TerrainBrush;
+    pointerFrame: ReturnType<typeof canvasPointerFrame>;
     paintedInDrag: boolean;
   } | null>(null);
 
@@ -3666,13 +3667,16 @@ export default function ViewportPanel({
     void context.resume().catch(() => {});
   }, [activeViewportTab, clearAudioQueue, emulPaused]);
 
-  function canvasCoords(event: Pick<MouseEvent, "clientX" | "clientY">) {
+  function canvasPointerFrame() {
     const rect = sceneOverlayCanvasRef.current?.getBoundingClientRect() ?? { left: 0, top: 0, width: 1, height: 1 };
-    const scaleX = sceneWidth / Math.max(rect.width, 1);
-    const scaleY = sceneHeight / Math.max(rect.height, 1);
+    return { left: rect.left, top: rect.top, minX: sceneWorldMinX, minY: sceneWorldMinY,
+      scaleX: sceneWidth / Math.max(rect.width, 1), scaleY: sceneHeight / Math.max(rect.height, 1) };
+  }
+
+  function canvasCoords(event: Pick<MouseEvent, "clientX" | "clientY">, frame = canvasPointerFrame()) {
     return {
-      mx: sceneWorldMinX + (event.clientX - rect.left) * scaleX,
-      my: sceneWorldMinY + (event.clientY - rect.top) * scaleY,
+      mx: frame.minX + (event.clientX - frame.left) * frame.scaleX,
+      my: frame.minY + (event.clientY - frame.top) * frame.scaleY,
     };
   }
 
@@ -3884,7 +3888,8 @@ export default function ViewportPanel({
 
     if (!activeScene) return;
 
-    const { mx, my } = canvasCoords(event);
+    const pointerFrame = canvasPointerFrame();
+    const { mx, my } = canvasCoords(event, pointerFrame);
 
     if (drawingPriority && priorityBrush && selectedEntity?.components.tilemap && event.button === 0) {
       const start = { x: mx, y: my };
@@ -3956,6 +3961,7 @@ export default function ViewportPanel({
           lastCellKey: null,
           rectOrigin: { col: target.col, row: target.row },
           tileIndex,
+          pointerFrame,
           paintedInDrag: false,
         };
         setTilePaintRectPreview({
@@ -3980,6 +3986,7 @@ export default function ViewportPanel({
         rectOrigin: null,
         tileIndex: effectiveIndex,
         terrain: terrain ?? undefined,
+        pointerFrame,
         paintedInDrag: !terrain || useEditorStore.getState().sceneRevision !== previousRevision,
       };
       setActiveTilemapId(target.entity.entity_id);
@@ -4237,7 +4244,9 @@ export default function ViewportPanel({
       event.buttons === 1
     ) {
       const drag = tileDragRef.current;
-      const target = resolveTilemapTarget(mx, my);
+      // The first edit can change the height of live diagnostics. Keep the gesture's original grid.
+      const point = canvasCoords(event, drag.pointerFrame);
+      const target = resolveTilemapTarget(point.mx, point.my);
       if (!target || target.entity.entity_id !== drag.entityId) {
         return;
       }

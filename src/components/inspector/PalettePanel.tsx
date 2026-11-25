@@ -406,6 +406,8 @@ function LightingVariant({ plan, resource, entityId }: { plan: PalettePlan; reso
   const changed = ownUse?.indices.filter((index) => colors[index]?.toLowerCase() !== resource.colors[index]?.toLowerCase()) ?? [];
   const usedBanks = (value: PalettePlan) => value.banks.filter((bank) => bank.resources.length > 0).length;
   const otherIds = [...new Set(resource.uses.map((use) => use.entity_id).filter((id) => id !== entityId))];
+  const freeBank = otherIds.length && resource.pinned_bank !== undefined
+    ? plan.banks.find((bank) => bank.state === "livre")?.bank : undefined;
   const cancel = () => {
     request.current++;
     setPreview(null);
@@ -415,7 +417,8 @@ function LightingVariant({ plan, resource, entityId }: { plan: PalettePlan; reso
   const compare = async () => {
     const id = ++request.current;
     const before = palettePlanContextKey(useEditorStore.getState());
-    const palettes = createLocalVariant(currentPalettes(), { ...resource, colors }, entityId, `${resource.name} · luz ${levels > 0 ? "+" : ""}${levels}`);
+    const palettes = createLocalVariant(currentPalettes(), { ...resource, colors }, entityId,
+      `${resource.name} · luz ${levels > 0 ? "+" : ""}${levels}`, freeBank);
     setBusy(true);
     setMessage("");
     try {
@@ -468,6 +471,7 @@ function LightingVariant({ plan, resource, entityId }: { plan: PalettePlan; reso
         {preview && <>
           <p data-testid="inspector-lighting-preview" role="status">
             Bancos ocupados: {usedBanks(plan)} → {usedBanks(preview.proposal.plan)} de {plan.capacity.banks}.
+            {preview.proposal.plan.entity_banks[entityId] !== undefined && ` Variante em PAL${preview.proposal.plan.entity_banks[entityId]}.`}
           </p>
           <Blocked added={preview.proposal.added} />
           <div className="flex flex-wrap gap-2">

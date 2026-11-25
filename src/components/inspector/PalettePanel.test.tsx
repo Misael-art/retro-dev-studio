@@ -205,6 +205,9 @@ describe("PaletteSummary", () => {
 describe("EntityPaletteSection", () => {
   it("previews an RGB333 lighting variant and publishes only the selected use in one edit", async () => {
     await render(<EntityPaletteSection entityId="ken_2" />);
+    const pinned = structuredClone(usePalettePlanStore.getState().plan!);
+    pinned.resources.find(({ id }) => id === "asset:ken.png")!.pinned_bank = 1;
+    await act(async () => { usePalettePlanStore.setState({ plan: pinned }); });
     const initial = useEditorStore.getState();
     await act(async () => { q<HTMLDetailsElement>("inspector-lighting")!.open = true; });
     await act(async () => q("inspector-lighting-compare")!.click());
@@ -219,7 +222,7 @@ describe("EntityPaletteSection", () => {
     await act(async () => q("inspector-lighting-apply")!.click());
     await settle();
     const edited = useEditorStore.getState();
-    expect(edited.activeScene!.palettes).toEqual([expect.objectContaining({ uses: ["ken_2"], colors: expect.arrayContaining(["#ffdbb6"]) })]);
+    expect(edited.activeScene!.palettes).toEqual([expect.objectContaining({ bank: 3, uses: ["ken_2"], colors: expect.arrayContaining(["#ffdbb6"]) })]);
     expect(edited.undoStack.length).toBe(initial.undoStack.length + 1);
     expect(usePalettePlanStore.getState().plan!.resources.find(({ id }) => id === "asset:ken.png")?.colors).toEqual(KEN);
     act(() => useEditorStore.getState().undo());

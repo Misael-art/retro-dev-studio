@@ -129,11 +129,12 @@ export function editSharedColor(palettes: PaletteEntry[] | undefined, resource: 
 }
 
 /** Variante local: cópia das cores atuais, só para esta entidade; o original fica intacto. */
-export function createLocalVariant(palettes: PaletteEntry[] | undefined, resource: PlanResource, entityId: string, name?: string): PaletteEntry[] {
+export function createLocalVariant(palettes: PaletteEntry[] | undefined, resource: PlanResource, entityId: string, name?: string, bank?: number): PaletteEntry[] {
   const list = releaseUse(palettes, entityId);
   let id = `variante:${entityId}`;
   for (let n = 2; list.some((p) => p.id === id); n += 1) id = `variante:${entityId}_${n}`;
-  list.push({ slot: 0, id, name: name ?? `${resource.name} (variante de ${entityId})`, origin: "variante", colors: [...resource.colors], uses: [entityId] });
+  list.push({ slot: 0, id, name: name ?? `${resource.name} (variante de ${entityId})`, origin: "variante", colors: [...resource.colors], uses: [entityId],
+    ...(bank === undefined ? {} : { bank }) });
   return list;
 }
 

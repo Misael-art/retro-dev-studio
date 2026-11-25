@@ -97,6 +97,30 @@ controles. A prova regional Windows e os oito cenários SNES passaram em
 `924cf2d`. O arraste de camada na fase de referência e a substituição
 direta em Arquivos continuam abertos.
 
+Em `faec882`, o Tauri Windows repetiu a jornada de edição nas duas salas,
+as quatro mesas e a pilastra com câmera. Os oito casos SNES passaram no
+mesmo job. O teste de referência avançou pelo portão e parou ao procurar
+Editar tilemap com Camadas selecionada. O atlas parou ao vincular o caminho
+absoluto retornado pelo Windows. `03f2b18` usa os caminhos relativos do
+gravador, aponta o documento da variante e acrescenta Iluminar, terreno
+automático e substituição de atlas no navegador para os usos da fase ativa.
+Árvore, lint focal, tipos e 140 testes focados passaram. A fase de referência
+passou no job Windows manual de `1f0f099`, com a retomada na aba Projeto.
+As provas do atlas e da nova autoria continuam em andamento.
+
+O executável Linux de `1f0f0996ef74907c6ae6f3e5ac51662b0a861c7a` está em
+`sessions/authoring-candidate-ce1CuVmy/retro-dev-studio`, SHA-256
+`abd153352e675ad386df27cb35161ad4b23ce89d714f024bdb98dc4a028ed73c`.
+A certificação iniciada em `5951336` passou em árvore, lint, TypeScript,
+1.474 testes frontend, Clippy `--lib` e 1.217 testes Rust. Uma recompilação
+dos testes no upstream excedeu a margem reservada e a sessão foi encerrada
+para liberar o host. O executável de testes já compilado foi preservado.
+Com ele passaram as provas oficiais de PVSnesLib e SGDK pelos respectivos
+cores, com X11 ativo no SGDK. A certificação Full como uma única execução
+continua pendente. Os recibos estão em `sessions/host-certify-sAyihtyp/`,
+`sessions/indexed-effect-qa-8LcAMyeo/` e `sessions/authoring-candidate-ce1CuVmy/`.
+As provas humanas e itens abertos seguem na [matriz da jornada](studio_grafico/JORNADA_MEGA_DRIVE_2026-11-05.md#conferência-por-item-da-autoria-de-fase).
+
 ### Continuidade antes da formatação — 2026-11-22
 
 Retomar na branch `codex/new-host-cohesion-20261024`, pelo
