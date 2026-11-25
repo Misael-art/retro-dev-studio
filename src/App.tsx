@@ -1782,6 +1782,7 @@ export default function App() {
     readWorkspaceLayout(localStorage.getItem(`${LAYOUT_STORAGE_KEY}::last-scene-desk`))?.scene ?? DEFAULT_SCENE_DESK
   );
   const [layoutNameDraft, setLayoutNameDraft] = useState<string | null>(null);
+  const [propertiesDock, setPropertiesDock] = useState<"choose" | "drag" | null>(null);
   const [focusedShell, setFocusedShell] = useState(false);
   const [compactPanel, setCompactPanel] = useState<"hierarchy" | "canvas" | "inspector">("canvas");
   const [hiddenSidePanels, setHiddenSidePanels] = useState({ left: false, right: false });
@@ -2365,6 +2366,7 @@ export default function App() {
 
   function changeSceneDesk(desk: SceneDesk) {
     setSceneDesk((current) => ({ ...current, desk }));
+    setPropertiesDock(null);
     setFocusedShell(false);
     setCompactPanel("canvas");
     if (activeWorkspace !== "scene") handleWorkspaceSelect("scene");
@@ -2375,6 +2377,12 @@ export default function App() {
     rememberLayout(previous);
     setSceneDesk((current) => ({ ...current, propertiesLeft: !current.propertiesLeft }));
     if (compactShell) setCompactPanel("inspector");
+  }
+
+  function closePropertiesDock(side?: "left" | "right") {
+    setPropertiesDock(null);
+    if (side && propertiesLeft !== (side === "left")) moveProperties();
+    requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('[data-testid="workspace-dock-properties"]')?.focus());
   }
 
   function sidebarAction(side: "left" | "right", intent?: LayoutResizeIntent) {
@@ -2409,6 +2417,7 @@ export default function App() {
   }
 
   function toggleFocusMode() {
+    setPropertiesDock(null);
     if (!focusedShell) {
       const currentLayout = getCurrentLayout();
       if (currentLayout) rememberLayout(currentLayout);
@@ -4252,6 +4261,7 @@ export default function App() {
   }
 
   function handleWorkspaceSelect(workspace: EditorWorkspace) {
+    setPropertiesDock(null);
     trackProductMetric({ kind: "workspace_visit", workspace });
     setActiveWorkspace(workspace);
     const config = resolveWorkspaceShellConfig(workspace, shellWidth);
@@ -5195,10 +5205,31 @@ export default function App() {
   const inspectorPanelContent = shellConfig.showRight ? (
     <div data-testid="workspace-properties-panel" className="flex h-full min-h-0 flex-col bg-[#09090b]">
       <div className={`flex flex-col gap-2 border-b border-[#27272a] bg-[#111827] ${compactShell ? "px-2 py-1" : "px-3 py-2"}`}>
-        <div className="min-w-0">
+        <div className="flex min-w-0 items-center justify-between gap-1">
           <div className={`${compactShell ? "sr-only" : "text-[10px] font-semibold uppercase tracking-[0.18em] text-[#94a3b8]"}`}>
             {rightPanelMode === "tools" ? "Ferramentas" : "Propriedades da seleção"}
           </div>
+          {activeWorkspace === "scene" && !focusedShell && rightPanelMode === "inspector" ? (
+            <button type="button" title="Encaixar Propriedades" aria-label="Encaixar Propriedades"
+              aria-expanded={propertiesDock !== null} aria-controls="workspace-properties-dock-targets"
+              data-testid="workspace-dock-properties" draggable={!compactShell}
+              onClick={() => {
+                if (propertiesDock) closePropertiesDock();
+                else {
+                  setPropertiesDock("choose");
+                  requestAnimationFrame(() => document.getElementById(`workspace-properties-dock-${propertiesLeft ? "right" : "left"}`)?.focus());
+                }
+              }}
+              onDragStart={(event) => {
+                event.dataTransfer.setData("application/x-rds-panel", "properties");
+                event.dataTransfer.effectAllowed = "move";
+                setPropertiesDock("drag");
+              }}
+              onDragEnd={() => setPropertiesDock(null)}
+              className="ml-auto rounded p-1 hover:bg-[var(--rds-surface-raised)] focus-visible:ring-2 focus-visible:ring-[var(--rds-focus-ring)]">
+              <Icon name="arrows" className="h-4 w-4" />
+            </button>
+          ) : null}
         </div>
         {shellConfig.defaultRightMode !== "hidden" ? (
           <div className="flex shrink-0 flex-wrap items-center justify-center gap-1 rounded border border-[#313244] bg-[#09090b] p-0.5">
@@ -6022,7 +6053,7 @@ export default function App() {
       {!showProjectWizard ? <StudioContextBar compact={compactShell} /> : null}
       {showDelivery ? <DeliveryPanel onClose={() => setShowDelivery(false)} /> : null}
       {showSceneHistory && activeProjectDir ? <SceneHistoryDialog onClose={() => setShowSceneHistory(false)} /> : null}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <aside
           data-testid="workspace-activity-bar"
           aria-label="Áreas do projeto"
@@ -6092,6 +6123,35 @@ export default function App() {
           </div>
         </aside>
 
+        {activeWorkspace === "scene" && !focusedShell && propertiesDock ? (
+          <div id="workspace-properties-dock-targets" role="group" aria-label="Destino de Propriedades"
+            onKeyDown={(event) => {
+              if (event.key !== "Escape") return;
+              event.stopPropagation();
+              closePropertiesDock();
+            }}
+            className="pointer-events-none absolute inset-x-2 top-3 z-40 ml-[88px] flex justify-between gap-2">
+            {(["left", "right"] as const).map((side) => {
+              const current = propertiesLeft === (side === "left");
+              return <button key={side} type="button" id={`workspace-properties-dock-${side}`}
+                data-current={current} aria-current={current || undefined}
+                onClick={() => closePropertiesDock(side)}
+                onDragOver={(event) => {
+                  if (propertiesDock !== "drag") return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                }}
+                onDrop={(event) => {
+                  if (event.dataTransfer.getData("application/x-rds-panel") !== "properties") return;
+                  event.preventDefault();
+                  closePropertiesDock(side);
+                }}
+                className="pointer-events-auto rounded-lg border-2 border-dashed border-[var(--rds-focus-ring)] bg-[var(--rds-surface-panel-strong)] px-3 py-2 text-xs font-semibold shadow-xl focus-visible:ring-2 focus-visible:ring-[var(--rds-focus-ring)]">
+                {side === "left" ? "Encaixar à esquerda" : "Encaixar à direita"}{current ? " · atual" : ""}
+              </button>;
+            })}
+          </div>
+        ) : null}
         {compactShell ? (
           <div data-testid="compact-workspace-shell" className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <WorkspaceTabs name="compact-shell" label="Painéis do workspace" tabs={compactTabs}

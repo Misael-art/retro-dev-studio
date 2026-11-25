@@ -17645,6 +17645,46 @@ async function verifyAuthoringDesk(sessionId, report, prefix) {
   await waitFor(async () => await codeValue() === draft && isDeepStrictEqual(tracked(await readAutomationState(sessionId)), before),
     15000, "A busca de arquivo perdeu ator, rascunho ou revisão no retorno.", 100);
   addReportStep(report, "search_project_file_and_return_to_pending_code", "passed", { path: "assets/sprites/fox-five-frame-32-runtime.png" });
+
+  await click("workspace-rail-scene");
+  if (narrow) await click("compact-shell-tab-inspector");
+  const dock = "workspace-dock-properties";
+  const placement = () => dom(`return document.querySelector('[data-testid="studio-workspace-shell"]')?.dataset.propertiesSide;`);
+  const startSide = await placement();
+  const nextSide = startSide === "left" ? "right" : "left";
+  await activateByTestIdWithEnter(sessionId, dock);
+  await check(`return document.activeElement?.id === arguments[0];`, "O seletor de encaixe não levou o foco ao destino.", [`workspace-properties-dock-${nextSide}`]);
+  const target = await nativeCanvasPoint(sessionId, `#workspace-properties-dock-${nextSide}`, 0.5, 0.5);
+  await key("\uE00C");
+  await check(`return !document.getElementById('workspace-properties-dock-targets')
+    && document.activeElement?.dataset.testid === arguments[0];`, "Cancelar o encaixe não devolveu o foco.", [dock]);
+  if (await placement() !== startSide) fail("Cancelar o encaixe alterou a posição.");
+  if (narrow) {
+    await activateByTestIdWithEnter(sessionId, dock);
+    await check(`return document.activeElement?.id === arguments[0];`, "O foco não voltou ao encaixe.", [`workspace-properties-dock-${nextSide}`]);
+    await key("\uE007");
+  } else {
+    const source = await nativeCanvasPoint(sessionId, `[data-testid="${dock}"]`, 0.5, 0.5);
+    if (!source?.unobstructed || !target?.unobstructed) fail("A alça ou o destino do encaixe não está acessível.");
+    await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
+      type: "pointer", id: "properties-dock", parameters: { pointerType: "mouse" }, actions: [
+        { type: "pointerMove", origin: "viewport", x: source.x, y: source.y }, { type: "pointerDown", button: 0 },
+        { type: "pointerMove", origin: "viewport", x: source.x, y: source.y + 14, duration: 100 },
+        { type: "pointerMove", origin: "viewport", x: target.x, y: target.y, duration: 250 },
+        { type: "pause", duration: 180 }, { type: "pointerUp", button: 0 },
+      ],
+    }] });
+  }
+  await waitFor(async () => await placement() === nextSide, 10000, "Propriedades não encaixou no lado indicado.", 100);
+  await activateByTestIdWithEnter(sessionId, dock);
+  await check(`return document.activeElement?.id === arguments[0];`, "O destino inicial não ficou alcançável.", [`workspace-properties-dock-${startSide}`]);
+  await key("\uE007");
+  await waitFor(async () => await placement() === startSide, 10000, "O teclado não recuperou o lado inicial.", 100);
+  await click("workspace-rail-logic");
+  await waitFor(async () => await codeValue() === draft && isDeepStrictEqual(tracked(await readAutomationState(sessionId)), before),
+    15000, "Encaixar Propriedades perdeu seleção, revisão, histórico ou texto pendente.", 100);
+  addReportStep(report, "properties_dock_keeps_pending_edits", "passed", { narrow, startSide, nextSide });
+
   await click("logic-view-nodes");
   await check(`return document.querySelector('[data-testid="nodes-pose-duration"]')?.value === '4';`,
     "O texto pendente foi aplicado sem confirmação.");
