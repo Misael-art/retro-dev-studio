@@ -934,6 +934,8 @@ O pacote privado `sessions/demo-operador-rds-Xtn5t7EI/Porto-das-Lanternas-demo.z
 
 O pacote complementar `sessions/demo-repeticao-oNHRh0xU/Porto-das-Lanternas-demo.zip` conserva as duas salas e as ROMs de demonstração. Inclui os projetos de Fantasma com câmera e de golpe com HUD, além dos passos de edição e exportação. A conferência do ZIP validou o manifesto de 36 arquivos e as entradas de seis projetos. SHA-256 `46e812b98c194a8fe482d5763e0de9d2e980b0634f79a76a7c395f4a7d12d69b`.
 
+O pacote mais recente, `sessions/demo-239524a-4x0RxlbT/Porto-das-Lanternas-demo.zip`, traz as duas ROMs verificadas no executável Linux de `239524a` e conserva os dois projetos de partida, os dois estados salvos e os exercícios. O manifesto interno confere para os 36 arquivos. SHA-256 `82c6f89d46653d7880810a75752e28d1b56aa2340cc1a7040039d8fa88ad26fc`.
+
 ### Windows em `a8568b1` e repetição das divergências
 
 A fonte `a8568b1fb139de45aa8b77d03e60c6b13d501584` passou pela CI Linux e Windows e pelos 17 cenários Mega Drive e oito SNES no Tauri Windows. A prova em 1366×768 e 949×593 incluiu busca, histórico, rascunho de Código, dez trocas e restauração da mesa. [CI](https://github.com/Misael-art/retro-dev-studio/actions/runs/45635286504) · [Desktop all](https://github.com/Misael-art/retro-dev-studio/actions/runs/45635286507)
@@ -983,3 +985,11 @@ bash scripts/new-host.sh --run /home/deck/RetroDevStudio-work/sessions/scene-gui
 ```powershell
 & .\scripts\new-host.ps1 -Mode Run -CommandArgs @('C:\candidatos\retro-dev-studio.exe')
 ```
+
+### Repetição de pose e efeitos em `239524a`
+
+No Tauri Linux, as salas simples e densa repetiram a seleção no Canvas, o alinhamento, 3→6→4, Undo/Redo, salvamento, encerramento e reabertura do aplicativo sem o contexto local do navegador. Canvas, Inspector e Nós observaram o mesmo valor da ocorrência, e o retorno do jogo preservou a raposa e `o2`. No Genesis Plus GX, o pé do ator editado ficou em (78,163) nas ocorrências 1 e 2 e em (77,162) na quarta. A outra raposa conservou os pontos originais. Os ciclos foram 18 e 17 ticks. As ROMs medidas foram `e02491ed86cb4e0f61ea4e96828cdca07543185bc29a4a3e84a5a222aeccc2cd` e `dd508a520a764988c06bb7da820d575d03ddfac27526be02565a3bc65b984cfd`. Relatórios e capturas em `sessions/pose-239524a-q3naPa5o/`.
+
+As cópias das ROMs no ZIP foram conferidas byte a byte por SHA-256 contra os dois recibos aprovados. Na rodada de retenção, o host suspendeu a carga para baixar a temperatura. A leitura de cadência da sala simples expirou após verificar a identidade da ROM carregada. A sala densa passou na rodada de retenção. Os resultados separados e os arquivos preservados estão em `sessions/demo-239524a-4x0RxlbT/`.
+
+A suíte Windows de autoria passou em todos os seis grupos com a mesma fonte. Cor transparente, Fantasma e Girar passaram com câmera fixa e móvel. Iluminar, substituição vinculada, Terreno, emenda, traço, Ondular e extremos de HUD repetiram suas regiões de controle. O binário desta execução teve SHA-256 `fb3eace63a5fb1ec70ace893eb7d071f8e6ab5fe2c4a54cd53a5ce021065c34e`. [Suíte Windows de autoria](https://github.com/Misael-art/retro-dev-studio/actions/runs/45668014547) · [Relatórios de autoria](https://github.com/Misael-art/retro-dev-studio/actions/runs/45668014547/artifacts/15049642086)
