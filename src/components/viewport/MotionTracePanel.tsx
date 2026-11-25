@@ -48,7 +48,7 @@ export default function MotionTracePanel({ renderedFrames, paused }: { renderedF
     void (async () => {
       const before = await emulatorInputObservation();
       if (before.epoch !== track.coreEpoch || cancelled) return;
-      const last = track.samples.at(-1)?.frame;
+      const last = track.samples[track.samples.length - 1]?.frame;
       if (last === before.frames_run) return;
       const [x, y] = await Promise.all([readRuntimeWord(actor.symbols.x, true), readRuntimeWord(actor.symbols.y, true)]);
       const after = await emulatorInputObservation();
@@ -137,7 +137,7 @@ export default function MotionTracePanel({ renderedFrames, paused }: { renderedF
         const value = session[name];
         if (!value) return null;
         const { missing, takeoff, apex, landing } = motionTraceSummary(value.samples, value.initialFrame);
-        const last = value.samples.at(-1);
+        const last = value.samples[value.samples.length - 1];
         const buttons = last?.input ? Object.entries(last.input).filter(([, pressed]) => pressed).map(([key]) => key) : null;
         return <div key={name} className="mt-2 rounded border border-[var(--rds-border-subtle)] p-1" data-testid={`motion-trace-${name}`}
           data-samples={value.samples.length} data-last-frame={last?.frame} data-last-x={last?.x} data-last-y={last?.y}
