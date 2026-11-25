@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useRef, useState, type RefCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { persistActiveScene } from "../../core/scenePersistence";
 import { useEditorStore } from "../../core/store/editorStore";
 
 export type FloatingStudioPanel = "timeline" | "properties";
 const titles: Record<FloatingStudioPanel, string> = { timeline: "Timeline", properties: "Propriedades" };
 const panelNames = Object.keys(titles) as FloatingStudioPanel[];
+
+function closePanelWindow(name: FloatingStudioPanel, popup: Window) {
+  const closePopup = () => { if (!popup.closed) popup.close(); };
+  void invoke<boolean>("close_studio_panel", { panel: name })
+    .then((closed) => { if (!closed) closePopup(); }, closePopup);
+}
 
 function makeHost() {
   const host = document.createElement("div");
@@ -81,7 +88,7 @@ export function useFloatingStudioPanels(reportFailure: (reason: string) => void)
     const destination = docks.current[name];
     if (destination) destination.append(hosts[name]);
     else hosts[name].remove();
-    if (!popup.closed) popup.close();
+    closePanelWindow(name, popup);
     setOpen((current) => ({ ...current, [name]: false }));
     requestAnimationFrame(() => document.querySelector<HTMLButtonElement>('[data-testid="float-' + name + '"]')?.focus());
   }, [hosts]);
@@ -134,7 +141,7 @@ export function useFloatingStudioPanels(reportFailure: (reason: string) => void)
       for (const name of panelNames) {
         const popup = ownerWindows[name];
         delete ownerWindows[name];
-        if (popup && !popup.closed) popup.close();
+        if (popup) closePanelWindow(name, popup);
       }
     };
   }, [dockPanel]);

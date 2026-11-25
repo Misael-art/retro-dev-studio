@@ -1010,6 +1010,25 @@ mod tests {
     }
 
     #[test]
+    fn cyclic_pose_links_are_rejected_on_both_entities() {
+        let mut scene = scene_with("{}");
+        let link = |actor: &str| crate::ugdm::components::PoseAttachment {
+            actor: actor.into(),
+            socket: "mao".into(),
+            offset: crate::ugdm::components::Pivot { x: 0, y: 0 },
+        };
+        let mut other = scene.entities[0].clone();
+        other.entity_id = "lanterna".into();
+        other.components.pose_attachment = Some(link("fox"));
+        scene.entities[0].components.pose_attachment = Some(link("lanterna"));
+        scene.entities.push(other);
+
+        let issues = pose_attachment_issues("megadrive", &scene);
+        assert_eq!(issues.len(), 2);
+        assert!(issues.iter().all(|issue| issue.reason.contains("circular")));
+    }
+
+    #[test]
     fn snes_refuses_condition_on_ground_but_megadrive_and_other_graphs_pass() {
         let with_node = scene_with(
             r#"{"nodes":[{"id":"g","type":"condition_on_ground","params":{"target":"fox"}}],"edges":[]}"#,

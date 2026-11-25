@@ -6698,6 +6698,27 @@ fn parse_input_command_file(path: String) -> Result<Vec<InputCommandDefinition>,
 
 // ── App Builder ───────────────────────────────────────────────────────────────
 
+#[tauri::command]
+fn close_studio_panel(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    panel: &str,
+) -> Result<bool, String> {
+    if window.label() != "main" {
+        return Err("Somente a janela principal pode reencaixar painéis.".into());
+    }
+    let label = match panel {
+        "timeline" => "studio-floating-timeline",
+        "properties" => "studio-floating-properties",
+        _ => return Err("Painel de autoria desconhecido.".into()),
+    };
+    let Some(panel) = app.get_webview_window(label) else {
+        return Ok(false);
+    };
+    panel.destroy().map_err(|error| error.to_string())?;
+    Ok(true)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // WebKitGTK nao repinta bitmaps de <img> em janela destruida/recriada sob
@@ -6831,6 +6852,7 @@ pub fn run() {
         .manage(ProjectAssetWatchState::default())
         .manage(ProjectAssetScopeState::default())
         .invoke_handler(tauri::generate_handler![
+            close_studio_panel,
             app_build_identity,
             // Build pipeline
             validate_project,
