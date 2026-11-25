@@ -17362,6 +17362,9 @@ async function verifyAuthoringDesk(sessionId, report, prefix) {
   const capture = async (label) => addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-${label}.png`), label);
   await setSessionWindowRect(sessionId, width, height);
   report.window = { requested: [width, height], ...await dom("return {width:innerWidth,height:innerHeight,scale:devicePixelRatio};") };
+  await menu("workspace-reset-layout");
+  await check(`return document.querySelector('[data-testid="studio-workspace-shell"]')?.dataset.propertiesSide === 'right'
+    && !document.getElementById('workspace-timeline');`, "A configuração inicial da mesa não foi restaurada.");
   await selectPoseActorsOnCanvas(sessionId);
   await click("viewport-zoom-in");
   await menu("workspace-preset-animate");
@@ -17396,10 +17399,12 @@ async function verifyAuthoringDesk(sessionId, report, prefix) {
     await check(`return document.querySelector('[data-testid="workspace-properties-panel"]')?.closest('[data-panel]')?.id === 'left';`,
       "Propriedades não mudou de lado.");
     await click("workspace-sidebar-right");
-    await check(`return document.querySelector('[data-testid="workspace-sidebar-right"]')?.getAttribute('aria-expanded') === 'false';`,
+    await check(`return document.getElementById('right')?.getBoundingClientRect().width <= 1
+      && document.querySelector('[data-testid="workspace-sidebar-right"]')?.getAttribute('aria-expanded') === 'false';`,
       "Projeto e camadas não foram recolhidos.");
     await click("workspace-sidebar-right");
-    await check(`return document.querySelector('[data-testid="workspace-sidebar-right"]')?.getAttribute('aria-expanded') === 'true';`,
+    await check(`return document.getElementById('right')?.getBoundingClientRect().width >= 199
+      && document.querySelector('[data-testid="workspace-sidebar-right"]')?.getAttribute('aria-expanded') === 'true';`,
       "Projeto e camadas não foram fixados novamente.");
     const initialWidth = await panelSize("left");
     if (!await focus("workspace-divider-left")) fail("O divisor esquerdo não recebe foco.");
@@ -17468,13 +17473,15 @@ async function verifyAuthoringDesk(sessionId, report, prefix) {
   addReportStep(report, "ten_workspace_changes_keep_context_and_code_draft", "passed", { visits, tracked: before });
 }
 
-async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, timeoutMs) {
+async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, timeoutMs, regional) {
   const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
   const state = () => readAutomationState(sessionId);
   const edits = () => executeScript(sessionId,
     `return [...document.querySelectorAll('[data-testid="scene-probe-sources"] li')].map(row => row.dataset.testid.replace('scene-probe-source-', ''));`);
   const opaque = { x: 82, y: 146 };
   const aperture = { x: 82, y: 152 };
+  const adjacent = { x: 79, y: 149 };
+  const expectedRegion = { x: 2, y: 1, width: 1, height: 2, high: true };
   const openProbe = async (point) => {
     const showing = await executeScript(sessionId, `return !!document.querySelector('[data-testid="scene-point-inspector"]');`);
     if (!showing) await click("viewport-inspect-point");
@@ -17505,7 +17512,7 @@ async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, ti
     const control = Buffer.concat(Array.from({ length: 32 }, (_, offset) => bytes.subarray(
       ((136 + offset) * 320 + 208) * 4, ((136 + offset) * 320 + 240) * 4,
     )));
-    return { rom: built.rom_sha256, core: await collectCoreIdentity(frame), opaque: rgba(opaque), aperture: rgba(aperture),
+    return { rom: built.rom_sha256, core: await collectCoreIdentity(frame), opaque: rgba(opaque), aperture: rgba(aperture), adjacent: rgba(adjacent),
       control: createHash("sha256").update(control).digest("hex") };
   };
 
@@ -17528,14 +17535,64 @@ async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, ti
   await click("workspace-project-tab-scene");
   await clickElement(sessionId, await findElement(sessionId, '[data-testid="hierarchy-entity-pilastra"]'));
   await waitFor(async () => (await state())?.selectedEntityId === "pilastra", 10000, "A pilastra não foi selecionada na árvore.", 100);
-  await clickElement(sessionId, await findElement(sessionId, '[data-testid="inspector-tilemap-priority"]'));
-  const checked = () => executeScript(sessionId, `return document.querySelector('[data-testid="inspector-tilemap-priority"]')?.checked;`);
+  if (regional) {
+    await click("viewport-tool-composition");
+    await clickElement(sessionId, await findElement(sessionId, '[data-testid="canvas-composition-context"] [data-testid="tile-priority-regions"] summary'));
+    await click("tile-priority-region-draw");
+    const selector = '[data-testid="viewport-scene-overlay"]';
+    const toNormalized = (x, y) => executeScript(sessionId, `
+      const canvas = document.querySelector(arguments[0]);
+      if (!canvas) return null;
+      return [(arguments[1] - Number(canvas.dataset.worldMinX)) / Number(canvas.dataset.worldWidth),
+        (arguments[2] - Number(canvas.dataset.worldMinY)) / Number(canvas.dataset.worldHeight)];`, [selector, x, y]);
+    const [fromX, fromY] = await toNormalized(83, 147);
+    const [toX, toY] = await toNormalized(83, 155);
+    const from = await nativeCanvasPoint(sessionId, selector, fromX, fromY);
+    const to = await nativeCanvasPoint(sessionId, selector, toX, toY);
+    if (!from?.unobstructed || !to?.unobstructed) fail(`A pilastra não pôde ser demarcada: ${JSON.stringify({ from, to })}`);
+    await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
+      type: "pointer", id: "priority-canvas", parameters: { pointerType: "mouse" }, actions: [
+        { type: "pointerMove", origin: "viewport", x: from.x, y: from.y },
+        { type: "pointerDown", button: 0 },
+        { type: "pointerMove", origin: "viewport", x: to.x, y: to.y, duration: 200 },
+        { type: "pointerUp", button: 0 },
+      ],
+    }] });
+  } else {
+    await clickElement(sessionId, await findElement(sessionId, '[data-testid="inspector-tilemap-priority"]'));
+  }
+  const checked = () => executeScript(sessionId, regional
+    ? `return document.querySelector('[data-testid="workspace-properties-panel"] [data-testid="tile-priority-region-remove-0"]') != null
+        && document.querySelector('[data-testid="workspace-properties-panel"] [data-testid="inspector-tilemap-priority"]')?.checked === false;`
+    : `return document.querySelector('[data-testid="inspector-tilemap-priority"]')?.checked;`);
   await waitFor(checked, 10000, "A prioridade alta não foi aplicada.", 100);
   await clickTopBarMenuAction(sessionId, "Desfazer");
   await waitFor(async () => (await checked()) === false, 10000, "Desfazer não baixou a prioridade.", 100);
   await clickTopBarMenuAction(sessionId, "Refazer");
   await waitFor(checked, 10000, "Refazer não restaurou a prioridade alta.", 100);
+  if (regional) {
+    const inspector = '[data-testid="workspace-properties-panel"]';
+    await clickElement(sessionId, await findElement(sessionId, `${inspector} [data-testid="tile-priority-regions"] summary`));
+    const updateHeight = async (height) => {
+      await click("tile-priority-region-edit-0");
+      await fillInputBySelector(sessionId, `${inspector} [data-testid="tile-priority-region-height"]`, String(height));
+      await click("tile-priority-region-add");
+      await waitFor(async () => executeScript(sessionId, `
+        const row = document.querySelector('[data-testid="tile-priority-region-edit-0"]')?.closest('li');
+        return row?.textContent.includes('1 × ' + arguments[0]);`, [height]), 10000,
+      "A precisão por célula não atualizou a região marcada no Canvas.", 100);
+    };
+    await updateHeight(1);
+    await updateHeight(2);
+  }
   await save();
+  if (regional) {
+    const scene = JSON.parse(await readFile(path.join(projectDir, "scenes", "main.json"), "utf8"));
+    const map = scene.entities.find((entity) => entity.entity_id === "pilastra")?.components.tilemap;
+    if (map?.priority || !isDeepStrictEqual(map?.priority_regions, [expectedRegion])) {
+      fail(`O arquivo não gravou a faixa de duas células: ${JSON.stringify(map)}`);
+    }
+  }
   await clickTopBarMenuAction(sessionId, "Fechar");
   await waitFor(async () => !(await state())?.activeProjectDir, 15000, "O projeto não fechou.", 100);
   await openSavedProjectWizard(sessionId, projectDir);
@@ -17545,11 +17602,13 @@ async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, ti
   if (!isDeepStrictEqual(high, expectedHigh)) fail(`Ordem da pilastra reaberta: ${JSON.stringify(high)}`);
   const highGap = await openProbe(aperture);
   if (!isDeepStrictEqual(highGap, expectedGap)) fail(`A edição ocultou o vão: ${JSON.stringify(highGap)}`);
+  if (regional && !isDeepStrictEqual(await openProbe(adjacent), expectedLow)) fail("O plano subiu fora das células demarcadas.");
   addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-vao.png`), "Ponto no vão transparente");
   await closeProbe();
   const after = await observed("prioridade-alta");
   if (before.rom === after.rom || isDeepStrictEqual(before.opaque, after.opaque)
-    || !isDeepStrictEqual(before.aperture, after.aperture) || before.control !== after.control) {
+    || !isDeepStrictEqual(before.aperture, after.aperture) || before.control !== after.control
+    || (regional && !isDeepStrictEqual(before.adjacent, after.adjacent))) {
     fail(`A comparação do core não isolou a prioridade da pilastra: ${JSON.stringify({ before, after })}`);
   }
   await click("inspect-toggle");
@@ -17561,13 +17620,15 @@ async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, ti
     return text?.includes(arguments[0]) && text.includes('desconhecida');`, [color]), 10000,
   "A leitura do quadro pausado não apresentou a cor observada, com origem desconhecida.", 100);
   addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-pixel-core.png`), "Ponto lido no quadro pausado");
-  addReportStep(report, "point_aperture_priority_and_control_in_core", "passed", { before, after, low, high, gap, opaque, aperture });
+  addReportStep(report, "point_aperture_priority_and_control_in_core", "passed", {
+    before, after, low, high, gap, opaque, aperture, ...(regional ? { adjacent, region: expectedRegion } : {}),
+  });
 }
 
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
-  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "occlusion"].includes(revision)) {
-    fail("RDS_POSE_PROOF deve ser baseline, aligned-4, journey, events, boxes, playback, workspace ou occlusion.");
+  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "occlusion", "occlusion-region"].includes(revision)) {
+    fail("RDS_POSE_PROOF deve ser baseline, aligned-4, journey, events, boxes, playback, workspace, occlusion ou occlusion-region.");
   }
   const prefix = `pose-cadence-${artifactTimestamp()}`;
   const report = { scenario: "pose-cadence", fixture: path.basename(projectDir), revision, status: "failed", samples: [], steps: [], artifacts: [] };
@@ -17584,11 +17645,11 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     if (report.atlasSha256 !== "8f104172610518705021450603f04bfd4d2fc0ed997e7c71de21cdb54874c735") fail("O atlas da prova mudou.");
     const atlas = decodeWindowPng(atlasBytes);
     report.executableSha256 = createHash("sha256").update(await readFile(app)).digest("hex");
-    if (revision === "occlusion") {
+    if (revision === "occlusion" || revision === "occlusion-region") {
       await openSavedProjectWizard(sessionId, projectDir);
       await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
         60000, "A sala da pilastra não abriu.", 200);
-      await verifyPointAndOcclusion(sessionId, projectDir, report, prefix, timeoutMs);
+      await verifyPointAndOcclusion(sessionId, projectDir, report, prefix, timeoutMs, revision === "occlusion-region");
       report.status = "passed";
       return;
     }

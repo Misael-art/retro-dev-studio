@@ -376,13 +376,16 @@ jobs:
       - name: Compare the pillar, aperture and control pixels in the Mega Drive core
         id: point_occlusion
         if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && (env.RDS_E2E_TARGET == 'all' || env.RDS_E2E_TARGET == 'megadrive') }}
-        env:
-          RDS_POSE_PROOF: occlusion
         run: |
-          $project = node scripts/qa/create-pose-authoring-demo.mjs --composition
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $failedCases = @()
+          foreach ($proof in @('occlusion', 'occlusion-region')) {
+            $env:RDS_POSE_PROOF = $proof
+            $project = node scripts/qa/create-pose-authoring-demo.mjs --composition
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+            if ($LASTEXITCODE -ne 0) { $failedCases += $proof }
+          }
+          if ($failedCases.Count) { throw ("Pillar pixel comparisons failed: " + ($failedCases -join ", ")) }
           Add-Content -Path $env:RDS_E2E_LEDGER -Value 'point_occlusion'
 
       - name: Report step outcomes before verification

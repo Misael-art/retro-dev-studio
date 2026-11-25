@@ -2,7 +2,7 @@ import { isPpmPath, loadProjectPpmImageData } from "../../core/ppmImage";
 import { applyKeyColorTransparency } from "../../core/keyColorTransparency";
 import { readProjectAssetBytes } from "../../core/ipc/toolsService";
 import { isExplicitEmptyCell, tilesetAtlasIndex } from "../../core/tilemapCells";
-import type { TilemapComponent } from "../../core/ipc/sceneService";
+import type { TilemapComponent, TilePriorityRegion } from "../../core/ipc/sceneService";
 
 export type ViewportAssetCacheEntry = {
   status: "loading" | "loaded" | "missing" | "error";
@@ -25,6 +25,7 @@ export type SceneArtworkOrigin = {
 export type SceneArtworkPass = SceneArtworkOrigin & {
   bounds: { x: number; y: number; width: number; height: number };
   draw: (context: CanvasRenderingContext2D) => void;
+  priorityRank?: number;
 };
 
 export type SceneArtworkSample = SceneArtworkOrigin & { rgba: [number, number, number, number] };
@@ -36,7 +37,7 @@ export function sampleSceneArtwork(
   point: { x: number; y: number },
 ): SceneArtworkSample[] {
   const result: SceneArtworkSample[] = [];
-  for (const { bounds, draw, ...origin } of [...passes].reverse()) {
+  for (const { bounds, draw, id, name, kind, path, plane, entityId, layerId } of [...passes].reverse()) {
     if (point.x < bounds.x || point.x >= bounds.x + bounds.width
       || point.y < bounds.y || point.y >= bounds.y + bounds.height) continue;
     context.clearRect(0, 0, 1, 1);
@@ -46,7 +47,7 @@ export function sampleSceneArtwork(
     try {
       draw(context);
       const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
-      if (a) result.push({ ...origin, rgba: [r, g, b, a] });
+      if (a) result.push({ id, name, kind, path, plane, entityId, layerId, rgba: [r, g, b, a] });
     } finally {
       context.restore();
     }
@@ -88,6 +89,20 @@ export function drawTilemapArtwork(context: CanvasRenderingContext2D, asset: Vie
     context.drawImage(asset.source, x, y);
     drawTilemapCells(context, asset, x, y, map.map_width, map.map_height, map.cells, 8, map.scroll_x ?? 0, map.scroll_y ?? 0);
   } else drawRepeatedAsset(context, asset, x, y, width, height, map.scroll_x ?? 0, map.scroll_y ?? 0);
+  context.restore();
+}
+
+export function drawTilemapArtworkBand(context: CanvasRenderingContext2D, asset: ViewportAssetCacheEntry,
+  map: TilemapComponent, x: number, y: number, band?: TilePriorityRegion[]): void {
+  if (!band) {
+    drawTilemapArtwork(context, asset, map, x, y);
+    return;
+  }
+  context.save();
+  context.beginPath();
+  for (const area of band) context.rect(x + area.x * 8, y + area.y * 8, area.width * 8, area.height * 8);
+  context.clip();
+  drawTilemapArtwork(context, asset, map, x, y);
   context.restore();
 }
 

@@ -630,6 +630,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 scroll_x,
                 scroll_y,
                 priority_high,
+                priority_regions,
                 ..
             } => {
                 let tile_priority = if *priority_high { "TRUE" } else { "FALSE" };
@@ -638,6 +639,8 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     .copied()
                     .unwrap_or("WINDOW");
                 let base_tile = tilemap_base_expression(resource_name, &tilemap_assets);
+                let origin_x = if visual_camera.is_some() { 0 } else { (*x).max(0) / 8 };
+                let origin_y = if visual_camera.is_some() { 0 } else { (*y).max(0) / 8 };
                 // Com plano: banco planejado e sem carregar a paleta da imagem (loadpal FALSE),
                 // que sobrescreveria o banco 0 de outros usos.
                 let (tile_palette, load_palette) = match planned_bank_for("tilemap", tilemap_draw_index) {
@@ -651,10 +654,29 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     tile_palette,
                     tile_priority,
                     base_tile,
-                    if visual_camera.is_some() { 0 } else { (*x).max(0) / 8 },
-                    if visual_camera.is_some() { 0 } else { (*y).max(0) / 8 },
+                    origin_x,
+                    origin_y,
                     load_palette
                 ));
+                // Reuse the loaded image tiles. Only the VDP name-table attributes change.
+                for region in priority_regions {
+                    let x = region.x;
+                    let y = region.y;
+                    let width = region.width;
+                    let height = region.height;
+                    let dest_x = origin_x as u32 + x;
+                    let dest_y = origin_y as u32 + y;
+                    let priority = if region.high { "TRUE" } else { "FALSE" };
+                    out.push_str(&format!(
+                        "    if ({x} < {resource_name}.tilemap->w && {y} < {resource_name}.tilemap->h) {{
+        const u16 remaining_w = {resource_name}.tilemap->w - {x};
+        const u16 region_w = remaining_w < {width} ? remaining_w : {width};
+        const u16 remaining_h = {resource_name}.tilemap->h - {y};
+        const u16 region_h = remaining_h < {height} ? remaining_h : {height};
+        VDP_setTileMapEx({plane}, {resource_name}.tilemap, TILE_ATTR_FULL({tile_palette}, {priority}, FALSE, FALSE, {base_tile}), {dest_x}, {dest_y}, {x}, {y}, region_w, region_h, CPU);
+    }}\n"
+                    ));
+                }
                 if let Some(asset) = tilemap_assets
                     .iter()
                     .find(|asset| asset.resource_name == *resource_name && !asset.cells.is_empty())
@@ -673,16 +695,18 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                             offset = (value - 1) * 8,
                         ));
                     }
-                    let origin_x = if visual_camera.is_some() { 0 } else { (*x).max(0) / 8 };
-                    let origin_y = if visual_camera.is_some() { 0 } else { (*y).max(0) / 8 };
                     let total =
                         (asset.map_width as usize).saturating_mul(asset.map_height as usize);
                     for (index, value) in asset.cells.iter().copied().enumerate().take(total) {
                         if value == TILEMAP_CELL_BASE {
                             continue;
                         }
-                        let cell_x = origin_x as usize + index % asset.map_width as usize;
-                        let cell_y = origin_y as usize + index / asset.map_width as usize;
+                        let col = index as u32 % asset.map_width;
+                        let row = index as u32 / asset.map_width;
+                        let cell_x = origin_x as u32 + col;
+                        let cell_y = origin_y as u32 + row;
+                        let cell_priority = priority_regions.iter().rev().find(|region| region.contains(col, row))
+                            .map_or(tile_priority, |region| if region.high { "TRUE" } else { "FALSE" });
                         let tile = if value == TILEMAP_CELL_EMPTY {
                             "0".to_string()
                         } else {
@@ -691,7 +715,7 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                         };
                         out.push_str(&format!(
                             "    VDP_setTileMapXY({}, TILE_ATTR_FULL({}, {}, FALSE, FALSE, {}), {}, {});\n",
-                            plane, tile_palette, tile_priority, tile, cell_x, cell_y
+                            plane, tile_palette, cell_priority, tile, cell_x, cell_y
                         ));
                     }
                 }
@@ -4059,6 +4083,7 @@ mod tests {
                     scroll_y: 4,
                     plane: None,
                     priority_high: false,
+                    priority_regions: Vec::new(),
                 },
                 AstNode::GameLoopBegin,
                 AstNode::SpriteUpdate,
@@ -4080,6 +4105,68 @@ mod tests {
     }
 
     #[test]
+    fn tilemap_priority_regions_share_the_loaded_tiles_and_override_painted_cells() {
+        use crate::ugdm::components::TilePriorityRegion;
+
+        let ast = AstOutput {
+            nodes: vec![
+                AstNode::LoadTilemap {
+                    resource_name: "pillar".into(),
+                    asset_path: "assets/pillar.png".into(),
+                    map_width: 2,
+                    map_height: 2,
+                    cells: vec![2, 2, 0, u32::MAX],
+                },
+                AstNode::DrawTilemap {
+                    resource_name: "pillar".into(),
+                    x: 16,
+                    y: 24,
+                    scroll_x: 0,
+                    scroll_y: 0,
+                    plane: Some("BG_A".into()),
+                    priority_high: false,
+                    priority_regions: vec![
+                        TilePriorityRegion {
+                            x: 0,
+                            y: 0,
+                            width: 2,
+                            height: 1,
+                            high: true,
+                        },
+                        TilePriorityRegion {
+                            x: 1,
+                            y: 0,
+                            width: 1,
+                            height: 1,
+                            high: false,
+                        },
+                    ],
+                },
+                AstNode::GameLoopBegin,
+                AstNode::VSync,
+                AstNode::GameLoopEnd,
+            ],
+            sprite_assets: Vec::new(),
+            logic_scripts: Vec::new(),
+        };
+        let main = emit_sgdk(&ast, "Pilastra").main_c;
+        let draw = main.find("VDP_drawImageEx(BG_A, &pillar").unwrap();
+        let high = main
+            .find("VDP_setTileMapEx(BG_A, pillar.tilemap, TILE_ATTR_FULL(PAL0, TRUE")
+            .unwrap();
+        let low = main
+            .find("VDP_setTileMapEx(BG_A, pillar.tilemap, TILE_ATTR_FULL(PAL0, FALSE")
+            .unwrap();
+        let painted = main
+            .find("VDP_setTileMapXY(BG_A, TILE_ATTR_FULL(PAL0, TRUE")
+            .unwrap();
+        assert!(draw < high && high < low && low < painted);
+        assert!(main.contains("TILE_USER_INDEX), 2, 3, 0, 0, region_w, region_h, CPU);"));
+        assert!(main.contains("TILE_USER_INDEX), 3, 3, 1, 0, region_w, region_h, CPU);"));
+        assert!(main.contains("TILE_ATTR_FULL(PAL0, FALSE, FALSE, FALSE, TILE_USER_INDEX + pillar.tileset->numTile + 0), 3, 3);"));
+    }
+
+    #[test]
     fn main_c_applies_painted_tilemap_cells_as_sparse_overlay() {
         let ast = AstOutput {
             nodes: vec![
@@ -4098,6 +4185,7 @@ mod tests {
                     scroll_y: 0,
                     plane: None,
                     priority_high: false,
+                    priority_regions: Vec::new(),
                 },
             ],
             sprite_assets: Vec::new(),
@@ -4289,6 +4377,7 @@ mod tests {
                     scroll_y: 0,
                     plane: None,
                     priority_high: false,
+                    priority_regions: Vec::new(),
                 },
                 AstNode::GameLoopBegin,
                 AstNode::ScrollTilemap {
@@ -4376,6 +4465,7 @@ mod tests {
                     scroll_y: 0,
                     plane: None,
                     priority_high: false,
+                    priority_regions: Vec::new(),
                 },
                 AstNode::LoadTilemap {
                     resource_name: "foreground".to_string(),
@@ -4392,6 +4482,7 @@ mod tests {
                     scroll_y: 0,
                     plane: None,
                     priority_high: false,
+                    priority_regions: Vec::new(),
                 },
                 AstNode::GameLoopBegin,
                 AstNode::MoveCamera {
@@ -4811,6 +4902,7 @@ mod tilemap_plane_tests {
             scroll_y: 0,
             plane: plane.map(str::to_string),
             priority_high: false,
+            priority_regions: Vec::new(),
         }
     }
 

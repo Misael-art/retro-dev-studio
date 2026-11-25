@@ -14,11 +14,12 @@ import Icon from "../common/Icon";
 export type CanvasPathTool = "edit" | "line" | "curve" | "ellipse" | "append";
 
 /** Access to existing authoring commands, never another source of scene data. */
-export function CanvasAuthoringBar({ pathTool, onPathToolChange, onInspectPoint, choosingPoint = false, compact = false }: {
+export function CanvasAuthoringBar({ pathTool, onPathToolChange, onInspectPoint, choosingPoint = false, compact = false, onDrawPriorityRegion }: {
   pathTool: CanvasPathTool; onPathToolChange: (tool: CanvasPathTool) => void;
   onInspectPoint?: () => void;
   choosingPoint?: boolean;
   compact?: boolean;
+  onDrawPriorityRegion?: (high: boolean) => void;
 }) {
   const state = useEditorStore();
   const { activeScene: scene, activeProjectDir: project, activeScenePath: scenePath, selectedEntityId, activeTarget: target, editorMode } = state;
@@ -69,6 +70,7 @@ export function CanvasAuthoringBar({ pathTool, onPathToolChange, onInspectPoint,
       {entity?.components.tilemap ? <TilemapPlaneControls key={context} tilemap={entity.components.tilemap} entities={scene?.entities ?? []} entityId={entity.entity_id}
         implicitPlane={resolvedTilemapPlanes((scene?.entities ?? []).map((item) => item.entity_id === entity.entity_id ? { ...item, components: { ...item.components, tilemap: { ...entity.components.tilemap!, plane: null } } } : item)).find((item) => item.entityId === entity.entity_id)?.plane ?? "desconhecido"}
         blockedReason={lock.locked ? describeEntityEditLock(lock) : target !== "megadrive" ? "Planos/prioridade de tilemap disponíveis somente no Mega Drive (Experimental)." : null}
+        onDrawRegion={onDrawPriorityRegion ? (high) => { setPanel(null); onDrawPriorityRegion(high); } : undefined}
         onChange={(patch) => { state.updateEntity(entity.entity_id, { components: { tilemap: { ...entity.components.tilemap!, ...patch } } }); save(); }} /> : null}
       {entity?.components.sprite ? <SpritePriorityControls value={entity.components.sprite.priority ?? "foreground"} target={target} disabled={lock.locked}
         onChange={(priority) => { state.updateEntity(entity.entity_id, { components: { sprite: { ...entity.components.sprite!, priority } } }); save(); }} /> : null}

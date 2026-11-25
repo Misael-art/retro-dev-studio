@@ -1,6 +1,6 @@
 import { CanvasAuthoringBar, type CanvasPathTool } from "./CanvasAuthoringBar";
 import { entityLockScopeKey } from "../../core/sceneComposition";
-import { loadSceneArtworkAsset, drawRepeatedAsset, drawTilemapArtwork, sampleSceneArtwork, type SceneArtworkOrigin, type SceneArtworkPass, type ViewportAssetCacheEntry } from "./sceneArtworkRenderer";
+import { loadSceneArtworkAsset, drawRepeatedAsset, drawTilemapArtworkBand, sampleSceneArtwork, type SceneArtworkOrigin, type SceneArtworkPass, type ViewportAssetCacheEntry } from "./sceneArtworkRenderer";
 import Icon, { type IconName } from "../common/Icon";
 import Dialog from "../common/Dialog";
 import Button from "../common/Button";
@@ -9,7 +9,7 @@ import { hudBand } from "../../core/hudText";
 import { loadShellPersona } from "../../core/surfaceRegistry";
 import { cellsOnLine } from "../../core/tilemapCells";
 import { defaultPath, dropOffset, ellipsePath, hitPathHandleOrControl, pathBlockedReason, pathIssue, pathWorldPoints, removePoint, sampleSegment, withPoint } from "../../core/objectPath";
-import { describeEntityEditLock, entityEditLock, escapeExitsIsolation, layerCompositionEntities, resolvedTilemapPlanes, restoreTemplateEntityPositions, translateCollisionMap, type TemplatePositionChange } from "../../core/sceneComposition";
+import { describeEntityEditLock, entityEditLock, escapeExitsIsolation, layerCompositionEntities, resolvedTilemapPlanes, restoreTemplateEntityPositions, translateCollisionMap, tilePriorityBands, priorityRegionBetween, type TemplatePositionChange } from "../../core/sceneComposition";
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tabs from "../common/Tabs";
 import { useEditorStore } from "../../core/store/editorStore";
@@ -36,7 +36,7 @@ import {
   type JoypadState,
 } from "../../core/ipc/emulatorService";
 import { listenToProjectAssetChanges } from "../../core/ipc/projectWatcherService";
-import { getReferenceTemplateComposition, type CollisionMap, type Entity, type PathComponent, type Scene } from "../../core/ipc/sceneService";
+import { getReferenceTemplateComposition, type CollisionMap, type Entity, type PathComponent, type Scene, type TilePriorityRegion } from "../../core/ipc/sceneService";
 import { persistActiveScene } from "../../core/scenePersistence";
 import { constrainSpriteFrameSize, ONBOARDING_SPRITE_SIZE } from "../../core/sceneConstraints";
 import {
@@ -66,6 +66,7 @@ import {
   clampViewportPan,
   getSceneEntityBounds,
   getViewportPanForWorldPoint,
+  megadriveArtworkRank,
   resolveSceneWorldMetrics,
   sceneArtworkEntities,
 } from "../../core/sceneWorldModel";
@@ -410,6 +411,9 @@ export default function ViewportPanel({
   const [sceneProbe, setSceneProbe] = useState<ScenePointProbe | null>(null);
   const [sceneProbeArmed, setSceneProbeArmed] = useState(false);
   const sceneOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [priorityBrush, setPriorityBrush] = useState<{ scope: string; high: boolean } | null>(null);
+  const [priorityPreview, setPriorityPreview] = useState<TilePriorityRegion | null>(null);
+  const priorityDrag = useRef<{ start: { x: number; y: number }; area: TilePriorityRegion } | null>(null);
   /** Ciclo Alt+clique em sprites sobrepostos (cena densa). */
   const densePickRef = useRef<{ mx: number; my: number; ids: string[]; idx: number } | null>(null);
   const lastLockedHitRef = useRef<Entity | null>(null);
@@ -657,6 +661,15 @@ export default function ViewportPanel({
     selectedEntityId && !selectedEntityId.startsWith("layer::")
       ? activeScene?.entities.find((entity) => entity.entity_id === selectedEntityId) ?? null
       : null;
+  const priorityScope = JSON.stringify([projectSessionId, activeScenePath, selectedEntityId, useEditorStore.getState().sceneRevision]);
+  const drawingPriority = priorityBrush?.scope === priorityScope && editorMode === "select"
+    && activeTarget === "megadrive" && activeViewportTab === "scene";
+
+  function cancelPriorityDrawing() {
+    priorityDrag.current = null;
+    setPriorityPreview(null);
+    setPriorityBrush(null);
+  }
   const nativeAnimations = nativeAnimationNames(selectedEntity?.components.sprite, activeTarget, projectSourceKind);
   const showNativePoses = studio.focus.entityId === selectedEntityId
     && nativeAnimations.includes(studio.focus.animation ?? "");
@@ -2544,8 +2557,17 @@ export default function ViewportPanel({
       const tilemapAsset = tilemap ? getViewportAsset(tilemap.tileset) : null;
       if (tilemap && tilemapAsset?.status === "loaded" && tilemapAsset.source) {
         const plane = activeTarget === "megadrive" ? planes.get(id) : undefined;
-        passes.push({ id: `tilemap-${id}`, entityId: id, name, layerId, kind: "tilemap", path: tilemap.tileset, plane, bounds,
-          draw: (surface) => drawTilemapArtwork(surface, tilemapAsset, tilemap, bounds.x, bounds.y) });
+        const bands = plane ? tilePriorityBands(tilemap) : null;
+        const addTilemapPass = (high: boolean, band?: TilePriorityRegion[]) => {
+          if (band?.length === 0) return;
+          passes.push({ id: `tilemap-${id}`, entityId: id, name, layerId, kind: "tilemap", path: tilemap.tileset, plane, bounds,
+            priorityRank: plane ? megadriveArtworkRank("tilemap", high, plane) : undefined,
+            draw: (surface) => drawTilemapArtworkBand(surface, tilemapAsset, tilemap, bounds.x, bounds.y, band) });
+        };
+        if (bands) {
+          addTilemapPass(false, bands.low);
+          addTilemapPass(true, bands.high);
+        } else addTilemapPass(Boolean(tilemap.priority));
       }
 
       const spriteAsset = sprite ? getViewportAsset(sprite.asset) : null;
@@ -2568,10 +2590,12 @@ export default function ViewportPanel({
       const offset = occurrence ? definition?.pose_alignment?.[occurrence]?.offset : null;
       const poseBounds = { ...bounds, x: bounds.x + (offset?.x ?? 0), y: bounds.y + (offset?.y ?? 0) };
       passes.push({ id: `sprite-${id}`, entityId: id, name, layerId, kind: "sprite", path: sprite.asset, bounds: poseBounds,
+        priorityRank: megadriveArtworkRank("sprite", sprite.priority !== "background"),
         draw: (surface) => surface.drawImage(source, sourceX, sourceY, sourceWidth, sourceHeight,
           poseBounds.x, poseBounds.y, poseBounds.width, poseBounds.height) });
     }
 
+    if (activeTarget === "megadrive") passes.sort((left, right) => (left.priorityRank ?? -1) - (right.priorityRank ?? -1));
     for (const pass of passes) pass.draw(context);
     context.restore();
     return;
@@ -3857,6 +3881,16 @@ export default function ViewportPanel({
 
     const { mx, my } = canvasCoords(event);
 
+    if (drawingPriority && priorityBrush && selectedEntity?.components.tilemap && event.button === 0) {
+      const start = { x: mx, y: my };
+      const area = priorityRegionBetween(selectedEntity, start, start, priorityBrush.high);
+      if (area) {
+        priorityDrag.current = { start, area };
+        setPriorityPreview(area);
+      }
+      return;
+    }
+
     const guideHit = getGuideHit(mx, my);
     if (guideHit && editorMode === "select") {
       event.preventDefault();
@@ -4164,6 +4198,16 @@ export default function ViewportPanel({
   function handleMouseMove(event: Pick<MouseEvent, "clientX" | "clientY" | "buttons">) {
     const { mx, my } = canvasCoords(event);
 
+    if (drawingPriority && priorityBrush && selectedEntity && priorityDrag.current) {
+      const drag = priorityDrag.current;
+      const area = priorityRegionBetween(selectedEntity, drag.start, { x: mx, y: my }, priorityBrush.high);
+      if (area && (area.x !== drag.area.x || area.y !== drag.area.y || area.width !== drag.area.width || area.height !== drag.area.height)) {
+        drag.area = area;
+        setPriorityPreview(area);
+      }
+      return;
+    }
+
     if (gameViewLight || guideDrag) {
       return;
     }
@@ -4438,6 +4482,22 @@ export default function ViewportPanel({
   }
 
   async function handleMouseUp() {
+    const selection = priorityDrag.current;
+    if (selection) {
+      cancelPriorityDrawing();
+      const state = useEditorStore.getState();
+      const entity = state.activeScene?.entities.find((item) => item.entity_id === state.selectedEntityId);
+      const tilemap = entity?.components.tilemap;
+      const scope = JSON.stringify([state.projectSessionId, state.activeScenePath, state.selectedEntityId, state.sceneRevision]);
+      if (!drawingPriority || priorityBrush?.scope !== scope || !entity || !tilemap ||
+          entityEditLock(entity.entity_id, state.activeScene?.layers, state.lockedEntityIdsByScene[entityLockScopeKey(state.activeProjectDir, state.activeScenePath)] ?? []).locked) return;
+      state.updateEntity(entity.entity_id, { components: { tilemap: {
+        ...tilemap, priority_regions: [...(tilemap.priority_regions ?? []), selection.area],
+      } } });
+      try { await persistActiveScene(state.activeProjectDir, "Viewport", "Região de prioridade aplicada."); }
+      catch (error) { state.logMessage("error", `[Viewport] ${describeError(error)}`); }
+      return;
+    }
     const pathDrag = pathDragRef.current;
     if (pathDrag) {
       pathDragRef.current = null;
@@ -4639,7 +4699,8 @@ export default function ViewportPanel({
   });
 
   function handleMouseLeave() {
-    if (!pathDragRef.current) void handleMouseUp();
+    if (priorityDrag.current) cancelPriorityDrawing();
+    else if (!pathDragRef.current) void handleMouseUp();
     setSceneMousePos(null);
   }
 
@@ -5194,11 +5255,22 @@ export default function ViewportPanel({
               </button>
             </div>
 
-            <CanvasAuthoringBar compact={compactTools} pathTool={pathTool} onPathToolChange={(tool) => { pathDragRef.current = null; setPathPreview(null); setPathTool(tool); }}
+            <CanvasAuthoringBar compact={compactTools} pathTool={pathTool} onPathToolChange={(tool) => { cancelPriorityDrawing(); pathDragRef.current = null; setPathPreview(null); setPathTool(tool); }}
+              onDrawPriorityRegion={(high) => {
+                setSceneProbeArmed(false);
+                setSceneProbe(null);
+                setPriorityBrush({ scope: priorityScope, high });
+                sceneOverlayCanvasRef.current?.focus();
+              }}
               choosingPoint={sceneProbeArmed} onInspectPoint={activeScene ? () => {
+                cancelPriorityDrawing();
                 if (sceneProbeArmed) setSceneProbeArmed(false);
                 else inspectScenePoint(sceneMousePos ?? { x: sceneWorld.centerX, y: sceneWorld.centerY });
               } : undefined} />
+            {drawingPriority ? <div role="status" className="flex shrink-0 items-center gap-2 px-3 text-[11px] text-[#a6adc8]">
+              Arraste no tilemap para marcar prioridade {priorityBrush.high ? "alta" : "baixa"}.
+              <button type="button" className="rounded border border-[#45475a] px-1 focus-visible:outline focus-visible:outline-[#89b4fa]" onClick={cancelPriorityDrawing}>Cancelar</button>
+            </div> : null}
             {editorMode === "path" ? <p role="status" aria-live="polite" className="shrink-0 px-3 text-[11px] text-[#a6adc8]">{activePathHandle ? `${activePathHandle.kind === "control" ? "Controle da curva" : "Ponto"} ${activePathHandle.index}` : "Alça inicial: ponto 1"} · colchetes escolhem ponto · setas movem · Shift: 8 px</p> : null}
             <div className={compactTools ? "relative z-30 h-0 shrink-0" : "contents"}>
             <details data-testid="viewport-view-options" className={`border-[#313244] bg-[#181825] text-[11px] ${compactTools
@@ -5568,6 +5640,11 @@ export default function ViewportPanel({
                 onMouseLeave={handleMouseLeave}
                 onDoubleClick={handleSceneDoubleClick}
                 onKeyDown={(event) => {
+                  if (drawingPriority && event.key === "Escape") {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    cancelPriorityDrawing();
+                  }
                   if (sceneProbeArmed && event.key === "Escape") {
                     event.stopPropagation();
                     setSceneProbeArmed(false);
@@ -5598,6 +5675,15 @@ export default function ViewportPanel({
                 }}
                 title="Cena: selecionar/arrastar. Espaco+arraste ou botao do meio = pan. Shift+clique com pilha = lista. Alt+clique = proxima sobreposicao. Duplo-clique: guia remove | tilemap pintura | grafo abre Logic. Ctrl+scroll = zoom."
               />
+              {drawingPriority && priorityPreview && selectedEntity ? <div
+                data-testid="priority-region-canvas-preview"
+                className="pointer-events-none absolute border border-dashed border-[#89b4fa] bg-[#89b4fa]/25"
+                style={{
+                  left: sceneChromeOffset + (selectedEntity.transform.x + priorityPreview.x * 8 - sceneWorldMinX) * sceneScaleWidth / sceneWidth,
+                  top: sceneChromeOffset + (selectedEntity.transform.y + priorityPreview.y * 8 - sceneWorldMinY) * sceneScaleHeight / sceneHeight,
+                  width: priorityPreview.width * 8 * sceneScaleWidth / sceneWidth,
+                  height: priorityPreview.height * 8 * sceneScaleHeight / sceneHeight,
+                }} /> : null}
               {!gameViewLight && (
                 <div
                   className="pointer-events-none absolute border-2 border-[#f9e2af]/80 bg-[#f9e2af]/8"

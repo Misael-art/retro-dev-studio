@@ -7,7 +7,7 @@ use crate::compiler::build_provenance::graph_revision_hash;
 use crate::core::project_mgr::{resolve_prefabs, LoadError};
 use crate::ugdm::components::{
     AnimationDef, AudioComponent, CollisionComponent, InputComponent, PhysicsComponent,
-    SpriteComponent,
+    SpriteComponent, TilePriorityRegion,
 };
 use crate::ugdm::entities::{Project, Scene};
 
@@ -52,6 +52,7 @@ pub enum AstNode {
         plane: Option<String>,
         /// Prioridade alta dos tiles (na frente de sprites de prioridade baixa).
         priority_high: bool,
+        priority_regions: Vec<TilePriorityRegion>,
     },
     SetupParallax {
         layers: Vec<ParallaxLayerConfig>,
@@ -855,6 +856,11 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
                 scroll_y: tilemap.scroll_y,
                 plane: tilemap.plane.clone(),
                 priority_high: tilemap.priority,
+                priority_regions: tilemap
+                    .priority_regions
+                    .iter()
+                    .filter_map(|region| region.clipped(tilemap.map_width, tilemap.map_height))
+                    .collect(),
             });
         }
 
@@ -4528,6 +4534,7 @@ mod tests {
                         cells: Vec::new(),
                         plane: None,
                         priority: false,
+                        priority_regions: Vec::new(),
                     }),
                     ..Components::default()
                 },
@@ -4587,6 +4594,7 @@ mod tests {
                     cells,
                     plane: None,
                     priority: false,
+                    priority_regions: Vec::new(),
                 }),
                 ..Components::default()
             },
@@ -6786,6 +6794,7 @@ mod tests {
                             cells: Vec::new(),
                             plane: None,
                             priority: false,
+                            priority_regions: Vec::new(),
                         }),
                         ..Components::default()
                     },

@@ -4079,6 +4079,7 @@ fn build_sgdk_tilemap_entity(
                 cells,
                 plane: None,
                 priority: false,
+                priority_regions: Vec::new(),
             }),
             logic: if hud_overlay_hint || resource.kind == "TILESET" || had_cells {
                 let mut hints = Vec::new();
@@ -6015,6 +6016,7 @@ fn platformer_tilemap_prefab_with_dims(map_width: u32, map_height: u32) -> Entit
                 cells: Vec::new(),
                 plane: None,
                 priority: false,
+                priority_regions: Vec::new(),
             }),
             ..Components::default()
         },
@@ -8492,6 +8494,7 @@ fn static_mugen_sprite_entity(
                 cells: Vec::new(),
                 plane: None,
                 priority: false,
+                priority_regions: Vec::new(),
             }),
             ..Components::default()
         },
@@ -10822,6 +10825,7 @@ fn import_gamemaker_tile_layer_entities(
                     cells,
                     plane: None,
                     priority: false,
+                    priority_regions: Vec::new(),
                 }),
                 ..Components::default()
             },
@@ -15550,6 +15554,7 @@ fn imported_tilemap_entity(
                 cells: Vec::new(),
                 plane: None,
                 priority: false,
+                priority_regions: Vec::new(),
             }),
             ..Components::default()
         },
@@ -16373,6 +16378,7 @@ fn reference_tilemap_prefab() -> Entity {
                 cells: Vec::new(),
                 plane: None,
                 priority: false,
+                priority_regions: Vec::new(),
             }),
             ..Components::default()
         },

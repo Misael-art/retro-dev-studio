@@ -107,10 +107,21 @@ pub fn tilemap_plane_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSu
         let plane = effective_tilemap_plane(index, tilemap.plane.as_deref());
         let reason = if tilemap.plane.is_some() && plane != "BG_A" && plane != "BG_B" {
             Some(format!("plano '{plane}' invalido (use BG_A ou BG_B)"))
-        } else if target != "megadrive" && (tilemap.plane.is_some() || tilemap.priority) {
+        } else if target != "megadrive"
+            && (tilemap.plane.is_some() || tilemap.priority || !tilemap.priority_regions.is_empty())
+        {
             Some("plano/prioridade explicitos ainda sem runtime nesta plataforma".to_string())
         } else if target != "megadrive" {
             None
+        } else if !tilemap.priority_regions.is_empty() && plane == "WINDOW" {
+            Some("regioes de prioridade precisam do plano A ou B".to_string())
+        } else if tilemap.priority_regions.iter().any(|region| {
+            region
+                .clipped(tilemap.map_width, tilemap.map_height)
+                .as_ref()
+                != Some(region)
+        }) {
+            Some("regiao de prioridade fora do tilemap ou sem area".to_string())
         } else {
             seen.insert(plane, entity.entity_id.as_str())
                 .map(|other| format!("o plano {plane} ja e usado por '{other}'"))

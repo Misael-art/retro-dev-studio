@@ -1991,6 +1991,8 @@ export default function InspectorPanel() {
                 ) : null}
                 {section.id === "tilemap" && (() => {
                   const tm = entity.components.tilemap!;
+                  const lock = entityEditLock(entity.entity_id, activeScene?.layers,
+                    useEditorStore.getState().lockedEntityIdsByScene[entityLockScopeKey(activeProjectDir, activeScenePath)] ?? []);
                   const total = tm.map_width * tm.map_height;
                   const cells = tm.cells ?? [];
                   const filled = cells.reduce(
@@ -2014,9 +2016,10 @@ export default function InspectorPanel() {
                       <TilemapPlaneControls
                         key={JSON.stringify([activeProjectDir, activeScenePath, entity.entity_id])}
                         tilemap={tm} entities={activeScene?.entities ?? []} entityId={entity.entity_id}
-                        blockedReason={activeTarget !== "megadrive" ? "Planos/prioridade de tilemap disponíveis somente no Mega Drive (Experimental)." : null}
+                        blockedReason={lock.locked ? describeEntityEditLock(lock) : activeTarget !== "megadrive" ? "Planos/prioridade de tilemap disponíveis somente no Mega Drive (Experimental)." : null}
                         implicitPlane={resolvedTilemapPlanes((activeScene?.entities ?? []).map((item) => item.entity_id === entity.entity_id ? { ...item, components: { ...item.components, tilemap: { ...tm, plane: null } } } : item)).find((item) => item.entityId === entity.entity_id)?.plane ?? "desconhecido"}
                         onChange={(patch) => {
+                          if (lock.locked) return;
                           updateEntity(entity.entity_id, buildEntityPatch(entity, ["components", "tilemap"], { ...tm, ...patch }));
                           scheduleAutoSave();
                         }}

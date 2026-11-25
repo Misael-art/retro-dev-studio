@@ -594,6 +594,31 @@ pub struct SavedCameraPattern {
 
 // ── Tilemap ───────────────────────────────────────────────────────────────────
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TilePriorityRegion {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+    pub high: bool,
+}
+
+impl TilePriorityRegion {
+    pub fn contains(&self, x: u32, y: u32) -> bool {
+        x >= self.x && x - self.x < self.width && y >= self.y && y - self.y < self.height
+    }
+
+    pub fn clipped(&self, width: u32, height: u32) -> Option<Self> {
+        let width = self.width.min(width.saturating_sub(self.x));
+        let height = self.height.min(height.saturating_sub(self.y));
+        (width > 0 && height > 0).then_some(Self {
+            width,
+            height,
+            ..*self
+        })
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TilemapComponent {
     pub tileset: String,
@@ -616,6 +641,9 @@ pub struct TilemapComponent {
     /// Prioridade alta dos tiles: o plano passa NA FRENTE de sprites de prioridade baixa.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub priority: bool,
+    /// Coordenadas locais em tiles. A última região prevalece na sobreposição.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub priority_regions: Vec<TilePriorityRegion>,
 }
 
 #[cfg(test)]
@@ -633,6 +661,7 @@ mod tilemap_tests {
             cells: vec![],
             plane: None,
             priority: false,
+            priority_regions: Vec::new(),
         };
         let json = serde_json::to_string(&tm).unwrap();
         assert!(
@@ -654,6 +683,7 @@ mod tilemap_tests {
             cells: vec![0, 1, 2, 3, 0, 5],
             plane: None,
             priority: false,
+            priority_regions: Vec::new(),
         };
         let json = serde_json::to_string(&tm).unwrap();
         assert!(json.contains("\"cells\":[0,1,2,3,0,5]"));

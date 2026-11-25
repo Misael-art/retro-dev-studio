@@ -3995,6 +3995,7 @@ mod tests {
                 scroll_y: 0,
                 plane: None,
                 priority_high: false,
+                priority_regions: Vec::new(),
             });
         }
         ast.nodes.extend([

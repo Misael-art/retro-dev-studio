@@ -1337,6 +1337,7 @@ mod tests {
                     cells,
                     plane: None,
                     priority: false,
+                    priority_regions: Vec::new(),
                 }),
                 ..Default::default()
             },
@@ -1382,6 +1383,7 @@ mod tests {
                     cells: vec![1; 64],
                     plane: None,
                     priority: false,
+                    priority_regions: Vec::new(),
                 }),
                 ..Default::default()
             },

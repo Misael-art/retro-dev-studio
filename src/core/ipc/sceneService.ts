@@ -285,6 +285,15 @@ export interface VisualCameraConfig {
   advanced?: CameraAdvancedConfig;
 }
 
+export interface TilePriorityRegion {
+  /** Coordenadas locais, em células de 8 px. A última região prevalece na sobreposição. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  high: boolean;
+}
+
 export interface TilemapComponent {
   tileset: string;
   map_width: number;
@@ -298,6 +307,7 @@ export interface TilemapComponent {
   plane?: "BG_A" | "BG_B" | null;
   /** Prioridade alta: o plano fica na frente de sprites de prioridade baixa. */
   priority?: boolean;
+  priority_regions?: TilePriorityRegion[];
 }
 
 export interface Components {

@@ -2537,6 +2537,7 @@ mod tests {
                     scroll_y: 4,
                     plane: None,
                     priority_high: false,
+                    priority_regions: Vec::new(),
                 },
                 AstNode::GameLoopBegin,
                 AstNode::SpriteUpdate,
@@ -2931,6 +2932,7 @@ mod tests {
                     scroll_y: 0,
                     plane: None,
                     priority_high: false,
+                    priority_regions: Vec::new(),
                 },
                 AstNode::GameLoopBegin,
                 AstNode::ScrollTilemap {
@@ -3009,6 +3011,7 @@ mod tests {
                     scroll_y: 0,
                     plane: None,
                     priority_high: false,
+                    priority_regions: Vec::new(),
                 },
                 AstNode::LoadTilemap {
                     resource_name: "foreground".to_string(),
@@ -3025,6 +3028,7 @@ mod tests {
                     scroll_y: 0,
                     plane: None,
                     priority_high: false,
+                    priority_regions: Vec::new(),
                 },
                 AstNode::GameLoopBegin,
                 AstNode::MoveCamera {
