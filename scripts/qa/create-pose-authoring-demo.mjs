@@ -204,6 +204,33 @@ async function writeLinkedAtlasProject(directory, { effect = false, moving = fal
   return projectPath;
 }
 
+async function writeWaveProject(directory) {
+  const projectPath = await writeProject(directory, false, true, true);
+  const project = JSON.parse(await readFile(projectPath, "utf8"));
+  project.name = "Porto das Lanternas — Onda e pilastra";
+  const scenePath = path.join(directory, project.entry_scene);
+  const scene = JSON.parse(await readFile(scenePath, "utf8"));
+  scene.display_name = project.name;
+  const water = "assets/tilesets/wave-stripes.png";
+  const palette = [[0, 0, 0], [1, 3, 6], [4, 7, 6], [0, 2, 4]];
+  const pattern = Buffer.alloc(384 * 224);
+  for (let y = 0; y < 224; y += 1) {
+    for (let x = 0; x < 384; x += 1) {
+      const crest = (x + (y % 8) * 2) % 23;
+      pattern[y * 384 + x] = crest < 3 ? 2 : crest < 11 ? 1 : 3;
+    }
+  }
+  await writeFile(path.join(directory, water), indexedAtlasPng(384, 224, palette, [pattern]));
+  scene.entities.find(({ entity_id }) => entity_id === "paisagem").components.tilemap.tileset = water;
+  scene.entities.find(({ entity_id }) => entity_id === "pilastra").components.tilemap.priority = true;
+  scene.entities.find(({ entity_id }) => entity_id === "camera_root").components.camera.visual.advanced = {
+    parallax: [{entity_id: "paisagem", ratio_x: 50, ratio_y: 100}],
+  };
+  await writeFile(scenePath, JSON.stringify(scene, null, 2) + "\n");
+  await writeFile(projectPath, JSON.stringify(project, null, 2) + "\n");
+  return projectPath;
+}
+
 async function writeTerrainProject(directory) {
   const projectPath = await writeProject(directory, false);
   const project = JSON.parse(await readFile(projectPath, "utf8"));
@@ -237,6 +264,8 @@ await mkdir(sessions, { recursive: true });
 const root = await mkdtemp(path.join(sessions, "ensaio-poses-"));
 if (process.argv.includes("--atlas-replacement")) {
   console.log(await writeLinkedAtlasProject(path.join(root, "substituicao-atlas"), { replacement: true }));
+} else if (process.argv.includes("--wave")) {
+  console.log(await writeWaveProject(path.join(root, "onda")));
 } else if (process.argv.includes("--terrain")) {
   console.log(await writeTerrainProject(path.join(root, "terreno")));
 } else if (process.argv.includes("--indexed-effects")) {

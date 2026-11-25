@@ -18236,6 +18236,87 @@ async function verifyIndexedEffect(sessionId, projectDir, report, prefix, timeou
   addReportStep(report, "indexed_effect_and_control_in_core", "passed", { baseline: describe(baseline), edited: describe(edited), delta });
 }
 
+async function verifyWaveBand(sessionId, projectDir, report, prefix, timeoutMs) {
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const state = () => readAutomationState(sessionId);
+  const readScene = async () => JSON.parse(await readFile(path.join(projectDir, "scenes", "main.json"), "utf8"));
+  const readWave = async () => (await readScene()).retrofx?.wave;
+  const take = async (label) => {
+    const built = await runBuildRunAndCollect(sessionId, label, timeoutMs, report, `${prefix}-${label}`, { nativeClick: true });
+    await click("viewport-pause");
+    await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM da onda não pausou.", 100);
+    const link = JSON.parse(await readFile(path.join(projectDir, "build", "megadrive", "rds-runtime-link.v1.json"), "utf8"));
+    if (!link.camera || link.rom_sha256 !== built.rom_sha256) fail("O core da onda perdeu o vínculo com a câmera.");
+    let last = await invokeCoreObserve(sessionId);
+    const samples = [];
+    for (const frame of [176, 193, 209]) {
+      const delta = frame - last.frames_run;
+      if (delta < 1 || !(await invokeCoreObserveCommand(sessionId, "emulator_run_frames", {frames: delta}))?.ok) fail("O core não alcançou a janela da onda.");
+      last = await invokeCoreObserve(sessionId);
+      const camera = await invokeCoreObserveCommand(sessionId, "emulator_read_memory", {region: 2, offset: link.camera.x & 0xffff, length: 2});
+      if (!last.ok || !last.disk_matches_loaded || last.frames_run !== frame || !camera?.ok || camera.data.length !== 2
+          || last.framebuffer_width !== 320 || last.framebuffer_height !== 224) fail("A amostra do core da onda está incompleta.");
+      samples.push({frame, x: camera.data[0] | (camera.data[1] << 8), pixels: Buffer.from(last.framebuffer_rgba)});
+    }
+    return {rom: built.rom_sha256, core: await collectCoreIdentity(last), samples};
+  };
+
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await click("unified-topbar-menu-trigger");
+  await click("workspace-reset-layout");
+  const baseline = await take("onda-original");
+  await click("workspace-rail-retrofx");
+  await click("retrofx-tab-wave");
+  await clickButtonByText(sessionId, "Criar faixa", "exact");
+  const preview = '[data-testid="retrofx-wave-canvas"]';
+  const top = await nativeCanvasPoint(sessionId, preview, 0.5, 145 / 224);
+  const bottom = await nativeCanvasPoint(sessionId, preview, 0.5, 155 / 224);
+  if (!top?.unobstructed || !bottom?.unobstructed) fail("A faixa da onda não recebeu o gesto.");
+  await webdriverRequest("POST", `/session/${sessionId}/actions`, { actions: [{
+    type: "pointer", id: "wave-band", parameters: { pointerType: "mouse" }, actions: [
+      { type: "pointerMove", origin: "viewport", x: top.x, y: top.y }, { type: "pointerDown", button: 0 },
+      { type: "pointerMove", origin: "viewport", x: bottom.x, y: bottom.y, duration: 180 }, { type: "pointerUp", button: 0 },
+    ],
+  }] });
+  const section = '[data-testid="retrofx-wave-editor"]';
+  const field = (name) => `${section} [name="${name}"]`;
+  const range = await executeScript(sessionId, `return [arguments[0],arguments[1]].map((selector)=>Number(document.querySelector(selector).value));`, [field("first_line"), field("last_line")]);
+  if (Math.abs(range[0]-145)>1 || Math.abs(range[1]-155)>1) fail(`Faixa do gesto incorreta: ${range}`);
+  const values = {first_line: 145, last_line: 155, amplitude: 6, wavelength: 32, speed: 4, phase: 64};
+  for (const [name, value] of Object.entries(values)) await fillInputBySelector(sessionId, field(name), String(value));
+  await clickButtonByText(sessionId, "Aplicar valores", "exact");
+  await clickButtonByText(sessionId, "Salvar RetroFX", "exact");
+  await waitFor(async () => isDeepStrictEqual(await readWave(), {entity_id:"paisagem", ...values}), 10000, "A faixa precisa não foi gravada.", 100);
+  await clickTopBarMenuAction(sessionId, "Desfazer");
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  await waitFor(async () => (await readWave())?.amplitude === 4, 10000, "Desfazer não restaurou a faixa do gesto.", 100);
+  await clickTopBarMenuAction(sessionId, "Refazer");
+  await clickTopBarMenuAction(sessionId, "Salvar");
+  await waitFor(async () => (await readWave())?.amplitude === 6, 10000, "Refazer não recuperou a amplitude precisa.", 100);
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-faixa.png`), "Faixa horizontal, fase e parâmetros do Plano B");
+  await clickTopBarMenuAction(sessionId, "Fechar");
+  await waitFor(async () => !(await state())?.activeProjectDir, 15000, "A fase da onda não fechou.", 100);
+  await openSavedProjectWizard(sessionId, projectDir);
+  await waitFor(async () => (await state())?.activeProjectDir === projectDir, 30000, "A fase da onda não reabriu.", 100);
+  if (!isDeepStrictEqual(await readWave(), {entity_id:"paisagem", ...values})) fail("A fase reabriu sem a autoria da onda.");
+  const edited = await take("onda-publicada");
+  const rgba = (sample, x, y) => sample.pixels.subarray((y * 320 + x) * 4, (y * 320 + x + 1) * 4);
+  const proofs = edited.samples.map((sample, index) => {
+    const before = baseline.samples[index];
+    if (sample.x !== before.x || sample.frame !== before.frame) fail("As duas ROMs seguiram câmeras diferentes.");
+    const dry = 82 - sample.x;
+    const sameLine = rgba(sample, dry, 146).equals(rgba(before, dry, 146));
+    const outside = [144, 156].every((y) => sample.pixels.subarray(y*1280,(y+1)*1280).equals(before.pixels.subarray(y*1280,(y+1)*1280)));
+    const matches = Array.from({length:13}, (_,i)=>i-6).filter((dx)=>
+      Array.from({length:44},(_,i)=>104+i).every((x)=>rgba(sample,x,146).equals(rgba(before,x-dx,146))));
+    if (!sameLine || !outside || matches.length !== 1) fail(`A onda saiu do alcance em ${sample.frame}: ${JSON.stringify({sameLine,outside,matches})}`);
+    return {frame:sample.frame, cameraX:sample.x, offset:matches[0], control:{x:dry,y:146,rgb:[...rgba(sample,dry,146)]}};
+  });
+  if (baseline.rom === edited.rom || new Set(proofs.map(({offset})=>offset)).size < 2
+      || new Set(proofs.map(({cameraX})=>cameraX)).size < 2) fail(`Faltou ver a fase da onda mudar com a câmera em movimento: ${JSON.stringify(proofs)}`);
+  addReportStep(report,"wave_rows_motion_camera_and_priority_control","passed", {baseline:baseline.rom, edited:edited.rom, core:edited.core, values, proofs});
+}
+
 async function verifyTerrainAuthoring(sessionId, projectDir, report, prefix, timeoutMs, seam = false) {
   const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
   const state = () => readAutomationState(sessionId);
@@ -18476,7 +18557,7 @@ async function verifyLightingVariant(sessionId, projectDir, report, prefix, time
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
   const occlusionModes = ["occlusion", "occlusion-region", "occlusion-motion"];
-  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", "asset-replace", "terrain", "seam", "lighting", ...occlusionModes, ...indexedEffectModes].includes(revision)) {
+  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "linked-atlas", "asset-replace", "terrain", "seam", "wave", "lighting", ...occlusionModes, ...indexedEffectModes].includes(revision)) {
     fail(`RDS_POSE_PROOF desconhecido: ${revision}.`);
   }
   const prefix = `pose-cadence-${artifactTimestamp()}`;
@@ -18494,6 +18575,14 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     if (report.atlasSha256 !== "8f104172610518705021450603f04bfd4d2fc0ed997e7c71de21cdb54874c735") fail("O atlas da prova mudou.");
     const atlas = decodeWindowPng(atlasBytes);
     report.executableSha256 = createHash("sha256").update(await readFile(app)).digest("hex");
+    if (revision === "wave") {
+      await openSavedProjectWizard(sessionId, projectDir);
+      await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
+        60000, "A sala da onda não abriu.", 200);
+      await verifyWaveBand(sessionId, projectDir, report, prefix, timeoutMs);
+      report.status = "passed";
+      return;
+    }
     if (revision === "lighting") {
       await openSavedProjectWizard(sessionId, projectDir);
       await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,

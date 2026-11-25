@@ -96,12 +96,29 @@ pub struct RetroFXRasterLine {
     pub enabled: bool,
 }
 
+/// Mega Drive horizontal scroll band in screen space. Y bounds are inclusive.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct RetroFXWaveBand {
+    pub entity_id: String,
+    pub first_line: u16,
+    pub last_line: u16,
+    pub amplitude: u8,
+    pub wavelength: u16,
+    pub speed: i8,
+    pub phase: u8,
+}
+
+pub const RETROFX_WAVE_LINES: u16 = 224;
+pub const RETROFX_WAVE_DMA_BYTES: u32 = RETROFX_WAVE_LINES as u32 * 2 * 2;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct RetroFXConfig {
     #[serde(default)]
     pub parallax_layers: Vec<RetroFXParallaxLayer>,
     #[serde(default)]
     pub raster_lines: Vec<RetroFXRasterLine>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wave: Option<RetroFXWaveBand>,
 }
 
 // ── Collision Map (grid-based, tile-aligned) ───────────────────────────────────

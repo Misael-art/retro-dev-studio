@@ -421,7 +421,14 @@ fn analyze_md_vram(scene: &Scene, source_kind: Option<&str>) -> MdVramAnalysis {
                 .saturating_add(stream_step)
                 .saturating_add(tilemap_step)
         }
-    };
+    }
+    .saturating_add(
+        if scene.retrofx.as_ref().is_some_and(|fx| fx.wave.is_some()) {
+            crate::ugdm::entities::RETROFX_WAVE_DMA_BYTES
+        } else {
+            0
+        },
+    );
 
     MdVramAnalysis {
         mode,

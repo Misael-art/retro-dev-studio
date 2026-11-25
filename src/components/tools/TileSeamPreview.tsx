@@ -4,7 +4,7 @@ import { entityEditLock, entityLockScopeKey } from "../../core/sceneComposition"
 import { persistActiveScene } from "../../core/scenePersistence";
 import { useEditorStore } from "../../core/store/editorStore";
 import { isExplicitEmptyCell } from "../../core/tilemapCells";
-import { getTilemapArtwork, loadSceneArtworkAsset, type ViewportAssetCacheEntry } from "../viewport/sceneArtworkRenderer";
+import { drawRepeatedAsset, getTilemapArtwork, loadSceneArtworkAsset, type ViewportAssetCacheEntry } from "../viewport/sceneArtworkRenderer";
 
 const maxTiles = 64;
 const axes = ["x", "y", "width", "height"] as const;
@@ -50,6 +50,7 @@ export default function TileSeamPreview({ project, entityId, map, tileCount, onL
     patch.width = width;
     patch.height = height;
     patch.getContext("2d")?.drawImage(source, -area.x * 8, -area.y * 8);
+    const patchAsset: ViewportAssetCacheEntry = { status: "loaded", source: patch, width, height };
     let frame = 0;
     const draw = (time: number) => {
       const x = scrolling ? wrappedPixel(time / 42, width) : 0;
@@ -59,9 +60,7 @@ export default function TileSeamPreview({ project, entityId, map, tileCount, onL
       context.save();
       context.scale(context.canvas.width / (width * 3), context.canvas.height / (height * 3));
       context.imageSmoothingEnabled = false;
-      for (let row = 0; row < 4; row += 1) {
-        for (let col = 0; col < 4; col += 1) context.drawImage(patch, col * width - x, row * height - y);
-      }
+      drawRepeatedAsset(context, patchAsset, 0, 0, width * 3, height * 3, x, y);
       if (!scrolling) {
         context.strokeStyle = "#99f6e4";
         context.lineWidth = 1 / shrink;

@@ -60,6 +60,10 @@ pub enum AstNode {
     SetupRasterEffect {
         lines: Vec<RasterLineConfig>,
     },
+    SetupWaveBand {
+        wave: crate::ugdm::entities::RetroFXWaveBand,
+        plane: &'static str,
+    },
     InitAudio {
         sfx_resources: Vec<(String, String)>,
     },
@@ -1040,6 +1044,12 @@ pub fn generate_ast(project: &Project, scene: &Scene) -> AstOutput {
     );
     let logic_output = collect_logic_output(scene, &logic_runtime_entities);
     nodes.extend(logic_output.setup_nodes.iter().cloned());
+    if let Ok(Some(compiled)) = super::platform_support::compile_wave_band(&project.target, scene) {
+        nodes.push(AstNode::SetupWaveBand {
+            wave: compiled.settings.clone(),
+            plane: compiled.plane,
+        });
+    }
     let mut parallax_layers = enabled_parallax_layers(scene);
     for layer in logic_output.parallax_layers.iter().cloned() {
         push_unique_parallax_layer(&mut parallax_layers, layer);
@@ -5184,6 +5194,7 @@ mod tests {
                         enabled: true,
                     },
                 ],
+                wave: None,
             }),
             collision_map: None,
             layers: None,

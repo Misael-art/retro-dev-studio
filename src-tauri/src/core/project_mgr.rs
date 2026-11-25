@@ -23799,6 +23799,15 @@ int main(void) {\n    while (1) {\n        u16 joy = JOY_readJoypad(JOY_1);\n   
                 offset_x: 6,
                 enabled: true,
             }],
+            wave: Some(crate::ugdm::entities::RetroFXWaveBand {
+                entity_id: "plano".to_string(),
+                first_line: 105,
+                last_line: 140,
+                amplitude: 5,
+                wavelength: 24,
+                speed: -3,
+                phase: 47,
+            }),
         });
 
         save_scene(&project_dir, &project.entry_scene, &scene).expect("save retrofx scene");

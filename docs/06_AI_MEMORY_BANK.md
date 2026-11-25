@@ -4,6 +4,8 @@ O candidato congelado `1f0f0996ef74907c6ae6f3e5ac51662b0a861c7a` passou nos 17 c
 
 A prévia de emenda liga as repetições à célula da malha oficial. A leitura do traço usa `runtimeLink`, RAM, entrada consumida e quadro do core. Ambas permanecem experimentais até os ensaios do alvo `authoring` e a conferência física. A avaliação humana está aberta porque o operador ainda não tem participantes.
 
+Ondular foi ligado a RetroFX, à persistência da cena e ao emissor SGDK. A faixa ocupa linhas inteiras do plano escolhido e é somada à posição da câmera visual. O perfil Mega Drive inclui até 896 B por quadro para as duas tabelas. A prova isolada do C emitido conferiu a fase, os limites da faixa, o plano vizinho e dois deslocamentos independentes. A fixture `--wave` combina pilastra prioritária, Plano B com paralaxe e câmera em movimento. A prova dessa fixture no aplicativo e no Genesis Plus GX continua aberta.
+
 ### Retomada da implementação e auditoria do candidato · 24/11/2026
 
 O operador autorizou executar o [prompt integral](handoffs/PROMPT_IMPLEMENTACAO_UX_CONTEXTUAL_R3_2026-11-05.md#prompt-entrega-integral-workspace). Os 12 mockups, a prancha, a galeria e o ZIP passaram na conferência do manifesto no NVMe. O primeiro aceite é reproduzir o rascunho e o alcance por instância no editor C, no mesmo candidato Linux/Windows. O commit `1283ff196ac7` inclui os dois cenários no workflow Windows para Mega Drive e para a matriz completa. O PR #113 recebeu o workflow e o lock no SHA `365e74fbbb30ed61c397b5b61cf41157231c10f5`. Conferir os dois resultados individuais e os artefatos no [Desktop E2E deste SHA](https://github.com/Misael-art/retro-dev-studio/actions/runs/45520785712).

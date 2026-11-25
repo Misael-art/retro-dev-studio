@@ -344,7 +344,7 @@ fn build_main_c_with_collision(
     }
     for node in &ast.nodes {
         match node {
-            AstNode::ConfigureCamera(_) => {}
+            AstNode::ConfigureCamera(_) | AstNode::SetupWaveBand { .. } => {}
             AstNode::SpriteSystemInit
             | AstNode::LoadTilemap { .. }
             | AstNode::LoadSpritesheet { .. }

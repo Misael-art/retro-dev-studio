@@ -467,6 +467,18 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Add-Content -Path $env:RDS_E2E_LEDGER -Value 'motion_trace'
 
+      - name: Compare line scrolling with camera and foreground controls in the Mega Drive core
+        id: wave_band
+        if: ${{ !cancelled() && steps.build_debug.outcome == 'success' && env.RDS_E2E_TARGET == 'authoring' }}
+        env:
+          RDS_POSE_PROOF: wave
+        run: |
+          $project = node scripts/qa/create-pose-authoring-demo.mjs --wave
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/e2e-tauri-build-run.mjs --skip-build --scenario pose-cadence --project (Split-Path -LiteralPath $project)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Add-Content -Path $env:RDS_E2E_LEDGER -Value 'wave_band'
+
       - name: Report step outcomes before verification
         if: always()
         shell: pwsh
@@ -532,6 +544,7 @@ jobs:
             "- Palette and atlas consumers: ${{ steps.palette_and_atlas.outcome }}",
             "- Terrain and seam edits: ${{ steps.terrain_and_seam.outcome }}",
             "- Motion trace and gravity control: ${{ steps.motion_trace.outcome }}",
+            "- Wave with camera and foreground control: ${{ steps.wave_band.outcome }}",
             "- Pillar, aperture and control pixel comparison: ${{ steps.point_occlusion.outcome }}",
             "- Linked atlas copy, reordering and control comparison: ${{ steps.linked_atlas.outcome }}",
             "- Smoke SNES: ${{ steps.smoke_snes.outcome }}",

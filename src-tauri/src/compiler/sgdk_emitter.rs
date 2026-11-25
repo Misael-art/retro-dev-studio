@@ -180,6 +180,10 @@ fn build_main_c_inner(
     let tilemap_assets = collect_tilemap_assets(ast);
     let parallax_layers = collect_parallax_layers(ast);
     let raster_lines = collect_raster_lines(ast);
+    let wave_band = ast.nodes.iter().find_map(|node| match node {
+        AstNode::SetupWaveBand { wave, plane } => Some((wave, *plane)),
+        _ => None,
+    });
     let scroll_tilemap_layers = collect_scroll_tilemap_layers(ast);
     let logic_vars = collect_logic_var_names(ast);
     let has_rom_addq_word = ast
@@ -250,6 +254,9 @@ fn build_main_c_inner(
     if visual_camera.is_some() {
         out.push_str("static s16 rds_camera_ratio_x[2] = {100,100}, rds_camera_ratio_y[2] = {100,100};\nstatic void rds_visual_camera_control(s16 index,s16 action,u16 frames,s16 x,s16 y);\n");
     }
+    if let Some((wave, plane)) = wave_band {
+        render_wave_band_definitions(&mut out, wave, plane);
+    }
     let camera_follow = visual_camera.is_some() || ast_has_camera_follow(ast);
     if camera_follow {
         // Camera do mundo (Experimental): sprites e planos usam coordenadas de mundo; a tela mostra
@@ -284,8 +291,13 @@ fn build_main_c_inner(
             } else {
                 (0, 0)
             };
+            let horizontal = if wave_band.is_some() {
+                "rds_wave_scroll"
+            } else {
+                "VDP_setHorizontalScroll"
+            };
             out.push_str(&format!(
-                " VDP_setHorizontalScroll({plane}, {x} - ((s32)rds_camera_x * rds_camera_ratio_x[{layer}]) / 100); VDP_setVerticalScroll({plane}, ((s32)rds_camera_y * rds_camera_ratio_y[{layer}]) / 100 - {y});", x=origin.0,y=origin.1
+                " {horizontal}({plane}, {x} - ((s32)rds_camera_x * rds_camera_ratio_x[{layer}]) / 100); VDP_setVerticalScroll({plane}, ((s32)rds_camera_y * rds_camera_ratio_y[{layer}]) / 100 - {y});", x=origin.0,y=origin.1
             ));
         }
         out.push_str(" }\n#define RDS_CAMERA_SCREEN_X rds_camera_x\n#define RDS_CAMERA_SCREEN_Y rds_camera_y\n");
@@ -743,6 +755,9 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                     layers.len()
                 ));
             }
+            AstNode::SetupWaveBand { .. } => {
+                out.push_str("    VDP_setScrollingMode(HSCROLL_LINE, VSCROLL_PLANE);\n");
+            }
             AstNode::SetupRasterEffect { lines } => {
                 if !retrofx_initialized {
                     out.push_str("    VDP_setScrollingMode(HSCROLL_LINE, VSCROLL_PLANE);\n");
@@ -958,6 +973,20 @@ static u8 rds_hits_wall(s16 x, s16 y, u16 w, u16 h, s16 dx)\n{{\n    s16 edge = 
                 out.push_str(&super::path_runtime::render_platform_transport(ast, 8));
                 if visual_camera.is_some() {
                     out.push_str("        rds_visual_camera_tick();\n        rds_camera_apply_scroll();\n");
+                }
+                if let Some((wave, _)) = wave_band {
+                    if visual_camera.is_none() {
+                        let planes = resolved_tilemap_planes(ast);
+                        for (index, node) in ast.nodes.iter().filter(|node| matches!(node, AstNode::DrawTilemap { .. })).enumerate() {
+                            if let AstNode::DrawTilemap { scroll_x, .. } = node {
+                                let plane = planes[index];
+                                if plane != "WINDOW" {
+                                    out.push_str(&format!("        rds_wave_scroll({plane}, {scroll_x});\n"));
+                                }
+                            }
+                        }
+                    }
+                    out.push_str(&format!("        rds_wave_phase += ({});\n", wave.speed));
                 }
                 if managed_sprites {
                     out.push_str("        rds_sync_sprite_residency();\n");
@@ -2622,6 +2651,52 @@ fn render_math_expr(expr: &LogicMathExpr) -> String {
     }
 }
 
+fn render_wave_band_definitions(
+    out: &mut String,
+    wave: &crate::ugdm::entities::RetroFXWaveBand,
+    plane: &str,
+) {
+    use crate::ugdm::entities::{RETROFX_WAVE_DMA_BYTES, RETROFX_WAVE_LINES};
+    let first = wave.first_line;
+    let end = wave.last_line + 1;
+    let phase = wave.phase;
+    let offsets = (first..end)
+        .map(|line| {
+            let phase = u32::from(line - first) * 256 / u32::from(wave.wavelength);
+            (phase % 256).to_string()
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let samples = (0..32)
+        .map(|index| {
+            let angle = f64::from(index) * std::f64::consts::TAU / 32.0;
+            (angle.sin() * f64::from(wave.amplitude))
+                .round()
+                .to_string()
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    out.push_str(&format!(
+        r#"// RetroFX wave: {RETROFX_WAVE_DMA_BYTES} B per frame for both line tables.
+static u8 rds_wave_phase = {phase};
+static const u8 rds_wave_offsets[] = {{{offsets}}};
+static const s8 rds_wave_samples[32] = {{{samples}}};
+static s16 rds_wave_a[{RETROFX_WAVE_LINES}], rds_wave_b[{RETROFX_WAVE_LINES}];
+static void rds_wave_scroll(VDPPlane plane, s16 base) {{
+    s16 *table = plane == BG_A ? rds_wave_a : rds_wave_b;
+    for (u16 y = 0; y < {RETROFX_WAVE_LINES}; y++) table[y] = base;
+    if (plane == {plane}) {{
+        for (u16 y = {first}; y < {end}; y++) {{
+            const u8 index = (u8)(rds_wave_phase + rds_wave_offsets[y - {first}]) >> 3;
+            table[y] += rds_wave_samples[index];
+        }}
+    }}
+    VDP_setHorizontalScrollLine(plane, 0, table, {RETROFX_WAVE_LINES}, DMA_QUEUE);
+}}
+"#
+    ));
+}
+
 fn render_retrofx_frame(
     out: &mut String,
     parallax_layers: &[ParallaxLayerConfig],
@@ -3517,6 +3592,26 @@ fn palette_const(slot: u8) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn wave_band_queues_complete_planes_and_offsets_only_the_selected_rows_and_plane() {
+        let config = crate::ugdm::entities::RetroFXWaveBand {
+            entity_id: "agua".to_string(),
+            first_line: 130,
+            last_line: 133,
+            amplitude: 4,
+            wavelength: 8,
+            speed: 3,
+            phase: 64,
+        };
+        let mut c = String::new();
+        render_wave_band_definitions(&mut c, &config, "BG_B");
+        assert!(c.contains("896 B per frame"));
+        assert!(c.contains("rds_wave_offsets[] = {0,32,64,96}"));
+        assert!(c.contains("if (plane == BG_B)"));
+        assert!(c.contains("for (u16 y = 130; y < 134; y++)"));
+        assert!(c.contains("table[y] = base"));
+        assert!(c.contains("VDP_setHorizontalScrollLine(plane, 0, table, 224, DMA_QUEUE)"));
+    }
 
     #[test]
     fn move_sprite_faces_its_direction_only_when_requested() {

@@ -401,9 +401,20 @@ export interface RetroFXRasterLine {
   enabled: boolean;
 }
 
+export interface RetroFXWaveBand {
+  entity_id: string;
+  first_line: number;
+  last_line: number;
+  amplitude: number;
+  wavelength: number;
+  speed: number;
+  phase: number;
+}
+
 export interface RetroFXConfig {
   parallax_layers: RetroFXParallaxLayer[];
   raster_lines: RetroFXRasterLine[];
+  wave?: RetroFXWaveBand | null;
 }
 
 /** Camada de editor (schema 1.5.0+). Agrupa entidades por visibilidade e lock. */

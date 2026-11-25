@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { persistActiveScene } from "../../core/scenePersistence";
 import { useEditorStore } from "../../core/store/editorStore";
+import WaveBandEditor from "./WaveBandEditor";
 import type {
   RetroFXConfig,
   RetroFXParallaxLayer,
@@ -422,7 +423,9 @@ export default function RetroFXDesigner() {
   const [raster, setRaster] = useState<RetroFXRasterLine[]>(() =>
     cloneRetroFXConfig(useEditorStore.getState().activeScene?.retrofx).raster_lines
   );
-  const [tab, setTab] = useState<"parallax" | "raster">("parallax");
+  const target = useEditorStore((state) => state.activeTarget);
+  const [tab, setTab] = useState<"parallax" | "raster" | "wave">("parallax");
+  const activeTab = tab === "wave" && target !== "megadrive" ? "parallax" : tab;
   const [saving, setSaving] = useState(false);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(() =>
     cloneRetroFXConfig(useEditorStore.getState().activeScene?.retrofx).parallax_layers[0]?.id ?? null
@@ -463,7 +466,7 @@ export default function RetroFXDesigner() {
   }, [parallax, selectedLayerId]);
 
   useEffect(() => {
-    if (!previewPlaying) {
+    if (!previewPlaying || activeTab !== "parallax") {
       previewLastTimeRef.current = null;
       return;
     }
@@ -483,7 +486,7 @@ export default function RetroFXDesigner() {
     return () => {
       cancelAnimationFrame(rafId);
     };
-  }, [previewPlaying]);
+  }, [activeTab, previewPlaying]);
 
   function updateParallax(id: string, patch: Partial<RetroFXParallaxLayer>) {
     setParallax((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -549,6 +552,7 @@ export default function RetroFXDesigner() {
         const nextRetroFX = {
           parallax_layers: structuredClone(parallax),
           raster_lines: structuredClone(raster),
+          wave: state.activeScene.retrofx?.wave,
         };
 
         return {
@@ -595,24 +599,27 @@ export default function RetroFXDesigner() {
           </div>
 
           <div className="flex items-center gap-2 rounded-full border border-[#313244] bg-[#11111b] p-1">
-            {(["parallax", "raster"] as const).map((currentTab) => (
+            {(["parallax", "raster", "wave"] as const).filter((item) => item !== "wave" || target === "megadrive").map((currentTab) => (
               <button
                 key={currentTab}
+                type="button"
+                data-testid={`retrofx-tab-${currentTab}`}
+                aria-pressed={activeTab === currentTab}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  tab === currentTab
+                  activeTab === currentTab
                     ? "bg-[#cba6f7] text-[#111827]"
                     : "text-[#94a3b8] hover:bg-[#1f2937] hover:text-[#e5e7eb]"
                 }`}
                 onClick={() => setTab(currentTab)}
               >
-                {currentTab === "parallax" ? "Parallax" : "Raster"}
+                {{ parallax: "Parallax", raster: "Raster", wave: "Ondular" }[currentTab]}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {tab === "parallax" ? (
+      {activeTab === "wave" ? <WaveBandEditor key={JSON.stringify([activeProjectDir, activeScenePath])} /> : activeTab === "parallax" ? (
         <div className="grid min-h-0 flex-1 gap-3 p-3 xl:grid-cols-[320px_minmax(0,1fr)_340px]">
           <section className="flex min-h-0 flex-col overflow-hidden rounded-3xl border border-[#313244] bg-[linear-gradient(180deg,#111827,#0b1220)] shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
             <div className="border-b border-[#1f2937] px-4 py-3">

@@ -88,6 +88,80 @@ pub fn effective_tilemap_plane(index: usize, plane: Option<&str>) -> &str {
     })
 }
 
+fn wave_plane(scene: &Scene, entity_id: &str) -> Option<&'static str> {
+    let (index, tilemap) = scene
+        .entities
+        .iter()
+        .filter_map(|entity| entity.components.tilemap.as_ref().map(|map| (entity, map)))
+        .enumerate()
+        .find_map(|(index, (entity, map))| {
+            (entity.entity_id == entity_id).then_some((index, map))
+        })?;
+    match effective_tilemap_plane(index, tilemap.plane.as_deref()) {
+        "BG_A" => Some("BG_A"),
+        "BG_B" => Some("BG_B"),
+        _ => None,
+    }
+}
+
+pub struct CompiledWaveBand<'scene> {
+    pub settings: &'scene crate::ugdm::entities::RetroFXWaveBand,
+    pub plane: &'static str,
+}
+
+pub fn compile_wave_band<'scene>(
+    target: &str,
+    scene: &'scene Scene,
+) -> Result<Option<CompiledWaveBand<'scene>>, LogicSupportIssue> {
+    let Some(fx) = &scene.retrofx else {
+        return Ok(None);
+    };
+    let Some(wave) = &fx.wave else {
+        return Ok(None);
+    };
+    let refuse = |reason: &str| LogicSupportIssue {
+        platform: target.to_string(),
+        entity_id: wave.entity_id.clone(),
+        node_id: "retrofx-wave".to_string(),
+        node_type: "retrofx_wave".to_string(),
+        reason: reason.to_string(),
+    };
+    if target != "megadrive" {
+        return Err(refuse("Ondular só usa o scroll por linha do Mega Drive"));
+    }
+    let plane = wave_plane(scene, &wave.entity_id)
+        .ok_or_else(|| refuse("escolha um tilemap residente no Plano A ou B"))?;
+    if wave.first_line > wave.last_line
+        || wave.last_line >= crate::ugdm::entities::RETROFX_WAVE_LINES
+        || !(1..=24).contains(&wave.amplitude)
+        || !(8..=224).contains(&wave.wavelength)
+        || !(-32..=32).contains(&wave.speed)
+    {
+        return Err(refuse(
+            "use linhas 0–223, amplitude 1–24 px, comprimento 8–224 linhas e velocidade -32–32",
+        ));
+    }
+    let legacy_camera = scene.entities.iter().any(|entity| {
+        entity
+            .components
+            .camera
+            .as_ref()
+            .is_some_and(|camera| camera.visual.is_none() && camera.follow_entity.is_some())
+    });
+    if fx.parallax_layers.iter().any(|layer| layer.enabled)
+        || fx.raster_lines.iter().any(|line| line.enabled)
+        || legacy_camera
+    {
+        return Err(refuse(
+            "use a câmera visual para paralaxe e desligue as linhas raster e a paralaxe legadas",
+        ));
+    }
+    Ok(Some(CompiledWaveBand {
+        settings: wave,
+        plane,
+    }))
+}
+
 /// R5: validate all effective planes, including mixed explicit/automatic allocation.
 pub fn tilemap_plane_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSupportIssue> {
     let mut issues = Vec::new();
@@ -306,6 +380,28 @@ pub fn logic_support_issues(target: &str, resolved_scene: &Scene) -> Vec<LogicSu
             continue;
         };
         for node in parsed.nodes {
+            if resolved_scene
+                .retrofx
+                .as_ref()
+                .is_some_and(|fx| fx.wave.is_some())
+                && matches!(
+                    node.node_type.as_str(),
+                    "effect_parallax"
+                        | "effect_raster"
+                        | "camera_follow"
+                        | "move_camera"
+                        | "scroll_tilemap"
+                )
+            {
+                issues.push(LogicSupportIssue {
+                    platform: target.to_string(),
+                    entity_id: entity.entity_id.clone(),
+                    node_id: node.id,
+                    node_type: node.node_type,
+                    reason: "com Ondular, a câmera visual controla o scroll".to_string(),
+                });
+                continue;
+            }
             if let Some((platform, node_type, reason)) =
                 UNSUPPORTED.iter().find(|(platform, node_type, _)| {
                     *platform == target && *node_type == node.node_type

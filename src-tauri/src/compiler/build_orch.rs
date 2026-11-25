@@ -925,6 +925,11 @@ where
         target.target,
         &resolved_scene,
     ));
+    if let Err(issue) =
+        crate::compiler::platform_support::compile_wave_band(target.target, &resolved_scene)
+    {
+        support_issues.push(issue);
+    }
     if !support_issues.is_empty() {
         for issue in &support_issues {
             emit!(
