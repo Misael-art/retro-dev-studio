@@ -1957,6 +1957,7 @@ export default function App() {
   const rightPanelRef = useRef<PanelImperativeHandle | null>(null);
   const workspaceLayoutsRef = useRef(new Map<string, LayoutMap>());
   const settledLayoutRef = useRef<string | null>(null);
+  const draggedLayoutRef = useRef<string | null>(null);
   const timelinePanelRef = useRef<PanelImperativeHandle | null>(null);
   const timelineShareRef = useRef(normalizeTimelinePercent(Number(localStorage.getItem(`${LAYOUT_STORAGE_KEY}::timeline`))));
   const sidebarRestoreRef = useRef(new Map<string, number>());
@@ -2257,8 +2258,15 @@ export default function App() {
   }
 
   function applyShellLayout(nextLayout: LayoutMap) {
-    const applied = panelGroupRef.current?.setLayout(nextLayout);
-    if (applied) updateHiddenSidePanels(applied);
+    const group = panelGroupRef.current;
+    if (!group) return;
+    group.setLayout(nextLayout);
+    for (const [side, pane, minimum] of [
+      ["left", leftPanelRef.current, leftMinimum], ["right", rightPanelRef.current, rightMinimum],
+    ] as const) {
+      if (nextLayout[side] > 0 && pane && pane.getSize().inPixels < minimum - 1) pane.resize(minimum);
+    }
+    updateHiddenSidePanels(group.getLayout());
   }
 
   function updateHiddenSidePanels(layout: Record<string, number>) {
@@ -2313,12 +2321,13 @@ export default function App() {
     const minimum = side === "left" ? leftMinimum : rightMinimum;
     const restoreKey = `${layoutKey}:${propertiesLeft}:${side}`;
     if (!intent) {
-      if (panel.isCollapsed()) {
-        panel.resize(sidebarRestoreRef.current.get(restoreKey) ?? `${workspaceDefaultLayout[side]}%`);
-      } else {
-        sidebarRestoreRef.current.set(restoreKey, size.inPixels);
-        panel.collapse();
-      }
+      const layout = getCurrentLayout();
+      if (!layout) return;
+      const collapsed = layout[side] < 0.01;
+      if (!collapsed) sidebarRestoreRef.current.set(restoreKey, layout[side]);
+      const next = collapsed ? Math.min(layout.center - 20, sidebarRestoreRef.current.get(restoreKey) ?? workspaceDefaultLayout[side]) : 0;
+      if (collapsed && next <= 0) panel.resize(minimum);
+      else applyShellLayout({ ...layout, [side]: next, center: layout.center + layout[side] - next });
     } else if (intent.type === "step") {
       const delta = side === "left" ? intent.delta : -intent.delta;
       panel.resize(Math.max(minimum, size.inPixels + delta));
@@ -2328,6 +2337,11 @@ export default function App() {
       panel.resize("55%");
     } else {
       panel.resize(`${workspaceDefaultLayout[side]}%`);
+    }
+    const layout = getCurrentLayout();
+    if (layout) {
+      updateHiddenSidePanels(layout);
+      rememberLayout(layout);
     }
   }
 
@@ -2392,13 +2406,19 @@ export default function App() {
   useEffect(() => {
     if (compactShell) return;
     const layout = focusedShell ? shellConfig.focusLayout : getRememberedLayout();
+    draggedLayoutRef.current = null;
+    let secondFrame = 0;
     const frame = window.requestAnimationFrame(() => {
       applyShellLayout(layout);
-      settledLayoutRef.current = layoutRevision;
+      secondFrame = window.requestAnimationFrame(() => {
+        applyShellLayout(layout);
+        settledLayoutRef.current = layoutRevision;
+      });
     });
     return () => {
       settledLayoutRef.current = null;
       window.cancelAnimationFrame(frame);
+      window.cancelAnimationFrame(secondFrame);
     };
   }, [layoutKey, propertiesLeft, compactShell, focusedShell, showProjectWizard]);
 
@@ -5534,7 +5554,7 @@ export default function App() {
         appTagline="Workspace adaptativo para autoria, playtest e debug."
         breadcrumbs={breadcrumbItems}
         menuSections={topBarMenuSections}
-        centerContent={
+        primaryContent={
           <>
             <select
               aria-label="Target de build"
@@ -5567,6 +5587,10 @@ export default function App() {
               )}
               describedBy={liveBuildBlocked ? "build-disabled-reason" : undefined}
             />
+          </>
+        }
+        centerContent={
+          <>
             {activeScenePath && projectEntryScenePath && activeScenePath !== projectEntryScenePath ? (
               <ToolbarButton
                 icon="studio-game"
@@ -6016,9 +6040,15 @@ export default function App() {
           orientation="horizontal"
           groupRef={panelGroupRef}
           className="min-w-0 flex flex-1 overflow-hidden"
+          onPointerDownCapture={(event) => {
+            if (event.target instanceof Element && event.target.closest("[data-separator]")?.closest("[data-group]") === event.currentTarget) {
+              draggedLayoutRef.current = layoutRevision;
+            }
+          }}
           onLayoutChanged={(layout) => {
             updateHiddenSidePanels(layout);
-            if (!focusedShell && settledLayoutRef.current === layoutRevision) {
+            if (!focusedShell && settledLayoutRef.current === layoutRevision && draggedLayoutRef.current === layoutRevision) {
+              draggedLayoutRef.current = null;
               const next = { left: layout.left ?? 0, center: layout.center ?? 100, right: layout.right ?? 0 };
               rememberLayout(next);
             }

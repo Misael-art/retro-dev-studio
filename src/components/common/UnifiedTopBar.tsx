@@ -20,6 +20,7 @@ export interface UnifiedTopBarProps {
   appTagline?: string;
   breadcrumbs: string[];
   menuSections: UnifiedTopBarSection[];
+  primaryContent?: ReactNode;
   centerContent?: ReactNode;
   rightContent?: ReactNode;
 }
@@ -42,6 +43,7 @@ export default function UnifiedTopBar({
   appTagline,
   breadcrumbs,
   menuSections,
+  primaryContent,
   centerContent,
   rightContent,
 }: UnifiedTopBarProps) {
@@ -168,10 +170,13 @@ export default function UnifiedTopBar({
 
       <div
         data-testid="unified-topbar-center"
-        className="col-span-2 row-start-2 flex min-w-0 items-center overflow-x-auto pb-1"
+        className="col-span-2 row-start-2 flex min-w-0 items-center gap-2 pb-1"
       >
-        <div className="relative z-[5] flex flex-nowrap items-center gap-2 px-0.5">
-          {centerContent}
+        {primaryContent ? <div className="flex shrink-0 items-center gap-2 px-0.5" data-testid="unified-topbar-primary">{primaryContent}</div> : null}
+        <div className="flex min-w-0 flex-1 items-center overflow-x-auto">
+          <div className="flex flex-nowrap items-center gap-2 px-0.5">
+            {centerContent}
+          </div>
         </div>
       </div>
 
