@@ -17465,10 +17465,102 @@ async function verifyAuthoringDesk(sessionId, report, prefix) {
   addReportStep(report, "ten_workspace_changes_keep_context_and_code_draft", "passed", { visits, tracked: before });
 }
 
+async function verifyPointAndOcclusion(sessionId, projectDir, report, prefix, timeoutMs) {
+  const click = (id) => clickButtonByTestIdNativeWhenReady(sessionId, id);
+  const state = () => readAutomationState(sessionId);
+  const edits = () => executeScript(sessionId,
+    `return [...document.querySelectorAll('[data-testid="scene-probe-sources"] li')].map(row => row.dataset.testid.replace('scene-probe-source-', ''));`);
+  const opaque = { x: 82, y: 146 };
+  const aperture = { x: 82, y: 152 };
+  const openProbe = async (point) => {
+    const showing = await executeScript(sessionId, `return !!document.querySelector('[data-testid="scene-point-inspector"]');`);
+    if (!showing) await click("viewport-inspect-point");
+    for (const axis of ["x", "y"]) await fillInputBySelector(sessionId, `[data-testid="scene-probe-${axis}"]`, String(point[axis]));
+    await click("scene-probe-read");
+    return edits();
+  };
+  const closeProbe = async () => {
+    const close = await findElement(sessionId, '[data-testid="scene-point-inspector"] button[aria-label="Fechar diálogo"]');
+    await clickElement(sessionId, close);
+  };
+  const save = async () => {
+    await clickTopBarMenuAction(sessionId, "Salvar");
+    await waitFor(async () => executeScript(sessionId, `return document.querySelector('[data-testid="scene-save-status"]')?.dataset.status === 'saved';`),
+      15000, "A prioridade não foi gravada.", 100);
+  };
+  const observed = async (label) => {
+    const built = await runBuildRunAndCollect(sessionId, label, timeoutMs, report, `${prefix}-${label}`, { nativeClick: true });
+    await click("viewport-pause");
+    await waitFor(async () => (await state())?.emulPaused, 15000, "A ROM não pausou.", 100);
+    const warmed = await invokeCoreObserveCommand(sessionId, "emulator_run_frames", { frames: 120 });
+    if (!warmed?.ok) fail("O core não avançou para a cena da pilastra.");
+    const frame = await invokeCoreObserve(sessionId);
+    if (!frame?.ok || frame.rom_sha256 !== built.rom_sha256 || !frame.disk_matches_loaded || frame.framebuffer_width !== 320
+      || frame.framebuffer_height !== 224) fail("O core não observou a mesma ROM da pilastra.");
+    const bytes = Buffer.from(frame.framebuffer_rgba);
+    const rgba = ({ x, y }) => [...bytes.subarray((y * 320 + x) * 4, (y * 320 + x + 1) * 4)];
+    const control = Buffer.concat(Array.from({ length: 32 }, (_, offset) => bytes.subarray(
+      ((136 + offset) * 320 + 208) * 4, ((136 + offset) * 320 + 240) * 4,
+    )));
+    return { rom: built.rom_sha256, core: await collectCoreIdentity(frame), opaque: rgba(opaque), aperture: rgba(aperture),
+      control: createHash("sha256").update(control).digest("hex") };
+  };
+
+  await setSessionWindowRect(sessionId, 1366, 768);
+  await selectPoseActorsOnCanvas(sessionId, [["testemunha", 224]]);
+  const expectedLow = ["sprite-raposa", "tilemap-pilastra", "tilemap-paisagem"];
+  const expectedGap = ["sprite-raposa", "tilemap-paisagem"];
+  const low = await openProbe(opaque);
+  if (!isDeepStrictEqual(low, expectedLow)) fail(`Ordem inicial inesperada: ${JSON.stringify(low)}`);
+  const gap = await openProbe(aperture);
+  if (!isDeepStrictEqual(gap, expectedGap)) fail(`O vão transparente contou como contribuição: ${JSON.stringify(gap)}`);
+  await click("scene-probe-open-sprite-raposa");
+  await waitFor(async () => (await state())?.activeWorkspace === "explorer", 10000, "O ponto não abriu o recurso em Arquivos.", 100);
+  await click("studio-return-origin");
+  await waitFor(async () => (await state())?.activeWorkspace === "scene", 10000, "O retorno do recurso não abriu o Canvas.", 100);
+  const before = await observed("prioridade-baixa");
+  await click("workspace-rail-scene");
+  await click("hierarchy-entity-pilastra");
+  await clickElement(sessionId, await findElement(sessionId, '[data-testid="inspector-tilemap-priority"]'));
+  const checked = () => executeScript(sessionId, `return document.querySelector('[data-testid="inspector-tilemap-priority"]')?.checked;`);
+  await waitFor(checked, 10000, "A prioridade alta não foi aplicada.", 100);
+  await clickTopBarMenuAction(sessionId, "Desfazer");
+  await waitFor(async () => (await checked()) === false, 10000, "Desfazer não baixou a prioridade.", 100);
+  await clickTopBarMenuAction(sessionId, "Refazer");
+  await waitFor(checked, 10000, "Refazer não restaurou a prioridade alta.", 100);
+  await save();
+  await clickTopBarMenuAction(sessionId, "Fechar");
+  await waitFor(async () => !(await state())?.activeProjectDir, 15000, "O projeto não fechou.", 100);
+  await openSavedProjectWizard(sessionId, projectDir);
+  await waitFor(async () => (await state())?.activeProjectDir === projectDir, 30000, "A sala da pilastra não reabriu.", 100);
+  const expectedHigh = ["tilemap-pilastra", "sprite-raposa", "tilemap-paisagem"];
+  const high = await openProbe(opaque);
+  if (!isDeepStrictEqual(high, expectedHigh)) fail(`Ordem da pilastra reaberta: ${JSON.stringify(high)}`);
+  const highGap = await openProbe(aperture);
+  if (!isDeepStrictEqual(highGap, expectedGap)) fail(`A edição ocultou o vão: ${JSON.stringify(highGap)}`);
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-vao.png`), "Ponto no vão transparente");
+  await closeProbe();
+  const after = await observed("prioridade-alta");
+  if (before.rom === after.rom || isDeepStrictEqual(before.opaque, after.opaque)
+    || !isDeepStrictEqual(before.aperture, after.aperture) || before.control !== after.control) {
+    fail(`A comparação do core não isolou a prioridade da pilastra: ${JSON.stringify({ before, after })}`);
+  }
+  await click("inspect-toggle");
+  await click("inspect-read-pixel");
+  await clickCanvasPointNatively(sessionId, '[data-testid="inspect-overlay"]', (opaque.x + 0.5) / 320, (opaque.y + 0.5) / 224,
+    "Ler o pixel da pilastra no quadro pausado");
+  const color = `#${after.opaque.slice(0, 3).map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+  await waitFor(async () => executeScript(sessionId, `const text = document.querySelector('[data-testid="inspect-pixel-result"]')?.textContent;
+    return text?.includes(arguments[0]) && text.includes('desconhecida');`, [color]), 10000,
+  "A leitura do quadro pausado não apresentou a cor observada, com origem desconhecida.", 100);
+  addReportArtifact(report, await captureScreenshot(sessionId, `${prefix}-pixel-core.png`), "Ponto lido no quadro pausado");
+  addReportStep(report, "point_aperture_priority_and_control_in_core", "passed", { before, after, low, high, gap, opaque, aperture });
+}
+
 async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
   const revision = process.env.RDS_POSE_PROOF || "baseline";
-  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace"].includes(revision)) {
-    fail("RDS_POSE_PROOF deve ser baseline, aligned-4, journey, events, boxes, playback ou workspace.");
+  if (!["baseline", "aligned-4", "journey", "events", "boxes", "playback", "workspace", "occlusion"].includes(revision)) {
+    fail("RDS_POSE_PROOF deve ser baseline, aligned-4, journey, events, boxes, playback, workspace ou occlusion.");
   }
   const prefix = `pose-cadence-${artifactTimestamp()}`;
   const report = { scenario: "pose-cadence", fixture: path.basename(projectDir), revision, status: "failed", samples: [], steps: [], artifacts: [] };
@@ -17485,6 +17577,14 @@ async function runPoseCadenceScenario(sessionId, projectDir, app, timeoutMs) {
     if (report.atlasSha256 !== "8f104172610518705021450603f04bfd4d2fc0ed997e7c71de21cdb54874c735") fail("O atlas da prova mudou.");
     const atlas = decodeWindowPng(atlasBytes);
     report.executableSha256 = createHash("sha256").update(await readFile(app)).digest("hex");
+    if (revision === "occlusion") {
+      await openSavedProjectWizard(sessionId, projectDir);
+      await waitFor(async () => (await readAutomationState(sessionId))?.activeProjectDir === projectDir,
+        60000, "A sala da pilastra não abriu.", 200);
+      await verifyPointAndOcclusion(sessionId, projectDir, report, prefix, timeoutMs);
+      report.status = "passed";
+      return;
+    }
     const scenePath = path.join(projectDir, "scenes", "main.json");
     let controlBefore;
     const confirmScene = async (targetTicks) => {

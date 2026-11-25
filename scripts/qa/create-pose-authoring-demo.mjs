@@ -62,10 +62,10 @@ function scenery() {
   return entities;
 }
 
-async function writeProject(directory, dense) {
+async function writeProject(directory, dense, composition = false) {
   const project = JSON.parse(await readFile(path.join(seed, "project.rds"), "utf8"));
   const scene = JSON.parse(await readFile(path.join(seed, project.entry_scene), "utf8"));
-  project.name = dense ? "Ensaio de poses — Sala densa" : "Ensaio de poses — Sala simples";
+  project.name = composition ? "Porto das Lanternas — Pilastra" : dense ? "Ensaio de poses — Sala densa" : "Ensaio de poses — Sala simples";
   project.schema_version = scene.schema_version;
   scene.display_name = project.name;
   scene.entities.push(
@@ -80,7 +80,22 @@ async function writeProject(directory, dense) {
     actor("testemunha", "Raposa · controle", 208),
   );
   if (dense) scene.entities.push(...scenery());
-  const assets = dense ? [atlas, backdrop, flag, gate] : [atlas, backdrop];
+  if (composition) {
+    for (const entity of scene.entities.filter(({ entity_id }) => ["raposa", "testemunha"].includes(entity_id))) {
+      const animation = entity.components.sprite.animations.passo;
+      Object.assign(animation, { frames: [0], occurrence_ids: ["o1"], frame_durations: [5] });
+    }
+    scene.entities.find(({ entity_id }) => entity_id === "raposa").components.sprite.priority = "background";
+    scene.entities.push({
+      entity_id: "pilastra", display_name: "Pilastra de observação", transform: { x: 64, y: 136 },
+      components: { tilemap: { tileset: gate, map_width: 3, map_height: 4, plane: "BG_A", priority: false } },
+    });
+    scene.layers = [
+      { id: "atores", name: "Atores", kind: "sprite", visible: true, locked: false, depth: 1, entity_ids: ["raposa", "testemunha"] },
+      { id: "pilastras", name: "Pilastras", kind: "tile", visible: true, locked: false, depth: 2, entity_ids: ["pilastra"] },
+    ];
+  }
+  const assets = dense ? [atlas, backdrop, flag, gate] : composition ? [atlas, backdrop, gate] : [atlas, backdrop];
   for (const relative of assets) {
     const destination = path.join(directory, relative);
     await mkdir(path.dirname(destination), { recursive: true });
@@ -96,6 +111,10 @@ async function writeProject(directory, dense) {
 
 await mkdir(sessions, { recursive: true });
 const root = await mkdtemp(path.join(sessions, "ensaio-poses-"));
-for (const variant of ["simples", "densa"]) {
-  console.log(await writeProject(path.join(root, variant), variant === "densa"));
+if (process.argv.includes("--composition")) {
+  console.log(await writeProject(path.join(root, "composicao"), false, true));
+} else {
+  for (const variant of ["simples", "densa"]) {
+    console.log(await writeProject(path.join(root, variant), variant === "densa"));
+  }
 }
